@@ -3,7 +3,7 @@
 
 package com.daml.codegen
 
-import java.io.{File, FileInputStream}
+import java.io.File
 import java.time.Instant
 import java.util.UUID
 import akka.stream.scaladsl.{Sink, Source}
@@ -31,7 +31,6 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.sample.MyMain.{CallablePayout, MkListExample, PayOut}
 import com.daml.sample.{EventDecoder, MyMain, MySecondMain}
 import com.daml.util.Ctx
-import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalatest._
@@ -107,9 +106,7 @@ class ScalaCodeGenIT
     super.beforeAll()
     val ledgerFuture = for {
       client <- LedgerClient(channel, clientConfig)
-      _ <- Future.sequence(packageFiles.map { dar =>
-        client.packageManagementClient.uploadDarFile(ByteString.readFrom(new FileInputStream(dar)))
-      })
+      _ <- uploadDarFiles(client, packageFiles)
     } yield client
     ledger = Await.result(ledgerFuture, StartupTimeout)
   }

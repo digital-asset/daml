@@ -28,12 +28,12 @@ import com.daml.lf.archive.DarDecoder
 import com.daml.lf.language.LanguageVersion.v1_14
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.Port
-import com.google.protobuf.ByteString
+import com.google.protobuf
 import org.scalatest.Suite
 import org.scalatest.freespec.AsyncFreeSpec
 import scalaz.syntax.tag._
 
-import java.io.{File, FileInputStream}
+import java.io.File
 import java.nio.file.{Files, Path}
 import java.util.UUID
 import java.util.stream.Collectors
@@ -76,7 +76,7 @@ final class MinVersionTest
           suiteResource.value.value,
           ledgerClientConfig,
         )
-        darByteString = ByteString.readFrom(new FileInputStream(darFile))
+        darByteString = protobuf.ByteString.copyFrom(Files.readAllBytes(darFile.toPath))
         _ <- client.packageManagementClient.uploadDarFile(darByteString)
         party <- client.partyManagementClient
           .allocateParty(hint = None, displayName = None)

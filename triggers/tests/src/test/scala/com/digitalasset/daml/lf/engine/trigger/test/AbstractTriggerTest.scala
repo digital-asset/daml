@@ -32,9 +32,6 @@ import com.daml.platform.sandbox.services.TestCommands
 import org.scalatest._
 import scalaz.syntax.tag._
 import com.daml.platform.sandbox.fixture.SandboxFixture
-import com.google.protobuf.ByteString
-
-import java.io.FileInputStream
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -87,11 +84,7 @@ trait AbstractTriggerTest
         ledgerClientConfiguration.copy(token = Some(toHeader(adminTokenStandardJWT))),
         ledgerClientChannelConfiguration.copy(maxInboundMessageSize = maxInboundMessageSize),
       )
-      _ <- Future.sequence(packageFiles.map { dar =>
-        adminClient.packageManagementClient.uploadDarFile(
-          ByteString.readFrom(new FileInputStream(dar))
-        )
-      })
+      _ <- uploadDarFiles(adminClient, packageFiles)
     } yield client
 
   override protected def darFile =

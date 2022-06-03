@@ -26,11 +26,9 @@ import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.sandbox.SandboxRequiringAuthorizationFuns
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
-import com.google.protobuf.ByteString
 import org.scalatest.Suite
 import scalaz.@@
 
-import java.io.FileInputStream
 import scala.concurrent.{ExecutionContext, Future}
 
 trait SandboxTestLedger extends SandboxFixture with SandboxRequiringAuthorizationFuns {
@@ -94,11 +92,7 @@ trait SandboxTestLedger extends SandboxFixture with SandboxRequiringAuthorizatio
 
     val fa: Future[A] = for {
       ledgerPort <- Future(serverPort)
-      _ <- Future.sequence(packageFiles.map { dar =>
-        adminClient.packageManagementClient.uploadDarFile(
-          ByteString.readFrom(new FileInputStream(dar))
-        )
-      })
+      _ <- uploadDarFiles(adminClient, packageFiles)
       a <- testFn(ledgerPort, client, ledgerId)
     } yield a
 

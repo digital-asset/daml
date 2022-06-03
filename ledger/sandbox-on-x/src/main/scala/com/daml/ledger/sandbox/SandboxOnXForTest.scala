@@ -51,7 +51,7 @@ object SandboxOnXForTest {
         configurationLoadTimeout = 10000.millis,
         party = PartyConfiguration(implicitPartyAllocation = true),
         seeding = Seeding.Strong,
-        port = Port(0),
+        port = Port.Dynamic,
         managementServiceTimeout = 120000.millis,
       ),
       indexer = IndexerConfig(

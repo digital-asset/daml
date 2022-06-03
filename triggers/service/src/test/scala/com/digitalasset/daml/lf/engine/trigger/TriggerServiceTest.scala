@@ -10,7 +10,8 @@ import akka.http.scaladsl.model._
 import akka.util.ByteString
 import akka.stream.scaladsl.{FileIO, Sink, Source}
 import com.google.protobuf.{ByteString => PByteString}
-import java.io.{File, FileInputStream}
+
+import java.io.File
 import java.time.{Duration => JDuration}
 import java.util.UUID
 import akka.http.scaladsl.model.Uri.Query
@@ -41,6 +42,7 @@ import com.daml.timer.RetryStrategy
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.time.{Seconds, Span}
 
+import java.nio.file.Files
 import scala.concurrent.duration._
 
 // Tests for all trigger service configurations go here
@@ -317,9 +319,7 @@ trait AbstractTriggerServiceTest
           actAs = List(ApiTypes.Party(alice.unwrap)),
           admin = true,
         )
-        _ <- client.packageManagementClient.uploadDarFile(
-          PByteString.readFrom(new FileInputStream(darPath))
-        )
+        _ <- uploadDar(uri, darPath)
 
         public <- client.partyManagementClient.allocateParty(Some("public"), Some("public"), None)
         clientWeWant <- sandboxClient(
@@ -393,7 +393,7 @@ trait AbstractTriggerServiceTest
         admin = true,
       )
       _ <- adminClient.packageManagementClient.uploadDarFile(
-        PByteString.readFrom(new FileInputStream(darPath))
+        PByteString.copyFrom(Files.readAllBytes(darPath.toPath))
       )
       // Make sure that no contracts exist initially to guard against accidental
       // party reuse.

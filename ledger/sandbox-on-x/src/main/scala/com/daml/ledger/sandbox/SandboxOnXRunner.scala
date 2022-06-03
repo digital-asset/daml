@@ -82,8 +82,9 @@ object SandboxOnXRunner {
       _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
 
       // Start the ledger
-      (participantId, dataSource, participantConfig) <- combinedParticipant(config)
-      (apiServer, _, _) <- buildLedger(
+      participant <- combinedParticipant(config)
+      (participantId, dataSource, participantConfig) = participant
+      ledger <- buildLedger(
         participantId,
         config,
         participantConfig,
@@ -94,6 +95,7 @@ object SandboxOnXRunner {
         configAdaptor,
         None,
       ).acquire()
+      (apiServer, _, _) = ledger
     } yield {
       logInitializationHeader(
         config,

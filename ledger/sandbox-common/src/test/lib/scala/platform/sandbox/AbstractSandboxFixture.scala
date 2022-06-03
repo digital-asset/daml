@@ -18,6 +18,8 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
   LedgerIdentityServiceGrpc,
 }
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.services.admin.PackageManagementClient
 import com.daml.ledger.client.services.testing.time.StaticTime
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.runner.common.Config
@@ -34,12 +36,14 @@ import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.sandbox.services.DbInfo
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
+import com.google.protobuf
 import io.grpc.Channel
 import org.scalatest.Suite
 import scalaz.syntax.tag._
 
+import java.nio.file.Files
 import scala.annotation.nowarn
-import scala.concurrent.Await
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.util.Try
 
@@ -84,6 +88,32 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
       )
     ),
   )
+
+  private def uploadDarFile(client: PackageManagementClient)(file: File): Future[Unit] =
+    client.uploadDarFile(
+      protobuf.ByteString.copyFrom(Files.readAllBytes(file.toPath))
+    )
+
+  def uploadDarFiles(
+      client: PackageManagementClient,
+      files: List[File],
+  )(implicit
+      ec: ExecutionContext
+  ): Future[List[Unit]] =
+    Future.sequence(files.map(uploadDarFile(client)))
+
+  def uploadDarFiles(
+      client: com.daml.ledger.client.withoutledgerid.LedgerClient,
+      files: List[File],
+  )(implicit
+      ec: ExecutionContext
+  ): Future[List[Unit]] =
+    uploadDarFiles(client.packageManagementClient, files)
+
+  def uploadDarFiles(client: LedgerClient, files: List[File])(implicit
+      ec: ExecutionContext
+  ): Future[List[Unit]] =
+    uploadDarFiles(client.packageManagementClient, files)
 
   protected def packageFiles: List[File] = List(darFile)
 

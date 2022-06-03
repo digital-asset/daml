@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.script.test
 
-import java.io.{File, FileInputStream}
+import java.io.File
 import com.daml.lf.engine.script.{ApiParameters, Participants, Runner, ScriptConfig}
 import com.daml.platform.sandbox.{SandboxBackend, SandboxRequiringAuthorizationFuns}
 import com.daml.platform.sandbox.fixture.SandboxFixture
@@ -16,9 +16,8 @@ import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.lf.engine.script.Runner.connectApiParameters
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.platform.sandbox.services.TestCommands
-import com.google.protobuf.ByteString
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait SandboxParticipantFixture
     extends AbstractScriptTest
@@ -55,10 +54,7 @@ trait SandboxParticipantFixture
         tlsConfiguration,
         maxInboundMessageSize,
       )
-      _ <- Future.sequence(packageFiles.map { dar =>
-        ledgerClient.grpcClient.packageManagementClient
-          .uploadDarFile(ByteString.readFrom(new FileInputStream(dar)))
-      })
+      _ <- uploadDarFiles(ledgerClient.grpcClient, packageFiles)
     } yield {
       participantClients
     }
