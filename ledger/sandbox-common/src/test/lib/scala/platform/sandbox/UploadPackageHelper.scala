@@ -1,3 +1,6 @@
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform.sandbox
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -10,7 +13,6 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.client.services.admin.PackageManagementClient
 import com.daml.ledger.client.withoutledgerid.LedgerClient
 import com.daml.ledger.runner.common.Config
-import com.daml.ledger.sandbox.SandboxOnXForTest
 import com.daml.ports.Port
 import com.google.protobuf
 
@@ -20,24 +22,23 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object UploadPackageHelper extends SandboxRequiringAuthorizationFuns {
 
-  def adminLedgerClient(port: Port, config: Config)(implicit
+  def adminLedgerClient(port: Port, config: Config, jwtSecret: String)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
   ): LedgerClient = {
-    val participantConfig = config.participants(SandboxOnXForTest.ParticipantId)
-    val sslContext = participantConfig.apiServer.tls.flatMap(_.client())
+    val sslContext = config.participants.head._2.apiServer.tls.flatMap(_.client())
     val clientConfig = LedgerClientConfiguration(
       applicationId = "admin-client",
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
-      token = Some(toHeader(adminTokenStandardJWT)),
+      token = Some(toHeader(adminTokenStandardJWT, secret = jwtSecret)),
     )
     LedgerClient.singleHost(
       hostIp = "localhost",
       port = port.value,
       configuration = clientConfig,
       channelConfig = LedgerClientChannelConfiguration(sslContext),
-    )(ec, esf)
+    )
   }
 
   private def uploadDarFiles(

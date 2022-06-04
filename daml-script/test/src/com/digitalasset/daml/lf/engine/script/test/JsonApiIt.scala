@@ -177,7 +177,7 @@ trait JsonApiFixture
         )
         serverPort <- SandboxOnXRunner.owner(configAdaptor, cfg, bridgeConfig)
         channel <- GrpcClientResource.owner(serverPort)
-        adminClient = UploadPackageHelper.adminLedgerClient(serverPort, cfg)(
+        adminClient = UploadPackageHelper.adminLedgerClient(serverPort, cfg, secret)(
           system.dispatcher,
           executionSequencerFactory,
         )

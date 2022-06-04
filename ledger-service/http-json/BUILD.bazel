@@ -541,7 +541,6 @@ test_suite(
             "//ledger-service/jwt",
             "//ledger-service/utils",
             "//ledger/ledger-api-auth",
-            "//ledger/ledger-api-common",
             "//ledger/ledger-resources",
             "//ledger/ledger-runner-common",
             "//ledger/metrics",

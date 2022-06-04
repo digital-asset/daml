@@ -54,7 +54,7 @@ trait SandboxFixture
         )
         port <- SandboxOnXRunner.owner(configAdaptor, cfg, bridgeConfig)
         channel <- GrpcClientResource.owner(port)
-        client = adminLedgerClient(port, cfg)(
+        client = adminLedgerClient(port, cfg, jwtSecret)(
           system.dispatcher,
           executionSequencerFactory,
         )
