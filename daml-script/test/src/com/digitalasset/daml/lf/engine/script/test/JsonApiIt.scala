@@ -42,6 +42,7 @@ import com.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient,
   ScriptTimeMode,
 }
+import com.daml.platform.sandbox.UploadPackageHelper._
 import com.daml.ledger.sandbox.{BridgeConfigAdaptor, SandboxOnXForTest, SandboxOnXRunner}
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
@@ -52,7 +53,11 @@ import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContextOf
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.services.TestCommands
-import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxRequiringAuthorizationFuns}
+import com.daml.platform.sandbox.{
+  AbstractSandboxFixture,
+  SandboxRequiringAuthorizationFuns,
+  UploadPackageHelper,
+}
 import com.daml.ports.Port
 import io.grpc.Channel
 import org.scalatest._
@@ -172,6 +177,13 @@ trait JsonApiFixture
         )
         serverPort <- SandboxOnXRunner.owner(configAdaptor, cfg, bridgeConfig)
         channel <- GrpcClientResource.owner(serverPort)
+        adminClient = UploadPackageHelper.adminLedgerClient(serverPort, cfg)(
+          system.dispatcher,
+          executionSequencerFactory,
+        )
+        _ <- ResourceOwner.forFuture(() =>
+          uploadDarFiles(adminClient, packageFiles)(system.dispatcher)
+        )
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
             implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx(
@@ -266,10 +278,7 @@ final class JsonApiIt
       )
       .toMap
     val participantParams = Participants(Some(defaultParticipant), participantMap, partyMap)
-    for {
-      participantClients <- Runner.jsonClients(participantParams, envIface)
-      _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
-    } yield participantClients
+    Runner.jsonClients(participantParams, envIface)
   }
 
   private def getMultiPartyClients(
