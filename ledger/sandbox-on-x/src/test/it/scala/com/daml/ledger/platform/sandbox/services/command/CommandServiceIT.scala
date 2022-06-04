@@ -18,7 +18,7 @@ import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.platform.participant.util.ValueConversions._
-import com.daml.platform.sandbox.{SandboxBackend, SandboxRequiringAuthorizationFuns}
+import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.services.time.TimeProviderType
@@ -34,7 +34,6 @@ sealed trait CommandServiceITBase
     with Inspectors
     with SandboxFixture
     with TestCommands
-    with SandboxRequiringAuthorizationFuns
     with SuiteResourceManagementAroundAll {
 
   private def command(party: String) =
@@ -89,7 +88,6 @@ sealed trait CommandServiceITBase
         val request = submitRequest(lid).update(_.commands.minLedgerTimeRel := minLedgerTimeRel)
 
         for {
-          _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
           timeModel <- configService.getTimeModel(GetTimeModelRequest())
           start = Instant.now
           _ <- submissionService.submit(request)
@@ -112,7 +110,6 @@ sealed trait CommandServiceITBase
           submitAndWaitRequest(lid).update(_.commands.minLedgerTimeRel := minLedgerTimeRel)
 
         for {
-          _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
           timeModel <- configService.getTimeModel(GetTimeModelRequest())
           start = Instant.now
           _ <- commandService.submitAndWait(request)

@@ -41,7 +41,6 @@ import com.daml.ledger.runner.common.Config
 import com.daml.lf.crypto.Hash
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.participant.util.ValueConversions._
-import com.daml.platform.sandbox.SandboxRequiringAuthorizationFuns
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.util.Ctx
@@ -65,7 +64,6 @@ final class CommandClientIT
     with SandboxFixture
     with Matchers
     with SuiteResourceManagementAroundAll
-    with SandboxRequiringAuthorizationFuns
     with TryValues
     with Inside {
 
@@ -236,7 +234,6 @@ final class CommandClientIT
 
         for {
           client <- commandClient()
-          _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
           result <- Source(contexts.map(i => Ctx(i, commandSubmissionWithId(i.toString))))
             .via(client.submissionFlow())
             .map(_.map(_.isSuccess))
@@ -308,7 +305,6 @@ final class CommandClientIT
         // val for type inference
         val resultF = for {
           client <- commandClient()
-          _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
           checkpoint <- client.getCompletionEnd()
           submissionResults <- Source(
             commandIds.map(i => Ctx(i, commandSubmissionWithId(i.toString)))
@@ -341,7 +337,6 @@ final class CommandClientIT
 
         for {
           client <- commandClient()
-          _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
           checkpoint <- client.getCompletionEnd()
           _ <- Source(commandIds.map(i => Ctx(i, commandSubmissionWithId(i.toString))))
             .flatMapMerge(10, randomDelay)

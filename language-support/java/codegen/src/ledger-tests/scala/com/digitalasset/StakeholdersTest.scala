@@ -5,8 +5,6 @@ package com.daml
 
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.resources.TestResourceContext
-import com.daml.platform.sandbox.SandboxRequiringAuthorizationFuns
-import com.daml.platform.sandbox.services.TestCommands
 import io.grpc.Channel
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -21,8 +19,6 @@ class StakeholdersTest
     with Matchers
     with TestResourceContext
     with SandboxTestLedger
-    with TestCommands
-    with SandboxRequiringAuthorizationFuns
     with SuiteResourceManagementAroundAll {
 
   import TestUtil._

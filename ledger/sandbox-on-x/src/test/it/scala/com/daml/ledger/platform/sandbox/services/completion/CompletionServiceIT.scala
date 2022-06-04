@@ -19,7 +19,7 @@ import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.platform.configuration.CommandConfiguration
 import com.daml.platform.participant.util.ValueConversions._
-import com.daml.platform.sandbox.{SandboxBackend, SandboxRequiringAuthorizationFuns}
+import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.testing.StreamConsumer
@@ -37,7 +37,6 @@ sealed trait CompletionServiceITBase
     with Inspectors
     with SandboxFixture
     with TestCommands
-    with SandboxRequiringAuthorizationFuns
     with SuiteResourceManagementAroundAll {
 
   private[this] val applicationId = "CompletionServiceIT"
@@ -119,7 +118,6 @@ sealed trait CompletionServiceITBase
       val completionService = CommandCompletionServiceGrpc.stub(channel)
 
       for {
-        _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
         offset1 <- submitAndWaitForOffset(commandService, lid, partyA, "Cmd1")
         offset2 <- submitAndWaitForOffset(commandService, lid, partyA, "Cmd2")
         offset3 <- submitAndWaitForOffset(commandService, lid, partyB, "Cmd3")
