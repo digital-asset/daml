@@ -3,13 +3,7 @@
 
 package com.daml
 
-import java.io.File
-import java.time.{Duration, Instant}
-import java.util.concurrent.TimeUnit
-import java.util.stream.{Collectors, StreamSupport}
-import java.util.{Optional, UUID}
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.ledger.javaapi.data.{codegen => jcg}
 import com.daml.ledger.api.v1.ActiveContractsServiceOuterClass.GetActiveContractsResponse
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.{ActiveContractsServiceGrpc, CommandServiceGrpc}
@@ -20,8 +14,8 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.javaapi.data
-import com.daml.ledger.javaapi.data._
-import com.daml.ledger.sandbox.SandboxOnXForTest.{Default, ParticipantId}
+import com.daml.ledger.javaapi.data.{codegen => jcg, _}
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, Default, singleParticipant}
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.sandbox.fixture.SandboxFixture
@@ -30,6 +24,11 @@ import com.google.protobuf.Empty
 import io.grpc.Channel
 import org.scalatest.{Assertion, Suite}
 
+import java.io.File
+import java.time.{Duration, Instant}
+import java.util.concurrent.TimeUnit
+import java.util.stream.{Collectors, StreamSupport}
+import java.util.{Optional, UUID}
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters._
 import scala.jdk.javaapi.OptionConverters
@@ -46,18 +45,11 @@ trait SandboxTestLedger extends SandboxFixture {
       ledgerId = TestUtil.LedgerID,
       engine = Default.engine
         .copy(allowedLanguageVersions = LanguageVersion.DevVersions),
-      participants = Map(
-        ParticipantId -> Default
-          .participants(ParticipantId)
-          .copy(
-            apiServer = Default
-              .participants(ParticipantId)
-              .apiServer
-              .copy(
-                timeProviderType = TimeProviderType.Static,
-                seeding = Seeding.Weak,
-              )
-          )
+      participants = singleParticipant(
+        ApiServerConfig.copy(
+          timeProviderType = TimeProviderType.Static,
+          seeding = Seeding.Weak,
+        )
       ),
     )
 

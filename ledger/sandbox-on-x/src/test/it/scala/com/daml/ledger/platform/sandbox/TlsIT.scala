@@ -3,11 +3,10 @@
 
 package com.daml.platform.sandbox
 
-import java.io.File
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.daml.ledger.api.v1.transaction_service.GetLedgerEndResponse
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
@@ -16,10 +15,11 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.io.File
 import scala.concurrent.Future
 
 class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManagementAroundAll {
@@ -56,26 +56,19 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
       ).client()
     )
 
-  override def config = super.config.copy(participants =
-    Map(
-      ParticipantId -> super.config
-        .participants(ParticipantId)
-        .copy(
-          apiServer = super.config
-            .participants(ParticipantId)
-            .apiServer
-            .copy(
-              tls = Some(
-                TlsConfiguration(
-                  enabled = true,
-                  Some(certChainFilePath),
-                  Some(privateKeyFilePath),
-                  Some(trustCertCollectionFilePath),
-                  minimumServerProtocolVersion = None,
-                )
-              )
-            )
+  override def config = super.config.copy(
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        tls = Some(
+          TlsConfiguration(
+            enabled = true,
+            Some(certChainFilePath),
+            Some(privateKeyFilePath),
+            Some(trustCertCollectionFilePath),
+            minimumServerProtocolVersion = None,
+          )
         )
+      )
     )
   )
 

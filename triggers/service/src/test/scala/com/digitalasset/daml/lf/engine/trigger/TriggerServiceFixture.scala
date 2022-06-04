@@ -3,15 +3,11 @@
 
 package com.daml.lf.engine.trigger
 
-import java.net.InetAddress
-import java.time.{Clock, Instant, LocalDateTime, ZoneId, Duration => JDuration}
-import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
-import java.util.{Date, UUID}
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri.Path
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri, headers}
+import akka.http.scaladsl.model._
 import com.auth0.jwt.JWT
 import com.auth0.jwt.JWTVerifier.BaseVerification
 import com.auth0.jwt.algorithms.Algorithm
@@ -42,14 +38,7 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common.Config
-import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  ConfigAdaptor,
-  Default,
-  DevEngineConfig,
-  ParticipantConfig,
-  ParticipantId,
-  dataSource,
-}
+import com.daml.ledger.sandbox.SandboxOnXForTest._
 import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
@@ -71,6 +60,10 @@ import org.scalactic.source
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Suite, SuiteMixin}
 import scalaz.syntax.show._
 
+import java.net.InetAddress
+import java.time.{Clock, Instant, LocalDateTime, ZoneId, Duration => JDuration}
+import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
+import java.util.{Date, UUID}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent._
 import scala.concurrent.duration._
@@ -295,12 +288,10 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
       ledgerId = this.getClass.getSimpleName,
       engine = DevEngineConfig,
       dataSource = dataSource(jdbcUrl),
-      participants = Map(
-        ParticipantId -> ParticipantConfig.copy(apiServer =
-          ParticipantConfig.apiServer.copy(
-            seeding = Seeding.Weak,
-            timeProviderType = TimeProviderType.Static,
-          )
+      participants = singleParticipant(
+        ApiServerConfig.copy(
+          seeding = Seeding.Weak,
+          timeProviderType = TimeProviderType.Static,
         )
       ),
     )

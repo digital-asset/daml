@@ -3,9 +3,6 @@
 
 package com.daml.codegen
 
-import java.io.File
-import java.time.Instant
-import java.util.UUID
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.codegen.util.TestUtil.{TestContext, requiredResource}
 import com.daml.ledger.api.refinements.ApiTypes.{CommandId, WorkflowId}
@@ -25,7 +22,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.client.services.commands.CommandSubmission
-import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.sample.MyMain.{CallablePayout, MkListExample, PayOut}
@@ -40,6 +37,9 @@ import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
 
+import java.io.File
+import java.time.Instant
+import java.util.UUID
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -80,17 +80,10 @@ class ScalaCodeGenIT
 
   override def config = super.config.copy(
     ledgerId = ledgerId,
-    participants = Map(
-      ParticipantId -> super.config
-        .participants(ParticipantId)
-        .copy(
-          apiServer = super.config
-            .participants(ParticipantId)
-            .apiServer
-            .copy(
-              timeProviderType = TimeProviderType.WallClock
-            )
-        )
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        timeProviderType = TimeProviderType.WallClock
+      )
     ),
   )
 

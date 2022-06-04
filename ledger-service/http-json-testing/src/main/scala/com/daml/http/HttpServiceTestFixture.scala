@@ -231,14 +231,12 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     ledgerId = ledgerId.unwrap,
     engine = DevEngineConfig,
     dataSource = dataSource(jdbcUrl),
-    participants = Map(
-      ParticipantId -> ParticipantConfig.copy(apiServer =
-        ParticipantConfig.apiServer.copy(
-          seeding = Seeding.Weak,
-          timeProviderType = TimeProviderType.WallClock,
-          tls = if (useTls) Some(serverTlsConfig) else None,
-          port = ledgerPort,
-        )
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        seeding = Seeding.Weak,
+        timeProviderType = TimeProviderType.WallClock,
+        tls = if (useTls) Some(serverTlsConfig) else None,
+        port = ledgerPort,
       )
     ),
   )

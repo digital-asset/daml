@@ -3,15 +3,14 @@
 
 package com.daml.lf.engine.script.test
 
-import java.io.File
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.JwtSigner
+import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
 import com.daml.lf.engine.script._
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.platform.apiserver.AuthServiceConfig.UnsafeJwtHmac256
@@ -22,6 +21,7 @@ import org.scalatest.Suite
 import scalaz.syntax.tag._
 import scalaz.{-\/, \/-}
 
+import java.io.File
 import scala.concurrent.ExecutionContext
 
 trait SandboxAuthParticipantFixture
@@ -52,19 +52,12 @@ trait SandboxAuthParticipantFixture
 
   private val secret = "secret"
 
-  override def config = super.config.copy(participants =
-    Map(
-      ParticipantId -> super.config
-        .participants(ParticipantId)
-        .copy(
-          apiServer = super.config
-            .participants(ParticipantId)
-            .apiServer
-            .copy(
-              timeProviderType = TimeProviderType.WallClock,
-              authentication = UnsafeJwtHmac256(secret),
-            )
-        )
+  override def config = super.config.copy(
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        timeProviderType = TimeProviderType.WallClock,
+        authentication = UnsafeJwtHmac256(secret),
+      )
     )
   )
   override def timeMode = ScriptTimeMode.WallClock

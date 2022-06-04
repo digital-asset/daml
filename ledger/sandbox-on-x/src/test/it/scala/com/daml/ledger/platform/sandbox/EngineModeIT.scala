@@ -5,8 +5,6 @@ package com.daml
 package platform
 package sandbox
 
-import java.nio.file.{Files, Path, Paths}
-import java.util.UUID
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
 import com.daml.ledger.api.domain.LedgerId
@@ -16,13 +14,7 @@ import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.ledger.runner.common.Config
-import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  ConfigAdaptor,
-  Default,
-  ParticipantConfig,
-  ParticipantId,
-  dataSource,
-}
+import com.daml.ledger.sandbox.SandboxOnXForTest._
 import com.daml.ledger.sandbox.{
   BridgeConfig,
   BridgeConfigAdaptor,
@@ -40,6 +32,8 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.nio.file.{Files, Path, Paths}
+import java.util.UUID
 import scala.util.{Failure, Success}
 
 class EngineModeIT
@@ -127,11 +121,9 @@ class EngineModeIT
         engine = Default.engine.copy(
           allowedLanguageVersions = versions
         ),
-        participants = Map(
-          ParticipantId -> ParticipantConfig.copy(apiServer =
-            ParticipantConfig.apiServer.copy(
-              seeding = Seeding.Weak
-            )
+        participants = singleParticipant(
+          ApiServerConfig.copy(
+            seeding = Seeding.Weak
           )
         ),
         dataSource = dataSource(SandboxOnXForTest.defaultH2SandboxJdbcUrl()),

@@ -3,15 +3,16 @@
 
 package com.daml.lf.engine.script.test
 
-import java.io.File
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+
+import java.io.File
 
 final class TlsIT
     extends AsyncWordSpec
@@ -28,18 +29,11 @@ final class TlsIT
 
   override def timeMode = ScriptTimeMode.WallClock
 
-  override def config = super.config.copy(participants =
-    Map(
-      ParticipantId -> super.config
-        .participants(ParticipantId)
-        .copy(
-          apiServer = super.config
-            .participants(ParticipantId)
-            .apiServer
-            .copy(
-              tls = Some(TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt))
-            )
-        )
+  override def config = super.config.copy(
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        tls = Some(TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt))
+      )
     )
   )
 

@@ -56,9 +56,8 @@ final class MinVersionTest
 
   }
 
-  private def readPortfile(f: Path): Port = {
+  private def readPortFile(f: Path): Port =
     Port(Integer.parseInt(Files.readAllLines(f).stream.collect(Collectors.joining("\n"))))
-  }
 
   private val ledgerClientConfig = LedgerClientConfiguration(
     applicationId = "minversiontest",
@@ -149,7 +148,7 @@ final class MinVersionTest
     new OwnedResource[ResourceContext, Port](
       for {
         _ <- SandboxOnXRunner.owner(configAdaptor, config, bridgeConfig)
-      } yield readPortfile(portFile)
+      } yield readPortFile(portFile)
     )
   }
 }

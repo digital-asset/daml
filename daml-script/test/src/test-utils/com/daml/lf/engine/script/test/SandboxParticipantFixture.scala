@@ -6,7 +6,7 @@ package com.daml.lf.engine.script.test
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.engine.script.{ApiParameters, Participants, Runner, ScriptConfig}
 import com.daml.platform.sandbox.fixture.SandboxFixture
@@ -49,21 +49,14 @@ trait SandboxParticipantFixture
         maxInboundMessageSize = maxInboundMessageSize,
       )
 
-  override def config = super.config.copy(participants =
-    Map(
-      ParticipantId -> super.config
-        .participants(ParticipantId)
-        .copy(
-          apiServer = super.config
-            .participants(ParticipantId)
-            .apiServer
-            .copy(
-              timeProviderType = timeMode match {
-                case ScriptTimeMode.Static => TimeProviderType.Static
-                case ScriptTimeMode.WallClock => TimeProviderType.WallClock
-              }
-            )
-        )
+  override def config = super.config.copy(
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        timeProviderType = timeMode match {
+          case ScriptTimeMode.Static => TimeProviderType.Static
+          case ScriptTimeMode.WallClock => TimeProviderType.WallClock
+        }
+      )
     )
   )
 

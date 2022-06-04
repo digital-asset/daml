@@ -3,7 +3,6 @@
 
 package com.daml.platform.sandbox.services.completion
 
-import java.util.concurrent.TimeUnit
 import com.daml.ledger.api.testing.utils.{MockMessages, SuiteResourceManagementAroundAll}
 import com.daml.ledger.api.v1.command_completion_service.{
   CommandCompletionServiceGrpc,
@@ -15,8 +14,8 @@ import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
-import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.ledger.sandbox.BridgeConfig
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, IndexerConfig, singleParticipant}
 import com.daml.platform.configuration.CommandConfiguration
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.SandboxBackend
@@ -28,6 +27,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
@@ -148,27 +148,17 @@ sealed trait CompletionServiceITBase
 
   override def bridgeConfig = BridgeConfig.Default.copy(submissionBufferSize = 2)
 
-  override def config = super.config.copy(participants =
-    Map(
-      ParticipantId -> super.config
-        .participants(ParticipantId)
-        .copy(
-          apiServer = super.config
-            .participants(ParticipantId)
-            .apiServer
-            .copy(
-              command = CommandConfiguration.Default.copy(
-                inputBufferSize = 1,
-                maxCommandsInFlight = 2,
-              )
-            ),
-          indexer = super.config
-            .participants(ParticipantId)
-            .indexer
-            .copy(
-              inputMappingParallelism = 2
-            ),
+  override def config = super.config.copy(
+    participants = singleParticipant(
+      apiServerConfig = ApiServerConfig.copy(
+        command = CommandConfiguration.Default.copy(
+          inputBufferSize = 1,
+          maxCommandsInFlight = 2,
         )
+      ),
+      indexerConfig = IndexerConfig.copy(
+        inputMappingParallelism = 2
+      ),
     )
   )
 }

@@ -3,8 +3,6 @@
 
 package com.daml.platform.sandbox.services.command
 
-import java.time.{Duration, Instant}
-import java.util.UUID
 import com.daml.api.util.DurationConversion
 import com.daml.ledger.api.testing.utils.{MockMessages, SuiteResourceManagementAroundAll}
 import com.daml.ledger.api.v1.admin.config_management_service.{
@@ -16,7 +14,7 @@ import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
-import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.fixture.SandboxFixture
@@ -27,6 +25,9 @@ import org.scalatest.Inspectors
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
+
+import java.time.{Duration, Instant}
+import java.util.UUID
 
 sealed trait CommandServiceITBase
     extends AsyncWordSpec
@@ -121,18 +122,11 @@ sealed trait CommandServiceITBase
     }
   }
 
-  override def config = super.config.copy(participants =
-    Map(
-      ParticipantId -> super.config
-        .participants(ParticipantId)
-        .copy(
-          apiServer = super.config
-            .participants(ParticipantId)
-            .apiServer
-            .copy(
-              timeProviderType = TimeProviderType.WallClock
-            )
-        )
+  override def config = super.config.copy(
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        timeProviderType = TimeProviderType.WallClock
+      )
     )
   )
 

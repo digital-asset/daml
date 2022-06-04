@@ -15,10 +15,10 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.engine.{EngineConfig => _EngineConfig}
 import com.daml.lf.language.LanguageVersion
-import com.daml.platform.apiserver.ApiServerConfig
 import com.daml.platform.apiserver.SeedService.Seeding
+import com.daml.platform.apiserver.{ApiServerConfig => _ApiServerConfig}
 import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
-import com.daml.platform.indexer.IndexerConfig
+import com.daml.platform.indexer.{IndexerConfig => _IndexerConfig}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
@@ -38,32 +38,46 @@ object SandboxOnXForTest {
     allowedLanguageVersions = LanguageVersion.DevVersions
   )
 
+  val ApiServerConfig = _ApiServerConfig().copy(
+    initialLedgerConfiguration = Some(
+      InitialLedgerConfiguration(
+        maxDeduplicationDuration = Duration.ofMinutes(30L),
+        avgTransactionLatency =
+          Configuration.reasonableInitialConfiguration.timeModel.avgTransactionLatency,
+        minSkew = Configuration.reasonableInitialConfiguration.timeModel.minSkew,
+        maxSkew = Configuration.reasonableInitialConfiguration.timeModel.maxSkew,
+        delayBeforeSubmitting = Duration.ZERO,
+      )
+    ),
+    userManagement = UserManagementConfig.default(true),
+    maxInboundMessageSize = 4194304,
+    configurationLoadTimeout = 10000.millis,
+    party = PartyConfiguration(implicitPartyAllocation = true),
+    seeding = Seeding.Strong,
+    port = Port.Dynamic,
+    managementServiceTimeout = 120000.millis,
+  )
+
+  val IndexerConfig = _IndexerConfig(
+    inputMappingParallelism = 512
+  )
+
   val ParticipantId: Ref.ParticipantId = Ref.ParticipantId.assertFromString("sandbox-participant")
   val ParticipantConfig: _ParticipantConfig =
     _ParticipantConfig(
-      apiServer = ApiServerConfig().copy(
-        initialLedgerConfiguration = Some(
-          InitialLedgerConfiguration(
-            maxDeduplicationDuration = Duration.ofMinutes(30L),
-            avgTransactionLatency =
-              Configuration.reasonableInitialConfiguration.timeModel.avgTransactionLatency,
-            minSkew = Configuration.reasonableInitialConfiguration.timeModel.minSkew,
-            maxSkew = Configuration.reasonableInitialConfiguration.timeModel.maxSkew,
-            delayBeforeSubmitting = Duration.ZERO,
-          )
-        ),
-        userManagement = UserManagementConfig.default(true),
-        maxInboundMessageSize = 4194304,
-        configurationLoadTimeout = 10000.millis,
-        party = PartyConfiguration(implicitPartyAllocation = true),
-        seeding = Seeding.Strong,
-        port = Port.Dynamic,
-        managementServiceTimeout = 120000.millis,
-      ),
-      indexer = IndexerConfig(
-        inputMappingParallelism = 512
-      ),
+      apiServer = ApiServerConfig,
+      indexer = IndexerConfig,
     )
+
+  def singleParticipant(
+      apiServerConfig: _ApiServerConfig = ApiServerConfig,
+      indexerConfig: _IndexerConfig = IndexerConfig,
+  ) = Map(
+    ParticipantId -> ParticipantConfig.copy(
+      apiServer = apiServerConfig,
+      indexer = indexerConfig,
+    )
+  )
 
   def dataSource(jdbcUrl: String): Map[ParticipantId, ParticipantDataSourceConfig] = Map(
     ParticipantId -> ParticipantDataSourceConfig(jdbcUrl)
@@ -72,12 +86,12 @@ object SandboxOnXForTest {
   val Default: Config = Config(
     engine = EngineConfig,
     dataSource = Config.Default.dataSource.map { case _ -> value => (ParticipantId, value) },
-    participants = Map(ParticipantId -> ParticipantConfig),
+    participants = singleParticipant(),
     metrics = MetricsConfig.DefaultMetricsConfig.copy(registryType = MetricRegistryType.New),
   )
 
   class ConfigAdaptor(authServiceOverwrite: Option[AuthService]) extends BridgeConfigAdaptor {
-    override def authService(apiServerConfig: ApiServerConfig): AuthService = {
+    override def authService(apiServerConfig: _ApiServerConfig): AuthService = {
       authServiceOverwrite.getOrElse(AuthServiceWildcard)
     }
   }

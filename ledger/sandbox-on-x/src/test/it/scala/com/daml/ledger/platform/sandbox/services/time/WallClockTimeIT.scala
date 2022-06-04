@@ -3,22 +3,23 @@
 
 package com.daml.platform.sandbox.services.time
 
-import java.time.Instant
 import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimestampConversion.fromInstant
 import com.daml.grpc.GrpcException
 import com.daml.grpc.adapter.client.akka.ClientAdapter
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
-import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar.convertIntToGrainOfTime
-import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag.ToTagOps
+
+import java.time.Instant
 
 final class WallClockTimeIT
     extends AsyncWordSpec
@@ -31,17 +32,10 @@ final class WallClockTimeIT
   override val timeLimit: Span = 15.seconds
 
   override def config = super.config.copy(participants =
-    Map(
-      ParticipantId -> super.config
-        .participants(ParticipantId)
-        .copy(
-          apiServer = super.config
-            .participants(ParticipantId)
-            .apiServer
-            .copy(
-              timeProviderType = TimeProviderType.WallClock
-            )
-        )
+    singleParticipant(
+      ApiServerConfig.copy(
+        timeProviderType = TimeProviderType.WallClock
+      )
     )
   )
 

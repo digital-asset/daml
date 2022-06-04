@@ -3,20 +3,20 @@
 
 package com.daml.lf.engine.script.test
 
-import java.io.File
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.stream.Materializer
+import com.codahale.metrics.MetricRegistry
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.{HttpService, StartSettings, nonrepudiation}
-import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.JwtSigner
+import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
@@ -34,6 +34,13 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.sandbox.SandboxOnXForTest.{
+  ApiServerConfig,
+  ConfigAdaptor,
+  dataSource,
+  singleParticipant,
+}
+import com.daml.ledger.sandbox.{BridgeConfigAdaptor, SandboxOnXForTest, SandboxOnXRunner}
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
@@ -42,8 +49,6 @@ import com.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient,
   ScriptTimeMode,
 }
-import com.daml.platform.sandbox.UploadPackageHelper._
-import com.daml.ledger.sandbox.{BridgeConfigAdaptor, SandboxOnXForTest, SandboxOnXRunner}
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
@@ -51,13 +56,17 @@ import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContextOf
+import com.daml.metrics.{Metrics, MetricsReporter}
+import com.daml.platform.apiserver.AuthServiceConfig.UnsafeJwtHmac256
 import com.daml.platform.apiserver.services.GrpcClientResource
+import com.daml.platform.sandbox.UploadPackageHelper._
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.sandbox.{
   AbstractSandboxFixture,
   SandboxRequiringAuthorizationFuns,
   UploadPackageHelper,
 }
+import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import io.grpc.Channel
 import org.scalatest._
@@ -67,13 +76,9 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
 import spray.json._
 
+import java.io.File
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
-import com.daml.metrics.{Metrics, MetricsReporter}
-import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.sandbox.SandboxOnXForTest.{ConfigAdaptor, ParticipantId, dataSource}
-import com.daml.platform.apiserver.AuthServiceConfig.UnsafeJwtHmac256
-import com.daml.platform.services.time.TimeProviderType
 
 trait JsonApiFixture
     extends AbstractSandboxFixture
@@ -89,18 +94,11 @@ trait JsonApiFixture
 
   override def config = super.config.copy(
     ledgerId = "MyLedger",
-    participants = Map(
-      ParticipantId -> super.config
-        .participants(ParticipantId)
-        .copy(
-          apiServer = super.config
-            .participants(ParticipantId)
-            .apiServer
-            .copy(
-              timeProviderType = TimeProviderType.WallClock,
-              authentication = UnsafeJwtHmac256(secret),
-            )
-        )
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        timeProviderType = TimeProviderType.WallClock,
+        authentication = UnsafeJwtHmac256(secret),
+      )
     ),
   )
   def httpPort: Int = suiteResource.value._3.localAddress.getPort

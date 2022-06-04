@@ -3,18 +3,10 @@
 
 package com.daml.platform.sandbox.perf
 
-import java.io.File
-import java.util.concurrent.Executors
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common.Config
-import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  ConfigAdaptor,
-  Default,
-  ParticipantConfig,
-  ParticipantId,
-  dataSource,
-}
+import com.daml.ledger.sandbox.SandboxOnXForTest._
 import com.daml.ledger.sandbox.{
   BridgeConfig,
   BridgeConfigAdaptor,
@@ -28,6 +20,8 @@ import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.testing.postgresql.PostgresResource
 
+import java.io.File
+import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
 
 object LedgerFactories {
@@ -41,12 +35,10 @@ object LedgerFactories {
       jdbcUrl: Option[String]
   ): Config = Default.copy(
     ledgerId = "ledger-server",
-    participants = Map(
-      ParticipantId -> ParticipantConfig.copy(apiServer =
-        ParticipantConfig.apiServer.copy(
-          seeding = Seeding.Weak,
-          timeProviderType = TimeProviderType.Static,
-        )
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        seeding = Seeding.Weak,
+        timeProviderType = TimeProviderType.Static,
       )
     ),
     dataSource = dataSource(jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl())),
