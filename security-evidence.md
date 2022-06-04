@@ -1,8 +1,8 @@
 # Security tests, by category
 
 ## Authorization:
-- Updating the package service fails with insufficient authorization: [AuthorizationTest.scala](ledger-service/http-json/src/it/scala/http/AuthorizationTest.scala#L85)
-- Updating the package service succeeds with sufficient authorization: [AuthorizationTest.scala](ledger-service/http-json/src/it/scala/http/AuthorizationTest.scala#L93)
+- Updating the package service fails with insufficient authorization: [AuthorizationTest.scala](ledger-service/http-json/src/it/scala/http/AuthorizationTest.scala#L77)
+- Updating the package service succeeds with sufficient authorization: [AuthorizationTest.scala](ledger-service/http-json/src/it/scala/http/AuthorizationTest.scala#L85)
 - accept user tokens: [TestMiddleware.scala](triggers/service/auth/src/test/scala/com/daml/auth/middleware/oauth2/TestMiddleware.scala#L152)
 - badly-authorized create is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L60)
 - badly-authorized create is rejected: [AbstractHttpServiceIntegrationTest.scala](ledger-service/http-json/src/itlib/scala/http/AbstractHttpServiceIntegrationTest.scala#L1086)
