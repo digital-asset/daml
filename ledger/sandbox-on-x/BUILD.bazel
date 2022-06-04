@@ -146,6 +146,7 @@ da_scala_library(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-auth-client",
         "//ledger/ledger-api-client",
+        "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-resources",
         "//ledger/ledger-runner-common",

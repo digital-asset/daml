@@ -4,17 +4,29 @@
 package com.daml.platform.sandbox.fixture
 
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
+import com.daml.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement,
+}
+import com.daml.ledger.client.services.admin.PackageManagementClient
+import com.daml.ledger.client.withoutledgerid.LedgerClient
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{ConfigAdaptor, ParticipantId}
 import com.daml.ledger.sandbox.{BridgeConfigAdaptor, SandboxOnXForTest, SandboxOnXRunner}
 import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.sandbox.UploadPackageHelper._
 import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxRequiringAuthorizationFuns}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.Port
+import com.google.protobuf
 import io.grpc.Channel
 import org.scalatest.Suite
 
+import java.io.File
+import java.nio.file.Files
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
 trait SandboxFixture
@@ -26,6 +38,48 @@ trait SandboxFixture
   override protected def serverPort: Port = suiteResource.value._1
 
   override protected def channel: Channel = suiteResource.value._2
+
+  private def adminLedgerClient(port: Port, config: Config): LedgerClient = {
+    val sslContext = config.participants.head._2.apiServer.tls.flatMap(_.client())
+    val clientConfig = LedgerClientConfiguration(
+      applicationId = "admin-client",
+      ledgerIdRequirement = LedgerIdRequirement.none,
+      commandClient = CommandClientConfiguration.default,
+      token = Some(toHeader(adminTokenStandardJWT)),
+    )
+    LedgerClient.singleHost(
+      hostIp = "localhost",
+      port = port.value,
+      configuration = clientConfig,
+      channelConfig = LedgerClientChannelConfiguration(sslContext),
+    )(
+      system.dispatcher,
+      executionSequencerFactory,
+    )
+  }
+
+  private def uploadDarFiles(
+      client: PackageManagementClient,
+      files: List[File],
+  )(implicit
+      ec: ExecutionContext
+  ): Future[List[Unit]] =
+    if (files.isEmpty) Future.successful(List())
+    else
+      Future.sequence(files.map(uploadDarFile(client)))
+
+  private def uploadDarFile(client: PackageManagementClient)(file: File): Future[Unit] =
+    client.uploadDarFile(
+      protobuf.ByteString.copyFrom(Files.readAllBytes(file.toPath))
+    )
+
+  private def uploadDarFiles(
+      client: LedgerClient,
+      files: List[File],
+  )(implicit
+      ec: ExecutionContext
+  ): Future[List[Unit]] =
+    uploadDarFiles(client.packageManagementClient, files)
 
   override protected lazy val suiteResource: Resource[(Port, Channel)] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
@@ -54,10 +108,7 @@ trait SandboxFixture
         )
         port <- SandboxOnXRunner.owner(configAdaptor, cfg, bridgeConfig)
         channel <- GrpcClientResource.owner(port)
-        client = adminLedgerClient(port, cfg)(
-          system.dispatcher,
-          executionSequencerFactory,
-        )
+        client = adminLedgerClient(port, cfg)
         _ <- ResourceOwner.forFuture(() => uploadDarFiles(client, packageFiles)(system.dispatcher))
       } yield (port, channel),
       acquisitionTimeout = 1.minute,
