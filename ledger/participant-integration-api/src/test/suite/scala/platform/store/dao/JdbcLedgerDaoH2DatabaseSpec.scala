@@ -25,4 +25,3 @@ final class JdbcLedgerDaoH2DatabaseSpec
     with JdbcLedgerDaoContractEventsStreamSpec
     with JdbcLedgerDaoTransactionsWriterSpec
     with JdbcLedgerDaoTransactionLogUpdatesSpec
-    with JdbcAppendOnlyTransactionInsertion
