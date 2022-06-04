@@ -87,6 +87,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           eventsProcessingParallelism = eventsProcessingParallelism,
           acsIdPageSize = acsIdPageSize,
           acsIdPageBufferSize = 1,
+          acsIdPageWorkingMemoryBytes = 100 * 1024 * 1024,
           acsIdFetchingParallelism = acsIdFetchingParallelism,
           acsContractFetchingParallelism = acsContractFetchingParallelism,
           acsGlobalParallelism = acsGlobalParallelism,

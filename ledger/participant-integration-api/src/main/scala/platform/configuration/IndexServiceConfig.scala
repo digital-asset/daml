@@ -11,6 +11,7 @@ final case class IndexServiceConfig(
     bufferedStreamsPageSize: Int = IndexServiceConfig.DefaultBufferedStreamsPageSize,
     acsIdPageSize: Int = IndexServiceConfig.DefaultAcsIdPageSize,
     acsIdPageBufferSize: Int = IndexServiceConfig.DefaultAcsIdPageBufferSize,
+    acsIdPageWorkingMemoryBytes: Int = IndexServiceConfig.DefaultAcsIdPageWorkingMemoryBytes,
     acsIdFetchingParallelism: Int = IndexServiceConfig.DefaultAcsIdFetchingParallelism,
     acsContractFetchingParallelism: Int = IndexServiceConfig.DefaultAcsContractFetchingParallelism,
     acsGlobalParallelism: Int = IndexServiceConfig.DefaultAcsGlobalParallelism,
@@ -29,6 +30,7 @@ object IndexServiceConfig {
   val DefaultBufferedStreamsPageSize: Int = 100
   val DefaultAcsIdPageSize: Int = 20000
   val DefaultAcsIdPageBufferSize: Int = 1
+  val DefaultAcsIdPageWorkingMemoryBytes: Int = 100 * 1024 * 1024
   val DefaultAcsIdFetchingParallelism: Int = 2
   val DefaultAcsContractFetchingParallelism: Int = 2
   val DefaultAcsGlobalParallelism: Int = 10

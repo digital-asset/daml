@@ -68,6 +68,7 @@ object IndexMetadata {
           eventsProcessingParallelism = 8,
           acsIdPageSize = 20000,
           acsIdPageBufferSize = 1,
+          acsIdPageWorkingMemoryBytes = 100 * 1024 * 1024,
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
           acsGlobalParallelism = 10,
