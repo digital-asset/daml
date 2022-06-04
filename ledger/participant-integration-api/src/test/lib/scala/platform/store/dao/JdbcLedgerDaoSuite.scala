@@ -177,7 +177,20 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       offset: Offset,
       divulgedContracts: List[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
-  ): Future[(Offset, LedgerEntry.Transaction)]
+  ): Future[(Offset, LedgerEntry.Transaction)] =
+    for {
+      _ <- ledgerDao.storeTransaction(
+        completionInfo = completionInfo,
+        workflowId = tx.workflowId,
+        transactionId = tx.transactionId,
+        ledgerEffectiveTime = tx.ledgerEffectiveTime,
+        offset = offset,
+        transaction = tx.transaction,
+        divulgedContracts = divulgedContracts,
+        blindingInfo = blindingInfo,
+        recordTime = tx.recordedAt,
+      )
+    } yield offset -> tx
 
   protected implicit def toParty(s: String): Party = Party.assertFromString(s)
 
