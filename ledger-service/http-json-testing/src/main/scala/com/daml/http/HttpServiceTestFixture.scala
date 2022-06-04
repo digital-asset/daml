@@ -44,13 +44,11 @@ import com.daml.ledger.resources.ResourceContext
 import com.daml.ledger.runner.common
 import com.daml.ledger.sandbox.SandboxOnXForTest._
 import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigAdaptor, SandboxOnXRunner}
-import com.daml.lf.language.LanguageVersion
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.Port
 import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.LazyLogging
@@ -231,10 +229,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       jdbcUrl: String,
   ): common.Config = Default.copy(
     ledgerId = ledgerId.unwrap,
-    engine = EngineConfig.copy(
-      allowedLanguageVersions = LanguageVersion.DevVersions
-    ),
-    dataSource = Map(ParticipantId -> ParticipantDataSourceConfig(jdbcUrl)),
+    engine = DevEngineConfig,
+    dataSource = dataSource(jdbcUrl),
     participants = Map(
       ParticipantId -> ParticipantConfig.copy(apiServer =
         ParticipantConfig.apiServer.copy(

@@ -17,10 +17,11 @@ import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  Default,
   ConfigAdaptor,
+  Default,
   ParticipantConfig,
   ParticipantId,
+  dataSource,
 }
 import com.daml.ledger.sandbox.{
   BridgeConfig,
@@ -33,7 +34,6 @@ import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.fixture.SandboxFixture
-import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.Port
 import com.google.protobuf
 import org.scalatest.Inside
@@ -134,11 +134,7 @@ class EngineModeIT
             )
           )
         ),
-        dataSource = Map(
-          ParticipantId -> ParticipantDataSourceConfig(
-            SandboxOnXForTest.defaultH2SandboxJdbcUrl()
-          )
-        ),
+        dataSource = dataSource(SandboxOnXForTest.defaultH2SandboxJdbcUrl()),
       )
       val configAdaptor: BridgeConfigAdaptor = new ConfigAdaptor(
         authService

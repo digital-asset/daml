@@ -13,6 +13,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.client.services.admin.PackageManagementClient
 import com.daml.ledger.client.withoutledgerid.LedgerClient
 import com.daml.ledger.runner.common.Config
+import com.daml.ledger.sandbox.SandboxOnXForTest
 import com.daml.ports.Port
 import com.google.protobuf
 
@@ -26,7 +27,8 @@ object UploadPackageHelper extends SandboxRequiringAuthorizationFuns {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
   ): LedgerClient = {
-    val sslContext = config.participants.head._2.apiServer.tls.flatMap(_.client())
+    val participant = config.participants(SandboxOnXForTest.ParticipantId)
+    val sslContext = participant.apiServer.tls.flatMap(_.client())
     val clientConfig = LedgerClientConfiguration(
       applicationId = "admin-client",
       ledgerIdRequirement = LedgerIdRequirement.none,

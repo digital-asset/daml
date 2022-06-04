@@ -21,12 +21,12 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.resources.ResourceContext
 import com.daml.ledger.runner.common._
+import com.daml.ledger.sandbox.SandboxOnXForTest.dataSource
 import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigAdaptor, SandboxOnXRunner}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.VersionRange
 import com.daml.lf.archive.DarDecoder
 import com.daml.lf.language.LanguageVersion.v1_14
-import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.Port
 import com.google.protobuf
 import org.scalatest.Suite
@@ -130,9 +130,7 @@ final class MinVersionTest
     val config = Config.Default.copy(
       engine = Config.DefaultEngineConfig
         .copy(allowedLanguageVersions = VersionRange(min = v1_14, max = v1_14)),
-      dataSource = Config.Default.dataSource.map { case (participantId, _) =>
-        participantId -> ParticipantDataSourceConfig(jdbcUrl)
-      },
+      dataSource = dataSource(jdbcUrl),
       participants = Config.Default.participants.map { case (participantId, participantConfig) =>
         participantId -> participantConfig.copy(
           apiServer = participantConfig.apiServer.copy(

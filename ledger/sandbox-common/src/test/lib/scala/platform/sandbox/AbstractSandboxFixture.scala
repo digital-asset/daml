@@ -22,12 +22,11 @@ import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
   Default,
-  EngineConfig,
+  DevEngineConfig,
   ParticipantConfig,
   ParticipantId,
 }
 import com.daml.ledger.test.ModelTestDar
-import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.sandbox.services.DbInfo
 import com.daml.platform.services.time.TimeProviderType
@@ -72,9 +71,7 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
 
   protected def config: Config = Default.copy(
     ledgerId = "sandbox-server",
-    engine = EngineConfig.copy(
-      allowedLanguageVersions = LanguageVersion.DevVersions
-    ),
+    engine = DevEngineConfig,
     participants = Map(
       ParticipantId -> ParticipantConfig.copy(apiServer =
         ParticipantConfig.apiServer.copy(

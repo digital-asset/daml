@@ -12,12 +12,14 @@ import com.daml.ledger.runner.common.{
   ParticipantConfig => _ParticipantConfig,
 }
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.engine.{EngineConfig => _EngineConfig}
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.ApiServerConfig
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
 import com.daml.platform.indexer.IndexerConfig
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 
@@ -32,6 +34,10 @@ object SandboxOnXForTest {
     stackTraceMode = true,
     forbidV0ContractId = true,
   )
+  val DevEngineConfig: _EngineConfig = EngineConfig.copy(
+    allowedLanguageVersions = LanguageVersion.DevVersions
+  )
+
   val ParticipantId: Ref.ParticipantId = Ref.ParticipantId.assertFromString("sandbox-participant")
   val ParticipantConfig: _ParticipantConfig =
     _ParticipantConfig(
@@ -58,6 +64,11 @@ object SandboxOnXForTest {
         inputMappingParallelism = 512
       ),
     )
+
+  def dataSource(jdbcUrl: String): Map[ParticipantId, ParticipantDataSourceConfig] = Map(
+    ParticipantId -> ParticipantDataSourceConfig(jdbcUrl)
+  )
+
   val Default: Config = Config(
     engine = EngineConfig,
     dataSource = Config.Default.dataSource.map { case _ -> value => (ParticipantId, value) },

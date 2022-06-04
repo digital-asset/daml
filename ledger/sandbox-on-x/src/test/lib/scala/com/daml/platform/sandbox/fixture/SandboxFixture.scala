@@ -5,12 +5,11 @@ package com.daml.platform.sandbox.fixture
 
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.ledger.sandbox.SandboxOnXForTest.{ConfigAdaptor, ParticipantId}
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ConfigAdaptor, dataSource}
 import com.daml.ledger.sandbox.{BridgeConfigAdaptor, SandboxOnXForTest, SandboxOnXRunner}
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.UploadPackageHelper._
 import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxRequiringAuthorizationFuns}
-import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.Port
 import io.grpc.Channel
 import org.scalatest.Suite
@@ -36,15 +35,9 @@ trait SandboxFixture
             _.map(info => Some(info.jdbcUrl))
           )
 
-        participantDataSource = jdbcUrl match {
-          case Some(url) => Map(ParticipantId -> ParticipantDataSourceConfig(url))
-          case None =>
-            Map(
-              ParticipantId -> ParticipantDataSourceConfig(
-                SandboxOnXForTest.defaultH2SandboxJdbcUrl()
-              )
-            )
-        }
+        participantDataSource = dataSource(
+          jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl())
+        )
 
         cfg = config.copy(
           dataSource = participantDataSource

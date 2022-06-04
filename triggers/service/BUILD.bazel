@@ -165,8 +165,6 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
-        "//daml-lf/language",
-        "//daml-lf/transaction",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",

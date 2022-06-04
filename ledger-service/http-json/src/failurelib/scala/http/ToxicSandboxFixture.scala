@@ -6,7 +6,7 @@ package com.daml.http
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.testing.utils.{OwnedResource, SuiteResource, Resource => TestResource}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.sandbox.SandboxOnXForTest.{ConfigAdaptor, ParticipantId}
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ConfigAdaptor, dataSource}
 import com.daml.ledger.sandbox.{BridgeConfigAdaptor, SandboxOnXRunner}
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.{
@@ -15,7 +15,6 @@ import com.daml.platform.sandbox.{
   SandboxRequiringAuthorizationFuns,
   UploadPackageHelper,
 }
-import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy._
@@ -90,9 +89,8 @@ trait ToxicSandboxFixture
         jdbcUrl <- database
           .getOrElse(SandboxBackend.H2Database.owner)
           .map(info => info.jdbcUrl)
-        participantDataSource = Map(ParticipantId -> ParticipantDataSourceConfig(jdbcUrl))
         cfg = config.copy(
-          dataSource = participantDataSource
+          dataSource = dataSource(jdbcUrl)
         )
         configAdaptor: BridgeConfigAdaptor = new ConfigAdaptor(
           authService

@@ -43,23 +43,22 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  Default,
-  EngineConfig,
   ConfigAdaptor,
+  Default,
+  DevEngineConfig,
   ParticipantConfig,
   ParticipantId,
+  dataSource,
 }
 import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
-import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.Compiler
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.scalautil.Statement.discard
 import com.daml.testing.oracle.OracleAroundAll
@@ -294,10 +293,8 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
   private def sandboxConfig(jdbcUrl: String): Config =
     Default.copy(
       ledgerId = this.getClass.getSimpleName,
-      engine = EngineConfig.copy(
-        allowedLanguageVersions = LanguageVersion.DevVersions
-      ),
-      dataSource = Map(ParticipantId -> ParticipantDataSourceConfig(jdbcUrl)),
+      engine = DevEngineConfig,
+      dataSource = dataSource(jdbcUrl),
       participants = Map(
         ParticipantId -> ParticipantConfig.copy(apiServer =
           ParticipantConfig.apiServer.copy(

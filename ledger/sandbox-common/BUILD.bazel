@@ -82,8 +82,6 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
-        "//daml-lf/language",
-        "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",

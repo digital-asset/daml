@@ -9,10 +9,11 @@ import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  Default,
   ConfigAdaptor,
+  Default,
   ParticipantConfig,
   ParticipantId,
+  dataSource,
 }
 import com.daml.ledger.sandbox.{
   BridgeConfig,
@@ -25,7 +26,6 @@ import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.testing.postgresql.PostgresResource
 
 import scala.concurrent.ExecutionContext
@@ -49,11 +49,7 @@ object LedgerFactories {
         )
       )
     ),
-    dataSource = Map(
-      ParticipantId -> ParticipantDataSourceConfig(
-        jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl())
-      )
-    ),
+    dataSource = dataSource(jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl())),
   )
 
   val mem = "InMemory"

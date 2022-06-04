@@ -71,10 +71,9 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
 import com.daml.metrics.{Metrics, MetricsReporter}
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.sandbox.SandboxOnXForTest.{ConfigAdaptor, ParticipantId}
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ConfigAdaptor, ParticipantId, dataSource}
 import com.daml.platform.apiserver.AuthServiceConfig.UnsafeJwtHmac256
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 
 trait JsonApiFixture
     extends AbstractSandboxFixture
@@ -160,17 +159,11 @@ trait JsonApiFixture
           .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(
             _.map(info => Some(info.jdbcUrl))
           )
-        participantDataSource = jdbcUrl match {
-          case Some(url) => Map(ParticipantId -> ParticipantDataSourceConfig(url))
-          case None =>
-            Map(
-              ParticipantId -> ParticipantDataSourceConfig(
-                SandboxOnXForTest.defaultH2SandboxJdbcUrl()
-              )
-            )
-        }
+
         cfg = config.copy(
-          dataSource = participantDataSource
+          dataSource = dataSource(
+            jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl())
+          )
         )
         configAdaptor: BridgeConfigAdaptor = new ConfigAdaptor(
           authService

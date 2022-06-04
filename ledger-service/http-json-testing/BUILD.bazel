@@ -39,7 +39,6 @@ hj_scalacopts = lf_scalacopts + [
         deps = [
             "//bazel_tools/runfiles:scala_runfiles",
             "//daml-lf/engine",
-            "//daml-lf/language",
             "//daml-lf/transaction",
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
