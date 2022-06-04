@@ -3,8 +3,6 @@
 
 package com.daml.http
 
-import java.io.{File, FileInputStream}
-import java.time.Instant
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -44,13 +42,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.ledger.runner.common
-import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  Default,
-  EngineConfig,
-  ConfigAdaptor,
-  ParticipantConfig,
-  ParticipantId,
-}
+import com.daml.ledger.sandbox.SandboxOnXForTest._
 import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigAdaptor, SandboxOnXRunner}
 import com.daml.lf.language.LanguageVersion
 import com.daml.logging.LoggingContextOf
@@ -70,6 +62,10 @@ import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
+
+import java.io.File
+import java.nio.file.Files
+import java.time.Instant
 import scala.concurrent.duration.{DAYS, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -211,7 +207,9 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       (_, ledgerPort) <- ledgerF
       client <- clientF
       _ <- Future.sequence(dars.map { dar =>
-        client.packageManagementClient.uploadDarFile(ByteString.readFrom(new FileInputStream(dar)))
+        client.packageManagementClient.uploadDarFile(
+          ByteString.copyFrom(Files.readAllBytes(dar.toPath))
+        )
       })
       a <- testFn(ledgerPort, client, ledgerId)
     } yield a

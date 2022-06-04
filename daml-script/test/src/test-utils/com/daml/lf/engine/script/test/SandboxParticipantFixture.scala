@@ -30,28 +30,24 @@ trait SandboxParticipantFixture
   def participantClients(
       maxInboundMessageSize: Int = ScriptConfig.DefaultMaxInboundMessageSize,
       tlsConfiguration: TlsConfiguration = TlsConfiguration.Empty.copy(enabled = false),
-  ) = {
-    val apiParameters = ApiParameters(
-      host = "localhost",
-      port = serverPort.value,
-      access_token = None,
-      application_id = None,
-    )
-    for {
-      participantClients <- Runner
-        .connect(
-          Participants(
-            default_participant = Some(apiParameters),
-            party_participants = Map.empty,
-            participants = Map.empty,
+  ) =
+    Runner
+      .connect(
+        Participants(
+          default_participant = Some(
+            ApiParameters(
+              host = "localhost",
+              port = serverPort.value,
+              access_token = None,
+              application_id = None,
+            )
           ),
-          tlsConfig = tlsConfiguration,
-          maxInboundMessageSize = maxInboundMessageSize,
-        )
-    } yield {
-      participantClients
-    }
-  }
+          party_participants = Map.empty,
+          participants = Map.empty,
+        ),
+        tlsConfig = tlsConfiguration,
+        maxInboundMessageSize = maxInboundMessageSize,
+      )
 
   override def config = super.config.copy(participants =
     Map(

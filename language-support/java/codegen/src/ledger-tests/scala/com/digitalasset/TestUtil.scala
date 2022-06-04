@@ -22,7 +22,6 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data._
 import com.daml.ledger.sandbox.SandboxOnXForTest.{Default, ParticipantId}
-import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.sandbox.fixture.SandboxFixture
@@ -42,8 +41,6 @@ trait SandboxTestLedger extends SandboxFixture {
   protected val damlPackages: List[File] = List(
     new File(BazelRunfiles.rlocation("language-support/java/codegen/ledger-tests-model.dar"))
   )
-  override def bridgeConfig: BridgeConfig = BridgeConfig()
-
   override def config =
     Default.copy(
       ledgerId = TestUtil.LedgerID,
