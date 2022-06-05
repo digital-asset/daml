@@ -39,9 +39,7 @@ trait SubmitAndWaitMultiPartyDummyCommand extends TestCommands { self: ServiceCa
       actAs: Seq[String],
       readAs: Seq[String],
   ): Future[Empty] =
-    service(token)
-      .submitAndWait(dummySubmitAndWaitRequest(party, actAs, readAs))
-      .map(_ => Empty())
+    service(token).submitAndWait(dummySubmitAndWaitRequest(party, actAs, readAs))
 
   protected def submitAndWaitForTransaction(
       token: Option[String],

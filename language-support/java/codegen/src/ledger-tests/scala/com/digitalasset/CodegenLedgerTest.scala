@@ -3,40 +3,33 @@
 
 package com.daml
 
-import java.math.BigDecimal
-import java.time.temporal.ChronoField
-import java.time.{Instant, LocalDate, ZoneOffset}
+import alltests.MultiParty
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.javaapi.data.{Unit => DamlUnit}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.Numeric
+import io.grpc.Channel
+import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import wolpertinger.color.Grey
 import wolpertinger.{Color, Wolpertinger}
-import alltests.MultiParty
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.platform.sandbox.SandboxRequiringAuthorizationFuns
-import com.daml.platform.sandbox.services.TestCommands
-import io.grpc.Channel
-import org.scalatest.Assertion
 
-import java.io.File
-import scala.jdk.CollectionConverters._
-import scala.concurrent.Future
+import java.math.BigDecimal
+import java.time.temporal.ChronoField
+import java.time.{Instant, LocalDate, ZoneOffset}
 import java.util.Arrays.asList
+import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 
 class CodegenLedgerTest
     extends AsyncFlatSpec
     with SandboxTestLedger
     with Matchers
     with TestResourceContext
-    with TestCommands
-    with SandboxRequiringAuthorizationFuns
     with SuiteResourceManagementAroundAll {
 
   import TestUtil._
-
-  override protected def packageFiles: List[File] = damlPackages
 
   def withUniqueParty(
       testCode: (String, Wolpertinger, Wolpertinger, Channel) => Assertion

@@ -6,7 +6,7 @@ package com.daml.platform.sandbox.fixture
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.ledger.sandbox.SandboxOnXForTest.{ConfigAdaptor, dataSource}
-import com.daml.ledger.sandbox.{BridgeConfigAdaptor, SandboxOnXForTest, SandboxOnXRunner}
+import com.daml.ledger.sandbox.{SandboxOnXForTest, SandboxOnXRunner}
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.UploadPackageHelper._
 import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxRequiringAuthorizationFuns}
@@ -42,10 +42,7 @@ trait SandboxFixture
         cfg = config.copy(
           dataSource = participantDataSource
         )
-        configAdaptor: BridgeConfigAdaptor = new ConfigAdaptor(
-          authService
-        )
-        port <- SandboxOnXRunner.owner(configAdaptor, cfg, bridgeConfig)
+        port <- SandboxOnXRunner.owner(ConfigAdaptor(authService), cfg, bridgeConfig)
         channel <- GrpcClientResource.owner(port)
         client = adminLedgerClient(port, cfg, jwtSecret)(
           system.dispatcher,

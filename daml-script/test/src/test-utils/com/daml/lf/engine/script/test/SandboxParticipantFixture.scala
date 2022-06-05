@@ -10,8 +10,7 @@ import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singlePartici
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.engine.script.{ApiParameters, Participants, Runner, ScriptConfig}
 import com.daml.platform.sandbox.fixture.SandboxFixture
-import com.daml.platform.sandbox.services.TestCommands
-import com.daml.platform.sandbox.{SandboxBackend, SandboxRequiringAuthorizationFuns}
+import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.Suite
 
@@ -22,8 +21,6 @@ trait SandboxParticipantFixture
     extends AbstractScriptTest
     with SandboxFixture
     with SandboxBackend.Postgresql
-    with SandboxRequiringAuthorizationFuns
-    with TestCommands
     with AkkaBeforeAndAfterAll {
   self: Suite =>
   private implicit val ec: ExecutionContext = system.dispatcher

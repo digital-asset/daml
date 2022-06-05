@@ -3,11 +3,12 @@
 
 package com.daml.platform.sandbox.services
 
+import java.util.UUID
+
 import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.daml.platform.sandbox.auth.{ServiceCallAuthTests, ServiceCallWithMainActorAuthTests}
 import com.google.protobuf.empty.Empty
 
-import java.util.UUID
 import scala.concurrent.Future
 
 trait SubmitAndWaitDummyCommand extends TestCommands with SubmitAndWaitDummyCommandHelpers {
@@ -43,9 +44,7 @@ trait SubmitAndWaitDummyCommandHelpers extends TestCommands {
       applicationId: String = serviceCallName,
       party: String,
   ): Future[Empty] =
-    service(token).submitAndWait(
-      dummySubmitAndWaitRequest(applicationId, party = party)
-    )
+    service(token).submitAndWait(dummySubmitAndWaitRequest(applicationId, party = party))
 
   protected def submitAndWaitForTransaction(
       token: Option[String],

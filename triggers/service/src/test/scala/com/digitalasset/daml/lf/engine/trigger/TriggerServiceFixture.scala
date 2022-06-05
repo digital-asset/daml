@@ -332,7 +332,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
           .map(info => info.jdbcUrl)
 
         port <- SandboxOnXRunner.owner(
-          configAdaptor = new ConfigAdaptor(authService),
+          configAdaptor = ConfigAdaptor(authService),
           config = sandboxConfig(jdbcUrl = jdbcUrl),
           bridgeConfig = BridgeConfig(),
         )

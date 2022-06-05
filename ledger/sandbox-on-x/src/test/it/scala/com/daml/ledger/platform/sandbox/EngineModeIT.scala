@@ -15,12 +15,7 @@ import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest._
-import com.daml.ledger.sandbox.{
-  BridgeConfig,
-  BridgeConfigAdaptor,
-  SandboxOnXForTest,
-  SandboxOnXRunner,
-}
+import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest, SandboxOnXRunner}
 import com.daml.lf.VersionRange
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -128,10 +123,7 @@ class EngineModeIT
         ),
         dataSource = dataSource(SandboxOnXForTest.defaultH2SandboxJdbcUrl()),
       )
-      val configAdaptor: BridgeConfigAdaptor = new ConfigAdaptor(
-        authService
-      )
-      SandboxOnXRunner.owner(configAdaptor, sandboxConfig, bridgeConfig)
+      SandboxOnXRunner.owner(ConfigAdaptor(authService), sandboxConfig, bridgeConfig)
     }
 
     def load(langVersion: LanguageVersion, range: VersionRange[LanguageVersion]) =

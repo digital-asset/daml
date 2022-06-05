@@ -11,7 +11,6 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import stakeholders.{ExplicitObservers, ImplicitObservers, MixedObservers, OnlySignatories}
 
-import java.io.File
 import scala.concurrent.Future
 
 class StakeholdersTest
@@ -22,8 +21,6 @@ class StakeholdersTest
     with SuiteResourceManagementAroundAll {
 
   import TestUtil._
-
-  override protected def packageFiles: List[File] = damlPackages
 
   def withUniqueParties(
       testCode: (

@@ -7,12 +7,7 @@ import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest._
-import com.daml.ledger.sandbox.{
-  BridgeConfig,
-  BridgeConfigAdaptor,
-  SandboxOnXForTest,
-  SandboxOnXRunner,
-}
+import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest, SandboxOnXRunner}
 import com.daml.lf.archive.UniversalArchiveReader
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -59,12 +54,8 @@ object LedgerFactories {
         case `sql` =>
           PostgresResource.owner[ResourceContext]().map(database => Some(database.url))
       }
-      configAdaptor: BridgeConfigAdaptor = new ConfigAdaptor(
-        None
-      )
-
       port <- SandboxOnXRunner.owner(
-        configAdaptor,
+        ConfigAdaptor(None),
         sandboxConfig(jdbcUrl),
         bridgeConfig,
       )

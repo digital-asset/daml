@@ -43,7 +43,7 @@ import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.ledger.runner.common
 import com.daml.ledger.sandbox.SandboxOnXForTest._
-import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigAdaptor, SandboxOnXRunner}
+import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -182,12 +182,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         useTls = useTls,
         jdbcUrl = jdbcUrl,
       )
-
-      configAdaptor: BridgeConfigAdaptor = new ConfigAdaptor(
-        authService
-      )
       portF <- Future(
-        SandboxOnXRunner.owner(configAdaptor, config, bridgeConfig).acquire()
+        SandboxOnXRunner.owner(ConfigAdaptor(authService), config, bridgeConfig).acquire()
       )
       port <- portF.asFuture
     } yield (portF, port)

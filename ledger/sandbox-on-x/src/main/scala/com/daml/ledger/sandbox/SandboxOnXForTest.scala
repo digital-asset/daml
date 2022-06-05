@@ -95,6 +95,9 @@ object SandboxOnXForTest {
       authServiceOverwrite.getOrElse(AuthServiceWildcard)
     }
   }
+  object ConfigAdaptor {
+    def apply(authServiceOverwrite: Option[AuthService]) = new ConfigAdaptor(authServiceOverwrite)
+  }
 
   def defaultH2SandboxJdbcUrl() =
     s"jdbc:h2:mem:sandbox-${UUID.randomUUID().toString};db_close_delay=-1"

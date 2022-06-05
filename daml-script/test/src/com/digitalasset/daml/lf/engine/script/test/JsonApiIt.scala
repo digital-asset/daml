@@ -40,7 +40,7 @@ import com.daml.ledger.sandbox.SandboxOnXForTest.{
   dataSource,
   singleParticipant,
 }
-import com.daml.ledger.sandbox.{BridgeConfigAdaptor, SandboxOnXForTest, SandboxOnXRunner}
+import com.daml.ledger.sandbox.{SandboxOnXForTest, SandboxOnXRunner}
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
@@ -163,10 +163,7 @@ trait JsonApiFixture
             jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl())
           )
         )
-        configAdaptor: BridgeConfigAdaptor = new ConfigAdaptor(
-          authService
-        )
-        serverPort <- SandboxOnXRunner.owner(configAdaptor, cfg, bridgeConfig)
+        serverPort <- SandboxOnXRunner.owner(ConfigAdaptor(authService), cfg, bridgeConfig)
         channel <- GrpcClientResource.owner(serverPort)
         adminClient = UploadPackageHelper.adminLedgerClient(serverPort, cfg, secret)(
           system.dispatcher,

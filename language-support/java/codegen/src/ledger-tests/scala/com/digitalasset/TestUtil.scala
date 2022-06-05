@@ -15,8 +15,12 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.{codegen => jcg, _}
-import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, Default, singleParticipant}
-import com.daml.lf.language.LanguageVersion
+import com.daml.ledger.sandbox.SandboxOnXForTest.{
+  ApiServerConfig,
+  Default,
+  DevEngineConfig,
+  singleParticipant,
+}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
@@ -40,11 +44,13 @@ trait SandboxTestLedger extends SandboxFixture {
   protected val damlPackages: List[File] = List(
     new File(BazelRunfiles.rlocation("language-support/java/codegen/ledger-tests-model.dar"))
   )
+
+  override protected def packageFiles: List[File] = damlPackages
+
   override def config =
     Default.copy(
       ledgerId = TestUtil.LedgerID,
-      engine = Default.engine
-        .copy(allowedLanguageVersions = LanguageVersion.DevVersions),
+      engine = DevEngineConfig,
       participants = singleParticipant(
         ApiServerConfig.copy(
           timeProviderType = TimeProviderType.Static,

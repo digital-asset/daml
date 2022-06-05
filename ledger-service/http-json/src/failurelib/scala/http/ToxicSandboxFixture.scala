@@ -7,7 +7,7 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.testing.utils.{OwnedResource, SuiteResource, Resource => TestResource}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.sandbox.SandboxOnXForTest.{ConfigAdaptor, dataSource}
-import com.daml.ledger.sandbox.{BridgeConfigAdaptor, SandboxOnXRunner}
+import com.daml.ledger.sandbox.SandboxOnXRunner
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.{
   AbstractSandboxFixture,
@@ -92,10 +92,7 @@ trait ToxicSandboxFixture
         cfg = config.copy(
           dataSource = dataSource(jdbcUrl)
         )
-        configAdaptor: BridgeConfigAdaptor = new ConfigAdaptor(
-          authService
-        )
-        port <- SandboxOnXRunner.owner(configAdaptor, cfg, bridgeConfig)
+        port <- SandboxOnXRunner.owner(ConfigAdaptor(authService), cfg, bridgeConfig)
         channel <- GrpcClientResource.owner(port)
         client = UploadPackageHelper.adminLedgerClient(port, cfg, jwtSecret)(
           system.dispatcher,
