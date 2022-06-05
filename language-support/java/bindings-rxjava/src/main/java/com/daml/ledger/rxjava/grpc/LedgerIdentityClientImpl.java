@@ -3,25 +3,36 @@
 
 package com.daml.ledger.rxjava.grpc;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
 import com.daml.ledger.api.v1.LedgerIdentityServiceGrpc;
 import com.daml.ledger.api.v1.LedgerIdentityServiceOuterClass;
 import com.daml.ledger.rxjava.LedgerIdentityClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import io.grpc.Channel;
 import io.reactivex.Single;
+import java.time.Duration;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 public class LedgerIdentityClientImpl implements LedgerIdentityClient {
 
   private LedgerIdentityServiceGrpc.LedgerIdentityServiceFutureStub serviceStub;
+  private final Optional<Duration> timeout;
 
-  public LedgerIdentityClientImpl(Channel channel, Optional<String> accessToken) {
+  public LedgerIdentityClientImpl(
+      Channel channel, Optional<String> accessToken, Optional<Duration> timeout) {
     this.serviceStub =
         StubHelper.authenticating(LedgerIdentityServiceGrpc.newFutureStub(channel), accessToken);
+    this.timeout = timeout;
   }
 
   private Single<String> getLedgerIdentity(@NonNull Optional<String> accessToken) {
+    this.serviceStub =
+        this.timeout
+            .map(t -> this.serviceStub.withDeadlineAfter(t.toMillis(), MILLISECONDS))
+            .orElse(this.serviceStub);
+
     return Single.fromFuture(
             StubHelper.authenticating(this.serviceStub, accessToken)
                 .getLedgerIdentity(
