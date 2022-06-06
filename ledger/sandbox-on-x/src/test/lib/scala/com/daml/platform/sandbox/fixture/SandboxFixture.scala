@@ -30,17 +30,9 @@ trait SandboxFixture
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, (Port, Channel)](
       for {
-        jdbcUrl <- database
-          .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(
-            _.map(info => Some(info.jdbcUrl))
-          )
-
-        participantDataSource = dataSource(
-          jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl())
-        )
-
-        cfg = config.copy(
-          dataSource = participantDataSource
+        jdbcUrl <- jdbcUrl
+        cfg = config.withDataSource(
+          dataSource(jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl()))
         )
         port <- SandboxOnXRunner.owner(ConfigAdaptor(authService), cfg, bridgeConfig)
         channel <- GrpcClientResource.owner(port)

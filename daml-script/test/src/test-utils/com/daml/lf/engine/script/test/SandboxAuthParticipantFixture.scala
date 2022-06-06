@@ -32,23 +32,22 @@ trait SandboxAuthParticipantFixture
   self: Suite =>
   private implicit val ec: ExecutionContext = system.dispatcher
   def participantClients(parties: List[String], admin: Boolean) =
-    Runner
-      .connect(
-        participantParams = Participants(
-          default_participant = Some(
-            ApiParameters(
-              host = "localhost",
-              port = serverPort.value,
-              access_token = Some(getToken(parties, admin)),
-              application_id = Some(appId),
-            )
-          ),
-          party_participants = Map.empty,
-          participants = Map.empty,
+    Runner.connect(
+      Participants(
+        default_participant = Some(
+          ApiParameters(
+            host = "localhost",
+            port = serverPort.value,
+            access_token = Some(getToken(parties, admin)),
+            application_id = Some(appId),
+          )
         ),
-        tlsConfig = TlsConfiguration(false, None, None, None),
-        maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
-      )
+        party_participants = Map.empty,
+        participants = Map.empty,
+      ),
+      tlsConfig = TlsConfiguration(false, None, None, None),
+      maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
+    )
 
   private val secret = "secret"
 

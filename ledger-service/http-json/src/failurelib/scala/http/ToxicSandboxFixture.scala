@@ -89,9 +89,7 @@ trait ToxicSandboxFixture
         jdbcUrl <- database
           .getOrElse(SandboxBackend.H2Database.owner)
           .map(info => info.jdbcUrl)
-        cfg = config.copy(
-          dataSource = dataSource(jdbcUrl)
-        )
+        cfg = config.withDataSource(dataSource(jdbcUrl))
         port <- SandboxOnXRunner.owner(ConfigAdaptor(authService), cfg, bridgeConfig)
         channel <- GrpcClientResource.owner(port)
         client = UploadPackageHelper.adminLedgerClient(port, cfg, jwtSecret)(

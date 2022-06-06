@@ -3,6 +3,9 @@
 
 package com.daml.platform.sandbox.services
 
+import java.io.File
+import java.util
+
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.testing.utils.{MockMessages => M}
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
@@ -17,9 +20,6 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.testing.TestTemplateIdentifiers
 import scalaz.syntax.tag._
-
-import java.io.File
-import java.util
 
 trait TestCommands {
 

@@ -530,7 +530,6 @@ test_suite(
             ":http-json-{}".format(edition),
             "//bazel_tools/runfiles:scala_runfiles",
             "//daml-lf/data",
-            "//daml-lf/engine",
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
             "//ledger-api/testing-utils",

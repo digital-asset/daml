@@ -153,15 +153,10 @@ trait JsonApiFixture
     implicit val context: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, (Port, Channel, ServerBinding)](
       for {
-        jdbcUrl <- database
-          .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(
-            _.map(info => Some(info.jdbcUrl))
-          )
+        jdbcUrl <- jdbcUrl
 
-        cfg = config.copy(
-          dataSource = dataSource(
-            jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl())
-          )
+        cfg = config.withDataSource(
+          dataSource(jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl()))
         )
         serverPort <- SandboxOnXRunner.owner(ConfigAdaptor(authService), cfg, bridgeConfig)
         channel <- GrpcClientResource.owner(serverPort)

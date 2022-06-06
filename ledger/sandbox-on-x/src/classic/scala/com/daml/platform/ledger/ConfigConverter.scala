@@ -18,7 +18,7 @@ import java.util.UUID
 import scala.jdk.DurationConverters._
 
 object ConfigConverter {
-  def defaultH2SandboxJdbcUrl() =
+  private def defaultH2SandboxJdbcUrl() =
     s"jdbc:h2:mem:sandbox-${UUID.randomUUID().toString};db_close_delay=-1"
 
   private[sandbox] def toSandboxOnXConfig(
