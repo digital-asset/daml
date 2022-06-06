@@ -25,7 +25,7 @@ private[backend] trait StorageBackendTestsContracts
     val dtos: Vector[DbDto] = Vector(
       // 1: transaction with create node
       dtoCreate(offset(1), 1L, contractId = contractId, signatory = signatory),
-      DbDto.CreateFilter(1L, someTemplateId.toString, signatory),
+      DbDto.CreateFilter_Stakeholder(1L, someTemplateId.toString, signatory),
       dtoCompletion(offset(1)),
     )
 
@@ -55,7 +55,7 @@ private[backend] trait StorageBackendTestsContracts
     val dtos: Vector[DbDto] = Vector(
       // 1: transaction with create node
       dtoCreate(offset(1), 1L, contractId = contractId, signatory = signatory),
-      DbDto.CreateFilter(1L, someTemplateId.toString, signatory),
+      DbDto.CreateFilter_Stakeholder(1L, someTemplateId.toString, signatory),
       dtoCompletion(offset(1)),
       // 2: transaction that archives the contract
       dtoExercise(offset(2), 2L, true, contractId),
@@ -85,7 +85,7 @@ private[backend] trait StorageBackendTestsContracts
     val dtos: Vector[DbDto] = Vector(
       // 1: divulgence
       dtoDivulgence(Some(offset(1)), 1L, contractId = contractId, divulgee = divulgee),
-      DbDto.CreateFilter(1L, someTemplateId.toString, divulgee),
+      DbDto.CreateFilter_Stakeholder(1L, someTemplateId.toString, divulgee),
       dtoCompletion(offset(1)),
     )
 
@@ -116,12 +116,12 @@ private[backend] trait StorageBackendTestsContracts
     val dtos: Vector[DbDto] = Vector(
       // 1: transaction with create node
       dtoCreate(offset(1), 1L, contractId = contractId, signatory = signatory),
-      DbDto.CreateFilter(1L, someTemplateId.toString, signatory),
+      DbDto.CreateFilter_Stakeholder(1L, someTemplateId.toString, signatory),
       dtoCompletion(offset(1)),
       // 2: divulgence without any optional information
       dtoDivulgence(Some(offset(2)), 2L, contractId = contractId, divulgee = divulgee)
         .copy(template_id = None, create_argument = None, create_argument_compression = None),
-      DbDto.CreateFilter(2L, someTemplateId.toString, divulgee),
+      DbDto.CreateFilter_Stakeholder(2L, someTemplateId.toString, divulgee),
       dtoCompletion(offset(2)),
     )
 
@@ -152,11 +152,11 @@ private[backend] trait StorageBackendTestsContracts
     val dtos: Vector[DbDto] = Vector(
       // 1: transaction with create node
       dtoCreate(offset(1), 1L, contractId = contractId, signatory = signatory),
-      DbDto.CreateFilter(1L, someTemplateId.toString, signatory),
+      DbDto.CreateFilter_Stakeholder(1L, someTemplateId.toString, signatory),
       dtoCompletion(offset(1)),
       // 2: divulgence
       dtoDivulgence(Some(offset(2)), 2L, contractId = contractId, divulgee = divulgee),
-      DbDto.CreateFilter(2L, someTemplateId.toString, divulgee),
+      DbDto.CreateFilter_Stakeholder(2L, someTemplateId.toString, divulgee),
       dtoCompletion(offset(2)),
       // 3: transaction that archives the contract
       dtoExercise(offset(3), 3L, true, contractId, signatory = signatory),

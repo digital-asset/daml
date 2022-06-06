@@ -145,8 +145,11 @@ object UpdateToDbDto {
             case (nodeId, create: Create) =>
               val eventId = EventId(u.transactionId, nodeId)
               val templateId = create.templateId.toString
-              val stakeholders = create.stakeholders.map(_.toString)
+              val stakeholders: Set[String] = create.stakeholders.map(_.toString)
               val (createArgument, createKeyValue) = translation.serialize(eventId, create)
+              val informees: Set[String] =
+                blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString)
+              val nonStakeholderInformees: Set[String] = informees.diff(stakeholders)
               Iterator(
                 DbDto.EventCreate(
                   event_offset = Some(offset.toHexString),
@@ -161,8 +164,7 @@ object UpdateToDbDto {
                   contract_id = create.coid.coid,
                   template_id = Some(templateId),
                   flat_event_witnesses = stakeholders,
-                  tree_event_witnesses =
-                    blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
+                  tree_event_witnesses = informees,
                   create_argument = Some(createArgument)
                     .map(compressionStrategy.createArgumentCompression.compress),
                   create_signatories = Some(create.signatories.map(_.toString)),
@@ -181,9 +183,14 @@ object UpdateToDbDto {
                   event_sequential_id = 0, // this is filled later
                 )
               ) ++ stakeholders.iterator.map(
-                DbDto.CreateFilter(
+                DbDto.CreateFilter_Stakeholder(
                   event_sequential_id = 0, // this is filled later
                   template_id = templateId,
+                  _,
+                )
+              ) ++ nonStakeholderInformees.iterator.map(
+                DbDto.CreateFilter_NonStakeholderInformee(
+                  event_sequential_id = 0, // this is filled later
                   _,
                 )
               )
@@ -196,6 +203,7 @@ object UpdateToDbDto {
               val informees: Set[String] =
                 blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString)
               val flatWitnesses = if (exercise.consuming) stakeholders else Set.empty[String]
+              val nonStakeholderInformees: Set[String] = informees.diff(stakeholders)
               val templateId = exercise.templateId.toString
               Iterator(
                 DbDto.EventExercise(
@@ -234,13 +242,29 @@ object UpdateToDbDto {
                   exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
                   event_sequential_id = 0, // this is filled later
                 )
-              ) ++ stakeholders.iterator.map(stakeholder =>
-                DbDto.ConsumingStakeholderFilter(
-                  event_sequential_id = 0, // this is filled later
-                  template_id = templateId,
-                  party_id = stakeholder,
-                )
-              )
+              ) ++ {
+                if (exercise.consuming) {
+                  stakeholders.iterator.map(stakeholder =>
+                    DbDto.ConsumingFilter_Stakeholder(
+                      event_sequential_id = 0, // this is filled later
+                      template_id = templateId,
+                      party_id = stakeholder,
+                    )
+                  ) ++ nonStakeholderInformees.iterator.map(stakeholder =>
+                    DbDto.ConsumingFilter_NonStakeholderInformee(
+                      event_sequential_id = 0, // this is filled later
+                      party_id = stakeholder,
+                    )
+                  )
+                } else {
+                  informees.iterator.map(stakeholder =>
+                    DbDto.NonConsumingFilter_Informee(
+                      event_sequential_id = 0, // this is filled later
+                      party_id = stakeholder,
+                    )
+                  )
+                }
+              }
             case _ =>
               Iterator.empty // It is okay to collect: blinding info is already there, we are free at hand to filter out the fetch and lookup nodes here already
           }

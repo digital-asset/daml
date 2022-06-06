@@ -266,8 +266,8 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
           someEventDivulgence,
           someParty,
           someEventCreated,
-          DbDto.CreateFilter(0L, "", ""),
-          DbDto.CreateFilter(0L, "", ""),
+          DbDto.CreateFilter_Stakeholder(0L, "", ""),
+          DbDto.CreateFilter_Stakeholder(0L, "", ""),
           someParty,
           someEventExercise,
           someParty,
@@ -280,8 +280,8 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
     result.lastStringInterningId shouldBe 1
     result.batch(1).asInstanceOf[DbDto.EventDivulgence].event_sequential_id shouldBe 16
     result.batch(3).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 17
-    result.batch(4).asInstanceOf[DbDto.CreateFilter].event_sequential_id shouldBe 17
-    result.batch(5).asInstanceOf[DbDto.CreateFilter].event_sequential_id shouldBe 17
+    result.batch(4).asInstanceOf[DbDto.CreateFilter_Stakeholder].event_sequential_id shouldBe 17
+    result.batch(5).asInstanceOf[DbDto.CreateFilter_Stakeholder].event_sequential_id shouldBe 17
     result.batch(7).asInstanceOf[DbDto.EventExercise].event_sequential_id shouldBe 18
     result.batch(9).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 0
     result.batch(9).asInstanceOf[DbDto.StringInterningDto].externalString shouldBe "0"

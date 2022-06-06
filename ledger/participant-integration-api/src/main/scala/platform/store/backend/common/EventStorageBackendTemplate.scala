@@ -4,12 +4,14 @@
 package com.daml.platform.store.backend.common
 
 import java.sql.Connection
+
 import anorm.SqlParser.{array, bool, byteArray, get, int, long, str}
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.Party
 import com.daml.platform.store.ChoiceCoder
 import com.daml.platform.store.backend.Conversions.{
   contractId,
@@ -20,7 +22,7 @@ import com.daml.platform.store.backend.Conversions.{
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.dao.events.Raw
 import com.daml.platform.store.backend.EventStorageBackend
-import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
+import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.EventStorageBackend.RawTransactionEvent
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.cache.LedgerEndCache
@@ -458,45 +460,109 @@ abstract class EventStorageBackendTemplate(
     }
   }
 
+  /** @param allFilterParties - needed only for result raw row parsing
+    */
+  override def fetchTreeConsumingEvents(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Party],
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] = {
+    fetchTreeEvents(
+      tableName = "participant_events_consuming_exercise",
+      selectColumns = selectColumnsForTransactionTreeExercise,
+      eventSequentialIds = eventSequentialIds,
+      allFilterParties = allFilterParties,
+    )(connection)
+  }
+
+  override def fetchTreeCreateEvents(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Party],
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] =
+    fetchTreeEvents(
+      tableName = "participant_events_create",
+      selectColumns = selectColumnsForTransactionTreeCreate,
+      eventSequentialIds = eventSequentialIds,
+      allFilterParties = allFilterParties,
+    )(connection)
+
+  override def fetchTreeNonConsumingEvents(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Party],
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] =
+    fetchTreeEvents(
+      tableName = "participant_events_nonconsuming_exercise",
+      selectColumns = selectColumnsForTransactionTreeExercise,
+      eventSequentialIds = eventSequentialIds,
+      allFilterParties = allFilterParties,
+    )(connection)
+
   override def fetchFlatConsumingEvents(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Set[Ref.Party],
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
-    val internedAllParties: Set[Int] = allFilterParties.iterator
-      .map(stringInterning.party.tryInternalize)
-      .flatMap(_.iterator)
-      .toSet
-    SQL"""
-        SELECT
-          #$selectColumnsForFlatTransactionsExercise, 
-          flat_event_witnesses as event_witnesses, 
-          command_id
-        FROM
-          participant_events_consuming_exercise
-        WHERE
-          event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
-        ORDER BY
-          event_sequential_id
-      """
-      .withFetchSize(Some(eventSequentialIds.size))
-      .asVectorOf(rawFlatEventParser(internedAllParties))(connection)
+    fetchFlatEvents(
+      tableName = "participant_events_consuming_exercise",
+      selectColumns = selectColumnsForFlatTransactionsCreate,
+      eventSequentialIds = eventSequentialIds,
+      allFilterParties = allFilterParties,
+    )(connection)
   }
 
   override def fetchFlatCreateEvents(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Set[Ref.Party],
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
+    fetchFlatEvents(
+      tableName = "participant_events_create",
+      selectColumns = selectColumnsForFlatTransactionsCreate,
+      eventSequentialIds = eventSequentialIds,
+      allFilterParties = allFilterParties,
+    )(connection)
+  }
+
+  private def fetchTreeEvents(
+      tableName: String,
+      selectColumns: String,
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Ref.Party],
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] = {
     val internedAllParties: Set[Int] = allFilterParties.iterator
       .map(stringInterning.party.tryInternalize)
       .flatMap(_.iterator)
       .toSet
     SQL"""
         SELECT
-          #$selectColumnsForFlatTransactionsCreate,
+          #$selectColumns,
+          tree_event_witnesses as event_witnesses,
+          command_id
+        FROM
+          #$tableName
+        WHERE
+          event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
+        ORDER BY
+          event_sequential_id
+      """
+      .withFetchSize(Some(eventSequentialIds.size))
+      .asVectorOf(rawTreeEventParser(internedAllParties))(connection)
+  }
+
+  private def fetchFlatEvents(
+      tableName: String,
+      selectColumns: String,
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Ref.Party],
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
+    val internedAllParties: Set[Int] = allFilterParties.iterator
+      .map(stringInterning.party.tryInternalize)
+      .flatMap(_.iterator)
+      .toSet
+    SQL"""
+        SELECT
+          #$selectColumns,
           flat_event_witnesses as event_witnesses,
           command_id
         FROM
-          participant_events_create
+          #$tableName
         WHERE
           event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
         ORDER BY
@@ -506,59 +572,102 @@ abstract class EventStorageBackendTemplate(
       .asVectorOf(rawFlatEventParser(internedAllParties))(connection)
   }
 
-  override def consumingEventIds_stakeholders(
-      partyFilter: Ref.Party,
-      templateIdFilter: Option[Ref.Identifier],
+  override def fetchIds_nonConsuming_informees(
+      partyFilter: Party,
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,
   )(connection: Connection): Vector[Long] = {
-    (
-      stringInterning.party.tryInternalize(partyFilter),
-      templateIdFilter.map(stringInterning.templateId.tryInternalize),
-    ) match {
-      case (None, _) => Vector.empty // partyFilter never seen
-      case (_, Some(None)) => Vector.empty // templateIdFilter never seen
-      case (Some(internedPartyFilter), internedTemplateIdFilterNested) =>
-        val (templateIdFilterClause, templateIdOrderingClause) =
-          internedTemplateIdFilterNested.flatten // flatten works for both None, Some(Some(x)) case, Some(None) excluded before
-          match {
-            case Some(internedTemplateId) =>
-              (
-                cSQL"AND filters.template_id = $internedTemplateId",
-                cSQL"filters.template_id,",
-              )
-            case None => (cSQL"", cSQL"")
-          }
-        SQL"""
-         SELECT filters.event_sequential_id
-         FROM
-           pe_consuming_exercise_filter_stakeholders filters
-         WHERE
-           filters.party_id = $internedPartyFilter
-           $templateIdFilterClause
-           AND $startExclusive < event_sequential_id
-           AND event_sequential_id <= $endInclusive
-         ORDER BY
-           filters.party_id,
-           $templateIdOrderingClause
-           filters.event_sequential_id -- deliver in index order
-         ${QueryStrategy.limitClause(Some(limit))}
-       """
-          .asVectorOf(long("event_sequential_id"))(connection)
-    }
+    fetchEventIds(
+      tableName = "pe_non_consuming_exercise_filter_informees",
+      partyFilter = partyFilter,
+      templateIdFilterO = None,
+      startExclusive = startExclusive,
+      endInclusive = endInclusive,
+      limit = limit,
+    )(connection)
   }
 
-  override def activeContractEventIds(
+  override def fetchIds_consuming_nonStakeholderInformees(
+      partyFilter: Party,
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long] = {
+    fetchEventIds(
+      tableName = "pe_consuming_exercise_filter_nonstakeholder_informees",
+      partyFilter = partyFilter,
+      templateIdFilterO = None,
+      startExclusive = startExclusive,
+      endInclusive = endInclusive,
+      limit = limit,
+    )(connection)
+  }
+
+  override def fetchIds_consuming_stakeholders(
       partyFilter: Ref.Party,
       templateIdFilter: Option[Ref.Identifier],
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,
   )(connection: Connection): Vector[Long] = {
+    fetchEventIds(
+      tableName = "pe_consuming_exercise_filter_stakeholders",
+      partyFilter = partyFilter,
+      templateIdFilterO = templateIdFilter,
+      startExclusive = startExclusive,
+      endInclusive = endInclusive,
+      limit = limit,
+    )(connection)
+  }
+
+  override def fetchIds_create_nonStakeholderInformees(
+      partyFilter: Party,
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long] = {
+    fetchEventIds(
+      tableName = "pe_create_filter_nonstakeholder_informees",
+      partyFilter = partyFilter,
+      templateIdFilterO = None,
+      startExclusive = startExclusive,
+      endInclusive = endInclusive,
+      limit = limit,
+    )(connection)
+  }
+
+  override def fetchIds_create_stakeholders(
+      partyFilter: Ref.Party,
+      templateIdFilter: Option[Ref.Identifier],
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long] = {
+    fetchEventIds(
+      tableName = "participant_events_create_filter",
+      partyFilter = partyFilter,
+      templateIdFilterO = templateIdFilter,
+      startExclusive = startExclusive,
+      endInclusive = endInclusive,
+      limit = limit,
+    )(connection)
+  }
+
+  /** @param tableName one of filter tables for create, consuming or non-consuming events
+    * @param templateIdFilterO NOTE: this parameter is not applicable for tree tx stream only oriented filters
+    */
+  private def fetchEventIds(
+      tableName: String,
+      partyFilter: Ref.Party,
+      templateIdFilterO: Option[Ref.Identifier],
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long] = {
     (
       stringInterning.party.tryInternalize(partyFilter),
-      templateIdFilter.map(stringInterning.templateId.tryInternalize),
+      templateIdFilterO.map(stringInterning.templateId.tryInternalize),
     ) match {
       case (None, _) => Vector.empty // partyFilter never seen
       case (_, Some(None)) => Vector.empty // templateIdFilter never seen
@@ -576,7 +685,7 @@ abstract class EventStorageBackendTemplate(
         SQL"""
          SELECT filters.event_sequential_id
          FROM
-           participant_events_create_filter filters
+           #$tableName filters
          WHERE
            filters.party_id = $internedPartyFilter
            $templateIdFilterClause
@@ -651,33 +760,6 @@ abstract class EventStorageBackendTemplate(
     )(connection)
   }
 
-  override def transactionTreeEvents(
-      rangeParams: RangeParams,
-      filterParams: FilterParams,
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] = {
-    events(
-      joinClause = cSQL"",
-      additionalAndClause = cSQL"""
-            event_sequential_id > ${rangeParams.startExclusive} AND
-            event_sequential_id <= ${rangeParams.endInclusive} AND""",
-      rowParser = rawTreeEventParser,
-      witnessesColumn = "tree_event_witnesses",
-      partitions = List(
-        // we do not want to fetch divulgence events
-        "participant_events_create" -> s"$selectColumnsForTransactionTreeCreate, ${queryStrategy
-            .constBooleanSelect(false)} as exercise_consuming",
-        "participant_events_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-            .constBooleanSelect(true)} as exercise_consuming",
-        "participant_events_non_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-            .constBooleanSelect(false)} as exercise_consuming",
-      ),
-    )(
-      limit = rangeParams.limit,
-      fetchSizeHint = rangeParams.fetchSizeHint,
-      filterParams,
-    )(connection)
-  }
-
   override def transactionTree(
       transactionId: Ref.TransactionId,
       filterParams: FilterParams,
@@ -743,8 +825,28 @@ abstract class EventStorageBackendTemplate(
       }(connection, loggingContext)
     }
 
-    pruneWithLogging(queryDescription = "Create events filter table pruning") {
-      eventStrategy.pruneCreateFilters(pruneUpToInclusive)
+    pruneWithLogging(queryDescription = "Create events stakeholders filter table pruning") {
+      eventStrategy.pruneCreateFilters_stakeholders(pruneUpToInclusive)
+    }(connection, loggingContext)
+
+    pruneWithLogging(queryDescription =
+      "Create events non stakeholder informees filter table pruning"
+    ) {
+      eventStrategy.pruneCreateFilters_nonStakeholderInformees(pruneUpToInclusive)
+    }(connection, loggingContext)
+
+    pruneWithLogging(queryDescription = "Consuming events stakeholders filter table pruning") {
+      eventStrategy.pruneConsumingFilters_stakeholders(pruneUpToInclusive)
+    }(connection, loggingContext)
+
+    pruneWithLogging(queryDescription =
+      "Consuming events non stakeholder informees filter table pruning"
+    ) {
+      eventStrategy.pruneConsumingFilters_nonStakeholderInformees(pruneUpToInclusive)
+    }(connection, loggingContext)
+
+    pruneWithLogging(queryDescription = "Non-consuming events informees filter table pruning") {
+      eventStrategy.pruneNonConsumingFilters_informees(pruneUpToInclusive)
     }(connection, loggingContext)
 
     pruneWithLogging(queryDescription = "Create events pruning") {
@@ -1017,6 +1119,7 @@ abstract class EventStorageBackendTemplate(
     ) participant_events"""
       .as(get[Long](1).?.single)(connection)
   }
+
 }
 
 /** This encapsulates the moving part as composing various Events queries.
@@ -1054,5 +1157,11 @@ trait EventStrategy {
     * @param pruneUpToInclusive create and archive events must be earlier or equal to this offset
     * @return the executable anorm query
     */
-  def pruneCreateFilters(pruneUpToInclusive: Offset): SimpleSql[Row]
+  def pruneCreateFilters_stakeholders(pruneUpToInclusive: Offset): SimpleSql[Row]
+  def pruneCreateFilters_nonStakeholderInformees(pruneUpToInclusive: Offset): SimpleSql[Row]
+
+  def pruneConsumingFilters_stakeholders(pruneUpToInclusive: Offset): SimpleSql[Row]
+  def pruneConsumingFilters_nonStakeholderInformees(pruneUpToInclusive: Offset): SimpleSql[Row]
+
+  def pruneNonConsumingFilters_informees(pruneUpToInclusive: Offset): SimpleSql[Row]
 }

@@ -4,7 +4,7 @@
 package com.daml.platform.store.backend
 
 import com.daml.lf.data.Ref
-import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
+import com.daml.platform.store.backend.EventStorageBackend.{FilterParams}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -85,8 +85,8 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       contractId = hashCid("#1"),
       signatory = someParty,
     )
-    val createFilter1 = DbDto.CreateFilter(1L, someTemplateId.toString, "signatory")
-    val createFilter2 = DbDto.CreateFilter(1L, someTemplateId.toString, "observer")
+    val createFilter1 = DbDto.CreateFilter_Stakeholder(1L, someTemplateId.toString, someParty)
+    val createFilter2 = DbDto.CreateFilter_Stakeholder(1L, someTemplateId.toString, "observer")
     val createTransactionId = dtoTransactionId(create)
     val archive = dtoExercise(
       offset = offset(2),
@@ -95,28 +95,63 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       contractId = hashCid("#1"),
       signatory = someParty,
     )
-    val range = RangeParams(0L, 2L, None, None)
+//    val range = RangeParams(0L, 2L, None, None)
     val filter = FilterParams(Set(someParty), Set.empty)
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
     // Ingest a create and archive event
-    executeSql(ingest(Vector(create, createFilter1, createFilter2, archive), _))
+    executeSql(
+      ingest(
+        Vector(
+          create,
+          createFilter1,
+          createFilter2,
+          archive,
+        ),
+        _,
+      )
+    )
     executeSql(updateLedgerEnd(offset(2), 2L))
 
     // Make sure the events are visible
-//    val before1 = executeSql(backend.event.transactionEvents(range, filter))
+    val before1_ids = executeSql(
+      backend.event.fetchIds_create_stakeholders(
+        partyFilter = someParty,
+        templateIdFilter = Some(someTemplateId),
+        startExclusive = 0,
+        endInclusive = 2L,
+        limit = 10,
+      )
+    )
+    val before1 = executeSql(
+      backend.event
+        .fetchFlatCreateEvents(eventSequentialIds = before1_ids, allFilterParties = Set(someParty))
+    )
     val before3 = executeSql(backend.event.flatTransaction(createTransactionId, filter))
-    val before4 = executeSql(backend.event.transactionTreeEvents(range, filter))
+    val before4_ids = executeSql(
+      backend.event.fetchIds_create_nonStakeholderInformees(
+        partyFilter = someParty,
+        startExclusive = 0,
+        endInclusive = 2L,
+        limit = 10,
+      )
+    )
+    val before4 = executeSql(
+      backend.event.fetchTreeCreateEvents(
+        eventSequentialIds = before1_ids ++ before4_ids,
+        allFilterParties = Set(someParty),
+      )
+    )
     val before5 = executeSql(backend.event.transactionTree(createTransactionId, filter))
     val before6 = executeSql(backend.event.rawEvents(0, 2L))
     val before7 = executeSql(
       backend.event
-        .activeContractEventIds(Ref.Party.assertFromString("signatory"), None, 0L, 2L, 1000)
+        .fetchIds_create_stakeholders(Ref.Party.assertFromString(someParty), None, 0L, 2L, 1000)
     )
     val before8 = executeSql(
       backend.event
-        .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString("signatory")), 2L)
+        .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString(someParty)), 2L)
     )
 
     // Prune
@@ -129,21 +164,47 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
 
     // Make sure the events are not visible anymore
-//    val after1 = executeSql(backend.event.transactionEvents(range, filter))
+    val after1_ids = executeSql(
+      backend.event.fetchIds_create_stakeholders(
+        partyFilter = someParty,
+        templateIdFilter = None,
+        startExclusive = 0,
+        endInclusive = 2L,
+        limit = 10,
+      )
+    )
+    val after1 = executeSql(
+      backend.event
+        .fetchFlatCreateEvents(eventSequentialIds = before1_ids, allFilterParties = Set(someParty))
+    )
     val after3 = executeSql(backend.event.flatTransaction(createTransactionId, filter))
-    val after4 = executeSql(backend.event.transactionTreeEvents(range, filter))
+    val after4_ids = executeSql(
+      backend.event.fetchIds_create_nonStakeholderInformees(
+        partyFilter = someParty,
+        startExclusive = 0,
+        endInclusive = 2L,
+        limit = 10,
+      )
+    )
+    val after4 = executeSql(
+      backend.event.fetchTreeCreateEvents(
+        eventSequentialIds = before1_ids ++ before4_ids,
+        allFilterParties = Set(someParty),
+      )
+    )
     val after5 = executeSql(backend.event.transactionTree(createTransactionId, filter))
     val after6 = executeSql(backend.event.rawEvents(0, 2L))
     val after7 = executeSql(
       backend.event
-        .activeContractEventIds(Ref.Party.assertFromString("signatory"), None, 0L, 2L, 1000)
+        .fetchIds_create_stakeholders(Ref.Party.assertFromString("signatory"), None, 0L, 2L, 1000)
     )
     val after8 = executeSql(
       backend.event
         .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString("signatory")), 2L)
     )
 
-//    before1 should not be empty
+    before1_ids should not be empty
+    before1 should not be empty
     before3 should not be empty
     before4 should not be empty
     before5 should not be empty
@@ -151,8 +212,10 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     before7 should have size 1
     before8 shouldBe empty
 
-//    after1 shouldBe empty
+    after1_ids shouldBe empty
+    after1 shouldBe empty
     after3 shouldBe empty
+    after4_ids shouldBe empty
     after4 shouldBe empty
     after5 shouldBe empty
     after6 shouldBe empty
@@ -170,10 +233,10 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       contractId = hashCid("#1"),
       signatory = someParty,
     )
-    val createFilter1 = DbDto.CreateFilter(1L, someTemplateId.toString, "signatory")
-    val createFilter2 = DbDto.CreateFilter(1L, someTemplateId.toString, "observer")
+    val createFilter1 = DbDto.CreateFilter_Stakeholder(1L, someTemplateId.toString, "signatory")
+    val createFilter2 = DbDto.CreateFilter_Stakeholder(1L, someTemplateId.toString, "observer")
     val createTransactionId = dtoTransactionId(create)
-    val range = RangeParams(0L, 1L, None, None)
+//    val range = RangeParams(0L, 1L, None, None)
     val filter = FilterParams(Set(someParty), Set.empty)
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
@@ -185,12 +248,12 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     // Make sure the events are visible
 //    val before1 = executeSql(backend.event.transactionEvents(range, filter))
     val before3 = executeSql(backend.event.flatTransaction(createTransactionId, filter))
-    val before4 = executeSql(backend.event.transactionTreeEvents(range, filter))
+//    val before4 = executeSql(backend.event.transactionTreeEvents(range, filter))
     val before5 = executeSql(backend.event.transactionTree(createTransactionId, filter))
     val before6 = executeSql(backend.event.rawEvents(0, 1L))
     val before7 = executeSql(
       backend.event
-        .activeContractEventIds(Ref.Party.assertFromString("signatory"), None, 0L, 1L, 1000)
+        .fetchIds_create_stakeholders(Ref.Party.assertFromString("signatory"), None, 0L, 1L, 1000)
     )
     val before8 = executeSql(
       backend.event
@@ -209,12 +272,12 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     // Make sure the events are still visible - active contracts should not be pruned
 //    val after1 = executeSql(backend.event.transactionEvents(range, filter))
     val after3 = executeSql(backend.event.flatTransaction(createTransactionId, filter))
-    val after4 = executeSql(backend.event.transactionTreeEvents(range, filter))
+//    val after4 = executeSql(backend.event.transactionTreeEvents(range, filter))
     val after5 = executeSql(backend.event.transactionTree(createTransactionId, filter))
     val after6 = executeSql(backend.event.rawEvents(0, 1L))
     val after7 = executeSql(
       backend.event
-        .activeContractEventIds(Ref.Party.assertFromString("signatory"), None, 0L, 1L, 1000)
+        .fetchIds_create_stakeholders(Ref.Party.assertFromString("signatory"), None, 0L, 1L, 1000)
     )
     val after8 = executeSql(
       backend.event
@@ -223,7 +286,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
 
 //    before1 should not be empty
     before3 should not be empty
-    before4 should not be empty
+//    before4 should not be empty
     before5 should not be empty
     before6 should not be empty
     before7 should have size 1
@@ -235,7 +298,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     // check the pruning offset when starting the stream - that's why those queries still return data here.
 //    after1 should not be empty // transaction stream query
     after3 shouldBe empty // pointwise transaction lookup
-    after4 should not be empty // transaction stream query
+//    after4 should not be empty // transaction stream query
     after5 shouldBe empty // pointwise transaction lookup
     after6 should not be empty
     after7 should have size 1

@@ -33,7 +33,7 @@ object H2EventStrategy extends EventStrategy {
     cSQL"( ($clause) AND (template_id = ANY($templateIdsArray)) )"
   }
 
-  override def pruneCreateFilters(pruneUpToInclusive: Offset): SimpleSql[Row] = {
+  override def pruneCreateFilters_stakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
     SQL"""
           -- Create events filter table (only for contracts archived before the specified offset)
@@ -51,4 +51,16 @@ object H2EventStrategy extends EventStrategy {
               delete_events.event_sequential_id = participant_events_create_filter.event_sequential_id
           )"""
   }
+
+  override def pruneCreateFilters_nonStakeholderInformees(
+      pruneUpToInclusive: Offset
+  ): SimpleSql[Row] = ???
+
+  override def pruneConsumingFilters_stakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] = ???
+
+  override def pruneConsumingFilters_nonStakeholderInformees(
+      pruneUpToInclusive: Offset
+  ): SimpleSql[Row] = ???
+
+  override def pruneNonConsumingFilters_informees(pruneUpToInclusive: Offset): SimpleSql[Row] = ???
 }

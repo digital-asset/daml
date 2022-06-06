@@ -490,8 +490,17 @@ final class Metrics(val registry: MetricRegistry) {
         val getConsumingIds_stakeholdersFilter: DatabaseMetrics = createDbMetrics(
           "get_consuming_ids_from_stakeholders_filter"
         )
+        val getConsumingIds_nonStakeholderInformeesFilter: DatabaseMetrics = createDbMetrics(
+          "get_consuming_ids_from_nonstakeholder_informees_filter"
+        )
         val getCreateEventIds_stakeholdersFilter: DatabaseMetrics = createDbMetrics(
           "get_create_ids_from_stakeholders_filter"
+        )
+        val getCreateEventIds_nonStakeholderInformeesFilter: DatabaseMetrics = createDbMetrics(
+          "get_create_ids_from_nonstakeholder_informees_filter"
+        )
+        val getNonConsumingEventIds_informeesFilter: DatabaseMetrics = createDbMetrics(
+          "get_nonconsuming_ids_from_informees_filter"
         )
 
         val getFlatTransactions: DatabaseMetrics = createDbMetrics("get_flat_transactions")

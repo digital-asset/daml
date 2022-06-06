@@ -337,8 +337,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_start = None,
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.CreateFilter(0L, createNode.templateId.toString, "signatory"),
-        DbDto.CreateFilter(0L, createNode.templateId.toString, "observer"),
+        DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "signatory"),
+        DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "observer"),
       )
       dtos.size shouldEqual 4
     }
@@ -413,8 +413,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_start = None,
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.CreateFilter(0L, createNode.templateId.toString, "signatory"),
-        DbDto.CreateFilter(0L, createNode.templateId.toString, "observer"),
+        DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "signatory"),
+        DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "observer"),
       )
       dtos.size shouldEqual 4
     }
@@ -993,8 +993,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id = 0,
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.CreateFilter(0L, createNode.templateId.toString, "signatory"),
-        DbDto.CreateFilter(0L, createNode.templateId.toString, "observer"),
+        DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "signatory"),
+        DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "observer"),
       )
       dtos(3) shouldEqual DbDto.EventExercise(
         consuming = true,
@@ -1294,8 +1294,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id = 0,
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.CreateFilter(0L, createNode.templateId.toString, "signatory"),
-        DbDto.CreateFilter(0L, createNode.templateId.toString, "observer"),
+        DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "signatory"),
+        DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "observer"),
       )
       dtos.size shouldEqual 3
     }
@@ -1422,8 +1422,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             event_sequential_id = 0,
           )
           Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-            DbDto.CreateFilter(0L, createNode.templateId.toString, "signatory"),
-            DbDto.CreateFilter(0L, createNode.templateId.toString, "observer"),
+            DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "signatory"),
+            DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "observer"),
           )
           dtos(3) shouldEqual DbDto.CommandCompletion(
             completion_offset = someOffset.toHexString,
