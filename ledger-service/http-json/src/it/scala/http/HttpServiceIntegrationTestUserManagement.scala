@@ -169,17 +169,20 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
         initialRights = List.empty,
       )
-      (status, output) <- fixture.getRequest(
-        Uri.Path("/v1/user"),
-        headers = headersWithUserAuth(user.id),
-      )
+      (status, output) <- fixture
+        .getRequest(
+          Uri.Path("/v1/user"),
+          headers = headersWithUserAuth(user.id),
+        )
+        .parseResponse[UserDetails]
       assertion <- {
         status shouldBe StatusCodes.OK
-        assertStatus(output, StatusCodes.OK)
-        getResult(output).convertTo[UserDetails] shouldEqual UserDetails(
-          user.id,
-          user.primaryParty: Option[String],
-        )
+        inside(output) { case domain.OkResponse(result, _, StatusCodes.OK) =>
+          result shouldEqual UserDetails(
+            user.id,
+            user.primaryParty: Option[String],
+          )
+        }
       }
     } yield assertion
   }
@@ -227,18 +230,21 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             CanActAs(Ref.Party.assertFromString(bob.unwrap)),
           ),
         )
-        (status, output) <- fixture.getRequest(
-          Uri.Path("/v1/user/rights"),
-          headers = headersWithUserAuth(user.id),
-        )
+        (status, output) <- fixture
+          .getRequest(
+            Uri.Path("/v1/user/rights"),
+            headers = headersWithUserAuth(user.id),
+          )
+          .parseResponse[List[domain.UserRight]]
         assertion <- {
           status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          getResult(output).convertTo[List[domain.UserRight]] should contain theSameElementsAs
-            List[domain.UserRight](
-              domain.CanActAs(alice),
-              domain.CanActAs(bob),
-            )
+          inside(output) { case domain.OkResponse(result, _, StatusCodes.OK) =>
+            result should contain theSameElementsAs
+              List[domain.UserRight](
+                domain.CanActAs(alice),
+                domain.CanActAs(bob),
+              )
+          }
         }
       } yield assertion
   }
@@ -328,13 +334,15 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           _ = status shouldBe StatusCodes.OK
         } yield ()
       )
-      (status, output) <- fixture.getRequest(
-        Uri.Path("/v1/users"),
-        headers = headersWithAdminAuth,
-      )
-      _ = status shouldBe StatusCodes.OK
-      users = getResult(output).convertTo[List[UserDetails]]
-    } yield users.map(_.userId) should contain allElementsOf usernames
+      (status, result) <- fixture
+        .getRequest(
+          Uri.Path("/v1/users"),
+          headers = headersWithAdminAuth,
+        )
+        .parseResponse[List[UserDetails]]
+    } yield inside((status, result)) { case (StatusCodes.OK, domain.OkResponse(users, _, _)) =>
+      users.map(_.userId) should contain allElementsOf usernames
+    }
   }
 
   "getting information about a specific user should be possible via the user endpoint" in withHttpServiceAndClient {
@@ -400,13 +408,14 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           status1 shouldBe StatusCodes.OK
           getResult(output1) shouldBe JsObject()
         }
-        (status2, output2) <- fixture.getRequest(
-          Uri.Path(s"/v1/user"),
-          headers = headersWithUserAuth(createUserRequest.userId),
-        )
-      } yield {
-        status2 shouldBe StatusCodes.OK
-        getResult(output2).convertTo[UserDetails] shouldBe UserDetails(
+        response2 <- fixture
+          .getRequest(
+            Uri.Path(s"/v1/user"),
+            headers = headersWithUserAuth(createUserRequest.userId),
+          )
+          .parseResponse[UserDetails]
+      } yield inside(response2) { case (StatusCodes.OK, domain.OkResponse(userDetails, _, _)) =>
+        userDetails shouldBe UserDetails(
           createUserRequest.userId,
           createUserRequest.primaryParty,
         )
@@ -445,13 +454,14 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           headers = headersWithAdminAuth,
         )
         _ = status2 shouldBe StatusCodes.OK
-        (status3, output3) <- fixture.getRequest(
-          Uri.Path("/v1/users"),
-          headers = headersWithAdminAuth,
-        )
-      } yield {
-        status3 shouldBe StatusCodes.OK
-        getResult(output3).convertTo[List[UserDetails]] should not contain createUserRequest.userId
+        response3 <- fixture
+          .getRequest(
+            Uri.Path("/v1/users"),
+            headers = headersWithAdminAuth,
+          )
+          .parseResponse[List[UserDetails]]
+      } yield inside(response3) { case (StatusCodes.OK, domain.OkResponse(users, _, _)) =>
+        users should not contain createUserRequest.userId
       }
   }
 
@@ -615,13 +625,14 @@ class HttpServiceIntegrationTestUserManagementNoAuth
 
     for {
       _ <- createUsers(createUserRequests)
-      (status, output) <- fixture.getRequest(
-        Uri.Path("/v1/users"),
-        headers = headersWithAdminAuth,
-      )
-    } yield {
-      status shouldBe StatusCodes.OK
-      val userIds = getResult(output).convertTo[List[UserDetails]].map(_.userId)
+      response <- fixture
+        .getRequest(
+          Uri.Path("/v1/users"),
+          headers = headersWithAdminAuth,
+        )
+        .parseResponse[List[UserDetails]]
+    } yield inside(response) { case (StatusCodes.OK, domain.OkResponse(users, _, _)) =>
+      val userIds = users.map(_.userId)
       val expectedUserIds = "participant_admin" :: createUserRequests.map(_.userId)
       userIds should contain allElementsOf expectedUserIds
     }

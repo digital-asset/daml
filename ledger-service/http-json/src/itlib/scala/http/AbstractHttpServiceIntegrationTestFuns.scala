@@ -262,17 +262,28 @@ trait AbstractHttpServiceIntegrationTestFuns
     ): Future[(StatusCode, domain.SyncResponse[Result])] =
       headersWithAuth
         .flatMap(postJsonRequest(path, json, _))
-        .map(_ map (decode1[domain.SyncResponse, Result](_).fold(e => fail(e.shows), identity)))
+        .parseResponse[Result]
 
-    def getRequest(path: Uri.Path, headers: List[HttpHeader]): Future[(StatusCode, JsValue)] =
-      HttpServiceTestFixture.getRequest(uri withPath path, headers)
+    def getRequest(
+        path: Uri.Path,
+        headers: List[HttpHeader],
+    ): Future[(StatusCode, JsValue)] =
+      HttpServiceTestFixture
+        .getRequest(uri withPath path, headers)
 
     def getRequestWithMinimumAuth[Result: JsonReader](
         path: Uri.Path
     ): Future[(StatusCode, domain.SyncResponse[Result])] =
       headersWithAuth
         .flatMap(getRequest(path, _))
-        .map(_ map (decode1[domain.SyncResponse, Result](_).fold(e => fail(e.shows), identity)))
+        .parseResponse[Result]
+  }
+
+  implicit protected final class `Future JsValue functions`[A](
+      private val self: Future[(A, JsValue)]
+  ) {
+    def parseResponse[Result: JsonReader]: Future[(A, domain.SyncResponse[Result])] =
+      self.map(_ map (decode1[domain.SyncResponse, Result](_).fold(e => fail(e.shows), identity)))
   }
 
   protected def postCreateCommand(

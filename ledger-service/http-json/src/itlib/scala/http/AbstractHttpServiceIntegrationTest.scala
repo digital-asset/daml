@@ -18,7 +18,6 @@ import com.daml.http.endpoints.MeteringReportEndpoint.{
 import com.daml.http.json.SprayJson.{decode, decode1, objectField}
 import com.daml.http.json._
 import com.daml.http.util.ClientUtil.{boxedRecord, uniqueId}
-import com.daml.http.util.FutureUtil
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.{value => v}
@@ -83,19 +82,13 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
             Uri.Path("/v1/parties"),
             headersWithPartyAuthLegacyFormat(List()),
           )
-          .flatMap { case (status, output) =>
-            status shouldBe StatusCodes.OK
-            inside(
-              decode1[domain.OkResponse, List[domain.PartyDetails]](output)
-            ) { case \/-(response) =>
-              response.status shouldBe StatusCodes.OK
-              response.warnings shouldBe empty
-              val actualIds: Set[domain.Party] = response.result.view.map(_.identifier).toSet
-              actualIds should contain allElementsOf domain.Party.subst(partyIds.toSet)
-              response.result.toSet should contain allElementsOf
-                allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
-            }
-          }
+          .parseResponse[List[domain.PartyDetails]]
+          .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, None, StatusCodes.OK)) =>
+            val actualIds: Set[domain.Party] = result.view.map(_.identifier).toSet
+            actualIds should contain allElementsOf domain.Party.subst(partyIds.toSet)
+            result.toSet should contain allElementsOf
+              allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
+          })
       }: Future[Assertion]
   }
 
@@ -205,15 +198,10 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
         fixture
           .getRequest(Uri.Path("/v1/query"), headers)
-          .flatMap { case (status, output) =>
-            status shouldBe StatusCodes.OK
-            assertStatus(output, StatusCodes.OK)
-            inside(output) { case JsObject(fields) =>
-              inside(fields.get("result")) { case Some(JsArray(vector)) =>
-                vector should have size searchDataSet.size.toLong
-              }
-            }
-          }: Future[Assertion]
+          .parseResponse[Vector[JsValue]]
+          .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(vector, None, StatusCodes.OK)) =>
+            vector should have size searchDataSet.size.toLong
+          }): Future[Assertion]
       }
     }
   }
@@ -514,15 +502,11 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
     def searchAll(
         headers: List[HttpHeader]
-    ): Future[domain.SyncResponse[List[domain.ActiveContract[JsValue]]]] = {
+    ): Future[domain.SyncResponse[List[domain.ActiveContract[JsValue]]]] =
       fixture
         .getRequest(Uri.Path("/v1/query"), headers)
-        .flatMap { case (_, output) =>
-          FutureUtil.toFuture(
-            decode1[domain.SyncResponse, List[domain.ActiveContract[JsValue]]](output)
-          )
-        }
-    }
+        .parseResponse[List[domain.ActiveContract[JsValue]]]
+        .map { case (_, output) => output }
 
   }
 
@@ -906,19 +890,13 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             Uri.Path("/v1/parties"),
             headers = headersWithAdminAuth,
           )
-          .flatMap { case (status, output) =>
-            status shouldBe StatusCodes.OK
-            inside(
-              decode1[domain.OkResponse, List[domain.PartyDetails]](output)
-            ) { case \/-(response) =>
-              response.status shouldBe StatusCodes.OK
-              response.warnings shouldBe empty
-              val actualIds: Set[domain.Party] = response.result.view.map(_.identifier).toSet
-              actualIds should contain allElementsOf domain.Party.subst(partyIds.toSet)
-              response.result.toSet should contain allElementsOf
-                allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
-            }
-          }
+          .parseResponse[List[domain.PartyDetails]]
+          .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, None, StatusCodes.OK)) =>
+            val actualIds: Set[domain.Party] = result.view.map(_.identifier).toSet
+            actualIds should contain allElementsOf domain.Party.subst(partyIds.toSet)
+            result.toSet should contain allElementsOf
+              allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
+          })
       }: Future[Assertion]
   }
 
@@ -1041,14 +1019,10 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
               Uri.Path("/v1/parties"),
               headersWithAdminAuth,
             )
-            .flatMap { case (status, output) =>
-              status shouldBe StatusCodes.OK
-              inside(decode1[domain.OkResponse, List[domain.PartyDetails]](output)) {
-                case \/-(response) =>
-                  response.status shouldBe StatusCodes.OK
-                  response.result should contain(newParty)
-              }
-            }
+            .parseResponse[List[domain.PartyDetails]]
+            .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+              result should contain(newParty)
+            })
         }
       }: Future[Assertion]
   }
@@ -1070,15 +1044,14 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           newParty.isLocal shouldBe true
 
           fixture
-            .getRequest(Uri.Path("/v1/parties"), headers = headersWithAdminAuth)
-            .flatMap { case (status, output) =>
-              status shouldBe StatusCodes.OK
-              inside(decode1[domain.OkResponse, List[domain.PartyDetails]](output)) {
-                case \/-(response) =>
-                  response.status shouldBe StatusCodes.OK
-                  response.result should contain(newParty)
-              }
-            }
+            .getRequest(
+              Uri.Path("/v1/parties"),
+              headers = headersWithAdminAuth,
+            )
+            .parseResponse[List[domain.PartyDetails]]
+            .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+              result should contain(newParty)
+            })
         }
       }: Future[Assertion]
   }
@@ -1417,13 +1390,11 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           _ <- withHttpServiceOnly(ledgerPort) { innerFixture =>
             innerFixture
               .getRequest(Uri.Path("/v1/query"), headers)
-              .flatMap { case (status, output) =>
-                status shouldBe StatusCodes.OK
-                assertStatus(output, StatusCodes.OK)
-                inside(getResult(output)) { case JsArray(result) =>
+              .parseResponse[Vector[JsValue]]
+              .map(inside(_) {
+                case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
                   result should have length 4
-                }
-              }: Future[Assertion]
+              }): Future[Assertion]
           }
         } yield succeed
       }
