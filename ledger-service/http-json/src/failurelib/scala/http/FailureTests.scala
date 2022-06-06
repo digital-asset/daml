@@ -418,6 +418,16 @@ abstract class FailureTests
 
   }
 
+  private[this] def getResult(output: JsValue): JsValue = getChild(output, "result")
+
+  private[this] def getChild(output: JsValue, field: String): JsValue = {
+    def errorMsg = s"Expected JsObject with '$field' field, got: $output"
+    output
+      .asJsObject(errorMsg)
+      .fields
+      .getOrElse(field, fail(errorMsg))
+  }
+
   // TEST_EVIDENCE: Semantics: fromStartupMode should not succeed for any input when the db connection is broken
   "fromStartupMode should not succeed for any input when the connection to the db is broken" in {
     import cats.effect.IO
