@@ -12,3 +12,4 @@ The Operating Daml section covers various processes that may be necessary to sup
   ops/pruning
   ops/metering
   ops/requirements
+  ops/system_architecture_faq
