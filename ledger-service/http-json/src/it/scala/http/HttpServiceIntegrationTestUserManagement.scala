@@ -6,7 +6,7 @@ package com.daml.http
 import akka.http.scaladsl.model.headers.Authorization
 import akka.http.scaladsl.model.{StatusCodes, Uri}
 import com.daml.fetchcontracts.domain.TemplateId.OptionalPkg
-import com.daml.http.HttpServiceTestFixture.{UseTls, authorizationHeader, getResult, postRequest}
+import com.daml.http.HttpServiceTestFixture.{UseTls, authorizationHeader, postRequest}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.domain.UserDetails
@@ -263,14 +263,13 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         ),
       )
       for {
-        (status, output) <- postRequest(
+        response <- postRequest(
           uri.withPath(Uri.Path("/v1/user/create")),
           createUserRequest.toJson,
           headers = headersWithAdminAuth,
-        )
-      } yield {
-        status shouldBe StatusCodes.OK
-        getResult(output) shouldBe JsObject()
+        ).parseResponse[JsValue]
+      } yield inside(response) { case (StatusCodes.OK, domain.OkResponse(r, _, _)) =>
+        r shouldBe JsObject()
       }
   }
 
@@ -473,7 +472,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             CanActAs(Ref.Party.assertFromString(alice.unwrap))
           ),
         )
-        (status, output) <- postRequest(
+        response <- postRequest(
           uri.withPath(Uri.Path("/v1/user/rights/grant")),
           domain
             .GrantUserRightsRequest(
@@ -486,28 +485,25 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             )
             .toJson,
           headers = headersWithAdminAuth,
-        )
-        _ <- {
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          getResult(output).convertTo[List[domain.UserRight]] should contain theSameElementsAs List[
+        ).parseResponse[List[domain.UserRight]]
+        _ <- inside(response) { case (StatusCodes.OK, domain.OkResponse(urs, _, StatusCodes.OK)) =>
+          urs should contain theSameElementsAs List[
             domain.UserRight
           ](domain.CanActAs(bob), domain.ParticipantAdmin)
         }
-        (status2, output2) <- postRequest(
+        response2 <- postRequest(
           uri.withPath(Uri.Path("/v1/user/rights")),
           domain.ListUserRightsRequest(user.id).toJson,
           headers = headersWithAdminAuth,
-        )
-        assertion <- {
-          status2 shouldBe StatusCodes.OK
-          assertStatus(output2, StatusCodes.OK)
-          getResult(output2).convertTo[List[domain.UserRight]] should contain theSameElementsAs
-            List[domain.UserRight](
-              domain.CanActAs(alice),
-              domain.CanActAs(bob),
-              domain.ParticipantAdmin,
-            )
+        ).parseResponse[List[domain.UserRight]]
+        assertion <- inside(response2) {
+          case (StatusCodes.OK, domain.OkResponse(urs, _, StatusCodes.OK)) =>
+            urs should contain theSameElementsAs
+              List[domain.UserRight](
+                domain.CanActAs(alice),
+                domain.CanActAs(bob),
+                domain.ParticipantAdmin,
+              )
         }
       } yield assertion
   }
