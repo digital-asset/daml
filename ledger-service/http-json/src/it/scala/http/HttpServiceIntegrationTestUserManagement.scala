@@ -91,16 +91,16 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           CanActAs(Ref.Party.assertFromString(alice.unwrap))
         ),
       )
-      (status, output) <- fixture.postJsonRequest(
-        Uri.Path("/v1/create"),
-        input,
-        headers = headersWithUserAuth(user.id),
-      )
-      assertion <- {
-        status shouldBe StatusCodes.OK
-        assertStatus(output, StatusCodes.OK)
-        val activeContract = getResult(output)
-        assertActiveContract(activeContract)(command, encoder)
+      response <- fixture
+        .postJsonRequest(
+          Uri.Path("/v1/create"),
+          input,
+          headers = headersWithUserAuth(user.id),
+        )
+        .parseResponse[JsValue] // TODO #13960 fix assertActiveContract
+      assertion <- inside(response) {
+        case (StatusCodes.OK, domain.OkResponse(activeContract, _, StatusCodes.OK)) =>
+          assertActiveContract(activeContract)(command, encoder)
       }
     } yield assertion
   }
@@ -119,16 +119,17 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           CanActAs(Ref.Party.assertFromString(bob.unwrap))
         ),
       )
-      (status, output) <- fixture.postJsonRequest(
-        Uri.Path("/v1/create"),
-        input,
-        headers = headersWithUserAuth(user.id),
-      )
-      assertion <- {
-        status shouldBe StatusCodes.BadRequest
-        assertStatus(output, StatusCodes.BadRequest)
-      }
-    } yield assertion
+      response <- fixture
+        .postJsonRequest(
+          Uri.Path("/v1/create"),
+          input,
+          headers = headersWithUserAuth(user.id),
+        )
+        .parseResponse[JsValue]
+    } yield inside(response) {
+      case (StatusCodes.BadRequest, domain.ErrorResponse(_, _, StatusCodes.BadRequest, _)) =>
+        succeed
+    }
   }
 
   // TEST_EVIDENCE: Authorization: create IOU should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights
@@ -149,16 +150,17 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             CanActAs(Ref.Party.assertFromString(bob.unwrap)),
           ),
         )
-        (status, output) <- fixture.postJsonRequest(
-          Uri.Path("/v1/create"),
-          input,
-          headers = headersWithUserAuth(user.id),
-        )
-        assertion <- {
-          status shouldBe StatusCodes.BadRequest
-          assertStatus(output, StatusCodes.BadRequest)
-        }
-      } yield assertion
+        response <- fixture
+          .postJsonRequest(
+            Uri.Path("/v1/create"),
+            input,
+            headers = headersWithUserAuth(user.id),
+          )
+          .parseResponse[JsValue]
+      } yield inside(response) {
+        case (StatusCodes.BadRequest, domain.ErrorResponse(_, _, StatusCodes.BadRequest, _)) =>
+          succeed
+      }
   }
 
   "requesting the user id should be possible via the user endpoint" in withHttpService { fixture =>

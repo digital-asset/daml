@@ -1439,37 +1439,33 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           jsObject("""{"templateIds": ["Account:Account"]}"""),
           headers,
         )
-        .flatMap { case (status, output) =>
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          inside(getResult(output)) { case JsArray(result) =>
-            result should have length n
-          }
-        }
+        .parseResponse[Vector[JsValue]]
+        .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+          result should have length n
+        })
 
       for {
         resp <- fixture
           .postJsonRequest(Uri.Path("/v1/create-and-exercise"), encode(createCmd), headers)
-        (status, output) = resp
-        _ = {
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
+          .parseResponse[domain.ExerciseResponse[JsValue]]
+        result = inside(resp) {
+          case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+            result
         }
-        created = getChild(getResult(output), "exerciseResult").convertTo[List[String]]
+        created = result.exerciseResult.convertTo[List[String]]
         _ = created should have length numContracts
 
         _ <- queryN(numContracts)
 
-        status <- fixture
+        archiveResponse <- fixture
           .postJsonRequest(
             Uri.Path("/v1/create-and-exercise"),
             encode(archiveCmd(created)),
             headers,
           )
-          .map(_._1)
-        _ = {
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
+          .parseResponse[JsValue]
+        _ = inside(archiveResponse) {
+          case (StatusCodes.OK, domain.OkResponse(_, _, StatusCodes.OK)) =>
         }
 
         _ <- queryN(0)
@@ -1527,11 +1523,9 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           .flatMap(headers =>
             fixture.postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, headers)
           )
-          .map { case (exerciseStatus, exerciseOutput) =>
-            exerciseStatus shouldBe StatusCodes.OK
-            assertStatus(exerciseOutput, StatusCodes.OK)
-            ()
-          }
+          .parseResponse[JsValue]
+          .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(_, _, StatusCodes.OK)) =>
+          })
 
       }
 
@@ -1544,10 +1538,9 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         fixture
           .headersWithPartyAuth(actAs = List(fromPerspectiveOfParty.unwrap))
           .flatMap(headers => fixture.postJsonRequest(Uri.Path("/v1/query"), query, headers))
-          .map { case (searchStatus, searchOutput) =>
-            searchStatus shouldBe StatusCodes.OK
-            assertStatus(searchOutput, StatusCodes.OK)
-          }
+          .parseResponse[JsValue]
+          .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(_, _, StatusCodes.OK)) =>
+          })
       }
 
       val commands = partyIds.map { p =>
