@@ -17,8 +17,6 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.daml.http.HttpServiceTestFixture.{
   UseTls,
   accountCreateCommand,
-  getContractId,
-  getResult,
   sharedAccountCreateCommand,
 }
 import com.daml.http.json.SprayJson
@@ -365,8 +363,9 @@ abstract class AbstractWebsocketServiceIntegrationTest
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (party, headers) = aliceHeaders
         creation <- initialIouCreate(uri, party, headers)
-        _ = creation._1 shouldBe a[StatusCodes.Success]
-        iouCid = getContractId(getResult(creation._2))
+        iouCid = inside(creation) { case (_: StatusCodes.Success, domain.OkResponse(c, _, _)) =>
+          c.contractId
+        }
         jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
         (kill, source) = singleClientQueryStream(jwt, uri, query)
           .viaMat(KillSwitches.single)(Keep.right)
@@ -474,8 +473,9 @@ abstract class AbstractWebsocketServiceIntegrationTest
       aliceHeaders <- getAliceHeaders
       (party, headers) = aliceHeaders
       creation <- initialIouCreate(uri, party, headers)
-      _ = creation._1 shouldBe a[StatusCodes.Success]
-      iouCid = getContractId(getResult(creation._2))
+      iouCid = inside(creation) { case (_: StatusCodes.Success, domain.OkResponse(c, _, _)) =>
+        c.contractId
+      }
       jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
       (kill, source) = singleClientQueryStream(jwt, uri, query)
         .viaMat(KillSwitches.single)(Keep.right)

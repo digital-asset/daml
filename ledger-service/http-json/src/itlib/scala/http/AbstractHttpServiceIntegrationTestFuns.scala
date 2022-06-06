@@ -706,7 +706,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       serviceUri: Uri,
       party: domain.Party,
       headers: List[HttpHeader],
-  ): Future[(StatusCode, JsValue)] = {
+  ): Future[(StatusCode, domain.SyncResponse[domain.ActiveContract[JsValue]])] = {
     val partyJson = party.toJson.compactPrint
     val payload =
       s"""
@@ -721,11 +721,13 @@ trait AbstractHttpServiceIntegrationTestFuns
          |  }
          |}
          |""".stripMargin
-    HttpServiceTestFixture.postJsonStringRequest(
-      serviceUri.withPath(Uri.Path("/v1/create")),
-      payload,
-      headers,
-    )
+    HttpServiceTestFixture
+      .postJsonStringRequest(
+        serviceUri.withPath(Uri.Path("/v1/create")),
+        payload,
+        headers,
+      )
+      .parseResponse[domain.ActiveContract[JsValue]]
   }
 
   protected def initialAccountCreate(
