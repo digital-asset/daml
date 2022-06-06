@@ -120,7 +120,6 @@ private[index] object BuffersUpdater {
     * @param sysExitWithCode Triggers a system exit (i.e. `sys.exit`) with a specific exit code.
     * @param mat The Akka materializer.
     * @param loggingContext The logging context.
-    * @param executionContext The execution context.
     */
   def owner(
       subscribeToTransactionLogUpdates: SubscribeToTransactionLogUpdates,
