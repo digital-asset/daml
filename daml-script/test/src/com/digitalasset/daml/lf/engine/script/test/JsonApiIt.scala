@@ -153,7 +153,10 @@ trait JsonApiFixture
     implicit val context: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, (Port, Channel, ServerBinding)](
       for {
-        jdbcUrl <- jdbcUrl
+        jdbcUrl <- database
+          .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(
+            _.map(info => Some(info.jdbcUrl))
+          )
 
         cfg = config.withDataSource(
           dataSource(jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl()))

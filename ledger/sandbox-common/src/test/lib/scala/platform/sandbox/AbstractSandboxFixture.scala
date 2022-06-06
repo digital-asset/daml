@@ -88,11 +88,6 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
 
   protected def database: Option[ResourceOwner[DbInfo]] = None
 
-  protected def jdbcUrl: ResourceOwner[Option[String]] = database
-    .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(
-      _.map(info => Some(info.jdbcUrl))
-    )
-
   protected def serverHost: String = InetAddress.getLoopbackAddress.getHostName
 
   protected def serverPort: Port
