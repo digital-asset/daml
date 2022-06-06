@@ -88,9 +88,8 @@ abstract class HttpServiceIntegrationTest
         fixture,
         aliceHeaders,
       )
-      testIIouID = {
-        discard { createTest._1 should ===(StatusCodes.OK) }
-        createTest._2.convertTo[domain.OkResponse[domain.ActiveContract[JsValue]]].result.contractId
+      testIIouID = inside(createTest) { case (StatusCodes.OK, domain.OkResponse(result, _, _)) =>
+        result.contractId
       }
       bobH <- fixture.getUniquePartyAndAuthHeaders("Bob")
       (bob, _) = bobH

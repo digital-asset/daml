@@ -290,13 +290,15 @@ trait AbstractHttpServiceIntegrationTestFuns
       cmd: domain.CreateCommand[v.Record, OptionalPkg],
       fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
-  ): Future[(StatusCode, JsValue)] =
-    HttpServiceTestFixture.postCreateCommand(cmd, fixture.encoder, fixture.uri, headers)
+  ): Future[(StatusCode, domain.SyncResponse[domain.ActiveContract[JsValue]])] =
+    HttpServiceTestFixture
+      .postCreateCommand(cmd, fixture.encoder, fixture.uri, headers)
+      .parseResponse[domain.ActiveContract[JsValue]]
 
   protected def postCreateCommand(
       cmd: domain.CreateCommand[v.Record, OptionalPkg],
       fixture: UriFixture with EncoderFixture,
-  ): Future[(StatusCode, JsValue)] =
+  ): Future[(StatusCode, domain.SyncResponse[domain.ActiveContract[JsValue]])] =
     fixture.headersWithAuth.flatMap(postCreateCommand(cmd, fixture, _))
 
   protected def postArchiveCommand(
@@ -730,7 +732,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       fixture: UriFixture with EncoderFixture,
       owner: domain.Party,
       headers: List[HttpHeader],
-  ): Future[(StatusCode, JsValue)] = {
+  ): Future[(StatusCode, domain.SyncResponse[domain.ActiveContract[JsValue]])] = {
     val command = accountCreateCommand(owner, "abc123")
     postCreateCommand(command, fixture, headers)
   }

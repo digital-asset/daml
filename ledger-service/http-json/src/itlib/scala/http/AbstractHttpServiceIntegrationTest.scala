@@ -357,7 +357,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val searchDataSet = genSearchDataSet(alice)
       searchDataSet.traverse(c => postCreateCommand(c, fixture, headers)).flatMap {
-        rs: List[(StatusCode, JsValue)] =>
+        rs: List[(StatusCode, _)] =>
           rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
 
           def queryAmountAs(s: String) =
@@ -516,7 +516,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
 
       postCreateCommand(command, fixture, headers)
-        .parseResponse[domain.ActiveContract[JsValue]]
         .flatMap(inside(_) {
           case (StatusCodes.OK, domain.OkResponse(activeContract, _, StatusCodes.OK)) =>
             assertActiveContract(activeContract)(command, encoder)
@@ -599,29 +598,26 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val create: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
       postCreateCommand(create, fixture, headers)
-        .flatMap { case (createStatus, createOutput) =>
-          createStatus shouldBe StatusCodes.OK
-          assertStatus(createOutput, StatusCodes.OK)
+        .flatMap(inside(_) {
+          case (StatusCodes.OK, domain.OkResponse(createResult, _, StatusCodes.OK)) =>
+            val exercise: domain.ExerciseCommand[v.Value, domain.EnrichedContractId] =
+              iouExerciseTransferCommand(createResult.contractId)
+            val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
-          val contractId = getContractId(getResult(createOutput))
-          val exercise: domain.ExerciseCommand[v.Value, domain.EnrichedContractId] =
-            iouExerciseTransferCommand(contractId)
-          val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
-
-          fixture
-            .postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, headers)
-            .parseResponse[JsValue] // TODO #13960 fix assertExerciseResponseNew...
-            .flatMap(inside(_) {
-              case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
-                assertExerciseResponseNewActiveContract(
-                  result,
-                  create,
-                  exercise,
-                  fixture,
-                  headers,
-                )
-            })
-        }: Future[Assertion]
+            fixture
+              .postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, headers)
+              .parseResponse[domain.ExerciseResponse[JsValue]]
+              .flatMap(inside(_) {
+                case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+                  assertExerciseResponseNewActiveContract(
+                    result,
+                    create,
+                    exercise,
+                    fixture,
+                    headers,
+                  )
+              })
+        }): Future[Assertion]
     }
   }
 
@@ -655,15 +651,15 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   private def assertExerciseResponseNewActiveContract(
-      exerciseResponse: JsValue,
+      exerciseResponse: domain.ExerciseResponse[JsValue],
       createCmd: domain.CreateCommand[v.Record, OptionalPkg],
       exerciseCmd: domain.ExerciseCommand[v.Value, domain.EnrichedContractId],
       fixture: HttpServiceTestFixtureData,
       headers: List[HttpHeader],
   ): Future[Assertion] = {
     import fixture.{uri, decoder}
-    inside(SprayJson.decode[domain.ExerciseResponse[JsValue]](exerciseResponse)) {
-      case \/-(domain.ExerciseResponse(JsString(exerciseResult), List(contract1, contract2))) =>
+    inside(exerciseResponse) {
+      case domain.ExerciseResponse(JsString(exerciseResult), List(contract1, contract2)) =>
         // checking contracts
         inside(contract1) { case domain.Contract(-\/(archivedContract)) =>
           Future {
@@ -733,23 +729,20 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val create: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
       postCreateCommand(create, fixture, headers)
-        .flatMap { case (createStatus, createOutput) =>
-          createStatus shouldBe StatusCodes.OK
-          assertStatus(createOutput, StatusCodes.OK)
+        .flatMap(inside(_) {
+          case (StatusCodes.OK, domain.OkResponse(createResult, _, StatusCodes.OK)) =>
+            val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou), createResult.contractId)
+            val exercise = archiveCommand(reference)
+            val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
-          val contractId = getContractId(getResult(createOutput))
-          val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou), contractId)
-          val exercise = archiveCommand(reference)
-          val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
-
-          fixture
-            .postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, headers)
-            .parseResponse[JsValue] // TODO #13960 fix assertExerciseRe...
-            .flatMap(inside(_) {
-              case (StatusCodes.OK, domain.OkResponse(exercisedResponse, _, StatusCodes.OK)) =>
-                assertExerciseResponseArchivedContract(exercisedResponse, exercise)
-            })
-        }: Future[Assertion]
+            fixture
+              .postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, headers)
+              .parseResponse[domain.ExerciseResponse[JsValue]]
+              .flatMap(inside(_) {
+                case (StatusCodes.OK, domain.OkResponse(exercisedResponse, _, StatusCodes.OK)) =>
+                  assertExerciseResponseArchivedContract(exercisedResponse, exercise)
+              })
+        }): Future[Assertion]
     }
   }
 
@@ -762,10 +755,9 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         .flatMap(
           postCreateCommand(multiPartyCreateCommand(List("Alice", "Bob"), ""), fixture, _)
         )
-        .map { case (status, output) =>
-          status shouldBe StatusCodes.OK
-          getContractId(getResult(output))
-        }
+        .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, _, _)) =>
+          result.contractId
+        })
       // multi-party actAs on exercise
       cidMulti <- fixture
         .headersWithPartyAuth(List("Alice", "Bob", "Charlie", "David"))
@@ -792,10 +784,9 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             _,
           )
         )
-        .map { case (status, output) =>
-          status shouldBe StatusCodes.OK
-          getContractId(getResult(output))
-        }
+        .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, _, _)) =>
+          result.contractId
+        })
       _ <- fixture
         .headersWithPartyAuth(List("Charlie"), readAs = List("Alice"))
         .flatMap(
@@ -812,19 +803,15 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   private def assertExerciseResponseArchivedContract(
-      exerciseResponse: JsValue,
+      exerciseResponse: domain.ExerciseResponse[JsValue],
       exercise: domain.ExerciseCommand[v.Value, domain.EnrichedContractId],
-  ): Assertion = {
-    inside(exerciseResponse) { case result @ JsObject(_) =>
-      inside(SprayJson.decode[domain.ExerciseResponse[JsValue]](result)) {
-        case \/-(domain.ExerciseResponse(exerciseResult, List(contract1))) =>
-          exerciseResult shouldBe JsObject()
-          inside(contract1) { case domain.Contract(-\/(archivedContract)) =>
-            (archivedContract.contractId.unwrap: String) shouldBe (exercise.reference.contractId.unwrap: String)
-          }
+  ): Assertion =
+    inside(exerciseResponse) { case domain.ExerciseResponse(exerciseResult, List(contract1)) =>
+      exerciseResult shouldBe JsObject()
+      inside(contract1) { case domain.Contract(-\/(archivedContract)) =>
+        (archivedContract.contractId.unwrap: String) shouldBe (exercise.reference.contractId.unwrap: String)
       }
     }
-  }
 
   "should be able to serialize and deserialize domain commands" in withHttpService { fixture =>
     (testCreateCommandEncodingDecoding(fixture) *>
@@ -1075,13 +1062,12 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
 
-      postCreateCommand(command, fixture, headers).flatMap { case (status, output) =>
-        status shouldBe StatusCodes.OK
-        assertStatus(output, StatusCodes.OK)
-        val contractId: ContractId = getContractId(getResult(output))
-        val locator = domain.EnrichedContractId(None, contractId)
-        lookupContractAndAssert(locator, contractId, command, fixture, headers)
-      }: Future[Assertion]
+      postCreateCommand(command, fixture, headers).flatMap(inside(_) {
+        case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+          val contractId: ContractId = result.contractId
+          val locator = domain.EnrichedContractId(None, contractId)
+          lookupContractAndAssert(locator, contractId, command, fixture, headers)
+      }): Future[Assertion]
     }
   }
 
@@ -1110,11 +1096,9 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         (alice, aliceHeaders) = res
         command = iouCreateCommand(alice.unwrap)
         createStatusOutput <- postCreateCommand(command, fixture, aliceHeaders)
-        contractId = {
-          val (status, output) = createStatusOutput
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          getContractId(getResult(output))
+        contractId = inside(createStatusOutput) {
+          case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+            result.contractId
         }
         locator = domain.EnrichedContractId(None, contractId)
         // will cache if DB configured
@@ -1141,16 +1125,15 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       val command: domain.CreateCommand[v.Record, OptionalPkg] =
         accountCreateCommand(alice, accountNumber)
 
-      postCreateCommand(command, fixture, headers).flatMap { case (status, output) =>
-        status shouldBe StatusCodes.OK
-        assertStatus(output, StatusCodes.OK)
-        val contractId: ContractId = getContractId(getResult(output))
-        val locator = domain.EnrichedContractKey(
-          TpId.Account.Account,
-          JsArray(JsString(alice.unwrap), JsString(accountNumber)),
-        )
-        lookupContractAndAssert(locator, contractId, command, fixture, headers)
-      }: Future[Assertion]
+      postCreateCommand(command, fixture, headers).flatMap(inside(_) {
+        case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+          val contractId: ContractId = result.contractId
+          val locator = domain.EnrichedContractKey(
+            TpId.Account.Account,
+            JsArray(JsString(alice.unwrap), JsString(accountNumber)),
+          )
+          lookupContractAndAssert(locator, contractId, command, fixture, headers)
+      }): Future[Assertion]
     }
   }
 
@@ -1175,16 +1158,14 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         archiveCommand(locator)
       val archiveJson: JsValue = encodeExercise(encoder)(archive)
 
-      postCreateCommand(create, fixture, headers).flatMap { case (status, output) =>
-        status shouldBe StatusCodes.OK
-        assertStatus(output, StatusCodes.OK)
-
-        fixture.postJsonRequest(Uri.Path("/v1/exercise"), archiveJson, headers).flatMap {
-          case (exerciseStatus, exerciseOutput) =>
-            exerciseStatus shouldBe StatusCodes.OK
-            assertStatus(exerciseOutput, StatusCodes.OK)
-        }
-      }: Future[Assertion]
+      postCreateCommand(create, fixture, headers).flatMap(inside(_) {
+        case (StatusCodes.OK, domain.OkResponse(_, _, StatusCodes.OK)) =>
+          fixture.postJsonRequest(Uri.Path("/v1/exercise"), archiveJson, headers).flatMap {
+            case (exerciseStatus, exerciseOutput) =>
+              exerciseStatus shouldBe StatusCodes.OK
+              assertStatus(exerciseOutput, StatusCodes.OK)
+          }
+      }): Future[Assertion]
     }
   }
 
@@ -1271,12 +1252,11 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         .map(_._1)
         .getOrElse(fail(s"Cannot retrieve packageId"))
 
-      postCreateCommand(command, fixture, headers).flatMap { case (status, output) =>
-        status shouldBe StatusCodes.OK
-        assertStatus(output, StatusCodes.OK)
-        val contractId: ContractId = getContractId(getResult(output))
+      postCreateCommand(command, fixture, headers).flatMap(inside(_) {
+        case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+          val contractId: ContractId = result.contractId
 
-        val query = jsObject(s"""{
+          val query = jsObject(s"""{
              "templateIds": ["$packageId:Account:Account"],
              "query": {
                  "number" : "abc123",
@@ -1284,15 +1264,15 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
              }
           }""")
 
-        fixture.postJsonRequest(Uri.Path("/v1/query"), query, headers).map {
-          case (searchStatus, searchOutput) =>
-            searchStatus shouldBe StatusCodes.OK
-            assertStatus(searchOutput, StatusCodes.OK)
-            inside(activeContractList(searchOutput)) { case List(ac) =>
-              ac.contractId shouldBe contractId
-            }
-        }
-      }: Future[Assertion]
+          fixture.postJsonRequest(Uri.Path("/v1/query"), query, headers).map {
+            case (searchStatus, searchOutput) =>
+              searchStatus shouldBe StatusCodes.OK
+              assertStatus(searchOutput, StatusCodes.OK)
+              inside(activeContractList(searchOutput)) { case List(ac) =>
+                ac.contractId shouldBe contractId
+              }
+          }
+      }): Future[Assertion]
     }
   }
 
@@ -1549,11 +1529,9 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
                 headers,
               )
             )
-            .map { case (status, output) =>
-              status shouldBe StatusCodes.OK
-              assertStatus(output, StatusCodes.OK)
-              getContractId(getResult(output))
-            }: Future[ContractId]
+            .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+              result.contractId
+            }): Future[ContractId]
           fut.map(cid => (party, cid))
         }
         (alice, aliceUserId) = users(0)
