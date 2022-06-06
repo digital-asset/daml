@@ -451,10 +451,11 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   "query with invalid JSON query should return error" in withHttpService { fixture =>
     fixture
       .postJsonStringRequest(Uri.Path("/v1/query"), "{NOT A VALID JSON OBJECT")
-      .flatMap { case (status, output) =>
-        status shouldBe StatusCodes.BadRequest
-        assertStatus(output, StatusCodes.BadRequest)
-      }: Future[Assertion]
+      .parseResponse[JsValue]
+      .map(inside(_) {
+        case (StatusCodes.BadRequest, domain.ErrorResponse(_, _, StatusCodes.BadRequest, _)) =>
+          succeed
+      }): Future[Assertion]
   }
 
   "fail to query by interface ID" in withHttpService { fixture =>
@@ -1152,11 +1153,12 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
       postCreateCommand(create, fixture, headers).flatMap(inside(_) {
         case (StatusCodes.OK, domain.OkResponse(_, _, StatusCodes.OK)) =>
-          fixture.postJsonRequest(Uri.Path("/v1/exercise"), archiveJson, headers).flatMap {
-            case (exerciseStatus, exerciseOutput) =>
-              exerciseStatus shouldBe StatusCodes.OK
-              assertStatus(exerciseOutput, StatusCodes.OK)
-          }
+          fixture
+            .postJsonRequest(Uri.Path("/v1/exercise"), archiveJson, headers)
+            .parseResponse[JsValue]
+            .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(_, _, StatusCodes.OK)) =>
+              succeed
+            })
       }): Future[Assertion]
     }
   }

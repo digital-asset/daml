@@ -517,27 +517,6 @@ trait AbstractHttpServiceIntegrationTestFuns
     )
   }
 
-  protected def result(jsObj: JsValue): JsValue = {
-    inside(jsObj) { case JsObject(fields) =>
-      inside(fields.get("result")) { case Some(value: JsValue) => value }
-    }
-  }
-
-  protected def assertStatus(jsObj: JsValue, expectedStatus: StatusCode): Assertion = {
-    inside(jsObj) { case JsObject(fields) =>
-      inside(fields.get("status")) { case Some(JsNumber(status)) =>
-        status shouldBe BigDecimal(expectedStatus.intValue)
-      }
-    }
-  }
-
-  protected def expectedOneErrorMessage(output: JsValue): String =
-    inside(output) { case JsObject(fields) =>
-      inside(fields.get("errors")) { case Some(JsArray(Vector(JsString(errorMsg)))) =>
-        errorMsg
-      }
-    }
-
   protected def postContractsLookup(
       cmd: domain.ContractLocator[JsValue],
       uri: Uri,
