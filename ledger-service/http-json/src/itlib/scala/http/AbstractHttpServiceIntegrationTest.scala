@@ -108,15 +108,14 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
         input,
         headers,
       )
-      .flatMap { case (status, output) =>
-        status shouldBe StatusCodes.Unauthorized
-        assertStatus(output, StatusCodes.Unauthorized)
-        HttpServiceTestFixture.getChild(
-          output,
-          "errors",
-        ) shouldBe JsArray(JsString("ledgerId missing in access token"))
-
-      }: Future[Assertion]
+      .parseResponse[JsValue]
+      .map(inside(_) {
+        case (
+              StatusCodes.Unauthorized,
+              domain.ErrorResponse(Seq(error), _, StatusCodes.Unauthorized, _),
+            ) =>
+          error shouldBe "ledgerId missing in access token"
+      }): Future[Assertion]
   }
 
   "metering-report endpoint should return metering report" in withHttpService { fixture =>
@@ -367,21 +366,22 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           val queryAmountAsString = queryAmountAs("\"111.11\"")
           val queryAmountAsNumber = queryAmountAs("111.11")
 
-          List(
-            fixture.postJsonRequest(Uri.Path("/v1/query"), queryAmountAsString, headers),
-            fixture.postJsonRequest(Uri.Path("/v1/query"), queryAmountAsNumber, headers),
-          ).sequence.flatMap { rs: List[(StatusCode, JsValue)] =>
-            rs.map(_._1) shouldBe List.fill(2)(StatusCodes.OK)
-            inside(rs.map(_._2)) { case List(jsVal1, jsVal2) =>
-              jsVal1 shouldBe jsVal2
-              val acl1: List[domain.ActiveContract[JsValue]] = activeContractList(jsVal1)
-              val acl2: List[domain.ActiveContract[JsValue]] = activeContractList(jsVal2)
-              acl1 shouldBe acl2
-              inside(acl1) { case List(ac) =>
+          List(queryAmountAsString, queryAmountAsNumber)
+            .map(q =>
+              fixture
+                .postJsonRequest(Uri.Path("/v1/query"), q, headers)
+                .parseResponse[List[domain.ActiveContract[JsValue]]]
+            )
+            .sequence
+            .map(inside(_) {
+              case Seq(
+                    (StatusCodes.OK, jsVal1 @ domain.OkResponse(acl1 @ List(ac), _, _)),
+                    (StatusCodes.OK, jsVal2 @ domain.OkResponse(acl2, _, _)),
+                  ) =>
+                jsVal1 shouldBe jsVal2
+                acl1 shouldBe acl2
                 objectField(ac.payload, "amount") shouldBe Some(JsString("111.11"))
-              }
-            }
-          }
+            })
       }: Future[Assertion]
     }
   }
@@ -531,14 +531,18 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
     val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
-    fixture.postJsonRequest(Uri.Path("/v1/create"), input, List()).flatMap {
-      case (status, output) =>
-        status shouldBe StatusCodes.Unauthorized
-        assertStatus(output, StatusCodes.Unauthorized)
-        expectedOneErrorMessage(output) should include(
-          "missing Authorization header with OAuth 2.0 Bearer Token"
-        )
-    }: Future[Assertion]
+    fixture
+      .postJsonRequest(Uri.Path("/v1/create"), input, List())
+      .parseResponse[JsValue]
+      .map(inside(_) {
+        case (
+              StatusCodes.Unauthorized,
+              domain.ErrorResponse(Seq(error), _, StatusCodes.Unauthorized, _),
+            ) =>
+          error should include(
+            "missing Authorization header with OAuth 2.0 Bearer Token"
+          )
+      }): Future[Assertion]
   }
 
   "create IOU should support extra readAs parties" in withHttpService { fixture =>
