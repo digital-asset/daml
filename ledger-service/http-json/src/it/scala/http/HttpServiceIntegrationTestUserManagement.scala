@@ -97,7 +97,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           input,
           headers = headersWithUserAuth(user.id),
         )
-        .parseResponse[JsValue] // TODO #13960 fix assertActiveContract
+        .parseResponse[domain.ActiveContract[JsValue]]
       assertion <- inside(response) {
         case (StatusCodes.OK, domain.OkResponse(activeContract, _, StatusCodes.OK)) =>
           assertActiveContract(activeContract)(command, encoder)
@@ -202,21 +202,19 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             CanActAs(Ref.Party.assertFromString(bob.unwrap)),
           ),
         )
-        (status, output) <- postRequest(
+        response <- postRequest(
           uri.withPath(Uri.Path("/v1/user/rights")),
           domain.ListUserRightsRequest(user.id).toJson,
           headers = headersWithAdminAuth,
-        )
-        assertion <- {
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          getResult(output).convertTo[List[domain.UserRight]] should contain theSameElementsAs
+        ).parseResponse[List[domain.UserRight]]
+      } yield inside(response) {
+        case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+          result should contain theSameElementsAs
             List[domain.UserRight](
               domain.CanActAs(alice),
               domain.CanActAs(bob),
             )
-        }
-      } yield assertion
+      }
   }
 
   "requesting the user rights for the current user should be possible via a GET to the user/rights endpoint" in withHttpService {

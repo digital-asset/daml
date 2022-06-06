@@ -329,13 +329,11 @@ trait AbstractHttpServiceIntegrationTestFuns
       fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
   ): Future[Assertion] =
-    postContractsLookup(contractLocator, fixture.uri, headers).flatMap { case (status, output) =>
-      status shouldBe StatusCodes.OK
-      assertStatus(output, StatusCodes.OK)
-      val result = getResult(output)
-      contractId shouldBe getContractId(result)
-      assertActiveContract(result)(create, fixture.encoder)
-    }
+    postContractsLookup(contractLocator, fixture.uri, headers).flatMap(inside(_) {
+      case (StatusCodes.OK, domain.OkResponse(Some(resultContract), _, StatusCodes.OK)) =>
+        contractId shouldBe resultContract.contractId
+        assertActiveContract(resultContract)(create, fixture.encoder)
+    })
 
   protected def removeRecordId(a: v.Value): v.Value = a match {
     case v.Value(v.Value.Sum.Record(r)) if r.recordId.isDefined =>
@@ -543,7 +541,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       uri: Uri,
       headers: List[HttpHeader],
       readAs: Option[List[domain.Party]],
-  ): Future[(StatusCode, JsValue)] =
+  ): Future[(StatusCode, domain.SyncResponse[Option[domain.ActiveContract[JsValue]]])] =
     for {
       locjson <- toFuture(SprayJson.encode(cmd)): Future[JsValue]
       json <- toFuture(
@@ -556,13 +554,15 @@ trait AbstractHttpServiceIntegrationTestFuns
         )
       )
       result <- postJsonRequest(uri.withPath(Uri.Path("/v1/fetch")), json, headers)
+        .parseResponse[Option[domain.ActiveContract[JsValue]]]
     } yield result
 
   protected def postContractsLookup(
       cmd: domain.ContractLocator[JsValue],
       uri: Uri,
       headers: List[HttpHeader],
-  ): Future[(StatusCode, JsValue)] = postContractsLookup(cmd, uri, headers, None)
+  ): Future[(StatusCode, domain.SyncResponse[Option[domain.ActiveContract[JsValue]]])] =
+    postContractsLookup(cmd, uri, headers, None)
 
   protected def activeContractList(output: JsValue): List[domain.ActiveContract[JsValue]] = {
     val result = getResult(output)
@@ -651,7 +651,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def assertActiveContract(
-      jsVal: JsValue
+      activeContract: domain.ActiveContract[JsValue]
   )(
       command: domain.CreateCommand[v.Record, OptionalPkg],
       encoder: DomainJsonEncoder,
@@ -665,9 +665,7 @@ trait AbstractHttpServiceIntegrationTestFuns
         .getOrElse(fail(s"Failed to encode command: $command"))
 
     Future {
-      inside(SprayJson.decode[domain.ActiveContract[JsValue]](jsVal)) { case \/-(activeContract) =>
-        (activeContract.payload: JsValue) shouldBe (expected.payload: JsValue)
-      }
+      (activeContract.payload: JsValue) shouldBe (expected.payload: JsValue)
     }
   }
 

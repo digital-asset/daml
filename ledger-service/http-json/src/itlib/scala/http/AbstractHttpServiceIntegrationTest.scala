@@ -515,12 +515,12 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
 
-      postCreateCommand(command, fixture, headers).flatMap { case (status, output) =>
-        status shouldBe StatusCodes.OK
-        assertStatus(output, StatusCodes.OK)
-        val activeContract = getResult(output)
-        assertActiveContract(activeContract)(command, encoder)
-      }: Future[Assertion]
+      postCreateCommand(command, fixture, headers)
+        .parseResponse[domain.ActiveContract[JsValue]]
+        .flatMap(inside(_) {
+          case (StatusCodes.OK, domain.OkResponse(activeContract, _, StatusCodes.OK)) =>
+            assertActiveContract(activeContract)(command, encoder)
+        }): Future[Assertion]
     }
   }
 
@@ -560,7 +560,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             input,
             _,
           )
-          .parseResponse[JsValue] // TODO #13960 fix assertActiveContract
+          .parseResponse[domain.ActiveContract[JsValue]]
       )
       .flatMap(inside(_) {
         case (StatusCodes.OK, domain.OkResponse(activeContract, _, StatusCodes.OK)) =>
@@ -680,11 +680,10 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
               Some(TpId.Iou.IouTransfer),
               domain.ContractId(exerciseResult),
             )
-            postContractsLookup(newContractLocator, uri, headers).flatMap { case (status, output) =>
-              status shouldBe StatusCodes.OK
-              assertStatus(output, StatusCodes.OK)
-              getContractId(getResult(output)) shouldBe newContractLocator.contractId
-            }: Future[Assertion]
+            postContractsLookup(newContractLocator, uri, headers).map(inside(_) {
+              case (StatusCodes.OK, domain.OkResponse(Some(contract), _, StatusCodes.OK)) =>
+                contract.contractId shouldBe newContractLocator.contractId
+            }): Future[Assertion]
           }
     }
   }
@@ -1095,15 +1094,10 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           TpId.Account.Account,
           JsArray(JsString(alice.unwrap), JsString(accountNumber)),
         )
-        postContractsLookup(locator, uri.withPath(Uri.Path("/v1/fetch")), headers).flatMap {
-          case (status, output) =>
-            status shouldBe StatusCodes.OK
-            assertStatus(output, StatusCodes.OK)
-            output
-              .asJsObject(s"expected JsObject, got: $output")
-              .fields
-              .get("result") shouldBe Some(JsNull)
-        }: Future[Assertion]
+        postContractsLookup(locator, uri.withPath(Uri.Path("/v1/fetch")), headers).map(inside(_) {
+          case (StatusCodes.OK, domain.OkResponse(None, _, StatusCodes.OK)) =>
+            succeed
+        }): Future[Assertion]
       }
   }
 
@@ -1132,16 +1126,13 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           aliceHeaders,
           readAs = Some(List(charlie)),
         )
-        _ = {
-          val (status, output) = badLookup
-          status shouldBe StatusCodes.Unauthorized
-          assertStatus(output, StatusCodes.Unauthorized)
-          output
-            .asJsObject(s"expected JsObject, got: $output")
-            .fields
-            .keySet should ===(Set("errors", "status"))
-        }
-      } yield succeed
+      } yield inside(badLookup) {
+        case (
+              StatusCodes.Unauthorized,
+              domain.ErrorResponse(_, None, StatusCodes.Unauthorized, None),
+            ) =>
+          succeed
+      }
   }
 
   "fetch by key" in withHttpService { fixture =>
