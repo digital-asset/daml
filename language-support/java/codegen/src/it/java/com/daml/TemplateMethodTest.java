@@ -59,13 +59,6 @@ public class TemplateMethodTest {
   }
 
   @Test
-  void contractHasDeprecatedFromIdAndRecord() {
-    SimpleTemplate.Contract contract =
-        SimpleTemplate.Contract.fromIdAndRecord("SomeId", simpleTemplateRecord);
-    assertFalse(contract.agreementText.isPresent(), "Field agreementText should not be present");
-  }
-
-  @Test
   void contractHasFromIdAndRecord() {
     SimpleTemplate.Contract emptyAgreement =
         SimpleTemplate.Contract.fromIdAndRecord(

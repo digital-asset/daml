@@ -7,7 +7,6 @@ import com.daml.ledger.javaapi.data.CreatedEvent;
 import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Identifier;
 import com.daml.ledger.javaapi.data.Value;
-import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -72,16 +71,6 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
       return newContract.newContract(id, data, agreementText, signatories, observers);
     }
 
-    /**
-     * @deprecated since introduction; only exists to support generated method that has itself been
-     *     deprecated since v0.12.18
-     */
-    @Deprecated
-    public Ct fromIdAndRecord(String contractId, DamlRecord record$) {
-      return fromIdAndRecord(
-          contractId, record$, Optional.empty(), Collections.emptySet(), Collections.emptySet());
-    }
-
     @Override
     public Ct fromCreatedEvent(CreatedEvent event) {
       return fromIdAndRecord(
@@ -130,21 +119,6 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
       Id id = newContractId.apply(contractId);
       Data data = fromValue.apply(record$);
       return newContract.newContract(id, data, agreementText, key, signatories, observers);
-    }
-
-    /**
-     * @deprecated since introduction; only exists to support generated method that has itself been
-     *     deprecated since v0.12.18
-     */
-    @Deprecated
-    public Ct fromIdAndRecord(String contractId, DamlRecord record$) {
-      return fromIdAndRecord(
-          contractId,
-          record$,
-          Optional.empty(),
-          Optional.empty(),
-          Collections.emptySet(),
-          Collections.emptySet());
     }
 
     @Override
