@@ -533,9 +533,4 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
 
     domain.CreateCommand(templateId, arg, None)
   }
-
-  def getContractId(result: JsValue): domain.ContractId =
-    inside(result.asJsObject.fields.get("contractId")) { case Some(JsString(contractId)) =>
-      domain.ContractId(contractId)
-    }
 }

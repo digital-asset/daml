@@ -428,6 +428,11 @@ abstract class FailureTests
       .getOrElse(field, fail(errorMsg))
   }
 
+  def getContractId(result: JsValue): domain.ContractId =
+    inside(result.asJsObject.fields.get("contractId")) { case Some(JsString(contractId)) =>
+      domain.ContractId(contractId)
+    }
+
   // TEST_EVIDENCE: Semantics: fromStartupMode should not succeed for any input when the db connection is broken
   "fromStartupMode should not succeed for any input when the connection to the db is broken" in {
     import cats.effect.IO
