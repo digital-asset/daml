@@ -318,14 +318,20 @@ private object MutableCacheBackedContractStoreRaceTests {
   private def buildContractStore(
       indexViewContractsReader: IndexViewContractsReader,
       ec: ExecutionContext,
-  ) = MutableCacheBackedContractStore(
-    contractsReader = indexViewContractsReader,
-    signalNewLedgerHead = (_, _) => (),
-    startIndexExclusive = Offset.beforeBegin,
-    metrics = new Metrics(new MetricRegistry),
-    maxContractsCacheSize = 1L,
-    maxKeyCacheSize = 1L,
-  )(ec, loggingContext)
+  ) = {
+    val metrics = new Metrics(new MetricRegistry)
+    new MutableCacheBackedContractStore(
+      contractsReader = indexViewContractsReader,
+      signalNewLedgerHead = (_, _) => (),
+      metrics = metrics,
+      contractStateCaches = ContractStateCaches.build(
+        initialCacheIndex = Offset.beforeBegin,
+        maxContractsCacheSize = 1L,
+        maxKeyCacheSize = 1L,
+        metrics = metrics,
+      )(ec, loggingContext),
+    )(ec, loggingContext)
+  }
 
   private val toContractStateEvent: SimplifiedContractStateEvent => ContractStateEvent = {
     case SimplifiedContractStateEvent(offset, contractId, contract, created, key) =>
