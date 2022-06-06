@@ -163,7 +163,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     getResult,
     getContractId,
     archiveCommand,
-    getChild,
   }
   import json.JsonProtocol._
 
@@ -768,12 +767,11 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             _,
           )
         )
-        .map { case (status, output) =>
-          status shouldBe StatusCodes.OK
-          inside(getChild(getResult(output), "exerciseResult")) { case JsString(c) =>
+        .parseResponse[domain.ExerciseResponse[JsValue]]
+        .map(inside(_) {
+          case (StatusCodes.OK, domain.OkResponse(domain.ExerciseResponse(JsString(c), _), _, _)) =>
             lar.ContractId(c)
-          }
-        }
+        })
       // create a contract only visible to Alice
       cid <- fixture
         .headersWithPartyAuth(List("Alice"))
