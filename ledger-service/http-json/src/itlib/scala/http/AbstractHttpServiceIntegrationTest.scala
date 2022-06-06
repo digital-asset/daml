@@ -1256,14 +1256,13 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
              }
           }""")
 
-          fixture.postJsonRequest(Uri.Path("/v1/query"), query, headers).map {
-            case (searchStatus, searchOutput) =>
-              searchStatus shouldBe StatusCodes.OK
-              assertStatus(searchOutput, StatusCodes.OK)
-              inside(activeContractList(searchOutput)) { case List(ac) =>
+          fixture
+            .postJsonRequest(Uri.Path("/v1/query"), query, headers)
+            .parseResponse[List[domain.ActiveContract[JsValue]]]
+            .map(inside(_) {
+              case (StatusCodes.OK, domain.OkResponse(List(ac), _, StatusCodes.OK)) =>
                 ac.contractId shouldBe contractId
-              }
-          }
+            })
       }): Future[Assertion]
     }
   }

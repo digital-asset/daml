@@ -566,20 +566,6 @@ trait AbstractHttpServiceIntegrationTestFuns
   ): Future[(StatusCode, domain.SyncResponse[Option[domain.ActiveContract[JsValue]]])] =
     postContractsLookup(cmd, uri, headers, None)
 
-  protected def activeContractList(output: JsValue): List[domain.ActiveContract[JsValue]] = {
-    val result = getResult(output)
-    SprayJson
-      .decode[List[domain.ActiveContract[JsValue]]](result)
-      .valueOr(e => fail(e.shows))
-  }
-
-  protected def activeContract(output: JsValue): domain.ActiveContract[JsValue] = {
-    val result = getResult(output)
-    SprayJson
-      .decode[domain.ActiveContract[JsValue]](result)
-      .valueOr(e => fail(e.shows))
-  }
-
   protected def asContractId(a: JsValue): domain.ContractId = inside(a) { case JsString(x) =>
     domain.ContractId(x)
   }

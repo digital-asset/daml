@@ -539,11 +539,9 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       domain.ContractId(contractId)
     }
 
-  def getResult(output: JsValue): JsValue = getChild(output, "result")
+  private[http] def getResult(output: JsValue): JsValue = getChild(output, "result")
 
-  def getWarnings(output: JsValue): JsValue = getChild(output, "warnings")
-
-  def getChild(output: JsValue, field: String): JsValue = {
+  private[this] def getChild(output: JsValue, field: String): JsValue = {
     def errorMsg = s"Expected JsObject with '$field' field, got: $output"
     output
       .asJsObject(errorMsg)

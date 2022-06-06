@@ -279,27 +279,28 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       import spray.json._
       val username = getUniqueUserName("nice.user")
       for {
-        (status, output) <- postRequest(
+        (status, _) <- postRequest(
           uri.withPath(Uri.Path("/v1/user/create")),
           JsObject("userId" -> JsString(username)),
           headers = headersWithAdminAuth,
         )
         _ <- status shouldBe StatusCodes.OK
-        (status2, output2) <- postRequest(
+        response2 <- postRequest(
           uri.withPath(Uri.Path("/v1/user")),
           domain.GetUserRequest(username).toJson,
           headers = headersWithAdminAuth,
-        )
-        _ <- status2 shouldBe StatusCodes.OK
-        _ <- getResult(output2).convertTo[UserDetails] shouldEqual UserDetails(username, None)
-        (status3, output3) <- postRequest(
+        ).parseResponse[UserDetails]
+        _ <- inside(response2) { case (StatusCodes.OK, domain.OkResponse(ud, _, _)) =>
+          ud shouldEqual UserDetails(username, None)
+        }
+        response3 <- postRequest(
           uri.withPath(Uri.Path("/v1/user/rights")),
           domain.ListUserRightsRequest(username).toJson,
           headers = headersWithAdminAuth,
-        )
-        _ <- status3 shouldBe StatusCodes.OK
-      } yield getResult(output3)
-        .convertTo[List[domain.UserRight]] shouldEqual List.empty
+        ).parseResponse[List[domain.UserRight]]
+      } yield inside(response3) { case (StatusCodes.OK, domain.OkResponse(List(), _, _)) =>
+        succeed
+      }
   }
 
   "getting all users should be possible via the users endpoint" in withHttpService { fixture =>
@@ -359,23 +360,21 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         ),
       )
       for {
-        (status1, output1) <- postRequest(
+        response1 <- postRequest(
           uri.withPath(Uri.Path("/v1/user/create")),
           createUserRequest.toJson,
           headers = headersWithAdminAuth,
-        )
-        _ <- {
-          status1 shouldBe StatusCodes.OK
-          getResult(output1) shouldBe JsObject()
+        ).parseResponse[JsValue]
+        _ <- inside(response1) { case (StatusCodes.OK, domain.OkResponse(r, _, _)) =>
+          r shouldBe JsObject()
         }
-        (status2, output2) <- postRequest(
+        response2 <- postRequest(
           uri.withPath(Uri.Path(s"/v1/user")),
           domain.GetUserRequest(createUserRequest.userId).toJson,
           headers = headersWithAdminAuth,
-        )
-      } yield {
-        status2 shouldBe StatusCodes.OK
-        getResult(output2).convertTo[UserDetails] shouldBe UserDetails(
+        ).parseResponse[UserDetails]
+      } yield inside(response2) { case (StatusCodes.OK, domain.OkResponse(ud, _, _)) =>
+        ud shouldBe UserDetails(
           createUserRequest.userId,
           createUserRequest.primaryParty,
         )
@@ -398,14 +397,13 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         ),
       )
       for {
-        (status1, output1) <- postRequest(
+        response1 <- postRequest(
           uri.withPath(Uri.Path("/v1/user/create")),
           createUserRequest.toJson,
           headers = headersWithAdminAuth,
-        )
-        _ <- {
-          status1 shouldBe StatusCodes.OK
-          getResult(output1) shouldBe JsObject()
+        ).parseResponse[JsValue]
+        _ <- inside(response1) { case (StatusCodes.OK, domain.OkResponse(r, _, _)) =>
+          r shouldBe JsObject()
         }
         response2 <- fixture
           .getRequest(
@@ -438,14 +436,13 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         ),
       )
       for {
-        (status1, output1) <- postRequest(
+        response1 <- postRequest(
           uri.withPath(Uri.Path("/v1/user/create")),
           createUserRequest.toJson,
           headers = headersWithAdminAuth,
-        )
-        _ <- {
-          status1 shouldBe StatusCodes.OK
-          getResult(output1) shouldBe JsObject()
+        ).parseResponse[JsValue]
+        _ <- inside(response1) { case (StatusCodes.OK, domain.OkResponse(r, _, _)) =>
+          r shouldBe JsObject()
         }
         (status2, _) <- postRequest(
           uri.withPath(Uri.Path(s"/v1/user/delete")),
@@ -530,7 +527,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             ParticipantAdmin,
           ),
         )
-        (status, output) <- postRequest(
+        response <- postRequest(
           uri.withPath(Uri.Path("/v1/user/rights/revoke")),
           domain
             .RevokeUserRightsRequest(
@@ -543,32 +540,22 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             )
             .toJson,
           headers = headersWithAdminAuth,
-        )
-        _ <- {
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          getResult(output)
-            .convertTo[List[domain.UserRight]] should contain theSameElementsAs List[
-            domain.UserRight
-          ](
+        ).parseResponse[List[domain.UserRight]]
+        _ <- inside(response) { case (StatusCodes.OK, domain.OkResponse(urs, _, StatusCodes.OK)) =>
+          urs should contain theSameElementsAs List[domain.UserRight](
             domain.CanActAs(bob),
             domain.ParticipantAdmin,
           )
         }
-        (status2, output2) <- postRequest(
+        response2 <- postRequest(
           uri.withPath(Uri.Path("/v1/user/rights")),
           domain.ListUserRightsRequest(user.id).toJson,
           headers = headersWithAdminAuth,
-        )
-        assertion <- {
-          status2 shouldBe StatusCodes.OK
-          assertStatus(output2, StatusCodes.OK)
-          getResult(output2).convertTo[List[domain.UserRight]] should contain theSameElementsAs
-            List[domain.UserRight](
-              domain.CanActAs(alice)
-            )
-        }
-      } yield assertion
+        ).parseResponse[List[domain.UserRight]]
+      } yield inside(response2) {
+        case (StatusCodes.OK, domain.OkResponse(urs, _, StatusCodes.OK)) =>
+          urs should contain theSameElementsAs List[domain.UserRight](domain.CanActAs(alice))
+      }
   }
 
   // TEST_EVIDENCE: Performance: creating and listing 20K users should be possible
