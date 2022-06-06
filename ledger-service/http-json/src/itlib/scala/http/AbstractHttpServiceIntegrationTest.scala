@@ -157,20 +157,14 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     UriFixture,
     HttpServiceTestFixtureData,
   }
-  import HttpServiceTestFixture.{
-    UseTls,
-    accountCreateCommand,
-    getResult,
-    getContractId,
-    archiveCommand,
-  }
+  import HttpServiceTestFixture.{UseTls, accountCreateCommand, archiveCommand}
   import json.JsonProtocol._
 
   override def useTls = UseTls.NoTls
 
   "query GET empty results" in withHttpService { fixture =>
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (_, headers) =>
-      fixture.searchAllExpectOk(headers).flatMap { case vector =>
+      fixture.searchAllExpectOk(headers).map { vector =>
         vector should have size 0L
       }
     }
@@ -1221,19 +1215,19 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           "bazRecord": {"baz": "another baz value"}
         }
       }""")
-    fixture.postJsonRequest(Uri.Path("/v1/create"), createCommand, headers).flatMap {
-      case (status, output) =>
-        status shouldBe StatusCodes.OK
-        assertStatus(output, StatusCodes.OK)
-        val contractId: ContractId = getContractId(getResult(output))
+    fixture
+      .postJsonRequest(Uri.Path("/v1/create"), createCommand, headers)
+      .parseResponse[domain.ActiveContract[JsValue]]
+      .flatMap(inside(_) { case (StatusCodes.OK, domain.OkResponse(c, _, StatusCodes.OK)) =>
+        val contractId: ContractId = c.contractId
 
-        fixture.postJsonRequest(Uri.Path("/v1/fetch"), request, headers).flatMap {
-          case (status, output) =>
-            status shouldBe StatusCodes.OK
-            assertStatus(output, StatusCodes.OK)
-            activeContract(output).contractId shouldBe contractId
-        }
-    }: Future[Assertion]
+        fixture
+          .postJsonRequest(Uri.Path("/v1/fetch"), request, headers)
+          .parseResponse[domain.ActiveContract[JsValue]]
+          .flatMap(inside(_) { case (StatusCodes.OK, domain.OkResponse(c, _, StatusCodes.OK)) =>
+            c.contractId shouldBe contractId
+          })
+      }): Future[Assertion]
   }
 
   "query by a variant field" in withHttpService { fixture =>
