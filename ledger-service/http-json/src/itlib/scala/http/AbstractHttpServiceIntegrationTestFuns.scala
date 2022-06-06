@@ -331,7 +331,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
   ): Future[Assertion] =
-    postContractsLookup(contractLocator, fixture.uri, headers).flatMap(inside(_) {
+    postContractsLookup(contractLocator, fixture.uri, headers).map(inside(_) {
       case (StatusCodes.OK, domain.OkResponse(Some(resultContract), _, StatusCodes.OK)) =>
         contractId shouldBe resultContract.contractId
         assertActiveContract(resultContract)(create, fixture.encoder)
@@ -657,7 +657,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   )(
       command: domain.CreateCommand[v.Record, OptionalPkg],
       encoder: DomainJsonEncoder,
-  ): Future[Assertion] = {
+  ): Assertion = {
 
     import encoder.implicits._
 
@@ -666,9 +666,7 @@ trait AbstractHttpServiceIntegrationTestFuns
         .traversePayload(SprayJson.encode[v.Record](_))
         .getOrElse(fail(s"Failed to encode command: $command"))
 
-    Future {
-      (activeContract.payload: JsValue) shouldBe (expected.payload: JsValue)
-    }
+    (activeContract.payload: JsValue) shouldBe (expected.payload: JsValue)
   }
 
   protected def assertTemplateId(

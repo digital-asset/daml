@@ -515,7 +515,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
 
       postCreateCommand(command, fixture, headers)
-        .flatMap(inside(_) {
+        .map(inside(_) {
           case (StatusCodes.OK, domain.OkResponse(activeContract, _, StatusCodes.OK)) =>
             assertActiveContract(activeContract)(command, encoder)
         }): Future[Assertion]
@@ -560,7 +560,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           )
           .parseResponse[domain.ActiveContract[JsValue]]
       )
-      .flatMap(inside(_) {
+      .map(inside(_) {
         case (StatusCodes.OK, domain.OkResponse(activeContract, _, StatusCodes.OK)) =>
           assertActiveContract(activeContract)(command, encoder)
       }): Future[Assertion]

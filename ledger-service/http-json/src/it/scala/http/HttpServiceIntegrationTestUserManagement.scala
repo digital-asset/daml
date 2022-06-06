@@ -98,11 +98,10 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           headers = headersWithUserAuth(user.id),
         )
         .parseResponse[domain.ActiveContract[JsValue]]
-      assertion <- inside(response) {
-        case (StatusCodes.OK, domain.OkResponse(activeContract, _, StatusCodes.OK)) =>
-          assertActiveContract(activeContract)(command, encoder)
-      }
-    } yield assertion
+    } yield inside(response) {
+      case (StatusCodes.OK, domain.OkResponse(activeContract, _, StatusCodes.OK)) =>
+        assertActiveContract(activeContract)(command, encoder)
+    }
   }
 
   // TEST_EVIDENCE: Authorization: create IOU should fail if user has no permission
