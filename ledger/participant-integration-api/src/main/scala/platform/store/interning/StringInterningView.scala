@@ -19,6 +19,8 @@ trait InternizingStringInterningView {
     *
     * @param domainStringIterators iterators of the new entires
     * @return If some of the entries were not part of the view: they will be added, and these will be returned as a interned-id and raw, prefixed string pairs.
+    *
+    * @note This method is thread-safe.
     */
   def internize(domainStringIterators: DomainStringIterators): Iterable[(Int, String)]
 }
@@ -33,6 +35,8 @@ trait UpdatingStringInterningView {
     * * if the view is behind, it will load the missing entries from persistence, and update the view state.
     *
     * * if the view is ahead, it will remove all entries with ids greater than the `lastStringInterningId`
+    *
+    * @note This method is NOT thread-safe and should not be called concurrently with itself or [[InternizingStringInterningView.internize]].
     */
   def update(lastStringInterningId: Int)(
       loadPrefixedEntries: LoadStringInterningEntries
