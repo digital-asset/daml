@@ -9,10 +9,11 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.util.ByteString
 import akka.stream.scaladsl.{FileIO, Sink, Source}
+import com.google.protobuf.{ByteString => PByteString}
+
 import java.io.File
 import java.time.{Duration => JDuration}
 import java.util.UUID
-
 import akka.http.scaladsl.model.Uri.Query
 import org.scalactic.source
 import org.scalatest._
@@ -41,6 +42,7 @@ import com.daml.timer.RetryStrategy
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.time.{Seconds, Span}
 
+import java.nio.file.Files
 import scala.concurrent.duration._
 
 // Tests for all trigger service configurations go here
@@ -60,7 +62,6 @@ trait AbstractTriggerServiceTest
   // Encoded dar used in service initialization
   protected val dar = DarReader.assertReadArchiveFromFile(darPath).map(p => p.pkgId -> p.proto)
   protected val testPkgId = dar.main._1
-  override protected val damlPackages: List[File] = List(darPath)
 
   protected def submitCmd(client: LedgerClient, party: String, cmd: Command) = {
     val req = SubmitAndWaitRequest(
@@ -318,6 +319,9 @@ trait AbstractTriggerServiceTest
           actAs = List(ApiTypes.Party(alice.unwrap)),
           admin = true,
         )
+        _ <- client.packageManagementClient.uploadDarFile(
+          PByteString.copyFrom(Files.readAllBytes(darPath.toPath))
+        )
 
         public <- client.partyManagementClient.allocateParty(Some("public"), Some("public"), None)
         clientWeWant <- sandboxClient(
@@ -385,6 +389,13 @@ trait AbstractTriggerServiceTest
       client <- sandboxClient(
         ApiTypes.ApplicationId("my-app-id"),
         actAs = List(ApiTypes.Party(aliceAcs.unwrap)),
+      )
+      adminClient <- sandboxClient(
+        ApiTypes.ApplicationId("my-app-id"),
+        admin = true,
+      )
+      _ <- adminClient.packageManagementClient.uploadDarFile(
+        PByteString.copyFrom(Files.readAllBytes(darPath.toPath))
       )
       // Make sure that no contracts exist initially to guard against accidental
       // party reuse.

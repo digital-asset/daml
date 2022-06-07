@@ -33,7 +33,7 @@ import org.scalatest.Suite
 import org.scalatest.freespec.AsyncFreeSpec
 import scalaz.syntax.tag._
 
-import java.io.{File, FileInputStream}
+import java.io.File
 import java.nio.file.{Files, Path}
 import java.util.UUID
 import java.util.stream.Collectors
@@ -48,17 +48,16 @@ final class MinVersionTest
   private val dar = DarDecoder.assertReadArchiveFromFile(darFile)
 
   private val tmpDir = Files.createTempDirectory("testMultiParticipantFixture")
-  private val portfile = tmpDir.resolve("portfile")
+  private val portFile = tmpDir.resolve("portFile")
 
   override protected def afterAll(): Unit = {
-    Files.delete(portfile)
+    Files.delete(portFile)
     super.afterAll()
 
   }
 
-  private def readPortfile(f: Path): Port = {
+  private def readPortFile(f: Path): Port =
     Port(Integer.parseInt(Files.readAllLines(f).stream.collect(Collectors.joining("\n"))))
-  }
 
   private val ledgerClientConfig = LedgerClientConfiguration(
     applicationId = "minversiontest",
@@ -76,7 +75,7 @@ final class MinVersionTest
           suiteResource.value.value,
           ledgerClientConfig,
         )
-        darByteString = ByteString.readFrom(new FileInputStream(darFile))
+        darByteString = ByteString.copyFrom(Files.readAllBytes(darFile.toPath))
         _ <- client.packageManagementClient.uploadDarFile(darByteString)
         party <- client.partyManagementClient
           .allocateParty(hint = None, displayName = None)
@@ -124,18 +123,19 @@ final class MinVersionTest
   private val configAdaptor = new BridgeConfigAdaptor()
 
   override protected lazy val suiteResource: OwnedResource[ResourceContext, Port] = {
-    val jdbcUrl = s"jdbc:h2:mem:default;db_close_delay=-1;db_close_on_exit=false"
+    val participantId = ParticipantConfig.DefaultParticipantId
+    val jdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId)
 
     val config = Config.Default.copy(
       engine = Config.DefaultEngineConfig
         .copy(allowedLanguageVersions = VersionRange(min = v1_14, max = v1_14)),
-      dataSource = Config.Default.participants.map { case (key, _) =>
-        key -> ParticipantDataSourceConfig(jdbcUrl)
+      dataSource = Config.Default.dataSource.map { case (participantId, _) =>
+        participantId -> ParticipantDataSourceConfig(jdbcUrl)
       },
-      participants = Config.Default.participants.map { case (key, value) =>
-        key -> value.copy(
-          apiServer = value.apiServer.copy(
-            portFile = Some(portfile),
+      participants = Config.Default.participants.map { case (participantId, participantConfig) =>
+        participantId -> participantConfig.copy(
+          apiServer = participantConfig.apiServer.copy(
+            portFile = Some(portFile),
             port = Port.Dynamic,
             address = Some("localhost"),
             initialLedgerConfiguration = Some(configAdaptor.initialLedgerConfig(None)),
@@ -144,12 +144,11 @@ final class MinVersionTest
       },
     )
     val bridgeConfig = BridgeConfig.Default
-
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, Port](
       for {
         _ <- SandboxOnXRunner.owner(configAdaptor, config, bridgeConfig)
-      } yield readPortfile(portfile)
+      } yield readPortFile(portFile)
     )
   }
 }

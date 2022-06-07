@@ -3,27 +3,22 @@
 
 package com.daml.lf.engine.script.test
 
-import java.io.File
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.stream.Materializer
+import com.codahale.metrics.MetricRegistry
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.{HttpService, StartSettings, nonrepudiation}
+import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
-import com.daml.jwt.{HMAC256Verifier, JwtSigner}
-import com.daml.ledger.api.auth.{
-  AuthServiceJWT,
-  AuthServiceJWTCodec,
-  CustomDamlJWTPayload,
-  StandardJWTPayload,
-}
-import com.daml.ledger.api.domain.{LedgerId, User, UserRight}
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
+import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{
   OwnedResource,
@@ -39,6 +34,13 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.sandbox.SandboxOnXForTest.{
+  ApiServerConfig,
+  ConfigAdaptor,
+  dataSource,
+  singleParticipant,
+}
+import com.daml.ledger.sandbox.{SandboxOnXForTest, SandboxOnXRunner}
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
@@ -47,7 +49,6 @@ import com.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient,
   ScriptTimeMode,
 }
-import com.daml.ledger.sandbox.SandboxServer
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
@@ -55,11 +56,17 @@ import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContextOf
+import com.daml.metrics.{Metrics, MetricsReporter}
+import com.daml.platform.apiserver.AuthServiceConfig.UnsafeJwtHmac256
 import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.UploadPackageHelper._
 import com.daml.platform.sandbox.services.TestCommands
-import com.daml.platform.sandbox.AbstractSandboxFixture
+import com.daml.platform.sandbox.{
+  AbstractSandboxFixture,
+  SandboxRequiringAuthorizationFuns,
+  UploadPackageHelper,
+}
+import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import io.grpc.Channel
 import org.scalatest._
@@ -69,10 +76,9 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
 import spray.json._
 
+import java.io.File
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
-import com.daml.metrics.{Metrics, MetricsReporter}
-import com.codahale.metrics.MetricRegistry
 
 trait JsonApiFixture
     extends AbstractSandboxFixture
@@ -85,18 +91,16 @@ trait JsonApiFixture
 
   override protected def serverPort: Port = suiteResource.value._1
   override protected def channel: Channel = suiteResource.value._2
-  override protected def config: SandboxConfig =
-    super.config
-      .copy(
-        ledgerIdMode = LedgerIdMode.Static(LedgerId("MyLedger")),
-        authService = Some(
-          AuthServiceJWT(
-            HMAC256Verifier(secret).valueOr(err =>
-              sys.error(s"Failed to create HMAC256 verifierd $err")
-            )
-          )
-        ),
+
+  override def config = super.config.copy(
+    ledgerId = "MyLedger",
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        timeProviderType = TimeProviderType.WallClock,
+        authentication = UnsafeJwtHmac256(secret),
       )
+    ),
+  )
   def httpPort: Int = suiteResource.value._3.localAddress.getPort
   protected val secret: String = "secret"
 
@@ -153,8 +157,19 @@ trait JsonApiFixture
           .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(
             _.map(info => Some(info.jdbcUrl))
           )
-        serverPort <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
+
+        cfg = config.withDataSource(
+          dataSource(jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl()))
+        )
+        serverPort <- SandboxOnXRunner.owner(ConfigAdaptor(authService), cfg, bridgeConfig)
         channel <- GrpcClientResource.owner(serverPort)
+        adminClient = UploadPackageHelper.adminLedgerClient(serverPort, cfg, secret)(
+          system.dispatcher,
+          executionSequencerFactory,
+        )
+        _ <- ResourceOwner.forFuture(() =>
+          uploadDarFiles(adminClient, packageFiles)(system.dispatcher)
+        )
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
             implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx(
@@ -205,6 +220,7 @@ final class JsonApiIt
     with JsonApiFixture
     with Matchers
     with SuiteResourceManagementAroundAll
+    with SandboxRequiringAuthorizationFuns
     with TryValues {
 
   private def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentInterface) = {

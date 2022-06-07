@@ -230,7 +230,7 @@ object Runner {
 
   val BLANK_APPLICATION_ID: ApplicationId = ApplicationId("")
   val DEFAULT_APPLICATION_ID: ApplicationId = ApplicationId("daml-script")
-  private def connectApiParameters(
+  private[script] def connectApiParameters(
       params: ApiParameters,
       tlsConfig: TlsConfiguration,
       maxInboundMessageSize: Int,

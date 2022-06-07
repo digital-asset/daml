@@ -76,7 +76,7 @@ object CliSandboxOnXRunner {
                   BridgeConfig.DefaultMaximumDeduplicationDuration
                 )
               ),
-            )
+            ).map(_ => ())
         }
       }
     }

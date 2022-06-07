@@ -3,9 +3,6 @@
 
 package com.daml.platform.sandbox
 
-import java.io.File
-import java.net.InetAddress
-
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles._
@@ -13,7 +10,6 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.auth.client.LedgerCallCredentials
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
@@ -22,10 +18,16 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.daml.ledger.client.services.testing.time.StaticTime
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.runner.common.Config
+import com.daml.ledger.sandbox.BridgeConfig
+import com.daml.ledger.sandbox.SandboxOnXForTest.{
+  ApiServerConfig,
+  Default,
+  DevEngineConfig,
+  singleParticipant,
+}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.DbInfo
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
@@ -33,6 +35,8 @@ import io.grpc.Channel
 import org.scalatest.Suite
 import scalaz.syntax.tag._
 
+import java.io.File
+import java.net.InetAddress
 import scala.annotation.nowarn
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -63,16 +67,18 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
       .fold[TimeProvider](_ => TimeProvider.UTC, Await.result(_, 30.seconds))
   }
 
-  protected def config: SandboxConfig =
-    SandboxConfig.defaultConfig.copy(
-      port = Port.Dynamic,
-      damlPackages = packageFiles,
-      timeProviderType = Some(TimeProviderType.Static),
-      ledgerIdMode = LedgerIdMode.Static(LedgerId("sandbox-server")),
-      seeding = Seeding.Weak,
-      engineMode = SandboxConfig.EngineMode.Dev,
-      authService = authService,
-    )
+  def bridgeConfig: BridgeConfig = BridgeConfig()
+
+  protected def config: Config = Default.copy(
+    ledgerId = "sandbox-server",
+    engine = DevEngineConfig,
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        seeding = Seeding.Weak,
+        timeProviderType = TimeProviderType.Static,
+      )
+    ),
+  )
 
   protected def packageFiles: List[File] = List(darFile)
 
