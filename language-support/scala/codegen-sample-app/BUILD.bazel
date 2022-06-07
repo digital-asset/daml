@@ -22,7 +22,10 @@ tested_lf_config = "dev"
 
 daml_compile(
     name = "MyMain",
-    srcs = ["src/main/daml/MyMain.daml"],
+    srcs = [
+        "src/main/daml/MyMain.daml",
+        "src/main/daml/MyMainIface.daml",
+    ],
     target = lf_version_configuration.get(tested_lf_config),
 )
 

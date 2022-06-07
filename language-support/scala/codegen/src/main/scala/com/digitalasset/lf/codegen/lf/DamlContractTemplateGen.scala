@@ -7,7 +7,8 @@ import java.io.File
 
 import com.daml.lf.codegen.lf.LFUtil
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref.{Identifier, QualifiedName}
+import com.daml.lf.data.Ref, Ref.{Identifier, QualifiedName}
+import com.daml.lf.iface
 import com.typesafe.scalalogging.Logger
 import scalaz.syntax.std.option._
 
@@ -32,22 +33,8 @@ object DamlContractTemplateGen {
   ): (File, Set[Tree], Iterable[Tree]) = {
 
     val templateName = util.mkDamlScalaName(templateId.qualifiedName)
-    val syntaxIdDecl = LFUtil.toCovariantTypeDef(" ExOn")
-    val syntaxIdType = TypeName(" ExOn")
 
     logger.debug(s"generate templateDecl: ${templateName.toString}, ${templateInterface.toString}")
-
-    // TODO (#13926) replace assumeNoOverloadedChoices with directChoices
-    val templateChoiceMethods =
-      templateInterface.template.tChoices.assumeNoOverloadedChoices(githubIssue = 13926).flatMap {
-        case (id, interface) =>
-          util.genTemplateChoiceMethods(
-            templateType = tq"${TypeName(templateName.name)}",
-            idType = syntaxIdType,
-            id,
-            interface,
-          )
-      }
 
     def toNamedArgumentsMethod =
       q"""
@@ -75,16 +62,13 @@ object DamlContractTemplateGen {
 
     def consumingChoicesMethod = LFUtil.genConsumingChoicesMethod(templateInterface.template)
 
-    val Identifier(_, QualifiedName(moduleName, baseName)) = templateId
-    val packageIdRef = PackageIDsGen.reference(moduleName)
-
     def templateObjectMembers = Seq(
-      q"override val id = ` templateId`(packageId=$packageIdRef, moduleName=${moduleName.dottedName}, entityName=${baseName.dottedName})",
-      q"""implicit final class ${TypeName(
-          s"${templateName.name} syntax"
-        )}[$syntaxIdDecl](private val id: $syntaxIdType) extends _root_.scala.AnyVal {
-            ..$templateChoiceMethods
-          }""",
+      generateTemplateIdDef(templateId),
+      genChoiceImplicitClass(util)(
+        templateName,
+        // TODO (#13926) replace assumeNoOverloadedChoices with directChoices
+        templateInterface.template.tChoices.assumeNoOverloadedChoices(githubIssue = 13926),
+      ),
       q"type key = ${templateInterface.template.key.cata(util.genTypeToScalaType, LFUtil.nothingType)}",
       consumingChoicesMethod,
       toNamedArgumentsMethod,
@@ -102,5 +86,32 @@ object DamlContractTemplateGen {
       rootClassChildren = templateClassMembers,
       companionChildren = templateObjectMembers ++ companionMembers,
     )
+  }
+
+  private val syntaxIdDecl = LFUtil.toCovariantTypeDef(" ExOn")
+  private val syntaxIdType = TypeName(" ExOn")
+
+  private[lf] def genChoiceImplicitClass(
+      util: LFUtil
+  )(templateName: util.DamlScalaName, choices: Map[Ref.ChoiceName, iface.TemplateChoice.FWT]) = {
+    val templateChoiceMethods = choices.flatMap { case (id, interface) =>
+      util.genTemplateChoiceMethods(
+        templateType = tq"${TypeName(templateName.name)}",
+        idType = syntaxIdType,
+        id,
+        interface,
+      )
+    }
+    q"""implicit final class ${TypeName(
+        s"${templateName.name} syntax"
+      )}[$syntaxIdDecl](private val id: $syntaxIdType) extends _root_.scala.AnyVal {
+        ..$templateChoiceMethods
+      }"""
+  }
+
+  private[lf] def generateTemplateIdDef(templateId: Identifier) = {
+    val Identifier(_, QualifiedName(moduleName, baseName)) = templateId
+    val packageIdRef = PackageIDsGen.reference(moduleName)
+    q"override val id = ` templateId`(packageId=$packageIdRef, moduleName=${moduleName.dottedName}, entityName=${baseName.dottedName})"
   }
 }

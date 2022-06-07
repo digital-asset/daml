@@ -13,7 +13,7 @@ import com.daml.lf.iface.{Type => _, _}
 import com.daml.lf.iface.reader.{Errors, InterfaceReader}
 import com.daml.lf.codegen.dependencygraph._
 import com.daml.lf.codegen.exception.PackageInterfaceException
-import lf.{DefTemplateWithRecord, LFUtil, ScopedDataType}
+import lf.{LFUtil, ScopedDataType}
 import com.daml.lf.data.Ref._
 import com.daml.lf.iface.reader.Errors.ErrorLoc
 import com.typesafe.scalalogging.Logger
@@ -169,15 +169,16 @@ object CodeGen {
     val treeified: Namespace[String, Option[lf.HierarchicalOutput.TemplateOrDatatype]] =
       Namespace.fromHierarchy {
         def widenDDT[R, V](iddt: Iterable[ScopedDataType.DT[R, V]]) = iddt
-        import lf.DamlDataTypeGen.DataType
-        type SrcV = DefTemplateWithRecord \/ DataType
-        val ntdRights =
+        import lf.HierarchicalOutput.{PotentialFile => SrcV}
+        val ntdPotentials =
           (widenDDT(unassociatedRecords ++ enums) ++ splattedVariants)
-            .map(sdt => (sdt.name, \/-(sdt): SrcV))
-        val tmplLefts = templateIds.transform((_, v) => -\/(v): SrcV)
+            .map(sdt => (sdt.name, SrcV.NormalDt(sdt): SrcV))
+        val tmplPotentials = templateIds.transform((_, v) => SrcV.Tpl(v): SrcV)
+        val interfacePotentials = interfaces.transform((_, v) => SrcV.Interface(v): SrcV)
 
-        (ntdRights ++ tmplLefts) map { case (ddtIdent @ Identifier(_, qualName), body) =>
-          (qualName.module.segments.toList ++ qualName.name.segments.toList, (ddtIdent, body))
+        (ntdPotentials ++ tmplPotentials ++ interfacePotentials) map {
+          case (ddtIdent @ Identifier(_, qualName), body) =>
+            (qualName.module.segments.toList ++ qualName.name.segments.toList, (ddtIdent, body))
         }
       }
 

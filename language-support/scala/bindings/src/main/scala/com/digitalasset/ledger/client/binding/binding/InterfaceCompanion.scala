@@ -3,6 +3,5 @@
 
 package com.daml.ledger.client.binding
 
-import com.daml.ledger.api.v1.commands.Command
-
-case class DomainCommand(command: Command, template: ContractTypeCompanion[_])
+/** Common superclass of interface companion objects. */
+abstract class InterfaceCompanion[T] extends ContractTypeCompanion[T]
