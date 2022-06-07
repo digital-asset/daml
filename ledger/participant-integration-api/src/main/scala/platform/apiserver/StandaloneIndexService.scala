@@ -14,8 +14,6 @@ import com.daml.metrics.Metrics
 import com.daml.platform.ParticipantInMemoryState
 import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.index.IndexServiceBuilder
-import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 
 import scala.concurrent.ExecutionContextExecutor
@@ -23,7 +21,6 @@ import scala.concurrent.ExecutionContextExecutor
 object StandaloneIndexService {
   def apply(
       ledgerId: LedgerId,
-      initLedgerEnd: LedgerEnd,
       config: IndexServiceConfig,
       participantId: Ref.ParticipantId,
       metrics: Metrics,
@@ -32,24 +29,18 @@ object StandaloneIndexService {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       participantInMemoryState: ParticipantInMemoryState,
       dbSupport: DbSupport,
-      stringInterningView: StringInterningView,
   )(implicit loggingContext: LoggingContext): ResourceOwner[IndexService] =
     for {
       indexService <- IndexServiceBuilder(
         config = config,
         initialLedgerId = domain.LedgerId(ledgerId),
-        initLedgerEnd = initLedgerEnd,
         participantId = participantId,
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
         lfValueTranslationCache = lfValueTranslationCache,
         enricher = new ValueEnricher(engine),
-        ledgerEndCache = participantInMemoryState.ledgerEndCache,
-        contractStateCaches = participantInMemoryState.contractStateCaches,
-        transactionsBuffer = participantInMemoryState.transactionsBuffer,
-        ledgerApiDispatcher = participantInMemoryState.ledgerApiDispatcher,
         dbSupport = dbSupport,
-        stringInterningView = stringInterningView,
+        participantInMemoryState = participantInMemoryState,
       )(loggingContext, servicesExecutionContext)
         .owner()
         .map(index => new TimedIndexService(index, metrics))

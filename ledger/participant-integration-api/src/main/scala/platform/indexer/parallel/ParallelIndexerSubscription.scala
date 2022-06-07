@@ -37,7 +37,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
     ingestionParallelism: Int,
     submissionBatchSize: Long,
     metrics: Metrics,
-    apiUpdaterFlow: Offset => Flow[(Vector[(Offset, Update)], Long), Unit, NotUsed],
+    apiUpdaterFlow: Flow[(Vector[(Offset, Update)], Long), Unit, NotUsed],
 ) {
   import ParallelIndexerSubscription._
 
@@ -83,7 +83,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
         initialized.readServiceSource
           .buffered(metrics.daml.parallelIndexer.inputBufferLength, maxInputBufferSize)
       )
-        .via(apiUpdaterFlow(initialized.initialOffset))
+        .via(apiUpdaterFlow)
         .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
         .toMat(Sink.ignore)(Keep.both)
         .run()(materializer)

@@ -5,9 +5,11 @@ package com.daml.platform.index
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
+import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.v2.Update.TransactionAccepted
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node.{Create, Exercise}
@@ -22,21 +24,16 @@ import com.daml.platform.{Contract, Key, ParticipantInMemoryState, Party}
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 
-class LedgerBuffersUpdater(
+private[index] class LedgerBuffersUpdater(
     participantInMemoryState: ParticipantInMemoryState,
-    prepareUpdatesParallelism: Int, // TODO LLP: Configurable
+    prepareUpdatesParallelism: Int,
+    prepareUpdatesExecutionContext: ExecutionContext,
+    updateCachesExecutionContext: ExecutionContext,
     metrics: Metrics,
 )(implicit
     loggingContext: LoggingContext
 ) {
   private val logger = ContextualizedLogger.get(getClass)
-  // TODO LLP: ResourceOwner for ExecutionContexts
-  // TODO LLP: Instrumented ExecutorService
-  private val prepareUpdatesExecutionContext: ExecutionContext =
-    ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(prepareUpdatesParallelism))
-  // TODO LLP: ResourceOwner for ExecutionContext
-  private val updateCachesExecutionContext: ExecutionContext =
-    ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
 
   def flow: Flow[(Vector[(Offset, Update)], Long), Unit, NotUsed] =
     Flow[(Vector[(Offset, Update)], Long)]
@@ -76,7 +73,7 @@ class LedgerBuffersUpdater(
     // the order here is very important: first we need to make data available for point-wise lookups
     // and SQL queries, and only then we can make it available on the streams.
     // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
-    participantInMemoryState.ledgerApiDispatcher.signalNewHead(lastOffset)
+    participantInMemoryState.dispatcher.signalNewHead(lastOffset)
     logger.debug(s"Updated ledger end at offset $lastOffset - $lastEventSequentialId")
   }
 
@@ -193,4 +190,28 @@ class LedgerBuffersUpdater(
       events = events.toVector,
     )
   }
+}
+
+object LedgerBuffersUpdater {
+  def owner(
+      participantInMemoryState: ParticipantInMemoryState,
+      prepareUpdatesParallelism: Int,
+      metrics: Metrics,
+  )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerBuffersUpdater] = for {
+    prepareUpdatesExecutor <- ResourceOwner.forExecutorService(() =>
+      new InstrumentedExecutorService(
+        Executors.newWorkStealingPool(prepareUpdatesParallelism),
+        metrics.registry,
+        metrics.daml.lapi.threadpool.bypassPrepareUpdates,
+      )
+    )
+    // TODO LLP: Instrument
+    updateCachesExecutor <- ResourceOwner.forExecutorService(() => Executors.newFixedThreadPool(1))
+  } yield new LedgerBuffersUpdater(
+    participantInMemoryState = participantInMemoryState,
+    prepareUpdatesParallelism = prepareUpdatesParallelism,
+    metrics = metrics,
+    prepareUpdatesExecutionContext = ExecutionContext.fromExecutorService(prepareUpdatesExecutor),
+    updateCachesExecutionContext = ExecutionContext.fromExecutorService(updateCachesExecutor),
+  )
 }

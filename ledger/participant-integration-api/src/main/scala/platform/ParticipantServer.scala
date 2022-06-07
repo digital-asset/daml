@@ -19,7 +19,7 @@ import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.metrics.TimedWriteService
 import com.daml.ledger.participant.state.v2.{ReadService, WriteService}
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext
@@ -28,11 +28,9 @@ import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.apiserver._
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.index.LedgerBuffersUpdater
-import com.daml.platform.indexer.StandaloneIndexerServer
+import com.daml.platform.indexer.{IndexerStartupMode, StandaloneIndexerServer}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
-import com.daml.platform.store.backend.ParameterStorageBackend
-import com.daml.platform.store.interning.StringInterningView
-import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
+import com.daml.platform.store.{DbSupport, FlywayMigrations, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 
 import java.util.concurrent.{Executors, TimeUnit}
@@ -101,21 +99,29 @@ class ParticipantServer(
             ),
           )
 
-        // ParticipantInMemoryState: first step initialization
-        participantInMemoryState <- ParticipantInMemoryState.owner(
-          apiStreamShutdownTimeout = participantConfig.indexService.apiStreamShutdownTimeout,
-          bufferedStreamsPageSize = participantConfig.indexService.bufferedStreamsPageSize,
-          maxContractStateCacheSize = participantConfig.indexService.maxContractStateCacheSize,
-          maxContractKeyStateCacheSize =
-            participantConfig.indexService.maxContractKeyStateCacheSize,
+        initializeParticipant = InitializeParticipant(
+          config = participantConfig.indexer,
+          lapiDbSupport = dbSupport,
+          participantDataSourceConfig = participantDataSourceConfig,
+          providedParticipantId = participantId,
           metrics = metrics,
-          maxTransactionsInMemoryFanOutBufferSize =
-            participantConfig.indexService.maxTransactionsInMemoryFanOutBufferSize,
+        )
+        _ <- migrate(
+          new FlywayMigrations(
+            participantDataSourceConfig.jdbcUrl,
+            Seq.empty, // TODO LLP: Additional migration paths
+          )(ResourceContext(servicesExecutionContext), loggingContext)
+        )(participantConfig.indexer.startupMode)
+        participantInMemoryState <- initializeParticipant.initialize(
+          participantConfig,
+          readService,
+          servicesExecutionContext,
+          materializer,
         )
 
-        ledgerBuffersUpdater = new LedgerBuffersUpdater(
+        ledgerBuffersUpdater <- LedgerBuffersUpdater.owner(
           participantInMemoryState = participantInMemoryState,
-          prepareUpdatesParallelism = 2, // TODO LLP: CLI
+          prepareUpdatesParallelism = 2, // TODO LLP: config parameter
           metrics = metrics,
         )
 
@@ -127,27 +133,18 @@ class ParticipantServer(
               readService = readService,
               config = participantConfig.indexer,
               metrics = metrics,
-              stringInterningView = participantInMemoryState.stringInterningView,
+              participantInMemoryState = participantInMemoryState,
               lfValueTranslationCache = translationCache,
               // TODO LLP: Rename
-              apiUpdaterFlow = { offset =>
-                participantInMemoryState.reset(offset)
-                ledgerBuffersUpdater.flow
-              },
+              apiUpdaterFlow = ledgerBuffersUpdater.flow,
             )
           } yield new HealthChecks(
             "read" -> readService,
             "indexer" -> indexerHealth,
           )
 
-        ledgerEnd <- fetchLedgerEnd(dbSupport, metrics)
-        // ParticipantInMemoryState: second step initialization
-        _ <- participantInMemoryState.initialized(ledgerEnd)
-
-        // Needs ParticipantInMemoryState
         indexService <- StandaloneIndexService(
           ledgerId = ledgerId,
-          initLedgerEnd = ledgerEnd,
           config = participantConfig.indexService,
           metrics = metrics,
           engine = sharedEngine,
@@ -156,7 +153,6 @@ class ParticipantServer(
           participantId = participantId,
           participantInMemoryState = participantInMemoryState,
           dbSupport = dbSupport,
-          stringInterningView = stringInterningView,
         )
 
         writeService <- buildWriteService(
@@ -184,16 +180,28 @@ class ParticipantServer(
     }
   }
 
-  private def fetchLedgerEnd(dbSupport: DbSupport, metrics: Metrics)(implicit
-      loggingContext: LoggingContext
-  ): ResourceOwner[ParameterStorageBackend.LedgerEnd] = {
-    val dbDispatcher = dbSupport.dbDispatcher
+  private def migrate(
+      flywayMigrations: FlywayMigrations
+  )(startupMode: IndexerStartupMode): ResourceOwner[Unit] =
     ResourceOwner.forFuture(() =>
-      dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEnd)(
-        dbSupport.storageBackendFactory.createParameterStorageBackend.ledgerEnd
-      )
+      startupMode match {
+        case IndexerStartupMode.MigrateAndStart(allowExistingSchema) =>
+          flywayMigrations.migrate(allowExistingSchema)
+
+        case IndexerStartupMode.ValidateAndStart =>
+          flywayMigrations.validate()
+
+        case IndexerStartupMode.ValidateAndWaitOnly(
+              schemaMigrationAttempts,
+              schemaMigrationAttemptBackoff,
+            ) =>
+          flywayMigrations
+            .validateAndWaitOnly(schemaMigrationAttempts, schemaMigrationAttemptBackoff)
+
+        case IndexerStartupMode.MigrateOnEmptySchemaAndStart =>
+          flywayMigrations.migrateOnEmptySchema()
+      }
     )
-  }
 
   private def buildServicesExecutionContext(
       metrics: Metrics,

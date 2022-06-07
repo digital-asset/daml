@@ -283,6 +283,7 @@ final class Metrics(val registry: MetricRegistry) {
         private val Prefix: MetricName = lapi.Prefix :+ "threadpool"
 
         val apiServices: MetricName = Prefix :+ "api-services"
+        val bypassPrepareUpdates: MetricName = Prefix :+ "bypass_prepare_updates"
       }
 
       object streams {
