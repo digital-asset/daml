@@ -597,7 +597,9 @@ describe("interface definition", () => {
         theChoice(buildAndLint.Lib.ModIfaceOnly.YetAnother[k]),
       ).toBeDefined();
       // statically check that k isn't in tpl
-      const tplK: Extract<keyof (typeof tpl), typeof k> extends never ? true : never = true;
+      const tplK: Extract<keyof typeof tpl, typeof k> extends never
+        ? true
+        : never = true;
       expect(tplK).toEqual(true); // useless, but suppresses unused error
       // dynamically check the same
       expect(_.get(tpl, k)).toBeUndefined();
