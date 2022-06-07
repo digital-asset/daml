@@ -535,7 +535,7 @@ duplicates privileged sets = ("s11"::T.Text, take (length sets) indexedInfList, 
     dupChoices =
       reverseMap
       -- exclude choice names with <=1 user
-      $ Map.filter (\s -> Set.size s > 2)
+      $ Map.filter (\s -> Set.size s > 1)
       -- map choice name to origin
       $ reverseMap'
       $ zip ([-1..] :: [Int]) (privileged:sets)
