@@ -527,25 +527,19 @@ ifaceDefTempl name mbKeyTy impls choices =
 --
 --     duplicates p . duplicates p = duplicates p
 duplicates :: Ord n => Set.Set n -> [Set.Set n] -> [Set.Set n]
-duplicates privileged sets = take (length sets) indexedInfList
+duplicates privileged sets = (Set.\\ allUniques) <$> sets
   where
-    indexedInfList =
-      unfoldr (\n -> Just (Map.findWithDefault Set.empty n dupChoices, succ n)) 0
-    dupChoices =
-      reverseMap
-      -- exclude choice names with <=1 user
-      $ Map.filter (\s -> Set.size s > 1)
-      -- map choice name to origin
-      $ reverseMap'
-      $ zip ([-1..] :: [Int]) (privileged:sets)
+    allUniques = uniques (privileged:sets)
 
--- Make every 'v' point to every 'k' it's associated with.
---     reverseMap . reverseMap = id
-reverseMap :: (Ord k, Ord v) => Map.Map k (Set.Set v) -> Map.Map v (Set.Set k)
-reverseMap = reverseMap' . Map.toList
-
-reverseMap' :: (Ord k, Ord v) => [(k, Set.Set v)] -> Map.Map v (Set.Set k)
-reverseMap' = Map.unionsWith (<>) . map (\(k, vs) -> Map.fromSet (const (Set.singleton k)) vs)
+-- @uniques sets@ is the set with all the elements that appear only once
+-- among all of 'sets'.
+uniques :: Ord n => [Set.Set n] -> Set.Set n
+uniques = 
+    Map.keysSet
+  . Map.filter id
+  . Map.fromListWith (\_ _ -> False)
+  . fmap (,True)
+  . concatMap Set.toList
 
 ifaceDefIface :: T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
 ifaceDefIface name mbKeyTy choices =
