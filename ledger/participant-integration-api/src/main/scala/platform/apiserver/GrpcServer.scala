@@ -3,10 +3,6 @@
 
 package com.daml.platform.apiserver
 
-import java.io.IOException
-import java.net.{BindException, InetAddress, InetSocketAddress}
-import java.util.concurrent.Executor
-import java.util.concurrent.TimeUnit.SECONDS
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
@@ -17,7 +13,13 @@ import io.grpc._
 import io.grpc.netty.NettyServerBuilder
 import io.netty.handler.ssl.SslContext
 
+import java.io.IOException
+import java.lang.management.ManagementFactory
+import java.net.{BindException, InetAddress, InetSocketAddress}
+import java.util.concurrent.Executor
+import java.util.concurrent.TimeUnit.SECONDS
 import scala.concurrent.duration.DurationInt
+import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.util.Failure
 import scala.util.control.NoStackTrace
 
@@ -53,7 +55,16 @@ private[apiserver] object GrpcServer {
     builder.intercept(new MetricsInterceptor(metrics))
     builder.intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
     builder.intercept(new ErrorInterceptor)
-    rateLimitingConfig.foreach(c => builder.intercept(new RateLimitingInterceptor(metrics, c)))
+    rateLimitingConfig.foreach(c =>
+      builder.intercept(
+        new RateLimitingInterceptor(
+          metrics = metrics,
+          config = c,
+          memoryPoolMxBeans = ManagementFactory.getMemoryPoolMXBeans.asScala.toList,
+          memoryMxBean = ManagementFactory.getMemoryMXBean,
+        )
+      )
+    )
     services.foreach { service =>
       builder.addService(service)
       toLegacyService(service).foreach(builder.addService)

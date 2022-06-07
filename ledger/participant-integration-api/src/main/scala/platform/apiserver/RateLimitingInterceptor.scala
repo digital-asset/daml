@@ -13,10 +13,27 @@ import io.grpc._
 import io.grpc.protobuf.StatusProto
 import org.slf4j.LoggerFactory
 
-private[apiserver] final class RateLimitingInterceptor(metrics: Metrics, config: RateLimitingConfig)
-    extends ServerInterceptor {
+import java.lang.management.{MemoryMXBean, MemoryPoolMXBean, MemoryType}
+
+private[apiserver] final class RateLimitingInterceptor(
+    metrics: Metrics,
+    config: RateLimitingConfig,
+    memoryPoolMxBeans: List[MemoryPoolMXBean],
+    memoryMxBean: MemoryMXBean,
+) extends ServerInterceptor {
 
   private val logger = LoggerFactory.getLogger(getClass)
+
+  private val tenuredMemoryPool: Option[MemoryPoolMXBean] =
+    memoryPoolMxBeans.find(p =>
+      p.getType == MemoryType.HEAP && p.isCollectionUsageThresholdSupported
+    )
+
+  tenuredMemoryPool.foreach { p =>
+    p.setCollectionUsageThreshold(
+      (config.maxHeapSpacePercentage * p.getCollectionUsage.getMax) / 100
+    )
+  }
 
   /** Match naming in [[com.codahale.metrics.InstrumentedExecutorService]] */
   private case class InstrumentedCount(name: String, prefix: MetricName) {
@@ -65,6 +82,7 @@ private[apiserver] final class RateLimitingInterceptor(metrics: Metrics, config:
       None
     } else {
       (for {
+        _ <- memoryOverloaded(fullMethodName)
         _ <- metricOverloaded(fullMethodName, apiServices, config.maxApiServicesQueueSize)
         _ <- metricOverloaded(
           fullMethodName,
@@ -73,6 +91,35 @@ private[apiserver] final class RateLimitingInterceptor(metrics: Metrics, config:
         )
       } yield ()).fold(Some.apply, _ => None)
     }
+  }
+
+  private def memoryOverloaded(fullMethodName: String): Either[String, Unit] = {
+    tenuredMemoryPool.fold[Either[String, Unit]](Right(())) { p =>
+      if (p.isCollectionUsageThresholdExceeded) {
+        // Based on a combination of JvmMetricSet and MemoryUsageGaugeSet
+        val poolBeanMetricPrefix = s"jvm_memory_usage_pools_${p.getName}"
+        val rpcStatus =
+          s"""
+             | The ${p.getName} collection  has exceeded the maximum (${p.getCollectionUsageThreshold}).
+             | The rejected call was $fullMethodName.
+             | Jvm memory metrics are available at $poolBeanMetricPrefix
+          }.
+          """.stripMargin
+        gc()
+        Left[String, Unit](rpcStatus)
+      } else {
+        Right(())
+      }
+    }
+  }
+
+  /** When the collected tenured memory pool usage exceeds the threshold this state will continue even if memory
+    * has been freed up if not garbage collection takes place.  For this reason when we are over limit we also
+    * run garbage collection on every request to ensure the collection usage stats are as up to date as possible
+    * to thus stop rate limiting as soon as possible.
+    */
+  private def gc(): Unit = {
+    memoryMxBean.gc()
   }
 
   private def metricOverloaded(

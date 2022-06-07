@@ -30,11 +30,13 @@ import io.grpc.reflection.v1alpha.{
   ServerReflectionResponse,
 }
 import io.grpc.stub.StreamObserver
+import org.mockito.MockitoSugar
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Second, Span}
 
+import java.lang.management._
 import java.net.{InetAddress, InetSocketAddress}
 import scala.concurrent.{Future, Promise}
 
@@ -43,12 +45,13 @@ final class RateLimitingInterceptorSpec
     with AkkaBeforeAndAfterAll
     with Matchers
     with Eventually
-    with TestResourceContext {
+    with TestResourceContext
+    with MockitoSugar {
 
   implicit override val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(1, Second)))
 
-  private val config = RateLimitingConfig(100, 10)
+  private val config = RateLimitingConfig(100, 10, 75)
 
   behavior of "RateLimitingInterceptor"
 
@@ -164,6 +167,50 @@ final class RateLimitingInterceptorSpec
     }
   }
 
+  it should "limit calls when there is a danger of running out of heap space" in {
+    val poolName = "Tenured_Gen"
+    val maxMemory = 100000L
+
+    // Based on a combination of JvmMetricSet and MemoryUsageGaugeSet
+    val expectedMetric = s"jvm_memory_usage_pools_$poolName"
+    val metrics = new Metrics(new MetricRegistry)
+
+    val memoryBean = mock[MemoryMXBean]
+
+    val memoryPoolBean = mock[MemoryPoolMXBean]
+    when(memoryPoolBean.getType).thenReturn(MemoryType.HEAP)
+    when(memoryPoolBean.getName).thenReturn(poolName)
+    when(memoryPoolBean.getCollectionUsage).thenReturn(new MemoryUsage(0, 0, 0, maxMemory))
+    when(memoryPoolBean.isCollectionUsageThresholdSupported).thenReturn(true)
+    when(memoryPoolBean.isCollectionUsageThresholdExceeded).thenReturn(false, true, false)
+
+    val nonCollectableBean = mock[MemoryPoolMXBean]
+    when(nonCollectableBean.getType).thenReturn(MemoryType.HEAP)
+    when(nonCollectableBean.isCollectionUsageThresholdSupported).thenReturn(false)
+
+    val nonHeapBean = mock[MemoryPoolMXBean]
+    when(nonHeapBean.getType).thenReturn(MemoryType.NON_HEAP)
+    when(nonHeapBean.isCollectionUsageThresholdSupported).thenReturn(true)
+
+    val pool = List(nonCollectableBean, nonHeapBean, memoryPoolBean)
+
+    withChannel(metrics, new HelloServiceAkkaImplementation, config, pool, memoryBean).use {
+      channel: Channel =>
+        val helloService = HelloServiceGrpc.stub(channel)
+        for {
+          _ <- helloService.single(HelloRequest(1))
+          exception <- helloService.single(HelloRequest(2)).failed
+          _ <- helloService.single(HelloRequest(3))
+        } yield {
+          verify(memoryPoolBean).setCollectionUsageThreshold(
+            config.maxHeapSpacePercentage * maxMemory / 100
+          )
+          verify(memoryBean).gc()
+          exception.getMessage should include(expectedMetric)
+        }
+    }
+  }
+
 }
 
 object RateLimitingInterceptorSpec {
@@ -177,9 +224,11 @@ object RateLimitingInterceptorSpec {
       metrics: Metrics,
       service: BindableService,
       config: RateLimitingConfig,
+      pool: List[MemoryPoolMXBean] = Nil,
+      memoryBean: MemoryMXBean = ManagementFactory.getMemoryMXBean,
   ): ResourceOwner[Channel] =
     for {
-      server <- serverOwner(new RateLimitingInterceptor(metrics, config), service)
+      server <- serverOwner(new RateLimitingInterceptor(metrics, config, pool, memoryBean), service)
       channel <- GrpcClientResource.owner(Port(server.getPort))
     } yield channel
 
