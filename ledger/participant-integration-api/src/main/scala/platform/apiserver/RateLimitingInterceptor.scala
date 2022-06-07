@@ -103,7 +103,6 @@ private[apiserver] final class RateLimitingInterceptor(
              | The ${p.getName} collection  has exceeded the maximum (${p.getCollectionUsageThreshold}).
              | The rejected call was $fullMethodName.
              | Jvm memory metrics are available at $poolBeanMetricPrefix
-          }.
           """.stripMargin
         gc()
         Left[String, Unit](rpcStatus)
