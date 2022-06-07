@@ -220,7 +220,7 @@ object ScenarioRunner {
         effectiveAt = effectiveAt,
         acoid,
       ) match {
-        case ScenarioLedger.LookupOk(_, coinst, _) =>
+        case ScenarioLedger.LookupOk(_, coinst, _, _) =>
           callback(coinst)
 
         case ScenarioLedger.LookupContractNotFound(coid) =>
@@ -279,7 +279,7 @@ object ScenarioRunner {
             effectiveAt = effectiveAt,
             acoid,
           ) match {
-            case ScenarioLedger.LookupOk(_, _, stakeholders) =>
+            case ScenarioLedger.LookupOk(_, _, stakeholders, _) =>
               if (!readers.intersect(stakeholders).isEmpty)
                 // Note that even with a successful global lookup
                 // the callback can return false. This happens for a fetch-by-key
@@ -402,7 +402,7 @@ object ScenarioRunner {
       limits = interpretation.Limits.Lenient,
     )
 
-    // TODO (drsk) validate and propagate errors back to submitter 
+    // TODO (drsk) validate and propagate errors back to submitter
     // https://github.com/digital-asset/daml/issues/14108
     val discTable = Engine.buildDiscTable(ledgerMachine, disclosures)
     val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
@@ -427,7 +427,7 @@ object ScenarioRunner {
         case SResultError(err) =>
           SubmissionError(Error.RunnerException(err), enrich(onLedger.incompleteTransaction))
         case SResultNeedContract(coid, committers, callback) =>
-          // TODO (drsk) Reduce duplication between this code and the engine. 
+          // TODO (drsk) Reduce duplication between this code and the engine.
           // https://github.com/digital-asset/daml/issues/14090
           discTable.contractById.get(coid) match {
             case None =>

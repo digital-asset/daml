@@ -5,8 +5,10 @@ package com.daml.lf
 package scenario
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.Time
+import com.daml.lf.data.{Time, ImmArray}
 import com.daml.lf.ledger._
+import com.daml.lf.command
+import com.daml.lf.crypto
 import com.daml.lf.transaction.{
   BlindingInfo,
   CommittedTransaction,
@@ -199,6 +201,7 @@ object ScenarioLedger {
       coid: ContractId,
       coinst: VersionedContractInstance,
       stakeholders: Set[Party],
+      metadata: command.ContractMetadata,
   ) extends LookupResult
   final case class LookupContractNotFound(coid: ContractId) extends LookupResult
 
@@ -639,7 +642,7 @@ case class ScenarioLedger(
   ): Seq[LookupOk] = {
     ledgerData.activeContracts.toList
       .map(cid => lookupGlobalContract(view, effectiveAt, cid))
-      .collect { case l @ LookupOk(_, _, _) =>
+      .collect { case l @ LookupOk(_, _, _, _) =>
         l
       }
   }
@@ -673,7 +676,17 @@ case class ScenarioLedger(
                 create.stakeholders,
               )
             else
-              LookupOk(coid, create.versionedCoinst, create.stakeholders)
+              LookupOk(
+                coid,
+                create.versionedCoinst,
+                create.stakeholders,
+                command.ContractMetadata(
+                  createdAt = info.effectiveAt,
+                  driverMetadata = ImmArray.Empty,
+                  keyHash =
+                    create.key.map(k => crypto.Hash.assertHashContractKey(create.templateId, k.key)),
+                ),
+              )
 
           case _: Node.Exercise | _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback =>
             LookupContractNotFound(coid)

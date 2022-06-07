@@ -25,8 +25,9 @@ import com.daml.ledger.api.auth.{
 }
 import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.command
+import com.daml.lf.crypto
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{Ref, Time, Bytes, ImmArray}
 import com.daml.lf.engine.script.{Converter, LfValueCodec}
 import com.daml.lf.iface.{EnvironmentInterface, InterfaceType}
 import com.daml.lf.language.Ast._
@@ -179,7 +180,8 @@ class JsonLedgerClient(
           LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
         )
         val cid = ContractId.assertFromString(r.contractId)
-        ScriptLedgerClient.ActiveContract(templateId, cid, payload)
+        val meta = r.metadata.convertTo[command.ContractMetadata]
+        ScriptLedgerClient.ActiveContract(templateId, cid, payload, meta)
       })
       parsedResults
     }
@@ -204,7 +206,8 @@ class JsonLedgerClient(
           LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
         )
         val cid = ContractId.assertFromString(r.contractId)
-        ScriptLedgerClient.ActiveContract(templateId, cid, payload)
+        val meta = r.metadata.convertTo[command.ContractMetadata]
+        ScriptLedgerClient.ActiveContract(templateId, cid, payload, meta)
       })
     }
   }
@@ -229,7 +232,8 @@ class JsonLedgerClient(
           LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
         )
         val cid = ContractId.assertFromString(r.contractId)
-        ScriptLedgerClient.ActiveContract(templateId, cid, payload)
+        val meta = r.metadata.convertTo[command.ContractMetadata]
+        ScriptLedgerClient.ActiveContract(templateId, cid, payload, meta)
       })
     }
   }
@@ -742,7 +746,7 @@ object JsonLedgerClient {
 
   final case class QueryArgs(templateId: Identifier)
   final case class QueryResponse(results: List[ActiveContract])
-  final case class ActiveContract(contractId: String, payload: JsValue)
+  final case class ActiveContract(contractId: String, payload: JsValue, metadata: JsValue)
   final case class FetchArgs(contractId: ContractId)
   final case class FetchKeyArgs(templateId: Identifier, key: Value)
   final case class FetchResponse(result: Option[ActiveContract])
@@ -854,8 +858,8 @@ object JsonLedgerClient {
       FetchResponse(v.convertTo[Option[ActiveContract]])
 
     implicit val activeContractReader: RootJsonReader[ActiveContract] = v => {
-      v.asJsObject.getFields("contractId", "payload") match {
-        case Seq(JsString(s), v) => ActiveContract(s, v)
+      v.asJsObject.getFields("contractId", "payload", "metadata") match {
+        case Seq(JsString(s), v, meta) => ActiveContract(s, v, meta)
         case _ => deserializationError(s"Could not parse ActiveContract: $v")
       }
     }
@@ -955,6 +959,23 @@ object JsonLedgerClient {
             primaryParty = primaryPartyOpt.map(_.convertTo[Party]),
           )
         case _ => deserializationError(s"Expected User but got $json")
+      }
+    }
+
+    implicit val metadataReader: JsonReader[command.ContractMetadata] = json => {
+      val o = json.asJsObject
+      (o.fields.get("createdAt"), o.fields.get("keyHash"), o.fields.get("driverMetadata")) match {
+        case (Some(JsString(t)), keyM, Some(JsString(bs))) =>
+          command.ContractMetadata(
+            createdAt = Time.Timestamp.assertFromString(t),
+            keyHash = keyM match {
+              case Some(JsString(bs)) => Some(crypto.Hash.assertFromString(bs))
+              case Some(_) => deserializationError(s"Expected base16 hash string but got $json")
+              case None => None
+            },
+            driverMetadata = ImmArray.from(Bytes.assertFromString(bs).toByteArray),
+          )
+        case _ => deserializationError(s"Expected ContractMetadata but got $json")
       }
     }
 

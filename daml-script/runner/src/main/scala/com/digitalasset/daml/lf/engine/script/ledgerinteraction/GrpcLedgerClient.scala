@@ -7,7 +7,6 @@ import java.util.UUID
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.daml.api.util.TimestampConversion
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.akka.ClientAdapter
 import com.daml.ledger.api.domain.{User, UserRight}
@@ -18,6 +17,7 @@ import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeServiceSt
 import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
 import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
+import com.daml.api.util.TimestampConversion
 import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.command
@@ -97,7 +97,12 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
                 err => throw new ConverterException(err),
                 identity,
               )
-          (ScriptLedgerClient.ActiveContract(templateId, cid, argument), key)
+          val meta =
+            NoLoggingValueValidator.validateContractMetadata(createdEvent.getMetadata) match {
+              case Left(err) => throw new ConverterException(err.toString)
+              case Right(meta) => meta
+            }
+          (ScriptLedgerClient.ActiveContract(templateId, cid, argument, meta), key)
         })
       )
     )
