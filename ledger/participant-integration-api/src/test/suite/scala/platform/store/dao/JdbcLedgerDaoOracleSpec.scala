@@ -24,4 +24,3 @@ class JdbcLedgerDaoOracleSpec
     with JdbcLedgerDaoContractEventsStreamSpec
     with JdbcLedgerDaoTransactionsWriterSpec
     with JdbcLedgerDaoTransactionLogUpdatesSpec
-    with JdbcAppendOnlyTransactionInsertion
