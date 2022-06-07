@@ -109,6 +109,13 @@ private[platform] case class StateCache[K, V](
     },
   )
 
+  def reset(resetFrom: Offset): Unit =
+    pendingUpdates.synchronized {
+      cacheIndex = resetFrom
+      pendingUpdates.clear()
+      cache.invalidateAll()
+    }
+
   private def registerEventualCacheUpdate(
       key: K,
       eventualUpdate: Future[V],

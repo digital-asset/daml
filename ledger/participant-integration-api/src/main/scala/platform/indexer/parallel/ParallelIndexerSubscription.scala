@@ -4,21 +4,22 @@
 package com.daml.platform.indexer.parallel
 
 import akka.NotUsed
-import akka.stream.scaladsl.{Keep, Sink}
+import akka.stream.scaladsl.{Flow, Keep, Sink}
 import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{Metrics, Timed}
 import com.daml.metrics.InstrumentedGraph._
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.indexer.ha.Handle
 import com.daml.platform.indexer.parallel.AsyncSupport._
-import com.daml.platform.store.dao.DbDispatcher
-import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend._
+import com.daml.platform.store.dao.DbDispatcher
+import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.interning.{InternizingStringInterningView, StringInterning}
 
 import java.sql.Connection
@@ -36,6 +37,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
     ingestionParallelism: Int,
     submissionBatchSize: Long,
     metrics: Metrics,
+    apiUpdaterFlow: Offset => Flow[(Vector[(Offset, Update)], Long), Unit, NotUsed],
 ) {
   import ParallelIndexerSubscription._
 
@@ -76,11 +78,12 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
         tailer = tailer(ingestionStorageBackend.batch(Vector.empty, stringInterningView)),
         ingestTail =
           ingestTail[DB_BATCH](parameterStorageBackend.updateLedgerEnd, dbDispatcher, metrics),
+        toBypassBatch = toBypassBatch,
       )(
         initialized.readServiceSource
           .buffered(metrics.daml.parallelIndexer.inputBufferLength, maxInputBufferSize)
       )
-        .map(_ => ())
+        .via(apiUpdaterFlow(initialized.initialOffset))
         .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
         .toMat(Sink.ignore)(Keep.both)
         .run()(materializer)
@@ -108,7 +111,7 @@ object ParallelIndexerSubscription {
       lastRecordTime: Long,
       batch: T,
       batchSize: Int,
-      offsets: Vector[Offset],
+      offsetsUpdates: Vector[(Offset, state.Update)],
   )
 
   def inputMapper(
@@ -141,7 +144,7 @@ object ParallelIndexerSubscription {
       lastRecordTime = input.last._2.recordTime.toInstant.toEpochMilli,
       batch = batch,
       batchSize = input.size,
-      offsets = input.view.map(_._1).toVector,
+      offsetsUpdates = input.toVector,
     )
   }
 
@@ -157,7 +160,7 @@ object ParallelIndexerSubscription {
       lastRecordTime = 0,
       batch = Vector.empty,
       batchSize = 0,
-      offsets = Vector.empty,
+      offsetsUpdates = Vector.empty,
     )
 
   def seqMapper(
@@ -222,18 +225,19 @@ object ParallelIndexerSubscription {
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
     batch =>
-      withEnrichedLoggingContext("updateOffsets" -> batch.offsets) { implicit loggingContext =>
-        dbDispatcher.executeSql(metrics.daml.parallelIndexer.ingestion) { connection =>
-          metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toLong)
-          ingestFunction(connection, batch.batch)
-          batch
-        }
+      withEnrichedLoggingContext("updateOffsets" -> batch.offsetsUpdates.map(_._1)) {
+        implicit loggingContext =>
+          dbDispatcher.executeSql(metrics.daml.parallelIndexer.ingestion) { connection =>
+            metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toLong)
+            ingestFunction(connection, batch.batch)
+            batch
+          }
       }
 
   def tailer[DB_BATCH](
       zeroDbBatch: DB_BATCH
   ): (Batch[DB_BATCH], Batch[DB_BATCH]) => Batch[DB_BATCH] =
-    (_, curr) =>
+    (prev, curr) =>
       Batch[DB_BATCH](
         lastOffset = curr.lastOffset,
         lastSeqEventId = curr.lastSeqEventId,
@@ -241,7 +245,7 @@ object ParallelIndexerSubscription {
         lastRecordTime = curr.lastRecordTime,
         batch = zeroDbBatch, // not used anymore
         batchSize = 0, // not used anymore
-        offsets = Vector.empty, // not used anymore
+        offsetsUpdates = prev.offsetsUpdates ++ curr.offsetsUpdates,
       )
 
   def ledgerEndFrom(batch: Batch[_]): LedgerEnd =
@@ -267,4 +271,7 @@ object ParallelIndexerSubscription {
           batch
         }
       }
+
+  def toBypassBatch(inBatch: Batch[_]): (Vector[(Offset, Update)], Long) =
+    inBatch.offsetsUpdates -> inBatch.lastSeqEventId
 }

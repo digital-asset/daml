@@ -39,7 +39,7 @@ object ParallelIndexerFactory {
       meteringAggregator: DbDispatcher => ResourceOwner[Unit],
       mat: Materializer,
       readService: ReadService,
-      stringInterningViewO: Option[StringInterningView],
+      stringInterningView: StringInterningView,
   )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] =
     for {
       inputMapperExecutor <- asyncPool(
@@ -105,7 +105,6 @@ object ParallelIndexerFactory {
             _ <- meteringAggregator(dbDispatcher)
           } yield dbDispatcher
         ) { dbDispatcher =>
-          val stringInterningView = stringInterningViewO.getOrElse(new StringInterningView)
           initializeParallelIngestion(
             dbDispatcher = dbDispatcher,
             updatingStringInterningView = stringInterningView,

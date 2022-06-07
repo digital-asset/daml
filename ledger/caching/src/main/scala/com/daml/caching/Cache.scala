@@ -41,6 +41,8 @@ abstract class Cache[Key, Value] {
       mapBeforeWriting: NewValue => Option[Value],
   ): Cache[Key, NewValue] =
     new MappedCache(mapAfterReading, mapBeforeWriting)(this)
+
+  def invalidateAll(): Unit
 }
 
 /** A cache that is concurrency-safe. This means it is able to look up a value, and if it does not

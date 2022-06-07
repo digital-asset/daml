@@ -62,6 +62,7 @@ private[platform] case class InitializeParallelIngestion(
       )
       _ <- updateStringInterningView(dbDispatcher, updatingStringInterningView, ledgerEnd)
     } yield InitializeParallelIngestion.Initialized(
+      initialOffset = ledgerEnd.lastOffset,
       initialEventSeqId = ledgerEnd.lastEventSeqId,
       initialStringInterningId = ledgerEnd.lastStringInterningId,
       readServiceSource = readService.stateUpdates(beginAfter = ledgerEnd.lastOffsetOption),
@@ -88,6 +89,7 @@ private[platform] case class InitializeParallelIngestion(
 object InitializeParallelIngestion {
 
   case class Initialized(
+      initialOffset: Offset,
       initialEventSeqId: Long,
       initialStringInterningId: Int,
       readServiceSource: Source[(Offset, Update), NotUsed],

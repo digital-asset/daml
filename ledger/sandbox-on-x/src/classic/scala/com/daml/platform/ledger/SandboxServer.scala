@@ -14,13 +14,14 @@ import com.daml.ledger.api.domain.PackageEntry
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.WriteService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.runner.common.{CliConfigConverter, Config, ParticipantConfig}
+import com.daml.ledger.runner.common.{CliConfigConverter, Config}
 import com.daml.ledger.sandbox.SandboxServer._
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, MetricsReporting}
+import com.daml.platform.{ParticipantConfig, ParticipantServer}
 import com.daml.platform.apiserver.{ApiServer, ApiServerConfig}
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
@@ -55,6 +56,9 @@ final class SandboxServer(
     this(config, new Metrics(new MetricRegistry))(materializer)
 
   def acquire()(implicit resourceContext: ResourceContext): Resource[Port] = {
+    implicit val loggingContext: LoggingContext =
+      LoggingContext.ForTesting // TODO LLP: LoggingContext
+
     val maybeLedgerId = config.jdbcUrl.flatMap(getLedgerId)
     val genericCliConfig = ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId, DefaultName)
     val bridgeConfigAdaptor: BridgeConfigAdaptor = new BridgeConfigAdaptor {
@@ -66,19 +70,38 @@ final class SandboxServer(
       (participantId, dataSource, participantConfig) <- SandboxOnXRunner.combinedParticipant(
         genericConfig
       )
+      (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge().acquire()
+      readServiceWithSubscriber = new BridgeReadService(
+        ledgerId = genericConfig.ledgerId,
+        maximumDeduplicationDuration = genericCliConfig.extra.maxDeduplicationDuration,
+        stateUpdatesSource,
+      )
+      // TODO LLP: Beautify
+      buildWriteServiceLambda = SandboxOnXRunner.buildWriteService(
+        participantId,
+        stateUpdatesFeedSink,
+        _,
+        _,
+        _,
+        _,
+        _,
+        participantConfig,
+        genericCliConfig.extra,
+      )
       (apiServer, writeService, indexService) <-
-        SandboxOnXRunner
-          .buildLedger(
-            participantId,
-            genericConfig,
-            participantConfig,
-            dataSource,
-            genericCliConfig.extra,
-            materializer,
-            materializer.system,
-            bridgeConfigAdaptor,
-            Some(metrics),
-          )
+        new ParticipantServer(
+          participantId,
+          genericConfig.ledgerId,
+          participantConfig,
+          genericConfig.engine,
+          genericConfig.metrics,
+          dataSource,
+          buildWriteServiceLambda,
+          readServiceWithSubscriber,
+          bridgeConfigAdaptor.timeServiceBackend(participantConfig.apiServer),
+          bridgeConfigAdaptor.authService(participantConfig.apiServer),
+          Some(metrics),
+        )(materializer, materializer.system).owner
           .acquire()
       _ <- Resource.fromFuture(writePortFile(apiServer.port)(resourceContext.executionContext))
       _ <- newLoggingContextWith(logging.participantId(config.participantId)) {

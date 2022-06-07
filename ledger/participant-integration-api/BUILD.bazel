@@ -55,6 +55,7 @@ compile_deps = [
     "//ledger/metrics",
     "//ledger/participant-state",
     "//ledger/participant-state-index",
+    "//ledger/participant-state-metrics",
     "//ledger-service/jwt",
     "//libs-scala/build-info",
     "//libs-scala/contextualized-logging",

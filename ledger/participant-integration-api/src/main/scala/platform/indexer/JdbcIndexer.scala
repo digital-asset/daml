@@ -3,22 +3,24 @@
 
 package com.daml.platform.indexer
 
+import akka.NotUsed
 import akka.stream._
+import akka.stream.scaladsl.Flow
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.indexer.parallel.{
-  InitializeParallelIngestion,
-  ParallelIndexerFactory,
-  ParallelIndexerSubscription,
-}
+import com.daml.platform.indexer.parallel.{InitializeParallelIngestion, ParallelIndexerSubscription}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
+
+import com.daml.platform.indexer.parallel.ParallelIndexerFactory
 
 import scala.concurrent.Future
 
@@ -30,7 +32,8 @@ object JdbcIndexer {
       readService: state.ReadService,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
-      stringInterningViewO: Option[StringInterningView],
+      stringInterningView: StringInterningView,
+      apiUpdaterFlow: Offset => Flow[(Vector[(Offset, Update)], Long), Unit, NotUsed],
   )(implicit materializer: Materializer) {
 
     def initialized()(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
@@ -40,8 +43,8 @@ object JdbcIndexer {
       val meteringStoreBackend = factory.createMeteringStorageWriteBackend
       val parameterStorageBackend = factory.createParameterStorageBackend
       val meteringParameterStorageBackend = factory.createMeteringParameterStorageBackend
-      val DBLockStorageBackend = factory.createDBLockStorageBackend
       val stringInterningStorageBackend = factory.createStringInterningStorageBackend
+      val DBLockStorageBackend = factory.createDBLockStorageBackend
       val dbConfig = IndexerConfig.dataSourceProperties(config)
       val indexer = ParallelIndexerFactory(
         inputMappingParallelism = config.inputMappingParallelism,
@@ -77,6 +80,7 @@ object JdbcIndexer {
           ingestionParallelism = config.ingestionParallelism,
           submissionBatchSize = config.submissionBatchSize,
           metrics = metrics,
+          apiUpdaterFlow = apiUpdaterFlow,
         ),
         meteringAggregator = new MeteringAggregator.Owner(
           meteringStore = meteringStoreBackend,
@@ -86,7 +90,7 @@ object JdbcIndexer {
         ).apply,
         mat = materializer,
         readService = readService,
-        stringInterningViewO = stringInterningViewO,
+        stringInterningView = stringInterningView,
       )
 
       indexer

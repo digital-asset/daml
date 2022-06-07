@@ -4,6 +4,7 @@
 package com.daml.platform.indexer.ha
 
 import akka.stream.Materializer
+import akka.stream.scaladsl.Flow
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -12,8 +13,9 @@ import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingCo
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
-import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.interning.StringInterningView
+import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
 import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
@@ -95,6 +97,9 @@ object IndexerStabilityTestFixture {
                   metricRegistry = new MetricRegistry
                   metrics = new Metrics(metricRegistry)
                   // Create an indexer and immediately start it
+                  dbType = DbType.jdbcType(jdbcUrl)
+                  storageBackendFactory = StorageBackendFactory.of(dbType)
+
                   indexing <- new StandaloneIndexerServer(
                     participantId = EndlessReadService.participantId,
                     participantDataSourceConfig = ParticipantDataSourceConfig(jdbcUrl),
@@ -102,7 +107,8 @@ object IndexerStabilityTestFixture {
                     config = indexerConfig,
                     metrics = metrics,
                     lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-                    stringInterningViewO = Some(new StringInterningView),
+                    stringInterningView = new StringInterningView,
+                    apiUpdaterFlow = _ => Flow.fromFunction(_ => ()),
                   ).acquire()
                 } yield ReadServiceAndIndexer(readService, indexing)
               )

@@ -11,6 +11,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
 import com.daml.metrics.MetricsReporter
+import com.daml.platform.{ParticipantConfig, ParticipantRunMode}
 import com.daml.platform.apiserver.{AuthServiceConfig, AuthServiceConfigCli}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._

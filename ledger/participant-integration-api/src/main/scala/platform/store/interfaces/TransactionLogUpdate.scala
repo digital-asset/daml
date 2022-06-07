@@ -17,7 +17,9 @@ import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequen
   *
   * @see [[LedgerDaoTransactionsReader.getTransactionLogUpdates()]]
   */
-sealed trait TransactionLogUpdate extends Product with Serializable
+sealed trait TransactionLogUpdate extends Product with Serializable {
+  def offset: Offset
+}
 
 object TransactionLogUpdate {
 
@@ -38,17 +40,6 @@ object TransactionLogUpdate {
   ) extends TransactionLogUpdate {
     require(events.nonEmpty, "Transaction must have at least an event")
   }
-
-  /** A special event which signifies that the ledger end has been reached in a stream.
-    *
-    * TODO LLP: Remove this class with the implementation of the Ledger API - Indexer bypass.
-    *
-    * @see [[LedgerDaoTransactionsReader.getTransactionLogUpdates()]]
-    * @param eventOffset The ledger end offset.
-    * @param eventSequentialId The ledger end event sequential id.
-    */
-  final case class LedgerEndMarker(eventOffset: Offset, eventSequentialId: EventSequentialId)
-      extends TransactionLogUpdate
 
   /* Models all but divulgence events */
   sealed trait Event extends Product with Serializable {

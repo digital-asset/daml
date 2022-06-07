@@ -6,7 +6,7 @@ package com.daml.ledger.indexerbenchmark
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Flow, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
@@ -20,6 +20,7 @@ import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.indexer.{Indexer, JdbcIndexer, StandaloneIndexerServer}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.interning.StringInterningView
 import com.daml.resources
 import com.daml.testing.postgresql.PostgresResource
 
@@ -76,7 +77,8 @@ class IndexerBenchmark() {
         readService,
         metrics,
         LfValueTranslationCache.Cache.none,
-        None,
+        new StringInterningView(),
+        _ => Flow.fromFunction(_ => ()), // TODO LLP: Add load
       )
 
       val resource = for {

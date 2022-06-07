@@ -4,7 +4,7 @@
 package com.daml.platform.indexer.parallel
 
 import akka.NotUsed
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -185,6 +185,7 @@ class BatchingParallelIngestionPipeSpec
             }
             dbBatch
           },
+        Sink.ignore.mapMaterializedValue(_ => NotUsed), // TODO LLP: Add load
       )
     val p = Promise[(Vector[(Int, String)], Vector[Int], Option[Throwable])]()
     val timeoutF = akka.pattern.after(timeout, system.scheduler) {

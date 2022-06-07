@@ -20,7 +20,8 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
-private[platform] trait DbDispatcher {
+// TODO LLP: Solve it with StringInterningView and add private[platform] back
+trait DbDispatcher {
   def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
       loggingContext: LoggingContext
   ): Future[T]

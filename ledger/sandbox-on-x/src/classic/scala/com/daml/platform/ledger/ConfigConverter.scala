@@ -6,6 +6,7 @@ package com.daml.ledger.sandbox
 import com.daml.ledger.runner.common._
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
+import com.daml.platform.ParticipantRunMode
 import com.daml.platform.apiserver.AuthServiceConfig
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.IndexServiceConfig

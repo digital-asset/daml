@@ -3,8 +3,6 @@
 
 package com.daml.platform.store.cache
 
-import java.util.concurrent.atomic.AtomicReference
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.QueueOfferResult.Enqueued
@@ -22,20 +20,11 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractInstance, ValueRecord, ValueText}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.store.EventSequentialId
-import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned}
 import com.daml.platform.store.cache.ContractStateValue.{Active, Archived}
-import com.daml.platform.store.cache.MutableCacheBackedContractStore.{
-  EventSequentialId,
-  SignalNewLedgerHead,
-  SubscribeToContractStateEvents,
-}
-import com.daml.platform.store.cache.MutableCacheBackedContractStoreSpec.{
-  ContractsReaderFixture,
-  contractStore,
-  _,
-}
+import com.daml.platform.store.cache.MutableCacheBackedContractStore.SubscribeToContractStateEvents
+import com.daml.platform.store.cache.MutableCacheBackedContractStoreSpec._
+import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   ContractState,
@@ -81,11 +70,6 @@ class MutableCacheBackedContractStoreSpec
 
   "event stream consumption" should {
     "populate the caches from the contract state event stream" in {
-      val lastLedgerHead =
-        new AtomicReference[(Offset, EventSequentialId)]((offset0, EventSequentialId.beforeBegin))
-      val capture_signalLedgerHead: SignalNewLedgerHead =
-        (offset, seqId) => lastLedgerHead.set((offset, seqId))
-
       implicit val (
         queue: BoundedSourceQueue[TransactionEvents],
         source: Source[TransactionEvents, NotUsed],
@@ -97,7 +81,6 @@ class MutableCacheBackedContractStoreSpec
         store <- contractStore(
           cachesSize = 2L,
           ContractsReaderFixture(),
-          capture_signalLedgerHead,
           () => source,
         ).asFuture
         created1 <- createdEvent(cId_1, contract1, Some(someKey), Set(charlie), offset1, t1)
@@ -157,10 +140,6 @@ class MutableCacheBackedContractStoreSpec
         }
 
         someOffset = Offset.fromByteArray(1337.toByteArray)
-        _ <- ledgerEnd(someOffset, 3L)
-        _ <- eventually {
-          lastLedgerHead.get() shouldBe (someOffset -> 3L)
-        }
       } yield succeed
     }
 
@@ -213,7 +192,6 @@ class MutableCacheBackedContractStoreSpec
         store <- contractStore(
           cachesSize = 2L,
           ContractsReaderFixture(),
-          (_, _) => (),
           sourceSubscriptionFixture,
         ).asFuture
         _ <- eventually {
@@ -455,15 +433,6 @@ class MutableCacheBackedContractStoreSpec
     ()
   }
 
-  private def ledgerEnd(offset: Offset, eventSequentialId: EventSequentialId)(implicit
-      queue: BoundedSourceQueue[TransactionEvents]
-  ) =
-    Future {
-      queue.offer(
-        Vector(ContractStateEvent.LedgerEndMarker(offset, eventSequentialId))
-      ) shouldBe Enqueued
-    }
-
   override def afterAll(): Unit = {
     materializer.shutdown()
     val _ = actorSystem.terminate()
@@ -493,7 +462,6 @@ object MutableCacheBackedContractStoreSpec {
   private def contractStore(
       cachesSize: Long,
       readerFixture: LedgerDaoContractsReader = ContractsReaderFixture(),
-      signalNewLedgerHead: (Offset, EventSequentialId) => Unit = (_, _) => (),
       sourceSubscriber: SubscribeToContractStateEvents = () => Source.empty,
       startIndexExclusive: Offset = offset0,
   )(implicit loggingContext: LoggingContext, materializer: Materializer) = {
@@ -505,7 +473,6 @@ object MutableCacheBackedContractStoreSpec {
     val contractStore = new MutableCacheBackedContractStore(
       metrics,
       readerFixture,
-      signalNewLedgerHead,
       contractStateCaches =
         ContractStateCaches.build(startIndexExclusive, cachesSize, cachesSize, metrics)(
           scala.concurrent.ExecutionContext.global,

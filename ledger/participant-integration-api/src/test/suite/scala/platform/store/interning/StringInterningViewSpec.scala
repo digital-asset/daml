@@ -11,6 +11,7 @@ import org.scalatest.matchers.should.Matchers
 import scala.concurrent.Future
 import scala.util.Try
 
+// TODO LLP: Extend test with cleanup
 class StringInterningViewSpec extends AsyncFlatSpec with Matchers {
   private implicit val lc: LoggingContext = LoggingContext.ForTesting
 

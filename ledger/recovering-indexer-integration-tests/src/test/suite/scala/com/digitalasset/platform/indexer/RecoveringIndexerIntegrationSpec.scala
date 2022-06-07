@@ -5,7 +5,7 @@ package com.daml.platform.indexer
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.scaladsl.{BroadcastHub, Keep, Source}
+import akka.stream.scaladsl.{BroadcastHub, Flow, Keep, Source}
 import akka.stream.{BoundedSourceQueue, Materializer, QueueCompletionResult, QueueOfferResult}
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
@@ -32,6 +32,7 @@ import com.daml.platform.store.DbSupport.{
   ParticipantDataSourceConfig,
 }
 import com.daml.platform.store.cache.MutableLedgerEndCache
+import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
@@ -209,6 +210,8 @@ class RecoveringIndexerIntegrationSpec
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         participantDataSourceConfig = ParticipantDataSourceConfig(jdbcUrl),
+        stringInterningView = new StringInterningView(),
+        apiUpdaterFlow = _ => Flow.fromFunction(_ => ()), // TODO LLP: Add load
       )(materializer, loggingContext)
     } yield participantState._2
   }

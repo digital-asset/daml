@@ -121,27 +121,28 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
   behavior of "inputMapper"
 
   it should "provide required Batch in happy path case" in {
+    val input = List(
+      (Offset.fromHexString(Ref.HexString.assertFromString("00")), somePackageUploadRejected),
+      (
+        Offset.fromHexString(Ref.HexString.assertFromString("01")),
+        somePackageUploadRejected.copy(recordTime =
+          somePackageUploadRejected.recordTime.addMicros(1000)
+        ),
+      ),
+      (
+        Offset.fromHexString(Ref.HexString.assertFromString("02")),
+        somePackageUploadRejected.copy(recordTime =
+          somePackageUploadRejected.recordTime.addMicros(2000)
+        ),
+      ),
+    )
+
     val actual = ParallelIndexerSubscription.inputMapper(
       metrics = metrics,
       toDbDto = _ => _ => Iterator(someParty, someParty),
       toMeteringDbDto = _ => Vector.empty,
-    )(lc)(
-      List(
-        (Offset.fromHexString(Ref.HexString.assertFromString("00")), somePackageUploadRejected),
-        (
-          Offset.fromHexString(Ref.HexString.assertFromString("01")),
-          somePackageUploadRejected.copy(recordTime =
-            somePackageUploadRejected.recordTime.addMicros(1000)
-          ),
-        ),
-        (
-          Offset.fromHexString(Ref.HexString.assertFromString("02")),
-          somePackageUploadRejected.copy(recordTime =
-            somePackageUploadRejected.recordTime.addMicros(2000)
-          ),
-        ),
-      )
-    )
+    )(lc)(input)
+
     val expected = Batch[Vector[DbDto]](
       lastOffset = offset("02"),
       lastSeqEventId = 0,
@@ -156,7 +157,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
         someParty,
       ),
       batchSize = 3,
-      offsets = Vector("00", "01", "02").map(offset),
+      offsetsUpdates = input.toVector,
     )
     actual shouldBe expected
   }
@@ -244,11 +245,14 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       lastRecordTime = 0,
       batch = Vector.empty,
       batchSize = 0,
-      offsets = Vector.empty,
+      offsetsUpdates = Vector.empty,
     )
   }
 
   behavior of "seqMapper"
+  private val offsetsUpdates = Vector("00", "01", "02").map { str =>
+    offset(str) -> somePackageUploadRejected.copy(rejectionReason = str)
+  }
 
   it should "assign sequence ids correctly, and populate string-interning entries correctly in happy path case" in {
     val result = ParallelIndexerSubscription.seqMapper(
@@ -273,7 +277,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
           someParty,
         ),
         batchSize = 3,
-        offsets = Vector("00", "01", "02").map(offset),
+        offsetsUpdates = offsetsUpdates,
       ),
     )
     result.lastSeqEventId shouldBe 18
@@ -304,7 +308,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
           someParty,
         ),
         batchSize = 3,
-        offsets = Vector("00", "01", "02").map(offset),
+        offsetsUpdates = offsetsUpdates,
       ),
     )
     result.lastSeqEventId shouldBe 15
@@ -329,7 +333,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
           someParty,
         ),
         batchSize = 3,
-        offsets = Vector("00", "01", "02").map(offset),
+        offsetsUpdates = offsetsUpdates,
       )
     )
     result shouldBe Batch(
@@ -339,7 +343,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       lastRecordTime = someTime.toEpochMilli,
       batch = "bumm",
       batchSize = 3,
-      offsets = Vector("00", "01", "02").map(offset),
+      offsetsUpdates = offsetsUpdates,
     )
   }
 
@@ -354,7 +358,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
         lastRecordTime = someTime.toEpochMilli - 1000,
         batch = "bumm1",
         batchSize = 3,
-        offsets = Vector("00", "01", "02").map(offset),
+        offsetsUpdates = offsetsUpdates,
       ),
       Batch(
         lastOffset = offset("05"),
@@ -363,7 +367,9 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
         lastRecordTime = someTime.toEpochMilli,
         batch = "bumm2",
         batchSize = 3,
-        offsets = Vector("03", "04", "05").map(offset),
+        offsetsUpdates = Vector("03", "04", "05").map { str =>
+          offset(str) -> somePackageUploadRejected.copy(rejectionReason = str)
+        },
       ),
     ) shouldBe Batch(
       lastOffset = offset("05"),
@@ -372,7 +378,9 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       lastRecordTime = someTime.toEpochMilli,
       batch = "zero",
       batchSize = 0,
-      offsets = Vector.empty,
+      offsetsUpdates = Vector("00", "01", "02", "03", "04", "05").map { str =>
+        offset(str) -> somePackageUploadRejected.copy(rejectionReason = str)
+      },
     )
   }
 
@@ -387,7 +395,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
         lastRecordTime = someTime.toEpochMilli,
         batch = "zero",
         batchSize = 0,
-        offsets = Vector.empty,
+        offsetsUpdates = Vector.empty,
       )
     ) shouldBe ParameterStorageBackend.LedgerEnd(
       lastOffset = offset("05"),

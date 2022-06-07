@@ -359,12 +359,8 @@ final class Metrics(val registry: MetricRegistry) {
 
       val decodeStateEvent: Timer = registry.timer(Prefix :+ "decode_state_event")
 
-      val updateCaches: Timer = registry.timer(Prefix :+ "update_caches")
-
-      val decodeTransactionLogUpdate: Timer =
-        registry.timer(Prefix :+ "transaction_log_update_decode")
-      val transactionLogUpdatesBufferSize: Counter =
-        registry.counter(Prefix :+ "transaction_log_updates_buffer_size")
+      val updateLedgerApiTransientState: Timer =
+        registry.timer(Prefix :+ "update_ledger_api_transient_state")
 
       val transactionTreesBufferSize: Counter =
         registry.counter(Prefix :+ "transaction_trees_buffer_size")
@@ -443,9 +439,6 @@ final class Metrics(val registry: MetricRegistry) {
           "store_party_entry"
         ) // FIXME Base name conflicts with storePartyEntry
         val loadPartyEntries: DatabaseMetrics = createDbMetrics("load_party_entries")
-        val getTransactionLogUpdates: DatabaseMetrics = createDbMetrics(
-          "get_transaction_log_updates"
-        )
 
         object storeTransactionDbMetrics
             extends DatabaseMetrics(registry, Prefix, "store_ledger_entry") {
@@ -671,11 +664,6 @@ final class Metrics(val registry: MetricRegistry) {
           val conversion: Timer = registry.timer(Prefix :+ "conversion")
           val bufferSize: Counter = registry.counter(Prefix :+ "buffer_size")
         }
-
-        val getContractStateEventsChunkSize: Histogram =
-          registry.histogram(Prefix :+ "get_contract_state_events_chunk_fetch_size")
-        val getTransactionLogUpdatesChunkSize: Histogram =
-          registry.histogram(Prefix :+ "get_transaction_log_updates_chunk_fetch_size")
       }
 
       object read {
