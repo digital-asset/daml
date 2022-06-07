@@ -31,7 +31,6 @@ import Data.Either
 import Data.Tuple.Extra
 import Data.List.Extra
 import Data.Maybe
-import Debug.Trace
 import Options.Applicative
 import System.Directory
 import System.Environment
@@ -527,8 +526,8 @@ ifaceDefTempl name mbKeyTy impls choices =
 -- in 'privileged'.
 --
 --     duplicates p . duplicates p = duplicates p
-duplicates :: (Show n, Ord n) => Set.Set n -> [Set.Set n] -> [Set.Set n]
-duplicates privileged sets = ("s11"::T.Text, take (length sets) indexedInfList, dupChoices, privileged:sets) `traceShow` take (length sets) indexedInfList
+duplicates :: Ord n => Set.Set n -> [Set.Set n] -> [Set.Set n]
+duplicates privileged sets = take (length sets) indexedInfList
   where
     indexedInfList =
       unfoldr (\n -> Just (Map.findWithDefault Set.empty n dupChoices, succ n)) 0
