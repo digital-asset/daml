@@ -3,24 +3,24 @@
 
 package com.daml
 
-import alltests.MultiParty
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import java.math.BigDecimal
+import java.time.temporal.ChronoField
+import java.time.{Instant, LocalDate, ZoneOffset}
 import com.daml.ledger.javaapi.data.{Unit => DamlUnit}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.Numeric
-import io.grpc.Channel
-import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import wolpertinger.color.Grey
 import wolpertinger.{Color, Wolpertinger}
+import alltests.MultiParty
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import io.grpc.Channel
+import org.scalatest.Assertion
 
-import java.math.BigDecimal
-import java.time.temporal.ChronoField
-import java.time.{Instant, LocalDate, ZoneOffset}
-import java.util.Arrays.asList
-import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
+import scala.concurrent.Future
+import java.util.Arrays.asList
 
 class CodegenLedgerTest
     extends AsyncFlatSpec
