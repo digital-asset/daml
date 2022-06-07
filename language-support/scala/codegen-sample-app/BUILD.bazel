@@ -127,10 +127,6 @@ da_scala_test(
         "src/test/resources/logback-sandbox.xml",
         ":MyMain.dar",
         ":MySecondMain.dar",
-        "//ledger/sandbox-classic:sandbox-classic-binary_deploy.jar",
-    ],
-    jvm_flags = [
-        "-Dcom.daml.sandbox.jar=ledger/sandbox-classic/sandbox-classic-binary_deploy.jar",
     ],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
