@@ -37,9 +37,9 @@ object DamlContractTemplateGen {
 
     logger.debug(s"generate templateDecl: ${templateName.toString}, ${templateInterface.toString}")
 
-    // TODO (#13921) replace assumeNoOverloadedChoices with directChoices
+    // TODO (#13926) replace assumeNoOverloadedChoices with directChoices
     val templateChoiceMethods =
-      templateInterface.template.tChoices.assumeNoOverloadedChoices(githubIssue = 13921).flatMap {
+      templateInterface.template.tChoices.assumeNoOverloadedChoices(githubIssue = 13926).flatMap {
         case (id, interface) =>
           util.genTemplateChoiceMethods(
             templateType = tq"${TypeName(templateName.name)}",

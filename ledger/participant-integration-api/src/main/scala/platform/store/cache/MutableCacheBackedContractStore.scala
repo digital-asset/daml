@@ -35,8 +35,7 @@ private[platform] class MutableCacheBackedContractStore(
     metrics: Metrics,
     contractsReader: LedgerDaoContractsReader,
     signalNewLedgerHead: SignalNewLedgerHead,
-    private[cache] val keyCache: StateCache[GlobalKey, ContractKeyStateValue],
-    private[cache] val contractsCache: StateCache[ContractId, ContractStateValue],
+    private[cache] val contractStateCaches: ContractStateCaches,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends ContractStore {
 
@@ -44,14 +43,14 @@ private[platform] class MutableCacheBackedContractStore(
 
   def push(eventsBatch: Vector[ContractStateEvent]): Unit = {
     debugEvents(eventsBatch)
-    updateCaches(eventsBatch)
+    contractStateCaches.push(eventsBatch)
     updateOffsets(eventsBatch)
   }
 
   override def lookupActiveContract(readers: Set[Party], contractId: ContractId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Contract]] =
-    contractsCache
+    contractStateCaches.contractState
       .get(contractId)
       .map(Future.successful)
       .getOrElse(readThroughContractsCache(contractId))
@@ -60,7 +59,7 @@ private[platform] class MutableCacheBackedContractStore(
   override def lookupContractKey(readers: Set[Party], key: GlobalKey)(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractId]] =
-    keyCache
+    contractStateCaches.keyState
       .get(key)
       .map(Future.successful)
       .getOrElse(readThroughKeyCache(key))
@@ -115,7 +114,7 @@ private[platform] class MutableCacheBackedContractStore(
   )(implicit
       loggingContext: LoggingContext
   ): Either[Set[ContractId], (Set[Timestamp], Set[ContractId])] = {
-    val cacheQueried = ids.view.map(id => id -> contractsCache.get(id)).toVector
+    val cacheQueried = ids.view.map(id => id -> contractStateCaches.contractState.get(id)).toVector
 
     val cached = cacheQueried
       .foldLeft[Either[Set[ContractId], Set[Timestamp]]](Right(Set.empty[Timestamp])) {
@@ -156,7 +155,7 @@ private[platform] class MutableCacheBackedContractStore(
             case result => Future.fromTry(result)
           }
 
-    contractsCache
+    contractStateCaches.contractState
       .putAsync(contractId, readThroughRequest)
       .transformWith {
         case Failure(_: ContractReadThroughNotFound) => Future.successful(NotFound)
@@ -237,7 +236,7 @@ private[platform] class MutableCacheBackedContractStore(
   )(implicit loggingContext: LoggingContext): Future[ContractKeyStateValue] = {
     val readThroughRequest = (validAt: Offset) =>
       contractsReader.lookupKeyState(key, validAt).map(toKeyCacheValue)
-    keyCache.putAsync(key, readThroughRequest)
+    contractStateCaches.keyState.putAsync(key, readThroughRequest)
   }
 
   private def nonEmptyIntersection[T](one: Set[T], other: Set[T]): Boolean =
@@ -250,38 +249,6 @@ private[platform] class MutableCacheBackedContractStore(
           .updateValue(eventSequentialId)
         signalNewLedgerHead(eventOffset, eventSequentialId)
       case _ => ()
-    }
-
-  private def updateCaches(eventsBatch: Vector[ContractStateEvent]): Unit =
-    if (eventsBatch.isEmpty) {
-      logger.error("updateCaches triggered with empty events batch")
-    } else {
-      val keyMappingsBuilder = Map.newBuilder[Key, ContractKeyStateValue]
-      val contractMappingsBuilder = Map.newBuilder[ContractId, ExistingContractValue]
-
-      eventsBatch.foreach {
-        case created: ContractStateEvent.Created =>
-          created.globalKey.foreach { key =>
-            keyMappingsBuilder.addOne(key -> Assigned(created.contractId, created.stakeholders))
-          }
-          contractMappingsBuilder.addOne(
-            created.contractId,
-            Active(created.contract, created.stakeholders, created.ledgerEffectiveTime),
-          )
-        case archived: ContractStateEvent.Archived =>
-          archived.globalKey.foreach { key =>
-            keyMappingsBuilder.addOne(key -> Unassigned)
-          }
-          contractMappingsBuilder.addOne(archived.contractId, Archived(archived.stakeholders))
-        case _: LedgerEndMarker => ()
-      }
-
-      val keyMappings = keyMappingsBuilder.result()
-      val contractMappings = contractMappingsBuilder.result()
-
-      val validAt = eventsBatch.last.eventOffset
-      if (keyMappings.nonEmpty) keyCache.putBatch(validAt, keyMappings)
-      if (contractMappings.nonEmpty) contractsCache.putBatch(validAt, contractMappings)
     }
 
   private def debugEvents(
@@ -320,28 +287,9 @@ private[platform] class MutableCacheBackedContractStore(
 private[platform] object MutableCacheBackedContractStore {
   type EventSequentialId = Long
   // Signal externally that the cache has caught up until the provided ledger head offset
-  type SignalNewLedgerHead = (Offset, Long) => Unit
+  type SignalNewLedgerHead = (Offset, EventSequentialId) => Unit
   // Subscribe to the contract state events stream
   type SubscribeToContractStateEvents = () => Source[Vector[ContractStateEvent], NotUsed]
-
-  def apply(
-      contractsReader: LedgerDaoContractsReader,
-      signalNewLedgerHead: SignalNewLedgerHead,
-      startIndexExclusive: Offset,
-      metrics: Metrics,
-      maxContractsCacheSize: Long,
-      maxKeyCacheSize: Long,
-  )(implicit
-      executionContext: ExecutionContext,
-      loggingContext: LoggingContext,
-  ): MutableCacheBackedContractStore =
-    new MutableCacheBackedContractStore(
-      metrics,
-      contractsReader,
-      signalNewLedgerHead,
-      ContractKeyStateCache(startIndexExclusive, maxKeyCacheSize, metrics),
-      ContractsStateCache(startIndexExclusive, maxContractsCacheSize, metrics),
-    )
 
   final class CacheUpdateSubscription(
       contractStore: MutableCacheBackedContractStore,

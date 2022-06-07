@@ -307,12 +307,10 @@ private[daml] class AstRewriter(
       case TemplateImplements(
             interface,
             methods,
-            inheritedChoices,
           ) =>
         TemplateImplements(
           apply(interface),
           methods.transform((_, x) => apply(x)),
-          inheritedChoices,
         )
     }
   def apply(x: TemplateImplementsMethod): TemplateImplementsMethod =

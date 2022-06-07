@@ -22,6 +22,7 @@ import com.daml.platform.store.dao.events.{BufferedTransactionsReader, LfValueTr
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.cache.{
+  ContractStateCaches,
   EventsBuffer,
   LedgerEndCache,
   MutableCacheBackedContractStore,
@@ -144,13 +145,16 @@ private[platform] case class IndexServiceBuilder(
       ledgerEnd: LedgerEnd,
       dispatcherLagMeter: InstrumentedSignalNewLedgerHead,
   ) =
-    MutableCacheBackedContractStore(
+    new MutableCacheBackedContractStore(
+      metrics,
       ledgerDao.contractsReader,
       dispatcherLagMeter,
-      ledgerEnd.lastOffset,
-      metrics,
-      config.maxContractStateCacheSize,
-      config.maxContractKeyStateCacheSize,
+      contractStateCaches = ContractStateCaches.build(
+        ledgerEnd.lastOffset,
+        config.maxContractStateCacheSize,
+        config.maxContractKeyStateCacheSize,
+        metrics,
+      )(servicesExecutionContext, loggingContext),
     )(servicesExecutionContext, loggingContext)
 
   private def createStringInterningView() = {
@@ -307,6 +311,7 @@ private[platform] case class IndexServiceBuilder(
       eventsProcessingParallelism = config.eventsProcessingParallelism,
       acsIdPageSize = config.acsIdPageSize,
       acsIdPageBufferSize = config.acsIdPageBufferSize,
+      acsIdPageWorkingMemoryBytes = config.acsIdPageWorkingMemoryBytes,
       acsIdFetchingParallelism = config.acsIdFetchingParallelism,
       acsContractFetchingParallelism = config.acsContractFetchingParallelism,
       acsGlobalParallelism = config.acsGlobalParallelism,

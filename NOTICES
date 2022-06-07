@@ -1599,7 +1599,7 @@ optionator 0.9.1 : MIT License
 optparse-applicative 0.16.1.0 : BSD 3-clause "New" or "Revised" License
 optparse-generic 1.4.7 : BSD 3-clause "New" or "Revised" License
 ora 5.4.1 : MIT License
-Oracle Database JDBC Drivers 19.8.0.0 : Basic Proprietary Commercial License
+Oracle Database JDBC Drivers 19.14.0.0 : Basic Proprietary Commercial License
 ordered-read-streams 1.0.1 : MIT License
 org.apiguardian:apiguardian-api 1.0.0 : Apache License 2.0
 org.brotli:dec 0.1.2 : MIT License
@@ -4690,7 +4690,7 @@ THIS SOFTWARE.
 ---
 
 Basic Proprietary Commercial License
-(gatling-charts-highcharts 3.5.1, Oracle Database JDBC Drivers 19.8.0.0)
+(gatling-charts-highcharts 3.5.1, Oracle Database JDBC Drivers 19.14.0.0)
 
 END-USER LICENSE AGREEMENT FOR ACME SOFTWARE
 ============================================

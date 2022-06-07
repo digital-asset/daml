@@ -447,10 +447,8 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
               , controllers Nil @Party
               to upure @Unit ();
             implements Mod:I1{
-              choice Choice;
             };
             implements Mod:I2{
-              choice Choice;
             };
           } ;
 

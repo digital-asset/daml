@@ -5,10 +5,11 @@ package com.daml.platform.store.dao.events
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import akka.stream.OverflowStrategy
+import akka.stream.{Attributes, OverflowStrategy}
 import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.indexer.parallel.BatchN
 import com.daml.platform.{FilterRelation, Identifier, Party}
 import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.backend.EventStorageBackend
@@ -34,6 +35,7 @@ class FilterTableACSReader(
     pageSize: Int,
     idPageSize: Int,
     idPageBufferSize: Int,
+    idPageWorkingMemoryBytes: Int,
     idFetchingParallelism: Int,
     acsFetchingparallelism: Int,
     metrics: Metrics,
@@ -60,28 +62,38 @@ class FilterTableACSReader(
     val idQueryLimiter =
       new QueueBasedConcurrencyLimiter(idFetchingParallelism, executionContext)
 
+    val idQueryConfiguration = IdQueryConfiguration(
+      maxIdPageSize = idPageSize,
+      idPageWorkingMemoryBytes = idPageWorkingMemoryBytes,
+      filterSize = filters.size,
+      idPageBufferSize = idPageBufferSize,
+    )
+
     def toIdSource(filter: Filter): Source[Long, NotUsed] =
-      idSource(idPageBufferSize)(fromExclusive =>
-        idQueryLimiter.execute(
+      idSource(
+        idQueryConfiguration = idQueryConfiguration,
+        pageBufferSize = idPageBufferSize,
+      )(idQuery =>
+        idQueryLimiter.execute {
           dispatcher.executeSql(metrics.daml.index.db.getActiveContractIds) { connection =>
             val result = eventStorageBackend.activeContractEventIds(
               partyFilter = filter.party,
               templateIdFilter = filter.templateId,
-              startExclusive = fromExclusive,
+              startExclusive = idQuery.fromExclusiveEventSeqId,
               endInclusive = activeAt._2,
-              limit = idPageSize,
+              limit = idQuery.pageSize,
             )(connection)
             logger.debug(
               s"getActiveContractIds $filter returned #${result.size} ${result.lastOption
                   .map(last => s"until $last")
                   .getOrElse("")}"
             )
-            result
+            result.toArray
           }
-        )
+        }
       )
 
-    def fetchAcs(ids: Vector[Long]): Future[Vector[EventStorageBackend.Entry[Raw.FlatEvent]]] =
+    def fetchAcs(ids: Iterable[Long]): Future[Vector[EventStorageBackend.Entry[Raw.FlatEvent]]] =
       querylimiter.execute(
         dispatcher.executeSql(metrics.daml.index.db.getActiveContractBatch) { connection =>
           val result = queryNonPruned.executeSql(
@@ -107,32 +119,102 @@ class FilterTableACSReader(
       .map(toIdSource)
       .pipe(mergeSort[Long])
       .statefulMapConcat(statefulDeduplicate)
-      .grouped(pageSize)
-      .map(_.toVector)
+      .via(
+        BatchN(
+          maxBatchSize = pageSize,
+          maxBatchCount = acsFetchingparallelism + 1,
+        )
+      )
       .async
+      .addAttributes(
+        Attributes.inputBuffer(initial = acsFetchingparallelism, max = acsFetchingparallelism)
+      )
       .mapAsync(acsFetchingparallelism)(fetchAcs)
   }
 }
 
 private[events] object FilterTableACSReader {
+  private val logger = ContextualizedLogger.get(this.getClass)
+
   case class Filter(party: Party, templateId: Option[Identifier])
 
+  case class IdQuery(fromExclusiveEventSeqId: Long, pageSize: Int)
+
+  case class IdQueryConfiguration(
+      minPageSize: Int,
+      maxPageSize: Int,
+  ) {
+    assert(minPageSize > 0)
+    assert(maxPageSize >= minPageSize)
+  }
+
+  object IdQueryConfiguration {
+    def apply(
+        maxIdPageSize: Int,
+        idPageWorkingMemoryBytes: Int,
+        filterSize: Int,
+        idPageBufferSize: Int,
+    )(implicit loggingContext: LoggingContext): IdQueryConfiguration = {
+      val LowestIdPageSize =
+        Math.min(10, maxIdPageSize) // maxIdPageSize can override this if it is smaller
+      // Approximation how many index entries can be present in one btree index leaf page (fetching smaller than this only adds round-trip overhead, without boiling down to smaller disk read)
+      // Experiments show party_id, template_id index has 244 tuples per page, wildcard party_id index has 254 per page (with default fill ratio for BTREE Index)
+      // Picking a lower number is for accommodating pruning, deletions, index bloat effect, which boil down to lower tuple per page ratio.
+      val RecommendedMinIdPageSize =
+        Math.min(200, maxIdPageSize) // maxIdPageSize can override this if it is smaller
+      val calculatedMaxIdPageSize =
+        idPageWorkingMemoryBytes
+          ./(8) // IDs stored in 8 bytes
+          ./(
+            idPageBufferSize + 1
+          ) // for each filter we need one page fetched for merge sorting, and additional pages might reside in the buffer
+          ./(filterSize)
+      if (calculatedMaxIdPageSize < LowestIdPageSize) {
+        logger.warn(
+          s"Calculated maximum ID page size supporting API stream memory limits [$calculatedMaxIdPageSize] is too low: $LowestIdPageSize is used instead. Warning: API stream memory limits not respected. Warning: Dangerously low maximum ID page size can cause poor streaming performance. Filter size [$filterSize] too large?"
+        )
+        IdQueryConfiguration(LowestIdPageSize, LowestIdPageSize)
+      } else if (calculatedMaxIdPageSize < RecommendedMinIdPageSize) {
+        logger.warn(
+          s"Calculated maximum ID page size supporting API stream memory limits [$calculatedMaxIdPageSize] is very low. Warning: Low maximum ID page size can cause poor streaming performance. Filter size [$filterSize] too large?"
+        )
+        IdQueryConfiguration(calculatedMaxIdPageSize, calculatedMaxIdPageSize)
+      } else if (calculatedMaxIdPageSize < maxIdPageSize) {
+        logger.info(
+          s"Calculated maximum ID page size supporting API stream memory limits [$calculatedMaxIdPageSize] is low. Warning: Low maximum ID page size can cause poor streaming performance. Filter size [$filterSize] too large?"
+        )
+        IdQueryConfiguration(RecommendedMinIdPageSize, calculatedMaxIdPageSize)
+      } else {
+        logger.debug(
+          s"Calculated maximum ID page size supporting API stream memory limits [$calculatedMaxIdPageSize] is sufficiently high, using [$maxIdPageSize] instead."
+        )
+        IdQueryConfiguration(RecommendedMinIdPageSize, maxIdPageSize)
+      }
+    }
+  }
+
   def idSource(
-      pageBufferSize: Int
-  )(getPage: Long => Future[Vector[Long]]): Source[Long, NotUsed] = {
+      idQueryConfiguration: IdQueryConfiguration,
+      pageBufferSize: Int,
+  )(getPage: IdQuery => Future[Array[Long]]): Source[Long, NotUsed] = {
     assert(pageBufferSize > 0)
     Source
-      .unfoldAsync(0L) { fromExclusive =>
-        getPage(fromExclusive).map {
+      .unfoldAsync(
+        IdQuery(0L, idQueryConfiguration.minPageSize)
+      ) { query =>
+        getPage(query).map {
           case empty if empty.isEmpty => None
           case nonEmpty =>
             Some(
-              nonEmpty.last -> nonEmpty
+              IdQuery(
+                nonEmpty.last,
+                Math.min(query.pageSize * 4, idQueryConfiguration.maxPageSize),
+              ) -> nonEmpty
             )
         }(scala.concurrent.ExecutionContext.parasitic)
       }
       .buffer(pageBufferSize, OverflowStrategy.backpressure)
-      .mapConcat(identity)
+      .mapConcat(identity(_))
   }
 
   @tailrec

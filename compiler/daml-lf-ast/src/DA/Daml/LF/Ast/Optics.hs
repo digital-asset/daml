@@ -79,10 +79,9 @@ templateExpr f (Template loc tpl param precond signatories observers agreement c
   <*> (NM.traverse . templateImplementsExpr) f implements
 
 templateImplementsExpr :: Traversal' TemplateImplements Expr
-templateImplementsExpr f (TemplateImplements iface methods inheritedChoiceNames) =
+templateImplementsExpr f (TemplateImplements iface methods) =
   TemplateImplements iface
     <$> (NM.traverse . templateImplementsMethodExpr) f methods
-    <*> pure inheritedChoiceNames
 
 templateImplementsMethodExpr :: Traversal' TemplateImplementsMethod Expr
 templateImplementsMethodExpr f (TemplateImplementsMethod name body) =
@@ -190,6 +189,8 @@ instance MonoTraversable ModuleRef DefException
 
 instance MonoTraversable ModuleRef InterfaceMethod
 instance MonoTraversable ModuleRef DefInterface
+instance MonoTraversable ModuleRef InterfaceCoImplements
+instance MonoTraversable ModuleRef InterfaceCoImplementsMethod
 
 instance MonoTraversable ModuleRef IsTest
 instance MonoTraversable ModuleRef DefValue

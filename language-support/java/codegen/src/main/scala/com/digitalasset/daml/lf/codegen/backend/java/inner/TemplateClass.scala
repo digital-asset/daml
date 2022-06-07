@@ -30,8 +30,7 @@ private[inner] object TemplateClass extends StrictLogging {
       val fields = getFieldsWithTypes(record.fields, packagePrefixes)
       val staticCreateMethod = generateStaticCreateMethod(fields, className)
 
-      // TODO(SC #13921) replace with a call to TemplateChoices#directChoices
-      val templateChoices = template.tChoices.assumeNoOverloadedChoices(githubIssue = 13921)
+      val templateChoices = template.tChoices.directChoices
       val templateType = TypeSpec
         .classBuilder(className)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)

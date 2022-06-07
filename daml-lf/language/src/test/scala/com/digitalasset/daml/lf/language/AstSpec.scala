@@ -421,12 +421,10 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
   private val ifaceImpl1 = TemplateImplements(
     interfaceId = TypeConName.assertFromString("pkgId:Mod:I1"),
     methods = Map.empty,
-    inheritedChoices = Set.empty,
   )
   private val ifaceImpl2 = TemplateImplements(
     interfaceId = TypeConName.assertFromString("pkgId:Mod:I2"),
     methods = Map.empty,
-    inheritedChoices = Set.empty,
   )
   private val ifaceMethod1 = InterfaceMethod(name = Name.assertFromString("x"), returnType = TUnit)
   private val ifaceMethod2 = InterfaceMethod(name = Name.assertFromString("y"), returnType = TUnit)

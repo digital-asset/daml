@@ -467,6 +467,7 @@ convertInterfaces env binds = interfaceDefs
             intMethods <- NM.fromList <$> convertMethods tyCon
             intChoices <- convertChoices env intName emptyTemplateBinds
             intPrecondition <- useSingleMethodDict env precond (`ETmApp` EVar intParam)
+            let intCoImplements = NM.empty -- TODO: https://github.com/digital-asset/daml/issues/14047
             pure DefInterface {..}
 
     convertMethods :: GHC.TyCon -> ConvertM [InterfaceMethod]
@@ -976,8 +977,7 @@ convertImplements env tpl = NM.fromList <$>
         (mod, qualObject con, tpl)
         (envInterfaceMethodInstances env)
 
-      let inheritedChoiceNames = S.empty -- This is filled during LF post-processing (in the LF completer).
-      pure (TemplateImplements con methods inheritedChoiceNames)
+      pure (TemplateImplements con methods)
 
     convertMethods ms = fmap NM.fromList . sequence $
       [ TemplateImplementsMethod (MethodName k) . (`ETmApp` EVar this) <$> convertExpr env v

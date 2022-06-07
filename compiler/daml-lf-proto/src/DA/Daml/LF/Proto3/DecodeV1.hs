@@ -241,6 +241,7 @@ decodeDefInterface LF1.DefInterface {..} = do
   intChoices <- decodeNM DuplicateChoice decodeChoice defInterfaceChoices
   intMethods <- decodeNM DuplicateMethod decodeInterfaceMethod defInterfaceMethods
   intPrecondition <- mayDecode "defInterfacePrecond" defInterfacePrecond decodeExpr
+  intCoImplements <- decodeNM DuplicateCoImplements decodeInterfaceCoImplements defInterfaceCoImplements
   pure DefInterface {..}
 
 decodeInterfaceMethod :: LF1.InterfaceMethod -> Decode InterfaceMethod
@@ -251,6 +252,16 @@ decodeInterfaceMethod LF1.InterfaceMethod {..} = InterfaceMethod
 
 decodeMethodName :: Int32 -> Decode MethodName
 decodeMethodName = decodeNameId MethodName
+
+decodeInterfaceCoImplements :: LF1.DefInterface_CoImplements -> Decode InterfaceCoImplements
+decodeInterfaceCoImplements LF1.DefInterface_CoImplements {..} = InterfaceCoImplements
+  <$> mayDecode "defInterface_CoImplementsTemplate" defInterface_CoImplementsTemplate decodeTypeConName
+  <*> decodeNM DuplicateMethod decodeInterfaceCoImplementsMethod defInterface_CoImplementsMethods
+
+decodeInterfaceCoImplementsMethod :: LF1.DefInterface_CoImplementsMethod -> Decode InterfaceCoImplementsMethod
+decodeInterfaceCoImplementsMethod LF1.DefInterface_CoImplementsMethod {..} = InterfaceCoImplementsMethod
+  <$> decodeMethodName defInterface_CoImplementsMethodMethodInternedName
+  <*> mayDecode "defInterface_CoImplementsMethodValue" defInterface_CoImplementsMethodValue decodeExpr
 
 decodeFeatureFlags :: LF1.FeatureFlags -> Decode FeatureFlags
 decodeFeatureFlags LF1.FeatureFlags{..} =
@@ -331,7 +342,6 @@ decodeDefTemplateImplements :: LF1.DefTemplate_Implements -> Decode TemplateImpl
 decodeDefTemplateImplements LF1.DefTemplate_Implements{..} = TemplateImplements
   <$> mayDecode "defTemplate_ImplementsInterface" defTemplate_ImplementsInterface decodeTypeConName
   <*> decodeNM DuplicateMethod decodeDefTemplateImplementsMethod defTemplate_ImplementsMethods
-  <*> decodeSet DuplicateChoice (decodeNameId ChoiceName) defTemplate_ImplementsInheritedChoiceInternedNames
 
 decodeDefTemplateImplementsMethod :: LF1.DefTemplate_ImplementsMethod -> Decode TemplateImplementsMethod
 decodeDefTemplateImplementsMethod LF1.DefTemplate_ImplementsMethod{..} = TemplateImplementsMethod
