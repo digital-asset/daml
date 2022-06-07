@@ -29,6 +29,7 @@ module Daml.Script
   , ContractMetadata(..)
   , toDisclosedContract
   , submitDisclosing
+  , submitMultiDisclosing
   , createCmd
   , exerciseCmd
   , exerciseByKeyCmd
@@ -134,8 +135,8 @@ data DisclosedContract = DisclosedContract
 data ContractMetadata = ContractMetadata
   with
     createdAt : Time
-    keyHash : Text
-    driverMetadata : Text
+    keyHash : Text -- ^ base 16 encoded byte string
+    driverMetadata : Text -- ^ base 16 encoded byte string
 
 toDisclosedContract : Template t => ContractMetadata -> ContractId t -> t -> DisclosedContract 
 toDisclosedContract meta coid arg =  DisclosedContract with
@@ -524,6 +525,19 @@ submitDisclosing discs p cmds =
     disclosedContracts = discs
     handleFailure = ()
     locations = getCallStack callStack
+  
+-- | `submitMultiDisclosing discs actAs readAs cmds` submits `cmds` as a single transaction
+-- authorized by `actAs` while disclosing the contracts `discs`. Fetched contracts must be visible to at least
+-- one party in the union of actAs and readAs.
+submitMultiDisclosing : HasCallStack => [DisclosedContract] -> [Party] -> [Party] -> Commands a -> Script a
+submitMultiDisclosing discs actAs readAs cmds =
+    lift $ Free $ fmap pure $ Submit $ SubmitCmd with
+      actAs = actAsNonEmpty actAs
+      readAs = toParties readAs
+      commands = cmds
+      disclosedContracts = discs
+      handleFailure = ()
+      locations = getCallStack callStack
 
 -- | This is the type of A Daml script. `Script` is an instance of `Action`,
 -- so you can use `do` notation.

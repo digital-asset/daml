@@ -402,7 +402,8 @@ object ScenarioRunner {
       limits = interpretation.Limits.Lenient,
     )
 
-    // TODO (drsk) propagate errors back to submitter
+    // TODO (drsk) validate and propagate errors back to submitter 
+    // https://github.com/digital-asset/daml/issues/14108
     val discTable = Engine.buildDiscTable(ledgerMachine, disclosures)
     val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
     val enricher = if (doEnrichment) new EnricherImpl(compiledPackages) else NoEnricher
