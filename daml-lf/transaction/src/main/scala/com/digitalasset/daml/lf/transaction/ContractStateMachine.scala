@@ -29,7 +29,8 @@ import com.daml.lf.value.Value.ContractId
   * keeps track of all keys that appear in any of the nodes, and errors on any internal key inconsistencies.
   * [[com.daml.lf.transaction.Node.LookupByKey]] can be handled with [[ContractStateMachine.State.handleLookup]].
   *
-  * If [[byKeyOnly]] is set, the contract state machine does not detect inconsistent key lookups
+  * If [[com.daml.lf.transaction.ContractKeyUniquenessMode.byKeyOnly]] is set,
+  * the contract state machine does not detect inconsistent key lookups
   * and the [[ContractStateMachine.ActiveLedgerState.keys]] and [[ContractStateMachine.State.keyInputs]]
   * keep track only of keys that have been brought into scope using a by-key node
   * or a [[com.daml.lf.transaction.Node.Create]] node.
@@ -49,6 +50,10 @@ import com.daml.lf.value.Value.ContractId
   *
   * @tparam Nid Type parameter for [[com.daml.lf.transaction.NodeId]]s during interpretation.
   *             Use [[scala.Unit]] for iteration.
+  *
+  * @see com.daml.lf.transaction.HasTxNodes.contractKeyInputs for an iteration in mode
+  *      [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]] and
+  * @see ContractStateMachineSpec.visitSubtree for iteration in all modes
   */
 class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
   import ContractStateMachine._
@@ -342,6 +347,13 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       *
       * The iteration over the subtree rooted at `n` from `this` using the projected resolver fails
       * if and only if advancing `this` using `substate` does, but the error may be different.
+      *
+      * @param substate The obtained by iterating over the subtree following `this`.
+      *                 Consumed contracts ([[activeState.consumedBy]]) in `this` and `substate` must be disjoint.
+      *
+      * @see com.daml.lf.transaction.HasTxNodes.contractKeyInputs for an iteration in mode
+      *      [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]] and
+      * @see ContractStateMachineSpec.visitSubtree for iteration in all modes
       */
     def advance(resolver: KeyResolver, substate: State): Either[KeyInputError, State] = {
       require(
@@ -360,7 +372,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
                 if keyMappingFor(key).exists(_ != KeyInactive) &&
                   mode != ContractKeyUniquenessMode.Off =>
               DuplicateContractKey(key)
-            case (key, NegativeKeyLookup) if keyMappingFor(key).exists(_.isDefined) =>
+            case (key, NegativeKeyLookup) if keyMappingFor(key).exists(_ != KeyInactive) =>
               InconsistentKeys(key)
             case (key, Transaction.KeyActive(cid))
                 if keyMappingFor(key).exists(km => km != KeyActive(cid)) =>
@@ -381,7 +393,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
             // In strict mode, `key`'s state is the same at `this` as at the beginning
             // if `key` is not in `this.globalKeyInputs`.
             // So just extend `this.globalKeyInputs` with the new stuff.
-            substate.globalKeyInputs.concat(this.globalKeyInputs)
+            substate.globalKeyInputs ++ this.globalKeyInputs
           else
             substate.globalKeyInputs.foldLeft(this.globalKeyInputs) { case (acc, (key, keyInput)) =>
               if (acc.contains(key)) acc

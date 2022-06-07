@@ -215,9 +215,9 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       tx,
       Map(
         ContractKeyUniquenessMode.Strict -> expected,
-        ContractKeyUniquenessMode.On -> // This is a bug https://github.com/digital-asset/daml/pull/14080
+        ContractKeyUniquenessMode.On -> // TODO This is a bug https://github.com/digital-asset/daml/pull/14080
           Left(InconsistentKeys(gkey("key2"))),
-        ContractKeyUniquenessMode.Off -> // This is a bug https://github.com/digital-asset/daml/pull/14080
+        ContractKeyUniquenessMode.Off -> // TODO This is a bug https://github.com/digital-asset/daml/pull/14080
           Left(InconsistentKeys(gkey("key2"))),
       ),
     )
@@ -269,9 +269,9 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       tx,
       Map(
         ContractKeyUniquenessMode.Strict -> expected,
-        ContractKeyUniquenessMode.On -> // This is a bug in the contract key logi
+        ContractKeyUniquenessMode.On -> // TODO This is a bug in the contract key logic
           Left(InconsistentKeys(gkey("key1"))),
-        ContractKeyUniquenessMode.Off -> // This is a bug in the contract key logi
+        ContractKeyUniquenessMode.Off -> // TODO This is a bug in the contract key logic
           Left(InconsistentKeys(gkey("key1"))),
       ),
     )
@@ -329,7 +329,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   }
 
   def rbFbkFetch: TestCase = {
-    // Fetch-by-key an invisible contract under a rollback
+    // Fetch-by-key a contract under a rollback
     // [ Exe c1 [ Rollback [ FBK k1 -> c2 ], Fetch c3 (key=k1) ]
     val builder = TransactionBuilder()
     val exerciseNid = builder.add(mkExercise(1))
@@ -425,7 +425,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   def differingCause2: TestCase = {
     // [ Create c1 (key = k1), ExeN c2 [ Create c3 (key = k2), Create c4 (key=k1), Create c5 (key = k2) ]
     // In ContractKeyUniquenessMode.On and ContractKeyUniquenessMode.Strict,
-    // iterating over the ExeN subtree from en empty state fails with DuplicateContractKeys(k2)
+    // iterating over the ExeN subtree from an empty state fails with DuplicateContractKeys(k2)
     // while iterating over the whole transaction fails with DuplicateContractKeys(k1)
     val builder = TransactionBuilder()
     val _ = builder.add(mkCreate(1, "key1"))
@@ -529,6 +529,24 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     case rollback: Node.Rollback => rollback.children
   }
 
+  /** Visits the `root` node and all its children in execution order and updates the `state` accordingly,
+    * using the following methods on [[com.daml.lf.transaction.ContractStateMachine.State]]:
+    * - [[com.daml.lf.transaction.Node.Create]] calls [[com.daml.lf.transaction.ContractStateMachine.State.visitCreate]]
+    * - [[com.daml.lf.transaction.Node.Fetch]] calls [[com.daml.lf.transaction.ContractStateMachine.State.handleFetch]]
+    * - [[com.daml.lf.transaction.Node.Exercise]] calls [[com.daml.lf.transaction.ContractStateMachine.State.handleExercise]]
+    *   before visiting the children
+    * - [[com.daml.lf.transaction.Node.LookupByKey]] calls [[com.daml.lf.transaction.ContractStateMachine.State.handleLookup]]
+    *   in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]] and
+    *   [[com.daml.lf.transaction.ContractStateMachine.State.handleLookupWith]]
+    *   in modes [[com.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode]] using the `resolver`.
+    * - [[com.daml.lf.transaction.Node.Rollback]] calls [[com.daml.lf.transaction.ContractStateMachine.State.beginRollback]]
+    *   before visiting the children and
+    *   [[com.daml.lf.transaction.ContractStateMachine.State.endRollback]] after visiting the children.
+    *
+    * @param resolver The resolver used in modes [[com.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode]]
+    *                 for handling [[com.daml.lf.transaction.Node.LookupByKey]].
+    *                 Ignored in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]].
+    */
   private def visitSubtree(ksm: ContractStateMachine[Unit])(
       nodes: Map[NodeId, Node],
       root: NodeId,
@@ -561,9 +579,12 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     } yield exited
   }
 
-  // Fully visits the trees rooted at `roots` in execution order.
-  // For each subtree visited, additionally visit this subtree starting from the initial state
-  // and check that advancing the current state yields the same resulting state
+  /** Fully visits the trees rooted at `roots` in execution order.
+    * For each subtree visited, additionally visit this subtree starting from the initial state
+    * and check that advancing the current state yields the same resulting state
+    *
+    * @see visitSubtree for how visiting nodes updates the state
+    */
   private def visitSubtrees(ksm: ContractStateMachine[Unit])(
       nodes: Map[NodeId, Node],
       roots: Seq[NodeId],
@@ -600,7 +621,6 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
         directVisit.flatMap(next => visitSubtrees(ksm)(nodes, tail, resolver, next))
     }
   }
-
 }
 
 object ContractStateMachineSpec {
