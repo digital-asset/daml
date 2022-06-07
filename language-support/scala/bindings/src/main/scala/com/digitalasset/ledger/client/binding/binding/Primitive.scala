@@ -247,7 +247,7 @@ private[client] object OnlyPrimitive extends Primitive {
     )
 
   private[binding] override def exercise[ExOn, Tpl, Out](
-      templateCompanion: ContractTypeCompanion[Tpl],
+      exerciseTarget: ContractTypeCompanion[Tpl],
       receiver: ExOn,
       choiceId: String,
       argument: rpcvalue.Value,
@@ -258,33 +258,37 @@ private[client] object OnlyPrimitive extends Primitive {
           case _: ExerciseOn.OnId[Tpl] =>
             rpccmd.Command.Command.Exercise(
               rpccmd.ExerciseCommand(
-                templateId = Some(templateCompanion.id.unwrap),
+                templateId = Some(exerciseTarget.id.unwrap),
                 contractId = (receiver: ContractId[Tpl]).unwrap,
                 choice = choiceId,
                 choiceArgument = Some(argument),
               )
             )
           case _: ExerciseOn.CreateAndOnTemplate[Tpl] =>
+            val cfe: Template.CreateForExercise[Tpl] = receiver
             rpccmd.Command.Command.CreateAndExercise(
+              // TODO #13993 pass exerciseTarget.id.unwrap as interface ID
               rpccmd.CreateAndExerciseCommand(
-                templateId = Some(templateCompanion.id.unwrap),
-                createArguments = Some((receiver: Template.CreateForExercise[Tpl]).value.arguments),
+                templateId = Some(cfe.value.templateId.unwrap),
+                createArguments = Some(cfe.value.arguments),
                 choice = choiceId,
                 choiceArgument = Some(argument),
               )
             )
           case _: ExerciseOn.OnKey[Tpl] =>
+            val k: Template.Key[Tpl] = receiver
+            // TODO #13993 pass exerciseTarget.id.unwrap as interface ID
             rpccmd.Command.Command.ExerciseByKey(
               rpccmd.ExerciseByKeyCommand(
-                templateId = Some(templateCompanion.id.unwrap),
-                contractKey = Some((receiver: Template.Key[Tpl]).encodedKey),
+                templateId = Some(k.origin.id.unwrap),
+                contractKey = Some(k.encodedKey),
                 choice = choiceId,
                 choiceArgument = Some(argument),
               )
             )
         }
       },
-      templateCompanion,
+      exerciseTarget,
     )
 
   private[binding] override def arguments(

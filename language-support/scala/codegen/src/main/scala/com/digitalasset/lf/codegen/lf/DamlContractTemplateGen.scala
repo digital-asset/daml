@@ -62,6 +62,14 @@ object DamlContractTemplateGen {
 
     def consumingChoicesMethod = LFUtil.genConsumingChoicesMethod(templateInterface.template)
 
+    def implementedInterfaceProof = templateInterface.template.implementedInterfaces map { ifn =>
+      val ifSn = util.mkDamlScalaName(ifn.qualifiedName)
+      q"""implicit val ${TermName(s"implements ${ifSn.qualifiedTermName}")}
+         : $domainApiAlias.Template.Implements[${TypeName(templateName.name)},
+                                               ${ifSn.qualifiedTypeName}] =
+         new $domainApiAlias.Template.Implements"""
+    }
+
     def templateObjectMembers = Seq(
       generateTemplateIdDef(templateId),
       genChoiceImplicitClass(util)(
@@ -73,7 +81,7 @@ object DamlContractTemplateGen {
       consumingChoicesMethod,
       toNamedArgumentsMethod,
       fromNamedArgumentsMethod,
-    )
+    ) ++ implementedInterfaceProof
 
     def templateClassMembers = Seq(
       q"protected[this] override def templateCompanion(implicit ` d`: $domainApiAlias.Compat.DummyImplicit) = ${TermName(templateName.name)}"

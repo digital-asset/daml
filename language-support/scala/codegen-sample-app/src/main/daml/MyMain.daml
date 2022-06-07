@@ -607,6 +607,8 @@ template InterfaceMixer with
     party: Party
   where
     signatory party
+    key party: Party
+    maintainer key
     choice OverloadedInTemplate: () with
       controller party
       do return ()
