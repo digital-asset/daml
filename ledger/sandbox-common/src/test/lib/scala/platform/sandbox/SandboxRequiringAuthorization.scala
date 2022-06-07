@@ -45,7 +45,7 @@ trait SandboxRequiringAuthorizationFuns {
       exp = expiresIn.map(delta => Instant.now().plusNanos(delta.toNanos)),
     )
 
-  protected def randomUserId: String = UUID.randomUUID().toString
+  protected def randomUserId(): String = UUID.randomUUID().toString
 
   protected val adminToken: CustomDamlJWTPayload = emptyToken.copy(admin = true)
   protected val adminTokenStandardJWT: StandardJWTPayload = standardToken("participant_admin")
