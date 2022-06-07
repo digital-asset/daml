@@ -577,7 +577,6 @@ describe("interface definition", () => {
   describe("choice name collision", () => {
     // statically assert that an expression is a choice
     const theChoice = <T extends object, C, R, K>(c: Choice<T, C, R, K>) => c;
-    const the = <A>(a: A) => a;
 
     // Something is inherited
     test("unambiguous inherited is inherited", () => {
@@ -597,7 +596,11 @@ describe("interface definition", () => {
       expect(
         theChoice(buildAndLint.Lib.ModIfaceOnly.YetAnother[k]),
       ).toBeDefined();
-      expect(the<undefined>(tpl[k])).toBeUndefined();
+      // statically check that k isn't in tpl
+      const tplK: Extract<keyof (typeof tpl), typeof k> extends never ? true : never = true;
+      expect(tplK).toEqual(true); // useless, but suppresses unused error
+      // dynamically check the same
+      expect(_.get(tpl, k)).toBeUndefined();
     });
     test("choice from template and interface prefers template", () => {
       const k = "Overridden";
