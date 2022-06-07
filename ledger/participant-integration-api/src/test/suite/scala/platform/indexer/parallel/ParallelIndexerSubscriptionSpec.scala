@@ -267,7 +267,10 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
           someParty,
           someEventCreated,
           DbDto.CreateFilter_Stakeholder(0L, "", ""),
-          DbDto.CreateFilter_Stakeholder(0L, "", ""),
+          DbDto.CreateFilter_NonStakeholderInformee(0L, ""),
+          DbDto.ConsumingFilter_Stakeholder(0L, "", ""),
+          DbDto.ConsumingFilter_NonStakeholderInformee(0L, ""),
+          DbDto.NonConsumingFilter_Informee(0L, ""),
           someParty,
           someEventExercise,
           someParty,
@@ -281,12 +284,21 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
     result.batch(1).asInstanceOf[DbDto.EventDivulgence].event_sequential_id shouldBe 16
     result.batch(3).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 17
     result.batch(4).asInstanceOf[DbDto.CreateFilter_Stakeholder].event_sequential_id shouldBe 17
-    result.batch(5).asInstanceOf[DbDto.CreateFilter_Stakeholder].event_sequential_id shouldBe 17
-    result.batch(7).asInstanceOf[DbDto.EventExercise].event_sequential_id shouldBe 18
-    result.batch(9).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 0
-    result.batch(9).asInstanceOf[DbDto.StringInterningDto].externalString shouldBe "0"
-    result.batch(10).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 1
-    result.batch(10).asInstanceOf[DbDto.StringInterningDto].externalString shouldBe "1"
+    result
+      .batch(5)
+      .asInstanceOf[DbDto.CreateFilter_NonStakeholderInformee]
+      .event_sequential_id shouldBe 17
+    result.batch(6).asInstanceOf[DbDto.ConsumingFilter_Stakeholder].event_sequential_id shouldBe 17
+    result
+      .batch(7)
+      .asInstanceOf[DbDto.ConsumingFilter_NonStakeholderInformee]
+      .event_sequential_id shouldBe 17
+    result.batch(8).asInstanceOf[DbDto.NonConsumingFilter_Informee].event_sequential_id shouldBe 17
+    result.batch(10).asInstanceOf[DbDto.EventExercise].event_sequential_id shouldBe 18
+    result.batch(12).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 0
+    result.batch(12).asInstanceOf[DbDto.StringInterningDto].externalString shouldBe "0"
+    result.batch(13).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 1
+    result.batch(13).asInstanceOf[DbDto.StringInterningDto].externalString shouldBe "1"
   }
 
   it should "preserve sequence id if nothing to assign" in {

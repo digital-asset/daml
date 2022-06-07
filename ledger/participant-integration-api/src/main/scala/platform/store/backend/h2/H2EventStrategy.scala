@@ -52,15 +52,80 @@ object H2EventStrategy extends EventStrategy {
           )"""
   }
 
+  // TODO pbatko: test me
   override def pruneCreateFilters_nonStakeholderInformees(
       pruneUpToInclusive: Offset
-  ): SimpleSql[Row] = ???
+  ): SimpleSql[Row] = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    SQL"""
+          DELETE FROM
+            pe_create_filter_nonstakeholder_informees filter
+          WHERE EXISTS (
+            select * from participant_events_create events
+          WHERE
+            events.event_offset <= $pruneUpToInclusive
+            AND
+            EXISTS (
+              SELECT 1 FROM participant_events_consuming_exercise archive_events
+              WHERE
+                archive_events.event_offset <= $pruneUpToInclusive
+                AND
+                archive_events.contract_id = events.contract_id
+              )
+            AND
+            events.event_sequential_id = filter.event_sequential_id
+          )"""
+  }
 
-  override def pruneConsumingFilters_stakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] = ???
+  override def pruneConsumingFilters_stakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    SQL"""
+          DELETE FROM
+            pe_consuming_exercise_filter_stakeholders filter
+          WHERE EXISTS (
+            select * from  participant_events_consuming_exercise events
+          WHERE
+            events.event_offset <= $pruneUpToInclusive
+            AND
+            events.event_sequential_id = filter.event_sequential_id
+          )"""
+  }
 
   override def pruneConsumingFilters_nonStakeholderInformees(
       pruneUpToInclusive: Offset
-  ): SimpleSql[Row] = ???
+  ): SimpleSql[Row] = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    SQL"""
+          DELETE FROM
+            pe_consuming_exercise_filter_nonstakeholder_informees filter
+          WHERE EXISTS (
+            select * from  participant_events_consuming_exercise events
+          WHERE
+            events.event_offset <= $pruneUpToInclusive
+            AND
+            events.event_sequential_id = filter.event_sequential_id
+          )"""
+  }
 
-  override def pruneNonConsumingFilters_informees(pruneUpToInclusive: Offset): SimpleSql[Row] = ???
+  override def pruneNonConsumingFilters_informees(pruneUpToInclusive: Offset): SimpleSql[Row] = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    SQL"""
+          DELETE FROM
+            pe_non_consuming_exercise_filter_informees filter
+          WHERE EXISTS (
+            select * from  participant_events_non_consuming_exercise events
+          WHERE
+            events.event_offset <= $pruneUpToInclusive
+            AND
+            EXISTS (
+              SELECT 1 FROM participant_events_consuming_exercise archive_events
+              WHERE
+                archive_events.event_offset <= $pruneUpToInclusive
+                AND
+                archive_events.contract_id = events.contract_id
+              )
+            AND
+            events.event_sequential_id = filter.event_sequential_id
+          )"""
+  }
 }

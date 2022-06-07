@@ -183,6 +183,7 @@ object UpdateToDbDto {
                   event_sequential_id = 0, // this is filled later
                 )
               ) ++ stakeholders.iterator.map(
+                // TODO pbatko: NOTE: com.daml.platform.store.backend.UpdateToDbDtoSpec depends on a specific order of `CreateFilter_...` `ConsumingFilter_...`, `NonconsumingFilter..`
                 DbDto.CreateFilter_Stakeholder(
                   event_sequential_id = 0, // this is filled later
                   template_id = templateId,
