@@ -510,27 +510,42 @@ ifaceDefTempl name mbKeyTy impls choices =
       | otherwise = "extends " <> implTy'
     implTy = T.intercalate " & " implRefs 
     implTy' = T.intercalate " , " implRefs
-    implRefs = [impl <> "Interface<" <> name <> ">"
-               | (TsTypeConRef impl, _) <- impls]
+    implRefs = [if Set.null omit then baseInherit
+                else "Omit<" <> baseInherit <> ", " <> literalOmit <> ">"
+               | ((TsTypeConRef impl, _), omit) <- impls `zip` omitFromExtends
+               , let baseInherit = impl <> "Interface<" <> name <> ">"
+                     literalOmit = T.intercalate " | "
+                                 . map (renderDecoderConstant . ConstantString)
+                                 . Set.toList $ omit]
+    omitFromExtends = duplicates (Set.fromList $ chcName' <$> choices)
+                                 (Set.map unChoiceName . snd <$> impls)
 
+-- Remove every 'n' in 'sets' that is unique to that set among 'sets'
+-- and 'privileged'.  That is, every remaining value appears at least
+-- twice, be that in two different 'sets' or in one of 'sets' and also
+-- in 'privileged'.
+--
+--     duplicates p . duplicates p = duplicates p
 duplicates :: Ord n => Set.Set n -> [Set.Set n] -> [Set.Set n]
 duplicates privileged sets = take (length sets) indexedInfList
   where
     indexedInfList =
       unfoldr (\n -> Just (Map.findWithDefault Set.empty n dupChoices, succ n)) 0
     dupChoices =
-      flipMap
+      reverseMap
       -- exclude choice names with <=1 user
       $ Map.filter (\s -> Set.size s > 2)
       -- map choice name to origin
-      $ flipMap'
+      $ reverseMap'
       $ zip ([-1..] :: [Int]) (privileged:sets)
 
-flipMap :: (Ord k, Ord v) => Map.Map k (Set.Set v) -> Map.Map v (Set.Set k)
-flipMap = flipMap' . Map.toList
+-- Make every 'v' point to every 'k' it's associated with.
+--     reverseMap . reverseMap = id
+reverseMap :: (Ord k, Ord v) => Map.Map k (Set.Set v) -> Map.Map v (Set.Set k)
+reverseMap = reverseMap' . Map.toList
 
-flipMap' :: (Ord k, Ord v) => [(k, Set.Set v)] -> Map.Map v (Set.Set k)
-flipMap' = Map.unionsWith (<>) . map (\(k, vs) -> Map.fromSet (const (Set.singleton k)) vs)
+reverseMap' :: (Ord k, Ord v) => [(k, Set.Set v)] -> Map.Map v (Set.Set k)
+reverseMap' = Map.unionsWith (<>) . map (\(k, vs) -> Map.fromSet (const (Set.singleton k)) vs)
 
 ifaceDefIface :: T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
 ifaceDefIface name mbKeyTy choices =

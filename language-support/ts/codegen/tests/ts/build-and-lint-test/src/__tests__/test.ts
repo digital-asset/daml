@@ -577,7 +577,7 @@ describe("interface definition", () => {
   describe("choice name collision", () => {
     // statically assert that an expression is a choice
     const theChoice = <T extends object, C, R, K>(c: Choice<T, C, R, K>) => c;
-    // const the = <A>(a: A) => a;
+    const the = <A>(a: A) => a;
 
     // Something is inherited
     test("unambiguous inherited is inherited", () => {
@@ -597,8 +597,7 @@ describe("interface definition", () => {
       expect(
         theChoice(buildAndLint.Lib.ModIfaceOnly.YetAnother[k]),
       ).toBeDefined();
-      // TODO #14091 use the<undefined>
-      expect(tpl[k]).toBeUndefined();
+      expect(the<undefined>(tpl[k])).toBeUndefined();
     });
     test("choice from template and interface prefers template", () => {
       const k = "Overridden";
