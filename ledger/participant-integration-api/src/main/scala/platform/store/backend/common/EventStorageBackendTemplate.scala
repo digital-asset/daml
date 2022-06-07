@@ -468,7 +468,8 @@ abstract class EventStorageBackendTemplate(
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] = {
     fetchTreeEvents(
       tableName = "participant_events_consuming_exercise",
-      selectColumns = selectColumnsForTransactionTreeExercise,
+      selectColumns =
+        s"$selectColumnsForTransactionTreeExercise, ${queryStrategy.constBooleanSelect(true)} as exercise_consuming",
       eventSequentialIds = eventSequentialIds,
       allFilterParties = allFilterParties,
     )(connection)
@@ -480,7 +481,8 @@ abstract class EventStorageBackendTemplate(
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] =
     fetchTreeEvents(
       tableName = "participant_events_create",
-      selectColumns = selectColumnsForTransactionTreeCreate,
+      selectColumns =
+        s"$selectColumnsForTransactionTreeCreate, ${queryStrategy.constBooleanSelect(false)} as exercise_consuming",
       eventSequentialIds = eventSequentialIds,
       allFilterParties = allFilterParties,
     )(connection)
@@ -490,8 +492,9 @@ abstract class EventStorageBackendTemplate(
       allFilterParties: Set[Party],
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] =
     fetchTreeEvents(
-      tableName = "participant_events_nonconsuming_exercise",
-      selectColumns = selectColumnsForTransactionTreeExercise,
+      tableName = "participant_events_non_consuming_exercise",
+      selectColumns =
+        s"$selectColumnsForTransactionTreeExercise, ${queryStrategy.constBooleanSelect(false)} as exercise_consuming",
       eventSequentialIds = eventSequentialIds,
       allFilterParties = allFilterParties,
     )(connection)
@@ -502,7 +505,7 @@ abstract class EventStorageBackendTemplate(
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
     fetchFlatEvents(
       tableName = "participant_events_consuming_exercise",
-      selectColumns = selectColumnsForFlatTransactionsCreate,
+      selectColumns = selectColumnsForFlatTransactionsExercise,
       eventSequentialIds = eventSequentialIds,
       allFilterParties = allFilterParties,
     )(connection)

@@ -101,13 +101,16 @@ private[dao] case class SequentialWriteDaoImpl[DB_BATCH](
       case e: DbDto.EventCreate => e.copy(event_sequential_id = nextEventSeqId)
       case e: DbDto.EventDivulgence => e.copy(event_sequential_id = nextEventSeqId)
       case e: DbDto.EventExercise => e.copy(event_sequential_id = nextEventSeqId)
-      case e: DbDto.CreateFilter_Stakeholder => e.copy(event_sequential_id = lastEventSeqId)
+      case e: DbDto.CreateFilter_Stakeholder =>
+        e.copy(event_sequential_id = lastEventSeqId)
       case e: DbDto.CreateFilter_NonStakeholderInformee =>
         e.copy(event_sequential_id = lastEventSeqId)
-      case e: DbDto.ConsumingFilter_Stakeholder => e.copy(event_sequential_id = lastEventSeqId)
+      case e: DbDto.ConsumingFilter_Stakeholder =>
+        e.copy(event_sequential_id = lastEventSeqId)
       case e: DbDto.ConsumingFilter_NonStakeholderInformee =>
         e.copy(event_sequential_id = lastEventSeqId)
-      case e: DbDto.NonConsumingFilter_Informee => e.copy(event_sequential_id = lastEventSeqId)
+      case e: DbDto.NonConsumingFilter_Informee =>
+        e.copy(event_sequential_id = lastEventSeqId)
       case notEvent => notEvent
     }.toVector
 

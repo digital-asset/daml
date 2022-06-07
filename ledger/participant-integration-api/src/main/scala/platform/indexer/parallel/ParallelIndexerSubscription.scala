@@ -186,7 +186,17 @@ object ParallelIndexerSubscription {
           case dbDto: DbDto.CreateFilter_Stakeholder =>
             // we do not increase the event_seq_id here, because all the CreateFilter DbDto-s must have the same eventSeqId as the preceding EventCreate
             dbDto.copy(event_sequential_id = eventSeqId)
+          case dbDto: DbDto.CreateFilter_NonStakeholderInformee =>
+            dbDto.copy(event_sequential_id = eventSeqId)
 
+          case dbDto: DbDto.ConsumingFilter_Stakeholder =>
+            dbDto.copy(event_sequential_id = eventSeqId)
+          case dbDto: DbDto.ConsumingFilter_NonStakeholderInformee =>
+            dbDto.copy(event_sequential_id = eventSeqId)
+          case dbDto: DbDto.NonConsumingFilter_Informee =>
+            dbDto.copy(event_sequential_id = eventSeqId)
+
+          // TODO pbatko: This should be an explicit exhaustive check
           case unChanged => unChanged
         }
 
