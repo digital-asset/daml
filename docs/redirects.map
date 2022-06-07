@@ -802,3 +802,5 @@ release-notes.html -> /support/releases.html#release-notes
 support/release-notes.html -> /support/releases.html#release-notes
 support/roadmap.html -> /support/releases.html#roadmap
 app-dev/bindings-ts/testing.html -> /getting-started/testing.html
+2.2.0/deploying.html -> /deploy/generic_ledger
+deploy/index.html -> /deploy/generic_ledger
