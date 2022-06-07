@@ -82,6 +82,27 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
       }
     }
 
+    "invoke interface-defined choices, even when overloaded in template" in {
+      inside(
+        imId
+          .toInterface[MyMainIface.IfaceFromAnotherMod]
+          .exerciseOverloadedInTemplate(alice)
+          .command
+          .command
+      ) {
+        case rpccmd.Command.Command.Exercise(
+              rpccmd.ExerciseCommand(
+                Some(FAMTemplateId),
+                cid,
+                "OverloadedInTemplate",
+                Some(choiceArg),
+              )
+            ) =>
+          cid should ===(imId)
+          choiceArg should ===(encode(MyMainIface.OverloadedInTemplate()))
+      }
+    }
+
     "invoke interface-inherited choices, directly from template" in {
       inside(imId.exerciseInheritedOnly(alice).command.command) {
         case rpccmd.Command.Command.Exercise(

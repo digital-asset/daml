@@ -597,11 +597,6 @@ interface InterfaceToMix where
   choice InheritedOnly: ContractId InterfaceToMix with
     controller getOwner this
     do return self
-{- TODO(#13926) uncomment when overloaded choices compile
-  choice OverloadedInTemplate: () with
-    controller getOwner this
-    do return ()
--}
 
 template InterfaceMixer with
     party: Party

@@ -74,7 +74,7 @@ object CodeGen {
       roots: Seq[String],
   ): ValidationNel[String, Unit] =
     decodeInterfaces(files).map { interfaces: NonEmptyList[EnvironmentInterface] =>
-      val combined = interfaces.suml1.resolveChoices
+      val combined = interfaces.suml1
       val interface = combined.copy(
         typeDecls = Util.filterTemplatesBy(roots.map(_.r))(combined.typeDecls)
       )
