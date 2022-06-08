@@ -60,7 +60,7 @@ private[platform] case class InitializeParallelIngestion(
       _ <- dbDispatcher.executeSql(metrics.daml.parallelIndexer.initialization)(
         ingestionStorageBackend.deletePartiallyIngestedData(ledgerEnd)
       )
-      _ <- participantInMemoryState.resetTo(ledgerEnd, dbDispatcher, stringInterningStorageBackend)
+      _ <- participantInMemoryState.initializedTo(ledgerEnd, dbDispatcher, stringInterningStorageBackend)
     } yield InitializeParallelIngestion.Initialized(
       initialOffset = ledgerEnd.lastOffset,
       initialEventSeqId = ledgerEnd.lastEventSeqId,

@@ -24,7 +24,7 @@ import com.daml.platform.{Contract, Key, ParticipantInMemoryState, Party}
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 
-private[index] class LedgerBuffersUpdater(
+private[index] class InMemoryStateUpdater(
     participantInMemoryState: ParticipantInMemoryState,
     prepareUpdatesParallelism: Int,
     prepareUpdatesExecutionContext: ExecutionContext,
@@ -73,7 +73,7 @@ private[index] class LedgerBuffersUpdater(
     // the order here is very important: first we need to make data available for point-wise lookups
     // and SQL queries, and only then we can make it available on the streams.
     // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
-    participantInMemoryState.dispatcher.signalNewHead(lastOffset)
+    participantInMemoryState.dispatcher().signalNewHead(lastOffset)
     logger.debug(s"Updated ledger end at offset $lastOffset - $lastEventSequentialId")
   }
 
@@ -192,12 +192,12 @@ private[index] class LedgerBuffersUpdater(
   }
 }
 
-object LedgerBuffersUpdater {
+object InMemoryStateUpdater {
   def owner(
       participantInMemoryState: ParticipantInMemoryState,
       prepareUpdatesParallelism: Int,
       metrics: Metrics,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerBuffersUpdater] = for {
+  )(implicit loggingContext: LoggingContext): ResourceOwner[InMemoryStateUpdater] = for {
     prepareUpdatesExecutor <- ResourceOwner.forExecutorService(() =>
       new InstrumentedExecutorService(
         Executors.newWorkStealingPool(prepareUpdatesParallelism),
@@ -207,7 +207,7 @@ object LedgerBuffersUpdater {
     )
     // TODO LLP: Instrument
     updateCachesExecutor <- ResourceOwner.forExecutorService(() => Executors.newFixedThreadPool(1))
-  } yield new LedgerBuffersUpdater(
+  } yield new InMemoryStateUpdater(
     participantInMemoryState = participantInMemoryState,
     prepareUpdatesParallelism = prepareUpdatesParallelism,
     metrics = metrics,

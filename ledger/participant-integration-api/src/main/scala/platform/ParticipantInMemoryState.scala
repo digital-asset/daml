@@ -21,34 +21,35 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining._
 
-// TODO LLP: Revisit this portion
 class ParticipantInMemoryState(
     val ledgerEndCache: MutableLedgerEndCache,
     val contractStateCaches: ContractStateCaches,
     val transactionsBuffer: EventsBuffer[TransactionLogUpdate],
     val stringInterningView: StringInterningView,
-    initialLedgerApiDispatcher: Dispatcher[Offset],
     apiStreamShutdownTimeout: Duration,
     metrics: Metrics,
 )(implicit executionContext: ExecutionContext) {
   private val logger = ContextualizedLogger.get(getClass)
-  @volatile private var _ledgerApiDispatcherOwner = initialLedgerApiDispatcher
+  @volatile private var _ledgerApiDispatcher: Dispatcher[Offset] = _
 
-  def dispatcher: Dispatcher[Offset] = _ledgerApiDispatcherOwner
+  @inline final def dispatcher(): Dispatcher[Offset] =
+    if (_ledgerApiDispatcher == null)
+      throw new IllegalStateException("uninitialized Ledger API dispatcher")
+    else _ledgerApiDispatcher
 
-  def resetTo(
+  @inline final def initialized: Boolean = _ledgerApiDispatcher != null
+
+  final def initializedTo(
       ledgerEnd: LedgerEnd,
       dbDispatcher: DbDispatcher,
       stringInterningStorageBackend: StringInterningStorageBackend,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Unit] = {
-    // TODO LLP: Add closed guard for ParticipantInMemoryState
-    logger.info(s"Resetting participant in-memory state to ledger end: $ledgerEnd")
+    logger.info(s"Initializing participant in-memory state to ledger end: $ledgerEnd")
 
     for {
-      _ <- shutdownDispatcher(_ledgerApiDispatcherOwner)(apiStreamShutdownTimeout)
-      _ = _ledgerApiDispatcherOwner = buildDispatcher(ledgerEnd)
+      _ <- resetDispatcher(ledgerEnd)
       _ <- Future {
         contractStateCaches.reset(ledgerEnd.lastOffset)
         transactionsBuffer.flush()
@@ -62,6 +63,25 @@ class ParticipantInMemoryState(
       )
     } yield ()
   }
+
+  final def shutdown(
+      apiStreamShutdownTimeout: Duration
+  )(implicit loggingContext: LoggingContext): Future[Unit] =
+    if (_ledgerApiDispatcher == null) {
+      Future.unit
+    } else {
+      shutdownDispatcher(_ledgerApiDispatcher)(apiStreamShutdownTimeout).map(_ =>
+        _ledgerApiDispatcher = null
+      )
+    }
+
+  private def resetDispatcher(ledgerEnd: LedgerEnd)(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit] =
+    Option(_ledgerApiDispatcher)
+      .map(shutdownDispatcher(_)(apiStreamShutdownTimeout))
+      .getOrElse(Future.unit)
+      .map(_ => _ledgerApiDispatcher = buildDispatcher(ledgerEnd))
 
   private def updateStringInterningView(
       dbDispatcher: DbDispatcher,
@@ -91,20 +111,18 @@ object ParticipantInMemoryState {
       maxContractKeyStateCacheSize: Long,
       maxTransactionsInMemoryFanOutBufferSize: Int,
       metrics: Metrics,
-      servicesExecutionContext: ExecutionContext,
-      cachesUpdaterExecutionContext: ExecutionContext,
+      executionContext: ExecutionContext,
   )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantInMemoryState] =
     ResourceOwner.forReleasable(() =>
       new ParticipantInMemoryState(
         ledgerEndCache =
           MutableLedgerEndCache().tap(_.set((ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId))),
-        initialLedgerApiDispatcher = buildDispatcher(ledgerEnd),
         contractStateCaches = ContractStateCaches.build(
           ledgerEnd.lastOffset,
           maxContractStateCacheSize,
           maxContractKeyStateCacheSize,
           metrics,
-        )(servicesExecutionContext, loggingContext),
+        )(executionContext, loggingContext),
         transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
           maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
           metrics = metrics,
@@ -114,11 +132,8 @@ object ParticipantInMemoryState {
         stringInterningView = new StringInterningView,
         metrics = metrics,
         apiStreamShutdownTimeout = apiStreamShutdownTimeout,
-      )(cachesUpdaterExecutionContext)
-    ) { participantInMemoryState =>
-      shutdownDispatcher(participantInMemoryState.dispatcher)(apiStreamShutdownTimeout)
-      participantInMemoryState.dispatcher.shutdown()
-    }
+      )(executionContext)
+    )(_.shutdown(apiStreamShutdownTimeout))
 
   private def buildDispatcher(ledgerEnd: LedgerEnd): Dispatcher[Offset] =
     Dispatcher(

@@ -24,6 +24,7 @@ import com.daml.timer.RetryStrategy
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NoStackTrace
 
 private[platform] case class IndexServiceBuilder(
     config: IndexServiceConfig,
@@ -43,11 +44,12 @@ private[platform] case class IndexServiceBuilder(
 
   def owner(): ResourceOwner[IndexService] = {
     val ledgerDao = createLedgerReadDao(
-      participantInMemoryState.ledgerEndCache,
-      participantInMemoryState.stringInterningView,
+      ledgerEndCache = participantInMemoryState.ledgerEndCache,
+      stringInterning = participantInMemoryState.stringInterningView,
     )
 
     for {
+      _ <- ResourceOwner.forFuture(() => waitForInMemoryStateInitialization)
       ledgerId <- ResourceOwner.forFuture(() => verifyLedgerId(ledgerDao))
       contractStore = new MutableCacheBackedContractStore(
         metrics,
@@ -74,9 +76,30 @@ private[platform] case class IndexServiceBuilder(
       transactionsReader = bufferedTransactionsReader,
       contractStore = contractStore,
       pruneBuffers = participantInMemoryState.transactionsBuffer.prune,
-      dispatcher = () => participantInMemoryState.dispatcher,
+      dispatcher = participantInMemoryState.dispatcher _,
       metrics = metrics,
     )
+  }
+
+  private def waitForInMemoryStateInitialization(implicit
+      executionContext: ExecutionContext
+  ): Future[Unit] = {
+    val retryDelay = 100.millis
+    val maxAttempts = 3000
+
+    RetryStrategy.constant(
+      attempts = Some(maxAttempts),
+      waitTime = retryDelay,
+    ) { case ParticipantInMemoryStateNotInitialized => true } { (attempt, _) =>
+      if (!participantInMemoryState.initialized) {
+        logger.info(
+          s"Participant in-memory state not initialized on attempt $attempt/$maxAttempts. Retrying again in $retryDelay."
+        )
+        Future.failed(ParticipantInMemoryStateNotInitialized)
+      } else {
+        Future.unit
+      }
+    }
   }
 
   private def verifyLedgerId(
@@ -139,4 +162,6 @@ private[platform] case class IndexServiceBuilder(
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
     )
+
+  private object ParticipantInMemoryStateNotInitialized extends NoStackTrace
 }

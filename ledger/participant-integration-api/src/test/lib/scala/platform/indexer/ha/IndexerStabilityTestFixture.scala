@@ -11,14 +11,16 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.ParticipantInMemoryState
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.StorageBackendFactory
-import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
 import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
 
 /** Stores a running indexer and the read service the indexer is reading from.
   * The read service is used exclusively by this indexer.
@@ -98,7 +100,20 @@ object IndexerStabilityTestFixture {
                   metrics = new Metrics(metricRegistry)
                   // Create an indexer and immediately start it
                   dbType = DbType.jdbcType(jdbcUrl)
-                  storageBackendFactory = StorageBackendFactory.of(dbType)
+                  storageBackendFactory = StorageBackendFactory.of(dbType) // TODO LLP: Unused?
+
+                  participantInMemoryState <- ParticipantInMemoryState
+                    .owner(
+                      ledgerEnd = LedgerEnd.beforeBegin,
+                      apiStreamShutdownTimeout = 10.seconds,
+                      bufferedStreamsPageSize = 100,
+                      maxContractStateCacheSize = 100L,
+                      maxContractKeyStateCacheSize = 100L,
+                      maxTransactionsInMemoryFanOutBufferSize = 100,
+                      metrics = metrics,
+                      executionContext = servicesExecutionContext,
+                    )
+                    .acquire()
 
                   indexing <- new StandaloneIndexerServer(
                     participantId = EndlessReadService.participantId,
@@ -107,8 +122,8 @@ object IndexerStabilityTestFixture {
                     config = indexerConfig,
                     metrics = metrics,
                     lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-                    stringInterningView = new StringInterningView,
-                    apiUpdaterFlow = _ => Flow.fromFunction(_ => ()),
+                    participantInMemoryState = participantInMemoryState,
+                    inMemoryStateUpdaterFlow = Flow.fromFunction(_ => ()),
                   ).acquire()
                 } yield ReadServiceAndIndexer(readService, indexing)
               )

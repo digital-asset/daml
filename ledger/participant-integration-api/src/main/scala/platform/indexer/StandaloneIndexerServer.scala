@@ -28,7 +28,7 @@ final class StandaloneIndexerServer(
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     participantInMemoryState: ParticipantInMemoryState,
-    apiUpdaterFlow: Flow[(Vector[(Offset, Update)], Long), Unit, NotUsed],
+    inMemoryStateUpdaterFlow: Flow[(Vector[(Offset, Update)], Long), Unit, NotUsed],
     additionalMigrationPaths: Seq[String] = Seq.empty,
 )(implicit materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[ReportsHealth] {
@@ -49,7 +49,7 @@ final class StandaloneIndexerServer(
       metrics,
       lfValueTranslationCache,
       participantInMemoryState,
-      apiUpdaterFlow,
+      inMemoryStateUpdaterFlow,
     )
     val indexer = RecoveringIndexer(
       materializer.system.scheduler,

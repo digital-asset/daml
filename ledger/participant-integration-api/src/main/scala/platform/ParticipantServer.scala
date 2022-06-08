@@ -27,9 +27,10 @@ import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.apiserver._
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.index.LedgerBuffersUpdater
+import com.daml.platform.index.InMemoryStateUpdater
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 
@@ -86,17 +87,20 @@ class ParticipantServer(
             ),
           )
 
-        participantInMemoryState <- InitializeParticipant(
-          config = participantConfig.indexer,
-          lapiDbSupport = dbSupport,
-          participantDataSourceConfig = participantDataSourceConfig,
-          providedParticipantId = participantId,
+        participantInMemoryState <- ParticipantInMemoryState.owner(
+          ledgerEnd = LedgerEnd.beforeBegin,
+          apiStreamShutdownTimeout = participantConfig.indexService.apiStreamShutdownTimeout,
+          bufferedStreamsPageSize = participantConfig.indexService.bufferedStreamsPageSize,
+          maxContractStateCacheSize = participantConfig.indexService.maxContractStateCacheSize,
+          maxContractKeyStateCacheSize =
+            participantConfig.indexService.maxContractKeyStateCacheSize,
+          maxTransactionsInMemoryFanOutBufferSize =
+            participantConfig.indexService.maxTransactionsInMemoryFanOutBufferSize,
+          executionContext = servicesExecutionContext,
           metrics = metrics,
-          participantConfig,
-          servicesExecutionContext,
-        ).owner()
+        )
 
-        ledgerBuffersUpdater <- LedgerBuffersUpdater.owner(
+        inMemoryStateUpdater <- InMemoryStateUpdater.owner(
           participantInMemoryState = participantInMemoryState,
           prepareUpdatesParallelism = 2, // TODO LLP: config parameter
           metrics = metrics,
@@ -112,8 +116,7 @@ class ParticipantServer(
               metrics = metrics,
               participantInMemoryState = participantInMemoryState,
               lfValueTranslationCache = translationCache,
-              // TODO LLP: Rename
-              apiUpdaterFlow = ledgerBuffersUpdater.flow,
+              inMemoryStateUpdaterFlow = inMemoryStateUpdater.flow,
             )
           } yield new HealthChecks(
             "read" -> readService,

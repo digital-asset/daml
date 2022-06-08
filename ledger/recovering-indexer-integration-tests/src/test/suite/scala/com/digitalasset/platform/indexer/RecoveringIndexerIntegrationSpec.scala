@@ -211,7 +211,7 @@ class RecoveringIndexerIntegrationSpec
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         participantDataSourceConfig = ParticipantDataSourceConfig(jdbcUrl),
         stringInterningView = new StringInterningView(),
-        apiUpdaterFlow = _ => Flow.fromFunction(_ => ()), // TODO LLP: Add load
+        inMemoryStateUpdaterFlow = _ => Flow.fromFunction(_ => ()), // TODO LLP: Add load
       )(materializer, loggingContext)
     } yield participantState._2
   }
