@@ -24,10 +24,33 @@ interface I1I<T extends object> {
 type IChoice = {};
 const I1: Template<object, undefined, "foo"> & I1I<object> = null as never;
 interface I2I<T extends object> {
-  IChoice: Choice<T, IChoice2, ContractId<I2I<T>>, undefined>;
+  IChoice2: Choice<T, IChoice2, ContractId<I2I<T>>, undefined>;
 }
 type IChoice2 = {};
 const I2: Template<object, undefined, "bar"> & I2I<object> = null as never;
+
+// Note that we don't really want to "brand" T, because
+// this is the simple create argument format as well.
+type T = {};
+interface TI extends I1I<T>, I2I<T> {
+  TChoice: Choice<T, TChoice, ContractId<T>, undefined>;
+}
+type TChoice = {};
+const T: Template<T, undefined, "baz"> & TI = null as never;
+
+function myExercise<T extends object, C, R, K>(
+  choice: Choice<T, C, R, K>,
+  contractId: ContractId<T>,
+  argument: C,
+) {}
+
+function widenCid(cidT: ContractId<T>): ContractId<I1I<T>> {
+  myExercise(T.TChoice, cidT, {});
+  myExercise(T.IChoice, cidT, {});
+  // ^ works v doesn't work
+  myExercise(I1.IChoice, cidT, {});
+  return t; // toInterface?
+}
 
 const LEDGER_ID = "build-and-lint-test";
 const APPLICATION_ID = "build-and-lint-test";
