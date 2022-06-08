@@ -11,12 +11,23 @@ import Ledger, {
   PartyInfo,
   UserRightHelper,
 } from "@daml/ledger";
-import { Int, emptyMap, Map } from "@daml/types";
+import { Choice, ContractId, Int, emptyMap, Map, Template } from "@daml/types";
 import pEvent from "p-event";
 import _ from "lodash";
 import WebSocket from "ws";
 
 import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
+
+interface I1I<T extends object> {
+  IChoice: Choice<T, IChoice, ContractId<I1I<T>>, undefined>;
+}
+type IChoice = {};
+const I1: Template<object, undefined, "foo"> & I1I<object> = null as never;
+interface I2I<T extends object> {
+  IChoice: Choice<T, IChoice2, ContractId<I2I<T>>, undefined>;
+}
+type IChoice2 = {};
+const I2: Template<object, undefined, "bar"> & I2I<object> = null as never;
 
 const LEDGER_ID = "build-and-lint-test";
 const APPLICATION_ID = "build-and-lint-test";
