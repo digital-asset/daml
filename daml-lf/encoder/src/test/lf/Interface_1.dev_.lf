@@ -15,6 +15,9 @@ module InterfaceMod {
       , controllers Cons @Party [call_method @InterfaceMod:Boxy getParty this] (Nil @Party)
       , observers Nil @Party
       to upure @Int64 i;
+    coimplements Other:Package {
+      method getParty = Other:Package {party} this;
+    };
   };
 
   record @serializable Box = { party: Party, name: Text };
