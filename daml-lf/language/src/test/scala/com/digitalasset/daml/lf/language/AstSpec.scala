@@ -415,6 +415,28 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         )
       )
     }
+
+    "catch duplicate co-implementation" in {
+      DefInterface.build(
+        requires = List.empty,
+        param = Name.assertFromString("x"),
+        choices = List.empty,
+        methods = List(ifaceMethod1, ifaceMethod2),
+        precond = ETrue,
+        coImplements = List(ifaceCoImpl1, ifaceCoImpl2),
+      )
+
+      a[PackageError] shouldBe thrownBy(
+        DefInterface.build(
+          requires = List.empty,
+          param = Name.assertFromString("x"),
+          choices = List.empty,
+          methods = List(ifaceMethod1, ifaceMethod2),
+          precond = ETrue,
+          coImplements = List(ifaceCoImpl1, ifaceCoImpl1),
+        )
+      )
+    }
   }
 
   private val modName1 = DottedName.assertFromString("Mod1")
@@ -428,6 +450,14 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
   )
   private val ifaceImpl2 = TemplateImplements(
     interfaceId = TypeConName.assertFromString("pkgId:Mod:I2"),
+    methods = Map.empty,
+  )
+  private val ifaceCoImpl1 = InterfaceCoImplements(
+    templateId = TypeConName.assertFromString("pkgId:Mod:T1"),
+    methods = Map.empty,
+  )
+  private val ifaceCoImpl2 = InterfaceCoImplements(
+    templateId = TypeConName.assertFromString("pkgId:Mod:T2"),
     methods = Map.empty,
   )
   private val ifaceMethod1 = InterfaceMethod(name = Name.assertFromString("x"), returnType = TUnit)
