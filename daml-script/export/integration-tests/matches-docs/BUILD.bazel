@@ -54,8 +54,6 @@ client_server_build(
     server_args = [
         " --participant=participant-id=example,port=0,port-file=%PORT_FILE%",
     ],
-    server_files = [
-    ],
 ) if not is_windows else None
 # Disabled on Windows since postgres gets unhappy in client_server_build.
 
