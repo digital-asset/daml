@@ -11,6 +11,7 @@ import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{
   Filters,
+  InclusiveFilters,
   LedgerId,
   LedgerOffset,
   TransactionFilter,
@@ -23,9 +24,11 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.ledger.{EventId => LfEventId}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -35,9 +38,11 @@ import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
+import com.daml.platform.store.cache.SingletonPackageMetadataCache
 import io.grpc._
 import scalaz.syntax.tag._
 
+import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] object ApiTransactionService {
@@ -69,6 +74,107 @@ private[apiserver] final class ApiTransactionService private (
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
     transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
 
+  // Approach:
+  //   1: Convert interface filters to template filters
+  //   2: Start regular flat transaction stream using the transactionsService
+  //   3: Add interface view values to the result
+  // TODO DPP-1068: Check if this is the right place to implement this logic
+  private def transactionsWithInterfaceSubscriptions(
+      begin: LedgerOffset,
+      endAt: Option[LedgerOffset],
+      filter: TransactionFilter,
+      verbose: Boolean,
+  )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] = {
+
+    // TODO DPP-1068: Copied from LfValueSerialization
+    def apiIdentifierToDamlLfIdentifier(id: Identifier): Ref.Identifier =
+      Ref.Identifier(
+        Ref.PackageId.assertFromString(id.packageId),
+        Ref.QualifiedName(
+          Ref.ModuleName.assertFromString(id.moduleName),
+          Ref.DottedName.assertFromString(id.entityName),
+        ),
+      )
+
+    // TODO DPP-1068: Surely there is a better way
+    def damlLfIdentifierToApiIdentifier(id: Ref.Identifier): Identifier =
+      Identifier(
+        packageId = id.packageId,
+        moduleName = id.qualifiedName.module.toString,
+        entityName = id.qualifiedName.name.toString,
+      )
+
+    // Template ID to list of interface IDs that need to include their view
+    val viewsByTemplate: mutable.Map[Ref.Identifier, Set[Ref.Identifier]] = mutable.Map.empty
+
+    val filtersByPartyWithoutInterfaces = filter.filtersByParty.view
+      .mapValues(filters =>
+        Filters(filters.inclusive.map(inclusiveFilters => {
+          val interfaceTemplateIds = inclusiveFilters.interfaceFilters.flatMap(interfaceFilter => {
+            // Find all templates that implement this interface
+            val templateIds =
+              SingletonPackageMetadataCache.getInterfaceImplementations(interfaceFilter.interfaceId)
+            // Remember for each of these templates whether we have to compute the view
+            if (interfaceFilter.includeView) {
+              templateIds.foreach(tid =>
+                viewsByTemplate.updateWith(tid) {
+                  case None => Some(Set(interfaceFilter.interfaceId))
+                  case Some(other) => Some(other + interfaceFilter.interfaceId)
+                }
+              )
+            }
+            templateIds
+          })
+          val allTemplateIds = inclusiveFilters.templateIds ++ interfaceTemplateIds
+          InclusiveFilters(
+            templateIds = allTemplateIds,
+            interfaceFilters = Set.empty,
+          )
+        }))
+      )
+      .toMap
+    val filterWithoutInterfaces = TransactionFilter(
+      filtersByPartyWithoutInterfaces
+    )
+
+    transactionsService
+      .transactions(begin, endAt, filterWithoutInterfaces, verbose)
+      .map(res => {
+        val transactionsWithViews: scala.Seq[com.daml.ledger.api.v1.transaction.Transaction] =
+          res.transactions.map(tx =>
+            tx.update(
+              _.events := tx.events.map(outerEvent =>
+                outerEvent.event match {
+                  case com.daml.ledger.api.v1.event.Event.Event.Created(created) =>
+                    val templateId = apiIdentifierToDamlLfIdentifier(created.templateId.get)
+                    val viewsToInclude = viewsByTemplate.getOrElse(templateId, Set.empty)
+                    if (viewsToInclude.isEmpty) {
+                      outerEvent
+                    } else {
+                      val interfaceViews = viewsToInclude
+                        .map(iid =>
+                          com.daml.ledger.api.v1.event.InterfaceView(
+                            interfaceId = Some(damlLfIdentifierToApiIdentifier(iid)),
+                            viewStatus = Some(com.google.rpc.status.Status.of(0, "", Seq.empty)),
+                            viewValue = Some(???),
+                          )
+                        )
+                        .toSeq
+                      com.daml.ledger.api.v1.event.Event.of(
+                        com.daml.ledger.api.v1.event.Event.Event
+                          .Created(created.update(_.interfaceViews := interfaceViews))
+                      )
+                    }
+
+                  case _ => outerEvent
+                }
+              )
+            )
+          )
+        res.update(_.transactions := transactionsWithViews)
+      })
+  }
+
   override def getTransactions(
       request: GetTransactionsRequest
   ): Source[GetTransactionsResponse, NotUsed] = {
@@ -82,8 +188,13 @@ private[apiserver] final class ApiTransactionService private (
       logger.info("Received request for transactions.")
     }
     logger.trace(s"Transaction request: $request")
-    transactionsService
-      .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
+
+    transactionsWithInterfaceSubscriptions(
+      request.startExclusive,
+      request.endInclusive,
+      request.filter,
+      request.verbose,
+    )
       .via(logger.enrichedDebugStream("Responding with transactions.", transactionsLoggable))
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactions))
