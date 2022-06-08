@@ -50,12 +50,12 @@ client_server_build(
     client_files = ["//daml-script/test:script-test.dar"],
     data = ["//daml-script/test:script-test.dar"],
     output_env = "EXPORT_OUT",
-    server = "//ledger/sandbox-classic:sandbox-classic-ephemeral-postgresql",
+    server = "//ledger/sandbox-on-x:sandbox-on-x-ephemeral-postgresql",
     server_args = [
-        "--port=0",
-        "--port-file=%PORT_FILE%",
+        " --participant=participant-id=example,port=0,port-file=%PORT_FILE%",
     ],
-    server_files = ["//daml-script/test:script-test.dar"],
+    server_files = [
+    ],
 ) if not is_windows else None
 # Disabled on Windows since postgres gets unhappy in client_server_build.
 
