@@ -11,6 +11,7 @@ import com.codahale.metrics.{InstrumentedExecutorService, MetricRegistry}
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.auth.{
+  AuthService,
   AuthServiceJWT,
   AuthServiceNone,
   AuthServiceStatic,
@@ -242,7 +243,7 @@ object SandboxOnXRunner {
           config.ledgerId,
           participantConfig.apiServer,
           participantId,
-          configAdaptor,
+          configAdaptor.authService(participantConfig),
         )
       } yield (apiServer, writeService, indexService)
     }
@@ -260,7 +261,7 @@ object SandboxOnXRunner {
       ledgerId: LedgerId,
       apiServerConfig: ApiServerConfig,
       participantId: Ref.ParticipantId,
-      configAdaptor: BridgeConfigAdaptor,
+      authService: AuthService,
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
@@ -302,7 +303,7 @@ object SandboxOnXRunner {
         ),
       ),
       participantId = participantId,
-      authService = configAdaptor.authService(apiServerConfig),
+      authService = authService,
     )
 
   private def buildIndexerServer(
@@ -415,7 +416,7 @@ object SandboxOnXRunner {
       extra: BridgeConfig,
   ): Unit = {
     val apiServerConfig = participantConfig.apiServer
-    val authentication = apiServerConfig.authentication.create() match {
+    val authentication = participantConfig.authentication.create() match {
       case _: AuthServiceJWT => "JWT-based authentication"
       case AuthServiceNone => "none authenticated"
       case _: AuthServiceStatic => "static authentication"

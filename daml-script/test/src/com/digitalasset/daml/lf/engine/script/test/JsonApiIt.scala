@@ -96,9 +96,9 @@ trait JsonApiFixture
     ledgerId = "MyLedger",
     participants = singleParticipant(
       ApiServerConfig.copy(
-        timeProviderType = TimeProviderType.WallClock,
-        authentication = UnsafeJwtHmac256(secret),
-      )
+        timeProviderType = TimeProviderType.WallClock
+      ),
+      authentication = UnsafeJwtHmac256(secret),
     ),
   )
   def httpPort: Int = suiteResource.value._3.localAddress.getPort

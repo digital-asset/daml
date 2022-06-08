@@ -21,7 +21,7 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, MetricsReporting}
-import com.daml.platform.apiserver.{ApiServer, ApiServerConfig}
+import com.daml.platform.apiserver.ApiServer
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.sandbox.logging
@@ -58,7 +58,7 @@ final class SandboxServer(
     val maybeLedgerId = config.jdbcUrl.flatMap(getLedgerId)
     val genericCliConfig = ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId, DefaultName)
     val bridgeConfigAdaptor: BridgeConfigAdaptor = new BridgeConfigAdaptor {
-      override def authService(apiServerConfig: ApiServerConfig): AuthService =
+      override def authService(participantConfig: ParticipantConfig): AuthService =
         config.authService.getOrElse(AuthServiceWildcard)
     }
     val genericConfig = CliConfigConverter.toConfig(bridgeConfigAdaptor, genericCliConfig)
@@ -114,7 +114,7 @@ final class SandboxServer(
       config.damlPackages,
       participantConfig.apiServer.timeProviderType.description,
       "SQL-backed conflict-checking ledger-bridge",
-      participantConfig.apiServer.authentication.getClass.getSimpleName,
+      participantConfig.authentication.getClass.getSimpleName,
       config.seeding.name,
       if (config.stackTraces) "" else ", stack traces = no",
       config.profileDir match {
