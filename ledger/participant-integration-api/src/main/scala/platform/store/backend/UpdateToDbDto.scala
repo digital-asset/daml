@@ -16,6 +16,7 @@ import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.platform.{Create, Exercise, Key, Node, NodeId}
 import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.ChoiceCoder
+import com.daml.platform.store.cache.SingletonPackageMetadataCache
 import com.daml.platform.store.dao.JdbcLedgerDao
 import com.daml.platform.store.dao.events._
 
@@ -93,6 +94,10 @@ object UpdateToDbDto {
         )
 
       case u: PublicPackageUpload =>
+        // TODO DPP-1068: Move to the right place
+        //  It doesn't matter where in the indexing pipeline the cache is updated,
+        //  as long as it's before updating the ledger end
+        SingletonPackageMetadataCache.add(u.archives, offset)
         val uploadId = u.submissionId.getOrElse(UUID.randomUUID().toString)
         val packages = u.archives.iterator.map { archive =>
           DbDto.Package(
