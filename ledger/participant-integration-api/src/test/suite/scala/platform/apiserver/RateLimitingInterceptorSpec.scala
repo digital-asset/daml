@@ -51,7 +51,7 @@ final class RateLimitingInterceptorSpec
   implicit override val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(1, Second)))
 
-  private val config = RateLimitingConfig(100, 10, 75)
+  private val config = RateLimitingConfig(100, 10, 75, 100 * RateLimitingConfig.Megabyte)
 
   behavior of "RateLimitingInterceptor"
 
@@ -209,6 +209,14 @@ final class RateLimitingInterceptorSpec
           exception.getMessage should include(expectedMetric)
         }
     }
+  }
+
+  it should "calculate the collection threshold zone size" in {
+    // The actual threshold used would be max(maxHeapSpacePercentage * maxHeapSize / 100, maxHeapSize - maxOverThresholdZoneSize)
+    val underTest =
+      RateLimitingConfig.Default.copy(maxHeapSpacePercentage = 90, maxOverThresholdZoneSize = 1000)
+    underTest.collectionUsageThreshold(1000) shouldBe 900 // 90%
+    underTest.collectionUsageThreshold(101000) shouldBe 100000 // 10100 - 1000
   }
 
 }
