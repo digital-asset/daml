@@ -96,7 +96,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
 
     def mode: ContractKeyUniquenessMode = ContractStateMachine.this.mode
 
-    def lookupActiveGlobalKeyInput(key: GlobalKey) = globalKeyInputs.get(key).map {
+    def lookupActiveGlobalKeyInput(key: GlobalKey): Option[ContractStateMachine.KeyMapping] = globalKeyInputs.get(key).map {
       case Transaction.KeyActive(cid) if !activeState.consumedBy.contains(cid) =>
         ContractStateMachine.KeyActive(cid)
       case _ => ContractStateMachine.KeyInactive
@@ -149,7 +149,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
           val keys = activeState.keys
           val conflict = keys.get(ck) match {
             case Some(keyMapping) => keyMapping.isDefined
-            case None => globalKeyInputs.get(ck).exists(_.isActive)
+            case None => lookupActiveGlobalKeyInput(ck).exists(_.isDefined)
           }
 
           val newKeyInputs =
@@ -197,7 +197,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
             // If the key was brought in scope before, we must update `keys`
             // independently of whether this exercise is by-key because it affects later key lookups.
             if (mode.byKeyOnly) {
-              keys.get(gkey).orElse(globalKeyInputs.get(gkey).map(_.toKeyMapping)) match {
+              keys.get(gkey).orElse(lookupActiveGlobalKeyInput(gkey)) match {
                 // An archive can only mark a key as inactive
                 // if it was brought into scope before.
                 case Some(KeyActive(cid)) if cid == targetId =>
