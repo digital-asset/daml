@@ -352,6 +352,8 @@ class ContractKeySpec
         ("RollbackCreateNonRollbackGlobalArchive", keyResultCid)
       val rollbackGlobalArchiveUpdates =
         ("RollbackGlobalArchiveUpdates", twoCids)
+      val rollbackGlobalArchivedLoolkup =
+        ("RollbackGlobalArchivedLoolkup", keyResultCid)
 
       val allCases = Table(
         ("choice", "argument"),
@@ -372,6 +374,7 @@ class ContractKeySpec
         rollbackGlobalArchiveNonRollbackCreate,
         rollbackCreateNonRollbackGlobalArchive,
         rollbackGlobalArchiveUpdates,
+        rollbackGlobalArchivedLoolkup,
       )
 
       val uckFailures = Set(
