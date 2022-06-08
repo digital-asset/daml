@@ -149,7 +149,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
           val keys = activeState.keys
           val conflict = keys.get(ck) match {
             case Some(keyMapping) => keyMapping.isDefined
-            case None => lookupActiveGlobalKeyInput(ck).exists(_.isDefined)
+            case None => lookupActiveGlobalKeyInput(ck).exists(_ != KeyInactive)
           }
 
           val newKeyInputs =
