@@ -71,6 +71,7 @@ final class ScenarioRunner private (
             committers,
             Set.empty,
             SEValue(commands),
+            ImmArray.empty,
             location,
             nextSeed(),
             machine.traceLog,
@@ -381,6 +382,7 @@ object ScenarioRunner {
       committers: Set[Party],
       readAs: Set[Party],
       commands: SExpr,
+      disclosures: ImmArray[speedy.DisclosedContract],
       location: Option[Location],
       seed: crypto.Hash,
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
@@ -399,6 +401,10 @@ object ScenarioRunner {
       commitLocation = location,
       limits = interpretation.Limits.Lenient,
     )
+
+    // TODO (drsk) validate and propagate errors back to submitter 
+    // https://github.com/digital-asset/daml/issues/14108
+    val discTable = Engine.buildDiscTable(ledgerMachine, disclosures)
     val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
     val enricher = if (doEnrichment) new EnricherImpl(compiledPackages) else NoEnricher
     import enricher._
@@ -421,20 +427,31 @@ object ScenarioRunner {
         case SResultError(err) =>
           SubmissionError(Error.RunnerException(err), enrich(onLedger.incompleteTransaction))
         case SResultNeedContract(coid, committers, callback) =>
-          ledger.lookupContract(coid, committers, readAs, callback) match {
-            case Left(err) => SubmissionError(err, enrich(onLedger.incompleteTransaction))
-            case Right(_) => go()
+          // TODO (drsk) Reduce duplication between this code and the engine. 
+          // https://github.com/digital-asset/daml/issues/14090
+          discTable.contractById.get(coid) match {
+            case None =>
+              ledger.lookupContract(coid, committers, readAs, callback) match {
+                case Left(err) => SubmissionError(err, enrich(onLedger.incompleteTransaction))
+                case Right(_) => go()
+              }
+            case Some(_) => go()
           }
         case SResultNeedKey(keyWithMaintainers, committers, callback) =>
-          ledger.lookupKey(
-            ledgerMachine,
-            keyWithMaintainers.globalKey,
-            committers,
-            readAs,
-            callback,
-          ) match {
-            case Left(err) => SubmissionError(err, enrich(onLedger.incompleteTransaction))
-            case Right(_) => go()
+          discTable.contractIdByKey.get(keyWithMaintainers.globalKey.hash) match {
+            case None =>
+              ledger.lookupKey(
+                ledgerMachine,
+                keyWithMaintainers.globalKey,
+                committers,
+                readAs,
+                callback,
+              ) match {
+                case Left(err) => SubmissionError(err, enrich(onLedger.incompleteTransaction))
+                case Right(_) => go()
+              }
+            // TODO (drsk) validate key hash. https://github.com/digital-asset/daml/issues/13897
+            case Some(_) => go()
           }
         case SResultNeedTime(callback) =>
           callback(ledger.currentTime)
