@@ -1,5 +1,9 @@
 {
   "compilerOptions": {
+    "baseUrl": "language-support/ts",
+    "paths": {
+      "@daml/types": ["daml-types/index"]
+    },
     "noImplicitAny": true,
     "strictNullChecks": true,
     "noImplicitThis": true,

@@ -1,6 +1,12 @@
 
 {
   "compilerOptions": {
+  "baseUrl": "../../../..",
+  "paths": {
+    "@daml/types": ["daml-types/index"],
+    "@daml/ledger": ["daml-ledger/index"],
+    "@daml.js/build-and-lint-1.0.0": ["/Users/stephencompall/ide/13501-tests/daml2js/build-and-lint-1.0.0/lib/index"]
+  },
     "target": "es5",
     "lib": [
       "dom",

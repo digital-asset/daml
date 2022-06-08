@@ -1,5 +1,9 @@
 {
   "compilerOptions": {
+    "baseUrl": "..",
+    "paths": {
+      "@daml/types": ["daml-types/index"]
+    },
     "target": "es5",
     "lib": [
       "es2015"
