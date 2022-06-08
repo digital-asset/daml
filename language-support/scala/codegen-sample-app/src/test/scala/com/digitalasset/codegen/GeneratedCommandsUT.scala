@@ -65,6 +65,7 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
     val imId: P.ContractId[MyMain.InterfaceMixer] = P.ContractId("fakeimid")
     val itmId: P.ContractId[MyMainIface.IfaceFromAnotherMod] = P.ContractId("fakeitmid")
     val DirectTemplateId = ApiTypes.TemplateId unwrap MyMain.InterfaceMixer.id
+    val ITMTemplateId = ApiTypes.TemplateId unwrap MyMain.InterfaceToMix.id
     val FAMTemplateId = ApiTypes.TemplateId unwrap MyMainIface.IfaceFromAnotherMod.id
 
     "invoke directly-defined choices" in {
@@ -82,11 +83,32 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
       }
     }
 
-    "invoke interface-inherited choices, directly from template" in {
-      inside(imId.exerciseInheritedOnly(alice).command.command) {
+    "invoke interface-defined choices, even when overloaded in template" in {
+      inside(
+        imId
+          .toInterface[MyMainIface.IfaceFromAnotherMod]
+          .exerciseOverloadedInTemplate(alice)
+          .command
+          .command
+      ) {
         case rpccmd.Command.Command.Exercise(
               rpccmd.ExerciseCommand(
-                Some(DirectTemplateId), // TODO(#13349, #13668) must be interface ID
+                Some(FAMTemplateId),
+                cid,
+                "OverloadedInTemplate",
+                Some(choiceArg),
+              )
+            ) =>
+          cid should ===(imId)
+          choiceArg should ===(encode(MyMainIface.OverloadedInTemplate()))
+      }
+    }
+
+    "invoke interface-inherited choices by converting to interface" in {
+      inside(imId.toInterface[MyMain.InterfaceToMix].exerciseInheritedOnly(alice).command.command) {
+        case rpccmd.Command.Command.Exercise(
+              rpccmd.ExerciseCommand(
+                Some(ITMTemplateId),
                 cid,
                 "InheritedOnly",
                 Some(choiceArg),

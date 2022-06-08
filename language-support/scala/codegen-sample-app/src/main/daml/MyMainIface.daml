@@ -9,3 +9,7 @@ interface IfaceFromAnotherMod where
       sth: Int
     controller getOwner this
     do return $ sth + 1
+  choice OverloadedInTemplate: () with
+    controller getOwner this
+    do return ()
+
