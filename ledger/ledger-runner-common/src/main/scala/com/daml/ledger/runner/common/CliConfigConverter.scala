@@ -4,6 +4,7 @@
 package com.daml.ledger.runner.common
 
 import com.daml.platform.apiserver.ApiServerConfig
+import com.daml.platform.config.{MetricsConfig, ParticipantConfig}
 import com.daml.platform.configuration.{IndexServiceConfig, PartyConfiguration}
 import com.daml.platform.store.DbSupport.{
   ConnectionPoolConfig,

@@ -10,7 +10,6 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.ledger.runner.common.ParticipantConfig
 import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge
 import com.daml.ledger.sandbox.domain.Submission
@@ -18,6 +17,7 @@ import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics}
 import com.daml.logging.LoggingContext
+import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.PartyConfiguration
 import com.google.common.primitives.Longs
 

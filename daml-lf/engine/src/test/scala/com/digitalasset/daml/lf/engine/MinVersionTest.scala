@@ -26,6 +26,7 @@ import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.VersionRange
 import com.daml.lf.archive.DarDecoder
 import com.daml.lf.language.LanguageVersion.v1_14
+import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.Port
 import com.google.protobuf.ByteString

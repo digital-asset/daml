@@ -13,6 +13,7 @@ import com.daml.lf.language.LanguageVersion
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{AuthServiceConfig, AuthServiceConfigCli}
 import com.daml.platform.apiserver.SeedService.Seeding
+import com.daml.platform.config.{ParticipantConfig, ParticipantRunMode}
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{CommandConfiguration, IndexServiceConfig}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
