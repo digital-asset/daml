@@ -96,6 +96,12 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
 
     def mode: ContractKeyUniquenessMode = ContractStateMachine.this.mode
 
+    def lookupActiveGlobalKeyInput(key: GlobalKey) = globalKeyInputs.get(key).map {
+      case Transaction.KeyActive(cid) if !activeState.consumedBy.contains(cid) =>
+        ContractStateMachine.KeyActive(cid)
+      case _ => ContractStateMachine.KeyInactive
+    }
+
     /** Visit a create node */
     def handleCreate(node: Node.Create): Either[KeyInputError, State] =
       visitCreate(node.templateId, node.coid, node.key)
@@ -240,13 +246,8 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
         case Some(keyMapping) => Right(keyMapping -> this)
         case None =>
           // Check if we have a cached key input.
-          globalKeyInputs.get(gkey) match {
-            case Some(keyInput) =>
-              val keyMapping = keyInput match {
-                case Transaction.KeyActive(cid) if !activeState.consumedBy.contains(cid) =>
-                  ContractStateMachine.KeyActive(cid)
-                case _ => ContractStateMachine.KeyInactive
-              }
+          lookupActiveGlobalKeyInput(gkey) match {
+            case Some(keyMapping) =>
               Right(
                 keyMapping -> this.copy(
                   activeState = activeState.copy(keys = keys.updated(gkey, keyMapping))
@@ -365,8 +366,9 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
         "Cannot lift a state over a substate with unfinished rollback scopes",
       )
 
-      def keyMappingFor(key: GlobalKey): Option[KeyMapping] =
-        this.activeState.keys.get(key).orElse(this.globalKeyInputs.get(key).map(_.toKeyMapping))
+      def keyMappingFor(key: GlobalKey): Option[KeyMapping] = {
+        this.activeState.keys.get(key).orElse(this.lookupActiveGlobalKeyInput(key))
+      }
 
       // We want consistent key lookups within an action in any contract key mode.
       def consistentGlobalKeyInputs: Either[KeyInputError, Unit] = {

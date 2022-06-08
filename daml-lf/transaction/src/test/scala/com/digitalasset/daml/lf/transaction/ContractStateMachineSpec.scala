@@ -215,10 +215,8 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       tx,
       Map(
         ContractKeyUniquenessMode.Strict -> expected,
-        ContractKeyUniquenessMode.On -> // TODO This is a bug https://github.com/digital-asset/daml/pull/14080
-          Left(InconsistentKeys(gkey("key2"))),
-        ContractKeyUniquenessMode.Off -> // TODO This is a bug https://github.com/digital-asset/daml/pull/14080
-          Left(InconsistentKeys(gkey("key2"))),
+        ContractKeyUniquenessMode.On -> expected,
+        ContractKeyUniquenessMode.Off -> expected,
       ),
     )
   }
