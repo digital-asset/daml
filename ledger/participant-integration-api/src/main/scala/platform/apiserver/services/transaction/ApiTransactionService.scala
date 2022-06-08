@@ -36,6 +36,7 @@ import com.daml.logging.entries.{LoggingEntries, LoggingValue}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
+import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
 import com.daml.platform.store.cache.SingletonPackageMetadataCache
@@ -96,14 +97,6 @@ private[apiserver] final class ApiTransactionService private (
         ),
       )
 
-    // TODO DPP-1068: Surely there is a better way
-    def damlLfIdentifierToApiIdentifier(id: Ref.Identifier): Identifier =
-      Identifier(
-        packageId = id.packageId,
-        moduleName = id.qualifiedName.module.toString,
-        entityName = id.qualifiedName.name.toString,
-      )
-
     // Template ID to list of interface IDs that need to include their view
     val viewsByTemplate: mutable.Map[Ref.Identifier, Set[Ref.Identifier]] = mutable.Map.empty
 
@@ -154,7 +147,7 @@ private[apiserver] final class ApiTransactionService private (
                       val interfaceViews = viewsToInclude
                         .map(iid =>
                           com.daml.ledger.api.v1.event.InterfaceView(
-                            interfaceId = Some(damlLfIdentifierToApiIdentifier(iid)),
+                            interfaceId = Some(LfEngineToApi.toApiIdentifier(iid)),
                             viewStatus = Some(com.google.rpc.status.Status.of(0, "", Seq.empty)),
                             viewValue = Some(???),
                           )
