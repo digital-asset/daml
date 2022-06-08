@@ -98,6 +98,7 @@ trait ScriptLedgerClient {
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
+      disclosedContracts: List[command.DisclosedContract],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,

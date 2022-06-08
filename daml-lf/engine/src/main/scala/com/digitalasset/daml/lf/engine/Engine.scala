@@ -324,8 +324,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       limits = config.limits,
     )
 
+    val discTable = Engine.buildDiscTable(machine, disclosures)
     for {
-      discTable <- Engine.buildDiscTable(machine, disclosures)
       res <- interpretLoop(machine, discTable, ledgerTime)
     } yield res
   }
@@ -568,10 +568,10 @@ object Engine {
       contractById: Map[ContractId, VersionedContractInstance],
   )
 
-  private[engine] def buildDiscTable(
+  def buildDiscTable(
       machine: Machine,
       disclosures: ImmArray[speedy.DisclosedContract],
-  ): Result[DisclosureTable] = {
+  ): DisclosureTable = {
     val acc = disclosures.foldLeft(
       (
         Map.empty[ContractId, VersionedContractInstance],
@@ -626,12 +626,11 @@ object Engine {
           throw (Error.Preprocessing.BadDisclosedContract("Disclosed contract is not well-typed."))
       }
     }
-    ResultDone(
-      DisclosureTable(
-        allDisclosures = ImmArray.from(acc._3),
-        contractById = acc._1,
-        contractIdByKey = acc._2,
-      )
+
+    DisclosureTable(
+      allDisclosures = ImmArray.from(acc._3),
+      contractById = acc._1,
+      contractIdByKey = acc._2,
     )
 
   }

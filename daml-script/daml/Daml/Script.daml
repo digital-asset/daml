@@ -25,6 +25,11 @@ module Daml.Script
   , listKnownParties
   , listKnownPartiesOn
   , Commands
+  , DisclosedContract
+  , ContractMetadata(..)
+  , toDisclosedContract
+  , submitDisclosing
+  , submitMultiDisclosing
   , createCmd
   , exerciseCmd
   , exerciseByKeyCmd
@@ -120,6 +125,24 @@ data CommandsF a
 -- must be of the form ``return expr`` or ``pure expr``.
 newtype Commands a = Commands (Ap CommandsF a)
   deriving (Functor, Applicative)
+
+data DisclosedContract = DisclosedContract
+  with
+    contractId : AnyContractId
+    argument : AnyTemplate
+    metadata : ContractMetadata
+
+data ContractMetadata = ContractMetadata
+  with
+    createdAt : Time
+    keyHash : Text -- ^ base 16 encoded byte string
+    driverMetadata : Text -- ^ base 16 encoded byte string
+
+toDisclosedContract : Template t => ContractMetadata -> ContractId t -> t -> DisclosedContract 
+toDisclosedContract meta coid arg =  DisclosedContract with
+    contractId = toAnyContractId coid
+    argument = toAnyTemplate arg
+    metadata = meta
 
 data ScriptF a
   = Submit (SubmitCmd a)
@@ -403,6 +426,7 @@ data SubmitCmd a = SubmitCmd
     actAs : NonEmpty Party
     readAs : [Party]
     commands : Commands a
+    disclosedContracts : [DisclosedContract]
     handleFailure : ()
     locations : [(Text, SrcLoc)]
   deriving Functor
@@ -413,6 +437,7 @@ data SubmitMustFailCmd a = SubmitMustFailCmd
     actAs : NonEmpty Party
     readAs : [Party]
     commands : Commands a
+    disclosedContracts : [DisclosedContract]
     continue : () -> a
     locations : [(Text, SrcLoc)]
   deriving Functor
@@ -421,12 +446,14 @@ data SubmitMustFailCmd a = SubmitMustFailCmd
 
 -- This will error if the submission fails.
 
+
 instance HasSubmit Script Commands where
   submit p cmds =
     lift $ Free $ fmap pure $ Submit $ SubmitCmd with
       actAs = NonEmpty p []
       readAs = []
       commands = cmds
+      disclosedContracts = []
       handleFailure = ()
       locations = getCallStack callStack
 
@@ -435,6 +462,7 @@ instance HasSubmit Script Commands where
       actAs = NonEmpty p []
       readAs = []
       commands = void cmds
+      disclosedContracts = []
       continue = const ()
       locations = getCallStack callStack
 
@@ -470,6 +498,7 @@ submitMulti actAs readAs cmds =
       actAs = actAsNonEmpty actAs
       readAs = toParties readAs
       commands = cmds
+      disclosedContracts = []
       handleFailure = ()
       locations = getCallStack callStack
 
@@ -481,7 +510,33 @@ submitMultiMustFail actAs readAs cmds =
       actAs = actAsNonEmpty actAs
       readAs = toParties readAs
       commands = void cmds
+      disclosedContracts = []
       continue = const ()
+      locations = getCallStack callStack
+
+-- | `submitDisclosing discs p cmds` behaves like `submit p cmds` but provides an additional list
+-- of `DisclosedContracts`s for interpretation. 
+submitDisclosing : [DisclosedContract] -> Party -> Commands a -> Script a
+submitDisclosing discs p cmds = 
+  lift $ Free $ fmap pure $ Submit $ SubmitCmd with
+    actAs = NonEmpty p []
+    readAs = []
+    commands = cmds
+    disclosedContracts = discs
+    handleFailure = ()
+    locations = getCallStack callStack
+  
+-- | `submitMultiDisclosing discs actAs readAs cmds` submits `cmds` as a single transaction
+-- authorized by `actAs` while disclosing the contracts `discs`. Fetched contracts must be visible to at least
+-- one party in the union of actAs and readAs.
+submitMultiDisclosing : HasCallStack => [DisclosedContract] -> [Party] -> [Party] -> Commands a -> Script a
+submitMultiDisclosing discs actAs readAs cmds =
+    lift $ Free $ fmap pure $ Submit $ SubmitCmd with
+      actAs = actAsNonEmpty actAs
+      readAs = toParties readAs
+      commands = cmds
+      disclosedContracts = discs
+      handleFailure = ()
       locations = getCallStack callStack
 
 -- | This is the type of A Daml script. `Script` is an instance of `Action`,
@@ -733,6 +788,13 @@ fromAnyContractId : forall t. TemplateOrInterface t => AnyContractId -> Optional
 fromAnyContractId cid
   | cid.templateId == templateTypeRep @t = Some (coerceContractId cid.contractId)
   | otherwise = None
+
+toAnyContractId : forall t. Template t => ContractId t -> AnyContractId
+toAnyContractId cid = AnyContractId
+  { templateId = templateTypeRep @t
+  , contractId = coerceContractId cid
+  }
+
 
 data SubmitTreePayload a = SubmitTreePayload
   with
