@@ -260,7 +260,7 @@ genModule pkgMap (Scope scope) curPkgId mod
     -- The choice names for an interface from a package map.
     interfaceChoices :: Map.Map PackageId (Maybe PackageName, Package)
                      -> PackageId -> InterfaceChoices
-    interfaceChoices pkgMap selfPkg name@Qualified{qualPackage, qualModule, qualObject} =
+    interfaceChoices pkgMap selfPkg = InterfaceChoices $ \name@Qualified{qualPackage, qualModule, qualObject} ->
       fromMaybe (error $ "reference interface missing: " <> show name) $ do
         (_, pkg) <- Map.lookup (case qualPackage of
                                   PRSelf -> selfPkg
@@ -285,7 +285,7 @@ genModule pkgMap (Scope scope) curPkgId mod
           Nothing -> error "IMPOSSIBLE : package map malformed"
           Just (mbPkgName, _) -> packageNameText pkgId mbPkgName
 
-type InterfaceChoices = NM.Name TemplateImplements -> Set.Set ChoiceName
+newtype InterfaceChoices = InterfaceChoices (NM.Name TemplateImplements -> Set.Set ChoiceName)
 
 importStmt :: JSSyntax -> T.Text -> T.Text -> T.Text
 importStmt ES6 asName impName =
@@ -826,7 +826,7 @@ genTypeDef conName mod def =
 
 genDefDataType :: PackageId -> T.Text -> Module -> InterfaceChoices -> NM.NameMap Template
                -> DefDataType -> ([TsDecl], Set.Set ModuleRef)
-genDefDataType curPkgId conName mod ifcChoices tpls def =
+genDefDataType curPkgId conName mod (InterfaceChoices ifcChoices) tpls def =
     case dataCons def of
         DataVariant bs ->
           let
