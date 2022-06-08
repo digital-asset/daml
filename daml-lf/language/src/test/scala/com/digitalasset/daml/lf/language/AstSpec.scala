@@ -67,6 +67,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       choices = Map.empty,
       methods = Map.empty,
       requires = Set.empty,
+      coImplements = Map.empty,
     )
 
     def exception = DefException(
@@ -381,6 +382,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         ),
         methods = List(ifaceMethod1, ifaceMethod2),
         precond = ETrue,
+        coImplements = List.empty,
       )
     }
 
@@ -396,6 +398,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           ),
           methods = List.empty,
           precond = ETrue,
+          coImplements = List.empty,
         )
       )
     }
@@ -408,6 +411,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           choices = List.empty,
           methods = List(ifaceMethod1, ifaceMethod1),
           precond = ETrue,
+          coImplements = List.empty,
         )
       )
     }
