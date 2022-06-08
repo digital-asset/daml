@@ -90,4 +90,18 @@ class RawStringInterningSpec extends AnyFlatSpec with Matchers {
     )
     newEntries shouldBe Vector(3 -> "three", 4 -> "four")
   }
+
+  it should "remove entries after the lastPersistedStringInterningId on `resetTo`" in {
+    val current = RawStringInterning(Map("one" -> 1, "two" -> 2), Map(1 -> "one", 2 -> "two"), 2)
+    val purgedStringInterning =
+      RawStringInterning.resetTo(lastPersistedStringInterningId = 1, current)
+    purgedStringInterning shouldBe RawStringInterning(Map("one" -> 1), Map(1 -> "one"), 1)
+  }
+
+  it should "not remove entries if lastPersistedStringInterningId is lteq lastId on `resetTo`" in {
+    val current = RawStringInterning(Map("one" -> 1, "two" -> 2), Map(1 -> "one", 2 -> "two"), 2)
+    val purgedStringInterning =
+      RawStringInterning.resetTo(lastPersistedStringInterningId = 2, current)
+    purgedStringInterning shouldBe current
+  }
 }

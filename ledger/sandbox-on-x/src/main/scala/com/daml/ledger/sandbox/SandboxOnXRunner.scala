@@ -49,6 +49,7 @@ import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.runner.common.MetricsConfig.MetricRegistryType
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.Port
+import com.daml.platform.store.interning.StringInterningView
 
 import scala.util.Try
 
@@ -182,15 +183,6 @@ object SandboxOnXRunner {
           stateUpdatesSource,
         )
 
-        indexerHealthChecks <- buildIndexerServer(
-          metrics,
-          new TimedReadService(readServiceWithSubscriber, metrics),
-          translationCache,
-          participantId,
-          participantConfig,
-          participantDataSourceConfig,
-        )
-
         dbSupport <- DbSupport
           .owner(
             serverRole = ServerRole.ApiServer,
@@ -199,6 +191,18 @@ object SandboxOnXRunner {
               participantDataSourceConfig
             ),
           )
+
+        sharedStringInterningView = new StringInterningView
+
+        indexerHealthChecks <- buildIndexerServer(
+          metrics,
+          new TimedReadService(readServiceWithSubscriber, metrics),
+          translationCache,
+          participantId,
+          participantConfig,
+          participantDataSourceConfig,
+          sharedStringInterningView,
+        )
 
         indexService <- StandaloneIndexService(
           ledgerId = config.ledgerId,
@@ -209,6 +213,7 @@ object SandboxOnXRunner {
           lfValueTranslationCache = translationCache,
           dbSupport = dbSupport,
           participantId = participantId,
+          sharedStringInterningViewO = Some(sharedStringInterningView),
         )
 
         timeServiceBackend = configAdaptor.timeServiceBackend(participantConfig.apiServer)
@@ -307,6 +312,7 @@ object SandboxOnXRunner {
       participantId: Ref.ParticipantId,
       participantConfig: ParticipantConfig,
       participantDataSourceConfig: ParticipantDataSourceConfig,
+      stringInterningView: StringInterningView,
   )(implicit
       loggingContext: LoggingContext,
       materializer: Materializer,
@@ -319,6 +325,7 @@ object SandboxOnXRunner {
         config = participantConfig.indexer,
         metrics = metrics,
         lfValueTranslationCache = translationCache,
+        stringInterningViewO = Some(stringInterningView),
       )
     } yield new HealthChecks(
       "read" -> readService,

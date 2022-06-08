@@ -13,7 +13,11 @@ import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.store.dao.DbDispatcher
-import com.daml.platform.store.backend.{IngestionStorageBackend, ParameterStorageBackend}
+import com.daml.platform.store.backend.{
+  IngestionStorageBackend,
+  ParameterStorageBackend,
+  StringInterningStorageBackend,
+}
 import com.daml.platform.store.interning.UpdatingStringInterningView
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -22,6 +26,7 @@ private[platform] case class InitializeParallelIngestion(
     providedParticipantId: Ref.ParticipantId,
     ingestionStorageBackend: IngestionStorageBackend[_],
     parameterStorageBackend: ParameterStorageBackend,
+    stringInterningStorageBackend: StringInterningStorageBackend,
     metrics: Metrics,
 ) {
 
@@ -55,7 +60,7 @@ private[platform] case class InitializeParallelIngestion(
       _ <- dbDispatcher.executeSql(metrics.daml.parallelIndexer.initialization)(
         ingestionStorageBackend.deletePartiallyIngestedData(ledgerEnd)
       )
-      _ <- updatingStringInterningView.update(ledgerEnd.lastStringInterningId)
+      _ <- updateStringInterningView(dbDispatcher, updatingStringInterningView, ledgerEnd)
     } yield InitializeParallelIngestion.Initialized(
       initialEventSeqId = ledgerEnd.lastEventSeqId,
       initialStringInterningId = ledgerEnd.lastStringInterningId,
@@ -63,6 +68,21 @@ private[platform] case class InitializeParallelIngestion(
     )
   }
 
+  private def updateStringInterningView(
+      dbDispatcher: DbDispatcher,
+      updatingStringInterningView: UpdatingStringInterningView,
+      ledgerEnd: ParameterStorageBackend.LedgerEnd,
+  )(implicit loggingContext: LoggingContext): Future[Unit] =
+    updatingStringInterningView.update(ledgerEnd.lastStringInterningId)(
+      (fromExclusive, toInclusive) =>
+        implicit loggingContext =>
+          dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+            stringInterningStorageBackend.loadStringInterningEntries(
+              fromExclusive,
+              toInclusive,
+            )
+          }
+    )
 }
 
 object InitializeParallelIngestion {

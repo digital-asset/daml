@@ -76,6 +76,7 @@ class IndexerBenchmark() {
         readService,
         metrics,
         LfValueTranslationCache.Cache.none,
+        None,
       )
 
       val resource = for {
