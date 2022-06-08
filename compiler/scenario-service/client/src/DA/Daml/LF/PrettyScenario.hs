@@ -225,6 +225,7 @@ data ExerciseContext = ExerciseContext
   , choiceId :: TL.Text
   , exerciseLocation :: Maybe Location
   , chosenValue :: Maybe Value
+  , exerciseKey :: Maybe KeyWithMaintainers
   } deriving (Eq, Show)
 
 ptxExerciseContext :: PartialTransaction -> Maybe ExerciseContext
@@ -248,6 +249,7 @@ ptxExerciseContext PartialTransaction{..} = go Nothing partialTransactionRoots
                               , choiceId = node_ExerciseChoiceId
                               , exerciseLocation = Nothing
                               , chosenValue = node_ExerciseChosenValue
+                              , exerciseKey = node_ExerciseExerciseByKey
                               }
                         in go (Just ctx) node_ExerciseChildren
                       | otherwise -> acc
@@ -721,6 +723,13 @@ prettyNodeNode nn = do
               , prettyContractId node_ExerciseTargetContractId
               , parens (prettyMay "<missing TemplateId>" (prettyDefName world) node_ExerciseTemplateId)
               ]
+           $$ foldMap
+              (\key ->
+                let prettyKey = prettyMay "<KEY?>" (prettyValue' False 0 world) $ keyWithMaintainersKey key
+                in
+                hsep [ keyword_ "using key", prettyKey ]
+              )
+              node_ExerciseExerciseByKey
            $$ if isUnitValue node_ExerciseChosenValue
               then mempty
               else keyword_ "with"

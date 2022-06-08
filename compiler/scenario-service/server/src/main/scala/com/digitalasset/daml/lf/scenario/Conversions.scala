@@ -572,6 +572,9 @@ final class Conversions(
         ex.exerciseResult.foreach { result =>
           exerciseBuilder.setExerciseResult(convertValue(result))
         }
+        ex.versionedKey.foreach { key =>
+          exerciseBuilder.setExerciseByKey(convertKeyWithMaintainers(key))
+        }
         builder.setExercise(exerciseBuilder.build)
 
       case lbk: Node.LookupByKey =>
