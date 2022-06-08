@@ -189,15 +189,17 @@ object TransactionGenerator {
   } yield (
     Created(
       CreatedEvent(
-        eventId,
-        contractId,
-        Some(scalaTemplateId),
-        contractKey.map(_._1),
-        Some(scalaRecord),
-        signatories ++ observers,
-        signatories,
-        observers,
-        agreementText,
+        eventId = eventId,
+        contractId = contractId,
+        templateId = Some(scalaTemplateId),
+        contractKey = contractKey.map(_._1),
+        createArguments = Some(scalaRecord),
+        createArgumentsBlob = None, // TODO DPP-1068
+        interfaceViews = Seq.empty, // TODO DPP-1068
+        witnessParties = signatories ++ observers,
+        signatories = signatories,
+        observers = observers,
+        agreementText = agreementText,
       )
     ),
     new data.CreatedEvent(

@@ -46,7 +46,8 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
                   Ref.DottedName.assertFromString(includedTemplate),
                 ),
               )
-            )
+            ),
+            Set.empty,
           )
         )
       )

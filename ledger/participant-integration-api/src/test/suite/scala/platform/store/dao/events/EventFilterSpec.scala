@@ -56,9 +56,14 @@ final class EventFilterSpec extends AnyWordSpec with Matchers with ScalaFutures 
   private val filter = (event: ApiEvent) => EventFilter(event)(TransactionFilter(mapping))
 
   def getFilter(templateIds: Seq[(String, String)]) =
-    Filters(InclusiveFilters(templateIds.map { case (mod, ent) =>
-      mkIdent(mod, ent)
-    }.toSet))
+    Filters(
+      InclusiveFilters(
+        templateIds.map { case (mod, ent) =>
+          mkIdent(mod, ent)
+        }.toSet,
+        Set.empty,
+      )
+    )
 
   "EventFilter" when {
 
@@ -119,6 +124,8 @@ final class EventFilterSpec extends AnyWordSpec with Matchers with ScalaFutures 
           Some(templateId),
           None,
           Some(Record(None, Seq.empty)),
+          createArgumentsBlob = None, // TODO DPP-1068
+          interfaceViews = Seq.empty, // TODO DPP-1068
           Seq(party, otherPartyWhoSeesEvents),
           Seq.empty,
           Seq.empty,
