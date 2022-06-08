@@ -6,11 +6,8 @@ package com.daml.ledger.sandbox
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.runner.common.MetricsConfig.MetricRegistryType
-import com.daml.ledger.runner.common.{
-  Config,
-  MetricsConfig,
-  ParticipantConfig => _ParticipantConfig,
-}
+import com.daml.ledger.runner.common.Config
+import com.daml.platform.config.{ParticipantConfig => _ParticipantConfig}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.engine.{EngineConfig => _EngineConfig}

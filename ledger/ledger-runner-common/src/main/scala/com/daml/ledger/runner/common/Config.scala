@@ -14,6 +14,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
+import com.daml.platform.config.{MetricsConfig, ParticipantConfig}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 
 final case class Config(
