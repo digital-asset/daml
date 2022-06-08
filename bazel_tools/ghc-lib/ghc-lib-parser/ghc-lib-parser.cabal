@@ -40,10 +40,10 @@ extra-source-files:
     ghc-lib/stage0/compiler/build/primop-vector-tys.hs-incl
     ghc-lib/stage0/compiler/build/primop-vector-uniques.hs-incl
     ghc-lib/stage0/compiler/build/ghc_boot_platform.h
-    ghc-lib/stage0/compiler/build/Fingerprint.hs
+    compiler/utils/Fingerprint.hsc
     ghc-lib/stage0/compiler/build/Config.hs
-    ghc-lib/stage0/compiler/build/Parser.hs
-    ghc-lib/stage0/compiler/build/Lexer.hs
+    compiler/parser/Parser.y
+    compiler/parser/Lexer.x
     includes/MachDeps.h
     includes/stg/MachRegs.h
     includes/CodeGen.Platform.hs
