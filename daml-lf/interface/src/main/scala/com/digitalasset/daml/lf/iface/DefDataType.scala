@@ -276,7 +276,7 @@ sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
   /** Coerce to [[Resolved]] based on the environment `astInterfaces`, or fail
     * with the choices that could not be resolved.
     */
-  def resolveChoices[O >: Ty](
+  private[iface] def resolveChoices[O >: Ty](
       astInterfaces: PartialFunction[Ref.TypeConName, DefInterface[O]]
   ): Either[ResolveError[Resolved[O]], Resolved[O]] = this match {
     case Unresolved(direct, unresolved) =>
@@ -323,7 +323,7 @@ object TemplateChoices {
       copy(partialResolution = f(partialResolution))
   }
 
-  final case class Unresolved[+Ty](
+  private[iface] final case class Unresolved[+Ty](
       directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
       unresolvedChoiceSources: NonEmpty[Set[Ref.TypeConName]],
   ) extends TemplateChoices[Ty] {
@@ -336,7 +336,7 @@ object TemplateChoices {
   ) =
     directChoices transform ((_, c) => NonEmpty(Map, (none[Ref.TypeConName], c)))
 
-  final case class Resolved[+Ty](
+  private[iface] final case class Resolved[+Ty](
       resolvedChoices: Map[Ref.ChoiceName, NonEmpty[
         Map[Option[Ref.TypeConName], TemplateChoice[Ty]]
       ]]
