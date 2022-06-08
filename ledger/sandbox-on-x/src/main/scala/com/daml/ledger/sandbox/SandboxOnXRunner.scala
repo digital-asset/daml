@@ -47,7 +47,8 @@ import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
 import com.daml.ledger.configuration.LedgerId
-import com.daml.ledger.runner.common.MetricsConfig.MetricRegistryType
+import com.daml.platform.config.MetricsConfig.MetricRegistryType
+import com.daml.platform.config.{ParticipantConfig, ParticipantRunMode}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.Port
 import com.daml.platform.store.interning.StringInterningView

@@ -14,7 +14,7 @@ import com.daml.ledger.api.domain.PackageEntry
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.WriteService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.runner.common.{CliConfigConverter, Config, ParticipantConfig}
+import com.daml.ledger.runner.common.{CliConfigConverter, Config}
 import com.daml.ledger.sandbox.SandboxServer._
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
@@ -22,6 +22,7 @@ import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, MetricsReporting}
 import com.daml.platform.apiserver.ApiServer
+import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.sandbox.logging

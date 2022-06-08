@@ -8,6 +8,7 @@ import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.AuthServiceConfig
 import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.config.ParticipantRunMode
 import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.platform.sandbox.config.SandboxConfig.{DefaultTimeProviderType, EngineMode}
