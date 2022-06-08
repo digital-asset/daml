@@ -27,13 +27,20 @@ object UploadPackageHelper extends SandboxRequiringAuthorizationFuns {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
   ): LedgerClient = {
+    adminLedgerClient(port, config, Some(toHeader(adminTokenStandardJWT, secret = jwtSecret)))
+  }
+
+  def adminLedgerClient(port: Port, config: Config, token: Option[String])(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+  ): LedgerClient = {
     val participant = config.participants(SandboxOnXForTest.ParticipantId)
     val sslContext = participant.apiServer.tls.flatMap(_.client())
     val clientConfig = LedgerClientConfiguration(
       applicationId = "admin-client",
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
-      token = Some(toHeader(adminTokenStandardJWT, secret = jwtSecret)),
+      token = token,
     )
     LedgerClient.singleHost(
       hostIp = "localhost",
