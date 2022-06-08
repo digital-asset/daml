@@ -25,8 +25,8 @@ Here is an implementation of a *Coin transfer* without any authorization:
 
 .. literalinclude:: daml/CoinIssuance.daml
   :language: daml
-  :start-after: -- BEGIN_COIN_TEMPLATE_ARCHIVE
-  :end-before: -- END_COIN_TEMPLATE_ARCHIVE
+  :start-after: -- BEGIN_COIN_TEMPLATE_TRANSFER
+  :end-before: -- END_COIN_TEMPLATE_TRANSFER
 
 This is may be insufficient since the issuer has no means to ensure the newOwner is an accredited company. The following changes fix this deficiency.
 
