@@ -52,6 +52,11 @@ class ContractStateCaches(
       if (contractMappings.nonEmpty)
         contractState.putBatch(validAt, contractMappings)
     }
+
+  def reset(lastPersistedLedgerEnd: Offset): Unit = {
+    keyState.reset(lastPersistedLedgerEnd)
+    contractState.reset(lastPersistedLedgerEnd)
+  }
 }
 
 object ContractStateCaches {

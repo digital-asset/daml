@@ -4,10 +4,10 @@
 package com.daml.platform.store.cache
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.caching.{CaffeineCache, ConcurrentCache}
+import com.daml.caching.{CaffeineCache, ConcurrentCache, SizedCache}
 import com.daml.ledger.offset.Offset
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.{CacheMetrics, MetricName, Metrics}
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion
@@ -22,6 +22,8 @@ import scala.math.BigInt.long2bigInt
 import scala.util.Success
 
 class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with Eventually {
+  private val className = classOf[StateCache[_, _]].getSimpleName
+
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
   override implicit def executionContext: ExecutionContext =
     scala.concurrent.ExecutionContext.global
@@ -30,7 +32,7 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
     new MetricRegistry
   ).daml.execution.cache.registerCacheUpdate
 
-  behavior of s"${classOf[StateCache[_, _]].getSimpleName}.putAsync"
+  behavior of s"$className.putAsync"
 
   it should "asynchronously store the update" in {
     val cache = mock[ConcurrentCache[String, String]]
@@ -106,7 +108,7 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
     }
   }
 
-  behavior of s"${classOf[StateCache[_, _]].getSimpleName}.put"
+  behavior of s"$className.put"
 
   it should "synchronously update the cache in front of older asynchronous updates" in {
     val cache = mock[ConcurrentCache[String, String]]
@@ -151,6 +153,44 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
     verify(cache).putAll(Map("key" -> "value"))
     verifyNoMoreInteractions(cache)
     succeed
+  }
+
+  behavior of s"$className.reset"
+
+  it should "correctly reset the state cache" in {
+    val stateCache =
+      new StateCache[String, String](
+        initialCacheIndex = offset(1L),
+        cache = SizedCache.from(
+          SizedCache.Configuration(2),
+          new CacheMetrics(new MetricRegistry, new MetricName(Vector("test"))),
+        ),
+        registerUpdateTimer = cacheUpdateTimer,
+      )
+
+    val syncUpdateKey = "key"
+    val asyncUpdateKey = "other_key"
+
+    // Add eagerly an entry into the cache
+    stateCache.putBatch(offset(2L), Map(syncUpdateKey -> "some initial value"))
+    stateCache.get(syncUpdateKey) shouldBe Some("some initial value")
+
+    // Register async update to the cache
+    val asyncUpdatePromise = Promise[String]()
+    val putAsyncF =
+      stateCache.putAsync(asyncUpdateKey, Map(offset(2L) -> asyncUpdatePromise.future))
+
+    // Reset the cache
+    stateCache.reset(offset(1L))
+    // Complete async update
+    asyncUpdatePromise.completeWith(Future.successful("some value"))
+
+    // Assert the cache is empty after completion of the async update
+    putAsyncF.map { _ =>
+      stateCache.cacheIndex shouldBe offset(1L)
+      stateCache.get(syncUpdateKey) shouldBe None
+      stateCache.get(asyncUpdateKey) shouldBe None
+    }
   }
 
   private def buildStateCache(cacheSize: Long): StateCache[String, String] =

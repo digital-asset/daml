@@ -33,14 +33,14 @@ import scala.math.Ordering
   *                         as a buffer range end updater and not appended to the actual buffer.
   * @tparam ENTRY The entry buffer type.
   */
-final class EventsBuffer[ENTRY](
+class EventsBuffer[ENTRY](
     maxBufferSize: Int,
     metrics: Metrics,
     bufferQualifier: String,
     isRangeEndMarker: ENTRY => Boolean,
     maxBufferedChunkSize: Int,
 ) {
-  @volatile private var _bufferState = BufferState[Offset, ENTRY]()
+  @volatile private[cache] var _bufferState = BufferState[Offset, ENTRY]()
 
   private val bufferMetrics = metrics.daml.services.index.Buffer(bufferQualifier)
   private val pushTimer = bufferMetrics.push
@@ -144,6 +144,10 @@ final class EventsBuffer[ENTRY](
         }
       },
     )
+
+  def flush(): Unit = synchronized {
+    _bufferState = BufferState[Offset, ENTRY]()
+  }
 }
 
 private[platform] object BufferSlice {
@@ -164,7 +168,7 @@ private[platform] object BufferSlice {
 }
 
 private[platform] object EventsBuffer {
-  private final case class BufferState[O, E](
+  private[cache] final case class BufferState[O, E](
       vector: Vector[(O, E)] = Vector.empty,
       rangeEnd: Option[O] = Option.empty,
   )
