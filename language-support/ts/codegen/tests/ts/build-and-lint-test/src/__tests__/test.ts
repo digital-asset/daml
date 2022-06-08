@@ -44,6 +44,17 @@ const computeUserToken = (name: string) =>
     "HS256",
   );
 
+const ADMIN_TOKEN = encode(
+  {
+    "https://daml.com/ledger-api": {
+      ledgerId: LEDGER_ID,
+      applicationId: APPLICATION_ID,
+      admin: true,
+    },
+  },
+  SECRET_KEY,
+  "HS256",
+);
 const ALICE_PARTY = "Alice";
 const ALICE_TOKEN = computeToken(ALICE_PARTY);
 const BOB_PARTY = "Bob";
@@ -82,20 +93,13 @@ const spawnJvm = (
 
 beforeAll(async () => {
   console.log("build-and-lint-1.0.0 (" + buildAndLint.packageId + ") loaded");
-  const darPath = getEnv("DAR");
   sandboxProcess = spawnJvm(getEnv("SANDBOX"), [
-    "--dev-mode-unsafe",
-    "--contract-id-seeding",
-    "testing-weak",
-    "--port",
-    "0",
-    "--port-file",
-    SANDBOX_PORT_FILE,
-    "--ledgerid",
-    LEDGER_ID,
-    "--wall-clock-time",
-    "--log-level=INFO",
-    darPath,
+    "--daml-lf-dev-mode-unsafe",
+    "--contract-id-seeding=testing-weak",
+    "--enable-user-management=true",
+    "--participant=participant-id=example,port=0,port-file=" +
+      SANDBOX_PORT_FILE,
+    "--ledger-id=" + LEDGER_ID,
   ]);
   await waitOn({ resources: [`file:${SANDBOX_PORT_FILE}`] });
   const sandboxPortData = await fs.readFile(SANDBOX_PORT_FILE, {
@@ -126,6 +130,25 @@ beforeAll(async () => {
     encoding: "utf8",
   });
   jsonApiPort = parseInt(jsonApiPortData);
+
+  console.log("Uploading required dar files ..." + getEnv("DAR"));
+  const ledger = new Ledger({ token: ADMIN_TOKEN, httpBaseUrl: httpBaseUrl() });
+  const upDar = await fs.readFile(getEnv("DAR"));
+  await ledger.uploadDarFile(upDar);
+  console.log("Explicitly allocating parties");
+  await ledger.allocateParty({
+    identifierHint: ALICE_PARTY,
+    displayName: ALICE_PARTY,
+  });
+  await ledger.allocateParty({
+    identifierHint: BOB_PARTY,
+    displayName: BOB_PARTY,
+  });
+  await ledger.allocateParty({
+    identifierHint: CHARLIE_PARTY,
+    displayName: CHARLIE_PARTY,
+  });
+
   console.log("JSON API listening on port " + jsonApiPort.toString());
 }, 300_000);
 
@@ -902,6 +925,7 @@ test("party API", async () => {
   expect(_.sortBy(allParties, [(p: PartyInfo) => p.identifier])).toEqual([
     p("Alice"),
     p("Bob"),
+    p("Charlie"),
   ]);
 
   const newParty1 = await ledger.allocateParty({});
@@ -916,6 +940,7 @@ test("party API", async () => {
     _.sortBy([
       "Alice",
       "Bob",
+      "Charlie",
       "Dave",
       newParty1.identifier,
       newParty2.identifier,
