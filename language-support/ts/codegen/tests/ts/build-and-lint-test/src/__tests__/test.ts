@@ -31,12 +31,16 @@ const I2: Template<object, undefined, "bar"> & I2I<object> = null as never;
 
 // Note that we don't really want to "brand" T, because
 // this is the simple create argument format as well.
-type T = {};
+type T = {baz: Int};
 interface TI extends I1I<T>, I2I<T> {
   TChoice: Choice<T, TChoice, ContractId<T>, undefined>;
 }
 type TChoice = {};
 const T: Template<T, undefined, "baz"> & TI = null as never;
+
+type U = {quux: Int};
+
+function myCreate<T extends object, K>(tpl: Template<T, K, string>, t: T) {}
 
 function myExercise<T extends object, C, R, K>(
   choice: Choice<T, C, R, K>,
@@ -44,11 +48,16 @@ function myExercise<T extends object, C, R, K>(
   argument: C,
 ) {}
 
-function widenCid(cidT: ContractId<T>): ContractId<I1I<T>> {
+function widenCid(cidT: ContractId<T>, cidU: ContractId<U>, cidI1: ContractId<I1I<T>>): ContractId<I1I<T>> {
+  myCreate(T, {baz: "42"});
   myExercise(T.TChoice, cidT, {});
+  myExercise(T.TChoice, cidU, {}); // disallowed correctly
   myExercise(T.IChoice, cidT, {});
   // ^ works v doesn't work
-  myExercise(I1.IChoice, cidT, {});
+  myExercise(I1.IChoice, cidT, {}); // allowed, but not checked
+  myExercise(I1.IChoice, cidU, {}); // should be disallowed
+  myExercise(I1.IChoice, cidI1, {}); // allowed but not checked
+  myExercise(I2.IChoice2, cidI1, {}); // should be disallowed
   return t; // toInterface?
 }
 
