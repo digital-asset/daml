@@ -18,6 +18,9 @@ import WebSocket from "ws";
 
 import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
 
+// Choice TCRK: II+I
+// Template TKI: II+
+
 interface I1I<T extends object> {
   IChoice: Choice<T, IChoice, ContractId<I1I<T>>, undefined>;
 }
