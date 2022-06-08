@@ -662,7 +662,7 @@ da_haskell_test(
         "//compiler/damlc/stable-packages",
         "//compiler/repl-service/server:repl_service_jar",
         "//daml-script/daml:daml-script.dar",
-        "//ledger/sandbox-classic:sandbox-classic-binary",
+        "//ledger/sandbox-on-x:app",
     ],
     hackage_deps = [
         "async",
@@ -922,7 +922,7 @@ da_haskell_test(
     data = [
         ":pkg-manager-test.dar",
         "//compiler/damlc",
-        "//ledger/sandbox-classic:sandbox-classic-binary",
+        "//ledger/sandbox-on-x:app",
     ],
     hackage_deps = [
         "base",
