@@ -619,7 +619,7 @@ da_haskell_test(
         ":repl-test.dar",
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
-        "//ledger/sandbox-classic:sandbox-classic-binary",
+        "//ledger/sandbox-on-x:app",
         "//ledger/test-common/test-certificates",
     ],
     hackage_deps = [
