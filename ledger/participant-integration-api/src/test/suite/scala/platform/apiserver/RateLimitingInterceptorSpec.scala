@@ -203,7 +203,7 @@ final class RateLimitingInterceptorSpec
           _ <- helloService.single(HelloRequest(3))
         } yield {
           verify(memoryPoolBean).setCollectionUsageThreshold(
-            config.maxHeapSpacePercentage * maxMemory / 100
+            config.collectionUsageThreshold(maxMemory)
           )
           verify(memoryBean).gc()
           exception.getMessage should include(expectedMetric)

@@ -30,9 +30,7 @@ private[apiserver] final class RateLimitingInterceptor(
     )
 
   tenuredMemoryPool.foreach { p =>
-    p.setCollectionUsageThreshold(
-      (config.maxHeapSpacePercentage * p.getCollectionUsage.getMax) / 100
-    )
+    p.setCollectionUsageThreshold(config.collectionUsageThreshold(p.getCollectionUsage.getMax))
   }
 
   /** Match naming in [[com.codahale.metrics.InstrumentedExecutorService]] */

@@ -7,10 +7,14 @@ final case class RateLimitingConfig(
     maxApiServicesQueueSize: Int,
     maxApiServicesIndexDbQueueSize: Int,
     maxHeapSpacePercentage: Int,
-)
+) {
+  def collectionUsageThreshold(maxPoolBytes: Long): Long =
+    (maxHeapSpacePercentage * maxPoolBytes) / 100
+}
 
 case object RateLimitingConfig {
-  val default: RateLimitingConfig = RateLimitingConfig(
+
+  val Default: RateLimitingConfig = RateLimitingConfig(
     maxApiServicesQueueSize = 10000,
     maxApiServicesIndexDbQueueSize = 1000,
     maxHeapSpacePercentage = 85,
