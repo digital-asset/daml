@@ -684,7 +684,7 @@ case class ScenarioLedger(
                   createdAt = info.effectiveAt,
                   driverMetadata = ImmArray.Empty,
                   keyHash =
-                    create.key.map(k => crypto.Hash.assertHashContractKey(create.templateId, k.key)),
+                    GlobalKey(create.templateId, create.key).hash
                 ),
               )
 
