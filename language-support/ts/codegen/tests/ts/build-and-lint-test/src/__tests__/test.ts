@@ -22,7 +22,8 @@ import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
 // Template TKI: II+
 
 interface ToInterface<T, IfU, IfX> {
-  toInterface: <If>(cid: ContractId<T>) => ContractId<If | IfX>,
+  toInterface: <If>(cid: ContractId<T>) =>
+    ContractId<(If & IfU) extends never ? unknown : If>,
   unsafeFromInterface: (cid: ContractId<IfU>) => ContractId<T>
 }
 
