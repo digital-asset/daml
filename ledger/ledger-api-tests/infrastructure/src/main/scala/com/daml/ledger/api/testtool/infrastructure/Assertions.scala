@@ -58,6 +58,18 @@ object Assertions {
     }
   }
 
+  def assertNotEquals[T](context: String, actual: T, expected: T): Unit = {
+    try {
+      MUnit.assertNotEquals(actual, expected, context)
+    } catch {
+      case e: ComparisonFailException =>
+        throw AssertionErrorWithPreformattedMessage(
+          e.message,
+          s"$context: two objects are supposed to be different but they are equal",
+        )
+    }
+  }
+
   def assertSameElements[T](actual: Iterable[T], expected: Iterable[T]): Unit = {
     assert(
       actual.toSet == expected.toSet,
