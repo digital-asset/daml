@@ -116,14 +116,25 @@ private[index] class IndexServiceImpl(
 
   private def computeInterfaceView(
       templateId: Ref.Identifier,
-      value: Value,
+      record: com.daml.ledger.api.v1.value.Record,
       interfaceId: Ref.Identifier,
   )(implicit loggingContext: LoggingContext): com.daml.ledger.api.v1.event.InterfaceView = {
+    // TODO DPP-1068: The transaction stream contains protobuf-serialized transactions (Source[GetTransactionsResponse, NotUsed]),
+    //   we don't have access to the original Daml-LF value.
+    //   Here we deserialize the contract argument, use it in the engine, and then serialize it back. This needs to be improved.
+    val value = ValueValidator
+      .validateRecord(record)(
+        DamlContextualizedErrorLogger.forTesting(getClass)
+      )
+      .getOrElse(throw new RuntimeException("This should never fail"))
+
     @tailrec
     def go(res: Result[Versioned[Value]]): Either[String, Versioned[Value]] =
       res match {
         case ResultDone(x) => Right(x)
         case ResultError(err) => Left(err.message)
+        // Note: the compiler should enforce that the computation is a pure function,
+        // ResultNeedContract and ResultNeedKey should never appear in the result.
         case ResultNeedContract(_, _) => Left("View computation must be a pure function")
         case ResultNeedKey(_, _) => Left("View computation must be a pure function")
         case ResultNeedPackage(pkgId, resume) =>
@@ -143,6 +154,7 @@ private[index] class IndexServiceImpl(
       )
       .fold(
         error =>
+          // Note: the view computation is an arbitrary Daml function and can thus fail (e.g., with a Daml exception)
           com.daml.ledger.api.v1.event.InterfaceView(
             interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
             // TODO DPP-1068: Use a proper error status
@@ -174,19 +186,40 @@ private[index] class IndexServiceImpl(
     // Template ID to list of interface IDs that need to include their view
     val viewsByTemplate: mutable.Map[Ref.Identifier, Set[Ref.Identifier]] = mutable.Map.empty
 
+    // startExclusive, converted to an absolute offset
+    // TODO DPP-1068: Use convertOffset() and pass the memoized ledger end to transactionsWithoutInterfaces()
+    //   Otherwise that method ends up using a different ledger end.
+    val startExclusiveOffset = startExclusive match {
+      case LedgerOffset.LedgerBegin => Offset.beforeBegin
+      case LedgerOffset.LedgerEnd => ledgerEnd()
+      case LedgerOffset.Absolute(offset) => ApiOffset.fromString(offset).get
+    }
+
     val filtersByPartyWithoutInterfaces = filter.filtersByParty.view
       .mapValues(filters =>
         Filters(filters.inclusive.map(inclusiveFilters => {
           val interfaceTemplateIds = inclusiveFilters.interfaceFilters.flatMap(interfaceFilter => {
+            val interfaceId = interfaceFilter.interfaceId
+
+            // Check whether the interface is known
+            val interfaceOffset = SingletonPackageMetadataCache.interfaceAddedAt(interfaceId)
+            if (interfaceOffset.forall(_ <= startExclusiveOffset)) {
+              // TODO DPP-1068: Proper error handling
+              throw new RuntimeException(
+                s"Interface $interfaceId is not known at (exclusive) $startExclusiveOffset"
+              )
+            }
+
             // Find all templates that implement this interface
             val templateIds =
-              SingletonPackageMetadataCache.getInterfaceImplementations(interfaceFilter.interfaceId)
+              SingletonPackageMetadataCache.getInterfaceImplementations(interfaceId)
+
             // Remember for each of these templates whether we have to compute the view
             if (interfaceFilter.includeView) {
               templateIds.foreach(tid =>
                 viewsByTemplate.updateWith(tid) {
-                  case None => Some(Set(interfaceFilter.interfaceId))
-                  case Some(other) => Some(other + interfaceFilter.interfaceId)
+                  case None => Some(Set(interfaceId))
+                  case Some(other) => Some(other + interfaceId)
                 }
               )
             }
@@ -200,6 +233,10 @@ private[index] class IndexServiceImpl(
         }))
       )
       .toMap
+
+    // TODO DPP-1068: Here we could filter out all templates that did not exist for the given offset range.
+    //   The package metadata cache can provide this information.
+    //   This would also benefit historical transaction streams that subscribe to a set of templates.
     val filterWithoutInterfaces = TransactionFilter(
       filtersByPartyWithoutInterfaces
     )
@@ -217,16 +254,10 @@ private[index] class IndexServiceImpl(
                     if (viewsToInclude.isEmpty) {
                       outerEvent
                     } else {
-                      // TODO DPP-1068: The transaction stream contains protobuf-serialized transactions (Source[GetTransactionsResponse, NotUsed]),
-                      //   we don't have access to the original Daml-LF value.
-                      //   Here we deserialize the contract argument, use it in the engine, and then serialize it back. This needs to be improved.
-                      val value = ValueValidator
-                        .validateRecord(created.createArguments.get)(
-                          DamlContextualizedErrorLogger.forTesting(getClass)
-                        )
-                        .getOrElse(throw new RuntimeException("This should never fail"))
                       val interfaceViews = viewsToInclude
-                        .map(iid => computeInterfaceView(templateId, value, iid))
+                        .map(iid =>
+                          computeInterfaceView(templateId, created.createArguments.get, iid)
+                        )
                         .toSeq
                       com.daml.ledger.api.v1.event.Event.of(
                         com.daml.ledger.api.v1.event.Event.Event
