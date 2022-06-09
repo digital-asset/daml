@@ -10,7 +10,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
-import com.daml.lf.engine.ValueEnricher
+import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
@@ -52,6 +52,7 @@ private[platform] case class IndexServiceBuilder(
     enricher: ValueEnricher,
     participantId: Ref.ParticipantId,
     sharedStringInterningViewO: Option[StringInterningView],
+    engine: Engine,
 )(implicit
     mat: Materializer,
     loggingContext: LoggingContext,
@@ -112,6 +113,7 @@ private[platform] case class IndexServiceBuilder(
       pruneBuffers,
       generalDispatcher,
       metrics,
+      engine,
     )
   }
 

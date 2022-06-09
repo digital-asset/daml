@@ -46,6 +46,7 @@ object StandaloneIndexService {
         lfValueTranslationCache = lfValueTranslationCache,
         enricher = new ValueEnricher(engine),
         sharedStringInterningViewO = sharedStringInterningViewO,
+        engine = engine,
       )(materializer, loggingContext, servicesExecutionContext)
         .owner()
         .map(index => new TimedIndexService(index, metrics))

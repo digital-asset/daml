@@ -8,13 +8,16 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.DottedName
+import com.daml.lf.language.Ast.Package
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
 
 /** For each operation, the following holds:
+  *
   * - The result MUST include all packages uploaded at or before
   *   the current ledger end
+  *
   * - The result MAY include packages uploaded after the current
   *   ledger end
   */
@@ -31,6 +34,12 @@ trait PackageMetadataCache {
 
   /** Same as interfaceAddedAt, but for templates */
   def templateAddedAt(id: Ref.Identifier): Option[Offset]
+
+  // TODO DPP-1068: This synchronous call requires the cache to store all packages in a decoded form in memory.
+  //   - Verify whether we need to deduplicate the storage between this and the Engine.compiledPackages
+  //   - Verify whether this doesn't increase memory requirements too much
+  /** Returns the decoded package, if it exists */
+  def getPackage(id: Ref.PackageId): Option[Package]
 }
 
 // TODO DPP-1068: use a proper cache instead of a global variable
@@ -39,6 +48,7 @@ object SingletonPackageMetadataCache extends PackageMetadataCache {
   case class State(
       definedAt: Map[Ref.Identifier, Offset],
       implementations: Map[Ref.Identifier, Set[Ref.Identifier]],
+      decodedPackages: Map[Ref.PackageId, Package],
   ) {
     def mergeWith(other: State): State = {
       val resultImplementations = mutable.Map.empty[Ref.Identifier, Set[Ref.Identifier]]
@@ -50,17 +60,19 @@ object SingletonPackageMetadataCache extends PackageMetadataCache {
         }
       }
 
-      // Template/interface IDs can not be defined in two different packages, there will be no collisions
+      // Templates/interfaces/packages are immutable, there will be no collisions
       val resultDefinedAt = definedAt ++ other.definedAt
+      val resultDecodedPackages = decodedPackages ++ other.decodedPackages
 
       State(
         definedAt = resultDefinedAt,
         implementations = resultImplementations.toMap,
+        decodedPackages = resultDecodedPackages,
       )
     }
   }
   object State {
-    def empty: State = State(Map.empty, Map.empty)
+    def empty: State = State(Map.empty, Map.empty, Map.empty)
   }
   private val state = new AtomicReference[State](State.empty)
 
@@ -73,11 +85,15 @@ object SingletonPackageMetadataCache extends PackageMetadataCache {
   private def archivesToState(archives: List[DamlLf.Archive], offset: Offset): State = {
     val newDefinitions = mutable.Map.empty[Ref.Identifier, Offset]
     val newImplementations = mutable.Map.empty[Ref.Identifier, Set[Ref.Identifier]]
+    val newPackages = mutable.Map.empty[Ref.PackageId, Package]
 
     archives.foreach(archive => {
       val (packageId, ast) = Decode
         .decodeArchive(archive, true)
         .getOrElse(throw new RuntimeException("error handling not implemented"))
+
+      newPackages.addOne(packageId -> ast)
+
       ast.modules.foreach { case (moduleName, module) =>
         def identifier(name: DottedName) =
           Ref.Identifier(packageId, Ref.QualifiedName(moduleName, name))
@@ -98,14 +114,20 @@ object SingletonPackageMetadataCache extends PackageMetadataCache {
     State(
       definedAt = newDefinitions.toMap,
       implementations = newImplementations.toMap,
+      decodedPackages = newPackages.toMap,
     )
   }
 
-  def getInterfaceImplementations(id: Ref.Identifier): Set[Ref.Identifier] =
+  override def getPackage(id: Ref.PackageId): Option[Package] =
+    state.get.decodedPackages.get(id)
+
+  override def getInterfaceImplementations(id: Ref.Identifier): Set[Ref.Identifier] =
     state.get.implementations(id)
 
-  def interfaceAddedAt(id: Ref.Identifier): Option[Offset] = state.get.definedAt.get(id)
+  override def interfaceAddedAt(id: Ref.Identifier): Option[Offset] =
+    state.get.definedAt.get(id)
 
-  def templateAddedAt(id: Ref.Identifier): Option[Offset] = state.get.definedAt.get(id)
+  override def templateAddedAt(id: Ref.Identifier): Option[Offset] =
+    state.get.definedAt.get(id)
 
 }
