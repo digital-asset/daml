@@ -21,6 +21,10 @@ import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
 // Choice TCRK: II+I
 // Template TKI: II+
 
+interface ToInterface<T, IfMkTyps> {
+  toInterface: <If>(cid: ContractId<T>) => ContractId<Extract<IfMkTyps, If>>
+}
+
 const interfaceMarker: unique symbol = Symbol(); // in @daml/types
 type Interface<IfId> = { [interfaceMarker]: IfId }; // in @daml/types
 type I1 = Interface<"pkgid:mod:foo">; // codegenned marker type
@@ -31,12 +35,20 @@ interface I1I { // tparam removed
 type IChoice = {};
 const I1: Template<I1, undefined, "foo"> & I1I = null as never;
 
-type I2 = Interface<I2I>;
+type I2 = Interface<"pkgid:mod:bar">;
 interface I2I {
   IChoice2: Choice<I2, IChoice2, ContractId<I2>, undefined>;
 }
 type IChoice2 = {};
 const I2: Template<I2, undefined, "bar"> & I2I = null as never;
+
+type I3 = Interface<"pkgid:mod:quuux">;
+interface I3I {
+  IChoice3: Choice<I3, IChoice3, ContractId<I3>, undefined>;
+}
+type IChoice3 = {};
+const I3: Template<I3, undefined, "quuux"> & I3I = null as never;
+
 
 // Note that we don't really want to "brand" T, because
 // this is the simple create argument format as well.  So
@@ -48,7 +60,7 @@ const I2: Template<I2, undefined, "bar"> & I2I = null as never;
 // field names and types, then the types ContractId<T1> and ContractId<T2> are
 // also equal.  We don't try to fix that as part of this design change.
 type T = { baz: Int };
-interface TI extends I1I, I2I {
+interface TI extends ToInterface<T, I1 | I2> {
   TChoice: Choice<T, TChoice, ContractId<T>, undefined>;
 }
 type TChoice = {};
@@ -74,12 +86,15 @@ function widenCid(
   myExercise(T.TChoice, cidT, {});
   myExercise(T.TChoice, cidU, {}); // disallowed correctly
   myExercise(T.IChoice, cidT, {});
+  const cidTAsI1 = T.toInterface<I1>(cidT); // infers ContractId<I1>
+  myExercise(I1.IChoice, T.toInterface(cidT), {}); // allowed
+  myExercise(I1.IChoice, cidU, {}); // disallowed
+  myExercise(I1.IChoice, cidI1, {}); // allowed
+  myExercise(I2.IChoice2, cidI1, {}); // disallowed
   // ^ works v doesn't work
-  myExercise(I1.IChoice, cidT, {}); // allowed, but not checked
-  myExercise(I1.IChoice, cidU, {}); // should be disallowed
-  myExercise(I1.IChoice, cidI1, {}); // allowed but not checked
-  myExercise(I2.IChoice2, cidI1, {}); // should be disallowed
-  return t; // toInterface?
+  myExercise(I1.IChoice, T.toInterface(cidU), {}); // should be disallowed
+  myExercise(I3.IChoice3, T.toInterface(cidT), {});
+  return T.toInterface(cidT);
 }
 
 const LEDGER_ID = "build-and-lint-test";
