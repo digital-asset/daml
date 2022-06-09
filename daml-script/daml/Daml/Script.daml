@@ -12,9 +12,13 @@ module Daml.Script
   , submitTree
   , submitTreeMulti
   , query
+  , query'
   , queryContractId
+  , queryContractId'
   , queryContractKey
+  , queryContractKey'
   , queryFilter
+  , queryFilter'
   , PartyIdHint (..)
   , ParticipantName (..)
   , PartyDetails(..)
@@ -206,8 +210,11 @@ data QueryACS a = QueryACS
 
 -- | Query the set of active contracts of the template
 -- that are visible to the given party.
-query : forall t p. (Template t, IsParties p) => p -> Script [(ContractId t, ContractInstance t)]
-query p = lift $ Free $ Query QueryACS with
+query : forall t p. (Template t, IsParties p) => p -> Script [(ContractId t, t)]
+query p = (map (\(cid, c) -> (cid, c.contract))) <$> query' p
+
+query' : forall t p. (Template t, IsParties p) => p -> Script [(ContractId t, ContractInstance t)]
+query' p = lift $ Free $ Query QueryACS with
   parties = toParties p
   tplId = templateTypeRep @t
   continue = pure . map (\(cid, c) -> (coerceContractId cid, ContractInstance (fromSome $ fromAnyTemplate c.contract) c.metadata))
@@ -215,8 +222,11 @@ query p = lift $ Free $ Query QueryACS with
 
 -- | Query the set of active contracts of the template
 -- that are visible to the given party and match the given predicate.
-queryFilter : (Template c, IsParties p) => p -> (c -> Bool) -> Script [(ContractId c, ContractInstance c)]
-queryFilter p f = filter (\(_, c) -> f c.contract) <$> query p
+queryFilter : (Template c, IsParties p) => p -> (c -> Bool) -> Script [(ContractId c, c)]
+queryFilter p f = filter (\(_, c) -> f c) <$> query p
+
+queryFilter' : (Template c, IsParties p) => p -> (c -> Bool) -> Script [(ContractId c, ContractInstance c)]
+queryFilter' p f = filter (\(_, c) -> f c.contract) <$> query' p
 
 data QueryContractIdPayload a = QueryContractIdPayload
   { parties : [Party]
@@ -231,8 +241,11 @@ data QueryContractIdPayload a = QueryContractIdPayload
 -- Returns `None` if there is no active contract the party is a stakeholder on.
 -- This is semantically equivalent to calling `query`
 -- and filtering on the client side.
-queryContractId : forall t p. (Template t, IsParties p) => HasCallStack => p -> ContractId t -> Script (Optional (ContractInstance t))
-queryContractId p c = lift $ Free $ QueryContractId QueryContractIdPayload with
+queryContractId : forall t p. (Template t, IsParties p) => HasCallStack => p -> ContractId t -> Script (Optional t)
+queryContractId p cid = (fmap (\c -> c.contract)) <$> queryContractId' p cid
+
+queryContractId' : forall t p. (Template t, IsParties p) => HasCallStack => p -> ContractId t -> Script (Optional (ContractInstance t))
+queryContractId' p c = lift $ Free $ QueryContractId QueryContractIdPayload with
   parties = toParties p
   tplId = templateTypeRep @t
   cid = coerceContractId c
@@ -251,8 +264,11 @@ data QueryContractKeyPayload a = QueryContractKeyPayload
 -- the party is a stakeholder on.
 -- This is semantically equivalent to calling `query`
 -- and filtering on the client side.
-queryContractKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, ContractInstance t))
-queryContractKey p k = lift $ Free $ QueryContractKey QueryContractKeyPayload with
+queryContractKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, t))
+queryContractKey p k = (fmap (\(cid, c) -> (cid, c.contract))) <$> queryContractKey' p k
+
+queryContractKey' : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, ContractInstance t))
+queryContractKey' p k = lift $ Free $ QueryContractKey QueryContractKeyPayload with
   parties = toParties p
   tplId = templateTypeRep @t
   key = toAnyContractKey @t k

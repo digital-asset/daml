@@ -41,8 +41,6 @@ template ProposeSwap
         exercise cid2 $ Transfer with p = p1
 
 
-
-
 test : Script ()
 test = script do
   bank <- allocateParty "Bank"
@@ -62,9 +60,9 @@ test = script do
       cid1 = cidAsset1
       cid2 = cidAsset2
   
-  Some (asset1, meta1) <- queryContractId alice cidAsset1
+  Some c <- queryContractId' alice cidAsset1
   
   submitMustFail bob $ exerciseCmd swap Go
-  submitDisclosing [toDisclosedContract cidAsset1 asset1 meta1] bob $ exerciseCmd swap Go
+  submitDisclosing [toDisclosedContract cidAsset1 c.contract c.metadata] bob $ exerciseCmd swap Go
 
   pure()
