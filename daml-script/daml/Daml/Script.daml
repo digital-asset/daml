@@ -238,7 +238,7 @@ data QueryContractKeyPayload a = QueryContractKeyPayload
   { parties : [Party]
   , tplId : TemplateTypeRep
   , key : AnyContractKey
-  , continue : Optional (ContractId (), AnyTemplate, ContractMetadata) -> a
+  , continue : Optional (ContractId (), (AnyTemplate, ContractMetadata)) -> a
   , locations : [(Text, SrcLoc)]
   } deriving Functor
 
@@ -251,7 +251,7 @@ queryContractKey p k = lift $ Free $ QueryContractKey QueryContractKeyPayload wi
   parties = toParties p
   tplId = templateTypeRep @t
   key = toAnyContractKey @t k
-  continue = pure . fmap (\(cid, anyTpl, meta) -> (coerceContractId cid, (fromSome (fromAnyTemplate anyTpl), meta)))
+  continue = pure . fmap (\(cid, (anyTpl, meta)) -> (coerceContractId cid, (fromSome (fromAnyTemplate anyTpl), meta)))
   locations = getCallStack callStack
 
 data SetTimePayload a = SetTimePayload
