@@ -1,0 +1,70 @@
+module TestDisclosures where
+
+import Daml.Script
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory issuer
+    observer owner
+
+    nonconsuming choice Transfer : ()
+      with
+        p : Party
+      controller owner
+      do 
+        archive self 
+        create Asset with
+          issuer = issuer
+          owner = p
+          amount = amount
+        pure ()
+
+template ProposeSwap
+  with
+    p1 : Party
+    p2 : Party
+    cid1 : ContractId Asset
+    cid2 : ContractId Asset
+  where
+    signatory p1
+    observer p2
+
+    choice Go : ()
+      with
+      controller p2 
+      do  
+        exercise cid1 $ Transfer with p = p2
+        exercise cid2 $ Transfer with p = p1
+
+
+
+
+test : Script ()
+test = script do
+  bank <- allocateParty "Bank"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  cidAsset1 <- submit bank $ createCmd Asset with
+      issuer = bank 
+      owner = alice 
+      amount = 15
+  cidAsset2 <- submit bank $ createCmd Asset with
+      issuer = bank 
+      owner = bob
+      amount = 15
+  swap <- submit alice $ createCmd ProposeSwap with
+      p1 = alice
+      p2 = bob
+      cid1 = cidAsset1
+      cid2 = cidAsset2
+  
+  Some (asset1, meta1) <- queryContractId alice cidAsset1
+  
+  submitMustFail bob $ exerciseCmd swap Go
+  submitDisclosing [toDisclosedContract cidAsset1 asset1 meta1] bob $ exerciseCmd swap Go
+
+  pure()
