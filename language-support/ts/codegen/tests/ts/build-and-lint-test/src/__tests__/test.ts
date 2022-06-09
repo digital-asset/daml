@@ -21,10 +21,11 @@ import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
 // Choice TCRK: II+I
 // Template TKI: II+
 
-const interfaceMarker: unique symbol = Symbol();
-type Interface<I> = I & { [interfaceMarker]: I };
-type I1 = Interface<I1I>;
-interface I1I {
+const interfaceMarker: unique symbol = Symbol(); // in @daml/types
+type Interface<IfId> = { [interfaceMarker]: IfId }; // in @daml/types
+type I1 = Interface<"pkgid:mod:foo">; // codegenned marker type
+interface I1I { // tparam removed
+  // ^ marker type always used, including for contract IDs (mbSubst unneeded)
   IChoice: Choice<I1, IChoice, ContractId<I1>, undefined>;
 }
 type IChoice = {};
@@ -38,7 +39,14 @@ type IChoice2 = {};
 const I2: Template<I2, undefined, "bar"> & I2I = null as never;
 
 // Note that we don't really want to "brand" T, because
-// this is the simple create argument format as well.
+// this is the simple create argument format as well.  So
+// we can't use template types to stash extra information about
+// implemented interfaces.
+//
+// This has much broader type-safety implications: for example, if
+// the associated record types for templates T1 and T2 have the same
+// field names and types, then the types ContractId<T1> and ContractId<T2> are
+// also equal.  We don't try to fix that as part of this design change.
 type T = { baz: Int };
 interface TI extends I1I, I2I {
   TChoice: Choice<T, TChoice, ContractId<T>, undefined>;
