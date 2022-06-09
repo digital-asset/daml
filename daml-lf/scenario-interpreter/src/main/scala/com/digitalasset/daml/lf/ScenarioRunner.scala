@@ -435,7 +435,10 @@ object ScenarioRunner {
                 case Left(err) => SubmissionError(err, enrich(onLedger.incompleteTransaction))
                 case Right(_) => go()
               }
-            case Some(_) => go()
+            case Some(coinst) => {
+              callback(coinst)
+              go()
+            }
           }
         case SResultNeedKey(keyWithMaintainers, committers, callback) =>
           discTable.contractIdByKey.get(keyWithMaintainers.globalKey.hash) match {
@@ -451,7 +454,11 @@ object ScenarioRunner {
                 case Right(_) => go()
               }
             // TODO (drsk) validate key hash. https://github.com/digital-asset/daml/issues/13897
-            case Some(_) => go()
+            case Some(coid) => {
+              discard(callback(Some(coid)))
+              go()
+            }
+
           }
         case SResultNeedTime(callback) =>
           callback(ledger.currentTime)
