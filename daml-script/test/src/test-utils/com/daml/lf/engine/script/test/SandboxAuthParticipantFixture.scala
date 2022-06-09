@@ -54,9 +54,9 @@ trait SandboxAuthParticipantFixture
   override def config = super.config.copy(
     participants = singleParticipant(
       ApiServerConfig.copy(
-        timeProviderType = TimeProviderType.WallClock,
-        authentication = UnsafeJwtHmac256(secret),
-      )
+        timeProviderType = TimeProviderType.WallClock
+      ),
+      authentication = UnsafeJwtHmac256(secret),
     )
   )
   override def timeMode = ScriptTimeMode.WallClock
