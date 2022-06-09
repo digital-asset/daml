@@ -33,5 +33,6 @@ da_haskell_library(
     deps = [
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//daml-assistant/daml-helper:daml-helper-lib",
     ],
 )

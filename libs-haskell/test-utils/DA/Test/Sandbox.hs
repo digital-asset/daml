@@ -16,6 +16,8 @@ module DA.Test.Sandbox
 
 import Control.Exception
 import DA.Bazel.Runfiles
+import DA.Daml.Helper.Ledger
+import Data.Foldable
 import DA.PortFile
 import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
@@ -95,12 +97,15 @@ createSandbox portFile sandboxOutput conf = do
         unmask (waitForStart `onException` cleanupProcess ph)
 
 withSandbox :: SandboxConfig -> (IO Int -> TestTree) -> TestTree
-withSandbox conf f =
+withSandbox conf@SandboxConfig{..} f =
     withResource newTempDir snd $ \getTmpDir ->
         let createSandbox' = do
                 (tempDir, _) <- getTmpDir
                 let portFile = tempDir </> "sandbox-portfile"
-                createSandbox portFile stdout conf
+                sandbox@(SandboxResource _proc port) <- createSandbox portFile stdout conf
+                forM_ dars $ \darPath -> do
+                    runLedgerUploadDar (sandboxLedgerFlags port) (Just darPath)
+                pure sandbox
         in withResource createSandbox' destroySandbox (f . fmap sandboxPort)
 
 
