@@ -22,8 +22,14 @@ import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
 // Template TKI: II+
 
 interface ToInterface<T, IfU, IfX> {
-  toInterface: <If>(cid: ContractId<T>) =>
-    ContractId<(If & IfU) extends never ? unknown : If>,
+  // without the conditional, you could simply specify <never> and
+  // use contract ID covariance to get any interface you want.  This
+  // isn't perfect but should prevent most mistakes, and miraculously
+  // still allows inferring from context (see exercise examples below).
+  // It helps that TS infers a surprising number of type expressions
+  // to be equal to never
+  toInterface: <If extends IfU>(cid: ContractId<T>) =>
+    ContractId<If extends never ? unknown : If>,
   unsafeFromInterface: (cid: ContractId<IfU>) => ContractId<T>
 }
 
@@ -91,15 +97,18 @@ function widenCid(
   myExercise(T.TChoice, cidU, {}); // disallowed correctly
   myExercise(T.IChoice, cidT, {}); // broken by redesign
   const cidTAsI1 = T.toInterface<I1>(cidT); // infers ContractId<I1>
-  const cidTAsI = T.toInterface(cidT); // infers ContractId<unknown>. Not ideal
+  const cidTAsI = T.toInterface(cidT); // infers ContractId<I1 | I2>. Not ideal
+  // surprisingly, this infers the If tparam to toInterface correctly
   myExercise(I1.IChoice, T.toInterface(cidT), {}); // allowed
   myExercise(I1.IChoice, cidU, {}); // disallowed
   myExercise(I1.IChoice, cidI1, {}); // allowed
   myExercise(I2.IChoice2, cidI1, {}); // disallowed
   const cidI1AsT = T.unsafeFromInterface(cidI1); // infers ContractId<T>
+  // "argument of type ContractId<I3> is not assignable to parameter
+  // of type ContractId<I1 | I2>"
   const cidI3AsT = T.unsafeFromInterface(cidI3); // disallowed
   myExercise(I1.IChoice, cidU, {}); // disallowed
-  // error is "argument of type ContractId<unknown> is not assignable
+  // error is "argument of type ContractId<I1 | I2> is not assignable
   // to parameter of type ContractId<I3>"
   myExercise(I3.IChoice3, T.toInterface(cidT), {}); // should be disallowed
   return T.toInterface(cidT);
