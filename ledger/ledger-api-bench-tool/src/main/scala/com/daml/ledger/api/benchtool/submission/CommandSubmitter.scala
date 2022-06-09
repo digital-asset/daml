@@ -148,6 +148,7 @@ case class CommandSubmitter(
       ec: ExecutionContext
   ): Future[Primitive.Party] = {
     if (known.contains(party)) {
+      logger.info(s"Found known party: $party")
       Future.successful(Primitive.Party(party))
     } else
       adminServices.partyManagementService.allocateParty(party)
