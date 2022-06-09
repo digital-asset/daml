@@ -962,6 +962,9 @@ object JsonLedgerClient {
       }
     }
 
+    // TODO (drsk) check that this JsonReader is correct and matches with the implementation of the
+    // JSON API once it becomes available.
+    // https://github.com/digital-asset/daml/issues/14142
     implicit val metadataReader: JsonReader[command.ContractMetadata] = json => {
       val o = json.asJsObject
       (o.fields.get("createdAt"), o.fields.get("keyHash"), o.fields.get("driverMetadata")) match {
