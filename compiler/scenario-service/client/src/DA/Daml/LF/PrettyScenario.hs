@@ -710,6 +710,13 @@ prettyNodeNode nn = do
           <-> maybe mempty
                   (\tid -> parens (prettyDefName world tid))
                   node_FetchTemplateId
+         $$ foldMap
+            (\key ->
+                let prettyKey = prettyMay "<KEY?>" (prettyValue' False 0 world) $ keyWithMaintainersKey key
+                in
+                hsep [ keyword_ "using key", prettyKey ]
+            )
+            node_FetchFetchByKey
 
     NodeNodeExercise Node_Exercise{..} -> do
       ppChildren <- prettyChildren node_ExerciseChildren
