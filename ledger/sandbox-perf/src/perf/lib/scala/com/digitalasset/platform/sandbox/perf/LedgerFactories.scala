@@ -12,6 +12,7 @@ import com.daml.lf.archive.UniversalArchiveReader
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
+import com.daml.platform.sandbox.UploadPackageHelper
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.testing.postgresql.PostgresResource
 
@@ -45,6 +46,7 @@ object LedgerFactories {
   def createSandboxResource(
       store: String,
       darFiles: List[File],
+      akkaState: AkkaState,
   )(implicit resourceContext: ResourceContext): Resource[LedgerContext] = new OwnedResource(
     for {
       executor <- ResourceOwner.forExecutorService(() => Executors.newSingleThreadExecutor())
@@ -54,12 +56,20 @@ object LedgerFactories {
         case `sql` =>
           PostgresResource.owner[ResourceContext]().map(database => Some(database.url))
       }
+      config = sandboxConfig(jdbcUrl)
       port <- SandboxOnXRunner.owner(
         ConfigAdaptor(None),
-        sandboxConfig(jdbcUrl),
+        config,
         bridgeConfig,
       )
       channel <- GrpcClientResource.owner(port)
+      client = UploadPackageHelper.adminLedgerClient(port, config, None)(
+        akkaState.sys.dispatcher,
+        akkaState.esf,
+      )
+      _ <- ResourceOwner.forFuture(() =>
+        UploadPackageHelper.uploadDarFiles(client, darFiles)(akkaState.sys.dispatcher)
+      )
     } yield new LedgerContext(channel, darFiles.map(getPackageIdOrThrow))(
       ExecutionContext.fromExecutorService(executor)
     )
