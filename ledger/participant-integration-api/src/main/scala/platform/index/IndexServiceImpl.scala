@@ -175,7 +175,8 @@ private[index] class IndexServiceImpl(
   //   1: Convert interface filters to template filters
   //   2: Start regular flat transaction stream using the transactionsService
   //   3: Add interface view values to the result
-  // TODO DPP-1068: Check if this is the right place to implement this logic
+  // TODO DPP-1068: Move this to below the dispatcher call. The translation from interfaces to templates MUST be
+  //   done separately for each offset page, otherwise we won't properly include newly introduced interface implementations.
   override def transactions(
       startExclusive: domain.LedgerOffset,
       endInclusive: Option[domain.LedgerOffset],
@@ -186,15 +187,6 @@ private[index] class IndexServiceImpl(
     // Template ID to list of interface IDs that need to include their view
     val viewsByTemplate: mutable.Map[Ref.Identifier, Set[Ref.Identifier]] = mutable.Map.empty
 
-    // startExclusive, converted to an absolute offset
-    // TODO DPP-1068: Use convertOffset() and pass the memoized ledger end to transactionsWithoutInterfaces()
-    //   Otherwise that method ends up using a different ledger end.
-    val startExclusiveOffset = startExclusive match {
-      case LedgerOffset.LedgerBegin => Offset.beforeBegin
-      case LedgerOffset.LedgerEnd => ledgerEnd()
-      case LedgerOffset.Absolute(offset) => ApiOffset.fromString(offset).get
-    }
-
     val filtersByPartyWithoutInterfaces = filter.filtersByParty.view
       .mapValues(filters =>
         Filters(filters.inclusive.map(inclusiveFilters => {
@@ -203,10 +195,11 @@ private[index] class IndexServiceImpl(
 
             // Check whether the interface is known
             val interfaceOffset = SingletonPackageMetadataCache.interfaceAddedAt(interfaceId)
-            if (interfaceOffset.forall(_ <= startExclusiveOffset)) {
+            if (interfaceOffset.isEmpty) {
               // TODO DPP-1068: Proper error handling
+              SingletonPackageMetadataCache.dumpDebugInfo()
               throw new RuntimeException(
-                s"Interface $interfaceId is not known at (exclusive) $startExclusiveOffset"
+                s"Interface $interfaceId is not known"
               )
             }
 
