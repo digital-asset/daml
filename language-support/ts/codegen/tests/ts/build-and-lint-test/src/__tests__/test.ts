@@ -21,7 +21,7 @@ import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
 // Choice TCRK: II+I
 // Template TKI: II+
 
-interface ToInterface<T, IfU, IfX> {
+interface ToInterface<T, IfU> {
   // without the conditional, you could simply specify <never> and
   // use contract ID covariance to get any interface you want.  This
   // isn't perfect but should prevent most mistakes, and miraculously
@@ -68,7 +68,7 @@ const I3: Template<I3, undefined, "quuux"> & I3I = null as never;
 // field names and types, then the types ContractId<T1> and ContractId<T2> are
 // also equal.  We don't try to fix that as part of this design change.
 type T = { baz: Int };
-interface TI extends ToInterface<T, I1 | I2, I1 & I2> {
+interface TI extends ToInterface<T, I1 | I2> {
   TChoice: Choice<T, TChoice, ContractId<T>, undefined>;
 }
 type TChoice = {};
