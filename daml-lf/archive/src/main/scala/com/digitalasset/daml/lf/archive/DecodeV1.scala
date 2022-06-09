@@ -658,7 +658,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     ): DefException =
       DefException(decodeExpr(lfException.getMessage, s"$exceptionName:message"))
 
-    private[this] def decodeDefInterface(
+    private[lf] def decodeDefInterface(
         id: DottedName,
         lfInterface: PLF.DefInterface,
     ): DefInterface =

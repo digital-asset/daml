@@ -25,6 +25,7 @@ import com.daml.lf.language.Ast.{
   EUnsafeFromRequiredInterface,
   FeatureFlags,
   GenDefInterface,
+  InterfaceMethod,
   GenModule,
   GenTemplate,
   GenTemplateImplements,
@@ -52,9 +53,19 @@ class DecodeV1Spec
     .newBuilder()
     .setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.UNIT))
     .build()
+  val boolTyp: DamlLf1.Type = DamlLf1.Type
+    .newBuilder()
+    .setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.BOOL))
+    .build()
+  val textTyp: DamlLf1.Type = DamlLf1.Type
+    .newBuilder()
+    .setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.TEXT))
+    .build()
 
-  val typeTable = ImmArraySeq(TUnit)
+  val typeTable = ImmArraySeq(TUnit, TBool, TText)
   val unitTypInterned = DamlLf1.Type.newBuilder().setInterned(0).build()
+  val boolTypInterned = DamlLf1.Type.newBuilder().setInterned(1).build()
+  val textTypInterned = DamlLf1.Type.newBuilder().setInterned(2).build()
 
   val unitExpr: DamlLf1.Expr = DamlLf1.Expr
     .newBuilder()
@@ -1070,6 +1081,137 @@ class DecodeV1Spec
           inside(result) { case Failure(error) =>
             error shouldBe an[Error.Parsing]
           }
+      }
+    }
+
+    s"Decode interface definitions correctly iff version >= ${LV.Features.interfaces}" in {
+
+      val unit = DamlLf1.Unit.newBuilder()
+      val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit)
+      val modRef =
+        DamlLf1.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0)
+
+      val emptyDefInterface = DamlLf1.DefInterface
+        .newBuilder()
+        .setTyconInternedDname(1)
+        .setParamInternedStr(0)
+        .setPrecond(unitExpr)
+        .build()
+
+      val emptyDefInterfaceScala =
+        GenDefInterface(
+          Set.empty,
+          Ref.IdString.Name.assertFromString("this"),
+          Map(),
+          Map(),
+          EPrimCon(PCUnit),
+          Map(),
+        )
+
+      val requiresDefInterface = {
+        val typeConNameJ =
+          DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(3)
+        val typeConNameK =
+          DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(4)
+
+        DamlLf1.DefInterface
+          .newBuilder()
+          .setTyconInternedDname(1)
+          .setParamInternedStr(0)
+          .setPrecond(unitExpr)
+          .addRequires(typeConNameJ)
+          .addRequires(typeConNameK)
+          .build()
+      }
+
+      val requiresDefInterfaceScala =
+        GenDefInterface(
+          Set(
+            Ref.TypeConName.assertFromString("noPkgId:Mod:J"),
+            Ref.TypeConName.assertFromString("noPkgId:Mod:K"),
+          ),
+          Ref.IdString.Name.assertFromString("this"),
+          Map(),
+          Map(),
+          EPrimCon(PCUnit),
+          Map(),
+        )
+
+      val methodsDefInterface = {
+        val interfaceMethod1 =
+          DamlLf1.InterfaceMethod.newBuilder().setMethodInternedName(1).setType(textTypInterned)
+        val interfaceMethod2 =
+          DamlLf1.InterfaceMethod.newBuilder().setMethodInternedName(2).setType(boolTypInterned)
+
+        DamlLf1.DefInterface
+          .newBuilder()
+          .setTyconInternedDname(1)
+          .setParamInternedStr(0)
+          .setPrecond(unitExpr)
+          .addMethods(interfaceMethod1)
+          .addMethods(interfaceMethod2)
+          .build()
+      }
+
+      val methodsDefInterfaceScala = {
+        val methodName1 = Ref.MethodName.assertFromString("method1")
+        val methodName2 = Ref.MethodName.assertFromString("method2")
+
+        GenDefInterface(
+          Set.empty,
+          Ref.IdString.Name.assertFromString("this"),
+          Map(),
+          Map(
+            methodName1 -> InterfaceMethod(methodName1, TText),
+            methodName2 -> InterfaceMethod(methodName2, TBool),
+          ),
+          EPrimCon(PCUnit),
+          Map(),
+        )
+      }
+
+      val coImplementsDefInterface = DamlLf1.DefInterface
+        .newBuilder()
+        .setTyconInternedDname(1)
+        .setParamInternedStr(0)
+        .setPrecond(unitExpr)
+        .build()
+
+      val coImplementsDefInterfaceScala =
+        GenDefInterface(
+          Set.empty,
+          Ref.IdString.Name.assertFromString("this"),
+          Map(),
+          Map(),
+          EPrimCon(PCUnit),
+          Map(),
+        )
+
+      val interfaceDefTestCases = {
+        Table(
+          "input" -> "expected output",
+          emptyDefInterface -> emptyDefInterfaceScala,
+          requiresDefInterface -> requiresDefInterfaceScala,
+          methodsDefInterface -> methodsDefInterfaceScala,
+          coImplementsDefInterface -> coImplementsDefInterfaceScala,
+        )
+      }
+
+      val interfaceName = Ref.DottedName.assertFromString("I")
+
+      val interfaceDefStringTable = ImmArraySeq("this", "method1", "method2")
+
+      val interfaceDefDottedNameTable =
+        ImmArraySeq("Mod", "T", "I", "J", "K").map(Ref.DottedName.assertFromString)
+
+      val interfaceDefDecoder =
+        (version: LV) =>
+          moduleDecoder(version, interfaceDefStringTable, interfaceDefDottedNameTable, typeTable)
+
+      forEveryVersionSuchThat(_ >= LV.Features.interfaces) { version =>
+        forEvery(interfaceDefTestCases) { (proto, scala) =>
+          interfaceDefDecoder(version).decodeDefInterface(interfaceName, proto) shouldBe scala
+        }
       }
     }
 
