@@ -91,6 +91,7 @@ function widenCid(
   myExercise(T.TChoice, cidU, {}); // disallowed correctly
   myExercise(T.IChoice, cidT, {}); // broken by redesign
   const cidTAsI1 = T.toInterface<I1>(cidT); // infers ContractId<I1>
+  const cidTAsI = T.toInterface(cidT); // infers ContractId<unknown>. Not ideal
   myExercise(I1.IChoice, T.toInterface(cidT), {}); // allowed
   myExercise(I1.IChoice, cidU, {}); // disallowed
   myExercise(I1.IChoice, cidI1, {}); // allowed
@@ -98,9 +99,11 @@ function widenCid(
   const cidI1AsT = T.unsafeFromInterface(cidI1); // infers ContractId<T>
   const cidI3AsT = T.unsafeFromInterface(cidI3); // disallowed
   myExercise(I1.IChoice, cidU, {}); // disallowed
-  // ^ works v doesn't work
+  // error is "argument of type ContractId<unknown> is not assignable
+  // to parameter of type ContractId<I3>"
   myExercise(I3.IChoice3, T.toInterface(cidT), {}); // should be disallowed
   return T.toInterface(cidT);
+  // ^ works v doesn't work
 }
 
 const LEDGER_ID = "build-and-lint-test";
