@@ -62,6 +62,7 @@ function widenCid(
   cidI1: ContractId<I1>,
 ): ContractId<I1> {
   myCreate(T, { baz: "42" });
+  myCreate(I1, I1); // disallowed correctly
   myExercise(T.TChoice, cidT, {});
   myExercise(T.TChoice, cidU, {}); // disallowed correctly
   myExercise(T.IChoice, cidT, {});
