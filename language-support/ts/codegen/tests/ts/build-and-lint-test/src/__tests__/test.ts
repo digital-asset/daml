@@ -21,13 +21,13 @@ import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
 // Choice TCRK: II+I
 // Template TKI: II+
 
-interface ToInterface<T, IfMkTyps> {
-  toInterface: <If>(cid: ContractId<T>) => ContractId<Extract<IfMkTyps, If>>,
-  unsafeFromInterface: (cid: ContractId<IfMkTyps>) => ContractId<T>
+interface ToInterface<T, IfU, IfX> {
+  toInterface: <If>(cid: ContractId<T>) => ContractId<If | IfX>,
+  unsafeFromInterface: (cid: ContractId<IfU>) => ContractId<T>
 }
 
 const interfaceMarker: unique symbol = Symbol(); // in @daml/types
-type Interface<IfId> = { [interfaceMarker]: IfId }; // in @daml/types
+type Interface<IfId> = { readonly [interfaceMarker]: IfId }; // in @daml/types
 type I1 = Interface<"pkgid:mod:foo">; // codegenned marker type
 interface I1I { // tparam removed
   // ^ marker type always used, including for contract IDs (mbSubst unneeded)
@@ -61,7 +61,7 @@ const I3: Template<I3, undefined, "quuux"> & I3I = null as never;
 // field names and types, then the types ContractId<T1> and ContractId<T2> are
 // also equal.  We don't try to fix that as part of this design change.
 type T = { baz: Int };
-interface TI extends ToInterface<T, I1 | I2> {
+interface TI extends ToInterface<T, I1 | I2, I1 & I2> {
   TChoice: Choice<T, TChoice, ContractId<T>, undefined>;
 }
 type TChoice = {};
