@@ -34,8 +34,8 @@ load("//:canton_dep.bzl", "canton")
 rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
 rules_scala_sha256 = "6899cddf7407d09266dddcf6faf9f2a8b414de5e2b35ef8b294418f559172f28"
 
-rules_haskell_version = "5400e3833067c69f65e8b9a3f48d10656b0c4989"
-rules_haskell_sha256 = "92ef05caf7a3c6ea796f15f8f050a2e1a428c56d09674dad348880d2614e99ae"
+rules_haskell_version = "d3caf0cc94a8dc6af682da42d3b89ef7e85cb987"
+rules_haskell_sha256 = "16f6ba4997fa4847d7dc26db2c08f71087b591e53ac8c334b1e7f62f6cf3a5da"
 rules_haskell_patches = [
     # This is a daml specific patch and not upstreamable.
     "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
