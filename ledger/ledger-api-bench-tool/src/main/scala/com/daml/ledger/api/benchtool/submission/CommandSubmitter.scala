@@ -63,10 +63,11 @@ case class CommandSubmitter(
     logger.info("Generating contracts...")
     logger.info(s"Identifier suffix: ${names.identifierSuffix}")
     (for {
-      signatory <- allocateSignatoryParty()
-      observers <- allocateParties(observerPartyNames)
-      divulgees <- allocateParties(divulgeePartyNames)
-      extraSubmitters <- allocateParties(extraSubmittersPartyNames)
+      known <- lookupExistingParties()
+      signatory <- allocateSignatoryParty(known)
+      observers <- allocateParties(observerPartyNames, known)
+      divulgees <- allocateParties(divulgeePartyNames, known)
+      extraSubmitters <- allocateParties(extraSubmittersPartyNames, known)
       _ <- uploadTestDars()
     } yield {
       logger.info("Prepared command submission.")
@@ -128,15 +129,28 @@ case class CommandSubmitter(
       }
   }
 
-  private def allocateSignatoryParty()(implicit ec: ExecutionContext): Future[Primitive.Party] =
-    adminServices.partyManagementService.allocateParty(names.signatoryPartyName)
+  private def allocateSignatoryParty(known: Set[String])(implicit
+      ec: ExecutionContext
+  ): Future[Primitive.Party] =
+    lookupOrAllocateParty(names.signatoryPartyName, known)
 
-  private def allocateParties(divulgeePartyNames: Seq[String])(implicit
+  private def allocateParties(partyNames: Seq[String], known: Set[String])(implicit
       ec: ExecutionContext
   ): Future[List[Primitive.Party]] = {
-    Future.sequence(
-      divulgeePartyNames.toList.map(adminServices.partyManagementService.allocateParty)
-    )
+    Future.traverse(partyNames.toList)(lookupOrAllocateParty(_, known))
+  }
+
+  private def lookupExistingParties()(implicit ec: ExecutionContext): Future[Set[String]] = {
+    adminServices.partyManagementService.listKnownParties()
+  }
+
+  private def lookupOrAllocateParty(party: String, known: Set[String])(implicit
+      ec: ExecutionContext
+  ): Future[Primitive.Party] = {
+    if (known.contains(party)) {
+      Future.successful(Primitive.Party(party))
+    } else
+      adminServices.partyManagementService.allocateParty(party)
   }
 
   private def uploadDar(dar: TestDars.DarFile, submissionId: String)(implicit
