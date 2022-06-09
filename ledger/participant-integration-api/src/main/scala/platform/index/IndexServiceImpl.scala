@@ -197,7 +197,6 @@ private[index] class IndexServiceImpl(
             val interfaceOffset = SingletonPackageMetadataCache.interfaceAddedAt(interfaceId)
             if (interfaceOffset.isEmpty) {
               // TODO DPP-1068: Proper error handling
-              SingletonPackageMetadataCache.dumpDebugInfo()
               throw new RuntimeException(
                 s"Interface $interfaceId is not known"
               )
