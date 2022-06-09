@@ -21,27 +21,32 @@ import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
 // Choice TCRK: II+I
 // Template TKI: II+
 
-interface I1I<T extends object> {
-  IChoice: Choice<T, IChoice, ContractId<I1I<T>>, undefined>;
+const interfaceMarker: unique symbol = Symbol();
+type Interface<I> = I & { [interfaceMarker]: I };
+type I1 = Interface<I1I>;
+interface I1I {
+  IChoice: Choice<I1, IChoice, ContractId<I1>, undefined>;
 }
 type IChoice = {};
-const I1: Template<object, undefined, "foo"> & I1I<object> = null as never;
-interface I2I<T extends object> {
-  IChoice2: Choice<T, IChoice2, ContractId<I2I<T>>, undefined>;
+const I1: Template<I1, undefined, "foo"> & I1I = null as never;
+
+type I2 = Interface<I2I>;
+interface I2I {
+  IChoice2: Choice<I2, IChoice2, ContractId<I2>, undefined>;
 }
 type IChoice2 = {};
-const I2: Template<object, undefined, "bar"> & I2I<object> = null as never;
+const I2: Template<I2, undefined, "bar"> & I2I = null as never;
 
 // Note that we don't really want to "brand" T, because
 // this is the simple create argument format as well.
-type T = {baz: Int};
-interface TI extends I1I<T>, I2I<T> {
+type T = { baz: Int };
+interface TI extends I1I, I2I {
   TChoice: Choice<T, TChoice, ContractId<T>, undefined>;
 }
 type TChoice = {};
 const T: Template<T, undefined, "baz"> & TI = null as never;
 
-type U = {quux: Int};
+type U = { quux: Int };
 
 function myCreate<T extends object, K>(tpl: Template<T, K, string>, t: T) {}
 
@@ -51,8 +56,12 @@ function myExercise<T extends object, C, R, K>(
   argument: C,
 ) {}
 
-function widenCid(cidT: ContractId<T>, cidU: ContractId<U>, cidI1: ContractId<I1I<T>>): ContractId<I1I<T>> {
-  myCreate(T, {baz: "42"});
+function widenCid(
+  cidT: ContractId<T>,
+  cidU: ContractId<U>,
+  cidI1: ContractId<I1>,
+): ContractId<I1> {
+  myCreate(T, { baz: "42" });
   myExercise(T.TChoice, cidT, {});
   myExercise(T.TChoice, cidU, {}); // disallowed correctly
   myExercise(T.IChoice, cidT, {});
