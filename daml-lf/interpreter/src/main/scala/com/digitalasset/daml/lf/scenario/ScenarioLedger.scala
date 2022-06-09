@@ -8,7 +8,6 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Time, ImmArray}
 import com.daml.lf.ledger._
 import com.daml.lf.command
-import com.daml.lf.crypto
 import com.daml.lf.transaction.{
   BlindingInfo,
   CommittedTransaction,
@@ -684,7 +683,7 @@ case class ScenarioLedger(
                   createdAt = info.effectiveAt,
                   driverMetadata = ImmArray.Empty,
                   keyHash =
-                    GlobalKey(create.templateId, create.key).hash
+                    create.key.map(k => GlobalKey(create.templateId, k.key).hash)
                 ),
               )
 

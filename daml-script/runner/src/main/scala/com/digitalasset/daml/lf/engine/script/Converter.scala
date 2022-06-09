@@ -745,11 +745,11 @@ object Converter {
       translator: preprocessing.ValueTranslator,
       contract: ScriptLedgerClient.ActiveContract,
   ): Either[String, SValue] = {
-    val pairTyCon = daTypes("Tuple2")
+    val contractInstanceTyCon = scriptIds.damlScript("ContractInstance")
     for {
       anyTpl <- fromAnyTemplate(translator, contract.templateId, contract.argument)
       meta <- fromContractMetadata(scriptIds, contract.metadata)
-    } yield record(pairTyCon, ("_1", anyTpl), ("_2", meta))
+    } yield record(contractInstanceTyCon, ("contract", anyTpl), ("metadata", meta))
   }
 
   // Convert a Created event to a pair of (ContractId (), (AnyTemplate, ContractMetadata))

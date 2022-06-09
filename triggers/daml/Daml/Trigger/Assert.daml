@@ -49,7 +49,7 @@ toACS cid = ACSBuilder $ \p ->
   [ do t <-
          queryContractId p cid >>= \case
            None -> abort ("Failed to fetch contract passed to toACS: " <> show cid)
-           Some (c, _meta) -> pure c
+           Some c -> pure c.contract
        pure (toAnyContractId cid, toAnyTemplate t)
   ]
 

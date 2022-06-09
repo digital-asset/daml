@@ -138,6 +138,11 @@ data ContractMetadata = ContractMetadata
     keyHash : Text -- ^ base 16 encoded byte string
     driverMetadata : Text -- ^ base 16 encoded byte string
 
+data ContractInstance t = ContractInstance
+  with
+    contract : t
+    metadata : ContractMetadata
+
 toDisclosedContract : Template t => ContractId t -> t -> ContractMetadata -> DisclosedContract 
 toDisclosedContract coid arg meta =  DisclosedContract with
     contractId = toAnyContractId coid
@@ -195,29 +200,29 @@ instance ActionCatch Script where
 data QueryACS a = QueryACS
   { parties : [Party]
   , tplId : TemplateTypeRep
-  , continue : [(ContractId (), (AnyTemplate, ContractMetadata))] -> a
+  , continue : [(ContractId (), ContractInstance AnyTemplate)] -> a
   , locations : [(Text, SrcLoc)]
   } deriving Functor
 
 -- | Query the set of active contracts of the template
 -- that are visible to the given party.
-query : forall t p. (Template t, IsParties p) => p -> Script [(ContractId t, (t, ContractMetadata))]
+query : forall t p. (Template t, IsParties p) => p -> Script [(ContractId t, ContractInstance t)]
 query p = lift $ Free $ Query QueryACS with
   parties = toParties p
   tplId = templateTypeRep @t
-  continue = pure . map (\(cid, (tpl, meta)) -> (coerceContractId cid, (fromSome $ fromAnyTemplate tpl, meta)))
+  continue = pure . map (\(cid, c) -> (coerceContractId cid, ContractInstance (fromSome $ fromAnyTemplate c.contract) c.metadata))
   locations = getCallStack callStack
 
 -- | Query the set of active contracts of the template
 -- that are visible to the given party and match the given predicate.
-queryFilter : (Template c, IsParties p) => p -> (c -> Bool) -> Script [(ContractId c, (c, ContractMetadata))]
-queryFilter p f = filter (\(_, (c, _)) -> f c) <$> query p
+queryFilter : (Template c, IsParties p) => p -> (c -> Bool) -> Script [(ContractId c, ContractInstance c)]
+queryFilter p f = filter (\(_, c) -> f c.contract) <$> query p
 
 data QueryContractIdPayload a = QueryContractIdPayload
   { parties : [Party]
   , tplId : TemplateTypeRep
   , cid : ContractId ()
-  , continue : Optional (AnyTemplate, ContractMetadata) -> a
+  , continue : Optional (ContractInstance AnyTemplate) -> a
   , locations : [(Text, SrcLoc)]
   } deriving Functor
 
@@ -226,19 +231,19 @@ data QueryContractIdPayload a = QueryContractIdPayload
 -- Returns `None` if there is no active contract the party is a stakeholder on.
 -- This is semantically equivalent to calling `query`
 -- and filtering on the client side.
-queryContractId : forall t p. (Template t, IsParties p) => HasCallStack => p -> ContractId t -> Script (Optional (t, ContractMetadata))
+queryContractId : forall t p. (Template t, IsParties p) => HasCallStack => p -> ContractId t -> Script (Optional (ContractInstance t))
 queryContractId p c = lift $ Free $ QueryContractId QueryContractIdPayload with
   parties = toParties p
   tplId = templateTypeRep @t
   cid = coerceContractId c
-  continue = pure . fmap (\(anyTpl, meta) -> (fromSome (fromAnyTemplate anyTpl), meta))
+  continue = pure . fmap (\c -> ContractInstance (fromSome (fromAnyTemplate c.contract)) c.metadata)
   locations = getCallStack callStack
 
 data QueryContractKeyPayload a = QueryContractKeyPayload
   { parties : [Party]
   , tplId : TemplateTypeRep
   , key : AnyContractKey
-  , continue : Optional (ContractId (), (AnyTemplate, ContractMetadata)) -> a
+  , continue : Optional (ContractId (), ContractInstance AnyTemplate) -> a
   , locations : [(Text, SrcLoc)]
   } deriving Functor
 
@@ -246,12 +251,12 @@ data QueryContractKeyPayload a = QueryContractKeyPayload
 -- the party is a stakeholder on.
 -- This is semantically equivalent to calling `query`
 -- and filtering on the client side.
-queryContractKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, (t, ContractMetadata)))
+queryContractKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, ContractInstance t))
 queryContractKey p k = lift $ Free $ QueryContractKey QueryContractKeyPayload with
   parties = toParties p
   tplId = templateTypeRep @t
   key = toAnyContractKey @t k
-  continue = pure . fmap (\(cid, (anyTpl, meta)) -> (coerceContractId cid, (fromSome (fromAnyTemplate anyTpl), meta)))
+  continue = pure . fmap (\(cid, c) -> (coerceContractId cid, ContractInstance (fromSome (fromAnyTemplate c.contract)) c.metadata))
   locations = getCallStack callStack
 
 data SetTimePayload a = SetTimePayload
