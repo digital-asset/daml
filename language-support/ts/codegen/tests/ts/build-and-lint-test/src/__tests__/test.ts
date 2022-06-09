@@ -22,7 +22,8 @@ import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
 // Template TKI: II+
 
 interface ToInterface<T, IfMkTyps> {
-  toInterface: <If>(cid: ContractId<T>) => ContractId<Extract<IfMkTyps, If>>
+  toInterface: <If>(cid: ContractId<T>) => ContractId<Extract<IfMkTyps, If>>,
+  unsafeFromInterface: (cid: ContractId<IfMkTyps>) => ContractId<T>
 }
 
 const interfaceMarker: unique symbol = Symbol(); // in @daml/types
@@ -80,20 +81,24 @@ function widenCid(
   cidT: ContractId<T>,
   cidU: ContractId<U>,
   cidI1: ContractId<I1>,
+  cidI3: ContractId<I3>,
 ): ContractId<I1> {
   myCreate(T, { baz: "42" });
   myCreate(I1, I1); // disallowed correctly
+  myCreate(I1, {}); // disallowed correctly
   myExercise(T.TChoice, cidT, {});
   myExercise(T.TChoice, cidU, {}); // disallowed correctly
-  myExercise(T.IChoice, cidT, {});
+  myExercise(T.IChoice, cidT, {}); // broken by redesign
   const cidTAsI1 = T.toInterface<I1>(cidT); // infers ContractId<I1>
   myExercise(I1.IChoice, T.toInterface(cidT), {}); // allowed
   myExercise(I1.IChoice, cidU, {}); // disallowed
   myExercise(I1.IChoice, cidI1, {}); // allowed
   myExercise(I2.IChoice2, cidI1, {}); // disallowed
+  const cidI1AsT = T.unsafeFromInterface(cidI1); // infers ContractId<T>
+  const cidI3AsT = T.unsafeFromInterface(cidI3); // disallowed
+  myExercise(I1.IChoice, cidU, {}); // disallowed
   // ^ works v doesn't work
-  myExercise(I1.IChoice, T.toInterface(cidU), {}); // should be disallowed
-  myExercise(I3.IChoice3, T.toInterface(cidT), {});
+  myExercise(I3.IChoice3, T.toInterface(cidT), {}); // should be disallowed
   return T.toInterface(cidT);
 }
 
