@@ -12,7 +12,7 @@ locals {
     {
       name      = "ci-u2",
       disk_size = 400,
-      size      = 1,
+      size      = 0,
       image     = "ubuntu-os-cloud/ubuntu-2004-lts",
     },
   ]
