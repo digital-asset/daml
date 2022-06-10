@@ -4,6 +4,7 @@
 package com.daml.platform.store.backend
 
 import java.util.UUID
+
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
@@ -140,6 +141,14 @@ object UpdateToDbDto {
           )
           .reverse
 
+//        var min_event_sequential_id = Long.MaxValue
+//        var max_event_sequential_id = Long.MaxValue
+        val transactionMeta = DbDto.TransactionMeta(
+          transaction_id = u.transactionId,
+          event_offset = offset.toHexString,
+          event_sequential_id_from = 0, // this is filled later
+          event_sequential_id_to = 0, // this is filled later
+        )
         val events: Iterator[DbDto] = preorderTraversal.iterator
           .flatMap {
             case (nodeId, create: Create) =>
@@ -299,8 +308,8 @@ object UpdateToDbDto {
           u.optCompletionInfo.iterator.map(
             commandCompletion(offset, u.recordTime, Some(u.transactionId), _)
           )
-
-        events ++ divulgences ++ completions
+        // NOTE: transactionMeta always comes last
+        events ++ divulgences ++ completions ++ Seq(transactionMeta)
     }
   }
 

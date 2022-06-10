@@ -115,4 +115,25 @@ object PostgresEventStrategy extends EventStrategy {
             AND
             events.event_sequential_id = filter.event_sequential_id"""
   }
+
+  override def pruneTransactionMeta(pruneUpToInclusive: Offset): SimpleSql[Row] = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    // NOTE: We don't have to check for the existence of consuming and non-consuming events before pruning offset
+    //       because all of them are deleted anyway by pruning.
+    //       We only need to check for the existence of create contracts.
+    SQL"""
+         DELETE FROM
+            participant_transaction_meta m
+         WHERE
+          m.event_offset <= $pruneUpToInclusive
+          AND
+          NOT EXISTS (
+            SELECT 1 FROM participant_events_create c
+            WHERE
+              c.event_sequential_id >= m.event_sequential_id_from
+              AND
+              c.event_sequential_id <= m.event_sequential_id_to
+          )
+       """
+  }
 }

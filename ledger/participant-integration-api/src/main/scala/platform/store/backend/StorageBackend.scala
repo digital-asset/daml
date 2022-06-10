@@ -12,19 +12,9 @@ import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.logging.LoggingContext
-import com.daml.platform.{
-  ApplicationId,
-  ContractId,
-  Identifier,
-  Key,
-  PackageId,
-  Party,
-  TransactionId,
-  UserId,
-}
+import com.daml.platform.{ApplicationId, ContractId, Identifier, Key, PackageId, Party, UserId}
 import com.daml.platform.store.EventSequentialId
 import com.daml.platform.store.dao.events.Raw
-import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
@@ -360,13 +350,21 @@ trait EventStorageBackend {
       allFilterParties: Set[Party],
       endInclusive: Long,
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
-  def flatTransaction(
-      transactionId: TransactionId,
-      filterParams: FilterParams,
+
+  def fetchIdsFromTransactionMeta(
+      transactionId: Ref.TransactionId
+  )(connection: Connection): Option[(Long, Long)]
+
+  def fetchFlatTransaction(
+      firstEventSequentialId: Long,
+      lastEventSequentialId: Long,
+      requestingParties: Set[Party],
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
-  def transactionTree(
-      transactionId: TransactionId,
-      filterParams: FilterParams,
+
+  def fetchTreeTransaction(
+      firstEventSequentialId: Long,
+      lastEventSequentialId: Long,
+      requestingParties: Set[Party],
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
 
   /** Max event sequential id of observable (create, consuming and nonconsuming exercise) events. */

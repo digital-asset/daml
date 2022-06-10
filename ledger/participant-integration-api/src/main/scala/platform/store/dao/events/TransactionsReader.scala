@@ -3,6 +3,8 @@
 
 package com.daml.platform.store.dao.events
 
+import java.sql.Connection
+
 import akka.stream.Attributes
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
@@ -29,7 +31,6 @@ import com.daml.platform.store.dao.{
   LedgerDaoTransactionsReader,
   PaginatingAsyncStream,
 }
-import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.{ContractStorageBackend, EventStorageBackend}
 import com.daml.platform.store.dao.events.EventsTable.TransactionConversions
 import com.daml.platform.store.interfaces.TransactionLogUpdate
@@ -38,6 +39,7 @@ import com.daml.telemetry
 import com.daml.telemetry.{SpanAttribute, Spans}
 import com.daml.metrics.InstrumentedGraph._
 import com.daml.platform.indexer.parallel.BatchN
+import com.daml.platform.store.backend.EventStorageBackend.Entry
 import com.daml.platform.store.dao.PaginatingAsyncStream.IdPaginationState
 import com.daml.platform.store.dao.events.FilterTableACSReader.{
   Filter,
@@ -314,27 +316,132 @@ private[dao] final class TransactionsReader(
       .watchTermination()(endSpanOnTermination(span))
   }
 
+  sealed trait PointWiseTransactionFetching {
+    type EventT
+    type RawEventT <: Raw[EventT]
+    type RespT
+
+    protected val dbMetric: DatabaseMetrics
+
+    protected def fetchTransaction(
+        firstEventSequentialId: Long,
+        lastEventSequentialId: Long,
+        requestingParties: Set[Party],
+    )(connection: Connection): Vector[EventStorageBackend.Entry[RawEventT]]
+
+    protected def toTransactionResponse(
+        events: Vector[Entry[EventT]]
+    ): Option[RespT]
+
+    final def lookupTransactionById(
+        transactionId: Ref.TransactionId,
+        requestingParties: Set[Party],
+    )(implicit loggingContext: LoggingContext): Future[Option[RespT]] = {
+      val requestingPartiesStrings: Set[String] = requestingParties.toSet[String]
+      for {
+        // Fetching event seq. id range corresponding to the requested transaction id
+        eventSeqIdRangeO <- dispatcher.executeSql(dbMetric)(
+          eventStorageBackend.fetchIdsFromTransactionMeta(transactionId = transactionId)
+        )
+        response <- eventSeqIdRangeO match {
+          case Some((firstEventSeqId, lastEventSeqId)) =>
+            for {
+              // Fetching all events from the event seq. id range
+              rawEvents <- dispatcher.executeSql(dbMetric)(
+                fetchTransaction(
+                  firstEventSequentialId = firstEventSeqId,
+                  lastEventSequentialId = lastEventSeqId,
+                  requestingParties = requestingParties,
+                )
+              )
+              // Filtering by requesting parties
+              filteredRawEvents = rawEvents.filter(
+                _.event.witnesses.exists(requestingPartiesStrings)
+              )
+              // Deserialization of lf values
+              deserialized <- Timed.value(
+                timer = dbMetric.translationTimer,
+                value = Future.traverse(filteredRawEvents)(deserializeEntry(verbose = true)),
+              )
+            } yield {
+              // Conversion to API response type
+              toTransactionResponse(deserialized)
+            }
+          case None => Future.successful[Option[RespT]](None)
+        }
+      } yield response
+    }
+  }
+
+  object TreeTransactionFetching extends PointWiseTransactionFetching {
+
+    override type EventT = TreeEvent
+    override type RawEventT = Raw.TreeEvent
+    override type RespT = GetTransactionResponse
+
+    override val dbMetric: DatabaseMetrics = dbMetrics.lookupTransactionTreeById
+
+    override protected def fetchTransaction(
+        firstEventSequentialId: Long,
+        lastEventSequentialId: Long,
+        requestingParties: Set[Party],
+    )(connection: Connection): Vector[EventStorageBackend.Entry[RawEventT]] = {
+      eventStorageBackend.fetchTreeTransaction(
+        firstEventSequentialId = firstEventSequentialId,
+        lastEventSequentialId = lastEventSequentialId,
+        requestingParties = requestingParties,
+      )(connection)
+    }
+
+    override protected def toTransactionResponse(events: Vector[Entry[EventT]]): Option[RespT] = {
+      TransactionConversions.toGetTransactionResponse(events)
+    }
+  }
+
+  object FlatTransactionFetching extends PointWiseTransactionFetching {
+
+    override type EventT = Event
+    override type RawEventT = Raw.FlatEvent
+    override type RespT = GetFlatTransactionResponse
+
+    override val dbMetric: DatabaseMetrics = dbMetrics.lookupFlatTransactionById
+
+    override protected def fetchTransaction(
+        firstEventSequentialId: Long,
+        lastEventSequentialId: Long,
+        requestingParties: Set[Party],
+    )(connection: Connection): Vector[EventStorageBackend.Entry[RawEventT]] = {
+      eventStorageBackend.fetchFlatTransaction(
+        firstEventSequentialId = firstEventSequentialId,
+        lastEventSequentialId = lastEventSequentialId,
+        requestingParties = requestingParties,
+      )(connection)
+    }
+
+    override protected def toTransactionResponse(events: Vector[Entry[EventT]]): Option[RespT] = {
+      TransactionConversions.toGetFlatTransactionResponse(events)
+    }
+  }
+
   override def lookupFlatTransactionById(
       transactionId: Ref.TransactionId,
       requestingParties: Set[Party],
-  )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
-    dispatcher
-      .executeSql(dbMetrics.lookupFlatTransactionById)(
-        eventStorageBackend.flatTransaction(
-          transactionId,
-          FilterParams(
-            wildCardParties = requestingParties,
-            partiesAndTemplates = Set.empty,
-          ),
-        )
-      )
-      .flatMap(rawEvents =>
-        Timed.value(
-          timer = dbMetrics.lookupFlatTransactionById.translationTimer,
-          value = Future.traverse(rawEvents)(deserializeEntry(verbose = true)),
-        )
-      )
-      .map(TransactionConversions.toGetFlatTransactionResponse)
+  )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] = {
+    FlatTransactionFetching.lookupTransactionById(
+      transactionId = transactionId,
+      requestingParties = requestingParties,
+    )
+  }
+
+  override def lookupTransactionTreeById(
+      transactionId: Ref.TransactionId,
+      requestingParties: Set[Party],
+  )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] = {
+    TreeTransactionFetching.lookupTransactionById(
+      transactionId = transactionId,
+      requestingParties = requestingParties,
+    )
+  }
 
   override def getTransactionTrees(
       startExclusive: Offset,
@@ -676,28 +783,6 @@ private[dao] final class TransactionsReader(
       })
       .watchTermination()(endSpanOnTermination(span))
   }
-
-  override def lookupTransactionTreeById(
-      transactionId: Ref.TransactionId,
-      requestingParties: Set[Party],
-  )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
-    dispatcher
-      .executeSql(dbMetrics.lookupTransactionTreeById)(
-        eventStorageBackend.transactionTree(
-          transactionId,
-          FilterParams(
-            wildCardParties = requestingParties,
-            partiesAndTemplates = Set.empty,
-          ),
-        )
-      )
-      .flatMap(rawEvents =>
-        Timed.value(
-          timer = dbMetrics.lookupTransactionTreeById.translationTimer,
-          value = Future.traverse(rawEvents)(deserializeEntry(verbose = true)),
-        )
-      )
-      .map(TransactionConversions.toGetTransactionResponse)
 
   override def getTransactionLogUpdates(
       startExclusive: (Offset, Long),

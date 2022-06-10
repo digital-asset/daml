@@ -247,7 +247,7 @@ CREATE INDEX participant_events_create_event_offset ON participant_events_create
 CREATE INDEX participant_events_create_event_sequential_id ON participant_events_create (event_sequential_id);
 
 -- lookup by transaction id
-CREATE INDEX participant_events_create_transaction_id_idx ON participant_events_create (transaction_id);
+--CREATE INDEX participant_events_create_transaction_id_idx ON participant_events_create (transaction_id);
 
 -- lookup by contract id
 CREATE INDEX participant_events_create_contract_id_idx ON participant_events_create (contract_id);
@@ -308,7 +308,7 @@ CREATE INDEX participant_events_consuming_exercise_event_offset ON participant_e
 CREATE INDEX participant_events_consuming_exercise_event_sequential_id ON participant_events_consuming_exercise (event_sequential_id);
 
 -- lookup by transaction id
-CREATE INDEX participant_events_consuming_exercise_transaction_id_idx ON participant_events_consuming_exercise (transaction_id);
+--CREATE INDEX participant_events_consuming_exercise_transaction_id_idx ON participant_events_consuming_exercise (transaction_id);
 
 -- lookup by contract id
 CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (contract_id);
@@ -366,7 +366,7 @@ CREATE INDEX participant_events_non_consuming_exercise_event_offset ON participa
 CREATE INDEX participant_events_non_consuming_exercise_event_sequential_id ON participant_events_non_consuming_exercise (event_sequential_id);
 
 -- lookup by transaction id
-CREATE INDEX participant_events_non_consuming_exercise_transaction_id_idx ON participant_events_non_consuming_exercise (transaction_id);
+--CREATE INDEX participant_events_non_consuming_exercise_transaction_id_idx ON participant_events_non_consuming_exercise (transaction_id);
 
 CREATE TABLE string_interning (
     internal_id integer PRIMARY KEY NOT NULL,
@@ -418,8 +418,14 @@ CREATE INDEX pe_non_consuming_exercise_filter_informees_ps_idx ON pe_non_consumi
 CREATE INDEX pe_non_consuming_exercise_filter_informees_s_idx ON pe_non_consuming_exercise_filter_informees(event_sequential_id);
 
 
-
-
+CREATE TABLE participant_transaction_meta(
+    transaction_id VARCHAR NOT NULL,
+    event_offset VARCHAR NOT NULL,
+    event_sequential_id_from BIGINT NOT NULL,
+    event_sequential_id_to BIGINT NOT NULL
+);
+CREATE INDEX participant_transaction_meta_tid_idx ON participant_transaction_meta(transaction_id);
+CREATE INDEX participant_transaction_meta_eventoffset_idx ON participant_transaction_meta(event_offset);
 
 
 CREATE TABLE transaction_metering (

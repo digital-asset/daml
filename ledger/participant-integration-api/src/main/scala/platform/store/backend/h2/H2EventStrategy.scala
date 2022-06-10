@@ -128,4 +128,23 @@ object H2EventStrategy extends EventStrategy {
             events.event_sequential_id = filter.event_sequential_id
           )"""
   }
+
+  override def pruneTransactionMeta(pruneUpToInclusive: Offset): SimpleSql[Row] = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    SQL"""
+         DELETE FROM
+            participant_transaction_meta m
+         WHERE
+          m.event_offset <= $pruneUpToInclusive
+          AND
+          NOT EXISTS (
+            SELECT 1 FROM participant_events_create c
+            WHERE
+              c.event_sequential_id >= m.event_sequential_id_from
+              AND
+              c.event_sequential_id <= m.event_sequential_id_to
+          )
+       """
+  }
+
 }

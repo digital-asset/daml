@@ -326,6 +326,14 @@ private[backend] object AppendOnlySchema {
         ),
       )
 
+    val transactionMeta: Table[DbDto.TransactionMeta] =
+      fieldStrategy.insert("participant_transaction_meta")(
+        "transaction_id" -> fieldStrategy.string(_ => _.transaction_id),
+        "event_offset" -> fieldStrategy.string(_ => _.event_offset),
+        "event_sequential_id_from" -> fieldStrategy.bigint(_ => _.event_sequential_id_from),
+        "event_sequential_id_to" -> fieldStrategy.bigint(_ => _.event_sequential_id_to),
+      )
+
     val transactionMetering: Table[DbDto.TransactionMetering] =
       fieldStrategy.insert("transaction_metering")(
         fields = "application_id" -> fieldStrategy.string(_ => _.application_id),
@@ -350,6 +358,7 @@ private[backend] object AppendOnlySchema {
       consumingFilter_stakeholder.executeUpdate,
       consumingFilter_nsi.executeUpdate,
       nonConsumingFilter_i.executeUpdate,
+      transactionMeta.executeUpdate,
       transactionMetering.executeUpdate,
     )
 
@@ -383,6 +392,7 @@ private[backend] object AppendOnlySchema {
           consumingFilter_nsi
             .prepareData(collect[ConsumingFilter_NonStakeholderInformee], stringInterning),
           nonConsumingFilter_i.prepareData(collect[NonConsumingFilter_Informee], stringInterning),
+          transactionMeta.prepareData(collect[TransactionMeta], stringInterning),
           transactionMetering.prepareData(collect[TransactionMetering], stringInterning),
         )
       }

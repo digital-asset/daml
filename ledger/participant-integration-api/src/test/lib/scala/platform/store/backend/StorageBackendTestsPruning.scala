@@ -4,7 +4,7 @@
 package com.daml.platform.store.backend
 
 import com.daml.lf.data.Ref
-import com.daml.platform.store.backend.EventStorageBackend.{FilterParams}
+import com.daml.lf.data.Ref.TransactionId
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -87,7 +87,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     )
     val createFilter1 = DbDto.CreateFilter_Stakeholder(1L, someTemplateId.toString, someParty)
     val createFilter2 = DbDto.CreateFilter_Stakeholder(1L, someTemplateId.toString, "observer")
-    val createTransactionId = dtoTransactionId(create)
+    val createTransactionId: TransactionId = dtoTransactionId(create)
     val archive = dtoExercise(
       offset = offset(2),
       eventSequentialId = 2L,
@@ -95,8 +95,24 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       contractId = hashCid("#1"),
       signatory = someParty,
     )
+    val consumingFilter1 = DbDto.ConsumingFilter_Stakeholder(1L, someTemplateId.toString, someParty)
+    val consumingFilter2 =
+      DbDto.ConsumingFilter_Stakeholder(1L, someTemplateId.toString, "observer")
+    val transactionMeta1 = DbDto.TransactionMeta(
+      transaction_id = createTransactionId,
+      event_offset = create.event_offset.get,
+      event_sequential_id_from = create.event_sequential_id,
+      event_sequential_id_to = create.event_sequential_id,
+    )
+    val transactionMeta2 = DbDto.TransactionMeta(
+      transaction_id = dtoTransactionId(archive),
+      event_offset = archive.event_offset.get,
+      event_sequential_id_from = archive.event_sequential_id,
+      event_sequential_id_to = archive.event_sequential_id,
+    )
 //    val range = RangeParams(0L, 2L, None, None)
-    val filter = FilterParams(Set(someParty), Set.empty)
+    val requestingParties = Set(someParty)
+//    val filter = FilterParams(Set(someParty), Set.empty)
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
@@ -107,7 +123,11 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
           create,
           createFilter1,
           createFilter2,
+          transactionMeta1,
           archive,
+          consumingFilter1,
+          consumingFilter2,
+          transactionMeta2,
         ),
         _,
       )
@@ -128,7 +148,15 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       backend.event
         .fetchFlatCreateEvents(eventSequentialIds = before1_ids, allFilterParties = Set(someParty))
     )
-    val before3 = executeSql(backend.event.flatTransaction(createTransactionId, filter))
+    val before3a: Option[(Long, Long)] =
+      executeSql(backend.event.fetchIdsFromTransactionMeta(createTransactionId))
+    val before3 = executeSql(
+      backend.event.fetchFlatTransaction(
+        firstEventSequentialId = before3a.get._1,
+        lastEventSequentialId = before3a.get._2,
+        requestingParties = requestingParties,
+      )
+    )
     val before4_ids = executeSql(
       backend.event.fetchIds_create_nonStakeholderInformees(
         partyFilter = someParty,
@@ -143,7 +171,14 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
         allFilterParties = Set(someParty),
       )
     )
-    val before5 = executeSql(backend.event.transactionTree(createTransactionId, filter))
+    val before5a = executeSql(backend.event.fetchIdsFromTransactionMeta(createTransactionId))
+    val before5 = executeSql(
+      backend.event.fetchTreeTransaction(
+        firstEventSequentialId = before5a.get._1,
+        lastEventSequentialId = before5a.get._2,
+        requestingParties = requestingParties,
+      )
+    )
     val before6 = executeSql(backend.event.rawEvents(0, 2L))
     val before7 = executeSql(
       backend.event
@@ -177,7 +212,15 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       backend.event
         .fetchFlatCreateEvents(eventSequentialIds = before1_ids, allFilterParties = Set(someParty))
     )
-    val after3 = executeSql(backend.event.flatTransaction(createTransactionId, filter))
+    val after3a: Option[(Long, Long)] =
+      executeSql(backend.event.fetchIdsFromTransactionMeta(createTransactionId))
+    val after3 = executeSql(
+      backend.event.fetchFlatTransaction(
+        firstEventSequentialId = before3a.get._1,
+        lastEventSequentialId = before3a.get._2,
+        requestingParties = requestingParties,
+      )
+    )
     val after4_ids = executeSql(
       backend.event.fetchIds_create_nonStakeholderInformees(
         partyFilter = someParty,
@@ -192,7 +235,15 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
         allFilterParties = Set(someParty),
       )
     )
-    val after5 = executeSql(backend.event.transactionTree(createTransactionId, filter))
+    val after5a = executeSql(backend.event.fetchIdsFromTransactionMeta(createTransactionId))
+    val after5 = executeSql(
+      backend.event.fetchTreeTransaction(
+        firstEventSequentialId = before5a.get._1,
+        lastEventSequentialId = before5a.get._2,
+        requestingParties = requestingParties,
+      )
+    )
+
     val after6 = executeSql(backend.event.rawEvents(0, 2L))
     val after7 = executeSql(
       backend.event
@@ -205,8 +256,10 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
 
     before1_ids should not be empty
     before1 should not be empty
+    before3a should not be empty
     before3 should not be empty
     before4 should not be empty
+    before5a should not be empty
     before5 should not be empty
     before6 should not be empty
     before7 should have size 1
@@ -214,9 +267,11 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
 
     after1_ids shouldBe empty
     after1 shouldBe empty
+    after3a shouldBe empty
     after3 shouldBe empty
     after4_ids shouldBe empty
     after4 shouldBe empty
+    after5a shouldBe empty
     after5 shouldBe empty
     after6 shouldBe empty
     after7 shouldBe empty
@@ -236,20 +291,57 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     val createFilter1 = DbDto.CreateFilter_Stakeholder(1L, someTemplateId.toString, "signatory")
     val createFilter2 = DbDto.CreateFilter_Stakeholder(1L, someTemplateId.toString, "observer")
     val createTransactionId = dtoTransactionId(create)
+
+    val transactionMeta = DbDto.TransactionMeta(
+      transaction_id = createTransactionId,
+      event_offset = create.event_offset.get,
+      event_sequential_id_from = create.event_sequential_id,
+      event_sequential_id_to = create.event_sequential_id,
+    )
+
 //    val range = RangeParams(0L, 1L, None, None)
-    val filter = FilterParams(Set(someParty), Set.empty)
+//    val filter = FilterParams(Set(someParty), Set.empty)
+    val requestingParties = Set(someParty)
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
     // Ingest a create and archive event
-    executeSql(ingest(Vector(partyEntry, create, createFilter1, createFilter2), _))
+    executeSql(
+      ingest(
+        Vector(
+          partyEntry,
+          create,
+          createFilter1,
+          createFilter2,
+          transactionMeta,
+        ),
+        _,
+      )
+    )
     executeSql(updateLedgerEnd(offset(2), 1L))
 
     // Make sure the events are visible
 //    val before1 = executeSql(backend.event.transactionEvents(range, filter))
-    val before3 = executeSql(backend.event.flatTransaction(createTransactionId, filter))
+    val before3a: Option[(Long, Long)] =
+      executeSql(backend.event.fetchIdsFromTransactionMeta(createTransactionId))
+    val before3 = executeSql(
+      backend.event.fetchFlatTransaction(
+        firstEventSequentialId = before3a.get._1,
+        lastEventSequentialId = before3a.get._2,
+        requestingParties = requestingParties,
+      )
+    )
+
 //    val before4 = executeSql(backend.event.transactionTreeEvents(range, filter))
-    val before5 = executeSql(backend.event.transactionTree(createTransactionId, filter))
+
+    val before5a = executeSql(backend.event.fetchIdsFromTransactionMeta(createTransactionId))
+    val before5 = executeSql(
+      backend.event.fetchTreeTransaction(
+        firstEventSequentialId = before5a.get._1,
+        lastEventSequentialId = before5a.get._2,
+        requestingParties = requestingParties,
+      )
+    )
     val before6 = executeSql(backend.event.rawEvents(0, 1L))
     val before7 = executeSql(
       backend.event
@@ -271,9 +363,24 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
 
     // Make sure the events are still visible - active contracts should not be pruned
 //    val after1 = executeSql(backend.event.transactionEvents(range, filter))
-    val after3 = executeSql(backend.event.flatTransaction(createTransactionId, filter))
+    val after3a: Option[(Long, Long)] =
+      executeSql(backend.event.fetchIdsFromTransactionMeta(createTransactionId))
+    val after3 = executeSql(
+      backend.event.fetchFlatTransaction(
+        firstEventSequentialId = before3a.get._1,
+        lastEventSequentialId = before3a.get._2,
+        requestingParties = requestingParties,
+      )
+    )
 //    val after4 = executeSql(backend.event.transactionTreeEvents(range, filter))
-    val after5 = executeSql(backend.event.transactionTree(createTransactionId, filter))
+    val after5a = executeSql(backend.event.fetchIdsFromTransactionMeta(createTransactionId))
+    val after5 = executeSql(
+      backend.event.fetchTreeTransaction(
+        firstEventSequentialId = before5a.get._1,
+        lastEventSequentialId = before5a.get._2,
+        requestingParties = requestingParties,
+      )
+    )
     val after6 = executeSql(backend.event.rawEvents(0, 1L))
     val after7 = executeSql(
       backend.event
@@ -285,8 +392,10 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     )
 
 //    before1 should not be empty
+    before3a should not be empty
     before3 should not be empty
 //    before4 should not be empty
+    before5a should not be empty
     before5 should not be empty
     before6 should not be empty
     before7 should have size 1
@@ -297,8 +406,10 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     // inside the database query - that's why they do not return any results. For transaction stream lookups, we only
     // check the pruning offset when starting the stream - that's why those queries still return data here.
 //    after1 should not be empty // transaction stream query
+    after3a shouldBe empty // pointwise transaction lookup
     after3 shouldBe empty // pointwise transaction lookup
 //    after4 should not be empty // transaction stream query
+    after5a shouldBe empty // pointwise transaction lookup
     after5 shouldBe empty // pointwise transaction lookup
     after6 should not be empty
     after7 should have size 1
@@ -311,6 +422,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     val contract1_id = hashCid("#1")
     val contract2_id = hashCid("#2")
 
+    // TODO pbatko: How does this represent immediate divulgence?
     val contract1_immediateDivulgence = dtoCreate(
       offset = offset(1),
       eventSequentialId = 1L,
@@ -331,6 +443,18 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
         contractId = contract1_id,
         divulgee = partyName,
       )
+    val transactionMeta1 = DbDto.TransactionMeta(
+      transaction_id = contract1_immediateDivulgence.transaction_id.get,
+      event_offset = contract1_immediateDivulgence.event_offset.get,
+      event_sequential_id_from = contract1_immediateDivulgence.event_sequential_id,
+      event_sequential_id_to = contract1_immediateDivulgence.event_sequential_id,
+    )
+    val transactionMeta2 = DbDto.TransactionMeta(
+      transaction_id = contract2_createWithLocalStakeholder.transaction_id.get,
+      event_offset = contract2_createWithLocalStakeholder.event_offset.get,
+      event_sequential_id_from = contract2_createWithLocalStakeholder.event_sequential_id,
+      event_sequential_id_to = contract2_createWithLocalStakeholder.event_sequential_id,
+    )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
@@ -339,8 +463,10 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       ingest(
         Vector(
           contract1_immediateDivulgence,
+          transactionMeta1,
           partyEntry,
           contract1_retroactiveDivulgence,
+          transactionMeta2,
           contract2_createWithLocalStakeholder,
         ),
         _,
@@ -419,6 +545,18 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       contractId = contract2_id,
       divulgee = divulgee,
     )
+    val transactionMeta1 = DbDto.TransactionMeta(
+      transaction_id = contract1_create.transaction_id.get,
+      event_offset = contract1_create.event_offset.get,
+      event_sequential_id_from = contract1_create.event_sequential_id,
+      event_sequential_id_to = contract1_create.event_sequential_id,
+    )
+    val transactionMeta2 = DbDto.TransactionMeta(
+      transaction_id = contract1_consumingExercise.transaction_id.get,
+      event_offset = contract1_consumingExercise.event_offset.get,
+      event_sequential_id_from = contract1_consumingExercise.event_sequential_id,
+      event_sequential_id_to = contract1_consumingExercise.event_sequential_id,
+    )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
@@ -427,8 +565,10 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       ingest(
         Vector(
           contract1_create,
+          transactionMeta1,
           contract1_divulgence,
           contract1_consumingExercise,
+          transactionMeta2,
           contract2_divulgence,
         ),
         _,

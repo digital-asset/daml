@@ -269,6 +269,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
     }
 
+    val transactionId = Ref.TransactionId.assertFromString("TransactionId")
+
     "handle TransactionAccepted (single create node)" in {
       val transactionMeta = someTransactionMeta
       val builder = TransactionBuilder()
@@ -287,7 +289,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -336,11 +338,17 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_duration_nanos = None,
         deduplication_start = None,
       )
+      dtos(4) shouldEqual DbDto.TransactionMeta(
+        transaction_id = transactionId,
+        event_offset = someOffset.toHexString,
+        event_sequential_id_from = 0,
+        event_sequential_id_to = 0,
+      )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
         DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "signatory"),
         DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "observer"),
       )
-      dtos.size shouldEqual 4
+      dtos.size shouldEqual 5
     }
 
     "handle TransactionAccepted (single create node with agreement text)" in {
@@ -363,7 +371,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -412,11 +420,17 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_duration_seconds = None,
         deduplication_start = None,
       )
+      dtos(4) shouldEqual DbDto.TransactionMeta(
+        transaction_id = transactionId,
+        event_offset = someOffset.toHexString,
+        event_sequential_id_from = 0,
+        event_sequential_id_to = 0,
+      )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
         DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "signatory"),
         DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "observer"),
       )
-      dtos.size shouldEqual 4
+      dtos.size shouldEqual 5
     }
 
     "handle TransactionAccepted (single consuming exercise node)" in {
@@ -449,7 +463,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -511,6 +525,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_seconds = None,
           deduplication_start = None,
         ),
+        DbDto.TransactionMeta(
+          transaction_id = transactionId,
+          event_offset = someOffset.toHexString,
+          event_sequential_id_from = 0,
+          event_sequential_id_to = 0,
+        ),
       )
     }
 
@@ -544,7 +564,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -599,6 +619,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_nanos = None,
           deduplication_duration_seconds = None,
           deduplication_start = None,
+        ),
+        DbDto.TransactionMeta(
+          transaction_id = transactionId,
+          event_offset = someOffset.toHexString,
+          event_sequential_id_from = 0,
+          event_sequential_id_to = 0,
         ),
       )
     }
@@ -659,7 +685,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -780,6 +806,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_seconds = None,
           deduplication_start = None,
         ),
+        DbDto.TransactionMeta(
+          transaction_id = transactionId,
+          event_offset = someOffset.toHexString,
+          event_sequential_id_from = 0,
+          event_sequential_id_to = 0,
+        ),
       )
     }
 
@@ -821,7 +853,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -847,7 +879,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_nanos = None,
           deduplication_duration_seconds = None,
           deduplication_start = None,
-        )
+        ),
+        DbDto.TransactionMeta(
+          transaction_id = transactionId,
+          event_offset = someOffset.toHexString,
+          event_sequential_id_from = 0,
+          event_sequential_id_to = 0,
+        ),
       )
     }
 
@@ -883,7 +921,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -964,6 +1002,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_seconds = None,
           deduplication_start = None,
         ),
+        DbDto.TransactionMeta(
+          transaction_id = transactionId,
+          event_offset = someOffset.toHexString,
+          event_sequential_id_from = 0,
+          event_sequential_id_to = 0,
+        ),
       )
     }
 
@@ -1000,7 +1044,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -1108,7 +1152,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_duration_seconds = None,
         deduplication_start = None,
       )
-      dtos.size shouldEqual 9
+      dtos(9) shouldEqual DbDto.TransactionMeta(
+        transaction_id = transactionId,
+        event_offset = someOffset.toHexString,
+        event_sequential_id_from = 0,
+        event_sequential_id_to = 0,
+      )
+      dtos.size shouldEqual 10
     }
 
     "handle TransactionAccepted (explicit blinding info)" in {
@@ -1139,7 +1189,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts =
           List(state.DivulgedContract(createNode.coid, createNode.versionedCoinst)),
@@ -1223,7 +1273,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_duration_seconds = None,
         deduplication_start = None,
       )
-      dtos should have length 6
+      dtos(6) shouldEqual DbDto.TransactionMeta(
+        transaction_id = transactionId,
+        event_offset = someOffset.toHexString,
+        event_sequential_id_from = 0,
+        event_sequential_id_to = 0,
+      )
+      dtos should have length 7
     }
 
     "handle TransactionAccepted (rollback node)" in {
@@ -1263,7 +1319,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -1305,6 +1361,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_seconds = None,
           deduplication_start = None,
         ),
+        DbDto.TransactionMeta(
+          transaction_id = transactionId,
+          event_offset = someOffset.toHexString,
+          event_sequential_id_from = 0,
+          event_sequential_id_to = 0,
+        ),
       )
     }
 
@@ -1327,7 +1389,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = None,
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -1360,11 +1422,17 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_key_value_compression = None,
         event_sequential_id = 0,
       )
+      dtos(3) shouldEqual DbDto.TransactionMeta(
+        transaction_id = transactionId,
+        event_offset = someOffset.toHexString,
+        event_sequential_id_from = 0,
+        event_sequential_id_to = 0,
+      )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
         DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "signatory"),
         DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "observer"),
       )
-      dtos.size shouldEqual 3
+      dtos.size shouldEqual 4
     }
 
     val deduplicationPeriods = Table(
@@ -1455,7 +1523,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             optCompletionInfo = Some(completionInfo),
             transactionMeta = transactionMeta,
             transaction = transaction,
-            transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+            transactionId = transactionId,
             recordTime = someRecordTime,
             divulgedContracts = List.empty,
             blindingInfo = None,
@@ -1508,7 +1576,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             deduplication_duration_nanos = expectedDeduplicationDurationNanos,
             deduplication_start = None,
           )
-          dtos.size shouldEqual 4
+          dtos(4) shouldEqual DbDto.TransactionMeta(
+            transaction_id = transactionId,
+            event_offset = someOffset.toHexString,
+            event_sequential_id_from = 0,
+            event_sequential_id_to = 0,
+          )
+          dtos.size shouldEqual 5
       }
     }
   }

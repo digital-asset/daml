@@ -60,4 +60,6 @@ object OracleEventStrategy extends EventStrategy {
   ): SimpleSql[Row] = ???
 
   override def pruneNonConsumingFilters_informees(pruneUpToInclusive: Offset): SimpleSql[Row] = ???
+
+  override def pruneTransactionMeta(pruneUpToInclusive: Offset): SimpleSql[Row] = ???
 }

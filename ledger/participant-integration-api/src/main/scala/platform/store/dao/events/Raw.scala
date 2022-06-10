@@ -39,6 +39,8 @@ sealed trait Raw[+E] {
       loggingContext: LoggingContext,
   ): Future[E]
 
+  def witnesses: Seq[String]
+
 }
 
 // TODO append-only: FIXME move
@@ -110,6 +112,8 @@ object Raw {
         with FlatEvent {
       override protected def wrapInEvent(event: PbCreatedEvent): PbFlatEvent =
         PbFlatEvent(PbFlatEvent.Event.Created(event))
+
+      override def witnesses: Seq[String] = raw.witnessParties
     }
 
     object Created {
@@ -156,6 +160,8 @@ object Raw {
           loggingContext: LoggingContext,
       ): Future[PbFlatEvent] =
         Future.successful(PbFlatEvent(PbFlatEvent.Event.Archived(raw)))
+
+      override def witnesses: Seq[String] = raw.witnessParties
     }
 
     object Archived {
@@ -198,6 +204,8 @@ object Raw {
         with TreeEvent {
       override protected def wrapInEvent(event: PbCreatedEvent): PbTreeEvent =
         PbTreeEvent(PbTreeEvent.Kind.Created(event))
+
+      override def witnesses: Seq[String] = raw.witnessParties
     }
 
     object Created {
@@ -249,6 +257,7 @@ object Raw {
           .deserialize(this, verbose)
           .map(event => PbTreeEvent(PbTreeEvent.Kind.Exercised(event)))
 
+      override def witnesses: Seq[String] = partial.witnessParties
     }
 
     object Exercised {

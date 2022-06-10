@@ -170,6 +170,13 @@ object DbDto {
       party_id: String,
   ) extends DbDto
 
+  final case class TransactionMeta(
+      transaction_id: String,
+      event_offset: String,
+      event_sequential_id_from: Long,
+      event_sequential_id_to: Long,
+  ) extends DbDto
+
   final case class TransactionMetering(
       application_id: String,
       action_count: Int,
