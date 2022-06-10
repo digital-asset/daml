@@ -93,19 +93,18 @@ createSandbox portFile sandboxOutput conf = do
         ph@(_,_,_,ph') <- createProcess sandboxProc { std_out = UseHandle sandboxOutput }
         let waitForStart = do
                 port <- readPortFile ph' maxRetries portFile
+                forM_ (dars conf) $ \darPath -> do
+                    runLedgerUploadDar (sandboxLedgerFlags port) (Just darPath)
                 pure (SandboxResource ph port)
         unmask (waitForStart `onException` cleanupProcess ph)
 
 withSandbox :: SandboxConfig -> (IO Int -> TestTree) -> TestTree
-withSandbox conf@SandboxConfig{..} f =
+withSandbox conf f =
     withResource newTempDir snd $ \getTmpDir ->
         let createSandbox' = do
                 (tempDir, _) <- getTmpDir
                 let portFile = tempDir </> "sandbox-portfile"
-                sandbox@(SandboxResource _proc port) <- createSandbox portFile stdout conf
-                forM_ dars $ \darPath -> do
-                    runLedgerUploadDar (sandboxLedgerFlags port) (Just darPath)
-                pure sandbox
+                createSandbox portFile stdout conf
         in withResource createSandbox' destroySandbox (f . fmap sandboxPort)
 
 
