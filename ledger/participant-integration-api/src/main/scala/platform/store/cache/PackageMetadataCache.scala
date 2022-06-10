@@ -88,27 +88,37 @@ object SingletonPackageMetadataCache extends PackageMetadataCache {
     val newPackages = mutable.Map.empty[Ref.PackageId, Package]
 
     archives.foreach(archive => {
-      val (packageId, ast) = Decode
+      Decode
         .decodeArchive(archive, true)
-        .getOrElse(throw new RuntimeException("error handling not implemented"))
+        .fold(
+          error => {
+            // Note: some unit tests use dummy packages, and we want to gracefully handle broken packages
+            // coming from the ReadService.
+            // TODO DPP-1068: Proper error logging
+            Console.println(s"Archive could not be decoded: $error")
+          },
+          result => {
+            val (packageId, ast) = result
+            newPackages.addOne(packageId -> ast)
 
-      newPackages.addOne(packageId -> ast)
+            ast.modules.foreach { case (moduleName, module) =>
+              def identifier(name: DottedName) =
+                Ref.Identifier(packageId, Ref.QualifiedName(moduleName, name))
 
-      ast.modules.foreach { case (moduleName, module) =>
-        def identifier(name: DottedName) =
-          Ref.Identifier(packageId, Ref.QualifiedName(moduleName, name))
-
-        module.templates.keys.foreach(tid => newDefinitions.addOne(identifier(tid) -> offset))
-        module.interfaces.keys.foreach(iid => newDefinitions.addOne(identifier(iid) -> offset))
-        module.templates.foreach { case (tid, t) =>
-          t.implements.values.foreach(i =>
-            newImplementations.updateWith(i.interfaceId) {
-              case None => Some(Set(identifier(tid)))
-              case Some(previous) => Some(previous + identifier(tid))
+              module.templates.keys.foreach(tid => newDefinitions.addOne(identifier(tid) -> offset))
+              module.interfaces.keys
+                .foreach(iid => newDefinitions.addOne(identifier(iid) -> offset))
+              module.templates.foreach { case (tid, t) =>
+                t.implements.values.foreach(i =>
+                  newImplementations.updateWith(i.interfaceId) {
+                    case None => Some(Set(identifier(tid)))
+                    case Some(previous) => Some(previous + identifier(tid))
+                  }
+                )
+              }
             }
-          )
-        }
-      }
+          },
+        )
     })
 
     State(
