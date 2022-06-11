@@ -8,6 +8,7 @@ import com.daml.ledger.participant.state.v2.ReadService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.ParticipantInMemoryState
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.Indexer
 import com.daml.platform.indexer.ha.{HaConfig, HaCoordinator, Handle, NoopHaCoordinator}
@@ -15,7 +16,6 @@ import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.store.DbSupport.DbConfig
 import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend}
 import com.daml.platform.store.dao.DbDispatcher
-import com.daml.platform.store.interning.StringInterningView
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import java.util.Timer
@@ -39,7 +39,7 @@ object ParallelIndexerFactory {
       meteringAggregator: DbDispatcher => ResourceOwner[Unit],
       mat: Materializer,
       readService: ReadService,
-      stringInterningViewO: Option[StringInterningView],
+      participantInMemoryState: ParticipantInMemoryState,
   )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] =
     for {
       inputMapperExecutor <- asyncPool(
@@ -105,19 +105,18 @@ object ParallelIndexerFactory {
             _ <- meteringAggregator(dbDispatcher)
           } yield dbDispatcher
         ) { dbDispatcher =>
-          val stringInterningView = stringInterningViewO.getOrElse(new StringInterningView)
           initializeParallelIngestion(
             dbDispatcher = dbDispatcher,
-            updatingStringInterningView = stringInterningView,
+            participantInMemoryState = participantInMemoryState,
             readService = readService,
-            ec = ec,
             mat = mat,
+            ec = ec,
           ).map(
             parallelIndexerSubscription(
               inputMapperExecutor = inputMapperExecutor,
               batcherExecutor = batcherExecutor,
               dbDispatcher = dbDispatcher,
-              stringInterningView = stringInterningView,
+              stringInterningView = participantInMemoryState.stringInterningView,
               materializer = mat,
             )
           )

@@ -461,7 +461,6 @@ private class JdbcLedgerDao(
       dispatcher = dbDispatcher,
       queryNonPruned = queryNonPruned,
       eventStorageBackend = readStorageBackend.eventStorageBackend,
-      contractStorageBackend = readStorageBackend.contractStorageBackend,
       pageSize = eventsPageSize,
       eventProcessingParallelism = eventsProcessingParallelism,
       metrics = metrics,

@@ -5,12 +5,14 @@ package com.daml.ledger.runner.common
 
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
 import com.daml.lf.data.Ref
+import com.daml.platform.config.ParticipantConfig
 import io.netty.handler.ssl.ClientAuth
 import org.scalatest.{Assertion, OptionValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scopt.OptionParser
+
 import java.io.File
 import java.time.Duration
 

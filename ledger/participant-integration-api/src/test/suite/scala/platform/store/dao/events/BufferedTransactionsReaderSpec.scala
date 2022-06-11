@@ -76,7 +76,6 @@ class BufferedTransactionsReaderSpec
       maxBufferSize = 3,
       metrics = metrics,
       bufferQualifier = "test",
-      isRangeEndMarker = _.isInstanceOf[TransactionLogUpdate.LedgerEndMarker],
       maxBufferedChunkSize = 100,
     )
 
@@ -162,7 +161,6 @@ class BufferedTransactionsReaderSpec
           maxBufferSize = 3,
           metrics = metrics,
           bufferQualifier = "test",
-          isRangeEndMarker = _.isInstanceOf[TransactionLogUpdate.LedgerEndMarker],
           maxBufferedChunkSize = 1,
         )
 
@@ -197,7 +195,6 @@ class BufferedTransactionsReaderSpec
           maxBufferSize = 1,
           metrics = metrics,
           bufferQualifier = "test",
-          isRangeEndMarker = _.isInstanceOf[TransactionLogUpdate.LedgerEndMarker],
           maxBufferedChunkSize = 100,
         )
 

@@ -48,6 +48,7 @@ private[events] object TransactionLogUpdatesConversions {
         // Allows emitting flat transactions with no events, a use-case needed
         // for the functioning of Daml triggers.
         // (more details in https://github.com/digital-asset/daml/issues/6975)
+        // TODO LLP: Align with logic for streams served from persistence
         Option.when(filteredFlatEvents.nonEmpty || hasOneEventWithCommandId)(
           transaction.copy(events = filteredFlatEvents)
         )

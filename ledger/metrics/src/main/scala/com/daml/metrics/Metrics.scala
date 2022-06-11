@@ -591,6 +591,9 @@ final class Metrics(val registry: MetricRegistry) {
       // The size of the queue before the indexer
       val inputBufferLength: Counter = registry.counter(Prefix :+ "input_buffer_length")
 
+      // The size of the queue after the indexer
+      val outputBufferLength: Counter = registry.counter(Prefix :+ "output_buffer_length")
+
       // Input mapping stage
       // Translating state updates to data objects corresponding to individual SQL insert statements
       object inputMapping {

@@ -17,6 +17,7 @@ import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.lf.transaction.{Node, NodeId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.index.InMemoryStateUpdater.UpdaterFlow
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.{Contract, Key, ParticipantInMemoryState, Party}
@@ -24,7 +25,7 @@ import com.daml.platform.{Contract, Key, ParticipantInMemoryState, Party}
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 
-private[index] class InMemoryStateUpdater(
+private[platform] class InMemoryStateUpdater(
     prepareUpdatesParallelism: Int,
     prepareUpdatesExecutionContext: ExecutionContext,
     updateCachesExecutionContext: ExecutionContext,
@@ -34,7 +35,8 @@ private[index] class InMemoryStateUpdater(
     updateLedgerEnd: (Offset, Long) => Unit,
 ) {
 
-  def flow: Flow[(Vector[(Offset, Update)], Long), Unit, NotUsed] =
+  // TODO LLP: Considering directly returning this flow instead of the wrapper
+  def flow: UpdaterFlow =
     Flow[(Vector[(Offset, Update)], Long)]
       .filter(_._1.nonEmpty)
       .mapAsync(prepareUpdatesParallelism) { case (batch, lastEventSequentialId) =>
@@ -55,7 +57,9 @@ private[index] class InMemoryStateUpdater(
       }
 }
 
-object InMemoryStateUpdater {
+private[platform] object InMemoryStateUpdater {
+  type UpdaterFlow = Flow[(Vector[(Offset, Update)], Long), Unit, NotUsed]
+
   private val logger = ContextualizedLogger.get(getClass)
 
   def owner(
@@ -90,19 +94,14 @@ object InMemoryStateUpdater {
   private def updateCaches(participantInMemoryState: ParticipantInMemoryState)(
       updates: Vector[TransactionLogUpdate]
   ): Unit =
-    updates.foreach {
-      case transaction: TransactionLogUpdate.Transaction =>
-        // TODO LLP: Batch update caches
-        participantInMemoryState.transactionsBuffer.push(transaction.offset, transaction)
+    updates.foreach { case transaction: TransactionLogUpdate.Transaction =>
+      // TODO LLP: Batch update caches
+      participantInMemoryState.transactionsBuffer.push(transaction.offset, transaction)
 
-        val contractStateEventsBatch = convertToContractStateEvents(transaction)
-        if (contractStateEventsBatch.nonEmpty) {
-          participantInMemoryState.contractStateCaches.push(contractStateEventsBatch)
-        }
-
-      case _: TransactionLogUpdate.LedgerEndMarker =>
-        // TODO LLP: Remove TransactionLogUpdate.LedgerEndMarker
-        ()
+      val contractStateEventsBatch = convertToContractStateEvents(transaction)
+      if (contractStateEventsBatch.nonEmpty) {
+        participantInMemoryState.contractStateCaches.push(contractStateEventsBatch)
+      }
     }
 
   private def updateLedgerEnd(
@@ -231,7 +230,7 @@ object InMemoryStateUpdater {
 
     TransactionLogUpdate.Transaction(
       transactionId = u.transactionId,
-      workflowId = u.transactionMeta.workflowId.getOrElse(""), // TODO LLP: check
+      workflowId = u.transactionMeta.workflowId.getOrElse(""),
       effectiveAt = u.transactionMeta.ledgerEffectiveTime,
       offset = offset,
       events = events.toVector,

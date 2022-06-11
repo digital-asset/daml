@@ -29,7 +29,7 @@ import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}
 
-object StandaloneApiServer {
+object ApiServerOwner {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def apply(
@@ -77,6 +77,7 @@ object StandaloneApiServer {
       userRightsCheckIntervalInSeconds = config.userManagement.cacheExpiryAfterWriteInSeconds,
       akkaScheduler = actorSystem.scheduler,
     )
+    // TODO LLP: Consider fusing the index health check with the indexer health check
     val healthChecksWithIndexService = healthChecks + ("index" -> indexService)
 
     for {
