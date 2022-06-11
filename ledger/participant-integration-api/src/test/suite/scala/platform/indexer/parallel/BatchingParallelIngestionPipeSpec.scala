@@ -139,8 +139,10 @@ class BatchingParallelIngestionPipeSpec
     val semaphore = new Object
     var ingested: Vector[(Int, String)] = Vector.empty
     var ingestedTail: Vector[Int] = Vector.empty
-    val indexingSource: Source[Int, NotUsed] => Source[Unit, NotUsed] =
-      BatchingParallelIngestionPipe[Int, List[(Int, Int)], List[(Int, String)]](
+    val indexingSource: Source[Int, NotUsed] => Source[List[(Int, String)], NotUsed] =
+      BatchingParallelIngestionPipe[Int, List[(Int, Int)], List[(Int, String)], List[
+        (Int, String)
+      ]](
         submissionBatchSize = MaxBatchSize.toLong,
         inputMappingParallelism = 2,
         inputMapper = ins =>
@@ -185,6 +187,7 @@ class BatchingParallelIngestionPipeSpec
             }
             dbBatch
           },
+        toOutputBatch = identity,
       )
     val p = Promise[(Vector[(Int, String)], Vector[Int], Option[Throwable])]()
     val timeoutF = akka.pattern.after(timeout, system.scheduler) {

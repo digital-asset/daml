@@ -16,7 +16,6 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref.TransactionId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
 import com.daml.platform.store.dao.events.BufferedTransactionsReader.{
@@ -127,23 +126,6 @@ private[events] class BufferedTransactionsReader(
       implicit loggingContext: LoggingContext
   ): Source[GetActiveContractsResponse, NotUsed] =
     delegate.getActiveContracts(activeAt, filter, verbose)
-
-  override def getContractStateEvents(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(
-      implicit loggingContext: LoggingContext
-  ): Source[((Offset, Long), Vector[ContractStateEvent]), NotUsed] =
-    throw new UnsupportedOperationException(
-      s"getContractStateEvents is not supported on ${getClass.getSimpleName}"
-    )
-
-  override def getTransactionLogUpdates(
-      startExclusive: (Offset, EventSequentialId),
-      endInclusive: (Offset, EventSequentialId),
-  )(implicit
-      loggingContext: LoggingContext
-  ): Source[((Offset, EventSequentialId), TransactionLogUpdate), NotUsed] =
-    throw new UnsupportedOperationException(
-      s"getTransactionLogUpdates is not supported on ${getClass.getSimpleName}"
-    )
 }
 
 private[platform] object BufferedTransactionsReader {

@@ -9,7 +9,7 @@ import com.daml.ledger.runner.common.Config.{
   DefaultParticipants,
   DefaultParticipantsDatasourceConfig,
 }
-import com.daml.ledger.runner.common.MetricsConfig.DefaultMetricsConfig
+import com.daml.platform.config.MetricsConfig.DefaultMetricsConfig
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.engine.EngineConfig

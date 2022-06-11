@@ -9,7 +9,6 @@ import com.daml.metrics.Metrics
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.cache.{ContractStateCaches, EventsBuffer, MutableLedgerEndCache}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
 import com.daml.platform.store.interning.{StringInterningView, UpdatingStringInterningView}
 
 import scala.concurrent.duration.Duration
@@ -84,7 +83,6 @@ object ParticipantInMemoryState {
         metrics = metrics,
         bufferQualifier = "transactions",
         maxBufferedChunkSize = bufferedStreamsPageSize,
-        isRangeEndMarker = _.isInstanceOf[LedgerEndMarker],
       ),
       stringInterningView = new StringInterningView,
       updateStringInterningView = updateStringInterningView,

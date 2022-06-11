@@ -17,9 +17,12 @@ import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{JvmMetricSet, Metrics}
-import com.daml.platform.indexer.{Indexer, JdbcIndexer, StandaloneIndexerServer}
+import com.daml.platform.ParticipantServer
+import com.daml.platform.config.ParticipantConfig
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.indexer.{Indexer, IndexerServiceOwner, JdbcIndexer}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
-import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.resources
 import com.daml.testing.postgresql.PostgresResource
 
@@ -69,17 +72,36 @@ class IndexerBenchmark() {
 
       println("Creating read service and indexer...")
       val readService = createReadService(updates)
-      val indexerFactory: JdbcIndexer.Factory = new JdbcIndexer.Factory(
-        config.participantId,
-        config.dataSource,
-        config.indexerConfig,
-        readService,
-        metrics,
-        LfValueTranslationCache.Cache.none,
-        None,
-      )
 
       val resource = for {
+        dbSupport <- DbSupport
+          .owner(
+            serverRole = ServerRole.ApiServer,
+            metrics = metrics,
+            dbConfig = ParticipantConfig().dataSourceProperties.createDbConfig(
+              config.dataSource
+            ),
+          )
+          .acquire()
+        (participantInMemoryState, inMemoryStateUpdater) <-
+          ParticipantServer
+            .createParticipantInMemoryStateAndUpdater(
+              config.indexServiceConfig,
+              dbSupport,
+              metrics,
+              indexerExecutionContext,
+            )
+            .acquire()
+        indexerFactory = new JdbcIndexer.Factory(
+          config.participantId,
+          config.dataSource,
+          config.indexerConfig,
+          readService,
+          metrics,
+          LfValueTranslationCache.Cache.none,
+          participantInMemoryState,
+          inMemoryStateUpdater.flow,
+        )
         _ <- metricsResource(config, metrics)
         _ = println("Setting up the index database...")
         indexer <- indexer(config, indexerExecutionContext, indexerFactory)
@@ -121,7 +143,7 @@ class IndexerBenchmark() {
   ): resources.Resource[ResourceContext, Indexer] =
     Await
       .result(
-        StandaloneIndexerServer
+        IndexerServiceOwner
           .migrateOnly(config.dataSource.jdbcUrl)
           .map(_ => indexerFactory.initialized())(indexerExecutionContext),
         Duration(5, "minute"),
