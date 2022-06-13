@@ -626,6 +626,20 @@ class TransactionSpec
     }
   }
 
+  "xxx" - {
+    "xxx" in {
+      val builder = TransactionBuilder()
+      val parties = Seq("Alice")
+      val rollback1 = builder.add(builder.rollback())
+      val rollback2 = builder.add(builder.rollback(), rollback1)
+      val (cid0, create0) = create(builder, parties)
+      builder.add(create0, rollback2)
+      val transaction = builder.build()
+
+      transaction.inactiveContracts shouldBe Set(cid0)
+    }
+  }
+
   "updatedContractKeys" - {
     "return all the updated contract keys" in {
       val builder = TransactionBuilder()

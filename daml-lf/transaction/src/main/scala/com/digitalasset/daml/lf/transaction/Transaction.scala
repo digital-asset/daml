@@ -403,7 +403,7 @@ sealed abstract class HasTxNodes {
         copy(
           currentState = beginState.copy(
             inactiveCids =
-              beginState.inactiveCids union (currentState.createdCids diff beginState.createdCids)
+              beginState.inactiveCids union (currentState.createdCids diff beginState.createdCids) // FIXME:
           ),
           rollbackStack = rollbackStack.tail,
         )

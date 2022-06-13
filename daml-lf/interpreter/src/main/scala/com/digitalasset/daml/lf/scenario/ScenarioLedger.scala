@@ -481,10 +481,11 @@ object ScenarioLedger {
                         case None => Right(newCache1)
                         case Some(keyWithMaintainers) =>
                           val gk = GlobalKey.assertBuild(nc.templateId, keyWithMaintainers.key)
-                          newCache1.activeKeys.get(gk) match {
-                            case None => Right(newCache1.addKey(gk, nc.coid))
-                            case Some(_) => Left(UniqueKeyViolation(gk))
-                          }
+//                          newCache1.activeKeys.get(gk) match {
+//                            case None => Right(newCache1.addKey(gk, nc.coid))
+//                            case Some(_) => Left(UniqueKeyViolation(gk))
+//                          }
+                          Right(newCache1.addKey(gk, nc.coid))
                       }
                       processNodes(mbNewCache2, idsToProcess)
 
@@ -553,13 +554,27 @@ object ScenarioLedger {
       }
     }
 
-    val mbCacheAfterProcess =
-      processNodes(
+    val inactiveKeys = richTr.transaction.contractKeyInputs
+      .fold(error => crash(s"$error: inconsistent transaction"), identity)
+      .collect { case (key, _: Tx.KeyInactive) =>
+        key
+      }
+    val duplicateKeyCheck: Either[UniqueKeyViolation, Unit] =
+      inactiveKeys.find(ledgerData.activeKeys.contains(_)) match {
+        case Some(duplicateKey) =>
+          Left(UniqueKeyViolation(duplicateKey))
+
+        case None =>
+          Right(())
+      }
+
+    for {
+      _ <- duplicateKeyCheck
+      cacheAfterProcess <- processNodes(
         Right(ledgerData),
         List(ProcessingNode(None, None, richTr.transaction.roots.toList, None)),
       )
-
-    mbCacheAfterProcess.map { cacheAfterProcess =>
+    } yield {
       val cacheActiveness =
         cacheAfterProcess.copy(activeContracts =
           cacheAfterProcess.activeContracts ++ richTr.transaction.localContracts.keySet -- richTr.transaction.inactiveContracts
@@ -573,6 +588,7 @@ object ScenarioLedger {
               _.addDisclosures(witnesses.map(_ -> Disclosure(since = trId, explicit = true)).toMap)
             )
         }
+
       richTr.blindingInfo.divulgence.foldLeft(cacheWithExplicitDisclosures) {
         case (cacheP, (coid, divulgees)) =>
           cacheP.updateLedgerNodeInfo(cacheWithExplicitDisclosures.coidToNodeId(coid))(
