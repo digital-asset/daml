@@ -475,7 +475,7 @@ object ScenarioLedger {
                     case nc: Node.Create =>
                       val newCache1 =
                         newCache
-                          .markAsActive(nc.coid)
+//                          .markAsActive(nc.coid) // FIXME:
                           .createdIn(nc.coid, eventId)
                       val mbNewCache2 = nc.key match {
                         case None => Right(newCache1)
@@ -510,7 +510,7 @@ object ScenarioLedger {
                         )
                       val newCache1 =
                         if (ex.consuming) {
-                          val newCache0_1 = newCache0.markAsInactive(ex.targetCoid)
+                          val newCache0_1 = newCache0 //.markAsInactive(ex.targetCoid) // FIXME:
                           val nc = newCache0_1
                             .nodeInfoByCoid(ex.targetCoid)
                             .node
@@ -560,10 +560,12 @@ object ScenarioLedger {
       )
 
     mbCacheAfterProcess.map { cacheAfterProcess =>
+      val cacheActiveness =
+        cacheAfterProcess.copy(activeContracts = cacheAfterProcess.activeContracts ++ richTr.transaction.localContracts.keySet -- richTr.transaction.inactiveContracts)
       // NOTE(MH): Since `addDisclosures` is biased towards existing
       // disclosures, we need to add the "stronger" explicit ones first.
       val cacheWithExplicitDisclosures =
-        richTr.blindingInfo.disclosure.foldLeft(cacheAfterProcess) {
+        richTr.blindingInfo.disclosure.foldLeft(cacheActiveness) {
           case (cacheP, (nodeId, witnesses)) =>
             cacheP.updateLedgerNodeInfo(EventId(richTr.transactionId, nodeId))(
               _.addDisclosures(witnesses.map(_ -> Disclosure(since = trId, explicit = true)).toMap)
@@ -571,7 +573,7 @@ object ScenarioLedger {
         }
       richTr.blindingInfo.divulgence.foldLeft(cacheWithExplicitDisclosures) {
         case (cacheP, (coid, divulgees)) =>
-          cacheP.updateLedgerNodeInfo(cacheAfterProcess.coidToNodeId(coid))(
+          cacheP.updateLedgerNodeInfo(cacheWithExplicitDisclosures.coidToNodeId(coid))(
             _.addDisclosures(divulgees.map(_ -> Disclosure(since = trId, explicit = false)).toMap)
           )
       }
@@ -659,11 +661,11 @@ case class ScenarioLedger(
           case create: Node.Create =>
             if (info.effectiveAt.compareTo(effectiveAt) > 0)
               LookupContractNotEffective(coid, create.templateId, info.effectiveAt)
-            else if (info.consumedBy.nonEmpty)
+            else if (!ledgerData.activeContracts.contains(coid)) //(info.consumedBy.nonEmpty)
               LookupContractNotActive(
                 coid,
                 create.templateId,
-                info.consumedBy.getOrElse(crash("IMPOSSIBLE")),
+                info.consumedBy.getOrElse(crash("IMPOSSIBLE")), // TODO:
               )
             else if (!info.visibleIn(view))
               LookupContractNotVisible(
