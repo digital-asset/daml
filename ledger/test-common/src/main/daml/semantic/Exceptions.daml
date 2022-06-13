@@ -324,3 +324,30 @@ template ExceptionTester
 
          catch
            E{} -> pure ()
+
+    -- regression test for https://github.com/digital-asset/daml/pull/14080
+    nonconsuming choice RollbackGlobalArchivedLookup : ()
+      with
+        cid: ContractId WithSimpleKey
+      controller p
+      do archive cid
+         try do
+           None <- lookupByKey @WithSimpleKey p
+           throw (E "")
+         catch E _ -> pure ()
+         None <- lookupByKey @WithSimpleKey p
+         pure ()
+
+    -- regression test for https://github.com/digital-asset/daml/pull/14080
+    nonconsuming choice RollbackGlobalArchivedCreate : ()
+      with
+        cid: ContractId WithSimpleKey
+      controller p
+      do archive cid
+         try do
+           None <- lookupByKey @WithSimpleKey p
+           throw (E "")
+         catch
+           E _ -> pure ()
+         create (WithSimpleKey p)
+         pure ()
