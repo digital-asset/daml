@@ -411,6 +411,7 @@ object TypedValueGenerators {
         override def configure(in: (KS :->>: ValueAddend.Aux[KT]) :: Tl) = new Rules {
           private[this] val h :: selfT = in
           private[this] val self = TL configure selfT
+          type K = KS
 
           override val t = (fname, h.t) :: self.t
 
