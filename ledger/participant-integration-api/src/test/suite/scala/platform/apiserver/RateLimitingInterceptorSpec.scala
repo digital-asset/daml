@@ -217,7 +217,7 @@ final class RateLimitingInterceptorSpec
     val underTest =
       RateLimitingConfig.Default.copy(maxHeapSpacePercentage = 90, maxOverThresholdZoneSize = 1000)
     underTest.collectionUsageThreshold(1000) shouldBe 900 // 90%
-    underTest.collectionUsageThreshold(101000) shouldBe 100000 // 10100 - 1000
+    underTest.collectionUsageThreshold(101000) shouldBe 100000 // 101000 - 1000
   }
 
 }
