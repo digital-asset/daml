@@ -510,7 +510,7 @@ object ScenarioLedger {
                         )
                       val newCache1 =
                         if (ex.consuming) {
-                          val newCache0_1 = newCache0 //.markAsInactive(ex.targetCoid) // FIXME:
+                          val newCache0_1 = newCache0 // .markAsInactive(ex.targetCoid) // FIXME:
                           val nc = newCache0_1
                             .nodeInfoByCoid(ex.targetCoid)
                             .node
@@ -561,7 +561,9 @@ object ScenarioLedger {
 
     mbCacheAfterProcess.map { cacheAfterProcess =>
       val cacheActiveness =
-        cacheAfterProcess.copy(activeContracts = cacheAfterProcess.activeContracts ++ richTr.transaction.localContracts.keySet -- richTr.transaction.inactiveContracts)
+        cacheAfterProcess.copy(activeContracts =
+          cacheAfterProcess.activeContracts ++ richTr.transaction.localContracts.keySet -- richTr.transaction.inactiveContracts
+        )
       // NOTE(MH): Since `addDisclosures` is biased towards existing
       // disclosures, we need to add the "stronger" explicit ones first.
       val cacheWithExplicitDisclosures =
@@ -661,7 +663,7 @@ case class ScenarioLedger(
           case create: Node.Create =>
             if (info.effectiveAt.compareTo(effectiveAt) > 0)
               LookupContractNotEffective(coid, create.templateId, info.effectiveAt)
-            else if (!ledgerData.activeContracts.contains(coid)) //(info.consumedBy.nonEmpty)
+            else if (!ledgerData.activeContracts.contains(coid))
               LookupContractNotActive(
                 coid,
                 create.templateId,
