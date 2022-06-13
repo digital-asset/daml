@@ -473,21 +473,8 @@ object ScenarioLedger {
                       )
 
                     case nc: Node.Create =>
-                      val newCache1 =
-                        newCache
-//                          .markAsActive(nc.coid) // FIXME:
-                          .createdIn(nc.coid, eventId)
-                      val mbNewCache2 = nc.key match {
-                        case None => Right(newCache1)
-                        case Some(keyWithMaintainers) =>
-                          val gk = GlobalKey.assertBuild(nc.templateId, keyWithMaintainers.key)
-//                          newCache1.activeKeys.get(gk) match {
-//                            case None => Right(newCache1.addKey(gk, nc.coid))
-//                            case Some(_) => Left(UniqueKeyViolation(gk))
-//                          }
-                          Right(newCache1.addKey(gk, nc.coid))
-                      }
-                      processNodes(mbNewCache2, idsToProcess)
+                      val newCache1 = newCache.createdIn(nc.coid, eventId)
+                      processNodes(Right(newCache1), idsToProcess)
 
                     case Node.Fetch(referencedCoid, templateId @ _, _, _, _, _, _, _) =>
                       val newCacheP =
@@ -509,24 +496,9 @@ object ScenarioLedger {
                             },
                           )
                         )
-                      val newCache1 =
-                        if (ex.consuming) {
-                          val newCache0_1 = newCache0 // .markAsInactive(ex.targetCoid) // FIXME:
-                          val nc = newCache0_1
-                            .nodeInfoByCoid(ex.targetCoid)
-                            .node
-                            .asInstanceOf[Node.Create]
-                          nc.key match {
-                            case None => newCache0_1
-                            case Some(keyWithMaintainers) =>
-                              newCache0_1.removeKey(
-                                GlobalKey.assertBuild(ex.templateId, keyWithMaintainers.key)
-                              )
-                          }
-                        } else newCache0
 
                       processNodes(
-                        Right(newCache1),
+                        Right(newCache0),
                         ProcessingNode(
                           Some(nodeId),
                           mbRollbackAncestorId,
@@ -576,8 +548,16 @@ object ScenarioLedger {
       )
     } yield {
       val cacheActiveness =
-        cacheAfterProcess.copy(activeContracts =
-          cacheAfterProcess.activeContracts ++ richTr.transaction.localContracts.keySet -- richTr.transaction.inactiveContracts
+        cacheAfterProcess.copy(
+          activeContracts =
+            cacheAfterProcess.activeContracts ++ richTr.transaction.localContracts.keySet -- richTr.transaction.inactiveContracts,
+          activeKeys =
+            richTr.transaction.updatedContractKeys.foldLeft(cacheAfterProcess.activeKeys) {
+              case (activeKs, (key, Some(cid))) =>
+                activeKs + (key -> cid)
+              case (activeKs, (key, None)) =>
+                activeKs - key
+            }
         )
       // NOTE(MH): Since `addDisclosures` is biased towards existing
       // disclosures, we need to add the "stronger" explicit ones first.
