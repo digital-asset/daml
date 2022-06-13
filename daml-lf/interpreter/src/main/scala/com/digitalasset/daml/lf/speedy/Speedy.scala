@@ -792,6 +792,8 @@ private[lf] object Speedy {
       returnValue = go(typ0, value0)
     }
 
+    // TODO (drsk) We wan't to get rid of the following warning, when the contract has been sent along the submission as disclosed contract.
+    // https://github.com/digital-asset/daml/issues/14168
     def checkContractVisibility(onLedger: OnLedger, cid: V.ContractId, contract: CachedContract) = {
       onLedger.visibleToStakeholders(contract.stakeholders) match {
         case SVisibleToStakeholders.Visible => ()
