@@ -482,12 +482,12 @@ object TypedValueGenerators {
       }
   }
 
-  private[value] object RecVarSpec {
+  private[value] object RecVarExample {
     // specifying records and variants works the same way: a
-    // record written with ->> and ::, terminated with RNil (*not* HNil)
+    // record written with the Record macro
     val sample = {
-      import shapeless.syntax.singleton._
-      Symbol("foo") ->> ValueAddend.int64 :: Symbol("bar") ->> ValueAddend.text :: RNil
+      import shapeless.record.{Record => ShRecord}
+      ShRecord(foo = ValueAddend.int64, bar = ValueAddend.text)
     }
 
     // a RecVarSpec can be turned into a ValueAddend for records
@@ -501,11 +501,9 @@ object TypedValueGenerators {
       )
     import shapeless.record.Record
     // You can ascribe a matching value
-    // using either the spec,
-    val sampleData: sample.HRec =
+    // using the record VA
+    val sampleData: sampleAsRecord.Inj =
       Record(foo = 42L, bar = "hi")
-    // or the record VA
-    val sampleDataAgain: sampleAsRecord.Inj = sampleData
     // ascription is not necessary; a correct `Record` expression already
     // has the correct type, as implicit conversion is not used at all
 
@@ -515,9 +513,9 @@ object TypedValueGenerators {
     // you can do so with `align`. The resulting error messages are far worse, so
     // I recommend just writing them in the correct order
     shapeless.test
-      .illTyped("""Record(bar = "bye", foo = 84L): sample.HRec""", "type mismatch.*")
-    val backwardsSampleData: sample.HRec =
-      Record(bar = "bye", foo = 84L).align[sample.HRec]
+      .illTyped("""Record(bar = "bye", foo = 84L): sampleAsRecord.Inj""", "type mismatch.*")
+    val backwardsSampleData: sampleAsRecord.Inj =
+      Record(bar = "bye", foo = 84L).align[sampleAsRecord.Inj]
 
     // a RecVarSpec can be turned into a ValueAddend for variants
     val (sampleVariantDDT, sampleAsVariant) =
@@ -531,15 +529,15 @@ object TypedValueGenerators {
     // You can create a matching value with Coproduct
     import shapeless.Coproduct, shapeless.syntax.singleton._
     val sampleVt =
-      Coproduct[sample.HVar](Symbol("foo") ->> 42L)
+      Coproduct[sampleAsVariant.Inj](Symbol("foo") ->> 42L)
     val anotherSampleVt =
-      Coproduct[sample.HVar](Symbol("bar") ->> "hi")
+      Coproduct[sampleAsVariant.Inj](Symbol("bar") ->> "hi")
     // and the `variant` function produces Inj as a synonym for HVar
     // just as `record` makes it a synonym for HRec
     val samples: List[sampleAsVariant.Inj] = List(sampleVt, anotherSampleVt)
     // Coproduct can be factored out, but the implicit resolution means you cannot
     // turn this into the obvious `map` call
-    val sampleCp = Coproduct[sample.HVar]
+    val sampleCp = Coproduct[sampleAsVariant.Inj]
     val moreSamples = List(sampleCp(Symbol("foo") ->> 84L), sampleCp(Symbol("bar") ->> "bye"))
   }
 
