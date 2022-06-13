@@ -96,11 +96,12 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
 
     def mode: ContractKeyUniquenessMode = ContractStateMachine.this.mode
 
-    def lookupActiveGlobalKeyInput(key: GlobalKey): Option[ContractStateMachine.KeyMapping] = globalKeyInputs.get(key).map {
-      case Transaction.KeyActive(cid) if !activeState.consumedBy.contains(cid) =>
-        ContractStateMachine.KeyActive(cid)
-      case _ => ContractStateMachine.KeyInactive
-    }
+    def lookupActiveGlobalKeyInput(key: GlobalKey): Option[ContractStateMachine.KeyMapping] =
+      globalKeyInputs.get(key).map {
+        case Transaction.KeyActive(cid) if !activeState.consumedBy.contains(cid) =>
+          ContractStateMachine.KeyActive(cid)
+        case _ => ContractStateMachine.KeyInactive
+      }
 
     /** Visit a create node */
     def handleCreate(node: Node.Create): Either[KeyInputError, State] =
