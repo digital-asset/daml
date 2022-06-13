@@ -655,7 +655,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         // checking contracts
         inside(contract1) { case domain.Contract(-\/(archivedContract)) =>
           Future {
-            (archivedContract.contractId.unwrap: String) shouldBe (exerciseCmd.reference.contractId.unwrap: String)
+            (archivedContract.contractId: domain.ContractId) shouldBe (exerciseCmd.reference.contractId: domain.ContractId)
           }
         } *>
           inside(contract2) { case domain.Contract(\/-(activeContract)) =>
