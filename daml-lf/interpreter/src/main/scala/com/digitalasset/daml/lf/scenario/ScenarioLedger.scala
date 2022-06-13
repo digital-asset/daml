@@ -682,8 +682,7 @@ case class ScenarioLedger(
                 command.ContractMetadata(
                   createdAt = info.effectiveAt,
                   driverMetadata = ImmArray.Empty,
-                  keyHash =
-                    create.key.map(k => GlobalKey(create.templateId, k.key).hash)
+                  keyHash = create.key.map(k => GlobalKey(create.templateId, k.key).hash),
                 ),
               )
 
