@@ -397,7 +397,7 @@ final class ExceptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => {
     case Participants(
-          Participant(ledger, party),
+          Participant(ledger, party)
         ) =>
       for {
         t <- ledger.create(party, ExceptionTester(party))
@@ -412,7 +412,7 @@ final class ExceptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => {
     case Participants(
-          Participant(ledger, party),
+          Participant(ledger, party)
         ) =>
       for {
         t <- ledger.create(party, ExceptionTester(party))

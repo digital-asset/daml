@@ -5,9 +5,7 @@
  -- regression test for https://github.com/digital-asset/daml/pull/14080
 module ExceptionAndContractKey where
 
-import DA.Assert ((===))
-import DA.Optional (isSome)
-import DA.Exception (throw, GeneralError(..))
+import DA.Exception
 
 template K
   with
@@ -21,7 +19,7 @@ template Op
   with sig: Party
   where
     signatory sig
-    choice Go: Bool
+    choice OpLookup: ()
       with cid: ContractId K
       controller sig
       do
@@ -30,12 +28,30 @@ template Op
           None <- lookupByKey @K sig
           throw (GeneralError "")
         catch (GeneralError _) -> pure ()
-        result <- lookupByKey @K sig
-        pure $ isSome result
+        None <- lookupByKey @K sig
+        pure ()
 
-test = scenario do
+
+    choice OpCreate: ()
+      with cid: ContractId K
+      controller sig
+      do
+        exercise cid Archive
+        try do
+          None <- lookupByKey @K sig
+          throw (GeneralError "")
+        catch (GeneralError _) -> pure ()
+        _ <- create (K sig)
+        pure ()
+
+testLookup = scenario do
   alice <- getParty "alice"
   cid <- submit alice $ create (K alice)
-  op <- submit alice $ create (Op alice)
-  r <- submit alice $ exercise op (Go cid)
-  r === False
+  op <- submit alice $ createAndExercise (Op alice) (OpLookup cid)
+  pure ()
+
+testCreate = scenario do
+  alice <- getParty "alice"
+  cid <- submit alice $ create (K alice)
+  op <- submit alice $ createAndExercise (Op alice) (OpCreate cid)
+  pure ()
