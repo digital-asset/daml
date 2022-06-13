@@ -1062,11 +1062,13 @@ private[lf] object SBuiltin {
       val coid = getSContractId(args, 0)
       onLedger.cachedContracts.get(coid) match {
         case Some(cached) =>
-          onLedger.ptx.consumedBy
-            .get(coid)
-            .foreach(nid =>
+          onLedger.ptx.consumedByOrInactive(coid) match {
+            case Some(Left(nid)) =>
               throw SErrorDamlException(IE.ContractNotActive(coid, cached.templateId, nid))
-            )
+            case Some(Right(())) =>
+              throw SErrorDamlException(IE.ContractNotFound(coid))
+            case None => ()
+          }
           machine.returnValue = cached.any
         case None =>
           throw SpeedyHungry(
@@ -1458,8 +1460,18 @@ private[lf] object SBuiltin {
           onLedger.ptx = onLedger.ptx.copy(contractState = next)
           keyMapping match {
             case ContractStateMachine.KeyActive(coid)
-                if onLedger.ptx.localContracts.contains(coid) =>
-              machine.checkKeyVisibility(onLedger, gkey, coid, operation.handleKeyFound)
+                if onLedger.ptx.contractState.locallyCreated.contains(coid) =>
+              val cachedContract = onLedger.cachedContracts
+                .getOrElse(coid, crash(s"Local contract ${coid.coid} not in cachedContracts"))
+              val stakeholders = cachedContract.signatories union cachedContract.observers
+              onLedger.visibleToStakeholders(stakeholders) match {
+                case SVisibleToStakeholders.Visible =>
+                  operation.handleKeyFound(machine, coid)
+                case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
+                  machine.ctrl = SEDamlException(
+                    IE.LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
+                  )
+              }
             case _ =>
               operation.handleKnownInputKey(machine, gkey, keyMapping)
           }
