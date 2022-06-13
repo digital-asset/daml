@@ -5,14 +5,14 @@ package com.daml.lf
 package crypto
 
 import com.daml.lf.data.{Decimal, Numeric, Ref, SortedLookupList, Time}
-import com.daml.lf.value.test.TypedValueGenerators.{RNil, ValueAddend => VA}
+import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
 import com.daml.lf.value.Value._
 import com.daml.lf.value.Value
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import shapeless.record.{Record => HRecord}
 import shapeless.syntax.singleton._
-import shapeless.{Coproduct => HSum}
+import shapeless.{Coproduct => HSum, HNil}
 
 import scala.language.implicitConversions
 
@@ -317,7 +317,7 @@ class HashSpec extends AnyWordSpec with Matchers {
       val recordT =
         VA.record(
           defRef(name = "Tuple2"),
-          Symbol("_1") ->> VA.text :: Symbol("_2") ->> VA.text :: RNil,
+          HRecord(_1 = VA.text, _2 = VA.text),
         )._2
       val value1 = recordT.inj(HRecord(_1 = "A", _2 = "B"))
       val value2 = recordT.inj(HRecord(_1 = "A", _2 = "C"))
@@ -390,8 +390,8 @@ class HashSpec extends AnyWordSpec with Matchers {
         enumT2.inj(enumT2.get("Green").get),
       )
 
-      val record0T1 = VA.record("Unit", RNil)._2
-      val record0T2 = VA.record("UnitBis", RNil)._2
+      val record0T1 = VA.record("Unit", HNil)._2
+      val record0T2 = VA.record("UnitBis", HNil)._2
 
       val records0 =
         List(
@@ -400,9 +400,9 @@ class HashSpec extends AnyWordSpec with Matchers {
         )
 
       val record2T1 =
-        VA.record("Tuple", Symbol("_1") ->> VA.bool :: Symbol("_2") ->> VA.bool :: RNil)._2
+        VA.record("Tuple", HRecord(_1 = VA.bool, _2 = VA.bool))._2
       val record2T2 =
-        VA.record("TupleBis", Symbol("_1") ->> VA.bool :: Symbol("_2") ->> VA.bool :: RNil)._2
+        VA.record("TupleBis", HRecord(_1 = VA.bool, _2 = VA.bool))._2
 
       val records2 =
         List(
@@ -413,9 +413,9 @@ class HashSpec extends AnyWordSpec with Matchers {
         )
 
       val variantT1 =
-        VA.variant("Either", Symbol("Left") ->> VA.bool :: Symbol("Right") ->> VA.bool :: RNil)._2
+        VA.variant("Either", HRecord(Left = VA.bool, Right = VA.bool))._2
       val variantT2 = VA
-        .variant("EitherBis", Symbol("Left") ->> VA.bool :: Symbol("Right") ->> VA.bool :: RNil)
+        .variant("EitherBis", HRecord(Left = VA.bool, Right = VA.bool))
         ._2
 
       val variants = List(
