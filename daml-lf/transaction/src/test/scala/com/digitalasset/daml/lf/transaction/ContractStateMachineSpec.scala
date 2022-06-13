@@ -221,6 +221,35 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     )
   }
 
+  // Regression test for https://github.com/digital-asset/daml/pull/14080
+  def archiveRbLookupCreate: TestCase = {
+    // [ Exe c0 (key=k, !byKey)
+    // , Rollback [ LBK k -> None ],
+    // , Create c1 (key=k)
+    // ]
+    val builder = TransactionBuilder()
+    builder.add(mkExercise(1, consuming = true, "key", byKey = false))
+    val rollbackNid = builder.add(builder.rollback())
+    builder.add(mkLookupByKey("key", None), rollbackNid)
+    builder.add(mkCreate(2, "key"))
+    val tx = builder.build()
+    val expected: TestResult = Right(
+      Map(gkey("key") -> Transaction.KeyActive(1)) -> ActiveLedgerState(
+        Map(cid(1) -> ()),
+        Map(gkey("key") -> KeyActive(2)),
+      )
+    )
+    TestCase(
+      "ArchiveRbLookupCreate",
+      tx,
+      Map(
+        ContractKeyUniquenessMode.Strict -> expected,
+        ContractKeyUniquenessMode.On -> expected,
+        ContractKeyUniquenessMode.Off -> expected,
+      ),
+    )
+  }
+
   def rbExeCreateLbkDivulged: TestCase = {
     // [ Exe c1 [ Rollback [ Exe c2 (key=k1, !byKey), Create c3 (key=k1) ], LBK k1 -> None ] ]
     // (c2 is divulged)
@@ -479,6 +508,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     createRbExLbkLbk,
     multipleRollback,
     nestedRollback,
+    archiveRbLookupCreate,
     rbExeCreateLbkDivulged,
     rbExeCreateFbk,
     doubleCreate,
