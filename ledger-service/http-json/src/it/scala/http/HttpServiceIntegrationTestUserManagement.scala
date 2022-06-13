@@ -82,7 +82,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
   "create IOU should work with correct user rights" in withHttpService { fixture =>
     import fixture.{encoder, client => ledgerClient}
     val alice = getUniqueParty("Alice")
-    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
+    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
     val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
     for {
       user <- createUser(ledgerClient)(
@@ -109,7 +109,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     import fixture.{encoder, client => ledgerClient}
     val alice = getUniqueParty("Alice")
     val bob = getUniqueParty("Bob")
-    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
+    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
     val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
     for {
       user <- createUser(ledgerClient)(
@@ -139,7 +139,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       val bob = getUniqueParty("Bob")
       val meta = domain.CommandMeta(None, Some(NonEmptyList(bob)), None)
       val command: domain.CreateCommand[v.Record, OptionalPkg] =
-        iouCreateCommand(alice.unwrap, meta = Some(meta))
+        iouCreateCommand(alice, meta = Some(meta))
       val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
       for {
         user <- createUser(ledgerClient)(

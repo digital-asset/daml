@@ -95,7 +95,7 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
   "create should fail with custom tokens that contain no ledger id" in withHttpService { fixture =>
     import fixture.encoder
     val alice = getUniqueParty("Alice")
-    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
+    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
     val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
     val headers = HttpServiceTestFixture.authorizationHeader(
@@ -172,15 +172,13 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
   protected def genSearchDataSet(
       party: domain.Party
-  ): List[domain.CreateCommand[v.Record, OptionalPkg]] = {
-    val partyName = party.unwrap
+  ): List[domain.CreateCommand[v.Record, OptionalPkg]] =
     List(
-      iouCreateCommand(amount = "111.11", currency = "EUR", partyName = partyName),
-      iouCreateCommand(amount = "222.22", currency = "EUR", partyName = partyName),
-      iouCreateCommand(amount = "333.33", currency = "GBP", partyName = partyName),
-      iouCreateCommand(amount = "444.44", currency = "BTC", partyName = partyName),
+      iouCreateCommand(amount = "111.11", currency = "EUR", partyName = party),
+      iouCreateCommand(amount = "222.22", currency = "EUR", partyName = party),
+      iouCreateCommand(amount = "333.33", currency = "GBP", partyName = party),
+      iouCreateCommand(amount = "444.44", currency = "BTC", partyName = party),
     )
-  }
 
   "query GET" in withHttpService { fixture =>
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
@@ -400,7 +398,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         searchExpectOk(
           genSearchDataSet(alice) :+ iouCreateCommand(
             currency = testCurrency,
-            partyName = alice.unwrap,
+            partyName = alice,
           ),
           jsObject(
             s"""{"templateIds": ["Iou:Iou"], "query": {"currency": ${testCurrency.toJson}}}"""
@@ -507,7 +505,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   "create IOU" in withHttpService { fixture =>
     import fixture.encoder
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-      val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
+      val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
 
       postCreateCommand(command, fixture, headers)
         .map(inside(_) {
@@ -521,7 +519,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   "create IOU should fail if authorization header is missing" in withHttpService { fixture =>
     import fixture.encoder
     val alice = getUniqueParty("Alice")
-    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
+    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
     val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
     fixture
@@ -541,7 +539,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   "create IOU should support extra readAs parties" in withHttpService { fixture =>
     import fixture.encoder
     val alice = getUniqueParty("Alice")
-    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
+    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
     val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
     fixture
@@ -566,7 +564,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       import fixture.encoder
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         val command: domain.CreateCommand[v.Record, OptionalPkg] =
-          iouCreateCommand(alice.unwrap).copy(templateId = domain.TemplateId(None, "Iou", "Dummy"))
+          iouCreateCommand(alice).copy(templateId = domain.TemplateId(None, "Iou", "Dummy"))
         val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
         fixture
@@ -590,7 +588,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   "exercise IOU_Transfer" in withHttpService { fixture =>
     import fixture.encoder
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-      val create: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
+      val create: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
       postCreateCommand(create, fixture, headers)
         .flatMap(inside(_) {
           case (StatusCodes.OK, domain.OkResponse(createResult, _, StatusCodes.OK)) =>
@@ -619,7 +617,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     import fixture.encoder
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val cmd: domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] =
-        iouCreateAndExerciseTransferCommand(alice.unwrap)
+        iouCreateAndExerciseTransferCommand(alice)
 
       val json: JsValue = encoder.encodeCreateAndExerciseCommand(cmd).valueOr(e => fail(e.shows))
 
@@ -721,7 +719,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   "exercise Archive" in withHttpService { fixture =>
     import fixture.encoder
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-      val create: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
+      val create: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
       postCreateCommand(create, fixture, headers)
         .flatMap(inside(_) {
           case (StatusCodes.OK, domain.OkResponse(createResult, _, StatusCodes.OK)) =>
@@ -818,7 +816,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     import json.JsonProtocol._
     import util.ErrorOps._
 
-    val command0: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand("Alice")
+    val command0: domain.CreateCommand[v.Record, OptionalPkg] =
+      iouCreateCommand(domain.Party("Alice"))
 
     type F[A] = EitherT[Future, JsonError, A]
     val x: F[Assertion] = for {
@@ -1053,7 +1052,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
   "fetch by contractId" in withHttpService { fixture =>
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-      val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
+      val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
 
       postCreateCommand(command, fixture, headers).flatMap(inside(_) {
         case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
@@ -1087,7 +1086,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       for {
         res <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, aliceHeaders) = res
-        command = iouCreateCommand(alice.unwrap)
+        command = iouCreateCommand(alice)
         createStatusOutput <- postCreateCommand(command, fixture, aliceHeaders)
         contractId = inside(createStatusOutput) {
           case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
