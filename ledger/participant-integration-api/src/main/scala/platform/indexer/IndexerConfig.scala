@@ -32,18 +32,20 @@ object IndexerConfig {
   def dataSourceProperties(config: IndexerConfig): DataSourceProperties =
     config.dataSourceProperties.getOrElse(createDataSourceProperties(config.ingestionParallelism))
 
-  private def createDataSourceProperties(
-      ingestionParallelism: Int
-  ): DataSourceProperties = DataSourceProperties(
-    // PostgresSQL specific configurations
-    postgres = PostgresDataSourceConfig(
+  val DefaultPostgresDataSourceConfig: PostgresDataSourceConfig = PostgresDataSourceConfig(
       synchronousCommit = Some(PostgresDataSourceConfig.SynchronousCommitValue.Off),
       // Setting aggressive keep-alive defaults to aid prompt release of the locks on the server side.
       // For reference https://www.postgresql.org/docs/13/runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS
       tcpKeepalivesIdle = Some(10),
       tcpKeepalivesInterval = Some(1),
       tcpKeepalivesCount = Some(5),
-    ),
+    )
+
+  private def createDataSourceProperties(
+      ingestionParallelism: Int
+  ): DataSourceProperties = DataSourceProperties(
+    // PostgresSQL specific configurations
+    postgres = DefaultPostgresDataSourceConfig,
     connectionPool = ConnectionPoolConfig(
       connectionPoolSize = ingestionParallelism + 1, // + 1 for the tailing ledger_end updates
       // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
