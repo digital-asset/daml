@@ -238,6 +238,7 @@ message ScenarioError {
   // The state of the ledger at the time of the error
   repeated ScenarioStep scenario_steps = 1;
   repeated Node nodes = 2;
+  repeated string active_contracts = 4000;
 
   reserved 3; // was environment
   reserved 4; // was call stack
@@ -428,6 +429,7 @@ message ScenarioResult {
   sfixed64 final_time = 4;
   repeated TraceMessage trace_log = 5;
   repeated WarningMessage warnings = 6;
+  repeated string active_contracts = 7;
 }
 
 message ScenarioStep {
@@ -568,10 +570,11 @@ message KeyWithMaintainers {
 // from the reference ledger.
 message Node {
   message Create {
-    ContractInstance contract_instance = 1;
-    repeated Party signatories = 2;
-    repeated Party stakeholders = 3;
-    KeyWithMaintainers key_with_maintainers = 4; // optional
+    string contract_id = 1;
+    ContractInstance contract_instance = 2;
+    repeated Party signatories = 3;
+    repeated Party stakeholders = 4;
+    KeyWithMaintainers key_with_maintainers = 5; // optional
   }
 
   message Fetch {
