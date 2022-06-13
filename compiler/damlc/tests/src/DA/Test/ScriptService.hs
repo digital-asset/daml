@@ -933,6 +933,71 @@ main =
                   matchRegex r "Active contracts:  #0:0\n"
                 expectScriptFailure rs (vr "unhandledOffLedger") $ \r -> matchRegex r "Unhandled exception"
                 expectScriptFailure rs (vr "unhandledOnLedger") $ \r -> matchRegex r "Unhandled exception",
+              testCase "disclosures" $ do
+                rs <- runScripts scriptService 
+                  [
+                      "  module Test where"
+                    , "  import Daml.Script"
+                    , "  template Asset"
+                    , "    with"
+                    , "      issuer : Party"
+                    , "      owner : Party"
+                    , "      amount : Int"
+                    , "    where "
+                    , "      signatory issuer"
+                    , "      observer owner"
+                    , "      nonconsuming choice Transfer : ()"
+                    , "        with"
+                    , "          p : Party"
+                    , "        controller owner"
+                    , "        do"
+                    , "          archive self"
+                    , "          create Asset with"
+                    , "            issuer = issuer"
+                    , "            owner = p"
+                    , "            amount = amount"
+                    , "          pure ()"
+                    , "  template ProposeSwap"
+                    , "    with"
+                    , "      p1 : Party"
+                    , "      p2 : Party"
+                    , "      cid1 : ContractId Asset"
+                    , "      cid2 : ContractId Asset"
+                    , "    where"
+                    , "      signatory p1"
+                    , "      observer p2"
+                    , "      choice Go : ()"
+                    , "        with"
+                    , "        controller p2"
+                    , "        do"
+                    , "          exercise cid1 $ Transfer with p = p2"
+                    , "          exercise cid2 $ Transfer with p = p1"
+                    , "  testDisclosures : Script ()"
+                    , "  testDisclosures = script do"
+                    , "    bank <- allocateParty \"Bank\""
+                    , "    alice <- allocateParty \"Alice\""
+                    , "    bob <- allocateParty \"Bob\""
+                    , "    cidAsset1 <- submit bank $ createCmd Asset with"
+                    , "        issuer = bank "
+                    , "        owner = alice "
+                    , "        amount = 15"
+                    , "    cidAsset2 <- submit bank $ createCmd Asset with"
+                    , "        issuer = bank"
+                    , "        owner = bob"
+                    , "        amount = 15"
+                    , "    swap <- submit alice $ createCmd ProposeSwap with"
+                    , "        p1 = alice"
+                    , "        p2 = bob"
+                    , "        cid1 = cidAsset1"
+                    , "        cid2 = cidAsset2"
+
+                    , "    Some c <- queryContractId' alice cidAsset1"
+                    , "    submitMustFail bob $ exerciseCmd swap Go"
+                    , "    submitDisclosing [toDisclosedContract cidAsset1 c.contract c.metadata] bob $ exerciseCmd swap Go"
+                    , "    pure()"
+                    ]
+                expectScriptSuccess rs (vr "testDisclosures") $ \r ->
+                    matchRegex r "Use of divulged contracts is deprecated and incompatible with pruning",
               testCase "user management" $ do
                 rs <- runScripts scriptService
                   [ "module Test where"
@@ -1011,7 +1076,7 @@ main =
                   , "  expectUserNotFound (revokeUserRights nonexistent [])"
                   , "  expectUserNotFound (grantUserRights nonexistent [])"
                   , "  pure ()"
-                  ]
+                          ]
                 expectScriptSuccess rs (vr "testUserManagement") $ \r ->
                     matchRegex r "Active contracts: \n"
                 expectScriptSuccess rs (vr "testUserRightManagement") $ \r ->
