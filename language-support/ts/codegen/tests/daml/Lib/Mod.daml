@@ -23,3 +23,11 @@ interface Other where
     controller getOtherOwner this
     do
       somethingImpl this
+  choice Overridden : ()
+    controller getOtherOwner this
+    do
+      somethingImpl this
+  choice PeerIfaceOverload : ()
+    controller getOtherOwner this
+    do
+      somethingImpl this
