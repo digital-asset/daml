@@ -7,13 +7,18 @@ import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.{value => api}
+import com.daml.ledger.api.v1.{commands => cmds}
 import com.daml.lf.data._
+import com.daml.lf.command._
+import com.daml.api.util.TimestampConversion
 import com.daml.lf.value.Value.{ContractId, ValueUnit}
 import com.daml.lf.value.{Value => Lf}
 import com.daml.platform.server.api.validation.FieldValidations
 import io.grpc.StatusRuntimeException
 import scalaz.std.either._
 import scalaz.syntax.bifunctor._
+import com.daml.lf.crypto
+import com.google.protobuf.ByteString
 
 object ValueValidator {
   import ValidationErrors._
@@ -152,6 +157,28 @@ object ValueValidator {
     case Sum.Empty => Left(missingField("value"))
   }
 
+  def validateContractMetadata(meta: cmds.ContractMetadata)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, ContractMetadata] = {
+    for {
+      createdAt <- meta.createdAt
+        .map(Right(_))
+        .getOrElse(Left(invalidArgument("Missing createdAt in contract metadata")))
+      keyHash <- meta.contractKeyHash match {
+        case ByteString.EMPTY => Right(None)
+        case bs =>
+          crypto.Hash.fromBytes(Bytes.fromByteString(bs)) match {
+            case Left(err) => Left(invalidArgument(err))
+            case Right(hash) => Right(Some(hash))
+          }
+      }
+    } yield ContractMetadata(
+      createdAt = TimestampConversion.toLf(createdAt, TimestampConversion.ConversionMode.Exact),
+      keyHash = keyHash,
+      driverMetadata = ImmArray.from(Bytes.fromByteString(meta.driverMetadata).toByteArray),
+    )
+  }
+
   private[validation] def validateOptionalIdentifier(
       variantIdO: Option[api.Identifier]
   )(implicit
@@ -169,4 +196,8 @@ object NoLoggingValueValidator {
   def validateValue(v0: api.Value): Either[StatusRuntimeException, Lf] =
     ValueValidator.validateValue(v0)(NoLogging)
 
+  def validateContractMetadata(
+      meta: cmds.ContractMetadata
+  ): Either[StatusRuntimeException, ContractMetadata] =
+    ValueValidator.validateContractMetadata(meta)(NoLogging)
 }

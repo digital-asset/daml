@@ -739,21 +739,46 @@ object Converter {
       entityName <- DottedName.fromString(id.entityName)
     } yield Identifier(packageId, QualifiedName(moduleName, entityName))
 
-  // Convert an active contract to AnyTemplate
+  // Convert an active contract to (AnyTemplate, ContractMetadata)
   def fromContract(
+      scriptIds: ScriptIds,
       translator: preprocessing.ValueTranslator,
       contract: ScriptLedgerClient.ActiveContract,
-  ): Either[String, SValue] = fromAnyTemplate(translator, contract.templateId, contract.argument)
+  ): Either[String, SValue] = {
+    val contractInstanceTyCon = scriptIds.damlScript("ContractInstance")
+    for {
+      anyTpl <- fromAnyTemplate(translator, contract.templateId, contract.argument)
+      meta <- fromContractMetadata(scriptIds, contract.metadata)
+    } yield record(contractInstanceTyCon, ("contract", anyTpl), ("metadata", meta))
+  }
 
-  // Convert a Created event to a pair of (ContractId (), AnyTemplate)
+  // Convert a Created event to a pair of (ContractId (), (AnyTemplate, ContractMetadata))
   def fromCreated(
+      scriptIds: ScriptIds,
       translator: preprocessing.ValueTranslator,
       contract: ScriptLedgerClient.ActiveContract,
   ): Either[String, SValue] = {
     val pairTyCon = daTypes("Tuple2")
     for {
-      anyTpl <- fromContract(translator, contract)
-    } yield record(pairTyCon, ("_1", SContractId(contract.contractId)), ("_2", anyTpl))
+      anyTplAndMeta <- fromContract(scriptIds, translator, contract)
+    } yield record(pairTyCon, ("_1", SContractId(contract.contractId)), ("_2", anyTplAndMeta))
+  }
+
+  def fromContractMetadata(
+      scriptIds: ScriptIds,
+      meta: command.ContractMetadata,
+  ): Either[String, SValue] = {
+    val metaTyCon = scriptIds.damlScript("ContractMetadata")
+    val driverMetadata = Bytes.fromByteArray(meta.driverMetadata.toArray).toHexString
+    for {
+      keyHash <- fromOptional(meta.keyHash, (h: crypto.Hash) => Right(SText(h.toHexString)))
+    } yield record(
+      metaTyCon,
+      ("createdAt", STimestamp(meta.createdAt)),
+      ("keyHash", keyHash),
+      ("driverMetadata", SText(driverMetadata)),
+    )
+
   }
 
   def fromStatusException(

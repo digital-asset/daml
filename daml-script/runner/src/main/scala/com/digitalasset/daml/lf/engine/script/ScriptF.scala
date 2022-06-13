@@ -227,7 +227,7 @@ object ScriptF {
             .to(FrontStack)
             .traverse(
               Converter
-                .fromCreated(env.valueTranslator, _)
+                .fromCreated(env.scriptIds, env.valueTranslator, _)
             )
         )
       } yield SEApp(SEValue(continue), Array(SEValue(SList(res))))
@@ -251,7 +251,7 @@ object ScriptF {
         client <- Converter.toFuture(env.clients.getPartyParticipant(parties.head))
         optR <- client.queryContractId(parties, tplId, cid)
         optR <- Converter.toFuture(
-          optR.traverse(Converter.fromContract(env.valueTranslator, _))
+          optR.traverse(Converter.fromContract(env.scriptIds, env.valueTranslator, _))
         )
       } yield SEApp(SEValue(continue), Array(SEValue(SOptional(optR))))
   }
@@ -281,7 +281,7 @@ object ScriptF {
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
         optR <- client.queryContractKey(parties, tplId, key.key, translateKey(env))
         optR <- Converter.toFuture(
-          optR.traverse(Converter.fromCreated(env.valueTranslator, _))
+          optR.traverse(Converter.fromCreated(env.scriptIds, env.valueTranslator, _))
         )
       } yield SEApp(SEValue(continue), Array(SEValue(SOptional(optR))))
   }

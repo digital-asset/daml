@@ -41,6 +41,7 @@ object ScriptLedgerClient {
       templateId: Identifier,
       contractId: ContractId,
       argument: Value,
+      metadata: command.ContractMetadata,
   )
 
   final case class TransactionTree(rootEvents: List[TreeEvent])
