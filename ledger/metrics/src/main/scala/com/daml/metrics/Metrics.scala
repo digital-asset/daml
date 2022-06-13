@@ -298,6 +298,10 @@ final class Metrics(val registry: MetricRegistry) {
         val transactions: Counter = registry.counter(Prefix :+ "transactions_sent")
         val completions: Counter = registry.counter(Prefix :+ "completions_sent")
         val acs: Counter = registry.counter(Prefix :+ "acs_sent")
+
+        val activeName: MetricName = Prefix :+ "active"
+        val active: Counter = registry.counter(activeName)
+
       }
     }
 
