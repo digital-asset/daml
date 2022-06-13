@@ -12,7 +12,13 @@ import com.daml.error.definitions.LedgerApiErrors.{
 }
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.metrics.{MetricName, Metrics}
-import com.daml.platform.apiserver.RateLimitingInterceptor._
+import com.daml.platform.apiserver.RateLimitingInterceptor.{
+  LimitResult,
+  OnCloseCallListener,
+  OverLimit,
+  UnderLimit,
+  doNonLimit,
+}
 import com.daml.platform.apiserver.TenuredMemoryPool.findTenuredMemoryPool
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.configuration.ServerRole
