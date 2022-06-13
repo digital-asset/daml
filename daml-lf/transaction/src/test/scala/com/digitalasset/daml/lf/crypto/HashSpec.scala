@@ -23,36 +23,39 @@ class HashSpec extends AnyWordSpec with Matchers {
   private val complexRecordT =
     VA.record(
       defRef(name = "ComplexRecord"),
-      Symbol("fInt0") ->> VA.int64
-        :: Symbol("fInt1") ->> VA.int64
-        :: Symbol("fInt2") ->> VA.int64
-        :: Symbol("fNumeric0") ->> VA.numeric(Decimal.scale)
-        :: Symbol("fNumeric1") ->> VA.numeric(Decimal.scale)
-        :: Symbol("fBool0") ->> VA.bool
-        :: Symbol("fBool1") ->> VA.bool
-        :: Symbol("fDate0") ->> VA.date
-        :: Symbol("fDate1") ->> VA.date
-        :: Symbol("fTime0") ->> VA.timestamp
-        :: Symbol("fTime1") ->> VA.timestamp
-        :: Symbol("fText0") ->> VA.text
-        :: Symbol("fTest1") ->> VA.text
-        :: Symbol("fPArty") ->> VA.party
-        :: Symbol("fUnit") ->> VA.unit
-        :: Symbol("fOpt0") ->> VA.optional(VA.text)
-        :: Symbol("fOpt1") ->> VA.optional(VA.text)
-        :: Symbol("fList") ->> VA.list(VA.text)
-        :: Symbol("fVariant") ->>
-        VA.variant(
-          defRef(name = "Variant"),
-          Symbol("Variant") ->> VA.int64 :: RNil,
-        )._2
-        :: Symbol("fRecord") ->>
-        VA.record(
-          defRef(name = "Record"),
-          Symbol("field1") ->> VA.text :: Symbol("field2") ->> VA.text :: RNil,
-        )._2
-        :: Symbol("fTextMap") ->> VA.map(VA.text)
-        :: RNil,
+      HRecord(
+        fInt0 = VA.int64,
+        fInt1 = VA.int64,
+        fInt2 = VA.int64,
+        fNumeric0 = VA.numeric(Decimal.scale),
+        fNumeric1 = VA.numeric(Decimal.scale),
+        fBool0 = VA.bool,
+        fBool1 = VA.bool,
+        fDate0 = VA.date,
+        fDate1 = VA.date,
+        fTime0 = VA.timestamp,
+        fTime1 = VA.timestamp,
+        fText0 = VA.text,
+        fTest1 = VA.text,
+        fPArty = VA.party,
+        fUnit = VA.unit,
+        fOpt0 = VA.optional(VA.text),
+        fOpt1 = VA.optional(VA.text),
+        fList = VA.list(VA.text),
+        fVariant = VA
+          .variant(
+            defRef(name = "Variant"),
+            HRecord(Variant = VA.int64),
+          )
+          ._2,
+        fRecord = VA
+          .record(
+            defRef(name = "Record"),
+            HRecord(field1 = VA.text, field2 = VA.text),
+          )
+          ._2,
+        fTextMap = VA.map(VA.text),
+      ),
     )._2
 
   private val complexRecordV: complexRecordT.Inj =
@@ -156,7 +159,7 @@ class HashSpec extends AnyWordSpec with Matchers {
       val variantT =
         VA.variant(
           defRef(name = "Variant"),
-          Symbol("A") ->> VA.unit :: Symbol("B") ->> VA.unit :: RNil,
+          HRecord(A = VA.unit, B = VA.unit),
         )._2
       val value1 = variantT.inj(HSum[variantT.Inj](Symbol("A") ->> (())))
       val value2 = variantT.inj(HSum[variantT.Inj](Symbol("B") ->> (())))
@@ -170,7 +173,7 @@ class HashSpec extends AnyWordSpec with Matchers {
     }
 
     "not produce collision in Variant value" in {
-      val variantT = VA.variant(defRef(name = "Variant"), Symbol("A") ->> VA.int64 :: RNil)._2
+      val variantT = VA.variant(defRef(name = "Variant"), HRecord(A = VA.int64))._2
       val value1 = variantT.inj(HSum(Symbol("A") ->> 0L))
       val value2 = variantT.inj(HSum(Symbol("A") ->> 1L))
 
