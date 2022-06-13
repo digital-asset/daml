@@ -254,7 +254,7 @@ template KeyOperations
          cid1 === cid'
 
      -- should be accepted in uck, regression test for https://github.com/digital-asset/daml/pull/14080
-    nonconsuming choice RollbackGlobalArchivedLoolkup : ()
+    nonconsuming choice RollbackGlobalArchivedLookup : ()
         with
           cid: ContractId Keyed
         controller p
