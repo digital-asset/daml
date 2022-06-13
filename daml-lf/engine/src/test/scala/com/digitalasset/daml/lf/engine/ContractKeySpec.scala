@@ -374,7 +374,7 @@ class ContractKeySpec
         rollbackGlobalArchiveNonRollbackCreate,
         rollbackCreateNonRollbackGlobalArchive,
         rollbackGlobalArchiveUpdates,
-        rollbackGlobalArchivedLoolkup,
+        rollbackGlobalArchivedLookup,
       )
 
       val uckFailures = Set(
