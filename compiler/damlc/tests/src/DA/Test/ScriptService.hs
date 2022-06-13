@@ -158,6 +158,55 @@ main =
                     ]
                 expectScriptSuccess rs (vr "testExerciseByKey") $ \r ->
                   matchRegex r "Active contracts: \n\nReturn value: 42\n\n$",
+              testCase "fetch and exercising by key shows key in log" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where",
+                      "import Daml.Script",
+                      "",
+                      "template T",
+                      "  with",
+                      "    owner : Party",
+                      "  where",
+                      "    signatory owner",
+                      "    key owner : Party",
+                      "    maintainer key",
+                      "    nonconsuming choice C : ()",
+                      "      controller owner",
+                      "      do",
+                      "        pure ()",
+                      "",
+                      "template Runner",
+                      "  with",
+                      "    owner : Party",
+                      "  where",
+                      "    signatory owner",
+                      "    choice Run : ()",
+                      "      with",
+                      "        party : Party",
+                      "      controller owner",
+                      "      do",
+                      "        cid <- create T with owner = party",
+                      "        exercise cid C",
+                      "        exerciseByKey @T party C",
+                      "        fetch cid",
+                      "        fetchByKey @T party",
+                      "        pure ()",
+                      "",
+                      "test = do",
+                      "  p <- allocateParty \"p\"",
+                      "  submit p $ createAndExerciseCmd (Runner p) (Run p)"
+                    ]
+                expectScriptSuccess rs (vr "test") $ \r ->
+                  matchRegex r (T.unlines
+                    [ ".*exercises.*"
+                    , ".*using key.*"
+                    ]) &&
+                  matchRegex r (T.unlines
+                    [ ".*fetch.*"
+                    , ".*using key.*"
+                    ]),
               testCase "failing transactions" $ do
                 rs <-
                   runScripts
