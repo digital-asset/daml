@@ -3,10 +3,14 @@
 > Client side API implementation for a Daml based ledgers. This library implements the [JSON
 > API](https://docs.daml.com/json-api/index.html) for a Daml ledger.
 
+<!-- START_BACKLINK -->
+
 ## Documentation
 
 Comprehensive documentation for `@daml/ledger` can be found
 [here](https://docs.daml.com/0.0.0-SDKVERSION/app-dev/bindings-ts/daml-ledger/index.html).
+
+<!-- END_BACKLINK -->
 
 ## Usage
 
