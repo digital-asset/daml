@@ -223,20 +223,23 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
 
   // Regression test for https://github.com/digital-asset/daml/pull/14080
   def archiveRbLookupCreate: TestCase = {
-    // [ Exe c0 (key=k, !byKey)
-    // , Rollback [ LBK k -> None ],
-    // , Create c1 (key=k)
-    // ]
+    // Exe c0
+    //   [ Exe c1 (key=k, !byKey)
+    //   , Rollback [ LBK k -> None ],
+    //   , Create c2 (key=k)
+    //   ]
     val builder = TransactionBuilder()
-    builder.add(mkExercise(1, consuming = true, "key", byKey = false))
-    val rollbackNid = builder.add(builder.rollback())
+    val exerciseNid = builder.add(mkExercise(1))
+    builder.add(mkExercise(1))
+    builder.add(mkExercise(2, consuming = true, "key", byKey = false), exerciseNid)
+    val rollbackNid = builder.add(builder.rollback(), exerciseNid)
     builder.add(mkLookupByKey("key", None), rollbackNid)
-    builder.add(mkCreate(2, "key"))
+    builder.add(mkCreate(3, "key"), exerciseNid)
     val tx = builder.build()
     val expected: TestResult = Right(
-      Map(gkey("key") -> Transaction.KeyActive(1)) -> ActiveLedgerState(
-        Map(cid(1) -> ()),
-        Map(gkey("key") -> KeyActive(2)),
+      Map(gkey("key") -> Transaction.KeyActive(2)) -> ActiveLedgerState(
+        Map(cid(1) -> (), cid(2) -> ()),
+        Map(gkey("key") -> KeyActive(3)),
       )
     )
     TestCase(
