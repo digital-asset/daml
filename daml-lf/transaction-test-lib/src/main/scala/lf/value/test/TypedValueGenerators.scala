@@ -404,95 +404,96 @@ object TypedValueGenerators {
           TL: RVS[Tl],
       ): Aux[(KS :->>: ValueAddend.Aux[
         KT
-      ]) :: Tl, (KS :->>: KT) :: TL.HRec, (KS :->>: KT) :+: TL.HVar] = new RVS {
-        type HRec = (KS :->>: KT) :: TL.HRec
-        type HVar = (KS :->>: KT) :+: TL.HVar
-        private[this] val fname = Ref.Name assertFromString ev.value.name
-        override def configure(in: (KS :->>: ValueAddend.Aux[KT]) :: Tl) = new Rules {
-          private[this] val h :: selfT = in
-          private[this] val self = TL configure selfT
-          type K = KS
+      ]) :: Tl, (KS :->>: KT) :: TL.HRec, (KS :->>: KT) :+: TL.HVar] =
+        new RVS[(KS :->>: ValueAddend.Aux[KT]) :: Tl] {
+          type HRec = (KS :->>: KT) :: TL.HRec
+          type HVar = (KS :->>: KT) :+: TL.HVar
+          private[this] val fname = Ref.Name assertFromString ev.value.name
+          override def configure(in: (KS :->>: ValueAddend.Aux[KT]) :: Tl) = new Rules {
+            private[this] val h :: selfT = in
+            private[this] val self = TL configure selfT
+            type K = KS
 
-          override val t = (fname, h.t) :: self.t
+            override val t = (fname, h.t) :: self.t
 
-          override def injRec(v: HRec) =
-            h.inj(v.head) :: self.injRec(v.tail)
+            override def injRec(v: HRec) =
+              h.inj(v.head) :: self.injRec(v.tail)
 
-          override def prjRec(v: ImmArray[(_, Value)]) = v match {
-            case ImmArrayCons(vh, vt) =>
-              for {
-                pvh <- h.prj(vh._2)
-                pvt <- self.prjRec(vt)
-              } yield field[K](pvh) :: pvt
-            case _ => None
-          }
+            override def prjRec(v: ImmArray[(_, Value)]) = v match {
+              case ImmArrayCons(vh, vt) =>
+                for {
+                  pvh <- h.prj(vh._2)
+                  pvt <- self.prjRec(vt)
+                } yield field[K](pvh) :: pvt
+              case _ => None
+            }
 
-          override def record = {
-            import h.{injord => hord}, self.{record => tailord}
-            Order.orderBy { case ah :: at => (ah: h.Inj, at) }
-          }
+            override def record = {
+              import h.{injord => hord}, self.{record => tailord}
+              Order.orderBy { case ah :: at => (ah: h.Inj, at) }
+            }
 
-          override def recarb = {
-            import self.{recarb => tailarb}, h.{injarb => headarb}
-            Arbitrary(arbitrary[(h.Inj, self.HRec)] map { case (vh, vt) =>
-              field[K](vh) :: vt
-            })
-          }
+            override def recarb = {
+              import self.{recarb => tailarb}, h.{injarb => headarb}
+              Arbitrary(arbitrary[(h.Inj, TL.HRec)] map { case (vh, vt) =>
+                field[K](vh) :: vt
+              })
+            }
 
-          override def recshrink: Shrink[HRec] = {
-            import h.{injshrink => hshrink}, self.{recshrink => tshrink}
-            Shrink { case vh :: vt =>
-              (Shrink.shrink(vh: h.Inj) zip Shrink.shrink(vt)) map { case (nh, nt) =>
-                field[K](nh) :: nt
+            override def recshrink: Shrink[HRec] = {
+              import h.{injshrink => hshrink}, self.{recshrink => tshrink}
+              Shrink { case vh :: vt =>
+                (Shrink.shrink(vh: h.Inj) zip Shrink.shrink(vt)) map { case (nh, nt) =>
+                  field[K](nh) :: nt
+                }
               }
             }
-          }
 
-          override def injVar(v: HVar) = v match {
-            case Inl(hv) => (fname, h.inj(hv))
-            case Inr(tl) => self.injVar(tl)
-          }
+            override def injVar(v: HVar) = v match {
+              case Inl(hv) => (fname, h.inj(hv))
+              case Inr(tl) => self.injVar(tl)
+            }
 
-          override val prjVar = {
-            val r = self.prjVar transform { (_, tf) => tv: Value => tf(tv) map (Inr(_)) }
-            r.updated(
-              fname,
-              (hv: Value) => h.prj(hv) map (pv => Inl(field[K](pv))),
-            )
-          }
+            override val prjVar: Map[Ref.Name, Value => PrjResult] = {
+              val r = self.prjVar transform { (_, tf) => tv: Value => tf(tv) map (Inr(_)) }
+              r.updated(
+                fname,
+                (hv: Value) => h.prj(hv) map (pv => Inl(field[K](pv))),
+              )
+            }
 
-          override def varord =
-            (a, b) =>
-              (a, b) match {
-                case (Inr(at), Inr(bt)) => self.varord.order(at, bt)
-                case (Inl(_), Inr(_)) => Ordering.LT
-                case (Inr(_), Inl(_)) => Ordering.GT
-                case (Inl(ah), Inl(bh)) => h.injord.order(ah, bh)
+            override def varord =
+              (a, b) =>
+                (a, b) match {
+                  case (Inr(at), Inr(bt)) => self.varord.order(at, bt)
+                  case (Inl(_), Inr(_)) => Ordering.LT
+                  case (Inr(_), Inl(_)) => Ordering.GT
+                  case (Inl(ah), Inl(bh)) => h.injord.order(ah, bh)
+                }
+
+            override def vararb: Map[Ref.Name, Gen[HVar]] = {
+              val r =
+                self.vararb transform { (_, ta) =>
+                  ta map (Inr(_))
+                }
+              r.updated(
+                fname, {
+                  import h.{injarb => harb}
+                  arbitrary[h.Inj] map (hv => Inl(field[K](hv)))
+                },
+              )
+            }
+
+            override def varshrink = {
+              val lshr: Shrink[h.Inj] = h.injshrink
+              val rshr: Shrink[TL.HVar] = self.varshrink
+              Shrink {
+                case Inl(hv) => lshr shrink hv map (shv => Inl(field[K](shv)))
+                case Inr(tl) => rshr shrink tl map (Inr(_))
               }
-
-          override def vararb = {
-            val r =
-              self.vararb transform { (_, ta) =>
-                ta map (Inr(_))
-              }
-            r.updated(
-              fname, {
-                import h.{injarb => harb}
-                arbitrary[h.Inj] map (hv => Inl(field[K](hv)))
-              },
-            )
-          }
-
-          override def varshrink = {
-            val lshr: Shrink[h.Inj] = h.injshrink
-            val rshr: Shrink[self.HVar] = self.varshrink
-            Shrink {
-              case Inl(hv) => lshr shrink hv map (shv => Inl(field[K](shv)))
-              case Inr(tl) => rshr shrink tl map (Inr(_))
             }
           }
         }
-      }
     }
   }
 
