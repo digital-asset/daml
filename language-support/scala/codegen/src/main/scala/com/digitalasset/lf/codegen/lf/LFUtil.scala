@@ -428,6 +428,7 @@ object LFUtil {
   final case class WriteParams(
       templateIds: Map[Ref.Identifier, DefTemplateWithRecord],
       definitions: Vector[ScopedDataType.FWT],
+      interfaces: Map[Ref.Identifier, iface.DefInterface.FWT],
   )
 
   object WriteParams {
@@ -441,6 +442,7 @@ object LFUtil {
       WriteParams(
         templateIds = templateIds.toMap,
         definitions = typeDeclarations,
+        interfaces = tc.interfaces.toMap,
       )
     }
   }

@@ -5,7 +5,6 @@ package com.daml.lf.engine.trigger
 package test
 
 import java.nio.file.Paths
-import java.util.UUID
 
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.Party
@@ -47,9 +46,6 @@ class ConfigSpec
     Ref.Party.assertFromString(s)
   private implicit def toUserId(s: String): UserId =
     UserId.assertFromString(s)
-
-  private def randomUserId(): UserId =
-    s"u${UUID.randomUUID}"
 
   "CLI" should {
     val defaultArgs = Array(

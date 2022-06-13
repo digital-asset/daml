@@ -3,8 +3,6 @@
 
 package com.daml.http
 
-import java.io.File
-import java.time.Instant
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -43,15 +41,16 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.resources.ResourceContext
-import com.daml.ledger.sandbox.SandboxServer
+import com.daml.ledger.runner.common
+import com.daml.ledger.sandbox.SandboxOnXForTest._
+import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
+import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{Assertions, Inside}
 import scalaz._
@@ -62,6 +61,9 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
 
+import java.io.File
+import java.nio.file.Files
+import java.time.Instant
 import scala.concurrent.duration.{DAYS, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -169,23 +171,19 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     val ledgerF = for {
       urlResource <- Future(
         SandboxBackend.H2Database.owner
-          .map(info => Some(info.jdbcUrl))
+          .map(info => info.jdbcUrl)
           .acquire()
       )
       jdbcUrl <- urlResource.asFuture
+
+      config = ledgerConfig(
+        ledgerPort = Port.Dynamic,
+        ledgerId = ledgerId,
+        useTls = useTls,
+        jdbcUrl = jdbcUrl,
+      )
       portF <- Future(
-        SandboxServer
-          .owner(
-            ledgerConfig(
-              Port.Dynamic,
-              dars,
-              ledgerId,
-              useTls = useTls,
-              authService = authService,
-              jdbcUrl = jdbcUrl,
-            )
-          )
-          .acquire()
+        SandboxOnXRunner.owner(ConfigAdaptor(authService), config, bridgeConfig).acquire()
       )
       port <- portF.asFuture
     } yield (portF, port)
@@ -202,6 +200,11 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     val fa: Future[A] = for {
       (_, ledgerPort) <- ledgerF
       client <- clientF
+      _ <- Future.sequence(dars.map { dar =>
+        client.packageManagementClient.uploadDarFile(
+          ByteString.copyFrom(Files.readAllBytes(dar.toPath))
+        )
+      })
       a <- testFn(ledgerPort, client, ledgerId)
     } yield a
 
@@ -213,24 +216,26 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     }
   }
 
+  def bridgeConfig: BridgeConfig = BridgeConfig()
+
   private def ledgerConfig(
       ledgerPort: Port,
-      dars: List[File],
       ledgerId: LedgerId,
-      authService: Option[AuthService],
       useTls: UseTls,
-      jdbcUrl: Option[String],
-  ): SandboxConfig =
-    SandboxConfig.defaultConfig.copy(
-      port = ledgerPort,
-      damlPackages = dars,
-      jdbcUrl = jdbcUrl,
-      timeProviderType = Some(TimeProviderType.WallClock),
-      tlsConfig = if (useTls) Some(serverTlsConfig) else None,
-      ledgerIdMode = LedgerIdMode.Static(ledgerId),
-      authService = authService,
-      seeding = Seeding.Weak,
-    )
+      jdbcUrl: String,
+  ): common.Config = Default.copy(
+    ledgerId = ledgerId.unwrap,
+    engine = DevEngineConfig,
+    dataSource = dataSource(jdbcUrl),
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        seeding = Seeding.Weak,
+        timeProviderType = TimeProviderType.WallClock,
+        tls = if (useTls) Some(serverTlsConfig) else None,
+        port = ledgerPort,
+      )
+    ),
+  )
 
   private def clientConfig(
       applicationId: ApplicationId,
@@ -532,22 +537,5 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     )
 
     domain.CreateCommand(templateId, arg, None)
-  }
-
-  def getContractId(result: JsValue): domain.ContractId =
-    inside(result.asJsObject.fields.get("contractId")) { case Some(JsString(contractId)) =>
-      domain.ContractId(contractId)
-    }
-
-  def getResult(output: JsValue): JsValue = getChild(output, "result")
-
-  def getWarnings(output: JsValue): JsValue = getChild(output, "warnings")
-
-  def getChild(output: JsValue, field: String): JsValue = {
-    def errorMsg = s"Expected JsObject with '$field' field, got: $output"
-    output
-      .asJsObject(errorMsg)
-      .fields
-      .getOrElse(field, fail(errorMsg))
   }
 }

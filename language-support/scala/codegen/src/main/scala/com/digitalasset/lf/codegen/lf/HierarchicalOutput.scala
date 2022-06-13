@@ -33,8 +33,14 @@ private[codegen] object HierarchicalOutput {
   // Rec minus the left case (which is only needed when considering a fold step)
   type ErrorsAndFiles[E, F] = (Vector[E], Vector[(F, Iterable[Tree])])
 
-  type TemplateOrDatatype =
-    (Identifier, DefTemplateWithRecord \/ DamlDataTypeGen.DataType)
+  type TemplateOrDatatype = (Identifier, PotentialFile)
+
+  sealed abstract class PotentialFile extends Product with Serializable
+  object PotentialFile {
+    final case class Tpl(dt: DefTemplateWithRecord) extends PotentialFile
+    final case class NormalDt(dt: DamlDataTypeGen.DataType) extends PotentialFile
+    final case class Interface(dt: DamlInterfaceGen.DataType) extends PotentialFile
+  }
 
   /** Pull up each `Rec` into the companion implied, or not, by the keys. */
   private[this] def liftSubtrees[S, F](
@@ -77,7 +83,7 @@ private[codegen] object HierarchicalOutput {
           val companionMembers = subFiles flatMap (_._3)
 
           val (generate, log @ _, errorMsg) = codeGenElt match {
-            case (templateId, -\/(templateInterface)) =>
+            case (templateId, PotentialFile.Tpl(templateInterface)) =>
               (
                 () =>
                   DamlContractTemplateGen.generate(
@@ -90,11 +96,18 @@ private[codegen] object HierarchicalOutput {
                 s"Cannot generate Scala code for template $templateId",
               )
 
-            case (name, \/-(ntd)) =>
+            case (name, PotentialFile.NormalDt(ntd)) =>
               (
                 () => DamlDataTypeGen.generate(util, ntd, companionMembers),
                 s"Writing type declaration for $name",
                 s"Cannot generate Scala code for type declaration with name $name",
+              )
+
+            case (interfaceId, PotentialFile.Interface(defIf)) =>
+              (
+                () => DamlInterfaceGen.generate(util, interfaceId, defIf, companionMembers),
+                s"Writing interface for $interfaceId",
+                s"Cannot generate Scala code for interface $interfaceId",
               )
           }
 

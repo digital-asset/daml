@@ -81,6 +81,21 @@ fi
 ```
 See https://github.com/NixOS/nix/issues/3616 for more information about this issue.
 
+##### MacOS M1
+
+The above procedure will use and build native arm64 M1 binaries for this
+project. However, note that at the time of writing the CI system of the Daml
+project does not yet include MacOS M1 nodes. Therefore, the M1 configuration is
+untested on CI, and the remote cache is not populated with native M1 artifacts.
+
+If you encounter issues with a native M1 build, then you can configure project
+to build x86-64 binaries instead and run them through Rosetta. To do that
+replace the contents of the file `nix/system.nix` with the following content:
+
+```nix
+"x86_64-darwin"
+```
+
 #### Windows
 
 On Windows you need to enable long file paths by running the following command in an admin powershell:

@@ -6,7 +6,7 @@ package com.daml.http
 import akka.http.scaladsl.model.headers.Authorization
 import akka.http.scaladsl.model.{StatusCodes, Uri}
 import com.daml.fetchcontracts.domain.TemplateId.OptionalPkg
-import com.daml.http.HttpServiceTestFixture.{UseTls, authorizationHeader, getResult, postRequest}
+import com.daml.http.HttpServiceTestFixture.{UseTls, authorizationHeader, postRequest}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.domain.UserDetails
@@ -91,18 +91,17 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           CanActAs(Ref.Party.assertFromString(alice.unwrap))
         ),
       )
-      (status, output) <- fixture.postJsonRequest(
-        Uri.Path("/v1/create"),
-        input,
-        headers = headersWithUserAuth(user.id),
-      )
-      assertion <- {
-        status shouldBe StatusCodes.OK
-        assertStatus(output, StatusCodes.OK)
-        val activeContract = getResult(output)
+      response <- fixture
+        .postJsonRequest(
+          Uri.Path("/v1/create"),
+          input,
+          headers = headersWithUserAuth(user.id),
+        )
+        .parseResponse[domain.ActiveContract[JsValue]]
+    } yield inside(response) {
+      case (StatusCodes.OK, domain.OkResponse(activeContract, _, StatusCodes.OK)) =>
         assertActiveContract(activeContract)(command, encoder)
-      }
-    } yield assertion
+    }
   }
 
   // TEST_EVIDENCE: Authorization: create IOU should fail if user has no permission
@@ -119,16 +118,17 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           CanActAs(Ref.Party.assertFromString(bob.unwrap))
         ),
       )
-      (status, output) <- fixture.postJsonRequest(
-        Uri.Path("/v1/create"),
-        input,
-        headers = headersWithUserAuth(user.id),
-      )
-      assertion <- {
-        status shouldBe StatusCodes.BadRequest
-        assertStatus(output, StatusCodes.BadRequest)
-      }
-    } yield assertion
+      response <- fixture
+        .postJsonRequest(
+          Uri.Path("/v1/create"),
+          input,
+          headers = headersWithUserAuth(user.id),
+        )
+        .parseResponse[JsValue]
+    } yield inside(response) {
+      case (StatusCodes.BadRequest, domain.ErrorResponse(_, _, StatusCodes.BadRequest, _)) =>
+        succeed
+    }
   }
 
   // TEST_EVIDENCE: Authorization: create IOU should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights
@@ -149,16 +149,17 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             CanActAs(Ref.Party.assertFromString(bob.unwrap)),
           ),
         )
-        (status, output) <- fixture.postJsonRequest(
-          Uri.Path("/v1/create"),
-          input,
-          headers = headersWithUserAuth(user.id),
-        )
-        assertion <- {
-          status shouldBe StatusCodes.BadRequest
-          assertStatus(output, StatusCodes.BadRequest)
-        }
-      } yield assertion
+        response <- fixture
+          .postJsonRequest(
+            Uri.Path("/v1/create"),
+            input,
+            headers = headersWithUserAuth(user.id),
+          )
+          .parseResponse[JsValue]
+      } yield inside(response) {
+        case (StatusCodes.BadRequest, domain.ErrorResponse(_, _, StatusCodes.BadRequest, _)) =>
+          succeed
+      }
   }
 
   "requesting the user id should be possible via the user endpoint" in withHttpService { fixture =>
@@ -169,17 +170,20 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
         initialRights = List.empty,
       )
-      (status, output) <- fixture.getRequest(
-        Uri.Path("/v1/user"),
-        headers = headersWithUserAuth(user.id),
-      )
+      (status, output) <- fixture
+        .getRequest(
+          Uri.Path("/v1/user"),
+          headers = headersWithUserAuth(user.id),
+        )
+        .parseResponse[UserDetails]
       assertion <- {
         status shouldBe StatusCodes.OK
-        assertStatus(output, StatusCodes.OK)
-        getResult(output).convertTo[UserDetails] shouldEqual UserDetails(
-          user.id,
-          user.primaryParty: Option[String],
-        )
+        inside(output) { case domain.OkResponse(result, _, StatusCodes.OK) =>
+          result shouldEqual UserDetails(
+            user.id,
+            user.primaryParty: Option[String],
+          )
+        }
       }
     } yield assertion
   }
@@ -197,21 +201,19 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             CanActAs(Ref.Party.assertFromString(bob.unwrap)),
           ),
         )
-        (status, output) <- postRequest(
+        response <- postRequest(
           uri.withPath(Uri.Path("/v1/user/rights")),
           domain.ListUserRightsRequest(user.id).toJson,
           headers = headersWithAdminAuth,
-        )
-        assertion <- {
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          getResult(output).convertTo[List[domain.UserRight]] should contain theSameElementsAs
+        ).parseResponse[List[domain.UserRight]]
+      } yield inside(response) {
+        case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+          result should contain theSameElementsAs
             List[domain.UserRight](
               domain.CanActAs(alice),
               domain.CanActAs(bob),
             )
-        }
-      } yield assertion
+      }
   }
 
   "requesting the user rights for the current user should be possible via a GET to the user/rights endpoint" in withHttpService {
@@ -227,18 +229,21 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             CanActAs(Ref.Party.assertFromString(bob.unwrap)),
           ),
         )
-        (status, output) <- fixture.getRequest(
-          Uri.Path("/v1/user/rights"),
-          headers = headersWithUserAuth(user.id),
-        )
+        (status, output) <- fixture
+          .getRequest(
+            Uri.Path("/v1/user/rights"),
+            headers = headersWithUserAuth(user.id),
+          )
+          .parseResponse[List[domain.UserRight]]
         assertion <- {
           status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          getResult(output).convertTo[List[domain.UserRight]] should contain theSameElementsAs
-            List[domain.UserRight](
-              domain.CanActAs(alice),
-              domain.CanActAs(bob),
-            )
+          inside(output) { case domain.OkResponse(result, _, StatusCodes.OK) =>
+            result should contain theSameElementsAs
+              List[domain.UserRight](
+                domain.CanActAs(alice),
+                domain.CanActAs(bob),
+              )
+          }
         }
       } yield assertion
   }
@@ -258,14 +263,13 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         ),
       )
       for {
-        (status, output) <- postRequest(
+        response <- postRequest(
           uri.withPath(Uri.Path("/v1/user/create")),
           createUserRequest.toJson,
           headers = headersWithAdminAuth,
-        )
-      } yield {
-        status shouldBe StatusCodes.OK
-        getResult(output) shouldBe JsObject()
+        ).parseResponse[JsValue]
+      } yield inside(response) { case (StatusCodes.OK, domain.OkResponse(r, _, _)) =>
+        r shouldBe JsObject()
       }
   }
 
@@ -274,27 +278,28 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       import spray.json._
       val username = getUniqueUserName("nice.user")
       for {
-        (status, output) <- postRequest(
+        (status, _) <- postRequest(
           uri.withPath(Uri.Path("/v1/user/create")),
           JsObject("userId" -> JsString(username)),
           headers = headersWithAdminAuth,
         )
         _ <- status shouldBe StatusCodes.OK
-        (status2, output2) <- postRequest(
+        response2 <- postRequest(
           uri.withPath(Uri.Path("/v1/user")),
           domain.GetUserRequest(username).toJson,
           headers = headersWithAdminAuth,
-        )
-        _ <- status2 shouldBe StatusCodes.OK
-        _ <- getResult(output2).convertTo[UserDetails] shouldEqual UserDetails(username, None)
-        (status3, output3) <- postRequest(
+        ).parseResponse[UserDetails]
+        _ <- inside(response2) { case (StatusCodes.OK, domain.OkResponse(ud, _, _)) =>
+          ud shouldEqual UserDetails(username, None)
+        }
+        response3 <- postRequest(
           uri.withPath(Uri.Path("/v1/user/rights")),
           domain.ListUserRightsRequest(username).toJson,
           headers = headersWithAdminAuth,
-        )
-        _ <- status3 shouldBe StatusCodes.OK
-      } yield getResult(output3)
-        .convertTo[List[domain.UserRight]] shouldEqual List.empty
+        ).parseResponse[List[domain.UserRight]]
+      } yield inside(response3) { case (StatusCodes.OK, domain.OkResponse(List(), _, _)) =>
+        succeed
+      }
   }
 
   "getting all users should be possible via the users endpoint" in withHttpService { fixture =>
@@ -328,13 +333,15 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           _ = status shouldBe StatusCodes.OK
         } yield ()
       )
-      (status, output) <- fixture.getRequest(
-        Uri.Path("/v1/users"),
-        headers = headersWithAdminAuth,
-      )
-      _ = status shouldBe StatusCodes.OK
-      users = getResult(output).convertTo[List[UserDetails]]
-    } yield users.map(_.userId) should contain allElementsOf usernames
+      (status, result) <- fixture
+        .getRequest(
+          Uri.Path("/v1/users"),
+          headers = headersWithAdminAuth,
+        )
+        .parseResponse[List[UserDetails]]
+    } yield inside((status, result)) { case (StatusCodes.OK, domain.OkResponse(users, _, _)) =>
+      users.map(_.userId) should contain allElementsOf usernames
+    }
   }
 
   "getting information about a specific user should be possible via the user endpoint" in withHttpServiceAndClient {
@@ -352,23 +359,21 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         ),
       )
       for {
-        (status1, output1) <- postRequest(
+        response1 <- postRequest(
           uri.withPath(Uri.Path("/v1/user/create")),
           createUserRequest.toJson,
           headers = headersWithAdminAuth,
-        )
-        _ <- {
-          status1 shouldBe StatusCodes.OK
-          getResult(output1) shouldBe JsObject()
+        ).parseResponse[JsValue]
+        _ <- inside(response1) { case (StatusCodes.OK, domain.OkResponse(r, _, _)) =>
+          r shouldBe JsObject()
         }
-        (status2, output2) <- postRequest(
+        response2 <- postRequest(
           uri.withPath(Uri.Path(s"/v1/user")),
           domain.GetUserRequest(createUserRequest.userId).toJson,
           headers = headersWithAdminAuth,
-        )
-      } yield {
-        status2 shouldBe StatusCodes.OK
-        getResult(output2).convertTo[UserDetails] shouldBe UserDetails(
+        ).parseResponse[UserDetails]
+      } yield inside(response2) { case (StatusCodes.OK, domain.OkResponse(ud, _, _)) =>
+        ud shouldBe UserDetails(
           createUserRequest.userId,
           createUserRequest.primaryParty,
         )
@@ -391,22 +396,22 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         ),
       )
       for {
-        (status1, output1) <- postRequest(
+        response1 <- postRequest(
           uri.withPath(Uri.Path("/v1/user/create")),
           createUserRequest.toJson,
           headers = headersWithAdminAuth,
-        )
-        _ <- {
-          status1 shouldBe StatusCodes.OK
-          getResult(output1) shouldBe JsObject()
+        ).parseResponse[JsValue]
+        _ <- inside(response1) { case (StatusCodes.OK, domain.OkResponse(r, _, _)) =>
+          r shouldBe JsObject()
         }
-        (status2, output2) <- fixture.getRequest(
-          Uri.Path(s"/v1/user"),
-          headers = headersWithUserAuth(createUserRequest.userId),
-        )
-      } yield {
-        status2 shouldBe StatusCodes.OK
-        getResult(output2).convertTo[UserDetails] shouldBe UserDetails(
+        response2 <- fixture
+          .getRequest(
+            Uri.Path(s"/v1/user"),
+            headers = headersWithUserAuth(createUserRequest.userId),
+          )
+          .parseResponse[UserDetails]
+      } yield inside(response2) { case (StatusCodes.OK, domain.OkResponse(userDetails, _, _)) =>
+        userDetails shouldBe UserDetails(
           createUserRequest.userId,
           createUserRequest.primaryParty,
         )
@@ -430,14 +435,13 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         ),
       )
       for {
-        (status1, output1) <- postRequest(
+        response1 <- postRequest(
           uri.withPath(Uri.Path("/v1/user/create")),
           createUserRequest.toJson,
           headers = headersWithAdminAuth,
-        )
-        _ <- {
-          status1 shouldBe StatusCodes.OK
-          getResult(output1) shouldBe JsObject()
+        ).parseResponse[JsValue]
+        _ <- inside(response1) { case (StatusCodes.OK, domain.OkResponse(r, _, _)) =>
+          r shouldBe JsObject()
         }
         (status2, _) <- postRequest(
           uri.withPath(Uri.Path(s"/v1/user/delete")),
@@ -445,13 +449,14 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           headers = headersWithAdminAuth,
         )
         _ = status2 shouldBe StatusCodes.OK
-        (status3, output3) <- fixture.getRequest(
-          Uri.Path("/v1/users"),
-          headers = headersWithAdminAuth,
-        )
-      } yield {
-        status3 shouldBe StatusCodes.OK
-        getResult(output3).convertTo[List[UserDetails]] should not contain createUserRequest.userId
+        response3 <- fixture
+          .getRequest(
+            Uri.Path("/v1/users"),
+            headers = headersWithAdminAuth,
+          )
+          .parseResponse[List[UserDetails]]
+      } yield inside(response3) { case (StatusCodes.OK, domain.OkResponse(users, _, _)) =>
+        users should not contain createUserRequest.userId
       }
   }
 
@@ -467,7 +472,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             CanActAs(Ref.Party.assertFromString(alice.unwrap))
           ),
         )
-        (status, output) <- postRequest(
+        response <- postRequest(
           uri.withPath(Uri.Path("/v1/user/rights/grant")),
           domain
             .GrantUserRightsRequest(
@@ -480,28 +485,25 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             )
             .toJson,
           headers = headersWithAdminAuth,
-        )
-        _ <- {
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          getResult(output).convertTo[List[domain.UserRight]] should contain theSameElementsAs List[
+        ).parseResponse[List[domain.UserRight]]
+        _ <- inside(response) { case (StatusCodes.OK, domain.OkResponse(urs, _, StatusCodes.OK)) =>
+          urs should contain theSameElementsAs List[
             domain.UserRight
           ](domain.CanActAs(bob), domain.ParticipantAdmin)
         }
-        (status2, output2) <- postRequest(
+        response2 <- postRequest(
           uri.withPath(Uri.Path("/v1/user/rights")),
           domain.ListUserRightsRequest(user.id).toJson,
           headers = headersWithAdminAuth,
-        )
-        assertion <- {
-          status2 shouldBe StatusCodes.OK
-          assertStatus(output2, StatusCodes.OK)
-          getResult(output2).convertTo[List[domain.UserRight]] should contain theSameElementsAs
-            List[domain.UserRight](
-              domain.CanActAs(alice),
-              domain.CanActAs(bob),
-              domain.ParticipantAdmin,
-            )
+        ).parseResponse[List[domain.UserRight]]
+        assertion <- inside(response2) {
+          case (StatusCodes.OK, domain.OkResponse(urs, _, StatusCodes.OK)) =>
+            urs should contain theSameElementsAs
+              List[domain.UserRight](
+                domain.CanActAs(alice),
+                domain.CanActAs(bob),
+                domain.ParticipantAdmin,
+              )
         }
       } yield assertion
   }
@@ -521,7 +523,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             ParticipantAdmin,
           ),
         )
-        (status, output) <- postRequest(
+        response <- postRequest(
           uri.withPath(Uri.Path("/v1/user/rights/revoke")),
           domain
             .RevokeUserRightsRequest(
@@ -534,32 +536,22 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             )
             .toJson,
           headers = headersWithAdminAuth,
-        )
-        _ <- {
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          getResult(output)
-            .convertTo[List[domain.UserRight]] should contain theSameElementsAs List[
-            domain.UserRight
-          ](
+        ).parseResponse[List[domain.UserRight]]
+        _ <- inside(response) { case (StatusCodes.OK, domain.OkResponse(urs, _, StatusCodes.OK)) =>
+          urs should contain theSameElementsAs List[domain.UserRight](
             domain.CanActAs(bob),
             domain.ParticipantAdmin,
           )
         }
-        (status2, output2) <- postRequest(
+        response2 <- postRequest(
           uri.withPath(Uri.Path("/v1/user/rights")),
           domain.ListUserRightsRequest(user.id).toJson,
           headers = headersWithAdminAuth,
-        )
-        assertion <- {
-          status2 shouldBe StatusCodes.OK
-          assertStatus(output2, StatusCodes.OK)
-          getResult(output2).convertTo[List[domain.UserRight]] should contain theSameElementsAs
-            List[domain.UserRight](
-              domain.CanActAs(alice)
-            )
-        }
-      } yield assertion
+        ).parseResponse[List[domain.UserRight]]
+      } yield inside(response2) {
+        case (StatusCodes.OK, domain.OkResponse(urs, _, StatusCodes.OK)) =>
+          urs should contain theSameElementsAs List[domain.UserRight](domain.CanActAs(alice))
+      }
   }
 
   // TEST_EVIDENCE: Performance: creating and listing 20K users should be possible
@@ -615,13 +607,14 @@ class HttpServiceIntegrationTestUserManagementNoAuth
 
     for {
       _ <- createUsers(createUserRequests)
-      (status, output) <- fixture.getRequest(
-        Uri.Path("/v1/users"),
-        headers = headersWithAdminAuth,
-      )
-    } yield {
-      status shouldBe StatusCodes.OK
-      val userIds = getResult(output).convertTo[List[UserDetails]].map(_.userId)
+      response <- fixture
+        .getRequest(
+          Uri.Path("/v1/users"),
+          headers = headersWithAdminAuth,
+        )
+        .parseResponse[List[UserDetails]]
+    } yield inside(response) { case (StatusCodes.OK, domain.OkResponse(users, _, _)) =>
+      val userIds = users.map(_.userId)
       val expectedUserIds = "participant_admin" :: createUserRequests.map(_.userId)
       userIds should contain allElementsOf expectedUserIds
     }

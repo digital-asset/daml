@@ -6,6 +6,7 @@ package com.daml.ledger.api.benchtool.services
 import com.daml.ledger.api.benchtool.AuthorizationHelper
 import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
+  ListKnownPartiesRequest,
   PartyManagementServiceGrpc,
 }
 import com.daml.ledger.client.binding.Primitive.Party
@@ -22,7 +23,11 @@ class PartyManagementService(channel: Channel, authorizationToken: Option[String
       PartyManagementServiceGrpc.stub(channel)
     )
 
-  def allocateParty(hint: String)(implicit ec: ExecutionContext): Future[Party] =
+  def listKnownParties()(implicit ec: ExecutionContext): Future[Set[String]] = {
+    service.listKnownParties(new ListKnownPartiesRequest()).map(_.partyDetails.map(_.party).toSet)
+  }
+
+  def allocateParty(hint: String)(implicit ec: ExecutionContext): Future[Party] = {
     service
       .allocateParty(new AllocatePartyRequest(partyIdHint = hint))
       .transformWith {
@@ -41,4 +46,5 @@ class PartyManagementService(channel: Channel, authorizationToken: Option[String
             exception
           }
       }
+  }
 }

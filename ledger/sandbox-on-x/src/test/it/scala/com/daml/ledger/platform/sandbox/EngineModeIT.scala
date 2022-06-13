@@ -5,8 +5,6 @@ package com.daml
 package platform
 package sandbox
 
-import java.nio.file.{Files, Path, Paths}
-import java.util.UUID
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
 import com.daml.ledger.api.domain.LedgerId
@@ -15,11 +13,13 @@ import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.resources.TestResourceContext
-import com.daml.ledger.sandbox.SandboxServer
+import com.daml.ledger.runner.common.Config
+import com.daml.ledger.sandbox.SandboxOnXForTest._
+import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest, SandboxOnXRunner}
+import com.daml.lf.VersionRange
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.ports.Port
 import com.google.protobuf
@@ -27,7 +27,8 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import java.time.Duration
+import java.nio.file.{Files, Path, Paths}
+import java.util.UUID
 import scala.util.{Failure, Success}
 
 class EngineModeIT
@@ -106,57 +107,60 @@ class EngineModeIT
     ).recover { case x => Failure(x) }
 
   "SandboxServer" should {
+    def buildServer(versions: VersionRange[LanguageVersion]) = {
 
-    import SandboxConfig.EngineMode
-    import EngineMode._
+      val bridgeConfig: BridgeConfig = BridgeConfig()
 
-    def buildServer(mode: SandboxConfig.EngineMode) =
-      SandboxServer.owner(
-        SandboxConfig.defaultConfig.copy(
-          delayBeforeSubmittingLedgerConfiguration = Duration.ZERO,
-          port = Port.Dynamic,
-          engineMode = mode,
-          seeding = Seeding.Weak,
-          // Ensure separate DBs per test
-          jdbcUrl = Some(s"jdbc:h2:mem:${UUID.randomUUID().toString};db_close_delay=-1"),
-        )
+      val sandboxConfig: Config = Default.copy(
+        ledgerId = "ledger-server",
+        engine = Default.engine.copy(
+          allowedLanguageVersions = versions
+        ),
+        participants = singleParticipant(
+          ApiServerConfig.copy(
+            seeding = Seeding.Weak
+          )
+        ),
+        dataSource = dataSource(SandboxOnXForTest.defaultH2SandboxJdbcUrl()),
       )
+      SandboxOnXRunner.owner(ConfigAdaptor(authService), sandboxConfig, bridgeConfig)
+    }
 
-    def load(langVersion: LanguageVersion, mode: EngineMode) =
-      buildServer(mode).use(
+    def load(langVersion: LanguageVersion, range: VersionRange[LanguageVersion]) =
+      buildServer(range).use(
         run(Paths.get(rlocation(s"daml-lf/encoder/test-${langVersion.pretty}.dar")), _)
       )
 
-    def accept(langVersion: LanguageVersion, mode: EngineMode) =
+    def accept(langVersion: LanguageVersion, range: VersionRange[LanguageVersion], mode: String) =
       s"accept LF ${langVersion.pretty} when $mode mode is used" in
-        load(langVersion, mode).map {
+        load(langVersion, range).map {
           inside(_) { case Success(_) =>
             succeed
           }
         }
 
-    def reject(langVersion: LanguageVersion, mode: EngineMode) =
+    def reject(langVersion: LanguageVersion, range: VersionRange[LanguageVersion], mode: String) =
       s"reject LF ${langVersion.pretty} when $mode mode is used" in
-        load(langVersion, mode).map {
+        load(langVersion, range).map {
           inside(_) { case Failure(exception) =>
             exception.getMessage should include("Disallowed language version")
           }
         }
 
-    accept(maxStableVersion, Stable)
-    accept(maxStableVersion, EarlyAccess)
-    accept(maxStableVersion, Dev)
+    accept(maxStableVersion, LanguageVersion.StableVersions, "stable")
+    accept(maxStableVersion, LanguageVersion.EarlyAccessVersions, "early access")
+    accept(maxStableVersion, LanguageVersion.DevVersions, "dev")
 
     if (LanguageVersion.EarlyAccessVersions != LanguageVersion.StableVersions) {
       // a preview version is currently available
-      reject(previewVersion, Stable)
-      accept(previewVersion, EarlyAccess)
-      accept(previewVersion, Dev)
+      reject(previewVersion, LanguageVersion.StableVersions, "stable")
+      accept(previewVersion, LanguageVersion.EarlyAccessVersions, "early access")
+      accept(previewVersion, LanguageVersion.DevVersions, "dev")
     }
 
-    reject(devVersion, Stable)
-    reject(devVersion, EarlyAccess)
-    accept(devVersion, Dev)
+    reject(devVersion, LanguageVersion.StableVersions, "stable")
+    reject(devVersion, LanguageVersion.EarlyAccessVersions, "early access")
+    accept(devVersion, LanguageVersion.DevVersions, "dev")
 
   }
 

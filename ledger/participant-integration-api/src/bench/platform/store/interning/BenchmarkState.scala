@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.interning
 
-import org.openjdk.jmh.annotations.{Level, Param, Scope, Setup, State}
+import org.openjdk.jmh.annotations._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -50,15 +50,11 @@ object BenchmarkState {
     entries
   }
 
-  def createInterning(entries: Array[(Int, String)]): StringInterningView = {
-    Console.print(s"Creating an interning view...")
-    val interning = new StringInterningView(
-      loadPrefixedEntries = (fromExclusive, toInclusive) =>
-        // Note: for slice(), the begin is inclusive and the end is exclusive (opposite of the enclosing call)
-        _ => Future.successful(entries.view.slice(fromExclusive + 1, toInclusive + 1))
-    )
-    Console.println(s" done.")
-
-    interning
+  def loadStringInterningEntries(
+      entries: Array[(Int, String)]
+  ): LoadStringInterningEntries = {
+    (fromExclusive, toInclusive) =>
+      // Note: for slice(), the begin is inclusive and the end is exclusive (opposite of the enclosing call)
+      _ => Future.successful(entries.view.slice(fromExclusive + 1, toInclusive + 1))
   }
 }

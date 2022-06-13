@@ -110,7 +110,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
     }
   }
 
-  private def validateInnerCommands(
+  def validateInnerCommands(
       commands: Seq[ProtoCommand]
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -124,7 +124,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
       } yield validatedInnerCommands :+ validatedInnerCommand
     })
 
-  private def validateInnerCommand(
+  def validateInnerCommand(
       command: ProtoCommand.Command
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

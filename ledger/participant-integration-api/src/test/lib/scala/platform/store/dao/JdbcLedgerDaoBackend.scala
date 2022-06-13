@@ -14,16 +14,16 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
-import com.daml.platform.store.dao.events.CompressionStrategy
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParticipantId}
+import com.daml.platform.store.dao.events.CompressionStrategy
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import org.scalatest.AsyncTestSuite
 
+import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, Future}
 
 object JdbcLedgerDaoBackend {
 
@@ -114,7 +114,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
     // We use the dispatcher here because the default Scalatest execution context is too slow.
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     ledgerEndCache = MutableLedgerEndCache()
-    stringInterningView = new StringInterningView((_, _) => _ => Future.successful(Nil))
+    stringInterningView = new StringInterningView()
     resource = newLoggingContext { implicit loggingContext =>
       for {
         dao <- daoOwner(

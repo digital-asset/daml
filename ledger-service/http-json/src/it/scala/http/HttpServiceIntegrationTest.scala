@@ -88,20 +88,21 @@ abstract class HttpServiceIntegrationTest
         fixture,
         aliceHeaders,
       )
-      testIIouID = {
-        discard { createTest._1 should ===(StatusCodes.OK) }
-        createTest._2.convertTo[domain.OkResponse[domain.ActiveContract[JsValue]]].result.contractId
+      testIIouID = inside(createTest) { case (StatusCodes.OK, domain.OkResponse(result, _, _)) =>
+        result.contractId
       }
       bobH <- fixture.getUniquePartyAndAuthHeaders("Bob")
       (bob, _) = bobH
-      exerciseTest <- fixture.postJsonRequest(
-        Uri.Path("/v1/exercise"),
-        encodeExercise(encoder)(
-          iouTransfer(domain.EnrichedContractId(Some(exerciseBy), testIIouID), bob)
-        ),
-        aliceHeaders,
-      )
-    } yield inside((exerciseTest._1, exerciseTest._2.convertTo[domain.SyncResponse[JsValue]])) {
+      exerciseTest <- fixture
+        .postJsonRequest(
+          Uri.Path("/v1/exercise"),
+          encodeExercise(encoder)(
+            iouTransfer(domain.EnrichedContractId(Some(exerciseBy), testIIouID), bob)
+          ),
+          aliceHeaders,
+        )
+        .parseResponse[JsValue]
+    } yield inside(exerciseTest) {
       case (StatusCodes.OK, domain.OkResponse(_, None, StatusCodes.OK)) => succeed
     }
 
@@ -139,26 +140,27 @@ abstract class HttpServiceIntegrationTest
       _ = createTest._1 should ===(StatusCodes.OK)
       bobH <- fixture.getUniquePartyAndAuthHeaders("Bob")
       (bob, _) = bobH
-      exerciseTest <- fixture.postJsonRequest(
-        Uri.Path("/v1/exercise"),
-        encodeExercise(encoder)(
-          iouTransfer(
-            domain.EnrichedContractKey(
-              TpId.IIou.IIou,
-              v.Value(v.Value.Sum.Party(domain.Party unwrap alice)),
-            ),
-            bob,
-          )
-        ),
-        aliceHeaders,
-      )
-    } yield {
-      val Status = StatusCodes.BadRequest
-      discard { exerciseTest._1 should ===(Status) }
-      inside(exerciseTest._2.convertTo[domain.ErrorResponse]) {
-        case domain.ErrorResponse(Seq(lookup), None, Status, _) =>
-          lookup should include regex raw"Cannot resolve Template Key type, given: TemplateId\([0-9a-f]{64},IIou,IIou\)"
-      }
+      exerciseTest <- fixture
+        .postJsonRequest(
+          Uri.Path("/v1/exercise"),
+          encodeExercise(encoder)(
+            iouTransfer(
+              domain.EnrichedContractKey(
+                TpId.IIou.IIou,
+                v.Value(v.Value.Sum.Party(domain.Party unwrap alice)),
+              ),
+              bob,
+            )
+          ),
+          aliceHeaders,
+        )
+        .parseResponse[JsValue]
+    } yield inside(exerciseTest) {
+      case (
+            StatusCodes.BadRequest,
+            domain.ErrorResponse(Seq(lookup), None, StatusCodes.BadRequest, _),
+          ) =>
+        lookup should include regex raw"Cannot resolve Template Key type, given: TemplateId\([0-9a-f]{64},IIou,IIou\)"
     }
   }
 

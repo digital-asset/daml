@@ -14,6 +14,7 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.index.IndexServiceBuilder
+import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 
 import scala.concurrent.ExecutionContextExecutor
@@ -28,6 +29,8 @@ object StandaloneIndexService {
       engine: Engine,
       servicesExecutionContext: ExecutionContextExecutor,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
+      // TODO LLP: Always pass shared stringInterningView
+      sharedStringInterningViewO: Option[StringInterningView] = None,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
@@ -42,6 +45,7 @@ object StandaloneIndexService {
         metrics = metrics,
         lfValueTranslationCache = lfValueTranslationCache,
         enricher = new ValueEnricher(engine),
+        sharedStringInterningViewO = sharedStringInterningViewO,
       )(materializer, loggingContext, servicesExecutionContext)
         .owner()
         .map(index => new TimedIndexService(index, metrics))

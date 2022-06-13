@@ -25,8 +25,8 @@ Implementation
 
 .. literalinclude:: daml/CoinIssuance.daml
   :language: daml
-  :start-after: -- BEGIN_COIN_TEMPLATE_ARCHIVE
-  :end-before: -- END_COIN_TEMPLATE_ARCHIVE
+  :start-after: -- BEGIN_COIN_TEMPLATE_TRANSFER
+  :end-before: -- END_COIN_TEMPLATE_TRANSFER
 
 Delegation Contract
   - *Principal*, the original coin owner, is the signatory of delegation contract *CoinPoA*. This signatory is required to authorize the *Transfer* choice on *coin*.

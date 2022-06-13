@@ -6,9 +6,9 @@ package engine
 
 import com.daml.lf.command._
 import com.daml.lf.data._
-import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
+import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError}
+import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError, SValue}
 import com.daml.lf.speedy.SExpr.{SExpr, SEApp, SEValue}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
@@ -20,6 +20,7 @@ import com.daml.lf.transaction.{
   Transaction => Tx,
 }
 import java.nio.file.Files
+import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ValueContractId, VersionedContractInstance, ContractId}
 
 import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackage}
@@ -350,6 +351,15 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     ResultDone(deps)
   }
 
+  private def handleError(err: SError.SError, detailMsg: Option[String]): ResultError = {
+    err match {
+      case SError.SErrorDamlException(error) =>
+        ResultError(Error.Interpretation.DamlException(error), detailMsg)
+      case err @ SError.SErrorCrash(where, reason) =>
+        ResultError(Error.Interpretation.Internal(where, reason, Some(err)))
+    }
+  }
+
   // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private[engine] def interpretLoop(
@@ -365,13 +375,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       machine.run() match {
         case SResultFinalValue(_) => finished = true
 
-        case SResultError(err) =>
-          err match {
-            case SError.SErrorDamlException(error) =>
-              return ResultError(Error.Interpretation.DamlException(error), detailMsg)
-            case err @ SError.SErrorCrash(where, reason) =>
-              return ResultError(Error.Interpretation.Internal(where, reason, Some(err)))
-          }
+        case SResultError(err) => return handleError(err, detailMsg)
         case SResultNeedPackage(pkgId, context, callback) =>
           return Result.needPackage(
             pkgId,
@@ -519,6 +523,44 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       }.toLeft(())
 
     } yield ()
+  }
+
+  /** Given a contract argument of the given template id, calculate the interface
+    * view of that API.
+    */
+  def computeInterfaceView(
+      templateId: Identifier,
+      argument: Value,
+      interfaceId: Identifier,
+  )(implicit loggingContext: LoggingContext): Result[Versioned[Value]] = {
+    def interpret(machine: Machine): Result[SValue] = {
+      machine.run() match {
+        case SResultFinalValue(v) => ResultDone(v)
+        case SResultError(err) => handleError(err, None)
+        case err @ (_: SResultNeedPackage | _: SResultNeedContract | _: SResultNeedKey |
+            _: SResultNeedTime | _: SResultScenarioGetParty | _: SResultScenarioPassTime |
+            _: SResultScenarioSubmit) =>
+          ResultError(
+            Error.Interpretation.Internal(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"uexpected ${err.getClass.getSimpleName}",
+              None,
+            )
+          )
+      }
+    }
+    for {
+      view <- preprocessor.preprocessInterfaceView(templateId, argument, interfaceId)
+      sexpr <- runCompilerSafely(
+        NameOf.qualifiedNameOfCurrentFunc,
+        compiledPackages.compiler.unsafeCompileInterfaceView(view),
+      )
+      machine = Machine.fromPureSExpr(compiledPackages, sexpr)
+      r <- interpret(machine)
+    } yield
+    // TODO https://github.com/digital-asset/daml/issues/14114
+    // Double check that the interface version is the right thing to use here.
+    Versioned(view.interfaceVersion, r.toNormalizedValue(view.interfaceVersion))
   }
 
 }

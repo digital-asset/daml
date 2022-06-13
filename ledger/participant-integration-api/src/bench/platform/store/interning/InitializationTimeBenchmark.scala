@@ -22,7 +22,7 @@ import scala.concurrent.Await
 class InitializationTimeBenchmark extends BenchmarkState {
   @Setup(Level.Invocation)
   def setupIteration(): Unit = {
-    interning = BenchmarkState.createInterning(entries)
+    interning = new StringInterningView()
   }
 
   @Benchmark
@@ -32,6 +32,12 @@ class InitializationTimeBenchmark extends BenchmarkState {
   @Warmup(iterations = 5)
   @Measurement(iterations = 5)
   def run(): Unit = {
-    Await.result(interning.update(stringCount)(LoggingContext.ForTesting), perfTestTimeout)
+    Await.result(
+      interning
+        .update(stringCount)(BenchmarkState.loadStringInterningEntries(entries))(
+          LoggingContext.ForTesting
+        ),
+      perfTestTimeout,
+    )
   }
 }

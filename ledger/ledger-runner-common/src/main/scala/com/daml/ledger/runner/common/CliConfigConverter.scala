@@ -23,6 +23,7 @@ object CliConfigConverter {
       cliConfig: CliConfig[_],
       config: CliParticipantConfig,
   ): ParticipantConfig = ParticipantConfig(
+    authentication = cliConfig.authService,
     runMode = config.mode,
     indexer = config.indexerConfig,
     indexService = IndexServiceConfig(
@@ -69,7 +70,6 @@ object CliConfigConverter {
         TimeUnit.MILLISECONDS,
       ),
       userManagement = cliConfig.userManagementConfig,
-      authentication = cliConfig.authService,
       command = cliConfig.commandConfig,
       party = PartyConfiguration.Default
         .copy(implicitPartyAllocation = cliConfig.implicitPartyAllocation),

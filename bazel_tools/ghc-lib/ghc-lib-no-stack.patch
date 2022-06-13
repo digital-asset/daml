@@ -1,9 +1,9 @@
 diff --git a/ghc-lib-gen/src/Ghclibgen.hs b/ghc-lib-gen/src/Ghclibgen.hs
-index 2efef5e..c340958 100644
+index 3574255..4fee612 100644
 --- a/ghc-lib-gen/src/Ghclibgen.hs
 +++ b/ghc-lib-gen/src/Ghclibgen.hs
-@@ -332,10 +332,7 @@ calcParserModules ghcFlavor = do
-       hsSrcIncludes = map ("-i" ++ ) hsSrcDirs
+@@ -336,10 +336,7 @@ calcParserModules ghcFlavor = do
+       hsSrcIncludes = map ("-i" ++ ) (placeholderModulesDir : hsSrcDirs)
        -- See [Note: GHC now depends on exceptions package].
        cmd = unwords $
 -        [ "stack exec" ] ++
@@ -14,7 +14,7 @@ index 2efef5e..c340958 100644
          , "-dep-suffix ''"
          , "-dep-makefile .parser-depends"
          , "-M"
-@@ -1246,15 +1243,13 @@ generatePrerequisites ghcFlavor = do
+@@ -1258,15 +1255,13 @@ generatePrerequisites ghcFlavor = do
    -- If building happy in the next step, the configure it does
    -- requires some versions of alex and happy pre-exist. We make sure
    -- of this in CI.hs.

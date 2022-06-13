@@ -3,19 +3,21 @@
 
 package com.daml.lf.engine.trigger.test
 
-import akka.stream.scaladsl.{Flow}
+import akka.stream.scaladsl.Flow
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.lf.data.Ref._
-import com.daml.ledger.api.testing.utils.{SuiteResourceManagementAroundAll}
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
-import java.io.File
+import com.daml.ledger.runner.common.Config
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
+import com.daml.lf.data.Ref._
+import com.daml.lf.engine.trigger.TriggerMsg
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import com.daml.lf.engine.trigger.TriggerMsg
+import java.io.File
 
 class Tls
     extends AsyncWordSpec
@@ -33,8 +35,13 @@ class Tls
 
   private val tlsConfig = TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)
 
-  override protected def config =
-    super.config.copy(tlsConfig = Some(tlsConfig))
+  override protected def config: Config = super.config.copy(
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        tls = Some(tlsConfig)
+      )
+    )
+  )
 
   override protected def ledgerClientChannelConfiguration =
     super.ledgerClientChannelConfiguration

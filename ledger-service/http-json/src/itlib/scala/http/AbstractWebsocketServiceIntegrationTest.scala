@@ -11,14 +11,12 @@ import akka.http.scaladsl.model.ws.{
   TextMessage,
   WebSocketRequest,
 }
-import akka.http.scaladsl.model.{HttpHeader, StatusCodes, Uri}
+import akka.http.scaladsl.model.{HttpHeader, StatusCode, StatusCodes, Uri}
 import akka.stream.{KillSwitches, UniqueKillSwitch}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.daml.http.HttpServiceTestFixture.{
   UseTls,
   accountCreateCommand,
-  getContractId,
-  getResult,
   sharedAccountCreateCommand,
 }
 import com.daml.http.json.SprayJson
@@ -28,7 +26,6 @@ import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.std.option._
-import scalaz.std.tuple._
 import scalaz.std.vector._
 import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
@@ -366,8 +363,9 @@ abstract class AbstractWebsocketServiceIntegrationTest
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (party, headers) = aliceHeaders
         creation <- initialIouCreate(uri, party, headers)
-        _ = creation._1 shouldBe a[StatusCodes.Success]
-        iouCid = getContractId(getResult(creation._2))
+        iouCid = inside(creation) { case (_: StatusCodes.Success, domain.OkResponse(c, _, _)) =>
+          c.contractId
+        }
         jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
         (kill, source) = singleClientQueryStream(jwt, uri, query)
           .viaMat(KillSwitches.single)(Keep.right)
@@ -475,8 +473,9 @@ abstract class AbstractWebsocketServiceIntegrationTest
       aliceHeaders <- getAliceHeaders
       (party, headers) = aliceHeaders
       creation <- initialIouCreate(uri, party, headers)
-      _ = creation._1 shouldBe a[StatusCodes.Success]
-      iouCid = getContractId(getResult(creation._2))
+      iouCid = inside(creation) { case (_: StatusCodes.Success, domain.OkResponse(c, _, _)) =>
+        c.contractId
+      }
       jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
       (kill, source) = singleClientQueryStream(jwt, uri, query)
         .viaMat(KillSwitches.single)(Keep.right)
@@ -493,6 +492,13 @@ abstract class AbstractWebsocketServiceIntegrationTest
         Set(fstId, sndId, observeConsumed.contractId) should have size 3
     }
   }
+
+  private[this] def resultContractId(
+      r: (StatusCode, domain.SyncResponse[domain.ActiveContract[_]])
+  ) =
+    inside(r) { case (_: StatusCodes.Success, domain.OkResponse(result, _, _)) =>
+      result.contractId
+    }
 
   "multi-party query should receive deltas as contracts are archived/created" in withHttpService {
     fixture =>
@@ -576,12 +582,10 @@ abstract class AbstractWebsocketServiceIntegrationTest
         }
 
         r1 <- f1
-        _ = r1._1 shouldBe a[StatusCodes.Success]
-        cid1 = getContractId(getResult(r1._2))
+        cid1 = resultContractId(r1)
 
         r2 <- f2
-        _ = r2._1 shouldBe a[StatusCodes.Success]
-        cid2 = getContractId(getResult(r2._2))
+        cid2 = resultContractId(r2)
 
         jwt <- jwtForParties(uri)(List(alice.unwrap, bob.unwrap), List(), testId)
         (kill, source) = singleClientQueryStream(
@@ -685,12 +689,10 @@ abstract class AbstractWebsocketServiceIntegrationTest
           )
         }
         r1 <- f1
-        _ = r1._1 shouldBe a[StatusCodes.Success]
-        cid1 = getContractId(getResult(r1._2))
+        cid1 = resultContractId(r1)
 
         r2 <- f2
-        _ = r2._1 shouldBe a[StatusCodes.Success]
-        cid2 = getContractId(getResult(r2._2))
+        cid2 = resultContractId(r2)
         jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
         (kill, source) = singleClientFetchStream(jwt, uri, fetchRequest(None))
           .viaMat(KillSwitches.single)(Keep.right)
@@ -738,10 +740,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
             fixture,
             headers,
           )
-        } yield {
-          assert(r._1.isSuccess)
-          getContractId(getResult(r._2))
-        }
+        } yield resultContractId(r)
       archive = (id: domain.ContractId) =>
         for {
           r <- postArchiveCommand(
@@ -864,12 +863,10 @@ abstract class AbstractWebsocketServiceIntegrationTest
           )
         }
         r1 <- f1
-        _ = r1._1 shouldBe a[StatusCodes.Success]
-        cid1 = getContractId(getResult(r1._2))
+        cid1 = resultContractId(r1)
 
         r2 <- f2
-        _ = r2._1 shouldBe a[StatusCodes.Success]
-        cid2 = getContractId(getResult(r2._2))
+        cid2 = resultContractId(r2)
 
         jwt <- jwtForParties(uri)(List(alice.unwrap, bob.unwrap), List(), testId)
         (kill, source) = singleClientFetchStream(
@@ -999,7 +996,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
   ): Future[(domain.Offset, domain.Offset)] = {
-    import json.JsonProtocol._, fixture.uri
+    import fixture.uri
     type In = JsValue // JsValue might not be the most convenient choice
     val syntax = Consume.syntax[In]
     import syntax._
@@ -1013,10 +1010,9 @@ abstract class AbstractWebsocketServiceIntegrationTest
           headers,
         )
       )
-      cid = inside(
-        create map (_.convertTo[domain.SyncResponse[domain.ActiveContract[JsValue]]])
-      ) { case (StatusCodes.OK, domain.OkResponse(contract, _, StatusCodes.OK)) =>
-        contract.contractId
+      cid = inside(create) {
+        case (StatusCodes.OK, domain.OkResponse(contract, _, StatusCodes.OK)) =>
+          contract.contractId
       }
       // wait for the creation's offset
       offsetAfter <- readUntil[In] {
@@ -1205,7 +1201,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       for {
         jwtForAliceAndBob <-
           jwtForParties(uri)(actAs = aliceAndBob, readAs = Nil, ledgerId = testId)
-        (status, value) <-
+        createResponse <-
           fixture
             .headersWithPartyAuth(aliceAndBob)
             .flatMap(headers =>
@@ -1215,8 +1211,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
                 headers = headers,
               )
             )
-        _ = status shouldBe a[StatusCodes.Success]
-        expectedContractId = getContractId(getResult(value))
+        expectedContractId = resultContractId(createResponse)
         (killSwitch, source) = singleClientQueryStream(
           jwt = jwtForAliceAndBob,
           serviceUri = uri,
