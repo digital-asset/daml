@@ -1,15 +1,19 @@
 module TestDisclosures where
 
 import Daml.Script
+import DA.Assert
 
 template Asset
   with
     issuer : Party
     owner : Party
     amount : Int
+    id : Int 
   where
     signatory issuer
     observer owner
+    key (issuer, id) : (Party, Int)
+    maintainer key._1
 
     nonconsuming choice Transfer : ()
       with
@@ -21,6 +25,7 @@ template Asset
           issuer = issuer
           owner = p
           amount = amount
+          id = id + 2
         pure ()
 
 template ProposeSwap
@@ -40,6 +45,24 @@ template ProposeSwap
         exercise cid1 $ Transfer with p = p2
         exercise cid2 $ Transfer with p = p1
 
+template ProposeSwapKey
+  with
+    p1 : Party
+    p2 : Party
+    k1 : (Party, Int)
+    k2 : (Party, Int)
+  where
+    signatory p1
+    observer p2
+
+    choice GoKey : ()
+      with
+      controller p2 
+      do  
+        exerciseByKey @Asset k1 $ Transfer with p = p2
+        exerciseByKey @Asset k2 $ Transfer with p = p1
+
+
 
 test : Script ()
 test = script do
@@ -50,19 +73,61 @@ test = script do
       issuer = bank 
       owner = alice 
       amount = 15
+      id = 1
   cidAsset2 <- submit bank $ createCmd Asset with
       issuer = bank 
       owner = bob
       amount = 15
+      id = 2
   swap <- submit alice $ createCmd ProposeSwap with
       p1 = alice
       p2 = bob
       cid1 = cidAsset1
       cid2 = cidAsset2
   
-  Some c <- queryContractId' alice cidAsset1
+  Some (asset1) <- queryContractId' alice cidAsset1
+  Some (cidAsset1, asset1') <- queryContractKey' @Asset alice (bank, 1)
+
+  (asset1.metadata.keyHash === asset1'.metadata.keyHash)
   
   submitMustFail bob $ exerciseCmd swap Go
-  submitDisclosing [toDisclosedContract cidAsset1 c.contract c.metadata] bob $ exerciseCmd swap Go
+  submitDisclosing [toDisclosedContract cidAsset1 asset1.contract asset1.metadata] bob $ exerciseCmd swap Go
+
+  cidAsset5 <- submit bank $ createCmd Asset with
+      issuer = bank 
+      owner = alice 
+      amount = 15
+      id = 5
+  cidAsset6 <- submit bank $ createCmd Asset with
+      issuer = bank 
+      owner = bob
+      amount = 15
+      id = 6
+  swap <- submit alice $ createCmd ProposeSwap with
+      p1 = alice
+      p2 = bob
+      cid1 = cidAsset5
+      cid2 = cidAsset6
+  Some (asset5) <- queryContractId' alice cidAsset5
+  submitMultiDisclosing [toDisclosedContract cidAsset5 asset5.contract asset5.metadata] [bob] [alice] $ exerciseCmd swap Go
+
+  cidAsset9 <- submit bank $ createCmd Asset with
+      issuer = bank 
+      owner = alice 
+      amount = 15
+      id = 9 
+  cidAsset10 <- submit bank $ createCmd Asset with
+      issuer = bank 
+      owner = bob
+      amount = 15
+      id = 10 
+  swap <- submit alice $ createCmd ProposeSwapKey with
+      p1 = alice
+      p2 = bob
+      k1 = (bank, 9)
+      k2 = (bank, 10)
+  Some (asset9) <- queryContractId' alice cidAsset9
+  submitDisclosing [toDisclosedContract cidAsset9 asset9.contract asset9.metadata] bob $ exerciseCmd swap GoKey
+  
 
   pure()

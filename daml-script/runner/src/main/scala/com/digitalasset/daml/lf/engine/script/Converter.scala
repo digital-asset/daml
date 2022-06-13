@@ -771,7 +771,7 @@ object Converter {
     val metaTyCon = scriptIds.damlScript("ContractMetadata")
     val driverMetadata = Bytes.fromByteArray(meta.driverMetadata.toArray).toHexString
     for {
-      keyHash <- fromOptional(meta.keyHash, (h: crypto.Hash) => Right(SText(h.toString)))
+      keyHash <- fromOptional(meta.keyHash, (h: crypto.Hash) => Right(SText(h.toHexString)))
     } yield record(
       metaTyCon,
       ("createdAt", STimestamp(meta.createdAt)),
