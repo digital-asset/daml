@@ -328,6 +328,9 @@ object TypedValueGenerators {
     }
   }
 
+  // TODO SC deprecate
+  private[daml] val RNil: shapeless.HNil = shapeless.HNil
+
   sealed abstract class RecVarSpec[In] { self =>
     import shapeless.{Coproduct, HList}
 
