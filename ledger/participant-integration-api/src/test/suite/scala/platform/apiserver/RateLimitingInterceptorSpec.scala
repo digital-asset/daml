@@ -12,7 +12,6 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.apiserver.RateLimitingInterceptorSpec._
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.configuration.ServerRole
@@ -47,6 +46,8 @@ final class RateLimitingInterceptorSpec
     with Eventually
     with TestResourceContext
     with MockitoSugar {
+
+  import RateLimitingInterceptorSpec._
 
   implicit override val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(1, Second)))
@@ -221,22 +222,32 @@ final class RateLimitingInterceptorSpec
 
 }
 
-object RateLimitingInterceptorSpec {
+object RateLimitingInterceptorSpec extends MockitoSugar {
 
   val healthChecks = new HealthChecks(Map.empty[ComponentName, ReportsHealth])
   val systemOwner: ResourceOwner[ActorSystem] = new ActorSystemResourceOwner(() =>
     ActorSystem("RateLimitingInterceptorSpec")
   )
 
+  // For tests that do not involve memory
+  def underLimitMemoryPoolMXBean(): MemoryPoolMXBean = {
+    val memoryPoolBean = mock[MemoryPoolMXBean]
+    when(memoryPoolBean.getType).thenReturn(MemoryType.HEAP)
+    when(memoryPoolBean.getName).thenReturn("UnderLimitPool")
+    when(memoryPoolBean.getCollectionUsage).thenReturn(new MemoryUsage(0, 0, 0, 0))
+    when(memoryPoolBean.isCollectionUsageThresholdSupported).thenReturn(true)
+    when(memoryPoolBean.isCollectionUsageThresholdExceeded).thenReturn(false)
+  }
+
   def withChannel(
       metrics: Metrics,
       service: BindableService,
       config: RateLimitingConfig,
-      pool: List[MemoryPoolMXBean] = Nil,
+      pool: List[MemoryPoolMXBean] = List(underLimitMemoryPoolMXBean()),
       memoryBean: MemoryMXBean = ManagementFactory.getMemoryMXBean,
   ): ResourceOwner[Channel] =
     for {
-      server <- serverOwner(new RateLimitingInterceptor(metrics, config, pool, memoryBean), service)
+      server <- serverOwner(RateLimitingInterceptor(metrics, config, pool, memoryBean), service)
       channel <- GrpcClientResource.owner(Port(server.getPort))
     } yield channel
 

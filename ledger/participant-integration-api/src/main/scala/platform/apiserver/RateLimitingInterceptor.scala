@@ -13,25 +13,17 @@ import io.grpc._
 import io.grpc.protobuf.StatusProto
 import org.slf4j.LoggerFactory
 
-import java.lang.management.{MemoryMXBean, MemoryPoolMXBean, MemoryType}
+import java.lang.management.{ManagementFactory, MemoryMXBean, MemoryPoolMXBean, MemoryType}
+import scala.jdk.CollectionConverters.ListHasAsScala
 
 private[apiserver] final class RateLimitingInterceptor(
     metrics: Metrics,
     config: RateLimitingConfig,
-    memoryPoolMxBeans: List[MemoryPoolMXBean],
+    tenuredMemoryPool: Option[MemoryPoolMXBean],
     memoryMxBean: MemoryMXBean,
 ) extends ServerInterceptor {
 
   private val logger = LoggerFactory.getLogger(getClass)
-
-  private val tenuredMemoryPool: Option[MemoryPoolMXBean] =
-    memoryPoolMxBeans.find(p =>
-      p.getType == MemoryType.HEAP && p.isCollectionUsageThresholdSupported
-    )
-
-  tenuredMemoryPool.foreach { p =>
-    p.setCollectionUsageThreshold(config.collectionUsageThreshold(p.getCollectionUsage.getMax))
-  }
 
   /** Match naming in [[com.codahale.metrics.InstrumentedExecutorService]] */
   private case class InstrumentedCount(name: String, prefix: MetricName) {
@@ -142,9 +134,65 @@ private[apiserver] final class RateLimitingInterceptor(
 }
 
 object RateLimitingInterceptor {
-  val doNonLimit = Set(
+
+  def apply(metrics: Metrics, config: RateLimitingConfig): RateLimitingInterceptor = {
+    apply(
+      metrics = metrics,
+      config = config,
+      tenuredMemoryPools = ManagementFactory.getMemoryPoolMXBeans.asScala.toList,
+      memoryMxBean = ManagementFactory.getMemoryMXBean,
+    )
+  }
+
+  def apply(
+      metrics: Metrics,
+      config: RateLimitingConfig,
+      tenuredMemoryPools: List[MemoryPoolMXBean],
+      memoryMxBean: MemoryMXBean,
+  ): RateLimitingInterceptor = {
+    new RateLimitingInterceptor(
+      metrics = metrics,
+      config = config,
+      tenuredMemoryPool = TenuredMemoryPool(config, tenuredMemoryPools),
+      memoryMxBean = memoryMxBean,
+    )
+  }
+
+  val doNonLimit: Set[String] = Set(
     "grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo",
     "grpc.health.v1.Health/Check",
     "grpc.health.v1.Health/Watch",
   )
+}
+
+object TenuredMemoryPool {
+
+  private val logger = LoggerFactory.getLogger(getClass)
+
+  def apply(
+      config: RateLimitingConfig,
+      memoryPoolMxBeans: List[MemoryPoolMXBean] =
+        ManagementFactory.getMemoryPoolMXBeans.asScala.toList,
+  ): Option[MemoryPoolMXBean] = {
+    candidates(memoryPoolMxBeans) match {
+      case Nil =>
+        logger.error("Could not find tenured memory pool")
+        None
+      case List(pool) =>
+        val threshold = config.collectionUsageThreshold(pool.getCollectionUsage.getMax)
+        logger.info(
+          s"Setting collection pool threshold to $threshold for tenured memory pool ${pool.getName}"
+        )
+        pool.setCollectionUsageThreshold(threshold)
+        Some(pool)
+      case multiple =>
+        logger.error(s"Did not find single memory pool but: ${multiple.map(_.getName)}")
+        None
+    }
+  }
+
+  private def candidates(memoryPoolMxBeans: List[MemoryPoolMXBean]): List[MemoryPoolMXBean] =
+    memoryPoolMxBeans.filter(p =>
+      p.getType == MemoryType.HEAP && p.isCollectionUsageThresholdSupported
+    )
 }

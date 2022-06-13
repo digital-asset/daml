@@ -24,6 +24,6 @@ case object RateLimitingConfig {
     maxApiServicesQueueSize = 10000,
     maxApiServicesIndexDbQueueSize = 1000,
     maxHeapSpacePercentage = 85,
-    maxOverThresholdZoneSize = 100 * Megabyte,
+    maxOverThresholdZoneSize = 300 * Megabyte,
   )
 }
