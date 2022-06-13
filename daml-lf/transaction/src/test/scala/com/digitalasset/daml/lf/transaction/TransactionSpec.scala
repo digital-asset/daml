@@ -616,13 +616,17 @@ class TransactionSpec
     builder.add(exercise(builder, create3, parties, true), rollback)
     val (cid4, create4) = create(builder, parties)
     builder.add(create4, rollback)
+    val outerRollback = builder.add(builder.rollback())
+    val innerRollback = builder.add(builder.rollback(), outerRollback)
+    val (cid5, create5) = create(builder, parties)
+    builder.add(create5, innerRollback)
     val transaction = builder.build()
 
-    "consumedContracs does not include rollbacks" in {
+    "consumedContracts does not include rollbacks" in {
       transaction.consumedContracts shouldBe Set(cid0, cid2)
     }
     "inactiveContracts includes rollbacks" in {
-      transaction.inactiveContracts shouldBe Set(cid0, cid2, cid4)
+      transaction.inactiveContracts shouldBe Set(cid0, cid2, cid4, cid5)
     }
   }
 
