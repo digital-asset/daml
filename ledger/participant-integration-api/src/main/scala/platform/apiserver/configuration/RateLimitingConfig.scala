@@ -9,7 +9,7 @@ final case class RateLimitingConfig(
     maxHeapSpacePercentage: Int,
     maxOverThresholdZoneSize: Long,
 ) {
-  def collectionUsageThreshold(maxPoolBytes: Long): Long = {
+  def calculateCollectionUsageThreshold(maxPoolBytes: Long): Long = {
     val percentageBasedThreshold = (maxHeapSpacePercentage * maxPoolBytes) / 100
     val zoneBasedThreshold = maxPoolBytes - maxOverThresholdZoneSize
     Math.max(percentageBasedThreshold, zoneBasedThreshold)

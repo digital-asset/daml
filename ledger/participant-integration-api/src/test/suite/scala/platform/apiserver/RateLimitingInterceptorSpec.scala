@@ -12,6 +12,7 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.TenuredMemoryPool.findTenuredMemoryPool
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.configuration.ServerRole
@@ -205,7 +206,7 @@ final class RateLimitingInterceptorSpec
           _ <- helloService.single(HelloRequest(3))
         } yield {
           verify(memoryPoolBean).setCollectionUsageThreshold(
-            config.collectionUsageThreshold(maxMemory)
+            config.calculateCollectionUsageThreshold(maxMemory)
           )
           verify(memoryBean).gc()
           exception.getMessage should include(expectedMetric)
@@ -217,15 +218,15 @@ final class RateLimitingInterceptorSpec
     // The actual threshold used would be max(maxHeapSpacePercentage * maxHeapSize / 100, maxHeapSize - maxOverThresholdZoneSize)
     val underTest =
       RateLimitingConfig.Default.copy(maxHeapSpacePercentage = 90, maxOverThresholdZoneSize = 1000)
-    underTest.collectionUsageThreshold(1000) shouldBe 900 // 90%
-    underTest.collectionUsageThreshold(101000) shouldBe 100000 // 101000 - 1000
+    underTest.calculateCollectionUsageThreshold(1000) shouldBe 900 // 90%
+    underTest.calculateCollectionUsageThreshold(101000) shouldBe 100000 // 101000 - 1000
   }
 
   it should "only enable memory based rate limiting if a single tenured memory pool is found" in {
     val expected = underLimitMemoryPoolMXBean()
-    TenuredMemoryPool(config, Nil) shouldBe None
-    TenuredMemoryPool(config, List(expected)) shouldBe Some(expected)
-    TenuredMemoryPool(
+    findTenuredMemoryPool(config, Nil) shouldBe None
+    findTenuredMemoryPool(config, List(expected)) shouldBe Some(expected)
+    findTenuredMemoryPool(
       config,
       List(underLimitMemoryPoolMXBean(), underLimitMemoryPoolMXBean()),
     ) shouldBe None

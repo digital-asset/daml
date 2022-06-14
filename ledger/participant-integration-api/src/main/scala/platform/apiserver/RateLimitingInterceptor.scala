@@ -6,12 +6,14 @@ package com.daml.platform.apiserver
 import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.{MetricName, Metrics}
 import com.daml.platform.apiserver.RateLimitingInterceptor.doNonLimit
+import com.daml.platform.apiserver.TenuredMemoryPool.findTenuredMemoryPool
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.configuration.ServerRole
 import io.grpc.Status.Code
 import io.grpc._
 import io.grpc.protobuf.StatusProto
 import org.slf4j.LoggerFactory
+
 import scala.concurrent.duration._
 import java.lang.management.{
   ManagementFactory,
@@ -98,7 +100,7 @@ private[apiserver] final class RateLimitingInterceptor(
         val poolBeanMetricPrefix = s"jvm_memory_usage_pools_${p.getName}"
         val rpcStatus =
           s"""
-             | The ${p.getName} collection  has exceeded the maximum (${p.getCollectionUsageThreshold}).
+             | The ${p.getName} collection usage threshold has exceeded the maximum (${p.getCollectionUsageThreshold}).
              | The rejected call was $fullMethodName.
              | Jvm memory metrics are available at $poolBeanMetricPrefix
           """.stripMargin
@@ -165,7 +167,7 @@ object RateLimitingInterceptor {
     new RateLimitingInterceptor(
       metrics = metrics,
       config = config,
-      tenuredMemoryPool = TenuredMemoryPool(config, tenuredMemoryPools),
+      tenuredMemoryPool = findTenuredMemoryPool(config, tenuredMemoryPools),
       memoryMxBean = new GcThrottledMemoryBean(memoryMxBean),
     )
   }
@@ -203,24 +205,26 @@ object TenuredMemoryPool {
 
   private val logger = LoggerFactory.getLogger(getClass)
 
-  def apply(
+  def findTenuredMemoryPool(
       config: RateLimitingConfig,
-      memoryPoolMxBeans: List[MemoryPoolMXBean] =
-        ManagementFactory.getMemoryPoolMXBeans.asScala.toList,
+      memoryPoolMxBeans: List[MemoryPoolMXBean],
   ): Option[MemoryPoolMXBean] = {
     candidates(memoryPoolMxBeans) match {
       case Nil =>
         logger.error("Could not find tenured memory pool")
         None
       case List(pool) =>
-        val threshold = config.collectionUsageThreshold(pool.getCollectionUsage.getMax)
+        val threshold = config.calculateCollectionUsageThreshold(pool.getCollectionUsage.getMax)
         logger.info(
-          s"Setting collection pool threshold to $threshold for tenured memory pool ${pool.getName}"
+          s"Found 'tenured' memory pool ${pool.getName}.  Setting its collection pool threshold to $threshold"
         )
         pool.setCollectionUsageThreshold(threshold)
         Some(pool)
       case multiple =>
-        logger.error(s"Did not find single memory pool but: ${multiple.map(_.getName)}")
+        logger.error(
+          s"Found multiple candidate 'tenured' memory pools while expecting only one 'tenured' memory pool. Multiple found candidates are: ${multiple
+              .map(_.getName)}"
+        )
         None
     }
   }
