@@ -10,7 +10,15 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.validation.ValueValidator
 import com.daml.ledger.offset.Offset
-import com.daml.lf.engine.{Engine, Result, ResultDone, ResultError, ResultNeedContract, ResultNeedKey, ResultNeedPackage}
+import com.daml.lf.engine.{
+  Engine,
+  Result,
+  ResultDone,
+  ResultError,
+  ResultNeedContract,
+  ResultNeedKey,
+  ResultNeedPackage,
+}
 import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
@@ -22,14 +30,14 @@ import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 
 private[platform] case class TransactionFilter(
-  // For each party, the set of templates that should be included in the result
-  // If the set is empty, all templates should be included
-  // TODO DPP-1068: better representation of wildcard filters? Some ADT instead of Set.empty?
-  templatesToInclude: Map[Ref.Party, Set[Ref.Identifier]],
+    // For each party, the set of templates that should be included in the result
+    // If the set is empty, all templates should be included
+    // TODO DPP-1068: better representation of wildcard filters? Some ADT instead of Set.empty?
+    templatesToInclude: Map[Ref.Party, Set[Ref.Identifier]],
 
-  // For each template, the set of interfaces for which the view needs to be computed
-  // If the set is empty, no views should be computed
-  viewsToCompute: Map[Ref.Identifier, Set[Ref.Identifier]],
+    // For each template, the set of interfaces for which the view needs to be computed
+    // If the set is empty, no views should be computed
+    viewsToCompute: Map[Ref.Identifier, Set[Ref.Identifier]],
 )
 
 // TODO DPP-1068: Add unit tests for this
@@ -44,45 +52,49 @@ private[platform] object TransactionFilter {
     val listOfViewsToCompute: ListBuffer[(Ref.Identifier, Ref.Identifier)] = ListBuffer.empty
 
     val templatesToInclude = filter.filtersByParty.view
-      .mapValues(filters => filters.inclusive.fold(
-        Set.empty[Ref.Identifier]
-      )(inclusiveFilters => {
-        val interfaceTemplateIds = inclusiveFilters.interfaceFilters.flatMap(interfaceFilter => {
-          val interfaceId = interfaceFilter.interfaceId
+      .mapValues(filters =>
+        filters.inclusive.fold(
+          Set.empty[Ref.Identifier]
+        )(inclusiveFilters => {
+          val interfaceTemplateIds = inclusiveFilters.interfaceFilters.flatMap(interfaceFilter => {
+            val interfaceId = interfaceFilter.interfaceId
 
-          // Check whether the interface is known
-          // TODO DPP-1068: compare interfaceOffset with the ledger end queried before this call.
-          //  If the offset is higher than current ledger end, it means the package defining the interface
-          //  was uploaded right now, and the cache might only contain partial data for this interface.
-          //  SingletonPackageMetadataCached doesn't have this problem as it updates its state atomically,
-          //  but other implementations might not.
-          val interfaceOffset = packageMetadataCache.interfaceAddedAt(interfaceId)
-          if (interfaceOffset.isEmpty) {
-            // TODO DPP-1068: Proper error handling, maybe return Either[Error, TransactionFilter]
-            throw new RuntimeException(
-              s"Interface $interfaceId is not known"
-            )
-          }
+            // Check whether the interface is known
+            // TODO DPP-1068: compare interfaceOffset with the ledger end queried before this call.
+            //  If the offset is higher than current ledger end, it means the package defining the interface
+            //  was uploaded right now, and the cache might only contain partial data for this interface.
+            //  SingletonPackageMetadataCached doesn't have this problem as it updates its state atomically,
+            //  but other implementations might not.
+            val interfaceOffset = packageMetadataCache.interfaceAddedAt(interfaceId)
+            if (interfaceOffset.isEmpty) {
+              // TODO DPP-1068: Proper error handling, maybe return Either[Error, TransactionFilter]
+              throw new RuntimeException(
+                s"Interface $interfaceId is not known"
+              )
+            }
 
-          // Find all templates that implement this interface
-          val templateIds = packageMetadataCache.getInterfaceImplementations(interfaceId)
+            // Find all templates that implement this interface
+            val templateIds = packageMetadataCache.getInterfaceImplementations(interfaceId)
 
-          // Remember for each of these templates whether we have to compute the view
-          if (interfaceFilter.includeView) {
-            templateIds.foreach(tid => listOfViewsToCompute.addOne(tid -> interfaceId))
-          }
+            // Remember for each of these templates whether we have to compute the view
+            if (interfaceFilter.includeView) {
+              templateIds.foreach(tid => listOfViewsToCompute.addOne(tid -> interfaceId))
+            }
 
-          templateIds
+            templateIds
+          })
+
+          val allTemplateIds = inclusiveFilters.templateIds ++ interfaceTemplateIds
+
+          // Optimization: filter out templates that were introduced after endInclusive,
+          // as there will be no contracts for those templates in the given offset range.
+          val relevantTemplateIds = allTemplateIds.filter(id =>
+            packageMetadataCache.templateAddedAt(id).exists(o => o <= endInclusive)
+          )
+
+          relevantTemplateIds
         })
-
-        val allTemplateIds = inclusiveFilters.templateIds ++ interfaceTemplateIds
-
-        // Optimization: filter out templates that were introduced after endInclusive,
-        // as there will be no contracts for those templates in the given offset range.
-        val relevantTemplateIds = allTemplateIds.filter(id => packageMetadataCache.templateAddedAt(id).exists(o => o <= endInclusive))
-
-        relevantTemplateIds
-      }))
+      )
       .toMap // Note: force the computation, otherwise listOfViewsToCompute will be empty in the next step
 
     val viewsToCompute = listOfViewsToCompute
@@ -98,19 +110,20 @@ private[platform] object TransactionFilter {
   }
 
   def computeInterfaceViews(
-    respose: GetTransactionsResponse,
-    filter: TransactionFilter,
-    engine: Engine,
+      respose: GetTransactionsResponse,
+      filter: TransactionFilter,
+      engine: Engine,
   )(implicit loggingContext: LoggingContext): GetTransactionsResponse = {
-    val transactionsWithViews = respose.transactions.map(tx => computeInterfaceViews(tx, filter, engine))
+    val transactionsWithViews =
+      respose.transactions.map(tx => computeInterfaceViews(tx, filter, engine))
     respose.update(_.transactions := transactionsWithViews)
   }
 
   /** Returns a copy of the given transaction that contains all required interface views */
   private def computeInterfaceViews(
-    transaction: Transaction,
-    filter: TransactionFilter,
-    engine: Engine,
+      transaction: Transaction,
+      filter: TransactionFilter,
+      engine: Engine,
   )(implicit loggingContext: LoggingContext): Transaction = {
     transaction.update(
       _.events := transaction.events.map(outerEvent =>
@@ -140,10 +153,10 @@ private[platform] object TransactionFilter {
 
   /** Computes all required interface views for the given template */
   private def computeInterfaceView(
-    templateId: Ref.Identifier,
-    record: com.daml.ledger.api.v1.value.Record,
-    interfaceId: Ref.Identifier,
-    engine: Engine,
+      templateId: Ref.Identifier,
+      record: com.daml.ledger.api.v1.value.Record,
+      interfaceId: Ref.Identifier,
+      engine: Engine,
   )(implicit loggingContext: LoggingContext): com.daml.ledger.api.v1.event.InterfaceView = {
     // TODO DPP-1068: The transaction stream contains protobuf-serialized transactions (Source[GetTransactionsResponse, NotUsed]),
     //   we don't have access to the original Daml-LF value.
@@ -198,7 +211,9 @@ private[platform] object TransactionFilter {
   }
 
   // TODO DPP-1068: Copied from LfValueSerialization
-  private def apiIdentifierToDamlLfIdentifier(id: com.daml.ledger.api.v1.value.Identifier): Ref.Identifier =
+  private def apiIdentifierToDamlLfIdentifier(
+      id: com.daml.ledger.api.v1.value.Identifier
+  ): Ref.Identifier =
     Ref.Identifier(
       Ref.PackageId.assertFromString(id.packageId),
       Ref.QualifiedName(
