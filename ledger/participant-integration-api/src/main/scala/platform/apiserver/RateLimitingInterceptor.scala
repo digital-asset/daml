@@ -12,15 +12,23 @@ import io.grpc.Status.Code
 import io.grpc._
 import io.grpc.protobuf.StatusProto
 import org.slf4j.LoggerFactory
-
-import java.lang.management.{ManagementFactory, MemoryMXBean, MemoryPoolMXBean, MemoryType}
+import scala.concurrent.duration._
+import java.lang.management.{
+  ManagementFactory,
+  MemoryMXBean,
+  MemoryPoolMXBean,
+  MemoryType,
+  MemoryUsage,
+}
+import java.util.concurrent.atomic.AtomicLong
+import javax.management.ObjectName
 import scala.jdk.CollectionConverters.ListHasAsScala
 
 private[apiserver] final class RateLimitingInterceptor(
     metrics: Metrics,
     config: RateLimitingConfig,
     tenuredMemoryPool: Option[MemoryPoolMXBean],
-    memoryMxBean: MemoryMXBean,
+    memoryMxBean: GcThrottledMemoryBean,
 ) extends ServerInterceptor {
 
   private val logger = LoggerFactory.getLogger(getClass)
@@ -103,10 +111,14 @@ private[apiserver] final class RateLimitingInterceptor(
   }
 
   /** When the collected tenured memory pool usage exceeds the threshold this state will continue even if memory
-    * has been freed up if not garbage collection takes place.  For this reason when we are over limit we also
+    * has been freed up if no garbage collection takes place.  For this reason when we are over limit we also
     * run garbage collection on every request to ensure the collection usage stats are as up to date as possible
     * to thus stop rate limiting as soon as possible.
+    *
+    * We use a throttled memory bean to ensure that even if the server is under heavy rate limited load calls
+    * to the underlying system gc are limited.
     */
+
   private def gc(): Unit = {
     memoryMxBean.gc()
   }
@@ -154,7 +166,7 @@ object RateLimitingInterceptor {
       metrics = metrics,
       config = config,
       tenuredMemoryPool = TenuredMemoryPool(config, tenuredMemoryPools),
-      memoryMxBean = memoryMxBean,
+      memoryMxBean = new GcThrottledMemoryBean(memoryMxBean),
     )
   }
 
@@ -163,6 +175,28 @@ object RateLimitingInterceptor {
     "grpc.health.v1.Health/Check",
     "grpc.health.v1.Health/Watch",
   )
+}
+
+class GcThrottledMemoryBean(delegate: MemoryMXBean, delayBetweenCalls: Duration = 1.seconds)
+    extends MemoryMXBean {
+
+  private val lastCall = new AtomicLong()
+
+  /** Only GC if we have not called gc for at least [[delayBetweenCalls]]
+    */
+  override def gc(): Unit = {
+    val last = lastCall.get()
+    val now = System.currentTimeMillis()
+    if (now - last > delayBetweenCalls.toMillis && lastCall.compareAndSet(last, now)) delegate.gc()
+  }
+
+  // Delegated methods
+  override def getObjectPendingFinalizationCount: Int = delegate.getObjectPendingFinalizationCount
+  override def getHeapMemoryUsage: MemoryUsage = delegate.getHeapMemoryUsage
+  override def getNonHeapMemoryUsage: MemoryUsage = delegate.getNonHeapMemoryUsage
+  override def isVerbose: Boolean = delegate.isVerbose
+  override def setVerbose(value: Boolean): Unit = delegate.setVerbose(value)
+  override def getObjectName: ObjectName = delegate.getObjectName
 }
 
 object TenuredMemoryPool {

@@ -37,6 +37,7 @@ import org.scalatest.time.{Second, Span}
 
 import java.lang.management._
 import java.net.{InetAddress, InetSocketAddress}
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Future, Promise}
 
 final class RateLimitingInterceptorSpec
@@ -220,6 +221,26 @@ final class RateLimitingInterceptorSpec
     underTest.collectionUsageThreshold(101000) shouldBe 100000 // 101000 - 1000
   }
 
+  it should "only enable memory based rate limiting if a single tenured memory pool is found" in {
+    val expected = underLimitMemoryPoolMXBean()
+    TenuredMemoryPool(config, Nil) shouldBe None
+    TenuredMemoryPool(config, List(expected)) shouldBe Some(expected)
+    TenuredMemoryPool(config, List(underLimitMemoryPoolMXBean(), underLimitMemoryPoolMXBean())) shouldBe None
+  }
+
+  it should "throttle calls to GC" in {
+    val delegate = mock[MemoryMXBean]
+    val delayBetweenCalls = 100.milliseconds
+    val underTest = new GcThrottledMemoryBean(delegate, delayBetweenCalls)
+    underTest.gc()
+    underTest.gc()
+    verify(delegate, times(1)).gc()
+    Thread.sleep(delayBetweenCalls.toMillis)
+    underTest.gc()
+    verify(delegate, times(2)).gc()
+    succeed
+  }
+
 }
 
 object RateLimitingInterceptorSpec extends MockitoSugar {
@@ -251,7 +272,7 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
       channel <- GrpcClientResource.owner(Port(server.getPort))
     } yield channel
 
-  private def serverOwner(
+  def serverOwner(
       interceptor: ServerInterceptor,
       service: BindableService,
   ): ResourceOwner[Server] =
