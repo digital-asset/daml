@@ -2159,13 +2159,13 @@ class EngineTest
         ("LookupTwice", emptyArg, 1),
         ("LookupAfterCreate", emptyArg, 0),
         ("LookupAfterCreateArchive", emptyArg, 0),
-        ("LookupAfterFetch", cidArg, 1),
-        ("LookupAfterArchive", cidArg, 1),
+        ("LookupAfterFetch", cidArg, 0),
+        ("LookupAfterArchive", cidArg, 0),
         ("LookupAfterRollbackCreate", emptyArg, 0),
         ("LookupAfterRollbackLookup", emptyArg, 1),
         ("LookupAfterArchiveAfterRollbackLookup", cidArg, 1),
       )
-      forAll(cases) { case (choice, argument, lookups) =>
+      forEvery(cases) { case (choice, argument, lookups) =>
         val command = ApiCommand.CreateAndExercise(
           tId,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
