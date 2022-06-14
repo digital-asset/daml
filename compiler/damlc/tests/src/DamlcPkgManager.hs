@@ -155,7 +155,7 @@ testsForRemoteDataDependencies damlc dar =
                   -- only the main package needs to be downloaded, while the direct dependencies are
                   -- already present.
               ]
-    , withSandbox defaultSandboxConf {mbSharedSecret = Just "secret", dars = [dar]} $ \getSandboxPort
+    , withSandboxToken (makeSignedJwt "secret" []) defaultSandboxConf {mbSharedSecret = Just "secret", dars = [dar]} $ \getSandboxPort
     -- run the sandbox with authentication to check that we can access it given an authentication
     -- token.
        -> do

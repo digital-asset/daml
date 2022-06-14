@@ -9,6 +9,7 @@ module DA.Test.Sandbox
     , TimeMode(..)
     , defaultSandboxConf
     , withSandbox
+    , withSandboxToken
     , createSandbox
     , destroySandbox
     , makeSignedJwt
@@ -107,6 +108,26 @@ withSandbox conf f =
                 createSandbox portFile stdout conf
         in withResource createSandbox' destroySandbox (f . fmap sandboxPort)
 
+createSandboxWithToken :: String -> FilePath -> Handle -> SandboxConfig -> IO SandboxResource
+createSandboxWithToken tokenString portFile sandboxOutput conf = do
+    sandboxProc <- getSandboxProc conf portFile
+    mask $ \unmask -> do
+        ph@(_,_,_,ph') <- createProcess sandboxProc { std_out = UseHandle sandboxOutput }
+        let waitForStart = do
+                port <- readPortFile ph' maxRetries portFile
+                forM_ (dars conf) $ \darPath -> do
+                    runLedgerUploadDarWithToken tokenString (sandboxLedgerFlags port) (Just darPath)
+                pure (SandboxResource ph port)
+        unmask (waitForStart `onException` cleanupProcess ph)
+
+withSandboxToken :: String -> SandboxConfig -> (IO Int -> TestTree) -> TestTree
+withSandboxToken tokenString conf f =
+    withResource newTempDir snd $ \getTmpDir ->
+        let createSandbox' = do
+                (tempDir, _) <- getTmpDir
+                let portFile = tempDir </> "sandbox-portfile"
+                createSandboxWithToken tokenString portFile stdout conf
+        in withResource createSandbox' destroySandbox (f . fmap sandboxPort)
 
 data SandboxResource = SandboxResource
     { sandboxProcess :: (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle)

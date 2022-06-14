@@ -18,6 +18,7 @@ module DA.Daml.Helper.Ledger (
     runLedgerListParties,
     runLedgerAllocateParties,
     runLedgerUploadDar,
+    runLedgerUploadDarWithToken,
     runLedgerFetchDar,
     runLedgerExport,
     runLedgerReset,
@@ -204,8 +205,11 @@ runLedgerAllocateParties flags partiesArg = do
 
 -- | Upload a DAR file to the ledger. (Defaults to project DAR)
 runLedgerUploadDar :: LedgerFlags -> Maybe FilePath -> IO ()
-runLedgerUploadDar flags darPathM = do
-  args <- getDefaultArgs flags
+runLedgerUploadDar = runLedgerUploadDar_ getDefaultArgs
+
+runLedgerUploadDar_ :: (LedgerFlags -> IO LedgerArgs) -> LedgerFlags -> Maybe FilePath -> IO ()
+runLedgerUploadDar_ getArgs flags darPathM  = do
+  args <- getArgs flags
   darPath <-
     flip fromMaybeM darPathM $ do
       doBuild
@@ -226,6 +230,31 @@ runLedgerUploadDar flags darPathM = do
       putStrLn $ "upload-dar did not succeed: " <> show err
       exitFailure
     Right () -> putStrLn "DAR upload succeeded."
+
+-- | Upload a DAR file to the ledger. Token is given instead of inferred from LedgerFlags. (Defaults to project DAR)
+runLedgerUploadDarWithToken :: String -> LedgerFlags ->Maybe FilePath -> IO ()
+runLedgerUploadDarWithToken tokenString flags darPathM = runLedgerUploadDar_ (getDefaultArgsWithToken $ Just $ L.Token tokenString) flags darPathM
+  where
+    getDefaultArgsWithToken :: Maybe L.Token -> LedgerFlags -> IO LedgerArgs
+    getDefaultArgsWithToken tokM LedgerFlags { fApi
+                                             , fSslConfigM
+                                             , fTimeout
+                                             , fHostM
+                                             , fPortM
+                                             , fMaxReceiveLengthM
+                                             } = do
+      host <- fromMaybeM getProjectLedgerHost fHostM
+      port <- fromMaybeM getProjectLedgerPort fPortM
+      return $
+        LedgerArgs
+          { api = fApi
+          , port = port
+          , host = host
+          , tokM = tokM
+          , timeout = fTimeout
+          , sslConfigM = fSslConfigM
+          , grpcArgs = MaxReceiveMessageLength <$> maybeToList fMaxReceiveLengthM
+          }
 
 uploadDarFile :: LedgerArgs -> BS.ByteString -> IO (Either String ())
 uploadDarFile args bytes =
@@ -640,7 +669,7 @@ runLedgerMeteringReport :: LedgerFlags -> Day -> Maybe Day -> Maybe ApplicationI
 runLedgerMeteringReport flags fromIso toIso application compactOutput = do
     args <- getDefaultArgs flags
     report <- meteringReport args fromIso toIso application
-    let encodeFn = if compactOutput then encode else encodePretty  
+    let encodeFn = if compactOutput then encode else encodePretty
     let encoded = encodeFn report
     let bsc = BSL.toStrict encoded
     let output = BSC.unpack bsc
