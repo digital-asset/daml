@@ -223,23 +223,17 @@ object TenuredMemoryPool {
       config: RateLimitingConfig,
       memoryPoolMxBeans: List[MemoryPoolMXBean],
   ): Option[MemoryPoolMXBean] = {
-    candidates(memoryPoolMxBeans) match {
-      case Nil =>
+    candidates(memoryPoolMxBeans).sortBy(_.getCollectionUsage.getMax).lastOption match {
+      case None =>
         logger.error("Could not find tenured memory pool")
         None
-      case List(pool) =>
+      case Some(pool) =>
         val threshold = config.calculateCollectionUsageThreshold(pool.getCollectionUsage.getMax)
         logger.info(
-          s"Found 'tenured' memory pool ${pool.getName}.  Setting its collection pool threshold to $threshold"
+          s"Using 'tenured' memory pool ${pool.getName}.  Setting its collection pool threshold to $threshold"
         )
         pool.setCollectionUsageThreshold(threshold)
         Some(pool)
-      case multiple =>
-        logger.error(
-          s"Found multiple candidate 'tenured' memory pools while expecting only one 'tenured' memory pool. Multiple found candidates are: ${multiple
-              .map(_.getName)}"
-        )
-        None
     }
   }
 

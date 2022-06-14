@@ -263,14 +263,18 @@ final class RateLimitingInterceptorSpec
     underTest.calculateCollectionUsageThreshold(101000) shouldBe 100000 // 101000 - 1000
   }
 
-  it should "only enable memory based rate limiting if a single tenured memory pool is found" in {
+  it should "use largest tenured pool as rate limiting pool" in {
     val expected = underLimitMemoryPoolMXBean()
+    when(expected.getCollectionUsage).thenReturn(new MemoryUsage(0, 0, 0, 100))
     findTenuredMemoryPool(config, Nil) shouldBe None
-    findTenuredMemoryPool(config, List(expected)) shouldBe Some(expected)
     findTenuredMemoryPool(
       config,
-      List(underLimitMemoryPoolMXBean(), underLimitMemoryPoolMXBean()),
-    ) shouldBe None
+      List(
+        underLimitMemoryPoolMXBean(),
+        expected,
+        underLimitMemoryPoolMXBean(),
+      ),
+    ) shouldBe Some(expected)
   }
 
   it should "throttle calls to GC" in {
@@ -280,7 +284,7 @@ final class RateLimitingInterceptorSpec
     underTest.gc()
     underTest.gc()
     verify(delegate, times(1)).gc()
-    Thread.sleep(delayBetweenCalls.toMillis)
+    Thread.sleep(2 * delayBetweenCalls.toMillis)
     underTest.gc()
     verify(delegate, times(2)).gc()
     succeed
