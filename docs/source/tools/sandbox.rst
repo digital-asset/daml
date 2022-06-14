@@ -306,19 +306,14 @@ that can be particularly important to track. Note that not
 all the following metrics are available unless you run the
 sandbox with a PostgreSQL backend.
 
-``daml.commands.deduplicated_commands``
----------------------------------------
-
-A meter. Number of deduplicated commands.
-
 ``daml.commands.delayed_submissions``
 -------------------------------------
 
-A meter. Number of delayed submissions (submission who have been
+A meter. Number of delayed submissions (submission that have been
 evaluated to transaction with a ledger time farther in
 the future than the expected latency).
 
-``daml.commands.failed_command_interpretation``
+``daml.commands.failed_command_interpretations``
 -----------------------------------------------
 
 A meter. Number of commands that have been deemed unacceptable
@@ -422,7 +417,7 @@ mismatching ledger effective time.
 A timer. Time spent interpreting a valid command into a transaction
 ready to be submitted to the ledger for finalization.
 
-``daml.index.db.connection.sandbox.pool``
+``daml.index.db.connection.api.server.pool``
 -----------------------------------------
 
 This namespace holds a number of interesting metrics about the
@@ -431,18 +426,12 @@ that underlies the index.
 
 These metrics include:
 
-- ``daml.index.db.connection.sandbox.pool.Wait`` (timer): time spent waiting to acquire a connection
-- ``daml.index.db.connection.sandbox.pool.Usage`` (histogram): time spent using each acquired connection
-- ``daml.index.db.connection.sandbox.pool.TotalConnections`` (gauge): number or total connections
-- ``daml.index.db.connection.sandbox.pool.IdleConnections`` (gauge): number of idle connections
-- ``daml.index.db.connection.sandbox.pool.ActiveConnections`` (gauge): number of active connections
-- ``daml.index.db.connection.sandbox.pool.PendingConnections`` (gauge): number of threads waiting for a connection
-
-``daml.index.db.deduplicate_command``
--------------------------------------
-
-A timer. Time spent persisting deduplication information to ensure the
-continued working of the deduplication mechanism across restarts.
+- ``daml.index.db.connection.api.server.pool.Wait`` (timer): time spent waiting to acquire a connection
+- ``daml.index.db.connection.api.server.pool.Usage`` (histogram): time spent using each acquired connection
+- ``daml.index.db.connection.api.server.pool.TotalConnections`` (gauge): number or total connections
+- ``daml.index.db.connection.api.server.pool.IdleConnections`` (gauge): number of idle connections
+- ``daml.index.db.connection.api.server.pool.ActiveConnections`` (gauge): number of active connections
+- ``daml.index.db.connection.api.server.pool.PendingConnections`` (gauge): number of threads waiting for a connection
 
 ``daml.index.db.get_active_contracts``
 --------------------------------------
@@ -568,20 +557,6 @@ contracts involved to ensure causal monotonicity.
 A database metric. Time to lookup a single transaction tree by identifier
 to be served by the transaction service.
 
-``daml.index.db.remove_expired_deduplication_data``
----------------------------------------------------
-
-A database metric. Time spent removing deduplication information after the expiration
-of the deduplication window. Deduplication information is persisted to
-ensure the continued working of the deduplication mechanism across restarts.
-
-``daml.index.db.stop_deduplicating_command``
---------------------------------------------
-
-A database metric. Time spent removing deduplication information after the failure of a
-command. Deduplication information is persisted to ensure the continued
-working of the deduplication mechanism across restarts.
-
 ``daml.index.db.store_configuration_entry``
 -------------------------------------------
 
@@ -624,6 +599,23 @@ service exposed by the Ledger API, in the format:
 As in the following example:
 
 ``daml.lapi.command_service.submit_and_wait``
+
+Single call services return the time to serve the request,
+streaming services measure the time to return the first response.
+
+``daml.services``
+-------------
+
+Every metrics under this namespace is a timer, one for each
+endpoint exposed by the index, read or write service. Metrics
+are in the format:
+
+``daml.services.service_name.service_endpoint``
+
+The following example demonstrates a metric for transactions
+submitted over the write service:
+
+``daml.services.write.submit_transaction``
 
 Single call services return the time to serve the request,
 streaming services measure the time to return the first response.
