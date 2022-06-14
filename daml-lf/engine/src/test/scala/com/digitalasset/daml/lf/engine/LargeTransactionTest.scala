@@ -69,7 +69,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
         effectiveAt,
         id,
       ) match {
-        case LookupOk(_, coinst, _) => Some(coinst)
+        case LookupOk(_, coinst, _, _) => Some(coinst)
         case _: LookupContractNotEffective | _: LookupContractNotActive |
             _: LookupContractNotVisible | _: LookupContractNotFound =>
           None

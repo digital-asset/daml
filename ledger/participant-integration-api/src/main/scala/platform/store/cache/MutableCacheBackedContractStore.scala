@@ -63,7 +63,7 @@ private[platform] class MutableCacheBackedContractStore(
   )(implicit
       loggingContext: LoggingContext
   ): Future[Option[(VersionedContractInstance, Timestamp)]] =
-    contractsCache
+    contractStateCaches.contractState
       .get(contractId)
       .map(Future.successful)
       .getOrElse(readThroughContractsCache(contractId))

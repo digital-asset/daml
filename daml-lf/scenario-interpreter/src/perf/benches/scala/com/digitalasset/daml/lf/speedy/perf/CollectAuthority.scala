@@ -8,7 +8,7 @@ package perf
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref.{Identifier, Location, Party, QualifiedName}
-import com.daml.lf.data.Time
+import com.daml.lf.data.{ImmArray, Time}
 import com.daml.lf.language.Ast.EVal
 import com.daml.lf.speedy.SExpr.{SExpr, SEValue}
 import com.daml.lf.speedy.SResult._
@@ -91,6 +91,7 @@ class CollectAuthorityState {
             committers,
             Set.empty,
             SEValue(commands),
+            ImmArray.empty,
             location,
             crypto.Hash.hashPrivateKey(step.toString),
             doEnrichment = false,
@@ -134,6 +135,7 @@ class CollectAuthorityState {
             committers,
             Set.empty,
             SEValue(commands),
+            ImmArray.empty,
             location,
             crypto.Hash.hashPrivateKey(step.toString),
           ) match {
