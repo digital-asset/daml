@@ -1438,12 +1438,13 @@ private[lf] object SBuiltin {
         machine: Machine,
         onLedger: OnLedger,
     ): Unit = {
+      val skey = args.get(0)
       val keyWithMaintainers =
         extractKeyWithMaintainers(
           machine,
           operation.templateId,
           NameOf.qualifiedNameOfCurrentFunc,
-          args.get(0),
+          skey,
         )
       if (keyWithMaintainers.maintainers.isEmpty)
         throw SErrorDamlException(
@@ -1451,23 +1452,28 @@ private[lf] object SBuiltin {
         )
 
       val gkey = GlobalKey(operation.templateId, keyWithMaintainers.key)
+
+      def ensureVisible(coid: V.ContractId) = {
+        val cachedContract = onLedger.cachedContracts
+          .getOrElse(coid, crash(s"Local contract ${coid.coid} not in cachedContracts"))
+        val stakeholders = cachedContract.signatories union cachedContract.observers
+        onLedger.visibleToStakeholders(stakeholders) match {
+          case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
+            machine.ctrl = SEDamlException(
+              IE.LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
+            )
+          case _ =>
+            operation.handleKeyFound(machine, coid)
+        }
+      }
+
       onLedger.ptx.contractState.resolveKey(gkey) match {
         case Right((keyMapping, next)) =>
           onLedger.ptx = onLedger.ptx.copy(contractState = next)
           keyMapping match {
             case ContractStateMachine.KeyActive(coid)
                 if onLedger.ptx.localContracts.contains(coid) =>
-              val cachedContract = onLedger.cachedContracts
-                .getOrElse(coid, crash(s"Local contract ${coid.coid} not in cachedContracts"))
-              val stakeholders = cachedContract.signatories union cachedContract.observers
-              onLedger.visibleToStakeholders(stakeholders) match {
-                case SVisibleToStakeholders.Visible =>
-                  operation.handleKeyFound(machine, coid)
-                case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-                  machine.ctrl = SEDamlException(
-                    IE.LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
-                  )
-              }
+              ensureVisible(coid)
             case _ =>
               operation.handleKnownInputKey(machine, gkey, keyMapping)
           }
@@ -1481,7 +1487,12 @@ private[lf] object SBuiltin {
                 onLedger.ptx = onLedger.ptx.copy(contractState = next)
                 keyMapping match {
                   case ContractStateMachine.KeyActive(cid) =>
-                    operation.handleKeyFound(machine, cid)
+                    if (onLedger.cachedContracts.contains(cid)) {
+                      ensureVisible(cid)
+                    } else {
+                      machine.pushKont(KContinue(_ => ensureVisible(cid)))
+                      machine.ctrl = SBFetchAny(SEValue(SContractId(cid)), SBSome(SEValue(skey)))
+                    }
                     true
                   case ContractStateMachine.KeyInactive =>
                     operation.handleKeyNotFound(machine, gkey)

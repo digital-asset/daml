@@ -1351,6 +1351,11 @@ private[lf] object Speedy {
         machine.returnValue = cached.any
       }
     }
+
+  }
+
+  private[speedy] final case class KContinue(continue: SValue => Unit) extends Kont {
+    def execute(sv: SValue): Unit = continue(sv)
   }
 
   /** KCloseExercise. Marks an open-exercise which needs to be closed. Either:

@@ -2666,6 +2666,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "starts test",
               "maintainers",
               "queries key",
+              "queries contract",
+              "contract signatories",
+              "contract observers",
               "ends test",
             )
           }
@@ -2682,7 +2685,14 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             getKey = getKey,
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq("starts test", "maintainers", "queries key")
+            msgs shouldBe Seq(
+              "starts test",
+              "maintainers",
+              "queries key",
+              "queries contract",
+              "contract signatories",
+              "contract observers",
+            )
           }
         }
       }

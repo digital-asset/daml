@@ -1492,7 +1492,7 @@ class EngineTest
             txMeta.submissionTime,
             now,
           )
-          .consume(lookupContract, lookupPackage, lookupKey)
+          .consume(lookupContractMap.lift, lookupPackage, lookupKey)
 
       firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
     }
