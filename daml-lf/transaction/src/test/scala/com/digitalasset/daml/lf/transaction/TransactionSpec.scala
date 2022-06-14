@@ -630,20 +630,6 @@ class TransactionSpec
     }
   }
 
-  "nested rollbacks" - {
-    "preserve inactive contracts" in {
-      val builder = TransactionBuilder()
-      val parties = Seq("Alice")
-      val (cid0, create0) = create(builder, parties)
-      val rollback1 = builder.add(builder.rollback())
-      val rollback2 = builder.add(builder.rollback(), rollback1)
-      builder.add(create0, rollback2)
-      val transaction = builder.build()
-
-      transaction.inactiveContracts shouldBe Set(cid0)
-    }
-  }
-
   "updatedContractKeys" - {
     "return all the updated contract keys" in {
       val builder = TransactionBuilder()

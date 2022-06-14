@@ -415,115 +415,108 @@ object ScenarioLedger {
 
     @tailrec
     def processNodes(
-        mbCache0: Either[UniqueKeyViolation, LedgerData],
+        cache0: LedgerData,
         enps: List[ProcessingNode],
-    ): Either[UniqueKeyViolation, LedgerData] = {
-      mbCache0 match {
-        case Left(err) => Left(err)
-        case Right(cache0) =>
-          enps match {
-            case Nil => Right(cache0)
-            case ProcessingNode(_, _, Nil, optPrevState) :: restENPs => {
-              val cache1 = optPrevState.fold(cache0) { case prevState =>
-                cache0.copy(
-                  activeContracts = prevState.activeContracts,
-                  activeKeys = prevState.activeKeys,
-                )
-              }
-              processNodes(Right(cache1), restENPs)
-            }
-            case (processingNode @ ProcessingNode(
-                  mbParentId,
-                  mbRollbackAncestorId,
-                  nodeId :: restOfNodeIds,
-                  optPrevState,
-                )) :: restENPs =>
-              val eventId = EventId(trId.id, nodeId)
-              richTr.transaction.nodes.get(nodeId) match {
-                case None =>
-                  crash(s"processTransaction: non-existent node '$eventId'.")
-                case Some(node) =>
-                  val newLedgerNodeInfo = LedgerNodeInfo(
-                    node = node,
-                    optLocation = locationInfo.get(nodeId),
-                    transaction = trId,
-                    effectiveAt = richTr.effectiveAt,
-                    disclosures = Map.empty,
-                    referencedBy = Set.empty,
-                    consumedBy = None,
-                    rolledbackBy = mbRollbackAncestorId,
-                    parent = mbParentId.map(EventId(trId.id, _)),
-                  )
-                  val newCache =
-                    cache0.copy(nodeInfos = cache0.nodeInfos + (eventId -> newLedgerNodeInfo))
-                  val idsToProcess = processingNode.copy(children = restOfNodeIds) :: restENPs
-
-                  node match {
-                    case rollback: Node.Rollback =>
-                      val rollbackState =
-                        RollbackBeginState(newCache.activeContracts, newCache.activeKeys)
-                      processNodes(
-                        Right(newCache),
-                        ProcessingNode(
-                          Some(nodeId),
-                          Some(nodeId),
-                          rollback.children.toList,
-                          Some(rollbackState),
-                        ) :: idsToProcess,
-                      )
-
-                    case nc: Node.Create =>
-                      val newCache1 = newCache.createdIn(nc.coid, eventId)
-                      processNodes(Right(newCache1), idsToProcess)
-
-                    case Node.Fetch(referencedCoid, templateId @ _, _, _, _, _, _, _) =>
-                      val newCacheP =
-                        newCache.updateLedgerNodeInfo(referencedCoid)(info =>
-                          info.copy(referencedBy = info.referencedBy + eventId)
-                        )
-
-                      processNodes(Right(newCacheP), idsToProcess)
-
-                    case ex: Node.Exercise =>
-                      val newCache0 =
-                        newCache.updateLedgerNodeInfo(ex.targetCoid)(info =>
-                          info.copy(
-                            referencedBy = info.referencedBy + eventId,
-                            consumedBy = optPrevState match {
-                              // consuming exercise outside a rollback node
-                              case None if ex.consuming => Some(eventId)
-                              case _ => info.consumedBy
-                            },
-                          )
-                        )
-
-                      processNodes(
-                        Right(newCache0),
-                        ProcessingNode(
-                          Some(nodeId),
-                          mbRollbackAncestorId,
-                          ex.children.toList,
-                          None,
-                        ) :: idsToProcess,
-                      )
-
-                    case nlkup: Node.LookupByKey =>
-                      nlkup.result match {
-                        case None =>
-                          processNodes(Right(newCache), idsToProcess)
-                        case Some(referencedCoid) =>
-                          val newCacheP =
-                            newCache.updateLedgerNodeInfo(referencedCoid)(info =>
-                              info.copy(referencedBy = info.referencedBy + eventId)
-                            )
-
-                          processNodes(Right(newCacheP), idsToProcess)
-                      }
-                  }
-              }
-          }
-
+    ): Either[UniqueKeyViolation, LedgerData] = enps match {
+      case Nil => Right(cache0)
+      case ProcessingNode(_, _, Nil, optPrevState) :: restENPs => {
+        val cache1 = optPrevState.fold(cache0) { case prevState =>
+          cache0.copy(
+            activeContracts = prevState.activeContracts,
+            activeKeys = prevState.activeKeys,
+          )
+        }
+        processNodes(cache1, restENPs)
       }
+      case (processingNode @ ProcessingNode(
+            mbParentId,
+            mbRollbackAncestorId,
+            nodeId :: restOfNodeIds,
+            optPrevState,
+          )) :: restENPs =>
+        val eventId = EventId(trId.id, nodeId)
+        richTr.transaction.nodes.get(nodeId) match {
+          case None =>
+            crash(s"processTransaction: non-existent node '$eventId'.")
+          case Some(node) =>
+            val newLedgerNodeInfo = LedgerNodeInfo(
+              node = node,
+              optLocation = locationInfo.get(nodeId),
+              transaction = trId,
+              effectiveAt = richTr.effectiveAt,
+              disclosures = Map.empty,
+              referencedBy = Set.empty,
+              consumedBy = None,
+              rolledbackBy = mbRollbackAncestorId,
+              parent = mbParentId.map(EventId(trId.id, _)),
+            )
+            val newCache =
+              cache0.copy(nodeInfos = cache0.nodeInfos + (eventId -> newLedgerNodeInfo))
+            val idsToProcess = processingNode.copy(children = restOfNodeIds) :: restENPs
+
+            node match {
+              case rollback: Node.Rollback =>
+                val rollbackState =
+                  RollbackBeginState(newCache.activeContracts, newCache.activeKeys)
+                processNodes(
+                  newCache,
+                  ProcessingNode(
+                    Some(nodeId),
+                    Some(nodeId),
+                    rollback.children.toList,
+                    Some(rollbackState),
+                  ) :: idsToProcess,
+                )
+
+              case nc: Node.Create =>
+                val newCache1 = newCache.createdIn(nc.coid, eventId)
+                processNodes(newCache1, idsToProcess)
+
+              case Node.Fetch(referencedCoid, templateId @ _, _, _, _, _, _, _) =>
+                val newCacheP =
+                  newCache.updateLedgerNodeInfo(referencedCoid)(info =>
+                    info.copy(referencedBy = info.referencedBy + eventId)
+                  )
+
+                processNodes(newCacheP, idsToProcess)
+
+              case ex: Node.Exercise =>
+                val newCache0 =
+                  newCache.updateLedgerNodeInfo(ex.targetCoid)(info =>
+                    info.copy(
+                      referencedBy = info.referencedBy + eventId,
+                      consumedBy = optPrevState match {
+                        // consuming exercise outside a rollback node
+                        case None if ex.consuming => Some(eventId)
+                        case _ => info.consumedBy
+                      },
+                    )
+                  )
+
+                processNodes(
+                  newCache0,
+                  ProcessingNode(
+                    Some(nodeId),
+                    mbRollbackAncestorId,
+                    ex.children.toList,
+                    None,
+                  ) :: idsToProcess,
+                )
+
+              case nlkup: Node.LookupByKey =>
+                nlkup.result match {
+                  case None =>
+                    processNodes(newCache, idsToProcess)
+                  case Some(referencedCoid) =>
+                    val newCacheP =
+                      newCache.updateLedgerNodeInfo(referencedCoid)(info =>
+                        info.copy(referencedBy = info.referencedBy + eventId)
+                      )
+
+                    processNodes(newCacheP, idsToProcess)
+                }
+            }
+        }
     }
 
     val inactiveKeys = richTr.transaction.contractKeyInputs
@@ -543,7 +536,7 @@ object ScenarioLedger {
     for {
       _ <- duplicateKeyCheck
       cacheAfterProcess <- processNodes(
-        Right(ledgerData),
+        ledgerData,
         List(ProcessingNode(None, None, richTr.transaction.roots.toList, None)),
       )
     } yield {
@@ -663,7 +656,7 @@ case class ScenarioLedger(
               LookupContractNotActive(
                 coid,
                 create.templateId,
-                info.consumedBy.getOrElse(crash("IMPOSSIBLE")), // TODO:
+                info.consumedBy.getOrElse(crash("IMPOSSIBLE")), // TODO: make this an optional
               )
             else if (!info.visibleIn(view))
               LookupContractNotVisible(
