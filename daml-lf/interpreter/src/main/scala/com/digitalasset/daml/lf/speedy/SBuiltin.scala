@@ -1473,12 +1473,14 @@ private[lf] object SBuiltin {
                 onLedger.ptx = onLedger.ptx.copy(contractState = next)
                 keyMapping match {
                   case ContractStateMachine.KeyActive(coid) =>
+                    // We do not call directly machine.checkKeyVisibility as it may throw an SError,
+                    // and such error cannot be throw inside a SpeedyHundry continuation.
+                    machine.pushKont(
+                      KCheckKeyVisibitiy(machine, gkey, coid, operation.handleKeyFound)
+                    )
                     if (onLedger.cachedContracts.contains(coid)) {
-                      machine.checkKeyVisibility(onLedger, gkey, coid, operation.handleKeyFound)
+                      machine.returnValue = SUnit
                     } else {
-                      machine.pushKont(
-                        KCheckKeyVisibitiy(machine, gkey, coid, operation.handleKeyFound)
-                      )
                       // SBFetchAny will populate onLedger.cachedContracts with the contact pointed by coid
                       machine.ctrl = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
                     }

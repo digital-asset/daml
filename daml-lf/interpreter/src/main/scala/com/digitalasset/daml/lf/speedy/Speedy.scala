@@ -809,6 +809,7 @@ private[lf] object Speedy {
       }
     }
 
+    @throws[SError]
     def checkKeyVisibility(
         onLedger: OnLedger,
         gkey: GlobalKey,
@@ -820,7 +821,7 @@ private[lf] object Speedy {
           val stakeholders = cachedContract.signatories union cachedContract.observers
           onLedger.visibleToStakeholders(stakeholders) match {
             case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-              ctrl = SEDamlException(
+              throw SErrorDamlException(
                 interpretation.Error
                   .LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
               )
