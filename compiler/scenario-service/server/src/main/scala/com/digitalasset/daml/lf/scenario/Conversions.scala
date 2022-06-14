@@ -53,6 +53,7 @@ final class Conversions(
       .addAllScenarioSteps(steps.asJava)
       .setReturnValue(convertSValue(svalue))
       .setFinalTime(ledger.currentTime.micros)
+      .addAllActiveContracts(ledger.ledgerData.activeContracts.asJava)
     traceLog.iterator.foreach { entry =>
       builder.addTraceLog(convertSTraceMessage(entry))
     }
@@ -67,6 +68,7 @@ final class Conversions(
       .addAllNodes(nodes.asJava)
       .addAllScenarioSteps(steps.asJava)
       .setLedgerTime(ledger.currentTime.micros)
+      .addAllActiveContracts(ledger.ledgerData.activeContracts.asJava)
 
     traceLog.iterator.foreach { entry =>
       builder.addTraceLog(convertSTraceMessage(entry))
@@ -532,6 +534,7 @@ final class Conversions(
       case create: Node.Create =>
         val createBuilder =
           proto.Node.Create.newBuilder
+            .setContractId(coidToEventId(create.coid).toLedgerString)
             .setContractInstance(
               proto.ContractInstance.newBuilder
                 .setTemplateId(convertIdentifier(create.templateId))
