@@ -1481,7 +1481,7 @@ private[lf] object SBuiltin {
                     if (onLedger.cachedContracts.contains(coid)) {
                       machine.returnValue = SUnit
                     } else {
-                      // SBFetchAny will populate onLedger.cachedContracts with the contact pointed by coid
+                      // SBFetchAny will populate onLedger.cachedContracts with the contract pointed by coid
                       machine.ctrl = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
                     }
                     true
