@@ -314,7 +314,7 @@ evaluated to transaction with a ledger time farther in
 the future than the expected latency).
 
 ``daml.commands.failed_command_interpretations``
------------------------------------------------
+------------------------------------------------
 
 A meter. Number of commands that have been deemed unacceptable
 by the interpreter and thus rejected (e.g. double spends)
@@ -418,7 +418,7 @@ A timer. Time spent interpreting a valid command into a transaction
 ready to be submitted to the ledger for finalization.
 
 ``daml.index.db.connection.api.server.pool``
------------------------------------------
+--------------------------------------------
 
 This namespace holds a number of interesting metrics about the
 connection pool used to communicate with the persistent store
@@ -604,7 +604,7 @@ Single call services return the time to serve the request,
 streaming services measure the time to return the first response.
 
 ``daml.services``
--------------
+-----------------
 
 Every metrics under this namespace is a timer, one for each
 endpoint exposed by the index, read or write service. Metrics
