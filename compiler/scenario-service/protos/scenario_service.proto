@@ -238,7 +238,7 @@ message ScenarioError {
   // The state of the ledger at the time of the error
   repeated ScenarioStep scenario_steps = 1;
   repeated Node nodes = 2;
-  repeated string active_contracts = 4000;
+  repeated string active_contracts = 37;
 
   reserved 3; // was environment
   reserved 4; // was call stack

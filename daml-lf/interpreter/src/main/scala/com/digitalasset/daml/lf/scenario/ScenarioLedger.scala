@@ -417,8 +417,8 @@ object ScenarioLedger {
     def processNodes(
         cache0: LedgerData,
         enps: List[ProcessingNode],
-    ): Either[UniqueKeyViolation, LedgerData] = enps match {
-      case Nil => Right(cache0)
+    ): LedgerData = enps match {
+      case Nil => cache0
       case ProcessingNode(_, _, Nil, optPrevState) :: restENPs => {
         val cache1 = optPrevState.fold(cache0) { case prevState =>
           cache0.copy(
@@ -535,11 +535,11 @@ object ScenarioLedger {
 
     for {
       _ <- duplicateKeyCheck
-      cacheAfterProcess <- processNodes(
+    } yield {
+      val cacheAfterProcess = processNodes(
         ledgerData,
         List(ProcessingNode(None, None, richTr.transaction.roots.toList, None)),
       )
-    } yield {
       val cacheActiveness =
         cacheAfterProcess.copy(
           activeContracts =
