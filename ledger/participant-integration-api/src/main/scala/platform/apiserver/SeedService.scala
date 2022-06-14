@@ -46,7 +46,7 @@ object SeedService {
     val task = new java.util.TimerTask {
       def run(): Unit = {
         logger.warn(
-          s"""Trying to gather entropy from the underlying operating system to initialized the contract ID seeding, but the entropy pool seems empty."""
+          """Trying to gather entropy from the underlying operating system to initialize the contract ID seeding, but the entropy pool seems empty."""
         )
         logger.warn(
           s"""In CI environments environment consider using the "${Seeding.Weak.name}" mode, that may produce insecure contract IDs but does not block on startup."""
