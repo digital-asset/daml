@@ -97,6 +97,12 @@ object UpdateToDbDto {
         // TODO DPP-1068: Move to the right place
         //  It doesn't matter where in the indexing pipeline the cache is updated,
         //  as long as it's before updating the ledger end
+        // TODO DPP-1068: The following tests have been flaky on the PoC branch, which seems to be related
+        //  (removing the line makes the tests pass):
+        //  - //ledger/participant-integration-api:participant-integration-api-tests_test_suite_src_test_suite_scala_platform_indexer_parallel_BatchingParallelIngestionPipeSpec.scala
+        //  - //daml-assistant/daml-helper:test-daml-packages
+        //  - //compiler/damlc/tests:package-manager
+        //  - //language-support/hs/bindings:test
         SingletonPackageMetadataCache.add(u.archives, offset)
         val uploadId = u.submissionId.getOrElse(UUID.randomUUID().toString)
         val packages = u.archives.iterator.map { archive =>
