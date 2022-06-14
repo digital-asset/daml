@@ -177,7 +177,7 @@ message ScenarioError {
 
   message ContractNotActive {
     ContractRef contract_ref = 1;
-    NodeId consumed_by = 2;
+    NodeId consumed_by = 2; // optional
   }
 
   message ContractNotVisible {

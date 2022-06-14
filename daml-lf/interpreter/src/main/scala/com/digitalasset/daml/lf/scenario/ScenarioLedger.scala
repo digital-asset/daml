@@ -210,7 +210,7 @@ object ScenarioLedger {
   final case class LookupContractNotActive(
       coid: ContractId,
       templateId: Identifier,
-      consumedBy: EventId,
+      consumedBy: Option[EventId],
   ) extends LookupResult
   final case class LookupContractNotVisible(
       coid: ContractId,
@@ -656,7 +656,7 @@ case class ScenarioLedger(
               LookupContractNotActive(
                 coid,
                 create.templateId,
-                info.consumedBy.getOrElse(crash("IMPOSSIBLE")), // TODO: make this an optional
+                info.consumedBy,
               )
             else if (!info.visibleIn(view))
               LookupContractNotVisible(

@@ -239,11 +239,17 @@ final class Conversions(
             .build
         )
 
-      case Error.ContractNotActive(coid, tid, consumedBy) =>
+      case Error.ContractNotActive(coid, tid, Some(consumedBy)) =>
         builder.setScenarioContractNotActive(
           proto.ScenarioError.ContractNotActive.newBuilder
             .setContractRef(mkContractRef(coid, tid))
             .setConsumedBy(convertEventId(consumedBy))
+            .build
+        )
+      case Error.ContractNotActive(coid, tid, None) =>
+        builder.setScenarioContractNotActive(
+          proto.ScenarioError.ContractNotActive.newBuilder
+            .setContractRef(mkContractRef(coid, tid))
             .build
         )
 
