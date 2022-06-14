@@ -19,7 +19,9 @@ import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
 import qualified Data.HashSet as HashSet
 import Data.List
+import qualified Data.Set as S
 import qualified Data.Text as T
+import qualified Data.Vector as V
 import Development.IDE.Core.Debouncer (noopDebouncer)
 import Development.IDE.Core.FileStore (makeVFSHandle, setBufferModified)
 import Development.IDE.Core.IdeState.Daml (getDamlIdeState)
@@ -1049,7 +1051,7 @@ main =
               -- Regression test for issue https://github.com/digital-asset/daml/issues/13835
               testCase "rollback archive" $ do
                 rs <- runScripts scriptService
-                  [ "module Main where"
+                  [ "module Test where"
                   , "import Daml.Script"
                   , "import DA.Exception"
                   , ""
@@ -1154,7 +1156,7 @@ runScripts service fileContent = bracket getIdeState shutdown $ \ideState -> do
       SS.BackendError err -> assertFailure $ "Unexpected result " <> show err
       SS.ExceptionError err -> assertFailure $ "Unexpected result " <> show err
       SS.ScenarioError err -> pure $ Left $ renderPlain (prettyScenarioError world err)
-    prettyResult world (Right r) = pure $ Right $ renderPlain (prettyScenarioResult world r)
+    prettyResult world (Right r) = pure $ Right $ renderPlain (prettyScenarioResult world (S.fromList (V.toList (SS.scenarioResultActiveContracts r))) r)
     file = toNormalizedFilePath' "Test.daml"
     getIdeState = do
       vfs <- makeVFSHandle

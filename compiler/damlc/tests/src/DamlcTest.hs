@@ -723,7 +723,7 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
                 ""
             exitCode @?= ExitSuccess
             let out = lines stdout
-            out @?= ""
+            out!!3 @?= "./Main.daml:test: ok, 1 active contracts, 3 transactions."
     ] <>
     [ testCase ("damlc test " <> unwords (args "") <> " in project") $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
