@@ -239,18 +239,12 @@ final class Conversions(
             .build
         )
 
-      case Error.ContractNotActive(coid, tid, Some(consumedBy)) =>
+      case Error.ContractNotActive(coid, tid, optConsumedBy) =>
+        val errorBuilder = proto.ScenarioError.ContractNotActive.newBuilder
+          .setContractRef(mkContractRef(coid, tid))
+        optConsumedBy.foreach(consumedBy => errorBuilder.setConsumedBy(convertEventId(consumedBy)))
         builder.setScenarioContractNotActive(
-          proto.ScenarioError.ContractNotActive.newBuilder
-            .setContractRef(mkContractRef(coid, tid))
-            .setConsumedBy(convertEventId(consumedBy))
-            .build
-        )
-      case Error.ContractNotActive(coid, tid, None) =>
-        builder.setScenarioContractNotActive(
-          proto.ScenarioError.ContractNotActive.newBuilder
-            .setContractRef(mkContractRef(coid, tid))
-            .build
+          errorBuilder.build
         )
 
       case Error.ContractNotVisible(coid, tid, actAs, readAs, observers) =>

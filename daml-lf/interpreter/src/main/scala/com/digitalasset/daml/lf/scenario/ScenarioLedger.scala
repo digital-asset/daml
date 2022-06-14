@@ -353,8 +353,6 @@ object ScenarioLedger {
       activeKeys: Map[GlobalKey, ContractId],
       coidToNodeId: Map[ContractId, EventId],
   ) {
-    def nodeInfoByCoid(coid: ContractId): LedgerNodeInfo = nodeInfos(coidToNodeId(coid))
-
     def updateLedgerNodeInfo(
         coid: ContractId
     )(f: (LedgerNodeInfo) => LedgerNodeInfo): LedgerData =
@@ -370,20 +368,8 @@ object ScenarioLedger {
           .getOrElse(nodeInfos)
       )
 
-    def markAsActive(coid: ContractId): LedgerData =
-      copy(activeContracts = activeContracts + coid)
-
-    def markAsInactive(coid: ContractId): LedgerData =
-      copy(activeContracts = activeContracts - coid)
-
     def createdIn(coid: ContractId, nodeId: EventId): LedgerData =
       copy(coidToNodeId = coidToNodeId + (coid -> nodeId))
-
-    def addKey(key: GlobalKey, acoid: ContractId): LedgerData =
-      copy(activeKeys = activeKeys + (key -> acoid))
-
-    def removeKey(key: GlobalKey): LedgerData =
-      copy(activeKeys = activeKeys - key)
 
   }
 

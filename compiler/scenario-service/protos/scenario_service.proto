@@ -177,7 +177,7 @@ message ScenarioError {
 
   message ContractNotActive {
     ContractRef contract_ref = 1;
-    NodeId consumed_by = 2; // optional
+    NodeId consumed_by = 2; // optional. A contract whose create was rolled back will not have this set.
   }
 
   message ContractNotVisible {
