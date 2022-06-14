@@ -1387,11 +1387,10 @@ private[lf] object Speedy {
       cid: V.ContractId,
       handleKeyFound: (Machine, V.ContractId) => Unit,
   ) extends Kont {
-    def execute(sv: SValue): Unit = {
+    def execute(sv: SValue): Unit =
       machine.withOnLedger("KCheckKeyVisibitiy")(
         machine.checkKeyVisibility(_, gKey, cid, handleKeyFound)
       )
-    }
   }
 
   /** KCloseExercise. Marks an open-exercise which needs to be closed. Either:
