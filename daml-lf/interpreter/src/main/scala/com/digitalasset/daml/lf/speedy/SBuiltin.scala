@@ -21,9 +21,9 @@ import com.daml.lf.speedy.{SExpr => runTime}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.SValue.{SValue => SV}
 import com.daml.lf.transaction.{
+  ContractStateMachine,
   GlobalKey,
   GlobalKeyWithMaintainers,
-  ContractStateMachine,
   Node,
   Versioned,
   Transaction => Tx,
@@ -1453,27 +1453,13 @@ private[lf] object SBuiltin {
 
       val gkey = GlobalKey(operation.templateId, keyWithMaintainers.key)
 
-      def ensureVisible(coid: V.ContractId) = {
-        val cachedContract = onLedger.cachedContracts
-          .getOrElse(coid, crash(s"Local contract ${coid.coid} not in cachedContracts"))
-        val stakeholders = cachedContract.signatories union cachedContract.observers
-        onLedger.visibleToStakeholders(stakeholders) match {
-          case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-            machine.ctrl = SEDamlException(
-              IE.LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
-            )
-          case _ =>
-            operation.handleKeyFound(machine, coid)
-        }
-      }
-
       onLedger.ptx.contractState.resolveKey(gkey) match {
         case Right((keyMapping, next)) =>
           onLedger.ptx = onLedger.ptx.copy(contractState = next)
           keyMapping match {
             case ContractStateMachine.KeyActive(coid)
                 if onLedger.ptx.localContracts.contains(coid) =>
-              ensureVisible(coid)
+              machine.checkKeyVisibility(onLedger, gkey, coid, operation.handleKeyFound)
             case _ =>
               operation.handleKnownInputKey(machine, gkey, keyMapping)
           }
@@ -1486,12 +1472,15 @@ private[lf] object SBuiltin {
                 val (keyMapping, next) = handle(result)
                 onLedger.ptx = onLedger.ptx.copy(contractState = next)
                 keyMapping match {
-                  case ContractStateMachine.KeyActive(cid) =>
-                    if (onLedger.cachedContracts.contains(cid)) {
-                      ensureVisible(cid)
+                  case ContractStateMachine.KeyActive(coid) =>
+                    if (onLedger.cachedContracts.contains(coid)) {
+                      machine.checkKeyVisibility(onLedger, gkey, coid, operation.handleKeyFound)
                     } else {
-                      machine.pushKont(KContinue(_ => ensureVisible(cid)))
-                      machine.ctrl = SBFetchAny(SEValue(SContractId(cid)), SBSome(SEValue(skey)))
+                      machine.pushKont(
+                        KCheckKeyVisibitiy(machine, gkey, coid, operation.handleKeyFound)
+                      )
+                      // SBFetchAny will populate onLedger.cachedContracts with the contact pointed by coid
+                      machine.ctrl = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
                     }
                     true
                   case ContractStateMachine.KeyInactive =>

@@ -1410,10 +1410,10 @@ class EngineTest
       }
     }
 
-    def lookupContractMap = Map(
+    def lookupContract = Map(
       lookedUpCid -> withKeyContractInst,
       lookerUpCid -> lookerUpInst,
-    )
+    ).lift
 
     def firstLookupNode(tx: Tx): Option[(NodeId, Node.LookupByKey)] =
       tx.nodes.collectFirst { case (nid, nl @ Node.LookupByKey(_, _, _, _)) =>
@@ -1441,7 +1441,7 @@ class EngineTest
           seed,
         )
         .consume(
-          lookupContractMap.get,
+          lookupContract,
           lookupPackage,
           lookupKey,
         )
@@ -1474,7 +1474,7 @@ class EngineTest
           seed,
         )
         .consume(
-          lookupContractMap.get,
+          lookupContract,
           lookupPackage,
           lookupKey,
         )
@@ -1492,7 +1492,7 @@ class EngineTest
             txMeta.submissionTime,
             now,
           )
-          .consume(lookupContractMap.lift, lookupPackage, lookupKey)
+          .consume(lookupContract, lookupPackage, lookupKey)
 
       firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
     }
@@ -1517,7 +1517,7 @@ class EngineTest
           seed,
         )
         .consume(
-          lookupContractMap.get,
+          lookupContract,
           lookupPackage,
           lookupKey,
         )
