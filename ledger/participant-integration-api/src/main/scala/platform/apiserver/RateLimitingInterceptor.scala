@@ -96,16 +96,30 @@ private[apiserver] final class RateLimitingInterceptor(
   private def memoryOverloaded(fullMethodName: String): Either[String, Unit] = {
     tenuredMemoryPool.fold[Either[String, Unit]](Right(())) { p =>
       if (p.isCollectionUsageThresholdExceeded) {
-        // Based on a combination of JvmMetricSet and MemoryUsageGaugeSet
-        val poolBeanMetricPrefix = s"jvm_memory_usage_pools_${p.getName}"
-        val rpcStatus =
-          s"""
-             | The ${p.getName} collection usage threshold has exceeded the maximum (${p.getCollectionUsageThreshold}).
-             | The rejected call was $fullMethodName.
-             | Jvm memory metrics are available at $poolBeanMetricPrefix
-          """.stripMargin
-        gc()
-        Left[String, Unit](rpcStatus)
+        val expectedThreshold =
+          config.calculateCollectionUsageThreshold(p.getCollectionUsage.getMax)
+        if (p.getCollectionUsageThreshold == expectedThreshold) {
+          // Based on a combination of JvmMetricSet and MemoryUsageGaugeSet
+          val poolBeanMetricPrefix = s"jvm_memory_usage_pools_${p.getName}"
+          val rpcStatus =
+            s"""
+               | The ${p.getName} collection usage threshold has exceeded the maximum (${p.getCollectionUsageThreshold}).
+               | The rejected call was $fullMethodName.
+               | Jvm memory metrics are available at $poolBeanMetricPrefix
+            """.stripMargin
+          gc()
+          Left[String, Unit](rpcStatus)
+        } else {
+          // In experimental testing the size of the tenured memory pool did not change.  However the API docs,
+          // see https://docs.oracle.com/javase/8/docs/api/java/lang/management/MemoryUsage.html
+          // say 'The maximum amount of memory may change over time'.  If we detect this situation we
+          // recalculate and reset the threshold
+          logger.warn(
+            s"Detected change in max pool memory, updating collection usage threshold  from ${p.getCollectionUsageThreshold} to $expectedThreshold"
+          )
+          p.setCollectionUsageThreshold(expectedThreshold)
+          Right(())
+        }
       } else {
         Right(())
       }

@@ -3,16 +3,30 @@
 
 package com.daml.platform.apiserver.configuration
 
+/** @param maxApiServicesQueueSize
+  *  The maximum number of non-running items in the ApiServices execution service
+  *
+  * @param maxApiServicesIndexDbQueueSize
+  *  The maximum number of non-running items in the IndexDb execution service
+  *
+  * @param maxUsedHeapSpacePercentage
+  *   If, following a garbage collection of the 'tenured' memory pool, the percentage of used pool memory is
+  *   above this percentage the system will be rate limited until additional space is freed up.
+  *
+  * @param minFreeHeapSpaceBytes
+  *   If, following a garbage collection of the 'tenured' memory pool, the amount of free space is below
+  *   this value the system will be rate limited until additional space is freed up.
+  */
 final case class RateLimitingConfig(
     maxApiServicesQueueSize: Int,
     maxApiServicesIndexDbQueueSize: Int,
-    maxHeapSpacePercentage: Int,
-    maxOverThresholdZoneSize: Long,
+    maxUsedHeapSpacePercentage: Int,
+    minFreeHeapSpaceBytes: Long,
 ) {
   def calculateCollectionUsageThreshold(maxPoolBytes: Long): Long = {
-    val percentageBasedThreshold = (maxHeapSpacePercentage * maxPoolBytes) / 100
-    val zoneBasedThreshold = maxPoolBytes - maxOverThresholdZoneSize
-    Math.max(percentageBasedThreshold, zoneBasedThreshold)
+    val thresholdBasedOnUsedPercentage = (maxUsedHeapSpacePercentage * maxPoolBytes) / 100
+    val thresholdBasedOnMinFreeSpace = maxPoolBytes - minFreeHeapSpaceBytes
+    Math.max(thresholdBasedOnUsedPercentage, thresholdBasedOnMinFreeSpace)
   }
 }
 
@@ -23,7 +37,7 @@ case object RateLimitingConfig {
   val Default: RateLimitingConfig = RateLimitingConfig(
     maxApiServicesQueueSize = 10000,
     maxApiServicesIndexDbQueueSize = 1000,
-    maxHeapSpacePercentage = 85,
-    maxOverThresholdZoneSize = 300 * Megabyte,
+    maxUsedHeapSpacePercentage = 85,
+    minFreeHeapSpaceBytes = 300 * Megabyte,
   )
 }

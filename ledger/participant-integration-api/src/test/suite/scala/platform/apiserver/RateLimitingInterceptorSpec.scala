@@ -186,6 +186,9 @@ final class RateLimitingInterceptorSpec
     when(memoryPoolBean.getCollectionUsage).thenReturn(new MemoryUsage(0, 0, 0, maxMemory))
     when(memoryPoolBean.isCollectionUsageThresholdSupported).thenReturn(true)
     when(memoryPoolBean.isCollectionUsageThresholdExceeded).thenReturn(false, true, false)
+    when(memoryPoolBean.getCollectionUsageThreshold).thenReturn(
+      config.calculateCollectionUsageThreshold(maxMemory)
+    )
 
     val nonCollectableBean = mock[MemoryPoolMXBean]
     when(nonCollectableBean.getType).thenReturn(MemoryType.HEAP)
@@ -214,11 +217,49 @@ final class RateLimitingInterceptorSpec
     }
   }
 
+  it should "should reset limit if a change of max memory is detected" in {
+
+    val initMemory = 100000L
+    val increasedMemory = 200000L
+
+    val metrics = new Metrics(new MetricRegistry)
+
+    val memoryBean = mock[MemoryMXBean]
+
+    val memoryPoolBean = mock[MemoryPoolMXBean]
+    when(memoryPoolBean.getType).thenReturn(MemoryType.HEAP)
+    when(memoryPoolBean.getName).thenReturn("Tenured_Gen")
+    when(memoryPoolBean.getCollectionUsage).thenReturn(
+      new MemoryUsage(0, 0, 0, initMemory),
+      new MemoryUsage(0, 0, 0, increasedMemory),
+    )
+    when(memoryPoolBean.isCollectionUsageThresholdSupported).thenReturn(true)
+    when(memoryPoolBean.isCollectionUsageThresholdExceeded).thenReturn(true)
+
+    val pool = List(memoryPoolBean)
+
+    withChannel(metrics, new HelloServiceAkkaImplementation, config, pool, memoryBean).use {
+      channel: Channel =>
+        val helloService = HelloServiceGrpc.stub(channel)
+        for {
+          _ <- helloService.single(HelloRequest(1))
+        } yield {
+          verify(memoryPoolBean).setCollectionUsageThreshold(
+            config.calculateCollectionUsageThreshold(initMemory)
+          )
+          verify(memoryPoolBean).setCollectionUsageThreshold(
+            config.calculateCollectionUsageThreshold(increasedMemory)
+          )
+          succeed
+        }
+    }
+  }
+
   it should "calculate the collection threshold zone size" in {
     // The actual threshold used would be max(maxHeapSpacePercentage * maxHeapSize / 100, maxHeapSize - maxOverThresholdZoneSize)
     val underTest =
-      RateLimitingConfig.Default.copy(maxHeapSpacePercentage = 90, maxOverThresholdZoneSize = 1000)
-    underTest.calculateCollectionUsageThreshold(1000) shouldBe 900 // 90%
+      RateLimitingConfig.Default.copy(maxUsedHeapSpacePercentage = 90, minFreeHeapSpaceBytes = 1000)
+    underTest.calculateCollectionUsageThreshold(3000) shouldBe 2700 // 90%
     underTest.calculateCollectionUsageThreshold(101000) shouldBe 100000 // 101000 - 1000
   }
 
