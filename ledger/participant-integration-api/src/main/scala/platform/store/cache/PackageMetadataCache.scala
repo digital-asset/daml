@@ -60,7 +60,7 @@ object SingletonPackageMetadataCache extends PackageMetadataCache {
         }
       }
 
-      // Templates/interfaces/packages are immutable, there will be no collisions
+      // Templates/interfaces/packages are immutable, there will be no conflicting map values
       val resultDefinedAt = definedAt ++ other.definedAt
       val resultDecodedPackages = decodedPackages ++ other.decodedPackages
 

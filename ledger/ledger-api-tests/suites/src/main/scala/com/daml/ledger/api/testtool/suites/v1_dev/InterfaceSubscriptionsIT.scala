@@ -115,7 +115,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
     } yield {
       assertLength("3 transactions found", 3, transactions1)
       assertEquals(
-        "1 and 2 find the same transactions",
+        "1 and 2 find the same transactions (but not the same views)",
         transactions1.map(_.transactionId),
         transactions2.map(_.transactionId),
       )

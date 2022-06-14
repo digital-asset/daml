@@ -10,16 +10,7 @@ import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.{TraceIdentifiers, domain}
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
-import com.daml.ledger.api.domain.{
-  Filters,
-  InclusiveFilters,
-  LedgerId,
-  LedgerOffset,
-  PackageEntry,
-  PartyEntry,
-  TransactionFilter,
-  TransactionId,
-}
+import com.daml.ledger.api.domain.{LedgerId, LedgerOffset, PackageEntry, PartyEntry, TransactionId}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -29,8 +20,6 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
-import com.daml.ledger.api.v1.value.{Identifier => apiIdentifier}
-import com.daml.ledger.api.validation.ValueValidator
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
@@ -44,17 +33,8 @@ import com.daml.ledger.participant.state.index.v2.{
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ApplicationId, Identifier, Party}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.{
-  Engine,
-  Result,
-  ResultDone,
-  ResultError,
-  ResultNeedContract,
-  ResultNeedKey,
-  ResultNeedPackage,
-}
-import com.daml.lf.transaction.{GlobalKey, Versioned}
-import com.daml.lf.value.Value
+import com.daml.lf.engine.Engine
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -63,16 +43,13 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.{ApiOffset, PruneBuffers}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
-import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.cache.SingletonPackageMetadataCache
+import com.daml.platform.store.dao.events.TransactionFilter
 import com.daml.platform.store.dao.{LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
-import io.grpc.Status.Code
 import scalaz.syntax.tag.ToTagOps
 
-import scala.annotation.tailrec
-import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 private[index] class IndexServiceImpl(
@@ -104,170 +81,7 @@ private[index] class IndexServiceImpl(
   ): Future[Option[ContractId]] =
     contractStore.lookupContractKey(readers, key)
 
-  // TODO DPP-1068: Copied from LfValueSerialization
-  private def apiIdentifierToDamlLfIdentifier(id: apiIdentifier): Ref.Identifier =
-    Ref.Identifier(
-      Ref.PackageId.assertFromString(id.packageId),
-      Ref.QualifiedName(
-        Ref.ModuleName.assertFromString(id.moduleName),
-        Ref.DottedName.assertFromString(id.entityName),
-      ),
-    )
-
-  private def computeInterfaceView(
-      templateId: Ref.Identifier,
-      record: com.daml.ledger.api.v1.value.Record,
-      interfaceId: Ref.Identifier,
-  )(implicit loggingContext: LoggingContext): com.daml.ledger.api.v1.event.InterfaceView = {
-    // TODO DPP-1068: The transaction stream contains protobuf-serialized transactions (Source[GetTransactionsResponse, NotUsed]),
-    //   we don't have access to the original Daml-LF value.
-    //   Here we deserialize the contract argument, use it in the engine, and then serialize it back. This needs to be improved.
-    val value = ValueValidator
-      .validateRecord(record)(
-        DamlContextualizedErrorLogger.forTesting(getClass)
-      )
-      .getOrElse(throw new RuntimeException("This should never fail"))
-
-    @tailrec
-    def go(res: Result[Versioned[Value]]): Either[String, Versioned[Value]] =
-      res match {
-        case ResultDone(x) => Right(x)
-        case ResultError(err) => Left(err.message)
-        // Note: the compiler should enforce that the computation is a pure function,
-        // ResultNeedContract and ResultNeedKey should never appear in the result.
-        case ResultNeedContract(_, _) => Left("View computation must be a pure function")
-        case ResultNeedKey(_, _) => Left("View computation must be a pure function")
-        case ResultNeedPackage(pkgId, resume) =>
-          // TODO DPP-1068: Package loading makes the view computation asynchronous, which is annoying to deal with (see LfValueTranslation).
-          //   Here we rely on the package metadata cache to always contain all decoded packages that exist on this participant,
-          //   so that we can fetch the decoded package synchronously.
-          go(resume(SingletonPackageMetadataCache.getPackage(pkgId)))
-      }
-    val result = go(engine.computeInterfaceView(templateId, value, interfaceId))
-
-    result
-      .flatMap(versionedValue =>
-        LfEngineToApi.lfValueToApiRecord(
-          verbose = false,
-          recordValue = versionedValue.unversioned,
-        )
-      )
-      .fold(
-        error =>
-          // Note: the view computation is an arbitrary Daml function and can thus fail (e.g., with a Daml exception)
-          com.daml.ledger.api.v1.event.InterfaceView(
-            interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
-            // TODO DPP-1068: Use a proper error status
-            viewStatus =
-              Some(com.google.rpc.status.Status.of(Code.INTERNAL.value(), error, Seq.empty)),
-            viewValue = None,
-          ),
-        value =>
-          com.daml.ledger.api.v1.event.InterfaceView(
-            interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
-            viewStatus = Some(com.google.rpc.status.Status.of(0, "", Seq.empty)),
-            viewValue = Some(value),
-          ),
-      )
-  }
-
-  // Approach:
-  //   1: Convert interface filters to template filters
-  //   2: Start regular flat transaction stream using the transactionsService
-  //   3: Add interface view values to the result
-  // TODO DPP-1068: Move this to below the dispatcher call. The translation from interfaces to templates MUST be
-  //   done separately for each offset page, otherwise we won't properly include newly introduced interface implementations.
-  override def transactions(
-      startExclusive: domain.LedgerOffset,
-      endInclusive: Option[domain.LedgerOffset],
-      filter: domain.TransactionFilter,
-      verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] = {
-
-    // Template ID to list of interface IDs that need to include their view
-    val viewsByTemplate: mutable.Map[Ref.Identifier, Set[Ref.Identifier]] = mutable.Map.empty
-
-    val filtersByPartyWithoutInterfaces = filter.filtersByParty.view
-      .mapValues(filters =>
-        Filters(filters.inclusive.map(inclusiveFilters => {
-          val interfaceTemplateIds = inclusiveFilters.interfaceFilters.flatMap(interfaceFilter => {
-            val interfaceId = interfaceFilter.interfaceId
-
-            // Check whether the interface is known
-            val interfaceOffset = SingletonPackageMetadataCache.interfaceAddedAt(interfaceId)
-            if (interfaceOffset.isEmpty) {
-              // TODO DPP-1068: Proper error handling
-              throw new RuntimeException(
-                s"Interface $interfaceId is not known"
-              )
-            }
-
-            // Find all templates that implement this interface
-            val templateIds =
-              SingletonPackageMetadataCache.getInterfaceImplementations(interfaceId)
-
-            // Remember for each of these templates whether we have to compute the view
-            if (interfaceFilter.includeView) {
-              templateIds.foreach(tid =>
-                viewsByTemplate.updateWith(tid) {
-                  case None => Some(Set(interfaceId))
-                  case Some(other) => Some(other + interfaceId)
-                }
-              )
-            }
-            templateIds
-          })
-          val allTemplateIds = inclusiveFilters.templateIds ++ interfaceTemplateIds
-          InclusiveFilters(
-            templateIds = allTemplateIds,
-            interfaceFilters = Set.empty,
-          )
-        }))
-      )
-      .toMap
-
-    // TODO DPP-1068: Here we could filter out all templates that did not exist for the given offset range.
-    //   The package metadata cache can provide this information.
-    //   This would also benefit historical transaction streams that subscribe to a set of templates.
-    val filterWithoutInterfaces = TransactionFilter(
-      filtersByPartyWithoutInterfaces
-    )
-
-    transactionsWithoutInterfaces(startExclusive, endInclusive, filterWithoutInterfaces, verbose)
-      .map(res => {
-        val transactionsWithViews: scala.Seq[com.daml.ledger.api.v1.transaction.Transaction] =
-          res.transactions.map(tx =>
-            tx.update(
-              _.events := tx.events.map(outerEvent =>
-                outerEvent.event match {
-                  case com.daml.ledger.api.v1.event.Event.Event.Created(created) =>
-                    val templateId = apiIdentifierToDamlLfIdentifier(created.templateId.get)
-                    val viewsToInclude = viewsByTemplate.getOrElse(templateId, Set.empty)
-                    if (viewsToInclude.isEmpty) {
-                      outerEvent
-                    } else {
-                      val interfaceViews = viewsToInclude
-                        .map(iid =>
-                          computeInterfaceView(templateId, created.createArguments.get, iid)
-                        )
-                        .toSeq
-                      com.daml.ledger.api.v1.event.Event.of(
-                        com.daml.ledger.api.v1.event.Event.Event
-                          .Created(created.update(_.interfaceViews := interfaceViews))
-                      )
-                    }
-
-                  case _ => outerEvent
-                }
-              )
-            )
-          )
-        res.update(_.transactions := transactionsWithViews)
-      })
-  }
-
-  // TODO DPP-1068: For a better separation of the new code, the previous transactions() method was only renamed and left otherwise untouched
-  def transactionsWithoutInterfaces(
+  def transactions(
       startExclusive: domain.LedgerOffset,
       endInclusive: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
@@ -283,7 +97,26 @@ private[index] class IndexServiceImpl(
       dispatcher
         .startingAt(
           from.getOrElse(Offset.beforeBegin),
-          RangeSource(transactionsReader.getFlatTransactions(_, _, convertFilter(filter), verbose)),
+          RangeSource { case (startExclusive, endInclusive) =>
+            // Note: it is important that the filter is converted separately for each offset range,
+            // so that the stream can properly pick up newly added templates.
+            val convertedFilter = TransactionFilter(
+              endInclusive = endInclusive,
+              packageMetadataCache = SingletonPackageMetadataCache,
+              filter = filter,
+            )
+            Console.println(s"filter=$filter, converted=$convertedFilter")
+            transactionsReader
+              .getFlatTransactions(
+                startExclusive,
+                endInclusive,
+                convertedFilter.templatesToInclude,
+                verbose,
+              )
+              .map { case (offset, response) =>
+                offset -> TransactionFilter.computeInterfaceViews(response, convertedFilter, engine)
+              }
+          },
           to,
         )
         .map(_._2)
@@ -362,7 +195,7 @@ private[index] class IndexServiceImpl(
       .buffered(metrics.daml.index.completionsBufferSize, LedgerApiStreamsBufferSize)
 
   override def getActiveContracts(
-      filter: TransactionFilter,
+      filter: domain.TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
     val currentLedgerEnd = ledgerEnd()
@@ -559,7 +392,7 @@ private[index] class IndexServiceImpl(
     }
   }
 
-  private def convertFilter(filter: TransactionFilter): Map[Party, Set[Identifier]] =
+  private def convertFilter(filter: domain.TransactionFilter): Map[Party, Set[Identifier]] =
     filter.filtersByParty.map { case (party, filters) =>
       party -> filters.inclusive.fold(Set.empty[Identifier])(_.templateIds)
     }
