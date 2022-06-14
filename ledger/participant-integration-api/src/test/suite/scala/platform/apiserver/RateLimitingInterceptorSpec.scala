@@ -225,7 +225,10 @@ final class RateLimitingInterceptorSpec
     val expected = underLimitMemoryPoolMXBean()
     TenuredMemoryPool(config, Nil) shouldBe None
     TenuredMemoryPool(config, List(expected)) shouldBe Some(expected)
-    TenuredMemoryPool(config, List(underLimitMemoryPoolMXBean(), underLimitMemoryPoolMXBean())) shouldBe None
+    TenuredMemoryPool(
+      config,
+      List(underLimitMemoryPoolMXBean(), underLimitMemoryPoolMXBean()),
+    ) shouldBe None
   }
 
   it should "throttle calls to GC" in {
