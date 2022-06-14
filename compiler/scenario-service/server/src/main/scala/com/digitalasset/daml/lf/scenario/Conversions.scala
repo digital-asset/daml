@@ -53,7 +53,7 @@ final class Conversions(
       .addAllScenarioSteps(steps.asJava)
       .setReturnValue(convertSValue(svalue))
       .setFinalTime(ledger.currentTime.micros)
-      .addAllActiveContracts(ledger.ledgerData.activeContracts.asJava)
+      .addAllActiveContracts(ledger.ledgerData.activeContracts.toList.asJava)
     traceLog.iterator.foreach { entry =>
       builder.addTraceLog(convertSTraceMessage(entry))
     }
@@ -68,7 +68,7 @@ final class Conversions(
       .addAllNodes(nodes.asJava)
       .addAllScenarioSteps(steps.asJava)
       .setLedgerTime(ledger.currentTime.micros)
-      .addAllActiveContracts(ledger.ledgerData.activeContracts.asJava)
+      .addAllActiveContracts(ledger.ledgerData.activeContracts.toList.asJava)
 
     traceLog.iterator.foreach { entry =>
       builder.addTraceLog(convertSTraceMessage(entry))

@@ -890,13 +890,13 @@ main =
                     , "      controller p"
                     , "      do try do"
                     , "           -- rolled back direct create"
---                    , "           create (T p)"
+                    , "           create (T p)"
                     , "           -- rolled back archive"
                     , "           archive cid"
                     , "           -- rolled back create under exercise"
---                    , "           exercise self CreateT"
+                    , "           exercise self CreateT"
                     , "           try do"
---                    , "             create (T p)"
+                    , "             create (T p)"
                     , "             error \"\""
                     , "           catch"
                     , "             (GeneralError _) -> pure ()"
@@ -1045,7 +1045,43 @@ main =
                 expectScriptFailure rs (vr "submitterNotAllocated") $ \r ->
                     matchRegex r "Tried to submit a command for parties that have not ben allocated:\n  'y'"
                 expectScriptFailure rs (vr "observerNotAllocated") $ \r ->
-                    matchRegex r "Tried to submit a command for parties that have not ben allocated:\n  'y'"
+                    matchRegex r "Tried to submit a command for parties that have not ben allocated:\n  'y'",
+              -- Regression test for issue https://github.com/digital-asset/daml/issues/13835
+              testCase "rollback archive" $ do
+                rs <- runScripts scriptService
+                  [ "module Main where"
+                  , "import Daml.Script"
+                  , "import DA.Exception"
+                  , ""
+                  , "template Foo"
+                  , "  with"
+                  , "    owner : Party"
+                  , "  where"
+                  , "    signatory owner"
+                  , "    nonconsuming choice Catch : ()"
+                  , "      controller owner"
+                  , "        do try do"
+                  , "              exercise self Fail"
+                  , "            catch"
+                  , "              GeneralError _ -> pure ()"
+                  , "    nonconsuming choice Fail : ()"
+                  , "      controller owner"
+                  , "        do  exercise self Archive"
+                  , "            abort \"\""
+                  , ""
+                  , "test: Script ()"
+                  , "test = script do"
+                  , "  a <- allocateParty \"a\""
+                  , "  c <- submit a do"
+                  , "    createCmd Foo with"
+                  , "      owner = a"
+                  , "  submit a do"
+                  , "    exerciseCmd c Catch"
+                  , "  submit a do"
+                  , "    exerciseCmd c Catch"
+                  ]
+                expectScriptSuccess rs (vr "test") $ \r ->
+                   matchRegex r "Active contracts:  #0:0\n"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
