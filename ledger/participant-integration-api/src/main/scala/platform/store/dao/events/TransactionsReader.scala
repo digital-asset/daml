@@ -38,6 +38,7 @@ import com.daml.platform.store.utils.{ConcurrencyLimiter, QueueBasedConcurrencyL
 import com.daml.telemetry
 import com.daml.telemetry.{SpanAttribute, Spans}
 import com.daml.metrics.InstrumentedGraph._
+import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.indexer.parallel.BatchN
 import com.daml.platform.store.backend.EventStorageBackend.Entry
 import com.daml.platform.store.dao.PaginatingAsyncStream.IdPaginationState
@@ -68,6 +69,8 @@ private[dao] final class TransactionsReader(
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
     acsReader: ACSReader,
+    idFetchingGlobalLimiter: ConcurrencyLimiter,
+    eventFetchingGlobalLimiter: ConcurrencyLimiter,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
 
@@ -125,17 +128,31 @@ private[dao] final class TransactionsReader(
     logger.debug(s"getFlatTransactions($firstOffset, $lastOffset, $filter, $verbose)")
 
     // TODO pbatko: configure it upstream
-    val idFetchingParallelism = 10
-    val idPageSize = 20000
-    val idPageBufferSize = 10
+    val idPageSize = IndexServiceConfig.DefaultAcsIdPageSize
+    val idPageBufferSize = IndexServiceConfig.DefaultAcsIdPageBufferSize
+    val idPageWorkingMemoryBytes = IndexServiceConfig.DefaultAcsIdPageWorkingMemoryBytes
+
     // NOTE: These must be powers of 2
-    val consumingEventsFetchingParallelism = 8
-    val createEventsFetchingParallelism = 8
-    val idPageWorkingMemoryBytes = 100 * 1024 * 1024
-    val eventIdFetchingLimiter =
-      new QueueBasedConcurrencyLimiter(idFetchingParallelism, executionContext)
-    val eventFetchingLimiter: ConcurrencyLimiter =
-      new QueueBasedConcurrencyLimiter(10, executionContext)
+    val consumingEventsFetchingParallelism_mapAsync = 2
+    val createEventsFetchingParallelism_mapAsync = 2
+
+    val idFetchingParallelism = 4
+    val eventIdFetchingLimiter_createEvents = new QueueBasedConcurrencyLimiter(
+      idFetchingParallelism,
+      executionContext,
+      parentO = Some(idFetchingGlobalLimiter),
+    )
+    val eventIdFetchingLimiter_consumingEvents = new QueueBasedConcurrencyLimiter(
+      idFetchingParallelism,
+      executionContext,
+      parentO = Some(idFetchingGlobalLimiter),
+    )
+
+    val eventFetchingLimiter: ConcurrencyLimiter = new QueueBasedConcurrencyLimiter(
+      2,
+      executionContext,
+      parentO = Some(eventFetchingGlobalLimiter),
+    )
 
     val filters: Vector[Filter] = filter.iterator.flatMap {
       case (party, emptyTemplateIds) if emptyTemplateIds.isEmpty => Iterator(Filter(party, None))
@@ -158,7 +175,7 @@ private[dao] final class TransactionsReader(
         initialStartOffset = firstEventSequentialId,
       )(
         fetchPage = (state: IdPaginationState) => {
-          eventIdFetchingLimiter.execute {
+          eventIdFetchingLimiter_consumingEvents.execute {
             dispatcher.executeSql(metrics.daml.index.db.getConsumingIds_stakeholdersFilter) {
               connection =>
                 eventStorageBackend.fetchIds_consuming_stakeholders(
@@ -181,7 +198,7 @@ private[dao] final class TransactionsReader(
         initialStartOffset = firstEventSequentialId,
       )(
         fetchPage = (state: IdPaginationState) => {
-          eventIdFetchingLimiter.execute {
+          eventIdFetchingLimiter_createEvents.execute {
             dispatcher.executeSql(metrics.daml.index.db.getCreateEventIds_stakeholdersFilter) {
               connection =>
                 eventStorageBackend.fetchIds_create_stakeholders(
@@ -253,17 +270,17 @@ private[dao] final class TransactionsReader(
       .via(
         BatchN(
           maxBatchSize = pageSize,
-          maxBatchCount = consumingEventsFetchingParallelism + 1,
+          maxBatchCount = consumingEventsFetchingParallelism_mapAsync + 1,
         )
       )
       .async
       .addAttributes(
         Attributes.inputBuffer(
-          initial = consumingEventsFetchingParallelism,
-          max = consumingEventsFetchingParallelism,
+          initial = consumingEventsFetchingParallelism_mapAsync,
+          max = consumingEventsFetchingParallelism_mapAsync,
         )
       )
-      .mapAsync(consumingEventsFetchingParallelism)(fetchConsumingEvents)
+      .mapAsync(consumingEventsFetchingParallelism_mapAsync)(fetchConsumingEvents)
       .mapConcat(identity)
 
     val createStream: Source[EventStorageBackend.Entry[Event], NotUsed] = filters
@@ -274,16 +291,16 @@ private[dao] final class TransactionsReader(
         BatchN(
           maxBatchSize = pageSize,
           // TODO pbatko: Why +1 ?
-          maxBatchCount = createEventsFetchingParallelism + 1,
+          maxBatchCount = createEventsFetchingParallelism_mapAsync + 1,
         )
       )
       .addAttributes(
         Attributes.inputBuffer(
-          initial = createEventsFetchingParallelism,
-          max = createEventsFetchingParallelism,
+          initial = createEventsFetchingParallelism_mapAsync,
+          max = createEventsFetchingParallelism_mapAsync,
         )
       )
-      .mapAsync(createEventsFetchingParallelism)(fetchCreateEvents)
+      .mapAsync(createEventsFetchingParallelism_mapAsync)(fetchCreateEvents)
       .mapConcat(identity)
 
     val allFlatEvents: Source[EventStorageBackend.Entry[Event], NotUsed] =
@@ -482,15 +499,22 @@ private[dao] final class TransactionsReader(
     )
 
     // TODO pbatko: configure it upstream
-    val idFetchingParallelism = 8
-    val idPageSize = 20000
-    val idPageBufferSize = 10
-    val eventsFetchingParallelism = 8
-    val idPageWorkingMemoryBytes = 100 * 1024 * 1024
-    val idFetchingLimiter =
-      new QueueBasedConcurrencyLimiter(idFetchingParallelism, executionContext)
-    val eventFetchingLimiter: ConcurrencyLimiter =
-      new QueueBasedConcurrencyLimiter(10, executionContext)
+    val idPageSize = IndexServiceConfig.DefaultAcsIdPageSize
+    val idPageBufferSize = IndexServiceConfig.DefaultAcsIdPageBufferSize
+    val idPageWorkingMemoryBytes = IndexServiceConfig.DefaultAcsIdPageWorkingMemoryBytes
+
+    val eventsFetchingAndDecodingParallelism_mapAsync = 2
+    val idFetchingLimiter_create =
+      new QueueBasedConcurrencyLimiter(8, executionContext, parentO = Some(idFetchingGlobalLimiter))
+    val idFetchingLimiter_consuming =
+      new QueueBasedConcurrencyLimiter(8, executionContext, parentO = Some(idFetchingGlobalLimiter))
+    val idFetchingLimiter_nonConsuming =
+      new QueueBasedConcurrencyLimiter(4, executionContext, parentO = Some(idFetchingGlobalLimiter))
+    val eventFetchingLimiter: ConcurrencyLimiter = new QueueBasedConcurrencyLimiter(
+      2,
+      executionContext,
+      parentO = Some(eventFetchingGlobalLimiter),
+    )
 
     val filters: Vector[Filter] =
       requestingParties.iterator.map(party => Filter(party, None)).toVector
@@ -510,7 +534,7 @@ private[dao] final class TransactionsReader(
         initialStartOffset = firstEventSequentialId,
       )(
         fetchPage = (state: IdPaginationState) => {
-          idFetchingLimiter.execute {
+          idFetchingLimiter_consuming.execute {
             dispatcher.executeSql(metrics.daml.index.db.getConsumingIds_stakeholdersFilter) {
               connection =>
                 eventStorageBackend.fetchIds_consuming_stakeholders(
@@ -533,7 +557,7 @@ private[dao] final class TransactionsReader(
         initialStartOffset = firstEventSequentialId,
       )(
         fetchPage = (state: IdPaginationState) => {
-          idFetchingLimiter.execute {
+          idFetchingLimiter_consuming.execute {
             dispatcher.executeSql(
               metrics.daml.index.db.getConsumingIds_nonStakeholderInformeesFilter
             ) { connection =>
@@ -556,7 +580,7 @@ private[dao] final class TransactionsReader(
         initialStartOffset = firstEventSequentialId,
       )(
         fetchPage = (state: IdPaginationState) => {
-          idFetchingLimiter.execute {
+          idFetchingLimiter_create.execute {
             dispatcher.executeSql(metrics.daml.index.db.getCreateEventIds_stakeholdersFilter) {
               connection =>
                 eventStorageBackend.fetchIds_create_stakeholders(
@@ -579,7 +603,7 @@ private[dao] final class TransactionsReader(
         initialStartOffset = firstEventSequentialId,
       )(
         fetchPage = (state: IdPaginationState) => {
-          idFetchingLimiter.execute {
+          idFetchingLimiter_create.execute {
             dispatcher.executeSql(
               metrics.daml.index.db.getCreateEventIds_nonStakeholderInformeesFilter
             ) { connection =>
@@ -602,7 +626,7 @@ private[dao] final class TransactionsReader(
         initialStartOffset = firstEventSequentialId,
       )(
         fetchPage = (state: IdPaginationState) => {
-          idFetchingLimiter.execute {
+          idFetchingLimiter_nonConsuming.execute {
             dispatcher.executeSql(metrics.daml.index.db.getNonConsumingEventIds_informeesFilter) {
               connection =>
                 eventStorageBackend.fetchIds_nonConsuming_informees(
@@ -698,17 +722,17 @@ private[dao] final class TransactionsReader(
       .via(
         BatchN(
           maxBatchSize = pageSize,
-          maxBatchCount = eventsFetchingParallelism + 1,
+          maxBatchCount = eventsFetchingAndDecodingParallelism_mapAsync + 1,
         )
       )
       .async
       .addAttributes(
         Attributes.inputBuffer(
-          initial = eventsFetchingParallelism,
-          max = eventsFetchingParallelism,
+          initial = eventsFetchingAndDecodingParallelism_mapAsync,
+          max = eventsFetchingAndDecodingParallelism_mapAsync,
         )
       )
-      .mapAsync(eventsFetchingParallelism)(fetchConsumingEvents)
+      .mapAsync(eventsFetchingAndDecodingParallelism_mapAsync)(fetchConsumingEvents)
       .mapConcat(identity)
 
     val createStream: Source[EventStorageBackend.Entry[TreeEvent], NotUsed] = {
@@ -721,17 +745,17 @@ private[dao] final class TransactionsReader(
       .via(
         BatchN(
           maxBatchSize = pageSize,
-          maxBatchCount = eventsFetchingParallelism + 1,
+          maxBatchCount = eventsFetchingAndDecodingParallelism_mapAsync + 1,
         )
       )
       .async
       .addAttributes(
         Attributes.inputBuffer(
-          initial = eventsFetchingParallelism,
-          max = eventsFetchingParallelism,
+          initial = eventsFetchingAndDecodingParallelism_mapAsync,
+          max = eventsFetchingAndDecodingParallelism_mapAsync,
         )
       )
-      .mapAsync(eventsFetchingParallelism)(fetchCreateEvents)
+      .mapAsync(eventsFetchingAndDecodingParallelism_mapAsync)(fetchCreateEvents)
       .mapConcat(identity)
 
     val nonConsumingStream: Source[EventStorageBackend.Entry[TreeEvent], NotUsed] = filters
@@ -741,16 +765,16 @@ private[dao] final class TransactionsReader(
       .via(
         BatchN(
           maxBatchSize = pageSize,
-          maxBatchCount = eventsFetchingParallelism + 1,
+          maxBatchCount = eventsFetchingAndDecodingParallelism_mapAsync + 1,
         )
       )
       .addAttributes(
         Attributes.inputBuffer(
-          initial = eventsFetchingParallelism,
-          max = eventsFetchingParallelism,
+          initial = eventsFetchingAndDecodingParallelism_mapAsync,
+          max = eventsFetchingAndDecodingParallelism_mapAsync,
         )
       )
-      .mapAsync(eventsFetchingParallelism)(fetchNonConsumingEvents)
+      .mapAsync(eventsFetchingAndDecodingParallelism_mapAsync)(fetchNonConsumingEvents)
       .mapConcat(identity)
 
     val ordering = new Ordering[EventStorageBackend.Entry[TreeEvent]] {

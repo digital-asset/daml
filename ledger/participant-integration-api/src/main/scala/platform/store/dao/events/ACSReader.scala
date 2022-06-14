@@ -39,7 +39,7 @@ class FilterTableACSReader(
     idFetchingParallelism: Int,
     acsFetchingparallelism: Int,
     metrics: Metrics,
-    querylimiter: ConcurrencyLimiter,
+    acsEventFetchingQueryLimiter: ConcurrencyLimiter,
     executionContext: ExecutionContext,
 ) extends ACSReader {
   import FilterTableACSReader._
@@ -94,7 +94,7 @@ class FilterTableACSReader(
       )
 
     def fetchAcs(ids: Iterable[Long]): Future[Vector[EventStorageBackend.Entry[Raw.FlatEvent]]] =
-      querylimiter.execute(
+      acsEventFetchingQueryLimiter.execute(
         dispatcher.executeSql(metrics.daml.index.db.getActiveContractBatch) { connection =>
           val result = queryNonPruned.executeSql(
             eventStorageBackend.activeContractEventBatch(

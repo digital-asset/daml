@@ -457,6 +457,19 @@ private class JdbcLedgerDao(
 
   private val queryNonPruned = QueryNonPrunedImpl(parameterStorageBackend)
 
+  // Applicable for id fetching for transaction streams (flat and tree)
+  // TODO pbatko: Applicable to ACS id fetching as well?
+  // TODO pbatko: Make it configurable
+  private val idFetchingGlobalLimiter = new QueueBasedConcurrencyLimiter(
+    parallelism = 20,
+    executionContext = servicesExecutionContext,
+  )
+  // TODO pbatko: Make it configurable
+  private val eventFetchingGlobalLimiter = new QueueBasedConcurrencyLimiter(
+    parallelism = 10,
+    executionContext = servicesExecutionContext,
+  )
+
   override val transactionsReader: TransactionsReader =
     new TransactionsReader(
       dispatcher = dbDispatcher,
@@ -478,10 +491,12 @@ private class JdbcLedgerDao(
         idFetchingParallelism = acsIdFetchingParallelism,
         acsFetchingparallelism = acsContractFetchingParallelism,
         metrics = metrics,
-        querylimiter =
+        acsEventFetchingQueryLimiter =
           new QueueBasedConcurrencyLimiter(acsGlobalParallelism, servicesExecutionContext),
         executionContext = servicesExecutionContext,
       ),
+      idFetchingGlobalLimiter = idFetchingGlobalLimiter,
+      eventFetchingGlobalLimiter = eventFetchingGlobalLimiter,
     )(
       servicesExecutionContext
     )
