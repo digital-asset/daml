@@ -7,6 +7,8 @@ import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.v1.transaction_service.GetTransactionsResponse
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.validation.ValueValidator
 import com.daml.ledger.offset.Offset
@@ -109,18 +111,28 @@ private[platform] object TransactionFilter {
     )
   }
 
-  def computeInterfaceViews(
+  def transactionsWithViews(
       respose: GetTransactionsResponse,
       filter: TransactionFilter,
       engine: Engine,
   )(implicit loggingContext: LoggingContext): GetTransactionsResponse = {
     val transactionsWithViews =
-      respose.transactions.map(tx => computeInterfaceViews(tx, filter, engine))
+      respose.transactions.map(tx => transactionWithViews(tx, filter, engine))
     respose.update(_.transactions := transactionsWithViews)
   }
 
+  def acsWithViews(
+      respose: GetActiveContractsResponse,
+      filter: TransactionFilter,
+      engine: Engine,
+  )(implicit loggingContext: LoggingContext): GetActiveContractsResponse = {
+    val contractsWithViews =
+      respose.activeContracts.map(tx => createdEventWithViews(tx, filter, engine))
+    respose.update(_.activeContracts := contractsWithViews)
+  }
+
   /** Returns a copy of the given transaction that contains all required interface views */
-  private def computeInterfaceViews(
+  private def transactionWithViews(
       transaction: Transaction,
       filter: TransactionFilter,
       engine: Engine,
@@ -129,26 +141,33 @@ private[platform] object TransactionFilter {
       _.events := transaction.events.map(outerEvent =>
         outerEvent.event match {
           case com.daml.ledger.api.v1.event.Event.Event.Created(created) =>
-            val templateId = apiIdentifierToDamlLfIdentifier(created.templateId.get)
-            val viewsToInclude = filter.viewsToCompute.getOrElse(templateId, Set.empty)
-            if (viewsToInclude.isEmpty) {
-              outerEvent
-            } else {
-              val interfaceViews = viewsToInclude
-                .map(iid =>
-                  computeInterfaceView(templateId, created.createArguments.get, iid, engine)
-                )
-                .toSeq
-              com.daml.ledger.api.v1.event.Event.of(
-                com.daml.ledger.api.v1.event.Event.Event
-                  .Created(created.update(_.interfaceViews := interfaceViews))
-              )
-            }
+            val eventWithViews = createdEventWithViews(created, filter, engine)
+            com.daml.ledger.api.v1.event.Event.of(
+              com.daml.ledger.api.v1.event.Event.Event.Created(eventWithViews)
+            )
 
           case _ => outerEvent
         }
       )
     )
+  }
+
+  /** Returns a copy of the given create event that contains all required interface views */
+  private def createdEventWithViews(
+      event: CreatedEvent,
+      filter: TransactionFilter,
+      engine: Engine,
+  )(implicit loggingContext: LoggingContext): CreatedEvent = {
+    val templateId = apiIdentifierToDamlLfIdentifier(event.templateId.get)
+    val viewsToInclude = filter.viewsToCompute.getOrElse(templateId, Set.empty)
+    if (viewsToInclude.isEmpty) {
+      event
+    } else {
+      val interfaceViews = viewsToInclude
+        .map(iid => computeInterfaceView(templateId, event.createArguments.get, iid, engine))
+        .toSeq
+      event.update(_.interfaceViews := interfaceViews)
+    }
   }
 
   /** Computes all required interface views for the given template */

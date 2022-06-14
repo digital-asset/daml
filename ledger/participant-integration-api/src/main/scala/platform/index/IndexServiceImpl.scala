@@ -31,7 +31,7 @@ import com.daml.ledger.participant.state.index.v2.{
   _,
 }
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{ApplicationId, Identifier, Party}
+import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.GlobalKey
@@ -113,7 +113,7 @@ private[index] class IndexServiceImpl(
                 verbose,
               )
               .map { case (offset, response) =>
-                offset -> TransactionFilter.computeInterfaceViews(response, convertedFilter, engine)
+                offset -> TransactionFilter.transactionsWithViews(response, convertedFilter, engine)
               }
           },
           to,
@@ -199,12 +199,19 @@ private[index] class IndexServiceImpl(
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
     val currentLedgerEnd = ledgerEnd()
 
+    val convertedFilter = TransactionFilter(
+      endInclusive = currentLedgerEnd,
+      packageMetadataCache = SingletonPackageMetadataCache,
+      filter = filter,
+    )
+
     ledgerDao.transactionsReader
       .getActiveContracts(
         currentLedgerEnd,
-        convertFilter(filter),
+        convertedFilter.templatesToInclude,
         verbose,
       )
+      .map(response => TransactionFilter.acsWithViews(response, convertedFilter, engine))
       .concat(
         Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(currentLedgerEnd)))
       )
@@ -390,11 +397,6 @@ private[index] class IndexServiceImpl(
         }
     }
   }
-
-  private def convertFilter(filter: domain.TransactionFilter): Map[Party, Set[Identifier]] =
-    filter.filtersByParty.map { case (party, filters) =>
-      party -> filters.inclusive.fold(Set.empty[Identifier])(_.templateIds)
-    }
 
   private def concreteOffset(startExclusive: Option[LedgerOffset.Absolute]): Future[Offset] =
     startExclusive
