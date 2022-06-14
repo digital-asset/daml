@@ -505,7 +505,7 @@ final class Metrics(val registry: MetricRegistry) {
           "get_contract_state_events"
         )
         val loadStringInterningEntries: DatabaseMetrics = createDbMetrics(
-          "loadStringInterningEntries"
+          "load_string_interning_entries"
         )
 
         val meteringAggregator: DatabaseMetrics = createDbMetrics("metering_aggregator")
