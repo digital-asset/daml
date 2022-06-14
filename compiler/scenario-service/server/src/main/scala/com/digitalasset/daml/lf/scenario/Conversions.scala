@@ -54,7 +54,7 @@ final class Conversions(
       .setReturnValue(convertSValue(svalue))
       .setFinalTime(ledger.currentTime.micros)
       .addAllActiveContracts(
-        ledger.ledgerData.activeContracts.toList
+        ledger.ledgerData.activeContracts
           .map[String](coid => coidToEventId(coid).toLedgerString)
           .asJava
       )
@@ -73,7 +73,7 @@ final class Conversions(
       .addAllScenarioSteps(steps.asJava)
       .setLedgerTime(ledger.currentTime.micros)
       .addAllActiveContracts(
-        ledger.ledgerData.activeContracts.toList
+        ledger.ledgerData.activeContracts
           .map[String](coid => coidToEventId(coid).toLedgerString)
           .asJava
       )
