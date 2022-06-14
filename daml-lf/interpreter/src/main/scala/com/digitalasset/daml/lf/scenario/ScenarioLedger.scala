@@ -557,7 +557,7 @@ object ScenarioLedger {
                 activeKs + (key -> cid)
               case (activeKs, (key, None)) =>
                 activeKs - key
-            }
+            },
         )
       // NOTE(MH): Since `addDisclosures` is biased towards existing
       // disclosures, we need to add the "stronger" explicit ones first.
