@@ -4,9 +4,7 @@
 Navigator
 #########
 
-The Navigator is a front-end that you can use to connect to any Daml Ledger and inspect and modify the ledger. You can use it during Daml development to explore the flow and implications of the Daml models.
-
-The first sections of this guide cover use of the Navigator with the SDK. Refer to :ref:`navigator-manual-advanced-usage` for information on using Navigator outside the context of the SDK.
+The Navigator is a front-end development tool that you can use to inspect and modify the state of a sandbox. You can use it during Daml development to explore the flow and implications of the Daml models.
 
 Navigator Functionality
 ***********************
@@ -320,8 +318,6 @@ If the access token cannot be retrieved, is missing or wrong, you'll be unable t
   :align: center
   :alt: The Digital Asset Navigator home screen with the error message "You don't have the necessary authorization to access. Make sure to start the Navigator server with a valid access token." displayed in red.
 
-.. _navigator-manual-advanced-usage:
-
 Advanced Usage
 **************
 
@@ -330,11 +326,9 @@ Advanced Usage
 Customizable table views
 ========================
 
-Customizable table views is an advanced rapid-prototyping feature,
-intended for Daml developers who wish to customize the Navigator UI without
-developing a custom application.
-
-.. COMMENT: Suggest changing para below to procedure format.
+.. warning::
+    Customizable table views are deprecated. For rapid prototyping we recommend you use the skeleton ``create-daml-app``.
+    For a detailed example of how to use it, see :doc:`/getting-started/index`.
 
 To use customized table views:
 
@@ -403,11 +397,11 @@ To debug config file errors and learn more about the
 config file API, open the Navigator ``/config`` page in your browser
 (e.g., `<http://localhost:7500/config>`_).
 
-Using Navigator with a Daml Ledger
-==================================
+Using Navigator with a secured sandbox
+======================================
 
 By default, Navigator is configured to use an unencrypted connection to the ledger.
-To run Navigator against a secured Daml Ledger,
+To run Navigator against a secured sandbox,
 configure TLS certificates using the ``--pem``, ``--crt``, and ``--cacrt`` command line parameters.
 Details of these parameters are explained in the command line help::
 
