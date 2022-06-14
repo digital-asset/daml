@@ -225,7 +225,7 @@ private[dao] final class TransactionsReader(
 
     def fetchConsumingEvents(
         ids: Iterable[Long]
-    ): Future[Vector[EventStorageBackend.Entry[Event]]] = {
+    ): Future[Vector[EventStorageBackend.Entry[Raw.FlatEvent]]] = {
       eventFetchingLimiter
         .execute(
           dispatcher.executeSql(metrics.daml.index.db.getFlatTransactions) { implicit connection =>
@@ -240,10 +240,11 @@ private[dao] final class TransactionsReader(
             )
           }
         )
-        .flatMap(decode)
     }
 
-    def fetchCreateEvents(ids: Iterable[Long]): Future[Vector[EventStorageBackend.Entry[Event]]] = {
+    def fetchCreateEvents(
+        ids: Iterable[Long]
+    ): Future[Vector[EventStorageBackend.Entry[Raw.FlatEvent]]] = {
       eventFetchingLimiter
         .execute(
           dispatcher.executeSql(metrics.daml.index.db.getFlatTransactions) { implicit connection =>
@@ -258,12 +259,11 @@ private[dao] final class TransactionsReader(
             )
           }
         )
-        .flatMap(decode)
     }
 
     import scala.util.chaining._
 
-    val consumingStream: Source[EventStorageBackend.Entry[Event], NotUsed] = filters
+    val consumingStream: Source[EventStorageBackend.Entry[Raw.FlatEvent], NotUsed] = filters
       .map(streamConsumingIds_stakeholders)
       .pipe(FilterTableACSReader.mergeSort[Long])
       .statefulMapConcat(statefulDeduplicate)
@@ -283,7 +283,7 @@ private[dao] final class TransactionsReader(
       .mapAsync(consumingEventsFetchingParallelism_mapAsync)(fetchConsumingEvents)
       .mapConcat(identity)
 
-    val createStream: Source[EventStorageBackend.Entry[Event], NotUsed] = filters
+    val createStream: Source[EventStorageBackend.Entry[Raw.FlatEvent], NotUsed] = filters
       .map(streamCreateIds_stakeholders)
       .pipe(FilterTableACSReader.mergeSort[Long])
       .statefulMapConcat(statefulDeduplicate)
@@ -303,12 +303,12 @@ private[dao] final class TransactionsReader(
       .mapAsync(createEventsFetchingParallelism_mapAsync)(fetchCreateEvents)
       .mapConcat(identity)
 
-    val allFlatEvents: Source[EventStorageBackend.Entry[Event], NotUsed] =
+    val allFlatEvents: Source[EventStorageBackend.Entry[Raw.FlatEvent], NotUsed] =
       consumingStream.mergeSorted(createStream)(
-        ord = new Ordering[EventStorageBackend.Entry[Event]] {
+        ord = new Ordering[EventStorageBackend.Entry[Raw.FlatEvent]] {
           override def compare(
-              x: EventStorageBackend.Entry[Event],
-              y: EventStorageBackend.Entry[Event],
+              x: EventStorageBackend.Entry[Raw.FlatEvent],
+              y: EventStorageBackend.Entry[Raw.FlatEvent],
           ): Int = {
             implicitly[Ordering[Long]].compare(x.eventSequentialId, y.eventSequentialId)
           }
@@ -317,6 +317,7 @@ private[dao] final class TransactionsReader(
 
     TransactionsReader
       .groupContiguous(allFlatEvents)(by = _.transactionId)
+      .mapAsync(eventProcessingParallelism)(decode)
       .mapConcat { events: Vector[EventStorageBackend.Entry[Event]] =>
         val response = TransactionConversions.toGetTransactionsResponse(events)
         response.map(r => offsetFor(r) -> r)
@@ -641,7 +642,7 @@ private[dao] final class TransactionsReader(
       )
     }
 
-    def decode(
+    def timedDeserialize(
         rawEvents: Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
     ): Future[Vector[EventStorageBackend.Entry[TreeEvent]]] = {
       Timed.future(
@@ -652,7 +653,7 @@ private[dao] final class TransactionsReader(
 
     def fetchConsumingEvents(
         ids: Iterable[Long]
-    ): Future[Vector[EventStorageBackend.Entry[TreeEvent]]] = {
+    ): Future[Vector[EventStorageBackend.Entry[Raw.TreeEvent]]] = {
       eventFetchingLimiter
         .execute(
           dispatcher.executeSql(metrics.daml.index.db.getTransactionTrees) { implicit connection =>
@@ -667,12 +668,11 @@ private[dao] final class TransactionsReader(
             )
           }
         )
-        .flatMap(decode)
     }
 
     def fetchCreateEvents(
         ids: Iterable[Long]
-    ): Future[Vector[EventStorageBackend.Entry[TreeEvent]]] = {
+    ): Future[Vector[EventStorageBackend.Entry[Raw.TreeEvent]]] = {
       eventFetchingLimiter
         .execute(
           dispatcher.executeSql(metrics.daml.index.db.getTransactionTrees) { implicit connection =>
@@ -687,12 +687,11 @@ private[dao] final class TransactionsReader(
             )
           }
         )
-        .flatMap(decode)
     }
 
     def fetchNonConsumingEvents(
         ids: Iterable[Long]
-    ): Future[Vector[EventStorageBackend.Entry[TreeEvent]]] = {
+    ): Future[Vector[EventStorageBackend.Entry[Raw.TreeEvent]]] = {
       eventFetchingLimiter
         .execute(
           dispatcher.executeSql(metrics.daml.index.db.getTransactionTrees) { implicit connection =>
@@ -707,12 +706,11 @@ private[dao] final class TransactionsReader(
             )
           }
         )
-        .flatMap(decode)
     }
 
     import scala.util.chaining._
 
-    val consumingStream: Source[EventStorageBackend.Entry[TreeEvent], NotUsed] = {
+    val consumingStream: Source[EventStorageBackend.Entry[Raw.TreeEvent], NotUsed] = {
       filters.map(streamConsumingIds_stakeholders) ++ filters.map(
         streamConsumingIds_nonStakeholderInformees
       )
@@ -735,7 +733,7 @@ private[dao] final class TransactionsReader(
       .mapAsync(eventsFetchingAndDecodingParallelism_mapAsync)(fetchConsumingEvents)
       .mapConcat(identity)
 
-    val createStream: Source[EventStorageBackend.Entry[TreeEvent], NotUsed] = {
+    val createStream: Source[EventStorageBackend.Entry[Raw.TreeEvent], NotUsed] = {
       filters.map(streamCreateIds_stakeholders) ++ filters.map(
         streamCreateIds_nonStakeholderInformees
       )
@@ -758,7 +756,7 @@ private[dao] final class TransactionsReader(
       .mapAsync(eventsFetchingAndDecodingParallelism_mapAsync)(fetchCreateEvents)
       .mapConcat(identity)
 
-    val nonConsumingStream: Source[EventStorageBackend.Entry[TreeEvent], NotUsed] = filters
+    val nonConsumingStream: Source[EventStorageBackend.Entry[Raw.TreeEvent], NotUsed] = filters
       .map(streamNonConsumingIds_informees)
       .pipe(FilterTableACSReader.mergeSort[Long])
       .statefulMapConcat(statefulDeduplicate)
@@ -777,21 +775,22 @@ private[dao] final class TransactionsReader(
       .mapAsync(eventsFetchingAndDecodingParallelism_mapAsync)(fetchNonConsumingEvents)
       .mapConcat(identity)
 
-    val ordering = new Ordering[EventStorageBackend.Entry[TreeEvent]] {
+    val ordering = new Ordering[EventStorageBackend.Entry[Raw.TreeEvent]] {
       override def compare(
-          x: EventStorageBackend.Entry[TreeEvent],
-          y: EventStorageBackend.Entry[TreeEvent],
+          x: EventStorageBackend.Entry[Raw.TreeEvent],
+          y: EventStorageBackend.Entry[Raw.TreeEvent],
       ): Int = {
         implicitly[Ordering[Long]].compare(x.eventSequentialId, y.eventSequentialId)
       }
     }
-    val allEvents: Source[EventStorageBackend.Entry[TreeEvent], NotUsed] =
+    val allEvents: Source[EventStorageBackend.Entry[Raw.TreeEvent], NotUsed] =
       consumingStream
         .mergeSorted(createStream)(ord = ordering)
         .mergeSorted(nonConsumingStream)(ord = ordering)
 
     TransactionsReader
       .groupContiguous(allEvents)(by = _.transactionId)
+      .mapAsync(eventProcessingParallelism)(timedDeserialize)
       .mapConcat { events =>
         val response = TransactionConversions.toGetTransactionTreesResponse(events)
         response.map(r => offsetFor(r) -> r)
