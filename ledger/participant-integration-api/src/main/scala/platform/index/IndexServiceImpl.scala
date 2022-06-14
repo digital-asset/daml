@@ -105,7 +105,6 @@ private[index] class IndexServiceImpl(
               packageMetadataCache = SingletonPackageMetadataCache,
               filter = filter,
             )
-            Console.println(s"filter=$filter, converted=$convertedFilter")
             transactionsReader
               .getFlatTransactions(
                 startExclusive,
