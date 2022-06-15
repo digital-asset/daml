@@ -19,6 +19,7 @@ import com.daml.lf.speedy.SBuiltin.checkAborted
 import com.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode
 import com.daml.lf.transaction.{
   ContractKeyUniquenessMode,
+  GlobalKey,
   IncompleteTransaction,
   Node,
   TransactionVersion,
@@ -807,6 +808,33 @@ private[lf] object Speedy {
           )
       }
     }
+
+    @throws[SError]
+    def checkKeyVisibility(
+        onLedger: OnLedger,
+        gkey: GlobalKey,
+        coid: V.ContractId,
+        handleKeyFound: (Machine, V.ContractId) => Unit,
+    ): Unit =
+      onLedger.cachedContracts.get(coid) match {
+        case Some(cachedContract) =>
+          val stakeholders = cachedContract.signatories union cachedContract.observers
+          onLedger.visibleToStakeholders(stakeholders) match {
+            case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
+              throw SErrorDamlException(
+                interpretation.Error
+                  .LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
+              )
+            case _ =>
+              handleKeyFound(this, coid)
+          }
+        case None =>
+          throw SErrorCrash(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"contract ${coid.coid} not in cachedContracts",
+          )
+      }
+
   }
 
   object Machine {
@@ -1351,6 +1379,19 @@ private[lf] object Speedy {
         machine.returnValue = cached.any
       }
     }
+
+  }
+
+  private[speedy] final case class KCheckKeyVisibitiy(
+      machine: Machine,
+      gKey: GlobalKey,
+      cid: V.ContractId,
+      handleKeyFound: (Machine, V.ContractId) => Unit,
+  ) extends Kont {
+    def execute(sv: SValue): Unit =
+      machine.withOnLedger("KCheckKeyVisibitiy")(
+        machine.checkKeyVisibility(_, gKey, cid, handleKeyFound)
+      )
   }
 
   /** KCloseExercise. Marks an open-exercise which needs to be closed. Either:

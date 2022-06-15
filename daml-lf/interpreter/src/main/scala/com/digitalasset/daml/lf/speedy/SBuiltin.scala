@@ -21,9 +21,9 @@ import com.daml.lf.speedy.{SExpr => runTime}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.SValue.{SValue => SV}
 import com.daml.lf.transaction.{
+  ContractStateMachine,
   GlobalKey,
   GlobalKeyWithMaintainers,
-  ContractStateMachine,
   Node,
   Versioned,
   Transaction => Tx,
@@ -1438,12 +1438,13 @@ private[lf] object SBuiltin {
         machine: Machine,
         onLedger: OnLedger,
     ): Unit = {
+      val skey = args.get(0)
       val keyWithMaintainers =
         extractKeyWithMaintainers(
           machine,
           operation.templateId,
           NameOf.qualifiedNameOfCurrentFunc,
-          args.get(0),
+          skey,
         )
       if (keyWithMaintainers.maintainers.isEmpty)
         throw SErrorDamlException(
@@ -1451,23 +1452,14 @@ private[lf] object SBuiltin {
         )
 
       val gkey = GlobalKey(operation.templateId, keyWithMaintainers.key)
+
       onLedger.ptx.contractState.resolveKey(gkey) match {
         case Right((keyMapping, next)) =>
           onLedger.ptx = onLedger.ptx.copy(contractState = next)
           keyMapping match {
             case ContractStateMachine.KeyActive(coid)
                 if onLedger.ptx.localContracts.contains(coid) =>
-              val cachedContract = onLedger.cachedContracts
-                .getOrElse(coid, crash(s"Local contract ${coid.coid} not in cachedContracts"))
-              val stakeholders = cachedContract.signatories union cachedContract.observers
-              onLedger.visibleToStakeholders(stakeholders) match {
-                case SVisibleToStakeholders.Visible =>
-                  operation.handleKeyFound(machine, coid)
-                case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-                  machine.ctrl = SEDamlException(
-                    IE.LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
-                  )
-              }
+              machine.checkKeyVisibility(onLedger, gkey, coid, operation.handleKeyFound)
             case _ =>
               operation.handleKnownInputKey(machine, gkey, keyMapping)
           }
@@ -1480,8 +1472,18 @@ private[lf] object SBuiltin {
                 val (keyMapping, next) = handle(result)
                 onLedger.ptx = onLedger.ptx.copy(contractState = next)
                 keyMapping match {
-                  case ContractStateMachine.KeyActive(cid) =>
-                    operation.handleKeyFound(machine, cid)
+                  case ContractStateMachine.KeyActive(coid) =>
+                    // We do not call directly machine.checkKeyVisibility as it may throw an SError,
+                    // and such error cannot be throw inside a SpeedyHungry continuation.
+                    machine.pushKont(
+                      KCheckKeyVisibitiy(machine, gkey, coid, operation.handleKeyFound)
+                    )
+                    if (onLedger.cachedContracts.contains(coid)) {
+                      machine.returnValue = SUnit
+                    } else {
+                      // SBFetchAny will populate onLedger.cachedContracts with the contract pointed by coid
+                      machine.ctrl = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
+                    }
                     true
                   case ContractStateMachine.KeyInactive =>
                     operation.handleKeyNotFound(machine, gkey)
