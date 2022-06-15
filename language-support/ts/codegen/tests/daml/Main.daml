@@ -5,7 +5,7 @@ module Main where
 
 import DA.TextMap
 import qualified DA.Map
-import Lib.Mod
+import Lib.Mod hiding (Overridden)
 import Lib.ModIfaceOnly
 
 import T
@@ -188,6 +188,9 @@ template Asset with
   where
     signatory issuer
     observer owner
+    choice Overridden : ()
+      controller owner
+      do return ()
     implements Token where
       getTokenOwner = owner
       transferImpl newOwner = do

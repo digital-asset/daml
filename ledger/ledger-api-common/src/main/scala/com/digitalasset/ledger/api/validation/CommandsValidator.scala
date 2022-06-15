@@ -110,6 +110,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
     }
   }
 
+  // Public because it is used by Canton.
   def validateInnerCommands(
       commands: Seq[ProtoCommand]
   )(implicit
@@ -124,6 +125,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
       } yield validatedInnerCommands :+ validatedInnerCommand
     })
 
+  // Public so that clients have an easy way to convert ProtoCommand.Command to ApiCommand.
   def validateInnerCommand(
       command: ProtoCommand.Command
   )(implicit

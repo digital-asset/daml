@@ -409,12 +409,12 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def iouCreateCommand(
-      partyName: String,
+      partyName: domain.Party,
       amount: String = "999.9900000000",
       currency: String = "USD",
       meta: Option[domain.CommandMeta] = None,
   ): domain.CreateCommand[v.Record, OptionalPkg] = {
-    val party = Ref.Party assertFromString partyName
+    val party = Ref.Party assertFromString partyName.unwrap
     val arg = argToApi(iouVA)(
       ShRecord(
         issuer = party,
@@ -440,11 +440,11 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def iouCreateAndExerciseTransferCommand(
-      partyName: String,
+      partyName: domain.Party,
       amount: String = "999.9900000000",
       currency: String = "USD",
   ): domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] = {
-    val party = Ref.Party assertFromString partyName
+    val party = Ref.Party assertFromString partyName.unwrap
     val payload = argToApi(iouVA)(
       ShRecord(
         issuer = party,

@@ -371,7 +371,10 @@ sealed abstract class HasTxNodes {
     */
   final def inactiveContracts[Cid2 >: ContractId]: Set[Cid2] = {
     final case class LedgerState(
+        // Contracts created up to this point including rolled back contracts.
         createdCids: Set[Cid2],
+        // Contracts that have been marked as inactive either by a rollback of a create
+        // or an archive.
         inactiveCids: Set[Cid2],
     ) {
       def create(cid: Cid2): LedgerState =
@@ -403,7 +406,10 @@ sealed abstract class HasTxNodes {
         copy(
           currentState = beginState.copy(
             inactiveCids =
-              beginState.inactiveCids union (currentState.createdCids diff beginState.createdCids)
+              // Add all contracts created under rollback to inactive contracts.
+              // We don’t care if they are nested further below other rollbacks.
+              beginState.inactiveCids union (currentState.createdCids diff beginState.createdCids),
+            createdCids = currentState.createdCids,
           ),
           rollbackStack = rollbackStack.tail,
         )

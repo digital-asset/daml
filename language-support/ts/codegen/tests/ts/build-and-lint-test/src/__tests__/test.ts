@@ -11,7 +11,7 @@ import Ledger, {
   PartyInfo,
   UserRightHelper,
 } from "@daml/ledger";
-import { Int, emptyMap, Map } from "@daml/types";
+import { Choice, Int, emptyMap, Map } from "@daml/types";
 import pEvent from "p-event";
 import _ from "lodash";
 import WebSocket from "ws";
@@ -595,6 +595,48 @@ describe("interface definition", () => {
     const emptyIfcId: string = emptyIfc.templateId;
     expect(emptyIfc).toMatchObject({
       templateId: emptyIfcId,
+    });
+  });
+  describe("choice name collision", () => {
+    // statically assert that an expression is a choice
+    const theChoice = <T extends object, C, R, K>(c: Choice<T, C, R, K>) => c;
+
+    // Something is inherited
+    test("unambiguous inherited is inherited", () => {
+      const c: Choice<
+        buildAndLint.Main.Asset,
+        buildAndLint.Lib.Mod.Something,
+        {},
+        undefined
+      > = tpl.Something;
+      expect(c).toBeDefined();
+      expect(c).toEqual(theChoice(if2.Something));
+      expect(c.template()).toBe(if2);
+    });
+    test("choice from two interfaces is not inherited", () => {
+      const k = "PeerIfaceOverload";
+      expect(theChoice(if2[k])).toBeDefined();
+      expect(
+        theChoice(buildAndLint.Lib.ModIfaceOnly.YetAnother[k]),
+      ).toBeDefined();
+      // statically check that k isn't in tpl
+      const tplK: Extract<keyof typeof tpl, typeof k> extends never
+        ? true
+        : never = true;
+      expect(tplK).toEqual(true); // useless, but suppresses unused error
+      // dynamically check the same
+      expect(_.get(tpl, k)).toBeUndefined();
+    });
+    test("choice from template and interface prefers template", () => {
+      const k = "Overridden";
+      const c: Choice<
+        buildAndLint.Main.Asset,
+        buildAndLint.Main.Overridden,
+        {},
+        undefined
+      > = tpl[k];
+      expect(c).not.toEqual(theChoice(if2[k]));
+      expect(c.template()).toBe(tpl);
     });
   });
 });
