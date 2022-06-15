@@ -79,6 +79,7 @@ object Node {
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers],
+      implementationSignatory: Option[Party],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyAction
@@ -155,7 +156,8 @@ object Node {
       exerciseResult: Option[Value],
       key: Option[KeyWithMaintainers],
       override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
-      // For the sake of consistency between types with a version field, keep this field the last.
+                                   // For the sake of consistency between types with a version field, keep this field the last.
+      byImplementation: Boolean, // If true, the first child must be a ResolveImplementation node.
       override val version: TransactionVersion,
   ) extends Action
       with ActionNodeInfo.Exercise {
@@ -237,6 +239,22 @@ object Node {
       copy(children.map(f))
 
     override protected def self: Node = this
+  }
+
+  // An instance of a given template for a given interface.
+  final case class InterfaceInstance(
+    template: TypeConName,
+    interface: TypeConName.
+  )
+
+  // Can only occur as the first child of an Exercise node with byImplementation = true.
+  final case class ResolveImplementation(
+    override val templateId: TypeConName, // Template that provides the implementation
+    coid: ContractId, // Contract id of type template_id that was used to resolve the implementation
+    implementationSignatory: Party, // The implementation signatory of coid
+    interfaceInstance: InterfaceInstance, // The interface instance that was requested.
+  ) extends LeafOnlyAction {
+    …
   }
 
 }
