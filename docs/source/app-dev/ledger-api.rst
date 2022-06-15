@@ -8,6 +8,7 @@ The Ledger API
    :hidden:
 
    services
+   parties-users
    grpc/index
    grpc/error-codes
    grpc/proto-docs
