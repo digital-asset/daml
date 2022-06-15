@@ -328,7 +328,7 @@ object TypedValueGenerators {
     }
   }
 
-  // TODO SC #14167 replace remaining explicit syntax and deprecate
+  // TODO SC #14189 replace remaining explicit syntax and deprecate
   private[daml] val RNil: shapeless.HNil.type = shapeless.HNil
 
   sealed abstract class RecVarSpec[-In] { self =>
