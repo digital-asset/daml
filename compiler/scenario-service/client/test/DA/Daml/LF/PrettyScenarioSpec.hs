@@ -65,6 +65,7 @@ toPtx nodes = case runState (mapM go nodes) (0, []) of
                 , node_CreateSignatories = V.empty
                 , node_CreateStakeholders = V.empty
                 , node_CreateKeyWithMaintainers = Nothing
+                , node_CreateContractId = "#0"
                 }
               Fetch -> pure $ S.NodeNodeFetch S.Node_Fetch
                 { node_FetchContractId = "#0"

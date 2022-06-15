@@ -887,6 +887,7 @@ da_haskell_test(
     ],
     hackage_deps = [
         "base",
+        "containers",
         "directory",
         "data-default",
         "extra",
@@ -898,6 +899,7 @@ da_haskell_test(
         "tasty",
         "tasty-hunit",
         "text",
+        "vector",
     ],
     main_function = "DA.Test.ScriptService.main",
     deps = [
