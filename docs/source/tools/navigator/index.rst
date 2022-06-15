@@ -4,7 +4,7 @@
 Navigator
 #########
 
-The Navigator is a front-end development tool that you can use to inspect and modify the state of a sandbox. You can use it during Daml development to explore the flow and implications of the Daml models.
+The Navigator is a front-end development tool used to inspect and modify the state of a sandbox. You can use it during Daml development to explore the flow and implications of the Daml models.
 
 Navigator Functionality
 ***********************
@@ -397,7 +397,7 @@ To debug config file errors and learn more about the
 config file API, open the Navigator ``/config`` page in your browser
 (e.g., `<http://localhost:7500/config>`_).
 
-Using Navigator with a secured sandbox
+Using Navigator with a Secured Sandbox
 ======================================
 
 By default, Navigator is configured to use an unencrypted connection to the ledger.
