@@ -161,7 +161,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       * which translates to a [[resolveKey]] below.
       * Use [[handleExercise]] when visiting an exercise node during iteration.
       */
-    private [lf] def visitExercise(
+    private[lf] def visitExercise(
         nodeId: Nid,
         templateId: TypeConName,
         targetId: ContractId,
@@ -492,8 +492,6 @@ object ContractStateMachine {
     *             Later lookups have an activeness check
     *             that can then set this to KeyInactive if the result of the
     *             lookup was already archived.
-    *
-    *
     */
   final case class ActiveLedgerState[+Nid](
       consumedBy: Map[ContractId, Nid],
