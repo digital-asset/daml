@@ -18,6 +18,7 @@ import Control.Exception
 import DA.Bazel.Runfiles
 import DA.Daml.Helper.Ledger
 import Data.Foldable
+import qualified DA.Ledger as L
 import DA.PortFile
 import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
@@ -95,10 +96,8 @@ createSandbox portFile sandboxOutput conf@SandboxConfig{..} = do
         let waitForStart = do
                 port <- readPortFile ph' maxRetries portFile
                 forM_ dars $ \darPath -> do
-                    case mbSharedSecret of
-                        Nothing -> runLedgerUploadDar (sandboxLedgerFlags port) (Just darPath)
-                        Just secret ->
-                            runLedgerUploadDarWithToken (makeSignedJwt secret []) (sandboxLedgerFlags port) (Just darPath)
+                    let args = (defaultLedgerArgs Grpc) { port = port, tokM = fmap (\s -> L.Token $ makeSignedJwt s []) mbSharedSecret }
+                    runLedgerUploadDar' args (Just darPath)
 
                 pure (SandboxResource ph port)
         unmask (waitForStart `onException` cleanupProcess ph)
