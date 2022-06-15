@@ -61,6 +61,8 @@ object ContractKeyUniquenessMode {
     override def byKeyOnly: Boolean = true
   }
   case object On extends ContractByKeyUniquenessMode
+
+  /** Note that no stable semantics are provided for off mode. */
   case object Off extends ContractByKeyUniquenessMode
 
   /** Considers all nodes mentioning keys for contract key uniqueness */
