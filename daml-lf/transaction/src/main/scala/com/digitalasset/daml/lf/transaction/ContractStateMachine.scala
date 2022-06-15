@@ -45,6 +45,9 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     *   keyset are in [[activeState]].[[ActiveLedgerState.keys]],
     *   and similarly for all [[ActiveLedgerState]]s in [[rollbackStack]].
     *
+    * @param locallyCreated
+    *   Tracks all contracts created by this transaction including those under a rollback.
+    *
     * @param globalKeyInputs
     *   globalKeyInputs contains the key mapping required by Daml Engine to get to the current state.
     *   It contains all keys that have been looked up during interpretation as well as entries for creates
@@ -70,10 +73,28 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     *                      try blocks (interpretation) or Rollback nodes (iteration).
     */
   case class State private (
+      locallyCreated: Set[ContractId],
       globalKeyInputs: Map[GlobalKey, KeyInput],
       activeState: ActiveLedgerState[Nid],
       rollbackStack: List[ActiveLedgerState[Nid]],
   ) {
+
+    /** The return value indicates if the given contract is either consumed, inactive, or otherwise
+      * - Some(Left(nid)) -- consumed by a specified node-id
+      * - Some(Right(())) -- inactive, because the (local) contract creation has been rolled-back
+      * - None -- neither consumed or inactive
+      */
+    def consumedByOrInactive(cid: Value.ContractId): Option[Either[Nid, Unit]] = {
+      activeState.consumedBy.get(cid) match {
+        case Some(nid) => Some(Left(nid)) // consumed
+        case None =>
+          if (locallyCreated(cid) && !activeState.locallyCreatedThisTimeline.contains(cid)) {
+            Some(Right(())) // inactive
+          } else {
+            None // neither
+          }
+      }
+    }
 
     def mode: ContractKeyUniquenessMode = ContractStateMachine.this.mode
 
@@ -93,10 +114,18 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
         contractId: ContractId,
         key: Option[KeyWithMaintainers],
     ): Either[DuplicateContractKey, State] = {
+      val me =
+        this.copy(
+          locallyCreated = locallyCreated + contractId,
+          activeState = this.activeState
+            .copy(locallyCreatedThisTimeline =
+              this.activeState.locallyCreatedThisTimeline + contractId
+            ),
+        )
       // if we have a contract key being added, include it in the list of
       // active keys
       key match {
-        case None => Right(this)
+        case None => Right(me)
         case Some(kWithM) =>
           val ck = GlobalKey(templateId, kWithM.key)
 
@@ -128,7 +157,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
           //         2.2.2: Not modify `globalKeyInputs` if there already was an entry.
           //         For both of those cases `globalKeyInputs` already had an entry which means
           //         we would use that as a cached result and not query the ledger.
-          val keys = activeState.keys
+          val keys = me.activeState.keys
           val conflict = keys.get(ck) match {
             case Some(keyMapping) => keyMapping.isDefined
             case None => lookupActiveGlobalKeyInput(ck).exists(_ != KeyInactive)
@@ -139,8 +168,8 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
             else globalKeyInputs.updated(ck, KeyCreate)
           Either.cond(
             !conflict || mode == ContractKeyUniquenessMode.Off,
-            this.copy(
-              activeState = activeState.copy(keys = keys.updated(ck, KeyActive(contractId))),
+            me.copy(
+              activeState = me.activeState.copy(keys = keys.updated(ck, KeyActive(contractId))),
               globalKeyInputs = newKeyInputs,
             ),
             DuplicateContractKey(ck),
@@ -395,6 +424,8 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
         _ <- consistentGlobalKeyInputs
       } yield {
         val next = ActiveLedgerState(
+          locallyCreatedThisTimeline = this.activeState.locallyCreatedThisTimeline
+            .union(substate.activeState.locallyCreatedThisTimeline),
           consumedBy = this.activeState.consumedBy ++ substate.activeState.consumedBy,
           keys = this.activeState.keys.concat(substate.activeState.keys),
         )
@@ -425,6 +456,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
             }
 
         this.copy(
+          locallyCreated = this.locallyCreated.union(substate.locallyCreated),
           globalKeyInputs = globalKeyInputs,
           activeState = next,
         )
@@ -443,7 +475,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
   }
 
   object State {
-    val empty: State = new State(Map.empty, ActiveLedgerState.empty, List.empty)
+    val empty: State = new State(Set.empty, Map.empty, ActiveLedgerState.empty, List.empty)
   }
 }
 
@@ -463,6 +495,9 @@ object ContractStateMachine {
   val KeyActive = Some
 
   /** Summarizes the updates to the current ledger state by nodes up to now.
+    *
+    * @param locallyCreatedThisTimeline
+    *   Tracks contracts created by this transaction that have not been rolled back. This is a subset of `locallyCreated`.
     *
     * @param consumedBy [[com.daml.lf.value.Value.ContractId]]s of all contracts
     *                   that have been consumed by nodes up to now.
@@ -494,6 +529,7 @@ object ContractStateMachine {
     *             lookup was already archived.
     */
   final case class ActiveLedgerState[+Nid](
+      locallyCreatedThisTimeline: Set[ContractId],
       consumedBy: Map[ContractId, Nid],
       keys: Map[GlobalKey, KeyMapping],
   ) {
@@ -502,7 +538,8 @@ object ContractStateMachine {
   }
 
   object ActiveLedgerState {
-    private val EMPTY: ActiveLedgerState[Nothing] = ActiveLedgerState(Map.empty, Map.empty)
+    private val EMPTY: ActiveLedgerState[Nothing] =
+      ActiveLedgerState(Set.empty, Map.empty, Map.empty)
     def empty[Nid]: ActiveLedgerState[Nid] = EMPTY
   }
 }

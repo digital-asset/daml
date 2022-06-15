@@ -184,7 +184,6 @@ private[lf] object PartialTransaction {
     context = Context(initialSeeds, committers),
     aborted = None,
     contractState = new ContractStateMachine[NodeId](contractKeyUniqueness).initial,
-    localContracts = Set.empty,
     actionNodeLocations = BackStack.empty,
   )
 
@@ -225,13 +224,14 @@ private[speedy] case class PartialTransaction(
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
     contractState: ContractStateMachine[NodeId]#State,
-    localContracts: Set[Value.ContractId],
     actionNodeLocations: BackStack[Option[Location]],
 ) {
 
   import PartialTransaction._
 
-  def consumedBy: Map[Value.ContractId, NodeId] = contractState.activeState.consumedBy
+  def consumedByOrInactive(cid: Value.ContractId): Option[Either[NodeId, Unit]] = {
+    contractState.consumedByOrInactive(cid)
+  }
 
   def nodesToString: String =
     if (nodes.isEmpty) "<empty transaction>"
@@ -366,7 +366,6 @@ private[speedy] case class PartialTransaction(
       context = context.addActionChild(nid, version),
       nodes = nodes.updated(nid, createNode),
       actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
-      localContracts = localContracts + cid,
     ).noteAuthFails(nid, CheckAuthorization.authorizeCreate(optLocation, createNode), auth)
 
     val nextPtx = ptx.contractState.visitCreate(templateId, cid, key) match {
@@ -633,19 +632,19 @@ private[speedy] case class PartialTransaction(
   private def noteAbort(err: Tx.TransactionError): PartialTransaction =
     copy(aborted = Some(err))
 
-  /** `True` iff the given `ContractId` has been consumed already */
-  def isConsumed(coid: Value.ContractId): Boolean = consumedBy.contains(coid)
-
   /** Double check the execution of a step with the unconsumedness of a
     * `ContractId`.
     */
   private[this] def mustBeActive(
       loc: => String,
-      coid: Value.ContractId,
+      cid: Value.ContractId,
       f: => PartialTransaction,
   ): PartialTransaction =
-    if (consumedBy.isDefinedAt(coid))
-      InternalError.runtimeException(loc, "try to build a node using an inactive contract.")
+    if (consumedByOrInactive(cid).isDefined)
+      InternalError.runtimeException(
+        loc,
+        "try to build a node using a consumed or inactive contract.",
+      )
     else
       f
 
