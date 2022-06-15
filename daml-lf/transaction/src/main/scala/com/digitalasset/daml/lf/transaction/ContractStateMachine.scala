@@ -214,6 +214,8 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       * (and for this reason the archival is not tracked in [[ContractStateMachine.ActiveLedgerState.keys]]),
       * i.e., the lookup resolves to [[scala.None$]] but the correct key input is [[scala.Some$]] for some contract ID
       * and this may matter after the rollback scope is left.
+      * Daml Engine will ask the ledger in that case to resolve the lookup and then perform an activeness check
+      *  against the result potentially turning it into a negative lookup.
       */
     def handleLookupWith(
         lookup: Node.LookupByKey,
@@ -224,28 +226,6 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     }
 
     private def handleLookupWithInternal(
-        lookup: Node.LookupByKey,
-        keyInput: Option[ContractId],
-    ): Either[KeyInputError, State] = {
-      val gk = GlobalKey.assertBuild(lookup.templateId, lookup.key.key)
-      val (keyMapping, next) = resolveKey(gk) match {
-        case Right(result) => result
-        case Left(handle) => handle(keyInput)
-      }
-      Either.cond(
-        keyMapping == lookup.result,
-        next,
-        InconsistentKeys(gk),
-      )
-    }
-
-    /**  Must be used to handle lookups iff [[com.daml.lf.transaction.ContractKeyUniquenessMode.byKeyOnly]] is set
-      */
-    private def handleLookupWithInternal(
-        lookup: Node.LookupByKey,
-        keyInput: Option[ContractId],
-    ): Either[KeyInputError, State] = {
-    def handleLookupWith(
         lookup: Node.LookupByKey,
         keyInput: Option[ContractId],
     ): Either[KeyInputError, State] = {
@@ -506,7 +486,7 @@ object ContractStateMachine {
     *        an entry in the map if there wasn’t already one (i.e., if they queried the ledger).
     *     2. ACS mutating operations if the corresponding contract has a key update the entry. Specifically,
     *        2.1. A create will set the corresponding map entry to KeyActive(cid) if the contract has a key.
-    *        2.2. A consuming choice on cid will set the corresponding map entry to KeyInactive
+    *        2.2. A consuming exercise on cid will set the corresponding map entry to KeyInactive
     *             iff we had a KeyActive(cid) entry for the same key before. If not, keys
     *             will not be modified.
     *             Later lookups have an activeness check
