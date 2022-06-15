@@ -232,7 +232,7 @@ runLedgerUploadDar_ getArgs flags darPathM  = do
     Right () -> putStrLn "DAR upload succeeded."
 
 -- | Upload a DAR file to the ledger. Token is given instead of inferred from LedgerFlags. (Defaults to project DAR)
-runLedgerUploadDarWithToken :: String -> LedgerFlags ->Maybe FilePath -> IO ()
+runLedgerUploadDarWithToken :: String -> LedgerFlags -> Maybe FilePath -> IO ()
 runLedgerUploadDarWithToken tokenString flags darPathM = runLedgerUploadDar_ (getDefaultArgsWithToken $ Just $ L.Token tokenString) flags darPathM
   where
     getDefaultArgsWithToken :: Maybe L.Token -> LedgerFlags -> IO LedgerArgs
