@@ -713,7 +713,6 @@ object Transaction {
   final case class DuplicateContractKey(
       key: GlobalKey
   ) extends TransactionError
-      with KeyInputError
 
   final case class AuthFailureDuringExecution(
       nid: NodeId,
@@ -749,16 +748,14 @@ object Transaction {
     override def isActive: Boolean = true
   }
 
-  /** contractKeyInputs failed to produce an input due to an error for the given key.
-    */
-  sealed trait KeyInputError extends Product with Serializable {
-    def key: GlobalKey
-  }
-
   /** An exercise, fetch or lookupByKey failed because the mapping of key -> contract id
     * was inconsistent with earlier nodes (in execution order).
     */
-  final case class InconsistentKeys(key: GlobalKey) extends KeyInputError
+  final case class InconsistentContractKey(key: GlobalKey)
+
+  /** contractKeyInputs failed to produce an input due to an error for the given key.
+    */
+  type KeyInputError = Either[InconsistentContractKey, DuplicateContractKey]
 
   sealed abstract class ChildrenRecursion
   object ChildrenRecursion {

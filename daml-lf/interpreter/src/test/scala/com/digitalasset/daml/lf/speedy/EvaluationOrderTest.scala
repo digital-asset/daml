@@ -1314,7 +1314,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             msgs shouldBe Seq(
               "starts test",
               "maintainers",
-              "queries key",
               "choice controllers",
               "choice observers",
               "choice body",
@@ -1338,7 +1337,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.ContractKeyNotFound(gkey)))) =>
             gkey.templateId shouldBe T
-            msgs shouldBe Seq("starts test", "maintainers", "queries key")
+            msgs shouldBe Seq("starts test", "maintainers")
           }
         }
 
@@ -1378,7 +1377,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             msgs shouldBe Seq(
               "starts test",
               "maintainers",
-              "queries key",
               "choice controllers",
               "choice observers",
             )
@@ -2219,7 +2217,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             getKey = getKey,
           )
           inside(res) { case Success(Right(_)) =>
-            msgs shouldBe Seq("starts test", "maintainers", "queries key", "ends test")
+            msgs shouldBe Seq("starts test", "maintainers", "ends test")
           }
         }
 
@@ -2238,7 +2236,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.ContractKeyNotFound(key)))) =>
             key.templateId shouldBe T
-            msgs shouldBe Seq("starts test", "maintainers", "queries key")
+            msgs shouldBe Seq("starts test", "maintainers")
           }
         }
 
@@ -2255,7 +2253,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             getKey = getKey,
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq("starts test", "maintainers", "queries key")
+            msgs shouldBe Seq("starts test", "maintainers")
           }
         }
       }
@@ -2712,7 +2710,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             getKey = getKey,
           )
           inside(res) { case Success(Right(_)) =>
-            msgs shouldBe Seq("starts test", "maintainers", "queries key", "ends test")
+            msgs shouldBe Seq("starts test", "maintainers", "ends test")
           }
         }
 
@@ -2730,7 +2728,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             getKey = getKey,
           )
           inside(res) { case Success(Right(_)) =>
-            msgs shouldBe Seq("starts test", "maintainers", "queries key", "ends test")
+            msgs shouldBe Seq("starts test", "maintainers", "ends test")
           }
         }
 
@@ -2747,7 +2745,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             getKey = getKey,
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq("starts test", "maintainers", "queries key")
+            msgs shouldBe Seq("starts test", "maintainers")
           }
         }
       }

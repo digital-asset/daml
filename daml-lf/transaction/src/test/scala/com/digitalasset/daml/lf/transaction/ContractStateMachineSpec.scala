@@ -18,7 +18,7 @@ import com.daml.lf.transaction.Node.KeyWithMaintainers
 import com.daml.lf.transaction.Transaction.{
   ChildrenRecursion,
   DuplicateContractKey,
-  InconsistentKeys,
+  InconsistentContractKey,
   KeyCreate,
   KeyInput,
   KeyInputError,
@@ -134,6 +134,12 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       version = txVersion,
     )
 
+  def inconsistentContractKey[X](key: GlobalKey): Left[KeyInputError, X] =
+    Left(Left(InconsistentContractKey(key)))
+
+  def duplicateContractKey[X](key: GlobalKey): Left[KeyInputError, X] =
+    Left(Right(DuplicateContractKey(key)))
+
   def createRbExLbkLbk: TestCase = {
     // [ Create c1 (key=k1), Rollback [ Exe c1 [ LBK k1 -> None ]], LBK k1 -> c1 ]
     val builder = TransactionBuilder()
@@ -153,7 +159,6 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       tx,
       Map(
         ContractKeyUniquenessMode.Strict -> expected,
-        ContractKeyUniquenessMode.On -> expected,
         ContractKeyUniquenessMode.Off -> expected,
       ),
     )
@@ -188,7 +193,6 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       tx,
       Map(
         ContractKeyUniquenessMode.Strict -> expected,
-        ContractKeyUniquenessMode.On -> expected,
         ContractKeyUniquenessMode.Off -> expected,
       ),
     )
@@ -219,7 +223,6 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       tx,
       Map(
         ContractKeyUniquenessMode.Strict -> expected,
-        ContractKeyUniquenessMode.On -> expected,
         ContractKeyUniquenessMode.Off -> expected,
       ),
     )
@@ -252,7 +255,6 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       tx,
       Map(
         ContractKeyUniquenessMode.Strict -> expected,
-        ContractKeyUniquenessMode.On -> expected,
         ContractKeyUniquenessMode.Off -> expected,
       ),
     )
@@ -279,8 +281,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       tx,
       resolver,
       Map(
-        ContractKeyUniquenessMode.Strict -> Left(InconsistentKeys(gkey("key1"))),
-        ContractKeyUniquenessMode.On -> expected,
+        ContractKeyUniquenessMode.Strict -> inconsistentContractKey(gkey("key1")),
         ContractKeyUniquenessMode.Off -> expected,
       ),
     )
@@ -304,10 +305,8 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       tx,
       Map(
         ContractKeyUniquenessMode.Strict -> expected,
-        ContractKeyUniquenessMode.On -> // TODO This is a bug in the contract key logic
-          Left(InconsistentKeys(gkey("key1"))),
         ContractKeyUniquenessMode.Off -> // TODO This is a bug in the contract key logic
-          Left(InconsistentKeys(gkey("key1"))),
+          inconsistentContractKey(gkey("key1")),
       ),
     )
 
@@ -334,8 +333,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       "DoubleCreate",
       tx,
       Map(
-        ContractKeyUniquenessMode.Strict -> Left(DuplicateContractKey(gkey("key1"))),
-        ContractKeyUniquenessMode.On -> Left(DuplicateContractKey(gkey("key1"))),
+        ContractKeyUniquenessMode.Strict -> duplicateContractKey(gkey("key1")),
         ContractKeyUniquenessMode.Off -> expectedOff,
       ),
     )
@@ -357,8 +355,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       tx,
       Map(gkey("key1") -> KeyInactive),
       Map(
-        ContractKeyUniquenessMode.Strict -> Left(InconsistentKeys(gkey("key1"))),
-        ContractKeyUniquenessMode.On -> expected,
+        ContractKeyUniquenessMode.Strict -> inconsistentContractKey(gkey("key1")),
         ContractKeyUniquenessMode.Off -> expected,
       ),
     )
@@ -381,8 +378,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       "FetchByKey-then-Fetch",
       tx,
       Map(
-        ContractKeyUniquenessMode.Strict -> Left(InconsistentKeys(gkey("key1"))),
-        ContractKeyUniquenessMode.On -> expected,
+        ContractKeyUniquenessMode.Strict -> inconsistentContractKey(gkey("key1")),
         ContractKeyUniquenessMode.Off -> expected,
       ),
     )
@@ -405,8 +401,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       "Archive other contract with key",
       tx,
       Map(
-        ContractKeyUniquenessMode.Strict -> Left(InconsistentKeys(gkey("key1"))),
-        ContractKeyUniquenessMode.On -> expected,
+        ContractKeyUniquenessMode.Strict -> inconsistentContractKey(gkey("key1")),
         ContractKeyUniquenessMode.Off -> expected,
       ),
     )
@@ -428,8 +423,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       "CreateAfterRbExercise",
       tx,
       Map(
-        ContractKeyUniquenessMode.Strict -> Left(DuplicateContractKey(gkey("key1"))),
-        ContractKeyUniquenessMode.On -> expected,
+        ContractKeyUniquenessMode.Strict -> duplicateContractKey(gkey("key1")),
         ContractKeyUniquenessMode.Off -> expected,
       ),
     )
@@ -437,7 +431,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
 
   def differingCause1: TestCase = {
     // [ Create c1 (key = k1), ExeN c2 [ Create c3 (key = k1), LookupByKey k1 -> None ] ]
-    // In ContractKeyUniquenessMode.On and ContractKeyUniquenessMode.Strict,
+    // In ContractKeyUniquenessMode.Strict,
     // iterating over the ExeN subtree from an empty state fails with InconsistentKeys
     // but iterating over the whole transaction fails with DuplicateContractKey
     val builder = TransactionBuilder()
@@ -446,21 +440,20 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val _ = builder.add(mkCreate(3, "key1"), exerciseNid)
     val _ = builder.add(mkLookupByKey("key1", None), exerciseNid)
     val tx = builder.build()
-    val expected = Left(DuplicateContractKey(gkey("key1")))
+    val expected = duplicateContractKey(gkey("key1"))
     TestCase(
       "differing cause 1",
       tx,
       Map(
         ContractKeyUniquenessMode.Strict -> expected,
-        ContractKeyUniquenessMode.On -> expected,
-        ContractKeyUniquenessMode.Off -> Left(InconsistentKeys(gkey("key1"))),
+        ContractKeyUniquenessMode.Off -> inconsistentContractKey(gkey("key1")),
       ),
     )
   }
 
   def differingCause2: TestCase = {
     // [ Create c1 (key = k1), ExeN c2 [ Create c3 (key = k2), Create c4 (key=k1), Create c5 (key = k2) ]
-    // In ContractKeyUniquenessMode.On and ContractKeyUniquenessMode.Strict,
+    // In ContractKeyUniquenessMode.Strict,
     // iterating over the ExeN subtree from an empty state fails with DuplicateContractKeys(k2)
     // while iterating over the whole transaction fails with DuplicateContractKeys(k1)
     val builder = TransactionBuilder()
@@ -482,8 +475,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       "differing cause 2",
       tx,
       Map(
-        ContractKeyUniquenessMode.Strict -> Left(DuplicateContractKey(gkey("key1"))),
-        ContractKeyUniquenessMode.On -> Left(DuplicateContractKey(gkey("key1"))),
+        ContractKeyUniquenessMode.Strict -> duplicateContractKey(gkey("key1")),
         ContractKeyUniquenessMode.Off -> expectedOff,
       ),
     )
@@ -498,13 +490,12 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val _ = builder.add(mkFetch(2, "key1", byKey = true), rollbackNid)
     val _ = builder.add(mkFetch(3, "key1", byKey = true), exerciseNid)
     val tx = builder.build()
-    val expected = Left(InconsistentKeys(gkey("key1")))
+    val expected = inconsistentContractKey(gkey("key1"))
     TestCase(
       "inconsistent fetch-by-key",
       tx,
       Map(
         ContractKeyUniquenessMode.Strict -> expected,
-        ContractKeyUniquenessMode.On -> expected,
         ContractKeyUniquenessMode.Off -> expected,
       ),
     )
@@ -618,9 +609,11 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     for {
       next <- node match {
         case create: Node.Create =>
-          state.visitCreate(create.templateId, create.coid, create.key)
-        case exercise: Node.Exercise => state.handleExercise((), exercise)
-        case fetch: Node.Fetch => state.handleFetch(fetch)
+          state.handleCreate(create)
+        case exercise: Node.Exercise =>
+          state.handleExercise((), exercise)
+        case fetch: Node.Fetch =>
+          state.handleFetch(fetch)
         case lookup: Node.LookupByKey =>
           val gkey = GlobalKey.assertBuild(lookup.templateId, lookup.key.key)
           if (state.mode == ContractKeyUniquenessMode.Strict)

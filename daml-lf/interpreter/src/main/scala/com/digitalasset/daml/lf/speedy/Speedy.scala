@@ -16,7 +16,6 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SBuiltin.checkAborted
-import com.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode
 import com.daml.lf.transaction.{
   ContractKeyUniquenessMode,
   GlobalKey,
@@ -855,7 +854,7 @@ private[lf] object Speedy {
         validating: Boolean = false,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
-        contractKeyUniqueness: ContractByKeyUniquenessMode = ContractKeyUniquenessMode.On,
+        contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
         commitLocation: Option[Location] = None,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
     )(implicit loggingContext: LoggingContext): Machine = {
