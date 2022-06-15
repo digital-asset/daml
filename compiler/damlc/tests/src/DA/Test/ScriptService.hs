@@ -182,6 +182,17 @@ main =
                       "    owner : Party",
                       "  where",
                       "    signatory owner",
+                      "",
+                      "    choice RunByKey : ()",
+                      "      with",
+                      "        party : Party",
+                      "      controller owner",
+                      "      do",
+                      "        cid <- create T with owner = party",
+                      "        exerciseByKey @T party C",
+                      "        fetchByKey @T party",
+                      "        pure ()",
+                      "",
                       "    choice Run : ()",
                       "      with",
                       "        party : Party",
@@ -189,16 +200,18 @@ main =
                       "      do",
                       "        cid <- create T with owner = party",
                       "        exercise cid C",
-                      "        exerciseByKey @T party C",
                       "        fetch cid",
-                      "        fetchByKey @T party",
                       "        pure ()",
                       "",
-                      "test = do",
+                      "testReportsKey = do",
+                      "  p <- allocateParty \"p\"",
+                      "  submit p $ createAndExerciseCmd (Runner p) (RunByKey p)",
+                      "",
+                      "testDoesNotReportKey = do",
                       "  p <- allocateParty \"p\"",
                       "  submit p $ createAndExerciseCmd (Runner p) (Run p)"
                     ]
-                expectScriptSuccess rs (vr "test") $ \r ->
+                expectScriptSuccess rs (vr "testReportsKey") $ \r ->
                   matchRegex r (T.unlines
                     [ ".*exercises.*"
                     , ".*by key.*"
@@ -206,7 +219,18 @@ main =
                   matchRegex r (T.unlines
                     [ ".*fetch.*"
                     , ".*by key.*"
-                    ]),
+                    ])
+                expectScriptSuccess rs (vr "testDoesNotReportKey") $ \r ->
+                  matchRegex r ".*exercises.*" &&
+                  matchRegex r ".*fetch.*" &&
+                  not (matchRegex r (T.unlines
+                    [ ".*exercises.*"
+                    , ".*by key.*"
+                    ])) &&
+                  not (matchRegex r (T.unlines
+                    [ ".*fetch.*"
+                    , ".*by key.*"
+                    ])),
               testCase "failing transactions" $ do
                 rs <-
                   runScripts
