@@ -291,8 +291,7 @@ sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
   ): Either[ResolveError[Resolved[O]], Resolved[O]] = this match {
     case Unresolved(direct, unresolved) =>
       val getAstInterface = astInterfaces.lift
-      type ResolutionResult[C] =
-        (Set[Ref.TypeConName], Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], C]]])
+      type ResolutionResult[C] = (Set[Ref.TypeConName], Resolved.Choices[C])
       val (missing, resolved): ResolutionResult[TemplateChoice[O]] =
         FirstVal.unsubst[ResolutionResult, TemplateChoice[O]](
           unresolved.forgetNE
@@ -359,6 +358,10 @@ object TemplateChoices {
   object Resolved {
     private[daml] def fromDirect[Ty](directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]]) =
       Resolved(directAsResolved(directChoices))
+
+    // choice type abstracted over the TemplateChoice, for specifying
+    // aggregation of choices (typically with tags, foldMap, semigroup)
+    private[iface] type Choices[C] = Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], C]]]
   }
 
   implicit val `TemplateChoices traverse`: Traverse[TemplateChoices] = new Traverse[TemplateChoices]
@@ -410,16 +413,17 @@ final case class DefInterface[+Ty](
   private[iface] def resolveRetroImplements[S, OTy >: Ty](selfName: Ref.TypeConName, s: S)(
       setTemplate: PartialFunction[Ref.TypeConName, Setter[S, DefTemplate[OTy]]]
   ): (S, DefInterface[OTy]) = {
-    def addMySelf(dt: DefTemplate[OTy]) =
+    def addMySelf(dt: DefTemplate[OTy]) = {
+      import TemplateChoices.{Resolved, Unresolved}
       dt.copy(
         implementedInterfaces = dt.implementedInterfaces :+ selfName,
         tChoices = dt.tChoices match {
-          case unr @ TemplateChoices.Unresolved(_, sources) =>
+          case unr @ Unresolved(_, sources) =>
             unr.copy(unresolvedChoiceSources = sources incl selfName)
           // If unresolved, we need only add self as a future interface to resolve;
           // otherwise, we must self-resolve and add to preexisting resolutions
-          case r @ TemplateChoices.Resolved(rc) =>
-            type K[TC] = Semigroup[Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], TC]]]]
+          case r @ Resolved(rc) =>
+            type K[C] = Semigroup[Resolved.Choices[C]]
             r.copy(resolvedChoices =
               FirstVal
                 .unsubst[K, TemplateChoice[OTy]](Semigroup.apply)
@@ -427,6 +431,7 @@ final case class DefInterface[+Ty](
             )
         },
       )
+    }
 
     val lookup = setTemplate.lift
     retroImplements
