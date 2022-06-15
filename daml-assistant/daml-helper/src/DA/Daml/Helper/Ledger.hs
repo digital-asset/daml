@@ -8,6 +8,8 @@ module DA.Daml.Helper.Ledger (
     RemoteDalf(..),
     defaultLedgerFlags,
     sandboxLedgerFlags,
+    LedgerArgs(..),
+    defaultLedgerArgs,
     getDefaultArgs,
     LedgerApi(..),
     L.ClientSSLConfig(..),
@@ -18,7 +20,7 @@ module DA.Daml.Helper.Ledger (
     runLedgerListParties,
     runLedgerAllocateParties,
     runLedgerUploadDar,
-    runLedgerUploadDarWithToken,
+    runLedgerUploadDar',
     runLedgerFetchDar,
     runLedgerExport,
     runLedgerReset,
@@ -115,6 +117,17 @@ sandboxLedgerFlags port = (defaultLedgerFlags Grpc)
   , fPortM = Just port
   }
 
+defaultLedgerArgs :: LedgerApi -> LedgerArgs
+defaultLedgerArgs api = LedgerArgs
+  { api = api
+  , sslConfigM = Nothing
+  , timeout = 10
+  , port = 6865
+  , host = "localhost"
+  , tokM = Nothing
+  , grpcArgs = []
+  }
+
 data LedgerArgs = LedgerArgs
   { api :: LedgerApi
   , sslConfigM :: Maybe L.ClientSSLConfig
@@ -205,11 +218,12 @@ runLedgerAllocateParties flags partiesArg = do
 
 -- | Upload a DAR file to the ledger. (Defaults to project DAR)
 runLedgerUploadDar :: LedgerFlags -> Maybe FilePath -> IO ()
-runLedgerUploadDar = runLedgerUploadDar_ getDefaultArgs
+runLedgerUploadDar flags mbDar = do
+  args <- getDefaultArgs flags
+  runLedgerUploadDar' args mbDar
 
-runLedgerUploadDar_ :: (LedgerFlags -> IO LedgerArgs) -> LedgerFlags -> Maybe FilePath -> IO ()
-runLedgerUploadDar_ getArgs flags darPathM  = do
-  args <- getArgs flags
+runLedgerUploadDar' :: LedgerArgs -> Maybe FilePath -> IO ()
+runLedgerUploadDar' args darPathM  = do
   darPath <-
     flip fromMaybeM darPathM $ do
       doBuild
@@ -230,31 +244,6 @@ runLedgerUploadDar_ getArgs flags darPathM  = do
       putStrLn $ "upload-dar did not succeed: " <> show err
       exitFailure
     Right () -> putStrLn "DAR upload succeeded."
-
--- | Upload a DAR file to the ledger. Token is given instead of inferred from LedgerFlags. (Defaults to project DAR)
-runLedgerUploadDarWithToken :: String -> LedgerFlags -> Maybe FilePath -> IO ()
-runLedgerUploadDarWithToken tokenString flags darPathM = runLedgerUploadDar_ (getDefaultArgsWithToken $ Just $ L.Token tokenString) flags darPathM
-  where
-    getDefaultArgsWithToken :: Maybe L.Token -> LedgerFlags -> IO LedgerArgs
-    getDefaultArgsWithToken tokM LedgerFlags { fApi
-                                             , fSslConfigM
-                                             , fTimeout
-                                             , fHostM
-                                             , fPortM
-                                             , fMaxReceiveLengthM
-                                             } = do
-      host <- fromMaybeM getProjectLedgerHost fHostM
-      port <- fromMaybeM getProjectLedgerPort fPortM
-      return $
-        LedgerArgs
-          { api = fApi
-          , port = port
-          , host = host
-          , tokM = tokM
-          , timeout = fTimeout
-          , sslConfigM = fSslConfigM
-          , grpcArgs = MaxReceiveMessageLength <$> maybeToList fMaxReceiveLengthM
-          }
 
 uploadDarFile :: LedgerArgs -> BS.ByteString -> IO (Either String ())
 uploadDarFile args bytes =
