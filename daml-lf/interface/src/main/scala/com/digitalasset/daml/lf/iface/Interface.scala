@@ -125,6 +125,34 @@ final case class Interface(
       findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT]
   ): Interface = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = false)
 
+  def resolveRetroImplements[S](
+      s: S
+  )(setTemplate: PartialFunction[Ref.TypeConName, Setter[S, DefTemplate.FWT]]): (S, Interface) = {
+    val outside = setTemplate.lift
+    type SandTpls = (S, Map[QualifiedName, InterfaceType.Template])
+    def setTpl(tcn: Ref.TypeConName): Option[Setter[SandTpls, DefTemplate.FWT]] =
+      if (tcn.packageId == packageId)
+        typeDecls.get(tcn.qualifiedName).flatMap {
+          case itt @ InterfaceType.Template(_, dt) =>
+            Some { case ((s, m), f) =>
+              // TODO SC #14081 would it also make sense to search `outside` as well?
+              // Setter doesn't restrict us to one location
+              (s, m.updated(tcn.qualifiedName, itt.copy(template = f(dt))))
+            }
+          case InterfaceType.Normal(_) => None
+        }
+      else outside(tcn) map (ss => { case ((s, m), f) => (ss(s, f), m) })
+
+    val ifcSetTpl = Function unlift setTpl
+    val ((sEnd, newTpls), newIfcs) = astInterfaces.foldLeft(
+      ((s, Map.empty): SandTpls, Map.empty[QualifiedName, DefInterface.FWT])
+    ) { case ((s, astIfs), (ifcName, astIf)) =>
+      val (s1, newIf) =
+        astIf.resolveRetroImplements(Ref.TypeConName(packageId, ifcName), s)(ifcSetTpl)
+      (s1, astIfs.updated(ifcName, newIf))
+    }
+    (sEnd, copy(typeDecls = typeDecls ++ newTpls, astInterfaces = newIfcs))
+  }
 }
 
 object Interface {
