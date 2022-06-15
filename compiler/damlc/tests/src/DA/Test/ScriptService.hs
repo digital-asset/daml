@@ -160,6 +160,79 @@ main =
                     ]
                 expectScriptSuccess rs (vr "testExerciseByKey") $ \r ->
                   matchRegex r "Active contracts: \n\nReturn value: 42\n\n$",
+              testCase "fetch and exercising by key shows key in log" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where",
+                      "import Daml.Script",
+                      "",
+                      "template T",
+                      "  with",
+                      "    owner : Party",
+                      "  where",
+                      "    signatory owner",
+                      "    key owner : Party",
+                      "    maintainer key",
+                      "    nonconsuming choice C : ()",
+                      "      controller owner",
+                      "      do",
+                      "        pure ()",
+                      "",
+                      "template Runner",
+                      "  with",
+                      "    owner : Party",
+                      "  where",
+                      "    signatory owner",
+                      "",
+                      "    choice RunByKey : ()",
+                      "      with",
+                      "        party : Party",
+                      "      controller owner",
+                      "      do",
+                      "        cid <- create T with owner = party",
+                      "        exerciseByKey @T party C",
+                      "        fetchByKey @T party",
+                      "        pure ()",
+                      "",
+                      "    choice Run : ()",
+                      "      with",
+                      "        party : Party",
+                      "      controller owner",
+                      "      do",
+                      "        cid <- create T with owner = party",
+                      "        exercise cid C",
+                      "        fetch cid",
+                      "        pure ()",
+                      "",
+                      "testReportsKey = do",
+                      "  p <- allocateParty \"p\"",
+                      "  submit p $ createAndExerciseCmd (Runner p) (RunByKey p)",
+                      "",
+                      "testDoesNotReportKey = do",
+                      "  p <- allocateParty \"p\"",
+                      "  submit p $ createAndExerciseCmd (Runner p) (Run p)"
+                    ]
+                expectScriptSuccess rs (vr "testReportsKey") $ \r ->
+                  matchRegex r (T.unlines
+                    [ ".*exercises.*"
+                    , ".*by key.*"
+                    ]) &&
+                  matchRegex r (T.unlines
+                    [ ".*fetch.*"
+                    , ".*by key.*"
+                    ])
+                expectScriptSuccess rs (vr "testDoesNotReportKey") $ \r ->
+                  matchRegex r ".*exercises.*" &&
+                  matchRegex r ".*fetch.*" &&
+                  not (matchRegex r (T.unlines
+                    [ ".*exercises.*"
+                    , ".*by key.*"
+                    ])) &&
+                  not (matchRegex r (T.unlines
+                    [ ".*fetch.*"
+                    , ".*by key.*"
+                    ])),
               testCase "failing transactions" $ do
                 rs <-
                   runScripts
