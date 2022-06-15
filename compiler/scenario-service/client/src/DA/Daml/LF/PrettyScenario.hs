@@ -714,7 +714,7 @@ prettyNodeNode nn = do
             (\key ->
                 let prettyKey = prettyMay "<KEY?>" (prettyValue' False 0 world) $ keyWithMaintainersKey key
                 in
-                hsep [ keyword_ "using key", prettyKey ]
+                hsep [ keyword_ "by key", prettyKey ]
             )
             node_FetchFetchByKey
 
@@ -734,7 +734,7 @@ prettyNodeNode nn = do
               (\key ->
                 let prettyKey = prettyMay "<KEY?>" (prettyValue' False 0 world) $ keyWithMaintainersKey key
                 in
-                hsep [ keyword_ "using key", prettyKey ]
+                hsep [ keyword_ "by key", prettyKey ]
               )
               node_ExerciseExerciseByKey
            $$ if isUnitValue node_ExerciseChosenValue

@@ -201,11 +201,11 @@ main =
                 expectScriptSuccess rs (vr "test") $ \r ->
                   matchRegex r (T.unlines
                     [ ".*exercises.*"
-                    , ".*using key.*"
+                    , ".*by key.*"
                     ]) &&
                   matchRegex r (T.unlines
                     [ ".*fetch.*"
-                    , ".*using key.*"
+                    , ".*by key.*"
                     ]),
               testCase "failing transactions" $ do
                 rs <-
