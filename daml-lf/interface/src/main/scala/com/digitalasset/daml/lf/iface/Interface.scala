@@ -12,6 +12,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.ArchivePayload
 
 import scalaz.std.either._
+import scalaz.std.tuple._
 import scalaz.syntax.bifunctor._
 
 import scala.collection.immutable.Map
@@ -141,7 +142,7 @@ final case class Interface(
             }
           case InterfaceType.Normal(_) => None
         }
-      else outside(tcn) map (ss => { case ((s, m), f) => (ss(s, f), m) })
+      else outside(tcn) map Interface.setter.fst
 
     val ifcSetTpl = Function unlift setTpl
     val ((sEnd, newTpls), newIfcs) = astInterfaces.foldLeft(
@@ -164,6 +165,14 @@ object Interface {
 
   def read(lf: ArchivePayload): (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
     readInterface(lf)
+
+  private object setter {
+    def fst[S, R, A](setter: Setter[S, A]): Setter[(S, R), A] =
+      andThen[(S, R), S, A](_ leftMap _)(setter)
+
+    def andThen[S, A, B](sa: Setter[S, A])(ab: Setter[A, B]): Setter[S, B] =
+      (s, bb) => sa(s, a => ab(a, bb))
+  }
 
   /** An argument for `Interface#resolveChoices` given a package database,
     * such as json-api's `LedgerReader.PackageStore`.
