@@ -12,7 +12,17 @@ import scalaz.syntax.semigroup._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.map._
 import scalaz.syntax.std.option._
-import scalaz.{Applicative, Bifunctor, Bitraverse, Bifoldable, Foldable, Functor, Monoid, Traverse}
+import scalaz.{
+  Applicative,
+  Bifunctor,
+  Bitraverse,
+  Bifoldable,
+  Foldable,
+  Functor,
+  Monoid,
+  Semigroup,
+  Traverse,
+}
 import scalaz.Tags.FirstVal
 import java.{util => j}
 
@@ -401,7 +411,23 @@ final case class DefInterface[+Ty](
       setTemplate: PartialFunction[Ref.TypeConName, Setter[S, DefTemplate[OTy]]]
   ): (S, DefInterface[OTy]) = {
     def addMySelf(dt: DefTemplate[OTy]) =
-      dt.copy(implementedInterfaces = dt.implementedInterfaces :+ selfName)
+      dt.copy(
+        implementedInterfaces = dt.implementedInterfaces :+ selfName,
+        tChoices = dt.tChoices match {
+          case unr @ TemplateChoices.Unresolved(_, sources) =>
+            unr.copy(unresolvedChoiceSources = sources incl selfName)
+          // If unresolved, we need only add self as a future interface to resolve;
+          // otherwise, we must self-resolve and add to preexisting resolutions
+          case r @ TemplateChoices.Resolved(rc) =>
+            type K[TC] = Semigroup[Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], TC]]]]
+            r.copy(resolvedChoices =
+              FirstVal
+                .unsubst[K, TemplateChoice[OTy]](Semigroup.apply)
+                .append(rc, choices.transform((_, tc) => NonEmpty(Map, some(selfName) -> tc)))
+            )
+        },
+      )
+
     val lookup = setTemplate.lift
     retroImplements
       .foldLeft((s, retroImplements)) { (sr, tplName) =>
