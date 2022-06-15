@@ -12,6 +12,8 @@ package object iface {
 
   type FieldWithType = (Ref.Name, Type)
 
+  private[iface] type Setter[S, A] = (S, A => A) => S
+
   private[iface] def lfprintln(
       @deprecated("shut up unused arguments warning", "") s: => String
   ): Unit = ()

@@ -386,9 +386,30 @@ object TemplateChoice {
   }
 }
 
-final case class DefInterface[+Ty](choices: Map[Ref.ChoiceName, TemplateChoice[Ty]]) {
+/** @param choices Choices of this interface, indexed by name
+  * @param retroImplements IDs of templates that implement this interface, upon
+  *                        introduction of this interface into the environment
+  */
+final case class DefInterface[+Ty](
+    choices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
+    retroImplements: Set[Ref.TypeConName],
+) {
   def getChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
     choices.asJava
+
+  private[iface] def resolveRetroImplements[S, OTy >: Ty](selfName: Ref.TypeConName, s: S)(
+      setTemplate: PartialFunction[Ref.TypeConName, Setter[S, DefTemplate[OTy]]]
+  ): (S, DefInterface[OTy]) = {
+    def addMySelf(dt: DefTemplate[OTy]) =
+      dt.copy(implementedInterfaces = dt.implementedInterfaces :+ selfName)
+    val lookup = setTemplate.lift
+    retroImplements
+      .foldLeft((s, retroImplements)) { (sr, tplName) =>
+        val (s, remaining) = sr
+        lookup(tplName).cata(setter => (setter(s, addMySelf), remaining - tplName), sr)
+      }
+      .map(remaining => copy(retroImplements = remaining))
+  }
 }
 
 object DefInterface extends FWTLike[DefInterface] {
