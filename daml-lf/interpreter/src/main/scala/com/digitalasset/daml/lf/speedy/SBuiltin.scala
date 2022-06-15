@@ -1474,7 +1474,7 @@ private[lf] object SBuiltin {
                 keyMapping match {
                   case ContractStateMachine.KeyActive(coid) =>
                     // We do not call directly machine.checkKeyVisibility as it may throw an SError,
-                    // and such error cannot be throw inside a SpeedyHundry continuation.
+                    // and such error cannot be throw inside a SpeedyHungry continuation.
                     machine.pushKont(
                       KCheckKeyVisibitiy(machine, gkey, coid, operation.handleKeyFound)
                     )
