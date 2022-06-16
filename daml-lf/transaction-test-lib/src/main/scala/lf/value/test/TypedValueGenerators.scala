@@ -504,7 +504,7 @@ object TypedValueGenerators {
       )
     import shapeless.record.Record
     // You can ascribe a matching value
-    // using the record VA
+    // using the record ValueAddend
     val sampleData: sampleAsRecord.Inj =
       Record(foo = 42L, bar = "hi")
     // ascription is not necessary; a correct `Record` expression already
