@@ -8,7 +8,7 @@ inputs = {
     "sdk_config": ":sdk-config.yaml.tmpl",
     "install_sh": ":install.sh",
     "install_bat": ":install.bat",
-    "sandbox_logback": "//ledger/sandbox-common:src/main/resources/logback.xml",
+    "sandbox_logback": "//ledger/sandbox-on-x:src/app/resources/logback.xml",
     "navigator_logback": "//navigator/backend:src/main/resources/logback.xml",
     "http_json_logback": "//ledger-service/http-json:src/main/resources/logback.xml",
     "oauth2_middleware_logback": "//triggers/service/auth:release/oauth2-middleware-logback.xml",
