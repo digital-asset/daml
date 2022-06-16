@@ -256,8 +256,13 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     def handleLookupWith(
         lookup: Node.LookupByKey,
         keyInput: Option[ContractId],
-    ): Either[KeyInputError, State] =
+    ): Either[KeyInputError, State] = {
+      if (mode != ContractKeyUniquenessMode.Off)
+        throw new UnsupportedOperationException(
+          "handleLookup can only be used if only by-key nodes are considered"
+        )
       visitLookup(lookup.templateId, lookup.key.key, keyInput, lookup.result).left.map(Left(_))
+    }
 
     private[lf] def visitLookup(
         templateId: TypeConName,
