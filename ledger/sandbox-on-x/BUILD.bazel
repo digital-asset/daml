@@ -63,58 +63,6 @@ da_scala_library(
 )
 
 da_scala_library(
-    name = "sandbox-classic-server",
-    srcs = glob(["src/classic/scala/**/*.scala"]),
-    resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
-    scala_deps = [
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    tags = ["maven_coordinates=com.daml:sandbox-classic-server:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_core",
-        "@maven//:com_h2database_h2",
-        "@maven//:org_postgresql_postgresql",
-    ],
-    deps = [
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/data",
-        "//daml-lf/engine",
-        "//daml-lf/language",
-        "//daml-lf/transaction",
-        "//language-support/scala/bindings",
-        "//ledger/caching",
-        "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
-        "//ledger/ledger-api-health",
-        "//ledger/ledger-resources",
-        "//ledger/ledger-runner-common",
-        "//ledger/metrics",
-        "//ledger/participant-integration-api",
-        "//ledger/participant-state",
-        "//ledger/participant-state-index",
-        "//ledger/sandbox-common",
-        "//ledger/sandbox-on-x",
-        "//libs-scala/build-info",
-        "//libs-scala/contextualized-logging",
-        "//libs-scala/logging-entries",
-        "//libs-scala/ports",
-        "//libs-scala/resources",
-        "//libs-scala/resources-akka",
-        "//libs-scala/resources-grpc",
-        "@maven//:com_typesafe_config",
-        "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:org_slf4j_slf4j_api",
-    ],
-)
-
-da_scala_library(
     name = "sandbox-on-x-test-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
     scala_deps = [

@@ -163,10 +163,6 @@
   type: jar-scala
 - target: //ledger/sandbox-common:sandbox-common
   type: jar-scala
-- target: //ledger/sandbox-classic:sandbox-classic
-  type: jar-scala
-- target: //ledger/sandbox-on-x:sandbox-classic-server
-  type: jar-scala
 - target: //ledger/sandbox-on-x:sandbox-on-x
   type: jar-scala
 - target: //ledger/sandbox-on-x:sandbox-on-x-app-lib
