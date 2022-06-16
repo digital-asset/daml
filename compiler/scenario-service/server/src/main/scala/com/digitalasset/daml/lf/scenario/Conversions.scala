@@ -135,7 +135,7 @@ final class Conversions(
                     .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
                     .build
                 )
-              case LocalContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
+              case ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
                 builder.setScenarioContractKeyNotVisible(
                   proto.ScenarioError.ContractKeyNotVisible.newBuilder
                     .setContractRef(mkContractRef(coid, gk.templateId))

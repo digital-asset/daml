@@ -1478,7 +1478,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) {
             case Success(
-                  Left(SErrorDamlException(IE.LocalContractKeyNotVisible(_, key, _, _, _)))
+                  Left(SErrorDamlException(IE.ContractKeyNotVisible(_, key, _, _, _)))
                 ) =>
               key.templateId shouldBe T
               msgs shouldBe Seq("starts test", "maintainers")
@@ -2319,7 +2319,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) {
             case Success(
-                  Left(SErrorDamlException(IE.LocalContractKeyNotVisible(_, key, _, _, _)))
+                  Left(SErrorDamlException(IE.ContractKeyNotVisible(_, key, _, _, _)))
                 ) =>
               key.templateId shouldBe T
               msgs shouldBe Seq("starts test", "maintainers")
@@ -2826,7 +2826,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) {
             case Success(
-                  Left(SErrorDamlException(IE.LocalContractKeyNotVisible(_, key, _, _, _)))
+                  Left(SErrorDamlException(IE.ContractKeyNotVisible(_, key, _, _, _)))
                 ) =>
               key.templateId shouldBe T
               msgs shouldBe Seq("starts test", "maintainers")

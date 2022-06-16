@@ -822,7 +822,7 @@ private[lf] object Speedy {
             case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
               throw SErrorDamlException(
                 interpretation.Error
-                  .LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
+                  .ContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
               )
             case _ =>
               handleKeyFound(this, coid)

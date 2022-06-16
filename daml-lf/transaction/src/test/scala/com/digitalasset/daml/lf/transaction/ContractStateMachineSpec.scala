@@ -517,7 +517,6 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       tx,
       Map(
         ContractKeyUniquenessMode.Strict -> expected,
-        ContractKeyUniquenessMode.On -> expected,
         ContractKeyUniquenessMode.Off -> expected,
       ),
     )
