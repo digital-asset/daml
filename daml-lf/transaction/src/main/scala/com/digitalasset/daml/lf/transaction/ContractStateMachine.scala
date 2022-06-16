@@ -40,7 +40,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     * - [[globalKeyInputs]]'s keyset is a superset of [[activeState]].[[ActiveLedgerState.keys]]'s keyset
     *   and of all the [[ActiveLedgerState.keys]]'s keysets in [[rollbackStack]].
     *   (the superset can be strict in case of by-key nodes inside an already completed Rollback scope)
-    * - In mode ![[ContractKeyUniquenessMode.byKeyOnly]],
+    * - In mode ![[ContractKeyUniquenessMode.Off]],
     *   the keys belonging to the contracts in [[activeState]].[[ActiveLedgerState.consumedBy]]'s
     *   keyset are in [[activeState]].[[ActiveLedgerState.keys]],
     *   and similarly for all [[ActiveLedgerState]]s in [[rollbackStack]].
@@ -54,7 +54,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     *   (mapped to KeyCreate).
     *   It can be used to resolve keys during re-interpretation.
     *
-    *   In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.byKeyOnly]],
+    *   In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]],
     *   a store of key lookups (including fetch-by-key and exercise-by-key,
     *   represented by [[com.daml.lf.transaction.Transaction.NegativeKeyLookup]]
     *   and [[com.daml.lf.transaction.Transaction.KeyActive]])
@@ -195,9 +195,10 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     ): Either[InconsistentContractKey, State] = {
       for {
         state <-
-          if (byKey || !mode.byKeyOnly)
+          if (byKey || mode == ContractKeyUniquenessMode.Strict)
             assertKeyMapping(templateId, targetId, mbKey)
-          else Right(this)
+          else
+            Right(this)
       } yield {
         if (consuming) {
           val consumedState = state.activeState.consume(targetId, nodeId)
@@ -209,7 +210,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
 
               // If the key was brought in scope before, we must update `keys`
               // independently of whether this exercise is by-key because it affects later key lookups.
-              if (mode.byKeyOnly) {
+              if (mode != ContractKeyUniquenessMode.Strict) {
                 keys.get(gkey).orElse(state.lookupActiveGlobalKeyInput(gkey)) match {
                   // An archive can only mark a key as inactive
                   // if it was brought into scope before.
@@ -229,16 +230,19 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       }
     }
 
-    /**  Must be used to handle lookups iff [[com.daml.lf.transaction.ContractKeyUniquenessMode.byKeyOnly]] is false
+    /**  Must be used to handle lookups iff in [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]] mode
       */
     def handleLookup(lookup: Node.LookupByKey): Either[KeyInputError, State] = {
       // If the key has not yet been resolved, we use the resolution from the lookup node,
       // but this only makes sense if `activeState.keys` is updated by every node and not only by by-key nodes.
-      require(!mode.byKeyOnly, "This method can only be used if all key nodes are considered")
+      if (mode != ContractKeyUniquenessMode.Strict)
+        throw new UnsupportedOperationException(
+          "handleLookup can only be used if all key nodes are considered"
+        )
       visitLookup(lookup.templateId, lookup.key.key, lookup.result, lookup.result).left.map(Left(_))
     }
 
-    /** Must be used to handle lookups iff [[com.daml.lf.transaction.ContractKeyUniquenessMode.byKeyOnly]] is true
+    /** Must be used to handle lookups iff in [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]] mode
       * The second argument takes the contract key resolution to be given to the Daml interpreter instead of
       * [[com.daml.lf.transaction.Node.LookupByKey.result]].
       * This is because the iteration might currently be within a rollback scope
@@ -327,7 +331,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
         key: Option[KeyWithMaintainers],
         byKey: Boolean,
     ): Either[InconsistentContractKey, State] =
-      if (byKey || !mode.byKeyOnly)
+      if (byKey || mode == ContractKeyUniquenessMode.Strict)
         assertKeyMapping(templateId, contractId, key)
       else
         Right(this)
@@ -382,13 +386,13 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     private def withinRollbackScope: Boolean = rollbackStack.nonEmpty
 
     /** Let `resolver` be a [[KeyResolver]] that can be used during interpretation to obtain a transaction `tx`
-      * in modes [[com.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode]],
+      * in modes [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]],
       * or `Map.empty` in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]].
       *
       * Let `this` state be the result of iterating over `tx` up to a node `n` exclusive using `resolver`.
       * Let `substate` be the state obtained after fully iterating over the subtree rooted at `n` starting from [[State.empty]],
       * using the resolver [[projectKeyResolver]](`resolver`)
-      * in modes [[com.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode]]
+      * in modes [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]]
       * or `Map.empty` in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]].
       * Then, the returned state is the same as if
       * the iteration over tx continued from `this` state through the whole subtree rooted at `n` using `resolver`.
@@ -419,7 +423,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
           .collectFirst {
             case (key, KeyCreate)
                 if keyMappingFor(key).exists(_ != KeyInactive) &&
-                  mode != ContractKeyUniquenessMode.Off =>
+                  mode == ContractKeyUniquenessMode.Strict =>
               Right(DuplicateContractKey(key))
             case (key, NegativeKeyLookup) if keyMappingFor(key).exists(_ != KeyInactive) =>
               Left(InconsistentContractKey(key))
@@ -525,7 +529,6 @@ object ContractStateMachine {
     *     nodes under a rollback.
     *
     *   - In modes [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]]
-    *     and [[com.daml.lf.transaction.ContractKeyUniquenessMode.On]], i.e., [[com.daml.lf.transaction.ContractKeyUniquenessMode.byKeyOnly]],
     *     the following operations mutate this map:
     *     1. fetch-by-key/lookup-by-key/exercise-by-key/create-contract-with-key will insert an
     *        an entry in the map if there wasn’t already one (i.e., if they queried the ledger).
