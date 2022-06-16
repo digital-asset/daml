@@ -1381,7 +1381,7 @@ private[lf] object Speedy {
 
   }
 
-  private[speedy] final case class KCheckKeyVisibitiy(
+  private[speedy] final case class KCheckKeyVisibility(
       machine: Machine,
       gKey: GlobalKey,
       cid: V.ContractId,
