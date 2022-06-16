@@ -552,7 +552,7 @@ final class ContractKeysIT extends LedgerTestSuite {
           LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError ->
             "key of contract not visible",
           LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound ->
-            cid.unwrap,
+            "couldn't find key",
         ).map { case (errorCode, message) =>
           scala.util.Try(
             assertGrpcError(
