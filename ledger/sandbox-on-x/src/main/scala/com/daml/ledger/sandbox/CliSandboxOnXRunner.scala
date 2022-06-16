@@ -6,7 +6,6 @@ package com.daml.ledger.sandbox
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common._
 import com.daml.ledger.sandbox.SandboxOnXRunner.run
-import com.daml.platform.sandbox.banner.Banner
 import scopt.OptionParser
 
 import java.time.Duration
