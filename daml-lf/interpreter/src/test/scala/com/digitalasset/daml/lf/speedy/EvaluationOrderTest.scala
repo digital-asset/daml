@@ -103,6 +103,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         choice Archive (self) (arg: Unit): Unit,
           controllers Cons @Party [M:T {signatory} this] (Nil @Party)
           to upure @Unit (TRACE @Unit "archive" ());
+        choice @nonConsuming Divulge (self) (divulgee: Party): Unit,
+          controllers Cons @Party [divulgee] (Nil @Party)
+          to upure @Unit ();
         key @M:TKey
            (TRACE @M:TKey "key" (M:T {key} this))
            (\(key : M:TKey) -> TRACE @(List Party) "maintainers" (M:TKey {maintainers} key));
@@ -347,7 +350,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
     ),
   )
 
-  private[this] val contract = Versioned(
+  private[this] def buildContract(observer: Party) = Versioned(
     TransactionVersion.StableVersions.max,
     Value.ContractInstance(
       T,
@@ -355,7 +358,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         None,
         ImmArray(
           None -> Value.ValueParty(alice),
-          None -> Value.ValueParty(bob),
+          None -> Value.ValueParty(observer),
           None -> Value.ValueTrue,
           None -> keyValue,
           None -> emptyNestedValue,
@@ -364,6 +367,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "agreement",
     ),
   )
+
+  private[this] val visibleContract = buildContract(bob)
+  private[this] val nonVisibleContract = buildContract(alice)
 
   private[this] val helper = Versioned(
     TransactionVersion.StableVersions.max,
@@ -396,7 +402,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
     ),
   )
 
-  private[this] val getContract = Map(cId -> contract)
+  private[this] val getContract = Map(cId -> visibleContract)
+  private[this] val getNonVisibleContract = Map(cId -> nonVisibleContract)
   private[this] val getIfaceContract = Map(cId -> iface_contract)
   private[this] val getHelper = Map(helperCId -> helper)
 
@@ -1310,6 +1317,33 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             )
           }
         }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise-by-key of a non-cached global contract with visibility failure
+        "visibility failure" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(exercisingParty : Party) (sig: Party) -> Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)""",
+            Array(SParty(charlie), SParty(alice)),
+            Set(charlie),
+            getContract = getNonVisibleContract,
+            getKey = getKey,
+          )
+          inside(res) {
+            case Success(
+                  Left(SErrorDamlException(IE.ContractKeyNotVisible(cid, key, _, _, _)))
+                ) =>
+              cid shouldBe cId
+              key.templateId shouldBe T
+              msgs shouldBe Seq(
+                "starts test",
+                "maintainers",
+                "queries key",
+                "queries contract",
+                "contract signatories",
+                "contract observers",
+              )
+          }
+        }
       }
 
       "a cached global contract" - {
@@ -1400,6 +1434,27 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
           }
         }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise-by-key of a cached global contract with visibility failure
+        "visibility failure" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(exercisingParty: Party) (sig : Party) (cId: ContractId M:T)  ->
+              ubind x: M:T <- exercise @M:T Divulge cId exercisingParty
+              in Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)""",
+            Array(SParty(charlie), SParty(alice), SContractId(cId)),
+            Set(charlie),
+            getContract = getNonVisibleContract,
+          )
+          inside(res) {
+            case Success(
+                  Left(SErrorDamlException(IE.ContractKeyNotVisible(cid, key, _, _, _)))
+                ) =>
+              cid shouldBe cId
+              key.templateId shouldBe T
+              msgs shouldBe Seq("starts test", "maintainers")
+          }
+        }
       }
 
       "a local contract" - {
@@ -1470,7 +1525,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of lookup of a local contract with visibility failure
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key of a local contract with visibility failure
         "visibility failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2205,6 +2260,33 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             )
           }
         }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch-by-key of a non-cached global contract with visibility failure
+        "visibility failure" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(fetchingParty:Party) (sig: Party) -> Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
+            Array(SParty(charlie), SParty(alice)),
+            Set(charlie),
+            getContract = getNonVisibleContract,
+            getKey = getKey,
+          )
+          inside(res) {
+            case Success(
+                  Left(SErrorDamlException(IE.ContractKeyNotVisible(cid, key, _, _, _)))
+                ) =>
+              cid shouldBe cId
+              key.templateId shouldBe T
+              msgs shouldBe Seq(
+                "starts test",
+                "maintainers",
+                "queries key",
+                "queries contract",
+                "contract signatories",
+                "contract observers",
+              )
+          }
+        }
       }
 
       "a cached global contract" - {
@@ -2259,6 +2341,28 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
             msgs shouldBe Seq("starts test", "maintainers")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch-by-key of a cached global contract with visibility failure
+        "visibility failure" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(fetchingParty:Party) (sig : Party)  (cId: ContractId M:T)  ->
+               ubind x: M:T <- exercise @M:T Divulge cId fetchingParty
+               in Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
+            Array(SParty(charlie), SParty(alice), SContractId(cId)),
+            Set(charlie),
+            getContract = getNonVisibleContract,
+            getKey = getKey,
+          )
+          inside(res) {
+            case Success(
+                  Left(SErrorDamlException(IE.ContractKeyNotVisible(cid, key, _, _, _)))
+                ) =>
+              cid shouldBe cId
+              key.templateId shouldBe T
+              msgs shouldBe Seq("starts test", "maintainers")
           }
         }
       }
@@ -2686,6 +2790,33 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             )
           }
         }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of lookup of a non-cached global contract with visibility failure
+        "visibility failure" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(lookingParty:Party) (sig: Party) -> Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
+            Array(SParty(charlie), SParty(alice)),
+            Set(charlie),
+            getContract = getNonVisibleContract,
+            getKey = getKey,
+          )
+          inside(res) {
+            case Success(
+                  Left(SErrorDamlException(IE.ContractKeyNotVisible(cid, key, _, _, _)))
+                ) =>
+              cid shouldBe cId
+              key.templateId shouldBe T
+              msgs shouldBe Seq(
+                "starts test",
+                "maintainers",
+                "queries key",
+                "queries contract",
+                "contract signatories",
+                "contract observers",
+              )
+          }
+        }
       }
 
       "a cached global contract" - {
@@ -2739,6 +2870,28 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
             msgs shouldBe Seq("starts test", "maintainers")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of lookup of a cached global contract with visibility failure
+        "visibility failure" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(lookingParty:Party) (sig: Party) (cId: ContractId M:T) ->
+               ubind x: M:T <- exercise @M:T Divulge cId lookingParty
+               in Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
+            Array(SParty(charlie), SParty(alice), SContractId(cId)),
+            Set(charlie),
+            getContract = getNonVisibleContract,
+            getKey = getKey,
+          )
+          inside(res) {
+            case Success(
+                  Left(SErrorDamlException(IE.ContractKeyNotVisible(cid, key, _, _, _)))
+                ) =>
+              cid shouldBe cId
+              key.templateId shouldBe T
+              msgs shouldBe Seq("starts test", "maintainers")
           }
         }
       }

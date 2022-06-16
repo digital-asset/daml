@@ -1459,10 +1459,9 @@ private[lf] object SBuiltin {
         case Right((keyMapping, next)) =>
           onLedger.ptx = onLedger.ptx.copy(contractState = next)
           keyMapping match {
-            case ContractStateMachine.KeyActive(coid)
-                if onLedger.ptx.contractState.locallyCreated.contains(coid) =>
+            case ContractStateMachine.KeyActive(coid) =>
               machine.checkKeyVisibility(onLedger, gkey, coid, operation.handleKeyFound)
-            case _ =>
+            case ContractStateMachine.KeyInactive =>
               operation.handleKnownInputKey(machine, gkey, keyMapping)
           }
         case Left(handle) =>
