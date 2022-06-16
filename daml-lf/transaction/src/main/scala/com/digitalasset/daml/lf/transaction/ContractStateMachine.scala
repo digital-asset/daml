@@ -230,7 +230,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       }
     }
 
-    /**  Must be used to handle lookups iff in [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]] mode
+    /**  Must be used to handle lookups iff in [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]] mode
       */
     def handleLookup(lookup: Node.LookupByKey): Either[KeyInputError, State] = {
       // If the key has not yet been resolved, we use the resolution from the lookup node,
@@ -259,7 +259,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     ): Either[KeyInputError, State] = {
       if (mode != ContractKeyUniquenessMode.Off)
         throw new UnsupportedOperationException(
-          "handleLookup can only be used if only by-key nodes are considered"
+          "handleLookupWith can only be used if only by-key nodes are considered"
         )
       visitLookup(lookup.templateId, lookup.key.key, keyInput, lookup.result).left.map(Left(_))
     }
@@ -391,13 +391,13 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     private def withinRollbackScope: Boolean = rollbackStack.nonEmpty
 
     /** Let `resolver` be a [[KeyResolver]] that can be used during interpretation to obtain a transaction `tx`
-      * in modes [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]],
+      * in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]],
       * or `Map.empty` in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]].
       *
       * Let `this` state be the result of iterating over `tx` up to a node `n` exclusive using `resolver`.
       * Let `substate` be the state obtained after fully iterating over the subtree rooted at `n` starting from [[State.empty]],
       * using the resolver [[projectKeyResolver]](`resolver`)
-      * in modes [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]]
+      * in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]]
       * or `Map.empty` in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]].
       * Then, the returned state is the same as if
       * the iteration over tx continued from `this` state through the whole subtree rooted at `n` using `resolver`.
@@ -533,7 +533,7 @@ object ContractStateMachine {
     *     on contracts with a key (regardless of whether they were byKey or not) excluding
     *     nodes under a rollback.
     *
-    *   - In modes [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]]
+    *   - In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]]
     *     the following operations mutate this map:
     *     1. fetch-by-key/lookup-by-key/exercise-by-key/create-contract-with-key will insert an
     *        an entry in the map if there wasn’t already one (i.e., if they queried the ledger).
