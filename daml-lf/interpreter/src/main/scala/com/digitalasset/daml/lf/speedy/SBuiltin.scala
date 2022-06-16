@@ -1461,17 +1461,7 @@ private[lf] object SBuiltin {
           keyMapping match {
             case ContractStateMachine.KeyActive(coid)
                 if onLedger.ptx.contractState.locallyCreated.contains(coid) =>
-              val cachedContract = onLedger.cachedContracts
-                .getOrElse(coid, crash(s"Local contract ${coid.coid} not in cachedContracts"))
-              val stakeholders = cachedContract.signatories union cachedContract.observers
-              onLedger.visibleToStakeholders(stakeholders) match {
-                case SVisibleToStakeholders.Visible =>
-                  operation.handleKeyFound(machine, coid)
-                case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-                  machine.ctrl = SEDamlException(
-                    IE.LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
-                  )
-              }
+              machine.checkKeyVisibility(onLedger, gkey, coid, operation.handleKeyFound)
             case _ =>
               operation.handleKnownInputKey(machine, gkey, keyMapping)
           }
