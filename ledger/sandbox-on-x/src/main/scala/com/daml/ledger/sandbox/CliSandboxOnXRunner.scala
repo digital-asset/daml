@@ -6,6 +6,7 @@ package com.daml.ledger.sandbox
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common._
 import com.daml.ledger.sandbox.SandboxOnXRunner.run
+import com.daml.platform.sandbox.banner.Banner
 import scopt.OptionParser
 
 import java.time.Duration
@@ -61,6 +62,7 @@ object CliSandboxOnXRunner {
   def owner(originalConfig: CliConfig[BridgeConfig]): ResourceOwner[Unit] =
     new ResourceOwner[Unit] {
       override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
+        Banner.show(Console.out)
         val configAdaptor: BridgeConfigAdaptor = new BridgeConfigAdaptor
         originalConfig.mode match {
           case Mode.DumpIndexMetadata(jdbcUrls) =>

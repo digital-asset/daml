@@ -4,7 +4,7 @@
 load("//bazel_tools:scala.bzl", "da_scala_library")
 
 da_scala_library(
-    name = "sandbox-common",
+    name = "sandbo-common",
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources =
         glob(
@@ -13,10 +13,6 @@ da_scala_library(
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
         ),
-    scala_deps = [
-        "@maven//:com_github_scopt_scopt",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
     tags = ["maven_coordinates=com.daml:sandbox-common:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -26,27 +22,6 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_h2database_h2",
         "@maven//:org_postgresql_postgresql",
-    ],
-    deps = [
-        "//daml-lf/data",
-        "//language-support/scala/bindings",
-        "//ledger-service/cli-opts",
-        "//ledger-service/jwt",
-        "//ledger/caching",
-        "//ledger/cli-opts",
-        "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
-        "//ledger/ledger-configuration",
-        "//ledger/metrics",
-        "//ledger/participant-integration-api",
-        "//libs-scala/build-info",
-        "//libs-scala/contextualized-logging",
-        "//libs-scala/logging-entries",
-        "//libs-scala/ports",
-        "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:com_auth0_java_jwt",
-        "@maven//:io_netty_netty_handler",
     ],
 )
 
