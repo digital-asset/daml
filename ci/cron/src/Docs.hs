@@ -38,7 +38,7 @@ import qualified Data.List
 import Data.Maybe (fromMaybe)
 import qualified Data.Ord
 import qualified Data.Set as Set
-import qualified System.Directory as Directory
+import qualified System.Directory.Extra as Directory
 import qualified System.Environment
 import qualified System.Exit as Exit
 import System.FilePath.Posix ((</>))
@@ -161,19 +161,12 @@ update_s3 opts temp vs = do
             writeFile (temp </> name) text
             proc_ ["aws", "s3", "cp", temp </> name, s3Path opts name, "--acl", "public-read"]
 
-find :: FilePath -> IO (Set.Set FilePath)
-find p = Directory.doesDirectoryExist p >>= \case
-    False -> pure (Set.singleton p)
-    True -> do
-        children <- map ((p <> "/") <>) <$> Directory.listDirectory p
-        Set.unions <$> mapM find children
-
 update_top_level :: DocOptions -> FilePath -> Version -> Maybe Version -> IO ()
 update_top_level opts temp new mayOld = do
-    new_files <- find (temp </> show new)
+    new_files <- Set.fromList <$> Directory.listFilesRecursive (temp </> show new)
     old_files <- case mayOld of
         Nothing -> pure Set.empty
-        Just old -> find (temp </> show old)
+        Just old -> Set.fromList <$> Directory.listFilesRecursive (temp </> show old)
     let to_delete = Set.toList $ old_files `Set.difference` new_files
     Control.when (not $ null to_delete) $ do
         putStrLn $ "Deleting top-level files: " <> show to_delete
