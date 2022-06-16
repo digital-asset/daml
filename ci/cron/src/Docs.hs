@@ -166,7 +166,7 @@ find p = Directory.doesDirectoryExist p >>= \case
     False -> pure (Set.singleton p)
     True -> do
         children <- map ((p <> "/") <>) <$> Directory.listDirectory p
-        Set.unions <$> (sequence $ map find children)
+        Set.unions <$> mapM find children
 
 update_top_level :: DocOptions -> FilePath -> Version -> Maybe Version -> IO ()
 update_top_level opts temp new mayOld = do
