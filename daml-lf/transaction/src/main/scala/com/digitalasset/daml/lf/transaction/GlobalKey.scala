@@ -54,7 +54,8 @@ sealed abstract class ContractKeyUniquenessMode extends Product with Serializabl
 object ContractKeyUniquenessMode {
 
   /** Disable key uniqueness checks and only consider byKey operations.
-      Note that no stable semantics are provided for off mode. */
+    *      Note that no stable semantics are provided for off mode.
+    */
   case object Off extends ContractKeyUniquenessMode
 
   /** Considers all nodes mentioning keys as byKey operations and checks for contract key uniqueness. */
