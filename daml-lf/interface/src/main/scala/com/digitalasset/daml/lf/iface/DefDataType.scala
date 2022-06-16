@@ -411,7 +411,7 @@ final case class DefInterface[+Ty](
     choices.asJava
 
   private[iface] def resolveRetroImplements[S, OTy >: Ty](selfName: Ref.TypeConName, s: S)(
-      setTemplate: PartialFunction[Ref.TypeConName, Setter[S, DefTemplate[OTy]]]
+      setTemplate: SetterAt[Ref.TypeConName, S, DefTemplate[OTy]]
   ): (S, DefInterface[OTy]) = {
     def addMySelf(dt: DefTemplate[OTy]) = {
       import TemplateChoices.{Resolved, Unresolved}
@@ -437,7 +437,7 @@ final case class DefInterface[+Ty](
     retroImplements
       .foldLeft((s, retroImplements)) { (sr, tplName) =>
         val (s, remaining) = sr
-        lookup(tplName).cata(setter => (setter(s, addMySelf), remaining - tplName), sr)
+        lookup((s, tplName)).cata(setter => (setter(addMySelf), remaining - tplName), sr)
       }
       .map(remaining => copy(retroImplements = remaining))
   }

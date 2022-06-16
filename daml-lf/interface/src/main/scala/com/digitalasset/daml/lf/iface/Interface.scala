@@ -147,7 +147,7 @@ final case class Interface(
       ((s, Map.empty): SandTpls, Map.empty[QualifiedName, DefInterface.FWT])
     ) { case ((s, astIfs), (ifcName, astIf)) =>
       val (s1, newIf) =
-        astIf.resolveRetroImplements(Ref.TypeConName(packageId, ifcName), s)(ifcSetTpl)
+        astIf.resolveRetroImplements(Ref.TypeConName(packageId, ifcName), s)(adaptSetter(ifcSetTpl))
       (s1, astIfs.updated(ifcName, newIf))
     }
     (sEnd, copy(typeDecls = typeDecls ++ newTpls, astInterfaces = newIfcs))
