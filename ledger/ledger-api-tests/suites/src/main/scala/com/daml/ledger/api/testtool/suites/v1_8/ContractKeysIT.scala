@@ -505,4 +505,65 @@ final class ContractKeysIT extends LedgerTestSuite {
       } yield ()
   })
 
+  test(
+    "CKGlocalKeyVisibility",
+    "Contract keys should be visible",
+    allocate(TwoParties),
+  )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
+    for {
+
+      // create contracts to work with
+      cid <- ledger.create(alice, Test.WithKey(alice))
+
+      // double check its key can be found if visible
+      _ <- ledger.submit(
+        ledger.submitRequest(
+          alice,
+          Test.WithKey.key(alice).exerciseWithKey_NoOp(alice, alice).command,
+        )
+      )
+
+      // divulge the contract
+      helper <- ledger.create(bob, Test.WithKeyDivulgenceHelper(bob, alice))
+      _ <- ledger.exercise(alice, helper.exerciseWithKeyDivulgenceHelper_Fetch(_, cid))
+
+      // double check it is properly divulged
+      _ <- ledger.exercise(bob, cid.exerciseWithKey_NoOp(_, bob))
+
+      request = ledger.submitRequest(
+        bob,
+        // exercise by key the contract
+        Test.WithKey.key(alice).exerciseWithKey_NoOp(bob, bob).command,
+      )
+      failure1 <- ledger.submit(request).mustFail("exercise of a non visible key")
+
+      request = ledger.submitRequest(
+        bob,
+        // bring the contract in the engine cache
+        cid.exerciseWithKey_NoOp(bob, bob).command,
+        // exercise by key the contract
+        Test.WithKey.key(alice).exerciseWithKey_NoOp(bob, bob).command,
+      )
+      failure2 <- ledger.submit(request).mustFail("exercise of a non visible key")
+
+    } yield {
+      List(failure1, failure2).foreach { failure =>
+        val results = LazyList(
+          LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
+          LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
+        ).map(errorCode =>
+          scala.util.Try(
+            assertGrpcError(
+              failure,
+              errorCode,
+              None,
+              checkDefiniteAnswerMetadata = true,
+            )
+          )
+        )
+        results.collectFirst { case scala.util.Success(value) => value }.getOrElse(results.head.get)
+      }
+    }
+  })
+
 }
