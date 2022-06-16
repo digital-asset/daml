@@ -14,6 +14,11 @@ package object iface {
 
   private[iface] type Setter[S, A] = (S, A => A) => S
 
+  private[iface] type SetterAt[-I, S, A] = PartialFunction[(S, I), (A => A) => S]
+
+  private[iface] def adaptSetter[I, S, A](f: PartialFunction[I, Setter[S, A]]): SetterAt[I, S, A] =
+    Function unlift { case (s, i) => f.lift(i).map(setter => f => setter(s, f)) }
+
   private[iface] def lfprintln(
       @deprecated("shut up unused arguments warning", "") s: => String
   ): Unit = ()
