@@ -1478,7 +1478,7 @@ private[lf] object SBuiltin {
                     // We do not call directly machine.checkKeyVisibility as it may throw an SError,
                     // and such error cannot be throw inside a SpeedyHungry continuation.
                     machine.pushKont(
-                      KCheckKeyVisibitiy(machine, gkey, coid, operation.handleKeyFound)
+                      KCheckKeyVisibility(machine, gkey, coid, operation.handleKeyFound)
                     )
                     if (onLedger.cachedContracts.contains(coid)) {
                       machine.returnValue = SUnit
