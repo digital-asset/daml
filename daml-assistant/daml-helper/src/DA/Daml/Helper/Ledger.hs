@@ -8,6 +8,8 @@ module DA.Daml.Helper.Ledger (
     RemoteDalf(..),
     defaultLedgerFlags,
     sandboxLedgerFlags,
+    LedgerArgs(..),
+    defaultLedgerArgs,
     getDefaultArgs,
     LedgerApi(..),
     L.ClientSSLConfig(..),
@@ -18,6 +20,7 @@ module DA.Daml.Helper.Ledger (
     runLedgerListParties,
     runLedgerAllocateParties,
     runLedgerUploadDar,
+    runLedgerUploadDar',
     runLedgerFetchDar,
     runLedgerExport,
     runLedgerReset,
@@ -114,6 +117,17 @@ sandboxLedgerFlags port = (defaultLedgerFlags Grpc)
   , fPortM = Just port
   }
 
+defaultLedgerArgs :: LedgerApi -> LedgerArgs
+defaultLedgerArgs api = LedgerArgs
+  { api = api
+  , sslConfigM = Nothing
+  , timeout = 10
+  , port = 6865
+  , host = "localhost"
+  , tokM = Nothing
+  , grpcArgs = []
+  }
+
 data LedgerArgs = LedgerArgs
   { api :: LedgerApi
   , sslConfigM :: Maybe L.ClientSSLConfig
@@ -204,8 +218,12 @@ runLedgerAllocateParties flags partiesArg = do
 
 -- | Upload a DAR file to the ledger. (Defaults to project DAR)
 runLedgerUploadDar :: LedgerFlags -> Maybe FilePath -> IO ()
-runLedgerUploadDar flags darPathM = do
+runLedgerUploadDar flags mbDar = do
   args <- getDefaultArgs flags
+  runLedgerUploadDar' args mbDar
+
+runLedgerUploadDar' :: LedgerArgs -> Maybe FilePath -> IO ()
+runLedgerUploadDar' args darPathM  = do
   darPath <-
     flip fromMaybeM darPathM $ do
       doBuild
@@ -640,7 +658,7 @@ runLedgerMeteringReport :: LedgerFlags -> Day -> Maybe Day -> Maybe ApplicationI
 runLedgerMeteringReport flags fromIso toIso application compactOutput = do
     args <- getDefaultArgs flags
     report <- meteringReport args fromIso toIso application
-    let encodeFn = if compactOutput then encode else encodePretty  
+    let encodeFn = if compactOutput then encode else encodePretty
     let encoded = encodeFn report
     let bsc = BSL.toStrict encoded
     let output = BSC.unpack bsc
