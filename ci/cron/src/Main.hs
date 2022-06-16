@@ -13,7 +13,6 @@ import qualified System.IO.Extra as IO
 
 data CliArgs = Docs
              | Check { bash_lib :: String,
-                       gcp_credentials :: Maybe String,
                        max_releases :: Maybe Int }
              | BazelCache BazelCache.Opts
 
@@ -29,10 +28,6 @@ parser = info "This program is meant to be run by CI cron. You probably don't ha
                      (Check <$> Opt.strOption (Opt.long "bash-lib"
                                          <> Opt.metavar "PATH"
                                          <> Opt.help "Path to Bash library file.")
-                            <*> (Opt.optional $
-                                  Opt.strOption (Opt.long "gcp-creds"
-                                         <> Opt.metavar "CRED_STRING"
-                                         <> Opt.help "GCP credentials as a string."))
                             <*> (Opt.optional $
                                   Opt.option Opt.auto (Opt.long "max-releases"
                                          <> Opt.metavar "INT"
@@ -71,6 +66,6 @@ main = do
       Docs -> do
           Docs.docs Docs.sdkDocOpts
           Docs.docs Docs.damlOnSqlDocOpts
-      Check { bash_lib, gcp_credentials, max_releases } ->
-          CheckReleases.check_releases gcp_credentials bash_lib max_releases
+      Check { bash_lib, max_releases } ->
+          CheckReleases.check_releases bash_lib max_releases
       BazelCache opts -> BazelCache.run opts

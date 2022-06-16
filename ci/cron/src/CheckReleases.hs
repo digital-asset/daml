@@ -9,7 +9,6 @@ import qualified Control.Concurrent.Async
 import qualified Control.Concurrent.QSem
 import Control.Exception.Safe
 import qualified Control.Monad as Control
-import qualified Control.Monad.Extra
 import Control.Retry
 import Data.Conduit (runConduit, (.|))
 import Data.Conduit.Combinators (sinkHandle)
@@ -82,16 +81,11 @@ verify_signatures bash_lib tmp version_tag = do
        "done",
        "'"]
 
-does_backup_exist :: String -> FilePath -> FilePath -> IO Bool
-does_backup_exist gcp_credentials bash_lib path = do
+does_backup_exist :: FilePath -> IO Bool
+does_backup_exist path = do
     out <- shell $ unlines ["bash -c '",
         "set -euo pipefail",
-        "source \"" <> bash_lib <> "\"",
-        "GCRED=$(cat <<END",
-        gcp_credentials,
-        "END",
-        ")",
-        "if gcs \"$GCRED\" ls \"" <> path <> "\" >/dev/null; then",
+        "if gsutil ls \"" <> path <> "\" >/dev/null; then",
             "echo True",
         "else",
             "echo False",
@@ -99,16 +93,11 @@ does_backup_exist gcp_credentials bash_lib path = do
         "'"]
     return $ read out
 
-gcs_cp :: String -> FilePath -> FilePath  -> FilePath -> IO ()
-gcs_cp gcp_credentials bash_lib local_path remote_path = do
+gcs_cp :: FilePath -> FilePath -> IO ()
+gcs_cp from to = do
     shell_ $ unlines ["bash -c '",
         "set -euo pipefail",
-        "source \"" <> bash_lib <> "\"",
-        "GCRED=$(cat <<END",
-        gcp_credentials,
-        "END",
-        ")",
-        "gcs \"$GCRED\" cp \"" <> local_path <> "\" \"" <> remote_path <> "\"",
+        "gsutil cp \"" <> from <> "\" \"" <> to <> "\" &>/dev/null",
         "'"]
 
 check_files_match :: String -> String -> IO Bool
@@ -119,8 +108,8 @@ check_files_match f1 f2 = do
       Exit.ExitFailure 1 -> return False
       Exit.ExitFailure _ -> fail $ "Diff failed.\n" ++ "STDOUT:\n" ++ stdout ++ "\nSTDERR:\n" ++ stderr
 
-check_releases :: Maybe String -> String -> Maybe Int -> IO ()
-check_releases gcp_credentials bash_lib max_releases = do
+check_releases :: String -> Maybe Int -> IO ()
+check_releases bash_lib max_releases = do
     releases' <- fetch_gh_paginated "https://api.github.com/repos/digital-asset/daml/releases"
     let releases = case max_releases of
                      Nothing -> releases'
@@ -131,21 +120,19 @@ check_releases gcp_credentials bash_lib max_releases = do
         IO.withTempDir $ \temp_dir -> do
             download_assets temp_dir release
             verify_signatures bash_lib temp_dir v
-            Control.Monad.Extra.whenJust gcp_credentials $ \gcred -> do
-                files <- Directory.listDirectory temp_dir
-                Control.Concurrent.Async.forConcurrently_ files $ \f -> do
-                  let local_github = temp_dir </> f
-                  let local_gcp = temp_dir </> f <> ".gcp"
-                  let remote_gcp = "gs://daml-data/releases/" <> v <> "/github/" <> f
-                  exists <- does_backup_exist gcred bash_lib remote_gcp
-                  if exists then do
-                      gcs_cp gcred bash_lib remote_gcp local_gcp
-                      check_files_match local_github local_gcp >>= \case
-                          True -> putStrLn $ f <> " matches GCS backup."
-                          False -> fail $ f <> " does not match GCS backup."
-                  else do
-                      fail $ remote_gcp <> " does not exist. Aborting.")
+            files <- Directory.listDirectory temp_dir
+            Control.Concurrent.Async.forConcurrently_ files $ \f -> do
+                let local_github = temp_dir </> f
+                let local_gcp = temp_dir </> f <> ".gcp"
+                let remote_gcp = "gs://daml-data/releases/" <> v <> "/github/" <> f
+                exists <- does_backup_exist remote_gcp
+                if exists then do
+                    gcs_cp remote_gcp local_gcp
+                    check_files_match local_github local_gcp >>= \case
+                        True -> putStrLn $ f <> " matches GCS backup."
+                        False -> fail $ f <> " does not match GCS backup."
+                else do
+                    fail $ remote_gcp <> " does not exist. Aborting.")
   where
      -- Retry for 10 minutes total, delay of 1s
      retryPolicy = limitRetriesByCumulativeDelay (10 * 60 * 1000 * 1000) (constantDelay 1000_000)
-
