@@ -298,8 +298,7 @@ sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
             .foldMap { tcn =>
               getAstInterface(tcn).cata(
                 { astIf =>
-                  val tcnResolved =
-                    astIf.choices.transform((_, tc) => NonEmpty(Map, some(tcn) -> tc))
+                  val tcnResolved = astIf choicesAsResolved tcn
                   FirstVal.subst[ResolutionResult, TemplateChoice[O]](
                     Set.empty[Ref.TypeConName],
                     tcnResolved,
@@ -410,6 +409,13 @@ final case class DefInterface[+Ty](
   def getChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
     choices.asJava
 
+  // Restructure `choices` in the resolved-choices data structure format,
+  // for aggregation with [[TemplateChoices.Resolved]].
+  private[iface] def choicesAsResolved[Name](
+      selfName: Name
+  ): Map[Ref.ChoiceName, NonEmpty[Map[Option[Name], TemplateChoice[Ty]]]] =
+    choices transform ((_, tc) => NonEmpty(Map, some(selfName) -> tc))
+
   private[iface] def resolveRetroImplements[S, OTy >: Ty](selfName: Ref.TypeConName, s: S)(
       setTemplate: SetterAt[Ref.TypeConName, S, DefTemplate[OTy]]
   ): (S, DefInterface[OTy]) = {
@@ -427,7 +433,7 @@ final case class DefInterface[+Ty](
             r.copy(resolvedChoices =
               FirstVal
                 .unsubst[K, TemplateChoice[OTy]](Semigroup.apply)
-                .append(rc, choices.transform((_, tc) => NonEmpty(Map, some(selfName) -> tc)))
+                .append(rc, choicesAsResolved(selfName))
             )
         },
       )
