@@ -466,14 +466,13 @@ sealed abstract class HasTxNodes {
     }
   }
 
-  /**
-   * Keys are contracts (that have been consumed) and values are the nodes where the contract was consumed.
-   * Under rollback nodes, consumed contracts are ignored (as they have been rolled back).
-   *
-   * TODO: ensure transient contracts are tested - i.e. create is followed by archive within the same transaction
-   *
-   * @return
-   */
+  /** Keys are contracts (that have been consumed) and values are the nodes where the contract was consumed.
+    * Under rollback nodes, consumed contracts are ignored (as they have been rolled back).
+    *
+    * TODO: ensure transient contracts are tested - i.e. create is followed by archive within the same transaction
+    *
+    * @return
+    */
   final def consumedBy: Map[ContractId, NodeId] =
     foldInExecutionOrder[Map[ContractId, NodeId]](HashMap.empty)(
       exerciseBegin = (consumedByMap, nodeId, exerciseNode) => {
@@ -491,40 +490,41 @@ sealed abstract class HasTxNodes {
       rollbackEnd = (consumedByMap, _, _) => consumedByMap,
     )
 
-  /**
-   * Keys are nodes under a rollback and values are the "nearest" (i.e. most recent) rollback node
-   *
-   * @return
-   */
+  /** Keys are nodes under a rollback and values are the "nearest" (i.e. most recent) rollback node
+    *
+    * @return
+    */
   final def rolledbackBy: Map[NodeId, NodeId] =
     foldInExecutionOrder[(Map[NodeId, NodeId], Seq[NodeId])]((HashMap.empty, Vector.empty))(
-      exerciseBegin = (_state, _nodeId, _node) => ((_state, _nodeId, _node): @unchecked) match {
-        case (state @ (_, Seq()), _, _) =>
-          (state, ChildrenRecursion.DoRecurse)
+      exerciseBegin = (_state, _nodeId, _node) =>
+        ((_state, _nodeId, _node): @unchecked) match {
+          case (state @ (_, Seq()), _, _) =>
+            (state, ChildrenRecursion.DoRecurse)
 
-        case ((rolledbackMap, rollbackStack @ (rollbackNode +: _)), nodeId, _) =>
-          ((rolledbackMap + (nodeId -> rollbackNode), rollbackStack), ChildrenRecursion.DoRecurse)
+          case ((rolledbackMap, rollbackStack @ (rollbackNode +: _)), nodeId, _) =>
+            ((rolledbackMap + (nodeId -> rollbackNode), rollbackStack), ChildrenRecursion.DoRecurse)
+        },
+      rollbackBegin = { case ((rolledbackMap, rollbackStack), nodeId, _) =>
+        ((rolledbackMap, nodeId +: rollbackStack), ChildrenRecursion.DoRecurse)
       },
-      rollbackBegin = {
-        case ((rolledbackMap, rollbackStack), nodeId, _) =>
-          ((rolledbackMap, nodeId +: rollbackStack), ChildrenRecursion.DoRecurse)
-      },
-      leaf = (_state, _nodeId, _node) => ((_state, _nodeId, _node): @unchecked) match {
-        case (state @ (_, Seq()), _, _) =>
-          state
+      leaf = (_state, _nodeId, _node) =>
+        ((_state, _nodeId, _node): @unchecked) match {
+          case (state @ (_, Seq()), _, _) =>
+            state
 
-        case ((rolledbackMap, rollbackStack @ (rollbackNode +: _)), nodeId, _) =>
-          (rolledbackMap + (nodeId -> rollbackNode), rollbackStack)
-      },
+          case ((rolledbackMap, rollbackStack @ (rollbackNode +: _)), nodeId, _) =>
+            (rolledbackMap + (nodeId -> rollbackNode), rollbackStack)
+        },
       exerciseEnd = (state, _, _) => state,
-      rollbackEnd = (_state, _nodeId, _node) => ((_state, _nodeId, _node): @unchecked) match {
-        case (state @ (_, Seq()), _, _) =>
-          // Impossible case: rollbackBegin should already have pushed to the rollback stack
-          state
+      rollbackEnd = (_state, _nodeId, _node) =>
+        ((_state, _nodeId, _node): @unchecked) match {
+          case (state @ (_, Seq()), _, _) =>
+            // Impossible case: rollbackBegin should already have pushed to the rollback stack
+            state
 
-        case ((rolledbackMap, _ +: rollbackStack), _, _) =>
-          (rolledbackMap, rollbackStack)
-      },
+          case ((rolledbackMap, _ +: rollbackStack), _, _) =>
+            (rolledbackMap, rollbackStack)
+        },
     )._1
 
   /** Return the expected contract key inputs (i.e. the state before the transaction)

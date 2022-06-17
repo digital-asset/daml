@@ -809,7 +809,12 @@ class TransactionSpec
           transaction.consumedBy shouldBe
             Map(cid1 -> exerciseId1, cid2 -> exerciseId2)
           transaction.rolledbackBy shouldBe
-            Map(nodeId0 -> rollbackId, nodeId1 -> rollbackId, nodeId2 -> rollbackId, nodeId3 -> rollbackId)
+            Map(
+              nodeId0 -> rollbackId,
+              nodeId1 -> rollbackId,
+              nodeId2 -> rollbackId,
+              nodeId3 -> rollbackId,
+            )
         }
       }
 
