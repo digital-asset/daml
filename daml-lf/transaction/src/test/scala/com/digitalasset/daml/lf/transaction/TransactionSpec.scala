@@ -764,7 +764,22 @@ class TransactionSpec
     "consuming transaction with rollbacks" - {
       "one rollback" - {
         "simple case" in {
-          // TODO:
+          val builder = TransactionBuilder()
+          val parties = Seq("Alice")
+          val (cid0, createNode0) = create(builder, parties, Some("key0"))
+          val (_, createNode1) = create(builder, parties, Some("key1"))
+
+          builder.add(createNode0)
+          builder.add(createNode1)
+          val exerciseId0 = builder.add(exercise(builder, createNode0, parties, true))
+          val rollbackId = builder.add(builder.rollback())
+          val nodeId1 = builder.add(exercise(builder, createNode1, parties, true), rollbackId)
+          val transaction = builder.build()
+
+          transaction.consumedBy shouldBe
+            Map(cid0 -> exerciseId0)
+          transaction.rolledbackBy shouldBe
+            Map(nodeId1 -> rollbackId)
         }
 
         "complex case" in {
@@ -773,9 +788,9 @@ class TransactionSpec
           val (_, createNode0) = create(builder, parties, Some("key0"))
           val (cid1, createNode1) = create(builder, parties, Some("key1"))
           val (cid2, createNode2) = create(builder, parties, Some("key2"))
-          val (_, createNode3) = create(builder, parties, Some("key2"))
-          val (_, createNode4) = create(builder, parties, Some("key2"))
-          val (_, createNode5) = create(builder, parties, Some("key3"))
+          val (_, createNode3) = create(builder, parties, Some("key3"))
+          val (_, createNode4) = create(builder, parties, Some("key4"))
+          val (_, createNode5) = create(builder, parties, Some("key5"))
 
           builder.add(createNode0)
           builder.add(exercise(builder, createNode0, parties, false))
