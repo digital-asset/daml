@@ -850,6 +850,7 @@ excluded_test_tool_tests = [
                 "end": "2.3.0-snapshot.20220611.10066.0.458cfc43",
                 "exclusions": [
                     "ExceptionsIT:ExRollbackCreate",
+                    "ExceptionsIT:ExRollbackExerciseCreateLookup",
                 ],
             },
         ],
