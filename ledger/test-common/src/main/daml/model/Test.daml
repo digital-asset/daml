@@ -36,7 +36,6 @@ template Dummy
       do clone <- exercise self Clone
          exercise self FailingChoice
 
-
     choice ConsumeIfTimeIsBetween : ()
       with
         begin : Time
@@ -678,6 +677,11 @@ template WithKey
     signatory p
     key p : Party
     maintainer key
+
+    nonconsuming choice WithKey_NoOp: ()
+      with divulgee: Party
+      controller divulgee
+      do pure ()
 
 template WithKeyCreator
   with

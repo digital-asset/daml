@@ -482,7 +482,9 @@ class TransactionSpec
       val builder = TransactionBuilder()
       builder.add(create(cid("#0")))
       builder.add(create(cid("#0")))
-      builder.build().contractKeyInputs shouldBe Left(DuplicateContractKey(globalKey(cid("#0"))))
+      builder.build().contractKeyInputs shouldBe Left(
+        Right(DuplicateContractKey(globalKey(cid("#0"))))
+      )
     }
     "two creates do not conflict if interleaved with archive" in {
       val builder = TransactionBuilder()
@@ -502,33 +504,43 @@ class TransactionSpec
       val builder = TransactionBuilder()
       builder.add(create(cid("#0")))
       builder.add(lookup(cid("#0"), found = false))
-      builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey(cid("#0"))))
+      builder.build().contractKeyInputs shouldBe Left(
+        Left(InconsistentContractKey(globalKey(cid("#0"))))
+      )
     }
     "inconsistent lookups conflict" in {
       val builder = TransactionBuilder()
       builder.add(lookup(cid("#0"), found = true))
       builder.add(lookup(cid("#0"), found = false))
-      builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey(cid("#0"))))
+      builder.build().contractKeyInputs shouldBe Left(
+        Left(InconsistentContractKey(globalKey(cid("#0"))))
+      )
     }
     "inconsistent lookups conflict across rollback" in {
       val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
       builder.add(lookup(cid("#0"), found = true), rollback)
       builder.add(lookup(cid("#0"), found = false))
-      builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey(cid("#0"))))
+      builder.build().contractKeyInputs shouldBe Left(
+        Left(InconsistentContractKey(globalKey(cid("#0"))))
+      )
     }
     "positive lookup conflicts with create" in {
       val builder = TransactionBuilder()
       builder.add(lookup(cid("#0"), found = true))
       builder.add(create(cid("#0")))
-      builder.build().contractKeyInputs shouldBe Left(DuplicateContractKey(globalKey(cid("#0"))))
+      builder.build().contractKeyInputs shouldBe Left(
+        Right(DuplicateContractKey(globalKey(cid("#0"))))
+      )
     }
     "positive lookup in rollback conflicts with create" in {
       val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
       builder.add(lookup(cid("#0"), found = true), rollback)
       builder.add(create(cid("#0")))
-      builder.build().contractKeyInputs shouldBe Left(DuplicateContractKey(globalKey(cid("#0"))))
+      builder.build().contractKeyInputs shouldBe Left(
+        Right(DuplicateContractKey(globalKey(cid("#0"))))
+      )
     }
     "rolled back archive does not prevent conflict" in {
       val builder = TransactionBuilder()
@@ -536,7 +548,9 @@ class TransactionSpec
       val rollback = builder.add(builder.rollback())
       builder.add(exe(cid("#0"), consuming = true, byKey = true), rollback)
       builder.add(create(cid("#0")))
-      builder.build().contractKeyInputs shouldBe Left(DuplicateContractKey(globalKey(cid("#0"))))
+      builder.build().contractKeyInputs shouldBe Left(
+        Right(DuplicateContractKey(globalKey(cid("#0"))))
+      )
     }
     "successful, inconsistent lookups conflict" in {
       val builder = TransactionBuilder()
@@ -551,7 +565,11 @@ class TransactionSpec
       )
       builder.add(builder.lookupByKey(create0, found = true))
       builder.add(builder.lookupByKey(create1, found = true))
-      builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey(cid("#0"))))
+      builder.build().contractKeyInputs shouldBe Left(
+        Left(
+          InconsistentContractKey(globalKey(cid("#0")))
+        )
+      )
     }
     "first negative input wins" in {
       val builder = TransactionBuilder()

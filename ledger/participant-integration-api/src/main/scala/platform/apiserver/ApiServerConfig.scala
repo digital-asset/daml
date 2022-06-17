@@ -53,5 +53,5 @@ object ApiServerConfig {
   val DefaultCommand: CommandConfiguration = CommandConfiguration.Default
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
   val DefaultApiStreamShutdownTimeout: FiniteDuration = FiniteDuration(5, "seconds")
-  val DefaultRateLimitingConfig: Option[RateLimitingConfig] = Some(RateLimitingConfig.default)
+  val DefaultRateLimitingConfig: Option[RateLimitingConfig] = Some(RateLimitingConfig.Default)
 }

@@ -268,7 +268,7 @@ class ContractKeySpec
       val uckEngine = new Engine(
         EngineConfig(
           allowedLanguageVersions = LV.DevVersions,
-          contractKeyUniqueness = ContractKeyUniquenessMode.On,
+          contractKeyUniqueness = ContractKeyUniquenessMode.Strict,
           forbidV0ContractId = true,
           requireSuffixedGlobalContractId = true,
         )
@@ -352,6 +352,16 @@ class ContractKeySpec
         ("RollbackCreateNonRollbackGlobalArchive", keyResultCid)
       val rollbackGlobalArchiveUpdates =
         ("RollbackGlobalArchiveUpdates", twoCids)
+      val rollbackGlobalArchivedLookup =
+        ("RollbackGlobalArchivedLookup", keyResultCid)
+      val rollbackGlobalArchivedCreate =
+        ("RollbackGlobalArchivedCreate", keyResultCid)
+
+      // regression tests for https://github.com/digital-asset/daml/issues/14171
+      val rollbackExerciseCreateFetchByKey =
+        ("RollbackExerciseCreateFetchByKey", keyResultCid)
+      val rollbackExerciseCreateLookup =
+        ("RollbackExerciseCreateLookup", keyResultCid)
 
       val allCases = Table(
         ("choice", "argument"),
@@ -372,21 +382,43 @@ class ContractKeySpec
         rollbackGlobalArchiveNonRollbackCreate,
         rollbackCreateNonRollbackGlobalArchive,
         rollbackGlobalArchiveUpdates,
+        rollbackGlobalArchivedLookup,
+        rollbackGlobalArchivedCreate,
+        rollbackExerciseCreateFetchByKey,
+        rollbackExerciseCreateLookup,
+      )
+
+      val nonUckFailures = Set(
+        "RollbackExerciseCreateLookup",
+        "RollbackExerciseCreateFetchByKey",
       )
 
       val uckFailures = Set(
-        "CreateOverwritesLocal",
         "CreateOverwritesKnownGlobal",
+        "CreateOverwritesLocal",
+        "FetchDoesNotOverwriteGlobal",
+        "FetchDoesNotOverwriteLocal",
+        "GlobalArchiveOverwritesKnownGlobal1",
+        "GlobalArchiveOverwritesKnownGlobal2",
+        "GlobalArchiveOverwritesUnknownGlobal",
         "LocalArchiveOverwritesKnownGlobal",
         "RollbackCreateNonRollbackFetchByKey",
-        "RollbackFetchByKeyRollbackCreateNonRollbackFetchByKey",
+        "RollbackCreateNonRollbackGlobalArchive",
         "RollbackFetchByKeyNonRollbackCreate",
+        "RollbackFetchByKeyRollbackCreateNonRollbackFetchByKey",
+        "RollbackFetchNonRollbackCreate",
+        "RollbackGlobalArchiveNonRollbackCreate",
+        "RollbackGlobalArchiveUpdates",
       )
 
       // TEST_EVIDENCE: Semantics: contract key behaviour (non-unique mode)
       "non-uck mode" in {
         forEvery(allCases) { case (name, arg) =>
-          run(nonUckEngine, name, arg) shouldBe a[Right[_, _]]
+          if (nonUckFailures.contains(name)) {
+            run(nonUckEngine, name, arg) shouldBe a[Left[_, _]]
+          } else {
+            run(nonUckEngine, name, arg) shouldBe a[Right[_, _]]
+          }
         }
       }
       // TEST_EVIDENCE: Semantics: contract key behaviour (unique mode)

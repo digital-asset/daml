@@ -24,6 +24,7 @@ ctx choice = ExerciseContext
   , choiceId = TL.pack choice
   , exerciseLocation = Nothing
   , chosenValue = Nothing
+  , exerciseKey = Nothing
   }
 
 ptxExerciseContextTests :: TestTree
@@ -72,6 +73,7 @@ toPtx nodes = case runState (mapM go nodes) (0, []) of
                 , node_FetchTemplateId = Nothing
                 , node_FetchSignatories = V.empty
                 , node_FetchStakeholders = V.empty
+                , node_FetchFetchByKey = Nothing
                 }
               Lookup -> pure $ S.NodeNodeLookupByKey S.Node_LookupByKey
                 { node_LookupByKeyTemplateId = Nothing
@@ -95,6 +97,7 @@ toPtx nodes = case runState (mapM go nodes) (0, []) of
                     , node_ExerciseChildren = V.fromList children'
                     , node_ExerciseExerciseResult = if complete then Just (S.Value (Just (S.ValueSumUnit S.Empty))) else Nothing
                     , node_ExerciseConsuming = False
+                    , node_ExerciseExerciseByKey = Nothing
                     }
           let node = S.Node
                 { nodeNodeId = Just nid

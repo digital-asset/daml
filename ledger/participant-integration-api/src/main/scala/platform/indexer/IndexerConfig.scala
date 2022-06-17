@@ -32,7 +32,8 @@ object IndexerConfig {
   def dataSourceProperties(config: IndexerConfig): DataSourceProperties =
     config.dataSourceProperties.getOrElse(createDataSourceProperties(config.ingestionParallelism))
 
-  private def createDataSourceProperties(
+  // Exposed as public method so defaults can be overriden in the downstream code.
+  def createDataSourceProperties(
       ingestionParallelism: Int
   ): DataSourceProperties = DataSourceProperties(
     // PostgresSQL specific configurations

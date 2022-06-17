@@ -1005,7 +1005,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       // make a contract
       create <- liftF(
         postCreateCommand(
-          iouCreateCommand(domain.Party unwrap party),
+          iouCreateCommand(party),
           fixture,
           headers,
         )
