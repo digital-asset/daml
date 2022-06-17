@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Parties and Users On the Daml Ledger
-####################################
+Parties and Users On a Daml Ledger
+##################################
 
 Identifying parties and users is an important part of building a workable Daml application. Recall these definitions from the :doc:`Getting Started Guide <getting-started/app-architecture.html>`:
 
