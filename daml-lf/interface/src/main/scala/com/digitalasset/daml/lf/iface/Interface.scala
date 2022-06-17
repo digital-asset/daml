@@ -157,9 +157,6 @@ final case class Interface(
     }
     (sEnd, copy(typeDecls = typeDecls ++ newTpls, astInterfaces = newIfcs))
   }
-
-  private def findTemplate(qn: Ref.QualifiedName): Option[InterfaceType.Template] =
-    typeDecls.get(qn).collect { case itt: InterfaceType.Template => itt }
 }
 
 object Interface {
@@ -190,13 +187,12 @@ object Interface {
   ): PartialFunction[Ref.TypeConName, Setter[S, DefTemplate.FWT]] = {
     val pkg = findPackage.lift
     def go(tcn: Ref.TypeConName) = pkg(tcn.packageId).flatMap { case (ifc, sIfc) =>
-      ifc.findTemplate(tcn.qualifiedName).map { _ =>
+      findTemplate(ifc.typeDecls, tcn.qualifiedName).map { _ =>
         setter.andThen[S, Interface, DefTemplate.FWT](sIfc) { (ifc, f) =>
           // this ifc is like the outer ifc, but can have more state updates
           // applied.  So we expect the same "found" status but possibly with
           // some changed state, so we need to search again
-          ifc
-            .findTemplate(tcn.qualifiedName)
+          findTemplate(ifc.typeDecls, tcn.qualifiedName)
             .fold(ifc) { itt =>
               ifc.copy(typeDecls =
                 ifc.typeDecls.updated(tcn.qualifiedName, itt.copy(template = f(itt.template)))
