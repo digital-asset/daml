@@ -1926,7 +1926,7 @@ class EngineTest
     }
     // TEST_EVIDENCE: Semantics: Rollback creates cannot be exercise
     "creates in rollback are rolled back" in {
-      val command = ApiCommand.CreateAndExercise(
+      val command = CreateAndExerciseCommand(
         tId,
         ValueRecord(None, ImmArray((None, ValueParty(party)))),
         "ExerciseAfterRollbackCreate",
