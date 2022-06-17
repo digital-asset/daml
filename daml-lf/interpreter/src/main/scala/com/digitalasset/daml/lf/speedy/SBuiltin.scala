@@ -1827,6 +1827,8 @@ private[lf] object SBuiltin {
         throw SErrorDamlException(IE.FailedAuthorization(nid, fa))
       case Some(Tx.ContractNotActive(coid, tid, consumedBy)) =>
         throw SErrorDamlException(IE.ContractNotActive(coid, tid, consumedBy))
+      case Some(Tx.ContractNotFound(coid)) =>
+        throw SErrorDamlException(IE.ContractNotFound(coid))
       case Some(Tx.DuplicateContractKey(key)) =>
         throw SErrorDamlException(IE.DuplicateContractKey(key))
       case None =>

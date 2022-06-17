@@ -868,6 +868,10 @@ object Transaction {
       fa: FailedAuthorization,
   ) extends TransactionError
 
+  final case class ContractNotFound(
+      coid: Value.ContractId
+  ) extends TransactionError
+
   /** The state of a key at the beginning of the transaction.
     */
   sealed trait KeyInput extends Product with Serializable

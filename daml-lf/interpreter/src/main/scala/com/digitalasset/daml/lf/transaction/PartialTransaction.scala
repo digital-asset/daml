@@ -164,6 +164,7 @@ private[lf] object PartialTransaction {
   }
 
   final case class ActiveLedgerState(
+      localContracts: Set[Value.ContractId],
       consumedBy: Map[Value.ContractId, NodeId],
       keys: Map[GlobalKey, KeyMapping],
   )
@@ -200,6 +201,7 @@ private[lf] object PartialTransaction {
     keys = Map.empty,
     globalKeyInputs = Map.empty,
     localContracts = Set.empty,
+    localContractsEver = Set.empty,
     actionNodeLocations = BackStack.empty,
   )
 
@@ -282,16 +284,17 @@ private[speedy] case class PartialTransaction(
     keys: Map[GlobalKey, PartialTransaction.KeyMapping],
     globalKeyInputs: Map[GlobalKey, PartialTransaction.KeyMapping],
     localContracts: Set[Value.ContractId],
+    localContractsEver: Set[Value.ContractId],
     actionNodeLocations: BackStack[Option[Location]],
 ) {
 
   import PartialTransaction._
 
   private def activeState: ActiveLedgerState =
-    ActiveLedgerState(consumedBy, keys)
+    ActiveLedgerState(localContracts, consumedBy, keys)
 
   private def resetActiveState(state: ActiveLedgerState): PartialTransaction =
-    copy(consumedBy = state.consumedBy, keys = state.keys)
+    copy(localContracts = state.localContracts, consumedBy = state.consumedBy, keys = state.keys)
 
   def nodesToString: String =
     if (nodes.isEmpty) "<empty transaction>"
@@ -436,6 +439,7 @@ private[speedy] case class PartialTransaction(
       nodes = nodes.updated(nid, createNode),
       actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
       localContracts = localContracts + cid,
+      localContractsEver = localContractsEver + cid,
     ).noteAuthFails(nid, CheckAuthorization.authorizeCreate(optLocation, createNode), auth)
 
     // if we have a contract key being added, include it in the list of
@@ -779,11 +783,18 @@ private[speedy] case class PartialTransaction(
       coid: Value.ContractId,
       templateId: TypeConName,
       f: => PartialTransaction,
-  ): PartialTransaction =
-    consumedBy.get(coid) match {
-      case None => f
-      case Some(nid) => noteAbort(Tx.ContractNotActive(coid, templateId, nid))
+  ): PartialTransaction = {
+    val isLocalEver = localContractsEver.contains(coid)
+    val isLocal = localContracts.contains(coid)
+    if (isLocalEver && !isLocal) { // local create has been rolled-back
+      noteAbort(Tx.ContractNotFound(coid))
+    } else {
+      consumedBy.get(coid) match {
+        case None => f
+        case Some(nid) => noteAbort(Tx.ContractNotActive(coid, templateId, nid))
+      }
     }
+  }
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
   def insertLeafNode(
