@@ -65,7 +65,6 @@ da_scala_library(
 da_scala_library(
     name = "sandbox-on-x-test-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
-    resources = glob(["src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
