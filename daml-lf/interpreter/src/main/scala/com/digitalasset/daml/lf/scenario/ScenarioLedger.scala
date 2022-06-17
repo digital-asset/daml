@@ -458,7 +458,7 @@ object ScenarioLedger {
                 val newCache1 = newCache.createdIn(nc.coid, eventId)
                 processNodes(newCache1, idsToProcess)
 
-              case Node.Fetch(referencedCoid, templateId @ _, _, _, _, _, _, _) =>
+              case Node.Fetch(referencedCoid, _, _, _, _, _, _, _) =>
                 val newCacheP =
                   newCache.updateLedgerNodeInfo(referencedCoid)(info =>
                     info.copy(referencedBy = info.referencedBy + eventId)
