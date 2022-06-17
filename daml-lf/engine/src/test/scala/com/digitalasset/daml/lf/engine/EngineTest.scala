@@ -29,6 +29,7 @@ import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.engine.Error.Interpretation
+import com.daml.lf.engine.Error.Interpretation.DamlException
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -1922,6 +1923,18 @@ class EngineTest
         ValueRecord(None, ImmArray((None, ValueInt64(0)))),
       )
       run(command) shouldBe a[Right[_, _]]
+    }
+    // TEST_EVIDENCE: Semantics: Rollback creates cannot be exercise
+    "creates in rollback are rolled back" in {
+      val command = ApiCommand.CreateAndExercise(
+        tId,
+        ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        "ExerciseAfterRollbackCreate",
+        ValueRecord(None, ImmArray.empty),
+      )
+      inside(run(command)) {
+        case Left(Interpretation(DamlException(interpretation.Error.ContractNotFound(_)), _)) =>
+      }
     }
   }
 
