@@ -10,6 +10,10 @@ exception E
   where
     message "E"
 
+exception Ecid with cid: ContractId K
+  where
+    message "Ecid"
+
 template K
   with
     p : Party
@@ -90,6 +94,14 @@ template T
            E -> pure ()
          (_, k) <- fetchByKey @K (p, i)
          k === K p i "rollback"
+
+    nonconsuming choice ExerciseAfterRollbackCreate: ()
+      controller p
+      do
+        try do
+          cid <- create (K p 1 "")
+          throw (Ecid cid)
+        catch (Ecid cid) -> archive cid
 
 -- This template is used to test that the
 -- engine only ever looks up a global key once.
