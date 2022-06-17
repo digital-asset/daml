@@ -295,6 +295,22 @@ Errors raised by or forwarded by the Ledger API.
 
 
 
+.. _error_code_HEAP_MEMORY_OVER_LIMIT:
+
+HEAP_MEMORY_OVER_LIMIT
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error happens when the combined use of all objects in a JVM heap pool exceed the configured limit.
+
+    **Category**: ContentionOnSharedResources
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+
+    **Resolution**: The following actions can be taken: 1. Review the historical use of heap space by inspecting the metric given in the message. 2. Review the current heap space limits configured in the rate limiting configuration. 3. Try to space out requests that are likely to require are large amount of memory to process.
+
+
+
+
 .. _error_code_LEDGER_API_INTERNAL_ERROR:
 
 LEDGER_API_INTERNAL_ERROR
@@ -311,6 +327,22 @@ LEDGER_API_INTERNAL_ERROR
 
 
 
+.. _error_code_MAXIMUM_NUMBER_OF_STREAMS:
+
+MAXIMUM_NUMBER_OF_STREAMS
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error happens when the number of concurrent gRPC streaming requests exceeds the configured limit.
+
+    **Category**: ContentionOnSharedResources
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+
+    **Resolution**: The following actions can be taken: 1. Review the historical need for concurrent streaming by inspecting the metric given in the message. 2. Review the maximum streams limit configured in the rate limiting configuration. 3. Try to space out streaming requests such that they do not need to run in parallel with each other.
+
+
+
+
 .. _error_code_PARTICIPANT_BACKPRESSURE:
 
 PARTICIPANT_BACKPRESSURE
@@ -323,6 +355,22 @@ PARTICIPANT_BACKPRESSURE
     **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
 
     **Resolution**: Wait a bit and retry, preferably with some backoff factor. If possible, ask other participants to send fewer requests; the domain operator can enforce this by imposing a rate limit.
+
+
+
+
+.. _error_code_QUEUE_SIZE_OVER_LIMIT:
+
+QUEUE_SIZE_OVER_LIMIT
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This happens when the rate of submitted gRPC requests requires more CPU or database power than is available.
+
+    **Category**: ContentionOnSharedResources
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+
+    **Resolution**: The following actions can be taken: 1. Review the historical queue size growth by inspecting the metric given in the message. 2. Review the maximum queue size limits configured in the rate limiting configuration. 3. Try to space out requests that are likely to require are large a lot of CPU or database power.
 
 
 
