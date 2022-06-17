@@ -270,6 +270,12 @@ private[lf] object PartialTransaction {
   *
   *  @param actionNodeLocations The optional locations of create/exercise/fetch/lookup nodes in pre-order.
   *   Used by 'locationInfo()', called by 'finish()' and 'finishIncomplete()'
+  *
+  * @param localContractsEver
+  *   Tracks all contracts created by this transaction including those under a rollback.
+  *
+  * @param localContracts
+  *   Tracks contracts created by this transaction that have not been rolled back. This is a subset of `localContractsEver`.
   */
 private[speedy] case class PartialTransaction(
     packageToTransactionVersion: Ref.PackageId => TxVersion,
