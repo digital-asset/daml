@@ -128,27 +128,32 @@ final case class Interface(
 
   def resolveRetroImplements[S](
       s: S
-  )(setTemplate: PartialFunction[Ref.TypeConName, Setter[S, DefTemplate.FWT]]): (S, Interface) = {
+  )(setTemplate: SetterAt[Ref.TypeConName, S, DefTemplate.FWT]): (S, Interface) = {
     val outside = setTemplate.lift
     type SandTpls = (S, Map[QualifiedName, InterfaceType.Template])
-    def setTpl(tcn: Ref.TypeConName): Option[Setter[SandTpls, DefTemplate.FWT]] =
+    def setTpl(
+        sm: SandTpls,
+        tcn: Ref.TypeConName,
+    ): Option[(DefTemplate.FWT => DefTemplate.FWT) => SandTpls] = {
+      import Interface.findTemplate
+      val (s, tplsM) = sm
       if (tcn.packageId == packageId)
-        findTemplate(tcn.qualifiedName).map {
-          case itt @ InterfaceType.Template(_, dt) => { case ((s, m), f) =>
+        findTemplate(tplsM, tcn.qualifiedName).map { case itt @ InterfaceType.Template(_, dt) =>
+          f =>
             // TODO SC #14081 would it also make sense to search `outside` as well?
             // Setter doesn't restrict us to one location
-            (s, m.updated(tcn.qualifiedName, itt.copy(template = f(dt))))
-          }
+            (s, tplsM.updated(tcn.qualifiedName, itt.copy(template = f(dt))))
         }
-      else outside(tcn) map Interface.setter.fst
+      else outside((s, tcn)) map (_ andThen ((_, tplsM)))
+    }
 
-    val ifcSetTpl = Function unlift setTpl
+    val ifcSetTpl = Function unlift ((setTpl _).tupled)
     val ((sEnd, newTpls), newIfcs) = astInterfaces.foldLeft(
       ((s, Map.empty): SandTpls, Map.empty[QualifiedName, DefInterface.FWT])
     ) { case ((s, astIfs), (ifcName, astIf)) =>
-      val (s1, newIf) =
-        astIf.resolveRetroImplements(Ref.TypeConName(packageId, ifcName), s)(adaptSetter(ifcSetTpl))
-      (s1, astIfs.updated(ifcName, newIf))
+      astIf
+        .resolveRetroImplements(Ref.TypeConName(packageId, ifcName), s)(ifcSetTpl)
+        .rightMap(newIf => astIfs.updated(ifcName, newIf))
     }
     (sEnd, copy(typeDecls = typeDecls ++ newTpls, astInterfaces = newIfcs))
   }
@@ -167,10 +172,13 @@ object Interface {
   def read(lf: ArchivePayload): (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
     readInterface(lf)
 
-  private object setter {
-    def fst[S, R, A](setter: Setter[S, A]): Setter[(S, R), A] =
-      andThen[(S, R), S, A](_ leftMap _)(setter)
+  private[iface] def findTemplate[K](
+      m: Map[K, InterfaceType],
+      k: K,
+  ): Option[InterfaceType.Template] =
+    m get k collect { case itt: InterfaceType.Template => itt }
 
+  private object setter {
     def andThen[S, A, B](sa: Setter[S, A])(ab: Setter[A, B]): Setter[S, B] =
       (s, bb) => sa(s, a => ab(a, bb))
   }

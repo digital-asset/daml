@@ -47,12 +47,13 @@ final case class EnvironmentInterface(
     })
 
   def resolveRetroImplements: EnvironmentInterface = {
+    import Interface.findTemplate
     val (newTypeDecls, newAstInterfaces) = astInterfaces.foldLeft((typeDecls, astInterfaces)) {
       case ((typeDecls, astInterfaces), (ifTc, defIf)) =>
         defIf
           .resolveRetroImplements(ifTc, typeDecls)(Function unlift { case (typeDecls, tplName) =>
-            typeDecls get tplName collect { case itt: InterfaceType.Template =>
-              f => typeDecls.updated(tplName, itt.copy(template = f(itt.template)))
+            findTemplate(typeDecls, tplName) map { itt => f =>
+              typeDecls.updated(tplName, itt.copy(template = f(itt.template)))
             }
           })
           .map(defIf => astInterfaces.updated(ifTc, defIf))
