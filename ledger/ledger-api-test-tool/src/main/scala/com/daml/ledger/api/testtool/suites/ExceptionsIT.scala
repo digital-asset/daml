@@ -412,4 +412,26 @@ final class ExceptionsIT extends LedgerTestSuite {
         )
       } yield ()
   })
+
+  test(
+    "ExRollbackCreate",
+    "Archiving a contract created within a rolled-back try-catch block, fails",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    for {
+      t <- ledger.create(party, ExceptionTester(party))
+      failure <- ledger
+        .exercise(party, t.exerciseRollbackCreateBecomesInactive(_))
+        .mustFail("contract is inactive")
+    } yield {
+      assertGrpcError(
+        ledger,
+        failure,
+        Status.Code.ABORTED,
+        LedgerApiErrors.ConsistencyErrors.ContractNotFound,
+        Some("Contract could not be found"),
+        checkDefiniteAnswerMetadata = true,
+      )
+    }
+  })
 }
