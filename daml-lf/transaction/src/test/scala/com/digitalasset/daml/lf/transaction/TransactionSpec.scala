@@ -771,13 +771,13 @@ class TransactionSpec
 
           builder.add(createNode0)
           builder.add(createNode1)
-          val exerciseId0 = builder.add(exercise(builder, createNode0, parties, true))
+          val nodeId0 = builder.add(exercise(builder, createNode0, parties, true))
           val rollbackId = builder.add(builder.rollback())
           val nodeId1 = builder.add(exercise(builder, createNode1, parties, true), rollbackId)
           val transaction = builder.build()
 
           transaction.consumedBy shouldBe
-            Map(cid0 -> exerciseId0)
+            Map(cid0 -> nodeId0)
           transaction.rolledbackBy shouldBe
             Map(nodeId1 -> rollbackId)
         }
@@ -819,7 +819,43 @@ class TransactionSpec
       }
 
       "multiple rollbacks" - {
-        // TODO:
+        "sequential rollbacks" in {
+          val builder = TransactionBuilder()
+          val parties = Seq("Alice")
+          val (_, createNode0) = create(builder, parties, Some("key0"))
+          val (_, createNode1) = create(builder, parties, Some("key1"))
+
+          builder.add(createNode0)
+          builder.add(createNode1)
+          val rollbackId0 = builder.add(builder.rollback())
+          val nodeId0 = builder.add(exercise(builder, createNode0, parties, true), rollbackId0)
+          val rollbackId1 = builder.add(builder.rollback())
+          val nodeId1 = builder.add(exercise(builder, createNode1, parties, true), rollbackId1)
+          val transaction = builder.build()
+
+          transaction.consumedBy shouldBe Map.empty
+          transaction.rolledbackBy shouldBe
+            Map(nodeId0 -> rollbackId0, nodeId1 -> rollbackId1)
+        }
+
+        "nested rollbacks" in {
+          val builder = TransactionBuilder()
+          val parties = Seq("Alice")
+          val (_, createNode0) = create(builder, parties, Some("key0"))
+          val (_, createNode1) = create(builder, parties, Some("key1"))
+
+          builder.add(createNode0)
+          builder.add(createNode1)
+          val rollbackId0 = builder.add(builder.rollback())
+          val nodeId0 = builder.add(exercise(builder, createNode0, parties, true), rollbackId0)
+          val rollbackId1 = builder.add(builder.rollback(), rollbackId0)
+          val nodeId1 = builder.add(exercise(builder, createNode1, parties, true), rollbackId1)
+          val transaction = builder.build()
+
+          transaction.consumedBy shouldBe Map.empty
+          transaction.rolledbackBy shouldBe
+            Map(nodeId0 -> rollbackId0, nodeId1 -> rollbackId1)
+        }
       }
     }
   }
