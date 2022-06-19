@@ -137,8 +137,9 @@ conformance_test(
         ",RaceConditionIT" +
         ",ExceptionsIT" +
         ",ExceptionRaceConditionIT",
+        "--exclude=ExceptionsIT:ExRollbackCreate",
     ],
-) if not is_windows else None
+)
 
 conformance_test(
     name = "conformance-test-optional",
