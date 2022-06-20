@@ -4,5 +4,5 @@
 @daml/types
 ###########
 
-`@daml/types documentation <daml-types/index.html>`_
+`@daml/types documentation <ts-daml-types_>`_
 
