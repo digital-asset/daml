@@ -168,6 +168,7 @@ class NonStakeholderInformeesITSpec
           endOffset = Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
           objectives = None,
           maxItemCount = None,
+          timeoutInSecondsO = None,
         ),
         observer = treeTxObserver,
       )
@@ -184,6 +185,7 @@ class NonStakeholderInformeesITSpec
           endOffset = Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
           objectives = None,
           maxItemCount = None,
+          timeoutInSecondsO = None,
         ),
         observer = flatTxObserver,
       )

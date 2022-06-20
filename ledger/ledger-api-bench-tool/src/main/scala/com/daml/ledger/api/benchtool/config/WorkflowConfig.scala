@@ -81,6 +81,10 @@ object WorkflowConfig {
     /** If specified, used to cancel the stream when enough items has been seen.
       */
     def maxItemCount: Option[Long] = None
+
+    /** If specified, used to cancel the stream after the specified time out
+      */
+    def timeoutInSecondsO: Option[Long] = None
   }
 
   object StreamConfig {
@@ -91,6 +95,7 @@ object WorkflowConfig {
         endOffset: Option[LedgerOffset],
         objectives: Option[StreamConfig.TransactionObjectives],
         override val maxItemCount: Option[Long],
+        override val timeoutInSecondsO: Option[Long],
     ) extends StreamConfig
 
     final case class TransactionTreesStreamConfig(
@@ -100,6 +105,7 @@ object WorkflowConfig {
         endOffset: Option[LedgerOffset],
         objectives: Option[StreamConfig.TransactionObjectives],
         override val maxItemCount: Option[Long],
+        override val timeoutInSecondsO: Option[Long],
     ) extends StreamConfig
 
     final case class ActiveContractsStreamConfig(
@@ -107,6 +113,7 @@ object WorkflowConfig {
         filters: List[PartyFilter],
         objectives: Option[StreamConfig.RateObjectives],
         override val maxItemCount: Option[Long],
+        override val timeoutInSecondsO: Option[Long],
     ) extends StreamConfig
 
     final case class CompletionsStreamConfig(
@@ -114,9 +121,9 @@ object WorkflowConfig {
         parties: List[String],
         applicationId: String,
         beginOffset: Option[LedgerOffset],
-        timeoutInSeconds: Long,
         objectives: Option[StreamConfig.RateObjectives],
         override val maxItemCount: Option[Long],
+        override val timeoutInSecondsO: Option[Long],
     ) extends StreamConfig
 
     final case class PartyFilter(party: String, templates: List[String])
