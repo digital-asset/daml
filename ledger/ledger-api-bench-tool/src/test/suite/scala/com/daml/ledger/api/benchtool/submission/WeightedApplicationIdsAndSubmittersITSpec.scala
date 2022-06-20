@@ -128,7 +128,7 @@ class WeightedApplicationIdsAndSubmittersITSpec
         applicationId = applicationId,
         beginOffset = Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
         objectives = None,
-        timeoutInSeconds = 0,
+        timeoutInSecondsO = None,
         maxItemCount = None,
       ),
       observer = observer,

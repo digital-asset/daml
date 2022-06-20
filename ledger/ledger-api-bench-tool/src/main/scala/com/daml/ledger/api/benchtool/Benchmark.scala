@@ -8,8 +8,14 @@ import java.util.concurrent.TimeUnit
 import akka.actor.typed.{ActorSystem, SpawnProtocol}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig
-import com.daml.ledger.api.benchtool.metrics.{BenchmarkResult, MetricsSet, StreamMetrics}
+import com.daml.ledger.api.benchtool.metrics.{
+  BenchmarkResult,
+  MeteredStreamObserver,
+  MetricsSet,
+  StreamMetrics,
+}
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
+import com.daml.ledger.api.benchtool.util.ObserverWithResult
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.transaction_service.{
@@ -49,6 +55,8 @@ object Benchmark {
               maxItemCount = streamConfig.maxItemCount,
             )(system, ec)
             .flatMap { observer =>
+              streamConfig.timeoutInSecondsO
+                .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
               apiServices.transactionService.transactions(streamConfig, observer)
             }
         case streamConfig: StreamConfig.TransactionTreesStreamConfig =>
@@ -69,6 +77,8 @@ object Benchmark {
               maxItemCount = streamConfig.maxItemCount,
             )(system, ec)
             .flatMap { observer =>
+              streamConfig.timeoutInSecondsO
+                .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
               apiServices.transactionService.transactionTrees(streamConfig, observer)
             }
         case streamConfig: StreamConfig.ActiveContractsStreamConfig =>
@@ -89,6 +99,8 @@ object Benchmark {
               maxItemCount = streamConfig.maxItemCount,
             )(system, ec)
             .flatMap { observer =>
+              streamConfig.timeoutInSecondsO
+                .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
               apiServices.activeContractsService.getActiveContracts(streamConfig, observer)
             }
         case streamConfig: StreamConfig.CompletionsStreamConfig =>
@@ -105,10 +117,9 @@ object Benchmark {
               itemCountingFunction = (response) => MetricsSet.countCompletions(response).toLong,
               maxItemCount = streamConfig.maxItemCount,
             )(system, ec)
-            .flatMap { observer =>
-              Delayed.by(t = Duration(streamConfig.timeoutInSeconds, TimeUnit.SECONDS))(
-                observer.cancel()
-              )
+            .flatMap { observer: MeteredStreamObserver[CompletionStreamResponse] =>
+              streamConfig.timeoutInSecondsO
+                .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
               apiServices.commandCompletionService.completions(streamConfig, observer)
             }
       }
@@ -117,4 +128,12 @@ object Benchmark {
           Left("Metrics objectives not met.")
         else Right(())
       }
+
+  def scheduleCancelStreamTask(timeoutInSeconds: Long, observer: ObserverWithResult[_, _])(implicit
+      ec: ExecutionContext
+  ): Unit = {
+    val _ = Delayed.by(t = Duration(timeoutInSeconds, TimeUnit.SECONDS))(
+      observer.cancel()
+    )
+  }
 }
