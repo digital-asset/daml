@@ -1663,6 +1663,9 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
 
         , "isJustI : Optional I -> Bool"
         , "isJustI mI = case mI of"
+            -- If `I` lacks constructors, GHC infers the first case alternative
+            -- to be inaccessible, since it's isomorphic to `Some (_ : Void)`,
+            -- which can't be constructed.
         , "  Some _ -> True"
         , "  None -> False"
         ]
