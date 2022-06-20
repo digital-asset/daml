@@ -441,4 +441,16 @@ final class ExceptionsIT extends LedgerTestSuite {
     }
   })
 
+  test(
+    "ExRollbackExerciseCreateLookup",
+    "Lookup a contract Archiving a contract created within a rolled-back try-catch block, fails",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    for {
+      helper <- ledger.create(party, ExceptionTester(party))
+      withKey <- ledger.create(party, WithSimpleKey(party))
+      _ <- ledger.exercise(party, helper.exerciseRollbackExerciseCreateLookup(_, withKey))
+    } yield ()
+  })
+
 }
