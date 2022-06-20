@@ -1651,6 +1651,22 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
         , "z f g = f <<< g &&& id"
         ]
 
+    , simpleImportTestOptions "No 'inaccessible RHS' when pattern matching on interface"
+        [ "--target=1.dev" ]
+        [ "module Lib where"
+
+        , "interface I"
+        ]
+        [ "{-# OPTIONS_GHC -Werror #-}"
+        , "module Main where"
+        , "import Lib"
+
+        , "isJustI : Optional I -> Bool"
+        , "isJustI mI = case mI of"
+        , "  Some _ -> True"
+        , "  None -> False"
+        ]
+
     , dataDependenciesTestOptions "implement interface from data-dependency"
         [ "--target=1.dev" ]
         [   (,) "Lib.daml"
