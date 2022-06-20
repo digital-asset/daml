@@ -23,6 +23,7 @@ import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
 import scala.collection.immutable
+import scala.reflect.io.File
 
 /** An in-memory representation of a ledger for scenarios */
 object ScenarioLedger {
@@ -526,6 +527,39 @@ object ScenarioLedger {
         ledgerData,
         List(ProcessingNode(None, None, richTr.transaction.roots.toList, None)),
       )
+      val transaction = richTr.transaction.transaction
+      val nodeIdToEventId = (id: NodeId) => EventId(richTr.transactionId, id)
+      val postProcessedCache = cacheAfterProcess.copy(
+        nodeInfos = cacheAfterProcess.nodeInfos.map {
+          case (eventId, ledgerNodeInfo) =>
+            val consumedBy = ledgerNodeInfo.node match {
+              case createNode: Node.Create =>
+                transaction.consumedBy.get(createNode.coid).map(nodeIdToEventId)
+
+              case fetchNode: Node.Fetch =>
+                transaction.consumedBy.get(fetchNode.coid).map(nodeIdToEventId)
+
+              case _: Node =>
+                None
+            }
+            val updatedLedgerNodeInfo = ledgerNodeInfo.copy(
+              consumedBy = consumedBy,
+              rolledbackBy = transaction.rolledbackBy.get(eventId.nodeId),
+            )
+
+            (eventId, updatedLedgerNodeInfo)
+        }
+      )
+      // TODO: for refactor validation only - to be removed
+      def printToFile(content: String, location: String = "/Users/carlpulley/dump.txt") =
+        File(location).appendAll(content + "\n")
+      if (postProcessedCache.nodeInfos != cacheAfterProcess.nodeInfos) {
+        printToFile(s"DEBUGGY-expected: ${cacheAfterProcess.nodeInfos}")
+        printToFile(s"DEBUGGY-consumedBy-actual: ${postProcessedCache.nodeInfos.map(entry => (entry._1, entry._2.consumedBy))}")
+        printToFile(s"DEBUGGY-consumedBy-expected: ${cacheAfterProcess.nodeInfos.map(entry => (entry._1, entry._2.consumedBy))}")
+        printToFile(s"DEBUGGY-rolledbackBy-actual: ${postProcessedCache.nodeInfos.map(entry => (entry._1, entry._2.rolledbackBy))}")
+        printToFile(s"DEBUGGY-rolledbackBy-expected: ${cacheAfterProcess.nodeInfos.map(entry => (entry._1, entry._2.rolledbackBy))}")
+      }
       val cacheActiveness =
         cacheAfterProcess.copy(
           activeContracts =

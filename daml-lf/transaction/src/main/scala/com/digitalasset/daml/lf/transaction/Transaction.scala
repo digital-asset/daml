@@ -468,10 +468,6 @@ sealed abstract class HasTxNodes {
 
   /** Keys are contracts (that have been consumed) and values are the nodes where the contract was consumed.
     * Under rollback nodes, consumed contracts are ignored (as they have been rolled back).
-    *
-    * TODO: ensure transient contracts are tested - i.e. create is followed by archive within the same transaction
-    *
-    * @return
     */
   final def consumedBy: Map[ContractId, NodeId] =
     foldInExecutionOrder[Map[ContractId, NodeId]](HashMap.empty)(
@@ -490,9 +486,7 @@ sealed abstract class HasTxNodes {
       rollbackEnd = (consumedByMap, _, _) => consumedByMap,
     )
 
-  /** Keys are nodes under a rollback and values are the "nearest" (i.e. most recent) rollback node
-    *
-    * @return
+  /** Keys are nodes under a rollback and values are the "nearest" (i.e. most recent) rollback node.
     */
   final def rolledbackBy: Map[NodeId, NodeId] =
     foldInExecutionOrder[(Map[NodeId, NodeId], Seq[NodeId])]((HashMap.empty, Vector.empty))(
