@@ -2468,8 +2468,11 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
     ]
   where
     simpleImportTest :: String -> [String] -> [String] -> TestTree
-    simpleImportTest title lib main =
-        dataDependenciesTest title [("Lib.daml", lib)] [("Main.daml", main)]
+    simpleImportTest title = simpleImportTestOptions title []
+
+    simpleImportTestOptions :: String -> [String] -> [String] -> [String] -> TestTree
+    simpleImportTestOptions title options lib main =
+        dataDependenciesTestOptions title options [("Lib.daml", lib)] [("Main.daml", main)]
 
     dataDependenciesTest :: String -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
     dataDependenciesTest title = dataDependenciesTestOptions title []
