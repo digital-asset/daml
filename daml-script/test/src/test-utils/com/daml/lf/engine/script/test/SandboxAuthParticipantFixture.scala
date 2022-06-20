@@ -75,7 +75,6 @@ trait SandboxAuthParticipantFixture
       readAs = List(),
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
-
     val jwt = DecodedJwt[String](header, AuthServiceJWTCodec.writeToString(payload))
     JwtSigner.HMAC256.sign(jwt, secret) match {
       case -\/(e) => throw new IllegalStateException(e.toString)
