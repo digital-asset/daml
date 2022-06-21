@@ -73,7 +73,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     """The following actions can be taken:
       |1. Review the historical use of heap space by inspecting the metric given in the message.
       |2. Review the current heap space limits configured in the rate limiting configuration.
-      |3. Try to space out requests that are likely to require are large amount of memory to process."""
+      |3. Try to space out requests that are likely to require a large amount of memory to process."""
   )
   object HeapMemoryOverLimit
       extends ErrorCode(
