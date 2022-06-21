@@ -175,33 +175,23 @@ object Interface {
   ): Option[InterfaceType.Template] =
     m get k collect { case itt: InterfaceType.Template => itt }
 
-  private object setter {
-    def andThen[S, A, B](sa: Setter[S, A])(ab: Setter[A, B]): Setter[S, B] =
-      (s, bb) => sa(s, a => ab(a, bb))
-  }
-
   // Given a lookup function for package state setters, produce a lookup function
   // for setters on specific templates in that set of packages.
   def setPackageTemplates[S](
-      findPackage: PartialFunction[PackageId, (Interface, Setter[S, Interface])]
-  ): PartialFunction[Ref.TypeConName, Setter[S, DefTemplate.FWT]] = {
+      findPackage: PartialFunction[(S, PackageId), (Interface, Interface => S)]
+  ): SetterAt[Ref.TypeConName, S, DefTemplate.FWT] = {
     val pkg = findPackage.lift
-    def go(tcn: Ref.TypeConName) = pkg(tcn.packageId).flatMap { case (ifc, sIfc) =>
-      findTemplate(ifc.typeDecls, tcn.qualifiedName).map { _ =>
-        setter.andThen[S, Interface, DefTemplate.FWT](sIfc) { (ifc, f) =>
-          // this ifc is like the outer ifc, but can have more state updates
-          // applied.  So we expect the same "found" status but possibly with
-          // some changed state, so we need to search again
-          findTemplate(ifc.typeDecls, tcn.qualifiedName)
-            .fold(ifc) { itt =>
-              ifc.copy(typeDecls =
-                ifc.typeDecls.updated(tcn.qualifiedName, itt.copy(template = f(itt.template)))
-              )
-            }
-        }
-      }
-    }
-    Function unlift go
+    def go(s: S, tcn: Ref.TypeConName): Option[(DefTemplate.FWT => DefTemplate.FWT) => S] = for {
+      foundPkg <- pkg((s, tcn.packageId))
+      (ifc, sIfc) = foundPkg
+      itt <- findTemplate(ifc.typeDecls, tcn.qualifiedName)
+    } yield f =>
+      sIfc(
+        ifc.copy(typeDecls =
+          ifc.typeDecls.updated(tcn.qualifiedName, itt.copy(template = f(itt.template)))
+        )
+      )
+    Function unlift (go _).tupled
   }
 
   /** An argument for `Interface#resolveChoices` given a package database,
