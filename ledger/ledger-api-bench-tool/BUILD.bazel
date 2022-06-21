@@ -61,7 +61,7 @@ da_scala_library(
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
         "//libs-scala/timer-utils",
-        "//ledger/test-common:model-tests-%s.scala" % "1.14",  # TODO: make the LF version configurable
+        "//ledger/test-common:benchtool-tests-%s.scala" % "1.14",  # TODO: make the LF version configurable
         "//ledger/test-common:dar-files-%s-lib" % "1.14",  # TODO: make the LF version configurable
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_api",
@@ -75,11 +75,21 @@ da_scala_library(
 da_scala_library(
     name = "ledger-api-bench-tool-test-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
-    scala_deps = [],
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalactic_scalactic",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         ":ledger-api-bench-tool-lib",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//ledger-api/testing-utils",
+        "//libs-scala/ports",
+        "//ledger/test-common:dar-files-%s-lib" % "1.14",
         "//language-support/scala/bindings",
+        "//ledger/sandbox-on-x",
+        "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
+        "//ledger/test-common:dar-files-default-lib",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -92,7 +102,7 @@ da_scala_test_suite(
     ),
     data = [
         "//daml-lf/encoder:testing-dars",
-        "//ledger/test-common:model-tests-default.dar",
+        "//ledger/test-common:benchtool-tests-default.dar",
         "//ledger/test-common/test-certificates",
     ],
     scala_deps = [
@@ -116,7 +126,7 @@ da_scala_test_suite(
         "//ledger/test-common",
         "//libs-scala/postgresql-testing",
         "//libs-scala/timer-utils",
-        "//ledger/test-common:model-tests-%s.scala" % "1.14",
+        "//ledger/test-common:benchtool-tests-%s.scala" % "1.14",
         "//ledger/test-common:dar-files-%s-lib" % "1.14",
         "//daml-script/runner:script-runner-lib",
         "//language-support/scala/bindings",
@@ -129,8 +139,6 @@ da_scala_test_suite(
         "//ledger/ledger-resources",
         "//ledger/ledger-runner-common",
         "//ledger/metrics",
-        "//ledger/sandbox-common",
-        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//ledger/test-common:dar-files-default-lib",
