@@ -35,7 +35,7 @@ object SResult {
       // Callback
       // returns the next expression to evaluate.
       // In case of failure the call back does not throw but returns a SErrorDamlException
-      callback: Value.VersionedContractInstance => Unit,
+      callback: Value.ContractInstance => Unit,
   ) extends SResult
 
   /** Machine needs a definition that was not present when the machine was

@@ -170,10 +170,10 @@ message ScenarioError {
     Value key = 3;
   }
 
-   message FetchEmptyContractKeyMaintainers {
+  message FetchEmptyContractKeyMaintainers {
       Identifier template_id = 1;
       Value key = 2;
-    }
+  }
 
   message ContractNotActive {
     ContractRef contract_ref = 1;
@@ -233,6 +233,14 @@ message ScenarioError {
     ContractRef contract_ref = 1;
     Identifier requiring_interface_id = 2;
     Identifier required_interface_id = 3;
+  }
+  
+  message DisclosurePreprocessingDuplicateContractKeys {
+    Identifier template_id = 1;
+  }
+
+  message DisclosurePreprocessingDuplicateContractIds {
+    Identifier template_id = 1;
   }
 
   // The state of the ledger at the time of the error
@@ -306,6 +314,8 @@ message ScenarioError {
     ContractDoesNotImplementInterface contract_does_not_implement_interface = 35;
     ContractDoesNotImplementRequiringInterface contract_does_not_implement_requiring_interface
     = 36;
+    DisclosurePreprocessingDuplicateContractIds disclosure_preprocessing_duplicate_contract_ids = 38;
+    DisclosurePreprocessingDuplicateContractKeys disclosure_preprocessing_duplicate_contract_keys = 39;
   }
 }
 
