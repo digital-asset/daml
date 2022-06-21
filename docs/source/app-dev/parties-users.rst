@@ -53,7 +53,7 @@ However, users are purely local to a given participant. You cannot refer to user
 Working with Parties
 ********************
 
-So how do you handle these unwieldy party ids? The primary rule is to treat them as opaque identifiers. In particular, don’t parse them, don’t make assumptions about their format, and don’t try to turn arbitrary strings into party ids. Instead, the only way to get a new party id is as the result of a party allocation. Applications should never hardcode specific parties. Instead either accept them as inputs or read them from contract or choice arguments.
+So how do you handle these unwieldy party ids? The primary rule is to treat them as *opaque identifiers*. In particular, don’t parse them, don’t make assumptions about their format, and don’t try to turn arbitrary strings into party ids. Instead, the only way to get a new party id is as the result of a party allocation. Applications should never hardcode specific parties. Instead either accept them as inputs or read them from contract or choice arguments.
 
 To illustrate this, we’ll go over the tools in the SDK and how this affects them:
 
