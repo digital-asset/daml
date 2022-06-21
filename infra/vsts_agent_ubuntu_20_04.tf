@@ -6,7 +6,7 @@ locals {
     {
       name      = "ci-u1",
       disk_size = 200,
-      size      = 30,
+      size      = 0,
       image     = "ubuntu-os-cloud/ubuntu-2004-focal-v20220606",
     },
     {
