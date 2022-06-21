@@ -382,21 +382,10 @@ object ScenarioLedger {
       ledgerData: LedgerData,
   ): Either[UniqueKeyViolation, LedgerData] = {
 
-    final case class RollbackBeginState(
-        activeContracts: Set[ContractId],
-        activeKeys: Map[GlobalKey, ContractId],
-    )
-
     final case class ProcessingNode(
         // The id of the direct parent or None.
         mbParentId: Option[NodeId],
-        // The id of the nearest rollback ancestor. If this is
-        // a rollback node itself, it points to itself.
-        mbRollbackAncestorId: Option[NodeId],
         children: List[NodeId],
-        // For rollback nodes, we store the previous state here and restore it.
-        // For exercise nodes, we don’t need to restore anything.
-        prevState: Option[RollbackBeginState],
     )
 
     @tailrec
@@ -405,20 +394,12 @@ object ScenarioLedger {
         enps: List[ProcessingNode],
     ): LedgerData = enps match {
       case Nil => cache0
-      case ProcessingNode(_, _, Nil, optPrevState) :: restENPs => {
-        val cache1 = optPrevState.fold(cache0) { case prevState =>
-          cache0.copy(
-            activeContracts = prevState.activeContracts,
-            activeKeys = prevState.activeKeys,
-          )
-        }
-        processNodes(cache1, restENPs)
+      case ProcessingNode(_, Nil) :: restENPs => {
+        processNodes(cache0, restENPs)
       }
       case (processingNode @ ProcessingNode(
             mbParentId,
-            mbRollbackAncestorId,
             nodeId :: restOfNodeIds,
-            optPrevState,
           )) :: restENPs =>
         val eventId = EventId(trId.id, nodeId)
         richTr.transaction.nodes.get(nodeId) match {
@@ -433,7 +414,7 @@ object ScenarioLedger {
               disclosures = Map.empty,
               referencedBy = Set.empty,
               consumedBy = None,
-              rolledbackBy = mbRollbackAncestorId,
+              rolledbackBy = None,
               parent = mbParentId.map(EventId(trId.id, _)),
             )
             val newCache =
@@ -442,15 +423,11 @@ object ScenarioLedger {
 
             node match {
               case rollback: Node.Rollback =>
-                val rollbackState =
-                  RollbackBeginState(newCache.activeContracts, newCache.activeKeys)
                 processNodes(
                   newCache,
                   ProcessingNode(
                     Some(nodeId),
-                    Some(nodeId),
                     rollback.children.toList,
-                    Some(rollbackState),
                   ) :: idsToProcess,
                 )
 
@@ -463,29 +440,18 @@ object ScenarioLedger {
                   newCache.updateLedgerNodeInfo(referencedCoid)(info =>
                     info.copy(referencedBy = info.referencedBy + eventId)
                   )
-
                 processNodes(newCacheP, idsToProcess)
 
               case ex: Node.Exercise =>
                 val newCache0 =
                   newCache.updateLedgerNodeInfo(ex.targetCoid)(info =>
-                    info.copy(
-                      referencedBy = info.referencedBy + eventId,
-                      consumedBy = optPrevState match {
-                        // consuming exercise outside a rollback node
-                        case None if ex.consuming => Some(eventId)
-                        case _ => info.consumedBy
-                      },
-                    )
+                    info.copy(referencedBy = info.referencedBy + eventId)
                   )
-
                 processNodes(
                   newCache0,
                   ProcessingNode(
                     Some(nodeId),
-                    mbRollbackAncestorId,
                     ex.children.toList,
-                    None,
                   ) :: idsToProcess,
                 )
 
@@ -524,27 +490,22 @@ object ScenarioLedger {
     } yield {
       val transaction = richTr.transaction.transaction
 
+      // Update ledger data with any new referenced by information
       var cachedLedgerData: LedgerData = processNodes(
         ledgerData,
-        List(ProcessingNode(None, None, richTr.transaction.roots.toList, None)),
+        List(ProcessingNode(None, richTr.transaction.roots.toList)),
       )
       // Update ledger data with any new consumed by information
       for ((contractId, nodeId) <- transaction.consumedBy) {
         cachedLedgerData = cachedLedgerData.updateLedgerNodeInfo(contractId) { ledgerNodeInfo =>
-          // FIXME: for validation of changes
-          // ledgerNodeInfo.copy(consumedBy = Some(EventId(trId.id, nodeId)))
-          assert(ledgerNodeInfo.consumedBy == Some(EventId(trId.id, nodeId)))
-          ledgerNodeInfo
+          ledgerNodeInfo.copy(consumedBy = Some(EventId(trId.id, nodeId)))
         }
       }
       // Update ledger data with any new rolled back information
       for ((nodeId, rollbackNodeId) <- transaction.rolledbackBy) {
         cachedLedgerData = cachedLedgerData.updateLedgerNodeInfo(EventId(trId.id, nodeId)) {
           ledgerNodeInfo =>
-            // FIXME: for validation of changes
-            // ledgerNodeInfo.copy(rolledbackBy = Some(rollbackNodeId))
-            assert(ledgerNodeInfo.rolledbackBy == Some(rollbackNodeId))
-            ledgerNodeInfo
+            ledgerNodeInfo.copy(rolledbackBy = Some(rollbackNodeId))
         }
       }
       // Update ledger data with any new active contract information
@@ -558,6 +519,7 @@ object ScenarioLedger {
             activeKs - key
         },
       )
+      // Update ledger data
       // NOTE(MH): Since `addDisclosures` is biased towards existing
       // disclosures, we need to add the "stronger" explicit ones first.
       cachedLedgerData = richTr.blindingInfo.disclosure.foldLeft(cachedLedgerData) {
