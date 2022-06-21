@@ -382,29 +382,21 @@ object ScenarioLedger {
       ledgerData: LedgerData,
   ): Either[UniqueKeyViolation, LedgerData] = {
 
-    final case class ProcessingNode(
-        // The id of the direct parent or None.
-        mbParentId: Option[NodeId],
-        children: List[NodeId],
-    )
-
     @tailrec
-    def processNodes(
-        cache0: LedgerData,
-        enps: List[ProcessingNode],
-    ): LedgerData = enps match {
-      case Nil => cache0
-      case ProcessingNode(_, Nil) :: restENPs => {
-        processNodes(cache0, restENPs)
-      }
-      case (processingNode @ ProcessingNode(
-            mbParentId,
-            nodeId :: restOfNodeIds,
-          )) :: restENPs =>
+    def referenceByUpdates(
+        ledgerData: LedgerData,
+        nodesToProcess: List[NodeId],
+    ): LedgerData = nodesToProcess match {
+      case Nil =>
+        ledgerData
+
+      case nodeId :: restOfNodeIds =>
         val eventId = EventId(trId.id, nodeId)
+
         richTr.transaction.nodes.get(nodeId) match {
           case None =>
             crash(s"processTransaction: non-existent node '$eventId'.")
+
           case Some(node) =>
             val newLedgerNodeInfo = LedgerNodeInfo(
               node = node,
@@ -415,60 +407,109 @@ object ScenarioLedger {
               referencedBy = Set.empty,
               consumedBy = None,
               rolledbackBy = None,
-              parent = mbParentId.map(EventId(trId.id, _)),
+              parent = Some(eventId),
             )
-            val newCache =
-              cache0.copy(nodeInfos = cache0.nodeInfos + (eventId -> newLedgerNodeInfo))
-            val idsToProcess = processingNode.copy(children = restOfNodeIds) :: restENPs
+            val newLedgerData =
+              ledgerData.copy(nodeInfos = ledgerData.nodeInfos + (eventId -> newLedgerNodeInfo))
 
             node match {
-              case rollback: Node.Rollback =>
-                processNodes(
-                  newCache,
-                  ProcessingNode(
-                    Some(nodeId),
-                    rollback.children.toList,
-                  ) :: idsToProcess,
+              case rollbackNode: Node.Rollback =>
+                referenceByUpdates(
+                  newLedgerData,
+                  rollbackNode.children.toList ++ restOfNodeIds,
                 )
 
-              case nc: Node.Create =>
-                val newCache1 = newCache.createdIn(nc.coid, eventId)
-                processNodes(newCache1, idsToProcess)
+              case createNode: Node.Create =>
+                val updatedLedgerData = newLedgerData.createdIn(createNode.coid, eventId)
+                referenceByUpdates(updatedLedgerData, restOfNodeIds)
 
-              case Node.Fetch(referencedCoid, _, _, _, _, _, _, _) =>
-                val newCacheP =
-                  newCache.updateLedgerNodeInfo(referencedCoid)(info =>
+              case fetchNode: Node.Fetch =>
+                val updatedLedgerData =
+                  newLedgerData.updateLedgerNodeInfo(fetchNode.coid)(info =>
                     info.copy(referencedBy = info.referencedBy + eventId)
                   )
-                processNodes(newCacheP, idsToProcess)
+                referenceByUpdates(updatedLedgerData, restOfNodeIds)
 
-              case ex: Node.Exercise =>
-                val newCache0 =
-                  newCache.updateLedgerNodeInfo(ex.targetCoid)(info =>
-                    info.copy(referencedBy = info.referencedBy + eventId)
+              case exerciseNode: Node.Exercise =>
+                val updatedLedgerData =
+                  newLedgerData.updateLedgerNodeInfo(exerciseNode.targetCoid)(ledgerNodeInfo =>
+                    ledgerNodeInfo.copy(referencedBy = ledgerNodeInfo.referencedBy + eventId)
                   )
-                processNodes(
-                  newCache0,
-                  ProcessingNode(
-                    Some(nodeId),
-                    ex.children.toList,
-                  ) :: idsToProcess,
+                referenceByUpdates(
+                  updatedLedgerData,
+                  exerciseNode.children.toList ++ restOfNodeIds,
                 )
 
-              case nlkup: Node.LookupByKey =>
-                nlkup.result match {
+              case lookupNode: Node.LookupByKey =>
+                lookupNode.result match {
                   case None =>
-                    processNodes(newCache, idsToProcess)
-                  case Some(referencedCoid) =>
-                    val newCacheP =
-                      newCache.updateLedgerNodeInfo(referencedCoid)(info =>
-                        info.copy(referencedBy = info.referencedBy + eventId)
-                      )
+                    referenceByUpdates(newLedgerData, restOfNodeIds)
 
-                    processNodes(newCacheP, idsToProcess)
+                  case Some(referencedCoid) =>
+                    val updatedLedgerData =
+                      newLedgerData.updateLedgerNodeInfo(referencedCoid)(ledgerNodeInfo =>
+                        ledgerNodeInfo.copy(referencedBy = ledgerNodeInfo.referencedBy + eventId)
+                      )
+                    referenceByUpdates(updatedLedgerData, restOfNodeIds)
                 }
             }
         }
+    }
+
+    def consumedByUpdates(ledgerData: LedgerData): LedgerData = {
+      var ledgerDataResult = ledgerData
+
+      for ((contractId, nodeId) <- richTr.transaction.transaction.consumedBy) {
+        ledgerDataResult = ledgerDataResult.updateLedgerNodeInfo(contractId) { ledgerNodeInfo =>
+          ledgerNodeInfo.copy(consumedBy = Some(EventId(trId.id, nodeId)))
+        }
+      }
+
+      ledgerDataResult
+    }
+
+    def rolledbackByUpdates(ledgerData: LedgerData): LedgerData = {
+      var ledgerDataResult = ledgerData
+
+      for ((nodeId, rollbackNodeId) <- richTr.transaction.transaction.rolledbackBy) {
+        ledgerDataResult = ledgerDataResult.updateLedgerNodeInfo(EventId(trId.id, nodeId)) {
+          ledgerNodeInfo =>
+            ledgerNodeInfo.copy(rolledbackBy = Some(rollbackNodeId))
+        }
+      }
+
+      ledgerDataResult
+    }
+
+    def activeContractAndKeyUpdates(ledgerData: LedgerData): LedgerData = {
+      ledgerData.copy(
+        activeContracts =
+          ledgerData.activeContracts ++ richTr.transaction.localContracts.keySet -- richTr.transaction.inactiveContracts,
+        activeKeys = richTr.transaction.updatedContractKeys.foldLeft(ledgerData.activeKeys) {
+          case (activeKeys, (key, Some(cid))) =>
+            activeKeys + (key -> cid)
+          case (activeKeys, (key, None)) =>
+            activeKeys - key
+        },
+      )
+    }
+
+    def disclosureUpdates(ledgerData: LedgerData): LedgerData = {
+      // NOTE(MH): Since `addDisclosures` is biased towards existing
+      // disclosures, we need to add the "stronger" explicit ones first.
+      richTr.blindingInfo.disclosure.foldLeft(ledgerData) { case (cacheP, (nodeId, witnesses)) =>
+        cacheP.updateLedgerNodeInfo(EventId(richTr.transactionId, nodeId))(
+          _.addDisclosures(witnesses.map(_ -> Disclosure(since = trId, explicit = true)).toMap)
+        )
+      }
+    }
+
+    def divulgenceUpdates(ledgerData: LedgerData): LedgerData = {
+      richTr.blindingInfo.divulgence.foldLeft(ledgerData) { case (cacheP, (coid, divulgees)) =>
+        cacheP.updateLedgerNodeInfo(ledgerData.coidToNodeId(coid))(
+          _.addDisclosures(divulgees.map(_ -> Disclosure(since = trId, explicit = false)).toMap)
+        )
+      }
     }
 
     val inactiveKeys = richTr.transaction.contractKeyInputs
@@ -476,6 +517,7 @@ object ScenarioLedger {
       .collect { case (key, _: Tx.KeyInactive) =>
         key
       }
+
     val duplicateKeyCheck: Either[UniqueKeyViolation, Unit] =
       inactiveKeys.find(ledgerData.activeKeys.contains(_)) match {
         case Some(duplicateKey) =>
@@ -488,56 +530,27 @@ object ScenarioLedger {
     for {
       _ <- duplicateKeyCheck
     } yield {
-      val transaction = richTr.transaction.transaction
+      var cachedLedgerData: LedgerData = ledgerData
 
       // Update ledger data with any new referenced by information
-      var cachedLedgerData: LedgerData = processNodes(
-        ledgerData,
-        List(ProcessingNode(None, richTr.transaction.roots.toList)),
+      cachedLedgerData = referenceByUpdates(
+        cachedLedgerData,
+        richTr.transaction.roots.toList,
       )
       // Update ledger data with any new consumed by information
-      for ((contractId, nodeId) <- transaction.consumedBy) {
-        cachedLedgerData = cachedLedgerData.updateLedgerNodeInfo(contractId) { ledgerNodeInfo =>
-          ledgerNodeInfo.copy(consumedBy = Some(EventId(trId.id, nodeId)))
-        }
-      }
-      // Update ledger data with any new rolled back information
-      for ((nodeId, rollbackNodeId) <- transaction.rolledbackBy) {
-        cachedLedgerData = cachedLedgerData.updateLedgerNodeInfo(EventId(trId.id, nodeId)) {
-          ledgerNodeInfo =>
-            ledgerNodeInfo.copy(rolledbackBy = Some(rollbackNodeId))
-        }
-      }
+      cachedLedgerData = consumedByUpdates(cachedLedgerData)
+      // Update ledger data with any new rolled back by information
+      cachedLedgerData = rolledbackByUpdates(cachedLedgerData)
       // Update ledger data with any new active contract information
-      cachedLedgerData = cachedLedgerData.copy(
-        activeContracts =
-          cachedLedgerData.activeContracts ++ richTr.transaction.localContracts.keySet -- richTr.transaction.inactiveContracts,
-        activeKeys = richTr.transaction.updatedContractKeys.foldLeft(cachedLedgerData.activeKeys) {
-          case (activeKs, (key, Some(cid))) =>
-            activeKs + (key -> cid)
-          case (activeKs, (key, None)) =>
-            activeKs - key
-        },
-      )
-      // Update ledger data
-      // NOTE(MH): Since `addDisclosures` is biased towards existing
-      // disclosures, we need to add the "stronger" explicit ones first.
-      cachedLedgerData = richTr.blindingInfo.disclosure.foldLeft(cachedLedgerData) {
-        case (cacheP, (nodeId, witnesses)) =>
-          cacheP.updateLedgerNodeInfo(EventId(richTr.transactionId, nodeId))(
-            _.addDisclosures(witnesses.map(_ -> Disclosure(since = trId, explicit = true)).toMap)
-          )
-      }
+      cachedLedgerData = activeContractAndKeyUpdates(cachedLedgerData)
+      // Update ledger data with any new disclosure information
+      cachedLedgerData = disclosureUpdates(cachedLedgerData)
+      // update ledger data with any new divulgence information
+      cachedLedgerData = divulgenceUpdates(cachedLedgerData)
 
-      richTr.blindingInfo.divulgence.foldLeft(cachedLedgerData) {
-        case (cacheP, (coid, divulgees)) =>
-          cacheP.updateLedgerNodeInfo(cachedLedgerData.coidToNodeId(coid))(
-            _.addDisclosures(divulgees.map(_ -> Disclosure(since = trId, explicit = false)).toMap)
-          )
-      }
+      cachedLedgerData
     }
   }
-
 }
 
 // ----------------------------------------------------------------
