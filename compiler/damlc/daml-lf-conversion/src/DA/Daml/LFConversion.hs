@@ -1,6 +1,7 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-} -- Because the pattern match checker is garbage
@@ -177,7 +178,7 @@ data Env = Env
     ,envInterfaceBinds :: MS.Map TypeConName InterfaceBinds
     ,envExceptionBinds :: MS.Map TypeConName ExceptionBinds
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
-    ,envImplements :: MS.Map TypeConName [GHC.TyCon]
+    ,envImplements :: MS.Map TypeConName [(CoreBndr, GHC.TyCon)]
     ,envRequires :: MS.Map TypeConName [GHC.TyCon]
     ,envInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
     ,envInterfaceChoiceData :: MS.Map TypeConName [ChoiceData]
@@ -436,15 +437,15 @@ interfaceNames lfVersion tyThings
         ]
     | otherwise = MS.empty
 
-convertInterfaceTyCon :: Env -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
-convertInterfaceTyCon env tycon
+convertInterfaceTyCon :: Env -> (forall e. GHC.TyCon -> ConvertM e) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
+convertInterfaceTyCon env errHandler tycon
     | hasDamlInterfaceCtx tycon = do
         lfType <- convertTyCon env tycon
         case lfType of
             TCon con -> pure con
             _ -> unhandled "interface type" tycon
     | otherwise =
-        unhandled "interface type" tycon
+        errHandler tycon
 
 convertInterfaces :: Env -> [(Var, GHC.Expr Var)] -> ConvertM [Definition]
 convertInterfaces env binds = interfaceDefs
@@ -462,7 +463,7 @@ convertInterfaces env binds = interfaceDefs
         let precond = fromMaybe (error $ "Missing precondition for interface " <> show intName)
                         $ (MS.lookup intName $ envInterfaceBinds env) >>= ibEnsure
         withRange intLocation $ do
-            intRequires <- fmap S.fromList $ mapM (convertInterfaceTyCon env) $
+            intRequires <- fmap S.fromList $ mapM (convertInterfaceTyCon env $ unhandled "interface type") $
                 MS.findWithDefault [] intName (envRequires env)
             intMethods <- NM.fromList <$> convertMethods tyCon
             intChoices <- convertChoices env intName emptyTemplateBinds
@@ -545,7 +546,7 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
           ]
         envInterfaces = interfaceNames envLfVersion (eltsUFM (cm_types x))
         envImplements = MS.fromListWith (++)
-          [ (mkTypeCon [getOccText tpl], [iface])
+          [ (mkTypeCon [getOccText tpl], [(name, iface)])
           | (name, _val) <- binds
           , "_implements_" `T.isPrefixOf` getOccText name
           , TypeCon implementsT [TypeCon tpl [], TypeCon iface []] <- [varType name]
@@ -969,8 +970,11 @@ convertImplements :: Env -> LF.TypeConName -> ConvertM (NM.NameMap TemplateImple
 convertImplements env tpl = NM.fromList <$>
   mapM convertInterface (MS.findWithDefault [] tpl (envImplements env))
   where
-    convertInterface iface = do
-      con <- convertInterfaceTyCon env iface
+    convertInterface :: (CoreBndr, GHC.TyCon) -> ConvertM TemplateImplements
+    convertInterface (originatingConstructor, iface) = withRange (convNameLoc originating) $ do
+      let handleIsNotInterface tyCon =
+            conversionError $ "cannot implement '" ++ GHC.showSDocUnsafe (ppr tyCon) ++ "' because it is not an interface"
+      con <- convertInterfaceTyCon env handleIsNotInterface iface
       let mod = nameModule (getName iface)
 
       methods <- convertMethods $ MS.findWithDefault []
