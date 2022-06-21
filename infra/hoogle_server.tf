@@ -304,6 +304,7 @@ resource "google_compute_target_https_proxy" "hoogle-https" {
   url_map = google_compute_url_map.hoogle-https.self_link
 
   ssl_certificates = [local.ssl_certificate_hoogle]
+  ssl_policy       = google_compute_ssl_policy.ssl_policy.self_link
 }
 
 resource "google_compute_global_forwarding_rule" "hoogle_https" {
