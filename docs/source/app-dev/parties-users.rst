@@ -15,7 +15,7 @@ This represents a change from earlier versions of Daml, and the differences betw
 Parties in SDK 1.18 and Previous
 ********************************
 
-First, let's recap how parties worked in SDK 1.18. Parties could be fully user-controlled via the party id hint, which could be specified on party allocation, e.g., via Daml Script’s allocatePartyWithHint. The call allocatePartyWithHint “Alice” (PartyIdHint “alice”) allocated a party with the display name Alice and the party id alice. If a party with the id alice already existed, the allocation failed. This had a few implications:
+First, let's recap how parties worked in SDK 1.18. Parties could be fully user-controlled via the party id hint, which could be specified on party allocation, e.g., via Daml Script’s ``allocatePartyWithHint``. The call ``allocatePartyWithHint "Alice" (PartyIdHint "alice")`` allocated a party with the display name Alice and the party id ``alice``. If a party with the id ``alice`` already existed, the allocation failed. This had a few implications:
 
 - You could allocate the same party id even if you restarted your ledger.
 
