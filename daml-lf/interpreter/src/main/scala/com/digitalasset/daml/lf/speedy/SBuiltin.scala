@@ -25,7 +25,6 @@ import com.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
   Node,
-  Versioned,
   Transaction => Tx,
 }
 import com.daml.lf.value.{Value => V}
@@ -1071,24 +1070,32 @@ private[lf] object SBuiltin {
           }
           machine.returnValue = cached.any
         case None =>
-          throw SpeedyHungry(
-            SResultNeedContract(
-              coid,
-              onLedger.committers,
-              { case Versioned(_, V.ContractInstance(actualTmplId, arg, _)) =>
-                machine.pushKont(KCacheContract(machine, coid))
-                machine.ctrl = SEApp(
-                  // The call to ToCachedContractDefRef(actualTmplId) will query package
-                  // of actualTmplId if not know.
-                  SEVal(ToCachedContractDefRef(actualTmplId)),
-                  Array(
-                    SEImportValue(Ast.TTyCon(actualTmplId), arg),
-                    SEValue(args.get(1)),
-                  ),
-                )
-              },
+          def continue = { case V.ContractInstance(actualTmplId, arg, _) =>
+            machine.pushKont(KCacheContract(machine, coid))
+            machine.ctrl = SEApp(
+              // The call to ToCachedContractDefRef(actualTmplId) will query package
+              // of actualTmplId if not know.
+              SEVal(ToCachedContractDefRef(actualTmplId)),
+              Array(
+                SEImportValue(Ast.TTyCon(actualTmplId), arg),
+                SEValue(args.get(1)),
+              ),
             )
-          )
+          }: V.ContractInstance => Unit
+          machine.disclosureTable.contractById.get(SContractId(coid)) match {
+            case Some((templateId, arg)) =>
+              val coinst = machine.normValue(templateId, arg)
+              continue(V.ContractInstance(templateId, coinst, ""))
+            case None =>
+              throw SpeedyHungry(
+                SResultNeedContract(
+                  coid,
+                  onLedger.committers,
+                  continue,
+                )
+              )
+          }
+
       }
 
     }
@@ -1465,33 +1472,43 @@ private[lf] object SBuiltin {
               operation.handleKnownInputKey(machine, gkey, keyMapping)
           }
         case Left(handle) =>
-          throw SpeedyHungry(
-            SResultNeedKey(
-              GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
-              onLedger.committers,
-              { result =>
-                val (keyMapping, next) = handle(result)
-                onLedger.ptx = onLedger.ptx.copy(contractState = next)
-                keyMapping match {
-                  case ContractStateMachine.KeyActive(coid) =>
-                    // We do not call directly machine.checkKeyVisibility as it may throw an SError,
-                    // and such error cannot be throw inside a SpeedyHungry continuation.
-                    machine.pushKont(
-                      KCheckKeyVisibility(machine, gkey, coid, operation.handleKeyFound)
-                    )
-                    if (onLedger.cachedContracts.contains(coid)) {
-                      machine.returnValue = SUnit
-                    } else {
-                      // SBFetchAny will populate onLedger.cachedContracts with the contract pointed by coid
-                      machine.ctrl = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
-                    }
-                    true
-                  case ContractStateMachine.KeyInactive =>
-                    operation.handleKeyNotFound(machine, gkey)
+          def continue = { result =>
+            val (keyMapping, next) = handle(result)
+            onLedger.ptx = onLedger.ptx.copy(contractState = next)
+            keyMapping match {
+              case ContractStateMachine.KeyActive(coid) =>
+                // We do not call directly machine.checkKeyVisibility as it may throw an SError,
+                // and such error cannot be throw inside a SpeedyHungry continuation.
+                machine.pushKont(
+                  KCheckKeyVisibility(machine, gkey, coid, operation.handleKeyFound)
+                )
+                if (onLedger.cachedContracts.contains(coid)) {
+                  machine.returnValue = SUnit
+                } else {
+                  // SBFetchAny will populate onLedger.cachedContracts with the contract pointed by coid
+                  machine.ctrl = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
                 }
-              },
-            )
-          )
+                true
+              case ContractStateMachine.KeyInactive =>
+                operation.handleKeyNotFound(machine, gkey)
+            }
+          }: Option[V.ContractId] => Boolean
+
+          // TODO (drsk) validate key hash. https://github.com/digital-asset/daml/issues/13897
+          machine.disclosureTable.contractIdByKey.get(gkey.hash) match {
+            case Some(coid) =>
+              val vcoid = coid.value
+              discard(continue(Some(vcoid)))
+            case None => {
+              throw SpeedyHungry(
+                SResultNeedKey(
+                  GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
+                  onLedger.committers,
+                  continue,
+                )
+              )
+            }
+          }
       }
     }
   }

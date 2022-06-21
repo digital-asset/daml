@@ -10,7 +10,7 @@ import com.daml.lf.engine.{Engine, ValueEnricher, Result, ResultDone, ResultErro
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
-import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.daml.lf.value.Value.{ContractId, ContractInstance}
 import com.daml.lf.speedy._
 import com.daml.lf.speedy.SExpr.{SExpr, SEValue, SEApp}
 import com.daml.lf.speedy.SResult._
@@ -175,7 +175,7 @@ object ScenarioRunner {
         coid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
-        cbPresent: VersionedContractInstance => Unit,
+        cbPresent: ContractInstance => Unit,
     ): Either[Error, Unit]
     def lookupKey(
         machine: Speedy.Machine,
@@ -201,7 +201,7 @@ object ScenarioRunner {
         acoid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
-        callback: VersionedContractInstance => Unit,
+        callback: ContractInstance => Unit,
     ): Either[Error, Unit] =
       handleUnsafe(lookupContractUnsafe(acoid, actAs, readAs, callback))
 
@@ -209,7 +209,7 @@ object ScenarioRunner {
         acoid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
-        callback: VersionedContractInstance => Unit,
+        callback: ContractInstance => Unit,
     ) = {
 
       val effectiveAt = ledger.currentTime
@@ -398,7 +398,10 @@ object ScenarioRunner {
       warningLog = warningLog,
       commitLocation = location,
       limits = interpretation.Limits.Lenient,
+      disclosedContracts = ImmArray.Empty,
     )
+    // TODO (drsk) validate and propagate errors back to submitter
+    // https://github.com/digital-asset/daml/issues/14108
     val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
     val enricher = if (doEnrichment) new EnricherImpl(compiledPackages) else NoEnricher
     import enricher._
@@ -408,7 +411,7 @@ object ScenarioRunner {
       ledgerMachine.run() match {
         case SResult.SResultFinalValue(resultValue) =>
           onLedger.ptxInternal.finish match {
-            case PartialTransaction.CompleteTransaction(tx, locationInfo, _, _) =>
+            case PartialTransaction.CompleteTransaction(tx, locationInfo, _, _, _) =>
               ledger.commit(committers, readAs, location, enrich(tx), locationInfo) match {
                 case Left(err) =>
                   SubmissionError(err, enrich(onLedger.incompleteTransaction))

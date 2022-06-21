@@ -176,6 +176,7 @@ private[lf] object PartialTransaction {
       submissionTime: Time.Timestamp,
       initialSeeds: InitialSeeding,
       committers: Set[Party],
+      disclosedContracts: ImmArray[DisclosedContract],
   ) = PartialTransaction(
     submissionTime = submissionTime,
     nextNodeIdx = 0,
@@ -185,6 +186,7 @@ private[lf] object PartialTransaction {
     aborted = None,
     contractState = new ContractStateMachine[NodeId](contractKeyUniqueness).initial,
     actionNodeLocations = BackStack.empty,
+    disclosedContracts = disclosedContracts,
   )
 
   @throws[SError.SErrorCrash]
@@ -204,6 +206,7 @@ private[lf] object PartialTransaction {
       locationInfo: Map[NodeId, Location],
       seeds: NodeSeeds,
       globalKeyMapping: Map[GlobalKey, KeyMapping],
+      disclosedContracts: ImmArray[DisclosedContract],
   ) extends Result
   final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
 }
@@ -234,6 +237,7 @@ private[speedy] case class PartialTransaction(
     aborted: Option[Tx.TransactionError],
     contractState: ContractStateMachine[NodeId]#State,
     actionNodeLocations: BackStack[Option[Location]],
+    disclosedContracts: ImmArray[DisclosedContract],
 ) {
 
   import PartialTransaction._
@@ -321,6 +325,7 @@ private[speedy] case class PartialTransaction(
           locationInfo(),
           seeds.zip(actionNodeSeeds.toImmArray),
           contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
+          disclosedContracts,
         )
       case _ =>
         IncompleteTransaction(this)

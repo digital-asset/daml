@@ -189,7 +189,7 @@ object ScenarioLedger {
 
   final case class LookupOk(
       coid: ContractId,
-      coinst: VersionedContractInstance,
+      coinst: ContractInstance,
       stakeholders: Set[Party],
   ) extends LookupResult
   final case class LookupContractNotFound(coid: ContractId) extends LookupResult
@@ -626,7 +626,11 @@ case class ScenarioLedger(
                 create.stakeholders,
               )
             else
-              LookupOk(coid, create.versionedCoinst, create.stakeholders)
+              LookupOk(
+                coid,
+                create.versionedCoinst.unversioned,
+                create.stakeholders,
+              )
 
           case _: Node.Exercise | _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback =>
             LookupContractNotFound(coid)
