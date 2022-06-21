@@ -114,7 +114,7 @@ can install it as follows:
   Artifactory user profile.
   - The Enterprise edition includes Canton. You can download Canton from this `repository <https://digitalasset.jfrog.io/artifactory/canton-enterprise/>`_ 
   , or use the Canton Enterprise Docker images as described in our `Docker instructions <https://www.canton.io/docs/dev/user-manual/usermanual/docker.html#docker-instructions>`_. 
-  - After downloading Canton, unpack it in the directory you want or follow the instructions found `here <https://www.canton.io/docs/dev/user-manual/usermanual/docker.html#starting-canton> to run in Docker.
+  - After downloading Canton, unpack it in the directory you want or `follow the instructions found here <https://www.canton.io/docs/dev/user-manual/usermanual/docker.html#starting-canton>`_ to run in Docker.
 
 .. code-block:: yaml
 
