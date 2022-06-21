@@ -260,14 +260,15 @@ prettyErr lfVersion err = case err of
     SSC.ExceptionError e -> DA.Pretty.string $ show e
 
 
-activeContracts :: SS.ScenarioResult -> S.Set TL.Text
-activeContracts result =
+activeContractsFromScenarioResult :: SS.ScenarioResult -> S.Set TL.Text
+activeContractsFromScenarioResult result =
     S.fromList (V.toList (SS.scenarioResultActiveContracts result))
+
 
 prettyResult :: SS.ScenarioResult -> DA.Pretty.Doc Pretty.SyntaxClass
 prettyResult result =
     let nTx = length (SS.scenarioResultScenarioSteps result)
-        nActive = length $ filter (SS.isActive (activeContracts result)) (V.toList (SS.scenarioResultNodes result))
+        nActive = length $ filter (SS.isActive (activeContractsFromScenarioResult result)) (V.toList (SS.scenarioResultNodes result))
     in DA.Pretty.typeDoc_ "ok, "
     <> DA.Pretty.int nActive <> DA.Pretty.typeDoc_ " active contracts, "
     <> DA.Pretty.int nTx <> DA.Pretty.typeDoc_ " transactions."

@@ -132,6 +132,10 @@ parseNodeId =
   where
     dropHash s = fromMaybe s $ stripPrefix "#" s
 
+activeContractsFromScenarioError :: ScenarioError -> S.Set TL.Text
+activeContractsFromScenarioError err =
+    S.fromList (V.toList (SS.scenarioErrorActiveContracts err))
+
 prettyScenarioResult
   :: LF.World -> S.Set TL.Text -> ScenarioResult -> Doc SyntaxClass
 prettyScenarioResult world activeContracts (ScenarioResult steps nodes retValue _finaltime traceLog warnings _) =
@@ -1094,9 +1098,8 @@ renderScenarioError world err = TL.toStrict $ Blaze.renderHtml $ do
             H.style $ H.text Pretty.highlightStylesheet
             H.script "" H.! A.src "$webviewSrc"
             H.link H.! A.rel "stylesheet" H.! A.href "$webviewCss"
-        let activeContracts = S.fromList (V.toList (scenarioErrorActiveContracts err))
         let tableView = do
-                table <- renderTableView world activeContracts (scenarioErrorNodes err)
+                table <- renderTableView world (activeContractsFromScenarioError err) (scenarioErrorNodes err)
                 pure $ H.div H.! A.class_ "table" $ do
                   Pretty.renderHtml 128 $ annotateSC ErrorSC "Script execution failed, displaying state before failing transaction"
                   table
