@@ -87,7 +87,6 @@ da_scala_library(
         "//libs-scala/ports",
         "//ledger/test-common:dar-files-%s-lib" % "1.14",
         "//language-support/scala/bindings",
-        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//ledger/test-common:dar-files-default-lib",
