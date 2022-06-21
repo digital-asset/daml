@@ -5,7 +5,7 @@ package com.daml.platform.apiserver
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.error.definitions.DamlError
-import com.daml.error.definitions.LedgerApiErrors.{HeapMemoryOverLimit, QueueSizeOverLimit}
+import com.daml.error.definitions.LedgerApiErrors.{HeapMemoryOverLimit, ThreadpoolOverloaded}
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.metrics.{MetricName, Metrics}
 import com.daml.platform.apiserver.RateLimitingInterceptor.doNonLimit
@@ -56,7 +56,6 @@ private[apiserver] final class RateLimitingInterceptor(
     serviceOverloaded(fullMethodName) match {
 
       case Some(damlError) =>
-        logger.info(s"gRPC call rate limited: $damlError [limited method is $fullMethodName]")
         val statusRuntimeException = damlError.asGrpcError
         call.close(statusRuntimeException.getStatus, statusRuntimeException.getTrailers)
         new ServerCall.Listener[ReqT]() {}
@@ -72,14 +71,18 @@ private[apiserver] final class RateLimitingInterceptor(
       None
     } else {
       (for {
-        _ <- memoryOverloaded()
-        _ <- queueUnderLimit(apiServices, config.maxApiServicesQueueSize)
-        _ <- queueUnderLimit(indexDbThreadpool, config.maxApiServicesIndexDbQueueSize)
+        _ <- memoryOverloaded(fullMethodName)
+        _ <- queueUnderLimit(apiServices, config.maxApiServicesQueueSize, fullMethodName)
+        _ <- queueUnderLimit(
+          indexDbThreadpool,
+          config.maxApiServicesIndexDbQueueSize,
+          fullMethodName,
+        )
       } yield ()).fold(Some.apply, _ => None)
     }
   }
 
-  private def memoryOverloaded(): Either[DamlError, Unit] = {
+  private def memoryOverloaded(fullMethodName: String): Either[DamlError, Unit] = {
     tenuredMemoryPool.fold[Either[DamlError, Unit]](Right(())) { p =>
       if (p.isCollectionUsageThresholdExceeded) {
         val expectedThreshold =
@@ -87,10 +90,12 @@ private[apiserver] final class RateLimitingInterceptor(
         if (p.getCollectionUsageThreshold == expectedThreshold) {
           // Based on a combination of JvmMetricSet and MemoryUsageGaugeSet
           val poolBeanMetricPrefix = s"jvm_memory_usage_pools_${p.getName}"
-          val damlError = HeapMemoryOverLimit.Rejection(s"""
-               | The ${p.getName} collection usage threshold has exceeded the maximum (${p.getCollectionUsageThreshold}).
-               | Jvm memory metrics are available at $poolBeanMetricPrefix
-            """.stripMargin)
+          val damlError = HeapMemoryOverLimit.Rejection(
+            memoryPool = p.getName,
+            limit = p.getCollectionUsageThreshold,
+            metricPrefix = poolBeanMetricPrefix,
+            fullMethodName = fullMethodName,
+          )
           gc()
           Left(damlError)
         } else {
@@ -126,15 +131,17 @@ private[apiserver] final class RateLimitingInterceptor(
   private def queueUnderLimit(
       count: InstrumentedCount,
       limit: Int,
+      fullMethodName: String,
   ): Either[DamlError, Unit] = {
     val queued = count.queueSize
     if (queued > limit) {
-
-      val damlError = QueueSizeOverLimit.Rejection(s"""
-           | The ${count.name} queue size ($queued) has exceeded the maximum ($limit).
-           | Api services metrics are available at ${count.prefix}.
-          """.stripMargin)
-
+      val damlError = ThreadpoolOverloaded.Rejection(
+        name = count.name,
+        queued = queued,
+        limit = limit,
+        metricPrefix = count.prefix,
+        fullMethodName = fullMethodName,
+      )
       Left(damlError)
     } else {
       Right(())
