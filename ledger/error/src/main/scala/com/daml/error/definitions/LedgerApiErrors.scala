@@ -67,7 +67,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   }
 
   @Explanation(
-    "This error happens when the combined use of all objects in a JVM heap pool exceed the configured limit."
+    "This error happens when the combined use of all objects in a JVM heap pool exceeds the configured limit."
   )
   @Resolution(
     """The following actions can be taken:
