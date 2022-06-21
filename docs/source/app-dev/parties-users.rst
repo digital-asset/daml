@@ -26,7 +26,7 @@ First, let's recap how parties worked in SDK 1.18. Parties could be fully user-c
 Parties in SDK 2.0 and Subsequent
 *********************************
 
-In Daml 2.0 and later versions, when you allocate a party with a given hint Alice either in the sandbox or on a production ledger you will get back a party id like Alice::1220f2fe29866fd6a0009ecc8a64ccdc09f1958bd0f801166baaee469d1251b2eb72. The prefix before the double colon corresponds to the hint specified on party allocation. If the hint is not specified, it defaults to party-${randomUUID}. The suffix is the fingerprint of the public key that can authorize topology transactions for this party. Keys are generated randomly, so the suffix will look different locally and every time you restart Sandbox, you will get a different party id. This has a few new implications:
+In Daml 2.0 and later versions, when you allocate a party with a given hint Alice either in the sandbox or on a production ledger you will get back a party id like ``Alice::1220f2fe29866fd6a0009ecc8a64ccdc09f1958bd0f801166baaee469d1251b2eb72``. The prefix before the double colon corresponds to the hint specified on party allocation. If the hint is not specified, it defaults to ``party-${randomUUID}``. The suffix is the fingerprint of the public key that can authorize topology transactions for this party. Keys are generated randomly, so the suffix will look different locally and every time you restart Sandbox, you will get a different party id. This has a few new implications:
 
 - You can no longer allocate a party with a fixed party id. While you have some control over the prefix, we do not recommend that you rely on that to identify parties.
 
