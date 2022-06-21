@@ -300,13 +300,13 @@ Errors raised by or forwarded by the Ledger API.
 HEAP_MEMORY_OVER_LIMIT
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: This error happens when the combined use of all objects in a JVM heap pool exceed the configured limit.
+    **Explanation**: This error happens when the JVM heap memory pool exceeds a pre-configured limit.
 
     **Category**: ContentionOnSharedResources
 
     **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
 
-    **Resolution**: The following actions can be taken: 1. Review the historical use of heap space by inspecting the metric given in the message. 2. Review the current heap space limits configured in the rate limiting configuration. 3. Try to space out requests that are likely to require are large amount of memory to process.
+    **Resolution**: The following actions can be taken: 1. Review the historical use of heap space by inspecting the metric given in the message. 2. Review the current heap space limits configured in the rate limiting configuration. 3. Try to space out requests that are likely to require a large amount of memory to process.
 
 
 
@@ -359,22 +359,6 @@ PARTICIPANT_BACKPRESSURE
 
 
 
-.. _error_code_QUEUE_SIZE_OVER_LIMIT:
-
-QUEUE_SIZE_OVER_LIMIT
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This happens when the rate of submitted gRPC requests requires more CPU or database power than is available.
-
-    **Category**: ContentionOnSharedResources
-
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
-
-    **Resolution**: The following actions can be taken: 1. Review the historical queue size growth by inspecting the metric given in the message. 2. Review the maximum queue size limits configured in the rate limiting configuration. 3. Try to space out requests that are likely to require are large a lot of CPU or database power.
-
-
-
-
 .. _error_code_REQUEST_TIME_OUT:
 
 REQUEST_TIME_OUT
@@ -419,6 +403,22 @@ SERVICE_NOT_RUNNING
     **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status UNAVAILABLE including a detailed error message
 
     **Resolution**: Retry re-submitting the request. If the error persists, contact the participant operator.
+
+
+
+
+.. _error_code_THREADPOOL_OVERLOADED:
+
+THREADPOOL_OVERLOADED
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This happens when the rate of submitted gRPC requests requires more CPU or database power than is available.
+
+    **Category**: ContentionOnSharedResources
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+
+    **Resolution**: The following actions can be taken: Here the 'queue size' for the threadpool = 'submitted tasks' - 'completed tasks' - 'running tasks' 1. Review the historical 'queue size' growth by inspecting the metric given in the message. 2. Review the maximum 'queue size' limits configured in the rate limiting configuration. 3. Try to space out requests that are likely to require a lot of CPU or database power.       
 
 
 
