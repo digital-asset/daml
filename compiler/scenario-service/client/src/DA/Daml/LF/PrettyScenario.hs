@@ -134,7 +134,7 @@ parseNodeId =
 
 activeContractsFromScenarioError :: ScenarioError -> S.Set TL.Text
 activeContractsFromScenarioError err =
-    S.fromList (V.toList (SS.scenarioErrorActiveContracts err))
+    S.fromList (V.toList (scenarioErrorActiveContracts err))
 
 prettyScenarioResult
   :: LF.World -> S.Set TL.Text -> ScenarioResult -> Doc SyntaxClass
