@@ -210,7 +210,7 @@ jobs:
   timeoutInMinutes: 360
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals ci2
+    demands: assignment -equals default
   steps:
     - template: report-start.yml
     - checkout: self
