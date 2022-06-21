@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory
 
 import java.lang.management._
 import java.util.concurrent.atomic.AtomicLong
-import java.util.regex.Pattern
 import javax.management.ObjectName
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters.ListHasAsScala
@@ -90,7 +89,8 @@ private[apiserver] final class RateLimitingInterceptor(
           config.calculateCollectionUsageThreshold(p.getCollectionUsage.getMax)
         if (p.getCollectionUsageThreshold == expectedThreshold) {
           // Based on a combination of JvmMetricSet and MemoryUsageGaugeSet
-          val poolBeanMetricPrefix = s"jvm_memory_usage_pools_${p.getName.replaceAll("\\s+", "_")}"
+          val poolBeanMetricPrefix =
+            "jvm_memory_usage_pools_%s".format(p.getName.replaceAll("\\s+", "_"))
           val damlError = HeapMemoryOverLimit.Rejection(
             memoryPool = p.getName,
             limit = p.getCollectionUsageThreshold,
