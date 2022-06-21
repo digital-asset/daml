@@ -34,7 +34,6 @@ da_scala_test(
         "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/participant-integration-api",
-        "//ledger/sandbox-common",
         "//libs-scala/doobie-slf4j",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
