@@ -8,7 +8,7 @@ import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.api.v1.commands.ExerciseByKeyCommand
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.model.Foo._
+import com.daml.ledger.test.benchtool.Foo._
 
 import java.util.concurrent.atomic.AtomicLong
 

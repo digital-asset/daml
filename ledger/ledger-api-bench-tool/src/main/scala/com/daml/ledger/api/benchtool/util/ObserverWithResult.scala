@@ -11,6 +11,7 @@ import org.slf4j.Logger
 import scala.concurrent.{Future, Promise}
 
 object ClientCancelled extends Exception
+
 abstract class ObserverWithResult[RespT, Result](logger: Logger)
     extends ClientResponseObserver[Any, RespT] {
 

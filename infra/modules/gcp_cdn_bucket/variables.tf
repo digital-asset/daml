@@ -7,7 +7,7 @@ variable "name" {
 
 variable "labels" {
   description = "Labels to apply on all the resources"
-  type        = map
+  type        = map(any)
   default     = {}
 }
 
@@ -21,6 +21,10 @@ variable "region" {
 
 variable "ssl_certificate" {
   description = "A reference to the SSL certificate, google managed or not"
+}
+
+variable "ssl_policy" {
+  description = "The url of an SSL policy to use."
 }
 
 variable "cache_retention_days" {

@@ -6,7 +6,7 @@ package com.daml.ledger.api.benchtool.submission
 import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.api.v1.value.Value
 import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.model.Foo.Divulger
+import com.daml.ledger.test.benchtool.Foo.Divulger
 
 object FooDivulgerCommandGenerator {
 

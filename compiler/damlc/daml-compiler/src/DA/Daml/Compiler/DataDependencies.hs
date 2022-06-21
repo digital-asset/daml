@@ -739,8 +739,9 @@ generateSrcFromLf env = noLoc mod
                 [ mkConDecl (occNameFor conName) (PrefixCon [])
                 | conName <- cons
                 ]
-
-        LF.DataInterface -> pure []
+        LF.DataInterface -> do
+            opaque <- mkGhcType env "Opaque"
+            pure [mkConDecl occName (PrefixCon [noLoc opaque])]
       where
         occName = mkOccName varName (T.unpack dataTypeCon0)
         occNameFor (LF.VariantConName c) = mkOccName varName (T.unpack c)

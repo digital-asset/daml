@@ -334,9 +334,10 @@ jobs:
       - bash: |
           set -euo pipefail
           eval "$(dev-env/bin/dade assist)"
+          source $(bash_lib)
 
           bazel build //ci/cron:cron
-          bazel-bin/ci/cron/cron check --bash-lib $(bash_lib) --gcp-creds "$GCRED"
+          wrap_gcloud "$GCRED" "bazel-bin/ci/cron/cron check --bash-lib $(bash_lib)"
         displayName: check releases
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)

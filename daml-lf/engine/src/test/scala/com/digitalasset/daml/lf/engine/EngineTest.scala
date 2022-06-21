@@ -28,6 +28,7 @@ import com.daml.lf.speedy.{ArrayList, InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.engine.Error.Interpretation
+import com.daml.lf.engine.Error.Interpretation.DamlException
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import org.scalactic.Equality
@@ -1997,6 +1998,18 @@ class EngineTest
       )
       run(command) shouldBe a[Right[_, _]]
     }
+    // TEST_EVIDENCE: Semantics: Rollback creates cannot be exercise
+    "creates in rollback are rolled back" in {
+      val command = ApiCommand.CreateAndExercise(
+        tId,
+        ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        "ExerciseAfterRollbackCreate",
+        ValueRecord(None, ImmArray.empty),
+      )
+      inside(run(command)) {
+        case Left(Interpretation(DamlException(interpretation.Error.ContractNotFound(_)), _)) =>
+      }
+    }
   }
 
   "action node seeds" should {
@@ -2146,13 +2159,13 @@ class EngineTest
         ("LookupTwice", emptyArg, 1),
         ("LookupAfterCreate", emptyArg, 0),
         ("LookupAfterCreateArchive", emptyArg, 0),
-        ("LookupAfterFetch", cidArg, 1),
-        ("LookupAfterArchive", cidArg, 1),
+        ("LookupAfterFetch", cidArg, 0),
+        ("LookupAfterArchive", cidArg, 0),
         ("LookupAfterRollbackCreate", emptyArg, 0),
         ("LookupAfterRollbackLookup", emptyArg, 1),
         ("LookupAfterArchiveAfterRollbackLookup", cidArg, 1),
       )
-      forAll(cases) { case (choice, argument, lookups) =>
+      forEvery(cases) { case (choice, argument, lookups) =>
         val command = ApiCommand.CreateAndExercise(
           tId,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),

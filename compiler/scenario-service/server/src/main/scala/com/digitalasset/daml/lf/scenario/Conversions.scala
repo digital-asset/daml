@@ -135,7 +135,7 @@ final class Conversions(
                     .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
                     .build
                 )
-              case LocalContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
+              case ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
                 builder.setScenarioContractKeyNotVisible(
                   proto.ScenarioError.ContractKeyNotVisible.newBuilder
                     .setContractRef(mkContractRef(coid, gk.templateId))
@@ -561,6 +561,11 @@ final class Conversions(
             .setTemplateId(convertIdentifier(fetch.templateId))
             .addAllSignatories(fetch.signatories.map(convertParty).asJava)
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
+        if (fetch.byKey) {
+          fetch.versionedKey.foreach { key =>
+            fetchBuilder.setFetchByKey(convertKeyWithMaintainers(key))
+          }
+        }
         builder.setFetch(fetchBuilder.build)
       case ex: Node.Exercise =>
         nodeInfo.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
@@ -582,6 +587,11 @@ final class Conversions(
             )
         ex.exerciseResult.foreach { result =>
           exerciseBuilder.setExerciseResult(convertValue(result))
+        }
+        if (ex.byKey) {
+          ex.versionedKey.foreach { key =>
+            exerciseBuilder.setExerciseByKey(convertKeyWithMaintainers(key))
+          }
         }
         builder.setExercise(exerciseBuilder.build)
 

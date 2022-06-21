@@ -143,7 +143,7 @@ conformance_test(
 
 # This deliberately uses the deploy.jar since that’s what we ship
 # and we want to test that the extract option works there.
-# Given subleties in classpaths, it could potentially work
+# Given subtleties in classpaths, it could potentially work
 # in the non-deploy jar.
 sh_test(
     name = "test-extract",

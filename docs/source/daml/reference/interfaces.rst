@@ -117,6 +117,32 @@ Required Interfaces
 - An interface can depend on other interfaces. These are specified with the
   ``requires`` keyword after the interface name but before the
   ``where`` keyword, separated by commas.
+- For an interface declaration to be valid, its list of required interfaces
+  must be transitively closed. In other words, an interface ``I`` cannot
+  require an interface ``J`` without also explicitly requiring all the
+  interfaces required by ``J``. The order, however, is irrelevant.
+
+  For example, given
+
+  .. literalinclude:: ../code-snippets-dev/Interfaces.daml
+     :language: daml
+     :start-after: -- INTERFACE_TRANSITIVE_REQUIRES_GIVEN_BEGIN
+     :end-before: -- INTERFACE_TRANSITIVE_REQUIRES_GIVEN_END
+
+  This declaration for interface ``Square`` would cause a compiler error
+
+  .. literalinclude:: ../code-snippets-dev/Interfaces.daml
+     :language: daml
+     :start-after: -- INTERFACE_TRANSITIVE_REQUIRES_INCORRECT_BEGIN
+     :end-before: -- INTERFACE_TRANSITIVE_REQUIRES_INCORRECT_END
+
+  Explicitly adding ``Shape`` to the required interfaces fixes the error
+
+  .. literalinclude:: ../code-snippets-dev/Interfaces.daml
+     :language: daml
+     :start-after: -- INTERFACE_TRANSITIVE_REQUIRES_CORRECT_BEGIN
+     :end-before: -- INTERFACE_TRANSITIVE_REQUIRES_CORRECT_END
+
 - For a template's implementation of an interface to be valid, all its required
   interfaces must also be implemented by the template.
 - If the interface doesn't have any methods, precondition or choices,

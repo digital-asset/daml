@@ -4,26 +4,21 @@
 package com.daml.platform.apiserver
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.error.definitions.DamlError
+import com.daml.error.definitions.LedgerApiErrors.{HeapMemoryOverLimit, ThreadpoolOverloaded}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.metrics.{MetricName, Metrics}
 import com.daml.platform.apiserver.RateLimitingInterceptor.doNonLimit
 import com.daml.platform.apiserver.TenuredMemoryPool.findTenuredMemoryPool
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.configuration.ServerRole
-import io.grpc.Status.Code
 import io.grpc._
-import io.grpc.protobuf.StatusProto
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.duration._
-import java.lang.management.{
-  ManagementFactory,
-  MemoryMXBean,
-  MemoryPoolMXBean,
-  MemoryType,
-  MemoryUsage,
-}
+import java.lang.management._
 import java.util.concurrent.atomic.AtomicLong
 import javax.management.ObjectName
+import scala.concurrent.duration._
 import scala.jdk.CollectionConverters.ListHasAsScala
 
 private[apiserver] final class RateLimitingInterceptor(
@@ -33,7 +28,8 @@ private[apiserver] final class RateLimitingInterceptor(
     memoryMxBean: GcThrottledMemoryBean,
 ) extends ServerInterceptor {
 
-  private val logger = LoggerFactory.getLogger(getClass)
+  private implicit val logger: ContextualizedErrorLogger =
+    DamlContextualizedErrorLogger.forClass(getClass)
 
   /** Match naming in [[com.codahale.metrics.InstrumentedExecutorService]] */
   private case class InstrumentedCount(name: String, prefix: MetricName) {
@@ -56,19 +52,12 @@ private[apiserver] final class RateLimitingInterceptor(
       next: ServerCallHandler[ReqT, RespT],
   ): ServerCall.Listener[ReqT] = {
 
-    serviceOverloaded(call.getMethodDescriptor.getFullMethodName) match {
-      case Some(errorMessage) =>
-        val rpcStatus = com.google.rpc.Status
-          .newBuilder()
-          .setCode(Code.ABORTED.value())
-          .setMessage(errorMessage)
-          .build()
+    val fullMethodName = call.getMethodDescriptor.getFullMethodName
+    serviceOverloaded(fullMethodName) match {
 
-        logger.info(s"gRPC call rejected: $rpcStatus")
-
-        val exception = StatusProto.toStatusRuntimeException(rpcStatus)
-
-        call.close(exception.getStatus, exception.getTrailers)
+      case Some(damlError) =>
+        val statusRuntimeException = damlError.asGrpcError
+        call.close(statusRuntimeException.getStatus, statusRuntimeException.getTrailers)
         new ServerCall.Listener[ReqT]() {}
 
       case None =>
@@ -77,38 +66,39 @@ private[apiserver] final class RateLimitingInterceptor(
 
   }
 
-  private def serviceOverloaded(fullMethodName: String): Option[String] = {
+  private def serviceOverloaded(fullMethodName: String): Option[DamlError] = {
     if (doNonLimit.contains(fullMethodName)) {
       None
     } else {
       (for {
         _ <- memoryOverloaded(fullMethodName)
-        _ <- metricOverloaded(fullMethodName, apiServices, config.maxApiServicesQueueSize)
-        _ <- metricOverloaded(
-          fullMethodName,
+        _ <- queueUnderLimit(apiServices, config.maxApiServicesQueueSize, fullMethodName)
+        _ <- queueUnderLimit(
           indexDbThreadpool,
           config.maxApiServicesIndexDbQueueSize,
+          fullMethodName,
         )
       } yield ()).fold(Some.apply, _ => None)
     }
   }
 
-  private def memoryOverloaded(fullMethodName: String): Either[String, Unit] = {
-    tenuredMemoryPool.fold[Either[String, Unit]](Right(())) { p =>
+  private def memoryOverloaded(fullMethodName: String): Either[DamlError, Unit] = {
+    tenuredMemoryPool.fold[Either[DamlError, Unit]](Right(())) { p =>
       if (p.isCollectionUsageThresholdExceeded) {
         val expectedThreshold =
           config.calculateCollectionUsageThreshold(p.getCollectionUsage.getMax)
         if (p.getCollectionUsageThreshold == expectedThreshold) {
           // Based on a combination of JvmMetricSet and MemoryUsageGaugeSet
-          val poolBeanMetricPrefix = s"jvm_memory_usage_pools_${p.getName}"
-          val rpcStatus =
-            s"""
-               | The ${p.getName} collection usage threshold has exceeded the maximum (${p.getCollectionUsageThreshold}).
-               | The rejected call was $fullMethodName.
-               | Jvm memory metrics are available at $poolBeanMetricPrefix
-            """.stripMargin
+          val poolBeanMetricPrefix =
+            "jvm_memory_usage_pools_%s".format(p.getName.replaceAll("\\s+", "_"))
+          val damlError = HeapMemoryOverLimit.Rejection(
+            memoryPool = p.getName,
+            limit = p.getCollectionUsageThreshold,
+            metricPrefix = poolBeanMetricPrefix,
+            fullMethodName = fullMethodName,
+          )
           gc()
-          Left[String, Unit](rpcStatus)
+          Left(damlError)
         } else {
           // In experimental testing the size of the tenured memory pool did not change.  However the API docs,
           // see https://docs.oracle.com/javase/8/docs/api/java/lang/management/MemoryUsage.html
@@ -139,21 +129,21 @@ private[apiserver] final class RateLimitingInterceptor(
     memoryMxBean.gc()
   }
 
-  private def metricOverloaded(
-      fullMethodName: String,
+  private def queueUnderLimit(
       count: InstrumentedCount,
       limit: Int,
-  ): Either[String, Unit] = {
+      fullMethodName: String,
+  ): Either[DamlError, Unit] = {
     val queued = count.queueSize
     if (queued > limit) {
-      val rpcStatus =
-        s"""
-           | The ${count.name} queue size ($queued) has exceeded the maximum ($limit).
-           | The rejected call was $fullMethodName.
-           | Api services metrics are available at ${count.prefix}.
-          """.stripMargin
-
-      Left(rpcStatus)
+      val damlError = ThreadpoolOverloaded.Rejection(
+        name = count.name,
+        queued = queued,
+        limit = limit,
+        metricPrefix = count.prefix,
+        fullMethodName = fullMethodName,
+      )
+      Left(damlError)
     } else {
       Right(())
     }

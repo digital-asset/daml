@@ -1651,6 +1651,25 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
         , "z f g = f <<< g &&& id"
         ]
 
+    , simpleImportTestOptions "No 'inaccessible RHS' when pattern matching on interface"
+        [ "--target=1.dev" ]
+        [ "module Lib where"
+
+        , "interface I"
+        ]
+        [ "{-# OPTIONS_GHC -Werror #-}"
+        , "module Main where"
+        , "import Lib"
+
+        , "isJustI : Optional I -> Bool"
+        , "isJustI mI = case mI of"
+            -- If `I` lacks constructors, GHC infers the first case alternative
+            -- to be inaccessible, since it's isomorphic to `Some (_ : Void)`,
+            -- which can't be constructed.
+        , "  Some _ -> True"
+        , "  None -> False"
+        ]
+
     , dataDependenciesTestOptions "implement interface from data-dependency"
         [ "--target=1.dev" ]
         [   (,) "Lib.daml"
@@ -2468,8 +2487,11 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
     ]
   where
     simpleImportTest :: String -> [String] -> [String] -> TestTree
-    simpleImportTest title lib main =
-        dataDependenciesTest title [("Lib.daml", lib)] [("Main.daml", main)]
+    simpleImportTest title = simpleImportTestOptions title []
+
+    simpleImportTestOptions :: String -> [String] -> [String] -> [String] -> TestTree
+    simpleImportTestOptions title options lib main =
+        dataDependenciesTestOptions title options [("Lib.daml", lib)] [("Main.daml", main)]
 
     dataDependenciesTest :: String -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
     dataDependenciesTest title = dataDependenciesTestOptions title []

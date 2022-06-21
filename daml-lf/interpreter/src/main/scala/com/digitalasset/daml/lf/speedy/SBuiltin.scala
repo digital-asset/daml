@@ -1062,11 +1062,13 @@ private[lf] object SBuiltin {
       val coid = getSContractId(args, 0)
       onLedger.cachedContracts.get(coid) match {
         case Some(cached) =>
-          onLedger.ptx.consumedBy
-            .get(coid)
-            .foreach(nid =>
+          onLedger.ptx.consumedByOrInactive(coid) match {
+            case Some(Left(nid)) =>
               throw SErrorDamlException(IE.ContractNotActive(coid, cached.templateId, nid))
-            )
+            case Some(Right(())) =>
+              throw SErrorDamlException(IE.ContractNotFound(coid))
+            case None => ()
+          }
           machine.returnValue = cached.any
         case None =>
           throw SpeedyHungry(
@@ -1457,10 +1459,9 @@ private[lf] object SBuiltin {
         case Right((keyMapping, next)) =>
           onLedger.ptx = onLedger.ptx.copy(contractState = next)
           keyMapping match {
-            case ContractStateMachine.KeyActive(coid)
-                if onLedger.ptx.localContracts.contains(coid) =>
+            case ContractStateMachine.KeyActive(coid) =>
               machine.checkKeyVisibility(onLedger, gkey, coid, operation.handleKeyFound)
-            case _ =>
+            case ContractStateMachine.KeyInactive =>
               operation.handleKnownInputKey(machine, gkey, keyMapping)
           }
         case Left(handle) =>
@@ -1476,7 +1477,7 @@ private[lf] object SBuiltin {
                     // We do not call directly machine.checkKeyVisibility as it may throw an SError,
                     // and such error cannot be throw inside a SpeedyHungry continuation.
                     machine.pushKont(
-                      KCheckKeyVisibitiy(machine, gkey, coid, operation.handleKeyFound)
+                      KCheckKeyVisibility(machine, gkey, coid, operation.handleKeyFound)
                     )
                     if (onLedger.cachedContracts.contains(coid)) {
                       machine.returnValue = SUnit

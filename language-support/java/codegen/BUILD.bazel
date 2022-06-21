@@ -357,7 +357,6 @@ da_scala_test(
         "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/ledger-runner-common",
         "//ledger/participant-integration-api",
-        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//libs-scala/ports",

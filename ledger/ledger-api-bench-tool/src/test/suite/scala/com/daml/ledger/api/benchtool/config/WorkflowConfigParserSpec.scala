@@ -111,6 +111,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               maxItemCount = Some(700),
+              timeoutInSecondsO = None,
             )
           ),
         )
@@ -242,6 +243,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               maxItemCount = None,
+              timeoutInSecondsO = None,
             )
           ),
         )
@@ -286,6 +288,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               maxItemCount = None,
+              timeoutInSecondsO = None,
             )
           ),
         )
@@ -320,6 +323,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               endOffset = Some(offset("bar")),
               objectives = None,
               maxItemCount = None,
+              timeoutInSecondsO = None,
             )
           ),
         )
@@ -366,6 +370,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               maxItemCount = None,
+              timeoutInSecondsO = None,
             )
           ),
         )
@@ -404,6 +409,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               maxItemCount = None,
+              timeoutInSecondsO = None,
             )
           ),
         )
@@ -438,7 +444,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   maxItemRate = Some(345),
                 )
               ),
-              timeoutInSeconds = 100,
+              timeoutInSecondsO = Some(100),
               maxItemCount = Some(101L),
             )
           ),
@@ -474,6 +480,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               endOffset = Some(ledgerEndOffset),
               objectives = None,
               maxItemCount = None,
+              timeoutInSecondsO = None,
             )
           ),
         )

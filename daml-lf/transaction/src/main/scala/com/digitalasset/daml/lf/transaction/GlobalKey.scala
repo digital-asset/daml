@@ -49,22 +49,15 @@ final case class GlobalKeyWithMaintainers(
   * This is always turned on with the exception of Canton which allows turning this on or off
   * and forces it to be turned off in multi-domain mode.
   */
-sealed trait ContractKeyUniquenessMode extends Product with Serializable {
+sealed abstract class ContractKeyUniquenessMode extends Product with Serializable
 
-  /** Whether only by-key nodes (including creates) are considered for contract key uniqueness */
-  def byKeyOnly: Boolean
-}
 object ContractKeyUniquenessMode {
 
-  /** Considers only by-key and create nodes for the contract key uniqueness checks */
-  sealed trait ContractByKeyUniquenessMode extends ContractKeyUniquenessMode {
-    override def byKeyOnly: Boolean = true
-  }
-  case object On extends ContractByKeyUniquenessMode
-  case object Off extends ContractByKeyUniquenessMode
+  /** Disable key uniqueness checks and only consider byKey operations.
+    *      Note that no stable semantics are provided for off mode.
+    */
+  case object Off extends ContractKeyUniquenessMode
 
-  /** Considers all nodes mentioning keys for contract key uniqueness */
-  case object Strict extends ContractKeyUniquenessMode {
-    override def byKeyOnly: Boolean = false
-  }
+  /** Considers all nodes mentioning keys as byKey operations and checks for contract key uniqueness. */
+  case object Strict extends ContractKeyUniquenessMode
 }

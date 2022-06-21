@@ -56,7 +56,6 @@ hj_scalacopts = lf_scalacopts + [
             "//ledger/ledger-runner-common",
             "//ledger/metrics",
             "//ledger/participant-integration-api",
-            "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
             "//ledger/sandbox-on-x",
             "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
             "//libs-scala/contextualized-logging",
