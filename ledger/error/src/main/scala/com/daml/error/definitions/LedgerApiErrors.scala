@@ -119,7 +119,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     """The following actions can be taken:
       |1. Review the historical queue size growth by inspecting the metric given in the message.
       |2. Review the maximum queue size limits configured in the rate limiting configuration.
-      |3. Try to space out requests that are likely to require are large a lot of CPU or database power."""
+      |3. Try to space out requests that are likely to require a lot of CPU or database power."""
   )
   object QueueSizeOverLimit
       extends ErrorCode(
