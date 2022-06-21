@@ -114,7 +114,7 @@ object InMemoryStateUpdater {
     // the order here is very important: first we need to make data available for point-wise lookups
     // and SQL queries, and only then we can make it available on the streams.
     // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
-    participantInMemoryState.dispatcher().signalNewHead(lastOffset)
+    participantInMemoryState.dispatcherState.getDispatcher.signalNewHead(lastOffset)
     logger.debug(s"Updated ledger end at offset $lastOffset - $lastEventSequentialId")
   }
 
@@ -158,6 +158,7 @@ object InMemoryStateUpdater {
       offset: Offset,
       u: TransactionAccepted,
   ): TransactionLogUpdate.Transaction = {
+    // TODO LLP: Extract in common functionality together with duplicated code in [[UpdateToDbDto]]
     val rawEvents = u.transaction.transaction
       .foldInExecutionOrder(List.empty[(NodeId, Node)])(
         exerciseBegin = (acc, nid, node) => ((nid -> node) :: acc, ChildrenRecursion.DoRecurse),
