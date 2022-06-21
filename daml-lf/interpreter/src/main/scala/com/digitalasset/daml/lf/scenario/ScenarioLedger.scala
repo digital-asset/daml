@@ -23,7 +23,6 @@ import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
 import scala.collection.immutable
-import scala.reflect.io.File
 
 /** An in-memory representation of a ledger for scenarios */
 object ScenarioLedger {
@@ -523,68 +522,54 @@ object ScenarioLedger {
     for {
       _ <- duplicateKeyCheck
     } yield {
-      val cacheAfterProcess = processNodes(
+      val transaction = richTr.transaction.transaction
+
+      var cachedLedgerData: LedgerData = processNodes(
         ledgerData,
         List(ProcessingNode(None, None, richTr.transaction.roots.toList, None)),
       )
-      val transaction = richTr.transaction.transaction
-      val nodeIdToEventId = (id: NodeId) => EventId(richTr.transactionId, id)
-      val postProcessedCache = cacheAfterProcess.copy(
-        nodeInfos = cacheAfterProcess.nodeInfos.map {
-          case (eventId, ledgerNodeInfo) =>
-            val consumedBy = ledgerNodeInfo.node match {
-              case createNode: Node.Create =>
-                transaction.consumedBy.get(createNode.coid).map(nodeIdToEventId)
-
-              case fetchNode: Node.Fetch =>
-                transaction.consumedBy.get(fetchNode.coid).map(nodeIdToEventId)
-
-              case _: Node =>
-                None
-            }
-            val updatedLedgerNodeInfo = ledgerNodeInfo.copy(
-              consumedBy = consumedBy,
-              rolledbackBy = transaction.rolledbackBy.get(eventId.nodeId),
-            )
-
-            (eventId, updatedLedgerNodeInfo)
+      // Update ledger data with any new consumed by information
+      for ((contractId, nodeId) <- transaction.consumedBy) {
+        cachedLedgerData = cachedLedgerData.updateLedgerNodeInfo(contractId) { ledgerNodeInfo =>
+          // FIXME: for validation of changes
+          // ledgerNodeInfo.copy(consumedBy = Some(EventId(trId.id, nodeId)))
+          assert(ledgerNodeInfo.consumedBy == Some(EventId(trId.id, nodeId)))
+          ledgerNodeInfo
         }
-      )
-      // TODO: for refactor validation only - to be removed
-      def printToFile(content: String, location: String = "/Users/carlpulley/dump.txt") =
-        File(location).appendAll(content + "\n")
-      if (postProcessedCache.nodeInfos != cacheAfterProcess.nodeInfos) {
-        printToFile(s"DEBUGGY-expected: ${cacheAfterProcess.nodeInfos}")
-        printToFile(s"DEBUGGY-consumedBy-actual: ${postProcessedCache.nodeInfos.map(entry => (entry._1, entry._2.consumedBy))}")
-        printToFile(s"DEBUGGY-consumedBy-expected: ${cacheAfterProcess.nodeInfos.map(entry => (entry._1, entry._2.consumedBy))}")
-        printToFile(s"DEBUGGY-rolledbackBy-actual: ${postProcessedCache.nodeInfos.map(entry => (entry._1, entry._2.rolledbackBy))}")
-        printToFile(s"DEBUGGY-rolledbackBy-expected: ${cacheAfterProcess.nodeInfos.map(entry => (entry._1, entry._2.rolledbackBy))}")
       }
-      val cacheActiveness =
-        cacheAfterProcess.copy(
-          activeContracts =
-            cacheAfterProcess.activeContracts ++ richTr.transaction.localContracts.keySet -- richTr.transaction.inactiveContracts,
-          activeKeys =
-            richTr.transaction.updatedContractKeys.foldLeft(cacheAfterProcess.activeKeys) {
-              case (activeKs, (key, Some(cid))) =>
-                activeKs + (key -> cid)
-              case (activeKs, (key, None)) =>
-                activeKs - key
-            },
-        )
+      // Update ledger data with any new rolled back information
+      for ((nodeId, rollbackNodeId) <- transaction.rolledbackBy) {
+        cachedLedgerData = cachedLedgerData.updateLedgerNodeInfo(EventId(trId.id, nodeId)) {
+          ledgerNodeInfo =>
+            // FIXME: for validation of changes
+            // ledgerNodeInfo.copy(rolledbackBy = Some(rollbackNodeId))
+            assert(ledgerNodeInfo.rolledbackBy == Some(rollbackNodeId))
+            ledgerNodeInfo
+        }
+      }
+      // Update ledger data with any new active contract information
+      cachedLedgerData = cachedLedgerData.copy(
+        activeContracts =
+          cachedLedgerData.activeContracts ++ richTr.transaction.localContracts.keySet -- richTr.transaction.inactiveContracts,
+        activeKeys = richTr.transaction.updatedContractKeys.foldLeft(cachedLedgerData.activeKeys) {
+          case (activeKs, (key, Some(cid))) =>
+            activeKs + (key -> cid)
+          case (activeKs, (key, None)) =>
+            activeKs - key
+        },
+      )
       // NOTE(MH): Since `addDisclosures` is biased towards existing
       // disclosures, we need to add the "stronger" explicit ones first.
-      val cacheWithExplicitDisclosures =
-        richTr.blindingInfo.disclosure.foldLeft(cacheActiveness) {
-          case (cacheP, (nodeId, witnesses)) =>
-            cacheP.updateLedgerNodeInfo(EventId(richTr.transactionId, nodeId))(
-              _.addDisclosures(witnesses.map(_ -> Disclosure(since = trId, explicit = true)).toMap)
-            )
-        }
+      cachedLedgerData = richTr.blindingInfo.disclosure.foldLeft(cachedLedgerData) {
+        case (cacheP, (nodeId, witnesses)) =>
+          cacheP.updateLedgerNodeInfo(EventId(richTr.transactionId, nodeId))(
+            _.addDisclosures(witnesses.map(_ -> Disclosure(since = trId, explicit = true)).toMap)
+          )
+      }
 
-      richTr.blindingInfo.divulgence.foldLeft(cacheWithExplicitDisclosures) {
+      richTr.blindingInfo.divulgence.foldLeft(cachedLedgerData) {
         case (cacheP, (coid, divulgees)) =>
-          cacheP.updateLedgerNodeInfo(cacheWithExplicitDisclosures.coidToNodeId(coid))(
+          cacheP.updateLedgerNodeInfo(cachedLedgerData.coidToNodeId(coid))(
             _.addDisclosures(divulgees.map(_ -> Disclosure(since = trId, explicit = false)).toMap)
           )
       }
