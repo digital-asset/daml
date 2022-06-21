@@ -385,7 +385,7 @@ object ScenarioLedger {
     @tailrec
     def referenceByUpdates(
         ledgerData: LedgerData,
-        nodesToProcess: List[NodeId],
+        nodesToProcess: List[NodeId] = richTr.transaction.roots.toList,
     ): LedgerData = nodesToProcess match {
       case Nil =>
         ledgerData
@@ -533,10 +533,7 @@ object ScenarioLedger {
       var cachedLedgerData: LedgerData = ledgerData
 
       // Update ledger data with any new referenced by information
-      cachedLedgerData = referenceByUpdates(
-        cachedLedgerData,
-        richTr.transaction.roots.toList,
-      )
+      cachedLedgerData = referenceByUpdates(cachedLedgerData)
       // Update ledger data with any new consumed by information
       cachedLedgerData = consumedByUpdates(cachedLedgerData)
       // Update ledger data with any new rolled back by information
@@ -545,7 +542,7 @@ object ScenarioLedger {
       cachedLedgerData = activeContractAndKeyUpdates(cachedLedgerData)
       // Update ledger data with any new disclosure information
       cachedLedgerData = disclosureUpdates(cachedLedgerData)
-      // update ledger data with any new divulgence information
+      // Update ledger data with any new divulgence information
       cachedLedgerData = divulgenceUpdates(cachedLedgerData)
 
       cachedLedgerData
