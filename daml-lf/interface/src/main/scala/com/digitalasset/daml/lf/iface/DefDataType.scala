@@ -212,6 +212,29 @@ final case class DefTemplate[+Ty](
   }
 
   def getKey: j.Optional[_ <: Ty] = toOptional(key)
+
+  private[iface] def extendWithInterface[OTy >: Ty](
+      ifaceName: Ref.TypeConName,
+      ifc: DefInterface[OTy],
+  ): DefTemplate[OTy] = {
+    import TemplateChoices.{Resolved, Unresolved}
+    copy(
+      implementedInterfaces = implementedInterfaces :+ ifaceName,
+      tChoices = tChoices match {
+        case unr @ Unresolved(_, sources) =>
+          unr.copy(unresolvedChoiceSources = sources incl ifaceName)
+        // If unresolved, we need only add ifc as a future interface to resolve;
+        // otherwise, we must self-resolve and add to preexisting resolutions
+        case r @ Resolved(rc) =>
+          type K[C] = Semigroup[Resolved.Choices[C]]
+          r.copy(resolvedChoices =
+            FirstVal
+              .unsubst[K, TemplateChoice[OTy]](Semigroup.apply)
+              .append(rc, ifc choicesAsResolved ifaceName)
+          )
+      },
+    )
+  }
 }
 
 object DefTemplate {
@@ -419,25 +442,8 @@ final case class DefInterface[+Ty](
   private[iface] def resolveRetroImplements[S, OTy >: Ty](selfName: Ref.TypeConName, s: S)(
       setTemplate: SetterAt[Ref.TypeConName, S, DefTemplate[OTy]]
   ): (S, DefInterface[OTy]) = {
-    def addMySelf(dt: DefTemplate[OTy]) = {
-      import TemplateChoices.{Resolved, Unresolved}
-      dt.copy(
-        implementedInterfaces = dt.implementedInterfaces :+ selfName,
-        tChoices = dt.tChoices match {
-          case unr @ Unresolved(_, sources) =>
-            unr.copy(unresolvedChoiceSources = sources incl selfName)
-          // If unresolved, we need only add self as a future interface to resolve;
-          // otherwise, we must self-resolve and add to preexisting resolutions
-          case r @ Resolved(rc) =>
-            type K[C] = Semigroup[Resolved.Choices[C]]
-            r.copy(resolvedChoices =
-              FirstVal
-                .unsubst[K, TemplateChoice[OTy]](Semigroup.apply)
-                .append(rc, choicesAsResolved(selfName))
-            )
-        },
-      )
-    }
+    def addMySelf(dt: DefTemplate[OTy]) =
+      dt.extendWithInterface(selfName, this)
 
     val lookup = setTemplate.lift
     retroImplements
