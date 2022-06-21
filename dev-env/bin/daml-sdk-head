@@ -210,7 +210,7 @@ if [[ "$SKIP_JARS" -eq 0 ]]; then
     }
     trap cleanup EXIT
 
-    bazel build //release:release
+    bazel build ${BAZEL_MODE_FLAGS[@]:-} //release:release
     tmp="$(mktemp -d)"
     RELEASE_ARGS=(--release-dir "$tmp" --install-head-jars --no-ts)
     if [[ "$SKIP_JAR_DOCS" -eq 1 ]]; then
