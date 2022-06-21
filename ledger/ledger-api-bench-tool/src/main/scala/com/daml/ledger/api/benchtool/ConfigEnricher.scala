@@ -5,7 +5,7 @@ package com.daml.ledger.api.benchtool
 
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig
 import com.daml.ledger.api.v1.value.Identifier
-import com.daml.ledger.test.model.Foo.{Foo1, Foo2, Foo3}
+import com.daml.ledger.test.benchtool.Foo.{Foo1, Foo2, Foo3}
 import scalaz.syntax.tag._
 
 object ConfigEnricher {

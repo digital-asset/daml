@@ -4,6 +4,7 @@
 package com.daml.ledger.api.benchtool.submission
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.api.benchtool.BenchtoolSandboxFixture
 import com.daml.ledger.api.benchtool.config.WorkflowConfig
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig.{
   ConsumingExercises,
@@ -14,7 +15,6 @@ import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.binding
-import com.daml.platform.sandbox.fixture.SandboxFixture
 import org.scalatest.AppendedClues
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -23,7 +23,7 @@ import scala.concurrent.Future
 
 class FooCommandSubmitterITSpec
     extends AsyncFlatSpec
-    with SandboxFixture
+    with BenchtoolSandboxFixture
     with SuiteResourceManagementAroundAll
     with Matchers
     with AppendedClues {

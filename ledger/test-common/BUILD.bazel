@@ -38,6 +38,7 @@ alias(
         ),
     ]
     for (target_prefix, target_suffix) in [
+        ("benchtool-tests", ".dar"),
         ("model-tests", ".dar"),
         ("dar-files", ""),
         ("dar-files", "-lib"),
@@ -87,6 +88,7 @@ alias(
 
 # Correspond to the directories under src/test/lib/daml
 test_names = [
+    "benchtool",
     "model",
     "semantic",
     "performance",
