@@ -133,7 +133,7 @@ final case class Interface(
     * @param setTemplate Used to look up templates that can't be found in this
     *                    interface
     */
-  def resolveRetroImplements[S](
+  private def resolveRetroImplements[S](
       s: S
   )(setTemplate: SetterAt[Ref.TypeConName, S, DefTemplate.FWT]): (S, Interface) = {
     val outside = setTemplate.lift
@@ -181,7 +181,7 @@ object Interface {
 
   // Given a lookup function for package state setters, produce a lookup function
   // for setters on specific templates in that set of packages.
-  def setPackageTemplates[S](
+  private[this] def setPackageTemplates[S](
       findPackage: PartialFunction[(S, PackageId), (Interface, Interface => S)]
   ): SetterAt[Ref.TypeConName, S, DefTemplate.FWT] = {
     val pkg = findPackage.lift
