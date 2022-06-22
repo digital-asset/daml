@@ -1,0 +1,70 @@
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1.admin;
+
+option java_outer_classname = "ConfigManagementServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1.admin";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+service ImplementationService {
+
+  // Activate the implementations in a given package.
+  // Requires actAs claims for the party providing the implementations.
+  // TODO are we happy with making this a synchronous endpoint?
+  rpc ActivateImplementation (ActivateImplementationRequest) returns (ActivateImplementationResponse);
+
+  // Deactivate the implementations in a given package.
+  // Requires actAs claims for the party providing the implementations.
+  // TODO are we happy with making this a synchronous endpoint?
+  rpc DeactivateImplementation (DeactivateImplementationRequest) returns (DeactivateImplementationResponse);
+}
+
+message ActivateImplementationRequest {
+  /// The party providing the implementations.
+  // Required
+  string party = 1;
+  // The ID of the package containing the implementations to be activated.
+  // Required
+  string package_id = 2;
+  // The implementations package_id should be used for. If not set
+  // all implementations in the package are activated.
+  // Required
+  repeated InterfaceImplementation implementations;
+}
+
+message ActivateImplementationResponse {
+}
+
+message DeactivateImplementationRequest {
+  /// The party providing the implementations.
+  // Required
+  string party = 1;
+  // The ID of the package containing the implementations to be deactivated.
+  // Required
+  string package_id = 2;
+  // The implementations package_id should no longer be used for. If not set
+  // all implementations in the package are deactivated.
+  // Required
+  repeated InterfaceImplementation implementations;
+}
+
+message DeactivateImplementationResponse {
+}
+
+
+
+// Identifier for an interface implementation for a given template & interface.
+message InterfaceImplementation {
+  // The interface that is being implemented.
+  // Required
+  Identifier interface_id = 1;
+  // The template implementing the interface.
+  // Required
+  Identifier template_id = 2;
+}
