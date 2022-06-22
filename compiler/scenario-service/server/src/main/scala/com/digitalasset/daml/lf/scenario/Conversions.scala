@@ -284,7 +284,9 @@ final class Conversions(
     val builder = proto.CommitError.newBuilder
     commitError match {
       case ScenarioLedger.CommitError.UniqueKeyViolation(gk) =>
-        builder.setUniqueKeyViolation(convertGlobalKey(gk.gk))
+        builder.setUniqueKeyViolation(convertGlobalKey(gk))
+      case ScenarioLedger.CommitError.ContractNotActive(coid, tid) =>
+        builder.setContractNotActive(mkContractRef(coid, tid))
     }
     builder.build
   }

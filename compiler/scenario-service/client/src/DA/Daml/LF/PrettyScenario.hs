@@ -332,6 +332,11 @@ prettyScenarioErrorError (Just err) =  do
         , "for template"
         , nest 2 (prettyMay "<missing template id>" (prettyDefName world) (globalKeyTemplateId gk))
         ]
+    ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumContractNotActive ref))) -> do
+      pure $ vcat
+        [ "Attempt to exercise an inactive contract."
+        , "Contract:" <-> (prettyContractRef world ref)
+        ]
 
     ScenarioErrorErrorUnknownContext ctxId ->
       pure $ "Unknown script interpretation context:" <-> string (show ctxId)

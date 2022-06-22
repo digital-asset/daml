@@ -224,7 +224,11 @@ object ScenarioLedger {
   sealed trait CommitError
   object CommitError {
     final case class UniqueKeyViolation(
-        error: ScenarioLedger.UniqueKeyViolation
+        key: GlobalKey
+    ) extends CommitError
+    final case class ContractNotActive(
+        coid: ContractId,
+        templateId: Identifier
     ) extends CommitError
   }
 
@@ -246,7 +250,7 @@ object ScenarioLedger {
     val transactionId = l.scenarioStepId.id
     val richTr = RichTransaction(actAs, readAs, effectiveAt, transactionId, tx)
     processTransaction(l.scenarioStepId, richTr, locationInfo, l.ledgerData) match {
-      case Left(err) => Left(CommitError.UniqueKeyViolation(err))
+      case Left(err) => Left(err)
       case Right(updatedCache) =>
         Right(
           CommitResult(
@@ -389,14 +393,12 @@ object ScenarioLedger {
 
   }
 
-  case class UniqueKeyViolation(gk: GlobalKey)
-
   private def processTransaction(
       trId: TransactionId,
       richTr: RichTransaction,
       locationInfo: Map[NodeId, Location],
       ledgerData: LedgerData,
-  ): Either[UniqueKeyViolation, LedgerData] = {
+  ): Either[CommitError, LedgerData] = {
 
     final case class RollbackBeginState(
         activeContracts: Set[ContractId],
@@ -417,9 +419,9 @@ object ScenarioLedger {
 
     @tailrec
     def processNodes(
-        mbCache0: Either[UniqueKeyViolation, LedgerData],
+        mbCache0: Either[CommitError, LedgerData],
         enps: List[ProcessingNode],
-    ): Either[UniqueKeyViolation, LedgerData] = {
+    ): Either[CommitError, LedgerData] = {
       mbCache0 match {
         case Left(err) => Left(err)
         case Right(cache0) =>
@@ -485,47 +487,48 @@ object ScenarioLedger {
                           val gk = GlobalKey.assertBuild(nc.templateId, keyWithMaintainers.key)
                           newCache1.activeKeys.get(gk) match {
                             case None => Right(newCache1.addKey(gk, nc.coid))
-                            case Some(_) => Left(UniqueKeyViolation(gk))
+                            case Some(_) => Left(CommitError.UniqueKeyViolation(gk))
                           }
                       }
                       processNodes(mbNewCache2, idsToProcess)
 
-                    case Node.Fetch(referencedCoid, templateId @ _, _, _, _, _, _, _) =>
+                    case Node.Fetch(referencedCoid, templateId @ _, _, _, _, _, _, _) if newCache.activeContracts.contains(referencedCoid) =>
                       val newCacheP =
                         newCache.updateLedgerNodeInfo(referencedCoid)(info =>
                           info.copy(referencedBy = info.referencedBy + eventId)
                         )
 
                       processNodes(Right(newCacheP), idsToProcess)
+                    case Node.Fetch(referencedCoid, templateId @ _, _, _, _, _, _, _) =>
+                      Left(CommitError.ContractNotActive(referencedCoid, templateId))                    
 
-                    case ex: Node.Exercise =>
-                      val newCache0 =
-                        newCache.updateLedgerNodeInfo(ex.targetCoid)(info =>
-                          info.copy(
-                            referencedBy = info.referencedBy + eventId,
-                            consumedBy = optPrevState match {
-                              // consuming exercise outside a rollback node
-                              case None if ex.consuming => Some(eventId)
-                              case _ => info.consumedBy
-                            },
+                    case ex: Node.Exercise if newCache.activeContracts.contains(ex.targetCoid) =>
+                        val newCache0 =
+                          newCache.updateLedgerNodeInfo(ex.targetCoid)(info =>
+                            info.copy(
+                              referencedBy = info.referencedBy + eventId,
+                              consumedBy = optPrevState match {
+                                // consuming exercise outside a rollback node
+                                case None if ex.consuming => Some(eventId)
+                                case _ => info.consumedBy
+                              },
+                            )
                           )
-                        )
-                      val newCache1 =
-                        if (ex.consuming) {
-                          val newCache0_1 = newCache0.markAsInactive(ex.targetCoid)
-                          val nc = newCache0_1
-                            .nodeInfoByCoid(ex.targetCoid)
-                            .node
-                            .asInstanceOf[Node.Create]
-                          nc.key match {
-                            case None => newCache0_1
-                            case Some(keyWithMaintainers) =>
-                              newCache0_1.removeKey(
-                                GlobalKey.assertBuild(ex.templateId, keyWithMaintainers.key)
-                              )
-                          }
-                        } else newCache0
-
+                        val newCache1 =
+                          if (ex.consuming) {
+                            val newCache0_1 = newCache0.markAsInactive(ex.targetCoid)
+                            val nc = newCache0_1
+                              .nodeInfoByCoid(ex.targetCoid)
+                              .node
+                              .asInstanceOf[Node.Create]
+                            nc.key match {
+                              case None => newCache0_1
+                              case Some(keyWithMaintainers) =>
+                                newCache0_1.removeKey(
+                                  GlobalKey.assertBuild(ex.templateId, keyWithMaintainers.key)
+                                )
+                            }
+                          } else newCache0
                       processNodes(
                         Right(newCache1),
                         ProcessingNode(
@@ -535,6 +538,8 @@ object ScenarioLedger {
                           None,
                         ) :: idsToProcess,
                       )
+                    case ex: Node.Exercise =>
+                        Left(CommitError.ContractNotActive(ex.targetCoid, ex.templateId))                    
 
                     case nlkup: Node.LookupByKey =>
                       nlkup.result match {
