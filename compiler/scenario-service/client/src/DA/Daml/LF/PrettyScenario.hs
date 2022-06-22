@@ -4,7 +4,8 @@
 
 -- | Pretty-printing of scenario results
 module DA.Daml.LF.PrettyScenario
-  ( prettyScenarioResult
+  ( activeContractsFromScenarioResult
+  , prettyScenarioResult
   , prettyScenarioError
   , prettyBriefScenarioError
   , prettyWarningMessage
@@ -131,6 +132,10 @@ parseNodeId =
   . nodeIdId
   where
     dropHash s = fromMaybe s $ stripPrefix "#" s
+
+activeContractsFromScenarioResult :: ScenarioResult -> S.Set TL.Text
+activeContractsFromScenarioResult result =
+    S.fromList (V.toList (scenarioResultActiveContracts result))
 
 activeContractsFromScenarioError :: ScenarioError -> S.Set TL.Text
 activeContractsFromScenarioError err =

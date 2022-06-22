@@ -467,7 +467,9 @@ sealed abstract class HasTxNodes {
   }
 
   /** Keys are contracts (that have been consumed) and values are the nodes where the contract was consumed.
-    * Under rollback nodes, consumed contracts are ignored (as they have been rolled back).
+    * Nodes under rollbacks (both exercises and creates) are ignored (as they have been rolled back).
+    * The result includes both local contracts created in the transaction (if they’ve been consumed) as well as global
+    * contracts created in previous transactions. It does not include local contracts created under a rollback.
     */
   final def consumedBy: Map[ContractId, NodeId] =
     foldInExecutionOrder[Map[ContractId, NodeId]](HashMap.empty)(
@@ -490,35 +492,33 @@ sealed abstract class HasTxNodes {
     */
   final def rolledbackBy: Map[NodeId, NodeId] =
     foldInExecutionOrder[(Map[NodeId, NodeId], Seq[NodeId])]((HashMap.empty, Vector.empty))(
-      exerciseBegin = (_state, _nodeId, _node) =>
-        ((_state, _nodeId, _node): @unchecked) match {
-          case (state @ (_, Seq()), _, _) =>
-            (state, ChildrenRecursion.DoRecurse)
+      exerciseBegin = {
+        case ((rolledbackMap, rollbackStack @ (rollbackNode +: _)), nodeId, _) =>
+          ((rolledbackMap + (nodeId -> rollbackNode), rollbackStack), ChildrenRecursion.DoRecurse)
 
-          case ((rolledbackMap, rollbackStack @ (rollbackNode +: _)), nodeId, _) =>
-            ((rolledbackMap + (nodeId -> rollbackNode), rollbackStack), ChildrenRecursion.DoRecurse)
-        },
+        case (state, _, _) =>
+          (state, ChildrenRecursion.DoRecurse)
+      },
       rollbackBegin = { case ((rolledbackMap, rollbackStack), nodeId, _) =>
         ((rolledbackMap, nodeId +: rollbackStack), ChildrenRecursion.DoRecurse)
       },
-      leaf = (_state, _nodeId, _node) =>
-        ((_state, _nodeId, _node): @unchecked) match {
-          case (state @ (_, Seq()), _, _) =>
-            state
+      leaf = {
+        case ((rolledbackMap, rollbackStack @ (rollbackNode +: _)), nodeId, _) =>
+          (rolledbackMap + (nodeId -> rollbackNode), rollbackStack)
 
-          case ((rolledbackMap, rollbackStack @ (rollbackNode +: _)), nodeId, _) =>
-            (rolledbackMap + (nodeId -> rollbackNode), rollbackStack)
-        },
+        case (state, _, _) =>
+          state
+      },
       exerciseEnd = (state, _, _) => state,
-      rollbackEnd = (_state, _nodeId, _node) =>
-        ((_state, _nodeId, _node): @unchecked) match {
-          case (state @ (_, Seq()), _, _) =>
-            // Impossible case: rollbackBegin should already have pushed to the rollback stack
-            state
+      rollbackEnd = {
+        case ((rolledbackMap, _ +: rollbackStack), _, _) =>
+          (rolledbackMap, rollbackStack)
 
-          case ((rolledbackMap, _ +: rollbackStack), _, _) =>
-            (rolledbackMap, rollbackStack)
-        },
+        case _ =>
+          throw new IllegalStateException(
+            "Impossible case: rollbackBegin should already have pushed to the rollback stack"
+          )
+      },
     )._1
 
   /** Return the expected contract key inputs (i.e. the state before the transaction)

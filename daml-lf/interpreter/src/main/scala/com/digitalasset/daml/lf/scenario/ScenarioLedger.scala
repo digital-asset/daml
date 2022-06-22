@@ -429,88 +429,63 @@ object ScenarioLedger {
           }
       }
 
-    def createdUpdates(historicalLedgerData: LedgerData): LedgerData =
-      richTr.transaction.transaction.reachableNodeIds.foldLeft(historicalLedgerData) {
-        case (ledgerData, nodeId) =>
-          val eventId = EventId(trId.id, nodeId)
+    def createdInAndReferenceByUpdates(historicalLedgerData: LedgerData): LedgerData =
+      richTr.transaction.transaction.fold[LedgerData](historicalLedgerData) {
+        case (ledgerData, (nodeId, createNode: Node.Create)) =>
+          ledgerData.createdIn(createNode.coid, EventId(trId.id, nodeId))
 
-          // As `addNewLedgerNodes` has already ran, the following node lookup can not fail
-          richTr.transaction.nodes(nodeId) match {
-            case createNode: Node.Create =>
-              ledgerData.createdIn(createNode.coid, eventId)
+        case (ledgerData, (nodeId, exerciseNode: Node.Exercise)) =>
+          ledgerData.updateLedgerNodeInfo(exerciseNode.targetCoid)(ledgerNodeInfo =>
+            ledgerNodeInfo.copy(referencedBy =
+              ledgerNodeInfo.referencedBy + EventId(trId.id, nodeId)
+            )
+          )
 
-            case _: Node =>
+        case (ledgerData, (nodeId, fetchNode: Node.Fetch)) =>
+          ledgerData.updateLedgerNodeInfo(fetchNode.coid)(ledgerNodeInfo =>
+            ledgerNodeInfo.copy(referencedBy =
+              ledgerNodeInfo.referencedBy + EventId(trId.id, nodeId)
+            )
+          )
+
+        case (ledgerData, (nodeId, lookupNode: Node.LookupByKey)) =>
+          lookupNode.result match {
+            case None =>
               ledgerData
+
+            case Some(referencedCoid) =>
+              ledgerData.updateLedgerNodeInfo(referencedCoid)(ledgerNodeInfo =>
+                ledgerNodeInfo.copy(referencedBy =
+                  ledgerNodeInfo.referencedBy + EventId(trId.id, nodeId)
+                )
+              )
           }
+
+        case (ledgerData, (_, _: Node)) =>
+          ledgerData
       }
 
-    def referenceByUpdates(historicalLedgerData: LedgerData): LedgerData = {
-      richTr.transaction.transaction.foldInExecutionOrder[LedgerData](historicalLedgerData)(
-        (ledgerData, nodeId, exerciseNode) =>
-          (
-            ledgerData.updateLedgerNodeInfo(exerciseNode.targetCoid)(ledgerNodeInfo =>
-              ledgerNodeInfo.copy(referencedBy =
-                ledgerNodeInfo.referencedBy + EventId(trId.id, nodeId)
-              )
-            ),
-            Tx.ChildrenRecursion.DoRecurse,
-          ),
-        (ledgerData, _, _) => (ledgerData, Tx.ChildrenRecursion.DoRecurse),
-        {
-          case (ledgerData, nodeId, fetchNode: Node.Fetch) =>
-            ledgerData.updateLedgerNodeInfo(fetchNode.coid)(ledgerNodeInfo =>
-              ledgerNodeInfo.copy(referencedBy =
-                ledgerNodeInfo.referencedBy + EventId(trId.id, nodeId)
-              )
-            )
-
-          case (ledgerData, nodeId, lookupNode: Node.LookupByKey) =>
-            lookupNode.result match {
-              case None =>
-                ledgerData
-
-              case Some(referencedCoid) =>
-                ledgerData.updateLedgerNodeInfo(referencedCoid)(ledgerNodeInfo =>
-                  ledgerNodeInfo.copy(referencedBy =
-                    ledgerNodeInfo.referencedBy + EventId(trId.id, nodeId)
-                  )
-                )
-            }
-
-          case (ledgerData, _, _: Node.LeafOnlyAction) =>
-            ledgerData
-        },
-        (ledgerData, _, _) => ledgerData,
-        (ledgerData, _, _) => ledgerData,
-      )
-    }
-
     def parentUpdates(historicalLedgerData: LedgerData): LedgerData =
-      richTr.transaction.transaction.foldInExecutionOrder[LedgerData](historicalLedgerData)(
-        (ledgerData, nodeId, exerciseNode) =>
-          (
-            exerciseNode.children.foldLeft[LedgerData](ledgerData) {
-              case (updatedLedgerData, childNodeId) =>
-                updatedLedgerData.updateLedgerNodeInfo(EventId(trId.id, childNodeId))(
-                  ledgerNodeInfo => ledgerNodeInfo.copy(parent = Some(EventId(trId.id, nodeId)))
-                )
-            },
-            Tx.ChildrenRecursion.DoRecurse,
-          ),
-        (ledgerData, nodeId, rollbackNode) =>
-          (
-            rollbackNode.children.foldLeft[LedgerData](ledgerData) {
-              case (updatedLedgerData, childNodeId) =>
-                updatedLedgerData.updateLedgerNodeInfo(EventId(trId.id, childNodeId))(
-                  ledgerNodeInfo => ledgerNodeInfo.copy(parent = Some(EventId(trId.id, nodeId)))
-                )
-            },
-            Tx.ChildrenRecursion.DoRecurse,
-          ),
-        (ledgerData, _, _) => ledgerData,
-        (ledgerData, _, _) => ledgerData,
-        (ledgerData, _, _) => ledgerData,
-      )
+      richTr.transaction.transaction.fold[LedgerData](historicalLedgerData) {
+        case (ledgerData, (nodeId, exerciseNode: Node.Exercise)) =>
+          exerciseNode.children.foldLeft[LedgerData](ledgerData) {
+            case (updatedLedgerData, childNodeId) =>
+              updatedLedgerData.updateLedgerNodeInfo(EventId(trId.id, childNodeId))(
+                ledgerNodeInfo => ledgerNodeInfo.copy(parent = Some(EventId(trId.id, nodeId)))
+              )
+          }
+
+        case (ledgerData, (nodeId, rollbackNode: Node.Rollback)) =>
+          rollbackNode.children.foldLeft[LedgerData](ledgerData) {
+            case (updatedLedgerData, childNodeId) =>
+              updatedLedgerData.updateLedgerNodeInfo(EventId(trId.id, childNodeId))(
+                ledgerNodeInfo => ledgerNodeInfo.copy(parent = Some(EventId(trId.id, nodeId)))
+              )
+          }
+
+        case (ledgerData, (_, _: Node)) =>
+          ledgerData
+      }
 
     def consumedByUpdates(ledgerData: LedgerData): LedgerData = {
       var ledgerDataResult = ledgerData
@@ -593,10 +568,8 @@ object ScenarioLedger {
       // Update ledger data with new transaction node information *before* performing any other updates
       var cachedLedgerData: LedgerData = processor.addNewLedgerNodes(ledgerData)
 
-      // Update ledger data with any new created information
-      cachedLedgerData = processor.createdUpdates(cachedLedgerData)
-      // Update ledger data with any new referenced by information
-      cachedLedgerData = processor.referenceByUpdates(cachedLedgerData)
+      // Update ledger data with any new created in and referenced by information
+      cachedLedgerData = processor.createdInAndReferenceByUpdates(cachedLedgerData)
       // Update ledger data with any new parent information
       cachedLedgerData = processor.parentUpdates(cachedLedgerData)
       // Update ledger data with any new consumed by information
