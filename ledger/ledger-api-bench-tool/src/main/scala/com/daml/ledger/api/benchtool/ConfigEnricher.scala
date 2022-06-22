@@ -4,61 +4,71 @@
 package com.daml.ledger.api.benchtool
 
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig
-import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.{
+  ActiveContractsStreamConfig,
+  CompletionsStreamConfig,
+  TransactionTreesStreamConfig,
+  TransactionsStreamConfig,
+}
+import com.daml.ledger.api.benchtool.submission.AllocatedParties
 import com.daml.ledger.test.benchtool.Foo.{Foo1, Foo2, Foo3}
 import scalaz.syntax.tag._
 
-object ConfigEnricher {
+class ConfigEnricher(allocatedParties: AllocatedParties) {
+
+  private val templateNameToFullyQualifiedNameMap: Map[String, String] = Map(
+    "Foo1" -> Foo1.id,
+    "Foo2" -> Foo2.id,
+    "Foo3" -> Foo3.id,
+  ).view.mapValues { templateId =>
+    val id = templateId.unwrap
+    s"${id.packageId}:${id.moduleName}:${id.entityName}"
+  }.toMap
 
   def enrichStreamConfig(
-      streamConfig: StreamConfig,
-      submissionResult: Option[SubmissionStepResult],
+      streamConfig: StreamConfig
   ): StreamConfig = {
     streamConfig match {
-      case config: StreamConfig.TransactionsStreamConfig =>
-        config.copy(filters = enrichFilters(config.filters, submissionResult))
-      case config: StreamConfig.TransactionTreesStreamConfig =>
-        config.copy(filters = enrichFilters(config.filters, submissionResult))
-      case config: StreamConfig.ActiveContractsStreamConfig =>
-        config.copy(filters = enrichFilters(config.filters, submissionResult))
-      case config: StreamConfig.CompletionsStreamConfig =>
-        config.copy(parties = config.parties.map(party => convertParty(party, submissionResult)))
+      case config: TransactionsStreamConfig =>
+        config
+          .copy(
+            filters = enrichFilters(config.filters)
+          )
+      case config: TransactionTreesStreamConfig =>
+        config
+          .copy(
+            filters = enrichFilters(config.filters)
+          )
+      case config: ActiveContractsStreamConfig =>
+        config
+          .copy(
+            filters = enrichFilters(config.filters)
+          )
+      case config: CompletionsStreamConfig =>
+        config.copy(parties = config.parties.map(party => convertParty(party)))
     }
   }
 
   private def convertParty(
-      party: String,
-      submissionResult: Option[SubmissionStepResult],
+      partyShortName: String
   ): String =
-    submissionResult match {
-      case None => party
-      case Some(summary) =>
-        summary.allocatedParties.allAllocatedParties
-          .map(_.unwrap)
-          .find(_.contains(party))
-          .getOrElse(throw new RuntimeException(s"Observer not found: $party"))
-    }
+    allocatedParties.allAllocatedParties
+      .map(_.unwrap)
+      .find(_.contains(partyShortName))
+      .getOrElse(throw new RuntimeException(s"Party not found: $partyShortName"))
 
   private def enrichFilters(
-      filters: List[StreamConfig.PartyFilter],
-      submissionResult: Option[SubmissionStepResult],
+      filters: List[StreamConfig.PartyFilter]
   ): List[StreamConfig.PartyFilter] = {
-    def identifierToFullyQualifiedString(id: Identifier) =
-      s"${id.packageId}:${id.moduleName}:${id.entityName}"
-    def fullyQualifiedTemplateId(template: String): String =
-      template match {
-        case "Foo1" => identifierToFullyQualifiedString(Foo1.id.unwrap)
-        case "Foo2" => identifierToFullyQualifiedString(Foo2.id.unwrap)
-        case "Foo3" => identifierToFullyQualifiedString(Foo3.id.unwrap)
-        case other => other
-      }
-
     filters.map { filter =>
       StreamConfig.PartyFilter(
-        party = convertParty(filter.party, submissionResult),
-        templates = filter.templates.map(fullyQualifiedTemplateId),
+        party = convertParty(filter.party),
+        templates = filter.templates.map(convertTemplate),
       )
     }
   }
+
+  def convertTemplate(shortTemplateName: String): String =
+    templateNameToFullyQualifiedNameMap.getOrElse(shortTemplateName, shortTemplateName)
 
 }

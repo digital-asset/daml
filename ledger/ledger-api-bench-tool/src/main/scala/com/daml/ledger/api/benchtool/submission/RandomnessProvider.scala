@@ -12,8 +12,12 @@ trait RandomnessProvider {
 }
 
 object RandomnessProvider {
-  object Default extends RandomnessProvider {
-    private val r = new scala.util.Random(System.currentTimeMillis())
+  object Default extends Seeded(System.currentTimeMillis())
+
+  def forSeed(seed: Long) = new Seeded(seed = seed)
+
+  class Seeded(seed: Long) extends RandomnessProvider {
+    private val r = new scala.util.Random(seed)
     override def randomDouble(): Double = r.nextDouble()
     override def randomNatural(n: Int): Int = r.nextInt(n)
     override def randomAsciiString(n: Int): String = {
