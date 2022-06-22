@@ -140,6 +140,7 @@ and there are two formats of the JSON payload in use by Daml ledgers.
 
 .. note:: To generate access tokens for testing purposes, you can use the `jwt.io <https://jwt.io/>`__ web site.
 
+.. _user-access-tokens:
 
 User Access Tokens
 ==================
