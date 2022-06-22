@@ -17,7 +17,6 @@ import com.daml.lf.iface.{EnvironmentInterface, InterfaceType, Interface}
 import com.squareup.javapoet.{JavaFile, ClassName}
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{LoggerFactory, Logger, MDC}
-import scalaz.syntax.std.boolean._
 
 import scala.collection.immutable.Map
 import scala.concurrent.duration.DurationInt
@@ -203,22 +202,8 @@ object CodeGenRunner extends StrictLogging {
       interface
     }
 
-  private[this] def resolveRetroInterfaces(signatures: Seq[Interface]): Seq[Interface] = {
-    type S = Seq[Interface]
-    val lookupTpl = Interface.setPackageTemplates[S](Function unlift { case (s, pkId) =>
-      val ix = s indexWhere (_.packageId == pkId)
-      (ix >= 0) option (s(ix), s.updated(ix, _))
-    })
-    // resolving each interface can modify all the other interfaces, so we
-    // can't *map* to figure this.  Instead we step through every signature,
-    // accumulating all the changes to themselves and other sigs they're making.
-    // This commutes, so the order doesn't matter, just that we check every
-    // interface
-    (0 until signatures.size).foldLeft(signatures) { (signatures, ix) =>
-      val (newSignatures, sigAtIx) = signatures(ix).resolveRetroImplements(signatures)(lookupTpl)
-      newSignatures.updated(ix, sigAtIx)
-    }
-  }
+  private[this] def resolveRetroInterfaces(signatures: Seq[Interface]): Seq[Interface] =
+    Interface.resolveRetroImplements((), signatures)(PartialFunction.empty)._2
 
   /** Given the package prefixes specified per DAR and the module-prefixes specified in
     * daml.yaml, produce the combined prefixes per package id.
