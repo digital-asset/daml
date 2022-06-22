@@ -374,20 +374,33 @@ object ScenarioLedger {
 
   case class UniqueKeyViolation(gk: GlobalKey)
 
-  /** Update the ledger (which records information on all historical transactions) with new transaction information.
+  /** Functions for updating the ledger with new transactional information.
     *
     * @param trId transaction identity
     * @param richTr (enriched) transaction
     * @param locationInfo location map
-    * @param ledgerData ledger recording all historical transaction that have been processed
-    * @return updated ledger with new transaction information
     */
-  private def processTransaction(
+  class TransactionProcessor(
       trId: TransactionId,
       richTr: RichTransaction,
       locationInfo: Map[NodeId, Location],
-      ledgerData: LedgerData,
-  ): Either[UniqueKeyViolation, LedgerData] = {
+  ) {
+
+    def duplicateKeyCheck(ledgerData: LedgerData): Either[UniqueKeyViolation, Unit] = {
+      val inactiveKeys = richTr.transaction.contractKeyInputs
+        .fold(error => crash(s"$error: inconsistent transaction"), identity)
+        .collect { case (key, _: Tx.KeyInactive) =>
+          key
+        }
+
+      inactiveKeys.find(ledgerData.activeKeys.contains(_)) match {
+        case Some(duplicateKey) =>
+          Left(UniqueKeyViolation(duplicateKey))
+
+        case None =>
+          Right(())
+      }
+    }
 
     def addNewLedgerNodes(historicalLedgerData: LedgerData): LedgerData =
       richTr.transaction.transaction.reachableNodeIds.foldLeft(historicalLedgerData) {
@@ -555,44 +568,47 @@ object ScenarioLedger {
         )
       }
     }
+  }
 
-    val inactiveKeys = richTr.transaction.contractKeyInputs
-      .fold(error => crash(s"$error: inconsistent transaction"), identity)
-      .collect { case (key, _: Tx.KeyInactive) =>
-        key
-      }
+  /** Update the ledger (which records information on all historical transactions) with new transaction information.
+    *
+    * @param trId transaction identity
+    * @param richTr (enriched) transaction
+    * @param locationInfo location map
+    * @param ledgerData ledger recording all historical transaction that have been processed
+    * @return updated ledger with new transaction information
+    */
+  private def processTransaction(
+      trId: TransactionId,
+      richTr: RichTransaction,
+      locationInfo: Map[NodeId, Location],
+      ledgerData: LedgerData,
+  ): Either[UniqueKeyViolation, LedgerData] = {
 
-    val duplicateKeyCheck: Either[UniqueKeyViolation, Unit] =
-      inactiveKeys.find(ledgerData.activeKeys.contains(_)) match {
-        case Some(duplicateKey) =>
-          Left(UniqueKeyViolation(duplicateKey))
-
-        case None =>
-          Right(())
-      }
+    val processor: TransactionProcessor = new TransactionProcessor(trId, richTr, locationInfo)
 
     for {
-      _ <- duplicateKeyCheck
+      _ <- processor.duplicateKeyCheck(ledgerData)
     } yield {
       // Update ledger data with new transaction node information *before* performing any other updates
-      var cachedLedgerData: LedgerData = addNewLedgerNodes(ledgerData)
+      var cachedLedgerData: LedgerData = processor.addNewLedgerNodes(ledgerData)
 
       // Update ledger data with any new created information
-      cachedLedgerData = createdUpdates(cachedLedgerData)
+      cachedLedgerData = processor.createdUpdates(cachedLedgerData)
       // Update ledger data with any new referenced by information
-      cachedLedgerData = referenceByUpdates(cachedLedgerData)
+      cachedLedgerData = processor.referenceByUpdates(cachedLedgerData)
       // Update ledger data with any new parent information
-      cachedLedgerData = parentUpdates(cachedLedgerData)
+      cachedLedgerData = processor.parentUpdates(cachedLedgerData)
       // Update ledger data with any new consumed by information
-      cachedLedgerData = consumedByUpdates(cachedLedgerData)
+      cachedLedgerData = processor.consumedByUpdates(cachedLedgerData)
       // Update ledger data with any new rolled back by information
-      cachedLedgerData = rolledbackByUpdates(cachedLedgerData)
+      cachedLedgerData = processor.rolledbackByUpdates(cachedLedgerData)
       // Update ledger data with any new active contract information
-      cachedLedgerData = activeContractAndKeyUpdates(cachedLedgerData)
+      cachedLedgerData = processor.activeContractAndKeyUpdates(cachedLedgerData)
       // Update ledger data with any new disclosure information
-      cachedLedgerData = disclosureUpdates(cachedLedgerData)
+      cachedLedgerData = processor.disclosureUpdates(cachedLedgerData)
       // Update ledger data with any new divulgence information
-      cachedLedgerData = divulgenceUpdates(cachedLedgerData)
+      cachedLedgerData = processor.divulgenceUpdates(cachedLedgerData)
 
       cachedLedgerData
     }
