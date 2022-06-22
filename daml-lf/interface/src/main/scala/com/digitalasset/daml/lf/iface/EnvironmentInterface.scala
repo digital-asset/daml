@@ -51,11 +51,11 @@ final case class EnvironmentInterface(
     val (newTypeDecls, newAstInterfaces) = astInterfaces.foldLeft((typeDecls, astInterfaces)) {
       case ((typeDecls, astInterfaces), (ifTc, defIf)) =>
         defIf
-          .resolveRetroImplements(ifTc, typeDecls)(Function unlift { case (typeDecls, tplName) =>
+          .resolveRetroImplements(ifTc, typeDecls) { case (typeDecls, tplName) =>
             findTemplate(typeDecls, tplName) map { itt => f =>
               typeDecls.updated(tplName, itt.copy(template = f(itt.template)))
             }
-          })
+          }
           .map(defIf => astInterfaces.updated(ifTc, defIf))
     }
     copy(typeDecls = newTypeDecls, astInterfaces = newAstInterfaces)

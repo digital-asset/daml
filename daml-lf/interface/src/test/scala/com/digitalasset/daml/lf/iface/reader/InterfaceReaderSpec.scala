@@ -293,7 +293,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
 
     "resolve retro implements harmlessly when there are none" in {
-      Interface.resolveRetroImplements((), itp.all)(PartialFunction.empty) should ===((), itp.all)
+      Interface.resolveRetroImplements((), itp.all)((_, _) => None) should ===((), itp.all)
       itpEI.resolveRetroImplements should ===(itpEI)
     }
   }

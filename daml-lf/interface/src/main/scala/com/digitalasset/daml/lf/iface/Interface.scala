@@ -136,7 +136,6 @@ final case class Interface(
   private def resolveRetroImplements[S](
       s: S
   )(setTemplate: SetterAt[Ref.TypeConName, S, DefTemplate.FWT]): (S, Interface) = {
-    val outside = setTemplate.lift
     type SandTpls = (S, Map[QualifiedName, InterfaceType.Template])
     def setTpl(
         sm: SandTpls,
@@ -148,15 +147,14 @@ final case class Interface(
         findTemplate(tplsM, tcn.qualifiedName).map { case itt @ InterfaceType.Template(_, dt) =>
           f => (s, tplsM.updated(tcn.qualifiedName, itt.copy(template = f(dt))))
         }
-      else outside((s, tcn)) map (_ andThen ((_, tplsM)))
+      else setTemplate(s, tcn) map (_ andThen ((_, tplsM)))
     }
 
-    val ifcSetTpl = Function unlift ((setTpl _).tupled)
     val ((sEnd, newTpls), newIfcs) = astInterfaces.foldLeft(
       ((s, Map.empty): SandTpls, Map.empty[QualifiedName, DefInterface.FWT])
     ) { case ((s, astIfs), (ifcName, astIf)) =>
       astIf
-        .resolveRetroImplements(Ref.TypeConName(packageId, ifcName), s)(ifcSetTpl)
+        .resolveRetroImplements(Ref.TypeConName(packageId, ifcName), s)(setTpl)
         .rightMap(newIf => astIfs.updated(ifcName, newIf))
     }
     (sEnd, copy(typeDecls = typeDecls ++ newTpls, astInterfaces = newIfcs))
@@ -184,9 +182,8 @@ object Interface {
   private[this] def setPackageTemplates[S](
       findPackage: GetterSetterAt[PackageId, S, Interface]
   ): SetterAt[Ref.TypeConName, S, DefTemplate.FWT] = {
-    val pkg = findPackage.lift
     def go(s: S, tcn: Ref.TypeConName): Option[(DefTemplate.FWT => DefTemplate.FWT) => S] = for {
-      foundPkg <- pkg((s, tcn.packageId))
+      foundPkg <- findPackage(s, tcn.packageId)
       (ifc, sIfc) = foundPkg
       itt <- findTemplate(ifc.typeDecls, tcn.qualifiedName)
     } yield f =>
@@ -195,7 +192,7 @@ object Interface {
           ifc.typeDecls.updated(tcn.qualifiedName, itt.copy(template = f(itt.template)))
         )
       )
-    Function unlift (go _).tupled
+    go
   }
 
   /** Extend the set of interfaces represented by `s` and `findPackage` with
@@ -211,13 +208,12 @@ object Interface {
       findPackage: GetterSetterAt[PackageId, S, Interface]
   ): (S, CC[Interface]) = {
     type St = (S, CC[Interface])
-    val findPkg = findPackage.lift
-    val findTpl = setPackageTemplates[St](Function unlift { case ((s, newInterfaces), pkgId) =>
-      findPkg((s, pkgId)).map(_.rightMap(_ andThen ((_, newInterfaces)))).orElse {
+    val findTpl = setPackageTemplates[St] { case ((s, newInterfaces), pkgId) =>
+      findPackage(s, pkgId).map(_.rightMap(_ andThen ((_, newInterfaces)))).orElse {
         val ix = newInterfaces indexWhere (_.packageId == pkgId)
         (ix >= 0) option ((newInterfaces(ix), newSig => (s, newInterfaces.updated(ix, newSig))))
       }
-    })
+    }
 
     (0 until newInterfaces.size).foldLeft((s, newInterfaces)) {
       case (st @ (_, newInterfaces), ifcK) =>

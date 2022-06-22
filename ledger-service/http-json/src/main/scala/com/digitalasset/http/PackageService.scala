@@ -70,9 +70,7 @@ private class PackageService(
           .map((_, { newSig: iface.Interface => packageStore.updated(pkId, newSig) }))
 
       val (packageStore2, diffElems) =
-        iface.Interface.resolveRetroImplements(packageStore, diff.values.toSeq)(
-          Function unlift (lookupIf _).tupled
-        )
+        iface.Interface.resolveRetroImplements(packageStore, diff.values.toSeq)(lookupIf)
       packageStore2 ++ diffElems.view.map(p => (p.packageId, p))
     }
   }

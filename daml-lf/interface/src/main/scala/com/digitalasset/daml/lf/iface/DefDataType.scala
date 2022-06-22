@@ -445,11 +445,10 @@ final case class DefInterface[+Ty](
     def addMySelf(dt: DefTemplate[OTy]) =
       dt.extendWithInterface(selfName, this)
 
-    val lookup = setTemplate.lift
     retroImplements
       .foldLeft((s, retroImplements)) { (sr, tplName) =>
         val (s, remaining) = sr
-        lookup((s, tplName)).cata(setter => (setter(addMySelf), remaining - tplName), sr)
+        setTemplate(s, tplName).cata(setter => (setter(addMySelf), remaining - tplName), sr)
       }
       .map(remaining => copy(retroImplements = remaining))
   }

@@ -203,7 +203,7 @@ object CodeGenRunner extends StrictLogging {
     }
 
   private[this] def resolveRetroInterfaces(signatures: Seq[Interface]): Seq[Interface] =
-    Interface.resolveRetroImplements((), signatures)(PartialFunction.empty)._2
+    Interface.resolveRetroImplements((), signatures)((_, _) => None)._2
 
   /** Given the package prefixes specified per DAR and the module-prefixes specified in
     * daml.yaml, produce the combined prefixes per package id.

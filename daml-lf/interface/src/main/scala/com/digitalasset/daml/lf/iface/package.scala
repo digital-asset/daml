@@ -12,9 +12,9 @@ package object iface {
 
   type FieldWithType = (Ref.Name, Type)
 
-  private[iface] type GetterSetterAt[-I, S, A] = PartialFunction[(S, I), (A, A => S)]
+  private[iface] type GetterSetterAt[-I, S, A] = (S, I) => Option[(A, A => S)]
 
-  private[iface] type SetterAt[-I, S, A] = PartialFunction[(S, I), (A => A) => S]
+  private[iface] type SetterAt[-I, S, A] = (S, I) => Option[(A => A) => S]
 
   private[iface] def lfprintln(
       @deprecated("shut up unused arguments warning", "") s: => String
