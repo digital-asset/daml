@@ -64,24 +64,16 @@ private class PackageService(
     }
 
     private[this] def appendAndResolveRetroactiveInterfaces(diff: PackageStore): PackageStore = {
-      type St = (PackageStore, PackageStore)
-      val lookupIf = iface.Interface.setPackageTemplates[St](Function unlift {
-        case (pks @ (packageStore, diff), pkId) =>
-          packageStore
-            .get(pkId)
-            .map((_, { newSig: iface.Interface => pks.leftMap(_.updated(pkId, newSig)) }))
-            .orElse {
-              diff
-                .get(pkId)
-                .map((_, { newSig: iface.Interface => pks.rightMap(_.updated(pkId, newSig)) }))
-            }
-      })
-      val (newPkStore, newDiff) = diff.keySet.foldLeft((packageStore, diff)) {
-        case (pks @ (_, diff), diffK) =>
-          val (newPks, newSig) = diff(diffK).resolveRetroImplements(pks)(lookupIf)
-          newPks.rightMap(_.updated(diffK, newSig))
-      }
-      newPkStore ++ newDiff
+      def lookupIf(packageStore: PackageStore, pkId: Ref.PackageId) =
+        packageStore
+          .get(pkId)
+          .map((_, { newSig: iface.Interface => packageStore.updated(pkId, newSig) }))
+
+      val (packageStore2, diffElems) =
+        iface.Interface.resolveRetroImplements(packageStore, diff.values.toSeq)(
+          Function unlift (lookupIf _).tupled
+        )
+      packageStore2 ++ diffElems.view.map(p => (p.packageId, p))
     }
   }
 
