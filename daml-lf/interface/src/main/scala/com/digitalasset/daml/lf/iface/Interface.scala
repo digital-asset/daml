@@ -14,6 +14,7 @@ import com.daml.lf.archive.ArchivePayload
 import scalaz.std.either._
 import scalaz.std.tuple._
 import scalaz.syntax.bifunctor._
+import scalaz.syntax.std.boolean._
 
 import scala.collection.immutable.{Map, SeqOps}
 import scala.jdk.CollectionConverters._
@@ -214,7 +215,7 @@ object Interface {
     val findTpl = setPackageTemplates[St](Function unlift { case ((s, newInterfaces), pkgId) =>
       findPkg((s, pkgId)).map(_.rightMap(_ andThen ((_, newInterfaces)))).orElse {
         val ix = newInterfaces indexWhere (_.packageId == pkgId)
-        (ix >= 0) option (newInterfaces(ix), newInterfaces.updated(ix, _))
+        (ix >= 0) option ((newInterfaces(ix), newSig => (s, newInterfaces.updated(ix, newSig))))
       }
     })
 
