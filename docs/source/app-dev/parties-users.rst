@@ -10,18 +10,7 @@ Identifying parties and users is an important part of building a workable Daml a
 
 - On each participant node you can create **users** with human-readable user ids. Each user can be associated with one or more parties allocated on that participant node, and refers to that party only on that node. Users are a purely local concept, meaning you can never address a user on another node by user id, and you never work with users in your Daml code; party ids are always used for these purposes. Users are also a builtin concept.
 
-This represents a change from earlier versions of Daml, and the differences between versions are discussed in more depth here.
-
-Parties in SDK 1.18 and Previous
-********************************
-
-First, let's recap how parties worked in SDK 1.18. Parties could be fully user-controlled via the party id hint, which could be specified on party allocation, e.g., via Daml Script’s ``allocatePartyWithHint``. The call ``allocatePartyWithHint "Alice" (PartyIdHint "alice")`` allocated a party with the display name Alice and the party id ``alice``. If a party with the id ``alice`` already existed, the allocation failed. This had a few implications:
-
-- You could allocate the same party id even if you restarted your ledger.
-
-- Party ids were human-readable (provided you choose human-readable party id hints). Following the user with the display name Bob in create-daml-app was easy, because their party id was also Bob.
-
-- Sandbox (but not the Daml Driver for SQL 1.x) implicitly allocated parties. This meant that if you created a contract with Bob as an observer or signatory, and no party with the id Bob had been allocated before, a party with the id Bob would be created without further action on your part.
+This represents a change from earlier versions of Daml, and the implications of these changes are discussed in more depth here.
 
 Parties in SDK 2.0 and Subsequent
 *********************************
@@ -53,7 +42,7 @@ However, users are purely local to a given participant. You cannot refer to user
 Working with Parties
 ********************
 
-So how do you handle these unwieldy party ids? The primary rule is to treat them as *opaque identifiers*. In particular, don’t parse them, don’t make assumptions about their format, and don’t try to turn arbitrary strings into party ids. Instead, the only way to get a new party id is as the result of a party allocation. Applications should never hardcode specific parties. Instead either accept them as inputs or read them from contract or choice arguments.
+So how do you handle these unwieldy party ids? The primary rule is to treat them as *opaque identifiers*. In particular, don’t parse them, don’t make assumptions about their format, and don’t try to turn arbitrary strings into party ids. The only way to get a new party id is as the result of a party allocation. Applications should never hardcode specific parties. Instead either accept them as inputs or read them from contract or choice arguments.
 
 To illustrate this, we’ll go over the tools in the SDK and how this affects them:
 
