@@ -228,7 +228,8 @@ class LedgerApiBenchTool(
           names = names,
           allocatedParties = allocatedParties,
           partySelecting = new RandomPartySelecting(
-            allocatedParties = allocatedParties
+            config = submissionConfig,
+            allocatedParties = allocatedParties,
           ),
         )
         for {

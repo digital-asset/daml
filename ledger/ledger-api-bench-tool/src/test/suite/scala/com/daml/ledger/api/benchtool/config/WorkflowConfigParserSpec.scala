@@ -9,6 +9,8 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.io.StringReader
 
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig.PartySet
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.PartyNamePrefixFilter
 
 class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
 
@@ -42,6 +44,10 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |         weight: 100
           |       - id: App-2
           |         weight: 102
+          |  observers_party_set:
+          |     party_name_prefix: MyParty
+          |     count: 99
+          |     visibility: 0.35
           |streams:
           |  - type: active-contracts
           |    name: stream-1
@@ -92,6 +98,13 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   applicationId = "App-2",
                   weight = 102,
                 ),
+              ),
+              observerPartySetO = Some(
+                PartySet(
+                  partyNamePrefix = "MyParty",
+                  count = 99,
+                  visibility = 0.35,
+                )
               ),
             )
           ),
@@ -213,6 +226,9 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |        templates:
         |         - Foo1
         |         - Foo3
+        |    filter_by_party_set:
+        |      party_name_prefix: My-Party
+        |      templates: [Foo1, Foo2]
         |    begin_offset: foo
         |    end_offset: bar
         |    objectives:
@@ -230,6 +246,12 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 WorkflowConfig.StreamConfig.PartyFilter(
                   party = "Obs-2",
                   templates = List("Foo1", "Foo3"),
+                )
+              ),
+              partyNamePrefixFilterO = Some(
+                PartyNamePrefixFilter(
+                  partyNamePrefix = "My-Party",
+                  templates = List("Foo1", "Foo2"),
                 )
               ),
               beginOffset = Some(offset("foo")),

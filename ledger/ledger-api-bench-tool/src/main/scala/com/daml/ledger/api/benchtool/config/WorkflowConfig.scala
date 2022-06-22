@@ -23,6 +23,7 @@ object WorkflowConfig {
     def numberOfExtraSubmitters: Int
     def uniqueParties: Boolean
     def waitForSubmission: Boolean
+    def observerPartySetO: Option[FooSubmissionConfig.PartySet]
   }
 
   final case class FibonacciSubmissionConfig(
@@ -34,6 +35,7 @@ object WorkflowConfig {
     override val numberOfObservers = 0
     override val numberOfDivulgees = 0
     override val numberOfExtraSubmitters = 0
+    override val observerPartySetO: Option[FooSubmissionConfig.PartySet] = None
   }
 
   final case class FooSubmissionConfig(
@@ -47,11 +49,23 @@ object WorkflowConfig {
       consumingExercises: Option[ConsumingExercises] = None,
       applicationIds: List[FooSubmissionConfig.ApplicationId] = List.empty,
       maybeWaitForSubmission: Option[Boolean] = None,
+      observerPartySetO: Option[FooSubmissionConfig.PartySet] = None,
   ) extends SubmissionConfig {
     def waitForSubmission: Boolean = maybeWaitForSubmission.getOrElse(true)
   }
 
   object FooSubmissionConfig {
+
+    /** @param partyNamePrefix prefix of each party in this party set; also serves as its identifier
+      * @param count number of parties to create
+      * @param visibility a fraction of contracts that each of the parties from this set should see
+      */
+    final case class PartySet(
+        partyNamePrefix: String,
+        count: Int,
+        visibility: Double,
+    )
+
     case class ContractDescription(
         template: String,
         weight: Int,
@@ -91,9 +105,15 @@ object WorkflowConfig {
 
     final case class PartyFilter(party: String, templates: List[String] = List.empty)
 
+    final case class PartyNamePrefixFilter(
+        partyNamePrefix: String,
+        templates: List[String] = List.empty,
+    )
+
     final case class TransactionsStreamConfig(
         name: String,
         filters: List[PartyFilter],
+        partyNamePrefixFilterO: Option[PartyNamePrefixFilter] = None,
         beginOffset: Option[LedgerOffset] = None,
         endOffset: Option[LedgerOffset] = None,
         objectives: Option[StreamConfig.TransactionObjectives] = None,
@@ -104,6 +124,7 @@ object WorkflowConfig {
     final case class TransactionTreesStreamConfig(
         name: String,
         filters: List[PartyFilter],
+        partyNamePrefixFilterO: Option[PartyNamePrefixFilter] = None,
         beginOffset: Option[LedgerOffset] = None,
         endOffset: Option[LedgerOffset] = None,
         objectives: Option[StreamConfig.TransactionObjectives] = None,
@@ -114,6 +135,7 @@ object WorkflowConfig {
     final case class ActiveContractsStreamConfig(
         name: String,
         filters: List[PartyFilter],
+        partyNamePrefixFilterO: Option[PartyNamePrefixFilter] = None,
         objectives: Option[StreamConfig.RateObjectives] = None,
         override val maxItemCount: Option[Long] = None,
         override val timeoutInSecondsO: Option[Long] = None,
