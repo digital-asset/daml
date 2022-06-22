@@ -15,7 +15,7 @@ import scalaz.std.either._
 import scalaz.std.tuple._
 import scalaz.syntax.bifunctor._
 
-import scala.collection.immutable.Map
+import scala.collection.immutable.{Map, SeqOps}
 import scala.jdk.CollectionConverters._
 
 sealed abstract class InterfaceType extends Product with Serializable {
@@ -126,6 +126,12 @@ final case class Interface(
       findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT]
   ): Interface = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = false)
 
+  /** Update internal templates, as well as external templates via `setTemplates`,
+    * with retroactive interface implementations.
+    *
+    * @param setTemplate Used to look up templates that can't be found in this
+    *                    interface
+    */
   def resolveRetroImplements[S](
       s: S
   )(setTemplate: SetterAt[Ref.TypeConName, S, DefTemplate.FWT]): (S, Interface) = {
@@ -139,10 +145,7 @@ final case class Interface(
       val (s, tplsM) = sm
       if (tcn.packageId == packageId)
         findTemplate(tplsM, tcn.qualifiedName).map { case itt @ InterfaceType.Template(_, dt) =>
-          f =>
-            // TODO SC #14081 would it also make sense to search `outside` as well?
-            // Setter doesn't restrict us to one location
-            (s, tplsM.updated(tcn.qualifiedName, itt.copy(template = f(dt))))
+          f => (s, tplsM.updated(tcn.qualifiedName, itt.copy(template = f(dt))))
         }
       else outside((s, tcn)) map (_ andThen ((_, tplsM)))
     }
@@ -192,6 +195,38 @@ object Interface {
         )
       )
     Function unlift (go _).tupled
+  }
+
+  /** Extend the set of interfaces represented by `s` and `findPackage` with
+    * `newInterfaces`.  Produce the resulting `S` and a replacement copy of
+    * `newInterfaces` with templates and interfaces therein resolved.
+    *
+    * Does not search members of `s` for fresh interfaces.
+    */
+  def resolveRetroImplements[S, CC[B] <: Seq[B] with SeqOps[B, CC, CC[B]]](
+      s: S,
+      newInterfaces: CC[Interface],
+  )(
+      findPackage: PartialFunction[(S, PackageId), (Interface, Interface => S)]
+  ): (S, CC[Interface]) = {
+    type St = (S, CC[Interface])
+    val findPkg = findPackage.lift
+    val findTpl = setPackageTemplates[St](Function unlift { case ((s, newInterfaces), pkgId) =>
+      findPkg((s, pkgId)).map(_.rightMap(_ andThen ((_, newInterfaces)))).orElse {
+        val ix = newInterfaces indexWhere (_.packageId == pkgId)
+        (ix >= 0) option (newInterfaces(ix), newInterfaces.updated(ix, _))
+      }
+    })
+
+    (0 until newInterfaces.size).foldLeft((s, newInterfaces)) {
+      case (st @ (_, newInterfaces), ifcK) =>
+        val ((s2, newInterfaces2), newAtIfcK) =
+          newInterfaces(ifcK).resolveRetroImplements(st)(findTpl)
+        // the tricky part here: newInterfaces2 is guaranteed not to have altered
+        // the value at ifcK, and to have made all "self" changes in newAtIfcK.
+        // So there is no conflict, we can discard the value in the seq
+        (s2, newInterfaces2.updated(ifcK, newAtIfcK))
+    }
   }
 
   /** An argument for `Interface#resolveChoices` given a package database,
