@@ -472,10 +472,32 @@ object ScenarioLedger {
       )
     }
 
-    def parentUpdates(ledgerData: LedgerData): LedgerData = {
-      // TODO:
-      ledgerData
-    }
+    def parentUpdates(historicalLedgerData: LedgerData): LedgerData =
+      richTr.transaction.transaction.foldInExecutionOrder[LedgerData](historicalLedgerData)(
+        (ledgerData, nodeId, exerciseNode) =>
+          (
+            exerciseNode.children.foldLeft[LedgerData](ledgerData) {
+              case (updatedLedgerData, childNodeId) =>
+                updatedLedgerData.updateLedgerNodeInfo(EventId(trId.id, childNodeId))(
+                  ledgerNodeInfo => ledgerNodeInfo.copy(parent = Some(EventId(trId.id, nodeId)))
+                )
+            },
+            Tx.ChildrenRecursion.DoRecurse,
+          ),
+        (ledgerData, nodeId, rollbackNode) =>
+          (
+            rollbackNode.children.foldLeft[LedgerData](ledgerData) {
+              case (updatedLedgerData, childNodeId) =>
+                updatedLedgerData.updateLedgerNodeInfo(EventId(trId.id, childNodeId))(
+                  ledgerNodeInfo => ledgerNodeInfo.copy(parent = Some(EventId(trId.id, nodeId)))
+                )
+            },
+            Tx.ChildrenRecursion.DoRecurse,
+          ),
+        (ledgerData, _, _) => ledgerData,
+        (ledgerData, _, _) => ledgerData,
+        (ledgerData, _, _) => ledgerData,
+      )
 
     def consumedByUpdates(ledgerData: LedgerData): LedgerData = {
       var ledgerDataResult = ledgerData
