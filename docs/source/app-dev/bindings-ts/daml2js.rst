@@ -8,7 +8,7 @@ The command ``daml codegen js`` generates JavaScript (and TypeScript) that can b
 
 Inputs to the command are DAR files. Outputs are JavaScript packages with TypeScript typings containing metadata and types for all Daml packages included in the DAR files.
 
-The generated packages use the library  `@daml/types <ts-daml-types_>`_.
+The generated packages use the library `@daml/types <ts-daml-types_>`_.
 
 Generate and Use Code
 *********************
