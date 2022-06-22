@@ -182,7 +182,7 @@ object Interface {
   // Given a lookup function for package state setters, produce a lookup function
   // for setters on specific templates in that set of packages.
   private[this] def setPackageTemplates[S](
-      findPackage: PartialFunction[(S, PackageId), (Interface, Interface => S)]
+      findPackage: GetterSetterAt[PackageId, S, Interface]
   ): SetterAt[Ref.TypeConName, S, DefTemplate.FWT] = {
     val pkg = findPackage.lift
     def go(s: S, tcn: Ref.TypeConName): Option[(DefTemplate.FWT => DefTemplate.FWT) => S] = for {
@@ -208,7 +208,7 @@ object Interface {
       s: S,
       newInterfaces: CC[Interface],
   )(
-      findPackage: PartialFunction[(S, PackageId), (Interface, Interface => S)]
+      findPackage: GetterSetterAt[PackageId, S, Interface]
   ): (S, CC[Interface]) = {
     type St = (S, CC[Interface])
     val findPkg = findPackage.lift
