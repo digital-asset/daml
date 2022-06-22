@@ -1,7 +1,6 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-} -- Because the pattern match checker is garbage
@@ -437,7 +436,7 @@ interfaceNames lfVersion tyThings
         ]
     | otherwise = MS.empty
 
-convertInterfaceTyCon :: Env -> (forall e. GHC.TyCon -> ConvertM e) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
+convertInterfaceTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
 convertInterfaceTyCon env errHandler tycon
     | hasDamlInterfaceCtx tycon = do
         lfType <- convertTyCon env tycon
@@ -445,7 +444,7 @@ convertInterfaceTyCon env errHandler tycon
             TCon con -> pure con
             _ -> unhandled "interface type" tycon
     | otherwise =
-        errHandler tycon
+        conversionError $ errHandler tycon
 
 convertInterfaces :: Env -> [(Var, GHC.Expr Var)] -> ConvertM [Definition]
 convertInterfaces env binds = interfaceDefs
@@ -463,6 +462,8 @@ convertInterfaces env binds = interfaceDefs
         let precond = fromMaybe (error $ "Missing precondition for interface " <> show intName)
                         $ (MS.lookup intName $ envInterfaceBinds env) >>= ibEnsure
         withRange intLocation $ do
+            let handleIsNotInterface tyCon =
+                  "cannot require '" ++ GHC.showSDocUnsafe (ppr tyCon) ++ "' because it is not an interface"
             intRequires <- fmap S.fromList $ mapM (convertInterfaceTyCon env $ unhandled "interface type") $
                 MS.findWithDefault [] intName (envRequires env)
             intMethods <- NM.fromList <$> convertMethods tyCon
@@ -973,7 +974,7 @@ convertImplements env tpl = NM.fromList <$>
     convertInterface :: (Maybe LF.SourceLoc, GHC.TyCon) -> ConvertM TemplateImplements
     convertInterface (originLoc, iface) = withRange originLoc $ do
       let handleIsNotInterface tyCon =
-            conversionError $ "cannot implement '" ++ GHC.showSDocUnsafe (ppr tyCon) ++ "' because it is not an interface"
+            "cannot implement '" ++ GHC.showSDocUnsafe (ppr tyCon) ++ "' because it is not an interface"
       con <- convertInterfaceTyCon env handleIsNotInterface iface
       let mod = nameModule (getName iface)
 
