@@ -21,7 +21,6 @@ import Value._
 
 import com.daml.scalautil.Statement.discard
 
-import scala.annotation.tailrec
 import scala.collection.immutable
 
 /** An in-memory representation of a ledger for scenarios */
@@ -375,6 +374,14 @@ object ScenarioLedger {
 
   case class UniqueKeyViolation(gk: GlobalKey)
 
+  /** Update the ledger (which records information on all historical transactions) with new transaction information.
+    *
+    * @param trId transaction identity
+    * @param richTr (enriched) transaction
+    * @param locationInfo location map
+    * @param ledgerData ledger recording all historical transaction that have been processed
+    * @return updated ledger with new transaction information
+    */
   private def processTransaction(
       trId: TransactionId,
       richTr: RichTransaction,
@@ -382,78 +389,92 @@ object ScenarioLedger {
       ledgerData: LedgerData,
   ): Either[UniqueKeyViolation, LedgerData] = {
 
-    @tailrec
-    def referenceByUpdates(
-        ledgerData: LedgerData,
-        nodesToProcess: List[NodeId] = richTr.transaction.roots.toList,
-    ): LedgerData = nodesToProcess match {
-      case Nil =>
-        ledgerData
+    def addNewLedgerNodes(historicalLedgerData: LedgerData): LedgerData =
+      richTr.transaction.transaction.reachableNodeIds.foldLeft(historicalLedgerData) {
+        case (ledgerData, nodeId) =>
+          val eventId = EventId(trId.id, nodeId)
 
-      case nodeId :: restOfNodeIds =>
-        val eventId = EventId(trId.id, nodeId)
+          richTr.transaction.nodes.get(nodeId) match {
+            case None =>
+              crash(s"processTransaction: non-existent node '$eventId'.")
 
-        richTr.transaction.nodes.get(nodeId) match {
-          case None =>
-            crash(s"processTransaction: non-existent node '$eventId'.")
+            case Some(node) =>
+              val newLedgerNodeInfo = LedgerNodeInfo(
+                node = node,
+                optLocation = locationInfo.get(nodeId),
+                transaction = trId,
+                effectiveAt = richTr.effectiveAt,
+                // Following fields will be updated by additional calls to node processing code
+                disclosures = Map.empty,
+                referencedBy = Set.empty,
+                consumedBy = None,
+                rolledbackBy = None,
+                parent = None,
+              )
 
-          case Some(node) =>
-            val newLedgerNodeInfo = LedgerNodeInfo(
-              node = node,
-              optLocation = locationInfo.get(nodeId),
-              transaction = trId,
-              effectiveAt = richTr.effectiveAt,
-              disclosures = Map.empty,
-              referencedBy = Set.empty,
-              consumedBy = None,
-              rolledbackBy = None,
-              parent = Some(eventId),
-            )
-            val newLedgerData =
               ledgerData.copy(nodeInfos = ledgerData.nodeInfos + (eventId -> newLedgerNodeInfo))
+          }
+      }
 
-            node match {
-              case rollbackNode: Node.Rollback =>
-                referenceByUpdates(
-                  newLedgerData,
-                  rollbackNode.children.toList ++ restOfNodeIds,
-                )
+    def createdUpdates(historicalLedgerData: LedgerData): LedgerData =
+      richTr.transaction.transaction.reachableNodeIds.foldLeft(historicalLedgerData) {
+        case (ledgerData, nodeId) =>
+          val eventId = EventId(trId.id, nodeId)
 
-              case createNode: Node.Create =>
-                val updatedLedgerData = newLedgerData.createdIn(createNode.coid, eventId)
-                referenceByUpdates(updatedLedgerData, restOfNodeIds)
+          // As `addNewLedgerNodes` has already ran, the following node lookup can not fail
+          richTr.transaction.nodes(nodeId) match {
+            case createNode: Node.Create =>
+              ledgerData.createdIn(createNode.coid, eventId)
 
-              case fetchNode: Node.Fetch =>
-                val updatedLedgerData =
-                  newLedgerData.updateLedgerNodeInfo(fetchNode.coid)(info =>
-                    info.copy(referencedBy = info.referencedBy + eventId)
+            case _: Node =>
+              ledgerData
+          }
+      }
+
+    def referenceByUpdates(historicalLedgerData: LedgerData): LedgerData = {
+      richTr.transaction.transaction.foldInExecutionOrder[LedgerData](historicalLedgerData)(
+        (ledgerData, nodeId, exerciseNode) =>
+          (
+            ledgerData.updateLedgerNodeInfo(exerciseNode.targetCoid)(ledgerNodeInfo =>
+              ledgerNodeInfo.copy(referencedBy =
+                ledgerNodeInfo.referencedBy + EventId(trId.id, nodeId)
+              )
+            ),
+            Tx.ChildrenRecursion.DoRecurse,
+          ),
+        (ledgerData, _, _) => (ledgerData, Tx.ChildrenRecursion.DoRecurse),
+        {
+          case (ledgerData, nodeId, fetchNode: Node.Fetch) =>
+            ledgerData.updateLedgerNodeInfo(fetchNode.coid)(ledgerNodeInfo =>
+              ledgerNodeInfo.copy(referencedBy =
+                ledgerNodeInfo.referencedBy + EventId(trId.id, nodeId)
+              )
+            )
+
+          case (ledgerData, nodeId, lookupNode: Node.LookupByKey) =>
+            lookupNode.result match {
+              case None =>
+                ledgerData
+
+              case Some(referencedCoid) =>
+                ledgerData.updateLedgerNodeInfo(referencedCoid)(ledgerNodeInfo =>
+                  ledgerNodeInfo.copy(referencedBy =
+                    ledgerNodeInfo.referencedBy + EventId(trId.id, nodeId)
                   )
-                referenceByUpdates(updatedLedgerData, restOfNodeIds)
-
-              case exerciseNode: Node.Exercise =>
-                val updatedLedgerData =
-                  newLedgerData.updateLedgerNodeInfo(exerciseNode.targetCoid)(ledgerNodeInfo =>
-                    ledgerNodeInfo.copy(referencedBy = ledgerNodeInfo.referencedBy + eventId)
-                  )
-                referenceByUpdates(
-                  updatedLedgerData,
-                  exerciseNode.children.toList ++ restOfNodeIds,
                 )
-
-              case lookupNode: Node.LookupByKey =>
-                lookupNode.result match {
-                  case None =>
-                    referenceByUpdates(newLedgerData, restOfNodeIds)
-
-                  case Some(referencedCoid) =>
-                    val updatedLedgerData =
-                      newLedgerData.updateLedgerNodeInfo(referencedCoid)(ledgerNodeInfo =>
-                        ledgerNodeInfo.copy(referencedBy = ledgerNodeInfo.referencedBy + eventId)
-                      )
-                    referenceByUpdates(updatedLedgerData, restOfNodeIds)
-                }
             }
-        }
+
+          case (ledgerData, _, _: Node.LeafOnlyAction) =>
+            ledgerData
+        },
+        (ledgerData, _, _) => ledgerData,
+        (ledgerData, _, _) => ledgerData,
+      )
+    }
+
+    def parentUpdates(ledgerData: LedgerData): LedgerData = {
+      // TODO:
+      ledgerData
     }
 
     def consumedByUpdates(ledgerData: LedgerData): LedgerData = {
@@ -488,6 +509,7 @@ object ScenarioLedger {
         activeKeys = richTr.transaction.updatedContractKeys.foldLeft(ledgerData.activeKeys) {
           case (activeKeys, (key, Some(cid))) =>
             activeKeys + (key -> cid)
+
           case (activeKeys, (key, None)) =>
             activeKeys - key
         },
@@ -530,10 +552,15 @@ object ScenarioLedger {
     for {
       _ <- duplicateKeyCheck
     } yield {
-      var cachedLedgerData: LedgerData = ledgerData
+      // Update ledger data with new transaction node information *before* performing any other updates
+      var cachedLedgerData: LedgerData = addNewLedgerNodes(ledgerData)
 
+      // Update ledger data with any new created information
+      cachedLedgerData = createdUpdates(cachedLedgerData)
       // Update ledger data with any new referenced by information
       cachedLedgerData = referenceByUpdates(cachedLedgerData)
+      // Update ledger data with any new parent information
+      cachedLedgerData = parentUpdates(cachedLedgerData)
       // Update ledger data with any new consumed by information
       cachedLedgerData = consumedByUpdates(cachedLedgerData)
       // Update ledger data with any new rolled back by information
