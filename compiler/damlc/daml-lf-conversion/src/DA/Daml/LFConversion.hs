@@ -178,7 +178,7 @@ data Env = Env
     ,envInterfaceBinds :: MS.Map TypeConName InterfaceBinds
     ,envExceptionBinds :: MS.Map TypeConName ExceptionBinds
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
-    ,envImplements :: MS.Map TypeConName [(CoreBndr, GHC.TyCon)]
+    ,envImplements :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
     ,envRequires :: MS.Map TypeConName [GHC.TyCon]
     ,envInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
     ,envInterfaceChoiceData :: MS.Map TypeConName [ChoiceData]
@@ -546,7 +546,7 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
           ]
         envInterfaces = interfaceNames envLfVersion (eltsUFM (cm_types x))
         envImplements = MS.fromListWith (++)
-          [ (mkTypeCon [getOccText tpl], [(name, iface)])
+          [ (mkTypeCon [getOccText tpl], [(convNameLoc name, iface)])
           | (name, _val) <- binds
           , "_implements_" `T.isPrefixOf` getOccText name
           , TypeCon implementsT [TypeCon tpl [], TypeCon iface []] <- [varType name]
@@ -970,8 +970,8 @@ convertImplements :: Env -> LF.TypeConName -> ConvertM (NM.NameMap TemplateImple
 convertImplements env tpl = NM.fromList <$>
   mapM convertInterface (MS.findWithDefault [] tpl (envImplements env))
   where
-    convertInterface :: (CoreBndr, GHC.TyCon) -> ConvertM TemplateImplements
-    convertInterface (originatingConstructor, iface) = withRange (convNameLoc originating) $ do
+    convertInterface :: (Maybe LF.SourceLoc, GHC.TyCon) -> ConvertM TemplateImplements
+    convertInterface (originLoc, iface) = withRange originLoc $ do
       let handleIsNotInterface tyCon =
             conversionError $ "cannot implement '" ++ GHC.showSDocUnsafe (ppr tyCon) ++ "' because it is not an interface"
       con <- convertInterfaceTyCon env handleIsNotInterface iface
