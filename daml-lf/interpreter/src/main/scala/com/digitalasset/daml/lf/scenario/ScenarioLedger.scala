@@ -156,8 +156,6 @@ object ScenarioLedger {
     *                       node exists. Consumption under a rollback
     *                       is not included here even for contracts created
     *                       under a rollback node.
-    * @param rolledbackBy   The nearest ancestor rollback node, provided such a
-    *                       node exists.
     */
   final case class LedgerNodeInfo(
       node: Node,
@@ -167,7 +165,6 @@ object ScenarioLedger {
       disclosures: Map[Party, Disclosure],
       referencedBy: Set[EventId],
       consumedBy: Option[EventId],
-      rolledbackBy: Option[NodeId],
   ) {
 
     /** 'True' if the given 'View' contains the given 'Node'. */
@@ -417,7 +414,6 @@ object ScenarioLedger {
                 disclosures = Map.empty,
                 referencedBy = Set.empty,
                 consumedBy = None,
-                rolledbackBy = None,
               )
 
               ledgerData.copy(nodeInfos = ledgerData.nodeInfos + (eventId -> newLedgerNodeInfo))
@@ -466,19 +462,6 @@ object ScenarioLedger {
       for ((contractId, nodeId) <- richTr.transaction.transaction.consumedBy) {
         ledgerDataResult = ledgerDataResult.updateLedgerNodeInfo(contractId) { ledgerNodeInfo =>
           ledgerNodeInfo.copy(consumedBy = Some(EventId(trId.id, nodeId)))
-        }
-      }
-
-      ledgerDataResult
-    }
-
-    def rolledbackByUpdates(ledgerData: LedgerData): LedgerData = {
-      var ledgerDataResult = ledgerData
-
-      for ((nodeId, rollbackNodeId) <- richTr.transaction.transaction.rolledbackBy) {
-        ledgerDataResult = ledgerDataResult.updateLedgerNodeInfo(EventId(trId.id, nodeId)) {
-          ledgerNodeInfo =>
-            ledgerNodeInfo.copy(rolledbackBy = Some(rollbackNodeId))
         }
       }
 
@@ -545,8 +528,6 @@ object ScenarioLedger {
       cachedLedgerData = processor.createdInAndReferenceByUpdates(cachedLedgerData)
       // Update ledger data with any new consumed by information
       cachedLedgerData = processor.consumedByUpdates(cachedLedgerData)
-      // Update ledger data with any new rolled back by information
-      cachedLedgerData = processor.rolledbackByUpdates(cachedLedgerData)
       // Update ledger data with any new active contract information
       cachedLedgerData = processor.activeContractAndKeyUpdates(cachedLedgerData)
       // Update ledger data with any new disclosure information
