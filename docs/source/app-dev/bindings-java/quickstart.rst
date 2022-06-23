@@ -122,20 +122,40 @@ In this section, you will run the quickstart application and get introduced to t
 
    .. _quickstart-sandbox:
 
-#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --dar .daml/dist/quickstart-0.0.1.dar``
+#. In 3 separate terminals, run:
 
-   The output should look like this:
+Terminal one: ``daml sandbox --port 6865``
 
-   .. code-block:: none
+Terminal two: Each of the following:
 
-      Starting Canton sandbox.
-      Listening at port 6865
-      Uploading .daml/dist/quickstart-0.0.1.dar to localhost:6865
-      DAR upload succeeded.
-      Canton sandbox is ready.
+- ``daml ledger upload-dar --host localhost --port 6865 .daml/dist/quickstart-0.0.1.dar``
+
+- ``daml script --ledger-host localhost --ledger-port 6865 --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --output-file output.json``
+
+- ``cat output.json`` and verify that the output looks like this:
+
+["Alice::NAMESPACE", "EUR_Bank::NAMESPACE"]
+where NAMESPACE is some randomly generated series of hex digits.
+
+- ``daml navigator server localhost 6865 --port 7500``
+
+Terminal three: ``daml codegen java && mvn compile exec:java@run-quickstart -Dparty=$(cat output.json | sed 's/\[\"//' | sed 's/".*//')``
+
+This step scrapes the ``Alice::NAMESPACE`` party name from the output.json produced in the previous steps.
+
+Note: It takes some time (typically around half-an-hour) for our artifacts to be available on Maven Central. If you try running the last command before the artifacts are available, you will get a "not found" error. Trying to build again in the next 24 hours will result in: **Failure to find ... was cached in the local repository, resolution will not be reattempted until the update interval of digitalasset-releases has elapsed or updates are forced**
+This is Maven telling you it has locally cached that "not found" result and will consider it valid for 24h. To bypass that and force Maven to try the network call again, add a -U option, as in mvn compile exec:java@run-quickstart -U. Note that this is required to bypass your local cache of the failure; it will not be required for a user trying to run the quickstart after the artifacts have been published.
+
+Another common problem is that artifacts fail to resolve because of custom Maven settings. Check your ~/.m2/settings.xml configuration and try disabling them temporarily.To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --dar .daml/dist/quickstart-0.0.1.dar``
+
+#. Point your browser to http://localhost:7500, log in as alice and verify that there is 1 contract, 1 owned IOU, and the templates list contains Iou:Iou, Iou:IouTransfer, and IouTrade:IouTrade among other templates.
+
+#. Check that curl http://localhost:8080/iou returns:
+
+{"0":{"issuer":"EUR_Bank::NAMESPACE","owner":"Alice::NAMESPACE","currency":"EUR","amount":100.0000000000,"observers":[]}}
+where NAMESPACE is again the series of hex digits that you saw before.
 
 
-   The sandbox is now running, and you can access its :doc:`ledger API </app-dev/ledger-api>` on port ``6865``.
 
    .. _quickstart-script:
 
