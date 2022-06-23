@@ -484,3 +484,12 @@ final case class ECircularInterfaceRequires(
   protected def prettyInternal: String =
     s"Circular interface requirement is not allowed: interface $iface requires itself."
 }
+
+final case class EConflictingImplementsCoImplements(
+    context: Context,
+    template: TypeConName,
+    iface: TypeConName,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"Template $template implementation of interface $iface conflicts with the implementation given by $iface"
+}
