@@ -686,16 +686,31 @@ class TransactionSpec
         transaction.rolledbackBy shouldBe Map.empty
       }
 
-      "one node" in {
-        val builder = TransactionBuilder()
-        val parties = Seq("Alice")
-        val (_, createNode0) = create(builder, parties, Some("key0"))
+      "one node" - {
+        "with local contracts" in {
+          val builder = TransactionBuilder()
+          val parties = Seq("Alice")
+          val (_, createNode0) = create(builder, parties, Some("key0"))
 
-        builder.add(createNode0)
-        val transaction = builder.build()
+          builder.add(createNode0)
+          val transaction = builder.build()
 
-        transaction.consumedBy shouldBe Map.empty
-        transaction.rolledbackBy shouldBe Map.empty
+          transaction.consumedBy shouldBe Map.empty
+          transaction.rolledbackBy shouldBe Map.empty
+        }
+
+        "with global contracts" in {
+          val builder = TransactionBuilder()
+          val parties = Seq("Alice")
+          val (_, createNode0) = create(builder, parties, Some("key0"))
+          val fetchNode0 = builder.fetch(createNode0, true)
+
+          builder.add(fetchNode0)
+          val transaction = builder.build()
+
+          transaction.consumedBy shouldBe Map.empty
+          transaction.rolledbackBy shouldBe Map.empty
+        }
       }
 
       "multiple nodes" - {
@@ -713,57 +728,103 @@ class TransactionSpec
           transaction.rolledbackBy shouldBe Map.empty
         }
 
-        "create and non-consuming exercise nodes" in {
-          val builder = TransactionBuilder()
-          val parties = Seq("Alice")
-          val (_, createNode0) = create(builder, parties, Some("key0"))
+        "create and non-consuming exercise nodes" - {
+          "with local contracts" in {
+            val builder = TransactionBuilder()
+            val parties = Seq("Alice")
+            val (_, createNode0) = create(builder, parties, Some("key0"))
 
-          builder.add(createNode0)
-          builder.add(exercise(builder, createNode0, parties, false))
-          val transaction = builder.build()
+            builder.add(createNode0)
+            builder.add(exercise(builder, createNode0, parties, false))
+            val transaction = builder.build()
 
-          transaction.consumedBy shouldBe Map.empty
-          transaction.rolledbackBy shouldBe Map.empty
+            transaction.consumedBy shouldBe Map.empty
+            transaction.rolledbackBy shouldBe Map.empty
+          }
+
+          "with global contracts" in {
+            val builder = TransactionBuilder()
+            val parties = Seq("Alice")
+            val (_, createNode0) = create(builder, parties, Some("key0"))
+
+            builder.add(exercise(builder, createNode0, parties, false))
+            val transaction = builder.build()
+
+            transaction.consumedBy shouldBe Map.empty
+            transaction.rolledbackBy shouldBe Map.empty
+          }
         }
       }
     }
 
     "consuming transaction with no rollbacks" - {
-      "one excercise" in {
-        val builder = TransactionBuilder()
-        val parties = Seq("Alice")
-        val (cid0, createNode0) = create(builder, parties, Some("key0"))
+      "one excercise" - {
+        "with local contracts" in {
+          val builder = TransactionBuilder()
+          val parties = Seq("Alice")
+          val (cid0, createNode0) = create(builder, parties, Some("key0"))
 
-        builder.add(createNode0)
-        val exerciseId0 = builder.add(exercise(builder, createNode0, parties, true))
-        val transaction = builder.build()
+          builder.add(createNode0)
+          val exerciseId0 = builder.add(exercise(builder, createNode0, parties, true))
+          val transaction = builder.build()
 
-        transaction.consumedBy shouldBe
-          Map(cid0 -> exerciseId0)
-        transaction.rolledbackBy shouldBe Map.empty
+          transaction.consumedBy shouldBe
+            Map(cid0 -> exerciseId0)
+          transaction.rolledbackBy shouldBe Map.empty
+        }
+
+        "with global contracts" in {
+          val builder = TransactionBuilder()
+          val parties = Seq("Alice")
+          val (cid0, createNode0) = create(builder, parties, Some("key0"))
+
+          val exerciseId0 = builder.add(exercise(builder, createNode0, parties, true))
+          val transaction = builder.build()
+
+          transaction.consumedBy shouldBe
+            Map(cid0 -> exerciseId0)
+          transaction.rolledbackBy shouldBe Map.empty
+        }
       }
 
-      "multiple exercises" in {
-        val builder = TransactionBuilder()
-        val parties = Seq("Alice")
-        val (cid0, createNode0) = create(builder, parties, Some("key0"))
-        val (cid1, createNode1) = create(builder, parties, Some("key1"))
+      "multiple exercises" - {
+        "with local contracts" in {
+          val builder = TransactionBuilder()
+          val parties = Seq("Alice")
+          val (cid0, createNode0) = create(builder, parties, Some("key0"))
+          val (cid1, createNode1) = create(builder, parties, Some("key1"))
 
-        builder.add(createNode0)
-        builder.add(createNode1)
-        val exerciseId0 = builder.add(exercise(builder, createNode0, parties, true))
-        val exerciseId1 = builder.add(exercise(builder, createNode1, parties, true))
-        val transaction = builder.build()
+          builder.add(createNode0)
+          builder.add(createNode1)
+          val exerciseId0 = builder.add(exercise(builder, createNode0, parties, true))
+          val exerciseId1 = builder.add(exercise(builder, createNode1, parties, true))
+          val transaction = builder.build()
 
-        transaction.consumedBy shouldBe
-          Map(cid0 -> exerciseId0, cid1 -> exerciseId1)
-        transaction.rolledbackBy shouldBe Map.empty
+          transaction.consumedBy shouldBe
+            Map(cid0 -> exerciseId0, cid1 -> exerciseId1)
+          transaction.rolledbackBy shouldBe Map.empty
+        }
+
+        "with global contracts" in {
+          val builder = TransactionBuilder()
+          val parties = Seq("Alice")
+          val (cid0, createNode0) = create(builder, parties, Some("key0"))
+          val (cid1, createNode1) = create(builder, parties, Some("key1"))
+
+          val exerciseId0 = builder.add(exercise(builder, createNode0, parties, true))
+          val exerciseId1 = builder.add(exercise(builder, createNode1, parties, true))
+          val transaction = builder.build()
+
+          transaction.consumedBy shouldBe
+            Map(cid0 -> exerciseId0, cid1 -> exerciseId1)
+          transaction.rolledbackBy shouldBe Map.empty
+        }
       }
     }
 
     "consuming transaction with rollbacks" - {
       "one rollback" - {
-        "simple case" in {
+        "with local contracts" in {
           val builder = TransactionBuilder()
           val parties = Seq("Alice")
           val (cid0, createNode0) = create(builder, parties, Some("key0"))
@@ -782,79 +843,191 @@ class TransactionSpec
             Map(nodeId1 -> rollbackId)
         }
 
-        "complex case" in {
+        "with global contracts" in {
           val builder = TransactionBuilder()
           val parties = Seq("Alice")
-          val (_, createNode0) = create(builder, parties, Some("key0"))
-          val (cid1, createNode1) = create(builder, parties, Some("key1"))
-          val (cid2, createNode2) = create(builder, parties, Some("key2"))
-          val (_, createNode3) = create(builder, parties, Some("key3"))
-          val (_, createNode4) = create(builder, parties, Some("key4"))
-          val (_, createNode5) = create(builder, parties, Some("key5"))
+          val (cid0, createNode0) = create(builder, parties, Some("key0"))
+          val (_, createNode1) = create(builder, parties, Some("key1"))
 
-          builder.add(createNode0)
-          builder.add(exercise(builder, createNode0, parties, false))
-          builder.add(createNode1)
-          val exerciseId1 = builder.add(exercise(builder, createNode1, parties, true))
-          builder.add(createNode2, exerciseId1)
-          val exerciseId2 = builder.add(exercise(builder, createNode2, parties, true), exerciseId1)
-          builder.add(createNode3, exerciseId1)
+          val nodeId0 = builder.add(exercise(builder, createNode0, parties, true))
           val rollbackId = builder.add(builder.rollback())
-          val nodeId0 = builder.add(exercise(builder, createNode0, parties, true), rollbackId)
-          val nodeId1 = builder.add(createNode5, rollbackId)
-          val nodeId2 = builder.add(exercise(builder, createNode3, parties, true), rollbackId)
-          val nodeId3 = builder.add(createNode4, rollbackId)
+          val nodeId1 = builder.add(exercise(builder, createNode1, parties, true), rollbackId)
           val transaction = builder.build()
 
           transaction.consumedBy shouldBe
-            Map(cid1 -> exerciseId1, cid2 -> exerciseId2)
+            Map(cid0 -> nodeId0)
           transaction.rolledbackBy shouldBe
-            Map(
-              nodeId0 -> rollbackId,
-              nodeId1 -> rollbackId,
-              nodeId2 -> rollbackId,
-              nodeId3 -> rollbackId,
-            )
+            Map(nodeId1 -> rollbackId)
         }
       }
 
       "multiple rollbacks" - {
-        "sequential rollbacks" in {
-          val builder = TransactionBuilder()
-          val parties = Seq("Alice")
-          val (_, createNode0) = create(builder, parties, Some("key0"))
-          val (_, createNode1) = create(builder, parties, Some("key1"))
+        "sequential rollbacks" - {
+          "with local wontracts" in {
+            val builder = TransactionBuilder()
+            val parties = Seq("Alice")
+            val (_, createNode0) = create(builder, parties, Some("key0"))
+            val (_, createNode1) = create(builder, parties, Some("key1"))
 
-          builder.add(createNode0)
-          builder.add(createNode1)
-          val rollbackId0 = builder.add(builder.rollback())
-          val nodeId0 = builder.add(exercise(builder, createNode0, parties, true), rollbackId0)
-          val rollbackId1 = builder.add(builder.rollback())
-          val nodeId1 = builder.add(exercise(builder, createNode1, parties, true), rollbackId1)
-          val transaction = builder.build()
+            builder.add(createNode0)
+            builder.add(createNode1)
+            val rollbackId0 = builder.add(builder.rollback())
+            val nodeId0 = builder.add(exercise(builder, createNode0, parties, true), rollbackId0)
+            val rollbackId1 = builder.add(builder.rollback())
+            val nodeId1 = builder.add(exercise(builder, createNode1, parties, true), rollbackId1)
+            val transaction = builder.build()
 
-          transaction.consumedBy shouldBe Map.empty
-          transaction.rolledbackBy shouldBe
-            Map(nodeId0 -> rollbackId0, nodeId1 -> rollbackId1)
+            transaction.consumedBy shouldBe Map.empty
+            transaction.rolledbackBy shouldBe
+              Map(nodeId0 -> rollbackId0, nodeId1 -> rollbackId1)
+          }
+
+          "with global contracts" in {
+            val builder = TransactionBuilder()
+            val parties = Seq("Alice")
+            val (_, createNode0) = create(builder, parties, Some("key0"))
+            val (_, createNode1) = create(builder, parties, Some("key1"))
+
+            val rollbackId0 = builder.add(builder.rollback())
+            val nodeId0 = builder.add(exercise(builder, createNode0, parties, true), rollbackId0)
+            val rollbackId1 = builder.add(builder.rollback())
+            val nodeId1 = builder.add(exercise(builder, createNode1, parties, true), rollbackId1)
+            val transaction = builder.build()
+
+            transaction.consumedBy shouldBe Map.empty
+            transaction.rolledbackBy shouldBe
+              Map(nodeId0 -> rollbackId0, nodeId1 -> rollbackId1)
+          }
         }
 
-        "nested rollbacks" in {
-          val builder = TransactionBuilder()
-          val parties = Seq("Alice")
-          val (_, createNode0) = create(builder, parties, Some("key0"))
-          val (_, createNode1) = create(builder, parties, Some("key1"))
+        "nested rollbacks" - {
+          "2 deep and 2 rollbacks" - {
+            "with local contracts" in {
+              val builder = TransactionBuilder()
+              val parties = Seq("Alice")
+              val (_, createNode0) = create(builder, parties, Some("key0"))
+              val (_, createNode1) = create(builder, parties, Some("key1"))
 
-          builder.add(createNode0)
-          builder.add(createNode1)
-          val rollbackId0 = builder.add(builder.rollback())
-          val nodeId0 = builder.add(exercise(builder, createNode0, parties, true), rollbackId0)
-          val rollbackId1 = builder.add(builder.rollback(), rollbackId0)
-          val nodeId1 = builder.add(exercise(builder, createNode1, parties, true), rollbackId1)
-          val transaction = builder.build()
+              builder.add(createNode0)
+              builder.add(createNode1)
+              val rollbackId0 = builder.add(builder.rollback())
+              val nodeId0 = builder.add(exercise(builder, createNode0, parties, true), rollbackId0)
+              val rollbackId1 = builder.add(builder.rollback(), rollbackId0)
+              val nodeId1 = builder.add(exercise(builder, createNode1, parties, true), rollbackId1)
+              val transaction = builder.build()
 
-          transaction.consumedBy shouldBe Map.empty
-          transaction.rolledbackBy shouldBe
-            Map(nodeId0 -> rollbackId0, nodeId1 -> rollbackId1)
+              transaction.consumedBy shouldBe Map.empty
+              transaction.rolledbackBy shouldBe
+                Map(nodeId0 -> rollbackId0, nodeId1 -> rollbackId1)
+            }
+
+            "with global contracts" in {
+              val builder = TransactionBuilder()
+              val parties = Seq("Alice")
+              val (_, createNode0) = create(builder, parties, Some("key0"))
+              val (_, createNode1) = create(builder, parties, Some("key1"))
+
+              val rollbackId0 = builder.add(builder.rollback())
+              val nodeId0 = builder.add(exercise(builder, createNode0, parties, true), rollbackId0)
+              val rollbackId1 = builder.add(builder.rollback(), rollbackId0)
+              val nodeId1 = builder.add(exercise(builder, createNode1, parties, true), rollbackId1)
+              val transaction = builder.build()
+
+              transaction.consumedBy shouldBe Map.empty
+              transaction.rolledbackBy shouldBe
+                Map(nodeId0 -> rollbackId0, nodeId1 -> rollbackId1)
+            }
+          }
+
+          "2 deep and 3 rollbacks" - {
+            "with local contracts" in {
+              val builder = TransactionBuilder()
+              val parties = Seq("Alice")
+              val (_, createNode0) = create(builder, parties, Some("key0"))
+              val (_, createNode1) = create(builder, parties, Some("key1"))
+              val (_, createNode2) = create(builder, parties, Some("key2"))
+
+              builder.add(createNode0)
+              builder.add(createNode1)
+              builder.add(createNode2)
+              val rollbackId0 = builder.add(builder.rollback())
+              val nodeId0 = builder.add(exercise(builder, createNode0, parties, true), rollbackId0)
+              val rollbackId1 = builder.add(builder.rollback(), rollbackId0)
+              val nodeId1 = builder.add(exercise(builder, createNode1, parties, true), rollbackId1)
+              val rollbackId2 = builder.add(builder.rollback(), rollbackId0)
+              val nodeId2 = builder.add(exercise(builder, createNode2, parties, true), rollbackId2)
+              val transaction = builder.build()
+
+              transaction.consumedBy shouldBe Map.empty
+              transaction.rolledbackBy shouldBe
+                Map(nodeId0 -> rollbackId0, nodeId1 -> rollbackId1, nodeId2 -> rollbackId2)
+            }
+
+            "with global contracts" in {
+              val builder = TransactionBuilder()
+              val parties = Seq("Alice")
+              val (_, createNode0) = create(builder, parties, Some("key0"))
+              val (_, createNode1) = create(builder, parties, Some("key1"))
+              val (_, createNode2) = create(builder, parties, Some("key2"))
+
+              val rollbackId0 = builder.add(builder.rollback())
+              val nodeId0 = builder.add(exercise(builder, createNode0, parties, true), rollbackId0)
+              val rollbackId1 = builder.add(builder.rollback(), rollbackId0)
+              val nodeId1 = builder.add(exercise(builder, createNode1, parties, true), rollbackId1)
+              val rollbackId2 = builder.add(builder.rollback(), rollbackId0)
+              val nodeId2 = builder.add(exercise(builder, createNode2, parties, true), rollbackId2)
+              val transaction = builder.build()
+
+              transaction.consumedBy shouldBe Map.empty
+              transaction.rolledbackBy shouldBe
+                Map(nodeId0 -> rollbackId0, nodeId1 -> rollbackId1, nodeId2 -> rollbackId2)
+            }
+          }
+
+          "3 deep" - {
+            "with local contracts" in {
+              val builder = TransactionBuilder()
+              val parties = Seq("Alice")
+              val (_, createNode0) = create(builder, parties, Some("key0"))
+              val (_, createNode1) = create(builder, parties, Some("key1"))
+              val (_, createNode2) = create(builder, parties, Some("key2"))
+
+              builder.add(createNode0)
+              builder.add(createNode1)
+              builder.add(createNode2)
+              val rollbackId0 = builder.add(builder.rollback())
+              val nodeId0 = builder.add(exercise(builder, createNode0, parties, true), rollbackId0)
+              val rollbackId1 = builder.add(builder.rollback(), rollbackId0)
+              val nodeId1 = builder.add(exercise(builder, createNode1, parties, true), rollbackId1)
+              val rollbackId2 = builder.add(builder.rollback(), rollbackId1)
+              val nodeId2 = builder.add(exercise(builder, createNode2, parties, true), rollbackId2)
+              val transaction = builder.build()
+
+              transaction.consumedBy shouldBe Map.empty
+              transaction.rolledbackBy shouldBe
+                Map(nodeId0 -> rollbackId0, nodeId1 -> rollbackId1, nodeId2 -> rollbackId2)
+            }
+
+            "with global contracts" in {
+              val builder = TransactionBuilder()
+              val parties = Seq("Alice")
+              val (_, createNode0) = create(builder, parties, Some("key0"))
+              val (_, createNode1) = create(builder, parties, Some("key1"))
+              val (_, createNode2) = create(builder, parties, Some("key2"))
+
+              val rollbackId0 = builder.add(builder.rollback())
+              val nodeId0 = builder.add(exercise(builder, createNode0, parties, true), rollbackId0)
+              val rollbackId1 = builder.add(builder.rollback(), rollbackId0)
+              val nodeId1 = builder.add(exercise(builder, createNode1, parties, true), rollbackId1)
+              val rollbackId2 = builder.add(builder.rollback(), rollbackId1)
+              val nodeId2 = builder.add(exercise(builder, createNode2, parties, true), rollbackId2)
+              val transaction = builder.build()
+
+              transaction.consumedBy shouldBe Map.empty
+              transaction.rolledbackBy shouldBe
+                Map(nodeId0 -> rollbackId0, nodeId1 -> rollbackId1, nodeId2 -> rollbackId2)
+            }
+          }
         }
       }
     }

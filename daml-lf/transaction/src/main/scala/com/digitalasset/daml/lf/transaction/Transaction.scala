@@ -351,8 +351,8 @@ sealed abstract class HasTxNodes {
     }
 
   /** Returns the IDs of all the consumed contracts.
-    *  This includes transient contracts but it does not include contracts
-    *  consumed in rollback nodes.
+    * This includes transient contracts but it does not include contracts
+    * consumed in rollback nodes.
     */
   final def consumedContracts[Cid2 >: ContractId]: Set[Cid2] =
     foldInExecutionOrder(Set.empty[Cid2])(
@@ -490,25 +490,23 @@ sealed abstract class HasTxNodes {
 
   /** Keys are nodes under a rollback and values are the "nearest" (i.e. most recent) rollback node.
     */
-  final def rolledbackBy: Map[NodeId, NodeId] =
-    foldInExecutionOrder[(Map[NodeId, NodeId], Seq[NodeId])]((HashMap.empty, Vector.empty))(
-      exerciseBegin = {
-        case ((rolledbackMap, rollbackStack @ (rollbackNode +: _)), nodeId, _) =>
-          ((rolledbackMap + (nodeId -> rollbackNode), rollbackStack), ChildrenRecursion.DoRecurse)
+  final def rolledbackBy: Map[NodeId, NodeId] = {
+    val rolledbackByMapUpdate
+        : ((Map[NodeId, NodeId], Seq[NodeId]), NodeId) => (Map[NodeId, NodeId], Seq[NodeId]) = {
+      case ((rolledbackMap, rollbackStack @ (rollbackNode +: _)), nodeId) =>
+        (rolledbackMap + (nodeId -> rollbackNode), rollbackStack)
 
-        case (state, _, _) =>
-          (state, ChildrenRecursion.DoRecurse)
-      },
+      case (state, _) =>
+        state
+    }
+
+    foldInExecutionOrder[(Map[NodeId, NodeId], Seq[NodeId])]((HashMap.empty, Vector.empty))(
+      exerciseBegin =
+        (state, nodeId, _) => (rolledbackByMapUpdate(state, nodeId), ChildrenRecursion.DoRecurse),
       rollbackBegin = { case ((rolledbackMap, rollbackStack), nodeId, _) =>
         ((rolledbackMap, nodeId +: rollbackStack), ChildrenRecursion.DoRecurse)
       },
-      leaf = {
-        case ((rolledbackMap, rollbackStack @ (rollbackNode +: _)), nodeId, _) =>
-          (rolledbackMap + (nodeId -> rollbackNode), rollbackStack)
-
-        case (state, _, _) =>
-          state
-      },
+      leaf = (state, nodeId, _) => rolledbackByMapUpdate(state, nodeId),
       exerciseEnd = (state, _, _) => state,
       rollbackEnd = {
         case ((rolledbackMap, _ +: rollbackStack), _, _) =>
@@ -520,6 +518,7 @@ sealed abstract class HasTxNodes {
           )
       },
     )._1
+  }
 
   /** Return the expected contract key inputs (i.e. the state before the transaction)
     * for this transaction or an error if the transaction contains a
