@@ -98,6 +98,13 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
 
     def mode: ContractKeyUniquenessMode = ContractStateMachine.this.mode
 
+    def lookupActiveKey(key: GlobalKey): Option[ContractStateMachine.KeyMapping] =
+      activeState.keys.get(key) match {
+        case None => lookupActiveGlobalKeyInput(key)
+        case Some(cid) =>
+          Some(Some(cid).filter(cid => !activeState.consumedBy.contains(cid)))
+      }
+
     def lookupActiveGlobalKeyInput(key: GlobalKey): Option[ContractStateMachine.KeyMapping] =
       globalKeyInputs.get(key).map {
         case Transaction.KeyActive(cid) if !activeState.consumedBy.contains(cid) =>
@@ -129,38 +136,9 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
         case Some(kWithM) =>
           val ck = GlobalKey(templateId, kWithM.key)
 
-          // Note (MK) Duplicate key checks in Speedy
-          // When run in ContractKeyUniquenessMode.On speedy detects duplicate contract keys errors.
-          //
-          // Just like for modifying `keys` and `globalKeyInputs` we only consider
-          // by-key operations, i.e., lookup, exercise and fetch by key, and creates with a key
-          // as well as archives if the key has been brought into scope before.
-          //
-          // In the end, those checks mean that ledgers with unique-contract-key semantics
-          // only have to look at inputs and outputs of the transaction and check for conflicts
-          // on that while speedy checks for internal conflicts.
-          //
-          // We have to consider the following cases for conflicts:
-          // 1. Create of a new local contract
-          //    1.1. KeyInactive in `keys`. This means we saw an archive so the create is valid.
-          //    1.2. KeyActive(_) in `keys`. This can either be local contract or a global contract. Both are an error.
-          //    1.3. No entry in `keys` and no entry in `globalKeyInputs`. This is valid. Note that the ledger here will then
-          //         have to check when committing that there is no active contract with this key before the transaction.
-          //    1.4. No entry in `keys` and `KeyInactive` in `globalKeyInputs`. This is valid. Ledgers need the same check
-          //         as for 1.3.
-          //    1.5. No entry in `keys` and `KeyActive(_)` in `globalKeyInputs`. This is an error. Note that the case where
-          //         the global contract has already been archived falls under 1.2.
-          // 2. Global key lookups
-          //    2.1. Conflicts with other global contracts cannot arise as we query a key at most once.
-          //    2.2. Conflicts with local contracts also cannot arise: A successful create will either
-          //         2.2.1: Set `globalKeyInputs` to `KeyInactive`.
-          //         2.2.2: Not modify `globalKeyInputs` if there already was an entry.
-          //         For both of those cases `globalKeyInputs` already had an entry which means
-          //         we would use that as a cached result and not query the ledger.
-          val keys = me.activeState.keys
-          val conflict = keys.get(ck) match {
+          val conflict = lookupActiveKey(ck) match {
             case Some(keyMapping) => keyMapping.isDefined
-            case None => lookupActiveGlobalKeyInput(ck).exists(_ != KeyInactive)
+            case None => false
           }
 
           val newKeyInputs =
@@ -169,7 +147,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
           Either.cond(
             !conflict || mode == ContractKeyUniquenessMode.Off,
             me.copy(
-              activeState = me.activeState.copy(keys = keys.updated(ck, KeyActive(contractId))),
+              activeState = me.activeState.copy(keys = me.activeState.keys.updated(ck, contractId)),
               globalKeyInputs = newKeyInputs,
             ),
             DuplicateContractKey(ck),
@@ -202,30 +180,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       } yield {
         if (consuming) {
           val consumedState = state.activeState.consume(targetId, nodeId)
-          val newActiveState = mbKey match {
-            case Some(kWithM) =>
-              val gkey = GlobalKey(templateId, kWithM.key)
-              val keys = consumedState.keys
-              val updatedKeys = keys.updated(gkey, KeyInactive)
-
-              // If the key was brought in scope before, we must update `keys`
-              // independently of whether this exercise is by-key because it affects later key lookups.
-              if (mode != ContractKeyUniquenessMode.Strict) {
-                keys.get(gkey).orElse(state.lookupActiveGlobalKeyInput(gkey)) match {
-                  // An archive can only mark a key as inactive
-                  // if it was brought into scope before.
-                  case Some(KeyActive(cid)) if cid == targetId =>
-                    consumedState.copy(keys = updatedKeys)
-                  // If the key was not in scope or mapped to a different cid, we don’t change keys. Instead we will do
-                  // an activeness check when looking it up later.
-                  case _ => consumedState
-                }
-              } else {
-                consumedState.copy(keys = updatedKeys)
-              }
-            case None => consumedState
-          }
-          state.copy(activeState = newActiveState)
+          state.copy(activeState = consumedState)
         } else state
       }
     }
@@ -285,45 +240,25 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     private[lf] def resolveKey(
         gkey: GlobalKey
     ): Either[Option[ContractId] => (KeyMapping, State), (KeyMapping, State)] = {
-      val keys = activeState.keys
-      keys.get(gkey) match {
+      lookupActiveKey(gkey) match {
         case Some(keyMapping) => Right(keyMapping -> this)
         case None =>
-          // Check if we have a cached key input.
-          lookupActiveGlobalKeyInput(gkey) match {
-            case Some(keyMapping) =>
-              Right(
-                keyMapping -> this.copy(
-                  activeState = activeState.copy(keys = keys.updated(gkey, keyMapping))
-                )
-              )
-            case None =>
-              // if we cannot find it here, send help, and make sure to update keys after
-              // that.
-              def handleResult(result: Option[ContractId]): (KeyMapping, State) = {
-                // Update key inputs. Create nodes never call this method,
-                // so NegativeKeyLookup is the right choice for the global key input.
-                val keyInput = result.fold[KeyInput](NegativeKeyLookup)(Transaction.KeyActive)
-                val newKeyInputs = globalKeyInputs.updated(gkey, keyInput)
-
-                result match {
-                  case Some(cid) if !activeState.consumedBy.contains(cid) =>
-                    val active = KeyActive(cid)
-                    active -> this.copy(
-                      activeState = activeState.copy(keys = keys.updated(gkey, active)),
-                      globalKeyInputs = newKeyInputs,
-                    )
-                  case _ =>
-                    KeyInactive -> this.copy(
-                      activeState = activeState.copy(
-                        keys = keys.updated(gkey, KeyInactive)
-                      ),
-                      globalKeyInputs = newKeyInputs,
-                    )
-                }
-              }
-              Left(handleResult)
+          // if we cannot find it here, send help, and make sure to update keys after
+          // that.
+          def handleResult(result: Option[ContractId]): (KeyMapping, State) = {
+            // Update key inputs. Create nodes never call this method,
+            // so NegativeKeyLookup is the right choice for the global key input.
+            val keyInput = result.fold[KeyInput](NegativeKeyLookup)(Transaction.KeyActive)
+            val newKeyInputs = globalKeyInputs.updated(gkey, keyInput)
+            val state = this.copy(globalKeyInputs = newKeyInputs)
+            result match {
+              case Some(cid) if !activeState.consumedBy.contains(cid) =>
+                KeyActive(cid) -> state
+              case _ =>
+                KeyInactive -> state
+            }
           }
+          Left(handleResult)
       }
     }
 
@@ -418,9 +353,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
         "Cannot lift a state over a substate with unfinished rollback scopes",
       )
 
-      def keyMappingFor(key: GlobalKey): Option[KeyMapping] = {
-        this.activeState.keys.get(key).orElse(this.lookupActiveGlobalKeyInput(key))
-      }
+      def keyMappingFor(key: GlobalKey): Option[KeyMapping] = this.lookupActiveKey(key)
 
       // We want consistent key lookups within an action in any contract key mode.
       def consistentGlobalKeyInputs: Either[KeyInputError, Unit] = {
@@ -487,7 +420,10 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       val keys = activeState.keys
       val consumed = activeState.consumedBy.keySet
       resolver.map { case (key, keyMapping) =>
-        val newKeyInput = keys.getOrElse(key, keyMapping.filterNot(consumed.contains))
+        val newKeyInput = keys.get(key) match {
+          case None => keyMapping.filterNot(consumed.contains)
+          case Some(cid) => Some(cid).filterNot(consumed.contains)
+        }
         key -> newKeyInput
       }
     }
@@ -549,7 +485,7 @@ object ContractStateMachine {
   final case class ActiveLedgerState[+Nid](
       locallyCreatedThisTimeline: Set[ContractId],
       consumedBy: Map[ContractId, Nid],
-      keys: Map[GlobalKey, KeyMapping],
+      keys: Map[GlobalKey, Value.ContractId],
   ) {
     def consume[Nid2 >: Nid](contractId: ContractId, nodeId: Nid2): ActiveLedgerState[Nid2] =
       this.copy(consumedBy = consumedBy.updated(contractId, nodeId))
