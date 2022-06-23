@@ -463,7 +463,7 @@ convertInterfaces env binds = interfaceDefs
                         $ (MS.lookup intName $ envInterfaceBinds env) >>= ibEnsure
         withRange intLocation $ do
             let handleIsNotInterface tyCon =
-                  "cannot require '" ++ GHC.showSDocUnsafe (ppr tyCon) ++ "' because it is not an interface"
+                  "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
             intRequires <- fmap S.fromList $ mapM (\(mloc, iface) -> withRange mloc $ convertInterfaceTyCon env handleIsNotInterface iface) $
                 MS.findWithDefault [] intName (envRequires env)
             intMethods <- NM.fromList <$> convertMethods tyCon
@@ -974,7 +974,7 @@ convertImplements env tpl = NM.fromList <$>
     convertInterface :: (Maybe LF.SourceLoc, GHC.TyCon) -> ConvertM TemplateImplements
     convertInterface (originLoc, iface) = withRange originLoc $ do
       let handleIsNotInterface tyCon =
-            "cannot implement '" ++ GHC.showSDocUnsafe (ppr tyCon) ++ "' because it is not an interface"
+            "cannot implement '" ++ prettyPrint tyCon ++ "' because it is not an interface"
       con <- convertInterfaceTyCon env handleIsNotInterface iface
       let mod = nameModule (getName iface)
 
