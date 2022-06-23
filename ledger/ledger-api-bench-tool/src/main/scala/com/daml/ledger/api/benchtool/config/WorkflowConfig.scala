@@ -39,10 +39,10 @@ object WorkflowConfig {
   final case class FooSubmissionConfig(
       numberOfInstances: Int,
       numberOfObservers: Int,
-      numberOfDivulgees: Int = 0,
-      numberOfExtraSubmitters: Int = 0,
       uniqueParties: Boolean,
       instanceDistribution: List[FooSubmissionConfig.ContractDescription],
+      numberOfDivulgees: Int = 0,
+      numberOfExtraSubmitters: Int = 0,
       nonConsumingExercises: Option[NonconsumingExercises] = None,
       consumingExercises: Option[ConsumingExercises] = None,
       applicationIds: List[FooSubmissionConfig.ApplicationId] = List.empty,

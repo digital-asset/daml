@@ -134,10 +134,10 @@ object WorkflowConfigParser {
       Decoder.forProduct10(
         "num_instances",
         "num_observers",
-        "num_divulgees",
-        "num_extra_submitters",
         "unique_parties",
         "instance_distribution",
+        "num_divulgees",
+        "num_extra_submitters",
         "nonconsuming_exercises",
         "consuming_exercises",
         "application_ids",

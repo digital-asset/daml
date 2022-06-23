@@ -16,13 +16,13 @@ import scalaz.syntax.tag._
 
 class ConfigEnricher(allocatedParties: AllocatedParties) {
 
-  private val templateNameToFullyQualifiedNameMap: Map[String, String] = Map(
-    "Foo1" -> Foo1.id,
-    "Foo2" -> Foo2.id,
-    "Foo3" -> Foo3.id,
-  ).view.mapValues { templateId =>
+  private val templateNameToFullyQualifiedNameMap: Map[String, String] = List(
+    Foo1.id,
+    Foo2.id,
+    Foo3.id,
+  ).map { templateId =>
     val id = templateId.unwrap
-    s"${id.packageId}:${id.moduleName}:${id.entityName}"
+    id.entityName -> s"${id.packageId}:${id.moduleName}:${id.entityName}"
   }.toMap
 
   def enrichStreamConfig(
