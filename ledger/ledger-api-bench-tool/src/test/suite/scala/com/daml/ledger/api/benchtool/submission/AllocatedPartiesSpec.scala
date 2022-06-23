@@ -19,7 +19,7 @@ class AllocatedPartiesSpec extends AnyFlatSpec with Matchers {
         "Sub-0",
       )
     ) shouldBe AllocatedParties(
-      signatory = Primitive.Party("signatory-123"),
+      signatoryO = Some(Primitive.Party("signatory-123")),
       observers = List(
         Primitive.Party("Obs-0"),
         Primitive.Party("Obs-1"),
@@ -35,7 +35,7 @@ class AllocatedPartiesSpec extends AnyFlatSpec with Matchers {
         "signatory-123"
       )
     ) shouldBe AllocatedParties(
-      signatory = Primitive.Party("signatory-123"),
+      signatoryO = Some(Primitive.Party("signatory-123")),
       observers = List.empty,
       divulgees = List.empty,
       extraSubmitters = List.empty,

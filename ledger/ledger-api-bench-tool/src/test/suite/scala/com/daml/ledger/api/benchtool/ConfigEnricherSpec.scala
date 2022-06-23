@@ -23,7 +23,7 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
 
     val desugaring = new ConfigEnricher(
       allocatedParties = AllocatedParties(
-        signatory = makeParty("Sig-0"),
+        signatoryO = Some(makeParty("Sig-0")),
         observers = List(makeParty("Obs-0")),
         divulgees = List(makeParty("Div-0")),
         extraSubmitters = List(makeParty("Sub-0")),

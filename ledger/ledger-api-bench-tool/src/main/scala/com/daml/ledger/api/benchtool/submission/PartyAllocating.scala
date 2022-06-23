@@ -36,7 +36,7 @@ class PartyAllocating(
     } yield {
       logger.info("Allocating parties completed")
       AllocatedParties(
-        signatory = signatory,
+        signatoryO = Some(signatory),
         observers = observers,
         divulgees = divulgees,
         extraSubmitters = extraSubmitters,
