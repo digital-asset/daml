@@ -178,7 +178,7 @@ data Env = Env
     ,envExceptionBinds :: MS.Map TypeConName ExceptionBinds
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envImplements :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
-    ,envRequires :: MS.Map TypeConName [GHC.TyCon]
+    ,envRequires :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
     ,envInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
     ,envInterfaceChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envInterfaces :: MS.Map TypeConName GHC.TyCon
@@ -464,7 +464,7 @@ convertInterfaces env binds = interfaceDefs
         withRange intLocation $ do
             let handleIsNotInterface tyCon =
                   "cannot require '" ++ GHC.showSDocUnsafe (ppr tyCon) ++ "' because it is not an interface"
-            intRequires <- fmap S.fromList $ mapM (convertInterfaceTyCon env $ unhandled "interface type") $
+            intRequires <- fmap S.fromList $ mapM (\(mloc, iface) -> withRange mloc $ convertInterfaceTyCon env handleIsNotInterface iface) $
                 MS.findWithDefault [] intName (envRequires env)
             intMethods <- NM.fromList <$> convertMethods tyCon
             intChoices <- convertChoices env intName emptyTemplateBinds
@@ -554,7 +554,7 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
           , NameIn DA_Internal_Desugar "ImplementsT" <- [implementsT]
           ]
         envRequires = MS.fromListWith (++)
-          [ (mkTypeCon [getOccText iface1], [iface2])
+          [ (mkTypeCon [getOccText iface1], [(convNameLoc name, iface2)])
           | (name, _val) <- binds
           , "_requires_" `T.isPrefixOf` getOccText name
           , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- [varType name]
