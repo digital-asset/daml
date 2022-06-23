@@ -40,6 +40,6 @@ class RandomPartySelecting(
 
   /** @return probability of a 1/(10**i)
     */
-  private def probabilityBaseTen(i: Int): Double = 1.0 / math.pow(10.0, i.toDouble)
+  private def probabilityBaseTen(i: Int): Double = math.pow(10.0, -i.toDouble)
 
 }
