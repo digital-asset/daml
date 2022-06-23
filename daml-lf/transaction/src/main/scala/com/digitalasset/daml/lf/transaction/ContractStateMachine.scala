@@ -457,30 +457,11 @@ object ContractStateMachine {
     * @param consumedBy [[com.daml.lf.value.Value.ContractId]]s of all contracts
     *                   that have been consumed by nodes up to now.
     * @param keys
-    *   A local store of the contract keys used for lookups and fetches by keys
-    *   (including exercise by key). Each of those operations will be resolved
-    *   against this map first. Only if there is no entry in here
-    *   (but not if there is an entry mapped to [[KeyInactive]]), will we ask the ledger.
+    *   A store of the latest local contract that has been created with the given key.
+    *   Later creates overwrite earlier ones. Note that this does not track whether the contract
+    *   was consumed or not. That information is stored in consumedBy.
+    *   It also _only_ includes local contracts not global contracts.
     *
-    *   How this map is mutated depends on the [[com.daml.lf.transaction.ContractKeyUniquenessMode]]:
-    *
-    *   - In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]],
-    *     the current state reflects the result of applying all nodes (create, fetch, exercise, lookup)
-    *     on contracts with a key (regardless of whether they were byKey or not) excluding
-    *     nodes under a rollback.
-    *
-    *   - In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]]
-    *     the following operations mutate this map:
-    *     1. fetch-by-key/lookup-by-key/exercise-by-key/create-contract-with-key will insert an
-    *        an entry in the map if there wasn’t already one (i.e., if they queried the ledger).
-    *     2. ACS mutating operations if the corresponding contract has a key update the entry. Specifically,
-    *        2.1. A create will set the corresponding map entry to KeyActive(cid) if the contract has a key.
-    *        2.2. A consuming exercise on cid will set the corresponding map entry to KeyInactive
-    *             iff we had a KeyActive(cid) entry for the same key before. If not, keys
-    *             will not be modified.
-    *             Later lookups have an activeness check
-    *             that can then set this to KeyInactive if the result of the
-    *             lookup was already archived.
     */
   final case class ActiveLedgerState[+Nid](
       locallyCreatedThisTimeline: Set[ContractId],
