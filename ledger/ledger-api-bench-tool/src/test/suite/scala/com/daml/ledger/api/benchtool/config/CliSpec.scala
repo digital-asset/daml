@@ -300,8 +300,8 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
       val party = "dummy"
       val cases = Table(
         "cli parameter" -> "objectives",
-        "min-item-rate=1234.5" -> RateObjectives(minItemRate = Some(1234.5), None),
-        "max-item-rate=1234.5" -> RateObjectives(None, maxItemRate = Some(1234.5)),
+        "min-item-rate=1234.5" -> AcsAndCompletionsObjectives(minItemRate = Some(1234.5), None),
+        "max-item-rate=1234.5" -> AcsAndCompletionsObjectives(None, maxItemRate = Some(1234.5)),
       )
       forAll(cases) { (argument, objectives) =>
         val streamConfig = ActiveContractsStreamConfig(

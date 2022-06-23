@@ -105,7 +105,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               objectives = Some(
-                WorkflowConfig.StreamConfig.RateObjectives(
+                WorkflowConfig.StreamConfig.AcsAndCompletionsObjectives(
                   minItemRate = Some(123),
                   maxItemRate = Some(456),
                 )
@@ -219,7 +219,9 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |      max_delay_seconds: 123
         |      min_consumption_speed: 2.34
         |      min_item_rate: 12
-        |      max_item_rate: 34""".stripMargin
+        |      max_item_rate: 34
+        |      max_stream_duration: 56
+        |""".stripMargin
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
           submission = None,
@@ -240,6 +242,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   minConsumptionSpeed = Some(2.34),
                   minItemRate = Some(12),
                   maxItemRate = Some(34),
+                  maxTotalStreamRuntimeDurationInMs = Some(56),
                 )
               ),
               maxItemCount = None,
@@ -403,7 +406,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               objectives = Some(
-                WorkflowConfig.StreamConfig.RateObjectives(
+                WorkflowConfig.StreamConfig.AcsAndCompletionsObjectives(
                   minItemRate = Some(123),
                   maxItemRate = Some(4567),
                 )
@@ -439,7 +442,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               beginOffset = Some(offset("foo")),
               applicationId = "foobar",
               objectives = Some(
-                WorkflowConfig.StreamConfig.RateObjectives(
+                WorkflowConfig.StreamConfig.AcsAndCompletionsObjectives(
                   minItemRate = Some(12),
                   maxItemRate = Some(345),
                 )

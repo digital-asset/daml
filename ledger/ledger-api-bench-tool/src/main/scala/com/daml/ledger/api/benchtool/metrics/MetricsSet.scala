@@ -12,8 +12,11 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.google.protobuf.timestamp.Timestamp
-
 import java.time.{Clock, Duration}
+
+import com.daml.ledger.api.benchtool.metrics.metrics.TotalStreamRuntimeMetric
+import com.daml.ledger.api.benchtool.metrics.metrics.TotalStreamRuntimeMetric.MaxDurationObjective
+
 import scala.concurrent.duration.FiniteDuration
 
 object MetricsSet {
@@ -27,7 +30,7 @@ object MetricsSet {
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
       },
-      objectives = objectives,
+      configO = objectives,
     )
 
   def transactionExposedMetrics(
@@ -55,7 +58,7 @@ object MetricsSet {
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
       },
-      objectives = objectives,
+      configO = objectives,
     )
 
   def transactionTreesExposedMetrics(
@@ -75,15 +78,15 @@ object MetricsSet {
     )
 
   def activeContractsMetrics(
-      objectives: Option[RateObjectives]
+      configO: Option[AcsAndCompletionsObjectives]
   ): List[Metric[GetActiveContractsResponse]] =
     List[Metric[GetActiveContractsResponse]](
       CountRateMetric.empty[GetActiveContractsResponse](
         countingFunction = _.activeContracts.length,
         periodicObjectives = Nil,
         finalObjectives = List(
-          objectives.flatMap(_.minItemRate.map(CountRateMetric.RateObjective.MinRate)),
-          objectives.flatMap(_.maxItemRate.map(CountRateMetric.RateObjective.MaxRate)),
+          configO.flatMap(_.minItemRate.map(CountRateMetric.RateObjective.MinRate)),
+          configO.flatMap(_.maxItemRate.map(CountRateMetric.RateObjective.MaxRate)),
         ).flatten,
       ),
       TotalCountMetric.empty[GetActiveContractsResponse](
@@ -92,7 +95,7 @@ object MetricsSet {
       SizeMetric.empty[GetActiveContractsResponse](
         sizingFunction = _.serializedSize.toLong
       ),
-    )
+    ) ++ optionalMetrics(configO)
 
   def activeContractsExposedMetrics(
       streamName: String,
@@ -109,15 +112,15 @@ object MetricsSet {
     )
 
   def completionsMetrics(
-      objectives: Option[RateObjectives]
+      configO: Option[AcsAndCompletionsObjectives]
   ): List[Metric[CompletionStreamResponse]] =
     List[Metric[CompletionStreamResponse]](
       CountRateMetric.empty(
         countingFunction = _.completions.length,
         periodicObjectives = Nil,
         finalObjectives = List(
-          objectives.flatMap(_.minItemRate.map(CountRateMetric.RateObjective.MinRate)),
-          objectives.flatMap(_.maxItemRate.map(CountRateMetric.RateObjective.MaxRate)),
+          configO.flatMap(_.minItemRate.map(CountRateMetric.RateObjective.MinRate)),
+          configO.flatMap(_.maxItemRate.map(CountRateMetric.RateObjective.MaxRate)),
         ).flatten,
       ),
       TotalCountMetric.empty(
@@ -126,7 +129,7 @@ object MetricsSet {
       SizeMetric.empty(
         sizingFunction = _.serializedSize.toLong
       ),
-    )
+    ) ++ optionalMetrics(configO)
 
   def completionsExposedMetrics(
       streamName: String,
@@ -146,15 +149,15 @@ object MetricsSet {
       countingFunction: T => Int,
       sizingFunction: T => Long,
       recordTimeFunction: T => Seq[Timestamp],
-      objectives: Option[TransactionObjectives],
+      configO: Option[TransactionObjectives],
   ): List[Metric[T]] = {
     List[Metric[T]](
       CountRateMetric.empty[T](
         countingFunction = countingFunction,
         periodicObjectives = Nil,
         finalObjectives = List(
-          objectives.flatMap(_.minItemRate.map(CountRateMetric.RateObjective.MinRate)),
-          objectives.flatMap(_.maxItemRate.map(CountRateMetric.RateObjective.MaxRate)),
+          configO.flatMap(_.minItemRate.map(CountRateMetric.RateObjective.MinRate)),
+          configO.flatMap(_.maxItemRate.map(CountRateMetric.RateObjective.MaxRate)),
         ).flatten,
       ),
       TotalCountMetric.empty[T](
@@ -163,17 +166,17 @@ object MetricsSet {
       ConsumptionSpeedMetric.empty[T](
         recordTimeFunction = recordTimeFunction,
         objective =
-          objectives.flatMap(_.minConsumptionSpeed.map(ConsumptionSpeedMetric.MinConsumptionSpeed)),
+          configO.flatMap(_.minConsumptionSpeed.map(ConsumptionSpeedMetric.MinConsumptionSpeed)),
       ),
       DelayMetric.empty[T](
         recordTimeFunction = recordTimeFunction,
         clock = Clock.systemUTC(),
-        objective = objectives.flatMap(_.maxDelaySeconds.map(DelayMetric.MaxDelay)),
+        objective = configO.flatMap(_.maxDelaySeconds.map(DelayMetric.MaxDelay)),
       ),
       SizeMetric.empty[T](
         sizingFunction = sizingFunction
       ),
-    )
+    ) ++ optionalMetrics(configO)
   }
 
   def countActiveContracts(response: GetActiveContractsResponse): Int =
@@ -188,4 +191,16 @@ object MetricsSet {
   def countTreeTransactionsEvents(response: GetTransactionTreesResponse): Long =
     response.transactions.foldLeft(0L)((acc, tx) => acc + tx.eventsById.size)
 
+  private def optionalMetrics[T](configO: Option[CommonObjectivesConfig]): List[Metric[T]] =
+    configO.flatMap(createTotalRuntimeMetricO[T]).toList
+
+  private def createTotalRuntimeMetricO[T](config: CommonObjectivesConfig): Option[Metric[T]] = {
+    config.maxTotalStreamRuntimeDurationInMs.map(maxRuntimeInMillis =>
+      TotalStreamRuntimeMetric.empty(
+        clock = Clock.systemUTC(),
+        startTime = Clock.systemUTC().instant(),
+        objective = MaxDurationObjective(Duration.ofMillis(maxRuntimeInMillis)),
+      )
+    )
+  }
 }

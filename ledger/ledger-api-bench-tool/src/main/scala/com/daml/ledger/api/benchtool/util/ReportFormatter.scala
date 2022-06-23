@@ -5,6 +5,7 @@ package com.daml.ledger.api.benchtool.util
 
 import com.daml.ledger.api.benchtool.metrics.MetricsCollector.Response.{FinalReport, PeriodicReport}
 import com.daml.ledger.api.benchtool.metrics._
+import com.daml.ledger.api.benchtool.metrics.metrics.TotalStreamRuntimeMetric
 
 object ReportFormatter {
   def formatPeriodicReport(streamName: String, periodicReport: PeriodicReport): String = {
@@ -60,6 +61,7 @@ object ReportFormatter {
     case _: SizeMetric.Value => "Size rate [MB/s]"
     case _: TotalCountMetric.Value => "Total item count [item]"
     case _: LatencyMetric.Value => "Average latency (millis)"
+    case _: TotalStreamRuntimeMetric.Value => "Total stream runtime [ms]"
   }
 
   private def shortMetricReport(value: MetricValue): String =
@@ -72,6 +74,7 @@ object ReportFormatter {
     case _: SizeMetric.Value => "rate [MB/s]"
     case _: TotalCountMetric.Value => "count [item]"
     case _: LatencyMetric.Value => "Average latency (millis)"
+    case _: TotalStreamRuntimeMetric.Value => "Total stream runtime [ms]"
   }
 
   private def formattedValue(value: MetricValue): String = value match {
@@ -87,6 +90,8 @@ object ReportFormatter {
       s"${v.totalCount}"
     case v: LatencyMetric.Value =>
       s"${v.latencyNanos / 1000000.0d}"
+    case v: TotalStreamRuntimeMetric.Value =>
+      v.v.toMillis.toString
   }
 
   private def objectiveName(objective: ServiceLevelObjective[_]): String =
@@ -101,6 +106,8 @@ object ReportFormatter {
         s"Maximum item rate [item/s]"
       case _: LatencyMetric.MaxLatency =>
         "Maximum latency (millis)"
+      case _: TotalStreamRuntimeMetric.MaxDurationObjective =>
+        "Total stream runtime [ms]"
     }
 
   private def formattedObjectiveValue(objective: ServiceLevelObjective[_]): String =
@@ -115,6 +122,8 @@ object ReportFormatter {
         obj.minAllowedRatePerSecond.toString
       case obj: LatencyMetric.MaxLatency =>
         obj.millis.toString
+      case obj: TotalStreamRuntimeMetric.MaxDurationObjective =>
+        obj.maxValue.toMillis.toString
     }
 
   private def rounded(value: Double): String = "%.2f".format(value)
