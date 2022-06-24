@@ -55,7 +55,7 @@ class ConfigEnricher(allocatedParties: AllocatedParties) {
     allocatedParties.allAllocatedParties
       .map(_.unwrap)
       .find(_.contains(partyShortName))
-      .getOrElse(throw new RuntimeException(s"Party not found: $partyShortName"))
+      .getOrElse(partyShortName)
 
   private def enrichFilters(
       filters: List[StreamConfig.PartyFilter]

@@ -46,6 +46,10 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
             party = "Sig-0",
             templates = templates,
           ),
+          PartyFilter(
+            party = "UnknownParty-0",
+            templates = templates,
+          ),
         ),
       )
     ) shouldBe TransactionsStreamConfig(
@@ -57,6 +61,10 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
         ),
         PartyFilter(
           party = "Sig-0-foo-123",
+          templates = enrichedTemplates,
+        ),
+        PartyFilter(
+          party = "UnknownParty-0",
           templates = enrichedTemplates,
         ),
       ),
