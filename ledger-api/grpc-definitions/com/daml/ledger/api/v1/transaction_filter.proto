@@ -48,6 +48,7 @@ message InclusiveFilters {
   repeated Identifier template_ids = 1;
 
   // Include an ``InterfaceView`` for every ``InterfaceFilter`` matching a contract.
+  // The ``InterfaceFilter``s MUST use unique ``interface_id``s.
   // Optional
   repeated InterfaceFilter interface_filters = 2;
 }
