@@ -539,9 +539,14 @@ message GlobalKey {
 }
 
 message CommitError {
+  message ContractNotActive {
+    ContractRef contract_ref = 1;
+  }
+
   oneof sum {
     FailedAuthorizations failed_authorizations = 1;
     GlobalKey unique_key_violation = 2;
+    ContractNotActive contract_not_active = 3;
   }
 }
 

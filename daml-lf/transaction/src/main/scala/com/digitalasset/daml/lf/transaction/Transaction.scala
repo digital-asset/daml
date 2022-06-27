@@ -436,16 +436,16 @@ sealed abstract class HasTxNodes {
 
   /** Returns the IDs of all input contracts that are used by this transaction.
     */
-  final def inputContracts[Cid2 >: ContractId]: Set[Cid2] =
-    fold(Set.empty[Cid2]) {
-      case (acc, (_, Node.Exercise(coid, _, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
-        acc + coid
-      case (acc, (_, Node.Fetch(coid, _, _, _, _, _, _, _))) =>
-        acc + coid
-      case (acc, (_, Node.LookupByKey(_, _, Some(coid), _))) =>
-        acc + coid
+  final def inputContracts[Cid2 >: ContractId]: Set[(Cid2, Identifier)] =
+    fold(Set.empty[(Cid2, Identifier)]) {
+      case (acc, (_, Node.Exercise(coid, tid, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
+        acc + ((coid, tid))
+      case (acc, (_, Node.Fetch(coid, tid, _, _, _, _, _, _))) =>
+        acc + ((coid, tid))
+      case (acc, (_, Node.LookupByKey(tid, _, Some(coid), _))) =>
+        acc + ((coid, tid))
       case (acc, _) => acc
-    } -- localContracts.keySet
+    }.filterNot(x => localContracts.keySet.contains(x._1))
 
   /** Return all the contract keys referenced by this transaction.
     * This includes the keys created, exercised, fetched, or looked up, even those

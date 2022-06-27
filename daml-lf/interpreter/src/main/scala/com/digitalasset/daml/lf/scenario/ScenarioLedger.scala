@@ -223,6 +223,9 @@ object ScenarioLedger {
     final case class UniqueKeyViolation(
         error: ScenarioLedger.UniqueKeyViolation
     ) extends CommitError
+    final case class ContractNotActive(
+        error: ScenarioLedger.ContractNotActive
+    ) extends CommitError
   }
 
   /** Updates the ledger to reflect that `committer` committed the
@@ -243,7 +246,7 @@ object ScenarioLedger {
     val transactionId = l.scenarioStepId.id
     val richTr = RichTransaction(actAs, readAs, effectiveAt, transactionId, tx)
     processTransaction(l.scenarioStepId, richTr, locationInfo, l.ledgerData) match {
-      case Left(err) => Left(CommitError.UniqueKeyViolation(err))
+      case Left(err) => Left(err)
       case Right(updatedCache) =>
         Right(
           CommitResult(
@@ -373,6 +376,10 @@ object ScenarioLedger {
   }
 
   case class UniqueKeyViolation(gk: GlobalKey)
+  case class ContractNotActive(
+      contractId: ContractId,
+      templateId: Identifier,
+  )
 
   /** Functions for updating the ledger with new transactional information.
     *
@@ -386,7 +393,7 @@ object ScenarioLedger {
       locationInfo: Map[NodeId, Location],
   ) {
 
-    def duplicateKeyCheck(ledgerData: LedgerData): Either[UniqueKeyViolation, Unit] = {
+    def duplicateKeyCheck(ledgerData: LedgerData): Either[CommitError, Unit] = {
       val inactiveKeys = richTr.transaction.contractKeyInputs
         .fold(error => crash(s"$error: inconsistent transaction"), identity)
         .collect { case (key, _: Tx.KeyInactive) =>
@@ -395,11 +402,21 @@ object ScenarioLedger {
 
       inactiveKeys.find(ledgerData.activeKeys.contains(_)) match {
         case Some(duplicateKey) =>
-          Left(UniqueKeyViolation(duplicateKey))
+          Left(CommitError.UniqueKeyViolation(UniqueKeyViolation(duplicateKey)))
 
         case None =>
           Right(())
       }
+    }
+
+    def inactiveContractCheck(ledgerData: LedgerData): Either[CommitError, Unit] = {
+      var res: Either[CommitError, Unit] = Right(())
+      for ((coid, tid) <- richTr.transaction.inputContracts) {
+        if (!ledgerData.activeContracts.contains(coid)) {
+          res = Left(CommitError.ContractNotActive(ContractNotActive(coid, tid)))
+        }
+      }
+      res
     }
 
     def addNewLedgerNodes(historicalLedgerData: LedgerData): LedgerData =
@@ -551,11 +568,12 @@ object ScenarioLedger {
       richTr: RichTransaction,
       locationInfo: Map[NodeId, Location],
       ledgerData: LedgerData,
-  ): Either[UniqueKeyViolation, LedgerData] = {
+  ): Either[CommitError, LedgerData] = {
 
     val processor: TransactionProcessor = new TransactionProcessor(trId, richTr, locationInfo)
 
     for {
+      _ <- processor.inactiveContractCheck(ledgerData)
       _ <- processor.duplicateKeyCheck(ledgerData)
     } yield {
       // Update ledger data with new transaction node information *before* performing any other updates

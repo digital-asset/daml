@@ -295,6 +295,11 @@ final class Conversions(
     commitError match {
       case ScenarioLedger.CommitError.UniqueKeyViolation(gk) =>
         builder.setUniqueKeyViolation(convertGlobalKey(gk.gk))
+      case ScenarioLedger.CommitError.ContractNotActive(err) =>
+        builder.setContractNotActive(
+          proto.CommitError.ContractNotActive.newBuilder
+            .setContractRef(mkContractRef(err.contractId, err.templateId))
+        )
     }
     builder.build
   }

@@ -55,12 +55,21 @@ private[lf] object Pretty {
             stakeholders.map(prettyParty),
           ) + char('.')
 
-      case Error.CommitError(ScenarioLedger.CommitError.UniqueKeyViolation(gk)) =>
-        (text("Scenario failed due to unique key violation for key:") & prettyValue(false)(
-          gk.gk.key
-        ) & text(
-          "for template"
-        ) & prettyIdentifier(gk.gk.templateId))
+      case Error.CommitError(err) =>
+        err match {
+          case ScenarioLedger.CommitError.UniqueKeyViolation(gk) =>
+            (text("Scenario failed due to unique key violation for key:") & prettyValue(false)(
+              gk.gk.key
+            ) & text(
+              "for template"
+            ) & prettyIdentifier(gk.gk.templateId))
+
+          case ScenarioLedger.CommitError.ContractNotActive(e) =>
+            text(
+              "Scenario failed due to a fetch/exercise on an inactive contract"
+            ) & prettyContractId(e.contractId) &
+              char('(') + (prettyIdentifier(e.templateId)) + text(").")
+        }
 
       case Error.MustFailSucceeded(tx @ _) =>
         // TODO(JM): Further info needed. Location annotations?
