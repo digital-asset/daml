@@ -52,7 +52,7 @@ final class LedgerIdentityClientTest extends AnyFlatSpec with Matchers with Auth
 
   it should "timeout should work as expected across calls" in {
     ledgerServices.withLedgerIdentityClient(
-      sequence(stuck, success),
+      stepThrough(stuck, success),
       timeout = Optional.of(Duration.of(5, ChronoUnit.SECONDS)),
     ) { (client, _) =>
       withClue("The first command should be stuck") {
@@ -87,7 +87,7 @@ object LedgerIdentityClientTest {
 
   private val alwaysSucceed: () => Future[String] = () => success
 
-  private def sequence(first: Future[String], following: Future[String]*): () => Future[String] = {
+  private def stepThrough[A](first: A, following: A*): () => A = {
     val it = Iterator.single(first) ++ Iterator(following: _*)
     () =>
       try {
