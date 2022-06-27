@@ -5,7 +5,7 @@
 -- We use the template typeclass and instances directly as otherwise the error
 -- is caught prior due to missing Eq and Show instances.
 
--- @ERROR range=17:5-17:20; cannot implement 'Bool' because it is not an interface
+-- @ERROR range=18:5-18:20; cannot implement 'Bool' because it is not an interface
 
 module ImplementsNonInterface where
 
