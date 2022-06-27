@@ -772,7 +772,9 @@ object Transaction {
   }
 
   /** An exercise, fetch or lookupByKey failed because the mapping of key -> contract id
-    * was inconsistent with earlier nodes (in execution order).
+    * was inconsistent with earlier nodes (in execution order). This can happened in case
+    * of a race condition between the contract and the contract keys queried to the ledger
+    * during an interpretation.
     */
   final case class InconsistentContractKey(key: GlobalKey)
 

@@ -551,7 +551,8 @@ message GlobalKey {
 message CommitError {
   oneof sum {
     FailedAuthorizations failed_authorizations = 1;
-    GlobalKey unique_key_violation = 2;
+    GlobalKey unique_contract_key_violation = 2;
+    GlobalKey inconsistent_contract_key = 3;
   }
 }
 

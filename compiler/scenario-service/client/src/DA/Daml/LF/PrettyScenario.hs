@@ -337,9 +337,17 @@ prettyScenarioErrorError (Just err) =  do
     ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumFailedAuthorizations fas))) -> do
       pure $ vcat $ mapV (prettyFailedAuthorization world) (failedAuthorizationsFailedAuthorizations fas)
 
-    ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumUniqueKeyViolation gk))) -> do
+    ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumUniqueContractKeyViolation gk))) -> do
       pure $ vcat
         [ "Commit error due to unique key violation for key"
+        , nest 2 (prettyMay "<missing key>" (prettyValue' False 0 world) (globalKeyKey gk))
+        , "for template"
+        , nest 2 (prettyMay "<missing template id>" (prettyDefName world) (globalKeyTemplateId gk))
+        ]
+
+    ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumInconsistentContractKey gk))) -> do
+      pure $ vcat
+        [ "Commit error due to inconsistent key"
         , nest 2 (prettyMay "<missing key>" (prettyValue' False 0 world) (globalKeyKey gk))
         , "for template"
         , nest 2 (prettyMay "<missing template id>" (prettyDefName world) (globalKeyTemplateId gk))

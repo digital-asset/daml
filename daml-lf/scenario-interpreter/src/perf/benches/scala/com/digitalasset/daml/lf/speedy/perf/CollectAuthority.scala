@@ -10,9 +10,9 @@ import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref.{Identifier, Location, Party, QualifiedName}
 import com.daml.lf.data.Time
 import com.daml.lf.language.Ast.EVal
-import com.daml.lf.speedy.SExpr.{SExpr, SEValue}
+import com.daml.lf.speedy.SExpr.{SEValue, SExpr}
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{NodeId, GlobalKey, SubmittedTransaction}
+import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
