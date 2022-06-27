@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 GHC_LIB_REPO_URL = "https://github.com/digital-asset/ghc-lib"
-GHC_LIB_REV = "c6c184cdbc3493100f787ba87ce9971b2fbba22a"
-GHC_LIB_SHA256 = "2da9ac94fbe8b5af465cf0a25316d392a0023ca0469fb83310c5fe1ace9499ea"
+GHC_LIB_REV = "b503248db52d6049d18a9dbfa31e0f11aef71df7"
+GHC_LIB_SHA256 = "2d677bd4bfe6c91fd989551b0821b87b48ab49473a747f548cb58766f9636c11"
 GHC_LIB_PATCHES = [
     "@//bazel_tools/ghc-lib:ghc-lib-no-stack.patch",
 ]
 
 GHC_REPO_URL = "https://github.com/digital-asset/ghc"
-GHC_REV = "45d5588a3341f8a6d43686fc0c9d0addc238a99a"
+GHC_REV = "28bf6bba34330b517d2b51ab080f89d9f0653496"
 GHC_PATCHES = [
 ]
 

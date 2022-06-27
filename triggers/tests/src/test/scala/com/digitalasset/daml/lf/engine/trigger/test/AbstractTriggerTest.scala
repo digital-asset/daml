@@ -7,7 +7,6 @@ package trigger
 package test
 
 import java.util.UUID
-
 import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
@@ -23,20 +22,24 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
+import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.lf.archive.DarDecoder
 import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
-import com.daml.platform.sandbox.SandboxBackend
+import com.daml.platform.sandbox.{SandboxBackend, SandboxRequiringAuthorizationFuns}
 import com.daml.platform.sandbox.services.TestCommands
 import org.scalatest._
 import scalaz.syntax.tag._
 import com.daml.platform.sandbox.fixture.SandboxFixture
-
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-trait AbstractTriggerTest extends SandboxFixture with SandboxBackend.Postgresql with TestCommands {
+trait AbstractTriggerTest
+    extends SandboxFixture
+    with SandboxBackend.Postgresql
+    with TestCommands
+    with SandboxRequiringAuthorizationFuns {
   self: Suite =>
 
   protected def toHighLevelResult(s: SValue) = s match {
@@ -99,7 +102,7 @@ trait AbstractTriggerTest extends SandboxFixture with SandboxBackend.Postgresql 
           compiledPackages,
           trigger,
           client,
-          config.timeProviderType.get,
+          config.participants(ParticipantId).apiServer.timeProviderType,
           applicationId,
           TriggerParties(
             actAs = Party(party),

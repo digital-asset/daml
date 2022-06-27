@@ -11,6 +11,7 @@ import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
+import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
 
 import scala.concurrent.Future
@@ -23,6 +24,8 @@ final class StandaloneIndexerServer(
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     additionalMigrationPaths: Seq[String] = Seq.empty,
+    // TODO LLP: Always pass shared stringInterningView
+    stringInterningViewO: Option[StringInterningView] = None,
 )(implicit materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[ReportsHealth] {
 
@@ -41,6 +44,7 @@ final class StandaloneIndexerServer(
       readService,
       metrics,
       lfValueTranslationCache,
+      stringInterningViewO,
     )
     val indexer = RecoveringIndexer(
       materializer.system.scheduler,

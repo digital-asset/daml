@@ -68,10 +68,10 @@ getPortForSandbox defaultPortSpec portSpecM =
 
 determineCantonOptions :: Maybe SandboxPortSpec -> SandboxCantonPortSpec -> FilePath -> IO CantonOptions
 determineCantonOptions ledgerApiSpec SandboxCantonPortSpec{..} portFile = do
-    cantonLedgerApi <- getPortForSandbox (SpecifiedPort (SandboxPort 6865)) ledgerApiSpec
-    cantonAdminApi <- getPortForSandbox FreePort adminApiSpec
-    cantonDomainPublicApi <- getPortForSandbox FreePort domainPublicApiSpec
-    cantonDomainAdminApi <- getPortForSandbox FreePort domainAdminApiSpec
+    cantonLedgerApi <- getPortForSandbox (SpecifiedPort (SandboxPort (ledger defaultSandboxPorts))) ledgerApiSpec
+    cantonAdminApi <- getPortForSandbox (SpecifiedPort (SandboxPort (admin defaultSandboxPorts))) adminApiSpec
+    cantonDomainPublicApi <- getPortForSandbox (SpecifiedPort (SandboxPort (domainPublic defaultSandboxPorts))) domainPublicApiSpec
+    cantonDomainAdminApi <- getPortForSandbox (SpecifiedPort (SandboxPort (domainAdmin defaultSandboxPorts))) domainAdminApiSpec
     let cantonPortFileM = Just portFile -- TODO allow canton port file to be passed in from command line?
     let cantonStaticTime = StaticTime False
     let cantonHelp = False

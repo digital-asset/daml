@@ -1,0 +1,52 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module InterfaceViews where
+
+data View = View with
+  a : Int
+  b : Bool
+
+interface I where
+    _view : View
+
+interface INoView where
+
+template T1
+  with
+    p : Party
+    a : Int
+  where
+    signatory p
+    implements I where
+      _view = View with
+        a
+        b = True
+    implements INoView where
+
+template T2
+  with
+    p : Party
+    a : Int
+  where
+    signatory p
+    implements I where
+      _view = View with
+        a
+        b = False
+
+template T3
+  with
+    p : Party
+    a : Int
+  where
+    signatory p
+    implements I where
+      _view = error "view crashed"
+
+template T4
+  with
+    p : Party
+    a : Int
+  where
+    signatory p

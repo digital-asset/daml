@@ -61,6 +61,7 @@ object CliSandboxOnXRunner {
   def owner(originalConfig: CliConfig[BridgeConfig]): ResourceOwner[Unit] =
     new ResourceOwner[Unit] {
       override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
+        Banner.show(Console.out)
         val configAdaptor: BridgeConfigAdaptor = new BridgeConfigAdaptor
         originalConfig.mode match {
           case Mode.DumpIndexMetadata(jdbcUrls) =>
@@ -76,7 +77,7 @@ object CliSandboxOnXRunner {
                   BridgeConfig.DefaultMaximumDeduplicationDuration
                 )
               ),
-            )
+            ).map(_ => ())
         }
       }
     }

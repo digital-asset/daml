@@ -3,16 +3,11 @@
 
 package com.daml.lf.engine.trigger
 
-import java.io.File
-import java.net.InetAddress
-import java.time.{Clock, Instant, LocalDateTime, ZoneId, Duration => JDuration}
-import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
-import java.util.{Date, UUID}
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri.Path
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri, headers}
+import akka.http.scaladsl.model._
 import com.auth0.jwt.JWT
 import com.auth0.jwt.JWTVerifier.BaseVerification
 import com.auth0.jwt.algorithms.Algorithm
@@ -32,7 +27,6 @@ import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{JwtSigner, JwtVerifier, JwtVerifierBase}
 import com.daml.ledger.api.auth
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
-import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource}
@@ -43,16 +37,16 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.sandbox.SandboxServer
+import com.daml.ledger.runner.common.Config
+import com.daml.ledger.sandbox.SandboxOnXForTest._
+import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import com.daml.lf.speedy.Compiler
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.scalautil.Statement.discard
@@ -66,6 +60,10 @@ import org.scalactic.source
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Suite, SuiteMixin}
 import scalaz.syntax.show._
 
+import java.net.InetAddress
+import java.time.{Clock, Instant, LocalDateTime, ZoneId, Duration => JDuration}
+import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
+import java.util.{Date, UUID}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent._
 import scala.concurrent.duration._
@@ -285,18 +283,18 @@ trait AuthMiddlewareFixture
 trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with AkkaBeforeAndAfterAll {
   self: Suite =>
 
-  protected val damlPackages: List[File] = List()
-  protected val ledgerIdMode: LedgerIdMode =
-    LedgerIdMode.Static(LedgerId(this.getClass.getSimpleName))
-  private def sandboxConfig: SandboxConfig = SandboxConfig.defaultConfig.copy(
-    port = Port.Dynamic,
-    ledgerIdMode = ledgerIdMode,
-    damlPackages = damlPackages,
-    timeProviderType = Some(TimeProviderType.Static),
-    delayBeforeSubmittingLedgerConfiguration = JDuration.ZERO,
-    authService = authService,
-    seeding = Seeding.Weak,
-  )
+  private def sandboxConfig(jdbcUrl: String): Config =
+    Default.copy(
+      ledgerId = this.getClass.getSimpleName,
+      engine = DevEngineConfig,
+      dataSource = dataSource(jdbcUrl),
+      participants = singleParticipant(
+        ApiServerConfig.copy(
+          seeding = Seeding.Weak,
+          timeProviderType = TimeProviderType.Static,
+        )
+      ),
+    )
 
   protected lazy val sandboxPort: Port = resource.value._1
   protected lazy val channel: Channel = resource.value._2
@@ -331,8 +329,13 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
         // share an index. As you can imagine, this causes all manner of issues, the most important
         // of which is that the ledger and index databases will be out of sync.
         jdbcUrl <- SandboxBackend.H2Database.owner
-          .map(info => Some(info.jdbcUrl))
-        port <- SandboxServer.owner(sandboxConfig.copy(jdbcUrl = jdbcUrl))
+          .map(info => info.jdbcUrl)
+
+        port <- SandboxOnXRunner.owner(
+          configAdaptor = ConfigAdaptor(authService),
+          config = sandboxConfig(jdbcUrl = jdbcUrl),
+          bridgeConfig = BridgeConfig(),
+        )
         channel <- GrpcClientResource.owner(port)
       } yield (port, channel),
       acquisitionTimeout = 1.minute,

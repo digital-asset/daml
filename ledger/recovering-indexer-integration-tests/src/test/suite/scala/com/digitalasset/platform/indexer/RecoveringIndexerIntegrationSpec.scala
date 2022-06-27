@@ -3,11 +3,6 @@
 
 package com.daml.platform.indexer
 
-import java.time.Instant
-import java.time.temporal.ChronoUnit.SECONDS
-import java.util.UUID
-import java.util.concurrent.CompletionStage
-import java.util.concurrent.atomic.AtomicLong
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{BroadcastHub, Keep, Source}
@@ -36,9 +31,7 @@ import com.daml.platform.store.DbSupport.{
   DbConfig,
   ParticipantDataSourceConfig,
 }
-import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.cache.MutableLedgerEndCache
-import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
@@ -49,6 +42,11 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.time.Instant
+import java.time.temporal.ChronoUnit.SECONDS
+import java.util.UUID
+import java.util.concurrent.CompletionStage
+import java.util.concurrent.atomic.AtomicLong
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -217,26 +215,7 @@ class RecoveringIndexerIntegrationSpec
 
   private def eventuallyPartiesShouldBe(partyNames: String*)(implicit
       loggingContext: LoggingContext
-  ): Future[Unit] =
-    dao.use { case (ledgerDao, ledgerEndCache) =>
-      eventually { (_, _) =>
-        for {
-          ledgerEnd <- ledgerDao.lookupLedgerEnd()
-          _ = ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
-          knownParties <- ledgerDao.listKnownParties()
-        } yield {
-          knownParties.map(_.displayName) shouldBe partyNames.map(Some(_))
-          ()
-        }
-      }
-    }
-
-  // TODO we probably do not need a full dao for this purpose: refactoring with direct usage of StorageBackend?
-  private def dao(implicit
-      loggingContext: LoggingContext
-  ): ResourceOwner[(LedgerReadDao, MutableLedgerEndCache)] = {
-    val mutableLedgerEndCache = MutableLedgerEndCache()
-    val stringInterning = new StringInterningView((_, _) => _ => Future.successful(Nil)) // not used
+  ): Future[Unit] = {
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase}-$testId;db_close_delay=-1;db_close_on_exit=false"
     val metrics = new Metrics(new MetricRegistry)
@@ -252,26 +231,26 @@ class RecoveringIndexerIntegrationSpec
           ),
         ),
       )
-      .map(dbSupport =>
-        JdbcLedgerDao.read(
-          dbSupport = dbSupport,
-          eventsPageSize = 100,
-          eventsProcessingParallelism = 8,
-          acsIdPageSize = 20000,
-          acsIdPageBufferSize = 1,
-          acsIdPageWorkingMemoryBytes = 100 * 1024 * 1024,
-          acsIdFetchingParallelism = 2,
-          acsContractFetchingParallelism = 2,
-          acsGlobalParallelism = 10,
-          servicesExecutionContext = executionContext,
-          metrics = metrics,
-          lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-          enricher = None,
-          participantId = Ref.ParticipantId.assertFromString("RecoveringIndexerIntegrationSpec"),
-          ledgerEndCache = mutableLedgerEndCache,
-          stringInterning = stringInterning,
-        ) -> mutableLedgerEndCache
-      )
+      .use { dbSupport =>
+        val ledgerEndCache = MutableLedgerEndCache()
+        val storageBackendFactory = dbSupport.storageBackendFactory
+        val partyStorageBacked = storageBackendFactory.createPartyStorageBackend(ledgerEndCache)
+        val parameterStorageBackend = storageBackendFactory.createParameterStorageBackend
+        val dbDispatcher = dbSupport.dbDispatcher
+
+        eventually { (_, _) =>
+          for {
+            ledgerEnd <- dbDispatcher
+              .executeSql(metrics.daml.index.db.getLedgerEnd)(parameterStorageBackend.ledgerEnd)
+            _ = ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
+            knownParties <- dbDispatcher
+              .executeSql(metrics.daml.index.db.loadAllParties)(partyStorageBacked.knownParties)
+          } yield {
+            knownParties.map(_.displayName) shouldBe partyNames.map(Some(_))
+            ()
+          }
+        }
+      }
   }
 }
 

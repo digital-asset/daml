@@ -22,7 +22,10 @@ tested_lf_config = "dev"
 
 daml_compile(
     name = "MyMain",
-    srcs = ["src/main/daml/MyMain.daml"],
+    srcs = [
+        "src/main/daml/MyMain.daml",
+        "src/main/daml/MyMainIface.daml",
+    ],
     target = lf_version_configuration.get(tested_lf_config),
 )
 
@@ -103,6 +106,7 @@ da_scala_test(
         ],
     ),
     scala_deps = [
+        "@maven//:com_chuusai_shapeless",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
@@ -124,10 +128,6 @@ da_scala_test(
         "src/test/resources/logback-sandbox.xml",
         ":MyMain.dar",
         ":MySecondMain.dar",
-        "//ledger/sandbox-classic:sandbox-classic-binary_deploy.jar",
-    ],
-    jvm_flags = [
-        "-Dcom.daml.sandbox.jar=ledger/sandbox-classic/sandbox-classic-binary_deploy.jar",
     ],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
@@ -137,22 +137,21 @@ da_scala_test(
         ":daml-lf-codegen-sample-app",
         ":daml-lf-codegen-sample-app-testing",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//language-support/scala/codegen-testing",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
-        "//ledger/caching",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
-        "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
+        "//ledger/ledger-runner-common",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
-        "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
-        "//ledger/sandbox-common",
-        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//ledger/sandbox-on-x",
+        "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//libs-scala/ports",
         "//libs-scala/resources",
     ],

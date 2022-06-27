@@ -37,6 +37,6 @@ class ConfigAdaptor {
       case TimeProviderType.WallClock => None
     }
 
-  def authService(apiServerConfig: ApiServerConfig): AuthService =
-    apiServerConfig.authentication.create()
+  def authService(participantConfig: ParticipantConfig): AuthService =
+    participantConfig.authentication.create()
 }

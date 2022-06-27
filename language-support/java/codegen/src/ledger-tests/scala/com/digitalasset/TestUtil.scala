@@ -3,14 +3,7 @@
 
 package com.daml
 
-import java.io.File
-import java.time.{Duration, Instant}
-import java.util.concurrent.TimeUnit
-import java.util.stream.{Collectors, StreamSupport}
-import java.util.{Optional, UUID}
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.ledger.javaapi.data.{codegen => jcg}
-import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ActiveContractsServiceOuterClass.GetActiveContractsResponse
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.{ActiveContractsServiceGrpc, CommandServiceGrpc}
@@ -21,17 +14,25 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.javaapi.data
-import com.daml.ledger.javaapi.data._
+import com.daml.ledger.javaapi.data.{codegen => jcg, _}
+import com.daml.ledger.sandbox.SandboxOnXForTest.{
+  ApiServerConfig,
+  Default,
+  DevEngineConfig,
+  singleParticipant,
+}
 import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.ports.Port
 import com.google.protobuf.Empty
 import io.grpc.Channel
 import org.scalatest.{Assertion, Suite}
 
+import java.io.File
+import java.time.{Duration, Instant}
+import java.util.concurrent.TimeUnit
+import java.util.stream.{Collectors, StreamSupport}
+import java.util.{Optional, UUID}
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters._
 import scala.jdk.javaapi.OptionConverters
@@ -43,16 +44,20 @@ trait SandboxTestLedger extends SandboxFixture {
   protected val damlPackages: List[File] = List(
     new File(BazelRunfiles.rlocation("language-support/java/codegen/ledger-tests-model.dar"))
   )
-  protected val ledgerIdMode: LedgerIdMode =
-    LedgerIdMode.Static(LedgerId(TestUtil.LedgerID))
-  protected override def config: SandboxConfig = SandboxConfig.defaultConfig.copy(
-    port = Port.Dynamic,
-    ledgerIdMode = ledgerIdMode,
-    damlPackages = damlPackages,
-    timeProviderType = Some(TimeProviderType.Static),
-    engineMode = SandboxConfig.EngineMode.Dev,
-    seeding = Seeding.Weak,
-  )
+
+  override protected def packageFiles: List[File] = damlPackages
+
+  override def config =
+    Default.copy(
+      ledgerId = TestUtil.LedgerID,
+      engine = DevEngineConfig,
+      participants = singleParticipant(
+        ApiServerConfig.copy(
+          timeProviderType = TimeProviderType.Static,
+          seeding = Seeding.Weak,
+        )
+      ),
+    )
 
   protected val ClientConfiguration: LedgerClientConfiguration = LedgerClientConfiguration(
     applicationId = TestUtil.LedgerID,

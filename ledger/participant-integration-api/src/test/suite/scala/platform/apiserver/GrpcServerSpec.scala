@@ -106,7 +106,7 @@ object GrpcServerSpec {
 
   private val maxInboundMessageSize = 4 * 1024 * 1024 /* copied from the Sandbox configuration */
 
-  private val rateLimitingConfig = RateLimitingConfig(100, 10)
+  private val rateLimitingConfig = RateLimitingConfig.Default
 
   class TestedHelloService extends HelloServiceReferenceImplementation {
     override def fails(request: HelloRequest): Future[HelloResponse] = {

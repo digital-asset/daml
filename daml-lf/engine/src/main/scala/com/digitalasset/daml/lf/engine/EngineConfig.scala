@@ -6,7 +6,6 @@ package engine
 
 import java.nio.file.Path
 import com.daml.lf.transaction.ContractKeyUniquenessMode
-import com.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode
 
 /** The Engine configurations describes the versions of language and
   * transaction the engine is allowed to read and write together with
@@ -32,7 +31,7 @@ final case class EngineConfig(
     packageValidation: Boolean = true,
     stackTraceMode: Boolean = false,
     profileDir: Option[Path] = None,
-    contractKeyUniqueness: ContractByKeyUniquenessMode = ContractKeyUniquenessMode.On,
+    contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
     forbidV0ContractId: Boolean = false,
     requireSuffixedGlobalContractId: Boolean = false,
     limits: interpretation.Limits = interpretation.Limits.Lenient,

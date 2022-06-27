@@ -18,7 +18,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalacheck.Arbitrary
-import shapeless.{Coproduct => HSum}
+import shapeless.{Coproduct => HSum, HNil}
 import shapeless.record.{Record => HRecord}
 import spray.json._
 import scalaz.syntax.show._
@@ -74,9 +74,9 @@ class ApiCodecCompressedSpec
         Ref.QualifiedName(moduleName0, Ref.DottedName assertFromString name),
       )
     val emptyRecordId = defRef("EmptyRecord")
-    val (emptyRecordDDT, emptyRecordT) = VA.record(emptyRecordId, RNil)
+    val (emptyRecordDDT, emptyRecordT) = VA.record(emptyRecordId, HNil)
     val simpleRecordId = defRef("SimpleRecord")
-    val simpleRecordVariantSpec = Symbol("fA") ->> VA.text :: Symbol("fB") ->> VA.int64 :: RNil
+    val simpleRecordVariantSpec = HRecord(fA = VA.text, fB = VA.int64)
     val (simpleRecordDDT, simpleRecordT) =
       VA.record(simpleRecordId, simpleRecordVariantSpec)
     val simpleRecordV: simpleRecordT.Inj = HRecord(fA = "foo", fB = 100L)

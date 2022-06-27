@@ -7,10 +7,10 @@ package speedy
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
 import com.daml.lf.ledger.{Authorize, FailedAuthorization}
-import com.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode
+import com.daml.lf.transaction.ContractKeyUniquenessMode
 import com.daml.lf.transaction.{
-  GlobalKey,
   ContractStateMachine,
+  GlobalKey,
   Node,
   NodeId,
   SubmittedTransaction,
@@ -172,7 +172,7 @@ private[lf] object PartialTransaction {
   }
 
   def initial(
-      contractKeyUniqueness: ContractByKeyUniquenessMode,
+      contractKeyUniqueness: ContractKeyUniquenessMode,
       submissionTime: Time.Timestamp,
       initialSeeds: InitialSeeding,
       committers: Set[Party],
@@ -184,9 +184,17 @@ private[lf] object PartialTransaction {
     context = Context(initialSeeds, committers),
     aborted = None,
     contractState = new ContractStateMachine[NodeId](contractKeyUniqueness).initial,
-    localContracts = Set.empty,
     actionNodeLocations = BackStack.empty,
   )
+
+  @throws[SError.SErrorCrash]
+  private def assertRightKey[X](where: String, either: Either[Tx.InconsistentContractKey, X]): X =
+    either match {
+      case Right(value) =>
+        value
+      case Left(err) =>
+        throw SError.SErrorCrash(where, s"inconsonstent contract key ${err.key}.")
+    }
 
   type NodeSeeds = ImmArray[(NodeId, crypto.Hash)]
 
@@ -225,13 +233,14 @@ private[speedy] case class PartialTransaction(
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
     contractState: ContractStateMachine[NodeId]#State,
-    localContracts: Set[Value.ContractId],
     actionNodeLocations: BackStack[Option[Location]],
 ) {
 
   import PartialTransaction._
 
-  def consumedBy: Map[Value.ContractId, NodeId] = contractState.activeState.consumedBy
+  def consumedByOrInactive(cid: Value.ContractId): Option[Either[NodeId, Unit]] = {
+    contractState.consumedByOrInactive(cid)
+  }
 
   def nodesToString: String =
     if (nodes.isEmpty) "<empty transaction>"
@@ -366,7 +375,6 @@ private[speedy] case class PartialTransaction(
       context = context.addActionChild(nid, version),
       nodes = nodes.updated(nid, createNode),
       actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
-      localContracts = localContracts + cid,
     ).noteAuthFails(nid, CheckAuthorization.authorizeCreate(optLocation, createNode), auth)
 
     val nextPtx = ptx.contractState.visitCreate(templateId, cid, key) match {
@@ -399,10 +407,14 @@ private[speedy] case class PartialTransaction(
       normByKey(version, byKey),
       version,
     )
+    val newContractState = assertRightKey(
+      NameOf.qualifiedNameOfCurrentFunc,
+      contractState.visitFetch(templateId, coid, key, byKey),
+    )
     mustBeActive(
       NameOf.qualifiedNameOfCurrentFunc,
       coid,
-      insertLeafNode(node, version, optLocation),
+      insertLeafNode(node, version, optLocation, newContractState),
     ).noteAuthFails(nid, CheckAuthorization.authorizeFetch(optLocation, node), auth)
   }
 
@@ -421,7 +433,15 @@ private[speedy] case class PartialTransaction(
       result,
       version,
     )
-    insertLeafNode(node, version, optLocation)
+    val gkey = GlobalKey.assertBuild(templateId, key.key)
+    // This method is only called after we have already resolved the key in com.daml.lf.speedy.SBuiltin.SBUKeyBuiltin.execute
+    // so the current state's global key inputs must resolve the key.
+    val keyInput = contractState.globalKeyInputs(gkey)
+    val newContractState = assertRightKey(
+      NameOf.qualifiedNameOfCurrentFunc,
+      contractState.visitLookup(templateId, key.key, keyInput.toKeyMapping, result),
+    )
+    insertLeafNode(node, version, optLocation, newContractState)
       .noteAuthFails(nid, CheckAuthorization.authorizeLookupByKey(optLocation, node), auth)
   }
 
@@ -465,6 +485,12 @@ private[speedy] case class PartialTransaction(
         version = version,
       )
 
+    // important: the semantics of Daml dictate that contracts are immediately
+    // inactive as soon as you exercise it. therefore, mark it as consumed now.
+    val newContractState = assertRightKey(
+      NameOf.qualifiedNameOfCurrentFunc,
+      contractState.visitExercise(nid, templateId, targetId, mbKey, byKey, consuming),
+    )
     mustBeActive(
       NameOf.qualifiedNameOfCurrentFunc,
       targetId,
@@ -473,9 +499,7 @@ private[speedy] case class PartialTransaction(
         nextNodeIdx = nextNodeIdx + 1,
         context = Context(ec),
         actionNodeSeeds = actionNodeSeeds :+ ec.actionNodeSeed, // must push before children
-        // important: the semantics of Daml dictate that contracts are immediately
-        // inactive as soon as you exercise it. therefore, mark it as consumed now.
-        contractState = contractState.visitExercise(nid, templateId, targetId, mbKey, consuming),
+        contractState = newContractState,
       ),
     ).noteAuthFails(nid, CheckAuthorization.authorizeExercise(optLocation, makeExNode(ec)), auth)
   }
@@ -633,27 +657,28 @@ private[speedy] case class PartialTransaction(
   private def noteAbort(err: Tx.TransactionError): PartialTransaction =
     copy(aborted = Some(err))
 
-  /** `True` iff the given `ContractId` has been consumed already */
-  def isConsumed(coid: Value.ContractId): Boolean = consumedBy.contains(coid)
-
   /** Double check the execution of a step with the unconsumedness of a
     * `ContractId`.
     */
   private[this] def mustBeActive(
       loc: => String,
-      coid: Value.ContractId,
+      cid: Value.ContractId,
       f: => PartialTransaction,
   ): PartialTransaction =
-    if (consumedBy.isDefinedAt(coid))
-      InternalError.runtimeException(loc, "try to build a node using an inactive contract.")
+    if (consumedByOrInactive(cid).isDefined)
+      InternalError.runtimeException(
+        loc,
+        "try to build a node using a consumed or inactive contract.",
+      )
     else
       f
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
-  def insertLeafNode(
+  private[this] def insertLeafNode(
       node: Node.LeafOnlyAction,
       version: TxVersion,
       optLocation: Option[Location],
+      newContractState: ContractStateMachine[NodeId]#State,
   ): PartialTransaction = {
     val _ = version
     val nid = NodeId(nextNodeIdx)
@@ -662,6 +687,7 @@ private[speedy] case class PartialTransaction(
       nextNodeIdx = nextNodeIdx + 1,
       context = context.addActionChild(nid, version),
       nodes = nodes.updated(nid, node),
+      contractState = newContractState,
     )
   }
 

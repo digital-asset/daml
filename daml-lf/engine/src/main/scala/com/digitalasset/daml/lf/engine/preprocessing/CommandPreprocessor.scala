@@ -7,6 +7,7 @@ package preprocessing
 
 import com.daml.lf.data._
 import com.daml.lf.language.{Ast, PackageInterface}
+import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 
@@ -247,4 +248,20 @@ private[lf] final class CommandPreprocessor(
       discs: ImmArray[command.DisclosedContract]
   ): ImmArray[speedy.DisclosedContract] =
     discs.map(unsafePreprocessDisclosedContract)
+
+  @throws[Error.Preprocessing.Error]
+  def unsafePreprocessInterfaceView(
+      templateId: Ref.Identifier,
+      argument: Value,
+      interfaceId: Ref.Identifier,
+  ): speedy.InterfaceView = {
+    discard(handleLookup(interface.lookupTemplate(templateId)))
+    discard(handleLookup(interface.lookupInterface(interfaceId)))
+    val version =
+      TransactionVersion.assignNodeVersion(interface.packageLanguageVersion(interfaceId.packageId))
+    val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
+    // TODO https://github.com/digital-asset/daml/issues/14112
+    // Add check if interface does not have magic view method.
+    speedy.InterfaceView(templateId, arg, interfaceId, version)
+  }
 }

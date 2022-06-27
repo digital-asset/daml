@@ -39,9 +39,6 @@ object ContractClass {
           )
         )
         .addMethod(
-          Builder.generateFromIdAndRecordDeprecated(contractClassName)
-        )
-        .addMethod(
           Builder.generateFromCreatedEvent(contractClassName)
         )
       this
@@ -66,18 +63,6 @@ object ContractClass {
         className,
         identity,
         (ClassName get classOf[javaapi.data.CreatedEvent], "event"),
-      )
-
-    // XXX remove; see digital-asset/daml#13773
-    private def generateFromIdAndRecordDeprecated(
-        className: ClassName
-    ): MethodSpec =
-      generateCompanionForwarder(
-        "fromIdAndRecord",
-        className,
-        _.addAnnotation(classOf[Deprecated]),
-        (ClassName get classOf[String], "contractId"),
-        (ClassName get classOf[javaapi.data.DamlRecord], "record$"),
       )
 
     private[inner] def generateFromIdAndRecord(

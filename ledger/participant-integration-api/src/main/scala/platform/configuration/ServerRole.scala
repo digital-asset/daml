@@ -27,10 +27,6 @@ object ServerRole {
     override val threadPoolSuffix: String = "migrations"
   }
 
-  object Sandbox extends ServerRole {
-    override val threadPoolSuffix: String = "sandbox"
-  }
-
   object ReadIndexMetadata extends ServerRole {
     override val threadPoolSuffix: String = "dump-index-metadata"
   }

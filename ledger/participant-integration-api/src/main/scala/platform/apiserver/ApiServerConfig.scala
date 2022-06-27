@@ -22,7 +22,6 @@ case class ApiServerConfig(
     address: Option[String] =
       ApiServerConfig.DefaultAddress, // This defaults to "localhost" when set to `None`.
     apiStreamShutdownTimeout: Duration = ApiServerConfig.DefaultApiStreamShutdownTimeout,
-    authentication: AuthServiceConfig = ApiServerConfig.DefaultAuthentication,
     command: CommandConfiguration = ApiServerConfig.DefaultCommand,
     configurationLoadTimeout: Duration = ApiServerConfig.DefaultConfigurationLoadTimeout,
     initialLedgerConfiguration: Option[InitialLedgerConfiguration] =
@@ -50,10 +49,9 @@ object ApiServerConfig {
   val DefaultSeeding: Seeding = Seeding.Strong
   val DefaultManagementServiceTimeout: FiniteDuration = 2.minutes
   val DefaultUserManagement: UserManagementConfig = UserManagementConfig.default(enabled = false)
-  val DefaultAuthentication: AuthServiceConfig = AuthServiceConfig.Wildcard
   val DefaultParty: PartyConfiguration = PartyConfiguration.Default
   val DefaultCommand: CommandConfiguration = CommandConfiguration.Default
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
   val DefaultApiStreamShutdownTimeout: FiniteDuration = FiniteDuration(5, "seconds")
-  val DefaultRateLimitingConfig: Option[RateLimitingConfig] = Some(RateLimitingConfig.default)
+  val DefaultRateLimitingConfig: Option[RateLimitingConfig] = Some(RateLimitingConfig.Default)
 }
