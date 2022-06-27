@@ -492,7 +492,7 @@ sealed abstract class HasTxNodes {
         (acc, _, _) => (acc.map(_.beginRollback()), Transaction.ChildrenRecursion.DoRecurse),
       rollbackEnd = (acc, _, _) => acc.map(_.endRollback()),
       leaf = (acc, _, leaf) => acc.flatMap(_.handleLeaf(leaf)),
-    ).map(_.globalKeyInputs)
+    ).map(m => m.globalKeyInputs.map({case (k, v) => (k, v.head)}))
   }
 
   /** The contract keys created or updated as part of the transaction.
