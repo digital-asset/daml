@@ -71,7 +71,7 @@ final class LedgerIdentityClientTest extends AnyFlatSpec with Matchers with Auth
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingGet()
         )
-        res.isDefined shouldBe true
+        res should not be empty
       }
     }
   }
