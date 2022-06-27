@@ -20,7 +20,7 @@ final class LedgerIdentityClientTest extends AnyFlatSpec with Matchers with Auth
 
   import LedgerIdentityClientTest._
 
-  val ledgerServices = new LedgerServices(ledgerId)
+  private val ledgerServices = new LedgerServices(ledgerId)
 
   behavior of "[6.1] LedgerIdentityClient.getLedgerIdentity"
 
