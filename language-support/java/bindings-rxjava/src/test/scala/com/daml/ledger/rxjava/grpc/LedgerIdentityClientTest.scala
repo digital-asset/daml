@@ -3,6 +3,8 @@
 
 package com.daml.ledger.rxjava.grpc
 
+import java.time.Duration
+import java.time.temporal.ChronoUnit
 import java.util.Optional
 import java.util.concurrent.TimeUnit
 
@@ -12,8 +14,6 @@ import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TestConfiguration}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.time.Duration
-import java.time.temporal.ChronoUnit
 import scala.concurrent.Future
 
 final class LedgerIdentityClientTest extends AnyFlatSpec with Matchers with AuthMatchers {
