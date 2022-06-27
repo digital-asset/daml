@@ -396,28 +396,21 @@ object ScenarioLedger {
     }
 
     def addNewLedgerNodes(historicalLedgerData: LedgerData): LedgerData =
-      richTr.transaction.transaction.reachableNodeIds.foldLeft(historicalLedgerData) {
-        case (ledgerData, nodeId) =>
+      richTr.transaction.transaction.fold[LedgerData](historicalLedgerData) {
+        case (ledgerData, (nodeId, node)) =>
           val eventId = EventId(trId.id, nodeId)
+          val newLedgerNodeInfo = LedgerNodeInfo(
+            node = node,
+            optLocation = locationInfo.get(nodeId),
+            transaction = trId,
+            effectiveAt = richTr.effectiveAt,
+            // Following fields will be updated by additional calls to node processing code
+            disclosures = Map.empty,
+            referencedBy = Set.empty,
+            consumedBy = None,
+          )
 
-          richTr.transaction.nodes.get(nodeId) match {
-            case None =>
-              crash(s"processTransaction: non-existent node '$eventId'.")
-
-            case Some(node) =>
-              val newLedgerNodeInfo = LedgerNodeInfo(
-                node = node,
-                optLocation = locationInfo.get(nodeId),
-                transaction = trId,
-                effectiveAt = richTr.effectiveAt,
-                // Following fields will be updated by additional calls to node processing code
-                disclosures = Map.empty,
-                referencedBy = Set.empty,
-                consumedBy = None,
-              )
-
-              ledgerData.copy(nodeInfos = ledgerData.nodeInfos + (eventId -> newLedgerNodeInfo))
-          }
+          ledgerData.copy(nodeInfos = ledgerData.nodeInfos + (eventId -> newLedgerNodeInfo))
       }
 
     def createdInAndReferenceByUpdates(historicalLedgerData: LedgerData): LedgerData =
