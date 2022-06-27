@@ -11,8 +11,8 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityResponse,
   LedgerIdentityServiceGrpc,
 }
-
 import io.grpc.ServerServiceDefinition
+
 import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext.global
 import scala.concurrent.{ExecutionContext, Future}
