@@ -16,8 +16,9 @@ import io.grpc.ServerServiceDefinition
 import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
-final class LedgerIdentityServiceImpl private(getResponse: () => Future[String])(implicit ec: ExecutionContext)
-    extends LedgerIdentityService
+final class LedgerIdentityServiceImpl private (getResponse: () => Future[String])(implicit
+    ec: ExecutionContext
+) extends LedgerIdentityService
     with FakeAutoCloseable {
 
   @nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*")
