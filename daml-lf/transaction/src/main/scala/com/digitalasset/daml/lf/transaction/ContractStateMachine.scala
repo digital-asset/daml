@@ -461,7 +461,6 @@ object ContractStateMachine {
     *   Later creates overwrite earlier ones. Note that this does not track whether the contract
     *   was consumed or not. That information is stored in consumedBy.
     *   It also _only_ includes local contracts not global contracts.
-    *
     */
   final case class ActiveLedgerState[+Nid](
       locallyCreatedThisTimeline: Set[ContractId],
