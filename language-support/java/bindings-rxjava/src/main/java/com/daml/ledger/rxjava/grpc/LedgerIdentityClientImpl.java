@@ -20,6 +20,14 @@ public class LedgerIdentityClientImpl implements LedgerIdentityClient {
   private LedgerIdentityServiceGrpc.LedgerIdentityServiceFutureStub serviceStub;
   private final Optional<Duration> timeout;
 
+  /**
+   * @deprecated Pass a timeout or {@code Optional.empty()} as the third argument, since Daml 2.4.0
+   */
+  @Deprecated
+  public LedgerIdentityClientImpl(Channel channel, Optional<String> accessToken) {
+    this(channel, accessToken, Optional.empty());
+  }
+
   public LedgerIdentityClientImpl(
       Channel channel, Optional<String> accessToken, Optional<Duration> timeout) {
     this.serviceStub =
