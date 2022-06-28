@@ -52,13 +52,13 @@ private[http] final class CreateAndExercise(
           ]
         _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
 
-        respone <- eitherT(
+        response <- eitherT(
           Timed.future(
             metrics.daml.HttpJsonApi.commandSubmissionLedgerTimer,
             handleFutureEitherFailure(commandService.create(jwt, jwtPayload, cmd)),
           )
         ): ET[domain.CreateCommandResponse[ApiValue]]
-      } yield respone
+      } yield response
     }
 
   def exercise(req: HttpRequest)(implicit
