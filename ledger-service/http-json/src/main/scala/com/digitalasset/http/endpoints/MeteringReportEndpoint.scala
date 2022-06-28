@@ -24,7 +24,7 @@ import com.daml.logging.LoggingContextOf
 import com.google.protobuf
 import scalaz.std.scalaFuture._
 import scalaz.\/
-import spray.json.{JsValue, JsonFormat, RootJsonFormat, deserializationError, DefaultJsonProtocol}
+import spray.json.{RootJsonFormat, DefaultJsonProtocol}
 
 import java.time.{Instant, LocalDate, LocalTime, ZoneOffset}
 import scala.concurrent.{ExecutionContext, Future}
@@ -64,30 +64,19 @@ private[http] object MeteringReportEndpoint {
   )
 
   import DefaultJsonProtocol._
-  val JFS: JsonFormat[String] = implicitly[JsonFormat[String]]
-
-  def stringJsonFormat[A](
-      writeFn: A => String,
-      readFn: String => Either[String, A],
-  ): RootJsonFormat[A] = new RootJsonFormat[A] {
-    override def write(obj: A): JsValue = JFS.write(writeFn(obj))
-    override def read(json: JsValue): A =
-      readFn(JFS.read(json)).fold(e => deserializationError(e), identity)
-  }
+  import json.JsonProtocol.xemapStringJsonFormat
 
   implicit val TimestampFormat: RootJsonFormat[Timestamp] =
-    stringJsonFormat(_.toString, Timestamp.fromString)
+    xemapStringJsonFormat(Timestamp.fromString)(_.toString)
 
-  implicit val LocalDateFormat: RootJsonFormat[LocalDate] = stringJsonFormat(
-    _.toString,
-    s => Try(LocalDate.parse(s)).toEither.left.map(_.getMessage),
-  )
+  implicit val LocalDateFormat: RootJsonFormat[LocalDate] =
+    xemapStringJsonFormat(s => Try(LocalDate.parse(s)).toEither.left.map(_.getMessage))(_.toString)
 
   implicit val ParticipantIdFormat: RootJsonFormat[ParticipantId] =
-    stringJsonFormat(_.toString, ParticipantId.fromString)
+    xemapStringJsonFormat(ParticipantId.fromString)(identity)
 
   implicit val ApplicationIdFormat: RootJsonFormat[ApplicationId] =
-    stringJsonFormat(_.toString, ApplicationId.fromString)
+    xemapStringJsonFormat(ApplicationId.fromString)(identity)
 
   implicit val MeteringReportDateRequestFormat: RootJsonFormat[MeteringReportDateRequest] =
     jsonFormat3(MeteringReportDateRequest.apply)

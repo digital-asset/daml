@@ -6,7 +6,6 @@ package com.daml.http.json
 import akka.http.scaladsl.model.StatusCode
 import com.daml.http.domain
 import com.daml.http.domain.TemplateId
-import com.daml.http.endpoints.MeteringReportEndpoint
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.lf.data.Ref.HexString
 import com.daml.lf.value.Value.ContractId
@@ -360,10 +359,7 @@ object JsonProtocol extends JsonProtocolLow {
   }
 
   implicit val hexStringFormat: JsonFormat[HexString] =
-    MeteringReportEndpoint.stringJsonFormat[HexString](
-      identity,
-      HexString.fromString,
-    )
+    xemapStringJsonFormat(HexString.fromString)(identity)
 
   implicit val DeduplicationDurationFormat: JsonFormat[domain.DeduplicationDuration] =
     jsonFormat1(domain.DeduplicationDuration)
@@ -534,6 +530,16 @@ object JsonProtocol extends JsonProtocolLow {
         case _ => deserializationError(errorMsg)
       }
     }
+
+  // xmap with an error case for StringJsonFormat
+  private[http] def xemapStringJsonFormat[A](readFn: String => Either[String, A])(
+      writeFn: A => String
+  ): RootJsonFormat[A] = new RootJsonFormat[A] {
+    private[this] val base = implicitly[JsonFormat[String]]
+    override def write(obj: A): JsValue = base.write(writeFn(obj))
+    override def read(json: JsValue): A =
+      readFn(base.read(json)).fold(deserializationError(_), identity)
+  }
 }
 
 sealed abstract class JsonProtocolLow extends DefaultJsonProtocol with ExtraFormats {
