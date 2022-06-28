@@ -668,20 +668,20 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           ),
         )
 
-      val json: JsValue =
+      val firstCreate: JsValue =
         encoder.encodeCreateCommand(cmd(genSubmissionId())).valueOr(e => fail(e.shows))
 
       fixture
-        .postJsonRequest(Uri.Path("/v1/create"), json, headers)
+        .postJsonRequest(Uri.Path("/v1/create"), firstCreate, headers)
         .parseResponse[domain.CreateCommandResponse[JsValue]]
         .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, _, _)) =>
           result.completionOffset.unwrap should not be empty
         })
         .flatMap { _ =>
-          val json2: JsValue =
+          val secondCreate: JsValue =
             encoder.encodeCreateCommand(cmd(genSubmissionId())).valueOr(e => fail(e.shows))
           fixture
-            .postJsonRequest(Uri.Path("/v1/create"), json2, headers)
+            .postJsonRequest(Uri.Path("/v1/create"), secondCreate, headers)
             .map(inside(_) { case (StatusCodes.Conflict, _) =>
               succeed
             }): Future[Assertion]
