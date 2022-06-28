@@ -699,7 +699,11 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   ): Future[Assertion] = {
     import fixture.{uri, decoder}
     inside(exerciseResponse) {
-      case domain.ExerciseResponse(JsString(exerciseResult), List(contract1, contract2), completionOffset) =>
+      case domain.ExerciseResponse(
+            JsString(exerciseResult),
+            List(contract1, contract2),
+            completionOffset,
+          ) =>
         completionOffset.unwrap should not be empty
         // checking contracts
         inside(contract1) { case domain.Contract(-\/(archivedContract)) =>
