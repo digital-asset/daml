@@ -546,14 +546,14 @@ private[validation] object Typing {
       // NOTE (MA): we don't need to look for conflicting TemplateImplements since
       // checkIfaceImplementation already does the other side of the check.
 
-      // Note (MA): we need to introduce `param : TTyCon(tplTcon)` to shadow
-      // `param : TTyCon(ifaceTcon)` from the `interface` definition.
-      val env = introExprVar(param, TTyCon(tplTcon))
-      env.checkGenImplementation(
-        tplTcon,
-        ifaceTcon,
-        coImpl.methods.values.map(InterfaceCoImplementsMethod.unapply(_).value).toList,
-      )
+      // Note (MA): we use an empty environment and add `param : TTyCon(tplTcon)`
+      Env(languageVersion, interface, Context.DefInterfaceCoImplements(tplTcon, ifaceTcon))
+        .introExprVar(param, TTyCon(tplTcon))
+        .checkGenImplementation(
+          tplTcon,
+          ifaceTcon,
+          coImpl.methods.values.map(InterfaceCoImplementsMethod.unapply(_).value).toList,
+        )
     }
 
     private def checkIfaceCoImplementations(
