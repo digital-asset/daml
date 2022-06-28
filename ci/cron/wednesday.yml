@@ -31,10 +31,6 @@ jobs:
 
       BASE_SHA=$(git rev-parse HEAD)
 
-      reset() {
-          git checkout -f $BASE_SHA
-          git reset --hard
-      }
       rotate() {
           local tmp next
           tmp=$(mktemp)
