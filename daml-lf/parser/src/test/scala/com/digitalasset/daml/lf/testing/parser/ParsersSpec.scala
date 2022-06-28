@@ -795,10 +795,15 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               , controllers Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)
               , observers Nil @Party
               to upure @Int64 i;
+            coimplements Mod1:Company {
+              method asParty = Mod1:Company {party} this;
+              method getName = Mod1:Company {legalName} this;
+            };
           } ;
        }
 
       """
+      val TTyCon(company) = t"Mod1:Company"
 
       val interface =
         DefInterface(
@@ -830,6 +835,22 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               returnType = t"Int64",
               update = e"upure @Int64 i",
             ),
+          ),
+          coImplements = Map(
+            company ->
+              InterfaceCoImplements(
+                company,
+                Map(
+                  n"asParty" -> InterfaceCoImplementsMethod(
+                    n"asParty",
+                    e"Mod1:Company {party} this",
+                  ),
+                  n"getName" -> InterfaceCoImplementsMethod(
+                    n"getName",
+                    e"Mod1:Company {legalName} this",
+                  ),
+                ),
+              )
           ),
         )
 

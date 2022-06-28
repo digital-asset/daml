@@ -4,6 +4,7 @@
 package com.daml.ledger.api.benchtool.submission
 
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig
+import com.daml.ledger.api.benchtool.submission.foo.RandomPartySelecting
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -14,6 +15,8 @@ class FooSubmission(
     submissionConfig: FooSubmissionConfig,
     allocatedParties: AllocatedParties,
     names: Names,
+    partySelectingRandomnessProvider: RandomnessProvider = RandomnessProvider.Default,
+    consumingEventsRandomnessProvider: RandomnessProvider = RandomnessProvider.Default,
 ) {
 
   def performSubmission()(implicit
@@ -24,7 +27,11 @@ class FooSubmission(
         divulgingParty = allocatedParties.signatory,
         allDivulgees = allocatedParties.divulgees,
       )
-
+    val partySelecting =
+      new RandomPartySelecting(
+        allocatedParties = allocatedParties,
+        randomnessProvider = partySelectingRandomnessProvider,
+      )
     for {
       _ <-
         if (divulgerCmds.nonEmpty) {
@@ -41,11 +48,13 @@ class FooSubmission(
           Future.unit
         }
       generator: CommandGenerator = new FooCommandGenerator(
-        randomnessProvider = RandomnessProvider.Default,
+        defaultRandomnessProvider = RandomnessProvider.Default,
         config = submissionConfig,
         divulgeesToDivulgerKeyMap = divulgeesToDivulgerKeyMap,
         names = names,
         allocatedParties = allocatedParties,
+        partySelecting = partySelecting,
+        consumingEventsRandomnessProvider = consumingEventsRandomnessProvider,
       )
       _ <- submitter
         .generateAndSubmit(

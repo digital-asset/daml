@@ -5,11 +5,9 @@ package com.daml.ledger.api.benchtool.submission
 
 import java.util.concurrent.TimeUnit
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.benchtool.BenchtoolSandboxFixture
 import com.daml.ledger.api.benchtool.config.WorkflowConfig
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig.ApplicationId
-import com.daml.ledger.api.benchtool.metrics.MetricsManager.NoOpMetricsManager
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -34,7 +32,6 @@ class WeightedApplicationIdsAndSubmittersITSpec
     val submissionConfig = WorkflowConfig.FooSubmissionConfig(
       numberOfInstances = 100,
       numberOfObservers = 1,
-      numberOfDivulgees = 0,
       numberOfExtraSubmitters = 3,
       uniqueParties = false,
       instanceDistribution = List(
@@ -58,20 +55,7 @@ class WeightedApplicationIdsAndSubmittersITSpec
       ),
     )
     for {
-      ledgerApiServicesF <- LedgerApiServices.forChannel(
-        channel = channel,
-        authorizationHelper = None,
-      )
-      apiServices: LedgerApiServices = ledgerApiServicesF("someUser")
-      names = new Names()
-      submitter = CommandSubmitter(
-        names = names,
-        benchtoolUserServices = apiServices,
-        adminServices = apiServices,
-        metricRegistry = new MetricRegistry,
-        metricsManager = NoOpMetricsManager(),
-        waitForSubmission = true,
-      )
+      (apiServices, names, submitter) <- benchtoolFixture()
       allocatedParties <- submitter.prepare(submissionConfig)
       tested = new FooSubmission(
         submitter = submitter,

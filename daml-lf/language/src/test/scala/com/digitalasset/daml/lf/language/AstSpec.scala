@@ -67,6 +67,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       choices = Map.empty,
       methods = Map.empty,
       requires = Set.empty,
+      coImplements = Map.empty,
     )
 
     def exception = DefException(
@@ -381,6 +382,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         ),
         methods = List(ifaceMethod1, ifaceMethod2),
         precond = ETrue,
+        coImplements = List.empty,
       )
     }
 
@@ -396,6 +398,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           ),
           methods = List.empty,
           precond = ETrue,
+          coImplements = List.empty,
         )
       )
     }
@@ -408,6 +411,29 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           choices = List.empty,
           methods = List(ifaceMethod1, ifaceMethod1),
           precond = ETrue,
+          coImplements = List.empty,
+        )
+      )
+    }
+
+    "catch duplicate co-implementation" in {
+      DefInterface.build(
+        requires = List.empty,
+        param = Name.assertFromString("x"),
+        choices = List.empty,
+        methods = List(ifaceMethod1, ifaceMethod2),
+        precond = ETrue,
+        coImplements = List(ifaceCoImpl1, ifaceCoImpl2),
+      )
+
+      a[PackageError] shouldBe thrownBy(
+        DefInterface.build(
+          requires = List.empty,
+          param = Name.assertFromString("x"),
+          choices = List.empty,
+          methods = List(ifaceMethod1, ifaceMethod2),
+          precond = ETrue,
+          coImplements = List(ifaceCoImpl1, ifaceCoImpl1),
         )
       )
     }
@@ -424,6 +450,14 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
   )
   private val ifaceImpl2 = TemplateImplements(
     interfaceId = TypeConName.assertFromString("pkgId:Mod:I2"),
+    methods = Map.empty,
+  )
+  private val ifaceCoImpl1 = InterfaceCoImplements(
+    templateId = TypeConName.assertFromString("pkgId:Mod:T1"),
+    methods = Map.empty,
+  )
+  private val ifaceCoImpl2 = InterfaceCoImplements(
+    templateId = TypeConName.assertFromString("pkgId:Mod:T2"),
     methods = Map.empty,
   )
   private val ifaceMethod1 = InterfaceMethod(name = Name.assertFromString("x"), returnType = TUnit)
