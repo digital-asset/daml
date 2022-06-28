@@ -815,7 +815,10 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         )
         .parseResponse[domain.ExerciseResponse[JsValue]]
         .map(inside(_) {
-          case (StatusCodes.OK, domain.OkResponse(domain.ExerciseResponse(JsString(c), _), _, _)) =>
+          case (
+                StatusCodes.OK,
+                domain.OkResponse(domain.ExerciseResponse(JsString(c), _, _), _, _),
+              ) =>
             lar.ContractId(c)
         })
       // create a contract only visible to Alice
