@@ -361,13 +361,6 @@ object JsonProtocol extends JsonProtocolLow {
   implicit val hexStringFormat: JsonFormat[HexString] =
     xemapStringJsonFormat(HexString.fromString)(identity)
 
-  implicit val DeduplicationDurationFormat: JsonFormat[domain.DeduplicationDuration] =
-    jsonFormat1(domain.DeduplicationDuration)
-
-  implicit val DeduplicationOffsetFormat: JsonFormat[domain.DeduplicationOffset] = {
-    jsonFormat1(domain.DeduplicationOffset)
-  }
-
   implicit val DeduplicationPeriodFormat: JsonFormat[domain.DeduplicationPeriod] =
     deriveFormat[domain.DeduplicationPeriod]
 
