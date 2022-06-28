@@ -570,7 +570,8 @@ HTTP Response
                 "Alice"
             ],
             "contractId": "#124:0",
-            "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"
+            "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou",
+            "completionOffset":"0000000000000084"
         }
     }
 
@@ -688,7 +689,8 @@ HTTP Response
                         "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:IouTransfer"
                     }
                 }
-            ]
+            ],
+            "completionOffset":"0000000000000083"
         }
     }
 
