@@ -68,6 +68,21 @@ steps:
           jq '.number' "$output" > "$pr_number"
       fi
     }
+    request_pr_review() {
+      local pr_number reviewer
+      pr_number="$1"
+      reviewer="$2"
+
+      jq -n --arg reviewer "$reviewer" \
+            '{"reviewers": [$reviewer]}' \
+        | curl -H "Content-Type: application/json" \
+               -H "$(get_gh_auth_header)" \
+               --fail \
+               --silent \
+               --location \
+               -d @- \
+               "https://api.github.com/repos/digital-asset/daml/pulls/$pr_number/requested_reviewers"
+    }
     user_slack_handle() {
         local email sha
         sha=$1
