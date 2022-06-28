@@ -52,6 +52,7 @@ final case class VersionedTransaction private[lf] (
   *
   * @param nodes The nodes of this transaction.
   * @param roots References to the root nodes of the transaction.
+  *
   * Users of this class may assume that all instances are well-formed, i.e., `isWellFormed.isEmpty`.
   * For performance reasons, users are not required to call `isWellFormed`.
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
@@ -255,7 +256,7 @@ sealed abstract class HasTxNodes {
 
   def roots: ImmArray[NodeId]
 
-  /** The union of the informees of a all the action nodes. */
+  /** The union of the informees of all the action nodes. */
   lazy val informees: Set[Ref.Party] =
     nodes.values.foldLeft(Set.empty[Ref.Party]) {
       case (acc, node: Node.Action) => acc | node.informeesOfNode
@@ -350,8 +351,8 @@ sealed abstract class HasTxNodes {
     }
 
   /** Returns the IDs of all the consumed contracts.
-    *  This includes transient contracts but it does not include contracts
-    *  consumed in rollback nodes.
+    * This includes transient contracts but it does not include contracts
+    * consumed in rollback nodes.
     */
   final def consumedContracts[Cid2 >: ContractId]: Set[Cid2] =
     foldInExecutionOrder(Set.empty[Cid2])(
@@ -463,6 +464,60 @@ sealed abstract class HasTxNodes {
       case (acc, (_, _: Node.Rollback)) =>
         acc
     }
+  }
+
+  /** Keys are contracts (that have been consumed) and values are the nodes where the contract was consumed.
+    * Nodes under rollbacks (both exercises and creates) are ignored (as they have been rolled back).
+    * The result includes both local contracts created in the transaction (if they’ve been consumed) as well as global
+    * contracts created in previous transactions. It does not include local contracts created under a rollback.
+    */
+  final def consumedBy: Map[ContractId, NodeId] =
+    foldInExecutionOrder[Map[ContractId, NodeId]](HashMap.empty)(
+      exerciseBegin = (consumedByMap, nodeId, exerciseNode) => {
+        if (exerciseNode.consuming) {
+          (consumedByMap + (exerciseNode.targetCoid -> nodeId), ChildrenRecursion.DoRecurse)
+        } else {
+          (consumedByMap, ChildrenRecursion.DoRecurse)
+        }
+      },
+      rollbackBegin = (consumedByMap, _, _) => {
+        (consumedByMap, ChildrenRecursion.DoNotRecurse)
+      },
+      leaf = (consumedByMap, _, _) => consumedByMap,
+      exerciseEnd = (consumedByMap, _, _) => consumedByMap,
+      rollbackEnd = (consumedByMap, _, _) => consumedByMap,
+    )
+
+  /** Keys are nodes under a rollback and values are the "nearest" (i.e. most recent) rollback node.
+    */
+  final def rolledbackBy: Map[NodeId, NodeId] = {
+    val rolledbackByMapUpdate
+        : ((Map[NodeId, NodeId], Seq[NodeId]), NodeId) => (Map[NodeId, NodeId], Seq[NodeId]) = {
+      case ((rolledbackMap, rollbackStack @ (rollbackNode +: _)), nodeId) =>
+        (rolledbackMap + (nodeId -> rollbackNode), rollbackStack)
+
+      case (state, _) =>
+        state
+    }
+
+    foldInExecutionOrder[(Map[NodeId, NodeId], Seq[NodeId])]((HashMap.empty, Vector.empty))(
+      exerciseBegin =
+        (state, nodeId, _) => (rolledbackByMapUpdate(state, nodeId), ChildrenRecursion.DoRecurse),
+      rollbackBegin = { case ((rolledbackMap, rollbackStack), nodeId, _) =>
+        ((rolledbackMap, nodeId +: rollbackStack), ChildrenRecursion.DoRecurse)
+      },
+      leaf = (state, nodeId, _) => rolledbackByMapUpdate(state, nodeId),
+      exerciseEnd = (state, _, _) => state,
+      rollbackEnd = {
+        case ((rolledbackMap, _ +: rollbackStack), _, _) =>
+          (rolledbackMap, rollbackStack)
+
+        case _ =>
+          throw new IllegalStateException(
+            "Impossible case: rollbackBegin should already have pushed to the rollback stack"
+          )
+      },
+    )._1
   }
 
   /** Return the expected contract key inputs (i.e. the state before the transaction)
