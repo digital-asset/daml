@@ -139,7 +139,7 @@ public final class DamlLedgerClient implements LedgerClient {
 
   /** Connects this instance of the {@link DamlLedgerClient} to the Ledger. */
   public void connect() {
-    ledgerIdentityClient = new LedgerIdentityClientImpl(channel, this.accessToken);
+    ledgerIdentityClient = new LedgerIdentityClientImpl(channel, this.accessToken, this.timeout);
 
     String reportedLedgerId = ledgerIdentityClient.getLedgerIdentity().blockingGet();
 
