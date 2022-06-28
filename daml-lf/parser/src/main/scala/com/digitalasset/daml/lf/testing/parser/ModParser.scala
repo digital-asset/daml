@@ -201,16 +201,18 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       rep(interfaceRequires <~ `;`) ~
       (Id("precondition") ~> expr <~ `;`) ~
       rep(interfaceMethod <~ `;`) ~
-      rep(templateChoice <~ `;`) <~
+      rep(templateChoice <~ `;`) ~
+      rep(coImplements <~ `;`) <~
       `}` ^^ {
         case x ~ _ ~ tycon ~ _ ~ _ ~ _ ~
             requires ~
             precond ~
             methods ~
-            choices =>
+            choices ~
+            coImplements =>
           IfaceDef(
             tycon,
-            DefInterface.build(Set.from(requires), x, choices, methods, precond),
+            DefInterface.build(Set.from(requires), x, choices, methods, precond, coImplements),
           )
       }
   private val interfaceRequires: Parser[Ref.TypeConName] =
@@ -219,6 +221,17 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   private val interfaceMethod: Parser[InterfaceMethod] =
     Id("method") ~>! id ~ `:` ~ typ ^^ { case name ~ _ ~ typ =>
       InterfaceMethod(name, typ)
+    }
+
+  private lazy val coImplementsMethod: Parser[InterfaceCoImplementsMethod] =
+    Id("method") ~>! id ~ `=` ~ expr ^^ { case (name ~ _ ~ value) =>
+      InterfaceCoImplementsMethod(name, value)
+    }
+
+  private lazy val coImplements: Parser[InterfaceCoImplements] =
+    Id("coimplements") ~>! fullIdentifier ~ (`{` ~> rep(coImplementsMethod <~ `;`) <~ `}`) ^^ {
+      case tplId ~ methods =>
+        InterfaceCoImplements.build(tplId, methods)
     }
 
   private val serializableTag = Ref.Name.assertFromString("serializable")

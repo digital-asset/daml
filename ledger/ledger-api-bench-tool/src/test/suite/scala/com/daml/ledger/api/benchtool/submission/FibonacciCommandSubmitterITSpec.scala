@@ -3,11 +3,8 @@
 
 package com.daml.ledger.api.benchtool.submission
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.benchtool.BenchtoolSandboxFixture
 import com.daml.ledger.api.benchtool.config.WorkflowConfig
-import com.daml.ledger.api.benchtool.metrics.MetricsManager.NoOpMetricsManager
-import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import org.scalatest.AppendedClues
@@ -31,28 +28,15 @@ class FibonacciCommandSubmitterITSpec
     )
 
     for {
-      ledgerApiServicesF <- LedgerApiServices.forChannel(
-        channel = channel,
-        authorizationHelper = None,
-      )
-      apiServices = ledgerApiServicesF("someUser")
-      names = new Names()
-      tested = CommandSubmitter(
-        names = names,
-        benchtoolUserServices = apiServices,
-        adminServices = apiServices,
-        metricRegistry = new MetricRegistry,
-        metricsManager = NoOpMetricsManager(),
-        waitForSubmission = config.waitForSubmission,
-      )
-      allocatedParties <- tested.prepare(config)
+      (apiServices, names, submitter) <- benchtoolFixture()
+      allocatedParties <- submitter.prepare(config)
       _ = allocatedParties.divulgees shouldBe empty
       generator = new FibonacciCommandGenerator(
         signatory = allocatedParties.signatory,
         config = config,
         names = names,
       )
-      _ <- tested.generateAndSubmit(
+      _ <- submitter.generateAndSubmit(
         generator = generator,
         config = config,
         baseActAs = List(allocatedParties.signatory) ++ allocatedParties.divulgees,

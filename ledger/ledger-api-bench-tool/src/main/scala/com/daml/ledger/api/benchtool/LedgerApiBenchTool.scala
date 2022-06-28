@@ -21,6 +21,7 @@ import com.daml.ledger.api.benchtool.metrics.{
 }
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.benchtool.submission._
+import com.daml.ledger.api.benchtool.submission.foo.RandomPartySelecting
 import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
@@ -79,8 +80,6 @@ object LedgerApiBenchTool {
 
 }
 
-case class SubmissionStepResult(allocatedParties: AllocatedParties)
-
 class LedgerApiBenchTool(
     names: Names,
     authorizationHelper: Option[AuthorizationHelper],
@@ -112,25 +111,33 @@ class LedgerApiBenchTool(
       val adminServices = servicesForUserId(UserManagementStore.DefaultParticipantAdminUserId)
       val regularUserServices = servicesForUserId(names.benchtoolUserId)
 
+      val partyAllocating = new PartyAllocating(
+        names = names,
+        adminServices = adminServices,
+      )
       for {
         _ <- regularUserSetupStep(adminServices)
-        submissionStepResultO: Option[SubmissionStepResult] <- {
+        allocatedParties <- {
           config.workflow.submission match {
             case None =>
               logger.info(s"No submission defined. Skipping.")
-              Future.successful(None)
+              for {
+                existingParties <- partyAllocating.lookupExistingParties()
+              } yield AllocatedParties.forExistingParties(existingParties.toList)
             case Some(submissionConfig) =>
               submissionStep(
                 regularUserServices = regularUserServices,
                 adminServices = adminServices,
                 submissionConfig = submissionConfig,
                 metricRegistry = metricRegistry,
-              ).map(Some(_))
+                partyAllocating = partyAllocating,
+              )
           }
         }
 
+        configEnricher = new ConfigEnricher(allocatedParties)
         updatedStreamConfigs = config.workflow.streams.map(streamsConfig =>
-          ConfigEnricher.enrichStreamConfig(streamsConfig, submissionStepResultO)
+          configEnricher.enrichStreamConfig(streamsConfig)
         )
 
         _ = logger.info(
@@ -138,13 +145,6 @@ class LedgerApiBenchTool(
         )
         benchmarkResult <-
           if (config.latencyTest) {
-            val allocatedParties = submissionStepResultO
-              .map(_.allocatedParties)
-              .getOrElse(
-                throw new RuntimeException(
-                  "Signatory (which is part of allocated parties) cannot be empty for latency benchmark"
-                )
-              )
             benchmarkLatency(
               regularUserServices = regularUserServices,
               adminServices = adminServices,
@@ -223,11 +223,13 @@ class LedgerApiBenchTool(
     submissionConfigO match {
       case Some(submissionConfig: FooSubmissionConfig) =>
         val generator: CommandGenerator = new FooCommandGenerator(
-          randomnessProvider = RandomnessProvider.Default,
           config = submissionConfig,
           divulgeesToDivulgerKeyMap = Map.empty,
           names = names,
           allocatedParties = allocatedParties,
+          partySelecting = new RandomPartySelecting(
+            allocatedParties = allocatedParties
+          ),
         )
         for {
           metricsManager <- MetricsManager(
@@ -243,6 +245,10 @@ class LedgerApiBenchTool(
             metricRegistry = metricRegistry,
             metricsManager = metricsManager,
             waitForSubmission = true,
+            partyAllocating = new PartyAllocating(
+              names = names,
+              adminServices = adminServices,
+            ),
           )
           result <- submitter
             .generateAndSubmit(
@@ -278,9 +284,10 @@ class LedgerApiBenchTool(
       adminServices: LedgerApiServices,
       submissionConfig: WorkflowConfig.SubmissionConfig,
       metricRegistry: MetricRegistry,
+      partyAllocating: PartyAllocating,
   )(implicit
       ec: ExecutionContext
-  ): Future[SubmissionStepResult] = {
+  ): Future[AllocatedParties] = {
 
     val submitter = CommandSubmitter(
       names = names,
@@ -289,6 +296,7 @@ class LedgerApiBenchTool(
       metricRegistry = metricRegistry,
       metricsManager = NoOpMetricsManager(),
       waitForSubmission = submissionConfig.waitForSubmission,
+      partyAllocating = partyAllocating,
     )
     for {
       allocatedParties <- submitter.prepare(
@@ -322,9 +330,7 @@ class LedgerApiBenchTool(
                 )
             } yield ()
         }
-    } yield SubmissionStepResult(
-      allocatedParties = allocatedParties
-    )
+    } yield allocatedParties
   }
 
   private def apiServicesOwner(
