@@ -645,48 +645,48 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }: Future[Assertion]
   }
 
-  "create IOU_Transfer, command deduplication should work" in withHttpService {
-    (uri, encoder, _, _) =>
-      def genSubmissionId() = domain.SubmissionId(UUID.randomUUID().toString)
-      getUniquePartyAndAuthHeaders(uri)("Alice").flatMap { case (alice, headers) =>
-        val cmdId = domain.CommandId apply UUID.randomUUID().toString
-        def cmd(
-            submissionId: domain.SubmissionId
-        ): domain.CreateCommand[v.Record, OptionalPkg] =
-          iouCreateCommand(
-            alice.unwrap,
-            amount = "19002.0",
-            meta = Some(
-              domain.CommandMeta(
-                commandId = Some(cmdId),
-                actAs = None,
-                readAs = None,
-                submissionId = Some(submissionId),
-                deduplicationPeriod =
-                  Some(domain.DeduplicationDuration(10000L): domain.DeduplicationPeriod),
-              )
-            ),
-          )
+  "create IOU_Transfer, command deduplication should work" in withHttpService { fixture =>
+    import fixture.encoder
+    def genSubmissionId() = domain.SubmissionId(UUID.randomUUID().toString)
+    fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+      val cmdId = domain.CommandId apply UUID.randomUUID().toString
+      def cmd(
+          submissionId: domain.SubmissionId
+      ): domain.CreateCommand[v.Record, OptionalPkg] =
+        iouCreateCommand(
+          alice,
+          amount = "19002.0",
+          meta = Some(
+            domain.CommandMeta(
+              commandId = Some(cmdId),
+              actAs = None,
+              readAs = None,
+              submissionId = Some(submissionId),
+              deduplicationPeriod =
+                Some(domain.DeduplicationDuration(10000L): domain.DeduplicationPeriod),
+            )
+          ),
+        )
 
-        val json: JsValue =
-          encoder.encodeCreateCommand(cmd(genSubmissionId())).valueOr(e => fail(e.shows))
+      val json: JsValue =
+        encoder.encodeCreateCommand(cmd(genSubmissionId())).valueOr(e => fail(e.shows))
 
-        postJsonRequest(uri.withPath(Uri.Path("/v1/create")), json, headers)
-          .map { case (status, output) =>
-            status shouldBe StatusCodes.OK
-            inside(decode1[domain.OkResponse, domain.CreateCommandResponse[JsValue]](output)) {
-              case \/-(it) => it.result.completionOffset.unwrap should not be empty
-            }
-          }
-          .flatMap { _ =>
-            val json2: JsValue =
-              encoder.encodeCreateCommand(cmd(genSubmissionId())).valueOr(e => fail(e.shows))
-            postJsonRequest(uri.withPath(Uri.Path("/v1/create")), json2, headers)
-              .flatMap { case (status, _) =>
-                status shouldBe StatusCodes.Conflict
-              }: Future[Assertion]
-          }
-      }
+      fixture
+        .postJsonRequest(Uri.Path("/v1/create"), json, headers)
+        .parseResponse[domain.CreateCommandResponse[JsValue]]
+        .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, _, _)) =>
+          result.completionOffset.unwrap should not be empty
+        })
+        .flatMap { _ =>
+          val json2: JsValue =
+            encoder.encodeCreateCommand(cmd(genSubmissionId())).valueOr(e => fail(e.shows))
+          fixture
+            .postJsonRequest(Uri.Path("/v1/create"), json2, headers)
+            .map(inside(_) { case (StatusCodes.Conflict, _) =>
+              succeed
+            }): Future[Assertion]
+        }
+    }
 
   }
 
