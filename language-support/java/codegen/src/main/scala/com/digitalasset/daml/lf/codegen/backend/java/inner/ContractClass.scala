@@ -39,9 +39,6 @@ object ContractClass {
           )
         )
         .addMethod(
-          Builder.generateFromIdAndRecordDeprecated(contractClassName)
-        )
-        .addMethod(
           Builder.generateFromCreatedEvent(contractClassName)
         )
       this
@@ -66,18 +63,6 @@ object ContractClass {
         className,
         identity,
         (ClassName get classOf[javaapi.data.CreatedEvent], "event"),
-      )
-
-    // XXX remove; see digital-asset/daml#13773
-    private def generateFromIdAndRecordDeprecated(
-        className: ClassName
-    ): MethodSpec =
-      generateCompanionForwarder(
-        "fromIdAndRecord",
-        className,
-        _.addAnnotation(classOf[Deprecated]),
-        (ClassName get classOf[String], "contractId"),
-        (ClassName get classOf[javaapi.data.DamlRecord], "record$"),
       )
 
     private[inner] def generateFromIdAndRecord(
@@ -124,20 +109,15 @@ object ContractClass {
 
     private[this] def generateGetCompanion(templateClassName: ClassName): MethodSpec = {
       val contractClassName = ClassName bestGuess "Contract"
-      MethodSpec
-        .methodBuilder("getCompanion")
-        .addModifiers(Modifier.PROTECTED)
-        .addAnnotation(classOf[Override])
-        .returns(
-          ParameterizedTypeName.get(
-            ClassName get classOf[javaapi.data.codegen.ContractCompanion[_, _, _]],
-            contractClassName,
-            contractIdClassName,
-            templateClassName,
-          )
-        )
-        .addStatement("return $N", companionFieldName)
-        .build()
+      ClassGenUtils.generateGetCompanion(
+        ParameterizedTypeName.get(
+          ClassName get classOf[javaapi.data.codegen.ContractCompanion[_, _, _]],
+          contractClassName,
+          contractIdClassName,
+          templateClassName,
+        ),
+        companionFieldName,
+      )
     }
 
     def create(

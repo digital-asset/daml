@@ -3,7 +3,7 @@
 
 load("@os_info//:os_info.bzl", "is_darwin")
 load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary", "haskell_cabal_library")
-load(":version.bzl", "GHC_FLAVOR", "GHC_LIB_VERSION")
+load(":version.bzl", "GHC_CPP_OPTIONS", "GHC_FLAVOR", "GHC_LIB_VERSION")
 
 def ghc_lib_gen():
     """Build the ghc-lib-gen binary provided ghc-lib."""
@@ -62,6 +62,7 @@ def ghc():
     )
     haskell_cabal_binary(
         name = "hadrian",
+        flags = ["with_bazel"],
         srcs = [":hadrian-srcs"],
         deps = [
             "@stackage//:base",
@@ -130,7 +131,12 @@ trap "rm -rf $$TMP" EXIT
 cp -rLt $$TMP $$GHC/.
 export HOME="$$TMP"
 
-$(execpath @ghc-lib-gen) $$TMP --ghc-lib{component} --ghc-flavor={ghc_flavor}
+$(execpath @ghc-lib-gen) $$TMP --ghc-lib{component} --ghc-flavor={ghc_flavor} {cpp_options}
+# Remove absolute paths to the execroot.
+sed -i.bak \\
+  -e "s#$$EXECROOT/##" \\
+  $$TMP/ghc-lib/stage0/lib/settings
+# Patch the ghc-lib version.
 sed -i.bak \\
   -e 's#version: 0.1.0#version: {ghc_lib_version}#' \\
   $$TMP/ghc-lib{component}.cabal
@@ -141,6 +147,7 @@ cp $$TMP/ghc-lib{component}.cabal $(execpath ghc-lib{component}.cabal)
                 ghc_flavor = GHC_FLAVOR,
                 ghc_lib_version = GHC_LIB_VERSION,
                 lang = "en_US.UTF-8" if is_darwin else "C.UTF-8",
+                cpp_options = " ".join(["--cpp={}".format(cpp) for cpp in GHC_CPP_OPTIONS]),
             ),
             visibility = ["//visibility:public"],
         )

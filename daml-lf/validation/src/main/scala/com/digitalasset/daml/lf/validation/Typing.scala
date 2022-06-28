@@ -14,6 +14,8 @@ import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
 
+import annotation.nowarn
+
 private[validation] object Typing {
 
   import Util.handleLookup
@@ -458,7 +460,7 @@ private[validation] object Typing {
 
     private[Typing] def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
-        case DefInterface(requires, param, choices, methods, precond) =>
+        case DefInterface(requires, param, choices, methods, precond, coImplements) =>
           val env = introExprVar(param, TTyCon(ifaceName))
           if (requires(ifaceName))
             throw ECircularInterfaceRequires(ctx, ifaceName)
@@ -470,6 +472,7 @@ private[validation] object Typing {
           env.checkExpr(precond, TBool)
           methods.values.foreach(checkIfaceMethod)
           choices.values.foreach(env.checkChoice(ifaceName, _))
+          env.checkIfaceCoImplementations(ifaceName, coImplements)
       }
 
     private def checkIfaceMethod(method: InterfaceMethod): Unit = {
@@ -486,23 +489,12 @@ private[validation] object Typing {
     ): Unit = {
 
       impls.foreach { case (iface, impl) =>
-        val DefInterfaceSignature(requires, _, choices, methods, _) =
+        val DefInterfaceSignature(requires, _, _, methods, _, _) =
           handleLookup(ctx, interface.lookupInterface(impl.interfaceId))
 
         requires
           .filterNot(impls.contains)
           .foreach(required => throw EMissingRequiredInterface(ctx, tplTcon, iface, required))
-
-        val choicesSet = choices.keySet
-        if (impl.inheritedChoices != choicesSet) {
-          throw EBadInheritedChoices(
-            ctx,
-            impl.interfaceId,
-            tplTcon,
-            choicesSet,
-            impl.inheritedChoices,
-          )
-        }
 
         methods.values.foreach { (method: InterfaceMethod) =>
           if (!impl.methods.contains(method.name))
@@ -518,6 +510,14 @@ private[validation] object Typing {
         }
       }
     }
+
+    // TODO (MA): https://github.com/digital-asset/daml/issues/14047
+    @nowarn("cat=unused&msg=parameter value ifaceTcon in method")
+    @nowarn("cat=unused&msg=parameter value coImpls in method")
+    private def checkIfaceCoImplementations(
+        ifaceTcon: TypeConName,
+        coImpls: Map[TypeConName, InterfaceCoImplements],
+    ): Unit = {}
 
     private[Typing] def checkDefException(
         excepName: TypeConName,
@@ -944,7 +944,7 @@ private[validation] object Typing {
       TUpdate(choice.returnType)
     }
 
-    private def typeOfFetch(tpl: TypeConName, cid: Expr): Type = {
+    private def typeOfFetchTemplate(tpl: TypeConName, cid: Expr): Type = {
       discard(handleLookup(ctx, interface.lookupTemplate(tpl)))
       checkExpr(cid, TContractId(TTyCon(tpl)))
       TUpdate(TTyCon(tpl))
@@ -986,8 +986,8 @@ private[validation] object Typing {
         typeOfExerciseInterface(tpl, choice, cid, arg, guard)
       case UpdateExerciseByKey(tpl, choice, key, arg) =>
         typeOfExerciseByKey(tpl, choice, key, arg)
-      case UpdateFetch(tpl, cid) =>
-        typeOfFetch(tpl, cid)
+      case UpdateFetchTemplate(tpl, cid) =>
+        typeOfFetchTemplate(tpl, cid)
       case UpdateFetchInterface(tpl, cid) =>
         typeOfFetchInterface(tpl, cid)
       case UpdateGetTime =>

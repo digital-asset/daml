@@ -179,8 +179,8 @@ private[daml] class AstRewriter(
         UpdateCreate(apply(templateId), apply(arg))
       case UpdateCreateInterface(interface, arg) =>
         UpdateCreateInterface(apply(interface), apply(arg))
-      case UpdateFetch(templateId, contractId) =>
-        UpdateFetch(apply(templateId), apply(contractId))
+      case UpdateFetchTemplate(templateId, contractId) =>
+        UpdateFetchTemplate(apply(templateId), apply(contractId))
       case UpdateFetchInterface(interface, contractId) =>
         UpdateFetchInterface(apply(interface), apply(contractId))
       case UpdateExercise(templateId, choice, cid, arg) =>
@@ -274,7 +274,7 @@ private[daml] class AstRewriter(
           },
           apply(observers),
           key.map(apply),
-          implements.map({ case (t, x) => (apply(t), apply(x)) }),
+          implements.map { case (t, x) => (apply(t), apply(x)) },
         )
     }
 
@@ -307,12 +307,10 @@ private[daml] class AstRewriter(
       case TemplateImplements(
             interface,
             methods,
-            inheritedChoices,
           ) =>
         TemplateImplements(
           apply(interface),
           methods.transform((_, x) => apply(x)),
-          inheritedChoices,
         )
     }
   def apply(x: TemplateImplementsMethod): TemplateImplementsMethod =
@@ -344,15 +342,39 @@ private[daml] class AstRewriter(
         InterfaceMethod(name, apply(returnType))
     }
 
+  def apply(x: InterfaceCoImplements): InterfaceCoImplements =
+    x match {
+      case InterfaceCoImplements(
+            templateId,
+            methods,
+          ) =>
+        InterfaceCoImplements(
+          apply(templateId),
+          methods.transform((_, x) => apply(x)),
+        )
+    }
+  def apply(x: InterfaceCoImplementsMethod): InterfaceCoImplementsMethod =
+    x match {
+      case InterfaceCoImplementsMethod(
+            name,
+            value,
+          ) =>
+        InterfaceCoImplementsMethod(
+          name,
+          apply(value),
+        )
+    }
+
   def apply(x: DefInterface): DefInterface =
     x match {
-      case DefInterface(requires, param, choices, methods, precond) =>
+      case DefInterface(requires, param, choices, methods, precond, coImplements) =>
         DefInterface(
           requires.map(apply(_)),
           param,
           choices.transform((_, v) => apply(v)),
           methods.transform((_, v) => apply(v)),
           apply(precond),
+          coImplements.map { case (t, x) => (apply(t), apply(x)) },
         )
     }
 }

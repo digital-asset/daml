@@ -4,9 +4,14 @@
 package com.daml.ledger.api.benchtool.submission
 
 import com.daml.ledger.api.v1.commands.Command
+import com.daml.ledger.client.binding.Primitive
 
 import scala.util.Try
 
 trait CommandGenerator {
   def next(): Try[Seq[Command]]
+
+  def nextApplicationId(): String
+
+  def nextExtraCommandSubmitters(): List[Primitive.Party]
 }

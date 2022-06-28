@@ -3,7 +3,6 @@
 package com.daml.platform.store.dao
 
 import akka.NotUsed
-import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.DamlContextualizedErrorLogger
@@ -43,6 +42,8 @@ private class JdbcLedgerDao(
     eventsPageSize: Int,
     eventsProcessingParallelism: Int,
     acsIdPageSize: Int,
+    acsIdPageBufferSize: Int,
+    acsIdPageWorkingMemoryBytes: Int,
     acsIdFetchingParallelism: Int,
     acsContractFetchingParallelism: Int,
     acsGlobalParallelism: Int,
@@ -53,7 +54,6 @@ private class JdbcLedgerDao(
     participantId: Ref.ParticipantId,
     readStorageBackend: ReadStorageBackend,
     parameterStorageBackend: ParameterStorageBackend,
-    materializer: Materializer,
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -472,12 +472,14 @@ private class JdbcLedgerDao(
         eventStorageBackend = readStorageBackend.eventStorageBackend,
         pageSize = eventsPageSize,
         idPageSize = acsIdPageSize,
+        idPageBufferSize = acsIdPageBufferSize,
+        idPageWorkingMemoryBytes = acsIdPageWorkingMemoryBytes,
         idFetchingParallelism = acsIdFetchingParallelism,
         acsFetchingparallelism = acsContractFetchingParallelism,
         metrics = metrics,
-        materializer = materializer,
         querylimiter =
           new QueueBasedConcurrencyLimiter(acsGlobalParallelism, servicesExecutionContext),
+        executionContext = servicesExecutionContext,
       ),
     )(
       servicesExecutionContext
@@ -567,6 +569,8 @@ private[platform] object JdbcLedgerDao {
       eventsPageSize: Int,
       eventsProcessingParallelism: Int,
       acsIdPageSize: Int,
+      acsIdPageBufferSize: Int,
+      acsIdPageWorkingMemoryBytes: Int,
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
       acsGlobalParallelism: Int,
@@ -577,7 +581,6 @@ private[platform] object JdbcLedgerDao {
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
-      materializer: Materializer,
   ): LedgerReadDao =
     new MeteredLedgerReadDao(
       new JdbcLedgerDao(
@@ -586,6 +589,8 @@ private[platform] object JdbcLedgerDao {
         eventsPageSize,
         eventsProcessingParallelism,
         acsIdPageSize,
+        acsIdPageBufferSize,
+        acsIdPageWorkingMemoryBytes,
         acsIdFetchingParallelism,
         acsContractFetchingParallelism,
         acsGlobalParallelism,
@@ -596,7 +601,6 @@ private[platform] object JdbcLedgerDao {
         participantId,
         dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
         dbSupport.storageBackendFactory.createParameterStorageBackend,
-        materializer = materializer,
       ),
       metrics,
     )
@@ -607,6 +611,8 @@ private[platform] object JdbcLedgerDao {
       eventsPageSize: Int,
       eventsProcessingParallelism: Int,
       acsIdPageSize: Int,
+      acsIdPageBufferSize: Int,
+      acsIdPageWorkingMemoryBytes: Int,
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
       acsGlobalParallelism: Int,
@@ -617,7 +623,6 @@ private[platform] object JdbcLedgerDao {
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
-      materializer: Materializer,
   ): LedgerDao =
     new MeteredLedgerDao(
       new JdbcLedgerDao(
@@ -626,6 +631,8 @@ private[platform] object JdbcLedgerDao {
         eventsPageSize,
         eventsProcessingParallelism,
         acsIdPageSize,
+        acsIdPageBufferSize,
+        acsIdPageWorkingMemoryBytes,
         acsIdFetchingParallelism,
         acsContractFetchingParallelism,
         acsGlobalParallelism,
@@ -636,7 +643,6 @@ private[platform] object JdbcLedgerDao {
         participantId,
         dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
         dbSupport.storageBackendFactory.createParameterStorageBackend,
-        materializer = materializer,
       ),
       metrics,
     )

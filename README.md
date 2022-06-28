@@ -43,7 +43,7 @@ Our builds require various development dependencies (e.g. Java, Bazel, Python), 
 
 #### Linux
 
-On Linux and Mac `dev-env` can be installed with:
+On Linux `dev-env` can be installed with:
 
 1. Install Nix by running: `bash <(curl -sSfL https://nixos.org/nix/install)`
 2. Enter `dev-env` by running: `eval "$(dev-env/bin/dade assist)"`
@@ -57,8 +57,12 @@ file, with an option to add more in a `.envrc.private` file.
 On Mac `dev-env` can be installed with:
 
 1. Install Nix by running: `bash <(curl -sSfL https://nixos.org/nix/install)`
-   This is a *multi-user installation* (there is no single-user installation option for macOS). Because of this, you need to configure `/etc/nix/nix.conf` to use Nix caches.
-   You can add the contents of `dev-env/etc/nix.conf` to `/etc/nix/nix.conf`, but keep `build-users-group = nixbld` instead of leaving this empty as is done in `dev-env/etc/nix.conf`. Make sure to restart the `nix-daemon` after you have made changes to `/etc/nix/nix.conf`, for instance by using `sudo launchctl stop org.nixos.nix-daemon`.
+
+    * This is a *multi-user installation* (there is no single-user installation option for macOS). Because of this, you need to configure `/etc/nix/nix.conf` to use Nix caches:
+
+    1. Add yourself as a nix trusted user by running `echo "extra-trusted-users = $USER" | sudo tee -a /etc/nix/nix.conf`
+
+    2. Restart the `nix-daemon` by running `sudo launchctl stop org.nixos.nix-daemon && sudo launchctl start org.nixos.nix-daemon`
 
 2. Enter `dev-env` by running: `eval "$(dev-env/bin/dade assist)"`
 
@@ -76,6 +80,21 @@ fi
 # End Nix
 ```
 See https://github.com/NixOS/nix/issues/3616 for more information about this issue.
+
+##### MacOS M1
+
+The above procedure will use and build native arm64 M1 binaries for this
+project. However, note that at the time of writing the CI system of the Daml
+project does not yet include MacOS M1 nodes. Therefore, the M1 configuration is
+untested on CI, and the remote cache is not populated with native M1 artifacts.
+
+If you encounter issues with a native M1 build, then you can configure project
+to build x86-64 binaries instead and run them through Rosetta. To do that
+replace the contents of the file `nix/system.nix` with the following content:
+
+```nix
+"x86_64-darwin"
+```
 
 #### Windows
 

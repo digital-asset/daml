@@ -25,4 +25,3 @@ final class JdbcLedgerDaoPostgresqlSpec
     with JdbcLedgerDaoContractEventsStreamSpec
     with JdbcLedgerDaoTransactionsWriterSpec
     with JdbcLedgerDaoTransactionLogUpdatesSpec
-    with JdbcAppendOnlyTransactionInsertion

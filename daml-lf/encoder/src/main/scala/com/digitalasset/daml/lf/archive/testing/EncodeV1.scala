@@ -367,7 +367,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setCreateInterface(
             PLF.Update.CreateInterface.newBuilder().setInterface(interface).setExpr(arg)
           )
-        case UpdateFetch(templateId, contractId) =>
+        case UpdateFetchTemplate(templateId, contractId) =>
           builder.setFetch(PLF.Update.Fetch.newBuilder().setTemplate(templateId).setCid(contractId))
         case UpdateFetchInterface(interface, contractId) =>
           builder.setFetchInterface(
@@ -802,6 +802,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       builder.accumulateLeft(interface.methods.sortByKey)(_ addMethods _)
       builder.accumulateLeft(interface.requires)(_ addRequires _)
       builder.setPrecond(interface.precond)
+      builder.accumulateLeft(interface.coImplements.sortByKey)(_ addCoImplements _)
       builder.build()
     }
 
@@ -812,6 +813,26 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val b = PLF.InterfaceMethod.newBuilder()
       b.setMethodInternedName(stringsTable.insert(name))
       b.setType(method.returnType)
+      b.build()
+    }
+
+    private implicit def encodeInterfaceCoImplements(
+        templateWithCoImplements: (TypeConName, InterfaceCoImplements)
+    ): PLF.DefInterface.CoImplements = {
+      val (template, coImplements) = templateWithCoImplements
+      val b = PLF.DefInterface.CoImplements.newBuilder()
+      b.setTemplate(template)
+      b.accumulateLeft(coImplements.methods.sortByKey)(_ addMethods _)
+      b.build()
+    }
+
+    private implicit def encodeInterfaceCoImplementsMethod(
+        nameWithMethod: (MethodName, InterfaceCoImplementsMethod)
+    ): PLF.DefInterface.CoImplementsMethod = {
+      val (name, method) = nameWithMethod
+      val b = PLF.DefInterface.CoImplementsMethod.newBuilder()
+      b.setMethodInternedName(stringsTable.insert(name))
+      b.setValue(method.value)
       b.build()
     }
 
@@ -900,9 +921,6 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val b = PLF.DefTemplate.Implements.newBuilder()
       b.setInterface(interface)
       b.accumulateLeft(implements.methods.sortByKey)(_ addMethods _)
-      b.accumulateLeft(implements.inheritedChoices)((i, v) =>
-        i addInheritedChoiceInternedNames (stringsTable.insert(v))
-      )
       b.build()
     }
 

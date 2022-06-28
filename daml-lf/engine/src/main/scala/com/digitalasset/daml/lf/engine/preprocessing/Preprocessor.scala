@@ -122,6 +122,11 @@ private[engine] final class Preprocessor(
   private[this] def pullTemplatePackage(tyCons: Iterable[Ref.TypeConName]): Result[Unit] =
     pullPackages(collectNewPackagesFromTemplateIds(tyCons))
 
+  private[this] def pullInterfacePackage(tyCons: Iterable[Ref.TypeConName]): Result[Unit] =
+    // TODO https://github.com/digital-asset/daml/issues/14112
+    // Double check that this makes sense
+    pullTemplatePackage(tyCons)
+
   /** Translates the LF value `v0` of type `ty0` to a speedy value.
     * Fails if the nesting is too deep or if v0 does not match the type `ty0`.
     * Assumes ty0 is a well-formed serializable typ.
@@ -147,6 +152,13 @@ private[engine] final class Preprocessor(
       commandPreprocessor.unsafePreprocessApiCommands(cmds)
     }
 
+  def preprocessDisclosedContracts(
+      discs: data.ImmArray[command.DisclosedContract]
+  ): Result[ImmArray[speedy.DisclosedContract]] =
+    safelyRun(pullTemplatePackage(discs.toSeq.view.map(_.templateId))) {
+      commandPreprocessor.unsafePreprocessDisclosedContracts(discs)
+    }
+
   private[engine] def preprocessReplayCommand(
       cmd: command.ReplayCommand
   ): Result[speedy.Command] =
@@ -166,6 +178,16 @@ private[engine] final class Preprocessor(
       transactionPreprocessor.unsafeTranslateTransactionRoots(tx)
     }
 
+  def preprocessInterfaceView(
+      templateId: Ref.Identifier,
+      argument: Value,
+      interfaceId: Ref.Identifier,
+  ): Result[speedy.InterfaceView] =
+    safelyRun(
+      pullTemplatePackage(Seq(templateId)).flatMap(_ => pullInterfacePackage(Seq(interfaceId)))
+    ) {
+      commandPreprocessor.unsafePreprocessInterfaceView(templateId, argument, interfaceId)
+    }
 }
 
 private[preprocessing] object Preprocessor {

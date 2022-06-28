@@ -11,7 +11,9 @@ import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.interning.StringInterningView
 
 import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
@@ -59,10 +61,8 @@ object IndexerStabilityTestFixture {
       lockIdSeed: Int,
   )(implicit resourceContext: ResourceContext, materializer: Materializer): Resource[Indexers] = {
     val indexerConfig = IndexerConfig(
-      participantId = EndlessReadService.participantId,
-      jdbcUrl = jdbcUrl,
       startupMode = IndexerStartupMode.MigrateAndStart(),
-      haConfig = HaConfig(
+      highAvailability = HaConfig(
         indexerLockId = lockIdSeed,
         indexerWorkerLockId = lockIdSeed + 1,
       ),
@@ -96,10 +96,13 @@ object IndexerStabilityTestFixture {
                   metrics = new Metrics(metricRegistry)
                   // Create an indexer and immediately start it
                   indexing <- new StandaloneIndexerServer(
+                    participantId = EndlessReadService.participantId,
+                    participantDataSourceConfig = ParticipantDataSourceConfig(jdbcUrl),
                     readService = readService,
                     config = indexerConfig,
                     metrics = metrics,
                     lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+                    stringInterningViewO = Some(new StringInterningView),
                   ).acquire()
                 } yield ReadServiceAndIndexer(readService, indexing)
               )

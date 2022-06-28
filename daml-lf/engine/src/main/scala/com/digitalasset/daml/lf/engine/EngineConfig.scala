@@ -5,7 +5,6 @@ package com.daml.lf
 package engine
 
 import java.nio.file.Path
-
 import com.daml.lf.transaction.ContractKeyUniquenessMode
 
 /** The Engine configurations describes the versions of language and
@@ -32,7 +31,7 @@ final case class EngineConfig(
     packageValidation: Boolean = true,
     stackTraceMode: Boolean = false,
     profileDir: Option[Path] = None,
-    contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
+    contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
     forbidV0ContractId: Boolean = false,
     requireSuffixedGlobalContractId: Boolean = false,
     limits: interpretation.Limits = interpretation.Limits.Lenient,

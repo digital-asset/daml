@@ -177,7 +177,7 @@ message ScenarioError {
 
   message ContractNotActive {
     ContractRef contract_ref = 1;
-    NodeId consumed_by = 2;
+    NodeId consumed_by = 2; // optional. A contract whose create was rolled back will not have this set.
   }
 
   message ContractNotVisible {
@@ -238,6 +238,7 @@ message ScenarioError {
   // The state of the ledger at the time of the error
   repeated ScenarioStep scenario_steps = 1;
   repeated Node nodes = 2;
+  repeated string active_contracts = 37;
 
   reserved 3; // was environment
   reserved 4; // was call stack
@@ -428,6 +429,7 @@ message ScenarioResult {
   sfixed64 final_time = 4;
   repeated TraceMessage trace_log = 5;
   repeated WarningMessage warnings = 6;
+  repeated string active_contracts = 7;
 }
 
 message ScenarioStep {
@@ -568,10 +570,11 @@ message KeyWithMaintainers {
 // from the reference ledger.
 message Node {
   message Create {
-    ContractInstance contract_instance = 1;
-    repeated Party signatories = 2;
-    repeated Party stakeholders = 3;
-    KeyWithMaintainers key_with_maintainers = 4; // optional
+    string contract_id = 1;
+    ContractInstance contract_instance = 2;
+    repeated Party signatories = 3;
+    repeated Party stakeholders = 4;
+    KeyWithMaintainers key_with_maintainers = 5; // optional
   }
 
   message Fetch {
@@ -579,6 +582,7 @@ message Node {
     Identifier template_id = 2;
     repeated Party signatories = 3;
     repeated Party stakeholders = 4;
+    KeyWithMaintainers fetch_by_key = 13; // optional, if non-empty then fetched by key
   }
 
   message Exercise {
@@ -593,6 +597,7 @@ message Node {
     repeated Party stakeholders = 9;
     repeated NodeId children = 11;
     Value exercise_result = 12; // None for incomplete/aborted exercise nodes.
+    KeyWithMaintainers exercise_by_key = 13; // optional, if non-empty then exercised by key
   }
 
   message LookupByKey {

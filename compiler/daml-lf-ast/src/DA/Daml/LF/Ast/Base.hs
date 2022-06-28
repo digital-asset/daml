@@ -927,23 +927,21 @@ data Template = Template
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
--- | Template implementation of an interface.
+-- | Template implementation of an interface in the template declaration.
 data TemplateImplements = TemplateImplements
   { tpiInterface :: !(Qualified TypeConName)
     -- ^ Interface name for implementation.
   , tpiMethods :: !(NM.NameMap TemplateImplementsMethod)
-  , tpiInheritedChoiceNames :: !(S.Set ChoiceName)
-    -- ^ Set of inherited fixed choice names.
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
--- | Template implementation of an interface's method.
+-- | Template implementation of an interface's method in the template declaration.
 data TemplateImplementsMethod = TemplateImplementsMethod
   { tpiMethodName :: !MethodName
     -- ^ Name of method.
   , tpiMethodExpr :: !Expr
-    -- ^ Method expression, has type @tpl -> mty@ where @tpl@ is the template type,
-    -- and @mty@ is the method's type as defined in the interface.
+    -- ^ Method expression. Has type @mty@ (the method's type as defined in the interface)
+    -- and the template parameter in scope with type @tpl@ (the type of the template).
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -963,6 +961,7 @@ data DefInterface = DefInterface
   , intChoices :: !(NM.NameMap TemplateChoice)
   , intMethods :: !(NM.NameMap InterfaceMethod)
   , intPrecondition :: !Expr
+  , intCoImplements :: !(NM.NameMap InterfaceCoImplements)
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -970,6 +969,23 @@ data InterfaceMethod = InterfaceMethod
   { ifmLocation :: !(Maybe SourceLoc)
   , ifmName :: !MethodName
   , ifmType :: !Type
+  }
+  deriving (Eq, Data, Generic, NFData, Show)
+
+-- | Template implementation of an interface in the interface declaration.
+data InterfaceCoImplements = InterfaceCoImplements
+  { iciTemplate :: !(Qualified TypeConName)
+  , iciMethods :: !(NM.NameMap InterfaceCoImplementsMethod)
+  }
+  deriving (Eq, Data, Generic, NFData, Show)
+
+-- | Template implementation of an interface's method in the interface declaration.
+data InterfaceCoImplementsMethod = InterfaceCoImplementsMethod
+  { iciMethodName :: !MethodName
+    -- ^ Name of method.
+  , iciMethodExpr :: !Expr
+    -- ^ Method expression. Has type @mty@ (the method's type as defined in the interface)
+    -- and the template parameter in scope with type @tpl@ (the type of the template).
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -1082,6 +1098,14 @@ instance NM.Named DefException where
 instance NM.Named DefInterface where
   type Name DefInterface = TypeConName
   name = intName
+
+instance NM.Named InterfaceCoImplements where
+  type Name InterfaceCoImplements = Qualified TypeConName
+  name = iciTemplate
+
+instance NM.Named InterfaceCoImplementsMethod where
+  type Name InterfaceCoImplementsMethod = MethodName
+  name = iciMethodName
 
 instance NM.Named Template where
   type Name Template = TypeConName

@@ -1,3 +1,6 @@
+-- Copyright (c) 2022, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
 -- @ERROR failed due to a missing authorization from 's'
 -- @ERROR failed due to a missing authorization from 's'
 -- @ERROR failed due to a missing authorization from 's'
@@ -46,10 +49,10 @@ template Delegation
         fetchByKey @Keyed sig
 
     choice LookupKeyed
-      : (ContractId Keyed, Keyed)
+      : Optional (ContractId Keyed)
       controller divulgee
       do
-        fetchByKey @Keyed sig
+        lookupByKey sig
 
 divulgeeFetch = scenario do
   sig <- getParty "s" -- Signatory
@@ -68,7 +71,7 @@ divulgeeLookup = scenario do
   divulgercid <- submit divulgee do create Divulger with ..
   submit sig do exercise divulgercid DivulgeKeyed with ..
   submit divulgee do
-    _ <- createAndExercise (Delegation sig divulgee) FetchKeyed
+    _ <- createAndExercise (Delegation sig divulgee) LookupKeyed
     pure ()
 
 blindFetch = scenario do
@@ -79,7 +82,7 @@ blindFetch = scenario do
   divulgercid <- submit divulgee do create Divulger with ..
   submit sig do exercise divulgercid DivulgeKeyed with ..
   submit blind do
-    _ <- createAndExercise (Delegation sig blind) LookupKeyed
+    _ <- createAndExercise (Delegation sig blind) FetchKeyed
     pure ()
 
 blindLookup = scenario do

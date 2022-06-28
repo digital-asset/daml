@@ -602,8 +602,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       TemplateImplements.build(
         interfaceId = decodeTypeConName(lfImpl.getInterface),
         methods = lfImpl.getMethodsList.asScala.view.map(decodeTemplateImplementsMethod),
-        inheritedChoices = lfImpl.getInheritedChoiceInternedNamesList.asScala.view
-          .map(getInternedName(_, "TemplateImplements.inheritedChoices")),
       )
 
     private[this] def decodeTemplateImplementsMethod(
@@ -660,7 +658,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     ): DefException =
       DefException(decodeExpr(lfException.getMessage, s"$exceptionName:message"))
 
-    private[this] def decodeDefInterface(
+    private[lf] def decodeDefInterface(
         id: DottedName,
         lfInterface: PLF.DefInterface,
     ): DefInterface =
@@ -670,6 +668,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         choices = lfInterface.getChoicesList.asScala.view.map(decodeChoice(id, _)),
         methods = lfInterface.getMethodsList.asScala.view.map(decodeInterfaceMethod),
         precond = decodeExpr(lfInterface.getPrecond, s"$id:ensure"),
+        coImplements = lfInterface.getCoImplementsList.asScala.view.map(decodeInterfaceCoImplements),
       )
 
     private[this] def decodeInterfaceMethod(
@@ -678,6 +677,23 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       InterfaceMethod(
         name = getInternedName(lfMethod.getMethodInternedName, "InterfaceMethod.name"),
         returnType = decodeType(lfMethod.getType),
+      )
+
+    private[this] def decodeInterfaceCoImplements(
+        lfCoImpl: PLF.DefInterface.CoImplements
+    ): InterfaceCoImplements =
+      InterfaceCoImplements.build(
+        templateId = decodeTypeConName(lfCoImpl.getTemplate),
+        methods = lfCoImpl.getMethodsList.asScala.view.map(decodeInterfaceCoImplementsMethod),
+      )
+
+    private[this] def decodeInterfaceCoImplementsMethod(
+        lfMethod: PLF.DefInterface.CoImplementsMethod
+    ): InterfaceCoImplementsMethod =
+      InterfaceCoImplementsMethod(
+        methodName =
+          getInternedName(lfMethod.getMethodInternedName, "InterfaceCoImplementsMethod.name"),
+        value = decodeExpr(lfMethod.getValue, "InterfaceCoImplementsMethod.value"),
       )
 
     private[lf] def decodeKind(lfKind: PLF.Kind): Kind =
@@ -1387,7 +1403,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
         case PLF.Update.SumCase.FETCH =>
           val fetch = lfUpdate.getFetch
-          UpdateFetch(
+          UpdateFetchTemplate(
             templateId = decodeTypeConName(fetch.getTemplate),
             contractId = decodeExpr(fetch.getCid, definition),
           )

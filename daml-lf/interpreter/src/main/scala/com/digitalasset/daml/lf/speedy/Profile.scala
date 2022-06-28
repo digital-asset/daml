@@ -241,9 +241,10 @@ object Profile {
       implicit val signatoriesDefRef: Allowed[SignatoriesDefRef] = allowAll
       implicit val observersDefRef: Allowed[ObserversDefRef] = allowAll
       implicit val implementsMethodDefRef: Allowed[ImplementsMethodDefRef] = allowAll
-      implicit val choiceDefRef: Allowed[TemplateChoiceDefRef] = allowAll
-      implicit val guardedChoiceDefRef: Allowed[InterfaceChoiceDefRef] = allowAll
-      implicit val fetchDefRef: Allowed[FetchDefRef] = allowAll
+      implicit val templateChoiceDefRef: Allowed[TemplateChoiceDefRef] = allowAll
+      implicit val interfaceChoiceDefRef: Allowed[InterfaceChoiceDefRef] = allowAll
+      implicit val fetchTemplateDefRef: Allowed[FetchTemplateDefRef] = allowAll
+      implicit val fetchInterfaceDefRef: Allowed[FetchInterfaceDefRef] = allowAll
       implicit val choiceByKeyDefRef: Allowed[ChoiceByKeyDefRef] = allowAll
       implicit val fetchByKeyDefRef: Allowed[FetchByKeyDefRef] = allowAll
       implicit val lookupByKeyDefRef: Allowed[LookupByKeyDefRef] = allowAll
@@ -270,7 +271,8 @@ object Profile {
             s"exercise @${tmplRef.qualifiedName} ${name}"
           case InterfaceChoiceDefRef(ifaceRef, name) =>
             s"exercise @${ifaceRef.qualifiedName} ${name}"
-          case FetchDefRef(tmplRef) => s"fetch @${tmplRef.qualifiedName}"
+          case FetchTemplateDefRef(tmplRef) => s"fetch_template @${tmplRef.qualifiedName}"
+          case FetchInterfaceDefRef(ifaceRef) => s"fetch_interface @${ifaceRef.qualifiedName}"
           case ChoiceByKeyDefRef(tmplRef, name) =>
             s"exerciseByKey @${tmplRef.qualifiedName} ${name}"
           case FetchByKeyDefRef(tmplRef) => s"fetchByKey @${tmplRef.qualifiedName}"

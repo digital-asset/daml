@@ -3,15 +3,12 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import java.time.Duration
-import java.util.zip.ZipInputStream
-
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.definitions.{LedgerApiErrors, DamlError}
 import com.daml.error.definitions.PackageServiceError.Validation
+import com.daml.error.definitions.{DamlError, LedgerApiErrors}
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
@@ -36,15 +33,17 @@ import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
-import scala.jdk.FutureConverters.CompletionStageOps
+import java.util.zip.ZipInputStream
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.util.Try
 
 private[apiserver] final class ApiPackageManagementService private (
     packagesIndex: IndexPackagesService,
     transactionsService: IndexTransactionsService,
     packagesWrite: state.WritePackagesService,
-    managementServiceTimeout: Duration,
+    managementServiceTimeout: FiniteDuration,
     engine: Engine,
     darReader: GenDarReader[Archive],
     submissionIdGenerator: String => Ref.SubmissionId,
@@ -107,34 +106,34 @@ private[apiserver] final class ApiPackageManagementService private (
         .handleError(Validation.handleLfEnginePackageError)
     } yield dar
 
-  override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] =
-    withEnrichedLoggingContext(logging.submissionId(request.submissionId)) {
-      implicit loggingContext =>
-        logger.info("Uploading DAR file")
-        val submissionId = submissionIdGenerator(request.submissionId)
-        val darInputStream = new ZipInputStream(request.darFile.newInput())
+  override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
+    val submissionId = submissionIdGenerator(request.submissionId)
+    withEnrichedLoggingContext(logging.submissionId(submissionId)) { implicit loggingContext =>
+      logger.info("Uploading DAR file")
+      val darInputStream = new ZipInputStream(request.darFile.newInput())
 
-        implicit val telemetryContext: TelemetryContext =
-          DefaultTelemetry.contextFromGrpcThreadLocalContext()
+      implicit val telemetryContext: TelemetryContext =
+        DefaultTelemetry.contextFromGrpcThreadLocalContext()
 
-        implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-          new DamlContextualizedErrorLogger(
-            logger,
-            loggingContext,
-            Some(submissionId),
-          )
+      implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+        new DamlContextualizedErrorLogger(
+          logger,
+          loggingContext,
+          Some(submissionId),
+        )
 
-        val response = for {
-          dar <- Future.fromTry(decodeAndValidate(darInputStream))
-          _ <- synchronousResponse.submitAndWait(submissionId, dar)
-        } yield {
-          for (archive <- dar.all) {
-            logger.info(s"Package ${archive.getHash} successfully uploaded")
-          }
-          UploadDarFileResponse()
+      val response = for {
+        dar <- Future.fromTry(decodeAndValidate(darInputStream))
+        _ <- synchronousResponse.submitAndWait(submissionId, dar)
+      } yield {
+        for (archive <- dar.all) {
+          logger.info(s"Package ${archive.getHash} successfully uploaded")
         }
-        response.andThen(logger.logErrorsOnCall[UploadDarFileResponse])
+        UploadDarFileResponse()
+      }
+      response.andThen(logger.logErrorsOnCall[UploadDarFileResponse])
     }
+  }
 
   private implicit class ErrorValidations[E, R](result: Either[E, R]) {
     def handleError(toSelfServiceErrorCode: E => DamlError): Try[R] =
@@ -150,7 +149,7 @@ private[apiserver] object ApiPackageManagementService {
       readBackend: IndexPackagesService,
       transactionsService: IndexTransactionsService,
       writeBackend: state.WritePackagesService,
-      managementServiceTimeout: Duration,
+      managementServiceTimeout: FiniteDuration,
       engine: Engine,
       darReader: GenDarReader[Archive] = DarParser,
       submissionIdGenerator: String => Ref.SubmissionId = augmentSubmissionId,
@@ -185,7 +184,8 @@ private[apiserver] object ApiPackageManagementService {
       ledgerEndService.currentLedgerEnd().map(Some(_))
 
     override def submit(submissionId: Ref.SubmissionId, dar: Dar[Archive])(implicit
-        telemetryContext: TelemetryContext
+        telemetryContext: TelemetryContext,
+        loggingContext: LoggingContext,
     ): Future[state.SubmissionResult] =
       packagesWrite.uploadPackages(submissionId, dar.all, None).asScala
 

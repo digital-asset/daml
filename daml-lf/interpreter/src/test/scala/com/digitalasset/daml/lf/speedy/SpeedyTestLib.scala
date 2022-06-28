@@ -100,7 +100,7 @@ private[speedy] object SpeedyTestLib {
           onLedger.ptx.finish match {
             case PartialTransaction.IncompleteTransaction(_) =>
               throw SError.SErrorCrash("buildTransaction", "unexpected IncompleteTransaction")
-            case PartialTransaction.CompleteTransaction(tx, _, _) =>
+            case PartialTransaction.CompleteTransaction(tx, _, _, _) =>
               Right(tx)
           }
         }

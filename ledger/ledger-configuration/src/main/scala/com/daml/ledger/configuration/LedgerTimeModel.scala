@@ -44,16 +44,16 @@ case class LedgerTimeModel private (
     }
   }
 
-  private[ledger] def minLedgerTime(recordTime: Timestamp): Timestamp =
+  def minLedgerTime(recordTime: Timestamp): Timestamp =
     recordTime.subtract(minSkew)
 
-  private[ledger] def maxLedgerTime(recordTime: Timestamp): Timestamp =
+  def maxLedgerTime(recordTime: Timestamp): Timestamp =
     recordTime.add(maxSkew)
 
-  private[ledger] def minRecordTime(ledgerTime: Timestamp): Timestamp =
+  def minRecordTime(ledgerTime: Timestamp): Timestamp =
     ledgerTime.subtract(maxSkew)
 
-  private[ledger] def maxRecordTime(ledgerTime: Timestamp): Timestamp =
+  def maxRecordTime(ledgerTime: Timestamp): Timestamp =
     ledgerTime.add(minSkew)
 }
 

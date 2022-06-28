@@ -50,9 +50,10 @@ abstract class WebsocketServiceOffsetTickIntTest
   }
 
   "Given non-empty ACS, JSON API should emit ACS block and after it only absolute offset ticks" in withHttpService {
-    (uri, _, _, _) =>
+    fixture =>
+      import fixture.uri
       for {
-        aliceHeaders <- getUniquePartyAndAuthHeaders(uri)("Alice")
+        aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (party, headers) = aliceHeaders
         _ <- initialIouCreate(uri, party, headers)
         jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)

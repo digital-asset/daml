@@ -1651,6 +1651,45 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
         , "z f g = f <<< g &&& id"
         ]
 
+    , simpleImportTestOptions "No 'inaccessible RHS' when pattern matching on interface"
+        [ "--target=1.dev" ]
+        [ "module Lib where"
+
+        , "interface I"
+        ]
+        [ "{-# OPTIONS_GHC -Werror #-}"
+        , "module Main where"
+        , "import Lib"
+
+        , "isJustI : Optional I -> Bool"
+        , "isJustI mI = case mI of"
+            -- If `I` lacks constructors, GHC infers the first case alternative
+            -- to be inaccessible, since it's isomorphic to `Some (_ : Void)`,
+            -- which can't be constructed.
+        , "  Some _ -> True"
+        , "  None -> False"
+        ]
+
+    , dataDependenciesTestOptions "Homonymous interface doesn't trigger 'ambiguous occurrence' error"
+        [ "--target=1.dev" ]
+        [   (,) "A.daml"
+            [ "module A where"
+            , "data Instrument = Instrument {}"
+            ]
+        ,   (,) "B.daml"
+            [ "module B where"
+            , "import qualified A"
+
+            , "interface Instrument where"
+            , "  f : ()"
+            , "x = A.Instrument"
+            ]
+        ]
+        [   (,) "Main.daml"
+            [ "module Main where"
+            ]
+        ]
+
     , dataDependenciesTestOptions "implement interface from data-dependency"
         [ "--target=1.dev" ]
         [   (,) "Lib.daml"
@@ -2016,6 +2055,78 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "    pure ()"
             ]
         ]
+
+    , testCaseSteps "data-dependency doesn't leak unexported definitions from transitive dependencies" $ \step' -> withTempDir $ \tmpDir -> do
+        let
+          depProj = "dep"
+          dataDepProj = "data-dep"
+          mainProj = "main"
+
+          path proj = tmpDir </> proj
+          damlYaml proj = path proj </> "daml.yaml"
+          damlMod proj mod = path proj </> mod <.> "daml"
+          dar proj = path proj </> proj <.> "dar"
+          step proj = step' ("building '" <> proj <> "' project")
+
+          damlYamlBody name deps dataDeps = unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: " <> name
+            , "build-options: [--target=1.dev]"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [" <> intercalate ", " (["daml-prim", "daml-stdlib"] <> fmap dar deps) <> "]"
+            , "data-dependencies: [" <> intercalate ", " (fmap dar dataDeps) <> "]"
+            ]
+
+        step depProj >> do
+          createDirectoryIfMissing True (path depProj)
+          writeFileUTF8 (damlYaml depProj) $ damlYamlBody depProj [] []
+          writeFileUTF8 (damlMod depProj "Dep") $ unlines
+            [ "module Dep (exported) where"
+
+            , "exported : ()"
+            , "exported = ()"
+
+            , "unexported : ()"
+            , "unexported = ()"
+            ]
+          callProcessSilent damlc
+            [ "build"
+            , "--project-root", path depProj
+            , "-o", dar depProj
+            ]
+
+        step dataDepProj >> do
+          createDirectoryIfMissing True (path dataDepProj)
+          writeFileUTF8 (damlYaml dataDepProj) $ damlYamlBody dataDepProj [depProj] []
+          writeFileUTF8 (damlMod dataDepProj "DataDep") $ unlines
+            [ "module DataDep where"
+            , "import Dep ()"
+            ]
+          callProcessSilent damlc
+            [ "build"
+            , "--project-root", path dataDepProj
+            , "-o", dar dataDepProj
+            ]
+
+        step mainProj >> do
+          createDirectoryIfMissing True (path mainProj)
+          writeFileUTF8 (damlYaml mainProj) $ damlYamlBody mainProj [depProj] [dataDepProj]
+          writeFileUTF8 (damlMod mainProj "Main") $ unlines
+            [ "module Main where"
+
+            , "import Dep"
+
+            , "units : [()]"
+            , "units = [exported, unexported]"
+            ]
+
+          -- This must fail since 'Main' shouldn't see 'Dep.unexported'.
+          callProcessSilentError damlc
+            [ "build"
+            , "--project-root", path mainProj
+            , "-o", dar mainProj
+            ]
 
     , testCaseSteps "data-dependency interface hierarchy" $ \step' -> withTempDir $ \tmpDir -> do
         let
@@ -2396,8 +2507,11 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
     ]
   where
     simpleImportTest :: String -> [String] -> [String] -> TestTree
-    simpleImportTest title lib main =
-        dataDependenciesTest title [("Lib.daml", lib)] [("Main.daml", main)]
+    simpleImportTest title = simpleImportTestOptions title []
+
+    simpleImportTestOptions :: String -> [String] -> [String] -> [String] -> TestTree
+    simpleImportTestOptions title options lib main =
+        dataDependenciesTestOptions title options [("Lib.daml", lib)] [("Main.daml", main)]
 
     dataDependenciesTest :: String -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
     dataDependenciesTest title = dataDependenciesTestOptions title []

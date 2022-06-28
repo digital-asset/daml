@@ -177,8 +177,8 @@ data Env = Env
     ,envInterfaceBinds :: MS.Map TypeConName InterfaceBinds
     ,envExceptionBinds :: MS.Map TypeConName ExceptionBinds
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
-    ,envImplements :: MS.Map TypeConName [GHC.TyCon]
-    ,envRequires :: MS.Map TypeConName [GHC.TyCon]
+    ,envImplements :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
+    ,envRequires :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
     ,envInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
     ,envInterfaceChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envInterfaces :: MS.Map TypeConName GHC.TyCon
@@ -436,15 +436,15 @@ interfaceNames lfVersion tyThings
         ]
     | otherwise = MS.empty
 
-convertInterfaceTyCon :: Env -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
-convertInterfaceTyCon env tycon
+convertInterfaceTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
+convertInterfaceTyCon env errHandler tycon
     | hasDamlInterfaceCtx tycon = do
         lfType <- convertTyCon env tycon
         case lfType of
             TCon con -> pure con
             _ -> unhandled "interface type" tycon
     | otherwise =
-        unhandled "interface type" tycon
+        conversionError $ errHandler tycon
 
 convertInterfaces :: Env -> [(Var, GHC.Expr Var)] -> ConvertM [Definition]
 convertInterfaces env binds = interfaceDefs
@@ -462,11 +462,14 @@ convertInterfaces env binds = interfaceDefs
         let precond = fromMaybe (error $ "Missing precondition for interface " <> show intName)
                         $ (MS.lookup intName $ envInterfaceBinds env) >>= ibEnsure
         withRange intLocation $ do
-            intRequires <- fmap S.fromList $ mapM (convertInterfaceTyCon env) $
+            let handleIsNotInterface tyCon =
+                  "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
+            intRequires <- fmap S.fromList $ mapM (\(mloc, iface) -> withRange mloc $ convertInterfaceTyCon env handleIsNotInterface iface) $
                 MS.findWithDefault [] intName (envRequires env)
             intMethods <- NM.fromList <$> convertMethods tyCon
             intChoices <- convertChoices env intName emptyTemplateBinds
             intPrecondition <- useSingleMethodDict env precond (`ETmApp` EVar intParam)
+            let intCoImplements = NM.empty -- TODO: https://github.com/digital-asset/daml/issues/14047
             pure DefInterface {..}
 
     convertMethods :: GHC.TyCon -> ConvertM [InterfaceMethod]
@@ -544,14 +547,14 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
           ]
         envInterfaces = interfaceNames envLfVersion (eltsUFM (cm_types x))
         envImplements = MS.fromListWith (++)
-          [ (mkTypeCon [getOccText tpl], [iface])
+          [ (mkTypeCon [getOccText tpl], [(convNameLoc name, iface)])
           | (name, _val) <- binds
           , "_implements_" `T.isPrefixOf` getOccText name
           , TypeCon implementsT [TypeCon tpl [], TypeCon iface []] <- [varType name]
           , NameIn DA_Internal_Desugar "ImplementsT" <- [implementsT]
           ]
         envRequires = MS.fromListWith (++)
-          [ (mkTypeCon [getOccText iface1], [iface2])
+          [ (mkTypeCon [getOccText iface1], [(convNameLoc name, iface2)])
           | (name, _val) <- binds
           , "_requires_" `T.isPrefixOf` getOccText name
           , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- [varType name]
@@ -968,16 +971,18 @@ convertImplements :: Env -> LF.TypeConName -> ConvertM (NM.NameMap TemplateImple
 convertImplements env tpl = NM.fromList <$>
   mapM convertInterface (MS.findWithDefault [] tpl (envImplements env))
   where
-    convertInterface iface = do
-      con <- convertInterfaceTyCon env iface
+    convertInterface :: (Maybe LF.SourceLoc, GHC.TyCon) -> ConvertM TemplateImplements
+    convertInterface (originLoc, iface) = withRange originLoc $ do
+      let handleIsNotInterface tyCon =
+            "cannot implement '" ++ prettyPrint tyCon ++ "' because it is not an interface"
+      con <- convertInterfaceTyCon env handleIsNotInterface iface
       let mod = nameModule (getName iface)
 
       methods <- convertMethods $ MS.findWithDefault []
         (mod, qualObject con, tpl)
         (envInterfaceMethodInstances env)
 
-      let inheritedChoiceNames = S.empty -- This is filled during LF post-processing (in the LF completer).
-      pure (TemplateImplements con methods inheritedChoiceNames)
+      pure (TemplateImplements con methods)
 
     convertMethods ms = fmap NM.fromList . sequence $
       [ TemplateImplementsMethod (MethodName k) . (`ETmApp` EVar this) <$> convertExpr env v

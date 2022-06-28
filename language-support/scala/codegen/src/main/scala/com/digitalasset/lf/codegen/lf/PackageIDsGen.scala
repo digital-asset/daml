@@ -19,7 +19,9 @@ object PackageIDsGen {
     val imports: Seq[Tree] = Seq()
 
     val packageIdsByModule: Map[ModuleName, PackageId] =
-      util.iface.typeDecls.keys.view.map(id => (id.qualifiedName.module, id.packageId)).toMap
+      (util.iface.typeDecls.keySet ++ util.iface.astInterfaces.keys).view
+        .map(id => (id.qualifiedName.module, id.packageId))
+        .toMap
     val packageIdBindings = packageIdsByModule.toSeq.sortBy(_._1.dottedName) map { case (mn, pid) =>
       q"val ${TermName(mn.dottedName)}: _root_.scala.Predef.String = $pid"
     }

@@ -20,7 +20,7 @@ case class PartyConfiguration(
 )
 
 object PartyConfiguration {
-  val default: PartyConfiguration = PartyConfiguration(
+  val Default: PartyConfiguration = PartyConfiguration(
     implicitPartyAllocation = false
   )
 }

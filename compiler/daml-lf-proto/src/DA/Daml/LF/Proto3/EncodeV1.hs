@@ -952,7 +952,6 @@ encodeTemplateImplements :: TemplateImplements -> Encode P.DefTemplate_Implement
 encodeTemplateImplements TemplateImplements{..} = do
     defTemplate_ImplementsInterface <- encodeQualTypeConName tpiInterface
     defTemplate_ImplementsMethods <- encodeNameMap encodeTemplateImplementsMethod tpiMethods
-    defTemplate_ImplementsInheritedChoiceInternedNames <- encodeSet (encodeNameId unChoiceName) tpiInheritedChoiceNames
     pure P.DefTemplate_Implements {..}
 
 encodeTemplateImplementsMethod :: TemplateImplementsMethod -> Encode P.DefTemplate_ImplementsMethod
@@ -1021,6 +1020,7 @@ encodeDefInterface DefInterface{..} = do
     defInterfaceParamInternedStr <- encodeNameId unExprVarName intParam
     defInterfacePrecond <- encodeExpr intPrecondition
     defInterfaceChoices <- encodeNameMap encodeTemplateChoice intChoices
+    defInterfaceCoImplements <- encodeNameMap encodeInterfaceCoImplements intCoImplements
     pure $ P.DefInterface{..}
 
 encodeInterfaceMethod :: InterfaceMethod -> Encode P.InterfaceMethod
@@ -1029,6 +1029,18 @@ encodeInterfaceMethod InterfaceMethod {..} = do
     interfaceMethodMethodInternedName <- encodeMethodName ifmName
     interfaceMethodType <- encodeType ifmType
     pure $ P.InterfaceMethod{..}
+
+encodeInterfaceCoImplements :: InterfaceCoImplements -> Encode P.DefInterface_CoImplements
+encodeInterfaceCoImplements InterfaceCoImplements {..} = do
+    defInterface_CoImplementsTemplate <- encodeQualTypeConName iciTemplate
+    defInterface_CoImplementsMethods <- encodeNameMap encodeInterfaceCoImplementsMethod iciMethods
+    pure P.DefInterface_CoImplements {..}
+
+encodeInterfaceCoImplementsMethod :: InterfaceCoImplementsMethod -> Encode P.DefInterface_CoImplementsMethod
+encodeInterfaceCoImplementsMethod InterfaceCoImplementsMethod {..} = do
+    defInterface_CoImplementsMethodMethodInternedName <- encodeMethodName iciMethodName
+    defInterface_CoImplementsMethodValue <- encodeExpr iciMethodExpr
+    pure P.DefInterface_CoImplementsMethod {..}
 
 encodePackageMetadata :: PackageMetadata -> Encode P.PackageMetadata
 encodePackageMetadata PackageMetadata{..} = do

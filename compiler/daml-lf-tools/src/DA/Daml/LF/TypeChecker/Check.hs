@@ -943,17 +943,12 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
 
 checkIfaceImplementation :: MonadGamma m => Template -> TemplateImplements -> m ()
 checkIfaceImplementation Template{tplTypeCon, tplImplements} TemplateImplements{..} = do
-  DefInterface {intChoices, intRequires, intMethods} <- inWorld $ lookupInterface tpiInterface
+  DefInterface {intRequires, intMethods} <- inWorld $ lookupInterface tpiInterface
 
   -- check requires
   let missingRequires = S.difference intRequires (S.fromList (NM.names tplImplements))
   whenJust (listToMaybe (S.toList missingRequires)) $ \missingInterface ->
     throwWithContext (EMissingRequiredInterface tplTypeCon tpiInterface missingInterface)
-
-  -- check fixed choices
-  let inheritedChoices = S.fromList (NM.names intChoices)
-  unless (inheritedChoices == tpiInheritedChoiceNames) $
-    throwWithContext $ EBadInheritedChoices tpiInterface (S.toList inheritedChoices) (S.toList tpiInheritedChoiceNames)
 
   -- check methods
   let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet tpiMethods)

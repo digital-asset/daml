@@ -27,7 +27,7 @@ $ bazel run //ledger-service/http-json-perf:http-json-perf-binary -- --help
 
 ## 2.2. Example
 ```
-$ bazel run //ledger-service/http-json-perf:http-json-perf-binary -- \
+$ bazel run //ledger-service/http-json-perf:http-json-perf-binary-ce -- \
 --scenario=com.daml.http.perf.scenario.CreateCommand \
 --dars="${PWD}/bazel-bin/docs/quickstart-model.dar" \
 --reports-dir=/home/leos/tmp/results/

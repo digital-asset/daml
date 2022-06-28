@@ -2,9 +2,13 @@
 
 > React framework for Daml applications
 
+<!-- START_BACKLINK -->
+
 ## Documentation
 
 Comprehensive documentation for `@daml/react` can be found [here](https://docs.daml.com/0.0.0-SDKVERSION/app-dev/bindings-ts/daml-react/index.html).
+
+<!-- END_BACKLINK -->
 
 ## Usage
 

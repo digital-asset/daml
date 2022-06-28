@@ -55,6 +55,23 @@ interface YourInterface
 interface OurInterface requires MyInterface, YourInterface where
 -- INTERFACE_REQUIRES_END
 
+-- INTERFACE_TRANSITIVE_REQUIRES_GIVEN_BEGIN
+interface Shape where
+
+interface Rectangle requires Shape where
+-- INTERFACE_TRANSITIVE_REQUIRES_GIVEN_END
+
+{-
+-- INTERFACE_TRANSITIVE_REQUIRES_INCORRECT_BEGIN
+-- Compiler error! "Interface Square is missing requirement [Shape]"
+interface Square requires Rectangle where
+-- INTERFACE_TRANSITIVE_REQUIRES_INCORRECT_END
+-}
+
+-- INTERFACE_TRANSITIVE_REQUIRES_CORRECT_BEGIN
+interface Square requires Rectangle, Shape where
+-- INTERFACE_TRANSITIVE_REQUIRES_CORRECT_END
+
 -- EMPTY_INTERFACE_REQUIRES_BEGIN
 interface TheirInterface requires MyInterface, YourInterface
 -- EMPTY_INTERFACE_REQUIRES_END

@@ -17,10 +17,12 @@ import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
+import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.store.dao.events.{BufferedTransactionsReader, LfValueTranslation}
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.cache.{
+  ContractStateCaches,
   EventsBuffer,
   LedgerEndCache,
   MutableCacheBackedContractStore,
@@ -28,6 +30,7 @@ import com.daml.platform.store.cache.{
 }
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interning.{
+  LoadStringInterningEntries,
   StringInterning,
   StringInterningView,
   UpdatingStringInterningView,
@@ -40,24 +43,15 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 private[platform] case class IndexServiceBuilder(
+    config: IndexServiceConfig,
     dbSupport: DbSupport,
     initialLedgerId: LedgerId,
-    eventsPageSize: Int,
-    eventsProcessingParallelism: Int,
-    acsIdPageSize: Int,
-    acsIdFetchingParallelism: Int,
-    acsContractFetchingParallelism: Int,
-    acsGlobalParallelism: Int,
     servicesExecutionContext: ExecutionContext,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     enricher: ValueEnricher,
-    maxContractStateCacheSize: Long,
-    maxContractKeyStateCacheSize: Long,
-    maxTransactionsInMemoryFanOutBufferSize: Long,
-    enableInMemoryFanOutForLedgerApi: Boolean,
     participantId: Ref.ParticipantId,
-    apiStreamShutdownTimeout: Duration,
+    sharedStringInterningViewO: Option[StringInterningView],
 )(implicit
     mat: Materializer,
     loggingContext: LoggingContext,
@@ -67,15 +61,22 @@ private[platform] case class IndexServiceBuilder(
 
   def owner(): ResourceOwner[IndexService] = {
     val ledgerEndCache = MutableLedgerEndCache()
-    val stringInterningView = createStringInterningView()
+    val isSharedStringInterningView = sharedStringInterningViewO.nonEmpty
+    val stringInterningView = sharedStringInterningViewO.getOrElse(new StringInterningView())
     val ledgerDao = createLedgerReadDao(ledgerEndCache, stringInterningView)
     for {
       ledgerId <- ResourceOwner.forFuture(() => verifyLedgerId(ledgerDao))
       ledgerEnd <- ResourceOwner.forFuture(() => ledgerDao.lookupLedgerEnd())
       _ = ledgerEndCache.set((ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId))
-      _ <- ResourceOwner.forFuture(() =>
-        stringInterningView.update(ledgerEnd.lastStringInterningId)
-      )
+      _ <-
+        if (isSharedStringInterningView) {
+          // The participant-wide (shared) StringInterningView is updated by the Indexer
+          ResourceOwner.unit
+        } else {
+          ResourceOwner.forFuture(() =>
+            stringInterningView.update(ledgerEnd.lastStringInterningId)(loadStringInterningEntries)
+          )
+        }
       prefetchingDispatcher <- dispatcherOffsetSeqIdOwner(ledgerEnd)
       generalDispatcher <- dispatcherOwner(ledgerEnd.lastOffset)
       instrumentedSignalNewLedgerHead = buildInstrumentedSignalNewLedgerHead(
@@ -88,6 +89,7 @@ private[platform] case class IndexServiceBuilder(
         instrumentedSignalNewLedgerHead,
       )
       (transactionsReader, pruneBuffers) <- cacheComponentsAndSubscription(
+        config,
         contractStore,
         ledgerDao,
         prefetchingDispatcher,
@@ -95,6 +97,7 @@ private[platform] case class IndexServiceBuilder(
         ledgerEndCache,
       )
       _ <- cachesUpdaterSubscription(
+        isSharedStringInterningView,
         ledgerDao,
         stringInterningView,
         instrumentedSignalNewLedgerHead,
@@ -108,10 +111,12 @@ private[platform] case class IndexServiceBuilder(
       contractStore,
       pruneBuffers,
       generalDispatcher,
+      metrics,
     )
   }
 
   private def cachesUpdaterSubscription(
+      sharedStringInterningView: Boolean,
       ledgerDao: LedgerReadDao,
       updatingStringInterningView: UpdatingStringInterningView,
       instrumentedSignalNewLedgerHead: InstrumentedSignalNewLedgerHead,
@@ -123,7 +128,14 @@ private[platform] case class IndexServiceBuilder(
           ledgerDao,
           newLedgerHead =>
             for {
-              _ <- updatingStringInterningView.update(newLedgerHead.lastStringInterningId)
+              _ <-
+                if (sharedStringInterningView) {
+                  // The participant-wide (shared) StringInterningView is updated by the Indexer
+                  Future.unit
+                } else {
+                  updatingStringInterningView
+                    .update(newLedgerHead.lastStringInterningId)(loadStringInterningEntries)
+                }
             } yield {
               instrumentedSignalNewLedgerHead.startTimer(newLedgerHead.lastOffset)
               prefetchingDispatcher.signalNewHead(
@@ -133,6 +145,18 @@ private[platform] case class IndexServiceBuilder(
         )
       )(_.release())
       .map(_ => ())
+
+  private def loadStringInterningEntries: LoadStringInterningEntries = {
+    (fromExclusive: Int, toInclusive: Int) => implicit loggingContext: LoggingContext =>
+      dbSupport.dbDispatcher
+        .executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+          dbSupport.storageBackendFactory.createStringInterningStorageBackend
+            .loadStringInterningEntries(
+              fromExclusive,
+              toInclusive,
+            )
+        }
+  }
 
   private def buildInstrumentedSignalNewLedgerHead(
       ledgerEndCache: MutableLedgerEndCache,
@@ -151,44 +175,33 @@ private[platform] case class IndexServiceBuilder(
       ledgerEnd: LedgerEnd,
       dispatcherLagMeter: InstrumentedSignalNewLedgerHead,
   ) =
-    MutableCacheBackedContractStore(
+    new MutableCacheBackedContractStore(
+      metrics,
       ledgerDao.contractsReader,
       dispatcherLagMeter,
-      ledgerEnd.lastOffset,
-      metrics,
-      maxContractStateCacheSize,
-      maxContractKeyStateCacheSize,
+      contractStateCaches = ContractStateCaches.build(
+        ledgerEnd.lastOffset,
+        config.maxContractStateCacheSize,
+        config.maxContractKeyStateCacheSize,
+        metrics,
+      )(servicesExecutionContext, loggingContext),
     )(servicesExecutionContext, loggingContext)
 
-  private def createStringInterningView() = {
-    val stringInterningStorageBackend =
-      dbSupport.storageBackendFactory.createStringInterningStorageBackend
-
-    new StringInterningView(
-      loadPrefixedEntries = (fromExclusive, toInclusive) =>
-        implicit loggingContext =>
-          dbSupport.dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
-            stringInterningStorageBackend.loadStringInterningEntries(
-              fromExclusive,
-              toInclusive,
-            )
-          }
-    )
-  }
-
   private def cacheComponentsAndSubscription(
+      config: IndexServiceConfig,
       contractStore: MutableCacheBackedContractStore,
       ledgerReadDao: LedgerReadDao,
       cacheUpdatesDispatcher: Dispatcher[(Offset, Long)],
       startExclusive: (Offset, Long),
       ledgerEndCache: LedgerEndCache,
   ): ResourceOwner[(LedgerDaoTransactionsReader, PruneBuffers)] =
-    if (enableInMemoryFanOutForLedgerApi) {
-      val transactionsBuffer = new EventsBuffer[Offset, TransactionLogUpdate](
-        maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
+    if (config.enableInMemoryFanOutForLedgerApi) {
+      val transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
+        maxBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
         metrics = metrics,
         bufferQualifier = "transactions",
         isRangeEndMarker = _.isInstanceOf[TransactionLogUpdate.LedgerEndMarker],
+        maxBufferedChunkSize = config.bufferedStreamsPageSize,
       )
 
       val bufferedTransactionsReader = BufferedTransactionsReader(
@@ -202,29 +215,28 @@ private[platform] case class IndexServiceBuilder(
             (packageId, loggingContext) => ledgerReadDao.getLfArchive(packageId)(loggingContext),
         ),
         metrics = metrics,
-      )(loggingContext, servicesExecutionContext)
+        eventProcessingParallelism = config.eventsProcessingParallelism,
+      )(servicesExecutionContext)
 
       for {
-        _ <- ResourceOwner.forCloseable(() =>
-          BuffersUpdater(
-            subscribeToTransactionLogUpdates = maybeOffsetSeqId => {
-              val subscriptionStartExclusive @ (offsetStart, eventSeqIdStart) =
-                maybeOffsetSeqId.getOrElse(startExclusive)
-              logger.info(
-                s"Subscribing for transaction log updates after ${offsetStart.toHexString} -> $eventSeqIdStart"
+        _ <- BuffersUpdater.owner(
+          subscribeToTransactionLogUpdates = maybeOffsetSeqId => {
+            val subscriptionStartExclusive @ (offsetStart, eventSeqIdStart) =
+              maybeOffsetSeqId.getOrElse(startExclusive)
+            logger.info(
+              s"Subscribing for transaction log updates after ${offsetStart.toHexString} -> $eventSeqIdStart"
+            )
+            cacheUpdatesDispatcher
+              .startingAt(
+                subscriptionStartExclusive,
+                RangeSource(
+                  ledgerReadDao.transactionsReader.getTransactionLogUpdates(_, _)
+                ),
               )
-              cacheUpdatesDispatcher
-                .startingAt(
-                  subscriptionStartExclusive,
-                  RangeSource(
-                    ledgerReadDao.transactionsReader.getTransactionLogUpdates(_, _)
-                  ),
-                )
-            },
-            updateTransactionsBuffer = transactionsBuffer.push,
-            updateMutableCache = contractStore.push,
-            executionContext = servicesExecutionContext,
-          )
+          },
+          updateTransactionsBuffer = transactionsBuffer.push,
+          updateMutableCache = contractStore.push,
+          metrics = metrics,
         )
       } yield (bufferedTransactionsReader, transactionsBuffer.prune _)
     } else
@@ -258,10 +270,10 @@ private[platform] case class IndexServiceBuilder(
       name = "sql-ledger",
       zeroIndex = Offset.beforeBegin,
       headAtInitialization = ledgerEnd,
-      shutdownTimeout = apiStreamShutdownTimeout,
+      shutdownTimeout = config.apiStreamShutdownTimeout,
       onShutdownTimeout = () =>
         logger.warn(
-          s"Shutdown of API streams did not finish in ${apiStreamShutdownTimeout.toSeconds} seconds. System shutdown continues."
+          s"Shutdown of API streams did not finish in ${config.apiStreamShutdownTimeout.toSeconds} seconds. System shutdown continues."
         ),
     )
 
@@ -309,12 +321,14 @@ private[platform] case class IndexServiceBuilder(
   ): LedgerReadDao =
     JdbcLedgerDao.read(
       dbSupport = dbSupport,
-      eventsPageSize = eventsPageSize,
-      eventsProcessingParallelism = eventsProcessingParallelism,
-      acsIdPageSize = acsIdPageSize,
-      acsIdFetchingParallelism = acsIdFetchingParallelism,
-      acsContractFetchingParallelism = acsContractFetchingParallelism,
-      acsGlobalParallelism = acsGlobalParallelism,
+      eventsPageSize = config.eventsPageSize,
+      eventsProcessingParallelism = config.eventsProcessingParallelism,
+      acsIdPageSize = config.acsIdPageSize,
+      acsIdPageBufferSize = config.acsIdPageBufferSize,
+      acsIdPageWorkingMemoryBytes = config.acsIdPageWorkingMemoryBytes,
+      acsIdFetchingParallelism = config.acsIdFetchingParallelism,
+      acsContractFetchingParallelism = config.acsContractFetchingParallelism,
+      acsGlobalParallelism = config.acsGlobalParallelism,
       servicesExecutionContext = servicesExecutionContext,
       metrics = metrics,
       lfValueTranslationCache = lfValueTranslationCache,
@@ -322,6 +336,5 @@ private[platform] case class IndexServiceBuilder(
       participantId = participantId,
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
-      materializer = mat,
     )
 }

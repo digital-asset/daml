@@ -336,7 +336,7 @@ object LFUtil {
     List.fill(number)(prefix).zipWithIndex.map(t => toIdent(s"${t._1}${t._2}"))
 
   private[lf] def genConsumingChoicesMethod(templateInterface: DefTemplate[_]) = {
-    val consumingChoicesIds = templateInterface.choices
+    val consumingChoicesIds = templateInterface.tChoices.directChoices
       .collect {
         case (id, ci) if ci.consuming => id
       }
@@ -428,6 +428,7 @@ object LFUtil {
   final case class WriteParams(
       templateIds: Map[Ref.Identifier, DefTemplateWithRecord],
       definitions: Vector[ScopedDataType.FWT],
+      interfaces: Map[Ref.Identifier, iface.DefInterface.FWT],
   )
 
   object WriteParams {
@@ -441,6 +442,7 @@ object LFUtil {
       WriteParams(
         templateIds = templateIds.toMap,
         definitions = typeDeclarations,
+        interfaces = tc.interfaces.toMap,
       )
     }
   }

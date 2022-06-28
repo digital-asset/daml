@@ -24,14 +24,14 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
   private[this] val committers: Set[data.Ref.Party] = Set.empty
 
   private[this] val initialState = PartialTransaction.initial(
-    ContractKeyUniquenessMode.On,
+    ContractKeyUniquenessMode.Strict,
     data.Time.Timestamp.Epoch,
     InitialSeeding.TransactionSeed(transactionSeed),
     committers,
   )
 
   private[this] def contractIdsInOrder(ptx: PartialTransaction): Seq[Value.ContractId] = {
-    inside(ptx.finish) { case CompleteTransaction(tx, _, _) =>
+    inside(ptx.finish) { case CompleteTransaction(tx, _, _, _) =>
       tx.fold(Vector.empty[Value.ContractId]) {
         case (acc, (_, create: Node.Create)) => acc :+ create.coid
         case (acc, _) => acc

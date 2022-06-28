@@ -248,35 +248,6 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
   ): Either[LookupError, TemplateChoiceSignature] =
     lookupInterfaceChoice(ifaceName, chName, Reference.InterfaceChoice(ifaceName, chName))
 
-  /* Looks up a choice inherited by a template through a specific interface.
-   * Fails if the template does not implement the interface, and/or the choice is not defined in this interface. */
-  private[lf] def lookupInheritedChoice(
-      ifaceName: TypeConName,
-      tmpName: TypeConName,
-      chName: ChoiceName,
-      context: => Reference,
-  ): Either[LookupError, TemplateChoiceSignature] =
-    lookupTemplate(tmpName, context).flatMap(template =>
-      template.inheritedChoices.get(chName) match {
-        case Some(gotIfaceName) if gotIfaceName == ifaceName =>
-          lookupInterfaceChoice(ifaceName, chName, context)
-        case _ =>
-          Left(LookupError(Reference.InheritedChoice(ifaceName, tmpName, chName), context))
-      }
-    )
-
-  private[lf] def lookupInheritedChoice(
-      ifaceName: TypeConName,
-      tmpName: TypeConName,
-      chName: ChoiceName,
-  ): Either[LookupError, TemplateChoiceSignature] =
-    lookupInheritedChoice(
-      ifaceName,
-      tmpName,
-      chName,
-      Reference.InheritedChoice(ifaceName, tmpName, chName),
-    )
-
   private[lf] def lookupTemplateOrInterface(
       identier: TypeConName,
       context: => Reference,
@@ -306,13 +277,12 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
         case Some(choice) =>
           Right(PackageInterface.ChoiceInfo.Template(choice))
         case None =>
-          template.inheritedChoices.get(chName) match {
-            case Some(ifaceId) =>
-              lookupInterfaceChoice(ifaceId, chName, context)
-                .map(PackageInterface.ChoiceInfo.Inherited(ifaceId, _))
-            case None =>
-              Left(LookupError(context, context))
-          }
+          val matchingChoices = for {
+            ifaceId <- template.implements.keysIterator
+            iface <- lookupInterface(ifaceId, context).toSeq
+            choice <- iface.choices.get(chName).iterator
+          } yield PackageInterface.ChoiceInfo.Inherited(ifaceId, choice)
+          matchingChoices.nextOption().toRight(LookupError(context, context))
       }
     }
   }

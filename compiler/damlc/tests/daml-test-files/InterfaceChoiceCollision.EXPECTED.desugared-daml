@@ -3,126 +3,8 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
-data GHC.Types.DamlInterface => InterfaceA
-  = InterfaceA GHC.Types.Opaque
-instance DA.Internal.Desugar.HasInterfaceTypeRep InterfaceA where
-  _interfaceTypeRep
-    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
-instance DA.Internal.Desugar.HasFetch InterfaceA where
-  fetch = GHC.Types.primitive @"UFetchInterface"
-instance DA.Internal.Desugar.HasToInterface InterfaceA InterfaceA where
-  _toInterface this = this
-instance DA.Internal.Desugar.HasFromInterface InterfaceA InterfaceA where
-  fromInterface this = DA.Internal.Desugar.Some this
-  unsafeFromInterface _ this = this
-instance DA.Internal.Desugar.HasMethod InterfaceA "getOwnerA" (Party)
-getOwnerA :
-  DA.Internal.Desugar.Implements t InterfaceA => t -> Party
-getOwnerA t
-  = GHC.Types.primitiveInterface
-      @"getOwnerA" (DA.Internal.Desugar._toInterface @_ @InterfaceA t)
-instance DA.Internal.Desugar.HasToAnyTemplate InterfaceA where
-  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
-instance DA.Internal.Desugar.HasFromAnyTemplate InterfaceA where
-  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
-instance DA.Internal.Desugar.HasTemplateTypeRep InterfaceA where
-  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
-instance DA.Internal.Desugar.HasSignatory InterfaceA where
-  signatory = GHC.Types.primitive @"ESignatoryInterface"
-instance DA.Internal.Desugar.HasObserver InterfaceA where
-  observer = GHC.Types.primitive @"EObserverInterface"
-instance DA.Internal.Desugar.HasCreate InterfaceA where
-  create = GHC.Types.primitive @"UCreateInterface"
-instance DA.Internal.Desugar.HasEnsure InterfaceA where
-  ensure this = DA.Internal.Desugar.True
-instance DA.Internal.Desugar.HasIsInterfaceType InterfaceA where
-  _isInterfaceType _ = DA.Internal.Desugar.True
-instance DA.Internal.Desugar.Eq InterfaceA where
-  (==) = GHC.Types.primitive @"BEEqual"
-instance (DA.Internal.Desugar.Implements t InterfaceA) =>
-         DA.Internal.Desugar.HasToAnyChoice t MyArchive (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance (DA.Internal.Desugar.Implements t InterfaceA) =>
-         DA.Internal.Desugar.HasFromAnyChoice t MyArchive (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t InterfaceA)) =>
-         DA.Internal.Desugar.HasExerciseGuarded t MyArchive (()) where
-  exerciseGuarded pred cid arg
-    = GHC.Types.primitive
-        @"UExerciseInterface"
-        (DA.Internal.Desugar.toInterfaceContractId @InterfaceA cid)
-        arg
-        (DA.Internal.Desugar._exerciseInterfaceGuard @InterfaceA cid pred)
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t InterfaceA)) =>
-         DA.Internal.Desugar.HasExercise t MyArchive (()) where
-  exercise = DA.Internal.Desugar._exerciseDefault
-data MyArchive
-  = MyArchive {}
-  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-_choice_InterfaceAMyArchive :
-  (InterfaceA -> MyArchive -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId InterfaceA
-   -> InterfaceA -> MyArchive -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming InterfaceA,
-   DA.Internal.Desugar.Optional (InterfaceA
-                                 -> MyArchive -> [DA.Internal.Desugar.Party]))
-_choice_InterfaceAMyArchive
-  = (\ this arg@MyArchive
-       -> let _ = this in
-          let _ = arg in DA.Internal.Desugar.toParties (getOwnerA this), 
-     \ self this arg@MyArchive
-       -> let _ = self in let _ = this in let _ = arg in do pure (), 
-     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
-data GHC.Types.DamlInterface => InterfaceB
-  = InterfaceB GHC.Types.Opaque
-instance DA.Internal.Desugar.HasInterfaceTypeRep InterfaceB where
-  _interfaceTypeRep
-    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
-instance DA.Internal.Desugar.HasFetch InterfaceB where
-  fetch = GHC.Types.primitive @"UFetchInterface"
-instance DA.Internal.Desugar.HasToInterface InterfaceB InterfaceB where
-  _toInterface this = this
-instance DA.Internal.Desugar.HasFromInterface InterfaceB InterfaceB where
-  fromInterface this = DA.Internal.Desugar.Some this
-  unsafeFromInterface _ this = this
-instance DA.Internal.Desugar.HasMethod InterfaceB "getOwnerB" (Party)
-getOwnerB :
-  DA.Internal.Desugar.Implements t InterfaceB => t -> Party
-getOwnerB t
-  = GHC.Types.primitiveInterface
-      @"getOwnerB" (DA.Internal.Desugar._toInterface @_ @InterfaceB t)
-instance DA.Internal.Desugar.HasToAnyTemplate InterfaceB where
-  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
-instance DA.Internal.Desugar.HasFromAnyTemplate InterfaceB where
-  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
-instance DA.Internal.Desugar.HasTemplateTypeRep InterfaceB where
-  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
-instance DA.Internal.Desugar.HasSignatory InterfaceB where
-  signatory = GHC.Types.primitive @"ESignatoryInterface"
-instance DA.Internal.Desugar.HasObserver InterfaceB where
-  observer = GHC.Types.primitive @"EObserverInterface"
-instance DA.Internal.Desugar.HasCreate InterfaceB where
-  create = GHC.Types.primitive @"UCreateInterface"
-instance DA.Internal.Desugar.HasEnsure InterfaceB where
-  ensure this = DA.Internal.Desugar.True
-instance DA.Internal.Desugar.HasIsInterfaceType InterfaceB where
-  _isInterfaceType _ = DA.Internal.Desugar.True
-instance DA.Internal.Desugar.Eq InterfaceB where
-  (==) = GHC.Types.primitive @"BEEqual"
-_choice_InterfaceBMyArchive :
-  (InterfaceB -> MyArchive -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId InterfaceB
-   -> InterfaceB -> MyArchive -> DA.Internal.Desugar.Update (),
-   DA.Internal.Desugar.Consuming InterfaceB,
-   DA.Internal.Desugar.Optional (InterfaceB
-                                 -> MyArchive -> [DA.Internal.Desugar.Party]))
-_choice_InterfaceBMyArchive
-  = (\ this _ -> [getOwnerB this], \ _ _ _ -> pure (), 
-     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+import qualified InterfaceChoiceCollision1
+import qualified InterfaceChoiceCollision2
 data GHC.Types.DamlTemplate => T
   = T {owner : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -169,9 +51,9 @@ instance DA.Internal.Desugar.HasIsInterfaceType T where
 instance DA.Internal.Desugar.HasExercise T DA.Internal.Desugar.Archive (()) where
   exercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice T DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+  _toAnyChoice = GHC.Types.primitive @"EToAnyTemplateChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice T DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyTemplateChoice"
 _choice_TArchive :
   (T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T
@@ -184,37 +66,37 @@ _choice_TArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_implements_T_InterfaceA :
-  DA.Internal.Desugar.ImplementsT T InterfaceA
-_implements_T_InterfaceA = DA.Internal.Desugar.ImplementsT
-instance DA.Internal.Desugar.HasToInterface T InterfaceA where
+_implements_T_InterfaceChoiceCollision1:Interface :
+  DA.Internal.Desugar.ImplementsT T InterfaceChoiceCollision1.Interface
+_implements_T_InterfaceChoiceCollision1:Interface
+  = DA.Internal.Desugar.ImplementsT
+instance DA.Internal.Desugar.HasToInterface T InterfaceChoiceCollision1.Interface where
   _toInterface = GHC.Types.primitive @"EToInterface"
-instance DA.Internal.Desugar.HasFromInterface T InterfaceA where
+instance DA.Internal.Desugar.HasFromInterface T InterfaceChoiceCollision1.Interface where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-_method_T_InterfaceA_getOwnerA :
-  DA.Internal.Desugar.Method T InterfaceA "getOwnerA"
-_method_T_InterfaceA_getOwnerA
+_method_T_InterfaceChoiceCollision1:Interface_getOwner :
+  DA.Internal.Desugar.Method T InterfaceChoiceCollision1.Interface "getOwner"
+_method_T_InterfaceChoiceCollision1:Interface_getOwner
   = DA.Internal.Desugar.mkMethod
       @T
-      @InterfaceA
-      @"getOwnerA"
-      (\ this@T {..}
-         -> let _ = this in let getOwnerA = owner in getOwnerA)
-_implements_T_InterfaceB :
-  DA.Internal.Desugar.ImplementsT T InterfaceB
-_implements_T_InterfaceB = DA.Internal.Desugar.ImplementsT
-instance DA.Internal.Desugar.HasToInterface T InterfaceB where
+      @InterfaceChoiceCollision1.Interface
+      @"getOwner"
+      (\ this@T {..} -> let _ = this in let getOwner = owner in getOwner)
+_implements_T_InterfaceChoiceCollision2:Interface :
+  DA.Internal.Desugar.ImplementsT T InterfaceChoiceCollision2.Interface
+_implements_T_InterfaceChoiceCollision2:Interface
+  = DA.Internal.Desugar.ImplementsT
+instance DA.Internal.Desugar.HasToInterface T InterfaceChoiceCollision2.Interface where
   _toInterface = GHC.Types.primitive @"EToInterface"
-instance DA.Internal.Desugar.HasFromInterface T InterfaceB where
+instance DA.Internal.Desugar.HasFromInterface T InterfaceChoiceCollision2.Interface where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-_method_T_InterfaceB_getOwnerB :
-  DA.Internal.Desugar.Method T InterfaceB "getOwnerB"
-_method_T_InterfaceB_getOwnerB
+_method_T_InterfaceChoiceCollision2:Interface_getOwner :
+  DA.Internal.Desugar.Method T InterfaceChoiceCollision2.Interface "getOwner"
+_method_T_InterfaceChoiceCollision2:Interface_getOwner
   = DA.Internal.Desugar.mkMethod
       @T
-      @InterfaceB
-      @"getOwnerB"
-      (\ this@T {..}
-         -> let _ = this in let getOwnerB = owner in getOwnerB)
+      @InterfaceChoiceCollision2.Interface
+      @"getOwner"
+      (\ this@T {..} -> let _ = this in let getOwner = owner in getOwner)

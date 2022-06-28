@@ -47,11 +47,9 @@ class ApiCommandPreprocessorSpec
               to create @Mod:Record Mod:Record { owners = Mod:Box @(List Party) {content} box, data = Mod:Record {data} this } ;
             implements Mod:Iface{
               method getCtrls = Mod:Record {owners} this;
-              choice IfaceChoice;
               };
             implements Mod:Iface3{
               method getCtrls = Mod:Record {owners} this;
-              choice IfaceChoice3;
               };
             key @(List Party) (Mod:Record {owners} this) (\ (parties: List Party) -> parties);
           };

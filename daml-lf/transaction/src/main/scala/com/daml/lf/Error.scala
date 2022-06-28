@@ -45,7 +45,7 @@ object Error {
       consumedBy: NodeId,
   ) extends Error
 
-  final case class LocalContractKeyNotVisible(
+  final case class ContractKeyNotVisible(
       coid: ContractId,
       key: GlobalKey,
       actAs: Set[Party],

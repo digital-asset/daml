@@ -9,6 +9,8 @@ import com.daml.lf.data._
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
+import com.daml.lf.command.DisclosedContract
+import com.daml.lf.transaction.ContractStateMachine.KeyMapping
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
@@ -50,6 +52,7 @@ final case class VersionedTransaction private[lf] (
   *
   * @param nodes The nodes of this transaction.
   * @param roots References to the root nodes of the transaction.
+  *
   * Users of this class may assume that all instances are well-formed, i.e., `isWellFormed.isEmpty`.
   * For performance reasons, users are not required to call `isWellFormed`.
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
@@ -247,22 +250,13 @@ final case class Transaction(
 
 sealed abstract class HasTxNodes {
 
-  import Transaction.{
-    KeyInput,
-    KeyActive,
-    KeyCreate,
-    NegativeKeyLookup,
-    KeyInputError,
-    DuplicateKeys,
-    InconsistentKeys,
-    ChildrenRecursion,
-  }
+  import Transaction.{KeyInput, KeyInputError, ChildrenRecursion}
 
   def nodes: Map[NodeId, Node]
 
   def roots: ImmArray[NodeId]
 
-  /** The union of the informees of a all the action nodes. */
+  /** The union of the informees of all the action nodes. */
   lazy val informees: Set[Ref.Party] =
     nodes.values.foldLeft(Set.empty[Ref.Party]) {
       case (acc, node: Node.Action) => acc | node.informeesOfNode
@@ -357,8 +351,8 @@ sealed abstract class HasTxNodes {
     }
 
   /** Returns the IDs of all the consumed contracts.
-    *  This includes transient contracts but it does not include contracts
-    *  consumed in rollback nodes.
+    * This includes transient contracts but it does not include contracts
+    * consumed in rollback nodes.
     */
   final def consumedContracts[Cid2 >: ContractId]: Set[Cid2] =
     foldInExecutionOrder(Set.empty[Cid2])(
@@ -378,7 +372,10 @@ sealed abstract class HasTxNodes {
     */
   final def inactiveContracts[Cid2 >: ContractId]: Set[Cid2] = {
     final case class LedgerState(
+        // Contracts created up to this point including rolled back contracts.
         createdCids: Set[Cid2],
+        // Contracts that have been marked as inactive either by a rollback of a create
+        // or an archive.
         inactiveCids: Set[Cid2],
     ) {
       def create(cid: Cid2): LedgerState =
@@ -410,7 +407,10 @@ sealed abstract class HasTxNodes {
         copy(
           currentState = beginState.copy(
             inactiveCids =
-              beginState.inactiveCids union (currentState.createdCids diff beginState.createdCids)
+              // Add all contracts created under rollback to inactive contracts.
+              // We don’t care if they are nested further below other rollbacks.
+              beginState.inactiveCids union (currentState.createdCids diff beginState.createdCids),
+            createdCids = currentState.createdCids,
           ),
           rollbackStack = rollbackStack.tail,
         )
@@ -466,6 +466,60 @@ sealed abstract class HasTxNodes {
     }
   }
 
+  /** Keys are contracts (that have been consumed) and values are the nodes where the contract was consumed.
+    * Nodes under rollbacks (both exercises and creates) are ignored (as they have been rolled back).
+    * The result includes both local contracts created in the transaction (if they’ve been consumed) as well as global
+    * contracts created in previous transactions. It does not include local contracts created under a rollback.
+    */
+  final def consumedBy: Map[ContractId, NodeId] =
+    foldInExecutionOrder[Map[ContractId, NodeId]](HashMap.empty)(
+      exerciseBegin = (consumedByMap, nodeId, exerciseNode) => {
+        if (exerciseNode.consuming) {
+          (consumedByMap + (exerciseNode.targetCoid -> nodeId), ChildrenRecursion.DoRecurse)
+        } else {
+          (consumedByMap, ChildrenRecursion.DoRecurse)
+        }
+      },
+      rollbackBegin = (consumedByMap, _, _) => {
+        (consumedByMap, ChildrenRecursion.DoNotRecurse)
+      },
+      leaf = (consumedByMap, _, _) => consumedByMap,
+      exerciseEnd = (consumedByMap, _, _) => consumedByMap,
+      rollbackEnd = (consumedByMap, _, _) => consumedByMap,
+    )
+
+  /** Keys are nodes under a rollback and values are the "nearest" (i.e. most recent) rollback node.
+    */
+  final def rolledbackBy: Map[NodeId, NodeId] = {
+    val rolledbackByMapUpdate
+        : ((Map[NodeId, NodeId], Seq[NodeId]), NodeId) => (Map[NodeId, NodeId], Seq[NodeId]) = {
+      case ((rolledbackMap, rollbackStack @ (rollbackNode +: _)), nodeId) =>
+        (rolledbackMap + (nodeId -> rollbackNode), rollbackStack)
+
+      case (state, _) =>
+        state
+    }
+
+    foldInExecutionOrder[(Map[NodeId, NodeId], Seq[NodeId])]((HashMap.empty, Vector.empty))(
+      exerciseBegin =
+        (state, nodeId, _) => (rolledbackByMapUpdate(state, nodeId), ChildrenRecursion.DoRecurse),
+      rollbackBegin = { case ((rolledbackMap, rollbackStack), nodeId, _) =>
+        ((rolledbackMap, nodeId +: rollbackStack), ChildrenRecursion.DoRecurse)
+      },
+      leaf = (state, nodeId, _) => rolledbackByMapUpdate(state, nodeId),
+      exerciseEnd = (state, _, _) => state,
+      rollbackEnd = {
+        case ((rolledbackMap, _ +: rollbackStack), _, _) =>
+          (rolledbackMap, rollbackStack)
+
+        case _ =>
+          throw new IllegalStateException(
+            "Impossible case: rollbackBegin should already have pushed to the rollback stack"
+          )
+      },
+    )._1
+  }
+
   /** Return the expected contract key inputs (i.e. the state before the transaction)
     * for this transaction or an error if the transaction contains a
     * duplicate key error or has an inconsistent mapping for a key. For
@@ -481,121 +535,19 @@ sealed abstract class HasTxNodes {
   @throws[IllegalArgumentException](
     "If a contract key contains a contract id"
   )
-  final def contractKeyInputs: Either[KeyInputError, Map[GlobalKey, KeyInput]] = {
-    val localCids = localContracts.keySet
-    final case class State(
-        keys: Map[GlobalKey, Option[Value.ContractId]],
-        rollbackStack: List[Map[GlobalKey, Option[Value.ContractId]]],
-        keyInputs: Map[GlobalKey, KeyInput],
-    ) {
-      def setKeyMapping(
-          key: GlobalKey,
-          value: KeyInput,
-      ): Either[KeyInputError, State] = {
-        (keyInputs.get(key), value) match {
-          case (None, _) =>
-            Right(copy(keyInputs = keyInputs.updated(key, value)))
-          case (Some(KeyCreate | NegativeKeyLookup), KeyActive(_)) => Left(InconsistentKeys(key))
-          case (Some(KeyActive(_)), NegativeKeyLookup) => Left(InconsistentKeys(key))
-          case (Some(KeyActive(_)), KeyCreate) => Left(DuplicateKeys(key))
-          case _ => Right(this)
-        }
-      }
-      def assertKeyMapping(
-          templateId: Identifier,
-          cid: Value.ContractId,
-          optKey: Option[Node.KeyWithMaintainers],
-      ): Either[KeyInputError, State] =
-        optKey.fold[Either[KeyInputError, State]](Right(this)) { key =>
-          val gk = GlobalKey.assertBuild(templateId, key.key)
-          keys.get(gk) match {
-            case Some(keyMapping) if Some(cid) != keyMapping => Left(InconsistentKeys(gk))
-            case _ =>
-              val r = copy(keys = keys.updated(gk, Some(cid)))
-              if (localCids.contains(cid)) {
-                Right(r)
-              } else {
-                r.setKeyMapping(gk, KeyActive(cid))
-              }
-          }
-        }
-      def handleExercise(exe: Node.Exercise) =
-        assertKeyMapping(exe.templateId, exe.targetCoid, exe.key).map { state =>
-          exe.key.fold(state) { key =>
-            val gk = GlobalKey.assertBuild(exe.templateId, key.key)
-            if (exe.consuming) {
-              state.copy(
-                keys = keys.updated(gk, None)
-              )
-            } else {
-              state
-            }
-          }
-        }
-
-      def handleCreate(create: Node.Create) =
-        create.key.fold[Either[KeyInputError, State]](Right(this)) { key =>
-          val gk = GlobalKey.assertBuild(create.templateId, key.key)
-          val next = copy(keys = keys.updated(gk, Some(create.coid)))
-          keys.get(gk) match {
-            case None =>
-              next.setKeyMapping(gk, KeyCreate)
-            case Some(None) =>
-              Right(next)
-            case Some(Some(_)) => Left(DuplicateKeys(gk))
-          }
-        }
-
-      def handleLookup(
-          lookup: Node.LookupByKey
-      ): Either[KeyInputError, State] = {
-        val gk = GlobalKey.assertBuild(lookup.templateId, lookup.key.key)
-        keys.get(gk) match {
-          case None =>
-            copy(keys = keys.updated(gk, lookup.result))
-              .setKeyMapping(gk, lookup.result.fold[KeyInput](NegativeKeyLookup)(KeyActive(_)))
-          case Some(optCid) =>
-            if (optCid != lookup.result) {
-              Left(InconsistentKeys(gk))
-            } else {
-              // No need to update anything, we updated keyInputs when we updated keys.
-              Right(this)
-            }
-        }
-      }
-
-      def handleLeaf(
-          leaf: Node.LeafOnlyAction
-      ): Either[KeyInputError, State] =
-        leaf match {
-          case create: Node.Create =>
-            handleCreate(create)
-          case fetch: Node.Fetch =>
-            assertKeyMapping(fetch.templateId, fetch.coid, fetch.key)
-          case lookup: Node.LookupByKey =>
-            handleLookup(lookup)
-        }
-      def beginRollback: State =
-        copy(
-          rollbackStack = keys :: rollbackStack
-        )
-      def endRollback: State =
-        copy(
-          keys = rollbackStack.head,
-          rollbackStack = rollbackStack.tail,
-        )
-    }
-    foldInExecutionOrder[Either[KeyInputError, State]](
-      Right(State(Map.empty, List.empty, Map.empty))
+  def contractKeyInputs: Either[KeyInputError, Map[GlobalKey, KeyInput]] = {
+    val machine = new ContractStateMachine[NodeId](mode = ContractKeyUniquenessMode.Strict)
+    foldInExecutionOrder[Either[KeyInputError, machine.State]](
+      Right(machine.initial)
     )(
-      exerciseBegin =
-        (acc, _, exe) => (acc.flatMap(_.handleExercise(exe)), ChildrenRecursion.DoRecurse),
+      exerciseBegin = (acc, nid, exe) =>
+        (acc.flatMap(_.handleExercise(nid, exe)), Transaction.ChildrenRecursion.DoRecurse),
       exerciseEnd = (acc, _, _) => acc,
-      rollbackBegin = (acc, _, _) => (acc.map(_.beginRollback), ChildrenRecursion.DoRecurse),
-      rollbackEnd = (acc, _, _) => acc.map(_.endRollback),
+      rollbackBegin =
+        (acc, _, _) => (acc.map(_.beginRollback()), Transaction.ChildrenRecursion.DoRecurse),
+      rollbackEnd = (acc, _, _) => acc.map(_.endRollback()),
       leaf = (acc, _, leaf) => acc.flatMap(_.handleLeaf(leaf)),
-    )
-      .map(_.keyInputs)
+    ).map(_.globalKeyInputs)
   }
 
   /** The contract keys created or updated as part of the transaction.
@@ -751,39 +703,6 @@ object Transaction {
   private[lf] case object OrphanedNode extends NotWellFormedErrorReason
   private[lf] case object AliasedNode extends NotWellFormedErrorReason
 
-  // crashes if transaction's keys contain contract Ids.
-  @throws[IllegalArgumentException]
-  def duplicatedContractKeys(tx: VersionedTransaction): Set[GlobalKey] = {
-
-    import GlobalKey.{assertBuild => globalKey}
-
-    case class State(active: Set[GlobalKey], duplicates: Set[GlobalKey]) {
-      def created(key: GlobalKey): State =
-        if (active(key)) copy(duplicates = duplicates + key) else copy(active = active + key)
-      def consumed(key: GlobalKey): State =
-        copy(active = active - key)
-      def referenced(key: GlobalKey): State =
-        copy(active = active + key)
-    }
-
-    tx.fold(State(Set.empty, Set.empty)) { case (state, (_, node)) =>
-      node match {
-        case Node.Create(_, tmplId, _, _, _, _, Some(key), _) =>
-          state.created(globalKey(tmplId, key.key))
-        case Node.Exercise(_, tmplId, _, _, true, _, _, _, _, _, _, _, Some(key), _, _) =>
-          state.consumed(globalKey(tmplId, key.key))
-        case Node.Exercise(_, tmplId, _, _, false, _, _, _, _, _, _, _, Some(key), _, _) =>
-          state.referenced(globalKey(tmplId, key.key))
-        case Node.Fetch(_, tmplId, _, _, _, Some(key), _, _) =>
-          state.referenced(globalKey(tmplId, key.key))
-        case Node.LookupByKey(tmplId, key, Some(_), _) =>
-          state.referenced(globalKey(tmplId, key.key))
-        case _ =>
-          state
-      }
-    }.duplicates
-  }
-
   @deprecated("use com.daml.value.Value.VersionedContractInstance", since = "1.18.0")
   type ContractInstance = Value.VersionedContractInstance
 
@@ -794,18 +713,19 @@ object Transaction {
 
   /** Transaction meta data
     *
-    * @param submissionSeed : the submission seed used to derive the contract IDs.
-    *                       If undefined no seed has been used (the legacy contract ID scheme
-    *                       have been used) or it is unknown (output of partial reinterpretation).
-    * @param submissionTime : the submission time
-    * @param usedPackages   The set of packages used during command processing.
-    *                       This is a hint for what packages are required to validate
-    *                       the transaction using the current interpreter.
-    *                       If set to `empty` the package dependency have not be computed.
-    * @param dependsOnTime  : indicate the transaction computation depends on ledger
-    *                       time.
-    * @param nodeSeeds      : An association list that maps to each ID of create and exercise
-    *                       nodes its seeds.
+    * @param submissionSeed   : the submission seed used to derive the contract IDs.
+    *                         If undefined no seed has been used (the legacy contract ID scheme
+    *                         have been used) or it is unknown (output of partial reinterpretation).
+    * @param submissionTime   : the submission time
+    * @param usedPackages     The set of packages used during command processing.
+    *                         This is a hint for what packages are required to validate
+    *                         the transaction using the current interpreter.
+    *                         If set to `empty` the package dependency have not be computed.
+    * @param dependsOnTime    : indicate the transaction computation depends on ledger
+    *                         time.
+    * @param nodeSeeds        : An association list that maps to each ID of create and exercise
+    *                         nodes its seeds.
+    * @param globalKeyMapping : input key mapping inferred by interpretation
     */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],
@@ -813,6 +733,8 @@ object Transaction {
       usedPackages: Set[PackageId],
       dependsOnTime: Boolean,
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
+      globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
+      disclosures: ImmArray[Versioned[DisclosedContract]],
   )
 
   def commitTransaction(submittedTransaction: SubmittedTransaction): CommittedTransaction =
@@ -840,7 +762,7 @@ object Transaction {
     *
     * For ledger implementors this means that (for contract key uniqueness)
     * it is sufficient to only look at the inputs and the outputs of the
-    * transaction whlie leaving all internal checks within the transaction
+    * transaction while leaving all internal checks within the transaction
     *  to the engine.
     */
   final case class DuplicateContractKey(
@@ -854,11 +776,17 @@ object Transaction {
 
   /** The state of a key at the beginning of the transaction.
     */
-  sealed trait KeyInput extends Product with Serializable
+  sealed trait KeyInput extends Product with Serializable {
+    def toKeyMapping: ContractStateMachine.KeyMapping
+    def isActive: Boolean
+  }
 
   /** No active contract with the given key.
     */
-  sealed trait KeyInactive extends KeyInput
+  sealed trait KeyInactive extends KeyInput {
+    override def toKeyMapping: KeyMapping = ContractStateMachine.KeyInactive
+    override def isActive: Boolean = false
+  }
 
   /** A contract with the key will be created so the key must be inactive.
     */
@@ -870,22 +798,19 @@ object Transaction {
 
   /** Key must be mapped to this active contract.
     */
-  final case class KeyActive(cid: Value.ContractId) extends KeyInput
-
-  /** contractKeyInputs failed to produce an input due to an error for the given key.
-    */
-  sealed abstract class KeyInputError {
-    def key: GlobalKey
+  final case class KeyActive(cid: Value.ContractId) extends KeyInput {
+    override def toKeyMapping: KeyMapping = ContractStateMachine.KeyActive(cid)
+    override def isActive: Boolean = true
   }
-
-  /** A create failed because there was already an active contract with the same key.
-    */
-  final case class DuplicateKeys(key: GlobalKey) extends KeyInputError
 
   /** An exercise, fetch or lookupByKey failed because the mapping of key -> contract id
     * was inconsistent with earlier nodes (in execution order).
     */
-  final case class InconsistentKeys(key: GlobalKey) extends KeyInputError
+  final case class InconsistentContractKey(key: GlobalKey)
+
+  /** contractKeyInputs failed to produce an input due to an error for the given key.
+    */
+  type KeyInputError = Either[InconsistentContractKey, DuplicateContractKey]
 
   sealed abstract class ChildrenRecursion
   object ChildrenRecursion {

@@ -459,12 +459,12 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     }
 
   private lazy val updateFetch =
-    Id("fetch") ~! `@` ~> fullIdentifier ~ expr0 ^^ { case t ~ e =>
-      UpdateFetch(t, e)
+    Id("fetch_template") ~! `@` ~> fullIdentifier ~ expr0 ^^ { case t ~ e =>
+      UpdateFetchTemplate(t, e)
     }
 
   private lazy val updateFetchInterface =
-    Id("fetch_by_interface") ~! `@` ~> fullIdentifier ~ expr0 ^^ { case iface ~ e =>
+    Id("fetch_interface") ~! `@` ~> fullIdentifier ~ expr0 ^^ { case iface ~ e =>
       UpdateFetchInterface(iface, e)
     }
 

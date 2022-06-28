@@ -5,14 +5,14 @@ package com.daml.lf
 package crypto
 
 import com.daml.lf.data.{Decimal, Numeric, Ref, SortedLookupList, Time}
-import com.daml.lf.value.test.TypedValueGenerators.{RNil, ValueAddend => VA}
+import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
 import com.daml.lf.value.Value._
 import com.daml.lf.value.Value
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import shapeless.record.{Record => HRecord}
 import shapeless.syntax.singleton._
-import shapeless.{Coproduct => HSum}
+import shapeless.{Coproduct => HSum, HNil}
 
 import scala.language.implicitConversions
 
@@ -23,36 +23,39 @@ class HashSpec extends AnyWordSpec with Matchers {
   private val complexRecordT =
     VA.record(
       defRef(name = "ComplexRecord"),
-      Symbol("fInt0") ->> VA.int64
-        :: Symbol("fInt1") ->> VA.int64
-        :: Symbol("fInt2") ->> VA.int64
-        :: Symbol("fNumeric0") ->> VA.numeric(Decimal.scale)
-        :: Symbol("fNumeric1") ->> VA.numeric(Decimal.scale)
-        :: Symbol("fBool0") ->> VA.bool
-        :: Symbol("fBool1") ->> VA.bool
-        :: Symbol("fDate0") ->> VA.date
-        :: Symbol("fDate1") ->> VA.date
-        :: Symbol("fTime0") ->> VA.timestamp
-        :: Symbol("fTime1") ->> VA.timestamp
-        :: Symbol("fText0") ->> VA.text
-        :: Symbol("fTest1") ->> VA.text
-        :: Symbol("fPArty") ->> VA.party
-        :: Symbol("fUnit") ->> VA.unit
-        :: Symbol("fOpt0") ->> VA.optional(VA.text)
-        :: Symbol("fOpt1") ->> VA.optional(VA.text)
-        :: Symbol("fList") ->> VA.list(VA.text)
-        :: Symbol("fVariant") ->>
-        VA.variant(
-          defRef(name = "Variant"),
-          Symbol("Variant") ->> VA.int64 :: RNil,
-        )._2
-        :: Symbol("fRecord") ->>
-        VA.record(
-          defRef(name = "Record"),
-          Symbol("field1") ->> VA.text :: Symbol("field2") ->> VA.text :: RNil,
-        )._2
-        :: Symbol("fTextMap") ->> VA.map(VA.text)
-        :: RNil,
+      HRecord(
+        fInt0 = VA.int64,
+        fInt1 = VA.int64,
+        fInt2 = VA.int64,
+        fNumeric0 = VA.numeric(Decimal.scale),
+        fNumeric1 = VA.numeric(Decimal.scale),
+        fBool0 = VA.bool,
+        fBool1 = VA.bool,
+        fDate0 = VA.date,
+        fDate1 = VA.date,
+        fTime0 = VA.timestamp,
+        fTime1 = VA.timestamp,
+        fText0 = VA.text,
+        fTest1 = VA.text,
+        fPArty = VA.party,
+        fUnit = VA.unit,
+        fOpt0 = VA.optional(VA.text),
+        fOpt1 = VA.optional(VA.text),
+        fList = VA.list(VA.text),
+        fVariant = VA
+          .variant(
+            defRef(name = "Variant"),
+            HRecord(Variant = VA.int64),
+          )
+          ._2,
+        fRecord = VA
+          .record(
+            defRef(name = "Record"),
+            HRecord(field1 = VA.text, field2 = VA.text),
+          )
+          ._2,
+        fTextMap = VA.map(VA.text),
+      ),
     )._2
 
   private val complexRecordV: complexRecordT.Inj =
@@ -156,7 +159,7 @@ class HashSpec extends AnyWordSpec with Matchers {
       val variantT =
         VA.variant(
           defRef(name = "Variant"),
-          Symbol("A") ->> VA.unit :: Symbol("B") ->> VA.unit :: RNil,
+          HRecord(A = VA.unit, B = VA.unit),
         )._2
       val value1 = variantT.inj(HSum[variantT.Inj](Symbol("A") ->> (())))
       val value2 = variantT.inj(HSum[variantT.Inj](Symbol("B") ->> (())))
@@ -170,7 +173,7 @@ class HashSpec extends AnyWordSpec with Matchers {
     }
 
     "not produce collision in Variant value" in {
-      val variantT = VA.variant(defRef(name = "Variant"), Symbol("A") ->> VA.int64 :: RNil)._2
+      val variantT = VA.variant(defRef(name = "Variant"), HRecord(A = VA.int64))._2
       val value1 = variantT.inj(HSum(Symbol("A") ->> 0L))
       val value2 = variantT.inj(HSum(Symbol("A") ->> 1L))
 
@@ -314,7 +317,7 @@ class HashSpec extends AnyWordSpec with Matchers {
       val recordT =
         VA.record(
           defRef(name = "Tuple2"),
-          Symbol("_1") ->> VA.text :: Symbol("_2") ->> VA.text :: RNil,
+          HRecord(_1 = VA.text, _2 = VA.text),
         )._2
       val value1 = recordT.inj(HRecord(_1 = "A", _2 = "B"))
       val value2 = recordT.inj(HRecord(_1 = "A", _2 = "C"))
@@ -374,7 +377,8 @@ class HashSpec extends AnyWordSpec with Matchers {
           "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5",
           "0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b",
         ).map { str =>
-          VA.contractId.inj(ContractId.V1 assertFromString str)
+          import org.scalacheck.{Arbitrary, Gen}
+          VA.contractId(Arbitrary(Gen.fail)).inj(ContractId.V1 assertFromString str)
         }
 
       val enumT1 = VA.enumeration("Color", List("Red", "Green"))._2
@@ -386,8 +390,8 @@ class HashSpec extends AnyWordSpec with Matchers {
         enumT2.inj(enumT2.get("Green").get),
       )
 
-      val record0T1 = VA.record("Unit", RNil)._2
-      val record0T2 = VA.record("UnitBis", RNil)._2
+      val record0T1 = VA.record("Unit", HNil)._2
+      val record0T2 = VA.record("UnitBis", HNil)._2
 
       val records0 =
         List(
@@ -396,9 +400,9 @@ class HashSpec extends AnyWordSpec with Matchers {
         )
 
       val record2T1 =
-        VA.record("Tuple", Symbol("_1") ->> VA.bool :: Symbol("_2") ->> VA.bool :: RNil)._2
+        VA.record("Tuple", HRecord(_1 = VA.bool, _2 = VA.bool))._2
       val record2T2 =
-        VA.record("TupleBis", Symbol("_1") ->> VA.bool :: Symbol("_2") ->> VA.bool :: RNil)._2
+        VA.record("TupleBis", HRecord(_1 = VA.bool, _2 = VA.bool))._2
 
       val records2 =
         List(
@@ -409,9 +413,9 @@ class HashSpec extends AnyWordSpec with Matchers {
         )
 
       val variantT1 =
-        VA.variant("Either", Symbol("Left") ->> VA.bool :: Symbol("Right") ->> VA.bool :: RNil)._2
+        VA.variant("Either", HRecord(Left = VA.bool, Right = VA.bool))._2
       val variantT2 = VA
-        .variant("EitherBis", Symbol("Left") ->> VA.bool :: Symbol("Right") ->> VA.bool :: RNil)
+        .variant("EitherBis", HRecord(Left = VA.bool, Right = VA.bool))
         ._2
 
       val variants = List(

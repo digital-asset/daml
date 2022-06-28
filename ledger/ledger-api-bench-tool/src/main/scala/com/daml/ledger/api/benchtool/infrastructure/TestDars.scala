@@ -11,7 +11,7 @@ import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
 object TestDars {
-  private val TestDarInfix = "model-tests"
+  private val TestDarInfix = "benchtool"
   private lazy val resources: List[String] = TestDar.paths.filter(_.contains(TestDarInfix))
 
   def readAll(): Try[List[DarFile]] = {

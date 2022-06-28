@@ -21,6 +21,9 @@ template Child
     party: Party
   where
     signatory party
+    key party: Party
+    maintainer key
+
     choice Bar: () with
       controller party
       do

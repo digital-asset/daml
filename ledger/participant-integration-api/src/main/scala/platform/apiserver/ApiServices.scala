@@ -6,6 +6,7 @@ package com.daml.platform.apiserver
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.auth.services._
 import com.daml.ledger.api.domain.LedgerId
@@ -38,16 +39,13 @@ import com.daml.platform.configuration.{
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.{GrpcHealthService, GrpcTransactionService}
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.telemetry.TelemetryContext
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
-import java.time.Duration
-
-import com.daml.ledger.api.SubmissionIdGenerator
-import com.daml.platform.usermanagement.UserManagementConfig
 
 import scala.collection.immutable
-import scala.concurrent.duration.{Duration => ScalaDuration}
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
 private[daml] trait ApiServices {
@@ -85,7 +83,7 @@ private[daml] object ApiServices {
       metrics: Metrics,
       healthChecks: HealthChecks,
       seedService: SeedService,
-      managementServiceTimeout: Duration,
+      managementServiceTimeout: FiniteDuration,
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
       ledgerFeatures: LedgerFeatures,
       userManagementConfig: UserManagementConfig,
@@ -119,7 +117,7 @@ private[daml] object ApiServices {
       for {
         currentLedgerConfiguration <- configurationInitializer.initialize(
           initialLedgerConfiguration = initialLedgerConfiguration,
-          configurationLoadTimeout = ScalaDuration.fromNanos(configurationLoadTimeout.toNanos),
+          configurationLoadTimeout = configurationLoadTimeout,
         )
         services <- Resource(
           Future(

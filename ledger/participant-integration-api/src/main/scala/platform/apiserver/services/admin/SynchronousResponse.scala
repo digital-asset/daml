@@ -16,8 +16,6 @@ import com.daml.platform.apiserver.services.admin.SynchronousResponse.{Accepted,
 import com.daml.telemetry.TelemetryContext
 import io.grpc.StatusRuntimeException
 
-import java.time.Duration
-import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 
@@ -28,17 +26,17 @@ import scala.concurrent.{ExecutionContext, Future, TimeoutException}
   */
 class SynchronousResponse[Input, Entry, AcceptedEntry](
     strategy: SynchronousResponse.Strategy[Input, Entry, AcceptedEntry],
-    timeToLive: Duration,
+    timeToLive: FiniteDuration,
 )(implicit
     executionContext: ExecutionContext,
     materializer: Materializer,
-    loggingContext: LoggingContext,
 ) {
 
   private val logger = ContextualizedLogger.get(getClass)
 
   def submitAndWait(submissionId: Ref.SubmissionId, input: Input)(implicit
-      telemetryContext: TelemetryContext
+      telemetryContext: TelemetryContext,
+      loggingContext: LoggingContext,
   ): Future[AcceptedEntry] = {
     for {
       ledgerEndBeforeRequest <- strategy.currentLedgerEnd()
@@ -51,7 +49,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
       submissionId: Ref.SubmissionId,
       ledgerEndBeforeRequest: Option[LedgerOffset.Absolute],
       submissionResult: SubmissionResult,
-  ) = submissionResult match {
+  )(implicit loggingContext: LoggingContext) = submissionResult match {
     case SubmissionResult.Acknowledged =>
       acknowledged(submissionId, ledgerEndBeforeRequest)
     case synchronousError: SubmissionResult.SynchronousError =>
@@ -61,7 +59,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
   private def acknowledged(
       submissionId: Ref.SubmissionId,
       ledgerEndBeforeRequest: Option[LedgerOffset.Absolute],
-  ) = {
+  )(implicit loggingContext: LoggingContext) = {
     val isAccepted = new Accepted(strategy.accept(submissionId))
     val isRejected = new Rejected(strategy.reject(submissionId))
     strategy
@@ -70,7 +68,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
         case isAccepted(entry) => Future.successful(entry)
         case isRejected(exception) => Future.failed(exception)
       }
-      .completionTimeout(FiniteDuration(timeToLive.toMillis, TimeUnit.MILLISECONDS))
+      .completionTimeout(timeToLive)
       .runWith(Sink.head)
       .recoverWith(toGrpcError(loggingContext, submissionId))
       .flatten
@@ -110,7 +108,8 @@ object SynchronousResponse {
 
     /** Submits a request to the ledger. */
     def submit(submissionId: Ref.SubmissionId, input: Input)(implicit
-        telemetryContext: TelemetryContext
+        telemetryContext: TelemetryContext,
+        loggingContext: LoggingContext,
     ): Future[state.SubmissionResult]
 
     /** Opens a stream of entries from before the submission. */

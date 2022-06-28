@@ -124,7 +124,25 @@ Errors that relate to system resources.
 RESOURCE_EXHAUSTED
 ---------------------------------------------------------------------------------------------------------------------------------------
     
+    **Deprecation**: Replaced by RESOURCE_OVERLOADED. Since: 2.3.0
+    
     **Explanation**: A system resource has been exhausted.
+
+    **Category**: ContentionOnSharedResources
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+
+    **Resolution**: Retry the transaction submission or provide the details to the participant operator.
+
+
+
+
+.. _error_code_RESOURCE_OVERLOADED:
+
+RESOURCE_OVERLOADED
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: A system resource is overloaded.
 
     **Category**: ContentionOnSharedResources
 
@@ -277,6 +295,22 @@ Errors raised by or forwarded by the Ledger API.
 
 
 
+.. _error_code_HEAP_MEMORY_OVER_LIMIT:
+
+HEAP_MEMORY_OVER_LIMIT
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error happens when the JVM heap memory pool exceeds a pre-configured limit.
+
+    **Category**: ContentionOnSharedResources
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+
+    **Resolution**: The following actions can be taken: 1. Review the historical use of heap space by inspecting the metric given in the message. 2. Review the current heap space limits configured in the rate limiting configuration. 3. Try to space out requests that are likely to require a large amount of memory to process.
+
+
+
+
 .. _error_code_LEDGER_API_INTERNAL_ERROR:
 
 LEDGER_API_INTERNAL_ERROR
@@ -289,6 +323,22 @@ LEDGER_API_INTERNAL_ERROR
     **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
 
     **Resolution**: Contact support.
+
+
+
+
+.. _error_code_MAXIMUM_NUMBER_OF_STREAMS:
+
+MAXIMUM_NUMBER_OF_STREAMS
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error happens when the number of concurrent gRPC streaming requests exceeds the configured limit.
+
+    **Category**: ContentionOnSharedResources
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+
+    **Resolution**: The following actions can be taken: 1. Review the historical need for concurrent streaming by inspecting the metric given in the message. 2. Review the maximum streams limit configured in the rate limiting configuration. 3. Try to space out streaming requests such that they do not need to run in parallel with each other.
 
 
 
@@ -353,6 +403,22 @@ SERVICE_NOT_RUNNING
     **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status UNAVAILABLE including a detailed error message
 
     **Resolution**: Retry re-submitting the request. If the error persists, contact the participant operator.
+
+
+
+
+.. _error_code_THREADPOOL_OVERLOADED:
+
+THREADPOOL_OVERLOADED
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This happens when the rate of submitted gRPC requests requires more CPU or database power than is available.
+
+    **Category**: ContentionOnSharedResources
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+
+    **Resolution**: The following actions can be taken: Here the 'queue size' for the threadpool = 'submitted tasks' - 'completed tasks' - 'running tasks' 1. Review the historical 'queue size' growth by inspecting the metric given in the message. 2. Review the maximum 'queue size' limits configured in the rate limiting configuration. 3. Try to space out requests that are likely to require a lot of CPU or database power.       
 
 
 

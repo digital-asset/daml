@@ -11,13 +11,13 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.platform.common.LedgerIdMode
+import com.daml.ledger.runner.common.Config
 import com.daml.platform.sandbox.SandboxRequiringAuthorization
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+import scalaz.syntax.tag._
 
 final class LedgerClientAuthIT
     extends AsyncWordSpec
@@ -42,9 +42,7 @@ final class LedgerClientAuthIT
     token = Some(toHeader(readOnlyToken("Read-only party")))
   )
 
-  override protected def config: SandboxConfig = super.config.copy(
-    ledgerIdMode = LedgerIdMode.Static(LedgerId)
-  )
+  override protected def config: Config = super.config.copy(ledgerId = LedgerId.unwrap)
 
   "the ledger client" when {
     "it has a read-only token" should {

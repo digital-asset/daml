@@ -13,7 +13,7 @@ import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.InstrumentedSource
+import com.daml.metrics.InstrumentedGraph
 import com.daml.platform.apiserver.services.tracking.QueueBackedTracker._
 import com.daml.util.Ctx
 import com.google.rpc.Status
@@ -114,7 +114,7 @@ private[services] object QueueBackedTracker {
       lengthCounter: Counter,
       delayTimer: Timer,
   )(implicit materializer: Materializer, loggingContext: LoggingContext): QueueBackedTracker = {
-    val ((queue, mat), done) = InstrumentedSource
+    val ((queue, mat), done) = InstrumentedGraph
       .queue[QueueInput](
         inputBufferSize,
         capacityCounter,

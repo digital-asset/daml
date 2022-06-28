@@ -110,7 +110,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
     }
   }
 
-  private def validateInnerCommands(
+  // Public because it is used by Canton.
+  def validateInnerCommands(
       commands: Seq[ProtoCommand]
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -124,7 +125,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
       } yield validatedInnerCommands :+ validatedInnerCommand
     })
 
-  private def validateInnerCommand(
+  // Public so that clients have an easy way to convert ProtoCommand.Command to ApiCommand.
+  def validateInnerCommand(
       command: ProtoCommand.Command
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

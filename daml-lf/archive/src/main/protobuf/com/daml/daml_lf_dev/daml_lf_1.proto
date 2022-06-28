@@ -1539,8 +1539,6 @@ message DefTemplate {
   message Implements {
     TypeConName interface = 1;
     repeated ImplementsMethod methods = 2;
-    repeated int32 inherited_choice_interned_names = 3;
-      // ^ inherited fixed choice names as interned strings
   }
 
   // The type constructor for the template, acting as both
@@ -1608,6 +1606,17 @@ message InterfaceMethod {
 // Interface definition.
 // *Available in versions >= 1.dev*
 message DefInterface {
+
+  message CoImplementsMethod {
+    int32 method_interned_name = 1;
+    Expr value = 2;
+  }
+
+  message CoImplements {
+    TypeConName template = 1;
+    repeated CoImplementsMethod methods = 2;
+  }
+
   Location location = 1;
   int32 tycon_interned_dname = 2;
   repeated TypeConName requires = 3;
@@ -1617,6 +1626,9 @@ message DefInterface {
   int32 param_interned_str = 5;
   Expr precond = 6;
   repeated TemplateChoice choices = 7;
+
+  // Templates which this interface co-implements.
+  repeated CoImplements coImplements = 8; // *Available in versions >= 1.dev*
 }
 
 // Exception definition

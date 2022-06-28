@@ -236,6 +236,8 @@ object Cli {
           minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
           minItemRate <- optionalDoubleField("min-item-rate")
           maxItemRate <- optionalDoubleField("max-item-rate")
+          maxItemCount <- optionalLongField("max-item-count")
+          timeoutInSecondsO <- optionalLongField("timeout")
         } yield WorkflowConfig.StreamConfig.TransactionsStreamConfig(
           name = name,
           filters = filters,
@@ -243,6 +245,8 @@ object Cli {
           endOffset = endOffset,
           objectives =
             transactionObjectives(maxDelaySeconds, minConsumptionSpeed, minItemRate, maxItemRate),
+          timeoutInSecondsO = timeoutInSecondsO,
+          maxItemCount = maxItemCount,
         )
 
         def transactionTreesConfig
@@ -256,6 +260,8 @@ object Cli {
             minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
             minItemRate <- optionalDoubleField("min-item-rate")
             maxItemRate <- optionalDoubleField("max-item-rate")
+            maxItemCount <- optionalLongField("max-item-count")
+            timeoutInSecondsO <- optionalLongField("timeout")
           } yield WorkflowConfig.StreamConfig.TransactionTreesStreamConfig(
             name = name,
             filters = filters,
@@ -263,6 +269,8 @@ object Cli {
             endOffset = endOffset,
             objectives =
               transactionObjectives(maxDelaySeconds, minConsumptionSpeed, minItemRate, maxItemRate),
+            timeoutInSecondsO = timeoutInSecondsO,
+            maxItemCount = maxItemCount,
           )
 
         def rateObjectives(
@@ -286,26 +294,34 @@ object Cli {
           filters <- stringField("filters").flatMap(parseFilters)
           minItemRate <- optionalDoubleField("min-item-rate")
           maxItemRate <- optionalDoubleField("max-item-rate")
+          maxItemCount <- optionalLongField("max-item-count")
+          timeoutInSecondsO <- optionalLongField("timeout")
         } yield WorkflowConfig.StreamConfig.ActiveContractsStreamConfig(
           name = name,
           filters = filters,
           objectives = rateObjectives(minItemRate, maxItemRate),
+          timeoutInSecondsO = timeoutInSecondsO,
+          maxItemCount = maxItemCount,
         )
 
         def completionsConfig: Either[String, WorkflowConfig.StreamConfig.CompletionsStreamConfig] =
           for {
             name <- stringField("name")
-            party <- stringField("party")
+            parties <- stringField("parties").map(parseParties)
             applicationId <- stringField("application-id")
             beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
             minItemRate <- optionalDoubleField("min-item-rate")
             maxItemRate <- optionalDoubleField("max-item-rate")
+            timeoutInSecondsO <- optionalLongField("timeout")
+            maxItemCount <- optionalLongField("max-item-count")
           } yield WorkflowConfig.StreamConfig.CompletionsStreamConfig(
             name = name,
-            party = party,
+            parties = parties,
             applicationId = applicationId,
             beginOffset = beginOffset,
             objectives = rateObjectives(minItemRate, maxItemRate),
+            timeoutInSecondsO = timeoutInSecondsO,
+            maxItemCount = maxItemCount,
           )
 
         val config = stringField("stream-type").flatMap[String, WorkflowConfig.StreamConfig] {
@@ -318,6 +334,10 @@ object Cli {
 
         config.fold(error => throw new IllegalArgumentException(error), identity)
       }
+
+    // Parse strings like: "", "party1" or "party1+party2+party3"
+    private def parseParties(raw: String): List[String] =
+      raw.split('+').toList
 
     private def parseFilters(
         listOfIds: String

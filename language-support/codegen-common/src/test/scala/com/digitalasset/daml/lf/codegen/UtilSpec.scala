@@ -42,7 +42,7 @@ object UtilSpec {
 
   val trivialDeclarations: Gen[Map[Identifier, InterfaceType]] = {
     val fooRec = Record(ImmArraySeq.empty)
-    val fooTmpl = InterfaceType.Template(fooRec, DefTemplate(Map.empty, Map.empty, None, Seq.empty))
+    val fooTmpl = InterfaceType.Template(fooRec, DefTemplate.Empty)
     val fooNorm = InterfaceType.Normal(DefDataType(ImmArraySeq.empty, fooRec))
     implicit val idArb: Arbitrary[Identifier] = Arbitrary(idGen)
     arbitrary[Map[Identifier, Boolean]] map {

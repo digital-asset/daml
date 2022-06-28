@@ -3,11 +3,12 @@
 
 package com.daml.codegen
 
-import com.daml.sample.MyMain
+import com.daml.sample.{MyMain, MyMainIface}
 import MyMain.{KeyedNumber, Increment, SimpleListExample}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.{commands => rpccmd}
 import com.daml.ledger.client.binding.{Primitive => P}
+import com.daml.ledger.client.binding.Value.encode
 
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -33,12 +34,39 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
           ()
       }
     }
+
+    "include template ID and interface ID" in {
+      inside(
+        MyMain
+          .InterfaceMixer(alice)
+          .createAnd
+          .toInterface[MyMainIface.IfaceFromAnotherMod]
+          .exerciseFromAnotherMod(alice, 42)
+          .command
+          .command
+      ) {
+        case rpccmd.Command.Command
+              .CreateAndExercise(
+                rpccmd.CreateAndExerciseCommand(
+                  Some(tpId),
+                  Some(payload),
+                  "FromAnotherMod",
+                  Some(choiceArg),
+                )
+              ) =>
+          tpId should ===(MyMain.InterfaceMixer.id)
+          payload should ===(MyMain.InterfaceMixer(alice).arguments)
+          choiceArg should ===(encode(MyMainIface.FromAnotherMod(42)))
+      }
+    }
   }
 
   "exercise" should {
-    import com.daml.ledger.client.binding.Value.encode
     val imId: P.ContractId[MyMain.InterfaceMixer] = P.ContractId("fakeimid")
+    val itmId: P.ContractId[MyMainIface.IfaceFromAnotherMod] = P.ContractId("fakeitmid")
     val DirectTemplateId = ApiTypes.TemplateId unwrap MyMain.InterfaceMixer.id
+    val ITMTemplateId = ApiTypes.TemplateId unwrap MyMain.InterfaceToMix.id
+    val FAMTemplateId = ApiTypes.TemplateId unwrap MyMainIface.IfaceFromAnotherMod.id
 
     "invoke directly-defined choices" in {
       inside(imId.exerciseOverloadedInTemplate(alice).command.command) {
@@ -55,11 +83,32 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
       }
     }
 
-    "invoke interface-inherited choices, directly from template" in {
-      inside(imId.exerciseInheritedOnly(alice).command.command) {
+    "invoke interface-defined choices, even when overloaded in template" in {
+      inside(
+        imId
+          .toInterface[MyMainIface.IfaceFromAnotherMod]
+          .exerciseOverloadedInTemplate(alice)
+          .command
+          .command
+      ) {
         case rpccmd.Command.Command.Exercise(
               rpccmd.ExerciseCommand(
-                Some(DirectTemplateId), // TODO(#13349, #13668) must be interface ID
+                Some(FAMTemplateId),
+                cid,
+                "OverloadedInTemplate",
+                Some(choiceArg),
+              )
+            ) =>
+          cid should ===(imId)
+          choiceArg should ===(encode(MyMainIface.OverloadedInTemplate()))
+      }
+    }
+
+    "invoke interface-inherited choices by converting to interface" in {
+      inside(imId.toInterface[MyMain.InterfaceToMix].exerciseInheritedOnly(alice).command.command) {
+        case rpccmd.Command.Command.Exercise(
+              rpccmd.ExerciseCommand(
+                Some(ITMTemplateId),
                 cid,
                 "InheritedOnly",
                 Some(choiceArg),
@@ -69,6 +118,35 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
           choiceArg should ===(encode(MyMain.InheritedOnly()))
       }
     }
+
+    "invoke on an interface-contract ID" in {
+      inside(itmId.exerciseFromAnotherMod(alice, 42).command.command) {
+        case rpccmd.Command.Command.Exercise(
+              rpccmd.ExerciseCommand(
+                Some(FAMTemplateId),
+                cid,
+                "FromAnotherMod",
+                Some(choiceArg),
+              )
+            ) =>
+          cid should ===(itmId)
+          choiceArg should ===(encode(MyMainIface.FromAnotherMod(42)))
+      }
+    }
+  }
+
+  "template IDs" should {
+    "be present on templates" in {
+      val sle = ApiTypes.TemplateId unwrap MyMain.SimpleListExample.id
+      sle.moduleName should ===("MyMain")
+      sle.entityName should ===("SimpleListExample")
+    }
+
+    "be present on interfaces" in {
+      val sle = ApiTypes.TemplateId unwrap MyMainIface.IfaceFromAnotherMod.id
+      sle.moduleName should ===("MyMainIface")
+      sle.entityName should ===("IfaceFromAnotherMod")
+    }
   }
 
   "key" should {
@@ -77,10 +155,27 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
         case rpccmd.Command.Command.ExerciseByKey(
               rpccmd.ExerciseByKeyCommand(Some(tid), Some(k), "Increment", Some(choiceArg))
             ) =>
-          import com.daml.ledger.client.binding.Value.encode
           tid should ===(KeyedNumber.id)
           k should ===(encode(alice))
           choiceArg should ===(encode(Increment(42)))
+      }
+    }
+
+    "pass template ID when exercising interface choice" in {
+      inside(
+        MyMain.InterfaceMixer
+          .key(alice)
+          .toInterface[MyMainIface.IfaceFromAnotherMod]
+          .exerciseFromAnotherMod(alice, 42)
+          .command
+          .command
+      ) {
+        case rpccmd.Command.Command.ExerciseByKey(
+              rpccmd.ExerciseByKeyCommand(Some(tid), Some(k), "FromAnotherMod", Some(choiceArg))
+            ) =>
+          tid should ===(MyMain.InterfaceMixer.id)
+          k should ===(encode(alice))
+          choiceArg should ===(encode(MyMainIface.FromAnotherMod(42)))
       }
     }
   }

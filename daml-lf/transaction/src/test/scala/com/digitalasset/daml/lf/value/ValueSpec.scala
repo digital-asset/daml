@@ -9,7 +9,7 @@ import data.{Bytes, ImmArray, Ref}
 import Value._
 import Ref.{Identifier, Name}
 import test.ValueGenerators.{suffixedV1CidGen, coidGen, idGen, nameGen}
-import test.TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
+import test.TypedValueGenerators.{genAddend, ValueAddend => VA}
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -21,6 +21,7 @@ import scalaz.syntax.functor._
 import scalaz.syntax.order._
 import scalaz.scalacheck.{ScalazProperties => SzP}
 import scalaz.scalacheck.ScalaCheckBinding._
+import shapeless.record.{Record => HRecord}
 import shapeless.syntax.singleton._
 
 class ValueSpec
@@ -75,7 +76,7 @@ class ValueSpec
   private def checkOrderPreserved(
       va: VA,
       scope: Value.LookupVariantEnum,
-  )(implicit cid: Arbitrary[Value.ContractId]) = {
+  ) = {
     import va.{injord, injarb, injshrink}
     implicit val targetOrd: Order[Value] = Tag unsubst Value.orderInstance(scope)
     forAll(minSuccessful(20)) { (a: va.Inj, b: va.Inj) =>
@@ -156,8 +157,7 @@ class ValueSpec
 }
 
 object ValueSpec {
-  private val fooSpec =
-    Symbol("quux") ->> VA.int64 :: Symbol("baz") ->> VA.int64 :: RNil
+  private val fooSpec = HRecord(quux = VA.int64, baz = VA.int64)
   private val (_, fooRecord) = VA.record(Identifier assertFromString "abc:Foo:FooRec", fooSpec)
   private val fooVariantId = Identifier assertFromString "abc:Foo:FooVar"
   private val (_, fooVariant) = VA.variant(fooVariantId, fooSpec)

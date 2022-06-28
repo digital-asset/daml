@@ -53,37 +53,45 @@ object WorkflowConfigParser {
       )(StreamConfig.PartyFilter.apply)
 
     implicit val transactionStreamDecoder: Decoder[StreamConfig.TransactionsStreamConfig] =
-      Decoder.forProduct5(
+      Decoder.forProduct7(
         "name",
         "filters",
         "begin_offset",
         "end_offset",
         "objectives",
+        "max_item_count",
+        "timeout_in_seconds",
       )(StreamConfig.TransactionsStreamConfig.apply)
 
     implicit val transactionTreesStreamDecoder: Decoder[StreamConfig.TransactionTreesStreamConfig] =
-      Decoder.forProduct5(
+      Decoder.forProduct7(
         "name",
         "filters",
         "begin_offset",
         "end_offset",
         "objectives",
+        "max_item_count",
+        "timeout_in_seconds",
       )(StreamConfig.TransactionTreesStreamConfig.apply)
 
     implicit val activeContractsStreamDecoder: Decoder[StreamConfig.ActiveContractsStreamConfig] =
-      Decoder.forProduct3(
+      Decoder.forProduct5(
         "name",
         "filters",
         "objectives",
+        "max_item_count",
+        "timeout_in_seconds",
       )(StreamConfig.ActiveContractsStreamConfig.apply)
 
     implicit val completionsStreamDecoder: Decoder[StreamConfig.CompletionsStreamConfig] =
-      Decoder.forProduct5(
+      Decoder.forProduct7(
         "name",
-        "party",
+        "parties",
         "application_id",
         "begin_offset",
         "objectives",
+        "max_item_count",
+        "timeout_in_seconds",
       )(StreamConfig.CompletionsStreamConfig.apply)
 
     implicit val streamConfigDecoder: Decoder[StreamConfig] =
@@ -116,22 +124,32 @@ object WorkflowConfigParser {
         "payload_size_bytes",
       )(FooSubmissionConfig.ConsumingExercises.apply)
 
+    implicit val applicationIdConfigDecoder: Decoder[FooSubmissionConfig.ApplicationId] =
+      Decoder.forProduct2(
+        "id",
+        "weight",
+      )(FooSubmissionConfig.ApplicationId.apply)
+
     implicit val fooSubmissionConfigDecoder: Decoder[FooSubmissionConfig] =
-      Decoder.forProduct7(
+      Decoder.forProduct10(
         "num_instances",
         "num_observers",
-        "num_divulgees",
         "unique_parties",
         "instance_distribution",
+        "num_divulgees",
+        "num_extra_submitters",
         "nonconsuming_exercises",
         "consuming_exercises",
+        "application_ids",
+        "wait_for_submission",
       )(FooSubmissionConfig.apply)
 
     implicit val fibonacciSubmissionConfigDecoder: Decoder[FibonacciSubmissionConfig] =
-      Decoder.forProduct3(
+      Decoder.forProduct4(
         "num_instances",
         "unique_parties",
         "value",
+        "wait_for_submission",
       )(FibonacciSubmissionConfig.apply)
 
     implicit val submissionConfigDecoder: Decoder[SubmissionConfig] =

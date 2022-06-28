@@ -28,6 +28,7 @@ import com.daml.lf.speedy.{ArrayList, InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.engine.Error.Interpretation
+import com.daml.lf.engine.Error.Interpretation.DamlException
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import org.scalactic.Equality
@@ -166,6 +167,7 @@ class EngineTest
         submitters,
         readAs,
         ApiCommands(ImmArray(command), let, "test"),
+        ImmArray.empty,
         participant,
         submissionSeed,
       )
@@ -256,7 +258,14 @@ class EngineTest
       withClue("Preprocessing result: ")(res shouldBe a[Right[_, _]])
 
       suffixLenientEngine
-        .submit(actAs, readAs, ApiCommands(ImmArray(cmd), let, "test"), participant, submissionSeed)
+        .submit(
+          actAs,
+          readAs,
+          ApiCommands(ImmArray(cmd), let, "test"),
+          ImmArray.empty,
+          participant,
+          submissionSeed,
+        )
         .consume(lookupContract, lookupPackage, lookupKey)
     }
 
@@ -381,6 +390,7 @@ class EngineTest
           Set(party),
           readAs,
           ApiCommands(ImmArray(command), let, "test"),
+          ImmArray.empty,
           participant,
           submissionSeed,
         )
@@ -450,6 +460,7 @@ class EngineTest
           submitters,
           readAs,
           ApiCommands(ImmArray(command), let, "test"),
+          ImmArray.empty,
           participant,
           submissionSeed,
         )
@@ -518,6 +529,7 @@ class EngineTest
           submitters,
           readAs,
           ApiCommands(ImmArray(command), let, "test"),
+          ImmArray.empty,
           participant,
           submissionSeed,
         )
@@ -1077,6 +1089,7 @@ class EngineTest
         submitters,
         readAs,
         ApiCommands(ImmArray(command), let, "test"),
+        ImmArray.empty,
         participant,
         submissionSeed,
       )
@@ -1398,10 +1411,10 @@ class EngineTest
       }
     }
 
-    def lookupContractMap = Map(
+    def lookupContract = Map(
       lookedUpCid -> withKeyContractInst,
       lookerUpCid -> lookerUpInst,
-    )
+    ).lift
 
     def firstLookupNode(tx: Tx): Option[(NodeId, Node.LookupByKey)] =
       tx.nodes.collectFirst { case (nid, nl @ Node.LookupByKey(_, _, _, _)) =>
@@ -1424,11 +1437,12 @@ class EngineTest
           submitters,
           readAs,
           ApiCommands(ImmArray(exerciseCmd), now, "test"),
+          ImmArray.empty,
           participant,
           seed,
         )
         .consume(
-          lookupContractMap.get,
+          lookupContract,
           lookupPackage,
           lookupKey,
         )
@@ -1456,11 +1470,12 @@ class EngineTest
           submitters,
           readAs,
           ApiCommands(ImmArray(exerciseCmd), now, "test"),
+          ImmArray.empty,
           participant,
           seed,
         )
         .consume(
-          lookupContractMap.get,
+          lookupContract,
           lookupPackage,
           lookupKey,
         )
@@ -1498,11 +1513,12 @@ class EngineTest
           submitters,
           readAs,
           ApiCommands(ImmArray(exerciseCmd), now, "test"),
+          ImmArray.empty,
           participant,
           seed,
         )
         .consume(
-          lookupContractMap.get,
+          lookupContract,
           lookupPackage,
           lookupKey,
         )
@@ -1574,6 +1590,7 @@ class EngineTest
           submitters,
           readAs,
           ApiCommands(ImmArray(command), Time.Timestamp.now(), "test"),
+          ImmArray.empty,
           participant,
           submissionSeed,
         )
@@ -1598,7 +1615,7 @@ class EngineTest
 
       val lookupContractMap = Map(fetchedCid -> withKeyContractInst)
 
-      val cmd = speedy.Command.Fetch(BasicTests_WithKey, SValue.SContractId(fetchedCid))
+      val cmd = speedy.Command.FetchTemplate(BasicTests_WithKey, SValue.SContractId(fetchedCid))
 
       val submitters = Set(alice)
 
@@ -1750,7 +1767,14 @@ class EngineTest
     val readAs = (Set.empty: Set[Party])
     def run(cmds: ImmArray[ApiCommand]) =
       suffixLenientEngine
-        .submit(submitters, readAs, ApiCommands(cmds, now, ""), participant, submissionSeed)
+        .submit(
+          submitters,
+          readAs,
+          ApiCommands(cmds, now, ""),
+          ImmArray.empty,
+          participant,
+          submissionSeed,
+        )
         .consume(lookupContract, lookupPackage, lookupKey)
 
     "error on fetch" in {
@@ -1803,6 +1827,7 @@ class EngineTest
           submitters,
           readAs,
           ApiCommands(ImmArray(command), let, "test"),
+          ImmArray.empty,
           participant,
           submissionSeed,
         )
@@ -1973,6 +1998,18 @@ class EngineTest
       )
       run(command) shouldBe a[Right[_, _]]
     }
+    // TEST_EVIDENCE: Semantics: Rollback creates cannot be exercise
+    "creates in rollback are rolled back" in {
+      val command = ApiCommand.CreateAndExercise(
+        tId,
+        ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        "ExerciseAfterRollbackCreate",
+        ValueRecord(None, ImmArray.empty),
+      )
+      inside(run(command)) {
+        case Left(Interpretation(DamlException(interpretation.Error.ContractNotFound(_)), _)) =>
+      }
+    }
   }
 
   "action node seeds" should {
@@ -2122,13 +2159,13 @@ class EngineTest
         ("LookupTwice", emptyArg, 1),
         ("LookupAfterCreate", emptyArg, 0),
         ("LookupAfterCreateArchive", emptyArg, 0),
-        ("LookupAfterFetch", cidArg, 1),
-        ("LookupAfterArchive", cidArg, 1),
+        ("LookupAfterFetch", cidArg, 0),
+        ("LookupAfterArchive", cidArg, 0),
         ("LookupAfterRollbackCreate", emptyArg, 0),
         ("LookupAfterRollbackLookup", emptyArg, 1),
         ("LookupAfterArchiveAfterRollbackLookup", cidArg, 1),
       )
-      forAll(cases) { case (choice, argument, lookups) =>
+      forEvery(cases) { case (choice, argument, lookups) =>
         val command = ApiCommand.CreateAndExercise(
           tId,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
@@ -2363,6 +2400,8 @@ object EngineTest {
           usedPackages = Set.empty,
           dependsOnTime = state.dependsOnTime,
           nodeSeeds = state.nodeSeeds.toImmArray,
+          globalKeyMapping = Map.empty,
+          disclosures = ImmArray.empty,
         ),
       )
     )

@@ -4,16 +4,7 @@
 package com.daml.platform.store.interning
 
 import com.daml.logging.LoggingContext
-import org.openjdk.jmh.annotations.{
-  Benchmark,
-  BenchmarkMode,
-  Fork,
-  Level,
-  Measurement,
-  Mode,
-  Setup,
-  Warmup,
-}
+import org.openjdk.jmh.annotations._
 
 import scala.concurrent.Await
 
@@ -23,10 +14,15 @@ class UpdateTimeBenchmark extends BenchmarkState {
 
   @Setup(Level.Iteration)
   def setupIteration(): Unit = {
-    interning = BenchmarkState.createInterning(entries)
+    interning = new StringInterningView()
 
     interningEnd = stringCount
-    Await.result(interning.update(interningEnd)(LoggingContext.ForTesting), perfTestTimeout)
+    Await.result(
+      interning.update(interningEnd)(BenchmarkState.loadStringInterningEntries(entries))(
+        LoggingContext.ForTesting
+      ),
+      perfTestTimeout,
+    )
   }
 
   @Benchmark
@@ -38,6 +34,11 @@ class UpdateTimeBenchmark extends BenchmarkState {
     interningEnd = interningEnd + 1
     if (interningEnd > entries.length) throw new RuntimeException("Can't ingest any more strings")
 
-    Await.result(interning.update(interningEnd)(LoggingContext.ForTesting), perfTestTimeout)
+    Await.result(
+      interning.update(interningEnd)(BenchmarkState.loadStringInterningEntries(entries))(
+        LoggingContext.ForTesting
+      ),
+      perfTestTimeout,
+    )
   }
 }

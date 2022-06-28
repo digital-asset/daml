@@ -5,6 +5,8 @@ package com.daml.lf.speedy
 
 import com.daml.lf.data.Ref.{ChoiceName, Identifier}
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.command.ContractMetadata
+import com.daml.lf.transaction.TransactionVersion
 
 // ---------------------
 // Preprocessed commands
@@ -62,15 +64,14 @@ private[lf] object Command {
   ) extends Command
 
   /** Fetch a template, not by interface */
-  final case class Fetch(
+  final case class FetchTemplate(
       templateId: Identifier,
       coid: SContractId,
   ) extends Command
 
   /** Fetch a template, by interface */
-  final case class FetchByInterface(
+  final case class FetchInterface(
       interfaceId: Identifier,
-      templateId: Identifier,
       coid: SContractId,
   ) extends Command
 
@@ -92,3 +93,17 @@ private[lf] object Command {
   ) extends Command
 
 }
+
+final case class DisclosedContract(
+    templateId: Identifier,
+    contractId: SContractId,
+    argument: SValue,
+    metadata: ContractMetadata,
+)
+
+final case class InterfaceView(
+    templateId: Identifier,
+    argument: SValue,
+    interfaceId: Identifier,
+    interfaceVersion: TransactionVersion,
+)

@@ -18,6 +18,9 @@ object NonEmptyReturningOps {
   ) extends AnyVal {
     def groupBy1[K](f: A => K): Map[K, NonEmpty[C]] =
       NonEmptyColl.Instance.subst[Lambda[f[_] => Map[K, f[C]]]](self groupBy f)
+
+    def groupMap1[K, B](key: A => K)(f: A => B): Map[K, NonEmpty[CC[B]]] =
+      NonEmptyColl.Instance.subst[Lambda[f[_] => Map[K, f[CC[B]]]]](self.groupMap(key)(f))
   }
 
   implicit final class `NE Seq Ops`[A, CC[X] <: imm.Seq[X], C](

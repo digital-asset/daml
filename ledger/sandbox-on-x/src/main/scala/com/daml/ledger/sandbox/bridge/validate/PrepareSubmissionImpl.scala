@@ -56,9 +56,9 @@ private[validate] class PrepareSubmissionImpl(bridgeMetrics: BridgeMetrics)(impl
   private def invalidInputFromParticipantRejection(completionInfo: CompletionInfo)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): LfTransaction.KeyInputError => Rejection = {
-    case LfTransaction.InconsistentKeys(key) =>
+    case Left(LfTransaction.InconsistentContractKey(key)) =>
       TransactionInternallyInconsistentKey(key, completionInfo)
-    case LfTransaction.DuplicateKeys(key) =>
+    case Right(LfTransaction.DuplicateContractKey(key)) =>
       TransactionInternallyDuplicateKeys(key, completionInfo)
   }
 }

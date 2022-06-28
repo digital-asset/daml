@@ -457,9 +457,9 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           UpdateCreate(T.tycon, e"e"),
         "create_by_interface @Mod:I e" ->
           UpdateCreateInterface(I.tycon, e"e"),
-        "fetch @Mod:T e" ->
-          UpdateFetch(T.tycon, e"e"),
-        "fetch_by_interface @Mod:I e" ->
+        "fetch_template @Mod:T e" ->
+          UpdateFetchTemplate(T.tycon, e"e"),
+        "fetch_interface @Mod:I e" ->
           UpdateFetchInterface(I.tycon, e"e"),
         "exercise @Mod:T Choice cid arg" ->
           UpdateExercise(T.tycon, n"Choice", e"cid", e"arg"),
@@ -597,8 +597,6 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             implements Mod1:Human {
               method age = 42;
               method alive = True;
-              choice Feed;
-              choice Rest;
             };
             implements '-pkgId-':Mod2:Referenceable {
               method uuid = "123e4567-e89b-12d3-a456-426614174000";
@@ -662,7 +660,6 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                   n"age" -> TemplateImplementsMethod(n"age", e"42"),
                   n"alive" -> TemplateImplementsMethod(n"alive", e"True"),
                 ),
-                Set(n"Feed", n"Rest"),
               ),
             referenceable -> TemplateImplements(
               referenceable,
@@ -672,7 +669,6 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                   e""""123e4567-e89b-12d3-a456-426614174000"""",
                 )
               ),
-              Set.empty,
             ),
           ),
         )
@@ -799,10 +795,15 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               , controllers Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)
               , observers Nil @Party
               to upure @Int64 i;
+            coimplements Mod1:Company {
+              method asParty = Mod1:Company {party} this;
+              method getName = Mod1:Company {legalName} this;
+            };
           } ;
        }
 
       """
+      val TTyCon(company) = t"Mod1:Company"
 
       val interface =
         DefInterface(
@@ -834,6 +835,22 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               returnType = t"Int64",
               update = e"upure @Int64 i",
             ),
+          ),
+          coImplements = Map(
+            company ->
+              InterfaceCoImplements(
+                company,
+                Map(
+                  n"asParty" -> InterfaceCoImplementsMethod(
+                    n"asParty",
+                    e"Mod1:Company {party} this",
+                  ),
+                  n"getName" -> InterfaceCoImplementsMethod(
+                    n"getName",
+                    e"Mod1:Company {legalName} this",
+                  ),
+                ),
+              )
           ),
         )
 

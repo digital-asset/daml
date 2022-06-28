@@ -6,6 +6,7 @@ package com.daml.lf.engine.script
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream._
+
 import java.nio.file.Files
 import scala.jdk.CollectionConverters._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -21,6 +22,14 @@ import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.auth.TokenHolder
+import com.daml.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement,
+}
+import com.daml.ledger.client.withoutledgerid.LedgerClient
+import com.google.protobuf.ByteString
 
 object RunnerMain {
 
@@ -46,6 +55,7 @@ object RunnerMain {
       fileContent.parseJson
     })
 
+    val token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token)
     val participantParams = config.participantConfig match {
       case Some(file) => {
         // We allow specifying --access-token-file/--application-id together with
@@ -59,7 +69,6 @@ object RunnerMain {
             source.close
           }
         val jsVal = fileContent.parseJson
-        val token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token)
         import ParticipantsJsonProtocol._
         jsVal
           .convertTo[Participants[ApiParameters]]
@@ -71,13 +80,12 @@ object RunnerMain {
           )
       }
       case None =>
-        val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
         Participants(
           default_participant = Some(
             ApiParameters(
               config.ledgerHost.get,
               config.ledgerPort.get,
-              tokenHolder.flatMap(_.token),
+              token,
               config.applicationId,
             )
           ),
@@ -91,10 +99,25 @@ object RunnerMain {
         if (config.jsonApi) {
           val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
           val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+          // TODO (#13973) resolve envIface, or not, depending on whether inherited choices are needed
           Runner.jsonClients(participantParams, envIface)
         } else {
           Runner.connect(participantParams, config.tlsConfig, config.maxInboundMessageSize)
         }
+      adminClient = LedgerClient.singleHost(
+        hostIp = config.ledgerHost.get,
+        port = config.ledgerPort.get,
+        configuration = LedgerClientConfiguration(
+          applicationId = "admin-client",
+          ledgerIdRequirement = LedgerIdRequirement.none,
+          commandClient = CommandClientConfiguration.default,
+          token = token,
+        ),
+        channelConfig = LedgerClientChannelConfiguration(None),
+      )
+      _ <- adminClient.packageManagementClient.uploadDarFile(
+        ByteString.copyFrom(Files.readAllBytes(config.darPath.toPath))
+      )
       result <- Runner.run(dar, scriptId, inputValue, clients, config.timeMode)
       _ <- Future {
         config.outputFile.foreach { outputFile =>

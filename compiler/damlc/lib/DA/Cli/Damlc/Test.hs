@@ -175,9 +175,7 @@ printTestCoverage ShowCoverage {getShowCoverage} extPkgs modules results
               unlines $
               ["templates never created:"] <> map printFullTemplateName (S.toList missingTemplates) <>
               ["choices never executed:"] <>
-              [ printFullTemplateName t <> ":" <> T.unpack c <> maybe "" printInheritedFrom mi
-              | (t, c, mi) <- missingChoices
-              ]
+              [printFullTemplateName t <> ":" <> T.unpack c | (t, c) <- S.toList missingChoices]
   where
     pkgMap =
         M.fromList
@@ -187,21 +185,7 @@ printTestCoverage ShowCoverage {getShowCoverage} extPkgs modules results
             ]
     pkgIdToPkgName pId = maybe pId LF.unPackageName $ join $ M.lookup pId pkgMap
     templates = [(pidM, m, t) | (pidM, m) <- modules, t <- NM.toList $ LF.moduleTemplates m]
-    choices =
-        [ (pidM, m, t, n, mi)
-        | (pidM, m, t) <- templates
-        , (n, mi) <- concat
-            [ [ (choice, Nothing)
-              | choice <- NM.names (LF.tplChoices t)
-              ]
-            , [ (inheritedChoice, Just interface)
-              | implements <- NM.toList (LF.tplImplements t)
-              , let interface = LF.tpiInterface implements
-                    inheritedChoices = S.toList (LF.tpiInheritedChoiceNames implements)
-              , inheritedChoice <- inheritedChoices
-              ]
-            ]
-        ]
+    choices = [(pidM, m, t, n) | (pidM, m, t) <- templates, n <- NM.names $ LF.tplChoices t]
     percentage i j
       | j > 0 = show (round @Double $ 100.0 * (fromIntegral i / fromIntegral j) :: Int) <> "%"
       | otherwise = "100%"
@@ -223,39 +207,29 @@ printTestCoverage ShowCoverage {getShowCoverage} extPkgs modules results
             ]
     coveredChoices =
         nubSort $
-        [ (fullTemplateNameProto templateId, TL.toStrict node_ExerciseChoiceId)
+        [ (templateId, node_ExerciseChoiceId)
         | n <- allScenarioNodes
         , Just (SS.NodeNodeExercise SS.Node_Exercise { SS.node_ExerciseTemplateId
                                                      , SS.node_ExerciseChoiceId
                                                      }) <- [SS.nodeNode n]
         , Just templateId <- [node_ExerciseTemplateId]
         ]
-    missingChoices = sort
-        [ (template, choice, mi)
-        | (pidM, m, t, n, mi) <- choices
-        , let template = fullTemplateName pidM m t
-              choice = LF.unChoiceName n
-        , (template, choice) `notElem` coveredChoices
-        ]
+    missingChoices =
+        S.fromList [(fullTemplateName pidM m t, LF.unChoiceName n) | (pidM, m, t, n) <- choices] `S.difference`
+        S.fromList
+            [ (fullTemplateNameProto t, TL.toStrict c)
+            | (t, c) <- coveredChoices
+            ]
     nrOfTemplates = length templates
     nrOfChoices = length choices
     coveredNrOfChoices = length coveredChoices
     coveredNrOfTemplates = length coveredTemplates
     printFullTemplateName (pIdM, name) =
         T.unpack $ maybe name (\pId -> pkgIdToPkgName pId <> ":" <> name) pIdM
-    printInheritedFrom :: LF.Qualified LF.TypeConName -> String
-    printInheritedFrom i =
-        let pidM = case LF.qualPackage i of
-                LF.PRSelf -> Nothing
-                LF.PRImport pid -> Just pid
-            ifaceName = fullTypeConName pidM (LF.qualModule i) (LF.qualObject i)
-        in " (inherited from " <> printFullTemplateName ifaceName <> ")"
     fullTemplateName pidM m t =
-        fullTypeConName pidM (LF.moduleName m) (LF.tplTypeCon t)
-    fullTypeConName pidM m c =
-        (fmap LF.unPackageId pidM
-        , LF.moduleNameString m <> ":" <> T.concat (LF.unTypeConName c)
-        )
+        ( fmap LF.unPackageId pidM
+        , (LF.moduleNameString $ LF.moduleName m) <> ":" <>
+          (T.concat $ LF.unTypeConName $ LF.tplTypeCon t))
     fullTemplateNameProto SS.Identifier {SS.identifierPackage, SS.identifierName} =
         ( do pIdSumM <- identifierPackage
              pIdSum <- SS.packageIdentifierSum pIdSumM
@@ -289,11 +263,7 @@ prettyErr lfVersion err = case err of
 prettyResult :: SS.ScenarioResult -> DA.Pretty.Doc Pretty.SyntaxClass
 prettyResult result =
     let nTx = length (SS.scenarioResultScenarioSteps result)
-        isActive node =
-            case SS.nodeNode node of
-                Just SS.NodeNodeCreate{} -> isNothing (SS.nodeConsumedBy node)
-                _ -> False
-        nActive = length $ filter isActive (V.toList (SS.scenarioResultNodes result))
+        nActive = length $ filter (SS.isActive (SS.activeContractsFromScenarioResult result)) (V.toList (SS.scenarioResultNodes result))
     in DA.Pretty.typeDoc_ "ok, "
     <> DA.Pretty.int nActive <> DA.Pretty.typeDoc_ " active contracts, "
     <> DA.Pretty.int nTx <> DA.Pretty.typeDoc_ " transactions."

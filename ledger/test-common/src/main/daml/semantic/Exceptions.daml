@@ -12,6 +12,18 @@ exception E
   where
     message t
 
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+exception Ecid
+  with
+    cid: ContractId T
+  where
+    message "Ecid"
+
 exception E2
   with
     t : Text
@@ -324,3 +336,54 @@ template ExceptionTester
 
          catch
            E{} -> pure ()
+
+    -- regression test for https://github.com/digital-asset/daml/pull/14080
+    nonconsuming choice RollbackGlobalArchivedLookup : ()
+      with
+        cid: ContractId WithSimpleKey
+      controller p
+      do archive cid
+         try do
+           None <- lookupByKey @WithSimpleKey p
+           throw (E "")
+         catch E _ -> pure ()
+         None <- lookupByKey @WithSimpleKey p
+         pure ()
+
+    -- regression test for https://github.com/digital-asset/daml/pull/14080
+    nonconsuming choice RollbackGlobalArchivedCreate : ()
+      with
+        cid: ContractId WithSimpleKey
+      controller p
+      do archive cid
+         try do
+           None <- lookupByKey @WithSimpleKey p
+           throw (E "")
+         catch
+           E _ -> pure ()
+         create (WithSimpleKey p)
+         pure ()
+
+    -- regression test for https://github.com/digital-asset/daml/pull/14148
+    nonconsuming choice RollbackCreateBecomesInactive: ()
+      controller p
+      do
+        try do
+          cid <- create (T p)
+          throw (Ecid cid)
+        catch
+          Ecid cid ->
+            archive cid
+
+    -- regression test for https://github.com/digital-asset/daml/issues/14171
+    nonconsuming choice RollbackExerciseCreateLookup: ()
+      with  cid : ContractId WithSimpleKey
+      controller p
+      do
+        try do
+          exercise cid Archive
+          create (WithSimpleKey p)
+          throw (E  "")
+        catch E  _ -> pure ()
+        result <- lookupByKey @WithSimpleKey p
+        result === Some cid

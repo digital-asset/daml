@@ -57,15 +57,9 @@ jobs:
         fi
       name: out
 
-- template: da-ghc-lib/compile.yml
-  parameters:
-    final_job_name: da_ghc_lib
-
 - job: Linux
   dependsOn:
-    - da_ghc_lib
     - check_for_release
-    - git_sha
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -112,9 +106,7 @@ jobs:
 
 - job: macOS
   dependsOn:
-    - da_ghc_lib
     - check_for_release
-    - git_sha
   timeoutInMinutes: 360
   pool:
     name: macOS-pool
@@ -152,9 +144,7 @@ jobs:
 
 - job: Windows
   dependsOn:
-    - da_ghc_lib
     - check_for_release
-    - git_sha
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -217,8 +207,6 @@ jobs:
     - template: report-end.yml
 
 - job: Linux_oracle
-  dependsOn:
-    - da_ghc_lib
   timeoutInMinutes: 360
   pool:
     name: 'ubuntu_20_04'
@@ -357,7 +345,6 @@ jobs:
 
 - job: compatibility_ts_libs
   dependsOn:
-    - da_ghc_lib
     - check_for_release
   condition: and(succeeded(),
                  not(eq(dependencies.check_for_release.outputs['out.is_release'], 'true')))
@@ -375,7 +362,6 @@ jobs:
 
 - job: compatibility_linux
   dependsOn:
-    - da_ghc_lib
     - check_for_release
     - compatibility_ts_libs
   timeoutInMinutes: 360

@@ -64,7 +64,6 @@ import scalaz.syntax.traverse._
 import scalaz.{Applicative, NonEmptyList, OneAnd, Traverse, \/-}
 import spray.json._
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -231,7 +230,7 @@ object Runner {
 
   val BLANK_APPLICATION_ID: ApplicationId = ApplicationId("")
   val DEFAULT_APPLICATION_ID: ApplicationId = ApplicationId("daml-script")
-  private def connectApiParameters(
+  private[script] def connectApiParameters(
       params: ApiParameters,
       tlsConfig: TlsConfiguration,
       maxInboundMessageSize: Int,
@@ -426,7 +425,6 @@ private[lf] class Runner(
                   ScriptF.Ctx(knownPackages, extendedCompiledPackages),
                   vv,
                   v,
-                  env.lookupChoiceByArgType: @nowarn("msg=deprecated"),
                 )
               )
               .flatMap { scriptF =>

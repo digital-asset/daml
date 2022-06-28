@@ -7,10 +7,11 @@ package preprocessing
 
 import com.daml.lf.data._
 import com.daml.lf.language.{Ast, PackageInterface}
+import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.nowarn
 
 private[lf] final class CommandPreprocessor(
     interface: language.PackageInterface,
@@ -24,6 +25,21 @@ private[lf] final class CommandPreprocessor(
     )
 
   import Preprocessor._
+
+  @throws[Error.Preprocessing.Error]
+  def unsafePreprocessDisclosedContract(
+      disc: command.DisclosedContract
+  ): speedy.DisclosedContract = {
+    discard(handleLookup(interface.lookupTemplate(disc.templateId)))
+    val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(disc.templateId), disc.argument)
+    val coid = valueTranslator.unsafeTranslateCid(disc.contractId)
+    speedy.DisclosedContract(
+      templateId = disc.templateId,
+      contractId = coid,
+      argument = arg,
+      metadata = disc.metadata,
+    )
+  }
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessCreate(
@@ -205,10 +221,14 @@ private[lf] final class CommandPreprocessor(
             argument,
           ) =>
         unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument)
-      case command.ReplayCommand.Fetch(templateId, coid) =>
-        discard(handleLookup(interface.lookupTemplate(templateId)))
+      case command.ReplayCommand.Fetch(typeId, coid) =>
         val cid = valueTranslator.unsafeTranslateCid(coid)
-        speedy.Command.Fetch(templateId, cid)
+        handleLookup(interface.lookupTemplateOrInterface(typeId)) match {
+          case Left(_) =>
+            speedy.Command.FetchTemplate(typeId, cid)
+          case Right(_) =>
+            speedy.Command.FetchInterface(typeId, cid)
+        }
       case command.ReplayCommand.FetchByKey(templateId, key) =>
         val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
         val sKey = valueTranslator.unsafeTranslateValue(ckTtype, key)
@@ -220,23 +240,28 @@ private[lf] final class CommandPreprocessor(
     }
 
   @throws[Error.Preprocessing.Error]
-  def unsafePreprocessApiCommands(cmds: ImmArray[command.ApiCommand]): ImmArray[speedy.Command] = {
+  def unsafePreprocessApiCommands(cmds: ImmArray[command.ApiCommand]): ImmArray[speedy.Command] =
+    cmds.map(unsafePreprocessApiCommand)
 
-    @tailrec
-    def go(
-        toProcess: FrontStack[command.ApiCommand],
-        processed: BackStack[speedy.Command],
-    ): ImmArray[speedy.Command] = {
-      toProcess match {
-        case FrontStackCons(cmd, rest) =>
-          val speedyCmd = unsafePreprocessApiCommand(cmd)
-          go(rest, processed :+ speedyCmd)
-        case FrontStack() =>
-          processed.toImmArray
-      }
-    }
+  @throws[Error.Preprocessing.Error]
+  def unsafePreprocessDisclosedContracts(
+      discs: ImmArray[command.DisclosedContract]
+  ): ImmArray[speedy.DisclosedContract] =
+    discs.map(unsafePreprocessDisclosedContract)
 
-    go(cmds.toFrontStack, BackStack.empty)
+  @throws[Error.Preprocessing.Error]
+  def unsafePreprocessInterfaceView(
+      templateId: Ref.Identifier,
+      argument: Value,
+      interfaceId: Ref.Identifier,
+  ): speedy.InterfaceView = {
+    discard(handleLookup(interface.lookupTemplate(templateId)))
+    discard(handleLookup(interface.lookupInterface(interfaceId)))
+    val version =
+      TransactionVersion.assignNodeVersion(interface.packageLanguageVersion(interfaceId.packageId))
+    val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
+    // TODO https://github.com/digital-asset/daml/issues/14112
+    // Add check if interface does not have magic view method.
+    speedy.InterfaceView(templateId, arg, interfaceId, version)
   }
-
 }

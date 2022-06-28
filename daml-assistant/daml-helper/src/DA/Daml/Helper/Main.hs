@@ -440,10 +440,10 @@ commandParser = subparser $ fold
 
     cantonSandboxCmd = do
         cantonOptions <- do
-            cantonLedgerApi <- option auto (long "port" <> value 6865)
-            cantonAdminApi <- option auto (long "admin-api-port" <> value 6866)
-            cantonDomainPublicApi <- option auto (long "domain-public-port" <> value 6867)
-            cantonDomainAdminApi <- option auto (long "domain-admin-port" <> value 6868)
+            cantonLedgerApi <- option auto (long "port" <> value (ledger defaultSandboxPorts))
+            cantonAdminApi <- option auto (long "admin-api-port" <> value (admin defaultSandboxPorts))
+            cantonDomainPublicApi <- option auto (long "domain-public-port" <> value (domainPublic defaultSandboxPorts))
+            cantonDomainAdminApi <- option auto (long "domain-admin-port" <> value (domainAdmin defaultSandboxPorts))
             cantonPortFileM <- optional $ option str (long "canton-port-file" <> metavar "PATH"
                 <> help "File to write canton participant ports when ready")
             cantonStaticTime <- StaticTime <$>

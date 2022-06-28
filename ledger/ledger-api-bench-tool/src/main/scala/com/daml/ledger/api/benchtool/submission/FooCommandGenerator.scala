@@ -3,16 +3,15 @@
 
 package com.daml.ledger.api.benchtool.submission
 
-import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig
-import com.daml.ledger.api.v1.commands.Command
-import com.daml.ledger.api.v1.commands.ExerciseByKeyCommand
-import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.model.Foo._
-
 import java.util.concurrent.atomic.AtomicLong
 
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig
+import com.daml.ledger.api.benchtool.submission.foo.RandomPartySelecting
+import com.daml.ledger.api.v1.commands.{Command, ExerciseByKeyCommand}
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.client.binding
+import com.daml.ledger.client.binding.Primitive
+import com.daml.ledger.test.benchtool.Foo._
 
 import scala.util.control.NonFatal
 import scala.util.{Failure, Try}
@@ -20,37 +19,41 @@ import scala.util.{Failure, Try}
 /** @param divulgeesToDivulgerKeyMap map whose keys are sorted divulgees lists
   */
 final class FooCommandGenerator(
-    randomnessProvider: RandomnessProvider,
     config: FooSubmissionConfig,
     allocatedParties: AllocatedParties,
     divulgeesToDivulgerKeyMap: Map[Set[Primitive.Party], Value],
+    names: Names,
+    partySelecting: RandomPartySelecting,
+    defaultRandomnessProvider: RandomnessProvider = RandomnessProvider.Default,
+    consumingEventsRandomnessProvider: RandomnessProvider = RandomnessProvider.Default,
 ) extends CommandGenerator {
   private val contractDescriptions = new Distribution[FooSubmissionConfig.ContractDescription](
     weights = config.instanceDistribution.map(_.weight),
     items = config.instanceDistribution.toIndexedSeq,
   )
 
-  private val observersWithUnlikelihood: List[(Primitive.Party, Int)] = unlikelihoods(
-    allocatedParties.observers
-  )
-  private val divulgeesWithUnlikelihood: List[(Primitive.Party, Int)] = unlikelihoods(
-    allocatedParties.divulgees
-  )
+  private val applicationIdsDistributionO: Option[Distribution[FooSubmissionConfig.ApplicationId]] =
+    Option.when(config.applicationIds.nonEmpty)(
+      new Distribution(
+        weights = config.applicationIds.map(_.weight),
+        items = config.applicationIds.toIndexedSeq,
+      )
+    )
 
   override def next(): Try[Seq[Command]] =
     (for {
-      (contractDescription, observers, divulgees) <- Try(
+      (contractDescription, partySelection) <- Try(
         (
           pickContractDescription(),
-          pickParties(observersWithUnlikelihood),
-          pickParties(divulgeesWithUnlikelihood).toSet,
+          partySelecting.nextPartiesForContracts(),
         )
       )
+      divulgees = partySelection.divulgees.toSet
       createContractPayload <- Try(randomPayload(contractDescription.payloadSizeBytes))
       command = createCommands(
         templateDescriptor = FooTemplateDescriptor.forName(contractDescription.template),
         signatory = allocatedParties.signatory,
-        observers = observers,
+        observers = partySelection.observers,
         divulgerContractKeyO =
           if (divulgees.isEmpty) None else divulgeesToDivulgerKeyMap.get(divulgees),
         payload = createContractPayload,
@@ -64,15 +67,20 @@ final class FooCommandGenerator(
       )
     }
 
+  override def nextApplicationId(): String = {
+    applicationIdsDistributionO.fold(
+      names.benchtoolApplicationId
+    )(applicationIdsDistribution =>
+      applicationIdsDistribution.choose(defaultRandomnessProvider.randomDouble()).applicationId
+    )
+  }
+
+  override def nextExtraCommandSubmitters(): List[Primitive.Party] = {
+    partySelecting.nextExtraSubmitter()
+  }
+
   private def pickContractDescription(): FooSubmissionConfig.ContractDescription =
-    contractDescriptions.choose(randomnessProvider.randomDouble())
-
-  private def pickParties(unlikelihoods: List[(Primitive.Party, Int)]): List[Primitive.Party] =
-    unlikelihoods
-      .collect { case (party, unlikelihood) if randomDraw(unlikelihood) => party }
-
-  private def randomDraw(unlikelihood: Int): Boolean =
-    randomnessProvider.randomNatural(unlikelihood) == 0
+    contractDescriptions.choose(defaultRandomnessProvider.randomDouble())
 
   private def createCommands(
       templateDescriptor: FooTemplateDescriptor,
@@ -84,6 +92,7 @@ final class FooCommandGenerator(
     val contractCounter = FooCommandGenerator.nextContractNumber.getAndIncrement()
     val fooKeyId = "foo-" + contractCounter
     val fooContractKey = FooCommandGenerator.makeContractKeyValue(signatory, fooKeyId)
+    // Create events
     val createFooCmd = divulgerContractKeyO match {
       case Some(divulgerContractKey) =>
         makeCreateAndDivulgeFooCommand(
@@ -100,10 +109,78 @@ final class FooCommandGenerator(
           case "Foo3" => Foo3(signatory, observers, payload, keyId = fooKeyId).create.command
         }
     }
+    // Non-consuming events
+    val nonconsumingExercises: Seq[Command] = makeNonConsumingExerciseCommands(
+      templateDescriptor = templateDescriptor,
+      fooContractKey = fooContractKey,
+    )
+    // Consuming events
+    val consumingPayloadO: Option[String] = config.consumingExercises
+      .flatMap(config =>
+        if (consumingEventsRandomnessProvider.randomDouble() <= config.probability) {
+          Some(randomPayload(config.payloadSizeBytes))
+        } else None
+      )
+    val consumingExerciseO: Option[Command] = consumingPayloadO.map { payload =>
+      divulgerContractKeyO match {
+        case Some(divulgerContractKey) =>
+          makeDivulgedConsumeExerciseCommand(
+            templateDescriptor = templateDescriptor,
+            fooContractKey = fooContractKey,
+            payload = payload,
+            divulgerContractKey = divulgerContractKey,
+          )
+
+        case None =>
+          makeExerciseByKeyCommand(
+            templateId = templateDescriptor.templateId,
+            choiceName = templateDescriptor.consumingChoiceName,
+            args = Seq(
+              RecordField(
+                label = "exercisePayload",
+                value = Some(Value(Value.Sum.Text(payload))),
+              )
+            ),
+          )(contractKey = fooContractKey)
+      }
+    }
+    Seq(createFooCmd) ++ nonconsumingExercises ++ consumingExerciseO.toList
+  }
+
+  private def makeDivulgedConsumeExerciseCommand(
+      templateDescriptor: FooTemplateDescriptor,
+      fooContractKey: Value,
+      payload: String,
+      divulgerContractKey: Value,
+  ): Command = {
+    makeExerciseByKeyCommand(
+      templateId = FooTemplateDescriptor.Divulger_templateId,
+      choiceName = FooTemplateDescriptor.Divulger_DivulgeConsumingExercise,
+      args = Seq(
+        RecordField(
+          label = "fooTemplateName",
+          value = Some(Value(Value.Sum.Text(templateDescriptor.name))),
+        ),
+        RecordField(
+          label = "fooKey",
+          value = Some(fooContractKey),
+        ),
+        RecordField(
+          label = "fooConsumingPayload",
+          value = Some(Value(Value.Sum.Text(payload))),
+        ),
+      ),
+    )(contractKey = divulgerContractKey)
+  }
+
+  private def makeNonConsumingExerciseCommands(
+      templateDescriptor: FooTemplateDescriptor,
+      fooContractKey: Value,
+  ): Seq[Command] = {
     val nonconsumingExercisePayloads: Seq[String] =
       config.nonConsumingExercises.fold(Seq.empty[String]) { config =>
         var f = config.probability.toInt
-        if (randomnessProvider.randomDouble() <= config.probability - f) {
+        if (defaultRandomnessProvider.randomDouble() <= config.probability - f) {
           f += 1
         }
         Seq.fill[String](f)(randomPayload(config.payloadSizeBytes))
@@ -120,26 +197,7 @@ final class FooCommandGenerator(
         ),
       )(contractKey = fooContractKey)
     }
-    val consumingExerciseO: Option[Command] = config.consumingExercises
-      .flatMap(config =>
-        if (randomnessProvider.randomDouble() <= config.probability) {
-          val payload = randomPayload(config.payloadSizeBytes)
-          Some(
-            makeExerciseByKeyCommand(
-              templateId = templateDescriptor.templateId,
-              choiceName = templateDescriptor.consumingChoiceName,
-              args = Seq(
-                RecordField(
-                  label = "exercisePayload",
-                  value = Some(Value(Value.Sum.Text(payload))),
-                )
-              ),
-            )(contractKey = fooContractKey)
-          )
-
-        } else None
-      )
-    Seq(createFooCmd) ++ nonconsumingExercises ++ consumingExerciseO.toList
+    nonconsumingExercises
   }
 
   private def makeCreateAndDivulgeFooCommand(
@@ -151,7 +209,7 @@ final class FooCommandGenerator(
   ) = {
     makeExerciseByKeyCommand(
       templateId = FooTemplateDescriptor.Divulger_templateId,
-      choiceName = FooTemplateDescriptor.Divulger_DivulgeImmediate,
+      choiceName = FooTemplateDescriptor.Divulger_DivulgeContractImmediate,
       args = Seq(
         RecordField(
           label = "fooObservers",
@@ -208,14 +266,8 @@ final class FooCommandGenerator(
   }
 
   private def randomPayload(sizeBytes: Int): String =
-    FooCommandGenerator.randomPayload(randomnessProvider, sizeBytes)
+    FooCommandGenerator.randomPayload(defaultRandomnessProvider, sizeBytes)
 
-  private def unlikelihoods(orderedParties: List[Primitive.Party]): List[(Primitive.Party, Int)] =
-    orderedParties.zipWithIndex.toMap.view.mapValues(unlikelihood).toList
-
-  /** @return denominator of a 1/(10**i) likelihood
-    */
-  private def unlikelihood(i: Int): Int = math.pow(10.0, i.toDouble).toInt
 }
 
 object FooCommandGenerator {
