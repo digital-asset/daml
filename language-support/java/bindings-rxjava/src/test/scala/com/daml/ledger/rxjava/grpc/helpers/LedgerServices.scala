@@ -216,13 +216,15 @@ final class LedgerServices(val ledgerId: String) {
   }
 
   def withLedgerIdentityClient(
+      getResponse: () => Future[String],
       authService: AuthService = AuthServiceWildcard,
       accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
+      timeout: java.util.Optional[Duration] = java.util.Optional.empty[Duration],
   )(f: (LedgerIdentityClientImpl, LedgerIdentityServiceImpl) => Any): Any = {
     val (service, serviceImpl) =
-      LedgerIdentityServiceImpl.createWithRef(ledgerId, authorizer)(executionContext)
+      LedgerIdentityServiceImpl.createWithRef(getResponse, authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new LedgerIdentityClientImpl(channel, accessToken), serviceImpl)
+      f(new LedgerIdentityClientImpl(channel, accessToken, timeout), serviceImpl)
     }
   }
 
@@ -267,7 +269,7 @@ final class LedgerServices(val ledgerId: String) {
       authService: AuthService,
   )(f: (Server, LedgerServicesImpls) => Any): Any = {
     val (services, impls) = LedgerServicesImpls.createWithRef(
-      ledgerId,
+      Future.successful(ledgerId),
       getActiveContractsResponse,
       transactions,
       commandSubmissionResponse,

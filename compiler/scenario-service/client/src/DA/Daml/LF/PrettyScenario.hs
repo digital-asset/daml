@@ -4,7 +4,8 @@
 
 -- | Pretty-printing of scenario results
 module DA.Daml.LF.PrettyScenario
-  ( prettyScenarioResult
+  ( activeContractsFromScenarioResult
+  , prettyScenarioResult
   , prettyScenarioError
   , prettyBriefScenarioError
   , prettyWarningMessage
@@ -131,6 +132,14 @@ parseNodeId =
   . nodeIdId
   where
     dropHash s = fromMaybe s $ stripPrefix "#" s
+
+activeContractsFromScenarioResult :: ScenarioResult -> S.Set TL.Text
+activeContractsFromScenarioResult result =
+    S.fromList (V.toList (scenarioResultActiveContracts result))
+
+activeContractsFromScenarioError :: ScenarioError -> S.Set TL.Text
+activeContractsFromScenarioError err =
+    S.fromList (V.toList (scenarioErrorActiveContracts err))
 
 prettyScenarioResult
   :: LF.World -> S.Set TL.Text -> ScenarioResult -> Doc SyntaxClass
@@ -1094,9 +1103,8 @@ renderScenarioError world err = TL.toStrict $ Blaze.renderHtml $ do
             H.style $ H.text Pretty.highlightStylesheet
             H.script "" H.! A.src "$webviewSrc"
             H.link H.! A.rel "stylesheet" H.! A.href "$webviewCss"
-        let activeContracts = S.fromList (V.toList (scenarioErrorActiveContracts err))
         let tableView = do
-                table <- renderTableView world activeContracts (scenarioErrorNodes err)
+                table <- renderTableView world (activeContractsFromScenarioError err) (scenarioErrorNodes err)
                 pure $ H.div H.! A.class_ "table" $ do
                   Pretty.renderHtml 128 $ annotateSC ErrorSC "Script execution failed, displaying state before failing transaction"
                   table

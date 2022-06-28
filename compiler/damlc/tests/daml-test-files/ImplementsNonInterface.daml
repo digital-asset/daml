@@ -1,0 +1,18 @@
+-- Copyright (c) 2022, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Test the serializability checker for Daml-LF.
+-- We use the template typeclass and instances directly as otherwise the error
+-- is caught prior due to missing Eq and Show instances.
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @ERROR range=18:5-18:20; cannot implement 'Bool' because it is not an interface
+
+module ImplementsNonInterface where
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+    implements Bool
