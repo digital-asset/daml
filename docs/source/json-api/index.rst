@@ -716,8 +716,9 @@ Where:
 
 - ``result`` field contains contract choice execution details:
 
-    + ``exerciseResult`` field contains the return value of the exercised contract choice,
+    + ``exerciseResult`` field contains the return value of the exercised contract choice.
     + ``events`` contains an array of contracts that were archived and created as part of the choice execution. The array may contain: **zero or many** ``{"archived": {...}}`` and **zero or many** ``{"created": {...}}`` elements. The order of the contracts is the same as on the ledger.
+    + ``completionOffset`` is the ledger offset of the transaction containing the exercise's ledger changes.
 
 
 Exercise by Contract Key
