@@ -677,7 +677,6 @@ class TransactionSpec
   }
 
   "consumedBy" - {
-    // FIXME: with the removel of rolledbackBy, review these tests and see if they need to be simplified?
     "non-consuming transaction with no rollbacks" - {
       "no nodes" in {
         val builder = TransactionBuilder()
@@ -850,7 +849,7 @@ class TransactionSpec
 
       "multiple rollbacks" - {
         "sequential rollbacks" - {
-          "with local wontracts" in {
+          "with local contracts" in {
             val builder = TransactionBuilder()
             val parties = Seq("Alice")
             val (_, createNode0) = create(builder, parties, Some("key0"))
