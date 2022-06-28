@@ -1670,6 +1670,26 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
         , "  None -> False"
         ]
 
+    , dataDependenciesTestOptions "Homonymous interface doesn't trigger 'ambiguous occurrence' error"
+        [ "--target=1.dev" ]
+        [   (,) "A.daml"
+            [ "module A where"
+            , "data Instrument = Instrument {}"
+            ]
+        ,   (,) "B.daml"
+            [ "module B where"
+            , "import qualified A"
+
+            , "interface Instrument where"
+            , "  f : ()"
+            , "x = A.Instrument"
+            ]
+        ]
+        [   (,) "Main.daml"
+            [ "module Main where"
+            ]
+        ]
+
     , dataDependenciesTestOptions "implement interface from data-dependency"
         [ "--target=1.dev" ]
         [   (,) "Lib.daml"
