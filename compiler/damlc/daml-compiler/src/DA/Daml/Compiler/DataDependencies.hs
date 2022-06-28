@@ -613,10 +613,9 @@ generateSrcFromLf env = noLoc mod
     interfaceDecls :: [Gen (LHsDecl GhcPs)]
     interfaceDecls = do
         interface <- NM.toList $ LF.moduleInterfaces $ envMod env
-        [interfaceName] <- [LF.unTypeConName $ LF.intName interface]
-        let interfaceType = HsTyVar noExt NotPromoted $ mkRdrName interfaceName
         meth <- NM.toList $ LF.intMethods interface
         pure $ do
+            interfaceType <- convType env reexportedClasses . LF.TCon . qualify . LF.intName $ interface
             methodType <- convType env reexportedClasses $ LF.ifmType meth
             cls <- mkDesugarType env "HasMethod"
             let methodNameSymbol = HsTyLit noExt $ HsStrTy NoSourceText $ fsFromText $ LF.unMethodName $ LF.ifmName meth
