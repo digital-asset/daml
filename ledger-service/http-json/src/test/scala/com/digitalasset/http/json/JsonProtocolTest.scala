@@ -18,6 +18,7 @@ import com.daml.http.Generators.{
 }
 import com.daml.scalautil.Statement.discard
 import com.daml.http.domain
+import com.daml.lf.data.Ref
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Gen.{identifier, listOf}
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
@@ -97,6 +98,28 @@ class JsonProtocolTest
     type Loc = domain.ContractLocator[JsValue]
     "roundtrips" in forAll(contractLocatorGen(arbitrary[Int] map (JsNumber(_)))) { locator: Loc =>
       locator.toJson.convertTo[Loc] should ===(locator)
+    }
+  }
+
+  "domain.DeduplicationPeriod" - {
+    @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
+    def roundtrip(p: domain.DeduplicationPeriod, expected: JsValue) = {
+      SprayJson.encode(p) should ===(\/-(expected))
+      SprayJson.decode[domain.DeduplicationPeriod](expected) should ===(\/-(p))
+    }
+
+    "encodes durations" in {
+      roundtrip(
+        domain.DeduplicationPeriod.Duration(10000L),
+        Map("type" -> "Duration".toJson, "durationInMillis" -> 10000L.toJson).toJson,
+      )
+    }
+
+    "encodes offsets" in {
+      roundtrip(
+        domain.DeduplicationPeriod.Offset(Ref.HexString assertFromString "0123579236ab"),
+        Map("type" -> "Offset", "offset" -> "0123579236ab").toJson,
+      )
     }
   }
 
