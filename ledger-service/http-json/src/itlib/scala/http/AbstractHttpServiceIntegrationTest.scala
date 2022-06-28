@@ -662,8 +662,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
               actAs = None,
               readAs = None,
               submissionId = Some(submissionId),
-              deduplicationPeriod =
-                Some(domain.DeduplicationDuration(10000L): domain.DeduplicationPeriod),
+              deduplicationPeriod = Some(domain.DeduplicationPeriod.Duration(10000L)),
             )
           ),
         )

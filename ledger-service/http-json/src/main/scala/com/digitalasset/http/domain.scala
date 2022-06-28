@@ -234,19 +234,20 @@ package domain {
   sealed abstract class DeduplicationPeriod extends Product with Serializable {
     def toProto: Commands.DeduplicationPeriod =
       this match {
-        case DeduplicationDuration(millis) =>
+        case DeduplicationPeriod.Duration(millis) =>
           Commands.DeduplicationPeriod.DeduplicationDuration(
             com.google.protobuf.duration.Duration(java.time.Duration.ofMillis(millis))
           )
-        case DeduplicationOffset(offset) =>
+        case DeduplicationPeriod.Offset(offset) =>
           Commands.DeduplicationPeriod
             .DeduplicationOffset(offset)
       }
   }
 
-  final case class DeduplicationDuration(durationInMillis: Long) extends domain.DeduplicationPeriod
-
-  final case class DeduplicationOffset(offset: HexString) extends domain.DeduplicationPeriod
+  object DeduplicationPeriod {
+    final case class Duration(durationInMillis: Long) extends domain.DeduplicationPeriod
+    final case class Offset(offset: HexString) extends domain.DeduplicationPeriod
+  }
 
   final case class CommandMeta(
       commandId: Option[CommandId],
