@@ -832,10 +832,10 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "start": "1.18.3-snapshot",
+        "start": "2.2.1-snapshot",
         "platform_ranges": [
             {
-                "end": "1.18.2",
+                "end": "2.2.0",
                 "exclusions": [
                     "ExceptionsIT:ExRollbackCreate",
                 ],
