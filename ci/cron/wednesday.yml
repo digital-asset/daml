@@ -48,6 +48,6 @@ jobs:
 
       rotate
       git add .
-      open_pr "$BRANCH" "$TITLE" "$BODY" "/dev/null" "$PR_NUMBER"
+      open_pr "$BRANCH" "$TITLE" "$BODY" "$PR_NUMBER"
       trigger_azure $(System.AccessToken) "PRs" --branch $BRANCH
       request_pr_review $(cat "$PR_NUMBER") "$NEXT_GH"
