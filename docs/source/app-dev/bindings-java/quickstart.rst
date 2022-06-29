@@ -161,10 +161,6 @@ where NAMESPACE is again the series of hex digits that you saw before.
 
 #. Open a new terminal window and navigate to your project directory, ``quickstart``.
 
-#. To initialize the ledger with some parties and contracts we use :doc:`Daml Script </daml-script/index>` by running ``daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --ledger-host localhost --ledger-port 6865 --static-time``
-
-   .. _quickstart-navigator:
-
 #. Start the :doc:`Navigator </tools/navigator/index>`, a browser-based ledger front-end, by running ``daml navigator server``
 
    The Navigator automatically connects the sandbox. You can access it on port ``4000``.
