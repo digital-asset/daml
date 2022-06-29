@@ -35,7 +35,8 @@ class Foldable t where
 
   -- | Left-associative fold of a structure.
   foldl : (b -> a -> b) -> b -> t a -> b
-  foldl f z = L.foldl f z . toList
+  foldl f z xs = foldr f' identity xs z
+    where f' x k z = k (f z x)
 
   -- | A variant of foldr that has no base case, and thus should only be applied to non-empty structures.
   foldr1 : (a -> a -> a) -> t a -> a
