@@ -7,7 +7,7 @@ _os_info_bzl_template = """
 cpu_value = "{CPU_VALUE}"
 is_darwin = cpu_value == "darwin" or cpu_value == "darwin_arm64"
 is_darwin_arm64 = cpu_value == "darwin_arm64"
-is_linux = cpu_value == "k8"
+is_linux = cpu_value == "k8" or cpu_value == "aarch64"
 is_windows = cpu_value == "x64_windows"
 os_name = "macos" if is_darwin else "linux" if is_linux else "windows"
 """
@@ -15,6 +15,7 @@ os_name = "macos" if is_darwin else "linux" if is_linux else "windows"
 def _os_info_impl(repository_ctx):
     cpu = get_cpu_value(repository_ctx)
     known_cpu_values = [
+        "aarch64",
         "darwin",
         "darwin_arm64",
         "k8",

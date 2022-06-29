@@ -42,10 +42,14 @@ rules_haskell_patches = [
     # This should be made configurable in rules_haskell.
     # Remove this patch once that's available.
     "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
+    # This should be upstreamed
+    "@com_github_digital_asset_daml//bazel_tools:rules_haskell-aarch64.patch",
 ]
 rules_nixpkgs_version = "210d30a81cedde04b4281fd163428722278fddfb"
 rules_nixpkgs_sha256 = "61b24e273821a15146f9ae7577e64b53f6aa332d5a7056abe8221ae2c346fdbd"
 rules_nixpkgs_patches = [
+    # this should be upstreamed
+    "@com_github_digital_asset_daml//bazel_tools:rules_nixpkgs-aarch64.patch",
 ]
 
 buildifier_version = "4.0.0"
