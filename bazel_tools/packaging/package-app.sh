@@ -91,6 +91,19 @@ if [ "$(uname -s)" == "Linux" ]; then
   binary="$WORKDIR/$NAME/lib/$NAME"
   cp $SRC $binary
   chmod u+w $binary
+
+  case $( uname -m ) in
+    aarch64)
+      linker=ld-linux-aarch64.so.1
+      ;;
+    x86_64)
+      linker=ld-linux-x86-64.so.2
+      ;;
+    *)
+      echo "unsupported machine: $( uname -m )" >&2
+      exit 1
+  esac
+
   rpaths_binary=$($patchelf --print-rpath "$binary"|tr ':' ' ')
   function copy_deps {
     local from target needed libOK rpaths
@@ -108,7 +121,7 @@ if [ "$(uname -s)" == "Linux" ]; then
             libOK=1
             cp "$rpath/$lib" "$target/$lib"
             chmod u+w "$target/$lib"
-            if [ "$lib" != "ld-linux-x86-64.so.2" ]; then
+            if [ "$lib" != "$linker" ]; then
               # clear the old rpaths (silence stderr as it always warns
               # with "working around a Linux kernel bug".
               $patchelf --set-rpath '$ORIGIN' "$target/$lib" 2> /dev/null
@@ -156,7 +169,7 @@ if [ -z "\${LOCALE_ARCHIVE}" -a -f "/usr/lib/locale/locale-archive" ]; then
   export LOCALE_ARCHIVE="/usr/lib/locale/locale-archive"
 fi
 # Execute the wrapped application through the provided dynamic linker
-exec \$LIB_DIR/ld-linux-x86-64.so.2 --library-path "\$LIB_DIR" "\$LIB_DIR/$NAME" "\$@"
+exec \$LIB_DIR/$linker --library-path "\$LIB_DIR" "\$LIB_DIR/$NAME" "\$@"
 EOF
   chmod a+x "$wrapper"
 elif [[ "$(uname -s)" == "Darwin" ]]; then
@@ -213,7 +226,7 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
     done
 
     # Resign the binary on MacOS. Requires moving the file back and forth
-    # because the OS caches the signatore. Refer to the following note in
+    # because the OS caches the signature. Refer to the following note in
     # nixpkgs for details:
     # https://github.com/NixOS/nixpkgs/blob/5855ff74f511423e3e2646248598b3ffff229223/pkgs/os-specific/darwin/signing-utils/utils.sh#L1-L6
     mv "$from_copied" "$from_copied.resign"
