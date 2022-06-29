@@ -615,10 +615,10 @@ When creating a new contract or exercising a choice you may specify an optional 
 Where:
 
 - ``commandId`` -- optional field, a unique string identifying the command.
-- ``actAs`` -- a non-empty list of parties, overriding the set from the JWT user; must be a subset of the JWT user's set
-- ``readAs`` -- a list of parties, overriding the set from the JWT user; must be a subset of the JWT user's set
+- ``actAs`` -- a non-empty list of parties, overriding the set from the JWT user; must be a subset of the JWT user's set.
+- ``readAs`` -- a list of parties, overriding the set from the JWT user; must be a subset of the JWT user's set.
 - ``submissionId`` -- a string, used for :doc:`deduplicating retried requests </app-dev/command-deduplication>`.  If you do not set it, a random one will be chosen, effectively treating the request as unique and disabling deduplication.
-- ``deduplicationPeriod`` -- either a ``Duration`` as above, which is how far back in time prior commands will be searched for this submission, or an ``Offset`` as follows, which is the earliest ledger offset after which to search for the submission
+- ``deduplicationPeriod`` -- either a ``Duration`` as above, which is how far back in time prior commands will be searched for this submission, or an ``Offset`` as follows, which is the earliest ledger offset after which to search for the submission.
 
 .. code-block:: json
 
