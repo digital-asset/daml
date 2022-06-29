@@ -46,7 +46,8 @@ let shared = rec {
         gnumake
         ncurses
         perl
-        haskell.compiler.ghc865Binary
+        # ghc865Binary is marked broken on aarch64-linux
+        (if system != "aarch64-linux" then haskell.compiler.ghc865Binary else haskell.compiler.ghc884)
         stdenv.cc  # ghc-lib needs `gcc` or `clang`, but Bazel provides `cc`.
         xz
       ] ++ (
