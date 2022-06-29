@@ -47,16 +47,18 @@ private[http] final class CreateAndExercise(
         cmd <-
           decoder
             .decodeCreateCommand(reqBody, jwt, toLedgerId(jwtPayload.ledgerId))
-            .liftErr(InvalidUserInput): ET[domain.CreateCommand[ApiRecord, TemplateId.RequiredPkg]]
+            .liftErr(InvalidUserInput): ET[
+            domain.CreateCommand[ApiRecord, TemplateId.RequiredPkg]
+          ]
         _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
 
-        ac <- eitherT(
+        response <- eitherT(
           Timed.future(
             metrics.daml.HttpJsonApi.commandSubmissionLedgerTimer,
             handleFutureEitherFailure(commandService.create(jwt, jwtPayload, cmd)),
           )
-        ): ET[domain.ActiveContract[ApiValue]]
-      } yield ac
+        ): ET[domain.CreateCommandResponse[ApiValue]]
+      } yield response
     }
 
   def exercise(req: HttpRequest)(implicit

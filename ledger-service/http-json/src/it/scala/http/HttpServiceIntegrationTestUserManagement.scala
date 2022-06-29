@@ -137,7 +137,13 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       import fixture.{encoder, client => ledgerClient}
       val alice = getUniqueParty("Alice")
       val bob = getUniqueParty("Bob")
-      val meta = domain.CommandMeta(None, Some(NonEmptyList(bob)), None)
+      val meta = domain.CommandMeta(
+        None,
+        Some(NonEmptyList(bob)),
+        None,
+        submissionId = None,
+        deduplicationPeriod = None,
+      )
       val command: domain.CreateCommand[v.Record, OptionalPkg] =
         iouCreateCommand(alice, meta = Some(meta))
       val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))

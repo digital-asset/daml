@@ -442,6 +442,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       partyName: domain.Party,
       amount: String = "999.9900000000",
       currency: String = "USD",
+      meta: Option[domain.CommandMeta] = None,
   ): domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] = {
     val party = Ref.Party assertFromString partyName.unwrap
     val payload = argToApi(iouVA)(
@@ -463,7 +464,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       payload = payload,
       choice = choice,
       argument = boxedRecord(arg),
-      meta = None,
+      meta = meta,
     )
   }
 

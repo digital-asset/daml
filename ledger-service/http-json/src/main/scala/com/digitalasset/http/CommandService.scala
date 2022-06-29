@@ -24,6 +24,7 @@ import com.daml.http.util.{Commands, Transactions}
 import LedgerClientJwt.Grpc
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.LoggingContextOf.{label, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
@@ -68,15 +69,24 @@ class CommandService(
       input: CreateCommand[lav1.value.Record, TemplateId.RequiredPkg],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Error \/ ActiveContract[lav1.value.Value]] =
+  ): Future[Error \/ domain.CreateCommandResponse[lav1.value.Value]] =
     withTemplateLoggingContext(input.templateId).run { implicit lc =>
       logger.trace(s"sending create command to ledger")
       val command = createCommand(input)
       val request = submitAndWaitRequest(jwtPayload, input.meta, command, "create")
-      val et: ET[ActiveContract[lav1.value.Value]] = for {
+      val et: ET[domain.CreateCommandResponse[lav1.value.Value]] = for {
         response <- logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request))
         contract <- either(exactlyOneActiveContract(response))
-      } yield contract
+      } yield domain.CreateCommandResponse(
+        contract.contractId,
+        contract.templateId,
+        contract.key,
+        contract.payload,
+        contract.signatories,
+        contract.observers,
+        contract.agreementText,
+        domain.CompletionOffset(response.completionOffset),
+      )
       et.run
     }
 
@@ -102,7 +112,11 @@ class CommandService(
               logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request))
             exerciseResult <- either(exerciseResult(response))
             contracts <- either(contracts(response))
-          } yield ExerciseResponse(exerciseResult, contracts)
+          } yield ExerciseResponse(
+            exerciseResult,
+            contracts,
+            domain.CompletionOffset(response.completionOffset),
+          )
 
           et.run
         }
@@ -126,8 +140,11 @@ class CommandService(
         )
         exerciseResult <- either(exerciseResult(response))
         contracts <- either(contracts(response))
-      } yield ExerciseResponse(exerciseResult, contracts)
-
+      } yield ExerciseResponse(
+        exerciseResult,
+        contracts,
+        domain.CompletionOffset(response.completionOffset),
+      )
       et.run
     }
 
@@ -222,6 +239,11 @@ class CommandService(
           actAs,
           readAs,
           command,
+          meta
+            .flatMap(_.deduplicationPeriod)
+            .map(_.toProto)
+            .getOrElse(DeduplicationPeriod.Empty),
+          submissionId = meta.flatMap(_.submissionId),
         )
       }
   }
