@@ -156,11 +156,6 @@ object ScenarioLedger {
     *                       node exists. Consumption under a rollback
     *                       is not included here even for contracts created
     *                       under a rollback node.
-    * @param rolledbackBy   The nearest ancestor rollback node, provided such a
-    *                       node exists.
-    * @param parent         If the node is part of a sub-transaction, then
-    *                       this is the immediate parent, which must be an
-    *                       'NodeExercises' node.
     */
   final case class LedgerNodeInfo(
       node: Node,
@@ -170,8 +165,6 @@ object ScenarioLedger {
       disclosures: Map[Party, Disclosure],
       referencedBy: Set[EventId],
       consumedBy: Option[EventId],
-      rolledbackBy: Option[NodeId],
-      parent: Option[EventId],
   ) {
 
     /** 'True' if the given 'View' contains the given 'Node'. */
@@ -415,8 +408,6 @@ object ScenarioLedger {
             disclosures = Map.empty,
             referencedBy = Set.empty,
             consumedBy = None,
-            rolledbackBy = None,
-            parent = None,
           )
 
           ledgerData.copy(nodeInfos = ledgerData.nodeInfos + (eventId -> newLedgerNodeInfo))
@@ -458,47 +449,12 @@ object ScenarioLedger {
           ledgerData
       }
 
-    def parentUpdates(historicalLedgerData: LedgerData): LedgerData =
-      richTr.transaction.transaction.fold[LedgerData](historicalLedgerData) {
-        case (ledgerData, (nodeId, exerciseNode: Node.Exercise)) =>
-          exerciseNode.children.foldLeft[LedgerData](ledgerData) {
-            case (updatedLedgerData, childNodeId) =>
-              updatedLedgerData.updateLedgerNodeInfo(EventId(trId.id, childNodeId))(
-                ledgerNodeInfo => ledgerNodeInfo.copy(parent = Some(EventId(trId.id, nodeId)))
-              )
-          }
-
-        case (ledgerData, (nodeId, rollbackNode: Node.Rollback)) =>
-          rollbackNode.children.foldLeft[LedgerData](ledgerData) {
-            case (updatedLedgerData, childNodeId) =>
-              updatedLedgerData.updateLedgerNodeInfo(EventId(trId.id, childNodeId))(
-                ledgerNodeInfo => ledgerNodeInfo.copy(parent = Some(EventId(trId.id, nodeId)))
-              )
-          }
-
-        case (ledgerData, (_, _: Node)) =>
-          ledgerData
-      }
-
     def consumedByUpdates(ledgerData: LedgerData): LedgerData = {
       var ledgerDataResult = ledgerData
 
       for ((contractId, nodeId) <- richTr.transaction.transaction.consumedBy) {
         ledgerDataResult = ledgerDataResult.updateLedgerNodeInfo(contractId) { ledgerNodeInfo =>
           ledgerNodeInfo.copy(consumedBy = Some(EventId(trId.id, nodeId)))
-        }
-      }
-
-      ledgerDataResult
-    }
-
-    def rolledbackByUpdates(ledgerData: LedgerData): LedgerData = {
-      var ledgerDataResult = ledgerData
-
-      for ((nodeId, rollbackNodeId) <- richTr.transaction.transaction.rolledbackBy) {
-        ledgerDataResult = ledgerDataResult.updateLedgerNodeInfo(EventId(trId.id, nodeId)) {
-          ledgerNodeInfo =>
-            ledgerNodeInfo.copy(rolledbackBy = Some(rollbackNodeId))
         }
       }
 
@@ -563,12 +519,8 @@ object ScenarioLedger {
 
       // Update ledger data with any new created in and referenced by information
       cachedLedgerData = processor.createdInAndReferenceByUpdates(cachedLedgerData)
-      // Update ledger data with any new parent information
-      cachedLedgerData = processor.parentUpdates(cachedLedgerData)
       // Update ledger data with any new consumed by information
       cachedLedgerData = processor.consumedByUpdates(cachedLedgerData)
-      // Update ledger data with any new rolled back by information
-      cachedLedgerData = processor.rolledbackByUpdates(cachedLedgerData)
       // Update ledger data with any new active contract information
       cachedLedgerData = processor.activeContractAndKeyUpdates(cachedLedgerData)
       // Update ledger data with any new disclosure information
