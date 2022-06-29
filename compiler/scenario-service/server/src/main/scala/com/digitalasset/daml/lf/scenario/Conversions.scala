@@ -527,10 +527,6 @@ final class Conversions(
 
     nodeInfo.consumedBy
       .map(eventId => builder.setConsumedBy(convertEventId(eventId)))
-    nodeInfo.rolledbackBy
-      .map(nodeId => builder.setRolledbackBy(convertNodeId(eventId.transactionId, nodeId)))
-    nodeInfo.parent
-      .map(eventId => builder.setParent(convertEventId(eventId)))
 
     nodeInfo.node match {
       case rollback: Node.Rollback =>
