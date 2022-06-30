@@ -24,8 +24,6 @@ final case class ParticipantConfig(
     indexService: IndexServiceConfig = IndexServiceConfig(),
     indexer: IndexerConfig = IndexerConfig(),
     lfValueTranslationCache: LfValueTranslationCache.Config = LfValueTranslationCache.Config(),
-    // TODO LLP: Deprecate and remove
-    runMode: ParticipantRunMode = ParticipantRunMode.Combined,
 )
 
 object ParticipantConfig {

@@ -25,7 +25,6 @@ object CliConfigConverter {
       config: CliParticipantConfig,
   ): ParticipantConfig = ParticipantConfig(
     authentication = cliConfig.authService,
-    runMode = config.mode,
     indexer = config.indexerConfig,
     indexService = IndexServiceConfig(
       acsContractFetchingParallelism = cliConfig.acsContractFetchingParallelism,
@@ -39,6 +38,7 @@ object CliConfigConverter {
       maxContractStateCacheSize = config.maxContractStateCacheSize,
       maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
       maxTransactionsInMemoryFanOutBufferSize = cliConfig.maxTransactionsInMemoryFanOutBufferSize,
+      inMemoryStateUpdaterParallelism = IndexServiceConfig.DefaultInMemoryStateUpdaterParallelism,
     ),
     lfValueTranslationCache = LfValueTranslationCache.Config(
       contractsMaximumSize = cliConfig.lfValueTranslationContractCache.maximumSize,

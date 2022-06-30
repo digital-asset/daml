@@ -25,7 +25,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.ParticipantServer
 import com.daml.platform.ParticipantServer.BuildWriteService
-import com.daml.platform.config.{ParticipantConfig, ParticipantRunMode}
+import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.DbType
 import com.daml.ports.Port
@@ -129,12 +129,11 @@ object SandboxOnXRunner {
       config: Config
   ): Resource[(Ref.ParticipantId, ParticipantConfig)] =
     config.participants.toList match {
-      case (participantId, participantConfig) :: Nil
-          if participantConfig.runMode == ParticipantRunMode.Combined =>
+      case (participantId, participantConfig) :: Nil =>
         Resource.successful((participantId, participantConfig))
       case _ =>
         Resource.failed {
-          val loggingMessage = "Sandbox-on-X can only be run in a single COMBINED participant mode."
+          val loggingMessage = "Sandbox-on-X can only be run with a single participant."
           newLoggingContext(logger.info(loggingMessage)(_))
           new IllegalArgumentException(loggingMessage)
         }
@@ -196,7 +195,6 @@ object SandboxOnXRunner {
 
     val ledgerDetails =
       Seq[(String, String)](
-        "run-mode" -> s"${participantConfig.runMode} participant",
         "index DB backend" -> DbType
           .jdbcType(participantDataSourceConfig.jdbcUrl)
           .name,

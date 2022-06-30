@@ -282,7 +282,7 @@ object ParticipantServer {
 
       inMemoryStateUpdater <- InMemoryStateUpdater.owner(
         participantInMemoryState = participantInMemoryState,
-        prepareUpdatesParallelism = 2, // TODO LLP: Configurable via config parameter
+        prepareUpdatesParallelism = indexServiceConfig.inMemoryStateUpdaterParallelism,
         metrics = metrics,
       )
     } yield participantInMemoryState -> inMemoryStateUpdater
