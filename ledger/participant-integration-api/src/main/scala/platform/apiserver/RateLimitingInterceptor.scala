@@ -5,7 +5,11 @@ package com.daml.platform.apiserver
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.error.definitions.DamlError
-import com.daml.error.definitions.LedgerApiErrors.{HeapMemoryOverLimit, MaximumNumberOfStreams, ThreadpoolOverloaded}
+import com.daml.error.definitions.LedgerApiErrors.{
+  HeapMemoryOverLimit,
+  MaximumNumberOfStreams,
+  ThreadpoolOverloaded,
+}
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.metrics.{MetricName, Metrics}
 import com.daml.platform.apiserver.RateLimitingInterceptor._
@@ -16,7 +20,13 @@ import io.grpc.ForwardingServerCallListener.SimpleForwardingServerCallListener
 import io.grpc._
 import org.slf4j.LoggerFactory
 
-import java.lang.management._
+import java.lang.management.{
+  ManagementFactory,
+  MemoryMXBean,
+  MemoryPoolMXBean,
+  MemoryType,
+  MemoryUsage,
+}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 import javax.management.ObjectName
 import scala.concurrent.duration._
@@ -187,7 +197,7 @@ private[apiserver] final class RateLimitingInterceptor(
 object RateLimitingInterceptor {
 
   sealed trait LimitResult {
-    final def map(f: Unit => Unit): LimitResult = {f(());this}
+    final def map(f: Unit => Unit): LimitResult = { f(()); this }
     def flatMap(f: Unit => LimitResult): LimitResult
   }
 

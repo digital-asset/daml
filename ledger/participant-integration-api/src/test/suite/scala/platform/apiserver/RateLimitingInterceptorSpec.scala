@@ -29,7 +29,11 @@ import io.grpc._
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
-import io.grpc.reflection.v1alpha.{ServerReflectionGrpc, ServerReflectionRequest, ServerReflectionResponse}
+import io.grpc.reflection.v1alpha.{
+  ServerReflectionGrpc,
+  ServerReflectionRequest,
+  ServerReflectionResponse,
+}
 import io.grpc.stub.StreamObserver
 import org.mockito.MockitoSugar
 import org.scalatest.concurrent.Eventually
@@ -63,7 +67,9 @@ final class RateLimitingInterceptorSpec
   behavior of "LimitResult"
 
   def underCheck(): LimitResult = UnderLimit
-  def overCheck(method: String): LimitResult = OverLimit(MaximumNumberOfStreams.Rejection(0, 0, "", method)(NoLogging))
+  def overCheck(method: String): LimitResult = OverLimit(
+    MaximumNumberOfStreams.Rejection(0, 0, "", method)(NoLogging)
+  )
 
   it should "compose under limit" in {
     val actual: LimitResult = for {
@@ -296,6 +302,8 @@ final class RateLimitingInterceptorSpec
           fStatus2 <- streamHello(channel)
           fHelloStatus2 = singleHello(channel)
 
+          activeStreams = metrics.daml.lapi.streams.active.getCount
+
           _ = waitService.completeStream()
           _ = waitService.completeSingle()
           _ = waitService.completeStream()
@@ -307,6 +315,7 @@ final class RateLimitingInterceptorSpec
           helloStatus2 <- fHelloStatus2
 
         } yield {
+          activeStreams shouldBe 2
           status1.getCode shouldBe Code.OK
           helloStatus1.getCode shouldBe Code.OK
           status2.getCode shouldBe Code.OK
