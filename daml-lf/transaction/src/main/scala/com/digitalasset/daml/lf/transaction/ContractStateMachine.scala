@@ -40,10 +40,11 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
   def initial: State = State.empty
 
   /** @param locallyCreated
-    *   Tracks all contracts created by an input node processed so far (including nodes under a rollback).
+    *   Tracks all contracts created by a node processed so far (including nodes under a rollback).
     *
     * @param globalKeyInputs
-    *   Contains the key mapping required by Daml Engine to get to the current state.
+    *   Contains the key mappings required by Daml Engine to get to the current state
+    *   (including [[Transaction.KeyCreate]] for create nodes).
     *   That is, `globalKeyInputs` contains the answers to all [[engine.ResultNeedKey]] requests that Daml Engine would
     *   emit while it is building the nodes passed to this contract state machine as input.
     *
@@ -59,7 +60,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     *   The first node involving a key determines the state of the key in `globalKeyInputs`.
     *
     *   In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]],
-    *   `globalKeyInputs(k)` is defined by the first input node `n` referring to the key `k`:
+    *   `globalKeyInputs(k)` is defined by the first node `n` referring to the key `k`:
     *   - If `n` is a fetch-by-key or exercise-by-key, then `globalKeyInputs(k)` is [[Transaction.KeyActive]].
     *   - If `n` is lookup-by-key, then `globalKeyInputs(k)` is [[Transaction.KeyActive]] (positive lookup)
     *     or [[Transaction.NegativeKeyLookup]] (negative lookup).
@@ -533,7 +534,7 @@ object ContractStateMachine {
   /** Summarizes the updates to the current ledger state by nodes up to now.
     *
     * @param locallyCreatedThisTimeline
-    *   Tracks contracts created by an input node processed so far that have not been rolled back.
+    *   Tracks contracts created by a node processed so far that have not been rolled back.
     *   This is a subset of [[ContractStateMachine.State.locallyCreated]].
     *
     * @param consumedBy [[com.daml.lf.value.Value.ContractId]]s of all contracts
