@@ -488,38 +488,6 @@ sealed abstract class HasTxNodes {
       rollbackEnd = (consumedByMap, _, _) => consumedByMap,
     )
 
-  /** Keys are nodes under a rollback and values are the "nearest" (i.e. most recent) rollback node.
-    */
-  final def rolledbackBy: Map[NodeId, NodeId] = {
-    val rolledbackByMapUpdate
-        : ((Map[NodeId, NodeId], Seq[NodeId]), NodeId) => (Map[NodeId, NodeId], Seq[NodeId]) = {
-      case ((rolledbackMap, rollbackStack @ (rollbackNode +: _)), nodeId) =>
-        (rolledbackMap + (nodeId -> rollbackNode), rollbackStack)
-
-      case (state, _) =>
-        state
-    }
-
-    foldInExecutionOrder[(Map[NodeId, NodeId], Seq[NodeId])]((HashMap.empty, Vector.empty))(
-      exerciseBegin =
-        (state, nodeId, _) => (rolledbackByMapUpdate(state, nodeId), ChildrenRecursion.DoRecurse),
-      rollbackBegin = { case ((rolledbackMap, rollbackStack), nodeId, _) =>
-        ((rolledbackMap, nodeId +: rollbackStack), ChildrenRecursion.DoRecurse)
-      },
-      leaf = (state, nodeId, _) => rolledbackByMapUpdate(state, nodeId),
-      exerciseEnd = (state, _, _) => state,
-      rollbackEnd = {
-        case ((rolledbackMap, _ +: rollbackStack), _, _) =>
-          (rolledbackMap, rollbackStack)
-
-        case _ =>
-          throw new IllegalStateException(
-            "Impossible case: rollbackBegin should already have pushed to the rollback stack"
-          )
-      },
-    )._1
-  }
-
   /** Return the expected contract key inputs (i.e. the state before the transaction)
     * for this transaction or an error if the transaction contains a
     * duplicate key error or has an inconsistent mapping for a key. For

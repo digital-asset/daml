@@ -44,7 +44,7 @@ private class PackageService(
   ) {
 
     def append(diff: PackageStore): State = {
-      val newPackageStore = this.packageStore ++ resolveChoicesIn(diff)
+      val newPackageStore = appendAndResolveRetroactiveInterfaces(resolveChoicesIn(diff))
       val (tpIdMap, ifaceIdMap) = getTemplateIdInterfaceMaps(newPackageStore)
       State(
         newPackageStore.keySet,
@@ -61,6 +61,17 @@ private class PackageService(
       def lookupIf(pkgId: Ref.PackageId) = (packageStore get pkgId) orElse (diff get pkgId)
       val findIface = iface.Interface.findAstInterface(Function unlift lookupIf)
       diff.transform((_, iface) => iface resolveChoicesAndIgnoreUnresolvedChoices findIface)
+    }
+
+    private[this] def appendAndResolveRetroactiveInterfaces(diff: PackageStore): PackageStore = {
+      def lookupIf(packageStore: PackageStore, pkId: Ref.PackageId) =
+        packageStore
+          .get(pkId)
+          .map((_, { newSig: iface.Interface => packageStore.updated(pkId, newSig) }))
+
+      val (packageStore2, diffElems) =
+        iface.Interface.resolveRetroImplements(packageStore, diff.values.toSeq)(lookupIf)
+      packageStore2 ++ diffElems.view.map(p => (p.packageId, p))
     }
   }
 

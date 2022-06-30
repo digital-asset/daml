@@ -32,12 +32,11 @@ steps:
         fi
     }
     open_pr() {
-      local branch title body out pr_number header output
+      local branch title body pr_number header output
       branch="$1"
       title="$2"
       body="${3:-}"
-      out="${4:-/dev/stdout}"
-      pr_number="${5:-}"
+      pr_number="${4:-}"
       header=$(mktemp)
       output=$(mktemp)
 
@@ -61,9 +60,7 @@ steps:
                --output "$output" \
                -d @- \
                https://api.github.com/repos/digital-asset/daml/pulls
-      if [ -n "$out" ]; then
-          cat "$header" "$output" > "$out"
-      fi
+      cat "$header" "$output"
       if [ -n "$pr_number" ]; then
           jq '.number' "$output" > "$pr_number"
       fi

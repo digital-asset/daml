@@ -570,7 +570,8 @@ HTTP Response
                 "Alice"
             ],
             "contractId": "#124:0",
-            "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"
+            "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou",
+            "completionOffset":"0000000000000084"
         }
     }
 
@@ -584,7 +585,7 @@ Where:
 Create a Contract with a Command ID
 ***********************************
 
-When creating a new contract you may specify an optional ``meta`` field. This allows you to control the ``commandId``, ``actAs``, and ``readAs`` used when submitting a command to the ledger.  Each of these ``meta`` fields is optional.
+When creating a new contract or exercising a choice you may specify an optional ``meta`` field. This allows you to control various extra settings used when submitting a command to the ledger.  Each of these ``meta`` fields is optional.
 
 .. note:: You cannot currently use ``commandIds`` anywhere else in the JSON API, but you can use it for observing the results of its commands outside the JSON API in logs or via the Ledger API's :doc:`Command Services </app-dev/services>`
 
@@ -602,13 +603,29 @@ When creating a new contract you may specify an optional ``meta`` field. This al
       "meta": {
         "commandId": "a unique ID",
         "actAs": ["Alice"],
-        "readAs": ["PublicParty"]
+        "readAs": ["PublicParty"],
+        "deduplicationPeriod": {
+          "durationInMillis": 10000,
+          "type": "Duration"
+        },
+        "submissionId": "d2f941b1-ee5c-4634-9a51-1335ce6902fa"
       }
     }
 
 Where:
 
 - ``commandId`` -- optional field, a unique string identifying the command.
+- ``actAs`` -- a non-empty list of parties, overriding the set from the JWT user; must be a subset of the JWT user's set.
+- ``readAs`` -- a list of parties, overriding the set from the JWT user; must be a subset of the JWT user's set.
+- ``submissionId`` -- a string, used for :doc:`deduplicating retried requests </app-dev/command-deduplication>`.  If you do not set it, a random one will be chosen, effectively treating the request as unique and disabling deduplication.
+- ``deduplicationPeriod`` -- either a ``Duration`` as above, which is how far back in time prior commands will be searched for this submission, or an ``Offset`` as follows, which is the earliest ledger offset after which to search for the submission.
+
+.. code-block:: json
+
+        "deduplicationPeriod": {
+          "offset": "0000000000000083",
+          "type": "Offset"
+        }
 
 Exercise by Contract ID
 ***********************
@@ -688,7 +705,8 @@ HTTP Response
                         "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:IouTransfer"
                     }
                 }
-            ]
+            ],
+            "completionOffset":"0000000000000083"
         }
     }
 
@@ -698,8 +716,9 @@ Where:
 
 - ``result`` field contains contract choice execution details:
 
-    + ``exerciseResult`` field contains the return value of the exercised contract choice,
+    + ``exerciseResult`` field contains the return value of the exercised contract choice.
     + ``events`` contains an array of contracts that were archived and created as part of the choice execution. The array may contain: **zero or many** ``{"archived": {...}}`` and **zero or many** ``{"created": {...}}`` elements. The order of the contracts is the same as on the ledger.
+    + ``completionOffset`` is the ledger offset of the transaction containing the exercise's ledger changes.
 
 
 Exercise by Contract Key
