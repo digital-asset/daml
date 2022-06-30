@@ -288,13 +288,13 @@ def _dadew_binary_bundle_impl(repository_ctx):
         else:
             missing.append(path_str)
     repository_ctx.file("BUILD.bazel", executable = False, content = """\
-load("@com_github_digital_asset_daml//bazel_tools:bundle.bzl", "binary_bundle")
+load("@rules_sh//sh:sh.bzl", "sh_binaries")
 
 package(default_visibility = ["//visibility:public"])
 
-binary_bundle(
+sh_binaries(
     name = "tools",
-    tools = {tools},
+    srcs = {tools},
 )
 """.format(
         tools = repr(found),
@@ -321,15 +321,13 @@ Items can either be paths relative to the Scoop tool installation path, or colon
     configure = True,
     local = True,
     doc = """\
-Generate a `binary_bundle` containing a set of binaries provided by a Scoop tool.
+Generate a `sh_binaries` containing a set of binaries provided by a Scoop tool.
 
 Use this to import binaries provided by Scoop into the Bazel build in a
 hermetic way. This generates [Scoop shims][scoop-shim] for the specified
-binaries within Bazel's execution root and constructs a `binary_bundle` that
+binaries within Bazel's execution root and constructs a `sh_binaries` that
 contains these shims. The generated PATH make variable will only cover tools
 explicitly listed on this rule.
-
-See [`binary_bundle`](../bundle.bzl) for more information on `binary_bundle`.
 
 [scoop-shim]: https://github.com/ScoopInstaller/Shim#readme
 """,
