@@ -8,12 +8,14 @@ import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref.{Location, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.Implicits.{defaultParserParameters => _, _}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.ledger.FailedAuthorization
+import com.daml.lf.testing.parser.{ParserParameters, defaultPackageId}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ValueParty, ValueRecord}
 import com.daml.logging.LoggingContext
@@ -45,6 +47,9 @@ class TestTraceLog extends TraceLog {
 class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
+
+  private[this] implicit val parserParameters: ParserParameters[this.type] =
+    ParserParameters(defaultPackageId, languageVersion = LanguageVersion.v1_dev)
 
   private val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
     module M {
