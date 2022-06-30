@@ -62,8 +62,6 @@ private[validation] object Serializability {
 
     def checkType(typ0: Type): Unit = typ0 match {
       case TApp(TBuiltin(BTContractId), tArg) =>
-        // While an interface payload I is not serializable,
-        // ContractId I is, so special case this here.
         if (flags.checkContractId) checkType(tArg)
       case TVar(name) =>
         if (!vars(name)) unserializable(URFreeVar(name))
