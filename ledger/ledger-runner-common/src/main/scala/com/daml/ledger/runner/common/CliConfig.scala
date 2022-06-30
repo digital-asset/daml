@@ -12,7 +12,7 @@ import com.daml.lf.language.LanguageVersion
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{AuthServiceConfig, AuthServiceConfigCli}
 import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.config.{ParticipantConfig, ParticipantRunMode}
+import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{CommandConfiguration, IndexServiceConfig}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
@@ -281,17 +281,6 @@ object CliConfig {
           val port = Port(kv("port").toInt)
           val address = kv.get("address")
           val portFile = kv.get("port-file").map(new File(_).toPath)
-          val runMode: ParticipantRunMode = kv.get("run-mode") match {
-            case None => ParticipantRunMode.Combined
-            case Some("combined") => ParticipantRunMode.Combined
-            case Some("indexer") => ParticipantRunMode.Indexer
-            case Some("ledger-api-server") =>
-              ParticipantRunMode.LedgerApiServer
-            case Some(unknownMode) =>
-              throw new RuntimeException(
-                s"$unknownMode is not a valid run mode. Valid modes are: combined, indexer, ledger-api-server. Default mode is combined."
-              )
-          }
           val jdbcUrlFromEnv =
             kv.get("server-jdbc-url-env").flatMap(getEnvVar(_))
           val jdbcUrl =
@@ -349,7 +338,6 @@ object CliConfig {
             .map(_.toLong)
             .getOrElse(IndexServiceConfig.DefaultMaxContractKeyStateCacheSize)
           val partConfig = CliParticipantConfig(
-            mode = runMode,
             participantId = participantId,
             address = address,
             port = port,

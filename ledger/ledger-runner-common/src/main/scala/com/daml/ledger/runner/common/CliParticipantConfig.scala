@@ -4,7 +4,6 @@
 package com.daml.ledger.runner.common
 
 import com.daml.lf.data.Ref
-import com.daml.platform.config.ParticipantRunMode
 import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.indexer.IndexerConfig
 import com.daml.ports.Port
@@ -13,7 +12,6 @@ import java.nio.file.Path
 import scala.concurrent.duration._
 
 final case class CliParticipantConfig(
-    mode: ParticipantRunMode,
     participantId: Ref.ParticipantId,
     address: Option[String],
     port: Port,
