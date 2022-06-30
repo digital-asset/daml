@@ -820,8 +820,8 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             // We double check that Ti implements I and Ti has a choice ChTmpl
             val TTyCon(conI) = t"Mod:I"
             val TTyCon(conTi) = t"Mod:Ti"
-            assert(env.interface.lookupTemplateImplements(conI, conTi).isRight)
-            assert(env.interface.lookupTemplateChoice(conTi, n"ChTmpl").isRight)
+            assert(env.pkgInterface.lookupTemplateImplements(conI, conTi).isRight)
+            assert(env.pkgInterface.lookupTemplateChoice(conTi, n"ChTmpl").isRight)
         },
         // UpdExerciseInterface
         E"λ (e₁: ContractId Mod:U) (e₂: Int64) (e₃: Mod:U → Bool) → ⸨ exercise_by_interface @Mod:U ChIface e₁ e₂ e₃ ⸩" -> //
@@ -858,8 +858,8 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               // We double check that Ti implements I and Ti has a choice ChTmpl
               val TTyCon(conI) = t"Mod:I"
               val TTyCon(conTi) = t"Mod:Ti"
-              assert(env.interface.lookupTemplateImplements(conI, conTi).isRight)
-              assert(env.interface.lookupInterfaceChoice(conI, n"ChIface").isRight)
+              assert(env.pkgInterface.lookupTemplateImplements(conI, conTi).isRight)
+              assert(env.pkgInterface.lookupInterfaceChoice(conI, n"ChIface").isRight)
           },
         // UpdFetch
         E"λ (e: ContractId Mod:U) → ⸨ fetch_template @Mod:U e ⸩" -> //

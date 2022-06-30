@@ -318,7 +318,7 @@ private[lf] object Speedy {
 
     def tmplId2TxVersion(tmplId: TypeConName) =
       TransactionVersion.assignNodeVersion(
-        compiledPackages.interface.packageLanguageVersion(tmplId.packageId)
+        compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
       )
 
     def normValue(templateId: TypeConName, svalue: SValue): V =
@@ -819,7 +819,7 @@ private[lf] object Speedy {
             value match {
               case V.ValueRecord(_, fields) =>
                 val lookupResult =
-                  assertRight(compiledPackages.interface.lookupDataRecord(tyCon))
+                  assertRight(compiledPackages.pkgInterface.lookupDataRecord(tyCon))
                 lazy val subst = lookupResult.subst(argTypes)
                 val values = (lookupResult.dataRecord.fields.iterator zip fields.iterator)
                   .map { case ((_, fieldType), (_, fieldValue)) =>
@@ -830,13 +830,15 @@ private[lf] object Speedy {
               case V.ValueVariant(_, constructor, value) =>
                 val info =
                   assertRight(
-                    compiledPackages.interface.lookupVariantConstructor(tyCon, constructor)
+                    compiledPackages.pkgInterface.lookupVariantConstructor(tyCon, constructor)
                   )
                 val valType = info.concreteType(argTypes)
                 SValue.SVariant(tyCon, constructor, info.rank, go(valType, value))
               case V.ValueEnum(_, constructor) =>
                 val rank =
-                  assertRight(compiledPackages.interface.lookupEnumConstructor(tyCon, constructor))
+                  assertRight(
+                    compiledPackages.pkgInterface.lookupEnumConstructor(tyCon, constructor)
+                  )
                 SValue.SEnum(tyCon, constructor, rank)
               case _ =>
                 typeMismatch

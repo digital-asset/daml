@@ -32,7 +32,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
     new ConcurrentHashMap()
 
   override def packageIds: scala.collection.Set[PackageId] = signatures.keySet
-  override def interface: PackageInterface = new PackageInterface(signatures)
+  override def pkgInterface: PackageInterface = new PackageInterface(signatures)
   override def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SDefinition] =
     Option(definitionsByReference.get(dref))
 

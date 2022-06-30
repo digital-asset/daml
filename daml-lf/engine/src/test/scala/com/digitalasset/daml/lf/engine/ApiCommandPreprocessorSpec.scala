@@ -104,7 +104,7 @@ class ApiCommandPreprocessorSpec
   "preprocessCommand" should {
 
     val defaultPreprocessor =
-      new CommandPreprocessor(compiledPackage.interface, requireV1ContractIdSuffix = false)
+      new CommandPreprocessor(compiledPackage.pkgInterface, requireV1ContractIdSuffix = false)
 
     "reject improperly typed ApiCommands" in {
 
@@ -245,7 +245,7 @@ class ApiCommandPreprocessorSpec
     "accept all contract IDs when require flags are false" in {
 
       val cmdPreprocessor = new CommandPreprocessor(
-        compiledPackage.interface,
+        compiledPackage.pkgInterface,
         requireV1ContractIdSuffix = false,
       )
 
@@ -270,7 +270,7 @@ class ApiCommandPreprocessorSpec
     "reject non suffixed V1 Contract IDs when requireV1ContractIdSuffix is true" in {
 
       val cmdPreprocessor = new CommandPreprocessor(
-        compiledPackage.interface,
+        compiledPackage.pkgInterface,
         requireV1ContractIdSuffix = true,
       )
       val List(aLegalCid, anotherLegalCid) =

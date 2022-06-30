@@ -37,7 +37,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
       forEvery(testCases) { typ =>
         Serializability
-          .Env(defaultFlags, defaultInterface, Context.None, SRDataType, typ)
+          .Env(defaultFlags, defaultPkgInterface, Context.None, SRDataType, typ)
           .introVar(n"serializableType" -> k"*")
           .checkType()
       }
@@ -66,7 +66,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
       forEvery(testCases) { typ =>
         an[EExpectedSerializableType] should be thrownBy
           Serializability
-            .Env(defaultFlags, defaultInterface, Context.None, SRDataType, typ)
+            .Env(defaultFlags, defaultPkgInterface, Context.None, SRDataType, typ)
             .introVar(n"serializableType" -> k"*")
             .checkType()
       }
@@ -400,11 +400,11 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
      """
 
   private val defaultFlags = Serializability.Flags.fromVersion(LanguageVersion.default)
-  private val defaultInterface = interface(defaultPkg)
-  private def interface(pkg: Package) = language.PackageInterface(Map(defaultPackageId -> pkg))
+  private val defaultPkgInterface = pkgInterface(defaultPkg)
+  private def pkgInterface(pkg: Package) = language.PackageInterface(Map(defaultPackageId -> pkg))
 
   private def check(pkg: Package, modName: String): Unit = {
-    val w = interface(pkg)
+    val w = pkgInterface(pkg)
     val longModName = DottedName.assertFromString(modName)
     val mod = pkg.modules(longModName)
     Typing.checkModule(w, defaultPackageId, mod)
