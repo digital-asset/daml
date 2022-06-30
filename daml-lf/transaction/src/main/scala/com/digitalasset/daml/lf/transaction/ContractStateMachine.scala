@@ -21,8 +21,11 @@ import com.daml.lf.value.Value.ContractId
   * or iterating over a [[com.daml.lf.transaction.HasTxNodes]] in execution order.
   * The contract state machine keeps track of the updates to the [[ContractStateMachine.ActiveLedgerState]]
   * since the beginning of the interpretation or iteration.
-  * The interpretation or iteration must call the corresponding handle method for every node
-  * on the [[ContractStateMachine.State]].
+  * Given a [[ContractStateMachine.State]] `s`, a client can compute the next state for a given node `n`,
+  * by calling the appropriate `handleXXX` method, i.e.,
+  * `s.handleCreate(n)`, `s.handleFetch(n)`, `s.handleExercise(n)`, `s.handleLookup(n)`, `s.handleLookupWith(n)`.
+  * For a rollback node `nr`, a client must call `beginRollback` before processing the first child of `nr` and
+  * `endRollback` after processing the last child of `nr`.
   *
   * @tparam Nid Type parameter for [[com.daml.lf.transaction.NodeId]]s during interpretation.
   *             Use [[scala.Unit]] for iteration.
@@ -36,42 +39,52 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
 
   def initial: State = State.empty
 
-  /** Invariants:
+  /**
+    * @param locallyCreated
+    *   Tracks all contracts created by an input node processed so far (including nodes under a rollback).
+    *
+    * @param globalKeyInputs
+    *   Contains the key mapping required by Daml Engine to get to the current state.
+    *   That is, `globalKeyInputs` contains the answers to all [[engine.ResultNeedKey]] requests that Daml Engine would
+    *   emit while it is building the nodes passed to this contract state machine as input.
+    *
+    *   The map `globalKeyInputs` grows monotonically. Its entries are never overwritten and not reset after a
+    *   rollback scope is left.
+    *   Formally, if a contract state machine transitions from state `s1` to state `s2`,
+    *   then `s1.globalKeyInputs` is a subset of `s2.globalKeyInputs`.
+    *
+    *   The map `globalKeyInputs` can be used to resolve keys during re-interpretation.
+    *
+    *   In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]],
+    *   `globalKeyInputs` stores the contract key states required at the beginning of the transaction.
+    *   The first node involving a key determines the state of the key in `globalKeyInputs`.
+    *
+    *   In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]],
+    *   `globalKeyInputs(k)` is defined by the first input node `n` referring to the key `k`:
+    *   - If `n` is a fetch-by-key or exercise-by-key, then `globalKeyInputs(k)` is [[Transaction.KeyActive]].
+    *   - If `n` is lookup-by-key, then `globalKeyInputs(k)` is [[Transaction.KeyActive]] (positive lookup)
+    *     or [[Transaction.NegativeKeyLookup]] (negative lookup).
+    *   - If `n` is a create, then `globalKeyInputs(k)` is [[Transaction.KeyCreate]].
+    *   Note: a plain fetch or exercise (with `byKey == false`) does not impact `globalKeyInputs`.
+    *
+    *  @param activeState
+    *    Summarizes the active state of the partial transaction that was visited so far.
+    *    When a rollback scope is left, this is restored to the state at the beginning of the rollback,
+    *    which is cached in `rollbackStack`.
+    *
+    * @param rollbackStack
+    *   The stack of active states at the beginning of the currently active try blocks (interpretation) or
+    *   Rollback nodes (iteration).
+    *
+    * Invariants:
     * - [[globalKeyInputs]]'s keyset is a superset of [[activeState]].[[ActiveLedgerState.keys]]'s keyset
     *   and of all the [[ActiveLedgerState.keys]]'s keysets in [[rollbackStack]].
     *   (the superset can be strict in case of by-key nodes inside an already completed Rollback scope)
-    * - In mode ![[ContractKeyUniquenessMode.Off]],
+    * - In mode [[ContractKeyUniquenessMode.Strict]],
     *   the keys belonging to the contracts in [[activeState]].[[ActiveLedgerState.consumedBy]]'s
     *   keyset are in [[activeState]].[[ActiveLedgerState.keys]],
     *   and similarly for all [[ActiveLedgerState]]s in [[rollbackStack]].
-    *
-    * @param locallyCreated
-    *   Tracks all contracts created by this transaction including those under a rollback.
-    *
-    * @param globalKeyInputs
-    *   globalKeyInputs contains the key mapping required by Daml Engine to get to the current state.
-    *   It contains all keys that have been looked up during interpretation as well as entries for creates
-    *   (mapped to KeyCreate).
-    *   It can be used to resolve keys during re-interpretation.
-    *
-    *   In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]],
-    *   a store of key lookups (including fetch-by-key and exercise-by-key,
-    *   represented by [[com.daml.lf.transaction.Transaction.NegativeKeyLookup]]
-    *   and [[com.daml.lf.transaction.Transaction.KeyActive]])
-    *   or keys of created contracts ([[com.daml.lf.transaction.Transaction.KeyCreate]]).
-    *
-    *   In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]],
-    *   a store of the contract key states required at the beginning of the transaction with unique contract keys,
-    *   where the first node involving a key updates this map.
-    *
-    *   Grows monotonically. Entries are never overwritten and not reset after a rollback scope is left.
-    *
-    * @param activeState Summarizes the active state of the partial transaction that was visited so far.
-    *                    When a rollback scope is left, this is restored to the state at the beginning of the rollback,
-    *                    which is cached in `rollbackStack`.`
-    * @param rollbackStack The stack of active states at the beginning of the currently active
-    *                      try blocks (interpretation) or Rollback nodes (iteration).
-    */
+   **/
   case class State private (
       locallyCreated: Set[ContractId],
       globalKeyInputs: Map[GlobalKey, KeyInput],
@@ -82,7 +95,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     /** The return value indicates if the given contract is either consumed, inactive, or otherwise
       * - Some(Left(nid)) -- consumed by a specified node-id
       * - Some(Right(())) -- inactive, because the (local) contract creation has been rolled-back
-      * - None -- neither consumed or inactive
+      * - None -- neither consumed nor inactive
       */
     def consumedByOrInactive(cid: Value.ContractId): Option[Either[Nid, Unit]] = {
       activeState.consumedBy.get(cid) match {
@@ -230,7 +243,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       }
     }
 
-    /**  Must be used to handle lookups iff in [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]] mode
+    /** Must be used to handle lookups iff in [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]] mode
       */
     def handleLookup(lookup: Node.LookupByKey): Either[KeyInputError, State] = {
       // If the key has not yet been resolved, we use the resolution from the lookup node,
@@ -251,7 +264,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       * i.e., the lookup resolves to [[scala.None$]] but the correct key input is [[scala.Some$]] for some contract ID
       * and this may matter after the rollback scope is left.
       * Daml Engine will ask the ledger in that case to resolve the lookup and then perform an activeness check
-      *  against the result potentially turning it into a negative lookup.
+      * against the result potentially turning it into a negative lookup.
       */
     def handleLookupWith(
         lookup: Node.LookupByKey,
@@ -359,6 +372,11 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       }
     }
 
+    /**
+     * Handle a leaf node (create, fetch, lookup) [[ContractKeyUniquenessMode.Strict]] mode.
+     * @throws java.lang.UnsupportedOperationException if called on [[Node.LookupByKey]] and
+     *   mode is not [[ContractKeyUniquenessMode.Strict]].
+     */
     def handleLeaf(leaf: Node.LeafOnlyAction): Either[KeyInputError, State] =
       leaf match {
         case create: Node.Create => handleCreate(create)
@@ -390,23 +408,24 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
 
     private def withinRollbackScope: Boolean = rollbackStack.nonEmpty
 
-    /** Let `resolver` be a [[KeyResolver]] that can be used during interpretation to obtain a transaction `tx`
-      * in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]],
-      * or `Map.empty` in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]].
+    /** Let `this` state be the result of iterating over a transaction `tx` until just before a node `n`.
+      * Let `substate` be the state obtained after fully iterating over the subtree rooted at `n`
+      * starting from [[State.empty]].
+      * Then, `advance(resolver, substate)` equals the state resulting from iterating over `tx` until
+      * processing all descendants of `n`.
       *
-      * Let `this` state be the result of iterating over `tx` up to a node `n` exclusive using `resolver`.
-      * Let `substate` be the state obtained after fully iterating over the subtree rooted at `n` starting from [[State.empty]],
-      * using the resolver [[projectKeyResolver]](`resolver`)
-      * in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]]
-      * or `Map.empty` in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]].
-      * Then, the returned state is the same as if
-      * the iteration over tx continued from `this` state through the whole subtree rooted at `n` using `resolver`.
+      * The call to `advance(resolver, substate)` fails if and only if
+      * the iteration over the subtree rooted at `n` starting from `this` fails, but the error may be different.
       *
-      * The iteration over the subtree rooted at `n` from `this` using the projected resolver fails
-      * if and only if advancing `this` using `substate` does, but the error may be different.
+      * @param resolver
+      *   In mode [[ContractKeyUniquenessMode.Strict]], this parameter has no effect.
+      *   In mode [[ContractKeyUniquenessMode.Off]], `resolver` must be the resolver used while iterating over `tx`
+      *   until just before `n`.
+      *   While iterating over the subtree rooted at `n`, [[projectKeyResolver]](`resolver`) must be used as resolver.
       *
-      * @param substate The obtained by iterating over the subtree following `this`.
-      *                 Consumed contracts ([[activeState.consumedBy]]) in `this` and `substate` must be disjoint.
+      * @param substate
+      *   The state obtained after fully iterating over the subtree `n` starting from [[State.empty]].
+      *   Consumed contracts ([[activeState.consumedBy]]) in `this` and `substate` must be disjoint.
       *
       * @see com.daml.lf.transaction.HasTxNodes.contractKeyInputs for an iteration in mode
       *      [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]] and
@@ -516,7 +535,8 @@ object ContractStateMachine {
   /** Summarizes the updates to the current ledger state by nodes up to now.
     *
     * @param locallyCreatedThisTimeline
-    *   Tracks contracts created by this transaction that have not been rolled back. This is a subset of `locallyCreated`.
+    *   Tracks contracts created by an input node processed so far that have not been rolled back.
+    *   This is a subset of [[ContractStateMachine.State.locallyCreated]].
     *
     * @param consumedBy [[com.daml.lf.value.Value.ContractId]]s of all contracts
     *                   that have been consumed by nodes up to now.
@@ -530,8 +550,8 @@ object ContractStateMachine {
     *
     *   - In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]],
     *     the current state reflects the result of applying all nodes (create, fetch, exercise, lookup)
-    *     on contracts with a key (regardless of whether they were byKey or not) excluding
-    *     nodes under a rollback.
+    *     on contracts with a key (regardless of whether they were byKey or not)
+    *     excluding nodes that have been rolled back.
     *
     *   - In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]]
     *     the following operations mutate this map:
