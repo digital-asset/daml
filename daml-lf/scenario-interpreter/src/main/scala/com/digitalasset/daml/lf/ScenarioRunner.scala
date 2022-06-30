@@ -10,7 +10,7 @@ import com.daml.lf.engine.{Engine, ValueEnricher, Result, ResultDone, ResultErro
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
-import com.daml.lf.value.Value.{ContractId, ContractInstance}
+import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.lf.speedy._
 import com.daml.lf.speedy.SExpr.{SExpr, SEValue, SEApp}
 import com.daml.lf.speedy.SResult._
@@ -175,7 +175,7 @@ object ScenarioRunner {
         coid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
-        cbPresent: ContractInstance => Unit,
+        cbPresent: VersionedContractInstance => Unit,
     ): Either[Error, Unit]
     def lookupKey(
         machine: Speedy.Machine,
@@ -201,7 +201,7 @@ object ScenarioRunner {
         acoid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
-        callback: ContractInstance => Unit,
+        callback: VersionedContractInstance => Unit,
     ): Either[Error, Unit] =
       handleUnsafe(lookupContractUnsafe(acoid, actAs, readAs, callback))
 
@@ -209,7 +209,7 @@ object ScenarioRunner {
         acoid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
-        callback: ContractInstance => Unit,
+        callback: VersionedContractInstance => Unit,
     ) = {
 
       val effectiveAt = ledger.currentTime
@@ -424,7 +424,12 @@ object ScenarioRunner {
         case SResultError(err) =>
           SubmissionError(Error.RunnerException(err), enrich(onLedger.incompleteTransaction))
         case SResultNeedContract(coid, committers, callback) =>
-          ledger.lookupContract(coid, committers, readAs, callback) match {
+          ledger.lookupContract(
+            coid,
+            committers,
+            readAs,
+            (vcoinst: VersionedContractInstance) => callback(vcoinst.unversioned),
+          ) match {
             case Left(err) => SubmissionError(err, enrich(onLedger.incompleteTransaction))
             case Right(_) => go()
           }

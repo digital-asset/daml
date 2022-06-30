@@ -13,7 +13,14 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.{SValue, TraceLog, WarningLog}
-import com.daml.lf.transaction.{GlobalKey, IncompleteTransaction, Node, NodeId, Transaction}
+import com.daml.lf.transaction.{
+  Versioned,
+  GlobalKey,
+  IncompleteTransaction,
+  Node,
+  NodeId,
+  Transaction,
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.script.converter.ConverterException
@@ -67,7 +74,7 @@ class IdeLedgerClient(
     val filtered = acs.collect {
       case ScenarioLedger.LookupOk(
             cid,
-            Value.ContractInstance(tpl, arg, _),
+            Versioned(_, Value.ContractInstance(tpl, arg, _)),
             stakeholders,
           ) if tpl == templateId && parties.any(stakeholders.contains(_)) =>
         (cid, arg)
@@ -92,7 +99,7 @@ class IdeLedgerClient(
     ) match {
       case ScenarioLedger.LookupOk(
             _,
-            Value.ContractInstance(_, arg, _),
+            Versioned(_, Value.ContractInstance(_, arg, _)),
             stakeholders,
           ) if parties.any(stakeholders.contains(_)) =>
         Future.successful(Some(ScriptLedgerClient.ActiveContract(templateId, cid, arg)))
