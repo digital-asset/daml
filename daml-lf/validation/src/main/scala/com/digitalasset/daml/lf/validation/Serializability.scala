@@ -12,8 +12,21 @@ private[validation] object Serializability {
 
   import Util.handleLookup
 
+  case class Flags(
+      checkContractId: Boolean
+  )
+
+  object Flags {
+    import Ordering.Implicits._
+
+    def fromVersion(version: LanguageVersion) =
+      Flags(
+        checkContractId = version < LanguageVersion.Features.interfaces
+      )
+  }
+
   case class Env(
-      languageVersion: LanguageVersion,
+      flags: Flags,
       interface: PackageInterface,
       ctx: Context,
       requirement: SerializabilityRequirement,
@@ -51,7 +64,7 @@ private[validation] object Serializability {
       case TApp(TBuiltin(BTContractId), tArg) =>
         // While an interface payload I is not serializable,
         // ContractId I is, so special case this here.
-        if (!isInterface(tArg)) checkType(tArg)
+        if (flags.checkContractId) checkType(tArg)
       case TVar(name) =>
         if (!vars(name)) unserializable(URFreeVar(name))
       case TNat(_) =>
@@ -115,7 +128,7 @@ private[validation] object Serializability {
   }
 
   def checkDataType(
-      version: LanguageVersion,
+      flags: Flags,
       interface: PackageInterface,
       tyCon: TTyCon,
       params: ImmArray[(TypeVarName, Kind)],
@@ -123,7 +136,7 @@ private[validation] object Serializability {
   ): Unit = {
     val context = Context.DefDataType(tyCon.tycon)
     val env =
-      (params.iterator foldLeft Env(version, interface, context, SRDataType, tyCon))(_.introVar(_))
+      (params.iterator foldLeft Env(flags, interface, context, SRDataType, tyCon))(_.introVar(_))
     val typs = dataCons match {
       case DataVariant(variants) =>
         if (variants.isEmpty) env.unserializable(URUninhabitatedType)
@@ -142,61 +155,62 @@ private[validation] object Serializability {
   // Assumes template are well typed,
   // in particular choice argument types and choice return types are of kind KStar
   def checkTemplate(
-      version: LanguageVersion,
+      flags: Flags,
       interface: PackageInterface,
       tyCon: TTyCon,
       template: Template,
   ): Unit = {
     val context = Context.Template(tyCon.tycon)
-    Env(version, interface, context, SRTemplateArg, tyCon).checkType()
+    Env(flags, interface, context, SRTemplateArg, tyCon).checkType()
     template.choices.values.foreach { choice =>
-      Env(version, interface, context, SRChoiceArg, choice.argBinder._2).checkType()
-      Env(version, interface, context, SRChoiceRes, choice.returnType).checkType()
+      Env(flags, interface, context, SRChoiceArg, choice.argBinder._2).checkType()
+      Env(flags, interface, context, SRChoiceRes, choice.returnType).checkType()
     }
-    template.key.foreach(k => Env(version, interface, context, SRKey, k.typ).checkType())
+    template.key.foreach(k => Env(flags, interface, context, SRKey, k.typ).checkType())
   }
 
   def checkException(
-      version: LanguageVersion,
+      flags: Flags,
       interface: PackageInterface,
       tyCon: TTyCon,
   ): Unit = {
     val context = Context.DefException(tyCon.tycon)
-    Env(version, interface, context, SRExceptionArg, tyCon).checkType()
+    Env(flags, interface, context, SRExceptionArg, tyCon).checkType()
   }
 
   def checkInterface(
-      version: LanguageVersion,
+      flags: Flags,
       interface: PackageInterface,
       tyCon: TTyCon,
       defInterface: DefInterface,
   ): Unit = {
     val context = Context.DefInterface(tyCon.tycon)
     defInterface.choices.values.foreach { choice =>
-      Env(version, interface, context, SRChoiceArg, choice.argBinder._2).checkType()
-      Env(version, interface, context, SRChoiceRes, choice.returnType).checkType()
+      Env(flags, interface, context, SRChoiceArg, choice.argBinder._2).checkType()
+      Env(flags, interface, context, SRChoiceRes, choice.returnType).checkType()
     }
   }
 
   def checkModule(interface: PackageInterface, pkgId: PackageId, module: Module): Unit = {
     val version = handleLookup(Context.None, interface.lookupPackage(pkgId)).languageVersion
+    val flags = Flags.fromVersion(version)
     module.definitions.foreach {
       case (defName, DDataType(serializable, params, dataCons)) =>
         val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
-        if (serializable) checkDataType(version, interface, tyCon, params, dataCons)
+        if (serializable) checkDataType(flags, interface, tyCon, params, dataCons)
       case _ =>
     }
     module.templates.foreach { case (defName, template) =>
       val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
-      checkTemplate(version, interface, tyCon, template)
+      checkTemplate(flags, interface, tyCon, template)
     }
     module.exceptions.keys.foreach { defName =>
       val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
-      checkException(version, interface, tyCon)
+      checkException(flags, interface, tyCon)
     }
     module.interfaces.foreach { case (defName, defInterface) =>
       val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
-      checkInterface(version, interface, tyCon, defInterface)
+      checkInterface(flags, interface, tyCon, defInterface)
     }
   }
 }
