@@ -6,7 +6,7 @@ package engine
 package preprocessing
 
 import com.daml.lf.data._
-import com.daml.lf.language.{Ast, PackageInterface}
+import com.daml.lf.language.{Ast, TemplateOrInterface, PackageInterface}
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
@@ -85,9 +85,9 @@ private[lf] final class CommandPreprocessor(
       argument: Value,
   ): speedy.Command =
     handleLookup(interface.lookupTemplateOrInterface(typeId)) match {
-      case Ast.TemplateCase(_) =>
+      case TemplateOrInterface.Template(_) =>
         unsafePreprocessExerciseTemplate(typeId, contractId, choiceId, argument)
-      case Ast.InterfaceCase(_) =>
+      case TemplateOrInterface.Interface(_) =>
         unsafePreprocessExerciseInterface(typeId, contractId, choiceId, argument)
     }
 
@@ -224,9 +224,9 @@ private[lf] final class CommandPreprocessor(
       case command.ReplayCommand.Fetch(typeId, coid) =>
         val cid = valueTranslator.unsafeTranslateCid(coid)
         handleLookup(interface.lookupTemplateOrInterface(typeId)) match {
-          case Ast.TemplateCase(_) =>
+          case TemplateOrInterface.Template(_) =>
             speedy.Command.FetchTemplate(typeId, cid)
-          case Ast.InterfaceCase(_) =>
+          case TemplateOrInterface.Interface(_) =>
             speedy.Command.FetchInterface(typeId, cid)
         }
       case command.ReplayCommand.FetchByKey(templateId, key) =>
