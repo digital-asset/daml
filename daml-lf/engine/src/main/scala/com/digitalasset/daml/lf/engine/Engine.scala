@@ -21,7 +21,7 @@ import com.daml.lf.transaction.{
 }
 import java.nio.file.Files
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractInstance, ContractId}
+import com.daml.lf.value.Value.{VersionedContractInstance, ContractId}
 
 import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackage}
 import com.daml.lf.validation.Validation
@@ -385,8 +385,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           )
 
         case SResultNeedContract(contractId, _, callback) =>
-          def continueWithContract = (coinst: ContractInstance) => {
-            callback(coinst)
+          def continueWithContract = (coinst: VersionedContractInstance) => {
+            callback(coinst.unversioned)
             interpretLoop(machine, time)
           }
           return Result.needContract(contractId, continueWithContract)
