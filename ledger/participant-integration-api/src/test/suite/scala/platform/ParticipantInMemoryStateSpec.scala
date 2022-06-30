@@ -45,6 +45,7 @@ class ParticipantInMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with 
 
       when(updateStringInterningView(initLedgerEnd)).thenReturn(Future.unit)
       when(dispatcherState.reset(initLedgerEnd)).thenReturn(Future.unit)
+      when(dispatcherState.initialized).thenReturn(true)
       for {
         // INITIALIZED THE STATE
         _ <- participantInMemoryState.initializeTo(initLedgerEnd)

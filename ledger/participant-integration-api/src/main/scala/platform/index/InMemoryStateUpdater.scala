@@ -170,6 +170,7 @@ object InMemoryStateUpdater {
       )
       .reverseIterator
 
+    // TODO LLP: Deduplicate blinding info computation with the work done in [[UpdateToDbDto]]
     val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
 
     val events = rawEvents.collect {

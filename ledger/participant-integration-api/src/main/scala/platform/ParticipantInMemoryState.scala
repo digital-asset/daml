@@ -25,10 +25,9 @@ private[platform] class ParticipantInMemoryState(
     val dispatcherState: DispatcherState,
     updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit],
 )(implicit executionContext: ExecutionContext) {
-  @volatile private var _initialized = false
   private val logger = ContextualizedLogger.get(getClass)
 
-  final def initialized: Boolean = _initialized
+  final def initialized: Boolean = dispatcherState.initialized
 
   /** (Re-)initializes the participant in-memory state to a specific ledger end.
     *
@@ -49,9 +48,7 @@ private[platform] class ParticipantInMemoryState(
         ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
       }
       _ <- dispatcherState.reset(ledgerEnd)
-    } yield {
-      _initialized = true
-    }
+    } yield ()
   }
 }
 
