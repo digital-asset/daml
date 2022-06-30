@@ -1,8 +1,9 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@rules_sh//sh:sh.bzl", "sh_binaries")
 load("@os_info//:os_info.bzl", "is_windows")
-load("//bazel_tools:bundle.bzl", "binary_bundle", "cc_toolchain_binary_bundle", "library_bundle")
+load("//bazel_tools:bundle.bzl", "cc_toolchain_binary_bundle", "library_bundle")
 
 sh_library(
     name = "sh-lib",
@@ -14,9 +15,9 @@ cc_toolchain_binary_bundle(
     name = "cc-tools",
 )
 
-binary_bundle(
+sh_binaries(
     name = "tools-windows",
-    tools = [
+    deps = [
         "@cabal_win//:tools",
         "@dadew_ghc_lib_deps//:tools",
         "@dadew_ghc_lib_deps_python//:tools",
@@ -24,9 +25,9 @@ binary_bundle(
     ],
 ) if is_windows else None
 
-binary_bundle(
+sh_binaries(
     name = "tools",
-    tools = [
+    srcs = [
         "@stackage-exe//alex",
         "@stackage-exe//happy",
     ],

@@ -4,6 +4,7 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_cc//cc:action_names.bzl", "ACTION_NAME_GROUPS")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain")
+load("@rules_sh//sh:sh.bzl", "ShBinariesInfo")
 
 BinaryBundleInfo = provider(fields = ["tool_dirs"])
 LibraryBundleInfo = provider(fields = ["library_dirs"])
@@ -61,7 +62,10 @@ def _cc_toolchain_binary_bundle_impl(ctx):
         depset(direct = [paths.dirname(tool)])
         for tool in tools
     ])
-    binary_bundle_info = BinaryBundleInfo(tool_dirs = tool_dirs)
+    sh_binary_info = ShBinariesInfo(
+        executables = {},
+        paths = tool_dirs,
+    )
 
     path_separator = _path_separator(ctx)
     path = path_separator.join(tool_dirs.to_list())
@@ -71,7 +75,7 @@ def _cc_toolchain_binary_bundle_impl(ctx):
 
     return [
         default_info,
-        binary_bundle_info,
+        sh_binary_info,
         template_variable_info,
     ]
 
@@ -85,7 +89,7 @@ cc_toolchain_binary_bundle = rule(
     doc = """\
 Bundle the CC toolchain tools and expose a PATH value in a make variable.
 
-This bundle can be used as a dependency to `binary_bundle` rules or as a
+This bundle can be used as a dependency to `sh_binaries` rules or as a
 `toolchain` dependency to `genrule`s. In the latter case the make variable
 exposes a `PATH` variable to the bundled tools.
 
@@ -95,72 +99,6 @@ Refer to the [Bazel documentation][bazel-doc] for more information on Bazel
 make variables.
 
 [bazel-doc]: https://bazel.build/reference/be/make-variables
-""",
-)
-
-def _binary_bundle_impl(ctx):
-    runfiles = ctx.runfiles(files = ctx.files.tools + ctx.files.data)
-    for tool_dep in ctx.attr.tools:
-        runfiles = runfiles.merge(tool_dep[DefaultInfo].default_runfiles)
-    for bundle_dep in ctx.attr.deps:
-        runfiles = runfiles.merge(bundle_dep[DefaultInfo].default_runfiles)
-    for data_dep in ctx.attr.data:
-        runfiles = runfiles.merge(data_dep[DefaultInfo].default_runfiles)
-
-    default_info = DefaultInfo(
-        files = depset(direct = ctx.files.tools + ctx.files.deps),
-        runfiles = runfiles,
-    )
-
-    tool_dirs = depset(transitive = [
-        depset(direct = [tool.dirname])
-        for tool in ctx.files.tools
-    ] + [
-        bundle_dep[BinaryBundleInfo].tool_dirs
-        for bundle_dep in ctx.attr.deps
-    ])
-    binary_bundle_info = BinaryBundleInfo(tool_dirs = tool_dirs)
-
-    path_separator = _path_separator(ctx)
-    path = path_separator.join(tool_dirs.to_list())
-    template_variable_info = platform_common.TemplateVariableInfo({
-        "{}_PATH".format(_to_var_name(ctx.label.name)): path,
-    })
-
-    return [
-        default_info,
-        binary_bundle_info,
-        template_variable_info,
-    ]
-
-binary_bundle = rule(
-    _binary_bundle_impl,
-    attrs = {
-        "tools": attr.label_list(
-            allow_files = True,
-            doc = "Include these binaries in the bundle.",
-        ),
-        "deps": attr.label_list(
-            doc = "Include these transitive bundle dependencies.",
-        ),
-        "data": attr.label_list(
-            allow_files = True,
-            doc = "Include additional data files when running build actions that depend on these tools.",
-        ),
-    },
-    doc = """\
-Bundles multiple binaries and exposes a PATH value in a make variable.
-
-This bundle can be used as a dependency to other `binary_bundle` rules or as a
-`toolchain` dependency to `genrule`s. In the latter case the make variable
-exposes a `PATH` variable to the bundled tools.
-
-The make variable is called `<RULE_NAME>_PATH`.
-
-Refer to the [Bazel documentation][bazel-doc] for more information on Bazel
-make variables.
-
-The make variable is called `<RULE_NAME>_PATH`.
 """,
 )
 
