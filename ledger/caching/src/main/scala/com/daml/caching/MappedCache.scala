@@ -26,4 +26,6 @@ private[caching] final class MappedCache[Key, Value, NewValue](
 
     delegate.putAll(mappedBuilder.result())
   }
+
+  override def invalidateAll(): Unit = delegate.invalidateAll()
 }

@@ -109,6 +109,17 @@ private[platform] case class StateCache[K, V](
     },
   )
 
+  /** Resets the cache and cancels are pending asynchronous updates.
+    *
+    * @param resetAtOffset The cache re-initialization offset
+    */
+  def reset(resetAtOffset: Offset): Unit =
+    pendingUpdates.synchronized {
+      cacheIndex = resetAtOffset
+      pendingUpdates.clear()
+      cache.invalidateAll()
+    }
+
   private def registerEventualCacheUpdate(
       key: K,
       eventualUpdate: Future[V],
