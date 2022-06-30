@@ -4,6 +4,8 @@
 package com.daml.platform.apiserver
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.error.NoLogging
+import com.daml.error.definitions.LedgerApiErrors.MaximumNumberOfStreams
 import com.daml.grpc.adapter.utils.implementations.HelloServiceAkkaImplementation
 import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
 import com.daml.ledger.api.health.HealthChecks.ComponentName
@@ -12,6 +14,7 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.RateLimitingInterceptor.{LimitResult, OverLimit, UnderLimit}
 import com.daml.platform.apiserver.TenuredMemoryPool.findTenuredMemoryPool
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.services.GrpcClientResource
@@ -26,11 +29,7 @@ import io.grpc._
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
-import io.grpc.reflection.v1alpha.{
-  ServerReflectionGrpc,
-  ServerReflectionRequest,
-  ServerReflectionResponse,
-}
+import io.grpc.reflection.v1alpha.{ServerReflectionGrpc, ServerReflectionRequest, ServerReflectionResponse}
 import io.grpc.stub.StreamObserver
 import org.mockito.MockitoSugar
 import org.scalatest.concurrent.Eventually
@@ -60,6 +59,29 @@ final class RateLimitingInterceptorSpec
     PatienceConfig(timeout = scaled(Span(1, Second)))
 
   private val config = RateLimitingConfig(100, 10, 75, 100 * RateLimitingConfig.Megabyte, 100)
+
+  behavior of "LimitResult"
+
+  def underCheck(): LimitResult = UnderLimit
+  def overCheck(method: String): LimitResult = OverLimit(MaximumNumberOfStreams.Rejection(0, 0, "", method)(NoLogging))
+
+  it should "compose under limit" in {
+    val actual: LimitResult = for {
+      _ <- underCheck()
+      _ <- underCheck()
+    } yield ()
+    actual shouldBe UnderLimit
+  }
+
+  it should "compose over limit" in {
+    val expected = overCheck("First issue")
+    val actual: LimitResult = for {
+      _ <- underCheck()
+      _ <- expected
+      _ <- overCheck("Other failure")
+    } yield ()
+    actual shouldBe expected
+  }
 
   behavior of "RateLimitingInterceptor"
 

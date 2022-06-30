@@ -5,11 +5,7 @@ package com.daml.platform.apiserver
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.error.definitions.DamlError
-import com.daml.error.definitions.LedgerApiErrors.{
-  HeapMemoryOverLimit,
-  MaximumNumberOfStreams,
-  ThreadpoolOverloaded,
-}
+import com.daml.error.definitions.LedgerApiErrors.{HeapMemoryOverLimit, MaximumNumberOfStreams, ThreadpoolOverloaded}
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.metrics.{MetricName, Metrics}
 import com.daml.platform.apiserver.RateLimitingInterceptor._
@@ -25,7 +21,7 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 import javax.management.ObjectName
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters.ListHasAsScala
-import scala.util.{Either, Try}
+import scala.util.Try
 
 private[apiserver] final class RateLimitingInterceptor(
     metrics: Metrics,
@@ -65,19 +61,19 @@ private[apiserver] final class RateLimitingInterceptor(
     val isStream = !call.getMethodDescriptor.getType.serverSendsOneMessage()
     serviceOverloaded(fullMethodName, isStream) match {
 
-      case Left(damlError) =>
+      case OverLimit(damlError) =>
         val statusRuntimeException = damlError.asGrpcError
         call.close(statusRuntimeException.getStatus, statusRuntimeException.getTrailers)
         new ServerCall.Listener[ReqT]() {}
 
-      case Right(()) if isStream =>
+      case UnderLimit if isStream =>
         val delegate = next.startCall(call, headers)
         val listener =
           new OnCloseCallListener(delegate, runOnceOnTermination = () => activeStreamsCounter.dec())
         activeStreamsCounter.inc() // Only do after call above has returned
         listener
 
-      case Right(()) =>
+      case UnderLimit =>
         next.startCall(call, headers)
 
     }
@@ -87,7 +83,7 @@ private[apiserver] final class RateLimitingInterceptor(
   private def serviceOverloaded(
       fullMethodName: String,
       isStream: Boolean,
-  ): Either[DamlError, Unit] = {
+  ): LimitResult = {
     if (doNonLimit.contains(fullMethodName)) {
       UnderLimit
     } else {
@@ -104,9 +100,9 @@ private[apiserver] final class RateLimitingInterceptor(
     }
   }
 
-  private def memoryUnderLimit(fullMethodName: String): Either[DamlError, Unit] = {
+  private def memoryUnderLimit(fullMethodName: String): LimitResult = {
 
-    tenuredMemoryPool.fold[Either[DamlError, Unit]](UnderLimit) { p =>
+    tenuredMemoryPool.fold[LimitResult](UnderLimit) { p =>
       if (p.isCollectionUsageThresholdExceeded) {
         val expectedThreshold =
           config.calculateCollectionUsageThreshold(p.getCollectionUsage.getMax)
@@ -121,7 +117,7 @@ private[apiserver] final class RateLimitingInterceptor(
             fullMethodName = fullMethodName,
           )
           gc()
-          Left(damlError)
+          OverLimit(damlError)
         } else {
           // In experimental testing the size of the tenured memory pool did not change.  However the API docs,
           // see https://docs.oracle.com/javase/8/docs/api/java/lang/management/MemoryUsage.html
@@ -156,10 +152,10 @@ private[apiserver] final class RateLimitingInterceptor(
       count: InstrumentedCount,
       limit: Int,
       fullMethodName: String,
-  ): Either[DamlError, Unit] = {
+  ): LimitResult = {
     val queued = count.queueSize
     if (queued > limit) {
-      Left(
+      OverLimit(
         ThreadpoolOverloaded.Rejection(
           name = count.name,
           queued = queued,
@@ -171,9 +167,9 @@ private[apiserver] final class RateLimitingInterceptor(
     } else UnderLimit
   }
 
-  private def streamsUnderLimit(fullMethodName: String): Either[DamlError, Unit] = {
+  private def streamsUnderLimit(fullMethodName: String): LimitResult = {
     if (activeStreamsCounter.getCount >= config.maxStreams) {
-      Left(
+      OverLimit(
         MaximumNumberOfStreams.Rejection(
           value = activeStreamsCounter.getCount,
           limit = config.maxStreams,
@@ -189,6 +185,19 @@ private[apiserver] final class RateLimitingInterceptor(
 }
 
 object RateLimitingInterceptor {
+
+  sealed trait LimitResult {
+    final def map(f: Unit => Unit): LimitResult = {f(());this}
+    def flatMap(f: Unit => LimitResult): LimitResult
+  }
+
+  case object UnderLimit extends LimitResult {
+    override def flatMap(f: Unit => LimitResult): LimitResult = f(())
+  }
+
+  final case class OverLimit(error: DamlError) extends LimitResult {
+    override def flatMap(f: Unit => LimitResult): LimitResult = this
+  }
 
   def apply(metrics: Metrics, config: RateLimitingConfig): RateLimitingInterceptor = {
     apply(
@@ -212,8 +221,6 @@ object RateLimitingInterceptor {
       memoryMxBean = new GcThrottledMemoryBean(memoryMxBean),
     )
   }
-
-  private val UnderLimit: Either[DamlError, Unit] = Right(())
 
   val doNonLimit: Set[String] = Set(
     "grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo",
