@@ -39,8 +39,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
 
   def initial: State = State.empty
 
-  /**
-    * @param locallyCreated
+  /** @param locallyCreated
     *   Tracks all contracts created by an input node processed so far (including nodes under a rollback).
     *
     * @param globalKeyInputs
@@ -84,7 +83,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     *   the keys belonging to the contracts in [[activeState]].[[ActiveLedgerState.consumedBy]]'s
     *   keyset are in [[activeState]].[[ActiveLedgerState.keys]],
     *   and similarly for all [[ActiveLedgerState]]s in [[rollbackStack]].
-   **/
+    */
   case class State private (
       locallyCreated: Set[ContractId],
       globalKeyInputs: Map[GlobalKey, KeyInput],
@@ -372,11 +371,10 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       }
     }
 
-    /**
-     * Handle a leaf node (create, fetch, lookup) [[ContractKeyUniquenessMode.Strict]] mode.
-     * @throws java.lang.UnsupportedOperationException if called on [[Node.LookupByKey]] and
-     *   mode is not [[ContractKeyUniquenessMode.Strict]].
-     */
+    /** Handle a leaf node (create, fetch, lookup) [[ContractKeyUniquenessMode.Strict]] mode.
+      * @throws java.lang.UnsupportedOperationException if called on [[Node.LookupByKey]] and
+      *   mode is not [[ContractKeyUniquenessMode.Strict]].
+      */
     def handleLeaf(leaf: Node.LeafOnlyAction): Either[KeyInputError, State] =
       leaf match {
         case create: Node.Create => handleCreate(create)
