@@ -78,8 +78,8 @@ daml_cheat_sheet_sha256 = "726bfa931c6a39f2bd37a1bf3c3228e7a4ddc65bba0e6c8183fb7
 platforms_version = "0.0.4"
 platforms_sha256 = "2697e95e085c6e1f970637d178e9dfa1231dca3a099d584ff85a7cb9c0af3826"
 
-rules_sh_version = "47b4d823128f484ec1b06aa20349c4898216f486"
-rules_sh_sha256 = "107d4312073d80a9977d3ccff236060d3906bda939fa2fbda4d724268c5b5383"
+rules_sh_version = "f02af9ac549d2a7246a9ee12eb17d113aa218d90"
+rules_sh_sha256 = "9bf2a139af12e290a02411b993007ea5f8dd7cad5d0fe26741df6ef3aaa984bc"
 
 def daml_deps():
     if "platforms" not in native.existing_rules():
