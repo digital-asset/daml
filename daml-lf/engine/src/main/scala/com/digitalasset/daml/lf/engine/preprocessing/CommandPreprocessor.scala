@@ -85,9 +85,9 @@ private[lf] final class CommandPreprocessor(
       argument: Value,
   ): speedy.Command =
     handleLookup(interface.lookupTemplateOrInterface(typeId)) match {
-      case Left(_) =>
+      case Ast.TemplateCase(_) =>
         unsafePreprocessExerciseTemplate(typeId, contractId, choiceId, argument)
-      case Right(_) =>
+      case Ast.InterfaceCase(_) =>
         unsafePreprocessExerciseInterface(typeId, contractId, choiceId, argument)
     }
 
@@ -224,9 +224,9 @@ private[lf] final class CommandPreprocessor(
       case command.ReplayCommand.Fetch(typeId, coid) =>
         val cid = valueTranslator.unsafeTranslateCid(coid)
         handleLookup(interface.lookupTemplateOrInterface(typeId)) match {
-          case Left(_) =>
+          case Ast.TemplateCase(_) =>
             speedy.Command.FetchTemplate(typeId, cid)
-          case Right(_) =>
+          case Ast.InterfaceCase(_) =>
             speedy.Command.FetchInterface(typeId, cid)
         }
       case command.ReplayCommand.FetchByKey(templateId, key) =>

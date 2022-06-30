@@ -251,13 +251,13 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
   private[lf] def lookupTemplateOrInterface(
       identier: TypeConName,
       context: => Reference,
-  ): Either[LookupError, Either[TemplateSignature, DefInterfaceSignature]] =
+  ): Either[LookupError, Ast.TemplateOrInterface[TemplateSignature, DefInterfaceSignature]] =
     lookupModule(identier.packageId, identier.qualifiedName.module, context).flatMap(mod =>
       mod.templates.get(identier.qualifiedName.name) match {
-        case Some(template) => Right(Left(template))
+        case Some(template) => Right(Ast.TemplateCase(template))
         case None =>
           mod.interfaces.get(identier.qualifiedName.name) match {
-            case Some(interface) => Right(Right(interface))
+            case Some(interface) => Right(Ast.InterfaceCase(interface))
             case None =>
               Left(LookupError(Reference.TemplateOrInterface(identier), context))
           }
@@ -299,7 +299,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
 
   def lookupTemplateOrInterface(
       name: TypeConName
-  ): Either[LookupError, Either[TemplateSignature, DefInterfaceSignature]] =
+  ): Either[LookupError, Ast.TemplateOrInterface[TemplateSignature, DefInterfaceSignature]] =
     lookupTemplateOrInterface(name, Reference.TemplateOrInterface(name))
 
   private[this] def lookupInterfaceMethod(

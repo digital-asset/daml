@@ -1267,4 +1267,9 @@ object Ast {
 
   final case class PackageError(error: String) extends RuntimeException(error)
 
+  // glorify either
+  sealed abstract class TemplateOrInterface[+T, +I]
+  final case class TemplateCase[+T](value: T) extends TemplateOrInterface[T, Nothing]
+  final case class InterfaceCase[+I](value: I) extends TemplateOrInterface[Nothing, I]
+
 }
