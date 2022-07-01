@@ -14,6 +14,7 @@ import com.daml.ledger.api.auth.{
   AuthServiceJWTPayload,
   CustomDamlJWTPayload,
   StandardJWTPayload,
+  StandardJWTTokenFormat,
 }
 import com.daml.ledger.api.domain.LedgerId
 import org.scalatest.Suite
@@ -43,6 +44,7 @@ trait SandboxRequiringAuthorizationFuns {
       participantId = participantId,
       userId = userId,
       exp = expiresIn.map(delta => Instant.now().plusNanos(delta.toNanos)),
+      format = StandardJWTTokenFormat.ParticipantId,
     )
 
   protected def randomUserId(): String = UUID.randomUUID().toString

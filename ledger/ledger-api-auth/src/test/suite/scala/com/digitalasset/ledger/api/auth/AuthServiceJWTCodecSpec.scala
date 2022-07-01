@@ -48,6 +48,14 @@ class AuthServiceJWTCodecSpec
     }
   }
 
+  private implicit val arbFormat: Arbitrary[StandardJWTTokenFormat] =
+    Arbitrary(
+      Gen.oneOf[StandardJWTTokenFormat](
+        StandardJWTTokenFormat.ParticipantId,
+        StandardJWTTokenFormat.Scope,
+      )
+    )
+
   "AuthServiceJWTPayload codec" when {
 
     "serializing and parsing a value" should {
@@ -62,9 +70,12 @@ class AuthServiceJWTCodecSpec
       "work for arbitrary standard Daml token values" in forAll(
         Gen.resultOf(StandardJWTPayload),
         minSuccessful(100),
-      )(value => {
-        serializeAndParse(value) shouldBe Success(value)
-      })
+      ) { value =>
+        // `participantId` is being used to identify the format of the token `ParticipantId` or `Scope`.
+        // It is impossible to distinguish empty string `participantId` and non-provided `participantId`
+        val filtered = value.copy(participantId = value.participantId.filter(_.nonEmpty))
+        serializeAndParse(filtered) shouldBe Success(filtered)
+      }
 
       "support OIDC compliant sandbox format" in {
         val serialized =
@@ -174,6 +185,7 @@ class AuthServiceJWTCodecSpec
           participantId = Some("someParticipantId"),
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
+          format = StandardJWTTokenFormat.Scope,
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -191,6 +203,7 @@ class AuthServiceJWTCodecSpec
           participantId = Some("someParticipantId"),
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
+          format = StandardJWTTokenFormat.Scope,
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -222,6 +235,7 @@ class AuthServiceJWTCodecSpec
           participantId = Some("someParticipantId"),
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
+          format = StandardJWTTokenFormat.ParticipantId,
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -239,6 +253,7 @@ class AuthServiceJWTCodecSpec
             participantId = Some("someParticipantId"),
             userId = "someUserId",
             exp = Some(Instant.ofEpochSecond(100)),
+            format = StandardJWTTokenFormat.ParticipantId,
           )
         )
 
@@ -255,6 +270,7 @@ class AuthServiceJWTCodecSpec
             participantId = Some("someParticipantId"),
             userId = "someUserId",
             exp = Some(Instant.ofEpochSecond(100)),
+            format = StandardJWTTokenFormat.Scope,
           )
         )
       }

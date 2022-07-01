@@ -54,6 +54,21 @@ final case class CustomDamlJWTPayload(
   }
 }
 
+/** There are two JWT token formats which are currently supported by `StandardJWTPayload`.
+  * The format is identified by `aud` claim.
+  */
+sealed trait StandardJWTTokenFormat
+object StandardJWTTokenFormat {
+
+  /** `Scope` format is for the tokens where scope field contains `daml_ledger_api`.
+    */
+  final case object Scope extends StandardJWTTokenFormat
+
+  /** `ParticipantId` format is for the tokens where `aud` claim starts with `https://daml.com/jwt/aud/participant/`
+    */
+  final case object ParticipantId extends StandardJWTTokenFormat
+}
+
 /** Payload parsed from the standard "sub", "aud", "exp" claims as specified in
   * https://datatracker.ietf.org/doc/html/rfc7519#section-4.1
   *
@@ -69,6 +84,7 @@ final case class StandardJWTPayload(
     userId: String,
     participantId: Option[String],
     exp: Option[Instant],
+    format: StandardJWTTokenFormat,
 ) extends AuthServiceJWTPayload
 
 /** Codec for writing and reading [[AuthServiceJWTPayload]] to and from JSON.
@@ -123,12 +139,18 @@ object AuthServiceJWTCodec {
         ),
         propExp -> writeOptionalInstant(v.exp),
       )
-    case v: StandardJWTPayload =>
+    case v: StandardJWTPayload if v.format == StandardJWTTokenFormat.Scope =>
       JsObject(
-        "aud" -> writeOptionalString(v.participantId),
+        propAud -> writeOptionalString(v.participantId),
         "sub" -> JsString(v.userId),
         "exp" -> writeOptionalInstant(v.exp),
         "scope" -> JsString(scopeLedgerApiFull),
+      )
+    case v: StandardJWTPayload =>
+      JsObject(
+        propAud -> JsString(audPrefix + v.participantId.getOrElse("")),
+        "sub" -> JsString(v.userId),
+        "exp" -> writeOptionalInstant(v.exp),
       )
   }
 
@@ -167,15 +189,17 @@ object AuthServiceJWTCodec {
           participantId = audienceValue,
           userId = readOptionalString("sub", fields).get, // guarded by if-clause above
           exp = readInstant("exp", fields),
+          format = StandardJWTTokenFormat.Scope,
         )
       } else if (audienceValue.exists(_.startsWith(audPrefix))) {
         // Additionally to the tokens with scope containing `daml_ledger_api`, we support tokens
-        // with the audience which starts with https://daml.com/participant/jwt/aud/participant.
+        // with the audience which starts with `https://daml.com/participant/jwt/aud/participant/`.
         // As required for JWT, all additional fields including scope are ignored for those tokens.
         StandardJWTPayload(
-          participantId = audienceValue.map(aud => aud.substring(audPrefix.length)),
+          participantId = audienceValue.map(_.substring(audPrefix.length)).filter(_.nonEmpty),
           userId = readOptionalString("sub", fields).get, // guarded by if-clause above
           exp = readInstant("exp", fields),
+          format = StandardJWTTokenFormat.ParticipantId,
         )
       } else {
         if (scope.nonEmpty)

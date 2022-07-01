@@ -5,7 +5,6 @@ package com.daml.auth.oauth2.test.server
 
 import java.time.Instant
 import java.util.UUID
-
 import akka.Done
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -22,6 +21,7 @@ import com.daml.ledger.api.auth.{
   AuthServiceJWTPayload,
   CustomDamlJWTPayload,
   StandardJWTPayload,
+  StandardJWTTokenFormat,
 }
 import com.daml.ledger.api.refinements.ApiTypes.Party
 
@@ -101,7 +101,12 @@ class Server(config: Config) {
       case _ => ()
     })
     if (config.yieldUserTokens) // ignore everything but the applicationId
-      StandardJWTPayload(userId = applicationId getOrElse "", participantId = None, exp = None)
+      StandardJWTPayload(
+        userId = applicationId getOrElse "",
+        participantId = None,
+        exp = None,
+        format = StandardJWTTokenFormat.ParticipantId,
+      )
     else
       CustomDamlJWTPayload(
         ledgerId = Some(config.ledgerId),
