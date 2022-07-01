@@ -79,6 +79,9 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       rollbackStack: List[ActiveLedgerState[Nid]],
   ) {
 
+    def usedGlobalKeyInputs(key: GlobalKey): Set[ContractId] =
+      globalKeyInputs.get(key).fold(Set.empty[ContractId])(_.collect { case Transaction.KeyActive(cid) => cid }.toSet )
+
     /** The return value indicates if the given contract is either consumed, inactive, or otherwise
       * - Some(Left(nid)) -- consumed by a specified node-id
       * - Some(Right(())) -- inactive, because the (local) contract creation has been rolled-back
@@ -115,11 +118,13 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       }
 
     /** Visit a create node */
-    def handleCreate(node: Node.Create, resolve: GlobalKey => Option[ContractId]): Either[KeyInputError, State] =
+    def handleCreate(node: Node.Create, resolve: (GlobalKey, Set[ContractId]) => Option[ContractId]): Either[KeyInputError, State] =
       (visitCreate(node.templateId, node.coid, node.key) match {
         case Left((key, continue)) =>
           println("continuing")
-          continue(resolve(key))
+          val keys = usedGlobalKeyInputs(key)
+          println(keys)
+          continue(resolve(key, keys))
         case Right(r) =>
           val x = r
           println(s"got to result: $x")
@@ -164,7 +169,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
             case Some(keyMapping) => Right(handleResult(keyMapping))
             case None =>
               Left((ck,
-                (key => handleResult(key).map(s => s.copy(globalKeyInputs = s.globalKeyInputs.updated(ck, Seq(key.fold[Transaction.KeyInput](Transaction.KeyCreate)(Transaction.KeyActive(_))))))))
+                (key => handleResult(key).map(s => s.copy(globalKeyInputs = s.globalKeyInputs.updated(ck, globalKeyInputs.getOrElse(ck, Seq.empty) :+ key.fold[Transaction.KeyInput](Transaction.KeyCreate)(Transaction.KeyActive(_)))))))
               )
           }
       }
@@ -243,7 +248,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       val gk = GlobalKey.assertBuild(templateId, key)
       val (keyMapping, next) = resolveKey(gk) match {
         case Right(result) => result
-        case Left(handle) => handle(keyInput)
+        case Left((excluded, handle)) => handle(keyInput.filter(x => !excluded.contains(x)))
       }
       Either.cond(
         keyMapping == keyResolution,
@@ -254,9 +259,10 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
 
     private[lf] def resolveKey(
         gkey: GlobalKey
-    ): Either[Option[ContractId] => (KeyMapping, State), (KeyMapping, State)] = {
+    ): Either[(Set[ContractId], Option[ContractId] => (KeyMapping, State)), (KeyMapping, State)] = {
       lookupActiveKey(gkey) match {
-        case Some(keyMapping) => Right(keyMapping -> this)
+        case Some(keyMapping) =>
+          Right(keyMapping -> this)
         case None =>
           // if we cannot find it here, send help, and make sure to update keys after
           // that.
@@ -273,7 +279,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
                 KeyInactive -> state
             }
           }
-          Left(handleResult)
+          Left((usedGlobalKeyInputs(gkey), handleResult))
       }
     }
 
@@ -302,7 +308,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
           val gk = GlobalKey.assertBuild(templateId, kWithM.key)
           val (keyMapping, next) = resolveKey(gk) match {
             case Right(result) => result
-            case Left(handle) => handle(Some(cid))
+            case Left((excluded, handle)) => handle(Some(cid).filter(x => !excluded.contains(x)))
           }
           // Since keys is defined only where keyInputs is defined, we don't need to update keyInputs.
           Either.cond(keyMapping == KeyActive(cid), next, InconsistentContractKey(gk))
@@ -311,7 +317,8 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
 
     def handleLeaf(leaf: Node.LeafOnlyAction): Either[KeyInputError, State] =
       leaf match {
-        case create: Node.Create => handleCreate(create, _ => None)
+        // TODO revisit
+        case create: Node.Create => handleCreate(create, (_, _) => None)
         case fetch: Node.Fetch => handleFetch(fetch)
         case lookup: Node.LookupByKey => handleLookup(lookup)
       }

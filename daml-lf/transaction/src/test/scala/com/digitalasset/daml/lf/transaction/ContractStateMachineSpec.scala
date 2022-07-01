@@ -180,7 +180,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val _ = builder.add(mkExercise(3, consuming = false, "key1", byKey = true), rollback2Nid)
     val _ = builder.add(mkLookupByKey("key1", None), exercise0Nid)
     val tx = builder.build()
-    val expected = Right(
+    val expectedStrict = Right(
       Map(gkey("key1") -> Seq(Transaction.KeyActive(cid(1)))) ->
         ActiveLedgerState(
           Set.empty,
@@ -188,9 +188,8 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
           Map.empty,
         )
     )
-    // TODO fixme
-    val expectedWrong = Right(
-      Map(gkey("key1") -> Seq(Transaction.KeyActive(cid(1)), Transaction.KeyActive(cid(1)))) ->
+    val expectedOff = Right(
+      Map(gkey("key1") -> Seq(Transaction.KeyActive(cid(1)), Transaction.KeyCreate)) ->
         ActiveLedgerState(
           Set.empty,
           Map(cid(0) -> (), cid(1) -> ()),
@@ -201,8 +200,8 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       "multiple rollback",
       tx,
       Map(
-        ContractKeyUniquenessMode.Strict -> expected,
-        ContractKeyUniquenessMode.Off -> expectedWrong,
+        ContractKeyUniquenessMode.Strict -> expectedStrict,
+        ContractKeyUniquenessMode.Off -> expectedOff,
       ),
     )
   }
@@ -223,21 +222,20 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val _ = builder.add(mkLookupByKey("key2", None), rollback1Nid)
     val _ = builder.add(mkExercise(1, consuming = true, "key1", byKey = true))
     val tx = builder.build()
-    val expected = Right(
+    val expectedStrict = Right(
       Map(gkey("key1") -> Seq(Transaction.KeyActive(1)), gkey("key2") -> Seq(Transaction.KeyActive(2))) ->
         ActiveLedgerState(Set.empty, Map(cid(1) -> ()), Map.empty)
     )
-    // TODO fixme
-    val expectedWrong = Right(
-      Map(gkey("key1") -> Seq(Transaction.KeyActive(1)), gkey("key2") -> Seq(Transaction.KeyActive(2), Transaction.KeyActive(2))) ->
+    val expectedOff = Right(
+      Map(gkey("key1") -> Seq(Transaction.KeyActive(1)), gkey("key2") -> Seq(Transaction.KeyActive(2), Transaction.NegativeKeyLookup)) ->
         ActiveLedgerState(Set.empty, Map(cid(1) -> ()), Map.empty)
     )
     TestCase(
       "nested rollback",
       tx,
       Map(
-        ContractKeyUniquenessMode.Strict -> expected,
-        ContractKeyUniquenessMode.Off -> expectedWrong,
+        ContractKeyUniquenessMode.Strict -> expectedStrict,
+        ContractKeyUniquenessMode.Off -> expectedOff,
       ),
     )
   }
@@ -257,8 +255,15 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     builder.add(mkLookupByKey("key", None), rollbackNid)
     builder.add(mkCreate(3, "key"), exerciseNid)
     val tx = builder.build()
-    val expected: TestResult = Right(
+    val expectedStrict: TestResult = Right(
       Map(gkey("key") -> Seq(Transaction.KeyActive(2))) -> ActiveLedgerState(
+        Set(3),
+        Map(cid(1) -> (), cid(2) -> ()),
+        Map(gkey("key") -> Seq(cid(3))),
+      )
+    )
+    val expectedOff: TestResult = Right(
+      Map(gkey("key") -> Seq(Transaction.KeyActive(2), Transaction.KeyCreate)) -> ActiveLedgerState(
         Set(3),
         Map(cid(1) -> (), cid(2) -> ()),
         Map(gkey("key") -> Seq(cid(3))),
@@ -268,8 +273,8 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       "ArchiveRbLookupCreate",
       tx,
       Map(
-        ContractKeyUniquenessMode.Strict -> expected,
-        ContractKeyUniquenessMode.Off -> expected,
+        ContractKeyUniquenessMode.Strict -> expectedStrict,
+        ContractKeyUniquenessMode.Off -> expectedOff,
       ),
     )
   }
@@ -622,7 +627,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     for {
       next <- node match {
         case create: Node.Create =>
-          val r = state.handleCreate(create, key => resolver.getOrElse(key, None))
+          val r = state.handleCreate(create, (key, excluded) => resolver.getOrElse(key, None).filter(x => !excluded.contains(x)))
           println(r)
           r
         case exercise: Node.Exercise =>
