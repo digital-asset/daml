@@ -320,31 +320,68 @@ object Runner {
   ): Future[SValue] = {
     val darMap = dar.all.toMap
     val compiledPackages = PureCompiledPackages.assertBuild(darMap, Runner.compilerConfig)
+    def converter(json: JsValue, `type`: Type) = {
+      val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
+      val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+      Converter.fromJsonValue(
+        scriptId.qualifiedName,
+        envIface,
+        compiledPackages,
+        `type`,
+        json,
+      )
+    }
+    run(
+      compiledPackages,
+      scriptId,
+      Some(converter),
+      inputValue,
+      initialClients,
+      timeMode,
+    )._2
+  }
+
+  // Executes a Daml script
+  //
+  // Looks for the script in the given compiledPackages, applies the input
+  // value as an argument if provided together with a conversion function,
+  // and runs the script with the given participants.
+  def run(
+      compiledPackages: PureCompiledPackages,
+      scriptId: Identifier,
+      convertInputValue: Option[(JsValue, Type) => Either[String, SValue]],
+      inputValue: Option[JsValue],
+      initialClients: Participants[ScriptLedgerClient],
+      timeMode: ScriptTimeMode,
+      traceLog: TraceLog = Speedy.Machine.newTraceLog,
+      warningLog: WarningLog = Speedy.Machine.newWarningLog,
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): (Speedy.Machine, Future[SValue]) = {
     val script = data.assertRight(Script.fromIdentifier(compiledPackages, scriptId))
     val scriptAction: Script.Action = (script, inputValue) match {
       case (script: Script.Action, None) => script
       case (script: Script.Function, Some(inputJson)) =>
-        val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
-        val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
-        val arg = Converter
-          .fromJsonValue(
-            scriptId.qualifiedName,
-            envIface,
-            compiledPackages,
-            script.param,
-            inputJson,
-          ) match {
-          case Left(msg) => throw new ConverterException(msg)
-          case Right(x) => x
+        convertInputValue match {
+          case Some(f) =>
+            f(inputJson, script.param) match {
+              case Left(msg) => throw new ConverterException(msg)
+              case Right(arg) => script.apply(SEValue(arg))
+            }
+          case None =>
+            throw new ConverterException(
+              s"The script ${scriptId} requires an argument, but a converter was not provided"
+            )
         }
-        script.apply(SEValue(arg))
       case (_: Script.Action, Some(_)) =>
         throw new RuntimeException(s"The script ${scriptId} does not take arguments.")
       case (_: Script.Function, None) =>
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner = new Runner(compiledPackages, scriptAction, timeMode)
-    runner.runWithClients(initialClients)._2
+    runner.runWithClients(initialClients, traceLog, warningLog)
   }
 }
 
