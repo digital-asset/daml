@@ -507,13 +507,13 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       pkgIds = pkgs.keySet
       missingDeps = pkgs.valuesIterator.flatMap(_.directDeps).toSet.filterNot(pkgIds)
       _ <- Either.cond(missingDeps.isEmpty, (), Error.Package.SelfConsistency(pkgIds, missingDeps))
-      interface = PackageInterface(pkgs)
+      pkgInterface = PackageInterface(pkgs)
       _ <- {
         pkgs.iterator
           // we trust already loaded packages
           .collect {
             case (pkgId, pkg) if !compiledPackages.packageIds.contains(pkgId) =>
-              Validation.checkPackage(interface, pkgId, pkg)
+              Validation.checkPackage(pkgInterface, pkgId, pkg)
           }
           .collectFirst { case Left(err) => Error.Package.Validation(err) }
       }.toLeft(())

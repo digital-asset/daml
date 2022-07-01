@@ -52,7 +52,7 @@ class IdeLedgerClient(
 
   private[this] val preprocessor =
     new preprocessing.CommandPreprocessor(
-      compiledPackages.interface,
+      compiledPackages.pkgInterface,
       requireV1ContractIdSuffix = false,
     )
 

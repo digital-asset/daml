@@ -259,12 +259,17 @@ private[validation] object Typing {
     case PCUnit => TUnit
   }
 
-  def checkModule(interface: PackageInterface, pkgId: PackageId, mod: Module): Unit = { // entry point
-    val langVersion = handleLookup(Context.None, interface.lookupPackage(pkgId)).languageVersion
+  def checkModule(pkgInterface: PackageInterface, pkgId: PackageId, mod: Module): Unit = { // entry point
+    val langVersion = handleLookup(Context.None, pkgInterface.lookupPackage(pkgId)).languageVersion
     mod.definitions.foreach {
       case (dfnName, DDataType(_, params, cons)) =>
         val env =
-          Env(langVersion, interface, Context.DefDataType(pkgId, mod.name, dfnName), params.toMap)
+          Env(
+            langVersion,
+            pkgInterface,
+            Context.DefDataType(pkgId, mod.name, dfnName),
+            params.toMap,
+          )
         params.values.foreach(env.checkKind)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         cons match {
@@ -280,18 +285,18 @@ private[validation] object Typing {
             env.checkInterfaceType(tyConName, params)
         }
       case (dfnName, dfn: DValue) =>
-        Env(langVersion, interface, Context.DefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
+        Env(langVersion, pkgInterface, Context.DefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
       case (dfnName, DTypeSyn(params, replacementTyp)) =>
         val env =
-          Env(langVersion, interface, Context.Template(pkgId, mod.name, dfnName), params.toMap)
+          Env(langVersion, pkgInterface, Context.Template(pkgId, mod.name, dfnName), params.toMap)
         params.values.foreach(env.checkKind)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         env.checkType(replacementTyp, KStar)
     }
     mod.templates.foreach { case (dfnName, template) =>
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
-      val env = Env(langVersion, interface, Context.Template(tyConName), Map.empty)
-      handleLookup(env.ctx, interface.lookupDataType(tyConName)) match {
+      val env = Env(langVersion, pkgInterface, Context.Template(tyConName), Map.empty)
+      handleLookup(env.ctx, pkgInterface.lookupDataType(tyConName)) match {
         case DDataType(_, ImmArray(), DataRecord(_)) =>
           env.checkTemplate(tyConName, template)
         case _ =>
@@ -300,8 +305,8 @@ private[validation] object Typing {
     }
     mod.exceptions.foreach { case (exnName, message) =>
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, exnName))
-      val env = Env(langVersion, interface, Context.DefException(tyConName), Map.empty)
-      handleLookup(env.ctx, interface.lookupDataType(tyConName)) match {
+      val env = Env(langVersion, pkgInterface, Context.DefException(tyConName), Map.empty)
+      handleLookup(env.ctx, pkgInterface.lookupDataType(tyConName)) match {
         case DDataType(_, ImmArray(), DataRecord(_)) =>
           env.checkDefException(tyConName, message)
         case _ =>
@@ -311,14 +316,14 @@ private[validation] object Typing {
     mod.interfaces.foreach { case (ifaceName, iface) =>
       // uniquess of choice names is already checked on construction of the choice map.
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, ifaceName))
-      val env = Env(langVersion, interface, Context.DefInterface(tyConName), Map.empty)
+      val env = Env(langVersion, pkgInterface, Context.DefInterface(tyConName), Map.empty)
       env.checkDefIface(tyConName, iface)
     }
   }
 
   case class Env(
       languageVersion: LanguageVersion,
-      interface: PackageInterface,
+      pkgInterface: PackageInterface,
       ctx: Context,
       tVars: Map[TypeVarName, Kind] = Map.empty,
       eVars: Map[ExprVarName, Type] = Map.empty,
@@ -384,7 +389,7 @@ private[validation] object Typing {
         params: ImmArray[X],
     ): Unit = {
       if (params.nonEmpty) throw EIllegalHigherInterfaceType(ctx, tyConName)
-      val _ = handleLookup(ctx, interface.lookupInterface(tyConName))
+      val _ = handleLookup(ctx, pkgInterface.lookupInterface(tyConName))
     }
 
     private[Typing] def checkDValue(dfn: DValue): Unit = dfn match {
@@ -466,7 +471,7 @@ private[validation] object Typing {
             throw ECircularInterfaceRequires(ctx, ifaceName)
           for {
             required <- requires
-            requiredRequired <- handleLookup(ctx, interface.lookupInterface(required)).requires
+            requiredRequired <- handleLookup(ctx, pkgInterface.lookupInterface(required)).requires
             if !requires(requiredRequired)
           } throw ENotClosedInterfaceRequires(ctx, ifaceName, required, requiredRequired)
           env.checkExpr(precond, TBool)
@@ -490,7 +495,7 @@ private[validation] object Typing {
 
       impls.foreach { case (iface, impl) =>
         val DefInterfaceSignature(requires, _, _, methods, _, _) =
-          handleLookup(ctx, interface.lookupInterface(impl.interfaceId))
+          handleLookup(ctx, pkgInterface.lookupInterface(impl.interfaceId))
 
         requires
           .filterNot(impls.contains)
@@ -529,7 +534,7 @@ private[validation] object Typing {
 
     private def checkTypConApp(app: TypeConApp): DataCons = app match {
       case TypeConApp(tyCon, tArgs) =>
-        val DDataType(_, tparams, dataCons) = handleLookup(ctx, interface.lookupDataType(tyCon))
+        val DDataType(_, tparams, dataCons) = handleLookup(ctx, pkgInterface.lookupDataType(tyCon))
         if (tparams.length != tArgs.length) throw ETypeConAppWrongArity(ctx, tparams.length, app)
         (tArgs.iterator zip tparams.values).foreach((checkType _).tupled)
         TypeSubst.substitute((tparams.keys zip tArgs.iterator).toMap, dataCons)
@@ -555,7 +560,7 @@ private[validation] object Typing {
       case TNat(_) =>
         KNat
       case TTyCon(tycon) =>
-        kindOfDataType(handleLookup(ctx, interface.lookupDataType(tycon)))
+        kindOfDataType(handleLookup(ctx, pkgInterface.lookupDataType(tycon)))
       case TApp(tFun, tArg) =>
         kindOf(tFun) match {
           case KStar | KNat => throw EExpectedHigherKind(ctx, KStar)
@@ -595,7 +600,7 @@ private[validation] object Typing {
     }
 
     private def expandSynApp(syn: TypeSynName, tArgs: ImmArray[Type]): Type = {
-      val DTypeSyn(tparams, replacementTyp) = handleLookup(ctx, interface.lookupTypeSyn(syn))
+      val DTypeSyn(tparams, replacementTyp) = handleLookup(ctx, pkgInterface.lookupTypeSyn(syn))
       if (tparams.length != tArgs.length)
         throw ETypeSynAppWrongArity(ctx, tparams.length, syn, tArgs)
       (tArgs.iterator zip tparams.values).foreach((checkType _).tupled)
@@ -623,7 +628,7 @@ private[validation] object Typing {
       }
 
     private def checkEnumCon(typConName: TypeConName, con: EnumConName): Unit =
-      handleLookup(ctx, interface.lookupDataType(typConName)).cons match {
+      handleLookup(ctx, pkgInterface.lookupDataType(typConName)).cons match {
         case DataEnum(enumType) =>
           if (!enumType.toSeq.contains(con)) throw EUnknownEnumCon(ctx, con)
         case _ =>
@@ -765,10 +770,10 @@ private[validation] object Typing {
     private[this] def addPatternRank(ranks: Set[Int], pat: CasePat): MatchedRanks =
       pat match {
         case CPVariant(tycon, variant, _) =>
-          val rank = handleLookup(ctx, interface.lookupVariantConstructor(tycon, variant)).rank
+          val rank = handleLookup(ctx, pkgInterface.lookupVariantConstructor(tycon, variant)).rank
           SomeRanks(ranks + rank)
         case CPEnum(tycon, constructor) =>
-          val rank = handleLookup(ctx, interface.lookupEnumConstructor(tycon, constructor))
+          val rank = handleLookup(ctx, pkgInterface.lookupEnumConstructor(tycon, constructor))
           SomeRanks(ranks + rank)
         case CPPrimCon(pc) =>
           pc match {
@@ -804,7 +809,7 @@ private[validation] object Typing {
       val scrutType = typeOf(scrut)
       val (expectedPatterns, introPattern) = scrutType match {
         case TTyConApp(scrutTCon, scrutTArgs) =>
-          handleLookup(ctx, interface.lookupDataType(scrutTCon)) match {
+          handleLookup(ctx, pkgInterface.lookupDataType(scrutTCon)) match {
             case DDataType(_, dataParams, dataCons) =>
               dataCons match {
                 case DataRecord(_) =>
@@ -895,13 +900,13 @@ private[validation] object Typing {
     }
 
     private def typeOfCreate(tpl: TypeConName, arg: Expr): Type = {
-      discard(handleLookup(ctx, interface.lookupTemplate(tpl)))
+      discard(handleLookup(ctx, pkgInterface.lookupTemplate(tpl)))
       checkExpr(arg, TTyCon(tpl))
       TUpdate(TContractId(TTyCon(tpl)))
     }
 
     private def typeOfCreateInterface(iface: TypeConName, arg: Expr): Type = {
-      discard(handleLookup(ctx, interface.lookupInterface(iface)))
+      discard(handleLookup(ctx, pkgInterface.lookupInterface(iface)))
       checkExpr(arg, TTyCon(iface))
       TUpdate(TContractId(TTyCon(iface)))
     }
@@ -912,7 +917,7 @@ private[validation] object Typing {
         cid: Expr,
         arg: Expr,
     ): Type = {
-      val choice = handleLookup(ctx, interface.lookupTemplateChoice(tpl, chName))
+      val choice = handleLookup(ctx, pkgInterface.lookupTemplateChoice(tpl, chName))
       checkExpr(cid, TContractId(TTyCon(tpl)))
       checkExpr(arg, choice.argBinder._2)
       TUpdate(choice.returnType)
@@ -926,7 +931,7 @@ private[validation] object Typing {
         guard: Expr,
     ): Type = {
       checkExpr(cid, TContractId(TTyCon(interfaceId)))
-      val choice = handleLookup(ctx, interface.lookupInterfaceChoice(interfaceId, chName))
+      val choice = handleLookup(ctx, pkgInterface.lookupInterfaceChoice(interfaceId, chName))
       checkExpr(arg, choice.argBinder._2)
       checkExpr(guard, TFun(TTyCon(interfaceId), TBool))
       TUpdate(choice.returnType)
@@ -939,33 +944,33 @@ private[validation] object Typing {
         arg: Expr,
     ): Type = {
       checkByKey(tmplId, key)
-      val choice = handleLookup(ctx, interface.lookupTemplateChoice(tmplId, chName))
+      val choice = handleLookup(ctx, pkgInterface.lookupTemplateChoice(tmplId, chName))
       checkExpr(arg, choice.argBinder._2)
       TUpdate(choice.returnType)
     }
 
     private def typeOfFetchTemplate(tpl: TypeConName, cid: Expr): Type = {
-      discard(handleLookup(ctx, interface.lookupTemplate(tpl)))
+      discard(handleLookup(ctx, pkgInterface.lookupTemplate(tpl)))
       checkExpr(cid, TContractId(TTyCon(tpl)))
       TUpdate(TTyCon(tpl))
     }
 
     private def typeOfFetchInterface(tpl: TypeConName, cid: Expr): Type = {
-      discard(handleLookup(ctx, interface.lookupInterface(tpl)))
+      discard(handleLookup(ctx, pkgInterface.lookupInterface(tpl)))
       checkExpr(cid, TContractId(TTyCon(tpl)))
       TUpdate(TTyCon(tpl))
     }
 
     private def checkImplements(tpl: TypeConName, iface: TypeConName): Unit = {
-      discard(handleLookup(ctx, interface.lookupInterface(iface)))
-      val template = handleLookup(ctx, interface.lookupTemplate(tpl))
+      discard(handleLookup(ctx, pkgInterface.lookupInterface(iface)))
+      val template = handleLookup(ctx, pkgInterface.lookupTemplate(tpl))
       if (!template.implements.contains(iface))
         throw ETemplateDoesNotImplementInterface(ctx, tpl, iface)
       ()
     }
 
     private def checkByKey(tmplId: TypeConName, key: Expr): Unit = {
-      val tmplKey = handleLookup(ctx, interface.lookupTemplateKey(tmplId))
+      val tmplKey = handleLookup(ctx, pkgInterface.lookupTemplateKey(tmplId))
       checkExpr(key, tmplKey.typ)
       ()
     }
@@ -1073,7 +1078,7 @@ private[validation] object Typing {
 
     private def checkExceptionType(typ: Type): Unit = typ match {
       case TTyCon(tyCon) =>
-        discard(handleLookup(ctx, interface.lookupException(tyCon)))
+        discard(handleLookup(ctx, pkgInterface.lookupException(tyCon)))
       case _ => throw EExpectedExceptionType(ctx, typ)
     }
 
@@ -1081,7 +1086,7 @@ private[validation] object Typing {
       case EVar(name) =>
         lookupExpVar(name)
       case EVal(ref) =>
-        handleLookup(ctx, interface.lookupValue(ref)).typ
+        handleLookup(ctx, pkgInterface.lookupValue(ref)).typ
       case EBuiltin(fun) =>
         typeOfBuiltinFunction(fun)
       case EPrimCon(con) =>
@@ -1184,38 +1189,38 @@ private[validation] object Typing {
         checkExpr(value, TTyCon(iface))
         TTyCon(tpl)
       case EToRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
-        val requiringIface = handleLookup(ctx, interface.lookupInterface(requiringIfaceId))
+        val requiringIface = handleLookup(ctx, pkgInterface.lookupInterface(requiringIfaceId))
         if (!requiringIface.requires.contains(requiredIfaceId))
           throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
         checkExpr(body, TTyCon(requiringIfaceId))
         TTyCon(requiredIfaceId)
       case EFromRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
-        val requiringIface = handleLookup(ctx, interface.lookupInterface(requiringIfaceId))
+        val requiringIface = handleLookup(ctx, pkgInterface.lookupInterface(requiringIfaceId))
         if (!requiringIface.requires.contains(requiredIfaceId))
           throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
         checkExpr(body, TTyCon(requiredIfaceId))
         TOptional(TTyCon(requiringIfaceId))
       case EUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId, cid, body) =>
-        val requiringIface = handleLookup(ctx, interface.lookupInterface(requiringIfaceId))
+        val requiringIface = handleLookup(ctx, pkgInterface.lookupInterface(requiringIfaceId))
         if (!requiringIface.requires.contains(requiredIfaceId))
           throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
         checkExpr(cid, TContractId(TTyCon(requiredIfaceId)))
         checkExpr(body, TTyCon(requiredIfaceId))
         TTyCon(requiringIfaceId)
       case ECallInterface(iface, methodName, value) =>
-        val method = handleLookup(ctx, interface.lookupInterfaceMethod(iface, methodName))
+        val method = handleLookup(ctx, pkgInterface.lookupInterfaceMethod(iface, methodName))
         checkExpr(value, TTyCon(iface))
         method.returnType
       case EInterfaceTemplateTypeRep(ifaceId, body) =>
-        discard(handleLookup(ctx, interface.lookupInterface(ifaceId)))
+        discard(handleLookup(ctx, pkgInterface.lookupInterface(ifaceId)))
         checkExpr(body, TTyCon(ifaceId))
         TTypeRep
       case ESignatoryInterface(ifaceId, body) =>
-        discard(handleLookup(ctx, interface.lookupInterface(ifaceId)))
+        discard(handleLookup(ctx, pkgInterface.lookupInterface(ifaceId)))
         checkExpr(body, TTyCon(ifaceId))
         TList(TParty)
       case EObserverInterface(ifaceId, body) =>
-        discard(handleLookup(ctx, interface.lookupInterface(ifaceId)))
+        discard(handleLookup(ctx, pkgInterface.lookupInterface(ifaceId)))
         checkExpr(body, TTyCon(ifaceId))
         TList(TParty)
       case EExperimental(_, typ) =>

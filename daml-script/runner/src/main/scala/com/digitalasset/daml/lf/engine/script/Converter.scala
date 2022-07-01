@@ -816,7 +816,7 @@ object Converter {
         }
       valueTranslator =
         new preprocessing.ValueTranslator(
-          compiledPackages.interface,
+          compiledPackages.pkgInterface,
           requireV1ContractIdSuffix = false,
         )
       sValue <- valueTranslator

@@ -195,7 +195,7 @@ object Script {
       scriptId: Identifier,
   ): Either[String, Script] = {
     val scriptExpr = SEVal(LfDefRef(scriptId))
-    val script = compiledPackages.interface.lookupValue(scriptId).left.map(_.pretty)
+    val script = compiledPackages.pkgInterface.lookupValue(scriptId).left.map(_.pretty)
     def getScriptIds(ty: Type): Either[String, ScriptIds] =
       ScriptIds.fromType(ty).toRight(s"Expected type 'Daml.Script.Script a' but got $ty")
     script.flatMap {
@@ -366,7 +366,7 @@ private[lf] class Runner(
       override def getDefinition(dref: SDefinitionRef): Option[SDefinition] =
         fromLedgerValue.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
       // FIXME: avoid override of non abstract method
-      override def interface: PackageInterface = compiledPackages.interface
+      override def pkgInterface: PackageInterface = compiledPackages.pkgInterface
       override def packageIds: collection.Set[PackageId] = compiledPackages.packageIds
       // FIXME: avoid override of non abstract method
       override def definitions: PartialFunction[SDefinitionRef, SDefinition] =
@@ -377,7 +377,7 @@ private[lf] class Runner(
   // Maps GHC unit ids to LF package ids. Used for location conversion.
   private val knownPackages: Map[String, PackageId] = (for {
     pkgId <- compiledPackages.packageIds
-    md <- compiledPackages.interface.lookupPackage(pkgId).toOption.flatMap(_.metadata).toList
+    md <- compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.flatMap(_.metadata).toList
   } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
 
   // Returns the machine that will be used for execution as well as a Future for the result.

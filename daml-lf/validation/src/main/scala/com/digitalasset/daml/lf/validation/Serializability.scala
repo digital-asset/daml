@@ -27,7 +27,7 @@ private[validation] object Serializability {
 
   case class Env(
       flags: Flags,
-      interface: PackageInterface,
+      pkgInterface: PackageInterface,
       ctx: Context,
       requirement: SerializabilityRequirement,
       typeToSerialize: Type,
@@ -48,7 +48,7 @@ private[validation] object Serializability {
     def isInterface(typ: Type): Boolean = {
       typ match {
         case TTyCon(tycon) =>
-          interface.lookupDataType(tycon) match {
+          pkgInterface.lookupDataType(tycon) match {
             case Right(DDataType(_, _, cons)) =>
               cons match {
                 case DataInterface => true
@@ -69,7 +69,7 @@ private[validation] object Serializability {
         unserializable(URNat)
       case TSynApp(syn, _) => unserializable(URTypeSyn(syn))
       case TTyCon(tycon) =>
-        handleLookup(ctx, interface.lookupDefinition(tycon)) match {
+        handleLookup(ctx, pkgInterface.lookupDefinition(tycon)) match {
           case DDataType(true, _, _) => ()
           case _ => unserializable(URDataType(tycon))
         }
@@ -127,14 +127,16 @@ private[validation] object Serializability {
 
   def checkDataType(
       flags: Flags,
-      interface: PackageInterface,
+      pkgInterface: PackageInterface,
       tyCon: TTyCon,
       params: ImmArray[(TypeVarName, Kind)],
       dataCons: DataCons,
   ): Unit = {
     val context = Context.DefDataType(tyCon.tycon)
     val env =
-      (params.iterator foldLeft Env(flags, interface, context, SRDataType, tyCon))(_.introVar(_))
+      (params.iterator foldLeft Env(flags, pkgInterface, context, SRDataType, tyCon))(
+        _.introVar(_)
+      )
     val typs = dataCons match {
       case DataVariant(variants) =>
         if (variants.isEmpty) env.unserializable(URUninhabitatedType)
@@ -154,61 +156,61 @@ private[validation] object Serializability {
   // in particular choice argument types and choice return types are of kind KStar
   def checkTemplate(
       flags: Flags,
-      interface: PackageInterface,
+      pkgInterface: PackageInterface,
       tyCon: TTyCon,
       template: Template,
   ): Unit = {
     val context = Context.Template(tyCon.tycon)
-    Env(flags, interface, context, SRTemplateArg, tyCon).checkType()
+    Env(flags, pkgInterface, context, SRTemplateArg, tyCon).checkType()
     template.choices.values.foreach { choice =>
-      Env(flags, interface, context, SRChoiceArg, choice.argBinder._2).checkType()
-      Env(flags, interface, context, SRChoiceRes, choice.returnType).checkType()
+      Env(flags, pkgInterface, context, SRChoiceArg, choice.argBinder._2).checkType()
+      Env(flags, pkgInterface, context, SRChoiceRes, choice.returnType).checkType()
     }
-    template.key.foreach(k => Env(flags, interface, context, SRKey, k.typ).checkType())
+    template.key.foreach(k => Env(flags, pkgInterface, context, SRKey, k.typ).checkType())
   }
 
   def checkException(
       flags: Flags,
-      interface: PackageInterface,
+      pkgInterface: PackageInterface,
       tyCon: TTyCon,
   ): Unit = {
     val context = Context.DefException(tyCon.tycon)
-    Env(flags, interface, context, SRExceptionArg, tyCon).checkType()
+    Env(flags, pkgInterface, context, SRExceptionArg, tyCon).checkType()
   }
 
   def checkInterface(
       flags: Flags,
-      interface: PackageInterface,
+      pkgInterface: PackageInterface,
       tyCon: TTyCon,
       defInterface: DefInterface,
   ): Unit = {
     val context = Context.DefInterface(tyCon.tycon)
     defInterface.choices.values.foreach { choice =>
-      Env(flags, interface, context, SRChoiceArg, choice.argBinder._2).checkType()
-      Env(flags, interface, context, SRChoiceRes, choice.returnType).checkType()
+      Env(flags, pkgInterface, context, SRChoiceArg, choice.argBinder._2).checkType()
+      Env(flags, pkgInterface, context, SRChoiceRes, choice.returnType).checkType()
     }
   }
 
-  def checkModule(interface: PackageInterface, pkgId: PackageId, module: Module): Unit = {
-    val version = handleLookup(Context.None, interface.lookupPackage(pkgId)).languageVersion
+  def checkModule(pkgInterface: PackageInterface, pkgId: PackageId, module: Module): Unit = {
+    val version = handleLookup(Context.None, pkgInterface.lookupPackage(pkgId)).languageVersion
     val flags = Flags.fromVersion(version)
     module.definitions.foreach {
       case (defName, DDataType(serializable, params, dataCons)) =>
         val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
-        if (serializable) checkDataType(flags, interface, tyCon, params, dataCons)
+        if (serializable) checkDataType(flags, pkgInterface, tyCon, params, dataCons)
       case _ =>
     }
     module.templates.foreach { case (defName, template) =>
       val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
-      checkTemplate(flags, interface, tyCon, template)
+      checkTemplate(flags, pkgInterface, tyCon, template)
     }
     module.exceptions.keys.foreach { defName =>
       val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
-      checkException(flags, interface, tyCon)
+      checkException(flags, pkgInterface, tyCon)
     }
     module.interfaces.foreach { case (defName, defInterface) =>
       val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
-      checkInterface(flags, interface, tyCon, defInterface)
+      checkInterface(flags, pkgInterface, tyCon, defInterface)
     }
   }
 }
