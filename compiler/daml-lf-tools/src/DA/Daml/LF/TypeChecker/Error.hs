@@ -147,6 +147,8 @@ data Error
   | ETemplateDoesNotImplementInterface !(Qualified TypeConName) !(Qualified TypeConName)
   | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
   | EUnknownExperimental !T.Text !Type
+  | ENoViewFound !TypeConName
+  | EViewNotSerializable !TypeConName !Type
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -421,6 +423,10 @@ instance Pretty Error where
       "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
     EUnknownExperimental name ty ->
       "Unknown experimental primitive " <> string (show name) <> " : " <> pretty ty
+    ENoViewFound name ->
+      "Interface " <> pretty name <> " must specify a view method with name `_view`."
+    EViewNotSerializable name ty ->
+      "Interface " <> pretty name <> " has a view method which returns a non-serializable type " <> pretty ty
 
 instance Pretty Context where
   pPrint = \case

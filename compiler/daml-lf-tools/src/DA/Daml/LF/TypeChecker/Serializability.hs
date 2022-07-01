@@ -23,6 +23,7 @@ import           Control.Monad.Extra
 import Data.List
 import           Data.Foldable (for_)
 import qualified Data.HashSet as HS
+import qualified Data.NameMap as NM
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Numeric (numericMaxScale)
@@ -182,6 +183,13 @@ checkInterface _mod0 iface = do
   for_ (intChoices iface) $ \ch -> do
       checkType SRChoiceArg (snd (chcArgBinder ch))
       checkType SRChoiceRes (chcReturnType ch)
+
+  case NM.lookup (MethodName "_view") (intMethods iface) of
+    Nothing -> throwWithContext $ ENoViewFound (intName iface)
+    Just method ->
+      let err = EViewNotSerializable (intName iface) (ifmType method)
+      in
+      catchAndRethrow (const err) $ checkType SRDataType $ ifmType method
 
 -- | Check whether exception is serializable.
 checkException :: MonadGamma m => Module -> DefException -> m ()
