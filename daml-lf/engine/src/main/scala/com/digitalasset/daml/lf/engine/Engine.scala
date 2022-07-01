@@ -21,7 +21,7 @@ import com.daml.lf.transaction.{
 }
 import java.nio.file.Files
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ValueContractId, VersionedContractInstance, ContractId}
+import com.daml.lf.value.Value.{VersionedContractInstance, ContractId}
 
 import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackage}
 import com.daml.lf.validation.Validation
@@ -323,12 +323,9 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       validating = validating,
       contractKeyUniqueness = config.contractKeyUniqueness,
       limits = config.limits,
+      disclosedContracts = disclosures,
     )
-
-    for {
-      discTable <- Engine.buildDiscTable(machine, disclosures)
-      res <- interpretLoop(machine, discTable, ledgerTime)
-    } yield res
+    interpretLoop(machine, ledgerTime)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
@@ -364,7 +361,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private[engine] def interpretLoop(
       machine: Machine,
-      disclosures: Engine.DisclosureTable,
       time: Time.Timestamp,
   ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("Daml Engine") { onLedger =>
     var finished: Boolean = false
@@ -383,25 +379,17 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
             pkg => {
               compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
                 callback(compiledPackages)
-                interpretLoop(machine, disclosures, time)
+                interpretLoop(machine, time)
               }
             },
           )
 
-        case SResultNeedContract(contractId, _, callback) => {
+        case SResultNeedContract(contractId, _, callback) =>
           def continueWithContract = (coinst: VersionedContractInstance) => {
-            callback(coinst)
-            interpretLoop(machine, disclosures, time)
+            callback(coinst.unversioned)
+            interpretLoop(machine, time)
           }
-          disclosures.contractById.get(contractId) match {
-            case None =>
-              return Result.needContract(
-                contractId,
-                continueWithContract,
-              )
-            case Some(coinst) => return continueWithContract(coinst)
-          }
-        }
+          return Result.needContract(contractId, continueWithContract)
 
         case SResultNeedTime(callback) =>
           callback(time)
@@ -409,18 +397,12 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         case SResultNeedKey(gk, _, cb) =>
           def continueWithCoid = (result: Option[ContractId]) => {
             discard[Boolean](cb(result))
-            interpretLoop(machine, disclosures, time)
+            interpretLoop(machine, time)
           }
-
-          disclosures.contractIdByKey.get(gk.globalKey.hash) match {
-            case None =>
-              return ResultNeedKey(
-                gk,
-                continueWithCoid,
-              )
-            // TODO (drsk) validate key hash. https://github.com/digital-asset/daml/issues/13897
-            case Some(coid) => return continueWithCoid(Some(coid))
-          }
+          return ResultNeedKey(
+            gk,
+            continueWithCoid,
+          )
 
         case err @ (_: SResultScenarioSubmit | _: SResultScenarioPassTime |
             _: SResultScenarioGetParty) =>
@@ -434,8 +416,22 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       }
     }
 
+    def versionDisclosedContract(d: speedy.DisclosedContract): Versioned[DisclosedContract] = {
+      val version = machine.tmplId2TxVersion(d.templateId)
+      val arg = machine.normValue(d.templateId, d.argument)
+      val coid = d.contractId.value
+
+      Versioned(version, DisclosedContract(d.templateId, coid, arg, d.metadata))
+    }
+
     onLedger.finish match {
-      case PartialTransaction.CompleteTransaction(tx, _, nodeSeeds, globalKeyMapping) =>
+      case PartialTransaction.CompleteTransaction(
+            tx,
+            _,
+            nodeSeeds,
+            globalKeyMapping,
+            disclosedContracts,
+          ) =>
         deps(tx).flatMap { deps =>
           val meta = Tx.Metadata(
             submissionSeed = None,
@@ -444,7 +440,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
             dependsOnTime = onLedger.dependsOnTime,
             nodeSeeds = nodeSeeds,
             globalKeyMapping = globalKeyMapping,
-            disclosures = disclosures.allDisclosures,
+            disclosures = disclosedContracts.map(versionDisclosedContract(_)),
           )
           config.profileDir.foreach { dir =>
             val desc = Engine.profileDesc(tx)
@@ -603,78 +599,4 @@ object Engine {
   def DevEngine(): Engine = new Engine(
     StableConfig.copy(allowedLanguageVersions = LanguageVersion.DevVersions)
   )
-
-  private[engine] case class DisclosureTable(
-      allDisclosures: ImmArray[Versioned[DisclosedContract]],
-      contractIdByKey: Map[crypto.Hash, ContractId],
-      contractById: Map[ContractId, VersionedContractInstance],
-  )
-
-  private[engine] def buildDiscTable(
-      machine: Machine,
-      disclosures: ImmArray[speedy.DisclosedContract],
-  ): Result[DisclosureTable] = {
-    val acc = disclosures.foldLeft(
-      (
-        Map.empty[ContractId, VersionedContractInstance],
-        Map.empty[crypto.Hash, ContractId],
-        List.empty[Versioned[DisclosedContract]],
-      )
-    ) { case ((m1, m2, ds), d) =>
-      // TODO (drsk) drop this conversion from SValue -> Value.
-      // https://github.com/digital-asset/daml/issues/14069
-      val arg = machine.normValue(d.templateId, d.argument)
-      val coid = machine.normValue(d.templateId, d.contractId)
-      val version = machine.tmplId2TxVersion(d.templateId)
-
-      // check for well typed contract argument
-      (coid, arg) match {
-        case (ValueContractId(coid), r) =>
-          // check for duplicate contract ids
-          m1.get(coid) match {
-            case Some(_) =>
-              throw (Error.Preprocessing.BadDisclosedContract("Duplicate disclosed contract."))
-            case None =>
-              val contractInst = VersionedContractInstance(
-                template = d.templateId,
-                arg = Versioned(version, r),
-                agreementText = "",
-              )
-              val m1_prime = m1 + (coid -> contractInst)
-              val d_prime = Versioned(
-                version,
-                DisclosedContract(
-                  templateId = d.templateId,
-                  argument = r,
-                  contractId = coid,
-                  metadata = d.metadata,
-                ),
-              )
-              val ds_prime = d_prime :: ds
-              d.metadata.keyHash match {
-                case Some(hash) =>
-                  // check for duplicate contract key hashes
-                  m2.get(hash) match {
-                    case Some(_) =>
-                      throw (Error.Preprocessing.BadDisclosedContract(
-                        "Duplicate key for disclosed contract."
-                      ))
-                    case None => (m1_prime, m2 + (hash -> coid), ds_prime)
-                  }
-                case None => (m1_prime, m2, ds_prime)
-              }
-          }
-        case _ =>
-          throw (Error.Preprocessing.BadDisclosedContract("Disclosed contract is not well-typed."))
-      }
-    }
-    ResultDone(
-      DisclosureTable(
-        allDisclosures = ImmArray.from(acc._3),
-        contractById = acc._1,
-        contractIdByKey = acc._2,
-      )
-    )
-
-  }
 }

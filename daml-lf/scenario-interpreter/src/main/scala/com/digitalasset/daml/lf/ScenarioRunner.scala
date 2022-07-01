@@ -398,7 +398,10 @@ object ScenarioRunner {
       warningLog = warningLog,
       commitLocation = location,
       limits = interpretation.Limits.Lenient,
+      disclosedContracts = ImmArray.Empty,
     )
+    // TODO (drsk) validate and propagate errors back to submitter
+    // https://github.com/digital-asset/daml/issues/14108
     val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
     val enricher = if (doEnrichment) new EnricherImpl(compiledPackages) else NoEnricher
     import enricher._
@@ -408,7 +411,7 @@ object ScenarioRunner {
       ledgerMachine.run() match {
         case SResult.SResultFinalValue(resultValue) =>
           onLedger.ptxInternal.finish match {
-            case PartialTransaction.CompleteTransaction(tx, locationInfo, _, _) =>
+            case PartialTransaction.CompleteTransaction(tx, locationInfo, _, _, _) =>
               ledger.commit(committers, readAs, location, enrich(tx), locationInfo) match {
                 case Left(err) =>
                   SubmissionError(err, enrich(onLedger.incompleteTransaction))
@@ -421,7 +424,12 @@ object ScenarioRunner {
         case SResultError(err) =>
           SubmissionError(Error.RunnerException(err), enrich(onLedger.incompleteTransaction))
         case SResultNeedContract(coid, committers, callback) =>
-          ledger.lookupContract(coid, committers, readAs, callback) match {
+          ledger.lookupContract(
+            coid,
+            committers,
+            readAs,
+            (vcoinst: VersionedContractInstance) => callback(vcoinst.unversioned),
+          ) match {
             case Left(err) => SubmissionError(err, enrich(onLedger.incompleteTransaction))
             case Right(_) => go()
           }

@@ -136,6 +136,11 @@ object RejectionGenerators {
             .Error(
               renderedMessage
             )
+        case _: LfInterpretationError.DisclosurePreprocessing =>
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
+            .Error(
+              renderedMessage
+            )
       }
     }
 

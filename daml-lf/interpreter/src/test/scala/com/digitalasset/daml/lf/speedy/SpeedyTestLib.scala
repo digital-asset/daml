@@ -57,7 +57,7 @@ private[speedy] object SpeedyTestLib {
         case SResultNeedContract(contractId, _, callback) =>
           getContract.lift(contractId) match {
             case Some(value) =>
-              callback(value)
+              callback(value.unversioned)
               loop
             case None =>
               throw UnknownContract(contractId)
@@ -100,7 +100,7 @@ private[speedy] object SpeedyTestLib {
           onLedger.ptx.finish match {
             case PartialTransaction.IncompleteTransaction(_) =>
               throw SError.SErrorCrash("buildTransaction", "unexpected IncompleteTransaction")
-            case PartialTransaction.CompleteTransaction(tx, _, _, _) =>
+            case PartialTransaction.CompleteTransaction(tx, _, _, _, _) =>
               Right(tx)
           }
         }

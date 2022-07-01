@@ -166,6 +166,18 @@ private[lf] object Pretty {
             case Some(interfaceId) => text("by interface") & prettyTypeConName(interfaceId)
           })
       )
+
+      case DisclosurePreprocessing(err) =>
+        err match {
+          case DisclosurePreprocessing.DuplicateContractIds(templateId) =>
+            text(
+              s"Found duplicated contract IDs in submitted disclosed contracts for template $templateId"
+            )
+          case DisclosurePreprocessing.DuplicateContractKeys(templateId) =>
+            text(
+              s"Found duplicated contract keys in submitted disclosed contracts for template $templateId"
+            )
+        }
     }
   }
 
