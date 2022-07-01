@@ -210,6 +210,54 @@ class AuthServiceJWTCodecSpec
         parse(serialized) shouldBe Success(expected)
       }
 
+      "support additional daml user token with prefixed audience" in {
+        val serialized =
+          """{
+            |  "aud": "https://daml.com/jwt/aud/participant/someParticipantId",
+            |  "sub": "someUserId",
+            |  "exp": 100
+            |}
+          """.stripMargin
+        val expected = StandardJWTPayload(
+          participantId = Some("someParticipantId"),
+          userId = "someUserId",
+          exp = Some(Instant.ofEpochSecond(100)),
+        )
+        parse(serialized) shouldBe Success(expected)
+      }
+
+      "treat a singleton array of audiences equivalent to a string of its first element" in {
+        val prefixed =
+          """{
+            |  "aud": ["https://daml.com/jwt/aud/participant/someParticipantId"],
+            |  "sub": "someUserId",
+            |  "exp": 100
+            |}
+          """.stripMargin
+        parse(prefixed) shouldBe Success(
+          StandardJWTPayload(
+            participantId = Some("someParticipantId"),
+            userId = "someUserId",
+            exp = Some(Instant.ofEpochSecond(100)),
+          )
+        )
+
+        val standard =
+          """{
+            |  "aud": ["someParticipantId"],
+            |  "sub": "someUserId",
+            |  "exp": 100,
+            |  "scope": "dummy-scope1 daml_ledger_api dummy-scope2"
+            |}
+          """.stripMargin
+        parse(standard) shouldBe Success(
+          StandardJWTPayload(
+            participantId = Some("someParticipantId"),
+            userId = "someUserId",
+            exp = Some(Instant.ofEpochSecond(100)),
+          )
+        )
+      }
     }
   }
 }

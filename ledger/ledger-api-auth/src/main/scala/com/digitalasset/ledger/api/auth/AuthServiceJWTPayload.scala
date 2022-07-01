@@ -93,9 +93,11 @@ object AuthServiceJWTCodec {
   // Unique scope for standard tokens, following the pattern of https://developers.google.com/identity/protocols/oauth2/scopes
   final val scopeLedgerApiFull: String = "daml_ledger_api"
 
+  private[this] final val audPrefix: String = "https://daml.com/jwt/aud/participant/"
   private[this] final val propLedgerId: String = "ledgerId"
   private[this] final val propParticipantId: String = "participantId"
   private[this] final val propApplicationId: String = "applicationId"
+  private[this] final val propAud: String = "aud"
   private[this] final val propAdmin: String = "admin"
   private[this] final val propActAs: String = "actAs"
   private[this] final val propReadAs: String = "readAs"
@@ -158,14 +160,24 @@ object AuthServiceJWTCodec {
       val scopes = scope.toList.collect({ case JsString(scope) => scope.split(" ") }).flatten
       // We're using this rather restrictive test to ensure we continue parsing all legacy sandbox tokens that
       // are in use before the 2.0 release; and thereby maintain full backwards compatibility.
-      if (scopes.contains(scopeLedgerApiFull))
+      val audienceValue = readOptionalStringOrSingletonArray(propAud, fields)
+      if (scopes.contains(scopeLedgerApiFull)) {
         // Standard JWT payload
         StandardJWTPayload(
-          participantId = readOptionalString("aud", fields),
+          participantId = audienceValue,
           userId = readOptionalString("sub", fields).get, // guarded by if-clause above
           exp = readInstant("exp", fields),
         )
-      else {
+      } else if (audienceValue.exists(_.startsWith(audPrefix))) {
+        // Additionally to the tokens with scope containing `daml_ledger_api`, we support tokens
+        // with the audience which starts with https://daml.com/participant/jwt/aud/participant.
+        // As required for JWT, all additional fields including scope are ignored for those tokens.
+        StandardJWTPayload(
+          participantId = audienceValue.map(aud => aud.substring(audPrefix.length)),
+          userId = readOptionalString("sub", fields).get, // guarded by if-clause above
+          exp = readInstant("exp", fields),
+        )
+      } else {
         if (scope.nonEmpty)
           logger.warn(
             s"Access token with unknown scope \"${scope.get}\" is being parsed as a custom claims token. Issue tokens with adjusted or no scope to get rid of this warning."
@@ -220,6 +232,19 @@ object AuthServiceJWTCodec {
       case None => None
       case Some(JsNull) => None
       case Some(JsString(value)) => Some(value)
+      case Some(value) =>
+        deserializationError(s"Can't read ${value.prettyPrint} as string for $name")
+    }
+
+  private[this] def readOptionalStringOrSingletonArray(
+      name: String,
+      fields: Map[String, JsValue],
+  ): Option[String] =
+    fields.get(name) match {
+      case None => None
+      case Some(JsNull) => None
+      case Some(JsString(value)) => Some(value)
+      case Some(JsArray(Vector(JsString(value)))) => Some(value)
       case Some(value) =>
         deserializationError(s"Can't read ${value.prettyPrint} as string for $name")
     }
