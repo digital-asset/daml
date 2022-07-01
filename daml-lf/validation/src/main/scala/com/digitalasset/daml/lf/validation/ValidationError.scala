@@ -501,3 +501,20 @@ final case class EConflictingImplementsCoImplements(
   protected def prettyInternal: String =
     s"Template $template implementation of interface $iface conflicts with the implementation given by $iface"
 }
+
+final case class ENoViewFound(
+    context: Context,
+    iface: TypeConName,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"Interface $iface must specify a view method with name `_view`."
+}
+
+final case class EViewNotSerializable(
+    context: Context,
+    iface: TypeConName,
+    nonSerializableReturnType : Type,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"Interface $iface has a view method which returns a non-serializable type $nonSerializableReturnType"
+}

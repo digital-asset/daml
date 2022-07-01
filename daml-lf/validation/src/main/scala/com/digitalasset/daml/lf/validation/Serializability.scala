@@ -4,7 +4,7 @@
 package com.daml.lf.validation
 
 import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName, MethodName}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LanguageVersion, PackageInterface}
 
@@ -185,9 +185,22 @@ private[validation] object Serializability {
       defInterface: DefInterface,
   ): Unit = {
     val context = Context.DefInterface(tyCon.tycon)
+
     defInterface.choices.values.foreach { choice =>
       Env(flags, pkgInterface, context, SRChoiceArg, choice.argBinder._2).checkType()
       Env(flags, pkgInterface, context, SRChoiceRes, choice.returnType).checkType()
+    }
+
+    val viewMethodName = MethodName.fromString("_view").toOption.get
+    defInterface.methods.get(viewMethodName) match {
+      case None => throw ENoViewFound(context, tyCon.tycon);
+      case Some(viewMethod) =>
+        try {
+          Env(version, interface, context, SRChoiceRes, viewMethod.returnType).checkType()
+        } catch {
+          case _: ValidationError =>
+            throw EViewNotSerializable(context, tyCon.tycon, viewMethod.returnType);
+        }
     }
   }
 

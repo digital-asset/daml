@@ -127,6 +127,12 @@ object Error {
 
     final case class BadDisclosedContract(message: String) extends Error
 
+    final case class NoViewMethod(
+      interfaceId: Ref.Identifier,
+    ) extends Error {
+      override def message: String = s"No _view method on interface `${interfaceId}`"
+    }
+
   }
 
   // Error happening during interpretation
