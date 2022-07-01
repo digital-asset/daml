@@ -112,8 +112,6 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     def lookupActiveGlobalKeyInput(key: GlobalKey): Option[ContractStateMachine.KeyMapping] =
       globalKeyInputs.getOrElse(key, Seq()).collectFirst {
         case Transaction.KeyActive(cid) if !activeState.consumedBy.contains(cid) => ContractStateMachine.KeyActive(cid)
-        // TODO revisit
-        case Transaction.KeyActive(cid) if activeState.consumedBy.contains(cid) && mode == ContractKeyUniquenessMode.Strict => ContractStateMachine.KeyInactive
         case _ : Transaction.KeyInactive => ContractStateMachine.KeyInactive
       }
 
