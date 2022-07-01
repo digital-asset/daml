@@ -396,11 +396,11 @@ object ScenarioLedger {
     def duplicateKeyCheck(ledgerData: LedgerData): Either[CommitError, Unit] = {
       val inactiveKeys = richTr.transaction.contractKeyInputs
         .fold(error => crash(s"$error: inconsistent transaction"), identity)
-        .collect { case (key, _: Tx.KeyInactive) =>
+        .collect[GlobalKey] { case (key, _: Tx.KeyInactive) =>
           key
         }
 
-      inactiveKeys.find(ledgerData.activeKeys.contains(_)) match {
+      inactiveKeys.find(ledgerData.activeKeys.contains) match {
         case Some(duplicateKey) =>
           Left(CommitError.UniqueKeyViolation(UniqueKeyViolation(duplicateKey)))
 
@@ -410,14 +410,62 @@ object ScenarioLedger {
     }
 
     def inactiveContractCheck(ledgerData: LedgerData): Either[CommitError, Unit] = {
-      var res: Either[CommitError, Unit] = Right(())
-      for ((coid, tid) <- richTr.transaction.inputContracts) {
-        if (!ledgerData.activeContracts.contains(coid)) {
-          res = Left(CommitError.ContractNotActive(ContractNotActive(coid, tid)))
+      def searchForTemplate(contractId: ContractId): Option[TypeConName] =
+        richTr.transaction.nodes.values.collectFirst {
+          case Node.Create(`contractId`, templateId, _, _, _, _, _, _) =>
+            templateId
+
+          case Node.Exercise(`contractId`, templateId, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+            templateId
+
+          case Node.LookupByKey(templateId, _, Some(`contractId`), _) =>
+            templateId
         }
-      }
-      res
+
+      richTr.transaction
+        .inputContracts[ContractId]
+        .collectFirst {
+          case contractId if !ledgerData.activeContracts.contains(contractId) =>
+            val templateId = searchForTemplate(contractId).getOrElse(
+              crash(s"failed to locate template for $contractId")
+            )
+
+            CommitError.ContractNotActive(ContractNotActive(contractId, templateId))
+        }
+        .fold[Either[CommitError, Unit]](Right(()))(Left(_))
     }
+
+    // FIXME: alternative approach to searching based on ledgerData (potentially cleaner solution?)
+//    def inactiveContractCheck2(ledgerData: LedgerData): Either[CommitError, Unit] = {
+//      def searchForTemplate(contractId: ContractId): TypeConName = {
+//        // FIXME: handle Map#get failure
+//        val eventId = ledgerData.coidToNodeId(contractId)
+//        // FIXME: handle Map#get failure
+//        ledgerData.nodeInfos(eventId).node match {
+//          case Node.Create(`contractId`, templateId, _, _, _, _, _, _) =>
+//            templateId
+//
+//          case Node.Exercise(`contractId`, templateId, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+//            templateId
+//
+//          case Node.LookupByKey(templateId, _, Some(`contractId`), _) =>
+//            templateId
+//
+//          case _ =>
+//            crash(s"failed to locate template for $contractId")
+//        }
+//      }
+//
+//      richTr.transaction
+//        .inputContracts[ContractId]
+//        .collectFirst {
+//          case contractId if !ledgerData.activeContracts.contains(contractId) =>
+//            val templateId = searchForTemplate(contractId)
+//
+//            CommitError.ContractNotActive(ContractNotActive(contractId, templateId))
+//        }
+//        .fold[Either[CommitError, Unit]](Right(()))(Left(_))
+//    }
 
     def addNewLedgerNodes(historicalLedgerData: LedgerData): LedgerData =
       richTr.transaction.transaction.fold[LedgerData](historicalLedgerData) {
