@@ -11,7 +11,7 @@ final class ByteCode(className: String, methodName: String, bytes: Array[Byte]) 
     val base = "/tmp/"
     val path = base + className + ".class"
     val f = new FileOutputStream(path)
-    //println(s"generating $path, #${bytes.length} bytes")
+    // println(s"generating $path, #${bytes.length} bytes")
     f.write(bytes)
   }
 

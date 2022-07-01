@@ -24,7 +24,7 @@ object Speed extends App {
       case "c" => "compiled-via-bytecode"
       case s => s
     }
-    //val defaultConf = Conf.WholeGroup("nfib")
+    // val defaultConf = Conf.WholeGroup("nfib")
     val defaultConf = Conf.TryCompileToBytecode()
     args.toList match {
       case Nil =>
@@ -77,17 +77,17 @@ object Speed extends App {
 
     val compiled1: FUT = (x: Long) => {
       def prog = Lang.Examples.nfibProgram(x)
-      //println("compile...")
+      // println("compile...")
       val bc: ByteCode = Compiler.compile(prog)
-      //println("dump...")
-      bc.dump() //find in /tmp
-      //println("run...")
+      // println("dump...")
+      bc.dump() // find in /tmp
+      // println("run...")
       bc.run0()
     }
     val _ = compiled1
 
     List(
-      //NICK: add baseline for speedy on same example
+      // NICK: add baseline for speedy on same example
       "interpreter-cps" -> interpreter_cps,
       "interpreter-boxed-value" -> interpreter_boxed_value,
       "interpreter" -> interpreter,
@@ -172,7 +172,7 @@ object Speed extends App {
       println(s"eval via Interpreter --> $res1")
 
       val bc: ByteCode = Compiler.compile(prog)
-      bc.dump() //find in /tmp
+      bc.dump() // find in /tmp
       val res2 = bc.run0()
 
       println(s"eval via Compiled bytecode --> $res2")

@@ -44,7 +44,7 @@ object Interpret { // basic interpreter for Lang
                 case None => sys.error(s"FnCall: $fnName/$arity")
                 case Some(body) =>
                   val vs = args.map(eval(_)).toVector
-                  evalFrame(vs, body) //tailcall
+                  evalFrame(vs, body) // tailcall
               }
             case _ =>
               eval(body)
