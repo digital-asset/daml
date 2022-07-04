@@ -277,6 +277,24 @@ class AuthServiceJWTCodecSpec
           )
         )
       }
+
+      "support additional daml user token with prefixed audience and provided scope" in {
+        val serialized =
+          """{
+            |  "aud": ["https://daml.com/jwt/aud/participant/someParticipantId"],
+            |  "sub": "someUserId",
+            |  "exp": 100,
+            |  "scope": "daml_ledger_api"
+            |}
+          """.stripMargin
+        val expected = StandardJWTPayload(
+          participantId = Some("someParticipantId"),
+          userId = "someUserId",
+          exp = Some(Instant.ofEpochSecond(100)),
+          format = StandardJWTTokenFormat.ParticipantId,
+        )
+        parse(serialized) shouldBe Success(expected)
+      }
     }
   }
 }

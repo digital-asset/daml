@@ -195,20 +195,19 @@ object AuthServiceJWTCodec {
             None
         }
       }
-      if (scopes.contains(scopeLedgerApiFull)) {
-        // Standard JWT payload
-        StandardJWTPayload(
-          participantId = audienceValue,
-          userId = readOptionalString("sub", fields).get, // guarded by if-clause above
-          exp = readInstant("exp", fields),
-          format = StandardJWTTokenFormat.Scope,
-        )
-      } else if (participantIdForParticipantIdFormat.isDefined) {
+      if (participantIdForParticipantIdFormat.isDefined) {
         StandardJWTPayload(
           participantId = participantIdForParticipantIdFormat,
           userId = readOptionalString("sub", fields).get, // guarded by if-clause above
           exp = readInstant("exp", fields),
           format = StandardJWTTokenFormat.ParticipantId,
+        )
+      } else if (scopes.contains(scopeLedgerApiFull)) {
+        StandardJWTPayload(
+          participantId = audienceValue,
+          userId = readOptionalString("sub", fields).get, // guarded by if-clause above
+          exp = readInstant("exp", fields),
+          format = StandardJWTTokenFormat.Scope,
         )
       } else {
         if (scope.nonEmpty)
@@ -236,11 +235,11 @@ object AuthServiceJWTCodec {
             .getOrElse(
               oidcNamespace,
               deserializationError(
-                s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: namespace missing"
+                s"Could not read ${value.prettyPrint} as AuthServiceJWTPayload: namespace missing"
               ),
             )
             .asJsObject(
-              s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: namespace is not an object"
+              s"Could not read ${value.prettyPrint} as AuthServiceJWTPayload: namespace is not an object"
             )
             .fields
           CustomDamlJWTPayload(
@@ -256,7 +255,7 @@ object AuthServiceJWTCodec {
       }
     case _ =>
       deserializationError(
-        s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: value is not an object"
+        s"Could not read ${value.prettyPrint} as AuthServiceJWTPayload: value is not an object"
       )
   }
 
@@ -266,7 +265,7 @@ object AuthServiceJWTCodec {
       case Some(JsNull) => None
       case Some(JsString(value)) => Some(value)
       case Some(value) =>
-        deserializationError(s"Can't read ${value.prettyPrint} as string for $name")
+        deserializationError(s"Could not read ${value.prettyPrint} as string for $name")
     }
 
   private[this] def readOptionalStringOrSingletonArray(
@@ -279,7 +278,7 @@ object AuthServiceJWTCodec {
       case Some(JsString(value)) => Some(value)
       case Some(JsArray(Vector(JsString(value)))) => Some(value)
       case Some(value) =>
-        deserializationError(s"Can't read ${value.prettyPrint} as string for $name")
+        deserializationError(s"Could not read ${value.prettyPrint} as string for $name")
     }
 
   private[this] def readOptionalStringList(
@@ -292,10 +291,10 @@ object AuthServiceJWTCodec {
       values.toList.map {
         case JsString(value) => value
         case value =>
-          deserializationError(s"Can't read ${value.prettyPrint} as string element for $name")
+          deserializationError(s"Could not read ${value.prettyPrint} as string element for $name")
       }
     case Some(value) =>
-      deserializationError(s"Can't read ${value.prettyPrint} as string list for $name")
+      deserializationError(s"Could not read ${value.prettyPrint} as string list for $name")
   }
 
   private[this] def readOptionalBoolean(
@@ -306,7 +305,7 @@ object AuthServiceJWTCodec {
     case Some(JsNull) => None
     case Some(JsBoolean(value)) => Some(value)
     case Some(value) =>
-      deserializationError(s"Can't read ${value.prettyPrint} as boolean for $name")
+      deserializationError(s"Could not read ${value.prettyPrint} as boolean for $name")
   }
 
   private[this] def readInstant(name: String, fields: Map[String, JsValue]): Option[Instant] =
@@ -315,7 +314,7 @@ object AuthServiceJWTCodec {
       case Some(JsNull) => None
       case Some(JsNumber(epochSeconds)) => Some(Instant.ofEpochSecond(epochSeconds.longValue))
       case Some(value) =>
-        deserializationError(s"Can't read ${value.prettyPrint} as epoch seconds for $name")
+        deserializationError(s"Could not read ${value.prettyPrint} as epoch seconds for $name")
     }
 
   // ------------------------------------------------------------------------------------------------------------------
