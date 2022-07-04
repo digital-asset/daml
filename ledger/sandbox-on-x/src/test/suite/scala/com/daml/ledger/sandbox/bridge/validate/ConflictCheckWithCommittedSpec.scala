@@ -16,7 +16,7 @@ import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, GlobalKey, Transaction}
 import com.daml.lf.value.Value
@@ -27,8 +27,8 @@ import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.FixtureContext
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import java.time.Duration
 
+import java.time.Duration
 import scala.concurrent.Future
 
 class ConflictCheckWithCommittedSpec
@@ -254,5 +254,6 @@ object ConflictCheckWithCommittedSpec {
     submissionId = Some(Ref.SubmissionId.assertFromString("some-submission-id")),
     ledgerConfiguration =
       Configuration(0L, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(0L)),
+    ImmArray.empty,
   )
 }

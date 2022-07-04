@@ -51,6 +51,7 @@ class BridgeWriteServiceTest extends AnyFlatSpec with MockitoSugar with Matchers
       deduplicationPeriod = DeduplicationPeriod.DeduplicationOffset(Offset.beforeBegin),
       submissionId = Some(Ref.SubmissionId.assertFromString("some-submission-id")),
       ledgerConfiguration = Configuration.reasonableInitialConfiguration,
+      explicitlyDisclosedContracts = ImmArray.empty,
     )
 
     val transactionMeta = TransactionMeta(
