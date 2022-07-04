@@ -39,8 +39,11 @@ object Context {
   val DefInterface = new ReferenceBuilder(language.Reference.Interface)
   val DefValue = new ReferenceBuilder(language.Reference.Value)
 
-  final class Reference2Builder private[Context] (mkRef: (Identifier, Identifier) => language.Reference) {
-    def apply(id1: Identifier, id2: Identifier): Context.Reference = Context.Reference(mkRef(id1, id2))
+  final class Reference2Builder private[Context] (
+      mkRef: (Identifier, Identifier) => language.Reference
+  ) {
+    def apply(id1: Identifier, id2: Identifier): Context.Reference =
+      Context.Reference(mkRef(id1, id2))
   }
 
   val DefInterfaceCoImplements = new Reference2Builder(language.Reference.InterfaceCoImplements)
