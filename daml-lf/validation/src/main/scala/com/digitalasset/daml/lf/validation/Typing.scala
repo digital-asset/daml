@@ -542,9 +542,9 @@ private[validation] object Typing {
         coImpl: InterfaceCoImplements,
     ): Unit = {
       val tplTcon = coImpl.templateId
-
-      // NOTE (MA): we don't need to look for conflicting TemplateImplements since
-      // checkIfaceImplementation already does the other side of the check.
+      pkgInterface
+        .lookupTemplateImplements(tplTcon, ifaceTcon)
+        .foreach(_ => throw EConflictingImplementsCoImplements(ctx, tplTcon, ifaceTcon))
 
       // Note (MA): we use an empty environment and add `param : TTyCon(tplTcon)`
       Env(languageVersion, pkgInterface, Context.DefInterfaceCoImplements(tplTcon, ifaceTcon))
