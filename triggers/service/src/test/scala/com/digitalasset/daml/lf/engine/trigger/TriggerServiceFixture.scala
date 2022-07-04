@@ -178,7 +178,7 @@ trait AuthMiddlewareFixture
           userId = "",
           participantId = None,
           exp = None,
-          format = StandardJWTTokenFormat.ParticipantId,
+          format = StandardJWTTokenFormat.Scope,
         )
       else
         CustomDamlJWTPayload(
