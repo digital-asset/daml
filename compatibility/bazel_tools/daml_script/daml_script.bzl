@@ -7,18 +7,20 @@ load(
 )
 load("//bazel_tools:versions.bzl", "version_to_name", "versions")
 
-def daml_script_dar(sdk_version):
+def _build_dar(
+        name,
+        package_name,
+        sdk_version,
+        srcs,
+        data_dependencies = None):
     daml = "@daml-sdk-{sdk_version}//:daml".format(
         sdk_version = sdk_version,
     )
+    data_dependencies = data_dependencies or []
     native.genrule(
-        name = "script-example-dar-{sdk_version}".format(
-            sdk_version = version_to_name(sdk_version),
-        ),
-        srcs = ["//bazel_tools/daml_script:example/src/ScriptExample.daml"],
-        outs = ["script-example-{sdk_version}.dar".format(
-            sdk_version = version_to_name(sdk_version),
-        )],
+        name = name,
+        srcs = srcs + data_dependencies,
+        outs = ["%s.dar" % name],
         tools = [daml],
         cmd = """\
 set -euo pipefail
@@ -26,10 +28,17 @@ TMP_DIR=$$(mktemp -d)
 cleanup() {{ rm -rf $$TMP_DIR; }}
 trap cleanup EXIT
 mkdir -p $$TMP_DIR/src
-cp -L $(location //bazel_tools/daml_script:example/src/ScriptExample.daml) $$TMP_DIR/src/
+for src in {srcs}; do
+  cp -L $$src $$TMP_DIR/src
+done
+DATA_DEPS=
+for dep in {data_dependencies}; do
+  cp -L $$dep $$TMP_DIR/dep
+  DATA_DEPS="$$DATA_DEPS\n  - dep/$$(basename $$dep)"
+done
 cat <<EOF >$$TMP_DIR/daml.yaml
 sdk-version: {sdk_version}
-name: script-example
+name: {package_name}
 source: src
 parties:
   - Alice
@@ -40,14 +49,34 @@ dependencies:
   - daml-prim
   - daml-stdlib
   - daml-script
+data-dependencies:$$DATA_DEPS
 sandbox-options:
   - --wall-clock-time
 EOF
 $(location {daml}) build --project-root=$$TMP_DIR -o $$PWD/$(OUTS)
 """.format(
             daml = daml,
+            package_name = package_name,
+            data_dependencies = " ".join([
+                "$(location %s)" % dep
+                for dep in data_dependencies
+            ]),
             sdk_version = sdk_version,
+            srcs = " ".join([
+                "$(locations %s)" % src
+                for src in srcs
+            ]),
+        )
+    )
+
+def daml_script_dar(sdk_version):
+    _build_dar(
+        name = "script-example-dar-{sdk_version}".format(
+            sdk_version = version_to_name(sdk_version),
         ),
+        package_name = "script-example",
+        sdk_version = sdk_version,
+        srcs = ["//bazel_tools/daml_script:example/src/ScriptExample.daml"]
     )
 
 def daml_script_test(compiler_version, runner_version):
