@@ -11,3 +11,4 @@ interface TIf where
     controller getOwner this
     do
       dup this
+  _view: ()
