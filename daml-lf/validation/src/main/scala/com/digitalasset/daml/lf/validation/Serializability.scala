@@ -193,7 +193,8 @@ private[validation] object Serializability {
 
     val viewMethodName = MethodName.assertFromString("_view")
     defInterface.methods.get(viewMethodName) match {
-      case None => throw ENoViewFound(context, tyCon.tycon);
+      case None => {} // throw ENoViewFound(context, tyCon.tycon);
+      // ^ TODO: Make views mandatory when name clash issue is resolved
       case Some(viewMethod) =>
         try {
           Env(version, interface, context, SRChoiceRes, viewMethod.returnType).checkType()

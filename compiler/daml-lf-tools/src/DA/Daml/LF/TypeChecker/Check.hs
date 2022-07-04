@@ -883,7 +883,8 @@ checkIface m iface = do
   -- check view method exists
   case NM.lookup (MethodName "_view") (intMethods iface) of
     Nothing ->
-      throwWithContext $ ENoViewFound (intName iface)
+      pure () -- throwWithContext $ ENoViewFound (intName iface)
+      -- ^ TODO: Make views mandatory when name clash issue is resolved
     Just _ ->
       pure () -- Check that view is serializable in Serializability module
 
