@@ -24,7 +24,7 @@ class AuthorizationHelper(val authorizationTokenSecret: String) {
       participantId = None,
       userId = userId,
       exp = None,
-      format = StandardJWTTokenFormat.ParticipantId,
+      format = StandardJWTTokenFormat.Scope,
     )
     JwtSigner.HMAC256
       .sign(

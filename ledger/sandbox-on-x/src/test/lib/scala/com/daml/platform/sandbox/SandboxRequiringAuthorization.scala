@@ -44,7 +44,7 @@ trait SandboxRequiringAuthorizationFuns {
       participantId = participantId,
       userId = userId,
       exp = expiresIn.map(delta => Instant.now().plusNanos(delta.toNanos)),
-      format = StandardJWTTokenFormat.ParticipantId,
+      format = StandardJWTTokenFormat.Scope,
     )
 
   protected def randomUserId(): String = UUID.randomUUID().toString

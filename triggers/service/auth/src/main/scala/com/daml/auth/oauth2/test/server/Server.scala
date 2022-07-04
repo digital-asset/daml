@@ -105,7 +105,7 @@ class Server(config: Config) {
         userId = applicationId getOrElse "",
         participantId = None,
         exp = None,
-        format = StandardJWTTokenFormat.ParticipantId,
+        format = StandardJWTTokenFormat.Scope,
       )
     else
       CustomDamlJWTPayload(

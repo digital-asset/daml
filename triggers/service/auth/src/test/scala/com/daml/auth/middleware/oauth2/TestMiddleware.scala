@@ -153,7 +153,7 @@ abstract class TestMiddleware
     "accept user tokens" in {
       import com.daml.auth.middleware.oauth2.Server.rightsProvideClaims
       rightsProvideClaims(
-        StandardJWTPayload("foo", None, None, StandardJWTTokenFormat.ParticipantId),
+        StandardJWTPayload("foo", None, None, StandardJWTTokenFormat.Scope),
         Claims(
           admin = true,
           actAs = List(ApiTypes.Party("Alice")),
