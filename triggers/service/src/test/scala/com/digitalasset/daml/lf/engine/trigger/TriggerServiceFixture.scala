@@ -26,7 +26,12 @@ import com.daml.dbutils.{ConnectionPool, JdbcConfig}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{JwtSigner, JwtVerifier, JwtVerifierBase}
 import com.daml.ledger.api.auth
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
+import com.daml.ledger.api.auth.{
+  AuthServiceJWTCodec,
+  CustomDamlJWTPayload,
+  StandardJWTPayload,
+  StandardJWTTokenFormat,
+}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource}
@@ -169,7 +174,12 @@ trait AuthMiddlewareFixture
   ) = Some {
     val payload =
       if (sandboxClientTakesUserToken)
-        StandardJWTPayload(userId = "", participantId = None, exp = None)
+        StandardJWTPayload(
+          userId = "",
+          participantId = None,
+          exp = None,
+          format = StandardJWTTokenFormat.Scope,
+        )
       else
         CustomDamlJWTPayload(
           ledgerId = None,
