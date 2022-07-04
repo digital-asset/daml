@@ -10,7 +10,6 @@ import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
   *
   * A configuration is only submitted if one is not detected on the ledger and `enabled` flag is set to `true`
   *
-  * @param enabled                Flag which defines if this functionality is enabled.
   * @param maxDeduplicationDuration  The maximum time window during which commands can be deduplicated.
   * @param avgTransactionLatency  The expected average latency of a transaction, i.e., the average
   *                               time from submitting the transaction to a write service and the

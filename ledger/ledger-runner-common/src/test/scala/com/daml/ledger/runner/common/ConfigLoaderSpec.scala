@@ -97,7 +97,7 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues {
     )
   }
 
-  it should "successfully load config and for non-provided value take default from the object" in new TestScope {
+  it should "successfully load config and take default from the object if value not provided" in new TestScope {
     import ComplexObject._
 
     val testConf = ConfigLoader.toTypesafeConfig(
