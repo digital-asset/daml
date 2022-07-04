@@ -183,26 +183,26 @@ object AuthServiceJWTCodec {
       // We're using this rather restrictive test to ensure we continue parsing all legacy sandbox tokens that
       // are in use before the 2.0 release; and thereby maintain full backwards compatibility.
       val audienceValue = readOptionalStringOrSingletonArray(propAud, fields)
-      val participantIdForParticipantIdFormat = {
-        // Additionally to the tokens with scope containing `daml_ledger_api`, we support tokens
-        // with the audience which starts with `https://daml.com/participant/jwt/aud/participant/${participantId}`
-        // where `${participantId}` is mandatory
+      if (audienceValue.exists(_.startsWith(audPrefix))) {
+        // Tokens with audience which starts with `https://daml.com/participant/jwt/aud/participant/${participantId}`
+        // where `${participantId}` is non-empty string are supported.
         // As required for JWTs, additional fields can be in a token but will be ignored (including scope)
-        audienceValue match {
-          case Some(s) if s.startsWith(audPrefix) =>
-            Some(s.substring(audPrefix.length)).filter(_.nonEmpty)
+        audienceValue.map(_.substring(audPrefix.length)).filter(_.nonEmpty) match {
+          case Some(participantId) =>
+            StandardJWTPayload(
+              participantId = Some(participantId),
+              userId = readOptionalString("sub", fields).get, // guarded by if-clause above
+              exp = readInstant("exp", fields),
+              format = StandardJWTTokenFormat.ParticipantId,
+            )
           case _ =>
-            None
+            deserializationError(
+              s"Could not read ${value.prettyPrint} as AuthServiceJWTPayload: " +
+                s"`aud` must include participantId value prefixed by $audPrefix"
+            )
         }
-      }
-      if (participantIdForParticipantIdFormat.isDefined) {
-        StandardJWTPayload(
-          participantId = participantIdForParticipantIdFormat,
-          userId = readOptionalString("sub", fields).get, // guarded by if-clause above
-          exp = readInstant("exp", fields),
-          format = StandardJWTTokenFormat.ParticipantId,
-        )
       } else if (scopes.contains(scopeLedgerApiFull)) {
+        // We support the tokens with scope containing `daml_ledger_api`, there is no restriction of `aud` field.
         StandardJWTPayload(
           participantId = audienceValue,
           userId = readOptionalString("sub", fields).get, // guarded by if-clause above

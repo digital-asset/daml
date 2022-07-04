@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
 
 import java.time.Instant
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 class AuthServiceJWTCodecSpec
     extends AnyWordSpec
@@ -294,6 +294,60 @@ class AuthServiceJWTCodecSpec
           format = StandardJWTTokenFormat.ParticipantId,
         )
         parse(serialized) shouldBe Success(expected)
+      }
+
+      "reject the token of ParticipantId format with multiple audiences" in {
+        val serialized =
+          """{
+            |  "aud": ["https://daml.com/jwt/aud/participant/someParticipantId", 
+            |          "https://daml.com/jwt/aud/participant/someParticipantId2"],
+            |  "sub": "someUserId",
+            |  "exp": 100
+            |}
+          """.stripMargin
+        parse(serialized) shouldBe Failure(
+          DeserializationException(
+            "Could not read [\"https://daml.com/jwt/aud/participant/someParticipantId\", " +
+              "\"https://daml.com/jwt/aud/participant/someParticipantId2\"] as string for aud"
+          )
+        )
+      }
+
+      "reject the token of Scope format with multiple audiences" in {
+        val serialized =
+          """{
+            |  "aud": ["someParticipantId", 
+            |          "someParticipantId2"],
+            |  "sub": "someUserId",
+            |  "exp": 100,
+            |  "scope": "daml_ledger_api"
+            |}
+          """.stripMargin
+        parse(serialized) shouldBe Failure(
+          DeserializationException(
+            "Could not read [\"someParticipantId\", " +
+              "\"someParticipantId2\"] as string for aud"
+          )
+        )
+      }
+
+      "reject the ParticipantId format token with empty participantId" in {
+        val serialized =
+          """{
+            |  "aud": ["https://daml.com/jwt/aud/participant/"],
+            |  "sub": "someUserId",
+            |  "exp": 100
+            |}
+          """.stripMargin
+        parse(serialized) shouldBe Failure(
+          DeserializationException(
+            """Could not read {
+              |  "aud": ["https://daml.com/jwt/aud/participant/"],
+              |  "exp": 100,
+              |  "sub": "someUserId"
+              |} as AuthServiceJWTPayload: `aud` must include participantId value prefixed by https://daml.com/jwt/aud/participant/""".stripMargin
+          )
+        )
       }
     }
   }
