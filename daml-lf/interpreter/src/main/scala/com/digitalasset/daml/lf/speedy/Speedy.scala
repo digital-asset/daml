@@ -792,7 +792,7 @@ private[lf] object Speedy {
                   case V.ValueTextMap(entries) =>
                     SValue.SMap(
                       isTextMap = true,
-                      entries = entries.iterator.map { case (k, v) =>
+                      entries = entries.toImmArray.toSeq.view.map { case (k, v) =>
                         SValue.SText(k) -> go(elemType, v)
                       },
                     )
@@ -805,7 +805,7 @@ private[lf] object Speedy {
                   case V.ValueGenMap(entries) =>
                     SValue.SMap(
                       isTextMap = false,
-                      entries = entries.iterator.map { case (k, v) =>
+                      entries = entries.toSeq.view.map { case (k, v) =>
                         go(keyType, k) -> go(valueType, v)
                       },
                     )
