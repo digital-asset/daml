@@ -21,9 +21,8 @@ import com.daml.lf.value.Value.ContractId
   * or iterating over a [[com.daml.lf.transaction.HasTxNodes]] in execution order.
   * The contract state machine keeps track of the updates to the [[ContractStateMachine.ActiveLedgerState]]
   * since the beginning of the interpretation or iteration.
-  * Given a [[ContractStateMachine.State]] `s`, a client can compute the next state for a given node `n`,
-  * by calling the appropriate `handleXXX` method, i.e.,
-  * `s.handleCreate(n)`, `s.handleFetch(n)`, `s.handleExercise(n)`, `s.handleLookup(n)`, `s.handleLookupWith(n)`.
+  * Given a [[ContractStateMachine.State]] `s`, a client can compute the next state for a given action node `n`,
+  * by calling `s.handleNode(..., n, ...)`.
   * For a rollback node `nr`, a client must call `beginRollback` before processing the first child of `nr` and
   * `endRollback` after processing the last child of `nr`.
   *
@@ -372,16 +371,21 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       }
     }
 
-    /** Handle a leaf node (create, fetch, lookup) [[ContractKeyUniquenessMode.Strict]] mode.
-      * @throws java.lang.UnsupportedOperationException if called on [[Node.LookupByKey]] and
-      *   mode is not [[ContractKeyUniquenessMode.Strict]].
+    /** Utility method that takes a node and computes the corresponding next state.
+      * The method does not handle any children of `node`; it is up to the caller to do that.
+      * @param keyInput will only be used in mode [[ContractKeyUniquenessMode.Off]] and if the node is a lookupByKey
       */
-    def handleLeaf(leaf: Node.LeafOnlyAction): Either[KeyInputError, State] =
-      leaf match {
-        case create: Node.Create => handleCreate(create)
-        case fetch: Node.Fetch => handleFetch(fetch)
-        case lookup: Node.LookupByKey => handleLookup(lookup)
-      }
+    def handleNode(id: Nid, node: Node.Action, keyInput: => Option[ContractId]): Either[KeyInputError, State] = node match {
+      case create: Node.Create => handleCreate(create)
+      case fetch: Node.Fetch => handleFetch(fetch)
+      case lookup: Node.LookupByKey =>
+        mode match {
+          case ContractKeyUniquenessMode.Strict => handleLookup(lookup)
+          case ContractKeyUniquenessMode.Off => handleLookupWith(lookup, keyInput)
+        }
+
+      case exercise: Node.Exercise => handleExercise(id, exercise)
+    }
 
     /** To be called when interpretation enters a try block or iteration enters a Rollback node
       * Must be matched by [[endRollback]] or [[dropRollback]].

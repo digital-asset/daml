@@ -514,7 +514,7 @@ sealed abstract class HasTxNodes {
       rollbackBegin =
         (acc, _, _) => (acc.map(_.beginRollback()), Transaction.ChildrenRecursion.DoRecurse),
       rollbackEnd = (acc, _, _) => acc.map(_.endRollback()),
-      leaf = (acc, _, leaf) => acc.flatMap(_.handleLeaf(leaf)),
+      leaf = (acc, nid, leaf) => acc.flatMap(_.handleNode(nid, leaf, None)), // ok to use None as keyInput, because mode is strict
     ).map(_.globalKeyInputs)
   }
 

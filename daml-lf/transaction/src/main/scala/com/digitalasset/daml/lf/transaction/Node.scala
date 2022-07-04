@@ -39,6 +39,8 @@ object Node {
 
     def templateId: TypeConName
 
+    def keyO: Option[KeyWithMaintainers]
+
     final override protected def self: this.type = this
 
     /** Required authorizers (see ledger model); UNSAFE TO USE on fetch nodes of transaction with versions < 5
@@ -86,6 +88,8 @@ object Node {
 
     override def byKey: Boolean = false
 
+    override def keyO: Option[KeyWithMaintainers] = key
+
     override private[lf] def updateVersion(version: TransactionVersion): Node.Create =
       copy(version = version)
 
@@ -120,6 +124,8 @@ object Node {
       override val version: TransactionVersion,
   ) extends LeafOnlyAction
       with ActionNodeInfo.Fetch {
+
+    override def keyO: Option[KeyWithMaintainers] = key
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.Fetch =
       copy(version = version)
@@ -160,6 +166,8 @@ object Node {
   ) extends Action
       with ActionNodeInfo.Exercise {
 
+    override def keyO: Option[KeyWithMaintainers] = key
+
     override private[lf] def updateVersion(
         version: TransactionVersion
     ): Node.Exercise =
@@ -195,6 +203,8 @@ object Node {
       override val version: TransactionVersion,
   ) extends LeafOnlyAction
       with ActionNodeInfo.LookupByKey {
+
+    override def keyO: Some[KeyWithMaintainers] = Some(key)
 
     override def mapCid(f: ContractId => ContractId): Node.LookupByKey =
       copy(key = key.mapCid(f), result = result.map(f))

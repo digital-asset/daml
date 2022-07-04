@@ -607,18 +607,9 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val node = nodes(root)
     for {
       next <- node match {
-        case create: Node.Create =>
-          state.handleCreate(create)
-        case exercise: Node.Exercise =>
-          state.handleExercise((), exercise)
-        case fetch: Node.Fetch =>
-          state.handleFetch(fetch)
-        case lookup: Node.LookupByKey =>
-          val gkey = GlobalKey.assertBuild(lookup.templateId, lookup.key.key)
-          if (state.mode == ContractKeyUniquenessMode.Strict)
-            state.handleLookup(lookup)
-          else
-            state.handleLookupWith(lookup, resolver(gkey))
+        case actionNode: Node.Action =>
+          lazy val gkeyO = actionNode.keyO.map(key => GlobalKey.assertBuild(actionNode.templateId, key.key))
+          state.handleNode((), actionNode, gkeyO.flatMap(resolver))
         case _: Node.Rollback =>
           Right(state.beginRollback())
       }
