@@ -191,7 +191,7 @@ private[validation] object Serializability {
       Env(flags, pkgInterface, context, SRChoiceRes, choice.returnType).checkType()
     }
 
-    val viewMethodName = MethodName.fromString("_view").toOption.get
+    val viewMethodName = MethodName.assertFromString("_view")
     defInterface.methods.get(viewMethodName) match {
       case None => throw ENoViewFound(context, tyCon.tycon);
       case Some(viewMethod) =>
