@@ -112,6 +112,10 @@ final class CliConfigSpec
     )
   }
 
+  it should "be running in Run mode if parameters list is empty" in new TestScope {
+    configParser(Seq()).value.mode shouldBe Mode.Run
+  }
+
   it should "fail if a participant is not provided in run mode" in new TestScope {
     configParser(Seq("run-legacy-cli-config")) shouldEqual None
   }
