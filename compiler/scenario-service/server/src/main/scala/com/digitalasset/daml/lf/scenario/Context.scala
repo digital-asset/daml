@@ -171,14 +171,14 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     val ledgerClient: IdeLedgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog)
     val participants = Participants(Some(ledgerClient), Map.empty, Map.empty)
     val (clientMachine, resultF) = Runner.run(
-      compiledPackages,
-      scriptId,
-      None,
-      None,
-      participants,
-      ScriptTimeMode.Static,
-      traceLog,
-      warningLog,
+      compiledPackages = compiledPackages,
+      scriptId = scriptId,
+      convertInputValue = None,
+      inputValue = None,
+      initialClients = participants,
+      timeMode = ScriptTimeMode.Static,
+      traceLog = traceLog,
+      warningLog = warningLog,
     )
 
     def handleFailure(e: Error) =
