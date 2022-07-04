@@ -112,11 +112,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         id = "MAXIMUM_NUMBER_OF_STREAMS",
         ErrorCategory.ContentionOnSharedResources,
       ) {
-    case class Rejection(value: Long, limit: Long, metricPrefix: String, fullMethodName: String)(
+    case class Rejection(value: Long, limit: Int, metricPrefix: String, fullMethodName: String)(
         implicit errorLogger: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause =
-            s"The number of streams in use ($value) has been exceeded the limit ($limit). Metrics are available at $metricPrefix.",
+            s"The number of streams in use ($value) has reached or exceeded the limit ($limit). Metrics are available at $metricPrefix.",
           extraContext = Map(
             "value" -> value,
             "limit" -> limit,

@@ -22,6 +22,7 @@ final case class RateLimitingConfig(
     maxApiServicesIndexDbQueueSize: Int,
     maxUsedHeapSpacePercentage: Int,
     minFreeHeapSpaceBytes: Long,
+    maxStreams: Int,
 ) {
   def calculateCollectionUsageThreshold(maxPoolBytes: Long): Long = {
     val thresholdBasedOnUsedPercentage = (maxUsedHeapSpacePercentage * maxPoolBytes) / 100
@@ -39,5 +40,6 @@ case object RateLimitingConfig {
     maxApiServicesIndexDbQueueSize = 1000,
     maxUsedHeapSpacePercentage = 85,
     minFreeHeapSpaceBytes = 300 * Megabyte,
+    maxStreams = 1000,
   )
 }
