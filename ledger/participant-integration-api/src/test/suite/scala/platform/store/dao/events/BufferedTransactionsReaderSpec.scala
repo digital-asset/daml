@@ -72,7 +72,7 @@ class BufferedTransactionsReaderSpec
       }
       .toMap
 
-    val transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
+    val transactionsBuffer = EventsBuffer[TransactionLogUpdate](
       maxBufferSize = 3,
       metrics = metrics,
       bufferQualifier = "test",
@@ -157,7 +157,7 @@ class BufferedTransactionsReaderSpec
       }
 
       "fetch from buffer and storage chunked" in {
-        val transactionsBufferWithSmallChunkSize = new EventsBuffer[TransactionLogUpdate](
+        val transactionsBufferWithSmallChunkSize = EventsBuffer[TransactionLogUpdate](
           maxBufferSize = 3,
           metrics = metrics,
           bufferQualifier = "test",
@@ -191,7 +191,7 @@ class BufferedTransactionsReaderSpec
 
     "request before buffer bounds" should {
       "fetch only from storage" in {
-        val transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
+        val transactionsBuffer = EventsBuffer[TransactionLogUpdate](
           maxBufferSize = 1,
           metrics = metrics,
           bufferQualifier = "test",

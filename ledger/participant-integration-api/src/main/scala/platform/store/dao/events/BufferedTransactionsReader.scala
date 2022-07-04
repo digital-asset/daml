@@ -16,7 +16,8 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref.TransactionId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
+import com.daml.platform.store.cache.EventsBuffer
+import com.daml.platform.store.cache.EventsBuffer.BufferSlice
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
 import com.daml.platform.store.dao.events.BufferedTransactionsReader.{
   getTransactions,

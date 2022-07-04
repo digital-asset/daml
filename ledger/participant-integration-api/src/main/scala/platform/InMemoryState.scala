@@ -80,7 +80,7 @@ object InMemoryState {
         maxContractKeyStateCacheSize,
         metrics,
       )(executionContext, loggingContext),
-      transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
+      transactionsBuffer = EventsBuffer[TransactionLogUpdate](
         maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
         metrics = metrics,
         bufferQualifier = "transactions",

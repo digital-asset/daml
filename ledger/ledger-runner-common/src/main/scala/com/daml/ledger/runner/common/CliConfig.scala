@@ -493,8 +493,7 @@ object CliConfig {
           s"Number of transactions fetched from the buffer when serving streaming calls. Default is ${IndexServiceConfig.DefaultBufferedStreamsPageSize}."
         )
         .validate { pageSize =>
-          if (pageSize > 0) Right(())
-          else Left("buffered-streams-page-size should be strictly positive")
+          Either.cond(pageSize > 0, (), "buffered-streams-page-size should be strictly positive")
         }
         .action((pageSize, config) => config.copy(bufferedStreamsPageSize = pageSize)),
       opt[Int]("ledger-api-transactions-buffer-max-size")
@@ -502,6 +501,13 @@ object CliConfig {
         .hidden()
         .text(
           s"Maximum size of the in-memory fan-out buffer used for serving Ledger API transaction streams. Default is ${IndexServiceConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize}."
+        )
+        .validate(bufferSize =>
+          Either.cond(
+            bufferSize >= 0,
+            (),
+            "ledger-api-transactions-buffer-max-size must be greater than or equal to 0.",
+          )
         )
         .action((maxBufferSize, config) =>
           config.copy(maxTransactionsInMemoryFanOutBufferSize = maxBufferSize)
