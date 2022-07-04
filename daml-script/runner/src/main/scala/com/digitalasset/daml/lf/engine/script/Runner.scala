@@ -320,14 +320,14 @@ object Runner {
   ): Future[SValue] = {
     val darMap = dar.all.toMap
     val compiledPackages = PureCompiledPackages.assertBuild(darMap, Runner.compilerConfig)
-    def converter(json: JsValue, `type`: Type) = {
+    def converter(json: JsValue, typ: Type) = {
       val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
       val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
       Converter.fromJsonValue(
         scriptId.qualifiedName,
         envIface,
         compiledPackages,
-        `type`,
+        typ,
         json,
       )
     }
