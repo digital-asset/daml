@@ -492,7 +492,7 @@ private[validation] object Typing {
         implMethods: List[(MethodName, Expr)],
     ): Unit = {
       val DefInterfaceSignature(requires, _, _, methods, _, _) =
-        handleLookup(ctx, interface.lookupInterface(ifaceTcon))
+        handleLookup(ctx, pkgInterface.lookupInterface(ifaceTcon))
 
       requires
         .filterNot(required =>
@@ -520,7 +520,7 @@ private[validation] object Typing {
         impl: TemplateImplements,
     ): Unit = {
       val ifaceTcon = impl.interfaceId
-      interface
+      pkgInterface
         .lookupInterfaceCoImplements(tplTcon, ifaceTcon)
         .foreach(_ => throw EConflictingImplementsCoImplements(ctx, tplTcon, ifaceTcon))
       checkGenImplementation(
@@ -547,7 +547,7 @@ private[validation] object Typing {
       // checkIfaceImplementation already does the other side of the check.
 
       // Note (MA): we use an empty environment and add `param : TTyCon(tplTcon)`
-      Env(languageVersion, interface, Context.DefInterfaceCoImplements(tplTcon, ifaceTcon))
+      Env(languageVersion, pkgInterface, Context.DefInterfaceCoImplements(tplTcon, ifaceTcon))
         .introExprVar(param, TTyCon(tplTcon))
         .checkGenImplementation(
           tplTcon,
