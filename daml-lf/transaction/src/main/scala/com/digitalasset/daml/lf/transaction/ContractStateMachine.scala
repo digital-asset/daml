@@ -375,7 +375,11 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       * The method does not handle any children of `node`; it is up to the caller to do that.
       * @param keyInput will only be used in mode [[ContractKeyUniquenessMode.Off]] and if the node is a lookupByKey
       */
-    def handleNode(id: Nid, node: Node.Action, keyInput: => Option[ContractId]): Either[KeyInputError, State] = node match {
+    def handleNode(
+        id: Nid,
+        node: Node.Action,
+        keyInput: => Option[ContractId],
+    ): Either[KeyInputError, State] = node match {
       case create: Node.Create => handleCreate(create)
       case fetch: Node.Fetch => handleFetch(fetch)
       case lookup: Node.LookupByKey =>
