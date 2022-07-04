@@ -36,6 +36,9 @@ let
         # This should be upstreamed once we tested it a bit
         # on our own setup.
         ./bazel-retry-cache.patch
+        # Allow Bazel to run inside qemu (this is fixed in Bazel 5.2.0)
+        # see https://github.com/bazelbuild/bazel/pull/15223
+        ./bazel-getselfpath-qemu.patch
       ];
     });
     haskell = pkgs.haskell // {

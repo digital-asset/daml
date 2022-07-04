@@ -1,0 +1,106 @@
+From 9660108741e32831fdf49b3070376910c850a3ce Mon Sep 17 00:00:00 2001
+From: pcloudy <pcloudy@google.com>
+Date: Tue, 12 Apr 2022 08:42:43 -0700
+Subject: [PATCH] Seperate GetSelfPath implementation for Blaze and Bazel
+
+In Blaze, we keep using "/proc/self/exe", but in Bazel we resolve this symlink
+to the actual Bazel binary.
+
+This is essentially a rollback of
+https://github.com/bazelbuild/bazel/commit/d79ec039a42feea4e4c059eca29f64b40aa8583a
+only for Bazel, because it solved an issue that rare in Bazel,
+but it's preventing users from running Bazel inside a Linux docker container on Apple Silicon machines.
+
+Fixes https://github.com/bazelbuild/bazel/issues/15076
+
+Closes https://github.com/bazelbuild/bazel/pull/14391
+
+RELNOTES: None
+PiperOrigin-RevId: 441198110
+---
+ src/main/cpp/BUILD                  |  1 +
+ src/main/cpp/blaze_util_linux.cc    |  7 -----
+ src/main/cpp/get_self_path_linux.cc | 44 +++++++++++++++++++++++++++++
+ 3 files changed, 45 insertions(+), 7 deletions(-)
+ create mode 100644 src/main/cpp/get_self_path_linux.cc
+
+diff --git a/src/main/cpp/BUILD b/src/main/cpp/BUILD
+index eed7e201682c..ffe7caf6bb5b 100644
+--- a/src/main/cpp/BUILD
++++ b/src/main/cpp/BUILD
+@@ -36,6 +36,7 @@ cc_library(
+         "//conditions:default": [
+             "blaze_util_linux.cc",
+             "blaze_util_posix.cc",
++            "get_self_path_linux.cc",
+         ],
+     }),
+     hdrs = [
+diff --git a/src/main/cpp/blaze_util_linux.cc b/src/main/cpp/blaze_util_linux.cc
+index 2183d43f6116..730a7064a4d3 100644
+--- a/src/main/cpp/blaze_util_linux.cc
++++ b/src/main/cpp/blaze_util_linux.cc
+@@ -82,13 +82,6 @@ void WarnFilesystemType(const blaze_util::Path &output_base) {
+   }
+ }
+ 
+-string GetSelfPath(const char* argv0) {
+-  // The file to which this symlink points could change contents or go missing
+-  // concurrent with execution of the Bazel client, so we don't eagerly resolve
+-  // it.
+-  return "/proc/self/exe";
+-}
+-
+ uint64_t GetMillisecondsMonotonic() {
+   struct timespec ts = {};
+   clock_gettime(CLOCK_MONOTONIC, &ts);
+diff --git a/src/main/cpp/get_self_path_linux.cc b/src/main/cpp/get_self_path_linux.cc
+new file mode 100644
+index 000000000000..ee447cab70e1
+--- /dev/null
++++ b/src/main/cpp/get_self_path_linux.cc
+@@ -0,0 +1,44 @@
++// Copyright 2022 The Bazel Authors. All rights reserved.
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//    http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#include <unistd.h>
++#include <limits.h>
++
++#include "src/main/cpp/blaze_util_platform.h"
++#include "src/main/cpp/util/errors.h"
++#include "src/main/cpp/util/exit_code.h"
++#include "src/main/cpp/util/logging.h"
++
++namespace blaze {
++
++using blaze_util::GetLastErrorString;
++using std::string;
++
++string GetSelfPath(const char* argv0) {
++  char buffer[PATH_MAX] = {};
++  ssize_t bytes = readlink("/proc/self/exe", buffer, sizeof(buffer));
++  if (bytes == sizeof(buffer)) {
++    // symlink contents truncated
++    bytes = -1;
++    errno = ENAMETOOLONG;
++  }
++  if (bytes == -1) {
++    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
++        << "error reading /proc/self/exe: " << GetLastErrorString();
++  }
++  buffer[bytes] = '\0';  // readlink does not NUL-terminate
++  return string(buffer);
++}
++
++}  // namespace blaze
