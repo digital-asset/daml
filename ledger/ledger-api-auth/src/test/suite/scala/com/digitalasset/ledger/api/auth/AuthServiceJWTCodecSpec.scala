@@ -339,15 +339,8 @@ class AuthServiceJWTCodecSpec
             |  "exp": 100
             |}
           """.stripMargin
-        parse(serialized) shouldBe Failure(
-          DeserializationException(
-            """Could not read {
-              |  "aud": ["https://daml.com/jwt/aud/participant/"],
-              |  "exp": 100,
-              |  "sub": "someUserId"
-              |} as AuthServiceJWTPayload: `aud` must include participantId value prefixed by https://daml.com/jwt/aud/participant/""".stripMargin
-          )
-        )
+        parse(serialized).failed.get.getMessage
+          .contains("must include participantId value prefixed by") shouldBe true
       }
     }
   }
