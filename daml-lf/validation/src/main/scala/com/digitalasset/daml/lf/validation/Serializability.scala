@@ -195,6 +195,8 @@ private[validation] object Serializability {
     defInterface.methods.get(viewMethodName) match {
       case None => {} // throw ENoViewFound(context, tyCon.tycon);
       // ^ TODO: Make views mandatory when name clash issue is resolved
+      // https://github.com/digital-asset/daml/issues/14112
+      // https://github.com/digital-asset/daml/pull/14322#issuecomment-1173692581
       case Some(viewMethod) =>
         try {
           Env(version, interface, context, SRChoiceRes, viewMethod.returnType).checkType()

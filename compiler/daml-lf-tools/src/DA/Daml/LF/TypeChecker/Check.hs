@@ -884,7 +884,9 @@ checkIface m iface = do
   case NM.lookup (MethodName "_view") (intMethods iface) of
     Nothing ->
       pure () -- throwWithContext $ ENoViewFound (intName iface)
-      -- ^ TODO: Make views mandatory when name clash issue is resolved
+      -- ^ TODO: Make views mandatory when name clash issue is resolved,
+      -- https://github.com/digital-asset/daml/issues/14112
+      -- https://github.com/digital-asset/daml/pull/14322#issuecomment-1173692581
     Just _ ->
       pure () -- Check that view is serializable in Serializability module
 
