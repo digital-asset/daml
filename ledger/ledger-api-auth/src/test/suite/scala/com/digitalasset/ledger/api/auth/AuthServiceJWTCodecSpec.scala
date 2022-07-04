@@ -56,6 +56,12 @@ class AuthServiceJWTCodecSpec
       )
     )
 
+  // participantId is mandatory for the format `StandardJWTTokenFormat.ParticipantId`
+  private val StandardJWTPayloadGen = Gen.resultOf(StandardJWTPayload).filterNot { payload =>
+    !payload.participantId
+      .exists(_.nonEmpty) && payload.format == StandardJWTTokenFormat.ParticipantId
+  }
+
   "AuthServiceJWTPayload codec" when {
 
     "serializing and parsing a value" should {
@@ -68,13 +74,10 @@ class AuthServiceJWTCodecSpec
       })
 
       "work for arbitrary standard Daml token values" in forAll(
-        Gen.resultOf(StandardJWTPayload),
+        StandardJWTPayloadGen,
         minSuccessful(100),
       ) { value =>
-        // `participantId` is being used to identify the format of the token `ParticipantId` or `Scope`.
-        // It is impossible to distinguish empty string `participantId` and non-provided `participantId`
-        val filtered = value.copy(participantId = value.participantId.filter(_.nonEmpty))
-        serializeAndParse(filtered) shouldBe Success(filtered)
+        serializeAndParse(value) shouldBe Success(value)
       }
 
       "support OIDC compliant sandbox format" in {

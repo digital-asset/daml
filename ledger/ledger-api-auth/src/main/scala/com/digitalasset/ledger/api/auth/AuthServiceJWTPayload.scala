@@ -183,6 +183,18 @@ object AuthServiceJWTCodec {
       // We're using this rather restrictive test to ensure we continue parsing all legacy sandbox tokens that
       // are in use before the 2.0 release; and thereby maintain full backwards compatibility.
       val audienceValue = readOptionalStringOrSingletonArray(propAud, fields)
+      val participantIdForParticipantIdFormat = {
+        // Additionally to the tokens with scope containing `daml_ledger_api`, we support tokens
+        // with the audience which starts with `https://daml.com/participant/jwt/aud/participant/${participantId}`
+        // where `${participantId}` is mandatory
+        // As required for JWTs, additional fields can be in a token but will be ignored (including scope)
+        audienceValue match {
+          case Some(s) if s.startsWith(audPrefix) =>
+            Some(s.substring(audPrefix.length)).filter(_.nonEmpty)
+          case _ =>
+            None
+        }
+      }
       if (scopes.contains(scopeLedgerApiFull)) {
         // Standard JWT payload
         StandardJWTPayload(
@@ -191,12 +203,9 @@ object AuthServiceJWTCodec {
           exp = readInstant("exp", fields),
           format = StandardJWTTokenFormat.Scope,
         )
-      } else if (audienceValue.exists(_.startsWith(audPrefix))) {
-        // Additionally to the tokens with scope containing `daml_ledger_api`, we support tokens
-        // with the audience which starts with `https://daml.com/participant/jwt/aud/participant/`.
-        // As required for JWT, all additional fields including scope are ignored for those tokens.
+      } else if (participantIdForParticipantIdFormat.isDefined) {
         StandardJWTPayload(
-          participantId = audienceValue.map(_.substring(audPrefix.length)).filter(_.nonEmpty),
+          participantId = participantIdForParticipantIdFormat,
           userId = readOptionalString("sub", fields).get, // guarded by if-clause above
           exp = readInstant("exp", fields),
           format = StandardJWTTokenFormat.ParticipantId,
