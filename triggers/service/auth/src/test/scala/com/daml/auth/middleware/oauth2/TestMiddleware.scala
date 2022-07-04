@@ -388,7 +388,7 @@ class TestMiddlewareUserToken extends TestMiddleware {
       userId = "test-application",
       participantId = None,
       exp = expiresIn.map(in => clock.instant.plus(in)),
-      format = StandardJWTTokenFormat.ParticipantId,
+      format = StandardJWTTokenFormat.Scope,
     )
 }
 
