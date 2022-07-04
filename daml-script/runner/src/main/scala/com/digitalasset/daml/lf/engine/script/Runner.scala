@@ -371,7 +371,7 @@ object Runner {
               case Right(arg) => script.apply(SEValue(arg))
             }
           case None =>
-            throw new ConverterException(
+            throw new RuntimeException(
               s"The script ${scriptId} requires an argument, but a converter was not provided"
             )
         }
