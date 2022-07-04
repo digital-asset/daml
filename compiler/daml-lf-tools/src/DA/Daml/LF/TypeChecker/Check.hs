@@ -35,7 +35,7 @@ module DA.Daml.LF.TypeChecker.Check
     ) where
 
 import Data.Hashable
-import           Control.Lens hiding (Context, para)
+import           Control.Lens hiding (Context, MethodName, para)
 import           Control.Monad.Extra
 import           Data.Foldable
 import           Data.Functor
@@ -879,6 +879,13 @@ checkIface m iface = do
   introExprVar (intParam iface) (TCon tcon) $ do
     forM_ (intChoices iface) (checkTemplateChoice tcon)
     checkExpr (intPrecondition iface) TBool
+
+  -- check view method exists
+  case NM.lookup (MethodName "_view") (intMethods iface) of
+    Nothing ->
+      throwWithContext $ ENoViewFound (intName iface)
+    Just _ ->
+      pure () -- Check that view is serializable in Serializability module
 
 checkIfaceMethod :: MonadGamma m => InterfaceMethod -> m ()
 checkIfaceMethod InterfaceMethod{ifmType} = do

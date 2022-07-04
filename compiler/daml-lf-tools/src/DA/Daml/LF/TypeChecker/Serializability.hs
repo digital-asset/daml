@@ -185,7 +185,7 @@ checkInterface _mod0 iface = do
       checkType SRChoiceRes (chcReturnType ch)
 
   case NM.lookup (MethodName "_view") (intMethods iface) of
-    Nothing -> throwWithContext $ ENoViewFound (intName iface)
+    Nothing -> pure () -- If no view is found, throw error in Typecheck
     Just method ->
       let err = EViewNotSerializable (intName iface) (ifmType method)
       in
