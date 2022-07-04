@@ -201,22 +201,21 @@ object SValue {
         isTextMap: Boolean,
         entries: IndexedSeqView[(SValue, SValue)],
     ): SMap =
-      SMap(isTextMap, TreeMap.from(SortedMap.from(entries)))
+      SMap(isTextMap, TreeMap.from(SortedMap.from(entries))) // FIXME: need to generate SortedMap from entries in O(n)
 
     /** Build an SMap from an iterator over SValue key/value pairs.
       *
-      * SValue keys are not ordered - hence the SMap will be built in time O(n log(n)).
+      * SValue keys are not assumed to be ordered - hence the SMap will be built in time O(n log(n)).
       */
-    def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SMap = {
+    def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SMap =
       SMap(
         isTextMap,
         entries.map { case p @ (k, _) => comparable(k); p }.to(TreeMap),
       )
-    }
 
     /** Build an SMap from a vararg sequence of SValue key/value pairs.
       *
-      * SValue keys are not ordered - hence the SMap will be built in time O(n log(n)).
+      * SValue keys are not assumed to be ordered - hence the SMap will be built in time O(n log(n)).
       */
     def apply(isTextMap: Boolean, entries: (SValue, SValue)*): SMap =
       SMap(isTextMap: Boolean, entries.iterator)
