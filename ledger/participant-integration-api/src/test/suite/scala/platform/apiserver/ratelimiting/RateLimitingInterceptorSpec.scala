@@ -1,11 +1,9 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.apiserver
+package com.daml.platform.apiserver.ratelimiting
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.error.NoLogging
-import com.daml.error.definitions.LedgerApiErrors.MaximumNumberOfStreams
 import com.daml.grpc.adapter.utils.implementations.HelloServiceAkkaImplementation
 import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
 import com.daml.ledger.api.health.HealthChecks.ComponentName
@@ -14,8 +12,6 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.apiserver.RateLimitingInterceptor.{LimitResult, OverLimit, UnderLimit}
-import com.daml.platform.apiserver.TenuredMemoryPool.findTenuredMemoryPool
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.configuration.ServerRole
@@ -46,7 +42,6 @@ import java.io.IOException
 import java.lang.management._
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Future, Promise}
 
 final class RateLimitingInterceptorSpec
@@ -63,31 +58,6 @@ final class RateLimitingInterceptorSpec
     PatienceConfig(timeout = scaled(Span(1, Second)))
 
   private val config = RateLimitingConfig(100, 10, 75, 100 * RateLimitingConfig.Megabyte, 100)
-
-  behavior of "LimitResult"
-
-  def underCheck(): LimitResult = UnderLimit
-  def overCheck(method: String): LimitResult = OverLimit(
-    MaximumNumberOfStreams.Rejection(0, 0, "", method)(NoLogging)
-  )
-
-  it should "compose under limit" in {
-    val actual: LimitResult = for {
-      _ <- underCheck()
-      _ <- underCheck()
-    } yield ()
-    actual shouldBe UnderLimit
-  }
-
-  it should "compose over limit" in {
-    val expected = overCheck("First issue")
-    val actual: LimitResult = for {
-      _ <- underCheck()
-      _ <- expected
-      _ <- overCheck("Other failure")
-    } yield ()
-    actual shouldBe expected
-  }
 
   behavior of "RateLimitingInterceptor"
 
@@ -420,33 +390,6 @@ final class RateLimitingInterceptorSpec
     underTest.calculateCollectionUsageThreshold(101000) shouldBe 100000 // 101000 - 1000
   }
 
-  it should "use largest tenured pool as rate limiting pool" in {
-    val expected = underLimitMemoryPoolMXBean()
-    when(expected.getCollectionUsage).thenReturn(new MemoryUsage(0, 0, 0, 100))
-    findTenuredMemoryPool(config, Nil) shouldBe None
-    findTenuredMemoryPool(
-      config,
-      List(
-        underLimitMemoryPoolMXBean(),
-        expected,
-        underLimitMemoryPoolMXBean(),
-      ),
-    ) shouldBe Some(expected)
-  }
-
-  it should "throttle calls to GC" in {
-    val delegate = mock[MemoryMXBean]
-    val delayBetweenCalls = 100.milliseconds
-    val underTest = new GcThrottledMemoryBean(delegate, delayBetweenCalls)
-    underTest.gc()
-    underTest.gc()
-    verify(delegate, times(1)).gc()
-    Thread.sleep(2 * delayBetweenCalls.toMillis)
-    underTest.gc()
-    verify(delegate, times(2)).gc()
-    succeed
-  }
-
 }
 
 object RateLimitingInterceptorSpec extends MockitoSugar {
@@ -455,7 +398,7 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
   private val healthChecks = new HealthChecks(Map.empty[ComponentName, ReportsHealth])
 
   // For tests that do not involve memory
-  def underLimitMemoryPoolMXBean(): MemoryPoolMXBean = {
+  private def underLimitMemoryPoolMXBean(): MemoryPoolMXBean = {
     val memoryPoolBean = mock[MemoryPoolMXBean]
     when(memoryPoolBean.getType).thenReturn(MemoryType.HEAP)
     when(memoryPoolBean.getName).thenReturn("UnderLimitPool")
