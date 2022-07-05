@@ -10,7 +10,8 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.duration._
 
 final case class MetricsConfig(
-    reporter: Option[MetricsReporter] = None,
+    enabled: Boolean = false,
+    reporter: MetricsReporter = MetricsReporter.Console,
     reportingInterval: Duration = 10.seconds,
     registryType: MetricRegistryType = MetricRegistryType.JvmShared,
 )
@@ -18,8 +19,8 @@ final case class MetricsConfig(
 object MetricsConfig {
   sealed trait MetricRegistryType
   object MetricRegistryType {
-    case object JvmShared extends MetricRegistryType
-    case object New extends MetricRegistryType
+    final case object JvmShared extends MetricRegistryType
+    final case object New extends MetricRegistryType
   }
   val DefaultMetricsConfig: MetricsConfig = MetricsConfig()
 }

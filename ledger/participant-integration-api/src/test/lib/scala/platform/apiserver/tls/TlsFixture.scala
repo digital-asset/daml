@@ -5,7 +5,6 @@ package com.daml.platform.apiserver.tls
 
 import java.io.File
 import java.util.concurrent.Executors
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
 import com.daml.ledger.api.tls.TlsConfiguration

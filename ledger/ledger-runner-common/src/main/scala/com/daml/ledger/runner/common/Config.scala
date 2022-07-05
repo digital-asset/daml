@@ -40,7 +40,9 @@ object Config {
     ParticipantConfig.DefaultParticipantId -> ParticipantConfig()
   )
   val DefaultParticipantsDatasourceConfig: Map[ParticipantId, ParticipantDataSourceConfig] = Map(
-    ParticipantConfig.DefaultParticipantId -> ParticipantDataSourceConfig("default-jdbc-url")
+    ParticipantConfig.DefaultParticipantId -> ParticipantDataSourceConfig(
+      "jdbc:h2:mem:default;db_close_delay=-1;db_close_on_exit=false"
+    )
   )
   val Default: Config = Config()
 }

@@ -72,7 +72,8 @@ getSandboxProc SandboxConfig{..} portFile = do
                 ]
         else pure []
     pure $ proc sandbox $ concat
-        [ [ "--participant=participant-id=sandbox-participant,port=0,port-file=" <> portFile ]
+        [ ["run-legacy-cli-config"]
+        , [ "--participant=participant-id=sandbox-participant,port=0,port-file=" <> portFile ]
         , tlsArgs
         , Maybe.maybeToList timeArg
         , [ "--client-auth=" <> clientAuthArg auth | Just auth <- [mbClientAuth] ]
