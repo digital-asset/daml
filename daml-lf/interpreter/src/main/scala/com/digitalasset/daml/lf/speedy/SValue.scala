@@ -171,7 +171,7 @@ object SValue {
 
   final case class SList(list: FrontStack[SValue]) extends SValue
 
-  // We make the constructor private to ensure entries are sorted according `SMap Ordering`
+  // We make the constructor private to ensure entries are sorted using `SMap Ordering`
   final case class SMap private (isTextMap: Boolean, entries: TreeMap[SValue, SValue])
       extends SValue
       with NoCopy {
@@ -195,13 +195,54 @@ object SValue {
 
     /** Build an SMap from an indexed sequence of SValue key/value pairs.
       *
-      * SValue keys are assumed to be ordered - hence the SMap will be built in time O(n).
+      * SValue keys are assumed to be in ascending order - hence the SMap's TreeMap will be built in time O(n) using a
+      * sorted map specialisation.
       */
     def apply(
         isTextMap: Boolean,
         entries: IndexedSeqView[(SValue, SValue)],
-    ): SMap =
-      SMap(isTextMap, TreeMap.from(SortedMap.from(entries))) // FIXME: need to generate SortedMap from entries in O(n)
+    ): SMap = {
+      require(
+        entries
+          .foldLeft[(Boolean, Option[SValue])]((true, None)) {
+            case ((result, previousKey), (currentKey, _)) =>
+              (result && previousKey.forall(`SMap Ordering`.lteq(_, currentKey)), Some(currentKey))
+          }
+          ._1,
+        "The entries are not in descending order",
+      )
+
+      val sortedEntryMap: SortedMap[SValue, SValue] = new SortedMap[SValue, SValue] {
+        private[this] val encapsulatedSortedMap = SortedMap.from(entries)
+
+        override def iterator: Iterator[(SValue, SValue)] = entries.iterator
+
+        override def size: Int = entries.size
+
+        override def updated[V1 >: SValue](key: SValue, value: V1): SortedMap[SValue, V1] =
+          encapsulatedSortedMap.updated(key, value)
+
+        override def removed(key: SValue): SortedMap[SValue, SValue] =
+          encapsulatedSortedMap.removed(key)
+
+        override def iteratorFrom(start: SValue): Iterator[(SValue, SValue)] =
+          encapsulatedSortedMap.iteratorFrom(start)
+
+        override def keysIteratorFrom(start: SValue): Iterator[SValue] =
+          encapsulatedSortedMap.keysIteratorFrom(start)
+
+        override def ordering: Ordering[SValue] = `SMap Ordering`
+
+        override def rangeImpl(
+            from: Option[SValue],
+            until: Option[SValue],
+        ): SortedMap[SValue, SValue] = encapsulatedSortedMap.rangeImpl(from, until)
+
+        override def get(key: SValue): Option[SValue] = encapsulatedSortedMap.get(key)
+      }
+
+      SMap(isTextMap, TreeMap.from(sortedEntryMap))
+    }
 
     /** Build an SMap from an iterator over SValue key/value pairs.
       *
