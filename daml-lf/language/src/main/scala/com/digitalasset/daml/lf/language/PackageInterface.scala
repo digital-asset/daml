@@ -252,6 +252,43 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
       Reference.InterfaceCoImplements(tmpName, ifaceName),
     )
 
+  private[this] def lookupTemplateImplementsOrInterfaceCoImplements(
+      tmpName: TypeConName,
+      ifaceName: TypeConName,
+      context: => Reference,
+  ): Either[LookupError, TemplateOrInterface[
+    TemplateImplementsSignature,
+    InterfaceCoImplementsSignature,
+  ]] = {
+    lookupTemplateImplements(tmpName, ifaceName, context)
+      .map(
+        TemplateOrInterface.Template(_): TemplateOrInterface[
+          TemplateImplementsSignature,
+          InterfaceCoImplementsSignature,
+        ]
+      )
+      .orElse(
+        lookupInterfaceCoImplements(tmpName, ifaceName, context)
+          .map(TemplateOrInterface.Interface(_))
+      )
+      .orElse(
+        Left(LookupError(Reference.InterfaceCoImplements(tmpName, ifaceName), context))
+      )
+  }
+
+  def lookupTemplateImplementsOrInterfaceCoImplements(
+      tmpName: TypeConName,
+      ifaceName: TypeConName,
+  ): Either[LookupError, TemplateOrInterface[
+    TemplateImplementsSignature,
+    InterfaceCoImplementsSignature,
+  ]] =
+    lookupTemplateImplementsOrInterfaceCoImplements(
+      tmpName,
+      ifaceName,
+      Reference.TemplateImplementsOrInterfaceCoImplements(tmpName, ifaceName),
+    )
+
   private[this] def lookupInterfaceChoice(
       ifaceName: TypeConName,
       chName: ChoiceName,
