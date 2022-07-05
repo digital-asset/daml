@@ -42,6 +42,8 @@ case class TotalStreamRuntimeMetric[T](
   override type V = Value
   override type Objective = MaxDurationObjective
 
+  // NOTE: There's no need to synchronize on this variable
+  // as this metric used solely as an internal state of an actor at 'com.daml.ledger.api.benchtool.metrics.MetricsCollector.handlingMessages'
   private var lastSeenItemTime: Instant = startTime
 
   override def onNext(item: T): Metric[T] = {
