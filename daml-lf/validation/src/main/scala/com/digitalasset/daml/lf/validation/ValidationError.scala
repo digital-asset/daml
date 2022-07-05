@@ -513,7 +513,7 @@ final case class ENoViewFound(
 final case class EViewNotSerializable(
     context: Context,
     iface: TypeConName,
-    nonSerializableReturnType : Type,
+    nonSerializableReturnType: Type,
 ) extends ValidationError {
   protected def prettyInternal: String =
     s"Interface $iface has a view method which returns a non-serializable type $nonSerializableReturnType"
