@@ -219,6 +219,8 @@ object SValue {
 
         override def size: Int = entries.size
 
+        override def ordering: Ordering[SValue] = `SMap Ordering`
+
         override def updated[V1 >: SValue](key: SValue, value: V1): SortedMap[SValue, V1] =
           encapsulatedSortedMap.updated(key, value)
 
@@ -230,8 +232,6 @@ object SValue {
 
         override def keysIteratorFrom(start: SValue): Iterator[SValue] =
           encapsulatedSortedMap.keysIteratorFrom(start)
-
-        override def ordering: Ordering[SValue] = `SMap Ordering`
 
         override def rangeImpl(
             from: Option[SValue],

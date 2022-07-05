@@ -112,26 +112,6 @@ class ValueTranslatorSpec
         ValueGenMap(ImmArray(ValueInt64(1) -> ValueText("1"), ValueInt64(42) -> ValueText("42"))),
         SMap(false, Iterator(SInt64(1) -> SText("1"), SInt64(42) -> SText("42"))),
       ),
-      (
-        TTextMap(TBool),
-        ValueTextMap(SortedLookupList(Map("0" -> ValueTrue, "1" -> ValueFalse))),
-        SMap(true, SText("0") -> SValue.True, SText("1") -> SValue.False),
-      ),
-      (
-        TGenMap(TInt64, TText),
-        ValueGenMap(ImmArray(ValueInt64(1) -> ValueText("1"), ValueInt64(42) -> ValueText("42"))),
-        SMap(false, SInt64(1) -> SText("1"), SInt64(42) -> SText("42")),
-      ),
-      (
-        TTextMap(TBool),
-        ValueTextMap(SortedLookupList(Map("0" -> ValueTrue, "1" -> ValueFalse))),
-        SMap(true, IndexedSeq(SText("0") -> SValue.True, SText("1") -> SValue.False).view),
-      ),
-      (
-        TGenMap(TInt64, TText),
-        ValueGenMap(ImmArray(ValueInt64(1) -> ValueText("1"), ValueInt64(42) -> ValueText("42"))),
-        SMap(false, IndexedSeq(SInt64(1) -> SText("1"), SInt64(42) -> SText("42")).view),
-      ),
       (TOptional(TText), ValueOptional(Some(ValueText("text"))), SOptional(Some(SText("text")))),
       (
         t"Mod:Tuple Int64 Text",
