@@ -265,8 +265,8 @@ private[lf] final class CommandPreprocessor(
 
     // TODO https://github.com/digital-asset/daml/issues/14112
     // Add check if interface does not have magic view method.
-    val interfaceSig = handleLookup(interface.lookupInterface(interfaceId))
-    val viewMethodName = Ref.MethodName.fromString("_view").toOption.get
+    val interfaceSig = handleLookup(pkgInterface.lookupInterface(interfaceId))
+    val viewMethodName = Ref.MethodName.assertFromString("_view")
     interfaceSig.methods.get(viewMethodName) match {
       case None => throw Error.Preprocessing.NoViewMethod(interfaceId)
       case _ => {}
