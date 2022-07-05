@@ -231,6 +231,27 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
   ): Either[LookupError, TemplateImplementsSignature] =
     lookupTemplateImplements(tmpName, ifaceName, Reference.TemplateImplements(tmpName, ifaceName))
 
+  private[this] def lookupInterfaceCoImplements(
+      tmpName: TypeConName,
+      ifaceName: TypeConName,
+      context: => Reference,
+  ): Either[LookupError, InterfaceCoImplementsSignature] =
+    lookupInterface(ifaceName, context).flatMap(
+      _.coImplements
+        .get(tmpName)
+        .toRight(LookupError(Reference.InterfaceCoImplements(tmpName, ifaceName), context))
+    )
+
+  def lookupInterfaceCoImplements(
+      tmpName: TypeConName,
+      ifaceName: TypeConName,
+  ): Either[LookupError, InterfaceCoImplementsSignature] =
+    lookupInterfaceCoImplements(
+      tmpName,
+      ifaceName,
+      Reference.InterfaceCoImplements(tmpName, ifaceName),
+    )
+
   private[this] def lookupInterfaceChoice(
       ifaceName: TypeConName,
       chName: ChoiceName,
@@ -251,15 +272,14 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
   private[lf] def lookupTemplateOrInterface(
       identier: TypeConName,
       context: => Reference,
-  ): Either[LookupError, Either[TemplateSignature, DefInterfaceSignature]] =
+  ): Either[LookupError, TemplateOrInterface[TemplateSignature, DefInterfaceSignature]] =
     lookupModule(identier.packageId, identier.qualifiedName.module, context).flatMap(mod =>
       mod.templates.get(identier.qualifiedName.name) match {
-        case Some(template) => Right(Left(template))
+        case Some(template) => Right(TemplateOrInterface.Template(template))
         case None =>
           mod.interfaces.get(identier.qualifiedName.name) match {
-            case Some(interface) => Right(Right(interface))
-            case None =>
-              Left(LookupError(Reference.TemplateOrInterface(identier), context))
+            case Some(interface) => Right(TemplateOrInterface.Interface(interface))
+            case None => Left(LookupError(Reference.TemplateOrInterface(identier), context))
           }
       }
     )
@@ -299,7 +319,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
 
   def lookupTemplateOrInterface(
       name: TypeConName
-  ): Either[LookupError, Either[TemplateSignature, DefInterfaceSignature]] =
+  ): Either[LookupError, TemplateOrInterface[TemplateSignature, DefInterfaceSignature]] =
     lookupTemplateOrInterface(name, Reference.TemplateOrInterface(name))
 
   private[this] def lookupInterfaceMethod(

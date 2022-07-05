@@ -17,7 +17,10 @@ class AllocatedPartiesSpec extends AnyFlatSpec with Matchers {
         "Obs-1",
         "Div-0",
         "Sub-0",
-      )
+        "MyParty-0",
+        "MyOtherParty-0",
+      ),
+      partySetPrefixO = Some("MyParty"),
     ) shouldBe AllocatedParties(
       signatoryO = Some(Primitive.Party("signatory-123")),
       observers = List(
@@ -26,6 +29,12 @@ class AllocatedPartiesSpec extends AnyFlatSpec with Matchers {
       ),
       divulgees = List(Primitive.Party("Div-0")),
       extraSubmitters = List(Primitive.Party("Sub-0")),
+      observerPartySetO = Some(
+        AllocatedPartySet(
+          partyNamePrefix = "MyParty",
+          parties = List(Primitive.Party("MyParty-0")),
+        )
+      ),
     )
   }
 
@@ -33,12 +42,14 @@ class AllocatedPartiesSpec extends AnyFlatSpec with Matchers {
     AllocatedParties.forExistingParties(
       parties = List(
         "signatory-123"
-      )
+      ),
+      partySetPrefixO = None,
     ) shouldBe AllocatedParties(
       signatoryO = Some(Primitive.Party("signatory-123")),
       observers = List.empty,
       divulgees = List.empty,
       extraSubmitters = List.empty,
+      observerPartySetO = None,
     )
   }
 

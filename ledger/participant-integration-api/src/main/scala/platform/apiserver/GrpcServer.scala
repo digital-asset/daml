@@ -7,6 +7,7 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.error.ErrorInterceptor
+import com.daml.platform.apiserver.ratelimiting.RateLimitingInterceptor
 import com.daml.ports.Port
 import com.google.protobuf.Message
 import io.grpc._

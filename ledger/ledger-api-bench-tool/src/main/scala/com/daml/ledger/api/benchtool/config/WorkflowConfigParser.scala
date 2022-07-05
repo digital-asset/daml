@@ -54,10 +54,17 @@ object WorkflowConfigParser {
         "templates",
       )(StreamConfig.PartyFilter.apply)
 
+    implicit val partySetTemplateFilterDecoder: Decoder[StreamConfig.PartyNamePrefixFilter] =
+      Decoder.forProduct2(
+        "party_name_prefix",
+        "templates",
+      )(StreamConfig.PartyNamePrefixFilter.apply)
+
     implicit val transactionStreamDecoder: Decoder[StreamConfig.TransactionsStreamConfig] =
-      Decoder.forProduct7(
+      Decoder.forProduct8(
         "name",
         "filters",
+        "filter_by_party_set",
         "begin_offset",
         "end_offset",
         "objectives",
@@ -66,9 +73,10 @@ object WorkflowConfigParser {
       )(StreamConfig.TransactionsStreamConfig.apply)
 
     implicit val transactionTreesStreamDecoder: Decoder[StreamConfig.TransactionTreesStreamConfig] =
-      Decoder.forProduct7(
+      Decoder.forProduct8(
         "name",
         "filters",
+        "filter_by_party_set",
         "begin_offset",
         "end_offset",
         "objectives",
@@ -77,9 +85,10 @@ object WorkflowConfigParser {
       )(StreamConfig.TransactionTreesStreamConfig.apply)
 
     implicit val activeContractsStreamDecoder: Decoder[StreamConfig.ActiveContractsStreamConfig] =
-      Decoder.forProduct5(
+      Decoder.forProduct6(
         "name",
         "filters",
+        "filter_by_party_set",
         "objectives",
         "max_item_count",
         "timeout_in_seconds",
@@ -132,8 +141,15 @@ object WorkflowConfigParser {
         "weight",
       )(FooSubmissionConfig.ApplicationId.apply)
 
+    implicit val partySetDecoder: Decoder[FooSubmissionConfig.PartySet] =
+      Decoder.forProduct3(
+        "party_name_prefix",
+        "count",
+        "visibility",
+      )(FooSubmissionConfig.PartySet.apply)
+
     implicit val fooSubmissionConfigDecoder: Decoder[FooSubmissionConfig] =
-      Decoder.forProduct10(
+      Decoder.forProduct11(
         "num_instances",
         "num_observers",
         "unique_parties",
@@ -144,6 +160,7 @@ object WorkflowConfigParser {
         "consuming_exercises",
         "application_ids",
         "wait_for_submission",
+        "observers_party_set",
       )(FooSubmissionConfig.apply)
 
     implicit val fibonacciSubmissionConfigDecoder: Decoder[FibonacciSubmissionConfig] =

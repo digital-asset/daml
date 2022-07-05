@@ -74,6 +74,8 @@ private[lf] object Pretty {
           ) + char('.')
       case DuplicateContractKey(key) =>
         text("Update failed due to a duplicate contract key") & prettyValue(false)(key.key)
+      case InconsistentContractKey(key) =>
+        text("Update failed due to an inconsistent contract key") & prettyValue(false)(key.key)
       case WronglyTypedContract(coid, expected, actual) =>
         text("Update failed due to wrongly typed contract id") & prettyContractId(coid) /
           text("Expected contract of type") & prettyTypeConName(expected) & text(
@@ -166,6 +168,18 @@ private[lf] object Pretty {
             case Some(interfaceId) => text("by interface") & prettyTypeConName(interfaceId)
           })
       )
+
+      case DisclosurePreprocessing(err) =>
+        err match {
+          case DisclosurePreprocessing.DuplicateContractIds(templateId) =>
+            text(
+              s"Found duplicated contract IDs in submitted disclosed contracts for template $templateId"
+            )
+          case DisclosurePreprocessing.DuplicateContractKeys(templateId) =>
+            text(
+              s"Found duplicated contract keys in submitted disclosed contracts for template $templateId"
+            )
+        }
     }
   }
 

@@ -42,10 +42,11 @@ object UserManagementConfig {
   )
 }
 final case class UserManagementConfig(
-    enabled: Boolean,
-    maxCacheSize: Int,
-    cacheExpiryAfterWriteInSeconds: Int,
-    maxUsersPageSize: Int,
+    enabled: Boolean = false,
+    maxCacheSize: Int = UserManagementConfig.DefaultMaxCacheSize,
+    cacheExpiryAfterWriteInSeconds: Int =
+      UserManagementConfig.DefaultCacheExpiryAfterWriteInSeconds,
+    maxUsersPageSize: Int = UserManagementConfig.DefaultMaxUsersPageSize,
 )
 
 object PersistentUserManagementStore {

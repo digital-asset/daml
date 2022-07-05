@@ -26,6 +26,19 @@ class PartyAllocating(
       names.divulgeePartyNames(config.numberOfDivulgees, config.uniqueParties)
     val extraSubmittersPartyNames =
       names.extraSubmitterPartyNames(config.numberOfExtraSubmitters, config.uniqueParties)
+    val observersPartySetParties = {
+      config.observerPartySetO.fold(
+        List.empty[String]
+      )(partySet =>
+        names
+          .partyNames(
+            prefix = partySet.partyNamePrefix,
+            numberOfParties = partySet.count,
+            uniqueParties = config.uniqueParties,
+          )
+          .toList
+      )
+    }
     logger.info("Allocating parties...")
     for {
       known <- lookupExistingParties()
@@ -33,6 +46,7 @@ class PartyAllocating(
       observers <- allocateParties(observerPartyNames, known)
       divulgees <- allocateParties(divulgeePartyNames, known)
       extraSubmitters <- allocateParties(extraSubmittersPartyNames, known)
+      partySetParties <- allocateParties(observersPartySetParties, known)
     } yield {
       logger.info("Allocating parties completed")
       AllocatedParties(
@@ -40,6 +54,12 @@ class PartyAllocating(
         observers = observers,
         divulgees = divulgees,
         extraSubmitters = extraSubmitters,
+        observerPartySetO = config.observerPartySetO.map(partySetConfig =>
+          AllocatedPartySet(
+            partyNamePrefix = partySetConfig.partyNamePrefix,
+            parties = partySetParties,
+          )
+        ),
       )
     }
   }

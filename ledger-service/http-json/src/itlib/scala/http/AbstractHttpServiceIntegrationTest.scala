@@ -45,6 +45,8 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.{value => lfv}
 import lfv.test.TypedValueGenerators.{ValueAddend => VA}
 
+import java.util.UUID
+
 trait AbstractHttpServiceIntegrationTestFunsCustomToken
     extends AsyncFreeSpec
     with AbstractHttpServiceIntegrationTestFuns
@@ -626,6 +628,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         .parseResponse[domain.ExerciseResponse[JsValue]]
         .flatMap(inside(_) {
           case (StatusCodes.OK, domain.OkResponse(result, None, StatusCodes.OK)) =>
+            result.completionOffset.unwrap should not be empty
             inside(result.events) {
               case List(
                     domain.Contract(\/-(created0)),
@@ -642,6 +645,50 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }: Future[Assertion]
   }
 
+  "create IOU_Transfer, command deduplication should work" in withHttpService { fixture =>
+    import fixture.encoder
+    def genSubmissionId() = domain.SubmissionId(UUID.randomUUID().toString)
+    fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+      val cmdId = domain.CommandId apply UUID.randomUUID().toString
+      def cmd(
+          submissionId: domain.SubmissionId
+      ): domain.CreateCommand[v.Record, OptionalPkg] =
+        iouCreateCommand(
+          alice,
+          amount = "19002.0",
+          meta = Some(
+            domain.CommandMeta(
+              commandId = Some(cmdId),
+              actAs = None,
+              readAs = None,
+              submissionId = Some(submissionId),
+              deduplicationPeriod = Some(domain.DeduplicationPeriod.Duration(10000L)),
+            )
+          ),
+        )
+
+      val firstCreate: JsValue =
+        encoder.encodeCreateCommand(cmd(genSubmissionId())).valueOr(e => fail(e.shows))
+
+      fixture
+        .postJsonRequest(Uri.Path("/v1/create"), firstCreate, headers)
+        .parseResponse[domain.CreateCommandResponse[JsValue]]
+        .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, _, _)) =>
+          result.completionOffset.unwrap should not be empty
+        })
+        .flatMap { _ =>
+          val secondCreate: JsValue =
+            encoder.encodeCreateCommand(cmd(genSubmissionId())).valueOr(e => fail(e.shows))
+          fixture
+            .postJsonRequest(Uri.Path("/v1/create"), secondCreate, headers)
+            .map(inside(_) { case (StatusCodes.Conflict, _) =>
+              succeed
+            }): Future[Assertion]
+        }
+    }
+
+  }
+
   private def assertExerciseResponseNewActiveContract(
       exerciseResponse: domain.ExerciseResponse[JsValue],
       createCmd: domain.CreateCommand[v.Record, OptionalPkg],
@@ -651,7 +698,12 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   ): Future[Assertion] = {
     import fixture.{uri, decoder}
     inside(exerciseResponse) {
-      case domain.ExerciseResponse(JsString(exerciseResult), List(contract1, contract2)) =>
+      case domain.ExerciseResponse(
+            JsString(exerciseResult),
+            List(contract1, contract2),
+            completionOffset,
+          ) =>
+        completionOffset.unwrap should not be empty
         // checking contracts
         inside(contract1) { case domain.Contract(-\/(archivedContract)) =>
           Future {
@@ -762,7 +814,10 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         )
         .parseResponse[domain.ExerciseResponse[JsValue]]
         .map(inside(_) {
-          case (StatusCodes.OK, domain.OkResponse(domain.ExerciseResponse(JsString(c), _), _, _)) =>
+          case (
+                StatusCodes.OK,
+                domain.OkResponse(domain.ExerciseResponse(JsString(c), _, _), _, _),
+              ) =>
             lar.ContractId(c)
         })
       // create a contract only visible to Alice
@@ -797,7 +852,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       exerciseResponse: domain.ExerciseResponse[JsValue],
       exercise: domain.ExerciseCommand[v.Value, domain.EnrichedContractId],
   ): Assertion =
-    inside(exerciseResponse) { case domain.ExerciseResponse(exerciseResult, List(contract1)) =>
+    inside(exerciseResponse) { case domain.ExerciseResponse(exerciseResult, List(contract1), _) =>
       exerciseResult shouldBe JsObject()
       inside(contract1) { case domain.Contract(-\/(archivedContract)) =>
         (archivedContract.contractId.unwrap: String) shouldBe (exercise.reference.contractId.unwrap: String)

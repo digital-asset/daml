@@ -19,53 +19,52 @@ object Validation {
 
   def checkPackages(pkgs: Map[PackageId, Package]): Either[ValidationError, Unit] =
     runSafely {
-      val interface = PackageInterface(pkgs)
-      unsafeCheckPackages(interface, pkgs)
+      unsafeCheckPackages(PackageInterface(pkgs), pkgs)
     }
 
   private[lf] def checkPackages(
-      interface: PackageInterface,
+      pkgInterface: PackageInterface,
       pkgs: Map[PackageId, Package],
   ): Either[ValidationError, Unit] =
-    runSafely(unsafeCheckPackages(interface, pkgs))
+    runSafely(unsafeCheckPackages(pkgInterface, pkgs))
 
   private[lf] def unsafeCheckPackages(
-      interface: PackageInterface,
+      pkgInterface: PackageInterface,
       pkgs: Map[PackageId, Package],
   ): Unit =
-    pkgs.foreach { case (pkgId, pkg) => unsafeCheckPackage(interface, pkgId, pkg) }
+    pkgs.foreach { case (pkgId, pkg) => unsafeCheckPackage(pkgInterface, pkgId, pkg) }
 
   def checkPackage(
-      interface: PackageInterface,
+      pkgInterface: PackageInterface,
       pkgId: PackageId,
       pkg: Package,
   ): Either[ValidationError, Unit] =
-    runSafely(unsafeCheckPackage(interface, pkgId, pkg))
+    runSafely(unsafeCheckPackage(pkgInterface, pkgId, pkg))
 
   private def unsafeCheckPackage(
-      interface: PackageInterface,
+      pkgInterface: PackageInterface,
       pkgId: PackageId,
       pkg: Package,
   ): Unit = {
     Collision.checkPackage(pkgId, pkg)
     Recursion.checkPackage(pkgId, pkg)
-    DependencyVersion.checkPackage(interface, pkgId, pkg)
-    pkg.modules.values.foreach(unsafeCheckModule(interface, pkgId, _))
+    DependencyVersion.checkPackage(pkgInterface, pkgId, pkg)
+    pkg.modules.values.foreach(unsafeCheckModule(pkgInterface, pkgId, _))
   }
 
   private[lf] def checkModule(
-      interface: PackageInterface,
+      pkgInterface: PackageInterface,
       pkgId: PackageId,
       module: Module,
   ): Either[ValidationError, Unit] =
-    runSafely(unsafeCheckModule(interface, pkgId, module))
+    runSafely(unsafeCheckModule(pkgInterface, pkgId, module))
 
   private def unsafeCheckModule(
-      interface: PackageInterface,
+      pkgInterface: PackageInterface,
       pkgId: PackageId,
       mod: Module,
   ): Unit = {
-    Typing.checkModule(interface, pkgId, mod)
-    Serializability.checkModule(interface, pkgId, mod)
+    Typing.checkModule(pkgInterface, pkgId, mod)
+    Serializability.checkModule(pkgInterface, pkgId, mod)
   }
 }

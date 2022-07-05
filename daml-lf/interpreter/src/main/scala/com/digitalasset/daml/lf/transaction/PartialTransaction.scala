@@ -176,6 +176,7 @@ private[lf] object PartialTransaction {
       submissionTime: Time.Timestamp,
       initialSeeds: InitialSeeding,
       committers: Set[Party],
+      disclosedContracts: ImmArray[DisclosedContract],
   ) = PartialTransaction(
     submissionTime = submissionTime,
     nextNodeIdx = 0,
@@ -185,15 +186,16 @@ private[lf] object PartialTransaction {
     aborted = None,
     contractState = new ContractStateMachine[NodeId](contractKeyUniqueness).initial,
     actionNodeLocations = BackStack.empty,
+    disclosedContracts = disclosedContracts,
   )
 
-  @throws[SError.SErrorCrash]
-  private def assertRightKey[X](where: String, either: Either[Tx.InconsistentContractKey, X]): X =
+  @throws[SError.SErrorDamlException]
+  private def assertRightKey[X](either: Either[Tx.InconsistentContractKey, X]): X =
     either match {
       case Right(value) =>
         value
-      case Left(err) =>
-        throw SError.SErrorCrash(where, s"inconsonstent contract key ${err.key}.")
+      case Left(Tx.InconsistentContractKey(key)) =>
+        throw SError.SErrorDamlException(interpretation.Error.InconsistentContractKey(key))
     }
 
   type NodeSeeds = ImmArray[(NodeId, crypto.Hash)]
@@ -204,6 +206,7 @@ private[lf] object PartialTransaction {
       locationInfo: Map[NodeId, Location],
       seeds: NodeSeeds,
       globalKeyMapping: Map[GlobalKey, KeyMapping],
+      disclosedContracts: ImmArray[DisclosedContract],
   ) extends Result
   final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
 }
@@ -234,6 +237,7 @@ private[speedy] case class PartialTransaction(
     aborted: Option[Tx.TransactionError],
     contractState: ContractStateMachine[NodeId]#State,
     actionNodeLocations: BackStack[Option[Location]],
+    disclosedContracts: ImmArray[DisclosedContract],
 ) {
 
   import PartialTransaction._
@@ -321,6 +325,7 @@ private[speedy] case class PartialTransaction(
           locationInfo(),
           seeds.zip(actionNodeSeeds.toImmArray),
           contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
+          disclosedContracts,
         )
       case _ =>
         IncompleteTransaction(this)
@@ -408,8 +413,7 @@ private[speedy] case class PartialTransaction(
       version,
     )
     val newContractState = assertRightKey(
-      NameOf.qualifiedNameOfCurrentFunc,
-      contractState.visitFetch(templateId, coid, key, byKey),
+      contractState.visitFetch(templateId, coid, key, byKey)
     )
     mustBeActive(
       NameOf.qualifiedNameOfCurrentFunc,
@@ -438,8 +442,7 @@ private[speedy] case class PartialTransaction(
     // so the current state's global key inputs must resolve the key.
     val keyInput = contractState.globalKeyInputs(gkey)
     val newContractState = assertRightKey(
-      NameOf.qualifiedNameOfCurrentFunc,
-      contractState.visitLookup(templateId, key.key, keyInput.toKeyMapping, result),
+      contractState.visitLookup(templateId, key.key, keyInput.toKeyMapping, result)
     )
     insertLeafNode(node, version, optLocation, newContractState)
       .noteAuthFails(nid, CheckAuthorization.authorizeLookupByKey(optLocation, node), auth)
@@ -488,8 +491,7 @@ private[speedy] case class PartialTransaction(
     // important: the semantics of Daml dictate that contracts are immediately
     // inactive as soon as you exercise it. therefore, mark it as consumed now.
     val newContractState = assertRightKey(
-      NameOf.qualifiedNameOfCurrentFunc,
-      contractState.visitExercise(nid, templateId, targetId, mbKey, byKey, consuming),
+      contractState.visitExercise(nid, templateId, targetId, mbKey, byKey, consuming)
     )
     mustBeActive(
       NameOf.qualifiedNameOfCurrentFunc,

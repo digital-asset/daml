@@ -283,6 +283,12 @@ final class Metrics(val registry: MetricRegistry) {
         private val Prefix: MetricName = lapi.Prefix :+ "threadpool"
 
         val apiServices: MetricName = Prefix :+ "api-services"
+
+        object indexBypass {
+          private val Prefix: MetricName = threadpool.Prefix :+ "index_bypass"
+          val prepareUpdates: MetricName = Prefix :+ "prepare_updates"
+          val updateInMemoryState: MetricName = Prefix :+ "update_in_memory_state"
+        }
       }
 
       object streams {
@@ -292,6 +298,10 @@ final class Metrics(val registry: MetricRegistry) {
         val transactions: Counter = registry.counter(Prefix :+ "transactions_sent")
         val completions: Counter = registry.counter(Prefix :+ "completions_sent")
         val acs: Counter = registry.counter(Prefix :+ "acs_sent")
+
+        val activeName: MetricName = Prefix :+ "active"
+        val active: Counter = registry.counter(activeName)
+
       }
     }
 
@@ -360,6 +370,7 @@ final class Metrics(val registry: MetricRegistry) {
       val decodeStateEvent: Timer = registry.timer(Prefix :+ "decode_state_event")
 
       val updateCaches: Timer = registry.timer(Prefix :+ "update_caches")
+      val updateInMemoryState: Timer = registry.timer(Prefix :+ "update_in_memory_state")
 
       val decodeTransactionLogUpdate: Timer =
         registry.timer(Prefix :+ "transaction_log_update_decode")

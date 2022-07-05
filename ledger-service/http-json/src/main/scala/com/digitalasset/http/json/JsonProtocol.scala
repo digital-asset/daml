@@ -7,6 +7,7 @@ import akka.http.scaladsl.model.StatusCode
 import com.daml.http.domain
 import com.daml.http.domain.TemplateId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.lf.data.Ref.HexString
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import scalaz.syntax.std.option._
@@ -357,7 +358,15 @@ object JsonProtocol extends JsonProtocolLow {
       domain.SearchForeverRequest(NonEmptyList((single.convertTo[domain.SearchForeverQuery], 0)))
   }
 
-  implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat3(
+  implicit val hexStringFormat: JsonFormat[HexString] =
+    xemapStringJsonFormat(HexString.fromString)(identity)
+
+  implicit val DeduplicationPeriodFormat: JsonFormat[domain.DeduplicationPeriod] =
+    deriveFormat[domain.DeduplicationPeriod]
+
+  implicit val SubmissionIdFormat: JsonFormat[domain.SubmissionId] = taggedJsonFormat
+
+  implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat5(
     domain.CommandMeta
   )
 
@@ -406,8 +415,14 @@ object JsonProtocol extends JsonProtocolLow {
   ] =
     jsonFormat5(domain.CreateAndExerciseCommand[JsValue, JsValue, domain.TemplateId.OptionalPkg])
 
+  implicit val CompletionOffsetFormat: JsonFormat[domain.CompletionOffset] =
+    taggedJsonFormat[String, domain.CompletionOffsetTag]
+
   implicit val ExerciseResponseFormat: RootJsonFormat[domain.ExerciseResponse[JsValue]] =
-    jsonFormat2(domain.ExerciseResponse[JsValue])
+    jsonFormat3(domain.ExerciseResponse[JsValue])
+
+  implicit val CreateCommandResponseFormat: RootJsonFormat[domain.CreateCommandResponse[JsValue]] =
+    jsonFormat8(domain.CreateCommandResponse[JsValue])
 
   implicit val StatusCodeFormat: RootJsonFormat[StatusCode] =
     new RootJsonFormat[StatusCode] {
@@ -508,6 +523,16 @@ object JsonProtocol extends JsonProtocolLow {
         case _ => deserializationError(errorMsg)
       }
     }
+
+  // xmap with an error case for StringJsonFormat
+  private[http] def xemapStringJsonFormat[A](readFn: String => Either[String, A])(
+      writeFn: A => String
+  ): RootJsonFormat[A] = new RootJsonFormat[A] {
+    private[this] val base = implicitly[JsonFormat[String]]
+    override def write(obj: A): JsValue = base.write(writeFn(obj))
+    override def read(json: JsValue): A =
+      readFn(base.read(json)).fold(deserializationError(_), identity)
+  }
 }
 
 sealed abstract class JsonProtocolLow extends DefaultJsonProtocol with ExtraFormats {

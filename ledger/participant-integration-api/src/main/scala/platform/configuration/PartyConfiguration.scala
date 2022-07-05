@@ -16,11 +16,9 @@ package com.daml.platform.configuration
   *     Enable at your own risk.
   */
 case class PartyConfiguration(
-    implicitPartyAllocation: Boolean
+    implicitPartyAllocation: Boolean = false
 )
 
 object PartyConfiguration {
-  val Default: PartyConfiguration = PartyConfiguration(
-    implicitPartyAllocation = false
-  )
+  val Default: PartyConfiguration = PartyConfiguration()
 }

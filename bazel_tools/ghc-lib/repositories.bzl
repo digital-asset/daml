@@ -108,10 +108,10 @@ def _ghc_lib_deps_windows():
     http_archive(
         name = "ghc_865_win",
         build_file_content = """\
-load("@com_github_digital_asset_daml//bazel_tools:bundle.bzl", "binary_bundle")
-binary_bundle(
+load("@rules_sh//sh:sh.bzl", "sh_binaries")
+sh_binaries(
     name = "tools",
-    tools = glob(["ghc-8.6.5/bin/*"]),
+    srcs = glob(["ghc-8.6.5/bin/*"]),
     visibility = ["//visibility:public"],
 )
 """,
@@ -122,10 +122,10 @@ binary_bundle(
     http_archive(
         name = "cabal_win",
         build_file_content = """\
-load("@com_github_digital_asset_daml//bazel_tools:bundle.bzl", "binary_bundle")
-binary_bundle(
+load("@rules_sh//sh:sh.bzl", "sh_binaries")
+sh_binaries(
     name = "tools",
-    tools = glob(["cabal.exe"]),
+    srcs = glob(["cabal.exe"]),
     visibility = ["//visibility:public"],
 )
 """,

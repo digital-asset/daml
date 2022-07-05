@@ -41,11 +41,11 @@ private[engine] final class Preprocessor(
 
   import Preprocessor._
 
-  import compiledPackages.interface
+  import compiledPackages.pkgInterface
 
   val commandPreprocessor =
     new CommandPreprocessor(
-      interface = interface,
+      pkgInterface = pkgInterface,
       requireV1ContractIdSuffix = requireV1ContractIdSuffix,
     )
   val transactionPreprocessor = new TransactionPreprocessor(commandPreprocessor)

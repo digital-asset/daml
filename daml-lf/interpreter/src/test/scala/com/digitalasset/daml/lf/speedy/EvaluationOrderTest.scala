@@ -8,12 +8,14 @@ import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref.{Location, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.Implicits.{defaultParserParameters => _, _}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.ledger.FailedAuthorization
+import com.daml.lf.testing.parser.{ParserParameters, defaultPackageId}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ValueParty, ValueRecord}
 import com.daml.logging.LoggingContext
@@ -45,6 +47,9 @@ class TestTraceLog extends TraceLog {
 class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
+
+  private[this] implicit val parserParameters: ParserParameters[this.type] =
+    ParserParameters(defaultPackageId, languageVersion = LanguageVersion.v1_dev)
 
   private val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
     module M {
@@ -969,6 +974,34 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
 
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "queries contract",
+              "contract signatories",
+              "contract observers",
+              "key",
+              "maintainers",
+              "choice controllers",
+              "choice observers",
+            )
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of a non-cached global contract with inconsistent key
+        "inconsistent key" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(maintainer: Party) (exercisingParty: Party) (cId: ContractId M:T) ->  
+               ubind x : Option (ContractId M:T) <- lookup_by_key @M:T (M:toKey maintainer)
+               in Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
+               """,
+            Array(SParty(alice), SParty(charlie), SContractId(cId)),
+            Set(alice, charlie),
+            getContract = getContract,
+            getKey = PartialFunction.empty,
+          )
+
+          inside(res) { case Success(Left(SErrorDamlException(IE.InconsistentContractKey(_)))) =>
             msgs shouldBe Seq(
               "starts test",
               "queries contract",
@@ -1990,6 +2023,32 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
 
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "queries contract",
+              "contract signatories",
+              "contract observers",
+              "key",
+              "maintainers",
+            )
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a non-cached global contract with inconsistent key
+        "inconsistent key" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(maintainer: Party) (fetchingParty: Party) (cId: ContractId M:T) ->  
+               ubind x : Option (ContractId M:T) <- lookup_by_key @M:T (M:toKey maintainer)
+               in Test:fetch_by_id fetchingParty cId
+               """,
+            Array(SParty(alice), SParty(charlie), SContractId(cId)),
+            Set(alice, charlie),
+            getContract = getContract,
+            getKey = PartialFunction.empty,
+          )
+
+          inside(res) { case Success(Left(SErrorDamlException(IE.InconsistentContractKey(_)))) =>
             msgs shouldBe Seq(
               "starts test",
               "queries contract",

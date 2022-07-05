@@ -25,7 +25,7 @@ class TypecheckingBench {
 
   private var dar: Dar[(PackageId, Package)] = _
   private var darMap: Map[PackageId, Package] = _
-  private var interface: PackageInterface = _
+  private var pkgInterface: PackageInterface = _
   private var module: Option[(PackageId, Module)] = None
 
   @Setup(Level.Trial)
@@ -37,7 +37,7 @@ class TypecheckingBench {
     )
     dar = DarDecoder.assertReadArchiveFromFile(darFile)
     darMap = dar.all.toMap
-    interface = PackageInterface(darMap)
+    pkgInterface = PackageInterface(darMap)
 
     if (!moduleName.isEmpty) {
       dar.all.foreach { case (pkgId, pkg) =>
@@ -57,9 +57,9 @@ class TypecheckingBench {
   def bench(): Unit = {
     val r = module match {
       case Some((pkgId, m)) =>
-        Validation.checkModule(interface, pkgId, m)
+        Validation.checkModule(pkgInterface, pkgId, m)
       case None =>
-        Validation.checkPackages(interface, darMap)
+        Validation.checkPackages(pkgInterface, darMap)
     }
     assert(r.isRight)
   }

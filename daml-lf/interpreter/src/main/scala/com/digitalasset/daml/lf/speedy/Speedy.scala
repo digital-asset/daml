@@ -210,6 +210,62 @@ private[lf] object Speedy {
 
   private[lf] final case object OffLedger extends LedgerMode
 
+  private[speedy] case class DisclosureTable(
+      contractIdByKey: Map[crypto.Hash, SValue.SContractId],
+      contractById: Map[SValue.SContractId, (TypeConName, SValue)],
+  )
+
+  object DisclosureTable {
+    val Empty = DisclosureTable(Map.empty, Map.empty)
+  }
+
+  case class DisclosurePreprocessError(
+      err: String
+  ) extends RuntimeException(err, null, true, false)
+
+  @throws[SErrorDamlException]
+  private[speedy] def buildDiscTable(
+      disclosures: ImmArray[speedy.DisclosedContract]
+  ): DisclosureTable = {
+    val _ = disclosures
+    val acc = disclosures.foldLeft(
+      (
+        DisclosureTable.Empty
+      )
+    ) { case (table, d) =>
+      val arg = d.argument
+      val coid = d.contractId
+      // check for duplicate contract ids
+      table.contractById.get(coid) match {
+        case Some(_) =>
+          throw (SErrorDamlException(
+            IError.DisclosurePreprocessing(
+              IError.DisclosurePreprocessing.DuplicateContractIds(d.templateId)
+            )
+          ))
+        case None =>
+          val m1_prime = table.contractById + (coid -> (d.templateId, arg))
+          d.metadata.keyHash match {
+            case Some(hash) =>
+              // check for duplicate contract key hashes
+              table.contractIdByKey.get(hash) match {
+                case Some(_) =>
+                  throw (SErrorDamlException(
+                    IError.DisclosurePreprocessing(
+                      IError.DisclosurePreprocessing.DuplicateContractKeys(
+                        d.templateId
+                      )
+                    )
+                  ))
+                case None => DisclosureTable(table.contractIdByKey + (hash -> coid), m1_prime)
+              }
+            case None => table.copy(contractById = m1_prime)
+          }
+      }
+    }
+    acc
+  }
+
   /** The speedy CEK machine. */
   final class Machine(
       /* The control is what the machine should be evaluating. If this is not
@@ -257,11 +313,12 @@ private[lf] object Speedy {
          not the other way around.
        */
       val ledgerMode: LedgerMode,
+      val disclosureTable: DisclosureTable,
   ) {
 
     def tmplId2TxVersion(tmplId: TypeConName) =
       TransactionVersion.assignNodeVersion(
-        compiledPackages.interface.packageLanguageVersion(tmplId.packageId)
+        compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
       )
 
     def normValue(templateId: TypeConName, svalue: SValue): V =
@@ -762,7 +819,7 @@ private[lf] object Speedy {
             value match {
               case V.ValueRecord(_, fields) =>
                 val lookupResult =
-                  assertRight(compiledPackages.interface.lookupDataRecord(tyCon))
+                  assertRight(compiledPackages.pkgInterface.lookupDataRecord(tyCon))
                 lazy val subst = lookupResult.subst(argTypes)
                 val values = (lookupResult.dataRecord.fields.iterator zip fields.iterator)
                   .map { case ((_, fieldType), (_, fieldValue)) =>
@@ -773,13 +830,15 @@ private[lf] object Speedy {
               case V.ValueVariant(_, constructor, value) =>
                 val info =
                   assertRight(
-                    compiledPackages.interface.lookupVariantConstructor(tyCon, constructor)
+                    compiledPackages.pkgInterface.lookupVariantConstructor(tyCon, constructor)
                   )
                 val valType = info.concreteType(argTypes)
                 SValue.SVariant(tyCon, constructor, info.rank, go(valType, value))
               case V.ValueEnum(_, constructor) =>
                 val rank =
-                  assertRight(compiledPackages.interface.lookupEnumConstructor(tyCon, constructor))
+                  assertRight(
+                    compiledPackages.pkgInterface.lookupEnumConstructor(tyCon, constructor)
+                  )
                 SValue.SEnum(tyCon, constructor, rank)
               case _ =>
                 typeMismatch
@@ -844,6 +903,7 @@ private[lf] object Speedy {
     def newTraceLog: TraceLog = new RingBufferTraceLog(damlTraceLog, 100)
     def newWarningLog: WarningLog = new WarningLog(damlWarnings)
 
+    @throws[SErrorDamlException]
     def apply(
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
@@ -857,6 +917,7 @@ private[lf] object Speedy {
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
         commitLocation: Option[Location] = None,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
+        disclosedContracts: ImmArray[speedy.DisclosedContract],
     )(implicit loggingContext: LoggingContext): Machine = {
       new Machine(
         ctrl = expr,
@@ -875,6 +936,7 @@ private[lf] object Speedy {
               submissionTime,
               initialSeeding,
               committers,
+              disclosedContracts,
             ),
           committers = committers,
           readAs = readAs,
@@ -892,6 +954,7 @@ private[lf] object Speedy {
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
+        disclosureTable = buildDiscTable(disclosedContracts),
       )
     }
 
@@ -929,6 +992,7 @@ private[lf] object Speedy {
         readAs = Set.empty,
         limits = limits,
         traceLog = traceLog,
+        disclosedContracts = ImmArray.Empty,
       )
     }
 
@@ -981,6 +1045,7 @@ private[lf] object Speedy {
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
+        disclosureTable = DisclosureTable.Empty,
       )
 
     @throws[PackageNotFound]
@@ -1373,6 +1438,8 @@ private[lf] object Speedy {
     def execute(sv: SValue): Unit = {
       machine.withOnLedger("KCacheContract") { onLedger =>
         val cached = SBuiltin.extractCachedContract(machine, sv)
+        // TODO (drsk) disable this check for disclosed contracts.
+        // https://github.com/digital-asset/daml/issues/14168
         machine.checkContractVisibility(onLedger, cid, cached)
         onLedger.addGlobalContract(cid, cached)
         machine.returnValue = cached.any

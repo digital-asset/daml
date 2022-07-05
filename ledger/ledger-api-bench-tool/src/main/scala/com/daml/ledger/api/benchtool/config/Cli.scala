@@ -249,6 +249,8 @@ object Cli {
             transactionObjectives(maxDelaySeconds, minConsumptionSpeed, minItemRate, maxItemRate),
           timeoutInSecondsO = timeoutInSecondsO,
           maxItemCount = maxItemCount,
+          // NOTE: Unsupported on CLI
+          partyNamePrefixFilterO = None,
         )
 
         def transactionTreesConfig
@@ -273,6 +275,8 @@ object Cli {
               transactionObjectives(maxDelaySeconds, minConsumptionSpeed, minItemRate, maxItemRate),
             timeoutInSecondsO = timeoutInSecondsO,
             maxItemCount = maxItemCount,
+            // NOTE: Unsupported on CLI
+            partyNamePrefixFilterO = None,
           )
 
         def rateObjectives(
@@ -306,6 +310,8 @@ object Cli {
           objectives = rateObjectives(minItemRate, maxItemRate),
           timeoutInSecondsO = timeoutInSecondsO,
           maxItemCount = maxItemCount,
+          // NOTE: Unsupported on CLI
+          partyNamePrefixFilterO = None,
         )
 
         def completionsConfig: Either[String, WorkflowConfig.StreamConfig.CompletionsStreamConfig] =

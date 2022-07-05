@@ -19,6 +19,7 @@ import scalaz.syntax.show._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, Applicative, Bitraverse, Functor, NonEmptyList, OneAnd, Traverse, \/, \/-}
 import spray.json.JsValue
+import scalaz.syntax.tag._
 
 import scala.annotation.tailrec
 
@@ -46,15 +47,27 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
   type CommandId = lar.CommandId
   val CommandId = lar.CommandId
 
+  type SubmissionId = String @@ SubmissionIdTag
+  val SubmissionId = Tag.of[SubmissionIdTag]
+
   type LfType = iface.Type
 
   type RetryInfoDetailDuration = scala.concurrent.duration.Duration @@ RetryInfoDetailDurationTag
   val RetryInfoDetailDuration = Tag.of[RetryInfoDetailDurationTag]
+
+  type CompletionOffset = String @@ CompletionOffsetTag
+  val CompletionOffset = Tag.of[CompletionOffsetTag]
 }
 
 package domain {
 
   import com.daml.fetchcontracts.domain.`fc domain ErrorOps`
+  import com.daml.ledger.api.v1.commands.Commands
+  import com.daml.lf.data.Ref.HexString
+
+  sealed trait SubmissionIdTag
+
+  sealed trait CompletionOffsetTag
 
   trait JwtPayloadTag
 
@@ -166,7 +179,6 @@ package domain {
     import com.daml.ledger.api.domain.{UserRight => LedgerUserRight}, com.daml.lf.data.Ref
     import scalaz.syntax.traverse._
     import scalaz.syntax.std.either._
-    import scalaz.syntax.tag._
 
     def toLedgerUserRights(input: List[UserRight]): String \/ List[LedgerUserRight] =
       input.traverse {
@@ -219,10 +231,30 @@ package domain {
 
   final case class AllocatePartyRequest(identifierHint: Option[Party], displayName: Option[String])
 
+  sealed abstract class DeduplicationPeriod extends Product with Serializable {
+    def toProto: Commands.DeduplicationPeriod =
+      this match {
+        case DeduplicationPeriod.Duration(millis) =>
+          Commands.DeduplicationPeriod.DeduplicationDuration(
+            com.google.protobuf.duration.Duration(java.time.Duration.ofMillis(millis))
+          )
+        case DeduplicationPeriod.Offset(offset) =>
+          Commands.DeduplicationPeriod
+            .DeduplicationOffset(offset)
+      }
+  }
+
+  object DeduplicationPeriod {
+    final case class Duration(durationInMillis: Long) extends domain.DeduplicationPeriod
+    final case class Offset(offset: HexString) extends domain.DeduplicationPeriod
+  }
+
   final case class CommandMeta(
       commandId: Option[CommandId],
       actAs: Option[NonEmptyList[Party]],
       readAs: Option[List[Party]],
+      submissionId: Option[SubmissionId],
+      deduplicationPeriod: Option[domain.DeduplicationPeriod],
   )
 
   final case class CreateCommand[+LfV, TmplId](
@@ -251,9 +283,21 @@ package domain {
       meta: Option[CommandMeta],
   )
 
+  final case class CreateCommandResponse[+LfV](
+      contractId: ContractId,
+      templateId: TemplateId.RequiredPkg,
+      key: Option[LfV],
+      payload: LfV,
+      signatories: Seq[Party],
+      observers: Seq[Party],
+      agreementText: String,
+      completionOffset: CompletionOffset,
+  )
+
   final case class ExerciseResponse[LfV](
       exerciseResult: LfV,
       events: List[Contract[LfV]],
+      completionOffset: CompletionOffset,
   )
 
   object PartyDetails {
@@ -548,11 +592,27 @@ package domain {
         val gb: G[B] = f(fa.exerciseResult)
         val gbs: G[List[Contract[B]]] = fa.events.traverse(_.traverse(f))
         ^(gb, gbs) { (exerciseResult, events) =>
-          ExerciseResponse(
+          fa.copy(
             exerciseResult = exerciseResult,
             events = events,
           )
         }
+      }
+    }
+  }
+  object CreateCommandResponse {
+    implicit val covariant: Traverse[CreateCommandResponse] = new Traverse[CreateCommandResponse] {
+
+      override def map[A, B](fa: CreateCommandResponse[A])(f: A => B): CreateCommandResponse[B] =
+        fa.copy(key = fa.key map f, payload = f(fa.payload))
+
+      override def traverseImpl[G[_]: Applicative, A, B](
+          fa: CreateCommandResponse[A]
+      )(f: A => G[B]): G[CreateCommandResponse[B]] = {
+        import scalaz.syntax.apply._
+        val gk: G[Option[B]] = fa.key traverse f
+        val ga: G[B] = f(fa.payload)
+        ^(gk, ga)((k, a) => fa.copy(key = k, payload = a))
       }
     }
   }

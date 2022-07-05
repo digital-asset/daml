@@ -80,4 +80,17 @@ trait ConcurrentCacheCachingSpecBase
 
     counter.get() should be(0)
   }
+
+  "`invalidateAll` values" in {
+    val cache = newCache()
+
+    cache.putAll(Map(Int.box(7) -> "7", Int.box(8) -> "8"))
+    cache.getIfPresent(7) should be(Some("7"))
+    cache.getIfPresent(8) should be(Some("8"))
+
+    cache.invalidateAll()
+
+    cache.getIfPresent(7) should be(None)
+    cache.getIfPresent(8) should be(None)
+  }
 }

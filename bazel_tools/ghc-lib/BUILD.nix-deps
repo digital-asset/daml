@@ -1,10 +1,11 @@
-load("@com_github_digital_asset_daml//bazel_tools:bundle.bzl", "binary_bundle", "library_bundle")
+load("@rules_sh//sh:sh.bzl", "sh_binaries")
+load("@com_github_digital_asset_daml//bazel_tools:bundle.bzl", "library_bundle")
 
 package(default_visibility = ["//visibility:public"])
 
-binary_bundle(
+sh_binaries(
     name = "tools",
-    tools = glob(["bin/*"]),
+    srcs = glob(["bin/*"]),
 )
 
 library_bundle(

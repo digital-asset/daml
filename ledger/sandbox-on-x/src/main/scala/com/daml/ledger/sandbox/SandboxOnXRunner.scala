@@ -10,13 +10,7 @@ import akka.stream.scaladsl.Sink
 import com.codahale.metrics.{InstrumentedExecutorService, MetricRegistry}
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.ledger.api.auth.{
-  AuthService,
-  AuthServiceJWT,
-  AuthServiceNone,
-  AuthServiceStatic,
-  AuthServiceWildcard,
-}
+import com.daml.ledger.api.auth._
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
@@ -24,11 +18,13 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationType,
   ExperimentalContractIds,
 }
+import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v2.{ReadService, Update, WriteService}
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.runner.common.MetricsConfig.MetricRegistryType
 import com.daml.ledger.runner.common._
 import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
 import com.daml.lf.data.Ref
@@ -39,20 +35,16 @@ import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.apiserver._
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
+import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
-import com.daml.resources.AbstractResourceOwner
+import com.daml.ports.Port
 
 import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
-import scala.util.chaining._
-import com.daml.ledger.configuration.LedgerId
-import com.daml.ledger.runner.common.MetricsConfig.MetricRegistryType
-import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
-import com.daml.ports.Port
-import com.daml.platform.store.interning.StringInterningView
-
 import scala.util.Try
+import scala.util.chaining._
 
 object SandboxOnXRunner {
   val RunnerName = "sandbox-on-x"
@@ -62,31 +54,20 @@ object SandboxOnXRunner {
       configAdaptor: BridgeConfigAdaptor,
       config: Config,
       bridgeConfig: BridgeConfig,
-  ): AbstractResourceOwner[ResourceContext, Port] = {
-    new ResourceOwner[Port] {
-      override def acquire()(implicit context: ResourceContext): Resource[Port] =
-        SandboxOnXRunner.run(configAdaptor, config, bridgeConfig)
-    }
-  }
-
-  def run(
-      configAdaptor: BridgeConfigAdaptor,
-      config: Config,
-      bridgeConfig: BridgeConfig,
-  )(implicit resourceContext: ResourceContext): Resource[Port] = {
+  ): ResourceOwner[Port] = {
     implicit val actorSystem: ActorSystem = ActorSystem(RunnerName)
     implicit val materializer: Materializer = Materializer(actorSystem)
 
     for {
       // Take ownership of the actor system and materializer so they're cleaned up properly.
       // This is necessary because we can't declare them as implicits in a `for` comprehension.
-      _ <- ResourceOwner.forActorSystem(() => actorSystem).acquire()
-      _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
+      _ <- ResourceOwner.forActorSystem(() => actorSystem)
+      _ <- ResourceOwner.forMaterializer(() => materializer)
 
       // Start the ledger
       participant <- combinedParticipant(config)
       (participantId, dataSource, participantConfig) = participant
-      ledger <- buildLedger(
+      apiServerPort <- buildLedger(
         participantId,
         config,
         participantConfig,
@@ -96,8 +77,7 @@ object SandboxOnXRunner {
         actorSystem,
         configAdaptor,
         None,
-      ).acquire()
-      (apiServer, _, _) = ledger
+      )
     } yield {
       logInitializationHeader(
         config,
@@ -106,15 +86,13 @@ object SandboxOnXRunner {
         dataSource,
         bridgeConfig,
       )
-      apiServer.port
+      apiServerPort
     }
   }
 
   def combinedParticipant(
       config: Config
-  )(implicit
-      resourceContext: ResourceContext
-  ): Resource[(Ref.ParticipantId, ParticipantDataSourceConfig, ParticipantConfig)] = for {
+  ): ResourceOwner[(Ref.ParticipantId, ParticipantDataSourceConfig, ParticipantConfig)] = for {
     (participantId, participantConfig) <- validateCombinedParticipantMode(config)
     dataSource <- validateDataSource(config, participantId)
   } yield (participantId, dataSource, participantConfig)
@@ -122,8 +100,8 @@ object SandboxOnXRunner {
   private def validateDataSource(
       config: Config,
       participantId: Ref.ParticipantId,
-  ): Resource[ParticipantDataSourceConfig] =
-    Resource.fromTry(
+  ): ResourceOwner[ParticipantDataSourceConfig] =
+    ResourceOwner.forTry(() =>
       Try(
         config.dataSource.getOrElse(
           participantId,
@@ -136,13 +114,13 @@ object SandboxOnXRunner {
 
   private def validateCombinedParticipantMode(
       config: Config
-  ): Resource[(Ref.ParticipantId, ParticipantConfig)] =
+  ): ResourceOwner[(Ref.ParticipantId, ParticipantConfig)] =
     config.participants.toList match {
       case (participantId, participantConfig) :: Nil
           if participantConfig.runMode == ParticipantRunMode.Combined =>
-        Resource.successful((participantId, participantConfig))
+        ResourceOwner.forValue(() => (participantId, participantConfig))
       case _ =>
-        Resource.failed {
+        ResourceOwner.failed {
           val loggingMessage = "Sandbox-on-X can only be run in a single COMBINED participant mode."
           newLoggingContext(logger.info(loggingMessage)(_))
           new IllegalArgumentException(loggingMessage)
@@ -159,7 +137,7 @@ object SandboxOnXRunner {
       actorSystem: ActorSystem,
       configAdaptor: BridgeConfigAdaptor,
       metrics: Option[Metrics] = None,
-  ): ResourceOwner[(ApiServer, WriteService, IndexService)] = {
+  ): ResourceOwner[Port] = {
     val sharedEngine = new Engine(config.engine)
 
     newLoggingContextWith("participantId" -> participantId) { implicit loggingContext =>
@@ -245,7 +223,7 @@ object SandboxOnXRunner {
           participantId,
           configAdaptor.authService(participantConfig),
         )
-      } yield (apiServer, writeService, indexService)
+      } yield apiServer.port
     }
   }
 
@@ -360,14 +338,14 @@ object SandboxOnXRunner {
     metrics
       .tap(_.registry.registerAll(new JvmMetricSet))
       .pipe { metrics =>
-        config.metrics.reporter
-          .fold(ResourceOwner.unit)(reporter =>
-            ResourceOwner
-              .forCloseable(() => reporter.register(metrics.registry))
-              .map(_.start(config.metrics.reportingInterval.toMillis, TimeUnit.MILLISECONDS))
-          )
-          .map(_ => metrics)
+        if (config.metrics.enabled)
+          ResourceOwner
+            .forCloseable(() => config.metrics.reporter.register(metrics.registry))
+            .map(_.start(config.metrics.reportingInterval.toMillis, TimeUnit.MILLISECONDS))
+        else
+          ResourceOwner.unit
       }
+      .map(_ => metrics)
   }
 
   // Builds the write service and uploads the initialization DARs

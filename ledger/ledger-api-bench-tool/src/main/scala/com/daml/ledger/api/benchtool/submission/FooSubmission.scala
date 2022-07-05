@@ -29,6 +29,7 @@ class FooSubmission(
       )
     val partySelecting =
       new RandomPartySelecting(
+        config = submissionConfig,
         allocatedParties = allocatedParties,
         randomnessProvider = partySelectingRandomnessProvider,
       )
