@@ -98,7 +98,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
         commands.deduplicationPeriod,
         commands.submissionId.map(_.unwrap),
         ledgerConfiguration,
-        ImmArray.empty,
       ),
       transactionMeta = state.TransactionMeta(
         commands.commands.ledgerEffectiveTime,

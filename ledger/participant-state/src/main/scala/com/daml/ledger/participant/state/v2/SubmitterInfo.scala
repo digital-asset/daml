@@ -5,9 +5,8 @@ package com.daml.ledger.participant.state.v2
 
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.Configuration
-import com.daml.lf.command.DisclosedContract
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.transaction.{TransactionNodeStatistics, Versioned}
+import com.daml.lf.data.Ref
+import com.daml.lf.transaction.TransactionNodeStatistics
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 
 /** Collects context information for a submission.
@@ -29,7 +28,6 @@ import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
   * @param submissionId        An identifier for the submission that allows an application to
   *                            correlate completions to its submissions.
   * @param ledgerConfiguration The ledger configuration used during interpretation.
-  * @param explicitlyDisclosedContracts  Explicitly disclosed contracts used during interpretation.
   */
 final case class SubmitterInfo(
     actAs: List[Ref.Party],
@@ -39,7 +37,6 @@ final case class SubmitterInfo(
     deduplicationPeriod: DeduplicationPeriod,
     submissionId: Option[Ref.SubmissionId],
     ledgerConfiguration: Configuration,
-    explicitlyDisclosedContracts: ImmArray[Versioned[DisclosedContract]],
 ) {
 
   /** The ID for the ledger change */
@@ -65,7 +62,6 @@ object SubmitterInfo {
           commandId,
           deduplicationPeriod,
           submissionId,
-          _,
           _,
         ) =>
       LoggingValue.Nested.fromEntries(

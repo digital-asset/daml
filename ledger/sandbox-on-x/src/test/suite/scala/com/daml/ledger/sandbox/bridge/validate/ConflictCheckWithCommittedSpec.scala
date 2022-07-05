@@ -10,13 +10,13 @@ import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{IndexService, MaximumLedgerTime}
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
-import com.daml.ledger.sandbox.bridge.validate.ConflictCheckWithCommittedSpec._
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
+import com.daml.ledger.sandbox.bridge.validate.ConflictCheckWithCommittedSpec._
 import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, GlobalKey, Transaction}
 import com.daml.lf.value.Value
@@ -254,6 +254,5 @@ object ConflictCheckWithCommittedSpec {
     submissionId = Some(Ref.SubmissionId.assertFromString("some-submission-id")),
     ledgerConfiguration =
       Configuration(0L, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(0L)),
-    ImmArray.empty,
   )
 }
