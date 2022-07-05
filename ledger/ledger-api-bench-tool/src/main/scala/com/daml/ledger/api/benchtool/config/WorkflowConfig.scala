@@ -99,6 +99,8 @@ object WorkflowConfig {
     /** If specified, used to cancel the stream after the specified time out
       */
     def timeoutInSecondsO: Option[Long] = None
+
+    def partySetPrefix: Option[String]
   }
 
   object StreamConfig {
@@ -119,7 +121,9 @@ object WorkflowConfig {
         objectives: Option[StreamConfig.TransactionObjectives] = None,
         override val maxItemCount: Option[Long] = None,
         override val timeoutInSecondsO: Option[Long] = None,
-    ) extends StreamConfig
+    ) extends StreamConfig {
+      override def partySetPrefix: Option[String] = partyNamePrefixFilterO.map(_.partyNamePrefix)
+    }
 
     final case class TransactionTreesStreamConfig(
         name: String,
@@ -130,7 +134,9 @@ object WorkflowConfig {
         objectives: Option[StreamConfig.TransactionObjectives] = None,
         override val maxItemCount: Option[Long] = None,
         override val timeoutInSecondsO: Option[Long] = None,
-    ) extends StreamConfig
+    ) extends StreamConfig {
+      override def partySetPrefix: Option[String] = partyNamePrefixFilterO.map(_.partyNamePrefix)
+    }
 
     final case class ActiveContractsStreamConfig(
         name: String,
@@ -139,7 +145,9 @@ object WorkflowConfig {
         objectives: Option[StreamConfig.RateObjectives] = None,
         override val maxItemCount: Option[Long] = None,
         override val timeoutInSecondsO: Option[Long] = None,
-    ) extends StreamConfig
+    ) extends StreamConfig {
+      override def partySetPrefix: Option[String] = partyNamePrefixFilterO.map(_.partyNamePrefix)
+    }
 
     final case class CompletionsStreamConfig(
         name: String,
@@ -149,7 +157,9 @@ object WorkflowConfig {
         objectives: Option[StreamConfig.RateObjectives],
         override val maxItemCount: Option[Long],
         override val timeoutInSecondsO: Option[Long],
-    ) extends StreamConfig
+    ) extends StreamConfig {
+      override def partySetPrefix: Option[String] = None
+    }
 
     case class TransactionObjectives(
         maxDelaySeconds: Option[Long],

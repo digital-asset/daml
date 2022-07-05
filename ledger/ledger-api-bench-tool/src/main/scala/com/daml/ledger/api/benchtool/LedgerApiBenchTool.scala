@@ -123,7 +123,18 @@ class LedgerApiBenchTool(
               logger.info(s"No submission defined. Skipping.")
               for {
                 existingParties <- partyAllocating.lookupExistingParties()
-              } yield AllocatedParties.forExistingParties(existingParties.toList)
+              } yield AllocatedParties.forExistingParties(
+                parties = existingParties.toList,
+                partySetPrefixO = {
+                  val partySetPrefixes =
+                    config.workflow.streams.flatMap(_.partySetPrefix.iterator).distinct
+                  require(
+                    partySetPrefixes.size <= 1,
+                    s"Found more than one observer party set! ${partySetPrefixes}",
+                  )
+                  partySetPrefixes.headOption
+                },
+              )
             case Some(submissionConfig) =>
               submissionStep(
                 regularUserServices = regularUserServices,

@@ -79,7 +79,7 @@ class PartySetsITSpec
       )
       _ <- tested.performSubmission()
       _ = allocatedParties.observerPartySetO.get.parties(87).toString shouldBe "MyParty-87"
-      treeResults_myParty <- observeStreams(
+      treeResults_myParty87 <- observeStreams(
         configDesugaring = configDesugaring,
         filterByParties = List("MyParty-87"),
         apiServices = apiServices,
@@ -94,9 +94,9 @@ class PartySetsITSpec
 
     } yield {
       { // Party from party set
-        treeResults_myParty.numberOfCreatesPerTemplateName("Foo1") shouldBe 6
-        treeResults_myParty.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 12
-        treeResults_myParty.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+        treeResults_myParty87.numberOfCreatesPerTemplateName("Foo1") shouldBe 6
+        treeResults_myParty87.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 12
+        treeResults_myParty87.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
       }
       { // Party set
         treeResults_partySet.numberOfCreatesPerTemplateName("Foo1") shouldBe 10

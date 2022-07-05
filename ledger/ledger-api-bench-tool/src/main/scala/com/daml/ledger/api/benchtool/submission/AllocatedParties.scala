@@ -23,30 +23,22 @@ case class AllocatedParties(
 }
 
 object AllocatedParties {
-  def forExistingParties(parties: List[String]): AllocatedParties = {
+  def forExistingParties(
+      parties: List[String],
+      partySetPrefixO: Option[String],
+  ): AllocatedParties = {
     val partiesPrefixMap: Map[String, List[Primitive.Party]] = parties
       .groupBy(Names.parsePartyNamePrefix)
       .view
       .mapValues(_.map(Primitive.Party(_)))
       .toMap
-    val observerPartySetMap = partiesPrefixMap.removedAll(
-      List(
-        Names.SignatoryPrefix,
-        Names.ObserverPrefix,
-        Names.DivulgeePrefix,
-        Names.ExtraSubmitterPrefix,
-      )
+    val observerPartySetO = for {
+      partySetPrefix <- partySetPrefixO
+      parties <- partiesPrefixMap.get(partySetPrefix)
+    } yield AllocatedPartySet(
+      partyNamePrefix = partySetPrefix,
+      parties = parties,
     )
-    require(
-      observerPartySetMap.size <= 1,
-      s"Found more than one observer party set! ${observerPartySetMap.keys}",
-    )
-    val observerPartySetO = observerPartySetMap.headOption.map { case (prefix, parties) =>
-      AllocatedPartySet(
-        partyNamePrefix = prefix,
-        parties = parties,
-      )
-    }
     AllocatedParties(
       // NOTE: For synthetic streams signatory is always present
       signatoryO = partiesPrefixMap.getOrElse(Names.SignatoryPrefix, List.empty).headOption,
