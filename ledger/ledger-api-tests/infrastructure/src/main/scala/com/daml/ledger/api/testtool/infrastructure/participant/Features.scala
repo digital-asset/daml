@@ -18,6 +18,7 @@ final case class Features(
     optionalLedgerId: Boolean = false,
     contractIds: ExperimentalContractIds,
     committerEventLog: ExperimentalCommitterEventLog,
+    explicitDisclosure: Boolean = false,
 )
 
 object Features {
@@ -40,6 +41,7 @@ object Features {
       optionalLedgerId = experimental.optionalLedgerId.isDefined,
       contractIds = experimental.getContractIds,
       committerEventLog = experimental.getCommitterEventLog,
+      explicitDisclosure = experimental.getExplicitDisclosure.supported,
     )
   }
 }
