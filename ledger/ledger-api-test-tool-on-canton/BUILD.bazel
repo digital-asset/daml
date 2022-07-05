@@ -145,5 +145,6 @@ conformance_test(
             "ExceptionsIT",
             "RaceConditionIT",
         ]),
+        "--exclude=ExceptionsIT:ExRollbackCreate",
     ],
 ) if not is_windows else None

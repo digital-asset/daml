@@ -831,6 +831,17 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "start": "2.2.1-snapshot",
+        "platform_ranges": [
+            {
+                "end": "2.2.0",
+                "exclusions": [
+                    "ExceptionsIT:ExRollbackCreate",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):

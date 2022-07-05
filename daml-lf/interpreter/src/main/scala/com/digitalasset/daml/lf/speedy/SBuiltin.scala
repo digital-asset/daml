@@ -1931,6 +1931,8 @@ private[lf] object SBuiltin {
     ptx.aborted match {
       case Some(Tx.AuthFailureDuringExecution(nid, fa)) =>
         throw SErrorDamlException(IE.FailedAuthorization(nid, fa))
+      case Some(Tx.ContractNotFound(coid)) =>
+        throw SErrorDamlException(IE.ContractNotFound(coid))
       case Some(Tx.DuplicateContractKey(key)) =>
         throw SErrorDamlException(IE.DuplicateContractKey(key))
       case None =>
