@@ -199,7 +199,7 @@ private[validation] object Serializability {
       // https://github.com/digital-asset/daml/pull/14322#issuecomment-1173692581
       case Some(viewMethod) =>
         try {
-          Env(version, interface, context, SRChoiceRes, viewMethod.returnType).checkType()
+          Env(flags, pkgInterface, context, SRChoiceRes, viewMethod.returnType).checkType()
         } catch {
           case _: ValidationError =>
             throw EViewNotSerializable(context, tyCon.tycon, viewMethod.returnType);
