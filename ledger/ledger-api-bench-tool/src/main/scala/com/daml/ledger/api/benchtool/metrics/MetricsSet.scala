@@ -22,7 +22,7 @@ import scala.concurrent.duration.FiniteDuration
 object MetricsSet {
 
   def transactionMetrics(
-      objectives: Option[TransactionObjectives]
+      configO: Option[TransactionObjectives]
   ): List[Metric[GetTransactionsResponse]] =
     transactionMetrics[GetTransactionsResponse](
       countingFunction = (response => countFlatTransactionsEvents(response).toInt),
@@ -30,7 +30,7 @@ object MetricsSet {
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
       },
-      configO = objectives,
+      configO = configO,
     )
 
   def transactionExposedMetrics(
@@ -50,7 +50,7 @@ object MetricsSet {
     )
 
   def transactionTreesMetrics(
-      objectives: Option[TransactionObjectives]
+      configO: Option[TransactionObjectives]
   ): List[Metric[GetTransactionTreesResponse]] =
     transactionMetrics[GetTransactionTreesResponse](
       countingFunction = (response => countTreeTransactionsEvents(response).toInt),
@@ -58,7 +58,7 @@ object MetricsSet {
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
       },
-      configO = objectives,
+      configO = configO,
     )
 
   def transactionTreesExposedMetrics(
