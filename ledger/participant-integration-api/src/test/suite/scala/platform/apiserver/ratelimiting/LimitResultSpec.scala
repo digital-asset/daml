@@ -31,6 +31,7 @@ class LimitResultSpec extends AnyFlatSpec with Matchers {
     val actual: LimitResult = for {
       _ <- underCheck()
       _ <- expected
+      _ <- underCheck()
       _ <- overCheck("Other failure")
     } yield ()
     actual shouldBe expected
