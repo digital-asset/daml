@@ -153,7 +153,15 @@ final class Conversions(
                 )
               case DuplicateContractKey(key) =>
                 builder.setScenarioCommitError(
-                  proto.CommitError.newBuilder.setUniqueKeyViolation(convertGlobalKey(key)).build
+                  proto.CommitError.newBuilder
+                    .setUniqueContractKeyViolation(convertGlobalKey(key))
+                    .build
+                )
+              case InconsistentContractKey(key) =>
+                builder.setScenarioCommitError(
+                  proto.CommitError.newBuilder
+                    .setInconsistentContractKey(convertGlobalKey(key))
+                    .build
                 )
               case CreateEmptyContractKeyMaintainers(tid, arg, key) =>
                 builder.setCreateEmptyContractKeyMaintainers(
@@ -308,7 +316,7 @@ final class Conversions(
     val builder = proto.CommitError.newBuilder
     commitError match {
       case ScenarioLedger.CommitError.UniqueKeyViolation(gk) =>
-        builder.setUniqueKeyViolation(convertGlobalKey(gk.gk))
+        builder.setUniqueContractKeyViolation(convertGlobalKey(gk.gk))
     }
     builder.build
   }

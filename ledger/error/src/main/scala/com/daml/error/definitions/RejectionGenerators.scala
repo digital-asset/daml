@@ -76,6 +76,9 @@ object RejectionGenerators {
         case LfInterpretationError.DuplicateContractKey(key) =>
           LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
             .RejectWithContractKeyArg(renderedMessage, key)
+        case LfInterpretationError.InconsistentContractKey(key) =>
+          LedgerApiErrors.ConsistencyErrors.InconsistentContractKey
+            .RejectWithContractKeyArg(renderedMessage, key)
         case _: LfInterpretationError.UnhandledException =>
           LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError.Error(
             renderedMessage + detailMessage.fold("")(x => ". Details: " + x)

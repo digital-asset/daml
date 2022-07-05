@@ -67,6 +67,14 @@ object Error {
       key: GlobalKey
   ) extends Error
 
+  /** The ledger provided an inconsistent view of a contract key.
+    * See com.daml.lf.transaction.Transaction.DuplicateContractKey
+    * for more details.
+    */
+  final case class InconsistentContractKey(
+      key: GlobalKey
+  ) extends Error
+
   /** A create with a contract key failed because the list of maintainers was empty */
   final case class CreateEmptyContractKeyMaintainers(
       templateId: TypeConName,
