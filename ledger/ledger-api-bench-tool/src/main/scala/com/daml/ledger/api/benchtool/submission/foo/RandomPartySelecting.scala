@@ -3,10 +3,12 @@
 
 package com.daml.ledger.api.benchtool.submission.foo
 
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig
 import com.daml.ledger.api.benchtool.submission.{AllocatedParties, RandomnessProvider}
 import com.daml.ledger.client.binding.Primitive
 
 class RandomPartySelecting(
+    config: FooSubmissionConfig,
     allocatedParties: AllocatedParties,
     randomnessProvider: RandomnessProvider = RandomnessProvider.Default,
 ) {
@@ -16,10 +18,15 @@ class RandomPartySelecting(
   private val extraSubmittersProbability = probabilitiesByPartyIndex(
     allocatedParties.extraSubmitters
   )
+  private val observerPartySetPartiesProbability =
+    allocatedParties.observerPartySetO.fold(List.empty[(Primitive.Party, Double)])(
+      _.parties.map(party => party -> config.observerPartySetO.get.visibility)
+    )
 
   def nextPartiesForContracts(): PartiesSelection = {
     PartiesSelection(
-      observers = pickParties(observersProbability),
+      observers =
+        pickParties(observersProbability) ++ pickParties(observerPartySetPartiesProbability),
       divulgees = pickParties(divulgeesProbability),
     )
   }
