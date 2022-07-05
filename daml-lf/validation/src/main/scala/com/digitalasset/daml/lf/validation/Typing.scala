@@ -14,8 +14,6 @@ import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
 
-import annotation.nowarn
-
 private[validation] object Typing {
 
   import Util.handleLookup
@@ -477,7 +475,7 @@ private[validation] object Typing {
           env.checkExpr(precond, TBool)
           methods.values.foreach(checkIfaceMethod)
           choices.values.foreach(env.checkChoice(ifaceName, _))
-          env.checkIfaceCoImplementations(ifaceName, coImplements)
+          env.checkIfaceCoImplementations(ifaceName, param, coImplements)
       }
 
     private def checkIfaceMethod(method: InterfaceMethod): Unit = {
@@ -488,41 +486,82 @@ private[validation] object Typing {
       AlphaEquiv.alphaEquiv(t1, t2) ||
         AlphaEquiv.alphaEquiv(expandTypeSynonyms(t1), expandTypeSynonyms(t2))
 
-    private def checkIfaceImplementations(
+    private def checkGenImplementation(
         tplTcon: TypeConName,
-        impls: Map[TypeConName, TemplateImplements],
+        ifaceTcon: TypeConName,
+        implMethods: List[(MethodName, Expr)],
     ): Unit = {
+      val DefInterfaceSignature(requires, _, _, methods, _, _) =
+        handleLookup(ctx, pkgInterface.lookupInterface(ifaceTcon))
 
-      impls.foreach { case (iface, impl) =>
-        val DefInterfaceSignature(requires, _, _, methods, _, _) =
-          handleLookup(ctx, pkgInterface.lookupInterface(impl.interfaceId))
+      requires
+        .filterNot(required =>
+          pkgInterface.lookupInterfaceCoImplements(tplTcon, required).isRight ||
+            pkgInterface.lookupTemplateImplements(tplTcon, required).isRight
+        )
+        .foreach(required => throw EMissingRequiredInterface(ctx, tplTcon, ifaceTcon, required))
 
-        requires
-          .filterNot(impls.contains)
-          .foreach(required => throw EMissingRequiredInterface(ctx, tplTcon, iface, required))
-
-        methods.values.foreach { (method: InterfaceMethod) =>
-          if (!impl.methods.contains(method.name))
-            throw EMissingInterfaceMethod(ctx, tplTcon, impl.interfaceId, method.name)
-        }
-        impl.methods.values.foreach { (tplMethod: TemplateImplementsMethod) =>
-          methods.get(tplMethod.name) match {
-            case None =>
-              throw EUnknownInterfaceMethod(ctx, tplTcon, impl.interfaceId, tplMethod.name)
-            case Some(method) =>
-              checkExpr(tplMethod.value, method.returnType)
-          }
+      methods.values.foreach { (method: InterfaceMethod) =>
+        if (!implMethods.exists { case (name, _) => name == method.name })
+          throw EMissingInterfaceMethod(ctx, tplTcon, ifaceTcon, method.name)
+      }
+      implMethods.foreach { case (name, value) =>
+        methods.get(name) match {
+          case None =>
+            throw EUnknownInterfaceMethod(ctx, tplTcon, ifaceTcon, name)
+          case Some(method) =>
+            checkExpr(value, method.returnType)
         }
       }
     }
 
-    // TODO (MA): https://github.com/digital-asset/daml/issues/14047
-    @nowarn("cat=unused&msg=parameter value ifaceTcon in method")
-    @nowarn("cat=unused&msg=parameter value coImpls in method")
+    private def checkIfaceImplementation(
+        tplTcon: TypeConName,
+        impl: TemplateImplements,
+    ): Unit = {
+      val ifaceTcon = impl.interfaceId
+      pkgInterface
+        .lookupInterfaceCoImplements(tplTcon, ifaceTcon)
+        .foreach(_ => throw EConflictingImplementsCoImplements(ctx, tplTcon, ifaceTcon))
+      checkGenImplementation(
+        tplTcon,
+        ifaceTcon,
+        impl.methods.values.map(TemplateImplementsMethod.unapply(_).value).toList,
+      )
+    }
+
+    private def checkIfaceImplementations(
+        tplTcon: TypeConName,
+        impls: Map[TypeConName, TemplateImplements],
+    ): Unit =
+      impls.values.foreach(checkIfaceImplementation(tplTcon, _))
+
+    private def checkIfaceCoImplementation(
+        ifaceTcon: TypeConName,
+        param: ExprVarName,
+        coImpl: InterfaceCoImplements,
+    ): Unit = {
+      val tplTcon = coImpl.templateId
+      pkgInterface
+        .lookupTemplateImplements(tplTcon, ifaceTcon)
+        .foreach(_ => throw EConflictingImplementsCoImplements(ctx, tplTcon, ifaceTcon))
+
+      // Note (MA): we use an empty environment and add `param : TTyCon(tplTcon)`
+      Env(languageVersion, pkgInterface, Context.DefInterfaceCoImplements(tplTcon, ifaceTcon))
+        .introExprVar(param, TTyCon(tplTcon))
+        .checkGenImplementation(
+          tplTcon,
+          ifaceTcon,
+          coImpl.methods.values.map(InterfaceCoImplementsMethod.unapply(_).value).toList,
+        )
+    }
+
     private def checkIfaceCoImplementations(
         ifaceTcon: TypeConName,
+        param: ExprVarName,
         coImpls: Map[TypeConName, InterfaceCoImplements],
-    ): Unit = {}
+    ): Unit =
+      coImpls.values.foreach(checkIfaceCoImplementation(ifaceTcon, param, _))
 
     private[Typing] def checkDefException(
         excepName: TypeConName,
