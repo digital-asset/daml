@@ -62,6 +62,7 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
         request = Some(request),
         participantReport = Some(expectedReport),
         reportGenerationTime = Some(generationTime),
+        check = GetMeteringReportResponse.defaultInstance.check, // TODO tamperproofing
       )
 
       actual shouldBe expected

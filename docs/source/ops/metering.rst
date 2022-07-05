@@ -70,7 +70,8 @@ Output
                 "application": "some-application",
                 "events": 42
             }
-        ]
+        ],
+        "check": ""
     }
 
 The output consists of the following sections:
@@ -89,6 +90,8 @@ The output consists of the following sections:
 :applications:
     This section will give an event count for each application used in the reporting period.
 
+:check:
+    This field may be populated with a value that allows the entire report to be validated as complete.
 
 
 

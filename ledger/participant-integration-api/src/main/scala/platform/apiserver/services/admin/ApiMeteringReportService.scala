@@ -117,6 +117,7 @@ private[apiserver] object ApiMeteringReportService {
         request = Some(request),
         participantReport = Some(report),
         reportGenerationTime = Some(generationTime),
+        check = GetMeteringReportResponse.defaultInstance.check, // TODO tamperproofing
       )
 
     }

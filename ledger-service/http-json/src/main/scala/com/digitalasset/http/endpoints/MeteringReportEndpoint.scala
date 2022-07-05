@@ -56,6 +56,7 @@ private[http] object MeteringReportEndpoint {
       request: MeteringReportRequest,
       `final`: Boolean,
       applications: Seq[ApplicationMeteringReport],
+      check: String,
   )
 
   case class ApplicationMeteringReport(
@@ -88,7 +89,7 @@ private[http] object MeteringReportEndpoint {
     jsonFormat2(ApplicationMeteringReport.apply)
 
   implicit val MeteringReportFormat: RootJsonFormat[MeteringReport] =
-    jsonFormat4(MeteringReport.apply)
+    jsonFormat5(MeteringReport.apply)
 
   private[endpoints] def toTimestamp(pbTimestamp: protobuf.timestamp.Timestamp): Timestamp = {
     Timestamp.assertFromInstant(
@@ -155,6 +156,7 @@ private[http] object MeteringReportEndpoint {
       request,
       pbParticipantReport.isFinal,
       applications,
+      pbResponse.check,
     )
 
     import scalaz.syntax.std.either._

@@ -31,6 +31,7 @@ class MeteringReportEndpointTest extends AnyFreeSpec with Matchers {
       request.copy(to = None),
       `final` = true,
       Seq(ApplicationMeteringReport(appX, 63)),
+      check = "check0",
     )
 
     "should read/write request" in {
@@ -75,6 +76,7 @@ class MeteringReportEndpointTest extends AnyFreeSpec with Matchers {
           )
         ),
         reportGenerationTime = None,
+        check = report.check,
       )
       val actual = MeteringReportEndpoint.toMeteringReport(response)
       actual shouldBe expected

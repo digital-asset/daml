@@ -562,6 +562,7 @@ tMeteringReportJson = testCase "tMeteringReportJson" $ do
     , request = meteringRequest
     , isFinal = True
     , applications = [meteredApplication]
+    , check = "check0"
     }
     let expected = Just report
     let json = encode report

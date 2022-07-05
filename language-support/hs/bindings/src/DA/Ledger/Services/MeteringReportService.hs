@@ -90,15 +90,17 @@ data MeteringReport = MeteringReport {
 , request  :: MeteringRequest
 , isFinal :: Bool
 , applications :: [MeteredApplication]
+, check :: TL.Text
 } deriving (Show, Eq)
 
 instance ToJSON MeteringReport where
-  toJSON (MeteringReport participant request isFinal applications) =
+  toJSON (MeteringReport participant request isFinal applications check) =
     object
     [   "participant" .= unParticipantId participant
     ,   "request" .= request
     ,   "final" .= isFinal
     ,   "applications" .= applications
+    ,   "check" .= check
     ]
 
 instance FromJSON MeteringReport where
@@ -107,6 +109,7 @@ instance FromJSON MeteringReport where
         <*> v .: "request"
         <*> v .: "final"
         <*> v .: "applications"
+        <*> v .: "check"
 
 timestampToSystemTime :: Timestamp -> System.SystemTime
 timestampToSystemTime ts = st
@@ -149,16 +152,16 @@ raiseGetMeteringReportRequest (LL.GetMeteringReportRequest (Just llFrom) llTo ll
 
 raiseGetMeteringReportRequest response = Left $ Unexpected ("raiseGetMeteringReportRequest unable to parse response: " <> show response)
 
-raiseParticipantMeteringReport ::  LL.GetMeteringReportRequest ->  LL.ParticipantMeteringReport -> Perhaps MeteringReport
-raiseParticipantMeteringReport llRequest  (LL.ParticipantMeteringReport llParticipantId isFinal llAppReports) = do
+raiseParticipantMeteringReport ::  LL.GetMeteringReportRequest ->  LL.ParticipantMeteringReport -> TL.Text -> Perhaps MeteringReport
+raiseParticipantMeteringReport llRequest  (LL.ParticipantMeteringReport llParticipantId isFinal llAppReports) check = do
   participant <- raiseParticipantId llParticipantId
   request <- raiseGetMeteringReportRequest llRequest
   applications <- raiseList raiseApplicationMeteringReport llAppReports
   return MeteringReport{..}
 
 raiseGetMeteringReportResponse :: LL.GetMeteringReportResponse -> Perhaps MeteringReport
-raiseGetMeteringReportResponse (LL.GetMeteringReportResponse (Just request) (Just report) (Just _)) =
-  raiseParticipantMeteringReport request report
+raiseGetMeteringReportResponse (LL.GetMeteringReportResponse (Just request) (Just report) (Just _) check) =
+  raiseParticipantMeteringReport request report check
 
 raiseGetMeteringReportResponse response = Left $ Unexpected ("raiseMeteredReport unable to parse response: " <> show response)
 
