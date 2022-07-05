@@ -259,12 +259,18 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         // EToInterface
         E"λ (t: Mod:Ti) → (( to_interface @Mod:I @Mod:Ti t ))" ->
           T"Mod:Ti → Mod:I",
+        E"λ (t: Mod:CoTi) → (( to_interface @Mod:I @Mod:CoTi t ))" ->
+          T"Mod:CoTi → Mod:I",
         // EFromInterface
         E"λ (i: Mod:I) → (( from_interface @Mod:I @Mod:Ti i ))" ->
           T"Mod:I → Option Mod:Ti",
+        E"λ (i: Mod:I) → (( from_interface @Mod:I @Mod:CoTi i ))" ->
+          T"Mod:I → Option Mod:CoTi",
         // EUnsafeFromInterface
         E"λ (cid: ContractId Mod:I) (i: Mod:I) → (( unsafe_from_interface @Mod:I @Mod:Ti cid i ))" ->
           T"ContractId Mod:I → Mod:I → Mod:Ti",
+        E"λ (cid: ContractId Mod:I) (i: Mod:I) → (( unsafe_from_interface @Mod:I @Mod:CoTi cid i ))" ->
+          T"ContractId Mod:I → Mod:I → Mod:CoTi",
         // EToRequiredInterface
         E"λ (sub: Mod:SubI) → (( to_required_interface @Mod:I @Mod:SubI sub ))" ->
           T"Mod:SubI → Mod:I",
@@ -1866,12 +1872,23 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
            key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party));
          };
 
+         record @serializable CoTi = { person: Party, name: Text };
+         template (this: CoTi) = {
+            precondition True;
+            signatories Nil @Party;
+            observers Nil @Party;
+            agreement "Agreement";
+         };
+
          interface (this : I) = {
               precondition True;
               method getParties: List Party;
               choice ChIface (self) (x: Int64) : Decimal,
                   controllers Nil @Party
                 to upure @INT64 (DECIMAL_TO_INT64 x);
+              coimplements Mod:CoTi {
+                method getParties = Cons @Party [(Mod:CoTi {person} this)] (Nil @Party);
+              };
          };
 
          interface (this : SubI) = {
