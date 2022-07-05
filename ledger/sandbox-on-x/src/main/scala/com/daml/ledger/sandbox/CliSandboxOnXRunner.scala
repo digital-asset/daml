@@ -5,9 +5,11 @@ package com.daml.ledger.sandbox
 
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common._
+import com.daml.logging.ContextualizedLogger
 import com.daml.resources.ProgramResource
 
 object CliSandboxOnXRunner {
+  private val logger = ContextualizedLogger.get(getClass)
   val RunnerName = "sandbox-on-x"
 
   def program[T](owner: ResourceOwner[T]): Unit =
@@ -50,6 +52,9 @@ object CliSandboxOnXRunner {
       sandboxOnXConfig: SandboxOnXConfig,
   ): ResourceOwner[Unit] = {
     Banner.show(Console.out)
+    logger.withoutContext.info(
+      "Sandbox-on-X server config: \n" + ConfigRenderer.render(sandboxOnXConfig)
+    )
     SandboxOnXRunner
       .owner(
         configAdaptor,
