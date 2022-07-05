@@ -39,7 +39,7 @@ object Node {
 
     def templateId: TypeConName
 
-    def keyO: Option[KeyWithMaintainers]
+    def keyOpt: Option[KeyWithMaintainers]
 
     final override protected def self: this.type = this
 
@@ -88,7 +88,7 @@ object Node {
 
     override def byKey: Boolean = false
 
-    override def keyO: Option[KeyWithMaintainers] = key
+    override def keyOpt: Option[KeyWithMaintainers] = key
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.Create =
       copy(version = version)
@@ -125,7 +125,7 @@ object Node {
   ) extends LeafOnlyAction
       with ActionNodeInfo.Fetch {
 
-    override def keyO: Option[KeyWithMaintainers] = key
+    override def keyOpt: Option[KeyWithMaintainers] = key
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.Fetch =
       copy(version = version)
@@ -166,7 +166,7 @@ object Node {
   ) extends Action
       with ActionNodeInfo.Exercise {
 
-    override def keyO: Option[KeyWithMaintainers] = key
+    override def keyOpt: Option[KeyWithMaintainers] = key
 
     override private[lf] def updateVersion(
         version: TransactionVersion
@@ -204,7 +204,7 @@ object Node {
   ) extends LeafOnlyAction
       with ActionNodeInfo.LookupByKey {
 
-    override def keyO: Some[KeyWithMaintainers] = Some(key)
+    override def keyOpt: Some[KeyWithMaintainers] = Some(key)
 
     override def mapCid(f: ContractId => ContractId): Node.LookupByKey =
       copy(key = key.mapCid(f), result = result.map(f))

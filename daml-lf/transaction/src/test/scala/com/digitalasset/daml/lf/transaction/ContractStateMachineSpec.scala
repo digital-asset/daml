@@ -609,7 +609,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       next <- node match {
         case actionNode: Node.Action =>
           lazy val gkeyO =
-            actionNode.keyO.map(key => GlobalKey.assertBuild(actionNode.templateId, key.key))
+            actionNode.keyOpt.map(key => GlobalKey.assertBuild(actionNode.templateId, key.key))
           state.handleNode((), actionNode, gkeyO.flatMap(resolver))
         case _: Node.Rollback =>
           Right(state.beginRollback())
