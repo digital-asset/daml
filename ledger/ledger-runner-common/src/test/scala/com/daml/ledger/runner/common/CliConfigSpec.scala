@@ -42,9 +42,9 @@ final class CliConfigSpec
       TlsConfiguration(
         enabled = true,
         secretsUrl = Some(SecretsUrl.fromString("http://aaa")),
-        keyFile = Some(new File("key.enc")),
-        keyCertChainFile = None,
-        trustCertCollectionFile = None,
+        privateKeyFile = Some(new File("key.enc")),
+        certChainFile = None,
+        trustCollectionFile = None,
       )
     )
   }
@@ -105,9 +105,9 @@ final class CliConfigSpec
       TlsConfiguration(
         enabled = true,
         secretsUrl = None,
-        keyFile = Some(new File("key.txt")),
-        keyCertChainFile = None,
-        trustCertCollectionFile = None,
+        privateKeyFile = Some(new File("key.txt")),
+        certChainFile = None,
+        trustCollectionFile = None,
       )
     )
   }

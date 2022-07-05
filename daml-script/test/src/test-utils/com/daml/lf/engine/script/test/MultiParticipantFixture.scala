@@ -158,9 +158,9 @@ trait MultiParticipantFixture
       params,
       tlsConfig = TlsConfiguration(
         enabled = false,
-        keyCertChainFile = None,
-        keyFile = None,
-        trustCertCollectionFile = None,
+        certChainFile = None,
+        privateKeyFile = None,
+        trustCollectionFile = None,
       ),
       maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
     )

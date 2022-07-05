@@ -383,7 +383,7 @@ object CliConfig {
           "TLS: The pem file to be used as the private key. Use '.enc' filename suffix if the pem file is encrypted."
         )
         .action((path, config) =>
-          config.withTlsConfig(c => c.copy(keyFile = Some(new File(path))))
+          config.withTlsConfig(c => c.copy(privateKeyFile = Some(new File(path))))
         ),
       opt[String]("tls-secrets-url")
         .optional()
@@ -396,8 +396,8 @@ object CliConfig {
       checkConfig(c =>
         c.tlsConfig.fold(success) { tlsConfig =>
           if (
-            tlsConfig.keyFile.isDefined
-            && tlsConfig.keyFile.get.getName.endsWith(".enc")
+            tlsConfig.privateKeyFile.isDefined
+            && tlsConfig.privateKeyFile.get.getName.endsWith(".enc")
             && tlsConfig.secretsUrl.isEmpty
           ) {
             failure(
@@ -414,13 +414,13 @@ object CliConfig {
           "TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set."
         )
         .action((path, config) =>
-          config.withTlsConfig(c => c.copy(keyCertChainFile = Some(new File(path))))
+          config.withTlsConfig(c => c.copy(certChainFile = Some(new File(path))))
         ),
       opt[String]("cacrt")
         .optional()
         .text("TLS: The crt file to be used as the trusted root CA.")
         .action((path, config) =>
-          config.withTlsConfig(c => c.copy(trustCertCollectionFile = Some(new File(path))))
+          config.withTlsConfig(c => c.copy(trustCollectionFile = Some(new File(path))))
         ),
       opt[Boolean]("cert-revocation-checking")
         .optional()
