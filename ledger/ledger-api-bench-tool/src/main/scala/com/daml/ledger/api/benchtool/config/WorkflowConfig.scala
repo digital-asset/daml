@@ -142,7 +142,7 @@ object WorkflowConfig {
         name: String,
         filters: List[PartyFilter],
         partyNamePrefixFilterO: Option[PartyNamePrefixFilter] = None,
-        objectives: Option[StreamConfig.RateObjectives] = None,
+        objectives: Option[StreamConfig.AcsAndCompletionsObjectives] = None,
         override val maxItemCount: Option[Long] = None,
         override val timeoutInSecondsO: Option[Long] = None,
     ) extends StreamConfig {
@@ -154,23 +154,30 @@ object WorkflowConfig {
         parties: List[String],
         applicationId: String,
         beginOffset: Option[LedgerOffset],
-        objectives: Option[StreamConfig.RateObjectives],
+        objectives: Option[StreamConfig.AcsAndCompletionsObjectives],
         override val maxItemCount: Option[Long],
         override val timeoutInSecondsO: Option[Long],
     ) extends StreamConfig {
       override def partySetPrefix: Option[String] = None
     }
 
+    trait CommonObjectivesConfig {
+      def maxTotalStreamRuntimeDurationInMs: Option[Long]
+      def minItemRate: Option[Double]
+      def maxItemRate: Option[Double]
+    }
     case class TransactionObjectives(
         maxDelaySeconds: Option[Long],
         minConsumptionSpeed: Option[Double],
-        minItemRate: Option[Double],
-        maxItemRate: Option[Double],
-    )
+        override val minItemRate: Option[Double],
+        override val maxItemRate: Option[Double],
+        override val maxTotalStreamRuntimeDurationInMs: Option[Long] = None,
+    ) extends CommonObjectivesConfig
 
-    case class RateObjectives(
-        minItemRate: Option[Double],
-        maxItemRate: Option[Double],
-    )
+    case class AcsAndCompletionsObjectives(
+        override val minItemRate: Option[Double],
+        override val maxItemRate: Option[Double],
+        override val maxTotalStreamRuntimeDurationInMs: Option[Long] = None,
+    ) extends CommonObjectivesConfig
   }
 }

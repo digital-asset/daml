@@ -25,18 +25,20 @@ object WorkflowConfigParser {
 
   object Decoders {
     implicit val transactionObjectivesDecoder: Decoder[StreamConfig.TransactionObjectives] =
-      Decoder.forProduct4(
+      Decoder.forProduct5(
         "max_delay_seconds",
         "min_consumption_speed",
         "min_item_rate",
         "max_item_rate",
+        "max_stream_duration",
       )(StreamConfig.TransactionObjectives.apply)
 
-    implicit val rateObjectivesDecoder: Decoder[StreamConfig.RateObjectives] =
-      Decoder.forProduct2(
+    implicit val rateObjectivesDecoder: Decoder[StreamConfig.AcsAndCompletionsObjectives] =
+      Decoder.forProduct3(
         "min_item_rate",
         "max_item_rate",
-      )(StreamConfig.RateObjectives.apply)
+        "max_stream_duration",
+      )(StreamConfig.AcsAndCompletionsObjectives.apply)
 
     implicit val offsetDecoder: Decoder[LedgerOffset] = {
       Decoder.decodeString.map {

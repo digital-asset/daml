@@ -222,6 +222,8 @@ object Cli {
                   minConsumptionSpeed = minConsumptionSpeed,
                   minItemRate = minItemRate,
                   maxItemRate = maxItemRate,
+                  // NOTE: Unsupported on CLI
+                  maxTotalStreamRuntimeDurationInMs = None,
                 )
               )
           }
@@ -280,14 +282,16 @@ object Cli {
         def rateObjectives(
             minItemRate: Option[Double],
             maxItemRate: Option[Double],
-        ): Option[WorkflowConfig.StreamConfig.RateObjectives] =
+        ): Option[WorkflowConfig.StreamConfig.AcsAndCompletionsObjectives] =
           (minItemRate, maxItemRate) match {
             case (None, None) => None
             case _ =>
               Some(
-                WorkflowConfig.StreamConfig.RateObjectives(
+                WorkflowConfig.StreamConfig.AcsAndCompletionsObjectives(
                   minItemRate = minItemRate,
                   maxItemRate = maxItemRate,
+                  // NOTE: Unsupported on CLI
+                  maxTotalStreamRuntimeDurationInMs = None,
                 )
               )
           }
