@@ -198,7 +198,7 @@ object SValue {
       * SValue keys are assumed to be in ascending order - hence the SMap's TreeMap will be built in time O(n) using a
       * sorted map specialisation.
       */
-    def apply(
+    def fromOrderedEntries(
         isTextMap: Boolean,
         entries: IndexedSeqView[(SValue, SValue)],
     ): SMap = {

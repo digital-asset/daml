@@ -790,7 +790,7 @@ private[lf] object Speedy {
 
                   // textMap
                   case V.ValueTextMap(entries) =>
-                    SValue.SMap(
+                    SValue.SMap.fromOrderedEntries(
                       isTextMap = true,
                       entries = entries.toImmArray.toSeq.view.map { case (k, v) =>
                         SValue.SText(k) -> go(elemType, v)
@@ -803,7 +803,7 @@ private[lf] object Speedy {
                 value match {
                   // genMap
                   case V.ValueGenMap(entries) =>
-                    SValue.SMap(
+                    SValue.SMap.fromOrderedEntries(
                       isTextMap = false,
                       entries = entries.toSeq.view.map { case (k, v) =>
                         go(keyType, k) -> go(valueType, v)

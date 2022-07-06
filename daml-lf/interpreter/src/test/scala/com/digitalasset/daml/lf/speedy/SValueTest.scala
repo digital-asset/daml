@@ -72,7 +72,7 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
       )
 
       forAll(testCases) { (isTextMap, entries) =>
-        val result = Try(SMap(isTextMap, entries))
+        val result = Try(SMap.fromOrderedEntries(isTextMap, entries))
 
         inside(result) { case Failure(error: IllegalArgumentException) =>
           error.getMessage shouldBe "requirement failed: The entries are not in descending order"
@@ -106,7 +106,7 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
       )
 
       forAll(testCases) { (isTextMap, entries, result) =>
-        SMap(isTextMap, entries) shouldBe result
+        SMap.fromOrderedEntries(isTextMap, entries) shouldBe result
       }
     }
   }
