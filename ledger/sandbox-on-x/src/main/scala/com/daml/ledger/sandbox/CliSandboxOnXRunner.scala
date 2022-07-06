@@ -18,11 +18,13 @@ object CliSandboxOnXRunner {
   def run(
       args: collection.Seq[String],
       manipulateConfig: CliConfig[BridgeConfig] => CliConfig[BridgeConfig] = identity,
-  ): Unit =
-    CliConfig
+  ): Unit = {
+    val config = CliConfig
       .parse(RunnerName, BridgeConfig.Parser, BridgeConfig.Default, args)
       .map(manipulateConfig)
-      .foreach(runProgram)
+      .getOrElse(sys.exit(1))
+    runProgram(config)
+  }
 
   private def runProgram(config: CliConfig[BridgeConfig]): Unit =
     config.mode match {
