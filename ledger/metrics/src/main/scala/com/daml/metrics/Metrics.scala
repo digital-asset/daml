@@ -575,8 +575,6 @@ final class Metrics(val registry: MetricRegistry) {
         registry,
       )
 
-      val stateUpdateProcessing: Timer = registry.timer(Prefix :+ "processed_state_updates")
-
       val ledgerEndSequentialId = new VarGauge[Long](0L)
       registry.register(Prefix :+ "ledger_end_sequential_id", ledgerEndSequentialId)
     }
