@@ -588,6 +588,36 @@ management service.
 A database metric. Time spent persisting the information that a given
 command has been rejected.
 
+``daml.indexer.last_received_record_time``
+------------------------------------------
+
+A monotonically increasing integer value that represents the record time
+of the last event ingested by the index db. It is measured in milliseconds
+since the EPOCH time.
+
+``daml.indexer.last_received_offset``
+-------------------------------------
+
+A string value representing the last ledger offset ingested by the index db.
+It is only available on metrics backends that support strings. In particular
+it is not available in Prometheus.
+
+``daml.indexer.current_record_time_lag``
+----------------------------------------
+
+A lag between the record time of a transaction and the wall-clock time registered
+at the ingestion time to the index db. Depending on the systemic clock skew between
+different machines, this value can be negative.
+
+``daml.indexer.ledger_end_sequential_id``
+-----------------------------------------
+
+A monotonically increasing integer value representing the sequential id ascribed to
+the most recent ledger event ingested by the index db. Please note, that only events
+representable on the ledger api are ingested and given a sequential id. These are:
+creates, consuming and non-consuming exercises. This value can be treated as a counter
+of all events visible to a given participant.
+
 ``daml.lapi``
 -------------
 
