@@ -612,11 +612,11 @@ different machines, this value can be negative.
 ``daml.indexer.ledger_end_sequential_id``
 -----------------------------------------
 
-A monotonically increasing integer value representing the sequential id ascribed to
-the most recent ledger event ingested by the index db. Please note, that only events
-representable on the ledger api are ingested and given a sequential id. These are:
-creates, consuming and non-consuming exercises. This value can be treated as a counter
-of all events visible to a given participant.
+A monotonically increasing integer value representing the sequential id ascribed
+to the most recent ledger event ingested by the index db. Please note, that only
+a subset of all ledger events are ingested and given a sequential id. These are:
+creates, consuming exercises, non-consuming exercises and divulgence events. This
+value can be treated as a counter of all such events visible to a given participant.
 
 ``daml.lapi``
 -------------
