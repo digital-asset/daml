@@ -472,11 +472,9 @@ private[lf] object Speedy {
       */
     def stackTrace(): ImmArray[Location] = {
       val s = ImmArray.newBuilder[Location]
-      kontStack.forEach { k =>
-        k match {
-          case KLocation(_, location) => discard(s += location)
-          case _ => ()
-        }
+      kontStack.forEach {
+        case KLocation(_, location) => discard(s += location)
+        case _ => ()
       }
       s.result()
     }
