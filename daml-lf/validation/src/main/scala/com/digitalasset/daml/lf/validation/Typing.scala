@@ -496,8 +496,7 @@ private[validation] object Typing {
 
       requires
         .filterNot(required =>
-          pkgInterface.lookupInterfaceCoImplements(tplTcon, required).isRight ||
-            pkgInterface.lookupTemplateImplements(tplTcon, required).isRight
+          pkgInterface.lookupTemplateImplementsOrInterfaceCoImplements(tplTcon, required).isRight
         )
         .foreach(required => throw EMissingRequiredInterface(ctx, tplTcon, ifaceTcon, required))
 
