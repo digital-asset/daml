@@ -368,7 +368,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
             case (key, NegativeKeyLookup) if lookupActiveKey(key).exists(_ != KeyInactive) =>
               Left(InconsistentContractKey(key))
             case (key, Transaction.KeyActive(cid))
-                if lookupActiveKey(key).exists(km => km != KeyActive(cid)) =>
+                if lookupActiveKey(key).exists(_ != KeyActive(cid)) =>
               Left(InconsistentContractKey(key))
           }
           .toLeft(())
