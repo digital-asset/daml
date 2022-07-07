@@ -696,17 +696,14 @@ private[lf] final class Compiler(
       )
     }
 
-  private[this] val IdentityDef = SDefinition(pipeline(fun1((pos, env) => env.toSEVar(pos))))
+  private[this] val UnitDef = SDefinition(t.SEValue.Unit)
 
-  // Turn a template value into an interface value. Since interfaces have a
-  // toll-free representation (for now), this is just the identity function.
-  // But the existence of ImplementsDefRef implies that the template implements
-  // the interface, which is useful in itself.
+  // Witness the fact that the template 'tmplId' implements the interface 'ifaceId'
   private[this] def compileImplements(
       tmplId: Identifier,
       ifaceId: Identifier,
   ): (t.SDefinitionRef, SDefinition) =
-    t.ImplementsDefRef(tmplId, ifaceId) -> IdentityDef
+    t.ImplementsDefRef(tmplId, ifaceId) -> UnitDef
 
   // Compile the implementation of an interface method.
   private[this] def compileImplementsMethod(
