@@ -315,7 +315,10 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
               def handleResult(result: Option[ContractId]): (KeyMapping, State) = {
                 // Update key inputs. Create nodes never call this method,
                 // so NegativeKeyLookup is the right choice for the global key input.
-                val keyInput = result.fold[KeyInput](NegativeKeyLookup)(Transaction.KeyActive)
+                val keyInput = result match {
+                  case None => NegativeKeyLookup
+                  case Some(cid) => Transaction.KeyActive(cid)
+                }
                 val newKeyInputs = globalKeyInputs.updated(gkey, keyInput)
 
                 result match {
@@ -492,7 +495,10 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
                   case NegativeKeyLookup =>
                     // A lookup-by-key brought the key in scope. Use the resolver's resolution instead
                     // as the projected resolver's resolution might have been mapped to None.
-                    resolver(key).fold(keyInput)(Transaction.KeyActive)
+                    resolver(key) match {
+                      case None => keyInput
+                      case Some(cid) => Transaction.KeyActive(cid)
+                    }
                   case active: Transaction.KeyActive =>
                     active
                 }
