@@ -3,7 +3,7 @@
 
 package com.daml.platform.indexer.parallel
 
-import java.util.Timer
+import java.util.{Timer, concurrent}
 import java.util.concurrent.Executors
 
 import akka.stream.{KillSwitch, Materializer}
@@ -83,7 +83,24 @@ object ParallelIndexerFactory {
             // The life-cycle of such connections matches the life-cycle of a protectedExecution
             dataSource = dataSourceStorageBackend.createDataSource(jdbcUrl, dataSourceConfig)
           } yield HaCoordinator.databaseLockBasedHaCoordinator(
-            connectionFactory = () => dataSource.getConnection,
+            mainConnectionFactory = () => {
+              val connection = dataSource.getConnection
+              val directExecutor = new concurrent.Executor {
+                override def execute(command: Runnable): Unit = {
+                  // this will execute on the same thread which started the Executor.execute()
+                  command.run()
+                }
+              }
+              // direct executor is beneficial in context of main connection and network timeout:
+              // all socket/Connection closure will be happening on the thread which called the JDBC execute,
+              // instead of happening asynchronously - after error with network timeout the Connection
+              // needs to be closed anyway.
+              connection.setNetworkTimeout(
+                directExecutor,
+                haConfig.mainLockCheckerJdbcNetworkTimeoutMillis,
+              )
+              connection
+            },
             storageBackend = dbLockStorageBackend,
             executionContext = executionContext,
             timer = timer,
