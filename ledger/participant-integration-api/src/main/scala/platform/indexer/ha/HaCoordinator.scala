@@ -100,7 +100,7 @@ object HaCoordinator {
           storageBackend
             .tryAcquire(lockId, lockMode)(connection)
             .getOrElse(
-              throw new Exception(s"Cannot acquire lock $lockId in lock-mode $lockMode: lock busy")
+              throw new CannotAcquireLockException(lockId, lockMode)
             )
         }
 
@@ -122,18 +122,20 @@ object HaCoordinator {
               logger.info("Stepped down as leader, IndexDB HA Coordinator shut down")
             }
             _ = logger.info("Waiting to be elected as leader")
-            _ <- retry(haConfig.mainLockAcquireRetryMillis)(acquireMainLock(mainConnection))
+            _ <- retry(
+              waitMillisBetweenRetries = haConfig.mainLockAcquireRetryMillis,
+              retryable = _.isInstanceOf[CannotAcquireLockException],
+            )(acquireMainLock(mainConnection))
             _ = logger.info("Elected as leader: starting initialization")
             _ = logger.info("Waiting for previous IndexDB HA Coordinator to finish work")
             _ = logger.debug(
               "Step 2: acquire exclusive Indexer Main Lock on main-connection - DONE"
             )
             exclusiveWorkerLock <- retry[Lock](
-              haConfig.workerLockAcquireRetryMillis,
-              haConfig.workerLockAcquireMaxRetry,
-            )(
-              acquireLock(mainConnection, indexerWorkerLockId, LockMode.Exclusive)
-            )
+              waitMillisBetweenRetries = haConfig.workerLockAcquireRetryMillis,
+              maxAmountOfRetries = haConfig.workerLockAcquireMaxRetry,
+              retryable = _.isInstanceOf[CannotAcquireLockException],
+            )(acquireLock(mainConnection, indexerWorkerLockId, LockMode.Exclusive))
             _ = logger.info(
               "Previous IndexDB HA Coordinator finished work, starting DB connectivity polling"
             )
@@ -182,6 +184,11 @@ object HaCoordinator {
         }
       }
     }
+  }
+
+  class CannotAcquireLockException(lockId: LockId, lockMode: LockMode) extends RuntimeException {
+    override def getMessage: String =
+      s"Cannot acquire lock $lockId in lock-mode $lockMode"
   }
 }
 
