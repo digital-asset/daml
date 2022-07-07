@@ -227,7 +227,7 @@ private[lf] object PartialTransaction {
   *  @param contractState summarizes the changes to the contract states caused by nodes up to now
   *  @param actionNodeLocations The optional locations of create/exercise/fetch/lookup nodes in pre-order.
   *   Used by 'locationInfo()', called by 'finish()' and 'finishIncomplete()'
- *   @param disclosedContracts contracts that have been explicitly disclosed
+  *   @param disclosedContracts contracts that have been explicitly disclosed
   */
 private[speedy] case class PartialTransaction(
     submissionTime: Time.Timestamp,

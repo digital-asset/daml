@@ -363,7 +363,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       machine: Machine,
       time: Time.Timestamp,
   ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("Daml Engine") { onLedger =>
-
     def detailMsg = Some(
       s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.ptxInternal.nodesToString}"
     )
