@@ -446,6 +446,15 @@ object SExpr {
     */
   final case class ImplementsDefRef(ref: DefinitionRef, ifaceId: TypeConName) extends SDefinitionRef
 
+  /** CoImplementsDefRef(templateId, ref=ifaceId) points to the Unit value if
+    * the interface provides an implementation for (co-implements) the template.
+    * Note that the order is (template, interface) like in 'ImplementsDefRef'.
+    * This means that 'ref' must be the second argument, since a
+    * co-implementation is associated to the interface.
+    */
+  final case class CoImplementsDefRef(templateId: TypeConName, ref: DefinitionRef)
+      extends SDefinitionRef
+
   /** ImplementsMethodDefRef(ref=templateId, ifaceId, method) invokes the template's
     * implementation of an interface method.
     */

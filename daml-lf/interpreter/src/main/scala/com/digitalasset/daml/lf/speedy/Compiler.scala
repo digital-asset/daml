@@ -356,6 +356,9 @@ private[lf] final class Compiler(
       iface.choices.values.foreach { choice =>
         addDef(compileInterfaceChoice(ifaceId, iface.param, choice))
       }
+      iface.coImplements.values.foreach { coimpl =>
+        addDef(compileCoImplements(coimpl.templateId, ifaceId))
+      }
     }
 
     builder.result()
@@ -704,6 +707,14 @@ private[lf] final class Compiler(
       ifaceId: Identifier,
   ): (t.SDefinitionRef, SDefinition) =
     t.ImplementsDefRef(tmplId, ifaceId) -> UnitDef
+
+  // Witness the fact that the interface 'ifaceId' provides an implementation
+  // for (co-implements) the template 'tmplId'
+  private[this] def compileCoImplements(
+      tmplId: Identifier,
+      ifaceId: Identifier,
+  ): (t.SDefinitionRef, SDefinition) =
+    t.CoImplementsDefRef(tmplId, ifaceId) -> UnitDef
 
   // Compile the implementation of an interface method.
   private[this] def compileImplementsMethod(
