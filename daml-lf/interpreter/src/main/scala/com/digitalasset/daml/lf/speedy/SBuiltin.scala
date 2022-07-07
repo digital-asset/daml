@@ -10,7 +10,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, TemplateOrInterface}
 import com.daml.lf.speedy.ArrayList.Implicits._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -1036,12 +1036,34 @@ private[lf] object SBuiltin {
     }
   }
 
+  private[this] def getImplementsOrCoImplements(
+      machine: Machine,
+      templateId: TypeConName,
+      interfaceId: TypeConName,
+  ): Option[TemplateOrInterface[ImplementsDefRef, CoImplementsDefRef]] = {
+    val implements = ImplementsDefRef(templateId, interfaceId)
+    val coImplements = CoImplementsDefRef(templateId, interfaceId)
+    if (machine.compiledPackages.getDefinition(implements).nonEmpty)
+      Some(TemplateOrInterface.Template(implements))
+    else if (machine.compiledPackages.getDefinition(coImplements).nonEmpty)
+      Some(TemplateOrInterface.Interface(coImplements))
+    else
+      None
+  }
+
+  private[this] def implementsOrCoImplements(
+      machine: Machine,
+      templateId: TypeConName,
+      interfaceId: TypeConName,
+  ): Boolean =
+    getImplementsOrCoImplements(machine, templateId, interfaceId).nonEmpty
+
   // SBCastAnyInterface: ContractId ifaceId -> Any -> ifaceId
   final case class SBCastAnyInterface(ifaceId: TypeConName) extends SBuiltin(2) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       def coid = getSContractId(args, 0)
       val (actualTmplId, _) = getSAnyContract(args, 1)
-      if (machine.compiledPackages.getDefinition(ImplementsDefRef(actualTmplId, ifaceId)).isEmpty)
+      if (!implementsOrCoImplements(machine, actualTmplId, ifaceId))
         throw SErrorDamlException(IE.ContractDoesNotImplementInterface(ifaceId, coid, actualTmplId))
       machine.returnValue = args.get(1)
     }
@@ -1156,11 +1178,7 @@ private[lf] object SBuiltin {
     ) = {
       val contractId = getSContractId(args, 0)
       val (actualTmplId, record @ _) = getSAnyContract(args, 1)
-      if (
-        machine.compiledPackages
-          .getDefinition(ImplementsDefRef(actualTmplId, requiringIfaceId))
-          .isEmpty
-      )
+      if (!implementsOrCoImplements(machine, actualTmplId, requiringIfaceId))
         throw SErrorDamlException(
           IE.ContractDoesNotImplementRequiringInterface(
             requiringIfaceId,
@@ -1267,14 +1285,12 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
     ) = {
-      val (tyCon, record) = getSAnyContract(args, 0)
+      val (actualTemplateId, record) = getSAnyContract(args, 0)
       machine.returnValue =
-        if (
-          machine.compiledPackages.getDefinition(ImplementsDefRef(tyCon, requiringIfaceId)).isEmpty
-        )
-          SOptional(None)
+        if (implementsOrCoImplements(machine, actualTemplateId, requiringIfaceId))
+          SOptional(Some(SAnyContract(actualTemplateId, record)))
         else
-          SOptional(Some(SAnyContract(tyCon, record)))
+          SOptional(None)
     }
   }
 
@@ -1291,17 +1307,17 @@ private[lf] object SBuiltin {
         machine: Machine,
     ) = {
       val coid = getSContractId(args, 0)
-      val (tyCon, record) = getSAnyContract(args, 1)
-      if (machine.compiledPackages.getDefinition(ImplementsDefRef(tyCon, requiringIfaceId)).isEmpty)
+      val (actualTmplId, record) = getSAnyContract(args, 1)
+      if (!implementsOrCoImplements(machine, actualTmplId, requiringIfaceId))
         throw SErrorDamlException(
           IE.ContractDoesNotImplementRequiringInterface(
             requiringIfaceId,
             requiredIfaceId,
             coid,
-            tyCon,
+            actualTmplId,
           )
         )
-      machine.returnValue = SAnyContract(tyCon, record)
+      machine.returnValue = SAnyContract(actualTmplId, record)
     }
   }
 
