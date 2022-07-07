@@ -3,6 +3,7 @@
 
 package com.daml.ledger.runner.common
 
+import com.daml.jwt.{LeewayOptions}
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
 import com.daml.lf.data.Ref
@@ -226,6 +227,9 @@ object PureConfigReaderWriter {
 
   implicit val userManagementConfigConvert: ConfigConvert[UserManagementConfig] =
     deriveConvert[UserManagementConfig]
+
+  implicit val leewayConfigOptionsConvert: ConfigConvert[LeewayOptions] =
+    deriveConvert[LeewayOptions]
 
   implicit val authServiceConfigUnsafeJwtHmac256Reader
       : ConfigReader[AuthServiceConfig.UnsafeJwtHmac256] =

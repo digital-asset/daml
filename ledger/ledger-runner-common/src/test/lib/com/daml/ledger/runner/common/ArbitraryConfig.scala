@@ -3,6 +3,7 @@
 
 package com.daml.ledger.runner.common
 
+import com.daml.jwt.{LeewayOptions}
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.interpretation.Limits
 import com.daml.lf.language.LanguageVersion
@@ -181,9 +182,15 @@ object ArbitraryConfig {
     maxUsersPageSize = maxUsersPageSize,
   )
 
+  def leewayOptionsGen: Gen[LeewayOptions] = {
+    for {
+      l <- Gen.listOfN(4, Gen.option(Gen.posNum[Long]))
+    } yield LeewayOptions(l(0), l(1), l(2), l(3))
+  }
   val UnsafeJwtHmac256 = for {
     secret <- Gen.alphaStr
-  } yield AuthServiceConfig.UnsafeJwtHmac256(secret)
+    mbLeewayOptions <- Gen.option(leewayOptionsGen)
+  } yield AuthServiceConfig.UnsafeJwtHmac256(secret, mbLeewayOptions)
 
   val JwtRs256Crt = for {
     certificate <- Gen.alphaStr

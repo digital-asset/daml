@@ -3,6 +3,7 @@
 
 package com.daml.ledger.runner.common
 
+import com.daml.jwt.{LeewayOptions}
 import com.daml.lf.interpretation.Limits
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.ContractKeyUniquenessMode
@@ -302,7 +303,7 @@ class PureConfigReaderWriterSpec
   behavior of "userManagementConfig"
 
   it should "support current defaults" in {
-    val value = """  
+    val value = """
     |  cache-expiry-after-write-in-seconds = 5
     |  enabled = false
     |  max-cache-size = 100
@@ -311,7 +312,7 @@ class PureConfigReaderWriterSpec
   }
 
   it should "read/write against predefined values" in {
-    val value = """  
+    val value = """
     |  cache-expiry-after-write-in-seconds = 1
     |  enabled = true
     |  max-cache-size = 99
@@ -331,8 +332,8 @@ class PureConfigReaderWriterSpec
     generatedValue =>
       val configValue = authServiceConfigConvert.to(generatedValue)
       val redacted = generatedValue match {
-        case AuthServiceConfig.UnsafeJwtHmac256(_) =>
-          AuthServiceConfig.UnsafeJwtHmac256("<REDACTED>")
+        case AuthServiceConfig.UnsafeJwtHmac256(_, leeway) =>
+          AuthServiceConfig.UnsafeJwtHmac256("<REDACTED>", leeway)
         case _ => generatedValue
       }
       authServiceConfigConvert
@@ -355,6 +356,45 @@ class PureConfigReaderWriterSpec
     compare(
       "type = unsafe-jwt-hmac-256\nsecret=mysecret2",
       AuthServiceConfig.UnsafeJwtHmac256("mysecret2"),
+    )
+    compare(
+      "type = unsafe-jwt-hmac-256\nsecret=mysecret3",
+      AuthServiceConfig.UnsafeJwtHmac256("mysecret3", None),
+    )
+    compare(
+      "type = unsafe-jwt-hmac-256\nsecret=mysecret3\nleeway-options={leeway: 1}",
+      AuthServiceConfig.UnsafeJwtHmac256(
+        "mysecret3",
+        Some(LeewayOptions(Some(1), None, None, None)),
+      ),
+    )
+    compare(
+      "type = unsafe-jwt-hmac-256\nsecret=mysecret3\nleeway-options={expires-at: 2}",
+      AuthServiceConfig.UnsafeJwtHmac256(
+        "mysecret3",
+        Some(LeewayOptions(None, Some(2), None, None)),
+      ),
+    )
+    compare(
+      "type = unsafe-jwt-hmac-256\nsecret=mysecret3\nleeway-options={issued-at: 3}",
+      AuthServiceConfig.UnsafeJwtHmac256(
+        "mysecret3",
+        Some(LeewayOptions(None, None, Some(3), None)),
+      ),
+    )
+    compare(
+      "type = unsafe-jwt-hmac-256\nsecret=mysecret3\nleeway-options={not-before: 4}",
+      AuthServiceConfig.UnsafeJwtHmac256(
+        "mysecret3",
+        Some(LeewayOptions(None, None, None, Some(4))),
+      ),
+    )
+    compare(
+      "type = unsafe-jwt-hmac-256\nsecret=mysecret3\nleeway-options={leeway: 1, expires-at: 2, issued-at: 3, not-before: 4}",
+      AuthServiceConfig.UnsafeJwtHmac256(
+        "mysecret3",
+        Some(LeewayOptions(Some(1), Some(2), Some(3), Some(4))),
+      ),
     )
     compare(
       "type = jwt-rs-256\ncertificate=certfile",
@@ -390,7 +430,7 @@ class PureConfigReaderWriterSpec
 
   it should "read/write against predefined values" in {
     val value =
-      """ 
+      """
      |  input-buffer-size = 512
      |  max-commands-in-flight = 256
      |  tracker-retention-period = "300 seconds"""".stripMargin
@@ -424,7 +464,7 @@ class PureConfigReaderWriterSpec
   behavior of "RateLimitingConfig"
 
   it should "support current defaults" in {
-    val value = """ 
+    val value = """
     |  enabled = true
     |  max-api-services-index-db-queue-size = 1000
     |  max-api-services-queue-size = 10000
@@ -436,7 +476,7 @@ class PureConfigReaderWriterSpec
   behavior of "ApiServerConfig"
 
   it should "support current defaults" in {
-    val value = """       
+    val value = """
                                   |api-stream-shutdown-timeout = "5s"
                                   |command {
                                   |  input-buffer-size = 512
@@ -536,7 +576,7 @@ class PureConfigReaderWriterSpec
   behavior of "IndexServiceConfig"
 
   it should "support current defaults" in {
-    val value = """ 
+    val value = """
     |  acs-contract-fetching-parallelism = 2
     |  acs-global-parallelism = 10
     |  acs-id-fetching-parallelism = 2
