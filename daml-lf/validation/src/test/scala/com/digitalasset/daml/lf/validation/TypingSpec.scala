@@ -259,12 +259,18 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         // EToInterface
         E"λ (t: Mod:Ti) → (( to_interface @Mod:I @Mod:Ti t ))" ->
           T"Mod:Ti → Mod:I",
+        E"λ (t: Mod:CoTi) → (( to_interface @Mod:I @Mod:CoTi t ))" ->
+          T"Mod:CoTi → Mod:I",
         // EFromInterface
         E"λ (i: Mod:I) → (( from_interface @Mod:I @Mod:Ti i ))" ->
           T"Mod:I → Option Mod:Ti",
+        E"λ (i: Mod:I) → (( from_interface @Mod:I @Mod:CoTi i ))" ->
+          T"Mod:I → Option Mod:CoTi",
         // EUnsafeFromInterface
         E"λ (cid: ContractId Mod:I) (i: Mod:I) → (( unsafe_from_interface @Mod:I @Mod:Ti cid i ))" ->
           T"ContractId Mod:I → Mod:I → Mod:Ti",
+        E"λ (cid: ContractId Mod:I) (i: Mod:I) → (( unsafe_from_interface @Mod:I @Mod:CoTi cid i ))" ->
+          T"ContractId Mod:I → Mod:I → Mod:CoTi",
         // EToRequiredInterface
         E"λ (sub: Mod:SubI) → (( to_required_interface @Mod:I @Mod:SubI sub ))" ->
           T"Mod:SubI → Mod:I",
@@ -1553,6 +1559,131 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               precondition True;
             };
           }
+
+          module CoImplementsBase {
+            interface (this: Root) = {
+              precondition True;
+              method getParties: List Party;
+              choice RootCh (self) (i : Unit) : Unit,
+                controllers call_method @CoImplementsBase:Root getParties this
+                to upure @Unit ();
+            };
+
+            record @serializable ParcelWithRoot = { party: Party };
+
+            template (this: ParcelWithRoot) = {
+              precondition True;
+              signatories Nil @Party;
+              observers Nil @Party;
+              agreement "";
+              implements CoImplementsBase:Root {
+                method getParties = Cons @Party [(CoImplementsBase:ParcelWithRoot {party} this)] (Nil @Party);
+              };
+            };
+
+            record @serializable ParcelWithoutRoot = { party: Party };
+
+            template (this: ParcelWithoutRoot) = {
+              precondition True;
+              signatories Nil @Party;
+              observers Nil @Party;
+              agreement "";
+            };
+          }
+
+          module NegativeTestCase_CoImplements {
+            interface (this: Boxy) = {
+              requires CoImplementsBase:Root;
+              precondition True;
+              method getInt: Int64;
+              choice BoxyCh (self) (i : Unit) : Int64,
+                controllers call_method @CoImplementsBase:Root
+                  getParties
+                    (to_required_interface @CoImplementsBase:Root @NegativeTestCase_CoImplements:Boxy this)
+                to upure @Int64 (call_method @NegativeTestCase_CoImplements:Boxy getInt this);
+              coimplements CoImplementsBase:ParcelWithRoot {
+                method getInt = 42;
+              };
+            };
+          }
+
+          module PositiveTestCase_CoImplementsMissingRequiredInterface {
+            interface (this: Boxy) = {
+              requires CoImplementsBase:Root;
+              precondition True;
+              method getInt: Int64;
+              choice BoxyCh (self) (i : Unit) : Int64,
+                controllers call_method @CoImplementsBase:Root
+                  getParties
+                    (to_required_interface @CoImplementsBase:Root @PositiveTestCase_CoImplementsMissingRequiredInterface:Boxy this)
+                to upure @Int64 (call_method @PositiveTestCase_CoImplementsMissingRequiredInterface:Boxy getInt this);
+              coimplements CoImplementsBase:ParcelWithoutRoot {
+                method getInt = 42;
+              };
+            };
+          }
+
+          module PositiveTestCase_CoImplementsMissingMethod {
+            interface (this: Boxy) = {
+              requires CoImplementsBase:Root;
+              precondition True;
+              method getInt: Int64;
+              choice BoxyCh (self) (i : Unit) : Int64,
+                controllers call_method @CoImplementsBase:Root
+                  getParties
+                    (to_required_interface @CoImplementsBase:Root @PositiveTestCase_CoImplementsMissingMethod:Boxy this)
+                to upure @Int64 (call_method @PositiveTestCase_CoImplementsMissingMethod:Boxy getInt this);
+              coimplements CoImplementsBase:ParcelWithRoot {};
+            };
+          }
+
+          module PositiveTestCase_CoImplementsUnknownMethod {
+            interface (this: Boxy) = {
+              requires CoImplementsBase:Root;
+              precondition True;
+              method getInt: Int64;
+              choice BoxyCh (self) (i : Unit) : Int64,
+                controllers call_method @CoImplementsBase:Root
+                  getParties
+                    (to_required_interface @CoImplementsBase:Root @PositiveTestCase_CoImplementsUnknownMethod:Boxy this)
+                to upure @Int64 (call_method @PositiveTestCase_CoImplementsUnknownMethod:Boxy getInt this);
+              coimplements CoImplementsBase:ParcelWithRoot {
+                method getInt = 42;
+                method getBoolean = True;
+              };
+            };
+          }
+
+          module PositiveTestCase_ConflictingImplementsCoImplements {
+            record @serializable Hexagon = { party: Party };
+
+            template (this: Hexagon) = {
+              precondition True;
+              signatories Nil @Party;
+              observers Nil @Party;
+              agreement "";
+              implements CoImplementsBase:Root {
+                method getParties = Cons @Party [(PositiveTestCase_ConflictingImplementsCoImplements:Hexagon {party} this)] (Nil @Party);
+              };
+              implements PositiveTestCase_ConflictingImplementsCoImplements:Polygon {
+                method getSides = 6;
+              };
+            };
+
+            interface (this: Polygon) = {
+              requires CoImplementsBase:Root;
+              precondition True;
+              method getSides: Int64;
+              choice PolygonCh (self) (i : Unit) : Int64,
+                controllers call_method @CoImplementsBase:Root
+                  getParties
+                    (to_required_interface @CoImplementsBase:Root @PositiveTestCase_ConflictingImplementsCoImplements:Polygon this)
+                to upure @Int64 (call_method @PositiveTestCase_ConflictingImplementsCoImplements:Polygon getSides this);
+              coimplements PositiveTestCase_ConflictingImplementsCoImplements:Hexagon {
+                method getSides = 6;
+              };
+            };
+          }
       """
 
       val typeMismatchCases = Table(
@@ -1580,6 +1711,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       checkModule(pkg, "NegativeTestCase")
       checkModule(pkg, "NegativeTestCase_WrongInterfaceRequirement3")
       checkModule(pkg, "NegativeTestCase_WrongInterfaceRequirement4")
+      checkModule(pkg, "NegativeTestCase_CoImplements")
       "NegativeTestCase" shouldBe "NegativeTestCase"
       forEvery(typeMismatchCases)(module =>
         an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, module))
@@ -1604,6 +1736,18 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       )
       an[ENotClosedInterfaceRequires] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_NotClosedInterfaceRequires")
+      )
+      an[EMissingRequiredInterface] shouldBe thrownBy(
+        checkModule(pkg, "PositiveTestCase_CoImplementsMissingRequiredInterface")
+      )
+      an[EMissingInterfaceMethod] shouldBe thrownBy(
+        checkModule(pkg, "PositiveTestCase_CoImplementsMissingMethod")
+      )
+      an[EUnknownInterfaceMethod] shouldBe thrownBy(
+        checkModule(pkg, "PositiveTestCase_CoImplementsUnknownMethod")
+      )
+      an[EConflictingImplementsCoImplements] shouldBe thrownBy(
+        checkModule(pkg, "PositiveTestCase_ConflictingImplementsCoImplements")
       )
     }
 
@@ -1866,12 +2010,23 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
            key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party));
          };
 
+         record @serializable CoTi = { person: Party, name: Text };
+         template (this: CoTi) = {
+            precondition True;
+            signatories Nil @Party;
+            observers Nil @Party;
+            agreement "Agreement";
+         };
+
          interface (this : I) = {
               precondition True;
               method getParties: List Party;
               choice ChIface (self) (x: Int64) : Decimal,
                   controllers Nil @Party
                 to upure @INT64 (DECIMAL_TO_INT64 x);
+              coimplements Mod:CoTi {
+                method getParties = Cons @Party [(Mod:CoTi {person} this)] (Nil @Party);
+              };
          };
 
          interface (this : SubI) = {

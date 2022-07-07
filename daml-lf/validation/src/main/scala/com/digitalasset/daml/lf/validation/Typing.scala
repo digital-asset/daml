@@ -1002,10 +1002,10 @@ private[validation] object Typing {
 
     private def checkImplements(tpl: TypeConName, iface: TypeConName): Unit = {
       discard(handleLookup(ctx, pkgInterface.lookupInterface(iface)))
-      val template = handleLookup(ctx, pkgInterface.lookupTemplate(tpl))
-      if (!template.implements.contains(iface))
+      discard(handleLookup(ctx, pkgInterface.lookupTemplate(tpl)))
+      if (pkgInterface.lookupTemplateImplementsOrInterfaceCoImplements(tpl, iface).isLeft) {
         throw ETemplateDoesNotImplementInterface(ctx, tpl, iface)
-      ()
+      }
     }
 
     private def checkByKey(tmplId: TypeConName, key: Expr): Unit = {
