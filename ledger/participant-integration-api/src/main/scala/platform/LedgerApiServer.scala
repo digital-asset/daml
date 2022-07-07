@@ -30,7 +30,7 @@ import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserMana
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 
-class ParticipantServer(
+class LedgerApiServer(
     authService: AuthService,
     buildWriteService: IndexService => ResourceOwner[WriteService],
     engine: Engine,
@@ -44,7 +44,7 @@ class ParticipantServer(
     servicesExecutionContext: ExecutionContextExecutorService,
     metrics: Metrics,
 )(implicit actorSystem: ActorSystem, materializer: Materializer) {
-  def owner: ResourceOwner[ApiServer] = {
+  def owner: ResourceOwner[ApiService] = {
     newLoggingContextWith("participantId" -> participantId) { implicit loggingContext =>
       val translationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
         config = participantConfig.lfValueTranslationCache,
@@ -62,7 +62,7 @@ class ParticipantServer(
           )
 
         (participantInMemoryState, inMemoryStateUpdater) <-
-          ParticipantServer.createParticipantInMemoryStateAndUpdater(
+          LedgerApiServer.createInMemoryStateAndUpdater(
             participantConfig.indexService,
             dbSupport,
             metrics,
@@ -100,7 +100,7 @@ class ParticipantServer(
 
         writeService <- buildWriteService(indexService)
 
-        apiServer <- buildApiServer(
+        apiServer <- buildApiService(
           ledgerFeatures,
           engine,
           indexService,
@@ -118,7 +118,7 @@ class ParticipantServer(
     }
   }
 
-  private def buildApiServer(
+  private def buildApiService(
       ledgerFeatures: LedgerFeatures,
       sharedEngine: Engine,
       indexService: IndexService,
@@ -134,8 +134,8 @@ class ParticipantServer(
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
-  ): ResourceOwner[ApiServer] =
-    ApiServerOwner(
+  ): ResourceOwner[ApiService] =
+    ApiServiceOwner(
       indexService = indexService,
       ledgerId = ledgerId,
       config = apiServerConfig,
@@ -161,17 +161,17 @@ class ParticipantServer(
     )
 }
 
-object ParticipantServer {
-  def createParticipantInMemoryStateAndUpdater(
+object LedgerApiServer {
+  def createInMemoryStateAndUpdater(
       indexServiceConfig: IndexServiceConfig,
       dbSupport: DbSupport,
       metrics: Metrics,
       executionContext: ExecutionContext,
   )(implicit
       loggingContext: LoggingContext
-  ): ResourceOwner[(ParticipantInMemoryState, InMemoryStateUpdater)] =
+  ): ResourceOwner[(InMemoryState, InMemoryStateUpdater)] =
     for {
-      participantInMemoryState <- ParticipantInMemoryState.owner(
+      inMemoryState <- InMemoryState.owner(
         apiStreamShutdownTimeout = indexServiceConfig.apiStreamShutdownTimeout,
         bufferedStreamsPageSize = indexServiceConfig.bufferedStreamsPageSize,
         maxContractStateCacheSize = indexServiceConfig.maxContractStateCacheSize,
@@ -197,9 +197,9 @@ object ParticipantServer {
       )
 
       inMemoryStateUpdater <- InMemoryStateUpdater.owner(
-        participantInMemoryState = participantInMemoryState,
+        inMemoryState = inMemoryState,
         prepareUpdatesParallelism = indexServiceConfig.inMemoryStateUpdaterParallelism,
         metrics = metrics,
       )
-    } yield participantInMemoryState -> inMemoryStateUpdater
+    } yield inMemoryState -> inMemoryStateUpdater
 }

@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.v2.{ReadService, Update}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.ParticipantInMemoryState
+import com.daml.platform.InMemoryState
 import com.daml.platform.store.backend.{IngestionStorageBackend, ParameterStorageBackend}
 import com.daml.platform.store.dao.DbDispatcher
 
@@ -29,7 +29,7 @@ private[platform] case class InitializeParallelIngestion(
 
   def apply(
       dbDispatcher: DbDispatcher,
-      participantInMemoryState: ParticipantInMemoryState,
+      participantInMemoryState: InMemoryState,
       readService: ReadService,
       ec: ExecutionContext,
       mat: Materializer,

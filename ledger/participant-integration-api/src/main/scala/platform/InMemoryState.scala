@@ -15,8 +15,8 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining._
 
-/** Wrapper and life-cycle manager for the in-memory participant state. */
-private[platform] class ParticipantInMemoryState(
+/** Wrapper and life-cycle manager for the in-memory Ledger API state. */
+private[platform] class InMemoryState(
     val ledgerEndCache: MutableLedgerEndCache,
     val contractStateCaches: ContractStateCaches,
     val transactionsBuffer: EventsBuffer[TransactionLogUpdate],
@@ -51,7 +51,7 @@ private[platform] class ParticipantInMemoryState(
   }
 }
 
-object ParticipantInMemoryState {
+object InMemoryState {
   def owner(
       apiStreamShutdownTimeout: Duration,
       bufferedStreamsPageSize: Int,
@@ -61,12 +61,12 @@ object ParticipantInMemoryState {
       updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit],
       metrics: Metrics,
       executionContext: ExecutionContext,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantInMemoryState] = {
+  )(implicit loggingContext: LoggingContext): ResourceOwner[InMemoryState] = {
     val initialLedgerEnd = LedgerEnd.beforeBegin
 
     for {
       dispatcherState <- DispatcherState.owner(apiStreamShutdownTimeout)
-    } yield new ParticipantInMemoryState(
+    } yield new InMemoryState(
       ledgerEndCache = MutableLedgerEndCache()
         .tap(
           _.set((initialLedgerEnd.lastOffset, initialLedgerEnd.lastEventSeqId))

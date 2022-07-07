@@ -17,7 +17,7 @@ import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{JvmMetricSet, Metrics}
-import com.daml.platform.ParticipantServer
+import com.daml.platform.LedgerApiServer
 import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.{Indexer, IndexerServiceOwner, JdbcIndexer}
@@ -74,20 +74,10 @@ class IndexerBenchmark() {
       val readService = createReadService(updates)
 
       val resource = for {
-        dbSupport <- DbSupport
-          .owner(
-            serverRole = ServerRole.ApiServer,
-            metrics = metrics,
-            dbConfig = ParticipantConfig().dataSourceProperties.createDbConfig(
-              config.dataSource
-            ),
-          )
-          .acquire()
-        (participantInMemoryState, inMemoryStateUpdater) <-
-          ParticipantServer
-            .createParticipantInMemoryStateAndUpdater(
+        (inMemoryState, inMemoryStateUpdater) <-
+          LedgerApiServer
+            .createInMemoryStateAndUpdater(
               config.indexServiceConfig,
-              dbSupport,
               metrics,
               indexerExecutionContext,
             )
@@ -99,7 +89,7 @@ class IndexerBenchmark() {
           readService,
           metrics,
           LfValueTranslationCache.Cache.none,
-          participantInMemoryState,
+          inMemoryState,
           inMemoryStateUpdater.flow,
         )
         _ <- metricsResource(config, metrics)

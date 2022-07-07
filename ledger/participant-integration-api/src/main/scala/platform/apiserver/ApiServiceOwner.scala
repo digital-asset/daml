@@ -29,7 +29,7 @@ import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}
 
-object ApiServerOwner {
+object ApiServiceOwner {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def apply(
@@ -54,7 +54,7 @@ object ApiServerOwner {
       actorSystem: ActorSystem,
       materializer: Materializer,
       loggingContext: LoggingContext,
-  ): ResourceOwner[ApiServer] = {
+  ): ResourceOwner[ApiService] = {
 
     def writePortFile(port: Port): Try[Unit] = {
       config.portFile match {
@@ -110,7 +110,7 @@ object ApiServerOwner {
         apiStreamShutdownTimeout = config.apiStreamShutdownTimeout,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
-      apiServer <- new LedgerApiServer(
+      apiService <- new LedgerApiService(
         apiServicesOwner,
         config.port,
         config.maxInboundMessageSize,
@@ -125,12 +125,12 @@ object ApiServerOwner {
         metrics,
         config.rateLimit,
       )
-      _ <- ResourceOwner.forTry(() => writePortFile(apiServer.port))
+      _ <- ResourceOwner.forTry(() => writePortFile(apiService.port))
     } yield {
       logger.info(
-        s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiServer.port}"
+        s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiService.port}"
       )
-      apiServer
+      apiService
     }
   }
 }

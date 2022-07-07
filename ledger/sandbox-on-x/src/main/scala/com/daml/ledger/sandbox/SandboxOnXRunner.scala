@@ -10,8 +10,18 @@ import akka.stream.scaladsl.Sink
 import com.codahale.metrics.{InstrumentedExecutorService, MetricRegistry}
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceNone, AuthServiceStatic, AuthServiceWildcard}
-import com.daml.ledger.api.v1.experimental_features.{CommandDeduplicationFeatures, CommandDeduplicationPeriodSupport, CommandDeduplicationType, ExperimentalContractIds}
+import com.daml.ledger.api.auth.{
+  AuthServiceJWT,
+  AuthServiceNone,
+  AuthServiceStatic,
+  AuthServiceWildcard,
+}
+import com.daml.ledger.api.v1.experimental_features.{
+  CommandDeduplicationFeatures,
+  CommandDeduplicationPeriodSupport,
+  CommandDeduplicationType,
+  ExperimentalContractIds,
+}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.{Update, WriteService}
@@ -23,7 +33,7 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{JvmMetricSet, Metrics}
-import com.daml.platform.ParticipantServer
+import com.daml.platform.LedgerApiServer
 import com.daml.platform.apiserver.LedgerFeatures
 import com.daml.platform.apiserver.TimeServiceBackend
 import com.daml.platform.config.MetricsConfig.MetricRegistryType
@@ -86,7 +96,7 @@ object SandboxOnXRunner {
         servicesExecutionContext = servicesExecutionContext,
         timeServiceBackendO = timeServiceBackendO,
       )
-      apiServer <- new ParticipantServer(
+      apiServer <- new LedgerApiServer(
         ledgerFeatures = LedgerFeatures(
           staticTime = timeServiceBackendO.isDefined,
           commandDeduplicationFeatures = CommandDeduplicationFeatures.of(

@@ -24,7 +24,7 @@ import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.ParticipantServer
+import com.daml.platform.LedgerApiServer
 import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.{IndexServiceConfig, ServerRole}
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
@@ -203,19 +203,10 @@ class RecoveringIndexerIntegrationSpec
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem())
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
       participantState <- newParticipantState(ledgerId, participantId)(materializer, loggingContext)
-      dbSupport <- DbSupport
-        .owner(
-          serverRole = ServerRole.ApiServer,
-          metrics = metrics,
-          dbConfig = ParticipantConfig().dataSourceProperties.createDbConfig(
-            participantDataSourceConfig
-          ),
-        )
-      (participantInMemoryState, inMemoryStateUpdater) <-
-        ParticipantServer
-          .createParticipantInMemoryStateAndUpdater(
+      (inMemoryState, inMemoryStateUpdater) <-
+        LedgerApiServer
+          .createInMemoryStateAndUpdater(
             IndexServiceConfig(),
-            dbSupport,
             metrics,
             ExecutionContext.global,
           )
@@ -229,7 +220,6 @@ class RecoveringIndexerIntegrationSpec
         metrics = metrics,
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         participantDataSourceConfig = participantDataSourceConfig,
-        participantInMemoryState = participantInMemoryState,
         inMemoryStateUpdaterFlow = inMemoryStateUpdater.flow,
       )(materializer, loggingContext)
     } yield participantState._2

@@ -10,7 +10,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.ParticipantServer
+import com.daml.platform.LedgerApiServer
 import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.{IndexServiceConfig, ServerRole}
 import com.daml.platform.indexer.{IndexerConfig, IndexerServiceOwner, IndexerStartupMode}
@@ -106,9 +106,9 @@ object IndexerStabilityTestFixture {
                       }
                     )
                     .acquire()
-                  (participantInMemoryState, inMemoryStateUpdater) <-
-                    ParticipantServer
-                      .createParticipantInMemoryStateAndUpdater(
+                  (inMemoryState, inMemoryStateUpdater) <-
+                    LedgerApiServer
+                      .createInMemoryStateAndUpdater(
                         IndexServiceConfig(),
                         dbSupport,
                         metrics,
@@ -124,7 +124,7 @@ object IndexerStabilityTestFixture {
                     config = indexerConfig,
                     metrics = metrics,
                     lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-                    participantInMemoryState = participantInMemoryState,
+                    inMemoryState = inMemoryState,
                     inMemoryStateUpdaterFlow = inMemoryStateUpdater.flow,
                   ).acquire()
                 } yield ReadServiceAndIndexer(readService, indexing)

@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.ParticipantInMemoryState
+import com.daml.platform.InMemoryState
 import com.daml.platform.apiserver.TimedIndexService
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.IndexServiceConfig
@@ -36,7 +36,7 @@ private[platform] class IndexServiceOwner(
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     enricher: ValueEnricher,
     participantId: Ref.ParticipantId,
-    participantInMemoryState: ParticipantInMemoryState,
+    participantInMemoryState: InMemoryState,
 )(implicit
     loggingContext: LoggingContext,
     executionContext: ExecutionContext,
@@ -54,7 +54,7 @@ private[platform] class IndexServiceOwner(
 
     for {
       ledgerId <- Resource.fromFuture(verifyLedgerId(ledgerDao))
-      _ <- Resource.fromFuture(waitForParticipantInMemoryStateInitialization())
+      _ <- Resource.fromFuture(waitForinMemoryStateInitialization())
 
       contractStore = new MutableCacheBackedContractStore(
         metrics,
@@ -91,18 +91,18 @@ private[platform] class IndexServiceOwner(
     } yield new TimedIndexService(indexService, metrics)
   }
 
-  private def waitForParticipantInMemoryStateInitialization()(implicit
+  private def waitForinMemoryStateInitialization()(implicit
       executionContext: ExecutionContext
   ): Future[Unit] =
     RetryStrategy.constant(
       attempts = Some(initializationMaxAttempts),
       waitTime = initializationRetryDelay,
-    ) { case ParticipantInMemoryStateNotInitialized => true } { (attempt, _) =>
-      if (!participantInMemoryState.initialized) {
+    ) { case InMemoryStateNotInitialized => true } { (attempt, _) =>
+      if (!inMemoryState.initialized) {
         logger.info(
           s"Participant in-memory state not initialized on attempt $attempt/$initializationMaxAttempts. Retrying again in $initializationRetryDelay."
         )
-        Future.failed(ParticipantInMemoryStateNotInitialized)
+        Future.failed(InMemoryStateNotInitialized)
       } else {
         Future.unit
       }
@@ -170,5 +170,5 @@ private[platform] class IndexServiceOwner(
       stringInterning = stringInterning,
     )
 
-  private object ParticipantInMemoryStateNotInitialized extends NoStackTrace
+  private object InMemoryStateNotInitialized extends NoStackTrace
 }

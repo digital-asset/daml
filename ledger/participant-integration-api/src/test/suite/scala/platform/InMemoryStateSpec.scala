@@ -18,18 +18,18 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 
-class ParticipantInMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
-  private val className = classOf[ParticipantInMemoryState].getSimpleName
+class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
+  private val className = classOf[InMemoryState].getSimpleName
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   s"$className.initialized" should "return false if not initialized" in withTestFixture {
-    case (participantInMemoryState, _, _, _, _, _) =>
-      participantInMemoryState.initialized shouldBe false
+    case (inMemoryState, _, _, _, _, _) =>
+      inMemoryState.initialized shouldBe false
   }
 
   s"$className.initializeTo" should "initialize the state" in withTestFixture {
     case (
-          participantInMemoryState,
+          inMemoryState,
           mutableLedgerEndCache,
           contractStateCaches,
           transactionsBuffer,
@@ -48,11 +48,11 @@ class ParticipantInMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with 
       when(dispatcherState.initialized).thenReturn(true)
       for {
         // INITIALIZED THE STATE
-        _ <- participantInMemoryState.initializeTo(initLedgerEnd)
+        _ <- inMemoryState.initializeTo(initLedgerEnd)(updateStringInterningView)
 
         // ASSERT STATE INITIALIZED
         _ = {
-          participantInMemoryState.initialized shouldBe true
+          inMemoryState.initialized shouldBe true
 
           verify(contractStateCaches).reset(initOffset)
           verify(transactionsBuffer).flush()
@@ -82,11 +82,15 @@ class ParticipantInMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with 
         }
 
         // RE-INITIALIZE THE STATE
-        _ <- participantInMemoryState.initializeTo(reInitLedgerEnd)
+        _ <- inMemoryState.initializeTo(reInitLedgerEnd) {
+          case (`stringInterningView`, ledgerEnd) =>
+            updateStringInterningView(stringInterningView, ledgerEnd)
+          case (other, _) => fail(s"Unexpected stringInterningView reference $other")
+        }
 
         // ASSERT STATE RE-INITIALIZED
         _ = {
-          participantInMemoryState.initialized shouldBe true
+          inMemoryState.initialized shouldBe true
 
           verify(contractStateCaches).reset(reInitOffset)
           verify(transactionsBuffer).flush()
@@ -99,7 +103,7 @@ class ParticipantInMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with 
 
   private def withTestFixture(
       test: (
-          ParticipantInMemoryState,
+          InMemoryState,
           MutableLedgerEndCache,
           ContractStateCaches,
           EventsBuffer[TransactionLogUpdate],
@@ -115,9 +119,7 @@ class ParticipantInMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with 
 
     val dispatcherState = mock[DispatcherState]
 
-    val updateStringInterningViewWithLedgerEnd = mock[LedgerEnd => Future[Unit]]
-
-    val participantInMemoryState = new ParticipantInMemoryState(
+    val inMemoryState = new InMemoryState(
       ledgerEndCache = mutableLedgerEndCache,
       contractStateCaches = contractStateCaches,
       transactionsBuffer = transactionsBuffer,
@@ -130,7 +132,7 @@ class ParticipantInMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with 
     )
 
     test(
-      participantInMemoryState,
+      inMemoryState,
       mutableLedgerEndCache,
       contractStateCaches,
       transactionsBuffer,
