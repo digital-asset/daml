@@ -104,10 +104,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       * - None if we know no mapping for that key.
       */
     def lookupActiveKey(key: GlobalKey): Option[ContractStateMachine.KeyMapping] =
-      activeState.getLocalActiveKey(key) match {
-        case None => lookupActiveGlobalKeyInput(key)
-        case Some(mapping) => Some(mapping)
-      }
+      activeState.getLocalActiveKey(key).orElse(lookupActiveGlobalKeyInput(key))
 
     def lookupActiveGlobalKeyInput(key: GlobalKey): Option[ContractStateMachine.KeyMapping] =
       globalKeyInputs.get(key).map {
