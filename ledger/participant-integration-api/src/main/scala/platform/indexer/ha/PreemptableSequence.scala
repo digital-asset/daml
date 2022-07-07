@@ -54,13 +54,15 @@ trait SequenceHelper {
 
   /** Wrap a synchronous call into a Future sequence, which
     * - will be preemptable
-    * - will retry to execute the body if Exception-s thrown
+    * - will retry to execute the body if Exception-s thrown, and the exception is retryable
     *
     * @return the preemptable, retrying Future sequence
     */
-  def retry[T](waitMillisBetweenRetries: Long, maxAmountOfRetries: Long = -1)(
-      body: => T
-  ): Future[T]
+  def retry[T](
+      waitMillisBetweenRetries: Long,
+      maxAmountOfRetries: Long = -1,
+      retryable: Throwable => Boolean = _ => true,
+  )(body: => T): Future[T]
 
   /** Delegate the preemptable-future sequence to another Handle
     * - the completion Future future of the PreemptableSequence will only finish after this Handle finishes,
@@ -128,25 +130,36 @@ object PreemptableSequence {
 
       override def go[T](body: => T): Future[T] = goF[T](Future(body))
 
-      override def retry[T](waitMillisBetweenRetries: Long, maxAmountOfRetries: Long)(
-          body: => T
-      ): Future[T] =
+      override def retry[T](
+          waitMillisBetweenRetries: Long,
+          maxAmountOfRetries: Long = -1,
+          retryable: Throwable => Boolean = _ => true,
+      )(body: => T): Future[T] =
         go(body).transformWith {
-          // since we check countdown to 0, starting from negative means unlimited retries
-          case Failure(ex) if maxAmountOfRetries == 0 =>
-            logger.warn(
-              s"Maximum amount of retries reached ($maxAmountOfRetries) failing permanently.",
-              ex,
-            )
-            Future.failed(ex)
           case Success(t) => Future.successful(t)
+
+          case Failure(ex) if retryable(ex) =>
+            // since we check countdown to 0, starting from negative means unlimited retries
+            if (maxAmountOfRetries == 0) {
+              logger.warn(
+                s"Maximum amount of retries reached ($maxAmountOfRetries). Failing permanently.",
+                ex,
+              )
+              Future.failed(ex)
+            } else {
+              val retriesLeft =
+                if (maxAmountOfRetries < 0) "unlimited"
+                else maxAmountOfRetries - 1
+              logger.debug(s"Retrying (retries left: $retriesLeft). Due to: ${ex.getMessage}")
+              waitFor(waitMillisBetweenRetries).flatMap(_ =>
+                // Note: this recursion is out of stack
+                retry(waitMillisBetweenRetries, maxAmountOfRetries - 1, retryable)(body)
+              )
+            }
+
           case Failure(ex) =>
-            logger.debug(s"Retrying (retires left: ${if (maxAmountOfRetries < 0) "unlimited"
-            else maxAmountOfRetries - 1}). Due to: ${ex.getMessage}")
-            waitFor(waitMillisBetweenRetries).flatMap(_ =>
-              // Note: this recursion is out of stack
-              retry(waitMillisBetweenRetries, maxAmountOfRetries - 1)(body)
-            )
+            logger.warn(s"Failure not retryable.", ex)
+            Future.failed(ex)
         }
 
       override def merge(handle: Handle): Future[Unit] = {
