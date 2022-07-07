@@ -793,7 +793,7 @@ class HaCoordinatorSpec
 
     val protectedHandle = HaCoordinator
       .databaseLockBasedHaCoordinator(
-        connectionFactory = connectionFactory,
+        mainConnectionFactory = connectionFactory,
         storageBackend = dbLock,
         executionContext = system.dispatcher,
         timer = timer,
