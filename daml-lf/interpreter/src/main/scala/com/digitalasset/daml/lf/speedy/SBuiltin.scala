@@ -1064,11 +1064,14 @@ private[lf] object SBuiltin {
           onLedger.ptx.consumedByOrInactive(coid) match {
             case Some(Left(nid)) =>
               throw SErrorDamlException(IE.ContractNotActive(coid, cached.templateId, nid))
+
             case Some(Right(())) =>
               throw SErrorDamlException(IE.ContractNotFound(coid))
+
             case None => ()
           }
           machine.returnValue = cached.any
+
         case None =>
           def continue = { case V.ContractInstance(actualTmplId, arg, _) =>
             machine.pushKont(KCacheContract(machine, coid))
@@ -1082,10 +1085,12 @@ private[lf] object SBuiltin {
               ),
             )
           }: V.ContractInstance => Unit
+
           machine.disclosureTable.contractById.get(SContractId(coid)) match {
             case Some((templateId, arg)) =>
               val coinst = machine.normValue(templateId, arg)
               continue(V.ContractInstance(templateId, coinst, ""))
+
             case None =>
               throw SpeedyHungry(
                 SResultNeedContract(
@@ -1468,9 +1473,11 @@ private[lf] object SBuiltin {
           keyMapping match {
             case ContractStateMachine.KeyActive(coid) =>
               machine.checkKeyVisibility(onLedger, gkey, coid, operation.handleKeyFound)
+
             case ContractStateMachine.KeyInactive =>
               operation.handleKnownInputKey(machine, gkey, keyMapping)
           }
+
         case Left(handle) =>
           def continue = { result =>
             val (keyMapping, next) = handle(result)
@@ -1489,6 +1496,7 @@ private[lf] object SBuiltin {
                   machine.ctrl = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
                 }
                 true
+
               case ContractStateMachine.KeyInactive =>
                 operation.handleKeyNotFound(machine, gkey)
             }
@@ -1499,6 +1507,7 @@ private[lf] object SBuiltin {
             case Some(coid) =>
               val vcoid = coid.value
               discard(continue(Some(vcoid)))
+
             case None => {
               throw SpeedyHungry(
                 SResultNeedKey(

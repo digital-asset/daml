@@ -117,7 +117,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     for {
       processedCmds <- preprocessor.preprocessApiCommands(cmds.commands)
       processedDiscs <- preprocessor.preprocessDisclosedContracts(disclosures)
-      res <-
+      result <-
         interpretCommands(
           validating = false,
           submitters = submitters,
@@ -127,8 +127,9 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           ledgerTime = cmds.ledgerEffectiveTime,
           submissionTime = submissionTime,
           seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
-        ) map { case (tx, meta) => tx -> meta.copy(submissionSeed = Some(submissionSeed)) }
-    } yield res
+        )
+      (tx, meta) = result
+    } yield tx -> meta.copy(submissionSeed = Some(submissionSeed))
   }
 
   /** Behaves like `submit`, but it takes a single command argument.
@@ -191,7 +192,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         submissionTime = submissionTime,
         seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
       )
-
     } yield result
 
   /** Check if the given transaction is a valid result of some single-submitter command.
@@ -363,15 +363,30 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       machine: Machine,
       time: Time.Timestamp,
   ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("Daml Engine") { onLedger =>
-    var finished: Boolean = false
     def detailMsg = Some(
       s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.ptxInternal.nodesToString}"
     )
+    def versionDisclosedContract(d: speedy.DisclosedContract): Versioned[DisclosedContract] = {
+      val version = machine.tmplId2TxVersion(d.templateId)
+      val arg = machine.normValue(d.templateId, d.argument)
+      val coid = d.contractId.value
+
+      Versioned(version, DisclosedContract(d.templateId, coid, arg, d.metadata))
+    }
+
+    var finished: Boolean = false
+
     while (!finished) {
       machine.run() match {
-        case SResultFinalValue(_) => finished = true
+        case SResultFinalValue(_) =>
+          finished = true
 
-        case SResultError(err) => return handleError(err, detailMsg)
+        case SResultNeedTime(callback) =>
+          callback(time)
+
+        case SResultError(err) =>
+          return handleError(err, detailMsg)
+
         case SResultNeedPackage(pkgId, context, callback) =>
           return Result.needPackage(
             pkgId,
@@ -390,9 +405,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
             interpretLoop(machine, time)
           }
           return Result.needContract(contractId, continueWithContract)
-
-        case SResultNeedTime(callback) =>
-          callback(time)
 
         case SResultNeedKey(gk, _, cb) =>
           def continueWithCoid = (result: Option[ContractId]) => {
@@ -416,14 +428,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       }
     }
 
-    def versionDisclosedContract(d: speedy.DisclosedContract): Versioned[DisclosedContract] = {
-      val version = machine.tmplId2TxVersion(d.templateId)
-      val arg = machine.normValue(d.templateId, d.argument)
-      val coid = d.contractId.value
-
-      Versioned(version, DisclosedContract(d.templateId, coid, arg, d.metadata))
-    }
-
     onLedger.finish match {
       case PartialTransaction.CompleteTransaction(
             tx,
@@ -440,7 +444,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
             dependsOnTime = onLedger.dependsOnTime,
             nodeSeeds = nodeSeeds,
             globalKeyMapping = globalKeyMapping,
-            disclosures = disclosedContracts.map(versionDisclosedContract(_)),
+            disclosures = disclosedContracts.map(versionDisclosedContract),
           )
           config.profileDir.foreach { dir =>
             val desc = Engine.profileDesc(tx)

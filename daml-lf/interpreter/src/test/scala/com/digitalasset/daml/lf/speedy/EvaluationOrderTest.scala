@@ -433,6 +433,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       e: Expr,
       args: Array[SValue],
       parties: Set[Party],
+      disclosedContracts: ImmArray[Versioned[DisclosedContract]] = ImmArray.Empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -447,6 +448,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             seed,
             if (args.isEmpty) se else SEApp(se, args.map(SEValue(_))),
             parties,
+            disclosedContracts = disclosedContracts.map(_.unversioned),
             traceLog = traceLog,
           ),
         getContract = traceLog.tracePF("queries contract", getContract),
