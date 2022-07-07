@@ -1,48 +1,68 @@
 module Setup where
 
-import DA.Foldable (forA_)
 import DA.Optional (fromSomeNote)
 import qualified DA.Text as T
 import Daml.Script
+import DA.Traversable qualified as T
 
 -- | A test user for the create-daml-app network.
 data TestUser = TestUser with
   alias : Text
   public : Party
+  participantName: Optional ParticipantName
 
 -- | Create a public party, then create three test users.
-setup : Script ()
+setup : Script [Party]
 setup = do
   public <- createPublic
-  let aliases = ["Alice", "Bob", "Charlie"]
-  forA_ aliases $ \alias -> createTestUser $ TestUser alias public
+  let aliases = [("Alice", "participant1"), ("Bob", "participant2")]
+  T.mapA (\(alias, participant) -> createTestUser $ TestUser alias public $ Some (ParticipantName participant)) aliases
 
 -- | Create a test user.
 createTestUser : TestUser -> Script Party
 createTestUser TestUser{alias, public} = do
-  u <- getOrCreateUser alias (Some public)
+  u <- getOrCreateUser alias (Some public) None
   let p = getPrimaryParty u
   pure p
 
 -- | Create the public party.
 createPublic : Script Party
 createPublic = do
-  publicUser <- getOrCreateUser "Public" None
+  publicUser <- getOrCreateUser "Public" None None
   pure $ getPrimaryParty publicUser
 
 
 -- | Get a user by their id. If the user doesn't exist, it is created.
-getOrCreateUser : Text -> Optional Party -> Script User
-getOrCreateUser alias publicM = do
+getOrCreateUser : Text -> Optional Party -> Optional ParticipantName -> Script User
+getOrCreateUser alias publicM participantNameM = do
   userId <- validateUserId $ toUserId alias
   try
-    getUser userId
+    getUser_ userId participantNameM
   catch
     UserNotFound _ -> do
-      p <- allocateParty alias
+      p <- allocateParty_ alias participantNameM
       let u = User userId (Some p)
-      createUser u $ CanActAs p :: [CanReadAs public | Some public <- [publicM]]
+      let rights  = CanActAs p :: [CanReadAs public | Some public <- [publicM]]
+      createUser_ u rights participantNameM
       pure u
+
+getUser_ : UserId -> Optional ParticipantName -> Script User
+getUser_  userId participantNameM = do
+  case participantNameM of
+    Some participantName -> getUserOn userId participantName
+    None -> getUser userId
+
+allocateParty_ : Text -> Optional ParticipantName -> Script Party
+allocateParty_ alias participantNameM = do
+  case participantNameM of
+    Some participantName -> allocatePartyOn alias participantName
+    None -> allocateParty alias
+
+createUser_ : User -> [UserRight] ->  Optional ParticipantName -> Script ()
+createUser_ user rights participantNameM = do
+  case participantNameM of
+    Some participantName -> createUserOn user rights participantName
+    None -> createUser user rights
 
 -- | Convert a text to a valid user id.
 toUserId : Text -> Text
