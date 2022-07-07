@@ -256,16 +256,16 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
       tmpName: TypeConName,
       ifaceName: TypeConName,
       context: => Reference,
-  ): Either[LookupError, TemplateOrInterface[
-    TemplateImplementsSignature,
-    InterfaceCoImplementsSignature,
-  ]] = {
+  ): Either[
+    LookupError,
+    TemplateOrInterface[
+      TemplateImplementsSignature,
+      InterfaceCoImplementsSignature,
+    ],
+  ] = {
     lookupTemplateImplements(tmpName, ifaceName, context)
-      .map(
-        TemplateOrInterface.Template(_): TemplateOrInterface[
-          TemplateImplementsSignature,
-          InterfaceCoImplementsSignature,
-        ]
+      .map[TemplateOrInterface[TemplateImplementsSignature, InterfaceCoImplementsSignature]](
+        TemplateOrInterface.Template(_)
       )
       .orElse(
         lookupInterfaceCoImplements(tmpName, ifaceName, context)
@@ -279,10 +279,13 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
   def lookupTemplateImplementsOrInterfaceCoImplements(
       tmpName: TypeConName,
       ifaceName: TypeConName,
-  ): Either[LookupError, TemplateOrInterface[
-    TemplateImplementsSignature,
-    InterfaceCoImplementsSignature,
-  ]] =
+  ): Either[
+    LookupError,
+    TemplateOrInterface[
+      TemplateImplementsSignature,
+      InterfaceCoImplementsSignature,
+    ],
+  ] =
     lookupTemplateImplementsOrInterfaceCoImplements(
       tmpName,
       ifaceName,
