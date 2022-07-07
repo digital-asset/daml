@@ -137,10 +137,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
         case Some(kWithM) =>
           val ck = GlobalKey(templateId, kWithM.key)
 
-          val conflict = lookupActiveKey(ck) match {
-            case Some(keyMapping) => keyMapping.isDefined
-            case None => false
-          }
+          val conflict = lookupActiveKey(ck).exists(_ != KeyInactive)
 
           val newKeyInputs =
             if (globalKeyInputs.contains(ck)) globalKeyInputs
