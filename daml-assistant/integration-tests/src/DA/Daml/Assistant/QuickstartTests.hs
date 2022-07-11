@@ -93,17 +93,6 @@ quickSandbox projDir = do
                 , quickDar = projDir </> darFile
                 }
 
--- from DA.Daml.Helper.Util
-data SandboxPorts = SandboxPorts
-  { ledger :: PortNumber
-  , admin :: PortNumber
-  , domainPublic :: PortNumber
-  , domainAdmin :: PortNumber
-  }
-
-sandboxPorts :: IO SandboxPorts
-sandboxPorts = SandboxPorts <$> getFreePort <*> getFreePort <*> getFreePort <*> getFreePort
-
 tests :: FilePath -> TestTree
 tests tmpDir =
     withSdkResource $ \_ ->
