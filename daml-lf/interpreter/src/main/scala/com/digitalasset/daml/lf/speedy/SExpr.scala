@@ -441,40 +441,47 @@ object SExpr {
   final case class ToCachedContractDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class InterfacePrecondDefRef(ref: DefinitionRef) extends SDefinitionRef
 
-  /** ImplementsDefRef(ref=templateId, ifaceId) points to the Unit value if
+  /** ImplementsDefRef(templateId, ifaceId) points to the Unit value if
     * the template implements the interface.
     */
-  final case class ImplementsDefRef(ref: DefinitionRef, ifaceId: TypeConName) extends SDefinitionRef
+  final case class ImplementsDefRef(
+      templateId: TypeConName,
+      ifaceId: TypeConName,
+  ) extends SDefinitionRef {
+    override def ref = templateId;
+  }
 
-  /** CoImplementsDefRef(templateId, ref=ifaceId) points to the Unit value if
+  /** CoImplementsDefRef(templateId, ifaceId) points to the Unit value if
     * the interface provides an implementation for (co-implements) the template.
-    * Note that the order is (template, interface) like in 'ImplementsDefRef'.
-    * This means that 'ref' must be the second argument, since a
-    * co-implementation is associated to the interface.
     */
-  final case class CoImplementsDefRef(templateId: TypeConName, ref: DefinitionRef)
-      extends SDefinitionRef
+  final case class CoImplementsDefRef(
+      templateId: TypeConName,
+      ifaceId: TypeConName,
+  ) extends SDefinitionRef {
+    override def ref = ifaceId;
+  }
 
-  /** ImplementsMethodDefRef(ref=templateId, ifaceId, method) invokes the template's
+  /** ImplementsMethodDefRef(templateId, ifaceId, method) invokes the template's
     * implementation of an interface method.
     */
   final case class ImplementsMethodDefRef(
-      ref: DefinitionRef,
+      templateId: TypeConName,
       ifaceId: TypeConName,
       methodName: MethodName,
-  ) extends SDefinitionRef
+  ) extends SDefinitionRef {
+    override def ref = templateId;
+  }
 
-  /** CoImplementsMethodDefRef(templateId, ref=ifaceId, method) invokes the
+  /** CoImplementsMethodDefRef(templateId, ifaceId, method) invokes the
     * interface-provided implementation of the method for the given template.
-    * Note that the order is (template, interface, method) like in
-    * 'ImplementsMethodDefRef'. This means that 'ref' must be the second
-    * argument, since a co-implementation is associated to the interface.
     */
   final case class CoImplementsMethodDefRef(
       templateId: TypeConName,
-      ref: DefinitionRef,
+      ifaceId: TypeConName,
       methodName: MethodName,
-  ) extends SDefinitionRef
+  ) extends SDefinitionRef {
+    override def ref = ifaceId;
+  }
 
   final case object AnonymousClosure
 
