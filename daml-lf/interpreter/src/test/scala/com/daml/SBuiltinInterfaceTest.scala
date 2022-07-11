@@ -43,10 +43,16 @@ class SBuiltinInterfaceTest
       "signatory_interface @Mod:Iface Mod:aliceOwesBobIface" -> SList(FrontStack(SParty(alice))),
       "observer_interface @Mod:Iface Mod:aliceOwesBobIface" -> SList(FrontStack(SParty(bob))),
       "MethodTest:callGetText MethodTest:t_Co0_No1" -> SText("does not (co)implement I1"),
-      "MethodTest:callGetText MethodTest:t_Co0_Co1" -> SText("co-implements I1 T_Co0_Co1, msg=T_Co0_Co1"),
+      "MethodTest:callGetText MethodTest:t_Co0_Co1" -> SText(
+        "co-implements I1 T_Co0_Co1, msg=T_Co0_Co1"
+      ),
       "MethodTest:callGetText MethodTest:t_Im0_No1" -> SText("does not (co)implement I1"),
-      "MethodTest:callGetText MethodTest:t_Im0_Co1" -> SText("co-implements I1 T_Im0_Co1, msg=T_Im0_Co1"),
-      "MethodTest:callGetText MethodTest:t_Im0_Im1" -> SText("implements I1 T_Im0_Im1, msg=T_Im0_Im1"),
+      "MethodTest:callGetText MethodTest:t_Im0_Co1" -> SText(
+        "co-implements I1 T_Im0_Co1, msg=T_Im0_Co1"
+      ),
+      "MethodTest:callGetText MethodTest:t_Im0_Im1" -> SText(
+        "implements I1 T_Im0_Im1, msg=T_Im0_Im1"
+      ),
     )
 
     forEvery(testCases) { (exp, res) =>
