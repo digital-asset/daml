@@ -1333,7 +1333,9 @@ private[lf] object SBuiltin {
         case Some(TemplateOrInterface.Interface(CoImplementsDefRef(_, _))) =>
           CoImplementsMethodDefRef(templateId, ifaceId, methodName)
         case None =>
-          throw SErrorDamlException(IE.TemplateDoesNotImplementInterface(ifaceId, templateId))
+          crash(
+            s"Attempted to call interface ${ifaceId} method ${methodName} on a wrapped template of type ${ifaceId}, which doesn't implement the interface."
+          )
       }
       machine.ctrl = SEApp(SEVal(ref), Array(SEValue(record)))
     }

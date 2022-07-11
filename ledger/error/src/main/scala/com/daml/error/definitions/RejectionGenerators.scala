@@ -114,11 +114,6 @@ object RejectionGenerators {
             .Error(
               renderedMessage
             )
-        case _: LfInterpretationError.TemplateDoesNotImplementInterface =>
-          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
-            .Error(
-              renderedMessage
-            )
         case LfInterpretationError.NonComparableValues =>
           LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
             .Error(
