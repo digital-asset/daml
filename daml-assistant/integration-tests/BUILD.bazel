@@ -168,6 +168,71 @@ da_haskell_test(
     ],
 )
 
+da_haskell_test(
+    name = "quickstart-tests",
+    timeout = "long",
+    srcs = [
+        "src/DA/Daml/Assistant/QuickstartTests.hs",
+    ],
+    args = [
+        "$(location //:yarn)",
+    ],
+    data = [
+        ":integration-tests-mvn",
+        "//release:sdk-release-tarball",
+        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+        "//:yarn",
+        "//compiler/damlc/tests:generate-simple-dalf",
+        "@mvn_dev_env//:mvn",
+        "@tar_dev_env//:tar",
+    ] + ([] if is_windows else ts_libraries + ["@script_nix//:bin/script"]),
+    # I’m sure the mvn stuff will be flaky.
+    flaky = True,
+    hackage_deps = [
+        "aeson",
+        "async",
+        "base",
+        "bytestring",
+        "conduit",
+        "conduit-extra",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "http-client",
+        "monad-loops",
+        "http-types",
+        "jwt",
+        "lens",
+        "lens-aeson",
+        "network",
+        "process",
+        "safe",
+        "stm",
+        "tar",
+        "tar-conduit",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "unordered-containers",
+        "utf8-string",
+        "vector",
+    ],
+    main_function = "DA.Daml.Assistant.QuickstartTests.main",
+    tags = ["cpu:1"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":integration-test-utils",
+        "//:sdk-version-hs-lib",
+        "//daml-assistant/daml-helper:daml-helper-lib",
+        "//language-support/hs/bindings:hs-ledger",
+        "//language-support/ts/codegen/tests:daml2js-test-helpers",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
 genrule(
     name = "create_daml_app_deps",
     srcs = [
