@@ -464,6 +464,18 @@ object SExpr {
       methodName: MethodName,
   ) extends SDefinitionRef
 
+  /** CoImplementsMethodDefRef(templateId, ref=ifaceId, method) invokes the
+    * interface-provided implementation of the method for the given template.
+    * Note that the order is (template, interface, method) like in
+    * 'ImplementsMethodDefRef'. This means that 'ref' must be the second
+    * argument, since a co-implementation is associated to the interface.
+    */
+  final case class CoImplementsMethodDefRef(
+      templateId: TypeConName,
+      ref: DefinitionRef,
+      methodName: MethodName,
+  ) extends SDefinitionRef
+
   final case object AnonymousClosure
 
   private def prettyPrint(x: Any): String =
