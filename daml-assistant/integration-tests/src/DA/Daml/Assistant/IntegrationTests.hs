@@ -65,7 +65,7 @@ main = do
                 , oldPath
                 , maybeToList mbCmdDir
                 ])
-            , ("TASTY_NUM_THREADS", Just "1")
+            , ("TASTY_NUM_THREADS", Just "2")
             ] $ defaultMain (tests tmpDir))
 
 hardcodedToken :: String -> T.Text
@@ -144,14 +144,17 @@ damlStart tmpDir = do
             , "test : Int -> Script (Int, Int)"
             , "test x = pure (x, x + 1)"
             ]
-    sandboxPort <- getFreePort
+    ports <- sandboxPorts
     jsonApiPort <- getFreePort
     env <- subprocessEnv []
     let startProc =
             (shell $ unwords
                 [ "daml start"
                 , "--start-navigator=no"
-                , "--sandbox-port", show sandboxPort
+                , "--sandbox-port", show $ ledger ports
+                , "--sandbox-admin-api-port", show $ admin ports
+                , "--sandbox-domain-public-port", show $ domainPublic ports
+                , "--sandbox-domain-admin-port", show $ domainAdmin ports
                 , "--json-api-port", show jsonApiPort
                 ]
             ) {std_in = CreatePipe, std_out = CreatePipe, cwd = Just projDir, create_group = True, env = Just env}
@@ -170,7 +173,7 @@ damlStart tmpDir = do
         DamlStartResource
             { projDir = projDir
             , tmpDir = tmpDir
-            , sandboxPort = sandboxPort
+            , sandboxPort = ledger ports
             , jsonApiPort = jsonApiPort
             , startStdin = startStdin
             , alice = alice
@@ -193,10 +196,7 @@ quickSandbox projDir = do
     withDevNull $ \devNull -> do
         callCommandSilent $ unwords ["daml", "new", projDir, "--template=quickstart-java"]
         callCommandSilentIn projDir "daml build"
-        sandboxPort <- getFreePort
-        adminApiPort <- getFreePort
-        domainPublicApiPort <- getFreePort
-        domainAdminApiPort <- getFreePort
+        ports <- sandboxPorts
         let portFile = "portfile.json"
         let darFile = ".daml" </> "dist" </> "quickstart-0.0.1.dar"
         let sandboxProc =
@@ -204,10 +204,10 @@ quickSandbox projDir = do
                     unwords
                         [ "daml"
                         , "sandbox"
-                        , "--port" , show sandboxPort
-                        , "--admin-api-port", show adminApiPort
-                        , "--domain-public-port", show domainPublicApiPort
-                        , "--domain-admin-port", show domainAdminApiPort
+                        , "--port" , show $ ledger ports
+                        , "--admin-api-port", show $ admin ports
+                        , "--domain-public-port", show $ domainPublic ports
+                        , "--domain-admin-port", show $ domainAdmin ports
                         , "--port-file", portFile
                         , "--dar", darFile
                         , "--static-time"
@@ -218,10 +218,21 @@ quickSandbox projDir = do
         pure $
             QuickSandboxResource
                 { quickProjDir = projDir
-                , quickSandboxPort = sandboxPort
+                , quickSandboxPort = ledger ports
                 , quickSandboxPh = sandboxPh
                 , quickDar = projDir </> darFile
                 }
+
+-- from DA.Daml.Helper.Util
+data SandboxPorts = SandboxPorts
+  { ledger :: PortNumber
+  , admin :: PortNumber
+  , domainPublic :: PortNumber
+  , domainAdmin :: PortNumber
+  }
+
+sandboxPorts :: IO SandboxPorts
+sandboxPorts = SandboxPorts <$> getFreePort <*> getFreePort <*> getFreePort <*> getFreePort
 
 tests :: FilePath -> TestTree
 tests tmpDir =
