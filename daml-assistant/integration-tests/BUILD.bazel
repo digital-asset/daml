@@ -117,7 +117,6 @@ da_haskell_test(
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
         "//:yarn",
         "//compiler/damlc/tests:generate-simple-dalf",
-        "@tar_dev_env//:tar",
     ] + ([] if is_windows else ts_libraries + ["@script_nix//:bin/script"]),
     # marked flaky for mvn originally; still flaky now? #14281
     flaky = True,

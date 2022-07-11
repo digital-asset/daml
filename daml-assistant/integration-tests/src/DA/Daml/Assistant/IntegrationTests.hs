@@ -43,7 +43,6 @@ main = do
     withTempDir $ \tmpDir -> do
         oldPath <- getSearchPath
         javaPath <- locateRunfiles "local_jdk/bin"
-        tarPath <- locateRunfiles "tar_dev_env/bin"
         yarnPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> yarn)
         -- NOTE(Sofia): We don't use `script` on Windows.
         mbScriptPath <- if isWindows
@@ -52,7 +51,7 @@ main = do
         limitJvmMemory defaultJvmMemoryLimits
         withArgs args (withEnv
             [ ("PATH", Just $ intercalate [searchPathSeparator] $ concat
-                [ [tarPath, javaPath, yarnPath]
+                [ [javaPath, yarnPath]
                 , maybeToList mbScriptPath
                 , oldPath
                 ])
