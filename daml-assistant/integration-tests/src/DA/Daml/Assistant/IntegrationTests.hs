@@ -43,24 +43,18 @@ main = do
     withTempDir $ \tmpDir -> do
         oldPath <- getSearchPath
         javaPath <- locateRunfiles "local_jdk/bin"
-        mvnPath <- locateRunfiles "mvn_dev_env/bin"
         tarPath <- locateRunfiles "tar_dev_env/bin"
         yarnPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> yarn)
         -- NOTE(Sofia): We don't use `script` on Windows.
         mbScriptPath <- if isWindows
             then pure Nothing
             else Just <$> locateRunfiles "script_nix/bin"
-        -- NOTE: `COMSPEC` env. variable on Windows points to cmd.exe, which is required to be present
-        -- on the PATH as mvn.cmd executes cmd.exe
-        mbComSpec <- getEnv "COMSPEC"
-        let mbCmdDir = takeDirectory <$> mbComSpec
         limitJvmMemory defaultJvmMemoryLimits
         withArgs args (withEnv
             [ ("PATH", Just $ intercalate [searchPathSeparator] $ concat
-                [ [tarPath, javaPath, mvnPath, yarnPath]
+                [ [tarPath, javaPath, yarnPath]
                 , maybeToList mbScriptPath
                 , oldPath
-                , maybeToList mbCmdDir
                 ])
             , ("TASTY_NUM_THREADS", Just "2")
             ] $ defaultMain (tests tmpDir))

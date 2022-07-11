@@ -28,13 +28,12 @@ import DA.PortFile
 
 main :: IO ()
 main = do
-    yarn : args <- getArgs
+    args <- getArgs
     withTempDir $ \tmpDir -> do
         oldPath <- getSearchPath
         javaPath <- locateRunfiles "local_jdk/bin"
         mvnPath <- locateRunfiles "mvn_dev_env/bin"
         tarPath <- locateRunfiles "tar_dev_env/bin"
-        yarnPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> yarn)
         -- NOTE(Sofia): We don't use `script` on Windows.
         mbScriptPath <- if isWindows
             then pure Nothing
@@ -46,7 +45,7 @@ main = do
         limitJvmMemory defaultJvmMemoryLimits
         withArgs args (withEnv
             [ ("PATH", Just $ intercalate [searchPathSeparator] $ concat
-                [ [tarPath, javaPath, mvnPath, yarnPath]
+                [ [tarPath, javaPath, mvnPath]
                 , maybeToList mbScriptPath
                 , oldPath
                 , maybeToList mbCmdDir

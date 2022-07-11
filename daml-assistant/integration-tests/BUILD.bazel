@@ -113,12 +113,10 @@ da_haskell_test(
         "$(location //:yarn)",
     ],
     data = [
-        ":integration-tests-mvn",
         "//release:sdk-release-tarball",
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
         "//:yarn",
         "//compiler/damlc/tests:generate-simple-dalf",
-        "@mvn_dev_env//:mvn",
         "@tar_dev_env//:tar",
     ] + ([] if is_windows else ts_libraries + ["@script_nix//:bin/script"]),
     # I’m sure the mvn stuff will be flaky.
@@ -174,14 +172,10 @@ da_haskell_test(
     srcs = [
         "src/DA/Daml/Assistant/QuickstartTests.hs",
     ],
-    args = [
-        "$(location //:yarn)",
-    ],
     data = [
         ":integration-tests-mvn",
         "//release:sdk-release-tarball",
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
-        "//:yarn",
         "//compiler/damlc/tests:generate-simple-dalf",
         "@mvn_dev_env//:mvn",
         "@tar_dev_env//:tar",
