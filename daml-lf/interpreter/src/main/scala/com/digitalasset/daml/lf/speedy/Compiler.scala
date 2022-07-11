@@ -356,6 +356,12 @@ private[lf] final class Compiler(
       iface.choices.values.foreach { choice =>
         addDef(compileInterfaceChoice(ifaceId, iface.param, choice))
       }
+      iface.coImplements.values.foreach { coimpl =>
+        addDef(compileCoImplements(coimpl.templateId, ifaceId))
+        coimpl.methods.values.foreach(method =>
+          addDef(compileCoImplementsMethod(iface.param, coimpl.templateId, ifaceId, method))
+        )
+      }
     }
 
     builder.result()
@@ -696,17 +702,22 @@ private[lf] final class Compiler(
       )
     }
 
-  private[this] val IdentityDef = SDefinition(pipeline(fun1((pos, env) => env.toSEVar(pos))))
+  private[this] val UnitDef = SDefinition(t.SEValue.Unit)
 
-  // Turn a template value into an interface value. Since interfaces have a
-  // toll-free representation (for now), this is just the identity function.
-  // But the existence of ImplementsDefRef implies that the template implements
-  // the interface, which is useful in itself.
+  // Witness the fact that the template 'tmplId' implements the interface 'ifaceId'
   private[this] def compileImplements(
       tmplId: Identifier,
       ifaceId: Identifier,
   ): (t.SDefinitionRef, SDefinition) =
-    t.ImplementsDefRef(tmplId, ifaceId) -> IdentityDef
+    t.ImplementsDefRef(tmplId, ifaceId) -> UnitDef
+
+  // Witness the fact that the interface 'ifaceId' provides an implementation
+  // for (co-implements) the template 'tmplId'
+  private[this] def compileCoImplements(
+      tmplId: Identifier,
+      ifaceId: Identifier,
+  ): (t.SDefinitionRef, SDefinition) =
+    t.CoImplementsDefRef(tmplId, ifaceId) -> UnitDef
 
   // Compile the implementation of an interface method.
   private[this] def compileImplementsMethod(
@@ -717,6 +728,19 @@ private[lf] final class Compiler(
   ): (t.SDefinitionRef, SDefinition) = {
     topLevelFunction1(t.ImplementsMethodDefRef(tmplId, ifaceId, method.name)) { (tmplArgPos, env) =>
       translateExp(env.bindExprVar(tmplParam, tmplArgPos), method.value)
+    }
+  }
+
+  // Compile the interface-provided implementation of a method for the given template.
+  private[this] def compileCoImplementsMethod(
+      tmplParam: Name,
+      tmplId: Identifier,
+      ifaceId: Identifier,
+      method: InterfaceCoImplementsMethod,
+  ): (t.SDefinitionRef, SDefinition) = {
+    topLevelFunction1(t.CoImplementsMethodDefRef(tmplId, ifaceId, method.name)) {
+      (tmplArgPos, env) =>
+        translateExp(env.bindExprVar(tmplParam, tmplArgPos), method.value)
     }
   }
 
