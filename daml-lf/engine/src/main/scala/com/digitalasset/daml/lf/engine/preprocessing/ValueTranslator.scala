@@ -15,7 +15,7 @@ import com.daml.lf.value.Value._
 import scala.annotation.tailrec
 
 private[lf] final class ValueTranslator(
-    interface: language.PackageInterface,
+    pkgInterface: language.PackageInterface,
     requireV1ContractIdSuffix: Boolean,
 ) {
 
@@ -166,7 +166,9 @@ private[lf] final class ValueTranslator(
                       s"Mismatching variant id, the type tells us $tyCon, but the value tells us $id"
                     )
                 )
-                val info = handleLookup(interface.lookupVariantConstructor(tyCon, constructorName))
+                val info = handleLookup(
+                  pkgInterface.lookupVariantConstructor(tyCon, constructorName)
+                )
                 val replacedTyp = info.concreteType(tyArgs)
                 SValue.SVariant(
                   tyCon,
@@ -182,7 +184,7 @@ private[lf] final class ValueTranslator(
                       s"Mismatching record id, the type tells us $tyCon, but the value tells us $id"
                     )
                 )
-                val lookupResult = handleLookup(interface.lookupDataRecord(tyCon))
+                val lookupResult = handleLookup(pkgInterface.lookupDataRecord(tyCon))
                 val recordFlds = lookupResult.dataRecord.fields
                 // note that we check the number of fields _before_ checking if we can do
                 // field reordering by looking at the labels. this means that it's forbidden to
@@ -230,7 +232,7 @@ private[lf] final class ValueTranslator(
                       s"Mismatching enum id, the type tells us $tyCon, but the value tells us $id"
                     )
                 )
-                val rank = handleLookup(interface.lookupEnumConstructor(tyCon, constructor))
+                val rank = handleLookup(pkgInterface.lookupEnumConstructor(tyCon, constructor))
                 SValue.SEnum(tyCon, constructor, rank)
               case _ =>
                 typeError()

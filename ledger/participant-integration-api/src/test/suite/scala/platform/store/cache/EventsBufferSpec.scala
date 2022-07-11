@@ -8,7 +8,11 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
 import com.daml.metrics.Metrics
 import com.daml.platform.store.cache.BufferSlice.{Inclusive, LastBufferChunkSuffix}
-import com.daml.platform.store.cache.EventsBuffer.{RequestOffBufferBounds, UnorderedException}
+import com.daml.platform.store.cache.EventsBuffer.{
+  BufferState,
+  RequestOffBufferBounds,
+  UnorderedException,
+}
 import org.scalatest.Succeeded
 import org.scalatest.compatible.Assertion
 import org.scalatest.matchers.should.Matchers
@@ -255,6 +259,23 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
           Vector.empty,
         )
       }
+    }
+  }
+
+  "flush" should {
+    "remove all entries from the buffer" in withBuffer(3) { buffer =>
+      buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
+        bufferedStartExclusive = offset2,
+        slice = Vector(entry3, entry4),
+      )
+
+      buffer.flush()
+
+      buffer._bufferState shouldBe BufferState[Offset, Int]()
+      buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
+        bufferedStartExclusive = LastOffset,
+        slice = Vector.empty,
+      )
     }
   }
 

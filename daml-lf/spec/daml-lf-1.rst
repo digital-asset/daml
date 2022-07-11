@@ -1599,7 +1599,10 @@ types are the types whose values can be persisted on the ledger. ::
       ⊢ₛ  'Party'
 
       ⊢ₛ  τ
-    ———————————————————————————————————————————————————————————————— STyCid
+    ———————————————————————————————————————————————————————————————— STyCid [Daml-LF < 1.dev]
+      ⊢ₛ  'ContractId' τ
+
+    ———————————————————————————————————————————————————————————————— STyCid [Daml-LF ≥ 1.dev]
       ⊢ₛ  'ContractId' τ
 
       'interface' (x : I) ↦ … ∈ 〚Ξ〛Mod

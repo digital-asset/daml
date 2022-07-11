@@ -18,10 +18,11 @@ package com.daml.platform.apiserver.configuration
   *   this value the system will be rate limited until additional space is freed up.
   */
 final case class RateLimitingConfig(
-    maxApiServicesQueueSize: Int,
-    maxApiServicesIndexDbQueueSize: Int,
-    maxUsedHeapSpacePercentage: Int,
-    minFreeHeapSpaceBytes: Long,
+    maxApiServicesQueueSize: Int = 10000,
+    maxApiServicesIndexDbQueueSize: Int = 1000,
+    maxUsedHeapSpacePercentage: Int = 85,
+    minFreeHeapSpaceBytes: Long = 300 * RateLimitingConfig.Megabyte,
+    maxStreams: Int = 1000,
 ) {
   def calculateCollectionUsageThreshold(maxPoolBytes: Long): Long = {
     val thresholdBasedOnUsedPercentage = (maxUsedHeapSpacePercentage * maxPoolBytes) / 100
@@ -34,10 +35,5 @@ case object RateLimitingConfig {
 
   val Megabyte: Long = 1024L * 1024L
 
-  val Default: RateLimitingConfig = RateLimitingConfig(
-    maxApiServicesQueueSize = 10000,
-    maxApiServicesIndexDbQueueSize = 1000,
-    maxUsedHeapSpacePercentage = 85,
-    minFreeHeapSpaceBytes = 300 * Megabyte,
-  )
+  val Default: RateLimitingConfig = RateLimitingConfig()
 }

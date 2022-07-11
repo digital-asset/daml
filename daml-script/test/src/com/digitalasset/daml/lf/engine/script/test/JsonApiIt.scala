@@ -17,7 +17,12 @@ import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.{HttpService, StartSettings, nonrepudiation}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
+import com.daml.ledger.api.auth.{
+  AuthServiceJWTCodec,
+  CustomDamlJWTPayload,
+  StandardJWTPayload,
+  StandardJWTTokenFormat,
+}
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{
@@ -140,6 +145,7 @@ trait JsonApiFixture
       userId = userId,
       participantId = None,
       exp = None,
+      format = StandardJWTTokenFormat.Scope,
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt = DecodedJwt[String](header, AuthServiceJWTCodec.writeToString(payload))

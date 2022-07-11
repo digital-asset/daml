@@ -5,9 +5,10 @@ package com.daml.ledger.api.benchtool
 
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.{
   PartyFilter,
+  PartyNamePrefixFilter,
   TransactionsStreamConfig,
 }
-import com.daml.ledger.api.benchtool.submission.AllocatedParties
+import com.daml.ledger.api.benchtool.submission.{AllocatedParties, AllocatedPartySet}
 import com.daml.ledger.client.binding.Primitive
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -27,6 +28,12 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
         observers = List(makeParty("Obs-0")),
         divulgees = List(makeParty("Div-0")),
         extraSubmitters = List(makeParty("Sub-0")),
+        observerPartySetO = Some(
+          AllocatedPartySet(
+            partyNamePrefix = "MyParty",
+            List("MyParty-0", "MyParty-1").map(makeParty),
+          )
+        ),
       )
     )
     val templates: List[String] = List("otherTemplate", "Foo1")
@@ -51,6 +58,12 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
             templates = templates,
           ),
         ),
+        partyNamePrefixFilterO = Some(
+          PartyNamePrefixFilter(
+            partyNamePrefix = "MyParty",
+            templates = templates,
+          )
+        ),
       )
     ) shouldBe TransactionsStreamConfig(
       name = "flat",
@@ -67,7 +80,16 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
           party = "UnknownParty-0",
           templates = enrichedTemplates,
         ),
+        PartyFilter(
+          party = "MyParty-0-foo-123",
+          templates = enrichedTemplates,
+        ),
+        PartyFilter(
+          party = "MyParty-1-foo-123",
+          templates = enrichedTemplates,
+        ),
       ),
+      partyNamePrefixFilterO = None,
     )
   }
 }

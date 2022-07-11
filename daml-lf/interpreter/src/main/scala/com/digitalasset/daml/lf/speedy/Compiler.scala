@@ -93,11 +93,11 @@ private[lf] object Compiler {
     */
 
   private[lf] def compilePackages(
-      interface: PackageInterface,
+      pkgInterface: PackageInterface,
       packages: Map[PackageId, Package],
       compilerConfig: Compiler.Config,
   ): Either[String, Map[t.SDefinitionRef, SDefinition]] = {
-    val compiler = new Compiler(interface, compilerConfig)
+    val compiler = new Compiler(pkgInterface, compilerConfig)
     try {
       Right(packages.foldLeft(Map.empty[t.SDefinitionRef, SDefinition]) {
         case (acc, (pkgId, pkg)) =>
@@ -114,7 +114,7 @@ private[lf] object Compiler {
 }
 
 private[lf] final class Compiler(
-    interface: PackageInterface,
+    pkgInterface: PackageInterface,
     config: Compiler.Config,
 ) {
 
@@ -286,7 +286,7 @@ private[lf] final class Compiler(
         profiling = config.profiling,
         stacktracing = config.stacktracing,
       )
-    new PhaseOne(interface, config1)
+    new PhaseOne(pkgInterface, config1)
   }
 
   // "translate" indicates the first stage of compilation only (producing: SExpr0)
@@ -364,7 +364,7 @@ private[lf] final class Compiler(
   /** Validates and compiles all the definitions in the package provided.
     *
     * Fails with [[PackageNotFound]] if the package or any of the packages it refers
-    * to are not in the [[interface]].
+    * to are not in the [[pkgInterface]].
     *
     * @throws ValidationError if the package does not pass validations.
     */
@@ -376,7 +376,7 @@ private[lf] final class Compiler(
 
     val t0 = Time.Timestamp.now()
 
-    interface.lookupPackage(pkgId) match {
+    pkgInterface.lookupPackage(pkgId) match {
       case Right(pkg)
           if !stablePackageIds.contains(pkgId) && !config.allowedLanguageVersions
             .contains(pkg.languageVersion) =>
@@ -387,7 +387,7 @@ private[lf] final class Compiler(
     config.packageValidation match {
       case Compiler.NoPackageValidation =>
       case Compiler.FullPackageValidation =>
-        Validation.checkPackage(interface, pkgId, pkg).left.foreach(throw _)
+        Validation.checkPackage(pkgInterface, pkgId, pkg).left.foreach(throw _)
     }
 
     val t1 = Time.Timestamp.now()

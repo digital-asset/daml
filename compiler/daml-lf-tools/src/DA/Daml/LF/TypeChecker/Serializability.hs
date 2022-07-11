@@ -23,6 +23,7 @@ import           Control.Monad.Extra
 import Data.List
 import           Data.Foldable (for_)
 import qualified Data.HashSet as HS
+import qualified Data.NameMap as NM
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Numeric (numericMaxScale)
@@ -51,15 +52,14 @@ serializabilityConditionsType
      -- the caller.
   -> Type
   -> Either UnserializabilityReason (HS.HashSet TypeConName)
-serializabilityConditionsType world0 _version mbCurrentModule vars = go
+serializabilityConditionsType world0 version mbCurrentModule vars = go
   where
     noConditions = Right HS.empty
+    supportsInterfaces = version `supports` featureInterfaces
     go = \case
       -- This is the only way 'ContractId's, 'List's and 'Optional's are allowed. Other cases handled below.
       TContractId typ
-          -- While an interface payload I is not serializable, ContractId I
-          -- is so specialcase this here.
-          | isInterface typ -> noConditions
+          | supportsInterfaces -> noConditions
           | otherwise -> go typ
       TList typ -> go typ
       TOptional typ -> go typ
@@ -116,15 +116,6 @@ serializabilityConditionsType world0 _version mbCurrentModule vars = go
         BTBigNumeric -> Left URBigNumeric
       TForall{} -> Left URForall
       TStruct{} -> Left URStruct
-    isInterface (TCon con) = case (lookupDataType con world0, mbCurrentModule) of
-      (Right t, _) -> case dataCons t of
-        DataInterface -> True
-        _ -> False
-      (Left _, Just currentModule)
-        | Right tconName <- matching (_PRSelfModule $ modName currentModule) con
-        -> tconName `HS.member` modInterfaces currentModule
-      (Left err, _) -> error $ showString "Serializability.serializabilityConditionsDataTyp: " $ show err
-    isInterface _ = False
 
 -- | Determine whether a data type preserves serializability. When a module
 -- name is given, -- data types in this module are returned rather than lookup
@@ -192,6 +183,13 @@ checkInterface _mod0 iface = do
   for_ (intChoices iface) $ \ch -> do
       checkType SRChoiceArg (snd (chcArgBinder ch))
       checkType SRChoiceRes (chcReturnType ch)
+
+  case NM.lookup (MethodName "_view") (intMethods iface) of
+    Nothing -> pure () -- If no view is found, throw error in Typecheck
+    Just method ->
+      let err = EViewNotSerializable (intName iface) (ifmType method)
+      in
+      catchAndRethrow (const err) $ checkType SRDataType $ ifmType method
 
 -- | Check whether exception is serializable.
 checkException :: MonadGamma m => Module -> DefException -> m ()

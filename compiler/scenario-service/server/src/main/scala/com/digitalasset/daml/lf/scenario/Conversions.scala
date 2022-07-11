@@ -153,7 +153,15 @@ final class Conversions(
                 )
               case DuplicateContractKey(key) =>
                 builder.setScenarioCommitError(
-                  proto.CommitError.newBuilder.setUniqueKeyViolation(convertGlobalKey(key)).build
+                  proto.CommitError.newBuilder
+                    .setUniqueContractKeyViolation(convertGlobalKey(key))
+                    .build
+                )
+              case InconsistentContractKey(key) =>
+                builder.setScenarioCommitError(
+                  proto.CommitError.newBuilder
+                    .setInconsistentContractKey(convertGlobalKey(key))
+                    .build
                 )
               case CreateEmptyContractKeyMaintainers(tid, arg, key) =>
                 builder.setCreateEmptyContractKeyMaintainers(
@@ -229,6 +237,20 @@ final class Conversions(
                   cgfBuilder.setByInterface(convertIdentifier(ifaceId))
                 )
                 builder.setChoiceGuardFailed(cgfBuilder.build)
+
+              case DisclosurePreprocessing(err) =>
+                err match {
+                  case DisclosurePreprocessing.DuplicateContractKeys(tid) =>
+                    builder.setDisclosurePreprocessingDuplicateContractKeys(
+                      proto.ScenarioError.DisclosurePreprocessingDuplicateContractKeys.newBuilder
+                        .setTemplateId(convertIdentifier(tid))
+                    )
+                  case DisclosurePreprocessing.DuplicateContractIds(tid) =>
+                    builder.setDisclosurePreprocessingDuplicateContractIds(
+                      proto.ScenarioError.DisclosurePreprocessingDuplicateContractIds.newBuilder
+                        .setTemplateId(convertIdentifier(tid))
+                    )
+                }
             }
         }
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>
@@ -294,7 +316,7 @@ final class Conversions(
     val builder = proto.CommitError.newBuilder
     commitError match {
       case ScenarioLedger.CommitError.UniqueKeyViolation(gk) =>
-        builder.setUniqueKeyViolation(convertGlobalKey(gk.gk))
+        builder.setUniqueContractKeyViolation(convertGlobalKey(gk.gk))
     }
     builder.build
   }
@@ -527,10 +549,6 @@ final class Conversions(
 
     nodeInfo.consumedBy
       .map(eventId => builder.setConsumedBy(convertEventId(eventId)))
-    nodeInfo.rolledbackBy
-      .map(nodeId => builder.setRolledbackBy(convertNodeId(eventId.transactionId, nodeId)))
-    nodeInfo.parent
-      .map(eventId => builder.setParent(convertEventId(eventId)))
 
     nodeInfo.node match {
       case rollback: Node.Rollback =>

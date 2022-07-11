@@ -14,12 +14,12 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.{SValue, TraceLog, WarningLog}
 import com.daml.lf.transaction.{
+  Versioned,
   GlobalKey,
   IncompleteTransaction,
   Node,
   NodeId,
   Transaction,
-  Versioned,
 }
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -52,7 +52,7 @@ class IdeLedgerClient(
 
   private[this] val preprocessor =
     new preprocessing.CommandPreprocessor(
-      compiledPackages.interface,
+      compiledPackages.pkgInterface,
       requireV1ContractIdSuffix = false,
     )
 
@@ -97,8 +97,11 @@ class IdeLedgerClient(
       effectiveAt = ledger.currentTime,
       cid,
     ) match {
-      case ScenarioLedger.LookupOk(_, Versioned(_, Value.ContractInstance(_, arg, _)), stakeholders)
-          if parties.any(stakeholders.contains(_)) =>
+      case ScenarioLedger.LookupOk(
+            _,
+            Versioned(_, Value.ContractInstance(_, arg, _)),
+            stakeholders,
+          ) if parties.any(stakeholders.contains(_)) =>
         Future.successful(Some(ScriptLedgerClient.ActiveContract(templateId, cid, arg)))
       case _ =>
         // Note that contrary to `fetch` in a scenario, we do not

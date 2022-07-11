@@ -112,9 +112,7 @@ class InterfaceViewSpec extends AnyWordSpec with Matchers with EitherValues with
         err shouldBe a[Error.Interpretation]
       }
     }
-    // TODO https://github.com/digital-asset/daml/issues/14112
-    // Catch during preprocessing
-    "fail with Error.Interpretation if interface has no view method" in {
+    "fail with Error.Preprocessing if interface has no view method" in {
       inside(
         computeView(
           t1,
@@ -122,7 +120,7 @@ class InterfaceViewSpec extends AnyWordSpec with Matchers with EitherValues with
           iNoView,
         )
       ) { case Left(err) =>
-        err shouldBe a[Error.Interpretation]
+        err shouldBe a[Error.Preprocessing]
       }
     }
     "fail with Error.Preprocessing if argument has invalid type" in {

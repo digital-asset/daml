@@ -9,6 +9,8 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.io.StringReader
 
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig.PartySet
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.PartyNamePrefixFilter
 
 class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
 
@@ -42,6 +44,10 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |         weight: 100
           |       - id: App-2
           |         weight: 102
+          |  observers_party_set:
+          |     party_name_prefix: MyParty
+          |     count: 99
+          |     visibility: 0.35
           |streams:
           |  - type: active-contracts
           |    name: stream-1
@@ -93,6 +99,13 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   weight = 102,
                 ),
               ),
+              observerPartySetO = Some(
+                PartySet(
+                  partyNamePrefix = "MyParty",
+                  count = 99,
+                  visibility = 0.35,
+                )
+              ),
             )
           ),
           streams = List(
@@ -105,7 +118,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               objectives = Some(
-                WorkflowConfig.StreamConfig.RateObjectives(
+                WorkflowConfig.StreamConfig.AcsAndCompletionsObjectives(
                   minItemRate = Some(123),
                   maxItemRate = Some(456),
                 )
@@ -213,13 +226,18 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |        templates:
         |         - Foo1
         |         - Foo3
+        |    filter_by_party_set:
+        |      party_name_prefix: My-Party
+        |      templates: [Foo1, Foo2]
         |    begin_offset: foo
         |    end_offset: bar
         |    objectives:
         |      max_delay_seconds: 123
         |      min_consumption_speed: 2.34
         |      min_item_rate: 12
-        |      max_item_rate: 34""".stripMargin
+        |      max_item_rate: 34
+        |      max_stream_duration: 56
+        |""".stripMargin
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
           submission = None,
@@ -232,6 +250,12 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   templates = List("Foo1", "Foo3"),
                 )
               ),
+              partyNamePrefixFilterO = Some(
+                PartyNamePrefixFilter(
+                  partyNamePrefix = "My-Party",
+                  templates = List("Foo1", "Foo2"),
+                )
+              ),
               beginOffset = Some(offset("foo")),
               endOffset = Some(offset("bar")),
               objectives = Some(
@@ -240,6 +264,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   minConsumptionSpeed = Some(2.34),
                   minItemRate = Some(12),
                   maxItemRate = Some(34),
+                  maxTotalStreamRuntimeDurationInMs = Some(56),
                 )
               ),
               maxItemCount = None,
@@ -403,7 +428,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               objectives = Some(
-                WorkflowConfig.StreamConfig.RateObjectives(
+                WorkflowConfig.StreamConfig.AcsAndCompletionsObjectives(
                   minItemRate = Some(123),
                   maxItemRate = Some(4567),
                 )
@@ -439,7 +464,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               beginOffset = Some(offset("foo")),
               applicationId = "foobar",
               objectives = Some(
-                WorkflowConfig.StreamConfig.RateObjectives(
+                WorkflowConfig.StreamConfig.AcsAndCompletionsObjectives(
                   minItemRate = Some(12),
                   maxItemRate = Some(345),
                 )

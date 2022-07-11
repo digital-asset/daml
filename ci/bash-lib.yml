@@ -32,27 +32,53 @@ steps:
         fi
     }
     open_pr() {
-      local branch title
+      local branch title body pr_number header output
       branch="$1"
       title="$2"
+      body="${3:-}"
+      pr_number="${4:-}"
+      header=$(mktemp)
+      output=$(mktemp)
+
       git branch -D $branch || true
       git checkout -b $branch
       git -c user.name="Azure Pipelines Daml Build" \
           -c user.email="support@digitalasset.com" \
           commit \
-          -m "$(printf "$title\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"
+          -m "$(printf "$title\n\n$body\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"
       git push origin $branch:$branch
       jq -n --arg title "$title" \
             --arg branch "$branch" \
-            '{"title": $title, "head": $branch, "base": "main"}' \
+            --arg body "$(printf "$body")" \
+            '{"title": $title, "head": $branch, "base": "main", "body": $body}' \
         | curl -H "Content-Type: application/json" \
                -H "$(get_gh_auth_header)" \
                --fail \
                --silent \
-               --include \
                --location \
+               --dump-header "$header" \
+               --output "$output" \
                -d @- \
                https://api.github.com/repos/digital-asset/daml/pulls
+      cat "$header" "$output"
+      if [ -n "$pr_number" ]; then
+          jq '.number' "$output" > "$pr_number"
+      fi
+    }
+    request_pr_review() {
+      local pr_number reviewer
+      pr_number="$1"
+      reviewer="$2"
+
+      jq -n --arg reviewer "$reviewer" \
+            '{"reviewers": [$reviewer]}' \
+        | curl -H "Content-Type: application/json" \
+               -H "$(get_gh_auth_header)" \
+               --fail \
+               --silent \
+               --location \
+               -d @- \
+               "https://api.github.com/repos/digital-asset/daml/pulls/$pr_number/requested_reviewers"
     }
     user_slack_handle() {
         local email sha

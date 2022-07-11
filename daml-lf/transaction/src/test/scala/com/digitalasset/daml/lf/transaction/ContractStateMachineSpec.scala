@@ -152,7 +152,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val tx = builder.build()
     val expected = Right(
       Map(gkey("key1") -> KeyCreate) ->
-        ActiveLedgerState(Set(1), Map.empty, Map(gkey("key1") -> KeyActive(1)))
+        ActiveLedgerState(Set(1), Map.empty, Map(gkey("key1") -> 1))
     )
     TestCase(
       "Create|Rb-Ex-LBK|LBK",
@@ -185,7 +185,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
         ActiveLedgerState(
           Set.empty,
           Map(cid(0) -> (), cid(1) -> ()),
-          Map(gkey("key1") -> KeyInactive),
+          Map.empty,
         )
     )
     TestCase(
@@ -216,7 +216,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val tx = builder.build()
     val expected = Right(
       Map(gkey("key1") -> Transaction.KeyActive(1), gkey("key2") -> Transaction.KeyActive(2)) ->
-        ActiveLedgerState(Set.empty, Map(cid(1) -> ()), Map(gkey("key1") -> KeyInactive))
+        ActiveLedgerState(Set.empty, Map(cid(1) -> ()), Map.empty)
     )
     TestCase(
       "nested rollback",
@@ -247,7 +247,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       Map(gkey("key") -> Transaction.KeyActive(2)) -> ActiveLedgerState(
         Set(3),
         Map(cid(1) -> (), cid(2) -> ()),
-        Map(gkey("key") -> KeyActive(3)),
+        Map(gkey("key") -> cid(3)),
       )
     )
     TestCase(
@@ -274,7 +274,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val resolver = Map(gkey("key1") -> None)
     val expected = Right(
       Map(gkey("key1") -> KeyCreate) ->
-        ActiveLedgerState(Set.empty, Map(cid(1) -> ()), Map(gkey("key1") -> KeyInactive))
+        ActiveLedgerState(Set.empty, Map(cid(1) -> ()), Map.empty)
     )
     TestCase(
       "RbExeCreateLbkDivulged",
@@ -298,7 +298,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val tx = builder.build()
     val expected = Right(
       Map(gkey("key1") -> Transaction.KeyActive(2)) ->
-        ActiveLedgerState(Set.empty, Map(cid(1) -> ()), Map(gkey("key1") -> KeyActive(cid(2))))
+        ActiveLedgerState(Set.empty, Map(cid(1) -> ()), Map.empty)
     )
     TestCase(
       "RbExeCreateFbk",
@@ -325,7 +325,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
           Set(2, 3),
           Map.empty,
           Map(
-            gkey("key1") -> KeyActive(3) // Latest create wins
+            gkey("key1") -> cid(3) // Latest create wins
           ),
         )
     )
@@ -348,7 +348,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val tx = builder.build()
     val expected = Right(
       Map(gkey("key1") -> NegativeKeyLookup) ->
-        ActiveLedgerState(Set.empty, Map.empty, Map(gkey("key1") -> KeyInactive))
+        ActiveLedgerState(Set.empty, Map.empty, Map.empty)
     )
     TestCase(
       "DivulgedLookup",
@@ -395,7 +395,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val tx = builder.build()
     val expected = Right(
       Map(gkey("key1") -> Transaction.KeyActive(2)) ->
-        ActiveLedgerState(Set.empty, Map(cid(3) -> ()), Map(gkey("key1") -> KeyActive(cid(2))))
+        ActiveLedgerState(Set.empty, Map(cid(3) -> ()), Map.empty)
     )
     TestCase(
       "Archive other contract with key",
@@ -417,7 +417,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val tx = builder.build()
     val expected = Right(
       Map(gkey("key1") -> KeyCreate) ->
-        ActiveLedgerState(Set(3), Map.empty, Map(gkey("key1") -> KeyActive(cid(3))))
+        ActiveLedgerState(Set(3), Map.empty, Map(gkey("key1") -> cid(3)))
     )
     TestCase(
       "CreateAfterRbExercise",
@@ -468,7 +468,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
         ActiveLedgerState(
           Set(1, 3, 4, 5),
           Map.empty,
-          Map(gkey("key1") -> KeyActive(cid(4)), gkey("key2") -> KeyActive(cid(5))),
+          Map(gkey("key1") -> cid(4), gkey("key2") -> cid(5)),
         )
     )
     TestCase(
@@ -574,6 +574,50 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     }
   }
 
+  "ActiveLedgerState.isEquivalent" should {
+    val s = ActiveLedgerState(
+      Set(1, 2, 3, 4, 5),
+      Map[ContractId, Unit]((2, ()), (5, ())),
+      Map(gkey("key1") -> 2, gkey("key2") -> 4),
+    )
+    "succeed on identical states" in {
+      assert(s.isEquivalent(s))
+    }
+    "succeed if localKeys differ but localActiveKeys is identical" in {
+      // Different entry that is also not active.
+      val tweakedS = ActiveLedgerState(
+        Set(1, 2, 3, 4, 5),
+        Map[ContractId, Unit]((2, ()), (5, ())),
+        Map(gkey("key1") -> 5, gkey("key2") -> 4),
+      )
+      assert(s.isEquivalent(tweakedS))
+    }
+    "fail if locallyCreatedThisTimeline is different" in {
+      val tweakedS = s.copy(locallyCreatedThisTimeline = Set(1, 2, 3, 4))
+      assert(!s.isEquivalent(tweakedS))
+    }
+    "fail if consumedBy is different" in {
+      val tweakedS = s.copy(consumedBy = Map[ContractId, Unit]((2, ())))
+      assert(!s.isEquivalent(tweakedS))
+    }
+    "fail it localActiveKeys is different" in {
+      // No entry
+      var tweakedS = ActiveLedgerState(
+        Set(1, 2, 3, 4, 5),
+        Map[ContractId, Unit]((2, ()), (5, ())),
+        Map(gkey("key2") -> 4),
+      )
+      assert(!s.isEquivalent(tweakedS))
+      // Different entry that is still active
+      tweakedS = ActiveLedgerState(
+        Set(1, 2, 3, 4, 5),
+        Map[ContractId, Unit]((2, ()), (5, ())),
+        Map(gkey("key1") -> 3, gkey("key2") -> 4),
+      )
+      assert(!s.isEquivalent(tweakedS))
+    }
+  }
+
   private def children(node: Node): ImmArray[NodeId] = node match {
     case _: Node.Create | _: Node.Fetch | _: Node.LookupByKey => ImmArray.empty[NodeId]
     case exercise: Node.Exercise => exercise.children
@@ -607,18 +651,10 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val node = nodes(root)
     for {
       next <- node match {
-        case create: Node.Create =>
-          state.handleCreate(create)
-        case exercise: Node.Exercise =>
-          state.handleExercise((), exercise)
-        case fetch: Node.Fetch =>
-          state.handleFetch(fetch)
-        case lookup: Node.LookupByKey =>
-          val gkey = GlobalKey.assertBuild(lookup.templateId, lookup.key.key)
-          if (state.mode == ContractKeyUniquenessMode.Strict)
-            state.handleLookup(lookup)
-          else
-            state.handleLookupWith(lookup, resolver(gkey))
+        case actionNode: Node.Action =>
+          lazy val gkeyO =
+            actionNode.keyOpt.map(key => GlobalKey.assertBuild(actionNode.templateId, key.key))
+          state.handleNode((), actionNode, gkeyO.flatMap(resolver))
         case _: Node.Rollback =>
           Right(state.beginRollback())
       }

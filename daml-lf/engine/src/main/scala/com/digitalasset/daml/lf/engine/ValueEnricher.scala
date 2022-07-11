@@ -64,7 +64,7 @@ final class ValueEnricher(
   def enrichContract(tyCon: Identifier, value: Value): Result[Value] =
     enrichValue(Ast.TTyCon(tyCon), value)
 
-  private[this] def interface = compiledPackages.interface
+  private[this] def pkgInterface = compiledPackages.pkgInterface
 
   private[this] def handleLookup[X](lookup: => Either[LookupError, X]) = lookup match {
     case Right(value) => ResultDone(value)
@@ -86,7 +86,7 @@ final class ValueEnricher(
       choiceName: Name,
       value: Value,
   ): Result[Value] =
-    handleLookup(interface.lookupChoice(templateId, interfaceId, choiceName))
+    handleLookup(pkgInterface.lookupChoice(templateId, interfaceId, choiceName))
       .flatMap(choice => enrichValue(choice.argBinder._2, value))
 
   def enrichChoiceResult(
@@ -95,11 +95,11 @@ final class ValueEnricher(
       choiceName: Name,
       value: Value,
   ): Result[Value] =
-    handleLookup(interface.lookupChoice(templateId, interfaceId, choiceName))
+    handleLookup(pkgInterface.lookupChoice(templateId, interfaceId, choiceName))
       .flatMap(choice => enrichValue(choice.returnType, value))
 
   def enrichContractKey(tyCon: Identifier, value: Value): Result[Value] =
-    handleLookup(interface.lookupTemplateKey(tyCon))
+    handleLookup(pkgInterface.lookupTemplateKey(tyCon))
       .flatMap(key => enrichValue(key.typ, value))
 
   private val ResultNone = ResultDone(None)

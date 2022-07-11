@@ -291,6 +291,11 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
         Archive -> Set(None),
       )
     }
+
+    "resolve retro implements harmlessly when there are none" in {
+      Interface.resolveRetroImplements((), itp.all)((_, _) => None) should ===((), itp.all)
+      itpEI.resolveRetroImplements should ===(itpEI)
+    }
   }
 
   private def wrappInModule(dataName: DottedName, dfn: Ast.DDataType) =

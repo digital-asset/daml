@@ -31,7 +31,9 @@ main = do
     setEnv "TASTY_NUM_THREADS" "3" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
+    damlScriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
     oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
+    libWithScriptDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "lib-with-script-0.0.1-sdk-2.2.0-lf-1.14.dar")
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
     defaultMain $ tests Tools{..}
 
@@ -39,7 +41,9 @@ data Tools = Tools -- and places
   { damlc :: FilePath
   , damlcLegacy :: FilePath
   , validate :: FilePath -> IO ()
+  , damlScriptDar :: FilePath
   , oldProjDar :: FilePath
+  , libWithScriptDar :: FilePath
   }
 
 damlcForTarget :: Tools -> LF.Version -> FilePath
@@ -65,7 +69,7 @@ lfVersionTestPairs =
     in legacyPairs ++ zip versions (tail versions)
 
 tests :: Tools -> TestTree
-tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
+tests tools = testGroup "Data Dependencies" $
     [ testCaseSteps ("Cross Daml-LF version: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
@@ -1670,6 +1674,26 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
         , "  None -> False"
         ]
 
+    , dataDependenciesTestOptions "Homonymous interface doesn't trigger 'ambiguous occurrence' error"
+        [ "--target=1.dev" ]
+        [   (,) "A.daml"
+            [ "module A where"
+            , "data Instrument = Instrument {}"
+            ]
+        ,   (,) "B.daml"
+            [ "module B where"
+            , "import qualified A"
+
+            , "interface Instrument where"
+            , "  f : ()"
+            , "x = A.Instrument"
+            ]
+        ]
+        [   (,) "Main.daml"
+            [ "module Main where"
+            ]
+        ]
+
     , dataDependenciesTestOptions "implement interface from data-dependency"
         [ "--target=1.dev" ]
         [   (,) "Lib.daml"
@@ -2309,6 +2333,63 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "--project-root", path mainProj
             ]
 
+    , testCaseSteps "Cross-SDK data-dependency with daml-script" $ \step' -> withTempDir $ \tmpDir -> do
+        -- regression test for https://github.com/digital-asset/daml/issues/14291
+        let
+          mainProj = "main"
+
+          path proj = tmpDir </> proj
+          damlYaml proj = path proj </> "daml.yaml"
+          damlMod proj mod = path proj </> mod <.> "daml"
+          step proj = step' ("building '" <> proj <> "' project")
+
+        step mainProj >> do
+          createDirectoryIfMissing True (path mainProj)
+          writeFileUTF8 (damlYaml mainProj) $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: " <> mainProj
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib, " <> damlScriptDar <> "]"
+            , "data-dependencies: [" <> libWithScriptDar <> "]"
+            ]
+          writeFileUTF8 (damlMod mainProj "Main") $ unlines
+            [ "module Main where"
+            , "import Daml.Script"
+            , "import Lib qualified"
+
+            , "template T1"
+            , "  with"
+            , "    party : Party"
+            , "  where"
+            , "    signatory party"
+
+            , "    nonconsuming choice C1 : Bool"
+            , "     controller party"
+            , "        do pure False"
+
+            , "run1 : Lib.Script ()"
+            , "run1 = Lib.run"
+
+            , "run2 : Script ()"
+            , "run2 = script do"
+            , "  alice <- allocateParty \"alice\""
+
+            , "  t <- alice `submit` createCmd Lib.T0 with party = alice"
+            , "  b <- alice `submit` exerciseCmd t Lib.C0"
+            , "  debug b"
+            , "  alice `submit` archiveCmd t"
+
+            , "  t <- alice `submit` createCmd T1 with party = alice"
+            , "  b <- alice `submit` exerciseCmd t C1"
+            , "  debug b"
+            , "  alice `submit` archiveCmd t"
+            ]
+          callProcessSilent damlc
+            [ "test"
+            , "--project-root", path mainProj
+            ]
+
     , testCaseSteps "User-defined exceptions" $ \step -> withTempDir $ \tmpDir -> do
         step "building project to be imported via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "lib")
@@ -2486,6 +2567,14 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "--target", LF.renderVersion LF.versionDev ]
     ]
   where
+    Tools
+      { damlc
+      , validate
+      , damlScriptDar
+      , oldProjDar
+      , libWithScriptDar
+      } = tools
+
     simpleImportTest :: String -> [String] -> [String] -> TestTree
     simpleImportTest title = simpleImportTestOptions title []
 

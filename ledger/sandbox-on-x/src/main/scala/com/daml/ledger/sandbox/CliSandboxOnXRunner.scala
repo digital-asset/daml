@@ -3,82 +3,67 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common._
-import com.daml.ledger.sandbox.SandboxOnXRunner.run
-import scopt.OptionParser
-
-import java.time.Duration
+import com.daml.logging.ContextualizedLogger
+import com.daml.resources.ProgramResource
 
 object CliSandboxOnXRunner {
+  private val logger = ContextualizedLogger.get(getClass)
   val RunnerName = "sandbox-on-x"
 
-  def bridgeConfigParser(parser: OptionParser[CliConfig[BridgeConfig]]): Unit = {
-    parser
-      .opt[Int]("bridge-submission-buffer-size")
-      .text("Submission buffer size. Defaults to 500.")
-      .action((p, c) => c.copy(extra = c.extra.copy(submissionBufferSize = p)))
+  def program[T](owner: ResourceOwner[T]): Unit =
+    new ProgramResource(owner).run(ResourceContext.apply)
 
-    parser
-      .opt[Unit]("disable-conflict-checking")
-      .hidden()
-      .text("Disable ledger-side submission conflict checking.")
-      .action((_, c) => c.copy(extra = c.extra.copy(conflictCheckingEnabled = false)))
-
-    parser
-      .opt[Boolean](name = "implicit-party-allocation")
-      .optional()
-      .action((x, c) => c.copy(implicitPartyAllocation = x))
-      .text(
-        s"When referring to a party that doesn't yet exist on the ledger, the participant will implicitly allocate that party."
-          + s" You can optionally disable this behavior to bring participant into line with other ledgers."
-      )
-
-    parser.checkConfig(c =>
-      Either.cond(
-        c.maxDeduplicationDuration.forall(_.compareTo(Duration.ofHours(1L)) <= 0),
-        (),
-        "Maximum supported deduplication duration is one hour",
-      )
-    )
-    ()
-  }
-
-  def owner(
+  def run(
       args: collection.Seq[String],
       manipulateConfig: CliConfig[BridgeConfig] => CliConfig[BridgeConfig] = identity,
-  ): ResourceOwner[Unit] =
-    CliConfig
-      .owner(
-        RunnerName,
-        bridgeConfigParser,
-        BridgeConfig.Default,
-        args,
-      )
+  ): Unit = {
+    val config = CliConfig
+      .parse(RunnerName, BridgeConfig.Parser, BridgeConfig.Default, args)
       .map(manipulateConfig)
-      .flatMap(owner)
+      .getOrElse(sys.exit(1))
+    runProgram(config)
+  }
 
-  def owner(originalConfig: CliConfig[BridgeConfig]): ResourceOwner[Unit] =
-    new ResourceOwner[Unit] {
-      override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
-        Banner.show(Console.out)
+  private def runProgram(config: CliConfig[BridgeConfig]): Unit =
+    config.mode match {
+      case Mode.Run =>
+        SandboxOnXConfig
+          .loadFromConfig(config.configFiles, config.configMap)
+          .fold(
+            System.err.println,
+            { sandboxOnXConfig =>
+              program(sox(new BridgeConfigAdaptor, sandboxOnXConfig))
+            },
+          )
+      case Mode.DumpIndexMetadata(jdbcUrls) =>
+        program(DumpIndexMetadata(jdbcUrls))
+      case Mode.ConvertConfig =>
+        Console.out.println(
+          ConfigRenderer.render(SandboxOnXConfig.fromLegacy(new BridgeConfigAdaptor, config))
+        )
+      case Mode.RunLegacyCliConfig =>
         val configAdaptor: BridgeConfigAdaptor = new BridgeConfigAdaptor
-        originalConfig.mode match {
-          case Mode.DumpIndexMetadata(jdbcUrls) =>
-            DumpIndexMetadata(jdbcUrls)
-            sys.exit(0)
-          case Mode.Run =>
-            val config = CliConfigConverter.toConfig(configAdaptor, originalConfig)
-            run(
-              configAdaptor,
-              config,
-              originalConfig.extra.copy(maxDeduplicationDuration =
-                originalConfig.maxDeduplicationDuration.getOrElse(
-                  BridgeConfig.DefaultMaximumDeduplicationDuration
-                )
-              ),
-            ).map(_ => ())
-        }
-      }
+        val sandboxOnXConfig: SandboxOnXConfig = SandboxOnXConfig.fromLegacy(configAdaptor, config)
+        program(sox(configAdaptor, sandboxOnXConfig))
     }
+
+  private def sox(
+      configAdaptor: BridgeConfigAdaptor,
+      sandboxOnXConfig: SandboxOnXConfig,
+  ): ResourceOwner[Unit] = {
+    Banner.show(Console.out)
+    logger.withoutContext.info(
+      "Sandbox-on-X server config: \n" + ConfigRenderer.render(sandboxOnXConfig)
+    )
+    SandboxOnXRunner
+      .owner(
+        configAdaptor,
+        sandboxOnXConfig.ledger,
+        sandboxOnXConfig.bridge,
+      )
+      .map(_ => ())
+  }
+
 }

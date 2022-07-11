@@ -17,10 +17,12 @@ template Foo with
     implements TIf where
       getOwner = party
       dup = toInterfaceContractId <$> create this
+      _view = ()
 
     implements L.TIf where
       getOwner = party
       dup = toInterfaceContractId <$> create this
+      _view = ()
 
 interface TIf where
   getOwner: Party
@@ -30,3 +32,4 @@ interface TIf where
     controller getOwner this
     do
       dup this
+  _view: ()

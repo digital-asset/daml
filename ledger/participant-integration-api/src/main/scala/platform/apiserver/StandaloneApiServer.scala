@@ -122,7 +122,7 @@ object StandaloneApiServer {
         ) :: otherInterceptors,
         servicesExecutionContext,
         metrics,
-        config.rateLimitingConfig,
+        config.rateLimit,
       )
       _ <- ResourceOwner.forTry(() => writePortFile(apiServer.port))
     } yield {

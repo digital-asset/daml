@@ -63,7 +63,7 @@ class ValueTranslatorSpec
   "translateValue" should {
 
     val valueTranslator = new ValueTranslator(
-      compiledPackage.interface,
+      compiledPackage.pkgInterface,
       requireV1ContractIdSuffix = false,
     )
     import valueTranslator.unsafeTranslateValue
@@ -244,7 +244,7 @@ class ValueTranslatorSpec
     "accept all contract IDs when require flags are false" in {
 
       val valueTranslator = new ValueTranslator(
-        compiledPackage.interface,
+        compiledPackage.pkgInterface,
         requireV1ContractIdSuffix = false,
       )
       val cids = List(
@@ -267,7 +267,7 @@ class ValueTranslatorSpec
     "reject non suffixed V1 Contract IDs when requireV1ContractIdSuffix is true" in {
 
       val valueTranslator = new ValueTranslator(
-        compiledPackage.interface,
+        compiledPackage.pkgInterface,
         requireV1ContractIdSuffix = true,
       )
       val legalCid =

@@ -204,8 +204,36 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
            val concrete_observer_interface: Mod:Planet -> List Party =
              \ (p: Mod:Planet) -> observer_interface @Mod:Planet p;
+
+           interface (this: Root) = {
+             precondition True;
+             coimplements Mod0:Parcel {};
+           };
+
+           interface (this: Boxy) = {
+             requires Mod:Root;
+             precondition True;
+             method getParty: Party;
+             choice @nonConsuming ReturnInt (self) (i: Int64): Int64
+               , controllers Cons @Party [call_method @Mod:Boxy getParty this] (Nil @Party)
+               , observers Nil @Party
+               to upure @Int64 i;
+             coimplements Mod0:Parcel {
+               method getParty = Mod0:Parcel {party} this;
+             };
+           };
          }
 
+         module Mod0 {
+           record @serializable Parcel = { party: Party };
+
+           template (this: Parcel) = {
+             precondition True;
+             signatories Cons @Party [Mod0:Parcel {party} this] (Nil @Party);
+             observers Cons @Party [Mod0:Parcel {party} this] (Nil @Party);
+             agreement "";
+           };
+         }
       """
 
       validate(pkgId, pkg)

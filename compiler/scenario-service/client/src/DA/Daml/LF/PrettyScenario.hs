@@ -4,7 +4,8 @@
 
 -- | Pretty-printing of scenario results
 module DA.Daml.LF.PrettyScenario
-  ( prettyScenarioResult
+  ( activeContractsFromScenarioResult
+  , prettyScenarioResult
   , prettyScenarioError
   , prettyBriefScenarioError
   , prettyWarningMessage
@@ -131,6 +132,14 @@ parseNodeId =
   . nodeIdId
   where
     dropHash s = fromMaybe s $ stripPrefix "#" s
+
+activeContractsFromScenarioResult :: ScenarioResult -> S.Set TL.Text
+activeContractsFromScenarioResult result =
+    S.fromList (V.toList (scenarioResultActiveContracts result))
+
+activeContractsFromScenarioError :: ScenarioError -> S.Set TL.Text
+activeContractsFromScenarioError err =
+    S.fromList (V.toList (scenarioErrorActiveContracts err))
 
 prettyScenarioResult
   :: LF.World -> S.Set TL.Text -> ScenarioResult -> Doc SyntaxClass
@@ -328,9 +337,17 @@ prettyScenarioErrorError (Just err) =  do
     ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumFailedAuthorizations fas))) -> do
       pure $ vcat $ mapV (prettyFailedAuthorization world) (failedAuthorizationsFailedAuthorizations fas)
 
-    ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumUniqueKeyViolation gk))) -> do
+    ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumUniqueContractKeyViolation gk))) -> do
       pure $ vcat
         [ "Commit error due to unique key violation for key"
+        , nest 2 (prettyMay "<missing key>" (prettyValue' False 0 world) (globalKeyKey gk))
+        , "for template"
+        , nest 2 (prettyMay "<missing template id>" (prettyDefName world) (globalKeyTemplateId gk))
+        ]
+
+    ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumInconsistentContractKey gk))) -> do
+      pure $ vcat
+        [ "Commit error due to inconsistent key"
         , nest 2 (prettyMay "<missing key>" (prettyValue' False 0 world) (globalKeyKey gk))
         , "for template"
         , nest 2 (prettyMay "<missing template id>" (prettyDefName world) (globalKeyTemplateId gk))
@@ -464,6 +481,16 @@ prettyScenarioErrorError (Just err) =  do
             prettyMay "<missing interface>"
               (prettyDefName world)
               scenarioError_ContractDoesNotImplementRequiringInterfaceRequiringInterfaceId
+        ]
+    ScenarioErrorErrorDisclosurePreprocessingDuplicateContractIds(ScenarioError_DisclosurePreprocessingDuplicateContractIds templateId) ->
+      pure $ vcat
+        [ "Found duplicate contract IDs in submitted disclosed contracts"
+        , label_ "Template: " $ prettyMay "missing template" (prettyDefName world) templateId
+        ]
+    ScenarioErrorErrorDisclosurePreprocessingDuplicateContractKeys(ScenarioError_DisclosurePreprocessingDuplicateContractKeys templateId) ->
+      pure $ vcat
+        [ "Found duplicate contract keys in submitted disclosed contracts"
+        , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
         ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
@@ -1094,9 +1121,8 @@ renderScenarioError world err = TL.toStrict $ Blaze.renderHtml $ do
             H.style $ H.text Pretty.highlightStylesheet
             H.script "" H.! A.src "$webviewSrc"
             H.link H.! A.rel "stylesheet" H.! A.href "$webviewCss"
-        let activeContracts = S.fromList (V.toList (scenarioErrorActiveContracts err))
         let tableView = do
-                table <- renderTableView world activeContracts (scenarioErrorNodes err)
+                table <- renderTableView world (activeContractsFromScenarioError err) (scenarioErrorNodes err)
                 pure $ H.div H.! A.class_ "table" $ do
                   Pretty.renderHtml 128 $ annotateSC ErrorSC "Script execution failed, displaying state before failing transaction"
                   table

@@ -7,6 +7,8 @@ import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.{
   ActiveContractsStreamConfig,
   CompletionsStreamConfig,
+  PartyFilter,
+  PartyNamePrefixFilter,
   TransactionTreesStreamConfig,
   TransactionsStreamConfig,
 }
@@ -32,17 +34,26 @@ class ConfigEnricher(allocatedParties: AllocatedParties) {
       case config: TransactionsStreamConfig =>
         config
           .copy(
-            filters = enrichFilters(config.filters)
+            filters = enrichFilters(config.filters) ++ convertFilterByPartySet(
+              config.partyNamePrefixFilterO
+            ),
+            partyNamePrefixFilterO = None,
           )
       case config: TransactionTreesStreamConfig =>
         config
           .copy(
-            filters = enrichFilters(config.filters)
+            filters = enrichFilters(config.filters) ++ convertFilterByPartySet(
+              config.partyNamePrefixFilterO
+            ),
+            partyNamePrefixFilterO = None,
           )
       case config: ActiveContractsStreamConfig =>
         config
           .copy(
-            filters = enrichFilters(config.filters)
+            filters = enrichFilters(config.filters) ++ convertFilterByPartySet(
+              config.partyNamePrefixFilterO
+            ),
+            partyNamePrefixFilterO = None,
           )
       case config: CompletionsStreamConfig =>
         config.copy(parties = config.parties.map(party => convertParty(party)))
@@ -56,6 +67,34 @@ class ConfigEnricher(allocatedParties: AllocatedParties) {
       .map(_.unwrap)
       .find(_.contains(partyShortName))
       .getOrElse(partyShortName)
+
+  private def convertFilterByPartySet(
+      filter: Option[PartyNamePrefixFilter]
+  ): List[PartyFilter] =
+    filter.fold(List.empty[PartyFilter])(convertFilterByPartySet)
+
+  private def convertFilterByPartySet(
+      filter: PartyNamePrefixFilter
+  ): List[PartyFilter] = {
+    val convertedTemplates = filter.templates.map(convertTemplate)
+    val convertedParties = convertPartySet(filter.partyNamePrefix)
+    convertedParties.map(party => PartyFilter(party = party, templates = convertedTemplates))
+  }
+
+  private def convertPartySet(partySetName: String): List[String] =
+    allocatedParties.observerPartySetO match {
+      case None =>
+        sys.error(
+          "Cannot desugar party-set-template-filter as observer party set allocation is missing"
+        )
+      case Some(observerPartySet) =>
+        if (observerPartySet.partyNamePrefix == partySetName)
+          observerPartySet.parties.map(_.unwrap)
+        else
+          sys.error(
+            s"Expected party set: '${partySetName}' does not match actual party set: ${observerPartySet.partyNamePrefix}"
+          )
+    }
 
   private def enrichFilters(
       filters: List[StreamConfig.PartyFilter]
