@@ -138,8 +138,8 @@ private[lf] object Speedy {
         SVisibleToStakeholders.fromSubmitters(committers, readAs)
       }
     private[lf] def finish: PartialTransaction.Result = ptx.finish
-    private[lf] def ptxInternal: PartialTransaction = ptx // deprecated
     private[lf] def incompleteTransaction: IncompleteTransaction = ptx.finishIncomplete
+    private[lf] def nodesToString: String = ptx.nodesToString
 
     private[speedy] def updateCachedContracts(cid: V.ContractId, contract: CachedContract): Unit = {
       enforceLimit(
@@ -311,6 +311,7 @@ private[lf] object Speedy {
          Triggers. It is safe to use on ledger for off ledger code but
          not the other way around.
        */
+      val submissionTime: Time.Timestamp,
       val ledgerMode: LedgerMode,
       val disclosureTable: DisclosureTable,
   ) {
@@ -922,12 +923,12 @@ private[lf] object Speedy {
         envBase = 0,
         kontStack = initialKontStack(),
         lastLocation = None,
+        submissionTime = submissionTime,
         ledgerMode = OnLedger(
           validating = validating,
           ptx = PartialTransaction
             .initial(
               contractKeyUniqueness,
-              submissionTime,
               initialSeeding,
               committers,
               disclosedContracts,
@@ -1045,6 +1046,7 @@ private[lf] object Speedy {
         envBase = 0,
         kontStack = initialKontStack(),
         lastLocation = None,
+        submissionTime = Time.Timestamp.Epoch,
         ledgerMode = OffLedger,
         traceLog = traceLog,
         warningLog = warningLog,

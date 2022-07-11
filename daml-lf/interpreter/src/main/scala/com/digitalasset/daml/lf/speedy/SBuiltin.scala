@@ -943,6 +943,7 @@ private[lf] object SBuiltin {
       }
       val (coid, newPtx) = onLedger.ptx
         .insertCreate(
+          submissionTime = machine.submissionTime,
           templateId = cached.templateId,
           arg = createArgValue,
           agreementText = agreement,
