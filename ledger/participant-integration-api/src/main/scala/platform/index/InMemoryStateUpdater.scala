@@ -25,7 +25,7 @@ import com.daml.platform.{Contract, Key, InMemoryState, Party}
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 
-private[platform] class InMemoryStateUpdater(
+final class InMemoryStateUpdater(
     prepareUpdatesParallelism: Int,
     prepareUpdatesExecutionContext: ExecutionContext,
     updateCachesExecutionContext: ExecutionContext,

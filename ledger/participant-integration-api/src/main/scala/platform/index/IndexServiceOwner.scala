@@ -27,7 +27,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
 
-private[platform] class IndexServiceOwner(
+final class IndexServiceOwner(
     config: IndexServiceConfig,
     dbSupport: DbSupport,
     initialLedgerId: LedgerId,

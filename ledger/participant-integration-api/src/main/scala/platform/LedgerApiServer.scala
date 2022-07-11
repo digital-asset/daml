@@ -77,7 +77,7 @@ class LedgerApiServer(
               readService = readService,
               config = participantConfig.indexer,
               metrics = metrics,
-              participantInMemoryState = participantInMemoryState,
+              inMemoryState = participantInMemoryState,
               lfValueTranslationCache = translationCache,
               inMemoryStateUpdaterFlow = inMemoryStateUpdater.flow,
             )

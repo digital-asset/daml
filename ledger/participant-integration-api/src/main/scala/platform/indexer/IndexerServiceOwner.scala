@@ -24,7 +24,7 @@ final class IndexerServiceOwner(
     config: IndexerConfig,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
-    participantInMemoryState: InMemoryState,
+    inMemoryState: InMemoryState,
     inMemoryStateUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
     additionalMigrationPaths: Seq[String] = Seq.empty,
 )(implicit materializer: Materializer, loggingContext: LoggingContext)
@@ -45,7 +45,7 @@ final class IndexerServiceOwner(
       readService,
       metrics,
       lfValueTranslationCache,
-      participantInMemoryState,
+      inMemoryState,
       inMemoryStateUpdaterFlow,
     )
     val indexer = RecoveringIndexer(

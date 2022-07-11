@@ -220,6 +220,7 @@ class RecoveringIndexerIntegrationSpec
         metrics = metrics,
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         participantDataSourceConfig = participantDataSourceConfig,
+        inMemoryState = participantInMemoryState,
         inMemoryStateUpdaterFlow = inMemoryStateUpdater.flow,
       )(materializer, loggingContext)
     } yield participantState._2
