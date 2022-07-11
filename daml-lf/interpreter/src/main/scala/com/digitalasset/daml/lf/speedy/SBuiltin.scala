@@ -941,10 +941,8 @@ private[lf] object SBuiltin {
             IE.CreateEmptyContractKeyMaintainers(cached.templateId, createArgValue, key)
           )
       }
-      val auth = machine.auth
       val (coid, newPtx) = onLedger.ptx
         .insertCreate(
-          auth = auth,
           templateId = cached.templateId,
           arg = createArgValue,
           agreementText = agreement,
@@ -1000,11 +998,9 @@ private[lf] object SBuiltin {
       val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
       onLedger.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
       val mbKey = cached.key
-      val auth = machine.auth
 
       onLedger.ptx = onLedger.ptx
         .beginExercises(
-          auth = auth,
           targetId = coid,
           templateId = templateId,
           interfaceId = interfaceId,
@@ -1341,17 +1337,12 @@ private[lf] object SBuiltin {
       val signatories = cached.signatories
       val observers = cached.observers
       val key = cached.key
-      val stakeholders = observers union signatories
-      val contextActors = machine.contextActors
-      val auth = machine.auth
       onLedger.ptx = onLedger.ptx.insertFetch(
-        auth = auth,
         coid = coid,
         templateId = templateId,
         optLocation = machine.lastLocation,
-        actingParties = contextActors intersect stakeholders,
         signatories = signatories,
-        stakeholders = stakeholders,
+        observers = observers,
         key = key,
         byKey = byKey,
         version = machine.tmplId2TxVersion(templateId),
@@ -1387,9 +1378,7 @@ private[lf] object SBuiltin {
           }
         case _ => crash(s"Non option value when inserting lookup node")
       }
-      val auth = machine.auth
       onLedger.ptx = onLedger.ptx.insertLookup(
-        auth = auth,
         templateId = templateId,
         optLocation = machine.lastLocation,
         key = Node.KeyWithMaintainers(
