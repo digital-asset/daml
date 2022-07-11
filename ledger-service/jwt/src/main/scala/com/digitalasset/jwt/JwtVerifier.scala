@@ -6,9 +6,8 @@ package com.daml.jwt
 import java.io.File
 import java.security.interfaces.{ECPublicKey, RSAPublicKey}
 
-import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
-import com.auth0.jwt.interfaces.{RSAKeyProvider, Verification}
+import com.auth0.jwt.interfaces.{RSAKeyProvider}
 import com.daml.jwt.JwtVerifier.Error
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{Show, \/}
@@ -40,45 +39,6 @@ object JwtVerifier {
   object Error {
     implicit val showInstance: Show[Error] =
       Show.shows(e => s"JwtVerifier.Error: ${e.what}, ${e.message}")
-  }
-}
-
-final case class LeewayOptions(
-    leeway: Option[Long] = None,
-    expiresAt: Option[Long] = None,
-    issuedAt: Option[Long] = None,
-    notBefore: Option[Long] = None,
-)
-
-sealed trait Leeway {
-  def getVerifier(
-      algorithm: Algorithm,
-      mbLeewayOptions: Option[LeewayOptions] = None,
-  ): com.auth0.jwt.interfaces.JWTVerifier = {
-    def addLeeway(verification: Verification, leewayOptions: LeewayOptions): Verification = {
-      def appendVerification(option: Option[Long], f: (Verification, Long) => Verification)(
-          verifier: Verification
-      ): Verification =
-        option match {
-          case None => verifier
-          case Some(value) => f(verifier, value)
-        }
-      val mbOptionsActions: List[(Option[Long], (Verification, Long) => Verification)] = List(
-        (leewayOptions.leeway, _.acceptLeeway(_)),
-        (leewayOptions.expiresAt, _.acceptExpiresAt(_)),
-        (leewayOptions.issuedAt, _.acceptIssuedAt(_)),
-        (leewayOptions.notBefore, _.acceptNotBefore(_)),
-      )
-      mbOptionsActions.foldLeft(verification)((v, elem) => {
-        val (option, f) = elem; appendVerification(option, f)(v)
-      })
-    }
-    val defaultVerifier = JWT.require(algorithm)
-    val verification = mbLeewayOptions match {
-      case None => defaultVerifier
-      case Some(lwOptions) => addLeeway(defaultVerifier, lwOptions)
-    }
-    verification.build()
   }
 }
 

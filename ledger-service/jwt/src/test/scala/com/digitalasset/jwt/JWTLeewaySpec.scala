@@ -338,16 +338,16 @@ object JWTLeewaySpec extends TableDrivenPropertyChecks {
   )
 
   def oneSecondEarlierFrom(date: Date): Date =
-    Date.from(date.toInstant().minus(1, ChronoUnit.SECONDS))
+    Date.from(date.toInstant.minus(1, ChronoUnit.SECONDS))
 
   def oneSecondLaterFrom(date: Date): Date =
-    Date.from(date.toInstant().plus(1, ChronoUnit.SECONDS))
+    Date.from(date.toInstant.plus(1, ChronoUnit.SECONDS))
 
   def fiveSecondsEarlierFrom(date: Date): Date =
-    Date.from(date.toInstant().minus(5, ChronoUnit.SECONDS))
+    Date.from(date.toInstant.minus(5, ChronoUnit.SECONDS))
 
   def fiveSecondsLaterFrom(date: Date): Date =
-    Date.from(date.toInstant().plus(5, ChronoUnit.SECONDS))
+    Date.from(date.toInstant.plus(5, ChronoUnit.SECONDS))
 
   private implicit final class AssertRight[E, A](private val ea: E \/ A) extends AnyVal {
     def assertRight(implicit E: Show[E], pos: source.Position) =

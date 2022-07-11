@@ -362,35 +362,68 @@ class PureConfigReaderWriterSpec
       AuthServiceConfig.UnsafeJwtHmac256("mysecret3", None),
     )
     compare(
-      "type = unsafe-jwt-hmac-256\nsecret=mysecret3\nleeway-options={leeway: 1}",
+      """
+        |type = unsafe-jwt-hmac-256
+        |secret = mysecret3
+        |leeway-options {
+        |  leeway = 1
+        |}
+        |""".stripMargin,
       AuthServiceConfig.UnsafeJwtHmac256(
         "mysecret3",
         Some(LeewayOptions(Some(1), None, None, None)),
       ),
     )
     compare(
-      "type = unsafe-jwt-hmac-256\nsecret=mysecret3\nleeway-options={expires-at: 2}",
+      """
+        |type = unsafe-jwt-hmac-256
+        |secret = mysecret3
+        |leeway-options {
+        |  expires-at = 2
+        |}
+        |""".stripMargin,
       AuthServiceConfig.UnsafeJwtHmac256(
         "mysecret3",
         Some(LeewayOptions(None, Some(2), None, None)),
       ),
     )
     compare(
-      "type = unsafe-jwt-hmac-256\nsecret=mysecret3\nleeway-options={issued-at: 3}",
+      """
+        |type = unsafe-jwt-hmac-256
+        |secret = mysecret3
+        |leeway-options {
+        |  issued-at = 3
+        |}
+        |""".stripMargin,
       AuthServiceConfig.UnsafeJwtHmac256(
         "mysecret3",
         Some(LeewayOptions(None, None, Some(3), None)),
       ),
     )
     compare(
-      "type = unsafe-jwt-hmac-256\nsecret=mysecret3\nleeway-options={not-before: 4}",
+      """
+        |type = unsafe-jwt-hmac-256
+        |secret = mysecret3
+        |leeway-options {
+        |  not-before = 4
+        |}
+        |""".stripMargin,
       AuthServiceConfig.UnsafeJwtHmac256(
         "mysecret3",
         Some(LeewayOptions(None, None, None, Some(4))),
       ),
     )
     compare(
-      "type = unsafe-jwt-hmac-256\nsecret=mysecret3\nleeway-options={leeway: 1, expires-at: 2, issued-at: 3, not-before: 4}",
+      """
+        |type = unsafe-jwt-hmac-256
+        |secret = mysecret3
+        |leeway-options {
+        |  leeway = 1
+        |  expires-at = 2
+        |  issued-at = 3
+        |  not-before = 4
+        |}
+        |""".stripMargin,
       AuthServiceConfig.UnsafeJwtHmac256(
         "mysecret3",
         Some(LeewayOptions(Some(1), Some(2), Some(3), Some(4))),
