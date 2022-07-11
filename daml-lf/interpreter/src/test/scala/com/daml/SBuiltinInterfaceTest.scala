@@ -42,6 +42,11 @@ class SBuiltinInterfaceTest
       ),
       "signatory_interface @Mod:Iface Mod:aliceOwesBobIface" -> SList(FrontStack(SParty(alice))),
       "observer_interface @Mod:Iface Mod:aliceOwesBobIface" -> SList(FrontStack(SParty(bob))),
+      "MethodTest:callGetText MethodTest:t_Co0_No1" -> SText("does not (co)implement I1"),
+      "MethodTest:callGetText MethodTest:t_Co0_Co1" -> SText("co-implements I1 T_Co0_Co1, msg=T_Co0_Co1"),
+      "MethodTest:callGetText MethodTest:t_Im0_No1" -> SText("does not (co)implement I1"),
+      "MethodTest:callGetText MethodTest:t_Im0_Co1" -> SText("co-implements I1 T_Im0_Co1, msg=T_Im0_Co1"),
+      "MethodTest:callGetText MethodTest:t_Im0_Im1" -> SText("implements I1 T_Im0_Im1, msg=T_Im0_Im1"),
     )
 
     forEvery(testCases) { (exp, res) =>
@@ -126,8 +131,106 @@ object SBuiltinInterfaceTest {
   private[this] lazy val basePkgs = {
     val pkg =
       p"""
+        module T_Co0_No1 {
+          record @serializable T_Co0_No1 = { party: Party, msg: Text };
+
+          template (this: T_Co0_No1) = {
+            precondition True;
+            signatories Cons @Party [T_Co0_No1:T_Co0_No1 {party} this] (Nil @Party);
+            observers Cons @Party [T_Co0_No1:T_Co0_No1 {party} this] (Nil @Party);
+            agreement "";
+          };
+        }
+
+        module T_Co0_Co1 {
+          record @serializable T_Co0_Co1 = { party: Party, msg: Text };
+
+          template (this: T_Co0_Co1) = {
+            precondition True;
+            signatories Cons @Party [T_Co0_Co1:T_Co0_Co1 {party} this] (Nil @Party);
+            observers Cons @Party [T_Co0_Co1:T_Co0_Co1 {party} this] (Nil @Party);
+            agreement "";
+          };
+        }
+
+        module I0 {
+          interface (this: I0) = {
+            precondition True;
+            coimplements T_Co0_No1:T_Co0_No1 {};
+            coimplements T_Co0_Co1:T_Co0_Co1 {};
+          };
+        }
+
+        module T_Im0_No1 {
+          record @serializable T_Im0_No1 = { party: Party, msg: Text };
+
+          template (this: T_Im0_No1) = {
+            precondition True;
+            signatories Cons @Party [T_Im0_No1:T_Im0_No1 {party} this] (Nil @Party);
+            observers Cons @Party [T_Im0_No1:T_Im0_No1 {party} this] (Nil @Party);
+            agreement "";
+            implements I0:I0 {};
+          };
+        }
+
+        module T_Im0_Co1 {
+          record @serializable T_Im0_Co1 = { party: Party, msg: Text };
+
+          template (this: T_Im0_Co1) = {
+            precondition True;
+            signatories Cons @Party [T_Im0_Co1:T_Im0_Co1 {party} this] (Nil @Party);
+            observers Cons @Party [T_Im0_Co1:T_Im0_Co1 {party} this] (Nil @Party);
+            agreement "";
+            implements I0:I0 {};
+          };
+        }
+
+        module I1 {
+          interface (this: I1) = {
+            requires I0:I0;
+            precondition True;
+            method getText: Text;
+            coimplements T_Co0_Co1:T_Co0_Co1 {
+              method getText = APPEND_TEXT "co-implements I1 T_Co0_Co1, msg=" (T_Co0_Co1:T_Co0_Co1 {msg} this);
+            };
+            coimplements T_Im0_Co1:T_Im0_Co1 {
+              method getText = APPEND_TEXT "co-implements I1 T_Im0_Co1, msg=" (T_Im0_Co1:T_Im0_Co1 {msg} this);
+            };
+          };
+        }
+
+        module T_Im0_Im1 {
+          record @serializable T_Im0_Im1 = { party: Party, msg: Text };
+
+          template (this: T_Im0_Im1) = {
+            precondition True;
+            signatories Cons @Party [T_Im0_Im1:T_Im0_Im1 {party} this] (Nil @Party);
+            observers Cons @Party [T_Im0_Im1:T_Im0_Im1 {party} this] (Nil @Party);
+            agreement "";
+            implements I0:I0 {};
+            implements I1:I1 {
+              method getText = APPEND_TEXT "implements I1 T_Im0_Im1, msg=" (T_Im0_Im1:T_Im0_Im1 {msg} this);
+            };
+          };
+        }
+
+        module MethodTest {
+          val mkParty : Text -> Party = \(t:Text) -> case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;
+          val alice : Party = Mod:mkParty "alice";
+
+          val callGetText : I0:I0 -> Text = \(x: I0:I0) ->
+            case from_required_interface @I0:I0 @I1:I1 x of
+              None -> "does not (co)implement I1" | Some x -> call_method @I1:I1 getText x;
+
+          val t_Co0_No1 : I0:I0 = to_interface @I0:I0 @T_Co0_No1:T_Co0_No1 (T_Co0_No1:T_Co0_No1 { party = MethodTest:alice, msg = "T_Co0_No1" });
+          val t_Co0_Co1 : I0:I0 = to_interface @I0:I0 @T_Co0_Co1:T_Co0_Co1 (T_Co0_Co1:T_Co0_Co1 { party = MethodTest:alice, msg = "T_Co0_Co1" });
+          val t_Im0_No1 : I0:I0 = to_interface @I0:I0 @T_Im0_No1:T_Im0_No1 (T_Im0_No1:T_Im0_No1 { party = MethodTest:alice, msg = "T_Im0_No1" });
+          val t_Im0_Co1 : I0:I0 = to_interface @I0:I0 @T_Im0_Co1:T_Im0_Co1 (T_Im0_Co1:T_Im0_Co1 { party = MethodTest:alice, msg = "T_Im0_Co1" });
+          val t_Im0_Im1 : I0:I0 = to_interface @I0:I0 @T_Im0_Im1:T_Im0_Im1 (T_Im0_Im1:T_Im0_Im1 { party = MethodTest:alice, msg = "T_Im0_Im1" });
+        }
+
         module Mod {
-         
+
           interface (this : Iface) = {
               precondition True;
           };
