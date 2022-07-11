@@ -20,7 +20,6 @@ import System.Directory.Extra
 import System.IO.Extra
 import System.Info.Extra
 import Test.Tasty
-import Test.Tasty.Runners (timed)
 
 import DA.Bazel.Runfiles
 import DA.Test.Process (callCommandSilent,callProcessSilent)
@@ -32,7 +31,7 @@ import DA.Test.Util
 withSdkResource :: (IO FilePath -> TestTree) -> TestTree
 withSdkResource f =
     withTempDirResource $ \getDir ->
-    withResource (reportTimed "install SDK" $ installSdk =<< getDir) (reportTimed "remove SDK" . restoreEnv) (const $ f getDir)
+    withResource (installSdk =<< getDir) restoreEnv (const $ f getDir)
   where installSdk targetDir = do
             releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball-ce.tar.gz")
             oldPath <- getSearchPath
@@ -61,12 +60,6 @@ withSdkResource f =
         restoreEnv oldPath = do
             setEnv "PATH" (intercalate [searchPathSeparator] oldPath) True
             unsetEnv "DAML_HOME"
-
-reportTimed :: String -> IO a -> IO a
-reportTimed description fa = do
-  (t, a) <- timed fa
-  putStrLn (description <> " took " <> show t <> " seconds")
-  pure a
 
 -- from DA.Daml.Helper.Util
 data SandboxPorts = SandboxPorts
