@@ -1326,9 +1326,16 @@ private[lf] object SBuiltin {
       methodName: MethodName,
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val (tyCon, record) = getSAnyContract(args, 0)
-      machine.ctrl =
-        SEApp(SEVal(ImplementsMethodDefRef(tyCon, ifaceId, methodName)), Array(SEValue(record)))
+      val (templateId, record) = getSAnyContract(args, 0)
+      val ref = getImplementsOrCoImplements(machine, templateId, ifaceId) match {
+        case Some(TemplateOrInterface.Template(ImplementsDefRef(_, _))) =>
+          ImplementsMethodDefRef(templateId, ifaceId, methodName)
+        case Some(TemplateOrInterface.Interface(CoImplementsDefRef(_, _))) =>
+          CoImplementsMethodDefRef(templateId, ifaceId, methodName)
+        case None =>
+          throw SErrorDamlException(IE.TemplateDoesNotImplementInterface(ifaceId, templateId))
+      }
+      machine.ctrl = SEApp(SEVal(ref), Array(SEValue(record)))
     }
   }
 

@@ -116,6 +116,14 @@ object Error {
       templateId: TypeConName,
   ) extends Error
 
+  /** We tried to call an interface method, but
+    * the contract does not implement this interface.
+    */
+  final case class TemplateDoesNotImplementInterface(
+      interfaceId: TypeConName,
+      templateId: TypeConName,
+  ) extends Error
+
   /** There was an authorization failure during execution. */
   final case class FailedAuthorization(
       nid: NodeId,
