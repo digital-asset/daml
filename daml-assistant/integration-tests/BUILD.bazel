@@ -119,7 +119,7 @@ da_haskell_test(
         "//compiler/damlc/tests:generate-simple-dalf",
         "@tar_dev_env//:tar",
     ] + ([] if is_windows else ts_libraries + ["@script_nix//:bin/script"]),
-    # I’m sure the mvn stuff will be flaky.
+    # marked flaky for mvn originally; still flaky now? #14281
     flaky = True,
     hackage_deps = [
         "aeson",
