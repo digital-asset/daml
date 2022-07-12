@@ -72,13 +72,13 @@ private[lf] object Compiler {
   )
 
   object Config {
-    val Default: Config = Config(
+    val Default = Config(
       allowedLanguageVersions = LanguageVersion.StableVersions,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,
     )
-    val Dev: Config = Config(
+    val Dev = Config(
       allowedLanguageVersions = LanguageVersion.DevVersions,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
