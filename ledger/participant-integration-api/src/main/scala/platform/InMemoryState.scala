@@ -22,7 +22,6 @@ private[platform] class InMemoryState(
     val transactionsBuffer: EventsBuffer[TransactionLogUpdate],
     val stringInterningView: StringInterningView,
     val dispatcherState: DispatcherState,
-    updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit],
 )(implicit executionContext: ExecutionContext) {
   private val logger = ContextualizedLogger.get(getClass)
 
@@ -32,8 +31,8 @@ private[platform] class InMemoryState(
     *
     * NOTE: This method is not thread-safe. Calling it concurrently leads to undefined behavior.
     */
-  final def initializeTo(
-      ledgerEnd: LedgerEnd
+  final def initializeTo(ledgerEnd: LedgerEnd)(
+      updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit]
   )(implicit loggingContext: LoggingContext): Future[Unit] = {
     logger.info(s"Initializing participant in-memory state to ledger end: $ledgerEnd")
 
@@ -46,6 +45,10 @@ private[platform] class InMemoryState(
         transactionsBuffer.flush()
         ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
       }
+      // TODO LLP: Consider the implementation of a two-stage reset with:
+      //            - first teardown existing dispatcher
+      //            - reset caches
+      //            - start new dispatcher
       _ <- dispatcherState.reset(ledgerEnd)
     } yield ()
   }
@@ -58,7 +61,6 @@ object InMemoryState {
       maxContractStateCacheSize: Long,
       maxContractKeyStateCacheSize: Long,
       maxTransactionsInMemoryFanOutBufferSize: Int,
-      updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit],
       metrics: Metrics,
       executionContext: ExecutionContext,
   )(implicit loggingContext: LoggingContext): ResourceOwner[InMemoryState] = {
@@ -85,7 +87,6 @@ object InMemoryState {
         maxBufferedChunkSize = bufferedStreamsPageSize,
       ),
       stringInterningView = new StringInterningView,
-      updateStringInterningView = updateStringInterningView,
     )(executionContext)
   }
 }

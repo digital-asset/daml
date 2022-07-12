@@ -25,7 +25,6 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.LedgerApiServer
-import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.{IndexServiceConfig, ServerRole}
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
 import com.daml.platform.store.DbSupport.{
@@ -50,8 +49,8 @@ import java.util.UUID
 import java.util.concurrent.CompletionStage
 import java.util.concurrent.atomic.AtomicLong
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters.{CompletionStageOps, FutureOps}
 import scala.util.Try
 
@@ -220,7 +219,7 @@ class RecoveringIndexerIntegrationSpec
         metrics = metrics,
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         participantDataSourceConfig = participantDataSourceConfig,
-        inMemoryState = participantInMemoryState,
+        inMemoryState = inMemoryState,
         inMemoryStateUpdaterFlow = inMemoryStateUpdater.flow,
       )(materializer, loggingContext)
     } yield participantState._2

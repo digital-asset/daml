@@ -100,7 +100,6 @@ private[platform] class MutableCacheBackedContractStore(
             // So this is the case of a divulged contract, which was not archived.
             // Divulged contract does not change maximumLedgerTime
 
-            // TODO LLP: Consider making this stack-safe
             readThroughMaximumLedgerTime(restOfMissing, acc)
         }
 

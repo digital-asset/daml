@@ -7,7 +7,6 @@ import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -38,7 +37,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
     ingestionParallelism: Int,
     submissionBatchSize: Long,
     metrics: Metrics,
-    apiUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
+    inMemoryStateUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
 ) {
   import ParallelIndexerSubscription._
 
@@ -79,13 +78,13 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
         tailer = tailer(ingestionStorageBackend.batch(Vector.empty, stringInterningView)),
         ingestTail =
           ingestTail[DB_BATCH](parameterStorageBackend.updateLedgerEnd, dbDispatcher, metrics),
-        toOutputBatch = toBypassBatch,
       )(
         initialized.readServiceSource
           .buffered(metrics.daml.parallelIndexer.inputBufferLength, maxInputBufferSize)
       )
-        .buffered(metrics.daml.parallelIndexer.outputBufferLength, maxInputBufferSize)
-        .via(apiUpdaterFlow)
+        .map(batch => batch.offsetsUpdates -> batch.lastSeqEventId)
+        // TODO LLP: Introduce mechanism (buffer) to allow observing downstream backpressure
+        .via(inMemoryStateUpdaterFlow)
         .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
         .toMat(Sink.ignore)(Keep.both)
         .run()(materializer)
@@ -273,7 +272,4 @@ object ParallelIndexerSubscription {
           batch
         }
       }
-
-  def toBypassBatch(inBatch: Batch[_]): (Vector[(Offset, Update)], Long) =
-    inBatch.offsetsUpdates -> inBatch.lastSeqEventId
 }

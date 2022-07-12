@@ -18,11 +18,9 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.LedgerApiServer
-import com.daml.platform.config.ParticipantConfig
-import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.{Indexer, IndexerServiceOwner, JdbcIndexer}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
-import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
+import com.daml.platform.store.LfValueTranslationCache
 import com.daml.resources
 import com.daml.testing.postgresql.PostgresResource
 

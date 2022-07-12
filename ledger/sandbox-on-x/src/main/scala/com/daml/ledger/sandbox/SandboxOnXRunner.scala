@@ -76,7 +76,7 @@ object SandboxOnXRunner {
       _ <- ResourceOwner.forActorSystem(() => actorSystem)
       _ <- ResourceOwner.forMaterializer(() => materializer)
 
-      (participantId, dataSource, participantConfig) <- combinedParticipant(config)
+      (participantId, dataSource, participantConfig) <- assertSingleParticipant(config)
       timeServiceBackendO = configAdaptor.timeServiceBackend(participantConfig.apiServer)
       (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
 
@@ -141,10 +141,10 @@ object SandboxOnXRunner {
     }
   }
 
-  def combinedParticipant(
+  def assertSingleParticipant(
       config: Config
   ): ResourceOwner[(Ref.ParticipantId, ParticipantDataSourceConfig, ParticipantConfig)] = for {
-    (participantId, participantConfig) <- validateCombinedParticipantMode(config)
+    (participantId, participantConfig) <- validateSingleParticipantConfigured(config)
     dataSource <- validateDataSource(config, participantId)
   } yield (participantId, dataSource, participantConfig)
 
@@ -163,7 +163,7 @@ object SandboxOnXRunner {
       )
     )
 
-  private def validateCombinedParticipantMode(
+  private def validateSingleParticipantConfigured(
       config: Config
   ): ResourceOwner[(Ref.ParticipantId, ParticipantConfig)] =
     config.participants.toList match {

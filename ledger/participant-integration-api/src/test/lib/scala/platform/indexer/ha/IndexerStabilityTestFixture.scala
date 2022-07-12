@@ -11,11 +11,10 @@ import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.LedgerApiServer
-import com.daml.platform.config.ParticipantConfig
-import com.daml.platform.configuration.{IndexServiceConfig, ServerRole}
+import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.indexer.{IndexerConfig, IndexerServiceOwner, IndexerStartupMode}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
-import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
+import com.daml.platform.store.LfValueTranslationCache
 
 import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
@@ -83,15 +82,6 @@ object IndexerStabilityTestFixture {
         _ = logger.info(s"Starting $indexerCount indexers for database $jdbcUrl")
         metricRegistry = new MetricRegistry
         metrics = new Metrics(metricRegistry)
-        dbSupport <- DbSupport
-          .owner(
-            serverRole = ServerRole.ApiServer,
-            metrics = metrics,
-            dbConfig = ParticipantConfig().dataSourceProperties.createDbConfig(
-              participantDataSourceConfig
-            ),
-          )
-          .acquire()
         indexers <- Resource
           .sequence(
             (1 to indexerCount).toList
@@ -110,7 +100,6 @@ object IndexerStabilityTestFixture {
                     LedgerApiServer
                       .createInMemoryStateAndUpdater(
                         IndexServiceConfig(),
-                        dbSupport,
                         metrics,
                         servicesExecutionContext,
                       )

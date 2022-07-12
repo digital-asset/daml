@@ -10,7 +10,7 @@ import scala.concurrent.Future
 
 object BatchingParallelIngestionPipe {
 
-  def apply[IN, IN_BATCH, DB_BATCH, OUT_BATCH](
+  def apply[IN, IN_BATCH, DB_BATCH](
       submissionBatchSize: Long,
       inputMappingParallelism: Int,
       inputMapper: Iterable[IN] => Future[IN_BATCH],
@@ -22,8 +22,7 @@ object BatchingParallelIngestionPipe {
       ingester: DB_BATCH => Future[DB_BATCH],
       tailer: (DB_BATCH, DB_BATCH) => DB_BATCH,
       ingestTail: DB_BATCH => Future[DB_BATCH],
-      toOutputBatch: DB_BATCH => OUT_BATCH,
-  )(source: Source[IN, NotUsed]): Source[OUT_BATCH, NotUsed] =
+  )(source: Source[IN, NotUsed]): Source[DB_BATCH, NotUsed] =
     // Stage 1: the stream coming from ReadService, involves deserialization and translation to Update-s
     source
       // Stage 2: Batching plus mapping to Database DTOs encapsulates all the CPU intensive computation of the ingestion. Executed in parallel.
@@ -42,6 +41,4 @@ object BatchingParallelIngestionPipe {
       .conflate(tailer)
       // Stage 7: Updating ledger-end and related data in database (this stage completion demarcates the consistent point-in-time)
       .mapAsync(1)(ingestTail)
-      // Stage 8: Convert to output batch to be consumed by ParticipantInMemoryState downstream
-      .map(toOutputBatch)
 }

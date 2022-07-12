@@ -152,7 +152,7 @@ private[platform] object EventsBuffer {
     * @tparam E The element type
     */
   private[cache] implicit class SearchableByVector[E](v: Vector[E]) {
-    // TODO LLP: Remove this specialized implementation and use v.view.map(by).search(elem) from Scala 2.13+ when compatibility allows it.
+    // TODO: Remove this specialized implementation and use v.view.map(by).search(elem) from Scala 2.13+ when compatibility allows it.
     final def searchBy[O: Ordering](elem: O, by: E => O): SearchResult =
       binarySearch(elem, 0, v.length, by)
 

@@ -44,6 +44,7 @@ class LedgerApiServer(
     servicesExecutionContext: ExecutionContextExecutorService,
     metrics: Metrics,
 )(implicit actorSystem: ActorSystem, materializer: Materializer) {
+
   def owner: ResourceOwner[ApiService] = {
     newLoggingContextWith("participantId" -> participantId) { implicit loggingContext =>
       val translationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
@@ -52,19 +53,9 @@ class LedgerApiServer(
       )
 
       for {
-        dbSupport <- DbSupport
-          .owner(
-            serverRole = ServerRole.ApiServer,
-            metrics = metrics,
-            dbConfig = participantConfig.dataSourceProperties.createDbConfig(
-              participantDataSourceConfig
-            ),
-          )
-
-        (participantInMemoryState, inMemoryStateUpdater) <-
+        (inMemoryState, inMemoryStateUpdater) <-
           LedgerApiServer.createInMemoryStateAndUpdater(
             participantConfig.indexService,
-            dbSupport,
             metrics,
             servicesExecutionContext,
           )
@@ -77,7 +68,7 @@ class LedgerApiServer(
               readService = readService,
               config = participantConfig.indexer,
               metrics = metrics,
-              inMemoryState = participantInMemoryState,
+              inMemoryState = inMemoryState,
               lfValueTranslationCache = translationCache,
               inMemoryStateUpdaterFlow = inMemoryStateUpdater.flow,
             )
@@ -86,21 +77,30 @@ class LedgerApiServer(
             "indexer" -> indexerHealth,
           )
 
+        readDbSupport <- DbSupport
+          .owner(
+            serverRole = ServerRole.ApiServer,
+            metrics = metrics,
+            dbConfig = participantConfig.dataSourceProperties.createDbConfig(
+              participantDataSourceConfig
+            ),
+          )
+
         indexService <- new IndexServiceOwner(
           config = participantConfig.indexService,
-          dbSupport = dbSupport,
+          dbSupport = readDbSupport,
           initialLedgerId = domain.LedgerId(ledgerId),
           metrics = metrics,
           enricher = new ValueEnricher(engine),
           servicesExecutionContext = servicesExecutionContext,
           lfValueTranslationCache = translationCache,
           participantId = participantId,
-          participantInMemoryState = participantInMemoryState,
+          inMemoryState = inMemoryState,
         )(loggingContext, servicesExecutionContext)
 
         writeService <- buildWriteService(indexService)
 
-        apiServer <- buildApiService(
+        apiService <- buildApiService(
           ledgerFeatures,
           engine,
           indexService,
@@ -109,12 +109,12 @@ class LedgerApiServer(
           new TimedWriteService(writeService, metrics),
           indexerHealthChecks,
           timeServiceBackendO,
-          dbSupport,
+          readDbSupport,
           ledgerId,
           participantConfig.apiServer,
           participantId,
         )
-      } yield apiServer
+      } yield apiService
     }
   }
 
@@ -164,7 +164,6 @@ class LedgerApiServer(
 object LedgerApiServer {
   def createInMemoryStateAndUpdater(
       indexServiceConfig: IndexServiceConfig,
-      dbSupport: DbSupport,
       metrics: Metrics,
       executionContext: ExecutionContext,
   )(implicit
@@ -180,20 +179,6 @@ object LedgerApiServer {
           indexServiceConfig.maxTransactionsInMemoryFanOutBufferSize,
         executionContext = executionContext,
         metrics = metrics,
-        updateStringInterningView = (stringInterningView, ledgerEnd) =>
-          stringInterningView.update(ledgerEnd.lastStringInterningId)(
-            (fromExclusive, toInclusive) =>
-              implicit loggingContext =>
-                dbSupport.dbDispatcher.executeSql(
-                  metrics.daml.index.db.loadStringInterningEntries
-                ) {
-                  dbSupport.storageBackendFactory.createStringInterningStorageBackend
-                    .loadStringInterningEntries(
-                      fromExclusive,
-                      toInclusive,
-                    )
-                }
-          ),
       )
 
       inMemoryStateUpdater <- InMemoryStateUpdater.owner(

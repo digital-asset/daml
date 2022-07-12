@@ -36,7 +36,7 @@ final class IndexServiceOwner(
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     enricher: ValueEnricher,
     participantId: Ref.ParticipantId,
-    participantInMemoryState: InMemoryState,
+    inMemoryState: InMemoryState,
 )(implicit
     loggingContext: LoggingContext,
     executionContext: ExecutionContext,
@@ -48,8 +48,8 @@ final class IndexServiceOwner(
 
   def acquire()(implicit context: ResourceContext): Resource[IndexService] = {
     val ledgerDao = createLedgerReadDao(
-      ledgerEndCache = participantInMemoryState.ledgerEndCache,
-      stringInterning = participantInMemoryState.stringInterningView,
+      ledgerEndCache = inMemoryState.ledgerEndCache,
+      stringInterning = inMemoryState.stringInterningView,
     )
 
     for {
@@ -59,7 +59,7 @@ final class IndexServiceOwner(
       contractStore = new MutableCacheBackedContractStore(
         metrics,
         ledgerDao.contractsReader,
-        contractStateCaches = participantInMemoryState.contractStateCaches,
+        contractStateCaches = inMemoryState.contractStateCaches,
       )(servicesExecutionContext, loggingContext)
 
       lfValueTranslation = new LfValueTranslation(
@@ -72,7 +72,7 @@ final class IndexServiceOwner(
 
       bufferedTransactionsReader = BufferedTransactionsReader(
         delegate = ledgerDao.transactionsReader,
-        transactionsBuffer = participantInMemoryState.transactionsBuffer,
+        transactionsBuffer = inMemoryState.transactionsBuffer,
         lfValueTranslation = lfValueTranslation,
         metrics = metrics,
         eventProcessingParallelism = config.eventsProcessingParallelism,
@@ -84,8 +84,8 @@ final class IndexServiceOwner(
         ledgerDao = ledgerDao,
         transactionsReader = bufferedTransactionsReader,
         contractStore = contractStore,
-        pruneBuffers = participantInMemoryState.transactionsBuffer.prune,
-        dispatcher = () => participantInMemoryState.dispatcherState.getDispatcher,
+        pruneBuffers = inMemoryState.transactionsBuffer.prune,
+        dispatcher = () => inMemoryState.dispatcherState.getDispatcher,
         metrics = metrics,
       )
     } yield new TimedIndexService(indexService, metrics)

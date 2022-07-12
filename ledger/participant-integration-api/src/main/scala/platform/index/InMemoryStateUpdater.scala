@@ -63,9 +63,9 @@ private[platform] object InMemoryStateUpdater {
   private val logger = ContextualizedLogger.get(getClass)
 
   def owner(
-             inMemoryState: InMemoryState,
-             prepareUpdatesParallelism: Int,
-             metrics: Metrics,
+      inMemoryState: InMemoryState,
+      prepareUpdatesParallelism: Int,
+      metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[InMemoryStateUpdater] = for {
     prepareUpdatesExecutor <- ResourceOwner.forExecutorService(() =>
       new InstrumentedExecutorService(
@@ -105,7 +105,7 @@ private[platform] object InMemoryStateUpdater {
     }
 
   private def updateLedgerEnd(
-                               inMemoryState: InMemoryState
+      inMemoryState: InMemoryState
   )(lastOffset: Offset, lastEventSequentialId: Long)(implicit
       loggingContext: LoggingContext
   ): Unit = {

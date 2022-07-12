@@ -10,7 +10,7 @@ import com.daml.platform.store.backend.ParameterStorageBackend
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.cache.{ContractStateCaches, EventsBuffer, MutableLedgerEndCache}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.interning.StringInterningView
+import com.daml.platform.store.interning.{StringInterningView, UpdatingStringInterningView}
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -33,7 +33,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
           mutableLedgerEndCache,
           contractStateCaches,
           transactionsBuffer,
-          updateStringInterningView,
+          stringInterningView,
           dispatcherState,
         ) =>
       val initOffset = Offset.fromHexString(Ref.HexString.assertFromString("abcdef"))
@@ -43,7 +43,9 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
       val initLedgerEnd = ParameterStorageBackend
         .LedgerEnd(initOffset, initEventSequentialId, initStringInterningId)
 
-      when(updateStringInterningView(initLedgerEnd)).thenReturn(Future.unit)
+      val updateStringInterningView = mock[(UpdatingStringInterningView, LedgerEnd) => Future[Unit]]
+      when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(Future.unit)
+
       when(dispatcherState.reset(initLedgerEnd)).thenReturn(Future.unit)
       when(dispatcherState.initialized).thenReturn(true)
       for {
@@ -57,7 +59,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
           verify(contractStateCaches).reset(initOffset)
           verify(transactionsBuffer).flush()
           verify(mutableLedgerEndCache).set(initOffset, initEventSequentialId)
-          verify(updateStringInterningView)(initLedgerEnd)
+          verify(updateStringInterningView)(stringInterningView, initLedgerEnd)
           verify(dispatcherState).reset(initLedgerEnd)
         }
 
@@ -75,7 +77,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
             transactionsBuffer,
             updateStringInterningView,
           )
-          when(updateStringInterningView(reInitLedgerEnd)).thenReturn(
+          when(updateStringInterningView(stringInterningView, reInitLedgerEnd)).thenReturn(
             Future.unit
           )
           when(dispatcherState.reset(reInitLedgerEnd)).thenReturn(Future.unit)
@@ -95,7 +97,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
           verify(contractStateCaches).reset(reInitOffset)
           verify(transactionsBuffer).flush()
           verify(mutableLedgerEndCache).set(reInitOffset, reInitEventSequentialId)
-          verify(updateStringInterningView)(reInitLedgerEnd)
+          verify(updateStringInterningView)(stringInterningView, reInitLedgerEnd)
           verify(dispatcherState).reset(reInitLedgerEnd)
         }
       } yield succeed
@@ -107,7 +109,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
           MutableLedgerEndCache,
           ContractStateCaches,
           EventsBuffer[TransactionLogUpdate],
-          LedgerEnd => Future[Unit],
+          StringInterningView,
           DispatcherState,
       ) => Future[Assertion]
   ): Future[Assertion] = {
@@ -125,10 +127,6 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
       transactionsBuffer = transactionsBuffer,
       stringInterningView = stringInterningView,
       dispatcherState = dispatcherState,
-      updateStringInterningView = {
-        case (`stringInterningView`, ledgerEnd) => updateStringInterningViewWithLedgerEnd(ledgerEnd)
-        case (other, _) => fail(s"Unexpected stringInterningView reference $other")
-      },
     )
 
     test(
@@ -136,7 +134,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
       mutableLedgerEndCache,
       contractStateCaches,
       transactionsBuffer,
-      updateStringInterningViewWithLedgerEnd,
+      stringInterningView,
       dispatcherState,
     )
   }
