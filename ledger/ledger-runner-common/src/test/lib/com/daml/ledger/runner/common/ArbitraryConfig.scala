@@ -10,12 +10,13 @@ import com.daml.lf.transaction.ContractKeyUniquenessMode
 import com.daml.lf.VersionRange
 import org.scalacheck.Gen
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsVersion}
-import com.daml.ledger.runner.common.MetricsConfig.MetricRegistryType
 import com.daml.lf.data.Ref
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
+import com.daml.platform.config.{MetricsConfig, ParticipantConfig}
+import com.daml.platform.config.MetricsConfig.MetricRegistryType
 import com.daml.platform.configuration.{
   CommandConfiguration,
   IndexServiceConfig,
@@ -397,11 +398,6 @@ object ArbitraryConfig {
     indexService <- indexServiceConfig
     indexer <- indexerConfig
     lfValueTranslationCache <- lfValueTranslationCache
-    runMode <- Gen.oneOf[ParticipantRunMode](
-      ParticipantRunMode.Indexer,
-      ParticipantRunMode.Combined,
-      ParticipantRunMode.LedgerApiServer,
-    )
   } yield ParticipantConfig(
     apiServer = apiServer,
     authentication = AuthServiceConfig.Wildcard, // hardcoded to wildcard, as otherwise it
@@ -410,7 +406,6 @@ object ArbitraryConfig {
     indexService = indexService,
     indexer = indexer,
     lfValueTranslationCache = lfValueTranslationCache,
-    runMode = runMode,
   )
 
   val config = for {

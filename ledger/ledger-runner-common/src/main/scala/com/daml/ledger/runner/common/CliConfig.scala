@@ -262,7 +262,6 @@ object CliConfig {
             "api-server-connection-pool-size" +
             "api-server-connection-timeout" +
             "management-service-timeout, " +
-            "run-mode, " +
             "indexer-connection-timeout, " +
             "indexer-max-input-buffer-size, " +
             "indexer-input-mapping-parallelism, " +

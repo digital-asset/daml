@@ -86,6 +86,7 @@ class LedgerApiServer(
             ),
           )
 
+        // TODO: Add test asserting that the indexService retries until IndexDB persistence comes up
         indexService <- new IndexServiceOwner(
           config = participantConfig.indexService,
           dbSupport = readDbSupport,
