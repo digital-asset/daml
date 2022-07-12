@@ -14,8 +14,8 @@ import com.daml.lf.speedy.PhaseOne.{Env, Position}
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{SExpr => t}
-import com.daml.lf.speedy.{SExpr0 => s}
+import com.daml.lf.speedy.{SExpr => t} // target expressions
+import com.daml.lf.speedy.{SExpr0 => s} // source expressions
 import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.scalautil.Statement.discard
 
@@ -169,7 +169,7 @@ private[lf] final class Compiler(
 
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
-  // We add labels before and after flattenning
+  // We add labels before and after flattening
 
   private[this] val withLabelS: (Profile.Label, s.SExpr) => s.SExpr =
     config.profiling match {
@@ -197,7 +197,7 @@ private[lf] final class Compiler(
       }
     }
 
-  private[this] def app(f: s.SExpr, a: s.SExpr) = s.SEApp(f, List(a))
+  private[this] def app(f: s.SExpr, a: s.SExpr): s.SExpr = s.SEApp(f, List(a))
 
   private[this] def let(env: Env, bound: s.SExpr)(f: (Position, Env) => s.SExpr): s.SELet =
     f(env.nextPosition, env.pushVar) match {
@@ -235,16 +235,16 @@ private[lf] final class Compiler(
   private val Pos4 = Env3.nextPosition
   private val Env4 = Env3.pushVar
 
-  private[this] def fun1(body: (Position, Env) => s.SExpr) =
+  private[this] def fun1(body: (Position, Env) => s.SExpr): s.SExpr =
     s.SEAbs(1, body(Pos1, Env1))
 
-  private[this] def fun2(body: (Position, Position, Env) => s.SExpr) =
+  private[this] def fun2(body: (Position, Position, Env) => s.SExpr): s.SExpr =
     s.SEAbs(2, body(Pos1, Pos2, Env2))
 
-  private[this] def fun3(body: (Position, Position, Position, Env) => s.SExpr) =
+  private[this] def fun3(body: (Position, Position, Position, Env) => s.SExpr): s.SExpr =
     s.SEAbs(3, body(Pos1, Pos2, Pos3, Env3))
 
-  private[this] def fun4(body: (Position, Position, Position, Position, Env) => s.SExpr) =
+  private[this] def fun4(body: (Position, Position, Position, Position, Env) => s.SExpr): s.SExpr =
     s.SEAbs(4, body(Pos1, Pos2, Pos3, Pos4, Env4))
 
   private[this] def topLevelFunction1[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
@@ -280,7 +280,7 @@ private[lf] final class Compiler(
   ): (SDefRef, SDefinition) =
     topLevelFunction(ref)(fun4(body))
 
-  val phaseOne = {
+  val phaseOne: PhaseOne = {
     val config1 =
       PhaseOne.Config(
         profiling = config.profiling,
@@ -312,7 +312,7 @@ private[lf] final class Compiler(
       module: Module,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
     val builder = Iterable.newBuilder[(t.SDefinitionRef, SDefinition)]
-    def addDef(binding: (t.SDefinitionRef, SDefinition)) = discard(builder += binding)
+    def addDef(binding: (t.SDefinitionRef, SDefinition)): Unit = discard(builder += binding)
 
     module.exceptions.foreach { case (defName, GenDefException(message)) =>
       val ref = t.ExceptionMessageDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
@@ -431,7 +431,7 @@ private[lf] final class Compiler(
       cidPos: Position,
       mbKey: Option[Position], // defined for byKey operation
       tokenPos: Position,
-  ) =
+  ): s.SExpr =
     let(
       env,
       SBCastAnyContract(typeId)(
@@ -482,7 +482,7 @@ private[lf] final class Compiler(
       cidPos: Position,
       choiceArgPos: Position,
       tokenPos: Position,
-  ) =
+  ): s.SExpr =
     let(
       env,
       SBCastAnyInterface(ifaceId)(
@@ -570,7 +570,7 @@ private[lf] final class Compiler(
     // Compiles a choice into:
     // ChoiceByKeyDefRef(SomeTemplate, SomeChoice) = \ <actors> <key> <choiceArg> <token> ->
     //    let <keyWithM> = { key = <key> ; maintainers = [tmpl.maintainers] <key> }
-    //        <cid> = $fecthKey(tmplId) <keyWithM>
+    //        <cid> = $fetchKey(tmplId) <keyWithM>
     //        targ = fetch <cid>
     //       _ = $beginExercise[tmplId,  choice.name, choice.consuming, true] <choiceArg> <cid> <actors> [tmpl.signatories] [tmpl.observers] [choice.controllers] (Some <keyWithM>)
     //       <retValue> = <updateE> <token>
@@ -591,11 +591,11 @@ private[lf] final class Compiler(
     }
 
   @nowarn("msg=parameter value tokenPos.* is never used")
-  private[this] def compileFetchTemplateBody(env: Env, tmplId: Identifier, tmpl: Template)(
+  private[this] def translateFetchTemplateBody(env: Env, tmplId: Identifier, tmpl: Template)(
       cidPos: Position,
       mbKey: Option[Position], // defined for byKey operation
       tokenPos: Position,
-  ) =
+  ): s.SExpr =
     let(
       env,
       SBCastAnyContract(tmplId)(
@@ -625,7 +625,7 @@ private[lf] final class Compiler(
     //       _ = $insertFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] [tmpl.key]
     //   in <tmplArg>
     topLevelFunction2(t.FetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
-      compileFetchTemplateBody(env, tmplId, tmpl)(cidPos, None, tokenPos)
+      translateFetchTemplateBody(env, tmplId, tmpl)(cidPos, None, tokenPos)
     }
 
   private[this] def compileFetchInterface(ifaceId: Identifier): (t.SDefinitionRef, SDefinition) =
@@ -650,7 +650,7 @@ private[lf] final class Compiler(
       iface: Identifier,
       param: ExprVarName,
       expr: Expr,
-  ) =
+  ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction1(t.InterfacePrecondDefRef(iface))((argPos, env) =>
       translateExp(env.bindExprVar(param, argPos), expr)
     )
@@ -749,7 +749,7 @@ private[lf] final class Compiler(
       tmpl: Template,
       tmplArgPos: Position,
       env: Env,
-  ) = {
+  ): s.SExpr = {
     val env2 = env.bindExprVar(tmpl.param, tmplArgPos)
     val implementsPrecondsIterator = tmpl.implements.iterator.map[s.SExpr](impl =>
       // `SBToInterface` is needed because interfaces do not have the same representation as the underlying template
@@ -784,7 +784,7 @@ private[lf] final class Compiler(
     )
   }
 
-  private[this] def compileCreateAndExercise(
+  private[this] def translateCreateAndExercise(
       env: Env,
       tmplId: Identifier,
       createArg: SValue,
@@ -846,7 +846,7 @@ private[lf] final class Compiler(
         let(env, SBUFetchKey(tmplId)(env.toSEVar(keyWithMPos))) { (cidPos, env) =>
           let(
             env,
-            compileFetchTemplateBody(env, tmplId, tmpl)(cidPos, Some(keyWithMPos), tokenPos),
+            translateFetchTemplateBody(env, tmplId, tmpl)(cidPos, Some(keyWithMPos), tokenPos),
           ) { (contractPos, env) =>
             FetchByKeyResult(env.toSEVar(cidPos), env.toSEVar(contractPos))
           }
@@ -854,7 +854,7 @@ private[lf] final class Compiler(
       }
     }
 
-  private[this] def compileExerciseByInterface(
+  private[this] def translateExerciseByInterface(
       env: Env,
       interfaceId: TypeConName,
       templateId: TypeConName,
@@ -871,7 +871,7 @@ private[lf] final class Compiler(
       )
     }
 
-  private[this] def compileExerciseByInheritedInterface(
+  private[this] def translateExerciseByInheritedInterface(
       env: Env,
       requiredIfaceId: TypeConName,
       requiringIfaceId: TypeConName,
@@ -897,7 +897,7 @@ private[lf] final class Compiler(
     case Command.ExerciseTemplate(templateId, contractId, choiceId, argument) =>
       t.TemplateChoiceDefRef(templateId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
     case Command.ExerciseByInterface(interfaceId, templateId, contractId, choiceId, argument) =>
-      compileExerciseByInterface(env, interfaceId, templateId, contractId, choiceId, argument)
+      translateExerciseByInterface(env, interfaceId, templateId, contractId, choiceId, argument)
     case Command.ExerciseInterface(interfaceId, contractId, choiceId, argument) =>
       t.InterfaceChoiceDefRef(interfaceId, choiceId)(
         s.SEBuiltin(SBGuardConstTrue),
@@ -911,7 +911,7 @@ private[lf] final class Compiler(
           choiceId,
           argument,
         ) =>
-      compileExerciseByInheritedInterface(
+      translateExerciseByInheritedInterface(
         env,
         requiredIfaceId,
         requiringIfaceId,
@@ -928,7 +928,7 @@ private[lf] final class Compiler(
     case Command.FetchByKey(templateId, key) =>
       t.FetchByKeyDefRef(templateId)(s.SEValue(key))
     case Command.CreateAndExercise(templateId, createArg, choice, choiceArg) =>
-      compileCreateAndExercise(
+      translateCreateAndExercise(
         env,
         templateId,
         createArg,
