@@ -173,12 +173,10 @@ private[lf] object PartialTransaction {
 
   def initial(
       contractKeyUniqueness: ContractKeyUniquenessMode,
-      submissionTime: Time.Timestamp,
       initialSeeds: InitialSeeding,
       committers: Set[Party],
       disclosedContracts: ImmArray[DisclosedContract],
   ) = PartialTransaction(
-    submissionTime = submissionTime,
     nextNodeIdx = 0,
     nodes = HashMap.empty,
     actionNodeSeeds = BackStack.empty,
@@ -230,7 +228,6 @@ private[lf] object PartialTransaction {
   *   @param disclosedContracts contracts that have been explicitly disclosed
   */
 private[speedy] case class PartialTransaction(
-    submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
     nodes: HashMap[NodeId, Node],
     actionNodeSeeds: BackStack[crypto.Hash],
@@ -350,6 +347,7 @@ private[speedy] case class PartialTransaction(
     * contract instance.
     */
   def insertCreate(
+      submissionTime: Time.Timestamp,
       templateId: Ref.Identifier,
       arg: Value,
       agreementText: String,
@@ -707,14 +705,4 @@ private[speedy] case class PartialTransaction(
     go(this)
   }
 
-}
-
-private[lf] sealed abstract class InitialSeeding extends Product with Serializable
-
-private[lf] object InitialSeeding {
-  // NoSeed may be used to initialize machines that are not intended to create transactions
-  // e.g. trigger and script runners, tests
-  final case object NoSeed extends InitialSeeding
-  final case class TransactionSeed(seed: crypto.Hash) extends InitialSeeding
-  final case class RootNodeSeeds(seeds: ImmArray[Option[crypto.Hash]]) extends InitialSeeding
 }

@@ -24,7 +24,6 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
   private[this] val initialState = PartialTransaction.initial(
     ContractKeyUniquenessMode.Strict,
-    data.Time.Timestamp.Epoch,
     InitialSeeding.TransactionSeed(transactionSeed),
     committers,
     ImmArray.Empty,
@@ -44,6 +43,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
     def insertCreate_ : PartialTransaction =
       ptx
         .insertCreate(
+          submissionTime = data.Time.Timestamp.Epoch,
           templateId = templateId,
           arg = Value.ValueUnit,
           agreementText = "agreement",

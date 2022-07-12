@@ -364,7 +364,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       time: Time.Timestamp,
   ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("Daml Engine") { onLedger =>
     def detailMsg = Some(
-      s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.ptxInternal.nodesToString}"
+      s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.nodesToString}"
     )
     def versionDisclosedContract(d: speedy.DisclosedContract): Versioned[DisclosedContract] = {
       val version = machine.tmplId2TxVersion(d.templateId)
@@ -439,7 +439,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         deps(tx).flatMap { deps =>
           val meta = Tx.Metadata(
             submissionSeed = None,
-            submissionTime = onLedger.ptxInternal.submissionTime,
+            submissionTime = machine.submissionTime,
             usedPackages = deps,
             dependsOnTime = onLedger.dependsOnTime,
             nodeSeeds = nodeSeeds,
