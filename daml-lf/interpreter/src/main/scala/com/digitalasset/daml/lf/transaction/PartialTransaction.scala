@@ -38,7 +38,7 @@ private[lf] object PartialTransaction {
 
   sealed abstract class ContextInfo {
     val actionChildSeed: Int => crypto.Hash
-    def authorizers: Set[Party]
+    private[PartialTransaction] def authorizers: Set[Party]
   }
 
   sealed abstract class RootContextInfo extends ContextInfo {
@@ -350,7 +350,6 @@ private[speedy] case class PartialTransaction(
     * contract instance.
     */
   def insertCreate(
-      auth: Authorize,
       templateId: Ref.Identifier,
       arg: Value,
       agreementText: String,
@@ -360,6 +359,7 @@ private[speedy] case class PartialTransaction(
       key: Option[Node.KeyWithMaintainers],
       version: TxVersion,
   ): (Value.ContractId, PartialTransaction) = {
+    val auth = Authorize(context.info.authorizers)
     val actionNodeSeed = context.nextActionChildSeed
     val discriminator =
       crypto.Hash.deriveContractDiscriminator(actionNodeSeed, submissionTime, stakeholders)
@@ -391,17 +391,19 @@ private[speedy] case class PartialTransaction(
   }
 
   def insertFetch(
-      auth: Authorize,
       coid: Value.ContractId,
       templateId: TypeConName,
       optLocation: Option[Location],
-      actingParties: Set[Party],
       signatories: Set[Party],
-      stakeholders: Set[Party],
+      observers: Set[Party],
       key: Option[Node.KeyWithMaintainers],
       byKey: Boolean,
       version: TxVersion,
   ): PartialTransaction = {
+    val stakeholders = observers union signatories
+    val contextActors = context.info.authorizers
+    val actingParties = contextActors intersect stakeholders
+    val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
     val node = Node.Fetch(
       coid,
@@ -424,13 +426,13 @@ private[speedy] case class PartialTransaction(
   }
 
   def insertLookup(
-      auth: Authorize,
       templateId: TypeConName,
       optLocation: Option[Location],
       key: Node.KeyWithMaintainers,
       result: Option[Value.ContractId],
       version: TxVersion,
   ): PartialTransaction = {
+    val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
     val node = Node.LookupByKey(
       templateId,
@@ -453,7 +455,6 @@ private[speedy] case class PartialTransaction(
     * Must be closed by a `endExercises` or an `abortExercise`.
     */
   def beginExercises(
-      auth: Authorize,
       targetId: Value.ContractId,
       templateId: TypeConName,
       interfaceId: Option[TypeConName],
@@ -469,6 +470,7 @@ private[speedy] case class PartialTransaction(
       chosenValue: Value,
       version: TxVersion,
   ): PartialTransaction = {
+    val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
     val ec =
       ExercisesContextInfo(

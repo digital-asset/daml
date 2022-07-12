@@ -10,7 +10,6 @@ import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LookupError, Util => AstUtil}
-import com.daml.lf.ledger.Authorize
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -478,13 +477,6 @@ private[lf] object Speedy {
       }
       s.result()
     }
-
-    private[lf] def contextActors: Set[Party] =
-      withOnLedger("ptx") { onLedger =>
-        onLedger.ptx.context.info.authorizers
-      }
-
-    private[lf] def auth: Authorize = Authorize(this.contextActors)
 
     /** Reuse an existing speedy machine to evaluate a new expression.
       *      Do not use if the machine is partway though an existing evaluation.
