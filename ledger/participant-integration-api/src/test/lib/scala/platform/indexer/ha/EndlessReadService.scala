@@ -100,6 +100,7 @@ case class EndlessReadService(
               recordTime = recordTime(i),
               divulgedContracts = List.empty,
               blindingInfo = None,
+              contractMetadata = Map.empty,
             )
           case i =>
             offset(i) -> Update.TransactionAccepted(
@@ -110,6 +111,7 @@ case class EndlessReadService(
               recordTime = recordTime(i),
               divulgedContracts = List.empty,
               blindingInfo = None,
+              contractMetadata = Map.empty,
             )
         }
         .via(killSwitch.flow)
