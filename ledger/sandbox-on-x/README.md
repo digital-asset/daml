@@ -35,10 +35,39 @@ Before starting, you need to perform the following steps:
 *Sandbox on X* manages its own database schema, applying migrations if necessary
 when upgrading versions.
 
-Two command line parameters are mandatory when running *Sandbox on X*: the participant-id
-and the port. You can specify them as follows:
+*Sandbox on X* CLI supports 4 different commands:
+ * *run* - Runs SoX with configuration provided in [HOCON](https://github.com/lightbend/config/blob/master/HOCON.md) 
+ format.
+ * *run-legacy-cli-config* - Runs SoX with command-line parameters.
+ * *convert-config* - Converts configuration provided in command-line parameters to HOCON configuration.
+ * *dump-index-metadata* - Connect to the index db. Print ledger id, ledger end and integration API version and quit.
 
-    $ java -jar sandbox-on-x.jar --participant participant-id=foobar,port=6861
+To see all the command line options that SoX supports, run:
+
+    $ java -jar sandbox-on-x.jar --help
+
+### Running Sandbox-on-X using HOCON configuration
+ 
+In this mode SoX requires a configuration file to run. When starting SoX, configuration files can be provided using:
+
+    $ java -jar sandbox-on-x.jar run --config conf_filename -c conf_filename2
+
+which will start SoX by merging the content of *conf_filename2* into *conf_filename*. Both options 
+`-c` and `–-config` are equivalent. If several configuration files assign values to the same key, the 
+last value is taken. The section on static configuration explains how to write a configuration file.
+
+It is also possible to provide values for the HOCON path in the configuration directly using `-C key=value` option.
+It can be useful for providing simple short config info. 
+
+Full documentation of all possible configuration values can be 
+found in [reference.conf](https://github.com/digital-asset/daml/blob/main/ledger/sandbox-on-x/reference.conf)
+
+### Running Sandbox-on-X using CLI-driven configuration (Legacy)
+
+Two command line parameters for legacy mode are mandatory when running *Sandbox on X*:
+the participant-id and the port. You can specify them as follows:
+
+    $ java -jar sandbox-on-x.jar run-legacy-cli-config --participant participant-id=foobar,port=6861
 
 To specify the PostgreSQL instance you wish to connect, add the
 ``server-jdbc-url=<value>`` to the ``--participant`` command line option, where ``<value>``
@@ -120,7 +149,8 @@ outstanding tasks and resume normal operations.
 ##Scale the ledger and associated services
 
 The command-line interface provides multiple configuration parameters to help
-tune for availability and performance.
+tune for availability and performance. These parameters can also be set using
+HOCON configuration file. 
 
 - ``--max-inbound-message-size``.
   You can use this parameter to increase (or decrease) the maximum size of a
