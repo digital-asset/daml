@@ -10,7 +10,6 @@ import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LookupError, Util => AstUtil}
-import com.daml.lf.ledger.Authorize
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -139,8 +138,8 @@ private[lf] object Speedy {
         SVisibleToStakeholders.fromSubmitters(committers, readAs)
       }
     private[lf] def finish: PartialTransaction.Result = ptx.finish
-    private[lf] def ptxInternal: PartialTransaction = ptx // deprecated
     private[lf] def incompleteTransaction: IncompleteTransaction = ptx.finishIncomplete
+    private[lf] def nodesToString: String = ptx.nodesToString
 
     private[speedy] def updateCachedContracts(cid: V.ContractId, contract: CachedContract): Unit = {
       enforceLimit(
@@ -229,20 +228,18 @@ private[lf] object Speedy {
   ): DisclosureTable = {
     val _ = disclosures
     val acc = disclosures.foldLeft(
-      (
         DisclosureTable.Empty
-      )
     ) { case (table, d) =>
       val arg = d.argument
       val coid = d.contractId
       // check for duplicate contract ids
       table.contractById.get(coid) match {
         case Some(_) =>
-          throw (SErrorDamlException(
+          throw SErrorDamlException(
             IError.DisclosurePreprocessing(
               IError.DisclosurePreprocessing.DuplicateContractIds(d.templateId)
             )
-          ))
+          )
         case None =>
           val m1_prime = table.contractById + (coid -> (d.templateId, arg))
           d.metadata.keyHash match {
@@ -250,13 +247,13 @@ private[lf] object Speedy {
               // check for duplicate contract key hashes
               table.contractIdByKey.get(hash) match {
                 case Some(_) =>
-                  throw (SErrorDamlException(
+                  throw SErrorDamlException(
                     IError.DisclosurePreprocessing(
                       IError.DisclosurePreprocessing.DuplicateContractKeys(
                         d.templateId
                       )
                     )
-                  ))
+                  )
                 case None => DisclosureTable(table.contractIdByKey + (hash -> coid), m1_prime)
               }
             case None => table.copy(contractById = m1_prime)
@@ -312,6 +309,7 @@ private[lf] object Speedy {
          Triggers. It is safe to use on ledger for off ledger code but
          not the other way around.
        */
+      val submissionTime: Time.Timestamp,
       val ledgerMode: LedgerMode,
       val disclosureTable: DisclosureTable,
   ) {
@@ -478,13 +476,6 @@ private[lf] object Speedy {
       }
       s.result()
     }
-
-    private[lf] def contextActors: Set[Party] =
-      withOnLedger("ptx") { onLedger =>
-        onLedger.ptx.context.info.authorizers
-      }
-
-    private[lf] def auth: Authorize = Authorize(this.contextActors)
 
     /** Reuse an existing speedy machine to evaluate a new expression.
       *      Do not use if the machine is partway though an existing evaluation.
@@ -930,12 +921,12 @@ private[lf] object Speedy {
         envBase = 0,
         kontStack = initialKontStack(),
         lastLocation = None,
+        submissionTime = submissionTime,
         ledgerMode = OnLedger(
           validating = validating,
           ptx = PartialTransaction
             .initial(
               contractKeyUniqueness,
-              submissionTime,
               initialSeeding,
               committers,
               disclosedContracts,
@@ -1053,6 +1044,7 @@ private[lf] object Speedy {
         envBase = 0,
         kontStack = initialKontStack(),
         lastLocation = None,
+        submissionTime = Time.Timestamp.Epoch,
         ledgerMode = OffLedger,
         traceLog = traceLog,
         warningLog = warningLog,

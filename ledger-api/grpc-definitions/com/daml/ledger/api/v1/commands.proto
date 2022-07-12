@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1;
 
+import "com/daml/ledger/api/v1/contract_metadata.proto";
 import "com/daml/ledger/api/v1/value.proto";
 
 import "google/protobuf/timestamp.proto";
@@ -119,6 +120,10 @@ message Commands {
   // If omitted, the participant or the committer may set a value of their choice.
   // Optional
   string submission_id = 14;
+
+  // Additional contracts used to resolve contract & contract key lookups.
+  // Optional
+  repeated DisclosedContract disclosed_contracts = 17;
 }
 
 // A command can either create a new contract or exercise a choice on an existing contract.
@@ -201,4 +206,21 @@ message CreateAndExerciseCommand {
   // The argument for this choice.
   // Required
   Value choice_argument = 4;
+}
+
+// An additional contract that is used to resolve
+// contract & contract key lookups.
+message DisclosedContract {
+  // The template id of the contract.
+  // Required
+  Identifier template_id = 1;
+  // The contract id
+  // Required
+  string contract_id = 2;
+  // The contract arguments
+  // Required
+  Record arguments = 3;
+  // The contract metadata from the create event.
+  // Required
+  ContractMetadata metadata = 4;
 }
