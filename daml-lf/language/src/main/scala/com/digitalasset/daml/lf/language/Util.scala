@@ -222,10 +222,11 @@ object Util {
 
   private[this] def toSignature(implements: TemplateImplements): TemplateImplementsSignature =
     implements match {
-      case TemplateImplements(name, methods) =>
+      case TemplateImplements(name, methods, _) =>
         TemplateImplementsSignature(
           name,
           methods.transform((_, v) => toSignature(v)),
+          (),
         )
     }
 

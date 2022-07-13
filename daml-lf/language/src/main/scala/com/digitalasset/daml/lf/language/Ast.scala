@@ -982,6 +982,7 @@ object Ast {
   final case class GenTemplateImplements[E](
       interfaceId: TypeConName,
       methods: Map[MethodName, GenTemplateImplementsMethod[E]],
+      view: E,
   )
 
   final class GenTemplateImplementsCompanion[E] private[Ast] {
@@ -989,6 +990,7 @@ object Ast {
     def build(
         interfaceId: TypeConName,
         methods: Iterable[GenTemplateImplementsMethod[E]],
+        view: E,
     ): GenTemplateImplements[E] =
       new GenTemplateImplements[E](
         interfaceId = interfaceId,
@@ -996,18 +998,20 @@ object Ast {
           methods.map(m => m.name -> m),
           (name: MethodName) => PackageError(s"repeated method implementation $name"),
         ),
+        view,
       )
 
     def apply(
         interfaceId: TypeConName,
         methods: Map[MethodName, GenTemplateImplementsMethod[E]],
+        view: E,
     ): GenTemplateImplements[E] =
-      new GenTemplateImplements[E](interfaceId, methods)
+      new GenTemplateImplements[E](interfaceId, methods, view)
 
     def unapply(
         arg: GenTemplateImplements[E]
-    ): Some[(TypeConName, Map[MethodName, GenTemplateImplementsMethod[E]])] =
-      Some((arg.interfaceId, arg.methods))
+    ): Some[(TypeConName, Map[MethodName, GenTemplateImplementsMethod[E]], E)] =
+      Some((arg.interfaceId, arg.methods, arg.view))
   }
 
   type TemplateImplements = GenTemplateImplements[Expr]
