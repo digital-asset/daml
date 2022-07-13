@@ -3,6 +3,7 @@
 
 package com.daml.ledger.runner.common
 
+import com.daml.jwt.{LeewayOptions}
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.interpretation.Limits
 import com.daml.lf.language.LanguageVersion
@@ -181,25 +182,44 @@ object ArbitraryConfig {
     maxUsersPageSize = maxUsersPageSize,
   )
 
+  def leewayOptionsGen: Gen[LeewayOptions] = {
+    for {
+      leeway <- Gen.option(Gen.posNum[Long])
+      expiresAt <- Gen.option(Gen.posNum[Long])
+      issuedAt <- Gen.option(Gen.posNum[Long])
+      notBefore <- Gen.option(Gen.posNum[Long])
+    } yield LeewayOptions(
+      leeway = leeway,
+      expiresAt = expiresAt,
+      issuedAt = issuedAt,
+      notBefore = notBefore,
+    )
+  }
+
   val UnsafeJwtHmac256 = for {
     secret <- Gen.alphaStr
-  } yield AuthServiceConfig.UnsafeJwtHmac256(secret)
+    mbLeewayOptions <- Gen.option(leewayOptionsGen)
+  } yield AuthServiceConfig.UnsafeJwtHmac256(secret, mbLeewayOptions)
 
   val JwtRs256Crt = for {
     certificate <- Gen.alphaStr
-  } yield AuthServiceConfig.JwtRs256(certificate)
+    mbLeewayOptions <- Gen.option(leewayOptionsGen)
+  } yield AuthServiceConfig.JwtRs256(certificate, mbLeewayOptions)
 
   val JwtEs256Crt = for {
     certificate <- Gen.alphaStr
-  } yield AuthServiceConfig.JwtEs256(certificate)
+    mbLeewayOptions <- Gen.option(leewayOptionsGen)
+  } yield AuthServiceConfig.JwtEs256(certificate, mbLeewayOptions)
 
   val JwtEs512Crt = for {
     certificate <- Gen.alphaStr
-  } yield AuthServiceConfig.JwtEs512(certificate)
+    mbLeewayOptions <- Gen.option(leewayOptionsGen)
+  } yield AuthServiceConfig.JwtEs512(certificate, mbLeewayOptions)
 
   val JwtRs256Jwks = for {
     url <- Gen.alphaStr
-  } yield AuthServiceConfig.JwtRs256Jwks(url)
+    mbLeewayOptions <- Gen.option(leewayOptionsGen)
+  } yield AuthServiceConfig.JwtRs256Jwks(url, mbLeewayOptions)
 
   val authServiceConfig = Gen.oneOf(
     Gen.const(AuthServiceConfig.Wildcard),
