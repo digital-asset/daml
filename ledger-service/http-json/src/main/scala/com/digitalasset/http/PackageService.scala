@@ -7,7 +7,7 @@ import com.daml.ledger.api.v1.value.{Identifier => Lav1Identifier}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.iface
-import com.daml.http.domain.{Choice, TemplateId}
+import com.daml.http.domain.{Choice, ContractTypeId, TemplateId}
 import com.daml.http.util.IdentifierConverters
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.jwt.domain.Jwt
@@ -36,7 +36,7 @@ private class PackageService(
 
   private case class State(
       packageIds: Set[String],
-      contractTypeIdMap: ContractTypeIdMap,
+      contractTypeIdMap: ContractTypeIdMap[ContractTypeId.Unknown],
       templateIdMap: TemplateIdMap,
       choiceTypeMap: ChoiceTypeMap,
       keyTypeMap: KeyTypeMap,
@@ -265,26 +265,34 @@ object PackageService {
   type ResolveKeyType =
     TemplateId.RequiredPkg => Error \/ iface.Type
 
-  type ContractTypeIdMap = TemplateIdMap
-
-  case class TemplateIdMap(
-      all: Set[TemplateId.RequiredPkg],
-      unique: Map[TemplateId.NoPkg, TemplateId.RequiredPkg],
+  final case class ContractTypeIdMap[CtId[_]](
+      all: Set[ContractTypeId.Resolved[CtId[String]]],
+      unique: Map[CtId[Unit], ContractTypeId.Resolved[CtId[String]]],
   ) {
     // forms a monoid with Empty
-    def ++(o: TemplateIdMap): TemplateIdMap =
-      TemplateIdMap(all ++ o.all, (unique -- o.unique.keySet) ++ (o.unique -- unique.keySet))
+    def ++[O[X] >: CtId[X]](o: ContractTypeIdMap[O]): ContractTypeIdMap[O] = {
+      type UniqueGoal = Map[O[Unit], ContractTypeId.Resolved[CtId[String]]]
+      ContractTypeIdMap(
+        all ++ o.all,
+        ((unique.toMap: UniqueGoal) -- o.unique.keySet) ++ (o.unique -- unique.keySet),
+      )
+    }
   }
 
+  type TemplateIdMap = ContractTypeIdMap[ContractTypeId.Template]
+  type InterfaceIdMap = ContractTypeIdMap[ContractTypeId.Interface]
+
   object TemplateIdMap {
-    val Empty: TemplateIdMap = TemplateIdMap(Set.empty, Map.empty)
+    val Empty: TemplateIdMap = ContractTypeIdMap(Set.empty, Map.empty)
   }
 
   type ChoiceTypeMap = Map[(TemplateId.RequiredPkg, Choice), iface.Type]
 
   type KeyTypeMap = Map[TemplateId.RequiredPkg, iface.Type]
 
-  def getTemplateIdInterfaceMaps(packageStore: PackageStore): (TemplateIdMap, ContractTypeIdMap) = {
+  def getTemplateIdInterfaceMaps(
+      packageStore: PackageStore
+  ): (TemplateIdMap, ContractTypeIdMap[ContractTypeId.Interface]) = {
     import TemplateIds.{getTemplateIds, getInterfaceIds}
     def tpId(x: Lav1Identifier): TemplateId.RequiredPkg =
       TemplateId(x.packageId, x.moduleName, x.entityName)
@@ -298,7 +306,7 @@ object PackageService {
   def buildTemplateIdMap(ids: Set[TemplateId.RequiredPkg]): TemplateIdMap = {
     val all: Set[TemplateId.RequiredPkg] = ids
     val unique: Map[TemplateId.NoPkg, TemplateId.RequiredPkg] = filterUniqueTemplateIs(all)
-    TemplateIdMap(all, unique)
+    ContractTypeIdMap(all, unique)
   }
 
   private[http] def key2(k: TemplateId.RequiredPkg): TemplateId.NoPkg =

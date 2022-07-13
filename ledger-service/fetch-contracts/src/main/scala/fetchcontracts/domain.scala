@@ -75,28 +75,59 @@ package domain {
     implicit val `Offset ordering`: Order[Offset] = Order.orderBy[Offset, String](Offset.unwrap(_))
   }
 
+  // TODO #14067 make these separate types
+  object ContractTypeId {
+    // TODO #14067 Resolved makes the semantics a little tricky; we would like
+    // to prove that Template and Interface completely partition the
+    // Resolved[Unknown[_]] type, which is not true of the unadorned unresolved
+    // contract type IDs
+    type Unknown[+PkgId] = TemplateId[PkgId]
+
+    /** A contract type ID known to be a template, not an interface. */
+    type Template[+PkgId] = TemplateId[PkgId] // <: Unknown
+    /** A contract type ID known to be an interface, not a template. */
+    type Interface[+PkgId] = TemplateId[PkgId] // <: Unknown
+    // TODO #14067 write these like this instead:
+    // object Unknown extends Like[Unknown]
+    val Unknown = TemplateId
+    val Template = TemplateId
+    val Interface = TemplateId
+
+    // TODO #14067 make an opaque subtype, produced by PackageService on
+    // confirmed-present IDs only
+    /** A resolved [[ContractTypeId]], typed `CtTyId`. */
+    type Resolved[+CtTyId] = CtTyId
+
+    /** A contract type ID companion. */
+    sealed abstract class Like[CtId[T] <: Unknown[T]] {
+      type OptionalPkg = CtId[Option[String]]
+      type RequiredPkg = CtId[String]
+      type NoPkg = CtId[Unit]
+
+      // treat the companion like a typeclass instance
+      implicit def `ContractTypeId.Like companion`: this.type = this
+
+      def apply[PkgId](packageId: PkgId, moduleName: String, entityName: String): CtId[PkgId]
+
+      private[this] def qualifiedName(a: CtId[_]): Ref.QualifiedName =
+        Ref.QualifiedName(
+          Ref.DottedName.assertFromString(a.moduleName),
+          Ref.DottedName.assertFromString(a.entityName),
+        )
+
+      def toLedgerApiValue(a: RequiredPkg): Ref.Identifier = {
+        val qfName = qualifiedName(a)
+        val packageId = Ref.PackageId.assertFromString(a.packageId)
+        Ref.Identifier(packageId, qfName)
+      }
+    }
+  }
+
   final case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
 
-  object TemplateId {
-    type OptionalPkg = TemplateId[Option[String]]
-    type RequiredPkg = TemplateId[String]
-    type NoPkg = TemplateId[Unit]
-
+  object TemplateId extends ContractTypeId.Like[TemplateId] {
     def fromLedgerApi(in: lav1.value.Identifier): TemplateId.RequiredPkg =
       TemplateId(in.packageId, in.moduleName, in.entityName)
-
-    def qualifiedName(a: TemplateId[_]): Ref.QualifiedName =
-      Ref.QualifiedName(
-        Ref.DottedName.assertFromString(a.moduleName),
-        Ref.DottedName.assertFromString(a.entityName),
-      )
-
-    def toLedgerApiValue(a: RequiredPkg): Ref.Identifier = {
-      val qfName = qualifiedName(a)
-      val packageId = Ref.PackageId.assertFromString(a.packageId)
-      Ref.Identifier(packageId, qfName)
-    }
-
   }
 
   final case class ActiveContract[+LfV](
@@ -158,6 +189,7 @@ package domain {
     type Error = here.Error
     final val Error = here.Error
     type LfValue = here.LfValue
+    final val ContractTypeId = here.ContractTypeId
     type TemplateId[+PkgId] = here.TemplateId[PkgId]
     final val TemplateId = here.TemplateId
     type ContractId = here.ContractId
