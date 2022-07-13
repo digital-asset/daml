@@ -14,8 +14,10 @@ import com.daml.jwt.domain.Jwt
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.ledger.service.{LedgerReader, TemplateIds}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import scalaz.Scalaz._
-import scalaz._
+import scalaz.{\/, \/-, EitherT, Show}
+import scalaz.std.scalaFuture._
+import scalaz.syntax.apply._
+import scalaz.syntax.std.option._
 
 import scala.concurrent.{ExecutionContext, Future}
 import java.time._
