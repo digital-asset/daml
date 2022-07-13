@@ -194,8 +194,10 @@ private[validation] object ExprIterable {
       case TemplateImplements(
             interface @ _,
             methods,
+            view,
           ) =>
-        methods.values.iterator.flatMap(iterator(_))
+        methods.values.iterator.flatMap(iterator(_)) ++
+        iterator(view)
     }
 
   private[iterable] def iterator(x: TemplateImplementsMethod): Iterator[Expr] =
@@ -221,6 +223,7 @@ private[validation] object ExprIterable {
             methods @ _,
             precond,
             coImplements,
+            view @ _,
           ) =>
         Iterator(precond) ++ choices.values.iterator.flatMap(iterator(_)) ++
           coImplements.values.iterator.flatMap(iterator(_))
