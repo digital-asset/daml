@@ -266,7 +266,7 @@ object Util {
 
   private def toSignature(interface: DefInterface): DefInterfaceSignature =
     interface match {
-      case DefInterface(requires, param, choices, methods, _, coImplements) =>
+      case DefInterface(requires, param, choices, methods, _, coImplements, view) =>
         DefInterfaceSignature(
           requires,
           param,
@@ -274,6 +274,7 @@ object Util {
           methods,
           (),
           coImplements.transform((_, v) => toSignature(v)),
+          view,
         )
     }
 

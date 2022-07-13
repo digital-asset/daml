@@ -705,6 +705,7 @@ object Ast {
       coImplements: Map[TypeConName, GenInterfaceCoImplements[
         E
       ]],
+      view: Type,
   )
 
   final class GenDefInterfaceCompanion[E] {
@@ -716,6 +717,7 @@ object Ast {
         methods: Iterable[InterfaceMethod],
         precond: E,
         coImplements: Iterable[GenInterfaceCoImplements[E]],
+        view: Type,
     ): GenDefInterface[E] = {
       val requiresSet = toSetWithoutDuplicate(
         requires,
@@ -734,7 +736,7 @@ object Ast {
         (templateId: TypeConName) =>
           PackageError(s"repeated interface co-implementation ${templateId.toString}"),
       )
-      GenDefInterface(requiresSet, param, choiceMap, methodMap, precond, coImplementsMap)
+      GenDefInterface(requiresSet, param, choiceMap, methodMap, precond, coImplementsMap, view)
     }
 
     def apply(
@@ -744,8 +746,9 @@ object Ast {
         methods: Map[MethodName, InterfaceMethod],
         precond: E,
         coImplements: Map[TypeConName, GenInterfaceCoImplements[E]],
+        view: Type,
     ): GenDefInterface[E] =
-      GenDefInterface(requires, param, choices, methods, precond, coImplements)
+      GenDefInterface(requires, param, choices, methods, precond, coImplements, view)
 
     def unapply(arg: GenDefInterface[E]): Some[
       (
@@ -755,9 +758,10 @@ object Ast {
           Map[MethodName, InterfaceMethod],
           E,
           Map[TypeConName, GenInterfaceCoImplements[E]],
+          Type,
       )
     ] =
-      Some((arg.requires, arg.param, arg.choices, arg.methods, arg.precond, arg.coImplements))
+      Some((arg.requires, arg.param, arg.choices, arg.methods, arg.precond, arg.coImplements, arg.view))
   }
 
   type DefInterface = GenDefInterface[Expr]

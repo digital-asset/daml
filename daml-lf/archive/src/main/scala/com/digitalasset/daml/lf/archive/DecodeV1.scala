@@ -670,6 +670,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         methods = lfInterface.getMethodsList.asScala.view.map(decodeInterfaceMethod),
         precond = decodeExpr(lfInterface.getPrecond, s"$id:ensure"),
         coImplements = lfInterface.getCoImplementsList.asScala.view.map(decodeInterfaceCoImplements),
+        view = decodeType(lfInterface.getView),
       )
 
     private[this] def decodeInterfaceMethod(
