@@ -43,8 +43,23 @@ private[speedy] object SpeedyTestLib {
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SValue] = {
+    runTx(machine, getPkg, getContract, getKey, getTime) match {
+      case Left(e) => Left(e)
+      case Right(SResultFinalValue(v, _)) => Right(v)
+    }
+  }
+
+  @throws[SError.SErrorCrash]
+  def runTx(
+      machine: Speedy.Machine,
+      getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
+      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
+        PartialFunction.empty,
+      getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
+      getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
+  ): Either[SError.SError, SResultFinalValue] = {
     @tailrec
-    def loop: Either[SError.SError, SValue] = {
+    def loop: Either[SError.SError, SResultFinalValue] = {
       machine.run() match {
         case SResultNeedTime(callback) =>
           getTime.lift(()) match {
@@ -73,11 +88,12 @@ private[speedy] object SpeedyTestLib {
         case SResultNeedKey(key, _, callback) =>
           discard(callback(getKey.lift(key)))
           loop
-        case SResultFinalValue(v) =>
-          Right(v)
+        case fv: SResultFinalValue =>
+          Right(fv)
         case SResultError(err) =>
           Left(err)
-        case _: SResultScenarioGetParty | _: SResultScenarioPassTime | _: SResultScenarioSubmit =>
+        case _: SResultFinalValue | _: SResultScenarioGetParty | _: SResultScenarioPassTime |
+            _: SResultScenarioSubmit =>
           throw UnexpectedSResultScenarioX
       }
     }
@@ -94,15 +110,13 @@ private[speedy] object SpeedyTestLib {
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SubmittedTransaction] =
-    run(machine, getPkg, getContract, getKey, getTime) match {
-      case Right(_) =>
-        machine.withOnLedger("buildTransaction") { onLedger =>
-          onLedger.ptx.finish match {
-            case PartialTransaction.IncompleteTransaction(_) =>
-              throw SError.SErrorCrash("buildTransaction", "unexpected IncompleteTransaction")
-            case PartialTransaction.CompleteTransaction(tx, _, _, _, _) =>
-              Right(tx)
-          }
+    runTx(machine, getPkg, getContract, getKey, getTime) match {
+      case Right(SResultFinalValue(_, None)) =>
+        sys.error("buildTransaction expects to be run on-ledger")
+      case Right(SResultFinalValue(_, Some(ctx))) =>
+        ctx match {
+          case PartialTransaction.Result(tx, _, _, _, _) =>
+            Right(tx)
         }
       case Left(err) =>
         Left(err)

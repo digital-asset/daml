@@ -375,11 +375,14 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     }
 
     var finished: Boolean = false
+    var finalValue: SResultFinalValue = null
 
     while (!finished) {
       machine.run() match {
-        case SResultFinalValue(_) =>
+
+        case fv: SResultFinalValue =>
           finished = true
+          finalValue = fv
 
         case SResultNeedTime(callback) =>
           callback(time)
@@ -428,13 +431,28 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       }
     }
 
-    onLedger.finish match {
-      case PartialTransaction.CompleteTransaction(
-            tx,
+    finalValue match {
+
+      case SResultFinalValue(_, None) =>
+        return ResultError(
+          Error.Interpretation.Internal(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"unexpected final value with missing transaction",
+            None,
+          )
+        )
+
+      case SResultFinalValue(
             _,
-            nodeSeeds,
-            globalKeyMapping,
-            disclosedContracts,
+            Some(
+              PartialTransaction.Result(
+                tx,
+                _,
+                nodeSeeds,
+                globalKeyMapping,
+                disclosedContracts,
+              )
+            ),
           ) =>
         deps(tx).flatMap { deps =>
           val meta = Tx.Metadata(
@@ -454,14 +472,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           }
           ResultDone((tx, meta))
         }
-      case PartialTransaction.IncompleteTransaction(ptx) =>
-        ResultError(
-          Error.Interpretation.Internal(
-            NameOf.qualifiedNameOfCurrentFunc,
-            s"Interpretation error: ended with partial result: $ptx",
-            None,
-          )
-        )
     }
   }
 
@@ -535,7 +545,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   )(implicit loggingContext: LoggingContext): Result[Versioned[Value]] = {
     def interpret(machine: Machine): Result[SValue] = {
       machine.run() match {
-        case SResultFinalValue(v) => ResultDone(v)
+        case SResultFinalValue(v, _) => ResultDone(v)
         case SResultError(err) => handleError(err, None)
         case err @ (_: SResultNeedPackage | _: SResultNeedContract | _: SResultNeedKey |
             _: SResultNeedTime | _: SResultScenarioGetParty | _: SResultScenarioPassTime |

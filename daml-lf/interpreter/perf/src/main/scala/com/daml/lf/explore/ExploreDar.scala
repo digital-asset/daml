@@ -103,7 +103,7 @@ object PlaySpeedy {
     val result: SValue = {
       println("Run...")
       machine.run() match {
-        case SResultFinalValue(value) => value
+        case SResultFinalValue(value, _) => value
         case res => throw new MachineProblem(s"Unexpected result from machine $res")
       }
     }

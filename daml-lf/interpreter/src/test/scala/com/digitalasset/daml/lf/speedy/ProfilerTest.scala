@@ -6,7 +6,6 @@ package speedy
 
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.PartialTransaction._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SResult._
@@ -74,16 +73,10 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
       Speedy.Machine.fromUpdateSExpr(compiledPackages, transactionSeed, example, Set(party))
     val res = machine.run()
     res match {
-      case _: SResultFinalValue =>
-        machine.withOnLedger("RollbackTest") { onLedger =>
-          onLedger.ptx.finish match {
-            case IncompleteTransaction(_) =>
-              sys.error("unexpected IncompleteTransaction")
-            case CompleteTransaction(_, _, _, _, _) =>
-              machine.profile.events.asScala.toList.map(ev => (ev.open, ev.rawLabel))
-          }
-        }
-      case _ => sys.error(s"Unexpected res: $res")
+      case SResultFinalValue(_, _) =>
+        machine.profile.events.asScala.toList.map(ev => (ev.open, ev.rawLabel))
+      case _ =>
+        sys.error(s"Unexpected res: $res")
     }
   }
 

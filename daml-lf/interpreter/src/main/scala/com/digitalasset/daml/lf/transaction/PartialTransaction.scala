@@ -28,6 +28,8 @@ import scala.annotation.tailrec
 
 private[lf] object PartialTransaction {
 
+  type MaybeAbort = Option[Tx.TransactionError]
+
   sealed trait KeyConflict extends Product with Serializable
   object KeyConflict {
     final case object None extends KeyConflict
@@ -198,15 +200,14 @@ private[lf] object PartialTransaction {
 
   type NodeSeeds = ImmArray[(NodeId, crypto.Hash)]
 
-  sealed abstract class Result extends Product with Serializable
-  final case class CompleteTransaction(
+  final case class Result(
       tx: SubmittedTransaction,
       locationInfo: Map[NodeId, Location],
       seeds: NodeSeeds,
       globalKeyMapping: Map[GlobalKey, KeyMapping],
       disclosedContracts: ImmArray[DisclosedContract],
-  ) extends Result
-  final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
+  ) extends Product
+      with Serializable
 }
 
 /** A transaction under construction
@@ -314,19 +315,25 @@ private[speedy] case class PartialTransaction(
     */
   def finish: PartialTransaction.Result =
     context.info match {
-      case _: RootContextInfo if aborted.isEmpty =>
-        val roots = context.children.toImmArray
-        val tx0 = Tx(nodes, roots)
-        val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
-        CompleteTransaction(
-          SubmittedTransaction(TxVersion.asVersionedTransaction(tx)),
-          locationInfo(),
-          seeds.zip(actionNodeSeeds.toImmArray),
-          contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
-          disclosedContracts,
-        )
-      case _ =>
-        IncompleteTransaction(this)
+      case _: RootContextInfo =>
+        if (aborted.isEmpty) {
+          val roots = context.children.toImmArray
+          val tx0 = Tx(nodes, roots)
+          val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
+          Result(
+            SubmittedTransaction(TxVersion.asVersionedTransaction(tx)),
+            locationInfo(),
+            seeds.zip(actionNodeSeeds.toImmArray),
+            contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
+            disclosedContracts,
+          )
+        } else {
+          sys.error("ptx.finish: unexpected aborted")
+        }
+      case _: ExercisesContextInfo =>
+        sys.error("ptx.finish: unexpected ExercisesContextInfo")
+      case _: TryContextInfo =>
+        sys.error("ptx.finish: unexpected TryContextInfo")
     }
 
   // construct an IncompleteTransaction from the partial-transaction
