@@ -8,11 +8,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
 import com.daml.metrics.Metrics
 import com.daml.platform.store.cache.BufferSlice.{Inclusive, LastBufferChunkSuffix}
-import com.daml.platform.store.cache.EventsBuffer.{
-  BufferState,
-  RequestOffBufferBounds,
-  UnorderedException,
-}
+import com.daml.platform.store.cache.EventsBuffer.UnorderedException
 import org.scalatest.Succeeded
 import org.scalatest.compatible.Assertion
 import org.scalatest.matchers.should.Matchers
@@ -63,25 +59,6 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
         intercept[UnorderedException[Int]] {
           buffer.push(offset4, 2)
         }.getMessage shouldBe s"Elements appended to the buffer should have strictly increasing offsets: $offset4 vs $offset4"
-      }
-    }
-
-    "range end with equal offset added" should {
-      "accept it" in withBuffer(3) { buffer =>
-        buffer.push(LastOffset, Int.MaxValue)
-        buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
-          bufferedStartExclusive = offset2,
-          slice = Vector(entry3, entry4),
-        )
-      }
-    }
-
-    "range end with greater offset added" should {
-      "not allow new element with lower offset" in withBuffer(3) { buffer =>
-        buffer.push(offset(15), Int.MaxValue)
-        intercept[UnorderedException[Int]] {
-          buffer.push(offset(14), 28)
-        }.getMessage shouldBe s"Elements appended to the buffer should have strictly increasing offsets: ${offset(15)} vs ${offset(14)}"
       }
     }
   }
@@ -158,15 +135,6 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
           offset2,
           Vector(entry3, entry4),
         )
-      }
-    }
-
-    "called with endInclusive exceeding buffer range" should {
-      val (toBeBuffered, Vector((notBufferedOffset, _))) = bufferElements.splitAt(3)
-      "fail with exception" in withBuffer(elems = toBeBuffered) { buffer =>
-        intercept[RequestOffBufferBounds[Int]] {
-          buffer.slice(offset3, notBufferedOffset, IdentityFilter)
-        }.getMessage shouldBe s"Request endInclusive ($offset4) is higher than bufferEnd ($offset3)"
       }
     }
 
@@ -271,7 +239,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
 
       buffer.flush()
 
-      buffer._bufferState shouldBe BufferState[Offset, Int]()
+      buffer._bufferLog shouldBe Vector.empty[(Offset, Int)]
       buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
         bufferedStartExclusive = LastOffset,
         slice = Vector.empty,
@@ -374,7 +342,6 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
       maxBufferSize,
       new Metrics(new MetricRegistry),
       "integers",
-      _ == Int.MaxValue, // Signifies ledger end
       maxBufferedChunkSize = maxFetchSize,
     )
     elems.foreach { case (offset, event) => buffer.push(offset, event) }

@@ -12,7 +12,6 @@ import java.nio.file.Path
 import scala.concurrent.duration._
 
 final case class CliParticipantConfig(
-    mode: ParticipantRunMode,
     participantId: Ref.ParticipantId,
     address: Option[String],
     port: Port,

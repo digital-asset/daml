@@ -15,7 +15,7 @@ import io.grpc.ServerInterceptor
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
 
-private[daml] final class LedgerApiServer(
+private[daml] final class LedgerApiService(
     apiServicesOwner: ResourceOwner[ApiServices],
     desiredPort: Port,
     maxInboundMessageSize: Int,
@@ -26,11 +26,11 @@ private[daml] final class LedgerApiServer(
     metrics: Metrics,
     rateLimitingConfig: Option[RateLimitingConfig],
 )(implicit loggingContext: LoggingContext)
-    extends ResourceOwner[ApiServer] {
+    extends ResourceOwner[ApiService] {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  override def acquire()(implicit context: ResourceContext): Resource[ApiServer] = {
+  override def acquire()(implicit context: ResourceContext): Resource[ApiService] = {
     val servicesClosedPromise = Promise[Unit]()
 
     val apiServicesResource = apiServicesOwner.acquire()
@@ -61,7 +61,7 @@ private[daml] final class LedgerApiServer(
       val actualPort = server.getPort
       val transportMedium = if (sslContext.isDefined) "TLS" else "plain text"
       logger.info(s"Listening on $host:$actualPort over $transportMedium.")
-      new ApiServer {
+      new ApiService {
         override val port: Port =
           Port(server.getPort)
 

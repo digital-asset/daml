@@ -21,6 +21,4 @@ class JdbcLedgerDaoOracleSpec
     with JdbcLedgerDaoPartiesSpec
     with JdbcLedgerDaoTransactionsSpec
     with JdbcLedgerDaoTransactionTreesSpec
-    with JdbcLedgerDaoContractEventsStreamSpec
     with JdbcLedgerDaoTransactionsWriterSpec
-    with JdbcLedgerDaoTransactionLogUpdatesSpec

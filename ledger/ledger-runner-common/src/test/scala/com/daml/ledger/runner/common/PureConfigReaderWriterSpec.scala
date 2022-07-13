@@ -3,6 +3,7 @@
 
 package com.daml.ledger.runner.common
 
+import com.daml.jwt.{LeewayOptions}
 import com.daml.lf.interpretation.Limits
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.ContractKeyUniquenessMode
@@ -20,6 +21,7 @@ import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
+import com.daml.platform.config.MetricsConfig
 import com.daml.platform.configuration.{
   CommandConfiguration,
   IndexServiceConfig,
@@ -302,7 +304,7 @@ class PureConfigReaderWriterSpec
   behavior of "userManagementConfig"
 
   it should "support current defaults" in {
-    val value = """  
+    val value = """
     |  cache-expiry-after-write-in-seconds = 5
     |  enabled = false
     |  max-cache-size = 100
@@ -311,7 +313,7 @@ class PureConfigReaderWriterSpec
   }
 
   it should "read/write against predefined values" in {
-    val value = """  
+    val value = """
     |  cache-expiry-after-write-in-seconds = 1
     |  enabled = true
     |  max-cache-size = 99
@@ -331,8 +333,8 @@ class PureConfigReaderWriterSpec
     generatedValue =>
       val configValue = authServiceConfigConvert.to(generatedValue)
       val redacted = generatedValue match {
-        case AuthServiceConfig.UnsafeJwtHmac256(_) =>
-          AuthServiceConfig.UnsafeJwtHmac256("<REDACTED>")
+        case AuthServiceConfig.UnsafeJwtHmac256(_, leeway) =>
+          AuthServiceConfig.UnsafeJwtHmac256("<REDACTED>", leeway)
         case _ => generatedValue
       }
       authServiceConfigConvert
@@ -355,6 +357,78 @@ class PureConfigReaderWriterSpec
     compare(
       "type = unsafe-jwt-hmac-256\nsecret=mysecret2",
       AuthServiceConfig.UnsafeJwtHmac256("mysecret2"),
+    )
+    compare(
+      "type = unsafe-jwt-hmac-256\nsecret=mysecret3",
+      AuthServiceConfig.UnsafeJwtHmac256("mysecret3", None),
+    )
+    compare(
+      """
+        |type = unsafe-jwt-hmac-256
+        |secret = mysecret3
+        |leeway-options {
+        |  leeway = 1
+        |}
+        |""".stripMargin,
+      AuthServiceConfig.UnsafeJwtHmac256(
+        "mysecret3",
+        Some(LeewayOptions(Some(1), None, None, None)),
+      ),
+    )
+    compare(
+      """
+        |type = unsafe-jwt-hmac-256
+        |secret = mysecret3
+        |leeway-options {
+        |  expires-at = 2
+        |}
+        |""".stripMargin,
+      AuthServiceConfig.UnsafeJwtHmac256(
+        "mysecret3",
+        Some(LeewayOptions(None, Some(2), None, None)),
+      ),
+    )
+    compare(
+      """
+        |type = unsafe-jwt-hmac-256
+        |secret = mysecret3
+        |leeway-options {
+        |  issued-at = 3
+        |}
+        |""".stripMargin,
+      AuthServiceConfig.UnsafeJwtHmac256(
+        "mysecret3",
+        Some(LeewayOptions(None, None, Some(3), None)),
+      ),
+    )
+    compare(
+      """
+        |type = unsafe-jwt-hmac-256
+        |secret = mysecret3
+        |leeway-options {
+        |  not-before = 4
+        |}
+        |""".stripMargin,
+      AuthServiceConfig.UnsafeJwtHmac256(
+        "mysecret3",
+        Some(LeewayOptions(None, None, None, Some(4))),
+      ),
+    )
+    compare(
+      """
+        |type = unsafe-jwt-hmac-256
+        |secret = mysecret3
+        |leeway-options {
+        |  leeway = 1
+        |  expires-at = 2
+        |  issued-at = 3
+        |  not-before = 4
+        |}
+        |""".stripMargin,
+      AuthServiceConfig.UnsafeJwtHmac256(
+        "mysecret3",
+        Some(LeewayOptions(Some(1), Some(2), Some(3), Some(4))),
+      ),
     )
     compare(
       "type = jwt-rs-256\ncertificate=certfile",
@@ -390,7 +464,7 @@ class PureConfigReaderWriterSpec
 
   it should "read/write against predefined values" in {
     val value =
-      """ 
+      """
      |  input-buffer-size = 512
      |  max-commands-in-flight = 256
      |  tracker-retention-period = "300 seconds"""".stripMargin
@@ -424,7 +498,7 @@ class PureConfigReaderWriterSpec
   behavior of "RateLimitingConfig"
 
   it should "support current defaults" in {
-    val value = """ 
+    val value = """
     |  enabled = true
     |  max-api-services-index-db-queue-size = 1000
     |  max-api-services-queue-size = 10000
@@ -436,7 +510,7 @@ class PureConfigReaderWriterSpec
   behavior of "ApiServerConfig"
 
   it should "support current defaults" in {
-    val value = """       
+    val value = """
                                   |api-stream-shutdown-timeout = "5s"
                                   |command {
                                   |  input-buffer-size = 512
@@ -474,23 +548,6 @@ class PureConfigReaderWriterSpec
                                   |  max-users-page-size = 1000
                                   |}""".stripMargin
     convert(apiServerConfigConvert, value).value shouldBe ApiServerConfig()
-  }
-
-  behavior of "ParticipantRunMode"
-
-  it should "read/write against predefined values" in {
-    participantRunModeConvert.to(ParticipantRunMode.Indexer) shouldBe fromAnyRef("indexer")
-    participantRunModeConvert.to(ParticipantRunMode.Combined) shouldBe fromAnyRef("combined")
-    participantRunModeConvert.to(ParticipantRunMode.LedgerApiServer) shouldBe fromAnyRef(
-      "ledger-api-server"
-    )
-    participantRunModeConvert.from(fromAnyRef("indexer")).value shouldBe ParticipantRunMode.Indexer
-    participantRunModeConvert
-      .from(fromAnyRef("combined"))
-      .value shouldBe ParticipantRunMode.Combined
-    participantRunModeConvert
-      .from(fromAnyRef("ledger-api-server"))
-      .value shouldBe ParticipantRunMode.LedgerApiServer
   }
 
   behavior of "HaConfig"
@@ -536,7 +593,7 @@ class PureConfigReaderWriterSpec
   behavior of "IndexServiceConfig"
 
   it should "support current defaults" in {
-    val value = """ 
+    val value = """
     |  acs-contract-fetching-parallelism = 2
     |  acs-global-parallelism = 10
     |  acs-id-fetching-parallelism = 2

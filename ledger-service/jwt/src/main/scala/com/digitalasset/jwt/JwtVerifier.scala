@@ -6,7 +6,6 @@ package com.daml.jwt
 import java.io.File
 import java.security.interfaces.{ECPublicKey, RSAPublicKey}
 
-import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.interfaces.{RSAKeyProvider}
 import com.daml.jwt.JwtVerifier.Error
@@ -19,7 +18,7 @@ abstract class JwtVerifierBase {
   def verify(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String]
 }
 
-class JwtVerifier(verifier: com.auth0.jwt.interfaces.JWTVerifier) extends JwtVerifierBase {
+class JwtVerifier(val verifier: com.auth0.jwt.interfaces.JWTVerifier) extends JwtVerifierBase {
 
   def verify(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String] = {
     // The auth0 library verification already fails if the token has expired,
@@ -44,30 +43,34 @@ object JwtVerifier {
 }
 
 // HMAC256 validator factory
-object HMAC256Verifier extends StrictLogging {
-  def apply(secret: String): Error \/ JwtVerifier =
+object HMAC256Verifier extends StrictLogging with Leeway {
+  def apply(secret: String, leewayOptions: Option[LeewayOptions] = None): Error \/ JwtVerifier =
     \/.attempt {
       logger.warn(
         "HMAC256 JWT Validator is NOT recommended for production environments, please use RSA256!!!"
       )
 
       val algorithm = Algorithm.HMAC256(secret)
-      val verifier = JWT.require(algorithm).build()
+      val verifier = getVerifier(algorithm, leewayOptions)
       new JwtVerifier(verifier)
     }(e => Error(Symbol("HMAC256"), e.getMessage))
 }
 
 // ECDSA validator factory
-object ECDSAVerifier extends StrictLogging {
-  def apply(algorithm: Algorithm): Error \/ JwtVerifier =
+object ECDSAVerifier extends StrictLogging with Leeway {
+  def apply(
+      algorithm: Algorithm,
+      leewayOptions: Option[LeewayOptions] = None,
+  ): Error \/ JwtVerifier =
     \/.attempt {
-      val verifier = JWT.require(algorithm).build()
+      val verifier = getVerifier(algorithm, leewayOptions)
       new JwtVerifier(verifier)
     }(e => Error(Symbol(algorithm.getName), e.getMessage))
 
   def fromCrtFile(
       path: String,
       algorithmPublicKey: ECPublicKey => Algorithm,
+      leewayOptions: Option[LeewayOptions] = None,
   ): Error \/ JwtVerifier = {
     for {
       key <- \/.fromEither(
@@ -76,18 +79,21 @@ object ECDSAVerifier extends StrictLogging {
           .toEither
       )
         .leftMap(e => Error(Symbol("fromCrtFile"), e.getMessage))
-      verifier <- ECDSAVerifier(algorithmPublicKey(key))
+      verifier <- ECDSAVerifier(algorithmPublicKey(key), leewayOptions)
     } yield verifier
   }
 }
 
 // RSA256 validator factory
-object RSA256Verifier extends StrictLogging {
-  def apply(publicKey: RSAPublicKey): Error \/ JwtVerifier =
+object RSA256Verifier extends StrictLogging with Leeway {
+  def apply(
+      publicKey: RSAPublicKey,
+      leewayOptions: Option[LeewayOptions] = None,
+  ): Error \/ JwtVerifier =
     \/.attempt {
 
       val algorithm = Algorithm.RSA256(publicKey, null)
-      val verifier = JWT.require(algorithm).build()
+      val verifier = getVerifier(algorithm, leewayOptions)
       new JwtVerifier(verifier)
     }(e => Error(Symbol("RSA256"), e.getMessage))
 
@@ -95,7 +101,18 @@ object RSA256Verifier extends StrictLogging {
     \/.attempt {
 
       val algorithm = Algorithm.RSA256(keyProvider)
-      val verifier = JWT.require(algorithm).build()
+      val verifier = getVerifier(algorithm)
+      new JwtVerifier(verifier)
+    }(e => Error(Symbol("RSA256"), e.getMessage))
+
+  def apply(
+      keyProvider: RSAKeyProvider,
+      leewayOptions: Option[LeewayOptions],
+  ): Error \/ JwtVerifier =
+    \/.attempt {
+
+      val algorithm = Algorithm.RSA256(keyProvider)
+      val verifier = getVerifier(algorithm, leewayOptions)
       new JwtVerifier(verifier)
     }(e => Error(Symbol("RSA256"), e.getMessage))
 
@@ -103,7 +120,10 @@ object RSA256Verifier extends StrictLogging {
     * The file is assumed to be a X509 encoded certificate.
     * These typically have the .crt file extension.
     */
-  def fromCrtFile(path: String): Error \/ JwtVerifier = {
+  def fromCrtFile(
+      path: String,
+      leewayOptions: Option[LeewayOptions] = None,
+  ): Error \/ JwtVerifier = {
     for {
       rsaKey <- \/.fromEither(
         KeyUtils
@@ -111,7 +131,7 @@ object RSA256Verifier extends StrictLogging {
           .toEither
       )
         .leftMap(e => Error(Symbol("fromCrtFile"), e.getMessage))
-      verfier <- RSA256Verifier.apply(rsaKey)
-    } yield verfier
+      verifier <- RSA256Verifier.apply(rsaKey, leewayOptions)
+    } yield verifier
   }
 }

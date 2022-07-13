@@ -8,7 +8,7 @@ import java.io.File
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.TestResourceContext
-import com.daml.platform.apiserver.LedgerApiServer
+import com.daml.platform.apiserver.LedgerApiService
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -39,7 +39,7 @@ final class TlsCertificateRevocationCheckingSpec
   override protected def ocspCertPath: String = ocspCrt.getAbsolutePath
   override protected def ocspTestCertificate: String = clientCrt.getAbsolutePath
 
-  classOf[LedgerApiServer].getSimpleName when {
+  classOf[LedgerApiService].getSimpleName when {
     "certificate revocation checking is enabled" should {
       "allow TLS connections with valid certificates" in {
         TlsFixture(

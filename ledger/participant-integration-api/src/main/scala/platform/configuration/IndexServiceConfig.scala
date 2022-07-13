@@ -22,6 +22,7 @@ final case class IndexServiceConfig(
     enableInMemoryFanOutForLedgerApi: Boolean =
       IndexServiceConfig.DefaultEnableInMemoryFanOutForLedgerApi,
     apiStreamShutdownTimeout: Duration = IndexServiceConfig.DefaultApiStreamShutdownTimeout,
+    inMemoryStateUpdaterParallelism: Int = IndexServiceConfig.DefaultInMemoryStateUpdaterParallelism,
 )
 
 object IndexServiceConfig {
@@ -39,4 +40,5 @@ object IndexServiceConfig {
   val DefaultMaxTransactionsInMemoryFanOutBufferSize: Int = 10000
   val DefaultEnableInMemoryFanOutForLedgerApi = false
   val DefaultApiStreamShutdownTimeout: Duration = FiniteDuration(5, "seconds")
+  val DefaultInMemoryStateUpdaterParallelism: Int = 2
 }
