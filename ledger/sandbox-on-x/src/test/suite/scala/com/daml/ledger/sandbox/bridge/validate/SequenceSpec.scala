@@ -539,6 +539,7 @@ class SequenceSpec
         recordTime = recordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
+        contractMetadata = Map.empty,
       )
 
     def assertCommandRejected(

@@ -9,15 +9,22 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.InMemoryState
+import com.daml.platform.index.InMemoryStateUpdater
 import com.daml.platform.indexer.parallel.{
   InitializeParallelIngestion,
   ParallelIndexerFactory,
   ParallelIndexerSubscription,
 }
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
+import com.daml.platform.store.backend.{
+  ParameterStorageBackend,
+  StorageBackendFactory,
+  StringInterningStorageBackend,
+}
+import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
-import com.daml.platform.store.backend.StorageBackendFactory
-import com.daml.platform.store.interning.StringInterningView
+import com.daml.platform.store.interning.UpdatingStringInterningView
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
 import scala.concurrent.Future
@@ -30,7 +37,8 @@ object JdbcIndexer {
       readService: state.ReadService,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
-      stringInterningViewO: Option[StringInterningView],
+      inMemoryState: InMemoryState,
+      apiUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
   )(implicit materializer: Materializer) {
 
     def initialized()(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
@@ -77,6 +85,7 @@ object JdbcIndexer {
           ingestionParallelism = config.ingestionParallelism,
           submissionBatchSize = config.submissionBatchSize,
           metrics = metrics,
+          inMemoryStateUpdaterFlow = apiUpdaterFlow,
         ),
         meteringAggregator = new MeteringAggregator.Owner(
           meteringStore = meteringStoreBackend,
@@ -86,10 +95,39 @@ object JdbcIndexer {
         ).apply,
         mat = materializer,
         readService = readService,
-        stringInterningViewO = stringInterningViewO,
+        initializeInMemoryState = dbDispatcher =>
+          ledgerEnd =>
+            inMemoryState.initializeTo(ledgerEnd)((updatingStringInterningView, ledgerEnd) =>
+              updateStringInterningView(
+                stringInterningStorageBackend,
+                metrics,
+                dbDispatcher,
+                updatingStringInterningView,
+                ledgerEnd,
+              )
+            ),
+        stringInterningView = inMemoryState.stringInterningView,
       )
 
       indexer
     }
   }
+
+  private def updateStringInterningView(
+      stringInterningStorageBackend: StringInterningStorageBackend,
+      metrics: Metrics,
+      dbDispatcher: DbDispatcher,
+      updatingStringInterningView: UpdatingStringInterningView,
+      ledgerEnd: ParameterStorageBackend.LedgerEnd,
+  )(implicit loggingContext: LoggingContext): Future[Unit] =
+    updatingStringInterningView.update(ledgerEnd.lastStringInterningId)(
+      (fromExclusive, toInclusive) =>
+        implicit loggingContext =>
+          dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+            stringInterningStorageBackend.loadStringInterningEntries(
+              fromExclusive,
+              toInclusive,
+            )
+          }
+    )
 }

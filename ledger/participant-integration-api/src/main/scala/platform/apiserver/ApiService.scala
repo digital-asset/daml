@@ -7,7 +7,8 @@ import com.daml.ports.Port
 
 import scala.concurrent.Future
 
-trait ApiServer {
+// TODO LLP: Rename package to .apiservice
+trait ApiService {
 
   /** the API port the server is listening on */
   def port: Port

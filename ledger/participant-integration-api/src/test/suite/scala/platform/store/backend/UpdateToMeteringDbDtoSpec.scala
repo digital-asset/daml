@@ -64,6 +64,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
       recordTime = someRecordTime,
       divulgedContracts = List.empty,
       blindingInfo = None,
+      Map.empty,
     )
 
     "extract transaction metering" in {

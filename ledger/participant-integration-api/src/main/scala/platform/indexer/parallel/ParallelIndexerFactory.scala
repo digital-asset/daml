@@ -13,6 +13,7 @@ import com.daml.platform.indexer.Indexer
 import com.daml.platform.indexer.ha.{HaConfig, HaCoordinator, Handle, NoopHaCoordinator}
 import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.store.DbSupport.DbConfig
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend}
 import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.interning.StringInterningView
@@ -39,7 +40,8 @@ object ParallelIndexerFactory {
       meteringAggregator: DbDispatcher => ResourceOwner[Unit],
       mat: Materializer,
       readService: ReadService,
-      stringInterningViewO: Option[StringInterningView],
+      stringInterningView: StringInterningView,
+      initializeInMemoryState: DbDispatcher => LedgerEnd => Future[Unit],
   )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] =
     for {
       inputMapperExecutor <- asyncPool(
@@ -122,13 +124,12 @@ object ParallelIndexerFactory {
             _ <- meteringAggregator(dbDispatcher)
           } yield dbDispatcher
         ) { dbDispatcher =>
-          val stringInterningView = stringInterningViewO.getOrElse(new StringInterningView)
           initializeParallelIngestion(
             dbDispatcher = dbDispatcher,
-            updatingStringInterningView = stringInterningView,
+            additionalInitialization = initializeInMemoryState(dbDispatcher),
             readService = readService,
-            ec = ec,
             mat = mat,
+            ec = ec,
           ).map(
             parallelIndexerSubscription(
               inputMapperExecutor = inputMapperExecutor,

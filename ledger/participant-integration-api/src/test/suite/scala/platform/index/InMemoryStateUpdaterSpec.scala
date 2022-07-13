@@ -134,6 +134,7 @@ object InMemoryStateUpdaterSpec {
     recordTime = Timestamp.Epoch,
     divulgedContracts = List.empty,
     blindingInfo = None,
+    contractMetadata = Map.empty,
   )
   private val update2 = offset(2L) -> Update.ConfigurationChanged(
     Timestamp.Epoch,
@@ -149,6 +150,7 @@ object InMemoryStateUpdaterSpec {
     recordTime = Timestamp.Epoch,
     divulgedContracts = List.empty,
     blindingInfo = None,
+    contractMetadata = Map.empty,
   )
 
   private val txLogUpdate1 = TransactionLogUpdate.Transaction(

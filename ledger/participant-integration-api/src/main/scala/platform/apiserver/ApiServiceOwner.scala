@@ -29,7 +29,7 @@ import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}
 
-object StandaloneApiServer {
+object ApiServiceOwner {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def apply(
@@ -54,7 +54,7 @@ object StandaloneApiServer {
       actorSystem: ActorSystem,
       materializer: Materializer,
       loggingContext: LoggingContext,
-  ): ResourceOwner[ApiServer] = {
+  ): ResourceOwner[ApiService] = {
 
     def writePortFile(port: Port): Try[Unit] = {
       config.portFile match {
@@ -77,6 +77,7 @@ object StandaloneApiServer {
       userRightsCheckIntervalInSeconds = config.userManagement.cacheExpiryAfterWriteInSeconds,
       akkaScheduler = actorSystem.scheduler,
     )
+    // TODO LLP: Consider fusing the index health check with the indexer health check
     val healthChecksWithIndexService = healthChecks + ("index" -> indexService)
 
     for {
@@ -109,7 +110,7 @@ object StandaloneApiServer {
         apiStreamShutdownTimeout = config.apiStreamShutdownTimeout,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
-      apiServer <- new LedgerApiServer(
+      apiService <- new LedgerApiService(
         apiServicesOwner,
         config.port,
         config.maxInboundMessageSize,
@@ -124,12 +125,12 @@ object StandaloneApiServer {
         metrics,
         config.rateLimit,
       )
-      _ <- ResourceOwner.forTry(() => writePortFile(apiServer.port))
+      _ <- ResourceOwner.forTry(() => writePortFile(apiService.port))
     } yield {
       logger.info(
-        s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiServer.port}"
+        s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiService.port}"
       )
-      apiServer
+      apiService
     }
   }
 }

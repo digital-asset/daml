@@ -5,6 +5,7 @@ package com.daml.ledger.indexerbenchmark
 
 import com.daml.lf.data.Ref
 import com.daml.metrics.MetricsReporter
+import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
@@ -22,6 +23,7 @@ case class Config(
     updateSource: String,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
+    indexServiceConfig: IndexServiceConfig,
     indexerConfig: IndexerConfig,
     waitForUserInput: Boolean,
     minUpdateRate: Option[Long],
@@ -35,6 +37,7 @@ object Config {
     updateSource = "",
     metricsReporter = None,
     metricsReportingInterval = Duration.ofSeconds(1),
+    indexServiceConfig = IndexServiceConfig(),
     indexerConfig = IndexerConfig(
       startupMode = IndexerStartupMode.MigrateAndStart()
     ),

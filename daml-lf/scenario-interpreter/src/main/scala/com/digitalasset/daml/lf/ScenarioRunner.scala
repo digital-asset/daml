@@ -410,7 +410,7 @@ object ScenarioRunner {
     def go(): SubmissionResult[R] = {
       ledgerMachine.run() match {
         case SResult.SResultFinalValue(resultValue) =>
-          onLedger.ptxInternal.finish match {
+          onLedger.finish match {
             case PartialTransaction.CompleteTransaction(tx, locationInfo, _, _, _) =>
               ledger.commit(committers, readAs, location, enrich(tx), locationInfo) match {
                 case Left(err) =>

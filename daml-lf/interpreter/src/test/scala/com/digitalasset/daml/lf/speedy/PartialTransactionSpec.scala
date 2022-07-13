@@ -5,7 +5,6 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.ImmArray
-import com.daml.lf.ledger.Authorize
 import com.daml.lf.speedy.PartialTransaction._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.transaction.{ContractKeyUniquenessMode, Node, TransactionVersion}
@@ -21,11 +20,10 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
   private[this] val choiceId = data.Ref.Name.assertFromString("choice")
   private[this] val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("My contract"))
   private[this] val party = data.Ref.Party.assertFromString("Alice")
-  private[this] val committers: Set[data.Ref.Party] = Set.empty
+  private[this] val committers: Set[data.Ref.Party] = Set(party)
 
   private[this] val initialState = PartialTransaction.initial(
     ContractKeyUniquenessMode.Strict,
-    data.Time.Timestamp.Epoch,
     InitialSeeding.TransactionSeed(transactionSeed),
     committers,
     ImmArray.Empty,
@@ -45,7 +43,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
     def insertCreate_ : PartialTransaction =
       ptx
         .insertCreate(
-          auth = Authorize(Set(party)),
+          submissionTime = data.Time.Timestamp.Epoch,
           templateId = templateId,
           arg = Value.ValueUnit,
           agreementText = "agreement",
@@ -59,7 +57,6 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
     def beginExercises_ : PartialTransaction =
       ptx.beginExercises(
-        auth = Authorize(Set(party)),
         targetId = cid,
         templateId = templateId,
         interfaceId = None,

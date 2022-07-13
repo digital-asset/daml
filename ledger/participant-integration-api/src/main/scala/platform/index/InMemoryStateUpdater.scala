@@ -17,14 +17,15 @@ import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.lf.transaction.{Node, NodeId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.index.InMemoryStateUpdater.UpdaterFlow
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.{Contract, Key, ParticipantInMemoryState, Party}
+import com.daml.platform.{Contract, Key, InMemoryState, Party}
 
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 
-private[index] class InMemoryStateUpdater(
+final class InMemoryStateUpdater(
     prepareUpdatesParallelism: Int,
     prepareUpdatesExecutionContext: ExecutionContext,
     updateCachesExecutionContext: ExecutionContext,
@@ -34,7 +35,8 @@ private[index] class InMemoryStateUpdater(
     updateLedgerEnd: (Offset, Long) => Unit,
 ) {
 
-  def flow: Flow[(Vector[(Offset, Update)], Long), Unit, NotUsed] =
+  // TODO LLP: Considering directly returning this flow instead of the wrapper
+  def flow: UpdaterFlow =
     Flow[(Vector[(Offset, Update)], Long)]
       .filter(_._1.nonEmpty)
       .mapAsync(prepareUpdatesParallelism) { case (batch, lastEventSequentialId) =>
@@ -55,11 +57,13 @@ private[index] class InMemoryStateUpdater(
       }
 }
 
-object InMemoryStateUpdater {
+private[platform] object InMemoryStateUpdater {
+  type UpdaterFlow = Flow[(Vector[(Offset, Update)], Long), Unit, NotUsed]
+
   private val logger = ContextualizedLogger.get(getClass)
 
   def owner(
-      participantInMemoryState: ParticipantInMemoryState,
+      inMemoryState: InMemoryState,
       prepareUpdatesParallelism: Int,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[InMemoryStateUpdater] = for {
@@ -82,39 +86,34 @@ object InMemoryStateUpdater {
     prepareUpdatesExecutionContext = ExecutionContext.fromExecutorService(prepareUpdatesExecutor),
     updateCachesExecutionContext = ExecutionContext.fromExecutorService(updateCachesExecutor),
   )(
-    updateCaches = updateCaches(participantInMemoryState),
+    updateCaches = updateCaches(inMemoryState),
     updateToTransactionAccepted = updateToTransactionAccepted,
-    updateLedgerEnd = updateLedgerEnd(participantInMemoryState),
+    updateLedgerEnd = updateLedgerEnd(inMemoryState),
   )
 
-  private def updateCaches(participantInMemoryState: ParticipantInMemoryState)(
+  private def updateCaches(inMemoryState: InMemoryState)(
       updates: Vector[TransactionLogUpdate]
   ): Unit =
-    updates.foreach {
-      case transaction: TransactionLogUpdate.Transaction =>
-        // TODO LLP: Batch update caches
-        participantInMemoryState.transactionsBuffer.push(transaction.offset, transaction)
+    updates.foreach { case transaction: TransactionLogUpdate.Transaction =>
+      // TODO LLP: Batch update caches
+      inMemoryState.transactionsBuffer.push(transaction.offset, transaction)
 
-        val contractStateEventsBatch = convertToContractStateEvents(transaction)
-        if (contractStateEventsBatch.nonEmpty) {
-          participantInMemoryState.contractStateCaches.push(contractStateEventsBatch)
-        }
-
-      case _: TransactionLogUpdate.LedgerEndMarker =>
-        // TODO LLP: Remove TransactionLogUpdate.LedgerEndMarker
-        ()
+      val contractStateEventsBatch = convertToContractStateEvents(transaction)
+      if (contractStateEventsBatch.nonEmpty) {
+        inMemoryState.contractStateCaches.push(contractStateEventsBatch)
+      }
     }
 
   private def updateLedgerEnd(
-      participantInMemoryState: ParticipantInMemoryState
+      inMemoryState: InMemoryState
   )(lastOffset: Offset, lastEventSequentialId: Long)(implicit
       loggingContext: LoggingContext
   ): Unit = {
-    participantInMemoryState.ledgerEndCache.set((lastOffset, lastEventSequentialId))
+    inMemoryState.ledgerEndCache.set((lastOffset, lastEventSequentialId))
     // the order here is very important: first we need to make data available for point-wise lookups
     // and SQL queries, and only then we can make it available on the streams.
     // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
-    participantInMemoryState.dispatcherState.getDispatcher.signalNewHead(lastOffset)
+    inMemoryState.dispatcherState.getDispatcher.signalNewHead(lastOffset)
     logger.debug(s"Updated ledger end at offset $lastOffset - $lastEventSequentialId")
   }
 
@@ -231,7 +230,7 @@ object InMemoryStateUpdater {
 
     TransactionLogUpdate.Transaction(
       transactionId = u.transactionId,
-      workflowId = u.transactionMeta.workflowId.getOrElse(""), // TODO LLP: check
+      workflowId = u.transactionMeta.workflowId.getOrElse(""),
       effectiveAt = u.transactionMeta.ledgerEffectiveTime,
       offset = offset,
       events = events.toVector,
