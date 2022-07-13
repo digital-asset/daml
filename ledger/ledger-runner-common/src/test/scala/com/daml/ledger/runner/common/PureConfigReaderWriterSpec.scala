@@ -21,6 +21,7 @@ import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
+import com.daml.platform.config.MetricsConfig
 import com.daml.platform.configuration.{
   CommandConfiguration,
   IndexServiceConfig,
@@ -547,23 +548,6 @@ class PureConfigReaderWriterSpec
                                   |  max-users-page-size = 1000
                                   |}""".stripMargin
     convert(apiServerConfigConvert, value).value shouldBe ApiServerConfig()
-  }
-
-  behavior of "ParticipantRunMode"
-
-  it should "read/write against predefined values" in {
-    participantRunModeConvert.to(ParticipantRunMode.Indexer) shouldBe fromAnyRef("indexer")
-    participantRunModeConvert.to(ParticipantRunMode.Combined) shouldBe fromAnyRef("combined")
-    participantRunModeConvert.to(ParticipantRunMode.LedgerApiServer) shouldBe fromAnyRef(
-      "ledger-api-server"
-    )
-    participantRunModeConvert.from(fromAnyRef("indexer")).value shouldBe ParticipantRunMode.Indexer
-    participantRunModeConvert
-      .from(fromAnyRef("combined"))
-      .value shouldBe ParticipantRunMode.Combined
-    participantRunModeConvert
-      .from(fromAnyRef("ledger-api-server"))
-      .value shouldBe ParticipantRunMode.LedgerApiServer
   }
 
   behavior of "HaConfig"

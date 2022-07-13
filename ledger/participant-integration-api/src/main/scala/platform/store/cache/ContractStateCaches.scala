@@ -10,7 +10,6 @@ import com.daml.metrics.Metrics
 import com.daml.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned}
 import com.daml.platform.store.cache.ContractStateValue.{Active, Archived, ExistingContractValue}
 import com.daml.platform.store.dao.events.ContractStateEvent
-import com.daml.platform.store.dao.events.ContractStateEvent.LedgerEndMarker
 
 import scala.concurrent.ExecutionContext
 
@@ -41,7 +40,6 @@ class ContractStateCaches(
             keyMappingsBuilder.addOne(key -> Unassigned)
           }
           contractMappingsBuilder.addOne(archived.contractId, Archived(archived.stakeholders))
-        case _: LedgerEndMarker => ()
       }
 
       val keyMappings = keyMappingsBuilder.result()

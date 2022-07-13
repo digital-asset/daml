@@ -15,6 +15,7 @@ import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
+import com.daml.platform.config.{MetricsConfig, ParticipantConfig}
 import com.daml.platform.configuration.{
   CommandConfiguration,
   IndexServiceConfig,
@@ -278,9 +279,6 @@ object PureConfigReaderWriter {
 
   implicit val apiServerConfigConvert: ConfigConvert[ApiServerConfig] =
     deriveConvert[ApiServerConfig]
-
-  implicit val participantRunModeConvert: ConfigConvert[ParticipantRunMode] =
-    deriveEnumerationConvert[ParticipantRunMode]
 
   implicit val validateAndStartConvert: ConfigConvert[IndexerStartupMode.ValidateAndStart.type] =
     deriveConvert[IndexerStartupMode.ValidateAndStart.type]

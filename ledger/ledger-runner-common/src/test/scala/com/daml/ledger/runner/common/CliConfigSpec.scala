@@ -7,6 +7,7 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
 import com.daml.ledger.runner.common.CliConfigSpec.TestScope
 import com.daml.lf.data.Ref
+import com.daml.platform.config.ParticipantConfig
 import io.netty.handler.ssl.ClientAuth
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec

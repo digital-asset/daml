@@ -6,6 +6,7 @@ package com.daml.ledger.runner.common
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.configuration.Configuration
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
+import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.InitialLedgerConfiguration
 import com.daml.platform.services.time.TimeProviderType
 
