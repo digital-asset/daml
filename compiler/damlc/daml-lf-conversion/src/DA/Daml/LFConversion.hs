@@ -182,6 +182,8 @@ data Env = Env
     ,envInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
     ,envInterfaceChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envInterfaces :: MS.Map TypeConName GHC.TyCon
+    ,envInterfaceViews :: MS.Map TypeConName GHC.Type
+    ,envInterfaceViewInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [GHC.Expr GHC.CoreBndr]
     ,envIsGenerated :: Bool
     ,envEnableScenarios :: EnableScenarios
     ,envTypeVars :: !(MS.Map Var TypeVarName)
@@ -436,6 +438,17 @@ interfaceNames lfVersion tyThings
         ]
     | otherwise = MS.empty
 
+interfaceViews :: LF.Version -> [ClsInst] -> MS.Map TypeConName GHC.Type
+interfaceViews lfVersion classInstances
+    | lfVersion `supports` featureInterfaces = MS.fromList
+        [ (mkTypeCon [getOccText $ GHC.tyConName ifaceTyCon], viewType)
+        | ClsInst { is_cls_nm, is_tys } <- classInstances
+        , NameIn DA_Internal_Interface "HasInterfaceView" <- pure is_cls_nm
+        , [ifaceType, viewType] <- pure is_tys
+        , TyConApp ifaceTyCon [] <- pure ifaceType
+        ]
+    | otherwise = MS.empty
+
 convertInterfaceTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
 convertInterfaceTyCon env errHandler tycon
     | hasDamlInterfaceCtx tycon = do
@@ -470,6 +483,9 @@ convertInterfaces env binds = interfaceDefs
             intChoices <- convertChoices env intName emptyTemplateBinds
             intPrecondition <- useSingleMethodDict env precond (`ETmApp` EVar intParam)
             let intCoImplements = NM.empty -- TODO: https://github.com/digital-asset/daml/issues/14047
+            intView <- case MS.lookup intName (envInterfaceViews env) of
+                Nothing -> conversionError $ "No view found for interface " <> show intName
+                Just viewType -> convertType env viewType
             pure DefInterface {..}
 
     convertMethods :: GHC.TyCon -> ConvertM [InterfaceMethod]
@@ -560,6 +576,20 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
           , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- [varType name]
           , NameIn DA_Internal_Desugar "RequiresT" <- [requiresT]
           ]
+        envInterfaceViewInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [GHC.Expr GHC.CoreBndr]
+        envInterfaceViewInstances = MS.fromListWith (++)
+          [
+            ( (mod, mkTypeCon [getOccText iface], mkTypeCon [getOccText tpl])
+            , [untick val]
+            )
+          | (name, val) <- binds
+          , TypeCon interfaceViewNewtype
+            [ TypeCon tpl []
+            , TypeCon iface []
+            ] <- [varType name]
+          , NameIn DA_Internal_Desugar "InterfaceView" <- [interfaceViewNewtype]
+          , Just mod <- [nameModule_maybe (getName iface)]
+          ]
         envInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
         envInterfaceMethodInstances = MS.fromListWith (++)
           [
@@ -587,6 +617,7 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
             , "_interface_choice_" `T.isPrefixOf` getOccText name
             , ty@(TypeCon _ [_, TypeCon _ [TypeCon tplTy _]]) <- [varType name]
             ]
+        envInterfaceViews = interfaceViews envLfVersion (md_insts details)
         envTemplateBinds = scrapeTemplateBinds binds
         envInterfaceBinds = scrapeInterfaceBinds binds
         envExceptionBinds
@@ -982,7 +1013,15 @@ convertImplements env tpl = NM.fromList <$>
         (mod, qualObject con, tpl)
         (envInterfaceMethodInstances env)
 
-      pure (TemplateImplements con methods)
+      view <- case MS.lookup (mod, qualObject con, tpl) (envInterfaceViewInstances env) of
+        Just [view] -> do
+            viewLFExpr <- convertExpr env view
+            pure $ viewLFExpr `ETmApp` EVar this
+        Nothing -> conversionError $ "No view implementation defined by " ++ show tpl ++ " for " ++ prettyPrint iface
+        Just [] -> conversionError $ "No view implementation defined by " ++ show tpl ++ " for " ++ prettyPrint iface
+        Just _ -> conversionError $ "More than one view implementation defined by " ++ show tpl ++ " for " ++ prettyPrint iface
+
+      pure (TemplateImplements con methods view)
 
     convertMethods ms = fmap NM.fromList . sequence $
       [ TemplateImplementsMethod (MethodName k) . (`ETmApp` EVar this) <$> convertExpr env v
@@ -1175,6 +1214,8 @@ desugarTypes = mkUniqSet
     , "HasMethod"
     , "ImplementsT"
     , "RequiresT"
+    , "InterfaceView"
+    , "HasInterfaceView"
     ]
 
 internalFunctions :: UniqFM (UniqSet FastString)
@@ -1189,6 +1230,9 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         ])
     , ("DA.Internal.Desugar",
         [ "mkMethod"
+        ])
+    , ("DA.Internal.Interface",
+        [ "mkInterfaceView"
         ])
     ]
 
