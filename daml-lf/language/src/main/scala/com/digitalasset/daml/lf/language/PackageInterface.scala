@@ -7,7 +7,7 @@ package language
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 
-private[lf] class PackageInterface(signatures: PartialFunction[PackageId, PackageSignature]) {
+private[daml] class PackageInterface(signatures: PartialFunction[PackageId, PackageSignature]) {
 
   import PackageInterface._
 
@@ -417,6 +417,28 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
 
   val packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
     signatures andThen (_.languageVersion)
+
+  def interfaceImplementations(
+      pkgId: PackageId,
+      acc: Map[TypeConName, Set[TypeConName]] = Map.empty,
+  ): Either[LookupError, Map[TypeConName, Set[TypeConName]]] =
+    lookupPackage(pkgId).map { pkg =>
+      val entries = pkg.modules.values.flatMap(mod =>
+        mod.templates.iterator.flatMap { case (tmplName, tmpl) =>
+          tmpl.implements.keysIterator.map(ifaceId =>
+            ifaceId -> Identifier(pkgId, QualifiedName(mod.name, tmplName))
+          )
+        } ++
+          mod.interfaces.iterator.flatMap { case (ifaceName, iface) =>
+            iface.coImplements.keysIterator.map(tmplId =>
+              Identifier(pkgId, QualifiedName(mod.name, ifaceName)) -> tmplId
+            )
+          }
+      )
+      entries.foldLeft(acc) { case (acc, (ifaceId, tmplId)) =>
+        acc.updated(ifaceId, acc.getOrElse(ifaceId, Set.empty) + tmplId)
+      }
+    }
 
 }
 

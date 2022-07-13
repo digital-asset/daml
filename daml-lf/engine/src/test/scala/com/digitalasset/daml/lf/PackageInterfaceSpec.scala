@@ -25,7 +25,7 @@ class PackageInterfaceSpec
   // TODO https://github.com/digital-asset/daml/issues/12051
   //  test interfaces
 
-  private[this] implicit val defaultPackageId: Ref.PackageId =
+  private[this] implicit val defaultPkgId: Ref.PackageId =
     defaultParserParameters.defaultPackageId
 
   private[this] val pkg =
@@ -49,7 +49,7 @@ class PackageInterfaceSpec
        }
     """
 
-  private[this] val pkgInterface = PackageInterface(Map(defaultPackageId -> pkg))
+  private[this] val pkgInterface = PackageInterface(Map(defaultPkgId -> pkg))
 
   private[this] def test[X, Y](
       description: String,
@@ -88,7 +88,7 @@ class PackageInterfaceSpec
     errorCases = Identifier("another package", "Mod:Tuple") ->
       Reference.Package("another package"),
     ("AnotherModule:Tuple": Identifier) ->
-      Reference.Module(defaultPackageId, "AnotherModule"),
+      Reference.Module(defaultPkgId, "AnotherModule"),
     ("Mod:MyTuple": Identifier) ->
       Reference.Definition("Mod:MyTuple"),
     ("Mod:unit": Identifier) ->
@@ -110,7 +110,7 @@ class PackageInterfaceSpec
     errorCases = Identifier("another package", "Mod:Either") ->
       Reference.Package("another package"),
     ("AnotherModule:Either": Identifier) ->
-      Reference.Module(defaultPackageId, "AnotherModule"),
+      Reference.Module(defaultPkgId, "AnotherModule"),
     ("Mod:MyEither": Identifier) ->
       Reference.Definition("Mod:MyEither"),
     ("Mod:unit": Identifier) ->
@@ -132,7 +132,7 @@ class PackageInterfaceSpec
     errorCases = Identifier("another package", "Mod:Color") ->
       Reference.Package("another package"),
     ("AnotherModule:Color": Identifier) ->
-      Reference.Module(defaultPackageId, "AnotherModule"),
+      Reference.Module(defaultPkgId, "AnotherModule"),
     ("Mod:MyColor": Identifier) ->
       Reference.Definition("Mod:MyColor"),
     ("Mod:unit": Identifier) ->
@@ -152,9 +152,140 @@ class PackageInterfaceSpec
     errorCases = Identifier("another package", "Mod:Contract") ->
       Reference.Package("another package"),
     ("AnotherModule:Contract": Identifier) ->
-      Reference.Module(defaultPackageId, "AnotherModule"),
+      Reference.Module(defaultPkgId, "AnotherModule"),
     ("Mod:unit": Identifier) ->
       Reference.Template("Mod:unit"),
   )
 
+  "interfaceImplementations" should {
+
+    import Identifier.{assertFromString => str2Id}
+
+    def test(
+        description: String,
+        pkg: => Package,
+        expectedResult: Map[Identifier, Set[Identifier]],
+    ) =
+      description in {
+        PackageInterface(Map(defaultPkgId -> pkg))
+          .interfaceImplementations(defaultPkgId) shouldBe Right(expectedResult)
+      }
+
+    test("return nothing when given package that do not talk about interface", pkg, Map.empty)
+
+    test(
+      "return interface implemented",
+      p"""
+        module Mod1 {
+          record @serializable T1 = {};
+          template (this : T1) =  {
+              precondition True;
+              signatories Nil @Party;
+              observers Nil @Party;
+              agreement "Agreement";
+              implements 'pkg3':Mod3:I3 {};
+              implements 'pkg4':Mod4:I4 {};
+            };
+        }
+
+        module Mod2 {
+          record @serializable T2 = {};
+          template (this : T2) =  {
+              precondition True;
+              signatories Nil @Party;
+              observers Nil @Party;
+              agreement "Agreement";
+              implements 'pkg3':Mod3:I3 {};
+              implements 'pkg5':Mod5:I5 {};
+            };
+        }
+        """,
+      Map(
+        str2Id("pkg3:Mod3:I3") -> Set(
+          str2Id(s"$defaultPkgId:Mod1:T1"),
+          str2Id(s"$defaultPkgId:Mod2:T2"),
+        ),
+        str2Id("pkg4:Mod4:I4") -> Set(str2Id(s"$defaultPkgId:Mod1:T1")),
+        str2Id("pkg5:Mod5:I5") -> Set(str2Id(s"$defaultPkgId:Mod2:T2")),
+      ),
+    )
+
+    test(
+      "return template coimplemented",
+      p"""
+         module Mod1 {
+           interface (this: I1) = {
+             precondition True;
+             coimplements 'pkg3':Mod3:T3 {};
+             coimplements 'pkg4':Mod4:T4 {};
+           }; 
+         }
+
+         module Mod2 {
+           interface (this: I2) = {
+             precondition True;
+             coimplements 'pkg3':Mod3:T3 {};
+             coimplements 'pkg5':Mod5:T5 {};
+           };
+         }
+     """,
+      Map(
+        str2Id(s"$defaultPkgId:Mod1:I1") -> Set(str2Id("pkg3:Mod3:T3"), str2Id("pkg4:Mod4:T4")),
+        str2Id(s"$defaultPkgId:Mod2:I2") -> Set(str2Id("pkg3:Mod3:T3"), str2Id("pkg5:Mod5:T5")),
+      ),
+    )
+
+    test(
+      "return interface complex implementation",
+      p"""
+        module Mod1 {
+          record @serializable T1 = {};
+          template (this : T1) =  {
+            precondition True;
+            signatories Nil @Party;
+            observers Nil @Party;
+            agreement "Agreement";
+            implements Mod1:I1 {};
+            implements 'pkg3':Mod3:I3 {};
+          };
+          interface (this: I1) = {
+            precondition True;
+          };   
+        }
+
+        module Mod2 {
+          record @serializable T2 = {};
+          template (this : T2) =  {
+              precondition True;
+              signatories Nil @Party;
+              observers Nil @Party;
+              agreement "Agreement";
+              implements Mod2:I2 {};
+              implements 'pkg3':Mod3:I3 {};
+            };
+            interface (this: I2) = {
+             precondition True;
+             coimplements Mod1:T1 {};
+             coimplements 'pkg4':Mod4:T4 {};
+           };   
+            
+        }
+        """,
+      Map(
+        str2Id(s"$defaultPkgId:Mod1:I1") -> Set(
+          str2Id(s"$defaultPkgId:Mod1:T1")
+        ),
+        str2Id(s"$defaultPkgId:Mod2:I2") -> Set(
+          str2Id(s"$defaultPkgId:Mod1:T1"),
+          str2Id(s"$defaultPkgId:Mod2:T2"),
+          str2Id("pkg4:Mod4:T4"),
+        ),
+        str2Id("pkg3:Mod3:I3") -> Set(
+          str2Id(s"$defaultPkgId:Mod1:T1"),
+          str2Id(s"$defaultPkgId:Mod2:T2"),
+        ),
+      ),
+    )
+
+  }
 }
