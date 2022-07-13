@@ -405,6 +405,7 @@ object JsonProtocol extends JsonProtocolLow {
           reference = reference,
           choice = choice,
           argument = argument,
+          choiceInterfaceId = fromField(json, "choiceInterfaceId"),
           meta = meta,
         )
       }

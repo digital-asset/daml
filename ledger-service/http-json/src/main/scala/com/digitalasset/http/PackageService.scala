@@ -262,7 +262,11 @@ object PackageService {
     ] => (Jwt, LedgerApiDomain.LedgerId) => Future[Set[TemplateId.RequiredPkg]]
 
   type ResolveChoiceArgType =
-    (TemplateId.RequiredPkg, Choice) => Error \/ iface.Type
+    (
+        TemplateId.RequiredPkg,
+        Option[ContractTypeId.Interface.RequiredPkg],
+        Choice,
+    ) => Error \/ iface.Type
 
   type ResolveKeyType =
     TemplateId.RequiredPkg => Error \/ iface.Type

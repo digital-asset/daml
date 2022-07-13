@@ -143,7 +143,7 @@ package domain {
   ) extends ContractLocator[LfV]
 
   final case class EnrichedContractId(
-      templateId: Option[TemplateId.OptionalPkg],
+      templateId: Option[ContractTypeId.Unknown.OptionalPkg],
       contractId: domain.ContractId,
   ) extends ContractLocator[Nothing]
 
@@ -272,6 +272,8 @@ package domain {
       reference: Ref,
       choice: domain.Choice,
       argument: LfV,
+      // passing a template ID is allowed; we distinguish internally
+      choiceInterfaceId: Option[ContractTypeId.Unknown.OptionalPkg],
       meta: Option[CommandMeta],
   )
 
