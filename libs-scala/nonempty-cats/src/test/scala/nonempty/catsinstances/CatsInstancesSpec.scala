@@ -7,7 +7,7 @@ package catsinstances
 import com.daml.scalatest.WordSpecCheckLaws
 import NonEmptyReturningOps._
 
-import cats.{Foldable, Reducible, Traverse}
+import cats.{Foldable, Functor, Reducible, Traverse}
 import cats.kernel.Eq
 import org.scalacheck.Arbitrary, Arbitrary.arbitrary
 import org.scalatest.wordspec.AnyWordSpec
@@ -48,6 +48,7 @@ class CatsInstancesSpec extends AnyWordSpec with Matchers with WordSpecCheckLaws
     def foldableTraverse[F[_]: Traverse] = Foldable[NonEmptyF[F, *]]
     @annotation.nowarn("cat=unused&msg=evidence")
     def foldableAll[F[_]: Reducible: Traverse] = Foldable[NonEmptyF[F, *]]
+    def functorTraverse[F[_]: Traverse] = Functor[NonEmptyF[F, *]]
   }
 }
 
