@@ -24,11 +24,21 @@ class CatsInstancesSpec extends AnyWordSpec with Matchers with WordSpecCheckLaws
   }
 
   "Reducible from Foldable" should {
-    import cats.instances.list._, cats.instances.int._, cats.instances.tuple._,
-    cats.instances.string._
     checkLaws(
       cats.laws.discipline.ReducibleTests[NonEmptyF[List, *]].reducible[(String, *), Int, Int].all
     )
+  }
+
+  "Functor" should {
+    checkLaws(
+      cats.laws.discipline.FunctorTests[NonEmptyF[List, *]].functor[Int, String, Int].all
+    )
+
+    "find the instance" in {
+      import cats.syntax.functor._
+      val x: NonEmpty[Map[Int, String]] = NonEmpty(scala.collection.immutable.HashMap, (1 -> "one"))
+      x.toNEF.fmap(_.length).forgetNE shouldBe Map(1 -> 3)
+    }
   }
 
   // merely checking that too much evidence doesn't result in ambiguous
