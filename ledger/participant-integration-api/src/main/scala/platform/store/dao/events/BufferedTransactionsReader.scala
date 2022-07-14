@@ -34,27 +34,29 @@ import com.daml.platform.{FilterRelation, Identifier, Party}
 import scala.concurrent.{ExecutionContext, Future}
 
 private[events] class BufferedTransactionsReader(
-                                                  protected val delegate: LedgerDaoTransactionsReader,
-                                                  val transactionsBuffer: EventsBuffer[TransactionLogUpdate],
-                                                  eventProcessingParallelism: Int,
-                                                  filterFlatTransactions: (
+    protected val delegate: LedgerDaoTransactionsReader,
+    val transactionsBuffer: EventsBuffer[TransactionLogUpdate],
+    eventProcessingParallelism: Int,
+    filterFlatTransactions: (
         Set[Party],
         Map[Identifier, Set[Party]],
-    ) => TransactionLogUpdate.TransactionAccepted => Option[TransactionLogUpdate.TransactionAccepted],
-                                                  flatToApiTransactions: (
+    ) => TransactionLogUpdate.TransactionAccepted => Option[
+      TransactionLogUpdate.TransactionAccepted
+    ],
+    flatToApiTransactions: (
         FilterRelation,
         Boolean,
         LoggingContext,
     ) => ToApi[GetTransactionsResponse],
-                                                  filterTransactionTrees: Set[Party] => TransactionLogUpdate.TransactionAccepted => Option[
+    filterTransactionTrees: Set[Party] => TransactionLogUpdate.TransactionAccepted => Option[
       TransactionLogUpdate.TransactionAccepted
     ],
-                                                  treesToApiTransactions: (
+    treesToApiTransactions: (
         Set[Party],
         Boolean,
         LoggingContext,
     ) => ToApi[GetTransactionTreesResponse],
-                                                  metrics: Metrics,
+    metrics: Metrics,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
 
@@ -165,10 +167,12 @@ private[platform] object BufferedTransactionsReader {
       metrics: Metrics,
       eventProcessingParallelism: Int,
   )(
-                                                             filterEvents: TransactionLogUpdate.TransactionAccepted => Option[TransactionLogUpdate.TransactionAccepted],
-                                                             toApiTx: ToApi[API_RESPONSE],
-                                                             fetchTransactions: FetchTransactions[FILTER, API_RESPONSE],
-                                                             bufferReaderMetrics: metrics.daml.services.index.BufferedReader,
+      filterEvents: TransactionLogUpdate.TransactionAccepted => Option[
+        TransactionLogUpdate.TransactionAccepted
+      ],
+      toApiTx: ToApi[API_RESPONSE],
+      fetchTransactions: FetchTransactions[FILTER, API_RESPONSE],
+      bufferReaderMetrics: metrics.daml.services.index.BufferedReader,
   )(implicit executionContext: ExecutionContext): Source[(Offset, API_RESPONSE), NotUsed] = {
     val sliceFilter: TransactionLogUpdate => Option[TransactionLogUpdate.TransactionAccepted] = {
       case tx: TransactionLogUpdate.TransactionAccepted => filterEvents(tx)

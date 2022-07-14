@@ -6,10 +6,12 @@ package com.daml.platform.index
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.codahale.metrics.InstrumentedExecutorService
+import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v2.Update
+import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
 import com.daml.ledger.participant.state.v2.Update.TransactionAccepted
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.data.Ref.HexString
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node.{Create, Exercise}
@@ -18,9 +20,11 @@ import com.daml.lf.transaction.{Node, NodeId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.index.InMemoryStateUpdater.UpdaterFlow
+import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.{Contract, Key, InMemoryState, Party}
+import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
+import com.daml.platform.{Contract, InMemoryState, Key, Party}
 
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
@@ -31,7 +35,14 @@ final class InMemoryStateUpdater(
     updateCachesExecutionContext: ExecutionContext,
 )(
     updateCaches: Vector[TransactionLogUpdate] => Unit,
-    updateToTransactionAccepted: (Offset, Update.TransactionAccepted) => TransactionLogUpdate,
+    convertTransactionAccepted: (
+        Offset,
+        Update.TransactionAccepted,
+    ) => TransactionLogUpdate.TransactionAccepted,
+    convertTransactionRejected: (
+        Offset,
+        Update.CommandRejected,
+    ) => TransactionLogUpdate.TransactionRejected,
     updateLedgerEnd: (Offset, Long) => Unit,
 ) {
 
@@ -42,8 +53,9 @@ final class InMemoryStateUpdater(
       .mapAsync(prepareUpdatesParallelism) { case (batch, lastEventSequentialId) =>
         Future {
           val transactionsAcceptedBatch =
-            batch.collect { case (offset, u: TransactionAccepted) =>
-              updateToTransactionAccepted(offset, u)
+            batch.collect {
+              case (offset, u: Update.TransactionAccepted) => convertTransactionAccepted(offset, u)
+              case (offset, u: Update.CommandRejected) => convertTransactionRejected(offset, u)
             }
           transactionsAcceptedBatch -> (batch.last._1 -> lastEventSequentialId)
         }(prepareUpdatesExecutionContext)
@@ -87,14 +99,15 @@ private[platform] object InMemoryStateUpdater {
     updateCachesExecutionContext = ExecutionContext.fromExecutorService(updateCachesExecutor),
   )(
     updateCaches = updateCaches(inMemoryState),
-    updateToTransactionAccepted = updateToTransactionAccepted,
+    convertTransactionAccepted = convertTransactionAccepted,
+    convertTransactionRejected = convertTransactionRejected,
     updateLedgerEnd = updateLedgerEnd(inMemoryState),
   )
 
   private def updateCaches(inMemoryState: InMemoryState)(
       updates: Vector[TransactionLogUpdate]
   ): Unit =
-    updates.foreach { case transaction: TransactionLogUpdate.TransactionAccepted =>
+    updates.foreach { transaction: TransactionLogUpdate =>
       // TODO LLP: Batch update caches
       inMemoryState.transactionsBuffer.push(transaction.offset, transaction)
 
@@ -153,7 +166,7 @@ private[platform] object InMemoryStateUpdater {
       case _ => Vector.empty
     }
 
-  private def updateToTransactionAccepted(
+  private def convertTransactionAccepted(
       offset: Offset,
       u: TransactionAccepted,
   ): TransactionLogUpdate.TransactionAccepted = {
@@ -228,12 +241,72 @@ private[platform] object InMemoryStateUpdater {
         )
     }
 
+    val completionDetailsO = u.optCompletionInfo
+      .map { completionInfo =>
+        val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
+          deduplicationInfo(completionInfo)
+
+        CompletionDetails(
+          CompletionFromTransaction.acceptedCompletion(
+            recordTime = u.recordTime,
+            offset = offset,
+            commandId = completionInfo.commandId,
+            transactionId = u.transactionId,
+            applicationId = completionInfo.applicationId,
+            optSubmissionId = completionInfo.submissionId,
+            optDeduplicationOffset = deduplicationOffset,
+            optDeduplicationDurationSeconds = deduplicationDurationSeconds,
+            optDeduplicationDurationNanos = deduplicationDurationNanos,
+          ),
+          submitters = completionInfo.actAs.toSet,
+        )
+      }
+
     TransactionLogUpdate.TransactionAccepted(
       transactionId = u.transactionId,
       workflowId = u.transactionMeta.workflowId.getOrElse(""),
       effectiveAt = u.transactionMeta.ledgerEffectiveTime,
       offset = offset,
       events = events.toVector,
+      completionDetailsO = completionDetailsO,
     )
   }
+
+  private def convertTransactionRejected(
+      offset: Offset,
+      u: Update.CommandRejected,
+  ): TransactionLogUpdate.TransactionRejected = {
+    val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
+      deduplicationInfo(u.completionInfo)
+
+    TransactionLogUpdate.TransactionRejected(
+      offset = offset,
+      completionDetails = CompletionDetails(
+        CompletionFromTransaction.rejectedCompletion(
+          recordTime = u.recordTime,
+          offset = offset,
+          commandId = u.completionInfo.commandId,
+          status = u.reasonTemplate.status,
+          applicationId = u.completionInfo.applicationId,
+          optSubmissionId = u.completionInfo.submissionId,
+          optDeduplicationOffset = deduplicationOffset,
+          optDeduplicationDurationSeconds = deduplicationDurationSeconds,
+          optDeduplicationDurationNanos = deduplicationDurationNanos,
+        ),
+        submitters = u.completionInfo.actAs.toSet,
+      ),
+    )
+  }
+
+  private def deduplicationInfo(
+      completionInfo: CompletionInfo
+  ): (Option[HexString], Option[Long], Option[Int]) =
+    completionInfo.optDeduplicationPeriod
+      .map {
+        case DeduplicationOffset(offset) =>
+          (Some(offset.toHexString), None, None)
+        case DeduplicationDuration(duration) =>
+          (None, Some(duration.getSeconds), Some(duration.getNano))
+      }
+      .getOrElse((None, None, None))
 }

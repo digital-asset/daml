@@ -35,7 +35,9 @@ private[events] object TransactionLogUpdatesConversions {
     def filter(
         wildcardParties: Set[Party],
         templateSpecificParties: Map[Identifier, Set[Party]],
-    ): TransactionLogUpdate.TransactionAccepted => Option[TransactionLogUpdate.TransactionAccepted] =
+    ): TransactionLogUpdate.TransactionAccepted => Option[
+      TransactionLogUpdate.TransactionAccepted
+    ] =
       transaction => {
         val flatTransactionEvents = transaction.events.collect {
           case createdEvent: TransactionLogUpdate.CreatedEvent => createdEvent
@@ -204,7 +206,9 @@ private[events] object TransactionLogUpdatesConversions {
   object ToTransactionTree {
     def filter(
         requestingParties: Set[Party]
-    )(transaction: TransactionLogUpdate.TransactionAccepted): Option[TransactionLogUpdate.TransactionAccepted] = {
+    )(
+        transaction: TransactionLogUpdate.TransactionAccepted
+    ): Option[TransactionLogUpdate.TransactionAccepted] = {
       val filteredForVisibility =
         transaction.events.filter(transactionTreePredicate(requestingParties))
 

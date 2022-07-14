@@ -17,7 +17,7 @@ import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.store.cache._
 import com.daml.platform.store.dao.events.{BufferedTransactionsReader, LfValueTranslation}
-import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
+import com.daml.platform.store.dao.{BufferedCommandCompletionsReader, JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.interning.StringInterning
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.resources.ProgramResource.StartupException
@@ -78,11 +78,18 @@ final class IndexServiceOwner(
         eventProcessingParallelism = config.eventsProcessingParallelism,
       )(servicesExecutionContext)
 
+      bufferedCommandCompletionsReader = new BufferedCommandCompletionsReader(
+        transactionsBuffer = inMemoryState.transactionsBuffer,
+        delegate = ledgerDao.completions,
+        metrics = metrics,
+      )(servicesExecutionContext)
+
       indexService = new IndexServiceImpl(
         ledgerId = ledgerId,
         participantId = participantId,
         ledgerDao = ledgerDao,
         transactionsReader = bufferedTransactionsReader,
+        commandCompletionsReader = bufferedCommandCompletionsReader,
         contractStore = contractStore,
         pruneBuffers = inMemoryState.transactionsBuffer.prune,
         dispatcher = () => inMemoryState.dispatcherState.getDispatcher,
