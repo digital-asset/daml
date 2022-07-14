@@ -761,7 +761,9 @@ object Ast {
           Type,
       )
     ] =
-      Some((arg.requires, arg.param, arg.choices, arg.methods, arg.precond, arg.coImplements, arg.view))
+      Some(
+        (arg.requires, arg.param, arg.choices, arg.methods, arg.precond, arg.coImplements, arg.view)
+      )
   }
 
   type DefInterface = GenDefInterface[Expr]

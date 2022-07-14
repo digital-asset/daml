@@ -602,7 +602,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       TemplateImplements.build(
         interfaceId = decodeTypeConName(lfImpl.getInterface),
         methods = lfImpl.getMethodsList.asScala.view.map(decodeTemplateImplementsMethod),
-        view = decodeExpr(lfImpl.getView, "TemplateImplements.view")
+        view = decodeExpr(lfImpl.getView, "TemplateImplements.view"),
       )
 
     private[this] def decodeTemplateImplementsMethod(
@@ -669,7 +669,8 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         choices = lfInterface.getChoicesList.asScala.view.map(decodeChoice(id, _)),
         methods = lfInterface.getMethodsList.asScala.view.map(decodeInterfaceMethod),
         precond = decodeExpr(lfInterface.getPrecond, s"$id:ensure"),
-        coImplements = lfInterface.getCoImplementsList.asScala.view.map(decodeInterfaceCoImplements),
+        coImplements =
+          lfInterface.getCoImplementsList.asScala.view.map(decodeInterfaceCoImplements),
         view = decodeType(lfInterface.getView),
       )
 

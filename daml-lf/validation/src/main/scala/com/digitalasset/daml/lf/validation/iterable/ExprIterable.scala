@@ -197,7 +197,7 @@ private[validation] object ExprIterable {
             view,
           ) =>
         methods.values.iterator.flatMap(iterator(_)) ++
-        iterator(view)
+          iterator(view)
     }
 
   private[iterable] def iterator(x: TemplateImplementsMethod): Iterator[Expr] =
