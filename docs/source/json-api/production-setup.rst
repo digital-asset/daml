@@ -59,7 +59,7 @@ You can also use the ``--query-store-jdbc-config`` CLI flag (deprecated), as sho
 
 Consult your database vendor's JDBC driver documentation to learn how to specify a JDBC connection string that suits your needs.
 
-The ``start-mode`` is a custom parameter defined by the query store configuration itself which allows one to deal
+The ``start-mode`` is a custom parameter, defined by the query store configuration itself, which allows one to deal
 with the initialization and usage of the database which is backing the query store.
 
 Depending on how you prefer to operate it, you can either choose to:
