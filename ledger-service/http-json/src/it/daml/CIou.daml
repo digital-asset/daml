@@ -16,6 +16,7 @@ template CIou with
   maintainer key
 
   implements IIou where
+    view = ()
     getOwner = owner
 
   implements Transferrable where
