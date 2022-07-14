@@ -4,6 +4,7 @@
 module InterfaceTestLib where
 
 interface TIf where
+  viewtype ()
   getOwner: Party
   dup: Update (ContractId TIf)
   choice Useless: ContractId TIf with
@@ -11,4 +12,3 @@ interface TIf where
     controller getOwner this
     do
       dup this
-  _view: ()
