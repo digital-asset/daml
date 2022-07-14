@@ -953,7 +953,7 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
 
 checkIfaceImplementation :: MonadGamma m => Template -> TemplateImplements -> m ()
 checkIfaceImplementation Template{tplTypeCon, tplImplements} TemplateImplements{..} = do
-  DefInterface {intRequires, intMethods} <- inWorld $ lookupInterface tpiInterface
+  DefInterface {intRequires, intMethods, intView} <- inWorld $ lookupInterface tpiInterface
 
   -- check requires
   let missingRequires = S.difference intRequires (S.fromList (NM.names tplImplements))
@@ -969,6 +969,9 @@ checkIfaceImplementation Template{tplTypeCon, tplImplements} TemplateImplements{
       Nothing -> throwWithContext (EUnknownInterfaceMethod tplTypeCon tpiInterface tpiMethodName)
       Just InterfaceMethod{ifmType} ->
         checkExpr tpiMethodExpr ifmType
+
+  -- check view result type matches interface result type
+  checkExpr tpiView intView
 
 checkFeature :: MonadGamma m => Feature -> m ()
 checkFeature feature = do
