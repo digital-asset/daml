@@ -24,7 +24,7 @@ object TlsConfigurationCli {
       .text("TLS: The pem file to be used as the private key.")
       .validate(validatePath(_, "The file specified via --pem does not exist"))
       .action { (path, c) =>
-        enableSet(_ copy (keyFile = Some(Paths.get(path).toFile)), c)
+        enableSet(_ copy (privateKeyFile = Some(Paths.get(path).toFile)), c)
       }
 
     opt[String]("crt")
@@ -35,7 +35,7 @@ object TlsConfigurationCli {
       )
       .validate(validatePath(_, "The file specified via --crt does not exist"))
       .action { (path, c) =>
-        enableSet(_ copy (keyCertChainFile = Some(Paths.get(path).toFile)), c)
+        enableSet(_ copy (certChainFile = Some(Paths.get(path).toFile)), c)
       }
 
     opt[String]("cacrt")
@@ -43,7 +43,7 @@ object TlsConfigurationCli {
       .text("TLS: The crt file to be used as the trusted root CA.")
       .validate(validatePath(_, "The file specified via --cacrt does not exist"))
       .action { (path, c) =>
-        enableSet(_ copy (trustCertCollectionFile = Some(Paths.get(path).toFile)), c)
+        enableSet(_ copy (trustCollectionFile = Some(Paths.get(path).toFile)), c)
       }
 
     // allows you to enable tls without any special certs,

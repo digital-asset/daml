@@ -41,11 +41,9 @@ case class DefaultInfoHandler(arguments: Arguments, platformStore: ActorRef)(imp
         .fold[JsValue](JsNull)(c =>
           JsObject(
             "enabled" -> c.enabled.toJson,
-            "keyFile" -> c.keyFile.fold[JsValue](JsNull)(f => JsString(f.toString)),
-            "keyCertChainFile" -> c.keyCertChainFile.fold[JsValue](JsNull)(f =>
-              JsString(f.toString)
-            ),
-            "trustCertCollectionFile" -> c.trustCertCollectionFile.fold[JsValue](JsNull)(f =>
+            "privateKeyFile" -> c.privateKeyFile.fold[JsValue](JsNull)(f => JsString(f.toString)),
+            "certChainFile" -> c.certChainFile.fold[JsValue](JsNull)(f => JsString(f.toString)),
+            "trustCollectionFile" -> c.trustCollectionFile.fold[JsValue](JsNull)(f =>
               JsString(f.toString)
             ),
           )

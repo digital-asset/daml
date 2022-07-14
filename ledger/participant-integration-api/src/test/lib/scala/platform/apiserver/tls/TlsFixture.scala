@@ -58,9 +58,9 @@ case class TlsFixture(
 
   private val serverTlsConfiguration = TlsConfiguration(
     enabled = tlsEnabled,
-    keyCertChainFile = Some(serverCrt),
-    keyFile = Some(serverKey),
-    trustCertCollectionFile = Some(caCrt),
+    certChainFile = Some(serverCrt),
+    privateKeyFile = Some(serverKey),
+    trustCollectionFile = Some(caCrt),
     clientAuth = clientAuth,
     enableCertRevocationChecking = certRevocationChecking,
   )
@@ -90,9 +90,9 @@ case class TlsFixture(
   private val clientTlsConfiguration =
     TlsConfiguration(
       enabled = tlsEnabled,
-      keyCertChainFile = clientCrt,
-      keyFile = clientKey,
-      trustCertCollectionFile = Some(caCrt),
+      certChainFile = clientCrt,
+      privateKeyFile = clientKey,
+      trustCollectionFile = Some(caCrt),
     )
 
   private val ledgerClientChannelConfiguration = LedgerClientChannelConfiguration(
