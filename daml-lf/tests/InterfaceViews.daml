@@ -8,9 +8,10 @@ data View = View with
   b : Bool
 
 interface I where
-    _view : View
+    viewtype View
 
 interface INoView where
+    viewtype ()
 
 template T1
   with
@@ -19,10 +20,11 @@ template T1
   where
     signatory p
     implements I where
-      _view = View with
+      view = View with
         a
         b = True
     implements INoView where
+      view = ()
 
 template T2
   with
@@ -31,7 +33,7 @@ template T2
   where
     signatory p
     implements I where
-      _view = View with
+      view = View with
         a
         b = False
 
@@ -42,7 +44,7 @@ template T3
   where
     signatory p
     implements I where
-      _view = error "view crashed"
+      view = error "view crashed"
 
 template T4
   with
