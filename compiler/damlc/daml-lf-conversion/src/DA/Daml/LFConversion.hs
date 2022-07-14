@@ -1274,6 +1274,9 @@ convertExpr env0 e = do
     -- erase mkMethod calls and leave only the body.
     go env (VarIn DA_Internal_Desugar "mkMethod") (LType _tpl : LType _iface : LType _methodName : LType _methodTy : LExpr _implDict : LExpr _hasMethodDic : LExpr body : args)
         = go env body args
+    -- erase mkInterfaceView calls and leave only the body.
+    go env (VarIn DA_Internal_Interface "mkInterfaceView") (LType _tpl : LType _iface : LType _viewTy : LExpr _implDict : LExpr _hasInterfaceViewDic : LExpr body : args)
+        = go env body args
     go env (VarIn GHC_Types "primitiveInterface") (LType (isStrLitTy -> Just y) : LType t : args)
         = do
         ty <- convertType env t
