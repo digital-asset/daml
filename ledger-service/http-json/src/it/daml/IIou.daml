@@ -4,6 +4,7 @@
 module IIou where
 
 interface IIou where
+  viewtype ()
   getOwner : Party
   transferTo : Party -> Update (ContractId IIou)
   choice Transfer : ContractId IIou with
@@ -19,5 +20,6 @@ template TestIIou with
   where
   signatory issuer
   implements IIou where
+    view = ()
     getOwner = owner
     transferTo to = toInterfaceContractId <$> create this { owner = to }

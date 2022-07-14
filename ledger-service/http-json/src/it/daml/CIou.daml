@@ -14,5 +14,6 @@ template CIou with
   key issuer: Party
   maintainer key
   implements IIou where
+    view = ()
     getOwner = owner
     transferTo to = toInterfaceContractId <$> create this { owner = to }
