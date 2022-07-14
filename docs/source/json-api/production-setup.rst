@@ -4,18 +4,10 @@
 Production Setup
 ################
 
-The vast majority of the prior documentation focuses on ease of testing and running
-the service in a dev environment. From a production perspective given the wide
-variety of use-cases there is far less of an established framework for deploying
-the *HTTP JSON API* server. In this document we would try to list some recommendations for
-production deployments.
+The vast majority of prior documentation focused on ease of testing and on setting up the service to run in a dev environment. From a production perspective, given the wide variety of use-cases, there is far less of an established framework for the deployment of an *HTTP JSON API* server. In this document we will make some recommendations for production deployments.
 
 The *HTTP JSON API* server is a JVM application that by default uses an in-memory backend.
-This in-memory backend setup is inefficient for larger datasets as for every query it
-ends up fetching the entire active contract set for the templates referenced in that query.
-For this reason for production setups at a minimum we recommend to use a database
-as a query store, this will allow for more efficient caching of the data to improve
-query performance. Details for enabling a query store are highlighted below.
+This in-memory backend setup is inefficient for larger datasets as every query ends up fetching the entire active contract set for all the templates the query references. For this reason, for production setups, we recommend, at a mimumum, that one use a database as a query store. This will allow for a more efficient caching of data and will improve query performance. Details for enabling a query store are highlighted below.
 
 Query Store
 ***********
@@ -28,9 +20,9 @@ configured with PostgreSQL/Oracle (Daml Enterprise only) as the query store back
 
 The query store is built by saving the state of the ACS up to the current ledger
 offset. This allows the *HTTP JSON API* to only request the delta on subsequent queries,
-making it much faster than having to request the entire ACS every time.
+making it much faster than requesting the entire ACS every time.
 
-For example to enable the PostgreSQL backend you can add the ``query-store`` config block in your application config file
+For example, to enable the PostgreSQL backend you can add the ``query-store`` config block in your application config file:
 
 .. code-block:: none
 
@@ -67,60 +59,59 @@ You can also use the ``--query-store-jdbc-config`` CLI flag (deprecated), as sho
 
 Consult your database vendor's JDBC driver documentation to learn how to specify a JDBC connection string that suits your needs.
 
-The ``start-mode`` is a custom parameter defined by the query store configuration itself which allows to deal
-with the initialization and usage of the database which backs the query store.
+The ``start-mode`` is a custom parameter defined by the query store configuration itself which allows one to deal
+with the initialization and usage of the database which is backing the query store.
 
 Depending on how you prefer to operate it, you can either choose to:
 
-* run the *HTTP JSON API* server with ``start-mode=create-only`` and a user
-  that has exclusive rights to creating the tables needed for the query store
-  to operate and then start it again with ``start-mode=start-only`` with a user
-  that can use those tables but not apply schema changes, or
+* run the *HTTP JSON API* server with ``start-mode=create-only`` with a user
+  that has exclusive table-creating rights that are required for the query store
+  to operate, and then start it once more with ``start-mode=start-only`` with a user
+  that can use the aforementioned tables, but that cannot apply schema changes
 * run the *HTTP JSON API* server with a user that can both create and use
   the query store tables by passing ``start-mode=create-and-start``
 
-When restarting the *HTTP JSON API* server after the schema has been already
-created, it's safe to always use ``start-mode=start-only``.
+When restarting the *HTTP JSON API* server after a schema has already been
+created, it's safe practice to always use ``start-mode=start-only``.
 
-.. note:: The full list of query store configuration flags supported can be seen by running ``daml json-api --help``.
+.. note:: You can see the full list of query store configuration flags supported by running ``daml json-api --help``.
 
 Data Continuity
 ---------------
 
-The query store is a cache, which means that it's perfectly fine to drop it as
-the data it contains it's a subset of what can be safely recovered from the ledger.
+The query store is a cache. This means that it's perfectly fine to drop it as
+the data it contains is a subset of what can safely be recovered from the ledger.
 
 As such, the query store does not provide data continuity guarantees across versions
 and furthermore doesn't guarantee that a query store initialized with a previous
 version of the *HTTP JSON API* will be able to work with a newer version.
 
 However, the *HTTP JSON API* is able to tolerate working with query stores initialized
-by a previous version of the software as long as the underlying schema did not change.
+by a previous version of the software so long as the underlying schema did not change.
 
 The query store keeps track of the schema version under which it was initialized and
-refuses to start if a new schema is detected when running with a newer version.
+refuses to start if a new schema is detected when it's run with a newer version.
 
 To evolve, the operator of the *HTTP JSON API* query store needs to drop the database
-used to hold the *HTTP JSON API* query store and create a new one (consult your database
-vendor's documentation as to how this ought to be done) and then proceed to create and
-start the server using either ``start-mode=create-only`` and ``start-mode=start-only``
-or ``start-mode=create-and-start`` as described above, depending on your preferred
-production setup.
+used to hold the *HTTP JSON API* query store, needs to create a new one (consult your database
+vendor's documentation as to how this should be done), and then, depending on the operator's preferred production setup, should proceed to create and
+start the server using either ``start-mode=create-only`` & ``start-mode=start-only``
+or only with ``start-mode=create-and-start`` as described above.
 
 Security and Privacy
 ********************
 
 For an *HTTP JSON API* server, all data is maintained by the operator of the deployment.
-Thus, it is their responsibility to ensure that the data abides by the necessary
+Thus, it is the operator's responsibility to ensure that the data contained abides by the necessary
 regulations and confidentiality expectations.
 
-It is recommended to use the tools documented by PostgreSQL to protect data at
-rest and using a secure communication channel between the *HTTP JSON API* server and the PostgreSQL server.
+We recommend using the tools documented by PostgreSQL to protect data at
+rest, and using a secure communication channel between the *HTTP JSON API* server and the PostgreSQL server.
 
 To protect data in transit and over untrusted networks, the *HTTP JSON API* server provides
-TLS support, to enable TLS you need to specify the private key for your server and the
-certificate chain via the below config block specifying the ``cert-chain-file``, ``private-key-file``, you can also set
-a custom root CA certificate used to validate client certificates via ``trust-collection-file`` parameter.
+TLS support. To enable TLS you need to specify both the private key for your server and the
+certificate chain via the below config block that specifies the ``cert-chain-file``, ``private-key-file``. You can also set
+a custom root CA certificate that will be used to validate client certificates via the ``trust-collection-file`` parameter.
 
 .. code-block:: none
 
@@ -157,33 +148,33 @@ A production setup of the *HTTP JSON API* will involve the following components:
 - the query store backend database server
 - the ledger
 
-*HTTP JSON API* server exposes an API to interact with the Ledger and it uses JDBC to interact
-with its underlying query store for caching and serving data efficiently.
+The *HTTP JSON API* server exposes an API to interact with the Ledger and it uses JDBC to interact
+with its underlying query store in order to cache and serve data efficiently.
 
 The *HTTP JSON API* server releases are regularly tested with OpenJDK 11 on a x86_64 architecture,
-with Ubuntu 20.04, macOS 11.5.2 and Windows Server 2016.
+with Ubuntu 20.04, macOS 11.5.2, and Windows Server 2016.
 
 In production, we recommend running on a x86_64 architecture in a Linux
 environment. This environment should have a Java SE Runtime Environment such
 as OpenJDK JRE and must be compatible with OpenJDK version 11.0.11 or later.
-We recommend using PostgreSQL server as query-store, most of our tests have
+We recommend using PostgreSQL server as query-store. Most of our tests have
 been done with servers running version > 10.
 
 
 Scaling and Redundancy
 **********************
 
-.. note:: This section of the document only talks about scaling and redundancy setup for the *HTTP JSON API* server. In all of the recommendations suggested below we assume that the JSON API always interacts with a single participant on the ledger.
+.. note:: This section of the document only talks about scaling and redundancy setup for the *HTTP JSON API* server. In all recommendations suggested below we assume that the JSON API is always interacting with a single participant on the ledger.
 
-We advise that the *HTTP JSON API* server and query store components to have dedicated
+We advise that the *HTTP JSON API* server and query store components have dedicated
 computation and memory resources available to them. This can be achieved via
-containerization or setting them up on independent physical servers. Ensure that the two
+containerization or by setting them up on independent physical servers. Please ensure that the two
 components are **physically co-located** to reduce network latency for
 communication. The scaling and availability aspects heavily rely on the interactions between
 the core components listed above.
 
-With respect to scaling we recommend to follow the general advice in trying to
-understand the bottlenecks and see if adding additional processing power/memory is beneficial.
+With respect to scaling we recommend one follow general practice: Try to
+understand the bottlenecks and see if adding additional processing power/memory helps.
 
 The *HTTP JSON API* can be scaled independently of its query store.
 You can have any number of *HTTP JSON API* instances talking to the same query store
@@ -207,38 +198,38 @@ smaller active contract datasets, where re-initializing the cache is cheap and f
 Finally we recommend using orchestration systems or load balancers which monitor the health of
 the service and perform subsequent operations to ensure availability. These systems can use the
 `healthcheck endpoints <https://docs.daml.com/json-api/index.html#healthcheck-endpoints>`__
-provided by the *HTTP JSON API* server. This can also be tied into supporting arbitrary
-autoscaling implementation to ensure minimum number of *HTTP JSON API* servers on
+provided by the *HTTP JSON API* server. This can also be tied into supporting an arbitrary
+autoscaling implementation in order to ensure a minimum number of *HTTP JSON API* servers on
 failures.
 
 Set up the HTTP JSON API Service to work with Highly Available Participants
 ---------------------------------------------------------------------------
 
-In case the participant node itself is configured to be highly available, depending on the setup you might want
+In case the participant node itself is configured to be highly available, depending on the setup you may want
 to choose different approaches to connect to the participant nodes. In most setups, including those based on Canton,
 you'll likely have an active participant node whose role can be taken over by a passive node in case the currently
 active one drops. Just as for the *HTTP JSON API* itself, you can use orchestration systems or load balancers to
-monitor the status of the participant nodes and have those point your (possibly highly available) *HTTP JSON API*
+monitor the status of the participant nodes and have those point your (possibly highly-available) *HTTP JSON API*
 nodes to the active participant node.
 
-To learn how Canton can be run with high availability and how to monitor it refer to the :ref:`Canton documentation <ha_arch>`.
+To learn how Canton can be run with high availability, and how to monitor it, refer to the :ref:`Canton documentation <ha_arch>`.
 
 Logging
 *******
 
-*HTTP JSON API* server uses the industry-standard Logback for logging. You can
-read more about that in the `Logback documentation <http://logback.qos.ch/>`__.
+The *HTTP JSON API* server uses the industry-standard Logback for logging. You can
+read more about it in the `Logback documentation <http://logback.qos.ch/>`__.
 
 The logging infrastructure leverages structured logging as implemented by the
 `Logstash Logback Encoder <https://github.com/logstash/logstash-logback-encoder/blob/logstash-logback-encoder-6.3/README.md>`__.
 
 Logged events should carry information about the request being served by the
 *HTTP JSON API* server. This includes the details of the commands being submitted, the endpoints
-being hit and response received highlighting details of failures if any.
+being hit, and the response received – highlighting details of failures if any.
 When using a traditional logging target (e.g. standard output
 or rotating files) this information will be part of the log description.
-Using a logging target compatible with the Logstash Logback Encoder allows to have rich
-logs with structured information about the event being logged.
+Using a logging target compatible with the Logstash Logback Encoder allows one to have rich
+logs that come with structured information about the event being logged.
 
 The default log encoder used is the plaintext one for traditional logging targets.
 
