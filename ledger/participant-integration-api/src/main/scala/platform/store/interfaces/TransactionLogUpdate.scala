@@ -27,7 +27,7 @@ object TransactionLogUpdate {
     * @param offset The transaction's offset in the ledger.
     * @param events The transaction events, in execution order.
     */
-  final case class Transaction(
+  final case class TransactionAccepted(
       transactionId: String,
       workflowId: String,
       effectiveAt: Timestamp,

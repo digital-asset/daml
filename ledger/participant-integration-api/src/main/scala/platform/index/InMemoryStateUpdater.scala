@@ -94,7 +94,7 @@ private[platform] object InMemoryStateUpdater {
   private def updateCaches(inMemoryState: InMemoryState)(
       updates: Vector[TransactionLogUpdate]
   ): Unit =
-    updates.foreach { case transaction: TransactionLogUpdate.Transaction =>
+    updates.foreach { case transaction: TransactionLogUpdate.TransactionAccepted =>
       // TODO LLP: Batch update caches
       inMemoryState.transactionsBuffer.push(transaction.offset, transaction)
 
@@ -121,7 +121,7 @@ private[platform] object InMemoryStateUpdater {
       tx: TransactionLogUpdate
   ): Vector[ContractStateEvent] =
     tx match {
-      case tx: TransactionLogUpdate.Transaction =>
+      case tx: TransactionLogUpdate.TransactionAccepted =>
         tx.events.iterator.collect {
           case createdEvent: TransactionLogUpdate.CreatedEvent =>
             ContractStateEvent.Created(
@@ -156,7 +156,7 @@ private[platform] object InMemoryStateUpdater {
   private def updateToTransactionAccepted(
       offset: Offset,
       u: TransactionAccepted,
-  ): TransactionLogUpdate.Transaction = {
+  ): TransactionLogUpdate.TransactionAccepted = {
     // TODO LLP: Extract in common functionality together with duplicated code in [[UpdateToDbDto]]
     val rawEvents = u.transaction.transaction
       .foldInExecutionOrder(List.empty[(NodeId, Node)])(
@@ -228,7 +228,7 @@ private[platform] object InMemoryStateUpdater {
         )
     }
 
-    TransactionLogUpdate.Transaction(
+    TransactionLogUpdate.TransactionAccepted(
       transactionId = u.transactionId,
       workflowId = u.transactionMeta.workflowId.getOrElse(""),
       effectiveAt = u.transactionMeta.ledgerEffectiveTime,

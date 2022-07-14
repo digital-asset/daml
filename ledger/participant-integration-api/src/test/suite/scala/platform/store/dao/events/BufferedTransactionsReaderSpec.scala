@@ -53,7 +53,7 @@ class BufferedTransactionsReaderSpec
     // since we are asserting only the generic getTransactions method
     val filter = new Object
 
-    val filterEvents: TransactionLogUpdate => Option[TransactionLogUpdate.Transaction] = {
+    val filterEvents: TransactionLogUpdate => Option[TransactionLogUpdate.TransactionAccepted] = {
       case `update1` => None
       case `update2` => Some(update2)
       case `update3` => Some(update3)
@@ -244,7 +244,7 @@ class BufferedTransactionsReaderSpec
 
 object BufferedTransactionsReaderSpec {
   private def transaction(discriminator: String) =
-    TransactionLogUpdate.Transaction(
+    TransactionLogUpdate.TransactionAccepted(
       transactionId = discriminator,
       workflowId = "",
       effectiveAt = Timestamp.Epoch,

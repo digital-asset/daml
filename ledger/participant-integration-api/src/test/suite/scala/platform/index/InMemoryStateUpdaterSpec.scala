@@ -153,7 +153,7 @@ object InMemoryStateUpdaterSpec {
     contractMetadata = Map.empty,
   )
 
-  private val txLogUpdate1 = TransactionLogUpdate.Transaction(
+  private val txLogUpdate1 = TransactionLogUpdate.TransactionAccepted(
     transactionId = "tx1",
     workflowId = "",
     effectiveAt = Timestamp.Epoch,
@@ -161,7 +161,7 @@ object InMemoryStateUpdaterSpec {
     events = Vector(null),
   )
 
-  private val txLogUpdate3 = TransactionLogUpdate.Transaction(
+  private val txLogUpdate3 = TransactionLogUpdate.TransactionAccepted(
     transactionId = "tx3",
     workflowId = "",
     effectiveAt = Timestamp.Epoch,

@@ -29,13 +29,13 @@ import com.google.protobuf.timestamp.Timestamp
 import scala.concurrent.{ExecutionContext, Future}
 
 private[events] object TransactionLogUpdatesConversions {
-  type ToApi[API_TX] = TransactionLogUpdate.Transaction => Future[API_TX]
+  type ToApi[API_TX] = TransactionLogUpdate.TransactionAccepted => Future[API_TX]
 
   object ToFlatTransaction {
     def filter(
         wildcardParties: Set[Party],
         templateSpecificParties: Map[Identifier, Set[Party]],
-    ): TransactionLogUpdate.Transaction => Option[TransactionLogUpdate.Transaction] =
+    ): TransactionLogUpdate.TransactionAccepted => Option[TransactionLogUpdate.TransactionAccepted] =
       transaction => {
         val flatTransactionEvents = transaction.events.collect {
           case createdEvent: TransactionLogUpdate.CreatedEvent => createdEvent
@@ -204,7 +204,7 @@ private[events] object TransactionLogUpdatesConversions {
   object ToTransactionTree {
     def filter(
         requestingParties: Set[Party]
-    )(transaction: TransactionLogUpdate.Transaction): Option[TransactionLogUpdate.Transaction] = {
+    )(transaction: TransactionLogUpdate.TransactionAccepted): Option[TransactionLogUpdate.TransactionAccepted] = {
       val filteredForVisibility =
         transaction.events.filter(transactionTreePredicate(requestingParties))
 
