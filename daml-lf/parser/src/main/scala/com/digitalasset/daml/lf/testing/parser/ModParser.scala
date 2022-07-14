@@ -212,7 +212,8 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
             coImplements =>
           IfaceDef(
             tycon,
-            DefInterface.build(Set.from(requires), x, choices, methods, precond, coImplements),
+            // TODO: Add a view type and parse it. Currently hardcoding view types to unit
+            DefInterface.build(Set.from(requires), x, choices, methods, precond, coImplements, TBuiltin(BTUnit)),
           )
       }
   private val interfaceRequires: Parser[Ref.TypeConName] =
