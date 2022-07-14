@@ -19,7 +19,8 @@ module DA.Internal.Interface (
   fromInterfaceContractId,
   fetchFromInterface,
   _exerciseDefault,
-  _exerciseInterfaceGuard
+  _exerciseInterfaceGuard,
+  mkInterfaceView
 ) where
 
 import DA.Internal.Prelude
@@ -88,7 +89,6 @@ type Implements t i =
   ( HasInterfaceTypeRep i
   , HasToInterface t i
   , HasFromInterface t i
-  , HasInterfaceView t i
   )
 
 -- | (1.dev only) Convert a template contract id into an interface
