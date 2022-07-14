@@ -7,5 +7,6 @@ module Lib.EmptyIfaceOnly where
 -- to ensure integrity of the test for #13935
 
 interface NoChoices where
+  viewtype ()
   getOtherOwner : Party
   somethingImpl : Update ()

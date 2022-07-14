@@ -7,6 +7,7 @@ module Lib.ModIfaceOnly where
 -- to ensure integrity of the test for #13754
 
 interface YetAnother where
+  viewtype ()
   getOtherOwner : Party
   somethingImpl : Update ()
   choice PeerIfaceOverload : ()
