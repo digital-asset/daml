@@ -163,13 +163,15 @@ object Node {
       children: ImmArray[NodeId],
       exerciseResult: Option[Value],
       key: Option[KeyWithMaintainers],
-      override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
-                                   // For the sake of consistency between types with a version field, keep this field the last.
       byImplementation: Option[Implementation], // The implementation of the interface choice if any.
       // This is set iff interfaceId is set and choiceId points to an abstract choice.
+      override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
+      // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends Action
       with ActionNodeInfo.Exercise {
+
+    require (byImplementation.isEmpty || interfaceId.isDefined)
 
     override private[lf] def updateVersion(
         version: TransactionVersion
