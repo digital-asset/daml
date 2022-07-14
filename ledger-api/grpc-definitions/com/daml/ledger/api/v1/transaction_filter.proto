@@ -44,11 +44,15 @@ message InclusiveFilters {
   // A collection of templates for which the payload will be included in the
   // ``create_arguments`` of a matching ``CreatedEvent``.
   // SHOULD NOT contain duplicates.
+  // All ``template_ids`` needs to be valid: corresponding template should be defined in one of
+  // the available packages at the time of the query.
   // Optional
   repeated Identifier template_ids = 1;
 
   // Include an ``InterfaceView`` for every ``InterfaceFilter`` matching a contract.
   // The ``InterfaceFilter``s MUST use unique ``interface_id``s.
+  // All ``interface_id`` needs to be valid: corresponding interface should be defined in one of
+  // the available packages at the time of the query.
   // Optional
   repeated InterfaceFilter interface_filters = 2;
 }
@@ -64,11 +68,4 @@ message InterfaceFilter {
   // Use this to access contract data in a uniform manner in your API client.
   // Optional
   bool include_interface_view = 2;
-
-  // Whether to include a ``create_arguments_blob`` in the returned
-  // ``CreateEvent``.
-  // Use this to access the complete contract data in your API client
-  // for submitting it as a disclosed contract with future commands.
-  // Optional
-  bool include_create_arguments_blob = 3;
 }
