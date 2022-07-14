@@ -7,7 +7,7 @@
 module InterfaceEmpty (I) where
 
 interface I where
-    viewtype ()
+  viewtype ()
 
 template T
   with
