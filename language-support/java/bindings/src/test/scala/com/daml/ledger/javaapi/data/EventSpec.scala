@@ -20,6 +20,11 @@ class EventSpec extends AnyFlatSpec with Matchers with ScalaCheckDrivenPropertyC
     Event.fromProtoEvent(converted.toProtoEvent) shouldEqual converted
   }
 
+  "ExercisedEvent.fromProto" should "roundtrip with protoc" in forAll(exercisedEventGen) { event =>
+    val converted = ExercisedEvent fromProto event
+    ExercisedEvent fromProto converted.toProto shouldEqual converted
+  }
+
   "CreatedEvents" should "be protected from mutations of the parameters" in forAll(
     createdEventGen
   ) { e =>
