@@ -1098,6 +1098,8 @@ convertBind env (name, x)
     -- These are moved into interface implementations so we can drop them
     | "_method_" `T.isPrefixOf` getOccText name
     = pure []
+    | "_view_" `T.isPrefixOf` getOccText name
+    = pure []
 
     -- Remove internal functions.
     | Just internals <- lookupUFM internalFunctions (envGHCModuleName env)
