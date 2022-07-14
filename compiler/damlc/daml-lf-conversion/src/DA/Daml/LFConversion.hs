@@ -587,7 +587,7 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
             [ TypeCon tpl []
             , TypeCon iface []
             ] <- [varType name]
-          , NameIn DA_Internal_Desugar "InterfaceView" <- [interfaceViewNewtype]
+          , NameIn DA_Internal_Interface "InterfaceView" <- [interfaceViewNewtype]
           , Just mod <- [nameModule_maybe (getName iface)]
           ]
         envInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
