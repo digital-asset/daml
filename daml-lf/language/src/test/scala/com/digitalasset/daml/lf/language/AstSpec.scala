@@ -68,6 +68,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       methods = Map.empty,
       requires = Set.empty,
       coImplements = Map.empty,
+      view = TBuiltin(BTUnit),
     )
 
     def exception = DefException(
@@ -383,6 +384,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         methods = List(ifaceMethod1, ifaceMethod2),
         precond = ETrue,
         coImplements = List.empty,
+        view = TBuiltin(BTUnit),
       )
     }
 
@@ -399,6 +401,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           methods = List.empty,
           precond = ETrue,
           coImplements = List.empty,
+          view = TBuiltin(BTUnit),
         )
       )
     }
@@ -412,6 +415,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           methods = List(ifaceMethod1, ifaceMethod1),
           precond = ETrue,
           coImplements = List.empty,
+          view = TBuiltin(BTUnit),
         )
       )
     }
@@ -424,6 +428,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         methods = List(ifaceMethod1, ifaceMethod2),
         precond = ETrue,
         coImplements = List(ifaceCoImpl1, ifaceCoImpl2),
+        view = TBuiltin(BTUnit),
       )
 
       a[PackageError] shouldBe thrownBy(
@@ -434,6 +439,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           methods = List(ifaceMethod1, ifaceMethod2),
           precond = ETrue,
           coImplements = List(ifaceCoImpl1, ifaceCoImpl1),
+          view = TBuiltin(BTUnit),
         )
       )
     }
@@ -447,10 +453,20 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
   private val ifaceImpl1 = TemplateImplements(
     interfaceId = TypeConName.assertFromString("pkgId:Mod:I1"),
     methods = Map.empty,
+    view = EAbs(
+      (Name.assertFromString("this"), TBuiltin(BTUnit)),
+      EPrimCon(PCUnit),
+      None,
+    ),
   )
   private val ifaceImpl2 = TemplateImplements(
     interfaceId = TypeConName.assertFromString("pkgId:Mod:I2"),
     methods = Map.empty,
+    view = EAbs(
+      (Name.assertFromString("this"), TBuiltin(BTUnit)),
+      EPrimCon(PCUnit),
+      None,
+    ),
   )
   private val ifaceCoImpl1 = InterfaceCoImplements(
     templateId = TypeConName.assertFromString("pkgId:Mod:T1"),

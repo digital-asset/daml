@@ -660,6 +660,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                   n"age" -> TemplateImplementsMethod(n"age", e"42"),
                   n"alive" -> TemplateImplementsMethod(n"alive", e"True"),
                 ),
+                EAbs((Name.assertFromString("this"), TBuiltin(BTUnit)), EPrimCon(PCUnit), None),
               ),
             referenceable -> TemplateImplements(
               referenceable,
@@ -669,6 +670,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                   e""""123e4567-e89b-12d3-a456-426614174000"""",
                 )
               ),
+              EAbs((Name.assertFromString("this"), TBuiltin(BTUnit)), EPrimCon(PCUnit), None),
             ),
           ),
         )
@@ -852,6 +854,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                 ),
               )
           ),
+          view = TBuiltin(BTUnit),
         )
 
       val person = DottedName.assertFromString("Person")

@@ -130,7 +130,12 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   private lazy val implements: Parser[TemplateImplements] =
     Id("implements") ~>! fullIdentifier ~ (`{` ~> rep(method <~ `;`) <~ `}`) ^^ {
       case ifaceId ~ methods =>
-        TemplateImplements.build(ifaceId, methods)
+        // TODO: Represent a view method and parse it. Currently hardcoding views to unit
+        TemplateImplements.build(
+          ifaceId,
+          methods,
+          EAbs((Ref.Name.assertFromString("this"), TBuiltin(BTUnit)), EPrimCon(PCUnit), None),
+        )
     }
 
   private lazy val templateDefinition: Parser[TemplDef] =
@@ -212,7 +217,16 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
             coImplements =>
           IfaceDef(
             tycon,
-            DefInterface.build(Set.from(requires), x, choices, methods, precond, coImplements),
+            // TODO: Represent view type and parse it. Currently hardcoding view types to unit
+            DefInterface.build(
+              Set.from(requires),
+              x,
+              choices,
+              methods,
+              precond,
+              coImplements,
+              TBuiltin(BTUnit),
+            ),
           )
       }
   private val interfaceRequires: Parser[Ref.TypeConName] =

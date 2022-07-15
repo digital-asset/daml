@@ -31,6 +31,8 @@ import com.daml.lf.language.Ast.{
   GenTemplateImplements,
   PCUnit,
   PLRoundingMode,
+  TBuiltin,
+  BTUnit,
 }
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalatest.{Inside, OptionValues}
@@ -1000,6 +1002,7 @@ class DecodeV1Spec
                 .assertFromString("noPkgId:Mod:Mod.I") -> GenTemplateImplements[EPrimCon](
                 Ref.TypeConName.assertFromString("noPkgId:Mod:Mod.I"),
                 Map(),
+                EPrimCon(PCUnit),
               )
             ),
           )
@@ -1062,6 +1065,7 @@ class DecodeV1Spec
                 Map(),
                 EPrimCon(PCUnit),
                 Map(),
+                TBuiltin(BTUnit),
               )
           ),
           FeatureFlags(),
@@ -1106,6 +1110,7 @@ class DecodeV1Spec
           Map(),
           EPrimCon(PCUnit),
           Map(),
+          TBuiltin(BTUnit),
         )
 
       val requiresDefInterface = {
@@ -1135,6 +1140,7 @@ class DecodeV1Spec
           Map(),
           EPrimCon(PCUnit),
           Map(),
+          TBuiltin(BTUnit),
         )
 
       val methodsDefInterface = {
@@ -1167,6 +1173,7 @@ class DecodeV1Spec
           ),
           EPrimCon(PCUnit),
           Map(),
+          TBuiltin(BTUnit),
         )
       }
 
@@ -1185,6 +1192,7 @@ class DecodeV1Spec
           Map(),
           EPrimCon(PCUnit),
           Map(),
+          TBuiltin(BTUnit),
         )
 
       val interfaceDefTestCases = {

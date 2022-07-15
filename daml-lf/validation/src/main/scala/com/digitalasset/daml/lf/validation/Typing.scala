@@ -463,7 +463,7 @@ private[validation] object Typing {
 
     private[Typing] def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
-        case DefInterface(requires, param, choices, methods, precond, coImplements) =>
+        case DefInterface(requires, param, choices, methods, precond, coImplements, _) =>
           val env = introExprVar(param, TTyCon(ifaceName))
           if (requires(ifaceName))
             throw ECircularInterfaceRequires(ctx, ifaceName)
@@ -491,7 +491,7 @@ private[validation] object Typing {
         ifaceTcon: TypeConName,
         implMethods: List[(MethodName, Expr)],
     ): Unit = {
-      val DefInterfaceSignature(requires, _, _, methods, _, _) =
+      val DefInterfaceSignature(requires, _, _, methods, _, _, _) =
         handleLookup(ctx, pkgInterface.lookupInterface(ifaceTcon))
 
       requires

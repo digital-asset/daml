@@ -307,10 +307,12 @@ private[daml] class AstRewriter(
       case TemplateImplements(
             interface,
             methods,
+            view,
           ) =>
         TemplateImplements(
           apply(interface),
           methods.transform((_, x) => apply(x)),
+          apply(view),
         )
     }
   def apply(x: TemplateImplementsMethod): TemplateImplementsMethod =
@@ -367,7 +369,7 @@ private[daml] class AstRewriter(
 
   def apply(x: DefInterface): DefInterface =
     x match {
-      case DefInterface(requires, param, choices, methods, precond, coImplements) =>
+      case DefInterface(requires, param, choices, methods, precond, coImplements, view) =>
         DefInterface(
           requires.map(apply(_)),
           param,
@@ -375,6 +377,7 @@ private[daml] class AstRewriter(
           methods.transform((_, v) => apply(v)),
           apply(precond),
           coImplements.map { case (t, x) => (apply(t), apply(x)) },
+          apply(view),
         )
     }
 }
