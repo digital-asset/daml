@@ -10,6 +10,7 @@ module InterfaceChoiceCollision2 where
 import qualified InterfaceChoiceCollision1
 
 interface Interface requires InterfaceChoiceCollision1.Interface where
+    viewtype ()
     getOwner : Party
 
     choice MyArchive : ()
