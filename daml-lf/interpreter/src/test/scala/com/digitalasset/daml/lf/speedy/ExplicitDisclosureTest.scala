@@ -201,11 +201,11 @@ class ExplicitDisclosureTest
 
               inside(result) {
                 case Left(SError.SErrorDamlException(ContractKeyNotFound(`contractKey`))) =>
-                  label shouldBe "case-1"
+                  label shouldBe "disclosedContractNoHash"
                   events shouldBe Seq("getKey queried")
 
                 case Right(SValue.SContractId(`contractId`)) =>
-                  label shouldBe "case-2"
+                  label shouldBe "disclosedContractWithHash"
                   events shouldBe Seq.empty
               }
             }
@@ -237,11 +237,11 @@ class ExplicitDisclosureTest
 
               inside(result) {
                 case Right(SValue.SOptional(None)) =>
-                  label shouldBe "case-1"
+                  label shouldBe "disclosedContractNoHash"
                   events shouldBe Seq("getKey queried")
 
                 case Right(SValue.SOptional(Some(SValue.SContractId(`contractId`)))) =>
-                  label shouldBe "case-2"
+                  label shouldBe "disclosedContractWithHash"
                   events shouldBe Seq.empty
               }
             }
@@ -383,11 +383,11 @@ class ExplicitDisclosureTest
 
               result shouldBe Right(SValue.SContractId(`contractId`))
               label match {
-                case "case-1" =>
+                case "disclosedContractNoHash" =>
                   // Contract is not stored in the ledger transaction and the disclosed contract ID has no hash, so we serve using the ledger key map
                   events shouldBe Seq("getKey queried")
 
-                case "case-2" =>
+                case "disclosedContractWithHash" =>
                   // Contract is not stored in the ledger transaction and the disclosed contract ID has a hash, so we serve using the disclosure table
                   events shouldBe Seq.empty
               }
@@ -410,11 +410,11 @@ class ExplicitDisclosureTest
 
               result shouldBe Right(SValue.SOptional(Some(SValue.SContractId(`contractId`))))
               label match {
-                case "case-1" =>
+                case "disclosedContractNoHash" =>
                   // Contract is not stored in the ledger transaction and the disclosed contract ID has no hash, so we serve using the ledger key map
                   events shouldBe Seq("getKey queried")
 
-                case "case-2" =>
+                case "disclosedContractWithHash" =>
                   // Contract is not stored in the ledger transaction and the disclosed contract ID has a hash, so we serve using the disclosure table
                   events shouldBe Seq.empty
               }
@@ -485,9 +485,9 @@ object ExplicitDisclosureTest {
   )
   val disclosedContracts =
     TableDrivenPropertyChecks.Table(
-      ("disclosedContract", "specialCaseLabel"),
-      (disclosedContractNoHash, "case-1"),
-      (disclosedContractWithHash, "case-2"),
+      ("disclosedContract", "caseLabel"),
+      (disclosedContractNoHash, "disclosedContractNoHash"),
+      (disclosedContractWithHash, "disclosedContractWithHash"),
     )
 
   def buildContractSKey(maintainer: Party): SValue =
