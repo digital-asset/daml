@@ -112,6 +112,16 @@ Run the Application Using Prototyping Tools
 
 In this section, you will run the quickstart application and get introduced to the main tools for prototyping Daml:
 
+#. Create a new project with daml new quickstart --template quickstart-java and switch to it using cd quickstart.
+
+#. Run daml start. Your browser should be opened automatically at http://localhost:7500. 
+
+#. In the browser, log in as alice and verify that there is one contract, and that the templates list contains Iou:Iou, Iou:IouTransfer, and IouTrade:IouTrade among other templates.
+
+#. Close the browser tab and kill daml start using Ctrl-C.
+
+#. Run daml build.
+
 #. To compile the Daml model, run ``daml build``
 
    This creates a :ref:`DAR file <dar-file-dalf-file>` (DAR is just the format that Daml compiles to) called ``.daml/dist/quickstart-0.0.1.dar``. The output should look like this:
@@ -122,36 +132,27 @@ In this section, you will run the quickstart application and get introduced to t
 
    .. _quickstart-sandbox:
 
-#. In 3 separate terminals, run:
+#. Run ``daml sandbox --port 6865``
 
-Terminal one: ``daml sandbox --port 6865``
-
-Terminal two: Each of the following:
+#. In a separate terminal run the following:
 
 - ``daml ledger upload-dar --host localhost --port 6865 .daml/dist/quickstart-0.0.1.dar``
 
 - ``daml script --ledger-host localhost --ledger-port 6865 --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --output-file output.json``
 
-- ``cat output.json`` and verify that the output looks like this:
-
-["Alice::NAMESPACE", "EUR_Bank::NAMESPACE"]
-where NAMESPACE is some randomly generated series of hex digits.
-
 - ``daml navigator server localhost 6865 --port 7500``
 
-Terminal three: ``daml codegen java && mvn compile exec:java@run-quickstart -Dparty=$(cat output.json | sed 's/\[\"//' | sed 's/".*//')``
+#. In a third terminal, run ``daml codegen java && mvn compile exec:java@run-quickstart -Dparty=$(cat output.json | sed 's/\[\"//' | sed 's/".*//')``
 
 This step scrapes the ``Alice::NAMESPACE`` party name from the output.json produced in the previous steps.
 
+To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --dar .daml/dist/quickstart-0.0.1.dar``
 
-Another common problem is that artifacts fail to resolve because of custom Maven settings. Check your ~/.m2/settings.xml configuration and try disabling them temporarily.To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --dar .daml/dist/quickstart-0.0.1.dar``
-
-#. Point your browser to http://localhost:7500, log in as alice and verify that there is 1 contract, 1 owned IOU, and the templates list contains Iou:Iou, Iou:IouTransfer, and IouTrade:IouTrade among other templates.
+#. Point your browser to http://localhost:7500 and log in as alice.
 
 #. Check that curl http://localhost:8080/iou returns:
 
 {"0":{"issuer":"EUR_Bank::NAMESPACE","owner":"Alice::NAMESPACE","currency":"EUR","amount":100.0000000000,"observers":[]}}
-where NAMESPACE is again the series of hex digits that you saw before.
 
 
 
