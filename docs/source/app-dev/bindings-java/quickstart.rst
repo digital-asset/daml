@@ -143,8 +143,6 @@ Terminal three: ``daml codegen java && mvn compile exec:java@run-quickstart -Dpa
 
 This step scrapes the ``Alice::NAMESPACE`` party name from the output.json produced in the previous steps.
 
-Note: It takes some time (typically around half-an-hour) for our artifacts to be available on Maven Central. If you try running the last command before the artifacts are available, you will get a "not found" error. Trying to build again in the next 24 hours will result in: **Failure to find ... was cached in the local repository, resolution will not be reattempted until the update interval of digitalasset-releases has elapsed or updates are forced**
-This is Maven telling you it has locally cached that "not found" result and will consider it valid for 24h. To bypass that and force Maven to try the network call again, add a -U option, as in mvn compile exec:java@run-quickstart -U. Note that this is required to bypass your local cache of the failure; it will not be required for a user trying to run the quickstart after the artifacts have been published.
 
 Another common problem is that artifacts fail to resolve because of custom Maven settings. Check your ~/.m2/settings.xml configuration and try disabling them temporarily.To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --dar .daml/dist/quickstart-0.0.1.dar``
 
