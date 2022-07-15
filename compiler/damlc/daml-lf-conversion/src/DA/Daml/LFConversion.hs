@@ -1063,6 +1063,8 @@ convertBind env (name, x)
     -- These are moved into interface implementations so we can drop them
     | "_method_" `T.isPrefixOf` getOccText name
     = pure []
+    | "_view_" `T.isPrefixOf` getOccText name
+    = pure []
 
     -- Remove internal functions.
     | Just internals <- lookupUFM internalFunctions (envGHCModuleName env)
@@ -1179,6 +1181,8 @@ desugarTypes = mkUniqSet
     , "HasMethod"
     , "ImplementsT"
     , "RequiresT"
+    , "InterfaceView"
+    , "HasInterfaceView"
     ]
 
 internalFunctions :: UniqFM (UniqSet FastString)
@@ -1195,6 +1199,9 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         [ "mkMethod"
         , "mkInterfaceView"
         , "view"
+        ])
+    , ("DA.Internal.Interface",
+        [ "mkInterfaceView"
         ])
     ]
 
@@ -1235,6 +1242,9 @@ convertExpr env0 e = do
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
     -- erase mkMethod calls and leave only the body.
     go env (VarIn DA_Internal_Desugar "mkMethod") (LType _tpl : LType _iface : LType _methodName : LType _methodTy : LExpr _implDict : LExpr _hasMethodDic : LExpr body : args)
+        = go env body args
+    -- erase mkInterfaceView calls and leave only the body.
+    go env (VarIn DA_Internal_Interface "mkInterfaceView") (LType _tpl : LType _iface : LType _viewTy : LExpr _implDict : LExpr _hasInterfaceViewDic : LExpr body : args)
         = go env body args
     go env (VarIn GHC_Types "primitiveInterface") (LType (isStrLitTy -> Just y) : LType t : args)
         = do

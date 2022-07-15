@@ -3,6 +3,7 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | MOVE Prelude interface functionality
 module DA.Internal.Interface (
@@ -10,19 +11,23 @@ module DA.Internal.Interface (
   HasToInterface(..),
   HasFromInterface(..),
   Implements,
+  InterfaceView,
+  HasInterfaceView(..),
   interfaceTypeRep,
   toInterface,
   toInterfaceContractId,
   fromInterfaceContractId,
   fetchFromInterface,
   _exerciseDefault,
-  _exerciseInterfaceGuard
+  _exerciseInterfaceGuard,
+  mkInterfaceView
 ) where
 
 import DA.Internal.Prelude
 import DA.Internal.Template.Functions
 import DA.Internal.LF
 import DA.Internal.Any
+import GHC.Types (magic)
 
 -- | (1.dev only) Exposes the `interfaceTypeRep` function. Available only for interfaces.
 class HasInterfaceTypeRep i where
@@ -161,3 +166,17 @@ _exerciseInterfaceGuard : forall i t.
   ContractId t -> (t -> Bool) -> i -> Bool
 _exerciseInterfaceGuard cid tpred ivalue =
   tpred (unsafeFromInterface (coerceContractId cid) ivalue)
+
+-- Read: Interface `i` has a view of type `r`
+class HasInterfaceView i v | i -> v
+
+-- | This is only a marker for the container, it doesn't contain the
+-- actual implementation of the view.
+newtype InterfaceView t i = InterfaceView ()
+
+-- | This is used to check that the argument has the correct
+-- return type `r` for the given `t i v` type arguments.
+-- At runtime, the argument is ignored, but at compile time,
+-- it's extracted unmodified.
+mkInterfaceView : (Implements t i, HasInterfaceView i v) => (t -> v) -> InterfaceView t i
+mkInterfaceView = magic @"mkInterfaceView"
