@@ -456,7 +456,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
     view = EAbs(
       (Name.assertFromString("this"), TBuiltin(BTUnit)),
       EPrimCon(PCUnit),
-      None
+      None,
     ),
   )
   private val ifaceImpl2 = TemplateImplements(
@@ -465,7 +465,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
     view = EAbs(
       (Name.assertFromString("this"), TBuiltin(BTUnit)),
       EPrimCon(PCUnit),
-      None
+      None,
     ),
   )
   private val ifaceCoImpl1 = InterfaceCoImplements(
