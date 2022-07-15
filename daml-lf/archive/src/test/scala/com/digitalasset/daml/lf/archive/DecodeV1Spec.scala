@@ -959,6 +959,7 @@ class DecodeV1Spec
       val i = DamlLf1.DefTemplate.Implements
         .newBuilder()
         .setInterface(ifaceTyConName)
+        .setView(unitExpr)
         .build()
 
       val t = DamlLf1.DefTemplate
@@ -1035,6 +1036,7 @@ class DecodeV1Spec
         .setTyconInternedDname(1)
         .setParamInternedStr(0)
         .setPrecond(unitExpr)
+        .setView(unitTypInterned)
         .build()
 
       val m = DamlLf1.Module
@@ -1100,6 +1102,7 @@ class DecodeV1Spec
         .setTyconInternedDname(1)
         .setParamInternedStr(0)
         .setPrecond(unitExpr)
+        .setView(unitTypInterned)
         .build()
 
       val emptyDefInterfaceScala =
@@ -1126,6 +1129,7 @@ class DecodeV1Spec
           .setPrecond(unitExpr)
           .addRequires(typeConNameJ)
           .addRequires(typeConNameK)
+          .setView(unitTypInterned)
           .build()
       }
 
@@ -1156,6 +1160,7 @@ class DecodeV1Spec
           .setPrecond(unitExpr)
           .addMethods(interfaceMethod1)
           .addMethods(interfaceMethod2)
+          .setView(unitTypInterned)
           .build()
       }
 
@@ -1182,6 +1187,7 @@ class DecodeV1Spec
         .setTyconInternedDname(1)
         .setParamInternedStr(0)
         .setPrecond(unitExpr)
+        .setView(unitTypInterned)
         .build()
 
       val coImplementsDefInterfaceScala =
