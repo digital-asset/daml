@@ -1,0 +1,10 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @ERROR range=10:11-10:12; No 'viewtype' declaration
+
+-- | Check that no error is thrown if interface view exists and is serializable
+module InterfaceViewNotSpecified where
+
+interface I where
