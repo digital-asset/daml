@@ -53,13 +53,15 @@ private[events] class BufferedTransactionsReader(
     val wildcardParties = parties.keySet
 
     val templatesParties = invertMapping(partiesTemplates)
+    val requestingParties = filter.keySet
 
     bufferedFlatTransactionsReader
       .stream(
         startExclusive = startExclusive,
         endInclusive = endInclusive,
         persistenceFetchArgs = (filter, verbose),
-        bufferFilter = ToFlatTransaction.filter(wildcardParties, templatesParties),
+        bufferFilter =
+          ToFlatTransaction.filter(wildcardParties, templatesParties, requestingParties),
         toApiResponse = ToFlatTransaction.toApiTransaction(filter, verbose, lfValueTranslation)(
           loggingContext,
           executionContext,

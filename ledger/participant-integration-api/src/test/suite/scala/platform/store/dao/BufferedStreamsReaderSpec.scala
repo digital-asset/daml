@@ -266,6 +266,7 @@ object BufferedStreamsReaderSpec {
   private def transaction(discriminator: String) =
     TransactionLogUpdate.TransactionAccepted(
       transactionId = discriminator,
+      commandId = "",
       workflowId = "",
       effectiveAt = Timestamp.Epoch,
       offset = Offset.beforeBegin,

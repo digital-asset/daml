@@ -33,6 +33,7 @@ private[events] object TransactionLogUpdatesConversions {
     def filter(
         wildcardParties: Set[Party],
         templateSpecificParties: Map[Identifier, Set[Party]],
+        requestingParties: Set[Party],
     ): TransactionLogUpdate => Option[
       TransactionLogUpdate.TransactionAccepted
     ] = {
@@ -44,13 +45,16 @@ private[events] object TransactionLogUpdatesConversions {
         }
         val filteredFlatEvents = flatTransactionEvents
           .filter(flatTransactionPredicate(wildcardParties, templateSpecificParties))
-        val hasOneEventWithCommandId = filteredFlatEvents.exists(_.commandId.nonEmpty)
+        val commandId = getCommandId(filteredFlatEvents, requestingParties)
+        val nonTransient = removeTransient(filteredFlatEvents)
         // Allows emitting flat transactions with no events, a use-case needed
         // for the functioning of Daml triggers.
         // (more details in https://github.com/digital-asset/daml/issues/6975)
-        // TODO LLP: Align with logic for streams served from persistence
-        Option.when(filteredFlatEvents.nonEmpty || hasOneEventWithCommandId)(
-          transaction.copy(events = filteredFlatEvents)
+        Option.when(nonTransient.nonEmpty || commandId.nonEmpty)(
+          transaction.copy(
+            commandId = commandId,
+            events = nonTransient,
+          )
         )
       case _: TransactionLogUpdate.TransactionRejected => None
     }
@@ -64,10 +68,9 @@ private[events] object TransactionLogUpdatesConversions {
         executionContext: ExecutionContext,
     ): TransactionLogUpdate.TransactionAccepted => Future[GetTransactionsResponse] = transaction =>
       Future.delegate {
-        val nonTransient = removeTransient(transaction.events)
         val requestingParties = filter.keySet
         Future
-          .traverse(nonTransient)(event =>
+          .traverse(transaction.events)(event =>
             toFlatEvent(event, requestingParties, verbose, lfValueTranslation)
           )
           .map(flatEvents =>
@@ -75,7 +78,7 @@ private[events] object TransactionLogUpdatesConversions {
               Seq(
                 FlatTransaction(
                   transactionId = transaction.transactionId,
-                  commandId = getCommandId(transaction.events, requestingParties),
+                  commandId = transaction.commandId,
                   workflowId = transaction.workflowId,
                   effectiveAt = Some(timestampToTimestamp(transaction.effectiveAt)),
                   events = flatEvents,
