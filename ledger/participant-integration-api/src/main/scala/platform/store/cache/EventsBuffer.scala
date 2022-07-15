@@ -7,17 +7,14 @@ import com.daml.ledger.offset.Offset
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.cache.BufferSlice.{BufferSlice, Inclusive, LastBufferChunkSuffix}
 import com.daml.platform.store.cache.EventsBuffer.{
-  SearchableByVector,
   UnorderedException,
   filterAndChunkSlice,
   indexAfter,
   lastFilteredChunk,
 }
 
-import scala.annotation.tailrec
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
 import scala.collection.View
-import scala.math.Ordering
 
 /** An ordered-by-offset queue buffer.
   *
@@ -82,8 +79,8 @@ class EventsBuffer[ENTRY](
       sliceTimer, {
         val vectorSnapshot = _bufferLog
 
-        val bufferStartSearchResult = vectorSnapshot.searchBy(startExclusive, _._1)
-        val bufferEndSearchResult = vectorSnapshot.searchBy(endInclusive, _._1)
+        val bufferStartSearchResult = vectorSnapshot.view.map(_._1).search(startExclusive)
+        val bufferEndSearchResult = vectorSnapshot.view.map(_._1).search(endInclusive)
 
         val bufferStartInclusiveIdx = indexAfter(bufferStartSearchResult)
         val bufferEndExclusiveIdx = indexAfter(bufferEndSearchResult)
@@ -111,7 +108,7 @@ class EventsBuffer[ENTRY](
     Timed.value(
       pruneTimer,
       synchronized {
-        _bufferLog = _bufferLog.searchBy(endInclusive, _._1) match {
+        _bufferLog = _bufferLog.view.map(_._1).search(endInclusive) match {
           case Found(foundIndex) => _bufferLog.drop(foundIndex + 1)
           case InsertionPoint(insertionPoint) => _bufferLog.drop(insertionPoint)
         }
@@ -144,32 +141,6 @@ private[platform] object EventsBuffer {
       extends RuntimeException(
         s"Elements appended to the buffer should have strictly increasing offsets: $first vs $second"
       )
-
-  /** Binary search implementation inspired from scala.collection.Searching
-    * which allows specifying the search predicate.
-    *
-    * @param v The vector where to search
-    * @tparam E The element type
-    */
-  private[cache] implicit class SearchableByVector[E](v: Vector[E]) {
-    // TODO: Remove this specialized implementation and use v.view.map(by).search(elem) from Scala 2.13+ when compatibility allows it.
-    final def searchBy[O: Ordering](elem: O, by: E => O): SearchResult =
-      binarySearch(elem, 0, v.length, by)
-
-    @tailrec
-    private def binarySearch[O](elem: O, from: Int, to: Int, by: E => O)(implicit
-        ord: Ordering[O]
-    ): SearchResult =
-      if (to == from) InsertionPoint(from)
-      else {
-        val idx = from + (to - from - 1) / 2
-        math.signum(ord.compare(elem, by(v(idx)))) match {
-          case -1 => binarySearch(elem, from, idx, by)(ord)
-          case 1 => binarySearch(elem, idx + 1, to, by)(ord)
-          case _ => Found(idx)
-        }
-      }
-  }
 
   private[cache] def indexAfter(bufferStartInclusiveSearchResult: SearchResult): Int =
     bufferStartInclusiveSearchResult match {

@@ -247,29 +247,6 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     }
   }
 
-  "binarySearch" should {
-    import EventsBuffer.SearchableByVector
-    val series = Vector(9, 10, 13).map(el => el -> el.toString)
-
-    "work on singleton series" in {
-      Vector(7).searchBy(5, identity) shouldBe InsertionPoint(0)
-      Vector(7).searchBy(7, identity) shouldBe Found(0)
-      Vector(7).searchBy(8, identity) shouldBe InsertionPoint(1)
-    }
-
-    "work on non-empty series" in {
-      series.searchBy(8, _._1) shouldBe InsertionPoint(0)
-      series.searchBy(10, _._1) shouldBe Found(1)
-      series.searchBy(12, _._1) shouldBe InsertionPoint(2)
-      series.searchBy(13, _._1) shouldBe Found(2)
-      series.searchBy(14, _._1) shouldBe InsertionPoint(3)
-    }
-
-    "work on empty series" in {
-      Vector.empty[Int].searchBy(1337, identity) shouldBe InsertionPoint(0)
-    }
-  }
-
   "indexAfter" should {
     "yield the index gt the searched entry" in {
       EventsBuffer.indexAfter(InsertionPoint(3)) shouldBe 3
