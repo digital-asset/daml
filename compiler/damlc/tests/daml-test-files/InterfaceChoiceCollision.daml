@@ -17,6 +17,8 @@ template T with
   where
     signatory owner
     implements InterfaceChoiceCollision1.Interface where
+        view = ()
         getOwner = owner
     implements InterfaceChoiceCollision2.Interface where
+        view = ()
         getOwner = owner
