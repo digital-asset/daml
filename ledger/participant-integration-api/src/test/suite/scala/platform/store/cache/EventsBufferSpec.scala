@@ -64,17 +64,23 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
 
     "maxBufferSize is 0" should {
       "not enqueue the update" in withBuffer(0) { buffer =>
-        buffer shouldBe an[EmptyEventsBuffer[_]]
-
-        buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
-          bufferedStartExclusive = LastOffset,
-          slice = Vector.empty,
-        )
         buffer.push(offset5, 21)
         buffer.slice(BeginOffset, offset5, IdentityFilter) shouldBe LastBufferChunkSuffix(
           bufferedStartExclusive = offset5,
           slice = Vector.empty,
         )
+        buffer._bufferLog shouldBe empty
+      }
+    }
+
+    "maxBufferSize is -1" should {
+      "not enqueue the update" in withBuffer(-1) { buffer =>
+        buffer.push(offset5, 21)
+        buffer.slice(BeginOffset, offset5, IdentityFilter) shouldBe LastBufferChunkSuffix(
+          bufferedStartExclusive = offset5,
+          slice = Vector.empty,
+        )
+        buffer._bufferLog shouldBe empty
       }
     }
   }
@@ -260,6 +266,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
 
       buffer.flush()
 
+      buffer._bufferLog shouldBe Vector.empty[(Offset, Int)]
       buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
         bufferedStartExclusive = LastOffset,
         slice = Vector.empty,
@@ -335,7 +342,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
       elems: immutable.Vector[(Offset, Int)] = bufferElements,
       maxFetchSize: Int = 10,
   )(test: EventsBuffer[Int] => Assertion): Assertion = {
-    val buffer = EventsBuffer[Int](
+    val buffer = new EventsBuffer[Int](
       maxBufferSize,
       new Metrics(new MetricRegistry),
       "integers",

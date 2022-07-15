@@ -16,8 +16,29 @@ import com.daml.platform.store.cache.EventsBuffer.{
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
 import scala.collection.View
 
-/** An ordered-by-offset queue buffer. */
-trait EventsBuffer[ENTRY] {
+/** An ordered-by-offset queue buffer.
+  *
+  * The buffer allows appending only elements with strictly increasing offsets.
+  *
+  * @param maxBufferSize The maximum buffer size.
+  * @param metrics The Daml metrics.
+  * @param bufferQualifier The qualifier used for metrics tag specialization.
+  * @tparam ENTRY The entry buffer type.
+  */
+class EventsBuffer[ENTRY](
+    maxBufferSize: Int,
+    metrics: Metrics,
+    bufferQualifier: String,
+    maxBufferedChunkSize: Int,
+) {
+  @volatile private[cache] var _bufferLog: Vector[(Offset, ENTRY)] = Vector.empty
+
+  private val bufferMetrics = metrics.daml.services.index.Buffer(bufferQualifier)
+  private val pushTimer = bufferMetrics.push
+  private val sliceTimer = bufferMetrics.slice
+  private val pruneTimer = bufferMetrics.prune
+  private val sliceSizeHistogram = bufferMetrics.sliceSize
+  private val bufferSizeHistogram = bufferMetrics.bufferSize
 
   /** Appends a new event to the buffer.
     *
@@ -27,51 +48,6 @@ trait EventsBuffer[ENTRY] {
     *              Must be higher than the last appended entry's offset.
     * @param entry The buffer entry.
     */
-  def push(offset: Offset, entry: ENTRY): Unit
-
-  /** Returns a slice of events from the buffer.
-    *
-    * @param startExclusive The start exclusive bound of the requested range.
-    * @param endInclusive The end inclusive bound of the requested range.
-    * @param filter Filtering function to-be applied to the returned chunk.
-    * @return A slice of the series of events as an ordered vector satisfying the input bounds.
-    */
-  def slice[FILTER_RESULT](
-      startExclusive: Offset,
-      endInclusive: Offset,
-      filter: ENTRY => Option[FILTER_RESULT],
-  ): BufferSlice[(Offset, FILTER_RESULT)]
-
-  /** Removes entries starting from the buffer tail up until `endInclusive`.
-    *
-    * @param endInclusive The last inclusive (highest) buffer offset to be pruned.
-    */
-  def prune(endInclusive: Offset): Unit
-
-  /** Remove all buffered entries */
-  def flush(): Unit
-}
-
-private class EventsBufferImpl[ENTRY](
-    maxBufferSize: Int,
-    metrics: Metrics,
-    bufferQualifier: String,
-    maxBufferedChunkSize: Int,
-) extends EventsBuffer[ENTRY] {
-  assert(
-    maxBufferSize > 0,
-    s"${getClass.getSimpleName} constructed with maxBufferSize not strictly positive: $maxBufferSize",
-  )
-
-  @volatile private var _bufferLog: Vector[(Offset, ENTRY)] = Vector.empty
-
-  private val bufferMetrics = metrics.daml.services.index.Buffer(bufferQualifier)
-  private val pushTimer = bufferMetrics.push
-  private val sliceTimer = bufferMetrics.slice
-  private val pruneTimer = bufferMetrics.prune
-  private val sliceSizeHistogram = bufferMetrics.sliceSize
-  private val bufferSizeHistogram = bufferMetrics.bufferSize
-
   def push(offset: Offset, entry: ENTRY): Unit =
     Timed.value(
       pushTimer,
@@ -82,16 +58,17 @@ private class EventsBufferImpl[ENTRY](
             throw UnorderedException(lastOffset, offset)
           case _ =>
         }
-        val currentBufferSize = _bufferLog.size
-        bufferSizeHistogram.update(currentBufferSize)
-
-        if (currentBufferSize == maxBufferSize) {
-          _bufferLog = _bufferLog.drop(1)
-        }
-        _bufferLog = _bufferLog :+ offset -> entry
+        _bufferLog = (_bufferLog :+ offset -> entry).takeRight(maxBufferSize)
+        bufferSizeHistogram.update(_bufferLog.size)
       },
     )
 
+  /** Returns a slice of events from the buffer.
+    *
+    * @param startExclusive The start exclusive bound of the requested range.
+    * @param endInclusive The end inclusive bound of the requested range.
+    * @return A slice of the series of events as an ordered vector satisfying the input bounds.
+    */
   def slice[FILTER_RESULT](
       startExclusive: Offset,
       endInclusive: Offset,
@@ -127,6 +104,10 @@ private class EventsBufferImpl[ENTRY](
       },
     )
 
+  /** Removes entries starting from the buffer tail up until `endInclusive`.
+    *
+    * @param endInclusive The last inclusive (highest) buffer offset to be pruned.
+    */
   def prune(endInclusive: Offset): Unit =
     Timed.value(
       pruneTimer,
@@ -138,48 +119,11 @@ private class EventsBufferImpl[ENTRY](
       },
     )
 
+  /** Remove all buffered entries */
   def flush(): Unit = synchronized { _bufferLog = Vector.empty }
 }
 
-private[cache] class EmptyEventsBuffer[E] extends EventsBuffer[E] {
-  override def push(offset: Offset, entry: E): Unit = ()
-
-  override def slice[FILTER_RESULT](
-      startExclusive: Offset,
-      endInclusive: Offset,
-      filter: E => Option[FILTER_RESULT],
-  ): BufferSlice[(Offset, FILTER_RESULT)] =
-    BufferSlice.LastBufferChunkSuffix(endInclusive, Vector.empty)
-
-  override def prune(endInclusive: Offset): Unit = ()
-
-  override def flush(): Unit = ()
-}
-
 private[platform] object EventsBuffer {
-
-  /** Builds the events buffer.
-    *
-    * @param maxBufferSize The maximum buffer size. If 0 or negative, an always-empty buffer is returned.
-    * @param metrics The Daml metrics.
-    * @param bufferQualifier The qualifier used for metrics tag specialization.
-    * @tparam ENTRY The entry buffer type.
-    */
-  def apply[ENTRY](
-      maxBufferSize: Int,
-      metrics: Metrics,
-      bufferQualifier: String,
-      maxBufferedChunkSize: Int,
-  ): EventsBuffer[ENTRY] =
-    if (maxBufferSize <= 0)
-      new EmptyEventsBuffer()
-    else
-      new EventsBufferImpl(
-        maxBufferSize = maxBufferSize,
-        metrics = metrics,
-        bufferQualifier = bufferQualifier,
-        maxBufferedChunkSize = maxBufferedChunkSize,
-      )
 
   /** Specialized slice representation of a Vector */
   private[platform] sealed trait BufferSlice[+ELEM] extends Product with Serializable {
