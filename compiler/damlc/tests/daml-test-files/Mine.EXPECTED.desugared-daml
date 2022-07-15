@@ -1,0 +1,148 @@
+module Mine where
+import (implicit) qualified DA.Internal.Record
+import (implicit) qualified GHC.Types
+import (implicit) qualified DA.Internal.Desugar
+import (implicit) DA.Internal.RebindableSyntax
+import Daml.Script
+import DA.Exception ( throw, throwPure )
+data Version
+  = A | B | C | D
+  deriving (Eq, Show)
+data DA.Internal.Desugar.DamlException => E1
+  = E1 {version : Version}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.HasField "version" E1 Version where
+  getField = DA.Internal.Record.getFieldPrim @"version" @E1 @Version
+  setField = DA.Internal.Record.setFieldPrim @"version" @E1 @Version
+instance DA.Internal.Desugar.HasMessage E1 where
+  message this@E1 {..} = ("E1" <> show version)
+instance DA.Internal.Desugar.HasThrow E1 where
+  throwPure = GHC.Types.primitive @"EThrow"
+instance DA.Internal.Desugar.HasToAnyException E1 where
+  toAnyException = GHC.Types.primitive @"EToAnyException"
+instance DA.Internal.Desugar.HasFromAnyException E1 where
+  fromAnyException = GHC.Types.primitive @"EFromAnyException"
+data DA.Internal.Desugar.DamlException => E2
+  = E2 {}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Desugar.HasMessage E2 where
+  message this@E2 = "E2"
+instance DA.Internal.Desugar.HasThrow E2 where
+  throwPure = GHC.Types.primitive @"EThrow"
+instance DA.Internal.Desugar.HasToAnyException E2 where
+  toAnyException = GHC.Types.primitive @"EToAnyException"
+instance DA.Internal.Desugar.HasFromAnyException E2 where
+  fromAnyException = GHC.Types.primitive @"EFromAnyException"
+data GHC.Types.DamlTemplate => Example
+  = Example {party : Party}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.HasField "party" Example Party where
+  getField = DA.Internal.Record.getFieldPrim @"party" @Example @Party
+  setField = DA.Internal.Record.setFieldPrim @"party" @Example @Party
+data DoIt
+  = DoIt {version : Version}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.HasField "version" DoIt Version where
+  getField
+    = DA.Internal.Record.getFieldPrim @"version" @DoIt @Version
+  setField
+    = DA.Internal.Record.setFieldPrim @"version" @DoIt @Version
+instance DA.Internal.Desugar.HasSignatory Example where
+  signatory this@Example {..}
+    = DA.Internal.Desugar.toParties (party)
+    where
+        _ = this
+instance DA.Internal.Desugar.HasObserver Example where
+  observer this@Example {..}
+    = []
+    where
+        _ = this
+instance DA.Internal.Desugar.HasEnsure Example where
+  ensure this@Example {..}
+    = DA.Internal.Desugar.True
+    where
+        _ = this
+instance DA.Internal.Desugar.HasAgreement Example where
+  agreement this@Example {..}
+    = ""
+    where
+        _ = this
+instance DA.Internal.Desugar.HasArchive Example where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+    where
+        _ = cid
+instance DA.Internal.Desugar.HasCreate Example where
+  create = GHC.Types.primitive @"UCreate"
+instance DA.Internal.Desugar.HasFetch Example where
+  fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasToAnyTemplate Example where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate Example where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep Example where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasIsInterfaceType Example where
+  _isInterfaceType _ = DA.Internal.Desugar.False
+instance DA.Internal.Desugar.HasExercise Example DA.Internal.Desugar.Archive (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice Example DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyTemplateChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Example DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyTemplateChoice"
+instance DA.Internal.Desugar.HasExercise Example DoIt (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice Example DoIt (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyTemplateChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Example DoIt (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyTemplateChoice"
+_choice_ExampleArchive :
+  (Example
+   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId Example
+   -> Example
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming Example,
+   DA.Internal.Desugar.Optional (Example
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+_choice_ExampleArchive
+  = (\ this _ -> DA.Internal.Desugar.signatory this, 
+     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
+     DA.Internal.Desugar.None)
+_choice_ExampleDoIt :
+  (Example -> DoIt -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId Example
+   -> Example -> DoIt -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.NonConsuming Example,
+   DA.Internal.Desugar.Optional (Example
+                                 -> DoIt -> [DA.Internal.Desugar.Party]))
+_choice_ExampleDoIt
+  = (\ this@Example {..} arg@DoIt {..}
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (party), 
+     \ self this@Example {..} arg@DoIt {..}
+       -> let _ = self in
+          let _ = this in
+          let _ = arg
+          in
+            do DA.Internal.Desugar._tryCatch
+                 \ _
+                   -> DA.Internal.Desugar._tryCatch
+                        \ _ -> throw (E1 version)
+                        \case
+                          (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (E1 A))
+                            -> DA.Internal.Desugar.Some throw E2
+                          (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (E1 B))
+                            | throwPure E2 -> DA.Internal.Desugar.Some pure ()
+                          (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (E1 C))
+                            -> DA.Internal.Desugar.Some throwPure E2
+                          (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (E1 D))
+                            -> DA.Internal.Desugar.Some
+                                 do () <- pure ()
+                                    throwPure E2
+                          _ -> DA.Internal.Desugar.None
+                 \case
+                   (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some E2)
+                     -> DA.Internal.Desugar.Some pure ()
+                   _ -> DA.Internal.Desugar.None, 
+     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)

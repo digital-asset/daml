@@ -312,7 +312,8 @@ private[speedy] case class PartialTransaction(
     * - an error in case the transaction cannot be serialized using
     *   the `outputTransactionVersions`.
     */
-  def finish: PartialTransaction.Result =
+  def finish: PartialTransaction.Result = {
+    mylog("**finish")
     context.info match {
       case _: RootContextInfo if aborted.isEmpty =>
         val roots = context.children.toImmArray
@@ -328,6 +329,7 @@ private[speedy] case class PartialTransaction(
       case _ =>
         IncompleteTransaction(this)
     }
+  }
 
   // construct an IncompleteTransaction from the partial-transaction
   def finishIncomplete: transaction.IncompleteTransaction = {
@@ -468,6 +470,7 @@ private[speedy] case class PartialTransaction(
       chosenValue: Value,
       version: TxVersion,
   ): PartialTransaction = {
+    mylog("**beginExercises")
     val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
     val ec =
@@ -510,7 +513,8 @@ private[speedy] case class PartialTransaction(
   /** Close normally an exercise context.
     * Must match a `beginExercises`.
     */
-  def endExercises(result: TxVersion => Value): PartialTransaction =
+  def endExercises(result: TxVersion => Value): PartialTransaction = {
+    mylog("**endExercises")
     context.info match {
       case ec: ExercisesContextInfo =>
         val exerciseNode =
@@ -530,11 +534,13 @@ private[speedy] case class PartialTransaction(
           "endExercises called in non-exercise context",
         )
     }
+  }
 
   /** Close a abruptly an exercise context du to an uncaught exception.
     * Must match a `beginExercises`.
     */
-  def abortExercises: PartialTransaction =
+  def abortExercises: PartialTransaction = {
+    mylog("**abortExercises")
     context.info match {
       case ec: ExercisesContextInfo =>
         val exerciseNode = makeExNode(ec).copy(children = context.children.toImmArray)
@@ -553,6 +559,7 @@ private[speedy] case class PartialTransaction(
           "abortExercises called in non-exercise context",
         )
     }
+  }
 
   private[this] def makeExNode(ec: ExercisesContextInfo): Node.Exercise = {
     Node.Exercise(
@@ -578,6 +585,7 @@ private[speedy] case class PartialTransaction(
     *  Must be closed by `endTry`, `abortTry`, or `rollbackTry`.
     */
   def beginTry: PartialTransaction = {
+    mylog("**beginTry")
     val nid = NodeId(nextNodeIdx)
     val info = TryContextInfo(nid, context, authorizers = context.info.authorizers)
     copy(
@@ -590,7 +598,8 @@ private[speedy] case class PartialTransaction(
   /** Close a try context normally , i.e. no exception occurred.
     * Must match a `beginTry`.
     */
-  def endTry: PartialTransaction =
+  def endTry: PartialTransaction = {
+    mylog("**endTry")
     context.info match {
       case info: TryContextInfo =>
         copy(
@@ -606,18 +615,22 @@ private[speedy] case class PartialTransaction(
           "endTry called in non-catch context",
         )
     }
+  }
 
   /** Close abruptly a try context, due to an uncaught exception,
     * i.e. an exception was thrown inside the context but the catch associated to the try context did not handle it.
     * Must match a `beginTry`.
     */
-  def abortTry: PartialTransaction =
+  def abortTry: PartialTransaction = {
+    mylog("**abortTry = endTry")
     endTry
+  }
 
   /** Close a try context, by catching an exception,
     * i.e. a exception was thrown inside the context, and the catch associated to the try context did handle it.
     */
   def rollbackTry(ex: SValue.SAny): PartialTransaction = {
+    mylog("**rollbackTry")
     // we must never create a rollback containing a node with a version pre-dating exceptions
     if (context.minChildVersion < TxVersion.minExceptions) {
       throw SError.SErrorDamlException(

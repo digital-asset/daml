@@ -1,0 +1,42 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_EXCEPTIONS
+
+module Mine where
+
+import Daml.Script
+import DA.Exception (throw,throwPure)
+
+data Version = A | B | C | D deriving (Eq,Show)
+
+exception E1 with version : Version where message ("E1" <> show version)
+exception E2 where message "E2"
+
+template Example with party : Party where
+  signatory party
+  nonconsuming choice DoIt : () with version: Version
+    controller party
+    do
+      try
+        try
+          throw (E1 version)
+        catch
+
+          -- Correct base behaviour for comparison
+          E1 A -> throw E2
+
+          -- Buggy example 1: 'throw within pattern match guard (types force use of throwPure)'
+          -- CRASH: exception: java.lang.RuntimeException: endExercises called in non-exercise context
+          E1 B | throwPure E2 -> pure ()
+
+          -- Buggy example 2: 'throwPure on RHS' -- Strictness causes the same bug to be provoked
+          -- CRASH: exception: java.lang.RuntimeException: endExercises called in non-exercise context
+          E1 C -> throwPure E2
+
+          -- No bug here. Just to demonstrate the problem is *not* simply throwPure
+          -- The bug is only provoked if we throw whilst trying to determine if a catch-handler applies
+          E1 D -> do () <- pure (); throwPure E2
+
+      catch
+        E2 -> pure ()

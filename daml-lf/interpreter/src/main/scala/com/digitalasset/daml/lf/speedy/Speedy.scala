@@ -1512,6 +1512,7 @@ private[lf] object Speedy {
     }
 
     def execute(v: SValue): Unit = {
+      mylog("KTryCatchHandler.execute(): call endTry, then return to next kont")
       restore()
       machine.withOnLedger("KTryCatchHandler") { onLedger =>
         onLedger.ptx = onLedger.ptx.endTry
@@ -1556,8 +1557,10 @@ private[lf] object Speedy {
       } else {
         machine.popKont() match {
           case handler: KTryCatchHandler =>
+            mylog("unwindToHandler...popping KTryCatchHandler")
             Some(handler)
           case _: KCloseExercise =>
+            mylog("unwindToHandler...popping KCloseExercise, call abortExercises")
             machine.withOnLedger("unwindToHandler/KCloseExercise") { onLedger =>
               onLedger.ptx = onLedger.ptx.abortExercises
             }
@@ -1582,13 +1585,16 @@ private[lf] object Speedy {
         }
       }
     }
+    mylog("unwindToHandler...")
     unwind() match {
       case Some(kh) =>
+        mylog("unwindToHandler...found a handler, set control to execute it")
         kh.restore()
         machine.popTempStackToBase()
         machine.ctrl = kh.handler
         machine.pushEnv(excep) // payload on stack where handler expects it
       case None =>
+        mylog("unwindToHandler...no handler found")
         machine.kontStack.clear()
         machine.env.clear()
         machine.envBase = 0

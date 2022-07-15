@@ -351,6 +351,7 @@ object SExpr {
   /** Exception handler */
   final case class SETryCatch(body: SExpr, handler: SExpr) extends SExpr {
     def execute(machine: Machine): Unit = {
+      mylog("SETryCatch,execute(): push KTryCatchHandler(handler), ctrl=body, call beginTry")
       machine.pushKont(KTryCatchHandler(machine, handler))
       machine.ctrl = body
       machine.withOnLedger("SETryCatch") { onLedger =>

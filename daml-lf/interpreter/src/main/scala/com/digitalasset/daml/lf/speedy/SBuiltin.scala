@@ -1640,6 +1640,7 @@ private[lf] object SBuiltin {
   /** $throw :: AnyException -> a */
   final case object SBThrow extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      mylog("SBThrow.execute(): call unwindToHandler")
       val excep = getSAny(args, 0)
       unwindToHandler(machine, excep)
     }
@@ -1654,9 +1655,11 @@ private[lf] object SBuiltin {
       machine.withOnLedger("SBTryHandler") { onLedger =>
         opt match {
           case None =>
+            mylog("SBTryHandler.execute(): None: call abortTry, call unwindToHandler")
             onLedger.ptx = onLedger.ptx.abortTry
             unwindToHandler(machine, excep) // re-throw
           case Some(handler) =>
+            mylog("SBTryHandler.execute(): Some(handler): call rollbackTry, then enter handler")
             onLedger.ptx = onLedger.ptx.rollbackTry(excep)
             machine.enterApplication(handler, Array(SEValue(SToken)))
         }

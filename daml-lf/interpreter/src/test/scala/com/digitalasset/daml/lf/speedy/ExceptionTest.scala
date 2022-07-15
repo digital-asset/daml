@@ -609,7 +609,19 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
   private def runUpdateExpr(pkgs1: PureCompiledPackages)(e: Expr): SResult = {
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("ExceptionTest.scala")
-    Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, Set(party)).run()
+    mylog("START TEST")
+    val machine = Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, Set(party))
+    val res = machine.run()
+    machine.withOnLedger("ExceptionTest") { onLedger =>
+      onLedger.ptx.finish match {
+        case PartialTransaction.IncompleteTransaction(_) =>
+          mylog("!!!unexpected IncompleteTransaction!!!")
+        case PartialTransaction.CompleteTransaction(_, _, _, _, _) =>
+          ()
+      }
+    }
+    mylog("END TEST")
+    res
   }
 
   "rollback of creates (mixed versions)" should {
