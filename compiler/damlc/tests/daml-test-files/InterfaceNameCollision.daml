@@ -8,6 +8,7 @@
 module InterfaceNameCollision where
 
 interface Iface where
+    viewtype ()
     owner : Party
     foobar : ()
     choice FooBar : ()
