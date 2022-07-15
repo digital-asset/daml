@@ -241,7 +241,8 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
       ("expression", "expected"),
       ("M:innerCatch", 377),
       ("M:outerCatch", 188),
-      // ("M:throwWhileInnerHandlerDecides", 188), // NICK: unclosed TryContextInfo
+      // TODO https://github.com/digital-asset/daml/issues/14431
+      // ("M:throwWhileInnerHandlerDecides", 188),
     )
 
     forEvery(testCases) { (exp: String, num: Long) =>
@@ -310,7 +311,8 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
       ("expression", "expected"),
       ("M:maybeInnerCatch True False", 1377),
       ("M:maybeInnerCatch False False", 1188),
-      // ("M:maybeInnerCatch False True", 2188), // NICK: unclosed TryContextInfo
+      // TODO https://github.com/digital-asset/daml/issues/14431
+      // ("M:maybeInnerCatch False True", 2188),
     )
 
     forEvery(testCases) { (exp: String, num: Long) =>
