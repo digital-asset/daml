@@ -218,8 +218,17 @@ message DisclosedContract {
   // Required
   string contract_id = 2;
   // The contract arguments
-  // Required
+  // Contract arguments accessible at ``com.daml.ledger.api.v1.CreatedEvent.create_arguments``
+  // should be specified here.
+  // Either arguments or arguments_blob must be specified.
+  // Optional
   Record arguments = 3;
+  // The contract arguments in an opaque format.
+  // Contract argument accessible at ``com.daml.ledger.api.v1.CreatedEvent.create_arguments_blob``
+  // should be specified here.
+  // Either arguments or arguments_blob must be specified.
+  // Optional
+  google.protobuf.Any arguments_blob = 3;
   // The contract metadata from the create event.
   // Required
   ContractMetadata metadata = 4;
