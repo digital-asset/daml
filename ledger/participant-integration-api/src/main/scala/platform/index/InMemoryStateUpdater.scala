@@ -52,12 +52,12 @@ final class InMemoryStateUpdater(
       .filter(_._1.nonEmpty)
       .mapAsync(prepareUpdatesParallelism) { case (batch, lastEventSequentialId) =>
         Future {
-          val transactionsAcceptedBatch =
+          val updatesBatch =
             batch.collect {
               case (offset, u: Update.TransactionAccepted) => convertTransactionAccepted(offset, u)
               case (offset, u: Update.CommandRejected) => convertTransactionRejected(offset, u)
             }
-          transactionsAcceptedBatch -> (batch.last._1 -> lastEventSequentialId)
+          updatesBatch -> (batch.last._1 -> lastEventSequentialId)
         }(prepareUpdatesExecutionContext)
       }
       .async
@@ -268,7 +268,7 @@ private[platform] object InMemoryStateUpdater {
       effectiveAt = u.transactionMeta.ledgerEffectiveTime,
       offset = offset,
       events = events.toVector,
-      completionDetailsO = completionDetailsO,
+      completionDetails = completionDetailsO,
     )
   }
 

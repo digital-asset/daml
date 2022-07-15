@@ -3,28 +3,24 @@
 
 package com.daml.platform.store.dao
 
+import akka.NotUsed
+import akka.stream.scaladsl.Source
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
 import com.daml.logging.LoggingContext
-import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
+import com.daml.metrics.Metrics
+import com.daml.platform.store.cache.EventsBuffer
+import com.daml.platform.store.dao.BufferedCommandCompletionsReader.CompletionsFilter
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
 import com.daml.platform.{ApplicationId, Party}
 
-import akka.NotUsed
-import akka.stream.scaladsl.Source
-
 import scala.concurrent.{ExecutionContext, Future}
 
 class BufferedCommandCompletionsReader(
-    transactionsBuffer: EventsBuffer[TransactionLogUpdate],
-    delegate: LedgerDaoCommandCompletionsReader,
-    metrics: Metrics,
+    bufferReader: BufferedStreamsReader[CompletionsFilter, CompletionStreamResponse]
 )(implicit ec: ExecutionContext)
     extends LedgerDaoCommandCompletionsReader {
-  private val completionsBufferReaderMetrics =
-    metrics.daml.services.index.BufferedReader("completions")
 
   override def getCommandCompletions(
       startExclusive: Offset,
@@ -33,51 +29,14 @@ class BufferedCommandCompletionsReader(
       parties: Set[Party],
   )(implicit
       loggingContext: LoggingContext
-  ): Source[(Offset, CompletionStreamResponse), NotUsed] = {
-    def bufferSource(bufferSlice: Vector[(Offset, CompletionStreamResponse)]) =
-      if (bufferSlice.isEmpty) Source.empty
-      else
-        Source(bufferSlice)
-          .map { response =>
-            completionsBufferReaderMetrics.fetchedBuffered.inc()
-            response
-          }
-
-    val filter = filterCompletions(_, parties, applicationId)
-
-    val source = Source
-      .unfoldAsync(startExclusive) {
-        case scannedToInclusive if scannedToInclusive < endInclusive =>
-          Future {
-            transactionsBuffer.slice(scannedToInclusive, endInclusive, filter) match {
-              case BufferSlice.Inclusive(slice) =>
-                val sourceFromBuffer = bufferSource(slice)
-                val nextChunkStartExclusive = slice.lastOption.map(_._1).getOrElse(endInclusive)
-                Some(nextChunkStartExclusive -> sourceFromBuffer)
-
-              case BufferSlice.LastBufferChunkSuffix(bufferedStartExclusive, slice) =>
-                val sourceFromPersistence = delegate
-                  .getCommandCompletions(
-                    startExclusive,
-                    bufferedStartExclusive,
-                    applicationId,
-                    parties,
-                  )
-                val resultSource = sourceFromPersistence.concat(bufferSource(slice))
-                Some(endInclusive -> resultSource)
-            }
-          }
-        case _ => Future.successful(None)
-      }
-      .flatMapConcat(identity)
-
-    Timed
-      .source(completionsBufferReaderMetrics.fetchTimer, source)
-      .map { response =>
-        completionsBufferReaderMetrics.fetchedTotal.inc()
-        response
-      }
-  }
+  ): Source[(Offset, CompletionStreamResponse), NotUsed] =
+    bufferReader.getEvents(
+      startExclusive,
+      endInclusive,
+      applicationId -> parties,
+      bufferSliceFilter = filterCompletions(_, parties, applicationId),
+      toApiResponse = (response: CompletionStreamResponse) => Future(response),
+    )
 
   private def filterCompletions(
       transactionLogUpdate: TransactionLogUpdate,
@@ -107,4 +66,26 @@ class BufferedCommandCompletionsReader(
       Some(completion.completionStreamResponse)
     else None
   }
+}
+
+object BufferedCommandCompletionsReader {
+  private[dao] type Parties = Set[Party]
+  private[dao] type CompletionsFilter = (ApplicationId, Parties)
+
+  def apply(
+      delegate: LedgerDaoCommandCompletionsReader,
+      transactionsBuffer: EventsBuffer[TransactionLogUpdate],
+      metrics: Metrics,
+      eventProcessingParallelism: Int,
+  )(implicit ec: ExecutionContext): BufferedCommandCompletionsReader =
+    new BufferedCommandCompletionsReader(
+      bufferReader = new BufferedStreamsReader[CompletionsFilter, CompletionStreamResponse](
+        transactionsBuffer = transactionsBuffer,
+        persistenceFetch = (start, end, filter) =>
+          delegate.getCommandCompletions(start, end, filter._1, filter._2)(_),
+        eventProcessingParallelism = eventProcessingParallelism,
+        metrics = metrics,
+        name = "completions",
+      )
+    )
 }

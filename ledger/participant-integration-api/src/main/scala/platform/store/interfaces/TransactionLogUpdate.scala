@@ -29,7 +29,7 @@ object TransactionLogUpdate {
     * @param effectiveAt The transaction ledger time.
     * @param offset The transaction's offset in the ledger.
     * @param events The transaction events, in execution order.
-    * @param completionDetailsO The successful submission's completion details.
+    * @param completionDetails The successful submission's completion details.
     */
   final case class TransactionAccepted(
       transactionId: String,
@@ -37,7 +37,7 @@ object TransactionLogUpdate {
       effectiveAt: Timestamp,
       offset: Offset,
       events: Vector[Event],
-      completionDetailsO: Option[CompletionDetails],
+      completionDetails: Option[CompletionDetails],
   ) extends TransactionLogUpdate
 
   /** A rejected submission.
@@ -53,7 +53,7 @@ object TransactionLogUpdate {
   /** The transaction's completion details.
     *
     * @param completionStreamResponse The completion details
-    * @param submitters
+    * @param submitters The original command submitters
     */
   final case class CompletionDetails(
       completionStreamResponse: CompletionStreamResponse,

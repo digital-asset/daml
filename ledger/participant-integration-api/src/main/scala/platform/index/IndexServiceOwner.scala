@@ -78,10 +78,11 @@ final class IndexServiceOwner(
         eventProcessingParallelism = config.eventsProcessingParallelism,
       )(servicesExecutionContext)
 
-      bufferedCommandCompletionsReader = new BufferedCommandCompletionsReader(
+      bufferedCommandCompletionsReader = BufferedCommandCompletionsReader(
         transactionsBuffer = inMemoryState.transactionsBuffer,
         delegate = ledgerDao.completions,
         metrics = metrics,
+        eventProcessingParallelism = 1,
       )(servicesExecutionContext)
 
       indexService = new IndexServiceImpl(

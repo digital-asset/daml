@@ -29,16 +29,14 @@ import com.google.protobuf.timestamp.Timestamp
 import scala.concurrent.{ExecutionContext, Future}
 
 private[events] object TransactionLogUpdatesConversions {
-  type ToApi[API_TX] = TransactionLogUpdate.TransactionAccepted => Future[API_TX]
-
   object ToFlatTransaction {
     def filter(
         wildcardParties: Set[Party],
         templateSpecificParties: Map[Identifier, Set[Party]],
-    ): TransactionLogUpdate.TransactionAccepted => Option[
+    ): TransactionLogUpdate => Option[
       TransactionLogUpdate.TransactionAccepted
-    ] =
-      transaction => {
+    ] = {
+      case transaction: TransactionLogUpdate.TransactionAccepted =>
         val flatTransactionEvents = transaction.events.collect {
           case createdEvent: TransactionLogUpdate.CreatedEvent => createdEvent
           case exercisedEvent: TransactionLogUpdate.ExercisedEvent if exercisedEvent.consuming =>
@@ -54,7 +52,8 @@ private[events] object TransactionLogUpdatesConversions {
         Option.when(filteredFlatEvents.nonEmpty || hasOneEventWithCommandId)(
           transaction.copy(events = filteredFlatEvents)
         )
-      }
+      case _: TransactionLogUpdate.TransactionRejected => None
+    }
 
     def toApiTransaction(
         filter: FilterRelation,
@@ -63,7 +62,7 @@ private[events] object TransactionLogUpdatesConversions {
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
-    ): ToApi[GetTransactionsResponse] = transaction =>
+    ): TransactionLogUpdate.TransactionAccepted => Future[GetTransactionsResponse] = transaction =>
       Future.delegate {
         val nonTransient = removeTransient(transaction.events)
         val requestingParties = filter.keySet
@@ -206,13 +205,15 @@ private[events] object TransactionLogUpdatesConversions {
   object ToTransactionTree {
     def filter(
         requestingParties: Set[Party]
-    )(
-        transaction: TransactionLogUpdate.TransactionAccepted
-    ): Option[TransactionLogUpdate.TransactionAccepted] = {
-      val filteredForVisibility =
-        transaction.events.filter(transactionTreePredicate(requestingParties))
+    ): TransactionLogUpdate => Option[TransactionLogUpdate.TransactionAccepted] = {
+      case transaction: TransactionLogUpdate.TransactionAccepted =>
+        val filteredForVisibility =
+          transaction.events.filter(transactionTreePredicate(requestingParties))
 
-      Option.when(filteredForVisibility.nonEmpty)(transaction.copy(events = filteredForVisibility))
+        Option.when(filteredForVisibility.nonEmpty)(
+          transaction.copy(events = filteredForVisibility)
+        )
+      case _: TransactionLogUpdate.TransactionRejected => None
     }
 
     def toApiTransaction(
@@ -222,7 +223,7 @@ private[events] object TransactionLogUpdatesConversions {
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
-    ): ToApi[GetTransactionTreesResponse] =
+    ): TransactionLogUpdate.TransactionAccepted => Future[GetTransactionTreesResponse] =
       transaction =>
         Future.delegate {
           Future
