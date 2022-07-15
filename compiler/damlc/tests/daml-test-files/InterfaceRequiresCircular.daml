@@ -8,3 +8,4 @@
 module InterfaceRequiresCircular where
 
 interface A requires A where
+    viewtype ()
