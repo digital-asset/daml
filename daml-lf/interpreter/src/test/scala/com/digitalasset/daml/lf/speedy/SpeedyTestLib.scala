@@ -5,7 +5,7 @@ package com.daml
 package lf
 package speedy
 
-import data.Ref.PackageId
+import data.Ref.{Location, PackageId}
 import data.Time
 import SResult._
 import com.daml.lf.language.{Ast, PackageInterface}
@@ -17,6 +17,8 @@ import value.Value
 import scalautil.Statement.discard
 
 import scala.annotation.tailrec
+import scala.collection.mutable.ArrayBuffer
+import scala.language.implicitConversions
 
 private[speedy] object SpeedyTestLib {
 
@@ -123,4 +125,74 @@ private[speedy] object SpeedyTestLib {
   ): PureCompiledPackages =
     typeAndCompile(Map(parserParameter.defaultPackageId -> pkg))
 
+  object Implicits {
+    implicit def addSpeedyMachineHelpers(machine: Speedy.Machine): SpeedyMachineTestHelpers =
+      new SpeedyMachineTestHelpers(machine)
+
+    private[speedy] class SpeedyMachineTestHelpers(machine: Speedy.Machine) {
+      def traceDisclosureTable(traceLog: TestTraceLog): Speedy.Machine = {
+        new Speedy.Machine(
+          machine.ctrl,
+          machine.returnValue,
+          machine.frame,
+          machine.actuals,
+          machine.env,
+          machine.envBase,
+          machine.kontStack,
+          machine.lastLocation,
+          machine.traceLog,
+          machine.warningLog,
+          machine.loggingContext,
+          machine.compiledPackages,
+          machine.steps,
+          machine.track,
+          machine.profile,
+          machine.submissionTime,
+          machine.ledgerMode,
+          Speedy.DisclosureTable(
+            contractIdByKey =
+              traceLog.traceMap("contractIdByKey queried", machine.disclosureTable.contractIdByKey),
+            contractById =
+              traceLog.traceMap("contractById queried", machine.disclosureTable.contractById),
+          ),
+        )
+      }
+    }
+  }
+}
+
+class TestTraceLog extends TraceLog {
+  private val messages: ArrayBuffer[(String, Option[Location])] = new ArrayBuffer()
+
+  override def add(message: String, optLocation: Option[Location])(implicit
+      loggingContext: LoggingContext
+  ): Unit = {
+    discard(messages += ((message, optLocation)))
+  }
+
+  def tracePF[X, Y](text: String, pf: PartialFunction[X, Y]): PartialFunction[X, Y] = {
+    case x if { add(text, None)(LoggingContext.ForTesting); pf.isDefinedAt(x) } => pf(x)
+  }
+
+  def traceMap[X, Y](text: String, pf: Map[X, Y]): Map[X, Y] = new Map[X, Y] {
+    override def apply(key: X): Y = {
+      add(text, None)(LoggingContext.ForTesting)
+      pf(key)
+    }
+
+    override def get(key: X): Option[Y] = {
+      add(text, None)(LoggingContext.ForTesting)
+      pf.get(key)
+    }
+
+    override def iterator: Iterator[(X, Y)] = pf.iterator
+
+    override def removed(key: X): Map[X, Y] = pf.removed(key)
+
+    override def updated[Y1 >: Y](key: X, value: Y1): Map[X, Y1] = pf.updated(key, value)
+  }
+
+  override def iterator: Iterator[(String, Option[Location])] = messages.iterator
+
+  def getMessages: Seq[String] = messages.view.map(_._1).toSeq
 }

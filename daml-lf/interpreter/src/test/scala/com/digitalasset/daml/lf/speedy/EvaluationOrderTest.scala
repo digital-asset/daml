@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
-import com.daml.lf.data.Ref.{Location, Party}
+import com.daml.lf.data.Ref.Party
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageVersion
@@ -23,26 +23,7 @@ import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Success, Try}
-
-class TestTraceLog extends TraceLog {
-  private val messages: ArrayBuffer[(String, Option[Location])] = new ArrayBuffer()
-
-  override def add(message: String, optLocation: Option[Location])(implicit
-      loggingContext: LoggingContext
-  ) = {
-    messages += ((message, optLocation))
-  }
-
-  def tracePF[X, Y](text: String, pf: PartialFunction[X, Y]): PartialFunction[X, Y] = {
-    case x if { add(text, None)(LoggingContext.ForTesting); pf.isDefinedAt(x) } => pf(x)
-  }
-
-  override def iterator = messages.iterator
-
-  def getMessages: Seq[String] = messages.view.map(_._1).toSeq
-}
 
 class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 

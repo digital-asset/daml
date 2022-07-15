@@ -6,7 +6,7 @@ package speedy
 
 import com.daml.lf.command.ContractMetadata
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.{IdString, Location, Party}
+import com.daml.lf.data.Ref.{IdString, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct, Time}
 import com.daml.lf.interpretation.Error.ContractKeyNotFound
 import com.daml.lf.speedy.SExpr.{SEMakeClo, SEValue}
@@ -19,10 +19,7 @@ import com.daml.lf.speedy.SBuiltin.{SBFetchAny, SBUFetchKey, SBULookupKey}
 import com.daml.lf.speedy.SValue.SContractId
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.logging.LoggingContext
 import org.scalatest.prop.TableDrivenPropertyChecks
-
-import scala.collection.mutable.ArrayBuffer
 
 class ExplicitDisclosureTest
     extends AnyFreeSpec
@@ -154,7 +151,7 @@ class ExplicitDisclosureTest
               case Right(SValue.SAny(_, SValue.SRecord(`templateId`, fields, values))) =>
                 fields shouldBe ImmArray(Ref.Name.assertFromString("owner"))
                 values shouldBe ArrayList(SValue.SParty(ledgerParty))
-                events shouldBe Seq("getContract queried")
+                events shouldBe Seq("contractById queried", "getContract queried")
             }
           }
 
@@ -170,7 +167,7 @@ class ExplicitDisclosureTest
                 case Right(SValue.SAny(_, SValue.SRecord(`templateId`, fields, values))) =>
                   fields shouldBe ImmArray(Ref.Name.assertFromString("owner"))
                   values shouldBe ArrayList(SValue.SParty(disclosureParty))
-                  events shouldBe Seq.empty
+                  events shouldBe Seq("contractById queried")
               }
             }
           }
@@ -187,7 +184,12 @@ class ExplicitDisclosureTest
               )
 
             result shouldBe Right(SValue.SContractId(contractId))
-            events shouldBe Seq("getKey queried", "getContract queried")
+            events shouldBe Seq(
+              "contractIdByKey queried",
+              "getKey queried",
+              "contractById queried",
+              "getContract queried",
+            )
           }
 
           "evaluate disclosed contract IDs" in {
@@ -202,11 +204,11 @@ class ExplicitDisclosureTest
               inside(result) {
                 case Left(SError.SErrorDamlException(ContractKeyNotFound(`contractKey`))) =>
                   label shouldBe "disclosedContractNoHash"
-                  events shouldBe Seq("getKey queried")
+                  events shouldBe Seq("contractIdByKey queried", "getKey queried")
 
                 case Right(SValue.SContractId(`contractId`)) =>
                   label shouldBe "disclosedContractWithHash"
-                  events shouldBe Seq.empty
+                  events shouldBe Seq("contractIdByKey queried", "contractById queried")
               }
             }
           }
@@ -223,7 +225,12 @@ class ExplicitDisclosureTest
               )
 
             result shouldBe Right(SValue.SOptional(Some(SValue.SContractId(contractId))))
-            events shouldBe Seq("getKey queried", "getContract queried")
+            events shouldBe Seq(
+              "contractIdByKey queried",
+              "getKey queried",
+              "contractById queried",
+              "getContract queried",
+            )
           }
 
           "evaluate disclosed contract IDs" in {
@@ -238,11 +245,11 @@ class ExplicitDisclosureTest
               inside(result) {
                 case Right(SValue.SOptional(None)) =>
                   label shouldBe "disclosedContractNoHash"
-                  events shouldBe Seq("getKey queried")
+                  events shouldBe Seq("contractIdByKey queried", "getKey queried")
 
                 case Right(SValue.SOptional(Some(SValue.SContractId(`contractId`)))) =>
                   label shouldBe "disclosedContractWithHash"
-                  events shouldBe Seq.empty
+                  events shouldBe Seq("contractIdByKey queried", "contractById queried")
               }
             }
           }
@@ -362,7 +369,7 @@ class ExplicitDisclosureTest
                 case Right(SValue.SAny(_, SValue.SRecord(`templateId`, fields, values))) =>
                   fields shouldBe ImmArray(Ref.Name.assertFromString("owner"))
                   values shouldBe ArrayList(SValue.SParty(disclosureParty))
-                  events shouldBe Seq.empty
+                  events shouldBe Seq("contractById queried")
               }
             }
           }
@@ -385,11 +392,15 @@ class ExplicitDisclosureTest
               label match {
                 case "disclosedContractNoHash" =>
                   // Contract is not stored in the ledger transaction and the disclosed contract ID has no hash, so we serve using the ledger key map
-                  events shouldBe Seq("getKey queried")
+                  events shouldBe Seq(
+                    "contractIdByKey queried",
+                    "getKey queried",
+                    "contractById queried",
+                  )
 
                 case "disclosedContractWithHash" =>
                   // Contract is not stored in the ledger transaction and the disclosed contract ID has a hash, so we serve using the disclosure table
-                  events shouldBe Seq.empty
+                  events shouldBe Seq("contractIdByKey queried", "contractById queried")
               }
             }
           }
@@ -412,11 +423,15 @@ class ExplicitDisclosureTest
               label match {
                 case "disclosedContractNoHash" =>
                   // Contract is not stored in the ledger transaction and the disclosed contract ID has no hash, so we serve using the ledger key map
-                  events shouldBe Seq("getKey queried")
+                  events shouldBe Seq(
+                    "contractIdByKey queried",
+                    "getKey queried",
+                    "contractById queried",
+                  )
 
                 case "disclosedContractWithHash" =>
                   // Contract is not stored in the ledger transaction and the disclosed contract ID has a hash, so we serve using the disclosure table
-                  events shouldBe Seq.empty
+                  events shouldBe Seq("contractIdByKey queried", "contractById queried")
               }
             }
           }
@@ -427,6 +442,8 @@ class ExplicitDisclosureTest
 }
 
 object ExplicitDisclosureTest {
+
+  import SpeedyTestLib.Implicits._
 
   val testKeyName: String = "test-key"
   val pkg: PureCompiledPackages = SpeedyTestLib.typeAndCompile(
@@ -549,29 +566,11 @@ object ExplicitDisclosureTest {
         )
       }
     val result = SpeedyTestLib.run(
-      machine = machine,
+      machine = machine.traceDisclosureTable(traceLog),
       getContract = traceLog.tracePF("getContract queried", getContract),
       getKey = traceLog.tracePF("getKey queried", getKey),
     )
 
     (result, traceLog.getMessages)
   }
-}
-
-class TestTraceLog extends TraceLog {
-  private val messages: ArrayBuffer[(String, Option[Location])] = new ArrayBuffer()
-
-  override def add(message: String, optLocation: Option[Location])(implicit
-      loggingContext: LoggingContext
-  ): Unit = {
-    messages += ((message, optLocation))
-  }
-
-  def tracePF[X, Y](text: String, pf: PartialFunction[X, Y]): PartialFunction[X, Y] = {
-    case x if { add(text, None)(LoggingContext.ForTesting); pf.isDefinedAt(x) } => pf(x)
-  }
-
-  override def iterator: Iterator[(String, Option[Location])] = messages.iterator
-
-  def getMessages: Seq[String] = messages.view.map(_._1).toSeq
 }
