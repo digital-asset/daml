@@ -228,7 +228,7 @@ private[lf] object Speedy {
   ): DisclosureTable = {
     val _ = disclosures
     val acc = disclosures.foldLeft(
-        DisclosureTable.Empty
+      DisclosureTable.Empty
     ) { case (table, d) =>
       val arg = d.argument
       val coid = d.contractId

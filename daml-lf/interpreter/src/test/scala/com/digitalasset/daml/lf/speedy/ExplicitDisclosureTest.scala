@@ -21,7 +21,11 @@ import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Transaction
 import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
 
-class ExplicitDisclosureTest extends AnyFreeSpec with Inside with Matchers with TableDrivenPropertyChecks {
+class ExplicitDisclosureTest
+    extends AnyFreeSpec
+    with Inside
+    with Matchers
+    with TableDrivenPropertyChecks {
 
   import ExplicitDisclosureTest._
 
@@ -63,8 +67,12 @@ class ExplicitDisclosureTest extends AnyFreeSpec with Inside with Matchers with 
 
               inside(result) {
                 case Right(
-                SValue.SPAP(SValue.PClosure(_, SExpr.SEAppGeneral(function, args), frame), _, 1)
-                ) =>
+                      SValue.SPAP(
+                        SValue.PClosure(_, SExpr.SEAppGeneral(function, args), frame),
+                        _,
+                        1,
+                      )
+                    ) =>
                   function shouldBe SExpr.SEBuiltin(SBFetchAny)
                   args shouldBe Array(
                     SEValue(SContractId(contractId)),
@@ -89,8 +97,12 @@ class ExplicitDisclosureTest extends AnyFreeSpec with Inside with Matchers with 
 
               inside(result) {
                 case Right(
-                SValue.SPAP(SValue.PClosure(_, SExpr.SEAppGeneral(function, args), frame), _, 1)
-                ) =>
+                      SValue.SPAP(
+                        SValue.PClosure(_, SExpr.SEAppGeneral(function, args), frame),
+                        _,
+                        1,
+                      )
+                    ) =>
                   function shouldBe SExpr.SEBuiltin(SBUFetchKey(templateId))
                   args shouldBe Array(SEValue(buildContractSKey(disclosureParty)))
                   frame shouldBe empty
@@ -237,8 +249,12 @@ class ExplicitDisclosureTest extends AnyFreeSpec with Inside with Matchers with 
 
               inside(result) {
                 case Right(
-                SValue.SPAP(SValue.PClosure(_, SExpr.SEAppGeneral(function, args), frame), _, 1)
-                ) =>
+                      SValue.SPAP(
+                        SValue.PClosure(_, SExpr.SEAppGeneral(function, args), frame),
+                        _,
+                        1,
+                      )
+                    ) =>
                   function shouldBe SExpr.SEBuiltin(SBFetchAny)
                   args shouldBe Array(
                     SEValue(SContractId(contractId)),
@@ -335,7 +351,8 @@ object ExplicitDisclosureTest {
   val contractId: ContractId = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
   val templateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:House")
   val templateType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:House")
-  val testKeyHash: Hash = crypto.Hash.assertHashContractKey(templateType, Value.ValueText(testKeyName))
+  val testKeyHash: Hash =
+    crypto.Hash.assertHashContractKey(templateType, Value.ValueText(testKeyName))
   val contractKey: GlobalKey = GlobalKey.assertBuild(templateType, Value.ValueText(testKeyName))
   val ledgerContract: Value.VersionedContractInstance = buildContract(ledgerParty)
   val disclosedContractNoHash: DisclosedContract = DisclosedContract(
