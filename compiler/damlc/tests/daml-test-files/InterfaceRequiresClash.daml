@@ -8,4 +8,5 @@ module InterfaceRequiresClash where
 import InterfaceRequiresClashA qualified as A
 import InterfaceRequiresClashB qualified as B
 
-interface C requires A.I, B.I
+interface C requires A.I, B.I where
+    viewtype ()

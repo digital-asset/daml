@@ -7,6 +7,7 @@
 module InterfacePrecondition where
 
 interface Token1 where
+  viewtype ()
   getOwner1 : Party
   getAmount1 : Int
   splitImpl : Int -> Update (ContractId Token1, ContractId Token1)
@@ -30,6 +31,7 @@ interface Token1 where
 
 
 interface Token2 where
+  viewtype ()
   getOwner2 : Party
   getAmount2 : Int
   noopImpl : () -> Update ()
@@ -44,6 +46,7 @@ interface Token2 where
         noopImpl this nothing
 
 interface Token3 where
+  viewtype ()
   getMessage : Text
   ensure (error $ getMessage this)
 
@@ -58,6 +61,7 @@ template Asset
     ensure (amount >= 5 && amount <= 8)
 
     implements Token1 where
+      view = ()
       getOwner1 = owner
       getAmount1 = amount
       splitImpl splitAmount = do
@@ -71,6 +75,7 @@ template Asset
 
 
     implements Token2 where
+      view = ()
       getOwner2 = owner
       getAmount2 = amount
       noopImpl nothing = do
@@ -88,6 +93,7 @@ template Asset2
     ensure (amount > 10)
 
     implements Token1 where
+      view = ()
       getOwner1 = owner
       getAmount1 = amount
       splitImpl splitAmount = do
@@ -100,12 +106,14 @@ template Asset2
         pure (toInterfaceContractId @Token1 cid)
 
     implements Token2 where
+      view = ()
       getOwner2 = owner
       getAmount2 = amount
       noopImpl nothing = do
         pure ()
 
     implements Token3 where
+      view = ()
       getMessage = "boom tail"
 
 template Asset3
@@ -119,6 +127,7 @@ template Asset3
     ensure (amount > 10)
 
     implements Token1 where
+      view = ()
       getOwner1 = owner
       getAmount1 = amount
       splitImpl splitAmount = do
@@ -131,9 +140,11 @@ template Asset3
         pure (toInterfaceContractId @Token1 cid)
 
     implements Token3 where
+      view = ()
       getMessage = "boom middle"
 
     implements Token2 where
+      view = ()
       getOwner2 = owner
       getAmount2 = amount
       noopImpl nothing = do
@@ -150,9 +161,11 @@ template Asset4
     ensure (amount > 10)
 
     implements Token3 where
+      view = ()
       getMessage = "boom head"
 
     implements Token1 where
+      view = ()
       getOwner1 = owner
       getAmount1 = amount
       splitImpl splitAmount = do
@@ -166,6 +179,7 @@ template Asset4
 
 
     implements Token2 where
+      view = ()
       getOwner2 = owner
       getAmount2 = amount
       noopImpl nothing = do

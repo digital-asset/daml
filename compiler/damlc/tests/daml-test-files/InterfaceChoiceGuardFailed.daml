@@ -5,6 +5,7 @@ module InterfaceChoiceGuardFailed where
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 interface I where
+  viewtype ()
   getController : Party
   choice IChoice : ()
     controller getController this
@@ -16,10 +17,11 @@ template T
   where
     signatory party
     implements I where
+      view = ()
       getController = party
 
 -- @ENABLE-SCENARIOS
--- @ERROR range=23:1-23:5; Attempt to exercise a choice with a failing guard
+-- @ERROR range=25:1-25:5; Attempt to exercise a choice with a failing guard
 main = do
   alice <- getParty "alice"
   cidT <- alice `submit` create T with party = alice

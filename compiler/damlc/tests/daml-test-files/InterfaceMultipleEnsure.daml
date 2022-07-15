@@ -10,3 +10,4 @@ module InterfaceMultipleEnsure where
 interface I where
     ensure True
     ensure 0 == 0
+    viewtype ()
