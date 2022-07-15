@@ -409,8 +409,6 @@ object ScenarioRunner {
     @tailrec
     def go(): SubmissionResult[R] = {
       ledgerMachine.run() match {
-        case SResult.SResultFinalValue(_, None) =>
-          crash("SResultFinalValue(_, None)")
         case SResult.SResultFinalValue(resultValue, Some(ctx)) =>
           ctx match {
             case PartialTransaction.Result(tx, locationInfo, _, _, _) =>
@@ -421,6 +419,8 @@ object ScenarioRunner {
                   Commit(r, resultValue, enrich(onLedger.incompleteTransaction))
               }
           }
+        case SResult.SResultFinalValue(_, None) =>
+          throw new RuntimeException(s"Unexpected missing transaction")
         case SResultError(err) =>
           SubmissionError(Error.RunnerException(err), enrich(onLedger.incompleteTransaction))
         case SResultNeedContract(coid, committers, callback) =>

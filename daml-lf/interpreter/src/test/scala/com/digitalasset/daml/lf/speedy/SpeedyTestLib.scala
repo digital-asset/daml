@@ -112,7 +112,7 @@ private[speedy] object SpeedyTestLib {
   ): Either[SError.SError, SubmittedTransaction] =
     runTx(machine, getPkg, getContract, getKey, getTime) match {
       case Right(SResultFinalValue(_, None)) =>
-        sys.error("buildTransaction expects to be run on-ledger")
+        throw SError.SErrorCrash("buildTransaction", "unexpected missing transaction")
       case Right(SResultFinalValue(_, Some(ctx))) =>
         ctx match {
           case PartialTransaction.Result(tx, _, _, _, _) =>

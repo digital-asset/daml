@@ -28,8 +28,6 @@ import scala.annotation.tailrec
 
 private[lf] object PartialTransaction {
 
-  type MaybeAbort = Option[Tx.TransactionError]
-
   sealed trait KeyConflict extends Product with Serializable
   object KeyConflict {
     final case object None extends KeyConflict
@@ -200,7 +198,7 @@ private[lf] object PartialTransaction {
 
   type NodeSeeds = ImmArray[(NodeId, crypto.Hash)]
 
-  final case class Result(
+  private[lf] final case class Result(
       tx: SubmittedTransaction,
       locationInfo: Map[NodeId, Location],
       seeds: NodeSeeds,
@@ -313,31 +311,25 @@ private[speedy] case class PartialTransaction(
     * - an error in case the transaction cannot be serialized using
     *   the `outputTransactionVersions`.
     */
-  def finish: PartialTransaction.Result =
+  private[speedy] def finish: PartialTransaction.Result =
     context.info match {
-      case _: RootContextInfo =>
-        if (aborted.isEmpty) {
-          val roots = context.children.toImmArray
-          val tx0 = Tx(nodes, roots)
-          val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
-          Result(
-            SubmittedTransaction(TxVersion.asVersionedTransaction(tx)),
-            locationInfo(),
-            seeds.zip(actionNodeSeeds.toImmArray),
-            contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
-            disclosedContracts,
-          )
-        } else {
-          sys.error("ptx.finish: unexpected aborted")
-        }
-      case _: ExercisesContextInfo =>
-        sys.error("ptx.finish: unexpected ExercisesContextInfo")
-      case _: TryContextInfo =>
-        sys.error("ptx.finish: unexpected TryContextInfo")
+      case _: RootContextInfo if aborted.isEmpty =>
+        val roots = context.children.toImmArray
+        val tx0 = Tx(nodes, roots)
+        val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
+        Result(
+          SubmittedTransaction(TxVersion.asVersionedTransaction(tx)),
+          locationInfo(),
+          seeds.zip(actionNodeSeeds.toImmArray),
+          contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
+          disclosedContracts,
+        )
+      case _ =>
+        sys.error("ptx.finish: expected RootContextInfo")
     }
 
   // construct an IncompleteTransaction from the partial-transaction
-  def finishIncomplete: transaction.IncompleteTransaction = {
+  private[speedy] def finishIncomplete: transaction.IncompleteTransaction = {
 
     val ptx = unwind()
 

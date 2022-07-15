@@ -432,16 +432,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     }
 
     finalValue match {
-
-      case SResultFinalValue(_, None) =>
-        return ResultError(
-          Error.Interpretation.Internal(
-            NameOf.qualifiedNameOfCurrentFunc,
-            s"unexpected final value with missing transaction",
-            None,
-          )
-        )
-
       case SResultFinalValue(
             _,
             Some(
@@ -472,6 +462,14 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           }
           ResultDone((tx, meta))
         }
+      case SResultFinalValue(_, None) =>
+        ResultError(
+          Error.Interpretation.Internal(
+            NameOf.qualifiedNameOfCurrentFunc,
+            "Interpretation error: completed transaction expected",
+            None,
+          )
+        )
     }
   }
 
