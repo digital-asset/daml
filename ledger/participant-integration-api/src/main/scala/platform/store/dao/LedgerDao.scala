@@ -36,7 +36,7 @@ private[platform] trait LedgerDaoTransactionsReader {
       startExclusive: Offset,
       endInclusive: Offset,
       filter: FilterRelation,
-      verbose: Boolean,
+      eventDisplayProperties: EventDisplayProperties,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed]
 
   def lookupFlatTransactionById(
@@ -48,7 +48,7 @@ private[platform] trait LedgerDaoTransactionsReader {
       startExclusive: Offset,
       endInclusive: Offset,
       requestingParties: Set[Party],
-      verbose: Boolean,
+      eventDisplayProperties: EventDisplayProperties,
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed]
@@ -61,9 +61,23 @@ private[platform] trait LedgerDaoTransactionsReader {
   def getActiveContracts(
       activeAt: Offset,
       filter: FilterRelation,
-      verbose: Boolean,
+      eventDisplayProperties: EventDisplayProperties,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed]
 }
+
+// TODO 1068: improve naming
+/** @param verbose enriching in verbose mode
+  * @param populateContractArgument populate contract_argument, and contract_key. If templateId set is empty: populate.
+  * @param populateInterfaceView populate interface_views. The Map of templates to interfaces,
+  *                              and the set of implementor templates cannot be empty.
+  */
+case class EventDisplayProperties(
+    verbose: Boolean,
+    // Map(eventWitnessParty, Set(templateId))
+    populateContractArgument: Map[String, Set[Identifier]] = Map.empty,
+    // Map(eventWitnessParty, Map(templateId -> Set(interfaceId)))
+    populateInterfaceView: Map[String, Map[Identifier, Set[Identifier]]] = Map.empty,
+)
 
 private[platform] trait LedgerDaoCommandCompletionsReader {
   def getCommandCompletions(

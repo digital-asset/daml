@@ -61,6 +61,29 @@ final class ValueEnricher(
       arg <- enrichValue(Ast.TTyCon(contract.unversioned.template), contract.unversioned.arg)
     } yield contract.map(_.copy(arg = arg))
 
+  def enrichView(
+      interfaceId: Identifier,
+      viewValue: Value,
+  ): Result[Value] = for {
+    // TODO: https://github.com/digital-asset/daml/issues/14112
+    // Switch to builtin views once those are implemented.
+    method <- handleLookup(
+      compiledPackages.pkgInterface.lookupInterfaceMethod(
+        interfaceId,
+        Name.assertFromString("_view"),
+      )
+    )
+    viewType = method.returnType
+    r <- enrichValue(viewType, viewValue)
+  } yield r
+
+  def enrichVersionedView(
+      interfaceId: Identifier,
+      viewValue: VersionedValue,
+  ): Result[VersionedValue] = for {
+    view <- enrichView(interfaceId, viewValue.unversioned)
+  } yield viewValue.copy(unversioned = view)
+
   def enrichContract(tyCon: Identifier, value: Value): Result[Value] =
     enrichValue(Ast.TTyCon(tyCon), value)
 

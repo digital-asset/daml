@@ -13,13 +13,11 @@ final class JdbcLedgerDaoH2DatabaseSpec
     with JdbcLedgerDaoSuite
     with JdbcLedgerDaoBackendH2Database
     with JdbcLedgerDaoPackagesSpec
-    with JdbcLedgerDaoActiveContractsSpec
     with JdbcLedgerDaoCompletionsSpec
     with JdbcLedgerDaoConfigurationSpec
     with JdbcLedgerDaoContractsSpec
     with JdbcLedgerDaoDivulgenceSpec
     with JdbcLedgerDaoExceptionSpec
     with JdbcLedgerDaoPartiesSpec
-    with JdbcLedgerDaoTransactionsSpec
     with JdbcLedgerDaoTransactionTreesSpec
     with JdbcLedgerDaoTransactionsWriterSpec

@@ -16,10 +16,10 @@ import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
-import com.daml.platform.{Exercise, ContractId, Create}
+import com.daml.platform.{ContractId, Create, Exercise}
 import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.dao.events.Raw.TreeEvent
-import com.daml.platform.store.dao.JdbcLedgerDao
+import com.daml.platform.store.dao.{EventDisplayProperties, JdbcLedgerDao}
 import com.daml.platform.store.dao.events.{
   CompressionStrategy,
   FieldCompressionStrategy,
@@ -32,8 +32,8 @@ import io.grpc.Status
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.wordspec.AnyWordSpec
-
 import java.time.Duration
+
 import scala.concurrent.{ExecutionContext, Future}
 
 // Note: this suite contains hand-crafted updates that are impossible to produce on some ledgers
@@ -1480,7 +1480,10 @@ object UpdateToDbDtoSpec {
         exercise: Exercise,
     ): (Array[Byte], Option[Array[Byte]], Option[Array[Byte]]) =
       (emptyArray, exercise.exerciseResult.map(_ => emptyArray), exercise.key.map(_ => emptyArray))
-    override def deserialize[E](raw: Raw.Created[E], verbose: Boolean)(implicit
+    override def deserialize[E](
+        raw: Raw.Created[E],
+        eventDisplayProperties: EventDisplayProperties,
+    )(implicit
         ec: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[CreatedEvent] = Future.failed(new RuntimeException("Not implemented"))

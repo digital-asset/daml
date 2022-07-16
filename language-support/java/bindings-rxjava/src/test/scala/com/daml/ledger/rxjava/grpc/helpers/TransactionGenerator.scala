@@ -194,6 +194,7 @@ object TransactionGenerator {
         Some(scalaTemplateId),
         contractKey.map(_._1),
         Some(scalaRecord),
+        Nil, // TODO DPP-1068: is that ok?
         signatories ++ observers,
         signatories,
         observers,

@@ -455,9 +455,14 @@ server_conformance_test(
     name = "conformance-test",
     hocon = True,
     hocon_config = """
-        ledger.participants.default.api-server {
-            seeding = testing-weak
-            user-management.enabled = true
+        ledger.participants.default {
+            index-service {
+              max-transactions-in-memory-fan-out-buffer-size = 0
+            }
+            api-server {
+              seeding = testing-weak
+              user-management.enabled = true
+            }
         }
     """,
     servers = SERVERS,
@@ -562,6 +567,26 @@ conformance_test(
     """,
     test_tool_args = [
         "--verbose",
+    ],
+)
+
+# TODO DPP-1068: Make sure InterfaceSubscriptionsIT is run on all servers
+server_conformance_test(
+    name = "conformance-test-interface-subscriptions",
+    hocon = True,
+    hocon_config = """
+        ledger.participants.default.api-server {
+            seeding = testing-weak
+            user-management.enabled = true
+        }
+    """,
+    lf_versions = [
+        "1.dev",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--verbose",
+        "--include=InterfaceSubscriptionsIT",
     ],
 )
 

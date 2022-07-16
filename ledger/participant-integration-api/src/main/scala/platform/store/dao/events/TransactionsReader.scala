@@ -4,6 +4,7 @@
 package com.daml.platform.store.dao.events
 
 import java.sql.Connection
+
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
 import com.daml.error.DamlContextualizedErrorLogger
@@ -26,6 +27,7 @@ import com.daml.platform._
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.dao.{
   DbDispatcher,
+  EventDisplayProperties,
   LedgerDaoTransactionsReader,
   PaginatingAsyncStream,
 }
@@ -73,25 +75,30 @@ private[dao] final class TransactionsReader(
   private def offsetFor(response: GetTransactionTreesResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
 
-  private def deserializeEvent[E](verbose: Boolean)(entry: EventStorageBackend.Entry[Raw[E]])(
-      implicit loggingContext: LoggingContext
+  private def deserializeEvent[E](
+      eventDisplayProperties: EventDisplayProperties
+  )(entry: EventStorageBackend.Entry[Raw[E]])(implicit
+      loggingContext: LoggingContext
   ): Future[E] =
-    entry.event.applyDeserialization(lfValueTranslation, verbose)
+    entry.event.applyDeserialization(lfValueTranslation, eventDisplayProperties)
 
-  private def deserializeEntry[E](verbose: Boolean)(
+  private def deserializeEntry[E](eventDisplayProperties: EventDisplayProperties)(
       entry: EventStorageBackend.Entry[Raw[E]]
   )(implicit loggingContext: LoggingContext): Future[EventStorageBackend.Entry[E]] =
-    deserializeEvent(verbose)(entry).map(event => entry.copy(event = event))
+    deserializeEvent(eventDisplayProperties)(entry).map(event => entry.copy(event = event))
 
   override def getFlatTransactions(
       startExclusive: Offset,
       endInclusive: Offset,
       filter: FilterRelation,
-      verbose: Boolean,
+      eventDisplayProperties: EventDisplayProperties,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val span =
       Telemetry.Transactions.createSpan(startExclusive, endInclusive)(qualifiedNameOfCurrentFunc)
-    logger.debug(s"getFlatTransactions($startExclusive, $endInclusive, $filter, $verbose)")
+    // TODO DPP-1068: improve on logging
+    logger.debug(
+      s"getFlatTransactions($startExclusive, $endInclusive, $filter, ${eventDisplayProperties.verbose})"
+    )
 
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
 
@@ -113,7 +120,7 @@ private[dao] final class TransactionsReader(
       Source
         .futureSource(requestedRangeF.map { requestedRange =>
           streamEvents(
-            verbose,
+            eventDisplayProperties,
             dbMetrics.getFlatTransactions,
             query,
             nextPageRange[Event](requestedRange.endInclusive),
@@ -156,7 +163,15 @@ private[dao] final class TransactionsReader(
       .flatMap(rawEvents =>
         Timed.value(
           timer = dbMetrics.lookupFlatTransactionById.translationTimer,
-          value = Future.traverse(rawEvents)(deserializeEntry(verbose = true)),
+          // TODO DPP-1068: why is this always verbose???
+          value = Future.traverse(rawEvents)(
+            deserializeEntry(
+              EventDisplayProperties(
+                verbose = true,
+                requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
+              )
+            )
+          ),
         )
       )
       .map(TransactionConversions.toGetFlatTransactionResponse)
@@ -165,14 +180,15 @@ private[dao] final class TransactionsReader(
       startExclusive: Offset,
       endInclusive: Offset,
       requestingParties: Set[Party],
-      verbose: Boolean,
+      eventDisplayProperties: EventDisplayProperties,
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
     val span =
       Telemetry.Transactions.createSpan(startExclusive, endInclusive)(qualifiedNameOfCurrentFunc)
+    // TODO DPP-1068: improve on logging
     logger.debug(
-      s"getTransactionTrees($startExclusive, $endInclusive, $requestingParties, $verbose)"
+      s"getTransactionTrees($startExclusive, $endInclusive, $requestingParties, ${eventDisplayProperties.verbose})"
     )
 
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
@@ -207,7 +223,7 @@ private[dao] final class TransactionsReader(
       Source
         .futureSource(requestedRangeF.map { requestedRange =>
           streamEvents(
-            verbose,
+            eventDisplayProperties,
             dbMetrics.getTransactionTrees,
             query,
             nextPageRange[TreeEvent](requestedRange.endInclusive),
@@ -250,7 +266,15 @@ private[dao] final class TransactionsReader(
       .flatMap(rawEvents =>
         Timed.value(
           timer = dbMetrics.lookupTransactionTreeById.translationTimer,
-          value = Future.traverse(rawEvents)(deserializeEntry(verbose = true)),
+          // TODO DPP-1068: why is this always verbose???
+          value = Future.traverse(rawEvents)(
+            deserializeEntry(
+              EventDisplayProperties(
+                verbose = true,
+                requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
+              )
+            )
+          ),
         )
       )
       .map(TransactionConversions.toGetTransactionResponse)
@@ -258,12 +282,13 @@ private[dao] final class TransactionsReader(
   override def getActiveContracts(
       activeAt: Offset,
       filter: FilterRelation,
-      verbose: Boolean,
+      eventDisplayProperties: EventDisplayProperties,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
     val contextualizedErrorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
     val span =
       Telemetry.Transactions.createSpan(activeAt)(qualifiedNameOfCurrentFunc)
-    logger.debug(s"getActiveContracts($activeAt, $filter, $verbose)")
+    // TODO DPP-1068: improve on logging
+    logger.debug(s"getActiveContracts($activeAt, $filter, ${eventDisplayProperties.verbose})")
 
     Source
       .futureSource(
@@ -274,7 +299,7 @@ private[dao] final class TransactionsReader(
         Timed.future(
           future = Future(
             Future.traverse(rawResult)(
-              deserializeEntry(verbose)
+              deserializeEntry(eventDisplayProperties)
             )
           ).flatMap(identity),
           timer = dbMetrics.getActiveContracts.translationTimer,
@@ -338,7 +363,7 @@ private[dao] final class TransactionsReader(
       )
 
   private def streamEvents[A: Ordering, E](
-      verbose: Boolean,
+      eventDisplayProperties: EventDisplayProperties,
       queryMetric: DatabaseMetrics,
       query: EventsRange[A] => Connection => Vector[EventStorageBackend.Entry[Raw[E]]],
       getNextPageRange: EventStorageBackend.Entry[E] => EventsRange[A],
@@ -353,7 +378,7 @@ private[dao] final class TransactionsReader(
           dispatcher.executeSql(queryMetric)(query(range1))
         rawEvents.flatMap(es =>
           Timed.future(
-            future = Future.traverse(es)(deserializeEntry(verbose)),
+            future = Future.traverse(es)(deserializeEntry(eventDisplayProperties)),
             timer = queryMetric.translationTimer,
           )
         )
