@@ -43,6 +43,7 @@ private[events] class BufferedTransactionsReader(
     flatToApiTransactions: (
         FilterRelation,
         Boolean,
+        Map[Identifier, Set[Identifier]],
         LoggingContext,
     ) => ToApi[GetTransactionsResponse],
     filterTransactionTrees: Set[Party] => TransactionLogUpdate.Transaction => Option[
@@ -66,11 +67,15 @@ private[events] class BufferedTransactionsReader(
       startExclusive: Offset,
       endInclusive: Offset,
       filter: FilterRelation,
+      interfaceProjections: Map[Identifier, Set[Identifier]],
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val (parties, partiesTemplates) = filter.partition(_._2.isEmpty)
     val wildcardParties = parties.keySet
 
+    // TODO DPP-1068: this inverting and transforming the filter each and every time might be expensive in frequent tailing
+    //                we could change the LedgerDaoTransactionsReader signature, so it can be used for IMFO as is
+    //                then it might be not that great for persistent, but that one is much less frequent
     val templatesParties = invertMapping(partiesTemplates)
 
     getTransactions(transactionsBuffer)(
@@ -82,8 +87,9 @@ private[events] class BufferedTransactionsReader(
       eventProcessingParallelism = eventProcessingParallelism,
     )(
       filterEvents = filterFlatTransactions(wildcardParties, templatesParties),
-      toApiTx = flatToApiTransactions(filter, verbose, loggingContext),
-      fetchTransactions = delegate.getFlatTransactions(_, _, _, _)(loggingContext),
+      toApiTx = flatToApiTransactions(filter, verbose, interfaceProjections, loggingContext),
+      fetchTransactions =
+        delegate.getFlatTransactions(_, _, _, interfaceProjections, _)(loggingContext),
       bufferReaderMetrics = flatTransactionsBufferMetrics,
     )
   }
@@ -122,10 +128,15 @@ private[events] class BufferedTransactionsReader(
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
     delegate.lookupTransactionTreeById(transactionId, requestingParties)
 
-  override def getActiveContracts(activeAt: Offset, filter: FilterRelation, verbose: Boolean)(
-      implicit loggingContext: LoggingContext
+  override def getActiveContracts(
+      activeAt: Offset,
+      filter: FilterRelation,
+      interfaceProjections: Map[Identifier, Set[Identifier]],
+      verbose: Boolean,
+  )(implicit
+      loggingContext: LoggingContext
   ): Source[GetActiveContractsResponse, NotUsed] =
-    delegate.getActiveContracts(activeAt, filter, verbose)
+    delegate.getActiveContracts(activeAt, filter, interfaceProjections, verbose)
 }
 
 private[platform] object BufferedTransactionsReader {
@@ -147,7 +158,7 @@ private[platform] object BufferedTransactionsReader {
       metrics = metrics,
       filterFlatTransactions = ToFlatTransaction.filter,
       flatToApiTransactions =
-        ToFlatTransaction.toApiTransaction(_, _, lfValueTranslation)(_, executionContext),
+        ToFlatTransaction.toApiTransaction(_, _, _, lfValueTranslation)(_, executionContext),
       filterTransactionTrees = ToTransactionTree.filter,
       treesToApiTransactions =
         ToTransactionTree.toApiTransaction(_, _, lfValueTranslation)(_, executionContext),

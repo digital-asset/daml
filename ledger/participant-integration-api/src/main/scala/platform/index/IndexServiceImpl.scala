@@ -51,10 +51,12 @@ import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.dao.{LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.entries.PartyLedgerEntry
+import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 private[index] class IndexServiceImpl(
     val ledgerId: LedgerId,
@@ -64,6 +66,7 @@ private[index] class IndexServiceImpl(
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
     dispatcher: () => Dispatcher[Offset],
+    packageMetadataView: PackageMetadataView,
     metrics: Metrics,
 ) extends IndexService {
   // An Akka stream buffer is added at the end of all streaming queries,
@@ -90,29 +93,42 @@ private[index] class IndexServiceImpl(
       filter: domain.TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] =
-    between(startExclusive, endInclusive) { (from, to) =>
-      from.foreach(offset =>
-        Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
-      )
-      to.foreach(offset =>
-        Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
-      )
-      dispatcher()
-        .startingAt(
-          from.getOrElse(Offset.beforeBegin),
-          RangeSource(transactionsReader.getFlatTransactions(_, _, convertFilter(filter), verbose)),
-          to,
+    withValidatedFilter(filter)(
+      between(startExclusive, endInclusive) { (from, to) =>
+        from.foreach(offset =>
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
         )
-        .map(_._2)
-        .buffered(metrics.daml.index.flatTransactionsBufferSize, LedgerApiStreamsBufferSize)
-    }.wireTap(
-      _.transactions.view
-        .map(transaction =>
-          Event(transaction.commandId, TraceIdentifiers.fromTransaction(transaction))
+        to.foreach(offset =>
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
         )
-        .foreach(Spans.addEventToCurrentSpan)
+        val memoizedConvertedFilter = memoizedFilterRelationAndInterfaceProjection(filter)
+        dispatcher()
+          .startingAt(
+            from.getOrElse(Offset.beforeBegin),
+            RangeSource { (startExclusive, endInclusive) =>
+              val (filterRelation, interfaceProjections) = memoizedConvertedFilter()
+              transactionsReader.getFlatTransactions(
+                startExclusive,
+                endInclusive,
+                filterRelation,
+                interfaceProjections,
+                verbose,
+              )
+            },
+            to,
+          )
+          .map(_._2)
+          .buffered(metrics.daml.index.flatTransactionsBufferSize, LedgerApiStreamsBufferSize)
+      }.wireTap(
+        _.transactions.view
+          .map(transaction =>
+            Event(transaction.commandId, TraceIdentifiers.fromTransaction(transaction))
+          )
+          .foreach(Spans.addEventToCurrentSpan)
+      )
     )
 
+  // TODO DPP-1068: maybe do validation here as well? ot add validation to not allow non-wildcard filters?
   override def transactionTrees(
       startExclusive: LedgerOffset,
       endInclusive: Option[LedgerOffset],
@@ -181,20 +197,25 @@ private[index] class IndexServiceImpl(
   override def getActiveContracts(
       filter: TransactionFilter,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
-    val currentLedgerEnd = ledgerEnd()
-
-    ledgerDao.transactionsReader
-      .getActiveContracts(
-        currentLedgerEnd,
-        convertFilter(filter),
-        verbose,
-      )
-      .concat(
-        Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(currentLedgerEnd)))
-      )
-      .buffered(metrics.daml.index.activeContractsBufferSize, LedgerApiStreamsBufferSize)
-  }
+  )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] =
+    withValidatedFilter(filter) {
+      val currentLedgerEnd = ledgerEnd()
+      val (filterRelation, interfaceProjections) =
+        memoizedFilterRelationAndInterfaceProjection(filter)()
+      ledgerDao.transactionsReader
+        .getActiveContracts(
+          currentLedgerEnd,
+          filterRelation,
+          interfaceProjections,
+          verbose,
+        )
+        .concat(
+          Source.single(
+            GetActiveContractsResponse(offset = ApiOffset.toApiString(currentLedgerEnd))
+          )
+        )
+        .buffered(metrics.daml.index.activeContractsBufferSize, LedgerApiStreamsBufferSize)
+    }
 
   override def lookupActiveContract(
       forParties: Set[Ref.Party],
@@ -379,11 +400,6 @@ private[index] class IndexServiceImpl(
     }
   }
 
-  private def convertFilter(filter: TransactionFilter): Map[Party, Set[Identifier]] =
-    filter.filtersByParty.map { case (party, filters) =>
-      party -> filters.inclusive.fold(Set.empty[Identifier])(_.templateIds)
-    }
-
   private def concreteOffset(startExclusive: Option[LedgerOffset.Absolute]): Future[Offset] =
     startExclusive
       .map(off => Future.fromTry(ApiOffset.fromString(off.value)))
@@ -391,4 +407,68 @@ private[index] class IndexServiceImpl(
 
   private def toAbsolute(offset: Offset): LedgerOffset.Absolute =
     LedgerOffset.Absolute(offset.toApiString)
+
+  private def withValidatedFilter[T](domainTransactionFilter: domain.TransactionFilter)(
+      source: => Source[T, NotUsed]
+  ): Source[T, NotUsed] =
+    // TODO DPP-1068: maybe do fancy scalaz traverse with Either
+    Try(
+      packageMetadataView(metadata =>
+        // TODO DPP-1068: is it okay just to have the first error? or should we collect all?
+        for {
+          (_, inclusiveFilterOption) <- domainTransactionFilter.filtersByParty.iterator
+          inclusiveFilter <- inclusiveFilterOption.inclusive.iterator
+        } {
+          inclusiveFilter.interfaceFilters
+            .find(interfaceFilter => !metadata.interfaceExists(interfaceFilter.interfaceId))
+            .map(interfaceFilter =>
+              // TODO DPP-1068: throw proper error code
+              throw new Exception(s"Interface [${interfaceFilter.interfaceId}] does not exist")
+            )
+          inclusiveFilter.templateIds
+            .find(templateId => !metadata.templateExists(templateId))
+            .map(templateId =>
+              // TODO DPP-1068: throw proper error code
+              throw new Exception(s"Template [$templateId] does not exist")
+            )
+        }
+      )()
+    ) match {
+      case Success(()) => source
+      case Failure(exception) => Source.failed(exception)
+    }
+
+  private def memoizedFilterRelationAndInterfaceProjection(
+      domainTransactionFilter: domain.TransactionFilter
+  ): () => (Map[Party, Set[Identifier]], Map[Identifier, Set[Identifier]]) =
+    packageMetadataView {
+      // TODO DPP-1068: extract this lambda to a function, and unit test
+      metadata =>
+        (
+          domainTransactionFilter.filtersByParty.view
+            .mapValues(filters =>
+              filters.inclusive
+                .map(inclusiveFilters =>
+                  inclusiveFilters.interfaceFilters.iterator
+                    .map(_.interfaceId)
+                    .flatMap(metadata.interfaceImplementedBy)
+                    .flatten
+                    .toSet
+                    .++(inclusiveFilters.templateIds)
+                )
+                .getOrElse(Set.empty)
+            )
+            .toMap,
+          (for {
+            filters <- domainTransactionFilter.filtersByParty.valuesIterator
+            inclusiveFilters <- filters.inclusive.iterator
+            interfaceFilter <- inclusiveFilters.interfaceFilters.iterator
+            if interfaceFilter.includeView
+            implementors <- metadata.interfaceImplementedBy(interfaceFilter.interfaceId).iterator
+            implementor <- implementors
+          } yield implementor -> interfaceFilter.interfaceId)
+            .toSet[(Identifier, Identifier)]
+            .groupMap(_._1)(_._2),
+        )
+    }
 }

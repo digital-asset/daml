@@ -83,7 +83,7 @@ object IndexMetadata {
           servicesExecutionContext = executionContext,
           metrics = metrics,
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-          enricher = None,
+          engine = None,
           participantId = Ref.ParticipantId.assertFromString("1"),
           ledgerEndCache = MutableLedgerEndCache(), // not used
           stringInterning = new StringInterningView(), // not used

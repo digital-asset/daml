@@ -10,6 +10,7 @@ import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.cache.{ContractStateCaches, EventsBuffer, MutableLedgerEndCache}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interning.{StringInterningView, UpdatingStringInterningView}
+import com.daml.platform.store.packagemeta.PackageMetadataView
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -21,6 +22,7 @@ private[platform] class InMemoryState(
     val contractStateCaches: ContractStateCaches,
     val transactionsBuffer: EventsBuffer[TransactionLogUpdate],
     val stringInterningView: StringInterningView,
+    val packageMetadataView: PackageMetadataView,
     val dispatcherState: DispatcherState,
 )(implicit executionContext: ExecutionContext) {
   private val logger = ContextualizedLogger.get(getClass)
@@ -32,14 +34,17 @@ private[platform] class InMemoryState(
     * NOTE: This method is not thread-safe. Calling it concurrently leads to undefined behavior.
     */
   final def initializeTo(ledgerEnd: LedgerEnd)(
-      updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit]
+      updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit],
+      updatePackageMetadataView: PackageMetadataView => Future[Unit],
   )(implicit loggingContext: LoggingContext): Future[Unit] = {
     logger.info(s"Initializing participant in-memory state to ledger end: $ledgerEnd")
 
     // TODO LLP: Reset the in-memory state only if the initialization ledgerEnd
     //           is different than the ledgerEndCache.
     for {
+      // TODO DPP-1068: perhaps parallelize
       _ <- updateStringInterningView(stringInterningView, ledgerEnd)
+      _ <- updatePackageMetadataView(packageMetadataView)
       _ <- Future {
         contractStateCaches.reset(ledgerEnd.lastOffset)
         transactionsBuffer.flush()
@@ -87,6 +92,7 @@ object InMemoryState {
         maxBufferedChunkSize = bufferedStreamsPageSize,
       ),
       stringInterningView = new StringInterningView,
+      packageMetadataView = PackageMetadataView.create,
     )(executionContext)
   }
 }

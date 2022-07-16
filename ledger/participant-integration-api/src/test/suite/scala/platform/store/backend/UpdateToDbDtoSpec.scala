@@ -1480,7 +1480,11 @@ object UpdateToDbDtoSpec {
         exercise: Exercise,
     ): (Array[Byte], Option[Array[Byte]], Option[Array[Byte]]) =
       (emptyArray, exercise.exerciseResult.map(_ => emptyArray), exercise.key.map(_ => emptyArray))
-    override def deserialize[E](raw: Raw.Created[E], verbose: Boolean)(implicit
+    override def deserialize[E](
+        raw: Raw.Created[E],
+        verbose: Boolean,
+        interfaceProjections: Map[Ref.Identifier, Set[Ref.Identifier]],
+    )(implicit
         ec: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[CreatedEvent] = Future.failed(new RuntimeException("Not implemented"))

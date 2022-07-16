@@ -34,6 +34,7 @@ sealed trait Raw[+E] {
   def applyDeserialization(
       lfValueTranslation: LfValueTranslation,
       verbose: Boolean,
+      interfaceProjections: Map[Identifier, Set[Identifier]],
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
@@ -60,11 +61,12 @@ object Raw {
     final override def applyDeserialization(
         lfValueTranslation: LfValueTranslation,
         verbose: Boolean,
+        interfaceProjections: Map[Identifier, Set[Identifier]],
     )(implicit
         ec: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[E] =
-      lfValueTranslation.deserialize(this, verbose).map(wrapInEvent)
+      lfValueTranslation.deserialize(this, verbose, interfaceProjections).map(wrapInEvent)
   }
 
   object Created {
@@ -151,6 +153,7 @@ object Raw {
       override def applyDeserialization(
           lfValueTranslation: LfValueTranslation,
           verbose: Boolean,
+          interfaceProjections: Map[Identifier, Set[Identifier]],
       )(implicit
           ec: ExecutionContext,
           loggingContext: LoggingContext,
@@ -241,6 +244,7 @@ object Raw {
       override def applyDeserialization(
           lfValueTranslation: LfValueTranslation,
           verbose: Boolean,
+          interfaceProjections: Map[Identifier, Set[Identifier]],
       )(implicit
           ec: ExecutionContext,
           loggingContext: LoggingContext,

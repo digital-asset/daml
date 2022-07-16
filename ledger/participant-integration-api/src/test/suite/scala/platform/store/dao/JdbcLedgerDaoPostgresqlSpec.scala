@@ -13,13 +13,11 @@ final class JdbcLedgerDaoPostgresqlSpec
     with JdbcLedgerDaoSuite
     with JdbcLedgerDaoBackendPostgresql
     with JdbcLedgerDaoPackagesSpec
-    with JdbcLedgerDaoActiveContractsSpec
     with JdbcLedgerDaoCompletionsSpec
     with JdbcLedgerDaoConfigurationSpec
     with JdbcLedgerDaoContractsSpec
     with JdbcLedgerDaoDivulgenceSpec
     with JdbcLedgerDaoExceptionSpec
     with JdbcLedgerDaoPartiesSpec
-    with JdbcLedgerDaoTransactionsSpec
     with JdbcLedgerDaoTransactionTreesSpec
     with JdbcLedgerDaoTransactionsWriterSpec

@@ -21,8 +21,10 @@ import com.daml.platform.store.backend._
 import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.interning.{InternizingStringInterningView, StringInterning}
-
 import java.sql.Connection
+
+import com.daml.platform.store.packagemeta.PackageMetadataView
+
 import scala.concurrent.Future
 
 private[platform] case class ParallelIndexerSubscription[DB_BATCH](
@@ -38,6 +40,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
     submissionBatchSize: Long,
     metrics: Metrics,
     inMemoryStateUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
+    packageMetadataView: PackageMetadataView,
 ) {
   import ParallelIndexerSubscription._
 
@@ -45,7 +48,8 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
       inputMapperExecutor: Executor,
       batcherExecutor: Executor,
       dbDispatcher: DbDispatcher,
-      stringInterningView: StringInterning with InternizingStringInterningView,
+      stringInterningView: StringInterning
+        with InternizingStringInterningView, // TODO DPP-1068: no need to have that in apply, it can be moved up to the constructor
       materializer: Materializer,
   )(implicit loggingContext: LoggingContext): InitializeParallelIngestion.Initialized => Handle = {
     initialized =>
@@ -61,6 +65,21 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
               compressionStrategy = compressionStrategy,
             ),
             UpdateToMeteringDbDto(),
+            updatePackageMetadata = {
+              case packageUpload: state.Update.PublicPackageUpload =>
+                // new packages will be parsed and PackageMetadataView will be updated
+                // computation is executed on inputMapperExecutor
+                // since input-mapping precedes updating of the ledger-end, this ensures that upot ledger-end
+                // the PackageMetadataView will have all entries, but also means that updating is executed in
+                // a non-deterministic order, and PackageMetadataView will have more definitions and interface
+                // mappings.
+                // TODO DPP-1068: is the above approach okay? can it cause issues having inconsistently more entries?
+                //                if yes we need to move computation of these into the inMemoryUpdaterFlow, and ensure
+                //                sequential updates upto LedgerEnd
+                packageUpload.archives.foreach(packageMetadataView.update)
+
+              case _ => ()
+            },
           )
         ),
         seqMapperZero =
@@ -119,11 +138,13 @@ object ParallelIndexerSubscription {
       metrics: Metrics,
       toDbDto: Offset => state.Update => Iterator[DbDto],
       toMeteringDbDto: Iterable[(Offset, state.Update)] => Vector[DbDto.TransactionMetering],
+      updatePackageMetadata: state.Update => Unit,
   )(implicit
       loggingContext: LoggingContext
   ): Iterable[(Offset, state.Update)] => Batch[Vector[DbDto]] = { input =>
     metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)
     input.foreach { case (offset, update) =>
+      updatePackageMetadata(update)
       withEnrichedLoggingContext("offset" -> offset, "update" -> update) {
         implicit loggingContext =>
           logger.info(s"Storing ${update.description}")

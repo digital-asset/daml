@@ -12,13 +12,11 @@ class JdbcLedgerDaoOracleSpec
     with JdbcLedgerDaoSuite
     with JdbcLedgerDaoBackendOracle
     with JdbcLedgerDaoPackagesSpec
-    with JdbcLedgerDaoActiveContractsSpec
     with JdbcLedgerDaoCompletionsSpec
     with JdbcLedgerDaoConfigurationSpec
     with JdbcLedgerDaoContractsSpec
     with JdbcLedgerDaoDivulgenceSpec
     with JdbcLedgerDaoExceptionSpec
     with JdbcLedgerDaoPartiesSpec
-    with JdbcLedgerDaoTransactionsSpec
     with JdbcLedgerDaoTransactionTreesSpec
     with JdbcLedgerDaoTransactionsWriterSpec
