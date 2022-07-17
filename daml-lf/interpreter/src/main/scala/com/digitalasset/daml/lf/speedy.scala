@@ -6,14 +6,15 @@ package com.daml.lf
 package object speedy {
 
   def mylog(s: String): Unit = {
-    import java.io.PrintWriter
+    println(s)
+    /*import java.io.PrintWriter
     import java.io.FileWriter
     new PrintWriter(new FileWriter("/tmp/nick.log", true)) {
       write(s);
       write("\n");
       close
     }
-    ()
+    ()*/
   }
 
 }

@@ -1652,18 +1652,18 @@ private[lf] object SBuiltin {
       val opt = getSOptional(args, 0)
       val excep = getSAny(args, 1)
       checkToken(args, 2)
-      machine.withOnLedger("SBTryHandler") { onLedger =>
-        opt match {
-          case None =>
-            mylog("SBTryHandler.execute(): None: call abortTry, call unwindToHandler")
-            onLedger.ptx = onLedger.ptx.abortTry
-            unwindToHandler(machine, excep) // re-throw
-          case Some(handler) =>
-            mylog("SBTryHandler.execute(): Some(handler): call rollbackTry, then enter handler")
-            onLedger.ptx = onLedger.ptx.rollbackTry(excep)
-            machine.enterApplication(handler, Array(SEValue(SToken)))
-        }
+      // machine.withOnLedger("SBTryHandler") { onLedger =>
+      opt match {
+        case None =>
+          mylog("SBTryHandler.execute(): None: call abortTry, call unwindToHandler")
+          // onLedger.ptx = onLedger.ptx.abortTry
+          unwindToHandler(machine, excep) // re-throw
+        case Some(handler) =>
+          mylog("SBTryHandler.execute(): Some(handler): call rollbackTry, then enter handler")
+          // onLedger.ptx = onLedger.ptx.rollbackTry(excep)
+          machine.enterApplication(handler, Array(SEValue(SToken)))
       }
+      // }
     }
   }
 
