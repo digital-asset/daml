@@ -375,12 +375,12 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     }
 
     var finished: Boolean = false
-    var finalValue: SResultFinalValue = null
+    var finalValue: SResultFinal = null
 
     while (!finished) {
       machine.run() match {
 
-        case fv: SResultFinalValue =>
+        case fv: SResultFinal =>
           finished = true
           finalValue = fv
 
@@ -432,7 +432,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     }
 
     finalValue match {
-      case SResultFinalValue(
+      case SResultFinal(
             _,
             Some(
               PartialTransaction.Result(
@@ -462,7 +462,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           }
           ResultDone((tx, meta))
         }
-      case SResultFinalValue(_, None) =>
+      case SResultFinal(_, None) =>
         ResultError(
           Error.Interpretation.Internal(
             NameOf.qualifiedNameOfCurrentFunc,
@@ -543,7 +543,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   )(implicit loggingContext: LoggingContext): Result[Versioned[Value]] = {
     def interpret(machine: Machine): Result[SValue] = {
       machine.run() match {
-        case SResultFinalValue(v, _) => ResultDone(v)
+        case SResultFinal(v, _) => ResultDone(v)
         case SResultError(err) => handleError(err, None)
         case err @ (_: SResultNeedPackage | _: SResultNeedContract | _: SResultNeedKey |
             _: SResultNeedTime | _: SResultScenarioGetParty | _: SResultScenarioPassTime |

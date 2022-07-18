@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LanguageVersion, StablePackage}
-import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
+import com.daml.lf.speedy.SResult.{SResultError, SResultFinal}
 import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SParty, SUnit}
@@ -126,7 +126,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     forEvery(testCases) { (exp: String, num: Long) =>
       s"eval[$exp] --> $num" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinalValue(v, _) =>
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v, _) =>
           v shouldBe SValue.SInt64(num)
         }
       }
@@ -163,7 +163,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     forEvery(testCases) { (exp: String, num: Long) =>
       s"eval[$exp] --> $num" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinalValue(v, _) =>
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v, _) =>
           v shouldBe SValue.SInt64(num)
         }
       }
@@ -247,7 +247,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     forEvery(testCases) { (exp: String, num: Long) =>
       s"eval[$exp] --> $num" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinalValue(v, _) =>
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v, _) =>
           v shouldBe SValue.SInt64(num)
         }
       }
@@ -317,7 +317,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     forEvery(testCases) { (exp: String, num: Long) =>
       s"eval[$exp] --> $num" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinalValue(v, _) =>
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v, _) =>
           v shouldBe SValue.SInt64(num)
         }
       }
@@ -389,7 +389,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     forEvery(testCases) { (exp: String, num: Long) =>
       s"eval[$exp] --> $num" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinalValue(v, _) =>
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v, _) =>
           v shouldBe SValue.SInt64(num)
         }
       }
@@ -470,7 +470,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     forEvery(testCases) { (exp: String, str: String) =>
       s"eval[$exp] --> $str" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinalValue(v, _) =>
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v, _) =>
           v shouldBe SValue.SText(str)
         }
       }
@@ -532,7 +532,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
           .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, expr, party), Set(party))
           .run()
         if (caught)
-          inside(res) { case SResultFinalValue(SUnit, _) =>
+          inside(res) { case SResultFinal(SUnit, _) =>
           }
         else
           inside(res) { case SResultError(SErrorDamlException(err)) =>
@@ -553,7 +553,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
       val res = Speedy.Machine
         .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), Set(party))
         .run()
-      inside(res) { case SResultFinalValue(SUnit, _) =>
+      inside(res) { case SResultFinal(SUnit, _) =>
       }
     }
 
@@ -761,7 +761,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
     "create rollback when old contacts are not within try-catch context" in {
       val res =
         Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeRollback, Set(party)).run()
-      inside(res) { case SResultFinalValue(SUnit, _) =>
+      inside(res) { case SResultFinal(SUnit, _) =>
       }
     }
 

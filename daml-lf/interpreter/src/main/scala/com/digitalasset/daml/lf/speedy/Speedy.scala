@@ -524,10 +524,10 @@ private[lf] object Speedy {
         case SpeedyComplete(value: SValue) =>
           if (enableInstrumentation) track.print()
           ledgerMode match {
-            case OffLedger => SResultFinalValue(value, None)
+            case OffLedger => SResultFinal(value, None)
             case onLedger: OnLedger =>
               val ctx = onLedger.ptx.finish
-              SResultFinalValue(value, Some(ctx))
+              SResultFinal(value, Some(ctx))
           }
         case serr: SError =>
           SResultError(serr)

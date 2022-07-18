@@ -345,7 +345,7 @@ object Converter {
         Script.DummyLoggingContext
       )
     machine.run() match {
-      case SResultFinalValue(v, _) =>
+      case SResultFinal(v, _) =>
         v match {
           case SStruct(_, values) if values.size == 2 =>
             Right((values.get(fstOutputIdx), values.get(sndOutputIdx)))

@@ -49,7 +49,7 @@ final class ScenarioRunner private (
       steps += 1 // this counts the number of external `Need` interactions
       val res: SResult = machine.run()
       res match {
-        case SResultFinalValue(v, _) =>
+        case SResultFinal(v, _) =>
           finalValue = v
 
         case SResultError(err) =>
@@ -409,7 +409,7 @@ object ScenarioRunner {
     @tailrec
     def go(): SubmissionResult[R] = {
       ledgerMachine.run() match {
-        case SResult.SResultFinalValue(resultValue, Some(ctx)) =>
+        case SResult.SResultFinal(resultValue, Some(ctx)) =>
           ctx match {
             case PartialTransaction.Result(tx, locationInfo, _, _, _) =>
               ledger.commit(committers, readAs, location, enrich(tx), locationInfo) match {
@@ -419,7 +419,7 @@ object ScenarioRunner {
                   Commit(r, resultValue, enrich(onLedger.incompleteTransaction))
               }
           }
-        case SResult.SResultFinalValue(_, None) =>
+        case SResult.SResultFinal(_, None) =>
           throw new RuntimeException(s"Unexpected missing transaction")
         case SResultError(err) =>
           SubmissionError(Error.RunnerException(err), enrich(onLedger.incompleteTransaction))

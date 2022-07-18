@@ -45,7 +45,7 @@ private[speedy] object SpeedyTestLib {
   ): Either[SError.SError, SValue] = {
     runTx(machine, getPkg, getContract, getKey, getTime) match {
       case Left(e) => Left(e)
-      case Right(SResultFinalValue(v, _)) => Right(v)
+      case Right(SResultFinal(v, _)) => Right(v)
     }
   }
 
@@ -57,9 +57,9 @@ private[speedy] object SpeedyTestLib {
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
-  ): Either[SError.SError, SResultFinalValue] = {
+  ): Either[SError.SError, SResultFinal] = {
     @tailrec
-    def loop: Either[SError.SError, SResultFinalValue] = {
+    def loop: Either[SError.SError, SResultFinal] = {
       machine.run() match {
         case SResultNeedTime(callback) =>
           getTime.lift(()) match {
@@ -88,11 +88,11 @@ private[speedy] object SpeedyTestLib {
         case SResultNeedKey(key, _, callback) =>
           discard(callback(getKey.lift(key)))
           loop
-        case fv: SResultFinalValue =>
+        case fv: SResultFinal =>
           Right(fv)
         case SResultError(err) =>
           Left(err)
-        case _: SResultFinalValue | _: SResultScenarioGetParty | _: SResultScenarioPassTime |
+        case _: SResultFinal | _: SResultScenarioGetParty | _: SResultScenarioPassTime |
             _: SResultScenarioSubmit =>
           throw UnexpectedSResultScenarioX
       }
@@ -111,9 +111,9 @@ private[speedy] object SpeedyTestLib {
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SubmittedTransaction] =
     runTx(machine, getPkg, getContract, getKey, getTime) match {
-      case Right(SResultFinalValue(_, None)) =>
+      case Right(SResultFinal(_, None)) =>
         throw SError.SErrorCrash("buildTransaction", "unexpected missing transaction")
-      case Right(SResultFinalValue(_, Some(ctx))) =>
+      case Right(SResultFinal(_, Some(ctx))) =>
         ctx match {
           case PartialTransaction.Result(tx, _, _, _, _) =>
             Right(tx)
