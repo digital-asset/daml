@@ -14,6 +14,7 @@ import com.daml.jwt.domain.Jwt
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.ledger.service.{LedgerReader, TemplateIds}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import com.daml.nonempty.NonEmpty
 import scalaz.{\/, \/-, EitherT, Show}
 import scalaz.std.scalaFuture._
 import scalaz.syntax.apply._
@@ -40,6 +41,7 @@ private class PackageService(
       packageIds: Set[String],
       contractTypeIdMap: ContractTypeIdMap[ContractTypeId.Unknown],
       templateIdMap: TemplateIdMap,
+      templateInterfacesMap: TemplateInterfacesMap,
       choiceTypeMap: ChoiceTypeMap,
       keyTypeMap: KeyTypeMap,
       packageStore: PackageStore,
@@ -52,6 +54,7 @@ private class PackageService(
         newPackageStore.keySet,
         tpIdMap ++ ifaceIdMap,
         tpIdMap,
+        getTemplateInterfacesMap(newPackageStore),
         getChoiceTypeMap(newPackageStore),
         getKeyTypeMap(newPackageStore),
         newPackageStore,
@@ -80,7 +83,15 @@ private class PackageService(
   private class StateCache private () {
     // volatile, reading threads don't need synchronization
     @volatile private var _state: State =
-      State(Set.empty, TemplateIdMap.Empty, TemplateIdMap.Empty, Map.empty, Map.empty, Map.empty)
+      State(
+        Set.empty,
+        TemplateIdMap.Empty,
+        TemplateIdMap.Empty,
+        Map.empty,
+        Map.empty,
+        Map.empty,
+        Map.empty,
+      )
 
     private def updateState(diff: PackageStore): Unit = synchronized {
       this._state = this._state.append(diff)
@@ -219,11 +230,11 @@ private class PackageService(
       f.map(_ => state.templateIdMap.all)
   }
 
-  // See the above comment
+  // See the above comment on resolveTemplateId
   def resolveChoiceArgType: ResolveChoiceArgType =
-    (x, y) => PackageService.resolveChoiceArgType(state.choiceTypeMap)(x, y)
+    (ctid, c) => PackageService.resolveChoiceArgType(state.choiceTypeMap)(ctid, c)
 
-  // See the above comment
+  // See the above comment on resolveTemplateId
   def resolveKeyType: ResolveKeyType =
     x => PackageService.resolveKey(state.keyTypeMap)(x)
 }
@@ -263,8 +274,7 @@ object PackageService {
 
   type ResolveChoiceArgType =
     (
-        TemplateId.RequiredPkg,
-        Option[ContractTypeId.Interface.RequiredPkg],
+        ContractTypeId.Unknown.RequiredPkg,
         Choice,
     ) => Error \/ iface.Type
 
@@ -292,7 +302,12 @@ object PackageService {
     val Empty: TemplateIdMap = ContractTypeIdMap(Set.empty, Map.empty)
   }
 
-  type ChoiceTypeMap = Map[(TemplateId.RequiredPkg, Choice), iface.Type]
+  private type ChoiceTypeMap = Map[(ContractTypeId.Unknown.Resolved, Choice), iface.Type]
+
+  private type TemplateInterfacesMap =
+    Map[ContractTypeId.Template.Resolved, NonEmpty[
+      Map[Choice, NonEmpty[Set[ContractTypeId.Interface.Resolved]]]
+    ]]
 
   type KeyTypeMap = Map[TemplateId.RequiredPkg, iface.Type]
 
@@ -357,8 +372,43 @@ object PackageService {
         InputError(s"Cannot resolve Template Key type, given: ${templateId.toString}")
       )
 
+  private def getTemplateInterfacesMap(packageStore: PackageStore): TemplateInterfacesMap =
+    packageStore.values.view.flatMap { signature =>
+      signature.typeDecls.view.collect(Function unlift { case (qn, td) =>
+        for {
+          iface.InterfaceType.Template(_, iface.DefTemplate(tChoices, _, _)) <- Some(td)
+          ifChoices <- NonEmpty from tChoices.resolvedChoices.collect(Function unlift {
+            case (cn, tcs) =>
+              val ifCs: Set[ContractTypeId.Interface.Resolved] = tcs.keySet
+                .collect { case Some(ifName) =>
+                  fromIdentifier(ContractTypeId.Interface, ifName)
+                }
+              NonEmpty from ifCs map ((Choice(cn: String), _))
+          })
+        } yield (
+          fromQualifiedName(ContractTypeId.Template, signature.packageId, qn),
+          ifChoices,
+        )
+      })
+    }.toMap
+
+  // assert that the given identifier is resolved
+  private[this] def fromIdentifier[CtId[T] <: ContractTypeId.Unknown[T]](
+      b: ContractTypeId.Like[CtId],
+      id: Ref.Identifier,
+  ): b.Resolved =
+    fromQualifiedName(b, id.packageId, id.qualifiedName)
+
+  // assert that the given identifier is resolved
+  private[this] def fromQualifiedName[CtId[T] <: ContractTypeId.Unknown[T]](
+      b: ContractTypeId.Like[CtId],
+      pkgId: Ref.PackageId,
+      qn: Ref.QualifiedName,
+  ): b.Resolved =
+    b(pkgId, qn.module.dottedName, qn.name.dottedName)
+
   // TODO (Leo): merge getChoiceTypeMap and getKeyTypeMap, so we build them in one iteration over all templates
-  def getChoiceTypeMap(packageStore: PackageStore): ChoiceTypeMap =
+  private def getChoiceTypeMap(packageStore: PackageStore): ChoiceTypeMap =
     packageStore.flatMap { case (_, interface) => getChoices(interface) }
 
   // TODO (#13923) probably needs to change signature

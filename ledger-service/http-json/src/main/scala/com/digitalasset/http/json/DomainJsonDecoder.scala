@@ -225,7 +225,7 @@ class DomainJsonDecoder(
       ledgerId: LedgerApiDomain.LedgerId,
   ): ET[domain.LfType] =
     templateId_(id, jwt, ledgerId).flatMap(it =>
-      either(resolveChoiceArgType(it, None /*TODO SC fix if used*/, choice).liftErr(JsonError))
+      either(resolveChoiceArgType(it /*TODO SC fix if used*/, choice).liftErr(JsonError))
     )
 
   def keyType(id: domain.TemplateId.OptionalPkg)(implicit

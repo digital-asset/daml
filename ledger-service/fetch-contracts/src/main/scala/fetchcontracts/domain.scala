@@ -103,6 +103,7 @@ package domain {
       type OptionalPkg = CtId[Option[String]]
       type RequiredPkg = CtId[String]
       type NoPkg = CtId[Unit]
+      type Resolved = ContractTypeId.Resolved[RequiredPkg]
 
       // treat the companion like a typeclass instance
       implicit def `ContractTypeId.Like companion`: this.type = this

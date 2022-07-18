@@ -510,7 +510,7 @@ package domain {
 
     def lfType(
         fa: F[_],
-        templateId: TemplateId.RequiredPkg,
+        templateId: ContractTypeId.Unknown.Resolved,
         f: PackageService.ResolveTemplateRecordType,
         g: PackageService.ResolveChoiceArgType,
         h: PackageService.ResolveKeyType,
@@ -576,7 +576,7 @@ package domain {
 
         override def lfType(
             fa: ExerciseCommand[_, domain.ContractLocator[_]],
-            templateId: TemplateId.RequiredPkg,
+            templateId: ContractTypeId.Unknown.Resolved,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
