@@ -6,7 +6,7 @@ locals {
     {
       name      = "ci-u1",
       disk_size = 200,
-      size      = 0,
+      size      = 30,
       docker    = <<EOF
 apt-get install -qy docker-ce docker-ce-cli containerd.io
 EOF
