@@ -57,7 +57,7 @@ private[lf] object Pretty {
           "Update failed due to fetch-by-key or exercise-by-key which did not find a contract with key"
         ) &
           prettyValue(false)(gk.key) & char('(') + prettyIdentifier(gk.templateId) + char(')')
-      case LocalContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
+      case ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
         text(
           "Update failed due to a fetch, lookup or exercise by key of contract not visible to the reading parties"
         ) & prettyContractId(coid) &
@@ -74,6 +74,8 @@ private[lf] object Pretty {
           ) + char('.')
       case DuplicateContractKey(key) =>
         text("Update failed due to a duplicate contract key") & prettyValue(false)(key.key)
+      case InconsistentContractKey(key) =>
+        text("Update failed due to an inconsistent contract key") & prettyValue(false)(key.key)
       case WronglyTypedContract(coid, expected, actual) =>
         text("Update failed due to wrongly typed contract id") & prettyContractId(coid) /
           text("Expected contract of type") & prettyTypeConName(expected) & text(
@@ -166,6 +168,18 @@ private[lf] object Pretty {
             case Some(interfaceId) => text("by interface") & prettyTypeConName(interfaceId)
           })
       )
+
+      case DisclosurePreprocessing(err) =>
+        err match {
+          case DisclosurePreprocessing.DuplicateContractIds(templateId) =>
+            text(
+              s"Found duplicated contract IDs in submitted disclosed contracts for template $templateId"
+            )
+          case DisclosurePreprocessing.DuplicateContractKeys(templateId) =>
+            text(
+              s"Found duplicated contract keys in submitted disclosed contracts for template $templateId"
+            )
+        }
     }
   }
 

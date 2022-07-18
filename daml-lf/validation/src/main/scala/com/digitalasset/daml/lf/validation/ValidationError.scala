@@ -39,6 +39,14 @@ object Context {
   val DefInterface = new ReferenceBuilder(language.Reference.Interface)
   val DefValue = new ReferenceBuilder(language.Reference.Value)
 
+  final class Reference2Builder private[Context] (
+      mkRef: (Identifier, Identifier) => language.Reference
+  ) {
+    def apply(id1: Identifier, id2: Identifier): Context.Reference =
+      Context.Reference(mkRef(id1, id2))
+  }
+
+  val DefInterfaceCoImplements = new Reference2Builder(language.Reference.InterfaceCoImplements)
 }
 
 sealed abstract class TemplatePart extends Product with Serializable
@@ -483,4 +491,30 @@ final case class ECircularInterfaceRequires(
 ) extends ValidationError {
   protected def prettyInternal: String =
     s"Circular interface requirement is not allowed: interface $iface requires itself."
+}
+
+final case class EConflictingImplementsCoImplements(
+    context: Context,
+    template: TypeConName,
+    iface: TypeConName,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"Template $template implementation of interface $iface conflicts with the implementation given by $iface"
+}
+
+final case class ENoViewFound(
+    context: Context,
+    iface: TypeConName,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"Interface $iface must specify a view method with name `_view`."
+}
+
+final case class EViewNotSerializable(
+    context: Context,
+    iface: TypeConName,
+    nonSerializableReturnType: Type,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"Interface $iface has a view method which returns a non-serializable type $nonSerializableReturnType"
 }

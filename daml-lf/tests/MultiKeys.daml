@@ -280,3 +280,27 @@ template KeyOperations
            E -> pure ()
          create (Keyed p)
          pure ()
+
+    choice RollbackExerciseCreateFetchByKey: ()
+      with  cid : ContractId Keyed
+      controller p
+      do
+        try do
+          exercise cid Archive
+          create (Keyed p)
+          throw E
+        catch E -> pure ()
+        fetchByKey @Keyed p
+        pure ()
+
+    choice RollbackExerciseCreateLookup: ()
+      with  cid : ContractId Keyed
+      controller p
+      do
+        try do
+          exercise cid Archive
+          create (Keyed p)
+          throw E
+        catch E -> pure ()
+        result <- lookupByKey @Keyed p
+        result === Some cid

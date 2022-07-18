@@ -702,6 +702,9 @@ object Ast {
       choices: Map[ChoiceName, GenTemplateChoice[E]],
       methods: Map[MethodName, InterfaceMethod],
       precond: E, // Interface creation precondition.
+      coImplements: Map[TypeConName, GenInterfaceCoImplements[
+        E
+      ]],
   )
 
   final class GenDefInterfaceCompanion[E] {
@@ -712,6 +715,7 @@ object Ast {
         choices: Iterable[GenTemplateChoice[E]],
         methods: Iterable[InterfaceMethod],
         precond: E,
+        coImplements: Iterable[GenInterfaceCoImplements[E]],
     ): GenDefInterface[E] = {
       val requiresSet = toSetWithoutDuplicate(
         requires,
@@ -725,7 +729,12 @@ object Ast {
         methods.view.map(c => c.name -> c),
         (name: MethodName) => PackageError(s"collision on interface method name $name"),
       )
-      GenDefInterface(requiresSet, param, choiceMap, methodMap, precond)
+      val coImplementsMap = toMapWithoutDuplicate(
+        coImplements.view.map(c => c.templateId -> c),
+        (templateId: TypeConName) =>
+          PackageError(s"repeated interface co-implementation ${templateId.toString}"),
+      )
+      GenDefInterface(requiresSet, param, choiceMap, methodMap, precond, coImplementsMap)
     }
 
     def apply(
@@ -734,8 +743,9 @@ object Ast {
         choices: Map[ChoiceName, GenTemplateChoice[E]],
         methods: Map[MethodName, InterfaceMethod],
         precond: E,
+        coImplements: Map[TypeConName, GenInterfaceCoImplements[E]],
     ): GenDefInterface[E] =
-      GenDefInterface(requires, param, choices, methods, precond)
+      GenDefInterface(requires, param, choices, methods, precond, coImplements)
 
     def unapply(arg: GenDefInterface[E]): Some[
       (
@@ -744,9 +754,10 @@ object Ast {
           Map[ChoiceName, GenTemplateChoice[E]],
           Map[MethodName, InterfaceMethod],
           E,
+          Map[TypeConName, GenInterfaceCoImplements[E]],
       )
     ] =
-      Some((arg.requires, arg.param, arg.choices, arg.methods, arg.precond))
+      Some((arg.requires, arg.param, arg.choices, arg.methods, arg.precond, arg.coImplements))
   }
 
   type DefInterface = GenDefInterface[Expr]
@@ -759,6 +770,64 @@ object Ast {
       name: MethodName,
       returnType: Type,
   )
+
+  final case class GenInterfaceCoImplements[E](
+      templateId: TypeConName,
+      methods: Map[MethodName, GenInterfaceCoImplementsMethod[E]],
+  )
+
+  final class GenInterfaceCoImplementsCompanion[E] private[Ast] {
+    @throws[PackageError]
+    def build(
+        templateId: TypeConName,
+        methods: Iterable[GenInterfaceCoImplementsMethod[E]],
+    ): GenInterfaceCoImplements[E] =
+      new GenInterfaceCoImplements[E](
+        templateId = templateId,
+        methods = toMapWithoutDuplicate(
+          methods.map(m => m.name -> m),
+          (name: MethodName) => PackageError(s"repeated method co-implementation $name"),
+        ),
+      )
+
+    def apply(
+        templateId: TypeConName,
+        methods: Map[MethodName, GenInterfaceCoImplementsMethod[E]],
+    ): GenInterfaceCoImplements[E] =
+      GenInterfaceCoImplements[E](templateId, methods)
+
+    def unapply(
+        arg: GenInterfaceCoImplements[E]
+    ): Some[(TypeConName, Map[MethodName, GenInterfaceCoImplementsMethod[E]])] =
+      Some((arg.templateId, arg.methods))
+  }
+
+  type InterfaceCoImplements = GenInterfaceCoImplements[Expr]
+  val InterfaceCoImplements = new GenInterfaceCoImplementsCompanion[Expr]
+
+  type InterfaceCoImplementsSignature = GenInterfaceCoImplements[Unit]
+  val InterfaceCoImplementsSignature = new GenInterfaceCoImplementsCompanion[Unit]
+
+  final case class GenInterfaceCoImplementsMethod[E](
+      name: MethodName,
+      value: E,
+  )
+
+  final class GenInterfaceCoImplementsMethodCompanion[E] {
+    def apply(methodName: MethodName, value: E): GenInterfaceCoImplementsMethod[E] =
+      GenInterfaceCoImplementsMethod[E](methodName, value)
+
+    def unapply(
+        arg: GenInterfaceCoImplementsMethod[E]
+    ): Some[(MethodName, E)] =
+      Some((arg.name, arg.value))
+  }
+
+  type InterfaceCoImplementsMethod = GenInterfaceCoImplementsMethod[Expr]
+  val InterfaceCoImplementsMethod = new GenInterfaceCoImplementsMethodCompanion[Expr]
+
+  type InterfaceCoImplementsMethodSignature = GenInterfaceCoImplementsMethod[Unit]
+  val InterfaceCoImplementsMethodSignature = new GenInterfaceCoImplementsMethodCompanion[Unit]
 
   final case class GenTemplate[E](
       param: ExprVarName, // Binder for template argument.

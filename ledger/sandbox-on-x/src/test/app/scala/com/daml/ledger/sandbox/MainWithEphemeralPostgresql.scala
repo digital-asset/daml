@@ -3,8 +3,6 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.ledger.resources.ResourceContext
-import com.daml.resources.ProgramResource
 import com.daml.testing.postgresql.PostgresAround
 
 object MainWithEphemeralPostgresql extends PostgresAround {
@@ -12,18 +10,17 @@ object MainWithEphemeralPostgresql extends PostgresAround {
     connectToPostgresqlServer()
     val database = createNewRandomDatabase()
     sys.addShutdownHook(disconnectFromPostgresqlServer())
-    new ProgramResource(
-      owner = CliSandboxOnXRunner.owner(
-        args = args,
-        manipulateConfig = originalConfig =>
-          originalConfig.copy(
-            participants = originalConfig.participants.map(p =>
-              p.copy(
-                serverJdbcUrl = database.url
-              )
+    System.setProperty("DEFAULT_PARTICIPANT_DATABASE_JDBC_URL", database.url)
+    CliSandboxOnXRunner.run(
+      args,
+      manipulateConfig = originalConfig =>
+        originalConfig.copy(
+          participants = originalConfig.participants.map(p =>
+            p.copy(
+              serverJdbcUrl = database.url
             )
-          ),
-      )
-    ).run(ResourceContext.apply)
+          )
+        ),
+    )
   }
 }

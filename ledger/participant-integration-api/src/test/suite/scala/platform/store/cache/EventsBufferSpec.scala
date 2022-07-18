@@ -7,8 +7,8 @@ import java.util.concurrent.Executors
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
 import com.daml.metrics.Metrics
-import com.daml.platform.store.cache.BufferSlice.{Inclusive, LastBufferChunkSuffix}
-import com.daml.platform.store.cache.EventsBuffer.{RequestOffBufferBounds, UnorderedException}
+import com.daml.platform.store.cache.EventsBuffer.BufferSlice.LastBufferChunkSuffix
+import com.daml.platform.store.cache.EventsBuffer.{BufferSlice, UnorderedException}
 import org.scalatest.Succeeded
 import org.scalatest.compatible.Assertion
 import org.scalatest.matchers.should.Matchers
@@ -62,31 +62,35 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
       }
     }
 
-    "range end with equal offset added" should {
-      "accept it" in withBuffer(3) { buffer =>
-        buffer.push(LastOffset, Int.MaxValue)
-        buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
-          bufferedStartExclusive = offset2,
-          slice = Vector(entry3, entry4),
+    "maxBufferSize is 0" should {
+      "not enqueue the update" in withBuffer(0) { buffer =>
+        buffer.push(offset5, 21)
+        buffer.slice(BeginOffset, offset5, IdentityFilter) shouldBe LastBufferChunkSuffix(
+          bufferedStartExclusive = offset5,
+          slice = Vector.empty,
         )
+        buffer._bufferLog shouldBe empty
       }
     }
 
-    "range end with greater offset added" should {
-      "not allow new element with lower offset" in withBuffer(3) { buffer =>
-        buffer.push(offset(15), Int.MaxValue)
-        intercept[UnorderedException[Int]] {
-          buffer.push(offset(14), 28)
-        }.getMessage shouldBe s"Elements appended to the buffer should have strictly increasing offsets: ${offset(15)} vs ${offset(14)}"
+    "maxBufferSize is -1" should {
+      "not enqueue the update" in withBuffer(-1) { buffer =>
+        buffer.push(offset5, 21)
+        buffer.slice(BeginOffset, offset5, IdentityFilter) shouldBe LastBufferChunkSuffix(
+          bufferedStartExclusive = offset5,
+          slice = Vector.empty,
+        )
+        buffer._bufferLog shouldBe empty
       }
     }
   }
 
   "slice" when {
     "filters" in withBuffer() { buffer =>
-      buffer.slice(offset1, offset4, Some(_).filterNot(_ == entry3._2)) shouldBe Inclusive(
-        Vector(entry2, entry4)
-      )
+      buffer.slice(offset1, offset4, Some(_).filterNot(_ == entry3._2)) shouldBe BufferSlice
+        .Inclusive(
+          Vector(entry2, entry4)
+        )
     }
 
     "called with startExclusive gteq than the buffer start" should {
@@ -105,7 +109,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
       "return an Inclusive chunk result if resulting slice is bigger than maxFetchSize" in withBuffer(
         maxFetchSize = 2
       ) { buffer =>
-        buffer.slice(offset1, offset4, IdentityFilter) shouldBe Inclusive(
+        buffer.slice(offset1, offset4, IdentityFilter) shouldBe BufferSlice.Inclusive(
           Vector(entry2, entry3)
         )
       }
@@ -114,8 +118,12 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     "called with endInclusive lteq startExclusive" should {
       "return an empty Inclusive slice if startExclusive is gteq buffer start" in withBuffer() {
         buffer =>
-          buffer.slice(offset1, offset1, IdentityFilter) shouldBe Inclusive(Vector.empty)
-          buffer.slice(offset2, offset1, IdentityFilter) shouldBe Inclusive(Vector.empty)
+          buffer.slice(offset1, offset1, IdentityFilter) shouldBe BufferSlice.Inclusive(
+            Vector.empty
+          )
+          buffer.slice(offset2, offset1, IdentityFilter) shouldBe BufferSlice.Inclusive(
+            Vector.empty
+          )
       }
       "return an empty LastBufferChunkSuffix slice if startExclusive is before buffer start" in withBuffer(
         maxBufferSize = 2
@@ -154,15 +162,6 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
           offset2,
           Vector(entry3, entry4),
         )
-      }
-    }
-
-    "called with endInclusive exceeding buffer range" should {
-      val (toBeBuffered, Vector((notBufferedOffset, _))) = bufferElements.splitAt(3)
-      "fail with exception" in withBuffer(elems = toBeBuffered) { buffer =>
-        intercept[RequestOffBufferBounds[Int]] {
-          buffer.slice(offset3, notBufferedOffset, IdentityFilter)
-        }.getMessage shouldBe s"Request endInclusive ($offset4) is higher than bufferEnd ($offset3)"
       }
     }
 
@@ -258,26 +257,20 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     }
   }
 
-  "binarySearch" should {
-    import EventsBuffer.SearchableByVector
-    val series = Vector(9, 10, 13).map(el => el -> el.toString)
+  "flush" should {
+    "remove all entries from the buffer" in withBuffer(3) { buffer =>
+      buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
+        bufferedStartExclusive = offset2,
+        slice = Vector(entry3, entry4),
+      )
 
-    "work on singleton series" in {
-      Vector(7).searchBy(5, identity) shouldBe InsertionPoint(0)
-      Vector(7).searchBy(7, identity) shouldBe Found(0)
-      Vector(7).searchBy(8, identity) shouldBe InsertionPoint(1)
-    }
+      buffer.flush()
 
-    "work on non-empty series" in {
-      series.searchBy(8, _._1) shouldBe InsertionPoint(0)
-      series.searchBy(10, _._1) shouldBe Found(1)
-      series.searchBy(12, _._1) shouldBe InsertionPoint(2)
-      series.searchBy(13, _._1) shouldBe Found(2)
-      series.searchBy(14, _._1) shouldBe InsertionPoint(3)
-    }
-
-    "work on empty series" in {
-      Vector.empty[Int].searchBy(1337, identity) shouldBe InsertionPoint(0)
+      buffer._bufferLog shouldBe Vector.empty[(Offset, Int)]
+      buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
+        bufferedStartExclusive = LastOffset,
+        slice = Vector.empty,
+      )
     }
   }
 
@@ -353,7 +346,6 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
       maxBufferSize,
       new Metrics(new MetricRegistry),
       "integers",
-      _ == Int.MaxValue, // Signifies ledger end
       maxBufferedChunkSize = maxFetchSize,
     )
     elems.foreach { case (offset, event) => buffer.push(offset, event) }

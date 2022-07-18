@@ -7,10 +7,10 @@ package speedy
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
 import com.daml.lf.ledger.{Authorize, FailedAuthorization}
-import com.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode
+import com.daml.lf.transaction.ContractKeyUniquenessMode
 import com.daml.lf.transaction.{
-  GlobalKey,
   ContractStateMachine,
+  GlobalKey,
   Node,
   NodeId,
   SubmittedTransaction,
@@ -38,7 +38,7 @@ private[lf] object PartialTransaction {
 
   sealed abstract class ContextInfo {
     val actionChildSeed: Int => crypto.Hash
-    def authorizers: Set[Party]
+    private[PartialTransaction] def authorizers: Set[Party]
   }
 
   sealed abstract class RootContextInfo extends ContextInfo {
@@ -172,32 +172,39 @@ private[lf] object PartialTransaction {
   }
 
   def initial(
-      contractKeyUniqueness: ContractByKeyUniquenessMode,
-      submissionTime: Time.Timestamp,
+      contractKeyUniqueness: ContractKeyUniquenessMode,
       initialSeeds: InitialSeeding,
       committers: Set[Party],
+      disclosedContracts: ImmArray[DisclosedContract],
   ) = PartialTransaction(
-    submissionTime = submissionTime,
     nextNodeIdx = 0,
     nodes = HashMap.empty,
     actionNodeSeeds = BackStack.empty,
     context = Context(initialSeeds, committers),
     aborted = None,
     contractState = new ContractStateMachine[NodeId](contractKeyUniqueness).initial,
-    localContracts = Set.empty,
     actionNodeLocations = BackStack.empty,
+    disclosedContracts = disclosedContracts,
   )
+
+  @throws[SError.SErrorDamlException]
+  private def assertRightKey[X](either: Either[Tx.InconsistentContractKey, X]): X =
+    either match {
+      case Right(value) =>
+        value
+      case Left(Tx.InconsistentContractKey(key)) =>
+        throw SError.SErrorDamlException(interpretation.Error.InconsistentContractKey(key))
+    }
 
   type NodeSeeds = ImmArray[(NodeId, crypto.Hash)]
 
-  sealed abstract class Result extends Product with Serializable
-  final case class CompleteTransaction(
+  private[lf] final case class Result(
       tx: SubmittedTransaction,
       locationInfo: Map[NodeId, Location],
       seeds: NodeSeeds,
       globalKeyMapping: Map[GlobalKey, KeyMapping],
-  ) extends Result
-  final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
+      disclosedContracts: ImmArray[DisclosedContract],
+  )
 }
 
 /** A transaction under construction
@@ -216,22 +223,24 @@ private[lf] object PartialTransaction {
   *  @param contractState summarizes the changes to the contract states caused by nodes up to now
   *  @param actionNodeLocations The optional locations of create/exercise/fetch/lookup nodes in pre-order.
   *   Used by 'locationInfo()', called by 'finish()' and 'finishIncomplete()'
+  *   @param disclosedContracts contracts that have been explicitly disclosed
   */
 private[speedy] case class PartialTransaction(
-    submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
     nodes: HashMap[NodeId, Node],
     actionNodeSeeds: BackStack[crypto.Hash],
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
     contractState: ContractStateMachine[NodeId]#State,
-    localContracts: Set[Value.ContractId],
     actionNodeLocations: BackStack[Option[Location]],
+    disclosedContracts: ImmArray[DisclosedContract],
 ) {
 
   import PartialTransaction._
 
-  def consumedBy: Map[Value.ContractId, NodeId] = contractState.activeState.consumedBy
+  def consumedByOrInactive(cid: Value.ContractId): Option[Either[NodeId, Unit]] = {
+    contractState.consumedByOrInactive(cid)
+  }
 
   def nodesToString: String =
     if (nodes.isEmpty) "<empty transaction>"
@@ -301,24 +310,28 @@ private[speedy] case class PartialTransaction(
     * - an error in case the transaction cannot be serialized using
     *   the `outputTransactionVersions`.
     */
-  def finish: PartialTransaction.Result =
+  private[speedy] def finish: PartialTransaction.Result =
     context.info match {
       case _: RootContextInfo if aborted.isEmpty =>
         val roots = context.children.toImmArray
         val tx0 = Tx(nodes, roots)
         val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
-        CompleteTransaction(
+        Result(
           SubmittedTransaction(TxVersion.asVersionedTransaction(tx)),
           locationInfo(),
           seeds.zip(actionNodeSeeds.toImmArray),
           contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
+          disclosedContracts,
         )
       case _ =>
-        IncompleteTransaction(this)
+        InternalError.runtimeException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          "ptx.finish: expected RootContextInfo",
+        )
     }
 
   // construct an IncompleteTransaction from the partial-transaction
-  def finishIncomplete: transaction.IncompleteTransaction = {
+  private[speedy] def finishIncomplete: transaction.IncompleteTransaction = {
 
     val ptx = unwind()
 
@@ -335,7 +348,7 @@ private[speedy] case class PartialTransaction(
     * contract instance.
     */
   def insertCreate(
-      auth: Authorize,
+      submissionTime: Time.Timestamp,
       templateId: Ref.Identifier,
       arg: Value,
       agreementText: String,
@@ -345,6 +358,7 @@ private[speedy] case class PartialTransaction(
       key: Option[Node.KeyWithMaintainers],
       version: TxVersion,
   ): (Value.ContractId, PartialTransaction) = {
+    val auth = Authorize(context.info.authorizers)
     val actionNodeSeed = context.nextActionChildSeed
     val discriminator =
       crypto.Hash.deriveContractDiscriminator(actionNodeSeed, submissionTime, stakeholders)
@@ -366,7 +380,6 @@ private[speedy] case class PartialTransaction(
       context = context.addActionChild(nid, version),
       nodes = nodes.updated(nid, createNode),
       actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
-      localContracts = localContracts + cid,
     ).noteAuthFails(nid, CheckAuthorization.authorizeCreate(optLocation, createNode), auth)
 
     val nextPtx = ptx.contractState.visitCreate(templateId, cid, key) match {
@@ -377,17 +390,19 @@ private[speedy] case class PartialTransaction(
   }
 
   def insertFetch(
-      auth: Authorize,
       coid: Value.ContractId,
       templateId: TypeConName,
       optLocation: Option[Location],
-      actingParties: Set[Party],
       signatories: Set[Party],
-      stakeholders: Set[Party],
+      observers: Set[Party],
       key: Option[Node.KeyWithMaintainers],
       byKey: Boolean,
       version: TxVersion,
   ): PartialTransaction = {
+    val stakeholders = observers union signatories
+    val contextActors = context.info.authorizers
+    val actingParties = contextActors intersect stakeholders
+    val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
     val node = Node.Fetch(
       coid,
@@ -399,21 +414,24 @@ private[speedy] case class PartialTransaction(
       normByKey(version, byKey),
       version,
     )
+    val newContractState = assertRightKey(
+      contractState.visitFetch(templateId, coid, key, byKey)
+    )
     mustBeActive(
       NameOf.qualifiedNameOfCurrentFunc,
       coid,
-      insertLeafNode(node, version, optLocation),
+      insertLeafNode(node, version, optLocation, newContractState),
     ).noteAuthFails(nid, CheckAuthorization.authorizeFetch(optLocation, node), auth)
   }
 
   def insertLookup(
-      auth: Authorize,
       templateId: TypeConName,
       optLocation: Option[Location],
       key: Node.KeyWithMaintainers,
       result: Option[Value.ContractId],
       version: TxVersion,
   ): PartialTransaction = {
+    val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
     val node = Node.LookupByKey(
       templateId,
@@ -421,7 +439,14 @@ private[speedy] case class PartialTransaction(
       result,
       version,
     )
-    insertLeafNode(node, version, optLocation)
+    val gkey = GlobalKey.assertBuild(templateId, key.key)
+    // This method is only called after we have already resolved the key in com.daml.lf.speedy.SBuiltin.SBUKeyBuiltin.execute
+    // so the current state's global key inputs must resolve the key.
+    val keyInput = contractState.globalKeyInputs(gkey)
+    val newContractState = assertRightKey(
+      contractState.visitLookup(templateId, key.key, keyInput.toKeyMapping, result)
+    )
+    insertLeafNode(node, version, optLocation, newContractState)
       .noteAuthFails(nid, CheckAuthorization.authorizeLookupByKey(optLocation, node), auth)
   }
 
@@ -429,7 +454,6 @@ private[speedy] case class PartialTransaction(
     * Must be closed by a `endExercises` or an `abortExercise`.
     */
   def beginExercises(
-      auth: Authorize,
       targetId: Value.ContractId,
       templateId: TypeConName,
       interfaceId: Option[TypeConName],
@@ -445,6 +469,7 @@ private[speedy] case class PartialTransaction(
       chosenValue: Value,
       version: TxVersion,
   ): PartialTransaction = {
+    val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
     val ec =
       ExercisesContextInfo(
@@ -465,6 +490,11 @@ private[speedy] case class PartialTransaction(
         version = version,
       )
 
+    // important: the semantics of Daml dictate that contracts are immediately
+    // inactive as soon as you exercise it. therefore, mark it as consumed now.
+    val newContractState = assertRightKey(
+      contractState.visitExercise(nid, templateId, targetId, mbKey, byKey, consuming)
+    )
     mustBeActive(
       NameOf.qualifiedNameOfCurrentFunc,
       targetId,
@@ -473,9 +503,7 @@ private[speedy] case class PartialTransaction(
         nextNodeIdx = nextNodeIdx + 1,
         context = Context(ec),
         actionNodeSeeds = actionNodeSeeds :+ ec.actionNodeSeed, // must push before children
-        // important: the semantics of Daml dictate that contracts are immediately
-        // inactive as soon as you exercise it. therefore, mark it as consumed now.
-        contractState = contractState.visitExercise(nid, templateId, targetId, mbKey, consuming),
+        contractState = newContractState,
       ),
     ).noteAuthFails(nid, CheckAuthorization.authorizeExercise(optLocation, makeExNode(ec)), auth)
   }
@@ -633,27 +661,28 @@ private[speedy] case class PartialTransaction(
   private def noteAbort(err: Tx.TransactionError): PartialTransaction =
     copy(aborted = Some(err))
 
-  /** `True` iff the given `ContractId` has been consumed already */
-  def isConsumed(coid: Value.ContractId): Boolean = consumedBy.contains(coid)
-
   /** Double check the execution of a step with the unconsumedness of a
     * `ContractId`.
     */
   private[this] def mustBeActive(
       loc: => String,
-      coid: Value.ContractId,
+      cid: Value.ContractId,
       f: => PartialTransaction,
   ): PartialTransaction =
-    if (consumedBy.isDefinedAt(coid))
-      InternalError.runtimeException(loc, "try to build a node using an inactive contract.")
+    if (consumedByOrInactive(cid).isDefined)
+      InternalError.runtimeException(
+        loc,
+        "try to build a node using a consumed or inactive contract.",
+      )
     else
       f
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
-  def insertLeafNode(
+  private[this] def insertLeafNode(
       node: Node.LeafOnlyAction,
       version: TxVersion,
       optLocation: Option[Location],
+      newContractState: ContractStateMachine[NodeId]#State,
   ): PartialTransaction = {
     val _ = version
     val nid = NodeId(nextNodeIdx)
@@ -662,6 +691,7 @@ private[speedy] case class PartialTransaction(
       nextNodeIdx = nextNodeIdx + 1,
       context = context.addActionChild(nid, version),
       nodes = nodes.updated(nid, node),
+      contractState = newContractState,
     )
   }
 
@@ -676,14 +706,4 @@ private[speedy] case class PartialTransaction(
     go(this)
   }
 
-}
-
-private[lf] sealed abstract class InitialSeeding extends Product with Serializable
-
-private[lf] object InitialSeeding {
-  // NoSeed may be used to initialize machines that are not intended to create transactions
-  // e.g. trigger and script runners, tests
-  final case object NoSeed extends InitialSeeding
-  final case class TransactionSeed(seed: crypto.Hash) extends InitialSeeding
-  final case class RootNodeSeeds(seeds: ImmArray[Option[crypto.Hash]]) extends InitialSeeding
 }

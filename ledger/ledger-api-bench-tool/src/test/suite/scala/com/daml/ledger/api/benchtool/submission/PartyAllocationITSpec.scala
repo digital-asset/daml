@@ -3,19 +3,16 @@
 
 package com.daml.ledger.api.benchtool.submission
 
-import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.api.benchtool.BenchtoolSandboxFixture
 import com.daml.ledger.api.benchtool.config.WorkflowConfig
-import com.daml.ledger.api.benchtool.metrics.MetricsManager.NoOpMetricsManager
-import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.platform.sandbox.fixture.SandboxFixture
 import org.scalatest.AppendedClues
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 class PartyAllocationITSpec
     extends AsyncFlatSpec
-    with SandboxFixture
+    with BenchtoolSandboxFixture
     with SuiteResourceManagementAroundAll
     with Matchers
     with AppendedClues {
@@ -35,19 +32,7 @@ class PartyAllocationITSpec
     )
 
     for {
-      ledgerApiServicesF <- LedgerApiServices.forChannel(
-        authorizationHelper = None,
-        channel = channel,
-      )
-      apiServices = ledgerApiServicesF("someUser")
-      submitter = CommandSubmitter(
-        names = new Names(),
-        benchtoolUserServices = apiServices,
-        adminServices = apiServices,
-        metricRegistry = new MetricRegistry,
-        metricsManager = NoOpMetricsManager(),
-        waitForSubmission = false,
-      )
+      (_, _, submitter) <- benchtoolFixture()
       parties1 <- submitter.prepare(config)
       parties2 <- submitter.prepare(config)
     } yield {

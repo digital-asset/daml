@@ -130,6 +130,7 @@ object UpdateToDbDto {
 
       case u: TransactionAccepted =>
         val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
+        // TODO LLP: Extract in common functionality together with duplicated code in [[InMemoryStateUpdater]]
         val preorderTraversal = u.transaction
           .foldInExecutionOrder(List.empty[(NodeId, Node)])(
             exerciseBegin = (acc, nid, node) => ((nid -> node) :: acc, ChildrenRecursion.DoRecurse),

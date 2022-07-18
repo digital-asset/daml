@@ -283,6 +283,12 @@ final class Metrics(val registry: MetricRegistry) {
         private val Prefix: MetricName = lapi.Prefix :+ "threadpool"
 
         val apiServices: MetricName = Prefix :+ "api-services"
+
+        object indexBypass {
+          private val Prefix: MetricName = threadpool.Prefix :+ "index_bypass"
+          val prepareUpdates: MetricName = Prefix :+ "prepare_updates"
+          val updateInMemoryState: MetricName = Prefix :+ "update_in_memory_state"
+        }
       }
 
       object streams {
@@ -292,6 +298,10 @@ final class Metrics(val registry: MetricRegistry) {
         val transactions: Counter = registry.counter(Prefix :+ "transactions_sent")
         val completions: Counter = registry.counter(Prefix :+ "completions_sent")
         val acs: Counter = registry.counter(Prefix :+ "acs_sent")
+
+        val activeName: MetricName = Prefix :+ "active"
+        val active: Counter = registry.counter(activeName)
+
       }
     }
 
@@ -360,6 +370,7 @@ final class Metrics(val registry: MetricRegistry) {
       val decodeStateEvent: Timer = registry.timer(Prefix :+ "decode_state_event")
 
       val updateCaches: Timer = registry.timer(Prefix :+ "update_caches")
+      val updateInMemoryState: Timer = registry.timer(Prefix :+ "update_in_memory_state")
 
       val decodeTransactionLogUpdate: Timer =
         registry.timer(Prefix :+ "transaction_log_update_decode")
@@ -521,7 +532,7 @@ final class Metrics(val registry: MetricRegistry) {
           "get_contract_state_events"
         )
         val loadStringInterningEntries: DatabaseMetrics = createDbMetrics(
-          "loadStringInterningEntries"
+          "load_string_interning_entries"
         )
 
         val meteringAggregator: DatabaseMetrics = createDbMetrics("metering_aggregator")
@@ -579,8 +590,6 @@ final class Metrics(val registry: MetricRegistry) {
         () => () => Instant.now().toEpochMilli - lastReceivedRecordTime.getValue,
         registry,
       )
-
-      val stateUpdateProcessing: Timer = registry.timer(Prefix :+ "processed_state_updates")
 
       val ledgerEndSequentialId = new VarGauge[Long](0L)
       registry.register(Prefix :+ "ledger_end_sequential_id", ledgerEndSequentialId)
@@ -676,6 +685,7 @@ final class Metrics(val registry: MetricRegistry) {
           val prune: Timer = registry.timer(Prefix :+ "prune")
 
           val sliceSize: Histogram = registry.histogram(Prefix :+ "slice_size")
+          val bufferSize: Histogram = registry.histogram(Prefix :+ "size")
         }
 
         case class BufferedReader(streamName: String) {
@@ -685,7 +695,6 @@ final class Metrics(val registry: MetricRegistry) {
           val fetchedBuffered: Counter = registry.counter(Prefix :+ "fetched_buffered")
           val fetchTimer: Timer = registry.timer(Prefix :+ "fetch")
           val conversion: Timer = registry.timer(Prefix :+ "conversion")
-          val bufferSize: Counter = registry.counter(Prefix :+ "buffer_size")
         }
 
         val getContractStateEventsChunkSize: Histogram =

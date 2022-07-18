@@ -377,14 +377,13 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   private[this] val (_, iouVA) = {
     import com.daml.lf.data.Numeric.Scale
-    import com.daml.lf.value.test.TypedValueGenerators.RNil
-    import shapeless.syntax.singleton._
-    val iouT = Symbol("issuer") ->> VA.party ::
-      Symbol("owner") ->> VA.party ::
-      Symbol("currency") ->> VA.text ::
-      Symbol("amount") ->> VA.numeric(Scale assertFromInt 10) ::
-      Symbol("observers") ->> VA.list(VA.party) ::
-      RNil
+    val iouT = ShRecord(
+      issuer = VA.party,
+      owner = VA.party,
+      currency = VA.text,
+      amount = VA.numeric(Scale assertFromInt 10),
+      observers = VA.list(VA.party),
+    )
     VA.record(Ref.Identifier assertFromString "none:Iou:Iou", iouT)
   }
 
@@ -409,12 +408,12 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def iouCreateCommand(
-      partyName: String,
+      partyName: domain.Party,
       amount: String = "999.9900000000",
       currency: String = "USD",
       meta: Option[domain.CommandMeta] = None,
   ): domain.CreateCommand[v.Record, OptionalPkg] = {
-    val party = Ref.Party assertFromString partyName
+    val party = Ref.Party assertFromString partyName.unwrap
     val arg = argToApi(iouVA)(
       ShRecord(
         issuer = party,
@@ -440,11 +439,12 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def iouCreateAndExerciseTransferCommand(
-      partyName: String,
+      partyName: domain.Party,
       amount: String = "999.9900000000",
       currency: String = "USD",
+      meta: Option[domain.CommandMeta] = None,
   ): domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] = {
-    val party = Ref.Party assertFromString partyName
+    val party = Ref.Party assertFromString partyName.unwrap
     val payload = argToApi(iouVA)(
       ShRecord(
         issuer = party,
@@ -464,7 +464,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       payload = payload,
       choice = choice,
       argument = boxedRecord(arg),
-      meta = None,
+      meta = meta,
     )
   }
 

@@ -101,7 +101,7 @@ private[speedy] object PhaseOne {
 }
 
 private[lf] final class PhaseOne(
-    interface: PackageInterface,
+    pkgInterface: PackageInterface,
     config: PhaseOne.Config,
 ) {
 
@@ -230,7 +230,7 @@ private[lf] final class PhaseOne(
               tapp.tycon,
               handleLookup(
                 NameOf.qualifiedNameOfCurrentFunc,
-                interface.lookupRecordFieldInfo(tapp.tycon, field),
+                pkgInterface.lookupRecordFieldInfo(tapp.tycon, field),
               ).index,
             )(record)
           )
@@ -276,13 +276,13 @@ private[lf] final class PhaseOne(
       case EEnumCon(tyCon, consName) =>
         val rank = handleLookup(
           NameOf.qualifiedNameOfCurrentFunc,
-          interface.lookupEnumConstructor(tyCon, consName),
+          pkgInterface.lookupEnumConstructor(tyCon, consName),
         )
         Return(SEValue(SEnum(tyCon, consName, rank)))
       case EVariantCon(tapp, variant, arg) =>
         val rank = handleLookup(
           NameOf.qualifiedNameOfCurrentFunc,
-          interface.lookupVariantConstructor(tapp.tycon, variant),
+          pkgInterface.lookupVariantConstructor(tapp.tycon, variant),
         ).rank
         compileExp(env, arg) { arg =>
           Return(SBVariantCon(tapp.tycon, variant, rank)(arg))
@@ -573,7 +573,7 @@ private[lf] final class PhaseOne(
     if (fields.length == 1) {
       val index = handleLookup(
         NameOf.qualifiedNameOfCurrentFunc,
-        interface.lookupRecordFieldInfo(tapp.tycon, fields.head),
+        pkgInterface.lookupRecordFieldInfo(tapp.tycon, fields.head),
       ).index
       compileExp(env, record) { record =>
         compileExp(env, updates.head) { update =>
@@ -585,7 +585,7 @@ private[lf] final class PhaseOne(
         fields.map(name =>
           handleLookup(
             NameOf.qualifiedNameOfCurrentFunc,
-            interface.lookupRecordFieldInfo(tapp.tycon, name),
+            pkgInterface.lookupRecordFieldInfo(tapp.tycon, name),
           ).index
         )
       compileExps(env, record :: updates) { exps =>
@@ -622,7 +622,7 @@ private[lf] final class PhaseOne(
       case CPVariant(tycon, variant, binder) =>
         val rank = handleLookup(
           NameOf.qualifiedNameOfCurrentFunc,
-          interface.lookupVariantConstructor(tycon, variant),
+          pkgInterface.lookupVariantConstructor(tycon, variant),
         ).rank
         compileExp(env.pushExprVar(binder), rhs) { rhs =>
           k(SCaseAlt(t.SCPVariant(tycon, variant, rank), rhs))
@@ -630,7 +630,7 @@ private[lf] final class PhaseOne(
       case CPEnum(tycon, constructor) =>
         val rank = handleLookup(
           NameOf.qualifiedNameOfCurrentFunc,
-          interface.lookupEnumConstructor(tycon, constructor),
+          pkgInterface.lookupEnumConstructor(tycon, constructor),
         )
         compileExp(env, rhs) { rhs =>
           k(SCaseAlt(t.SCPEnum(tycon, constructor, rank), rhs))

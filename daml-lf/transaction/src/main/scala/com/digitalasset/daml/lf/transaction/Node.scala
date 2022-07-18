@@ -39,6 +39,8 @@ object Node {
 
     def templateId: TypeConName
 
+    def keyOpt: Option[KeyWithMaintainers]
+
     final override protected def self: this.type = this
 
     /** Required authorizers (see ledger model); UNSAFE TO USE on fetch nodes of transaction with versions < 5
@@ -86,6 +88,8 @@ object Node {
 
     override def byKey: Boolean = false
 
+    override def keyOpt: Option[KeyWithMaintainers] = key
+
     override private[lf] def updateVersion(version: TransactionVersion): Node.Create =
       copy(version = version)
 
@@ -115,11 +119,13 @@ object Node {
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers],
-      override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
+      override val byKey: Boolean,
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyAction
       with ActionNodeInfo.Fetch {
+
+    override def keyOpt: Option[KeyWithMaintainers] = key
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.Fetch =
       copy(version = version)
@@ -154,11 +160,13 @@ object Node {
       children: ImmArray[NodeId],
       exerciseResult: Option[Value],
       key: Option[KeyWithMaintainers],
-      override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
+      override val byKey: Boolean,
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends Action
       with ActionNodeInfo.Exercise {
+
+    override def keyOpt: Option[KeyWithMaintainers] = key
 
     override private[lf] def updateVersion(
         version: TransactionVersion
@@ -195,6 +203,8 @@ object Node {
       override val version: TransactionVersion,
   ) extends LeafOnlyAction
       with ActionNodeInfo.LookupByKey {
+
+    override def keyOpt: Some[KeyWithMaintainers] = Some(key)
 
     override def mapCid(f: ContractId => ContractId): Node.LookupByKey =
       copy(key = key.mapCid(f), result = result.map(f))

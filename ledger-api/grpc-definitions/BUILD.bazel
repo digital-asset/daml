@@ -99,6 +99,7 @@ ledger_api_haskellpb_sources = [
     "CommandService.hs",
     "CommandSubmissionService.hs",
     "Commands.hs",
+    "ContractMetadata.hs",
     "Completion.hs",
     "Event.hs",
     "LedgerConfigurationService.hs",

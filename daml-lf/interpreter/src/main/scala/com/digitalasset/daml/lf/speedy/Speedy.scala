@@ -10,15 +10,14 @@ import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LookupError, Util => AstUtil}
-import com.daml.lf.ledger.Authorize
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SBuiltin.checkAborted
-import com.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode
 import com.daml.lf.transaction.{
   ContractKeyUniquenessMode,
+  GlobalKey,
   IncompleteTransaction,
   Node,
   TransactionVersion,
@@ -111,7 +110,7 @@ private[lf] object Speedy {
     private[speedy] val any = SValue.SAny(TTyCon(templateId), value)
   }
 
-  private[this] def enforceLimit(actual: Int, limit: Int, error: Int => IError.Limit.Error) =
+  private[this] def enforceLimit(actual: Int, limit: Int, error: Int => IError.Limit.Error): Unit =
     if (actual > limit)
       throw SError.SErrorDamlException(IError.Limit(error(limit)))
 
@@ -138,9 +137,9 @@ private[lf] object Speedy {
       else {
         SVisibleToStakeholders.fromSubmitters(committers, readAs)
       }
-    private[lf] def finish: PartialTransaction.Result = ptx.finish
-    private[lf] def ptxInternal: PartialTransaction = ptx // deprecated
+
     private[lf] def incompleteTransaction: IncompleteTransaction = ptx.finishIncomplete
+    private[lf] def nodesToString: String = ptx.nodesToString
 
     private[speedy] def updateCachedContracts(cid: V.ContractId, contract: CachedContract): Unit = {
       enforceLimit(
@@ -210,6 +209,62 @@ private[lf] object Speedy {
 
   private[lf] final case object OffLedger extends LedgerMode
 
+  private[speedy] case class DisclosureTable(
+      contractIdByKey: Map[crypto.Hash, SValue.SContractId],
+      contractById: Map[SValue.SContractId, (TypeConName, SValue)],
+  )
+
+  object DisclosureTable {
+    val Empty: DisclosureTable = DisclosureTable(Map.empty, Map.empty)
+  }
+
+  case class DisclosurePreprocessError(
+      err: String
+  ) extends RuntimeException(err, null, true, false)
+
+  @throws[SErrorDamlException]
+  private[speedy] def buildDiscTable(
+      disclosures: ImmArray[speedy.DisclosedContract]
+  ): DisclosureTable = {
+    val _ = disclosures
+    val acc = disclosures.foldLeft(
+      (
+        DisclosureTable.Empty
+      )
+    ) { case (table, d) =>
+      val arg = d.argument
+      val coid = d.contractId
+      // check for duplicate contract ids
+      table.contractById.get(coid) match {
+        case Some(_) =>
+          throw (SErrorDamlException(
+            IError.DisclosurePreprocessing(
+              IError.DisclosurePreprocessing.DuplicateContractIds(d.templateId)
+            )
+          ))
+        case None =>
+          val m1_prime = table.contractById + (coid -> (d.templateId, arg))
+          d.metadata.keyHash match {
+            case Some(hash) =>
+              // check for duplicate contract key hashes
+              table.contractIdByKey.get(hash) match {
+                case Some(_) =>
+                  throw (SErrorDamlException(
+                    IError.DisclosurePreprocessing(
+                      IError.DisclosurePreprocessing.DuplicateContractKeys(
+                        d.templateId
+                      )
+                    )
+                  ))
+                case None => DisclosureTable(table.contractIdByKey + (hash -> coid), m1_prime)
+              }
+            case None => table.copy(contractById = m1_prime)
+          }
+      }
+    }
+    acc
+  }
+
   /** The speedy CEK machine. */
   final class Machine(
       /* The control is what the machine should be evaluating. If this is not
@@ -256,12 +311,14 @@ private[lf] object Speedy {
          Triggers. It is safe to use on ledger for off ledger code but
          not the other way around.
        */
+      val submissionTime: Time.Timestamp,
       val ledgerMode: LedgerMode,
+      val disclosureTable: DisclosureTable,
   ) {
 
-    def tmplId2TxVersion(tmplId: TypeConName) =
+    def tmplId2TxVersion(tmplId: TypeConName): TransactionVersion =
       TransactionVersion.assignNodeVersion(
-        compiledPackages.interface.packageLanguageVersion(tmplId.packageId)
+        compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
       )
 
     def normValue(templateId: TypeConName, svalue: SValue): V =
@@ -364,7 +421,7 @@ private[lf] object Speedy {
         )
       }
       if (count > 0) {
-        env.subList(envSizeToBeRestored, env.size).clear
+        env.subList(envSizeToBeRestored, env.size).clear()
       }
     }
 
@@ -415,21 +472,12 @@ private[lf] object Speedy {
       */
     def stackTrace(): ImmArray[Location] = {
       val s = ImmArray.newBuilder[Location]
-      kontStack.forEach { k =>
-        k match {
-          case KLocation(_, location) => discard(s += location)
-          case _ => ()
-        }
+      kontStack.forEach {
+        case KLocation(_, location) => discard(s += location)
+        case _ => ()
       }
       s.result()
     }
-
-    private[lf] def contextActors: Set[Party] =
-      withOnLedger("ptx") { onLedger =>
-        onLedger.ptx.context.info.authorizers
-      }
-
-    private[lf] def auth: Authorize = Authorize(this.contextActors)
 
     /** Reuse an existing speedy machine to evaluate a new expression.
       *      Do not use if the machine is partway though an existing evaluation.
@@ -447,7 +495,7 @@ private[lf] object Speedy {
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
     def run(): SResult = {
       try {
-        // normal exit from this loop is when KFinished.execute throws SpeedyHungry
+        // normal exit from this loop is when KFinished.execute throws SpeedyComplete
         @tailrec
         def loop(): SResult = {
           if (enableInstrumentation) {
@@ -472,13 +520,15 @@ private[lf] object Speedy {
         loop()
       } catch {
         case SpeedyHungry(res: SResult) =>
-          if (enableInstrumentation) {
-            res match {
-              case _: SResultFinalValue => track.print()
-              case _ => ()
-            }
-          }
           res
+        case SpeedyComplete(value: SValue) =>
+          if (enableInstrumentation) track.print()
+          ledgerMode match {
+            case OffLedger => SResultFinal(value, None)
+            case onLedger: OnLedger =>
+              val ctx = onLedger.ptx.finish
+              SResultFinal(value, Some(ctx))
+          }
         case serr: SError =>
           SResultError(serr)
         case ex: RuntimeException =>
@@ -639,7 +689,7 @@ private[lf] object Speedy {
         actuals: util.ArrayList[SValue],
         args: Array[SExpr],
         n: Int,
-    ) = {
+    ): Unit = {
       var i = 1
       while (i < n) {
         val arg = args(n - i)
@@ -649,7 +699,7 @@ private[lf] object Speedy {
       this.ctrl = args(0)
     }
 
-    private[speedy] def print(count: Int) = {
+    private[speedy] def print(count: Int): Unit = {
       println(s"Step: $count")
       if (returnValue != null) {
         println("Control: null")
@@ -679,7 +729,7 @@ private[lf] object Speedy {
     // Raises an exception if missing a package.
     private[speedy] def importValue(typ0: Type, value0: V): Unit = {
 
-      def assertRight[X](x: Either[LookupError, X]) =
+      def assertRight[X](x: Either[LookupError, X]): X =
         x match {
           case Right(value) => value
           case Left(error) => throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, error.pretty)
@@ -733,9 +783,9 @@ private[lf] object Speedy {
 
                   // textMap
                   case V.ValueTextMap(entries) =>
-                    SValue.SMap(
+                    SValue.SMap.fromOrderedEntries(
                       isTextMap = true,
-                      entries = entries.iterator.map { case (k, v) =>
+                      entries = entries.toImmArray.toSeq.view.map { case (k, v) =>
                         SValue.SText(k) -> go(elemType, v)
                       },
                     )
@@ -746,9 +796,9 @@ private[lf] object Speedy {
                 value match {
                   // genMap
                   case V.ValueGenMap(entries) =>
-                    SValue.SMap(
+                    SValue.SMap.fromOrderedEntries(
                       isTextMap = false,
-                      entries = entries.iterator.map { case (k, v) =>
+                      entries = entries.toSeq.view.map { case (k, v) =>
                         go(keyType, k) -> go(valueType, v)
                       },
                     )
@@ -762,7 +812,7 @@ private[lf] object Speedy {
             value match {
               case V.ValueRecord(_, fields) =>
                 val lookupResult =
-                  assertRight(compiledPackages.interface.lookupDataRecord(tyCon))
+                  assertRight(compiledPackages.pkgInterface.lookupDataRecord(tyCon))
                 lazy val subst = lookupResult.subst(argTypes)
                 val values = (lookupResult.dataRecord.fields.iterator zip fields.iterator)
                   .map { case ((_, fieldType), (_, fieldValue)) =>
@@ -773,13 +823,15 @@ private[lf] object Speedy {
               case V.ValueVariant(_, constructor, value) =>
                 val info =
                   assertRight(
-                    compiledPackages.interface.lookupVariantConstructor(tyCon, constructor)
+                    compiledPackages.pkgInterface.lookupVariantConstructor(tyCon, constructor)
                   )
                 val valType = info.concreteType(argTypes)
                 SValue.SVariant(tyCon, constructor, info.rank, go(valType, value))
               case V.ValueEnum(_, constructor) =>
                 val rank =
-                  assertRight(compiledPackages.interface.lookupEnumConstructor(tyCon, constructor))
+                  assertRight(
+                    compiledPackages.pkgInterface.lookupEnumConstructor(tyCon, constructor)
+                  )
                 SValue.SEnum(tyCon, constructor, rank)
               case _ =>
                 typeMismatch
@@ -792,7 +844,11 @@ private[lf] object Speedy {
       returnValue = go(typ0, value0)
     }
 
-    def checkContractVisibility(onLedger: OnLedger, cid: V.ContractId, contract: CachedContract) = {
+    def checkContractVisibility(
+        onLedger: OnLedger,
+        cid: V.ContractId,
+        contract: CachedContract,
+    ): Unit = {
       onLedger.visibleToStakeholders(contract.stakeholders) match {
         case SVisibleToStakeholders.Visible => ()
         case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
@@ -807,6 +863,33 @@ private[lf] object Speedy {
           )
       }
     }
+
+    @throws[SError]
+    def checkKeyVisibility(
+        onLedger: OnLedger,
+        gkey: GlobalKey,
+        coid: V.ContractId,
+        handleKeyFound: (Machine, V.ContractId) => Unit,
+    ): Unit =
+      onLedger.cachedContracts.get(coid) match {
+        case Some(cachedContract) =>
+          val stakeholders = cachedContract.signatories union cachedContract.observers
+          onLedger.visibleToStakeholders(stakeholders) match {
+            case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
+              throw SErrorDamlException(
+                interpretation.Error
+                  .ContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
+              )
+            case _ =>
+              handleKeyFound(this, coid)
+          }
+        case None =>
+          throw SErrorCrash(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"contract ${coid.coid} not in cachedContracts",
+          )
+      }
+
   }
 
   object Machine {
@@ -817,6 +900,7 @@ private[lf] object Speedy {
     def newTraceLog: TraceLog = new RingBufferTraceLog(damlTraceLog, 100)
     def newWarningLog: WarningLog = new WarningLog(damlWarnings)
 
+    @throws[SErrorDamlException]
     def apply(
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
@@ -827,9 +911,10 @@ private[lf] object Speedy {
         validating: Boolean = false,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
-        contractKeyUniqueness: ContractByKeyUniquenessMode = ContractKeyUniquenessMode.On,
+        contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
         commitLocation: Option[Location] = None,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
+        disclosedContracts: ImmArray[speedy.DisclosedContract],
     )(implicit loggingContext: LoggingContext): Machine = {
       new Machine(
         ctrl = expr,
@@ -840,14 +925,15 @@ private[lf] object Speedy {
         envBase = 0,
         kontStack = initialKontStack(),
         lastLocation = None,
+        submissionTime = submissionTime,
         ledgerMode = OnLedger(
           validating = validating,
           ptx = PartialTransaction
             .initial(
               contractKeyUniqueness,
-              submissionTime,
               initialSeeding,
               committers,
+              disclosedContracts,
             ),
           committers = committers,
           readAs = readAs,
@@ -865,6 +951,7 @@ private[lf] object Speedy {
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
+        disclosureTable = buildDiscTable(disclosedContracts),
       )
     }
 
@@ -876,10 +963,18 @@ private[lf] object Speedy {
         transactionSeed: crypto.Hash,
         updateE: Expr,
         committers: Set[Party],
+        disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
     )(implicit loggingContext: LoggingContext): Machine = {
       val updateSE: SExpr = compiledPackages.compiler.unsafeCompile(updateE)
-      fromUpdateSExpr(compiledPackages, transactionSeed, updateSE, committers, limits)
+      fromUpdateSExpr(
+        compiledPackages,
+        transactionSeed,
+        updateSE,
+        committers,
+        disclosedContracts,
+        limits,
+      )
     }
 
     @throws[PackageNotFound]
@@ -890,6 +985,7 @@ private[lf] object Speedy {
         transactionSeed: crypto.Hash,
         updateSE: SExpr,
         committers: Set[Party],
+        disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
         traceLog: TraceLog = newTraceLog,
     )(implicit loggingContext: LoggingContext): Machine = {
@@ -902,38 +998,44 @@ private[lf] object Speedy {
         readAs = Set.empty,
         limits = limits,
         traceLog = traceLog,
+        disclosedContracts = disclosedContracts,
       )
     }
 
     @throws[PackageNotFound]
     @throws[CompilationError]
-    // Construct a machine for running scenario.
+    // Construct an off-ledger machine for running scenario.
     def fromScenarioSExpr(
         compiledPackages: CompiledPackages,
         scenario: SExpr,
+        disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
     )(implicit loggingContext: LoggingContext): Machine = Machine.fromPureSExpr(
       compiledPackages = compiledPackages,
       expr = SEApp(scenario, Array(SEValue.Token)),
+      disclosedContracts = disclosedContracts,
     )
 
     @throws[PackageNotFound]
     @throws[CompilationError]
-    // Construct a machine for running scenario.
+    // Construct an off-ledger machine for running scenario.
     def fromScenarioExpr(
         compiledPackages: CompiledPackages,
         scenario: Expr,
+        disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
     )(implicit loggingContext: LoggingContext): Machine =
       fromScenarioSExpr(
         compiledPackages = compiledPackages,
         scenario = compiledPackages.compiler.unsafeCompile(scenario),
+        disclosedContracts = disclosedContracts,
       )
 
     @throws[PackageNotFound]
     @throws[CompilationError]
-    // Construct a machine for evaluating an expression that is neither an update nor a scenario expression.
+    // Construct an off-ledger machine for evaluating an expression that is neither an update nor a scenario expression.
     def fromPureSExpr(
         compiledPackages: CompiledPackages,
         expr: SExpr,
+        disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
     )(implicit loggingContext: LoggingContext): Machine =
@@ -946,6 +1048,7 @@ private[lf] object Speedy {
         envBase = 0,
         kontStack = initialKontStack(),
         lastLocation = None,
+        submissionTime = Time.Timestamp.Epoch,
         ledgerMode = OffLedger,
         traceLog = traceLog,
         warningLog = warningLog,
@@ -954,16 +1057,22 @@ private[lf] object Speedy {
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
+        disclosureTable = buildDiscTable(disclosedContracts),
       )
 
     @throws[PackageNotFound]
     @throws[CompilationError]
-    // Construct a machine for evaluating an expression that is neither an update nor a scenario expression.
+    // Construct an off-ledger machine for evaluating an expression that is neither an update nor a scenario expression.
     def fromPureExpr(
         compiledPackages: CompiledPackages,
         expr: Expr,
+        disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
     )(implicit loggingContext: LoggingContext): Machine =
-      fromPureSExpr(compiledPackages, compiledPackages.compiler.unsafeCompile(expr))
+      fromPureSExpr(
+        compiledPackages,
+        compiledPackages.compiler.unsafeCompile(expr),
+        disclosedContracts,
+      )
 
   }
 
@@ -998,8 +1107,8 @@ private[lf] object Speedy {
 
   /** Final continuation; machine has computed final value */
   private[speedy] final case object KFinished extends Kont {
-    def execute(v: SValue) = {
-      throw SpeedyHungry(SResultFinalValue(v))
+    def execute(v: SValue): Unit = {
+      throw SpeedyComplete(v)
     }
   }
 
@@ -1011,7 +1120,7 @@ private[lf] object Speedy {
     private[this] val frame = machine.frame
     private[this] val actuals = machine.actuals
 
-    def execute(vfun: SValue) = {
+    def execute(vfun: SValue): Unit = {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       machine.enterApplication(vfun, newArgs)
@@ -1029,7 +1138,7 @@ private[lf] object Speedy {
     private[this] val frame = machine.frame
     private[this] val actuals = machine.actuals
 
-    def execute(vfun: SValue) = {
+    def execute(vfun: SValue): Unit = {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       machine.executeApplication(vfun, newArgs)
@@ -1046,7 +1155,7 @@ private[lf] object Speedy {
 
     private[this] val savedBase = machine.markBase()
 
-    def execute(v: SValue) = {
+    def execute(v: SValue): Unit = {
       discard[Boolean](actuals.add(v))
       // Set frame/actuals to allow access to the function arguments and closure free-varables.
       machine.restoreBase(savedBase)
@@ -1072,7 +1181,7 @@ private[lf] object Speedy {
 
     private[this] val savedBase = machine.markBase()
 
-    def execute(v: SValue) = {
+    def execute(v: SValue): Unit = {
       discard[Boolean](actuals.add(v))
       // A builtin has no free-vars, so we set the frame to null.
       machine.restoreBase(savedBase)
@@ -1089,7 +1198,7 @@ private[lf] object Speedy {
       arity: Int,
   ) extends Kont {
 
-    def execute(v: SValue) = {
+    def execute(v: SValue): Unit = {
       discard[Boolean](actuals.add(v))
       machine.returnValue = SValue.SPAP(prim, actuals, arity)
     }
@@ -1183,7 +1292,7 @@ private[lf] object Speedy {
     private[this] val frame = machine.frame
     private[this] val actuals = machine.actuals
 
-    def execute(v: SValue) = {
+    def execute(v: SValue): Unit = {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       executeMatchAlts(machine, alts, v)
@@ -1207,7 +1316,7 @@ private[lf] object Speedy {
     private[this] val frame = machine.frame
     private[this] val actuals = machine.actuals
 
-    def execute(v: SValue) = {
+    def execute(v: SValue): Unit = {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       discard[Boolean](to.add(v))
@@ -1225,7 +1334,7 @@ private[lf] object Speedy {
     private[this] val frame = machine.frame
     private[this] val actuals = machine.actuals
 
-    def execute(acc: SValue) = {
+    def execute(acc: SValue): Unit = {
       list.pop match {
         case None =>
           machine.returnValue = acc
@@ -1251,7 +1360,7 @@ private[lf] object Speedy {
     private[this] val frame = machine.frame
     private[this] val actuals = machine.actuals
 
-    def execute(acc: SValue) = {
+    def execute(acc: SValue): Unit = {
       if (lastIndex > 0) {
         machine.restoreFrameAndActuals(frame, actuals)
         val currentIndex = lastIndex - 1
@@ -1279,7 +1388,7 @@ private[lf] object Speedy {
     private[this] val frame = machine.frame
     private[this] val actuals = machine.actuals
 
-    def execute(closure: SValue) = {
+    def execute(closure: SValue): Unit = {
       revClosures = closure +: revClosures
       list.pop match {
         case None =>
@@ -1305,7 +1414,7 @@ private[lf] object Speedy {
     private[this] val frame = machine.frame
     private[this] val actuals = machine.actuals
 
-    def execute(acc: SValue) = {
+    def execute(acc: SValue): Unit = {
       revClosures.pop match {
         case None =>
           machine.returnValue = acc
@@ -1346,11 +1455,26 @@ private[lf] object Speedy {
     def execute(sv: SValue): Unit = {
       machine.withOnLedger("KCacheContract") { onLedger =>
         val cached = SBuiltin.extractCachedContract(machine, sv)
+        // TODO (drsk) disable this check for disclosed contracts.
+        // https://github.com/digital-asset/daml/issues/14168
         machine.checkContractVisibility(onLedger, cid, cached)
         onLedger.addGlobalContract(cid, cached)
         machine.returnValue = cached.any
       }
     }
+
+  }
+
+  private[speedy] final case class KCheckKeyVisibility(
+      machine: Machine,
+      gKey: GlobalKey,
+      cid: V.ContractId,
+      handleKeyFound: (Machine, V.ContractId) => Unit,
+  ) extends Kont {
+    def execute(sv: SValue): Unit =
+      machine.withOnLedger("KCheckKeyVisibitiy")(
+        machine.checkKeyVisibility(_, gKey, cid, handleKeyFound)
+      )
   }
 
   /** KCloseExercise. Marks an open-exercise which needs to be closed. Either:
@@ -1359,7 +1483,7 @@ private[lf] object Speedy {
     */
   private[speedy] final case class KCloseExercise(machine: Machine) extends Kont {
 
-    def execute(exerciseResult: SValue) = {
+    def execute(exerciseResult: SValue): Unit = {
       machine.withOnLedger("KCloseExercise") { onLedger =>
         onLedger.ptx = onLedger.ptx.endExercises(exerciseResult.toNormalizedValue)
         checkAborted(onLedger.ptx)
@@ -1384,12 +1508,12 @@ private[lf] object Speedy {
     private[this] val actuals = machine.actuals
 
     // we must restore when catching a throw, or for normal execution
-    def restore() = {
+    def restore(): Unit = {
       machine.restoreBase(savedBase)
       machine.restoreFrameAndActuals(frame, actuals)
     }
 
-    def execute(v: SValue) = {
+    def execute(v: SValue): Unit = {
       restore()
       machine.withOnLedger("KTryCatchHandler") { onLedger =>
         onLedger.ptx = onLedger.ptx.endTry
@@ -1408,7 +1532,7 @@ private[lf] object Speedy {
     def abort[E](): E =
       throw SErrorDamlException(IError.ChoiceGuardFailed(coid, templateId, choiceName, byInterface))
 
-    def execute(v: SValue) = {
+    def execute(v: SValue): Unit = {
       v match {
         case SValue.SBool(b) =>
           if (b)
@@ -1478,7 +1602,7 @@ private[lf] object Speedy {
 
   /** A location frame stores a location annotation found in the AST. */
   final case class KLocation(machine: Machine, location: Location) extends Kont {
-    def execute(v: SValue) = {
+    def execute(v: SValue): Unit = {
       machine.returnValue = v
     }
   }
@@ -1489,7 +1613,7 @@ private[lf] object Speedy {
     */
   private[speedy] final case class KLabelClosure(machine: Machine, label: Profile.Label)
       extends Kont {
-    def execute(v: SValue) = {
+    def execute(v: SValue): Unit = {
       v match {
         case SValue.SPAP(SValue.PClosure(_, expr, closure), args, arity) =>
           machine.returnValue = SValue.SPAP(SValue.PClosure(label, expr, closure), args, arity)
@@ -1504,25 +1628,28 @@ private[lf] object Speedy {
     */
   private[speedy] final case class KLeaveClosure(machine: Machine, label: Profile.Label)
       extends Kont {
-    def execute(v: SValue) = {
+    def execute(v: SValue): Unit = {
       machine.profile.addCloseEvent(label)
       machine.returnValue = v
     }
   }
 
   private[speedy] final case class KPreventException(machine: Machine) extends Kont {
-    def execute(v: SValue) =
+    def execute(v: SValue): Unit =
       machine.returnValue = v
   }
 
   /** Internal exception thrown when a continuation result needs to be returned.
-    *    Or machine execution has reached a final value.
     */
   private[speedy] final case class SpeedyHungry(result: SResult)
       extends RuntimeException
-      with NoStackTrace {
-    override def toString = s"SpeedyHungry($result)"
-  }
+      with NoStackTrace
+
+  /** Internal exception thrown when execution has reached a final value.
+    */
+  private[speedy] final case class SpeedyComplete(value: SValue)
+      extends RuntimeException
+      with NoStackTrace
 
   private[speedy] def deriveTransactionSeed(
       submissionSeed: crypto.Hash,

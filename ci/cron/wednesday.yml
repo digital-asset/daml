@@ -29,51 +29,8 @@ jobs:
       eval "$(./dev-env/bin/dade-assist)"
       source "$(bash_lib)"
 
-      AUTH="$(get_gh_auth_header)"
-
       BASE_SHA=$(git rev-parse HEAD)
-      az extension add --name azure-devops
-      echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
 
-      reset() {
-          git checkout -f $BASE_SHA
-          git reset --hard
-      }
-      open_pr() {
-          local branch title body out pr_number
-          branch=$1
-          title="$2"
-          body="$3"
-          out="${4:-}"
-          git branch -D $branch || true
-          git checkout -b $branch
-          git add .
-          git -c user.name="Azure Pipelines Daml Build" \
-              -c user.email="support@digitalasset.com" \
-              commit \
-              -m "$(printf "$title\n\n$body\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"
-          git push origin $branch:$branch
-          pr_number=$(jq -n \
-                         --arg branch "$branch" \
-                         --arg title "$title" \
-                         --arg body "$(printf "$body")" \
-                         '{"title": $title, "head": $branch, "base": "main", "body": $body}' \
-                    | curl -H "Content-Type: application/json" \
-                           -H "$AUTH" \
-                           --silent \
-                           --location \
-                           -d @- \
-                           https://api.github.com/repos/digital-asset/daml/pulls \
-                    | jq '.number')
-          az pipelines build queue \
-              --branch $branch \
-              --definition-name "PRs" \
-              --org "https://dev.azure.com/digitalasset" \
-              --project daml
-          if [ -n "$out" ]; then
-              echo $pr_number > $out
-          fi
-      }
       rotate() {
           local tmp next
           tmp=$(mktemp)
@@ -84,8 +41,13 @@ jobs:
       }
 
       NEXT_GH=$(next_in_rotation_github)
+      BRANCH="rotate-after-release-$(date -I)"
+      TITLE="rotate release duty after $(date -I)"
+      BODY="@$NEXT_GH is taking care of [testing](https://github.com/digital-asset/daml/blob/main/release/RELEASE.md) today's release, so they get pushed back to the end of the line.\n\nPlease do not merge this before the release is fully tested."
+      PR_NUMBER=$(mktemp)
 
       rotate
-      open_pr "rotate-after-release-$(date -I)" \
-              "rotate release duty after $(date -I)" \
-              "@$NEXT_GH is taking care of [testing](https://github.com/digital-asset/daml/blob/main/release/RELEASE.md) today's release, so they get pushed back to the end of the line.\n\nPlease do not merge this before the release is fully tested."
+      git add .
+      open_pr "$BRANCH" "$TITLE" "$BODY" "$PR_NUMBER"
+      trigger_azure $(System.AccessToken) "PRs" --branch $BRANCH
+      request_pr_review $(cat "$PR_NUMBER") "$NEXT_GH"

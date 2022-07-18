@@ -76,7 +76,7 @@ public class ExercisedEvent implements TreeEvent {
   }
 
   public boolean hasInterfaceId() {
-    return interfaceId == null;
+    return interfaceId != null;
   }
 
   public Identifier getInterfaceId() {
@@ -199,8 +199,8 @@ public class ExercisedEvent implements TreeEvent {
         exercisedEvent.getEventId(),
         Identifier.fromProto(exercisedEvent.getTemplateId()),
         (exercisedEvent.hasInterfaceId()
-            ? null
-            : Identifier.fromProto(exercisedEvent.getInterfaceId())),
+            ? Identifier.fromProto(exercisedEvent.getInterfaceId())
+            : null),
         exercisedEvent.getContractId(),
         exercisedEvent.getChoice(),
         Value.fromProto(exercisedEvent.getChoiceArgument()),

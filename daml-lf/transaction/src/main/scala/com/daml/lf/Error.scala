@@ -45,7 +45,7 @@ object Error {
       consumedBy: NodeId,
   ) extends Error
 
-  final case class LocalContractKeyNotVisible(
+  final case class ContractKeyNotVisible(
       coid: ContractId,
       key: GlobalKey,
       actAs: Set[Party],
@@ -64,6 +64,14 @@ object Error {
     * for more details.
     */
   final case class DuplicateContractKey(
+      key: GlobalKey
+  ) extends Error
+
+  /** The ledger provided an inconsistent view of a contract key.
+    * See com.daml.lf.transaction.Transaction.DuplicateContractKey
+    * for more details.
+    */
+  final case class InconsistentContractKey(
       key: GlobalKey
   ) extends Error
 
@@ -137,6 +145,13 @@ object Error {
       byInterface: Option[TypeConName],
   ) extends Error
 
+  final case class DisclosurePreprocessing(error: DisclosurePreprocessing.Error) extends Error
+  object DisclosurePreprocessing {
+    sealed abstract class Error extends Serializable with Product
+    final case class DuplicateContractIds(templateId: TypeConName) extends Error
+    final case class DuplicateContractKeys(templateId: TypeConName) extends Error
+  }
+
   final case class Limit(error: Limit.Error) extends Error
 
   object Limit {
@@ -180,7 +195,6 @@ object Error {
     ) extends Error
 
     final case class TransactionInputContracts(limit: Int) extends Error
-
   }
 
 }

@@ -245,7 +245,8 @@ object InterfaceReader {
       astIf: Ast.DefInterface,
   ): InterfaceReaderError \/ (QualifiedName, DefInterface.FWT) = for {
     choices <- astIf.choices.traverse(visitChoice(name, _))
-  } yield name -> iface.DefInterface(choices)
+    // TODO #14081 pass actual retroactive implements instead of empty
+  } yield name -> iface.DefInterface(choices, Set.empty)
 
   private[lf] def toIfaceType(
       ctx: QualifiedName,

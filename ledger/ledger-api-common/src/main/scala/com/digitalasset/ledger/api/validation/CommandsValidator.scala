@@ -70,6 +70,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
         commands.deduplicationPeriod,
         maxDeduplicationDuration,
       )
+      _ <- validateExplicitDisclosure(commands)
     } yield domain.Commands(
       ledgerId = ledgerId,
       workflowId = workflowId,
@@ -268,6 +269,21 @@ final class CommandsValidator(ledgerId: LedgerId) {
             )
       }
     }
+
+  private def validateExplicitDisclosure(commands: ProtoCommands)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Unit] =
+    Either.cond(
+      // TODO Explicit disclosure: Enrich condition with feature flag check (when introduced)
+      commands.disclosedContracts.isEmpty,
+      (),
+      LedgerApiErrors.RequestValidation.InvalidField
+        .Reject(
+          "disclosed_contracts",
+          "feature in development: disclosed_contracts should not be set",
+        )
+        .asGrpcError,
+    )
 }
 
 object CommandsValidator {

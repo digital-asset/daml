@@ -140,6 +140,21 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
 
+    case class RejectWithContractKeyArg(
+        override val cause: String,
+        key: GlobalKey,
+    )(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = cause
+        ) {
+      override def resources: Seq[(ErrorResource, String)] = Seq(
+        // TODO error codes: Reconsider the transport format for the contract key.
+        //                   If the key is big, it can force chunking other resources.
+        (ErrorResource.ContractKey, key.toString())
+      )
+    }
+
     case class Reject(reason: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(cause = reason)

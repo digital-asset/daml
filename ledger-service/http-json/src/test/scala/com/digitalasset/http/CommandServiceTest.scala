@@ -50,6 +50,8 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside {
                 None,
                 actAs = Some(domain.Party subst specialActAs),
                 readAs = Some(domain.Party subst specialReadAs),
+                submissionId = None,
+                deduplicationPeriod = None,
               )
             )
           ),

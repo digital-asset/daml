@@ -94,6 +94,7 @@ const spawnJvm = (
 beforeAll(async () => {
   console.log("build-and-lint-1.0.0 (" + buildAndLint.packageId + ") loaded");
   sandboxProcess = spawnJvm(getEnv("SANDBOX"), [
+    "run-legacy-cli-config",
     "--daml-lf-dev-mode-unsafe",
     "--contract-id-seeding=testing-weak",
     "--enable-user-management=true",

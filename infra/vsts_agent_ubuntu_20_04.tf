@@ -6,12 +6,12 @@ locals {
     {
       name      = "ci-u1",
       disk_size = 200,
-      size      = 30,
+      size      = 0,
     },
     {
       name      = "ci-u2",
       disk_size = 400,
-      size      = 0,
+      size      = 30,
     },
   ]
 }
@@ -62,9 +62,7 @@ resource "google_compute_instance_template" "vsts-agent-ubuntu_20_04" {
   disk {
     disk_size_gb = local.ubuntu[count.index].disk_size
     disk_type    = "pd-ssd"
-    #TODO: when the image gets fixed, go back to auto-upgrading
-    #source_image = "ubuntu-os-cloud/ubuntu-2004-lts"
-    source_image = "ubuntu-os-cloud/ubuntu-2004-focal-v20220606"
+    source_image = "ubuntu-os-cloud/ubuntu-2004-lts"
   }
 
   lifecycle {

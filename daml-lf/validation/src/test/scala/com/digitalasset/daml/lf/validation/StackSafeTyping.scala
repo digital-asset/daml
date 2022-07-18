@@ -181,9 +181,9 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
     def typecheck(expr: Expr): Option[ValidationError] = {
       val langVersion: LanguageVersion = LanguageVersion.default
       val signatures: PartialFunction[PackageId, PackageSignature] = Map.empty
-      val interface = new PackageInterface(signatures)
+      val pkgInterface = new PackageInterface(signatures)
       val ctx: Context = Context.None
-      val env = Typing.Env(langVersion, interface, ctx)
+      val env = Typing.Env(langVersion, pkgInterface, ctx)
       try {
         val _: Type = env.typeOf(expr)
         None

@@ -11,7 +11,7 @@ import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref
-import com.daml.lf.value.test.TypedValueGenerators.{RNil, ValueAddend => VA}
+import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
 import com.daml.scalautil.Statement.discard
 import com.daml.http.util.TestUtil.writeToFile
 import org.scalacheck.Gen
@@ -165,11 +165,7 @@ abstract class HttpServiceIntegrationTest
   }
 
   private[this] val (_, ciouVA) = {
-    import shapeless.syntax.singleton._
-    val iouT = Symbol("issuer") ->> VA.party ::
-      Symbol("owner") ->> VA.party ::
-      Symbol("amount") ->> VA.text ::
-      RNil
+    val iouT = ShRecord(issuer = VA.party, owner = VA.party, amount = VA.text)
     VA.record(Ref.Identifier assertFromString "none:Iou:Iou", iouT)
   }
 

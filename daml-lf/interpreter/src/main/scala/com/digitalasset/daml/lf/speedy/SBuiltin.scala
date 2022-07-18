@@ -10,7 +10,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, TemplateOrInterface}
 import com.daml.lf.speedy.ArrayList.Implicits._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -21,11 +21,10 @@ import com.daml.lf.speedy.{SExpr => runTime}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.SValue.{SValue => SV}
 import com.daml.lf.transaction.{
+  ContractStateMachine,
   GlobalKey,
   GlobalKeyWithMaintainers,
-  ContractStateMachine,
   Node,
-  Versioned,
   Transaction => Tx,
 }
 import com.daml.lf.value.{Value => V}
@@ -942,10 +941,9 @@ private[lf] object SBuiltin {
             IE.CreateEmptyContractKeyMaintainers(cached.templateId, createArgValue, key)
           )
       }
-      val auth = machine.auth
       val (coid, newPtx) = onLedger.ptx
         .insertCreate(
-          auth = auth,
+          submissionTime = machine.submissionTime,
           templateId = cached.templateId,
           arg = createArgValue,
           agreementText = agreement,
@@ -1001,11 +999,9 @@ private[lf] object SBuiltin {
       val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
       onLedger.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
       val mbKey = cached.key
-      val auth = machine.auth
 
       onLedger.ptx = onLedger.ptx
         .beginExercises(
-          auth = auth,
           targetId = coid,
           templateId = templateId,
           interfaceId = interfaceId,
@@ -1037,12 +1033,34 @@ private[lf] object SBuiltin {
     }
   }
 
+  private[this] def getImplementsOrCoImplements(
+      machine: Machine,
+      templateId: TypeConName,
+      interfaceId: TypeConName,
+  ): Option[TemplateOrInterface[ImplementsDefRef, CoImplementsDefRef]] = {
+    val implements = ImplementsDefRef(templateId, interfaceId)
+    val coImplements = CoImplementsDefRef(templateId, interfaceId)
+    if (machine.compiledPackages.getDefinition(implements).nonEmpty)
+      Some(TemplateOrInterface.Template(implements))
+    else if (machine.compiledPackages.getDefinition(coImplements).nonEmpty)
+      Some(TemplateOrInterface.Interface(coImplements))
+    else
+      None
+  }
+
+  private[this] def implementsOrCoImplements(
+      machine: Machine,
+      templateId: TypeConName,
+      interfaceId: TypeConName,
+  ): Boolean =
+    getImplementsOrCoImplements(machine, templateId, interfaceId).nonEmpty
+
   // SBCastAnyInterface: ContractId ifaceId -> Any -> ifaceId
   final case class SBCastAnyInterface(ifaceId: TypeConName) extends SBuiltin(2) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       def coid = getSContractId(args, 0)
       val (actualTmplId, _) = getSAnyContract(args, 1)
-      if (machine.compiledPackages.getDefinition(ImplementsDefRef(actualTmplId, ifaceId)).isEmpty)
+      if (!implementsOrCoImplements(machine, actualTmplId, ifaceId))
         throw SErrorDamlException(IE.ContractDoesNotImplementInterface(ifaceId, coid, actualTmplId))
       machine.returnValue = args.get(1)
     }
@@ -1062,31 +1080,46 @@ private[lf] object SBuiltin {
       val coid = getSContractId(args, 0)
       onLedger.cachedContracts.get(coid) match {
         case Some(cached) =>
-          onLedger.ptx.consumedBy
-            .get(coid)
-            .foreach(nid =>
+          onLedger.ptx.consumedByOrInactive(coid) match {
+            case Some(Left(nid)) =>
               throw SErrorDamlException(IE.ContractNotActive(coid, cached.templateId, nid))
-            )
+
+            case Some(Right(())) =>
+              throw SErrorDamlException(IE.ContractNotFound(coid))
+
+            case None => ()
+          }
           machine.returnValue = cached.any
+
         case None =>
-          throw SpeedyHungry(
-            SResultNeedContract(
-              coid,
-              onLedger.committers,
-              { case Versioned(_, V.ContractInstance(actualTmplId, arg, _)) =>
-                machine.pushKont(KCacheContract(machine, coid))
-                machine.ctrl = SEApp(
-                  // The call to ToCachedContractDefRef(actualTmplId) will query package
-                  // of actualTmplId if not know.
-                  SEVal(ToCachedContractDefRef(actualTmplId)),
-                  Array(
-                    SEImportValue(Ast.TTyCon(actualTmplId), arg),
-                    SEValue(args.get(1)),
-                  ),
-                )
-              },
+          def continue = { case V.ContractInstance(actualTmplId, arg, _) =>
+            machine.pushKont(KCacheContract(machine, coid))
+            machine.ctrl = SEApp(
+              // The call to ToCachedContractDefRef(actualTmplId) will query package
+              // of actualTmplId if not know.
+              SEVal(ToCachedContractDefRef(actualTmplId)),
+              Array(
+                SEImportValue(Ast.TTyCon(actualTmplId), arg),
+                SEValue(args.get(1)),
+              ),
             )
-          )
+          }: V.ContractInstance => Unit
+
+          machine.disclosureTable.contractById.get(SContractId(coid)) match {
+            case Some((templateId, arg)) =>
+              val coinst = machine.normValue(templateId, arg)
+              continue(V.ContractInstance(templateId, coinst, ""))
+
+            case None =>
+              throw SpeedyHungry(
+                SResultNeedContract(
+                  coid,
+                  onLedger.committers,
+                  continue,
+                )
+              )
+          }
+
       }
 
     }
@@ -1142,11 +1175,7 @@ private[lf] object SBuiltin {
     ) = {
       val contractId = getSContractId(args, 0)
       val (actualTmplId, record @ _) = getSAnyContract(args, 1)
-      if (
-        machine.compiledPackages
-          .getDefinition(ImplementsDefRef(actualTmplId, requiringIfaceId))
-          .isEmpty
-      )
+      if (!implementsOrCoImplements(machine, actualTmplId, requiringIfaceId))
         throw SErrorDamlException(
           IE.ContractDoesNotImplementRequiringInterface(
             requiringIfaceId,
@@ -1253,14 +1282,12 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
     ) = {
-      val (tyCon, record) = getSAnyContract(args, 0)
+      val (actualTemplateId, record) = getSAnyContract(args, 0)
       machine.returnValue =
-        if (
-          machine.compiledPackages.getDefinition(ImplementsDefRef(tyCon, requiringIfaceId)).isEmpty
-        )
-          SOptional(None)
+        if (implementsOrCoImplements(machine, actualTemplateId, requiringIfaceId))
+          SOptional(Some(SAnyContract(actualTemplateId, record)))
         else
-          SOptional(Some(SAnyContract(tyCon, record)))
+          SOptional(None)
     }
   }
 
@@ -1277,17 +1304,17 @@ private[lf] object SBuiltin {
         machine: Machine,
     ) = {
       val coid = getSContractId(args, 0)
-      val (tyCon, record) = getSAnyContract(args, 1)
-      if (machine.compiledPackages.getDefinition(ImplementsDefRef(tyCon, requiringIfaceId)).isEmpty)
+      val (actualTmplId, record) = getSAnyContract(args, 1)
+      if (!implementsOrCoImplements(machine, actualTmplId, requiringIfaceId))
         throw SErrorDamlException(
           IE.ContractDoesNotImplementRequiringInterface(
             requiringIfaceId,
             requiredIfaceId,
             coid,
-            tyCon,
+            actualTmplId,
           )
         )
-      machine.returnValue = SAnyContract(tyCon, record)
+      machine.returnValue = SAnyContract(actualTmplId, record)
     }
   }
 
@@ -1296,9 +1323,18 @@ private[lf] object SBuiltin {
       methodName: MethodName,
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val (tyCon, record) = getSAnyContract(args, 0)
-      machine.ctrl =
-        SEApp(SEVal(ImplementsMethodDefRef(tyCon, ifaceId, methodName)), Array(SEValue(record)))
+      val (templateId, record) = getSAnyContract(args, 0)
+      val ref = getImplementsOrCoImplements(machine, templateId, ifaceId) match {
+        case Some(TemplateOrInterface.Template(ImplementsDefRef(_, _))) =>
+          ImplementsMethodDefRef(templateId, ifaceId, methodName)
+        case Some(TemplateOrInterface.Interface(CoImplementsDefRef(_, _))) =>
+          CoImplementsMethodDefRef(templateId, ifaceId, methodName)
+        case None =>
+          crash(
+            s"Attempted to call interface ${ifaceId} method ${methodName} on a wrapped template of type ${ifaceId}, which doesn't implement the interface."
+          )
+      }
+      machine.ctrl = SEApp(SEVal(ref), Array(SEValue(record)))
     }
   }
 
@@ -1327,17 +1363,12 @@ private[lf] object SBuiltin {
       val signatories = cached.signatories
       val observers = cached.observers
       val key = cached.key
-      val stakeholders = observers union signatories
-      val contextActors = machine.contextActors
-      val auth = machine.auth
       onLedger.ptx = onLedger.ptx.insertFetch(
-        auth = auth,
         coid = coid,
         templateId = templateId,
         optLocation = machine.lastLocation,
-        actingParties = contextActors intersect stakeholders,
         signatories = signatories,
-        stakeholders = stakeholders,
+        observers = observers,
         key = key,
         byKey = byKey,
         version = machine.tmplId2TxVersion(templateId),
@@ -1373,9 +1404,7 @@ private[lf] object SBuiltin {
           }
         case _ => crash(s"Non option value when inserting lookup node")
       }
-      val auth = machine.auth
       onLedger.ptx = onLedger.ptx.insertLookup(
-        auth = auth,
         templateId = templateId,
         optLocation = machine.lastLocation,
         key = Node.KeyWithMaintainers(
@@ -1438,12 +1467,13 @@ private[lf] object SBuiltin {
         machine: Machine,
         onLedger: OnLedger,
     ): Unit = {
+      val skey = args.get(0)
       val keyWithMaintainers =
         extractKeyWithMaintainers(
           machine,
           operation.templateId,
           NameOf.qualifiedNameOfCurrentFunc,
-          args.get(0),
+          skey,
         )
       if (keyWithMaintainers.maintainers.isEmpty)
         throw SErrorDamlException(
@@ -1451,44 +1481,58 @@ private[lf] object SBuiltin {
         )
 
       val gkey = GlobalKey(operation.templateId, keyWithMaintainers.key)
+
       onLedger.ptx.contractState.resolveKey(gkey) match {
         case Right((keyMapping, next)) =>
           onLedger.ptx = onLedger.ptx.copy(contractState = next)
           keyMapping match {
-            case ContractStateMachine.KeyActive(coid)
-                if onLedger.ptx.localContracts.contains(coid) =>
-              val cachedContract = onLedger.cachedContracts
-                .getOrElse(coid, crash(s"Local contract ${coid.coid} not in cachedContracts"))
-              val stakeholders = cachedContract.signatories union cachedContract.observers
-              onLedger.visibleToStakeholders(stakeholders) match {
-                case SVisibleToStakeholders.Visible =>
-                  operation.handleKeyFound(machine, coid)
-                case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-                  machine.ctrl = SEDamlException(
-                    IE.LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
-                  )
-              }
-            case _ =>
+            case ContractStateMachine.KeyActive(coid) =>
+              machine.checkKeyVisibility(onLedger, gkey, coid, operation.handleKeyFound)
+
+            case ContractStateMachine.KeyInactive =>
               operation.handleKnownInputKey(machine, gkey, keyMapping)
           }
+
         case Left(handle) =>
-          throw SpeedyHungry(
-            SResultNeedKey(
-              GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
-              onLedger.committers,
-              { result =>
-                val (keyMapping, next) = handle(result)
-                onLedger.ptx = onLedger.ptx.copy(contractState = next)
-                keyMapping match {
-                  case ContractStateMachine.KeyActive(cid) =>
-                    operation.handleKeyFound(machine, cid)
-                    true
-                  case ContractStateMachine.KeyInactive =>
-                    operation.handleKeyNotFound(machine, gkey)
+          def continue = { result =>
+            val (keyMapping, next) = handle(result)
+            onLedger.ptx = onLedger.ptx.copy(contractState = next)
+            keyMapping match {
+              case ContractStateMachine.KeyActive(coid) =>
+                // We do not call directly machine.checkKeyVisibility as it may throw an SError,
+                // and such error cannot be throw inside a SpeedyHungry continuation.
+                machine.pushKont(
+                  KCheckKeyVisibility(machine, gkey, coid, operation.handleKeyFound)
+                )
+                if (onLedger.cachedContracts.contains(coid)) {
+                  machine.returnValue = SUnit
+                } else {
+                  // SBFetchAny will populate onLedger.cachedContracts with the contract pointed by coid
+                  machine.ctrl = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
                 }
-              },
-            )
-          )
+                true
+
+              case ContractStateMachine.KeyInactive =>
+                operation.handleKeyNotFound(machine, gkey)
+            }
+          }: Option[V.ContractId] => Boolean
+
+          // TODO (drsk) validate key hash. https://github.com/digital-asset/daml/issues/13897
+          machine.disclosureTable.contractIdByKey.get(gkey.hash) match {
+            case Some(coid) =>
+              val vcoid = coid.value
+              discard(continue(Some(vcoid)))
+
+            case None => {
+              throw SpeedyHungry(
+                SResultNeedKey(
+                  GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
+                  onLedger.committers,
+                  continue,
+                )
+              )
+            }
+          }
       }
     }
   }

@@ -70,11 +70,14 @@ object RejectionGenerators {
         case e: LfInterpretationError.ContractNotActive =>
           LedgerApiErrors.CommandExecution.Interpreter.ContractNotActive
             .Reject(renderedMessage, e)
-        case _: LfInterpretationError.LocalContractKeyNotVisible =>
+        case _: LfInterpretationError.ContractKeyNotVisible =>
           LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError
             .Error(renderedMessage)
         case LfInterpretationError.DuplicateContractKey(key) =>
           LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
+            .RejectWithContractKeyArg(renderedMessage, key)
+        case LfInterpretationError.InconsistentContractKey(key) =>
+          LedgerApiErrors.ConsistencyErrors.InconsistentContractKey
             .RejectWithContractKeyArg(renderedMessage, key)
         case _: LfInterpretationError.UnhandledException =>
           LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError.Error(
@@ -132,6 +135,11 @@ object RejectionGenerators {
               renderedMessage
             )
         case _: LfInterpretationError.ChoiceGuardFailed =>
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
+            .Error(
+              renderedMessage
+            )
+        case _: LfInterpretationError.DisclosurePreprocessing =>
           LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
             .Error(
               renderedMessage

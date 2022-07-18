@@ -53,6 +53,11 @@ final class Conversions(
       .addAllScenarioSteps(steps.asJava)
       .setReturnValue(convertSValue(svalue))
       .setFinalTime(ledger.currentTime.micros)
+      .addAllActiveContracts(
+        ledger.ledgerData.activeContracts.view
+          .map[String](coid => coidToEventId(coid).toLedgerString)
+          .asJava
+      )
     traceLog.iterator.foreach { entry =>
       builder.addTraceLog(convertSTraceMessage(entry))
     }
@@ -67,6 +72,11 @@ final class Conversions(
       .addAllNodes(nodes.asJava)
       .addAllScenarioSteps(steps.asJava)
       .setLedgerTime(ledger.currentTime.micros)
+      .addAllActiveContracts(
+        ledger.ledgerData.activeContracts.view
+          .map[String](coid => coidToEventId(coid).toLedgerString)
+          .asJava
+      )
 
     traceLog.iterator.foreach { entry =>
       builder.addTraceLog(convertSTraceMessage(entry))
@@ -125,7 +135,7 @@ final class Conversions(
                     .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
                     .build
                 )
-              case LocalContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
+              case ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
                 builder.setScenarioContractKeyNotVisible(
                   proto.ScenarioError.ContractKeyNotVisible.newBuilder
                     .setContractRef(mkContractRef(coid, gk.templateId))
@@ -143,7 +153,15 @@ final class Conversions(
                 )
               case DuplicateContractKey(key) =>
                 builder.setScenarioCommitError(
-                  proto.CommitError.newBuilder.setUniqueKeyViolation(convertGlobalKey(key)).build
+                  proto.CommitError.newBuilder
+                    .setUniqueContractKeyViolation(convertGlobalKey(key))
+                    .build
+                )
+              case InconsistentContractKey(key) =>
+                builder.setScenarioCommitError(
+                  proto.CommitError.newBuilder
+                    .setInconsistentContractKey(convertGlobalKey(key))
+                    .build
                 )
               case CreateEmptyContractKeyMaintainers(tid, arg, key) =>
                 builder.setCreateEmptyContractKeyMaintainers(
@@ -219,6 +237,20 @@ final class Conversions(
                   cgfBuilder.setByInterface(convertIdentifier(ifaceId))
                 )
                 builder.setChoiceGuardFailed(cgfBuilder.build)
+
+              case DisclosurePreprocessing(err) =>
+                err match {
+                  case DisclosurePreprocessing.DuplicateContractKeys(tid) =>
+                    builder.setDisclosurePreprocessingDuplicateContractKeys(
+                      proto.ScenarioError.DisclosurePreprocessingDuplicateContractKeys.newBuilder
+                        .setTemplateId(convertIdentifier(tid))
+                    )
+                  case DisclosurePreprocessing.DuplicateContractIds(tid) =>
+                    builder.setDisclosurePreprocessingDuplicateContractIds(
+                      proto.ScenarioError.DisclosurePreprocessingDuplicateContractIds.newBuilder
+                        .setTemplateId(convertIdentifier(tid))
+                    )
+                }
             }
         }
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>
@@ -229,12 +261,12 @@ final class Conversions(
             .build
         )
 
-      case Error.ContractNotActive(coid, tid, consumedBy) =>
+      case Error.ContractNotActive(coid, tid, optConsumedBy) =>
+        val errorBuilder = proto.ScenarioError.ContractNotActive.newBuilder
+          .setContractRef(mkContractRef(coid, tid))
+        optConsumedBy.foreach(consumedBy => errorBuilder.setConsumedBy(convertEventId(consumedBy)))
         builder.setScenarioContractNotActive(
-          proto.ScenarioError.ContractNotActive.newBuilder
-            .setContractRef(mkContractRef(coid, tid))
-            .setConsumedBy(convertEventId(consumedBy))
-            .build
+          errorBuilder.build
         )
 
       case Error.ContractNotVisible(coid, tid, actAs, readAs, observers) =>
@@ -284,7 +316,7 @@ final class Conversions(
     val builder = proto.CommitError.newBuilder
     commitError match {
       case ScenarioLedger.CommitError.UniqueKeyViolation(gk) =>
-        builder.setUniqueKeyViolation(convertGlobalKey(gk.gk))
+        builder.setUniqueContractKeyViolation(convertGlobalKey(gk.gk))
     }
     builder.build
   }
@@ -517,10 +549,6 @@ final class Conversions(
 
     nodeInfo.consumedBy
       .map(eventId => builder.setConsumedBy(convertEventId(eventId)))
-    nodeInfo.rolledbackBy
-      .map(nodeId => builder.setRolledbackBy(convertNodeId(eventId.transactionId, nodeId)))
-    nodeInfo.parent
-      .map(eventId => builder.setParent(convertEventId(eventId)))
 
     nodeInfo.node match {
       case rollback: Node.Rollback =>
@@ -532,6 +560,7 @@ final class Conversions(
       case create: Node.Create =>
         val createBuilder =
           proto.Node.Create.newBuilder
+            .setContractId(coidToEventId(create.coid).toLedgerString)
             .setContractInstance(
               proto.ContractInstance.newBuilder
                 .setTemplateId(convertIdentifier(create.templateId))
@@ -550,6 +579,11 @@ final class Conversions(
             .setTemplateId(convertIdentifier(fetch.templateId))
             .addAllSignatories(fetch.signatories.map(convertParty).asJava)
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
+        if (fetch.byKey) {
+          fetch.versionedKey.foreach { key =>
+            fetchBuilder.setFetchByKey(convertKeyWithMaintainers(key))
+          }
+        }
         builder.setFetch(fetchBuilder.build)
       case ex: Node.Exercise =>
         nodeInfo.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
@@ -571,6 +605,11 @@ final class Conversions(
             )
         ex.exerciseResult.foreach { result =>
           exerciseBuilder.setExerciseResult(convertValue(result))
+        }
+        if (ex.byKey) {
+          ex.versionedKey.foreach { key =>
+            exerciseBuilder.setExerciseByKey(convertKeyWithMaintainers(key))
+          }
         }
         builder.setExercise(exerciseBuilder.build)
 

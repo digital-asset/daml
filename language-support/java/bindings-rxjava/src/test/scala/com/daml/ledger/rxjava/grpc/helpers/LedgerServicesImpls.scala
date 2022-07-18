@@ -42,7 +42,7 @@ case class LedgerServicesImpls(
 object LedgerServicesImpls {
 
   def createWithRef(
-      ledgerId: String,
+      ledgerIdResponse: Future[String],
       getActiveContractsResponse: Observable[GetActiveContractsResponse],
       transactions: Observable[TransactionsServiceImpl.LedgerItem],
       commandSubmissionResponse: Future[Empty],
@@ -59,7 +59,8 @@ object LedgerServicesImpls {
       getPackageStatusResponse: Future[GetPackageStatusResponse],
       authorizer: Authorizer,
   )(implicit ec: ExecutionContext): (Seq[ServerServiceDefinition], LedgerServicesImpls) = {
-    val (iServiceDef, iService) = LedgerIdentityServiceImpl.createWithRef(ledgerId, authorizer)(ec)
+    val (iServiceDef, iService) =
+      LedgerIdentityServiceImpl.createWithRef(() => ledgerIdResponse, authorizer)(ec)
     val (acsServiceDef, acsService) =
       ActiveContractsServiceImpl.createWithRef(getActiveContractsResponse, authorizer)(ec)
     val (tsServiceDef, tsService) =

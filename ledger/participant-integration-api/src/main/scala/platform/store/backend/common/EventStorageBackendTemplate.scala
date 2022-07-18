@@ -789,7 +789,7 @@ abstract class EventStorageBackendTemplate(
                 e.event_sequential_id >= $firstEventSequentialId
                 AND
                 e.event_sequential_id <= $lastEventSequentialId
-              ORDER BY 
+              ORDER BY
                 e.event_sequential_id
           ) x
         )

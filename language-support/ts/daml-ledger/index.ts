@@ -417,7 +417,7 @@ export interface Stream<T extends object, K, I extends string, State> {
 /**
  * Options for creating a handle to a Daml ledger.
  */
-type LedgerOptions = {
+export type LedgerOptions = {
   /** JSON web token used for authentication. */
   token: string;
   /**

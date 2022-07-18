@@ -139,7 +139,7 @@ class BatchingParallelIngestionPipeSpec
     val semaphore = new Object
     var ingested: Vector[(Int, String)] = Vector.empty
     var ingestedTail: Vector[Int] = Vector.empty
-    val indexingSource: Source[Int, NotUsed] => Source[Unit, NotUsed] =
+    val indexingSource: Source[Int, NotUsed] => Source[List[(Int, String)], NotUsed] =
       BatchingParallelIngestionPipe[Int, List[(Int, Int)], List[(Int, String)]](
         submissionBatchSize = MaxBatchSize.toLong,
         inputMappingParallelism = 2,

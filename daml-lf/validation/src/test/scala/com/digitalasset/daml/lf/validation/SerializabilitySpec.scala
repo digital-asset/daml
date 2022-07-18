@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.testing.parser.defaultPackageId
+import com.daml.lf.testing.parser.{ParserParameters, defaultPackageId}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -37,7 +37,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
       forEvery(testCases) { typ =>
         Serializability
-          .Env(LanguageVersion.default, defaultInterface, Context.None, SRDataType, typ)
+          .Env(defaultFlags, defaultPkgInterface, Context.None, SRDataType, typ)
           .introVar(n"serializableType" -> k"*")
           .checkType()
       }
@@ -66,7 +66,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
       forEvery(testCases) { typ =>
         an[EExpectedSerializableType] should be thrownBy
           Serializability
-            .Env(LanguageVersion.default, defaultInterface, Context.None, SRDataType, typ)
+            .Env(defaultFlags, defaultPkgInterface, Context.None, SRDataType, typ)
             .introVar(n"serializableType" -> k"*")
             .checkType()
       }
@@ -250,9 +250,9 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
     }
 
-    "reject unserializable contract id" in {
+    "reject unserializable contract for LF =< 1.14" in {
 
-      val pkg =
+      val pkg14 =
         p"""
           // well-formed module
           module NegativeTestCase1 {
@@ -311,16 +311,25 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
         "PositiveTestCase2",
       )
 
+      val pkg15 = pkg14.copy(languageVersion = LanguageVersion.Features.interfaces)
+
       forEvery(negativeTestCases) { modName =>
-        check(pkg, modName)
+        check(pkg14, modName)
+        check(pkg15, modName)
       }
       forEvery(positiveTestCases) { modName =>
-        an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, modName))
+        an[EExpectedSerializableType] shouldBe thrownBy(check(pkg14, modName))
+        check(pkg15, modName)
       }
 
     }
 
     "reject unserializable interface definitions" in {
+
+      implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
+        defaultPackageId,
+        LanguageVersion.Features.interfaces,
+      )
 
       val pkg =
         p"""
@@ -390,11 +399,12 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
       }
      """
 
-  private val defaultInterface = interface(defaultPkg)
-  private def interface(pkg: Package) = language.PackageInterface(Map(defaultPackageId -> pkg))
+  private val defaultFlags = Serializability.Flags.fromVersion(LanguageVersion.default)
+  private val defaultPkgInterface = pkgInterface(defaultPkg)
+  private def pkgInterface(pkg: Package) = language.PackageInterface(Map(defaultPackageId -> pkg))
 
   private def check(pkg: Package, modName: String): Unit = {
-    val w = interface(pkg)
+    val w = pkgInterface(pkg)
     val longModName = DottedName.assertFromString(modName)
     val mod = pkg.modules(longModName)
     Typing.checkModule(w, defaultPackageId, mod)
