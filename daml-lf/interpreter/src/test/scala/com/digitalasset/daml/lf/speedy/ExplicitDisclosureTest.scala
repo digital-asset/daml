@@ -19,6 +19,7 @@ import com.daml.lf.speedy.SBuiltin.{SBFetchAny, SBUFetchKey, SBULookupKey}
 import com.daml.lf.speedy.SValue.SContractId
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.testing.parser.Implicits._
+import org.scalatest.matchers.{MatchResult, Matcher}
 import org.scalatest.prop.TableDrivenPropertyChecks
 
 class ExplicitDisclosureTest
@@ -36,25 +37,21 @@ class ExplicitDisclosureTest
       "off ledger" - {
         "fetching contracts" - {
           "fail to evaluate known contract IDs" in {
-            val (result, events) =
+            val (result, events) = {
               evaluateSExpr(
                 SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
                 getContract = Map(contractId -> ledgerContract),
                 onLedger = false,
               )
-
-            inside(result) {
-              case Right(
-                    SValue.SPAP(SValue.PClosure(_, SExpr.SEAppGeneral(function, args), frame), _, 1)
-                  ) =>
-                function shouldBe SExpr.SEBuiltin(SBFetchAny)
-                args shouldBe Array(
-                  SEValue(SContractId(contractId)),
-                  SEValue(SValue.SOptional(None)),
-                )
-                frame shouldBe empty
-                events shouldBe Seq.empty
             }
+            val expectedFunction = SExpr.SEBuiltin(SBFetchAny)
+            val expectedArgs = Array(
+              SEValue(SContractId(contractId)),
+              SEValue(SValue.SOptional(None)),
+            )
+
+            result should beAnEvaluationFailure(expectedFunction, expectedArgs)
+            events shouldBe Seq.empty
           }
 
           "fail to evaluate disclosed contract IDs" in {
@@ -65,23 +62,14 @@ class ExplicitDisclosureTest
                   disclosedContracts = ImmArray(disclosedContract),
                   onLedger = false,
                 )
+              val expectedFunction = SExpr.SEBuiltin(SBFetchAny)
+              val expectedArgs = Array(
+                SEValue(SContractId(contractId)),
+                SEValue(SValue.SOptional(None)),
+              )
 
-              inside(result) {
-                case Right(
-                      SValue.SPAP(
-                        SValue.PClosure(_, SExpr.SEAppGeneral(function, args), frame),
-                        _,
-                        1,
-                      )
-                    ) =>
-                  function shouldBe SExpr.SEBuiltin(SBFetchAny)
-                  args shouldBe Array(
-                    SEValue(SContractId(contractId)),
-                    SEValue(SValue.SOptional(None)),
-                  )
-                  frame shouldBe empty
-                  events shouldBe Seq.empty
-              }
+              result should beAnEvaluationFailure(expectedFunction, expectedArgs)
+              events shouldBe Seq.empty
             }
           }
         }
@@ -96,20 +84,11 @@ class ExplicitDisclosureTest
                   disclosedContracts = ImmArray(disclosedContract),
                   onLedger = false,
                 )
+              val expectedFunction = SExpr.SEBuiltin(SBUFetchKey(templateId))
+              val expectedArgs = Array(SEValue(buildContractSKey(disclosureParty)))
 
-              inside(result) {
-                case Right(
-                      SValue.SPAP(
-                        SValue.PClosure(_, SExpr.SEAppGeneral(function, args), frame),
-                        _,
-                        1,
-                      )
-                    ) =>
-                  function shouldBe SExpr.SEBuiltin(SBUFetchKey(templateId))
-                  args shouldBe Array(SEValue(buildContractSKey(disclosureParty)))
-                  frame shouldBe empty
-                  events shouldBe Seq.empty
-              }
+              result should beAnEvaluationFailure(expectedFunction, expectedArgs)
+              events shouldBe Seq.empty
             }
           }
         }
@@ -124,16 +103,11 @@ class ExplicitDisclosureTest
                 getContract = Map(contractId -> ledgerContract),
                 onLedger = false,
               )
+            val expectedFunction = SExpr.SEBuiltin(SBULookupKey(templateId))
+            val expectedArgs = Array(SEValue(buildContractSKey(ledgerParty)))
 
-            inside(result) {
-              case Right(
-                    SValue.SPAP(SValue.PClosure(_, SExpr.SEAppGeneral(function, args), frame), _, 1)
-                  ) =>
-                function shouldBe SExpr.SEBuiltin(SBULookupKey(templateId))
-                args shouldBe Array(SEValue(buildContractSKey(ledgerParty)))
-                frame shouldBe empty
-                events shouldBe Seq.empty
-            }
+            result should beAnEvaluationFailure(expectedFunction, expectedArgs)
+            events shouldBe Seq.empty
           }
         }
       }
@@ -273,23 +247,14 @@ class ExplicitDisclosureTest
                   disclosedContracts = ImmArray(disclosedContract),
                   onLedger = false,
                 )
+              val expectedFunction = SExpr.SEBuiltin(SBFetchAny)
+              val expectedArgs = Array(
+                SEValue(SContractId(contractId)),
+                SEValue(SValue.SOptional(None)),
+              )
 
-              inside(result) {
-                case Right(
-                      SValue.SPAP(
-                        SValue.PClosure(_, SExpr.SEAppGeneral(function, args), frame),
-                        _,
-                        1,
-                      )
-                    ) =>
-                  function shouldBe SExpr.SEBuiltin(SBFetchAny)
-                  args shouldBe Array(
-                    SEValue(SContractId(contractId)),
-                    SEValue(SValue.SOptional(None)),
-                  )
-                  frame shouldBe empty
-                  events shouldBe Seq.empty
-              }
+              result should beAnEvaluationFailure(expectedFunction, expectedArgs)
+              events shouldBe Seq.empty
             }
           }
         }
@@ -307,20 +272,11 @@ class ExplicitDisclosureTest
                   disclosedContracts = ImmArray(disclosedContract),
                   onLedger = false,
                 )
+              val expectedFunction = SExpr.SEBuiltin(SBUFetchKey(templateId))
+              val expectedArgs = Array(SEValue(buildContractSKey(disclosureParty)))
 
-              inside(result) {
-                case Right(
-                      SValue.SPAP(
-                        SValue.PClosure(_, SExpr.SEAppGeneral(function, args), frame),
-                        _,
-                        1,
-                      )
-                    ) =>
-                  function shouldBe SExpr.SEBuiltin(SBUFetchKey(templateId))
-                  args shouldBe Array(SEValue(buildContractSKey(disclosureParty)))
-                  frame shouldBe empty
-                  events shouldBe Seq.empty
-              }
+              result should beAnEvaluationFailure(expectedFunction, expectedArgs)
+              events shouldBe Seq.empty
             }
           }
         }
@@ -338,20 +294,11 @@ class ExplicitDisclosureTest
                   disclosedContracts = ImmArray(disclosedContract),
                   onLedger = false,
                 )
+              val expectedFunction = SExpr.SEBuiltin(SBULookupKey(templateId))
+              val expectedArgs = Array(SEValue(buildContractSKey(ledgerParty)))
 
-              inside(result) {
-                case Right(
-                      SValue.SPAP(
-                        SValue.PClosure(_, SExpr.SEAppGeneral(function, args), frame),
-                        _,
-                        1,
-                      )
-                    ) =>
-                  function shouldBe SExpr.SEBuiltin(SBULookupKey(templateId))
-                  args shouldBe Array(SEValue(buildContractSKey(ledgerParty)))
-                  frame shouldBe empty
-                  events shouldBe Seq.empty
-              }
+              result should beAnEvaluationFailure(expectedFunction, expectedArgs)
+              events shouldBe Seq.empty
             }
           }
         }
@@ -457,21 +404,59 @@ object ExplicitDisclosureTest {
          record @serializable Key = { label: Text, maintainers: List Party };
 
          record @serializable House = { owner: Party };
-
          template(this: House) = {
            precondition True;
            signatories (TestMod:listOf (TestMod:House {owner} this));
            observers (Nil @Party);
            agreement "Agreement for TestMod:House";
 
+           choice Destroy (self) (arg: Unit): Unit,
+             controllers (TestMod:listOf (TestMod:House {owner} this)),
+             observers Nil @Party
+             to upure @Unit ();
+
            key @TestMod:Key
               (TestMod:Key { label = "test-key", maintainers = (TestMod:listOf (TestMod:House {owner} this)) })
               (\(key: TestMod:Key) -> (TestMod:Key {maintainers} key));
          };
 
-         val listOf: Party -> List Party =
-           \(person: Party) -> Cons @Party [person] (Nil @Party);
+         val create: Party -> Update (ContractId TestMod:House) =
+           \(party: Party) ->
+             create @TestMod:House TestMod:House { owner = party };
 
+         val exercise: ContractId TestMod:House -> Update Unit =
+           \(contractId: ContractId TestMod:House) ->
+             exercise @TestMod:House Destroy contractId ();
+
+         val fetch_by_id: ContractId TestMod:House -> Update TestMod:House =
+           \(contractId: ContractId TestMod:House) ->
+             fetch_template @TestMod:House contractId;
+
+         val fetch_by_key: Text -> Option Party -> Update <contract: TestMod:House, contractId: ContractId TestMod:House> =
+           \(label: Text) (maintainer: Option Party) ->
+             let key: TestMod:Key = TestMod:Key { label = label, maintainers = (TestMod:optToList @Party maintainer) }
+             in fetch_by_key @TestMod:House key;
+
+         val lookup_by_key: Text -> Option Party -> Update (Option(ContractId TestMod:House)) =
+           \(label: Text) (maintainer: Option Party) ->
+             let key: TestMod:Key = TestMod:Key { label = label, maintainers = (TestMod:optToList @Party maintainer) }
+             in lookup_by_key @TestMod:House key;
+
+         val run: forall (t: *). Update t -> Update Unit =
+           /\(t: *). \(u: Update t) ->
+             ubind x:Unit <- upure @Unit ()
+             in ubind y:t <- u
+             in upure @Unit ();
+
+         val listOf: Party -> List Party =
+           \(person: Party) ->
+             Cons @Party [person] (Nil @Party);
+
+         val optToList: forall(t:*). Option t -> List t  =
+           /\(t:*). \(opt: Option t) ->
+             case opt of
+                 None -> Nil @t
+               | Some x -> Cons @t [x] (Nil @t);
        }
        """
   )
@@ -576,5 +561,34 @@ object ExplicitDisclosureTest {
     )
 
     (result, traceLog.getMessages)
+  }
+
+  def beAnEvaluationFailure(
+      expectedFunction: SExpr.SEBuiltin,
+      expectedArgs: Array[SExpr.SEValue],
+  ): Matcher[Either[SError.SError, SValue]] = Matcher {
+    case Right(
+          SValue.SPAP(
+            SValue.PClosure(_, SExpr.SEAppGeneral(function, args), frame),
+            _,
+            1,
+          )
+        ) =>
+      MatchResult(
+        function == expectedFunction
+          && args.sameElements(expectedArgs)
+          && frame.isEmpty,
+        s"Evaluation failed: $function(${args.mkString("Array(", ", ", ")")}) != $expectedFunction(${expectedArgs
+            .mkString("Array(", ", ", ")")})",
+        s"Evaluation failed: $function(${args.mkString("Array(", ", ", ")")}) == $expectedFunction(${expectedArgs
+            .mkString("Array(", ", ", ")")})",
+      )
+
+    case error =>
+      MatchResult(
+        matches = false,
+        s"Evaluation unexpectedly failed with $error",
+        s"Evaluation unexpectedly failed with $error",
+      )
   }
 }
