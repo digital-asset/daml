@@ -19,8 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class BufferedCommandCompletionsReader(
     bufferReader: BufferedStreamsReader[CompletionsFilter, CompletionStreamResponse]
-)(implicit ec: ExecutionContext)
-    extends LedgerDaoCommandCompletionsReader {
+) extends LedgerDaoCommandCompletionsReader {
 
   override def getCommandCompletions(
       startExclusive: Offset,
@@ -30,7 +29,7 @@ class BufferedCommandCompletionsReader(
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, CompletionStreamResponse), NotUsed] =
-    bufferReader.getEvents(
+    bufferReader.streamUsingBuffered(
       startExclusive,
       endInclusive,
       applicationId -> parties,

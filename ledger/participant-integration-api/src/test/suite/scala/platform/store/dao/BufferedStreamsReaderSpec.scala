@@ -13,7 +13,7 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.store.cache.EventsBuffer
 import com.daml.platform.store.dao.BufferedStreamsReader.PersistenceFetch
-import com.daml.platform.store.dao.BufferedStreamsReaderSpec.{offset, predecessor, transaction}
+import com.daml.platform.store.dao.BufferedStreamsReaderSpec.{offset, transaction}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
 import org.mockito.MockitoSugar
@@ -31,7 +31,8 @@ class BufferedStreamsReaderSpec
 
   "getEvents" when {
     val metrics = new Metrics(new MetricRegistry())
-    val Seq(offset1, offset2, offset3, offset4) = (1 to 4).map(id => offset(id.toLong))
+    val Seq(offset1, offset2, offset3, offset4) = (1 to 4).map(id => offset((id * 2).toLong))
+    val offsetBetween_offset2_and_offset3 = offset(5L)
     val rejection = TransactionLogUpdate.TransactionRejected(
       offset1,
       completionDetails = CompletionDetails(
@@ -49,8 +50,8 @@ class BufferedStreamsReaderSpec
       offset4 -> txAccepted3,
     )
 
-    // Dummy filters. We're not interested in concrete details
-    // since we are asserting only the generic getEvents method
+    // Dummy filter. We are only interested that this reference
+    // is passed downstream to the persistence fetch caller.
     val persistenceFetchFilter = new Object
 
     val bufferSliceFilter
@@ -60,13 +61,11 @@ class BufferedStreamsReaderSpec
     }
 
     val toApiResponse: TransactionLogUpdate.TransactionAccepted => Future[String] = {
-      case `txAccepted1` => Future.successful("tx1")
-      case `txAccepted2` => Future.successful("tx2")
-      case `txAccepted3` => Future.successful("tx3")
+      case `txAccepted1` => Future.successful("tx2")
+      case `txAccepted2` => Future.successful("tx3")
+      case `txAccepted3` => Future.successful("tx4")
       case other => fail(s"Unexpected $other")
     }
-
-    val apiResponseFromDB = "Some API response from storage"
 
     val transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
       maxBufferSize = 3,
@@ -90,7 +89,7 @@ class BufferedStreamsReaderSpec
         metrics = metrics,
         name = "some_tx_stream",
       )
-        .getEvents[TransactionLogUpdate.TransactionAccepted](
+        .streamUsingBuffered[TransactionLogUpdate.TransactionAccepted](
           startExclusive = startExclusive,
           endInclusive = endInclusive,
           persistenceFetchFilter = persistenceFetchFilter,
@@ -99,23 +98,23 @@ class BufferedStreamsReaderSpec
         )
         .runWith(Sink.seq)
 
-    "request within buffer range inclusive on offset gap as start exclusive" should {
+    "request within buffer range inclusive but with start exclusive not matching an offset in the buffer" should {
       "fetch from buffer" in {
         readerGetEventsGeneric(
           transactionsBuffer = transactionsBuffer,
-          startExclusive = predecessor(offset3),
+          startExclusive = offsetBetween_offset2_and_offset3,
           endInclusive = offset4,
           persistenceFetch = (_, _, _) => fail("Should not fetch"),
         ).map(
           _ should contain theSameElementsInOrderAs Seq(
-            offset3 -> "tx2",
-            offset4 -> "tx3",
+            offset3 -> "tx3",
+            offset4 -> "tx4",
           )
         )
       }
     }
 
-    "request within buffer range inclusive on existing offset as start inclusive" should {
+    "request within buffer range inclusive but with start exclusive matching an offset in the buffer" should {
       "fetch from buffer" in {
         readerGetEventsGeneric(
           transactionsBuffer = transactionsBuffer,
@@ -124,8 +123,33 @@ class BufferedStreamsReaderSpec
           persistenceFetch = (_, _, _) => fail("Should not fetch"),
         ).map(
           _ should contain theSameElementsInOrderAs Seq(
-            offset3 -> "tx2",
-            offset4 -> "tx3",
+            offset3 -> "tx3",
+            offset4 -> "tx4",
+          )
+        )
+      }
+    }
+
+    "request withing buffer range inclusive (multiple chunks)" should {
+      "correctly fetch from buffer" in {
+        val transactionsBufferWithSmallChunkSize = new EventsBuffer[TransactionLogUpdate](
+          maxBufferSize = 3,
+          metrics = metrics,
+          bufferQualifier = "test",
+          maxBufferedChunkSize = 1,
+        )
+
+        offsetUpdates.foreach(Function.tupled(transactionsBufferWithSmallChunkSize.push))
+
+        readerGetEventsGeneric(
+          transactionsBuffer = transactionsBufferWithSmallChunkSize,
+          startExclusive = offset2,
+          endInclusive = offset4,
+          persistenceFetch = (_, _, _) => fail("Should not fetch"),
+        ).map(
+          _ should contain theSameElementsInOrderAs Seq(
+            offset3 -> "tx3",
+            offset4 -> "tx4",
           )
         )
       }
@@ -147,7 +171,7 @@ class BufferedStreamsReaderSpec
         ).map(
           _ should contain theSameElementsInOrderAs Seq(
             offset2 -> anotherResponseForOffset2,
-            offset3 -> "tx2",
+            offset3 -> "tx3",
           )
         )
       }
@@ -180,7 +204,7 @@ class BufferedStreamsReaderSpec
           _ should contain theSameElementsInOrderAs Seq(
             offset2 -> anotherResponseForOffset2,
             offset3 -> anotherResponseForOffset3,
-            offset4 -> "tx3",
+            offset4 -> "tx4",
           )
         )
       }
@@ -196,7 +220,10 @@ class BufferedStreamsReaderSpec
         )
 
         offsetUpdates.foreach(Function.tupled(transactionsBuffer.push))
-        val fetchedElements = Vector(offset2 -> apiResponseFromDB, offset3 -> "tx1")
+        val fetchedElements = Vector(
+          offset2 -> "Some API response from persistence",
+          offset3 -> "Another API response from persistence",
+        )
 
         readerGetEventsGeneric(
           transactionsBuffer = transactionsBuffer,
@@ -223,9 +250,6 @@ object BufferedStreamsReaderSpec {
       events = Vector(null),
       completionDetails = None,
     )
-
-  private def predecessor(offset: Offset): Offset =
-    Offset.fromByteArray((BigInt(offset.toByteArray) - 1).toByteArray)
 
   private def offset(idx: Long): Offset = {
     val base = BigInt(1L) << 32

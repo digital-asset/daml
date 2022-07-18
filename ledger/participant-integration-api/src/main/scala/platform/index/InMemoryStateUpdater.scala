@@ -241,7 +241,7 @@ private[platform] object InMemoryStateUpdater {
         )
     }
 
-    val completionDetailsO = u.optCompletionInfo
+    val completionDetails = u.optCompletionInfo
       .map { completionInfo =>
         val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
           deduplicationInfo(completionInfo)
@@ -268,7 +268,7 @@ private[platform] object InMemoryStateUpdater {
       effectiveAt = u.transactionMeta.ledgerEffectiveTime,
       offset = offset,
       events = events.toVector,
-      completionDetails = completionDetailsO,
+      completionDetails = completionDetails,
     )
   }
 

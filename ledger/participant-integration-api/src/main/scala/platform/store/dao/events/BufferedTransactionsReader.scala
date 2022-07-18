@@ -6,14 +6,22 @@ package com.daml.platform.store.dao.events
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionResponse, GetTransactionTreesResponse, GetTransactionsResponse}
+import com.daml.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse,
+  GetTransactionTreesResponse,
+  GetTransactionsResponse,
+}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref.TransactionId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.store.cache.EventsBuffer
 import com.daml.platform.store.dao.events.BufferedTransactionsReader.invertMapping
-import com.daml.platform.store.dao.events.TransactionLogUpdatesConversions.{ToFlatTransaction, ToTransactionTree}
+import com.daml.platform.store.dao.events.TransactionLogUpdatesConversions.{
+  ToFlatTransaction,
+  ToTransactionTree,
+}
 import com.daml.platform.store.dao.{BufferedStreamsReader, LedgerDaoTransactionsReader}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.{FilterRelation, Identifier, Party}
@@ -45,16 +53,17 @@ private[events] class BufferedTransactionsReader(
 
     val templatesParties = invertMapping(partiesTemplates)
 
-    bufferedFlatTransactionsReader.getEvents(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      persistenceFetchFilter = (filter, verbose),
-      bufferSliceFilter = ToFlatTransaction.filter(wildcardParties, templatesParties),
-      toApiResponse = ToFlatTransaction.toApiTransaction(filter, verbose, lfValueTranslation)(
-        loggingContext,
-        executionContext,
-      ),
-    )
+    bufferedFlatTransactionsReader
+      .streamUsingBuffered(
+        startExclusive = startExclusive,
+        endInclusive = endInclusive,
+        persistenceFetchFilter = (filter, verbose),
+        bufferSliceFilter = ToFlatTransaction.filter(wildcardParties, templatesParties),
+        toApiResponse = ToFlatTransaction.toApiTransaction(filter, verbose, lfValueTranslation)(
+          loggingContext,
+          executionContext,
+        ),
+      )
   }
 
   override def getTransactionTrees(
@@ -65,17 +74,18 @@ private[events] class BufferedTransactionsReader(
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
-    bufferedTransactionTreesReader.getEvents(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      persistenceFetchFilter = (requestingParties, verbose),
-      bufferSliceFilter = ToTransactionTree.filter(requestingParties),
-      toApiResponse =
-        ToTransactionTree.toApiTransaction(requestingParties, verbose, lfValueTranslation)(
-          loggingContext,
-          executionContext,
-        ),
-    )
+    bufferedTransactionTreesReader
+      .streamUsingBuffered(
+        startExclusive = startExclusive,
+        endInclusive = endInclusive,
+        persistenceFetchFilter = (requestingParties, verbose),
+        bufferSliceFilter = ToTransactionTree.filter(requestingParties),
+        toApiResponse =
+          ToTransactionTree.toApiTransaction(requestingParties, verbose, lfValueTranslation)(
+            loggingContext,
+            executionContext,
+          ),
+      )
 
   override def lookupFlatTransactionById(
       transactionId: TransactionId,

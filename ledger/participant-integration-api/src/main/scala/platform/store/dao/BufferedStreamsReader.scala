@@ -8,7 +8,8 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.offset.Offset
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
+import com.daml.platform.store.cache.EventsBuffer
+import com.daml.platform.store.cache.EventsBuffer.BufferSlice
 import com.daml.platform.store.dao.BufferedStreamsReader.PersistenceFetch
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 
@@ -35,7 +36,8 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_FILTER, API_RESPONSE](
 )(implicit executionContext: ExecutionContext) {
   private val bufferReaderMetrics = metrics.daml.services.index.BufferedReader(name)
 
-  /** Serves processed and filtered events from the buffer.
+  /** Serves processed and filtered events from the buffer, with fallback to persistence fetches
+    * if the bounds are not within the inclusive buffer range bounds.
     *
     * @param startExclusive The start exclusive offset of the search range.
     * @param endInclusive The end inclusive offset of the search range.
@@ -46,7 +48,7 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_FILTER, API_RESPONSE](
     * @tparam BUFFER_OUT The output type of elements retrieved from the buffer.
     * @return The Ledger API stream source.
     */
-  def getEvents[BUFFER_OUT](
+  def streamUsingBuffered[BUFFER_OUT](
       startExclusive: Offset,
       endInclusive: Offset,
       persistenceFetchFilter: PERSISTENCE_FETCH_FILTER,
