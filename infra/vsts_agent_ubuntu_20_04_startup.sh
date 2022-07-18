@@ -77,8 +77,7 @@ curl -sSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
 curl -sSL https://dl.google.com/cloudagents/add-logging-agent-repo.sh | bash -s -- --also-install
 
 #install docker
-apt-get install -qy docker-ce docker-ce-cli containerd.io
-
+${docker}
 #Start docker daemon
 systemctl enable docker
 

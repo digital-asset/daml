@@ -7,11 +7,22 @@ locals {
       name      = "ci-u1",
       disk_size = 200,
       size      = 0,
+      docker    = <<EOF
+apt-get install -qy docker-ce docker-ce-cli containerd.io
+EOF
     },
     {
       name      = "ci-u2",
       disk_size = 400,
       size      = 30,
+      docker    = <<EOF
+DOCKER_VERSION="5:20.10.2~3-0~ubuntu-$(lsb_release -cs)"
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+apt-key fingerprint 0EBFCD88
+add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+apt-get update
+apt-get install -qy docker-ce=$DOCKER_VERSION docker-ce-cli=$DOCKER_VERSION containerd.io
+EOF
     },
   ]
 }
@@ -24,6 +35,7 @@ data "template_file" "vsts-agent-ubuntu_20_04-startup" {
     vsts_token   = secret_resource.vsts-token.value
     vsts_account = "digitalasset"
     vsts_pool    = "ubuntu_20_04"
+    docker       = local.ubuntu[count.index].docker
   }
 }
 
