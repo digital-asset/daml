@@ -14,19 +14,42 @@ import com.daml.platform.store.interfaces.TransactionLogUpdate
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class BufferedStreamsReader[FILTER, API_RESPONSE](
-    transactionsBuffer: EventsBuffer[TransactionLogUpdate],
-    persistenceFetch: PersistenceFetch[FILTER, API_RESPONSE],
+/** Generic class that helps serving Ledger API streams (e.g. transactions, completions)
+  *  from either the in-memory fan-out buffer or from persistence.
+  *
+  * @param inMemoryFanoutBuffer The in-memory fan-out buffer.
+  * @param persistenceFetch Fetch stream events from persistence.
+  * @param eventProcessingParallelism The processing parallelism for converting payloads to API responses.
+  * @param metrics Daml metrics.
+  * @param name The name of the Ledger API stream. Used as a discriminator in metric registry names construction.
+  * @param executionContext The execution context
+  * @tparam PERSISTENCE_FETCH_FILTER The Ledger API streams filter type of fetches from persistence.
+  * @tparam API_RESPONSE The API stream response type.
+  */
+class BufferedStreamsReader[PERSISTENCE_FETCH_FILTER, API_RESPONSE](
+    inMemoryFanoutBuffer: EventsBuffer[TransactionLogUpdate],
+    persistenceFetch: PersistenceFetch[PERSISTENCE_FETCH_FILTER, API_RESPONSE],
     eventProcessingParallelism: Int,
     metrics: Metrics,
     name: String,
 )(implicit executionContext: ExecutionContext) {
   private val bufferReaderMetrics = metrics.daml.services.index.BufferedReader(name)
 
+  /** Serves processed and filtered events from the buffer.
+    *
+    * @param startExclusive The start exclusive offset of the search range.
+    * @param endInclusive The end inclusive offset of the search range.
+    * @param persistenceFetchFilter The filter used for fetching the Ledger API stream responses from persistence.
+    * @param bufferSliceFilter The filter used for filtering when searching within the buffer.
+    * @param toApiResponse To Ledger API stream response converter.
+    * @param loggingContext The logging context.
+    * @tparam BUFFER_OUT The output type of elements retrieved from the buffer.
+    * @return The Ledger API stream source.
+    */
   def getEvents[BUFFER_OUT](
       startExclusive: Offset,
       endInclusive: Offset,
-      persistenceFetchFilter: FILTER,
+      persistenceFetchFilter: PERSISTENCE_FETCH_FILTER,
       bufferSliceFilter: TransactionLogUpdate => Option[BUFFER_OUT],
       toApiResponse: BUFFER_OUT => Future[API_RESPONSE],
   )(implicit
@@ -50,7 +73,7 @@ class BufferedStreamsReader[FILTER, API_RESPONSE](
       .unfoldAsync(startExclusive) {
         case scannedToInclusive if scannedToInclusive < endInclusive =>
           Future {
-            transactionsBuffer.slice(scannedToInclusive, endInclusive, bufferSliceFilter) match {
+            inMemoryFanoutBuffer.slice(scannedToInclusive, endInclusive, bufferSliceFilter) match {
               case BufferSlice.Inclusive(slice) =>
                 val sourceFromBuffer = bufferSource(slice)
                 val nextChunkStartExclusive = slice.lastOption.map(_._1).getOrElse(endInclusive)

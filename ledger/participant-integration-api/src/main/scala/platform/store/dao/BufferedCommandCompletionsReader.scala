@@ -35,7 +35,7 @@ class BufferedCommandCompletionsReader(
       endInclusive,
       applicationId -> parties,
       bufferSliceFilter = filterCompletions(_, parties, applicationId),
-      toApiResponse = (response: CompletionStreamResponse) => Future(response),
+      toApiResponse = (response: CompletionStreamResponse) => Future.successful(response),
     )
 
   private def filterCompletions(
@@ -80,7 +80,7 @@ object BufferedCommandCompletionsReader {
   )(implicit ec: ExecutionContext): BufferedCommandCompletionsReader =
     new BufferedCommandCompletionsReader(
       bufferReader = new BufferedStreamsReader[CompletionsFilter, CompletionStreamResponse](
-        transactionsBuffer = transactionsBuffer,
+        inMemoryFanoutBuffer = transactionsBuffer,
         persistenceFetch = (start, end, filter) =>
           delegate.getCommandCompletions(start, end, filter._1, filter._2)(_),
         eventProcessingParallelism = eventProcessingParallelism,

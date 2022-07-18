@@ -84,7 +84,7 @@ class BufferedStreamsReaderSpec
         persistenceFetch: PersistenceFetch[Object, String],
     ): Future[Seq[(Offset, String)]] =
       new BufferedStreamsReader[Object, String](
-        transactionsBuffer = transactionsBuffer,
+        inMemoryFanoutBuffer = transactionsBuffer,
         persistenceFetch = persistenceFetch,
         eventProcessingParallelism = 2,
         metrics = metrics,

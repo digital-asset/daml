@@ -107,7 +107,7 @@ private[platform] object BufferedTransactionsReader {
   ): BufferedTransactionsReader = {
     val flatTransactionsStreamReader =
       new BufferedStreamsReader[(FilterRelation, Boolean), GetTransactionsResponse](
-        transactionsBuffer = transactionsBuffer,
+        inMemoryFanoutBuffer = transactionsBuffer,
         (start, end, filter) => delegate.getFlatTransactions(start, end, filter._1, filter._2)(_),
         eventProcessingParallelism = eventProcessingParallelism,
         metrics = metrics,
@@ -115,7 +115,7 @@ private[platform] object BufferedTransactionsReader {
       )
     val transactionTreesStreamReader =
       new BufferedStreamsReader[(Set[Party], Boolean), GetTransactionTreesResponse](
-        transactionsBuffer = transactionsBuffer,
+        inMemoryFanoutBuffer = transactionsBuffer,
         (start, end, filter) => delegate.getTransactionTrees(start, end, filter._1, filter._2)(_),
         eventProcessingParallelism = eventProcessingParallelism,
         metrics = metrics,
