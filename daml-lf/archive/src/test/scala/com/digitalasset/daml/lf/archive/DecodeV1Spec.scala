@@ -1067,7 +1067,7 @@ class DecodeV1Spec
                 Map(),
                 EPrimCon(PCUnit),
                 Map(),
-                TBuiltin(BTUnit),
+                TUnit,
               )
           ),
           FeatureFlags(),
@@ -1113,7 +1113,7 @@ class DecodeV1Spec
           Map(),
           EPrimCon(PCUnit),
           Map(),
-          TBuiltin(BTUnit),
+          TUnit,
         )
 
       val requiresDefInterface = {
@@ -1144,7 +1144,7 @@ class DecodeV1Spec
           Map(),
           EPrimCon(PCUnit),
           Map(),
-          TBuiltin(BTUnit),
+          TUnit,
         )
 
       val methodsDefInterface = {
@@ -1178,7 +1178,7 @@ class DecodeV1Spec
           ),
           EPrimCon(PCUnit),
           Map(),
-          TBuiltin(BTUnit),
+          TUnit,
         )
       }
 
@@ -1198,7 +1198,7 @@ class DecodeV1Spec
           Map(),
           EPrimCon(PCUnit),
           Map(),
-          TBuiltin(BTUnit),
+          TUnit,
         )
 
       val interfaceDefTestCases = {

@@ -68,7 +68,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       methods = Map.empty,
       requires = Set.empty,
       coImplements = Map.empty,
-      view = TBuiltin(BTUnit),
+      view = TUnit,
     )
 
     def exception = DefException(
@@ -384,7 +384,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         methods = List(ifaceMethod1, ifaceMethod2),
         precond = ETrue,
         coImplements = List.empty,
-        view = TBuiltin(BTUnit),
+        view = TUnit,
       )
     }
 
@@ -401,7 +401,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           methods = List.empty,
           precond = ETrue,
           coImplements = List.empty,
-          view = TBuiltin(BTUnit),
+          view = TUnit,
         )
       )
     }
@@ -415,7 +415,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           methods = List(ifaceMethod1, ifaceMethod1),
           precond = ETrue,
           coImplements = List.empty,
-          view = TBuiltin(BTUnit),
+          view = TUnit,
         )
       )
     }
@@ -428,7 +428,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         methods = List(ifaceMethod1, ifaceMethod2),
         precond = ETrue,
         coImplements = List(ifaceCoImpl1, ifaceCoImpl2),
-        view = TBuiltin(BTUnit),
+        view = TUnit,
       )
 
       a[PackageError] shouldBe thrownBy(
@@ -439,7 +439,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           methods = List(ifaceMethod1, ifaceMethod2),
           precond = ETrue,
           coImplements = List(ifaceCoImpl1, ifaceCoImpl1),
-          view = TBuiltin(BTUnit),
+          view = TUnit,
         )
       )
     }
@@ -454,7 +454,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
     interfaceId = TypeConName.assertFromString("pkgId:Mod:I1"),
     methods = Map.empty,
     view = EAbs(
-      (Name.assertFromString("this"), TBuiltin(BTUnit)),
+      (Name.assertFromString("this"), TUnit),
       EPrimCon(PCUnit),
       None,
     ),
@@ -463,7 +463,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
     interfaceId = TypeConName.assertFromString("pkgId:Mod:I2"),
     methods = Map.empty,
     view = EAbs(
-      (Name.assertFromString("this"), TBuiltin(BTUnit)),
+      (Name.assertFromString("this"), TUnit),
       EPrimCon(PCUnit),
       None,
     ),

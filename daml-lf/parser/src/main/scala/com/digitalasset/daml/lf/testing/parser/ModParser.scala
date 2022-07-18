@@ -134,7 +134,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
         TemplateImplements.build(
           ifaceId,
           methods,
-          EAbs((Ref.Name.assertFromString("this"), TBuiltin(BTUnit)), EPrimCon(PCUnit), None),
+          EAbs((Ref.Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
         )
     }
 
@@ -225,7 +225,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
               methods,
               precond,
               coImplements,
-              TBuiltin(BTUnit),
+              TUnit,
             ),
           )
       }
@@ -248,7 +248,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
         InterfaceCoImplements.build(
           tplId,
           methods,
-          EAbs((Ref.Name.assertFromString("this"), TBuiltin(BTUnit)), EPrimCon(PCUnit), None),
+          EAbs((Ref.Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
         )
     }
 
