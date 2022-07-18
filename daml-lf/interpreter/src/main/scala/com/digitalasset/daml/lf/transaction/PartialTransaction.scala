@@ -198,15 +198,13 @@ private[lf] object PartialTransaction {
 
   type NodeSeeds = ImmArray[(NodeId, crypto.Hash)]
 
-  sealed abstract class Result extends Product with Serializable
-  final case class CompleteTransaction(
+  private[lf] final case class Result(
       tx: SubmittedTransaction,
       locationInfo: Map[NodeId, Location],
       seeds: NodeSeeds,
       globalKeyMapping: Map[GlobalKey, KeyMapping],
       disclosedContracts: ImmArray[DisclosedContract],
-  ) extends Result
-  final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
+  )
 }
 
 /** A transaction under construction
@@ -312,13 +310,13 @@ private[speedy] case class PartialTransaction(
     * - an error in case the transaction cannot be serialized using
     *   the `outputTransactionVersions`.
     */
-  def finish: PartialTransaction.Result =
+  private[speedy] def finish: PartialTransaction.Result =
     context.info match {
       case _: RootContextInfo if aborted.isEmpty =>
         val roots = context.children.toImmArray
         val tx0 = Tx(nodes, roots)
         val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
-        CompleteTransaction(
+        Result(
           SubmittedTransaction(TxVersion.asVersionedTransaction(tx)),
           locationInfo(),
           seeds.zip(actionNodeSeeds.toImmArray),
@@ -326,11 +324,14 @@ private[speedy] case class PartialTransaction(
           disclosedContracts,
         )
       case _ =>
-        IncompleteTransaction(this)
+        InternalError.runtimeException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          "ptx.finish: expected RootContextInfo",
+        )
     }
 
   // construct an IncompleteTransaction from the partial-transaction
-  def finishIncomplete: transaction.IncompleteTransaction = {
+  private[speedy] def finishIncomplete: transaction.IncompleteTransaction = {
 
     val ptx = unwind()
 

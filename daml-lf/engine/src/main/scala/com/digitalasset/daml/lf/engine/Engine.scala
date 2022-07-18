@@ -375,11 +375,14 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     }
 
     var finished: Boolean = false
+    var finalValue: SResultFinal = null
 
     while (!finished) {
       machine.run() match {
-        case SResultFinalValue(_) =>
+
+        case fv: SResultFinal =>
           finished = true
+          finalValue = fv
 
         case SResultNeedTime(callback) =>
           callback(time)
@@ -428,13 +431,18 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       }
     }
 
-    onLedger.finish match {
-      case PartialTransaction.CompleteTransaction(
-            tx,
+    finalValue match {
+      case SResultFinal(
             _,
-            nodeSeeds,
-            globalKeyMapping,
-            disclosedContracts,
+            Some(
+              PartialTransaction.Result(
+                tx,
+                _,
+                nodeSeeds,
+                globalKeyMapping,
+                disclosedContracts,
+              )
+            ),
           ) =>
         deps(tx).flatMap { deps =>
           val meta = Tx.Metadata(
@@ -454,11 +462,11 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           }
           ResultDone((tx, meta))
         }
-      case PartialTransaction.IncompleteTransaction(ptx) =>
+      case SResultFinal(_, None) =>
         ResultError(
           Error.Interpretation.Internal(
             NameOf.qualifiedNameOfCurrentFunc,
-            s"Interpretation error: ended with partial result: $ptx",
+            "Interpretation error: completed transaction expected",
             None,
           )
         )
@@ -535,7 +543,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   )(implicit loggingContext: LoggingContext): Result[Versioned[Value]] = {
     def interpret(machine: Machine): Result[SValue] = {
       machine.run() match {
-        case SResultFinalValue(v) => ResultDone(v)
+        case SResultFinal(v, _) => ResultDone(v)
         case SResultError(err) => handleError(err, None)
         case err @ (_: SResultNeedPackage | _: SResultNeedContract | _: SResultNeedKey |
             _: SResultNeedTime | _: SResultScenarioGetParty | _: SResultScenarioPassTime |

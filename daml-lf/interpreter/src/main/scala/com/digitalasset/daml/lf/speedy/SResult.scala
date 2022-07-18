@@ -20,8 +20,10 @@ sealed abstract class SResult extends Product with Serializable
 object SResult {
   final case class SResultError(err: SError) extends SResult
 
-  /** The speedy machine has completed evaluation to reach a final value. */
-  final case class SResultFinalValue(v: SValue) extends SResult
+  /** The speedy machine has completed evaluation to reach a final value.
+    * And, if the evaluation was on-ledger, a completed transaction.
+    */
+  final case class SResultFinal(v: SValue, tx: Option[PartialTransaction.Result]) extends SResult
 
   /** Update or scenario interpretation requires the current
     * ledger time.
