@@ -232,7 +232,8 @@ private class PackageService(
 
   // See the above comment on resolveTemplateId
   def resolveChoiceArgType: ResolveChoiceArgType =
-    (ctid, c) => PackageService.resolveChoiceArgType(state.choiceTypeMap)(ctid, c)
+    (ctid, c) =>
+      PackageService.resolveChoiceArgType(state.choiceTypeMap, state.templateInterfacesMap)(ctid, c)
 
   // See the above comment on resolveTemplateId
   def resolveKeyType: ResolveKeyType =
@@ -357,11 +358,20 @@ object PackageService {
   ): Option[TemplateId.RequiredPkg] = m.get(k)
 
   def resolveChoiceArgType(
-      choiceIdMap: ChoiceTypeMap
-  )(templateId: TemplateId.RequiredPkg, choice: Choice): Error \/ iface.Type = {
-    val k = (templateId, choice)
+      choiceIdMap: ChoiceTypeMap,
+      templateInterfacesMap: TemplateInterfacesMap,
+  )(ctId: ContractTypeId.Unknown.Resolved, choice: Choice): Error \/ iface.Type = {
+    // TODO #14067 skip indirect resolution if ctId is an interface ID
+    val k = (ctId, choice)
     choiceIdMap
       .get(k)
+      .orElse(for {
+        choices <- templateInterfacesMap get ctId
+        ifaces <- choices get choice
+        // TODO #13923 if fails, report need for choiceInterfaceId, available interfaces?
+        if ifaces.sizeIs == 1
+        ty <- choiceIdMap get ((ifaces.head1, choice))
+      } yield ty)
       .toRightDisjunction(InputError(s"Cannot resolve Choice Argument type, given: ${k.toString}"))
   }
 
