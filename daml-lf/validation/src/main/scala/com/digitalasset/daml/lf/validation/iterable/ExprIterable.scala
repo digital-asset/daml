@@ -234,8 +234,10 @@ private[validation] object ExprIterable {
       case InterfaceCoImplements(
             template @ _,
             methods,
+            view,
           ) =>
-        methods.values.iterator.flatMap(iterator(_))
+        methods.values.iterator.flatMap(iterator(_)) ++
+          iterator(view)
     }
 
   private[iterable] def iterator(x: InterfaceCoImplementsMethod): Iterator[Expr] =

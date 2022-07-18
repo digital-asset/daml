@@ -245,7 +245,11 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   private lazy val coImplements: Parser[InterfaceCoImplements] =
     Id("coimplements") ~>! fullIdentifier ~ (`{` ~> rep(coImplementsMethod <~ `;`) <~ `}`) ^^ {
       case tplId ~ methods =>
-        InterfaceCoImplements.build(tplId, methods)
+        InterfaceCoImplements.build(
+          tplId,
+          methods,
+          EAbs((Ref.Name.assertFromString("this"), TBuiltin(BTUnit)), EPrimCon(PCUnit), None),
+        )
     }
 
   private val serializableTag = Ref.Name.assertFromString("serializable")

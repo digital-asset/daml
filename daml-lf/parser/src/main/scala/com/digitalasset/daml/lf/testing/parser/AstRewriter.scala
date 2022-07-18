@@ -349,10 +349,12 @@ private[daml] class AstRewriter(
       case InterfaceCoImplements(
             templateId,
             methods,
+            view,
           ) =>
         InterfaceCoImplements(
           apply(templateId),
           methods.transform((_, x) => apply(x)),
+          apply(view),
         )
     }
   def apply(x: InterfaceCoImplementsMethod): InterfaceCoImplementsMethod =

@@ -257,7 +257,7 @@ private[validation] object TypeIterable {
 
   private[validation] def iterator(coImpl: InterfaceCoImplements): Iterator[Type] =
     coImpl match {
-      case InterfaceCoImplements(template, methods) =>
+      case InterfaceCoImplements(template, methods, view @ _) =>
         Iterator(TTyCon(template)) ++
           methods.values.flatMap(iterator)
     }
