@@ -1539,7 +1539,7 @@ message DefTemplate {
   message Implements {
     TypeConName interface = 1;
     repeated ImplementsMethod methods = 2;
-    Expr view = 3; // *Available in versions >= 1.dev*
+    Expr view = 3;
   }
 
   // The type constructor for the template, acting as both
@@ -1633,7 +1633,7 @@ message DefInterface {
   repeated CoImplements coImplements = 8; // *Available in versions >= 1.dev*
 
   // View type for this interface
-  Type view = 9; // *Available in versions >= 1.dev*
+  Type view = 9;
 }
 
 // Exception definition
