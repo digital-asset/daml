@@ -204,8 +204,7 @@ private[lf] object PartialTransaction {
       seeds: NodeSeeds,
       globalKeyMapping: Map[GlobalKey, KeyMapping],
       disclosedContracts: ImmArray[DisclosedContract],
-  ) extends Product
-      with Serializable
+  )
 }
 
 /** A transaction under construction
@@ -325,7 +324,10 @@ private[speedy] case class PartialTransaction(
           disclosedContracts,
         )
       case _ =>
-        sys.error("ptx.finish: expected RootContextInfo")
+        InternalError.runtimeException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          "ptx.finish: expected RootContextInfo",
+        )
     }
 
   // construct an IncompleteTransaction from the partial-transaction

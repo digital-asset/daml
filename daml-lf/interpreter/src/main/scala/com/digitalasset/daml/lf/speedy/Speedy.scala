@@ -519,6 +519,8 @@ private[lf] object Speedy {
         }
         loop()
       } catch {
+        case SpeedyHungry(res: SResult) =>
+          res
         case SpeedyComplete(value: SValue) =>
           if (enableInstrumentation) track.print()
           ledgerMode match {
@@ -527,9 +529,6 @@ private[lf] object Speedy {
               val ctx = onLedger.ptx.finish
               SResultFinalValue(value, Some(ctx))
           }
-
-        case SpeedyHungry(res: SResult) =>
-          res
         case serr: SError =>
           SResultError(serr)
         case ex: RuntimeException =>
@@ -1644,17 +1643,13 @@ private[lf] object Speedy {
     */
   private[speedy] final case class SpeedyHungry(result: SResult)
       extends RuntimeException
-      with NoStackTrace {
-    override def toString = s"SpeedyHungry($result)"
-  }
+      with NoStackTrace
 
   /** Internal exception thrown when execution has reached a final value.
     */
   private[speedy] final case class SpeedyComplete(value: SValue)
       extends RuntimeException
-      with NoStackTrace {
-    override def toString = s"SpeedyComplete($value)"
-  }
+      with NoStackTrace
 
   private[speedy] def deriveTransactionSeed(
       submissionSeed: crypto.Hash,
