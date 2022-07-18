@@ -435,7 +435,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       recordFromFields(ShRecord(newOwner = v.Value.Sum.Party("Bob")))
     val choice = lar.Choice("Iou_Transfer")
 
-    domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
+    domain.ExerciseCommand(reference, choice, boxedRecord(arg), None, None)
   }
 
   protected def iouCreateAndExerciseTransferCommand(
@@ -489,6 +489,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     domain.ExerciseCommand(
       reference = domain.EnrichedContractId(Some(TpId.Test.MultiPartyContract), cid),
       argument = argument,
+      choiceInterfaceId = None,
       choice = lar.Choice("MPAddSignatories"),
       meta = None,
     )
@@ -512,6 +513,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     domain.ExerciseCommand(
       reference = domain.EnrichedContractId(Some(TpId.Test.MultiPartyContract), cid),
       argument = argument,
+      choiceInterfaceId = None,
       choice = lar.Choice("MPFetchOther"),
       meta = None,
     )

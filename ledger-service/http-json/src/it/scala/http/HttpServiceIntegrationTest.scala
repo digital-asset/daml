@@ -191,6 +191,7 @@ abstract class HttpServiceIntegrationTest
       domain.Choice("Transfer"),
       v.Value(v.Value.Sum.Record(payload)),
       None,
+      None,
     )
   }
 }

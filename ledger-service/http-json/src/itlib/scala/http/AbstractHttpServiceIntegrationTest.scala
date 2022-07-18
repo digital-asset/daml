@@ -1528,7 +1528,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         val arg = recordFromFields(ShRecord(userToFollow = v.Value.Sum.Party(toFollow.unwrap)))
         val choice = lar.Choice("Follow")
 
-        domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
+        domain.ExerciseCommand(reference, choice, boxedRecord(arg), None, None)
       }
 
       def followUser(contractId: lar.ContractId, actAs: domain.Party, toFollow: domain.Party) = {
