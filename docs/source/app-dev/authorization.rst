@@ -170,8 +170,8 @@ User access tokens are `JWTs <https://datatracker.ietf.org/doc/html/rfc7519>`_ t
 
 To interpret the above notation:
 
-- ``aud`` is an optional field which restricts the token to participant nodes with the given id
-- ``sub`` is a required field which specifies the participant user's id
+- ``aud`` is an optional field which restricts the token to participant nodes with the given ID
+- ``sub`` is a required field which specifies the participant user's ID
 - ``exp`` is an optional field which specifies the JWT expiration date (in seconds since EPOCH)
 - ``scope`` is a space-separated list of `OAuth 2.0 scopes <https://datatracker.ietf.org/doc/html/rfc6749#section-3.3>`_
   that must contain the ``"daml_ledger_api"`` scope
