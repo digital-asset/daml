@@ -405,7 +405,8 @@ object JsonProtocol extends JsonProtocolLow {
           reference = reference,
           choice = choice,
           argument = argument,
-          choiceInterfaceId = fromField(json, "choiceInterfaceId"),
+          choiceInterfaceId =
+            fromField[Option[domain.ContractTypeId.Unknown.OptionalPkg]](json, "choiceInterfaceId"),
           meta = meta,
         )
       }
