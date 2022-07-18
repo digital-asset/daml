@@ -1616,6 +1616,7 @@ message DefInterface {
   message CoImplements {
     TypeConName template = 1;
     repeated CoImplementsMethod methods = 2;
+    Expr view = 3;
   }
 
   Location location = 1;

@@ -978,6 +978,7 @@ data InterfaceMethod = InterfaceMethod
 data InterfaceCoImplements = InterfaceCoImplements
   { iciTemplate :: !(Qualified TypeConName)
   , iciMethods :: !(NM.NameMap InterfaceCoImplementsMethod)
+  , iciView :: !Expr
   }
   deriving (Eq, Data, Generic, NFData, Show)
 

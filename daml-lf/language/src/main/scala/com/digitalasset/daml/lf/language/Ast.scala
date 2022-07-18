@@ -780,6 +780,7 @@ object Ast {
   final case class GenInterfaceCoImplements[E](
       templateId: TypeConName,
       methods: Map[MethodName, GenInterfaceCoImplementsMethod[E]],
+      view: E,
   )
 
   final class GenInterfaceCoImplementsCompanion[E] private[Ast] {
@@ -787,6 +788,7 @@ object Ast {
     def build(
         templateId: TypeConName,
         methods: Iterable[GenInterfaceCoImplementsMethod[E]],
+        view: E,
     ): GenInterfaceCoImplements[E] =
       new GenInterfaceCoImplements[E](
         templateId = templateId,
@@ -794,18 +796,20 @@ object Ast {
           methods.map(m => m.name -> m),
           (name: MethodName) => PackageError(s"repeated method co-implementation $name"),
         ),
+        view,
       )
 
     def apply(
         templateId: TypeConName,
         methods: Map[MethodName, GenInterfaceCoImplementsMethod[E]],
+        view: E,
     ): GenInterfaceCoImplements[E] =
-      GenInterfaceCoImplements[E](templateId, methods)
+      GenInterfaceCoImplements[E](templateId, methods, view)
 
     def unapply(
         arg: GenInterfaceCoImplements[E]
-    ): Some[(TypeConName, Map[MethodName, GenInterfaceCoImplementsMethod[E]])] =
-      Some((arg.templateId, arg.methods))
+    ): Some[(TypeConName, Map[MethodName, GenInterfaceCoImplementsMethod[E]], E)] =
+      Some((arg.templateId, arg.methods, arg.view))
   }
 
   type InterfaceCoImplements = GenInterfaceCoImplements[Expr]

@@ -688,6 +688,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       InterfaceCoImplements.build(
         templateId = decodeTypeConName(lfCoImpl.getTemplate),
         methods = lfCoImpl.getMethodsList.asScala.view.map(decodeInterfaceCoImplementsMethod),
+        view = decodeExpr(lfCoImpl.getView, "InterfaceCoImplements.view"),
       )
 
     private[this] def decodeInterfaceCoImplementsMethod(

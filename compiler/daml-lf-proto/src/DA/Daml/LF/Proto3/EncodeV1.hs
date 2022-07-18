@@ -1036,6 +1036,7 @@ encodeInterfaceCoImplements :: InterfaceCoImplements -> Encode P.DefInterface_Co
 encodeInterfaceCoImplements InterfaceCoImplements {..} = do
     defInterface_CoImplementsTemplate <- encodeQualTypeConName iciTemplate
     defInterface_CoImplementsMethods <- encodeNameMap encodeInterfaceCoImplementsMethod iciMethods
+    defInterface_CoImplementsView <- encodeExpr iciView
     pure P.DefInterface_CoImplements {..}
 
 encodeInterfaceCoImplementsMethod :: InterfaceCoImplementsMethod -> Encode P.DefInterface_CoImplementsMethod

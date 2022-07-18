@@ -257,10 +257,11 @@ object Util {
       coImplements: InterfaceCoImplements
   ): InterfaceCoImplementsSignature =
     coImplements match {
-      case InterfaceCoImplements(name, methods) =>
+      case InterfaceCoImplements(name, methods, _) =>
         InterfaceCoImplementsSignature(
           name,
           methods.transform((_, v) => toSignature(v)),
+          (),
         )
     }
 

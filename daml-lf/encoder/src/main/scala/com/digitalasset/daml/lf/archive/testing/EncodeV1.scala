@@ -824,6 +824,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val b = PLF.DefInterface.CoImplements.newBuilder()
       b.setTemplate(template)
       b.accumulateLeft(coImplements.methods.sortByKey)(_ addMethods _)
+      b.setView(coImplements.view)
       b.build()
     }
 

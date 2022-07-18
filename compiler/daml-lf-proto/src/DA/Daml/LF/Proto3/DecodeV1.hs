@@ -258,6 +258,7 @@ decodeInterfaceCoImplements :: LF1.DefInterface_CoImplements -> Decode Interface
 decodeInterfaceCoImplements LF1.DefInterface_CoImplements {..} = InterfaceCoImplements
   <$> mayDecode "defInterface_CoImplementsTemplate" defInterface_CoImplementsTemplate decodeTypeConName
   <*> decodeNM DuplicateMethod decodeInterfaceCoImplementsMethod defInterface_CoImplementsMethods
+  <*> mayDecode "defInterface_CoImplementsView" defInterface_CoImplementsView decodeExpr
 
 decodeInterfaceCoImplementsMethod :: LF1.DefInterface_CoImplementsMethod -> Decode InterfaceCoImplementsMethod
 decodeInterfaceCoImplementsMethod LF1.DefInterface_CoImplementsMethod {..} = InterfaceCoImplementsMethod
