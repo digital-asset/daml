@@ -941,7 +941,7 @@ private[lf] object SBuiltin {
             IE.CreateEmptyContractKeyMaintainers(cached.templateId, createArgValue, key)
           )
       }
-      val (coid, newPtx) = onLedger.ptx
+      onLedger.ptx
         .insertCreate(
           submissionTime = machine.submissionTime,
           templateId = cached.templateId,
@@ -952,12 +952,13 @@ private[lf] object SBuiltin {
           stakeholders = cached.stakeholders,
           key = cached.key,
           version = machine.tmplId2TxVersion(cached.templateId),
-        )
-
-      onLedger.updateCachedContracts(coid, cached)
-      onLedger.ptx = newPtx
-      checkAborted(onLedger.ptx)
-      machine.returnValue = SContractId(coid)
+        ) match {
+        case Left(err) => throw convTxError(err)
+        case Right((coid, newPtx)) =>
+          onLedger.updateCachedContracts(coid, cached)
+          onLedger.ptx = newPtx
+          machine.returnValue = SContractId(coid)
+      }
     }
   }
 
@@ -1000,7 +1001,7 @@ private[lf] object SBuiltin {
       onLedger.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
       val mbKey = cached.key
 
-      onLedger.ptx = onLedger.ptx
+      onLedger.ptx
         .beginExercises(
           targetId = coid,
           templateId = templateId,
@@ -1016,9 +1017,12 @@ private[lf] object SBuiltin {
           byKey = byKey,
           chosenValue = chosenValue,
           version = machine.tmplId2TxVersion(templateId),
-        )
-      checkAborted(onLedger.ptx)
-      machine.returnValue = SUnit
+        ) match {
+        case Left(err) => throw convTxError(err)
+        case Right(ptx) =>
+          onLedger.ptx = ptx
+          machine.returnValue = SUnit
+      }
     }
   }
 
@@ -1363,7 +1367,7 @@ private[lf] object SBuiltin {
       val signatories = cached.signatories
       val observers = cached.observers
       val key = cached.key
-      onLedger.ptx = onLedger.ptx.insertFetch(
+      onLedger.ptx.insertFetch(
         coid = coid,
         templateId = templateId,
         optLocation = machine.lastLocation,
@@ -1372,9 +1376,12 @@ private[lf] object SBuiltin {
         key = key,
         byKey = byKey,
         version = machine.tmplId2TxVersion(templateId),
-      )
-      checkAborted(onLedger.ptx)
-      machine.returnValue = SUnit
+      ) match {
+        case Left(err) => throw convTxError(err)
+        case Right(ptx) =>
+          onLedger.ptx = ptx
+          machine.returnValue = SUnit
+      }
     }
   }
 
@@ -1404,7 +1411,7 @@ private[lf] object SBuiltin {
           }
         case _ => crash(s"Non option value when inserting lookup node")
       }
-      onLedger.ptx = onLedger.ptx.insertLookup(
+      onLedger.ptx.insertLookup(
         templateId = templateId,
         optLocation = machine.lastLocation,
         key = Node.KeyWithMaintainers(
@@ -1413,9 +1420,12 @@ private[lf] object SBuiltin {
         ),
         result = mbCoid,
         version = machine.tmplId2TxVersion(templateId),
-      )
-      checkAborted(onLedger.ptx)
-      machine.returnValue = SV.Unit
+      ) match {
+        case Left(err) => throw convTxError(err)
+        case Right(ptx) =>
+          onLedger.ptx = ptx
+          machine.returnValue = SV.Unit
+      }
     }
   }
 
@@ -1934,22 +1944,14 @@ private[lf] object SBuiltin {
 
   }
 
-  // Helpers
-  //
-
-  /** Check whether the partial transaction has been aborted, and
-    * throw if so. The partial transaction abort status must be
-    * checked after every operation on it.
-    */
-  private[speedy] def checkAborted(ptx: PartialTransaction): Unit =
-    ptx.aborted match {
-      case Some(Tx.AuthFailureDuringExecution(nid, fa)) =>
-        throw SErrorDamlException(IE.FailedAuthorization(nid, fa))
-      case Some(Tx.DuplicateContractKey(key)) =>
-        throw SErrorDamlException(IE.DuplicateContractKey(key))
-      case None =>
-        ()
+  private[speedy] def convTxError(err: Tx.TransactionError): SErrorDamlException = {
+    err match {
+      case Tx.AuthFailureDuringExecution(nid, fa) =>
+        SErrorDamlException(IE.FailedAuthorization(nid, fa))
+      case Tx.DuplicateContractKey(key) =>
+        SErrorDamlException(IE.DuplicateContractKey(key))
     }
+  }
 
   private[this] def extractParties(where: String, v: SValue): TreeSet[Party] =
     v match {

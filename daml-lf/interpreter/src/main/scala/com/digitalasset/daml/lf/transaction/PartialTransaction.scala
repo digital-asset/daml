@@ -181,7 +181,6 @@ private[lf] object PartialTransaction {
     nodes = HashMap.empty,
     actionNodeSeeds = BackStack.empty,
     context = Context(initialSeeds, committers),
-    aborted = None,
     contractState = new ContractStateMachine[NodeId](contractKeyUniqueness).initial,
     actionNodeLocations = BackStack.empty,
     disclosedContracts = disclosedContracts,
@@ -214,12 +213,6 @@ private[lf] object PartialTransaction {
   *   Note that only other node types do not have seeds and are not included.
   *  @param context The context of what sub-transaction is being
   *                 built.
-  *  @param aborted The error that lead to aborting the building of
-  *                 this transaction. We inline this error to allow
-  *                 reporting the error jointly with the state that
-  *                 the transaction was in when aborted. It is up to
-  *                 the caller to check for 'isAborted' after every
-  *                 change to a transaction.
   *  @param contractState summarizes the changes to the contract states caused by nodes up to now
   *  @param actionNodeLocations The optional locations of create/exercise/fetch/lookup nodes in pre-order.
   *   Used by 'locationInfo()', called by 'finish()' and 'finishIncomplete()'
@@ -230,7 +223,6 @@ private[speedy] case class PartialTransaction(
     nodes: HashMap[NodeId, Node],
     actionNodeSeeds: BackStack[crypto.Hash],
     context: PartialTransaction.Context,
-    aborted: Option[Tx.TransactionError],
     contractState: ContractStateMachine[NodeId]#State,
     actionNodeLocations: BackStack[Option[Location]],
     disclosedContracts: ImmArray[DisclosedContract],
@@ -312,7 +304,7 @@ private[speedy] case class PartialTransaction(
     */
   private[speedy] def finish: PartialTransaction.Result =
     context.info match {
-      case _: RootContextInfo if aborted.isEmpty =>
+      case _: RootContextInfo =>
         val roots = context.children.toImmArray
         val tx0 = Tx(nodes, roots)
         val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
@@ -357,7 +349,7 @@ private[speedy] case class PartialTransaction(
       stakeholders: Set[Party],
       key: Option[Node.KeyWithMaintainers],
       version: TxVersion,
-  ): (Value.ContractId, PartialTransaction) = {
+  ): Either[Tx.TransactionError, (Value.ContractId, PartialTransaction)] = {
     val auth = Authorize(context.info.authorizers)
     val actionNodeSeed = context.nextActionChildSeed
     val discriminator =
@@ -380,13 +372,23 @@ private[speedy] case class PartialTransaction(
       context = context.addActionChild(nid, version),
       nodes = nodes.updated(nid, createNode),
       actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
-    ).noteAuthFails(nid, CheckAuthorization.authorizeCreate(optLocation, createNode), auth)
+    )
 
-    val nextPtx = ptx.contractState.visitCreate(templateId, cid, key) match {
-      case Right(next) => ptx.copy(contractState = next)
-      case Left(duplicate) => ptx.noteAbort(duplicate)
+    ptx.noteAuthFails2(
+      nid,
+      CheckAuthorization.authorizeCreate(optLocation, createNode),
+      auth,
+    ) match {
+      case Left(err) => Left(err)
+      case Right(_) =>
+        ptx.contractState.visitCreate(templateId, cid, key) match {
+          case Right(next) =>
+            val nextPtx = ptx.copy(contractState = next)
+            Right((cid, nextPtx))
+          case Left(duplicate) =>
+            Left(duplicate)
+        }
     }
-    cid -> nextPtx
   }
 
   def insertFetch(
@@ -398,7 +400,7 @@ private[speedy] case class PartialTransaction(
       key: Option[Node.KeyWithMaintainers],
       byKey: Boolean,
       version: TxVersion,
-  ): PartialTransaction = {
+  ): Either[Tx.TransactionError, PartialTransaction] = {
     val stakeholders = observers union signatories
     val contextActors = context.info.authorizers
     val actingParties = contextActors intersect stakeholders
@@ -421,7 +423,7 @@ private[speedy] case class PartialTransaction(
       NameOf.qualifiedNameOfCurrentFunc,
       coid,
       insertLeafNode(node, version, optLocation, newContractState),
-    ).noteAuthFails(nid, CheckAuthorization.authorizeFetch(optLocation, node), auth)
+    ).noteAuthFails2(nid, CheckAuthorization.authorizeFetch(optLocation, node), auth)
   }
 
   def insertLookup(
@@ -430,7 +432,7 @@ private[speedy] case class PartialTransaction(
       key: Node.KeyWithMaintainers,
       result: Option[Value.ContractId],
       version: TxVersion,
-  ): PartialTransaction = {
+  ): Either[Tx.TransactionError, PartialTransaction] = {
     val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
     val node = Node.LookupByKey(
@@ -447,7 +449,7 @@ private[speedy] case class PartialTransaction(
       contractState.visitLookup(templateId, key.key, keyInput.toKeyMapping, result)
     )
     insertLeafNode(node, version, optLocation, newContractState)
-      .noteAuthFails(nid, CheckAuthorization.authorizeLookupByKey(optLocation, node), auth)
+      .noteAuthFails2(nid, CheckAuthorization.authorizeLookupByKey(optLocation, node), auth)
   }
 
   /** Open an exercises context.
@@ -468,7 +470,7 @@ private[speedy] case class PartialTransaction(
       byKey: Boolean,
       chosenValue: Value,
       version: TxVersion,
-  ): PartialTransaction = {
+  ): Either[Tx.TransactionError, PartialTransaction] = {
     val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
     val ec =
@@ -505,7 +507,7 @@ private[speedy] case class PartialTransaction(
         actionNodeSeeds = actionNodeSeeds :+ ec.actionNodeSeed, // must push before children
         contractState = newContractState,
       ),
-    ).noteAuthFails(nid, CheckAuthorization.authorizeExercise(optLocation, makeExNode(ec)), auth)
+    ).noteAuthFails2(nid, CheckAuthorization.authorizeExercise(optLocation, makeExNode(ec)), auth)
   }
 
   /** Close normally an exercise context.
@@ -645,21 +647,17 @@ private[speedy] case class PartialTransaction(
   }
 
   /** Note that the transaction building failed due to an authorization failure */
-  private def noteAuthFails(
+  private def noteAuthFails2( // NICK: rename loose 2 suffix -- inline!
       nid: NodeId,
       f: Authorize => List[FailedAuthorization],
       auth: Authorize,
-  ): PartialTransaction = {
+  ): Either[Tx.TransactionError, PartialTransaction] = {
     f(auth) match {
-      case Nil => this
+      case Nil => Right(this)
       case fa :: _ => // take just the first failure //TODO: dont compute all!
-        noteAbort(Tx.AuthFailureDuringExecution(nid, fa))
+        Left(Tx.AuthFailureDuringExecution(nid, fa))
     }
   }
-
-  /** Note that the transaction building failed due to the given error */
-  private def noteAbort(err: Tx.TransactionError): PartialTransaction =
-    copy(aborted = Some(err))
 
   /** Double check the execution of a step with the unconsumedness of a
     * `ContractId`.
