@@ -120,10 +120,13 @@ object Node {
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers],
       override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
+      byInterfaceKey: Option[InterfaceKeyWithMaintainers],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyAction
       with ActionNodeInfo.Fetch {
+
+    require (!byKey || byInterfaceKey.isEmpty)
 
     override def keyOpt: Option[KeyWithMaintainers] = key
 
@@ -161,10 +164,13 @@ object Node {
       exerciseResult: Option[Value],
       key: Option[KeyWithMaintainers],
       override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
+      byInterfaceKey: Option[InterfaceKeyWithMaintainers],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends Action
       with ActionNodeInfo.Exercise {
+
+    require (!byKey || byInterfaceKey.isEmpty)
 
     override def keyOpt: Option[KeyWithMaintainers] = key
 
@@ -197,7 +203,7 @@ object Node {
 
   final case class LookupByKey(
       override val templateId: TypeConName,
-      key: KeyWithMaintainers,
+      key: Either[KeyWithMaintainers, InterfaceKeyWithMaintainers],
       result: Option[ContractId],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
@@ -218,6 +224,11 @@ object Node {
 
     def versionedKey: VersionedKeyWithMaintainers = versioned(key)
   }
+
+  final case class InterfaceKeyWithMaintainers(
+    interfaceId: TypeConName,
+    key: KeyWithMaintainers,
+  )
 
   final case class KeyWithMaintainers(key: Value, maintainers: Set[Party])
       extends CidContainer[KeyWithMaintainers] {
