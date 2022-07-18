@@ -77,12 +77,7 @@ curl -sSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
 curl -sSL https://dl.google.com/cloudagents/add-logging-agent-repo.sh | bash -s -- --also-install
 
 #install docker
-DOCKER_VERSION="5:20.10.2~3-0~ubuntu-$(lsb_release -cs)"
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-apt-key fingerprint 0EBFCD88
-add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-apt-get update
-apt-get install -qy docker-ce=$DOCKER_VERSION docker-ce-cli=$DOCKER_VERSION containerd.io
+apt-get install -qy docker-ce docker-ce-cli containerd.io
 
 #Start docker daemon
 systemctl enable docker
