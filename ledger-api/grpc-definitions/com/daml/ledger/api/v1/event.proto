@@ -118,6 +118,18 @@ message InterfaceView {
   // Optional
   Record view_value = 3;
 
+  // Whether the key was successfully computed, and if not,
+  // the reason for the error. The error is reported using the same rules
+  // for error codes and messages as the errors returned for API requests.
+  // Set if the interface defines a key.
+  // Optional
+  google.rpc.Status key_status = 4;
+
+  // The interface key of the created contract.
+  // Set if the interface was requested in the ``InterfaceFilter``, the interface defines a key
+  // and it could be successfully computed.
+  // Optional
+  Value interface_key = 5;
 }
 
 // Records that a contract has been archived, and choices may no longer be exercised on it.
