@@ -669,6 +669,7 @@ final class Metrics(val registry: MetricRegistry) {
           val prune: Timer = registry.timer(Prefix :+ "prune")
 
           val sliceSize: Histogram = registry.histogram(Prefix :+ "slice_size")
+          val bufferSize: Histogram = registry.histogram(Prefix :+ "size")
         }
 
         case class BufferedReader(streamName: String) {
@@ -678,7 +679,6 @@ final class Metrics(val registry: MetricRegistry) {
           val fetchedBuffered: Counter = registry.counter(Prefix :+ "fetched_buffered")
           val fetchTimer: Timer = registry.timer(Prefix :+ "fetch")
           val conversion: Timer = registry.timer(Prefix :+ "conversion")
-          val bufferSize: Counter = registry.counter(Prefix :+ "buffer_size")
         }
 
         val getContractStateEventsChunkSize: Histogram =
