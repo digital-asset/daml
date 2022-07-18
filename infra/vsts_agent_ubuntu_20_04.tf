@@ -26,7 +26,7 @@ EOF
     {
       name      = "ci-u2",
       disk_size = 400,
-      size      = 30,
+      size      = 0,
       docker    = <<EOF
 DOCKER_VERSION="5:20.10.2~3-0~ubuntu-$(lsb_release -cs)"
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
