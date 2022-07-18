@@ -251,6 +251,8 @@ data ModuleContents = ModuleContents
   , mcRequires :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
   , mcInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
   , mcInterfaces :: MS.Map TypeConName GHC.TyCon
+  , mcInterfaceViews :: MS.Map TypeConName GHC.Type
+  , mcInterfaceViewInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [GHC.Expr GHC.CoreBndr]
   , mcModInstanceInfo :: !ModInstanceInfo
   , mcDepOrphanModules :: [GHC.Module]
   , mcExports :: [GHC.AvailInfo]
@@ -291,6 +293,20 @@ extractModuleContents env@Env{..} coreModule modIface details = do
       , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- [varType name]
       , NameIn DA_Internal_Desugar "RequiresT" <- [requiresT]
       ]
+    mcInterfaceViewInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [GHC.Expr GHC.CoreBndr]
+    mcInterfaceViewInstances = MS.fromListWith (++)
+        [
+        ( (mod, mkTypeCon [getOccText iface], mkTypeCon [getOccText tpl])
+        , [untick val]
+        )
+        | (name, val) <- mcBinds
+        , TypeCon interfaceViewNewtype
+        [ TypeCon tpl []
+        , TypeCon iface []
+        ] <- [varType name]
+        , NameIn DA_Internal_Interface "InterfaceView" <- [interfaceViewNewtype]
+        , Just mod <- [nameModule_maybe (getName iface)]
+        ]
     mcInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
     mcInterfaceMethodInstances = MS.fromListWith (++)
       [
@@ -312,6 +328,7 @@ extractModuleContents env@Env{..} coreModule modIface details = do
         , "_choice_" `T.isPrefixOf` getOccText name
         , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
         ]
+    mcInterfaceViews = interfaceViews envLfVersion (md_insts details)
     mcTemplateBinds = scrapeTemplateBinds mcBinds
     mcExceptionBinds
         | envLfVersion `supports` featureExceptions =
@@ -518,6 +535,17 @@ interfaceNames lfVersion tyThings
         ]
     | otherwise = MS.empty
 
+interfaceViews :: LF.Version -> [ClsInst] -> MS.Map TypeConName GHC.Type
+interfaceViews lfVersion classInstances
+    | lfVersion `supports` featureInterfaces = MS.fromList
+        [ (mkTypeCon [getOccText $ GHC.tyConName ifaceTyCon], viewType)
+        | ClsInst { is_cls_nm, is_tys } <- classInstances
+        , NameIn DA_Internal_Interface "HasInterfaceView" <- pure is_cls_nm
+        , [ifaceType, viewType] <- pure is_tys
+        , TyConApp ifaceTyCon [] <- pure ifaceType
+        ]
+    | otherwise = MS.empty
+
 convertInterfaceTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
 convertInterfaceTyCon env errHandler tycon
     | hasDamlInterfaceCtx tycon = do
@@ -549,7 +577,9 @@ convertInterfaces env mc = interfaceDefs
             intMethods <- NM.fromList <$> convertMethods tyCon
             intChoices <- convertChoices env mc intName emptyTemplateBinds
             let intCoImplements = NM.empty -- TODO: https://github.com/digital-asset/daml/issues/14047
-            let intView = TBuiltin BTUnit -- TODO: Stub view, will extract later, https://github.com/digital-asset/daml/pull/14439
+            intView <- case MS.lookup intName (mcInterfaceViews mc) of
+                Nothing -> conversionError $ "No view found for interface " <> show intName
+                Just viewType -> convertType env viewType
             pure DefInterface {..}
 
     convertMethods :: GHC.TyCon -> ConvertM [InterfaceMethod]
@@ -997,12 +1027,17 @@ convertImplements env mc tpl = NM.fromList <$>
       con <- convertInterfaceTyCon env handleIsNotInterface iface
       let mod = nameModule (getName iface)
 
-      -- TODO: Stub view, will extract later, https://github.com/digital-asset/daml/pull/14439
-      let view = ETmLam (ExprVarName "this", TCon con) (EBuiltin BEUnit)
-
       methods <- convertMethods $ MS.findWithDefault []
         (mod, qualObject con, tpl)
         (mcInterfaceMethodInstances mc)
+
+      view <- case MS.lookup (mod, qualObject con, tpl) (mcInterfaceViewInstances mc) of
+        Just [view] -> do
+            viewLFExpr <- convertExpr env view
+            pure $ viewLFExpr `ETmApp` EVar this
+        Nothing -> conversionError $ "No view implementation defined by " ++ show tpl ++ " for " ++ prettyPrint iface
+        Just [] -> conversionError $ "No view implementation defined by " ++ show tpl ++ " for " ++ prettyPrint iface
+        Just _ -> conversionError $ "More than one view implementation defined by " ++ show tpl ++ " for " ++ prettyPrint iface
 
       pure (TemplateImplements con methods view)
 
