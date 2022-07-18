@@ -209,7 +209,7 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
           val (pkgIds, rels) = cases.unzip
           val testPkgs = pkgIds.view.map(pkgId => pkgId -> pkgs(pkgId)).toMap
           val expectedResult = rels.fold(Relation.empty)(Relation.union)
-          new PackageInfo(testPkgs).interfaceDirectImplementation shouldBe expectedResult
+          new PackageInfo(testPkgs).interfacesDirectImplementations shouldBe expectedResult
         }
     }
   }
@@ -239,7 +239,7 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
           val (pkgIds, rels) = cases.unzip
           val testPkgs = pkgIds.view.map(pkgId => pkgId -> pkgs(pkgId)).toMap
           val expectedResult = rels.fold(Relation.empty)(Relation.union)
-          new PackageInfo(testPkgs).interfaceRetroactiveInstances shouldBe expectedResult
+          new PackageInfo(testPkgs).interfacesRetroactiveInstances shouldBe expectedResult
         }
     }
   }
@@ -251,4 +251,3 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
     Ref.Identifier.assertFromString(s)
 
 }
-

@@ -8,28 +8,49 @@ package util
 import data.Ref
 import data.Relation.Relation
 
+/** *
+  *
+  * @param pkgSignature
+  */
 private[daml] class PackageInfo(pkgSignature: Map[Ref.PackageId, Ast.GenPackage[_]]) {
 
+  /** returns the set of templates defined in `pkgSignature` */
   def definedTemplates: Set[Ref.Identifier] = templates.map(_._1).toSet
 
+  /** returns the set of interfaces defined in `pkgSignature` */
   def definedInterfaces: Set[Ref.Identifier] = interfaces.map(_._1).toSet
 
-  def interfaceDirectImplementation: Relation[Ref.Identifier, Ref.Identifier] =
+  /** return the relation between interfaces and all their direct implementation
+    * as defined in `pkgSignature`.
+    * The domain of the relation is the set of interface names, and the codomain
+    * is the set of template name.
+    * Note that while interfaces may not be defined in `pkgSignature`, all template
+    * are.
+    */
+  def interfacesDirectImplementations: Relation[Ref.Identifier, Ref.Identifier] =
     Relation.from(
       templates.flatMap { case (tmplId, tmpl) =>
         tmpl.implements.keysIterator.map(_ -> Set(tmplId))
       }
     )
 
-  def interfaceRetroactiveInstances: Relation[Ref.Identifier, Ref.Identifier] =
+  /** return the relation between interfaces and all their retroactive implementation
+    * as defined in `pkgSignature`.
+    * The domain of the relation is the set of interface names, while the codomain
+    * is the set of template name.
+    * Note that while all interfaces are defined in `pkgSignature`, template may not
+    * be.
+    */
+  def interfacesRetroactiveInstances: Relation[Ref.Identifier, Ref.Identifier] =
     Relation.from(
       interfaces.flatMap { case (ifaceId, iface) =>
         iface.coImplements.keysIterator.map(tmplId => ifaceId -> Set(tmplId))
       }
     )
 
+  /* Union of interfacesDirectImplementations and interfacesRetroactiveInstances */
   def interfaceInstances: Relation[Ref.Identifier, Ref.Identifier] =
-    Relation.union(interfaceDirectImplementation, interfaceRetroactiveInstances)
+    Relation.union(interfacesDirectImplementations, interfacesRetroactiveInstances)
 
   private[this] def withFullId[X](
       pkgId: Ref.PackageId,
@@ -50,4 +71,3 @@ private[daml] class PackageInfo(pkgSignature: Map[Ref.PackageId, Ast.GenPackage[
     modules.flatMap { case (pkgId, mod) => mod.interfaces.map(withFullId(pkgId, mod, _)) }
 
 }
-
