@@ -770,6 +770,7 @@ goToDefinitionTests mbScenarioService mbScenarioServiceDev = Tasty.testGroup "Go
     ,    testCaseDev' "Interface goto definition" $ do
             foo <- makeModule "Foo"
                 [ "interface Iface where"
+                , "  viewtype ()"
                 , "  getOwner : Party"
                 , "  nonconsuming choice Noop : ()"
                 , "    controller getOwner this"

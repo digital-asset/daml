@@ -1659,7 +1659,7 @@ tests tools = testGroup "Data Dependencies" $
         [ "--target=1.dev" ]
         [ "module Lib where"
 
-        , "interface I"
+        , "interface I where viewtype ()"
         ]
         [ "{-# OPTIONS_GHC -Werror #-}"
         , "module Main where"
@@ -1685,6 +1685,7 @@ tests tools = testGroup "Data Dependencies" $
             , "import qualified A"
 
             , "interface Instrument where"
+            , "  viewtype ()"
             , "  f : ()"
             , "x = A.Instrument"
             ]
@@ -1700,6 +1701,7 @@ tests tools = testGroup "Data Dependencies" $
             [ "module Lib where"
 
             , "interface Token where"
+            , "  viewtype ()"
             , "  getOwner : Party -- ^ A method comment."
             , "  getAmount : Int"
             , "  setAmount : Int -> Token"
@@ -1752,6 +1754,7 @@ tests tools = testGroup "Data Dependencies" $
             , "  where"
             , "    signatory issuer, owner"
             , "    implements Token where"
+            , "      view = ()"
             , "      getOwner = owner"
             , "      getAmount = amount"
             , "      setAmount x = toInterface @Token (this with amount = x)"
@@ -1819,6 +1822,7 @@ tests tools = testGroup "Data Dependencies" $
             , "import DA.Assert"
 
             , "interface Token where"
+            , "  viewtype ()"
             , "  getOwner : Party -- ^ A method comment."
             , "  getAmount : Int"
             , "  setAmount : Int -> Token"
@@ -1864,6 +1868,7 @@ tests tools = testGroup "Data Dependencies" $
             , "  where"
             , "    signatory issuer, owner"
             , "    implements Token where"
+            , "      view = ()"
             , "      getOwner = owner"
             , "      getAmount = amount"
             , "      setAmount x = toInterface @Token (this with amount = x)"
@@ -1937,6 +1942,7 @@ tests tools = testGroup "Data Dependencies" $
             [ "module Lib where"
 
             , "interface Token where"
+            , "  viewtype ()"
             , "  getOwner : Party -- ^ A method comment."
             , "  getAmount : Int"
             , "  setAmount : Int -> Token"
@@ -1974,6 +1980,7 @@ tests tools = testGroup "Data Dependencies" $
             , "import DA.Assert"
 
             , "interface FancyToken requires Token where"
+            , "  viewtype ()"
             , "  multiplier : Int"
             , "  choice GetRich : ContractId Token"
             , "    with"
@@ -1991,6 +1998,7 @@ tests tools = testGroup "Data Dependencies" $
             , "  where"
             , "    signatory issuer, owner"
             , "    implements Token where"
+            , "      view = ()"
             , "      getOwner = owner"
             , "      getAmount = amount"
             , "      setAmount x = toInterface @Token (this with amount = x)"
@@ -2010,6 +2018,7 @@ tests tools = testGroup "Data Dependencies" $
             , "        pure ()"
 
             , "    implements FancyToken where"
+            , "      view = ()"
             , "      multiplier = 5"
 
             , "main = scenario do"
@@ -2156,6 +2165,7 @@ tests tools = testGroup "Data Dependencies" $
             [ "module Token where"
 
             , "interface Token where"
+            , "  viewtype ()"
             , "  getOwner : Party -- ^ A method comment."
             , "  getAmount : Int"
             , "  setAmount : Int -> Token"
@@ -2201,6 +2211,7 @@ tests tools = testGroup "Data Dependencies" $
             , "import Token"
 
             , "interface FancyToken requires Token where"
+            , "  viewtype ()"
             , "  multiplier : Int"
             , "  choice GetRich : ContractId Token"
             , "    with"
@@ -2237,6 +2248,7 @@ tests tools = testGroup "Data Dependencies" $
             , "  where"
             , "    signatory issuer, owner"
             , "    implements Token where"
+            , "      view = ()"
             , "      getOwner = owner"
             , "      getAmount = amount"
             , "      setAmount x = toInterface @Token (this with amount = x)"
@@ -2256,6 +2268,7 @@ tests tools = testGroup "Data Dependencies" $
             , "        pure ()"
 
             , "    implements FancyToken where"
+            , "      view = ()"
             , "      multiplier = 5"
             ]
           callProcessSilent damlc
