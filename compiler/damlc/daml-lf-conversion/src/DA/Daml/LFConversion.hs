@@ -1176,6 +1176,12 @@ convertBind env mc (name, x)
     , NameIn DA_Internal_Desugar "HasMethod" <- hasMethodCls
     = pure []
 
+    -- HasInferfaceView instances are only used for desugaring.
+    | DFunId _ <- idDetails name
+    , TypeCon hasMethodCls _ <- varType name
+    , NameIn DA_Internal_Interface "HasInterfaceView" <- hasMethodCls
+    = pure []
+
     -- Typeclass instance dictionaries
     | DFunId isNewtype <- idDetails name
     = withRange (convNameLoc name) $ do
