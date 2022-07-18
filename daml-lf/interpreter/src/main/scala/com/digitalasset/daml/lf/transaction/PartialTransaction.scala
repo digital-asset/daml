@@ -576,7 +576,7 @@ private[speedy] case class PartialTransaction(
   }
 
   /** Open a Try context.
-    *  Must be closed by `endTry`, `abortTry`, or `rollbackTry`.
+    *  Must be closed by `endTry` or `rollbackTry`.
     */
   def beginTry: PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
@@ -607,13 +607,6 @@ private[speedy] case class PartialTransaction(
           "endTry called in non-catch context",
         )
     }
-
-  /** Close abruptly a try context, due to an uncaught exception,
-    * i.e. an exception was thrown inside the context but the catch associated to the try context did not handle it.
-    * Must match a `beginTry`.
-    */
-  def abortTry: PartialTransaction =
-    endTry
 
   /** Close a try context, by catching an exception,
     * i.e. a exception was thrown inside the context, and the catch associated to the try context did handle it.
@@ -700,7 +693,7 @@ private[speedy] case class PartialTransaction(
     @tailrec
     def go(ptx: PartialTransaction): PartialTransaction = ptx.context.info match {
       case _: PartialTransaction.ExercisesContextInfo => go(ptx.abortExercises)
-      case _: PartialTransaction.TryContextInfo => go(ptx.abortTry)
+      case _: PartialTransaction.TryContextInfo => go(ptx.endTry)
       case _: PartialTransaction.RootContextInfo => ptx
     }
     go(this)
