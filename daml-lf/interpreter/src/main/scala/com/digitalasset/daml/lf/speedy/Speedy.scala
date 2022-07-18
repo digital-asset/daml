@@ -1558,6 +1558,9 @@ private[lf] object Speedy {
       } else {
         machine.popKont() match {
           case handler: KTryCatchHandler =>
+            machine.withOnLedger("unwindToHandler/KTryCatchHandler") { onLedger =>
+              onLedger.ptx = onLedger.ptx.rollbackTry(excep)
+            }
             Some(handler)
           case _: KCloseExercise =>
             machine.withOnLedger("unwindToHandler/KCloseExercise") { onLedger =>

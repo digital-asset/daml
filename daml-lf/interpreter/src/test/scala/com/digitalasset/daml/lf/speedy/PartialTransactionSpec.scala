@@ -157,7 +157,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
           .beginTry // open a second try context
           .insertCreate_ // create the contract cid_1_2
           // an exception is thrown
-          .abortTry // the second try context does not handle the exception
+          .rollbackTry_ // the second try context does not handle the exception
           .abortExercises // close abruptly the exercise due to an uncaught exception
           .rollbackTry_ // the first try context does handle the exception
           .insertCreate_ // create the contract cid_2
