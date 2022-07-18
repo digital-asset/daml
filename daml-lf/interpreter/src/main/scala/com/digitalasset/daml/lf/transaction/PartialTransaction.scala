@@ -198,15 +198,13 @@ private[lf] object PartialTransaction {
 
   type NodeSeeds = ImmArray[(NodeId, crypto.Hash)]
 
-  sealed abstract class Result extends Product with Serializable
-  final case class CompleteTransaction(
+  private[lf] final case class Result(
       tx: SubmittedTransaction,
       locationInfo: Map[NodeId, Location],
       seeds: NodeSeeds,
       globalKeyMapping: Map[GlobalKey, KeyMapping],
       disclosedContracts: ImmArray[DisclosedContract],
-  ) extends Result
-  final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
+  )
 }
 
 /** A transaction under construction
@@ -312,13 +310,13 @@ private[speedy] case class PartialTransaction(
     * - an error in case the transaction cannot be serialized using
     *   the `outputTransactionVersions`.
     */
-  def finish: PartialTransaction.Result =
+  private[speedy] def finish: PartialTransaction.Result =
     context.info match {
       case _: RootContextInfo if aborted.isEmpty =>
         val roots = context.children.toImmArray
         val tx0 = Tx(nodes, roots)
         val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
-        CompleteTransaction(
+        Result(
           SubmittedTransaction(TxVersion.asVersionedTransaction(tx)),
           locationInfo(),
           seeds.zip(actionNodeSeeds.toImmArray),
@@ -326,11 +324,14 @@ private[speedy] case class PartialTransaction(
           disclosedContracts,
         )
       case _ =>
-        IncompleteTransaction(this)
+        InternalError.runtimeException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          "ptx.finish: expected RootContextInfo",
+        )
     }
 
   // construct an IncompleteTransaction from the partial-transaction
-  def finishIncomplete: transaction.IncompleteTransaction = {
+  private[speedy] def finishIncomplete: transaction.IncompleteTransaction = {
 
     val ptx = unwind()
 
@@ -575,7 +576,7 @@ private[speedy] case class PartialTransaction(
   }
 
   /** Open a Try context.
-    *  Must be closed by `endTry`, `abortTry`, or `rollbackTry`.
+    *  Must be closed by `endTry` or `rollbackTry`.
     */
   def beginTry: PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
@@ -606,13 +607,6 @@ private[speedy] case class PartialTransaction(
           "endTry called in non-catch context",
         )
     }
-
-  /** Close abruptly a try context, due to an uncaught exception,
-    * i.e. an exception was thrown inside the context but the catch associated to the try context did not handle it.
-    * Must match a `beginTry`.
-    */
-  def abortTry: PartialTransaction =
-    endTry
 
   /** Close a try context, by catching an exception,
     * i.e. a exception was thrown inside the context, and the catch associated to the try context did handle it.
@@ -699,7 +693,7 @@ private[speedy] case class PartialTransaction(
     @tailrec
     def go(ptx: PartialTransaction): PartialTransaction = ptx.context.info match {
       case _: PartialTransaction.ExercisesContextInfo => go(ptx.abortExercises)
-      case _: PartialTransaction.TryContextInfo => go(ptx.abortTry)
+      case _: PartialTransaction.TryContextInfo => go(ptx.endTry)
       case _: PartialTransaction.RootContextInfo => ptx
     }
     go(this)

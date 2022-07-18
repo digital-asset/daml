@@ -44,9 +44,9 @@ final class TlsIT
           clients <- participantClients(
             tlsConfiguration = TlsConfiguration(
               enabled = true,
-              keyCertChainFile = clientCrt,
-              keyFile = clientPem,
-              trustCertCollectionFile = caCrt,
+              certChainFile = clientCrt,
+              privateKeyFile = clientPem,
+              trustCollectionFile = caCrt,
             )
           )
           _ <- run(

@@ -488,6 +488,8 @@ server_conformance_test(
           max-contract-state-cache-size = 2
           acs-id-page-size = 2
           events-page-size = 2
+          max-transactions-in-memory-fan-out-buffer-size = 3
+          buffered-streams-page-size = 1
         }
       }
     }
@@ -518,7 +520,7 @@ conformance_test(
 )
 
 conformance_test(
-    name = "conformance-test-in-memory-fan-out",
+    name = "conformance-test-in-memory-fanout-disabled",
     hocon = True,
     ports = [6865],
     server = ":app",
@@ -530,32 +532,7 @@ conformance_test(
           seeding = testing-weak
         }
         index-service {
-          enable-in-memory-fan-out-for-ledger-api = true
-        }
-      }
-    }
-    """,
-    test_tool_args = [
-        "--verbose",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-in-memory-fan-out-tiny-buffer",
-    hocon = True,
-    ports = [6865],
-    server = ":app",
-    server_args = ["run"],
-    server_hocon_config = """
-    {
-      ledger.participants.default {
-        api-server {
-          seeding = testing-weak
-        }
-        index-service {
-          enable-in-memory-fan-out-for-ledger-api = true
-          buffered-streams-page-size = 1
-          max-transactions-in-memory-fan-out-buffer-size = 3
+          max-transactions-in-memory-fan-out-buffer-size = 0
         }
       }
     }

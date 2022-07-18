@@ -11,10 +11,8 @@ your local setup will most likely not perform any Ledger API request authorizati
 by default, any valid Ledger API request will be accepted by the sandbox.
 
 This is not the case for participant nodes of deployed ledgers.
-They check for every Ledger API request whether the request contains an access token that is valid and sufficient to authorize the request.
+For every Ledger API request, the participant node checks whether the request contains an access token that is valid and sufficient to authorize that request.
 You thus need to add support for authorization using access token to your application to run it against a deployed ledger.
-
-For the
 
 .. note:: In case of mutual (two-way) TLS authentication, the Ledger API
           client must present its certificate (in addition to an access token) to
@@ -40,26 +38,27 @@ request includes an access token that is valid and sufficient to authorize the r
 Acquire and Use Access Tokens
 *****************************
 
-How an application should acquire access tokens depends on the participant node it talks to and is ultimately setup by the participant node operator.
-Many setups use a flow in the style of `OAuth 2.0 <https://oauth.net/2/>`_:
+How an application acquires access tokens depends on the participant node it talks to and is ultimately set up by the participant node operator.
+Many setups use a flow in the style of `OAuth 2.0 <https://oauth.net/2/>`_.
 
-First, the Daml application contacts a token issuer to get an access token.
+In this scenario, the Daml application first contacts a token issuer to get an access token.
 The token issuer verifies the identity of the requesting application, looks up the privileges of the application,
 and generates a signed access token describing those privileges.
 
-Then, the Daml application sends the access token along with every Ledger API request.
-The Daml ledger verifies the signature of the token to make sure it has not been tampered with and was issued by one of its trusted token issuers,
-and then checks that the token has not yet expired and that the privileges described in the token authorize the given Ledger API request.
+Once the access token is issued, the Daml application sends it along with every Ledger API request.
+The Daml ledger verifies:
+- that the token was issued by one of its trusted token issuers
+- that the token has not been tampered with
+- that the token had not expired
+- that the privileges described in the token authorize the request
 
 .. image:: ./images/Authentication.svg
    :alt: A flowchart illustrating the process of authentication described in the two paragraphs immediately above.
 
-As shown above, using access tokens requires your application to attach them to every request.
-How to do that depends on the tool or library you use to interact with the Ledger API.
-See the tool's or library's documentation for more information.
-Here is for example the relevant documentation for
+How you attach tokens to requests depends on the tool or library you use to interact with the Ledger API.
+See the tool's or library's documentation for more information. (E.g. relevant documentation for
 the :ref:`Java bindings <ledger-api-java-bindings-authorization>`
-and the :ref:`JSON API <json-api-access-tokens>`.
+and the :ref:`JSON API <json-api-access-tokens>`.)
 
 
 .. _authorization-claims:
@@ -133,10 +132,10 @@ Access Token Formats
 ********************
 
 Applications should treat access tokens as opaque blobs.
-However as an application developer it can be helpful to understand the format of access tokens to debug problems.
+However, as an application developer it can be helpful to understand the format of access tokens to debug problems.
 
 All Daml ledgers represent access tokens as `JSON Web Tokens (JWTs) <https://datatracker.ietf.org/doc/html/rfc7519>`_,
-and there are two formats of the JSON payload in use by Daml ledgers.
+and there are two formats of the JSON payload used by Daml ledgers.
 
 .. note:: To generate access tokens for testing purposes, you can use the `jwt.io <https://jwt.io/>`__ web site.
 
@@ -155,7 +154,7 @@ When handling such requests, participant nodes look up the participant user's cu
 before checking request authorization per the  :ref:`table above <authorization-claims>`.
 Thus the rights granted to an application can be changed dynamically using
 the participant user management service *without* issuing new access tokens,
-as would be required for the custom Daml claims tokens explained below.
+as would be required for the custom Daml claims tokens.
 
 User access tokens are `JWTs <https://datatracker.ietf.org/doc/html/rfc7519>`_ that follow the
 `OAuth 2.0 standard <https://datatracker.ietf.org/doc/html/rfc6749>`_ with a JSON payload of the following format.
@@ -169,11 +168,11 @@ User access tokens are `JWTs <https://datatracker.ietf.org/doc/html/rfc7519>`_ t
       "scope": "daml_ledger_api"
    }
 
-The above notations are explained below:
+To interpret the above notation:
 
-- ``aud`` is an optional field, which restricts the token to participant nodes with the given id
-- ``sub`` is a required field, which specifies the participant user's id
-- ``exp`` is an optional field, which specifies the JWT expiration date (in seconds since EPOCH)
+- ``aud`` is an optional field which restricts the token to participant nodes with the given ID
+- ``sub`` is a required field which specifies the participant user's ID
+- ``exp`` is an optional field which specifies the JWT expiration date (in seconds since EPOCH)
 - ``scope`` is a space-separated list of `OAuth 2.0 scopes <https://datatracker.ietf.org/doc/html/rfc6749#section-3.3>`_
   that must contain the ``"daml_ledger_api"`` scope
 
@@ -208,6 +207,6 @@ where all of the fields are optional, and if present,
 The ``public`` right is implicitly granted to any request bearing a non-expired JWT issued by a trusted issuer with matching ``ledgerId``, ``participantId`` and ``applicationId`` values.
 
 .. note:: All Daml ledgers also support a deprecated legacy format of custom Daml claims
-   access tokens whose format is equal to the above except for the custom claims
-   to be present at the same level as ``exp`` in the token above,
+   access tokens whose format is equal to the above except that the custom claims
+   are present at the same level as ``exp`` in the token above,
    instead of being nested below ``"https://daml.com/ledger-api"``.

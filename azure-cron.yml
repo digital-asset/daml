@@ -81,12 +81,10 @@ jobs:
               echo "${version#v} already exists, skipping."
             else
               echo "Building version ${version#v}..."
-              git checkout "$version"
+              #git checkout "$version"
               cd ci/docker/daml-sdk
-              # The internet changed from under us: 11 now means 11-jammy, and curl breaks
-              sed -i '1s/^FROM eclipse-temurin:11$/FROM eclipse-temurin:11-focal/' Dockerfile
               docker build -t digitalasset/daml-sdk:${version#v} --build-arg VERSION=${version#v} .
-              git checkout Dockerfile
+              #git checkout Dockerfile
               # Despite the name not suggesting it at all, this actually signs
               # _and pushes_ the image; see
               # https://docs.docker.com/engine/security/trust/#signing-images-with-docker-content-trust

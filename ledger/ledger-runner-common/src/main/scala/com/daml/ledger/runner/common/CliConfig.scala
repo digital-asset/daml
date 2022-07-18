@@ -371,7 +371,7 @@ object CliConfig {
           "TLS: The pem file to be used as the private key. Use '.enc' filename suffix if the pem file is encrypted."
         )
         .action((path, config) =>
-          config.withTlsConfig(c => c.copy(keyFile = Some(new File(path))))
+          config.withTlsConfig(c => c.copy(privateKeyFile = Some(new File(path))))
         ),
       opt[String]("tls-secrets-url")
         .optional()
@@ -384,8 +384,8 @@ object CliConfig {
       checkConfig(c =>
         c.tlsConfig.fold(success) { tlsConfig =>
           if (
-            tlsConfig.keyFile.isDefined
-            && tlsConfig.keyFile.get.getName.endsWith(".enc")
+            tlsConfig.privateKeyFile.isDefined
+            && tlsConfig.privateKeyFile.get.getName.endsWith(".enc")
             && tlsConfig.secretsUrl.isEmpty
           ) {
             failure(
@@ -402,13 +402,13 @@ object CliConfig {
           "TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set."
         )
         .action((path, config) =>
-          config.withTlsConfig(c => c.copy(keyCertChainFile = Some(new File(path))))
+          config.withTlsConfig(c => c.copy(certChainFile = Some(new File(path))))
         ),
       opt[String]("cacrt")
         .optional()
         .text("TLS: The crt file to be used as the trusted root CA.")
         .action((path, config) =>
-          config.withTlsConfig(c => c.copy(trustCertCollectionFile = Some(new File(path))))
+          config.withTlsConfig(c => c.copy(trustCollectionFile = Some(new File(path))))
         ),
       opt[Boolean]("cert-revocation-checking")
         .optional()
@@ -493,8 +493,7 @@ object CliConfig {
           s"Number of transactions fetched from the buffer when serving streaming calls. Default is ${IndexServiceConfig.DefaultBufferedStreamsPageSize}."
         )
         .validate { pageSize =>
-          if (pageSize > 0) Right(())
-          else Left("buffered-streams-page-size should be strictly positive")
+          Either.cond(pageSize > 0, (), "buffered-streams-page-size should be strictly positive")
         }
         .action((pageSize, config) => config.copy(bufferedStreamsPageSize = pageSize)),
       opt[Int]("ledger-api-transactions-buffer-max-size")
@@ -502,6 +501,13 @@ object CliConfig {
         .hidden()
         .text(
           s"Maximum size of the in-memory fan-out buffer used for serving Ledger API transaction streams. Default is ${IndexServiceConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize}."
+        )
+        .validate(bufferSize =>
+          Either.cond(
+            bufferSize >= 0,
+            (),
+            "ledger-api-transactions-buffer-max-size must be greater than or equal to 0.",
+          )
         )
         .action((maxBufferSize, config) =>
           config.copy(maxTransactionsInMemoryFanOutBufferSize = maxBufferSize)

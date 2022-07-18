@@ -16,9 +16,9 @@ import scala.util.control.NonFatal
 
 final case class TlsConfiguration(
     enabled: Boolean,
-    keyCertChainFile: Option[File] = None, // mutual auth is disabled if null
-    keyFile: Option[File] = None,
-    trustCertCollectionFile: Option[File] = None, // System default if null
+    certChainFile: Option[File] = None, // mutual auth is disabled if null
+    privateKeyFile: Option[File] = None,
+    trustCollectionFile: Option[File] = None, // System default if null
     secretsUrl: Option[SecretsUrl] = None,
     clientAuth: ClientAuth =
       ClientAuth.REQUIRE, // Client auth setting used by the server. This is not used in the client configuration.
@@ -39,10 +39,10 @@ final case class TlsConfiguration(
       val sslContext = GrpcSslContexts
         .forClient()
         .keyManager(
-          keyCertChainFile.orNull,
-          keyFile.orNull,
+          certChainFile.orNull,
+          privateKeyFile.orNull,
         )
-        .trustManager(trustCertCollectionFile.orNull)
+        .trustManager(trustCollectionFile.orNull)
         .protocols(enabledProtocolsNames)
         .sslProvider(SslContext.defaultClientProvider())
         .build()
@@ -102,7 +102,7 @@ final case class TlsConfiguration(
         keyCertChain,
         key,
       )
-      .trustManager(trustCertCollectionFile.orNull)
+      .trustManager(trustCollectionFile.orNull)
       .clientAuth(clientAuth)
       .protocols(protocols)
       .sslProvider(SslContext.defaultServerProvider())
@@ -148,7 +148,7 @@ final case class TlsConfiguration(
   }
 
   private[tls] def keyInputStreamOrFail: InputStream = {
-    val keyFileOrFail = keyFile.getOrElse(
+    val keyFileOrFail = privateKeyFile.getOrElse(
       throw new IllegalArgumentException(
         s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyFile."
       )
@@ -179,7 +179,7 @@ final case class TlsConfiguration(
   private def keyCertChainInputStreamOrFail: InputStream = {
     val msg =
       s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyCertChainFile."
-    val keyFile = keyCertChainFile.getOrElse(throw new IllegalStateException(msg))
+    val keyFile = certChainFile.getOrElse(throw new IllegalStateException(msg))
     new FileInputStream(keyFile)
   }
 
@@ -188,8 +188,8 @@ final case class TlsConfiguration(
 object TlsConfiguration {
   val Empty: TlsConfiguration = TlsConfiguration(
     enabled = true,
-    keyCertChainFile = None,
-    keyFile = None,
-    trustCertCollectionFile = None,
+    certChainFile = None,
+    privateKeyFile = None,
+    trustCollectionFile = None,
   )
 }
