@@ -132,6 +132,7 @@ message Command {
     CreateCommand create = 1;
     ExerciseCommand exercise = 2;
     ExerciseByKeyCommand exerciseByKey = 4;
+    ExerciseInterfaceByKeyCommand exerciseInterfaceByKey = 5;
     CreateAndExerciseCommand createAndExercise = 3;
   }
 }
@@ -187,6 +188,32 @@ message ExerciseByKeyCommand {
   // Required
   Value choice_argument = 4;
 }
+
+// Exercise a choice on an existing contract specified by its key.
+message ExerciseByInterfaceKeyCommand {
+  // The interface id that defines the key.
+  // Required
+  Identifier key_interface_id = 1;
+
+  // The key of the contract the client wants to exercise upon.
+  // Required
+  Value contract_key = 2;
+
+  // The interface defining the choice. Must require key_interface_id.
+  // If the key resolves a contract not implementing choice_interface_id,
+  // the transaction is aborted.
+  Identifier choice_interface_id = 3;
+
+  // The name of the choice the client wants to exercise.
+  // Must be a valid NameString (as described in ``value.proto``)
+  // Required
+  string choice = 3;
+
+  // The argument for this choice.
+  // Required
+  Value choice_argument = 4;
+}
+
 
 // Create a contract and exercise a choice on it in the same transaction.
 message CreateAndExerciseCommand {
