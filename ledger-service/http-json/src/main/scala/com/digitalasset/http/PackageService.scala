@@ -14,8 +14,9 @@ import com.daml.jwt.domain.Jwt
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.ledger.service.{LedgerReader, TemplateIds}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.{NonEmpty, Singleton}
 import scalaz.{\/, \/-, EitherT, Show}
+import scalaz.std.option.none
 import scalaz.std.scalaFuture._
 import scalaz.syntax.apply._
 import scalaz.syntax.std.option._
@@ -41,7 +42,6 @@ private class PackageService(
       packageIds: Set[String],
       contractTypeIdMap: ContractTypeIdMap[ContractTypeId.Unknown],
       templateIdMap: TemplateIdMap,
-      templateInterfacesMap: TemplateInterfacesMap,
       choiceTypeMap: ChoiceTypeMap,
       keyTypeMap: KeyTypeMap,
       packageStore: PackageStore,
@@ -54,7 +54,6 @@ private class PackageService(
         newPackageStore.keySet,
         tpIdMap ++ ifaceIdMap,
         tpIdMap,
-        getTemplateInterfacesMap(newPackageStore),
         getChoiceTypeMap(newPackageStore),
         getKeyTypeMap(newPackageStore),
         newPackageStore,
@@ -87,7 +86,6 @@ private class PackageService(
         Set.empty,
         TemplateIdMap.Empty,
         TemplateIdMap.Empty,
-        Map.empty,
         Map.empty,
         Map.empty,
         Map.empty,
@@ -232,8 +230,7 @@ private class PackageService(
 
   // See the above comment on resolveTemplateId
   def resolveChoiceArgType: ResolveChoiceArgType =
-    (ctid, c) =>
-      PackageService.resolveChoiceArgType(state.choiceTypeMap, state.templateInterfacesMap)(ctid, c)
+    (ctid, c) => PackageService.resolveChoiceArgType(state.choiceTypeMap)(ctid, c)
 
   // See the above comment on resolveTemplateId
   def resolveKeyType: ResolveKeyType =
@@ -303,12 +300,9 @@ object PackageService {
     val Empty: TemplateIdMap = ContractTypeIdMap(Set.empty, Map.empty)
   }
 
-  private type ChoiceTypeMap = Map[(ContractTypeId.Unknown.Resolved, Choice), iface.Type]
-
-  private type TemplateInterfacesMap =
-    Map[ContractTypeId.Template.Resolved, NonEmpty[
-      Map[Choice, NonEmpty[Set[ContractTypeId.Interface.Resolved]]]
-    ]]
+  private type ChoiceTypeMap = Map[ContractTypeId.Unknown.Resolved, NonEmpty[
+    Map[Choice, NonEmpty[Map[Option[ContractTypeId.Interface.Resolved], iface.Type]]]
+  ]]
 
   type KeyTypeMap = Map[TemplateId.RequiredPkg, iface.Type]
 
@@ -357,22 +351,21 @@ object PackageService {
       k: TemplateId.NoPkg
   ): Option[TemplateId.RequiredPkg] = m.get(k)
 
-  def resolveChoiceArgType(
-      choiceIdMap: ChoiceTypeMap,
-      templateInterfacesMap: TemplateInterfacesMap,
+  private def resolveChoiceArgType(
+      choiceIdMap: ChoiceTypeMap
   )(ctId: ContractTypeId.Unknown.Resolved, choice: Choice): Error \/ iface.Type = {
     // TODO #14067 skip indirect resolution if ctId is an interface ID
-    val k = (ctId, choice)
-    choiceIdMap
-      .get(k)
-      .orElse(for {
-        choices <- templateInterfacesMap get ctId
-        ifaces <- choices get choice
-        // TODO #13923 if fails, report need for choiceInterfaceId, available interfaces?
-        if ifaces.sizeIs == 1
-        ty <- choiceIdMap get ((ifaces.head1, choice))
-      } yield ty)
-      .toRightDisjunction(InputError(s"Cannot resolve Choice Argument type, given: ${k.toString}"))
+    val resolution = for {
+      choices <- choiceIdMap get ctId
+      overloads <- choices get choice
+      // TODO #13923 if fails, report need for choiceInterfaceId, available interfaces?
+      onlyChoice <- Singleton.unapply(overloads) orElse (overloads get None map ((None, _)))
+      // TODO #13923 resolver needs the oIfId if it is defined
+      (oIfId, pTy) = onlyChoice
+    } yield pTy
+    resolution.toRightDisjunction(
+      InputError(s"Cannot resolve Choice Argument type, given: ($ctId, $choice)")
+    )
   }
 
   def resolveKey(keyTypeMap: KeyTypeMap)(templateId: TemplateId.RequiredPkg): Error \/ iface.Type =
@@ -381,26 +374,6 @@ object PackageService {
       .toRightDisjunction(
         InputError(s"Cannot resolve Template Key type, given: ${templateId.toString}")
       )
-
-  private def getTemplateInterfacesMap(packageStore: PackageStore): TemplateInterfacesMap =
-    packageStore.values.view.flatMap { signature =>
-      signature.typeDecls.view.collect(Function unlift { case (qn, td) =>
-        for {
-          iface.InterfaceType.Template(_, iface.DefTemplate(tChoices, _, _)) <- Some(td)
-          ifChoices <- NonEmpty from tChoices.resolvedChoices.collect(Function unlift {
-            case (cn, tcs) =>
-              val ifCs: Set[ContractTypeId.Interface.Resolved] = tcs.keySet
-                .collect { case Some(ifName) =>
-                  fromIdentifier(ContractTypeId.Interface, ifName)
-                }
-              NonEmpty from ifCs map ((Choice(cn: String), _))
-          })
-        } yield (
-          fromQualifiedName(ContractTypeId.Template, signature.packageId, qn),
-          ifChoices,
-        )
-      })
-    }.toMap
 
   // assert that the given identifier is resolved
   private[this] def fromIdentifier[CtId[T] <: ContractTypeId.Unknown[T]](
@@ -419,33 +392,58 @@ object PackageService {
 
   // TODO (Leo): merge getChoiceTypeMap and getKeyTypeMap, so we build them in one iteration over all templates
   private def getChoiceTypeMap(packageStore: PackageStore): ChoiceTypeMap =
-    packageStore.flatMap { case (_, interface) => getChoices(interface) }
-
-  // TODO (#13923) probably needs to change signature
-  private def getChoices(
-      interface: iface.Interface
-  ): Map[(TemplateId.RequiredPkg, Choice), iface.Type] = {
-    val allChoices: Iterator[(Ref.QualifiedName, Map[Ref.ChoiceName, iface.TemplateChoice.FWT])] =
-      interface.typeDecls.iterator.collect {
-        case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _, _))) =>
-          (qn, choices.assumeNoOverloadedChoices(githubIssue = 13923))
-      } ++ interface.astInterfaces.iterator.map { case (qn, defIf) =>
-        (qn, defIf.choices)
-      }
-    allChoices.flatMap { case (qn, choices) =>
-      val templateId = TemplateId(interface.packageId, qn.module.toString, qn.name.toString)
-      getChoices(choices).view.map { case (choice, id) => ((templateId, choice), id) }
-    }.toMap
-  }
+    packageStore.values.view.flatMap(getChoices).toMap
 
   private def getChoices(
-      choices: Map[Ref.Name, iface.TemplateChoice[iface.Type]]
-  ): Seq[(Choice, iface.Type)] = {
+      signature: iface.Interface
+  ) =
+    signature.typeDecls.iterator.collect(joinPF {
+      case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _, _))) =>
+        NonEmpty from getTChoices(choices.resolvedChoices) map ((
+          fromQualifiedName(ContractTypeId.Template, signature.packageId, qn),
+          _,
+        ))
+    }) ++ signature.astInterfaces.iterator.collect(Function unlift { case (qn, defIf) =>
+      NonEmpty from getIChoices(defIf.choices) map ((
+        fromQualifiedName(ContractTypeId.Interface, signature.packageId, qn),
+        _,
+      ))
+    })
+
+  private[this] type ChoicesByInterface[Ty] =
+    Map[Choice, NonEmpty[Map[Option[ContractTypeId.Interface.Resolved], Ty]]]
+
+  private def getTChoices[Ty](
+      choices: Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], iface.TemplateChoice[Ty]]]]
+  ): ChoicesByInterface[Ty] = {
     import iface._
-    choices.toSeq.map { case (name, TemplateChoice(choiceType, _, _)) =>
-      (Choice(name: String), choiceType)
+    choices.map { case (name, resolvedChoices) =>
+      (
+        Choice(name: String),
+        resolvedChoices.map { case (oIface, TemplateChoice(pTy, _, _)) =>
+          (oIface map (fromIdentifier(ContractTypeId.Interface, _)), pTy)
+        }.toMap,
+      )
     }
   }
+
+  private def getIChoices[Ty](
+      choices: Map[Ref.ChoiceName, iface.TemplateChoice[Ty]]
+  ): ChoicesByInterface[Ty] =
+    choices.map { case (name, iface.TemplateChoice(pTy, _, _)) =>
+      (Choice(name: String), NonEmpty(Map, none[ContractTypeId.Interface.Resolved] -> pTy))
+    }
+
+  // flatten two levels of partiality into one
+  private[this] def joinPF[T, R](f: T PartialFunction Option[R]): T PartialFunction R =
+    new PartialFunction[T, R] {
+      override def applyOrElse[A1 <: T, B1 >: R](x: A1, default: A1 => B1): B1 =
+        f.applyOrElse(x, Function const None) getOrElse default(x)
+
+      override def isDefinedAt(x: T): Boolean = f.applyOrElse(x, Function const None).isDefined
+
+      override def apply(v1: T): R = f(v1) getOrElse (throw new MatchError(v1))
+    }
 
   // TODO (Leo): merge getChoiceTypeMap and getKeyTypeMap, so we build them in one iteration over all templates
   private def getKeyTypeMap(packageStore: PackageStore): KeyTypeMap =
