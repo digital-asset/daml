@@ -31,8 +31,6 @@ import com.daml.lf.language.Ast.{
   GenTemplateImplements,
   PCUnit,
   PLRoundingMode,
-  TBuiltin,
-  BTUnit,
 }
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalatest.{Inside, OptionValues}
