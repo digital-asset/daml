@@ -397,6 +397,8 @@ package domain {
             fa.templateId.entityName,
           )
 
+        type TypeFromCtId = LfType
+
         override def lfType(
             fa: ActiveContract[_],
             templateId: TemplateId.RequiredPkg,
@@ -480,6 +482,8 @@ package domain {
 
         override def templateId(fa: EnrichedContractKey[_]): TemplateId.OptionalPkg = fa.templateId
 
+        type TypeFromCtId = LfType
+
         override def lfType(
             fa: EnrichedContractKey[_],
             templateId: TemplateId.RequiredPkg,
@@ -508,22 +512,30 @@ package domain {
   trait HasTemplateId[F[_]] {
     def templateId(fa: F[_]): TemplateId.OptionalPkg
 
+    type TypeFromCtId
+
     def lfType(
         fa: F[_],
         templateId: ContractTypeId.Unknown.Resolved,
         f: PackageService.ResolveTemplateRecordType,
         g: PackageService.ResolveChoiceArgType,
         h: PackageService.ResolveKeyType,
-    ): Error \/ LfType
+    ): Error \/ TypeFromCtId
   }
 
   object HasTemplateId {
+    type Aux[F[_], TFC0] = HasTemplateId[F] { type TypeFromCtId = TFC0 }
+
     def by[F[_]]: By[F] = new By[F](0)
 
     final class By[F[_]](private val ign: Int) extends AnyVal {
-      def apply[G[_]](nt: F[_] => G[_])(implicit basis: HasTemplateId[G]): HasTemplateId[F] =
+      def apply[G[_]](
+          nt: F[_] => G[_]
+      )(implicit basis: HasTemplateId[G]): Aux[F, basis.TypeFromCtId] =
         new HasTemplateId[F] {
           override def templateId(fa: F[_]) = basis templateId nt(fa)
+
+          type TypeFromCtId = basis.TypeFromCtId
 
           override def lfType(
               fa: F[_],
@@ -574,15 +586,18 @@ package domain {
           }
         }
 
+        type TypeFromCtId = (Option[domain.ContractTypeId.Interface.Resolved], LfType)
+
         override def lfType(
             fa: ExerciseCommand[_, domain.ContractLocator[_]],
             templateId: ContractTypeId.Unknown.Resolved,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
-        ): Error \/ LfType =
+        ) =
           g(templateId, fa.choice)
             .leftMap(e => Error(Symbol("ExerciseCommand_hasTemplateId_lfType"), e.shows))
+            .map((None, _)) // TODO #13923 get real value from g
       }
   }
 

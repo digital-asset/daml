@@ -92,7 +92,7 @@ class DomainJsonDecoder(
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
       H: HasTemplateId[F],
-  ): ET[domain.LfType] = lookupLfType(fa, H, jwt, ledgerId)
+  ): ET[H.TypeFromCtId] = lookupLfType(fa, H, jwt, ledgerId)
 
   private def lookupLfType[F[_]](
       fa: F[_],
@@ -102,7 +102,7 @@ class DomainJsonDecoder(
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): ET[domain.LfType] =
+  ): ET[H.TypeFromCtId] =
     for {
       tId <- templateId_(H.templateId(fa), jwt, ledgerId)
       lfType <- either(
