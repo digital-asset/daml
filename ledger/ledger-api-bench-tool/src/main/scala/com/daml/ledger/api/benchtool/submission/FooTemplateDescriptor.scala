@@ -18,19 +18,22 @@ object FooTemplateDescriptor {
 
   val Foo1: FooTemplateDescriptor = FooTemplateDescriptor(
     name = "Foo1",
-    templateId = com.daml.ledger.test.benchtool.Foo.Foo1.id.asInstanceOf[Identifier],
+    templateId =
+      com.daml.ledger.test.benchtool.InterfaceSubscriptions.Foo1.id.asInstanceOf[Identifier],
     consumingChoiceName = "Foo1_ConsumingChoice",
     nonconsumingChoiceName = "Foo1_NonconsumingChoice",
   )
   val Foo2: FooTemplateDescriptor = FooTemplateDescriptor(
     name = "Foo2",
-    templateId = com.daml.ledger.test.benchtool.Foo.Foo2.id.asInstanceOf[Identifier],
+    templateId =
+      com.daml.ledger.test.benchtool.InterfaceSubscriptions.Foo2.id.asInstanceOf[Identifier],
     consumingChoiceName = "Foo2_ConsumingChoice",
     nonconsumingChoiceName = "Foo2_NonconsumingChoice",
   )
   val Foo3: FooTemplateDescriptor = FooTemplateDescriptor(
     name = "Foo3",
-    templateId = com.daml.ledger.test.benchtool.Foo.Foo3.id.asInstanceOf[Identifier],
+    templateId =
+      com.daml.ledger.test.benchtool.InterfaceSubscriptions.Foo3.id.asInstanceOf[Identifier],
     consumingChoiceName = "Foo3_ConsumingChoice",
     nonconsumingChoiceName = "Foo3_NonconsumingChoice",
   )

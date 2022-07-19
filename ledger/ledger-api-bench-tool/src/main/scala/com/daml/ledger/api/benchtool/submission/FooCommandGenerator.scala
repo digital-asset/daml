@@ -11,7 +11,7 @@ import com.daml.ledger.api.v1.commands.{Command, ExerciseByKeyCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.client.binding
 import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.benchtool.Foo._
+import com.daml.ledger.test.benchtool.InterfaceSubscriptions._
 
 import scala.util.control.NonFatal
 import scala.util.{Failure, Try}

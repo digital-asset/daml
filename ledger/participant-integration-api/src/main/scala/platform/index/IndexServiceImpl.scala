@@ -47,7 +47,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.metrics.InstrumentedGraph._
 import com.daml.platform.ApiOffset.ApiOffsetConverter
-import com.daml.platform.{ApiOffset, PruneBuffers}
+import com.daml.platform.{ApiOffset, PruneBuffers, TimerX}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.dao.{
@@ -209,9 +209,51 @@ private[index] class IndexServiceImpl(
       .buffered(metrics.daml.index.completionsBufferSize, LedgerApiStreamsBufferSize)
 
   override def getActiveContracts(
-      filter: TransactionFilter,
+      f: TransactionFilter,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] =
+  )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
+    val originalVerbose = TimerX.Original.verboseEnriching.reset()._1
+    val originalDBDeserialization = TimerX.Original.dbDeserialization.reset()._1
+    val originalApiSerialization = TimerX.Original.apiSerialization.reset()._1
+    val originalTotal = originalApiSerialization + originalDBDeserialization + originalVerbose
+    val computeInterfaceView = TimerX.InterfaceProjection.computeInterfaceView.reset()._1
+    val serializeInterfaceView = TimerX.InterfaceProjection.apiSerialization.reset()._1
+    val interfaceTotal = computeInterfaceView + serializeInterfaceView
+    println(s"""
+         |Original contract_argument computation: $originalTotal ms
+         |  verbose:              $originalVerbose ms
+         |  db-deserialization:   $originalDBDeserialization ms
+         |  api-serialization:    $originalApiSerialization ms
+         |Interface projection computation:       $interfaceTotal ms
+         |  compute view:         $computeInterfaceView ms
+         |  serialize view:       $serializeInterfaceView ms
+         |
+         |""".stripMargin)
+
+    val filter =
+      if (false) f
+      else
+        TransactionFilter(
+          f.filtersByParty.view
+            .mapValues(_ =>
+              domain.Filters(
+                Some(
+                  domain.InclusiveFilters(
+                    Set.empty,
+                    Set(
+                      InterfaceFilter(
+                        Identifier.assertFromString(
+                          "0cf588c31dc3d83264a76e5aadf155e69fd10b6ff108230c7e36bd15d7b019ed:InterfaceSubscriptions:FooView"
+                        ),
+                        true,
+                      )
+                    ),
+                  )
+                )
+              )
+            )
+            .toMap
+        )
     withValidatedFilter(filter) {
       val currentLedgerEnd = ledgerEnd()
       val (filterRelation, eventDisplayProperties) =
@@ -229,6 +271,7 @@ private[index] class IndexServiceImpl(
         )
         .buffered(metrics.daml.index.activeContractsBufferSize, LedgerApiStreamsBufferSize)
     }
+  }
 
   override def lookupActiveContract(
       forParties: Set[Ref.Party],

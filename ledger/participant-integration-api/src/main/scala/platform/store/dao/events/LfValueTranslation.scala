@@ -23,6 +23,7 @@ import com.daml.platform.{
   ContractId,
   Create,
   Exercise,
+  TimerX,
   ChoiceName => LfChoiceName,
   DottedName => LfDottedName,
   Identifier => LfIdentifier,
@@ -194,7 +195,9 @@ final class LfValueTranslation(
             delegate = packageId => loadPackage(packageId, loggingContext),
             metric = metrics.daml.index.db.translation.getLfPackage,
           )
-          .flatMap(pkgO => consumeEnricherResult(resume(pkgO)))
+          .flatMap(pkgO =>
+            consumeEnricherResult(TimerX.Original.verboseEnriching.measure(resume(pkgO)))
+          )
       case result =>
         Future.failed(new RuntimeException(s"Unexpected ValueEnricher result: $result"))
     }
@@ -338,10 +341,14 @@ final class LfValueTranslation(
               delegate = packageId => loadPackage(packageId, loggingContext),
               metric = metrics.daml.index.db.translation.getLfPackage,
             )
-            .map(resume)
+            .map(TimerX.InterfaceProjection.computeInterfaceView.measure(resume))
             .flatMap(goAsync)
       }
-    Future(engineO.get.computeInterfaceView(templateId, value, interfaceId))
+    Future(
+      TimerX.InterfaceProjection.computeInterfaceView.measure(
+        engineO.get.computeInterfaceView(templateId, value, interfaceId)
+      )
+    )
       .flatMap(goAsync)
       .flatMap {
         case Left(error) => Future.successful(Left(error))

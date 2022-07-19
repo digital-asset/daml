@@ -13,7 +13,7 @@ import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.{
   TransactionsStreamConfig,
 }
 import com.daml.ledger.api.benchtool.submission.AllocatedParties
-import com.daml.ledger.test.benchtool.Foo.{Foo1, Foo2, Foo3}
+import com.daml.ledger.test.benchtool.InterfaceSubscriptions.{Foo1, Foo2, Foo3}
 import scalaz.syntax.tag._
 
 class ConfigEnricher(allocatedParties: AllocatedParties) {

@@ -91,6 +91,22 @@ class LedgerApiBenchTool(
   def run()(implicit ec: ExecutionContext): Future[Either[String, Unit]] = {
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
+    println(s"identifier of Foo.Foo1: ${com.daml.ledger.test.benchtool.Foo.Foo1.id}")
+    println(s"identifier of Foo.Foo2: ${com.daml.ledger.test.benchtool.Foo.Foo2.id}")
+    println(s"identifier of Foo.Foo2: ${com.daml.ledger.test.benchtool.Foo.Foo3.id}")
+    println(
+      s"identifier of InterfaceSubscriptions.Foo1: ${com.daml.ledger.test.benchtool.InterfaceSubscriptions.Foo1.id}"
+    )
+    println(
+      s"identifier of InterfaceSubscriptions.Foo2: ${com.daml.ledger.test.benchtool.InterfaceSubscriptions.Foo2.id}"
+    )
+    println(
+      s"identifier of InterfaceSubscriptions.Foo2: ${com.daml.ledger.test.benchtool.InterfaceSubscriptions.Foo3.id}"
+    )
+    println(
+      s"identifier of InterfaceSubscriptions.FooView: ${com.daml.ledger.test.benchtool.InterfaceSubscriptions.FooView.id}"
+    )
+
     val resources: ResourceOwner[
       (
           String => LedgerApiServices,
