@@ -803,6 +803,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       builder.accumulateLeft(interface.requires)(_ addRequires _)
       builder.setPrecond(interface.precond)
       builder.accumulateLeft(interface.coImplements.sortByKey)(_ addCoImplements _)
+      builder.setView(interface.view)
       builder.build()
     }
 
@@ -823,6 +824,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val b = PLF.DefInterface.CoImplements.newBuilder()
       b.setTemplate(template)
       b.accumulateLeft(coImplements.methods.sortByKey)(_ addMethods _)
+      b.setView(coImplements.view)
       b.build()
     }
 
@@ -921,6 +923,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val b = PLF.DefTemplate.Implements.newBuilder()
       b.setInterface(interface)
       b.accumulateLeft(implements.methods.sortByKey)(_ addMethods _)
+      b.setView(implements.view)
       b.build()
     }
 
