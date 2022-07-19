@@ -82,7 +82,6 @@ final class IndexServiceOwner(
         transactionsBuffer = inMemoryState.transactionsBuffer,
         delegate = ledgerDao.completions,
         metrics = metrics,
-        eventProcessingParallelism = 1,
       )(servicesExecutionContext)
 
       indexService = new IndexServiceImpl(

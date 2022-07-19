@@ -3,6 +3,7 @@
 
 package com.daml.platform.store.dao
 
+import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -12,8 +13,8 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.store.cache.EventsBuffer
-import com.daml.platform.store.dao.BufferedStreamsReader.PersistenceFetch
-import com.daml.platform.store.dao.BufferedStreamsReaderSpec.{offset, transaction}
+import com.daml.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
+import BufferedStreamsReaderSpec._
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
 import org.mockito.MockitoSugar
@@ -76,24 +77,30 @@ class BufferedStreamsReaderSpec
 
     offsetUpdates.foreach(Function.tupled(transactionsBuffer.push))
 
+    val failingPersistenceFetch = new FetchFromPersistence[Object, String] {
+      override def apply(startExclusive: Offset, endInclusive: Offset, filter: Object)(implicit
+          loggingContext: LoggingContext
+      ): Source[(Offset, String), NotUsed] = fail("Unexpected call to fetch from persistence")
+    }
+
     def readerGetEventsGeneric(
         transactionsBuffer: EventsBuffer[TransactionLogUpdate],
         startExclusive: Offset,
         endInclusive: Offset,
-        persistenceFetch: PersistenceFetch[Object, String],
+        fetchFromPersistence: FetchFromPersistence[Object, String],
     ): Future[Seq[(Offset, String)]] =
       new BufferedStreamsReader[Object, String](
-        inMemoryFanoutBuffer = transactionsBuffer,
-        persistenceFetch = persistenceFetch,
-        eventProcessingParallelism = 2,
+        transactionLogUpdateBuffer = transactionsBuffer,
+        fetchFromPersistence = fetchFromPersistence,
+        bufferedStreamEventsProcessingParallelism = 2,
         metrics = metrics,
-        name = "some_tx_stream",
+        streamName = "some_tx_stream",
       )
-        .streamUsingBuffered[TransactionLogUpdate.TransactionAccepted](
+        .stream[TransactionLogUpdate.TransactionAccepted](
           startExclusive = startExclusive,
           endInclusive = endInclusive,
-          persistenceFetchFilter = persistenceFetchFilter,
-          bufferSliceFilter = bufferSliceFilter,
+          persistenceFetchArgs = persistenceFetchFilter,
+          bufferFilter = bufferSliceFilter,
           toApiResponse = toApiResponse,
         )
         .runWith(Sink.seq)
@@ -104,7 +111,7 @@ class BufferedStreamsReaderSpec
           transactionsBuffer = transactionsBuffer,
           startExclusive = offsetBetween_offset2_and_offset3,
           endInclusive = offset4,
-          persistenceFetch = (_, _, _) => fail("Should not fetch"),
+          fetchFromPersistence = failingPersistenceFetch,
         ).map(
           _ should contain theSameElementsInOrderAs Seq(
             offset3 -> "tx3",
@@ -120,7 +127,7 @@ class BufferedStreamsReaderSpec
           transactionsBuffer = transactionsBuffer,
           startExclusive = offset2,
           endInclusive = offset4,
-          persistenceFetch = (_, _, _) => fail("Should not fetch"),
+          fetchFromPersistence = failingPersistenceFetch,
         ).map(
           _ should contain theSameElementsInOrderAs Seq(
             offset3 -> "tx3",
@@ -145,7 +152,7 @@ class BufferedStreamsReaderSpec
           transactionsBuffer = transactionsBufferWithSmallChunkSize,
           startExclusive = offset2,
           endInclusive = offset4,
-          persistenceFetch = (_, _, _) => fail("Should not fetch"),
+          fetchFromPersistence = failingPersistenceFetch,
         ).map(
           _ should contain theSameElementsInOrderAs Seq(
             offset3 -> "tx3",
@@ -158,16 +165,21 @@ class BufferedStreamsReaderSpec
     "request before buffer start" should {
       "fetch from buffer and storage" in {
         val anotherResponseForOffset2 = "Response fetched from storage"
+        val fetchFromPersistence = new FetchFromPersistence[Object, String] {
+          override def apply(startExclusive: Offset, endInclusive: Offset, filter: Object)(implicit
+              loggingContext: LoggingContext
+          ): Source[(Offset, String), NotUsed] = (startExclusive, endInclusive, filter) match {
+            case (`offset1`, `offset2`, `persistenceFetchFilter`) =>
+              Source.single(offset2 -> anotherResponseForOffset2)
+            case unexpected =>
+              fail(s"Unexpected fetch transactions subscription start: $unexpected")
+          }
+        }
         readerGetEventsGeneric(
           transactionsBuffer = transactionsBuffer,
           startExclusive = offset1,
           endInclusive = offset3,
-          persistenceFetch = {
-            case (`offset1`, `offset2`, `persistenceFetchFilter`) =>
-              _ => Source.single(offset2 -> anotherResponseForOffset2)
-            case unexpected =>
-              fail(s"Unexpected fetch transactions subscription start: $unexpected")
-          },
+          fetchFromPersistence = fetchFromPersistence,
         ).map(
           _ should contain theSameElementsInOrderAs Seq(
             offset2 -> anotherResponseForOffset2,
@@ -187,19 +199,24 @@ class BufferedStreamsReaderSpec
         offsetUpdates.foreach(Function.tupled(transactionsBufferWithSmallChunkSize.push))
         val anotherResponseForOffset2 = "(2) Response fetched from storage"
         val anotherResponseForOffset3 = "(3) Response fetched from storage"
+        val fetchFromPersistence = new FetchFromPersistence[Object, String] {
+          override def apply(startExclusive: Offset, endInclusive: Offset, filter: Object)(implicit
+              loggingContext: LoggingContext
+          ): Source[(Offset, String), NotUsed] = (startExclusive, endInclusive, filter) match {
+            case (`offset1`, `offset3`, `persistenceFetchFilter`) =>
+              Source(
+                Seq(offset2 -> anotherResponseForOffset2, offset3 -> anotherResponseForOffset3)
+              )
+            case unexpected =>
+              fail(s"Unexpected fetch transactions subscription start: $unexpected")
+          }
+        }
+
         readerGetEventsGeneric(
           transactionsBuffer = transactionsBufferWithSmallChunkSize,
           startExclusive = offset1,
           endInclusive = offset4,
-          persistenceFetch = {
-            case (`offset1`, `offset3`, `persistenceFetchFilter`) =>
-              _ =>
-                Source(
-                  Seq(offset2 -> anotherResponseForOffset2, offset3 -> anotherResponseForOffset3)
-                )
-            case unexpected =>
-              fail(s"Unexpected fetch transactions subscription start: $unexpected")
-          },
+          fetchFromPersistence = fetchFromPersistence,
         ).map(
           _ should contain theSameElementsInOrderAs Seq(
             offset2 -> anotherResponseForOffset2,
@@ -224,16 +241,21 @@ class BufferedStreamsReaderSpec
           offset2 -> "Some API response from persistence",
           offset3 -> "Another API response from persistence",
         )
+        val fetchFromPersistence = new FetchFromPersistence[Object, String] {
+          override def apply(startExclusive: Offset, endInclusive: Offset, filter: Object)(implicit
+              loggingContext: LoggingContext
+          ): Source[(Offset, String), NotUsed] = (startExclusive, endInclusive, filter) match {
+            case (`offset1`, `offset3`, `persistenceFetchFilter`) =>
+              Source.fromIterator(() => fetchedElements.iterator)
+            case unexpected => fail(s"Unexpected $unexpected")
+          }
+        }
 
         readerGetEventsGeneric(
           transactionsBuffer = transactionsBuffer,
           startExclusive = offset1,
           endInclusive = offset3,
-          persistenceFetch = {
-            case (`offset1`, `offset3`, `persistenceFetchFilter`) =>
-              _ => Source.fromIterator(() => fetchedElements.iterator)
-            case unexpected => fail(s"Unexpected $unexpected")
-          },
+          fetchFromPersistence = fetchFromPersistence,
         ).map(_ should contain theSameElementsInOrderAs fetchedElements)
       }
     }

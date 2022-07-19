@@ -9,7 +9,6 @@ import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
-import com.daml.ledger.participant.state.v2.Update.TransactionAccepted
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref.HexString
 import com.daml.lf.engine.Blinding
@@ -57,14 +56,14 @@ final class InMemoryStateUpdater(
               case (offset, u: Update.TransactionAccepted) => convertTransactionAccepted(offset, u)
               case (offset, u: Update.CommandRejected) => convertTransactionRejected(offset, u)
             }
-          updatesBatch -> (batch.last._1 -> lastEventSequentialId)
+          (updatesBatch, batch.last._1, lastEventSequentialId)
         }(prepareUpdatesExecutionContext)
       }
       .async
-      .mapAsync(1) { case (updates, ledgerEnd) =>
+      .mapAsync(1) { case (updates, lastOffset, lastEventSequentialId) =>
         Future {
           updateCaches(updates)
-          updateLedgerEnd(ledgerEnd._1, ledgerEnd._2)
+          updateLedgerEnd(lastOffset, lastEventSequentialId)
         }(updateCachesExecutionContext)
       }
 }
@@ -168,10 +167,10 @@ private[platform] object InMemoryStateUpdater {
 
   private def convertTransactionAccepted(
       offset: Offset,
-      u: TransactionAccepted,
+      txAccepted: Update.TransactionAccepted,
   ): TransactionLogUpdate.TransactionAccepted = {
     // TODO LLP: Extract in common functionality together with duplicated code in [[UpdateToDbDto]]
-    val rawEvents = u.transaction.transaction
+    val rawEvents = txAccepted.transaction.transaction
       .foldInExecutionOrder(List.empty[(NodeId, Node)])(
         exerciseBegin = (acc, nid, node) => ((nid -> node) :: acc, ChildrenRecursion.DoRecurse),
         // Rollback nodes are not indexed
@@ -183,26 +182,26 @@ private[platform] object InMemoryStateUpdater {
       .reverseIterator
 
     // TODO LLP: Deduplicate blinding info computation with the work done in [[UpdateToDbDto]]
-    val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
+    val blinding = txAccepted.blindingInfo.getOrElse(Blinding.blind(txAccepted.transaction))
 
     val events = rawEvents.collect {
       case (nodeId, create: Create) =>
         TransactionLogUpdate.CreatedEvent(
           eventOffset = offset,
-          transactionId = u.transactionId,
+          transactionId = txAccepted.transactionId,
           nodeIndex = nodeId.index,
           eventSequentialId = 0L,
-          eventId = EventId(u.transactionId, nodeId),
+          eventId = EventId(txAccepted.transactionId, nodeId),
           contractId = create.coid,
-          ledgerEffectiveTime = u.transactionMeta.ledgerEffectiveTime,
+          ledgerEffectiveTime = txAccepted.transactionMeta.ledgerEffectiveTime,
           templateId = create.templateId,
-          commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
-          workflowId = u.transactionMeta.workflowId.getOrElse(""),
+          commandId = txAccepted.optCompletionInfo.map(_.commandId).getOrElse(""),
+          workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
           contractKey =
             create.key.map(k => com.daml.lf.transaction.Versioned(create.version, k.key)),
           treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty),
           flatEventWitnesses = create.stakeholders,
-          submitters = u.optCompletionInfo
+          submitters = txAccepted.optCompletionInfo
             .map(_.actAs.toSet)
             .getOrElse(Set.empty),
           createArgument = com.daml.lf.transaction.Versioned(create.version, create.arg),
@@ -213,26 +212,26 @@ private[platform] object InMemoryStateUpdater {
       case (nodeId, exercise: Exercise) =>
         TransactionLogUpdate.ExercisedEvent(
           eventOffset = offset,
-          transactionId = u.transactionId,
+          transactionId = txAccepted.transactionId,
           nodeIndex = nodeId.index,
           eventSequentialId = 0L,
-          eventId = EventId(u.transactionId, nodeId),
+          eventId = EventId(txAccepted.transactionId, nodeId),
           contractId = exercise.targetCoid,
-          ledgerEffectiveTime = u.transactionMeta.ledgerEffectiveTime,
+          ledgerEffectiveTime = txAccepted.transactionMeta.ledgerEffectiveTime,
           templateId = exercise.templateId,
-          commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
-          workflowId = u.transactionMeta.workflowId.getOrElse(""),
+          commandId = txAccepted.optCompletionInfo.map(_.commandId).getOrElse(""),
+          workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
           contractKey =
             exercise.key.map(k => com.daml.lf.transaction.Versioned(exercise.version, k.key)),
           treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty),
           flatEventWitnesses = if (exercise.consuming) exercise.stakeholders else Set.empty,
-          submitters = u.optCompletionInfo
+          submitters = txAccepted.optCompletionInfo
             .map(_.actAs.toSet)
             .getOrElse(Set.empty),
           choice = exercise.choiceId,
           actingParties = exercise.actingParties,
           children = exercise.children.iterator
-            .map(EventId(u.transactionId, _).toLedgerString)
+            .map(EventId(txAccepted.transactionId, _).toLedgerString)
             .toSeq,
           exerciseArgument = exercise.versionedChosenValue,
           exerciseResult = exercise.versionedExerciseResult,
@@ -241,17 +240,17 @@ private[platform] object InMemoryStateUpdater {
         )
     }
 
-    val completionDetails = u.optCompletionInfo
+    val completionDetails = txAccepted.optCompletionInfo
       .map { completionInfo =>
         val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
           deduplicationInfo(completionInfo)
 
         CompletionDetails(
           CompletionFromTransaction.acceptedCompletion(
-            recordTime = u.recordTime,
+            recordTime = txAccepted.recordTime,
             offset = offset,
             commandId = completionInfo.commandId,
-            transactionId = u.transactionId,
+            transactionId = txAccepted.transactionId,
             applicationId = completionInfo.applicationId,
             optSubmissionId = completionInfo.submissionId,
             optDeduplicationOffset = deduplicationOffset,
@@ -263,9 +262,9 @@ private[platform] object InMemoryStateUpdater {
       }
 
     TransactionLogUpdate.TransactionAccepted(
-      transactionId = u.transactionId,
-      workflowId = u.transactionMeta.workflowId.getOrElse(""),
-      effectiveAt = u.transactionMeta.ledgerEffectiveTime,
+      transactionId = txAccepted.transactionId,
+      workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
+      effectiveAt = txAccepted.transactionMeta.ledgerEffectiveTime,
       offset = offset,
       events = events.toVector,
       completionDetails = completionDetails,

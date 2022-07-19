@@ -11,6 +11,7 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.store.cache.EventsBuffer
 import com.daml.platform.store.dao.BufferedCommandCompletionsReader.CompletionsFilter
+import com.daml.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
 import com.daml.platform.{ApplicationId, Party}
@@ -29,11 +30,11 @@ class BufferedCommandCompletionsReader(
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, CompletionStreamResponse), NotUsed] =
-    bufferReader.streamUsingBuffered(
-      startExclusive,
-      endInclusive,
-      applicationId -> parties,
-      bufferSliceFilter = filterCompletions(_, parties, applicationId),
+    bufferReader.stream(
+      startExclusive = startExclusive,
+      endInclusive = endInclusive,
+      persistenceFetchArgs = applicationId -> parties,
+      bufferFilter = filterCompletions(_, parties, applicationId),
       toApiResponse = (response: CompletionStreamResponse) => Future.successful(response),
     )
 
@@ -41,29 +42,28 @@ class BufferedCommandCompletionsReader(
       transactionLogUpdate: TransactionLogUpdate,
       parties: Set[Party],
       applicationId: String,
-  ): Option[CompletionStreamResponse] = transactionLogUpdate match {
+  ): Option[CompletionStreamResponse] = (transactionLogUpdate match {
     case TransactionLogUpdate.TransactionAccepted(_, _, _, _, _, Some(completionDetails)) =>
-      toApiCompletion(completionDetails, parties, applicationId)
-    case TransactionLogUpdate.TransactionRejected(_, completionDetails) =>
-      toApiCompletion(completionDetails, parties, applicationId)
+      Some(completionDetails)
+    case TransactionLogUpdate.TransactionRejected(_, completionDetails) => Some(completionDetails)
     case TransactionLogUpdate.TransactionAccepted(_, _, _, _, _, None) =>
       // Completion details missing highlights submitter is not local to this participant
       None
-  }
+  }).flatMap(toApiCompletion(_, parties, applicationId))
 
   private def toApiCompletion(
-      completion: CompletionDetails,
+      completionDetails: CompletionDetails,
       parties: Set[Party],
       applicationId: String,
   ): Option[CompletionStreamResponse] = {
-    val completionHead = completion.completionStreamResponse.completions.headOption
-      .getOrElse(throw new RuntimeException("Completions must not be empty"))
-    if (
-      completionHead.applicationId == applicationId && parties.iterator
-        .exists(completion.submitters)
-    )
-      Some(completion.completionStreamResponse)
-    else None
+    val completion = completionDetails.completionStreamResponse.completions.headOption
+      .getOrElse(throw new RuntimeException("No completion in completion stream response"))
+
+    val visibilityPredicate =
+      completion.applicationId == applicationId &&
+        parties.iterator.exists(completionDetails.submitters)
+
+    Option.when(visibilityPredicate)(completionDetails.completionStreamResponse)
   }
 }
 
@@ -75,16 +75,29 @@ object BufferedCommandCompletionsReader {
       delegate: LedgerDaoCommandCompletionsReader,
       transactionsBuffer: EventsBuffer[TransactionLogUpdate],
       metrics: Metrics,
-      eventProcessingParallelism: Int,
-  )(implicit ec: ExecutionContext): BufferedCommandCompletionsReader =
+  )(implicit ec: ExecutionContext): BufferedCommandCompletionsReader = {
+    val fetchCompletions = new FetchFromPersistence[CompletionsFilter, CompletionStreamResponse] {
+      override def apply(
+          startExclusive: Offset,
+          endInclusive: Offset,
+          filter: (ApplicationId, Parties),
+      )(implicit
+          loggingContext: LoggingContext
+      ): Source[(Offset, CompletionStreamResponse), NotUsed] = {
+        val (applicationId, parties) = filter
+        delegate.getCommandCompletions(startExclusive, endInclusive, applicationId, parties)
+      }
+    }
+
     new BufferedCommandCompletionsReader(
       bufferReader = new BufferedStreamsReader[CompletionsFilter, CompletionStreamResponse](
-        inMemoryFanoutBuffer = transactionsBuffer,
-        persistenceFetch = (start, end, filter) =>
-          delegate.getCommandCompletions(start, end, filter._1, filter._2)(_),
-        eventProcessingParallelism = eventProcessingParallelism,
+        transactionLogUpdateBuffer = transactionsBuffer,
+        fetchFromPersistence = fetchCompletions,
+        // Processing for completions is a no-op so it is unnecessary to have configurable parallelism.
+        bufferedStreamEventsProcessingParallelism = 1,
         metrics = metrics,
-        name = "completions",
+        streamName = "completions",
       )
     )
+  }
 }

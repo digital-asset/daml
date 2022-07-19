@@ -17,6 +17,7 @@ import com.daml.lf.data.Ref.TransactionId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.store.cache.EventsBuffer
+import com.daml.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
 import com.daml.platform.store.dao.events.BufferedTransactionsReader.invertMapping
 import com.daml.platform.store.dao.events.TransactionLogUpdatesConversions.{
   ToFlatTransaction,
@@ -54,11 +55,11 @@ private[events] class BufferedTransactionsReader(
     val templatesParties = invertMapping(partiesTemplates)
 
     bufferedFlatTransactionsReader
-      .streamUsingBuffered(
+      .stream(
         startExclusive = startExclusive,
         endInclusive = endInclusive,
-        persistenceFetchFilter = (filter, verbose),
-        bufferSliceFilter = ToFlatTransaction.filter(wildcardParties, templatesParties),
+        persistenceFetchArgs = (filter, verbose),
+        bufferFilter = ToFlatTransaction.filter(wildcardParties, templatesParties),
         toApiResponse = ToFlatTransaction.toApiTransaction(filter, verbose, lfValueTranslation)(
           loggingContext,
           executionContext,
@@ -75,11 +76,11 @@ private[events] class BufferedTransactionsReader(
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
     bufferedTransactionTreesReader
-      .streamUsingBuffered(
+      .stream(
         startExclusive = startExclusive,
         endInclusive = endInclusive,
-        persistenceFetchFilter = (requestingParties, verbose),
-        bufferSliceFilter = ToTransactionTree.filter(requestingParties),
+        persistenceFetchArgs = (requestingParties, verbose),
+        bufferFilter = ToTransactionTree.filter(requestingParties),
         toApiResponse =
           ToTransactionTree.toApiTransaction(requestingParties, verbose, lfValueTranslation)(
             loggingContext,
@@ -115,21 +116,47 @@ private[platform] object BufferedTransactionsReader {
   )(implicit
       executionContext: ExecutionContext
   ): BufferedTransactionsReader = {
+    val fetchFlatTransactionsFromPersistence =
+      new FetchFromPersistence[(FilterRelation, Boolean), GetTransactionsResponse] {
+        override def apply(
+            startExclusive: Offset,
+            endInclusive: Offset,
+            filter: (FilterRelation, Boolean),
+        )(implicit
+            loggingContext: LoggingContext
+        ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
+          val (filterRelation, verbose) = filter
+          delegate.getFlatTransactions(startExclusive, endInclusive, filterRelation, verbose)
+        }
+      }
+    val fetchTransactionTreesFromPersistence =
+      new FetchFromPersistence[(Set[Party], Boolean), GetTransactionTreesResponse] {
+        override def apply(
+            startExclusive: Offset,
+            endInclusive: Offset,
+            filter: (Set[Party], Boolean),
+        )(implicit
+            loggingContext: LoggingContext
+        ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
+          val (requestingParties, verbose) = filter
+          delegate.getTransactionTrees(startExclusive, endInclusive, requestingParties, verbose)
+        }
+      }
     val flatTransactionsStreamReader =
       new BufferedStreamsReader[(FilterRelation, Boolean), GetTransactionsResponse](
-        inMemoryFanoutBuffer = transactionsBuffer,
-        (start, end, filter) => delegate.getFlatTransactions(start, end, filter._1, filter._2)(_),
-        eventProcessingParallelism = eventProcessingParallelism,
+        transactionLogUpdateBuffer = transactionsBuffer,
+        fetchFromPersistence = fetchFlatTransactionsFromPersistence,
+        bufferedStreamEventsProcessingParallelism = eventProcessingParallelism,
         metrics = metrics,
-        name = "transactions",
+        streamName = "transactions",
       )
     val transactionTreesStreamReader =
       new BufferedStreamsReader[(Set[Party], Boolean), GetTransactionTreesResponse](
-        inMemoryFanoutBuffer = transactionsBuffer,
-        (start, end, filter) => delegate.getTransactionTrees(start, end, filter._1, filter._2)(_),
-        eventProcessingParallelism = eventProcessingParallelism,
+        transactionLogUpdateBuffer = transactionsBuffer,
+        fetchFromPersistence = fetchTransactionTreesFromPersistence,
+        bufferedStreamEventsProcessingParallelism = eventProcessingParallelism,
         metrics = metrics,
-        name = "transaction_trees",
+        streamName = "transaction_trees",
       )
     new BufferedTransactionsReader(
       delegate = delegate,
