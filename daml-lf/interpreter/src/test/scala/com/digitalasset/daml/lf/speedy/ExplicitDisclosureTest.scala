@@ -96,7 +96,7 @@ class ExplicitDisclosureTest
                     evaluateExprApp(
                       e"""\(contractId: ContractId TestMod:House) ->
                           TestMod:fetch_by_id contractId
-                    """,
+                      """,
                       Array(SContractId(contractId)),
                       disclosedContracts = ImmArray(disclosedContract),
                       onLedger = false,
@@ -110,6 +110,49 @@ class ExplicitDisclosureTest
           }
 
           "fetching contract keys" - {
+            "fail to evaluate known contract IDs" - {
+              "using SBuiltin" in {
+                val (result, events) =
+                  evaluateSExpr(
+                    SBUFetchKey(templateId)(SEValue(buildContractSKey(ledgerParty))),
+                    committers = Set(ledgerParty),
+                    getKey = Map(
+                      GlobalKeyWithMaintainers(ledgerContractKey, Set(ledgerParty)) -> contractId
+                    ),
+                    getContract = Map(contractId -> ledgerContract),
+                    onLedger = false,
+                  )
+                val expectedFunction = SExpr.SEBuiltin(SBUFetchKey(templateId))
+                val expectedArgs = Array(SEValue(buildContractSKey(ledgerParty)))
+
+                result should beAnFunctionEvalFailure(expectedFunction, expectedArgs)
+                events shouldBe Seq.empty
+              }
+
+              "using AST.Expr" in {
+                val (result, events) =
+                  evaluateExprApp(
+                    e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
+                          TestMod:fetch_by_key label (Some @Party maintainer)
+                    """,
+                    Array(
+                      SContractId(contractId),
+                      SValue.SText(testKeyName),
+                      SValue.SParty(ledgerParty),
+                    ),
+                    committers = Set(ledgerParty),
+                    getKey = Map(
+                      GlobalKeyWithMaintainers(ledgerContractKey, Set(ledgerParty)) -> contractId
+                    ),
+                    getContract = Map(contractId -> ledgerContract),
+                    onLedger = false,
+                  )
+
+                result should beAnEvaluationFailure
+                events shouldBe Seq.empty
+              }
+            }
+
             "fail to evaluate disclosed contract IDs" - {
               "using SBuiltin" in {
                 forAll(disclosedContracts) { case (disclosedContract, _) =>
@@ -134,7 +177,7 @@ class ExplicitDisclosureTest
                     evaluateExprApp(
                       e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
                           TestMod:fetch_by_key label (Some @Party maintainer)
-                    """,
+                      """,
                       Array(
                         SContractId(contractId),
                         SValue.SText(testKeyName),
@@ -195,6 +238,47 @@ class ExplicitDisclosureTest
                 events shouldBe Seq.empty
               }
             }
+
+            "fail to evaluate disclosed contract IDs" - {
+              "using SBuiltin" in {
+                forAll(disclosedContracts) { case (disclosedContract, _) =>
+                  val (result, events) =
+                    evaluateSExpr(
+                      SBULookupKey(templateId)(SEValue(buildContractSKey(disclosureParty))),
+                      committers = Set(disclosureParty),
+                      disclosedContracts = ImmArray(disclosedContract),
+                      onLedger = false,
+                    )
+                  val expectedFunction = SExpr.SEBuiltin(SBULookupKey(templateId))
+                  val expectedArgs = Array(SEValue(buildContractSKey(disclosureParty)))
+
+                  result should beAnFunctionEvalFailure(expectedFunction, expectedArgs)
+                  events shouldBe Seq.empty
+                }
+              }
+
+              "using AST.Expr" in {
+                forAll(disclosedContracts) { case (disclosedContract, _) =>
+                  val (result, events) =
+                    evaluateExprApp(
+                      e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
+                          TestMod:lookup_by_key label (Some @Party maintainer)
+                      """,
+                      Array(
+                        SContractId(contractId),
+                        SValue.SText(testKeyName),
+                        SValue.SParty(ledgerParty),
+                      ),
+                      committers = Set(disclosureParty),
+                      disclosedContracts = ImmArray(disclosedContract),
+                      onLedger = false,
+                    )
+
+                  result should beAnEvaluationFailure
+                  events shouldBe Seq.empty
+                }
+              }
+            }
           }
         }
 
@@ -206,7 +290,7 @@ class ExplicitDisclosureTest
                   e"""\(contractId: ContractId TestMod:House) ->
                           ubind ignore: Unit <- TestMod:exercise contractId
                           in TestMod:fetch_by_id contractId
-                    """,
+                  """,
                   Array(SContractId(contractId)),
                   committers = Set(ledgerParty),
                   getKey = Map(
@@ -241,6 +325,30 @@ class ExplicitDisclosureTest
           }
 
           "fetching contracts keys" - {
+            "fail to evaluate known contract IDs" in {
+              val (result, events) =
+                evaluateExprApp(
+                  e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
+                          ubind ignore: Unit <- TestMod:exercise contractId
+                          in TestMod:fetch_by_key label (Some @Party maintainer)
+                  """,
+                  Array(
+                    SContractId(contractId),
+                    SValue.SText(testKeyName),
+                    SValue.SParty(ledgerParty),
+                  ),
+                  committers = Set(ledgerParty),
+                  getKey = Map(
+                    GlobalKeyWithMaintainers(ledgerContractKey, Set(ledgerParty)) -> contractId
+                  ),
+                  getContract = Map(contractId -> ledgerContract),
+                  onLedger = false,
+                )
+
+              result should beAnEvaluationFailure
+              events shouldBe Seq.empty
+            }
+
             "fail to evaluate disclosed contract IDs" in {
               forAll(disclosedContracts) { case (disclosedContract, _) =>
                 val (result, events) =
@@ -272,7 +380,7 @@ class ExplicitDisclosureTest
                   e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
                           ubind ignore: Unit <- TestMod:exercise contractId
                           in TestMod:lookup_by_key label (Some @Party maintainer)
-                    """,
+                  """,
                   Array(
                     SContractId(contractId),
                     SValue.SText(testKeyName),
@@ -288,6 +396,29 @@ class ExplicitDisclosureTest
 
               result should beAnEvaluationFailure
               events shouldBe Seq.empty
+            }
+
+            "fail to evaluate disclosed contract IDs" in {
+              forAll(disclosedContracts) { case (disclosedContract, _) =>
+                val (result, events) =
+                  evaluateExprApp(
+                    e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
+                          ubind ignore: Unit <- TestMod:exercise contractId
+                          in TestMod:lookup_by_key label (Some @Party maintainer)
+                    """,
+                    Array(
+                      SContractId(contractId),
+                      SValue.SText(testKeyName),
+                      SValue.SParty(ledgerParty),
+                    ),
+                    committers = Set(disclosureParty),
+                    disclosedContracts = ImmArray(disclosedContract),
+                    onLedger = false,
+                  )
+
+                result should beAnEvaluationFailure
+                events shouldBe Seq.empty
+              }
             }
           }
         }
@@ -355,7 +486,7 @@ class ExplicitDisclosureTest
                     evaluateExprApp(
                       e"""\(contractId: ContractId TestMod:House) ->
                           TestMod:fetch_by_id contractId
-                    """,
+                      """,
                       Array(SContractId(contractId)),
                       committers = Set(disclosureParty),
                       disclosedContracts = ImmArray(disclosedContract),
@@ -406,10 +537,7 @@ class ExplicitDisclosureTest
                     ),
                     committers = Set(ledgerParty),
                     getKey = Map(
-                      GlobalKeyWithMaintainers(
-                        buildContractKey(ledgerParty),
-                        Set(ledgerParty),
-                      ) -> contractId
+                      GlobalKeyWithMaintainers(ledgerContractKey, Set(ledgerParty)) -> contractId
                     ),
                     getContract = Map(contractId -> ledgerContract),
                   )
@@ -458,7 +586,7 @@ class ExplicitDisclosureTest
                     evaluateExprApp(
                       e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
                           TestMod:fetch_by_key label (Some @Party maintainer)
-                    """,
+                      """,
                       Array(
                         SContractId(contractId),
                         SValue.SText(testKeyName),
@@ -521,10 +649,7 @@ class ExplicitDisclosureTest
                     ),
                     committers = Set(ledgerParty),
                     getKey = Map(
-                      GlobalKeyWithMaintainers(
-                        buildContractKey(ledgerParty),
-                        Set(ledgerParty),
-                      ) -> contractId
+                      GlobalKeyWithMaintainers(ledgerContractKey, Set(ledgerParty)) -> contractId
                     ),
                     getContract = Map(contractId -> ledgerContract),
                   )
@@ -569,7 +694,7 @@ class ExplicitDisclosureTest
                     evaluateExprApp(
                       e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
                           TestMod:lookup_by_key label (Some @Party maintainer)
-                    """,
+                      """,
                       Array(
                         SContractId(contractId),
                         SValue.SText(testKeyName),
@@ -604,7 +729,7 @@ class ExplicitDisclosureTest
                   e"""\(contractId: ContractId TestMod:House) ->
                           ubind ignore: Unit <- TestMod:exercise contractId
                           in TestMod:fetch_by_id contractId
-                    """,
+                  """,
                   Array(SContractId(contractId)),
                   committers = Set(ledgerParty),
                   getKey = Map(
@@ -651,7 +776,7 @@ class ExplicitDisclosureTest
                   e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
                           ubind ignore: Unit <- TestMod:exercise contractId
                           in TestMod:fetch_by_key label (Some @Party maintainer)
-                    """,
+                  """,
                   Array(
                     SContractId(contractId),
                     SValue.SText(testKeyName),
@@ -702,7 +827,7 @@ class ExplicitDisclosureTest
                   e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
                           ubind ignore: Unit <- TestMod:exercise contractId
                           in TestMod:lookup_by_key label (Some @Party maintainer)
-                    """,
+                  """,
                   Array(
                     SContractId(contractId),
                     SValue.SText(testKeyName),
@@ -778,7 +903,7 @@ class ExplicitDisclosureTest
                     evaluateExprApp(
                       e"""\(contractId: ContractId TestMod:House) ->
                           TestMod:fetch_by_id contractId
-                    """,
+                      """,
                       Array(SContractId(contractId)),
                       getContract = Map(contractId -> ledgerContract),
                       disclosedContracts = ImmArray(disclosedContract),
@@ -821,7 +946,7 @@ class ExplicitDisclosureTest
                     evaluateExprApp(
                       e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
                           TestMod:fetch_by_key label (Some @Party maintainer)
-                    """,
+                      """,
                       Array(
                         SContractId(contractId),
                         SValue.SText(testKeyName),
@@ -870,7 +995,7 @@ class ExplicitDisclosureTest
                     evaluateExprApp(
                       e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
                           TestMod:fetch_by_key label (Some @Party maintainer)
-                    """,
+                      """,
                       Array(
                         SContractId(contractId),
                         SValue.SText(testKeyName),
@@ -921,7 +1046,7 @@ class ExplicitDisclosureTest
                     evaluateExprApp(
                       e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
                           TestMod:lookup_by_key label (Some @Party maintainer)
-                    """,
+                      """,
                       Array(
                         SContractId(contractId),
                         SValue.SText(testKeyName),
@@ -970,7 +1095,7 @@ class ExplicitDisclosureTest
                     evaluateExprApp(
                       e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
                           TestMod:lookup_by_key label (Some @Party maintainer)
-                    """,
+                      """,
                       Array(
                         SContractId(contractId),
                         SValue.SText(testKeyName),
@@ -1004,6 +1129,10 @@ class ExplicitDisclosureTest
                           in TestMod:fetch_by_id contractId
                     """,
                     Array(SContractId(contractId)),
+                    committers = Set(ledgerParty),
+                    getKey = Map(
+                      GlobalKeyWithMaintainers(ledgerContractKey, Set(ledgerParty)) -> contractId
+                    ),
                     getContract = Map(contractId -> ledgerContract),
                     disclosedContracts = ImmArray(disclosedContract),
                     onLedger = false,
@@ -1104,7 +1233,7 @@ class ExplicitDisclosureTest
                     evaluateExprApp(
                       e"""\(contractId: ContractId TestMod:House) ->
                           TestMod:fetch_by_id contractId
-                    """,
+                      """,
                       Array(SContractId(contractId)),
                       committers = Set(disclosureParty),
                       getContract = Map(contractId -> ledgerContract),
@@ -1152,7 +1281,7 @@ class ExplicitDisclosureTest
                     evaluateExprApp(
                       e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
                           TestMod:fetch_by_key label (Some @Party maintainer)
-                    """,
+                      """,
                       Array(
                         SContractId(contractId),
                         SValue.SText(testKeyName),
@@ -1212,7 +1341,7 @@ class ExplicitDisclosureTest
                     evaluateExprApp(
                       e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
                           TestMod:lookup_by_key label (Some @Party maintainer)
-                    """,
+                      """,
                       Array(
                         SContractId(contractId),
                         SValue.SText(testKeyName),
