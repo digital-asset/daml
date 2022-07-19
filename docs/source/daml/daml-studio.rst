@@ -117,7 +117,7 @@ contract id. The columns afterwards represent the fields of the
 contract and finally you get one column per party with an ``X`` if the
 party can see the contract or a ``-`` if not.
 
-.. image:: daml-studio/images/daml_studio_script_table.png
+.. figure:: daml-studio/images/daml_studio_script_table.png
    :alt: The table as described above, with the associated script in the left panel.
 
 If you want more details, you can click on the *Show archived* checkbox, which extends
@@ -138,7 +138,7 @@ archived ``Bank`` contract and the active ``Bank`` contract whose creation
 ``Alice`` has witnessed by virtue of being an actor on the ``exercise`` that
 created it.
 
-.. image:: daml-studio/images/daml_studio_script_table_detailed.png
+.. figure:: daml-studio/images/daml_studio_script_table_detailed.png
    :alt: The table as described above, with the associated script in the left panel. "Show archived" and "Show detailed disclosure" are now selected.
 
 If you want to see the detailed transaction graph you can click on the
@@ -149,7 +149,7 @@ fetches of contracts.
 
 For example a script for the :download:`Iou<daml-studio/daml/Iou.daml>` module looks as follows:
 
-.. image:: daml-studio/images/daml_studio_script_transaction.png
+.. figure:: daml-studio/images/daml_studio_script_transaction.png
    :alt: The graph transaction view as described above, with the associated script in the left panel.
 
    Script results
