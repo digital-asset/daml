@@ -1539,6 +1539,7 @@ message DefTemplate {
   message Implements {
     TypeConName interface = 1;
     repeated ImplementsMethod methods = 2;
+    Expr view = 3;
   }
 
   // The type constructor for the template, acting as both
@@ -1615,6 +1616,7 @@ message DefInterface {
   message CoImplements {
     TypeConName template = 1;
     repeated CoImplementsMethod methods = 2;
+    Expr view = 3;
   }
 
   Location location = 1;
@@ -1629,6 +1631,9 @@ message DefInterface {
 
   // Templates which this interface co-implements.
   repeated CoImplements coImplements = 8; // *Available in versions >= 1.dev*
+
+  // View type for this interface
+  Type view = 9;
 }
 
 // Exception definition

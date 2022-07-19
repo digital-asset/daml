@@ -33,9 +33,7 @@ object TransactionLogUpdate {
       effectiveAt: Timestamp,
       offset: Offset,
       events: Vector[Event],
-  ) extends TransactionLogUpdate {
-    require(events.nonEmpty, "Transaction must have at least an event")
-  }
+  ) extends TransactionLogUpdate
 
   /* Models all but divulgence events */
   sealed trait Event extends Product with Serializable {

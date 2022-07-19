@@ -242,6 +242,7 @@ decodeDefInterface LF1.DefInterface {..} = do
   intMethods <- decodeNM DuplicateMethod decodeInterfaceMethod defInterfaceMethods
   intPrecondition <- mayDecode "defInterfacePrecond" defInterfacePrecond decodeExpr
   intCoImplements <- decodeNM DuplicateCoImplements decodeInterfaceCoImplements defInterfaceCoImplements
+  intView <- mayDecode "defInterfaceView" defInterfaceView decodeType
   pure DefInterface {..}
 
 decodeInterfaceMethod :: LF1.InterfaceMethod -> Decode InterfaceMethod
@@ -257,6 +258,7 @@ decodeInterfaceCoImplements :: LF1.DefInterface_CoImplements -> Decode Interface
 decodeInterfaceCoImplements LF1.DefInterface_CoImplements {..} = InterfaceCoImplements
   <$> mayDecode "defInterface_CoImplementsTemplate" defInterface_CoImplementsTemplate decodeTypeConName
   <*> decodeNM DuplicateMethod decodeInterfaceCoImplementsMethod defInterface_CoImplementsMethods
+  <*> mayDecode "defInterface_CoImplementsView" defInterface_CoImplementsView decodeExpr
 
 decodeInterfaceCoImplementsMethod :: LF1.DefInterface_CoImplementsMethod -> Decode InterfaceCoImplementsMethod
 decodeInterfaceCoImplementsMethod LF1.DefInterface_CoImplementsMethod {..} = InterfaceCoImplementsMethod
@@ -342,6 +344,7 @@ decodeDefTemplateImplements :: LF1.DefTemplate_Implements -> Decode TemplateImpl
 decodeDefTemplateImplements LF1.DefTemplate_Implements{..} = TemplateImplements
   <$> mayDecode "defTemplate_ImplementsInterface" defTemplate_ImplementsInterface decodeTypeConName
   <*> decodeNM DuplicateMethod decodeDefTemplateImplementsMethod defTemplate_ImplementsMethods
+  <*> mayDecode "defTemplate_ImplementsView" defTemplate_ImplementsView decodeExpr
 
 decodeDefTemplateImplementsMethod :: LF1.DefTemplate_ImplementsMethod -> Decode TemplateImplementsMethod
 decodeDefTemplateImplementsMethod LF1.DefTemplate_ImplementsMethod{..} = TemplateImplementsMethod
