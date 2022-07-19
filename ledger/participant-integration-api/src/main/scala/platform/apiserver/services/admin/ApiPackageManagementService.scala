@@ -28,11 +28,13 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiPackageManagementService._
 import com.daml.platform.apiserver.services.logging
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
+import com.google.protobuf.ByteString
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
+import scala.util.Using
 import java.util.zip.ZipInputStream
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -90,16 +92,17 @@ private[apiserver] final class ApiPackageManagementService private (
   }
 
   private def decodeAndValidate(
-      stream: ZipInputStream
+      darFile: ByteString
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Future[Dar[Archive]] = Future.delegate {
     // Triggering computation in `executionContext` as caller thread (from netty)
     // should not be busy with heavy computation
     val result = for {
-      dar <- darReader
-        .readArchive("package-upload", stream)
-        .handleError(Validation.handleLfArchiveError)
+      darArchive <- Using(new ZipInputStream(darFile.newInput())) { stream =>
+        darReader.readArchive("package-upload", stream)
+      }
+      dar <- darArchive.handleError(Validation.handleLfArchiveError)
       packages <- dar.all
         .traverse(Decode.decodeArchive(_))
         .handleError(Validation.handleLfArchiveError)
@@ -114,7 +117,6 @@ private[apiserver] final class ApiPackageManagementService private (
     val submissionId = submissionIdGenerator(request.submissionId)
     withEnrichedLoggingContext(logging.submissionId(submissionId)) { implicit loggingContext =>
       logger.info("Uploading DAR file")
-      val darInputStream = new ZipInputStream(request.darFile.newInput())
 
       implicit val telemetryContext: TelemetryContext =
         DefaultTelemetry.contextFromGrpcThreadLocalContext()
@@ -127,7 +129,7 @@ private[apiserver] final class ApiPackageManagementService private (
         )
 
       val response = for {
-        dar <- decodeAndValidate(darInputStream)
+        dar <- decodeAndValidate(request.darFile)
         _ <- synchronousResponse.submitAndWait(submissionId, dar)
       } yield {
         for (archive <- dar.all) {
