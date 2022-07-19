@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.{BlindingInfo, Transaction, NodeId, VersionedTransaction}
 import com.daml.lf.ledger._
-import com.daml.lf.data.Relation.Relation
+import com.daml.lf.data.Relation
 
 import scala.annotation.tailrec
 
