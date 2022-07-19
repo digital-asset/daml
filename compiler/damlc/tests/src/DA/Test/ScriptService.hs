@@ -318,10 +318,10 @@ main =
                     , ".*"
                     , ".*"
                     , ".*"
-                    , "Partial transaction:"
+{-                    , "Partial transaction:" --NICK
                     , "  Sub-transactions:"
                     , "     0"
-                    , ".*create Test:Helper.*"
+                    , ".*create Test:Helper.*" -}
                     ]
                 expectScriptFailure rs (vr "testPartialSubmitMustFail") $ \r ->
                   matchRegex r $ T.unlines
