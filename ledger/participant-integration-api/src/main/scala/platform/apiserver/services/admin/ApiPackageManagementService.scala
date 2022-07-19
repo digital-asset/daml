@@ -93,8 +93,10 @@ private[apiserver] final class ApiPackageManagementService private (
       stream: ZipInputStream
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Try[Dar[Archive]] =
-    for {
+  ): Future[Dar[Archive]] = Future.delegate {
+    // Triggering computation in `executionContext` as caller thread (from netty)
+    // should not be busy with heavy computation
+    val result = for {
       dar <- darReader
         .readArchive("package-upload", stream)
         .handleError(Validation.handleLfArchiveError)
@@ -105,6 +107,8 @@ private[apiserver] final class ApiPackageManagementService private (
         .validatePackages(packages.toMap)
         .handleError(Validation.handleLfEnginePackageError)
     } yield dar
+    Future.fromTry(result)
+  }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
     val submissionId = submissionIdGenerator(request.submissionId)
@@ -123,7 +127,7 @@ private[apiserver] final class ApiPackageManagementService private (
         )
 
       val response = for {
-        dar <- Future.fromTry(decodeAndValidate(darInputStream))
+        dar <- decodeAndValidate(darInputStream)
         _ <- synchronousResponse.submitAndWait(submissionId, dar)
       } yield {
         for (archive <- dar.all) {
