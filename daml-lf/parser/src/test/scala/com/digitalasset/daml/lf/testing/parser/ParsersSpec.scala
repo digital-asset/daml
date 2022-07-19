@@ -852,6 +852,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                     e"Mod1:Company {legalName} this",
                   ),
                 ),
+                EAbs((Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
               )
           ),
           view = TUnit,
