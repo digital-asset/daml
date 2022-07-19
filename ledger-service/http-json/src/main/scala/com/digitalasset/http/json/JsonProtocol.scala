@@ -385,12 +385,15 @@ object JsonProtocol extends JsonProtocolLow {
         val reference: JsObject =
           ContractLocatorFormat.write(obj.reference).asJsObject("reference must be an object")
 
-        val fields: Vector[(String, JsValue)] =
-          reference.fields.toVector ++
-            Vector("choice" -> obj.choice.toJson, "argument" -> obj.argument.toJson) ++
-            obj.meta.cata(x => Vector("meta" -> x.toJson), Vector.empty)
+        val fields =
+          reference.fields ++
+            Iterable("choice" -> obj.choice.toJson, "argument" -> obj.argument.toJson) ++
+            Iterable(
+              "meta" -> obj.meta.map(_.toJson),
+              "choiceInterfaceId" -> obj.choiceInterfaceId.map(_.toJson),
+            ).collect { case (k, Some(v)) => (k, v) }
 
-        JsObject(fields: _*)
+        JsObject(fields)
       }
 
       override def read(

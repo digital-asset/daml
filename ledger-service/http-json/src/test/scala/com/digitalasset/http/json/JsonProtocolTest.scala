@@ -236,7 +236,10 @@ class JsonProtocolTest
         val expectedFields: Map[String, JsValue] = referenceFields ++ Map[String, JsValue](
           "choice" -> JsString(cmd.choice.unwrap),
           "argument" -> cmd.argument,
-        ) ++ cmd.meta.cata(x => Map("meta" -> x.toJson), Map.empty)
+        ) ++ Seq(
+          cmd.choiceInterfaceId.map(x => "choiceInterfaceId" -> x.toJson),
+          cmd.meta.map(x => "meta" -> x.toJson),
+        ).collect { case Some(x) => x }
 
         actual shouldBe JsObject(expectedFields)
     }
