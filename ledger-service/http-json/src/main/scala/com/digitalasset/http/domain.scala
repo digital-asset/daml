@@ -606,6 +606,18 @@ package domain {
       }
   }
 
+  object CreateAndExerciseCommand {
+    implicit def covariant[P, Ar]: Traverse[CreateAndExerciseCommand[P, Ar, *]] =
+      new Traverse[CreateAndExerciseCommand[P, Ar, *]] {
+        override def traverseImpl[G[_]: Applicative, A, B](
+            fa: CreateAndExerciseCommand[P, Ar, A]
+        )(f: A => G[B]): G[CreateAndExerciseCommand[P, Ar, B]] =
+          ^(f(fa.templateId), fa.choiceInterfaceId traverse f) { (tId, ciId) =>
+            fa.copy(templateId = tId, choiceInterfaceId = ciId)
+          }
+      }
+  }
+
   object ExerciseResponse {
     implicit val traverseInstance: Traverse[ExerciseResponse] = new Traverse[ExerciseResponse] {
       override def traverseImpl[G[_]: Applicative, A, B](

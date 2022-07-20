@@ -170,10 +170,10 @@ class DomainJsonDecoder(
         SprayJson
           .decode[domain.CreateAndExerciseCommand[JsValue, JsValue, TemplateId.OptionalPkg]](a)
           .liftErrS(err)(JsonError)
-      )
+      ).flatMap(_ traverse (templateId_(_, jwt, ledgerId)))
 
-      tId <- templateId_(fjj.templateId, jwt, ledgerId)
-      ciId <- fjj.choiceInterfaceId.traverse(templateId_(_, jwt, ledgerId))
+      tId = fjj.templateId
+      ciId = fjj.choiceInterfaceId
 
       payloadT <- either(resolveTemplateRecordType(tId).liftErr(JsonError))
 
@@ -185,8 +185,7 @@ class DomainJsonDecoder(
     } yield fjj.copy(
       payload = payload,
       argument = argument,
-      templateId = tId,
-      choiceInterfaceId = oIfaceId orElse ciId,
+      choiceInterfaceId = oIfaceId orElse fjj.choiceInterfaceId,
     )
   }
 
