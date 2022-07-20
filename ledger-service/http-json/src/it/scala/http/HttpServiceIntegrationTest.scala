@@ -146,6 +146,11 @@ abstract class HttpServiceIntegrationTest
         )
       }
     }
+
+    // TODO #13923 tests:
+    // tp and ifc define same, no ciId, picks tp
+    // tp and ifc define same, ciId = ifc, picks ifc
+    // two ifcs define same but not tp, no ciId, fails
   }
 
   "fail to exercise by key with interface ID" in withHttpService { fixture =>
