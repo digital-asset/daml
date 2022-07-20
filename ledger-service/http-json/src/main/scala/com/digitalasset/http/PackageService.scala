@@ -274,7 +274,7 @@ object PackageService {
     (
         ContractTypeId.Unknown.RequiredPkg,
         Choice,
-    ) => Error \/ iface.Type
+    ) => Error \/ (Option[ContractTypeId.Interface.Resolved], iface.Type)
 
   type ResolveKeyType =
     TemplateId.RequiredPkg => Error \/ iface.Type
@@ -353,16 +353,17 @@ object PackageService {
 
   private def resolveChoiceArgType(
       choiceIdMap: ChoiceTypeMap
-  )(ctId: ContractTypeId.Unknown.Resolved, choice: Choice): Error \/ iface.Type = {
+  )(
+      ctId: ContractTypeId.Unknown.Resolved,
+      choice: Choice,
+  ): Error \/ (Option[ContractTypeId.Interface.Resolved], iface.Type) = {
     // TODO #14067 skip indirect resolution if ctId is an interface ID
     val resolution = for {
       choices <- choiceIdMap get ctId
       overloads <- choices get choice
       // TODO #13923 if fails, report need for choiceInterfaceId, available interfaces?
       onlyChoice <- Singleton.unapply(overloads) orElse (overloads get None map ((None, _)))
-      // TODO #13923 resolver needs the oIfId if it is defined
-      (oIfId, pTy) = onlyChoice
-    } yield pTy
+    } yield onlyChoice
     resolution.toRightDisjunction(
       InputError(s"Cannot resolve Choice Argument type, given: ($ctId, $choice)")
     )

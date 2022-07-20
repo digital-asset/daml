@@ -601,7 +601,6 @@ package domain {
         ) =
           g(templateId, fa.choice)
             .leftMap(e => Error(Symbol("ExerciseCommand_hasTemplateId_lfType"), e.shows))
-            .map((None, _)) // TODO #13923 get real value from g
       }
   }
 

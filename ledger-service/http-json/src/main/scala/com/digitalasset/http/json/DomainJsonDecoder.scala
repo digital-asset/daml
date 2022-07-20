@@ -175,7 +175,9 @@ class DomainJsonDecoder(
 
       payloadT <- either(resolveTemplateRecordType(tId).liftErr(JsonError))
 
-      argT <- either(resolveChoiceArgType(tId, fjj.choice).liftErr(JsonError))
+      oIfIdArgT <- either(resolveChoiceArgType(tId, fjj.choice).liftErr(JsonError))
+      (oIfaceId, argT) = oIfIdArgT
+      // TODO #13923 use oIfaceId in the CreateAndExerciseCommand
 
       payload <- either(jsValueToApiValue(payloadT, fjj.payload).flatMap(mustBeApiRecord))
       argument <- either(jsValueToApiValue(argT, fjj.argument))
