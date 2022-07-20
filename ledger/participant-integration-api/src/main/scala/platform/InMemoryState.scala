@@ -8,7 +8,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.cache.{ContractStateCaches, EventsBuffer, MutableLedgerEndCache}
-import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interning.{StringInterningView, UpdatingStringInterningView}
 
 import scala.concurrent.duration.Duration
@@ -19,7 +18,7 @@ import scala.util.chaining._
 private[platform] class InMemoryState(
     val ledgerEndCache: MutableLedgerEndCache,
     val contractStateCaches: ContractStateCaches,
-    val transactionsBuffer: EventsBuffer[TransactionLogUpdate],
+    val transactionsBuffer: EventsBuffer,
     val stringInterningView: StringInterningView,
     val dispatcherState: DispatcherState,
 )(implicit executionContext: ExecutionContext) {
@@ -80,7 +79,7 @@ object InMemoryState {
         maxContractKeyStateCacheSize,
         metrics,
       )(executionContext, loggingContext),
-      transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
+      transactionsBuffer = new EventsBuffer(
         maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
         metrics = metrics,
         bufferQualifier = "transactions",
