@@ -139,12 +139,15 @@ class DomainJsonDecoder(
       )
       (oIfaceId, lfType) = ifIdlfType
       // treat an inferred iface ID as a user-specified one
-      choiceIfaceOverride = (oIfaceId: Option[domain.ContractTypeId.Interface.RequiredPkg])
-        .map(_ map some)
+      choiceIfaceOverride <-
+        (if (oIfaceId.isDefined)
+           (oIfaceId: Option[domain.ContractTypeId.Interface.RequiredPkg]).pure[ET]
+         else cmd0.choiceInterfaceId.traverse(templateId_(_, jwt, ledgerId)))
+          .map(_ map (_ map some))
 
       cmd1 <-
         cmd0
-          .copy(choiceInterfaceId = choiceIfaceOverride orElse cmd0.choiceInterfaceId)
+          .copy(choiceInterfaceId = choiceIfaceOverride)
           .bitraverse(
             arg => either(jsValueToLfValue(lfType, arg)),
             ref => decodeContractLocatorKey(ref, jwt, ledgerId),
