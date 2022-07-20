@@ -4,6 +4,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 -- | HIDE Automatically imported qualified in every module.
 module DA.Internal.Desugar (
@@ -26,7 +27,8 @@ module DA.Internal.Desugar (
     mkMethod,
     InterfaceView,
     HasInterfaceView(..),
-    mkInterfaceView
+    mkInterfaceView,
+    view
 ) where
 
 import DA.Internal.Prelude
@@ -134,3 +136,7 @@ newtype InterfaceView t i = InterfaceView ()
 -- it's extracted unmodified.
 mkInterfaceView : (Implements t i, HasInterfaceView i v) => (t -> v) -> InterfaceView t i
 mkInterfaceView = magic @"mkInterfaceView"
+
+-- | Function for views
+view : forall i t v. (Implements t i, HasInterfaceView i v) => t -> v
+view = magic @"view" -- deleted by the compiler

@@ -1306,6 +1306,21 @@ convertExpr env0 e = do
     -- erase mkInterfaceView calls and leave only the body.
     go env (VarIn DA_Internal_Desugar "mkInterfaceView") (LType _tpl : LType _iface : LType _viewTy : LExpr _implDict : LExpr _hasInterfaceViewDic : LExpr body : args)
         = go env body args
+    go env (VarIn DA_Internal_Desugar "view") (LType iface : LType template : LType view : LExpr _implementsDic : LExpr _hasInterfaceViewDic : args)
+        = do
+        ifaceLF <- convertType env iface
+        templateLF <- convertType env template
+        viewLF <- convertType env view
+        case (ifaceLF, templateLF) of
+            (TCon ifaceName, TCon templateName) ->
+                pure
+                  ( ETmLam (mkVar "t", TCon templateName) $
+                    EViewInterface ifaceName templateName viewLF (EVar $ mkVar "t")
+                  , args
+                  )
+            (_, TCon _) -> unsupported "view not type-applied to an interface." iface
+            (TCon _, _) -> unsupported "view not type-applied to an template." template
+            (_, _) -> unsupported "view not type-applied to an interface nor a template." (iface, template)
     go env (VarIn GHC_Types "primitiveInterface") (LType (isStrLitTy -> Just y) : LType t : args)
         = do
         ty <- convertType env t
