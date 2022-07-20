@@ -8,10 +8,6 @@ package util
 import data.Ref
 import data.Relation.Relation
 
-/** *
-  *
-  * @param pkgSignature
-  */
 private[daml] class PackageInfo(pkgSignature: Map[Ref.PackageId, Ast.GenPackage[_]]) {
 
   /** returns the set of templates defined in `pkgSignature` */
@@ -39,7 +35,7 @@ private[daml] class PackageInfo(pkgSignature: Map[Ref.PackageId, Ast.GenPackage[
     * The domain of the relation is the set of interface names, while the codomain
     * is the set of template name.
     * Note that while all interfaces are defined in `pkgSignature`, template may not
-    * be.
+    * be.orm
     */
   def interfacesRetroactiveInstances: Relation[Ref.Identifier, Ref.Identifier] =
     Relation.from(
