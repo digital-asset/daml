@@ -388,7 +388,7 @@ package domain {
 
   private[http] object ActiveContractExtras {
     // only used in integration tests
-    implicit val `AcC hasTemplateId`: HasTemplateId[ActiveContract] =
+    implicit val `AcC hasTemplateId`: HasTemplateId.Compat[ActiveContract] =
       new HasTemplateId[ActiveContract] {
         override def templateId(fa: ActiveContract[_]): TemplateId.OptionalPkg =
           TemplateId(
@@ -477,7 +477,7 @@ package domain {
       }
     }
 
-    implicit val hasTemplateId: HasTemplateId[EnrichedContractKey] =
+    implicit val hasTemplateId: HasTemplateId.Compat[EnrichedContractKey] =
       new HasTemplateId[EnrichedContractKey] {
 
         override def templateId(fa: EnrichedContractKey[_]): TemplateId.OptionalPkg = fa.templateId
@@ -505,7 +505,7 @@ package domain {
       }
     }
 
-    implicit def hasTemplateId[Off]: HasTemplateId[ContractKeyStreamRequest[Off, *]] =
+    implicit def hasTemplateId[Off]: HasTemplateId.Compat[ContractKeyStreamRequest[Off, *]] =
       HasTemplateId.by[ContractKeyStreamRequest[Off, *]](_.ekey)
   }
 
@@ -524,6 +524,7 @@ package domain {
   }
 
   object HasTemplateId {
+    type Compat[F[_]] = Aux[F, LfType]
     type Aux[F[_], TFC0] = HasTemplateId[F] { type TypeFromCtId = TFC0 }
 
     def by[F[_]]: By[F] = new By[F](0)
@@ -543,7 +544,7 @@ package domain {
               f: PackageService.ResolveTemplateRecordType,
               g: PackageService.ResolveChoiceArgType,
               h: PackageService.ResolveKeyType,
-          ) = basis.lfType(nt(fa), templateId, f, g, h)
+          ): Error \/ TypeFromCtId = basis.lfType(nt(fa), templateId, f, g, h)
         }
     }
   }

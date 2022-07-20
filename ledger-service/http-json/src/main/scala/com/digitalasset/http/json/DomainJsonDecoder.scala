@@ -61,7 +61,7 @@ class DomainJsonDecoder(
     } yield fv
   }
 
-  def decodeUnderlyingValues[F[_]: Traverse: domain.HasTemplateId](
+  def decodeUnderlyingValues[F[_]: Traverse: domain.HasTemplateId.Compat](
       fa: F[JsValue],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
@@ -75,7 +75,7 @@ class DomainJsonDecoder(
     } yield apiValue
   }
 
-  def decodeUnderlyingValuesToLf[F[_]: Traverse: domain.HasTemplateId](
+  def decodeUnderlyingValuesToLf[F[_]: Traverse: domain.HasTemplateId.Compat](
       fa: F[JsValue],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
@@ -88,20 +88,11 @@ class DomainJsonDecoder(
       lfValue <- either(fa.traverse(jsValue => jsValueToLfValue(lfType, jsValue)))
     } yield lfValue
   }
+
   private def lookupLfType[F[_]](fa: F[_], jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
       H: HasTemplateId[F],
-  ): ET[H.TypeFromCtId] = lookupLfType(fa, H, jwt, ledgerId)
-
-  private def lookupLfType[F[_]](
-      fa: F[_],
-      H: HasTemplateId[F],
-      jwt: Jwt,
-      ledgerId: LedgerApiDomain.LedgerId,
-  )(implicit
-      ec: ExecutionContext,
-      lc: LoggingContextOf[InstanceUUID],
   ): ET[H.TypeFromCtId] =
     for {
       tId <- templateId_(H.templateId(fa), jwt, ledgerId)
