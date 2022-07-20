@@ -73,10 +73,11 @@ abstract class HttpServiceIntegrationTest
         }: Future[Assertion]
   }
 
-  "pick up new package's inherited interfaces" in withHttpService { fixture =>
-    import fixture.encoder
+  "exercise interface choices" - {
     import json.JsonProtocol._
+    import AbstractHttpServiceIntegrationTestFuns.{UriFixture, EncoderFixture}
     def createIouAndExerciseTransfer(
+        fixture: UriFixture with EncoderFixture,
         initialTplId: domain.TemplateId.OptionalPkg,
         exerciseTid: domain.TemplateId.OptionalPkg,
         exerciseCiId: Option[domain.ContractTypeId.Unknown.OptionalPkg] = None,
@@ -96,7 +97,7 @@ abstract class HttpServiceIntegrationTest
       exerciseTest <- fixture
         .postJsonRequest(
           Uri.Path("/v1/exercise"),
-          encodeExercise(encoder)(
+          encodeExercise(fixture.encoder)(
             iouTransfer(domain.EnrichedContractId(Some(exerciseTid), testIIouID), bob, exerciseCiId)
           ),
           aliceHeaders,
@@ -110,30 +111,41 @@ abstract class HttpServiceIntegrationTest
       val CIou: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "CIou", "CIou")
     }
 
-    for {
-      _ <- uploadPackage(fixture)(ciouDar)
-      // first, use IIou only
-      _ <- createIouAndExerciseTransfer(
-        initialTplId = domain.TemplateId(None, "IIou", "TestIIou"),
-        // whether we can exercise by interface-ID
-        exerciseTid = TpId.IIou.IIou,
-      )
-      // ideally we would upload IIou.daml only above, then upload ciou here;
-      // however tests currently don't play well with reload -SC
-      // next, use CIou
-      _ <- createIouAndExerciseTransfer(
-        initialTplId = CIou.CIou,
-        // whether we can exercise inherited by concrete template ID
-        exerciseTid = CIou.CIou,
-      )
-      // next, use CIou and the interface-ID
-      _ <- createIouAndExerciseTransfer(
-        initialTplId = CIou.CIou,
-        // whether we can exercise inherited by interface ID
-        exerciseTid = CIou.CIou,
-        exerciseCiId = Some(TpId.IIou.IIou),
-      )
-    } yield succeed
+    "templateId = interface ID" in withHttpService { fixture =>
+      uploadPackage(fixture)(ciouDar).flatMap { _ =>
+        createIouAndExerciseTransfer(
+          fixture,
+          initialTplId = domain.TemplateId(None, "IIou", "TestIIou"),
+          // whether we can exercise by interface-ID
+          exerciseTid = TpId.IIou.IIou,
+        )
+      }
+    }
+
+    // ideally we would upload IIou.daml, then force a reload, then upload ciou;
+    // however tests currently don't play well with reload -SC
+    "templateId = template ID" in withHttpService { fixture =>
+      uploadPackage(fixture)(ciouDar).flatMap { _ =>
+        createIouAndExerciseTransfer(
+          fixture,
+          initialTplId = CIou.CIou,
+          // whether we can exercise inherited by concrete template ID
+          exerciseTid = CIou.CIou,
+        )
+      }
+    }
+
+    "templateId = template ID, choiceInterfaceId = interface ID" in withHttpService { fixture =>
+      uploadPackage(fixture)(ciouDar).flatMap { _ =>
+        createIouAndExerciseTransfer(
+          fixture,
+          initialTplId = CIou.CIou,
+          // whether we can exercise inherited by interface ID
+          exerciseTid = CIou.CIou,
+          exerciseCiId = Some(TpId.IIou.IIou),
+        )
+      }
+    }
   }
 
   "fail to exercise by key with interface ID" in withHttpService { fixture =>
