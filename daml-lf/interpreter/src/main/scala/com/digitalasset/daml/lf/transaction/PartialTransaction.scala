@@ -6,7 +6,7 @@ package speedy
 
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
-import com.daml.lf.ledger.{Authorize, FailedAuthorization}
+import com.daml.lf.ledger.Authorize
 import com.daml.lf.transaction.ContractKeyUniquenessMode
 import com.daml.lf.transaction.{
   ContractStateMachine,
@@ -373,13 +373,9 @@ private[speedy] case class PartialTransaction(
       nodes = nodes.updated(nid, createNode),
       actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
     )
-    ptx.noteAuthFails2(
-      nid,
-      CheckAuthorization.authorizeCreate(optLocation, createNode),
-      auth,
-    ) match {
-      case Left(err) => Left(ptx, err)
-      case Right(_) =>
+    CheckAuthorization.authorizeCreate(optLocation, createNode)(auth) match {
+      case fa :: _ => Left((ptx, Tx.AuthFailureDuringExecution(nid, fa)))
+      case Nil =>
         ptx.contractState.visitCreate(templateId, cid, key) match {
           case Right(next) =>
             val nextPtx = ptx.copy(contractState = next)
@@ -415,14 +411,17 @@ private[speedy] case class PartialTransaction(
       normByKey(version, byKey),
       version,
     )
-    val newContractState = assertRightKey(
-      contractState.visitFetch(templateId, coid, key, byKey)
-    )
-    mustBeActive(
-      NameOf.qualifiedNameOfCurrentFunc,
-      coid,
-      insertLeafNode(node, version, optLocation, newContractState),
-    ).noteAuthFails2(nid, CheckAuthorization.authorizeFetch(optLocation, node), auth)
+    mustBeActive(NameOf.qualifiedNameOfCurrentFunc, coid) {
+      val newContractState = assertRightKey(
+        // evaluation order tests require visitFetch proceeds authorizeFetch
+        contractState.visitFetch(templateId, coid, key, byKey)
+      )
+      CheckAuthorization.authorizeFetch(optLocation, node)(auth) match {
+        case fa :: _ => Left(Tx.AuthFailureDuringExecution(nid, fa))
+        case Nil =>
+          Right(insertLeafNode(node, version, optLocation, newContractState))
+      }
+    }
   }
 
   def insertLookup(
@@ -447,8 +446,11 @@ private[speedy] case class PartialTransaction(
     val newContractState = assertRightKey(
       contractState.visitLookup(templateId, key.key, keyInput.toKeyMapping, result)
     )
-    insertLeafNode(node, version, optLocation, newContractState)
-      .noteAuthFails2(nid, CheckAuthorization.authorizeLookupByKey(optLocation, node), auth)
+    CheckAuthorization.authorizeLookupByKey(optLocation, node)(auth) match {
+      case fa :: _ => Left(Tx.AuthFailureDuringExecution(nid, fa))
+      case Nil =>
+        Right(insertLeafNode(node, version, optLocation, newContractState))
+    }
   }
 
   /** Open an exercises context.
@@ -490,23 +492,26 @@ private[speedy] case class PartialTransaction(
         byKey = byKey,
         version = version,
       )
-
-    // important: the semantics of Daml dictate that contracts are immediately
-    // inactive as soon as you exercise it. therefore, mark it as consumed now.
-    val newContractState = assertRightKey(
-      contractState.visitExercise(nid, templateId, targetId, mbKey, byKey, consuming)
-    )
-    mustBeActive(
-      NameOf.qualifiedNameOfCurrentFunc,
-      targetId,
-      copy(
-        actionNodeLocations = actionNodeLocations :+ optLocation,
-        nextNodeIdx = nextNodeIdx + 1,
-        context = Context(ec),
-        actionNodeSeeds = actionNodeSeeds :+ ec.actionNodeSeed, // must push before children
-        contractState = newContractState,
-      ),
-    ).noteAuthFails2(nid, CheckAuthorization.authorizeExercise(optLocation, makeExNode(ec)), auth)
+    mustBeActive(NameOf.qualifiedNameOfCurrentFunc, targetId) {
+      // important: the semantics of Daml dictate that contracts are immediately
+      // inactive as soon as you exercise it. therefore, mark it as consumed now.
+      val newContractState = assertRightKey(
+        contractState.visitExercise(nid, templateId, targetId, mbKey, byKey, consuming)
+      )
+      CheckAuthorization.authorizeExercise(optLocation, makeExNode(ec))(auth) match {
+        case fa :: _ => Left(Tx.AuthFailureDuringExecution(nid, fa))
+        case Nil =>
+          Right(
+            copy(
+              actionNodeLocations = actionNodeLocations :+ optLocation,
+              nextNodeIdx = nextNodeIdx + 1,
+              context = Context(ec),
+              actionNodeSeeds = actionNodeSeeds :+ ec.actionNodeSeed, // must push before children
+              contractState = newContractState,
+            )
+          )
+      }
+    }
   }
 
   /** Close normally an exercise context.
@@ -645,34 +650,22 @@ private[speedy] case class PartialTransaction(
     }
   }
 
-  /** Note that the transaction building failed due to an authorization failure */
-  private def noteAuthFails2( // NICK: rename loose 2 suffix -- inline!
-      nid: NodeId,
-      f: Authorize => List[FailedAuthorization],
-      auth: Authorize,
-  ): Either[Tx.TransactionError, PartialTransaction] = {
-    f(auth) match {
-      case Nil => Right(this)
-      case fa :: _ => // take just the first failure //TODO: dont compute all!
-        Left(Tx.AuthFailureDuringExecution(nid, fa))
-    }
-  }
-
   /** Double check the execution of a step with the unconsumedness of a
     * `ContractId`.
     */
-  private[this] def mustBeActive(
+  private[this] def mustBeActive[T](
       loc: => String,
       cid: Value.ContractId,
-      f: => PartialTransaction,
-  ): PartialTransaction =
+  )(
+      body: => T
+  ): T =
     if (consumedByOrInactive(cid).isDefined)
       InternalError.runtimeException(
         loc,
         "try to build a node using a consumed or inactive contract.",
       )
     else
-      f
+      body
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
   private[this] def insertLeafNode(
