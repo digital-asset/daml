@@ -640,9 +640,6 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     | NameIn DA_Internal_Desugar n <- t
     , n `elementOfUniqSet` desugarTypes
     -> pure []
-    | NameIn DA_Internal_Interface n <- t
-    , n `elementOfUniqSet` desugarTypes
-    -> pure []
 
     | hasDamlInterfaceCtx t
     ->  if envLfVersion env `supports` featureInterfaces then
