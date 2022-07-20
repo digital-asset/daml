@@ -211,20 +211,6 @@ class DomainJsonDecoder(
   def templateRecordType(id: domain.TemplateId.RequiredPkg): JsonError \/ domain.LfType =
     resolveTemplateRecordType(id).liftErr(JsonError)
 
-  @deprecated("TODO SC unused?", since = "2.4.0")
-  def choiceArgType(
-      id: domain.TemplateId.OptionalPkg,
-      choice: domain.Choice,
-  )(implicit
-      ec: ExecutionContext,
-      lc: LoggingContextOf[InstanceUUID],
-      jwt: Jwt,
-      ledgerId: LedgerApiDomain.LedgerId,
-  ): ET[domain.LfType] =
-    templateId_(id, jwt, ledgerId).flatMap(it =>
-      either(resolveChoiceArgType(it /*TODO SC fix if used*/, choice).liftErr(JsonError))
-    )
-
   def keyType(id: domain.TemplateId.OptionalPkg)(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
