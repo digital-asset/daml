@@ -649,6 +649,7 @@ HTTP Request
 
     {
         "templateId": "Iou:Iou",
+        "choiceInterfaceId": "Iou:Iou",
         "contractId": "#124:0",
         "choice": "Iou_Transfer",
         "argument": {
@@ -659,6 +660,7 @@ HTTP Request
 Where:
 
 - ``templateId`` -- contract template or interface identifier, same as in :ref:`create request <create-request>`,
+- ``choiceInterfaceId`` -- *optional* template or interface that defines the choice, same format as ``templateId``,
 - ``contractId`` -- contract identifier, the value from the  :ref:`create response <create-response>`,
 - ``choice`` -- Daml contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s).
@@ -754,6 +756,7 @@ HTTP Request
             "_1": "Alice",
             "_2": "abc123"
         },
+        "choiceInterfaceId": "Account:Account",
         "choice": "Archive",
         "argument": {}
     }
@@ -762,6 +765,7 @@ Where:
 
 - ``templateId`` -- contract template identifier, same as in :ref:`create request <create-request>`,
 - ``key`` -- contract key, formatted according to the :doc:`lf-value-specification`,
+- ``choiceInterfaceId`` -- *optional* template or interface that defines the choice, same format as ``templateId``,
 - ``choice`` -- Daml contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s), empty, because ``Archive`` does not take any.
 
@@ -794,6 +798,7 @@ HTTP Request
         "currency": "USD",
         "owner": "Alice"
       },
+      "choiceInterfaceId": "Iou:Iou",
       "choice": "Iou_Transfer",
       "argument": {
         "newOwner": "Bob"
@@ -804,6 +809,7 @@ Where:
 
 - ``templateId`` -- the initial contract template identifier, in the same format as in the :ref:`create request <create-request>`,
 - ``payload`` -- the initial contract fields as defined in the Daml template and formatted according to :doc:`lf-value-specification`,
+- ``choiceInterfaceId`` -- *optional* template or interface that defines the choice, same format as ``templateId``,
 - ``choice`` -- Daml contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s).
 
