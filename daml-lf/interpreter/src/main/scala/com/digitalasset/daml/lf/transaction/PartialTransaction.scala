@@ -349,7 +349,7 @@ private[speedy] case class PartialTransaction(
       stakeholders: Set[Party],
       key: Option[Node.KeyWithMaintainers],
       version: TxVersion,
-  ): Either[Tx.TransactionError, (Value.ContractId, PartialTransaction)] = {
+  ): Either[(PartialTransaction, Tx.TransactionError), (Value.ContractId, PartialTransaction)] = {
     val auth = Authorize(context.info.authorizers)
     val actionNodeSeed = context.nextActionChildSeed
     val discriminator =
@@ -373,20 +373,19 @@ private[speedy] case class PartialTransaction(
       nodes = nodes.updated(nid, createNode),
       actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
     )
-
     ptx.noteAuthFails2(
       nid,
       CheckAuthorization.authorizeCreate(optLocation, createNode),
       auth,
     ) match {
-      case Left(err) => Left(err)
+      case Left(err) => Left(ptx, err)
       case Right(_) =>
         ptx.contractState.visitCreate(templateId, cid, key) match {
           case Right(next) =>
             val nextPtx = ptx.copy(contractState = next)
             Right((cid, nextPtx))
           case Left(duplicate) =>
-            Left(duplicate)
+            Left(ptx, duplicate)
         }
     }
   }

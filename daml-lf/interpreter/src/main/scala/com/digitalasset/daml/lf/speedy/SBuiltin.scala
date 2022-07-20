@@ -953,7 +953,9 @@ private[lf] object SBuiltin {
           key = cached.key,
           version = machine.tmplId2TxVersion(cached.templateId),
         ) match {
-        case Left(err) => throw convTxError(err)
+        case Left((newPtx, err)) =>
+          onLedger.ptx = newPtx // Seems wrong. But one test in ScriptService requires this.
+          throw convTxError(err)
         case Right((coid, newPtx)) =>
           onLedger.updateCachedContracts(coid, cached)
           onLedger.ptx = newPtx
