@@ -73,7 +73,11 @@ object BufferedCommandCompletionsReader {
 
   def apply(
       delegate: LedgerDaoCommandCompletionsReader,
-      transactionsBuffer: EventsBuffer[TransactionLogUpdate],
+      transactionsBuffer: EventsBuffer[
+        TransactionLogUpdate,
+        String,
+        TransactionLogUpdate.TransactionAccepted,
+      ],
       metrics: Metrics,
   )(implicit ec: ExecutionContext): BufferedCommandCompletionsReader = {
     val fetchCompletions = new FetchFromPersistence[CompletionsFilter, CompletionStreamResponse] {

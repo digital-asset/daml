@@ -24,14 +24,17 @@ import scala.collection.View
   * @param metrics The Daml metrics.
   * @param bufferQualifier The qualifier used for metrics tag specialization.
   * @tparam ENTRY The entry buffer type.
+  * @tparam LOOKUP_KEY The pointwise lookup key type.
   */
-class EventsBuffer[ENTRY](
+class EventsBuffer[ENTRY, LOOKUP_KEY, LOOKUP_VALUE](
     maxBufferSize: Int,
     metrics: Metrics,
     bufferQualifier: String,
     maxBufferedChunkSize: Int,
+    extractMapFromEntry: ENTRY => Option[(LOOKUP_KEY, LOOKUP_VALUE)],
 ) {
   @volatile private[cache] var _bufferLog: Vector[(Offset, ENTRY)] = Vector.empty
+  @volatile private[cache] var _lookupMap: Map[LOOKUP_KEY, LOOKUP_VALUE] = Map.empty
 
   private val bufferMetrics = metrics.daml.services.index.Buffer(bufferQualifier)
   private val pushTimer = bufferMetrics.push
@@ -58,7 +61,23 @@ class EventsBuffer[ENTRY](
             throw UnorderedException(lastOffset, offset)
           case _ =>
         }
-        _bufferLog = (_bufferLog :+ offset -> entry).takeRight(maxBufferSize)
+        if (maxBufferSize <= 0) ()
+        else if (_bufferLog.size == maxBufferSize) {
+          val (evicted, remaining) = _bufferLog.splitAt(1)
+          _bufferLog = remaining :+ offset -> entry
+
+          extractMapFromEntry(evicted.head._2).foreach { case (keyToBeEvicted, _) =>
+            _lookupMap = _lookupMap.removed(keyToBeEvicted)
+          }
+          extractMapFromEntry(entry).foreach { case (key, value) =>
+            _lookupMap = _lookupMap.updated(key, value)
+          }
+        } else {
+          _bufferLog = _bufferLog :+ offset -> entry
+          extractMapFromEntry(entry).foreach { case (key, value) =>
+            _lookupMap = _lookupMap.updated(key, value)
+          }
+        }
         bufferSizeHistogram.update(_bufferLog.size)
       },
     )
@@ -104,6 +123,8 @@ class EventsBuffer[ENTRY](
       },
     )
 
+  def lookup(key: LOOKUP_KEY): Option[LOOKUP_VALUE] = _lookupMap.get(key)
+
   /** Removes entries starting from the buffer tail up until `endInclusive`.
     *
     * @param endInclusive The last inclusive (highest) buffer offset to be pruned.
@@ -116,11 +137,17 @@ class EventsBuffer[ENTRY](
           case Found(foundIndex) => _bufferLog.drop(foundIndex + 1)
           case InsertionPoint(insertionPoint) => _bufferLog.drop(insertionPoint)
         }
+
+        // TODO LLP: This is faster. Can we do it?
+        _lookupMap = Map.empty
       },
     )
 
   /** Remove all buffered entries */
-  def flush(): Unit = synchronized { _bufferLog = Vector.empty }
+  def flush(): Unit = synchronized {
+    _bufferLog = Vector.empty
+    _lookupMap = Map.empty
+  }
 }
 
 private[platform] object EventsBuffer {

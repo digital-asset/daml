@@ -215,14 +215,14 @@ private[index] class IndexServiceImpl(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
-    ledgerDao.transactionsReader
+    transactionsReader
       .lookupFlatTransactionById(transactionId.unwrap, requestingParties)
 
   override def getTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
-    ledgerDao.transactionsReader
+    transactionsReader
       .lookupTransactionTreeById(transactionId.unwrap, requestingParties)
 
   override def lookupMaximumLedgerTimeAfterInterpretation(

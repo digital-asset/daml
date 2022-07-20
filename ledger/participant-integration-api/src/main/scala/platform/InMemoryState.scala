@@ -19,7 +19,11 @@ import scala.util.chaining._
 private[platform] class InMemoryState(
     val ledgerEndCache: MutableLedgerEndCache,
     val contractStateCaches: ContractStateCaches,
-    val transactionsBuffer: EventsBuffer[TransactionLogUpdate],
+    val transactionsBuffer: EventsBuffer[
+      TransactionLogUpdate,
+      String,
+      TransactionLogUpdate.TransactionAccepted,
+    ],
     val stringInterningView: StringInterningView,
     val dispatcherState: DispatcherState,
 )(implicit executionContext: ExecutionContext) {
@@ -80,12 +84,17 @@ object InMemoryState {
         maxContractKeyStateCacheSize,
         metrics,
       )(executionContext, loggingContext),
-      transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
-        maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
-        metrics = metrics,
-        bufferQualifier = "transactions",
-        maxBufferedChunkSize = bufferedStreamsPageSize,
-      ),
+      transactionsBuffer =
+        new EventsBuffer[TransactionLogUpdate, String, TransactionLogUpdate.TransactionAccepted](
+          maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
+          metrics = metrics,
+          bufferQualifier = "transactions",
+          maxBufferedChunkSize = bufferedStreamsPageSize,
+          {
+            case tx: TransactionLogUpdate.TransactionAccepted => Some(tx.transactionId -> tx)
+            case _ => None
+          },
+        ),
       stringInterningView = new StringInterningView,
     )(executionContext)
   }
