@@ -78,7 +78,8 @@ abstract class HttpServiceIntegrationTest
     import json.JsonProtocol._
     def createIouAndExerciseTransfer(
         initialTplId: domain.TemplateId.OptionalPkg,
-        exerciseBy: domain.TemplateId.OptionalPkg,
+        exerciseTid: domain.TemplateId.OptionalPkg,
+        exerciseCiId: Option[domain.ContractTypeId.Unknown.OptionalPkg] = None,
     ) = for {
       aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, aliceHeaders) = aliceH
@@ -96,7 +97,7 @@ abstract class HttpServiceIntegrationTest
         .postJsonRequest(
           Uri.Path("/v1/exercise"),
           encodeExercise(encoder)(
-            iouTransfer(domain.EnrichedContractId(Some(exerciseBy), testIIouID), bob)
+            iouTransfer(domain.EnrichedContractId(Some(exerciseTid), testIIouID), bob, exerciseCiId)
           ),
           aliceHeaders,
         )
@@ -105,21 +106,32 @@ abstract class HttpServiceIntegrationTest
       case (StatusCodes.OK, domain.OkResponse(_, None, StatusCodes.OK)) => succeed
     }
 
+    object CIou {
+      val CIou: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "CIou", "CIou")
+    }
+
     for {
       _ <- uploadPackage(fixture)(ciouDar)
       // first, use IIou only
       _ <- createIouAndExerciseTransfer(
         initialTplId = domain.TemplateId(None, "IIou", "TestIIou"),
         // whether we can exercise by interface-ID
-        exerciseBy = TpId.IIou.IIou,
+        exerciseTid = TpId.IIou.IIou,
       )
       // ideally we would upload IIou.daml only above, then upload ciou here;
       // however tests currently don't play well with reload -SC
       // next, use CIou
       _ <- createIouAndExerciseTransfer(
-        initialTplId = domain.TemplateId(None, "CIou", "CIou"),
+        initialTplId = CIou.CIou,
         // whether we can exercise inherited by concrete template ID
-        exerciseBy = domain.TemplateId(None, "CIou", "CIou"),
+        exerciseTid = CIou.CIou,
+      )
+      // next, use CIou and the interface-ID
+      _ <- createIouAndExerciseTransfer(
+        initialTplId = CIou.CIou,
+        // whether we can exercise inherited by interface ID
+        exerciseTid = CIou.CIou,
+        exerciseCiId = Some(TpId.IIou.IIou),
       )
     } yield succeed
   }
@@ -183,13 +195,14 @@ abstract class HttpServiceIntegrationTest
   private[this] def iouTransfer(
       locator: domain.ContractLocator[v.Value],
       to: domain.Party,
+      choiceInterfaceId: Option[domain.ContractTypeId.Interface.OptionalPkg] = None,
   ) = {
     val payload = recordFromFields(ShRecord(to = v.Value.Sum.Party(domain.Party unwrap to)))
     domain.ExerciseCommand(
       locator,
       domain.Choice("Transfer"),
       v.Value(v.Value.Sum.Record(payload)),
-      None,
+      choiceInterfaceId,
       None,
     )
   }
