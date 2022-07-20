@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites.v1_dev
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   Participant,
   Participants,
@@ -131,15 +132,35 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
     val unknownInterface = InterfaceId.copy(entityName = "IDoesNotExist")
     for {
       _ <- ledger.create(party, T1(party, 1))
-      _ <- ledger.create(party, T2(party, 2))
-      _ <- ledger.create(party, T3(party, 3))
-      _ <- ledger.create(party, T4(party, 4))
-      _ <- ledger
+      failure <- ledger
         .flatTransactions(transactionSubscription(party, Seq.empty, Seq(unknownInterface), ledger))
-        .failed
+        .mustFail("subscribing with an unknown interface")
     } yield {
-      // TODO DPP-1068: The error is currently not a self-service error, check here the error code once that is fixed
-      ()
+      assertGrpcError(
+        failure,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
+        Some(s"Interfaces do not exist"),
+      )
+    }
+  })
+
+  test(
+    "ISTransactionsUnknownTemplate",
+    "Subscribing by an unknown template fails",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    val unknownTemplate = InterfaceId.copy(entityName = "IDoesNotExist")
+    for {
+      _ <- ledger.create(party, T1(party, 1))
+      failure <- ledger
+        .flatTransactions(transactionSubscription(party, Seq(unknownTemplate), Seq.empty, ledger))
+        .mustFail("subscribing with an unknown interface")
+    } yield {
+      assertGrpcError(
+        failure,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
+        Some(s"Templates do not exist"),
+      )
     }
   })
 
