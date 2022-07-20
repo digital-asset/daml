@@ -6,6 +6,7 @@ package com.daml.ledger.javaapi.data;
 import com.daml.ledger.api.v1.EventOuterClass;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 public class ExercisedEvent implements TreeEvent {
@@ -16,7 +17,7 @@ public class ExercisedEvent implements TreeEvent {
 
   private final Identifier templateId;
 
-  private final Identifier interfaceId;
+  private final Optional<Identifier> interfaceId;
 
   private final String contractId;
 
@@ -36,7 +37,7 @@ public class ExercisedEvent implements TreeEvent {
       @NonNull List<@NonNull String> witnessParties,
       @NonNull String eventId,
       @NonNull Identifier templateId,
-      Identifier interfaceId,
+      @NonNull Optional<Identifier> interfaceId,
       @NonNull String contractId,
       @NonNull String choice,
       @NonNull Value choiceArgument,
@@ -75,11 +76,8 @@ public class ExercisedEvent implements TreeEvent {
     return templateId;
   }
 
-  public boolean hasInterfaceId() {
-    return interfaceId != null;
-  }
-
-  public Identifier getInterfaceId() {
+  @NonNull
+  public Optional<Identifier> getInterfaceId() {
     return interfaceId;
   }
 
@@ -185,7 +183,7 @@ public class ExercisedEvent implements TreeEvent {
     builder.setConsuming(isConsuming());
     builder.setContractId(getContractId());
     builder.setTemplateId(getTemplateId().toProto());
-    if (hasInterfaceId()) builder.setInterfaceId(getInterfaceId().toProto());
+    interfaceId.ifPresent(i -> builder.setInterfaceId(i.toProto()));
     builder.addAllActingParties(getActingParties());
     builder.addAllWitnessParties(getWitnessParties());
     builder.addAllChildEventIds(getChildEventIds());
@@ -198,9 +196,9 @@ public class ExercisedEvent implements TreeEvent {
         exercisedEvent.getWitnessPartiesList(),
         exercisedEvent.getEventId(),
         Identifier.fromProto(exercisedEvent.getTemplateId()),
-        (exercisedEvent.hasInterfaceId()
-            ? Identifier.fromProto(exercisedEvent.getInterfaceId())
-            : null),
+        exercisedEvent.hasInterfaceId()
+            ? Optional.of(Identifier.fromProto(exercisedEvent.getInterfaceId()))
+            : Optional.empty(),
         exercisedEvent.getContractId(),
         exercisedEvent.getChoice(),
         Value.fromProto(exercisedEvent.getChoiceArgument()),
