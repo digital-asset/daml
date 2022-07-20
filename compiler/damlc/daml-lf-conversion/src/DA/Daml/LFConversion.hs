@@ -622,9 +622,6 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     | NameIn DA_Internal_Desugar n <- t
     , n `elementOfUniqSet` desugarTypes
     -> pure []
-    | NameIn DA_Internal_Interface n <- t
-    , n `elementOfUniqSet` desugarTypes
-    -> pure []
 
     | hasDamlInterfaceCtx t
     ->  if envLfVersion env `supports` featureInterfaces then
@@ -1203,9 +1200,6 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         , "mkInterfaceView"
         , "view"
         ])
-    , ("DA.Internal.Interface",
-        [ "mkInterfaceView"
-        ])
     ]
 
 convertExpr :: Env -> GHC.Expr Var -> ConvertM LF.Expr
@@ -1247,7 +1241,7 @@ convertExpr env0 e = do
     go env (VarIn DA_Internal_Desugar "mkMethod") (LType _tpl : LType _iface : LType _methodName : LType _methodTy : LExpr _implDict : LExpr _hasMethodDic : LExpr body : args)
         = go env body args
     -- erase mkInterfaceView calls and leave only the body.
-    go env (VarIn DA_Internal_Interface "mkInterfaceView") (LType _tpl : LType _iface : LType _viewTy : LExpr _implDict : LExpr _hasInterfaceViewDic : LExpr body : args)
+    go env (VarIn DA_Internal_Desugar "mkInterfaceView") (LType _tpl : LType _iface : LType _viewTy : LExpr _implDict : LExpr _hasInterfaceViewDic : LExpr body : args)
         = go env body args
     go env (VarIn GHC_Types "primitiveInterface") (LType (isStrLitTy -> Just y) : LType t : args)
         = do
