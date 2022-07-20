@@ -709,6 +709,11 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
   LF1.ExprSumObserverInterface LF1.Expr_ObserverInterface {..} -> EObserverInterface
     <$> mayDecode "expr_ObserverInterfaceInterface" expr_ObserverInterfaceInterface decodeTypeConName
     <*> mayDecode "expr_ObserverInterfaceExpr" expr_ObserverInterfaceExpr decodeExpr
+  LF1.ExprSumViewInterface LF1.Expr_ViewInterface {..} -> EViewInterface
+    <$> mayDecode "expr_ViewInterfaceInterface" expr_ViewInterfaceInterface decodeTypeConName
+    <*> mayDecode "expr_ViewInterfaceTemplate" expr_ViewInterfaceTemplate decodeTypeConName
+    <*> mayDecode "expr_ViewInterfaceViewtype" expr_ViewInterfaceViewtype decodeType
+    <*> mayDecode "expr_ViewInterfaceExpr" expr_ViewInterfaceExpr decodeExpr
   LF1.ExprSumExperimental (LF1.Expr_Experimental name mbType) -> do
     ty <- mayDecode "expr_Experimental" mbType decodeType
     pure $ EExperimental (decodeString name) ty

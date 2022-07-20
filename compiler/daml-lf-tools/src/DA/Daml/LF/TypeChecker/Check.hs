@@ -793,6 +793,13 @@ typeOf' = \case
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
+  EViewInterface iface template viewtype expr -> do
+    checkImplements template iface
+    iface <- inWorld (lookupInterface iface)
+    unless (alphaType (intView iface) viewtype) $
+      throwWithContext ETypeMismatch{foundType = viewtype, expectedType = intView iface, expr = Nothing}
+    checkExpr expr (TCon template)
+    pure viewtype
   EExperimental name ty -> do
     checkFeature featureExperimental
     checkExperimentalType name ty

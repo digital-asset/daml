@@ -736,6 +736,12 @@ encodeExpr' = \case
         expr_ObserverInterfaceInterface <- encodeQualTypeConName ty
         expr_ObserverInterfaceExpr <- encodeExpr val
         pureExpr $ P.ExprSumObserverInterface P.Expr_ObserverInterface{..}
+    EViewInterface iface template view expr -> do
+        expr_ViewInterfaceInterface <- encodeQualTypeConName iface
+        expr_ViewInterfaceTemplate <- encodeQualTypeConName template
+        expr_ViewInterfaceViewtype <- encodeType view
+        expr_ViewInterfaceExpr <- encodeExpr expr
+        pureExpr $ P.ExprSumViewInterface P.Expr_ViewInterface{..}
     EExperimental name ty -> do
         let expr_ExperimentalName = encodeString name
         expr_ExperimentalType <- encodeType ty

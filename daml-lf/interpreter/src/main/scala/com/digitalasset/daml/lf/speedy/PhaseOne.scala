@@ -367,6 +367,10 @@ private[lf] final class PhaseOne(
         compileExp(env, exp) { exp =>
           Return(SBObserverInterface(ifaceId)(exp))
         }
+      case EViewInterface(ifaceId, templateId, view, exp) =>
+        compileExp(env, exp) { exp =>
+          Return(SBViewInterface(ifaceId, templateId, view)(exp))
+        }
       case EExperimental(name, _) =>
         Return(SBExperimental(name))
     }

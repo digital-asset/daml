@@ -1227,6 +1227,16 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("Expr.SUM_NOT_SET")
 
+        case PLF.Expr.SumCase.VIEW_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.view_interface")
+          val viewInterface = lfExpr.getViewInterface
+          EViewInterface(
+            ifaceId = decodeTypeConName(viewInterface.getInterface),
+            templateId = decodeTypeConName(viewInterface.getTemplate),
+            viewtype = decodeType(viewInterface.getViewtype),
+            expr = decodeExpr(viewInterface.getExpr, definition),
+          )
+
         case PLF.Expr.SumCase.EXPERIMENTAL =>
           assertSince(LV.v1_dev, "Expr.experimental")
           val experimental = lfExpr.getExperimental

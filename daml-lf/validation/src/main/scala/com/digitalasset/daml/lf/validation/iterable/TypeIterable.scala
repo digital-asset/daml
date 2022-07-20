@@ -99,6 +99,11 @@ private[validation] object TypeIterable {
         Iterator(TTyCon(ifaceId)) ++ iterator(body)
       case EObserverInterface(ifaceId, body) =>
         Iterator(TTyCon(ifaceId)) ++ iterator(body)
+      case EViewInterface(ifaceId, templateId, view, expr) =>
+        Iterator(TTyCon(ifaceId)) ++
+          Iterator(TTyCon(templateId)) ++
+          iterator(view) ++
+          iterator(expr)
       case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EApp(_, _) | ECase(_, _) |
           ELocation(_, _) | EStructCon(_) | EStructProj(_, _) | EStructUpd(_, _, _) | ETyAbs(_, _) |
           EExperimental(_, _) =>
