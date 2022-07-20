@@ -14,7 +14,7 @@ import scalaz.std.option._
 import scalaz.std.string._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{@@, Applicative, Functor, Order, Semigroup, Show, Tag, Tags, Traverse, \/}
+import scalaz.{@@, Applicative, Order, Semigroup, Show, Tag, Tags, Traverse, \/}
 
 package object domain {
   type LfValue = lf.value.Value
@@ -133,10 +133,13 @@ package domain {
     // TODO #14067 place in the new ultimate parent `object`
     implicit def `ContractTypeId covariant`[F[T] <: ContractTypeId.Unknown[T]](implicit
         companion: ContractTypeId.Like[F]
-    ): Functor[F] =
-      new Functor[F] {
+    ): Traverse[F] =
+      new Traverse[F] {
         override def map[A, B](fa: F[A])(f: A => B): F[B] =
           companion(f(fa.packageId), fa.moduleName, fa.entityName)
+
+        override def traverseImpl[G[_]: Applicative, A, B](fa: F[A])(f: A => G[B]): G[F[B]] =
+          f(fa.packageId) map (companion(_, fa.moduleName, fa.entityName))
       }
   }
 
