@@ -19,7 +19,4 @@ package object iface {
   private[iface] def lfprintln(
       @deprecated("shut up unused arguments warning", "") s: => String
   ): Unit = ()
-
-  private[iface] def toOptional[A](o: Option[A]): j.Optional[A] =
-    o.fold(j.Optional.empty[A])(j.Optional.of)
 }
