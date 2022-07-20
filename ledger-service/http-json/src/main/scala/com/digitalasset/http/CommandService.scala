@@ -210,6 +210,7 @@ class CommandService(
     }
   }
 
+  // TODO #13923 somehow use the choiceInterfaceId
   private def createAndExerciseCommand(
       input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value, TemplateId.RequiredPkg]
   ): lav1.commands.Command.Command.CreateAndExercise =

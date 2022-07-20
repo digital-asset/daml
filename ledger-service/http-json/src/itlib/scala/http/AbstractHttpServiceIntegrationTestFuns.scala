@@ -464,6 +464,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       payload = payload,
       choice = choice,
       argument = boxedRecord(arg),
+      choiceInterfaceId = None,
       meta = meta,
     )
   }

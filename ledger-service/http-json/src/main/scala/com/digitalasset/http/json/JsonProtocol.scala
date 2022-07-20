@@ -416,9 +416,11 @@ object JsonProtocol extends JsonProtocolLow {
     }
 
   implicit val CreateAndExerciseCommandFormat: RootJsonFormat[
-    domain.CreateAndExerciseCommand[JsValue, JsValue, domain.TemplateId.OptionalPkg]
+    domain.CreateAndExerciseCommand[JsValue, JsValue, domain.ContractTypeId.Unknown.OptionalPkg]
   ] =
-    jsonFormat5(domain.CreateAndExerciseCommand[JsValue, JsValue, domain.TemplateId.OptionalPkg])
+    jsonFormat6(
+      domain.CreateAndExerciseCommand[JsValue, JsValue, domain.ContractTypeId.Unknown.OptionalPkg]
+    )
 
   implicit val CompletionOffsetFormat: JsonFormat[domain.CompletionOffset] =
     taggedJsonFormat[String, domain.CompletionOffsetTag]

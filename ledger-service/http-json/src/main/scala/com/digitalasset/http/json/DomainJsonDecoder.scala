@@ -6,19 +6,20 @@ package com.daml.http.json
 import com.daml.http.ErrorMessages.cannotResolveTemplateId
 import com.daml.http.domain.{HasTemplateId, TemplateId}
 import com.daml.http.json.JsValueToApiValueConverter.mustBeApiRecord
+import com.daml.http.util.FutureUtil.either
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.http.{PackageService, domain}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.LoggingContextOf
-import scalaz.std.option.some
+import scalaz.std.option._
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
 import scalaz.syntax.applicative.{ToFunctorOps => _, _}
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{EitherT, Traverse, \/}
-import scalaz.EitherT.{either, eitherT}
+import scalaz.EitherT.eitherT
 import spray.json.{JsValue, JsonReader}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -172,16 +173,21 @@ class DomainJsonDecoder(
       )
 
       tId <- templateId_(fjj.templateId, jwt, ledgerId)
+      ciId <- fjj.choiceInterfaceId.traverse(templateId_(_, jwt, ledgerId))
 
       payloadT <- either(resolveTemplateRecordType(tId).liftErr(JsonError))
 
-      oIfIdArgT <- either(resolveChoiceArgType(tId, fjj.choice).liftErr(JsonError))
+      oIfIdArgT <- either(resolveChoiceArgType(ciId getOrElse tId, fjj.choice).liftErr(JsonError))
       (oIfaceId, argT) = oIfIdArgT
-      // TODO #13923 use oIfaceId in the CreateAndExerciseCommand
 
       payload <- either(jsValueToApiValue(payloadT, fjj.payload).flatMap(mustBeApiRecord))
       argument <- either(jsValueToApiValue(argT, fjj.argument))
-    } yield fjj.copy(payload = payload, argument = argument, templateId = tId)
+    } yield fjj.copy(
+      payload = payload,
+      argument = argument,
+      templateId = tId,
+      choiceInterfaceId = oIfaceId orElse ciId,
+    )
   }
 
   private def templateId_(

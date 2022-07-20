@@ -282,6 +282,8 @@ package domain {
       payload: Payload,
       choice: domain.Choice,
       argument: Arg,
+      // passing a template ID is allowed; we distinguish internally
+      choiceInterfaceId: Option[TmplId],
       meta: Option[CommandMeta],
   )
 

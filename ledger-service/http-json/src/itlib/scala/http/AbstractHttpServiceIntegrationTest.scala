@@ -1426,6 +1426,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           payload = payload,
           choice = lar.Choice("CreateN"),
           argument = boxedRecord(recordFromFields(ShRecord(n = v.Value.Sum.Int64(numContracts)))),
+          choiceInterfaceId = None,
           meta = None,
         )
 
@@ -1448,6 +1449,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
               )
             )
           ),
+          choiceInterfaceId = None,
           meta = None,
         )
 
