@@ -124,10 +124,12 @@ public class ExercisedEvent implements TreeEvent {
         && Objects.equals(witnessParties, that.witnessParties)
         && Objects.equals(eventId, that.eventId)
         && Objects.equals(templateId, that.templateId)
+        && Objects.equals(interfaceId, that.interfaceId)
         && Objects.equals(contractId, that.contractId)
         && Objects.equals(choice, that.choice)
         && Objects.equals(choiceArgument, that.choiceArgument)
         && Objects.equals(actingParties, that.actingParties)
+        && Objects.equals(childEventIds, that.childEventIds)
         && Objects.equals(exerciseResult, that.exerciseResult);
   }
 
@@ -138,10 +140,12 @@ public class ExercisedEvent implements TreeEvent {
         witnessParties,
         eventId,
         templateId,
+        interfaceId,
         contractId,
         choice,
         choiceArgument,
         actingParties,
+        childEventIds,
         consuming,
         exerciseResult);
   }
@@ -156,6 +160,8 @@ public class ExercisedEvent implements TreeEvent {
         + '\''
         + ", templateId="
         + templateId
+        + ", interfaceId="
+        + interfaceId
         + ", contractId='"
         + contractId
         + '\''
