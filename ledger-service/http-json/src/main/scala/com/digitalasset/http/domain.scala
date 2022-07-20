@@ -581,16 +581,15 @@ package domain {
 
         override def templateId(
             fab: ExerciseCommand[_, domain.ContractLocator[_]]
-        ): TemplateId.OptionalPkg = {
-          fab.reference match {
+        ): TemplateId.OptionalPkg =
+          fab.choiceInterfaceId getOrElse (fab.reference match {
             case EnrichedContractKey(templateId, _) => templateId
             case EnrichedContractId(Some(templateId), _) => templateId
             case EnrichedContractId(None, _) =>
               throw new IllegalArgumentException(
                 "Please specify templateId, optional templateId is not supported yet!"
               )
-          }
-        }
+          })
 
         type TypeFromCtId = (Option[domain.ContractTypeId.Interface.Resolved], LfType)
 
