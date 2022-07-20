@@ -73,8 +73,7 @@ abstract class HttpServiceIntegrationTest
         }: Future[Assertion]
   }
 
-  // TODO(#13668) Redesign the test once the issue is fixed
-  "pick up new package's inherited interfaces" ignore withHttpService { fixture =>
+  "pick up new package's inherited interfaces" in withHttpService { fixture =>
     import fixture.encoder
     import json.JsonProtocol._
     def createIouAndExerciseTransfer(
