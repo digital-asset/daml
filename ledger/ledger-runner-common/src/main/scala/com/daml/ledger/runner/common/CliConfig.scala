@@ -153,6 +153,30 @@ object CliConfig {
     )
   }
 
+  private def configKeyValueOption[Extra] =
+    OParser
+      .builder[CliConfig[Extra]]
+      .opt[Map[String, String]]('C', "config key-value's")
+      .text(
+        "Set configuration key value pairs directly. Can be useful for providing simple short config info."
+      )
+      .valueName("<key1>=<value1>,<key2>=<value2>")
+      .unbounded()
+      .action { (map, cli) =>
+        cli.copy(configMap = map ++ cli.configMap)
+      }
+
+  private def configFilesOption[Extra] =
+    OParser
+      .builder[CliConfig[Extra]]
+      .opt[Seq[File]]('c', "config")
+      .text(
+        "Set configuration file(s). If several configuration files assign values to the same key, the last value is taken."
+      )
+      .valueName("<file1>,<file2>,...")
+      .unbounded()
+      .action((files, cli) => cli.copy(configFiles = cli.configFiles ++ files))
+
   private def commandRunHocon[Extra]: OParser[_, CliConfig[Extra]] = {
     val builder = OParser.builder[CliConfig[Extra]]
     OParser.sequence(
@@ -164,24 +188,8 @@ object CliConfig {
         .action((_, config) => config.copy(mode = Mode.Run))
         .children(
           OParser.sequence(
-            builder
-              .opt[Map[String, String]]('C', "config key-value's")
-              .text(
-                "Set configuration key value pairs directly. Can be useful for providing simple short config info."
-              )
-              .valueName("<key1>=<value1>,<key2>=<value2>")
-              .unbounded()
-              .action { (map, cli) =>
-                cli.copy(configMap = map ++ cli.configMap)
-              },
-            builder
-              .opt[Seq[File]]('c', "config")
-              .text(
-                "Set configuration file(s). If several configuration files assign values to the same key, the last value is taken."
-              )
-              .valueName("<file1>,<file2>,...")
-              .unbounded()
-              .action((files, cli) => cli.copy(configFiles = cli.configFiles ++ files)),
+            configKeyValueOption,
+            configFilesOption,
           )
         ),
       builder.checkConfig(checkFileCanBeRead),
@@ -252,6 +260,8 @@ object CliConfig {
     val seedingMap =
       Map[String, Seeding]("testing-weak" -> Seeding.Weak, "strong" -> Seeding.Strong)
     OParser.sequence(
+      configKeyValueOption,
+      configFilesOption,
       opt[Map[String, String]]("participant")
         .unbounded()
         .text(
