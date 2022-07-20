@@ -571,7 +571,10 @@ package domain {
     implicit val leftTraverseInstance: Traverse[ExerciseCommand[+*, Nothing]] =
       bitraverseInstance.leftTraverse
 
-    implicit val hasTemplateId =
+    implicit val hasTemplateId: HasTemplateId.Aux[ExerciseCommand[
+      +*,
+      domain.ContractLocator[_],
+    ], (Option[domain.ContractTypeId.Interface.Resolved], LfType)] =
       new HasTemplateId[ExerciseCommand[+*, domain.ContractLocator[_]]] {
 
         override def templateId(

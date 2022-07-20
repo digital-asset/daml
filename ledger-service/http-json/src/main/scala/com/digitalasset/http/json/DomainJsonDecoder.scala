@@ -11,6 +11,7 @@ import com.daml.http.{PackageService, domain}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.LoggingContextOf
+import scalaz.std.option.some
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
 import scalaz.syntax.applicative.{ToFunctorOps => _, _}
@@ -130,18 +131,23 @@ class DomainJsonDecoder(
           .liftErrS("DomainJsonDecoder_decodeExerciseCommand")(JsonError)
       )
 
-      lfType <- lookupLfType[domain.ExerciseCommand[+*, domain.ContractLocator[_]]](
+      ifIdlfType <- lookupLfType[domain.ExerciseCommand[+*, domain.ContractLocator[_]]](
         cmd0,
-        domain.ExerciseCommand.hasTemplateId,
         jwt,
         ledgerId,
       )
+      (oIfaceId, lfType) = ifIdlfType
+      // treat an inferred iface ID as a user-specified one
+      choiceIfaceOverride = (oIfaceId: Option[domain.ContractTypeId.Interface.RequiredPkg])
+        .map(_ map some)
 
       cmd1 <-
-        cmd0.bitraverse(
-          arg => either(jsValueToLfValue(lfType, arg)),
-          ref => decodeContractLocatorKey(ref, jwt, ledgerId),
-        ): ET[domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[
+        cmd0
+          .copy(choiceInterfaceId = choiceIfaceOverride orElse cmd0.choiceInterfaceId)
+          .bitraverse(
+            arg => either(jsValueToLfValue(lfType, arg)),
+            ref => decodeContractLocatorKey(ref, jwt, ledgerId),
+          ): ET[domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[
           domain.LfValue
         ]]]
 
