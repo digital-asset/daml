@@ -793,6 +793,10 @@ typeOf' = \case
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
+  EViewInterface ifaceId expr -> do
+    iface <- inWorld (lookupInterface ifaceId)
+    checkExpr expr (TCon ifaceId)
+    pure (intView iface)
   EExperimental name ty -> do
     checkFeature featureExperimental
     checkExperimentalType name ty

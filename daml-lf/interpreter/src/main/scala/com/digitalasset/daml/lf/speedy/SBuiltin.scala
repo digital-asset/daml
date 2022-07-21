@@ -1338,6 +1338,16 @@ private[lf] object SBuiltin {
     }
   }
 
+  final case class SBViewInterface(
+      ifaceId: TypeConName
+  ) extends SBuiltin(1) {
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      crash(
+        s"Tried to run unsupported view with interface ${ifaceId}."
+      )
+    }
+  }
+
   /** $insertFetch[tid]
     *    :: ContractId a
     *    -> List Party    (signatories)

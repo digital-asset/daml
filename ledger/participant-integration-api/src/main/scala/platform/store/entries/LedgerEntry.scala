@@ -4,7 +4,7 @@
 package com.daml.platform.store.entries
 
 import com.daml.ledger.api.domain.RejectionReason
-import com.daml.lf.data.Relation.Relation
+import com.daml.lf.data.Relation
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{CommittedTransaction, NodeId}
 import com.daml.platform.{ApplicationId, CommandId, Party, SubmissionId, TransactionId, WorkflowId}

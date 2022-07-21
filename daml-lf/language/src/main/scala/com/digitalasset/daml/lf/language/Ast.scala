@@ -217,6 +217,12 @@ object Ast {
       body: Expr,
   ) extends Expr
 
+  /** Obtain the view of an interface. */
+  final case class EViewInterface(
+      ifaceId: TypeConName,
+      expr: Expr,
+  ) extends Expr
+
   //
   // Kinds
   //
