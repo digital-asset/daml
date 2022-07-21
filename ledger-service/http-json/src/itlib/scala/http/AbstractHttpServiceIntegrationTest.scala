@@ -1510,7 +1510,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           following: Seq[domain.Party] = Seq.empty,
       ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
         val followingList = lfToApi(
-          VAx.seq(VAx.partyStr).inj(domain.Party unsubst following)
+          VAx.seq(VAx.partyDomain).inj(following)
         ).sum
         val arg = recordFromFields(
           ShRecord(
