@@ -160,7 +160,6 @@ abstract class HttpServiceIntegrationTest
         result <- createIouAndExerciseTransfer(
           fixture,
           initialTplId = CIou.CIou,
-          // whether we can exercise inherited by interface ID
           exerciseTid = CIou.CIou,
           exerciseCiId = Some(TpId.IIou.IIou),
         ) map exerciseSucceeded
@@ -174,7 +173,6 @@ abstract class HttpServiceIntegrationTest
           result <- createIouAndExerciseTransfer(
             fixture,
             initialTplId = CIou.CIou,
-            // whether we can exercise inherited by interface ID
             exerciseTid = CIou.CIou,
             choice = tExercise("Overridden", echoTextPairVA)(
               ShRecord(echo = ShRecord(_1 = "yes", _2 = "no"))
@@ -190,7 +188,6 @@ abstract class HttpServiceIntegrationTest
           result <- createIouAndExerciseTransfer(
             fixture,
             initialTplId = CIou.CIou,
-            // whether we can exercise inherited by interface ID
             exerciseTid = CIou.CIou,
             exerciseCiId = Some(Transferrable.Transferrable),
             choice = tExercise("Overridden", echoTextVA)(
