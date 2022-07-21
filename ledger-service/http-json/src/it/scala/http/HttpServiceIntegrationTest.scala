@@ -79,6 +79,7 @@ abstract class HttpServiceIntegrationTest
   "exercise interface choices" - {
     import json.JsonProtocol._
     import AbstractHttpServiceIntegrationTestFuns.{UriFixture, EncoderFixture}
+
     def createIouAndExerciseTransfer(
         fixture: UriFixture with EncoderFixture,
         initialTplId: domain.TemplateId.OptionalPkg,
@@ -109,8 +110,7 @@ abstract class HttpServiceIntegrationTest
           aliceHeaders,
         )
         .parseResponse[domain.ExerciseResponse[JsValue]]
-      exerciseResult = exerciseSucceeded(exerciseTest)
-    } yield exerciseResult
+    } yield exerciseTest
 
     def exerciseSucceeded[A](
         exerciseTest: (StatusCode, domain.SyncResponse[domain.ExerciseResponse[JsValue]])
@@ -136,7 +136,7 @@ abstract class HttpServiceIntegrationTest
           initialTplId = domain.TemplateId(None, "IIou", "TestIIou"),
           // whether we can exercise by interface-ID
           exerciseTid = TpId.IIou.IIou,
-        )
+        ) map exerciseSucceeded
       } yield result should ===("Bob invoked IIou.Transfer")
     }
 
@@ -150,7 +150,7 @@ abstract class HttpServiceIntegrationTest
           initialTplId = CIou.CIou,
           // whether we can exercise inherited by concrete template ID
           exerciseTid = CIou.CIou,
-        )
+        ) map exerciseSucceeded
       } yield result should ===("Bob invoked IIou.Transfer")
     }
 
@@ -163,7 +163,7 @@ abstract class HttpServiceIntegrationTest
           // whether we can exercise inherited by interface ID
           exerciseTid = CIou.CIou,
           exerciseCiId = Some(TpId.IIou.IIou),
-        )
+        ) map exerciseSucceeded
       } yield result should ===("Bob invoked IIou.Transfer")
     }
 
@@ -179,7 +179,7 @@ abstract class HttpServiceIntegrationTest
             choice = tExercise("Overridden", echoTextPairVA)(
               ShRecord(echo = ShRecord(_1 = "yes", _2 = "no"))
             ),
-          )
+          ) map exerciseSucceeded
         } yield result should ===("(\"yes\",\"no\") invoked CIou.Overridden")
     }
 
@@ -196,7 +196,7 @@ abstract class HttpServiceIntegrationTest
             choice = tExercise("Overridden", echoTextVA)(
               ShRecord(echo = "yesyes")
             ),
-          )
+          ) map exerciseSucceeded
         } yield result should ===("yesyes invoked Transferrable.Overridden")
     }
 
