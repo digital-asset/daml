@@ -163,7 +163,21 @@ abstract class HttpServiceIntegrationTest
     }
 
     // TODO #13923 tests:
-    // tp and ifc define same, no ciId, picks tp
+    "templateId = CIou, no choiceInterfaceId, picks CIou Overridden" in withHttpService { fixture =>
+      for {
+        _ <- uploadPackage(fixture)(ciouDar)
+        result <- createIouAndExerciseTransfer(
+          fixture,
+          initialTplId = CIou.CIou,
+          // whether we can exercise inherited by interface ID
+          exerciseTid = CIou.CIou,
+          choice = tExercise("Overridden", echoTextPairVA)(
+            ShRecord(echo = ShRecord(_1 = "yes", _2 = "no"))
+          ),
+        )
+      } yield result should ===("(\"yes\",\"no\") invoked CIou.Overridden")
+    }
+
     // tp and ifc define same, ciId = ifc, picks ifc
     // two ifcs define same but not tp, no ciId, fails
   }
@@ -222,11 +236,6 @@ abstract class HttpServiceIntegrationTest
     domain.CreateCommand(templateId, iouT, None)
   }
 
-  /*
-  private[this] val (_, echoTextListVA) =
-    VA.record(irrelevant, ShRecord(echo = VA.list(VA.text)))
-   */
-
   private[this] def iouTransfer[Inj](
       locator: domain.ContractLocator[v.Value],
       choice: TExercise[Inj],
@@ -247,8 +256,14 @@ abstract class HttpServiceIntegrationTest
 object HttpServiceIntegrationTest {
   private[this] val irrelevant = Ref.Identifier assertFromString "none:Discarded:Identifier"
 
-  private[this] val (_, echoTextVA) =
+  private val (_, echoTextVA) =
     VA.record(irrelevant, ShRecord(echo = VA.text))
+
+  private val (_, echoTextPairVA) =
+    VA.record(
+      irrelevant,
+      ShRecord(echo = VA.record(irrelevant, ShRecord(_1 = VA.text, _2 = VA.text))._2),
+    )
 
   private def tExercise(choiceName: String = "Transfer", choiceArgType: VA = echoTextVA)(
       choiceArg: choiceArgType.Inj
