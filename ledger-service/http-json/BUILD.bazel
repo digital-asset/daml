@@ -196,7 +196,11 @@ daml_compile(
 
 daml_compile(
     name = "CIou",
-    srcs = ["src/it/daml/%s.daml" % m for m in ["CIou", "IIou", "Transferrable"]],
+    srcs = ["src/it/daml/%s.daml" % m for m in [
+        "CIou",
+        "IIou",
+        "Transferrable",
+    ]],
     target = lf_version_configuration.get("dev"),  # TODO(SC #13296) remove when interfaces in default
     visibility = ["//ledger-service:__subpackages__"],
 )
