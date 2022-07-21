@@ -64,6 +64,9 @@ found in [reference.conf](https://github.com/digital-asset/daml/blob/main/ledger
 
 ### Running Sandbox-on-X using CLI-driven configuration (Legacy)
 
+> Note: This style of running is deprecated and configuration via HOCON should be 
+> used in preference to get access to all the configuration options. 
+
 Two command line parameters for legacy mode are mandatory when running *Sandbox on X*:
 the participant-id and the port. You can specify them as follows:
 
