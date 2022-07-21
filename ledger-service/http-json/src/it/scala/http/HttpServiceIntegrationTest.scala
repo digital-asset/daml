@@ -13,9 +13,11 @@ import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref
 import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
 import com.daml.scalautil.Statement.discard
+import json.SprayJson.{decode => jdecode}
 import com.daml.http.util.TestUtil.writeToFile
 import org.scalacheck.Gen
 import org.scalatest.{Assertion, BeforeAndAfterAll}
+import scalaz.\/-
 import shapeless.record.{Record => ShRecord}
 import spray.json.JsValue
 
@@ -82,6 +84,7 @@ abstract class HttpServiceIntegrationTest
         initialTplId: domain.TemplateId.OptionalPkg,
         exerciseTid: domain.TemplateId.OptionalPkg,
         exerciseCiId: Option[domain.ContractTypeId.Unknown.OptionalPkg] = None,
+        choice: TExercise[_] = tExercise()(ShRecord(echo = "Bob")),
     ) = for {
       aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, aliceHeaders) = aliceH
@@ -99,19 +102,21 @@ abstract class HttpServiceIntegrationTest
           encodeExercise(fixture.encoder)(
             iouTransfer(
               domain.EnrichedContractId(Some(exerciseTid), testIIouID),
-              tExercise()(ShRecord(echo = "Bob")),
+              choice,
               exerciseCiId,
             )
           ),
           aliceHeaders,
         )
         .parseResponse[domain.ExerciseResponse[JsValue]]
-      _ = exerciseSucceeded(exerciseTest)
-    } yield succeed
+      exerciseResult = exerciseSucceeded(exerciseTest)
+    } yield exerciseResult
 
-    def exerciseSucceeded[A](exerciseTest: (StatusCode, domain.SyncResponse[A])) =
-      inside(exerciseTest) { case (StatusCodes.OK, domain.OkResponse(a, None, StatusCodes.OK)) =>
-        a
+    def exerciseSucceeded[A](
+        exerciseTest: (StatusCode, domain.SyncResponse[domain.ExerciseResponse[JsValue]])
+    ) =
+      inside(exerciseTest) { case (StatusCodes.OK, domain.OkResponse(er, None, StatusCodes.OK)) =>
+        inside(jdecode[String](er.exerciseResult)) { case \/-(decoded) => decoded }
       }
 
     object CIou {
@@ -119,39 +124,42 @@ abstract class HttpServiceIntegrationTest
     }
 
     "templateId = interface ID" in withHttpService { fixture =>
-      uploadPackage(fixture)(ciouDar).flatMap { _ =>
-        createIouAndExerciseTransfer(
+      for {
+        _ <- uploadPackage(fixture)(ciouDar)
+        result <- createIouAndExerciseTransfer(
           fixture,
           initialTplId = domain.TemplateId(None, "IIou", "TestIIou"),
           // whether we can exercise by interface-ID
           exerciseTid = TpId.IIou.IIou,
         )
-      }
+      } yield result should ===("Bob invoked IIou.Transfer")
     }
 
     // ideally we would upload IIou.daml, then force a reload, then upload ciou;
     // however tests currently don't play well with reload -SC
     "templateId = template ID" in withHttpService { fixture =>
-      uploadPackage(fixture)(ciouDar).flatMap { _ =>
-        createIouAndExerciseTransfer(
+      for {
+        _ <- uploadPackage(fixture)(ciouDar)
+        result <- createIouAndExerciseTransfer(
           fixture,
           initialTplId = CIou.CIou,
           // whether we can exercise inherited by concrete template ID
           exerciseTid = CIou.CIou,
         )
-      }
+      } yield result should ===("Bob invoked IIou.Transfer")
     }
 
     "templateId = template ID, choiceInterfaceId = interface ID" in withHttpService { fixture =>
-      uploadPackage(fixture)(ciouDar).flatMap { _ =>
-        createIouAndExerciseTransfer(
+      for {
+        _ <- uploadPackage(fixture)(ciouDar)
+        result <- createIouAndExerciseTransfer(
           fixture,
           initialTplId = CIou.CIou,
           // whether we can exercise inherited by interface ID
           exerciseTid = CIou.CIou,
           exerciseCiId = Some(TpId.IIou.IIou),
         )
-      }
+      } yield result should ===("Bob invoked IIou.Transfer")
     }
 
     // TODO #13923 tests:
