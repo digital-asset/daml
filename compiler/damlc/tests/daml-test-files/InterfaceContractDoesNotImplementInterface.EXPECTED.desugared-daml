@@ -30,6 +30,7 @@ instance DA.Internal.Desugar.HasIsInterfaceType I where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq I where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView I ()
 data GHC.Types.DamlInterface => J = J GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep J where
   _interfaceTypeRep
@@ -110,6 +111,7 @@ _choice_JJChoice
      \ self this arg@JChoice
        -> let _ = self in let _ = this in let _ = arg in do pure (), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView J ()
 data GHC.Types.DamlTemplate => T
   = T {party : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -178,6 +180,10 @@ instance DA.Internal.Desugar.HasToInterface T I where
 instance DA.Internal.Desugar.HasFromInterface T I where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+_view_T_I : DA.Internal.Desugar.InterfaceView T I
+_view_T_I
+  = DA.Internal.Desugar.mkInterfaceView
+      @T @I \ this@T {..} -> let _ = this in let view = () in view
 main
   = do alice <- getParty "alice"
        cidT <- alice `submit` create T {party = alice}

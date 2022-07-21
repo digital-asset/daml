@@ -99,6 +99,7 @@ _choice_TokenGetRich
             do assert (byHowMuch > 0)
                create $ setAmount this (getAmount this + byHowMuch), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView Token ()
 data GHC.Types.DamlInterface => SubToken
   = SubToken GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep SubToken where
@@ -136,6 +137,7 @@ instance DA.Internal.Desugar.HasIsInterfaceType SubToken where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq SubToken where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView SubToken ()
 data GHC.Types.DamlTemplate => Asset
   = Asset {issuer : Party, owner : Party, amount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -241,6 +243,12 @@ _method_Asset_Token_setAmount
          -> let _ = this in
             let setAmount x = toInterface @Token (this {amount = x})
             in setAmount)
+_view_Asset_Token : DA.Internal.Desugar.InterfaceView Asset Token
+_view_Asset_Token
+  = DA.Internal.Desugar.mkInterfaceView
+      @Asset
+      @Token
+      \ this@Asset {..} -> let _ = this in let view = () in view
 data GHC.Types.DamlTemplate => AnotherAsset
   = AnotherAsset {owner : Party, amount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -347,6 +355,13 @@ _method_AnotherAsset_Token_setAmount
          -> let _ = this in
             let setAmount x = toInterface @Token (this {amount = x})
             in setAmount)
+_view_AnotherAsset_Token :
+  DA.Internal.Desugar.InterfaceView AnotherAsset Token
+_view_AnotherAsset_Token
+  = DA.Internal.Desugar.mkInterfaceView
+      @AnotherAsset
+      @Token
+      \ this@AnotherAsset {..} -> let _ = this in let view = () in view
 _implements_AnotherAsset_SubToken :
   DA.Internal.Desugar.ImplementsT AnotherAsset SubToken
 _implements_AnotherAsset_SubToken = DA.Internal.Desugar.ImplementsT
@@ -355,6 +370,13 @@ instance DA.Internal.Desugar.HasToInterface AnotherAsset SubToken where
 instance DA.Internal.Desugar.HasFromInterface AnotherAsset SubToken where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+_view_AnotherAsset_SubToken :
+  DA.Internal.Desugar.InterfaceView AnotherAsset SubToken
+_view_AnotherAsset_SubToken
+  = DA.Internal.Desugar.mkInterfaceView
+      @AnotherAsset
+      @SubToken
+      \ this@AnotherAsset {..} -> let _ = this in let view = () in view
 data DA.Internal.Desugar.DamlException => GuardException
   = GuardException {m : Text}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)

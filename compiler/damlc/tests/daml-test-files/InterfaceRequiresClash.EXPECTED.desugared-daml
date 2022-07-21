@@ -48,3 +48,4 @@ instance DA.Internal.Desugar.HasIsInterfaceType C where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq C where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView C ()

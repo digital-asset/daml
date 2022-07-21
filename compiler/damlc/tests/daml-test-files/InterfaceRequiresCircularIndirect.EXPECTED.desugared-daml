@@ -38,6 +38,7 @@ instance DA.Internal.Desugar.HasIsInterfaceType A where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq A where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView A ()
 data GHC.Types.DamlInterface => B = B GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep B where
   _interfaceTypeRep
@@ -73,3 +74,4 @@ instance DA.Internal.Desugar.HasIsInterfaceType B where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq B where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView B ()

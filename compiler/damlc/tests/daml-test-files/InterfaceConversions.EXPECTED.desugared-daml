@@ -77,6 +77,7 @@ _choice_IfaceMyChoice
      \ self this arg@MyChoice
        -> let _ = self in let _ = this in let _ = arg in do pure (), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView Iface ()
 data GHC.Types.DamlTemplate => Template1
   = Template1 {owner1 : Party, value1 : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -163,6 +164,13 @@ _method_Template1_Iface_getOwner
       @"getOwner"
       (\ this@Template1 {..}
          -> let _ = this in let getOwner = owner1 in getOwner)
+_view_Template1_Iface :
+  DA.Internal.Desugar.InterfaceView Template1 Iface
+_view_Template1_Iface
+  = DA.Internal.Desugar.mkInterfaceView
+      @Template1
+      @Iface
+      \ this@Template1 {..} -> let _ = this in let view = () in view
 data GHC.Types.DamlTemplate => Template2
   = Template2 {owner2 : Party, value2 : Text}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -249,6 +257,13 @@ _method_Template2_Iface_getOwner
       @"getOwner"
       (\ this@Template2 {..}
          -> let _ = this in let getOwner = owner2 in getOwner)
+_view_Template2_Iface :
+  DA.Internal.Desugar.InterfaceView Template2 Iface
+_view_Template2_Iface
+  = DA.Internal.Desugar.mkInterfaceView
+      @Template2
+      @Iface
+      \ this@Template2 {..} -> let _ = this in let view = () in view
 main
   = scenario
       do p <- getParty "Alice"

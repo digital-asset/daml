@@ -42,6 +42,7 @@ instance DA.Internal.Desugar.HasIsInterfaceType I where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq I where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView I ()
 data GHC.Types.DamlInterface => J = J GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep J where
   _interfaceTypeRep
@@ -69,6 +70,7 @@ instance DA.Internal.Desugar.HasIsInterfaceType J where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq J where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView J ()
 data GHC.Types.DamlInterface => K = K GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep K where
   _interfaceTypeRep
@@ -96,23 +98,6 @@ instance DA.Internal.Desugar.HasIsInterfaceType K where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq K where
   (==) = GHC.Types.primitive @"BEEqual"
-data GHC.Types.DamlInterface => L = L GHC.Types.Opaque
-instance DA.Internal.Desugar.HasInterfaceTypeRep L where
-  _interfaceTypeRep
-    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
-instance DA.Internal.Desugar.HasFetch L where
-  fetch = GHC.Types.primitive @"UFetchInterface"
-instance DA.Internal.Desugar.HasToInterface L L where
-  _toInterface this = this
-instance DA.Internal.Desugar.HasFromInterface L L where
-  fromInterface this = DA.Internal.Desugar.Some this
-  unsafeFromInterface _ this = this
-instance DA.Internal.Desugar.HasToAnyTemplate L where
-  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
-instance DA.Internal.Desugar.HasFromAnyTemplate L where
-  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
-instance DA.Internal.Desugar.HasTemplateTypeRep L where
-  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
 instance DA.Internal.Desugar.HasSignatory L where
   signatory = GHC.Types.primitive @"ESignatoryInterface"
 instance DA.Internal.Desugar.HasObserver L where

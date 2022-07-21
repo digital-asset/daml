@@ -30,6 +30,7 @@ instance DA.Internal.Desugar.HasIsInterfaceType I where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq I where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView I ()
 data GHC.Types.DamlTemplate => T
   = T {p : Party, f : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -101,6 +102,10 @@ instance DA.Internal.Desugar.HasToInterface T I where
 instance DA.Internal.Desugar.HasFromInterface T I where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+_view_T_I : DA.Internal.Desugar.InterfaceView T I
+_view_T_I
+  = DA.Internal.Desugar.mkInterfaceView
+      @T @I \ this@T {..} -> let _ = this in let view = () in view
 data GHC.Types.DamlTemplate => U
   = U {p : Party, f : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -172,6 +177,10 @@ instance DA.Internal.Desugar.HasToInterface U I where
 instance DA.Internal.Desugar.HasFromInterface U I where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+_view_U_I : DA.Internal.Desugar.InterfaceView U I
+_view_U_I
+  = DA.Internal.Desugar.mkInterfaceView
+      @U @I \ this@U {..} -> let _ = this in let view = () in view
 main
   = scenario
       do p <- getParty "p"
