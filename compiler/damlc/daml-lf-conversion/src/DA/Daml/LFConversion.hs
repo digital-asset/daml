@@ -1193,6 +1193,8 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         ])
     , ("DA.Internal.Desugar",
         [ "mkMethod"
+        , "mkInterfaceView"
+        , "view"
         ])
     ]
 

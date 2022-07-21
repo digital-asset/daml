@@ -603,6 +603,11 @@ data Expr
   | EScenario !Scenario
   -- | An expression annotated with a source location.
   | ELocation !SourceLoc !Expr
+  -- | Obtain an interface view
+  | EViewInterface
+    { viewInterfaceInterface :: !(Qualified TypeConName)
+    , viewInterfaceExpr :: !Expr
+    }
   -- | Experimental Expression Hook
   | EExperimental !T.Text !Type
   deriving (Eq, Data, Generic, NFData, Ord, Show)

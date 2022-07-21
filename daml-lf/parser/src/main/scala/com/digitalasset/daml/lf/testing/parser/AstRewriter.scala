@@ -148,6 +148,8 @@ private[daml] class AstRewriter(
           EInterfaceTemplateTypeRep(apply(ifaceId), apply(body))
         case ESignatoryInterface(ifaceId, body) =>
           ESignatoryInterface(apply(ifaceId), apply(body))
+        case EViewInterface(ifaceId, expr) =>
+          EViewInterface(apply(ifaceId), apply(expr))
         case EObserverInterface(ifaceId, body) =>
           EObserverInterface(apply(ifaceId), apply(body))
       }
