@@ -718,17 +718,28 @@ private[lf] final class PhaseOne(
             Return(t.TemplateChoiceDefRef(tmplId, chId)(cid, arg))
           }
         }
-      case UpdateExerciseInterface(ifaceId, chId, cid, arg, guard) =>
+      case UpdateExerciseInterface(ifaceId, chId, cid, arg, maybeGuard) =>
         compileExp(env, cid) { cid =>
           compileExp(env, arg) { arg =>
-            compileExp(env, guard) { guard =>
-              Return(
-                t.InterfaceChoiceDefRef(ifaceId, chId)(
-                  guard,
-                  cid,
-                  arg,
+            maybeGuard match {
+              case Some(guard) =>
+                compileExp(env, guard) { guard =>
+                  Return(
+                    t.InterfaceChoiceDefRef(ifaceId, chId)(
+                      guard,
+                      cid,
+                      arg,
+                    )
+                  )
+                }
+              case None =>
+                Return(
+                  t.InterfaceChoiceDefRef(ifaceId, chId)(
+                    SEAbs(1, SEValue.True),
+                    cid,
+                    arg,
+                  )
                 )
-              )
             }
           }
         }

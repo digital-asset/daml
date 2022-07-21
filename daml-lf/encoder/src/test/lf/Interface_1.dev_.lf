@@ -82,4 +82,12 @@ module InterfaceMod {
   val boxyObserver: InterfaceMod:Boxy -> List Party =
     \(boxy: InterfaceMod:Boxy) ->
       observer_interface @InterfaceMod:Boxy boxy;
+
+  val exercise: ContractId InterfaceMod:Boxy -> Update Int64 =
+      \(cid: ContractId InterfaceMod:Boxy) ->
+          exercise_by_interface @InterfaceMod:Boxy ReturnInt cid 0;
+
+  val exercise_with_guard: ContractId InterfaceMod:Boxy -> (InterfaceMod:Boxy -> Bool) -> Update Int64 =
+        \(cid: ContractId InterfaceMod:Boxy) (guard: InterfaceMod:Boxy -> Bool) ->
+          exercise_by_interface_with_guard @InterfaceMod:Boxy ReturnInt cid  0 guard;
 }

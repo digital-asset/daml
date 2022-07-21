@@ -133,7 +133,7 @@ private[validation] object TypeIterable {
         Iterator(TTyCon(interface)) ++
           iterator(cid) ++
           iterator(arg) ++
-          iterator(guard)
+          guard.iterator.flatMap(iterator(_))
       case UpdateExerciseByKey(templateId, choice @ _, key, arg) =>
         Iterator(TTyCon(templateId)) ++
           iterator(key) ++

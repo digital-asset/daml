@@ -386,7 +386,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           setInternedString(choice, b.setChoiceInternedStr)
           b.setCid(cid)
           b.setArg(arg)
-          b.setGuard(guard)
+          guard.foreach(b.setGuard(_))
           builder.setExerciseInterface(b)
         case UpdateExerciseByKey(templateId, choice, key, arg) =>
           assertSince(LV.Features.exerciseByKey, "exerciseByKey")

@@ -201,7 +201,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       val exercise_interface: Party -> ContractId M:Person -> Update Unit =
         \(exercisingParty: Party) (cId: ContractId M:Person) ->
-          Test:run @Int64 (exercise_by_interface @M:Person Nap cId 42 (\(x: M:Person) -> TRACE @Bool "interface guard" True));
+          Test:run @Int64 (exercise_by_interface_with_guard @M:Person Nap cId 42 (\(x: M:Person) -> TRACE @Bool "interface guard" True));
 
       val exercise_by_key: Party -> Option Party -> Option (ContractId Unit) -> Int64 -> M:Either Int64 Int64 -> Update Unit =
         \(exercisingParty: Party) (maintainers: Option Party) (optCid: Option (ContractId Unit)) (nesting: Int64) (argParams: M:Either Int64 Int64) ->

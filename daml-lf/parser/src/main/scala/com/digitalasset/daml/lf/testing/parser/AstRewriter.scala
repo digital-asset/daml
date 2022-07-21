@@ -191,7 +191,7 @@ private[daml] class AstRewriter(
           choice,
           apply(cid),
           apply(arg),
-          apply(guard),
+          guard.map(apply(_)),
         )
       case UpdateExerciseByKey(templateId, choice, key, arg) =>
         UpdateExerciseByKey(apply(templateId), choice, apply(key), apply(arg))
