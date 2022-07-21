@@ -1261,13 +1261,10 @@ private[validation] object Typing {
         discard(handleLookup(ctx, pkgInterface.lookupInterface(ifaceId)))
         checkExpr(body, TTyCon(ifaceId))
         TList(TParty)
-      case EViewInterface(ifaceId @ _, templateId, view, expr) =>
-        checkImplements(templateId, ifaceId)
+      case EViewInterface(ifaceId, expr) =>
         val iface = handleLookup(ctx, pkgInterface.lookupInterface(ifaceId))
-        if (!alphaEquiv(iface.view, view))
-          throw ETypeMismatch(ctx, foundType = view, expectedType = iface.view, expr = None)
-        checkExpr(expr, TTyCon(templateId))
-        view
+        checkExpr(expr, TTyCon(ifaceId))
+        iface.view
       case EExperimental(_, typ) =>
         typ
     }

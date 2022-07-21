@@ -60,7 +60,7 @@ data ExprF expr
   | EInterfaceTemplateTypeRepF !(Qualified TypeConName) !expr
   | ESignatoryInterfaceF !(Qualified TypeConName) !expr
   | EObserverInterfaceF !(Qualified TypeConName) !expr
-  | EViewInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !Type !expr
+  | EViewInterfaceF !(Qualified TypeConName) !expr
   | EExperimentalF !T.Text !Type
   deriving (Foldable, Functor, Traversable)
 
@@ -222,7 +222,7 @@ instance Recursive Expr where
     EInterfaceTemplateTypeRep a b -> EInterfaceTemplateTypeRepF a b
     ESignatoryInterface a b -> ESignatoryInterfaceF a b
     EObserverInterface a b -> EObserverInterfaceF a b
-    EViewInterface a b c d -> EViewInterfaceF a b c d
+    EViewInterface a b -> EViewInterfaceF a b
     EExperimental a b -> EExperimentalF a b
 
 instance Corecursive Expr where
@@ -267,5 +267,5 @@ instance Corecursive Expr where
     EInterfaceTemplateTypeRepF a b -> EInterfaceTemplateTypeRep a b
     ESignatoryInterfaceF a b -> ESignatoryInterface a b
     EObserverInterfaceF a b -> EObserverInterface a b
-    EViewInterfaceF a b c d -> EViewInterface a b c d
+    EViewInterfaceF a b -> EViewInterface a b
     EExperimentalF a b -> EExperimental a b

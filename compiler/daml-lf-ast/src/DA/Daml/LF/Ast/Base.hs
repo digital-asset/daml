@@ -606,8 +606,6 @@ data Expr
   -- | Obtain an interface view
   | EViewInterface
     { viewInterfaceInterface :: !(Qualified TypeConName)
-    , viewInterfaceTemplate :: !(Qualified TypeConName)
-    , viewInterfaceViewtype :: !Type
     , viewInterfaceExpr :: !Expr
     }
   -- | Experimental Expression Hook

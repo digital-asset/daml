@@ -1232,8 +1232,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           val viewInterface = lfExpr.getViewInterface
           EViewInterface(
             ifaceId = decodeTypeConName(viewInterface.getInterface),
-            templateId = decodeTypeConName(viewInterface.getTemplate),
-            viewtype = decodeType(viewInterface.getViewtype),
             expr = decodeExpr(viewInterface.getExpr, definition),
           )
 

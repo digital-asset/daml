@@ -82,7 +82,7 @@ private[validation] object ExprIterable {
         iterator(body)
       case ESignatoryInterface(iface @ _, body) =>
         iterator(body)
-      case EViewInterface(ifaceId @ _, templateId @ _, view @ _, expr) =>
+      case EViewInterface(ifaceId @ _, expr) =>
         iterator(expr)
       case EObserverInterface(iface @ _, body) =>
         iterator(body)

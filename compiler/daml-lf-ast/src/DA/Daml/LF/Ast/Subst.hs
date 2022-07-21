@@ -221,10 +221,8 @@ applySubstInExpr subst@Subst{..} = \case
     ELocation l e -> ELocation
         l
         (applySubstInExpr subst e)
-    EViewInterface iface template view expr -> EViewInterface
+    EViewInterface iface expr -> EViewInterface
         iface
-        template
-        (applySubstInType subst view)
         (applySubstInExpr subst expr)
     EExperimental name ty ->
         EExperimental name (applySubstInType subst ty)

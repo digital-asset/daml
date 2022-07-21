@@ -975,9 +975,7 @@ message Expr {
   // *Available in versions >= 1.dev*
   message ViewInterface {
     TypeConName interface = 1;
-    TypeConName template = 2;
-    Type viewtype = 3;
-    Expr expr = 4;
+    Expr expr = 2;
   }
 
   // Obtain the type representation of a contract through an interface

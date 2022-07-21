@@ -284,11 +284,9 @@ alphaExpr' env = \case
     ELocation _ e1 -> \case
         ELocation _ e2 -> alphaExpr' env e1 e2
         _ -> False
-    EViewInterface iface1 template1 view1 expr1 -> \case
-        EViewInterface iface2 template2 view2 expr2
+    EViewInterface iface1 expr1 -> \case
+        EViewInterface iface2 expr2
             -> alphaTypeCon iface1 iface2
-            && alphaTypeCon template1 template2
-            && alphaType' env view1 view2
             && alphaExpr' env expr1 expr2
         _ -> False
     EExperimental n1 t1 -> \case
