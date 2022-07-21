@@ -3,7 +3,6 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies #-}
 
 -- | MOVE Prelude interface functionality
 module DA.Internal.Interface (
