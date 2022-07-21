@@ -24,7 +24,8 @@ import scala.concurrent.Future
 abstract class HttpServiceIntegrationTest
     extends AbstractHttpServiceIntegrationTestTokenIndependent
     with BeforeAndAfterAll {
-  import AbstractHttpServiceIntegrationTestFuns.{VAx, ciouDar}
+  import HttpServiceIntegrationTest._
+  import AbstractHttpServiceIntegrationTestFuns.ciouDar
 
   private val staticContent: String = "static"
 
@@ -98,8 +99,10 @@ abstract class HttpServiceIntegrationTest
         .postJsonRequest(
           Uri.Path("/v1/exercise"),
           encodeExercise(fixture.encoder)(
-            iouTransfer(domain.EnrichedContractId(Some(exerciseTid), testIIouID), exerciseCiId)(
-              ShRecord(to = bob)
+            iouTransfer(
+              domain.EnrichedContractId(Some(exerciseTid), testIIouID),
+              tExercise()(ShRecord(to = bob)),
+              exerciseCiId,
             )
           ),
           aliceHeaders,
@@ -182,8 +185,9 @@ abstract class HttpServiceIntegrationTest
               domain.EnrichedContractKey(
                 TpId.IIou.IIou,
                 v.Value(v.Value.Sum.Party(domain.Party unwrap alice)),
-              )
-            )(ShRecord(to = bob))
+              ),
+              tExercise()(ShRecord(to = bob)),
+            )
           ),
           aliceHeaders,
         )
@@ -214,11 +218,6 @@ abstract class HttpServiceIntegrationTest
     domain.CreateCommand(templateId, iouT, None)
   }
 
-  private[this] val irrelevant = Ref.Identifier assertFromString "none:Discarded:Identifier"
-
-  private[this] val (_, toPartyVA) =
-    VA.record(irrelevant, ShRecord(to = VAx.partyDomain))
-
   /*
   private[this] val (_, echoTextVA) =
     VA.record(irrelevant, ShRecord(echo = VA.text))
@@ -227,12 +226,12 @@ abstract class HttpServiceIntegrationTest
     VA.record(irrelevant, ShRecord(echo = VA.list(VA.text)))
    */
 
-  private[this] def iouTransfer(
+  private[this] def iouTransfer[Inj](
       locator: domain.ContractLocator[v.Value],
+      choice: TExercise[Inj],
       choiceInterfaceId: Option[domain.ContractTypeId.Interface.OptionalPkg] = None,
-      choiceName: String = "Transfer",
-      choiceArgType: VA = toPartyVA,
-  )(choiceArg: choiceArgType.Inj) = {
+  ) = {
+    import choice.{choiceName, choiceArgType, choiceArg}
     val payload = argToApi(choiceArgType)(choiceArg)
     domain.ExerciseCommand(
       locator,
@@ -242,6 +241,26 @@ abstract class HttpServiceIntegrationTest
       None,
     )
   }
+}
+
+object HttpServiceIntegrationTest {
+  import AbstractHttpServiceIntegrationTestFuns.VAx
+
+  private[this] val irrelevant = Ref.Identifier assertFromString "none:Discarded:Identifier"
+
+  private[this] val (_, toPartyVA) =
+    VA.record(irrelevant, ShRecord(to = VAx.partyDomain))
+
+  private def tExercise(choiceName: String = "Transfer", choiceArgType: VA = toPartyVA)(
+      choiceArg: choiceArgType.Inj
+  ): TExercise[choiceArgType.Inj] =
+    TExercise(choiceName, choiceArgType, choiceArg)
+
+  private final case class TExercise[Inj](
+      choiceName: String = "Transfer",
+      choiceArgType: VA.Aux[Inj] = toPartyVA,
+      choiceArg: Inj,
+  )
 }
 
 final class HttpServiceIntegrationTestCustomToken
