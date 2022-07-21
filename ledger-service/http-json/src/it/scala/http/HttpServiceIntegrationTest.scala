@@ -7,7 +7,7 @@ import java.io.File
 import java.nio.file.Files
 
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
+import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCode, StatusCodes, Uri}
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref
@@ -102,10 +102,14 @@ abstract class HttpServiceIntegrationTest
           ),
           aliceHeaders,
         )
-        .parseResponse[JsValue]
-    } yield inside(exerciseTest) {
-      case (StatusCodes.OK, domain.OkResponse(_, None, StatusCodes.OK)) => succeed
-    }
+        .parseResponse[domain.ExerciseResponse[JsValue]]
+      _ = exerciseSucceeded(exerciseTest)
+    } yield succeed
+
+    def exerciseSucceeded[A](exerciseTest: (StatusCode, domain.SyncResponse[A])) =
+      inside(exerciseTest) { case (StatusCodes.OK, domain.OkResponse(a, None, StatusCodes.OK)) =>
+        a
+      }
 
     object CIou {
       val CIou: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "CIou", "CIou")
