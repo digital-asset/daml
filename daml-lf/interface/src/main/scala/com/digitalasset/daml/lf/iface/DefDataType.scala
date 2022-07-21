@@ -31,6 +31,7 @@ import com.daml.lf.data.Ref
 import com.daml.nonempty.NonEmpty
 
 import scala.jdk.CollectionConverters._
+import scala.jdk.OptionConverters._
 
 case class DefDataType[+RF, +VF](typeVars: ImmArraySeq[Ref.Name], dataType: DataType[RF, VF]) {
   def bimap[C, D](f: RF => C, g: VF => D): DefDataType[C, D] =
@@ -211,7 +212,7 @@ final case class DefTemplate[+Ty](
       copy(tChoices = r))
   }
 
-  def getKey: j.Optional[_ <: Ty] = toOptional(key)
+  def getKey: j.Optional[_ <: Ty] = key.toJava
 
   private[iface] def extendWithInterface[OTy >: Ty](
       ifaceName: Ref.TypeConName,
@@ -304,7 +305,7 @@ sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
 
   final def getResolvedChoices
       : j.Map[Ref.ChoiceName, _ <: j.Map[j.Optional[Ref.TypeConName], _ <: TemplateChoice[Ty]]] =
-    resolvedChoices.transform((_, m) => m.forgetNE.mapKeys(toOptional).asJava).asJava
+    resolvedChoices.transform((_, m) => m.forgetNE.mapKeys(_.toJava).asJava).asJava
 
   /** Coerce to [[Resolved]] based on the environment `astInterfaces`, or fail
     * with the choices that could not be resolved.
