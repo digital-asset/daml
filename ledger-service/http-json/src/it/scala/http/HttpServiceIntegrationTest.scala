@@ -93,15 +93,13 @@ abstract class HttpServiceIntegrationTest
       testIIouID = inside(createTest) { case (StatusCodes.OK, domain.OkResponse(result, _, _)) =>
         result.contractId
       }
-      bobH <- fixture.getUniquePartyAndAuthHeaders("Bob")
-      (bob, _) = bobH
       exerciseTest <- fixture
         .postJsonRequest(
           Uri.Path("/v1/exercise"),
           encodeExercise(fixture.encoder)(
             iouTransfer(
               domain.EnrichedContractId(Some(exerciseTid), testIIouID),
-              tExercise()(ShRecord(to = bob)),
+              tExercise()(ShRecord(echo = "Bob")),
               exerciseCiId,
             )
           ),
@@ -175,8 +173,6 @@ abstract class HttpServiceIntegrationTest
         aliceHeaders,
       )
       _ = createTest._1 should ===(StatusCodes.OK)
-      bobH <- fixture.getUniquePartyAndAuthHeaders("Bob")
-      (bob, _) = bobH
       exerciseTest <- fixture
         .postJsonRequest(
           Uri.Path("/v1/exercise"),
@@ -186,7 +182,7 @@ abstract class HttpServiceIntegrationTest
                 TpId.IIou.IIou,
                 v.Value(v.Value.Sum.Party(domain.Party unwrap alice)),
               ),
-              tExercise()(ShRecord(to = bob)),
+              tExercise()(ShRecord(echo = "bob")),
             )
           ),
           aliceHeaders,
@@ -219,9 +215,6 @@ abstract class HttpServiceIntegrationTest
   }
 
   /*
-  private[this] val (_, echoTextVA) =
-    VA.record(irrelevant, ShRecord(echo = VA.text))
-
   private[this] val (_, echoTextListVA) =
     VA.record(irrelevant, ShRecord(echo = VA.list(VA.text)))
    */
@@ -244,21 +237,19 @@ abstract class HttpServiceIntegrationTest
 }
 
 object HttpServiceIntegrationTest {
-  import AbstractHttpServiceIntegrationTestFuns.VAx
-
   private[this] val irrelevant = Ref.Identifier assertFromString "none:Discarded:Identifier"
 
-  private[this] val (_, toPartyVA) =
-    VA.record(irrelevant, ShRecord(to = VAx.partyDomain))
+  private[this] val (_, echoTextVA) =
+    VA.record(irrelevant, ShRecord(echo = VA.text))
 
-  private def tExercise(choiceName: String = "Transfer", choiceArgType: VA = toPartyVA)(
+  private def tExercise(choiceName: String = "Transfer", choiceArgType: VA = echoTextVA)(
       choiceArg: choiceArgType.Inj
   ): TExercise[choiceArgType.Inj] =
     TExercise(choiceName, choiceArgType, choiceArg)
 
   private final case class TExercise[Inj](
-      choiceName: String = "Transfer",
-      choiceArgType: VA.Aux[Inj] = toPartyVA,
+      choiceName: String,
+      choiceArgType: VA.Aux[Inj],
       choiceArg: Inj,
   )
 }

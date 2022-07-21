@@ -17,7 +17,6 @@ template CIou with
 
   implements IIou where
     getOwner = owner
-    transferTo to = toInterfaceContractId <$> create this { owner = to }
 
   implements Transferrable where
     getOwner = owner
