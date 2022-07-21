@@ -1344,7 +1344,7 @@ private[lf] object SBuiltin {
   }
 
   final case class SBViewInterface(
-      ifaceId: TypeConName
+      ifaceId: TypeConName,
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       crash(
