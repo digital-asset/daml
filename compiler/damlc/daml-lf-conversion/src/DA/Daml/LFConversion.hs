@@ -1315,7 +1315,7 @@ convertExpr env0 e = do
             (TCon ifaceName, TCon templateName) ->
                 pure
                   ( ETmLam (mkVar "t", TCon templateName) $
-                    EViewInterface ifaceName templateName viewLF (EVar $ mkVar "t")
+                    EViewInterface ifaceName (EVar $ mkVar "t")
                   , args
                   )
             (_, TCon _) -> unsupported "view not type-applied to an interface." iface
