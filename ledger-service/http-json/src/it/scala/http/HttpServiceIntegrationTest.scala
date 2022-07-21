@@ -119,8 +119,13 @@ abstract class HttpServiceIntegrationTest
         inside(jdecode[String](er.exerciseResult)) { case \/-(decoded) => decoded }
       }
 
+    // nested like this similar to TpId so the references look nicer
     object CIou {
       val CIou: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "CIou", "CIou")
+    }
+    object Transferrable {
+      val Transferrable: domain.TemplateId.OptionalPkg =
+        domain.TemplateId(None, "Transferrable", "Transferrable")
     }
 
     "templateId = interface ID" in withHttpService { fixture =>
@@ -162,23 +167,40 @@ abstract class HttpServiceIntegrationTest
       } yield result should ===("Bob invoked IIou.Transfer")
     }
 
-    // TODO #13923 tests:
-    "templateId = CIou, no choiceInterfaceId, picks CIou Overridden" in withHttpService { fixture =>
-      for {
-        _ <- uploadPackage(fixture)(ciouDar)
-        result <- createIouAndExerciseTransfer(
-          fixture,
-          initialTplId = CIou.CIou,
-          // whether we can exercise inherited by interface ID
-          exerciseTid = CIou.CIou,
-          choice = tExercise("Overridden", echoTextPairVA)(
-            ShRecord(echo = ShRecord(_1 = "yes", _2 = "no"))
-          ),
-        )
-      } yield result should ===("(\"yes\",\"no\") invoked CIou.Overridden")
+    "templateId = template, no choiceInterfaceId, picks template Overridden" in withHttpService {
+      fixture =>
+        for {
+          _ <- uploadPackage(fixture)(ciouDar)
+          result <- createIouAndExerciseTransfer(
+            fixture,
+            initialTplId = CIou.CIou,
+            // whether we can exercise inherited by interface ID
+            exerciseTid = CIou.CIou,
+            choice = tExercise("Overridden", echoTextPairVA)(
+              ShRecord(echo = ShRecord(_1 = "yes", _2 = "no"))
+            ),
+          )
+        } yield result should ===("(\"yes\",\"no\") invoked CIou.Overridden")
     }
 
-    // tp and ifc define same, ciId = ifc, picks ifc
+    "templateId = template, choiceInterfaceId = interface, picks interface Overridden" in withHttpService {
+      fixture =>
+        for {
+          _ <- uploadPackage(fixture)(ciouDar)
+          result <- createIouAndExerciseTransfer(
+            fixture,
+            initialTplId = CIou.CIou,
+            // whether we can exercise inherited by interface ID
+            exerciseTid = CIou.CIou,
+            exerciseCiId = Some(Transferrable.Transferrable),
+            choice = tExercise("Overridden", echoTextVA)(
+              ShRecord(echo = "yesyes")
+            ),
+          )
+        } yield result should ===("yesyes invoked Transferrable.Overridden")
+    }
+
+    // TODO #13923 tests:
     // two ifcs define same but not tp, no ciId, fails
   }
 
