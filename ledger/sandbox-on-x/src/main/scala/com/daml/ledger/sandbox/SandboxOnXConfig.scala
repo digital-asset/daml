@@ -20,7 +20,7 @@ case class SandboxOnXConfig(
     bridge: BridgeConfig = BridgeConfig.Default,
 )
 object SandboxOnXConfig {
-  import PureConfigReaderWriter._
+  import PureConfigReaderWriter.Secure._
   implicit val Convert: ConfigConvert[SandboxOnXConfig] = deriveConvert[SandboxOnXConfig]
 
   def loadFromConfig(
@@ -37,6 +37,9 @@ object SandboxOnXConfig {
       configAdaptor: BridgeConfigAdaptor,
       originalConfig: CliConfig[BridgeConfig],
   ): SandboxOnXConfig = {
+    val Unsecure = new PureConfigReaderWriter(false)
+    import Unsecure._
+    val Convert: ConfigConvert[SandboxOnXConfig] = deriveConvert[SandboxOnXConfig]
     val maxDeduplicationDuration = originalConfig.maxDeduplicationDuration.getOrElse(
       BridgeConfig.DefaultMaximumDeduplicationDuration
     )
@@ -49,7 +52,7 @@ object SandboxOnXConfig {
     loadFromConfig(
       configFiles = originalConfig.configFiles,
       configMap = originalConfig.configMap,
-      fallback = ConfigFactory.parseString(ConfigRenderer.render(sandboxOnXConfig)),
+      fallback = ConfigFactory.parseString(ConfigRenderer.render(sandboxOnXConfig)(Convert)),
     ).getOrElse(sys.error("Failed to parse config after applying config maps and config files"))
   }
 }

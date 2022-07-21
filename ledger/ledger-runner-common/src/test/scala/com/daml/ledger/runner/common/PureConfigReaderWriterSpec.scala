@@ -15,7 +15,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import pureconfig.{ConfigConvert, ConfigReader, ConfigSource, ConfigWriter}
-import PureConfigReaderWriter._
+import PureConfigReaderWriter.Secure._
 import com.daml.ledger.api.tls.{SecretsUrl, TlsVersion}
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
