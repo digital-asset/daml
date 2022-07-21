@@ -84,7 +84,7 @@ class BufferedStreamsReaderSpec
     }
 
     def readerGetEventsGeneric(
-        transactionsBuffer: EventsBuffer[TransactionLogUpdate],
+        transactionsBuffer: EventsBuffer,
         startExclusive: Offset,
         endInclusive: Offset,
         fetchFromPersistence: FetchFromPersistence[Object, String],
@@ -189,7 +189,7 @@ class BufferedStreamsReaderSpec
       }
 
       "fetch from buffer and storage chunked" in {
-        val transactionsBufferWithSmallChunkSize = new EventsBuffer[TransactionLogUpdate](
+        val transactionsBufferWithSmallChunkSize = new EventsBuffer(
           maxBufferSize = 3,
           metrics = metrics,
           bufferQualifier = "test",

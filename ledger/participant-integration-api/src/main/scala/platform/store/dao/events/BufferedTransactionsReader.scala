@@ -30,7 +30,6 @@ import com.daml.platform.store.dao.{
   BufferedTransactionByIdReader,
   LedgerDaoTransactionsReader,
 }
-import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.{FilterRelation, Identifier, Party}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -121,11 +120,7 @@ private[events] class BufferedTransactionsReader(
 private[platform] object BufferedTransactionsReader {
   def apply(
       delegate: LedgerDaoTransactionsReader,
-      transactionsBuffer: EventsBuffer[
-        TransactionLogUpdate,
-        String,
-        TransactionLogUpdate.TransactionAccepted,
-      ],
+      transactionsBuffer: EventsBuffer,
       eventProcessingParallelism: Int,
       lfValueTranslation: LfValueTranslation,
       metrics: Metrics,

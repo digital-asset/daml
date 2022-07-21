@@ -108,7 +108,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
           InMemoryState,
           MutableLedgerEndCache,
           ContractStateCaches,
-          EventsBuffer[TransactionLogUpdate],
+          EventsBuffer,
           StringInterningView,
           DispatcherState,
       ) => Future[Assertion]
@@ -116,7 +116,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
     val mutableLedgerEndCache = mock[MutableLedgerEndCache]
     val contractStateCaches = mock[ContractStateCaches]
 
-    val transactionsBuffer = mock[EventsBuffer[TransactionLogUpdate]]
+    val transactionsBuffer = mock[EventsBuffer]
     val stringInterningView = mock[StringInterningView]
 
     val dispatcherState = mock[DispatcherState]

@@ -28,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * @tparam API_RESPONSE The API stream response type.
   */
 class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
-    transactionLogUpdateBuffer: EventsBuffer[TransactionLogUpdate, _, _],
+    transactionLogUpdateBuffer: EventsBuffer,
     fetchFromPersistence: FetchFromPersistence[PERSISTENCE_FETCH_ARGS, API_RESPONSE],
     bufferedStreamEventsProcessingParallelism: Int,
     metrics: Metrics,

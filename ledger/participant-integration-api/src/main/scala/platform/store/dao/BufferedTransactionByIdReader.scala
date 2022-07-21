@@ -11,11 +11,7 @@ import com.daml.platform.store.interfaces.TransactionLogUpdate
 import scala.concurrent.Future
 
 class BufferedTransactionByIdReader[API_RESPONSE](
-    inMemoryFanout: EventsBuffer[
-      TransactionLogUpdate,
-      String,
-      TransactionLogUpdate.TransactionAccepted,
-    ],
+    inMemoryFanout: EventsBuffer,
     fetchFromPersistence: String => Set[Party] => LoggingContext => Future[Option[API_RESPONSE]],
     toApiResponse: TransactionLogUpdate.TransactionAccepted => Set[Party] => Future[
       Option[API_RESPONSE]

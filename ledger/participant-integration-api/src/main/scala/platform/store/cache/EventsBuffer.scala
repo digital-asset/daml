@@ -12,6 +12,7 @@ import com.daml.platform.store.cache.EventsBuffer.{
   indexAfter,
   lastFilteredChunk,
 }
+import com.daml.platform.store.interfaces.TransactionLogUpdate
 
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
 import scala.collection.View
@@ -23,18 +24,16 @@ import scala.collection.View
   * @param maxBufferSize The maximum buffer size.
   * @param metrics The Daml metrics.
   * @param bufferQualifier The qualifier used for metrics tag specialization.
-  * @tparam ENTRY The entry buffer type.
-  * @tparam LOOKUP_KEY The pointwise lookup key type.
   */
-class EventsBuffer[ENTRY, LOOKUP_KEY, LOOKUP_VALUE](
+class EventsBuffer(
     maxBufferSize: Int,
     metrics: Metrics,
     bufferQualifier: String,
     maxBufferedChunkSize: Int,
-    extractMapFromEntry: ENTRY => Option[(LOOKUP_KEY, LOOKUP_VALUE)],
 ) {
-  @volatile private[cache] var _bufferLog: Vector[(Offset, ENTRY)] = Vector.empty
-  @volatile private[cache] var _lookupMap: Map[LOOKUP_KEY, LOOKUP_VALUE] = Map.empty
+  @volatile private[cache] var _bufferLog: Vector[(Offset, TransactionLogUpdate)] = Vector.empty
+  @volatile private[cache] var _lookupMap: Map[String, TransactionLogUpdate.TransactionAccepted] =
+    Map.empty
 
   private val bufferMetrics = metrics.daml.services.index.Buffer(bufferQualifier)
   private val pushTimer = bufferMetrics.push
@@ -51,7 +50,7 @@ class EventsBuffer[ENTRY, LOOKUP_KEY, LOOKUP_VALUE](
     *              Must be higher than the last appended entry's offset.
     * @param entry The buffer entry.
     */
-  def push(offset: Offset, entry: ENTRY): Unit =
+  def push(offset: Offset, entry: TransactionLogUpdate): Unit =
     Timed.value(
       pushTimer,
       synchronized {
@@ -66,15 +65,15 @@ class EventsBuffer[ENTRY, LOOKUP_KEY, LOOKUP_VALUE](
           val (evicted, remaining) = _bufferLog.splitAt(1)
           _bufferLog = remaining :+ offset -> entry
 
-          extractMapFromEntry(evicted.head._2).foreach { case (keyToBeEvicted, _) =>
+          extractEntryFromMap(evicted.head._2).foreach { case (keyToBeEvicted, _) =>
             _lookupMap = _lookupMap.removed(keyToBeEvicted)
           }
-          extractMapFromEntry(entry).foreach { case (key, value) =>
+          extractEntryFromMap(entry).foreach { case (key, value) =>
             _lookupMap = _lookupMap.updated(key, value)
           }
         } else {
           _bufferLog = _bufferLog :+ offset -> entry
-          extractMapFromEntry(entry).foreach { case (key, value) =>
+          extractEntryFromMap(entry).foreach { case (key, value) =>
             _lookupMap = _lookupMap.updated(key, value)
           }
         }
@@ -91,7 +90,7 @@ class EventsBuffer[ENTRY, LOOKUP_KEY, LOOKUP_VALUE](
   def slice[FILTER_RESULT](
       startExclusive: Offset,
       endInclusive: Offset,
-      filter: ENTRY => Option[FILTER_RESULT],
+      filter: TransactionLogUpdate => Option[FILTER_RESULT],
   ): BufferSlice[(Offset, FILTER_RESULT)] =
     Timed.value(
       sliceTimer, {
@@ -123,7 +122,7 @@ class EventsBuffer[ENTRY, LOOKUP_KEY, LOOKUP_VALUE](
       },
     )
 
-  def lookup(key: LOOKUP_KEY): Option[LOOKUP_VALUE] = _lookupMap.get(key)
+  def lookup(key: String): Option[TransactionLogUpdate.TransactionAccepted] = _lookupMap.get(key)
 
   /** Removes entries starting from the buffer tail up until `endInclusive`.
     *
@@ -133,13 +132,18 @@ class EventsBuffer[ENTRY, LOOKUP_KEY, LOOKUP_VALUE](
     Timed.value(
       pruneTimer,
       synchronized {
-        _bufferLog = _bufferLog.view.map(_._1).search(endInclusive) match {
-          case Found(foundIndex) => _bufferLog.drop(foundIndex + 1)
-          case InsertionPoint(insertionPoint) => _bufferLog.drop(insertionPoint)
+        val elementsToDrop = _bufferLog.view.map(_._1).search(endInclusive) match {
+          case Found(foundIndex) => foundIndex + 1
+          case InsertionPoint(insertionPoint) => insertionPoint
         }
 
-        // TODO LLP: This is faster. Can we do it?
-        _lookupMap = Map.empty
+        val (removeFromMap, prunedBufferLog) = _bufferLog.splitAt(elementsToDrop)
+        val keysToRemoveFromMap = removeFromMap.collect {
+          case (_, txAccepted: TransactionLogUpdate.TransactionAccepted) => txAccepted.transactionId
+        }
+
+        _bufferLog = prunedBufferLog
+        _lookupMap = _lookupMap -- keysToRemoveFromMap
       },
     )
 
@@ -148,6 +152,15 @@ class EventsBuffer[ENTRY, LOOKUP_KEY, LOOKUP_VALUE](
     _bufferLog = Vector.empty
     _lookupMap = Map.empty
   }
+
+  private def extractEntryFromMap(
+      transactionLogUpdate: TransactionLogUpdate
+  ): Option[(String, TransactionLogUpdate.TransactionAccepted)] =
+    transactionLogUpdate match {
+      case txAccepted: TransactionLogUpdate.TransactionAccepted =>
+        Some(txAccepted.transactionId -> txAccepted)
+      case _: TransactionLogUpdate.TransactionRejected => None
+    }
 }
 
 private[platform] object EventsBuffer {
@@ -181,9 +194,9 @@ private[platform] object EventsBuffer {
       case Found(foundIndex) => foundIndex + 1
     }
 
-  private[cache] def filterAndChunkSlice[ENTRY, FILTER_RESULT](
-      sliceView: View[(Offset, ENTRY)],
-      filter: ENTRY => Option[FILTER_RESULT],
+  private[cache] def filterAndChunkSlice[FILTER_RESULT](
+      sliceView: View[(Offset, TransactionLogUpdate)],
+      filter: TransactionLogUpdate => Option[FILTER_RESULT],
       maxChunkSize: Int,
   ): Vector[(Offset, FILTER_RESULT)] =
     sliceView
@@ -191,9 +204,9 @@ private[platform] object EventsBuffer {
       .take(maxChunkSize)
       .toVector
 
-  private[cache] def lastFilteredChunk[ENTRY, FILTER_RESULT](
-      bufferSlice: Vector[(Offset, ENTRY)],
-      filter: ENTRY => Option[FILTER_RESULT],
+  private[cache] def lastFilteredChunk[FILTER_RESULT](
+      bufferSlice: Vector[(Offset, TransactionLogUpdate)],
+      filter: TransactionLogUpdate => Option[FILTER_RESULT],
       maxChunkSize: Int,
   ): BufferSlice.LastBufferChunkSuffix[(Offset, FILTER_RESULT)] = {
     val lastChunk =
