@@ -48,7 +48,7 @@ object SandboxOnXConfig {
       bridge = originalConfig.extra.copy(maxDeduplicationDuration = maxDeduplicationDuration),
     )
     // In order to support HOCON configuration via config files and key-value maps -
-    // legacy config is rendered and configuration is applied on top
+    // legacy config is rendered without redacting secrets and configuration is applied on top
     loadFromConfig(
       configFiles = originalConfig.configFiles,
       configMap = originalConfig.configMap,
