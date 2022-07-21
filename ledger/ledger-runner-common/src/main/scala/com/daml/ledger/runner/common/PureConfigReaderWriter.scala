@@ -240,14 +240,15 @@ object PureConfigReaderWriter {
     deriveWriter[AuthServiceConfig.UnsafeJwtHmac256].contramap[AuthServiceConfig.UnsafeJwtHmac256](
       x => x.copy(secret = Secret)
     )
-  implicit val authServiceConfigJwtEs256CrtConvert: ConfigConvert[AuthServiceConfig.JwtEs256] =
-    deriveConvert[AuthServiceConfig.JwtEs256]
-  implicit val authServiceConfigJwtEs512CrtConvert: ConfigConvert[AuthServiceConfig.JwtEs512] =
-    deriveConvert[AuthServiceConfig.JwtEs512]
-  implicit val authServiceConfigJwtRs256CrtConvert: ConfigConvert[AuthServiceConfig.JwtRs256] =
-    deriveConvert[AuthServiceConfig.JwtRs256]
-  implicit val authServiceConfigJwtRs256JwksConvert: ConfigConvert[AuthServiceConfig.JwtRs256Jwks] =
-    deriveConvert[AuthServiceConfig.JwtRs256Jwks]
+  implicit val authServiceConfigJwtEs256CrtConvert: ConfigConvert[AuthServiceConfig.JwtEcdsa256] =
+    deriveConvert[AuthServiceConfig.JwtEcdsa256]
+  implicit val authServiceConfigJwtEs512CrtConvert: ConfigConvert[AuthServiceConfig.JwtEcdsa512] =
+    deriveConvert[AuthServiceConfig.JwtEcdsa512]
+  implicit val authServiceConfigJwtRs256CrtConvert: ConfigConvert[AuthServiceConfig.JwtRsa256] =
+    deriveConvert[AuthServiceConfig.JwtRsa256]
+  implicit val authServiceConfigJwtRs256JwksConvert
+      : ConfigConvert[AuthServiceConfig.JwtRsa256Jwks] =
+    deriveConvert[AuthServiceConfig.JwtRsa256Jwks]
   implicit val authServiceConfigWildcardConvert: ConfigConvert[AuthServiceConfig.Wildcard.type] =
     deriveConvert[AuthServiceConfig.Wildcard.type]
   implicit val authServiceConfigConvert: ConfigConvert[AuthServiceConfig] =

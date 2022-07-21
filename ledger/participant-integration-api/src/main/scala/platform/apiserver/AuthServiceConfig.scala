@@ -29,8 +29,8 @@ object AuthServiceConfig {
     override def create(): AuthService = AuthServiceJWT(verifier)
   }
 
-  /** Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given X509 certificate file (.crt) */
-  final case class JwtRs256(certificate: String, leewayOptions: Option[LeewayOptions] = None)
+  /** Enables JWT-based authorization, where the JWT is signed by RSA256 with the verifying public key loaded from the given X509 certificate file (.crt) */
+  final case class JwtRsa256(certificate: String, leewayOptions: Option[LeewayOptions] = None)
       extends AuthServiceConfig {
     private lazy val verifier = RSA256Verifier
       .fromCrtFile(certificate, leewayOptions)
@@ -38,8 +38,8 @@ object AuthServiceConfig {
     override def create(): AuthService = AuthServiceJWT(verifier)
   }
 
-  /** "Enables JWT-based authorization, where the JWT is signed by ECDSA256 with a public key loaded from the given X509 certificate file (.crt)" */
-  final case class JwtEs256(certificate: String, leewayOptions: Option[LeewayOptions] = None)
+  /** "Enables JWT-based authorization, where the JWT is signed by ECDSA256 with the verifying public key loaded from the given X509 certificate file (.crt)" */
+  final case class JwtEcdsa256(certificate: String, leewayOptions: Option[LeewayOptions] = None)
       extends AuthServiceConfig {
     private lazy val verifier = ECDSAVerifier
       .fromCrtFile(certificate, Algorithm.ECDSA256(_, null), leewayOptions)
@@ -49,8 +49,8 @@ object AuthServiceConfig {
     override def create(): AuthService = AuthServiceJWT(verifier)
   }
 
-  /** Enables JWT-based authorization, where the JWT is signed by ECDSA512 with a public key loaded from the given X509 certificate file (.crt) */
-  final case class JwtEs512(certificate: String, leewayOptions: Option[LeewayOptions] = None)
+  /** Enables JWT-based authorization, where the JWT is signed by ECDSA512 with the verifying public key loaded from the given X509 certificate file (.crt) */
+  final case class JwtEcdsa512(certificate: String, leewayOptions: Option[LeewayOptions] = None)
       extends AuthServiceConfig {
     private lazy val verifier = ECDSAVerifier
       .fromCrtFile(certificate, Algorithm.ECDSA512(_, null), leewayOptions)
@@ -60,8 +60,8 @@ object AuthServiceConfig {
     override def create(): AuthService = AuthServiceJWT(verifier)
   }
 
-  /** Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given JWKS URL */
-  final case class JwtRs256Jwks(url: String, leewayOptions: Option[LeewayOptions] = None)
+  /** Enables JWT-based authorization, where the JWT is signed by RSA256 with the verifying public key loaded from the given JWKS URL */
+  final case class JwtRsa256Jwks(url: String, leewayOptions: Option[LeewayOptions] = None)
       extends AuthServiceConfig {
     private lazy val verifier = JwksVerifier(url, leewayOptions)
     override def create(): AuthService = AuthServiceJWT(verifier)

@@ -41,7 +41,7 @@ object AuthServiceConfigCli {
           "Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given X509 certificate file (.crt)"
         )
         .action { (path, config) =>
-          setAuthServiceConfig(AuthServiceConfig.JwtRs256(path), config)
+          setAuthServiceConfig(AuthServiceConfig.JwtRsa256(path), config)
         },
       opt[String]("auth-jwt-es256-crt")
         .optional()
@@ -52,7 +52,7 @@ object AuthServiceConfigCli {
           "Enables JWT-based authorization, where the JWT is signed by ECDSA256 with a public key loaded from the given X509 certificate file (.crt)"
         )
         .action { (path, config) =>
-          setAuthServiceConfig(AuthServiceConfig.JwtEs256(path), config)
+          setAuthServiceConfig(AuthServiceConfig.JwtEcdsa256(path), config)
         },
       opt[String]("auth-jwt-es512-crt")
         .optional()
@@ -63,7 +63,7 @@ object AuthServiceConfigCli {
           "Enables JWT-based authorization, where the JWT is signed by ECDSA512 with a public key loaded from the given X509 certificate file (.crt)"
         )
         .action { (path, config) =>
-          setAuthServiceConfig(AuthServiceConfig.JwtEs512(path), config)
+          setAuthServiceConfig(AuthServiceConfig.JwtEcdsa512(path), config)
         },
       opt[String]("auth-jwt-rs256-jwks")
         .optional()
@@ -72,7 +72,7 @@ object AuthServiceConfigCli {
           "Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given JWKS URL"
         )
         .action { (url, config) =>
-          setAuthServiceConfig(AuthServiceConfig.JwtRs256Jwks(url), config)
+          setAuthServiceConfig(AuthServiceConfig.JwtRsa256Jwks(url), config)
         },
     )
   }

@@ -205,22 +205,22 @@ object ArbitraryConfig {
   val JwtRs256Crt = for {
     certificate <- Gen.alphaStr
     mbLeewayOptions <- Gen.option(leewayOptionsGen)
-  } yield AuthServiceConfig.JwtRs256(certificate, mbLeewayOptions)
+  } yield AuthServiceConfig.JwtRsa256(certificate, mbLeewayOptions)
 
   val JwtEs256Crt = for {
     certificate <- Gen.alphaStr
     mbLeewayOptions <- Gen.option(leewayOptionsGen)
-  } yield AuthServiceConfig.JwtEs256(certificate, mbLeewayOptions)
+  } yield AuthServiceConfig.JwtEcdsa256(certificate, mbLeewayOptions)
 
   val JwtEs512Crt = for {
     certificate <- Gen.alphaStr
     mbLeewayOptions <- Gen.option(leewayOptionsGen)
-  } yield AuthServiceConfig.JwtEs512(certificate, mbLeewayOptions)
+  } yield AuthServiceConfig.JwtEcdsa512(certificate, mbLeewayOptions)
 
   val JwtRs256Jwks = for {
     url <- Gen.alphaStr
     mbLeewayOptions <- Gen.option(leewayOptionsGen)
-  } yield AuthServiceConfig.JwtRs256Jwks(url, mbLeewayOptions)
+  } yield AuthServiceConfig.JwtRsa256Jwks(url, mbLeewayOptions)
 
   val authServiceConfig = Gen.oneOf(
     Gen.const(AuthServiceConfig.Wildcard),
