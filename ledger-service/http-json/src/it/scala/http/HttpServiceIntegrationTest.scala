@@ -24,7 +24,7 @@ import scala.concurrent.Future
 abstract class HttpServiceIntegrationTest
     extends AbstractHttpServiceIntegrationTestTokenIndependent
     with BeforeAndAfterAll {
-  import AbstractHttpServiceIntegrationTestFuns.ciouDar
+  import AbstractHttpServiceIntegrationTestFuns.{VAx, ciouDar}
 
   private val staticContent: String = "static"
 
@@ -213,12 +213,17 @@ abstract class HttpServiceIntegrationTest
     domain.CreateCommand(templateId, iouT, None)
   }
 
+  private[this] val irrelevant = Ref.Identifier assertFromString "none:Discarded:Identifier"
+
+  private[this] val (_, toPartyVA) =
+    VA.record(irrelevant, ShRecord(to = VAx.partyDomain))
+
   private[this] def iouTransfer(
       locator: domain.ContractLocator[v.Value],
       to: domain.Party,
       choiceInterfaceId: Option[domain.ContractTypeId.Interface.OptionalPkg] = None,
   ) = {
-    val payload = recordFromFields(ShRecord(to = v.Value.Sum.Party(domain.Party unwrap to)))
+    val payload = argToApi(toPartyVA)(ShRecord(to = to))
     domain.ExerciseCommand(
       locator,
       domain.Choice("Transfer"),
