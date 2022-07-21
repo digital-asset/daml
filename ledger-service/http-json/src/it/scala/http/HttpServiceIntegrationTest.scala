@@ -200,8 +200,26 @@ abstract class HttpServiceIntegrationTest
         } yield result should ===("yesyes invoked Transferrable.Overridden")
     }
 
-    // TODO #13923 tests:
-    // two ifcs define same but not tp, no ciId, fails
+    "templateId = template, no choiceInterfaceId, ambiguous" in withHttpService { fixture =>
+      for {
+        _ <- uploadPackage(fixture)(ciouDar)
+        response <- createIouAndExerciseTransfer(
+          fixture,
+          initialTplId = CIou.CIou,
+          exerciseTid = CIou.CIou,
+          choice = tExercise("Ambiguous", echoTextVA)(
+            ShRecord(echo = "ambiguous-test")
+          ),
+        )
+      } yield inside(response) {
+        case (
+              StatusCodes.BadRequest,
+              domain.ErrorResponse(Seq(onlyError), None, StatusCodes.BadRequest, None),
+            ) =>
+          (onlyError should include regex
+            raw"Cannot resolve Choice Argument type, given: \(TemplateId\([0-9a-f]{64},CIou,CIou\), Ambiguous\)")
+      }
+    }
   }
 
   "fail to exercise by key with interface ID" in withHttpService { fixture =>

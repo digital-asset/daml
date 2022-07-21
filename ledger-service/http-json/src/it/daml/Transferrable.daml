@@ -12,6 +12,12 @@ interface Transferrable where
     do
       pure $ echo <> " invoked Transferrable.Overridden"
 
+  choice Ambiguous : Text with
+      echo : Text
+    controller getOwner this
+    do
+      pure $ echo <> " should have failed, but reached Transferrable.Ambiguous"
+
   choice TransferIt : Text with
       to : Party
     controller getOwner this

@@ -10,6 +10,11 @@ interface IIou where
     controller getOwner this
     do
       pure $ echo <> " invoked IIou.Transfer"
+  choice Ambiguous : Text with
+      echo : Text
+    controller getOwner this
+    do
+      pure $ echo <> " should have failed, but reached IIou.Ambiguous"
 
 template TestIIou with
     issuer : Party
