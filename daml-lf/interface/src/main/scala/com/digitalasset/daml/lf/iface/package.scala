@@ -3,9 +3,7 @@
 
 package com.daml.lf
 
-import java.{util => j}
-
-import com.daml.lf.data.Ref
+import data.Ref
 
 // Types to be used internally
 package object iface {
