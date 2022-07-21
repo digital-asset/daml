@@ -98,7 +98,9 @@ abstract class HttpServiceIntegrationTest
         .postJsonRequest(
           Uri.Path("/v1/exercise"),
           encodeExercise(fixture.encoder)(
-            iouTransfer(domain.EnrichedContractId(Some(exerciseTid), testIIouID), bob, exerciseCiId)
+            iouTransfer(domain.EnrichedContractId(Some(exerciseTid), testIIouID), exerciseCiId)(
+              ShRecord(to = bob)
+            )
           ),
           aliceHeaders,
         )
@@ -180,9 +182,8 @@ abstract class HttpServiceIntegrationTest
               domain.EnrichedContractKey(
                 TpId.IIou.IIou,
                 v.Value(v.Value.Sum.Party(domain.Party unwrap alice)),
-              ),
-              bob,
-            )
+              )
+            )(ShRecord(to = bob))
           ),
           aliceHeaders,
         )
@@ -218,15 +219,24 @@ abstract class HttpServiceIntegrationTest
   private[this] val (_, toPartyVA) =
     VA.record(irrelevant, ShRecord(to = VAx.partyDomain))
 
+  /*
+  private[this] val (_, echoTextVA) =
+    VA.record(irrelevant, ShRecord(echo = VA.text))
+
+  private[this] val (_, echoTextListVA) =
+    VA.record(irrelevant, ShRecord(echo = VA.list(VA.text)))
+   */
+
   private[this] def iouTransfer(
       locator: domain.ContractLocator[v.Value],
-      to: domain.Party,
       choiceInterfaceId: Option[domain.ContractTypeId.Interface.OptionalPkg] = None,
-  ) = {
-    val payload = argToApi(toPartyVA)(ShRecord(to = to))
+      choiceName: String = "Transfer",
+      choiceArgType: VA = toPartyVA,
+  )(choiceArg: choiceArgType.Inj) = {
+    val payload = argToApi(choiceArgType)(choiceArg)
     domain.ExerciseCommand(
       locator,
-      domain.Choice("Transfer"),
+      domain.Choice(choiceName),
       v.Value(v.Value.Sum.Record(payload)),
       choiceInterfaceId,
       None,
