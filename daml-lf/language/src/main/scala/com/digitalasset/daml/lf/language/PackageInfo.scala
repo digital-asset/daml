@@ -5,8 +5,7 @@ package com.daml.lf
 package language
 package util
 
-import data.Ref
-import data.Relation.Relation
+import data.{Ref, Relation}
 
 private[daml] class PackageInfo(pkgSignature: Map[Ref.PackageId, Ast.GenPackage[_]]) {
 
@@ -25,9 +24,7 @@ private[daml] class PackageInfo(pkgSignature: Map[Ref.PackageId, Ast.GenPackage[
     */
   def interfacesDirectImplementations: Relation[Ref.Identifier, Ref.Identifier] =
     Relation.from(
-      templates.flatMap { case (tmplId, tmpl) =>
-        tmpl.implements.keysIterator.map(_ -> Set(tmplId))
-      }
+      templates.flatMap { case (tmplId, tmpl) => tmpl.implements.keysIterator.map(_ -> tmplId) }
     )
 
   /** return the relation between interfaces and all their retroactive implementation
@@ -40,7 +37,7 @@ private[daml] class PackageInfo(pkgSignature: Map[Ref.PackageId, Ast.GenPackage[
   def interfacesRetroactiveInstances: Relation[Ref.Identifier, Ref.Identifier] =
     Relation.from(
       interfaces.flatMap { case (ifaceId, iface) =>
-        iface.coImplements.keysIterator.map(tmplId => ifaceId -> Set(tmplId))
+        iface.coImplements.keysIterator.map(tmplId => ifaceId -> tmplId)
       }
     )
 

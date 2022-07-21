@@ -7,8 +7,7 @@ package language
 package util
 
 import com.daml.lf.data.Ref.{PackageId, TypeConName}
-import data.Ref
-import data.Relation.Relation
+import data.{Ref, Relation}
 import testing.parser
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
