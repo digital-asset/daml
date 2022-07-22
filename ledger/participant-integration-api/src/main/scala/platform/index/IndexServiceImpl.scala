@@ -49,7 +49,11 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.{ApiOffset, PruneBuffers}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
-import com.daml.platform.store.dao.{LedgerDaoTransactionsReader, LedgerReadDao}
+import com.daml.platform.store.dao.{
+  LedgerDaoCommandCompletionsReader,
+  LedgerDaoTransactionsReader,
+  LedgerReadDao,
+}
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
 import scalaz.syntax.tag.ToTagOps
@@ -61,6 +65,7 @@ private[index] class IndexServiceImpl(
     participantId: Ref.ParticipantId,
     ledgerDao: LedgerReadDao,
     transactionsReader: LedgerDaoTransactionsReader,
+    commandCompletionsReader: LedgerDaoCommandCompletionsReader,
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
     dispatcher: () => Dispatcher[Offset],
@@ -154,7 +159,9 @@ private[index] class IndexServiceImpl(
         dispatcher()
           .startingAt(
             beginOpt,
-            RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId, parties)),
+            RangeSource(
+              commandCompletionsReader.getCommandCompletions(_, _, applicationId, parties)
+            ),
             None,
           )
           .map(_._2)
@@ -171,7 +178,7 @@ private[index] class IndexServiceImpl(
       dispatcher()
         .startingAt(
           start.getOrElse(Offset.beforeBegin),
-          RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId, parties)),
+          RangeSource(commandCompletionsReader.getCommandCompletions(_, _, applicationId, parties)),
           end,
         )
         .map(_._2)

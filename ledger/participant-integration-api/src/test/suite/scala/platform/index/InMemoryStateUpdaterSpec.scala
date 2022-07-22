@@ -5,23 +5,30 @@ package com.daml.platform.index
 
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v2.{TransactionMeta, Update}
+import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
+import com.daml.ledger.participant.state.v2.{CompletionInfo, TransactionMeta, Update}
 import com.daml.lf.crypto
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.platform.index.InMemoryStateUpdaterSpec.{
+  anotherMetadataChangedUpdate,
+  metadataChangedUpdate,
   offset,
   txLogUpdate1,
   txLogUpdate3,
+  txRejected,
   update1,
-  update2,
   update3,
+  update4,
 }
 import com.daml.platform.indexer.ha.EndlessReadService.configuration
 import com.daml.platform.store.interfaces.TransactionLogUpdate
+import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
+import com.google.rpc.status.Status
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -35,7 +42,8 @@ class InMemoryStateUpdaterSpec extends AsyncFlatSpec with Matchers with AkkaBefo
 
   "flow" should "correctly process updates" in withFixture {
     case (inMemoryStateUpdater, cacheUpdates, ledgerEndUpdates) =>
-      val updatesInput = Seq(Vector(update1, update2) -> 1L, Vector(update3) -> 3L)
+      val updatesInput =
+        Seq(Vector(update1, metadataChangedUpdate) -> 1L, Vector(update3, update4) -> 3L)
 
       Source(updatesInput)
         .via(inMemoryStateUpdater.flow)
@@ -43,28 +51,38 @@ class InMemoryStateUpdaterSpec extends AsyncFlatSpec with Matchers with AkkaBefo
         .map { _ =>
           cacheUpdates should contain theSameElementsInOrderAs Seq(
             Vector(txLogUpdate1),
-            Vector(txLogUpdate3),
+            Vector(txLogUpdate3, txRejected),
           )
           ledgerEndUpdates should contain theSameElementsInOrderAs Seq(
             offset(2L) -> 1L,
-            offset(3L) -> 3L,
+            offset(4L) -> 3L,
           )
         }
   }
 
-  "flow" should "not process empty bacthes" in withFixture {
+  "flow" should "not process empty input batches" in withFixture {
     case (inMemoryStateUpdater, cacheUpdates, ledgerEndUpdates) =>
-      val updatesInput = Seq(Vector.empty -> 1L, Vector(update3) -> 3L)
+      val updatesInput =
+        Seq(
+          // Empty input batch should have not effect
+          Vector.empty -> 1L,
+          Vector(update3) -> 3L,
+          // Results in empty batch after processing
+          // Should still have effect on ledger end updates
+          Vector(anotherMetadataChangedUpdate) -> 3L,
+        )
 
       Source(updatesInput)
         .via(inMemoryStateUpdater.flow)
         .runWith(Sink.ignore)
         .map { _ =>
           cacheUpdates should contain theSameElementsInOrderAs Seq(
-            Vector(txLogUpdate3)
+            Vector(txLogUpdate3),
+            Vector(),
           )
           ledgerEndUpdates should contain theSameElementsInOrderAs Seq(
-            offset(3L) -> 3L
+            offset(3L) -> 3L,
+            offset(5L) -> 3L,
           )
         }
   }
@@ -79,9 +97,15 @@ class InMemoryStateUpdaterSpec extends AsyncFlatSpec with Matchers with AkkaBefo
       ) => Future[Assertion]
   ): Future[Assertion] = {
     val updateToTransactionAccepted
-        : (Offset, Update.TransactionAccepted) => TransactionLogUpdate = {
+        : (Offset, Update.TransactionAccepted) => TransactionLogUpdate.TransactionAccepted = {
       case `update1` => txLogUpdate1
       case `update3` => txLogUpdate3
+      case _ => fail()
+    }
+
+    val updateToTransactionRejected
+        : (Offset, Update.CommandRejected) => TransactionLogUpdate.TransactionRejected = {
+      case `update4` => txRejected
       case _ => fail()
     }
 
@@ -96,7 +120,8 @@ class InMemoryStateUpdaterSpec extends AsyncFlatSpec with Matchers with AkkaBefo
       scala.concurrent.ExecutionContext.global,
       scala.concurrent.ExecutionContext.global,
     )(
-      updateToTransactionAccepted = updateToTransactionAccepted,
+      convertTransactionAccepted = updateToTransactionAccepted,
+      convertTransactionRejected = updateToTransactionRejected,
       updateCaches = cachesUpdateCaptor,
       updateLedgerEnd = { case (offset, evtSeqId) =>
         ledgerEndUpdates.addOne(offset -> evtSeqId)
@@ -136,7 +161,7 @@ object InMemoryStateUpdaterSpec {
     blindingInfo = None,
     contractMetadata = Map.empty,
   )
-  private val update2 = offset(2L) -> Update.ConfigurationChanged(
+  private val metadataChangedUpdate = offset(2L) -> Update.ConfigurationChanged(
     Timestamp.Epoch,
     someSubmissionId,
     participantId,
@@ -152,21 +177,45 @@ object InMemoryStateUpdaterSpec {
     blindingInfo = None,
     contractMetadata = Map.empty,
   )
+  private val update4 = offset(4L) -> Update.CommandRejected(
+    recordTime = Time.Timestamp.assertFromLong(1337L),
+    completionInfo = CompletionInfo(
+      actAs = List.empty,
+      applicationId = Ref.ApplicationId.assertFromString("some-app-id"),
+      commandId = Ref.CommandId.assertFromString("cmdId"),
+      optDeduplicationPeriod = None,
+      submissionId = None,
+      statistics = None,
+    ),
+    reasonTemplate = FinalReason(new Status()),
+  )
+  private val anotherMetadataChangedUpdate =
+    offset(5L) -> metadataChangedUpdate._2.copy(recordTime = Time.Timestamp.assertFromLong(1337L))
 
-  private val txLogUpdate1 = TransactionLogUpdate.Transaction(
+  private val txLogUpdate1 = TransactionLogUpdate.TransactionAccepted(
     transactionId = "tx1",
     workflowId = "",
     effectiveAt = Timestamp.Epoch,
     offset = offset(1L),
     events = Vector(null),
+    completionDetails = None,
   )
 
-  private val txLogUpdate3 = TransactionLogUpdate.Transaction(
+  private val txLogUpdate3 = TransactionLogUpdate.TransactionAccepted(
     transactionId = "tx3",
     workflowId = "",
     effectiveAt = Timestamp.Epoch,
     offset = offset(3L),
     events = Vector(null),
+    completionDetails = None,
+  )
+
+  private val txRejected = TransactionLogUpdate.TransactionRejected(
+    offset = offset(4L),
+    completionDetails = CompletionDetails(
+      completionStreamResponse = new CompletionStreamResponse(),
+      submitters = Set.empty,
+    ),
   )
 
   private def offset(idx: Long): Offset = {
