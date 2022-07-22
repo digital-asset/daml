@@ -905,12 +905,9 @@ private[lf] object SBuiltin {
     *    -> Bool (false if ensure failed)
     *    -> Unit
     */
-  final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltinPure(3) {
+  final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltinPure(2) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SUnit.type = {
-      discard(getSUnit(args, 1))
-      val precond = getSBool(args, 2)
-      if (precond) SUnit
-      else
+      if (!getSBool(args, 1))
         throw SErrorDamlException(
           IE.TemplatePreconditionViolated(
             templateId = templateId,
@@ -918,6 +915,7 @@ private[lf] object SBuiltin {
             arg = args.get(0).toUnnormalizedValue,
           )
         )
+      SUnit
     }
   }
 

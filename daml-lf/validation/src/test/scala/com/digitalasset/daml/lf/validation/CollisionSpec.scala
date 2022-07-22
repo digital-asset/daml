@@ -385,8 +385,7 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
         module Mod {                     // fully resolved name: "Mod"
             
           interface (this: I) = {
-            precondition True;
-            choice Choice1 (self) (u:Unit) : Unit  // fully resolved name: "Mod.I.Choice1"
+             choice Choice1 (self) (u:Unit) : Unit  // fully resolved name: "Mod.I.Choice1"
               , controllers Nil @Party
               to upure @Unit ();
             choice Choice2 (self) (u:Unit) : Unit  // fully resolved name: "Mod.I.Choice2"
@@ -402,8 +401,7 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
         module Mod {                     // fully resolved name: "Mod"
             
           interface (this: I) = {
-            precondition True;
-            choice CHOICE (self) (u:Unit) : Unit  // fully resolved name: "Mod.I.Choice"
+             choice CHOICE (self) (u:Unit) : Unit  // fully resolved name: "Mod.I.Choice"
               , controllers Nil @Party
               to upure @Unit ();
             choice Choice (self) (u:Unit) : Unit  // fully resolved name: "Mod.I.CHOICE"
@@ -425,15 +423,13 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
         module Mod {                     
             
           interface (this: I1) = {
-            precondition True;
-            choice Choice (self) (u:Unit) : Unit  
+             choice Choice (self) (u:Unit) : Unit  
               , controllers Nil @Party
               to upure @Unit ();
           };
 
           interface (this: I2) = {
-            precondition True;
-            choice Choice (self) (u:Unit) : Unit  
+             choice Choice (self) (u:Unit) : Unit  
               , controllers Nil @Party
               to upure @Unit ();
           };

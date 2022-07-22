@@ -1023,7 +1023,6 @@ encodeDefInterface DefInterface{..} = do
     defInterfaceRequires <- encodeSet encodeQualTypeConName' intRequires
     defInterfaceMethods <- encodeNameMap encodeInterfaceMethod intMethods
     defInterfaceParamInternedStr <- encodeNameId unExprVarName intParam
-    defInterfacePrecond <- encodeExpr intPrecondition
     defInterfaceChoices <- encodeNameMap encodeTemplateChoice intChoices
     defInterfaceCoImplements <- encodeNameMap encodeInterfaceCoImplements intCoImplements
     defInterfaceView <- encodeType intView

@@ -15,13 +15,11 @@ module InterfaceMod0 {
 module InterfaceMod {
 
   interface (this: Root) = {
-    precondition True;
     coimplements InterfaceMod0:Parcel {};
   };
 
   interface (this: Boxy) = {
     requires InterfaceMod:Root;
-    precondition True;
     method getParty: Party;
     choice @nonConsuming ReturnInt (self) (i: Int64): Int64
       , controllers Cons @Party [call_method @InterfaceMod:Boxy getParty this] (Nil @Party)
