@@ -8,7 +8,11 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.backend.ParameterStorageBackend
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.cache.{ContractStateCaches, EventsBuffer, MutableLedgerEndCache}
+import com.daml.platform.store.cache.{
+  ContractStateCaches,
+  InMemoryFanoutBuffer,
+  MutableLedgerEndCache,
+}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interning.{StringInterningView, UpdatingStringInterningView}
 import org.mockito.MockitoSugar
@@ -108,7 +112,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
           InMemoryState,
           MutableLedgerEndCache,
           ContractStateCaches,
-          EventsBuffer,
+          InMemoryFanoutBuffer,
           StringInterningView,
           DispatcherState,
       ) => Future[Assertion]
@@ -116,7 +120,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
     val mutableLedgerEndCache = mock[MutableLedgerEndCache]
     val contractStateCaches = mock[ContractStateCaches]
 
-    val transactionsBuffer = mock[EventsBuffer]
+    val transactionsBuffer = mock[InMemoryFanoutBuffer]
     val stringInterningView = mock[StringInterningView]
 
     val dispatcherState = mock[DispatcherState]

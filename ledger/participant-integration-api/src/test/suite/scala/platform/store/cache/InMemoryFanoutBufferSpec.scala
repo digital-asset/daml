@@ -9,8 +9,8 @@ import com.daml.ledger.api.v1.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Time
 import com.daml.metrics.Metrics
-import com.daml.platform.store.cache.EventsBuffer.BufferSlice.LastBufferChunkSuffix
-import com.daml.platform.store.cache.EventsBuffer.{BufferSlice, UnorderedException}
+import com.daml.platform.store.cache.InMemoryFanoutBuffer.BufferSlice.LastBufferChunkSuffix
+import com.daml.platform.store.cache.InMemoryFanoutBuffer.{BufferSlice, UnorderedException}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
 import org.scalatest.Succeeded
@@ -24,7 +24,10 @@ import scala.collection.{View, immutable}
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future}
 
-class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
+class InMemoryFanoutBufferSpec
+    extends AnyWordSpec
+    with Matchers
+    with ScalaCheckDrivenPropertyChecks {
   private val offsetIdx = Vector(2, 4, 6, 8, 10)
   private val BeginOffset = offset(0L)
   private val offsets @ Seq(offset1, offset2, offset3, offset4, offset5) =
@@ -390,8 +393,8 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
 
   "indexAfter" should {
     "yield the index gt the searched entry" in {
-      EventsBuffer.indexAfter(InsertionPoint(3)) shouldBe 3
-      EventsBuffer.indexAfter(Found(3)) shouldBe 4
+      InMemoryFanoutBuffer.indexAfter(InsertionPoint(3)) shouldBe 3
+      InMemoryFanoutBuffer.indexAfter(Found(3)) shouldBe 4
     }
   }
 
@@ -399,13 +402,13 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     "return an Inclusive result with filter" in {
       val input = Vector(entry1, entry2, entry3, entry4).view
 
-      EventsBuffer.filterAndChunkSlice[TransactionLogUpdate](
+      InMemoryFanoutBuffer.filterAndChunkSlice[TransactionLogUpdate](
         sliceView = input,
         filter = Option(_).filterNot(_ == entry2._2),
         maxChunkSize = 3,
       ) shouldBe Vector(entry1, entry3, entry4)
 
-      EventsBuffer.filterAndChunkSlice[TransactionLogUpdate](
+      InMemoryFanoutBuffer.filterAndChunkSlice[TransactionLogUpdate](
         sliceView = View.empty,
         filter = Some(_),
         maxChunkSize = 3,
@@ -417,25 +420,25 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     val input = Vector(entry1, entry2, entry3, entry4)
 
     "return a LastBufferChunkSuffix with the last maxChunkSize-sized chunk from the slice with filter" in {
-      EventsBuffer.lastFilteredChunk[TransactionLogUpdate](
+      InMemoryFanoutBuffer.lastFilteredChunk[TransactionLogUpdate](
         bufferSlice = input,
         filter = Option(_).filterNot(_ == entry2._2),
         maxChunkSize = 1,
       ) shouldBe LastBufferChunkSuffix(entry3._1, Vector(entry4))
 
-      EventsBuffer.lastFilteredChunk[TransactionLogUpdate](
+      InMemoryFanoutBuffer.lastFilteredChunk[TransactionLogUpdate](
         bufferSlice = input,
         filter = Option(_).filterNot(_ == entry2._2),
         maxChunkSize = 2,
       ) shouldBe LastBufferChunkSuffix(entry1._1, Vector(entry3, entry4))
 
-      EventsBuffer.lastFilteredChunk[TransactionLogUpdate](
+      InMemoryFanoutBuffer.lastFilteredChunk[TransactionLogUpdate](
         bufferSlice = input,
         filter = Option(_).filterNot(_ == entry2._2),
         maxChunkSize = 3,
       ) shouldBe LastBufferChunkSuffix(entry1._1, Vector(entry3, entry4))
 
-      EventsBuffer.lastFilteredChunk[TransactionLogUpdate](
+      InMemoryFanoutBuffer.lastFilteredChunk[TransactionLogUpdate](
         bufferSlice = input,
         filter = Some(_), // No filter
         maxChunkSize = 4,
@@ -443,7 +446,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     }
 
     "use the slice head as bufferedStartExclusive when filter yields an empty result slice" in {
-      EventsBuffer.lastFilteredChunk[TransactionLogUpdate](
+      InMemoryFanoutBuffer.lastFilteredChunk[TransactionLogUpdate](
         bufferSlice = input,
         filter = _ => None,
         maxChunkSize = 2,
@@ -455,11 +458,10 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
       maxBufferSize: Int = 5,
       elems: immutable.Vector[(Offset, TransactionLogUpdate)] = bufferElements,
       maxFetchSize: Int = 10,
-  )(test: EventsBuffer => Assertion): Assertion = {
-    val buffer = new EventsBuffer(
+  )(test: InMemoryFanoutBuffer => Assertion): Assertion = {
+    val buffer = new InMemoryFanoutBuffer(
       maxBufferSize,
       new Metrics(new MetricRegistry),
-      "integers",
       maxBufferedChunkSize = maxFetchSize,
     )
     elems.foreach { case (offset, event) => buffer.push(offset, event) }

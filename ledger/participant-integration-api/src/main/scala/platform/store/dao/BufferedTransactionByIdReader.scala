@@ -5,13 +5,13 @@ package com.daml.platform.store.dao
 
 import com.daml.lf.data.Ref.Party
 import com.daml.logging.LoggingContext
-import com.daml.platform.store.cache.EventsBuffer
+import com.daml.platform.store.cache.InMemoryFanoutBuffer
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 
 import scala.concurrent.Future
 
 class BufferedTransactionByIdReader[API_RESPONSE](
-    inMemoryFanout: EventsBuffer,
+    inMemoryFanout: InMemoryFanoutBuffer,
     fetchFromPersistence: String => Set[Party] => LoggingContext => Future[Option[API_RESPONSE]],
     toApiResponse: TransactionLogUpdate.TransactionAccepted => Set[Party] => Future[
       Option[API_RESPONSE]

@@ -4,38 +4,37 @@
 package com.daml.platform.store.cache
 
 import com.daml.ledger.offset.Offset
+import com.daml.logging.ContextualizedLogger
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.cache.EventsBuffer.{
-  BufferSlice,
-  UnorderedException,
-  filterAndChunkSlice,
-  indexAfter,
-  lastFilteredChunk,
-}
+import com.daml.platform.store.cache.InMemoryFanoutBuffer._
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
 import scala.collection.View
 
-/** An ordered-by-offset queue buffer.
+/** The in-memory fan-out buffer.
   *
-  * The buffer allows appending only elements with strictly increasing offsets.
+  * This buffer stores the last ingested `maxBufferSize` accepted and rejected submission updates
+  * as [[TransactionLogUpdate]] and allows bypassing IndexDB persistence fetches for:
+  *   - flat and transaction tree streams
+  *   - command completion streams
+  *   - by-event-id and by-transaction-id flat and transaction tree lookups
   *
   * @param maxBufferSize The maximum buffer size.
   * @param metrics The Daml metrics.
-  * @param bufferQualifier The qualifier used for metrics tag specialization.
+  * @param maxBufferedChunkSize The maximum size of buffered chunks returned by `slice`.
   */
-class EventsBuffer(
+class InMemoryFanoutBuffer(
     maxBufferSize: Int,
     metrics: Metrics,
-    bufferQualifier: String,
     maxBufferedChunkSize: Int,
 ) {
-  @volatile private[cache] var _bufferLog: Vector[(Offset, TransactionLogUpdate)] = Vector.empty
-  @volatile private[cache] var _lookupMap: Map[String, TransactionLogUpdate.TransactionAccepted] =
-    Map.empty
+  @volatile private[cache] var _bufferLog =
+    Vector.empty[(Offset, TransactionLogUpdate)]
+  @volatile private[cache] var _lookupMap =
+    Map.empty[TransactionId, TransactionLogUpdate.TransactionAccepted]
 
-  private val bufferMetrics = metrics.daml.services.index.Buffer(bufferQualifier)
+  private val bufferMetrics = metrics.daml.services.index.Buffer
   private val pushTimer = bufferMetrics.push
   private val sliceTimer = bufferMetrics.slice
   private val pruneTimer = bufferMetrics.prune
@@ -55,29 +54,23 @@ class EventsBuffer(
       pushTimer,
       synchronized {
         _bufferLog.lastOption.foreach {
-          // Ensures vector grows with strictly monotonic offsets.
+          // Encountering a non-strictly increasing offset is an error condition.
           case (lastOffset, _) if lastOffset >= offset =>
             throw UnorderedException(lastOffset, offset)
           case _ =>
         }
-        if (maxBufferSize <= 0) ()
-        else if (_bufferLog.size == maxBufferSize) {
-          val (evicted, remaining) = _bufferLog.splitAt(1)
-          _bufferLog = remaining :+ offset -> entry
 
-          extractEntryFromMap(evicted.head._2).foreach { case (keyToBeEvicted, _) =>
-            _lookupMap = _lookupMap.removed(keyToBeEvicted)
-          }
-          extractEntryFromMap(entry).foreach { case (key, value) =>
-            _lookupMap = _lookupMap.updated(key, value)
-          }
+        if (maxBufferSize <= 0) {
+          // Do nothing since buffer updates are not atomic and the reads are not synchronized,
+          // This ensures that reads can never see data in the buffer.
         } else {
+          ensureSize(maxBufferSize - 1)
+
           _bufferLog = _bufferLog :+ offset -> entry
           extractEntryFromMap(entry).foreach { case (key, value) =>
             _lookupMap = _lookupMap.updated(key, value)
           }
         }
-        bufferSizeHistogram.update(_bufferLog.size)
       },
     )
 
@@ -85,6 +78,8 @@ class EventsBuffer(
     *
     * @param startExclusive The start exclusive bound of the requested range.
     * @param endInclusive The end inclusive bound of the requested range.
+    * @param filter A lambda function that allows pre-filtering the buffered elements
+    *               before assembling [[maxBufferedChunkSize]]-sized slices.
     * @return A slice of the series of events as an ordered vector satisfying the input bounds.
     */
   def slice[FILTER_RESULT](
@@ -122,9 +117,10 @@ class EventsBuffer(
       },
     )
 
-  def lookup(key: String): Option[TransactionLogUpdate.TransactionAccepted] = _lookupMap.get(key)
+  def lookup(key: TransactionId): Option[TransactionLogUpdate.TransactionAccepted] =
+    _lookupMap.get(key)
 
-  /** Removes entries starting from the buffer tail up until `endInclusive`.
+  /** Removes entries starting from the buffer head up until `endInclusive`.
     *
     * @param endInclusive The last inclusive (highest) buffer offset to be pruned.
     */
@@ -132,18 +128,12 @@ class EventsBuffer(
     Timed.value(
       pruneTimer,
       synchronized {
-        val elementsToDrop = _bufferLog.view.map(_._1).search(endInclusive) match {
+        val dropCount = _bufferLog.view.map(_._1).search(endInclusive) match {
           case Found(foundIndex) => foundIndex + 1
           case InsertionPoint(insertionPoint) => insertionPoint
         }
 
-        val (removeFromMap, prunedBufferLog) = _bufferLog.splitAt(elementsToDrop)
-        val keysToRemoveFromMap = removeFromMap.collect {
-          case (_, txAccepted: TransactionLogUpdate.TransactionAccepted) => txAccepted.transactionId
-        }
-
-        _bufferLog = prunedBufferLog
-        _lookupMap = _lookupMap -- keysToRemoveFromMap
+        dropOldest(dropCount)
       },
     )
 
@@ -153,9 +143,41 @@ class EventsBuffer(
     _lookupMap = Map.empty
   }
 
+  private def ensureSize(targetSize: Int): Unit = synchronized {
+    val currentBufferLogSize = _bufferLog.size
+    val currentLookupMapSize = _lookupMap.size
+
+    if (currentLookupMapSize <= currentBufferLogSize) {
+      bufferSizeHistogram.update(currentBufferLogSize)
+
+      if (currentBufferLogSize > targetSize) {
+        dropOldest(dropCount = currentBufferLogSize - targetSize)
+      }
+    } else {
+      // This is an error condition. If encountered, clear the in-memory fan-out buffers.
+      ContextualizedLogger
+        .get(getClass)
+        .withoutContext
+        .error(
+          "In-memory fan-out lookup map size exceeds the buffer log size. Clearing in-memory fan-out.."
+        )
+
+      flush()
+    }
+  }
+
+  private def dropOldest(dropCount: Int): Unit = synchronized {
+    val (evicted, remainingBufferLog) = _bufferLog.splitAt(dropCount)
+    val lookupKeysToEvict =
+      evicted.view.map(_._2).flatMap(extractEntryFromMap).map(_._2.transactionId)
+
+    _bufferLog = remainingBufferLog
+    _lookupMap = _lookupMap -- lookupKeysToEvict
+  }
+
   private def extractEntryFromMap(
       transactionLogUpdate: TransactionLogUpdate
-  ): Option[(String, TransactionLogUpdate.TransactionAccepted)] =
+  ): Option[(TransactionId, TransactionLogUpdate.TransactionAccepted)] =
     transactionLogUpdate match {
       case txAccepted: TransactionLogUpdate.TransactionAccepted =>
         Some(txAccepted.transactionId -> txAccepted)
@@ -163,7 +185,8 @@ class EventsBuffer(
     }
 }
 
-private[platform] object EventsBuffer {
+private[platform] object InMemoryFanoutBuffer {
+  type TransactionId = String
 
   /** Specialized slice representation of a Vector */
   private[platform] sealed trait BufferSlice[+ELEM] extends Product with Serializable {

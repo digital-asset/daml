@@ -18,7 +18,7 @@ import com.daml.lf.data.Ref.TransactionId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform
-import com.daml.platform.store.cache.EventsBuffer
+import com.daml.platform.store.cache.InMemoryFanoutBuffer
 import com.daml.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
 import com.daml.platform.store.dao.events.BufferedTransactionsReader.invertMapping
 import com.daml.platform.store.dao.events.TransactionLogUpdatesConversions.{
@@ -122,7 +122,7 @@ private[events] class BufferedTransactionsReader(
 private[platform] object BufferedTransactionsReader {
   def apply(
       delegate: LedgerDaoTransactionsReader,
-      transactionsBuffer: EventsBuffer,
+      transactionsBuffer: InMemoryFanoutBuffer,
       eventProcessingParallelism: Int,
       lfValueTranslation: LfValueTranslation,
       metrics: Metrics,
@@ -157,7 +157,7 @@ private[platform] object BufferedTransactionsReader {
       }
     val flatTransactionsStreamReader =
       new BufferedStreamsReader[(FilterRelation, Boolean), GetTransactionsResponse](
-        transactionLogUpdateBuffer = transactionsBuffer,
+        inMemoryFanoutBuffer = transactionsBuffer,
         fetchFromPersistence = fetchFlatTransactionsFromPersistence,
         bufferedStreamEventsProcessingParallelism = eventProcessingParallelism,
         metrics = metrics,
@@ -165,7 +165,7 @@ private[platform] object BufferedTransactionsReader {
       )
     val transactionTreesStreamReader =
       new BufferedStreamsReader[(Set[Party], Boolean), GetTransactionTreesResponse](
-        transactionLogUpdateBuffer = transactionsBuffer,
+        inMemoryFanoutBuffer = transactionsBuffer,
         fetchFromPersistence = fetchTransactionTreesFromPersistence,
         bufferedStreamEventsProcessingParallelism = eventProcessingParallelism,
         metrics = metrics,

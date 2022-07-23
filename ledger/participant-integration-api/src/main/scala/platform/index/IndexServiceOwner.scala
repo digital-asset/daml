@@ -79,7 +79,7 @@ final class IndexServiceOwner(
       )(servicesExecutionContext)
 
       bufferedCommandCompletionsReader = BufferedCommandCompletionsReader(
-        transactionsBuffer = inMemoryState.transactionsBuffer,
+        inMemoryFanoutBuffer = inMemoryState.transactionsBuffer,
         delegate = ledgerDao.completions,
         metrics = metrics,
       )(servicesExecutionContext)

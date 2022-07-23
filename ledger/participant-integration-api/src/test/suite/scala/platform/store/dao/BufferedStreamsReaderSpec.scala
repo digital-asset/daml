@@ -12,7 +12,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.store.cache.EventsBuffer
+import com.daml.platform.store.cache.InMemoryFanoutBuffer
 import com.daml.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
 import BufferedStreamsReaderSpec._
 import com.daml.platform.store.interfaces.TransactionLogUpdate
@@ -68,10 +68,9 @@ class BufferedStreamsReaderSpec
       case other => fail(s"Unexpected $other")
     }
 
-    val transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
+    val transactionsBuffer = new InMemoryFanoutBuffer(
       maxBufferSize = 3,
       metrics = metrics,
-      bufferQualifier = "test",
       maxBufferedChunkSize = 100,
     )
 
@@ -84,13 +83,13 @@ class BufferedStreamsReaderSpec
     }
 
     def readerGetEventsGeneric(
-        transactionsBuffer: EventsBuffer,
+        transactionsBuffer: InMemoryFanoutBuffer,
         startExclusive: Offset,
         endInclusive: Offset,
         fetchFromPersistence: FetchFromPersistence[Object, String],
     ): Future[Seq[(Offset, String)]] =
       new BufferedStreamsReader[Object, String](
-        transactionLogUpdateBuffer = transactionsBuffer,
+        inMemoryFanoutBuffer = transactionsBuffer,
         fetchFromPersistence = fetchFromPersistence,
         bufferedStreamEventsProcessingParallelism = 2,
         metrics = metrics,
@@ -139,10 +138,9 @@ class BufferedStreamsReaderSpec
 
     "request withing buffer range inclusive (multiple chunks)" should {
       "correctly fetch from buffer" in {
-        val transactionsBufferWithSmallChunkSize = new EventsBuffer[TransactionLogUpdate](
+        val transactionsBufferWithSmallChunkSize = new InMemoryFanoutBuffer(
           maxBufferSize = 3,
           metrics = metrics,
-          bufferQualifier = "test",
           maxBufferedChunkSize = 1,
         )
 
@@ -189,10 +187,9 @@ class BufferedStreamsReaderSpec
       }
 
       "fetch from buffer and storage chunked" in {
-        val transactionsBufferWithSmallChunkSize = new EventsBuffer(
+        val transactionsBufferWithSmallChunkSize = new InMemoryFanoutBuffer(
           maxBufferSize = 3,
           metrics = metrics,
-          bufferQualifier = "test",
           maxBufferedChunkSize = 1,
         )
 
@@ -229,10 +226,9 @@ class BufferedStreamsReaderSpec
 
     "request before buffer bounds" should {
       "fetch only from storage" in {
-        val transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
+        val transactionsBuffer = new InMemoryFanoutBuffer(
           maxBufferSize = 1,
           metrics = metrics,
-          bufferQualifier = "test",
           maxBufferedChunkSize = 100,
         )
 
