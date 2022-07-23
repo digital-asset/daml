@@ -13,7 +13,6 @@ import com.daml.platform.store.cache.{
   InMemoryFanoutBuffer,
   MutableLedgerEndCache,
 }
-import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interning.{StringInterningView, UpdatingStringInterningView}
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion

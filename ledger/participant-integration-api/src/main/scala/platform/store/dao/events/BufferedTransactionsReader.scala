@@ -13,7 +13,6 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.daml.ledger.offset.Offset
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.TransactionId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -30,6 +29,7 @@ import com.daml.platform.store.dao.{
   BufferedTransactionByIdReader,
   LedgerDaoTransactionsReader,
 }
+import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.{FilterRelation, Identifier, Party}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -71,12 +71,12 @@ private[events] class BufferedTransactionsReader(
         startExclusive = startExclusive,
         endInclusive = endInclusive,
         persistenceFetchArgs = (filter, verbose),
-        bufferFilter =
-          ToFlatTransaction.filter(wildcardParties, templatesParties, requestingParties),
-        toApiResponse = ToFlatTransaction.toApiTransaction(filter, verbose, lfValueTranslation)(
-          loggingContext,
-          executionContext,
-        ),
+        bufferFilter = ToFlatTransaction.filter(wildcardParties, templatesParties, requestingParties),
+        toApiResponse =
+          ToFlatTransaction.toGetTransactionsResponse(filter, verbose, lfValueTranslation)(
+            loggingContext,
+            executionContext,
+          ),
       )
   }
 
@@ -94,8 +94,8 @@ private[events] class BufferedTransactionsReader(
         endInclusive = endInclusive,
         persistenceFetchArgs = (requestingParties, verbose),
         bufferFilter = ToTransactionTree.filter(requestingParties),
-        toApiResponse =
-          ToTransactionTree.toApiTransaction(requestingParties, verbose, lfValueTranslation)(
+        toApiResponse = ToTransactionTree
+          .toGetTransactionsResponse(requestingParties, verbose, lfValueTranslation)(
             loggingContext,
             executionContext,
           ),
@@ -129,44 +129,43 @@ private[platform] object BufferedTransactionsReader {
   )(implicit
       executionContext: ExecutionContext
   ): BufferedTransactionsReader = {
-    val fetchFlatTransactionsFromPersistence =
-      new FetchFromPersistence[(FilterRelation, Boolean), GetTransactionsResponse] {
-        override def apply(
-            startExclusive: Offset,
-            endInclusive: Offset,
-            filter: (FilterRelation, Boolean),
-        )(implicit
-            loggingContext: LoggingContext
-        ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
-          val (filterRelation, verbose) = filter
-          delegate.getFlatTransactions(startExclusive, endInclusive, filterRelation, verbose)
-        }
-      }
-    val fetchTransactionTreesFromPersistence =
-      new FetchFromPersistence[(Set[Party], Boolean), GetTransactionTreesResponse] {
-        override def apply(
-            startExclusive: Offset,
-            endInclusive: Offset,
-            filter: (Set[Party], Boolean),
-        )(implicit
-            loggingContext: LoggingContext
-        ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
-          val (requestingParties, verbose) = filter
-          delegate.getTransactionTrees(startExclusive, endInclusive, requestingParties, verbose)
-        }
-      }
     val flatTransactionsStreamReader =
       new BufferedStreamsReader[(FilterRelation, Boolean), GetTransactionsResponse](
         inMemoryFanoutBuffer = transactionsBuffer,
-        fetchFromPersistence = fetchFlatTransactionsFromPersistence,
+        fetchFromPersistence =
+          new FetchFromPersistence[(FilterRelation, Boolean), GetTransactionsResponse] {
+            override def apply(
+                startExclusive: Offset,
+                endInclusive: Offset,
+                filter: (FilterRelation, Boolean),
+            )(implicit
+                loggingContext: LoggingContext
+            ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
+              val (filterRelation, verbose) = filter
+              delegate.getFlatTransactions(startExclusive, endInclusive, filterRelation, verbose)
+            }
+          },
         bufferedStreamEventsProcessingParallelism = eventProcessingParallelism,
         metrics = metrics,
         streamName = "transactions",
       )
+
     val transactionTreesStreamReader =
       new BufferedStreamsReader[(Set[Party], Boolean), GetTransactionTreesResponse](
         inMemoryFanoutBuffer = transactionsBuffer,
-        fetchFromPersistence = fetchTransactionTreesFromPersistence,
+        fetchFromPersistence =
+          new FetchFromPersistence[(Set[Party], Boolean), GetTransactionTreesResponse] {
+            override def apply(
+                startExclusive: Offset,
+                endInclusive: Offset,
+                filter: (Set[Party], Boolean),
+            )(implicit
+                loggingContext: LoggingContext
+            ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
+              val (requestingParties, verbose) = filter
+              delegate.getTransactionTrees(startExclusive, endInclusive, requestingParties, verbose)
+            }
+          },
         bufferedStreamEventsProcessingParallelism = eventProcessingParallelism,
         metrics = metrics,
         streamName = "transaction_trees",
@@ -175,53 +174,43 @@ private[platform] object BufferedTransactionsReader {
     val bufferedFlatTransactionByIdReader =
       new BufferedTransactionByIdReader[GetFlatTransactionResponse](
         inMemoryFanout = transactionsBuffer,
-        fetchFromPersistence = txId =>
-          requestingParties =>
-            loggingContext =>
-              delegate.lookupFlatTransactionById(
-                platform.TransactionId.assertFromString(txId),
-                requestingParties,
-              )(loggingContext),
-        toApiResponse = tx =>
-          requestingParties =>
-            ToFlatTransaction
-              .filter(requestingParties, Map.empty)(tx)
-              .map(
-                ToFlatTransaction.toApiTransaction(
-                  filter = requestingParties.map(_ -> Set.empty[Ref.Identifier]).toMap,
-                  verbose = true,
-                  lfValueTranslation = lfValueTranslation,
-                )(LoggingContext.empty, executionContext)
-              )
-              .map(_.map { r =>
-                Some(GetFlatTransactionResponse(r.transactions.headOption))
-              })
-              .getOrElse(Future.successful(None)),
+        fetchFromPersistence =
+          (transactionId: String, requestingParties: Set[Party], loggingContext: LoggingContext) =>
+            delegate.lookupFlatTransactionById(
+              platform.TransactionId.assertFromString(transactionId),
+              requestingParties,
+            )(loggingContext),
+        toApiResponse = (
+            transactionAccepted: TransactionLogUpdate.TransactionAccepted,
+            requestingParties: Set[Party],
+            loggingContext: LoggingContext,
+        ) =>
+          ToFlatTransaction.toGetFlatTransactionResponse(
+            transactionAccepted,
+            requestingParties,
+            lfValueTranslation,
+          )(loggingContext, executionContext),
       )
 
     val bufferedTransactionTreeByIdReader =
       new BufferedTransactionByIdReader[GetTransactionResponse](
         inMemoryFanout = transactionsBuffer,
-        fetchFromPersistence = txId =>
-          requestingParties =>
-            loggingContext =>
-              delegate.lookupTransactionTreeById(
-                platform.TransactionId.assertFromString(txId),
-                requestingParties,
-              )(loggingContext),
-        toApiResponse = tx =>
-          requestingParties =>
-            ToTransactionTree
-              .filter(requestingParties)(tx)
-              .map(
-                ToTransactionTree
-                  .toApiTransaction(requestingParties, verbose = true, lfValueTranslation)(
-                    LoggingContext.empty,
-                    executionContext,
-                  )
-              )
-              .map(_.map(r => Some(GetTransactionResponse(r.transactions.headOption))))
-              .getOrElse(Future.successful(None)),
+        fetchFromPersistence =
+          (transactionId: String, requestingParties: Set[Party], loggingContext: LoggingContext) =>
+            delegate.lookupTransactionTreeById(
+              platform.TransactionId.assertFromString(transactionId),
+              requestingParties,
+            )(loggingContext),
+        toApiResponse = (
+            transactionAccepted: TransactionLogUpdate.TransactionAccepted,
+            requestingParties: Set[Party],
+            loggingContext: LoggingContext,
+        ) =>
+          ToTransactionTree.toGetTransactionResponse(
+            transactionAccepted,
+            requestingParties,
+            lfValueTranslation,
+          )(loggingContext, executionContext),
       )
 
     new BufferedTransactionsReader(

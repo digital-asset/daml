@@ -117,8 +117,9 @@ class InMemoryFanoutBuffer(
       },
     )
 
-  def lookup(key: TransactionId): Option[TransactionLogUpdate.TransactionAccepted] =
-    _lookupMap.get(key)
+  /** Lookup the accepted transaction update by transaction id and return None if not found. */
+  def lookup(transactionId: TransactionId): Option[TransactionLogUpdate.TransactionAccepted] =
+    _lookupMap.get(transactionId)
 
   /** Removes entries starting from the buffer head up until `endInclusive`.
     *
