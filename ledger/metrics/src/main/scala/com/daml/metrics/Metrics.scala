@@ -662,7 +662,7 @@ final class Metrics(val registry: MetricRegistry) {
         val getTransactionMetering: Timer = registry.timer(Prefix :+ "get_transaction_metering")
 
         object Buffer {
-          val Prefix: MetricName = index.Prefix :+ s"in_memory_fanout_buffer"
+          val Prefix: MetricName = index.Prefix :+ "in_memory_fanout_buffer"
 
           val push: Timer = registry.timer(Prefix :+ "push")
           val slice: Timer = registry.timer(Prefix :+ "slice")

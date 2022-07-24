@@ -407,6 +407,7 @@ private[events] object TransactionLogUpdatesConversions {
             eventId = exercisedEvent.eventId.toLedgerString,
             contractId = exercisedEvent.contractId.coid,
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
+            interfaceId = exercisedEvent.interfaceId.map(LfEngineToApi.toApiIdentifier),
             choice = exercisedEvent.choice,
             choiceArgument = Some(choiceArgument),
             actingParties = exercisedEvent.actingParties.toSeq,
