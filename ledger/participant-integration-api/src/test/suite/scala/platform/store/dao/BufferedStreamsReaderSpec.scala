@@ -17,17 +17,12 @@ import com.daml.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
 import BufferedStreamsReaderSpec._
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
-import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
-class BufferedStreamsReaderSpec
-    extends AsyncWordSpec
-    with MockitoSugar
-    with Matchers
-    with AkkaBeforeAndAfterAll {
+class BufferedStreamsReaderSpec extends AsyncWordSpec with Matchers with AkkaBeforeAndAfterAll {
   private implicit val lc: LoggingContext = LoggingContext.ForTesting
 
   "getEvents" when {

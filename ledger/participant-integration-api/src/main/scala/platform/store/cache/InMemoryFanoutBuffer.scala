@@ -15,7 +15,7 @@ import scala.collection.View
 /** The in-memory fan-out buffer.
   *
   * This buffer stores the last ingested `maxBufferSize` accepted and rejected submission updates
-  * as [[TransactionLogUpdate]] and allows bypassing IndexDB persistence fetches for:
+  * as [[TransactionLogUpdate]] and allows bypassing IndexDB persistence fetches for recent updates for:
   *   - flat and transaction tree streams
   *   - command completion streams
   *   - by-event-id and by-transaction-id flat and transaction tree lookups
@@ -61,7 +61,7 @@ class InMemoryFanoutBuffer(
         }
 
         if (maxBufferSize <= 0) {
-          // Do nothing since buffer updates are not atomic and the reads are not synchronized,
+          // Do nothing since buffer updates are not atomic and the reads are not synchronized.
           // This ensures that reads can never see data in the buffer.
         } else {
           ensureSize(maxBufferSize - 1)
@@ -117,7 +117,7 @@ class InMemoryFanoutBuffer(
       },
     )
 
-  /** Lookup the accepted transaction update by transaction id and return None if not found. */
+  /** Lookup the accepted transaction update by transaction id. */
   def lookup(transactionId: TransactionId): Option[TransactionLogUpdate.TransactionAccepted] =
     _lookupMap.get(transactionId)
 
