@@ -37,7 +37,6 @@ import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.dao.EventDisplayProperties
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
-import io.grpc.Status.Code
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -179,7 +178,7 @@ final class LfValueTranslation(
     )
   }
 
-  private[this] def consumeEnricherResult[V](
+  private[this] def consumeEnricherResult[V](timerX: TimerX)(
       result: LfEngine.Result[V]
   )(implicit
       ec: ExecutionContext,
@@ -195,9 +194,7 @@ final class LfValueTranslation(
             delegate = packageId => loadPackage(packageId, loggingContext),
             metric = metrics.daml.index.db.translation.getLfPackage,
           )
-          .flatMap(pkgO =>
-            consumeEnricherResult(TimerX.Original.verboseEnriching.measure(resume(pkgO)))
-          )
+          .flatMap(pkgO => consumeEnricherResult(timerX)(timerX.measure(resume(pkgO))))
       case result =>
         Future.failed(new RuntimeException(s"Unexpected ValueEnricher result: $result"))
     }
@@ -213,9 +210,9 @@ final class LfValueTranslation(
       loggingContext: LoggingContext,
   ): Future[ApiValue] = for {
     enrichedValue <-
-      if (verbose)
-        consumeEnricherResult(enrich(value))
-      else
+      if (verbose) {
+        consumeEnricherResult(null /* not supported */ )(enrich(value))
+      } else
         Future.successful(value.unversioned)
   } yield {
     LfEngineToApi.assertOrRuntimeEx(
@@ -261,30 +258,43 @@ final class LfValueTranslation(
       }
     def condFuture[T](cond: Boolean)(f: => Future[T]): Future[Option[T]] =
       if (cond) f.map(Some(_)) else Future.successful(None)
-    def enrichAsync(enrich: Value => LfEngine.Result[Value])(value: Value): Future[Value] =
+    def enrichAsync(timerx: TimerX, enrich: Value => LfEngine.Result[Value])(
+        value: Value
+    ): Future[Value] =
       condFuture(eventDisplayProperties.verbose)(
-        Future(enrich(value)).flatMap(consumeEnricherResult)
+        Future(timerx.measure(enrich(value))).flatMap(consumeEnricherResult(timerx))
       ).map(_.getOrElse(value))
     def toApi[T](
+        timerx: TimerX,
         lfEngineToApiFunction: (Boolean, Value) => Either[String, T],
         attribute: => String,
-    )(value: Value): T =
+    )(value: Value): T = timerx.measure(
       LfEngineToApi.assertOrRuntimeEx(
         // TODO DPP-1086: this is not always right
         failureContext = s"attempting to deserialize persisted $attribute to record",
         lfEngineToApiFunction(eventDisplayProperties.verbose, value),
       )
+    )
     val asyncContractAguments = condFuture(renderContractArguments)(
-      enrichAsync(enricher.enrichContract(templateId, _))(value.unversioned)
-        .map(toApi(LfEngineToApi.lfValueToApiRecord, "create argument"))
+      enrichAsync(TimerX.Original.verboseEnriching, enricher.enrichContract(templateId, _))(
+        value.unversioned
+      )
+        .map(
+          toApi(
+            TimerX.Original.apiSerialization,
+            LfEngineToApi.lfValueToApiRecord,
+            "create argument",
+          )
+        )
     )
     val asyncContractKey = condFuture(renderContractArguments && key.isDefined)(
       enrichAsync(
-        enricher.enrichContractKey(templateId, _)
+        TimerX.Original.verboseEnriching,
+        enricher.enrichContractKey(templateId, _),
       )(
         key.get.unversioned
       )
-        .map(toApi(LfEngineToApi.lfValueToApiValue, "create key"))
+        .map(toApi(TimerX.Original.apiSerialization, LfEngineToApi.lfValueToApiValue, "create key"))
     )
     val asyncInterfaceViews = Future.traverse(renderInterfaces.toSeq)(interfaceId =>
       renderInterfaceView(
@@ -292,7 +302,10 @@ final class LfValueTranslation(
         value.unversioned,
         interfaceId,
         eventDisplayProperties.verbose,
-        enrichAsync(enricher.enrichView(interfaceId, _)),
+        enrichAsync(
+          TimerX.InterfaceProjection.verboseEnriching,
+          enricher.enrichView(interfaceId, _),
+        ),
       )
     )
 
@@ -356,21 +369,24 @@ final class LfValueTranslation(
       }
       .map {
         _.flatMap(versionedValue =>
-          LfEngineToApi.lfValueToApiRecord(
-            verbose = verbose,
-            recordValue = versionedValue,
+          TimerX.InterfaceProjection.apiSerialization.measure(
+            LfEngineToApi.lfValueToApiRecord(
+              verbose = verbose,
+              recordValue = versionedValue,
+            )
           )
         )
           .fold(
             error =>
-              // Note: the view computation is an arbitrary Daml function and can thus fail (e.g., with a Daml exception)
-              InterfaceView(
-                interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
-                // TODO DPP-1068: Use a proper error status
-                viewStatus =
-                  Some(com.google.rpc.status.Status.of(Code.INTERNAL.value(), error, Seq.empty)),
-                viewValue = None,
-              ),
+              throw new Exception(s"oh no: $error"), // so that we do not perf test errors for sure
+            // Note: the view computation is an arbitrary Daml function and can thus fail (e.g., with a Daml exception)
+//              InterfaceView(
+//                interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
+//                // TODO DPP-1068: Use a proper error status
+//                viewStatus =
+//                  Some(com.google.rpc.status.Status.of(Code.INTERNAL.value(), error, Seq.empty)),
+//                viewValue = None,
+//              ),
             value =>
               InterfaceView(
                 interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
@@ -422,19 +438,21 @@ final class LfValueTranslation(
 
     for {
       create <- Future(
-        // Load the deserialized contract argument and contract key from the cache
-        // This returns the values in Daml-LF format.
-        cache.events
-          .getIfPresent(eventKey(raw.partial.eventId))
-          .getOrElse(
-            LfValueTranslationCache.EventCache.Value.Create(
-              argument =
-                decompressAndDeserialize(raw.createArgumentCompression, raw.createArgument),
-              key =
-                raw.createKeyValue.map(decompressAndDeserialize(raw.createKeyValueCompression, _)),
+        TimerX.Original.dbDeserialization.measure(
+          // Load the deserialized contract argument and contract key from the cache
+          // This returns the values in Daml-LF format.
+          cache.events
+            .getIfPresent(eventKey(raw.partial.eventId))
+            .getOrElse(
+              LfValueTranslationCache.EventCache.Value.Create(
+                argument =
+                  decompressAndDeserialize(raw.createArgumentCompression, raw.createArgument),
+                key =
+                  raw.createKeyValue.map(decompressAndDeserialize(raw.createKeyValueCompression, _)),
+              )
             )
-          )
-          .assertCreate()
+            .assertCreate()
+        )
       )
       apiContractData <- toApiContractData(
         value = create.argument,

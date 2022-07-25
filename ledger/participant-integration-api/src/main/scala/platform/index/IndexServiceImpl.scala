@@ -12,6 +12,7 @@ import com.daml.ledger.api.{TraceIdentifiers, domain}
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
 import com.daml.ledger.api.domain.{
   Filters,
+  InterfaceFilter,
   LedgerId,
   LedgerOffset,
   PackageEntry,
@@ -218,34 +219,37 @@ private[index] class IndexServiceImpl(
     val originalTotal = originalApiSerialization + originalDBDeserialization + originalVerbose
     val computeInterfaceView = TimerX.InterfaceProjection.computeInterfaceView.reset()._1
     val serializeInterfaceView = TimerX.InterfaceProjection.apiSerialization.reset()._1
-    val interfaceTotal = computeInterfaceView + serializeInterfaceView
+    val verboseView = TimerX.InterfaceProjection.verboseEnriching.reset()._1
+    val interfaceTotal = computeInterfaceView + serializeInterfaceView + verboseView
     println(s"""
          |Original contract_argument computation: $originalTotal ms
-         |  verbose:              $originalVerbose ms
          |  db-deserialization:   $originalDBDeserialization ms
+         |  verbose:              $originalVerbose ms
          |  api-serialization:    $originalApiSerialization ms
          |Interface projection computation:       $interfaceTotal ms
          |  compute view:         $computeInterfaceView ms
+         |  verbose view:         $verboseView ms
          |  serialize view:       $serializeInterfaceView ms
          |
          |""".stripMargin)
 
+    val verboseMode = true
     val filter =
       if (false) f
       else
         TransactionFilter(
           f.filtersByParty.view
-            .mapValues(_ =>
+            .mapValues(originalDomainFilters =>
               domain.Filters(
                 Some(
                   domain.InclusiveFilters(
-                    Set.empty,
+                    originalDomainFilters.inclusive.map(_.templateIds).getOrElse(Set.empty),
                     Set(
                       InterfaceFilter(
                         Identifier.assertFromString(
-                          "0cf588c31dc3d83264a76e5aadf155e69fd10b6ff108230c7e36bd15d7b019ed:InterfaceSubscriptions:FooView"
+                          "26502b6ea619892a34fa909b77e8c5c1e569504fe9733137bf6de7ee023122fa:InterfaceSubscriptions:FooView"
                         ),
-                        true,
+                        includeView = true,
                       )
                     ),
                   )
@@ -257,7 +261,7 @@ private[index] class IndexServiceImpl(
     withValidatedFilter(filter) {
       val currentLedgerEnd = ledgerEnd()
       val (filterRelation, eventDisplayProperties) =
-        memoizedFilterRelationAndEventDisplayProperties(filter, verbose)()
+        memoizedFilterRelationAndEventDisplayProperties(filter, verboseMode)()
       ledgerDao.transactionsReader
         .getActiveContracts(
           currentLedgerEnd,

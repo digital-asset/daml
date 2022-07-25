@@ -13,6 +13,7 @@ object TimerX {
 
   object InterfaceProjection {
     val computeInterfaceView = new TimerX
+    val verboseEnriching = new TimerX
     val apiSerialization = new TimerX
   }
 }
