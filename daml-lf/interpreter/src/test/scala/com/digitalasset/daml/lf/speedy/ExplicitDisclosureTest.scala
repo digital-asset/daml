@@ -279,7 +279,7 @@ class ExplicitDisclosureTest
         }
       }
 
-      "disclosed contract IDs that are inactive" - {
+      "disclosed contract keys that are inactive" - {
         "ledger query fails when contract key is not disclosed" in {
           val (result, ledger) =
             evaluateSExprWithSetup(
@@ -304,7 +304,7 @@ class ExplicitDisclosureTest
           }
         }
 
-        "disclosure table query fails when contract ID is disclosed" - {
+        "disclosure table query fails when contract key is disclosed" - {
           "contract key in disclosure table only" in {
             forAll(disclosedContractKeys) { case (disclosedContract, _) =>
               val (result, ledger) =
@@ -460,7 +460,7 @@ class ExplicitDisclosureTest
         }
       }
 
-      "disclosed contract IDs that are inactive" - {
+      "disclosed contract keys that are inactive" - {
         "ledger query fails when contract key is not disclosed" in {
           val (result, ledger) =
             evaluateSExprWithSetup(
@@ -484,7 +484,7 @@ class ExplicitDisclosureTest
           }
         }
 
-        "disclosure table query fails when contract ID is disclosed" - {
+        "disclosure table query fails when contract key is disclosed" - {
           "contract key in disclosure table only" in {
             forAll(disclosedContractKeys) { case (disclosedContract, _) =>
               val (result, ledger) =
