@@ -1641,7 +1641,7 @@ message DefInterface {
   repeated TemplateChoice choices = 6;
 
   // Templates which this interface co-implements.
-  repeated CoImplements coImplements = 7; // *Available in versions >= 1.dev*
+  repeated CoImplements coImplements = 7;
 
   // View type for this interface
   Type view = 9;
