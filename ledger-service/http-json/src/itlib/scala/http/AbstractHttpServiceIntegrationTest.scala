@@ -164,14 +164,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
   override def useTls = UseTls.NoTls
 
-  "query GET empty results" in withHttpService { fixture =>
-    fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (_, headers) =>
-      fixture.searchAllExpectOk(headers).map { vector =>
-        vector should have size 0L
-      }
-    }
-  }
-
   protected def genSearchDataSet(
       party: domain.Party
   ): List[domain.CreateCommand[v.Record, OptionalPkg]] =
@@ -182,45 +174,56 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       iouCreateCommand(amount = "444.44", currency = "BTC", partyName = party),
     )
 
-  "query GET" in withHttpService { fixture =>
-    fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-      val searchDataSet = genSearchDataSet(alice)
-      searchDataSet.traverse(c => postCreateCommand(c, fixture, headers)).flatMap { rs =>
-        rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
-
-        fixture
-          .getRequest(Uri.Path("/v1/query"), headers)
-          .parseResponse[Vector[JsValue]]
-          .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(vector, None, StatusCodes.OK)) =>
-            vector should have size searchDataSet.size.toLong
-          }): Future[Assertion]
+  "query GET" - {
+    "empty results" in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (_, headers) =>
+        fixture.searchAllExpectOk(headers).map { vector =>
+          vector should have size 0L
+        }
       }
     }
-  }
 
-  "multi-party query GET" in withHttpService { fixture =>
-    for {
-      res1 <- fixture.getUniquePartyAndAuthHeaders("Alice")
-      (alice, aliceHeaders) = res1
-      res2 <- fixture.getUniquePartyAndAuthHeaders("Bob")
-      (bob, bobHeaders) = res2
-      _ <- postCreateCommand(
-        accountCreateCommand(owner = alice, number = "42"),
-        fixture,
-        headers = aliceHeaders,
-      ).map(r => r._1 shouldBe StatusCodes.OK)
-      _ <- postCreateCommand(
-        accountCreateCommand(owner = bob, number = "23"),
-        fixture,
-        headers = bobHeaders,
-      ).map(r => r._1 shouldBe StatusCodes.OK)
-      _ <- fixture.searchAllExpectOk(aliceHeaders).map(cs => cs should have size 1)
-      _ <- fixture.searchAllExpectOk(bobHeaders).map(cs => cs should have size 1)
-      _ <- fixture
-        .headersWithPartyAuth(List(alice.unwrap, bob.unwrap))
-        .flatMap(headers => fixture.searchAllExpectOk(headers))
-        .map(cs => cs should have size 2)
-    } yield succeed
+    "single-party with results" in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        val searchDataSet = genSearchDataSet(alice)
+        searchDataSet.traverse(c => postCreateCommand(c, fixture, headers)).flatMap { rs =>
+          rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
+
+          fixture
+            .getRequest(Uri.Path("/v1/query"), headers)
+            .parseResponse[Vector[JsValue]]
+            .map(inside(_) {
+              case (StatusCodes.OK, domain.OkResponse(vector, None, StatusCodes.OK)) =>
+                vector should have size searchDataSet.size.toLong
+            }): Future[Assertion]
+        }
+      }
+    }
+
+    "multi-party" in withHttpService { fixture =>
+      for {
+        res1 <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        (alice, aliceHeaders) = res1
+        res2 <- fixture.getUniquePartyAndAuthHeaders("Bob")
+        (bob, bobHeaders) = res2
+        _ <- postCreateCommand(
+          accountCreateCommand(owner = alice, number = "42"),
+          fixture,
+          headers = aliceHeaders,
+        ).map(r => r._1 shouldBe StatusCodes.OK)
+        _ <- postCreateCommand(
+          accountCreateCommand(owner = bob, number = "23"),
+          fixture,
+          headers = bobHeaders,
+        ).map(r => r._1 shouldBe StatusCodes.OK)
+        _ <- fixture.searchAllExpectOk(aliceHeaders).map(cs => cs should have size 1)
+        _ <- fixture.searchAllExpectOk(bobHeaders).map(cs => cs should have size 1)
+        _ <- fixture
+          .headersWithPartyAuth(List(alice.unwrap, bob.unwrap))
+          .flatMap(headers => fixture.searchAllExpectOk(headers))
+          .map(cs => cs should have size 2)
+      } yield succeed
+    }
   }
 
   "query POST with empty query" in withHttpService { fixture =>
@@ -285,165 +288,172 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }
   }
 
-  "query with query, one field" in withHttpService { fixture =>
-    fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-      val searchDataSet = genSearchDataSet(alice)
-      searchExpectOk(
-        searchDataSet,
-        jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
-        fixture,
-        headers,
-      ).map { acl: List[domain.ActiveContract[JsValue]] =>
-        acl.size shouldBe 2
-        acl.map(a => objectField(a.payload, "currency")) shouldBe List.fill(2)(
-          Some(JsString("EUR"))
+  "query with unknown Template IDs" - {
+    "warns if some are known" in withHttpService { fixture =>
+      val query =
+        jsObject(
+          """{"templateIds": ["Iou:Iou", "UnknownModule:UnknownEntity"], "query": {"currency": "EUR"}}"""
         )
-      }
-    }
-  }
-
-  "query returns unknown Template IDs as warnings" in withHttpService { fixture =>
-    val query =
-      jsObject(
-        """{"templateIds": ["Iou:Iou", "UnknownModule:UnknownEntity"], "query": {"currency": "EUR"}}"""
-      )
-    // TODO VM(#12922) https://github.com/digital-asset/daml/pull/12922#discussion_r815234434
-    logger.info("query returns unknown Template IDs")
-    fixture
-      .headersWithPartyAuth(List("UnknownParty"))
-      .flatMap(headers =>
-        search(List(), query, fixture, headers).map { response =>
-          inside(response) { case domain.OkResponse(acl, warnings, StatusCodes.OK) =>
-            acl.size shouldBe 0
-            warnings shouldBe Some(
-              domain.UnknownTemplateIds(
-                List(domain.TemplateId(None, "UnknownModule", "UnknownEntity"))
+      // TODO VM(#12922) https://github.com/digital-asset/daml/pull/12922#discussion_r815234434
+      logger.info("query returns unknown Template IDs")
+      fixture
+        .headersWithPartyAuth(List("UnknownParty"))
+        .flatMap(headers =>
+          search(List(), query, fixture, headers).map { response =>
+            inside(response) { case domain.OkResponse(acl, warnings, StatusCodes.OK) =>
+              acl.size shouldBe 0
+              warnings shouldBe Some(
+                domain.UnknownTemplateIds(
+                  List(domain.TemplateId(None, "UnknownModule", "UnknownEntity"))
+                )
               )
-            )
+            }
           }
-        }
-      )
-  }
+        )
+    }
 
-  "query returns unknown Template IDs as warnings and error" in withHttpService { fixture =>
-    fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-      search(
-        genSearchDataSet(alice),
-        jsObject("""{"templateIds": ["AAA:BBB", "XXX:YYY"]}"""),
-        fixture,
-        headers,
-      ).map { response =>
-        inside(response) { case domain.ErrorResponse(errors, warnings, StatusCodes.BadRequest, _) =>
-          errors shouldBe List(ErrorMessages.cannotResolveAnyTemplateId)
-          inside(warnings) { case Some(domain.UnknownTemplateIds(unknownTemplateIds)) =>
-            unknownTemplateIds.toSet shouldBe Set(
-              domain.TemplateId(None, "AAA", "BBB"),
-              domain.TemplateId(None, "XXX", "YYY"),
-            )
+    "fails if all are unknown" in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        search(
+          genSearchDataSet(alice),
+          jsObject("""{"templateIds": ["AAA:BBB", "XXX:YYY"]}"""),
+          fixture,
+          headers,
+        ).map { response =>
+          inside(response) {
+            case domain.ErrorResponse(errors, warnings, StatusCodes.BadRequest, _) =>
+              errors shouldBe List(ErrorMessages.cannotResolveAnyTemplateId)
+              inside(warnings) { case Some(domain.UnknownTemplateIds(unknownTemplateIds)) =>
+                unknownTemplateIds.toSet shouldBe Set(
+                  domain.TemplateId(None, "AAA", "BBB"),
+                  domain.TemplateId(None, "XXX", "YYY"),
+                )
+              }
           }
         }
       }
     }
   }
 
-  "query with query, can use number or string for numeric field" in withHttpService { fixture =>
-    fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-      val searchDataSet = genSearchDataSet(alice)
-      searchDataSet.traverse(c => postCreateCommand(c, fixture, headers)).flatMap {
-        rs: List[(StatusCode, _)] =>
-          rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
+  "query record contains handles" - {
+    def randomTextN(n: Int) = {
+      import org.scalacheck.Gen
+      Gen
+        .buildableOfN[String, Char](n, Gen.alphaNumChar)
+        .sample
+        .getOrElse(sys.error(s"can't generate ${n}b string"))
+    }
 
-          def queryAmountAs(s: String) =
-            jsObject(s"""{"templateIds": ["Iou:Iou"], "query": {"amount": $s}}""")
-
-          val queryAmountAsString = queryAmountAs("\"111.11\"")
-          val queryAmountAsNumber = queryAmountAs("111.11")
-
-          List(queryAmountAsString, queryAmountAsNumber)
-            .map(q =>
-              fixture
-                .postJsonRequest(Uri.Path("/v1/query"), q, headers)
-                .parseResponse[List[domain.ActiveContract[JsValue]]]
-            )
-            .sequence
-            .map(inside(_) {
-              case Seq(
-                    (StatusCodes.OK, jsVal1 @ domain.OkResponse(acl1 @ List(ac), _, _)),
-                    (StatusCodes.OK, jsVal2 @ domain.OkResponse(acl2, _, _)),
-                  ) =>
-                jsVal1 shouldBe jsVal2
-                acl1 shouldBe acl2
-                objectField(ac.payload, "amount") shouldBe Some(JsString("111.11"))
-            })
-      }: Future[Assertion]
+    Seq(
+      "& " -> "& bar",
+      "1kb of data" -> randomTextN(1000),
+      "2kb of data" -> randomTextN(2000),
+      "3kb of data" -> randomTextN(3000),
+      "4kb of data" -> randomTextN(4000),
+      "5kb of data" -> randomTextN(5000),
+    ).foreach { case (testLbl, testCurrency) =>
+      s"'$testLbl' strings properly" in withHttpService { fixture =>
+        fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+          searchExpectOk(
+            genSearchDataSet(alice) :+ iouCreateCommand(
+              currency = testCurrency,
+              partyName = alice,
+            ),
+            jsObject(
+              s"""{"templateIds": ["Iou:Iou"], "query": {"currency": ${testCurrency.toJson}}}"""
+            ),
+            fixture,
+            headers,
+          ).map(inside(_) { case Seq(domain.ActiveContract(_, _, _, JsObject(fields), _, _, _)) =>
+            fields.get("currency") should ===(Some(JsString(testCurrency)))
+          })
+        }
+      }
     }
   }
 
-  private[this] def randomTextN(n: Int) = {
-    import org.scalacheck.Gen
-    Gen
-      .buildableOfN[String, Char](n, Gen.alphaNumChar)
-      .sample
-      .getOrElse(sys.error(s"can't generate ${n}b string"))
-  }
-
-  Seq(
-    "& " -> "& bar",
-    "1kb of data" -> randomTextN(1000),
-    "2kb of data" -> randomTextN(2000),
-    "3kb of data" -> randomTextN(3000),
-    "4kb of data" -> randomTextN(4000),
-    "5kb of data" -> randomTextN(5000),
-  ).foreach { case (testLbl, testCurrency) =>
-    s"query record contains handles '$testLbl' strings properly" in withHttpService { fixture =>
+  "query with filter" - {
+    "one field" in withHttpService { fixture =>
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        val searchDataSet = genSearchDataSet(alice)
         searchExpectOk(
-          genSearchDataSet(alice) :+ iouCreateCommand(
-            currency = testCurrency,
-            partyName = alice,
-          ),
+          searchDataSet,
+          jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
+          fixture,
+          headers,
+        ).map { acl: List[domain.ActiveContract[JsValue]] =>
+          acl.size shouldBe 2
+          acl.map(a => objectField(a.payload, "currency")) shouldBe List.fill(2)(
+            Some(JsString("EUR"))
+          )
+        }
+      }
+    }
+
+    "can use number or string for numeric field" in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        val searchDataSet = genSearchDataSet(alice)
+        searchDataSet.traverse(c => postCreateCommand(c, fixture, headers)).flatMap {
+          rs: List[(StatusCode, _)] =>
+            rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
+
+            def queryAmountAs(s: String) =
+              jsObject(s"""{"templateIds": ["Iou:Iou"], "query": {"amount": $s}}""")
+
+            val queryAmountAsString = queryAmountAs("\"111.11\"")
+            val queryAmountAsNumber = queryAmountAs("111.11")
+
+            List(queryAmountAsString, queryAmountAsNumber)
+              .map(q =>
+                fixture
+                  .postJsonRequest(Uri.Path("/v1/query"), q, headers)
+                  .parseResponse[List[domain.ActiveContract[JsValue]]]
+              )
+              .sequence
+              .map(inside(_) {
+                case Seq(
+                      (StatusCodes.OK, jsVal1 @ domain.OkResponse(acl1 @ List(ac), _, _)),
+                      (StatusCodes.OK, jsVal2 @ domain.OkResponse(acl2, _, _)),
+                    ) =>
+                  jsVal1 shouldBe jsVal2
+                  acl1 shouldBe acl2
+                  objectField(ac.payload, "amount") shouldBe Some(JsString("111.11"))
+              })
+        }: Future[Assertion]
+      }
+    }
+
+    "two fields" in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        val searchDataSet = genSearchDataSet(alice)
+        searchExpectOk(
+          searchDataSet,
           jsObject(
-            s"""{"templateIds": ["Iou:Iou"], "query": {"currency": ${testCurrency.toJson}}}"""
+            """{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR", "amount": "111.11"}}"""
           ),
           fixture,
           headers,
-        ).map(inside(_) { case Seq(domain.ActiveContract(_, _, _, JsObject(fields), _, _, _)) =>
-          fields.get("currency") should ===(Some(JsString(testCurrency)))
-        })
+        ).map { acl: List[domain.ActiveContract[JsValue]] =>
+          acl.size shouldBe 1
+          acl.map(a => objectField(a.payload, "currency")) shouldBe List(Some(JsString("EUR")))
+          acl.map(a => objectField(a.payload, "amount")) shouldBe List(Some(JsString("111.11")))
+        }
       }
     }
-  }
 
-  "query with query, two fields" in withHttpService { fixture =>
-    fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-      val searchDataSet = genSearchDataSet(alice)
-      searchExpectOk(
-        searchDataSet,
-        jsObject(
-          """{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR", "amount": "111.11"}}"""
-        ),
-        fixture,
-        headers,
-      ).map { acl: List[domain.ActiveContract[JsValue]] =>
-        acl.size shouldBe 1
-        acl.map(a => objectField(a.payload, "currency")) shouldBe List(Some(JsString("EUR")))
-        acl.map(a => objectField(a.payload, "amount")) shouldBe List(Some(JsString("111.11")))
-      }
-    }
-  }
-
-  "query with query, no results" in withHttpService { fixture =>
-    fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-      val searchDataSet = genSearchDataSet(alice)
-      searchExpectOk(
-        searchDataSet,
-        jsObject(
-          """{"templateIds": ["Iou:Iou"], "query": {"currency": "RUB", "amount": "666.66"}}"""
-        ),
-        fixture,
-        headers,
-      ).map { acl: List[domain.ActiveContract[JsValue]] =>
-        acl.size shouldBe 0
+    "no results" in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        val searchDataSet = genSearchDataSet(alice)
+        searchExpectOk(
+          searchDataSet,
+          jsObject(
+            """{"templateIds": ["Iou:Iou"], "query": {"currency": "RUB", "amount": "666.66"}}"""
+          ),
+          fixture,
+          headers,
+        ).map { acl: List[domain.ActiveContract[JsValue]] =>
+          acl.size shouldBe 0
+        }
       }
     }
   }
