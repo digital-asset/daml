@@ -24,6 +24,7 @@ class QueueBasedConcurrencyLimiter(
   private val waiting = mutable.Queue[Task]()
   private var running: Int = 0
 
+  // is this blocked on a monitor before Future is returned to the consumer?
   override def execute[T](task: => Future[T]): Future[T] = synchronized {
     val promise = Promise[T]()
 

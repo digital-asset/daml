@@ -305,15 +305,17 @@ final class Authorizer(
   private[auth] def authorizeWithReq[Req, Res](call: Req => Future[Res])(
       authorized: (ClaimSet.Claims, Req) => Either[StatusRuntimeException, Req]
   ): Req => Future[Res] = request =>
-    authenticatedClaimsFromContext() match {
-      case Failure(ex) => Future.failed(ex)
-      case Success(claims) =>
-        authorized(claims, request) match {
-          case Right(modifiedReq) => call(modifiedReq)
-          case Left(ex) =>
-            Future.failed(ex)
-        }
-    }
+    Future.delegate {
+      authenticatedClaimsFromContext() match {
+        case Failure(ex) => Future.failed(ex)
+        case Success(claims) =>
+          authorized(claims, request) match {
+            case Right(modifiedReq) => call(modifiedReq)
+            case Left(ex) =>
+              Future.failed(ex)
+          }
+      }
+    }(ec)
 
   private[auth] def authorize[Req, Res](call: Req => Future[Res])(
       authorized: ClaimSet.Claims => Either[AuthorizationError, Unit]
