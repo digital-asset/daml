@@ -7,9 +7,9 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.DispatcherState.{
-  DispatcherNotInitialized,
-  DispatcherOperational,
-  DispatcherShutdown,
+  DispatcherNotRunning,
+  DispatcherRunning,
+  DispatcherStateShutdown,
 }
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -24,53 +24,54 @@ class DispatcherState(dispatcherShutdownTimeout: Duration)(implicit
 ) {
   private val logger = ContextualizedLogger.get(getClass)
   @volatile private var dispatcherStateRef: DispatcherState.State =
-    DispatcherNotInitialized
-
-  def initialized: Boolean = dispatcherStateRef match {
-    case _: DispatcherState.DispatcherOperational => true
-    case DispatcherState.DispatcherNotInitialized | DispatcherState.DispatcherShutdown => false
-  }
+    DispatcherNotRunning
 
   def getDispatcher: Dispatcher[Offset] = dispatcherStateRef match {
-    case DispatcherState.DispatcherNotInitialized => throw dispatcherNotInitializedException()
-    case DispatcherState.DispatcherOperational(dispatcher) => dispatcher
-    case DispatcherState.DispatcherShutdown => throw dispatcherShutdownException()
+    case DispatcherNotRunning => throw dispatcherNotRunning()
+    case DispatcherStateShutdown => throw dispatcherStateShutdown()
+    case DispatcherRunning(dispatcher) => dispatcher
   }
 
-  def reset(ledgerEnd: LedgerEnd): Future[Unit] = synchronized {
+  def startDispatcher(ledgerEnd: LedgerEnd): Unit = synchronized {
     dispatcherStateRef match {
-      case DispatcherState.DispatcherNotInitialized =>
-        dispatcherStateRef = DispatcherOperational(buildDispatcher(ledgerEnd))
-        Future.unit
-      case DispatcherOperational(dispatcher) =>
-        dispatcherStateRef = DispatcherOperational(buildDispatcher(ledgerEnd))
-        shutdownDispatcher(dispatcher)
-      case DispatcherState.DispatcherShutdown =>
-        Future.failed(dispatcherShutdownException())
+      case DispatcherNotRunning =>
+        val activeDispatcher = buildDispatcher(ledgerEnd)
+        dispatcherStateRef = DispatcherRunning(activeDispatcher)
+      case DispatcherStateShutdown => throw dispatcherStateShutdown()
+      case DispatcherRunning(_) =>
+        throw new IllegalStateException(
+          "Dispatcher startup triggered while an existing dispatcher is still active."
+        )
+    }
+  }
+
+  def stopDispatcher(): Future[Unit] = synchronized {
+    dispatcherStateRef match {
+      case DispatcherNotRunning | DispatcherStateShutdown => Future.unit
+      case DispatcherRunning(dispatcher) =>
+        dispatcherStateRef = DispatcherNotRunning
+        logger.info("Stopping active Ledger API offset dispatcher.")
+        dispatcher
+          // TODO LLP: Fail sources with exception instead of graceful shutdown
+          .shutdown()
+          .withTimeout(dispatcherShutdownTimeout)(
+            logger.warn(
+              s"Shutdown of existing Ledger API streams did not finish in ${dispatcherShutdownTimeout.toSeconds} seconds."
+            )
+          )
     }
   }
 
   private[platform] def shutdown(): Future[Unit] = synchronized {
-    val currentState = dispatcherStateRef
-    dispatcherStateRef = DispatcherShutdown
-
-    currentState match {
-      case DispatcherState.DispatcherNotInitialized | DispatcherState.DispatcherShutdown =>
-        Future.unit
-      case DispatcherOperational(dispatcher) =>
-        shutdownDispatcher(dispatcher)
+    logger.info("Shutting down Ledger API offset dispatcher state.")
+    val shutdownF = dispatcherStateRef match {
+      case DispatcherNotRunning | DispatcherStateShutdown => Future.unit
+      case DispatcherRunning(_) => stopDispatcher()
     }
-  }
 
-  private def shutdownDispatcher(dispatcher: Dispatcher[Offset]): Future[Unit] =
-    dispatcher
-      // TODO LLP: Fail sources with exception instead of graceful shutdown
-      .shutdown()
-      .withTimeout(dispatcherShutdownTimeout)(
-        logger.warn(
-          s"Shutdown of existing Ledger API streams did not finish in ${dispatcherShutdownTimeout.toSeconds} seconds."
-        )
-      )
+    dispatcherStateRef = DispatcherStateShutdown
+    shutdownF
+  }
 
   private def buildDispatcher(ledgerEnd: LedgerEnd): Dispatcher[Offset] =
     Dispatcher(
@@ -79,19 +80,19 @@ class DispatcherState(dispatcherShutdownTimeout: Duration)(implicit
       headAtInitialization = ledgerEnd.lastOffset,
     )
 
-  private def dispatcherNotInitializedException() =
-    new IllegalStateException("Uninitialized Ledger API offset dispatcher.")
+  private def dispatcherNotRunning() =
+    new IllegalStateException("Ledger API offset dispatcher not running.")
 
-  private def dispatcherShutdownException() =
-    new IllegalStateException("Ledger API offset dispatcher has already shut down.")
+  private def dispatcherStateShutdown() =
+    new IllegalStateException("Ledger API offset dispatcher state has already shut down.")
 }
 
 object DispatcherState {
   private sealed trait State extends Product with Serializable
 
-  private final case object DispatcherNotInitialized extends State
-  private final case object DispatcherShutdown extends State
-  private final case class DispatcherOperational(dispatcher: Dispatcher[Offset]) extends State
+  private final case object DispatcherNotRunning extends State
+  private final case object DispatcherStateShutdown extends State
+  private final case class DispatcherRunning(dispatcher: Dispatcher[Offset]) extends State
 
   def owner(apiStreamShutdownTimeout: Duration)(implicit
       loggingContext: LoggingContext

@@ -22,13 +22,14 @@ import scala.util.chaining._
 private[platform] class InMemoryState(
     val ledgerEndCache: MutableLedgerEndCache,
     val contractStateCaches: ContractStateCaches,
-    val transactionsBuffer: InMemoryFanoutBuffer,
+    val inMemoryFanoutBuffer: InMemoryFanoutBuffer,
     val stringInterningView: StringInterningView,
     val dispatcherState: DispatcherState,
 )(implicit executionContext: ExecutionContext) {
   private val logger = ContextualizedLogger.get(getClass)
+  @volatile private var _initialized = false
 
-  final def initialized: Boolean = dispatcherState.initialized
+  final def initialized: Boolean = _initialized
 
   /** (Re-)initializes the participant in-memory state to a specific ledger end.
     *
@@ -42,18 +43,24 @@ private[platform] class InMemoryState(
     // TODO LLP: Reset the in-memory state only if the initialization ledgerEnd
     //           is different than the ledgerEndCache.
     for {
+      // First stop the active dispatcher (if exists) to ensure
+      // that Ledger API subscriptions racing with `initializeTo`
+      // do not observe an inconsistent state.
+      _ <- dispatcherState.stopDispatcher()
+      // Reset the string interning view to the latest ledger end
       _ <- updateStringInterningView(stringInterningView, ledgerEnd)
+      // Reset the Ledger API caches to the latest ledger end
       _ <- Future {
         contractStateCaches.reset(ledgerEnd.lastOffset)
-        transactionsBuffer.flush()
+        inMemoryFanoutBuffer.flush()
         ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
       }
-      // TODO LLP: Consider the implementation of a two-stage reset with:
-      //            - first teardown existing dispatcher
-      //            - reset caches
-      //            - start new dispatcher
-      _ <- dispatcherState.reset(ledgerEnd)
-    } yield ()
+      // Start a new Ledger API offset dispatcher
+      _ = dispatcherState.startDispatcher(ledgerEnd)
+    } yield {
+      // Set the in-memory state initialized
+      _initialized = true
+    }
   }
 }
 
@@ -83,7 +90,7 @@ object InMemoryState {
         maxContractKeyStateCacheSize,
         metrics,
       )(executionContext, loggingContext),
-      transactionsBuffer = new InMemoryFanoutBuffer(
+      inMemoryFanoutBuffer = new InMemoryFanoutBuffer(
         maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
         metrics = metrics,
         maxBufferedChunkSize = bufferedStreamsPageSize,

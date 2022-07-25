@@ -27,41 +27,47 @@ class DispatcherStateSpec
   private val loggingContext = LoggingContext.ForTesting
   private val className = classOf[DispatcherState].getSimpleName
 
-  s"$className.initialized" should "be initially false" in {
-    val dispatcherState = new DispatcherState(Duration.Zero)(loggingContext)
-    dispatcherState.initialized shouldBe false
+  private val initialLedgerEnd = ParameterStorageBackend
+    .LedgerEnd(
+      lastOffset = Offset.fromHexString(Ref.HexString.assertFromString("abcdef")),
+      lastEventSeqId = 1337L,
+      lastStringInterningId = 17,
+    )
 
-    intercept[IllegalStateException] {
-      dispatcherState.getDispatcher
-    }.getMessage shouldBe "Uninitialized Ledger API offset dispatcher."
-  }
+  private val nextLedgerEnd = initialLedgerEnd.copy(lastOffset =
+    Offset.fromHexString(Ref.HexString.assertFromString("abcdfe"))
+  )
 
-  s"$className.reset" should "reset the dispatcher" in {
-    val dispatcherState = new DispatcherState(Duration.Zero)(loggingContext)
+  private val thirdLedgerEnd = initialLedgerEnd.copy(lastOffset =
+    Offset.fromHexString(Ref.HexString.assertFromString("abcdff"))
+  )
 
+  s"$className.{startDispatcher, stopDispatcher}" should "handle correctly the Dispatcher lifecycle" in {
     for {
-      _ <- dispatcherState.reset(
-        ParameterStorageBackend
-          .LedgerEnd(
-            lastOffset = Offset.fromHexString(Ref.HexString.assertFromString("abcdef")),
-            lastEventSeqId = 1337L,
-            lastStringInterningId = 17,
-          )
-      )
+      _ <- Future.unit
+      dispatcherState = new DispatcherState(Duration.Zero)(loggingContext)
+      // Start the initial Dispatcher
+      _ = dispatcherState.startDispatcher(initialLedgerEnd)
 
-      initialDispatcher = {
-        dispatcherState.initialized shouldBe true
+      initialDispatcher = dispatcherState.getDispatcher
+
+      // Stop the initial Dispatcher
+      _ <- dispatcherState.stopDispatcher()
+      // Assert that the initial Dispatcher reference does not accept new subscriptions
+      _ <- assertDispatcherDoesntAcceptNewSubscriptions(initialDispatcher)
+
+      // Getting the Dispatcher while stopped throws
+      _ = intercept[IllegalStateException] {
         dispatcherState.getDispatcher
-      }
+      }.getMessage shouldBe "Ledger API offset dispatcher not running."
 
-      _ <- dispatcherState.reset(
-        ParameterStorageBackend
-          .LedgerEnd(
-            lastOffset = Offset.fromHexString(Ref.HexString.assertFromString("abceee")),
-            lastEventSeqId = 1338L,
-            lastStringInterningId = 18,
-          )
-      )
+      // Start a new Dispatcher
+      _ = dispatcherState.startDispatcher(nextLedgerEnd)
+
+      // Try to start a new Dispatcher
+      _ = intercept[IllegalStateException] {
+        dispatcherState.startDispatcher(thirdLedgerEnd)
+      }.getMessage shouldBe "Dispatcher startup triggered while an existing dispatcher is still active."
 
       anotherDispatcher = dispatcherState.getDispatcher
     } yield {
@@ -70,36 +76,46 @@ class DispatcherStateSpec
     }
   }
 
-  s"$className.shutdown" should "shutdown the dispatcher" in {
-    val dispatcherState = new DispatcherState(Duration.Zero)(loggingContext)
-
+  s"$className.shutdown" should s"shutdown the $DispatcherState" in {
     for {
-      _ <- dispatcherState.reset(
-        ParameterStorageBackend
-          .LedgerEnd(
-            lastOffset = Offset.fromHexString(Ref.HexString.assertFromString("abcdef")),
-            lastEventSeqId = 1337L,
-            lastStringInterningId = 17,
-          )
-      )
+      _ <- Future.unit
+      dispatcherState = new DispatcherState(Duration.Zero)(loggingContext)
+      // Start the initial Dispatcher
+      _ = dispatcherState.startDispatcher(initialLedgerEnd)
 
-      initialDispatcher = {
-        dispatcherState.initialized shouldBe true
-        dispatcherState.getDispatcher
-      }
+      initialDispatcher = dispatcherState.getDispatcher
 
+      // Shutdown the state
       _ <- dispatcherState.shutdown()
 
-      // Assert dispatcher state shutdown
-      _ = {
-        dispatcherState.initialized shouldBe false
-        intercept[IllegalStateException] {
-          dispatcherState.getDispatcher
-        }.getMessage shouldBe "Ledger API offset dispatcher has already shut down."
-      }
-
-      // Assert old dispatcher reference shutdown
+      // Assert that the initial Dispatcher reference does not accept new subscriptions
       _ <- assertDispatcherDoesntAcceptNewSubscriptions(initialDispatcher)
+
+      // Getting the Dispatcher while shutdown
+      _ = intercept[IllegalStateException] {
+        dispatcherState.getDispatcher
+      }.getMessage shouldBe "Ledger API offset dispatcher state has already shut down."
+
+      // Start a new Dispatcher is not possible in the shutdown state
+      _ = intercept[IllegalStateException] {
+        dispatcherState.startDispatcher(nextLedgerEnd)
+      }.getMessage shouldBe "Ledger API offset dispatcher state has already shut down."
+    } yield succeed
+  }
+
+  s"$className.shutdown" should s"work on not-running Dispatcher state" in {
+    for {
+      _ <- Future.unit
+      // Start a new dispatcher state
+      dispatcherState = new DispatcherState(Duration.Zero)(loggingContext)
+      // Shutting down the state
+      _ <- dispatcherState.shutdown()
+      // Assert shutdown
+      _ = intercept[IllegalStateException] {
+        dispatcherState.getDispatcher
+      }.getMessage shouldBe "Ledger API offset dispatcher state has already shut down."
+      // Stopping the Dispatcher should be a no-op on a shutdown dispatcher
+      _ <- dispatcherState.stopDispatcher()
     } yield succeed
   }
 

@@ -54,7 +54,7 @@ final class IndexServiceOwner(
 
     for {
       ledgerId <- Resource.fromFuture(verifyLedgerId(ledgerDao))
-      _ <- Resource.fromFuture(waitForinMemoryStateInitialization())
+      _ <- Resource.fromFuture(waitForInMemoryStateInitialization())
 
       contractStore = new MutableCacheBackedContractStore(
         metrics,
@@ -72,14 +72,14 @@ final class IndexServiceOwner(
 
       bufferedTransactionsReader = BufferedTransactionsReader(
         delegate = ledgerDao.transactionsReader,
-        transactionsBuffer = inMemoryState.transactionsBuffer,
+        transactionsBuffer = inMemoryState.inMemoryFanoutBuffer,
         lfValueTranslation = lfValueTranslation,
         metrics = metrics,
         eventProcessingParallelism = config.eventsProcessingParallelism,
       )(servicesExecutionContext)
 
       bufferedCommandCompletionsReader = BufferedCommandCompletionsReader(
-        inMemoryFanoutBuffer = inMemoryState.transactionsBuffer,
+        inMemoryFanoutBuffer = inMemoryState.inMemoryFanoutBuffer,
         delegate = ledgerDao.completions,
         metrics = metrics,
       )(servicesExecutionContext)
@@ -91,14 +91,14 @@ final class IndexServiceOwner(
         transactionsReader = bufferedTransactionsReader,
         commandCompletionsReader = bufferedCommandCompletionsReader,
         contractStore = contractStore,
-        pruneBuffers = inMemoryState.transactionsBuffer.prune,
+        pruneBuffers = inMemoryState.inMemoryFanoutBuffer.prune,
         dispatcher = () => inMemoryState.dispatcherState.getDispatcher,
         metrics = metrics,
       )
     } yield new TimedIndexService(indexService, metrics)
   }
 
-  private def waitForinMemoryStateInitialization()(implicit
+  private def waitForInMemoryStateInitialization()(implicit
       executionContext: ExecutionContext
   ): Future[Unit] =
     RetryStrategy.constant(
