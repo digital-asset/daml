@@ -12,6 +12,8 @@ interface I where
 
 interface INoView where
 
+interface INoTemplate where
+
 template T1
   with
     p : Party
