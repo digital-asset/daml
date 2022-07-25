@@ -61,7 +61,7 @@ class BufferedTransactionByIdReaderSpec extends AsyncFlatSpec with MockitoSugar 
   }
 
   private val bufferedTransactionByIdReader = new BufferedTransactionByIdReader[String](
-    inMemoryFanout = inMemoryFanout,
+    inMemoryFanoutBuffer = inMemoryFanout,
     fetchFromPersistence = fetchFromPersistence,
     toApiResponse = toApiResponse,
   )

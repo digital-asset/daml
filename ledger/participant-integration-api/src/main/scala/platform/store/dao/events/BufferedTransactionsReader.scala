@@ -173,7 +173,7 @@ private[platform] object BufferedTransactionsReader {
 
     val bufferedFlatTransactionByIdReader =
       new BufferedTransactionByIdReader[GetFlatTransactionResponse](
-        inMemoryFanout = transactionsBuffer,
+        inMemoryFanoutBuffer = transactionsBuffer,
         fetchFromPersistence =
           (transactionId: String, requestingParties: Set[Party], loggingContext: LoggingContext) =>
             delegate.lookupFlatTransactionById(
@@ -194,7 +194,7 @@ private[platform] object BufferedTransactionsReader {
 
     val bufferedTransactionTreeByIdReader =
       new BufferedTransactionByIdReader[GetTransactionResponse](
-        inMemoryFanout = transactionsBuffer,
+        inMemoryFanoutBuffer = transactionsBuffer,
         fetchFromPersistence =
           (transactionId: String, requestingParties: Set[Party], loggingContext: LoggingContext) =>
             delegate.lookupTransactionTreeById(
