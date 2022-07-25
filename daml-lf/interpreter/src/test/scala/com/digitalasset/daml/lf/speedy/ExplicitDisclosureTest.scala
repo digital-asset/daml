@@ -798,8 +798,8 @@ object ExplicitDisclosureTest {
     ledger =>
       MatchResult(
         ledger.ptx.contractState.activeState.consumedBy.keySet == contractIds.toSet,
-        s"Failed with unexpected inactive contracts: ${ledger.ptx.contractState.activeState.consumedBy.keySet} != ${contractIds.toSet}",
-        s"Failed with unexpected inactive contracts: ${ledger.ptx.contractState.activeState.consumedBy.keySet} == ${contractIds.toSet}",
+        s"Failed with unexpected inactive contracts: ${ledger.ptx.contractState.activeState.consumedBy.keySet} != $contractIds",
+        s"Failed with unexpected inactive contracts: ${ledger.ptx.contractState.activeState.consumedBy.keySet} == $contractIds",
       )
   }
 
@@ -807,8 +807,8 @@ object ExplicitDisclosureTest {
     ledger =>
       MatchResult(
         ledger.cachedContracts.keySet == contractIds.toSet,
-        s"Failed with unexpected cached contracts: ${ledger.cachedContracts.keySet} != ${contractIds.toSet}",
-        s"Failed with unexpected cached contracts: ${ledger.cachedContracts.keySet} == ${contractIds.toSet}",
+        s"Failed with unexpected cached contracts: ${ledger.cachedContracts.keySet} != $contractIds",
+        s"Failed with unexpected cached contracts: ${ledger.cachedContracts.keySet} == $contractIds",
       )
   }
 
