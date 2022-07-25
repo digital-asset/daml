@@ -68,7 +68,7 @@ final class ValueEnricher(
     method <- handleLookup(
       compiledPackages.pkgInterface.lookupInterfaceMethod(
         interfaceId,
-        Name.assertFromString("view"),
+        Name.assertFromString("_view"),
       )
     )
     viewType = method.returnType
