@@ -53,24 +53,6 @@ Interface Methods
 - Methods are also in scope in interface choices
   (see :ref:`interface-choices` below).
 
-Interface Precondition
-----------------------
-
-.. literalinclude:: ../code-snippets-dev/Interfaces.daml
-   :language: daml
-   :start-after: -- INTERFACE_ENSURE_BEGIN
-   :end-before: -- INTERFACE_ENSURE_END
-
-- A precondition is introduced with the keyword ``ensure`` and must be a
-  boolean expression.
-- It is possible to define interfaces without an ``ensure`` clause, but writing
-  more than one is a compilation error.
-- ``this`` is in scope in the method with the type of the interface.
-  ``self``, however, is not.
-- The interface methods can be used as part of the expression (e.g. ``method1``).
-- It is evaluated and checked right after the implementing template's
-  precondition upon contract creation
-
 .. _interface-choices:
 
 Interface Choices
