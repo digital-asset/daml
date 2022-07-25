@@ -953,13 +953,13 @@ private[lf] object SBuiltin {
           key = cached.key,
           version = machine.tmplId2TxVersion(cached.templateId),
         ) match {
-        case Left((newPtx, err)) =>
-          onLedger.ptx = newPtx // Seems wrong. But one test in ScriptService requires this.
-          throw convTxError(err)
         case Right((coid, newPtx)) =>
           onLedger.updateCachedContracts(coid, cached)
           onLedger.ptx = newPtx
           machine.returnValue = SContractId(coid)
+        case Left((newPtx, err)) =>
+          onLedger.ptx = newPtx // Seems wrong. But one test in ScriptService requires this.
+          throw convTxError(err)
       }
     }
   }
@@ -1020,10 +1020,11 @@ private[lf] object SBuiltin {
           chosenValue = chosenValue,
           version = machine.tmplId2TxVersion(templateId),
         ) match {
-        case Left(err) => throw convTxError(err)
         case Right(ptx) =>
           onLedger.ptx = ptx
           machine.returnValue = SUnit
+        case Left(err) =>
+          throw convTxError(err)
       }
     }
   }
@@ -1379,10 +1380,11 @@ private[lf] object SBuiltin {
         byKey = byKey,
         version = machine.tmplId2TxVersion(templateId),
       ) match {
-        case Left(err) => throw convTxError(err)
         case Right(ptx) =>
           onLedger.ptx = ptx
           machine.returnValue = SUnit
+        case Left(err) =>
+          throw convTxError(err)
       }
     }
   }
@@ -1423,10 +1425,11 @@ private[lf] object SBuiltin {
         result = mbCoid,
         version = machine.tmplId2TxVersion(templateId),
       ) match {
-        case Left(err) => throw convTxError(err)
         case Right(ptx) =>
           onLedger.ptx = ptx
           machine.returnValue = SV.Unit
+        case Left(err) =>
+          throw convTxError(err)
       }
     }
   }
