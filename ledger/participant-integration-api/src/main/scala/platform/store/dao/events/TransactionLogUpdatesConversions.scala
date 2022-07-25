@@ -259,7 +259,7 @@ private[events] object TransactionLogUpdatesConversions {
     ): Future[Option[GetTransactionResponse]] =
       filter(requestingParties)(transactionLogUpdate)
         .map(tx =>
-          toApiTransactionTree(
+          toTransactionTree(
             transactionAccepted = tx,
             requestingParties,
             verbose = true,
@@ -269,7 +269,7 @@ private[events] object TransactionLogUpdatesConversions {
         .map(_.map(transactionTree => Some(GetTransactionResponse(Some(transactionTree)))))
         .getOrElse(Future.successful(None))
 
-    def toGetTransactionsResponse(
+    def toGetTransactionTreesResponse(
         requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
@@ -277,10 +277,10 @@ private[events] object TransactionLogUpdatesConversions {
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
     ): TransactionLogUpdate.TransactionAccepted => Future[GetTransactionTreesResponse] =
-      toApiTransactionTree(_, requestingParties, verbose, lfValueTranslation)
+      toTransactionTree(_, requestingParties, verbose, lfValueTranslation)
         .map(txTree => GetTransactionTreesResponse(Seq(txTree)))
 
-    private def toApiTransactionTree(
+    private def toTransactionTree(
         transactionAccepted: TransactionLogUpdate.TransactionAccepted,
         requestingParties: Set[Party],
         verbose: Boolean,

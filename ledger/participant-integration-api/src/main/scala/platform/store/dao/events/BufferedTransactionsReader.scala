@@ -71,7 +71,8 @@ private[events] class BufferedTransactionsReader(
         startExclusive = startExclusive,
         endInclusive = endInclusive,
         persistenceFetchArgs = (filter, verbose),
-        bufferFilter = ToFlatTransaction.filter(wildcardParties, templatesParties, requestingParties),
+        bufferFilter =
+          ToFlatTransaction.filter(wildcardParties, templatesParties, requestingParties),
         toApiResponse =
           ToFlatTransaction.toGetTransactionsResponse(filter, verbose, lfValueTranslation)(
             loggingContext,
@@ -95,7 +96,7 @@ private[events] class BufferedTransactionsReader(
         persistenceFetchArgs = (requestingParties, verbose),
         bufferFilter = ToTransactionTree.filter(requestingParties),
         toApiResponse = ToTransactionTree
-          .toGetTransactionsResponse(requestingParties, verbose, lfValueTranslation)(
+          .toGetTransactionTreesResponse(requestingParties, verbose, lfValueTranslation)(
             loggingContext,
             executionContext,
           ),

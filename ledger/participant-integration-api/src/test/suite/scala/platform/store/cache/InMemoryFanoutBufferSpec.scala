@@ -58,9 +58,7 @@ class InMemoryFanoutBufferSpec
         )
 
         // Assert that all the entries are visible by lookup
-        buffer.lookup(txAccepted2.transactionId) shouldBe Some(txAccepted2)
-        buffer.lookup(txAccepted3.transactionId) shouldBe Some(txAccepted3)
-        buffer.lookup(txAccepted4.transactionId) shouldBe Some(txAccepted4)
+        verifyLookupPresent(buffer, txAccepted2, txAccepted3, txAccepted4)
 
         buffer.push(offset5, txAccepted5)
         // Assert data structure sizes respect their limits after pushing a new element
@@ -73,9 +71,9 @@ class InMemoryFanoutBufferSpec
         )
 
         // Assert that the new entry is visible by lookup
-        buffer.lookup(txAccepted5.transactionId) shouldBe Some(txAccepted5)
+        verifyLookupPresent(buffer, txAccepted5)
         // Assert oldest entry is evicted
-        buffer.lookup(txAccepted2.transactionId) shouldBe None
+        verifyLookupAbsent(buffer, txAccepted2.transactionId)
       }
     }
 
@@ -121,16 +119,13 @@ class InMemoryFanoutBufferSpec
       4
     ) { buffer =>
       // Assert that all the entries are visible by lookup
-      buffer.lookup(txAccepted1.transactionId) shouldBe Some(txAccepted1)
-      buffer.lookup(txAccepted2.transactionId) shouldBe Some(txAccepted2)
-      buffer.lookup(txAccepted3.transactionId) shouldBe Some(txAccepted3)
-      buffer.lookup(txAccepted4.transactionId) shouldBe Some(txAccepted4)
+      verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
 
       // Enqueue a rejected transaction
       buffer.push(offset5, txRejected(5L, offset5))
 
       // Assert the last element is evicted on full buffer
-      buffer.lookup(txAccepted1.transactionId) shouldBe None
+      verifyLookupAbsent(buffer, txAccepted1.transactionId)
 
       // Assert that the buffer does not include the rejected transaction
       buffer._lookupMap should contain theSameElementsAs Map(
@@ -272,10 +267,7 @@ class InMemoryFanoutBufferSpec
   "prune" when {
     "element found" should {
       "prune inclusive" in withBuffer() { buffer =>
-        buffer.lookup(txAccepted1.transactionId) shouldBe Some(txAccepted1)
-        buffer.lookup(txAccepted2.transactionId) shouldBe Some(txAccepted2)
-        buffer.lookup(txAccepted3.transactionId) shouldBe Some(txAccepted3)
-        buffer.lookup(txAccepted4.transactionId) shouldBe Some(txAccepted4)
+        verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
 
         buffer.prune(offset3)
 
@@ -284,39 +276,38 @@ class InMemoryFanoutBufferSpec
           bufferElements.drop(4),
         )
 
-        buffer.lookup(txAccepted1.transactionId) shouldBe None
-        buffer.lookup(txAccepted2.transactionId) shouldBe None
-        buffer.lookup(txAccepted3.transactionId) shouldBe None
-        buffer.lookup(txAccepted4.transactionId) shouldBe Some(txAccepted4)
+        verifyLookupAbsent(
+          buffer,
+          txAccepted1.transactionId,
+          txAccepted2.transactionId,
+          txAccepted3.transactionId,
+        )
+        verifyLookupPresent(buffer, txAccepted4)
       }
     }
 
     "element not present" should {
       "prune inclusive" in withBuffer() { buffer =>
-        buffer.lookup(txAccepted1.transactionId) shouldBe Some(txAccepted1)
-        buffer.lookup(txAccepted2.transactionId) shouldBe Some(txAccepted2)
-        buffer.lookup(txAccepted3.transactionId) shouldBe Some(txAccepted3)
-        buffer.lookup(txAccepted4.transactionId) shouldBe Some(txAccepted4)
+        verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
 
         buffer.prune(offset(6))
         buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
           offset4,
           bufferElements.drop(4),
         )
-        buffer.lookup(txAccepted1.transactionId) shouldBe None
-
-        buffer.lookup(txAccepted2.transactionId) shouldBe None
-        buffer.lookup(txAccepted3.transactionId) shouldBe None
-        buffer.lookup(txAccepted4.transactionId) shouldBe Some(txAccepted4)
+        verifyLookupAbsent(
+          buffer,
+          txAccepted1.transactionId,
+          txAccepted2.transactionId,
+          txAccepted3.transactionId,
+        )
+        verifyLookupPresent(buffer, txAccepted4)
       }
     }
 
     "element before series" should {
       "not prune" in withBuffer() { buffer =>
-        buffer.lookup(txAccepted1.transactionId) shouldBe Some(txAccepted1)
-        buffer.lookup(txAccepted2.transactionId) shouldBe Some(txAccepted2)
-        buffer.lookup(txAccepted3.transactionId) shouldBe Some(txAccepted3)
-        buffer.lookup(txAccepted4.transactionId) shouldBe Some(txAccepted4)
+        verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
 
         buffer.prune(offset(1))
         buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
@@ -324,19 +315,13 @@ class InMemoryFanoutBufferSpec
           bufferElements.drop(1),
         )
 
-        buffer.lookup(txAccepted1.transactionId) shouldBe Some(txAccepted1)
-        buffer.lookup(txAccepted2.transactionId) shouldBe Some(txAccepted2)
-        buffer.lookup(txAccepted3.transactionId) shouldBe Some(txAccepted3)
-        buffer.lookup(txAccepted4.transactionId) shouldBe Some(txAccepted4)
+        verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
       }
     }
 
     "element after series" should {
       "prune all" in withBuffer() { buffer =>
-        buffer.lookup(txAccepted1.transactionId) shouldBe Some(txAccepted1)
-        buffer.lookup(txAccepted2.transactionId) shouldBe Some(txAccepted2)
-        buffer.lookup(txAccepted3.transactionId) shouldBe Some(txAccepted3)
-        buffer.lookup(txAccepted4.transactionId) shouldBe Some(txAccepted4)
+        verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
 
         buffer.prune(offset5)
         buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
@@ -344,16 +329,19 @@ class InMemoryFanoutBufferSpec
           Vector.empty,
         )
 
-        buffer.lookup(txAccepted1.transactionId) shouldBe None
-        buffer.lookup(txAccepted2.transactionId) shouldBe None
-        buffer.lookup(txAccepted3.transactionId) shouldBe None
-        buffer.lookup(txAccepted4.transactionId) shouldBe None
+        verifyLookupAbsent(
+          buffer,
+          txAccepted1.transactionId,
+          txAccepted2.transactionId,
+          txAccepted3.transactionId,
+          txAccepted4.transactionId,
+        )
       }
     }
 
     "one element in buffer" should {
       "prune all" in withBuffer(1, Vector(offset(1) -> txAccepted2)) { buffer =>
-        buffer.lookup(txAccepted2.transactionId) shouldBe Some(txAccepted2)
+        verifyLookupPresent(buffer, txAccepted2)
 
         buffer.prune(offset(1))
         buffer.slice(BeginOffset, offset(1), IdentityFilter) shouldBe LastBufferChunkSuffix(
@@ -361,16 +349,14 @@ class InMemoryFanoutBufferSpec
           Vector.empty,
         )
 
-        buffer.lookup(txAccepted2.transactionId) shouldBe None
+        verifyLookupAbsent(buffer, txAccepted2.transactionId)
       }
     }
   }
 
   "flush" should {
     "remove all entries from the buffer" in withBuffer(3) { buffer =>
-      buffer.lookup(txAccepted2.transactionId) shouldBe Some(txAccepted2)
-      buffer.lookup(txAccepted3.transactionId) shouldBe Some(txAccepted3)
-      buffer.lookup(txAccepted4.transactionId) shouldBe Some(txAccepted4)
+      verifyLookupPresent(buffer, txAccepted2, txAccepted3, txAccepted4)
 
       buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
         bufferedStartExclusive = offset2,
@@ -385,9 +371,12 @@ class InMemoryFanoutBufferSpec
         bufferedStartExclusive = LastOffset,
         slice = Vector.empty,
       )
-      buffer.lookup(txAccepted2.transactionId) shouldBe None
-      buffer.lookup(txAccepted3.transactionId) shouldBe None
-      buffer.lookup(txAccepted4.transactionId) shouldBe None
+      verifyLookupAbsent(
+        buffer,
+        txAccepted2.transactionId,
+        txAccepted3.transactionId,
+        txAccepted4.transactionId,
+      )
     }
   }
 
@@ -486,6 +475,7 @@ class InMemoryFanoutBufferSpec
       offset = offset,
       events = Vector.empty,
       completionDetails = None,
+      commandId = "",
     )
 
   private def txRejected(idx: Long, offset: Offset) =
@@ -496,4 +486,24 @@ class InMemoryFanoutBufferSpec
         submitters = Set(s"submitter-$idx"),
       ),
     )
+
+  private def verifyLookupPresent(
+      buffer: InMemoryFanoutBuffer,
+      txs: TransactionLogUpdate.TransactionAccepted*
+  ): Assertion =
+    txs.foldLeft(succeed) {
+      case (Succeeded, tx) =>
+        buffer.lookup(tx.transactionId) shouldBe Some(tx)
+      case (failed, _) => failed
+    }
+
+  private def verifyLookupAbsent(
+      buffer: InMemoryFanoutBuffer,
+      txIds: String*
+  ): Assertion =
+    txIds.foldLeft(succeed) {
+      case (Succeeded, txId) =>
+        buffer.lookup(txId) shouldBe None
+      case (failed, _) => failed
+    }
 }

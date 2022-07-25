@@ -29,6 +29,7 @@ class InMemoryFanoutBuffer(
     metrics: Metrics,
     maxBufferedChunkSize: Int,
 ) {
+  private val logger = ContextualizedLogger.get(getClass)
   @volatile private[cache] var _bufferLog =
     Vector.empty[(Offset, TransactionLogUpdate)]
   @volatile private[cache] var _lookupMap =
@@ -156,11 +157,9 @@ class InMemoryFanoutBuffer(
       }
     } else {
       // This is an error condition. If encountered, clear the in-memory fan-out buffers.
-      ContextualizedLogger
-        .get(getClass)
-        .withoutContext
+      logger.withoutContext
         .error(
-          "In-memory fan-out lookup map size exceeds the buffer log size. Clearing in-memory fan-out.."
+          s"In-memory fan-out lookup map size ($currentLookupMapSize) exceeds the buffer log size ($currentBufferLogSize). Clearing in-memory fan-out.."
         )
 
       flush()

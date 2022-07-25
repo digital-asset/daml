@@ -30,7 +30,7 @@ class BufferedTransactionByIdReader[API_RESPONSE](
     toApiResponse: ToApiResponse[API_RESPONSE],
 ) {
 
-  /** Serves processed and filtered transaction from the buffer by transaction it,
+  /** Serves processed and filtered transaction from the buffer by transaction id,
     * with fallback to a persistence fetch if the transaction is not anymore in the buffer
     * (i.e. it was evicted)
     *
