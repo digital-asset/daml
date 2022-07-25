@@ -431,23 +431,23 @@ class PureConfigReaderWriterSpec
       ),
     )
     compare(
-      "type = jwt-rsa-256\ncertificate=certfile",
-      AuthServiceConfig.JwtRsa256("certfile"),
+      "type = jwt-rs-256\ncertificate=certfile",
+      AuthServiceConfig.JwtRs256("certfile"),
     )
     compare(
-      "type = jwt-ecdsa-256\ncertificate=certfile3",
-      AuthServiceConfig.JwtEcdsa256("certfile3"),
+      "type = jwt-es-256\ncertificate=certfile3",
+      AuthServiceConfig.JwtEs256("certfile3"),
     )
     compare(
-      "type = jwt-ecdsa-512\ncertificate=certfile4",
-      AuthServiceConfig.JwtEcdsa512("certfile4"),
+      "type = jwt-es-512\ncertificate=certfile4",
+      AuthServiceConfig.JwtEs512("certfile4"),
     )
     compare(
       """
-        |type = jwt-rsa-256-jwks
+        |type = jwt-rs-256-jwks
         |url="https://daml.com/jwks.json"
         |""".stripMargin,
-      AuthServiceConfig.JwtRsa256Jwks("https://daml.com/jwks.json"),
+      AuthServiceConfig.JwtRs256Jwks("https://daml.com/jwks.json"),
     )
   }
 
