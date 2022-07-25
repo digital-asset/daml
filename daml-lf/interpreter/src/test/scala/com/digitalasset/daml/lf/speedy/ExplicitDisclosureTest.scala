@@ -31,32 +31,6 @@ class ExplicitDisclosureTest
 
   import ExplicitDisclosureTest._
 
-  "experiment" in {
-    forAll(disclosedContractKeys) { case (disclosedContract, _) =>
-      val (result, ledger) =
-        evaluateSExprWithSetup(
-          e"""\(contractId: ContractId TestMod:House) ->
-                          TestMod:exercise contractId
-                    """,
-          Array(SContractId(disclosureContractId)),
-        )(
-          SBUFetchKey(templateId)(SEValue(contractSKey)),
-          committers = Set(disclosureParty, ledgerParty, maintainerParty),
-          getKey = Map(
-            GlobalKeyWithMaintainers(contractKey, Set(maintainerParty)) -> ledgerContractId
-          ),
-          getContract = Map(ledgerContractId -> ledgerContract),
-          disclosedContracts = ImmArray(disclosedContract),
-        )
-
-      inside(result) { case Left(SError.SErrorDamlException(ContractKeyNotFound(`contractKey`))) =>
-        ledger.cachedContracts.keySet shouldBe Set(disclosureContractId)
-        ledger.ptx.disclosedContracts shouldBe ImmArray(disclosedContract)
-        ledger.ptx.contractState.activeState.consumedBy.keySet shouldBe Set(disclosureContractId)
-      }
-    }
-  }
-
   "disclosed contract behaviour" - {
     "fetching contracts" - {
       "test data validation" in {
