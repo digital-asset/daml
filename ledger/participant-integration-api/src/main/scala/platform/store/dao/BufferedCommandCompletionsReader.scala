@@ -43,10 +43,10 @@ class BufferedCommandCompletionsReader(
       parties: Set[Party],
       applicationId: String,
   ): Option[CompletionStreamResponse] = (transactionLogUpdate match {
-    case TransactionLogUpdate.TransactionAccepted(_, _, _, _, _, Some(completionDetails)) =>
+    case TransactionLogUpdate.TransactionAccepted(_, _, _, _, _, _, Some(completionDetails)) =>
       Some(completionDetails)
     case TransactionLogUpdate.TransactionRejected(_, completionDetails) => Some(completionDetails)
-    case TransactionLogUpdate.TransactionAccepted(_, _, _, _, _, None) =>
+    case TransactionLogUpdate.TransactionAccepted(_, _, _, _, _, _, None) =>
       // Completion details missing highlights submitter is not local to this participant
       None
   }).flatMap(toApiCompletion(_, parties, applicationId))

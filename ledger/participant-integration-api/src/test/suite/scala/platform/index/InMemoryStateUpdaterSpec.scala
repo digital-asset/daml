@@ -194,6 +194,7 @@ object InMemoryStateUpdaterSpec {
 
   private val txLogUpdate1 = TransactionLogUpdate.TransactionAccepted(
     transactionId = "tx1",
+    commandId = "",
     workflowId = "",
     effectiveAt = Timestamp.Epoch,
     offset = offset(1L),
@@ -203,6 +204,7 @@ object InMemoryStateUpdaterSpec {
 
   private val txLogUpdate3 = TransactionLogUpdate.TransactionAccepted(
     transactionId = "tx3",
+    commandId = "",
     workflowId = "",
     effectiveAt = Timestamp.Epoch,
     offset = offset(3L),

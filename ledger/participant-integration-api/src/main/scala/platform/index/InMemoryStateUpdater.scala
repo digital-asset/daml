@@ -263,6 +263,7 @@ private[platform] object InMemoryStateUpdater {
 
     TransactionLogUpdate.TransactionAccepted(
       transactionId = txAccepted.transactionId,
+      commandId = txAccepted.optCompletionInfo.map(_.commandId).getOrElse(""),
       workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
       effectiveAt = txAccepted.transactionMeta.ledgerEffectiveTime,
       offset = offset,
