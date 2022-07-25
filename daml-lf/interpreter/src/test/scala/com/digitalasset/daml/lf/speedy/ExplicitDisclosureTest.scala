@@ -798,8 +798,8 @@ object ExplicitDisclosureTest {
     ledger =>
       MatchResult(
         ledger.ptx.contractState.activeState.consumedBy.keySet == contractIds.toSet,
-        s"Failed with unexpected inactive contract IDs: ${}",
-        s"Failed with unexpected active contract IDs: ${}",
+        s"Failed with unexpected inactive contracts: ${ledger.ptx.contractState.activeState.consumedBy.keySet} != ${contractIds.toSet}",
+        s"Failed with unexpected inactive contracts: ${ledger.ptx.contractState.activeState.consumedBy.keySet} == ${contractIds.toSet}",
       )
   }
 
@@ -807,8 +807,8 @@ object ExplicitDisclosureTest {
     ledger =>
       MatchResult(
         ledger.cachedContracts.keySet == contractIds.toSet,
-        s"Failed with unexpected cached contract IDs: ${}",
-        s"Failed with unexpected cached contract IDs: ${}",
+        s"Failed with unexpected cached contracts: ${ledger.cachedContracts.keySet} != ${contractIds.toSet}",
+        s"Failed with unexpected cached contracts: ${ledger.cachedContracts.keySet} == ${contractIds.toSet}",
       )
   }
 
@@ -816,8 +816,8 @@ object ExplicitDisclosureTest {
     ledger =>
       MatchResult(
         ledger.ptx.disclosedContracts == ImmArray(contractIds: _*),
-        s"Failed with unexpected disclosed contracts: ${}",
-        s"Failed with unexpected disclosed contracts: ${}",
+        s"Failed with unexpected disclosed contracts: ${ledger.ptx.disclosedContracts} != $contractIds",
+        s"Failed with unexpected disclosed contracts: ${ledger.ptx.disclosedContracts} == $contractIds",
       )
   }
 }
