@@ -204,7 +204,7 @@ party ids that have been allocated by ``allocateParties``:
 ``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:allocateParties --ledger-host localhost --ledger-port 6865 --output-file ledger-parties.json``
 
 The resulting file will look similar to the following but the actual
-party ids will be different each time you run it:
+party IDs will be different each time you run it:
 
 .. literalinclude:: ./template-root/ledger-parties.json
    :language: daml
@@ -215,8 +215,7 @@ specified, the ``--script-name`` flag must point to a function of one
 argument returning a ``Script``, and the function will be called with
 the result of parsing the input file as its argument. For example, we
 can initialize our ledger using the ``initialize`` function defined
-above. It takes a ``LedgerParties`` argument, so a valid file for
-``--input-file`` would look like:
+above.
 
 Using the previosuly created ``-ledger-parties.json`` file, we can
 initialize our ledger as follows:
