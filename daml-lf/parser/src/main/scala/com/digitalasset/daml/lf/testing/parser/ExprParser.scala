@@ -186,11 +186,11 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     rep1sep(binding(`<-`), `;`) <~! `in` ^^ (_.to(ImmArray))
 
   private def binding(sep: Token): Parser[Binding] =
-    id ~ (`:` ~> typ) ~ (sep ~> expr) ^^ { case vName ~ t ~ value =>
-      Binding(Some(vName), t, value)
+    Id("_") ~> (`:` ~> typ) ~ (sep ~> expr) ^^ { case t ~ value =>
+      Binding(None, t, value)
     } |
-      `_` ~> (`:` ~> typ) ~ (sep ~> expr) ^^ { case t ~ value =>
-        Binding(None, t, value)
+      id ~ (`:` ~> typ) ~ (sep ~> expr) ^^ { case vName ~ t ~ value =>
+        Binding(Some(vName), t, value)
       }
 
   private lazy val eLet: Parser[Expr] =
@@ -278,7 +278,8 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     }
 
   private lazy val pattern: Parser[CasePat] =
-    primCon ^^ CPPrimCon |
+    Id("_") ^^^ CPDefault |
+      primCon ^^ CPPrimCon |
       (`nil` ^^^ CPNil) |
       (`cons` ~>! id ~ id ^^ { case x1 ~ x2 => CPCons(x1, x2) }) |
       (`none` ^^^ CPNone) |
@@ -288,8 +289,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
           CPVariant(tyCon, vName, x)
         case tyCon ~ vName ~ None =>
           CPEnum(tyCon, vName)
-      } |
-      Token.`_` ^^^ CPDefault
+      }
 
   private lazy val alternative: Parser[CaseAlt] =
     pattern ~! (`->` ~>! expr) ^^ { case p ~ e =>
