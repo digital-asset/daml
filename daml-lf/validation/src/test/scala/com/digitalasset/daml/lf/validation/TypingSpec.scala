@@ -379,7 +379,9 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           T"Mod:I → (( Update (ContractId Mod:I) ))",
         E"λ (e₁: ContractId Mod:T) (e₂: Int64) → (( exercise @Mod:T Ch e₁ e₂ ))" ->
           T"ContractId Mod:T → Int64 → (( Update Decimal ))",
-        E"λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: Mod:I → Bool) → (( exercise_by_interface @Mod:I ChIface e₁ e₂ e₃ ))" ->
+        E"λ (e₁: ContractId Mod:I) (e₂: Int64) → (( exercise_interface @Mod:I ChIface e₁ e₂ ))" ->
+          T"ContractId Mod:I → Int64 → (( Update Decimal ))",
+        E"λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: Mod:I → Bool) → (( exercise_interface_with_guard @Mod:I ChIface e₁ e₂ e₃ ))" ->
           T"ContractId Mod:I → Int64 → (Mod:I → Bool) → (( Update Decimal ))",
         E"λ (e₁: Party) (e₂: Int64) → (( exercise_by_key @Mod:T Ch e₁ e₂ ))" ->
           T"Party → Int64 → (( Update Decimal ))",
@@ -830,32 +832,32 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             assert(env.pkgInterface.lookupTemplateChoice(conTi, n"ChTmpl").isRight)
         },
         // UpdExerciseInterface
-        E"λ (e₁: ContractId Mod:U) (e₂: Int64) (e₃: Mod:U → Bool) → ⸨ exercise_by_interface @Mod:U ChIface e₁ e₂ e₃ ⸩" -> //
+        E"λ (e₁: ContractId Mod:U) (e₂: Int64) (e₃: Mod:U → Bool) → ⸨ exercise_interface_with_guard @Mod:U ChIface e₁ e₂ e₃ ⸩" -> //
           {
             case EUnknownDefinition(
                   _,
                   LookupError(Reference.Interface(_), Reference.InterfaceChoice(_, _)),
                 ) =>
           },
-        E"λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: Mod:I → Bool)  → ⸨ exercise_by_interface @Mod:I Not e₁ e₂ e₃ ⸩" -> //
+        E"λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: Mod:I → Bool)  → ⸨ exercise_interface_with_guard @Mod:I Not e₁ e₂ e₃ ⸩" -> //
           {
             case EUnknownDefinition(
                   _,
                   LookupError(Reference.TemplateChoice(_, _), Reference.InterfaceChoice(_, _)),
                 ) =>
           },
-        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: σ) (e₃: Mod:I → Bool) → ⸨ exercise_by_interface @Mod:T ChIface e₁ e₂ e₃ ⸩" -> //
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: σ) (e₃: Mod:I → Bool) → ⸨ exercise_interface_with_guard @Mod:T ChIface e₁ e₂ e₃ ⸩" -> //
           { case _: ETypeMismatch => },
-        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: Mod:T → Bool) → ⸨ exercise_by_interface @Mod:T ChIface e₁ e₂ e₃ ⸩" -> //
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: Mod:T → Bool) → ⸨ exercise_interface_with_guard @Mod:T ChIface e₁ e₂ e₃ ⸩" -> //
           { case _: ETypeMismatch => },
-        E"Λ (σ : ⋆).λ (e₁: ContractId σ) (e₂: Int64) (e₃: Mod:I → Bool) → ⸨ exercise_by_interface @Mod:I ChIface e₁ e₂ e₃ ⸩" -> //
+        E"Λ (σ : ⋆).λ (e₁: ContractId σ) (e₂: Int64) (e₃: Mod:I → Bool) → ⸨ exercise_interface_with_guard @Mod:I ChIface e₁ e₂ e₃ ⸩" -> //
           { case _: ETypeMismatch => },
-        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: σ) → ⸨ exercise_by_interface @Mod:I ChIface e₁ e₂ e₃ ⸩" -> //
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: σ) → ⸨ exercise_interface_with_guard @Mod:I ChIface e₁ e₂ e₃ ⸩" -> //
           { case _: ETypeMismatch => },
-        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: σ → Bool) → ⸨ exercise_by_interface @Mod:I ChIface e₁ e₂ e₃ ⸩" -> //
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: σ → Bool) → ⸨ exercise_interface_with_guard @Mod:I ChIface e₁ e₂ e₃ ⸩" -> //
           { case _: ETypeMismatch => },
         // This verifies that interface choice cannot be exercise by template
-        E"""λ (e₁: ContractId Mod:Ti) (e: Mod:Ti) (e₂: Int64) (e₃: Mod:Ti → Bool) → ⸨ exercise_by_interface @Mod:Ti ChIface e₁ e₂ e₃ ⸩""" -> //
+        E"""λ (e₁: ContractId Mod:Ti) (e: Mod:Ti) (e₂: Int64) (e₃: Mod:Ti → Bool) → ⸨ exercise_interface_with_guard @Mod:Ti ChIface e₁ e₂ e₃ ⸩""" -> //
           {
             case EUnknownDefinition(
                   _,
