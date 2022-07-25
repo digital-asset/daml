@@ -426,7 +426,7 @@ SERVERS = {
 # Conformance with default settings but with covering buffer size (i.e. big enough) for the in-memory fan-out,
 # ensuring that all Ledger API read requests are served from the in-memory fan-out buffer.
 server_conformance_test(
-    name = "conformance-test-in-memory-fanout-covering",
+    name = "conformance-test-in-memory-fan-out-covering",
     hocon = True,
     hocon_config = """
     {
