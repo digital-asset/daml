@@ -5,7 +5,7 @@ package com.daml.ledger.rxjava.grpc.helpers
 
 import java.time.Instant
 import java.util
-import java.util.{Collections, Optional}
+import java.util.Collections
 
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
@@ -20,6 +20,7 @@ import com.google.protobuf.timestamp.{Timestamp => ScalaTimestamp}
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 
 import scala.jdk.CollectionConverters._
+import scala.jdk.OptionConverters._
 
 @SuppressWarnings(
   Array(
@@ -206,8 +207,8 @@ object TransactionGenerator {
       javaTemplateId,
       contractId,
       javaRecord,
-      agreementText.map(Optional.of[String]).getOrElse(Optional.empty()),
-      contractKey.fold(Optional.empty[data.Value])(c => Optional.of[data.Value](c._2)),
+      agreementText.toJava,
+      contractKey.map(_._2).toJava,
       signatories.toSet.asJava,
       observers.toSet.asJava,
     ),
@@ -257,7 +258,7 @@ object TransactionGenerator {
       witnessParties.asJava,
       eventId,
       javaTemplateId,
-      javaInterfaceId.orNull,
+      javaInterfaceId.toJava,
       contractId,
       choice,
       javaChoiceArgument,
