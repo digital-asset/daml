@@ -10,6 +10,7 @@ option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
 
 
 // Experimental API to retrieve metering reports.
@@ -50,6 +51,9 @@ message GetMeteringReportResponse {
 
     // The time at which the report was computed.
     google.protobuf.Timestamp report_generation_time = 3;
+
+    // The metering report json
+    google.protobuf.Struct metering_report_json = 4;
 }
 
 
