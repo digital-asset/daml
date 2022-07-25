@@ -31,280 +31,357 @@ class ExplicitDisclosureTest
 
   import ExplicitDisclosureTest._
 
+  "experiment" in {
+    forAll(disclosedContractKeys) { case (disclosedContract, _) =>
+      val (result, ledger) =
+        evaluateSExprWithSetup(
+          e"""\(contractId: ContractId TestMod:House) ->
+                          TestMod:exercise contractId
+                    """,
+          Array(SContractId(disclosureContractId)),
+        )(
+          SBUFetchKey(templateId)(SEValue(contractSKey)),
+          committers = Set(disclosureParty, ledgerParty, maintainerParty),
+          getKey = Map(
+            GlobalKeyWithMaintainers(contractKey, Set(maintainerParty)) -> ledgerContractId
+          ),
+          getContract = Map(ledgerContractId -> ledgerContract),
+          disclosedContracts = ImmArray(disclosedContract),
+        )
+
+      inside(result) { case Left(SError.SErrorDamlException(ContractKeyNotFound(`contractKey`))) =>
+        ledger.cachedContracts.keySet shouldBe Set(disclosureContractId)
+        ledger.ptx.disclosedContracts shouldBe ImmArray(disclosedContract)
+        ledger.ptx.contractState.activeState.consumedBy.keySet shouldBe Set(disclosureContractId)
+      }
+    }
+  }
+
   "disclosed contract behaviour" - {
-    "with contracts stored in a single location" - {
-      "on ledger" - {
-        "active contracts" - {
-          "fetching contracts" - {
-            "evaluate known contract IDs" in {
-              val (result, events) =
-                evaluateSExpr(
-                  SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
-                  getContract = Map(contractId -> ledgerContract),
-                )
+    "fetching contracts" - {
+      "test data validation" in {
+        ledgerParty should not be disclosureParty
+        ledgerParty should not be maintainerParty
+        disclosureParty should not be maintainerParty
+        getOwner(ledgerContract.unversioned.arg) shouldBe Some(ledgerParty)
+        getMaintainer(ledgerContract.unversioned.arg) shouldBe Some(maintainerParty)
+        forAll(disclosedContractIds) { case (disclosedContract, _) =>
+          disclosedContract.contractId shouldBe SContractId(contractId)
+          getOwner(disclosedContract.argument.toUnnormalizedValue) shouldBe Some(disclosureParty)
+          getMaintainer(disclosedContract.argument.toUnnormalizedValue) shouldBe Some(
+            maintainerParty
+          )
+        }
+      }
 
-              inside(result) {
-                case Right(SValue.SAny(_, SValue.SRecord(`templateId`, fields, values))) =>
-                  fields shouldBe ImmArray(Ref.Name.assertFromString("owner"))
-                  values shouldBe ArrayList(SValue.SParty(ledgerParty))
-                  events shouldBe Seq("contractById queried", "getContract queried")
-              }
-            }
+      "ledger queried when contract ID is not disclosed" in {
+        val (result, ledger) =
+          evaluateSExpr(
+            SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
+            getContract = Map(contractId -> ledgerContract),
+          )
 
-            "evaluate disclosed contract IDs" in {
-              forAll(disclosedContracts) { case (disclosedContract, _) =>
-                val (result, events) =
-                  evaluateSExpr(
-                    SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
-                    disclosedContracts = ImmArray(disclosedContract),
-                  )
+        inside(result) {
+          case Right(SValue.SAny(_, contract @ SValue.SRecord(`templateId`, _, _))) =>
+            getOwner(contract.toUnnormalizedValue) shouldBe Some(ledgerParty)
+            getMaintainer(contract.toUnnormalizedValue) shouldBe Some(maintainerParty)
+            ledger should haveDisclosedContracts()
+            ledger should haveCachedContractIds(contractId)
+            ledger should haveInactiveContractIds()
+        }
+      }
 
-                inside(result) {
-                  case Right(SValue.SAny(_, SValue.SRecord(`templateId`, fields, values))) =>
-                    fields shouldBe ImmArray(Ref.Name.assertFromString("owner"))
-                    values shouldBe ArrayList(SValue.SParty(disclosureParty))
-                    events shouldBe Seq("contractById queried")
-                }
-              }
-            }
-          }
-
-          "fetching contract keys" - {
-            "evaluate known contract IDs" in {
-              val (result, events) =
-                evaluateSExpr(
-                  SBUFetchKey(templateId)(SEValue(ledgerContractSKey)),
-                  committers = Set(ledgerParty),
-                  getKey = Map(
-                    GlobalKeyWithMaintainers(ledgerContractKey, Set(ledgerParty)) -> contractId
-                  ),
-                  getContract = Map(contractId -> ledgerContract),
-                )
-
-              result shouldBe Right(SValue.SContractId(contractId))
-              events shouldBe Seq(
-                "contractIdByKey queried",
-                "getKey queried",
-                "contractById queried",
-                "getContract queried",
+      "disclosure table queried when contract ID is disclosed" - {
+        "contract ID in disclosure table only" in {
+          forAll(disclosedContractIds) { case (disclosedContract, _) =>
+            val (result, ledger) =
+              evaluateSExpr(
+                SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
+                disclosedContracts = ImmArray(disclosedContract),
               )
-            }
 
-            "evaluate disclosed contract IDs" in {
-              forAll(disclosedContracts) { case (disclosedContract, label) =>
-                val (result, events) =
-                  evaluateSExpr(
-                    SBUFetchKey(templateId)(SEValue(disclosureContractSKey)),
-                    committers = Set(disclosureParty),
-                    disclosedContracts = ImmArray(disclosedContract),
-                  )
-
-                inside(result) {
-                  case Left(
-                        SError.SErrorDamlException(ContractKeyNotFound(`disclosureContractKey`))
-                      ) =>
-                    // Contract ID has no hash, so we serve key using the ledger
-                    label shouldBe "disclosedContractNoHash"
-                    events shouldBe Seq("contractIdByKey queried", "getKey queried")
-
-                  case Right(SValue.SContractId(`contractId`)) =>
-                    // Contract ID has a hash, so we serve key using the disclosure table
-                    label shouldBe "disclosedContractWithHash"
-                    events shouldBe Seq("contractIdByKey queried", "contractById queried")
-                }
-              }
-            }
-          }
-
-          "looking up contract keys" - {
-            "evaluate known contract IDs" in {
-              val (result, events) =
-                evaluateSExpr(
-                  SBULookupKey(templateId)(SEValue(ledgerContractSKey)),
-                  committers = Set(ledgerParty),
-                  getKey = Map(
-                    GlobalKeyWithMaintainers(ledgerContractKey, Set(ledgerParty)) -> contractId
-                  ),
-                  getContract = Map(contractId -> ledgerContract),
-                )
-
-              result shouldBe Right(SValue.SOptional(Some(SValue.SContractId(contractId))))
-              events shouldBe Seq(
-                "contractIdByKey queried",
-                "getKey queried",
-                "contractById queried",
-                "getContract queried",
-              )
-            }
-
-            "evaluate disclosed contract IDs" in {
-              forAll(disclosedContracts) { case (disclosedContract, label) =>
-                val (result, events) =
-                  evaluateSExpr(
-                    SBULookupKey(templateId)(SEValue(buildContractSKey(disclosureParty))),
-                    committers = Set(disclosureParty),
-                    disclosedContracts = ImmArray(disclosedContract),
-                  )
-
-                inside(result) {
-                  case Right(SValue.SOptional(None)) =>
-                    // Contract ID has no hash, so we serve key using the ledger
-                    label shouldBe "disclosedContractNoHash"
-                    events shouldBe Seq("contractIdByKey queried", "getKey queried")
-
-                  case Right(SValue.SOptional(Some(SValue.SContractId(`contractId`)))) =>
-                    // Contract ID has a hash, so we serve key using the disclosure table
-                    label shouldBe "disclosedContractWithHash"
-                    events shouldBe Seq("contractIdByKey queried", "contractById queried")
-                }
-              }
+            inside(result) {
+              case Right(SValue.SAny(_, contract @ SValue.SRecord(`templateId`, _, _))) =>
+                getOwner(contract.toUnnormalizedValue) shouldBe Some(disclosureParty)
+                getMaintainer(contract.toUnnormalizedValue) shouldBe Some(maintainerParty)
+                ledger should haveDisclosedContracts(disclosedContract)
+                ledger should haveCachedContractIds(contractId)
+                ledger should haveInactiveContractIds()
             }
           }
         }
 
-        "inactive contracts" - {
-          "fetching contracts" - {
-            "fail to fetch known contract IDs" in {
-              val (result, events) =
-                evaluateExprApp(
-                  e"""\(contractId: ContractId TestMod:House) ->
-                          ubind ignore: Unit <- TestMod:exercise contractId
-                          in TestMod:fetch_by_id contractId
+        "contract ID in ledger and disclosure table" in {
+          forAll(disclosedContractIds) { case (disclosedContract, _) =>
+            val (result, ledger) =
+              evaluateSExpr(
+                SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
+                // contract owned by ledgerParty
+                getContract = Map(contractId -> ledgerContract),
+                // contract owned by disclosureParty
+                disclosedContracts = ImmArray(disclosedContract),
+              )
+
+            inside(result) {
+              case Right(SValue.SAny(_, contract @ SValue.SRecord(`templateId`, _, _))) =>
+                getOwner(contract.toUnnormalizedValue) shouldBe Some(disclosureParty)
+                getMaintainer(contract.toUnnormalizedValue) shouldBe Some(maintainerParty)
+                ledger should haveDisclosedContracts(disclosedContract)
+                ledger should haveCachedContractIds(contractId)
+                ledger should haveInactiveContractIds()
+            }
+          }
+        }
+      }
+
+      "contract IDs that are inactive" - {
+        "ledger query fails when contract ID is not disclosed" in {
+          val (result, ledger) =
+            evaluateSExprWithSetup(
+              e"""\(contractId: ContractId TestMod:House) ->
+                          TestMod:exercise contractId
                   """,
+              Array(SContractId(contractId)),
+            )(
+              SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
+              committers = Set(ledgerParty, maintainerParty),
+              getContract = Map(contractId -> ledgerContract),
+            )
+
+          inside(result) {
+            case Left(
+                  SError.SErrorDamlException(ContractNotActive(`contractId`, `templateId`, _))
+                ) =>
+              ledger should haveDisclosedContracts()
+              ledger should haveCachedContractIds(contractId)
+              ledger should haveInactiveContractIds(contractId)
+          }
+        }
+
+        "disclosure table query fails when contract ID is disclosed" - {
+          "contract ID in disclosure table only" in {
+            forAll(disclosedContractIds) { case (disclosedContract, _) =>
+              val (result, ledger) =
+                evaluateSExprWithSetup(
+                  e"""\(contractId: ContractId TestMod:House) ->
+                          TestMod:exercise contractId
+                    """,
                   Array(SContractId(contractId)),
-                  committers = Set(ledgerParty),
-                  getKey = Map(
-                    GlobalKeyWithMaintainers(ledgerContractKey, Set(ledgerParty)) -> contractId
-                  ),
-                  getContract = Map(contractId -> ledgerContract),
+                )(
+                  SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
+                  committers = Set(disclosureParty, maintainerParty),
+                  disclosedContracts = ImmArray(disclosedContract),
                 )
 
               inside(result) {
                 case Left(
                       SError.SErrorDamlException(ContractNotActive(`contractId`, `templateId`, _))
                     ) =>
-                  events shouldBe Array("contractById queried", "getContract queried")
+                  ledger should haveDisclosedContracts(disclosedContract)
+                  ledger should haveCachedContractIds(contractId)
+                  ledger should haveInactiveContractIds(contractId)
               }
             }
+          }
 
-            "fail to fetch disclosed contract IDs" in {
-              forAll(disclosedContracts) { case (disclosedContract, _) =>
-                val (result, events) =
-                  evaluateExprApp(
-                    e"""\(contractId: ContractId TestMod:House) ->
-                          ubind ignore: Unit <- TestMod:exercise contractId
-                          in TestMod:fetch_by_id contractId
+          "contract ID in ledger and disclosure table" in {
+            forAll(disclosedContractIds) { case (disclosedContract, _) =>
+              val (result, ledger) =
+                evaluateSExprWithSetup(
+                  e"""\(contractId: ContractId TestMod:House) ->
+                          TestMod:exercise contractId
                     """,
-                    Array(SContractId(contractId)),
-                    committers = Set(disclosureParty),
+                  Array(SContractId(contractId)),
+                )(
+                  SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
+                  committers = Set(disclosureParty, ledgerParty, maintainerParty),
+                  getContract = Map(contractId -> ledgerContract),
+                  disclosedContracts = ImmArray(disclosedContract),
+                )
+
+              inside(result) {
+                case Left(
+                      SError.SErrorDamlException(ContractNotActive(`contractId`, `templateId`, _))
+                    ) =>
+                  ledger should haveDisclosedContracts(disclosedContract)
+                  ledger should haveCachedContractIds(contractId)
+                  ledger should haveInactiveContractIds(contractId)
+              }
+            }
+          }
+        }
+      }
+    }
+
+    "fetching contract keys" - {
+      "test data validation" in {
+        ledgerParty should not be disclosureParty
+        ledgerParty should not be maintainerParty
+        disclosureParty should not be maintainerParty
+        ledgerContractId should not be disclosureContractId
+        forAll(disclosedContractKeys) { case (disclosedContract, _) =>
+          disclosedContract.contractId shouldBe SContractId(disclosureContractId)
+          getOwner(disclosedContract.argument.toUnnormalizedValue) shouldBe Some(disclosureParty)
+          getMaintainer(disclosedContract.argument.toUnnormalizedValue) shouldBe Some(
+            maintainerParty
+          )
+        }
+      }
+
+      "ledger queried when contract key is not disclosed" in {
+        val (result, ledger) =
+          evaluateSExpr(
+            SBUFetchKey(templateId)(SEValue(contractSKey)),
+            committers = Set(ledgerParty),
+            getKey = Map(
+              GlobalKeyWithMaintainers(contractKey, Set(maintainerParty)) -> ledgerContractId
+            ),
+            getContract = Map(ledgerContractId -> ledgerContract),
+          )
+
+        result shouldBe Right(SValue.SContractId(ledgerContractId))
+        ledger should haveDisclosedContracts()
+        ledger should haveCachedContractIds(ledgerContractId)
+        ledger should haveInactiveContractIds()
+      }
+
+      "disclosure table queried when contract key is disclosed" - {
+        "contract key in disclosure table only" in {
+          forAll(disclosedContractKeys) { case (disclosedContract, label) =>
+            val (result, ledger) =
+              evaluateSExpr(
+                SBUFetchKey(templateId)(SEValue(contractSKey)),
+                committers = Set(disclosureParty),
+                disclosedContracts = ImmArray(disclosedContract),
+              )
+
+            label match {
+              case "disclosedContractNoHash" =>
+                // Contract ID has no hash, so we serve key using the ledger (where key is non-existent)
+                result shouldBe Left(SError.SErrorDamlException(ContractKeyNotFound(contractKey)))
+                ledger should haveDisclosedContracts(disclosedContract)
+                ledger should haveCachedContractIds()
+                ledger should haveInactiveContractIds()
+
+              case "disclosedContractWithHash" =>
+                // Contract ID has a hash, so we serve key using the disclosure table
+                result shouldBe Right(SValue.SContractId(disclosureContractId))
+                ledger should haveDisclosedContracts(disclosedContract)
+                ledger should haveCachedContractIds(disclosureContractId)
+                ledger should haveInactiveContractIds()
+            }
+          }
+        }
+
+        "contract key in ledger and disclosure table" in {
+          forAll(disclosedContractKeys) { case (disclosedContract, label) =>
+            val (result, ledger) =
+              evaluateSExpr(
+                SBUFetchKey(templateId)(SEValue(contractSKey)),
+                committers = Set(disclosureParty, ledgerParty),
+                getKey = Map(
+                  GlobalKeyWithMaintainers(contractKey, Set(maintainerParty)) -> ledgerContractId
+                ),
+                getContract = Map(ledgerContractId -> ledgerContract),
+                disclosedContracts = ImmArray(disclosedContract),
+              )
+
+            label match {
+              case "disclosedContractNoHash" =>
+                // Contract ID has no hash, so we serve key using the ledger
+                result shouldBe Right(SValue.SContractId(ledgerContractId))
+                ledger should haveDisclosedContracts(disclosedContract)
+                ledger should haveCachedContractIds(ledgerContractId)
+                ledger should haveInactiveContractIds()
+
+              case "disclosedContractWithHash" =>
+                // Contract ID has a hash, so we serve key using the disclosure table
+                result shouldBe Right(SValue.SContractId(disclosureContractId))
+                ledger should haveDisclosedContracts(disclosedContract)
+                ledger should haveCachedContractIds(disclosureContractId)
+                ledger should haveInactiveContractIds()
+            }
+          }
+        }
+      }
+
+      "disclosed contract IDs that are inactive" - {
+        "ledger query fails when contract key is not disclosed" in {
+          val (result, ledger) =
+            evaluateSExprWithSetup(
+              e"""\(contractId: ContractId TestMod:House) ->
+                          TestMod:exercise contractId
+                  """,
+              Array(SContractId(ledgerContractId)),
+            )(
+              SBUFetchKey(templateId)(SEValue(contractSKey)),
+              committers = Set(ledgerParty),
+              getKey = Map(
+                GlobalKeyWithMaintainers(contractKey, Set(maintainerParty)) -> ledgerContractId
+              ),
+              getContract = Map(ledgerContractId -> ledgerContract),
+            )
+
+          inside(result) {
+            case Left(SError.SErrorDamlException(ContractKeyNotFound(`contractKey`))) =>
+              ledger should haveDisclosedContracts()
+              ledger should haveCachedContractIds(ledgerContractId)
+              ledger should haveInactiveContractIds(ledgerContractId)
+          }
+        }
+
+        "disclosure table query fails when contract ID is disclosed" - {
+          "contract key in disclosure table only" in {
+            forAll(disclosedContractKeys) { case (disclosedContract, _) =>
+              val (result, ledger) =
+                evaluateSExprWithSetup(
+                  e"""\(contractId: ContractId TestMod:House) ->
+                          TestMod:exercise contractId
+                    """,
+                  Array(SContractId(disclosureContractId)),
+                )(
+                  SBUFetchKey(templateId)(SEValue(contractSKey)),
+                  committers = Set(disclosureParty, maintainerParty),
+                  disclosedContracts = ImmArray(disclosedContract),
+                )
+
+              inside(result) {
+                case Left(SError.SErrorDamlException(ContractKeyNotFound(`contractKey`))) =>
+                  ledger should haveDisclosedContracts(disclosedContract)
+                  ledger should haveCachedContractIds(disclosureContractId)
+                  ledger should haveInactiveContractIds(disclosureContractId)
+              }
+            }
+          }
+
+          "contract key in ledger and disclosure table" in {
+            for (contractIdToBurn <- Set(ledgerContractId, disclosureContractId)) {
+              forAll(disclosedContractKeys) { case (disclosedContract, _) =>
+                // Exercising a single contract ID is sufficient to make the key inactive
+                val (result, ledger) =
+                  evaluateSExprWithSetup(
+                    e"""\(contractId: ContractId TestMod:House) ->
+                          TestMod:exercise contractId
+                    """,
+                    Array(SContractId(contractIdToBurn)),
+                  )(
+                    SBUFetchKey(templateId)(SEValue(contractSKey)),
+                    committers = Set(disclosureParty, ledgerParty, maintainerParty),
+                    getKey = Map(
+                      GlobalKeyWithMaintainers(
+                        contractKey,
+                        Set(maintainerParty),
+                      ) -> ledgerContractId
+                    ),
+                    getContract = Map(ledgerContractId -> ledgerContract),
                     disclosedContracts = ImmArray(disclosedContract),
                   )
 
                 inside(result) {
-                  case Left(
-                        SError.SErrorDamlException(ContractNotActive(`contractId`, `templateId`, _))
-                      ) =>
-                    events shouldBe Array("contractById queried")
-                }
-              }
-            }
-          }
-
-          "fetching contract keys" - {
-            "fail to fetch known contract keys" in {
-              val (result, events) =
-                evaluateExprApp(
-                  e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
-                          ubind ignore: Unit <- TestMod:exercise contractId
-                          in TestMod:fetch_by_key label (Some @Party maintainer)
-                  """,
-                  Array(
-                    SContractId(contractId),
-                    SValue.SText(testKeyName),
-                    SValue.SParty(ledgerParty),
-                  ),
-                  committers = Set(ledgerParty),
-                  getKey = Map(
-                    GlobalKeyWithMaintainers(ledgerContractKey, Set(ledgerParty)) -> contractId
-                  ),
-                  getContract = Map(contractId -> ledgerContract),
-                )
-
-              inside(result) { case Left(SError.SErrorDamlException(ContractKeyNotFound(key))) =>
-                key shouldBe buildContractKey(ledgerParty)
-                events shouldBe Array("contractById queried", "getContract queried")
-              }
-            }
-
-            "fail to fetch disclosed contract keys" in {
-              forAll(disclosedContracts) { case (disclosedContract, _) =>
-                val (result, events) =
-                  evaluateExprApp(
-                    e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
-                          ubind ignore: Unit <- TestMod:exercise contractId
-                          in TestMod:fetch_by_key label (Some @Party maintainer)
-                    """,
-                    Array(
-                      SContractId(contractId),
-                      SValue.SText(testKeyName),
-                      SValue.SParty(disclosureParty),
-                    ),
-                    committers = Set(disclosureParty),
-                    disclosedContracts = ImmArray(disclosedContract),
-                  )
-
-                inside(result) { case Left(SError.SErrorDamlException(ContractKeyNotFound(key))) =>
-                  key shouldBe buildContractKey(disclosureParty)
-                  events shouldBe Array("contractById queried")
-                }
-              }
-            }
-          }
-
-          "looking up contract keys" - {
-            "fail to evaluate lookup contract keys" in {
-              val (result, events) =
-                evaluateExprApp(
-                  e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
-                          ubind ignore: Unit <- TestMod:exercise contractId
-                          in TestMod:lookup_by_key label (Some @Party maintainer)
-                  """,
-                  Array(
-                    SContractId(contractId),
-                    SValue.SText(testKeyName),
-                    SValue.SParty(ledgerParty),
-                  ),
-                  committers = Set(ledgerParty),
-                  getKey = Map(
-                    GlobalKeyWithMaintainers(ledgerContractKey, Set(ledgerParty)) -> contractId
-                  ),
-                  getContract = Map(contractId -> ledgerContract),
-                )
-
-              inside(result) { case Right(SValue.SOptional(None)) =>
-                events shouldBe Array("contractById queried", "getContract queried")
-              }
-            }
-
-            "fail to lookup disclosed contract keys" in {
-              forAll(disclosedContracts) { case (disclosedContract, _) =>
-                val (result, events) =
-                  evaluateExprApp(
-                    e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
-                          ubind ignore: Unit <- TestMod:exercise contractId
-                          in TestMod:lookup_by_key label (Some @Party maintainer)
-                    """,
-                    Array(
-                      SContractId(contractId),
-                      SValue.SText(testKeyName),
-                      SValue.SParty(disclosureParty),
-                    ),
-                    committers = Set(disclosureParty),
-                    disclosedContracts = ImmArray(disclosedContract),
-                  )
-
-                inside(result) { case Right(SValue.SOptional(None)) =>
-                  events shouldBe Array("contractById queried")
+                  case Left(SError.SErrorDamlException(ContractKeyNotFound(`contractKey`))) =>
+                    ledger should haveDisclosedContracts(disclosedContract)
+                    ledger should haveCachedContractIds(contractIdToBurn)
+                    ledger should haveInactiveContractIds(contractIdToBurn)
                 }
               }
             }
@@ -313,170 +390,176 @@ class ExplicitDisclosureTest
       }
     }
 
-    "with contracts stored in multiple locations" - {
-      "on ledger" - {
-        "active contracts" - {
-          "fetching contracts" - {
-            "evaluate known contract IDs" in {
-              forAll(disclosedContracts) { case (disclosedContract, _) =>
-                val (result, events) =
-                  evaluateSExpr(
-                    SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
-                    getContract = Map(contractId -> ledgerContract),
-                    disclosedContracts = ImmArray(disclosedContract),
-                  )
+    "looking up contract keys" - {
+      "test data validation" in {
+        ledgerParty should not be disclosureParty
+        ledgerParty should not be maintainerParty
+        disclosureParty should not be maintainerParty
+        ledgerContractId should not be disclosureContractId
+        forAll(disclosedContractKeys) { case (disclosedContract, _) =>
+          disclosedContract.contractId shouldBe SContractId(disclosureContractId)
+          getOwner(disclosedContract.argument.toUnnormalizedValue) shouldBe Some(disclosureParty)
+          getMaintainer(disclosedContract.argument.toUnnormalizedValue) shouldBe Some(
+            maintainerParty
+          )
+        }
+      }
 
-                // Ledger contract is not cached, so we always return the disclosed contract
-                inside(result) {
-                  case Right(SValue.SAny(_, SValue.SRecord(`templateId`, fields, values))) =>
-                    fields shouldBe ImmArray(Ref.Name.assertFromString("owner"))
-                    values shouldBe ArrayList(SValue.SParty(disclosureParty))
-                    events shouldBe Seq("contractById queried")
-                }
-              }
-            }
-          }
+      "ledger queried when contract key is not disclosed" in {
+        val (result, ledger) =
+          evaluateSExpr(
+            SBULookupKey(templateId)(SEValue(contractSKey)),
+            committers = Set(ledgerParty),
+            getKey = Map(
+              GlobalKeyWithMaintainers(contractKey, Set(maintainerParty)) -> ledgerContractId
+            ),
+            getContract = Map(ledgerContractId -> ledgerContract),
+          )
 
-          "fetching contract keys" - {
-            "evaluate known contract IDs" in {
-              forAll(disclosedContracts) { case (disclosedContract, _) =>
-                val (result, events) =
-                  evaluateSExpr(
-                    SBUFetchKey(templateId)(SEValue(ledgerContractSKey)),
-                    committers = Set(disclosureParty),
-                    getKey = Map(
-                      GlobalKeyWithMaintainers(ledgerContractKey, Set(ledgerParty)) -> contractId
-                    ),
-                    getContract = Map(contractId -> ledgerContract),
-                    disclosedContracts = ImmArray(disclosedContract),
-                  )
+        result shouldBe Right(SValue.SOptional(Some(SValue.SContractId(ledgerContractId))))
+        ledger should haveDisclosedContracts()
+        ledger should haveCachedContractIds(ledgerContractId)
+        ledger should haveInactiveContractIds()
+      }
 
-                result shouldBe Right(SValue.SContractId(`contractId`))
-                events shouldBe Seq(
-                  "contractIdByKey queried",
-                  "getKey queried",
-                  "contractById queried",
+      "disclosure table queried when contract key is disclosed" - {
+        "contract key in disclosure table only" in {
+          forAll(disclosedContractKeys) { case (disclosedContract, label) =>
+            val (result, ledger) =
+              evaluateSExpr(
+                SBULookupKey(templateId)(SEValue(contractSKey)),
+                committers = Set(disclosureParty),
+                disclosedContracts = ImmArray(disclosedContract),
+              )
+
+            label match {
+              case "disclosedContractNoHash" =>
+                // Contract ID has no hash, so we serve key using the ledger (where key is non-existent)
+                result shouldBe Right(SValue.SOptional(None))
+                ledger.cachedContracts.keySet shouldBe Set.empty
+                ledger.ptx.disclosedContracts shouldBe ImmArray(disclosedContract)
+                ledger.ptx.contractState.activeState.consumedBy.keySet shouldBe Set.empty
+
+              case "disclosedContractWithHash" =>
+                // Contract ID has a hash, so we serve key using the disclosure table
+                result shouldBe Right(
+                  SValue.SOptional(Some(SValue.SContractId(disclosureContractId)))
                 )
-              }
-            }
-          }
-
-          "looking up contract keys" - {
-            "evaluate known contract IDs" in {
-              forAll(disclosedContracts) { case (disclosedContract, _) =>
-                val (result, events) =
-                  evaluateSExpr(
-                    SBULookupKey(templateId)(SEValue(ledgerContractSKey)),
-                    committers = Set(disclosureParty),
-                    getKey = Map(
-                      GlobalKeyWithMaintainers(ledgerContractKey, Set(ledgerParty)) -> contractId
-                    ),
-                    getContract = Map(contractId -> ledgerContract),
-                    disclosedContracts = ImmArray(disclosedContract),
-                  )
-
-                result shouldBe Right(SValue.SOptional(Some(SValue.SContractId(`contractId`))))
-                events shouldBe Seq(
-                  "contractIdByKey queried",
-                  "getKey queried",
-                  "contractById queried",
-                )
-              }
+                ledger should haveDisclosedContracts(disclosedContract)
+                ledger should haveCachedContractIds(disclosureContractId)
+                ledger should haveInactiveContractIds()
             }
           }
         }
 
-        "inactive contracts" - {
-          "fetching contracts" - {
-            "fail to fetch known contract IDs" in {
-              forAll(disclosedContracts) { case (disclosedContract, _) =>
-                val (result, events) =
-                  evaluateExprApp(
+        "contract key in ledger and disclosure table" in {
+          forAll(disclosedContractKeys) { case (disclosedContract, label) =>
+            val (result, ledger) =
+              evaluateSExpr(
+                SBULookupKey(templateId)(SEValue(contractSKey)),
+                committers = Set(disclosureParty, ledgerParty),
+                getKey = Map(
+                  GlobalKeyWithMaintainers(contractKey, Set(maintainerParty)) -> ledgerContractId
+                ),
+                getContract = Map(ledgerContractId -> ledgerContract),
+                disclosedContracts = ImmArray(disclosedContract),
+              )
+
+            label match {
+              case "disclosedContractNoHash" =>
+                // Contract ID has no hash, so we serve key using the ledger
+                result shouldBe Right(SValue.SOptional(Some(SValue.SContractId(ledgerContractId))))
+                ledger.cachedContracts.keySet shouldBe Set(ledgerContractId)
+                ledger.ptx.disclosedContracts shouldBe ImmArray(disclosedContract)
+                ledger.ptx.contractState.activeState.consumedBy.keySet shouldBe Set.empty
+
+              case "disclosedContractWithHash" =>
+                // Contract ID has a hash, so we serve key using the disclosure table
+                result shouldBe Right(
+                  SValue.SOptional(Some(SValue.SContractId(disclosureContractId)))
+                )
+                ledger should haveDisclosedContracts(disclosedContract)
+                ledger should haveCachedContractIds(disclosureContractId)
+                ledger should haveInactiveContractIds()
+            }
+          }
+        }
+      }
+
+      "disclosed contract IDs that are inactive" - {
+        "ledger query fails when contract key is not disclosed" in {
+          val (result, ledger) =
+            evaluateSExprWithSetup(
+              e"""\(contractId: ContractId TestMod:House) ->
+                          TestMod:exercise contractId
+                  """,
+              Array(SContractId(ledgerContractId)),
+            )(
+              SBULookupKey(templateId)(SEValue(contractSKey)),
+              committers = Set(ledgerParty),
+              getKey = Map(
+                GlobalKeyWithMaintainers(contractKey, Set(maintainerParty)) -> ledgerContractId
+              ),
+              getContract = Map(ledgerContractId -> ledgerContract),
+            )
+
+          inside(result) { case Right(SValue.SOptional(None)) =>
+            ledger should haveDisclosedContracts()
+            ledger should haveCachedContractIds(ledgerContractId)
+            ledger should haveInactiveContractIds(ledgerContractId)
+          }
+        }
+
+        "disclosure table query fails when contract ID is disclosed" - {
+          "contract key in disclosure table only" in {
+            forAll(disclosedContractKeys) { case (disclosedContract, _) =>
+              val (result, ledger) =
+                evaluateSExprWithSetup(
+                  e"""\(contractId: ContractId TestMod:House) ->
+                          TestMod:exercise contractId
+                    """,
+                  Array(SContractId(disclosureContractId)),
+                )(
+                  SBULookupKey(templateId)(SEValue(contractSKey)),
+                  committers = Set(disclosureParty, maintainerParty),
+                  disclosedContracts = ImmArray(disclosedContract),
+                )
+
+              inside(result) { case Right(SValue.SOptional(None)) =>
+                ledger should haveDisclosedContracts(disclosedContract)
+                ledger should haveCachedContractIds(disclosureContractId)
+                ledger should haveInactiveContractIds(disclosureContractId)
+              }
+            }
+          }
+
+          "contract key in ledger and disclosure table" in {
+            for (contractIdToBurn <- Set(ledgerContractId, disclosureContractId)) {
+              // Exercising a single contract ID is sufficient to make the key inactive
+              forAll(disclosedContractKeys) { case (disclosedContract, _) =>
+                val (result, ledger) =
+                  evaluateSExprWithSetup(
                     e"""\(contractId: ContractId TestMod:House) ->
-                          ubind ignore: Unit <- TestMod:exercise contractId
-                          in TestMod:fetch_by_id contractId
+                          TestMod:exercise contractId
                     """,
-                    Array(SContractId(contractId)),
-                    committers = Set(disclosureParty),
+                    Array(SContractId(contractIdToBurn)),
+                  )(
+                    SBULookupKey(templateId)(SEValue(contractSKey)),
+                    committers = Set(disclosureParty, ledgerParty, maintainerParty),
                     getKey = Map(
-                      GlobalKeyWithMaintainers(ledgerContractKey, Set(ledgerParty)) -> contractId
+                      GlobalKeyWithMaintainers(
+                        contractKey,
+                        Set(maintainerParty),
+                      ) -> ledgerContractId
                     ),
-                    getContract = Map(contractId -> ledgerContract),
-                    disclosedContracts = ImmArray(disclosedContract),
-                  )
-
-                inside(result) {
-                  case Left(
-                        SError.SErrorDamlException(ContractNotActive(`contractId`, `templateId`, _))
-                      ) =>
-                    events shouldBe Array("contractById queried")
-                }
-              }
-            }
-          }
-
-          "fetching contract keys" - {
-            "fail to fetch known contract keys" in {
-              forAll(disclosedContracts) { case (disclosedContract, _) =>
-                val (result, events) =
-                  evaluateExprApp(
-                    e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
-                          ubind ignore: Unit <- TestMod:exercise contractId
-                          in TestMod:fetch_by_key label (Some @Party maintainer)
-                    """,
-                    Array(
-                      SContractId(contractId),
-                      SValue.SText(testKeyName),
-                      SValue.SParty(ledgerParty),
-                    ),
-                    committers = Set(disclosureParty),
-                    getKey = Map(
-                      GlobalKeyWithMaintainers(ledgerContractKey, Set(ledgerParty)) -> contractId
-                    ),
-                    getContract = Map(contractId -> ledgerContract),
-                    disclosedContracts = ImmArray(disclosedContract),
-                  )
-
-                inside(result) { case Left(SError.SErrorDamlException(ContractKeyNotFound(key))) =>
-                  key shouldBe buildContractKey(ledgerParty)
-                  events shouldBe Array(
-                    "contractById queried",
-                    "contractIdByKey queried",
-                    "getKey queried",
-                  )
-                }
-              }
-            }
-          }
-
-          "looking up contract keys" - {
-            "fail to evaluate lookup contract keys" in {
-              forAll(disclosedContracts) { case (disclosedContract, _) =>
-                val (result, events) =
-                  evaluateExprApp(
-                    e"""\(contractId: ContractId TestMod:House) (label: Text) (maintainer: Party) ->
-                          ubind ignore: Unit <- TestMod:exercise contractId
-                          in TestMod:lookup_by_key label (Some @Party maintainer)
-                    """,
-                    Array(
-                      SContractId(contractId),
-                      SValue.SText(testKeyName),
-                      SValue.SParty(ledgerParty),
-                    ),
-                    committers = Set(ledgerParty, disclosureParty),
-                    getKey = Map(
-                      GlobalKeyWithMaintainers(ledgerContractKey, Set(ledgerParty)) -> contractId
-                    ),
-                    getContract = Map(contractId -> ledgerContract),
+                    getContract = Map(ledgerContractId -> ledgerContract),
                     disclosedContracts = ImmArray(disclosedContract),
                   )
 
                 inside(result) { case Right(SValue.SOptional(None)) =>
-                  events shouldBe Array(
-                    "contractById queried",
-                    "contractIdByKey queried",
-                    "getKey queried",
-                  )
+                  ledger should haveDisclosedContracts(disclosedContract)
+                  ledger should haveCachedContractIds(contractIdToBurn)
+                  ledger should haveInactiveContractIds(contractIdToBurn)
                 }
               }
             }
@@ -489,8 +572,6 @@ class ExplicitDisclosureTest
 
 object ExplicitDisclosureTest {
 
-  import SpeedyTestLib.Implicits._
-
   val testKeyName: String = "test-key"
   val pkg: PureCompiledPackages = SpeedyTestLib.typeAndCompile(
     p"""
@@ -498,7 +579,7 @@ object ExplicitDisclosureTest {
 
          record @serializable Key = { label: Text, maintainers: List Party };
 
-         record @serializable House = { owner: Party };
+         record @serializable House = { owner: Party, key_maintainer: Party };
          template(this: House) = {
            precondition True;
            signatories (TestMod:listOf @Party (TestMod:House {owner} this));
@@ -511,31 +592,13 @@ object ExplicitDisclosureTest {
              to upure @Unit ();
 
            key @TestMod:Key
-              (TestMod:Key { label = "test-key", maintainers = (TestMod:listOf @Party (TestMod:House {owner} this)) })
+              (TestMod:Key { label = "test-key", maintainers = (TestMod:listOf @Party (TestMod:House {key_maintainer} this)) })
               (\(key: TestMod:Key) -> (TestMod:Key {maintainers} key));
          };
-
-         val create: Party -> Update (ContractId TestMod:House) =
-           \(party: Party) ->
-             create @TestMod:House TestMod:House { owner = party };
 
          val exercise: ContractId TestMod:House -> Update Unit =
            \(contractId: ContractId TestMod:House) ->
              exercise @TestMod:House Destroy contractId ();
-
-         val fetch_by_id: ContractId TestMod:House -> Update TestMod:House =
-           \(contractId: ContractId TestMod:House) ->
-             fetch_template @TestMod:House contractId;
-
-         val fetch_by_key: Text -> Option Party -> Update <contract: TestMod:House, contractId: ContractId TestMod:House> =
-           \(label: Text) (maintainer: Option Party) ->
-             let key: TestMod:Key = TestMod:Key { label = label, maintainers = (TestMod:optToList @Party maintainer) }
-             in fetch_by_key @TestMod:House key;
-
-         val lookup_by_key: Text -> Option Party -> Update (Option(ContractId TestMod:House)) =
-           \(label: Text) (maintainer: Option Party) ->
-             let key: TestMod:Key = TestMod:Key { label = label, maintainers = (TestMod:optToList @Party maintainer) }
-             in lookup_by_key @TestMod:House key;
 
          val listOf: forall(t:*). t -> List t =
            /\(t:*). \(x: t) ->
@@ -549,25 +612,57 @@ object ExplicitDisclosureTest {
        }
        """
   )
+  val maintainerParty: IdString.Party = Ref.Party.assertFromString("maintainerParty")
   val ledgerParty: IdString.Party = Ref.Party.assertFromString("ledgerParty")
   val disclosureParty: IdString.Party = Ref.Party.assertFromString("disclosureParty")
   val contractId: ContractId = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
+  val ledgerContractId: ContractId =
+    Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-ledger-contract-id"))
+  val disclosureContractId: ContractId =
+    Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-disclosure-contract-id"))
   val templateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:House")
   val templateType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:House")
   val keyType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:Key")
+  val contractKey: GlobalKey = buildContractKey(maintainerParty)
+  val contractSKey: SValue = buildContractSKey(maintainerParty)
   val ledgerContractKey: GlobalKey = buildContractKey(ledgerParty)
-  val ledgerContractSKey: SValue = buildContractSKey(ledgerParty)
-  val disclosureContractKey: GlobalKey = buildContractKey(disclosureParty)
-  val disclosureContractSKey: SValue = buildContractSKey(disclosureParty)
-  val ledgerContract: Value.VersionedContractInstance = buildContract(ledgerParty)
-  val disclosedContracts =
+  val ledgerContract: Value.VersionedContractInstance = buildContract(ledgerParty, maintainerParty)
+  val disclosedContractIds =
     TableDrivenPropertyChecks.Table(
       ("disclosedContract", "caseLabel"),
-      (buildDisclosedContract(disclosureParty, withHash = false), "disclosedContractNoHash"),
-      (buildDisclosedContract(disclosureParty), "disclosedContractWithHash"),
+      (
+        buildDisclosedContract(contractId, disclosureParty, maintainerParty, withHash = false),
+        "disclosedContractNoHash",
+      ),
+      (
+        buildDisclosedContract(contractId, disclosureParty, maintainerParty),
+        "disclosedContractWithHash",
+      ),
+    )
+  val disclosedContractKeys =
+    TableDrivenPropertyChecks.Table(
+      ("disclosedContract", "caseLabel"),
+      (
+        buildDisclosedContract(
+          disclosureContractId,
+          disclosureParty,
+          maintainerParty,
+          withHash = false,
+        ),
+        "disclosedContractNoHash",
+      ),
+      (
+        buildDisclosedContract(disclosureContractId, disclosureParty, maintainerParty),
+        "disclosedContractWithHash",
+      ),
     )
 
-  def buildDisclosedContract(maintainer: Party, withHash: Boolean = true): DisclosedContract = {
+  def buildDisclosedContract(
+      contractId: ContractId,
+      owner: Party,
+      maintainer: Party,
+      withHash: Boolean = true,
+  ): DisclosedContract = {
     val key = Value.ValueRecord(
       None,
       ImmArray(
@@ -583,8 +678,8 @@ object ExplicitDisclosureTest {
       SContractId(contractId),
       SValue.SRecord(
         `templateId`,
-        ImmArray(Ref.Name.assertFromString("owner")),
-        ArrayList(SValue.SParty(maintainer)),
+        ImmArray(Ref.Name.assertFromString("owner"), Ref.Name.assertFromString("key_maintainer")),
+        ArrayList(SValue.SParty(owner), SValue.SParty(maintainer)),
       ),
       ContractMetadata(Time.Timestamp.now(), keyHash, ImmArray.Empty),
     )
@@ -619,44 +714,83 @@ object ExplicitDisclosureTest {
       ),
     )
 
-  def buildContract(owner: Party): Versioned[ContractInstance] = Versioned(
+  def buildContract(owner: Party, maintainer: Party): Versioned[ContractInstance] = Versioned(
     TransactionVersion.minExplicitDisclosure,
     Value.ContractInstance(
       templateId,
       Value.ValueRecord(
         None,
         ImmArray(
-          None -> Value.ValueParty(owner)
+          None -> Value.ValueParty(owner),
+          None -> Value.ValueParty(maintainer),
         ),
       ),
       "test",
     ),
   )
 
+  val getOwner: Value => Option[Party] = {
+    case Value.ValueRecord(_, ImmArray(_ -> Value.ValueParty(owner), _)) =>
+      Some(owner)
+
+    case _ =>
+      None
+  }
+
+  val getMaintainer: Value => Option[Party] = {
+    case Value.ValueRecord(_, ImmArray(_, _ -> Value.ValueParty(maintainer))) =>
+      Some(maintainer)
+
+    case _ =>
+      None
+  }
+
   def runUpdateSExpr(sexpr: SExpr.SExpr): SExpr.SExpr = {
     SEMakeClo(Array(), 1, sexpr)
   }
 
-  def evaluateExprApp(
-      expr: Ast.Expr,
-      args: Array[SValue],
+  def evaluateSExprWithSetup(
+      setupExpr: Ast.Expr,
+      setupArgs: Array[SValue],
+  )(
+      sexpr: SExpr.SExpr,
       committers: Set[Party] = Set.empty,
       disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
-  ): (Either[SError.SError, SValue], Seq[String]) = {
-    // A token function closure is added as part of compiling the Expr
-    val sexpr = pkg.compiler.unsafeCompile(expr)
+  ): (Either[SError.SError, SValue], Speedy.OnLedger) = {
+    import SpeedyTestLib.loggingContext
 
-    evaluateSExpr(
-      if (args.isEmpty) sexpr else SExpr.SEApp(sexpr, args.map(SEValue(_))),
-      committers = committers,
-      disclosedContracts = disclosedContracts,
+    // A token function closure is added as part of compiling the Expr
+    val contextSExpr = pkg.compiler.unsafeCompile(setupExpr)
+    val machine =
+      Speedy.Machine.fromUpdateSExpr(
+        pkg,
+        transactionSeed = crypto.Hash.hashPrivateKey("ExplicitDisclosureTest"),
+        updateSE =
+          if (setupArgs.isEmpty) contextSExpr
+          else SExpr.SEApp(contextSExpr, setupArgs.map(SEValue(_))),
+        committers = committers,
+        disclosedContracts = disclosedContracts,
+      )
+    val setupResult = SpeedyTestLib.run(
+      machine = machine,
       getContract = getContract,
       getKey = getKey,
-      requireTokenClosure = false,
     )
+
+    assert(setupResult.isRight)
+
+    machine.setExpressionToEvaluate(SExpr.SEApp(runUpdateSExpr(sexpr), Array(SEValue.Token)))
+
+    val result = SpeedyTestLib.run(
+      machine = machine,
+      getContract = getContract,
+      getKey = getKey,
+    )
+
+    (result, machine.ledgerMode.asInstanceOf[Speedy.OnLedger])
   }
 
   def evaluateSExpr(
@@ -666,71 +800,50 @@ object ExplicitDisclosureTest {
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
-      requireTokenClosure: Boolean = true,
-  ): (Either[SError.SError, SValue], Seq[String]) = {
+  ): (Either[SError.SError, SValue], Speedy.OnLedger) = {
     import SpeedyTestLib.loggingContext
 
-    val traceLog = new TestTraceLog()
     val machine =
       Speedy.Machine.fromUpdateSExpr(
         pkg,
         transactionSeed = crypto.Hash.hashPrivateKey("ExplicitDisclosureTest"),
-        updateSE = if (requireTokenClosure) runUpdateSExpr(sexpr) else sexpr,
+        updateSE = runUpdateSExpr(sexpr),
         committers = committers,
         disclosedContracts = disclosedContracts,
-        traceLog = traceLog,
       )
     val result = SpeedyTestLib.run(
-      machine = machine.traceDisclosureTable(traceLog),
-      getContract = traceLog.tracePF("getContract queried", getContract),
-      getKey = traceLog.tracePF("getKey queried", getKey),
+      machine = machine,
+      getContract = getContract,
+      getKey = getKey,
     )
 
-    (result, traceLog.getMessages)
+    (result, machine.ledgerMode.asInstanceOf[Speedy.OnLedger])
   }
 
-  def beAnFunctionEvalFailure(
-      expectedFunction: SExpr.SEBuiltin,
-      expectedArgs: Array[SExpr.SEValue],
-  ): Matcher[Either[SError.SError, SValue]] = Matcher {
-    case Right(
-          SValue.SPAP(
-            SValue.PClosure(_, SExpr.SEAppGeneral(function, args), frame),
-            _,
-            1,
-          )
-        ) =>
+  def haveInactiveContractIds(contractIds: ContractId*): Matcher[Speedy.OnLedger] = Matcher {
+    ledger =>
       MatchResult(
-        function == expectedFunction
-          && args.sameElements(expectedArgs)
-          && frame.isEmpty,
-        s"Evaluation failed: $function(${args.mkString("Array(", ", ", ")")}) != $expectedFunction(${expectedArgs
-            .mkString("Array(", ", ", ")")})",
-        s"Evaluation failed: $function(${args.mkString("Array(", ", ", ")")}) == $expectedFunction(${expectedArgs
-            .mkString("Array(", ", ", ")")})",
-      )
-
-    case error =>
-      MatchResult(
-        matches = false,
-        s"Evaluation unexpectedly failed with $error",
-        s"Evaluation unexpectedly failed with $error",
+        ledger.ptx.contractState.activeState.consumedBy.keySet == contractIds.toSet,
+        s"Failed with unexpected inactive contract IDs: ${}",
+        s"Failed with unexpected active contract IDs: ${}",
       )
   }
 
-  def beAnEvaluationFailure: Matcher[Either[SError.SError, SValue]] = Matcher {
-    case Right(SValue.SPAP(SValue.PClosure(_, _, _), _, _)) =>
+  def haveCachedContractIds(contractIds: ContractId*): Matcher[Speedy.OnLedger] = Matcher {
+    ledger =>
       MatchResult(
-        matches = true,
-        "Evaluation failed with partial application",
-        "Evaluation failed with partial application",
+        ledger.cachedContracts.keySet == contractIds.toSet,
+        s"Failed with unexpected cached contract IDs: ${}",
+        s"Failed with unexpected cached contract IDs: ${}",
       )
+  }
 
-    case error =>
+  def haveDisclosedContracts(contractIds: DisclosedContract*): Matcher[Speedy.OnLedger] = Matcher {
+    ledger =>
       MatchResult(
-        matches = false,
-        s"Evaluation unexpectedly failed with $error",
-        s"Evaluation unexpectedly failed with $error",
+        ledger.ptx.disclosedContracts == ImmArray(contractIds: _*),
+        s"Failed with unexpected disclosed contracts: ${}",
+        s"Failed with unexpected disclosed contracts: ${}",
       )
   }
 }

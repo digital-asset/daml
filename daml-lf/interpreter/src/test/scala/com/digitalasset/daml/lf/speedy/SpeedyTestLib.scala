@@ -18,7 +18,6 @@ import scalautil.Statement.discard
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
-import scala.language.implicitConversions
 
 private[speedy] object SpeedyTestLib {
 
@@ -124,41 +123,6 @@ private[speedy] object SpeedyTestLib {
       parserParameter: ParserParameters[X]
   ): PureCompiledPackages =
     typeAndCompile(Map(parserParameter.defaultPackageId -> pkg))
-
-  object Implicits {
-    implicit def addSpeedyMachineHelpers(machine: Speedy.Machine): SpeedyMachineTestHelpers =
-      new SpeedyMachineTestHelpers(machine)
-
-    private[speedy] class SpeedyMachineTestHelpers(machine: Speedy.Machine) {
-      def traceDisclosureTable(traceLog: TestTraceLog): Speedy.Machine = {
-        new Speedy.Machine(
-          machine.ctrl,
-          machine.returnValue,
-          machine.frame,
-          machine.actuals,
-          machine.env,
-          machine.envBase,
-          machine.kontStack,
-          machine.lastLocation,
-          machine.traceLog,
-          machine.warningLog,
-          machine.loggingContext,
-          machine.compiledPackages,
-          machine.steps,
-          machine.track,
-          machine.profile,
-          machine.submissionTime,
-          machine.ledgerMode,
-          Speedy.DisclosureTable(
-            contractIdByKey =
-              traceLog.traceMap("contractIdByKey queried", machine.disclosureTable.contractIdByKey),
-            contractById =
-              traceLog.traceMap("contractById queried", machine.disclosureTable.contractById),
-          ),
-        )
-      }
-    }
-  }
 }
 
 class TestTraceLog extends TraceLog {
