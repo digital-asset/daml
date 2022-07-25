@@ -153,13 +153,16 @@ object Ast {
   /** Extract the payload from an AnyException if it matches the given exception type */
   final case class EFromAnyException(typ: Type, value: Expr) extends Expr
 
+  // We use this type to reduce depth of pattern matching
+  sealed abstract class ExprInterface extends Expr
+
   /** Convert template payload to interface it implements */
   final case class EToInterface(interfaceId: TypeConName, templateId: TypeConName, value: Expr)
-      extends Expr
+      extends ExprInterface
 
   /** Convert interface back to template payload if possible */
   final case class EFromInterface(interfaceId: TypeConName, templateId: TypeConName, value: Expr)
-      extends Expr
+      extends ExprInterface
 
   /** Convert interface back to template payload,
     * or raise a WronglyTypedContracg error if not possible
@@ -169,21 +172,21 @@ object Ast {
       templateId: TypeConName,
       contractIdExpr: Expr,
       ifaceExpr: Expr,
-  ) extends Expr
+  ) extends ExprInterface
 
   /** Upcast from an interface payload to an interface it requires. */
   final case class EToRequiredInterface(
       requiredIfaceId: TypeConName,
       requiringIfaceId: TypeConName,
       body: Expr,
-  ) extends Expr
+  ) extends ExprInterface
 
   /** Downcast from an interface payload to an interface that requires it, if possible. */
   final case class EFromRequiredInterface(
       requiredIfaceId: TypeConName,
       requiringIfaceId: TypeConName,
       body: Expr,
-  ) extends Expr
+  ) extends ExprInterface
 
   /** Downcast from an interface payload to an interface that requires it,
     * or raise a WronglyTypedContract error if not possible.
@@ -193,35 +196,35 @@ object Ast {
       requiringIfaceId: TypeConName,
       contractIdExpr: Expr,
       ifaceExpr: Expr,
-  ) extends Expr
+  ) extends ExprInterface
 
   /** Invoke an interface method */
   final case class ECallInterface(interfaceId: TypeConName, methodName: MethodName, value: Expr)
-      extends Expr
+      extends ExprInterface
 
   /** Obtain the type representation of a contract's template through an interface. */
   final case class EInterfaceTemplateTypeRep(
       ifaceId: TypeConName,
       body: Expr,
-  ) extends Expr
+  ) extends ExprInterface
 
   /** Obtain the signatories of a contract through an interface. */
   final case class ESignatoryInterface(
       ifaceId: TypeConName,
       body: Expr,
-  ) extends Expr
+  ) extends ExprInterface
 
   /** Obtain the observers of a contract through an interface. */
   final case class EObserverInterface(
       ifaceId: TypeConName,
       body: Expr,
-  ) extends Expr
+  ) extends ExprInterface
 
   /** Obtain the view of an interface. */
   final case class EViewInterface(
       ifaceId: TypeConName,
       expr: Expr,
-  ) extends Expr
+  ) extends ExprInterface
 
   //
   // Kinds
