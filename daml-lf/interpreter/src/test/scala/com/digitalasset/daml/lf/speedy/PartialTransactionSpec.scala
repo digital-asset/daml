@@ -54,25 +54,30 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
           key = None,
           version = TransactionVersion.maxVersion,
         )
+        .toOption
+        .get
         ._2
 
     def beginExercises_ : PartialTransaction =
-      ptx.beginExercises(
-        targetId = cid,
-        templateId = templateId,
-        interfaceId = None,
-        choiceId = choiceId,
-        optLocation = None,
-        consuming = false,
-        actingParties = Set(party),
-        signatories = Set(party),
-        stakeholders = Set.empty,
-        choiceObservers = Set.empty,
-        mbKey = None,
-        byKey = false,
-        chosenValue = Value.ValueUnit,
-        version = TransactionVersion.maxVersion,
-      )
+      ptx
+        .beginExercises(
+          targetId = cid,
+          templateId = templateId,
+          interfaceId = None,
+          choiceId = choiceId,
+          optLocation = None,
+          consuming = false,
+          actingParties = Set(party),
+          signatories = Set(party),
+          stakeholders = Set.empty,
+          choiceObservers = Set.empty,
+          mbKey = None,
+          byKey = false,
+          chosenValue = Value.ValueUnit,
+          version = TransactionVersion.maxVersion,
+        )
+        .toOption
+        .get
 
     def endExercises_ : PartialTransaction =
       ptx.endExercises(_ => Value.ValueNone)

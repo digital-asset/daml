@@ -199,9 +199,13 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             x: M:Nested <-exercise @Test:Helper Exe helperId arg
           in upure @Unit ();
 
+      val exercise_interface_with_guard: Party -> ContractId M:Person -> Update Unit =
+        \(exercisingParty: Party) (cId: ContractId M:Person) ->
+          Test:run @Int64 (exercise_interface_with_guard @M:Person Nap cId 42 (\(x: M:Person) -> TRACE @Bool "interface guard" True));
+
       val exercise_interface: Party -> ContractId M:Person -> Update Unit =
         \(exercisingParty: Party) (cId: ContractId M:Person) ->
-          Test:run @Int64 (exercise_by_interface @M:Person Nap cId 42 (\(x: M:Person) -> TRACE @Bool "interface guard" True));
+          Test:run @Int64 (exercise_interface @M:Person Nap cId 42);
 
       val exercise_by_key: Party -> Option Party -> Option (ContractId Unit) -> Int64 -> M:Either Int64 Int64 -> Update Unit =
         \(exercisingParty: Party) (maintainers: Option Party) (optCid: Option (ContractId Unit)) (nesting: Int64) (argParams: M:Either Int64 Int64) ->
@@ -1675,299 +1679,310 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
     }
 
-    "exercise by interface" - {
-
-      "a non-cached global contract" - {
-
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful exercise by interface of a non-cached global contract
-        "success" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(exercisingParty: Party) (cId: ContractId M:Human) -> Test:exercise_interface exercisingParty cId""",
-            Array(SParty(alice), SContractId(cId)),
-            Set(alice),
-            getContract = getIfaceContract,
-          )
-          inside(res) { case Success(Right(_)) =>
-            msgs shouldBe Seq(
-              "starts test",
-              "queries contract",
-              "contract signatories",
-              "contract observers",
-              "key",
-              "maintainers",
-              "interface guard",
-              "choice controllers",
-              "choice observers",
-              "choice body",
-              "ends test",
-            )
-          }
-        }
-
-        // TEST_EVIDENCE: Semantics: exercise_interface with a contract instance that does not implement the interface fails.
-        "contract doesn't implement interface" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(exercisingParty : Party) (cId: ContractId M:Human) -> Test:exercise_interface exercisingParty cId""",
-            Array(SParty(alice), SContractId(cId)),
-            Set(alice),
-            getContract = getWronglyTypedContract,
-            getKey = getKey,
-          )
-          inside(res) {
-            case Success(
-                  Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(_, _, _)))
-                ) =>
-              msgs shouldBe Seq("starts test", "queries contract")
-          }
-        }
-
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_interface of a non-cached global contract with failed authorization
-        "authorization failures" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(exercisingParty : Party) (cId: ContractId M:Human) -> Test:exercise_interface exercisingParty cId""",
-            Array(SParty(charlie), SContractId(cId)),
-            Set(charlie),
-            getContract = getIfaceContract,
-          )
-
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq(
-              "starts test",
-              "queries contract",
-              "contract signatories",
-              "contract observers",
-              "key",
-              "maintainers",
-              "interface guard",
-              "choice controllers",
-              "choice observers",
-            )
-          }
-        }
+    List("exercise_interface", "exercise_interface_with_guard").foreach { testCase =>
+      def buildLog(msgs: String*) = testCase match {
+        case "exercise_interface" => msgs.filter(_ != "interface guard")
+        case _ => msgs
       }
 
-      "a cached global contract" - {
+      testCase - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful exercise_interface of a cached global contract
-        "success" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(exercisingParty : Party) (cId: ContractId Human) ->
+        "a non-cached global contract" - {
+
+          // TEST_EVIDENCE: Semantics: Evaluation order of successful exercise by interface of a non-cached global contract
+          "success" in {
+            val (res, msgs) = evalUpdateApp(
+              pkgs,
+              e"""\(exercisingParty: Party) (cId: ContractId M:Human) -> Test:$testCase exercisingParty cId""",
+              Array(SParty(alice), SContractId(cId)),
+              Set(alice),
+              getContract = getIfaceContract,
+            )
+            inside(res) { case Success(Right(_)) =>
+              msgs shouldBe buildLog(
+                "starts test",
+                "queries contract",
+                "contract signatories",
+                "contract observers",
+                "key",
+                "maintainers",
+                "interface guard",
+                "choice controllers",
+                "choice observers",
+                "choice body",
+                "ends test",
+              )
+            }
+          }
+
+          // TEST_EVIDENCE: Semantics: exercise_interface with a contract instance that does not implement the interface fails.
+          "contract doesn't implement interface" in {
+            val (res, msgs) = evalUpdateApp(
+              pkgs,
+              e"""\(exercisingParty : Party) (cId: ContractId M:Human) -> Test:$testCase exercisingParty cId""",
+              Array(SParty(alice), SContractId(cId)),
+              Set(alice),
+              getContract = getWronglyTypedContract,
+              getKey = getKey,
+            )
+            inside(res) {
+              case Success(
+                    Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(_, _, _)))
+                  ) =>
+                msgs shouldBe buildLog("starts test", "queries contract")
+            }
+          }
+
+          // TEST_EVIDENCE: Semantics: Evaluation order of exercise_interface of a non-cached global contract with failed authorization
+          "authorization failures" in {
+            val (res, msgs) = evalUpdateApp(
+              pkgs,
+              e"""\(exercisingParty : Party) (cId: ContractId M:Human) -> Test:$testCase exercisingParty cId""",
+              Array(SParty(charlie), SContractId(cId)),
+              Set(charlie),
+              getContract = getIfaceContract,
+            )
+
+            inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
+              msgs shouldBe buildLog(
+                "starts test",
+                "queries contract",
+                "contract signatories",
+                "contract observers",
+                "key",
+                "maintainers",
+                "interface guard",
+                "choice controllers",
+                "choice observers",
+              )
+            }
+          }
+        }
+
+        "a cached global contract" - {
+
+          // TEST_EVIDENCE: Semantics: Evaluation order of successful exercise_interface of a cached global contract
+          "success" in {
+            val (res, msgs) = evalUpdateApp(
+              pkgs,
+              e"""\(exercisingParty : Party) (cId: ContractId Human) ->
                ubind x: M:Human <- fetch_template @M:Human cId in
-               Test:exercise_interface exercisingParty cId
+               Test:$testCase exercisingParty cId
                """,
-            Array(SParty(alice), SContractId(cId)),
-            Set(alice),
-            getContract = getIfaceContract,
-          )
-          inside(res) { case Success(Right(_)) =>
-            msgs shouldBe Seq(
-              "starts test",
-              "interface guard",
-              "choice controllers",
-              "choice observers",
-              "choice body",
-              "ends test",
+              Array(SParty(alice), SContractId(cId)),
+              Set(alice),
+              getContract = getIfaceContract,
             )
+            inside(res) { case Success(Right(_)) =>
+              msgs shouldBe buildLog(
+                "starts test",
+                "interface guard",
+                "choice controllers",
+                "choice observers",
+                "choice body",
+                "ends test",
+              )
+            }
           }
-        }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise by interface of an inactive global contract
-        "inactive contract" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(exercisingParty : Party) (cId: ContractId M:Human)  ->
+          // TEST_EVIDENCE: Semantics: Evaluation order of exercise by interface of an inactive global contract
+          "inactive contract" in {
+            val (res, msgs) = evalUpdateApp(
+              pkgs,
+              e"""\(exercisingParty : Party) (cId: ContractId M:Human)  ->
              ubind x: Unit <- exercise @M:Human Archive cId () in
-               Test:exercise_interface exercisingParty cId
+               Test:$testCase exercisingParty cId
              """,
-            Array(SParty(alice), SContractId(cId)),
-            Set(alice),
-            getContract = getIfaceContract,
-          )
-          inside(res) {
-            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Human, _)))) =>
-              msgs shouldBe Seq("starts test")
+              Array(SParty(alice), SContractId(cId)),
+              Set(alice),
+              getContract = getIfaceContract,
+            )
+            inside(res) {
+              case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Human, _)))) =>
+                msgs shouldBe buildLog("starts test")
+            }
           }
-        }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise by interface of a cached global contract that does not implement the interface.
-        "wrongly typed contract" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(exercisingParty : Party) (cId: ContractId M:Human) ->
+          // TEST_EVIDENCE: Semantics: Evaluation order of exercise by interface of a cached global contract that does not implement the interface.
+          "wrongly typed contract" in {
+            val (res, msgs) = evalUpdateApp(
+              pkgs,
+              e"""\(exercisingParty : Party) (cId: ContractId M:Human) ->
                ubind x: M:Dummy <- fetch_template @M:Dummy cId in
-               Test:exercise_interface exercisingParty cId
+               Test:$testCase exercisingParty cId
                """,
-            Array(SParty(alice), SContractId(cId)),
-            Set(alice),
-            getContract = getWronglyTypedContract,
-          )
-          inside(res) {
-            case Success(
-                  Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(Person, _, Dummy)))
-                ) =>
-              msgs shouldBe Seq("starts test")
-          }
-        }
-
-        // TEST_EVIDENCE: Semantics: This checks that type checking is done after checking activeness.
-        "wrongly typed inactive contract" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(exercisingParty : Party) (cId: ContractId M:T) ->
-               ubind x: M:Dummy <- exercise @M:Dummy Archive cId () in
-               Test:exercise_interface exercisingParty cId
-               """,
-            Array(SParty(alice), SContractId(cId)),
-            Set(alice),
-            getContract = getWronglyTypedContract,
-          )
-          inside(res) {
-            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _)))) =>
-              msgs shouldBe Seq("starts test")
-          }
-        }
-
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise by interface of cached global contract with failed authorization
-        "authorization failures" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(exercisingParty : Party) (cId: ContractId M:Human) ->
-               ubind x: M:Human <- fetch_template @M:Human cId
-               in  Test:exercise_interface exercisingParty cId""",
-            Array(SParty(bob), SContractId(cId)),
-            Set(bob),
-            getContract = getIfaceContract,
-          )
-
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq(
-              "starts test",
-              "interface guard",
-              "choice controllers",
-              "choice observers",
+              Array(SParty(alice), SContractId(cId)),
+              Set(alice),
+              getContract = getWronglyTypedContract,
             )
-          }
-        }
-      }
-
-      "a local contract" - {
-
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful exercise_interface of a local contract
-        "success" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(exercisingParty : Party) ->
-             ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = exercisingParty, ctrl = exercisingParty, precond = True, key = M:toKey exercisingParty, nested = M:buildNested 0} in
-             Test:exercise_interface exercisingParty cId
-             """,
-            Array(SParty(alice)),
-            Set(alice),
-          )
-          inside(res) { case Success(Right(_)) =>
-            msgs shouldBe Seq(
-              "starts test",
-              "interface guard",
-              "choice controllers",
-              "choice observers",
-              "choice body",
-              "ends test",
-            )
-          }
-        }
-
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_interface of an inactive local contract
-        "inactive contract" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(exercisingParty : Party) ->
-             ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = exercisingParty, ctrl = exercisingParty, precond = True, key = M:toKey exercisingParty, nested = M:buildNested 0} in
-             ubind x: Unit <- exercise @M:Human Archive cId ()
-             in
-             Test:exercise_interface exercisingParty cId
-             """,
-            Array(SParty(alice)),
-            Set(alice),
-          )
-          inside(res) {
-            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Human, _)))) =>
-              msgs shouldBe Seq("starts test")
-          }
-        }
-
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_interface of an local contract not implementing the interface
-        "wrongly typed contract" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(exercisingParty : Party) ->
-             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = exercisingParty }
-             in let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
-             in
-               Test:exercise_interface exercisingParty cId1
-             """,
-            Array(SParty(alice)),
-            Set(alice),
-          )
-          inside(res) {
-            case Success(
-                  Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(Person, _, Dummy)))
-                ) =>
-              msgs shouldBe Seq("starts test")
-          }
-        }
-
-        // TEST_EVIDENCE: Semantics: This checks that type checking in exercise_interface is done after checking activeness.
-        "wrongly typed inactive contract" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(exercisingParty : Party) ->
-             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = exercisingParty}
-             in ubind x: Unit <- exercise @M:Dummy Archive cId1 ()
-             in let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
-             in
-               Test:exercise_interface exercisingParty cId1
-             """,
-            Array(SParty(alice)),
-            Set(alice),
-          )
-          inside(res) {
-            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _)))) =>
-              msgs shouldBe Seq("starts test")
-          }
-        }
-
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_interface of a cached local contract with failed authorization
-        "authorization failures" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(exercisingParty : Party) (other : Party)->
-                  ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = other, ctrl = other, precond = True, key = M:toKey exercisingParty, nested = M:buildNested 0} in
-                    Test:exercise_interface exercisingParty cId
-                  """,
-            Array(SParty(alice), SParty(bob)),
-            Set(alice),
-          )
-
-          inside(res) {
-            case Success(
-                  Left(
-                    SErrorDamlException(
-                      IE.FailedAuthorization(
-                        _,
-                        FailedAuthorization.ExerciseMissingAuthorization(Human, _, None, _, _),
-                      )
+            inside(res) {
+              case Success(
+                    Left(
+                      SErrorDamlException(IE.ContractDoesNotImplementInterface(Person, _, Dummy))
                     )
-                  )
-                ) =>
-              msgs shouldBe Seq(
+                  ) =>
+                msgs shouldBe buildLog("starts test")
+            }
+          }
+
+          // TEST_EVIDENCE: Semantics: This checks that type checking is done after checking activeness.
+          "wrongly typed inactive contract" in {
+            val (res, msgs) = evalUpdateApp(
+              pkgs,
+              e"""\(exercisingParty : Party) (cId: ContractId M:T) ->
+               ubind x: M:Dummy <- exercise @M:Dummy Archive cId () in
+               Test:$testCase exercisingParty cId
+               """,
+              Array(SParty(alice), SContractId(cId)),
+              Set(alice),
+              getContract = getWronglyTypedContract,
+            )
+            inside(res) {
+              case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _)))) =>
+                msgs shouldBe buildLog("starts test")
+            }
+          }
+
+          // TEST_EVIDENCE: Semantics: Evaluation order of exercise by interface of cached global contract with failed authorization
+          "authorization failures" in {
+            val (res, msgs) = evalUpdateApp(
+              pkgs,
+              e"""\(exercisingParty : Party) (cId: ContractId M:Human) ->
+               ubind x: M:Human <- fetch_template @M:Human cId
+               in  Test:$testCase exercisingParty cId""",
+              Array(SParty(bob), SContractId(cId)),
+              Set(bob),
+              getContract = getIfaceContract,
+            )
+
+            inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
+              msgs shouldBe buildLog(
                 "starts test",
                 "interface guard",
                 "choice controllers",
                 "choice observers",
               )
+            }
+          }
+        }
+
+        "a local contract" - {
+
+          // TEST_EVIDENCE: Semantics: Evaluation order of successful exercise_interface of a local contract
+          "success" in {
+            val (res, msgs) = evalUpdateApp(
+              pkgs,
+              e"""\(exercisingParty : Party) ->
+             ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = exercisingParty, ctrl = exercisingParty, precond = True, key = M:toKey exercisingParty, nested = M:buildNested 0} in
+             Test:$testCase exercisingParty cId
+             """,
+              Array(SParty(alice)),
+              Set(alice),
+            )
+            inside(res) { case Success(Right(_)) =>
+              msgs shouldBe buildLog(
+                "starts test",
+                "interface guard",
+                "choice controllers",
+                "choice observers",
+                "choice body",
+                "ends test",
+              )
+            }
+          }
+
+          // TEST_EVIDENCE: Semantics: Evaluation order of exercise_interface of an inactive local contract
+          "inactive contract" in {
+            val (res, msgs) = evalUpdateApp(
+              pkgs,
+              e"""\(exercisingParty : Party) ->
+             ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = exercisingParty, ctrl = exercisingParty, precond = True, key = M:toKey exercisingParty, nested = M:buildNested 0} in
+             ubind x: Unit <- exercise @M:Human Archive cId ()
+             in
+             Test:$testCase exercisingParty cId
+             """,
+              Array(SParty(alice)),
+              Set(alice),
+            )
+            inside(res) {
+              case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Human, _)))) =>
+                msgs shouldBe Seq("starts test")
+            }
+          }
+
+          // TEST_EVIDENCE: Semantics: Evaluation order of exercise_interface of an local contract not implementing the interface
+          "wrongly typed contract" in {
+            val (res, msgs) = evalUpdateApp(
+              pkgs,
+              e"""\(exercisingParty : Party) ->
+             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = exercisingParty }
+             in let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
+             in
+               Test:$testCase exercisingParty cId1
+             """,
+              Array(SParty(alice)),
+              Set(alice),
+            )
+            inside(res) {
+              case Success(
+                    Left(
+                      SErrorDamlException(IE.ContractDoesNotImplementInterface(Person, _, Dummy))
+                    )
+                  ) =>
+                msgs shouldBe buildLog("starts test")
+            }
+          }
+
+          // TEST_EVIDENCE: Semantics: This checks that type checking in exercise_interface is done after checking activeness.
+          "wrongly typed inactive contract" in {
+            val (res, msgs) = evalUpdateApp(
+              pkgs,
+              e"""\(exercisingParty : Party) ->
+             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = exercisingParty}
+             in ubind x: Unit <- exercise @M:Dummy Archive cId1 ()
+             in let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
+             in
+               Test:$testCase exercisingParty cId1
+             """,
+              Array(SParty(alice)),
+              Set(alice),
+            )
+            inside(res) {
+              case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _)))) =>
+                msgs shouldBe buildLog("starts test")
+            }
+          }
+
+          // TEST_EVIDENCE: Semantics: Evaluation order of exercise_interface of a cached local contract with failed authorization
+          "authorization failures" in {
+            val (res, msgs) = evalUpdateApp(
+              pkgs,
+              e"""\(exercisingParty : Party) (other : Party)->
+                  ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = other, ctrl = other, precond = True, key = M:toKey exercisingParty, nested = M:buildNested 0} in
+                    Test:$testCase exercisingParty cId
+                  """,
+              Array(SParty(alice), SParty(bob)),
+              Set(alice),
+            )
+
+            inside(res) {
+              case Success(
+                    Left(
+                      SErrorDamlException(
+                        IE.FailedAuthorization(
+                          _,
+                          FailedAuthorization.ExerciseMissingAuthorization(Human, _, None, _, _),
+                        )
+                      )
+                    )
+                  ) =>
+                msgs shouldBe buildLog(
+                  "starts test",
+                  "interface guard",
+                  "choice controllers",
+                  "choice observers",
+                )
+            }
           }
         }
       }

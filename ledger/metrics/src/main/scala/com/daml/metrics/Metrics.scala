@@ -374,8 +374,8 @@ final class Metrics(val registry: MetricRegistry) {
 
       val decodeTransactionLogUpdate: Timer =
         registry.timer(Prefix :+ "transaction_log_update_decode")
-      val transactionLogUpdatesBufferSize: Counter =
-        registry.counter(Prefix :+ "transaction_log_updates_buffer_size")
+      val inMemoryFanoutBufferSize: Counter =
+        registry.counter(Prefix :+ "in_memory_fanout_buffer_size")
 
       val transactionTreesBufferSize: Counter =
         registry.counter(Prefix :+ "transaction_trees_buffer_size")
@@ -661,8 +661,8 @@ final class Metrics(val registry: MetricRegistry) {
         val prune: Timer = registry.timer(Prefix :+ "prune")
         val getTransactionMetering: Timer = registry.timer(Prefix :+ "get_transaction_metering")
 
-        case class Buffer(bufferName: String) {
-          private val Prefix: MetricName = index.Prefix :+ s"${bufferName}_buffer"
+        object Buffer {
+          val Prefix: MetricName = index.Prefix :+ "in_memory_fanout_buffer"
 
           val push: Timer = registry.timer(Prefix :+ "push")
           val slice: Timer = registry.timer(Prefix :+ "slice")

@@ -5,10 +5,14 @@ package com.daml.platform.store.cache
 
 import java.util.concurrent.Executors
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Time
 import com.daml.metrics.Metrics
-import com.daml.platform.store.cache.EventsBuffer.BufferSlice.LastBufferChunkSuffix
-import com.daml.platform.store.cache.EventsBuffer.{BufferSlice, UnorderedException}
+import com.daml.platform.store.cache.InMemoryFanoutBuffer.BufferSlice.LastBufferChunkSuffix
+import com.daml.platform.store.cache.InMemoryFanoutBuffer.{BufferSlice, UnorderedException}
+import com.daml.platform.store.interfaces.TransactionLogUpdate
+import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
 import org.scalatest.Succeeded
 import org.scalatest.compatible.Assertion
 import org.scalatest.matchers.should.Matchers
@@ -20,36 +24,63 @@ import scala.collection.{View, immutable}
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future}
 
-class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
+class InMemoryFanoutBufferSpec
+    extends AnyWordSpec
+    with Matchers
+    with ScalaCheckDrivenPropertyChecks {
   private val offsetIdx = Vector(2, 4, 6, 8, 10)
   private val BeginOffset = offset(0L)
   private val offsets @ Seq(offset1, offset2, offset3, offset4, offset5) =
     offsetIdx.map(i => offset(i.toLong))
+
+  private val txAccepted1 = txAccepted(1L, offset1)
+  private val txAccepted2 = txAccepted(2L, offset2)
+  private val txAccepted3 = txAccepted(3L, offset3)
+  private val txAccepted4 = txAccepted(4L, offset4)
+  private val bufferValues = Seq(txAccepted1, txAccepted2, txAccepted3, txAccepted4)
+  private val txAccepted5 = txAccepted(5L, offset5)
   private val bufferElements @ Seq(entry1, entry2, entry3, entry4) =
-    offsets.zip(offsetIdx.map(_ * 2)).take(4)
+    offsets.zip(bufferValues)
 
   private val LastOffset = offset4
-  private val IdentityFilter: Int => Option[Int] = Some(_)
+  private val IdentityFilter: TransactionLogUpdate => Option[TransactionLogUpdate] = Some(_)
 
   "push" when {
     "max buffer size reached" should {
       "drop oldest" in withBuffer(3) { buffer =>
+        // Assert data structure sizes
+        buffer._bufferLog.size shouldBe 3
+        buffer._lookupMap.size shouldBe 3
+
         buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
           bufferedStartExclusive = offset2,
           slice = Vector(entry3, entry4),
         )
-        buffer.push(offset5, 21)
+
+        // Assert that all the entries are visible by lookup
+        verifyLookupPresent(buffer, txAccepted2, txAccepted3, txAccepted4)
+
+        buffer.push(offset5, txAccepted5)
+        // Assert data structure sizes respect their limits after pushing a new element
+        buffer._bufferLog.size shouldBe 3
+        buffer._lookupMap.size shouldBe 3
+
         buffer.slice(BeginOffset, offset5, IdentityFilter) shouldBe LastBufferChunkSuffix(
           bufferedStartExclusive = offset3,
-          slice = Vector(entry4, offset5 -> 21),
+          slice = Vector(entry4, offset5 -> txAccepted5),
         )
+
+        // Assert that the new entry is visible by lookup
+        verifyLookupPresent(buffer, txAccepted5)
+        // Assert oldest entry is evicted
+        verifyLookupAbsent(buffer, txAccepted2.transactionId)
       }
     }
 
     "element with smaller offset added" should {
       "throw" in withBuffer(3) { buffer =>
         intercept[UnorderedException[Int]] {
-          buffer.push(offset1, 2)
+          buffer.push(offset1, txAccepted2)
         }.getMessage shouldBe s"Elements appended to the buffer should have strictly increasing offsets: $offset4 vs $offset1"
       }
     }
@@ -57,14 +88,14 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     "element with equal offset added" should {
       "throw" in withBuffer(3) { buffer =>
         intercept[UnorderedException[Int]] {
-          buffer.push(offset4, 2)
+          buffer.push(offset4, txAccepted2)
         }.getMessage shouldBe s"Elements appended to the buffer should have strictly increasing offsets: $offset4 vs $offset4"
       }
     }
 
     "maxBufferSize is 0" should {
       "not enqueue the update" in withBuffer(0) { buffer =>
-        buffer.push(offset5, 21)
+        buffer.push(offset5, txAccepted5)
         buffer.slice(BeginOffset, offset5, IdentityFilter) shouldBe LastBufferChunkSuffix(
           bufferedStartExclusive = offset5,
           slice = Vector.empty,
@@ -75,13 +106,33 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
 
     "maxBufferSize is -1" should {
       "not enqueue the update" in withBuffer(-1) { buffer =>
-        buffer.push(offset5, 21)
+        buffer.push(offset5, txAccepted5)
         buffer.slice(BeginOffset, offset5, IdentityFilter) shouldBe LastBufferChunkSuffix(
           bufferedStartExclusive = offset5,
           slice = Vector.empty,
         )
         buffer._bufferLog shouldBe empty
       }
+    }
+
+    s"does not update the lookupMap with ${TransactionLogUpdate.TransactionRejected.getClass.getSimpleName}" in withBuffer(
+      4
+    ) { buffer =>
+      // Assert that all the entries are visible by lookup
+      verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
+
+      // Enqueue a rejected transaction
+      buffer.push(offset5, txRejected(5L, offset5))
+
+      // Assert the last element is evicted on full buffer
+      verifyLookupAbsent(buffer, txAccepted1.transactionId)
+
+      // Assert that the buffer does not include the rejected transaction
+      buffer._lookupMap should contain theSameElementsAs Map(
+        txAccepted2.transactionId -> txAccepted2,
+        txAccepted3.transactionId -> txAccepted3,
+        txAccepted4.transactionId -> txAccepted4,
+      )
     }
   }
 
@@ -168,27 +219,35 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     "called after push from a different thread" should {
       "always see the most recent updates" in withBuffer(1000, Vector.empty, maxFetchSize = 1000) {
         buffer =>
-          (0 until 1000).foreach(idx =>
-            buffer.push(offset(idx.toLong), idx)
-          ) // fill buffer to max size
+          (0 until 1000).foreach(idx => {
+            val updateOffset = offset(idx.toLong)
+            buffer.push(updateOffset, txAccepted(idx.toLong, updateOffset))
+          }) // fill buffer to max size
 
           val pushExecutor, sliceExecutor =
             ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
 
           (0 until 1000).foreach { idx =>
-            val expected = ((idx + 901) to (1000 + idx)).map(idx => offset(idx.toLong) -> idx)
+            val expected = ((idx + 901) to (1000 + idx)).map(idx => {
+              val updateOffset = offset(idx.toLong)
+              updateOffset -> txAccepted(idx.toLong, updateOffset)
+            })
 
             implicit val ec: ExecutionContextExecutorService = pushExecutor
 
             Await.result(
               // Simulate different thread accesses for push/slice
               awaitable = {
+                val lastInsertedIdx = (1000 + idx).toLong
+                val updateOffset = offset(lastInsertedIdx)
                 for {
-                  _ <- Future(buffer.push(offset((1000 + idx).toLong), 1000 + idx))(pushExecutor)
+                  _ <- Future(buffer.push(updateOffset, txAccepted(lastInsertedIdx, updateOffset)))(
+                    pushExecutor
+                  )
                   _ <- Future(
                     buffer.slice(
                       offset((900 + idx).toLong),
-                      offset((1000 + idx).toLong),
+                      offset(lastInsertedIdx),
                       IdentityFilter,
                     )
                   )(
@@ -208,57 +267,97 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
   "prune" when {
     "element found" should {
       "prune inclusive" in withBuffer() { buffer =>
+        verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
+
         buffer.prune(offset3)
+
         buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
           offset4,
           bufferElements.drop(4),
         )
+
+        verifyLookupAbsent(
+          buffer,
+          txAccepted1.transactionId,
+          txAccepted2.transactionId,
+          txAccepted3.transactionId,
+        )
+        verifyLookupPresent(buffer, txAccepted4)
       }
     }
 
     "element not present" should {
       "prune inclusive" in withBuffer() { buffer =>
+        verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
+
         buffer.prune(offset(6))
         buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
           offset4,
           bufferElements.drop(4),
         )
+        verifyLookupAbsent(
+          buffer,
+          txAccepted1.transactionId,
+          txAccepted2.transactionId,
+          txAccepted3.transactionId,
+        )
+        verifyLookupPresent(buffer, txAccepted4)
       }
     }
 
     "element before series" should {
       "not prune" in withBuffer() { buffer =>
+        verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
+
         buffer.prune(offset(1))
         buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
           offset1,
           bufferElements.drop(1),
         )
+
+        verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
       }
     }
 
     "element after series" should {
       "prune all" in withBuffer() { buffer =>
+        verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
+
         buffer.prune(offset5)
         buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
           LastOffset,
           Vector.empty,
         )
+
+        verifyLookupAbsent(
+          buffer,
+          txAccepted1.transactionId,
+          txAccepted2.transactionId,
+          txAccepted3.transactionId,
+          txAccepted4.transactionId,
+        )
       }
     }
 
     "one element in buffer" should {
-      "prune all" in withBuffer(1, Vector(offset(1) -> 2)) { buffer =>
+      "prune all" in withBuffer(1, Vector(offset(1) -> txAccepted2)) { buffer =>
+        verifyLookupPresent(buffer, txAccepted2)
+
         buffer.prune(offset(1))
         buffer.slice(BeginOffset, offset(1), IdentityFilter) shouldBe LastBufferChunkSuffix(
           offset(1),
           Vector.empty,
         )
+
+        verifyLookupAbsent(buffer, txAccepted2.transactionId)
       }
     }
   }
 
   "flush" should {
     "remove all entries from the buffer" in withBuffer(3) { buffer =>
+      verifyLookupPresent(buffer, txAccepted2, txAccepted3, txAccepted4)
+
       buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
         bufferedStartExclusive = offset2,
         slice = Vector(entry3, entry4),
@@ -267,17 +366,24 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
       buffer.flush()
 
       buffer._bufferLog shouldBe Vector.empty[(Offset, Int)]
+      buffer._lookupMap shouldBe Map.empty
       buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
         bufferedStartExclusive = LastOffset,
         slice = Vector.empty,
+      )
+      verifyLookupAbsent(
+        buffer,
+        txAccepted2.transactionId,
+        txAccepted3.transactionId,
+        txAccepted4.transactionId,
       )
     }
   }
 
   "indexAfter" should {
     "yield the index gt the searched entry" in {
-      EventsBuffer.indexAfter(InsertionPoint(3)) shouldBe 3
-      EventsBuffer.indexAfter(Found(3)) shouldBe 4
+      InMemoryFanoutBuffer.indexAfter(InsertionPoint(3)) shouldBe 3
+      InMemoryFanoutBuffer.indexAfter(Found(3)) shouldBe 4
     }
   }
 
@@ -285,13 +391,13 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     "return an Inclusive result with filter" in {
       val input = Vector(entry1, entry2, entry3, entry4).view
 
-      EventsBuffer.filterAndChunkSlice[Int, Int](
+      InMemoryFanoutBuffer.filterAndChunkSlice[TransactionLogUpdate](
         sliceView = input,
         filter = Option(_).filterNot(_ == entry2._2),
         maxChunkSize = 3,
       ) shouldBe Vector(entry1, entry3, entry4)
 
-      EventsBuffer.filterAndChunkSlice[Int, Int](
+      InMemoryFanoutBuffer.filterAndChunkSlice[TransactionLogUpdate](
         sliceView = View.empty,
         filter = Some(_),
         maxChunkSize = 3,
@@ -303,25 +409,25 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     val input = Vector(entry1, entry2, entry3, entry4)
 
     "return a LastBufferChunkSuffix with the last maxChunkSize-sized chunk from the slice with filter" in {
-      EventsBuffer.lastFilteredChunk[Int, Int](
+      InMemoryFanoutBuffer.lastFilteredChunk[TransactionLogUpdate](
         bufferSlice = input,
         filter = Option(_).filterNot(_ == entry2._2),
         maxChunkSize = 1,
       ) shouldBe LastBufferChunkSuffix(entry3._1, Vector(entry4))
 
-      EventsBuffer.lastFilteredChunk[Int, Int](
+      InMemoryFanoutBuffer.lastFilteredChunk[TransactionLogUpdate](
         bufferSlice = input,
         filter = Option(_).filterNot(_ == entry2._2),
         maxChunkSize = 2,
       ) shouldBe LastBufferChunkSuffix(entry1._1, Vector(entry3, entry4))
 
-      EventsBuffer.lastFilteredChunk[Int, Int](
+      InMemoryFanoutBuffer.lastFilteredChunk[TransactionLogUpdate](
         bufferSlice = input,
         filter = Option(_).filterNot(_ == entry2._2),
         maxChunkSize = 3,
       ) shouldBe LastBufferChunkSuffix(entry1._1, Vector(entry3, entry4))
 
-      EventsBuffer.lastFilteredChunk[Int, Int](
+      InMemoryFanoutBuffer.lastFilteredChunk[TransactionLogUpdate](
         bufferSlice = input,
         filter = Some(_), // No filter
         maxChunkSize = 4,
@@ -329,7 +435,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     }
 
     "use the slice head as bufferedStartExclusive when filter yields an empty result slice" in {
-      EventsBuffer.lastFilteredChunk[Int, Int](
+      InMemoryFanoutBuffer.lastFilteredChunk[TransactionLogUpdate](
         bufferSlice = input,
         filter = _ => None,
         maxChunkSize = 2,
@@ -339,13 +445,12 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
 
   private def withBuffer(
       maxBufferSize: Int = 5,
-      elems: immutable.Vector[(Offset, Int)] = bufferElements,
+      elems: immutable.Vector[(Offset, TransactionLogUpdate)] = bufferElements,
       maxFetchSize: Int = 10,
-  )(test: EventsBuffer[Int] => Assertion): Assertion = {
-    val buffer = new EventsBuffer[Int](
+  )(test: InMemoryFanoutBuffer => Assertion): Assertion = {
+    val buffer = new InMemoryFanoutBuffer(
       maxBufferSize,
       new Metrics(new MetricRegistry),
-      "integers",
       maxBufferedChunkSize = maxFetchSize,
     )
     elems.foreach { case (offset, event) => buffer.push(offset, event) }
@@ -361,4 +466,44 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     val bigInt = BigInt(offset.toByteArray)
     Offset.fromByteArray((bigInt + 1).toByteArray)
   }
+
+  private def txAccepted(idx: Long, offset: Offset) =
+    TransactionLogUpdate.TransactionAccepted(
+      transactionId = s"tx-$idx",
+      workflowId = s"workflow-$idx",
+      effectiveAt = Time.Timestamp.Epoch,
+      offset = offset,
+      events = Vector.empty,
+      completionDetails = None,
+      commandId = "",
+    )
+
+  private def txRejected(idx: Long, offset: Offset) =
+    TransactionLogUpdate.TransactionRejected(
+      offset = offset,
+      completionDetails = CompletionDetails(
+        completionStreamResponse = CompletionStreamResponse(),
+        submitters = Set(s"submitter-$idx"),
+      ),
+    )
+
+  private def verifyLookupPresent(
+      buffer: InMemoryFanoutBuffer,
+      txs: TransactionLogUpdate.TransactionAccepted*
+  ): Assertion =
+    txs.foldLeft(succeed) {
+      case (Succeeded, tx) =>
+        buffer.lookup(tx.transactionId) shouldBe Some(tx)
+      case (failed, _) => failed
+    }
+
+  private def verifyLookupAbsent(
+      buffer: InMemoryFanoutBuffer,
+      txIds: String*
+  ): Assertion =
+    txIds.foldLeft(succeed) {
+      case (Succeeded, txId) =>
+        buffer.lookup(txId) shouldBe None
+      case (failed, _) => failed
+    }
 }

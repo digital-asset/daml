@@ -1322,7 +1322,7 @@ message Update {
     // argument
     Expr arg = 4;
     // exercise guard (Interface -> Bool)
-    Expr guard = 5;
+    Expr guard = 5;  // optional
   }
 
  // ExerciseByKey Update
