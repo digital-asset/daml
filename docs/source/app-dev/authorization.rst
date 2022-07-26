@@ -159,9 +159,9 @@ as would be required for the custom Daml claims tokens.
 User access tokens are `JWTs <https://datatracker.ietf.org/doc/html/rfc7519>`_ that follow the
 `OAuth 2.0 standard <https://datatracker.ietf.org/doc/html/rfc6749>`_. There are two
 different JSON encodings: An audience-based token format that relies
-on the audience field to designate that it is designed for a specific
-Daml participant and a scope-based audience format which relies on the
-scope field to designate. Both formats can be used interchangeably but
+on the audience field to designate that it is defined for a specific
+Daml participant and a scope-based audience token format which relies on the
+scope field to designate the purpose. Both formats can be used interchangeably but
 if possible, use of the audience-based token format is recommend as it
 is compatible with a wider range of IAMs, e.g., Kubernetes does not
 support setting the scope field and makes the participant id mandatory
