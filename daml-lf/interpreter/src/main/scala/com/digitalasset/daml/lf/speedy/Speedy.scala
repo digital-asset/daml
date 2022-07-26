@@ -223,7 +223,8 @@ private[lf] object Speedy {
 
   @throws[SErrorDamlException]
   private[speedy] def buildDiscTable(
-      disclosures: ImmArray[speedy.DisclosedContract]
+      disclosures: ImmArray[speedy.DisclosedContract],
+      compiledPackages: CompiledPackages,
   ): DisclosureTable = {
     val _ = disclosures
     val acc = disclosures.foldLeft(
@@ -239,6 +240,7 @@ private[lf] object Speedy {
               IError.DisclosurePreprocessing.DuplicateContractIds(d.templateId)
             )
           )
+
         case None =>
           val m1_prime = table.contractById + (coid -> (d.templateId, arg))
           d.metadata.keyHash match {
@@ -253,9 +255,37 @@ private[lf] object Speedy {
                       )
                     )
                   )
+
                 case None => DisclosureTable(table.contractIdByKey + (hash -> coid), m1_prime)
               }
-            case None => table.copy(contractById = m1_prime)
+
+            case None =>
+              compiledPackages.pkgInterface.lookupTemplate(d.templateId) match {
+                case Right(template) if template.key.isEmpty =>
+                  // Success - template exists, but has no key defined
+                  table.copy(contractById = m1_prime)
+
+                case Right(_) =>
+                  // Error - template exists, but has a key defined
+                  throw SErrorDamlException(
+                    IError.DisclosurePreprocessing(
+                      IError.DisclosurePreprocessing.NonExistentDisclosedContractKeyHash(
+                        d.contractId.value,
+                        d.templateId,
+                      )
+                    )
+                  )
+
+                case Left(_) =>
+                  // Error - template is non-existent
+                  throw SErrorDamlException(
+                    IError.DisclosurePreprocessing(
+                      IError.DisclosurePreprocessing.NonExistentTemplate(
+                        d.templateId
+                      )
+                    )
+                  )
+              }
           }
       }
     }
@@ -948,7 +978,7 @@ private[lf] object Speedy {
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
-        disclosureTable = buildDiscTable(disclosedContracts),
+        disclosureTable = buildDiscTable(disclosedContracts, compiledPackages),
       )
     }
 
@@ -1054,7 +1084,7 @@ private[lf] object Speedy {
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
-        disclosureTable = buildDiscTable(disclosedContracts),
+        disclosureTable = buildDiscTable(disclosedContracts, compiledPackages),
       )
 
     @throws[PackageNotFound]

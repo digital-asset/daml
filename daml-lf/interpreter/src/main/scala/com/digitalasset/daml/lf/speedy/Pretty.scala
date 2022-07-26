@@ -179,6 +179,17 @@ private[lf] object Pretty {
             text(
               s"Found duplicated contract keys in submitted disclosed contracts for template $templateId"
             )
+          case DisclosurePreprocessing.NonExistentTemplate(templateId) =>
+            text(
+              s"Template $templateId does not exist"
+            )
+          case DisclosurePreprocessing.NonExistentDisclosedContractKeyHash(
+                contractId,
+                templateId,
+              ) =>
+            text(
+              s"Template $templateId has a key defined, but there is no key hash for disclosed contract $contractId"
+            )
         }
     }
   }
