@@ -87,4 +87,5 @@ _choice_INonSerializableArgument
      \ self this arg@NonSerializableArgument {..}
        -> let _ = self in let _ = this in let _ = arg in do pure (), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
-instance DA.Internal.Desugar.HasInterfaceView I ()
+instance DA.Internal.Desugar.HasInterfaceView I () where
+  _view = GHC.Types.primitive @"EViewInterface"

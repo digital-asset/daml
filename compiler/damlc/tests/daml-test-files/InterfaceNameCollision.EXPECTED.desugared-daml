@@ -80,4 +80,5 @@ _choice_IfaceFooBar
      \ self this arg@FooBar
        -> let _ = self in let _ = this in let _ = arg in do pure (), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
-instance DA.Internal.Desugar.HasInterfaceView Iface ()
+instance DA.Internal.Desugar.HasInterfaceView Iface () where
+  _view = GHC.Types.primitive @"EViewInterface"

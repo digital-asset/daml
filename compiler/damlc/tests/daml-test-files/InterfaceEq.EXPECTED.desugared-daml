@@ -30,7 +30,8 @@ instance DA.Internal.Desugar.HasIsInterfaceType I where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq I where
   (==) = GHC.Types.primitive @"BEEqual"
-instance DA.Internal.Desugar.HasInterfaceView I ()
+instance DA.Internal.Desugar.HasInterfaceView I () where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => T
   = T {p : Party, f : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)

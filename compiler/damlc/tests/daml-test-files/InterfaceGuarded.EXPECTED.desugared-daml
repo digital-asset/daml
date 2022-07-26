@@ -99,7 +99,8 @@ _choice_TokenGetRich
             do assert (byHowMuch > 0)
                create $ setAmount this (getAmount this + byHowMuch), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
-instance DA.Internal.Desugar.HasInterfaceView Token ()
+instance DA.Internal.Desugar.HasInterfaceView Token () where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlInterface => SubToken
   = SubToken GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep SubToken where
@@ -137,7 +138,8 @@ instance DA.Internal.Desugar.HasIsInterfaceType SubToken where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq SubToken where
   (==) = GHC.Types.primitive @"BEEqual"
-instance DA.Internal.Desugar.HasInterfaceView SubToken ()
+instance DA.Internal.Desugar.HasInterfaceView SubToken () where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => Asset
   = Asset {issuer : Party, owner : Party, amount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)

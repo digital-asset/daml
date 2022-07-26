@@ -81,7 +81,8 @@ _choice_MyInterfaceMyVirtualChoice
        -> let _ = self in
           let _ = this in let _ = arg in do myVirtualChoiceImpl this, 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
-instance DA.Internal.Desugar.HasInterfaceView MyInterface ()
+instance DA.Internal.Desugar.HasInterfaceView MyInterface () where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => MyTemplate
   = MyTemplate {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
