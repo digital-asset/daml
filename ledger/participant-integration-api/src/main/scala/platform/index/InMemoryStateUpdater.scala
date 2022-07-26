@@ -27,6 +27,7 @@ import com.daml.platform.{Contract, InMemoryState, Key, Party}
 
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 final class InMemoryStateUpdater(
     prepareUpdatesParallelism: Int,
@@ -43,6 +44,7 @@ final class InMemoryStateUpdater(
         Update.CommandRejected,
     ) => TransactionLogUpdate.TransactionRejected,
     updateLedgerEnd: (Offset, Long) => Unit,
+    setInMemoryStateDirty: () => Unit,
 ) {
 
   // TODO LLP: Considering directly returning this flow instead of the wrapper
@@ -65,6 +67,14 @@ final class InMemoryStateUpdater(
           updateCaches(updates)
           updateLedgerEnd(lastOffset, lastEventSequentialId)
         }(updateCachesExecutionContext)
+          .transform {
+            case Failure(ex) =>
+              // On update failure, we can't make assumptions on which part of the state was correctly updated.
+              // Thus, set the in-memory state dirty and propagate the failure.
+              setInMemoryStateDirty()
+              Failure(ex)
+            case Success(value) => Success(value)
+          }(updateCachesExecutionContext)
       }
 }
 
@@ -101,6 +111,7 @@ private[platform] object InMemoryStateUpdater {
     convertTransactionAccepted = convertTransactionAccepted,
     convertTransactionRejected = convertTransactionRejected,
     updateLedgerEnd = updateLedgerEnd(inMemoryState),
+    setInMemoryStateDirty = () => inMemoryState.setDirty(),
   )
 
   private def updateCaches(inMemoryState: InMemoryState)(
