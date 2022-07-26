@@ -18,11 +18,19 @@ public abstract class Filter {
 
   public abstract TransactionFilterOuterClass.Filters toProto();
 
+  // TODO #14537 this is just one bool now.  Is it likely to change?  If not, inline.
   public static final class Interface {
-    public final boolean includeInterfaceViews;
+    public final boolean includeInterfaceView;
 
-    public Interface(boolean includeInterfaceViews) {
-      this.includeInterfaceViews = includeInterfaceViews;
+    public Interface(boolean includeInterfaceView) {
+      this.includeInterfaceView = includeInterfaceView;
+    }
+
+    public TransactionFilterOuterClass.InterfaceFilter toProto(Identifier interfaceId) {
+      return TransactionFilterOuterClass.InterfaceFilter.newBuilder()
+          .setInterfaceId(interfaceId.toProto())
+          .setIncludeInterfaceView(includeInterfaceView)
+          .build();
     }
 
     @Override
@@ -30,17 +38,17 @@ public abstract class Filter {
       if (this == o) return true;
       if (o == null || getClass() != o.getClass()) return false;
       Interface that = (Interface) o;
-      return includeInterfaceViews == that.includeInterfaceViews;
+      return includeInterfaceView == that.includeInterfaceView;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(includeInterfaceViews);
+      return Objects.hash(includeInterfaceView);
     }
 
     @Override
     public String toString() {
-      return "Interface{" + "includeInterfaceViews=" + includeInterfaceViews + '}';
+      return "Interface{" + "includeInterfaceView=" + includeInterfaceView + '}';
     }
   }
 }
