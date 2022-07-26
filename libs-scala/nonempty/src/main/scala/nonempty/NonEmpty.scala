@@ -3,13 +3,13 @@
 
 package com.daml.nonempty
 
-import scala.collection.{Factory, IterableOnce, immutable => imm}, imm.Iterable, imm.Map, imm.Set,
-imm.SortedSet
+import scala.collection.{Factory, IterableOnce, immutable => imm}, imm.Iterable, imm.Map, imm.Set
 import scalaz.Id.Id
 import scalaz.{Foldable, Foldable1, Monoid, OneAnd, Semigroup, Traverse}
 import scalaz.Leibniz, Leibniz.===
 import scalaz.Liskov, Liskov.<~<
 import scalaz.syntax.std.option._
+
 import com.daml.scalautil.FoldableContravariant
 import com.daml.scalautil.Statement.discard
 import NonEmptyCollCompat._
@@ -152,11 +152,9 @@ object NonEmptyColl extends NonEmptyCollInstances {
     private type ESelf = imm.SortedMapOps[K, V, CC, _]
     import NonEmptyColl.Instance.{unsafeNarrow => un}
     def unsorted: NonEmpty[Map[K, V]] = un((self: ESelf).unsorted)
-    // You can't have + because of the dumb string-converting thing in stdlib
     def updated(key: K, value: V): NonEmpty[CC[K, V]] = un((self: ESelf).updated(key, value))
     def transform[W](f: (K, V) => W): NonEmpty[CC[K, W]] = un((self: ESelf).transform(f))
-    // You can't have updateWith here because updateWith can return an empty map
-    def keySet: NonEmpty[SortedSet[K]] = un((self: ESelf).keySet)
+    def keySet: NonEmpty[imm.SortedSet[K]] = un((self: ESelf).keySet)
   }
 
   /** Operations that can ''return'' new maps.  There is no reason to include any other
