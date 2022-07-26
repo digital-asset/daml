@@ -160,7 +160,7 @@ object CliConfig {
       .text(
         "Set configuration key value pairs directly. Can be useful for providing simple short config info."
       )
-      .valueName("<key1>=<value1>,<key2>=<value2>")
+      .valueName("<key1>=<value1>,<key2>=<value2>,...")
       .unbounded()
       .action { (map, cli) =>
         cli.copy(configMap = map ++ cli.configMap)
