@@ -492,6 +492,17 @@ prettyScenarioErrorError (Just err) =  do
         [ "Found duplicate contract keys in submitted disclosed contracts"
         , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
         ]
+    ScenarioErrorErrorDisclosurePreprocessingNonExistentTemplate(ScenarioError_DisclosurePreprocessingNonExistentTemplate templateId) ->
+      pure $ vcat
+        [ "Disclosed contract template does not exist"
+        , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
+        ]
+    ScenarioErrorErrorDisclosurePreprocessingNonExistentDisclosedContractKeyHash ScenarioError_DisclosurePreprocessingNonExistentDisclosedContractKeyHash{..} ->
+      pure $ vcat
+        [ "Template has a key defined, but there is no key hash for disclosed contract"
+        , label_ "Disclosed Contract: " $ prettyContractId scenarioError_DisclosurePreprocessingNonExistentDisclosedContractKeyHashContractId
+        , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) scenarioError_DisclosurePreprocessingNonExistentDisclosedContractKeyHashTemplateId
+        ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =
