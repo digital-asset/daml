@@ -3,7 +3,7 @@
 
 package com.daml.ledger.runner.common
 
-import com.daml.jwt.{LeewayOptions}
+import com.daml.jwt.LeewayOptions
 import com.daml.lf.interpretation.Limits
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.ContractKeyUniquenessMode
@@ -15,8 +15,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import pureconfig.{ConfigConvert, ConfigReader, ConfigSource, ConfigWriter}
-import PureConfigReaderWriter.Secure._
 import com.daml.ledger.api.tls.{SecretsUrl, TlsVersion}
+import com.daml.ledger.runner.common
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -57,10 +57,15 @@ class PureConfigReaderWriterSpec
   }
 
   def testReaderWriterIsomorphism[T: ClassTag: ConfigWriter: ConfigReader](
+      secure: Boolean,
       generator: Gen[T],
       name: Option[String] = None,
   ): Unit = {
-    name.getOrElse(classTag[T].toString) should "be isomorphic" in forAll(generator) {
+    val secureText = secure match {
+      case true => "secure "
+      case false => ""
+    }
+    secureText + name.getOrElse(classTag[T].toString) should "be isomorphic" in forAll(generator) {
       generatedValue =>
         val writer = implicitly[ConfigWriter[T]]
         val reader = implicitly[ConfigReader[T]]
@@ -68,37 +73,51 @@ class PureConfigReaderWriterSpec
     }
   }
 
-  testReaderWriterIsomorphism(ArbitraryConfig.duration)
-  testReaderWriterIsomorphism(ArbitraryConfig.versionRange)
-  testReaderWriterIsomorphism(ArbitraryConfig.limits)
-  testReaderWriterIsomorphism(ArbitraryConfig.contractKeyUniquenessMode)
-  testReaderWriterIsomorphism(ArbitraryConfig.engineConfig)
-  testReaderWriterIsomorphism(ArbitraryConfig.metricsReporter)
-  testReaderWriterIsomorphism(ArbitraryConfig.metricRegistryType)
-  testReaderWriterIsomorphism(ArbitraryConfig.metricConfig)
-  testReaderWriterIsomorphism(Gen.oneOf(TlsVersion.allVersions))
-  testReaderWriterIsomorphism(ArbitraryConfig.tlsConfiguration)
-  testReaderWriterIsomorphism(ArbitraryConfig.port)
-  testReaderWriterIsomorphism(
-    ArbitraryConfig.initialLedgerConfiguration,
-    Some("InitialLedgerConfiguration"),
-  )
-  testReaderWriterIsomorphism(ArbitraryConfig.clientAuth)
-  testReaderWriterIsomorphism(ArbitraryConfig.userManagementConfig)
-  testReaderWriterIsomorphism(ArbitraryConfig.partyConfiguration)
-  testReaderWriterIsomorphism(ArbitraryConfig.connectionPoolConfig)
-  testReaderWriterIsomorphism(ArbitraryConfig.postgresDataSourceConfig)
-  testReaderWriterIsomorphism(ArbitraryConfig.dataSourceProperties)
-  testReaderWriterIsomorphism(ArbitraryConfig.rateLimitingConfig, Some("RateLimitingConfig"))
-  testReaderWriterIsomorphism(ArbitraryConfig.indexerConfig)
-  testReaderWriterIsomorphism(ArbitraryConfig.indexerStartupMode)
-  testReaderWriterIsomorphism(ArbitraryConfig.commandConfiguration)
-  testReaderWriterIsomorphism(ArbitraryConfig.apiServerConfig)
-  testReaderWriterIsomorphism(ArbitraryConfig.haConfig)
-  testReaderWriterIsomorphism(ArbitraryConfig.lfValueTranslationCache)
-  testReaderWriterIsomorphism(ArbitraryConfig.indexServiceConfig)
-  testReaderWriterIsomorphism(ArbitraryConfig.participantConfig)
-  testReaderWriterIsomorphism(ArbitraryConfig.config)
+  def testReaderWriterIsomorphism(secure: Boolean): Unit = {
+    val readerWriter = new PureConfigReaderWriter(secure)
+    import readerWriter._
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.duration)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.versionRange)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.limits)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.contractKeyUniquenessMode)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.engineConfig)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.metricsReporter)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.metricRegistryType)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.metricConfig)
+    testReaderWriterIsomorphism(secure, Gen.oneOf(TlsVersion.allVersions))
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.tlsConfiguration)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.port)
+    testReaderWriterIsomorphism(
+      secure,
+      ArbitraryConfig.initialLedgerConfiguration,
+      Some("InitialLedgerConfiguration"),
+    )
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.clientAuth)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.userManagementConfig)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.partyConfiguration)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.connectionPoolConfig)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.postgresDataSourceConfig)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.dataSourceProperties)
+    testReaderWriterIsomorphism(
+      secure,
+      ArbitraryConfig.rateLimitingConfig,
+      Some("RateLimitingConfig"),
+    )
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.indexerConfig)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.indexerStartupMode)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.commandConfiguration)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.apiServerConfig)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.haConfig)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.lfValueTranslationCache)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.indexServiceConfig)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.participantConfig)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.config)
+  }
+
+  testReaderWriterIsomorphism(secure = true)
+  testReaderWriterIsomorphism(secure = false)
+
+  import PureConfigReaderWriter.Secure._
 
   behavior of "Duration"
 
@@ -252,6 +271,8 @@ class PureConfigReaderWriterSpec
     val secretUrl = "https://www.daml.com/secrets.json"
     secretsUrlReader.from(fromAnyRef(secretUrl)).value shouldBe SecretsUrl.fromString(secretUrl)
     secretsUrlWriter.to(SecretsUrl.fromString(secretUrl)) shouldBe fromAnyRef("<REDACTED>")
+    new common.PureConfigReaderWriter(false).secretsUrlWriter
+      .to(SecretsUrl.fromString(secretUrl)) shouldBe fromAnyRef(secretUrl)
   }
 
   behavior of "InitialLedgerConfiguration"
@@ -331,15 +352,18 @@ class PureConfigReaderWriterSpec
 
   it should "be isomorphic and support redaction" in forAll(ArbitraryConfig.authServiceConfig) {
     generatedValue =>
-      val configValue = authServiceConfigConvert.to(generatedValue)
       val redacted = generatedValue match {
         case AuthServiceConfig.UnsafeJwtHmac256(_, leeway) =>
           AuthServiceConfig.UnsafeJwtHmac256("<REDACTED>", leeway)
         case _ => generatedValue
       }
+      val insecureWriter = new PureConfigReaderWriter(false)
       authServiceConfigConvert
-        .from(configValue)
+        .from(authServiceConfigConvert.to(generatedValue))
         .value shouldBe redacted
+      insecureWriter.authServiceConfigConvert
+        .from(insecureWriter.authServiceConfigConvert.to(generatedValue))
+        .value shouldBe generatedValue
   }
 
   it should "read/write against predefined values" in {
@@ -621,6 +645,9 @@ class PureConfigReaderWriterSpec
     participantDataSourceConfigWriter.to(
       ParticipantDataSourceConfig(secretUrl)
     ) shouldBe fromAnyRef("<REDACTED>")
+    new PureConfigReaderWriter(false).participantDataSourceConfigWriter.to(
+      ParticipantDataSourceConfig(secretUrl)
+    ) shouldBe fromAnyRef(secretUrl)
   }
 
   behavior of "optReaderEnabled/optWriterEnabled"
