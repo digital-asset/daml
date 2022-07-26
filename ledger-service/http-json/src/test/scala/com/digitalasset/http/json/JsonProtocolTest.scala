@@ -236,7 +236,7 @@ class JsonProtocolTest
         val expectedFields: Map[String, JsValue] = referenceFields ++ Map[String, JsValue](
           "choice" -> JsString(cmd.choice.unwrap),
           "argument" -> cmd.argument,
-        ) ++ Seq(
+        ) ++ Iterable(
           cmd.choiceInterfaceId.map(x => "choiceInterfaceId" -> x.toJson),
           cmd.meta.map(x => "meta" -> x.toJson),
         ).collect { case Some(x) => x }
