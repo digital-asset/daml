@@ -95,16 +95,17 @@ object JdbcIndexer {
         ).apply,
         mat = materializer,
         readService = readService,
-        initializeInMemoryState = dbDispatcher =>
+        initializeInMemoryState = (dbDispatcher, executionContext) =>
           ledgerEnd =>
-            inMemoryState.initializeTo(ledgerEnd)((updatingStringInterningView, ledgerEnd) =>
-              updateStringInterningView(
-                stringInterningStorageBackend,
-                metrics,
-                dbDispatcher,
-                updatingStringInterningView,
-                ledgerEnd,
-              )
+            inMemoryState.initializeTo(ledgerEnd, executionContext)(
+              (updatingStringInterningView, ledgerEnd) =>
+                updateStringInterningView(
+                  stringInterningStorageBackend,
+                  metrics,
+                  dbDispatcher,
+                  updatingStringInterningView,
+                  ledgerEnd,
+                )
             ),
         stringInterningView = inMemoryState.stringInterningView,
       )

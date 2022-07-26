@@ -41,7 +41,7 @@ object ParallelIndexerFactory {
       mat: Materializer,
       readService: ReadService,
       stringInterningView: StringInterningView,
-      initializeInMemoryState: DbDispatcher => LedgerEnd => Future[Unit],
+      initializeInMemoryState: (DbDispatcher, ExecutionContext) => LedgerEnd => Future[Unit],
   )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] =
     for {
       inputMapperExecutor <- asyncPool(
@@ -126,7 +126,7 @@ object ParallelIndexerFactory {
         ) { dbDispatcher =>
           initializeParallelIngestion(
             dbDispatcher = dbDispatcher,
-            additionalInitialization = initializeInMemoryState(dbDispatcher),
+            additionalInitialization = initializeInMemoryState(dbDispatcher, ec),
             readService = readService,
             mat = mat,
             ec = ec,
