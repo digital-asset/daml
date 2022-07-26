@@ -338,6 +338,7 @@ private[lf] final class Compiler(
         impl.methods.values.foreach(method =>
           addDef(compileImplementsMethod(tmpl.param, tmplId, impl.interfaceId, method))
         )
+        addDef(compileImplementsView(tmpl.param, tmplId, impl.interfaceId, impl.view))
       }
 
       tmpl.choices.values.foreach(x => addDef(compileTemplateChoice(tmplId, tmpl, x)))
@@ -360,6 +361,7 @@ private[lf] final class Compiler(
         coimpl.methods.values.foreach(method =>
           addDef(compileCoImplementsMethod(iface.param, coimpl.templateId, ifaceId, method))
         )
+        addDef(compileCoImplementsView(iface.param, coimpl.templateId, ifaceId, coimpl.view))
       }
     }
 
@@ -731,6 +733,31 @@ private[lf] final class Compiler(
     topLevelFunction1(t.CoImplementsMethodDefRef(tmplId, ifaceId, method.name)) {
       (tmplArgPos, env) =>
         translateExp(env.bindExprVar(tmplParam, tmplArgPos), method.value)
+    }
+  }
+
+  // Compile the implementation of an interface view.
+  private[this] def compileImplementsView(
+      tmplParam: Name,
+      tmplId: Identifier,
+      ifaceId: Identifier,
+      body: Expr,
+  ): (t.SDefinitionRef, SDefinition) = {
+    topLevelFunction1(t.ImplementsViewDefRef(tmplId, ifaceId)) { (tmplArgPos, env) =>
+      translateExp(env.bindExprVar(tmplParam, tmplArgPos), body)
+    }
+  }
+
+  // Compile the interface-provided implementation of a view for the given template.
+  private[this] def compileCoImplementsView(
+      tmplParam: Name,
+      tmplId: Identifier,
+      ifaceId: Identifier,
+      body: Expr,
+  ): (t.SDefinitionRef, SDefinition) = {
+    topLevelFunction1(t.CoImplementsViewDefRef(tmplId, ifaceId)) {
+      (tmplArgPos, env) =>
+        translateExp(env.bindExprVar(tmplParam, tmplArgPos), body)
     }
   }
 

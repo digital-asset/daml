@@ -482,6 +482,26 @@ object SExpr {
     override def ref = ifaceId;
   }
 
+  /** ImplementsViewDefRef(templateId, ifaceId) invokes the template's
+    * implementation of an interface view.
+    */
+  final case class ImplementsViewDefRef(
+      templateId: TypeConName,
+      ifaceId: TypeConName,
+  ) extends SDefinitionRef {
+    override def ref = templateId;
+  }
+
+  /** CoImplementsViewDefRef(templateId, ifaceId) invokes the
+    * interface-provided implementation of the view for the given template.
+    */
+  final case class CoImplementsViewDefRef(
+      templateId: TypeConName,
+      ifaceId: TypeConName,
+  ) extends SDefinitionRef {
+    override def ref = ifaceId;
+  }
+
   final case object AnonymousClosure
 
   private def prettyPrint(x: Any): String =
