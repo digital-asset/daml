@@ -25,7 +25,7 @@ For these and other features, use :doc:`the Ledger API </app-dev/ledger-api>`
 instead.
 
 If you are using this API from JavaScript or TypeScript, we strongly recommend using :doc:`the JavaScript bindings and code generator </app-dev/bindings-ts/index>` rather than invoking these endpoints directly.
-This will both simplify access to the endpoints described here, and with TypeScript, guide you with respect to the JavaScript value format for each of your contracts, choice arguments, and choice results.
+This will both simplify access to the endpoints described here and (with TypeScript) help to provide the correct JavaScript value format for each of your contracts, choice arguments, and choice results.
 
 We welcome feedback about the JSON API on
 `our issue tracker <https://github.com/digital-asset/daml/issues/new/choose>`_, or

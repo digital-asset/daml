@@ -11,8 +11,8 @@ JSON output we produce (encoding).
 If you use
 :doc:`the JavaScript code generator </app-dev/bindings-ts/daml2js>`
 with TypeScript, the generated types for templates and choices will
-incorporate the following automatically.  You can use this to observe
-how these rules apply to your templates, or to simply ignore this
+incorporate the following automatically. You can use this to observe
+how these rules apply to your templates, or ignore this
 document and rely on the TypeScript type checker to tell you how to
 encode data for JSON API correctly.
 
