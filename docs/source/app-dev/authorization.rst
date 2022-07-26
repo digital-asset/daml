@@ -159,7 +159,7 @@ as would be required for the custom Daml claims tokens.
 User access tokens are `JWTs <https://datatracker.ietf.org/doc/html/rfc7519>`_ that follow the
 `OAuth 2.0 standard <https://datatracker.ietf.org/doc/html/rfc6749>`_. There are two
 different JSON encodings: An audience-based token format that relies
-on the audience field to designate that it is defined for a specific
+on the audience field to specify that it is designated for a specific
 Daml participant and a scope-based audience token format which relies on the
 scope field to designate the purpose. Both formats can be used interchangeably but
 if possible, use of the audience-based token format is recommend as it
