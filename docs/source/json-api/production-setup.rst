@@ -79,7 +79,7 @@ created, it's safe practice to always use ``start-mode=start-only``.
 Data Continuity
 ---------------
 
-The query store is a cache. This means that it's perfectly fine to drop it as
+The query store is a cache. This means that it is perfectly fine to drop it, as
 the data it contains is a subset of what can safely be recovered from the ledger.
 
 As such, the query store does not provide data continuity guarantees across versions
