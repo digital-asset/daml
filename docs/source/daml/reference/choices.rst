@@ -27,7 +27,7 @@ In contrast, if you start with ``controller``, the ``controller`` is automatical
 
 A secondary difference is that starting with ``choice`` allows *choice observers* to be attached to the choice using the ``observer`` keyword. The choice observers are a list of parties that, in addition to the stakeholders, will see all consequences of the action.
 
-.. literalinclude:: ../code-snippets-dev/Structure.daml
+.. literalinclude:: ../code-snippets/Structure.daml
    :language: daml
    :start-after: -- start of choice observer snippet
    :end-before: -- end of choice observer snippet
