@@ -540,7 +540,7 @@ interfaceViews lfVersion classInstances
     | lfVersion `supports` featureInterfaces = MS.fromList
         [ (mkTypeCon [getOccText $ GHC.tyConName ifaceTyCon], viewType)
         | ClsInst { is_cls_nm, is_tys } <- classInstances
-        , NameIn DA_Internal_Desugar "HasInterfaceView" <- pure is_cls_nm
+        , NameIn DA_Internal_Interface "HasInterfaceView" <- pure is_cls_nm
         , [ifaceType, viewType] <- pure is_tys
         , TyConApp ifaceTyCon [] <- pure ifaceType
         ]
@@ -1180,7 +1180,7 @@ convertBind env mc (name, x)
     -- -- In data-dependencies, they are reconstructed from the interface definition.
     -- | DFunId _ <- idDetails name
     -- , TypeCon hasMethodCls _ <- varType name
-    -- , NameIn DA_Internal_Desugar "HasInterfaceView" <- hasMethodCls
+    -- , NameIn DA_Internal_Interface "HasInterfaceView" <- hasMethodCls
     -- = pure []
 
     -- Typeclass instance dictionaries
@@ -1245,7 +1245,6 @@ desugarTypes = mkUniqSet
     , "ImplementsT"
     , "RequiresT"
     , "InterfaceView"
-    -- , "HasInterfaceView"
     ]
 
 internalFunctions :: UniqFM (UniqSet FastString)
@@ -1261,7 +1260,6 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
     , ("DA.Internal.Desugar",
         [ "mkMethod"
         , "mkInterfaceView"
-        -- , "view"
         ])
     ]
 
