@@ -8,9 +8,12 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.backend.ParameterStorageBackend
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.cache.{ContractStateCaches, EventsBuffer, MutableLedgerEndCache}
-import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.interning.StringInterningView
+import com.daml.platform.store.cache.{
+  ContractStateCaches,
+  InMemoryFanoutBuffer,
+  MutableLedgerEndCache,
+}
+import com.daml.platform.store.interning.{StringInterningView, UpdatingStringInterningView}
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -18,22 +21,22 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 
-class ParticipantInMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
-  private val className = classOf[ParticipantInMemoryState].getSimpleName
+class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
+  private val className = classOf[InMemoryState].getSimpleName
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   s"$className.initialized" should "return false if not initialized" in withTestFixture {
-    case (participantInMemoryState, _, _, _, _, _) =>
-      participantInMemoryState.initialized shouldBe false
+    case (inMemoryState, _, _, _, _, _) =>
+      inMemoryState.initialized shouldBe false
   }
 
   s"$className.initializeTo" should "initialize the state" in withTestFixture {
     case (
-          participantInMemoryState,
+          inMemoryState,
           mutableLedgerEndCache,
           contractStateCaches,
           transactionsBuffer,
-          updateStringInterningView,
+          stringInterningView,
           dispatcherState,
         ) =>
       val initOffset = Offset.fromHexString(Ref.HexString.assertFromString("abcdef"))
@@ -43,21 +46,23 @@ class ParticipantInMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with 
       val initLedgerEnd = ParameterStorageBackend
         .LedgerEnd(initOffset, initEventSequentialId, initStringInterningId)
 
-      when(updateStringInterningView(initLedgerEnd)).thenReturn(Future.unit)
+      val updateStringInterningView = mock[(UpdatingStringInterningView, LedgerEnd) => Future[Unit]]
+      when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(Future.unit)
+
       when(dispatcherState.reset(initLedgerEnd)).thenReturn(Future.unit)
       when(dispatcherState.initialized).thenReturn(true)
       for {
         // INITIALIZED THE STATE
-        _ <- participantInMemoryState.initializeTo(initLedgerEnd)
+        _ <- inMemoryState.initializeTo(initLedgerEnd)(updateStringInterningView)
 
         // ASSERT STATE INITIALIZED
         _ = {
-          participantInMemoryState.initialized shouldBe true
+          inMemoryState.initialized shouldBe true
 
           verify(contractStateCaches).reset(initOffset)
           verify(transactionsBuffer).flush()
           verify(mutableLedgerEndCache).set(initOffset, initEventSequentialId)
-          verify(updateStringInterningView)(initLedgerEnd)
+          verify(updateStringInterningView)(stringInterningView, initLedgerEnd)
           verify(dispatcherState).reset(initLedgerEnd)
         }
 
@@ -75,23 +80,27 @@ class ParticipantInMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with 
             transactionsBuffer,
             updateStringInterningView,
           )
-          when(updateStringInterningView(reInitLedgerEnd)).thenReturn(
+          when(updateStringInterningView(stringInterningView, reInitLedgerEnd)).thenReturn(
             Future.unit
           )
           when(dispatcherState.reset(reInitLedgerEnd)).thenReturn(Future.unit)
         }
 
         // RE-INITIALIZE THE STATE
-        _ <- participantInMemoryState.initializeTo(reInitLedgerEnd)
+        _ <- inMemoryState.initializeTo(reInitLedgerEnd) {
+          case (`stringInterningView`, ledgerEnd) =>
+            updateStringInterningView(stringInterningView, ledgerEnd)
+          case (other, _) => fail(s"Unexpected stringInterningView reference $other")
+        }
 
         // ASSERT STATE RE-INITIALIZED
         _ = {
-          participantInMemoryState.initialized shouldBe true
+          inMemoryState.initialized shouldBe true
 
           verify(contractStateCaches).reset(reInitOffset)
           verify(transactionsBuffer).flush()
           verify(mutableLedgerEndCache).set(reInitOffset, reInitEventSequentialId)
-          verify(updateStringInterningView)(reInitLedgerEnd)
+          verify(updateStringInterningView)(stringInterningView, reInitLedgerEnd)
           verify(dispatcherState).reset(reInitLedgerEnd)
         }
       } yield succeed
@@ -99,42 +108,36 @@ class ParticipantInMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with 
 
   private def withTestFixture(
       test: (
-          ParticipantInMemoryState,
+          InMemoryState,
           MutableLedgerEndCache,
           ContractStateCaches,
-          EventsBuffer[TransactionLogUpdate],
-          LedgerEnd => Future[Unit],
+          InMemoryFanoutBuffer,
+          StringInterningView,
           DispatcherState,
       ) => Future[Assertion]
   ): Future[Assertion] = {
     val mutableLedgerEndCache = mock[MutableLedgerEndCache]
     val contractStateCaches = mock[ContractStateCaches]
 
-    val transactionsBuffer = mock[EventsBuffer[TransactionLogUpdate]]
+    val transactionsBuffer = mock[InMemoryFanoutBuffer]
     val stringInterningView = mock[StringInterningView]
 
     val dispatcherState = mock[DispatcherState]
 
-    val updateStringInterningViewWithLedgerEnd = mock[LedgerEnd => Future[Unit]]
-
-    val participantInMemoryState = new ParticipantInMemoryState(
+    val inMemoryState = new InMemoryState(
       ledgerEndCache = mutableLedgerEndCache,
       contractStateCaches = contractStateCaches,
       transactionsBuffer = transactionsBuffer,
       stringInterningView = stringInterningView,
       dispatcherState = dispatcherState,
-      updateStringInterningView = {
-        case (`stringInterningView`, ledgerEnd) => updateStringInterningViewWithLedgerEnd(ledgerEnd)
-        case (other, _) => fail(s"Unexpected stringInterningView reference $other")
-      },
     )
 
     test(
-      participantInMemoryState,
+      inMemoryState,
       mutableLedgerEndCache,
       contractStateCaches,
       transactionsBuffer,
-      updateStringInterningViewWithLedgerEnd,
+      stringInterningView,
       dispatcherState,
     )
   }

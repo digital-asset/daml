@@ -367,6 +367,10 @@ private[lf] final class PhaseOne(
         compileExp(env, exp) { exp =>
           Return(SBObserverInterface(ifaceId)(exp))
         }
+      case EViewInterface(ifaceId, exp) =>
+        compileExp(env, exp) { exp =>
+          Return(SBViewInterface(ifaceId)(exp))
+        }
       case EExperimental(name, _) =>
         Return(SBExperimental(name))
     }
@@ -718,17 +722,16 @@ private[lf] final class PhaseOne(
             Return(t.TemplateChoiceDefRef(tmplId, chId)(cid, arg))
           }
         }
-      case UpdateExerciseInterface(ifaceId, chId, cid, arg, guard) =>
+      case UpdateExerciseInterface(ifaceId, chId, cid, arg, maybeGuard) =>
         compileExp(env, cid) { cid =>
           compileExp(env, arg) { arg =>
-            compileExp(env, guard) { guard =>
-              Return(
-                t.InterfaceChoiceDefRef(ifaceId, chId)(
-                  guard,
-                  cid,
-                  arg,
-                )
-              )
+            def choiceDefRef(guard: SExpr) =
+              Return(t.InterfaceChoiceDefRef(ifaceId, chId)(guard, cid, arg))
+            maybeGuard match {
+              case Some(guard) =>
+                compileExp(env, guard)(choiceDefRef(_))
+              case None =>
+                choiceDefRef(SEAbs(1, SEValue.True))
             }
           }
         }

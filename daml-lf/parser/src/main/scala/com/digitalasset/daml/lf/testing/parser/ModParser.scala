@@ -6,6 +6,7 @@ package testing.parser
 
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
 import com.daml.lf.testing.parser.Parsers._
 import com.daml.lf.testing.parser.Token._
 import com.daml.scalautil.Statement.discard
@@ -130,7 +131,12 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   private lazy val implements: Parser[TemplateImplements] =
     Id("implements") ~>! fullIdentifier ~ (`{` ~> rep(method <~ `;`) <~ `}`) ^^ {
       case ifaceId ~ methods =>
-        TemplateImplements.build(ifaceId, methods)
+        // TODO: Represent a view method and parse it. Currently hardcoding views to unit
+        TemplateImplements.build(
+          ifaceId,
+          methods,
+          EAbs((Ref.Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
+        )
     }
 
   private lazy val templateDefinition: Parser[TemplDef] =
@@ -212,7 +218,16 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
             coImplements =>
           IfaceDef(
             tycon,
-            DefInterface.build(Set.from(requires), x, choices, methods, precond, coImplements),
+            // TODO: Represent view type and parse it. Currently hardcoding view types to unit
+            DefInterface.build(
+              Set.from(requires),
+              x,
+              choices,
+              methods,
+              precond,
+              coImplements,
+              TUnit,
+            ),
           )
       }
   private val interfaceRequires: Parser[Ref.TypeConName] =
@@ -231,7 +246,11 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   private lazy val coImplements: Parser[InterfaceCoImplements] =
     Id("coimplements") ~>! fullIdentifier ~ (`{` ~> rep(coImplementsMethod <~ `;`) <~ `}`) ^^ {
       case tplId ~ methods =>
-        InterfaceCoImplements.build(tplId, methods)
+        InterfaceCoImplements.build(
+          tplId,
+          methods,
+          EAbs((Ref.Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
+        )
     }
 
   private val serializableTag = Ref.Name.assertFromString("serializable")

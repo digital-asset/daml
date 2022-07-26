@@ -45,7 +45,7 @@ private[apiserver] final class ApiVersionService private (
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val versionFile: String = "ledger-api/VERSION"
-  private lazy val apiVersion: Try[String] = readVersion(versionFile)
+  private val apiVersion: Try[String] = readVersion(versionFile)
 
   private val featuresDescriptor =
     FeaturesDescriptor.of(

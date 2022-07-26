@@ -48,7 +48,6 @@ da_scala_library(
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
-        "//ledger/participant-state-metrics",
         "//libs-scala/build-info",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
@@ -424,42 +423,25 @@ SERVERS = {
     },
 }
 
-conformance_test(
-    name = "conformance-test-no-conflict-checking",
-    hocon = True,
-    ports = [6865],
-    server = ":app",
-    server_args = ["run"],
-    server_hocon_config = """
-    {
-      ledger.participants.default.api-server.seeding = testing-weak
-      bridge.conflict-checking-enabled = false
-    }
-    """,
-    test_tool_args = [
-        "--verbose",
-        "--exclude=ClosedWorldIT",
-        "--exclude=ContractKeysIT",
-        "--exclude=SemanticTests",
-        "--exclude=RaceConditionIT",
-        "--exclude=ExceptionRaceConditionIT",
-        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
-        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
-        "--exclude=ConfigManagementServiceIT:CMConcurrentSetConflicting",
-        "--exclude=CommandDeduplication",
-        "--exclude=CommandServiceIT:CSduplicate",
-        "--exclude=PartyManagementServiceIT:PMRejectionDuplicateHint",
-    ],
-)
-
+# Conformance with default settings but with covering buffer size (i.e. big enough) for the in-memory fan-out,
+# ensuring that all Ledger API read requests are served from the in-memory fan-out buffer.
 server_conformance_test(
-    name = "conformance-test",
+    name = "conformance-test-in-memory-fan-out-covering",
     hocon = True,
     hocon_config = """
-        ledger.participants.default.api-server {
-            seeding = testing-weak
-            user-management.enabled = true
+    {
+      ledger.participants.default {
+        api-server {
+          seeding = testing-weak
+          user-management {
+            enabled = true
+          }
         }
+        index-service {
+          max-transactions-in-memory-fan-out-buffer-size = 20000
+        }
+      }
+    }
     """,
     servers = SERVERS,
     test_tool_args = [
@@ -489,13 +471,72 @@ server_conformance_test(
           max-contract-state-cache-size = 2
           acs-id-page-size = 2
           events-page-size = 2
+          max-transactions-in-memory-fan-out-buffer-size = 3
+          buffered-streams-page-size = 1
         }
       }
     }
     """,
-    servers = {"postgresql": SERVERS["postgresql"]},
+    servers = SERVERS,
     test_tool_args = [
         "--verbose",
+    ],
+)
+
+# Conformance test with the in-memory fan-out, mutable contract state cache and user management cache disabled
+# (i.e. cache/buffer sizes set to 0).
+server_conformance_test(
+    name = "conformance-test-caches-disabled",
+    hocon = True,
+    hocon_config = """
+    {
+      ledger.participants.default {
+        api-server {
+          seeding = testing-weak
+          user-management {
+            enabled = true
+            max-cache-size = 0
+          }
+        }
+        index-service {
+          max-contract-key-state-cache-size = 0
+          max-contract-state-cache-size = 0
+          max-transactions-in-memory-fan-out-buffer-size = 0
+        }
+      }
+    }
+    """,
+    servers = SERVERS,
+    test_tool_args = [
+        "--verbose",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-no-conflict-checking",
+    hocon = True,
+    ports = [6865],
+    server = ":app",
+    server_args = ["run"],
+    server_hocon_config = """
+    {
+      ledger.participants.default.api-server.seeding = testing-weak
+      bridge.conflict-checking-enabled = false
+    }
+    """,
+    test_tool_args = [
+        "--verbose",
+        "--exclude=ClosedWorldIT",
+        "--exclude=ContractKeysIT",
+        "--exclude=SemanticTests",
+        "--exclude=RaceConditionIT",
+        "--exclude=ExceptionRaceConditionIT",
+        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
+        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
+        "--exclude=ConfigManagementServiceIT:CMConcurrentSetConflicting",
+        "--exclude=CommandDeduplication",
+        "--exclude=CommandServiceIT:CSduplicate",
+        "--exclude=PartyManagementServiceIT:PMRejectionDuplicateHint",
     ],
 )
 
@@ -510,54 +551,6 @@ conformance_test(
       ledger.participants.default.api-server {
         seeding = testing-weak
         time-provider-type = static
-      }
-    }
-    """,
-    test_tool_args = [
-        "--verbose",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-in-memory-fan-out",
-    hocon = True,
-    ports = [6865],
-    server = ":app",
-    server_args = ["run"],
-    server_hocon_config = """
-    {
-      ledger.participants.default {
-        api-server {
-          seeding = testing-weak
-        }
-        index-service {
-          enable-in-memory-fan-out-for-ledger-api = true
-        }
-      }
-    }
-    """,
-    test_tool_args = [
-        "--verbose",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-in-memory-fan-out-tiny-buffer",
-    hocon = True,
-    ports = [6865],
-    server = ":app",
-    server_args = ["run"],
-    server_hocon_config = """
-    {
-      ledger.participants.default {
-        api-server {
-          seeding = testing-weak
-        }
-        index-service {
-          enable-in-memory-fan-out-for-ledger-api = true
-          buffered-streams-page-size = 1
-          max-transactions-in-memory-fan-out-buffer-size = 3
-        }
       }
     }
     """,

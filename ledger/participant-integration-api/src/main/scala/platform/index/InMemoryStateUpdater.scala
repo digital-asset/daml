@@ -6,10 +6,11 @@ package com.daml.platform.index
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.codahale.metrics.InstrumentedExecutorService
+import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v2.Update
-import com.daml.ledger.participant.state.v2.Update.TransactionAccepted
+import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.data.Ref.HexString
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node.{Create, Exercise}
@@ -17,49 +18,63 @@ import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.lf.transaction.{Node, NodeId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.index.InMemoryStateUpdater.UpdaterFlow
+import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.{Contract, Key, ParticipantInMemoryState, Party}
+import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
+import com.daml.platform.{Contract, InMemoryState, Key, Party}
 
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 
-private[index] class InMemoryStateUpdater(
+final class InMemoryStateUpdater(
     prepareUpdatesParallelism: Int,
     prepareUpdatesExecutionContext: ExecutionContext,
     updateCachesExecutionContext: ExecutionContext,
 )(
     updateCaches: Vector[TransactionLogUpdate] => Unit,
-    updateToTransactionAccepted: (Offset, Update.TransactionAccepted) => TransactionLogUpdate,
+    convertTransactionAccepted: (
+        Offset,
+        Update.TransactionAccepted,
+    ) => TransactionLogUpdate.TransactionAccepted,
+    convertTransactionRejected: (
+        Offset,
+        Update.CommandRejected,
+    ) => TransactionLogUpdate.TransactionRejected,
     updateLedgerEnd: (Offset, Long) => Unit,
 ) {
 
-  def flow: Flow[(Vector[(Offset, Update)], Long), Unit, NotUsed] =
+  // TODO LLP: Considering directly returning this flow instead of the wrapper
+  def flow: UpdaterFlow =
     Flow[(Vector[(Offset, Update)], Long)]
       .filter(_._1.nonEmpty)
       .mapAsync(prepareUpdatesParallelism) { case (batch, lastEventSequentialId) =>
         Future {
-          val transactionsAcceptedBatch =
-            batch.collect { case (offset, u: TransactionAccepted) =>
-              updateToTransactionAccepted(offset, u)
+          val updatesBatch =
+            batch.collect {
+              case (offset, u: Update.TransactionAccepted) => convertTransactionAccepted(offset, u)
+              case (offset, u: Update.CommandRejected) => convertTransactionRejected(offset, u)
             }
-          transactionsAcceptedBatch -> (batch.last._1 -> lastEventSequentialId)
+          (updatesBatch, batch.last._1, lastEventSequentialId)
         }(prepareUpdatesExecutionContext)
       }
       .async
-      .mapAsync(1) { case (updates, ledgerEnd) =>
+      .mapAsync(1) { case (updates, lastOffset, lastEventSequentialId) =>
         Future {
           updateCaches(updates)
-          updateLedgerEnd(ledgerEnd._1, ledgerEnd._2)
+          updateLedgerEnd(lastOffset, lastEventSequentialId)
         }(updateCachesExecutionContext)
       }
 }
 
-object InMemoryStateUpdater {
+private[platform] object InMemoryStateUpdater {
+  type UpdaterFlow = Flow[(Vector[(Offset, Update)], Long), Unit, NotUsed]
+
   private val logger = ContextualizedLogger.get(getClass)
 
   def owner(
-      participantInMemoryState: ParticipantInMemoryState,
+      inMemoryState: InMemoryState,
       prepareUpdatesParallelism: Int,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[InMemoryStateUpdater] = for {
@@ -82,39 +97,35 @@ object InMemoryStateUpdater {
     prepareUpdatesExecutionContext = ExecutionContext.fromExecutorService(prepareUpdatesExecutor),
     updateCachesExecutionContext = ExecutionContext.fromExecutorService(updateCachesExecutor),
   )(
-    updateCaches = updateCaches(participantInMemoryState),
-    updateToTransactionAccepted = updateToTransactionAccepted,
-    updateLedgerEnd = updateLedgerEnd(participantInMemoryState),
+    updateCaches = updateCaches(inMemoryState),
+    convertTransactionAccepted = convertTransactionAccepted,
+    convertTransactionRejected = convertTransactionRejected,
+    updateLedgerEnd = updateLedgerEnd(inMemoryState),
   )
 
-  private def updateCaches(participantInMemoryState: ParticipantInMemoryState)(
+  private def updateCaches(inMemoryState: InMemoryState)(
       updates: Vector[TransactionLogUpdate]
   ): Unit =
-    updates.foreach {
-      case transaction: TransactionLogUpdate.Transaction =>
-        // TODO LLP: Batch update caches
-        participantInMemoryState.transactionsBuffer.push(transaction.offset, transaction)
+    updates.foreach { transaction: TransactionLogUpdate =>
+      // TODO LLP: Batch update caches
+      inMemoryState.transactionsBuffer.push(transaction.offset, transaction)
 
-        val contractStateEventsBatch = convertToContractStateEvents(transaction)
-        if (contractStateEventsBatch.nonEmpty) {
-          participantInMemoryState.contractStateCaches.push(contractStateEventsBatch)
-        }
-
-      case _: TransactionLogUpdate.LedgerEndMarker =>
-        // TODO LLP: Remove TransactionLogUpdate.LedgerEndMarker
-        ()
+      val contractStateEventsBatch = convertToContractStateEvents(transaction)
+      if (contractStateEventsBatch.nonEmpty) {
+        inMemoryState.contractStateCaches.push(contractStateEventsBatch)
+      }
     }
 
   private def updateLedgerEnd(
-      participantInMemoryState: ParticipantInMemoryState
+      inMemoryState: InMemoryState
   )(lastOffset: Offset, lastEventSequentialId: Long)(implicit
       loggingContext: LoggingContext
   ): Unit = {
-    participantInMemoryState.ledgerEndCache.set((lastOffset, lastEventSequentialId))
+    inMemoryState.ledgerEndCache.set((lastOffset, lastEventSequentialId))
     // the order here is very important: first we need to make data available for point-wise lookups
     // and SQL queries, and only then we can make it available on the streams.
     // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
-    participantInMemoryState.dispatcherState.getDispatcher.signalNewHead(lastOffset)
+    inMemoryState.dispatcherState.getDispatcher.signalNewHead(lastOffset)
     logger.debug(s"Updated ledger end at offset $lastOffset - $lastEventSequentialId")
   }
 
@@ -122,7 +133,7 @@ object InMemoryStateUpdater {
       tx: TransactionLogUpdate
   ): Vector[ContractStateEvent] =
     tx match {
-      case tx: TransactionLogUpdate.Transaction =>
+      case tx: TransactionLogUpdate.TransactionAccepted =>
         tx.events.iterator.collect {
           case createdEvent: TransactionLogUpdate.CreatedEvent =>
             ContractStateEvent.Created(
@@ -154,12 +165,12 @@ object InMemoryStateUpdater {
       case _ => Vector.empty
     }
 
-  private def updateToTransactionAccepted(
+  private def convertTransactionAccepted(
       offset: Offset,
-      u: TransactionAccepted,
-  ): TransactionLogUpdate.Transaction = {
+      txAccepted: Update.TransactionAccepted,
+  ): TransactionLogUpdate.TransactionAccepted = {
     // TODO LLP: Extract in common functionality together with duplicated code in [[UpdateToDbDto]]
-    val rawEvents = u.transaction.transaction
+    val rawEvents = txAccepted.transaction.transaction
       .foldInExecutionOrder(List.empty[(NodeId, Node)])(
         exerciseBegin = (acc, nid, node) => ((nid -> node) :: acc, ChildrenRecursion.DoRecurse),
         // Rollback nodes are not indexed
@@ -171,26 +182,26 @@ object InMemoryStateUpdater {
       .reverseIterator
 
     // TODO LLP: Deduplicate blinding info computation with the work done in [[UpdateToDbDto]]
-    val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
+    val blinding = txAccepted.blindingInfo.getOrElse(Blinding.blind(txAccepted.transaction))
 
     val events = rawEvents.collect {
       case (nodeId, create: Create) =>
         TransactionLogUpdate.CreatedEvent(
           eventOffset = offset,
-          transactionId = u.transactionId,
+          transactionId = txAccepted.transactionId,
           nodeIndex = nodeId.index,
           eventSequentialId = 0L,
-          eventId = EventId(u.transactionId, nodeId),
+          eventId = EventId(txAccepted.transactionId, nodeId),
           contractId = create.coid,
-          ledgerEffectiveTime = u.transactionMeta.ledgerEffectiveTime,
+          ledgerEffectiveTime = txAccepted.transactionMeta.ledgerEffectiveTime,
           templateId = create.templateId,
-          commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
-          workflowId = u.transactionMeta.workflowId.getOrElse(""),
+          commandId = txAccepted.optCompletionInfo.map(_.commandId).getOrElse(""),
+          workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
           contractKey =
             create.key.map(k => com.daml.lf.transaction.Versioned(create.version, k.key)),
           treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty),
           flatEventWitnesses = create.stakeholders,
-          submitters = u.optCompletionInfo
+          submitters = txAccepted.optCompletionInfo
             .map(_.actAs.toSet)
             .getOrElse(Set.empty),
           createArgument = com.daml.lf.transaction.Versioned(create.version, create.arg),
@@ -201,26 +212,26 @@ object InMemoryStateUpdater {
       case (nodeId, exercise: Exercise) =>
         TransactionLogUpdate.ExercisedEvent(
           eventOffset = offset,
-          transactionId = u.transactionId,
+          transactionId = txAccepted.transactionId,
           nodeIndex = nodeId.index,
           eventSequentialId = 0L,
-          eventId = EventId(u.transactionId, nodeId),
+          eventId = EventId(txAccepted.transactionId, nodeId),
           contractId = exercise.targetCoid,
-          ledgerEffectiveTime = u.transactionMeta.ledgerEffectiveTime,
+          ledgerEffectiveTime = txAccepted.transactionMeta.ledgerEffectiveTime,
           templateId = exercise.templateId,
-          commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
-          workflowId = u.transactionMeta.workflowId.getOrElse(""),
+          commandId = txAccepted.optCompletionInfo.map(_.commandId).getOrElse(""),
+          workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
           contractKey =
             exercise.key.map(k => com.daml.lf.transaction.Versioned(exercise.version, k.key)),
           treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty),
           flatEventWitnesses = if (exercise.consuming) exercise.stakeholders else Set.empty,
-          submitters = u.optCompletionInfo
+          submitters = txAccepted.optCompletionInfo
             .map(_.actAs.toSet)
             .getOrElse(Set.empty),
           choice = exercise.choiceId,
           actingParties = exercise.actingParties,
           children = exercise.children.iterator
-            .map(EventId(u.transactionId, _).toLedgerString)
+            .map(EventId(txAccepted.transactionId, _).toLedgerString)
             .toSeq,
           exerciseArgument = exercise.versionedChosenValue,
           exerciseResult = exercise.versionedExerciseResult,
@@ -229,12 +240,73 @@ object InMemoryStateUpdater {
         )
     }
 
-    TransactionLogUpdate.Transaction(
-      transactionId = u.transactionId,
-      workflowId = u.transactionMeta.workflowId.getOrElse(""), // TODO LLP: check
-      effectiveAt = u.transactionMeta.ledgerEffectiveTime,
+    val completionDetails = txAccepted.optCompletionInfo
+      .map { completionInfo =>
+        val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
+          deduplicationInfo(completionInfo)
+
+        CompletionDetails(
+          CompletionFromTransaction.acceptedCompletion(
+            recordTime = txAccepted.recordTime,
+            offset = offset,
+            commandId = completionInfo.commandId,
+            transactionId = txAccepted.transactionId,
+            applicationId = completionInfo.applicationId,
+            optSubmissionId = completionInfo.submissionId,
+            optDeduplicationOffset = deduplicationOffset,
+            optDeduplicationDurationSeconds = deduplicationDurationSeconds,
+            optDeduplicationDurationNanos = deduplicationDurationNanos,
+          ),
+          submitters = completionInfo.actAs.toSet,
+        )
+      }
+
+    TransactionLogUpdate.TransactionAccepted(
+      transactionId = txAccepted.transactionId,
+      commandId = txAccepted.optCompletionInfo.map(_.commandId).getOrElse(""),
+      workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
+      effectiveAt = txAccepted.transactionMeta.ledgerEffectiveTime,
       offset = offset,
       events = events.toVector,
+      completionDetails = completionDetails,
     )
   }
+
+  private def convertTransactionRejected(
+      offset: Offset,
+      u: Update.CommandRejected,
+  ): TransactionLogUpdate.TransactionRejected = {
+    val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
+      deduplicationInfo(u.completionInfo)
+
+    TransactionLogUpdate.TransactionRejected(
+      offset = offset,
+      completionDetails = CompletionDetails(
+        CompletionFromTransaction.rejectedCompletion(
+          recordTime = u.recordTime,
+          offset = offset,
+          commandId = u.completionInfo.commandId,
+          status = u.reasonTemplate.status,
+          applicationId = u.completionInfo.applicationId,
+          optSubmissionId = u.completionInfo.submissionId,
+          optDeduplicationOffset = deduplicationOffset,
+          optDeduplicationDurationSeconds = deduplicationDurationSeconds,
+          optDeduplicationDurationNanos = deduplicationDurationNanos,
+        ),
+        submitters = u.completionInfo.actAs.toSet,
+      ),
+    )
+  }
+
+  private def deduplicationInfo(
+      completionInfo: CompletionInfo
+  ): (Option[HexString], Option[Long], Option[Int]) =
+    completionInfo.optDeduplicationPeriod
+      .map {
+        case DeduplicationOffset(offset) =>
+          (Some(offset.toHexString), None, None)
+        case DeduplicationDuration(duration) =>
+          (None, Some(duration.getSeconds), Some(duration.getNano))
+      }
+      .getOrElse((None, None, None))
 }

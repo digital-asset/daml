@@ -477,7 +477,7 @@ object Repl {
               case SResultError(err) =>
                 println(prettyError(err).render(128))
                 None
-              case SResultFinalValue(v) =>
+              case SResultFinal(v, _) =>
                 Some(v)
               case other =>
                 sys.error("unimplemented callback: " + other.toString)

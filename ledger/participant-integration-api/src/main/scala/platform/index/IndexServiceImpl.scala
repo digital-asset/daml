@@ -49,7 +49,11 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.{ApiOffset, PruneBuffers}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
-import com.daml.platform.store.dao.{LedgerDaoTransactionsReader, LedgerReadDao}
+import com.daml.platform.store.dao.{
+  LedgerDaoCommandCompletionsReader,
+  LedgerDaoTransactionsReader,
+  LedgerReadDao,
+}
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
 import scalaz.syntax.tag.ToTagOps
@@ -61,9 +65,10 @@ private[index] class IndexServiceImpl(
     participantId: Ref.ParticipantId,
     ledgerDao: LedgerReadDao,
     transactionsReader: LedgerDaoTransactionsReader,
+    commandCompletionsReader: LedgerDaoCommandCompletionsReader,
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
-    dispatcher: Dispatcher[Offset],
+    dispatcher: () => Dispatcher[Offset],
     metrics: Metrics,
 ) extends IndexService {
   // An Akka stream buffer is added at the end of all streaming queries,
@@ -97,7 +102,7 @@ private[index] class IndexServiceImpl(
       to.foreach(offset =>
         Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
       )
-      dispatcher
+      dispatcher()
         .startingAt(
           from.getOrElse(Offset.beforeBegin),
           RangeSource(transactionsReader.getFlatTransactions(_, _, convertFilter(filter), verbose)),
@@ -126,7 +131,7 @@ private[index] class IndexServiceImpl(
       to.foreach(offset =>
         Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
       )
-      dispatcher
+      dispatcher()
         .startingAt(
           from.getOrElse(Offset.beforeBegin),
           RangeSource(
@@ -151,10 +156,12 @@ private[index] class IndexServiceImpl(
   )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] =
     convertOffset(startExclusive)
       .flatMapConcat { beginOpt =>
-        dispatcher
+        dispatcher()
           .startingAt(
             beginOpt,
-            RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId, parties)),
+            RangeSource(
+              commandCompletionsReader.getCommandCompletions(_, _, applicationId, parties)
+            ),
             None,
           )
           .map(_._2)
@@ -168,10 +175,10 @@ private[index] class IndexServiceImpl(
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] =
     between(startExclusive, Some(endInclusive)) { (start, end) =>
-      dispatcher
+      dispatcher()
         .startingAt(
           start.getOrElse(Offset.beforeBegin),
-          RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId, parties)),
+          RangeSource(commandCompletionsReader.getCommandCompletions(_, _, applicationId, parties)),
           end,
         )
         .map(_._2)
@@ -208,14 +215,14 @@ private[index] class IndexServiceImpl(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
-    ledgerDao.transactionsReader
+    transactionsReader
       .lookupFlatTransactionById(transactionId.unwrap, requestingParties)
 
   override def getTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
-    ledgerDao.transactionsReader
+    transactionsReader
       .lookupTransactionTreeById(transactionId.unwrap, requestingParties)
 
   override def lookupMaximumLedgerTimeAfterInterpretation(
@@ -238,7 +245,7 @@ private[index] class IndexServiceImpl(
   )(implicit loggingContext: LoggingContext): Source[PartyEntry, NotUsed] = {
     Source
       .future(concreteOffset(startExclusive))
-      .flatMapConcat(dispatcher.startingAt(_, RangeSource(ledgerDao.getPartyEntries)))
+      .flatMapConcat(dispatcher().startingAt(_, RangeSource(ledgerDao.getPartyEntries)))
       .map {
         case (_, PartyLedgerEntry.AllocationRejected(subId, _, reason)) =>
           PartyEntry.AllocationRejected(subId, reason)
@@ -262,7 +269,7 @@ private[index] class IndexServiceImpl(
   )(implicit loggingContext: LoggingContext): Source[PackageEntry, NotUsed] =
     Source
       .future(concreteOffset(startExclusive))
-      .flatMapConcat(dispatcher.startingAt(_, RangeSource(ledgerDao.getPackageEntries)))
+      .flatMapConcat(dispatcher().startingAt(_, RangeSource(ledgerDao.getPackageEntries)))
       .map(_._2.toDomain)
 
   /** Looks up the current configuration, if set, and the offset from which
@@ -305,10 +312,13 @@ private[index] class IndexServiceImpl(
   ): Source[(domain.LedgerOffset.Absolute, domain.ConfigurationEntry), NotUsed] =
     Source
       .future(concreteOffset(startExclusive))
-      .flatMapConcat(dispatcher.startingAt(_, RangeSource(ledgerDao.getConfigurationEntries)).map {
-        case (offset, config) =>
-          toAbsolute(offset) -> config.toDomain
-      })
+      .flatMapConcat(
+        dispatcher()
+          .startingAt(_, RangeSource(ledgerDao.getConfigurationEntries))
+          .map { case (offset, config) =>
+            toAbsolute(offset) -> config.toDomain
+          }
+      )
 
   override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
@@ -337,7 +347,7 @@ private[index] class IndexServiceImpl(
     Future.successful(toAbsolute(offset))
   }
 
-  private def ledgerEnd(): Offset = dispatcher.getHead()
+  private def ledgerEnd(): Offset = dispatcher().getHead()
 
   // Returns a function that memoizes the current end
   // Can be used directly or shared throughout a request processing

@@ -104,6 +104,8 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         ("uexerciseI1", uexerciseI1),
         ("uexerciseI2", uexerciseI2),
         ("uexerciseI3", uexerciseI3),
+        ("uexerciseI4", uexerciseI4),
+        ("uexerciseI5", uexerciseI5),
         ("uexbykey1", uexbykey1),
         ("uexbykey2", uexbykey2),
         ("ufetchbykey", ufetchbykey),
@@ -209,9 +211,16 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
   private def ufetchI = (x: Expr) => EUpdate(UpdateFetchInterface(tcon, x))
   private def uexercise1 = (x: Expr) => EUpdate(UpdateExercise(tcon, choice, x, exp))
   private def uexercise2 = (x: Expr) => EUpdate(UpdateExercise(tcon, choice, exp, x))
-  private def uexerciseI1 = (x: Expr) => EUpdate(UpdateExerciseInterface(tcon, choice, x, exp, exp))
-  private def uexerciseI2 = (x: Expr) => EUpdate(UpdateExerciseInterface(tcon, choice, exp, x, exp))
-  private def uexerciseI3 = (x: Expr) => EUpdate(UpdateExerciseInterface(tcon, choice, exp, exp, x))
+  private def uexerciseI1 = (x: Expr) =>
+    EUpdate(UpdateExerciseInterface(tcon, choice, x, exp, Some(exp)))
+  private def uexerciseI2 = (x: Expr) =>
+    EUpdate(UpdateExerciseInterface(tcon, choice, exp, x, Some(exp)))
+  private def uexerciseI3 = (x: Expr) =>
+    EUpdate(UpdateExerciseInterface(tcon, choice, exp, exp, Some(x)))
+  private def uexerciseI4 = (x: Expr) =>
+    EUpdate(UpdateExerciseInterface(tcon, choice, x, exp, None))
+  private def uexerciseI5 = (x: Expr) =>
+    EUpdate(UpdateExerciseInterface(tcon, choice, exp, x, None))
   private def uexbykey1 = (x: Expr) => EUpdate(UpdateExerciseByKey(tcon, choice, x, exp))
   private def uexbykey2 = (x: Expr) => EUpdate(UpdateExerciseByKey(tcon, choice, exp, x))
   private def ufetchbykey = (x: Expr) => EUpdate(UpdateFetchByKey(RetrieveByKey(tcon, x)))

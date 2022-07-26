@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.ImmArray
-import com.daml.lf.speedy.PartialTransaction._
+import com.daml.lf.speedy.PartialTransaction
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.transaction.{ContractKeyUniquenessMode, Node, TransactionVersion}
 import com.daml.lf.value.Value
@@ -30,11 +30,12 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
   )
 
   private[this] def contractIdsInOrder(ptx: PartialTransaction): Seq[Value.ContractId] = {
-    inside(ptx.finish) { case CompleteTransaction(tx, _, _, _, _) =>
-      tx.fold(Vector.empty[Value.ContractId]) {
-        case (acc, (_, create: Node.Create)) => acc :+ create.coid
-        case (acc, _) => acc
-      }
+    ptx.finish match {
+      case PartialTransaction.Result(tx, _, _, _, _) =>
+        tx.fold(Vector.empty[Value.ContractId]) {
+          case (acc, (_, create: Node.Create)) => acc :+ create.coid
+          case (acc, _) => acc
+        }
     }
   }
 
@@ -53,25 +54,30 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
           key = None,
           version = TransactionVersion.maxVersion,
         )
+        .toOption
+        .get
         ._2
 
     def beginExercises_ : PartialTransaction =
-      ptx.beginExercises(
-        targetId = cid,
-        templateId = templateId,
-        interfaceId = None,
-        choiceId = choiceId,
-        optLocation = None,
-        consuming = false,
-        actingParties = Set(party),
-        signatories = Set(party),
-        stakeholders = Set.empty,
-        choiceObservers = Set.empty,
-        mbKey = None,
-        byKey = false,
-        chosenValue = Value.ValueUnit,
-        version = TransactionVersion.maxVersion,
-      )
+      ptx
+        .beginExercises(
+          targetId = cid,
+          templateId = templateId,
+          interfaceId = None,
+          choiceId = choiceId,
+          optLocation = None,
+          consuming = false,
+          actingParties = Set(party),
+          signatories = Set(party),
+          stakeholders = Set.empty,
+          choiceObservers = Set.empty,
+          mbKey = None,
+          byKey = false,
+          chosenValue = Value.ValueUnit,
+          version = TransactionVersion.maxVersion,
+        )
+        .toOption
+        .get
 
     def endExercises_ : PartialTransaction =
       ptx.endExercises(_ => Value.ValueNone)
@@ -156,7 +162,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
           .beginTry // open a second try context
           .insertCreate_ // create the contract cid_1_2
           // an exception is thrown
-          .abortTry // the second try context does not handle the exception
+          .rollbackTry_ // the second try context does not handle the exception
           .abortExercises // close abruptly the exercise due to an uncaught exception
           .rollbackTry_ // the first try context does handle the exception
           .insertCreate_ // create the contract cid_2

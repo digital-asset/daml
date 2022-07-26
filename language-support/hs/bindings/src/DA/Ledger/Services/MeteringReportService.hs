@@ -157,7 +157,7 @@ raiseParticipantMeteringReport llRequest  (LL.ParticipantMeteringReport llPartic
   return MeteringReport{..}
 
 raiseGetMeteringReportResponse :: LL.GetMeteringReportResponse -> Perhaps MeteringReport
-raiseGetMeteringReportResponse (LL.GetMeteringReportResponse (Just request) (Just report) (Just _)) =
+raiseGetMeteringReportResponse (LL.GetMeteringReportResponse (Just request) (Just report) (Just _)  _) =
   raiseParticipantMeteringReport request report
 
 raiseGetMeteringReportResponse response = Left $ Unexpected ("raiseMeteredReport unable to parse response: " <> show response)

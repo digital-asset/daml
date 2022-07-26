@@ -73,7 +73,7 @@ object PlaySpeedy {
     println(s"example name: $name")
 
     machine.run() match {
-      case SResultFinalValue(value) =>
+      case SResultFinal(value, _) =>
         println(s"final-value: $value")
         value match {
           case SInt64(got) =>

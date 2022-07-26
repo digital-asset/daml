@@ -602,6 +602,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       TemplateImplements.build(
         interfaceId = decodeTypeConName(lfImpl.getInterface),
         methods = lfImpl.getMethodsList.asScala.view.map(decodeTemplateImplementsMethod),
+        view = decodeExpr(lfImpl.getView, "TemplateImplements.view"),
       )
 
     private[this] def decodeTemplateImplementsMethod(
@@ -668,7 +669,9 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         choices = lfInterface.getChoicesList.asScala.view.map(decodeChoice(id, _)),
         methods = lfInterface.getMethodsList.asScala.view.map(decodeInterfaceMethod),
         precond = decodeExpr(lfInterface.getPrecond, s"$id:ensure"),
-        coImplements = lfInterface.getCoImplementsList.asScala.view.map(decodeInterfaceCoImplements),
+        coImplements =
+          lfInterface.getCoImplementsList.asScala.view.map(decodeInterfaceCoImplements),
+        view = decodeType(lfInterface.getView),
       )
 
     private[this] def decodeInterfaceMethod(
@@ -685,6 +688,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       InterfaceCoImplements.build(
         templateId = decodeTypeConName(lfCoImpl.getTemplate),
         methods = lfCoImpl.getMethodsList.asScala.view.map(decodeInterfaceCoImplementsMethod),
+        view = decodeExpr(lfCoImpl.getView, "InterfaceCoImplements.view"),
       )
 
     private[this] def decodeInterfaceCoImplementsMethod(
@@ -1223,6 +1227,14 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("Expr.SUM_NOT_SET")
 
+        case PLF.Expr.SumCase.VIEW_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.view_interface")
+          val viewInterface = lfExpr.getViewInterface
+          EViewInterface(
+            ifaceId = decodeTypeConName(viewInterface.getInterface),
+            expr = decodeExpr(viewInterface.getExpr, definition),
+          )
+
         case PLF.Expr.SumCase.EXPERIMENTAL =>
           assertSince(LV.v1_dev, "Expr.experimental")
           val experimental = lfExpr.getExperimental
@@ -1382,7 +1394,11 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             choice = handleInternedName(exercise.getChoiceInternedStr),
             cidE = decodeExpr(exercise.getCid, definition),
             argE = decodeExpr(exercise.getArg, definition),
-            guardE = decodeExpr(exercise.getGuard, definition),
+            guardE =
+              if (exercise.hasGuard)
+                Some(decodeExpr(exercise.getGuard, definition))
+              else
+                None,
           )
 
         case PLF.Update.SumCase.EXERCISE_BY_KEY =>

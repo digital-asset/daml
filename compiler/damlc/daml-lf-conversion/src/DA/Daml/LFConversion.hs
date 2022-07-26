@@ -470,6 +470,7 @@ convertInterfaces env binds = interfaceDefs
             intChoices <- convertChoices env intName emptyTemplateBinds
             intPrecondition <- useSingleMethodDict env precond (`ETmApp` EVar intParam)
             let intCoImplements = NM.empty -- TODO: https://github.com/digital-asset/daml/issues/14047
+            let intView = TBuiltin BTUnit -- TODO: Stub view, will extract later, https://github.com/digital-asset/daml/pull/14439
             pure DefInterface {..}
 
     convertMethods :: GHC.TyCon -> ConvertM [InterfaceMethod]
@@ -978,11 +979,14 @@ convertImplements env tpl = NM.fromList <$>
       con <- convertInterfaceTyCon env handleIsNotInterface iface
       let mod = nameModule (getName iface)
 
+      -- TODO: Stub view, will extract later, https://github.com/digital-asset/daml/pull/14439
+      let view = ETmLam (ExprVarName "this", TCon con) (EBuiltin BEUnit)
+
       methods <- convertMethods $ MS.findWithDefault []
         (mod, qualObject con, tpl)
         (envInterfaceMethodInstances env)
 
-      pure (TemplateImplements con methods)
+      pure (TemplateImplements con methods view)
 
     convertMethods ms = fmap NM.fromList . sequence $
       [ TemplateImplementsMethod (MethodName k) . (`ETmApp` EVar this) <$> convertExpr env v
@@ -1189,6 +1193,8 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         ])
     , ("DA.Internal.Desugar",
         [ "mkMethod"
+        , "mkInterfaceView"
+        , "view"
         ])
     ]
 

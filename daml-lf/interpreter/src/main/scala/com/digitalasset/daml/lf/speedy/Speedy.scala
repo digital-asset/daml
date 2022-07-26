@@ -14,7 +14,6 @@ import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.SBuiltin.checkAborted
 import com.daml.lf.transaction.{
   ContractKeyUniquenessMode,
   GlobalKey,
@@ -137,7 +136,7 @@ private[lf] object Speedy {
       else {
         SVisibleToStakeholders.fromSubmitters(committers, readAs)
       }
-    private[lf] def finish: PartialTransaction.Result = ptx.finish
+
     private[lf] def incompleteTransaction: IncompleteTransaction = ptx.finishIncomplete
     private[lf] def nodesToString: String = ptx.nodesToString
 
@@ -493,7 +492,7 @@ private[lf] object Speedy {
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
     def run(): SResult = {
       try {
-        // normal exit from this loop is when KFinished.execute throws SpeedyHungry
+        // normal exit from this loop is when KFinished.execute throws SpeedyComplete
         @tailrec
         def loop(): SResult = {
           if (enableInstrumentation) {
@@ -518,13 +517,15 @@ private[lf] object Speedy {
         loop()
       } catch {
         case SpeedyHungry(res: SResult) =>
-          if (enableInstrumentation) {
-            res match {
-              case _: SResultFinalValue => track.print()
-              case _ => ()
-            }
-          }
           res
+        case SpeedyComplete(value: SValue) =>
+          if (enableInstrumentation) track.print()
+          ledgerMode match {
+            case OffLedger => SResultFinal(value, None)
+            case onLedger: OnLedger =>
+              val ctx = onLedger.ptx.finish
+              SResultFinal(value, Some(ctx))
+          }
         case serr: SError =>
           SResultError(serr)
         case ex: RuntimeException =>
@@ -1000,7 +1001,7 @@ private[lf] object Speedy {
 
     @throws[PackageNotFound]
     @throws[CompilationError]
-    // Construct a machine for running scenario.
+    // Construct an off-ledger machine for running scenario.
     def fromScenarioSExpr(
         compiledPackages: CompiledPackages,
         scenario: SExpr,
@@ -1013,7 +1014,7 @@ private[lf] object Speedy {
 
     @throws[PackageNotFound]
     @throws[CompilationError]
-    // Construct a machine for running scenario.
+    // Construct an off-ledger machine for running scenario.
     def fromScenarioExpr(
         compiledPackages: CompiledPackages,
         scenario: Expr,
@@ -1027,7 +1028,7 @@ private[lf] object Speedy {
 
     @throws[PackageNotFound]
     @throws[CompilationError]
-    // Construct a machine for evaluating an expression that is neither an update nor a scenario expression.
+    // Construct an off-ledger machine for evaluating an expression that is neither an update nor a scenario expression.
     def fromPureSExpr(
         compiledPackages: CompiledPackages,
         expr: SExpr,
@@ -1058,7 +1059,7 @@ private[lf] object Speedy {
 
     @throws[PackageNotFound]
     @throws[CompilationError]
-    // Construct a machine for evaluating an expression that is neither an update nor a scenario expression.
+    // Construct an off-ledger machine for evaluating an expression that is neither an update nor a scenario expression.
     def fromPureExpr(
         compiledPackages: CompiledPackages,
         expr: Expr,
@@ -1104,7 +1105,7 @@ private[lf] object Speedy {
   /** Final continuation; machine has computed final value */
   private[speedy] final case object KFinished extends Kont {
     def execute(v: SValue): Unit = {
-      throw SpeedyHungry(SResultFinalValue(v))
+      throw SpeedyComplete(v)
     }
   }
 
@@ -1482,7 +1483,6 @@ private[lf] object Speedy {
     def execute(exerciseResult: SValue): Unit = {
       machine.withOnLedger("KCloseExercise") { onLedger =>
         onLedger.ptx = onLedger.ptx.endExercises(exerciseResult.toNormalizedValue)
-        checkAborted(onLedger.ptx)
       }
       machine.returnValue = exerciseResult
     }
@@ -1554,6 +1554,9 @@ private[lf] object Speedy {
       } else {
         machine.popKont() match {
           case handler: KTryCatchHandler =>
+            machine.withOnLedger("unwindToHandler/KTryCatchHandler") { onLedger =>
+              onLedger.ptx = onLedger.ptx.rollbackTry(excep)
+            }
             Some(handler)
           case _: KCloseExercise =>
             machine.withOnLedger("unwindToHandler/KCloseExercise") { onLedger =>
@@ -1636,13 +1639,16 @@ private[lf] object Speedy {
   }
 
   /** Internal exception thrown when a continuation result needs to be returned.
-    *    Or machine execution has reached a final value.
     */
   private[speedy] final case class SpeedyHungry(result: SResult)
       extends RuntimeException
-      with NoStackTrace {
-    override def toString = s"SpeedyHungry($result)"
-  }
+      with NoStackTrace
+
+  /** Internal exception thrown when execution has reached a final value.
+    */
+  private[speedy] final case class SpeedyComplete(value: SValue)
+      extends RuntimeException
+      with NoStackTrace
 
   private[speedy] def deriveTransactionSeed(
       submissionSeed: crypto.Hash,

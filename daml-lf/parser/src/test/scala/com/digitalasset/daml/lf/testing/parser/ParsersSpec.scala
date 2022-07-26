@@ -463,8 +463,10 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           UpdateFetchInterface(I.tycon, e"e"),
         "exercise @Mod:T Choice cid arg" ->
           UpdateExercise(T.tycon, n"Choice", e"cid", e"arg"),
-        "exercise_by_interface @Mod:I Choice cid arg guard" ->
-          UpdateExerciseInterface(I.tycon, n"Choice", e"cid", e"arg", e"guard"),
+        "exercise_interface @Mod:I Choice cid arg" ->
+          UpdateExerciseInterface(I.tycon, n"Choice", e"cid", e"arg", None),
+        "exercise_interface_with_guard @Mod:I Choice cid arg guard" ->
+          UpdateExerciseInterface(I.tycon, n"Choice", e"cid", e"arg", Some(e"guard")),
         "exercise_by_key @Mod:T Choice key arg" ->
           UpdateExerciseByKey(T.tycon, n"Choice", e"key", e"arg"),
         "fetch_by_key @Mod:T e" ->
@@ -660,6 +662,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                   n"age" -> TemplateImplementsMethod(n"age", e"42"),
                   n"alive" -> TemplateImplementsMethod(n"alive", e"True"),
                 ),
+                EAbs((Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
               ),
             referenceable -> TemplateImplements(
               referenceable,
@@ -669,6 +672,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                   e""""123e4567-e89b-12d3-a456-426614174000"""",
                 )
               ),
+              EAbs((Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
             ),
           ),
         )
@@ -850,8 +854,10 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                     e"Mod1:Company {legalName} this",
                   ),
                 ),
+                EAbs((Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
               )
           ),
+          view = TUnit,
         )
 
       val person = DottedName.assertFromString("Person")

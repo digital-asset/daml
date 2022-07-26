@@ -971,6 +971,13 @@ message Expr {
     Expr interface_expr = 3;
   }
 
+  // Obtain an interface view
+  // *Available in versions >= 1.dev*
+  message ViewInterface {
+    TypeConName interface = 1;
+    Expr expr = 2;
+  }
+
   // Obtain the type representation of a contract through an interface
   // *Available in versions >= 1.dev*
   message InterfaceTemplateTypeRep {
@@ -1136,6 +1143,10 @@ message Expr {
     UnsafeFromInterface unsafe_from_interface = 44;
     // Unsafe downcast interface payloads.
     UnsafeFromRequiredInterface unsafe_from_required_interface = 45;
+
+    // Invoke an interface method.
+    // *Available in versions >= 1.dev*
+    ViewInterface view_interface = 46;
 
     Experimental experimental = 9999; // *Available only in 1.dev*
   }
@@ -1311,7 +1322,7 @@ message Update {
     // argument
     Expr arg = 4;
     // exercise guard (Interface -> Bool)
-    Expr guard = 5;
+    Expr guard = 5;  // optional
   }
 
  // ExerciseByKey Update
@@ -1539,6 +1550,7 @@ message DefTemplate {
   message Implements {
     TypeConName interface = 1;
     repeated ImplementsMethod methods = 2;
+    Expr view = 3;
   }
 
   // The type constructor for the template, acting as both
@@ -1615,6 +1627,7 @@ message DefInterface {
   message CoImplements {
     TypeConName template = 1;
     repeated CoImplementsMethod methods = 2;
+    Expr view = 3;
   }
 
   Location location = 1;
@@ -1629,6 +1642,9 @@ message DefInterface {
 
   // Templates which this interface co-implements.
   repeated CoImplements coImplements = 8; // *Available in versions >= 1.dev*
+
+  // View type for this interface
+  Type view = 9;
 }
 
 // Exception definition
