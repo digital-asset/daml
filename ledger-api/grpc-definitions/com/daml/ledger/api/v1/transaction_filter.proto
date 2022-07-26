@@ -32,7 +32,8 @@ message Filters {
 
   // If set, then contracts matching any of the ``InclusiveFilters`` match
   // this filter.
-  // If not set, any contract matches this filter.
+  // If not set, or if ``InclusiveFilters`` has empty ``template_ids`` and empty ``interface_filters``:
+  // any contract matches this filter.
   // Optional
   InclusiveFilters inclusive = 1;
 }
