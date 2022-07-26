@@ -325,6 +325,8 @@ message ScenarioError {
     = 36;
     DisclosurePreprocessingDuplicateContractIds disclosure_preprocessing_duplicate_contract_ids = 38;
     DisclosurePreprocessingDuplicateContractKeys disclosure_preprocessing_duplicate_contract_keys = 39;
+    DisclosurePreprocessingNonExistentTemplate disclosure_preprocessing_non_existent_template = 40;
+    DisclosurePreprocessingNonExistentDisclosedContractKeyHash disclosure_preprocessing_non_existent_disclosed_contract_key_hash = 41;
   }
 }
 
