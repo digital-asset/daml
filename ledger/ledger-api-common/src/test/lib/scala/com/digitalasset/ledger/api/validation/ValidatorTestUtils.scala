@@ -47,7 +47,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
                 ),
               )
             ),
-            Set.empty, // TODO DPP-1068: fix / add tests
+            Set.empty, // TODO DPP-1068: [implementation detail] fix / add tests
           )
         )
       )

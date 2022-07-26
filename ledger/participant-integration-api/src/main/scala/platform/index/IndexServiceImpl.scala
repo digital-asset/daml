@@ -133,7 +133,6 @@ private[index] class IndexServiceImpl(
       )
     )
 
-  // TODO DPP-1068: maybe do validation here as well? ot add validation to not allow non-wildcard filters?
   override def transactionTrees(
       startExclusive: LedgerOffset,
       endInclusive: Option[LedgerOffset],
@@ -421,13 +420,13 @@ private[index] class IndexServiceImpl(
   private def toAbsolute(offset: Offset): LedgerOffset.Absolute =
     LedgerOffset.Absolute(offset.toApiString)
 
+  // TODO DPP-1068: [implementation detail] it should be considered to move this along to other validations in TransaactionFilterValidatior (probably together with other occurrences in this file regarding input validation with additional data)
   private def withValidatedFilter[T](domainTransactionFilter: domain.TransactionFilter)(
       source: => Source[T, NotUsed]
   ): Source[T, NotUsed] =
-    // TODO DPP-1068: maybe do fancy scalaz traverse with Either
+    // TODO DPP-1068: [implementation detail] maybe do fancy scalaz traverse with Either
     Try(
       packageMetadataView(metadata =>
-        // TODO DPP-1068: is it okay just to have the first error? or should we collect all?
         for {
           (_, inclusiveFilterOption) <- domainTransactionFilter.filtersByParty.iterator
           inclusiveFilter <- inclusiveFilterOption.inclusive.iterator
@@ -435,13 +434,13 @@ private[index] class IndexServiceImpl(
           inclusiveFilter.interfaceFilters
             .find(interfaceFilter => !metadata.interfaceExists(interfaceFilter.interfaceId))
             .map(interfaceFilter =>
-              // TODO DPP-1068: throw proper error code
+              // TODO DPP-1068: [implementation detail] throw proper error code
               throw new Exception(s"Interface [${interfaceFilter.interfaceId}] does not exist")
             )
           inclusiveFilter.templateIds
             .find(templateId => !metadata.templateExists(templateId))
             .map(templateId =>
-              // TODO DPP-1068: throw proper error code
+              // TODO DPP-1068: [implementation detail] throw proper error code
               throw new Exception(s"Template [$templateId] does not exist")
             )
         }
@@ -456,9 +455,10 @@ private[index] class IndexServiceImpl(
       verbose: Boolean,
   ): () => (Map[Party, Set[Identifier]], EventDisplayProperties) =
     packageMetadataView {
-      // TODO DPP-1068: extract this lambda to a function, and unit test
+      // TODO DPP-1068: [implementation detail] extract this lambda to a function, and unit test
       metadata =>
         (
+          // TODO DPP-1068: BUG! This will be addressed together with the conformance tests. if there are interfaces without template implementors, that should not boil down to a wildcard filter
           domainTransactionFilter.filtersByParty.view
             .mapValues(filters =>
               filters.inclusive
@@ -471,7 +471,6 @@ private[index] class IndexServiceImpl(
                     .++(inclusiveFilters.templateIds)
                 )
                 .getOrElse(Set.empty)
-            // TODO DPP-1068: this logic will automatically lead to wildcard filtration if for a InclusiveFilter no template and no interface filters are added. Better validate this.
             )
             .toMap,
           EventDisplayProperties(

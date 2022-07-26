@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.DottedName
 
 trait PackageMetadata {
-  // TODO DPP-1068: refactor this to non-option
+  // TODO DPP-1068: [implementation detail] refactor this to non-option
   def interfaceImplementedBy(interface: Ref.Identifier): Option[Set[Ref.Identifier]]
   def interfaceExists(interface: Ref.Identifier): Boolean
   def templateExists(template: Ref.Identifier): Boolean
@@ -43,7 +43,7 @@ case class MetadataDefinitions(
 }
 
 object MetadataDefinitions {
-  // TODO DPP-1068 this needs to be implemented by LF utility instead
+  // TODO DPP-1068: [implementation detail] this needs to be implemented by LF utility instead
   private[packagemeta] def from(archive: Archive): MetadataDefinitions =
     Decode
       .decodeArchive(archive, onlySerializableDataDefs = true) // TODO DPP-1068 why true?
@@ -53,7 +53,7 @@ object MetadataDefinitions {
           // coming from the ReadService.
           // TODO DPP-1068: Proper error logging
           println(s"Archive could not be decoded: $error")
-          MetadataDefinitions() // TODO  DPP-1068: Shall we throw an exception instead?
+          MetadataDefinitions() // TODO DPP-1068: Shall we throw an exception instead?
         },
         result => {
           val (packageId, ast) = result

@@ -119,8 +119,8 @@ object JdbcIndexer {
                 metrics,
                 dbDispatcher,
                 _,
-                4, // TODO DPP-1068: needs to be wired to config
-                materializer.executionContext, // TODO DPP-1068: wire up service execution context here instead
+                4, // TODO DPP-1068: [implementation detail] needs to be wired to config
+                materializer.executionContext, // TODO DPP-1068: [implementation detail] wire up service execution context here instead
               ),
             ),
         stringInterningView = inMemoryState.stringInterningView,
@@ -152,9 +152,7 @@ object JdbcIndexer {
   // Please note this approach is only possible with the assumption that updatingPackageMetadataView.update can
   // be executed in any order.
   // This is potentially an expensive operation, should be avoided.
-  // TODO DPP-1068: if this approach proves to be non-feasible, a materialized view of the Metadata needs to be created
-  //                (similarly to StringInterningView)
-  // TODO DPP-1068: add logging
+  // TODO DPP-1068: [implementation detail] add logging
   private def updatePackageMetadataView(
       packageStorageBackend: PackageStorageBackend,
       metrics: Metrics,

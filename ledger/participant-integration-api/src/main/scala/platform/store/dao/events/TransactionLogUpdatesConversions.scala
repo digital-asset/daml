@@ -344,7 +344,6 @@ private[events] object TransactionLogUpdatesConversions {
       )
     }
 
-    // TODO DPP-1068: this with the flat only differs in the witness resolution, and API object mapping. Can we DRY?
     private def createdToTransactionTreeEvent(
         requestingParties: Set[Party],
         eventDisplayProperties: EventDisplayProperties,

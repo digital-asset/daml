@@ -42,7 +42,7 @@ private[platform] class InMemoryState(
     // TODO LLP: Reset the in-memory state only if the initialization ledgerEnd
     //           is different than the ledgerEndCache.
     for {
-      // TODO DPP-1068: perhaps parallelize
+      // TODO DPP-1068: [implementation detail] perhaps parallelize
       _ <- updateStringInterningView(stringInterningView, ledgerEnd)
       _ <- updatePackageMetadataView(packageMetadataView)
       _ <- Future {

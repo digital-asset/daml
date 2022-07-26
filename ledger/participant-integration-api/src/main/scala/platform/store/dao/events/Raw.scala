@@ -26,7 +26,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 sealed trait Raw[+E] {
 
-  // TODO DPP-1068: fix scaladoc
+  // TODO DPP-1068: [implementation detail] fix scaladoc
   /** Fill the blanks left in the raw event by running
     * the deserialization on contained values.
     *

@@ -240,8 +240,7 @@ final class LfValueTranslation(
       ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[ApiContractData] = {
-    // TODO DPP-1068: double check if this is efficient enough. Working assumption: TransactionFilters are with rather small amount of parties
-    // TODO DPP-1068: maybe move this logic closer where we populate the EventDisplayProperties, so we have a more comprehensive unit test capabilities
+    // TODO DPP-1068: [implementation detail] maybe move this logic closer where we populate the EventDisplayProperties, so we have a more comprehensive unit test capabilities
     val renderContractArguments = witnesses.iterator
       .map(eventDisplayProperties.populateContractArgument.get)
       .exists {
@@ -359,7 +358,7 @@ final class LfValueTranslation(
               // Note: the view computation is an arbitrary Daml function and can thus fail (e.g., with a Daml exception)
               InterfaceView(
                 interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
-                // TODO DPP-1068: Use a proper error status
+                // TODO DPP-1068: [implementation detail / conformance test] Use a proper error status
                 viewStatus =
                   Some(com.google.rpc.status.Status.of(Code.INTERNAL.value(), error, Seq.empty)),
                 viewValue = None,
@@ -367,7 +366,7 @@ final class LfValueTranslation(
             value =>
               InterfaceView(
                 interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
-                // TODO DPP-1068: Use a proper success status
+                // TODO DPP-1068: [implementation detail / conformance test] Use a proper success status
                 viewStatus = Some(com.google.rpc.status.Status.of(0, "", Seq.empty)),
                 viewValue = Some(value),
               ),

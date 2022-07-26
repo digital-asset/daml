@@ -570,7 +570,7 @@ conformance_test(
     ],
 )
 
-# TODO DPP-1068: Make sure InterfaceSubscriptionsIT is run on all servers
+# TODO Make sure InterfaceSubscriptionsIT is run on all servers, after Interface feature is on stable lf
 server_conformance_test(
     name = "conformance-test-interface-subscriptions",
     hocon = True,

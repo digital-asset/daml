@@ -95,7 +95,7 @@ private[dao] final class TransactionsReader(
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val span =
       Telemetry.Transactions.createSpan(startExclusive, endInclusive)(qualifiedNameOfCurrentFunc)
-    // TODO DPP-1068: improve on logging
+    // TODO DPP-1068: [implementation detail] improve on logging
     logger.debug(
       s"getFlatTransactions($startExclusive, $endInclusive, $filter, ${eventDisplayProperties.verbose})"
     )
@@ -163,7 +163,6 @@ private[dao] final class TransactionsReader(
       .flatMap(rawEvents =>
         Timed.value(
           timer = dbMetrics.lookupFlatTransactionById.translationTimer,
-          // TODO DPP-1068: why is this always verbose???
           value = Future.traverse(rawEvents)(
             deserializeEntry(
               EventDisplayProperties(
@@ -266,7 +265,6 @@ private[dao] final class TransactionsReader(
       .flatMap(rawEvents =>
         Timed.value(
           timer = dbMetrics.lookupTransactionTreeById.translationTimer,
-          // TODO DPP-1068: why is this always verbose???
           value = Future.traverse(rawEvents)(
             deserializeEntry(
               EventDisplayProperties(

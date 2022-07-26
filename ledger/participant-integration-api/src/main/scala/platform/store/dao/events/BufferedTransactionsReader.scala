@@ -71,9 +71,6 @@ private[events] class BufferedTransactionsReader(
     val (parties, partiesTemplates) = filter.partition(_._2.isEmpty)
     val wildcardParties = parties.keySet
 
-    // TODO DPP-1068: this inverting and transforming the filter each and every time might be expensive in frequent tailing
-    //                we could change the LedgerDaoTransactionsReader signature, so it can be used for IMFO as is
-    //                then it might be not that great for persistent, but that one is much less frequent
     val templatesParties = invertMapping(partiesTemplates)
 
     getTransactions(transactionsBuffer)(

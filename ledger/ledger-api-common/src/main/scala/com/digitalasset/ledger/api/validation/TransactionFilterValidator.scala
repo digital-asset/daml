@@ -66,7 +66,7 @@ object TransactionFilterValidator {
     )
   }
 
-  // TODO DPP-1068: unit testing
+  // TODO DPP-1068: [implementation detail] unit testing
   def validateUniqueInterfaceIdsIn(interfaceFilters: List[domain.InterfaceFilter])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Unit] =

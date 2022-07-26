@@ -1,7 +1,7 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- TODO DPP-1068: The exact same file exists in the //daml-lf/tests package
+-- TODO The exact same file exists in the //daml-lf/tests package. Refactor as lf version transits from dev to stable for Interfaces?
 module InterfaceViews where
 
 data View = View with

@@ -48,8 +48,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
       inputMapperExecutor: Executor,
       batcherExecutor: Executor,
       dbDispatcher: DbDispatcher,
-      stringInterningView: StringInterning
-        with InternizingStringInterningView, // TODO DPP-1068: no need to have that in apply, it can be moved up to the constructor
+      stringInterningView: StringInterning with InternizingStringInterningView,
       materializer: Materializer,
   )(implicit loggingContext: LoggingContext): InitializeParallelIngestion.Initialized => Handle = {
     initialized =>
