@@ -16,7 +16,7 @@ import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node.{Create, Exercise}
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.lf.transaction.{Node, NodeId}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.index.InMemoryStateUpdater.UpdaterFlow
 import com.daml.platform.store.CompletionFromTransaction
@@ -27,7 +27,6 @@ import com.daml.platform.{Contract, InMemoryState, Key, Party}
 
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 final class InMemoryStateUpdater(
     prepareUpdatesParallelism: Int,
@@ -35,7 +34,6 @@ final class InMemoryStateUpdater(
     updateCachesExecutionContext: ExecutionContext,
     metrics: Metrics,
 )(
-    updateCaches: Vector[TransactionLogUpdate] => Unit,
     convertTransactionAccepted: (
         Offset,
         Update.TransactionAccepted,
@@ -44,8 +42,12 @@ final class InMemoryStateUpdater(
         Offset,
         Update.CommandRejected,
     ) => TransactionLogUpdate.TransactionRejected,
-    updateLedgerEnd: (Offset, Long) => Unit,
-    setInMemoryStateDirty: () => Unit,
+    convertToContractStateEvents: TransactionLogUpdate => Vector[ContractStateEvent],
+    updateInMemoryState: (
+        Vector[(TransactionLogUpdate, Vector[ContractStateEvent])],
+        Offset,
+        Long,
+    ) => Future[Unit],
 ) {
 
   // TODO LLP: Considering directly returning this flow instead of the wrapper
@@ -63,27 +65,20 @@ final class InMemoryStateUpdater(
         }(prepareUpdatesExecutionContext)
       }
       .async
-      .mapAsync(1) { case (updates, lastOffset, lastEventSequentialId) =>
-        Future {
-          updateCaches(updates)
-          updateLedgerEnd(lastOffset, lastEventSequentialId)
+      .mapAsync(parallelism = 1) { case (updates, lastOffset, lastEventSequentialId) =>
+        implicit val ec: ExecutionContext = updateCachesExecutionContext
+        for {
+          _ <- Future.unit
+          preprocessedUpdates = updates.zip(updates.map(convertToContractStateEvents))
+          _ <- updateInMemoryState(preprocessedUpdates, lastOffset, lastEventSequentialId)
+        } yield {
           metrics.daml.index.ledgerEndSequentialId.updateValue(lastEventSequentialId)
-        }(updateCachesExecutionContext)
-          .transform {
-            case Failure(ex) =>
-              // On update failure, we can't make assumptions on which part of the state was correctly updated.
-              // Thus, set the in-memory state dirty and propagate the failure.
-              setInMemoryStateDirty()
-              Failure(ex)
-            case Success(value) => Success(value)
-          }(updateCachesExecutionContext)
+        }
       }
 }
 
 private[platform] object InMemoryStateUpdater {
   type UpdaterFlow = Flow[(Vector[(Offset, Update)], Long), Unit, NotUsed]
-
-  private val logger = ContextualizedLogger.get(getClass)
 
   def owner(
       inMemoryState: InMemoryState,
@@ -104,43 +99,21 @@ private[platform] object InMemoryStateUpdater {
         metrics.daml.lapi.threadpool.indexBypass.updateInMemoryState,
       )
     )
-  } yield new InMemoryStateUpdater(
-    prepareUpdatesParallelism = prepareUpdatesParallelism,
-    prepareUpdatesExecutionContext = ExecutionContext.fromExecutorService(prepareUpdatesExecutor),
-    updateCachesExecutionContext = ExecutionContext.fromExecutorService(updateCachesExecutor),
-    metrics = metrics,
-  )(
-    updateCaches = updateCaches(inMemoryState),
-    convertTransactionAccepted = convertTransactionAccepted,
-    convertTransactionRejected = convertTransactionRejected,
-    updateLedgerEnd = updateLedgerEnd(inMemoryState),
-    setInMemoryStateDirty = () => inMemoryState.setDirty(),
-  )
 
-  private def updateCaches(inMemoryState: InMemoryState)(
-      updates: Vector[TransactionLogUpdate]
-  ): Unit =
-    updates.foreach { transaction: TransactionLogUpdate =>
-      // TODO LLP: Batch update caches
-      inMemoryState.inMemoryFanoutBuffer.push(transaction.offset, transaction)
-
-      val contractStateEventsBatch = convertToContractStateEvents(transaction)
-      if (contractStateEventsBatch.nonEmpty) {
-        inMemoryState.contractStateCaches.push(contractStateEventsBatch)
-      }
-    }
-
-  private def updateLedgerEnd(
-      inMemoryState: InMemoryState
-  )(lastOffset: Offset, lastEventSequentialId: Long)(implicit
-      loggingContext: LoggingContext
-  ): Unit = {
-    inMemoryState.ledgerEndCache.set((lastOffset, lastEventSequentialId))
-    // the order here is very important: first we need to make data available for point-wise lookups
-    // and SQL queries, and only then we can make it available on the streams.
-    // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
-    inMemoryState.dispatcherState.getDispatcher.signalNewHead(lastOffset)
-    logger.debug(s"Updated ledger end at offset $lastOffset - $lastEventSequentialId")
+  } yield {
+    val updateCachesExecutionContext = ExecutionContext.fromExecutorService(updateCachesExecutor)
+    new InMemoryStateUpdater(
+      prepareUpdatesParallelism = prepareUpdatesParallelism,
+      prepareUpdatesExecutionContext = ExecutionContext.fromExecutorService(prepareUpdatesExecutor),
+      updateCachesExecutionContext = updateCachesExecutionContext,
+      metrics = metrics,
+    )(
+      convertTransactionAccepted = convertTransactionAccepted,
+      convertTransactionRejected = convertTransactionRejected,
+      convertToContractStateEvents = convertToContractStateEvents,
+      updateInMemoryState =
+        inMemoryState.update(_, _, _)(updateCachesExecutionContext, loggingContext),
+    )
   }
 
   private def convertToContractStateEvents(

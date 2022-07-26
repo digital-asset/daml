@@ -11,13 +11,12 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2.{CompletionInfo, TransactionMeta, Update}
 import com.daml.lf.crypto
-import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.metrics.Metrics
 import com.daml.platform.index.InMemoryStateUpdaterSpec.{
-  anotherMetadataChangedUpdate,
   metadataChangedUpdate,
   offset,
   txLogUpdate1,
@@ -27,23 +26,30 @@ import com.daml.platform.index.InMemoryStateUpdaterSpec.{
   update3,
   update4,
 }
+import com.daml.lf.value.Value.ContractId
+import com.daml.platform.index.InMemoryStateUpdaterSpec._
 import com.daml.platform.indexer.ha.EndlessReadService.configuration
+import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
 import com.google.rpc.status.Status
+import org.mockito.MockitoSugar
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.util.chaining._
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Future
 
-class InMemoryStateUpdaterSpec extends AsyncFlatSpec with Matchers with AkkaBeforeAndAfterAll {
+class InMemoryStateUpdaterSpec
+    extends AsyncFlatSpec
+    with Matchers
+    with MockitoSugar
+    with AkkaBeforeAndAfterAll {
   behavior of classOf[InMemoryStateUpdater].getSimpleName
 
   "flow" should "correctly process updates" in withFixture {
-    case (inMemoryStateUpdater, cacheUpdates, ledgerEndUpdates) =>
+    case (inMemoryStateUpdater, inMemoryStateUpdates) =>
       val updatesInput =
         Seq(Vector(update1, metadataChangedUpdate) -> 1L, Vector(update3, update4) -> 3L)
 
@@ -51,40 +57,32 @@ class InMemoryStateUpdaterSpec extends AsyncFlatSpec with Matchers with AkkaBefo
         .via(inMemoryStateUpdater.flow)
         .runWith(Sink.ignore)
         .map { _ =>
-          cacheUpdates should contain theSameElementsInOrderAs Seq(
-            Vector(txLogUpdate1),
-            Vector(txLogUpdate3, txRejected),
-          )
-          ledgerEndUpdates should contain theSameElementsInOrderAs Seq(
-            offset(2L) -> 1L,
-            offset(4L) -> 3L,
+          inMemoryStateUpdates should contain theSameElementsInOrderAs Seq(
+            (Vector(txLogUpdate1 -> contractStateEvents1), offset(2L), 1L),
+            (Vector(txLogUpdate3 -> Vector.empty, txRejected -> Vector.empty), offset(4L), 3L),
           )
         }
   }
 
   "flow" should "not process empty input batches" in withFixture {
-    case (inMemoryStateUpdater, cacheUpdates, ledgerEndUpdates) =>
+    case (inMemoryStateUpdater, inMemoryStateUpdates) =>
       val updatesInput =
         Seq(
           // Empty input batch should have not effect
           Vector.empty -> 1L,
-          Vector(update3) -> 3L,
           // Results in empty batch after processing
           // Should still have effect on ledger end updates
-          Vector(anotherMetadataChangedUpdate) -> 3L,
+          Vector(metadataChangedUpdate) -> 3L,
+          Vector(update3) -> 3L,
         )
 
       Source(updatesInput)
         .via(inMemoryStateUpdater.flow)
         .runWith(Sink.ignore)
         .map { _ =>
-          cacheUpdates should contain theSameElementsInOrderAs Seq(
-            Vector(txLogUpdate3),
-            Vector(),
-          )
-          ledgerEndUpdates should contain theSameElementsInOrderAs Seq(
-            offset(3L) -> 3L,
-            offset(5L) -> 3L,
+          inMemoryStateUpdates should contain theSameElementsInOrderAs Seq(
+            (Vector.empty, offset(2L), 3L),
+            (Vector(txLogUpdate3 -> Vector.empty), offset(3L), 3L),
           )
         }
   }
@@ -93,8 +91,9 @@ class InMemoryStateUpdaterSpec extends AsyncFlatSpec with Matchers with AkkaBefo
       test: (
           (
               InMemoryStateUpdater,
-              ArrayBuffer[Vector[TransactionLogUpdate]],
-              ArrayBuffer[(Offset, Long)],
+              ArrayBuffer[
+                (Vector[(TransactionLogUpdate, Vector[ContractStateEvent])], Offset, Long)
+              ],
           )
       ) => Future[Assertion]
   ): Future[Assertion] = {
@@ -111,11 +110,23 @@ class InMemoryStateUpdaterSpec extends AsyncFlatSpec with Matchers with AkkaBefo
       case _ => fail()
     }
 
-    val cacheUpdates = ArrayBuffer.empty[Vector[TransactionLogUpdate]]
-    val cachesUpdateCaptor =
-      (v: Vector[TransactionLogUpdate]) => cacheUpdates.addOne(v).pipe(_ => ())
+    val convertToContractStateEvents: TransactionLogUpdate => Vector[ContractStateEvent] = {
+      case `txLogUpdate1` => contractStateEvents1
+      case `txLogUpdate3` => Vector.empty
+      case `txRejected` => Vector.empty
+      case _ => fail()
+    }
 
-    val ledgerEndUpdates = ArrayBuffer.empty[(Offset, Long)]
+    val inMemoryStateUpdates =
+      ArrayBuffer.empty[(Vector[(TransactionLogUpdate, Vector[ContractStateEvent])], Offset, Long)]
+    val inMemoryStateUpdatesCaptor = (
+        updates: Vector[(TransactionLogUpdate, Vector[ContractStateEvent])],
+        lastOffset: Offset,
+        lastEventSequentialId: Long,
+    ) => {
+      inMemoryStateUpdates.addOne((updates, lastOffset, lastEventSequentialId))
+      Future.unit
+    }
 
     val inMemoryStateUpdater = new InMemoryStateUpdater(
       2,
@@ -125,13 +136,10 @@ class InMemoryStateUpdaterSpec extends AsyncFlatSpec with Matchers with AkkaBefo
     )(
       convertTransactionAccepted = updateToTransactionAccepted,
       convertTransactionRejected = updateToTransactionRejected,
-      updateCaches = cachesUpdateCaptor,
-      updateLedgerEnd = { case (offset, evtSeqId) =>
-        ledgerEndUpdates.addOne(offset -> evtSeqId)
-      },
-      setInMemoryStateDirty = () => (),
+      convertToContractStateEvents = convertToContractStateEvents,
+      updateInMemoryState = inMemoryStateUpdatesCaptor,
     )
-    test(inMemoryStateUpdater, cacheUpdates, ledgerEndUpdates)
+    test(inMemoryStateUpdater, inMemoryStateUpdates)
   }
 }
 
@@ -193,8 +201,6 @@ object InMemoryStateUpdaterSpec {
     ),
     reasonTemplate = FinalReason(new Status()),
   )
-  private val anotherMetadataChangedUpdate =
-    offset(5L) -> metadataChangedUpdate._2.copy(recordTime = Time.Timestamp.assertFromLong(1337L))
 
   private val txLogUpdate1 = TransactionLogUpdate.TransactionAccepted(
     transactionId = "tx1",
@@ -222,6 +228,16 @@ object InMemoryStateUpdaterSpec {
       completionStreamResponse = new CompletionStreamResponse(),
       submitters = Set.empty,
     ),
+  )
+
+  private val contractStateEvents1 = Vector(
+    ContractStateEvent.Archived(
+      contractId = ContractId.assertFromString("00" + "00" * 32 + "c0"),
+      globalKey = None,
+      stakeholders = Set.empty,
+      eventOffset = Offset.beforeBegin,
+      eventSequentialId = 0L,
+    )
   )
 
   private def offset(idx: Long): Offset = {

@@ -13,15 +13,21 @@ import com.daml.platform.store.cache.{
   InMemoryFanoutBuffer,
   MutableLedgerEndCache,
 }
+import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interning.{StringInterningView, UpdatingStringInterningView}
-import org.mockito.{InOrder, Mockito, MockitoSugar}
+import org.mockito.{ArgumentMatchersSugar, InOrder, Mockito, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
-class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
+class InMemoryStateSpec
+    extends AsyncFlatSpec
+    with MockitoSugar
+    with Matchers
+    with ArgumentMatchersSugar {
   private val className = classOf[InMemoryState].getSimpleName
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
@@ -31,69 +37,49 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
   private val initLedgerEnd = ParameterStorageBackend
     .LedgerEnd(initOffset, initEventSequentialId, initStringInterningId)
 
-  private val reInitOffset = Offset.fromHexString(Ref.HexString.assertFromString("abeeee"))
-  private val reInitEventSequentialId = 9999L
-  private val reInitStringInterningId = 50
-  private val reInitLedgerEnd = ParameterStorageBackend
-    .LedgerEnd(reInitOffset, reInitEventSequentialId, reInitStringInterningId)
-
   s"$className.initialized" should "return false if not initialized" in withTestFixture {
-    case (inMemoryState, _, _, _, _, _, _, _) =>
-      inMemoryState.initialized shouldBe false
+    case (inMemoryState, _, _) => inMemoryState.initialized shouldBe false
   }
 
   s"$className.initializeTo" should "initialize the state" in withTestFixture {
     case (
           inMemoryState,
-          mutableLedgerEndCache,
-          contractStateCaches,
-          inMemoryFanoutBuffer,
-          stringInterningView,
-          dispatcherState,
           updateStringInterningView,
           inOrder,
         ) =>
+      import inMemoryState._
       when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(Future.unit)
       when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
 
       for {
         // Initialize the state
-        _ <- inMemoryState.initializeTo(initLedgerEnd)(updateStringInterningView)
+        _ <- inMemoryState.initializeTo(initLedgerEnd, executionContext)(updateStringInterningView)
         _ = {
           // Assert the state initialized
-          inOrder.verify(dispatcherState).stopDispatcher()
-          inOrder.verify(updateStringInterningView)(stringInterningView, initLedgerEnd)
-          inOrder.verify(contractStateCaches).reset(initOffset)
-          inOrder.verify(inMemoryFanoutBuffer).flush()
-          inOrder.verify(mutableLedgerEndCache).set(initOffset, initEventSequentialId)
-          inOrder.verify(dispatcherState).startDispatcher(initOffset)
+          verifyInitializedInOrder(inMemoryState, updateStringInterningView, inOrder, initLedgerEnd)
 
           inMemoryState.initialized shouldBe true
         }
 
         _ = {
-          when(mutableLedgerEndCache()).thenReturn(initOffset -> initEventSequentialId)
+          when(ledgerEndCache()).thenReturn(initOffset -> initEventSequentialId)
           when(stringInterningView.lastId).thenReturn(initStringInterningId)
-          when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(
-            Future.unit
-          )
-          when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
         }
 
         // Re-initialize to the same ledger end
-        _ <- inMemoryState.initializeTo(initLedgerEnd)(updateStringInterningView)
+        _ <- inMemoryState.initializeTo(initLedgerEnd, executionContext)(updateStringInterningView)
         _ = {
           // Ledger end references checks
-          verify(mutableLedgerEndCache).apply()
+          verify(ledgerEndCache).apply()
           verify(stringInterningView).lastId
 
-          // ASSERT NO EFFECT
+          // Assert no effect
           verifyNoMoreInteractions(
             dispatcherState,
             updateStringInterningView,
             contractStateCaches,
             inMemoryFanoutBuffer,
-            mutableLedgerEndCache,
+            ledgerEndCache,
             stringInterningView,
           )
 
@@ -105,34 +91,26 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
   s"$className.initializeTo" should "re-initialize the state on changed ledger end cache" in withTestFixture {
     case (
           inMemoryState,
-          mutableLedgerEndCache,
-          contractStateCaches,
-          inMemoryFanoutBuffer,
-          stringInterningView,
-          dispatcherState,
           updateStringInterningView,
           inOrder,
         ) =>
+      import inMemoryState._
       when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(Future.unit)
       when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
       when(dispatcherState.isRunning).thenReturn(true)
 
       for {
         // Initialize the state to the initial ledger end
-        _ <- inMemoryState.initializeTo(initLedgerEnd)(updateStringInterningView)
+        _ <- inMemoryState.initializeTo(initLedgerEnd, executionContext)(updateStringInterningView)
 
+        reInitLedgerEnd = initLedgerEnd.copy(lastOffset =
+          Offset.fromHexString(Ref.HexString.assertFromString("abeeee"))
+        )
         // Reset mocks
         _ = {
-          reset(
-            dispatcherState,
-            updateStringInterningView,
-            contractStateCaches,
-            inMemoryFanoutBuffer,
-            mutableLedgerEndCache,
-            stringInterningView,
-          )
-          when(mutableLedgerEndCache()).thenReturn(initOffset -> initEventSequentialId)
-          when(stringInterningView.lastId).thenReturn(initStringInterningId)
+          resetMocks(inMemoryState, updateStringInterningView)
+
+          when(ledgerEndCache()).thenReturn(initOffset -> initEventSequentialId)
           when(updateStringInterningView(stringInterningView, reInitLedgerEnd)).thenReturn(
             Future.unit
           )
@@ -140,43 +118,42 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
         }
 
         // Re-initialize to a different ledger end
-        _ <- inMemoryState.initializeTo(reInitLedgerEnd)(updateStringInterningView)
+        _ <- inMemoryState.initializeTo(reInitLedgerEnd, executionContext)(
+          updateStringInterningView
+        )
 
         _ = {
           // Ledger end references checks
-          verify(mutableLedgerEndCache).apply()
+          verify(ledgerEndCache).apply()
           // Short-circuited by the failing ledger end cache check
           verify(stringInterningView, never).lastId
 
           // Assert state initialized to the new ledger end
-          inOrder.verify(dispatcherState).stopDispatcher()
-          inOrder.verify(updateStringInterningView)(stringInterningView, reInitLedgerEnd)
-          inOrder.verify(contractStateCaches).reset(reInitOffset)
-          inOrder.verify(inMemoryFanoutBuffer).flush()
-          inOrder.verify(mutableLedgerEndCache).set(reInitOffset, reInitEventSequentialId)
-          inOrder.verify(dispatcherState).startDispatcher(reInitOffset)
+          verifyInitializedInOrder(
+            inMemoryState,
+            updateStringInterningView,
+            inOrder,
+            reInitLedgerEnd,
+          )
         }
 
         // Reset mocks
         _ = {
-          reset(
-            dispatcherState,
-            updateStringInterningView,
-            contractStateCaches,
-            inMemoryFanoutBuffer,
-            mutableLedgerEndCache,
-            stringInterningView,
+          resetMocks(inMemoryState, updateStringInterningView)
+          when(ledgerEndCache()).thenReturn(
+            reInitLedgerEnd.lastOffset -> reInitLedgerEnd.lastEventSeqId
           )
-          when(mutableLedgerEndCache()).thenReturn(reInitOffset -> reInitEventSequentialId)
-          when(stringInterningView.lastId).thenReturn(reInitStringInterningId)
+          when(stringInterningView.lastId).thenReturn(reInitLedgerEnd.lastStringInterningId)
         }
 
         // Attempt to re-initialize to the same ledger end
-        _ <- inMemoryState.initializeTo(reInitLedgerEnd)(updateStringInterningView)
+        _ <- inMemoryState.initializeTo(reInitLedgerEnd, executionContext)(
+          updateStringInterningView
+        )
         _ = {
           // Assert ledger end reference checks
           verify(stringInterningView).lastId
-          verify(mutableLedgerEndCache).apply()
+          verify(ledgerEndCache).apply()
 
           // Assert no effect
           verifyNoMoreInteractions(
@@ -184,42 +161,109 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
             updateStringInterningView,
             contractStateCaches,
             inMemoryFanoutBuffer,
-            mutableLedgerEndCache,
+            ledgerEndCache,
             stringInterningView,
           )
         }
       } yield succeed
   }
 
-  s"$className.initializeTo" should "initialize the on dirty" in withTestFixture {
+  s"$className.initializeTo" should "re-initialize the state on changed last string interned id" in withTestFixture {
     case (
           inMemoryState,
-          mutableLedgerEndCache,
-          contractStateCaches,
-          inMemoryFanoutBuffer,
-          stringInterningView,
-          dispatcherState,
           updateStringInterningView,
           inOrder,
         ) =>
+      import inMemoryState._
+      when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(Future.unit)
+      when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
+
+      for {
+        // Initialize the state to the initial ledger end
+        _ <- inMemoryState.initializeTo(initLedgerEnd, executionContext)(updateStringInterningView)
+
+        newLedgerEnd = initLedgerEnd.copy(lastStringInterningId =
+          initLedgerEnd.lastStringInterningId + 1
+        )
+        // Reset mocks
+        _ = {
+          resetMocks(inMemoryState, updateStringInterningView)
+
+          when(ledgerEndCache()).thenReturn(initOffset -> initEventSequentialId)
+          when(updateStringInterningView(stringInterningView, newLedgerEnd)).thenReturn(
+            Future.unit
+          )
+          when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
+        }
+
+        // Re-initialize to a different ledger end
+        _ <- inMemoryState.initializeTo(newLedgerEnd, executionContext)(
+          updateStringInterningView
+        )
+
+        _ = {
+          // Ledger end references checks
+          verify(ledgerEndCache).apply()
+          // Short-circuited by the failing ledger end cache check
+          verify(stringInterningView).lastId
+
+          // Assert state initialized to the new ledger end
+          verifyInitializedInOrder(
+            inMemoryState,
+            updateStringInterningView,
+            inOrder,
+            newLedgerEnd,
+          )
+        }
+
+        // Reset mocks
+        _ = {
+          resetMocks(inMemoryState, updateStringInterningView)
+          when(ledgerEndCache()).thenReturn(newLedgerEnd.lastOffset -> newLedgerEnd.lastEventSeqId)
+          when(stringInterningView.lastId).thenReturn(newLedgerEnd.lastStringInterningId)
+        }
+
+        // Attempt to re-initialize to the same ledger end
+        _ <- inMemoryState.initializeTo(newLedgerEnd, executionContext)(
+          updateStringInterningView
+        )
+        _ = {
+          // Assert ledger end reference checks
+          verify(stringInterningView).lastId
+          verify(ledgerEndCache).apply()
+
+          // Assert no effect
+          verifyNoMoreInteractions(
+            dispatcherState,
+            updateStringInterningView,
+            contractStateCaches,
+            inMemoryFanoutBuffer,
+            ledgerEndCache,
+            stringInterningView,
+          )
+        }
+      } yield succeed
+  }
+
+  s"$className.initializeTo" should "re-initialize the state on dirty" in withTestFixture {
+    case (
+          inMemoryState,
+          updateStringInterningView,
+          inOrder,
+        ) =>
+      import inMemoryState._
       when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(Future.unit)
       when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
 
       for {
         // Initialize the state
-        _ <- inMemoryState.initializeTo(initLedgerEnd)(updateStringInterningView)
+        _ <- inMemoryState.initializeTo(initLedgerEnd, executionContext)(updateStringInterningView)
 
         // reset mocks
         _ = {
-          reset(
-            dispatcherState,
-            updateStringInterningView,
-            contractStateCaches,
-            inMemoryFanoutBuffer,
-            mutableLedgerEndCache,
-            stringInterningView,
-          )
-          when(mutableLedgerEndCache()).thenReturn(initOffset -> initEventSequentialId)
+          resetMocks(inMemoryState, updateStringInterningView)
+
+          when(ledgerEndCache()).thenReturn(initOffset -> initEventSequentialId)
           when(stringInterningView.lastId).thenReturn(initStringInterningId)
           when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(
             Future.unit
@@ -227,37 +271,38 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
           when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
         }
 
-        // Set dirty
-        _ = inMemoryState.setDirty()
+        failingInitOffset = Offset.fromHexString(Ref.HexString.assertFromString("abeeee"))
+        failingInitEventSeqId = 9999L
+        // Set dirty by simulating a failure and an external recovery
+        // while attempting to set the ledger end to reInitOffset and reInitEventSequentialId
+        _ <- failedUpdate(inMemoryState, failingInitOffset, failingInitEventSeqId)
+
+        // Trying to update the state on dirty state fails
+        _ <- recoverToSucceededIf[IllegalStateException] {
+          inMemoryState.update(
+            Vector(mock[TransactionLogUpdate] -> Vector.empty),
+            failingInitOffset,
+            failingInitEventSeqId,
+          )
+        }
 
         // Re-initialize the state to the same ledger end
-        _ <- inMemoryState.initializeTo(initLedgerEnd)(updateStringInterningView)
+        _ <- inMemoryState.initializeTo(initLedgerEnd, executionContext)(updateStringInterningView)
 
         _ = {
           // Ledger end references checks short-circuited by dirty check
           verify(stringInterningView, never).lastId
-          verify(mutableLedgerEndCache, never).apply()
+          verify(ledgerEndCache, never).apply()
 
           // Assert state re-initialized on dirty
-          inOrder.verify(dispatcherState).stopDispatcher()
-          inOrder.verify(updateStringInterningView)(stringInterningView, initLedgerEnd)
-          inOrder.verify(contractStateCaches).reset(initOffset)
-          inOrder.verify(inMemoryFanoutBuffer).flush()
-          inOrder.verify(mutableLedgerEndCache).set(initOffset, initEventSequentialId)
-          inOrder.verify(dispatcherState).startDispatcher(reInitOffset)
+          verifyInitializedInOrder(inMemoryState, updateStringInterningView, inOrder, initLedgerEnd)
         }
 
         // reset mocks
         _ = {
-          reset(
-            dispatcherState,
-            updateStringInterningView,
-            contractStateCaches,
-            inMemoryFanoutBuffer,
-            mutableLedgerEndCache,
-            stringInterningView,
-          )
-          when(mutableLedgerEndCache()).thenReturn(initOffset -> initEventSequentialId)
+          resetMocks(inMemoryState, updateStringInterningView)
+
+          when(ledgerEndCache()).thenReturn(initOffset -> initEventSequentialId)
           when(stringInterningView.lastId).thenReturn(initStringInterningId)
           when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(
             Future.unit
@@ -266,10 +311,10 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
         }
 
         // Re-initialize the state to the same ledger end
-        _ <- inMemoryState.initializeTo(initLedgerEnd)(updateStringInterningView)
+        _ <- inMemoryState.initializeTo(initLedgerEnd, executionContext)(updateStringInterningView)
         _ = {
           // Ledger end references checks
-          verify(mutableLedgerEndCache).apply()
+          verify(ledgerEndCache).apply()
           verify(stringInterningView).lastId
 
           // Assert no effect on state not dirty anymore
@@ -278,25 +323,73 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
             updateStringInterningView,
             contractStateCaches,
             inMemoryFanoutBuffer,
-            mutableLedgerEndCache,
+            ledgerEndCache,
           )
         }
       } yield succeed
   }
 
+  private def verifyInitializedInOrder(
+      inMemoryState: InMemoryState,
+      updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit],
+      inOrder: InOrder,
+      initLedgerEnd: LedgerEnd,
+  ): Unit = {
+    import inMemoryState._
+
+    inOrder.verify(dispatcherState).stopDispatcher()
+    inOrder.verify(updateStringInterningView)(stringInterningView, initLedgerEnd)
+    inOrder.verify(contractStateCaches).reset(initLedgerEnd.lastOffset)
+    inOrder.verify(inMemoryFanoutBuffer).flush()
+    inOrder.verify(ledgerEndCache).set(initLedgerEnd.lastOffset, initLedgerEnd.lastEventSeqId)
+    inOrder.verify(dispatcherState).startDispatcher(initLedgerEnd.lastOffset)
+  }
+
+  private def resetMocks(
+      inMemoryState: InMemoryState,
+      updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit],
+  ): Unit = {
+    import inMemoryState._
+
+    reset(
+      dispatcherState,
+      updateStringInterningView,
+      contractStateCaches,
+      inMemoryFanoutBuffer,
+      ledgerEndCache,
+      stringInterningView,
+    )
+  }
+
+  final def failedUpdate(
+      inMemoryState: InMemoryState,
+      offset: Offset,
+      eventSeqId: Long,
+  ): Future[Unit] = {
+    val failureMessage = "failed"
+    when(inMemoryState.inMemoryFanoutBuffer.push(any[Offset], any[TransactionLogUpdate]))
+      .thenThrow(new RuntimeException(failureMessage))
+
+    inMemoryState
+      .update(
+        updates = Vector(mock[TransactionLogUpdate] -> Vector.empty),
+        lastOffset = offset,
+        lastEventSequentialId = eventSeqId,
+      )
+      .transform {
+        case Failure(ex: RuntimeException) if ex.getMessage == failureMessage => Success(())
+        case other => fail(s"Unexpected $other")
+      }
+  }
+
   private def withTestFixture(
       test: (
           InMemoryState,
-          MutableLedgerEndCache,
-          ContractStateCaches,
-          InMemoryFanoutBuffer,
-          StringInterningView,
-          DispatcherState,
           (UpdatingStringInterningView, LedgerEnd) => Future[Unit],
           InOrder,
       ) => Future[Assertion]
   ): Future[Assertion] = {
-    val mutableLedgerEndCache = mock[MutableLedgerEndCache]
+    val ledgerEndCache = mock[MutableLedgerEndCache]
     val contractStateCaches = mock[ContractStateCaches]
     val inMemoryFanoutBuffer = mock[InMemoryFanoutBuffer]
     val stringInterningView = mock[StringInterningView]
@@ -305,7 +398,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
 
     // Mocks should be called in the asserted order
     val inOrderMockCalls = Mockito.inOrder(
-      mutableLedgerEndCache,
+      ledgerEndCache,
       contractStateCaches,
       inMemoryFanoutBuffer,
       stringInterningView,
@@ -314,7 +407,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
     )
 
     val inMemoryState = new InMemoryState(
-      ledgerEndCache = mutableLedgerEndCache,
+      ledgerEndCache = ledgerEndCache,
       contractStateCaches = contractStateCaches,
       inMemoryFanoutBuffer = inMemoryFanoutBuffer,
       stringInterningView = stringInterningView,
@@ -323,11 +416,6 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
 
     test(
       inMemoryState,
-      mutableLedgerEndCache,
-      contractStateCaches,
-      inMemoryFanoutBuffer,
-      stringInterningView,
-      dispatcherState,
       updateStringInterningView,
       inOrderMockCalls,
     )
