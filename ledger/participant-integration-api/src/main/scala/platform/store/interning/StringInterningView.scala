@@ -27,7 +27,7 @@ trait InternizingStringInterningView {
 
 trait UpdatingStringInterningView {
 
-  /** Update the StringInterningView from persistence
+  /** Update the StringInterningView from persistence.
     *
     * @param lastStringInterningId this is the "version" of the persistent view, which from the StringInterningView can see if it is behind
     * @return a completion Future:
@@ -41,6 +41,9 @@ trait UpdatingStringInterningView {
   def update(lastStringInterningId: Int)(
       loadPrefixedEntries: LoadStringInterningEntries
   )(implicit loggingContext: LoggingContext): Future[Unit]
+
+  /** Get the last interned string id. */
+  def lastId: Int
 }
 
 /** Encapsulate the dependency to load a range of string-interning-entries from persistence
@@ -112,6 +115,8 @@ class StringInterningView()
       loadStringInterningEntries(raw.lastId, lastStringInterningId)(loggingContext)
         .map(updateView)(ExecutionContext.parasitic)
     }
+
+  override def lastId: Int = raw.lastId
 
   private def updateView(newEntries: Iterable[(Int, String)]): Unit = synchronized {
     if (newEntries.nonEmpty) {

@@ -129,6 +129,7 @@ class InMemoryStateUpdaterSpec extends AsyncFlatSpec with Matchers with AkkaBefo
       updateLedgerEnd = { case (offset, evtSeqId) =>
         ledgerEndUpdates.addOne(offset -> evtSeqId)
       },
+      setInMemoryStateDirty = () => (),
     )
     test(inMemoryStateUpdater, cacheUpdates, ledgerEndUpdates)
   }

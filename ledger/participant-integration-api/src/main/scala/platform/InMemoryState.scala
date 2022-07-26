@@ -3,6 +3,7 @@
 
 package com.daml.platform
 
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -27,6 +28,7 @@ private[platform] class InMemoryState(
     val dispatcherState: DispatcherState,
 )(implicit executionContext: ExecutionContext) {
   private val logger = ContextualizedLogger.get(getClass)
+  @volatile private var _dirty = false
 
   final def initialized: Boolean = dispatcherState.isRunning
 
@@ -36,29 +38,80 @@ private[platform] class InMemoryState(
     */
   final def initializeTo(ledgerEnd: LedgerEnd)(
       updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit]
-  )(implicit loggingContext: LoggingContext): Future[Unit] = {
-    logger.info(s"Initializing participant in-memory state to ledger end: $ledgerEnd")
-
-    // TODO LLP: Reset the in-memory state only if the initialization ledgerEnd
-    //           is different than the ledgerEndCache.
-    for {
-      // First stop the active dispatcher (if exists) to ensure
-      // termination of existing Ledger API subscriptions and to also ensure
-      // that new Ledger API subscriptions racing with `initializeTo`
-      // do not observe an inconsistent state.
-      _ <- dispatcherState.stopDispatcher()
-      // Reset the string interning view to the latest ledger end
-      _ <- updateStringInterningView(stringInterningView, ledgerEnd)
-      // Reset the Ledger API caches to the latest ledger end
-      _ <- Future {
-        contractStateCaches.reset(ledgerEnd.lastOffset)
-        inMemoryFanoutBuffer.flush()
-        ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
+  )(implicit loggingContext: LoggingContext): Future[Unit] =
+    conditionallyInitialize(ledgerEnd) { () =>
+      for {
+        // First stop the active dispatcher (if exists) to ensure
+        // termination of existing Ledger API subscriptions and to also ensure
+        // that new Ledger API subscriptions racing with `initializeTo`
+        // do not observe an inconsistent state.
+        _ <- dispatcherState.stopDispatcher()
+        // Reset the string interning view to the latest ledger end
+        _ <- updateStringInterningView(stringInterningView, ledgerEnd)
+        // Reset the Ledger API caches to the latest ledger end
+        _ <- Future {
+          contractStateCaches.reset(ledgerEnd.lastOffset)
+          inMemoryFanoutBuffer.flush()
+          ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
+        }
+        // Start a new Ledger API offset dispatcher
+        _ = dispatcherState.startDispatcher(ledgerEnd.lastOffset)
+      } yield {
+        // Reset the dirty flag
+        _dirty = false
       }
-      // Start a new Ledger API offset dispatcher
-      _ = dispatcherState.startDispatcher(ledgerEnd.lastOffset)
-    } yield ()
-  }
+    }
+
+  final def setDirty(): Unit = _dirty = true
+
+  private def conditionallyInitialize(
+      ledgerEnd: LedgerEnd
+  )(initialize: () => Future[Unit])(implicit loggingContext: LoggingContext): Future[Unit] =
+    if (!initialized) {
+      logger.info(s"Initializing participant in-memory state to ledger end: $ledgerEnd.")
+      initialize()
+    } else if (_dirty) {
+      logger.warn(
+        s"Dirty state detected on initialization. Re-setting the in-memory state ledger end: $ledgerEnd."
+      )
+      initialize()
+    } else {
+      val currentLedgerEndCache = ledgerEndCache()
+      if (
+        loggedEqualityCheck[Offset](
+          ledgerEnd.lastOffset,
+          currentLedgerEndCache._1,
+          "ledger end cache offset",
+        ) ||
+        loggedEqualityCheck[Long](
+          ledgerEnd.lastEventSeqId,
+          currentLedgerEndCache._2,
+          "ledger end cache event sequential id",
+        ) || loggedEqualityCheck[Int](
+          ledgerEnd.lastStringInterningId,
+          stringInterningView.lastId,
+          "last string interning id",
+        )
+      ) {
+        logger.warn(
+          s"Re-initialization ledger end mismatches in-memory state reference. Re-setting the in-memory state ledger end: $ledgerEnd."
+        )
+        initialize()
+      } else {
+        Future.unit
+      }
+    }
+
+  private def loggedEqualityCheck[T](expected: T, actual: T, name: String)(implicit
+      loggingContext: LoggingContext
+  ): Boolean =
+    (expected != actual)
+      .tap { notEqual =>
+        if (notEqual)
+          logger.warn(
+            s"Mismatching state ledger end references for $name: expected ($expected) vs actual ($actual)."
+          )
+      }
 }
 
 object InMemoryState {
