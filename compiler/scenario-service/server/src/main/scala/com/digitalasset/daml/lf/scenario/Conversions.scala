@@ -251,7 +251,7 @@ final class Conversions(
                         .setTemplateId(convertIdentifier(tid))
                     )
                   case DisclosurePreprocessing.NonExistentTemplate(templateId) =>
-                    builder.setDisclosurePreprocessingDuplicateContractIds(
+                    builder.setDisclosurePreprocessingNonExistentTemplate(
                       proto.ScenarioError.DisclosurePreprocessingNonExistentTemplate.newBuilder
                         .setTemplateId(convertIdentifier(templateId))
                     )
@@ -259,7 +259,7 @@ final class Conversions(
                         contractId,
                         templateId,
                       ) =>
-                    builder.setDisclosurePreprocessingDuplicateContractIds(
+                    builder.setDisclosurePreprocessingNonExistentDisclosedContractKeyHash(
                       proto.ScenarioError.DisclosurePreprocessingNonExistentDisclosedContractKeyHash.newBuilder
                         .setContractId(coidToEventId(contractId).toLedgerString)
                         .setTemplateId(convertIdentifier(templateId))
