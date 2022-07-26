@@ -157,14 +157,42 @@ the participant user management service *without* issuing new access tokens,
 as would be required for the custom Daml claims tokens.
 
 User access tokens are `JWTs <https://datatracker.ietf.org/doc/html/rfc7519>`_ that follow the
-`OAuth 2.0 standard <https://datatracker.ietf.org/doc/html/rfc6749>`_ with a JSON payload of the following format.
+`OAuth 2.0 standard <https://datatracker.ietf.org/doc/html/rfc6749>`_. There are two
+different JSON encodings: An audience-based token format that relies
+on the audience field to specify that it is designated for a specific
+Daml participant and a scope-based audience token format which relies on the
+scope field to designate the purpose. Both formats can be used interchangeably but
+if possible, use of the audience-based token format is recommend as it
+is compatible with a wider range of IAMs, e.g., Kubernetes does not
+support setting the scope field and makes the participant id mandatory
+which prevents misuse of a token on a different participant.
+
+Audience-Based Tokens
+---------------------
+
+.. code-block:: json
+
+   {
+      "aud": "https://daml.com/jwt/aud/participant/someParticipantId",
+      "sub": "someUserId",
+      "exp": 1300819380
+   }
+
+To interpret the above notation:
+
+- ``aud`` is a required field which restricts the token to participant nodes with the given ID (e.g. ``someParticipantId``)
+- ``sub`` is a required field which specifies the participant user's ID
+- ``exp`` is an optional field which specifies the JWT expiration date (in seconds since EPOCH)
+
+Scope-Based Tokens
+------------------
 
 .. code-block:: json
 
    {
       "aud": "someParticipantId",
       "sub": "someUserId",
-      "exp": 1300819380
+      "exp": 1300819380,
       "scope": "daml_ledger_api"
    }
 
