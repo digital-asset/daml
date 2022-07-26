@@ -665,6 +665,10 @@ Where:
 - ``choice`` -- Daml contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s).
 
+``templateId`` and ``choiceInterfaceId`` are treated as with :ref:`exercise by key <exercise-by-key-templateId-choiceInterfaceId>`.
+However, because ``contractId`` is always unambiguous, you may alternatively simply specify the interface ID as the ``templateId`` argument, and ignore ``choiceInterfaceId`` entirely.
+This isn't true of exercise-by-key or create-and-exercise, so we suggest treating this request as if this alternative isn't available.
+
 .. _exercise-response:
 
 HTTP Response
@@ -769,6 +773,14 @@ Where:
 - ``choice`` -- Daml contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s), empty, because ``Archive`` does not take any.
 
+.. _exercise-by-key-templateId-choiceInterfaceId:
+
+``key`` is always searched in relation to the ``templateId``.
+The ``choice``, on the other hand, is searched according to ``choiceInterfaceId``; if ``choiceInterfaceId`` is not specified, ``templateId`` is its default.
+We recommend always specifying ``choiceInterfaceId`` when invoking an interface choice; however, if the set of Daml-LF packages on the participant only contains one choice with a given name associated with ``templateId``, that choice will be exercised, regardless of where it is defined.
+If a template *and* one or more of the interfaces it implements declares a choice, and ``choiceInterfaceId`` is not used, the one directly defined on the choice will be exercised.
+If choice selection is still ambiguous given these rules, the endpoint will fail as if the choice isn't defined.
+
 HTTP Response
 =============
 
@@ -812,6 +824,8 @@ Where:
 - ``choiceInterfaceId`` -- *optional* template or interface that defines the choice, same format as ``templateId``,
 - ``choice`` -- Daml contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s).
+
+``templateId`` and ``choiceInterfaceId`` are treated as with :ref:`exercise by key <exercise-by-key-templateId-choiceInterfaceId>`, with the exception that it is ``payload``, not ``key``, strictly interpreted according to ``templateId``.
 
 HTTP Response
 =============
