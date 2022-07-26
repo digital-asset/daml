@@ -14,7 +14,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class InclusiveFilter extends Filter {
+public final class InclusiveFilter extends Filter {
 
   private Set<Identifier> templateIds;
   private Map<@NonNull Identifier, Filter.Interface> interfaceIds;
