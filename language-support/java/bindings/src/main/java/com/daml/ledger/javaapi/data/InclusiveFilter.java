@@ -17,11 +17,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 public final class InclusiveFilter extends Filter {
 
   private Set<Identifier> templateIds;
-  private Map<@NonNull Identifier, Filter.Interface> interfaceIds;
+  private Map<@NonNull Identifier, Filter.@NonNull Interface> interfaceIds;
 
   /**
    * @deprecated Use {@link #ofTemplateIds} instead; {@code templateIds} must not include interface
-   *     IDs
+   *     IDs. Since Daml 2.4.0
    */
   @Deprecated
   public InclusiveFilter(@NonNull Set<@NonNull Identifier> templateIds) {
@@ -30,7 +30,7 @@ public final class InclusiveFilter extends Filter {
 
   public InclusiveFilter(
       @NonNull Set<@NonNull Identifier> templateIds,
-      @NonNull Map<@NonNull Identifier, Filter.Interface> interfaceIds) {
+      @NonNull Map<@NonNull Identifier, Filter.@NonNull Interface> interfaceIds) {
     this.templateIds = templateIds;
     this.interfaceIds = interfaceIds;
   }
@@ -45,7 +45,7 @@ public final class InclusiveFilter extends Filter {
   }
 
   @NonNull
-  public Map<@NonNull Identifier, Filter.Interface> getInterfaceIds() {
+  public Map<@NonNull Identifier, Filter.@NonNull Interface> getInterfaceIds() {
     return interfaceIds;
   }
 

@@ -240,6 +240,7 @@ object Generators {
       .setContractId(contractId)
       .setTemplateId(templateId)
       .setCreateArguments(createArgument)
+      // TODO #14537 addAllInterfaceViews
       .setEventId(eventId)
       .addAllWitnessParties(witnessParties.asJava)
       .addAllSignatories(signatories.asJava)
