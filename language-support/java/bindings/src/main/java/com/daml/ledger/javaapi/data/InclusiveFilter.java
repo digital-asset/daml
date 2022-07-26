@@ -72,13 +72,13 @@ public final class InclusiveFilter extends Filter {
     for (ValueOuterClass.Identifier templateId : inclusiveFilters.getTemplateIdsList()) {
       templateIds.add(Identifier.fromProto(templateId));
     }
-    // TODO #14537 merge like filters
     var interfaceIds =
         inclusiveFilters.getInterfaceFiltersList().stream()
             .collect(
-                Collectors.toMap(
+                Collectors.toUnmodifiableMap(
                     ifFilt -> Identifier.fromProto(ifFilt.getInterfaceId()),
-                    Filter.Interface::fromProto));
+                    Filter.Interface::fromProto,
+                    Filter.Interface::merge));
     return new InclusiveFilter(templateIds, interfaceIds);
   }
 

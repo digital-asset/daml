@@ -37,6 +37,10 @@ public abstract class Filter {
       return new Interface(proto.getIncludeInterfaceView());
     }
 
+    Interface merge(Interface other) {
+      return new Interface(includeInterfaceView || other.includeInterfaceView);
+    }
+
     @Override
     public boolean equals(Object o) {
       if (this == o) return true;
