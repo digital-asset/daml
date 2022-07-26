@@ -52,18 +52,27 @@ message CreatedEvent {
   // Required
   Identifier template_id = 3;
 
-  // The key of the created contract, if defined.
+  // The key of the created contract.
+  // This will be set if and only if ``create_arguments`` is set and ``template_id`` defines a contract key.
   // Optional
   Value contract_key = 7;
 
   // The arguments that have been used to create the contract.
-  // Set if there was a match by template_id in the given transaction filter.
+  // Set either:
+  //   - if there was a party, which is in the ``witness_parties`` of this event,
+  //     and for which an ``InclusiveFilters`` exists with the ``template_id`` of this event
+  //     among the ``template_ids``,
+  //   - or if there was a party, which is int the ``witness_parties`` of this event,
+  //     and for which a wildcard filter exists (``Filters`` without ``InclusiveFilters``,
+  //     or with an ``InclusiveFilters`` with empty ``template_ids`` and empty ``interface_filters``).
   // Optional
   Record create_arguments = 4;
 
-  // Interface views specified in the transaction filter. Only contains entries
-  // for the intersection of interfaces implemented by the template
-  // and the interfaces specified in the transaction filter.
+  // Interface views specified in the transaction filter.
+  // Includes an ``InterfaceView`` for each interface for which, there is a ``InterfaceFilter`` with
+  //   - its party in the ``witness_parties`` of this event,
+  //   - and which is implemented by the template of this event,
+  //   - and which has ``include_interface_view`` set.
   // Optional
   repeated InterfaceView interface_views = 11;
 
