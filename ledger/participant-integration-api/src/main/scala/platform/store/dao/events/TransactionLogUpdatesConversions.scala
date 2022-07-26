@@ -11,6 +11,8 @@ import com.daml.ledger.api.v1.transaction.{
   Transaction => FlatTransaction,
 }
 import com.daml.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse,
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
@@ -59,32 +61,60 @@ private[events] object TransactionLogUpdatesConversions {
       case _: TransactionLogUpdate.TransactionRejected => None
     }
 
-    def toApiTransaction(
+    def toGetTransactionsResponse(
         filter: FilterRelation,
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
-    ): TransactionLogUpdate.TransactionAccepted => Future[GetTransactionsResponse] = transaction =>
+    ): TransactionLogUpdate.TransactionAccepted => Future[GetTransactionsResponse] =
+      toFlatTransaction(_, filter, verbose, lfValueTranslation)
+        .map(transaction => GetTransactionsResponse(Seq(transaction)))
+
+    def toGetFlatTransactionResponse(
+        transactionLogUpdate: TransactionLogUpdate,
+        requestingParties: Set[Party],
+        lfValueTranslation: LfValueTranslation,
+    )(implicit
+        loggingContext: LoggingContext,
+        executionContext: ExecutionContext,
+    ): Future[Option[GetFlatTransactionResponse]] =
+      filter(requestingParties, Map.empty, requestingParties)(transactionLogUpdate)
+        .map(transactionAccepted =>
+          toFlatTransaction(
+            transactionAccepted = transactionAccepted,
+            filter = requestingParties.map(_ -> Set.empty[Ref.Identifier]).toMap,
+            verbose = true,
+            lfValueTranslation = lfValueTranslation,
+          )
+        )
+        .map(_.map(flatTransaction => Some(GetFlatTransactionResponse(Some(flatTransaction)))))
+        .getOrElse(Future.successful(None))
+
+    private def toFlatTransaction(
+        transactionAccepted: TransactionLogUpdate.TransactionAccepted,
+        filter: FilterRelation,
+        verbose: Boolean,
+        lfValueTranslation: LfValueTranslation,
+    )(implicit
+        loggingContext: LoggingContext,
+        executionContext: ExecutionContext,
+    ): Future[FlatTransaction] =
       Future.delegate {
         val requestingParties = filter.keySet
         Future
-          .traverse(transaction.events)(event =>
+          .traverse(transactionAccepted.events)(event =>
             toFlatEvent(event, requestingParties, verbose, lfValueTranslation)
           )
           .map(flatEvents =>
-            GetTransactionsResponse(
-              Seq(
-                FlatTransaction(
-                  transactionId = transaction.transactionId,
-                  commandId = transaction.commandId,
-                  workflowId = transaction.workflowId,
-                  effectiveAt = Some(timestampToTimestamp(transaction.effectiveAt)),
-                  events = flatEvents,
-                  offset = ApiOffset.toApiString(transaction.offset),
-                )
-              )
+            FlatTransaction(
+              transactionId = transactionAccepted.transactionId,
+              commandId = transactionAccepted.commandId,
+              workflowId = transactionAccepted.workflowId,
+              effectiveAt = Some(timestampToTimestamp(transactionAccepted.effectiveAt)),
+              events = flatEvents,
+              offset = ApiOffset.toApiString(transactionAccepted.offset),
             )
           )
       }
@@ -219,7 +249,27 @@ private[events] object TransactionLogUpdatesConversions {
       case _: TransactionLogUpdate.TransactionRejected => None
     }
 
-    def toApiTransaction(
+    def toGetTransactionResponse(
+        transactionLogUpdate: TransactionLogUpdate,
+        requestingParties: Set[Party],
+        lfValueTranslation: LfValueTranslation,
+    )(implicit
+        loggingContext: LoggingContext,
+        executionContext: ExecutionContext,
+    ): Future[Option[GetTransactionResponse]] =
+      filter(requestingParties)(transactionLogUpdate)
+        .map(tx =>
+          toTransactionTree(
+            transactionAccepted = tx,
+            requestingParties,
+            verbose = true,
+            lfValueTranslation = lfValueTranslation,
+          )
+        )
+        .map(_.map(transactionTree => Some(GetTransactionResponse(Some(transactionTree)))))
+        .getOrElse(Future.successful(None))
+
+    def toGetTransactionTreesResponse(
         requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
@@ -227,48 +277,55 @@ private[events] object TransactionLogUpdatesConversions {
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
     ): TransactionLogUpdate.TransactionAccepted => Future[GetTransactionTreesResponse] =
-      transaction =>
-        Future.delegate {
-          Future
-            .traverse(transaction.events)(event =>
-              toTransactionTreeEvent(requestingParties, verbose, lfValueTranslation)(event)
-            )
-            .map { treeEvents =>
-              val visible = treeEvents.map(_.eventId)
-              val visibleOrder = visible.view.zipWithIndex.toMap
-              val eventsById = treeEvents.iterator
-                .map(e =>
-                  e.eventId -> e
-                    .filterChildEventIds(visibleOrder.contains)
-                    // childEventIds need to be returned in the event order in the original transaction.
-                    // Unfortunately, we did not store them ordered in the past so we have to sort it to recover this order.
-                    // The order is determined by the order of the events, which follows the event order of the original transaction.
-                    .sortChildEventIdsBy(visibleOrder)
-                )
-                .toMap
+      toTransactionTree(_, requestingParties, verbose, lfValueTranslation)
+        .map(txTree => GetTransactionTreesResponse(Seq(txTree)))
 
-              // All event identifiers that appear as a child of another item in this response
-              val children = eventsById.valuesIterator.flatMap(_.childEventIds).toSet
-
-              // The roots for this request are all visible items
-              // that are not a child of some other visible item
-              val rootEventIds = visible.filterNot(children)
-
-              GetTransactionTreesResponse(
-                Seq(
-                  TransactionTree(
-                    transactionId = transaction.transactionId,
-                    commandId = getCommandId(transaction.events, requestingParties),
-                    workflowId = transaction.workflowId,
-                    effectiveAt = Some(timestampToTimestamp(transaction.effectiveAt)),
-                    offset = ApiOffset.toApiString(transaction.offset),
-                    eventsById = eventsById,
-                    rootEventIds = rootEventIds,
-                  )
-                )
+    private def toTransactionTree(
+        transactionAccepted: TransactionLogUpdate.TransactionAccepted,
+        requestingParties: Set[Party],
+        verbose: Boolean,
+        lfValueTranslation: LfValueTranslation,
+    )(implicit
+        loggingContext: LoggingContext,
+        executionContext: ExecutionContext,
+    ): Future[TransactionTree] =
+      Future.delegate {
+        Future
+          .traverse(transactionAccepted.events)(event =>
+            toTransactionTreeEvent(requestingParties, verbose, lfValueTranslation)(event)
+          )
+          .map { treeEvents =>
+            val visible = treeEvents.map(_.eventId)
+            val visibleOrder = visible.view.zipWithIndex.toMap
+            val eventsById = treeEvents.iterator
+              .map(e =>
+                e.eventId -> e
+                  .filterChildEventIds(visibleOrder.contains)
+                  // childEventIds need to be returned in the event order in the original transaction.
+                  // Unfortunately, we did not store them ordered in the past so we have to sort it to recover this order.
+                  // The order is determined by the order of the events, which follows the event order of the original transaction.
+                  .sortChildEventIdsBy(visibleOrder)
               )
-            }
-        }
+              .toMap
+
+            // All event identifiers that appear as a child of another item in this response
+            val children = eventsById.valuesIterator.flatMap(_.childEventIds).toSet
+
+            // The roots for this request are all visible items
+            // that are not a child of some other visible item
+            val rootEventIds = visible.filterNot(children)
+
+            TransactionTree(
+              transactionId = transactionAccepted.transactionId,
+              commandId = getCommandId(transactionAccepted.events, requestingParties),
+              workflowId = transactionAccepted.workflowId,
+              effectiveAt = Some(timestampToTimestamp(transactionAccepted.effectiveAt)),
+              offset = ApiOffset.toApiString(transactionAccepted.offset),
+              eventsById = eventsById,
+              rootEventIds = rootEventIds,
+            )
+          }
+      }
 
     private def toTransactionTreeEvent(
         requestingParties: Set[Party],
@@ -350,6 +407,7 @@ private[events] object TransactionLogUpdatesConversions {
             eventId = exercisedEvent.eventId.toLedgerString,
             contractId = exercisedEvent.contractId.coid,
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
+            interfaceId = exercisedEvent.interfaceId.map(LfEngineToApi.toApiIdentifier),
             choice = exercisedEvent.choice,
             choiceArgument = Some(choiceArgument),
             actingParties = exercisedEvent.actingParties.toSeq,

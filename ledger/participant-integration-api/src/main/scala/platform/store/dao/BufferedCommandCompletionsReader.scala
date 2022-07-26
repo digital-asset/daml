@@ -9,7 +9,7 @@ import com.daml.ledger.api.v1.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.offset.Offset
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.store.cache.EventsBuffer
+import com.daml.platform.store.cache.InMemoryFanoutBuffer
 import com.daml.platform.store.dao.BufferedCommandCompletionsReader.CompletionsFilter
 import com.daml.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
 import com.daml.platform.store.interfaces.TransactionLogUpdate
@@ -73,7 +73,7 @@ object BufferedCommandCompletionsReader {
 
   def apply(
       delegate: LedgerDaoCommandCompletionsReader,
-      transactionsBuffer: EventsBuffer[TransactionLogUpdate],
+      inMemoryFanoutBuffer: InMemoryFanoutBuffer,
       metrics: Metrics,
   )(implicit ec: ExecutionContext): BufferedCommandCompletionsReader = {
     val fetchCompletions = new FetchFromPersistence[CompletionsFilter, CompletionStreamResponse] {
@@ -91,7 +91,7 @@ object BufferedCommandCompletionsReader {
 
     new BufferedCommandCompletionsReader(
       bufferReader = new BufferedStreamsReader[CompletionsFilter, CompletionStreamResponse](
-        transactionLogUpdateBuffer = transactionsBuffer,
+        inMemoryFanoutBuffer = inMemoryFanoutBuffer,
         fetchFromPersistence = fetchCompletions,
         // Processing for completions is a no-op so it is unnecessary to have configurable parallelism.
         bufferedStreamEventsProcessingParallelism = 1,

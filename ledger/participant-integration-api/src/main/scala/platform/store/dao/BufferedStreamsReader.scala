@@ -8,8 +8,8 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.offset.Offset
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.cache.EventsBuffer
-import com.daml.platform.store.cache.EventsBuffer.BufferSlice
+import com.daml.platform.store.cache.InMemoryFanoutBuffer
+import com.daml.platform.store.cache.InMemoryFanoutBuffer.BufferSlice
 import com.daml.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 
@@ -18,7 +18,7 @@ import scala.concurrent.{ExecutionContext, Future}
 /** Generic class that helps serving Ledger API streams (e.g. transactions, completions)
   *  from either the in-memory fan-out buffer or from persistence depending on the requested offset range.
   *
-  * @param transactionLogUpdateBuffer The in-memory fan-out buffer.
+  * @param inMemoryFanoutBuffer The in-memory fan-out buffer.
   * @param fetchFromPersistence Fetch stream events from persistence.
   * @param bufferedStreamEventsProcessingParallelism The processing parallelism for buffered elements payloads to API responses.
   * @param metrics Daml metrics.
@@ -28,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * @tparam API_RESPONSE The API stream response type.
   */
 class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
-    transactionLogUpdateBuffer: EventsBuffer[TransactionLogUpdate],
+    inMemoryFanoutBuffer: InMemoryFanoutBuffer,
     fetchFromPersistence: FetchFromPersistence[PERSISTENCE_FETCH_ARGS, API_RESPONSE],
     bufferedStreamEventsProcessingParallelism: Int,
     metrics: Metrics,
@@ -75,7 +75,7 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
       .unfoldAsync(startExclusive) {
         case scannedToInclusive if scannedToInclusive < endInclusive =>
           Future {
-            transactionLogUpdateBuffer.slice(
+            inMemoryFanoutBuffer.slice(
               startExclusive = scannedToInclusive,
               endInclusive = endInclusive,
               filter = bufferFilter,
