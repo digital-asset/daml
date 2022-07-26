@@ -33,6 +33,10 @@ public abstract class Filter {
           .build();
     }
 
+    static Interface fromProto(TransactionFilterOuterClass.InterfaceFilter proto) {
+      return new Interface(proto.getIncludeInterfaceView());
+    }
+
     @Override
     public boolean equals(Object o) {
       if (this == o) return true;
