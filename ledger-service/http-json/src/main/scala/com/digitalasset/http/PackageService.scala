@@ -51,12 +51,12 @@ private class PackageService(
       val newPackageStore = appendAndResolveRetroactiveInterfaces(resolveChoicesIn(diff))
       val (tpIdMap, ifaceIdMap) = getTemplateIdInterfaceMaps(newPackageStore)
       State(
-        newPackageStore.keySet,
-        tpIdMap ++ ifaceIdMap,
-        tpIdMap,
-        getChoiceTypeMap(newPackageStore),
-        getKeyTypeMap(newPackageStore),
-        newPackageStore,
+        packageIds = newPackageStore.keySet,
+        contractTypeIdMap = tpIdMap ++ ifaceIdMap,
+        templateIdMap = tpIdMap,
+        choiceTypeMap = getChoiceTypeMap(newPackageStore),
+        keyTypeMap = getKeyTypeMap(newPackageStore),
+        packageStore = newPackageStore,
       )
     }
 
