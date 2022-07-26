@@ -386,7 +386,10 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           setInternedString(choice, b.setChoiceInternedStr)
           b.setCid(cid)
           b.setArg(arg)
-          guard.foreach(b.setGuard(_))
+          guard.foreach { g =>
+            assertSince(LV.Features.extendedInterfaces, "ExerciseInterface.guard")
+            b.setGuard(g)
+          }
           builder.setExerciseInterface(b)
         case UpdateExerciseByKey(templateId, choice, key, arg) =>
           assertSince(LV.Features.exerciseByKey, "exerciseByKey")
@@ -659,7 +662,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
             PLF.Expr.FromAnyException.newBuilder().setType(ty).setExpr(body)
           )
         case EToInterface(iface, tpl, value) =>
-          assertSince(LV.Features.interfaces, "Expr.ToInterface")
+          assertSince(LV.Features.basicInterfaces, "Expr.ToInterface")
           builder.setToInterface(
             PLF.Expr.ToInterface
               .newBuilder()
@@ -668,7 +671,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .setTemplateExpr(value)
           )
         case EFromInterface(iface, tpl, value) =>
-          assertSince(LV.Features.interfaces, "Expr.FromInterface")
+          assertSince(LV.Features.basicInterfaces, "Expr.FromInterface")
           builder.setFromInterface(
             PLF.Expr.FromInterface
               .newBuilder()
@@ -677,7 +680,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .setInterfaceExpr(value)
           )
         case EUnsafeFromInterface(iface, tpl, cid, value) =>
-          assertSince(LV.Features.interfaces, "Expr.UnsafeFromInterface")
+          assertSince(LV.Features.basicInterfaces, "Expr.UnsafeFromInterface")
           builder.setUnsafeFromInterface(
             PLF.Expr.UnsafeFromInterface
               .newBuilder()
@@ -687,7 +690,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .setInterfaceExpr(value)
           )
         case EToRequiredInterface(superIface, iface, value) =>
-          assertSince(LV.Features.interfaces, "Expr.ToRequiredInterface")
+          assertSince(LV.Features.basicInterfaces, "Expr.ToRequiredInterface")
           builder.setToRequiredInterface(
             PLF.Expr.ToRequiredInterface
               .newBuilder()
@@ -696,7 +699,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .setExpr(value)
           )
         case EFromRequiredInterface(superIface, iface, value) =>
-          assertSince(LV.Features.interfaces, "Expr.FromRequiredInterface")
+          assertSince(LV.Features.basicInterfaces, "Expr.FromRequiredInterface")
           builder.setFromRequiredInterface(
             PLF.Expr.FromRequiredInterface
               .newBuilder()
@@ -705,7 +708,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .setExpr(value)
           )
         case EUnsafeFromRequiredInterface(superIface, iface, cid, value) =>
-          assertSince(LV.Features.interfaces, "Expr.UnsafeFromRequiredInterface")
+          assertSince(LV.Features.basicInterfaces, "Expr.UnsafeFromRequiredInterface")
           builder.setUnsafeFromRequiredInterface(
             PLF.Expr.UnsafeFromRequiredInterface
               .newBuilder()
@@ -715,7 +718,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .setInterfaceExpr(value)
           )
         case EInterfaceTemplateTypeRep(iface, value) =>
-          assertSince(LV.Features.interfaces, "Expr.InterfaceTemplateTypeRep")
+          assertSince(LV.Features.basicInterfaces, "Expr.InterfaceTemplateTypeRep")
           builder.setInterfaceTemplateTypeRep(
             PLF.Expr.InterfaceTemplateTypeRep
               .newBuilder()
@@ -723,7 +726,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .setExpr(value)
           )
         case ESignatoryInterface(iface, value) =>
-          assertSince(LV.Features.interfaces, "Expr.InterfaceTemplateTypeRep")
+          assertSince(LV.Features.basicInterfaces, "Expr.InterfaceTemplateTypeRep")
           builder.setSignatoryInterface(
             PLF.Expr.SignatoryInterface
               .newBuilder()
@@ -731,7 +734,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .setExpr(value)
           )
         case EObserverInterface(iface, value) =>
-          assertSince(LV.Features.interfaces, "Expr.InterfaceTemplateTypeRep")
+          assertSince(LV.Features.basicInterfaces, "Expr.InterfaceTemplateTypeRep")
           builder.setObserverInterface(
             PLF.Expr.ObserverInterface
               .newBuilder()
@@ -743,7 +746,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setExperimental(PLF.Expr.Experimental.newBuilder().setName(name).setType(ty))
 
         case ECallInterface(ty, methodName, expr) =>
-          assertSince(LV.Features.interfaces, "Expr.CallInterface")
+          assertSince(LV.Features.basicInterfaces, "Expr.CallInterface")
           val b = PLF.Expr.CallInterface.newBuilder()
           b.setInterfaceType(ty)
           b.setInterfaceExpr(expr)
@@ -800,7 +803,10 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       builder.setParamInternedStr(stringsTable.insert(interface.param))
       builder.accumulateLeft(interface.choices.sortByKey)(_ addChoices _)
       builder.accumulateLeft(interface.methods.sortByKey)(_ addMethods _)
-      builder.accumulateLeft(interface.requires)(_ addRequires _)
+      if (interface.requires.nonEmpty) {
+        assertSince(LV.Features.choiceObservers, "DefInterface.requires")
+        builder.accumulateLeft(interface.requires)(_ addRequires _)
+      }
       builder.accumulateLeft(interface.coImplements.sortByKey)(_ addCoImplements _)
       builder.setView(interface.view)
       builder.build()

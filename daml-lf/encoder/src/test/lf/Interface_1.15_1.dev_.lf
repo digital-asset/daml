@@ -19,7 +19,6 @@ module InterfaceMod {
   };
 
   interface (this: Boxy) = {
-    requires InterfaceMod:Root;
     method getParty: Party;
     choice @nonConsuming ReturnInt (self) (i: Int64): Int64
       , controllers Cons @Party [call_method @InterfaceMod:Boxy getParty this] (Nil @Party)
@@ -57,18 +56,6 @@ module InterfaceMod {
     \(cid: ContractId InterfaceMod:Boxy) (boxy: InterfaceMod:Boxy) ->
       unsafe_from_interface @InterfaceMod:Boxy @InterfaceMod:Box cid boxy;
 
-  val boxyToRoot: InterfaceMod:Boxy -> InterfaceMod:Root =
-    \(box: InterfaceMod:Boxy) ->
-      to_required_interface @InterfaceMod:Root @InterfaceMod:Boxy box;
-
-  val rootToBoxy: InterfaceMod:Root -> Option InterfaceMod:Boxy =
-    \(root: InterfaceMod:Root) ->
-      from_required_interface @InterfaceMod:Root @InterfaceMod:Boxy root;
-
-  val unsafeRootToBoxy: ContractId InterfaceMod:Root -> InterfaceMod:Root -> InterfaceMod:Boxy =
-    \(cid: ContractId InterfaceMod:Root) (root: InterfaceMod:Root) ->
-      unsafe_from_required_interface @InterfaceMod:Root @InterfaceMod:Boxy cid root;
-
   val boxyTemplateTypeRep: InterfaceMod:Boxy -> TypeRep =
     \(boxy: InterfaceMod:Boxy) ->
       interface_template_type_rep @InterfaceMod:Boxy boxy;
@@ -85,7 +72,4 @@ module InterfaceMod {
       \(cid: ContractId InterfaceMod:Boxy) ->
           exercise_interface @InterfaceMod:Boxy ReturnInt cid 0;
 
-  val exercise_with_guard: ContractId InterfaceMod:Boxy -> (InterfaceMod:Boxy -> Bool) -> Update Int64 =
-        \(cid: ContractId InterfaceMod:Boxy) (guard: InterfaceMod:Boxy -> Bool) ->
-          exercise_interface_with_guard @InterfaceMod:Boxy ReturnInt cid  0 guard;
 }

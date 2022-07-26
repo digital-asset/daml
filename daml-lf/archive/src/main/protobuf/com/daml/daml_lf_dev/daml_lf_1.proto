@@ -914,7 +914,7 @@ message Expr {
   }
 
   // Convert a template payload to an interface.
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.15*
   message ToInterface {
     TypeConName interface_type = 1;
     TypeConName template_type = 2;
@@ -922,7 +922,7 @@ message Expr {
   }
 
   // Convert an interface back to a template payload if possible.
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.15*
   message FromInterface {
     TypeConName interface_type = 1;
     TypeConName template_type = 2;
@@ -930,7 +930,7 @@ message Expr {
   }
 
   // Convert an interface back to a template payload, or raises WronglyTypedContract if not possible.
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.15*
   message UnsafeFromInterface {
     TypeConName interface_type = 1;
     TypeConName template_type = 2;
@@ -964,7 +964,7 @@ message Expr {
   }
 
   // Invoke an interface method.
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.15*
   message CallInterface {
     TypeConName interface_type = 1;
     int32 method_interned_name = 2;
@@ -972,14 +972,14 @@ message Expr {
   }
 
   // Obtain an interface view
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.15*
   message ViewInterface {
     TypeConName interface = 1;
     Expr expr = 2;
   }
 
   // Obtain the type representation of a contract through an interface
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.15*
   message InterfaceTemplateTypeRep {
     // interface type
     TypeConName interface = 1;
@@ -1117,36 +1117,37 @@ message Expr {
     Throw throw = 35;
 
     // Convert to/from interface payloads.
-    // *Available in versions >= 1.dev*
+    // *Available in versions >= 1.15*
     ToInterface to_interface = 36;
     FromInterface from_interface = 37;
 
     // Invoke an interface method.
-    // *Available in versions >= 1.dev*
+    // *Available in versions >= 1.15*
     CallInterface call_interface = 38;
+
+    // Obtain the type representation of a contract's template through an interface.
+    // *Available in versions >= 1.15*
+    InterfaceTemplateTypeRep interface_template_type_rep = 39;
+
+    // Obtain a contract's signatories/observers through an interface.
+    // *Available in versions >= 1.15*
+    SignatoryInterface signatory_interface = 40;
+    ObserverInterface observer_interface = 41;
+
+    // Unsafe conversion from interface payloads.
+    // *Available in versions >= 1.15*
+    UnsafeFromInterface unsafe_from_interface = 42;
+
+    // Invoke an interface method.
+    // *Available in versions >= 1.15*
+    ViewInterface view_interface = 43;
 
     // Upcast/downcast interface payloads.
     // *Available in versions >= 1.dev*
-    ToRequiredInterface to_required_interface = 39;
-    FromRequiredInterface from_required_interface = 40;
+    ToRequiredInterface to_required_interface = 44;
+    FromRequiredInterface from_required_interface = 45;
+    UnsafeFromRequiredInterface unsafe_from_required_interface = 46;
 
-    // Obtain the type representation of a contract's template through an interface.
-    // *Available in versions >= 1.dev*
-    InterfaceTemplateTypeRep interface_template_type_rep = 41;
-
-    // Obtain a contract's signatories/observers through an interface.
-    // *Available in versions >= 1.dev*
-    SignatoryInterface signatory_interface = 42;
-    ObserverInterface observer_interface = 43;
-
-    // Unsafe conversion to/from interface payloads.
-    UnsafeFromInterface unsafe_from_interface = 44;
-    // Unsafe downcast interface payloads.
-    UnsafeFromRequiredInterface unsafe_from_required_interface = 45;
-
-    // Invoke an interface method.
-    // *Available in versions >= 1.dev*
-    ViewInterface view_interface = 46;
 
     Experimental experimental = 9999; // *Available only in 1.dev*
   }
@@ -1392,9 +1393,9 @@ message Update {
     // see similar constructor in `Scenario` on why this is useful.
     EmbedExpr embed_expr = 7;
     TryCatch try_catch = 11; // *Available in versions >= 1.14*
-    ExerciseInterface exercise_interface = 12; // *Available in versions >= 1.dev*
-    FetchInterface fetch_interface = 13; // *Available in versions >= 1.dev*
-    CreateInterface create_interface = 14; // *Available in versions >= 1.dev*
+    ExerciseInterface exercise_interface = 12; // *Available in versions >= 1.15*
+    FetchInterface fetch_interface = 13; // *Available in versions >= 1.15*
+    CreateInterface create_interface = 14; // *Available in versions >= 1.15*
   }
 }
 
@@ -1539,14 +1540,14 @@ message DefTemplate {
   }
 
   // Implementation of an interface method.
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.15*
   message ImplementsMethod {
     int32 method_interned_name = 1;
     Expr value = 2;
   }
 
   // Implementation of an interface.
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.15*
   message Implements {
     TypeConName interface = 1;
     repeated ImplementsMethod methods = 2;
@@ -1604,11 +1605,11 @@ message DefTemplate {
   DefKey key = 10; // optional
 
   // Interfaces that this template implements.
-  repeated Implements implements = 13; // *Available in versions >= 1.dev*
+  repeated Implements implements = 13; // *Available in versions >= 1.15*
 }
 
 // Interface method definition.
-// *Available in versions >= 1.dev*
+// *Available in versions >= 1.15*
 message InterfaceMethod {
   Location location = 1;
   int32 method_interned_name = 2;
@@ -1616,7 +1617,7 @@ message InterfaceMethod {
 }
 
 // Interface definition.
-// *Available in versions >= 1.dev*
+// *Available in versions >= 1.15*
 message DefInterface {
 
   message CoImplementsMethod {
@@ -1774,7 +1775,7 @@ message Module {
   repeated DefValue values = 6;
   repeated DefTemplate templates = 7;
   repeated DefException exceptions = 10; // *Available in versions >= 1.14*
-  repeated DefInterface interfaces = 11; // *Available in versions >= 1.dev*
+  repeated DefInterface interfaces = 11; // *Available in versions >= 1.15*
 }
 
 message InternedDottedName {

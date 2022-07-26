@@ -88,17 +88,24 @@ LF_VERSIONS = [
     "1.12",
     "1.13",
     "1.14",
+    "1.15",
     "1.dev",
 ]
 
-# All LF versions for which we have protobufs.
-PROTO_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14")]
+# Next version of LF. not fully functional in general.
+lf_version_next = "1.15"
 
-# We support older LF versions using an older compiler binary
-LEGACY_COMPILER_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.lte(ver, "1.13")]
+# All LF versions for which we have protobufs.
+PROTO_LF_VERSIONS = [
+    "1.14",
+    "1.dev",
+]
 
 # The subset of LF versions accepted by the compiler in the syntax
 # expected by the --target option.
-COMPILER_LF_VERSIONS = [ver for ver in LF_VERSIONS if ver not in LEGACY_COMPILER_LF_VERSIONS]
+COMPILER_LF_VERSIONS = [
+    "1.14",
+    "1.dev",
+]
 
 LF_MAJOR_VERSIONS = ["1"]
