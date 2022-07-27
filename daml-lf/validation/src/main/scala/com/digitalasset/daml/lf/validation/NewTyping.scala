@@ -502,7 +502,7 @@ private[validation] object NewTyping { // NICK, WIP for new stack-safe type-chec
 
     private[NewTyping] def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
-        case DefInterface(requires, param, choices, methods, precond, coImplements, _) =>
+        case DefInterface(requires, param, choices, methods, coImplements, _) =>
           val env = introExprVar(param, TTyCon(ifaceName))
           if (requires(ifaceName))
             throw ECircularInterfaceRequires(ctx, ifaceName)
@@ -511,7 +511,6 @@ private[validation] object NewTyping { // NICK, WIP for new stack-safe type-chec
             requiredRequired <- handleLookup(ctx, pkgInterface.lookupInterface(required)).requires
             if !requires(requiredRequired)
           } throw ENotClosedInterfaceRequires(ctx, ifaceName, required, requiredRequired)
-          env.legacy_checkExpr(precond, TBool)
           methods.values.foreach(checkIfaceMethod)
           choices.values.foreach(env.checkChoice(ifaceName, _))
           env.checkIfaceCoImplementations(ifaceName, param, coImplements)
@@ -530,7 +529,8 @@ private[validation] object NewTyping { // NICK, WIP for new stack-safe type-chec
         ifaceTcon: TypeConName,
         implMethods: List[(MethodName, Expr)],
     ): Unit = {
-      val DefInterfaceSignature(requires, _, _, methods, _, _, _) =
+      val DefInterfaceSignature(requires, _, _, methods, _, _) =
+        // TODO https://github.com/digital-asset/daml/issues/14112
         handleLookup(ctx, pkgInterface.lookupInterface(ifaceTcon))
 
       requires
