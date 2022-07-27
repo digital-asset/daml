@@ -536,6 +536,16 @@ convertInterfaceTyCon env errHandler tycon
     | otherwise =
         conversionError $ errHandler tycon
 
+convertTemplateTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
+convertTemplateTyCon env errHandler tycon
+    | hasDamlTemplateCtx tycon = do
+        lfType <- convertTyCon env tycon
+        case lfType of
+            TCon con -> pure con
+            _ -> unhandled "template type" tycon
+    | otherwise =
+        conversionError $ errHandler tycon
+
 convertInterfaces :: Env -> ModuleContents -> ConvertM [Definition]
 convertInterfaces env mc = interfaceDefs
   where
