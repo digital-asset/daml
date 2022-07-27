@@ -668,7 +668,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         param = getInternedName(lfInterface.getParamInternedStr, "DefInterface.param"),
         choices = lfInterface.getChoicesList.asScala.view.map(decodeChoice(id, _)),
         methods = lfInterface.getMethodsList.asScala.view.map(decodeInterfaceMethod),
-        precond = decodeExpr(lfInterface.getPrecond, s"$id:ensure"),
         coImplements =
           lfInterface.getCoImplementsList.asScala.view.map(decodeInterfaceCoImplements),
         view = decodeType(lfInterface.getView),

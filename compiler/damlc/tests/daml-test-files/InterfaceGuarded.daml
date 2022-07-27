@@ -12,8 +12,6 @@ interface Token where
   getAmount : Int
   setAmount : Int -> Token
 
-  ensure (getAmount this >= 0)
-
   choice GetRich : ContractId Token
     with
       byHowMuch : Int

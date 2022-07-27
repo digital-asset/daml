@@ -63,7 +63,6 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
     )
     def interface = DefInterface(
       param = Name.assertFromString("x"),
-      precond = ETrue,
       choices = Map.empty,
       methods = Map.empty,
       requires = Set.empty,
@@ -382,7 +381,6 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           choiceBuilder(choice3, TText, eText),
         ),
         methods = List(ifaceMethod1, ifaceMethod2),
-        precond = ETrue,
         coImplements = List.empty,
         view = TUnit,
       )
@@ -399,7 +397,6 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
             choiceBuilder(choice1, TText, eText),
           ),
           methods = List.empty,
-          precond = ETrue,
           coImplements = List.empty,
           view = TUnit,
         )
@@ -413,7 +410,6 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           param = Name.assertFromString("x"),
           choices = List.empty,
           methods = List(ifaceMethod1, ifaceMethod1),
-          precond = ETrue,
           coImplements = List.empty,
           view = TUnit,
         )
@@ -426,7 +422,6 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         param = Name.assertFromString("x"),
         choices = List.empty,
         methods = List(ifaceMethod1, ifaceMethod2),
-        precond = ETrue,
         coImplements = List(ifaceCoImpl1, ifaceCoImpl2),
         view = TUnit,
       )
@@ -437,7 +432,6 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           param = Name.assertFromString("x"),
           choices = List.empty,
           methods = List(ifaceMethod1, ifaceMethod2),
-          precond = ETrue,
           coImplements = List(ifaceCoImpl1, ifaceCoImpl1),
           view = TUnit,
         )

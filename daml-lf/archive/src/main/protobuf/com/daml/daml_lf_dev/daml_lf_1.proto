@@ -1637,11 +1637,11 @@ message DefInterface {
 
   // Binder for interface value ("this") in precond and fixed choices.
   int32 param_interned_str = 5;
-  Expr precond = 6;
-  repeated TemplateChoice choices = 7;
+
+  repeated TemplateChoice choices = 6;
 
   // Templates which this interface co-implements.
-  repeated CoImplements coImplements = 8; // *Available in versions >= 1.dev*
+  repeated CoImplements coImplements = 7;
 
   // View type for this interface
   Type view = 9;
