@@ -118,8 +118,54 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   })
 
   test(
-    "ISTransactionsDuplicateFilters",
-    "Subscribing on transaction stream by interface or template with duplicate filters",
+    "ISTransactionsIrrelevantTransactions",
+    "Subscribing on transaction stream by interface with no relevant transactions",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    for {
+      _ <- ledger.create(party, T1(party, 4)) // Does not implement I
+      transactions <- ledger.flatTransactions(
+        transactionSubscription(
+          party,
+          Seq.empty,
+          Seq((InterfaceId, true)),
+          ledger,
+        )
+      )
+    } yield {
+      assertLength("0 transactions should be found", 0, transactions)
+      ()
+    }
+  })
+
+  test(
+    "ISTransactionsDuplicateInterfaceFilters",
+    "Subscribing on transaction stream by interface with duplicate filters",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    for {
+      failure <- ledger
+        .flatTransactions(
+          transactionSubscription(
+            party,
+            Seq(Tag.unwrap(T1.id)),
+            Seq((InterfaceId, true), (InterfaceId, false), (InterfaceWithNoViewId, true)),
+            ledger,
+          )
+        )
+        .mustFail("subscribing with duplicate interface filters")
+    } yield {
+      assertGrpcError(
+        failure,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
+        Some(s"interfaceIds must be unique"),
+      )
+    }
+  })
+
+  test(
+    "ISTransactionsDuplicateTemplateFilters",
+    "Subscribing on transaction stream by template with duplicate filters",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
@@ -128,16 +174,16 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
           transactionSubscription(
             party,
             Seq(Tag.unwrap(T1.id), Tag.unwrap(T1.id)),
-            Seq((InterfaceId, true), (InterfaceId, false), (InterfaceWithNoViewId, true)),
+            Seq((InterfaceId, true), (InterfaceWithNoViewId, true)),
             ledger,
           )
         )
-        .mustFail("subscribing with duplicate filters")
+        .mustFail("subscribing with duplicate template filters")
     } yield {
       assertGrpcError(
         failure,
         LedgerApiErrors.RequestValidation.InvalidArgument,
-        Some(s"interfaceIds must be unique"),
+        Some(s"templateIds must be unique"),
       )
     }
   })
@@ -400,8 +446,29 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   })
 
   test(
-    "ISAcsDuplicateFilters",
-    "Subscribing on ACS stream by interface or template with duplicate filters",
+    "ISAcsIrrelevantFilters",
+    "Subscribing on ACS stream by interface with no relevant transactions",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    for {
+      _ <- ledger.create(party, T4(party, 4)) // Does not implement I
+      (_, acs) <- ledger.activeContracts(
+        acsSubscription(
+          party,
+          Seq(Tag.unwrap(T1.id)),
+          Seq((InterfaceId, true), (InterfaceWithNoViewId, true)),
+          ledger,
+        )
+      )
+    } yield {
+      assertLength("0 transactions should be found", 0, acs)
+      ()
+    }
+  })
+
+  test(
+    "ISAcsDuplicateInterfaceFilters",
+    "Subscribing on ACS stream by interface duplicate filters",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
@@ -414,12 +481,37 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
             ledger,
           )
         )
-        .mustFail("subscribing with duplicate filters")
+        .mustFail("subscribing with duplicate interface filter")
     } yield {
       assertGrpcError(
         failure,
         LedgerApiErrors.RequestValidation.InvalidArgument,
         Some(s"interfaceIds must be unique"),
+      )
+    }
+  })
+
+  test(
+    "ISAcsDuplicateTemplateFilters",
+    "Subscribing on ACS stream by template duplicate filters",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    for {
+      failure <- ledger
+        .activeContracts(
+          acsSubscription(
+            party,
+            Seq(Tag.unwrap(T1.id), Tag.unwrap(T1.id)),
+            Seq((InterfaceId, true)),
+            ledger,
+          )
+        )
+        .mustFail("subscribing with duplicate template filter")
+    } yield {
+      assertGrpcError(
+        failure,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
+        Some(s"templateIds must be unique"),
       )
     }
   })
