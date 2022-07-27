@@ -23,6 +23,9 @@ module DA.Daml.LF.Ast.World(
     lookupValue,
     lookupModule,
     lookupInterface,
+    lookupTemplateImplements,
+    lookupInterfaceCoImplements,
+    lookupTemplateImplementsOrInterfaceCoImplements,
     ) where
 
 import DA.Pretty
@@ -35,10 +38,14 @@ import Data.List
 import qualified Data.NameMap as NM
 import GHC.Generics
 import Data.Either.Extra (maybeToEither)
+import Data.Functor.Alt ((<!>))
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Pretty ()
 import DA.Daml.LF.Ast.Version
+
+import DA.Daml.LF.TemplateOrInterface (TemplateOrInterface)
+import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 
 -- | The 'World' contains all imported packages together with (a subset of)
 -- the modules of the current package. The latter shall always be closed under
@@ -103,6 +110,9 @@ data LookupError
   | LEChoice !(Qualified TypeConName) !ChoiceName
   | LEInterface !(Qualified TypeConName)
   | LEInterfaceMethod !(Qualified TypeConName) !MethodName
+  | LETemplateImplements !(Qualified TypeConName) !(Qualified TypeConName)
+  | LEInterfaceCoImplements !(Qualified TypeConName) !(Qualified TypeConName)
+  | LETemplateImplementsOrInterfaceCoImplements !(Qualified TypeConName) !(Qualified TypeConName)
   deriving (Eq, Ord, Show)
 
 lookupModule :: Qualified a -> World -> Either LookupError Module
@@ -168,6 +178,28 @@ lookupInterfaceMethod (ifaceRef, methodName) world = do
   maybeToEither (LEInterfaceMethod ifaceRef methodName) $
       NM.lookup methodName (intMethods iface)
 
+lookupTemplateImplements :: Qualified TypeConName -> Qualified TypeConName -> World -> Either LookupError TemplateImplements
+lookupTemplateImplements templateRef interfaceRef world = do
+  Template{..} <- lookupTemplate templateRef world
+  maybeToEither (LETemplateImplements templateRef interfaceRef) $
+    NM.lookup interfaceRef tplImplements
+
+lookupInterfaceCoImplements :: Qualified TypeConName -> Qualified TypeConName -> World -> Either LookupError InterfaceCoImplements
+lookupInterfaceCoImplements templateRef interfaceRef world = do
+  DefInterface{..} <- lookupInterface interfaceRef world
+  maybeToEither (LEInterfaceCoImplements templateRef interfaceRef) $
+    NM.lookup templateRef intCoImplements
+
+lookupTemplateImplementsOrInterfaceCoImplements ::
+     Qualified TypeConName
+  -> Qualified TypeConName
+  -> World
+  -> Either LookupError (TemplateOrInterface TemplateImplements InterfaceCoImplements)
+lookupTemplateImplementsOrInterfaceCoImplements templateRef interfaceRef world =
+  (TemplateOrInterface.Template <$> lookupTemplateImplements templateRef interfaceRef world)
+  <!> (TemplateOrInterface.Interface <$> lookupInterfaceCoImplements templateRef interfaceRef world)
+  <!> Left (LETemplateImplementsOrInterfaceCoImplements templateRef interfaceRef)
+
 instance Pretty LookupError where
   pPrint = \case
     LEPackage pkgId -> "unknown package:" <-> pretty pkgId
@@ -181,3 +213,6 @@ instance Pretty LookupError where
     LEChoice tplRef chName -> "unknown choice:" <-> pretty tplRef <> ":" <> pretty chName
     LEInterface ifaceRef -> "unknown interface:" <-> pretty ifaceRef
     LEInterfaceMethod ifaceRef methodName -> "unknown interface method:" <-> pretty ifaceRef <> "." <> pretty methodName
+    LETemplateImplements templateRef interfaceRef -> "unknown template implementation of interface:" <-> pretty templateRef <-> pretty interfaceRef
+    LEInterfaceCoImplements templateRef interfaceRef -> "unknown template co-implementation of interface:" <-> pretty templateRef <-> pretty interfaceRef
+    LETemplateImplementsOrInterfaceCoImplements templateRef interfaceRef -> "unknown template implementation or co-implementation of interface:" <-> pretty templateRef <-> pretty interfaceRef

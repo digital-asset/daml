@@ -22,6 +22,7 @@ da_haskell_library(
         "recursion-schemes",
         "safe",
         "scientific",
+        "semigroupoids",
         "template-haskell",
         "text",
         "time",
