@@ -48,6 +48,14 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
             disclosedCaveContractInvalidTemplate,
           )
         }
+
+        "duplicate disclosed contract IDs" in {
+          duplicateDisclosedContractId(
+            SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
+            disclosedCaveContract,
+            caveTemplateId,
+          )
+        }
       }
 
       "ledger queried when contract ID is not disclosed" in {
@@ -184,6 +192,18 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
             disclosedHouseContractNoHash,
           )
         }
+
+        "duplicate disclosed contract IDs" in {
+          duplicateDisclosedContractId(
+            SBUFetchKey(houseTemplateId)(SEValue(contractSKey)),
+            disclosedHouseContract,
+            houseTemplateId,
+          )
+        }
+
+        "duplicate disclosed contract key hashes" in {
+          duplicateDisclosedContractKey(SBUFetchKey(houseTemplateId)(SEValue(contractSKey)))
+        }
       }
 
       "ledger queried when contract key is not disclosed" in {
@@ -313,6 +333,18 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
             SBULookupKey(houseTemplateId)(SEValue(contractSKey)),
             disclosedHouseContractNoHash,
           )
+        }
+
+        "duplicate disclosed contract IDs" in {
+          duplicateDisclosedContractId(
+            SBULookupKey(houseTemplateId)(SEValue(contractSKey)),
+            disclosedHouseContract,
+            houseTemplateId,
+          )
+        }
+
+        "duplicate disclosed contract keys" in {
+          duplicateDisclosedContractKey(SBULookupKey(houseTemplateId)(SEValue(contractSKey)))
         }
       }
 
@@ -483,6 +515,8 @@ object ExplicitDisclosureTest {
     Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-ledger-contract-id"))
   val disclosureContractId: ContractId =
     Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-disclosure-contract-id"))
+  val altDisclosureContractId: ContractId =
+    Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-alternative-disclosure-contract-id"))
   val invalidTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:Invalid")
   val houseTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:House")
   val houseTemplateType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:House")
@@ -514,6 +548,8 @@ object ExplicitDisclosureTest {
   )
   val disclosedHouseContract: DisclosedContract =
     buildDisclosedHouseContract(disclosureContractId, disclosureParty, maintainerParty)
+  val disclosedHouseContractWithDuplicateKey: DisclosedContract =
+    buildDisclosedHouseContract(altDisclosureContractId, disclosureParty, maintainerParty)
   val disclosedCaveContract: DisclosedContract =
     buildDisclosedCaveContract(contractId, disclosureParty)
 
@@ -769,6 +805,41 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
           contractId,
           disclosedContract.templateId,
         )
+      )
+    )
+  }
+
+  def duplicateDisclosedContractId(
+      sexpr: SExpr.SExpr,
+      disclosedContract: DisclosedContract,
+      templateId: Ref.Identifier,
+  ): Assertion = {
+    val error = intercept[SError.SErrorDamlException] {
+      evaluateSExpr(
+        sexpr,
+        disclosedContracts = ImmArray(disclosedContract, disclosedContract),
+      )
+    }
+
+    error shouldBe SError.SErrorDamlException(
+      DisclosurePreprocessing(
+        DisclosurePreprocessing.DuplicateContractIds(templateId)
+      )
+    )
+  }
+
+  def duplicateDisclosedContractKey(sexpr: SExpr.SExpr): Assertion = {
+    val error = intercept[SError.SErrorDamlException] {
+      evaluateSExpr(
+        sexpr,
+        disclosedContracts =
+          ImmArray(disclosedHouseContract, disclosedHouseContractWithDuplicateKey),
+      )
+    }
+
+    error shouldBe SError.SErrorDamlException(
+      DisclosurePreprocessing(
+        DisclosurePreprocessing.DuplicateContractKeys(houseTemplateId)
       )
     )
   }
