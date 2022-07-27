@@ -1453,6 +1453,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           payload = payload,
           choice = lar.Choice("CreateN"),
           argument = boxedRecord(recordFromFields(ShRecord(n = v.Value.Sum.Int64(numContracts)))),
+          choiceInterfaceId = None,
           meta = None,
         )
 
@@ -1475,6 +1476,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
               )
             )
           ),
+          choiceInterfaceId = None,
           meta = None,
         )
 
@@ -1535,7 +1537,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           following: Seq[domain.Party] = Seq.empty,
       ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
         val followingList = lfToApi(
-          VAx.seq(VAx.partyStr).inj(domain.Party unsubst following)
+          VAx.seq(VAx.partyDomain).inj(following)
         ).sum
         val arg = recordFromFields(
           ShRecord(
@@ -1555,7 +1557,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         val arg = recordFromFields(ShRecord(userToFollow = v.Value.Sum.Party(toFollow.unwrap)))
         val choice = lar.Choice("Follow")
 
-        domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
+        domain.ExerciseCommand(reference, choice, boxedRecord(arg), None, None)
       }
 
       def followUser(contractId: lar.ContractId, actAs: domain.Party, toFollow: domain.Party) = {

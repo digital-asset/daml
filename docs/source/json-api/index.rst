@@ -652,6 +652,7 @@ HTTP Request
 
     {
         "templateId": "Iou:Iou",
+        "choiceInterfaceId": "Iou:Iou",
         "contractId": "#124:0",
         "choice": "Iou_Transfer",
         "argument": {
@@ -662,9 +663,14 @@ HTTP Request
 Where:
 
 - ``templateId`` -- contract template or interface identifier, same as in :ref:`create request <create-request>`,
+- ``choiceInterfaceId`` -- *optional* template or interface that defines the choice, same format as ``templateId``,
 - ``contractId`` -- contract identifier, the value from the  :ref:`create response <create-response>`,
 - ``choice`` -- Daml contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s).
+
+``templateId`` and ``choiceInterfaceId`` are treated as with :ref:`exercise by key <exercise-by-key-templateId-choiceInterfaceId>`.
+However, because ``contractId`` is always unambiguous, you may alternatively simply specify the interface ID as the ``templateId`` argument, and ignore ``choiceInterfaceId`` entirely.
+This isn't true of exercise-by-key or create-and-exercise, so we suggest treating this request as if this alternative isn't available.
 
 .. _exercise-response:
 
@@ -757,6 +763,7 @@ HTTP Request
             "_1": "Alice",
             "_2": "abc123"
         },
+        "choiceInterfaceId": "Account:Account",
         "choice": "Archive",
         "argument": {}
     }
@@ -765,8 +772,17 @@ Where:
 
 - ``templateId`` -- contract template identifier, same as in :ref:`create request <create-request>`,
 - ``key`` -- contract key, formatted according to the :doc:`lf-value-specification`,
+- ``choiceInterfaceId`` -- *optional* template or interface that defines the choice, same format as ``templateId``,
 - ``choice`` -- Daml contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s), empty, because ``Archive`` does not take any.
+
+.. _exercise-by-key-templateId-choiceInterfaceId:
+
+``key`` is always searched in relation to the ``templateId``.
+The ``choice``, on the other hand, is searched according to ``choiceInterfaceId``; if ``choiceInterfaceId`` is not specified, ``templateId`` is its default.
+We recommend always specifying ``choiceInterfaceId`` when invoking an interface choice; however, if the set of Daml-LF packages on the participant only contains one choice with a given name associated with ``templateId``, that choice will be exercised, regardless of where it is defined.
+If a template *and* one or more of the interfaces it implements declares a choice, and ``choiceInterfaceId`` is not used, the one directly defined on the choice will be exercised.
+If choice selection is still ambiguous given these rules, the endpoint will fail as if the choice isn't defined.
 
 HTTP Response
 =============
@@ -797,6 +813,7 @@ HTTP Request
         "currency": "USD",
         "owner": "Alice"
       },
+      "choiceInterfaceId": "Iou:Iou",
       "choice": "Iou_Transfer",
       "argument": {
         "newOwner": "Bob"
@@ -807,8 +824,11 @@ Where:
 
 - ``templateId`` -- the initial contract template identifier, in the same format as in the :ref:`create request <create-request>`,
 - ``payload`` -- the initial contract fields as defined in the Daml template and formatted according to :doc:`lf-value-specification`,
+- ``choiceInterfaceId`` -- *optional* template or interface that defines the choice, same format as ``templateId``,
 - ``choice`` -- Daml contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s).
+
+``templateId`` and ``choiceInterfaceId`` are treated as with :ref:`exercise by key <exercise-by-key-templateId-choiceInterfaceId>`, with the exception that it is ``payload``, not ``key``, strictly interpreted according to ``templateId``.
 
 HTTP Response
 =============
