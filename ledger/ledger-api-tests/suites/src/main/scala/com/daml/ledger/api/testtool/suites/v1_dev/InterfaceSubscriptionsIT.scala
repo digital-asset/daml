@@ -32,6 +32,7 @@ import scalaz.Tag
 class InterfaceSubscriptionsIT extends LedgerTestSuite {
 
   private[this] val InterfaceId = Tag.unwrap(T1.id).copy(entityName = "I")
+  private[this] val InterfaceNoTemplateId = Tag.unwrap(T1.id).copy(entityName = "INoTemplate")
   private[this] val InterfaceWithNoViewId = Tag.unwrap(T1.id).copy(entityName = "INoView")
 
   test(
@@ -123,12 +124,12 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      _ <- ledger.create(party, T1(party, 4)) // Does not implement I
+      _ <- ledger.create(party, T4(party, 4)) // Does not implement I
       transactions <- ledger.flatTransactions(
         transactionSubscription(
           party,
           Seq.empty,
-          Seq((InterfaceId, true)),
+          Seq((InterfaceNoTemplateId, true)),
           ledger,
         )
       )
@@ -144,22 +145,35 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      failure <- ledger
-        .flatTransactions(
-          transactionSubscription(
-            party,
-            Seq(Tag.unwrap(T1.id)),
-            Seq((InterfaceId, true), (InterfaceId, false), (InterfaceWithNoViewId, true)),
-            ledger,
-          )
+      c1 <- ledger.create(
+        party,
+        T1(party, 1),
+      ) // Implements 2 views: I with view (1, true), INoView with no view
+      c2 <- ledger.create(party, T2(party, 2)) // Implements I with view (2, false)
+      c3 <- ledger.create(party, T3(party, 3)) // Implements I with a view that crashes
+      _ <- ledger.create(party, T4(party, 4)) // Does not implement I
+      transactions <- ledger.flatTransactions(
+        transactionSubscription(
+          party,
+          Seq(Tag.unwrap(T1.id)),
+          Seq((InterfaceId, false), (InterfaceId, true), (InterfaceWithNoViewId, true)),
+          ledger,
         )
-        .mustFail("subscribing with duplicate interface filters")
-    } yield {
-      assertGrpcError(
-        failure,
-        LedgerApiErrors.RequestValidation.InvalidArgument,
-        Some(s"interfaceIds must be unique"),
       )
+    } yield {
+      val createdEvent1 = createdEvents(transactions(0)).head
+      assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.toString)
+      val createdEvent2 = createdEvents(transactions(1)).head
+      assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.toString)
+      // Expect view to be delivered even though there is an ambiguous
+      // includeInterfaceView flag set to true and false at the same time.
+      assertViewEquals(createdEvent2.interfaceViews.head, InterfaceId) { value =>
+        assertLength("View2 has 2 fields", 2, value.fields)
+        assertEquals("View2.a", value.fields(0).getValue.getInt64, 2)
+        assertEquals("View2.b", value.fields(1).getValue.getBool, false)
+      }
+      val createdEvent3 = createdEvents(transactions(2)).head
+      assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3.toString)
     }
   })
 
@@ -169,22 +183,35 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      failure <- ledger
-        .flatTransactions(
-          transactionSubscription(
-            party,
-            Seq(Tag.unwrap(T1.id), Tag.unwrap(T1.id)),
-            Seq((InterfaceId, true), (InterfaceWithNoViewId, true)),
-            ledger,
-          )
+      c1 <- ledger.create(
+        party,
+        T1(party, 1),
+      ) // Implements 2 views: I with view (1, true), INoView with no view
+      c2 <- ledger.create(party, T2(party, 2)) // Implements I with view (2, false)
+      c3 <- ledger.create(party, T3(party, 3)) // Implements I with a view that crashes
+      _ <- ledger.create(party, T4(party, 4)) // Does not implement I
+      transactions <- ledger.flatTransactions(
+        transactionSubscription(
+          party,
+          Seq(Tag.unwrap(T1.id), Tag.unwrap(T1.id)),
+          Seq((InterfaceId, true), (InterfaceWithNoViewId, true)),
+          ledger,
         )
-        .mustFail("subscribing with duplicate template filters")
-    } yield {
-      assertGrpcError(
-        failure,
-        LedgerApiErrors.RequestValidation.InvalidArgument,
-        Some(s"templateIds must be unique"),
       )
+    } yield {
+      val createdEvent1 = createdEvents(transactions(0)).head
+      assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.toString)
+      val createdEvent2 = createdEvents(transactions(1)).head
+      assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.toString)
+      // Expect view to be delivered even though there is an ambiguous
+      // includeInterfaceView flag set to true and false at the same time.
+      assertViewEquals(createdEvent2.interfaceViews.head, InterfaceId) { value =>
+        assertLength("View2 has 2 fields", 2, value.fields)
+        assertEquals("View2.a", value.fields(0).getValue.getInt64, 2)
+        assertEquals("View2.b", value.fields(1).getValue.getBool, false)
+      }
+      val createdEvent3 = createdEvents(transactions(2)).head
+      assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3.toString)
     }
   })
 
@@ -456,7 +483,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
         acsSubscription(
           party,
           Seq(Tag.unwrap(T1.id)),
-          Seq((InterfaceId, true), (InterfaceWithNoViewId, true)),
+          Seq((InterfaceNoTemplateId, true)),
           ledger,
         )
       )
@@ -468,51 +495,58 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
 
   test(
     "ISAcsDuplicateInterfaceFilters",
-    "Subscribing on ACS stream by interface duplicate filters",
+    "Subscribing on ACS stream by interface with duplicate filters",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      failure <- ledger
-        .activeContracts(
-          acsSubscription(
-            party,
-            Seq(Tag.unwrap(T1.id)),
-            Seq((InterfaceId, true), (InterfaceId, true)),
-            ledger,
-          )
+      c1 <- ledger.create(
+        party,
+        T1(party, 1),
+      ) // Implements 2 views: I with view (1, true), INoView with no view
+      c2 <- ledger.create(party, T2(party, 2)) // Implements I with view (2, false)
+      c3 <- ledger.create(party, T3(party, 3)) // Implements I with a view that crashes
+      _ <- ledger.create(party, T4(party, 4)) // Does not implement I
+      (_, acs) <- ledger.activeContracts(
+        acsSubscription(
+          party,
+          Seq.empty,
+          Seq((InterfaceId, false), (InterfaceId, true), (InterfaceWithNoViewId, true)),
+          ledger,
         )
-        .mustFail("subscribing with duplicate interface filter")
-    } yield {
-      assertGrpcError(
-        failure,
-        LedgerApiErrors.RequestValidation.InvalidArgument,
-        Some(s"interfaceIds must be unique"),
       )
+    } yield {
+      val createdEvent1 = acs(0)
+      assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.toString)
+      val createdEvent2 = acs(1)
+      assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.toString)
+      val createdEvent3 = acs(2)
+      assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3.toString)
     }
   })
 
   test(
     "ISAcsDuplicateTemplateFilters",
-    "Subscribing on ACS stream by template duplicate filters",
+    "Subscribing on ACS stream by template with duplicate filters",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      failure <- ledger
-        .activeContracts(
-          acsSubscription(
-            party,
-            Seq(Tag.unwrap(T1.id), Tag.unwrap(T1.id)),
-            Seq((InterfaceId, true)),
-            ledger,
-          )
+      c1 <- ledger.create(
+        party,
+        T1(party, 1),
+      ) // Implements 2 views: I with view (1, true), INoView with no view
+      _ <- ledger.create(party, T2(party, 2)) // Implements I with view (2, false)
+      (_, acs) <- ledger.activeContracts(
+        acsSubscription(
+          party,
+          Seq(Tag.unwrap(T1.id), Tag.unwrap(T1.id)),
+          Seq.empty,
+          ledger,
         )
-        .mustFail("subscribing with duplicate template filter")
-    } yield {
-      assertGrpcError(
-        failure,
-        LedgerApiErrors.RequestValidation.InvalidArgument,
-        Some(s"templateIds must be unique"),
       )
+    } yield {
+      assertLength("1 transaction found", 1, acs)
+      val createdEvent1 = acs(0)
+      assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.toString)
     }
   })
 

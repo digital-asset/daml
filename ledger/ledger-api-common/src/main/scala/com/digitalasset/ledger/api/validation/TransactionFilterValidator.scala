@@ -47,7 +47,6 @@ object TransactionFilterValidator {
             validatedIdents <- inclusive.templateIds.toList traverse validateIdentifier
             validatedInterfaces <-
               inclusive.interfaceFilters.toList traverse validateInterfaceFilter
-            _ <- validateUniqueInterfaceIdsIn(validatedInterfaces)
           } yield domain.Filters(
             Some(InclusiveFilters(validatedIdents.toSet, validatedInterfaces.toSet))
           )
@@ -65,24 +64,4 @@ object TransactionFilterValidator {
       filter.includeInterfaceView,
     )
   }
-
-  // TODO DPP-1068: [implementation detail] unit testing
-  def validateUniqueInterfaceIdsIn(interfaceFilters: List[domain.InterfaceFilter])(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Unit] =
-    interfaceFilters
-      .map(_.interfaceId)
-      .groupMapReduce(identity)(_ => 1)(_ + _)
-      .toVector
-      .collect {
-        case (ref, count) if count > 1 => ref
-      } match {
-      case empty if empty.isEmpty => Right(())
-      case redundancies =>
-        Left(
-          ValidationErrors.invalidArgument(
-            s"interfaceIds must be unique, but [${redundancies.mkString(", ")}] were defined multiple times"
-          )
-        )
-    }
 }

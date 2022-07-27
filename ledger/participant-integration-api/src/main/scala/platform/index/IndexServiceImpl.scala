@@ -36,8 +36,8 @@ import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.daml.ledger.participant.state.index.v2.{
   ContractStore,
   IndexService,
-  MaximumLedgerTime,
   LedgerConfiguration,
+  MaximumLedgerTime,
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ApplicationId, Identifier, Party}
@@ -474,6 +474,16 @@ private[index] class IndexServiceImpl(
     templatesMessage + interfacesMessage
   }
 
+  // private def templateIds(
+  //     metadata: PackageMetadata
+  // )(inclusiveFilters: InclusiveFilters): Set[Identifier] =
+  //   inclusiveFilters.interfaceFilters.iterator
+  //     .map(_.interfaceId)
+  //     .flatMap(metadata.interfaceImplementedBy)
+  //     .flatten
+  //     .toSet
+  //     .++(inclusiveFilters.templateIds)
+//
   private def memoizedFilterRelationAndEventDisplayProperties(
       domainTransactionFilter: domain.TransactionFilter,
       verbose: Boolean,
@@ -497,6 +507,14 @@ private[index] class IndexServiceImpl(
                 .getOrElse(Set.empty)
             )
             .toMap,
+          // domainTransactionFilter.filtersByParty.collect {
+          //  case (party, Filters(Some(inclusiveFilters)))
+          //    if templateIds(metadata)(inclusiveFilters).nonEmpty =>
+          //    (party, templateIds(metadata)(inclusiveFilters))
+          //  case (party, Filters(None)) =>
+          //    (party, Set.empty[Identifier])
+          // }.toMap,
+
           EventDisplayProperties(
             verbose = verbose,
             populateContractArgument = (for {
