@@ -8,6 +8,7 @@ import java.time.{Instant, LocalDate}
 import com.daml.ledger.api.v1._
 import com.google.protobuf.Empty
 import org.scalacheck.{Arbitrary, Gen}
+import Arbitrary.arbitrary
 
 import scala.jdk.CollectionConverters._
 
@@ -320,10 +321,21 @@ object Generators {
   def inclusiveGen: Gen[TransactionFilterOuterClass.InclusiveFilters] =
     for {
       templateIds <- Gen.listOf(identifierGen)
+      interfaceFilters <- Gen.listOf(interfaceFilterGen)
     } yield TransactionFilterOuterClass.InclusiveFilters
       .newBuilder()
       .addAllTemplateIds(templateIds.asJava)
+      .addAllInterfaceFilters(interfaceFilters.asJava)
       .build()
+
+  private[this] def interfaceFilterGen: Gen[TransactionFilterOuterClass.InterfaceFilter] =
+    Gen.zip(identifierGen, arbitrary[Boolean]).map { case (interfaceId, includeInterfaceView) =>
+      TransactionFilterOuterClass.InterfaceFilter
+        .newBuilder()
+        .setInterfaceId(interfaceId)
+        .setIncludeInterfaceView(includeInterfaceView)
+        .build()
+    }
 
   def getActiveContractRequestGen: Gen[ActiveContractsServiceOuterClass.GetActiveContractsRequest] =
     for {
