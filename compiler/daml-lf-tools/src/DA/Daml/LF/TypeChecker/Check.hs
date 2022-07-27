@@ -882,7 +882,6 @@ checkIface m iface = do
   checkUnique (EDuplicateInterfaceChoiceName (intName iface)) $ NM.names (intChoices iface)
   introExprVar (intParam iface) (TCon tcon) $ do
     forM_ (intChoices iface) (checkTemplateChoice tcon)
-    checkExpr (intPrecondition iface) TBool
 
   -- check view method exists
   case NM.lookup (MethodName "_view") (intMethods iface) of
