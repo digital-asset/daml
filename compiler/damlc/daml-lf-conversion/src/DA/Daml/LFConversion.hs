@@ -248,7 +248,9 @@ data ModuleContents = ModuleContents
   , mcExceptionBinds :: MS.Map TypeConName ExceptionBinds
   , mcChoiceData :: MS.Map TypeConName [ChoiceData]
   , mcImplements :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
+    -- ^ Maps templates to implemented interfaces
   , mcCoImplements :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
+    -- ^ Maps interfaces to co-implemented templates
   , mcRequires :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
   , mcInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
   , mcInterfaces :: MS.Map TypeConName GHC.TyCon
