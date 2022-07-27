@@ -9,6 +9,7 @@ option java_outer_classname = "UserManagementServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 
+import "google/protobuf/field_mask.proto";
 
 // Service to manage users and their rights for interacting with the Ledger API
 // served by a participant node.
@@ -35,6 +36,8 @@ service UserManagementService {
     // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
     // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc GetUser (GetUserRequest) returns (GetUserResponse);
+
+    rpc UpdateUser (UpdateUserRequest) returns (UpdateUserResponse);
 
     // Delete an existing user and all its rights.
     // Errors:
@@ -74,8 +77,11 @@ service UserManagementService {
     // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
     // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc ListUserRights (ListUserRightsRequest) returns (ListUserRightsResponse);
-}
 
+    rpc AddUserProperties (AddUserPropertiesRequest) returns (AddUserPropertiesResponse);
+
+    rpc DeleteUserProperties (DeleteUserPropertiesRequest) returns (DeleteUserPropertiesResponse);
+}
 
 // Users and rights
 ///////////////////
@@ -98,6 +104,9 @@ message User {
     // Users for participant administrators MAY have an associated primary party.
     // Optional
     string primary_party = 2;
+
+    // Optional
+    bool is_deactivated = 5;
 }
 
 
@@ -140,6 +149,9 @@ message CreateUserRequest {
     // which SHOULD include appropriate rights for the ``user.primary_party``.
     // Required
     repeated Right rights = 2;
+
+    // Optional
+    repeated Property properties = 3;
 }
 
 message CreateUserResponse {
@@ -157,6 +169,26 @@ message GetUserRequest {
 
 message GetUserResponse {
     // Retrieved user.
+    User user = 1;
+}
+
+// https://cloud.google.com/apis/design/standard_methods#update
+// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmask
+message UpdateUserRequest {
+    // The user to update.
+    // Modifiable fields:
+    // 1. primary_party
+    // 2. is_deactivated
+    User user = 1;
+
+    // Specifies the fields of the user resource to be updated.
+    // At least one field must be specified.
+    // Required
+    FieldMask update_mask = 2;
+}
+
+message UpdateUserResponse {
+    // Update user
     User user = 1;
 }
 
@@ -245,3 +277,40 @@ message ListUserRightsResponse {
     // All rights of the user.
     repeated Right rights = 1;
 }
+
+
+message AddUserPropertiesRequest {
+    // Required
+    string user_id = 1;
+    // The properties to add.
+    // Ignores adding duplicate properties.
+    // If you need to update a property, you need to delete it first using a separate call.
+    // Required
+    repeated Property properties = 2;
+}
+message AddUserPropertiesResponse {
+    // The properties that were newly added by the request.
+    // Required
+    repeated Property newly_added_properties = 2;
+}
+
+message DeleteUserPropertiesRequest {
+    // Required
+    string user_id = 1;
+    // Properties to delete.
+    // Ignores deleting non-existing properties.
+    // Required
+    repeated Property properties = 2;
+}
+message DeleteUserPropertiesResponse {
+    // The properties that were actually deleted by the request.
+    repeated Property newly_deleted_properties = 1;
+}
+
+message Property {
+    // Required
+    string name = 1;
+    // Optional
+    string value = 2;
+}
+

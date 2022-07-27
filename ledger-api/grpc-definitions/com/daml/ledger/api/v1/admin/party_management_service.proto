@@ -63,6 +63,10 @@ service PartyManagementService {
   // The party identifier suggestion must be a valid party name. Party names are required to be non-empty US-ASCII strings built from letters, digits, space,
   // colon, minus and underscore limited to 255 chars
   rpc AllocateParty (AllocatePartyRequest) returns (AllocatePartyResponse);
+
+  rpc AddUserProperties (AddPartyPropertiesRequest) returns (AddPartyPropertiesResponse);
+
+  rpc DeleteUserProperties (DeletePartyPropertiesRequest) returns (DeletePartyPropertiesResponse);
 }
 
 message GetParticipantIdRequest {
@@ -113,6 +117,9 @@ message AllocatePartyRequest {
   // have to be unique.
   // Optional
   string display_name = 2;
+
+  // Optional
+  repeated Property properties = 3;
 }
 
 message AllocatePartyResponse {
@@ -135,4 +142,32 @@ message PartyDetails {
   // true if party is hosted by the backing participant.
   // Required
   bool is_local = 3;
+}
+
+message AddPartyPropertiesRequest {
+  // Required
+  string party = 1;
+  // The properties to add.
+  // Ignores adding duplicate properties.
+  // If you need to update a property, you need to delete it first using a separate call.
+  // Required
+  repeated Property properties = 2;
+}
+message AddPartyPropertiesResponse {
+  // The properties that were newly added by the request.
+  // Required
+  repeated Property newly_added_properties = 1;
+}
+
+message DeletePartyPropertiesRequest {
+  // Required
+  string party = 1;
+  // Properties to delete.
+  // Ignores deleting non-existing properties.
+  // Required
+  repeated Property properties = 2;
+}
+message DeletePartyPropertiesResponse {
+  // The properties that were actually deleted by the request.
+  repeated Party newly_deleted_properties = 1;
 }
