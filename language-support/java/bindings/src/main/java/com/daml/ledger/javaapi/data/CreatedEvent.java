@@ -48,17 +48,17 @@ public final class CreatedEvent implements Event, TreeEvent {
       @NonNull Optional<Value> contractKey,
       @NonNull Collection<@NonNull String> signatories,
       @NonNull Collection<@NonNull String> observers) {
-    this.witnessParties = Collections.unmodifiableList(new ArrayList<>(witnessParties));
+    this.witnessParties = List.copyOf(witnessParties);
     this.eventId = eventId;
     this.templateId = templateId;
     this.contractId = contractId;
     this.arguments = arguments;
-    this.interfaceViews = Collections.unmodifiableMap(interfaceViews);
-    this.failedInterfaceViews = Collections.unmodifiableMap(failedInterfaceViews);
+    this.interfaceViews = Map.copyOf(interfaceViews);
+    this.failedInterfaceViews = Map.copyOf(failedInterfaceViews);
     this.agreementText = agreementText;
     this.contractKey = contractKey;
-    this.signatories = Collections.unmodifiableSet(new HashSet<>(signatories));
-    this.observers = Collections.unmodifiableSet(new HashSet<>(observers));
+    this.signatories = Set.copyOf(signatories);
+    this.observers = Set.copyOf(observers);
   }
 
   /**
