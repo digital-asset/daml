@@ -123,35 +123,22 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      c1 <- ledger.create(
-        party,
-        T1(party, 1),
-      ) // Implements 2 views: I with view (1, true), INoView with no view
-      c2 <- ledger.create(party, T2(party, 2)) // Implements I with view (2, false)
-      c3 <- ledger.create(party, T3(party, 3)) // Implements I with a view that crashes
-      _ <- ledger.create(party, T4(party, 4)) // Does not implement I
-      transactions <- ledger.flatTransactions(
-        transactionSubscription(
-          party,
-          Seq(Tag.unwrap(T1.id), Tag.unwrap(T1.id)),
-          Seq((InterfaceId, true), (InterfaceId, false), (InterfaceWithNoViewId, true)),
-          ledger,
+      failure <- ledger
+        .flatTransactions(
+          transactionSubscription(
+            party,
+            Seq(Tag.unwrap(T1.id), Tag.unwrap(T1.id)),
+            Seq((InterfaceId, true), (InterfaceId, false), (InterfaceWithNoViewId, true)),
+            ledger,
+          )
         )
-      )
+        .mustFail("subscribing with duplicate filters")
     } yield {
-      val createdEvent1 = createdEvents(transactions(0)).head
-      assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.toString)
-      val createdEvent2 = createdEvents(transactions(1)).head
-      assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.toString)
-      // Expect view to be delivered even though there is an ambiguous
-      // includeInterfaceView flag set to true and false at the same time.
-      assertViewEquals(createdEvent2.interfaceViews.head, InterfaceId) { value =>
-        assertLength("View2 has 2 fields", 2, value.fields)
-        assertEquals("View2.a", value.fields(0).getValue.getInt64, 2)
-        assertEquals("View2.b", value.fields(1).getValue.getBool, false)
-      }
-      val createdEvent3 = createdEvents(transactions(2)).head
-      assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3.toString)
+      assertGrpcError(
+        failure,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
+        Some(s"interfaceIds must be unique"),
+      )
     }
   })
 
@@ -418,28 +405,22 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      c1 <- ledger.create(
-        party,
-        T1(party, 1),
-      ) // Implements 2 views: I with view (1, true), INoView with no view
-      c2 <- ledger.create(party, T2(party, 2)) // Implements I with view (2, false)
-      c3 <- ledger.create(party, T3(party, 3)) // Implements I with a view that crashes
-      _ <- ledger.create(party, T4(party, 4)) // Does not implement I
-      (_, acs) <- ledger.activeContracts(
-        acsSubscription(
-          party,
-          Seq(Tag.unwrap(T1.id)),
-          Seq((InterfaceId, true), (InterfaceWithNoViewId, true)),
-          ledger,
+      failure <- ledger
+        .activeContracts(
+          acsSubscription(
+            party,
+            Seq(Tag.unwrap(T1.id)),
+            Seq((InterfaceId, true), (InterfaceId, true)),
+            ledger,
+          )
         )
-      )
+        .mustFail("subscribing with duplicate filters")
     } yield {
-      val createdEvent1 = acs(0)
-      assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.toString)
-      val createdEvent2 = acs(1)
-      assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.toString)
-      val createdEvent3 = acs(2)
-      assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3.toString)
+      assertGrpcError(
+        failure,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
+        Some(s"interfaceIds must be unique"),
+      )
     }
   })
 
@@ -584,7 +565,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       _ <- ledger.create(party, T1(party, 1))
       failure <- ledger
         .activeContracts(
-          acsSubscription(party, Seq.empty, Seq((unknownTemplate, true)), ledger)
+          acsSubscription(party, Seq(unknownTemplate), Seq.empty, ledger)
         )
         .mustFail("subscribing with an unknown template")
     } yield {

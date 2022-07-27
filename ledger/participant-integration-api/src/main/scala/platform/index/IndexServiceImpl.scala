@@ -28,6 +28,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
@@ -36,7 +37,7 @@ import com.daml.ledger.participant.state.index.v2.{
   ContractStore,
   IndexService,
   MaximumLedgerTime,
-  _,
+  LedgerConfiguration,
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ApplicationId, Identifier, Party}
@@ -61,7 +62,6 @@ import com.daml.telemetry.{Event, SpanAttribute, Spans}
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
 
 private[index] class IndexServiceImpl(
     val ledgerId: LedgerId,
@@ -420,35 +420,59 @@ private[index] class IndexServiceImpl(
   private def toAbsolute(offset: Offset): LedgerOffset.Absolute =
     LedgerOffset.Absolute(offset.toApiString)
 
-  // TODO DPP-1068: [implementation detail] it should be considered to move this along to other validations in TransaactionFilterValidatior (probably together with other occurrences in this file regarding input validation with additional data)
+  // TODO DPP-1068: unit test it
   private def withValidatedFilter[T](domainTransactionFilter: domain.TransactionFilter)(
       source: => Source[T, NotUsed]
-  ): Source[T, NotUsed] =
-    // TODO DPP-1068: [implementation detail] maybe do fancy scalaz traverse with Either
-    Try(
-      packageMetadataView(metadata =>
-        for {
-          (_, inclusiveFilterOption) <- domainTransactionFilter.filtersByParty.iterator
-          inclusiveFilter <- inclusiveFilterOption.inclusive.iterator
-        } {
+  )(implicit loggingContext: LoggingContext): Source[T, NotUsed] = {
+    implicit val errorLogger: DamlContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
+    val unknownTemplatesOrInterfaces = packageMetadataView(metadata =>
+      for {
+        (_, inclusiveFilterOption) <- domainTransactionFilter.filtersByParty.iterator
+        inclusiveFilter <- inclusiveFilterOption.inclusive.iterator
+        unknownInterfaces =
           inclusiveFilter.interfaceFilters
-            .find(interfaceFilter => !metadata.interfaceExists(interfaceFilter.interfaceId))
-            .map(interfaceFilter =>
-              // TODO DPP-1068: [implementation detail] throw proper error code
-              throw new Exception(s"Interface [${interfaceFilter.interfaceId}] does not exist")
-            )
-          inclusiveFilter.templateIds
-            .find(templateId => !metadata.templateExists(templateId))
-            .map(templateId =>
-              // TODO DPP-1068: [implementation detail] throw proper error code
-              throw new Exception(s"Template [$templateId] does not exist")
-            )
-        }
-      )()
-    ) match {
-      case Success(()) => source
-      case Failure(exception) => Source.failed(exception)
+            .collect {
+              case interfaceFilter if !metadata.interfaceExists(interfaceFilter.interfaceId) =>
+                Right(interfaceFilter.interfaceId)
+            }
+        unknownTemplates = inclusiveFilter.templateIds
+          .collect {
+            case templateId if !metadata.templateExists(templateId) => Left(templateId)
+          }
+        unknownTemplateOrInterface <- unknownInterfaces ++ unknownTemplates
+      } yield unknownTemplateOrInterface
+    )().toList
+
+    if (unknownTemplatesOrInterfaces.nonEmpty) {
+      Source.failed(
+        invalidArgument(
+          invalidTemplateOrInterfaceMessage(unknownTemplatesOrInterfaces)
+        )
+      )
+    } else
+      source
+  }
+
+  private def invalidTemplateOrInterfaceMessage(
+      unknownTemplatesOrInterfaces: List[Either[Identifier, Identifier]]
+  ) = {
+    val templates = unknownTemplatesOrInterfaces.collect { case Left(value) =>
+      value
     }
+    val interfaces = unknownTemplatesOrInterfaces.collect { case Right(value) =>
+      value
+    }
+    val templatesMessage = if (templates.nonEmpty) {
+      s"Templates do not exist: [${templates.mkString(",")}]. "
+    } else ""
+    val interfacesMessage = if (interfaces.nonEmpty) {
+      s"Interfaces do not exist: [${interfaces.mkString(",")}]. "
+    } else
+      ""
+    templatesMessage + interfacesMessage
+  }
 
   private def memoizedFilterRelationAndEventDisplayProperties(
       domainTransactionFilter: domain.TransactionFilter,
