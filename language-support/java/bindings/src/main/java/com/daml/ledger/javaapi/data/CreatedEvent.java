@@ -7,6 +7,8 @@ import com.daml.ledger.api.v1.EventOuterClass;
 import com.google.protobuf.StringValue;
 import com.google.rpc.Status;
 import java.util.*;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -222,18 +224,10 @@ public final class CreatedEvent implements Event, TreeEvent {
                 Stream.concat(
                         interfaceViews.entrySet().stream()
                             .map(
-                                e ->
-                                    EventOuterClass.InterfaceView.newBuilder()
-                                        .setInterfaceId(e.getKey().toProto())
-                                        .setViewValue(e.getValue().toProtoRecord())
-                                        .build()),
+                                toProtoInterfaceView(
+                                    (b, dr) -> b.setViewValue(dr.toProtoRecord()))),
                         failedInterfaceViews.entrySet().stream()
-                            .map(
-                                e ->
-                                    EventOuterClass.InterfaceView.newBuilder()
-                                        .setInterfaceId(e.getKey().toProto())
-                                        .setViewStatus(e.getValue())
-                                        .build()))
+                            .map(toProtoInterfaceView((b, status) -> b.setViewStatus(status))))
                     .collect(Collectors.toUnmodifiableList()))
             .setEventId(this.getEventId())
             .setTemplateId(this.getTemplateId().toProto())
@@ -243,6 +237,18 @@ public final class CreatedEvent implements Event, TreeEvent {
     agreementText.ifPresent(a -> builder.setAgreementText(StringValue.of(a)));
     contractKey.ifPresent(a -> builder.setContractKey(a.toProto()));
     return builder.build();
+  }
+
+  private static <V>
+      Function<Map.Entry<Identifier, V>, EventOuterClass.InterfaceView> toProtoInterfaceView(
+          BiFunction<
+                  EventOuterClass.InterfaceView.Builder, V, EventOuterClass.InterfaceView.Builder>
+              addV) {
+    return e ->
+        addV.apply(
+                EventOuterClass.InterfaceView.newBuilder().setInterfaceId(e.getKey().toProto()),
+                e.getValue())
+            .build();
   }
 
   public static CreatedEvent fromProto(EventOuterClass.CreatedEvent createdEvent) {
