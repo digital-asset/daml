@@ -28,9 +28,10 @@ class EventSpec extends AnyFlatSpec with Matchers with ScalaCheckDrivenPropertyC
   "CreatedEvents" should "be protected from mutations of the parameters" in forAll(
     createdEventGen
   ) { e =>
-    val mutatingWitnesses = new java.util.ArrayList[String](e.getWitnessPartiesList)
-    val mutatingSignatories = new java.util.ArrayList[String](e.getSignatoriesList)
-    val mutatingObservers = new java.util.ArrayList[String](e.getObserversList)
+    def mcopy[X](xs: java.util.Collection[_ <: X]) = new java.util.ArrayList[X](xs)
+    val mutatingWitnesses = mcopy(e.getWitnessPartiesList)
+    val mutatingSignatories = mcopy(e.getSignatoriesList)
+    val mutatingObservers = mcopy(e.getObserversList)
 
     val event = new CreatedEvent(
       mutatingWitnesses,
