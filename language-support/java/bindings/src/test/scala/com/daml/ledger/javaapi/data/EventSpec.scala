@@ -71,17 +71,7 @@ class EventSpec extends AnyFlatSpec with Matchers with ScalaCheckDrivenPropertyC
   }
 
   "CreatedEvents" should "disallow mutation of its mutable fields" in forAll(createdEventGen) { e =>
-    val event = new CreatedEvent(
-      e.getWitnessPartiesList,
-      e.getEventId,
-      Identifier.fromProto(e.getTemplateId),
-      e.getContractId,
-      DamlRecord.fromProto(e.getCreateArguments),
-      java.util.Optional.empty(),
-      java.util.Optional.empty(),
-      e.getSignatoriesList,
-      e.getObserversList,
-    )
+    val event = CreatedEvent fromProto e
 
     an[UnsupportedOperationException] shouldBe thrownBy(event.getWitnessParties.add("INTRUDER!"))
     an[UnsupportedOperationException] shouldBe thrownBy(event.getSignatories.add("INTRUDER!"))

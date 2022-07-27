@@ -226,11 +226,20 @@ object Generators {
       archivedEventGen.map(e => (b: EventOuterClass.Event.Builder) => b.setArchived(e).build()),
     )
 
+  private[this] val failingStatusGen = Gen const com.google.rpc.Status.getDefaultInstance
+
+  private[this] val interfaceViewGen: Gen[EventOuterClass.InterfaceView] =
+    Gen.zip(identifierGen, Gen.either(recordGen, failingStatusGen)).map { case (id, vs) =>
+      val b = EventOuterClass.InterfaceView.newBuilder().setInterfaceId(id)
+      vs.fold(b.setViewValue, b.setViewStatus).build()
+    }
+
   val createdEventGen: Gen[EventOuterClass.CreatedEvent] =
     for {
       contractId <- contractIdValueGen.map(_.getContractId)
       templateId <- identifierGen
       createArgument <- recordGen
+      interfaceViews <- Gen.listOf(interfaceViewGen)
       eventId <- Arbitrary.arbString.arbitrary
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
       signatories <- Gen.listOf(Gen.asciiPrintableStr)
@@ -240,7 +249,7 @@ object Generators {
       .setContractId(contractId)
       .setTemplateId(templateId)
       .setCreateArguments(createArgument)
-      // TODO #14537 addAllInterfaceViews
+      .addAllInterfaceViews(interfaceViews.asJava)
       .setEventId(eventId)
       .addAllWitnessParties(witnessParties.asJava)
       .addAllSignatories(signatories.asJava)
