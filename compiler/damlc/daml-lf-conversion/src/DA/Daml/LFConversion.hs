@@ -248,6 +248,7 @@ data ModuleContents = ModuleContents
   , mcExceptionBinds :: MS.Map TypeConName ExceptionBinds
   , mcChoiceData :: MS.Map TypeConName [ChoiceData]
   , mcImplements :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
+  , mcCoImplements :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
   , mcRequires :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
   , mcInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
   , mcInterfaces :: MS.Map TypeConName GHC.TyCon
@@ -283,6 +284,13 @@ extractModuleContents env@Env{..} coreModule modIface details = do
       , "_implements_" `T.isPrefixOf` getOccText name
       , TypeCon implementsT [TypeCon tpl [], TypeCon iface []] <- [varType name]
       , NameIn DA_Internal_Desugar "ImplementsT" <- [implementsT]
+      ]
+    mcCoImplements = MS.fromListWith (++)
+      [ (mkTypeCon [getOccText iface], [(convNameLoc name, tpl)])
+      | (name, _val) <- mcBinds
+      , "_coimplements_" `T.isPrefixOf` getOccText name
+      , TypeCon coImplementsT [TypeCon tpl [], TypeCon iface []] <- [varType name]
+      , NameIn DA_Internal_Desugar "CoImplementsT" <- [coImplementsT]
       ]
     mcRequires = MS.fromListWith (++)
       [ (mkTypeCon [getOccText iface1], [(convNameLoc name, iface2)])
@@ -1079,6 +1087,8 @@ convertBind env mc (name, x)
     -- These are only used as markers for the LF conversion.
     | "_implements_" `T.isPrefixOf` getOccText name
     = pure []
+    | "_coimplements_" `T.isPrefixOf` getOccText name
+    = pure []
     | "_requires_" `T.isPrefixOf` getOccText name
     = pure []
     -- These are moved into interface implementations so we can drop them
@@ -1201,6 +1211,7 @@ desugarTypes = mkUniqSet
     , "Method"
     , "HasMethod"
     , "ImplementsT"
+    , "CoImplementsT"
     , "RequiresT"
     , "InterfaceView"
     , "HasInterfaceView"
