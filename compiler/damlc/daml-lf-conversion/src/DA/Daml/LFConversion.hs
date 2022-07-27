@@ -611,24 +611,22 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
 
         toEnvStage1 :: Env0 -> ConvertM Env
         toEnvStage1 env0 = do
-          envInterfaceMethodInstances <-
-            fmap (MS.fromListWith (++))
-            $ sequence
-            $ [ do
-                  tplTyCon <- convertQualifiedTyCon env0 tpl
-                  ifaceTyCon <- convertQualifiedTyCon env0 iface
-                  pure
-                    ( (tplTyCon, ifaceTyCon)
-                    , [(methodName, untick val)]
-                    )
-              | (name, val) <- binds
-              , TypeCon methodNewtype
-                [ TypeCon tpl []
-                , TypeCon iface []
-                , StrLitTy methodName
-                ] <- [varType name]
-              , NameIn DA_Internal_Desugar "Method" <- [methodNewtype]
-              ]
+          envInterfaceMethodInstances <- MS.fromListWith (++) <$> sequence
+            [ do
+                tplTyCon <- convertQualifiedTyCon env0 tpl
+                ifaceTyCon <- convertQualifiedTyCon env0 iface
+                pure
+                  ( (tplTyCon, ifaceTyCon)
+                  , [(methodName, untick val)]
+                  )
+            | (name, val) <- binds
+            , TypeCon methodNewtype
+              [ TypeCon tpl []
+              , TypeCon iface []
+              , StrLitTy methodName
+              ] <- [varType name]
+            , NameIn DA_Internal_Desugar "Method" <- [methodNewtype]
+            ]
           pure env0
             { envInterfaceMethodInstances
             }
