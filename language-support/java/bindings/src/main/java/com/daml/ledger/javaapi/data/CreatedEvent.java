@@ -251,15 +251,25 @@ public final class CreatedEvent implements Event, TreeEvent {
   }
 
   public static CreatedEvent fromProto(EventOuterClass.CreatedEvent createdEvent) {
-    var splitInterfaceViews = createdEvent.getInterfaceViewsList().stream().collect(Collectors.partitioningBy(EventOuterClass.InterfaceView::hasViewValue));
+    var splitInterfaceViews =
+        createdEvent.getInterfaceViewsList().stream()
+            .collect(Collectors.partitioningBy(EventOuterClass.InterfaceView::hasViewValue));
     return new CreatedEvent(
         createdEvent.getWitnessPartiesList(),
         createdEvent.getEventId(),
         Identifier.fromProto(createdEvent.getTemplateId()),
         createdEvent.getContractId(),
         DamlRecord.fromProto(createdEvent.getCreateArguments()),
-        splitInterfaceViews.get(true).stream().collect(Collectors.toUnmodifiableMap(iv -> Identifier.fromProto(iv.getInterfaceId()), iv -> DamlRecord.fromProto(iv.getViewValue()))),
-        splitInterfaceViews.get(false).stream().collect(Collectors.toUnmodifiableMap(iv -> Identifier.fromProto(iv.getInterfaceId()), EventOuterClass.InterfaceView::getViewStatus)),
+        splitInterfaceViews.get(true).stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    iv -> Identifier.fromProto(iv.getInterfaceId()),
+                    iv -> DamlRecord.fromProto(iv.getViewValue()))),
+        splitInterfaceViews.get(false).stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    iv -> Identifier.fromProto(iv.getInterfaceId()),
+                    EventOuterClass.InterfaceView::getViewStatus)),
         createdEvent.hasAgreementText()
             ? Optional.of(createdEvent.getAgreementText().getValue())
             : Optional.empty(),
