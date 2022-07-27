@@ -37,6 +37,7 @@ module DA.Daml.LF.TypeChecker.Check
 import Data.Hashable
 import           Control.Lens hiding (Context, MethodName, para)
 import           Control.Monad.Extra
+import           Data.Either.Combinators (whenLeft)
 import           Data.Foldable
 import           Data.Functor
 import           Data.List.Extended
@@ -621,12 +622,13 @@ checkFetchInterface tpl cid = do
   void $ inWorld (lookupInterface tpl)
   checkExpr cid (TContractId (TCon tpl))
 
--- | Check that a template implements a given interface.
+-- | Check that a template implements or co-implements a given interface.
 checkImplements :: MonadGamma m => Qualified TypeConName -> Qualified TypeConName -> m ()
 checkImplements tpl iface = do
   void $ inWorld (lookupInterface iface)
-  Template {tplImplements} <- inWorld (lookupTemplate tpl)
-  unless (NM.member iface tplImplements) $ do
+  void $ inWorld (lookupTemplate tpl)
+  ei <- inWorld (Right . lookupTemplateImplementsOrInterfaceCoImplements tpl iface)
+  whenLeft ei $ \_lookupError ->
     throwWithContext (ETemplateDoesNotImplementInterface tpl iface)
 
 -- returns the contract id and contract type
