@@ -8,10 +8,80 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.client.binding
+import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test._
 
+import scala.concurrent.{ExecutionContext, Future}
+
 class TransactionServiceQueryIT extends LedgerTestSuite {
+  test(
+    "TXSmokeSubmitAndWaitForTransaction",
+    "Smoke the SubmitAndWaitForTransaction",
+    allocate(SingleParty),
+    timeoutScale = 10.0,
+    repeated = 100,
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    val parallelism = 64
+    val sequentialRuns = 10
+    val contractsPerTransaction = 10
+
+    (1 to sequentialRuns)
+      .foldLeft(Future.unit) { case (f, idx) =>
+        f.flatMap { _ =>
+          parallelRun(ledger)(party, parallelism, sequentialRuns, idx, contractsPerTransaction)
+        }
+      }
+  })
+
+  private def parallelRun(ledger: ParticipantTestContext)(
+      party: Primitive.Party,
+      parallelism: Int,
+      sequentialRuns: Int,
+      idx: Int,
+      contractsPerTransaction: Int,
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    println(s"Running sequential batch $idx/$sequentialRuns of size $parallelism")
+    val parallelRuns = (1 to parallelism).map { _ =>
+      for {
+        _ <- Future.unit
+        transientTx <- ledger.submitAndWaitForTransaction(
+          buildCreateAndExerciseRequest(
+            ledger,
+            party,
+            contractsPerTransaction,
+          )
+        )
+
+        req = ledger.getTransactionByIdRequest(
+          transientTx.transaction.get.transactionId,
+          Seq(party),
+        )
+        _ <- ledger.flatTransactionById(req)
+        _ <- ledger.transactionTreeById(req)
+      } yield ()
+    }
+
+    Future.sequence(parallelRuns).map(_ => ())
+  }
+
+  private def buildCreateAndExerciseRequest(
+      ledger: ParticipantTestContext,
+      party: binding.Primitive.Party,
+      contractsPerTransaction: Int,
+  ) = {
+    val createAndExercise =
+      (1 to contractsPerTransaction).map { _ =>
+        Dummy(party).createAnd.exerciseClone(party).command
+      }
+    ledger.submitAndWaitRequest(
+      party = party,
+      commands = createAndExercise: _*,
+    )
+  }
+
   test(
     "TXTransactionTreeByIdBasic",
     "Expose a visible transaction tree by identifier",

@@ -36,7 +36,6 @@ import com.daml.platform.apiserver._
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
-import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 import com.daml.ports.Port
@@ -171,8 +170,6 @@ object SandboxOnXRunner {
             ),
           )
 
-        sharedStringInterningView = new StringInterningView
-
         indexerHealthChecks <- buildIndexerServer(
           metrics,
           new TimedReadService(readServiceWithSubscriber, metrics),
@@ -180,7 +177,6 @@ object SandboxOnXRunner {
           participantId,
           participantConfig,
           participantDataSourceConfig,
-          sharedStringInterningView,
         )
 
         indexService <- StandaloneIndexService(
@@ -192,7 +188,6 @@ object SandboxOnXRunner {
           lfValueTranslationCache = translationCache,
           dbSupport = dbSupport,
           participantId = participantId,
-          sharedStringInterningViewO = Some(sharedStringInterningView),
         )
 
         timeServiceBackend = configAdaptor.timeServiceBackend(participantConfig.apiServer)
@@ -291,7 +286,6 @@ object SandboxOnXRunner {
       participantId: Ref.ParticipantId,
       participantConfig: ParticipantConfig,
       participantDataSourceConfig: ParticipantDataSourceConfig,
-      stringInterningView: StringInterningView,
   )(implicit
       loggingContext: LoggingContext,
       materializer: Materializer,
@@ -304,7 +298,6 @@ object SandboxOnXRunner {
         config = participantConfig.indexer,
         metrics = metrics,
         lfValueTranslationCache = translationCache,
-        stringInterningViewO = Some(stringInterningView),
       )
     } yield new HealthChecks(
       "read" -> readService,
