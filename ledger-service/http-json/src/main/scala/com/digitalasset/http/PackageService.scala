@@ -361,7 +361,6 @@ object PackageService {
     val resolution = for {
       choices <- choiceIdMap get ctId
       overloads <- choices get choice
-      // TODO #13923 if fails, report need for choiceInterfaceId, available interfaces?
       onlyChoice <- Singleton.unapply(overloads) orElse (overloads get None map ((None, _)))
     } yield onlyChoice
     resolution.toRightDisjunction(
