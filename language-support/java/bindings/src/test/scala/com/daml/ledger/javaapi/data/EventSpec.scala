@@ -36,8 +36,12 @@ class EventSpec extends AnyFlatSpec with Matchers with ScalaCheckDrivenPropertyC
     val mutatingWitnesses = mutList(e.getWitnessPartiesList)
     val mutatingSignatories = mutList(e.getSignatoriesList)
     val mutatingObservers = mutList(e.getObserversList)
+    val extraIVJ = Identifier fromProto extraIV
+    val extraFIVJ = Identifier fromProto extraFIV
     val mutatingIVs = mutMap(base.getInterfaceViews)
     val mutatingFIVs = mutMap(base.getFailedInterfaceViews)
+    mutatingIVs.remove(extraIVJ)
+    mutatingIVs.remove(extraFIVJ)
 
     val event = new CreatedEvent(
       mutatingWitnesses,
@@ -56,8 +60,6 @@ class EventSpec extends AnyFlatSpec with Matchers with ScalaCheckDrivenPropertyC
     mutatingWitnesses.add("INTRUDER!")
     mutatingSignatories.add("INTRUDER!")
     mutatingObservers.add("INTRUDER!")
-    val extraIVJ = Identifier fromProto extraIV
-    val extraFIVJ = Identifier fromProto extraFIV
     mutatingIVs.put(extraIVJ, base.getArguments)
     mutatingFIVs.put(extraFIVJ, com.google.rpc.Status.getDefaultInstance)
 
