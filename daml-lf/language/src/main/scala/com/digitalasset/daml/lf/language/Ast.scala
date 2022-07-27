@@ -710,10 +710,7 @@ object Ast {
       param: ExprVarName, // Binder for template argument.
       choices: Map[ChoiceName, GenTemplateChoice[E]],
       methods: Map[MethodName, InterfaceMethod],
-      precond: E, // Interface creation precondition.
-      coImplements: Map[TypeConName, GenInterfaceCoImplements[
-        E
-      ]],
+      coImplements: Map[TypeConName, GenInterfaceCoImplements[E]],
       view: Type,
   )
 
@@ -724,7 +721,6 @@ object Ast {
         param: ExprVarName, // Binder for template argument.
         choices: Iterable[GenTemplateChoice[E]],
         methods: Iterable[InterfaceMethod],
-        precond: E,
         coImplements: Iterable[GenInterfaceCoImplements[E]],
         view: Type,
     ): GenDefInterface[E] = {
@@ -745,7 +741,7 @@ object Ast {
         (templateId: TypeConName) =>
           PackageError(s"repeated interface co-implementation ${templateId.toString}"),
       )
-      GenDefInterface(requiresSet, param, choiceMap, methodMap, precond, coImplementsMap, view)
+      GenDefInterface(requiresSet, param, choiceMap, methodMap, coImplementsMap, view)
     }
 
     def apply(
@@ -753,11 +749,10 @@ object Ast {
         param: ExprVarName,
         choices: Map[ChoiceName, GenTemplateChoice[E]],
         methods: Map[MethodName, InterfaceMethod],
-        precond: E,
         coImplements: Map[TypeConName, GenInterfaceCoImplements[E]],
         view: Type,
     ): GenDefInterface[E] =
-      GenDefInterface(requires, param, choices, methods, precond, coImplements, view)
+      GenDefInterface(requires, param, choices, methods, coImplements, view)
 
     def unapply(arg: GenDefInterface[E]): Some[
       (
@@ -765,14 +760,11 @@ object Ast {
           ExprVarName,
           Map[ChoiceName, GenTemplateChoice[E]],
           Map[MethodName, InterfaceMethod],
-          E,
           Map[TypeConName, GenInterfaceCoImplements[E]],
           Type,
       )
     ] =
-      Some(
-        (arg.requires, arg.param, arg.choices, arg.methods, arg.precond, arg.coImplements, arg.view)
-      )
+      Some((arg.requires, arg.param, arg.choices, arg.methods, arg.coImplements, arg.view))
   }
 
   type DefInterface = GenDefInterface[Expr]

@@ -223,11 +223,10 @@ private[validation] object ExprIterable {
             param @ _,
             choices,
             methods @ _,
-            precond,
             coImplements,
             view @ _,
           ) =>
-        Iterator(precond) ++ choices.values.iterator.flatMap(iterator(_)) ++
+        choices.values.iterator.flatMap(iterator(_)) ++
           coImplements.values.iterator.flatMap(iterator(_))
     }
 

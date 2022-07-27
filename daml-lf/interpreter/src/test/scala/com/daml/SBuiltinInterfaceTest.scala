@@ -161,7 +161,6 @@ object SBuiltinInterfaceTest {
 
         module I0 {
           interface (this: I0) = {
-            precondition True;
             coimplements T_Co0_No1:T_Co0_No1 {};
             coimplements T_Co0_Co1:T_Co0_Co1 {};
           };
@@ -194,7 +193,6 @@ object SBuiltinInterfaceTest {
         module I1 {
           interface (this: I1) = {
             requires I0:I0;
-            precondition True;
             method getText: Text;
             coimplements T_Co0_Co1:T_Co0_Co1 {
               method getText = APPEND_TEXT "co-implements I1 T_Co0_Co1, msg=" (T_Co0_Co1:T_Co0_Co1 {msg} this);
@@ -237,9 +235,7 @@ object SBuiltinInterfaceTest {
 
         module Mod {
 
-          interface (this : Iface) = {
-              precondition True;
-          };
+          interface (this : Iface) = {};
 
           record @serializable Iou = { i: Party, u: Party, name: Text };
           template (this: Iou) = {
