@@ -526,25 +526,21 @@ interfaceNames lfVersion tyThings
         ]
     | otherwise = MS.empty
 
-convertInterfaceTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
-convertInterfaceTyCon env errHandler tycon
-    | hasDamlInterfaceCtx tycon = do
+convertDamlTyCon :: (GHC.TyCon -> Bool) -> String -> Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
+convertDamlTyCon checkCtx unhandledStr env errHandler tycon
+    | checkCtx tycon = do
         lfType <- convertTyCon env tycon
         case lfType of
             TCon con -> pure con
-            _ -> unhandled "interface type" tycon
+            _ -> unhandled unhandledStr tycon
     | otherwise =
         conversionError $ errHandler tycon
 
+convertInterfaceTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
+convertInterfaceTyCon = convertDamlTyCon hasDamlInterfaceCtx "interface type"
+
 convertTemplateTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
-convertTemplateTyCon env errHandler tycon
-    | hasDamlTemplateCtx tycon = do
-        lfType <- convertTyCon env tycon
-        case lfType of
-            TCon con -> pure con
-            _ -> unhandled "template type" tycon
-    | otherwise =
-        conversionError $ errHandler tycon
+convertTemplateTyCon = convertDamlTyCon hasDamlTemplateCtx "template type"
 
 convertInterfaces :: Env -> ModuleContents -> ConvertM [Definition]
 convertInterfaces env mc = interfaceDefs
