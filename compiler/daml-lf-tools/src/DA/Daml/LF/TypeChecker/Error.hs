@@ -149,6 +149,7 @@ data Error
   | EUnknownExperimental !T.Text !Type
   | ENoViewFound !TypeConName
   | EViewNotSerializable !TypeConName !Type
+  | EConflictingImplementsCoImplements !(Qualified TypeConName) !(Qualified TypeConName)
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -427,6 +428,15 @@ instance Pretty Error where
       "Interface " <> pretty name <> " must specify a view method with name `_view`."
     EViewNotSerializable name ty ->
       "Interface " <> pretty name <> " has a view method which returns a non-serializable type " <> pretty ty
+    EConflictingImplementsCoImplements template interface ->
+      hsep
+      [ "Template"
+      , pretty template
+      , "implementation of interface"
+      , pretty interface
+      , "conflicts with the implementation given by"
+      , pretty interface
+      ]
 
 instance Pretty Context where
   pPrint = \case

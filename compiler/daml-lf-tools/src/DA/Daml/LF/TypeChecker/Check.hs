@@ -37,7 +37,7 @@ module DA.Daml.LF.TypeChecker.Check
 import Data.Hashable
 import           Control.Lens hiding (Context, MethodName, para)
 import           Control.Monad.Extra
-import           Data.Either.Combinators (whenLeft)
+import           Data.Either.Combinators (whenLeft, whenRight)
 import           Data.Foldable
 import           Data.Functor
 import           Data.List.Extended
@@ -950,15 +950,20 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPObservers $ checkExpr observers (TList TParty)
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
-    forM_ implements $ checkIfaceImplementation t
+    forM_ implements $ checkIfaceImplementation tcon t
   whenJust mbKey $ checkTemplateKey param tcon
 
   where
     withPart p = withContext (ContextTemplate m t p)
 
-checkIfaceImplementation :: MonadGamma m => Template -> TemplateImplements -> m ()
-checkIfaceImplementation Template{tplTypeCon, tplImplements} TemplateImplements{..} = do
+checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> Template -> TemplateImplements -> m ()
+checkIfaceImplementation tplQualTypeCon Template{tplTypeCon, tplImplements} TemplateImplements{..} = do
   DefInterface {intRequires, intMethods} <- inWorld $ lookupInterface tpiInterface
+
+  -- check clash with co-implementation
+  eCoImpl <- inWorld (Right . lookupInterfaceCoImplements tplQualTypeCon tpiInterface)
+  whenRight eCoImpl $ \_coImpl ->
+    throwWithContext (EConflictingImplementsCoImplements tplQualTypeCon tpiInterface)
 
   -- check requires
   let missingRequires = S.difference intRequires (S.fromList (NM.names tplImplements))
