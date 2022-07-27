@@ -14,6 +14,7 @@ import com.daml.ledger.api.domain.{
   Filters,
   LedgerId,
   LedgerOffset,
+  InclusiveFilters,
   PackageEntry,
   PartyEntry,
   TransactionFilter,
@@ -57,7 +58,7 @@ import com.daml.platform.store.dao.{
   LedgerReadDao,
 }
 import com.daml.platform.store.entries.PartyLedgerEntry
-import com.daml.platform.store.packagemeta.PackageMetadataView
+import com.daml.platform.store.packagemeta.{PackageMetadata, PackageMetadataView}
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
 import scalaz.syntax.tag.ToTagOps
 
@@ -474,16 +475,16 @@ private[index] class IndexServiceImpl(
     templatesMessage + interfacesMessage
   }
 
-  // private def templateIds(
-  //     metadata: PackageMetadata
-  // )(inclusiveFilters: InclusiveFilters): Set[Identifier] =
-  //   inclusiveFilters.interfaceFilters.iterator
-  //     .map(_.interfaceId)
-  //     .flatMap(metadata.interfaceImplementedBy)
-  //     .flatten
-  //     .toSet
-  //     .++(inclusiveFilters.templateIds)
-//
+  private def templateIds(
+      metadata: PackageMetadata
+  )(inclusiveFilters: InclusiveFilters): Set[Identifier] =
+    inclusiveFilters.interfaceFilters.iterator
+      .map(_.interfaceId)
+      .flatMap(metadata.interfaceImplementedBy)
+      .flatten
+      .toSet
+      .++(inclusiveFilters.templateIds)
+
   private def memoizedFilterRelationAndEventDisplayProperties(
       domainTransactionFilter: domain.TransactionFilter,
       verbose: Boolean,
@@ -492,29 +493,13 @@ private[index] class IndexServiceImpl(
       // TODO DPP-1068: [implementation detail] extract this lambda to a function, and unit test
       metadata =>
         (
-          // TODO DPP-1068: BUG! This will be addressed together with the conformance tests. if there are interfaces without template implementors, that should not boil down to a wildcard filter
-          domainTransactionFilter.filtersByParty.view
-            .mapValues(filters =>
-              filters.inclusive
-                .map(inclusiveFilters =>
-                  inclusiveFilters.interfaceFilters.iterator
-                    .map(_.interfaceId)
-                    .flatMap(metadata.interfaceImplementedBy)
-                    .flatten
-                    .toSet
-                    .++(inclusiveFilters.templateIds)
-                )
-                .getOrElse(Set.empty)
-            )
-            .toMap,
-          // domainTransactionFilter.filtersByParty.collect {
-          //  case (party, Filters(Some(inclusiveFilters)))
-          //    if templateIds(metadata)(inclusiveFilters).nonEmpty =>
-          //    (party, templateIds(metadata)(inclusiveFilters))
-          //  case (party, Filters(None)) =>
-          //    (party, Set.empty[Identifier])
-          // }.toMap,
-
+          domainTransactionFilter.filtersByParty.collect {
+            case (party, Filters(Some(inclusiveFilters)))
+                if templateIds(metadata)(inclusiveFilters).nonEmpty =>
+              (party, templateIds(metadata)(inclusiveFilters))
+            case (party, Filters(None)) =>
+              (party, Set.empty[Identifier])
+          }.toMap,
           EventDisplayProperties(
             verbose = verbose,
             populateContractArgument = (for {
