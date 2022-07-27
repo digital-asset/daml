@@ -27,8 +27,7 @@ public final class CreatedEvent implements Event, TreeEvent {
 
   private final @NonNull Map<@NonNull Identifier, @NonNull DamlRecord> interfaceViews;
 
-  private final @NonNull Map<@NonNull Identifier, com.google.rpc.@NonNull Status>
-      failedInterfaceViews;
+  private final @NonNull Map<@NonNull Identifier, @NonNull Status> failedInterfaceViews;
 
   private final Optional<String> agreementText;
 
@@ -122,12 +121,12 @@ public final class CreatedEvent implements Event, TreeEvent {
   }
 
   @NonNull
-  public Map<Identifier, DamlRecord> getInterfaceViews() {
+  public Map<@NonNull Identifier, @NonNull DamlRecord> getInterfaceViews() {
     return interfaceViews;
   }
 
   @NonNull
-  public Map<Identifier, Status> getFailedInterfaceViews() {
+  public Map<@NonNull Identifier, @NonNull Status> getFailedInterfaceViews() {
     return failedInterfaceViews;
   }
 
