@@ -976,17 +976,17 @@ convertImplements env tpl = NM.fromList <$>
     convertInterface (originLoc, iface) = withRange originLoc $ do
       let handleIsNotInterface tyCon =
             "cannot implement '" ++ prettyPrint tyCon ++ "' because it is not an interface"
-      con <- convertInterfaceTyCon env handleIsNotInterface iface
+      ifaceCon <- convertInterfaceTyCon env handleIsNotInterface iface
       let mod = nameModule (getName iface)
 
       -- TODO: Stub view, will extract later, https://github.com/digital-asset/daml/pull/14439
-      let view = ETmLam (ExprVarName "this", TCon con) (EBuiltin BEUnit)
+      let view = ETmLam (ExprVarName "this", TCon ifaceCon) (EBuiltin BEUnit)
 
       methods <- convertMethods $ MS.findWithDefault []
-        (mod, qualObject con, tpl)
+        (mod, qualObject ifaceCon, tpl)
         (envInterfaceMethodInstances env)
 
-      pure (TemplateImplements con methods view)
+      pure (TemplateImplements ifaceCon methods view)
 
     convertMethods ms = fmap NM.fromList . sequence $
       [ TemplateImplementsMethod (MethodName k) . (`ETmApp` EVar this) <$> convertExpr env v
