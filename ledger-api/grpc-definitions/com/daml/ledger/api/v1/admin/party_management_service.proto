@@ -6,6 +6,8 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1.admin;
 
+import "com/daml/ledger/api/v1/admin/property.proto";
+
 option java_outer_classname = "PartyManagementServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
@@ -64,9 +66,8 @@ service PartyManagementService {
   // colon, minus and underscore limited to 255 chars
   rpc AllocateParty (AllocatePartyRequest) returns (AllocatePartyResponse);
 
-  rpc AddUserProperties (AddPartyPropertiesRequest) returns (AddPartyPropertiesResponse);
+  rpc UpdateParty (UpdatePartyRequest) returns (UpdatePartyResponse);
 
-  rpc DeleteUserProperties (DeletePartyPropertiesRequest) returns (DeletePartyPropertiesResponse);
 }
 
 message GetParticipantIdRequest {
@@ -127,6 +128,25 @@ message AllocatePartyResponse {
   PartyDetails party_details = 1;
 }
 
+// Updates only participant-local portion of the party resource.
+message UpdatePartyRequest {
+  // The party to update.
+  // Modifiable fields:
+  // 1. properties (with the 'replace-all' semantics)
+  PartyDetails party_details = 1;
+
+  // Specifies the fields of the party resource to be updated.
+  // At least one field must be specified.
+  // Required
+  FieldMask update_mask = 2;
+}
+
+message UpdatePartyResponse {
+  // Update user
+  PartyDetails party_details = 1;
+}
+
+
 message PartyDetails {
 
   // The stable unique identifier of a Daml party.
@@ -137,37 +157,13 @@ message PartyDetails {
   // Human readable name associated with the party. Caution, it might not be
   // unique.
   // Optional
+  // Deprecated. User 'properties' instead.
   string display_name = 2;
 
   // true if party is hosted by the backing participant.
   // Required
   bool is_local = 3;
-}
 
-message AddPartyPropertiesRequest {
-  // Required
-  string party = 1;
-  // The properties to add.
-  // Ignores adding duplicate properties.
-  // If you need to update a property, you need to delete it first using a separate call.
-  // Required
-  repeated Property properties = 2;
-}
-message AddPartyPropertiesResponse {
-  // The properties that were newly added by the request.
-  // Required
-  repeated Property newly_added_properties = 1;
-}
-
-message DeletePartyPropertiesRequest {
-  // Required
-  string party = 1;
-  // Properties to delete.
-  // Ignores deleting non-existing properties.
-  // Required
-  repeated Property properties = 2;
-}
-message DeletePartyPropertiesResponse {
-  // The properties that were actually deleted by the request.
-  repeated Party newly_deleted_properties = 1;
+  // Optional
+  repeated Property properties = 3;
 }

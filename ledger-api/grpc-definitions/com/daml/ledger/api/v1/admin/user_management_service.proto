@@ -5,6 +5,8 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1.admin;
 
+import "com/daml/ledger/api/v1/admin/property.proto";
+
 option java_outer_classname = "UserManagementServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
@@ -78,9 +80,6 @@ service UserManagementService {
     // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc ListUserRights (ListUserRightsRequest) returns (ListUserRightsResponse);
 
-    rpc AddUserProperties (AddUserPropertiesRequest) returns (AddUserPropertiesResponse);
-
-    rpc DeleteUserProperties (DeleteUserPropertiesRequest) returns (DeleteUserPropertiesResponse);
 }
 
 // Users and rights
@@ -106,7 +105,10 @@ message User {
     string primary_party = 2;
 
     // Optional
-    bool is_deactivated = 5;
+    bool is_deactivated = 3;
+
+    // Optional
+    repeated Property properties = 4;
 }
 
 
@@ -179,6 +181,7 @@ message UpdateUserRequest {
     // Modifiable fields:
     // 1. primary_party
     // 2. is_deactivated
+    // 3. properties (with the 'replace-all' semantics)
     User user = 1;
 
     // Specifies the fields of the user resource to be updated.
@@ -276,41 +279,5 @@ message ListUserRightsRequest {
 message ListUserRightsResponse {
     // All rights of the user.
     repeated Right rights = 1;
-}
-
-
-message AddUserPropertiesRequest {
-    // Required
-    string user_id = 1;
-    // The properties to add.
-    // Ignores adding duplicate properties.
-    // If you need to update a property, you need to delete it first using a separate call.
-    // Required
-    repeated Property properties = 2;
-}
-message AddUserPropertiesResponse {
-    // The properties that were newly added by the request.
-    // Required
-    repeated Property newly_added_properties = 2;
-}
-
-message DeleteUserPropertiesRequest {
-    // Required
-    string user_id = 1;
-    // Properties to delete.
-    // Ignores deleting non-existing properties.
-    // Required
-    repeated Property properties = 2;
-}
-message DeleteUserPropertiesResponse {
-    // The properties that were actually deleted by the request.
-    repeated Property newly_deleted_properties = 1;
-}
-
-message Property {
-    // Required
-    string name = 1;
-    // Optional
-    string value = 2;
 }
 
