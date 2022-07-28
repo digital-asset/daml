@@ -183,9 +183,9 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
       val signatures: PartialFunction[PackageId, PackageSignature] = Map.empty
       val pkgInterface = new PackageInterface(signatures)
       val ctx: Context = Context.None
-      val env = Typing.Env(langVersion, pkgInterface, ctx)
+      val env = NewTyping.Env(langVersion, pkgInterface, ctx) // NICK
       try {
-        val _: Type = env.typeOf(expr)
+        val _: Type = env.entry_typeOf(expr) // NICK
         None
       } catch {
         case e: ValidationError => Some(e)
@@ -258,6 +258,59 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
 
       s"typing, (SMALL) depth = $depth" - {
         forEvery(testCases) { (name: String, recursionPoint: Expr => Expr) =>
+          name in {
+            // ensure examples can be typechecked and are well-typed
+            runTest(typecheck)(depth, recursionPoint) shouldBe None
+          }
+        }
+      }
+    }
+
+    val cut_testCases = {
+      Table[String, Expr => Expr](
+        ("name", "recursion-point"),
+        // ("tyApp", tyApp),
+        ("app1", app1),
+        ("app2", app2),
+        ("esome", esome),
+        ("eabs", eabs),
+        ("etyabs", etyabs),
+        // ("struct1", struct1),
+        // ("struct2", struct2),
+        // ("consH", consH),
+        // ("consT", consT),
+        // ("scenPure", scenPure),
+        // ("scenBlock1", scenBlock1),
+        // ("scenBlock2", scenBlock2),
+        // ("scenCommit1", scenCommit1),
+        // ("scenCommit2", scenCommit2),
+        // ("scenMustFail1", scenMustFail1),
+        // ("scenMustFail2", scenMustFail2),
+        // ("scenPass", scenPass),
+        // ("scenParty", scenParty),
+        // ("scenEmbed", scenEmbed),
+        // ("upure", upure),
+        // ("ublock1", ublock1),
+        // ("ublock2", ublock2),
+        // ("ublock3", ublock3),
+        // ("uembed", uembed),
+        // ("utrycatch1", utrycatch1),
+        // ("utrycatch2", utrycatch2),
+        // ("structUpd1", structUpd1),
+        // ("structUpd2", structUpd2),
+        // ("caseScrut", caseScrut),
+        // ("caseAlt1", caseAlt1),
+        // ("caseAlt2", caseAlt2),
+        ("let1", let1),
+        ("let2", let2),
+      )
+    }
+
+    {
+      val depth = 100000
+
+      s"typing, (LARGE) depth = $depth" - {
+        forEvery(cut_testCases) { (name: String, recursionPoint: Expr => Expr) =>
           name in {
             // ensure examples can be typechecked and are well-typed
             runTest(typecheck)(depth, recursionPoint) shouldBe None

@@ -23,23 +23,29 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
   sealed abstract class Work[A]
   object Work {
     final case class Ret[A](v: A) extends Work[A]
+    final case class Delay[A](thunk: () => Work[A]) extends Work[A]
     final case class Bind[A, X](work: Work[X], k: X => Work[A]) extends Work[A]
+    // final case class BindThunk[A, X](work: () => Work[X], k: X => Work[A]) extends Work[A] // NICK: remove
   }
 
-  import Work.{Ret, Bind}
+  import Work._ // {Ret, Delay, Bind, BindThunk} // NICK
 
   def runWork[R](work: Work[R]): R = {
 
     @tailrec
     def loop[A](work: Work[A]): A = work match {
       case Ret(v) => v
+      case Delay(thunk) => loop(thunk())
       case Bind(w, k) => loop(loopBind(w, k))
+      // case BindThunk(thunk, k) => loop(loopBind(thunk(), k))
     }
 
     @tailrec
     def loopBind[A, X](work: Work[X], k: X => Work[A]): Work[A] = work match {
       case Ret(x) => k(x)
+      case Delay(thunk) => loopBind(thunk(), k)
       case Bind(work1, k1) => loopBind(work1, { x: Any => Bind(k1(x), k) }) // NICK: Any?
+      // case BindThunk(thunk, k1) => loopBind(thunk(), { x: Any => BindThunk(() => k1(x), k) }) // NICK: Any?
     }
 
     loop(work)
@@ -362,7 +368,8 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
 
     // This can (stack!)safely be used everwhere...
     private def typeOf[T](e: Expr)(k: Type => Work[T]): Work[T] = {
-      Bind(work_typeOf(e), k)
+      // BindThunk(() => work_typeOf(e), k) //NICK
+      Bind(Delay(() => work_typeOf(e)), k)
     }
 
     // NICK: kill & fix all callers to use checkExpr
