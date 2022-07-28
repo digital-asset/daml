@@ -239,6 +239,7 @@ data ModuleContents = ModuleContents
   , mcInterfaces :: MS.Map TypeConName GHC.TyCon
   , mcModInstanceInfo :: !ModInstanceInfo
   , mcDepOrphanModules :: [GHC.Module]
+  , mcExports :: [GHC.AvailInfo]
   }
 
 data ChoiceData = ChoiceData
@@ -312,6 +313,7 @@ extractModuleContents env@Env{..} coreModule modIface details = do
 
     mcModInstanceInfo = modInstanceInfoFromDetails details
     mcDepOrphanModules = getDepOrphanModules modIface
+    mcExports = md_exports details
 
   ModuleContents {..}
 
@@ -603,7 +605,7 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
     templates <- convertTemplateDefs env mc
     exceptions <- convertExceptionDefs env mc
     interfaces <- convertInterfaces env mc
-    exports <- convertExports env (md_exports details)
+    exports <- convertExports env mc
     let fixities = convertFixities (mi_fixities modIface)
         defs =
             types
@@ -801,9 +803,9 @@ convertFixities = zipWith mkFixityDef [0..]
           (fixityName i)
           (encodeFixityInfo fixityInfo)
 
-convertExports :: Env -> [GHC.AvailInfo] -> ConvertM [Definition]
-convertExports env availInfos = do
-    let externalExportInfos = filter isExternalAvailInfo availInfos
+convertExports :: Env -> ModuleContents -> ConvertM [Definition]
+convertExports env mc = do
+    let externalExportInfos = filter isExternalAvailInfo (mcExports mc)
     exportInfos <- mapM availInfoToExportInfo externalExportInfos
     pure $ zipWith mkExportDef [0..] exportInfos
     where
