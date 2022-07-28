@@ -40,7 +40,7 @@ sealed abstract class InterfaceType extends Product with Serializable {
       },
     )
 
-  private[iface] def asInterfaceViewType: Option[Record.FWT] = this match {
+  private[iface] def asInterfaceViewType: Option[DefInterface.ViewTypeFWT] = this match {
     case InterfaceType.Template(r, _) => Some(r)
     case InterfaceType.Normal(DefDataType(_, dt)) =>
       dt match {
@@ -255,7 +255,7 @@ object Interface {
     */
   def resolveInterfaceViewType(
       findInterface: PartialFunction[PackageId, Interface]
-  ): PartialFunction[Ref.TypeConName, Record.FWT] =
+  ): PartialFunction[Ref.TypeConName, DefInterface.ViewTypeFWT] =
     Function unlift { tcn =>
       findInterface.lift(tcn.packageId) flatMap (_ resolveInterfaceViewType tcn.qualifiedName)
     }

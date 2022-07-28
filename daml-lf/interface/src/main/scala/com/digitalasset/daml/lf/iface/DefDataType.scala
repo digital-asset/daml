@@ -458,6 +458,10 @@ final case class DefInterface[+Ty](
 
 object DefInterface extends FWTLike[DefInterface] {
 
+  // documentation-only type synonyms for valid interface view types
+  type ViewType[+Ty] = Record[Ty]
+  type ViewTypeFWT = ViewType[Type]
+
   implicit val `InterfaceDecl fold`: Foldable[DefInterface] =
     new Foldable.FromFoldMap[DefInterface] {
       override def foldMap[A, B: Monoid](fa: DefInterface[A])(f: A => B): B =
