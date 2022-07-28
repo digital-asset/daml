@@ -72,12 +72,20 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
         assertLength("View1 has 2 fields", 2, value.fields)
         assertEquals("View1.a", value.fields(0).getValue.getInt64, 1)
         assertEquals("View1.b", value.fields(1).getValue.getBool, true)
+        assert(
+          value.fields.forall(_.label.nonEmpty),
+          s"Expected a view with labels (verbose)",
+        )
       }
       assertViewFailed(createdEvent1.interfaceViews(1), InterfaceWithNoViewId)
       assertEquals(
         "Create event 1 createArguments must NOT be empty",
         createdEvent1.createArguments.isEmpty,
         false,
+      )
+      assert(
+        createdEvent1.getCreateArguments.fields.forall(_.label.nonEmpty),
+        s"Expected a contract with labels (verbose)",
       )
 
       // T2
@@ -141,7 +149,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
 
   test(
     "ISTransactionsDuplicateInterfaceFilters",
-    "Subscribing on transaction stream by interface with duplicate filters",
+    "Subscribing on transaction stream by interface with duplicate filters and not verbose",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
@@ -158,7 +166,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
           Seq(Tag.unwrap(T1.id)),
           Seq((InterfaceId, false), (InterfaceId, true), (InterfaceWithNoViewId, true)),
           ledger,
-        )
+        ).update(_.verbose := false)
       )
     } yield {
       val createdEvent1 = createdEvents(transactions(0)).head
@@ -166,11 +174,15 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       val createdEvent2 = createdEvents(transactions(1)).head
       assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.toString)
       // Expect view to be delivered even though there is an ambiguous
-      // includeInterfaceView flag set to true and false at the same time.
+      // includeInterfaceView flag set to true and false at the same time (true wins)
       assertViewEquals(createdEvent2.interfaceViews.head, InterfaceId) { value =>
         assertLength("View2 has 2 fields", 2, value.fields)
         assertEquals("View2.a", value.fields(0).getValue.getInt64, 2)
         assertEquals("View2.b", value.fields(1).getValue.getBool, false)
+        assert(
+          value.fields.forall(_.label.isEmpty),
+          s"Expected a view with no labels (verbose = false)",
+        )
       }
       val createdEvent3 = createdEvents(transactions(2)).head
       assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3.toString)
@@ -426,12 +438,20 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
         assertLength("View1 has 2 fields", 2, value.fields)
         assertEquals("View1.a", value.fields(0).getValue.getInt64, 1)
         assertEquals("View1.b", value.fields(1).getValue.getBool, true)
+        assert(
+          value.fields.forall(_.label.nonEmpty),
+          s"Expected a view with labels (verbose)",
+        )
       }
       assertViewFailed(createdEvent1.interfaceViews(1), InterfaceWithNoViewId)
       assertEquals(
         "Create event 1 createArguments must NOT be empty",
         createdEvent1.createArguments.isEmpty,
         false,
+      )
+      assert(
+        createdEvent1.getCreateArguments.fields.forall(_.label.nonEmpty),
+        s"Expected a contract with labels (verbose)",
       )
 
       // T2
@@ -512,13 +532,24 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
           Seq.empty,
           Seq((InterfaceId, false), (InterfaceId, true), (InterfaceWithNoViewId, true)),
           ledger,
-        )
+        ).update(_.verbose := false)
       )
     } yield {
       val createdEvent1 = acs(0)
       assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.toString)
       val createdEvent2 = acs(1)
       assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.toString)
+      // Expect view to be delivered even though there is an ambiguous
+      // includeInterfaceView flag set to true and false at the same time (true wins)
+      assertViewEquals(createdEvent2.interfaceViews.head, InterfaceId) { value =>
+        assertLength("View2 has 2 fields", 2, value.fields)
+        assertEquals("View2.a", value.fields(0).getValue.getInt64, 2)
+        assertEquals("View2.b", value.fields(1).getValue.getBool, false)
+        assert(
+          value.fields.forall(_.label.isEmpty),
+          s"Expected a view with no labels (verbose = false)",
+        )
+      }
       val createdEvent3 = acs(2)
       assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3.toString)
     }
