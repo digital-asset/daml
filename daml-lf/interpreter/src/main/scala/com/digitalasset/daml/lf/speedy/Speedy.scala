@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LookupError, Util => AstUtil}
+import com.daml.lf.language.{LookupError, PackageInterface, Util => AstUtil}
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -224,7 +224,7 @@ private[lf] object Speedy {
   @throws[SErrorDamlException]
   private[speedy] def buildDiscTable(
       disclosures: ImmArray[speedy.DisclosedContract],
-      compiledPackages: CompiledPackages,
+      packageInterface: PackageInterface,
   ): DisclosureTable = {
     val _ = disclosures
     val acc = disclosures.foldLeft(
@@ -260,7 +260,7 @@ private[lf] object Speedy {
               }
 
             case None =>
-              compiledPackages.pkgInterface.lookupTemplate(d.templateId) match {
+              packageInterface.lookupTemplate(d.templateId) match {
                 case Right(template) if template.key.isEmpty =>
                   // Success - template exists, but has no key defined
                   table.copy(contractById = m1_prime)
@@ -978,7 +978,7 @@ private[lf] object Speedy {
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
-        disclosureTable = buildDiscTable(disclosedContracts, compiledPackages),
+        disclosureTable = buildDiscTable(disclosedContracts, compiledPackages.pkgInterface),
       )
     }
 
@@ -1084,7 +1084,7 @@ private[lf] object Speedy {
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
-        disclosureTable = buildDiscTable(disclosedContracts, compiledPackages),
+        disclosureTable = buildDiscTable(disclosedContracts, compiledPackages.pkgInterface),
       )
 
     @throws[PackageNotFound]

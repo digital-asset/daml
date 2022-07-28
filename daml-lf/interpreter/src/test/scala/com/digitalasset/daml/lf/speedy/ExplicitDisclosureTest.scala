@@ -81,9 +81,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
           disclosureTableQueriedWhenContractDisclosed(
             SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
             disclosedCaveContract,
-            // contract owned by ledgerParty
             getContract = Map(contractId -> ledgerCaveContract),
-            // contract owned by disclosureParty
             disclosedContracts = ImmArray(disclosedCaveContract),
           )(result =>
             inside(result) {
