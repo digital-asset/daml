@@ -1708,8 +1708,6 @@ tests tools = testGroup "Data Dependencies" $
             , "  transferImpl : Party -> Update (ContractId Token)"
             , "  noopImpl : () -> Update ()"
 
-            , "  ensure (getAmount this >= 0)"
-
             , "  choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment."
             , "    with"
             , "      splitAmount : Int -- ^ A choice field comment."
@@ -1829,8 +1827,6 @@ tests tools = testGroup "Data Dependencies" $
             , "  transferImpl : Party -> Update (ContractId Token)"
             , "  noopImpl : () -> Update ()"
 
-            , "  ensure (getAmount this >= 0)"
-
             , "  choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment."
             , "    with"
             , "      splitAmount : Int -- ^ A choice field comment."
@@ -1948,8 +1944,6 @@ tests tools = testGroup "Data Dependencies" $
             , "  splitImpl : Int -> Update (ContractId Token, ContractId Token)"
             , "  transferImpl : Party -> Update (ContractId Token)"
             , "  noopImpl : () -> Update ()"
-
-            , "  ensure (getAmount this >= 0)"
 
             , "  choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment."
             , "    with"
@@ -2169,8 +2163,6 @@ tests tools = testGroup "Data Dependencies" $
             , "  splitImpl : Int -> Update (ContractId Token, ContractId Token)"
             , "  transferImpl : Party -> Update (ContractId Token)"
             , "  noopImpl : () -> Update ()"
-
-            , "  ensure (getAmount this >= 0)"
 
             , "  choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment."
             , "    with"
