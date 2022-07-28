@@ -252,7 +252,9 @@ data ModuleContents = ModuleContents
   , mcCoImplements :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
     -- ^ Maps interfaces to co-implemented templates
   , mcRequires :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
-  , mcInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
+  , mcInterfaceMethodInstances :: MS.Map (Qualified TypeConName, Qualified TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
+    -- ^ Maps (template, interface) tuples to the list of that interface's method (co-)implementations for that template.
+    -- Invariant: either the template or the interface (or both) are defined in the current module.
   , mcInterfaces :: MS.Map TypeConName GHC.TyCon
   , mcModInstanceInfo :: !ModInstanceInfo
   , mcDepOrphanModules :: [GHC.Module]
@@ -265,7 +267,7 @@ data ChoiceData = ChoiceData
   , _choiceDatExpr :: GHC.Expr GHC.CoreBndr
   }
 
-extractModuleContents :: Env -> CoreModule -> ModIface -> ModDetails -> ModuleContents
+extractModuleContents :: Env -> CoreModule -> ModIface -> ModDetails -> ConvertM ModuleContents
 extractModuleContents env@Env{..} coreModule modIface details = do
   let
     mcBinds =
@@ -301,21 +303,6 @@ extractModuleContents env@Env{..} coreModule modIface details = do
       , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- [varType name]
       , NameIn DA_Internal_Desugar "RequiresT" <- [requiresT]
       ]
-    mcInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
-    mcInterfaceMethodInstances = MS.fromListWith (++)
-      [
-        ( (mod, mkTypeCon [getOccText iface], mkTypeCon [getOccText tpl])
-        , [(methodName, untick val)]
-        )
-      | (name, val) <- mcBinds
-      , TypeCon methodNewtype
-        [ TypeCon tpl []
-        , TypeCon iface []
-        , StrLitTy methodName
-        ] <- [varType name]
-      , NameIn DA_Internal_Desugar "Method" <- [methodNewtype]
-      , Just mod <- [nameModule_maybe (getName iface)]
-      ]
     mcChoiceData = MS.fromListWith (++)
         [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
         | (name, v) <- mcBinds
@@ -334,7 +321,25 @@ extractModuleContents env@Env{..} coreModule modIface details = do
     mcExports = md_exports details
     mcFixities = mi_fixities modIface
 
-  ModuleContents {..}
+  mcInterfaceMethodInstances <- MS.fromListWith (++) <$> sequence
+    [ do
+        qTplTypeCon <- convertQualifiedTyCon env tpl
+        qIfaceTypeCon <- convertQualifiedTyCon env iface
+        pure
+          ( (qTplTypeCon, qIfaceTypeCon)
+          , [(methodName, untick val)]
+          )
+    | (name, val) <- mcBinds
+    , TypeCon methodNewtype
+      [ TypeCon tpl []
+      , TypeCon iface []
+      , StrLitTy methodName
+      ] <- [varType name]
+    , NameIn DA_Internal_Desugar "Method" <- [methodNewtype]
+    , Just mod <- [nameModule_maybe (getName iface)]
+    ]
+
+  pure ModuleContents {..}
 
 getDepOrphanModules :: ModIface -> [GHC.Module]
 getDepOrphanModules = dep_orphs . mi_deps
@@ -607,9 +612,8 @@ convertModule
     -> ModDetails
     -> Either FileDiagnostic LF.Module
 convertModule lfVersion enableScenarios pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing) $ do
-    let
-      env = mkEnv lfVersion enableScenarios pkgMap stablePackages (cm_module coreModule)
-      mc = extractModuleContents env coreModule modIface details
+    let env = mkEnv lfVersion enableScenarios pkgMap stablePackages (cm_module coreModule)
+    mc <- extractModuleContents env coreModule modIface details
     defs <- convertModuleContents env mc
     pure (LF.moduleFromDefinitions (envLFModuleName env) (Just $ fromNormalizedFilePath file) flags defs)
     where
@@ -925,14 +929,16 @@ convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
     , Just fAgreement <- tbAgreement
     , tplLocation <- convNameLoc (GHC.tyConName tplTyCon)
     = withRange tplLocation $ do
-        let tplParam = this
+        let
+          tplParam = this
+          qTplTypeCon = Qualified PRSelf (envLFModuleName env) tplTypeCon
         tplSignatories <- useSingleMethodDict env fSignatory (`ETmApp` EVar this)
         tplObservers <- useSingleMethodDict env fObserver (`ETmApp` EVar this)
         tplPrecondition <- useSingleMethodDict env fEnsure (wrapPrecondition . (`ETmApp` EVar this))
         tplAgreement <- useSingleMethodDict env fAgreement (`ETmApp` EVar this)
         tplChoices <- convertChoices env mc tplTypeCon tbinds
-        tplKey <- convertTemplateKey env tplTypeCon tbinds
-        tplImplements <- convertImplements env mc tplTypeCon
+        tplKey <- convertTemplateKey env qTplTypeCon tbinds
+        tplImplements <- convertImplements env mc qTplTypeCon
         pure Template {..}
 
     | otherwise =
@@ -963,13 +969,12 @@ convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
         = b
 
 
-convertTemplateKey :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM (Maybe TemplateKey)
-convertTemplateKey env tname TemplateBinds{..}
+convertTemplateKey :: Env -> Qualified LF.TypeConName -> TemplateBinds -> ConvertM (Maybe TemplateKey)
+convertTemplateKey env qtname TemplateBinds{..}
     | Just keyTy <- tbKeyType
     , Just fKey <- tbKey
     , Just fMaintainer <- tbMaintainer
     = do
-        let qtname = Qualified PRSelf (envLFModuleName env) tname
         tplKeyType <- convertType env keyTy
         tplKeyBody <- useSingleMethodDict env fKey (`ETmApp` EVar this)
         tplKeyMaintainers <- useSingleMethodDict env fMaintainer
@@ -1002,25 +1007,24 @@ useSingleMethodDict env (Cast ghcExpr _) f = do
 useSingleMethodDict env x _ =
     unhandled "useSingleMethodDict: not a single method type class dictionary" x
 
-convertImplements :: Env -> ModuleContents -> LF.TypeConName -> ConvertM (NM.NameMap TemplateImplements)
-convertImplements env mc tpl = NM.fromList <$>
-  mapM convertInterface (MS.findWithDefault [] tpl (mcImplements mc))
+convertImplements :: Env -> ModuleContents -> Qualified LF.TypeConName -> ConvertM (NM.NameMap TemplateImplements)
+convertImplements env mc qTplTypeCon = NM.fromList <$>
+  mapM convertInterface (MS.findWithDefault [] (qualObject qTplTypeCon) (mcImplements mc))
   where
     convertInterface :: (Maybe LF.SourceLoc, GHC.TyCon) -> ConvertM TemplateImplements
     convertInterface (originLoc, iface) = withRange originLoc $ do
       let handleIsNotInterface tyCon =
             "cannot implement '" ++ prettyPrint tyCon ++ "' because it is not an interface"
-      con <- convertInterfaceTyCon env handleIsNotInterface iface
-      let mod = nameModule (getName iface)
+      qIfaceTypeCon <- convertInterfaceTyCon env handleIsNotInterface iface
 
       -- TODO: Stub view, will extract later, https://github.com/digital-asset/daml/pull/14439
-      let view = ETmLam (ExprVarName "this", TCon con) (EBuiltin BEUnit)
+      let view = ETmLam (ExprVarName "this", TCon qIfaceTypeCon) (EBuiltin BEUnit)
 
       methods <- convertMethods $ MS.findWithDefault []
-        (mod, qualObject con, tpl)
+        (qTplTypeCon, qIfaceTypeCon)
         (mcInterfaceMethodInstances mc)
 
-      pure (TemplateImplements con methods view)
+      pure (TemplateImplements qIfaceTypeCon methods view)
 
     convertMethods ms = fmap NM.fromList . sequence $
       [ TemplateImplementsMethod (MethodName k) . (`ETmApp` EVar this) <$> convertExpr env v
