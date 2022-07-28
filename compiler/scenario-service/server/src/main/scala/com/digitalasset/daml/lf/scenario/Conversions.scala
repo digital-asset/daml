@@ -250,6 +250,20 @@ final class Conversions(
                       proto.ScenarioError.DisclosurePreprocessingDuplicateContractIds.newBuilder
                         .setTemplateId(convertIdentifier(tid))
                     )
+                  case DisclosurePreprocessing.NonExistentTemplate(templateId) =>
+                    builder.setDisclosurePreprocessingNonExistentTemplate(
+                      proto.ScenarioError.DisclosurePreprocessingNonExistentTemplate.newBuilder
+                        .setTemplateId(convertIdentifier(templateId))
+                    )
+                  case DisclosurePreprocessing.NonExistentDisclosedContractKeyHash(
+                        contractId,
+                        templateId,
+                      ) =>
+                    builder.setDisclosurePreprocessingNonExistentDisclosedContractKeyHash(
+                      proto.ScenarioError.DisclosurePreprocessingNonExistentDisclosedContractKeyHash.newBuilder
+                        .setContractId(coidToEventId(contractId).toLedgerString)
+                        .setTemplateId(convertIdentifier(templateId))
+                    )
                 }
             }
         }

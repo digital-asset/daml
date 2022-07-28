@@ -18,7 +18,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   import typeParser._
 
   lazy val expr0: Parser[Expr] =
-    // expressions starting with fullIdentifier should come before litterals
+    // expressions starting with fullIdentifier should come before literals
     eRecCon |
       eRecProj |
       eRecUpd |

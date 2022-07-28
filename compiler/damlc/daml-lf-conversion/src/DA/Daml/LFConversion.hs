@@ -555,8 +555,6 @@ convertInterfaces env mc = interfaceDefs
     convertInterface intName tyCon = do
         let intLocation = convNameLoc (GHC.tyConName tyCon)
         let intParam = this
-        let precond = fromMaybe (error $ "Missing precondition for interface " <> show intName)
-                        $ (MS.lookup intName $ mcInterfaceBinds mc) >>= ibEnsure
         withRange intLocation $ do
             let handleIsNotInterface tyCon =
                   "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
@@ -564,7 +562,6 @@ convertInterfaces env mc = interfaceDefs
                 MS.findWithDefault [] intName (mcRequires mc)
             intMethods <- NM.fromList <$> convertMethods tyCon
             intChoices <- convertChoices env mc intName emptyTemplateBinds
-            intPrecondition <- useSingleMethodDict env precond (`ETmApp` EVar intParam)
             let intCoImplements = NM.empty -- TODO: https://github.com/digital-asset/daml/issues/14047
             let intView = TBuiltin BTUnit -- TODO: Stub view, will extract later, https://github.com/digital-asset/daml/pull/14439
             pure DefInterface {..}
