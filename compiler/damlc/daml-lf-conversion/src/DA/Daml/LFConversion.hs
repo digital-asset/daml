@@ -240,6 +240,7 @@ data ModuleContents = ModuleContents
   , mcModInstanceInfo :: !ModInstanceInfo
   , mcDepOrphanModules :: [GHC.Module]
   , mcExports :: [GHC.AvailInfo]
+  , mcFixities :: [(OccName, GHC.Fixity)]
   }
 
 data ChoiceData = ChoiceData
@@ -314,6 +315,7 @@ extractModuleContents env@Env{..} coreModule modIface details = do
     mcModInstanceInfo = modInstanceInfoFromDetails details
     mcDepOrphanModules = getDepOrphanModules modIface
     mcExports = md_exports details
+    mcFixities = mi_fixities modIface
 
   ModuleContents {..}
 
@@ -606,7 +608,7 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
     exceptions <- convertExceptionDefs env mc
     interfaces <- convertInterfaces env mc
     exports <- convertExports env mc
-    let fixities = convertFixities (mi_fixities modIface)
+    let fixities = convertFixities mc
         defs =
             types
             ++ templates
@@ -794,8 +796,8 @@ convertDepOrphanModules env mc = do
         moduleImportsDef = DValue (mkMetadataStub moduleImportsName moduleImportsType)
     pure [moduleImportsDef]
 
-convertFixities :: [(OccName, GHC.Fixity)] -> [Definition]
-convertFixities = zipWith mkFixityDef [0..]
+convertFixities :: ModuleContents -> [Definition]
+convertFixities = zipWith mkFixityDef [0..] . mcFixities
   where
     mkFixityDef i fixityInfo =
       DValue $
