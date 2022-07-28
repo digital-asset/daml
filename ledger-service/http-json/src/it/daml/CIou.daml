@@ -20,6 +20,7 @@ template CIou with
     getOwner = owner
 
   implements Transferrable where
+    view = ()
     getOwner = owner
 
   choice Overridden : Text with
