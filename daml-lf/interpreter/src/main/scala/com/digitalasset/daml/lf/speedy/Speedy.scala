@@ -266,7 +266,7 @@ private[lf] object Speedy {
                   table.copy(contractById = m1_prime)
 
                 case Right(_) =>
-                  // Error - template exists, but has a key defined
+                  // Error - disclosed contract lacks a key hash, but the template requires a key
                   throw SErrorDamlException(
                     IError.DisclosurePreprocessing(
                       IError.DisclosurePreprocessing.NonExistentDisclosedContractKeyHash(
