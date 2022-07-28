@@ -96,42 +96,46 @@ class TransactionServiceOutputsIT extends LedgerTestSuite {
       transactionTrees: Seq[TransactionTree],
       labelIsNonEmpty: Boolean,
   ): Unit = {
+
+    def transactionFields(createdEvent: Seq[CreatedEvent]): Seq[RecordField] = createdEvent
+      .map(_.getCreateArguments)
+      .flatMap(_.fields)
+
+    val transactionTreeCreatedEvents: Seq[CreatedEvent] = {
+      for {
+        transactionTree <- transactionTrees
+        eventById <- transactionTree.eventsById
+        (_, tree) = eventById
+        events = tree
+        created = events.getCreated
+      } yield created
+    }
+
+    val transactionTreeFields: Seq[RecordField] =
+      transactionFields(transactionTreeCreatedEvents)
+
+    val flatTransactionFields: Seq[RecordField] =
+      transactionFields(
+        transactions
+          .flatMap(_.events)
+          .map(_.getCreated)
+      )
+
     assert(transactions.nonEmpty, s"$party expected non empty transaction list")
     assert(transactionTrees.nonEmpty, s"$party expected non empty transaction tree list")
-    val createArgs = flatTransactionFields(transactions)
+
     val text = labelIsNonEmpty match {
       case true => "with"
       case false => "without"
     }
     assert(
-      createArgs.forall(_.label.nonEmpty == labelIsNonEmpty),
+      flatTransactionFields.forall(_.label.nonEmpty == labelIsNonEmpty),
       s"$party expected a contract $text labels, but received $transactions.",
     )
-    val treeCreateArgs = transactionFields(transactionTreeEvents(transactionTrees))
     assert(
-      treeCreateArgs.forall(_.label.nonEmpty == labelIsNonEmpty),
+      transactionTreeFields.forall(_.label.nonEmpty == labelIsNonEmpty),
       s"$party expected a contract $text labels, but received $transactionTrees.",
     )
   }
 
-  private def transactionTreeEvents(transactionTrees: Seq[TransactionTree]): Seq[CreatedEvent] = {
-    for {
-      transactionTree <- transactionTrees
-      eventById <- transactionTree.eventsById
-      (_, tree) = eventById
-      events = tree
-      created = events.getCreated
-    } yield created
-  }
-
-  private def flatTransactionFields(transactions: Seq[Transaction]): Seq[RecordField] =
-    transactionFields(
-      transactions
-        .flatMap(_.events)
-        .map(_.getCreated)
-    )
-
-  private def transactionFields(createdEvent: Seq[CreatedEvent]): Seq[RecordField] = createdEvent
-    .map(_.getCreateArguments)
-    .flatMap(_.fields)
 }
