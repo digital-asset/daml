@@ -429,6 +429,7 @@ object TemplateChoice {
 final case class DefInterface[+Ty](
     choices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
     retroImplements: Set[Ref.TypeConName],
+    viewType: Option[Ref.TypeConName],
 ) {
   def getChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
     choices.asJava
