@@ -1545,10 +1545,21 @@ private[lf] object SBuiltin {
           // TODO (drsk) validate key hash. https://github.com/digital-asset/daml/issues/13897
           machine.disclosureTable.contractIdByKey.get(gkey.hash) match {
             case Some(coid) =>
-              val vcoid = coid.value
-              discard(continue(Some(vcoid)))
+              machine.disclosureTable.contractById.get(coid) match {
+                case Some((actualTemplateId, _)) if actualTemplateId == operation.templateId =>
+                  val vcoid = coid.value
+                  discard(continue(Some(vcoid)))
 
-            case None => {
+                case Some((actualTemplateId, _)) =>
+                  machine.ctrl = SEDamlException(
+                    IE.WronglyTypedContract(coid.value, operation.templateId, actualTemplateId)
+                  )
+
+                case None =>
+                  machine.ctrl = SEDamlException(IE.ContractNotFound(coid.value))
+              }
+
+            case None =>
               throw SpeedyHungry(
                 SResultNeedKey(
                   GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
@@ -1556,7 +1567,6 @@ private[lf] object SBuiltin {
                   continue,
                 )
               )
-            }
           }
       }
     }

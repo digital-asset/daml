@@ -12,6 +12,7 @@ import com.daml.lf.interpretation.Error.{
   ContractKeyNotFound,
   ContractNotActive,
   DisclosurePreprocessing,
+  WronglyTypedContract,
 }
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SExpr.{SEMakeClo, SEValue}
@@ -285,6 +286,12 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
           }
         }
       }
+
+      "wrongly typed contract disclosures are rejected" in {
+        wronglyTypedDisclosedContractsRejected(
+          SBUFetchKey(houseTemplateType)(SEValue(contractSKey))
+        )
+      }
     }
 
     "looking up contract keys" - {
@@ -412,6 +419,12 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
           }
         }
       }
+
+      "wrongly typed contract disclosures are rejected" in {
+        wronglyTypedDisclosedContractsRejected(
+          SBULookupKey(houseTemplateType)(SEValue(contractSKey))
+        )
+      }
     }
   }
 }
@@ -489,9 +502,9 @@ object ExplicitDisclosureTest {
   val caveTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:Cave")
   val caveTemplateType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:Cave")
   val keyType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:Key")
-  val contractKey: GlobalKey = buildContractKey(maintainerParty)
+  val contractKey: GlobalKey = buildContractKey(houseTemplateType, maintainerParty)
   val contractSKey: SValue = buildContractSKey(maintainerParty)
-  val ledgerContractKey: GlobalKey = buildContractKey(ledgerParty)
+  val ledgerContractKey: GlobalKey = buildContractKey(houseTemplateType, ledgerParty)
   val ledgerHouseContract: Value.VersionedContractInstance =
     buildContract(ledgerParty, maintainerParty)
   val ledgerCaveContract: Value.VersionedContractInstance =
@@ -532,7 +545,7 @@ object ExplicitDisclosureTest {
       ),
     )
     val keyHash: Option[Hash] =
-      if (withHash) Some(crypto.Hash.assertHashContractKey(houseTemplateType, key)) else None
+      if (withHash) Some(crypto.Hash.assertHashContractKey(templateId, key)) else None
 
     DisclosedContract(
       templateId,
@@ -563,9 +576,9 @@ object ExplicitDisclosureTest {
     )
   }
 
-  def buildContractKey(maintainer: Party): GlobalKey =
+  def buildContractKey(templateType: Ref.TypeConName, maintainer: Party): GlobalKey =
     GlobalKey.assertBuild(
-      houseTemplateType,
+      templateType,
       Value.ValueRecord(
         None,
         ImmArray(
@@ -880,5 +893,47 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
     ledger should haveDisclosedContracts(disclosedContract)
     ledger should haveCachedContractIds(contractToDestroy)
     ledger should haveInactiveContractIds(contractToDestroy)
+  }
+
+  def wronglyTypedDisclosedContractsRejected(sexpr: SExpr.SExpr): Assertion = {
+    val houseContractKey: GlobalKey = buildContractKey(houseTemplateType, maintainerParty)
+    // Here the disclosed contract has a caveTemplateType, but its key has a houseTemplateType
+    val malformedDisclosedContract: DisclosedContract =
+      DisclosedContract(
+        caveTemplateType,
+        SContractId(disclosureContractId),
+        SValue.SRecord(
+          caveTemplateType,
+          ImmArray(
+            Ref.Name.assertFromString("owner"),
+            Ref.Name.assertFromString("key_maintainer"),
+          ),
+          ArrayList(SValue.SParty(disclosureParty), SValue.SParty(maintainerParty)),
+        ),
+        ContractMetadata(Time.Timestamp.now(), Some(houseContractKey.hash), ImmArray.Empty),
+      )
+
+    val (result, ledger) =
+      evaluateSExpr(
+        sexpr,
+        committers = Set(disclosureParty),
+        disclosedContracts = ImmArray(malformedDisclosedContract),
+      )
+
+    inside(result) {
+      case Left(
+            SError.SErrorDamlException(
+              WronglyTypedContract(
+                `disclosureContractId`,
+                `houseTemplateType`,
+                `caveTemplateType`,
+              )
+            )
+          ) =>
+        succeed
+    }
+    ledger should haveDisclosedContracts(malformedDisclosedContract)
+    ledger should haveCachedContractIds()
+    ledger should haveInactiveContractIds()
   }
 }
