@@ -579,7 +579,7 @@ convertModule
     -> Either FileDiagnostic LF.Module
 convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsGenerated file coreModule modIface details = runConvertM (ConversionEnv file Nothing) $ do
     let mc = extractModuleContents env binds details coreModule
-    definitions <- concatMapM (\bind -> resetFreshVarCounters >> convertBind env mc bind) binds
+    definitions <- convertBinds env mc binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types coreModule))
     depOrphanModules <- convertDepOrphanModules env (getDepOrphanModules modIface)
     templates <- convertTemplateDefs env mc
@@ -1062,6 +1062,9 @@ convertChoice env tbinds (ChoiceData ty expr) = do
       where
         applyThisAndArg func = func `ETmApp` EVar this `ETmApp` EVar arg
 
+convertBinds :: Env -> ModuleContents -> [(Var, GHC.Expr Var)] -> ConvertM [Definition]
+convertBinds env mc =
+  concatMapM (\bind -> resetFreshVarCounters >> convertBind env mc bind)
 
 convertBind :: Env -> ModuleContents -> (Var, GHC.Expr Var) -> ConvertM [Definition]
 convertBind env mc (name, x)
