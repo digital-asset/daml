@@ -238,6 +238,7 @@ data ModuleContents = ModuleContents
   , mcInterfaceChoiceData :: MS.Map TypeConName [ChoiceData]
   , mcInterfaces :: MS.Map TypeConName GHC.TyCon
   , mcModInstanceInfo :: !ModInstanceInfo
+  , mcDepOrphanModules :: [GHC.Module]
   }
 
 data ChoiceData = ChoiceData
@@ -245,8 +246,8 @@ data ChoiceData = ChoiceData
   , _choiceDatExpr :: GHC.Expr GHC.CoreBndr
   }
 
-extractModuleContents :: Env -> ModDetails -> CoreModule -> ModuleContents
-extractModuleContents env@Env{..} details coreModule = do
+extractModuleContents :: Env -> CoreModule -> ModIface -> ModDetails -> ModuleContents
+extractModuleContents env@Env{..} coreModule modIface details = do
   let
     mcBinds =
       [ bind
@@ -310,8 +311,12 @@ extractModuleContents env@Env{..} details coreModule = do
             MS.empty
 
     mcModInstanceInfo = modInstanceInfoFromDetails details
+    mcDepOrphanModules = getDepOrphanModules modIface
 
   ModuleContents {..}
+
+getDepOrphanModules :: ModIface -> [GHC.Module]
+getDepOrphanModules = dep_orphs . mi_deps
 
 ---------------------------------------------------------------------
 -- CONVERSION
@@ -591,10 +596,10 @@ convertModule
     -> ModDetails
     -> Either FileDiagnostic LF.Module
 convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsGenerated file coreModule modIface details = runConvertM (ConversionEnv file Nothing) $ do
-    let mc = extractModuleContents env details coreModule
+    let mc = extractModuleContents env coreModule modIface details
     definitions <- convertBinds env mc
     types <- convertTypeDefs env mc
-    depOrphanModules <- convertDepOrphanModules env (getDepOrphanModules modIface)
+    depOrphanModules <- convertDepOrphanModules env mc
     templates <- convertTemplateDefs env mc
     exceptions <- convertExceptionDefs env mc
     interfaces <- convertInterfaces env mc
@@ -619,9 +624,6 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
         envTypeVars = MS.empty
         envTypeVarNames = S.empty
         env = Env {..}
-
-getDepOrphanModules :: ModIface -> [GHC.Module]
-getDepOrphanModules = dep_orphs . mi_deps
 
 data Consuming = PreConsuming
                | Consuming
@@ -782,10 +784,10 @@ convertClassDef env tycon
         ++ [funDepDef | classHasFds cls]
         ++ [minimalDef | not minimalIsDefault]
 
-convertDepOrphanModules :: Env -> [GHC.Module] -> ConvertM [Definition]
-convertDepOrphanModules env orphanModules = do
+convertDepOrphanModules :: Env -> ModuleContents -> ConvertM [Definition]
+convertDepOrphanModules env mc = do
     qualifiedDepOrphanModules <- S.fromList <$>
-        mapM (convertQualifiedModuleName () env) orphanModules
+        mapM (convertQualifiedModuleName () env) (mcDepOrphanModules mc)
     let moduleImportsType = encodeModuleImports qualifiedDepOrphanModules
         moduleImportsDef = DValue (mkMetadataStub moduleImportsName moduleImportsType)
     pure [moduleImportsDef]
