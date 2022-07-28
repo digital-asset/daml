@@ -621,6 +621,13 @@ convertModule lfVersion enableScenarios pkgMap stablePackages isGenerated file c
     let
       env = mkEnv lfVersion enableScenarios pkgMap stablePackages isGenerated (cm_module coreModule)
       mc = extractModuleContents env coreModule modIface details
+    defs <- convertModuleContents env mc
+    pure (LF.moduleFromDefinitions (envLFModuleName env) (Just $ fromNormalizedFilePath file) flags defs)
+    where
+        flags = LF.daml12FeatureFlags
+
+convertModuleContents :: Env -> ModuleContents -> ConvertM [Definition]
+convertModuleContents env mc = do
     definitions <- convertBinds env mc
     types <- convertTypeDefs env mc
     depOrphanModules <- convertDepOrphanModules env mc
@@ -638,9 +645,7 @@ convertModule lfVersion enableScenarios pkgMap stablePackages isGenerated file c
             ++ depOrphanModules
             ++ exports
             ++ fixities
-    pure (LF.moduleFromDefinitions (envLFModuleName env) (Just $ fromNormalizedFilePath file) flags defs)
-    where
-        flags = LF.daml12FeatureFlags
+    pure defs
 
 data Consuming = PreConsuming
                | Consuming
