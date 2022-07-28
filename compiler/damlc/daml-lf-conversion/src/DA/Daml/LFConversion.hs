@@ -251,7 +251,6 @@ data ModuleContents = ModuleContents
   , mcImplements :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
   , mcRequires :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
   , mcInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
-  , mcInterfaceChoiceData :: MS.Map TypeConName [ChoiceData]
   , mcInterfaces :: MS.Map TypeConName GHC.TyCon
   , mcModInstanceInfo :: !ModInstanceInfo
   , mcDepOrphanModules :: [GHC.Module]
@@ -313,12 +312,6 @@ extractModuleContents env@Env{..} coreModule modIface details = do
         | (name, v) <- mcBinds
         , "_choice_" `T.isPrefixOf` getOccText name
         , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
-        ]
-    mcInterfaceChoiceData = MS.fromListWith (++)
-        [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
-        | (name, v) <- mcBinds
-        , "_interface_choice_" `T.isPrefixOf` getOccText name
-        , ty@(TypeCon _ [_, TypeCon _ [TypeCon tplTy _]]) <- [varType name]
         ]
     mcTemplateBinds = scrapeTemplateBinds mcBinds
     mcInterfaceBinds = scrapeInterfaceBinds mcBinds
