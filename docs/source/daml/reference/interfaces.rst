@@ -52,6 +52,22 @@ Interface Methods
 
 - Methods are also in scope in interface choices
   (see :ref:`interface-choices` below).
+- One special method, ``view``, must be defined for the viewtype.
+  (see :ref:`interface-viewtype` below).
+
+.. _interface-viewtype:
+
+Interface View Type
+-------------------
+
+.. literalinclude:: ../code-snippets-dev/Interfaces.daml
+   :language: daml
+   :start-after: -- INTERFACE_VIEWTYPE_BEGIN
+   :end-before: -- INTERFACE_VIEWTYPE_END
+
+- All implementing templates must define a special ``view`` method which returns
+  a value of type declared by ``viewtype``.
+- This type is returned by subscriptions on interfaces.
 
 .. _interface-choices:
 
@@ -85,8 +101,8 @@ Empty Interfaces
    :end-before: -- EMPTY_INTERFACE_END
 
 - It is possible (though not necessarily useful) to define an interface without
-  methods, precondition or choices. In such a case, the ``where`` keyword
-  can be dropped.
+  methods, precondition or choices. However, a view type must always be defined,
+  though it can be set to unit.
 
 Required Interfaces
 -------------------
@@ -127,13 +143,6 @@ Required Interfaces
 
 - For a template's implementation of an interface to be valid, all its required
   interfaces must also be implemented by the template.
-- If the interface doesn't have any methods, precondition or choices,
-  the ``where`` keyword after the last required interface can be dropped:
-
-  .. literalinclude:: ../code-snippets-dev/Interfaces.daml
-     :language: daml
-     :start-after: -- EMPTY_INTERFACE_REQUIRES_BEGIN
-     :end-before: -- EMPTY_INTERFACE_REQUIRES_END
 
 Interface Implementation
 ************************
@@ -159,6 +168,8 @@ Implements Clause
 - The clause must start with the keyword ``implements``, followed by the name of
   the interface, followed by the keyword ``where``, which introduces a block
   where **all** the methods of the interface must be implemented.
+- The special ``view`` method must be implemented with the same return type as
+  the interface's view type.
 - Methods can be defined using the same syntax as for top level functions,
   including pattern matches and guards (e.g. ``method3``).
 
