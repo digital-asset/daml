@@ -112,15 +112,6 @@ Run the Application Using Prototyping Tools
 
 In this section, you will run the quickstart application and get introduced to the main tools for prototyping Daml:
 
-#. Create a new project with daml new quickstart --template quickstart-java and switch to it using cd quickstart.
-
-#. Run daml start. Your browser should be opened automatically at http://localhost:7500. 
-
-#. In the browser, log in as alice and verify that there is one contract, and that the templates list contains Iou:Iou, Iou:IouTransfer, and IouTrade:IouTrade among other templates.
-
-#. Close the browser tab and kill daml start using Ctrl-C.
-
-#. Run daml build.
 
 #. To compile the Daml model, run ``daml build``
 
