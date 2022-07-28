@@ -96,3 +96,7 @@ template MyTemplate
         | x > 0 = x + y
         | otherwise = y
 -- TEMPLATE_IMPLEMENTS_END
+-- TEMPLATE_EMPTY_IMPLEMENTS_BEGIN
+    implements YourInterface where
+      view = ()
+-- TEMPLATE_EMPTY_IMPLEMENTS_END

@@ -181,8 +181,8 @@ Empty Implements Clause
    :start-after: -- TEMPLATE_EMPTY_IMPLEMENTS_BEGIN
    :end-before: -- TEMPLATE_EMPTY_IMPLEMENTS_END
 
-- If the interface being implemented has no methods, the ``where`` keyword
-  can be dropped.
+- If the interface being implemented has no methods, only the ``view`` method
+  needs to be implemented.
 
 Interface Functions
 *******************
