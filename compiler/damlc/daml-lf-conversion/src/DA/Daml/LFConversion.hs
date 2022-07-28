@@ -577,10 +577,10 @@ convertModule
       -- ^ Only used for information that isn't available in ModDetails.
     -> ModDetails
     -> Either FileDiagnostic LF.Module
-convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsGenerated file x modIface details = runConvertM (ConversionEnv file Nothing) $ do
-    let mc = extractModuleContents env binds details x
+convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsGenerated file coreModule modIface details = runConvertM (ConversionEnv file Nothing) $ do
+    let mc = extractModuleContents env binds details coreModule
     definitions <- concatMapM (\bind -> resetFreshVarCounters >> convertBind env mc bind) binds
-    types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
+    types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types coreModule))
     depOrphanModules <- convertDepOrphanModules env (getDepOrphanModules modIface)
     templates <- convertTemplateDefs env mc
     exceptions <- convertExceptionDefs env mc
@@ -598,13 +598,13 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
             ++ fixities
     pure (LF.moduleFromDefinitions envLFModuleName (Just $ fromNormalizedFilePath file) flags defs)
     where
-        envGHCModuleName = GHC.moduleName $ cm_module x
-        envModuleUnitId = GHC.moduleUnitId $ cm_module x
+        envGHCModuleName = GHC.moduleName $ cm_module coreModule
+        envModuleUnitId = GHC.moduleUnitId $ cm_module coreModule
         envLFModuleName = convertModuleName envGHCModuleName
         flags = LF.daml12FeatureFlags
         binds =
           [ bind
-          | bindGroup <- cm_binds x
+          | bindGroup <- cm_binds coreModule
           , bind <- case bindGroup of
               NonRec name body
                 -- NOTE(MH): We can't cope with the generated Typeable stuff, so remove those bindings
