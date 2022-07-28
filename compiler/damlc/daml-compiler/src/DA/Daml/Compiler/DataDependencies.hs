@@ -611,38 +611,7 @@ generateSrcFromLf env = noLoc mod
             = pure emptyBag
 
     interfaceDecls :: [Gen (LHsDecl GhcPs)]
-    interfaceDecls = interfaceViewDecls ++ interfaceMethodDecls
-
-    interfaceViewDecls :: [Gen (LHsDecl GhcPs)]
-    interfaceViewDecls = do
-        interface <- NM.toList $ LF.moduleInterfaces $ envMod env
-        pure $ do
-            interfaceType <- convType env reexportedClasses . LF.TCon . qualify . LF.intName $ interface
-            viewType <- convType env reexportedClasses $ LF.intView interface
-            cls <- mkDesugarType env "HasInterfaceView"
-            let args =
-                    [ interfaceType
-                    , viewType
-                    ]
-                sig :: LHsSigType GhcPs
-                sig =
-                    HsIB noExt $ noLoc $
-                        foldl'
-                            (HsAppTy noExt . noLoc)
-                            cls
-                            (map noLoc args)
-            pure $ noLoc . InstD noExt . ClsInstD noExt $ ClsInstDecl
-                { cid_ext = noExt
-                , cid_poly_ty = sig
-                , cid_binds = emptyBag
-                , cid_sigs = []
-                , cid_tyfam_insts = []
-                , cid_datafam_insts = []
-                , cid_overlap_mode = Nothing
-                }
-
-    interfaceMethodDecls :: [Gen (LHsDecl GhcPs)]
-    interfaceMethodDecls = do
+    interfaceDecls = do
         interface <- NM.toList $ LF.moduleInterfaces $ envMod env
         meth <- NM.toList $ LF.intMethods interface
         pure $ do
