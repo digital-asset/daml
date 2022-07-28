@@ -227,6 +227,7 @@ envHasTypeVarName x = S.member x . envTypeVarNames
 -- initial step of conversion.
 data ModuleContents = ModuleContents
   { mcBinds :: [(Var, GHC.Expr CoreBndr)]
+  , mcTypeDefs :: [TyThing]
   , mcTemplateBinds :: MS.Map TypeConName TemplateBinds
   , mcInterfaceBinds :: MS.Map TypeConName InterfaceBinds
   , mcExceptionBinds :: MS.Map TypeConName ExceptionBinds
@@ -257,7 +258,8 @@ extractModuleContents env@Env{..} details coreModule = do
             | otherwise -> [(name, body)]
           Rec binds -> binds
       ]
-    mcInterfaces = interfaceNames envLfVersion (eltsUFM (cm_types coreModule))
+    mcTypeDefs = eltsUFM (cm_types coreModule)
+    mcInterfaces = interfaceNames envLfVersion mcTypeDefs
     mcImplements = MS.fromListWith (++)
       [ (mkTypeCon [getOccText tpl], [(convNameLoc name, iface)])
       | (name, _val) <- mcBinds
@@ -591,7 +593,7 @@ convertModule
 convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsGenerated file coreModule modIface details = runConvertM (ConversionEnv file Nothing) $ do
     let mc = extractModuleContents env details coreModule
     definitions <- convertBinds env mc
-    types <- convertTypeDefs env (eltsUFM (cm_types coreModule))
+    types <- convertTypeDefs env mc
     depOrphanModules <- convertDepOrphanModules env (getDepOrphanModules modIface)
     templates <- convertTemplateDefs env mc
     exceptions <- convertExceptionDefs env mc
@@ -627,8 +629,8 @@ data Consuming = PreConsuming
                | PostConsuming
                deriving (Eq)
 
-convertTypeDefs :: Env -> [TyThing] -> ConvertM [Definition]
-convertTypeDefs env = concatMapM (convertTypeDef env)
+convertTypeDefs :: Env -> ModuleContents -> ConvertM [Definition]
+convertTypeDefs env mc = concatMapM (convertTypeDef env) (mcTypeDefs mc)
 
 convertTypeDef :: Env -> TyThing -> ConvertM [Definition]
 convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
