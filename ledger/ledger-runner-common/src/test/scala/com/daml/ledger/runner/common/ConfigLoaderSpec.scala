@@ -145,13 +145,13 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues {
   behavior of "ConfigLoader.loadConfig for com.daml.ledger.runner.common.Config"
 
   it should "load config from empty config and resolve to default" in {
-    import PureConfigReaderWriter._
+    import PureConfigReaderWriter.Secure._
     val fromConfig = ConfigLoader.loadConfig[Config](ConfigFactory.empty())
     fromConfig.value shouldBe Config.Default
   }
 
   it should "load default from the default constructor" in {
-    import PureConfigReaderWriter._
+    import PureConfigReaderWriter.Secure._
     ConfigFactory.invalidateCaches()
     val fromConfig = ConfigLoader.loadConfig[Config](ConfigFactory.load())
     fromConfig.value shouldBe Config.Default

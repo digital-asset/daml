@@ -24,6 +24,9 @@ module DA.Internal.Desugar (
     HasMethod,
     Method,
     mkMethod,
+    InterfaceView,
+    HasInterfaceView(..),
+    mkInterfaceView
 ) where
 
 import DA.Internal.Prelude
@@ -117,3 +120,17 @@ newtype Method t i (m : Symbol) = Method ()
 -- it's extracted unmodified.
 mkMethod : (Implements t i, HasMethod i m r) => (t -> r) -> Method t i m
 mkMethod = magic @"mkMethod"
+
+-- Read: Interface `i` has a view of type `r`
+class HasInterfaceView i v | i -> v
+
+-- | This is only a marker for the container, it doesn't contain the
+-- actual implementation of the view.
+newtype InterfaceView t i = InterfaceView ()
+
+-- | This is used to check that the argument has the correct
+-- return type `r` for the given `t i v` type arguments.
+-- At runtime, the argument is ignored, but at compile time,
+-- it's extracted unmodified.
+mkInterfaceView : (Implements t i, HasInterfaceView i v) => (t -> v) -> InterfaceView t i
+mkInterfaceView = magic @"mkInterfaceView"

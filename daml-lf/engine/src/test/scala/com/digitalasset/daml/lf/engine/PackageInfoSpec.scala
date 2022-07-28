@@ -73,7 +73,6 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
     p"""
          module Mod21 {
            interface (this: I21) = {
-             precondition True;
              coimplements '-pkg1-':Mod11:T11 {};
              coimplements 'pkgA':ModA:TA {};
            };
@@ -81,7 +80,6 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
 
          module Mod22 {
            interface (this: I22) = {
-             precondition True;
              coimplements '-pkg1-':Mod11:T11 {};
              coimplements 'pkgB':ModB:TB {};
            };
@@ -104,9 +102,7 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
             implements '-pkg1-':Mod11:I11 {};
             implements 'pkgB':ModB:IB {};
           };
-          interface (this: I31) = {
-            precondition True;
-          };
+          interface (this: I31) = {};
         }
 
         module Mod32 {
@@ -120,7 +116,6 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
               implements 'pkgA':ModA:IA {};
             };
             interface (this: I32) = {
-             precondition True;
              coimplements '-pkg1-':Mod11:T11 {};
              coimplements 'pkgB':ModB:TB {};
            };

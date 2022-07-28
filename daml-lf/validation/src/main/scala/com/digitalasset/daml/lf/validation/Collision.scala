@@ -94,6 +94,5 @@ private[validation] object Collision {
       ifaceName: DottedName,
       iface: Ast.DefInterface,
   ): List[NamedEntity] =
-    (iface.choices.keys.map(NInterfaceChoice(module, ifaceName, _)) ++
-      iface.methods.keys.map(NInterfaceMethod(module, ifaceName, _))).toList
+    iface.choices.keys.map(NInterfaceChoice(module, ifaceName, _)).toList
 }

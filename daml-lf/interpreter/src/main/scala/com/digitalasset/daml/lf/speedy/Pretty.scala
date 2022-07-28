@@ -181,7 +181,7 @@ private[lf] object Pretty {
             )
           case DisclosurePreprocessing.NonExistentTemplate(templateId) =>
             text(
-              s"Template $templateId does not exist"
+              s"Template $templateId does not exist for the disclosed contract"
             )
           case DisclosurePreprocessing.NonExistentDisclosedContractKeyHash(
                 contractId,

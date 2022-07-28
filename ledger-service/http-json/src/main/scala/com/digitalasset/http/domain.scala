@@ -143,7 +143,7 @@ package domain {
   ) extends ContractLocator[LfV]
 
   final case class EnrichedContractId(
-      templateId: Option[TemplateId.OptionalPkg],
+      templateId: Option[ContractTypeId.Unknown.OptionalPkg],
       contractId: domain.ContractId,
   ) extends ContractLocator[Nothing]
 
@@ -272,6 +272,8 @@ package domain {
       reference: Ref,
       choice: domain.Choice,
       argument: LfV,
+      // passing a template ID is allowed; we distinguish internally
+      choiceInterfaceId: Option[ContractTypeId.Unknown.OptionalPkg],
       meta: Option[CommandMeta],
   )
 
@@ -280,6 +282,8 @@ package domain {
       payload: Payload,
       choice: domain.Choice,
       argument: Arg,
+      // passing a template ID is allowed; we distinguish internally
+      choiceInterfaceId: Option[TmplId],
       meta: Option[CommandMeta],
   )
 
@@ -386,7 +390,7 @@ package domain {
 
   private[http] object ActiveContractExtras {
     // only used in integration tests
-    implicit val `AcC hasTemplateId`: HasTemplateId[ActiveContract] =
+    implicit val `AcC hasTemplateId`: HasTemplateId.Compat[ActiveContract] =
       new HasTemplateId[ActiveContract] {
         override def templateId(fa: ActiveContract[_]): TemplateId.OptionalPkg =
           TemplateId(
@@ -394,6 +398,8 @@ package domain {
             fa.templateId.moduleName,
             fa.templateId.entityName,
           )
+
+        type TypeFromCtId = LfType
 
         override def lfType(
             fa: ActiveContract[_],
@@ -473,10 +479,12 @@ package domain {
       }
     }
 
-    implicit val hasTemplateId: HasTemplateId[EnrichedContractKey] =
+    implicit val hasTemplateId: HasTemplateId.Compat[EnrichedContractKey] =
       new HasTemplateId[EnrichedContractKey] {
 
         override def templateId(fa: EnrichedContractKey[_]): TemplateId.OptionalPkg = fa.templateId
+
+        type TypeFromCtId = LfType
 
         override def lfType(
             fa: EnrichedContractKey[_],
@@ -499,29 +507,38 @@ package domain {
       }
     }
 
-    implicit def hasTemplateId[Off]: HasTemplateId[ContractKeyStreamRequest[Off, *]] =
+    implicit def hasTemplateId[Off]: HasTemplateId.Compat[ContractKeyStreamRequest[Off, *]] =
       HasTemplateId.by[ContractKeyStreamRequest[Off, *]](_.ekey)
   }
 
   trait HasTemplateId[F[_]] {
     def templateId(fa: F[_]): TemplateId.OptionalPkg
 
+    type TypeFromCtId
+
     def lfType(
         fa: F[_],
-        templateId: TemplateId.RequiredPkg,
+        templateId: ContractTypeId.Unknown.Resolved,
         f: PackageService.ResolveTemplateRecordType,
         g: PackageService.ResolveChoiceArgType,
         h: PackageService.ResolveKeyType,
-    ): Error \/ LfType
+    ): Error \/ TypeFromCtId
   }
 
   object HasTemplateId {
+    type Compat[F[_]] = Aux[F, LfType]
+    type Aux[F[_], TFC0] = HasTemplateId[F] { type TypeFromCtId = TFC0 }
+
     def by[F[_]]: By[F] = new By[F](0)
 
     final class By[F[_]](private val ign: Int) extends AnyVal {
-      def apply[G[_]](nt: F[_] => G[_])(implicit basis: HasTemplateId[G]): HasTemplateId[F] =
+      def apply[G[_]](
+          nt: F[_] => G[_]
+      )(implicit basis: HasTemplateId[G]): Aux[F, basis.TypeFromCtId] =
         new HasTemplateId[F] {
           override def templateId(fa: F[_]) = basis templateId nt(fa)
+
+          type TypeFromCtId = basis.TypeFromCtId
 
           override def lfType(
               fa: F[_],
@@ -529,7 +546,7 @@ package domain {
               f: PackageService.ResolveTemplateRecordType,
               g: PackageService.ResolveChoiceArgType,
               h: PackageService.ResolveKeyType,
-          ) = basis.lfType(nt(fa), templateId, f, g, h)
+          ): Error \/ TypeFromCtId = basis.lfType(nt(fa), templateId, f, g, h)
         }
     }
   }
@@ -556,31 +573,47 @@ package domain {
     implicit val leftTraverseInstance: Traverse[ExerciseCommand[+*, Nothing]] =
       bitraverseInstance.leftTraverse
 
-    implicit val hasTemplateId =
+    implicit val hasTemplateId: HasTemplateId.Aux[ExerciseCommand[
+      +*,
+      domain.ContractLocator[_],
+    ], (Option[domain.ContractTypeId.Interface.Resolved], LfType)] =
       new HasTemplateId[ExerciseCommand[+*, domain.ContractLocator[_]]] {
 
         override def templateId(
             fab: ExerciseCommand[_, domain.ContractLocator[_]]
-        ): TemplateId.OptionalPkg = {
-          fab.reference match {
+        ): TemplateId.OptionalPkg =
+          fab.choiceInterfaceId getOrElse (fab.reference match {
             case EnrichedContractKey(templateId, _) => templateId
             case EnrichedContractId(Some(templateId), _) => templateId
             case EnrichedContractId(None, _) =>
               throw new IllegalArgumentException(
                 "Please specify templateId, optional templateId is not supported yet!"
               )
-          }
-        }
+          })
+
+        type TypeFromCtId = (Option[domain.ContractTypeId.Interface.Resolved], LfType)
 
         override def lfType(
             fa: ExerciseCommand[_, domain.ContractLocator[_]],
-            templateId: TemplateId.RequiredPkg,
+            templateId: ContractTypeId.Unknown.Resolved,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
-        ): Error \/ LfType =
+        ) =
           g(templateId, fa.choice)
             .leftMap(e => Error(Symbol("ExerciseCommand_hasTemplateId_lfType"), e.shows))
+      }
+  }
+
+  object CreateAndExerciseCommand {
+    implicit def covariant[P, Ar]: Traverse[CreateAndExerciseCommand[P, Ar, *]] =
+      new Traverse[CreateAndExerciseCommand[P, Ar, *]] {
+        override def traverseImpl[G[_]: Applicative, A, B](
+            fa: CreateAndExerciseCommand[P, Ar, A]
+        )(f: A => G[B]): G[CreateAndExerciseCommand[P, Ar, B]] =
+          ^(f(fa.templateId), fa.choiceInterfaceId traverse f) { (tId, ciId) =>
+            fa.copy(templateId = tId, choiceInterfaceId = ciId)
+          }
       }
   }
 

@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref.{Location, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageVersion
@@ -23,7 +23,26 @@ import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Success, Try}
+
+class TestTraceLog extends TraceLog {
+  private val messages: ArrayBuffer[(String, Option[Location])] = new ArrayBuffer()
+
+  override def add(message: String, optLocation: Option[Location])(implicit
+      loggingContext: LoggingContext
+  ) = {
+    messages += ((message, optLocation))
+  }
+
+  def tracePF[X, Y](text: String, pf: PartialFunction[X, Y]): PartialFunction[X, Y] = {
+    case x if { add(text, None)(LoggingContext.ForTesting); pf.isDefinedAt(x) } => pf(x)
+  }
+
+  override def iterator = messages.iterator
+
+  def getMessages: Seq[String] = messages.view.map(_._1).toSeq
+}
 
 class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
@@ -50,20 +69,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       variant @serializable Either (a:*) (b:*) = Left: a | Right : b;
 
-      interface (this : I1) =  {
-        precondition TRACE @Bool "precondition1" True;
-      };
-
-      interface (this : I2) =  {
-        precondition TRACE @Bool "precondition2" False;
-      };
-
-      interface (this : I3) =  {
-        precondition TRACE @Bool "precondition3" False;
-      };
+      interface (this : I1) =  {};
 
       interface (this: Person) = {
-        precondition True;
         method asParty: Party;
         method getCtrl: Party;
         method getName: Text;
@@ -95,23 +103,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         key @M:TKey
            (TRACE @M:TKey "key" (M:T {key} this))
            (\(key : M:TKey) -> TRACE @(List Party) "maintainers" (M:TKey {maintainers} key));
-      };
-
-      record @serializable T2 = { signatory : Party, observer : Party, precondition : Bool};
-      template (this : T2) = {
-        precondition TRACE @Bool "precondition" (M:T2 {precondition} this);
-        signatories TRACE @(List Party) "contract signatories" (Cons @Party [M:T2 {signatory} this] (Nil @Party));
-        observers TRACE @(List Party) "contract observers" (Cons @Party [M:T2 {observer} this] (Nil @Party));
-        agreement TRACE @Text "agreement" "";
-        choice Archive (self) (arg: Unit): Unit,
-          controllers Cons @Party [M:T2 {signatory} this] (Nil @Party)
-          to upure @Unit (TRACE @Unit "archive" ());
-        implements M:I1 {
-        };
-        implements M:I2 {
-        };
-        implements M:I3 {
-        };
       };
 
       record @serializable Human = { person: Party, obs: Party, ctrl: Party, precond: Bool, key: M:TKey, nested: M:Nested };
@@ -162,12 +153,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       val create_interface: M:Human -> Update Unit =
         \(arg: M:Human) -> Test:run @(ContractId M:Person) (create_by_interface @M:Person (to_interface @M:Person @M:Human arg));
-
-      val create_interface2: M:T2 -> Update Unit =
-        \(arg: M:T2) -> Test:run @(ContractId M:I2) (create_by_interface @M:I2 (to_interface @M:I2 @M:T2 arg));
-
-      val create2: M:T2 -> Update Unit =
-        \(arg: M:T2) -> Test:run @(ContractId M:T2) (create @M:T2 arg);
 
       val exercise_by_id: Party -> ContractId M:T -> M:Either Int64 Int64 -> Update Unit =
         \(exercisingParty: Party) (cId: ContractId M:T) (argParams: M:Either Int64 Int64) ->
@@ -294,11 +279,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
     List("alice", "bob", "charlie").map(Ref.Party.assertFromString)
 
   private[this] val T = t"M:T" match {
-    case TTyCon(tycon) => tycon
-    case _ => sys.error("unexpect error")
-  }
-
-  private[this] val T2 = t"M:T2" match {
     case TTyCon(tycon) => tycon
     case _ => sys.error("unexpect error")
   }
@@ -502,38 +482,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order: Template precondition before interface preconditions.
-      "failed template precondition and interface precondition" in {
-        val (res, msgs) = evalUpdateApp(
-          pkgs,
-          e"""\(sig : Party) (obs : Party) ->
-                Test:create2 M:T2 { signatory = sig, observer = obs, precondition = False}
-           """,
-          Array(SParty(alice), SParty(bob)),
-          Set(alice),
-        )
-        inside(res) {
-          case Success(Left(SErrorDamlException(IE.TemplatePreconditionViolated(T2, _, _)))) =>
-            msgs shouldBe Seq("starts test", "precondition")
-        }
-      }
-
-      // TEST_EVIDENCE: Semantics: Evaluation order: Interface preconditions are evaluated in the order given by the implementation list.
-      "order of evaluation of interface preconditions" in {
-        val (res, msgs) = evalUpdateApp(
-          pkgs,
-          e"""\(sig : Party) (obs : Party) ->
-                Test:create2 M:T2 { signatory = sig, observer = obs, precondition = True}
-           """,
-          Array(SParty(alice), SParty(bob)),
-          Set(alice),
-        )
-        inside(res) {
-          case Success(Left(SErrorDamlException(IE.TemplatePreconditionViolated(T2, _, _)))) =>
-            msgs shouldBe Seq("starts test", "precondition", "precondition1", "precondition2")
-        }
-      }
-
       // TEST_EVIDENCE: Semantics: Evaluation order of create with duplicate contract key
       "duplicate contract key" in {
         val (res, msgs) = evalUpdateApp(
@@ -722,38 +670,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         inside(res) {
           case Success(Left(SErrorDamlException(IE.TemplatePreconditionViolated(Human, _, _)))) =>
             msgs shouldBe Seq("starts test", "precondition")
-        }
-      }
-
-      // TEST_EVIDENCE: Semantics: Evaluation order: Template precondition before interface preconditions.
-      "failed template precondition and interface precondition" in {
-        val (res, msgs) = evalUpdateApp(
-          pkgs,
-          e"""\(sig : Party) (obs : Party) ->
-                Test:create_interface2 M:T2 { signatory = sig, observer = obs, precondition = False}
-           """,
-          Array(SParty(alice), SParty(bob)),
-          Set(alice),
-        )
-        inside(res) {
-          case Success(Left(SErrorDamlException(IE.TemplatePreconditionViolated(T2, _, _)))) =>
-            msgs shouldBe Seq("starts test", "precondition")
-        }
-      }
-
-      // TEST_EVIDENCE: Semantics: Evaluation order: Interface preconditions are evaluated in the order given by the implementation list.
-      "order of evaluation of interface preconditions" in {
-        val (res, msgs) = evalUpdateApp(
-          pkgs,
-          e"""\(sig : Party) (obs : Party) ->
-                Test:create_interface2 M:T2 { signatory = sig, observer = obs, precondition = True}
-           """,
-          Array(SParty(alice), SParty(bob)),
-          Set(alice),
-        )
-        inside(res) {
-          case Success(Left(SErrorDamlException(IE.TemplatePreconditionViolated(T2, _, _)))) =>
-            msgs shouldBe Seq("starts test", "precondition", "precondition1", "precondition2")
         }
       }
 
