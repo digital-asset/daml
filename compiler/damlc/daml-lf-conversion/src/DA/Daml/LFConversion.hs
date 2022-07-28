@@ -226,7 +226,8 @@ envHasTypeVarName x = S.member x . envTypeVarNames
 -- | Information extracted from the GHC representation of the module as an
 -- initial step of conversion.
 data ModuleContents = ModuleContents
-  { mcTemplateBinds :: MS.Map TypeConName TemplateBinds
+  { mcBinds :: [(Var, GHC.Expr CoreBndr)]
+  , mcTemplateBinds :: MS.Map TypeConName TemplateBinds
   , mcInterfaceBinds :: MS.Map TypeConName InterfaceBinds
   , mcExceptionBinds :: MS.Map TypeConName ExceptionBinds
   , mcChoiceData :: MS.Map TypeConName [ChoiceData]
@@ -243,20 +244,30 @@ data ChoiceData = ChoiceData
   , _choiceDatExpr :: GHC.Expr GHC.CoreBndr
   }
 
-extractModuleContents :: Env -> [(Var, GHC.Expr CoreBndr)] -> ModDetails -> CoreModule -> ModuleContents
-extractModuleContents env@Env{..} binds details coreModule = do
+extractModuleContents :: Env -> ModDetails -> CoreModule -> ModuleContents
+extractModuleContents env@Env{..} details coreModule = do
   let
+    mcBinds =
+      [ bind
+      | bindGroup <- cm_binds coreModule
+      , bind <- case bindGroup of
+          NonRec name body
+            -- NOTE(MH): We can't cope with the generated Typeable stuff, so remove those bindings
+            | any (`T.isPrefixOf` getOccText name) ["$krep", "$tc", "$trModule"] -> []
+            | otherwise -> [(name, body)]
+          Rec binds -> binds
+      ]
     mcInterfaces = interfaceNames envLfVersion (eltsUFM (cm_types coreModule))
     mcImplements = MS.fromListWith (++)
       [ (mkTypeCon [getOccText tpl], [(convNameLoc name, iface)])
-      | (name, _val) <- binds
+      | (name, _val) <- mcBinds
       , "_implements_" `T.isPrefixOf` getOccText name
       , TypeCon implementsT [TypeCon tpl [], TypeCon iface []] <- [varType name]
       , NameIn DA_Internal_Desugar "ImplementsT" <- [implementsT]
       ]
     mcRequires = MS.fromListWith (++)
       [ (mkTypeCon [getOccText iface1], [(convNameLoc name, iface2)])
-      | (name, _val) <- binds
+      | (name, _val) <- mcBinds
       , "_requires_" `T.isPrefixOf` getOccText name
       , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- [varType name]
       , NameIn DA_Internal_Desugar "RequiresT" <- [requiresT]
@@ -267,7 +278,7 @@ extractModuleContents env@Env{..} binds details coreModule = do
         ( (mod, mkTypeCon [getOccText iface], mkTypeCon [getOccText tpl])
         , [(methodName, untick val)]
         )
-      | (name, val) <- binds
+      | (name, val) <- mcBinds
       , TypeCon methodNewtype
         [ TypeCon tpl []
         , TypeCon iface []
@@ -278,21 +289,21 @@ extractModuleContents env@Env{..} binds details coreModule = do
       ]
     mcChoiceData = MS.fromListWith (++)
         [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
-        | (name, v) <- binds
+        | (name, v) <- mcBinds
         , "_choice_" `T.isPrefixOf` getOccText name
         , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
         ]
     mcInterfaceChoiceData = MS.fromListWith (++)
         [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
-        | (name, v) <- binds
+        | (name, v) <- mcBinds
         , "_interface_choice_" `T.isPrefixOf` getOccText name
         , ty@(TypeCon _ [_, TypeCon _ [TypeCon tplTy _]]) <- [varType name]
         ]
-    mcTemplateBinds = scrapeTemplateBinds binds
-    mcInterfaceBinds = scrapeInterfaceBinds binds
+    mcTemplateBinds = scrapeTemplateBinds mcBinds
+    mcInterfaceBinds = scrapeInterfaceBinds mcBinds
     mcExceptionBinds
         | envLfVersion `supports` featureExceptions =
-            scrapeExceptionBinds binds
+            scrapeExceptionBinds mcBinds
         | otherwise =
             MS.empty
 
@@ -511,8 +522,8 @@ convertInterfaceTyCon env errHandler tycon
     | otherwise =
         conversionError $ errHandler tycon
 
-convertInterfaces :: Env -> ModuleContents -> [(Var, GHC.Expr Var)] -> ConvertM [Definition]
-convertInterfaces env mc binds = interfaceDefs
+convertInterfaces :: Env -> ModuleContents -> ConvertM [Definition]
+convertInterfaces env mc = interfaceDefs
   where
     interfaceDefs :: ConvertM [Definition]
     interfaceDefs = sequence
@@ -540,7 +551,7 @@ convertInterfaces env mc binds = interfaceDefs
 
     convertMethods :: GHC.TyCon -> ConvertM [InterfaceMethod]
     convertMethods tyCon = sequence $ do
-      (name, val) <- binds
+      (name, val) <- mcBinds mc
       DFunId _ <- [idDetails name]
       TypeCon hasMethodCls
         [ TypeCon ((== tyCon) -> True) []
@@ -578,13 +589,13 @@ convertModule
     -> ModDetails
     -> Either FileDiagnostic LF.Module
 convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsGenerated file coreModule modIface details = runConvertM (ConversionEnv file Nothing) $ do
-    let mc = extractModuleContents env binds details coreModule
-    definitions <- convertBinds env mc binds
+    let mc = extractModuleContents env details coreModule
+    definitions <- convertBinds env mc
     types <- convertTypeDefs env (eltsUFM (cm_types coreModule))
     depOrphanModules <- convertDepOrphanModules env (getDepOrphanModules modIface)
     templates <- convertTemplateDefs env mc
     exceptions <- convertExceptionDefs env mc
-    interfaces <- convertInterfaces env mc binds
+    interfaces <- convertInterfaces env mc
     exports <- convertExports env (md_exports details)
     let fixities = convertFixities (mi_fixities modIface)
         defs =
@@ -602,17 +613,6 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
         envModuleUnitId = GHC.moduleUnitId $ cm_module coreModule
         envLFModuleName = convertModuleName envGHCModuleName
         flags = LF.daml12FeatureFlags
-        binds =
-          [ bind
-          | bindGroup <- cm_binds coreModule
-          , bind <- case bindGroup of
-              NonRec name body
-                -- NOTE(MH): We can't cope with the generated Typeable stuff, so remove those bindings
-                | any (`T.isPrefixOf` getOccText name) ["$krep", "$tc", "$trModule"] -> []
-                | otherwise -> [(name, body)]
-              Rec binds -> binds
-          ]
-
         envAliases = MS.empty
         envTypeVars = MS.empty
         envTypeVarNames = S.empty
@@ -1065,9 +1065,9 @@ convertChoice env tbinds (ChoiceData ty expr) = do
       where
         applyThisAndArg func = func `ETmApp` EVar this `ETmApp` EVar arg
 
-convertBinds :: Env -> ModuleContents -> [(Var, GHC.Expr Var)] -> ConvertM [Definition]
+convertBinds :: Env -> ModuleContents -> ConvertM [Definition]
 convertBinds env mc =
-  concatMapM (\bind -> resetFreshVarCounters >> convertBind env mc bind)
+  concatMapM (\bind -> resetFreshVarCounters >> convertBind env mc bind) (mcBinds mc)
 
 convertBind :: Env -> ModuleContents -> (Var, GHC.Expr Var) -> ConvertM [Definition]
 convertBind env mc (name, x)
