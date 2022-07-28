@@ -60,6 +60,9 @@ final case class EnvironmentInterface(
     }
     copy(typeDecls = newTypeDecls, astInterfaces = newAstInterfaces)
   }
+
+  def resolveInterfaceViewType(tcn: Ref.TypeConName): Option[Record.FWT] =
+    typeDecls get tcn flatMap (_.asInterfaceViewType)
 }
 
 object EnvironmentInterface {
