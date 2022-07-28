@@ -182,6 +182,24 @@ data Env = Env
         -- values of 'envTypeVars').
     }
 
+mkEnv ::
+     LF.Version
+  -> EnableScenarios
+  -> MS.Map UnitId DalfPackage
+  -> MS.Map (UnitId, LF.ModuleName) PackageId
+  -> Bool
+  -> GHC.Module
+  -> Env
+mkEnv envLfVersion envEnableScenarios envPkgMap envStablePackages envIsGenerated ghcModule = do
+  let
+    envGHCModuleName = GHC.moduleName ghcModule
+    envModuleUnitId = GHC.moduleUnitId ghcModule
+    envLFModuleName = convertModuleName envGHCModuleName
+    envAliases = MS.empty
+    envTypeVars = MS.empty
+    envTypeVarNames = S.empty
+  Env {..}
+
 -- v is an alias for x
 envInsertAlias :: Var -> LF.Expr -> Env -> Env
 envInsertAlias v x env = env{envAliases = MS.insert v x (envAliases env)}
@@ -599,8 +617,10 @@ convertModule
       -- ^ Only used for information that isn't available in ModDetails.
     -> ModDetails
     -> Either FileDiagnostic LF.Module
-convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsGenerated file coreModule modIface details = runConvertM (ConversionEnv file Nothing) $ do
-    let mc = extractModuleContents env coreModule modIface details
+convertModule lfVersion enableScenarios pkgMap stablePackages isGenerated file coreModule modIface details = runConvertM (ConversionEnv file Nothing) $ do
+    let
+      env = mkEnv lfVersion enableScenarios pkgMap stablePackages isGenerated (cm_module coreModule)
+      mc = extractModuleContents env coreModule modIface details
     definitions <- convertBinds env mc
     types <- convertTypeDefs env mc
     depOrphanModules <- convertDepOrphanModules env mc
@@ -618,16 +638,9 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
             ++ depOrphanModules
             ++ exports
             ++ fixities
-    pure (LF.moduleFromDefinitions envLFModuleName (Just $ fromNormalizedFilePath file) flags defs)
+    pure (LF.moduleFromDefinitions (envLFModuleName env) (Just $ fromNormalizedFilePath file) flags defs)
     where
-        envGHCModuleName = GHC.moduleName $ cm_module coreModule
-        envModuleUnitId = GHC.moduleUnitId $ cm_module coreModule
-        envLFModuleName = convertModuleName envGHCModuleName
         flags = LF.daml12FeatureFlags
-        envAliases = MS.empty
-        envTypeVars = MS.empty
-        envTypeVarNames = S.empty
-        env = Env {..}
 
 data Consuming = PreConsuming
                | Consuming
