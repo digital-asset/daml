@@ -245,7 +245,6 @@ data ModuleContents = ModuleContents
   { mcBinds :: [(Var, GHC.Expr CoreBndr)]
   , mcTypeDefs :: [TyThing]
   , mcTemplateBinds :: MS.Map TypeConName TemplateBinds
-  , mcInterfaceBinds :: MS.Map TypeConName InterfaceBinds
   , mcExceptionBinds :: MS.Map TypeConName ExceptionBinds
   , mcChoiceData :: MS.Map TypeConName [ChoiceData]
   , mcImplements :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
@@ -314,7 +313,6 @@ extractModuleContents env@Env{..} coreModule modIface details = do
         , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
         ]
     mcTemplateBinds = scrapeTemplateBinds mcBinds
-    mcInterfaceBinds = scrapeInterfaceBinds mcBinds
     mcExceptionBinds
         | envLfVersion `supports` featureExceptions =
             scrapeExceptionBinds mcBinds
@@ -490,18 +488,6 @@ scrapeTemplateBinds binds = MS.filter (isJust . tbTyCon) $ MS.map ($ emptyTempla
             Just (tpl, \tb -> tb { tbShow = Just name })
         _ -> Nothing
     , hasDamlTemplateCtx tpl
-    ]
-
-data InterfaceBinds = InterfaceBinds
-    { ibEnsure :: Maybe (GHC.Expr Var)
-    }
-
-scrapeInterfaceBinds :: [(Var, GHC.Expr Var)] -> MS.Map TypeConName InterfaceBinds
-scrapeInterfaceBinds binds = MS.fromList
-    [ ( mkTypeCon [getOccText (GHC.tyConName iface)]
-      , InterfaceBinds { ibEnsure = Just expr} )
-    | (HasEnsureDFunId iface, expr) <- binds
-    , hasDamlInterfaceCtx iface
     ]
 
 data ExceptionBinds = ExceptionBinds
