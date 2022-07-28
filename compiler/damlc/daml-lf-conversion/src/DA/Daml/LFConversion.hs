@@ -580,7 +580,7 @@ convertModule
 convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsGenerated file coreModule modIface details = runConvertM (ConversionEnv file Nothing) $ do
     let mc = extractModuleContents env binds details coreModule
     definitions <- convertBinds env mc binds
-    types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types coreModule))
+    types <- convertTypeDefs env (eltsUFM (cm_types coreModule))
     depOrphanModules <- convertDepOrphanModules env (getDepOrphanModules modIface)
     templates <- convertTemplateDefs env mc
     exceptions <- convertExceptionDefs env mc
@@ -626,6 +626,9 @@ data Consuming = PreConsuming
                | NonConsuming
                | PostConsuming
                deriving (Eq)
+
+convertTypeDefs :: Env -> [TyThing] -> ConvertM [Definition]
+convertTypeDefs env = concatMapM (convertTypeDef env)
 
 convertTypeDef :: Env -> TyThing -> ConvertM [Definition]
 convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
