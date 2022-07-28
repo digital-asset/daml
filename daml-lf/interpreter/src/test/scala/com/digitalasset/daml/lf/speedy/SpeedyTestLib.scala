@@ -136,5 +136,4 @@ private[speedy] object SpeedyTestLib {
       parserParameter: ParserParameters[X]
   ): PureCompiledPackages =
     typeAndCompile(Map(parserParameter.defaultPackageId -> pkg))
-
 }
