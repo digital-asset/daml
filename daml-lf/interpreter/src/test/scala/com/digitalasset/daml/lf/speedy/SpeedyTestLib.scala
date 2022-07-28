@@ -5,7 +5,7 @@ package com.daml
 package lf
 package speedy
 
-import data.Ref.{Location, PackageId}
+import data.Ref.PackageId
 import data.Time
 import SResult._
 import com.daml.lf.language.{Ast, PackageInterface}
@@ -17,7 +17,6 @@ import value.Value
 import scalautil.Statement.discard
 
 import scala.annotation.tailrec
-import scala.collection.mutable.ArrayBuffer
 
 private[speedy] object SpeedyTestLib {
 
