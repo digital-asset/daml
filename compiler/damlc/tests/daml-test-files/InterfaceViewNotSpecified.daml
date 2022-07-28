@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ERROR range=10:11-10:12; No 'viewtype' declaration
+-- @ERROR range=10:11-10:12; No view found for interface I
 
 -- | Check that no error is thrown if interface view exists and is serializable
 module InterfaceViewNotSpecified where
