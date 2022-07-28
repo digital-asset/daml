@@ -6,9 +6,11 @@ package com.daml.platform.apiserver.services.admin
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.v1.admin.metering_report_service.MeteringReportServiceGrpc.MeteringReportService
 import com.daml.ledger.api.v1.admin.metering_report_service._
+import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.ledger.participant.state.index.v2.MeteringStore
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
@@ -16,13 +18,15 @@ import com.daml.platform.apiserver.services.admin.ApiMeteringReportService._
 import com.daml.platform.server.api.ValidationLogger
 import com.google.protobuf.timestamp.{Timestamp => ProtoTimestamp}
 import io.grpc.ServerServiceDefinition
+
 import java.time.temporal.ChronoUnit
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
-
-import com.daml.ledger.api.validation.ValidationErrors
-
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining.scalaUtilChainingOps
+import com.daml.platform.apiserver.meteringreport.MeteringReport._
+import com.google.protobuf.struct.Struct
+import spray.json.enrichAny
+import scalapb.json4s.JsonFormat
 
 private[apiserver] final class ApiMeteringReportService(
     participantId: Ref.ParticipantId,
@@ -63,7 +67,7 @@ private[apiserver] final class ApiMeteringReportService(
     } yield {
       val reportTime = clock()
       store.getMeteringReportData(from, to, applicationId).map { reportData =>
-        generator.generate(request, reportData, reportTime)
+        generator.generate(request, from, to, applicationId, reportData, reportTime)
       }
     }) match {
       case Right(f) => f
@@ -99,26 +103,54 @@ private[apiserver] object ApiMeteringReportService {
   class MeteringReportGenerator(participantId: Ref.ParticipantId) {
     def generate(
         request: GetMeteringReportRequest,
+        from: Timestamp,
+        to: Option[Timestamp],
+        applicationId: Option[Ref.ApplicationId],
         reportData: ReportData,
         generationTime: ProtoTimestamp,
     ): GetMeteringReportResponse = {
 
+      GetMeteringReportResponse(
+        request = Some(request),
+        participantReport = Some(genParticipantReport(reportData)),
+        reportGenerationTime = Some(generationTime),
+        meteringReportJson = Some(genMeteringReportJson(from, to, applicationId, reportData)),
+      )
+
+    }
+
+    // Note that this will be removed once downstream consumers no longer need it
+    private def genMeteringReportJson(
+        from: Timestamp,
+        to: Option[Timestamp],
+        applicationId: Option[ApplicationId],
+        reportData: ReportData,
+    ) = {
+
       val applicationReports = reportData.applicationData.toList
+        .sortBy(_._1)
+        .map((ApplicationReport.apply _).tupled)
+
+      val report: ParticipantReport = ParticipantReport(
+        participant = participantId,
+        request = Request(from, to, applicationId),
+        `final` = reportData.isFinal,
+        applications = applicationReports,
+      )
+
+      JsonFormat.parser.fromJsonString[Struct](report.toJson.compactPrint)
+    }
+
+    private def genParticipantReport(reportData: ReportData) = {
+      val applicationMeteringReports = reportData.applicationData.toList
         .sortBy(_._1)
         .map((ApplicationMeteringReport.apply _).tupled)
 
-      val report = ParticipantMeteringReport(
+      ParticipantMeteringReport(
         participantId,
         isFinal = reportData.isFinal,
-        applicationReports,
+        applicationMeteringReports,
       )
-
-      GetMeteringReportResponse(
-        request = Some(request),
-        participantReport = Some(report),
-        reportGenerationTime = Some(generationTime),
-      )
-
     }
   }
 

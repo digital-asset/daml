@@ -96,6 +96,7 @@ scala_compile_deps = [
     "@maven//:org_playframework_anorm_anorm_tokenizer",
     "@maven//:org_scalaz_scalaz_core",
     "@maven//:io_spray_spray_json",
+    "@maven//:com_thesamet_scalapb_scalapb_json4s",
 ]
 
 runtime_deps = [
@@ -248,6 +249,8 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:io_spray_spray_json",
+        "@maven//:com_thesamet_scalapb_scalapb_json4s",
     ],
     deps = [
         ":participant-integration-api",
