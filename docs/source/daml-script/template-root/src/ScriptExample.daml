@@ -6,6 +6,7 @@
 
 module ScriptExample where
 
+import DA.Time
 import Daml.Script
 -- DAML_SCRIPT_HEADER_END
 
@@ -103,3 +104,27 @@ initializeUser = do
   _ <- createUser (User bob (Some parties.bob)) [CanActAs parties.bob]
   initialize parties
 -- INITIALIZE_USER_END
+
+-- SYNC_CONTRACT_IDS_BEGIN
+tries : Int
+tries = 60
+
+waitForCid : Template t => Int -> Party -> ContractId t -> Script ()
+waitForCid tries p cid
+  | tries <= 0 = abort $ "Cid " <> show cid <> " did not appear"
+  | otherwise = do
+    r <- queryContractId p cid
+    case r of
+      None -> do
+        sleep delay
+        waitForCid (tries - 1) p cid
+      Some _ -> pure ()
+  where delay = seconds 1
+
+testWithSync: LedgerParties -> Script ()
+testWithSync parties = do
+  coinProposalAlice <- submit parties.bank $ createCmd (CoinProposal (Coin parties.bank parties.alice))
+  waitForCid tries parties.alice coinProposalAlice
+  coinAlice <- submit parties.alice $ exerciseCmd coinProposalAlice Accept
+  pure ()
+-- SYNC_CONTRACT_IDS_END
