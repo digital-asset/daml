@@ -801,7 +801,6 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       builder.accumulateLeft(interface.choices.sortByKey)(_ addChoices _)
       builder.accumulateLeft(interface.methods.sortByKey)(_ addMethods _)
       builder.accumulateLeft(interface.requires)(_ addRequires _)
-      builder.setPrecond(interface.precond)
       builder.accumulateLeft(interface.coImplements.sortByKey)(_ addCoImplements _)
       builder.setView(interface.view)
       builder.build()

@@ -15,10 +15,6 @@ interface MyInterface where
   method3 : Bool -> Int -> Int -> Int
 -- INTERFACE_METHODS_END
 
--- INTERFACE_ENSURE_BEGIN
-  ensure myGuard (method1 this)
--- INTERFACE_ENSURE_END
-
 -- INTERFACE_CHOICES_BEGIN
   choice MyChoice : (ContractId MyInterface, Int)
     with

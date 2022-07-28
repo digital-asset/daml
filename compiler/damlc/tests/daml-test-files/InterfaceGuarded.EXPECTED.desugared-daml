@@ -45,7 +45,7 @@ instance DA.Internal.Desugar.HasObserver Token where
 instance DA.Internal.Desugar.HasCreate Token where
   create = GHC.Types.primitive @"UCreateInterface"
 instance DA.Internal.Desugar.HasEnsure Token where
-  ensure this = (getAmount this >= 0)
+  ensure this = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.HasIsInterfaceType Token where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Token where

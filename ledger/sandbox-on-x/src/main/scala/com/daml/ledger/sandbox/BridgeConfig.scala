@@ -6,7 +6,7 @@ package com.daml.ledger.sandbox
 import com.daml.ledger.runner.common.CliConfig
 import pureconfig.generic.semiauto.deriveConvert
 import pureconfig.ConfigConvert
-import com.daml.ledger.runner.common.PureConfigReaderWriter._
+import com.daml.ledger.runner.common.PureConfigReaderWriter.Secure._
 import com.daml.ledger.sandbox.BridgeConfig.DefaultMaximumDeduplicationDuration
 import scopt.OParser
 

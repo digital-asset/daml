@@ -4,9 +4,9 @@
 package com.daml.platform.akkastreams.dispatcher
 
 import java.util.concurrent.atomic.AtomicReference
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.daml.platform.akkastreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable
@@ -133,12 +133,14 @@ final class DispatcherImpl[Index: Ordering](
       case _: Closed => Future.unit
     }
 
-  private def closedError: IllegalStateException =
-    new IllegalStateException(s"$name: Dispatcher is closed")
+  private def closedError: DispatcherIsClosedException =
+    new DispatcherIsClosedException(s"$name: Dispatcher is closed")
 
 }
 
 object DispatcherImpl {
+  class DispatcherIsClosedException(msg: String) extends IllegalStateException(msg)
+
   private sealed abstract class State[Index] extends Product with Serializable {
     def getSignalDispatcher: Option[SignalDispatcher]
 

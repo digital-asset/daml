@@ -70,7 +70,6 @@ class ApiCommandPreprocessorSpec
 
           interface (this: Iface) = {
             requires Mod:Iface3;
-            precondition True;
             method getCtrls: List Party;
             choice IfaceChoice (self) (u:Unit) : Unit
               , controllers (call_method @Mod:Iface getCtrls this)
@@ -78,7 +77,6 @@ class ApiCommandPreprocessorSpec
           } ;
 
           interface (this: Iface2) = {
-            precondition True;
             method getCtrls: List Party;
             choice IfaceChoice2 (self) (u:Unit) : Unit
               , controllers (call_method @Mod:Iface2 getCtrls this)
@@ -86,7 +84,6 @@ class ApiCommandPreprocessorSpec
           } ;
 
           interface (this: Iface3) = {
-            precondition True;
             method getCtrls: List Party;
             choice IfaceChoice3 (self) (u:Unit) : Unit
               , controllers (call_method @Mod:Iface3 getCtrls this)

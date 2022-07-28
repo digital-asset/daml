@@ -38,13 +38,15 @@ If you only apply a few arguments to the function, this is called *partial appli
 
 .. literalinclude:: ../code-snippets/Functions.daml
    :language: daml
-   :lines: 10-18
+   :start-after: PARTIAL_APPLICATION_START
+   :end-before: PARTIAL_APPLICATION_END
 
 You could also define equivalent lambda functions:
 
 .. literalinclude:: ../code-snippets/Functions.daml
    :language: daml
-   :lines: 20-22
+   :start-after: PARTIAL_LAMBDA_START
+   :end-before: PARTIAL_LAMBDA_END
 
 Functions are Values
 ********************
@@ -63,7 +65,8 @@ This means a function can take another function as an argument. For example, def
 
 .. literalinclude:: ../code-snippets/Functions.daml
    :language: daml
-   :lines: 26-39
+   :start-after: HIGHER_ORDER_START
+   :end-before: HIGHER_ORDER_END
 
 The :ref:`daml-ref-folding` section looks into two useful built-in functions, ``foldl`` and ``foldr``, that also take a function as an argument.
 
@@ -76,7 +79,8 @@ A function is *parametrically polymorphic* if it behaves uniformly for all types
 
 .. literalinclude:: ../code-snippets/Functions.daml
    :language: daml
-   :lines: 44
+   :start-after: GENERIC_FUNCTION_START
+   :end-before: GENERIC_FUNCTION_END
 
 where ``a``, ``b``, and ``c`` are any data types. Both ``compose ((+) 4) ((*) 2) 3 == 10`` and ``compose not ((&&) True) False`` evaluate to ``True``. Note that ``((+) 4)`` has type ``Int -> Int``, whereas ``not`` has type ``Bool -> Bool``.
 

@@ -48,6 +48,7 @@ import com.daml.metrics.InstrumentedGraph._
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.{ApiOffset, PruneBuffers}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
+import com.daml.platform.akkastreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.dao.{
   LedgerDaoCommandCompletionsReader,
@@ -56,6 +57,7 @@ import com.daml.platform.store.dao.{
 }
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
+import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -108,6 +110,7 @@ private[index] class IndexServiceImpl(
           RangeSource(transactionsReader.getFlatTransactions(_, _, convertFilter(filter), verbose)),
           to,
         )
+        .mapError(shutdownError)
         .map(_._2)
         .buffered(metrics.daml.index.flatTransactionsBufferSize, LedgerApiStreamsBufferSize)
     }.wireTap(
@@ -139,6 +142,7 @@ private[index] class IndexServiceImpl(
           ),
           to,
         )
+        .mapError(shutdownError)
         .map(_._2)
         .buffered(metrics.daml.index.transactionTreesBufferSize, LedgerApiStreamsBufferSize)
     }.wireTap(
@@ -164,6 +168,7 @@ private[index] class IndexServiceImpl(
             ),
             None,
           )
+          .mapError(shutdownError)
           .map(_._2)
       }
       .buffered(metrics.daml.index.completionsBufferSize, LedgerApiStreamsBufferSize)
@@ -181,6 +186,7 @@ private[index] class IndexServiceImpl(
           RangeSource(commandCompletionsReader.getCommandCompletions(_, _, applicationId, parties)),
           end,
         )
+        .mapError(shutdownError)
         .map(_._2)
     }
       .buffered(metrics.daml.index.completionsBufferSize, LedgerApiStreamsBufferSize)
@@ -246,6 +252,7 @@ private[index] class IndexServiceImpl(
     Source
       .future(concreteOffset(startExclusive))
       .flatMapConcat(dispatcher().startingAt(_, RangeSource(ledgerDao.getPartyEntries)))
+      .mapError(shutdownError)
       .map {
         case (_, PartyLedgerEntry.AllocationRejected(subId, _, reason)) =>
           PartyEntry.AllocationRejected(subId, reason)
@@ -270,6 +277,7 @@ private[index] class IndexServiceImpl(
     Source
       .future(concreteOffset(startExclusive))
       .flatMapConcat(dispatcher().startingAt(_, RangeSource(ledgerDao.getPackageEntries)))
+      .mapError(shutdownError)
       .map(_._2.toDomain)
 
   /** Looks up the current configuration, if set, and the offset from which
@@ -315,6 +323,7 @@ private[index] class IndexServiceImpl(
       .flatMapConcat(
         dispatcher()
           .startingAt(_, RangeSource(ledgerDao.getConfigurationEntries))
+          .mapError(shutdownError)
           .map { case (offset, config) =>
             toAbsolute(offset) -> config.toDomain
           }
@@ -398,4 +407,16 @@ private[index] class IndexServiceImpl(
 
   private def toAbsolute(offset: Offset): LedgerOffset.Absolute =
     LedgerOffset.Absolute(offset.toApiString)
+
+  private def shutdownError(implicit
+      loggingContext: LoggingContext
+  ): PartialFunction[scala.Throwable, scala.Throwable] = { case _: DispatcherIsClosedException =>
+    toGrpcError
+  }
+
+  private def toGrpcError(implicit loggingContext: LoggingContext): StatusRuntimeException = {
+    LedgerApiErrors.ServiceNotRunning
+      .Reject("Index Service")(new DamlContextualizedErrorLogger(logger, loggingContext, None))
+      .asGrpcError
+  }
 }

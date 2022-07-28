@@ -205,29 +205,19 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   private val interfaceDefinition: Parser[IfaceDef] =
     Id("interface") ~ `(` ~> id ~ `:` ~ dottedName ~ `)` ~ `=` ~ `{` ~
       rep(interfaceRequires <~ `;`) ~
-      (Id("precondition") ~> expr <~ `;`) ~
       rep(interfaceMethod <~ `;`) ~
       rep(templateChoice <~ `;`) ~
       rep(coImplements <~ `;`) <~
       `}` ^^ {
         case x ~ _ ~ tycon ~ _ ~ _ ~ _ ~
             requires ~
-            precond ~
             methods ~
             choices ~
             coImplements =>
           IfaceDef(
             tycon,
-            // TODO: Represent view type and parse it. Currently hardcoding view types to unit
-            DefInterface.build(
-              Set.from(requires),
-              x,
-              choices,
-              methods,
-              precond,
-              coImplements,
-              TUnit,
-            ),
+            // TODO: https://github.com/digital-asset/daml/issues/14112
+            DefInterface.build(Set.from(requires), x, choices, methods, coImplements, TUnit),
           )
       }
   private val interfaceRequires: Parser[Ref.TypeConName] =

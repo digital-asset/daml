@@ -789,7 +789,6 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
        module Mod {
 
           interface (this: Person) = {
-            precondition False;
             method asParty: Party;
             method getName: Text;
             choice Sleep (self) (u:Unit) : ContractId Mod:Person
@@ -813,7 +812,6 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         DefInterface(
           requires = Set.empty,
           param = n"this",
-          precond = e"False",
           methods = Map(
             n"asParty" -> InterfaceMethod(n"asParty", t"Party"),
             n"getName" -> InterfaceMethod(n"getName", t"Text"),

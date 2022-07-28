@@ -1108,7 +1108,7 @@ def sdk_platform_test(sdk_version, platform_version):
 
     sandbox_on_x = "@daml-sdk-{}//:sandbox-on-x".format(platform_version)
     sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--mutable-contract-state-cache"]
-    sandbox_on_x_cmd = ["run-legacy-cli-config"] if versions.is_at_least("2.3.0-snapshot.20220619.10104.0.253b0b18", platform_version) else []
+    sandbox_on_x_cmd = ["run-legacy-cli-config"] if versions.is_at_least("2.4.0-snapshot.20220712.10212.0.0bf28176", platform_version) else []
 
     json_api_args = ["json-api"]
 
