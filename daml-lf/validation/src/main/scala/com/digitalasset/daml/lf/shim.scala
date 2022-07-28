@@ -37,7 +37,7 @@ package object validation {
       }
 
       def env2_wrapped_typeOf(e: Expr): Either[Throwable, Type] = {
-        try Right(env2.xtypeOf(e))
+        try Right(env2.entry_typeOf(e))
         catch { case ex: Throwable => Left(ex) }
       }
 
