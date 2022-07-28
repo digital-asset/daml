@@ -106,9 +106,8 @@ class TransactionServiceOutputsIT extends LedgerTestSuite {
         transactionTree <- transactionTrees
         eventById <- transactionTree.eventsById
         (_, tree) = eventById
-        events = tree
-        created = events.getCreated
-      } yield created
+        createdEvent = tree.getCreated
+      } yield createdEvent
     }
 
     val transactionTreeFields: Seq[RecordField] =
