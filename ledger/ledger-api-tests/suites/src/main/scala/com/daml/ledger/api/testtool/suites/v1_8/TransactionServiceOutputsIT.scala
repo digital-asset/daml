@@ -98,8 +98,7 @@ class TransactionServiceOutputsIT extends LedgerTestSuite {
   ): Unit = {
 
     def transactionFields(createdEvent: Seq[CreatedEvent]): Seq[RecordField] = createdEvent
-      .map(_.getCreateArguments)
-      .flatMap(_.fields)
+      .flatMap(_.getCreateArguments.fields)
 
     val transactionTreeCreatedEvents: Seq[CreatedEvent] = {
       for {
