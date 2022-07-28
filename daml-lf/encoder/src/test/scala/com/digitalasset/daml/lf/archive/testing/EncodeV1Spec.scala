@@ -40,13 +40,10 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
             record @serializable Person = { person: Party, name: Text } ;
 
-            interface (this: Planet) = {
-              precondition True;
-            };
+            interface (this: Planet) = {};
 
             interface (this: Human) = {
               requires Mod:Planet;
-              precondition False;
               method asParty: Party;
               method getName: Text;
               choice HumanSleep (self) (u:Unit) : ContractId Mod:Human
@@ -206,13 +203,11 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
              \ (p: Mod:Planet) -> observer_interface @Mod:Planet p;
 
            interface (this: Root) = {
-             precondition True;
              coimplements Mod0:Parcel {};
            };
 
            interface (this: Boxy) = {
              requires Mod:Root;
-             precondition True;
              method getParty: Party;
              choice @nonConsuming ReturnInt (self) (i: Int64): Int64
                , controllers Cons @Party [call_method @Mod:Boxy getParty this] (Nil @Party)

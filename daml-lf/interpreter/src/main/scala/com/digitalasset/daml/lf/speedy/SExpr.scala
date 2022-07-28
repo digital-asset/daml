@@ -439,7 +439,6 @@ object SExpr {
   final case class SignatoriesDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ObserversDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ToCachedContractDefRef(ref: DefinitionRef) extends SDefinitionRef
-  final case class InterfacePrecondDefRef(ref: DefinitionRef) extends SDefinitionRef
 
   /** ImplementsDefRef(templateId, ifaceId) points to the Unit value if
     * the template implements the interface.

@@ -13,3 +13,6 @@ Dummy Canton Refs
 
 .. _ha_arch:
 
+.. _utils.generate_daml_script_participants_conf:
+
+.. _automation-using-bootstrap-scripts:

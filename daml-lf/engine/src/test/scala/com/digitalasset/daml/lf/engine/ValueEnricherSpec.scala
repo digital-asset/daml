@@ -58,12 +58,10 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
           };
 
           interface (this: I) = {
-            precondition True;
             method _view : Mod:View;
           };
 
           interface (this: J) = {
-            precondition True;
             method _view : Int64;
           };
 

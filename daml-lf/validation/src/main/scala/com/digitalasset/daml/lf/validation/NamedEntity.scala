@@ -3,7 +3,7 @@
 
 package com.daml.lf.validation
 
-import com.daml.lf.data.Ref.{ChoiceName, DottedName, MethodName, ModuleName, Name}
+import com.daml.lf.data.Ref.{ChoiceName, DottedName, ModuleName, Name}
 import com.daml.lf.validation.Util._
 
 sealed trait NamedEntity extends Product with Serializable {
@@ -181,16 +181,4 @@ object NamedEntity {
     def pretty: String = s"interface choice $modName:$ifaceName:$choiceName"
   }
 
-  final case class NInterfaceMethod(
-      module: NModDef,
-      ifaceName: DottedName,
-      methodName: MethodName,
-  ) extends NamedEntity {
-    def modName: ModuleName = module.name
-    val fullyResolvedName: DottedName =
-      module.fullyResolvedName ++ ifaceName.toUpperCase +
-        Name.assertFromString(methodName.toUpperCase)
-    override def toString: String = s"NInterfaceMethod($modName:$ifaceName:$methodName)"
-    def pretty: String = s"interface method $modName:$ifaceName:$methodName"
-  }
 }
