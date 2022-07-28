@@ -1551,12 +1551,14 @@ private[lf] object SBuiltin {
                   discard(continue(Some(vcoid)))
 
                 case Some((actualTemplateId, _)) =>
-                  machine.ctrl = SEDamlException(
+                  throw SErrorDamlException(
                     IE.WronglyTypedContract(coid.value, operation.templateId, actualTemplateId)
                   )
 
                 case None =>
-                  machine.ctrl = SEDamlException(IE.ContractNotFound(coid.value))
+                  crash(
+                    s"Disclosure table is in an inconsistent state: unable to locate the contract ${coid.value} even though we know its key hash ${gkey.hash}"
+                  )
               }
 
             case None =>

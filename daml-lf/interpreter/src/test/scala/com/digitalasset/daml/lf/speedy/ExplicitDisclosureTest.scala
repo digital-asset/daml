@@ -912,7 +912,6 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
         ),
         ContractMetadata(Time.Timestamp.now(), Some(houseContractKey.hash), ImmArray.Empty),
       )
-
     val (result, ledger) =
       evaluateSExpr(
         sexpr,
