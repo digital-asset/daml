@@ -20,10 +20,29 @@ private[validation] object NewTyping { // NICK, WIP for new stack-safe type-chec
     sys.error(s"die: $s")
   }
 
-  sealed abstract class Work[T] // NICK
+  sealed abstract class Work[A]
   object Work {
-    final case class Return[T](v: T) extends Work[T]
-    final case class TypeOfExp[T](expr: Expr, env: Env, k: Type => Work[T]) extends Work[T]
+    final case class Ret[A](v: A) extends Work[A]
+    final case class Bind[A, X](work: Work[X], k: X => Work[A]) extends Work[A]
+  }
+
+  import Work.{Ret, Bind}
+
+  def runWork[R](work: Work[R]): R = {
+
+    @tailrec
+    def loop[A](work: Work[A]): A = work match {
+      case Ret(v) => v
+      case Bind(w, k) => loop(loopBind(w, k))
+    }
+
+    @tailrec
+    def loopBind[A, X](work: Work[X], k: X => Work[A]): Work[A] = work match {
+      case Ret(x) => k(x)
+      case Bind(work1, k1) => loopBind(work1, { x: Any => Bind(k1(x), k) }) // NICK: Any?
+    }
+
+    loop(work)
   }
 
   import Util.handleLookup
@@ -339,30 +358,28 @@ private[validation] object NewTyping { // NICK, WIP for new stack-safe type-chec
 
 //--[NICK vvv]--------------------------------------------------------------------
 
-    import Work._ // {Return, TypeOfExp} //NICK
-
+    // NICK: nope! mustn't call runWork! -- fix all callers of recurse_typeOf
     private def recurse_typeOf(e: Expr): Type = {
-      runWork(work_typeOf(e)) // NICK: nope! mustn't call runWork here!
-    }
-
-    def xtypeOf(e: Expr): Type = { // entry point from shim
       runWork(work_typeOf(e))
     }
 
-    // NICK: tailrec here
-    def runWork[T](work: Work[T]): T = { // NICK: prefer to move out of Env!
-      work match {
-        case Return(v) => v
-        case TypeOfExp(exp, env, k) =>
-          val ty = env.recurse_typeOf(exp) // NICK: think!
-          val work = k(ty)
-          runWork(work)
-      }
+    def xtypeOf(e: Expr): Type = { // NICK: entry point from shim -- call call runWork
+      runWork(work_typeOf(e))
     }
 
-    private def typeOfK[T](e: Expr)(k: Type => Work[T]): Work[T] = { // NICK: loose "k" suffix
-      TypeOfExp(e, this, k)
+    private def typeOf[T](e: Expr)(k: Type => Work[T]): Work[T] = {
+      Bind(work_typeOf(e), k)
     }
+
+    private def legacy_resolveExprType(expr: Expr, typ: Type): Type = { // NICK: kill
+      val exprType = recurse_typeOf(expr)
+      if (!alphaEquiv(exprType, typ))
+        throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
+      exprType
+    }
+
+    private def legacy_checkExpr(expr: Expr, typ0: Type): Unit = // NICK. kill callers
+      discard[Type](legacy_resolveExprType(expr, typ0)) // only caller
 
 //--[NICK ^^^]--------------------------------------------------------------------
 
@@ -436,6 +453,7 @@ private[validation] object NewTyping { // NICK, WIP for new stack-safe type-chec
         if (isTest) {
           discard(toScenario(dropForalls(typ)))
         }
+        ??? // NICK: not tested in TypingSpec
     }
 
     @tailrec
@@ -733,34 +751,39 @@ private[validation] object NewTyping { // NICK, WIP for new stack-safe type-chec
           throw EExpectedRecordType(ctx, typ0)
       }
 
-    private def typeOfStructCon(fields: ImmArray[(FieldName, Expr)]): Type =
-      Struct
-        .fromSeq(fields.iterator.map { case (f, x) => f -> recurse_typeOf(x) }.toSeq)
-        .fold(name => throw EDuplicateField(ctx, name), TStruct)
+    private def typeOfStructCon(fields: ImmArray[(FieldName, Expr)]): Work[Type] =
+      Ret(
+        Struct
+          .fromSeq(fields.iterator.map { case (f, x) => f -> recurse_typeOf(x) }.toSeq)
+          .fold(name => throw EDuplicateField(ctx, name), TStruct)
+      )
 
-    private def typeOfStructProj(proj: EStructProj): Type =
-      toStruct(recurse_typeOf(proj.struct)).fields.get(proj.field) match {
+    private def typeOfStructProj(proj: EStructProj): Work[Type] =
+      Ret(toStruct(recurse_typeOf(proj.struct)).fields.get(proj.field) match {
         case Some(typ) => typ
         case None => throw EUnknownField(ctx, proj.field)
-      }
+      })
 
-    private def typeOfStructUpd(upd: EStructUpd): Type = {
+    private def typeOfStructUpd(upd: EStructUpd): Work[Type] = {
       val structType = toStruct(recurse_typeOf(upd.struct))
       structType.fields.get(upd.field) match {
         case Some(updateType) =>
           legacy_checkExpr(upd.update, updateType)
-          structType
+          Ret(structType)
         case None => throw EUnknownField(ctx, upd.field)
       }
     }
 
-    private def typeOfTmApp(fun: Expr, arg: Expr): Type = {
-      val (argType, resType) = toFunction(recurse_typeOf(fun))
-      legacy_checkExpr(arg, argType)
-      resType
+    private def typeOfTmApp(fun: Expr, arg: Expr): Work[Type] = {
+      typeOf(fun) { ty =>
+        val (argType, resType) = toFunction(ty)
+        checkExpr(arg, argType) {
+          Ret(resType)
+        }
+      }
     }
 
-    private def typeOfTyApp(expr: Expr, typs: List[Type]): Type = {
+    private def typeOfTyApp(expr: Expr, typs: List[Type]): Work[Type] = {
       @tailrec
       def loopForall(body0: Type, typs: List[Type], acc: Map[TypeVarName, Type]): Type =
         typs match {
@@ -776,20 +799,21 @@ private[validation] object NewTyping { // NICK, WIP for new stack-safe type-chec
             TypeSubst.substitute(acc, body0)
         }
 
-      loopForall(recurse_typeOf(expr), typs, Map.empty)
+      Ret(loopForall(recurse_typeOf(expr), typs, Map.empty))
     }
 
     private def typeOfTmLam(x: ExprVarName, typ: Type, body: Expr): Work[Type] = {
-      // NICK: converted to Work style...
-      checkType(typ, KStar) // NICK, todo
-      introExprVar(x, typ).typeOfK(body) { tyBody =>
-        Return(typ ->: tyBody)
+      checkType(typ, KStar) // NICK, todo, or maybe not!
+      introExprVar(x, typ).typeOf(body) { tyBody =>
+        Ret(typ ->: tyBody)
       }
     }
 
-    private def typeofTyLam(tVar: TypeVarName, kind: Kind, expr: Expr): Type = {
+    private def typeofTyLam(tVar: TypeVarName, kind: Kind, expr: Expr): Work[Type] = {
       checkKind(kind)
-      TForall(tVar -> kind, introTypeVar(tVar, kind).recurse_typeOf(expr))
+      introTypeVar(tVar, kind).typeOf(expr) { ty =>
+        Ret(TForall(tVar -> kind, ty))
+      }
     }
 
     private[this] def introPatternVariant(
@@ -885,7 +909,7 @@ private[validation] object NewTyping { // NICK, WIP for new stack-safe type-chec
       }
     }
 
-    private[this] def typeOfCase(scrut: Expr, alts: ImmArray[CaseAlt]): Type = {
+    private[this] def typeOfCase(scrut: Expr, alts: ImmArray[CaseAlt]): Work[Type] = {
       val scrutType = recurse_typeOf(scrut)
       val (expectedPatterns, introPattern) = scrutType match {
         case TTyConApp(scrutTCon, scrutTArgs) =>
@@ -930,21 +954,27 @@ private[validation] object NewTyping { // NICK, WIP for new stack-safe type-chec
             if (!alphaEquiv(t, otherType)) throw ETypeMismatch(ctx, otherType, t, None)
           )
           checkPatternExhaustiveness(expectedPatterns, alts, scrutType)
-          t
+          Ret(t)
         case Nil =>
           throw EEmptyCase(ctx)
       }
     }
 
-    private def typeOfLet(binding: Binding, body: Expr): Type = binding match {
+    private def typeOfLet(binding: Binding, body: Expr): Work[Type] = binding match {
       case Binding(Some(vName), typ0, expr) =>
         checkType(typ0, KStar)
-        val typ1 = legacy_resolveExprType(expr, typ0)
-        introExprVar(vName, typ1).recurse_typeOf(body)
+        resolveExprType(expr, typ0) { typ1 =>
+          introExprVar(vName, typ1).typeOf(body) { ty =>
+            Ret(ty)
+          }
+        }
       case Binding(None, typ0, bound) =>
         checkType(typ0, KStar)
-        val _ = legacy_resolveExprType(bound, typ0)
-        recurse_typeOf(body)
+        resolveExprType(bound, typ0) { _ =>
+          typeOf(body) { ty =>
+            Ret(ty)
+          }
+        }
     }
 
     private[this] def typOfExprInterface(expr: ExprInterface): Type = expr match {
@@ -1002,7 +1032,7 @@ private[validation] object NewTyping { // NICK, WIP for new stack-safe type-chec
         iface.view
     }
 
-    private def checkCons(elemType: Type, front: ImmArray[Expr], tailExpr: Expr): Unit = {
+    private def checkCons(elemType: Type, front: ImmArray[Expr], tailExpr: Expr): Unit = { // NICK: Work!
       checkType(elemType, KStar)
       if (front.isEmpty) throw EEmptyConsFront(ctx)
       front.foreach(legacy_checkExpr(_, elemType))
@@ -1110,7 +1140,7 @@ private[validation] object NewTyping { // NICK, WIP for new stack-safe type-chec
       ()
     }
 
-    private def typeOfUpdate(update: Update): Type = update match {
+    private def typeOfUpdate(update: Update): Type = update match { // NICK: Work!
       case UpdatePure(typ, expr) =>
         checkPure(typ, expr)
         TUpdate(typ)
@@ -1159,40 +1189,48 @@ private[validation] object NewTyping { // NICK, WIP for new stack-safe type-chec
         updTyp
     }
 
-    private def typeOfCommit(typ: Type, party: Expr, update: Expr): Type = {
+    private def typeOfCommit(typ: Type, party: Expr, update: Expr): Work[Type] = {
       checkType(typ, KStar)
-      legacy_checkExpr(party, TParty)
-      legacy_checkExpr(update, TUpdate(typ))
-      TScenario(typ)
+      checkExpr(party, TParty) {
+        checkExpr(update, TUpdate(typ)) {
+          Ret(TScenario(typ))
+        }
+      }
     }
 
-    private def typeOfMustFailAt(typ: Type, party: Expr, update: Expr): Type = {
+    private def typeOfMustFailAt(typ: Type, party: Expr, update: Expr): Work[Type] = {
       checkType(typ, KStar)
-      legacy_checkExpr(party, TParty)
-      legacy_checkExpr(update, TUpdate(typ))
-      TScenario(TUnit)
+      checkExpr(party, TParty) {
+        checkExpr(update, TUpdate(typ)) {
+          Ret(TScenario(TUnit))
+        }
+      }
     }
 
-    private def typeOfScenario(scenario: Scenario): Type = scenario match {
+    private def typeOfScenario(scenario: Scenario): Work[Type] = scenario match {
       case ScenarioPure(typ, expr) =>
         checkPure(typ, expr)
-        TScenario(typ)
+        Ret(TScenario(typ))
       case ScenarioBlock(bindings, body) =>
-        typeOfScenarioBlock(bindings, body)
+        Ret(typeOfScenarioBlock(bindings, body))
       case ScenarioCommit(party, update, typ) =>
         typeOfCommit(typ, party, update)
       case ScenarioMustFailAt(party, update, typ) =>
         typeOfMustFailAt(typ, party, update)
       case ScenarioPass(delta) =>
-        legacy_checkExpr(delta, TInt64)
-        TScenario(TTimestamp)
+        checkExpr(delta, TInt64) {
+          Ret(TScenario(TTimestamp))
+        }
       case ScenarioGetTime =>
-        TScenario(TTimestamp)
+        Ret(TScenario(TTimestamp))
       case ScenarioGetParty(name) =>
-        legacy_checkExpr(name, TText)
-        TScenario(TParty)
+        checkExpr(name, TText) {
+          Ret(TScenario(TParty))
+        }
       case ScenarioEmbedExpr(typ, exp) =>
-        legacy_resolveExprType(exp, TScenario(typ))
+        resolveExprType(exp, TScenario(typ)) { ty =>
+          Ret(ty)
+        }
     }
 
     // checks that typ contains neither variables, nor quantifiers, nor synonyms
@@ -1217,132 +1255,126 @@ private[validation] object NewTyping { // NICK, WIP for new stack-safe type-chec
       case _ => throw EExpectedExceptionType(ctx, typ)
     }
 
-    private def typeOfAtomic(expr: ExprAtomic): Type = expr match {
+    private def typeOfAtomic(expr: ExprAtomic): Work[Type] = expr match {
       case EVar(name) =>
-        lookupExpVar(name)
+        Ret(lookupExpVar(name))
       case EVal(ref) =>
-        handleLookup(ctx, pkgInterface.lookupValue(ref)).typ
+        Ret(handleLookup(ctx, pkgInterface.lookupValue(ref)).typ)
       case EBuiltin(fun) =>
-        typeOfBuiltinFunction(fun)
+        Ret(typeOfBuiltinFunction(fun))
       case EPrimCon(con) =>
-        typeOfPRimCon(con)
+        Ret(typeOfPRimCon(con))
       case EPrimLit(lit) =>
-        typeOfPrimLit(lit)
+        Ret(typeOfPrimLit(lit))
       case EEnumCon(tyCon, constructor) =>
         checkEnumCon(tyCon, constructor)
-        TTyCon(tyCon)
+        Ret(TTyCon(tyCon))
       case ENil(typ) =>
         checkType(typ, KStar)
-        TList(typ)
+        Ret(TList(typ))
       case ENone(typ) =>
         checkType(typ, KStar)
-        TOptional(typ)
+        Ret(TOptional(typ))
     }
 
     private def work_typeOf(e: Expr): Work[Type] = e match { // NICK: loose "work_" prefix
       case expr: ExprAtomic =>
-        Return(typeOfAtomic(expr))
+        typeOfAtomic(expr)
       case ERecCon(tycon, fields) =>
         checkRecCon(tycon, fields)
-        Return(typeConAppToType(tycon))
+        Ret(typeConAppToType(tycon))
       case ERecProj(tycon, field, record) =>
-        Return(typeOfRecProj(tycon, field, record))
+        Ret(typeOfRecProj(tycon, field, record))
       case ERecUpd(tycon, field, record, update) =>
-        Return(typeOfRecUpd(tycon, field, record, update))
+        Ret(typeOfRecUpd(tycon, field, record, update))
       case EVariantCon(tycon, variant, arg) =>
         checkVariantCon(tycon, variant, arg)
-        Return(typeConAppToType(tycon))
+        Ret(typeConAppToType(tycon))
       case EStructCon(fields) =>
-        Return(typeOfStructCon(fields))
+        typeOfStructCon(fields)
       case proj: EStructProj =>
-        Return(typeOfStructProj(proj))
+        typeOfStructProj(proj)
       case upd: EStructUpd =>
-        Return(typeOfStructUpd(upd))
+        typeOfStructUpd(upd)
       case EApp(fun, arg) =>
-        Return(typeOfTmApp(fun, arg))
+        typeOfTmApp(fun, arg)
       case ETyApp(expr0, typ) =>
         // Typechecking multiple applications in one go allows us to
         // only substitute once which is a bit faster.
         val (expr, typs) = destructETyApp(expr0, List(typ))
-        Return(typeOfTyApp(expr, typs))
+        typeOfTyApp(expr, typs)
       case EAbs((varName, typ), body, _) =>
         typeOfTmLam(varName, typ, body)
       case ETyAbs((vName, kind), body) =>
-        Return(typeofTyLam(vName, kind, body))
+        typeofTyLam(vName, kind, body)
       case ECase(scruct, alts) =>
-        Return(typeOfCase(scruct, alts))
+        typeOfCase(scruct, alts)
       case ELet(binding, body) =>
-        Return(typeOfLet(binding, body))
+        typeOfLet(binding, body)
       case ECons(typ, front, tail) =>
         checkCons(typ, front, tail)
-        Return(TList(typ))
+        Ret(TList(typ))
       case EUpdate(update) =>
-        Return(typeOfUpdate(update))
+        Ret(typeOfUpdate(update))
       case EScenario(scenario) =>
-        Return(typeOfScenario(scenario))
+        typeOfScenario(scenario)
       case ELocation(loc, expr) =>
-        // newLocation(loc).work_typeOf(expr) // NICK: done! Is this stack safe? NO!
-        val _ = Return(newLocation(loc).recurse_typeOf(expr))
+        val _ = Ret(newLocation(loc).recurse_typeOf(expr)) // orig
+        // newLocation(loc).typeOf(expr) { ty => Ret(ty) } //NICK: this! but...
         ??? // NICK: damm, no callers in TypingSpec
-
       case ESome(typ, body) =>
         checkType(typ, KStar) // NICK: or is this known to be stack-safe?
-        work_checkExpr(body, typ) {
-          Return(TOptional(typ))
+        checkExpr(body, typ) {
+          Ret(TOptional(typ))
         }
       case EToAny(typ, body) =>
         checkAnyType(typ)
-        legacy_checkExpr(body, typ)
-        Return(TAny)
+        checkExpr(body, typ) {
+          Ret(TAny)
+        }
       case EFromAny(typ, body) =>
         checkAnyType(typ)
-        legacy_checkExpr(body, TAny)
-        Return(TOptional(typ))
+        checkExpr(body, TAny) {
+          Ret(TOptional(typ))
+        }
       case ETypeRep(typ) =>
         checkAnyType(typ)
-        Return(TTypeRep)
+        Ret(TTypeRep)
       case EThrow(returnTyp, excepTyp, body) =>
         checkType(returnTyp, KStar)
         checkExceptionType(excepTyp)
-        legacy_checkExpr(body, excepTyp)
-        Return(returnTyp)
+        checkExpr(body, excepTyp) {
+          Ret(returnTyp)
+        }
       case EToAnyException(typ, value) =>
         checkExceptionType(typ)
-        legacy_checkExpr(value, typ)
-        Return(TAnyException)
+        checkExpr(value, typ) {
+          Ret(TAnyException)
+        }
       case EFromAnyException(typ, value) =>
         checkExceptionType(typ)
-        legacy_checkExpr(value, TAnyException)
-        Return(TOptional(typ))
+        checkExpr(value, TAnyException) {
+          Ret(TOptional(typ))
+        }
       case expr: ExprInterface =>
-        Return(typOfExprInterface(expr))
+        Ret(typOfExprInterface(expr))
       case EExperimental(_, typ) =>
-        Return(typ)
+        Ret(typ)
     }
 
-    private def work_resolveExprType[T](expr: Expr, typ: Type)(k: Type => Work[T]): Work[T] = {
-      typeOfK(expr) { exprType =>
+    private def resolveExprType[T](expr: Expr, typ: Type)(k: Type => Work[T]): Work[T] = {
+      typeOf(expr) { exprType =>
         if (!alphaEquiv(exprType, typ))
           throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
         k(exprType)
       }
     }
 
-    private def legacy_resolveExprType(expr: Expr, typ: Type): Type = { // NICK: kill
-      val exprType = recurse_typeOf(expr)
-      if (!alphaEquiv(exprType, typ))
-        throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
-      exprType
-    }
-
-    private def work_checkExpr[T](expr: Expr, typ0: Type)(work: Work[T]): Work[T] = {
-      work_resolveExprType(expr, typ0) { _ =>
+    private def checkExpr[T](expr: Expr, typ0: Type)(work: Work[T]): Work[T] = {
+      resolveExprType(expr, typ0) { _ =>
         work
       }
     }
-
-    private def legacy_checkExpr(expr: Expr, typ0: Type): Unit = // NICK. kill
-      discard[Type](legacy_resolveExprType(expr, typ0))
 
     private def toStruct(t: Type): TStruct =
       t match {

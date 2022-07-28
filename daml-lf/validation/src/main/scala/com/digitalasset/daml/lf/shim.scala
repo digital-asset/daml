@@ -50,7 +50,7 @@ package object validation {
         } else {
           println(s"**($i) typeOf: $e\n  - v1: $v1\n  - v2: $v2")
         }
-        v1
+        v2
       }
 
       def typeOf(e: Expr): Type = {
