@@ -85,6 +85,7 @@ import           DA.Daml.LFConversion.MetadataEncoding
 import           DA.Daml.Preprocessor (isInternal)
 import           DA.Daml.UtilGHC
 import           DA.Daml.UtilLF
+import           DA.Pretty (renderPretty)
 
 import           Development.IDE.Types.Diagnostics
 import           Development.IDE.Types.Location
@@ -578,7 +579,7 @@ convertInterfaces env mc = interfaceDefs
             intChoices <- convertChoices env mc intName emptyTemplateBinds
             let intCoImplements = NM.empty -- TODO: https://github.com/digital-asset/daml/issues/14047
             intView <- case MS.lookup intName (mcInterfaceViews mc) of
-                Nothing -> conversionError $ "No view found for interface " <> show intName
+                Nothing -> conversionError $ "No view found for interface " <> renderPretty intName
                 Just viewType -> convertType env viewType
             pure DefInterface {..}
 
@@ -1035,8 +1036,8 @@ convertImplements env mc tpl = NM.fromList <$>
         Just [view] -> do
             viewLFExpr <- convertExpr env view
             pure $ viewLFExpr `ETmApp` EVar this
-        Nothing -> conversionError $ "No view implementation defined by " ++ show tpl ++ " for " ++ prettyPrint iface
-        Just [] -> conversionError $ "No view implementation defined by " ++ show tpl ++ " for " ++ prettyPrint iface
+        Nothing -> conversionError $ "No view implementation defined by " ++ renderPretty tpl ++ " for " ++ prettyPrint iface
+        Just [] -> conversionError $ "No view implementation defined by " ++ renderPretty tpl ++ " for " ++ prettyPrint iface
         Just _ -> conversionError $ "More than one view implementation defined by " ++ show tpl ++ " for " ++ prettyPrint iface
 
       pure (TemplateImplements con methods view)
