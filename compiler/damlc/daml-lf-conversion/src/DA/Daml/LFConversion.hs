@@ -173,7 +173,6 @@ data Env = Env
     -- Once data dependencies are well-supported we might want to remove this if the number of GHC
     -- packages does not cause performance issues.
     ,envLfVersion :: LF.Version
-    ,envIsGenerated :: Bool
     ,envEnableScenarios :: EnableScenarios
     ,envTypeVars :: !(MS.Map Var TypeVarName)
         -- ^ Maps GHC type variables in scope to their LF type variable names
@@ -187,10 +186,9 @@ mkEnv ::
   -> EnableScenarios
   -> MS.Map UnitId DalfPackage
   -> MS.Map (UnitId, LF.ModuleName) PackageId
-  -> Bool
   -> GHC.Module
   -> Env
-mkEnv envLfVersion envEnableScenarios envPkgMap envStablePackages envIsGenerated ghcModule = do
+mkEnv envLfVersion envEnableScenarios envPkgMap envStablePackages ghcModule = do
   let
     envGHCModuleName = GHC.moduleName ghcModule
     envModuleUnitId = GHC.moduleUnitId ghcModule
@@ -610,16 +608,15 @@ convertModule
     -> EnableScenarios
     -> MS.Map UnitId DalfPackage
     -> MS.Map (GHC.UnitId, LF.ModuleName) LF.PackageId
-    -> Bool
     -> NormalizedFilePath
     -> CoreModule
     -> ModIface
       -- ^ Only used for information that isn't available in ModDetails.
     -> ModDetails
     -> Either FileDiagnostic LF.Module
-convertModule lfVersion enableScenarios pkgMap stablePackages isGenerated file coreModule modIface details = runConvertM (ConversionEnv file Nothing) $ do
+convertModule lfVersion enableScenarios pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing) $ do
     let
-      env = mkEnv lfVersion enableScenarios pkgMap stablePackages isGenerated (cm_module coreModule)
+      env = mkEnv lfVersion enableScenarios pkgMap stablePackages (cm_module coreModule)
       mc = extractModuleContents env coreModule modIface details
     defs <- convertModuleContents env mc
     pure (LF.moduleFromDefinitions (envLFModuleName env) (Just $ fromNormalizedFilePath file) flags defs)

@@ -485,7 +485,7 @@ runRepl importPkgs opts replClient logger ideState = do
             PackageMap pkgMap <- useE' GeneratePackageMap file
             stablePkgs <- lift $ useNoFile_ GenerateStablePackages
             let modIface = hm_iface (tmrModInfo tm)
-            case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) False file core modIface details of
+            case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
                 Left diag -> handleIdeResult ([diag], Nothing)
                 Right v -> do
                    pkgs <- lift $ getExternalPackages file
