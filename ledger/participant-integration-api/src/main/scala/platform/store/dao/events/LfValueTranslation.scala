@@ -34,7 +34,7 @@ import com.daml.platform.{
 import com.daml.platform.packages.DeduplicatingPackageLoader
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.LfValueTranslationCache
-import com.daml.platform.store.dao.EventDisplayProperties
+import com.daml.platform.store.dao.EventProjectionProperties
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 import io.grpc.Status.Code
 
@@ -65,7 +65,7 @@ trait LfValueSerialization {
 
   def deserialize[E](
       raw: Raw.Created[E],
-      eventDisplayProperties: EventDisplayProperties,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
@@ -235,21 +235,21 @@ final class LfValueTranslation(
       key: Option[VersionedValue],
       templateId: LfIdentifier,
       witnesses: Seq[String],
-      eventDisplayProperties: EventDisplayProperties,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[ApiContractData] = {
     // TODO DPP-1068: [implementation detail] maybe move this logic closer where we populate the EventDisplayProperties, so we have a more comprehensive unit test capabilities
     val renderContractArguments = witnesses.iterator
-      .map(eventDisplayProperties.populateContractArgument.get)
+      .map(eventProjectionProperties.populateContractArgument.get)
       .exists {
         case Some(wildcardTemplates) if wildcardTemplates.isEmpty => true
         case Some(nonEmptyTemplates) if nonEmptyTemplates(templateId) => true
         case _ => false
       }
     val renderInterfaces = witnesses.iterator
-      .map(eventDisplayProperties.populateInterfaceView.get)
+      .map(eventProjectionProperties.populateInterfaceView.get)
       .foldLeft(Set.empty[LfIdentifier]) { case (interfacesSoFar, templateToInterfaces) =>
         interfacesSoFar ++ templateToInterfaces
           .getOrElse(Map.empty)
@@ -258,7 +258,7 @@ final class LfValueTranslation(
     def condFuture[T](cond: Boolean)(f: => Future[T]): Future[Option[T]] =
       if (cond) f.map(Some(_)) else Future.successful(None)
     def enrichAsync(enrich: Value => LfEngine.Result[Value])(value: Value): Future[Value] =
-      condFuture(eventDisplayProperties.verbose)(
+      condFuture(eventProjectionProperties.verbose)(
         Future(enrich(value)).flatMap(consumeEnricherResult)
       ).map(_.getOrElse(value))
     def toApi[T](
@@ -268,7 +268,7 @@ final class LfValueTranslation(
       LfEngineToApi.assertOrRuntimeEx(
         // TODO DPP-1086: this is not always right
         failureContext = s"attempting to deserialize persisted $attribute to record",
-        lfEngineToApiFunction(eventDisplayProperties.verbose, value),
+        lfEngineToApiFunction(eventProjectionProperties.verbose, value),
       )
     val asyncContractAguments = condFuture(renderContractArguments)(
       enrichAsync(enricher.enrichContract(templateId, _))(value.unversioned)
@@ -287,7 +287,7 @@ final class LfValueTranslation(
         templateId,
         value.unversioned,
         interfaceId,
-        eventDisplayProperties.verbose,
+        eventProjectionProperties.verbose,
         enrichAsync(enricher.enrichView(interfaceId, _)),
       )
     )
@@ -405,7 +405,7 @@ final class LfValueTranslation(
 
   override def deserialize[E](
       raw: Raw.Created[E],
-      eventDisplayProperties: EventDisplayProperties,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
@@ -433,7 +433,7 @@ final class LfValueTranslation(
         key = create.key,
         templateId = templateId,
         witnesses = raw.partial.witnessParties,
-        eventDisplayProperties = eventDisplayProperties,
+        eventProjectionProperties = eventProjectionProperties,
       )
     } yield raw.partial.copy(
       createArguments = apiContractData.createArguments,

@@ -19,7 +19,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.{ContractId, Create, Exercise}
 import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.dao.events.Raw.TreeEvent
-import com.daml.platform.store.dao.{EventDisplayProperties, JdbcLedgerDao}
+import com.daml.platform.store.dao.{EventProjectionProperties, JdbcLedgerDao}
 import com.daml.platform.store.dao.events.{
   CompressionStrategy,
   FieldCompressionStrategy,
@@ -1482,7 +1482,7 @@ object UpdateToDbDtoSpec {
       (emptyArray, exercise.exerciseResult.map(_ => emptyArray), exercise.key.map(_ => emptyArray))
     override def deserialize[E](
         raw: Raw.Created[E],
-        eventDisplayProperties: EventDisplayProperties,
+        eventProjectionProperties: EventProjectionProperties,
     )(implicit
         ec: ExecutionContext,
         loggingContext: LoggingContext,

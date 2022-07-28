@@ -27,7 +27,7 @@ import com.daml.platform._
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.dao.{
   DbDispatcher,
-  EventDisplayProperties,
+  EventProjectionProperties,
   LedgerDaoTransactionsReader,
   PaginatingAsyncStream,
 }
@@ -76,28 +76,28 @@ private[dao] final class TransactionsReader(
     ApiOffset.assertFromString(response.transactions.head.offset)
 
   private def deserializeEvent[E](
-      eventDisplayProperties: EventDisplayProperties
+      eventProjectionProperties: EventProjectionProperties
   )(entry: EventStorageBackend.Entry[Raw[E]])(implicit
       loggingContext: LoggingContext
   ): Future[E] =
-    entry.event.applyDeserialization(lfValueTranslation, eventDisplayProperties)
+    entry.event.applyDeserialization(lfValueTranslation, eventProjectionProperties)
 
-  private def deserializeEntry[E](eventDisplayProperties: EventDisplayProperties)(
+  private def deserializeEntry[E](eventProjectionProperties: EventProjectionProperties)(
       entry: EventStorageBackend.Entry[Raw[E]]
   )(implicit loggingContext: LoggingContext): Future[EventStorageBackend.Entry[E]] =
-    deserializeEvent(eventDisplayProperties)(entry).map(event => entry.copy(event = event))
+    deserializeEvent(eventProjectionProperties)(entry).map(event => entry.copy(event = event))
 
   override def getFlatTransactions(
       startExclusive: Offset,
       endInclusive: Offset,
       filter: FilterRelation,
-      eventDisplayProperties: EventDisplayProperties,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val span =
       Telemetry.Transactions.createSpan(startExclusive, endInclusive)(qualifiedNameOfCurrentFunc)
     // TODO DPP-1068: [implementation detail] improve on logging
     logger.debug(
-      s"getFlatTransactions($startExclusive, $endInclusive, $filter, ${eventDisplayProperties.verbose})"
+      s"getFlatTransactions($startExclusive, $endInclusive, $filter, ${eventProjectionProperties.verbose})"
     )
 
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
@@ -120,7 +120,7 @@ private[dao] final class TransactionsReader(
       Source
         .futureSource(requestedRangeF.map { requestedRange =>
           streamEvents(
-            eventDisplayProperties,
+            eventProjectionProperties,
             dbMetrics.getFlatTransactions,
             query,
             nextPageRange[Event](requestedRange.endInclusive),
@@ -165,7 +165,7 @@ private[dao] final class TransactionsReader(
           timer = dbMetrics.lookupFlatTransactionById.translationTimer,
           value = Future.traverse(rawEvents)(
             deserializeEntry(
-              EventDisplayProperties(
+              EventProjectionProperties(
                 verbose = true,
                 requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
               )
@@ -179,7 +179,7 @@ private[dao] final class TransactionsReader(
       startExclusive: Offset,
       endInclusive: Offset,
       requestingParties: Set[Party],
-      eventDisplayProperties: EventDisplayProperties,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
@@ -187,7 +187,7 @@ private[dao] final class TransactionsReader(
       Telemetry.Transactions.createSpan(startExclusive, endInclusive)(qualifiedNameOfCurrentFunc)
     // TODO DPP-1068: improve on logging
     logger.debug(
-      s"getTransactionTrees($startExclusive, $endInclusive, $requestingParties, ${eventDisplayProperties.verbose})"
+      s"getTransactionTrees($startExclusive, $endInclusive, $requestingParties, ${eventProjectionProperties.verbose})"
     )
 
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
@@ -222,7 +222,7 @@ private[dao] final class TransactionsReader(
       Source
         .futureSource(requestedRangeF.map { requestedRange =>
           streamEvents(
-            eventDisplayProperties,
+            eventProjectionProperties,
             dbMetrics.getTransactionTrees,
             query,
             nextPageRange[TreeEvent](requestedRange.endInclusive),
@@ -267,7 +267,7 @@ private[dao] final class TransactionsReader(
           timer = dbMetrics.lookupTransactionTreeById.translationTimer,
           value = Future.traverse(rawEvents)(
             deserializeEntry(
-              EventDisplayProperties(
+              EventProjectionProperties(
                 verbose = true,
                 requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
               )
@@ -280,13 +280,13 @@ private[dao] final class TransactionsReader(
   override def getActiveContracts(
       activeAt: Offset,
       filter: FilterRelation,
-      eventDisplayProperties: EventDisplayProperties,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
     val contextualizedErrorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
     val span =
       Telemetry.Transactions.createSpan(activeAt)(qualifiedNameOfCurrentFunc)
     // TODO DPP-1068: improve on logging
-    logger.debug(s"getActiveContracts($activeAt, $filter, ${eventDisplayProperties.verbose})")
+    logger.debug(s"getActiveContracts($activeAt, $filter, ${eventProjectionProperties.verbose})")
 
     Source
       .futureSource(
@@ -297,7 +297,7 @@ private[dao] final class TransactionsReader(
         Timed.future(
           future = Future(
             Future.traverse(rawResult)(
-              deserializeEntry(eventDisplayProperties)
+              deserializeEntry(eventProjectionProperties)
             )
           ).flatMap(identity),
           timer = dbMetrics.getActiveContracts.translationTimer,
@@ -361,7 +361,7 @@ private[dao] final class TransactionsReader(
       )
 
   private def streamEvents[A: Ordering, E](
-      eventDisplayProperties: EventDisplayProperties,
+      eventProjectionProperties: EventProjectionProperties,
       queryMetric: DatabaseMetrics,
       query: EventsRange[A] => Connection => Vector[EventStorageBackend.Entry[Raw[E]]],
       getNextPageRange: EventStorageBackend.Entry[E] => EventsRange[A],
@@ -376,7 +376,7 @@ private[dao] final class TransactionsReader(
           dispatcher.executeSql(queryMetric)(query(range1))
         rawEvents.flatMap(es =>
           Timed.future(
-            future = Future.traverse(es)(deserializeEntry(eventDisplayProperties)),
+            future = Future.traverse(es)(deserializeEntry(eventProjectionProperties)),
             timer = queryMetric.translationTimer,
           )
         )

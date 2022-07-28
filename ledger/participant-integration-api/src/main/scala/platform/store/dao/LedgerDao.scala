@@ -36,7 +36,7 @@ private[platform] trait LedgerDaoTransactionsReader {
       startExclusive: Offset,
       endInclusive: Offset,
       filter: FilterRelation,
-      eventDisplayProperties: EventDisplayProperties,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed]
 
   def lookupFlatTransactionById(
@@ -48,7 +48,7 @@ private[platform] trait LedgerDaoTransactionsReader {
       startExclusive: Offset,
       endInclusive: Offset,
       requestingParties: Set[Party],
-      eventDisplayProperties: EventDisplayProperties,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed]
@@ -61,7 +61,7 @@ private[platform] trait LedgerDaoTransactionsReader {
   def getActiveContracts(
       activeAt: Offset,
       filter: FilterRelation,
-      eventDisplayProperties: EventDisplayProperties,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed]
 }
 
@@ -71,7 +71,7 @@ private[platform] trait LedgerDaoTransactionsReader {
   * @param populateInterfaceView populate interface_views. The Map of templates to interfaces,
   *                              and the set of implementor templates cannot be empty.
   */
-case class EventDisplayProperties(
+case class EventProjectionProperties(
     verbose: Boolean,
     // Map(eventWitnessParty, Set(templateId))
     populateContractArgument: Map[String, Set[Identifier]] = Map.empty,

@@ -25,8 +25,7 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
       filter: FilterRelation,
       pageSize: Int,
   ): Connection => Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
-    // TODO DPP-1068: [implementation detail] Should we remove this requirement and make this handling before?
-    // require(filter.nonEmpty, "The request must be issued by at least one party")
+    require(filter.nonEmpty, "The request must be issued by at least one party")
 
     // Route the request to the correct underlying query
     val filterParams = if (filter.size == 1) {

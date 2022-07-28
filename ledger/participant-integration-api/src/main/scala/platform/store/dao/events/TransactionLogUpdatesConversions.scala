@@ -21,7 +21,7 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
 import com.daml.platform.participant.util.LfEngineToApi
-import com.daml.platform.store.dao.EventDisplayProperties
+import com.daml.platform.store.dao.EventProjectionProperties
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.{CreatedEvent, ExercisedEvent}
 import com.daml.platform.{ApiOffset, FilterRelation, Value}
@@ -57,7 +57,7 @@ private[events] object TransactionLogUpdatesConversions {
 
     def toApiTransaction(
         filter: FilterRelation,
-        eventDisplayProperties: EventDisplayProperties,
+        eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
@@ -68,7 +68,7 @@ private[events] object TransactionLogUpdatesConversions {
         val requestingParties = filter.keySet
         Future
           .traverse(nonTransient)(event =>
-            toFlatEvent(event, requestingParties, eventDisplayProperties, lfValueTranslation)
+            toFlatEvent(event, requestingParties, eventProjectionProperties, lfValueTranslation)
           )
           .map(flatEvents =>
             GetTransactionsResponse(
@@ -114,7 +114,7 @@ private[events] object TransactionLogUpdatesConversions {
     private def toFlatEvent(
         event: TransactionLogUpdate.Event,
         requestingParties: Set[Party],
-        eventDisplayProperties: EventDisplayProperties,
+        eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
@@ -124,7 +124,7 @@ private[events] object TransactionLogUpdatesConversions {
         case createdEvent: TransactionLogUpdate.CreatedEvent =>
           createdToFlatEvent(
             requestingParties,
-            eventDisplayProperties,
+            eventProjectionProperties,
             lfValueTranslation,
             createdEvent,
           )
@@ -137,7 +137,7 @@ private[events] object TransactionLogUpdatesConversions {
 
     private def createdToFlatEvent(
         requestingParties: Set[Party],
-        eventDisplayProperties: EventDisplayProperties,
+        eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
         createdEvent: CreatedEvent,
     )(implicit
@@ -150,7 +150,7 @@ private[events] object TransactionLogUpdatesConversions {
           key = createdEvent.contractKey,
           templateId = createdEvent.templateId,
           witnesses = createdEvent.flatEventWitnesses.toSeq,
-          eventDisplayProperties = eventDisplayProperties,
+          eventProjectionProperties = eventProjectionProperties,
         )
         .map(apiContractData =>
           apiEvent.Event(
@@ -201,7 +201,7 @@ private[events] object TransactionLogUpdatesConversions {
 
     def toApiTransaction(
         requestingParties: Set[Party],
-        eventDisplayProperties: EventDisplayProperties,
+        eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
@@ -211,7 +211,11 @@ private[events] object TransactionLogUpdatesConversions {
         Future.delegate {
           Future
             .traverse(transaction.events)(event =>
-              toTransactionTreeEvent(requestingParties, eventDisplayProperties, lfValueTranslation)(
+              toTransactionTreeEvent(
+                requestingParties,
+                eventProjectionProperties,
+                lfValueTranslation,
+              )(
                 event
               )
             )
@@ -254,7 +258,7 @@ private[events] object TransactionLogUpdatesConversions {
 
     private def toTransactionTreeEvent(
         requestingParties: Set[Party],
-        eventDisplayProperties: EventDisplayProperties,
+        eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
     )(event: TransactionLogUpdate.Event)(implicit
         loggingContext: LoggingContext,
@@ -264,14 +268,14 @@ private[events] object TransactionLogUpdatesConversions {
         case createdEvent: TransactionLogUpdate.CreatedEvent =>
           createdToTransactionTreeEvent(
             requestingParties,
-            eventDisplayProperties,
+            eventProjectionProperties,
             lfValueTranslation,
             createdEvent,
           )
         case exercisedEvent: TransactionLogUpdate.ExercisedEvent =>
           exercisedToTransactionTreeEvent(
             requestingParties,
-            eventDisplayProperties.verbose,
+            eventProjectionProperties.verbose,
             lfValueTranslation,
             exercisedEvent,
           )
@@ -346,7 +350,7 @@ private[events] object TransactionLogUpdatesConversions {
 
     private def createdToTransactionTreeEvent(
         requestingParties: Set[Party],
-        eventDisplayProperties: EventDisplayProperties,
+        eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
         createdEvent: CreatedEvent,
     )(implicit
@@ -359,7 +363,7 @@ private[events] object TransactionLogUpdatesConversions {
           key = createdEvent.contractKey,
           templateId = createdEvent.templateId,
           witnesses = createdEvent.treeEventWitnesses.toSeq,
-          eventDisplayProperties = eventDisplayProperties,
+          eventProjectionProperties = eventProjectionProperties,
         )
         .map(apiContractData =>
           TreeEvent(

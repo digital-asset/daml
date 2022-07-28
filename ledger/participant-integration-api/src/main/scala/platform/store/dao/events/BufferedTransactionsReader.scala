@@ -17,7 +17,7 @@ import com.daml.lf.data.Ref.TransactionId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
-import com.daml.platform.store.dao.{EventDisplayProperties, LedgerDaoTransactionsReader}
+import com.daml.platform.store.dao.{EventProjectionProperties, LedgerDaoTransactionsReader}
 import com.daml.platform.store.dao.events.BufferedTransactionsReader.{
   getTransactions,
   invertMapping,
@@ -42,7 +42,7 @@ private[events] class BufferedTransactionsReader(
     ) => TransactionLogUpdate.Transaction => Option[TransactionLogUpdate.Transaction],
     flatToApiTransactions: (
         FilterRelation,
-        EventDisplayProperties,
+        EventProjectionProperties,
         LoggingContext,
     ) => ToApi[GetTransactionsResponse],
     filterTransactionTrees: Set[Party] => TransactionLogUpdate.Transaction => Option[
@@ -50,7 +50,7 @@ private[events] class BufferedTransactionsReader(
     ],
     treesToApiTransactions: (
         Set[Party],
-        EventDisplayProperties,
+        EventProjectionProperties,
         LoggingContext,
     ) => ToApi[GetTransactionTreesResponse],
     metrics: Metrics,
@@ -66,7 +66,7 @@ private[events] class BufferedTransactionsReader(
       startExclusive: Offset,
       endInclusive: Offset,
       filter: FilterRelation,
-      eventDisplayProperties: EventDisplayProperties,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val (parties, partiesTemplates) = filter.partition(_._2.isEmpty)
     val wildcardParties = parties.keySet
@@ -80,9 +80,9 @@ private[events] class BufferedTransactionsReader(
       eventProcessingParallelism = eventProcessingParallelism,
     )(
       filterEvents = filterFlatTransactions(wildcardParties, templatesParties),
-      toApiTx = flatToApiTransactions(filter, eventDisplayProperties, loggingContext),
+      toApiTx = flatToApiTransactions(filter, eventProjectionProperties, loggingContext),
       fetchTransactions =
-        delegate.getFlatTransactions(_, _, filter, eventDisplayProperties)(loggingContext),
+        delegate.getFlatTransactions(_, _, filter, eventProjectionProperties)(loggingContext),
       bufferReaderMetrics = flatTransactionsBufferMetrics,
     )
   }
@@ -91,7 +91,7 @@ private[events] class BufferedTransactionsReader(
       startExclusive: Offset,
       endInclusive: Offset,
       requestingParties: Set[Party],
-      eventDisplayProperties: EventDisplayProperties,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
@@ -102,9 +102,10 @@ private[events] class BufferedTransactionsReader(
       eventProcessingParallelism = eventProcessingParallelism,
     )(
       filterEvents = filterTransactionTrees(requestingParties),
-      toApiTx = treesToApiTransactions(requestingParties, eventDisplayProperties, loggingContext),
+      toApiTx =
+        treesToApiTransactions(requestingParties, eventProjectionProperties, loggingContext),
       fetchTransactions =
-        delegate.getTransactionTrees(_, _, requestingParties, eventDisplayProperties)(
+        delegate.getTransactionTrees(_, _, requestingParties, eventProjectionProperties)(
           loggingContext
         ),
       bufferReaderMetrics = transactionTreesBufferMetrics,
@@ -125,11 +126,11 @@ private[events] class BufferedTransactionsReader(
   override def getActiveContracts(
       activeAt: Offset,
       filter: FilterRelation,
-      eventDisplayProperties: EventDisplayProperties,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContext
   ): Source[GetActiveContractsResponse, NotUsed] =
-    delegate.getActiveContracts(activeAt, filter, eventDisplayProperties)
+    delegate.getActiveContracts(activeAt, filter, eventProjectionProperties)
 }
 
 private[platform] object BufferedTransactionsReader {

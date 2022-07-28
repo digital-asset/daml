@@ -53,7 +53,7 @@ import com.daml.platform.{ApiOffset, PruneBuffers}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.dao.{
-  EventDisplayProperties,
+  EventProjectionProperties,
   LedgerDaoTransactionsReader,
   LedgerReadDao,
 }
@@ -113,12 +113,13 @@ private[index] class IndexServiceImpl(
           .startingAt(
             from.getOrElse(Offset.beforeBegin),
             RangeSource { (startExclusive, endInclusive) =>
-              val (filterRelation, eventDisplayProperties) = memoizedConvertedFilter()
+              val (filterRelation, eventProjectionProperties) = memoizedConvertedFilter()
+              // TODO DPP-1068: we need to protect the transactionsReader.getFlatTransactions from executing with empty filterRelation
               transactionsReader.getFlatTransactions(
                 startExclusive,
                 endInclusive,
                 filterRelation,
-                eventDisplayProperties,
+                eventProjectionProperties,
               )
             },
             to,
@@ -142,7 +143,7 @@ private[index] class IndexServiceImpl(
   )(implicit loggingContext: LoggingContext): Source[GetTransactionTreesResponse, NotUsed] = {
     // No need to recompute this later: tree TransactionFilter only supports wildcard queries
     val parties = filter.filtersByParty.keySet
-    val eventDisplayProperties = EventDisplayProperties(
+    val eventProjectionProperties = EventProjectionProperties(
       verbose = verbose,
       populateContractArgument = parties.iterator
         .map(party => party -> Set.empty[Identifier])
@@ -159,7 +160,7 @@ private[index] class IndexServiceImpl(
         .startingAt(
           from.getOrElse(Offset.beforeBegin),
           RangeSource(
-            transactionsReader.getTransactionTrees(_, _, parties, eventDisplayProperties)
+            transactionsReader.getTransactionTrees(_, _, parties, eventProjectionProperties)
           ),
           to,
         )
@@ -214,13 +215,14 @@ private[index] class IndexServiceImpl(
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] =
     withValidatedFilter(filter) {
       val currentLedgerEnd = ledgerEnd()
-      val (filterRelation, eventDisplayProperties) =
+      val (filterRelation, eventProjectionProperties) =
         memoizedFilterRelationAndEventDisplayProperties(filter, verbose)()
+      // TODO DPP-1068: we need to protect the transactionsReader.getActiveContracts from executing with empty filterRelation
       ledgerDao.transactionsReader
         .getActiveContracts(
           currentLedgerEnd,
           filterRelation,
-          eventDisplayProperties,
+          eventProjectionProperties,
         )
         .concat(
           Source.single(
@@ -488,7 +490,7 @@ private[index] class IndexServiceImpl(
   private def memoizedFilterRelationAndEventDisplayProperties(
       domainTransactionFilter: domain.TransactionFilter,
       verbose: Boolean,
-  ): () => (Map[Party, Set[Identifier]], EventDisplayProperties) =
+  ): () => (Map[Party, Set[Identifier]], EventProjectionProperties) =
     packageMetadataView {
       // TODO DPP-1068: [implementation detail] extract this lambda to a function, and unit test
       metadata =>
@@ -500,7 +502,7 @@ private[index] class IndexServiceImpl(
             case (party, Filters(None)) =>
               (party, Set.empty[Identifier])
           }.toMap,
-          EventDisplayProperties(
+          EventProjectionProperties(
             verbose = verbose,
             populateContractArgument = (for {
               (party, filters) <- domainTransactionFilter.filtersByParty.iterator

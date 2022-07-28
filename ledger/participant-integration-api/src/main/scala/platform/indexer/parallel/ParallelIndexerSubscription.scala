@@ -143,6 +143,7 @@ object ParallelIndexerSubscription {
   ): Iterable[(Offset, state.Update)] => Batch[Vector[DbDto]] = { input =>
     metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)
     input.foreach { case (offset, update) =>
+      // TODO DPP-1068: This needs to be part of in memory state update process
       updatePackageMetadata(update)
       withEnrichedLoggingContext("offset" -> offset, "update" -> update) {
         implicit loggingContext =>
