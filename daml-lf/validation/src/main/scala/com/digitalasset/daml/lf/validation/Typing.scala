@@ -979,103 +979,109 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
         }
     }
 
-    private[this] def typOfExprInterface(expr: ExprInterface): Type = expr match {
+    private[this] def typOfExprInterface(expr: ExprInterface): Work[Type] = expr match {
       case EToInterface(iface, tpl, value) =>
         checkImplements(tpl, iface)
         legacy_checkExpr(value, TTyCon(tpl))
-        TTyCon(iface)
+        Ret(TTyCon(iface))
       case EFromInterface(iface, tpl, value) =>
         checkImplements(tpl, iface)
         legacy_checkExpr(value, TTyCon(iface))
-        TOptional(TTyCon(tpl))
+        Ret(TOptional(TTyCon(tpl)))
       case EUnsafeFromInterface(iface, tpl, cid, value) =>
         checkImplements(tpl, iface)
         legacy_checkExpr(cid, TContractId(TTyCon(iface)))
         legacy_checkExpr(value, TTyCon(iface))
-        TTyCon(tpl)
+        Ret(TTyCon(tpl))
       case EToRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
         val requiringIface = handleLookup(ctx, pkgInterface.lookupInterface(requiringIfaceId))
         if (!requiringIface.requires.contains(requiredIfaceId))
           throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
         legacy_checkExpr(body, TTyCon(requiringIfaceId))
-        TTyCon(requiredIfaceId)
+        Ret(TTyCon(requiredIfaceId))
       case EFromRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
         val requiringIface = handleLookup(ctx, pkgInterface.lookupInterface(requiringIfaceId))
         if (!requiringIface.requires.contains(requiredIfaceId))
           throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
         legacy_checkExpr(body, TTyCon(requiredIfaceId))
-        TOptional(TTyCon(requiringIfaceId))
+        Ret(TOptional(TTyCon(requiringIfaceId)))
       case EUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId, cid, body) =>
         val requiringIface = handleLookup(ctx, pkgInterface.lookupInterface(requiringIfaceId))
         if (!requiringIface.requires.contains(requiredIfaceId))
           throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
         legacy_checkExpr(cid, TContractId(TTyCon(requiredIfaceId)))
         legacy_checkExpr(body, TTyCon(requiredIfaceId))
-        TTyCon(requiringIfaceId)
+        Ret(TTyCon(requiringIfaceId))
       case ECallInterface(iface, methodName, value) =>
         val method = handleLookup(ctx, pkgInterface.lookupInterfaceMethod(iface, methodName))
         legacy_checkExpr(value, TTyCon(iface))
-        method.returnType
+        Ret(method.returnType)
       case EInterfaceTemplateTypeRep(ifaceId, body) =>
         discard(handleLookup(ctx, pkgInterface.lookupInterface(ifaceId)))
         legacy_checkExpr(body, TTyCon(ifaceId))
-        TTypeRep
+        Ret(TTypeRep)
       case ESignatoryInterface(ifaceId, body) =>
         discard(handleLookup(ctx, pkgInterface.lookupInterface(ifaceId)))
         legacy_checkExpr(body, TTyCon(ifaceId))
-        TList(TParty)
+        Ret(TList(TParty))
       case EObserverInterface(ifaceId, body) =>
         discard(handleLookup(ctx, pkgInterface.lookupInterface(ifaceId)))
         legacy_checkExpr(body, TTyCon(ifaceId))
-        TList(TParty)
+        Ret(TList(TParty))
       case EViewInterface(ifaceId, expr) =>
         val iface = handleLookup(ctx, pkgInterface.lookupInterface(ifaceId))
         legacy_checkExpr(expr, TTyCon(ifaceId))
-        iface.view
+        Ret(iface.view)
     }
 
-    private def checkCons(elemType: Type, front: ImmArray[Expr], tailExpr: Expr): Unit = { // NICK: Work!
+    private def checkCons[T](elemType: Type, front: ImmArray[Expr], tailExpr: Expr)(
+        work: => Work[T]
+    ): Work[T] = {
       checkType(elemType, KStar)
       if (front.isEmpty) throw EEmptyConsFront(ctx)
-      front.foreach(legacy_checkExpr(_, elemType))
-      legacy_checkExpr(tailExpr, TList(elemType))
-      ()
+      front.foreach(legacy_checkExpr(_, elemType)) // NICK: meh, a loop!
+      checkExpr(tailExpr, TList(elemType)) {
+        work
+      }
     }
 
-    private def checkPure(typ: Type, expr: Expr): Unit = {
+    private def checkPure[T](typ: Type, expr: Expr)(work: => Work[T]): Work[T] = {
       checkType(typ, KStar)
-      legacy_checkExpr(expr, typ)
-      ()
+      checkExpr(expr, typ) {
+        work
+      }
     }
 
-    private def typeOfScenarioBlock(bindings: ImmArray[Binding], body: Expr): Type = {
+    private def typeOfScenarioBlock(bindings: ImmArray[Binding], body: Expr): Work[Type] = {
       val env = bindings.foldLeft(this) { case (env, Binding(vName, typ, bound)) =>
         env.checkType(typ, KStar)
-        env.legacy_checkExpr(bound, TScenario(typ))
+        env.legacy_checkExpr(bound, TScenario(typ)) // NICK: meh, a fold!
         env.introExprVar(vName, typ)
       }
-      toScenario(env.recurse_typeOf(body))
+      Ret(toScenario(env.recurse_typeOf(body)))
     }
 
-    private def typeOfUpdateBlock(bindings: ImmArray[Binding], body: Expr): Type = {
+    private def typeOfUpdateBlock(bindings: ImmArray[Binding], body: Expr): Work[Type] = {
       val env = bindings.foldLeft(this) { case (env, Binding(vName, typ, bound)) =>
         env.checkType(typ, KStar)
         env.legacy_checkExpr(bound, TUpdate(typ))
         env.introExprVar(vName, typ)
       }
-      toUpdate(env.recurse_typeOf(body))
+      Ret(toUpdate(env.recurse_typeOf(body)))
     }
 
-    private def typeOfCreate(tpl: TypeConName, arg: Expr): Type = {
+    private def typeOfCreate(tpl: TypeConName, arg: Expr): Work[Type] = {
       discard(handleLookup(ctx, pkgInterface.lookupTemplate(tpl)))
-      legacy_checkExpr(arg, TTyCon(tpl))
-      TUpdate(TContractId(TTyCon(tpl)))
+      checkExpr(arg, TTyCon(tpl)) {
+        Ret(TUpdate(TContractId(TTyCon(tpl))))
+      }
     }
 
-    private def typeOfCreateInterface(iface: TypeConName, arg: Expr): Type = {
+    private def typeOfCreateInterface(iface: TypeConName, arg: Expr): Work[Type] = {
       discard(handleLookup(ctx, pkgInterface.lookupInterface(iface)))
-      legacy_checkExpr(arg, TTyCon(iface))
-      TUpdate(TContractId(TTyCon(iface)))
+      checkExpr(arg, TTyCon(iface)) {
+        Ret(TUpdate(TContractId(TTyCon(iface))))
+      }
     }
 
     private def typeOfExercise(
@@ -1083,11 +1089,13 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
         chName: ChoiceName,
         cid: Expr,
         arg: Expr,
-    ): Type = {
+    ): Work[Type] = {
       val choice = handleLookup(ctx, pkgInterface.lookupTemplateChoice(tpl, chName))
-      legacy_checkExpr(cid, TContractId(TTyCon(tpl)))
-      legacy_checkExpr(arg, choice.argBinder._2)
-      TUpdate(choice.returnType)
+      checkExpr(cid, TContractId(TTyCon(tpl))) {
+        checkExpr(arg, choice.argBinder._2) {
+          Ret(TUpdate(choice.returnType))
+        }
+      }
     }
 
     private def typeOfExerciseInterface(
@@ -1096,12 +1104,14 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
         cid: Expr,
         arg: Expr,
         guard: Option[Expr],
-    ): Type = {
-      legacy_checkExpr(cid, TContractId(TTyCon(interfaceId)))
-      val choice = handleLookup(ctx, pkgInterface.lookupInterfaceChoice(interfaceId, chName))
-      legacy_checkExpr(arg, choice.argBinder._2)
-      guard.foreach(legacy_checkExpr(_, TFun(TTyCon(interfaceId), TBool)))
-      TUpdate(choice.returnType)
+    ): Work[Type] = {
+      checkExpr(cid, TContractId(TTyCon(interfaceId))) {
+        val choice = handleLookup(ctx, pkgInterface.lookupInterfaceChoice(interfaceId, chName))
+        checkExpr(arg, choice.argBinder._2) {
+          guard.foreach(legacy_checkExpr(_, TFun(TTyCon(interfaceId), TBool)))
+          Ret(TUpdate(choice.returnType))
+        }
+      }
     }
 
     private def typeOfExerciseByKey(
@@ -1109,26 +1119,30 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
         chName: ChoiceName,
         key: Expr,
         arg: Expr,
-    ): Type = {
-      checkByKey(tmplId, key)
-      val choice = handleLookup(ctx, pkgInterface.lookupTemplateChoice(tmplId, chName))
-      legacy_checkExpr(arg, choice.argBinder._2)
-      TUpdate(choice.returnType)
+    ): Work[Type] = {
+      checkByKey(tmplId, key) {
+        val choice = handleLookup(ctx, pkgInterface.lookupTemplateChoice(tmplId, chName))
+        checkExpr(arg, choice.argBinder._2) {
+          Ret(TUpdate(choice.returnType))
+        }
+      }
     }
 
-    private def typeOfFetchTemplate(tpl: TypeConName, cid: Expr): Type = {
+    private def typeOfFetchTemplate(tpl: TypeConName, cid: Expr): Work[Type] = {
       discard(handleLookup(ctx, pkgInterface.lookupTemplate(tpl)))
-      legacy_checkExpr(cid, TContractId(TTyCon(tpl)))
-      TUpdate(TTyCon(tpl))
+      checkExpr(cid, TContractId(TTyCon(tpl))) {
+        Ret(TUpdate(TTyCon(tpl)))
+      }
     }
 
-    private def typeOfFetchInterface(tpl: TypeConName, cid: Expr): Type = {
+    private def typeOfFetchInterface(tpl: TypeConName, cid: Expr): Work[Type] = {
       discard(handleLookup(ctx, pkgInterface.lookupInterface(tpl)))
-      legacy_checkExpr(cid, TContractId(TTyCon(tpl)))
-      TUpdate(TTyCon(tpl))
+      checkExpr(cid, TContractId(TTyCon(tpl))) {
+        Ret(TUpdate(TTyCon(tpl)))
+      }
     }
 
-    private def checkImplements(tpl: TypeConName, iface: TypeConName): Unit = {
+    private def checkImplements(tpl: TypeConName, iface: TypeConName): Unit = { // NICK: Work/Cont
       discard(handleLookup(ctx, pkgInterface.lookupInterface(iface)))
       discard(handleLookup(ctx, pkgInterface.lookupTemplate(tpl)))
       if (pkgInterface.lookupTemplateImplementsOrInterfaceCoImplements(tpl, iface).isLeft) {
@@ -1136,16 +1150,18 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
       }
     }
 
-    private def checkByKey(tmplId: TypeConName, key: Expr): Unit = {
+    private def checkByKey[T](tmplId: TypeConName, key: Expr)(work: => Work[T]): Work[T] = {
       val tmplKey = handleLookup(ctx, pkgInterface.lookupTemplateKey(tmplId))
-      legacy_checkExpr(key, tmplKey.typ)
-      ()
+      checkExpr(key, tmplKey.typ) {
+        work
+      }
     }
 
-    private def typeOfUpdate(update: Update): Type = update match { // NICK: Work!
+    private def typeOfUpdate(update: Update): Work[Type] = update match {
       case UpdatePure(typ, expr) =>
-        checkPure(typ, expr)
-        TUpdate(typ)
+        checkPure(typ, expr) {
+          Ret(TUpdate(typ))
+        }
       case UpdateBlock(bindings, body) =>
         typeOfUpdateBlock(bindings, body)
       case UpdateCreate(tpl, arg) =>
@@ -1163,32 +1179,38 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
       case UpdateFetchInterface(tpl, cid) =>
         typeOfFetchInterface(tpl, cid)
       case UpdateGetTime =>
-        TUpdate(TTimestamp)
+        Ret(TUpdate(TTimestamp))
       case UpdateEmbedExpr(typ, exp) =>
-        legacy_checkExpr(exp, TUpdate(typ))
-        TUpdate(typ)
+        checkExpr(exp, TUpdate(typ)) {
+          Ret(TUpdate(typ))
+        }
       case UpdateFetchByKey(retrieveByKey) =>
-        checkByKey(retrieveByKey.templateId, retrieveByKey.key)
-        // fetches return the contract id and the contract itself
-        TUpdate(
-          TStruct(
-            Struct.assertFromSeq(
-              List(
-                contractIdFieldName -> TContractId(TTyCon(retrieveByKey.templateId)),
-                contractFieldName -> TTyCon(retrieveByKey.templateId),
+        checkByKey(retrieveByKey.templateId, retrieveByKey.key) {
+          // fetches return the contract id and the contract itself
+          val ty = TUpdate(
+            TStruct(
+              Struct.assertFromSeq(
+                List(
+                  contractIdFieldName -> TContractId(TTyCon(retrieveByKey.templateId)),
+                  contractFieldName -> TTyCon(retrieveByKey.templateId),
+                )
               )
             )
           )
-        )
+          Ret(ty)
+        }
       case UpdateLookupByKey(retrieveByKey) =>
-        checkByKey(retrieveByKey.templateId, retrieveByKey.key)
-        TUpdate(TOptional(TContractId(TTyCon(retrieveByKey.templateId))))
+        checkByKey(retrieveByKey.templateId, retrieveByKey.key) {
+          Ret(TUpdate(TOptional(TContractId(TTyCon(retrieveByKey.templateId)))))
+        }
       case UpdateTryCatch(typ, body, binder, handler) =>
         checkType(typ, KStar)
         val updTyp = TUpdate(typ)
-        legacy_checkExpr(body, updTyp)
-        introExprVar(binder, TAnyException).legacy_checkExpr(handler, TOptional(updTyp))
-        updTyp
+        checkExpr(body, updTyp) {
+          introExprVar(binder, TAnyException).checkExpr(handler, TOptional(updTyp)) {
+            Ret(updTyp)
+          }
+        }
     }
 
     private def typeOfCommit(typ: Type, party: Expr, update: Expr): Work[Type] = {
@@ -1211,10 +1233,11 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
 
     private def typeOfScenario(scenario: Scenario): Work[Type] = scenario match {
       case ScenarioPure(typ, expr) =>
-        checkPure(typ, expr)
-        Ret(TScenario(typ))
+        checkPure(typ, expr) {
+          Ret(TScenario(typ))
+        }
       case ScenarioBlock(bindings, body) =>
-        Ret(typeOfScenarioBlock(bindings, body))
+        typeOfScenarioBlock(bindings, body)
       case ScenarioCommit(party, update, typ) =>
         typeOfCommit(typ, party, update)
       case ScenarioMustFailAt(party, update, typ) =>
@@ -1314,10 +1337,11 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
       case ELet(binding, body) =>
         typeOfLet(binding, body)
       case ECons(typ, front, tail) =>
-        checkCons(typ, front, tail)
-        Ret(TList(typ))
+        checkCons(typ, front, tail) {
+          Ret(TList(typ))
+        }
       case EUpdate(update) =>
-        Ret(typeOfUpdate(update))
+        typeOfUpdate(update)
       case EScenario(scenario) =>
         typeOfScenario(scenario)
       case ELocation(loc, expr) =>
@@ -1359,7 +1383,7 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
           Ret(TOptional(typ))
         }
       case expr: ExprInterface =>
-        Ret(typOfExprInterface(expr))
+        typOfExprInterface(expr)
       case EExperimental(_, typ) =>
         Ret(typ)
     }
@@ -1372,7 +1396,7 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
       }
     }
 
-    private def checkExpr[T](expr: Expr, typ0: Type)(work: Work[T]): Work[T] = {
+    private def checkExpr[T](expr: Expr, typ0: Type)(work: => Work[T]): Work[T] = {
       resolveExprType(expr, typ0) { _ =>
         work
       }
