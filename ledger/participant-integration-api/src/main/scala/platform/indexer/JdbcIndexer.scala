@@ -84,6 +84,7 @@ object JdbcIndexer {
           batchingParallelism = config.batchingParallelism,
           ingestionParallelism = config.ingestionParallelism,
           submissionBatchSize = config.submissionBatchSize,
+          maxOutputBufferedBatchSize = config.maxOutputBufferedBatchSize,
           metrics = metrics,
           inMemoryStateUpdaterFlow = apiUpdaterFlow,
         ),

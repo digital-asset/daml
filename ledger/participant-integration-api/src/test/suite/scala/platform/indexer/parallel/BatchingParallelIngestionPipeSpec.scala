@@ -64,17 +64,6 @@ class BatchingParallelIngestionPipeSpec
     }
   }
 
-  it should "terminate the stream upon error in tailer" in {
-    runPipe(
-      tailerHook = () => throw new Exception("tailer failed"),
-      // Exert backpressure in order to ensure triggerring of the tailer
-      ingestTailHook = () => Thread.sleep(1L),
-    ).map { case (_, _, err) =>
-      err should not be empty
-      err.get.getMessage shouldBe "tailer failed"
-    }
-  }
-
   it should "terminate the stream upon error in ingestTail" in {
     runPipe(ingestTailHook = () => throw new Exception("ingestTail failed")).map {
       case (_, _, err) =>
@@ -131,7 +120,6 @@ class BatchingParallelIngestionPipeSpec
       seqMapperHook: () => Unit = () => (),
       batcherHook: () => Unit = () => (),
       ingesterHook: List[Int] => Unit = _ => (),
-      tailerHook: () => Unit = () => (),
       ingestTailHook: () => Unit = () => (),
       timeout: FiniteDuration = FiniteDuration(10, "seconds"),
       inputSource: Source[Int, NotUsed] = Source(input),
@@ -173,10 +161,6 @@ class BatchingParallelIngestionPipeSpec
             }
             dbBatch
           },
-        tailer = (prev, current) => {
-          tailerHook()
-          List((current.lastOption.orElse(prev.lastOption).get._1, ""))
-        },
         ingestTail = dbBatch =>
           Future {
             ingestTailHook()

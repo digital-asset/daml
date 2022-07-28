@@ -36,6 +36,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
     batchingParallelism: Int,
     ingestionParallelism: Int,
     submissionBatchSize: Long,
+    maxOutputBufferedBatchSize: Int,
     metrics: Metrics,
     inMemoryStateUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
 ) {
@@ -75,7 +76,6 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
         ),
         ingestingParallelism = ingestionParallelism,
         ingester = ingester(ingestionStorageBackend.insertBatch, dbDispatcher, metrics),
-        tailer = tailer(ingestionStorageBackend.batch(Vector.empty, stringInterningView)),
         ingestTail =
           ingestTail[DB_BATCH](parameterStorageBackend.updateLedgerEnd, dbDispatcher, metrics),
       )(
@@ -83,7 +83,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
           .buffered(metrics.daml.parallelIndexer.inputBufferLength, maxInputBufferSize)
       )
         .map(batch => batch.offsetsUpdates -> batch.lastSeqEventId)
-        // TODO LLP: Introduce mechanism (buffer) to allow observing downstream backpressure
+        .buffered(metrics.daml.parallelIndexer.inputBufferLength, maxOutputBufferedBatchSize)
         .via(inMemoryStateUpdaterFlow)
         .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
         .toMat(Sink.ignore)(Keep.both)
@@ -234,20 +234,6 @@ object ParallelIndexerSubscription {
             batch
           }
       }
-
-  def tailer[DB_BATCH](
-      zeroDbBatch: DB_BATCH
-  ): (Batch[DB_BATCH], Batch[DB_BATCH]) => Batch[DB_BATCH] =
-    (prev, curr) =>
-      Batch[DB_BATCH](
-        lastOffset = curr.lastOffset,
-        lastSeqEventId = curr.lastSeqEventId,
-        lastStringInterningId = curr.lastStringInterningId,
-        lastRecordTime = curr.lastRecordTime,
-        batch = zeroDbBatch, // not used anymore
-        batchSize = 0, // not used anymore
-        offsetsUpdates = prev.offsetsUpdates ++ curr.offsetsUpdates,
-      )
 
   def ledgerEndFrom(batch: Batch[_]): LedgerEnd =
     LedgerEnd(

@@ -118,7 +118,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
     event_sequential_id = 0,
   )
 
-  private val (offsetsAndUpdates, nextOffsetsAndUpdates) =
+  private val offsetsAndUpdates =
     Vector("00", "01", "02", "03", "04", "05")
       .map(offset)
       .zip(
@@ -128,15 +128,9 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
             .copy(recordTime = somePackageUploadRejected.recordTime.addMicros(1000)),
           somePackageUploadRejected
             .copy(recordTime = somePackageUploadRejected.recordTime.addMicros(2000)),
-          somePackageUploadRejected
-            .copy(recordTime = somePackageUploadRejected.recordTime.addMicros(3000)),
-          somePackageUploadRejected
-            .copy(recordTime = somePackageUploadRejected.recordTime.addMicros(4000)),
-          somePackageUploadRejected
-            .copy(recordTime = somePackageUploadRejected.recordTime.addMicros(5000)),
+          somePackageUploadRejected,
         )
       )
-      .splitAt(3)
 
   behavior of "inputMapper"
 
@@ -351,39 +345,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       batch = "bumm",
       batchSize = 3,
       offsetsUpdates = offsetsAndUpdates,
-    )
-  }
-
-  behavior of "tailer"
-
-  it should "aggregate the batches and pass last ledger end correctly in happy path case" in {
-    ParallelIndexerSubscription.tailer("zero")(
-      Batch(
-        lastOffset = offset("02"),
-        lastSeqEventId = 1000,
-        lastStringInterningId = 200,
-        lastRecordTime = someTime.toEpochMilli - 1000,
-        batch = "bumm1",
-        batchSize = 3,
-        offsetsUpdates = offsetsAndUpdates,
-      ),
-      Batch(
-        lastOffset = offset("05"),
-        lastSeqEventId = 2000,
-        lastStringInterningId = 210,
-        lastRecordTime = someTime.toEpochMilli,
-        batch = "bumm2",
-        batchSize = 3,
-        offsetsUpdates = nextOffsetsAndUpdates,
-      ),
-    ) shouldBe Batch(
-      lastOffset = offset("05"),
-      lastSeqEventId = 2000,
-      lastStringInterningId = 210,
-      lastRecordTime = someTime.toEpochMilli,
-      batch = "zero",
-      batchSize = 0,
-      offsetsUpdates = offsetsAndUpdates ++ nextOffsetsAndUpdates,
     )
   }
 
