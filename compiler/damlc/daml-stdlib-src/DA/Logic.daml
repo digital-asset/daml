@@ -178,8 +178,8 @@ reduce (Disjunction ds) =
   in foldl work false xs
 
 -- | `isBool` attempts to convert a formula to a bool. It satisfies
--- `isBool true == Right True` and `toBool false == Right False`.
--- Otherwise, it returns `Left x`, where `x` is the input.
+-- `isBool true == Some True` and `isBool false == Some False`.
+-- Otherwise, it returns `None`.
 isBool : Formula t -> Optional Bool
 isBool x = case x of
   Conjunction [] -> Some True

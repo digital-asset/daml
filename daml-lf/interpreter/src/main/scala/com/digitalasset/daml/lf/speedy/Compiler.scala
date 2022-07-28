@@ -352,10 +352,9 @@ private[lf] final class Compiler(
     module.interfaces.foreach { case (ifaceName, iface) =>
       val ifaceId = Identifier(pkgId, QualifiedName(module.name, ifaceName))
       addDef(compileFetchInterface(ifaceId))
-      addDef(compileInterfacePrecond(ifaceId, iface.param, iface.precond))
-      iface.choices.values.foreach { choice =>
+      iface.choices.values.foreach(choice =>
         addDef(compileInterfaceChoice(ifaceId, iface.param, choice))
-      }
+      )
       iface.coImplements.values.foreach { coimpl =>
         addDef(compileCoImplements(coimpl.templateId, ifaceId))
         coimpl.methods.values.foreach(method =>
@@ -646,15 +645,6 @@ private[lf] final class Compiler(
       }
     }
 
-  private[this] def compileInterfacePrecond(
-      iface: Identifier,
-      param: ExprVarName,
-      expr: Expr,
-  ): (t.SDefinitionRef, SDefinition) =
-    topLevelFunction1(t.InterfacePrecondDefRef(iface))((argPos, env) =>
-      translateExp(env.bindExprVar(param, argPos), expr)
-    )
-
   private[this] def compileSignatories(
       tmplId: Identifier,
       tmpl: Template,
@@ -751,23 +741,13 @@ private[lf] final class Compiler(
       env: Env,
   ): s.SExpr = {
     val env2 = env.bindExprVar(tmpl.param, tmplArgPos)
-    val implementsPrecondsIterator = tmpl.implements.iterator.map[s.SExpr](impl =>
-      // `SBToInterface` is needed because interfaces do not have the same representation as the underlying template
-      t.InterfacePrecondDefRef(impl._1)(SBToAnyContract(tmplId)(env2.toSEVar(tmplArgPos)))
-    )
 
-    val precondsArray: ImmArray[s.SExpr] =
-      (Iterator(translateExp(env2, tmpl.precond)) ++ implementsPrecondsIterator).to(ImmArray)
-
-    val preconds = precondsArray.foldLeft[s.SExpr](s.SEValue.Unit)((acc, precond) =>
-      SBCheckPrecond(tmplId)(env2.toSEVar(tmplArgPos), acc, precond)
-    )
-
-    let(env2, preconds) { (_, env) =>
-      SBUCreate(
-        translateExp(env, tmpl.agreementText),
-        t.ToCachedContractDefRef(tmplId)(env.toSEVar(tmplArgPos), s.SEValue.None),
-      )
+    let(env2, SBCheckPrecond(tmplId)(env2.toSEVar(tmplArgPos), translateExp(env2, tmpl.precond))) {
+      (_, env) =>
+        SBUCreate(
+          translateExp(env, tmpl.agreementText),
+          t.ToCachedContractDefRef(tmplId)(env.toSEVar(tmplArgPos), s.SEValue.None),
+        )
     }
   }
 

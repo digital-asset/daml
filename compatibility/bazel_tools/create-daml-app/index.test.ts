@@ -146,7 +146,7 @@ beforeAll(async () => {
     `--participant=participant-id=sandbox,port=0,port-file=${SANDBOX_PORT_FILE_NAME}`
   ];
 
-  const sandboxOnXCommand = semver.gt(process.env.SANDBOX_VERSION, "2.3.0-snapshot.20220619.10104.0.253b0b18" ) || process.env.SANDBOX_VERSION === "0.0.0"
+  const sandboxOnXCommand = semver.gt(process.env.SANDBOX_VERSION, "2.4.0-snapshot.20220712.10212.0.0bf28176" ) || process.env.SANDBOX_VERSION === "0.0.0"
       ? ["run-legacy-cli-config"]
       : [];
 

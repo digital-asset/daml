@@ -996,7 +996,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             record @serializable Key = {person: Text, party: Party};
 
             interface (this: I) = {
-              precondition True;
               method getParties: List Party;
             };
           }
@@ -1365,12 +1364,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         p"""
           module NegativeTestCase {
             interface (this : X) = {
-              precondition True;
               method getX: List Party;
             };
 
             interface (this : I) =  {
-              precondition True;
               method getParties: List Party;
               choice Ch1 (self) (i : Unit) : Unit,
                   controllers Nil @Party
@@ -1386,15 +1383,8 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             } ;
           }
 
-          module PositiveTestCase_PreconditionShouldBeBoolean {
-            interface (this : I) =  {
-              precondition (); // Precondition should be a boolean
-            } ;
-          }
-
           module PositiveTestCase_ControllersShouldBeListParty {
             interface (this : I) =  {
-              precondition True;
               choice Ch (self) (i : Unit) : Unit,
                   controllers ()                                  // should be of type (List Party)
                 to upure @Unit ();
@@ -1403,7 +1393,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
           module PositiveTestCase_ChoiceObserversShouldBeListParty {
              interface (this : I) =  {
-              precondition True;
               method getParties: List Party;
               choice Ch (self) (i : Unit) : Unit,
                   controllers (call_method @NegativeTestCase:I getParties this),
@@ -1414,7 +1403,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
           module PositiveTestCase_ChoiceArgumentTypeShouldBeStar {
              interface (this : I) =  {
-              precondition True;
               method getParties: List Party;
               choice Ch (self) (i : List) : Unit,   // the type of i (here List) should be of kind * (here it is * -> *)
                   controllers (call_method @NegativeTestCase:I getParties this)
@@ -1424,7 +1412,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
           module PositiveTestCase_ChoiceResultTypeShouldBeStar {
              interface (this : I) =  {
-              precondition True;
               method getParties: List Party;
               choice Ch (self) (i : Unit) : List,   // the return type (here List) should be of kind * (here it is * -> *)
                   controllers (call_method @NegativeTestCase:I getParties this)
@@ -1435,14 +1422,12 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           module PositiveTestCase_UnknownDefinition {
               interface (this : I) =  {
               requires NegativeTestCase:J;
-              precondition True;
             } ;
           }
 
           module PositiveTestCase_MissingRequiredInterface {
             interface (this : Y) =  {
               requires NegativeTestCase:X;
-              precondition True;
             } ;
 
             record @serializable T = { person: Party, name: Text };
@@ -1457,15 +1442,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           }
 
           module PositiveTestCase_WrongInterfaceRequirement1 {
-            interface (this : Y) = {
-              precondition True;
-            };
-            interface (this : Z) = {
-              precondition True;
-            };
+            interface (this : Y) = {};
+            interface (this : Z) = {};
             interface (this : X) =  {
               requires PositiveTestCase_WrongInterfaceRequirement1:Y;
-              precondition True;
               choice ToY (self) (arg : Unit) : PositiveTestCase_WrongInterfaceRequirement1:Z,
                   controllers Nil@Party
                 to upure @PositiveTestCase_WrongInterfaceRequirement1:Z
@@ -1476,15 +1456,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           }
 
           module PositiveTestCase_WrongInterfaceRequirement2 {
-            interface (this : Y) = {
-              precondition True;
-            };
-            interface (this : Z) = {
-              precondition True;
-            };
+            interface (this : Y) = {};
+            interface (this : Z) = {};
             interface (this : X) =  {
               requires PositiveTestCase_WrongInterfaceRequirement2:Y;
-              precondition True;
               choice ToY (self) (arg : PositiveTestCase_WrongInterfaceRequirement2:Z) : Option PositiveTestCase_WrongInterfaceRequirement2:X,
                   controllers Nil@Party
                 to upure @(Option PositiveTestCase_WrongInterfaceRequirement2:X)
@@ -1495,15 +1470,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           }
 
           module NegativeTestCase_WrongInterfaceRequirement3 {
-            interface (this : Y) = {
-              precondition True;
-            };
-            interface (this : Z) = {
-              precondition True;
-            };
+            interface (this : Y) = {};
+            interface (this : Z) = {};
             interface (this : X) =  {
               requires NegativeTestCase_WrongInterfaceRequirement3:Y;
-              precondition True;
               choice ToY (self) (arg : Unit) : NegativeTestCase_WrongInterfaceRequirement3:Y,
                   controllers Nil@Party
                 to upure @NegativeTestCase_WrongInterfaceRequirement3:Y
@@ -1514,15 +1484,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           }
 
           module NegativeTestCase_WrongInterfaceRequirement4 {
-            interface (this : Y) = {
-              precondition True;
-            };
-            interface (this : Z) = {
-              precondition True;
-            };
-            interface (this : X) =  {
+            interface (this : Y) = {};
+            interface (this : Z) = {};
+            interface (this : X) = {
               requires NegativeTestCase_WrongInterfaceRequirement4:Y;
-              precondition True;
               choice ToY (self) (arg : NegativeTestCase_WrongInterfaceRequirement4:Y) : Option NegativeTestCase_WrongInterfaceRequirement4:X,
                   controllers Nil@Party
                 to upure @(Option NegativeTestCase_WrongInterfaceRequirement4:X)
@@ -1537,34 +1502,25 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               requires PositiveTestCase_CircularInterfaceRequires:Y;
               requires PositiveTestCase_CircularInterfaceRequires:Z;
               requires PositiveTestCase_CircularInterfaceRequires:X;
-              precondition True;
             };
-            interface (this : Y) = {
-              precondition True;
-            };
-            interface (this : Z) = {
-              precondition True;
-            };
+            interface (this : Y) = {};
+            interface (this : Z) = {};
           }
 
           module PositiveTestCase_NotClosedInterfaceRequires {
             interface (this : X) =  {
               requires PositiveTestCase_NotClosedInterfaceRequires:Y;
-              precondition True;
             };
             interface (this : Y) = {
               requires PositiveTestCase_NotClosedInterfaceRequires:Z;
-              precondition True;
             };
             interface (this : Z) = {
               requires PositiveTestCase_NotClosedInterfaceRequires:X;
-              precondition True;
             };
           }
 
           module CoImplementsBase {
             interface (this: Root) = {
-              precondition True;
               method getParties: List Party;
               choice RootCh (self) (i : Unit) : Unit,
                 controllers call_method @CoImplementsBase:Root getParties this
@@ -1596,7 +1552,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           module NegativeTestCase_CoImplements {
             interface (this: Boxy) = {
               requires CoImplementsBase:Root;
-              precondition True;
               method getInt: Int64;
               choice BoxyCh (self) (i : Unit) : Int64,
                 controllers call_method @CoImplementsBase:Root
@@ -1612,7 +1567,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           module PositiveTestCase_CoImplementsMissingRequiredInterface {
             interface (this: Boxy) = {
               requires CoImplementsBase:Root;
-              precondition True;
               method getInt: Int64;
               choice BoxyCh (self) (i : Unit) : Int64,
                 controllers call_method @CoImplementsBase:Root
@@ -1628,7 +1582,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           module PositiveTestCase_CoImplementsMissingMethod {
             interface (this: Boxy) = {
               requires CoImplementsBase:Root;
-              precondition True;
               method getInt: Int64;
               choice BoxyCh (self) (i : Unit) : Int64,
                 controllers call_method @CoImplementsBase:Root
@@ -1642,7 +1595,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           module PositiveTestCase_CoImplementsUnknownMethod {
             interface (this: Boxy) = {
               requires CoImplementsBase:Root;
-              precondition True;
               method getInt: Int64;
               choice BoxyCh (self) (i : Unit) : Int64,
                 controllers call_method @CoImplementsBase:Root
@@ -1674,7 +1626,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
             interface (this: Polygon) = {
               requires CoImplementsBase:Root;
-              precondition True;
               method getSides: Int64;
               choice PolygonCh (self) (i : Unit) : Int64,
                 controllers call_method @CoImplementsBase:Root
@@ -1690,7 +1641,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
       val typeMismatchCases = Table(
         "moduleName",
-        "PositiveTestCase_PreconditionShouldBeBoolean",
         "PositiveTestCase_ControllersShouldBeListParty",
         "PositiveTestCase_ChoiceObserversShouldBeListParty",
       )
@@ -2021,7 +1971,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
          };
 
          interface (this : I) = {
-              precondition True;
               method getParties: List Party;
               choice ChIface (self) (x: Int64) : Decimal,
                   controllers Nil @Party
@@ -2033,12 +1982,9 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
          interface (this : SubI) = {
               requires Mod:I;
-              precondition True;
          };
 
-          interface (this : J) = {
-              precondition True;
-         };
+          interface (this : J) = {};
 
          record @serializable Ti = { person: Party, name: Text };
          template (this: Ti) = {

@@ -1033,7 +1033,6 @@ class DecodeV1Spec
         .newBuilder()
         .setTyconInternedDname(1)
         .setParamInternedStr(0)
-        .setPrecond(unitExpr)
         .setView(unitTypInterned)
         .build()
 
@@ -1058,13 +1057,12 @@ class DecodeV1Spec
           Map.empty,
           Map(
             Ref.DottedName.assertFromString("Mod.I") ->
-              GenDefInterface(
+              GenDefInterface[Ast.Expr](
                 Set.empty,
                 Ref.IdString.Name.assertFromString("test"),
-                Map(),
-                Map(),
-                EPrimCon(PCUnit),
-                Map(),
+                Map.empty,
+                Map.empty,
+                Map.empty,
                 TUnit,
               )
           ),
@@ -1099,7 +1097,6 @@ class DecodeV1Spec
         .newBuilder()
         .setTyconInternedDname(1)
         .setParamInternedStr(0)
-        .setPrecond(unitExpr)
         .setView(unitTypInterned)
         .build()
 
@@ -1107,10 +1104,9 @@ class DecodeV1Spec
         GenDefInterface(
           Set.empty,
           Ref.IdString.Name.assertFromString("this"),
-          Map(),
-          Map(),
-          EPrimCon(PCUnit),
-          Map(),
+          Map.empty,
+          Map.empty,
+          Map.empty,
           TUnit,
         )
 
@@ -1124,7 +1120,6 @@ class DecodeV1Spec
           .newBuilder()
           .setTyconInternedDname(1)
           .setParamInternedStr(0)
-          .setPrecond(unitExpr)
           .addRequires(typeConNameJ)
           .addRequires(typeConNameK)
           .setView(unitTypInterned)
@@ -1132,16 +1127,16 @@ class DecodeV1Spec
       }
 
       val requiresDefInterfaceScala =
-        GenDefInterface(
+        GenDefInterface[Ast.Expr](
           Set(
             Ref.TypeConName.assertFromString("noPkgId:Mod:J"),
             Ref.TypeConName.assertFromString("noPkgId:Mod:K"),
+            Ref.TypeConName.assertFromString("noPkgId:Mod:K"),
           ),
           Ref.IdString.Name.assertFromString("this"),
-          Map(),
-          Map(),
-          EPrimCon(PCUnit),
-          Map(),
+          Map.empty,
+          Map.empty,
+          Map.empty,
           TUnit,
         )
 
@@ -1155,7 +1150,6 @@ class DecodeV1Spec
           .newBuilder()
           .setTyconInternedDname(1)
           .setParamInternedStr(0)
-          .setPrecond(unitExpr)
           .addMethods(interfaceMethod1)
           .addMethods(interfaceMethod2)
           .setView(unitTypInterned)
@@ -1169,13 +1163,12 @@ class DecodeV1Spec
         GenDefInterface(
           Set.empty,
           Ref.IdString.Name.assertFromString("this"),
-          Map(),
+          Map.empty,
           Map(
             methodName1 -> InterfaceMethod(methodName1, TText),
             methodName2 -> InterfaceMethod(methodName2, TBool),
           ),
-          EPrimCon(PCUnit),
-          Map(),
+          Map.empty,
           TUnit,
         )
       }
@@ -1184,7 +1177,6 @@ class DecodeV1Spec
         .newBuilder()
         .setTyconInternedDname(1)
         .setParamInternedStr(0)
-        .setPrecond(unitExpr)
         .setView(unitTypInterned)
         .build()
 
@@ -1192,10 +1184,9 @@ class DecodeV1Spec
         GenDefInterface(
           Set.empty,
           Ref.IdString.Name.assertFromString("this"),
-          Map(),
-          Map(),
-          EPrimCon(PCUnit),
-          Map(),
+          Map.empty,
+          Map.empty,
+          Map.empty,
           TUnit,
         )
 

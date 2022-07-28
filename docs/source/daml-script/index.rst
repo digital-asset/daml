@@ -297,29 +297,53 @@ translated to Daml script but there are a few things to keep in mind:
 
 .. _daml-script-distributed:
 
-Use Daml Script in Distributed Topologies
-=========================================
+Use Daml Script in Canton
+=========================
 
 So far, we have run Daml script against a single participant node. It
-is also more possible to run it in a setting where different parties
+is also possible to run it in a setting where different parties
 are hosted on different participant nodes. To do so, pass the
-``--participant-config participants.json`` file to ``daml script``
-instead of ``--ledger-host`` and ``ledger-port``. The file should be of the format
+``--participant-config participant-config.json`` file to ``daml script``
+instead of ``--ledger-host`` and ``ledger-port``.
+You can generate this file by calling
+:ref:`utils.generate_daml_script_participants_conf(defaultParticipant = Some(one)) <utils.generate_daml_script_participants_conf>`
+in the canton console or in :ref:`the bootstrap scripts <automation-using-bootstrap-scripts>`.
 
-.. literalinclude:: ./participants-example.json
+The generated file will look similar to the one shown below:
+
+.. literalinclude:: ./participants-config.json
    :language: json
 
-This will define a participant called ``one``, a default participant
-and it defines that the party ``alice`` is on participant
+This will define a participant called ``one``, declare ``one`` as the default participant and it defines that the party ``alice`` is hosted on participant
 ``one``. Whenever you submit something as party, we will use the
 participant for that party or if none is specified
-``default_participant``. If ``default_participant`` is not specified,
+``default_participant``.
+
+If you use ``utils.generate_daml_script_participants_conf()``
+without a default participant, the `default_participant` won't be defined and therefore
 using a party with an unspecified participant is an error.
 
 ``allocateParty`` will also use the ``default_participant``. If you
 want to allocate a party on a specific participant, you can use
 ``allocatePartyOn`` which accepts the participant name as an extra
 argument.
+
+
+Hints for synchronizing contracts on multiple-participant Canton
+----------------------------------------------------------------
+When you create a contract on ``participant1`` and try to use it on
+``participant2``, you can run into synchronization issues where
+``participant2`` doesn't see the contract yet. One option to workaround
+`this limitation <https://github.com/digital-asset/daml/issues/10618>`_
+is to poll until the contract is visible. In the example below, the ``bank``
+and ``alice`` parties are allocated on two different participants and to avoid
+synchronization issues, we wait until the contract is visible on ``alice`` participant.
+
+
+.. literalinclude:: ./template-root/src/ScriptExample.daml
+   :language: daml
+   :start-after: -- SYNC_CONTRACT_IDS_BEGIN
+   :end-before: -- SYNC_CONTRACT_IDS_END
 
 .. _daml-script-auth:
 
@@ -333,12 +357,15 @@ you need to specify an access token. There are two ways of doing that:
    path/to/jwt``. This token will then be used for all requests so it
    must provide claims for all parties that you use in your script.
 2. If you need multiple tokens, e.g., because you only have
-   single-party tokens you can use the ``access_token`` field in the
-   participant config specified via ``--participant-config``. The
-   section on
-   :ref:`using Daml Script in distributed topologies <daml-script-distributed>`
-   contains an example. Note that you can specify the same participant
+   single-party tokens you can define the ``access_token`` field in the
+   participant config specified via ``--participant-config``.
+   Note that you can specify the same participant
    twice if you want different auth tokens.
+   The file should be of the format
+
+
+.. literalinclude:: ./participants-example.json
+   :language: json
 
 If you specify both ``--access-token-file`` and
 ``--participant-config``, the participant config takes precedence and

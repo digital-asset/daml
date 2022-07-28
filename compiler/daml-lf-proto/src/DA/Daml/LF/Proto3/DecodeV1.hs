@@ -240,7 +240,7 @@ decodeDefInterface LF1.DefInterface {..} = do
   intParam <- decodeNameId ExprVarName defInterfaceParamInternedStr
   intChoices <- decodeNM DuplicateChoice decodeChoice defInterfaceChoices
   intMethods <- decodeNM DuplicateMethod decodeInterfaceMethod defInterfaceMethods
-  intPrecondition <- mayDecode "defInterfacePrecond" defInterfacePrecond decodeExpr
+  let intPrecondition = EBuiltin $ BEBool True
   intCoImplements <- decodeNM DuplicateCoImplements decodeInterfaceCoImplements defInterfaceCoImplements
   intView <- mayDecode "defInterfaceView" defInterfaceView decodeType
   pure DefInterface {..}

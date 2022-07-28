@@ -11,7 +11,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.v2.metrics.TimedWriteService
+import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v2.{ReadService, WriteService}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
@@ -60,12 +60,13 @@ class LedgerApiServer(
             servicesExecutionContext,
           )
 
+        timedReadService = new TimedReadService(readService, metrics)
         indexerHealthChecks <-
           for {
             indexerHealth <- new IndexerServiceOwner(
               participantId = participantId,
               participantDataSourceConfig = participantDataSourceConfig,
-              readService = readService,
+              readService = timedReadService,
               config = participantConfig.indexer,
               metrics = metrics,
               inMemoryState = inMemoryState,
@@ -73,7 +74,7 @@ class LedgerApiServer(
               inMemoryStateUpdaterFlow = inMemoryStateUpdater.flow,
             )
           } yield new HealthChecks(
-            "read" -> readService,
+            "read" -> timedReadService,
             "indexer" -> indexerHealth,
           )
 

@@ -119,9 +119,16 @@ object Generators {
     for {
       ref <- contractLocatorGen
       arg <- genJsObj
+      cIfId <- Gen.option(genDomainTemplateIdO[Option[String]])
       choice <- Gen.identifier.map(domain.Choice(_))
       meta <- Gen.option(metaGen)
-    } yield domain.ExerciseCommand(reference = ref, choice = choice, argument = arg, meta = meta)
+    } yield domain.ExerciseCommand(
+      reference = ref,
+      choice = choice,
+      choiceInterfaceId = cIfId,
+      argument = arg,
+      meta = meta,
+    )
 
   def metaGen: Gen[domain.CommandMeta] =
     for {

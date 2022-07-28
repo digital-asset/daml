@@ -156,6 +156,51 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
       )
       (nhm: NonEmpty[Map[Int, Int]]) should ===(m)
     }
+
+    "preserve sortedness" in {
+      val sm = NonEmpty(imm.SortedMap, 1 -> 2)
+      (sm.updated(1, 2): NonEmpty[imm.SortedMap[Int, Int]]) should ===(sm)
+    }
+  }
+
+  "transform" should {
+    val m = NonEmpty(imm.HashMap, 1 -> 2)
+    "preserve the map type" in {
+      (m.transform((_, _) => 2): NonEmpty[imm.HashMap[Int, Int]]) should ===(m)
+    }
+
+    "preserve a wider map type" in {
+      val nhm = (m: NonEmpty[Map[Int, Int]]).transform((_, _) => 2)
+      illTyped(
+        "nhm: NonEmpty[imm.HashMap[Int, Int]]",
+        "(?s)type mismatch.*?found.*?\\.Map.*?required.*?HashMap.*",
+      )
+      (nhm: NonEmpty[Map[Int, Int]]) should ===(m)
+    }
+
+    "preserve sortedness" in {
+      val sm = NonEmpty(imm.SortedMap, 1 -> 2)
+      (sm.transform((_, _) => 2): NonEmpty[imm.SortedMap[Int, Int]]) should ===(sm)
+    }
+  }
+
+  "keySet" should {
+    "retain nonempty" in {
+      val m = NonEmpty(imm.HashMap, 1 -> 2)
+      (m.keySet: NonEmpty[Set[Int]]) should ===(NonEmpty(Set, 1))
+    }
+
+    "retain sortedness" in {
+      val sm = NonEmpty(imm.SortedMap, 1 -> 2)
+      (sm.keySet: NonEmpty[imm.SortedSet[Int]]) should ===(NonEmpty(imm.SortedSet, 1))
+    }
+  }
+
+  "unsorted" should {
+    "retain nonempty" in {
+      val sm = NonEmpty(imm.SortedMap, 1 -> 2)
+      (sm.unsorted: NonEmpty[Map[Int, Int]]) should ===(sm)
+    }
   }
 
   "to" should {

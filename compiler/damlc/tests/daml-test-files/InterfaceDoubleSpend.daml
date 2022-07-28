@@ -16,8 +16,6 @@ interface Token where
 
   transferImpl : Party -> Update (ContractId Token)
 
-  ensure (getAmount this >= 0)
-
   choice Transfer : ContractId Token
     with
       newOwner : Party

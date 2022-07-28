@@ -104,7 +104,7 @@ supportsSandboxOnX :: SemVer.Version -> Bool
 supportsSandboxOnX v = v == SemVer.initial || v >= (SemVer.initial & SemVer.major .~ 2)
 
 supportsSandboxOnXHocon :: SemVer.Version -> Bool
-supportsSandboxOnXHocon ver = ver == SemVer.initial || ver > (fromRight' $ SemVer.fromText "2.3.0-snapshot.20220619.10104.0.253b0b18")
+supportsSandboxOnXHocon ver = ver == SemVer.initial || ver > (fromRight' $ SemVer.fromText "2.4.0-snapshot.20220712.10212.0.0bf28176")
 
 supportsAppendOnly :: SemVer.Version -> Bool
 supportsAppendOnly v = v == SemVer.initial

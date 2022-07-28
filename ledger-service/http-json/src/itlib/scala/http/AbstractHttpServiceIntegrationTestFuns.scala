@@ -85,6 +85,8 @@ object AbstractHttpServiceIntegrationTestFuns {
 
     // nest assertFromString into arbitrary VA structures
     val partyStr: VA.Aux[String] = VA.party.xmap(identity[String])(Ref.Party.assertFromString)
+
+    val partyDomain: VA.Aux[domain.Party] = domain.Party.subst[VA.Aux, String](partyStr)
   }
 
   private[http] trait UriFixture {
@@ -435,7 +437,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       recordFromFields(ShRecord(newOwner = v.Value.Sum.Party("Bob")))
     val choice = lar.Choice("Iou_Transfer")
 
-    domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
+    domain.ExerciseCommand(reference, choice, boxedRecord(arg), None, None)
   }
 
   protected def iouCreateAndExerciseTransferCommand(
@@ -464,6 +466,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       payload = payload,
       choice = choice,
       argument = boxedRecord(arg),
+      choiceInterfaceId = None,
       meta = meta,
     )
   }
@@ -489,6 +492,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     domain.ExerciseCommand(
       reference = domain.EnrichedContractId(Some(TpId.Test.MultiPartyContract), cid),
       argument = argument,
+      choiceInterfaceId = None,
       choice = lar.Choice("MPAddSignatories"),
       meta = None,
     )
@@ -512,6 +516,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     domain.ExerciseCommand(
       reference = domain.EnrichedContractId(Some(TpId.Test.MultiPartyContract), cid),
       argument = argument,
+      choiceInterfaceId = None,
       choice = lar.Choice("MPFetchOther"),
       meta = None,
     )

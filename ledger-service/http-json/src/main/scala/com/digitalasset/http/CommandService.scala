@@ -28,6 +28,7 @@ import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.LoggingContextOf.{label, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import scalaz.std.option._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
@@ -184,24 +185,32 @@ class CommandService(
 
   private def exerciseCommand(
       input: ExerciseCommand[lav1.value.Value, ExerciseCommandRef]
-  ): lav1.commands.Command.Command =
+  ): lav1.commands.Command.Command = {
+    // XXX SC this reflects that the resolved marker was discarded earlier;
+    // it would be better if, as with ExerciseCommandRef, we could thread through
+    // the fact that the interface ID is a true resolved interface ID if present
+    val choiceSource =
+      input.choiceInterfaceId.flatMap(_.sequence) getOrElse input.reference.fold(_._1, _._1)
     input.reference match {
       case -\/((templateId, contractKey)) =>
         Commands.exerciseByKey(
           templateId = refApiIdentifier(templateId),
+          // TODO #14549 somehow pass choiceSource
           contractKey = contractKey,
           choice = input.choice,
           argument = input.argument,
         )
-      case \/-((templateId, contractId)) =>
+      case \/-((_, contractId)) =>
         Commands.exercise(
-          templateId = refApiIdentifier(templateId),
+          templateId = refApiIdentifier(choiceSource),
           contractId = contractId,
           choice = input.choice,
           argument = input.argument,
         )
     }
+  }
 
+  // TODO #14549 somehow use the choiceInterfaceId
   private def createAndExerciseCommand(
       input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value, TemplateId.RequiredPkg]
   ): lav1.commands.Command.Command.CreateAndExercise =
