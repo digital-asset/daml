@@ -8,11 +8,7 @@ import com.daml.lf.command.ContractMetadata
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{IdString, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct, Time}
-import com.daml.lf.interpretation.Error.{
-  ContractKeyNotFound,
-  ContractNotActive,
-  DisclosurePreprocessing,
-}
+import com.daml.lf.interpretation.Error.{ContractKeyNotFound, ContractNotActive}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SExpr.{SEMakeClo, SEValue}
 import com.daml.lf.value.Value
@@ -39,23 +35,6 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
         getOwner(ledgerCaveContract.unversioned.arg) shouldBe Some(ledgerParty)
         disclosedCaveContract.contractId shouldBe SContractId(contractId)
         getOwner(disclosedCaveContract.argument.toUnnormalizedValue) shouldBe Some(disclosureParty)
-      }
-
-      "disclosure preprocessing" - {
-        "template does not exist" in {
-          templateDoesNotExist(
-            SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
-            disclosedCaveContractInvalidTemplate,
-          )
-        }
-
-        "duplicate disclosed contract IDs" in {
-          duplicateDisclosedContractId(
-            SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
-            disclosedCaveContract,
-            caveTemplateId,
-          )
-        }
       }
 
       "ledger queried when contract ID is not disclosed" in {
@@ -176,34 +155,6 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
         )
       }
 
-      "disclosure preprocessing" - {
-        "template does not exist" in {
-          templateDoesNotExist(
-            SBUFetchKey(houseTemplateId)(SEValue(contractSKey)),
-            disclosedHouseContractInvalidTemplate,
-          )
-        }
-
-        "disclosed contract key has no hash" in {
-          disclosedContractKeyHasNoHash(
-            SBUFetchKey(houseTemplateId)(SEValue(contractSKey)),
-            disclosedHouseContractNoHash,
-          )
-        }
-
-        "duplicate disclosed contract IDs" in {
-          duplicateDisclosedContractId(
-            SBUFetchKey(houseTemplateId)(SEValue(contractSKey)),
-            disclosedHouseContract,
-            houseTemplateId,
-          )
-        }
-
-        "duplicate disclosed contract key hashes" in {
-          duplicateDisclosedContractKey(SBUFetchKey(houseTemplateId)(SEValue(contractSKey)))
-        }
-      }
-
       "ledger queried when contract key is not disclosed" in {
         ledgerQueriedWhenContractNotDisclosed(
           SBUFetchKey(houseTemplateId)(SEValue(contractSKey)),
@@ -316,34 +267,6 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
         getMaintainer(disclosedHouseContract.argument.toUnnormalizedValue) shouldBe Some(
           maintainerParty
         )
-      }
-
-      "disclosure preprocessing" - {
-        "template does not exist" in {
-          templateDoesNotExist(
-            SBULookupKey(houseTemplateId)(SEValue(contractSKey)),
-            disclosedHouseContractInvalidTemplate,
-          )
-        }
-
-        "disclosed contract key has no hash" in {
-          disclosedContractKeyHasNoHash(
-            SBULookupKey(houseTemplateId)(SEValue(contractSKey)),
-            disclosedHouseContractNoHash,
-          )
-        }
-
-        "duplicate disclosed contract IDs" in {
-          duplicateDisclosedContractId(
-            SBULookupKey(houseTemplateId)(SEValue(contractSKey)),
-            disclosedHouseContract,
-            houseTemplateId,
-          )
-        }
-
-        "duplicate disclosed contract keys" in {
-          duplicateDisclosedContractKey(SBULookupKey(houseTemplateId)(SEValue(contractSKey)))
-        }
       }
 
       "ledger queried when contract key is not disclosed" in {
@@ -528,26 +451,10 @@ object ExplicitDisclosureTest {
     buildContract(ledgerParty, maintainerParty)
   val ledgerCaveContract: Value.VersionedContractInstance =
     buildContract(ledgerParty, maintainerParty, caveTemplateId)
-  val disclosedHouseContractNoHash: DisclosedContract =
-    buildDisclosedHouseContract(contractId, disclosureParty, maintainerParty, withHash = false)
   val disclosedCaveContractNoHash: DisclosedContract =
     buildDisclosedCaveContract(contractId, disclosureParty)
-  val disclosedHouseContractInvalidTemplate: DisclosedContract = buildDisclosedHouseContract(
-    contractId,
-    disclosureParty,
-    maintainerParty,
-    templateId = invalidTemplateId,
-    withHash = false,
-  )
-  val disclosedCaveContractInvalidTemplate: DisclosedContract = buildDisclosedCaveContract(
-    contractId,
-    disclosureParty,
-    templateId = invalidTemplateId,
-  )
   val disclosedHouseContract: DisclosedContract =
     buildDisclosedHouseContract(disclosureContractId, disclosureParty, maintainerParty)
-  val disclosedHouseContractWithDuplicateKey: DisclosedContract =
-    buildDisclosedHouseContract(altDisclosureContractId, disclosureParty, maintainerParty)
   val disclosedCaveContract: DisclosedContract =
     buildDisclosedCaveContract(contractId, disclosureParty)
 
@@ -770,77 +677,6 @@ object ExplicitDisclosureTest {
 trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matchers {
 
   import ExplicitDisclosureTest._
-
-  def templateDoesNotExist(sexpr: SExpr.SExpr, disclosedContract: DisclosedContract): Assertion = {
-    val error = intercept[SError.SErrorDamlException] {
-      evaluateSExpr(
-        sexpr,
-        disclosedContracts = ImmArray(disclosedContract),
-      )
-    }
-
-    error shouldBe SError.SErrorDamlException(
-      DisclosurePreprocessing(
-        DisclosurePreprocessing.NonExistentTemplate(disclosedContract.templateId)
-      )
-    )
-  }
-
-  def disclosedContractKeyHasNoHash(
-      sexpr: SExpr.SExpr,
-      disclosedContract: DisclosedContract,
-  ): Assertion = {
-    val error = intercept[SError.SErrorDamlException] {
-      evaluateSExpr(
-        sexpr,
-        disclosedContracts = ImmArray(disclosedContract),
-      )
-    }
-
-    error shouldBe SError.SErrorDamlException(
-      DisclosurePreprocessing(
-        DisclosurePreprocessing.NonExistentDisclosedContractKeyHash(
-          contractId,
-          disclosedContract.templateId,
-        )
-      )
-    )
-  }
-
-  def duplicateDisclosedContractId(
-      sexpr: SExpr.SExpr,
-      disclosedContract: DisclosedContract,
-      templateId: Ref.Identifier,
-  ): Assertion = {
-    val error = intercept[SError.SErrorDamlException] {
-      evaluateSExpr(
-        sexpr,
-        disclosedContracts = ImmArray(disclosedContract, disclosedContract),
-      )
-    }
-
-    error shouldBe SError.SErrorDamlException(
-      DisclosurePreprocessing(
-        DisclosurePreprocessing.DuplicateContractIds(templateId)
-      )
-    )
-  }
-
-  def duplicateDisclosedContractKey(sexpr: SExpr.SExpr): Assertion = {
-    val error = intercept[SError.SErrorDamlException] {
-      evaluateSExpr(
-        sexpr,
-        disclosedContracts =
-          ImmArray(disclosedHouseContract, disclosedHouseContractWithDuplicateKey),
-      )
-    }
-
-    error shouldBe SError.SErrorDamlException(
-      DisclosurePreprocessing(
-        DisclosurePreprocessing.DuplicateContractKeys(houseTemplateId)
-      )
-    )
-  }
 
   def ledgerQueriedWhenContractNotDisclosed(
       sexpr: SExpr.SExpr,
