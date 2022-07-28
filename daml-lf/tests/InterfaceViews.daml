@@ -19,6 +19,7 @@ template T1
     p : Party
     a : Int
   where
+    key (p, a): (Party, Int)
     signatory p
     implements I where
       _view = View with
@@ -31,6 +32,8 @@ template T2
     p : Party
     a : Int
   where
+    key (p, a): (Party, Int)
+    maintainer key._1
     signatory p
     implements I where
       _view = View with

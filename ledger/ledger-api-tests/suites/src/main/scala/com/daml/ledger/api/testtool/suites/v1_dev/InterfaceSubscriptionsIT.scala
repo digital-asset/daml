@@ -453,6 +453,11 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
         createdEvent1.getCreateArguments.fields.forall(_.label.nonEmpty),
         s"Expected a contract with labels (verbose)",
       )
+      assertEquals(
+        "Create event 1 should have a contract key defined",
+        createdEvent1.contractKey.isDefined,
+        true,
+      )
 
       // T2
       val createdEvent2 = acs(1)
@@ -472,6 +477,11 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
         "Create event 2 createArguments must be empty",
         createdEvent2.createArguments.isEmpty,
         true,
+      )
+      assertEquals(
+        "Create event 2 should not have a contract key defined, as no match by template_id",
+        createdEvent2.contractKey.isDefined,
+        false,
       )
 
       // T3
