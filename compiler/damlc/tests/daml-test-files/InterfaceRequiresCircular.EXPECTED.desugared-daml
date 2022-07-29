@@ -28,8 +28,6 @@ instance DA.Internal.Desugar.HasObserver A where
   observer = GHC.Types.primitive @"EObserverInterface"
 instance DA.Internal.Desugar.HasCreate A where
   create = GHC.Types.primitive @"UCreateInterface"
-instance DA.Internal.Desugar.HasEnsure A where
-  ensure this = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.HasIsInterfaceType A where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq A where
