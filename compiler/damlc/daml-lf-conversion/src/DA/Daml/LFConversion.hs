@@ -560,8 +560,10 @@ convertInterfaces env mc = interfaceDefs
 
     convertInterface :: LF.TypeConName -> GHC.TyCon -> ConvertM DefInterface
     convertInterface intName tyCon = do
-        let intLocation = convNameLoc (GHC.tyConName tyCon)
-        let intParam = this
+        let
+          intLocation = convNameLoc (GHC.tyConName tyCon)
+          intParam = this
+          qIfaceTypeCon = Qualified PRSelf (envLFModuleName env) intName
         withRange intLocation $ do
             let handleIsNotInterface tyCon =
                   "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
@@ -569,7 +571,7 @@ convertInterfaces env mc = interfaceDefs
                 MS.findWithDefault [] intName (mcRequires mc)
             intMethods <- NM.fromList <$> convertMethods tyCon
             intChoices <- convertChoices env mc intName emptyTemplateBinds
-            let intCoImplements = NM.empty -- TODO: https://github.com/digital-asset/daml/issues/14047
+            intCoImplements <- convertInterfaceCoImpls env mc qIfaceTypeCon
             let intView = TBuiltin BTUnit -- TODO: Stub view, will extract later, https://github.com/digital-asset/daml/pull/14439
             pure DefInterface {..}
 
@@ -1025,6 +1027,25 @@ convertTemplateImpls env mc qTplTypeCon = NM.fromList <$>
         (mcInterfaceMethodInstances mc)
 
       pure (TemplateImplements qIfaceTypeCon methods view)
+
+convertInterfaceCoImpls :: Env -> ModuleContents -> Qualified LF.TypeConName -> ConvertM (NM.NameMap InterfaceCoImplements)
+convertInterfaceCoImpls env mc qIfaceTypeCon = NM.fromList <$>
+  mapM convertInterfaceCoImpl (MS.findWithDefault [] (qualObject qIfaceTypeCon) (mcCoImplements mc))
+  where
+    convertInterfaceCoImpl :: (Maybe LF.SourceLoc, GHC.TyCon) -> ConvertM InterfaceCoImplements
+    convertInterfaceCoImpl (originLoc, tpl) = withRange originLoc $ do
+      let handleIsNotTemplate tyCon =
+            "cannot provide an implementation for '" ++ prettyPrint tyCon ++ "' because it is not a template"
+      qTplTypeCon <- convertTemplateTyCon env handleIsNotTemplate tpl
+
+      -- TODO: Stub view, will extract later, https://github.com/digital-asset/daml/pull/14439
+      let view = ETmLam (ExprVarName "this", TCon qIfaceTypeCon) (EBuiltin BEUnit)
+
+      methods <- convertImplMethods env InterfaceCoImplementsMethod $ MS.findWithDefault []
+        (qTplTypeCon, qIfaceTypeCon)
+        (mcInterfaceMethodInstances mc)
+
+      pure (InterfaceCoImplements qTplTypeCon methods view)
 
 convertImplMethods ::
      forall implMethod
