@@ -690,7 +690,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .setInterfaceExpr(value)
           )
         case EToRequiredInterface(superIface, iface, value) =>
-          assertSince(LV.Features.basicInterfaces, "Expr.ToRequiredInterface")
+          assertSince(LV.Features.extendedInterfaces, "Expr.ToRequiredInterface")
           builder.setToRequiredInterface(
             PLF.Expr.ToRequiredInterface
               .newBuilder()
@@ -699,7 +699,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .setExpr(value)
           )
         case EFromRequiredInterface(superIface, iface, value) =>
-          assertSince(LV.Features.basicInterfaces, "Expr.FromRequiredInterface")
+          assertSince(LV.Features.extendedInterfaces, "Expr.FromRequiredInterface")
           builder.setFromRequiredInterface(
             PLF.Expr.FromRequiredInterface
               .newBuilder()
@@ -708,7 +708,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .setExpr(value)
           )
         case EUnsafeFromRequiredInterface(superIface, iface, cid, value) =>
-          assertSince(LV.Features.basicInterfaces, "Expr.UnsafeFromRequiredInterface")
+          assertSince(LV.Features.extendedInterfaces, "Expr.UnsafeFromRequiredInterface")
           builder.setUnsafeFromRequiredInterface(
             PLF.Expr.UnsafeFromRequiredInterface
               .newBuilder()
@@ -804,7 +804,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       builder.accumulateLeft(interface.choices.sortByKey)(_ addChoices _)
       builder.accumulateLeft(interface.methods.sortByKey)(_ addMethods _)
       if (interface.requires.nonEmpty) {
-        assertSince(LV.Features.choiceObservers, "DefInterface.requires")
+        assertSince(LV.Features.extendedInterfaces, "DefInterface.requires")
         builder.accumulateLeft(interface.requires)(_ addRequires _)
       }
       builder.accumulateLeft(interface.coImplements.sortByKey)(_ addCoImplements _)
