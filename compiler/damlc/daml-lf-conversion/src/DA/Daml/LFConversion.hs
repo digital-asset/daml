@@ -938,7 +938,7 @@ convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
         tplAgreement <- useSingleMethodDict env fAgreement (`ETmApp` EVar this)
         tplChoices <- convertChoices env mc tplTypeCon tbinds
         tplKey <- convertTemplateKey env qTplTypeCon tbinds
-        tplImplements <- convertImplements env mc qTplTypeCon
+        tplImplements <- convertTemplateImpls env mc qTplTypeCon
         pure Template {..}
 
     | otherwise =
@@ -1007,12 +1007,12 @@ useSingleMethodDict env (Cast ghcExpr _) f = do
 useSingleMethodDict env x _ =
     unhandled "useSingleMethodDict: not a single method type class dictionary" x
 
-convertImplements :: Env -> ModuleContents -> Qualified LF.TypeConName -> ConvertM (NM.NameMap TemplateImplements)
-convertImplements env mc qTplTypeCon = NM.fromList <$>
-  mapM convertInterface (MS.findWithDefault [] (qualObject qTplTypeCon) (mcImplements mc))
+convertTemplateImpls :: Env -> ModuleContents -> Qualified LF.TypeConName -> ConvertM (NM.NameMap TemplateImplements)
+convertTemplateImpls env mc qTplTypeCon = NM.fromList <$>
+  mapM convertTemplateImpl (MS.findWithDefault [] (qualObject qTplTypeCon) (mcImplements mc))
   where
-    convertInterface :: (Maybe LF.SourceLoc, GHC.TyCon) -> ConvertM TemplateImplements
-    convertInterface (originLoc, iface) = withRange originLoc $ do
+    convertTemplateImpl :: (Maybe LF.SourceLoc, GHC.TyCon) -> ConvertM TemplateImplements
+    convertTemplateImpl (originLoc, iface) = withRange originLoc $ do
       let handleIsNotInterface tyCon =
             "cannot implement '" ++ prettyPrint tyCon ++ "' because it is not an interface"
       qIfaceTypeCon <- convertInterfaceTyCon env handleIsNotInterface iface
@@ -1020,16 +1020,24 @@ convertImplements env mc qTplTypeCon = NM.fromList <$>
       -- TODO: Stub view, will extract later, https://github.com/digital-asset/daml/pull/14439
       let view = ETmLam (ExprVarName "this", TCon qIfaceTypeCon) (EBuiltin BEUnit)
 
-      methods <- convertMethods $ MS.findWithDefault []
+      methods <- convertImplMethods env TemplateImplementsMethod $ MS.findWithDefault []
         (qTplTypeCon, qIfaceTypeCon)
         (mcInterfaceMethodInstances mc)
 
       pure (TemplateImplements qIfaceTypeCon methods view)
 
-    convertMethods ms = fmap NM.fromList . sequence $
-      [ TemplateImplementsMethod (MethodName k) . (`ETmApp` EVar this) <$> convertExpr env v
-      | (k, v) <- ms
-      ]
+convertImplMethods ::
+     forall implMethod
+  .  NM.Named implMethod
+  => Env
+  -> (MethodName -> LF.Expr -> implMethod)
+  -> [(T.Text, GHC.Expr Var)]
+  -> ConvertM (NM.NameMap implMethod)
+convertImplMethods env mkImplMethod ms =
+  NM.fromList <$> sequence
+    [ mkImplMethod (MethodName k) . (`ETmApp` EVar this) <$> convertExpr env v
+    | (k, v) <- ms
+    ]
 
 convertChoices :: Env -> ModuleContents -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
 convertChoices env mc tplTypeCon tbinds =
