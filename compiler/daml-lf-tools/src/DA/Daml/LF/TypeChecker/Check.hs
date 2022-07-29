@@ -895,6 +895,9 @@ checkIface m iface = do
     Just _ ->
       pure () -- Check that view is serializable in Serializability module
 
+  -- check co-implementations
+  forM_ (intCoImplements iface) (checkIfaceCoImplementation tcon iface)
+
 checkIfaceMethod :: MonadGamma m => InterfaceMethod -> m ()
 checkIfaceMethod InterfaceMethod{ifmType} = do
   checkType ifmType KStar
@@ -965,6 +968,15 @@ checkIfaceImplementation tplQualTypeCon TemplateImplements{..} = do
     tplQualTypeCon
     tpiInterface
     ((\(TemplateImplementsMethod name expr) -> (name, expr)) <$> NM.toList tpiMethods)
+
+checkIfaceCoImplementation :: MonadGamma m => Qualified TypeConName -> DefInterface -> InterfaceCoImplements -> m ()
+checkIfaceCoImplementation ifaceQualTypeCon defIface InterfaceCoImplements{..} =
+  checkGenImplementation
+    lookupTemplateImplements
+    defIface
+    iciTemplate
+    ifaceQualTypeCon
+    ((\(InterfaceCoImplementsMethod name expr) -> (name, expr)) <$> NM.toList iciMethods)
 
 checkGenImplementation ::
      MonadGamma m
