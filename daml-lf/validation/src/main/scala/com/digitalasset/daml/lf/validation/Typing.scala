@@ -29,6 +29,17 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
 
   import Work.{Ret, Delay, Bind}
 
+  def sequenceWork[A, T](works: Seq[Work[T]])(k: List[T] => Work[A]): Work[A] = {
+    def loop(acc: List[T], works: Seq[Work[T]]): Work[A] = {
+      works match {
+        case Nil => k(acc.reverse)
+        case work :: works =>
+          Bind(work, { x: T => loop(x :: acc, works) })
+      }
+    }
+    loop(Nil, works)
+  }
+
   def runWork[R](work: Work[R]): R = {
     @tailrec
     def loop[A](work: Work[A]): A = work match {
@@ -363,14 +374,9 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
 
     // NICK: kill & fix all callers to use checkExpr
     private def legacy_checkExpr(expr: Expr, typ: Type): Unit = {
-      val exprType = recurse_typeOf(expr)
+      val exprType = runWork(typeOfExpr(expr)) // NICK: nope, mustn't call runWork
       if (!alphaEquiv(exprType, typ))
         throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
-    }
-
-    // NICK: kill & fix all callers to use typeOf
-    private def recurse_typeOf(e: Expr): Type = {
-      runWork(typeOfExpr(e)) // NICK: nope! mustn't call runWork!
     }
 
     /* Env Ops */
@@ -443,7 +449,6 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
         if (isTest) {
           discard(toScenario(dropForalls(typ)))
         }
-      // ??? // NICK: can we hit this? YES, now I have Shim.checkModule coming here!
     }
 
     @tailrec
@@ -757,12 +762,15 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
           throw EExpectedRecordType(ctx, typ0)
       }
 
-    private def typeOfStructCon(fields: ImmArray[(FieldName, Expr)]): Work[Type] =
-      Ret(
-        Struct
-          .fromSeq(fields.iterator.map { case (f, x) => f -> recurse_typeOf(x) }.toSeq)
-          .fold(name => throw EDuplicateField(ctx, name), TStruct)
-      )
+    private def typeOfStructCon(fields: ImmArray[(FieldName, Expr)]): Work[Type] = {
+      sequenceWork(fields.iterator.map { case (f, x) =>
+        typeOf(x) { ty =>
+          Ret(f -> ty)
+        }
+      }.toSeq) { xs =>
+        Ret(Struct.fromSeq(xs).fold(name => throw EDuplicateField(ctx, name), TStruct))
+      }
+    }
 
     private def typeOfStructProj(proj: EStructProj): Work[Type] =
       typeOf(proj.struct) { ty =>
@@ -808,7 +816,9 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
             TypeSubst.substitute(acc, body0)
         }
 
-      Ret(loopForall(recurse_typeOf(expr), typs, Map.empty)) // NICK: loopy doopy
+      typeOf(expr) { ty =>
+        Ret(loopForall(ty, typs, Map.empty))
+      }
     }
 
     private def typeOfTmLam(x: ExprVarName, typ: Type, body: Expr): Work[Type] = {
@@ -953,19 +963,19 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
             (defaultExpectedPatterns, introOnlyPatternDefault(scrutType))
         }
 
-        val types = alts.iterator.map { case CaseAlt(patn, rhs) =>
-          introPattern(patn).recurse_typeOf(rhs) // NICK: multi
-        }.toList
-
-        types match {
-          case t :: ts =>
-            ts.foreach(otherType =>
-              if (!alphaEquiv(t, otherType)) throw ETypeMismatch(ctx, otherType, t, None)
-            )
-            checkPatternExhaustiveness(expectedPatterns, alts, scrutType)
-            Ret(t)
-          case Nil =>
-            throw EEmptyCase(ctx)
+        sequenceWork(alts.iterator.map { case CaseAlt(patn, rhs) =>
+          introPattern(patn).typeOf(rhs) { ty => Ret(ty) }
+        }.toSeq) { types =>
+          types match {
+            case t :: ts =>
+              ts.foreach(otherType =>
+                if (!alphaEquiv(t, otherType)) throw ETypeMismatch(ctx, otherType, t, None)
+              )
+              checkPatternExhaustiveness(expectedPatterns, alts, scrutType)
+              Ret(t)
+            case Nil =>
+              throw EEmptyCase(ctx)
+          }
         }
       }
 

@@ -269,14 +269,14 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
     val cut_testCases = {
       Table[String, Expr => Expr](
         ("name", "recursion-point"),
-        // ("tyApp", tyApp),
+        ("tyApp", tyApp),
         ("app1", app1),
         ("app2", app2),
         ("esome", esome),
         ("eabs", eabs),
         ("etyabs", etyabs),
-        // ("struct1", struct1),
-        // ("struct2", struct2),
+        ("struct1", struct1),
+        ("struct2", struct2),
         // ("consH", consH),
         // ("consT", consT),
         ("scenPure", scenPure),
@@ -299,8 +299,8 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
         ("structUpd1", structUpd1),
         ("structUpd2", structUpd2),
         ("caseScrut", caseScrut),
-        // ("caseAlt1", caseAlt1),
-        // ("caseAlt2", caseAlt2),
+        ("caseAlt1", caseAlt1),
+        ("caseAlt2", caseAlt2),
         ("let1", let1),
         ("let2", let2),
       )
