@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v1.TransactionFilterOuterClass;
-import java.util.Objects;
 
 public abstract class Filter {
 
@@ -18,12 +17,23 @@ public abstract class Filter {
 
   public abstract TransactionFilterOuterClass.Filters toProto();
 
-  // TODO #14537 this is just one bool now.  Is it likely to change?  If not, inline.
+  /**
+   * Settings for including an interface in {@link InclusiveFilter}. There are two values: {@link
+   * #INCLUDE_VIEW} and {@link #HIDE_VIEW}.
+   */
   public static final class Interface {
     public final boolean includeInterfaceView;
+    // add equals and hashCode if adding more fields
 
-    public Interface(boolean includeInterfaceView) {
+    public static final Interface INCLUDE_VIEW = new Interface(true);
+    public static final Interface HIDE_VIEW = new Interface(false);
+
+    private Interface(boolean includeInterfaceView) {
       this.includeInterfaceView = includeInterfaceView;
+    }
+
+    private static Interface includeInterfaceView(boolean includeInterfaceView) {
+      return includeInterfaceView ? INCLUDE_VIEW : HIDE_VIEW;
     }
 
     public TransactionFilterOuterClass.InterfaceFilter toProto(Identifier interfaceId) {
@@ -34,24 +44,11 @@ public abstract class Filter {
     }
 
     static Interface fromProto(TransactionFilterOuterClass.InterfaceFilter proto) {
-      return new Interface(proto.getIncludeInterfaceView());
+      return includeInterfaceView(proto.getIncludeInterfaceView());
     }
 
     Interface merge(Interface other) {
-      return new Interface(includeInterfaceView || other.includeInterfaceView);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
-      Interface that = (Interface) o;
-      return includeInterfaceView == that.includeInterfaceView;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(includeInterfaceView);
+      return includeInterfaceView(includeInterfaceView || other.includeInterfaceView);
     }
 
     @Override
