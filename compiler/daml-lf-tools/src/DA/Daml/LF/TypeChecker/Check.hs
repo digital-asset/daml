@@ -957,7 +957,7 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart p = withContext (ContextTemplate m t p)
 
 checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> Template -> TemplateImplements -> m ()
-checkIfaceImplementation tplQualTypeCon Template{tplTypeCon, tplImplements} TemplateImplements{..} = do
+checkIfaceImplementation tplQualTypeCon Template{tplTypeCon} TemplateImplements{..} = do
   DefInterface {intRequires, intMethods} <- inWorld $ lookupInterface tpiInterface
 
   -- check clash with co-implementation
@@ -966,9 +966,10 @@ checkIfaceImplementation tplQualTypeCon Template{tplTypeCon, tplImplements} Temp
     throwWithContext (EConflictingImplementsCoImplements tplQualTypeCon tpiInterface)
 
   -- check requires
-  let missingRequires = S.difference intRequires (S.fromList (NM.names tplImplements))
-  whenJust (listToMaybe (S.toList missingRequires)) $ \missingInterface ->
-    throwWithContext (EMissingRequiredInterface tplTypeCon tpiInterface missingInterface)
+  forM_ intRequires $ \required -> do
+    eImpl <- inWorld (Right . lookupTemplateImplementsOrInterfaceCoImplements tplQualTypeCon required)
+    whenLeft eImpl $ \_missingInterface ->
+      throwWithContext (EMissingRequiredInterface tplTypeCon tpiInterface required)
 
   -- check methods
   let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet tpiMethods)
