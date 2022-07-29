@@ -118,7 +118,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
     event_sequential_id = 0,
   )
 
-  private val offsetsAndUpdates =
+  private val (offsetsAndUpdates, nextOffsetsAndUpdates) =
     Vector("00", "01", "02", "03", "04", "05")
       .map(offset)
       .zip(
@@ -128,9 +128,15 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
             .copy(recordTime = somePackageUploadRejected.recordTime.addMicros(1000)),
           somePackageUploadRejected
             .copy(recordTime = somePackageUploadRejected.recordTime.addMicros(2000)),
-          somePackageUploadRejected,
+          somePackageUploadRejected
+            .copy(recordTime = somePackageUploadRejected.recordTime.addMicros(3000)),
+          somePackageUploadRejected
+            .copy(recordTime = somePackageUploadRejected.recordTime.addMicros(4000)),
+          somePackageUploadRejected
+            .copy(recordTime = somePackageUploadRejected.recordTime.addMicros(5000)),
         )
       )
+      .splitAt(3)
 
   behavior of "inputMapper"
 
@@ -345,6 +351,63 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       batch = "bumm",
       batchSize = 3,
       offsetsUpdates = offsetsAndUpdates,
+    )
+  }
+
+  behavior of "tailerSeed"
+
+  it should "create the first batch of batches" in {
+    ParallelIndexerSubscription.tailerSeed("zero")(
+      Batch(
+        lastOffset = offset("02"),
+        lastSeqEventId = 1000,
+        lastStringInterningId = 200,
+        lastRecordTime = someTime.toEpochMilli - 1000,
+        batch = "bumm1",
+        batchSize = 3,
+        offsetsUpdates = offsetsAndUpdates,
+      )
+    ) shouldBe Vector(
+      Batch(
+        lastOffset = offset("02"),
+        lastSeqEventId = 1000,
+        lastStringInterningId = 200,
+        lastRecordTime = someTime.toEpochMilli - 1000,
+        batch = "zero",
+        batchSize = 0,
+        offsetsUpdates = offsetsAndUpdates,
+      )
+    )
+  }
+
+  behavior of "tailer"
+
+  it should "aggregate the batches and pass last ledger end correctly in happy path case" in {
+    val batch1 = Batch(
+      lastOffset = offset("02"),
+      lastSeqEventId = 1000,
+      lastStringInterningId = 200,
+      lastRecordTime = someTime.toEpochMilli - 1000,
+      batch = "bumm1",
+      batchSize = 3,
+      offsetsUpdates = offsetsAndUpdates,
+    )
+    val batch2 = Batch(
+      lastOffset = offset("05"),
+      lastSeqEventId = 2000,
+      lastStringInterningId = 210,
+      lastRecordTime = someTime.toEpochMilli,
+      batch = "bumm2",
+      batchSize = 3,
+      offsetsUpdates = nextOffsetsAndUpdates,
+    )
+
+    ParallelIndexerSubscription.tailer("zero")(
+      Vector(batch1.copy(batch = "zero", batchSize = 0)),
+      batch2,
+    ) shouldBe Vector(
+      batch1.copy(batch = "zero", batchSize = 0),
+      batch2.copy(batch = "zero", batchSize = 0),
     )
   }
 

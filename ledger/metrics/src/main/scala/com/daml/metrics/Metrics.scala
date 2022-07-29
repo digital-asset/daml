@@ -597,8 +597,8 @@ final class Metrics(val registry: MetricRegistry) {
         * As opposed to [[inputBufferLength]], this counter counts batches, which are dynamically-sized
         * based on downstream back-pressure.
         */
-      val outputBufferedBatchesLength: Counter =
-        registry.counter(Prefix :+ "output_buffered_batches_length")
+      val outputBatchedBufferLength: Counter =
+        registry.counter(Prefix :+ "output_batched_buffer_length")
 
       // Input mapping stage
       // Translating state updates to data objects corresponding to individual SQL insert statements
