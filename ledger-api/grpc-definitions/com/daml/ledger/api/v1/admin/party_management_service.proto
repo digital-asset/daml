@@ -18,7 +18,8 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 //
 // We use 'backing participant' to refer to this specific participant in the methods of this API.
 //
-// Inspect the party management state of a ledger known the backing participant.
+// Allows inspecting the party management state of a ledger known the backing participant
+// and managing participant local party properties.
 //
 // The authorization rules for its RPCs are specified on the ``<RpcName>Request``
 // messages as boolean expressions over the fact:
@@ -50,10 +51,10 @@ service PartyManagementService {
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   rpc ListKnownParties (ListKnownPartiesRequest) returns (ListKnownPartiesResponse);
 
-  // Allocates new party on the given ledger and adds it to the set managed by the backing participant.
+  // Allocates a new party on the given ledger and adds it to the set managed by the backing participant.
   // Caller specifies a party identifier suggestion, the actual identifier
   // allocated might be different and is implementation specific.
-  // Caller can specify party metadata that are participant local only.
+  // Caller can specify party metadata that are stored locally on the backing participant.
   // This call may:
   // - Succeed, in which case the actual allocated identifier is visible in
   //   the response.
