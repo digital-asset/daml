@@ -39,6 +39,12 @@ service UserManagementService {
     // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc GetUser (GetUserRequest) returns (GetUserResponse);
 
+    // Updates a user resource.
+    // Errors:
+    // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+    // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+    // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
+    // - ``NOT_FOUND``: if the user doesn't exist
     rpc UpdateUser (UpdateUserRequest) returns (UpdateUserResponse);
 
     // Delete an existing user and all its rights.
@@ -104,11 +110,14 @@ message User {
     // Optional
     string primary_party = 2;
 
+    // When set to 'true' deny this user is denied all access to the Ledger API.
+    // When set 'false' this users can access the Ledger API access at the level corresponding to its user rights.
     // Optional
     bool is_deactivated = 3;
 
+    // The metadata of this party.
     // Optional
-    repeated ObjectMeta metadata = 4;
+    ObjectMeta metadata = 4;
 }
 
 
@@ -152,6 +161,7 @@ message CreateUserRequest {
     // Required
     repeated Right rights = 2;
 
+    // The metadata of this user.
     // Optional
     ObjectMeta metadata = 3;
 }
@@ -174,24 +184,26 @@ message GetUserResponse {
     User user = 1;
 }
 
-// https://cloud.google.com/apis/design/standard_methods#update
-// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmask
+
+
+// Required authorization: ``HasRight(ParticipantAdmin)``
+// NOTE: The authenticated participant user is not allowed to deactivate itself.
 message UpdateUserRequest {
     // The user to update.
     // Modifiable fields:
-    // 1. primary_party
-    // 2. is_deactivated
-    // 3. properties (with the 'replace-all' semantics)
+    // 1. 'primary_party',
+    // 2. 'is_deactivated',
+    // 3. 'metadata' (with the 'replace-all' semantics).
     User user = 1;
 
     // Specifies the fields of the user resource to be updated.
-    // At least one field must be specified.
+    // At least one field must be specified, e.g. "user.metadata"
     // Required
     FieldMask update_mask = 2;
 }
 
 message UpdateUserResponse {
-    // Update user
+    // Updated user
     User user = 1;
 }
 
