@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LookupError, PackageInterface, Util => AstUtil}
+import com.daml.lf.language.{LookupError, Util => AstUtil}
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -221,75 +221,24 @@ private[lf] object Speedy {
       err: String
   ) extends RuntimeException(err, null, true, false)
 
-  @throws[SErrorDamlException]
   private[speedy] def buildDiscTable(
-      disclosures: ImmArray[speedy.DisclosedContract],
-      packageInterface: PackageInterface,
+      disclosures: ImmArray[speedy.DisclosedContract]
   ): DisclosureTable = {
     val _ = disclosures
-    val acc = disclosures.foldLeft(
-      DisclosureTable.Empty
-    ) { case (table, d) =>
+
+    disclosures.foldLeft(DisclosureTable.Empty) { case (table, d) =>
       val arg = d.argument
       val coid = d.contractId
-      // check for duplicate contract ids
-      table.contractById.get(coid) match {
-        case Some(_) =>
-          throw SErrorDamlException(
-            IError.DisclosurePreprocessing(
-              IError.DisclosurePreprocessing.DuplicateContractIds(d.templateId)
-            )
-          )
+      val m1_prime = table.contractById + (coid -> (d.templateId, arg))
+
+      d.metadata.keyHash match {
+        case Some(hash) =>
+          DisclosureTable(table.contractIdByKey + (hash -> coid), m1_prime)
 
         case None =>
-          val m1_prime = table.contractById + (coid -> (d.templateId, arg))
-          d.metadata.keyHash match {
-            case Some(hash) =>
-              // check for duplicate contract key hashes
-              table.contractIdByKey.get(hash) match {
-                case Some(_) =>
-                  throw SErrorDamlException(
-                    IError.DisclosurePreprocessing(
-                      IError.DisclosurePreprocessing.DuplicateContractKeys(
-                        d.templateId
-                      )
-                    )
-                  )
-
-                case None => DisclosureTable(table.contractIdByKey + (hash -> coid), m1_prime)
-              }
-
-            case None =>
-              packageInterface.lookupTemplate(d.templateId) match {
-                case Right(template) if template.key.isEmpty =>
-                  // Success - template exists, but has no key defined
-                  table.copy(contractById = m1_prime)
-
-                case Right(_) =>
-                  // Error - disclosed contract lacks a key hash, but the template requires a key
-                  throw SErrorDamlException(
-                    IError.DisclosurePreprocessing(
-                      IError.DisclosurePreprocessing.NonExistentDisclosedContractKeyHash(
-                        d.contractId.value,
-                        d.templateId,
-                      )
-                    )
-                  )
-
-                case Left(_) =>
-                  // Error - template is non-existent
-                  throw SErrorDamlException(
-                    IError.DisclosurePreprocessing(
-                      IError.DisclosurePreprocessing.NonExistentTemplate(
-                        d.templateId
-                      )
-                    )
-                  )
-              }
-          }
+          table.copy(contractById = m1_prime)
       }
     }
-    acc
   }
 
   /** The speedy CEK machine. */
@@ -978,7 +927,7 @@ private[lf] object Speedy {
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
-        disclosureTable = buildDiscTable(disclosedContracts, compiledPackages.pkgInterface),
+        disclosureTable = buildDiscTable(disclosedContracts),
       )
     }
 
@@ -1084,7 +1033,7 @@ private[lf] object Speedy {
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
-        disclosureTable = buildDiscTable(disclosedContracts, compiledPackages.pkgInterface),
+        disclosureTable = buildDiscTable(disclosedContracts),
       )
 
     @throws[PackageNotFound]

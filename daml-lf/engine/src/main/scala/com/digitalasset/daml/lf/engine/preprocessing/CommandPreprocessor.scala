@@ -5,8 +5,9 @@ package com.daml.lf
 package engine
 package preprocessing
 
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data._
-import com.daml.lf.language.{Ast, TemplateOrInterface, PackageInterface}
+import com.daml.lf.language.{Ast, PackageInterface, TemplateOrInterface}
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
@@ -30,9 +31,26 @@ private[lf] final class CommandPreprocessor(
   def unsafePreprocessDisclosedContract(
       disc: command.DisclosedContract
   ): speedy.DisclosedContract = {
-    discard(handleLookup(pkgInterface.lookupTemplate(disc.templateId)))
+    val template = handleLookup(pkgInterface.lookupTemplate(disc.templateId))
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(disc.templateId), disc.argument)
     val coid = valueTranslator.unsafeTranslateCid(disc.contractId)
+
+    template.key match {
+      case Some(_) =>
+        if (disc.metadata.keyHash.isEmpty) {
+          throw Error.Preprocessing.BadDisclosedContract(
+            s"Disclosed contract template ${disc.templateId} has a key defined, but the disclosed contract ${disc.contractId} has no key hash"
+          )
+        }
+
+      case None =>
+        if (disc.metadata.keyHash.nonEmpty) {
+          throw Error.Preprocessing.BadDisclosedContract(
+            s"Disclosed contract template ${disc.templateId} has no key defined, but the disclosed contract ${disc.contractId} has a key hash"
+          )
+        }
+    }
+
     speedy.DisclosedContract(
       templateId = disc.templateId,
       contractId = coid,
@@ -246,8 +264,28 @@ private[lf] final class CommandPreprocessor(
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessDisclosedContracts(
       discs: ImmArray[command.DisclosedContract]
-  ): ImmArray[speedy.DisclosedContract] =
+  ): ImmArray[speedy.DisclosedContract] = {
+    val x = discs.foldLeft((Set.empty[Value.ContractId], Set.empty[Hash])) {
+      case ((disclosedIds, disclosedKeys), disclosedContract) =>
+        if (disclosedIds.contains(disclosedContract.contractId)) {
+          throw Error.Preprocessing.BadDisclosedContract(
+            s"Duplicate contract ID: ${disclosedContract.contractId}"
+          )
+        }
+        if (disclosedContract.metadata.keyHash.exists(disclosedKeys.contains)) {
+          throw Error.Preprocessing.BadDisclosedContract(
+            s"Duplicate contract key hash for contract ID: ${disclosedContract.contractId}"
+          )
+        }
+        (
+          disclosedIds + disclosedContract.contractId,
+          disclosedContract.metadata.keyHash.fold(disclosedKeys)(disclosedKeys + _),
+        )
+    }
+    println(s"DEBUGGY: $x")
+
     discs.map(unsafePreprocessDisclosedContract)
+  }
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessInterfaceView(
