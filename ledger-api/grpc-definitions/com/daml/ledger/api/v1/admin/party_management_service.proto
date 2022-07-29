@@ -6,7 +6,7 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1.admin;
 
-import "com/daml/ledger/api/v1/admin/property.proto";
+import "com/daml/ledger/api/v1/admin/object_meta.proto";
 
 option java_outer_classname = "PartyManagementServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
@@ -66,7 +66,7 @@ service PartyManagementService {
   // colon, minus and underscore limited to 255 chars
   rpc AllocateParty (AllocatePartyRequest) returns (AllocatePartyResponse);
 
-  rpc UpdateParty (UpdatePartyMetadataRequest) returns (UpdatePartyMetadataResponse);
+  rpc UpdateParticipantParty (UpdateParticipantPartyRequest) returns (UpdateParticipantPartyResponse);
 
 }
 
@@ -116,11 +116,13 @@ message AllocatePartyRequest {
 
   // Human-readable name of the party to be added to the participant. It doesn't
   // have to be unique.
+  // NOTE: Use of this field is discouraged. Consider using 'ParticipantParty.metadata' instead.
   // Optional
   string display_name = 2;
 
+  // NOTE: You must leave 'participant_party.party' field empty, since party doesn't exists yet at the time of issuing this request.
   // Optional
-  ObjectMeta metadata = 3;
+  ParticipantParty participant_party = 3;
 }
 
 message AllocatePartyResponse {
@@ -128,24 +130,37 @@ message AllocatePartyResponse {
   PartyDetails party_details = 1;
 }
 
-// Updates only participant-local portion of the party resource.
-message UpdatePartyMetadataRequest {
-  // Required
+// Participant-local record bound to some on-ledger allocated party.
+// Represents information stored exclusively locally on the participant node.
+message ParticipantParty {
+  // Must not be set when used in 'AllocatePartyRequest' message.
+  // Required atherwise.
   string party = 1;
 
+  // Optional
   ObjectMeta metadata = 2;
+}
 
-  // Specifies the fields of the party resource to be updated.
+message UpdateParticipantPartyRequest {
+  // Participant party to be updated.
+  // Required fields:
+  // 1. party
+  // Updatable fields:
+  // 1. metadata
+  //
+  // Required
+  ParticipantParty participant_party = 2;
+
+  // Specifies the fields of the participant party resource to be updated.
   // At least one field must be specified.
   // Required
   FieldMask update_mask = 3;
 }
 
-message UpdatePartyMetadataResponse {
-  // Update user
-  ObjectMeta metadata = 1;
+message UpdateParticipantPartyResponse {
+  // Updated participant-party
+  ParticipantParty participant_party = 1;
 }
-
 
 message PartyDetails {
 
@@ -157,13 +172,10 @@ message PartyDetails {
   // Human readable name associated with the party. Caution, it might not be
   // unique.
   // Optional
-  // Deprecated. User 'properties' instead.
+  // NOTE: Use of this field is discouraged. Consider using 'ParticipantParty.metadata' instead.
   string display_name = 2;
 
   // true if party is hosted by the backing participant.
   // Required
   bool is_local = 3;
-
-  // Optional
-  ObjectMeta metadata = 3;
 }

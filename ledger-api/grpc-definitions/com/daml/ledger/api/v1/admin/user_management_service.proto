@@ -5,13 +5,13 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1.admin;
 
-import "com/daml/ledger/api/v1/admin/property.proto";
+import "com/daml/ledger/api/v1/admin/object_meta.proto";
+import "google/protobuf/field_mask.proto";
 
 option java_outer_classname = "UserManagementServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 
-import "google/protobuf/field_mask.proto";
 
 // Service to manage users and their rights for interacting with the Ledger API
 // served by a participant node.
@@ -79,8 +79,8 @@ service UserManagementService {
     // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
     // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc ListUserRights (ListUserRightsRequest) returns (ListUserRightsResponse);
-
 }
+
 
 // Users and rights
 ///////////////////
@@ -280,4 +280,3 @@ message ListUserRightsResponse {
     // All rights of the user.
     repeated Right rights = 1;
 }
-
