@@ -958,28 +958,50 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
 
 checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> TemplateImplements -> m ()
 checkIfaceImplementation tplQualTypeCon TemplateImplements{..} = do
-  DefInterface {intRequires, intMethods} <- inWorld $ lookupInterface tpiInterface
+  defIface <- inWorld $ lookupInterface tpiInterface
+  checkGenImplementation
+    lookupInterfaceCoImplements
+    defIface
+    tplQualTypeCon
+    tpiInterface
+    ((\(TemplateImplementsMethod name expr) -> (name, expr)) <$> NM.toList tpiMethods)
 
-  -- check clash with co-implementation
-  eCoImpl <- inWorld (Right . lookupInterfaceCoImplements tplQualTypeCon tpiInterface)
+checkGenImplementation ::
+     MonadGamma m
+  => (Qualified TypeConName -> Qualified TypeConName -> World -> Either LookupError i)
+      -- ^ lookup function for the opposite direction implementation
+  -> DefInterface
+      -- ^ definition of the interface
+  -> Qualified TypeConName
+      -- ^ name of the template
+  -> Qualified TypeConName
+      -- ^ name of the interface
+  -> [(MethodName, Expr)]
+      -- ^ method implementations
+  -> m ()
+checkGenImplementation lookupOtherImpl defIface tplQualTypeCon ifaceQualTypeCon implMethods = do
+  let DefInterface {intRequires, intMethods} = defIface
+
+  -- check clash with opposite direction implementation
+  eCoImpl <- inWorld (Right . lookupOtherImpl tplQualTypeCon ifaceQualTypeCon)
   whenRight eCoImpl $ \_coImpl ->
-    throwWithContext (EConflictingImplementsCoImplements tplQualTypeCon tpiInterface)
+    throwWithContext (EConflictingImplementsCoImplements tplQualTypeCon ifaceQualTypeCon)
 
   -- check requires
   forM_ intRequires $ \required -> do
     eImpl <- inWorld (Right . lookupTemplateImplementsOrInterfaceCoImplements tplQualTypeCon required)
     whenLeft eImpl $ \_missingInterface ->
-      throwWithContext (EMissingRequiredInterface tplQualTypeCon tpiInterface required)
+      throwWithContext (EMissingRequiredInterface tplQualTypeCon ifaceQualTypeCon required)
 
   -- check methods
-  let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet tpiMethods)
+  let missingMethods = HS.difference (NM.namesSet intMethods) (HS.fromList (fst <$> implMethods))
   whenJust (listToMaybe (HS.toList missingMethods)) $ \methodName ->
-    throwWithContext (EMissingInterfaceMethod tplQualTypeCon tpiInterface methodName)
-  forM_ tpiMethods $ \TemplateImplementsMethod{tpiMethodName, tpiMethodExpr} -> do
-    case NM.lookup tpiMethodName intMethods of
-      Nothing -> throwWithContext (EUnknownInterfaceMethod tplQualTypeCon tpiInterface tpiMethodName)
+    throwWithContext (EMissingInterfaceMethod tplQualTypeCon ifaceQualTypeCon methodName)
+  forM_ implMethods $ \(methodName, methodExpr) -> do
+    case NM.lookup methodName intMethods of
+      Nothing -> throwWithContext (EUnknownInterfaceMethod tplQualTypeCon ifaceQualTypeCon methodName)
       Just InterfaceMethod{ifmType} ->
-        checkExpr tpiMethodExpr ifmType
+        checkExpr methodExpr ifmType
 
 checkFeature :: MonadGamma m => Feature -> m ()
 checkFeature feature = do
