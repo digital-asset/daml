@@ -114,13 +114,15 @@ private[index] class IndexServiceImpl(
             from.getOrElse(Offset.beforeBegin),
             RangeSource { (startExclusive, endInclusive) =>
               val (filterRelation, eventProjectionProperties) = memoizedConvertedFilter()
-              // TODO DPP-1068: we need to protect the transactionsReader.getFlatTransactions from executing with empty filterRelation
-              transactionsReader.getFlatTransactions(
-                startExclusive,
-                endInclusive,
-                filterRelation,
-                eventProjectionProperties,
-              )
+              if (filterRelation.isEmpty)
+                Source.empty
+              else
+                transactionsReader.getFlatTransactions(
+                  startExclusive,
+                  endInclusive,
+                  filterRelation,
+                  eventProjectionProperties,
+                )
             },
             to,
           )
@@ -217,19 +219,21 @@ private[index] class IndexServiceImpl(
       val currentLedgerEnd = ledgerEnd()
       val (filterRelation, eventProjectionProperties) =
         memoizedFilterRelationAndEventDisplayProperties(filter, verbose)()
-      // TODO DPP-1068: we need to protect the transactionsReader.getActiveContracts from executing with empty filterRelation
-      ledgerDao.transactionsReader
-        .getActiveContracts(
-          currentLedgerEnd,
-          filterRelation,
-          eventProjectionProperties,
-        )
-        .concat(
-          Source.single(
-            GetActiveContractsResponse(offset = ApiOffset.toApiString(currentLedgerEnd))
+      if (filterRelation.isEmpty)
+        Source.empty
+      else
+        ledgerDao.transactionsReader
+          .getActiveContracts(
+            currentLedgerEnd,
+            filterRelation,
+            eventProjectionProperties,
           )
-        )
-        .buffered(metrics.daml.index.activeContractsBufferSize, LedgerApiStreamsBufferSize)
+          .concat(
+            Source.single(
+              GetActiveContractsResponse(offset = ApiOffset.toApiString(currentLedgerEnd))
+            )
+          )
+          .buffered(metrics.daml.index.activeContractsBufferSize, LedgerApiStreamsBufferSize)
     }
 
   override def lookupActiveContract(

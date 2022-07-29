@@ -5,6 +5,8 @@ package com.daml.platform.store.dao.events
 
 import java.io.ByteArrayInputStream
 
+import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.{ErrorCause, RejectionGenerators}
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent, InterfaceView}
 import com.daml.ledger.api.v1.value.{
   Identifier => ApiIdentifier,
@@ -17,7 +19,7 @@ import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.{engine => LfEngine}
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.{
   ContractId,
@@ -36,9 +38,11 @@ import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.dao.EventProjectionProperties
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
+import io.grpc.Status
 import io.grpc.Status.Code
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.chaining._
 
 /** Serializes and deserializes Daml-Lf values and events.
   *
@@ -89,6 +93,8 @@ final class LfValueTranslation(
         LoggingContext,
     ) => Future[Option[com.daml.daml_lf_dev.DamlLf.Archive]],
 ) extends LfValueSerialization {
+
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   private[this] val packageLoader = new DeduplicatingPackageLoader()
 
@@ -266,7 +272,7 @@ final class LfValueTranslation(
         attribute: => String,
     )(value: Value): T =
       LfEngineToApi.assertOrRuntimeEx(
-        // TODO DPP-1086: this is not always right
+        // TODO DPP-1068: this is not always right
         failureContext = s"attempting to deserialize persisted $attribute to record",
         lfEngineToApiFunction(eventProjectionProperties.verbose, value),
       )
@@ -283,13 +289,36 @@ final class LfValueTranslation(
         .map(toApi(LfEngineToApi.lfValueToApiValue, "create key"))
     )
     val asyncInterfaceViews = Future.traverse(renderInterfaces.toSeq)(interfaceId =>
-      renderInterfaceView(
+      computeInterfaceView(
         templateId,
         value.unversioned,
         interfaceId,
-        eventProjectionProperties.verbose,
-        enrichAsync(enricher.enrichView(interfaceId, _)),
-      )
+      ).flatMap {
+        case Right(versionedValue) =>
+          enrichAsync(enricher.enrichView(interfaceId, _))(versionedValue.unversioned)
+            .map(toApi(LfEngineToApi.lfValueToApiRecord, "interface view"))
+            .map(Some(_))
+            .map(
+              InterfaceView(
+                interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
+                viewStatus = Some(com.google.rpc.status.Status.of(Code.OK.value(), "", Seq.empty)),
+                _,
+              )
+            )
+
+        case Left(errorStatus) =>
+          Future.successful(
+            InterfaceView(
+              interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
+              // TODO DPP-1068: is it okay to convert from io.grpc.Status to com.google.rpc.status.Status this way?
+              viewStatus = Some(
+                com.google.rpc.status.Status
+                  .of(errorStatus.getCode.value(), errorStatus.getDescription, Seq.empty)
+              ),
+              viewValue = None,
+            )
+          )
+      }
     )
 
     for {
@@ -304,31 +333,36 @@ final class LfValueTranslation(
 
   }
 
-  private def renderInterfaceView(
+  private def computeInterfaceView(
       templateId: LfIdentifier,
       value: com.daml.lf.value.Value,
       interfaceId: LfIdentifier,
-      verbose: Boolean,
-      enrich: Value => Future[Value],
   )(implicit
       loggingContext: LoggingContext,
       executionContext: ExecutionContext,
-  ): Future[InterfaceView] = {
-    def goAsync(res: LfEngine.Result[Versioned[Value]]): Future[Either[String, Versioned[Value]]] =
+  ): Future[Either[Status, Versioned[Value]]] = {
+    def goAsync(res: LfEngine.Result[Versioned[Value]]): Future[Either[Status, Versioned[Value]]] =
       res match {
         case LfEngine.ResultDone(x) =>
           Future.successful(Right(x))
 
         case LfEngine.ResultError(err) =>
-          Future.successful(Left(err.message))
+          implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
+            new DamlContextualizedErrorLogger(logger, loggingContext, None)
+          err
+            .pipe(ErrorCause.DamlLf)
+            .pipe(RejectionGenerators.commandExecutorError)
+            .getStatus
+            .pipe(Left.apply)
+            .pipe(Future.successful)
 
         // Note: the compiler should enforce that the computation is a pure function,
         // ResultNeedContract and ResultNeedKey should never appear in the result.
         case LfEngine.ResultNeedContract(_, _) =>
-          Future.successful(Left("View computation must be a pure function"))
+          Future.failed(new IllegalStateException("View computation must be a pure function"))
 
         case LfEngine.ResultNeedKey(_, _) =>
-          Future.successful(Left("View computation must be a pure function"))
+          Future.failed(new IllegalStateException("View computation must be a pure function"))
 
         case LfEngine.ResultNeedPackage(packageId, resume) =>
           packageLoader
@@ -342,37 +376,6 @@ final class LfValueTranslation(
       }
     Future(engineO.get.computeInterfaceView(templateId, value, interfaceId))
       .flatMap(goAsync)
-      .flatMap {
-        case Left(error) => Future.successful(Left(error))
-        case Right(versionedValue) => enrich(versionedValue.unversioned).map(Right(_))
-      }
-      .map {
-        _.flatMap(versionedValue =>
-          LfEngineToApi.lfValueToApiRecord(
-            verbose = verbose,
-            recordValue = versionedValue,
-          )
-        )
-          .fold(
-            error =>
-              // Note: the view computation is an arbitrary Daml function and can thus fail (e.g., with a Daml exception)
-              InterfaceView(
-                interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
-                // TODO DPP-1068: [implementation detail / conformance test] Use a proper error status
-                viewStatus =
-                  Some(com.google.rpc.status.Status.of(Code.INTERNAL.value(), error, Seq.empty)),
-                viewValue = None,
-              ),
-            value =>
-              InterfaceView(
-                interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
-                // TODO DPP-1068: [implementation detail / conformance test] Use a proper success status
-                viewStatus = Some(com.google.rpc.status.Status.of(0, "", Seq.empty)),
-                viewValue = Some(value),
-              ),
-          )
-      }
-
   }
 
   private[this] def apiIdentifierToDamlLfIdentifier(id: ApiIdentifier): LfIdentifier =

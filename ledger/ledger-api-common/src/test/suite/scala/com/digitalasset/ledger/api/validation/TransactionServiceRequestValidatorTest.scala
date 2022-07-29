@@ -233,7 +233,7 @@ class TransactionServiceRequestValidatorTest
             p shouldEqual party
             filters shouldEqual domain.Filters(
               Some(domain.InclusiveFilters(Set(), Set.empty))
-            ) // TODO DPP 1068: fix / add tests
+            ) // TODO DPP-1068: fix / add tests
           }
           req.verbose shouldEqual verbose
         }
