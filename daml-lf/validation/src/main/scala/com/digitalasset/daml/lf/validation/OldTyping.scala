@@ -16,6 +16,10 @@ import scala.annotation.tailrec
 
 private[validation] object OldTyping { // NICK: original stack-unsafe code for old-vs-new diff in shim
 
+  def typeOf(env: Env, exp: Expr): Type = { // testing entry point
+    env.typeOf(exp)
+  }
+
   import Util.handleLookup
 
   /* Typing */
@@ -1197,7 +1201,7 @@ private[validation] object OldTyping { // NICK: original stack-unsafe code for o
         TOptional(typ)
     }
 
-    def typeOf(expr0: Expr): Type = expr0 match { // testing entry point
+    private[OldTyping] def typeOf(expr0: Expr): Type = expr0 match {
       case expr: ExprAtomic =>
         typeOf(expr)
       case ERecCon(tycon, fields) =>

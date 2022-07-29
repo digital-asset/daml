@@ -183,9 +183,9 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
       val signatures: PartialFunction[PackageId, PackageSignature] = Map.empty
       val pkgInterface = new PackageInterface(signatures)
       val ctx: Context = Context.None
-      val env = NewTyping.Env(langVersion, pkgInterface, ctx) // NICK
+      val env = NewTyping.Env(langVersion, pkgInterface, ctx) // NICK New
       try {
-        val _: Type = env.entry_typeOf(expr) // NICK
+        val _: Type = NewTyping.typeOf(env, expr) // NICK New
         None
       } catch {
         case e: ValidationError => Some(e)

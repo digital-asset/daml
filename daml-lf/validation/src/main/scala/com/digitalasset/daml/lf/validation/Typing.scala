@@ -16,6 +16,10 @@ import scala.annotation.tailrec
 
 private[validation] object NewTyping { // NICK: WIP stack-safe type-checking code...
 
+  def typeOf(env: Env, exp: Expr): Type = { // testing entry point
+    runWork(env.typeOfExpr(exp))
+  }
+
   sealed abstract class Work[A]
   object Work {
     final case class Ret[A](v: A) extends Work[A]
@@ -352,10 +356,6 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
       eVars: Map[ExprVarName, Type] = Map.empty,
   ) {
 
-    def entry_typeOf(e: Expr): Type = { // NICK: entry point
-      runWork(typeOfExpr(e)) // NICK: the only place which may call runWork
-    }
-
     // NICK: This can (stack!)safely be used everwhere...
     private def typeOf[T](e: Expr)(k: Type => Work[T]): Work[T] = {
       Bind(Delay(() => typeOfExpr(e)), k)
@@ -443,6 +443,7 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
         if (isTest) {
           discard(toScenario(dropForalls(typ)))
         }
+      // ??? // NICK: can we hit this? YES, now I have Shim.checkModule coming here!
     }
 
     @tailrec
@@ -1325,7 +1326,7 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
         Ret(TOptional(typ))
     }
 
-    private def typeOfExpr(e: Expr): Work[Type] = e match {
+    private[NewTyping] def typeOfExpr(e: Expr): Work[Type] = e match {
       case expr: ExprAtomic =>
         typeOfAtomic(expr)
       case ERecCon(tycon, fields) =>

@@ -8,11 +8,21 @@ import com.daml.lf.language.{LanguageVersion, PackageInterface}
 
 package object validation {
 
-  val V1 = OldTyping
-  val V2 = NewTyping
+  val Typing = ShimTyping
 
-  object Typing {
-    val checkModule = V1.checkModule _
+  object ShimTyping {
+
+    def typeOf(env: Env, exp: Expr): Type = { // testing entry point
+      env.typeOf(exp)
+    }
+
+    val V1 = OldTyping
+    val V2 = NewTyping
+
+    // NICK: AH. This was fixed on V1, so this would explain why I didn't did the
+    // ??? I left in the V2 code!
+    // ok. so this needs to be V2, or better a V1-vs-V2
+    val checkModule = V2.checkModule _
 
     var i = 0
 
@@ -32,12 +42,12 @@ package object validation {
       def kindOf(t: Type): Kind = env1.kindOf(t)
 
       def env1_wrapped_typeOf(e: Expr): Either[Throwable, Type] = {
-        try Right(env1.typeOf(e))
+        try Right(V1.typeOf(env1, e))
         catch { case ex: Throwable => Left(ex) }
       }
 
       def env2_wrapped_typeOf(e: Expr): Either[Throwable, Type] = {
-        try Right(env2.entry_typeOf(e))
+        try Right(V2.typeOf(env2, e))
         catch { case ex: Throwable => Left(ex) }
       }
 
@@ -65,5 +75,4 @@ package object validation {
     }
 
   }
-
 }
