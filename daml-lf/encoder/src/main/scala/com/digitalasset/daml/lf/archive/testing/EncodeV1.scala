@@ -680,7 +680,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .setInterfaceExpr(value)
           )
         case EUnsafeFromInterface(iface, tpl, cid, value) =>
-          assertSince(LV.Features.basicInterfaces, "Expr.UnsafeFromInterface")
+          assertSince(LV.Features.extendedInterfaces, "Expr.UnsafeFromInterface")
           builder.setUnsafeFromInterface(
             PLF.Expr.UnsafeFromInterface
               .newBuilder()

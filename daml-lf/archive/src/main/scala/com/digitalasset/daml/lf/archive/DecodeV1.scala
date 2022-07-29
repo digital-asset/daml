@@ -1156,16 +1156,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             value = decodeExpr(fromInterface.getInterfaceExpr, definition),
           )
 
-        case PLF.Expr.SumCase.UNSAFE_FROM_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.unsafe_from_interface")
-          val unsafeFromInterface = lfExpr.getUnsafeFromInterface
-          EUnsafeFromInterface(
-            interfaceId = decodeTypeConName(unsafeFromInterface.getInterfaceType),
-            templateId = decodeTypeConName(unsafeFromInterface.getTemplateType),
-            contractIdExpr = decodeExpr(unsafeFromInterface.getContractIdExpr, definition),
-            ifaceExpr = decodeExpr(unsafeFromInterface.getInterfaceExpr, definition),
-          )
-
         case PLF.Expr.SumCase.CALL_INTERFACE =>
           assertSince(LV.Features.basicInterfaces, "Expr.call_interface")
           val callInterface = lfExpr.getCallInterface
@@ -1174,6 +1164,32 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             methodName =
               getInternedName(callInterface.getMethodInternedName, "ECallInterface.method"),
             value = decodeExpr(callInterface.getInterfaceExpr, definition),
+          )
+
+        case PLF.Expr.SumCase.SIGNATORY_INTERFACE =>
+          assertSince(LV.Features.basicInterfaces, "Expr.signatory_interface")
+          val signatoryInterface = lfExpr.getSignatoryInterface
+          ESignatoryInterface(
+            ifaceId = decodeTypeConName(signatoryInterface.getInterface),
+            body = decodeExpr(signatoryInterface.getExpr, definition),
+          )
+
+        case PLF.Expr.SumCase.OBSERVER_INTERFACE =>
+          assertSince(LV.Features.basicInterfaces, "Expr.observer_interface")
+          val observerInterface = lfExpr.getObserverInterface
+          EObserverInterface(
+            ifaceId = decodeTypeConName(observerInterface.getInterface),
+            body = decodeExpr(observerInterface.getExpr, definition),
+          )
+
+        case PLF.Expr.SumCase.UNSAFE_FROM_INTERFACE =>
+          assertSince(LV.Features.extendedInterfaces, "Expr.unsafe_from_interface")
+          val unsafeFromInterface = lfExpr.getUnsafeFromInterface
+          EUnsafeFromInterface(
+            interfaceId = decodeTypeConName(unsafeFromInterface.getInterfaceType),
+            templateId = decodeTypeConName(unsafeFromInterface.getTemplateType),
+            contractIdExpr = decodeExpr(unsafeFromInterface.getContractIdExpr, definition),
+            ifaceExpr = decodeExpr(unsafeFromInterface.getInterfaceExpr, definition),
           )
 
         case PLF.Expr.SumCase.TO_REQUIRED_INTERFACE =>
@@ -1205,27 +1221,11 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           )
 
         case PLF.Expr.SumCase.INTERFACE_TEMPLATE_TYPE_REP =>
-          assertSince(LV.Features.basicInterfaces, "Expr.interface_template_type_rep")
+          assertSince(LV.Features.extendedInterfaces, "Expr.interface_template_type_rep")
           val interfaceTemplateTypeRep = lfExpr.getInterfaceTemplateTypeRep
           EInterfaceTemplateTypeRep(
             ifaceId = decodeTypeConName(interfaceTemplateTypeRep.getInterface),
             body = decodeExpr(interfaceTemplateTypeRep.getExpr, definition),
-          )
-
-        case PLF.Expr.SumCase.SIGNATORY_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.signatory_interface")
-          val signatoryInterface = lfExpr.getSignatoryInterface
-          ESignatoryInterface(
-            ifaceId = decodeTypeConName(signatoryInterface.getInterface),
-            body = decodeExpr(signatoryInterface.getExpr, definition),
-          )
-
-        case PLF.Expr.SumCase.OBSERVER_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.observer_interface")
-          val observerInterface = lfExpr.getObserverInterface
-          EObserverInterface(
-            ifaceId = decodeTypeConName(observerInterface.getInterface),
-            body = decodeExpr(observerInterface.getExpr, definition),
           )
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
@@ -2051,7 +2051,7 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(NUMERIC_TO_BIGNUMERIC, BNumericToBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(BIGNUMERIC_TO_TEXT, BBigNumericToText, minVersion = bigNumeric),
       BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage, minVersion = exceptions),
-      BuiltinFunctionInfo(TYPEREP_TYCON_NAME, BTypeRepTyConName, minVersion = basicInterfaces),
+      BuiltinFunctionInfo(TYPEREP_TYCON_NAME, BTypeRepTyConName, minVersion = extendedInterfaces),
       BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_TO_LOWER, BTextToLower, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_SLICE, BTextSlice, minVersion = unstable),

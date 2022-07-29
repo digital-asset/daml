@@ -52,14 +52,6 @@ module InterfaceMod {
     \(boxy: InterfaceMod:Boxy) ->
       from_interface @InterfaceMod:Boxy @InterfaceMod:Box boxy;
 
-  val unsafeBoxyToBox: ContractId InterfaceMod:Boxy -> InterfaceMod:Boxy -> InterfaceMod:Box =
-    \(cid: ContractId InterfaceMod:Boxy) (boxy: InterfaceMod:Boxy) ->
-      unsafe_from_interface @InterfaceMod:Boxy @InterfaceMod:Box cid boxy;
-
-  val boxyTemplateTypeRep: InterfaceMod:Boxy -> TypeRep =
-    \(boxy: InterfaceMod:Boxy) ->
-      interface_template_type_rep @InterfaceMod:Boxy boxy;
-
   val boxySignatory: InterfaceMod:Boxy -> List Party =
     \(boxy: InterfaceMod:Boxy) ->
       signatory_interface @InterfaceMod:Boxy boxy;

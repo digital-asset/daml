@@ -929,8 +929,43 @@ message Expr {
     Expr interface_expr = 3;
   }
 
-  // Convert an interface back to a template payload, or raises WronglyTypedContract if not possible.
+  // Invoke an interface method.
   // *Available in versions >= 1.15*
+  message CallInterface {
+    TypeConName interface_type = 1;
+    int32 method_interned_name = 2;
+    Expr interface_expr = 3;
+  }
+
+  // Obtain an interface view
+  // *Available in versions >= 1.15*
+  message ViewInterface {
+    TypeConName interface = 1;
+    Expr expr = 2;
+  }
+
+  // Obtain the signatories of a contract through an interface
+  // *Available in versions >= 1.15*
+  message SignatoryInterface {
+    // Interface type
+    TypeConName interface = 1;
+    // Interface argument
+    Expr expr = 2;
+  }
+
+  // Obtain the observers of a contract through an interface
+  // *Available in versions >= 1.15*
+  message ObserverInterface {
+    // Interface type
+    TypeConName interface = 1;
+    // Interface argument
+    Expr expr = 2;
+  }
+
+
+
+  // Convert an interface back to a template payload, or raises WronglyTypedContract if not possible.
+  // *Available in versions >= 1.dev*
   message UnsafeFromInterface {
     TypeConName interface_type = 1;
     TypeConName template_type = 2;
@@ -963,23 +998,8 @@ message Expr {
     Expr interface_expr = 4;
   }
 
-  // Invoke an interface method.
-  // *Available in versions >= 1.15*
-  message CallInterface {
-    TypeConName interface_type = 1;
-    int32 method_interned_name = 2;
-    Expr interface_expr = 3;
-  }
-
-  // Obtain an interface view
-  // *Available in versions >= 1.15*
-  message ViewInterface {
-    TypeConName interface = 1;
-    Expr expr = 2;
-  }
-
   // Obtain the type representation of a contract through an interface
-  // *Available in versions >= 1.15*
+  // *Available in versions >= 1.dev*
   message InterfaceTemplateTypeRep {
     // interface type
     TypeConName interface = 1;
@@ -987,21 +1007,6 @@ message Expr {
     Expr expr = 2;
   }
 
-  // Obtain the signatories of a contract through an interface
-  message SignatoryInterface {
-    // Interface type
-    TypeConName interface = 1;
-    // Interface argument
-    Expr expr = 2;
-  }
-
-  // Obtain the observers of a contract through an interface
-  message ObserverInterface {
-    // Interface type
-    TypeConName interface = 1;
-    // Interface argument
-    Expr expr = 2;
-  }
 
   message Experimental {
     string name = 1;
@@ -1125,29 +1130,28 @@ message Expr {
     // *Available in versions >= 1.15*
     CallInterface call_interface = 38;
 
-    // Obtain the type representation of a contract's template through an interface.
-    // *Available in versions >= 1.15*
-    InterfaceTemplateTypeRep interface_template_type_rep = 39;
-
     // Obtain a contract's signatories/observers through an interface.
     // *Available in versions >= 1.15*
-    SignatoryInterface signatory_interface = 40;
-    ObserverInterface observer_interface = 41;
-
-    // Unsafe conversion from interface payloads.
-    // *Available in versions >= 1.15*
-    UnsafeFromInterface unsafe_from_interface = 42;
+    SignatoryInterface signatory_interface = 39;
+    ObserverInterface observer_interface = 40;
 
     // Invoke an interface method.
     // *Available in versions >= 1.15*
-    ViewInterface view_interface = 43;
+    ViewInterface view_interface = 41;
+
+    // Unsafe conversion from interface payloads.
+    // *Available in versions >= 1.1dev*
+    UnsafeFromInterface unsafe_from_interface = 42;
 
     // Upcast/downcast interface payloads.
     // *Available in versions >= 1.dev*
-    ToRequiredInterface to_required_interface = 44;
-    FromRequiredInterface from_required_interface = 45;
-    UnsafeFromRequiredInterface unsafe_from_required_interface = 46;
+    ToRequiredInterface to_required_interface = 43;
+    FromRequiredInterface from_required_interface = 44;
+    UnsafeFromRequiredInterface unsafe_from_required_interface = 45;
 
+    // Obtain the type representation of a contract's template through an interface.
+    // *Available in versions >= 1.dev*
+    InterfaceTemplateTypeRep interface_template_type_rep = 46;
 
     Experimental experimental = 9999; // *Available only in 1.dev*
   }
@@ -1280,6 +1284,7 @@ message Update {
   }
 
   // Interface Create Update
+  // *Available in versions >= 1.15*
   message CreateInterface {
     // Interface type
     TypeConName interface = 1;
@@ -1310,6 +1315,7 @@ message Update {
   }
 
   // Interface Exercise Update
+  // *Available in versions >= 1.15*
   message ExerciseInterface {
     // Interface type
     TypeConName interface = 1;
@@ -1349,6 +1355,7 @@ message Update {
   }
 
   // Interface Fetch Update
+  // *Available in versions >= 1.15*
   message FetchInterface {
     // Interface type
     TypeConName interface = 1;
@@ -1394,9 +1401,9 @@ message Update {
     // see similar constructor in `Scenario` on why this is useful.
     EmbedExpr embed_expr = 7;
     TryCatch try_catch = 11; // *Available in versions >= 1.14*
-    ExerciseInterface exercise_interface = 12; // *Available in versions >= 1.15*
-    FetchInterface fetch_interface = 13; // *Available in versions >= 1.15*
-    CreateInterface create_interface = 14; // *Available in versions >= 1.15*
+    CreateInterface create_interface = 12; // *Available in versions >= 1.15*
+    ExerciseInterface exercise_interface = 13; // *Available in versions >= 1.15*
+    FetchInterface fetch_interface = 14; // *Available in versions >= 1.15*
   }
 }
 

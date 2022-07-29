@@ -944,17 +944,6 @@ class DecodeV1Spec
         val scalaTemplateTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:T")
         val scalaIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:I")
 
-        val interfaceTemplateTypeRep = DamlLf1.Expr
-          .newBuilder()
-          .setInterfaceTemplateTypeRep(
-            DamlLf1.Expr.InterfaceTemplateTypeRep
-              .newBuilder()
-              .setInterface(ifaceTyConName)
-              .setExpr(unitExpr)
-              .build()
-          )
-          .build()
-
         val signatoryInterface = DamlLf1.Expr
           .newBuilder()
           .setSignatoryInterface(
@@ -988,6 +977,7 @@ class DecodeV1Spec
               .build()
           )
           .build()
+
         val fromInterface = DamlLf1.Expr
           .newBuilder()
           .setFromInterface(
@@ -999,32 +989,9 @@ class DecodeV1Spec
               .build()
           )
           .build()
-        val unsafeFromInterface = DamlLf1.Expr
-          .newBuilder()
-          .setUnsafeFromInterface(
-            DamlLf1.Expr.UnsafeFromInterface
-              .newBuilder()
-              .setInterfaceType(ifaceTyConName)
-              .setTemplateType(templateTyConName)
-              .setContractIdExpr(unitExpr)
-              .setInterfaceExpr(falseExpr)
-              .build()
-          )
-          .build()
-
-        val typeRepTyConName = DamlLf1.Expr
-          .newBuilder()
-          .setBuiltin(
-            DamlLf1.BuiltinFunction.TYPEREP_TYCON_NAME
-          )
-          .build()
 
         Table(
           "input" -> "expected output",
-          interfaceTemplateTypeRep -> Ast.EInterfaceTemplateTypeRep(
-            ifaceId = scalaIfaceTyConName,
-            body = EUnit,
-          ),
           signatoryInterface -> Ast
             .ESignatoryInterface(ifaceId = scalaIfaceTyConName, body = EUnit),
           observerInterface -> Ast.EObserverInterface(ifaceId = scalaIfaceTyConName, body = EUnit),
@@ -1038,13 +1005,6 @@ class DecodeV1Spec
             templateId = scalaTemplateTyConName,
             value = EUnit,
           ),
-          unsafeFromInterface -> Ast.EUnsafeFromInterface(
-            interfaceId = scalaIfaceTyConName,
-            templateId = scalaTemplateTyConName,
-            contractIdExpr = EUnit,
-            ifaceExpr = EFalse,
-          ),
-          typeRepTyConName -> Ast.EBuiltin(Ast.BTypeRepTyConName),
         )
       }
 
@@ -1072,6 +1032,33 @@ class DecodeV1Spec
           DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(3)
         val scalaIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:I")
         val scalaRequiredIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:J")
+        val templateTyConName =
+          DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(1)
+        val scalaTemplateTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:T")
+
+        val interfaceTemplateTypeRep = DamlLf1.Expr
+          .newBuilder()
+          .setInterfaceTemplateTypeRep(
+            DamlLf1.Expr.InterfaceTemplateTypeRep
+              .newBuilder()
+              .setInterface(ifaceTyConName)
+              .setExpr(unitExpr)
+              .build()
+          )
+          .build()
+
+        val unsafeFromInterface = DamlLf1.Expr
+          .newBuilder()
+          .setUnsafeFromInterface(
+            DamlLf1.Expr.UnsafeFromInterface
+              .newBuilder()
+              .setInterfaceType(ifaceTyConName)
+              .setTemplateType(templateTyConName)
+              .setContractIdExpr(unitExpr)
+              .setInterfaceExpr(falseExpr)
+              .build()
+          )
+          .build()
 
         val toRequiredInterface = DamlLf1.Expr
           .newBuilder()
@@ -1108,8 +1095,25 @@ class DecodeV1Spec
           )
           .build()
 
+        val typeRepTyConName = DamlLf1.Expr
+          .newBuilder()
+          .setBuiltin(
+            DamlLf1.BuiltinFunction.TYPEREP_TYCON_NAME
+          )
+          .build()
+
         Table(
           "input" -> "expected output",
+          interfaceTemplateTypeRep -> Ast.EInterfaceTemplateTypeRep(
+            ifaceId = scalaIfaceTyConName,
+            body = EUnit,
+          ),
+          unsafeFromInterface -> Ast.EUnsafeFromInterface(
+            interfaceId = scalaIfaceTyConName,
+            templateId = scalaTemplateTyConName,
+            contractIdExpr = EUnit,
+            ifaceExpr = EFalse,
+          ),
           toRequiredInterface -> Ast.EToRequiredInterface(
             requiredIfaceId = scalaRequiredIfaceTyConName,
             requiringIfaceId = scalaIfaceTyConName,
@@ -1126,6 +1130,7 @@ class DecodeV1Spec
             contractIdExpr = EUnit,
             ifaceExpr = EFalse,
           ),
+          typeRepTyConName -> Ast.EBuiltin(Ast.BTypeRepTyConName),
         )
       }
 

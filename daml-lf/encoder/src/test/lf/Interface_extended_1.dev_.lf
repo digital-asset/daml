@@ -29,6 +29,14 @@ module InterfaceExtMod {
     };
   };
 
+  val unsafeBoxyToBox: ContractId InterfaceMod:Boxy -> InterfaceMod:Boxy -> InterfaceMod:Box =
+    \(cid: ContractId InterfaceMod:Boxy) (boxy: InterfaceMod:Boxy) ->
+      unsafe_from_interface @InterfaceMod:Boxy @InterfaceMod:Box cid boxy;
+
+  val boxyTemplateTypeRep: InterfaceMod:Boxy -> TypeRep =
+    \(boxy: InterfaceMod:Boxy) ->
+      interface_template_type_rep @InterfaceMod:Boxy boxy;
+
   val boxyToRoot: InterfaceExtMod:Boxy -> InterfaceExtMod:Root =
     \(box: InterfaceExtMod:Boxy) ->
       to_required_interface @InterfaceExtMod:Root @InterfaceExtMod:Boxy box;
