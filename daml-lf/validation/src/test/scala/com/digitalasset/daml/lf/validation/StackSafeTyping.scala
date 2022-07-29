@@ -279,26 +279,26 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
         // ("struct2", struct2),
         // ("consH", consH),
         // ("consT", consT),
-        // ("scenPure", scenPure),
+        ("scenPure", scenPure),
         // ("scenBlock1", scenBlock1),
-        // ("scenBlock2", scenBlock2),
-        // ("scenCommit1", scenCommit1),
-        // ("scenCommit2", scenCommit2),
-        // ("scenMustFail1", scenMustFail1),
-        // ("scenMustFail2", scenMustFail2),
-        // ("scenPass", scenPass),
-        // ("scenParty", scenParty),
-        // ("scenEmbed", scenEmbed),
-        // ("upure", upure),
+        ("scenBlock2", scenBlock2),
+        ("scenCommit1", scenCommit1),
+        ("scenCommit2", scenCommit2),
+        ("scenMustFail1", scenMustFail1),
+        ("scenMustFail2", scenMustFail2),
+        ("scenPass", scenPass),
+        ("scenParty", scenParty),
+        ("scenEmbed", scenEmbed),
+        ("upure", upure),
         // ("ublock1", ublock1),
         // ("ublock2", ublock2),
-        // ("ublock3", ublock3),
-        // ("uembed", uembed),
-        // ("utrycatch1", utrycatch1),
-        // ("utrycatch2", utrycatch2),
-        // ("structUpd1", structUpd1),
-        // ("structUpd2", structUpd2),
-        // ("caseScrut", caseScrut),
+        ("ublock3", ublock3),
+        ("uembed", uembed),
+        ("utrycatch1", utrycatch1),
+        ("utrycatch2", utrycatch2),
+        ("structUpd1", structUpd1),
+        ("structUpd2", structUpd2),
+        ("caseScrut", caseScrut),
         // ("caseAlt1", caseAlt1),
         // ("caseAlt2", caseAlt2),
         ("let1", let1),
@@ -307,7 +307,7 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
     }
 
     {
-      val depth = 100000
+      val depth = 10000
 
       s"typing, (LARGE) depth = $depth" - {
         forEvery(cut_testCases) { (name: String, recursionPoint: Expr => Expr) =>
