@@ -311,7 +311,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
         "PositiveTestCase2",
       )
 
-      val pkg15 = pkg14.copy(languageVersion = LanguageVersion.Features.interfaces)
+      val pkg15 = pkg14.copy(languageVersion = LanguageVersion.Features.basicInterfaces)
 
       forEvery(negativeTestCases) { modName =>
         check(pkg14, modName)
@@ -328,7 +328,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
       implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
         defaultPackageId,
-        LanguageVersion.Features.interfaces,
+        LanguageVersion.Features.basicInterfaces,
       )
 
       val pkg =

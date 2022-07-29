@@ -41,7 +41,7 @@ object LanguageMajorVersion {
   case object V1
       extends LanguageMajorVersion(
         pretty = "1",
-        minorAscending = NonEmptyList("6", "7", "8", "11", "12", "13", "14", "dev"),
+        minorAscending = NonEmptyList("6", "7", "8", "11", "12", "13", "14", "15", "dev"),
       )
 
   val All: List[LanguageMajorVersion] = List(V1)
