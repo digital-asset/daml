@@ -14,7 +14,7 @@ import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
 
-private[validation] object NewTyping { // NICK: WIP stack-safe type-checking code...
+private[validation] object Typing { // NICK: WIP stack-safe type-checking code...
 
   def typeOf(env: Env, exp: Expr): Type = { // testing entry point
     runWork(env.typeOfExpr(exp))
@@ -420,12 +420,12 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
 
     /* Typing Ops*/
 
-    private[NewTyping] def checkVariantType(variants: ImmArray[(VariantConName, Type)]): Unit = {
+    private[Typing] def checkVariantType(variants: ImmArray[(VariantConName, Type)]): Unit = {
       checkUniq[VariantConName](variants.keys, EDuplicateVariantCon(ctx, _))
       variants.values.foreach(checkType(_, KStar))
     }
 
-    private[NewTyping] def checkEnumType[X](
+    private[Typing] def checkEnumType[X](
         tyConName: => TypeConName,
         params: ImmArray[X],
         values: ImmArray[EnumConName],
@@ -434,7 +434,7 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
       checkUniq[Name](values.iterator, EDuplicateEnumCon(ctx, _))
     }
 
-    private[NewTyping] def checkInterfaceType[X](
+    private[Typing] def checkInterfaceType[X](
         tyConName: => TypeConName,
         params: ImmArray[X],
     ): Unit = {
@@ -442,7 +442,7 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
       val _ = handleLookup(ctx, pkgInterface.lookupInterface(tyConName))
     }
 
-    private[NewTyping] def checkDValue(dfn: DValue): Unit = dfn match {
+    private[Typing] def checkDValue(dfn: DValue): Unit = dfn match {
       case DValue(typ, body, isTest) =>
         checkType(typ, KStar)
         legacy_checkExpr(body, typ)
@@ -457,7 +457,7 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
       case _ => typ0
     }
 
-    private[NewTyping] def checkRecordType(fields: ImmArray[(FieldName, Type)]): Unit = {
+    private[Typing] def checkRecordType(fields: ImmArray[(FieldName, Type)]): Unit = {
       checkUniq[FieldName](fields.keys, EDuplicateField(ctx, _))
       fields.values.foreach(checkType(_, KStar))
     }
@@ -486,7 +486,7 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
           ()
       }
 
-    private[NewTyping] def checkTemplate(tplName: TypeConName, template: Template): Unit = {
+    private[Typing] def checkTemplate(tplName: TypeConName, template: Template): Unit = {
       val Template(
         param,
         precond,
@@ -513,7 +513,7 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
       }
     }
 
-    private[NewTyping] def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
+    private[Typing] def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
         case DefInterface(requires, param, choices, methods, coImplements, _) =>
           val env = introExprVar(param, TTyCon(ifaceName))
@@ -614,7 +614,7 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
     ): Unit =
       coImpls.values.foreach(checkIfaceCoImplementation(ifaceTcon, param, _))
 
-    private[NewTyping] def checkDefException(
+    private[Typing] def checkDefException(
         excepName: TypeConName,
         defException: DefException,
     ): Unit = { // NICK: these don't need to be in cont style -- call checkTopExpr (with big comment)
@@ -630,7 +630,7 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
         TypeSubst.substitute((tparams.keys zip tArgs.iterator).toMap, dataCons)
     }
 
-    private[NewTyping] def checkType(typ: Type, kind: Kind): Unit = {
+    private[Typing] def checkType(typ: Type, kind: Kind): Unit = {
       val typKind = kindOf(typ)
       if (kind != typKind)
         throw EKindMismatch(ctx, foundKind = typKind, expectedKind = kind)
@@ -1346,7 +1346,7 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
         Ret(TOptional(typ))
     }
 
-    private[NewTyping] def typeOfExpr(e: Expr): Work[Type] = e match {
+    private[Typing] def typeOfExpr(e: Expr): Work[Type] = e match {
       case expr: ExprAtomic =>
         typeOfAtomic(expr)
       case ERecCon(tycon, fields) =>
@@ -1512,7 +1512,7 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
   /* Utils */
 
   private implicit final class TypeOp(val rightType: Type) extends AnyVal {
-    private[NewTyping] def ->:(leftType: Type) = TFun(leftType, rightType)
+    private[Typing] def ->:(leftType: Type) = TFun(leftType, rightType)
   }
 
   private def typeConAppToType(app: TypeConApp): Type = app match {
@@ -1520,11 +1520,11 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
   }
 
   private[this] class ExpectedPatterns(val number: Int, patterns: => Iterator[CasePat]) {
-    private[NewTyping] def missingPatterns(ranks: Set[Int]): List[CasePat] =
+    private[Typing] def missingPatterns(ranks: Set[Int]): List[CasePat] =
       patterns.zipWithIndex.collect { case (p, i) if !ranks(i) => p }.toList
   }
   private[this] object ExpectedPatterns {
-    private[NewTyping] def apply(patterns: CasePat*) =
+    private[Typing] def apply(patterns: CasePat*) =
       new ExpectedPatterns(patterns.length, patterns.iterator)
   }
 
