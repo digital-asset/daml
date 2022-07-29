@@ -53,7 +53,7 @@ public abstract class Filter {
 
     @Override
     public String toString() {
-      return "Interface{" + "includeInterfaceView=" + includeInterfaceView + '}';
+      return "Filter.Interface{" + "includeInterfaceView=" + includeInterfaceView + '}';
     }
   }
 }
