@@ -950,14 +950,14 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPObservers $ checkExpr observers (TList TParty)
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
-    forM_ implements $ checkIfaceImplementation tcon t
+    forM_ implements $ checkIfaceImplementation tcon
   whenJust mbKey $ checkTemplateKey param tcon
 
   where
     withPart p = withContext (ContextTemplate m t p)
 
-checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> Template -> TemplateImplements -> m ()
-checkIfaceImplementation tplQualTypeCon Template{tplTypeCon} TemplateImplements{..} = do
+checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> TemplateImplements -> m ()
+checkIfaceImplementation tplQualTypeCon TemplateImplements{..} = do
   DefInterface {intRequires, intMethods} <- inWorld $ lookupInterface tpiInterface
 
   -- check clash with co-implementation
@@ -969,15 +969,15 @@ checkIfaceImplementation tplQualTypeCon Template{tplTypeCon} TemplateImplements{
   forM_ intRequires $ \required -> do
     eImpl <- inWorld (Right . lookupTemplateImplementsOrInterfaceCoImplements tplQualTypeCon required)
     whenLeft eImpl $ \_missingInterface ->
-      throwWithContext (EMissingRequiredInterface tplTypeCon tpiInterface required)
+      throwWithContext (EMissingRequiredInterface tplQualTypeCon tpiInterface required)
 
   -- check methods
   let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet tpiMethods)
   whenJust (listToMaybe (HS.toList missingMethods)) $ \methodName ->
-    throwWithContext (EMissingInterfaceMethod tplTypeCon tpiInterface methodName)
+    throwWithContext (EMissingInterfaceMethod tplQualTypeCon tpiInterface methodName)
   forM_ tpiMethods $ \TemplateImplementsMethod{tpiMethodName, tpiMethodExpr} -> do
     case NM.lookup tpiMethodName intMethods of
-      Nothing -> throwWithContext (EUnknownInterfaceMethod tplTypeCon tpiInterface tpiMethodName)
+      Nothing -> throwWithContext (EUnknownInterfaceMethod tplQualTypeCon tpiInterface tpiMethodName)
       Just InterfaceMethod{ifmType} ->
         checkExpr tpiMethodExpr ifmType
 
