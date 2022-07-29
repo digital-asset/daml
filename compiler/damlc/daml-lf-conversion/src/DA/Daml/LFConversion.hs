@@ -252,10 +252,13 @@ data ModuleContents = ModuleContents
   , mcCoImplements :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
     -- ^ Maps interfaces to co-implemented templates
   , mcRequires :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
+  , mcInterfaces :: MS.Map TypeConName (Maybe LF.SourceLoc)
+    -- ^ Maps interfaces to their definition location
+  , mcInterfaceMethods :: MS.Map TypeConName [(T.Text, GHC.Type)]
+    -- ^ Maps interfaces to the list of methods they define
   , mcInterfaceMethodInstances :: MS.Map (Qualified TypeConName, Qualified TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
     -- ^ Maps (template, interface) tuples to the list of that interface's method (co-)implementations for that template.
     -- Invariant: either the template or the interface (or both) are defined in the current module.
-  , mcInterfaces :: MS.Map TypeConName GHC.TyCon
   , mcModInstanceInfo :: !ModInstanceInfo
   , mcDepOrphanModules :: [GHC.Module]
   , mcExports :: [GHC.AvailInfo]
@@ -281,7 +284,18 @@ extractModuleContents env@Env{..} coreModule modIface details = do
           Rec binds -> binds
       ]
     mcTypeDefs = eltsUFM (cm_types coreModule)
-    mcInterfaces = interfaceNames envLfVersion mcTypeDefs
+    mcInterfaces = scrapeInterfaces envLfVersion mcTypeDefs
+    mcInterfaceMethods = MS.fromListWith (++)
+      [ (mkTypeCon [getOccText iface], [(methodName, retTy)])
+      | (name, val) <- mcBinds
+      , DFunId _ <- [idDetails name]
+      , TypeCon hasMethodCls
+          [ TypeCon iface []
+          , StrLitTy methodName
+          , retTy
+          ] <- [varType name]
+      , NameIn DA_Internal_Desugar "HasMethod" <- [hasMethodCls]
+      ]
     mcImplements = MS.fromListWith (++)
       [ (mkTypeCon [getOccText tpl], [(convNameLoc name, iface)])
       | (name, _val) <- mcBinds
@@ -524,10 +538,10 @@ modInstanceInfoFromDetails :: ModDetails -> ModInstanceInfo
 modInstanceInfoFromDetails ModDetails{..} = MS.fromList
     [ (is_dfun, overlapMode is_flag) | ClsInst{..} <- md_insts ]
 
-interfaceNames :: LF.Version -> [TyThing] -> MS.Map TypeConName TyCon
-interfaceNames lfVersion tyThings
+scrapeInterfaces :: LF.Version -> [TyThing] -> MS.Map TypeConName (Maybe SourceLoc)
+scrapeInterfaces lfVersion tyThings
     | lfVersion `supports` featureInterfaces = MS.fromList
-        [ (mkTypeCon [getOccText t], t)
+        [ (mkTypeCon [getOccText t], convNameLoc (GHC.tyConName t))
         | ATyCon t <- tyThings
         , hasDamlInterfaceCtx t
         ]
@@ -554,14 +568,13 @@ convertInterfaces env mc = interfaceDefs
   where
     interfaceDefs :: ConvertM [Definition]
     interfaceDefs = sequence
-        [ DInterface <$> convertInterface name tycon
-        | (name, tycon) <- MS.toList (mcInterfaces mc)
+        [ DInterface <$> convertInterface name loc
+        | (name, loc) <- MS.toList (mcInterfaces mc)
         ]
 
-    convertInterface :: LF.TypeConName -> GHC.TyCon -> ConvertM DefInterface
-    convertInterface intName tyCon = do
+    convertInterface :: LF.TypeConName -> Maybe SourceLoc -> ConvertM DefInterface
+    convertInterface intName intLocation = do
         let
-          intLocation = convNameLoc (GHC.tyConName tyCon)
           intParam = this
           qIfaceTypeCon = Qualified PRSelf (envLFModuleName env) intName
         withRange intLocation $ do
@@ -569,22 +582,15 @@ convertInterfaces env mc = interfaceDefs
                   "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
             intRequires <- fmap S.fromList $ mapM (\(mloc, iface) -> withRange mloc $ convertInterfaceTyCon env handleIsNotInterface iface) $
                 MS.findWithDefault [] intName (mcRequires mc)
-            intMethods <- NM.fromList <$> convertMethods tyCon
+            intMethods <- NM.fromList <$> convertMethods intName
             intChoices <- convertChoices env mc intName emptyTemplateBinds
             intCoImplements <- convertInterfaceCoImpls env mc qIfaceTypeCon
             let intView = TBuiltin BTUnit -- TODO: Stub view, will extract later, https://github.com/digital-asset/daml/pull/14439
             pure DefInterface {..}
 
-    convertMethods :: GHC.TyCon -> ConvertM [InterfaceMethod]
-    convertMethods tyCon = sequence $ do
-      (name, val) <- mcBinds mc
-      DFunId _ <- [idDetails name]
-      TypeCon hasMethodCls
-        [ TypeCon ((== tyCon) -> True) []
-        , StrLitTy methodName
-        , retTy
-        ] <- [varType name]
-      NameIn DA_Internal_Desugar "HasMethod" <- [hasMethodCls]
+    convertMethods :: TypeConName -> ConvertM [InterfaceMethod]
+    convertMethods intName = sequence $ do
+      (methodName, retTy) <- MS.findWithDefault [] intName (mcInterfaceMethods mc)
       pure $ do
         retTy' <- convertType env retTy
         pure InterfaceMethod
