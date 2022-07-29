@@ -10,15 +10,53 @@ option java_outer_classname = "PropertyOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
-message Property {
-  // Required
-  // We follow K8s' convention:
-  // '''
-  // The name segment is required and must be 63 characters or less, beginning and ending with an alphanumeric character ([a-z0-9A-Z]) with dashes (-), underscores (_), dots (.), and alphanumerics between.
-  // '''
-  // https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/#syntax-and-character-set
-  string name = 1;
+//message Property {
+//  // Required
+//  // We follow K8s' convention:
+//  // '''
+//  // The name segment is required and must be 63 characters or less, beginning and ending with an alphanumeric character ([a-z0-9A-Z]) with dashes (-), underscores (_), dots (.), and alphanumerics between.
+//  // '''
+//  // https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/#syntax-and-character-set
+//  string name = 1;
+//  // Optional
+//  // At most 1024 bytes of information
+//  bytes value = 2;
+//}
+
+// Based on https://github.com/kubernetes/apimachinery/blob/master/pkg/apis/meta/v1/generated.proto#L640
+message ObjectMeta {
+
+  // Annotations is an unstructured key value map stored with a resource that may be
+  // set by external tools to store and retrieve arbitrary metadata. They are not
+  // queryable and should be preserved when modifying objects.
+  // More info: http://kubernetes.io/docs/user-guide/annotations
+  // +optional
+  //
+
+  // Key-value pairs.
+  //
+  // Max total size of all annotations in 'ObjectMeta' message (the sum of sizes over all keys and all values) is 256kB
+  //
+  // 1. Keys have an optional prefix segment and required name segment.
+  //   1) Key prefix must be DNS subdomain with at most 253 characters, followed by '/' (slash) character.
+  //   2) Name segment must have at most 63 characters.
+  // 2. Values can be any valid UTF-8 strings.
+  //
+  // When used in with update API calls with FieldMask the following update semantics applies:
+  // - selecting the whole annotations map replace the whole map to the provided payload value,
+  // - selecting a particular map key replaces only the value of the corresponding entry, given the payload contains this key,
+  // - selecting a particular map key deletes the corresponding entry, given the payalod does not contain this key.
+  // Keys (specifically key prefixes) can contain '.' (dot) characters which has special meaning in FieldMask. You must
+  // escape '.' in your keys when used in field masks with '\' (slash) character.
+  //
+  // Due to protobuf3 map semantics duplicate keys are either disallowed or the last key wins:
+  // """
+  // When parsing from the wire or when merging, if there are duplicate map keys the last key seen is used. When parsing a map from text format, parsing may fail if there are duplicate keys.
+  // """
+  // https://developers.google.com/protocol-buffers/docs/proto3#maps
+  //
   // Optional
-  // At most 1024 bytes of information
-  bytes value = 2;
+  map<string, string> annotations = 12;
+
+
 }

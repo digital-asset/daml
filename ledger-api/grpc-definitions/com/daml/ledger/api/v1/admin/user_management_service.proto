@@ -108,7 +108,7 @@ message User {
     bool is_deactivated = 3;
 
     // Optional
-    repeated Property properties = 4;
+    repeated ObjectMeta object_meta = 4;
 }
 
 
@@ -153,7 +153,7 @@ message CreateUserRequest {
     repeated Right rights = 2;
 
     // Optional
-    repeated Property properties = 3;
+    ObjectMeta object_meta = 3;
 }
 
 message CreateUserResponse {

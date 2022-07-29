@@ -120,7 +120,7 @@ message AllocatePartyRequest {
   string display_name = 2;
 
   // Optional
-  repeated Property properties = 3;
+  ObjectMeta object_meta = 3;
 }
 
 message AllocatePartyResponse {
@@ -165,5 +165,5 @@ message PartyDetails {
   bool is_local = 3;
 
   // Optional
-  repeated Property properties = 3;
+  ObjectMeta object_meta = 3;
 }
