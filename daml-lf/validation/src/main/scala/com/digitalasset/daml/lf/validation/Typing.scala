@@ -29,8 +29,8 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
 
   import Work.{Ret, Delay, Bind}
 
-  def sequenceWork[A, T](works: Seq[Work[T]])(k: List[T] => Work[A]): Work[A] = {
-    def loop(acc: List[T], works: Seq[Work[T]]): Work[A] = {
+  def sequenceWork[A, T](works: List[Work[T]])(k: List[T] => Work[A]): Work[A] = {
+    def loop(acc: List[T], works: List[Work[T]]): Work[A] = {
       works match {
         case Nil => k(acc.reverse)
         case work :: works =>
@@ -705,10 +705,9 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
           val (exprFieldNames, fieldExprs) = recordExpr.unzip
           val (typeFieldNames, fieldTypes) = recordType.unzip
           if (exprFieldNames != typeFieldNames) throw EFieldMismatch(ctx, typ, recordExpr)
-          (fieldExprs zip fieldTypes).foreach { case (e, f) =>
-            legacy_checkExpr(e, f)
-          } // NICK: multi
-          work
+          checkExprList((fieldExprs zip fieldTypes).toList) {
+            work
+          }
         case _ =>
           throw EExpectedRecordType(ctx, typ)
       }
@@ -767,7 +766,7 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
         typeOf(x) { ty =>
           Ret(f -> ty)
         }
-      }.toSeq) { xs =>
+      }.toList) { xs =>
         Ret(Struct.fromSeq(xs).fold(name => throw EDuplicateField(ctx, name), TStruct))
       }
     }
@@ -965,7 +964,7 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
 
         sequenceWork(alts.iterator.map { case CaseAlt(patn, rhs) =>
           introPattern(patn).typeOf(rhs) { ty => Ret(ty) }
-        }.toSeq) { types =>
+        }.toList) { types =>
           types match {
             case t :: ts =>
               ts.foreach(otherType =>
@@ -1069,9 +1068,10 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
     ): Work[T] = {
       checkType(elemType, KStar)
       if (front.isEmpty) throw EEmptyConsFront(ctx)
-      front.foreach(legacy_checkExpr(_, elemType)) // NICK: multi
-      checkExpr(tailExpr, TList(elemType)) {
-        work
+      checkExprList(front.toList.map(x => (x, elemType))) {
+        checkExpr(tailExpr, TList(elemType)) {
+          work
+        }
       }
     }
 
@@ -1083,25 +1083,33 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
     }
 
     private def typeOfScenarioBlock(bindings: ImmArray[Binding], body: Expr): Work[Type] = {
-      val env = bindings.foldLeft(this) { case (env, Binding(vName, typ, bound)) =>
-        env.checkType(typ, KStar)
-        env.legacy_checkExpr(bound, TScenario(typ)) // NICK: multi
-        env.introExprVar(vName, typ)
+      def loop(env: Env, bindings0: List[Binding]): Work[Type] = bindings0 match {
+        case Binding(vName, typ, bound) :: bindings =>
+          env.checkType(typ, KStar)
+          env.checkExpr(bound, TScenario(typ)) {
+            loop(env.introExprVar(vName, typ), bindings)
+          }
+        case Nil =>
+          env.typeOf(body) { ty =>
+            Ret(toScenario(ty))
+          }
       }
-      env.typeOf(body) { ty =>
-        Ret(toScenario(ty))
-      }
+      loop(this, bindings.toList)
     }
 
     private def typeOfUpdateBlock(bindings: ImmArray[Binding], body: Expr): Work[Type] = {
-      val env = bindings.foldLeft(this) { case (env, Binding(vName, typ, bound)) =>
-        env.checkType(typ, KStar)
-        env.legacy_checkExpr(bound, TUpdate(typ)) // NICK: multi
-        env.introExprVar(vName, typ)
+      def loop(env: Env, bindings0: List[Binding]): Work[Type] = bindings0 match {
+        case Binding(vName, typ, bound) :: bindings =>
+          env.checkType(typ, KStar)
+          env.checkExpr(bound, TUpdate(typ)) {
+            loop(env.introExprVar(vName, typ), bindings)
+          }
+        case Nil =>
+          env.typeOf(body) { ty =>
+            Ret(toUpdate(ty))
+          }
       }
-      env.typeOf(body) { ty =>
-        Ret(toUpdate(ty))
-      }
+      loop(this, bindings.toList)
     }
 
     private def typeOfCreate(tpl: TypeConName, arg: Expr): Work[Type] = {
@@ -1142,8 +1150,10 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
       checkExpr(cid, TContractId(TTyCon(interfaceId))) {
         val choice = handleLookup(ctx, pkgInterface.lookupInterfaceChoice(interfaceId, chName))
         checkExpr(arg, choice.argBinder._2) {
-          guard.foreach(legacy_checkExpr(_, TFun(TTyCon(interfaceId), TBool))) // NICK: multi
-          Ret(TUpdate(choice.returnType))
+          val guardType = TFun(TTyCon(interfaceId), TBool)
+          checkExprList(guard.toList.map(x => (x, guardType))) {
+            Ret(TUpdate(choice.returnType))
+          }
         }
       }
     }
@@ -1434,6 +1444,16 @@ private[validation] object NewTyping { // NICK: WIP stack-safe type-checking cod
 
     private def checkExpr[T](expr: Expr, typ0: Type)(work: => Work[T]): Work[T] = {
       resolveExprType(expr, typ0) { _ =>
+        work
+      }
+    }
+
+    private def checkExprList[T](xs: List[(Expr, Type)])(work: => Work[T]): Work[T] = {
+      sequenceWork(xs.map { case (e, f) =>
+        checkExpr(e, f) {
+          Ret(())
+        }
+      }) { _ =>
         work
       }
     }
