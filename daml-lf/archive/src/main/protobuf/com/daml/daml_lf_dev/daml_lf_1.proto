@@ -1322,8 +1322,9 @@ message Update {
     Expr cid = 3;
     // argument
     Expr arg = 4;
+
     // exercise guard (Interface -> Bool)
-    Expr guard = 5;  // optional
+    Expr guard = 5;  // *optional*  *Available in versions >= 1.16*
   }
 
  // ExerciseByKey Update
@@ -1633,19 +1634,20 @@ message DefInterface {
 
   Location location = 1;
   int32 tycon_interned_dname = 2;
-  repeated TypeConName requires = 3;
-  repeated InterfaceMethod methods = 4;
+  repeated InterfaceMethod methods = 3;
 
   // Binder for interface value ("this") in precond and fixed choices.
-  int32 param_interned_str = 5;
+  int32 param_interned_str = 4;
 
-  repeated TemplateChoice choices = 6;
+  repeated TemplateChoice choices = 5;
 
   // Templates which this interface co-implements.
-  repeated CoImplements coImplements = 7;
+  repeated CoImplements coImplements = 6;
 
   // View type for this interface
-  Type view = 9;
+  Type view = 8;
+
+  repeated TypeConName requires = 9;  // *Available in versions >= 1.dev*
 }
 
 // Exception definition

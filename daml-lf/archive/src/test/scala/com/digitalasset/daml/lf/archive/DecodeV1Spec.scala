@@ -19,7 +19,6 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
-import scala.collection.immutable.VectorMap
 
 class DecodeV1Spec
     extends AnyWordSpec
@@ -1251,83 +1250,6 @@ class DecodeV1Spec
         moduleDecoder(version, interfaceDefStringTable, interfaceDefDottedNameTable, typeTable)
     }
 
-    s"decode interface implementations in templates iff version >= ${LV.Features.basicInterfaces}" in {
-
-      val unit = DamlLf1.Unit.newBuilder().build()
-      val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit).build
-      val modRef =
-        DamlLf1.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
-      val ifaceTyConName =
-        DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(2)
-
-      val i = DamlLf1.DefTemplate.Implements
-        .newBuilder()
-        .setInterface(ifaceTyConName)
-        .setView(unitExpr)
-        .build()
-
-      val t = DamlLf1.DefTemplate
-        .newBuilder()
-        .setTyconInternedDname(1)
-        .setParamInternedStr(0)
-        .setPrecond(unitExpr)
-        .setSignatories(unitExpr)
-        .setAgreement(unitExpr)
-        .setObservers(unitExpr)
-        .addImplements(i)
-        .build()
-
-      val m = DamlLf1.Module
-        .newBuilder()
-        .setNameInternedDname(0)
-        .addTemplates(t)
-        .setFlags(
-          DamlLf1.FeatureFlags
-            .newBuilder()
-            .setForbidPartyLiterals(true)
-            .setDontDivulgeContractIdsInCreateArguments(true)
-            .setDontDiscloseNonConsumingChoicesToObservers(true)
-        )
-        .build()
-
-      val ifaceTemplateScala = Ast.Module(
-        Ref.DottedName.assertFromString("Mod"),
-        Map.empty,
-        Map(
-          Ref.DottedName.assertFromString("T") -> Ast.Template(
-            Ref.IdString.Name.assertFromString("this"),
-            EUnit,
-            EUnit,
-            EUnit,
-            Map.empty,
-            EUnit,
-            None,
-            VectorMap(
-              Ref.TypeConName
-                .assertFromString("noPkgId:Mod:I") -> Ast.TemplateImplements(
-                Ref.TypeConName.assertFromString("noPkgId:Mod:I"),
-                Map(),
-                EUnit,
-              )
-            ),
-          )
-        ),
-        Map.empty,
-        Map.empty,
-        Ast.FeatureFlags(),
-      )
-
-      forEveryVersion { version =>
-        val result = Try(interfaceDefDecoder(version).decodeModule(m))
-        if (version >= LV.Features.basicInterfaces)
-          result shouldBe Success(ifaceTemplateScala)
-        else
-          inside(result) { case Failure(error) =>
-            error shouldBe an[Error.Parsing]
-          }
-      }
-    }
-
     s"decode interface definitions correctly iff version >= ${LV.Features.basicInterfaces}" in {
 
       val fearureFlags = DamlLf1.FeatureFlags
@@ -1486,7 +1408,7 @@ class DecodeV1Spec
           TUnit,
         )
 
-      forEveryVersionSuchThat(_ >= LV.Features.basicInterfaces) { version =>
+      forEveryVersion { version =>
         val decoder = interfaceDefDecoder(version)
         val result = Try(decoder.decodeDefInterface(interfaceName, requiresDefInterface))
         if (version >= LV.Features.extendedInterfaces)
