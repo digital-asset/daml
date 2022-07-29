@@ -970,13 +970,15 @@ checkIfaceImplementation tplQualTypeCon TemplateImplements{..} = do
     ((\(TemplateImplementsMethod name expr) -> (name, expr)) <$> NM.toList tpiMethods)
 
 checkIfaceCoImplementation :: MonadGamma m => Qualified TypeConName -> DefInterface -> InterfaceCoImplements -> m ()
-checkIfaceCoImplementation ifaceQualTypeCon defIface InterfaceCoImplements{..} =
-  checkGenImplementation
-    lookupTemplateImplements
-    defIface
-    iciTemplate
-    ifaceQualTypeCon
-    ((\(InterfaceCoImplementsMethod name expr) -> (name, expr)) <$> NM.toList iciMethods)
+checkIfaceCoImplementation ifaceQualTypeCon defIface@DefInterface{intParam} InterfaceCoImplements{..} =
+  -- Note (MA): here we introduce `param : TCon iciTemplate` (this)
+  introExprVar intParam (TCon iciTemplate) $
+    checkGenImplementation
+      lookupTemplateImplements
+      defIface
+      iciTemplate
+      ifaceQualTypeCon
+      ((\(InterfaceCoImplementsMethod name expr) -> (name, expr)) <$> NM.toList iciMethods)
 
 checkGenImplementation ::
      MonadGamma m
