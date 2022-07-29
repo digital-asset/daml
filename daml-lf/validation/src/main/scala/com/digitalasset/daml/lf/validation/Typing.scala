@@ -21,8 +21,9 @@ private[validation] object Typing {
     runWork(env.typeOfExpr(exp))
   }
 
-  sealed abstract class Work[A]
-  object Work {
+  // stack-safety achieved via a Work trampoline.
+  private sealed abstract class Work[A]
+  private object Work {
     final case class Ret[A](v: A) extends Work[A]
     final case class Delay[A](thunk: () => Work[A]) extends Work[A]
     final case class Bind[A, X](work: Work[X], k: X => Work[A]) extends Work[A]
@@ -30,7 +31,7 @@ private[validation] object Typing {
 
   import Work.{Ret, Delay, Bind}
 
-  def sequenceWork[A, T](works: List[Work[T]])(k: List[T] => Work[A]): Work[A] = {
+  private def sequenceWork[A, T](works: List[Work[T]])(k: List[T] => Work[A]): Work[A] = {
     def loop(acc: List[T], works: List[Work[T]]): Work[A] = {
       works match {
         case Nil => k(acc.reverse)
@@ -41,7 +42,8 @@ private[validation] object Typing {
     loop(Nil, works)
   }
 
-  def runWork[R](work: Work[R]): R = {
+  private def runWork[R](work: Work[R]): R = {
+    // calls to runWork must never be nested
     @tailrec
     def loop[A](work: Work[A]): A = work match {
       case Ret(v) => v
@@ -368,6 +370,7 @@ private[validation] object Typing {
       eVars: Map[ExprVarName, Type] = Map.empty,
   ) {
 
+    // continuation style is for convenience of caller
     private def typeOf[T](e: Expr)(k: Type => Work[T]): Work[T] = {
       // stack-safe type-computation for sub-expressions
       Bind(Delay(() => typeOfExpr(e)), k)
