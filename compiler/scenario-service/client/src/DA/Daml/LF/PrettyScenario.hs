@@ -482,27 +482,6 @@ prettyScenarioErrorError (Just err) =  do
               (prettyDefName world)
               scenarioError_ContractDoesNotImplementRequiringInterfaceRequiringInterfaceId
         ]
-    ScenarioErrorErrorDisclosurePreprocessingDuplicateContractIds(ScenarioError_DisclosurePreprocessingDuplicateContractIds templateId) ->
-      pure $ vcat
-        [ "Found duplicate contract IDs in submitted disclosed contracts"
-        , label_ "Template: " $ prettyMay "missing template" (prettyDefName world) templateId
-        ]
-    ScenarioErrorErrorDisclosurePreprocessingDuplicateContractKeys(ScenarioError_DisclosurePreprocessingDuplicateContractKeys templateId) ->
-      pure $ vcat
-        [ "Found duplicate contract keys in submitted disclosed contracts"
-        , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
-        ]
-    ScenarioErrorErrorDisclosurePreprocessingNonExistentTemplate(ScenarioError_DisclosurePreprocessingNonExistentTemplate templateId) ->
-      pure $ vcat
-        [ "Disclosed contract template does not exist"
-        , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
-        ]
-    ScenarioErrorErrorDisclosurePreprocessingNonExistentDisclosedContractKeyHash(ScenarioError_DisclosurePreprocessingNonExistentDisclosedContractKeyHash contractId templateId) ->
-      pure $ vcat
-        [ "Template has a key defined, but there is no key hash for disclosed contract"
-        , label_ "Disclosed Contract: " $ prettyContractId contractId
-        , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
-        ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =

@@ -145,18 +145,6 @@ object Error {
       byInterface: Option[TypeConName],
   ) extends Error
 
-  final case class DisclosurePreprocessing(error: DisclosurePreprocessing.Error) extends Error
-  object DisclosurePreprocessing {
-    sealed abstract class Error extends Serializable with Product
-    final case class DuplicateContractIds(templateId: TypeConName) extends Error
-    final case class DuplicateContractKeys(templateId: TypeConName) extends Error
-    final case class NonExistentTemplate(templateId: TypeConName) extends Error
-    final case class NonExistentDisclosedContractKeyHash(
-        coid: Value.ContractId,
-        templateId: TypeConName,
-    ) extends Error
-  }
-
   final case class Limit(error: Limit.Error) extends Error
 
   object Limit {

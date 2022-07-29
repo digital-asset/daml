@@ -237,34 +237,6 @@ final class Conversions(
                   cgfBuilder.setByInterface(convertIdentifier(ifaceId))
                 )
                 builder.setChoiceGuardFailed(cgfBuilder.build)
-
-              case DisclosurePreprocessing(err) =>
-                err match {
-                  case DisclosurePreprocessing.DuplicateContractKeys(tid) =>
-                    builder.setDisclosurePreprocessingDuplicateContractKeys(
-                      proto.ScenarioError.DisclosurePreprocessingDuplicateContractKeys.newBuilder
-                        .setTemplateId(convertIdentifier(tid))
-                    )
-                  case DisclosurePreprocessing.DuplicateContractIds(tid) =>
-                    builder.setDisclosurePreprocessingDuplicateContractIds(
-                      proto.ScenarioError.DisclosurePreprocessingDuplicateContractIds.newBuilder
-                        .setTemplateId(convertIdentifier(tid))
-                    )
-                  case DisclosurePreprocessing.NonExistentTemplate(templateId) =>
-                    builder.setDisclosurePreprocessingNonExistentTemplate(
-                      proto.ScenarioError.DisclosurePreprocessingNonExistentTemplate.newBuilder
-                        .setTemplateId(convertIdentifier(templateId))
-                    )
-                  case DisclosurePreprocessing.NonExistentDisclosedContractKeyHash(
-                        contractId,
-                        templateId,
-                      ) =>
-                    builder.setDisclosurePreprocessingNonExistentDisclosedContractKeyHash(
-                      proto.ScenarioError.DisclosurePreprocessingNonExistentDisclosedContractKeyHash.newBuilder
-                        .setContractId(coidToEventId(contractId).toLedgerString)
-                        .setTemplateId(convertIdentifier(templateId))
-                    )
-                }
             }
         }
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>
