@@ -157,10 +157,7 @@ private[lf] final class Compiler(
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompileInterfaceView(view: InterfaceView): t.SExpr = {
-    // TODO https://github.com/digital-asset/daml/issues/14112
-    // PoC until we have interface views
-    val magicInterfaceView = MethodName.assertFromString("_view")
-    SBCallInterface(view.interfaceId, magicInterfaceView)(
+    SBViewInterface(view.interfaceId)(
       SBToAnyContract(view.templateId)(t.SEValue(view.argument))
     )
   }

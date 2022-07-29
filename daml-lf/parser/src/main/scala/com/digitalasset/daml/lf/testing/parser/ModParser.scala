@@ -6,7 +6,6 @@ package testing.parser
 
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.Util._
 import com.daml.lf.testing.parser.Parsers._
 import com.daml.lf.testing.parser.Token._
 import com.daml.scalautil.Statement.discard
@@ -128,14 +127,16 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       TemplateImplementsMethod(name, value)
     }
 
+  private lazy val implementsView: Parser[Expr] =
+    Id("view") ~>! `=` ~>! expr
+
   private lazy val implements: Parser[TemplateImplements] =
-    Id("implements") ~>! fullIdentifier ~ (`{` ~> rep(method <~ `;`) <~ `}`) ^^ {
-      case ifaceId ~ methods =>
-        // TODO: Represent a view method and parse it. Currently hardcoding views to unit
+    Id("implements") ~>! fullIdentifier ~ (`{` ~> (implementsView <~ `;`) ~ rep(method <~ `;`) <~ `}`) ^^ {
+      case ifaceId ~ (view ~ methods) =>
         TemplateImplements.build(
           ifaceId,
           methods,
-          EAbs((Ref.Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
+          view,
         )
     }
 
@@ -204,22 +205,26 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   private val interfaceDefinition: Parser[IfaceDef] =
     Id("interface") ~ `(` ~> id ~ `:` ~ dottedName ~ `)` ~ `=` ~ `{` ~
+      (interfaceView <~ `;`) ~
       rep(interfaceRequires <~ `;`) ~
       rep(interfaceMethod <~ `;`) ~
       rep(templateChoice <~ `;`) ~
       rep(coImplements <~ `;`) <~
       `}` ^^ {
         case x ~ _ ~ tycon ~ _ ~ _ ~ _ ~
+            view ~
             requires ~
             methods ~
             choices ~
             coImplements =>
           IfaceDef(
             tycon,
-            // TODO: https://github.com/digital-asset/daml/issues/14112
-            DefInterface.build(Set.from(requires), x, choices, methods, coImplements, TUnit),
+            DefInterface.build(Set.from(requires), x, choices, methods, coImplements, view),
           )
       }
+  private val interfaceView: Parser[Type] =
+    Id("viewtype") ~>! typ
+
   private val interfaceRequires: Parser[Ref.TypeConName] =
     Id("requires") ~>! fullIdentifier
 
@@ -233,13 +238,16 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       InterfaceCoImplementsMethod(name, value)
     }
 
+  private lazy val coImplementsView: Parser[Expr] =
+    Id("view") ~>! `=` ~>! expr
+
   private lazy val coImplements: Parser[InterfaceCoImplements] =
-    Id("coimplements") ~>! fullIdentifier ~ (`{` ~> rep(coImplementsMethod <~ `;`) <~ `}`) ^^ {
-      case tplId ~ methods =>
+    Id("coimplements") ~>! fullIdentifier ~ (`{` ~> (coImplementsView <~ `;`) ~ rep(coImplementsMethod <~ `;`) <~ `}`) ^^ {
+      case tplId ~ (view ~ methods) =>
         InterfaceCoImplements.build(
           tplId,
           methods,
-          EAbs((Ref.Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
+          view,
         )
     }
 
