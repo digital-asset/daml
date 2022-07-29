@@ -173,29 +173,30 @@ data Env = Env
     -- Once data dependencies are well-supported we might want to remove this if the number of GHC
     -- packages does not cause performance issues.
     ,envLfVersion :: LF.Version
-    ,envTemplateBinds :: MS.Map TypeConName TemplateBinds
-    ,envInterfaceBinds :: MS.Map TypeConName InterfaceBinds
-    ,envExceptionBinds :: MS.Map TypeConName ExceptionBinds
-    ,envChoiceData :: MS.Map TypeConName [ChoiceData]
-    ,envImplements :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
-    ,envRequires :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
-    ,envInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
-    ,envInterfaceChoiceData :: MS.Map TypeConName [ChoiceData]
-    ,envInterfaces :: MS.Map TypeConName GHC.TyCon
-    ,envIsGenerated :: Bool
     ,envEnableScenarios :: EnableScenarios
     ,envTypeVars :: !(MS.Map Var TypeVarName)
         -- ^ Maps GHC type variables in scope to their LF type variable names
     ,envTypeVarNames :: !(S.Set TypeVarName)
         -- ^ The set of LF type variable names in scope (i.e. the set of
         -- values of 'envTypeVars').
-    , envModInstanceInfo :: !ModInstanceInfo
     }
 
-data ChoiceData = ChoiceData
-  { _choiceDatTy :: GHC.Type
-  , _choiceDatExpr :: GHC.Expr GHC.CoreBndr
-  }
+mkEnv ::
+     LF.Version
+  -> EnableScenarios
+  -> MS.Map UnitId DalfPackage
+  -> MS.Map (UnitId, LF.ModuleName) PackageId
+  -> GHC.Module
+  -> Env
+mkEnv envLfVersion envEnableScenarios envPkgMap envStablePackages ghcModule = do
+  let
+    envGHCModuleName = GHC.moduleName ghcModule
+    envModuleUnitId = GHC.moduleUnitId ghcModule
+    envLFModuleName = convertModuleName envGHCModuleName
+    envAliases = MS.empty
+    envTypeVars = MS.empty
+    envTypeVarNames = S.empty
+  Env {..}
 
 -- v is an alias for x
 envInsertAlias :: Var -> LF.Expr -> Env -> Env
@@ -234,6 +235,99 @@ envLookupTypeVar x = MS.lookup x . envTypeVars
 
 envHasTypeVarName :: TypeVarName -> Env -> Bool
 envHasTypeVarName x = S.member x . envTypeVarNames
+
+---------------------------------------------------------------------
+-- EXTRACTION
+
+-- | Information extracted from the GHC representation of the module as an
+-- initial step of conversion.
+data ModuleContents = ModuleContents
+  { mcBinds :: [(Var, GHC.Expr CoreBndr)]
+  , mcTypeDefs :: [TyThing]
+  , mcTemplateBinds :: MS.Map TypeConName TemplateBinds
+  , mcExceptionBinds :: MS.Map TypeConName ExceptionBinds
+  , mcChoiceData :: MS.Map TypeConName [ChoiceData]
+  , mcImplements :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
+  , mcRequires :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
+  , mcInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
+  , mcInterfaces :: MS.Map TypeConName GHC.TyCon
+  , mcModInstanceInfo :: !ModInstanceInfo
+  , mcDepOrphanModules :: [GHC.Module]
+  , mcExports :: [GHC.AvailInfo]
+  , mcFixities :: [(OccName, GHC.Fixity)]
+  }
+
+data ChoiceData = ChoiceData
+  { _choiceDatTy :: GHC.Type
+  , _choiceDatExpr :: GHC.Expr GHC.CoreBndr
+  }
+
+extractModuleContents :: Env -> CoreModule -> ModIface -> ModDetails -> ModuleContents
+extractModuleContents env@Env{..} coreModule modIface details = do
+  let
+    mcBinds =
+      [ bind
+      | bindGroup <- cm_binds coreModule
+      , bind <- case bindGroup of
+          NonRec name body
+            -- NOTE(MH): We can't cope with the generated Typeable stuff, so remove those bindings
+            | any (`T.isPrefixOf` getOccText name) ["$krep", "$tc", "$trModule"] -> []
+            | otherwise -> [(name, body)]
+          Rec binds -> binds
+      ]
+    mcTypeDefs = eltsUFM (cm_types coreModule)
+    mcInterfaces = interfaceNames envLfVersion mcTypeDefs
+    mcImplements = MS.fromListWith (++)
+      [ (mkTypeCon [getOccText tpl], [(convNameLoc name, iface)])
+      | (name, _val) <- mcBinds
+      , "_implements_" `T.isPrefixOf` getOccText name
+      , TypeCon implementsT [TypeCon tpl [], TypeCon iface []] <- [varType name]
+      , NameIn DA_Internal_Desugar "ImplementsT" <- [implementsT]
+      ]
+    mcRequires = MS.fromListWith (++)
+      [ (mkTypeCon [getOccText iface1], [(convNameLoc name, iface2)])
+      | (name, _val) <- mcBinds
+      , "_requires_" `T.isPrefixOf` getOccText name
+      , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- [varType name]
+      , NameIn DA_Internal_Desugar "RequiresT" <- [requiresT]
+      ]
+    mcInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
+    mcInterfaceMethodInstances = MS.fromListWith (++)
+      [
+        ( (mod, mkTypeCon [getOccText iface], mkTypeCon [getOccText tpl])
+        , [(methodName, untick val)]
+        )
+      | (name, val) <- mcBinds
+      , TypeCon methodNewtype
+        [ TypeCon tpl []
+        , TypeCon iface []
+        , StrLitTy methodName
+        ] <- [varType name]
+      , NameIn DA_Internal_Desugar "Method" <- [methodNewtype]
+      , Just mod <- [nameModule_maybe (getName iface)]
+      ]
+    mcChoiceData = MS.fromListWith (++)
+        [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
+        | (name, v) <- mcBinds
+        , "_choice_" `T.isPrefixOf` getOccText name
+        , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
+        ]
+    mcTemplateBinds = scrapeTemplateBinds mcBinds
+    mcExceptionBinds
+        | envLfVersion `supports` featureExceptions =
+            scrapeExceptionBinds mcBinds
+        | otherwise =
+            MS.empty
+
+    mcModInstanceInfo = modInstanceInfoFromDetails details
+    mcDepOrphanModules = getDepOrphanModules modIface
+    mcExports = md_exports details
+    mcFixities = mi_fixities modIface
+
+  ModuleContents {..}
+
+getDepOrphanModules :: ModIface -> [GHC.Module]
+getDepOrphanModules = dep_orphs . mi_deps
 
 ---------------------------------------------------------------------
 -- CONVERSION
@@ -396,18 +490,6 @@ scrapeTemplateBinds binds = MS.filter (isJust . tbTyCon) $ MS.map ($ emptyTempla
     , hasDamlTemplateCtx tpl
     ]
 
-data InterfaceBinds = InterfaceBinds
-    { ibEnsure :: Maybe (GHC.Expr Var)
-    }
-
-scrapeInterfaceBinds :: [(Var, GHC.Expr Var)] -> MS.Map TypeConName InterfaceBinds
-scrapeInterfaceBinds binds = MS.fromList
-    [ ( mkTypeCon [getOccText (GHC.tyConName iface)]
-      , InterfaceBinds { ibEnsure = Just expr} )
-    | (HasEnsureDFunId iface, expr) <- binds
-    , hasDamlInterfaceCtx iface
-    ]
-
 data ExceptionBinds = ExceptionBinds
     { ebTyCon :: GHC.TyCon
     , ebMessage :: GHC.Expr Var
@@ -446,13 +528,13 @@ convertInterfaceTyCon env errHandler tycon
     | otherwise =
         conversionError $ errHandler tycon
 
-convertInterfaces :: Env -> [(Var, GHC.Expr Var)] -> ConvertM [Definition]
-convertInterfaces env binds = interfaceDefs
+convertInterfaces :: Env -> ModuleContents -> ConvertM [Definition]
+convertInterfaces env mc = interfaceDefs
   where
     interfaceDefs :: ConvertM [Definition]
     interfaceDefs = sequence
         [ DInterface <$> convertInterface name tycon
-        | (name, tycon) <- MS.toList (envInterfaces env)
+        | (name, tycon) <- MS.toList (mcInterfaces mc)
         ]
 
     convertInterface :: LF.TypeConName -> GHC.TyCon -> ConvertM DefInterface
@@ -463,16 +545,16 @@ convertInterfaces env binds = interfaceDefs
             let handleIsNotInterface tyCon =
                   "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
             intRequires <- fmap S.fromList $ mapM (\(mloc, iface) -> withRange mloc $ convertInterfaceTyCon env handleIsNotInterface iface) $
-                MS.findWithDefault [] intName (envRequires env)
+                MS.findWithDefault [] intName (mcRequires mc)
             intMethods <- NM.fromList <$> convertMethods tyCon
-            intChoices <- convertChoices env intName emptyTemplateBinds
+            intChoices <- convertChoices env mc intName emptyTemplateBinds
             let intCoImplements = NM.empty -- TODO: https://github.com/digital-asset/daml/issues/14047
             let intView = TBuiltin BTUnit -- TODO: Stub view, will extract later, https://github.com/digital-asset/daml/pull/14439
             pure DefInterface {..}
 
     convertMethods :: GHC.TyCon -> ConvertM [InterfaceMethod]
     convertMethods tyCon = sequence $ do
-      (name, val) <- binds
+      (name, val) <- mcBinds mc
       DFunId _ <- [idDetails name]
       TypeCon hasMethodCls
         [ TypeCon ((== tyCon) -> True) []
@@ -502,22 +584,31 @@ convertModule
     -> EnableScenarios
     -> MS.Map UnitId DalfPackage
     -> MS.Map (GHC.UnitId, LF.ModuleName) LF.PackageId
-    -> Bool
     -> NormalizedFilePath
     -> CoreModule
     -> ModIface
       -- ^ Only used for information that isn't available in ModDetails.
     -> ModDetails
     -> Either FileDiagnostic LF.Module
-convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsGenerated file x modIface details = runConvertM (ConversionEnv file Nothing) $ do
-    definitions <- concatMapM (\bind -> resetFreshVarCounters >> convertBind env bind) binds
-    types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
-    depOrphanModules <- convertDepOrphanModules env (getDepOrphanModules modIface)
-    templates <- convertTemplateDefs env
-    exceptions <- convertExceptionDefs env
-    interfaces <- convertInterfaces env binds
-    exports <- convertExports env (md_exports details)
-    let fixities = convertFixities (mi_fixities modIface)
+convertModule lfVersion enableScenarios pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing) $ do
+    let
+      env = mkEnv lfVersion enableScenarios pkgMap stablePackages (cm_module coreModule)
+      mc = extractModuleContents env coreModule modIface details
+    defs <- convertModuleContents env mc
+    pure (LF.moduleFromDefinitions (envLFModuleName env) (Just $ fromNormalizedFilePath file) flags defs)
+    where
+        flags = LF.daml12FeatureFlags
+
+convertModuleContents :: Env -> ModuleContents -> ConvertM [Definition]
+convertModuleContents env mc = do
+    definitions <- convertBinds env mc
+    types <- convertTypeDefs env mc
+    depOrphanModules <- convertDepOrphanModules env mc
+    templates <- convertTemplateDefs env mc
+    exceptions <- convertExceptionDefs env mc
+    interfaces <- convertInterfaces env mc
+    exports <- convertExports env mc
+    let fixities = convertFixities mc
         defs =
             types
             ++ templates
@@ -527,86 +618,16 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
             ++ depOrphanModules
             ++ exports
             ++ fixities
-    pure (LF.moduleFromDefinitions envLFModuleName (Just $ fromNormalizedFilePath file) flags defs)
-    where
-        envGHCModuleName = GHC.moduleName $ cm_module x
-        envModuleUnitId = GHC.moduleUnitId $ cm_module x
-        envLFModuleName = convertModuleName envGHCModuleName
-        flags = LF.daml12FeatureFlags
-        binds =
-          [ bind
-          | bindGroup <- cm_binds x
-          , bind <- case bindGroup of
-              NonRec name body
-                -- NOTE(MH): We can't cope with the generated Typeable stuff, so remove those bindings
-                | any (`T.isPrefixOf` getOccText name) ["$krep", "$tc", "$trModule"] -> []
-                | otherwise -> [(name, body)]
-              Rec binds -> binds
-          ]
-        envInterfaces = interfaceNames envLfVersion (eltsUFM (cm_types x))
-        envImplements = MS.fromListWith (++)
-          [ (mkTypeCon [getOccText tpl], [(convNameLoc name, iface)])
-          | (name, _val) <- binds
-          , "_implements_" `T.isPrefixOf` getOccText name
-          , TypeCon implementsT [TypeCon tpl [], TypeCon iface []] <- [varType name]
-          , NameIn DA_Internal_Desugar "ImplementsT" <- [implementsT]
-          ]
-        envRequires = MS.fromListWith (++)
-          [ (mkTypeCon [getOccText iface1], [(convNameLoc name, iface2)])
-          | (name, _val) <- binds
-          , "_requires_" `T.isPrefixOf` getOccText name
-          , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- [varType name]
-          , NameIn DA_Internal_Desugar "RequiresT" <- [requiresT]
-          ]
-        envInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
-        envInterfaceMethodInstances = MS.fromListWith (++)
-          [
-            ( (mod, mkTypeCon [getOccText iface], mkTypeCon [getOccText tpl])
-            , [(methodName, untick val)]
-            )
-          | (name, val) <- binds
-          , TypeCon methodNewtype
-            [ TypeCon tpl []
-            , TypeCon iface []
-            , StrLitTy methodName
-            ] <- [varType name]
-          , NameIn DA_Internal_Desugar "Method" <- [methodNewtype]
-          , Just mod <- [nameModule_maybe (getName iface)]
-          ]
-        envChoiceData = MS.fromListWith (++)
-            [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
-            | (name, v) <- binds
-            , "_choice_" `T.isPrefixOf` getOccText name
-            , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
-            ]
-        envInterfaceChoiceData = MS.fromListWith (++)
-            [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
-            | (name, v) <- binds
-            , "_interface_choice_" `T.isPrefixOf` getOccText name
-            , ty@(TypeCon _ [_, TypeCon _ [TypeCon tplTy _]]) <- [varType name]
-            ]
-        envTemplateBinds = scrapeTemplateBinds binds
-        envInterfaceBinds = scrapeInterfaceBinds binds
-        envExceptionBinds
-            | envLfVersion `supports` featureExceptions =
-                scrapeExceptionBinds binds
-            | otherwise =
-                MS.empty
-
-        envAliases = MS.empty
-        envTypeVars = MS.empty
-        envTypeVarNames = S.empty
-        envModInstanceInfo = modInstanceInfoFromDetails details
-        env = Env {..}
-
-getDepOrphanModules :: ModIface -> [GHC.Module]
-getDepOrphanModules = dep_orphs . mi_deps
+    pure defs
 
 data Consuming = PreConsuming
                | Consuming
                | NonConsuming
                | PostConsuming
                deriving (Eq)
+
+convertTypeDefs :: Env -> ModuleContents -> ConvertM [Definition]
+convertTypeDefs env mc = concatMapM (convertTypeDef env) (mcTypeDefs mc)
 
 convertTypeDef :: Env -> TyThing -> ConvertM [Definition]
 convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
@@ -758,16 +779,16 @@ convertClassDef env tycon
         ++ [funDepDef | classHasFds cls]
         ++ [minimalDef | not minimalIsDefault]
 
-convertDepOrphanModules :: Env -> [GHC.Module] -> ConvertM [Definition]
-convertDepOrphanModules env orphanModules = do
+convertDepOrphanModules :: Env -> ModuleContents -> ConvertM [Definition]
+convertDepOrphanModules env mc = do
     qualifiedDepOrphanModules <- S.fromList <$>
-        mapM (convertQualifiedModuleName () env) orphanModules
+        mapM (convertQualifiedModuleName () env) (mcDepOrphanModules mc)
     let moduleImportsType = encodeModuleImports qualifiedDepOrphanModules
         moduleImportsDef = DValue (mkMetadataStub moduleImportsName moduleImportsType)
     pure [moduleImportsDef]
 
-convertFixities :: [(OccName, GHC.Fixity)] -> [Definition]
-convertFixities = zipWith mkFixityDef [0..]
+convertFixities :: ModuleContents -> [Definition]
+convertFixities = zipWith mkFixityDef [0..] . mcFixities
   where
     mkFixityDef i fixityInfo =
       DValue $
@@ -775,9 +796,9 @@ convertFixities = zipWith mkFixityDef [0..]
           (fixityName i)
           (encodeFixityInfo fixityInfo)
 
-convertExports :: Env -> [GHC.AvailInfo] -> ConvertM [Definition]
-convertExports env availInfos = do
-    let externalExportInfos = filter isExternalAvailInfo availInfos
+convertExports :: Env -> ModuleContents -> ConvertM [Definition]
+convertExports env mc = do
+    let externalExportInfos = filter isExternalAvailInfo (mcExports mc)
     exportInfos <- mapM availInfoToExportInfo externalExportInfos
     pure $ zipWith mkExportDef [0..] exportInfos
     where
@@ -873,14 +894,14 @@ self = mkVar "self"
 arg = mkVar "arg"
 res = mkVar "res"
 
-convertTemplateDefs :: Env -> ConvertM [Definition]
-convertTemplateDefs env =
-    forM (MS.toList (envTemplateBinds env)) $ \(tname, tbinds) -> do
+convertTemplateDefs :: Env -> ModuleContents -> ConvertM [Definition]
+convertTemplateDefs env mc =
+    forM (MS.toList (mcTemplateBinds mc)) $ \(tname, tbinds) -> do
         resetFreshVarCounters
-        DTemplate <$> convertTemplate env tname tbinds
+        DTemplate <$> convertTemplate env mc tname tbinds
 
-convertTemplate :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM Template
-convertTemplate env tplTypeCon tbinds@TemplateBinds{..}
+convertTemplate :: Env -> ModuleContents -> LF.TypeConName -> TemplateBinds -> ConvertM Template
+convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
     | Just tplTyCon <- tbTyCon
     , Just fSignatory <- tbSignatory
     , Just fObserver <- tbObserver
@@ -893,9 +914,9 @@ convertTemplate env tplTypeCon tbinds@TemplateBinds{..}
         tplObservers <- useSingleMethodDict env fObserver (`ETmApp` EVar this)
         tplPrecondition <- useSingleMethodDict env fEnsure (wrapPrecondition . (`ETmApp` EVar this))
         tplAgreement <- useSingleMethodDict env fAgreement (`ETmApp` EVar this)
-        tplChoices <- convertChoices env tplTypeCon tbinds
+        tplChoices <- convertChoices env mc tplTypeCon tbinds
         tplKey <- convertTemplateKey env tplTypeCon tbinds
-        tplImplements <- convertImplements env tplTypeCon
+        tplImplements <- convertImplements env mc tplTypeCon
         pure Template {..}
 
     | otherwise =
@@ -942,9 +963,9 @@ convertTemplateKey env tname TemplateBinds{..}
     | otherwise
     = pure Nothing
 
-convertExceptionDefs :: Env -> ConvertM [Definition]
-convertExceptionDefs env =
-    forM (MS.toList (envExceptionBinds env)) $ \(ename, ebinds) -> do
+convertExceptionDefs :: Env -> ModuleContents -> ConvertM [Definition]
+convertExceptionDefs env mc =
+    forM (MS.toList (mcExceptionBinds mc)) $ \(ename, ebinds) -> do
         resetFreshVarCounters
         DException <$> convertDefException env ename ebinds
 
@@ -965,9 +986,9 @@ useSingleMethodDict env (Cast ghcExpr _) f = do
 useSingleMethodDict env x _ =
     unhandled "useSingleMethodDict: not a single method type class dictionary" x
 
-convertImplements :: Env -> LF.TypeConName -> ConvertM (NM.NameMap TemplateImplements)
-convertImplements env tpl = NM.fromList <$>
-  mapM convertInterface (MS.findWithDefault [] tpl (envImplements env))
+convertImplements :: Env -> ModuleContents -> LF.TypeConName -> ConvertM (NM.NameMap TemplateImplements)
+convertImplements env mc tpl = NM.fromList <$>
+  mapM convertInterface (MS.findWithDefault [] tpl (mcImplements mc))
   where
     convertInterface :: (Maybe LF.SourceLoc, GHC.TyCon) -> ConvertM TemplateImplements
     convertInterface (originLoc, iface) = withRange originLoc $ do
@@ -981,7 +1002,7 @@ convertImplements env tpl = NM.fromList <$>
 
       methods <- convertMethods $ MS.findWithDefault []
         (mod, qualObject con, tpl)
-        (envInterfaceMethodInstances env)
+        (mcInterfaceMethodInstances mc)
 
       pure (TemplateImplements con methods view)
 
@@ -990,10 +1011,10 @@ convertImplements env tpl = NM.fromList <$>
       | (k, v) <- ms
       ]
 
-convertChoices :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
-convertChoices env tplTypeCon tbinds =
+convertChoices :: Env -> ModuleContents -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
+convertChoices env mc tplTypeCon tbinds =
     NM.fromList <$> traverse (convertChoice env tbinds)
-        (MS.findWithDefault [] tplTypeCon (envChoiceData env))
+        (MS.findWithDefault [] tplTypeCon (mcChoiceData mc))
 
 convertChoice :: Env -> TemplateBinds -> ChoiceData -> ConvertM TemplateChoice
 convertChoice env tbinds (ChoiceData ty expr) = do
@@ -1043,9 +1064,12 @@ convertChoice env tbinds (ChoiceData ty expr) = do
       where
         applyThisAndArg func = func `ETmApp` EVar this `ETmApp` EVar arg
 
+convertBinds :: Env -> ModuleContents -> ConvertM [Definition]
+convertBinds env mc =
+  concatMapM (\bind -> resetFreshVarCounters >> convertBind env mc bind) (mcBinds mc)
 
-convertBind :: Env -> (Var, GHC.Expr Var) -> ConvertM [Definition]
-convertBind env (name, x)
+convertBind :: Env -> ModuleContents -> (Var, GHC.Expr Var) -> ConvertM [Definition]
+convertBind env mc (name, x)
     -- This is inlined in the choice in the template so we can just drop this.
     | "_choice_" `T.isPrefixOf` getOccText name
     = pure []
@@ -1070,7 +1094,7 @@ convertBind env (name, x)
 
     -- Remove interface worker.
     | Just iface <- T.stripPrefix "$W" (getOccText name)
-    , mkTypeCon [iface] `MS.member` envInterfaces env = pure []
+    , mkTypeCon [iface] `MS.member` mcInterfaces mc = pure []
 
     -- NOTE(MH): Our inline return type syntax produces a local letrec for
     -- recursive functions. We currently don't support local letrecs.
@@ -1103,7 +1127,7 @@ convertBind env (name, x)
     , let (lets, body2) = collectNonRecLets body1
     , Let (Rec [(f, Lam v y)]) (Var f') <- body2
     , f == f'
-    = convertBind env $ (,) name $ mkLams params $ makeNonRecLets lets $
+    = convertBind env mc $ (,) name $ mkLams params $ makeNonRecLets lets $
         Lam v $ Let (NonRec f $ mkVarApps (Var name) params) y
 
     -- Constraint tuple projections are turned into LF struct projections at use site.
@@ -1132,7 +1156,7 @@ convertBind env (name, x)
     -- OVERLAP* annotations
     let overlapModeName' = overlapModeName (fst name')
         overlapModeDef = maybeToList $ do
-            overlapMode <- MS.lookup name (envModInstanceInfo env)
+            overlapMode <- MS.lookup name (mcModInstanceInfo mc)
             overlapModeType <- encodeOverlapMode overlapMode
             Just (DValue (mkMetadataStub overlapModeName' overlapModeType))
 
