@@ -96,10 +96,7 @@ LF_VERSIONS = [
 lf_version_next = "1.15"
 
 # All LF versions for which we have protobufs.
-PROTO_LF_VERSIONS = [
-    "1.14",
-    "1.dev",
-]
+PROTO_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14") if ver != lf_version_next]
 
 # The subset of LF versions accepted by the compiler in the syntax
 # expected by the --target option.
