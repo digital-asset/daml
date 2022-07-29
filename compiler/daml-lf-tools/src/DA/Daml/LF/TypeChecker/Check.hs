@@ -883,16 +883,6 @@ checkIface m iface = do
   introExprVar (intParam iface) (TCon tcon) $ do
     forM_ (intChoices iface) (checkTemplateChoice tcon)
 
-  -- check view method exists
-  case NM.lookup (MethodName "_view") (intMethods iface) of
-    Nothing ->
-      pure () -- throwWithContext $ ENoViewFound (intName iface)
-      -- ^ TODO: Make views mandatory when name clash issue is resolved,
-      -- https://github.com/digital-asset/daml/issues/14112
-      -- https://github.com/digital-asset/daml/pull/14322#issuecomment-1173692581
-    Just _ ->
-      pure () -- Check that view is serializable in Serializability module
-
 checkIfaceMethod :: MonadGamma m => InterfaceMethod -> m ()
 checkIfaceMethod InterfaceMethod{ifmType} = do
   checkType ifmType KStar
