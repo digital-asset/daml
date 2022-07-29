@@ -24,7 +24,6 @@ load(
     "//daml-lf/language:daml-lf.bzl",
     "LF_VERSIONS",
     "lf_version_configuration",
-    "lf_version_next",
 )
 load(
     "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
@@ -162,7 +161,7 @@ scala_source_jar(
     if target != "1.13"
     # TODO https://github.com/digital-asset/daml/issues/12051
     #  enable 1.15
-    if target != lf_version_next
+    if target != "1.15"
 ]
 
 ########################################################
@@ -185,7 +184,7 @@ scala_source_jar(
     for ver in LF_VERSIONS
     # TODO https://github.com/digital-asset/daml/issues/12051
     #  enable 1.15
-    if ver != lf_version_next
+    if ver != "1.15"
 ]
 
 daml_compile(
@@ -312,7 +311,7 @@ java_test(
     if target != "1.13"
     # TODO https://github.com/digital-asset/daml/issues/12051
     #  enable 1.15
-    if target != lf_version_next
+    if target != "1.15"
 ]
 
 ########################################################
