@@ -1015,6 +1015,9 @@ checkGenImplementation lookupOtherImpl defIface tplQualTypeCon ifaceQualTypeCon 
       Just InterfaceMethod{ifmType} ->
         checkExpr methodExpr ifmType
 
+  -- check view
+  -- TODO https://github.com/digital-asset/daml/issues/14112
+
 checkFeature :: MonadGamma m => Feature -> m ()
 checkFeature feature = do
     version <- getLfVersion
