@@ -14,9 +14,10 @@ import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
 
-private[validation] object Typing { // NICK: WIP stack-safe type-checking code...
+private[validation] object Typing {
 
   def typeOf(env: Env, exp: Expr): Type = { // testing entry point
+    // this implementation is stack-safe
     runWork(env.typeOfExpr(exp))
   }
 
@@ -367,14 +368,15 @@ private[validation] object Typing { // NICK: WIP stack-safe type-checking code..
       eVars: Map[ExprVarName, Type] = Map.empty,
   ) {
 
-    // NICK: This can (stack!)safely be used everwhere...
     private def typeOf[T](e: Expr)(k: Type => Work[T]): Work[T] = {
+      // stack-safe type-computation for sub-expressions
       Bind(Delay(() => typeOfExpr(e)), k)
     }
 
-    // NICK: kill & fix all callers to use checkExpr
-    private def legacy_checkExpr(expr: Expr, typ: Type): Unit = {
-      val exprType = runWork(typeOfExpr(expr)) // NICK: nope, mustn't call runWork
+    private def checkTopExpr(expr: Expr, typ: Type): Unit = {
+      // stack-safe type-computation for TOP-LEVEL expressions
+      // must *NOT* be used for sub-expressions
+      val exprType = runWork(typeOfExpr(expr))
       if (!alphaEquiv(exprType, typ))
         throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
     }
@@ -445,7 +447,7 @@ private[validation] object Typing { // NICK: WIP stack-safe type-checking code..
     private[Typing] def checkDValue(dfn: DValue): Unit = dfn match {
       case DValue(typ, body, isTest) =>
         checkType(typ, KStar)
-        legacy_checkExpr(body, typ)
+        checkTopExpr(body, typ)
         if (isTest) {
           discard(toScenario(dropForalls(typ)))
         }
@@ -476,13 +478,13 @@ private[validation] object Typing { // NICK: WIP stack-safe type-checking code..
             ) =>
           checkType(paramType, KStar)
           checkType(returnType, KStar)
-          introExprVar(param, paramType).legacy_checkExpr(controllers, TParties)
+          introExprVar(param, paramType).checkTopExpr(controllers, TParties)
           choiceObservers.foreach(
-            introExprVar(param, paramType).legacy_checkExpr(_, TParties)
+            introExprVar(param, paramType).checkTopExpr(_, TParties)
           )
           introExprVar(selfBinder, TContractId(TTyCon(tplName)))
             .introExprVar(param, paramType)
-            .legacy_checkExpr(update, TUpdate(returnType))
+            .checkTopExpr(update, TUpdate(returnType))
           ()
       }
 
@@ -499,16 +501,16 @@ private[validation] object Typing { // NICK: WIP stack-safe type-checking code..
       ) =
         template
       val env = introExprVar(param, TTyCon(tplName))
-      env.legacy_checkExpr(precond, TBool)
-      env.legacy_checkExpr(signatories, TParties)
-      env.legacy_checkExpr(observers, TParties)
-      env.legacy_checkExpr(agreementText, TText)
+      env.checkTopExpr(precond, TBool)
+      env.checkTopExpr(signatories, TParties)
+      env.checkTopExpr(observers, TParties)
+      env.checkTopExpr(agreementText, TText)
       choices.values.foreach(env.checkChoice(tplName, _))
       env.checkIfaceImplementations(tplName, implementations)
       mbKey.foreach { key =>
         checkType(key.typ, KStar)
-        env.legacy_checkExpr(key.body, key.typ)
-        legacy_checkExpr(key.maintainers, TFun(key.typ, TParties))
+        env.checkTopExpr(key.body, key.typ)
+        checkTopExpr(key.maintainers, TFun(key.typ, TParties))
         ()
       }
     }
@@ -533,7 +535,8 @@ private[validation] object Typing { // NICK: WIP stack-safe type-checking code..
       checkType(method.returnType, KStar)
     }
 
-    private def alphaEquiv(t1: Type, t2: Type) = // NICK: stack-safe?
+    // TODO https://github.com/digital-asset/daml/issues/13410 -- ensure alphaEquiv is stack-safe
+    private def alphaEquiv(t1: Type, t2: Type) =
       AlphaEquiv.alphaEquiv(t1, t2) ||
         AlphaEquiv.alphaEquiv(expandTypeSynonyms(t1), expandTypeSynonyms(t2))
 
@@ -561,7 +564,7 @@ private[validation] object Typing { // NICK: WIP stack-safe type-checking code..
           case None =>
             throw EUnknownInterfaceMethod(ctx, tplTcon, ifaceTcon, name)
           case Some(method) =>
-            legacy_checkExpr(value, method.returnType)
+            checkTopExpr(value, method.returnType)
         }
       }
     }
@@ -617,8 +620,8 @@ private[validation] object Typing { // NICK: WIP stack-safe type-checking code..
     private[Typing] def checkDefException(
         excepName: TypeConName,
         defException: DefException,
-    ): Unit = { // NICK: these don't need to be in cont style -- call checkTopExpr (with big comment)
-      legacy_checkExpr(defException.message, TTyCon(excepName) ->: TText)
+    ): Unit = {
+      checkTopExpr(defException.message, TTyCon(excepName) ->: TText)
       ()
     }
 
@@ -639,7 +642,8 @@ private[validation] object Typing { // NICK: WIP stack-safe type-checking code..
     private def kindOfDataType(defDataType: DDataType): Kind =
       defDataType.params.reverse.foldLeft[Kind](KStar) { case (acc, (_, k)) => KArrow(k, acc) }
 
-    def kindOf(typ0: Type): Kind = typ0 match { // testing entry point // NICK: make stack-safe!
+    // TODO https://github.com/digital-asset/daml/issues/13410 -- ensure kindOf is stack-safe
+    def kindOf(typ0: Type): Kind = typ0 match { // testing entry point
 
       case TSynApp(syn, args) =>
         val ty = expandSynApp(syn, args)
