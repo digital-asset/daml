@@ -4,7 +4,7 @@
 package com.daml.lf.validation
 
 import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName, MethodName}
+import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LanguageVersion, PackageInterface}
 
@@ -195,7 +195,7 @@ private[validation] object Serializability {
       Env(flags, pkgInterface, context, SRChoiceRes, defInterface.view).checkType()
     } catch {
       case _: ValidationError =>
-        throw EViewNotSerializable(context, tyCon.tycon, viewMethod.returnType);
+        throw EViewNotSerializable(context, tyCon.tycon, defInterface.view);
     }
   }
 
