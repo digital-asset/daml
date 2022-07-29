@@ -752,9 +752,8 @@ private[lf] final class Compiler(
       ifaceId: Identifier,
       body: Expr,
   ): (t.SDefinitionRef, SDefinition) = {
-    topLevelFunction1(t.CoImplementsViewDefRef(tmplId, ifaceId)) {
-      (tmplArgPos, env) =>
-        translateExp(env.bindExprVar(tmplParam, tmplArgPos), body)
+    topLevelFunction1(t.CoImplementsViewDefRef(tmplId, ifaceId)) { (tmplArgPos, env) =>
+      translateExp(env.bindExprVar(tmplParam, tmplArgPos), body)
     }
   }
 

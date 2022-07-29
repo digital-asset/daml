@@ -131,14 +131,16 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
     Id("view") ~>! `=` ~>! expr
 
   private lazy val implements: Parser[TemplateImplements] =
-    Id("implements") ~>! fullIdentifier ~ (`{` ~> (implementsView <~ `;`) ~ rep(method <~ `;`) <~ `}`) ^^ {
-      case ifaceId ~ (view ~ methods) =>
+    Id("implements") ~>! fullIdentifier ~ `{` ~
+      (implementsView <~ `;`) ~
+      rep(method <~ `;`) <~
+      `}` ^^ { case ifaceId ~ _ ~ view ~ methods =>
         TemplateImplements.build(
           ifaceId,
           methods,
           view,
         )
-    }
+      }
 
   private lazy val templateDefinition: Parser[TemplDef] =
     (Id("template") ~ `(` ~> id ~ `:` ~ dottedName ~ `)` ~ `=` ~ `{` ~
@@ -242,14 +244,16 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
     Id("view") ~>! `=` ~>! expr
 
   private lazy val coImplements: Parser[InterfaceCoImplements] =
-    Id("coimplements") ~>! fullIdentifier ~ (`{` ~> (coImplementsView <~ `;`) ~ rep(coImplementsMethod <~ `;`) <~ `}`) ^^ {
-      case tplId ~ (view ~ methods) =>
+    Id("coimplements") ~>! fullIdentifier ~ `{` ~
+      (coImplementsView <~ `;`) ~
+      rep(coImplementsMethod <~ `;`) <~
+      `}` ^^ { case tplId ~ _ ~ view ~ methods =>
         InterfaceCoImplements.build(
           tplId,
           methods,
           view,
         )
-    }
+      }
 
   private val serializableTag = Ref.Name.assertFromString("serializable")
   private val isTestTag = Ref.Name.assertFromString("isTest")
