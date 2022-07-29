@@ -66,7 +66,7 @@ service PartyManagementService {
   // colon, minus and underscore limited to 255 chars
   rpc AllocateParty (AllocatePartyRequest) returns (AllocatePartyResponse);
 
-  rpc UpdateParty (UpdatePartyRequest) returns (UpdatePartyResponse);
+  rpc UpdateParty (UpdatePartyMetadataRequest) returns (UpdatePartyMetadataResponse);
 
 }
 
@@ -120,7 +120,7 @@ message AllocatePartyRequest {
   string display_name = 2;
 
   // Optional
-  ObjectMeta object_meta = 3;
+  ObjectMeta metadata = 3;
 }
 
 message AllocatePartyResponse {
@@ -129,21 +129,21 @@ message AllocatePartyResponse {
 }
 
 // Updates only participant-local portion of the party resource.
-message UpdatePartyRequest {
-  // The party to update.
-  // Modifiable fields:
-  // 1. properties (with the 'replace-all' semantics)
-  PartyDetails party_details = 1;
+message UpdatePartyMetadataRequest {
+  // Required
+  string party = 1;
+
+  ObjectMeta metadata = 2;
 
   // Specifies the fields of the party resource to be updated.
   // At least one field must be specified.
   // Required
-  FieldMask update_mask = 2;
+  FieldMask update_mask = 3;
 }
 
-message UpdatePartyResponse {
+message UpdatePartyMetadataResponse {
   // Update user
-  PartyDetails party_details = 1;
+  ObjectMeta metadata = 1;
 }
 
 
@@ -165,5 +165,5 @@ message PartyDetails {
   bool is_local = 3;
 
   // Optional
-  ObjectMeta object_meta = 3;
+  ObjectMeta metadata = 3;
 }
