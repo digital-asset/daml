@@ -18,6 +18,7 @@ import Data.Text.Lazy (Text)
 import Network.GRPC.HighLevel.Generated
 import qualified Data.Aeson as A
 import Data.Aeson ((.:))
+import Com.Daml.Ledger.Api.V1.Admin.ObjectMeta
 import qualified Com.Daml.Ledger.Api.V1.Admin.PartyManagementService as LL
 
 getParticipantId :: LedgerService ParticipantId
@@ -35,6 +36,7 @@ data PartyDetails = PartyDetails
     { party :: Party
     , displayName :: Text
     , isLocal :: Bool
+    , metadata :: Maybe ObjectMeta
     } deriving (Eq,Ord,Show)
 
 instance A.FromJSON PartyDetails where
@@ -44,6 +46,7 @@ instance A.FromJSON PartyDetails where
         <$> v .: "identifier"
         <*> v .: "displayName"
         <*> v .: "isLocal"
+        <*> v .: "metadata"
 
 listKnownParties :: LedgerService [PartyDetails]
 listKnownParties =
@@ -63,11 +66,13 @@ raisePartyDetails = \case
         party <- raiseParty partyDetailsParty
         let displayName = partyDetailsDisplayName
         let isLocal = partyDetailsIsLocal
+        let metadata = partyDetailsMetadata
         return $ PartyDetails {..}
 
 data AllocatePartyRequest = AllocatePartyRequest
     { partyIdHint :: Text
     , displayName :: Text
+    , metadata :: Maybe ObjectMeta
     }
 
 allocateParty :: AllocatePartyRequest -> LedgerService PartyDetails
@@ -88,4 +93,5 @@ allocateParty request =
         lowerRequest AllocatePartyRequest{..} = do
             let allocatePartyRequestPartyIdHint = partyIdHint
             let allocatePartyRequestDisplayName = displayName
+            let allocatePartyRequestMetadata = metadata
             LL.AllocatePartyRequest {..}
