@@ -174,7 +174,7 @@ message UpdatePartyMetadataRequest {
   // Specifies the fields of the party metadata resource to be updated.
   // At least one field must be specified, e.g. "party_metadata.metadata"
   // Required
-  FieldMask update_mask = 3;
+  google.protobuf.FieldMask update_mask = 3;
 }
 
 message UpdatePartyMetadataResponse {
@@ -201,5 +201,5 @@ message PartyDetails {
 
   // Represents participant local metadata of this party.
   // Optional
-  ObjectMeta metadata = 3;
+  ObjectMeta metadata = 4;
 }

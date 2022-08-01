@@ -199,7 +199,7 @@ message UpdateUserRequest {
     // Specifies the fields of the user resource to be updated.
     // At least one field must be specified, e.g. "user.metadata"
     // Required
-    FieldMask update_mask = 2;
+    google.protobuf.FieldMask update_mask = 2;
 }
 
 message UpdateUserResponse {
