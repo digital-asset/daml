@@ -793,6 +793,10 @@ typeOf' = \case
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
+  EViewInterface ifaceId expr -> do
+    iface <- inWorld (lookupInterface ifaceId)
+    checkExpr expr (TCon ifaceId)
+    pure (intView iface)
   EExperimental name ty -> do
     checkFeature featureExperimental
     checkExperimentalType name ty
@@ -878,7 +882,6 @@ checkIface m iface = do
   checkUnique (EDuplicateInterfaceChoiceName (intName iface)) $ NM.names (intChoices iface)
   introExprVar (intParam iface) (TCon tcon) $ do
     forM_ (intChoices iface) (checkTemplateChoice tcon)
-    checkExpr (intPrecondition iface) TBool
 
   -- check view method exists
   case NM.lookup (MethodName "_view") (intMethods iface) of

@@ -68,8 +68,6 @@ instance DA.Internal.Desugar.HasObserver Token where
   observer = GHC.Types.primitive @"EObserverInterface"
 instance DA.Internal.Desugar.HasCreate Token where
   create = GHC.Types.primitive @"UCreateInterface"
-instance DA.Internal.Desugar.HasEnsure Token where
-  ensure this = (getAmount this >= 0)
 instance DA.Internal.Desugar.HasIsInterfaceType Token where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Token where
@@ -429,8 +427,6 @@ _method_Asset_Token_noopImpl
 main
   = scenario
       do p <- getParty "Alice"
-         p `submitMustFail`
-             do create Asset {issuer = p, owner = p, amount = - 1}
          p `submit`
              do cidAsset1 <- create Asset {issuer = p, owner = p, amount = 15}
                 let cidToken1 = toInterfaceContractId @Token cidAsset1

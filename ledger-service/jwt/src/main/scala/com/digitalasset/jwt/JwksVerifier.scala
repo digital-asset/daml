@@ -40,6 +40,7 @@ class JwksVerifier(
     connectionTimeoutUnit: TimeUnit = TimeUnit.SECONDS,
     readTimeout: Long = 10,
     readTimeoutUnit: TimeUnit = TimeUnit.SECONDS,
+    leewayOptions: Option[LeewayOptions] = None,
 ) extends JwtVerifierBase {
 
   private[this] val http =
@@ -58,7 +59,7 @@ class JwksVerifier(
   private[this] def getVerifier(keyId: String): Error \/ JwtVerifier = {
     val jwk = http.get(keyId)
     val publicKey = jwk.getPublicKey.asInstanceOf[RSAPublicKey]
-    RSA256Verifier(publicKey)
+    RSA256Verifier(publicKey, leewayOptions)
   }
 
   /** Looks up the verifier for the given keyId from the local cache.
@@ -85,7 +86,8 @@ class JwksVerifier(
 }
 
 object JwksVerifier {
-  def apply(url: String) = new JwksVerifier(new URI(url).toURL)
+  def apply(url: String, leewayOptions: Option[LeewayOptions] = None) =
+    new JwksVerifier(new URI(url).toURL, leewayOptions = leewayOptions)
 
   final case class Error(what: Symbol, message: String)
 

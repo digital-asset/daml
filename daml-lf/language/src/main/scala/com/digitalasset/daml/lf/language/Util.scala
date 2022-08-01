@@ -222,10 +222,11 @@ object Util {
 
   private[this] def toSignature(implements: TemplateImplements): TemplateImplementsSignature =
     implements match {
-      case TemplateImplements(name, methods) =>
+      case TemplateImplements(name, methods, _) =>
         TemplateImplementsSignature(
           name,
           methods.transform((_, v) => toSignature(v)),
+          (),
         )
     }
 
@@ -256,23 +257,24 @@ object Util {
       coImplements: InterfaceCoImplements
   ): InterfaceCoImplementsSignature =
     coImplements match {
-      case InterfaceCoImplements(name, methods) =>
+      case InterfaceCoImplements(name, methods, _) =>
         InterfaceCoImplementsSignature(
           name,
           methods.transform((_, v) => toSignature(v)),
+          (),
         )
     }
 
   private def toSignature(interface: DefInterface): DefInterfaceSignature =
     interface match {
-      case DefInterface(requires, param, choices, methods, _, coImplements) =>
+      case DefInterface(requires, param, choices, methods, coImplements, view) =>
         DefInterfaceSignature(
           requires,
           param,
           choices.transform((_, choice) => toSignature(choice)),
           methods,
-          (),
           coImplements.transform((_, v) => toSignature(v)),
+          view,
         )
     }
 

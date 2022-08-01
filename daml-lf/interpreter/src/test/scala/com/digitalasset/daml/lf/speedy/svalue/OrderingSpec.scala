@@ -193,7 +193,7 @@ class OrderingSpec
     )
 
     machine.run() match {
-      case SResultFinalValue(value) => value
+      case SResultFinal(value, _) => value
       case _ => throw new Error(s"error while translating value $v")
     }
   }

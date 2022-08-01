@@ -322,7 +322,6 @@ private object MutableCacheBackedContractStoreRaceTests {
     val metrics = new Metrics(new MetricRegistry)
     new MutableCacheBackedContractStore(
       contractsReader = indexViewContractsReader,
-      signalNewLedgerHead = (_, _) => (),
       metrics = metrics,
       contractStateCaches = ContractStateCaches.build(
         initialCacheIndex = Offset.beforeBegin,

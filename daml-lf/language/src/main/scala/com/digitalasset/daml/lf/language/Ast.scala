@@ -153,13 +153,16 @@ object Ast {
   /** Extract the payload from an AnyException if it matches the given exception type */
   final case class EFromAnyException(typ: Type, value: Expr) extends Expr
 
+  // We use this type to reduce depth of pattern matching
+  sealed abstract class ExprInterface extends Expr
+
   /** Convert template payload to interface it implements */
   final case class EToInterface(interfaceId: TypeConName, templateId: TypeConName, value: Expr)
-      extends Expr
+      extends ExprInterface
 
   /** Convert interface back to template payload if possible */
   final case class EFromInterface(interfaceId: TypeConName, templateId: TypeConName, value: Expr)
-      extends Expr
+      extends ExprInterface
 
   /** Convert interface back to template payload,
     * or raise a WronglyTypedContracg error if not possible
@@ -169,21 +172,21 @@ object Ast {
       templateId: TypeConName,
       contractIdExpr: Expr,
       ifaceExpr: Expr,
-  ) extends Expr
+  ) extends ExprInterface
 
   /** Upcast from an interface payload to an interface it requires. */
   final case class EToRequiredInterface(
       requiredIfaceId: TypeConName,
       requiringIfaceId: TypeConName,
       body: Expr,
-  ) extends Expr
+  ) extends ExprInterface
 
   /** Downcast from an interface payload to an interface that requires it, if possible. */
   final case class EFromRequiredInterface(
       requiredIfaceId: TypeConName,
       requiringIfaceId: TypeConName,
       body: Expr,
-  ) extends Expr
+  ) extends ExprInterface
 
   /** Downcast from an interface payload to an interface that requires it,
     * or raise a WronglyTypedContract error if not possible.
@@ -193,29 +196,35 @@ object Ast {
       requiringIfaceId: TypeConName,
       contractIdExpr: Expr,
       ifaceExpr: Expr,
-  ) extends Expr
+  ) extends ExprInterface
 
   /** Invoke an interface method */
   final case class ECallInterface(interfaceId: TypeConName, methodName: MethodName, value: Expr)
-      extends Expr
+      extends ExprInterface
 
   /** Obtain the type representation of a contract's template through an interface. */
   final case class EInterfaceTemplateTypeRep(
       ifaceId: TypeConName,
       body: Expr,
-  ) extends Expr
+  ) extends ExprInterface
 
   /** Obtain the signatories of a contract through an interface. */
   final case class ESignatoryInterface(
       ifaceId: TypeConName,
       body: Expr,
-  ) extends Expr
+  ) extends ExprInterface
 
   /** Obtain the observers of a contract through an interface. */
   final case class EObserverInterface(
       ifaceId: TypeConName,
       body: Expr,
-  ) extends Expr
+  ) extends ExprInterface
+
+  /** Obtain the view of an interface. */
+  final case class EViewInterface(
+      ifaceId: TypeConName,
+      expr: Expr,
+  ) extends ExprInterface
 
   //
   // Kinds
@@ -556,7 +565,7 @@ object Ast {
       choice: ChoiceName,
       cidE: Expr,
       argE: Expr,
-      guardE: Expr,
+      guardE: Option[Expr],
       // `guardE` is an expression of type Interface -> Bool which is evaluated after
       // fetching the contract but before running the exercise body. If the guard returns
       // false, or an exception is raised during evaluation, the transaction is aborted.
@@ -701,10 +710,8 @@ object Ast {
       param: ExprVarName, // Binder for template argument.
       choices: Map[ChoiceName, GenTemplateChoice[E]],
       methods: Map[MethodName, InterfaceMethod],
-      precond: E, // Interface creation precondition.
-      coImplements: Map[TypeConName, GenInterfaceCoImplements[
-        E
-      ]],
+      coImplements: Map[TypeConName, GenInterfaceCoImplements[E]],
+      view: Type,
   )
 
   final class GenDefInterfaceCompanion[E] {
@@ -714,8 +721,8 @@ object Ast {
         param: ExprVarName, // Binder for template argument.
         choices: Iterable[GenTemplateChoice[E]],
         methods: Iterable[InterfaceMethod],
-        precond: E,
         coImplements: Iterable[GenInterfaceCoImplements[E]],
+        view: Type,
     ): GenDefInterface[E] = {
       val requiresSet = toSetWithoutDuplicate(
         requires,
@@ -734,7 +741,7 @@ object Ast {
         (templateId: TypeConName) =>
           PackageError(s"repeated interface co-implementation ${templateId.toString}"),
       )
-      GenDefInterface(requiresSet, param, choiceMap, methodMap, precond, coImplementsMap)
+      GenDefInterface(requiresSet, param, choiceMap, methodMap, coImplementsMap, view)
     }
 
     def apply(
@@ -742,10 +749,10 @@ object Ast {
         param: ExprVarName,
         choices: Map[ChoiceName, GenTemplateChoice[E]],
         methods: Map[MethodName, InterfaceMethod],
-        precond: E,
         coImplements: Map[TypeConName, GenInterfaceCoImplements[E]],
+        view: Type,
     ): GenDefInterface[E] =
-      GenDefInterface(requires, param, choices, methods, precond, coImplements)
+      GenDefInterface(requires, param, choices, methods, coImplements, view)
 
     def unapply(arg: GenDefInterface[E]): Some[
       (
@@ -753,11 +760,11 @@ object Ast {
           ExprVarName,
           Map[ChoiceName, GenTemplateChoice[E]],
           Map[MethodName, InterfaceMethod],
-          E,
           Map[TypeConName, GenInterfaceCoImplements[E]],
+          Type,
       )
     ] =
-      Some((arg.requires, arg.param, arg.choices, arg.methods, arg.precond, arg.coImplements))
+      Some((arg.requires, arg.param, arg.choices, arg.methods, arg.coImplements, arg.view))
   }
 
   type DefInterface = GenDefInterface[Expr]
@@ -774,6 +781,7 @@ object Ast {
   final case class GenInterfaceCoImplements[E](
       templateId: TypeConName,
       methods: Map[MethodName, GenInterfaceCoImplementsMethod[E]],
+      view: E,
   )
 
   final class GenInterfaceCoImplementsCompanion[E] private[Ast] {
@@ -781,6 +789,7 @@ object Ast {
     def build(
         templateId: TypeConName,
         methods: Iterable[GenInterfaceCoImplementsMethod[E]],
+        view: E,
     ): GenInterfaceCoImplements[E] =
       new GenInterfaceCoImplements[E](
         templateId = templateId,
@@ -788,18 +797,20 @@ object Ast {
           methods.map(m => m.name -> m),
           (name: MethodName) => PackageError(s"repeated method co-implementation $name"),
         ),
+        view,
       )
 
     def apply(
         templateId: TypeConName,
         methods: Map[MethodName, GenInterfaceCoImplementsMethod[E]],
+        view: E,
     ): GenInterfaceCoImplements[E] =
-      GenInterfaceCoImplements[E](templateId, methods)
+      GenInterfaceCoImplements[E](templateId, methods, view)
 
     def unapply(
         arg: GenInterfaceCoImplements[E]
-    ): Some[(TypeConName, Map[MethodName, GenInterfaceCoImplementsMethod[E]])] =
-      Some((arg.templateId, arg.methods))
+    ): Some[(TypeConName, Map[MethodName, GenInterfaceCoImplementsMethod[E]], E)] =
+      Some((arg.templateId, arg.methods, arg.view))
   }
 
   type InterfaceCoImplements = GenInterfaceCoImplements[Expr]
@@ -982,6 +993,7 @@ object Ast {
   final case class GenTemplateImplements[E](
       interfaceId: TypeConName,
       methods: Map[MethodName, GenTemplateImplementsMethod[E]],
+      view: E,
   )
 
   final class GenTemplateImplementsCompanion[E] private[Ast] {
@@ -989,6 +1001,7 @@ object Ast {
     def build(
         interfaceId: TypeConName,
         methods: Iterable[GenTemplateImplementsMethod[E]],
+        view: E,
     ): GenTemplateImplements[E] =
       new GenTemplateImplements[E](
         interfaceId = interfaceId,
@@ -996,18 +1009,20 @@ object Ast {
           methods.map(m => m.name -> m),
           (name: MethodName) => PackageError(s"repeated method implementation $name"),
         ),
+        view,
       )
 
     def apply(
         interfaceId: TypeConName,
         methods: Map[MethodName, GenTemplateImplementsMethod[E]],
+        view: E,
     ): GenTemplateImplements[E] =
-      new GenTemplateImplements[E](interfaceId, methods)
+      new GenTemplateImplements[E](interfaceId, methods, view)
 
     def unapply(
         arg: GenTemplateImplements[E]
-    ): Some[(TypeConName, Map[MethodName, GenTemplateImplementsMethod[E]])] =
-      Some((arg.interfaceId, arg.methods))
+    ): Some[(TypeConName, Map[MethodName, GenTemplateImplementsMethod[E]], E)] =
+      Some((arg.interfaceId, arg.methods, arg.view))
   }
 
   type TemplateImplements = GenTemplateImplements[Expr]

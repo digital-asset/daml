@@ -311,7 +311,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
         "PositiveTestCase2",
       )
 
-      val pkg15 = pkg14.copy(languageVersion = LanguageVersion.Features.interfaces)
+      val pkg15 = pkg14.copy(languageVersion = LanguageVersion.Features.basicInterfaces)
 
       forEvery(negativeTestCases) { modName =>
         check(pkg14, modName)
@@ -328,14 +328,13 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
       implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
         defaultPackageId,
-        LanguageVersion.Features.interfaces,
+        LanguageVersion.Features.basicInterfaces,
       )
 
       val pkg =
         p"""
           module NegativeTestCase1 {
             interface (this: Token) = {
-              precondition False;
               choice GetContractId (self) (u:Unit) : ContractId NegativeTestCase1:Token
                 , controllers Nil @Party
                 to upure @(ContractId NegativeTestCase1:Token) self;
@@ -344,7 +343,6 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
           module NegativeTestCase2 {
             interface (this: Token) = {
-              precondition False;
               choice ReturnContractId (self) (u:ContractId NegativeTestCase2:Token) : ContractId NegativeTestCase2:Token
                 , controllers Nil @Party
                 to upure @(ContractId NegativeTestCase2:Token) self;
@@ -355,7 +353,6 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
             record @serializable TokenId = {unTokenId : ContractId NegativeTestCase3:Token};
 
             interface (this: Token) = {
-              precondition False;
               choice ReturnContractId (self) (u:NegativeTestCase3:TokenId) : ContractId NegativeTestCase3:Token
                 , controllers Nil @Party
                 to upure @(ContractId NegativeTestCase3:Token) self;
@@ -364,7 +361,6 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
           module PositiveTestCase {
             interface (this: Token) = {
-              precondition False;
               choice GetToken (self) (u:Unit) : PositiveTestCase:Token
                 , controllers Nil @Party
                 to upure @(PositiveTestCase:Token) this;

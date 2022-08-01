@@ -7,23 +7,24 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.cache.{ContractStateCaches, EventsBuffer, MutableLedgerEndCache}
-import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
+import com.daml.platform.store.cache.{
+  ContractStateCaches,
+  InMemoryFanoutBuffer,
+  MutableLedgerEndCache,
+}
 import com.daml.platform.store.interning.{StringInterningView, UpdatingStringInterningView}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining._
 
-/** Wrapper and life-cycle manager for the in-memory participant state. */
-private[platform] class ParticipantInMemoryState(
+/** Wrapper and life-cycle manager for the in-memory Ledger API state. */
+private[platform] class InMemoryState(
     val ledgerEndCache: MutableLedgerEndCache,
     val contractStateCaches: ContractStateCaches,
-    val transactionsBuffer: EventsBuffer[TransactionLogUpdate],
+    val transactionsBuffer: InMemoryFanoutBuffer,
     val stringInterningView: StringInterningView,
     val dispatcherState: DispatcherState,
-    updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit],
 )(implicit executionContext: ExecutionContext) {
   private val logger = ContextualizedLogger.get(getClass)
 
@@ -33,8 +34,8 @@ private[platform] class ParticipantInMemoryState(
     *
     * NOTE: This method is not thread-safe. Calling it concurrently leads to undefined behavior.
     */
-  final def initializeTo(
-      ledgerEnd: LedgerEnd
+  final def initializeTo(ledgerEnd: LedgerEnd)(
+      updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit]
   )(implicit loggingContext: LoggingContext): Future[Unit] = {
     logger.info(s"Initializing participant in-memory state to ledger end: $ledgerEnd")
 
@@ -47,27 +48,30 @@ private[platform] class ParticipantInMemoryState(
         transactionsBuffer.flush()
         ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
       }
+      // TODO LLP: Consider the implementation of a two-stage reset with:
+      //            - first teardown existing dispatcher
+      //            - reset caches
+      //            - start new dispatcher
       _ <- dispatcherState.reset(ledgerEnd)
     } yield ()
   }
 }
 
-object ParticipantInMemoryState {
+object InMemoryState {
   def owner(
       apiStreamShutdownTimeout: Duration,
       bufferedStreamsPageSize: Int,
       maxContractStateCacheSize: Long,
       maxContractKeyStateCacheSize: Long,
       maxTransactionsInMemoryFanOutBufferSize: Int,
-      updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit],
       metrics: Metrics,
       executionContext: ExecutionContext,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantInMemoryState] = {
+  )(implicit loggingContext: LoggingContext): ResourceOwner[InMemoryState] = {
     val initialLedgerEnd = LedgerEnd.beforeBegin
 
     for {
       dispatcherState <- DispatcherState.owner(apiStreamShutdownTimeout)
-    } yield new ParticipantInMemoryState(
+    } yield new InMemoryState(
       ledgerEndCache = MutableLedgerEndCache()
         .tap(
           _.set((initialLedgerEnd.lastOffset, initialLedgerEnd.lastEventSeqId))
@@ -79,15 +83,12 @@ object ParticipantInMemoryState {
         maxContractKeyStateCacheSize,
         metrics,
       )(executionContext, loggingContext),
-      transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
+      transactionsBuffer = new InMemoryFanoutBuffer(
         maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
         metrics = metrics,
-        bufferQualifier = "transactions",
         maxBufferedChunkSize = bufferedStreamsPageSize,
-        isRangeEndMarker = _.isInstanceOf[LedgerEndMarker],
       ),
       stringInterningView = new StringInterningView,
-      updateStringInterningView = updateStringInterningView,
     )(executionContext)
   }
 }

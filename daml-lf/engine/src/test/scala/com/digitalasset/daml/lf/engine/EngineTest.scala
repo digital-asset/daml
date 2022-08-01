@@ -2010,6 +2010,33 @@ class EngineTest
         case Left(Interpretation(DamlException(interpretation.Error.ContractNotFound(_)), _)) =>
       }
     }
+    "ThrowInHandler" in {
+      val command = ApiCommand.CreateAndExercise(
+        tId,
+        ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        "ThrowInHandler",
+        ValueRecord(None, ImmArray.empty),
+      )
+      run(command) shouldBe a[Right[_, _]]
+    }
+    "ThrowPureInHandler" in {
+      val command = ApiCommand.CreateAndExercise(
+        tId,
+        ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        "ThrowPureInHandler",
+        ValueRecord(None, ImmArray.empty),
+      )
+      run(command) shouldBe a[Right[_, _]]
+    }
+    "ThrowPureInHandlerPattern" in {
+      val command = ApiCommand.CreateAndExercise(
+        tId,
+        ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        "ThrowPureInHandlerPattern",
+        ValueRecord(None, ImmArray.empty),
+      )
+      run(command) shouldBe a[Right[_, _]]
+    }
   }
 
   "action node seeds" should {

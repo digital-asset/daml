@@ -111,7 +111,7 @@ The algorithm is not part of the definition of time in Daml, and may change in t
 
 #. At this point, the ledger time may lie in the future (e.g., if a large value for ``min_ledger_time_rel`` was given).
    The participant waits until ``lt_TX - transaction_latency`` before it submits the transaction to the ledger - 
-   the intention is that the transaction is record at ``lt_TX == rt_TX``.
+   the intention is that the transaction is recorded at ``lt_TX == rt_TX``.
 
 Use the parameters ``min_ledger_time_rel`` and ``min_ledger_time_abs`` if you expect that
 command interpretation will take a considerate amount of time, such that by

@@ -722,7 +722,7 @@ excluded_test_tool_tests = [
         # Sandbox-on-X doesn't use participant-side command deduplication starting with next release,
         # hence older tests will fail to assert it.
         "start": "1.17.0",
-        "end": "1.18.2",
+        "end": "1.18.3",
         "platform_ranges": [
             {
                 "start": "2.0.0-snapshot.20220126.9029.1",
@@ -736,7 +736,7 @@ excluded_test_tool_tests = [
         # Sandbox-on-X doesn't use participant-side command deduplication starting with next release,
         # hence older tests will fail to assert it.
         "start": "1.18.0",
-        "end": "1.18.2",
+        "end": "1.18.3",
         "platform_ranges": [
             {
                 "start": "2.0.0-snapshot.20220126.9029.1",
@@ -1108,7 +1108,7 @@ def sdk_platform_test(sdk_version, platform_version):
 
     sandbox_on_x = "@daml-sdk-{}//:sandbox-on-x".format(platform_version)
     sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--mutable-contract-state-cache"]
-    sandbox_on_x_cmd = ["run-legacy-cli-config"] if versions.is_at_least("2.3.0-snapshot.20220619.10104.0.253b0b18", platform_version) else []
+    sandbox_on_x_cmd = ["run-legacy-cli-config"] if versions.is_at_least("2.4.0-snapshot.20220712.10212.0.0bf28176", platform_version) else []
 
     json_api_args = ["json-api"]
 

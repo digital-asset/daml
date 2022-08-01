@@ -603,6 +603,11 @@ data Expr
   | EScenario !Scenario
   -- | An expression annotated with a source location.
   | ELocation !SourceLoc !Expr
+  -- | Obtain an interface view
+  | EViewInterface
+    { viewInterfaceInterface :: !(Qualified TypeConName)
+    , viewInterfaceExpr :: !Expr
+    }
   -- | Experimental Expression Hook
   | EExperimental !T.Text !Type
   deriving (Eq, Data, Generic, NFData, Ord, Show)
@@ -932,6 +937,7 @@ data TemplateImplements = TemplateImplements
   { tpiInterface :: !(Qualified TypeConName)
     -- ^ Interface name for implementation.
   , tpiMethods :: !(NM.NameMap TemplateImplementsMethod)
+  , tpiView :: !Expr
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -960,8 +966,8 @@ data DefInterface = DefInterface
   , intParam :: !ExprVarName
   , intChoices :: !(NM.NameMap TemplateChoice)
   , intMethods :: !(NM.NameMap InterfaceMethod)
-  , intPrecondition :: !Expr
   , intCoImplements :: !(NM.NameMap InterfaceCoImplements)
+  , intView :: !Type
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -976,6 +982,7 @@ data InterfaceMethod = InterfaceMethod
 data InterfaceCoImplements = InterfaceCoImplements
   { iciTemplate :: !(Qualified TypeConName)
   , iciMethods :: !(NM.NameMap InterfaceCoImplementsMethod)
+  , iciView :: !Expr
   }
   deriving (Eq, Data, Generic, NFData, Show)
 

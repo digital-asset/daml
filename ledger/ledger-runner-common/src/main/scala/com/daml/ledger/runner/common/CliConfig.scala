@@ -12,6 +12,7 @@ import com.daml.lf.language.LanguageVersion
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{AuthServiceConfig, AuthServiceConfigCli}
 import com.daml.platform.apiserver.SeedService.Seeding
+import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{CommandConfiguration, IndexServiceConfig}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
@@ -152,6 +153,30 @@ object CliConfig {
     )
   }
 
+  private def configKeyValueOption[Extra] =
+    OParser
+      .builder[CliConfig[Extra]]
+      .opt[Map[String, String]]('C', "config key-value's")
+      .text(
+        "Set configuration key value pairs directly. Can be useful for providing simple short config info."
+      )
+      .valueName("<key1>=<value1>,<key2>=<value2>,...")
+      .unbounded()
+      .action { (map, cli) =>
+        cli.copy(configMap = map ++ cli.configMap)
+      }
+
+  private def configFilesOption[Extra] =
+    OParser
+      .builder[CliConfig[Extra]]
+      .opt[Seq[File]]('c', "config")
+      .text(
+        "Set configuration file(s). If several configuration files assign values to the same key, the last value is taken."
+      )
+      .valueName("<file1>,<file2>,...")
+      .unbounded()
+      .action((files, cli) => cli.copy(configFiles = cli.configFiles ++ files))
+
   private def commandRunHocon[Extra]: OParser[_, CliConfig[Extra]] = {
     val builder = OParser.builder[CliConfig[Extra]]
     OParser.sequence(
@@ -163,24 +188,8 @@ object CliConfig {
         .action((_, config) => config.copy(mode = Mode.Run))
         .children(
           OParser.sequence(
-            builder
-              .opt[Map[String, String]]('C', "config key-value's")
-              .text(
-                "Set configuration key value pairs directly. Can be useful for providing simple short config info."
-              )
-              .valueName("<key1>=<value1>,<key2>=<value2>")
-              .unbounded()
-              .action { (map, cli) =>
-                cli.copy(configMap = map ++ cli.configMap)
-              },
-            builder
-              .opt[Seq[File]]('c', "config")
-              .text(
-                "Set configuration file(s). If several configuration files assign values to the same key, the last value is taken."
-              )
-              .valueName("<file1>,<file2>,...")
-              .unbounded()
-              .action((files, cli) => cli.copy(configFiles = cli.configFiles ++ files)),
+            configKeyValueOption,
+            configFilesOption,
           )
         ),
       builder.checkConfig(checkFileCanBeRead),
@@ -251,6 +260,8 @@ object CliConfig {
     val seedingMap =
       Map[String, Seeding]("testing-weak" -> Seeding.Weak, "strong" -> Seeding.Strong)
     OParser.sequence(
+      configKeyValueOption,
+      configFilesOption,
       opt[Map[String, String]]("participant")
         .unbounded()
         .text(
@@ -261,7 +272,6 @@ object CliConfig {
             "api-server-connection-pool-size" +
             "api-server-connection-timeout" +
             "management-service-timeout, " +
-            "run-mode, " +
             "indexer-connection-timeout, " +
             "indexer-max-input-buffer-size, " +
             "indexer-input-mapping-parallelism, " +
@@ -280,17 +290,6 @@ object CliConfig {
           val port = Port(kv("port").toInt)
           val address = kv.get("address")
           val portFile = kv.get("port-file").map(new File(_).toPath)
-          val runMode: ParticipantRunMode = kv.get("run-mode") match {
-            case None => ParticipantRunMode.Combined
-            case Some("combined") => ParticipantRunMode.Combined
-            case Some("indexer") => ParticipantRunMode.Indexer
-            case Some("ledger-api-server") =>
-              ParticipantRunMode.LedgerApiServer
-            case Some(unknownMode) =>
-              throw new RuntimeException(
-                s"$unknownMode is not a valid run mode. Valid modes are: combined, indexer, ledger-api-server. Default mode is combined."
-              )
-          }
           val jdbcUrlFromEnv =
             kv.get("server-jdbc-url-env").flatMap(getEnvVar(_))
           val jdbcUrl =
@@ -348,7 +347,6 @@ object CliConfig {
             .map(_.toLong)
             .getOrElse(IndexServiceConfig.DefaultMaxContractKeyStateCacheSize)
           val partConfig = CliParticipantConfig(
-            mode = runMode,
             participantId = participantId,
             address = address,
             port = port,
@@ -383,7 +381,7 @@ object CliConfig {
           "TLS: The pem file to be used as the private key. Use '.enc' filename suffix if the pem file is encrypted."
         )
         .action((path, config) =>
-          config.withTlsConfig(c => c.copy(keyFile = Some(new File(path))))
+          config.withTlsConfig(c => c.copy(privateKeyFile = Some(new File(path))))
         ),
       opt[String]("tls-secrets-url")
         .optional()
@@ -396,8 +394,8 @@ object CliConfig {
       checkConfig(c =>
         c.tlsConfig.fold(success) { tlsConfig =>
           if (
-            tlsConfig.keyFile.isDefined
-            && tlsConfig.keyFile.get.getName.endsWith(".enc")
+            tlsConfig.privateKeyFile.isDefined
+            && tlsConfig.privateKeyFile.get.getName.endsWith(".enc")
             && tlsConfig.secretsUrl.isEmpty
           ) {
             failure(
@@ -414,13 +412,13 @@ object CliConfig {
           "TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set."
         )
         .action((path, config) =>
-          config.withTlsConfig(c => c.copy(keyCertChainFile = Some(new File(path))))
+          config.withTlsConfig(c => c.copy(certChainFile = Some(new File(path))))
         ),
       opt[String]("cacrt")
         .optional()
         .text("TLS: The crt file to be used as the trusted root CA.")
         .action((path, config) =>
-          config.withTlsConfig(c => c.copy(trustCertCollectionFile = Some(new File(path))))
+          config.withTlsConfig(c => c.copy(trustCollectionFile = Some(new File(path))))
         ),
       opt[Boolean]("cert-revocation-checking")
         .optional()
@@ -505,8 +503,7 @@ object CliConfig {
           s"Number of transactions fetched from the buffer when serving streaming calls. Default is ${IndexServiceConfig.DefaultBufferedStreamsPageSize}."
         )
         .validate { pageSize =>
-          if (pageSize > 0) Right(())
-          else Left("buffered-streams-page-size should be strictly positive")
+          Either.cond(pageSize > 0, (), "buffered-streams-page-size should be strictly positive")
         }
         .action((pageSize, config) => config.copy(bufferedStreamsPageSize = pageSize)),
       opt[Int]("ledger-api-transactions-buffer-max-size")
@@ -514,6 +511,13 @@ object CliConfig {
         .hidden()
         .text(
           s"Maximum size of the in-memory fan-out buffer used for serving Ledger API transaction streams. Default is ${IndexServiceConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize}."
+        )
+        .validate(bufferSize =>
+          Either.cond(
+            bufferSize >= 0,
+            (),
+            "ledger-api-transactions-buffer-max-size must be greater than or equal to 0.",
+          )
         )
         .action((maxBufferSize, config) =>
           config.copy(maxTransactionsInMemoryFanOutBufferSize = maxBufferSize)

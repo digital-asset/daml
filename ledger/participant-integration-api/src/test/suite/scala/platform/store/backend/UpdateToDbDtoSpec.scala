@@ -291,6 +291,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
+        contractMetadata = Map.empty,
       )
       val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
         someOffset
@@ -367,6 +368,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
+        contractMetadata = Map.empty,
       )
       val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
         someOffset
@@ -453,6 +455,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
+        contractMetadata = Map.empty,
       )
       val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
         someOffset
@@ -538,6 +541,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
+        contractMetadata = Map.empty,
       )
       val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
         someOffset
@@ -649,6 +653,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
+        contractMetadata = Map.empty,
       )
       val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
         someOffset
@@ -799,6 +804,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
+        contractMetadata = Map.empty,
       )
       val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
         someOffset
@@ -861,6 +867,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
+        contractMetadata = Map.empty,
       )
       val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
         someOffset
@@ -963,6 +970,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
+        contractMetadata = Map.empty,
       )
       val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
         someOffset
@@ -1094,6 +1102,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             divulgence = Map(createNode.coid -> Set(Ref.Party.assertFromString("divulgee"))),
           )
         ),
+        contractMetadata = Map.empty,
       )
       val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
         someOffset
@@ -1200,6 +1209,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
+        contractMetadata = Map.empty,
       )
       val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
         someOffset
@@ -1264,6 +1274,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
+        contractMetadata = Map.empty,
       )
       val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
         someOffset
@@ -1392,6 +1403,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             recordTime = someRecordTime,
             divulgedContracts = List.empty,
             blindingInfo = None,
+            contractMetadata = Map.empty,
           )
           val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
             someOffset

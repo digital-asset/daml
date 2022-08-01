@@ -174,8 +174,8 @@ jobs:
     timeoutInMinutes: 120
     strategy:
       matrix:
-        postgres:
-          querystore: postgres
+        #postgres:
+        #  querystore: postgres
         oracle:
           querystore: oracle
     pool:

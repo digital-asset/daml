@@ -47,7 +47,7 @@ final case class MetricsConfig(reporter: MetricsReporter, reportingInterval: Fin
 object TokenVerifierConfig {
   private val knownTokenVerifiers: Map[String, String => JwtVerifier.Error \/ JwtVerifierBase] =
     Map(
-      "rs256-crt" -> RSA256Verifier.fromCrtFile,
+      "rs256-crt" -> (RSA256Verifier.fromCrtFile(_)),
       "es256-crt" -> (ECDSAVerifier
         .fromCrtFile(_, Algorithm.ECDSA256(_, null))),
       "es512-crt" -> (ECDSAVerifier

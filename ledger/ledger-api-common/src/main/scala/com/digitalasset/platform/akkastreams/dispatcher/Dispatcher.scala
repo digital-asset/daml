@@ -28,7 +28,9 @@ trait Dispatcher[Index] {
   /** Signals and stores a new head in memory. */
   def signalNewHead(head: Index): Unit
 
-  /** Returns a stream of elements with the next index from start (exclusive) to end (inclusive) */
+  /** Returns a stream of elements with the next index from start (exclusive) to end (inclusive)
+    * Throws `DispatcherIsClosedException` if dispatcher is in the shutting down state
+    */
   def startingAt[T](
       startExclusive: Index,
       subSource: SubSource[Index, T],

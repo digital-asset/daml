@@ -6,6 +6,7 @@ package testing.parser
 
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
 import com.daml.lf.testing.parser.Parsers._
 import com.daml.lf.testing.parser.Token._
 import com.daml.scalautil.Statement.discard
@@ -130,7 +131,12 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   private lazy val implements: Parser[TemplateImplements] =
     Id("implements") ~>! fullIdentifier ~ (`{` ~> rep(method <~ `;`) <~ `}`) ^^ {
       case ifaceId ~ methods =>
-        TemplateImplements.build(ifaceId, methods)
+        // TODO: Represent a view method and parse it. Currently hardcoding views to unit
+        TemplateImplements.build(
+          ifaceId,
+          methods,
+          EAbs((Ref.Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
+        )
     }
 
   private lazy val templateDefinition: Parser[TemplDef] =
@@ -199,20 +205,19 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   private val interfaceDefinition: Parser[IfaceDef] =
     Id("interface") ~ `(` ~> id ~ `:` ~ dottedName ~ `)` ~ `=` ~ `{` ~
       rep(interfaceRequires <~ `;`) ~
-      (Id("precondition") ~> expr <~ `;`) ~
       rep(interfaceMethod <~ `;`) ~
       rep(templateChoice <~ `;`) ~
       rep(coImplements <~ `;`) <~
       `}` ^^ {
         case x ~ _ ~ tycon ~ _ ~ _ ~ _ ~
             requires ~
-            precond ~
             methods ~
             choices ~
             coImplements =>
           IfaceDef(
             tycon,
-            DefInterface.build(Set.from(requires), x, choices, methods, precond, coImplements),
+            // TODO: https://github.com/digital-asset/daml/issues/14112
+            DefInterface.build(Set.from(requires), x, choices, methods, coImplements, TUnit),
           )
       }
   private val interfaceRequires: Parser[Ref.TypeConName] =
@@ -231,7 +236,11 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   private lazy val coImplements: Parser[InterfaceCoImplements] =
     Id("coimplements") ~>! fullIdentifier ~ (`{` ~> rep(coImplementsMethod <~ `;`) <~ `}`) ^^ {
       case tplId ~ methods =>
-        InterfaceCoImplements.build(tplId, methods)
+        InterfaceCoImplements.build(
+          tplId,
+          methods,
+          EAbs((Ref.Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
+        )
     }
 
   private val serializableTag = Ref.Name.assertFromString("serializable")

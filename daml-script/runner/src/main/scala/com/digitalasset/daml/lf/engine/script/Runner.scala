@@ -428,13 +428,16 @@ private[lf] class Runner(
       mat: Materializer,
   ): (Speedy.Machine, Future[SValue]) = {
     val machine =
-      Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr, traceLog, warningLog)(
-        Script.DummyLoggingContext
-      )
+      Speedy.Machine.fromPureSExpr(
+        extendedCompiledPackages,
+        script.expr,
+        traceLog = traceLog,
+        warningLog = warningLog,
+      )(Script.DummyLoggingContext)
 
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {
-        case SResultFinalValue(v) =>
+        case SResultFinal(v, _) =>
           Right(v)
         case SResultError(err) =>
           Left(Runner.InterpretationError(err))

@@ -7,6 +7,7 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
 import com.daml.ledger.runner.common.CliConfigSpec.TestScope
 import com.daml.lf.data.Ref
+import com.daml.platform.config.ParticipantConfig
 import io.netty.handler.ssl.ClientAuth
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -42,9 +43,9 @@ final class CliConfigSpec
       TlsConfiguration(
         enabled = true,
         secretsUrl = Some(SecretsUrl.fromString("http://aaa")),
-        keyFile = Some(new File("key.enc")),
-        keyCertChainFile = None,
-        trustCertCollectionFile = None,
+        privateKeyFile = Some(new File("key.enc")),
+        certChainFile = None,
+        trustCollectionFile = None,
       )
     )
   }
@@ -105,9 +106,9 @@ final class CliConfigSpec
       TlsConfiguration(
         enabled = true,
         secretsUrl = None,
-        keyFile = Some(new File("key.txt")),
-        keyCertChainFile = None,
-        trustCertCollectionFile = None,
+        privateKeyFile = Some(new File("key.txt")),
+        certChainFile = None,
+        trustCollectionFile = None,
       )
     )
   }

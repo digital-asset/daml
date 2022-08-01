@@ -241,6 +241,7 @@ object Profile {
       implicit val signatoriesDefRef: Allowed[SignatoriesDefRef] = allowAll
       implicit val observersDefRef: Allowed[ObserversDefRef] = allowAll
       implicit val implementsMethodDefRef: Allowed[ImplementsMethodDefRef] = allowAll
+      implicit val coImplementsMethodDefRef: Allowed[CoImplementsMethodDefRef] = allowAll
       implicit val templateChoiceDefRef: Allowed[TemplateChoiceDefRef] = allowAll
       implicit val interfaceChoiceDefRef: Allowed[InterfaceChoiceDefRef] = allowAll
       implicit val fetchTemplateDefRef: Allowed[FetchTemplateDefRef] = allowAll
@@ -250,7 +251,6 @@ object Profile {
       implicit val lookupByKeyDefRef: Allowed[LookupByKeyDefRef] = allowAll
       implicit val createAndExerciseLabel: Allowed[CreateAndExerciseLabel] = allowAll
       implicit val exceptionMessageDefRef: Allowed[ExceptionMessageDefRef] = allowAll
-      implicit val interfacePrecondDefRef: Allowed[InterfacePrecondDefRef] = allowAll
       implicit val scenarioLabel: Allowed[ScenarioLabel] = allowAll
       implicit val exprVarName: Allowed[Ast.ExprVarName] = allowAll
 
@@ -267,6 +267,8 @@ object Profile {
           case ToCachedContractDefRef(tmplRef) => s"toAnyContract @${tmplRef.qualifiedName}"
           case ImplementsMethodDefRef(tmplRef, ifaceId, methodName) =>
             s"implementsMethod @${tmplRef.qualifiedName} @${ifaceId.qualifiedName} ${methodName}"
+          case CoImplementsMethodDefRef(tmplId, ifaceRef, methodName) =>
+            s"coImplementsMethod @${tmplId.qualifiedName} @${ifaceRef.qualifiedName} ${methodName}"
           case TemplateChoiceDefRef(tmplRef, name) =>
             s"exercise @${tmplRef.qualifiedName} ${name}"
           case InterfaceChoiceDefRef(ifaceRef, name) =>

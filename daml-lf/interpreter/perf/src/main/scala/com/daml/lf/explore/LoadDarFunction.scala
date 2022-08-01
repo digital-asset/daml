@@ -42,7 +42,7 @@ object LoadDarFunction extends App {
       val machine = Machine.fromPureSExpr(compiledPackages, expr)
 
       machine.run() match {
-        case SResultFinalValue(SInt64(result)) => result
+        case SResultFinal(SInt64(result), _) => result
         case res => throw new RuntimeException(s"Unexpected result from machine $res")
       }
     }

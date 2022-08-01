@@ -45,7 +45,7 @@ private[apiserver] final class ApiVersionService private (
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val versionFile: String = "ledger-api/VERSION"
-  private lazy val apiVersion: Try[String] = readVersion(versionFile)
+  private val apiVersion: Try[String] = readVersion(versionFile)
 
   private val featuresDescriptor =
     FeaturesDescriptor.of(
@@ -74,6 +74,7 @@ private[apiserver] final class ApiVersionService private (
           optionalLedgerId = Some(ExperimentalOptionalLedgerId()),
           contractIds = Some(ledgerFeatures.contractIdFeatures),
           committerEventLog = Some(ledgerFeatures.committerEventLog),
+          explicitDisclosure = None, // TODO[ED]: Wire-up with participant configuration flag
         )
       ),
     )

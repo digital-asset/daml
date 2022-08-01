@@ -119,7 +119,7 @@ object Node {
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers],
-      override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
+      override val byKey: Boolean,
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyAction
@@ -160,7 +160,7 @@ object Node {
       children: ImmArray[NodeId],
       exerciseResult: Option[Value],
       key: Option[KeyWithMaintainers],
-      override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
+      override val byKey: Boolean,
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends Action

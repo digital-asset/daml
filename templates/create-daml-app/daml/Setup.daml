@@ -1,48 +1,89 @@
 module Setup where
 
-import DA.Foldable (forA_)
 import DA.Optional (fromSomeNote)
 import qualified DA.Text as T
 import Daml.Script
 
+-- | A record containing all the parties that we will use in our script
+data Parties = Parties
+  with
+    alice : Party
+    bob : Party
+    charlie: Party
+    public: Party
+
 -- | A test user for the create-daml-app network.
+-- When a participantName is provided, the testUser will be created/or fetched
+-- on the given participant.
 data TestUser = TestUser with
   alias : Text
   public : Party
+  participantName: Optional ParticipantName
 
+defaultParticipant : Optional ParticipantName
+defaultParticipant = None
 -- | Create a public party, then create three test users.
-setup : Script ()
+
+setup : Script Parties
 setup = do
-  public <- createPublic
-  let aliases = ["Alice", "Bob", "Charlie"]
-  forA_ aliases $ \alias -> createTestUser $ TestUser alias public
+  public <- createPublic defaultParticipant
+  -- In the getting started guide, we only have one participant so we set the participant name to None.
+  -- If you are running this against a ledger with multiple participants, specify the participant the parties
+  -- should be hosted on.
+  alice <- createTestUser $ TestUser "Alice" public defaultParticipant
+  bob <- createTestUser $ TestUser "Bob" public defaultParticipant
+  charlie <- createTestUser $ TestUser "Charlie" public defaultParticipant
+  pure $ Parties with
+    alice
+    bob
+    charlie
+    public
 
 -- | Create a test user.
 createTestUser : TestUser -> Script Party
-createTestUser TestUser{alias, public} = do
-  u <- getOrCreateUser alias (Some public)
+createTestUser TestUser{alias, public, participantName} = do
+  u <- getOrCreateUser alias (Some public) participantName
   let p = getPrimaryParty u
   pure p
 
 -- | Create the public party.
-createPublic : Script Party
-createPublic = do
-  publicUser <- getOrCreateUser "Public" None
+createPublic : Optional ParticipantName -> Script Party
+createPublic participantName = do
+  publicUser <- getOrCreateUser "Public" None participantName
   pure $ getPrimaryParty publicUser
 
 
 -- | Get a user by their id. If the user doesn't exist, it is created.
-getOrCreateUser : Text -> Optional Party -> Script User
-getOrCreateUser alias publicM = do
+getOrCreateUser : Text -> Optional Party -> Optional ParticipantName -> Script User
+getOrCreateUser alias publicM participantNameM = do
   userId <- validateUserId $ toUserId alias
   try
-    getUser userId
+    getUser_ userId participantNameM
   catch
     UserNotFound _ -> do
-      p <- allocateParty alias
+      p <- allocateParty_ alias participantNameM
       let u = User userId (Some p)
-      createUser u $ CanActAs p :: [CanReadAs public | Some public <- [publicM]]
+      let rights  = CanActAs p :: [CanReadAs public | Some public <- [publicM]]
+      createUser_ u rights participantNameM
       pure u
+
+getUser_ : UserId -> Optional ParticipantName -> Script User
+getUser_  userId participantNameM = do
+  case participantNameM of
+    Some participantName -> getUserOn userId participantName
+    None -> getUser userId
+
+allocateParty_ : Text -> Optional ParticipantName -> Script Party
+allocateParty_ alias participantNameM = do
+  case participantNameM of
+    Some participantName -> allocatePartyOn alias participantName
+    None -> allocateParty alias
+
+createUser_ : User -> [UserRight] ->  Optional ParticipantName -> Script ()
+createUser_ user rights participantNameM = do
+  case participantNameM of
+    Some participantName -> createUserOn user rights participantName
+    None -> createUser user rights
 
 -- | Convert a text to a valid user id.
 toUserId : Text -> Text

@@ -439,22 +439,48 @@ object SExpr {
   final case class SignatoriesDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ObserversDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ToCachedContractDefRef(ref: DefinitionRef) extends SDefinitionRef
-  final case class InterfacePrecondDefRef(ref: DefinitionRef) extends SDefinitionRef
 
-  /** ImplementsDefRef(ref=templateId, ifaceId) points to a function that converts a
-    * template value to an interface value. (This is currently an identity function.)
-    * The existence of this definition signals that the template implements the interface.
+  /** ImplementsDefRef(templateId, ifaceId) points to the Unit value if
+    * the template implements the interface.
     */
-  final case class ImplementsDefRef(ref: DefinitionRef, ifaceId: TypeConName) extends SDefinitionRef
+  final case class ImplementsDefRef(
+      templateId: TypeConName,
+      ifaceId: TypeConName,
+  ) extends SDefinitionRef {
+    override def ref = templateId;
+  }
 
-  /** ImplementsMethodDefRef(ref=templateId, ifaceId, method) invokes the template's
+  /** CoImplementsDefRef(templateId, ifaceId) points to the Unit value if
+    * the interface provides an implementation for (co-implements) the template.
+    */
+  final case class CoImplementsDefRef(
+      templateId: TypeConName,
+      ifaceId: TypeConName,
+  ) extends SDefinitionRef {
+    override def ref = ifaceId;
+  }
+
+  /** ImplementsMethodDefRef(templateId, ifaceId, method) invokes the template's
     * implementation of an interface method.
     */
   final case class ImplementsMethodDefRef(
-      ref: DefinitionRef,
+      templateId: TypeConName,
       ifaceId: TypeConName,
       methodName: MethodName,
-  ) extends SDefinitionRef
+  ) extends SDefinitionRef {
+    override def ref = templateId;
+  }
+
+  /** CoImplementsMethodDefRef(templateId, ifaceId, method) invokes the
+    * interface-provided implementation of the method for the given template.
+    */
+  final case class CoImplementsMethodDefRef(
+      templateId: TypeConName,
+      ifaceId: TypeConName,
+      methodName: MethodName,
+  ) extends SDefinitionRef {
+    override def ref = ifaceId;
+  }
 
   final case object AnonymousClosure
 

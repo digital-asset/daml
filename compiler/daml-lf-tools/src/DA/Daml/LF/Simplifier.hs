@@ -217,6 +217,7 @@ safetyStep = \case
   EInterfaceTemplateTypeRepF _ s -> s <> Safe 0
   ESignatoryInterfaceF _ s -> s <> Safe 0
   EObserverInterfaceF _ s -> s <> Safe 0
+  EViewInterfaceF _ _ -> Unsafe
   EExperimentalF _ _ -> Unsafe
 
 isTypeClassDictionary :: DefValue -> Bool

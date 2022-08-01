@@ -65,7 +65,7 @@ def daml_script_test(compiler_version, runner_version):
     # 1.16.0 is the first SDK version that defaulted to LF 1.14, which is the earliest LF version that Canton supports
     use_canton = versions.is_at_least("2.0.0", runner_version) and versions.is_at_least("1.16.0", compiler_version)
     use_sandbox_on_x = versions.is_at_least("2.0.0", runner_version) and not use_canton
-    sandbox_on_x_command = ["run-legacy-cli-config"] if versions.is_at_least("2.3.0-snapshot.20220619.10104.0.253b0b18", runner_version) else []
+    sandbox_on_x_command = ["run-legacy-cli-config"] if versions.is_at_least("2.4.0-snapshot.20220712.10212.0.0bf28176", runner_version) else []
 
     if use_sandbox_on_x:
         server = "@daml-sdk-{version}//:sandbox-on-x".format(version = runner_version)

@@ -736,6 +736,10 @@ encodeExpr' = \case
         expr_ObserverInterfaceInterface <- encodeQualTypeConName ty
         expr_ObserverInterfaceExpr <- encodeExpr val
         pureExpr $ P.ExprSumObserverInterface P.Expr_ObserverInterface{..}
+    EViewInterface iface expr -> do
+        expr_ViewInterfaceInterface <- encodeQualTypeConName iface
+        expr_ViewInterfaceExpr <- encodeExpr expr
+        pureExpr $ P.ExprSumViewInterface P.Expr_ViewInterface{..}
     EExperimental name ty -> do
         let expr_ExperimentalName = encodeString name
         expr_ExperimentalType <- encodeType ty
@@ -952,6 +956,7 @@ encodeTemplateImplements :: TemplateImplements -> Encode P.DefTemplate_Implement
 encodeTemplateImplements TemplateImplements{..} = do
     defTemplate_ImplementsInterface <- encodeQualTypeConName tpiInterface
     defTemplate_ImplementsMethods <- encodeNameMap encodeTemplateImplementsMethod tpiMethods
+    defTemplate_ImplementsView <- encodeExpr tpiView
     pure P.DefTemplate_Implements {..}
 
 encodeTemplateImplementsMethod :: TemplateImplementsMethod -> Encode P.DefTemplate_ImplementsMethod
@@ -1018,9 +1023,9 @@ encodeDefInterface DefInterface{..} = do
     defInterfaceRequires <- encodeSet encodeQualTypeConName' intRequires
     defInterfaceMethods <- encodeNameMap encodeInterfaceMethod intMethods
     defInterfaceParamInternedStr <- encodeNameId unExprVarName intParam
-    defInterfacePrecond <- encodeExpr intPrecondition
     defInterfaceChoices <- encodeNameMap encodeTemplateChoice intChoices
     defInterfaceCoImplements <- encodeNameMap encodeInterfaceCoImplements intCoImplements
+    defInterfaceView <- encodeType intView
     pure $ P.DefInterface{..}
 
 encodeInterfaceMethod :: InterfaceMethod -> Encode P.InterfaceMethod
@@ -1034,6 +1039,7 @@ encodeInterfaceCoImplements :: InterfaceCoImplements -> Encode P.DefInterface_Co
 encodeInterfaceCoImplements InterfaceCoImplements {..} = do
     defInterface_CoImplementsTemplate <- encodeQualTypeConName iciTemplate
     defInterface_CoImplementsMethods <- encodeNameMap encodeInterfaceCoImplementsMethod iciMethods
+    defInterface_CoImplementsView <- encodeExpr iciView
     pure P.DefInterface_CoImplements {..}
 
 encodeInterfaceCoImplementsMethod :: InterfaceCoImplementsMethod -> Encode P.DefInterface_CoImplementsMethod

@@ -10,8 +10,8 @@ import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{IndexService, MaximumLedgerTime}
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
-import com.daml.ledger.sandbox.bridge.validate.ConflictCheckWithCommittedSpec._
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
+import com.daml.ledger.sandbox.bridge.validate.ConflictCheckWithCommittedSpec._
 import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission
 import com.daml.lf.crypto.Hash
@@ -27,8 +27,8 @@ import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.FixtureContext
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import java.time.Duration
 
+import java.time.Duration
 import scala.concurrent.Future
 
 class ConflictCheckWithCommittedSpec

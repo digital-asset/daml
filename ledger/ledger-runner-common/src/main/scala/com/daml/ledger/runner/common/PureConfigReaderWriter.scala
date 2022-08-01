@@ -3,6 +3,7 @@
 
 package com.daml.ledger.runner.common
 
+import com.daml.jwt.LeewayOptions
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
 import com.daml.lf.data.Ref
@@ -14,6 +15,7 @@ import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
+import com.daml.platform.config.{MetricsConfig, ParticipantConfig}
 import com.daml.platform.configuration.{
   CommandConfiguration,
   IndexServiceConfig,
@@ -44,7 +46,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.jdk.DurationConverters.{JavaDurationOps, ScalaDurationOps}
 import scala.util.Try
 
-object PureConfigReaderWriter {
+class PureConfigReaderWriter(secure: Boolean = true) {
   val Secret = "<REDACTED>"
 
   /** Reads configuration object of `T` and `enabled` flag to find out if this object has values.
@@ -174,7 +176,10 @@ object PureConfigReaderWriter {
     }
 
   implicit val secretsUrlWriter: ConfigWriter[SecretsUrl] =
-    ConfigWriter.toString(_ => Secret)
+    ConfigWriter.toString {
+      case SecretsUrl.FromUrl(url) if !secure => url.toString
+      case _ => Secret
+    }
 
   implicit val clientAuthReader: ConfigReader[ClientAuth] =
     ConfigReader.fromStringTry[ClientAuth](value => Try(ClientAuth.valueOf(value.toUpperCase)))
@@ -227,14 +232,18 @@ object PureConfigReaderWriter {
   implicit val userManagementConfigConvert: ConfigConvert[UserManagementConfig] =
     deriveConvert[UserManagementConfig]
 
+  implicit val leewayConfigOptionsConvert: ConfigConvert[LeewayOptions] =
+    deriveConvert[LeewayOptions]
+
   implicit val authServiceConfigUnsafeJwtHmac256Reader
       : ConfigReader[AuthServiceConfig.UnsafeJwtHmac256] =
     deriveReader[AuthServiceConfig.UnsafeJwtHmac256]
   implicit val authServiceConfigUnsafeJwtHmac256Writer
       : ConfigWriter[AuthServiceConfig.UnsafeJwtHmac256] =
-    deriveWriter[AuthServiceConfig.UnsafeJwtHmac256].contramap[AuthServiceConfig.UnsafeJwtHmac256](
-      x => x.copy(secret = Secret)
-    )
+    deriveWriter[AuthServiceConfig.UnsafeJwtHmac256].contramap[AuthServiceConfig.UnsafeJwtHmac256] {
+      case x if secure => x.copy(secret = Secret)
+      case x => x
+    }
   implicit val authServiceConfigJwtEs256CrtConvert: ConfigConvert[AuthServiceConfig.JwtEs256] =
     deriveConvert[AuthServiceConfig.JwtEs256]
   implicit val authServiceConfigJwtEs512CrtConvert: ConfigConvert[AuthServiceConfig.JwtEs512] =
@@ -274,9 +283,6 @@ object PureConfigReaderWriter {
 
   implicit val apiServerConfigConvert: ConfigConvert[ApiServerConfig] =
     deriveConvert[ApiServerConfig]
-
-  implicit val participantRunModeConvert: ConfigConvert[ParticipantRunMode] =
-    deriveEnumerationConvert[ParticipantRunMode]
 
   implicit val validateAndStartConvert: ConfigConvert[IndexerStartupMode.ValidateAndStart.type] =
     deriveConvert[IndexerStartupMode.ValidateAndStart.type]
@@ -325,7 +331,10 @@ object PureConfigReaderWriter {
     }
 
   implicit val participantDataSourceConfigWriter: ConfigWriter[ParticipantDataSourceConfig] =
-    ConfigWriter.toString(_ => Secret)
+    ConfigWriter.toString {
+      case _ if secure => Secret
+      case dataSourceConfig => dataSourceConfig.jdbcUrl
+    }
 
   implicit val participantDataSourceConfigMapReader
       : ConfigReader[Map[Ref.ParticipantId, ParticipantDataSourceConfig]] =
@@ -342,4 +351,8 @@ object PureConfigReaderWriter {
     genericMapWriter[Ref.ParticipantId, ParticipantConfig](_.toString)
 
   implicit val configConvert: ConfigConvert[Config] = deriveConvert[Config]
+}
+
+object PureConfigReaderWriter {
+  implicit val Secure = new PureConfigReaderWriter(secure = true)
 }

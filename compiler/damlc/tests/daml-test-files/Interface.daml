@@ -17,8 +17,6 @@ interface Token where
   transferImpl : Party -> Update (ContractId Token)
   noopImpl : () -> Update ()
 
-  ensure (getAmount this >= 0)
-
   choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment.
     with
       splitAmount : Int -- ^ A choice field comment.
@@ -76,11 +74,6 @@ template Asset
 
 main = scenario do
   p <- getParty "Alice"
-  p `submitMustFail` do
-    create Asset with
-      issuer = p
-      owner = p
-      amount = -1
   p `submit` do
     cidAsset1 <- create Asset with
       issuer = p

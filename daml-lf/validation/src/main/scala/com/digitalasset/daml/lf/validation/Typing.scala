@@ -463,7 +463,7 @@ private[validation] object Typing {
 
     private[Typing] def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
-        case DefInterface(requires, param, choices, methods, precond, coImplements) =>
+        case DefInterface(requires, param, choices, methods, coImplements, _) =>
           val env = introExprVar(param, TTyCon(ifaceName))
           if (requires(ifaceName))
             throw ECircularInterfaceRequires(ctx, ifaceName)
@@ -472,7 +472,6 @@ private[validation] object Typing {
             requiredRequired <- handleLookup(ctx, pkgInterface.lookupInterface(required)).requires
             if !requires(requiredRequired)
           } throw ENotClosedInterfaceRequires(ctx, ifaceName, required, requiredRequired)
-          env.checkExpr(precond, TBool)
           methods.values.foreach(checkIfaceMethod)
           choices.values.foreach(env.checkChoice(ifaceName, _))
           env.checkIfaceCoImplementations(ifaceName, param, coImplements)
@@ -492,12 +491,12 @@ private[validation] object Typing {
         implMethods: List[(MethodName, Expr)],
     ): Unit = {
       val DefInterfaceSignature(requires, _, _, methods, _, _) =
+        // TODO https://github.com/digital-asset/daml/issues/14112
         handleLookup(ctx, pkgInterface.lookupInterface(ifaceTcon))
 
       requires
         .filterNot(required =>
-          pkgInterface.lookupInterfaceCoImplements(tplTcon, required).isRight ||
-            pkgInterface.lookupTemplateImplements(tplTcon, required).isRight
+          pkgInterface.lookupTemplateImplementsOrInterfaceCoImplements(tplTcon, required).isRight
         )
         .foreach(required => throw EMissingRequiredInterface(ctx, tplTcon, ifaceTcon, required))
 
@@ -652,7 +651,7 @@ private[validation] object Typing {
           val (exprFieldNames, fieldExprs) = recordExpr.unzip
           val (typeFieldNames, fieldTypes) = recordType.unzip
           if (exprFieldNames != typeFieldNames) throw EFieldMismatch(ctx, typ, recordExpr)
-          (fieldExprs zip fieldTypes).foreach((checkExpr _).tupled)
+          (fieldExprs zip fieldTypes).foreach { case (e, f) => checkExpr(e, f) }
         case _ =>
           throw EExpectedRecordType(ctx, typ)
       }
@@ -906,6 +905,61 @@ private[validation] object Typing {
         typeOf(body)
     }
 
+    private[this] def typOfExprInterface(expr: ExprInterface): Type = expr match {
+      case EToInterface(iface, tpl, value) =>
+        checkImplements(tpl, iface)
+        checkExpr(value, TTyCon(tpl))
+        TTyCon(iface)
+      case EFromInterface(iface, tpl, value) =>
+        checkImplements(tpl, iface)
+        checkExpr(value, TTyCon(iface))
+        TOptional(TTyCon(tpl))
+      case EUnsafeFromInterface(iface, tpl, cid, value) =>
+        checkImplements(tpl, iface)
+        checkExpr(cid, TContractId(TTyCon(iface)))
+        checkExpr(value, TTyCon(iface))
+        TTyCon(tpl)
+      case EToRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
+        val requiringIface = handleLookup(ctx, pkgInterface.lookupInterface(requiringIfaceId))
+        if (!requiringIface.requires.contains(requiredIfaceId))
+          throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
+        checkExpr(body, TTyCon(requiringIfaceId))
+        TTyCon(requiredIfaceId)
+      case EFromRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
+        val requiringIface = handleLookup(ctx, pkgInterface.lookupInterface(requiringIfaceId))
+        if (!requiringIface.requires.contains(requiredIfaceId))
+          throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
+        checkExpr(body, TTyCon(requiredIfaceId))
+        TOptional(TTyCon(requiringIfaceId))
+      case EUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId, cid, body) =>
+        val requiringIface = handleLookup(ctx, pkgInterface.lookupInterface(requiringIfaceId))
+        if (!requiringIface.requires.contains(requiredIfaceId))
+          throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
+        checkExpr(cid, TContractId(TTyCon(requiredIfaceId)))
+        checkExpr(body, TTyCon(requiredIfaceId))
+        TTyCon(requiringIfaceId)
+      case ECallInterface(iface, methodName, value) =>
+        val method = handleLookup(ctx, pkgInterface.lookupInterfaceMethod(iface, methodName))
+        checkExpr(value, TTyCon(iface))
+        method.returnType
+      case EInterfaceTemplateTypeRep(ifaceId, body) =>
+        discard(handleLookup(ctx, pkgInterface.lookupInterface(ifaceId)))
+        checkExpr(body, TTyCon(ifaceId))
+        TTypeRep
+      case ESignatoryInterface(ifaceId, body) =>
+        discard(handleLookup(ctx, pkgInterface.lookupInterface(ifaceId)))
+        checkExpr(body, TTyCon(ifaceId))
+        TList(TParty)
+      case EObserverInterface(ifaceId, body) =>
+        discard(handleLookup(ctx, pkgInterface.lookupInterface(ifaceId)))
+        checkExpr(body, TTyCon(ifaceId))
+        TList(TParty)
+      case EViewInterface(ifaceId, expr) =>
+        val iface = handleLookup(ctx, pkgInterface.lookupInterface(ifaceId))
+        checkExpr(expr, TTyCon(ifaceId))
+        iface.view
+    }
+
     private def checkCons(elemType: Type, front: ImmArray[Expr], tailExpr: Expr): Unit = {
       checkType(elemType, KStar)
       if (front.isEmpty) throw EEmptyConsFront(ctx)
@@ -967,12 +1021,12 @@ private[validation] object Typing {
         chName: ChoiceName,
         cid: Expr,
         arg: Expr,
-        guard: Expr,
+        guard: Option[Expr],
     ): Type = {
       checkExpr(cid, TContractId(TTyCon(interfaceId)))
       val choice = handleLookup(ctx, pkgInterface.lookupInterfaceChoice(interfaceId, chName))
       checkExpr(arg, choice.argBinder._2)
-      checkExpr(guard, TFun(TTyCon(interfaceId), TBool))
+      guard.foreach(checkExpr(_, TFun(TTyCon(interfaceId), TBool)))
       TUpdate(choice.returnType)
     }
 
@@ -1002,10 +1056,10 @@ private[validation] object Typing {
 
     private def checkImplements(tpl: TypeConName, iface: TypeConName): Unit = {
       discard(handleLookup(ctx, pkgInterface.lookupInterface(iface)))
-      val template = handleLookup(ctx, pkgInterface.lookupTemplate(tpl))
-      if (!template.implements.contains(iface))
+      discard(handleLookup(ctx, pkgInterface.lookupTemplate(tpl)))
+      if (pkgInterface.lookupTemplateImplementsOrInterfaceCoImplements(tpl, iface).isLeft) {
         throw ETemplateDoesNotImplementInterface(ctx, tpl, iface)
-      ()
+      }
     }
 
     private def checkByKey(tmplId: TypeConName, key: Expr): Unit = {
@@ -1188,7 +1242,7 @@ private[validation] object Typing {
         newLocation(loc).typeOf(expr)
       case ESome(typ, body) =>
         checkType(typ, KStar)
-        val _ = checkExpr(body, typ)
+        checkExpr(body, typ)
         TOptional(typ)
       case EToAny(typ, body) =>
         checkAnyType(typ)
@@ -1214,54 +1268,8 @@ private[validation] object Typing {
         checkExceptionType(typ)
         checkExpr(value, TAnyException)
         TOptional(typ)
-      case EToInterface(iface, tpl, value) =>
-        checkImplements(tpl, iface)
-        checkExpr(value, TTyCon(tpl))
-        TTyCon(iface)
-      case EFromInterface(iface, tpl, value) =>
-        checkImplements(tpl, iface)
-        checkExpr(value, TTyCon(iface))
-        TOptional(TTyCon(tpl))
-      case EUnsafeFromInterface(iface, tpl, cid, value) =>
-        checkImplements(tpl, iface)
-        checkExpr(cid, TContractId(TTyCon(iface)))
-        checkExpr(value, TTyCon(iface))
-        TTyCon(tpl)
-      case EToRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
-        val requiringIface = handleLookup(ctx, pkgInterface.lookupInterface(requiringIfaceId))
-        if (!requiringIface.requires.contains(requiredIfaceId))
-          throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
-        checkExpr(body, TTyCon(requiringIfaceId))
-        TTyCon(requiredIfaceId)
-      case EFromRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
-        val requiringIface = handleLookup(ctx, pkgInterface.lookupInterface(requiringIfaceId))
-        if (!requiringIface.requires.contains(requiredIfaceId))
-          throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
-        checkExpr(body, TTyCon(requiredIfaceId))
-        TOptional(TTyCon(requiringIfaceId))
-      case EUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId, cid, body) =>
-        val requiringIface = handleLookup(ctx, pkgInterface.lookupInterface(requiringIfaceId))
-        if (!requiringIface.requires.contains(requiredIfaceId))
-          throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
-        checkExpr(cid, TContractId(TTyCon(requiredIfaceId)))
-        checkExpr(body, TTyCon(requiredIfaceId))
-        TTyCon(requiringIfaceId)
-      case ECallInterface(iface, methodName, value) =>
-        val method = handleLookup(ctx, pkgInterface.lookupInterfaceMethod(iface, methodName))
-        checkExpr(value, TTyCon(iface))
-        method.returnType
-      case EInterfaceTemplateTypeRep(ifaceId, body) =>
-        discard(handleLookup(ctx, pkgInterface.lookupInterface(ifaceId)))
-        checkExpr(body, TTyCon(ifaceId))
-        TTypeRep
-      case ESignatoryInterface(ifaceId, body) =>
-        discard(handleLookup(ctx, pkgInterface.lookupInterface(ifaceId)))
-        checkExpr(body, TTyCon(ifaceId))
-        TList(TParty)
-      case EObserverInterface(ifaceId, body) =>
-        discard(handleLookup(ctx, pkgInterface.lookupInterface(ifaceId)))
-        checkExpr(body, TTyCon(ifaceId))
-        TList(TParty)
+      case expr: ExprInterface =>
+        typOfExprInterface(expr)
       case EExperimental(_, typ) =>
         typ
     }
@@ -1273,9 +1281,8 @@ private[validation] object Typing {
       exprType
     }
 
-    private def checkExpr(expr: Expr, typ0: Type): Unit = {
+    private def checkExpr(expr: Expr, typ0: Type): Unit =
       discard[Type](resolveExprType(expr, typ0))
-    }
 
     private def toStruct(t: Type): TStruct =
       t match {

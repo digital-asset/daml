@@ -9,7 +9,7 @@ object Graphs {
 
   final case class Cycle[X](vertices: List[X])
 
-  type Graph[X] = Relation.Relation[X, X]
+  type Graph[X] = Relation[X, X]
 
   // Topologically order the vertices of an abstract Graph.
   // If the `graph` is a directed acyclic graph returns a list of its vertices in topological order as `Right`

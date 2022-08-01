@@ -552,6 +552,8 @@ instance Pretty Expr where
         [interfaceArg ty, TmArg expr]
     EObserverInterface ty expr -> pPrintAppKeyword lvl prec "observer_interface"
         [interfaceArg ty, TmArg expr]
+    EViewInterface iface expr -> pPrintAppKeyword lvl prec "view"
+        [interfaceArg iface, TmArg expr]
     EExperimental name _ ->  pPrint $ "$" <> name
 
 instance Pretty DefTypeSyn where
@@ -634,7 +636,7 @@ pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observe
       implementsDoc = map (pPrintTemplateImplements lvl) (NM.toList implements)
 
 pPrintTemplateImplements :: PrettyLevel -> TemplateImplements -> Doc ann
-pPrintTemplateImplements lvl (TemplateImplements name methods)
+pPrintTemplateImplements lvl (TemplateImplements name methods _)
   | NM.null methods = keyword_ "implements" <-> pPrintPrec lvl 0 name
   | otherwise = vcat $
       [ keyword_ "implements" <-> pPrintPrec lvl 0 name

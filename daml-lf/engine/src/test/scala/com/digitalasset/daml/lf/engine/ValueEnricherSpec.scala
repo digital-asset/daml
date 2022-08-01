@@ -52,6 +52,19 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
             \(contract: Mod:Contract) ->
               Mod:keyParties (Mod:Contract {key} contract);
 
+          record @serializable View = {
+            signatory: List Party,
+            cids: List (ContractId Mod:Contract)
+          };
+
+          interface (this: I) = {
+            method _view : Mod:View;
+          };
+
+          interface (this: J) = {
+            method _view : Int64;
+          };
+
           template (this : Contract) =  {
              precondition True;
              signatories Mod:contractParties this;
@@ -62,6 +75,12 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
                  Mod:contractParties this
                to
                  upure @Mod:Record r;
+             implements Mod:I {
+               method _view = Mod:View { signatory = Mod:contractParties this, cids = Mod:Contract {cids} this } ;
+             };
+             implements Mod:J {
+               method _view = 42;
+             };
              key @Mod:Key (Mod:Contract {key} this) Mod:keyParties;
           };
         }
@@ -69,9 +88,12 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
     """
 
   private[this] val engine = Engine.DevEngine()
+
   engine
     .preloadPackage(defaultPackageId, pkg)
     .consume(_ => None, _ => None, _ => None)
+    .left
+    .foreach(err => sys.error(err.message))
 
   private[this] val enricher = new ValueEnricher(engine)
 
@@ -125,8 +147,39 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
     )
 
     "enrich values as expected" in {
-      forAll(testCases) { (typ, input, output) =>
+      forEvery(testCases) { (typ, input, output) =>
         enricher.enrichValue(typ, input) shouldBe ResultDone(output)
+      }
+    }
+  }
+
+  "enrichValue" should {
+    val alice = Ref.Party.assertFromString("alice")
+    val view = Value.ValueRecord(
+      None,
+      ImmArray(
+        None -> ValueList(FrontStack(ValueParty(alice))),
+        None -> ValueList(FrontStack(ValueContractId(cid("#contractId").coid))),
+      ),
+    )
+
+    val enrichedView = Value.ValueRecord(
+      Some("Mod:View": Ref.Identifier),
+      ImmArray(
+        Some("signatory": Ref.Name) -> ValueList(FrontStack(ValueParty(alice))),
+        Some("cids": Ref.Name) -> ValueList(FrontStack(ValueContractId(cid("#contractId").coid))),
+      ),
+    )
+
+    val testCases = Table[Ref.Identifier, Value, Value](
+      ("interfaceId", "contract input", "expected output"),
+      ("Mod:I", view, enrichedView),
+      ("Mod:J", ValueInt64(42L), ValueInt64(42L)),
+    )
+
+    "enrich views as expected" in {
+      forEvery(testCases) { (ifaceId, input, output) =>
+        enricher.enrichView(ifaceId, input) shouldBe ResultDone(output)
       }
     }
   }
