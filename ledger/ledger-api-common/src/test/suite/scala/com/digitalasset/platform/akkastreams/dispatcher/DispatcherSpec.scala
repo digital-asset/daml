@@ -6,7 +6,6 @@ package com.daml.platform.akkastreams.dispatcher
 import java.util.Random
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{Executors, TimeUnit}
-
 import akka.stream.DelayOverflowStrategy
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -24,6 +23,7 @@ import scala.collection.immutable.TreeMap
 import scala.concurrent.Future.successful
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 class DispatcherSpec
     extends AsyncWordSpec
@@ -223,6 +223,33 @@ class DispatcherSpec
         dispatcher.shutdown()
 
         out.map(_ shouldEqual pairs100)
+      }
+    }
+
+    "fail when the dispatcher fails" in {
+      forAllSteppingModes() { subSrc =>
+        val dispatcher = newDispatcher()
+        val pairs50 = gen(50)
+        val i50 = pairs50.last._1
+        val pairs100 = gen(50)
+        val i100 = pairs100.last._1
+
+        publish(i50, dispatcher)
+        val out = collect(genesis, i100, dispatcher, subSrc)
+
+        val expectedException = new RuntimeException("some exception")
+
+        for {
+          _ <- dispatcher.cancel(expectedException)
+          _ = publish(i100, dispatcher)
+
+          _ <- out.transform {
+            case Failure(`expectedException`) => Success(())
+            case Failure(other) =>
+              fail(s"Expected stream failed with $expectedException but got $other")
+            case Success(_) => fail("Expected stream failed")
+          }
+        } yield succeed
       }
     }
 

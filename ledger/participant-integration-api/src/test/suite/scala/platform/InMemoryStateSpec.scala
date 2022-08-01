@@ -50,22 +50,68 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
 
       when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(Future.unit)
       when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
+      when(dispatcherState.isRunning).thenReturn(true)
 
       for {
         // INITIALIZED THE STATE
         _ <- inMemoryState.initializeTo(initLedgerEnd)(updateStringInterningView)
-      } yield {
-        // ASSERT STATE INITIALIZED
 
-        inOrder.verify(dispatcherState).stopDispatcher()
-        inOrder.verify(updateStringInterningView)(stringInterningView, initLedgerEnd)
-        inOrder.verify(contractStateCaches).reset(initOffset)
-        inOrder.verify(inMemoryFanoutBuffer).flush()
-        inOrder.verify(mutableLedgerEndCache).set(initOffset, initEventSequentialId)
-        inOrder.verify(dispatcherState).startDispatcher(initLedgerEnd)
+        _ = {
+          // ASSERT STATE INITIALIZED
 
-        inMemoryState.initialized shouldBe true
-      }
+          inOrder.verify(dispatcherState).stopDispatcher()
+          inOrder.verify(updateStringInterningView)(stringInterningView, initLedgerEnd)
+          inOrder.verify(contractStateCaches).reset(initOffset)
+          inOrder.verify(inMemoryFanoutBuffer).flush()
+          inOrder.verify(mutableLedgerEndCache).set(initOffset, initEventSequentialId)
+          inOrder.verify(dispatcherState).startDispatcher(initLedgerEnd.lastOffset)
+
+          inMemoryState.initialized shouldBe true
+        }
+
+        reInitOffset = Offset.fromHexString(Ref.HexString.assertFromString("abeeee"))
+        reInitEventSequentialId = 9999L
+        reInitStringInterningId = 50
+        reInitLedgerEnd = ParameterStorageBackend
+          .LedgerEnd(reInitOffset, reInitEventSequentialId, reInitStringInterningId)
+
+        // RESET MOCKS
+        _ = {
+          reset(
+            mutableLedgerEndCache,
+            contractStateCaches,
+            inMemoryFanoutBuffer,
+            updateStringInterningView,
+          )
+          when(updateStringInterningView(stringInterningView, reInitLedgerEnd)).thenReturn(
+            Future.unit
+          )
+          when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
+        }
+
+        // RE-INITIALIZE THE STATE
+        _ <- inMemoryState.initializeTo(reInitLedgerEnd) {
+          case (`stringInterningView`, ledgerEnd) =>
+            updateStringInterningView(stringInterningView, ledgerEnd)
+          case (other, _) => fail(s"Unexpected stringInterningView reference $other")
+        }
+
+        // ASSERT STATE RE-INITIALIZED
+        _ = {
+          inOrder.verify(dispatcherState).stopDispatcher()
+
+          when(dispatcherState.isRunning).thenReturn(false)
+          inMemoryState.initialized shouldBe false
+          inOrder.verify(updateStringInterningView)(stringInterningView, reInitLedgerEnd)
+          inOrder.verify(contractStateCaches).reset(reInitOffset)
+          inOrder.verify(inMemoryFanoutBuffer).flush()
+          inOrder.verify(mutableLedgerEndCache).set(reInitOffset, reInitEventSequentialId)
+          inOrder.verify(dispatcherState).startDispatcher(reInitOffset)
+
+          when(dispatcherState.isRunning).thenReturn(true)
+          inMemoryState.initialized shouldBe true
+        }
+      } yield succeed
   }
 
   private def withTestFixture(

@@ -27,9 +27,8 @@ private[platform] class InMemoryState(
     val dispatcherState: DispatcherState,
 )(implicit executionContext: ExecutionContext) {
   private val logger = ContextualizedLogger.get(getClass)
-  @volatile private var _initialized = false
 
-  final def initialized: Boolean = _initialized
+  final def initialized: Boolean = dispatcherState.isRunning
 
   /** (Re-)initializes the participant in-memory state to a specific ledger end.
     *
@@ -44,7 +43,8 @@ private[platform] class InMemoryState(
     //           is different than the ledgerEndCache.
     for {
       // First stop the active dispatcher (if exists) to ensure
-      // that Ledger API subscriptions racing with `initializeTo`
+      // termination of existing Ledger API subscriptions and to also ensure
+      // that new Ledger API subscriptions racing with `initializeTo`
       // do not observe an inconsistent state.
       _ <- dispatcherState.stopDispatcher()
       // Reset the string interning view to the latest ledger end
@@ -56,11 +56,8 @@ private[platform] class InMemoryState(
         ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
       }
       // Start a new Ledger API offset dispatcher
-      _ = dispatcherState.startDispatcher(ledgerEnd)
-    } yield {
-      // Set the in-memory state initialized
-      _initialized = true
-    }
+      _ = dispatcherState.startDispatcher(ledgerEnd.lastOffset)
+    } yield ()
   }
 }
 

@@ -123,13 +123,20 @@ final class DispatcherImpl[Index: Ordering](
     Ordering[Index].gt(zeroIndex, checkedIndex)
 
   override def shutdown(): Future[Unit] =
+    shutdownInternal { dispatcher =>
+      dispatcher.signal()
+      dispatcher.shutdown()
+    }
+
+  override def cancel(throwable: Throwable): Future[Unit] =
+    shutdownInternal(_.fail(throwable))
+
+  private def shutdownInternal(shutdown: SignalDispatcher => Future[Unit]): Future[Unit] =
     state.getAndUpdate {
       case Running(idx, _) => Closed(idx)
       case c: Closed => c
     } match {
-      case Running(_, disp) =>
-        disp.signal()
-        disp.shutdown()
+      case Running(_, disp) => shutdown(disp)
       case _: Closed => Future.unit
     }
 
