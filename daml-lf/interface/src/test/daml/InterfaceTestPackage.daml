@@ -22,7 +22,7 @@ template Foo with
     implements L.TIf where
       getOwner = party
       dup = toInterfaceContractId <$> create this
-      _view = ()
+      _view = L.TIfView 42 "hi"
 
 interface TIf where
   getOwner: Party

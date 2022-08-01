@@ -36,7 +36,7 @@ private[codegen] object DependencyGraph {
   private def toNode(interface: DefInterface.FWT) =
     Node(
       NodeType.Root.Interface(interface),
-      interface.foldMap(genTypeTopLevelDeclNames),
+      interface.foldMap(genTypeTopLevelDeclNames) ++ interface.viewType.toList,
     )
 
   def orderedDependencies(
