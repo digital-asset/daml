@@ -6,8 +6,8 @@ syntax = "proto3";
 package com.daml.ledger.api.v1.admin;
 
 option java_outer_classname = "ObjectMetaOuterClass";
-option java_package = "com.daml.ledger.api.v1";
-option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option java_package = "com.daml.ledger.api.v1.admin";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 
 // Represents metadata corresponding to some participant resource (e.g. a participant user).
 //
