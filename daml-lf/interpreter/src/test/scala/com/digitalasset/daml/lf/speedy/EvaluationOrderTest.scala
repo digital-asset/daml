@@ -69,9 +69,10 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       variant @serializable Either (a:*) (b:*) = Left: a | Right : b;
 
-      interface (this : I1) =  {};
+      interface (this : I1) =  { viewtype Unit; };
 
       interface (this: Person) = {
+        viewtype Int64;
         method asParty: Party;
         method getCtrl: Party;
         method getName: Text;
@@ -115,6 +116,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           controllers Cons @Party [M:Human {person} this] (Nil @Party)
           to upure @Unit (TRACE @Unit "archive" ());
         implements M:Person {
+          view = "Human";
           method asParty = M:Human {person} this;
           method getName = "foobar";
           method getCtrl = M:Human {ctrl} this;
