@@ -21,7 +21,7 @@ class MeteringReportSpec extends AsyncWordSpec with Matchers {
 
       val application = Ref.ApplicationId.assertFromString("a0")
       val from = Timestamp.now()
-      val to = from.add(Duration.of(-1, ChronoUnit.DAYS))
+      val to = from.add(Duration.of(1, ChronoUnit.DAYS))
 
       val expected = ParticipantReport(
         participant = Ref.ParticipantId.assertFromString("p0"),
@@ -31,7 +31,6 @@ class MeteringReportSpec extends AsyncWordSpec with Matchers {
       )
 
       val json = expected.toJson.prettyPrint
-      // println(s"json: $json")
       val actual = json.parseJson.convertTo[ParticipantReport]
       actual shouldBe expected
 
