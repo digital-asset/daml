@@ -769,7 +769,7 @@ private[validation] object Typing {
       }
 
     private def typeOfStructCon(fields: ImmArray[(FieldName, Expr)]): Work[Type] = {
-      sequenceWork(fields.iterator.map { case (f, x) =>
+      sequenceWork(fields.map { case (f, x) =>
         typeOf(x) { ty =>
           Ret(f -> ty)
         }
@@ -969,7 +969,7 @@ private[validation] object Typing {
             (defaultExpectedPatterns, introOnlyPatternDefault(scrutType))
         }
 
-        sequenceWork(alts.iterator.map { case CaseAlt(patn, rhs) =>
+        sequenceWork(alts.map { case CaseAlt(patn, rhs) =>
           introPattern(patn).typeOf(rhs) { ty => Ret(ty) }
         }.toList) { types =>
           types match {
