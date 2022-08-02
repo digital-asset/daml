@@ -251,7 +251,8 @@ private[lf] object Speedy {
                   throw SErrorDamlException(
                     IError.DisclosurePreprocessing(
                       IError.DisclosurePreprocessing.DuplicateContractKeys(
-                        d.templateId
+                        d.templateId,
+                        hash,
                       )
                     )
                   )

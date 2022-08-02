@@ -175,9 +175,9 @@ private[lf] object Pretty {
             text(
               s"Found duplicated contract IDs in submitted disclosed contracts for template $templateId"
             )
-          case DisclosurePreprocessing.DuplicateContractKeys(templateId) =>
+          case DisclosurePreprocessing.DuplicateContractKeys(templateId, keyHash) =>
             text(
-              s"Found duplicated contract keys in submitted disclosed contracts for template $templateId"
+              s"Found duplicated contract keys in submitted disclosed contracts for template $templateId and key hash $keyHash"
             )
           case DisclosurePreprocessing.NonExistentTemplate(templateId) =>
             text(
