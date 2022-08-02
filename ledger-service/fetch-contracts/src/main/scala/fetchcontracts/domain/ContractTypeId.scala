@@ -10,12 +10,10 @@ object ContractTypeId {
   // to prove that Template and Interface completely partition the
   // Resolved[Unknown[_]] type, which is not true of the unadorned unresolved
   // contract type IDs
-  sealed abstract case class Unknown[+PkgId](
-      packageId: PkgId,
-      moduleName: String,
-      entityName: String,
-  ) extends Product3[PkgId, String, String]
-      with Serializable {
+  sealed abstract class Unknown[+PkgId] extends Product3[PkgId, String, String] with Serializable {
+    val packageId: PkgId
+    val moduleName: String
+    val entityName: String
     override def _1 = packageId
     override def _2 = moduleName
     override def _3 = entityName
@@ -25,8 +23,7 @@ object ContractTypeId {
   type Template[+PkgId] = Unknown[PkgId] // <: Unknown
   /** A contract type ID known to be an interface, not a template. */
   type Interface[+PkgId] = Unknown[PkgId] // <: Unknown
-  // TODO #14067 write these like this instead:
-  // object Unknown extends Like[Unknown]
+
   object Unknown extends Like[Unknown] {
     private[this] final case class UnknownImpl[+PkgId](
         packageId: PkgId,
