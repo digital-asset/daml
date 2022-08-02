@@ -31,6 +31,12 @@ import scala.util.control.NoStackTrace
 
 private[lf] object Speedy {
 
+  var mmm = 0
+
+  var xxe = 0 //NICK
+  var xxv = 0
+  var xxb = 0
+
   // Would like these to have zero cost when not enabled. Better still, to be switchable at runtime.
   private[this] val enableInstrumentation: Boolean = false
   private[this] val enableLightweightStepTracing: Boolean = false
@@ -294,6 +300,9 @@ private[lf] object Speedy {
 
   /** The speedy CEK machine. */
   final class Machine(
+
+      val me: Int,
+
       /* The control is what the machine should be evaluating. If this is not
        * null, then `returnValue` must be null.
        */
@@ -302,6 +311,9 @@ private[lf] object Speedy {
        * been fully evaluated. If this is not null, then `ctrl` must be null.
        */
       var returnValue: SValue,
+
+      var newControl: Control,
+
       /* Frame: to access values for a closure's free-vars. */
       var frame: Frame,
       /* Actuals: to access values for a function application's arguments. */
@@ -511,6 +523,8 @@ private[lf] object Speedy {
       *      i.e. run() has returned an `SResult` requiring a callback.
       */
     def setExpressionToEvaluate(expr: SExpr): Unit = {
+      //println(s"**Speedy.setExpressionToEvaluate() [$me]")//NICK
+      newControl = Control.Expression(expr)
       ctrl = expr
       kontStack = initialKontStack()
       env = emptyEnv
@@ -520,7 +534,9 @@ private[lf] object Speedy {
     }
 
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
+
     def run(): SResult = {
+      //println(s"**Speedy.run() [$me]")//NICK
       try {
         // normal exit from this loop is when KFinished.execute throws SpeedyComplete
         @tailrec
@@ -532,23 +548,110 @@ private[lf] object Speedy {
             steps += 1
             println(s"$steps: ${PrettyLightweight.ppMachine(this)}")
           }
-          if (returnValue != null) {
-            val value = returnValue
-            returnValue = null
-            popTempStackToBase()
-            popKont().execute(value)
-          } else {
-            val expr = ctrl
-            ctrl = null
-            expr.execute(this)
+
+          //def xx : String = s"[$xxe,$xxv,$xxb]"
+          //println(s"**${xx} : Control.$newControl") //NICK: main debug!
+
+          newControl match {
+            case Control.WeAreComplete() =>
+              sys.error("**attempt to run a complete machine")
+            case Control.Unset() =>
+              sys.error("**attempt to run a machine with unset control")
+
+            case Control.Expression(e) =>
+              xxe += 1
+              //println(s"**${xx}Control.Expression: $e")
+
+              val expr = ctrl
+              if (expr != e) {
+                ???
+              }
+
+              newControl = Control.Unset()
+              //newControl = Control.Blop("inside:run()") // NICK - need to prevent loop/bug
+              newControl = e.execute(this)
+              loop()
+
+              /*if (returnValue != null) {
+                /*val value = returnValue
+                returnValue = null
+                popTempStackToBase()
+                newControl = popKont().execute(value)
+                 ()*/
+                ???
+              } else {
+                val expr = ctrl
+                ctrl = null
+                newControl = expr.execute(this)
+                ()
+              }
+              loop()*/
+
+
+            case Control.Value(v) =>
+              val _ = v
+              xxv += 1
+              //val _ = value//NICK
+              //println(s"**${xx}Control.Value: $v")
+
+              val value = returnValue
+              if (value != v) {
+                //println(s"**${xx} DIFF** v    = $v")
+                //println(s"**${xx} DIFF** value= $value")
+                ??? //NICK
+              }
+
+              /*returnValue = null //NICK: needed??? -- flipping heck yes. indicates bug?
+              popTempStackToBase()
+              newControl = popKont().execute(v)
+              loop()*/
+
+              if (returnValue != null) {
+                val value = returnValue
+                returnValue = null
+                popTempStackToBase()
+                //newControl = Control.Unset() //NICK; BUG kont.execute re-enters run()
+                val k = popKont() //NICK
+                //println(s"-- k.execute: $k")
+                newControl = k.execute(value)
+                ()
+              } else {
+                /*val expr = ctrl
+                ctrl = null
+                newControl = Control.Unset() //NICK: is good!
+                newControl = expr.execute(this)
+                 ()*/
+                ???
+              }
+              loop()
+
+            case Control.Blop(tag) =>
+              val _ = tag
+              xxb += 1
+              if (returnValue != null) {
+                //println(s"**${xx}Control.Blop(V)$tag")
+                val value = returnValue
+                returnValue = null
+                popTempStackToBase()
+                newControl = popKont().execute(value)
+                ()
+              } else {
+                //println(s"**${xx}Control.Blop(E)$tag")
+                val expr = ctrl
+                ctrl = null
+                newControl = expr.execute(this)
+                ()
+              }
+              loop()
           }
-          loop()
         }
         loop()
       } catch {
         case SpeedyHungry(res: SResult) =>
           res
         case SpeedyComplete(value: SValue) =>
+          //println(s"**SpeedyComplete [$me]")//NICK
+          newControl = Control.WeAreComplete()//NICK
           if (enableInstrumentation) track.print()
           ledgerMode match {
             case OffLedger => SResultFinal(value, None)
@@ -563,11 +666,12 @@ private[lf] object Speedy {
       }
     }
 
-    def lookupVal(eval: SEVal): Unit = {
+    def lookupVal(eval: SEVal): Control = { //NICK
       eval.cached match {
         case Some((v, stack_trace)) =>
           pushStackTrace(stack_trace)
           returnValue = v
+          Control.Value(v)
 
         case None =>
           val ref = eval.ref
@@ -577,9 +681,11 @@ private[lf] object Speedy {
                 case Some((svalue, stackTrace)) =>
                   eval.setCached(svalue, stackTrace)
                   returnValue = svalue
+                  Control.Value(svalue)
                 case None =>
                   pushKont(KCacheVal(this, eval, defn, Nil))
                   ctrl = defn.body
+                  Control.Expression(defn.body)
               }
             case None =>
               if (compiledPackages.packageIds.contains(ref.packageId))
@@ -608,7 +714,7 @@ private[lf] object Speedy {
       *      a value, and so have the arguments - they just need looking up
       */
     // TODO: share common code with executeApplication
-    private[speedy] def enterApplication(vfun: SValue, newArgs: Array[SExprAtomic]): Unit = {
+    private[speedy] def enterApplication(vfun: SValue, newArgs: Array[SExprAtomic]): Control = {
       vfun match {
         case SValue.SPAP(prim, actualsSoFar, arity) =>
           val missing = arity - actualsSoFar.size
@@ -630,7 +736,9 @@ private[lf] object Speedy {
 
           // Not enough arguments. Return a PAP.
           if (othersLength < 0) {
-            this.returnValue = SValue.SPAP(prim, actuals, arity)
+            val pap = SValue.SPAP(prim, actuals, arity)
+            this.returnValue = pap
+            Control.Value(pap)
 
           } else {
             // Too many arguments: Push a continuation to re-apply the over-applied args.
@@ -653,6 +761,7 @@ private[lf] object Speedy {
                 // Start evaluating the body of the closure.
                 popTempStackToBase()
                 this.ctrl = closure.expr
+                Control.Expression(closure.expr)
 
               case SValue.PBuiltin(builtin) =>
                 this.actuals = actuals
@@ -666,7 +775,7 @@ private[lf] object Speedy {
     }
 
     /** The function has been evaluated to a value, now start evaluating the arguments. */
-    private[speedy] def executeApplication(vfun: SValue, newArgs: Array[SExpr]): Unit = {
+    private[speedy] def executeApplication(vfun: SValue, newArgs: Array[SExpr]): Control = {
       vfun match {
         case SValue.SPAP(prim, actualsSoFar, arity) =>
           val missing = arity - actualsSoFar.size
@@ -716,7 +825,7 @@ private[lf] object Speedy {
         actuals: util.ArrayList[SValue],
         args: Array[SExpr],
         n: Int,
-    ): Unit = {
+    ): Control = {
       var i = 1
       while (i < n) {
         val arg = args(n - i)
@@ -724,6 +833,7 @@ private[lf] object Speedy {
         i = i + 1
       }
       this.ctrl = args(0)
+      Control.Expression(args(0))
     }
 
     private[speedy] def print(count: Int): Unit = {
@@ -754,7 +864,7 @@ private[lf] object Speedy {
     // com.daml.lf.engine.preprocessing.ValueTranslator.translateValue.
     // All the contract IDs contained in the value are considered global.
     // Raises an exception if missing a package.
-    private[speedy] def importValue(typ0: Type, value0: V): Unit = {
+    private[speedy] def importValue(typ0: Type, value0: V): Control = {
 
       def assertRight[X](x: Either[LookupError, X]): X =
         x match {
@@ -868,7 +978,9 @@ private[lf] object Speedy {
         }
       }
 
-      returnValue = go(typ0, value0)
+      val v = go(typ0, value0)
+      returnValue = v
+      Control.Value(v)
     }
 
     def checkContractVisibility(
@@ -897,7 +1009,7 @@ private[lf] object Speedy {
         gkey: GlobalKey,
         coid: V.ContractId,
         handleKeyFound: (Machine, V.ContractId) => Unit,
-    ): Unit =
+    ): Control =
       onLedger.cachedContracts.get(coid) match {
         case Some(cachedContract) =>
           val stakeholders = cachedContract.signatories union cachedContract.observers
@@ -908,7 +1020,8 @@ private[lf] object Speedy {
                   .ContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
               )
             case _ =>
-              handleKeyFound(this, coid)
+              handleKeyFound(this, coid) //NICK:Control
+              Control.Blop("inside:checkKeyVisibility")
           }
         case None =>
           throw SErrorCrash(
@@ -943,7 +1056,10 @@ private[lf] object Speedy {
         limits: interpretation.Limits = interpretation.Limits.Lenient,
         disclosedContracts: ImmArray[speedy.DisclosedContract],
     )(implicit loggingContext: LoggingContext): Machine = {
+      mmm = mmm + 1
       new Machine(
+        me = mmm,
+        newControl = Control.Expression(expr),
         ctrl = expr,
         returnValue = null,
         frame = null,
@@ -1065,8 +1181,11 @@ private[lf] object Speedy {
         disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
-    )(implicit loggingContext: LoggingContext): Machine =
+    )(implicit loggingContext: LoggingContext): Machine = {
+      mmm = mmm + 1
       new Machine(
+        me = mmm,
+        newControl = Control.Expression(expr),
         ctrl = expr,
         returnValue = null,
         frame = null,
@@ -1086,6 +1205,7 @@ private[lf] object Speedy {
         profile = new Profile(),
         disclosureTable = buildDiscTable(disclosedContracts, compiledPackages.pkgInterface),
       )
+    }
 
     @throws[PackageNotFound]
     @throws[CompilationError]
@@ -1123,18 +1243,28 @@ private[lf] object Speedy {
     kontStack
   }
 
+  //private[speedy] //NICK
+  sealed abstract class Control //NICK: more greppable name?
+  object Control {
+    final case class Blop(tag: String) extends Control //NICK: DIE! uses cntl/returnValue
+    final case class Expression(e: SExpr) extends Control
+    final case class Value(v: SValue) extends Control
+    final case class Unset() extends Control
+    final case class WeAreComplete() extends Control
+  }
+
   /** Kont, or continuation. Describes the next step for the machine
     * after an expression has been evaluated into a 'SValue'.
     */
   private[speedy] sealed trait Kont {
 
     /** Execute the continuation. */
-    def execute(v: SValue): Unit
+    def execute(v: SValue): Control
   }
 
   /** Final continuation; machine has computed final value */
   private[speedy] final case object KFinished extends Kont {
-    def execute(v: SValue): Unit = {
+    def execute(v: SValue): Control = {
       throw SpeedyComplete(v)
     }
   }
@@ -1147,7 +1277,7 @@ private[lf] object Speedy {
     private[this] val frame = machine.frame
     private[this] val actuals = machine.actuals
 
-    def execute(vfun: SValue): Unit = {
+    def execute(vfun: SValue): Control = {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       machine.enterApplication(vfun, newArgs)
@@ -1165,7 +1295,7 @@ private[lf] object Speedy {
     private[this] val frame = machine.frame
     private[this] val actuals = machine.actuals
 
-    def execute(vfun: SValue): Unit = {
+    def execute(vfun: SValue): Control = {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       machine.executeApplication(vfun, newArgs)
@@ -1182,7 +1312,7 @@ private[lf] object Speedy {
 
     private[this] val savedBase = machine.markBase()
 
-    def execute(v: SValue): Unit = {
+    def execute(v: SValue): Control = {
       discard[Boolean](actuals.add(v))
       // Set frame/actuals to allow access to the function arguments and closure free-varables.
       machine.restoreBase(savedBase)
@@ -1196,6 +1326,7 @@ private[lf] object Speedy {
       // Start evaluating the body of the closure.
       machine.popTempStackToBase()
       machine.ctrl = closure.expr
+      Control.Expression(closure.expr)
     }
   }
 
@@ -1208,7 +1339,7 @@ private[lf] object Speedy {
 
     private[this] val savedBase = machine.markBase()
 
-    def execute(v: SValue): Unit = {
+    def execute(v: SValue): Control = {
       discard[Boolean](actuals.add(v))
       // A builtin has no free-vars, so we set the frame to null.
       machine.restoreBase(savedBase)
@@ -1225,14 +1356,16 @@ private[lf] object Speedy {
       arity: Int,
   ) extends Kont {
 
-    def execute(v: SValue): Unit = {
+    def execute(v: SValue): Control = {
       discard[Boolean](actuals.add(v))
-      machine.returnValue = SValue.SPAP(prim, actuals, arity)
+      val pap = SValue.SPAP(prim, actuals, arity)
+      machine.returnValue = pap
+      Control.Value(pap)
     }
   }
 
   /** The scrutinee of a match has been evaluated, now match the alternatives against it. */
-  private[speedy] def executeMatchAlts(machine: Machine, alts: Array[SCaseAlt], v: SValue): Unit = {
+  private[speedy] def executeMatchAlts(machine: Machine, alts: Array[SCaseAlt], v: SValue): Control = {
     val altOpt = v match {
       case SValue.SBool(b) =>
         alts.find { alt =>
@@ -1304,11 +1437,13 @@ private[lf] object Speedy {
         throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "Match on non-matchable value")
     }
 
-    machine.ctrl = altOpt
+    val e = altOpt
       .getOrElse(
         throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"No match for $v in ${alts.toList}")
       )
       .body
+    machine.ctrl = e
+    Control.Expression(e)
   }
 
   private[speedy] final case class KMatch(machine: Machine, alts: Array[SCaseAlt])
@@ -1319,7 +1454,7 @@ private[lf] object Speedy {
     private[this] val frame = machine.frame
     private[this] val actuals = machine.actuals
 
-    def execute(v: SValue): Unit = {
+    def execute(v: SValue): Control = {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       executeMatchAlts(machine, alts, v)
@@ -1343,11 +1478,12 @@ private[lf] object Speedy {
     private[this] val frame = machine.frame
     private[this] val actuals = machine.actuals
 
-    def execute(v: SValue): Unit = {
+    def execute(v: SValue): Control = {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       discard[Boolean](to.add(v))
       machine.ctrl = next
+      Control.Expression(next)
     }
   }
 
@@ -1361,10 +1497,11 @@ private[lf] object Speedy {
     private[this] val frame = machine.frame
     private[this] val actuals = machine.actuals
 
-    def execute(acc: SValue): Unit = {
+    def execute(acc: SValue): Control = {
       list.pop match {
         case None =>
           machine.returnValue = acc
+          Control.Value(acc)
         case Some((item, rest)) =>
           machine.restoreFrameAndActuals(frame, actuals)
           // NOTE: We are "recycling" the current continuation with the
@@ -1387,7 +1524,7 @@ private[lf] object Speedy {
     private[this] val frame = machine.frame
     private[this] val actuals = machine.actuals
 
-    def execute(acc: SValue): Unit = {
+    def execute(acc: SValue): Control = {
       if (lastIndex > 0) {
         machine.restoreFrameAndActuals(frame, actuals)
         val currentIndex = lastIndex - 1
@@ -1397,6 +1534,7 @@ private[lf] object Speedy {
         machine.enterApplication(func, Array(SEValue(item), SEValue(acc)))
       } else {
         machine.returnValue = acc
+        Control.Value(acc)
       }
     }
   }
@@ -1415,12 +1553,13 @@ private[lf] object Speedy {
     private[this] val frame = machine.frame
     private[this] val actuals = machine.actuals
 
-    def execute(closure: SValue): Unit = {
+    def execute(closure: SValue): Control = {
       revClosures = closure +: revClosures
       list.pop match {
         case None =>
           machine.pushKont(KFoldr1Reduce(machine, revClosures))
           machine.returnValue = init
+          Control.Value(init)
         case Some((item, rest)) =>
           machine.restoreFrameAndActuals(frame, actuals)
           list = rest
@@ -1441,10 +1580,11 @@ private[lf] object Speedy {
     private[this] val frame = machine.frame
     private[this] val actuals = machine.actuals
 
-    def execute(acc: SValue): Unit = {
+    def execute(acc: SValue): Control = {
       revClosures.pop match {
         case None =>
           machine.returnValue = acc
+          Control.Value(acc)
         case Some((closure, rest)) =>
           machine.restoreFrameAndActuals(frame, actuals)
           revClosures = rest
@@ -1468,18 +1608,19 @@ private[lf] object Speedy {
       stack_trace: List[Location],
   ) extends Kont {
 
-    def execute(sv: SValue): Unit = {
+    def execute(sv: SValue): Control = {
       machine.pushStackTrace(stack_trace)
       v.setCached(sv, stack_trace)
       defn.setCached(sv, stack_trace)
       machine.returnValue = sv
+      Control.Value(sv)
     }
   }
 
   private[speedy] final case class KCacheContract(machine: Machine, cid: V.ContractId)
       extends Kont {
 
-    def execute(sv: SValue): Unit = {
+    def execute(sv: SValue): Control = {
       machine.withOnLedger("KCacheContract") { onLedger =>
         val cached = SBuiltin.extractCachedContract(machine, sv)
         // TODO (drsk) disable this check for disclosed contracts.
@@ -1487,6 +1628,7 @@ private[lf] object Speedy {
         machine.checkContractVisibility(onLedger, cid, cached)
         onLedger.addGlobalContract(cid, cached)
         machine.returnValue = cached.any
+        Control.Value(cached.any)
       }
     }
 
@@ -1498,10 +1640,13 @@ private[lf] object Speedy {
       cid: V.ContractId,
       handleKeyFound: (Machine, V.ContractId) => Unit,
   ) extends Kont {
-    def execute(sv: SValue): Unit =
-      machine.withOnLedger("KCheckKeyVisibitiy")(
-        machine.checkKeyVisibility(_, gKey, cid, handleKeyFound)
-      )
+    def execute(sv: SValue): Control = {
+      machine.withOnLedger("KCheckKeyVisibitiy") { onLedger =>
+        val _ = machine.checkKeyVisibility(onLedger, gKey, cid, handleKeyFound) //NICK
+        ()
+      }
+      Control.Blop("inside:KCheckKeyVisibitiy")
+    }
   }
 
   /** KCloseExercise. Marks an open-exercise which needs to be closed. Either:
@@ -1510,11 +1655,12 @@ private[lf] object Speedy {
     */
   private[speedy] final case class KCloseExercise(machine: Machine) extends Kont {
 
-    def execute(exerciseResult: SValue): Unit = {
+    def execute(exerciseResult: SValue): Control = {
       machine.withOnLedger("KCloseExercise") { onLedger =>
         onLedger.ptx = onLedger.ptx.endExercises(exerciseResult.toNormalizedValue)
       }
       machine.returnValue = exerciseResult
+      Control.Value(exerciseResult)
     }
   }
 
@@ -1539,12 +1685,13 @@ private[lf] object Speedy {
       machine.restoreFrameAndActuals(frame, actuals)
     }
 
-    def execute(v: SValue): Unit = {
+    def execute(v: SValue): Control = {
       restore()
       machine.withOnLedger("KTryCatchHandler") { onLedger =>
         onLedger.ptx = onLedger.ptx.endTry
       }
       machine.returnValue = v
+      Control.Value(v)
     }
   }
 
@@ -1558,12 +1705,13 @@ private[lf] object Speedy {
     def abort[E](): E =
       throw SErrorDamlException(IError.ChoiceGuardFailed(coid, templateId, choiceName, byInterface))
 
-    def execute(v: SValue): Unit = {
+    def execute(v: SValue): Control = {
       v match {
         case SValue.SBool(b) =>
-          if (b)
+          if (b) {
             machine.returnValue = SValue.SUnit
-          else
+            Control.Value(SValue.SUnit)
+          } else
             abort()
         case _ =>
           throw SErrorCrash("KCheckChoiceGuard", "Expected SBool value.")
@@ -1577,7 +1725,7 @@ private[lf] object Speedy {
     * throwUnhandledException to apply the message function to the exception payload,
     * producing a text message.
     */
-  private[speedy] def unwindToHandler(machine: Machine, excep: SValue.SAny): Unit = {
+  private[speedy] def unwindToHandler(machine: Machine, excep: SValue.SAny): Control = {
     @tailrec def unwind(): Option[KTryCatchHandler] = {
       if (machine.kontDepth() == 0) {
         None
@@ -1619,6 +1767,7 @@ private[lf] object Speedy {
         machine.popTempStackToBase()
         machine.ctrl = kh.handler
         machine.pushEnv(excep) // payload on stack where handler expects it
+        Control.Expression(kh.handler)
       case None =>
         machine.kontStack.clear()
         machine.env.clear()
@@ -1631,8 +1780,9 @@ private[lf] object Speedy {
 
   /** A location frame stores a location annotation found in the AST. */
   final case class KLocation(machine: Machine, location: Location) extends Kont {
-    def execute(v: SValue): Unit = {
+    def execute(v: SValue): Control = {
       machine.returnValue = v
+      Control.Value(v)
     }
   }
 
@@ -1642,12 +1792,15 @@ private[lf] object Speedy {
     */
   private[speedy] final case class KLabelClosure(machine: Machine, label: Profile.Label)
       extends Kont {
-    def execute(v: SValue): Unit = {
+    def execute(v: SValue): Control = {
       v match {
         case SValue.SPAP(SValue.PClosure(_, expr, closure), args, arity) =>
-          machine.returnValue = SValue.SPAP(SValue.PClosure(label, expr, closure), args, arity)
+          val pap = SValue.SPAP(SValue.PClosure(label, expr, closure), args, arity)
+          machine.returnValue = pap
+          Control.Value(pap)
         case _ =>
           machine.returnValue = v
+          Control.Value(v)
       }
     }
   }
@@ -1657,15 +1810,18 @@ private[lf] object Speedy {
     */
   private[speedy] final case class KLeaveClosure(machine: Machine, label: Profile.Label)
       extends Kont {
-    def execute(v: SValue): Unit = {
+    def execute(v: SValue): Control = {
       machine.profile.addCloseEvent(label)
       machine.returnValue = v
+      Control.Value(v)
     }
   }
 
   private[speedy] final case class KPreventException(machine: Machine) extends Kont {
-    def execute(v: SValue): Unit =
+    def execute(v: SValue): Control = {
       machine.returnValue = v
+      Control.Value(v)
+    }
   }
 
   /** Internal exception thrown when a continuation result needs to be returned.
