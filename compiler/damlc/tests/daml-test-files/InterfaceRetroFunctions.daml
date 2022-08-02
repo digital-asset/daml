@@ -1,0 +1,65 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- | Check that `create`, `signatory`, `observer`, `interfaceTypeRep` work as expected on interface payloads
+-- carrying templates with retroactive implementations.
+module InterfaceRetroFunctions where
+
+import DA.Assert ((===))
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory issuer
+    observer issuer, owner
+
+interface Token where
+  getAmount : Int
+
+  {-
+  -- TODO(MA): https://github.com/digital-asset/daml/issues/14560
+  -- Switch to daml syntax once the parser supports retroactive interface implementations
+
+  retroactively implements Token where
+    getAmount = amount
+  -}
+_coimplements_Asset_Token :
+  DA.Internal.Desugar.CoImplementsT Asset Token
+_coimplements_Asset_Token = DA.Internal.Desugar.CoImplementsT
+instance DA.Internal.Desugar.HasToInterface Asset Token where
+  _toInterface = GHC.Types.primitive @"EToInterface"
+instance DA.Internal.Desugar.HasFromInterface Asset Token where
+  fromInterface = GHC.Types.primitive @"EFromInterface"
+  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+_method_Asset_Token_getAmount :
+  DA.Internal.Desugar.Method Asset Token "getAmount"
+_method_Asset_Token_getAmount
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @"getAmount"
+      (\ this@Asset {..}
+         -> let _ = this in let getAmount = amount in getAmount)
+
+main = scenario do
+    alice <- getParty "Alice"
+    bob <- getParty "Bob"
+    let asset = Asset alice bob 15
+    let token = toInterface @Token asset
+    fromInterface token === Some asset
+    getAmount token === 15
+    submit alice do
+      cid <- create token
+      token' <- fetch cid
+      fromInterface token' === Some asset
+      getAmount token' === 15
+      signatory token === [alice]
+      observer token === [bob, alice]
+      assert (interfaceTypeRep token == templateTypeRep @Asset)
+      assert (interfaceTypeRep token /= templateTypeRep @Token)
+
+-- @ENABLE-SCENARIOS

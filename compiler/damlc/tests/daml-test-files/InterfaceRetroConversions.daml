@@ -1,0 +1,123 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+
+-- | Test interface conversion functions specifically, in the context of
+-- retroactively implemented interfaces.
+module InterfaceRetroConversions where
+
+import DA.Assert ((===))
+import DA.Functor (void)
+
+template Template1
+  with
+    owner1: Party
+    value1: Int
+  where
+    signatory owner1
+
+template Template2
+  with
+    owner2: Party
+    value2: Text
+  where
+    signatory owner2
+
+interface Iface where
+  getOwner : Party
+  choice MyChoice : ()
+    controller getOwner this
+    do pure ()
+  {-
+  -- TODO(MA): https://github.com/digital-asset/daml/issues/14560
+  -- Switch to daml syntax once the parser supports retroactive interface implementations
+
+  retroactively implements Template1 where
+    getOwner = owner1
+
+  retroactively implements Template2 where
+    getOwner = owner2
+  -}
+_coimplements_Template1_Iface :
+  DA.Internal.Desugar.CoImplementsT Template1 Iface
+_coimplements_Template1_Iface = DA.Internal.Desugar.CoImplementsT
+instance DA.Internal.Desugar.HasToInterface Template1 Iface where
+  _toInterface = GHC.Types.primitive @"EToInterface"
+instance DA.Internal.Desugar.HasFromInterface Template1 Iface where
+  fromInterface = GHC.Types.primitive @"EFromInterface"
+  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+_method_Template1_Iface_getOwner :
+  DA.Internal.Desugar.Method Template1 Iface "getOwner"
+_method_Template1_Iface_getOwner
+  = DA.Internal.Desugar.mkMethod
+      @Template1
+      @Iface
+      @"getOwner"
+      (\ this@Template1 {..}
+         -> let _ = this in let getOwner = owner1 in getOwner)
+_coimplements_Template2_Iface :
+  DA.Internal.Desugar.CoImplementsT Template2 Iface
+_coimplements_Template2_Iface = DA.Internal.Desugar.CoImplementsT
+instance DA.Internal.Desugar.HasToInterface Template2 Iface where
+  _toInterface = GHC.Types.primitive @"EToInterface"
+instance DA.Internal.Desugar.HasFromInterface Template2 Iface where
+  fromInterface = GHC.Types.primitive @"EFromInterface"
+  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+_method_Template2_Iface_getOwner :
+  DA.Internal.Desugar.Method Template2 Iface "getOwner"
+_method_Template2_Iface_getOwner
+  = DA.Internal.Desugar.mkMethod
+      @Template2
+      @Iface
+      @"getOwner"
+      (\ this@Template2 {..}
+         -> let _ = this in let getOwner = owner2 in getOwner)
+
+main = scenario do
+  p <- getParty "Alice"
+  let
+    template1 = Template1 p 10
+    template2 = Template2 p "Hi"
+    iface1 = toInterface @Iface template1
+    iface2 = toInterface @Iface template2
+  fromInterface @Template1 iface1 === Some template1
+  fromInterface @Template2 iface1 === None
+  fromInterface @Template1 iface2 === None
+  fromInterface @Template2 iface2 === Some template2
+
+  p `submit` do
+    templateCid1 <- create template1
+    templateCid2 <- create template2
+    let
+      ifaceCid1 = toInterfaceContractId @Iface templateCid1
+      ifaceCid2 = toInterfaceContractId @Iface templateCid2
+
+    fromInterfaceContractId ifaceCid1 === templateCid1
+    fromInterfaceContractId ifaceCid2 === templateCid2
+
+    x1 <- fetchFromInterface @Template1 ifaceCid1
+    x2 <- fetchFromInterface @Template2 ifaceCid1
+    x3 <- fetchFromInterface @Template1 ifaceCid2
+    x4 <- fetchFromInterface @Template2 ifaceCid2
+
+    x1 === Some (templateCid1, template1)
+    x2 === None
+    x3 === None
+    x4 === Some (templateCid2, template2)
+
+  -- Test that using fromInterfaceContractId incorrectly will result
+  -- in failed fetch/exercise/archives. I.e. using a Template1 contract
+  -- id as if it were a Template2 contract id will always fail, even
+  -- for actions that make sense for the common interface Iface.
+  let
+    useAction : (ContractId Template2 -> Update ()) -> Update ()
+    useAction action = do
+      cid <- create (toInterface @Iface (Template1 p 10))
+      action (fromInterfaceContractId @Template2 cid)
+  submit p do useAction $ \_cid -> pure ()
+  submitMustFail p do useAction $ \cid -> void (fetch cid)
+  submitMustFail p do useAction $ \cid -> exercise cid MyChoice
+  submitMustFail p do useAction $ \cid -> archive cid
+
+-- @ENABLE-SCENARIOS

@@ -1,0 +1,32 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- TODO(MA): https://github.com/digital-asset/daml/issues/14560
+-- This error message should point to the interface, not the template
+-- @ERROR Template InterfaceRetroMissingMethod:T is missing method m for interface InterfaceRetroMissingMethod:I
+
+module InterfaceRetroMissingMethod where
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+interface I where
+  m : ()
+  {-
+  -- TODO(MA): https://github.com/digital-asset/daml/issues/14560
+  -- Switch to daml syntax once the parser supports retroactive interface implementations
+
+  retroactively implements T where
+  -}
+_coimplements_T_I :
+  DA.Internal.Desugar.CoImplementsT T I
+_coimplements_T_I = DA.Internal.Desugar.CoImplementsT
+instance DA.Internal.Desugar.HasToInterface T I where
+  _toInterface = GHC.Types.primitive @"EToInterface"
+instance DA.Internal.Desugar.HasFromInterface T I where
+  fromInterface = GHC.Types.primitive @"EFromInterface"
+  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"

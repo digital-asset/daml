@@ -1,0 +1,200 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+
+module InterfaceRetro where
+
+import DA.Assert ((===))
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory issuer, owner
+
+-- | An interface comment.
+interface Token where
+  getOwner : Party -- ^ A method comment.
+  getAmount : Int
+  setAmount : Int -> Token
+
+  splitImpl : Int -> Update (ContractId Token, ContractId Token)
+  transferImpl : Party -> Update (ContractId Token)
+  noopImpl : () -> Update ()
+
+  choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment.
+    with
+      splitAmount : Int -- ^ A choice field comment.
+    controller getOwner this
+    do
+      splitImpl this splitAmount
+
+  choice Transfer : ContractId Token
+    with
+      newOwner : Party
+    controller getOwner this, newOwner
+    do
+      transferImpl this newOwner
+
+  nonconsuming choice Noop : ()
+    with
+      nothing : ()
+    controller getOwner this
+    do
+      noopImpl this nothing
+
+  choice GetRich : ContractId Token
+    with
+      byHowMuch : Int
+    controller getOwner this
+    do
+        assert (byHowMuch > 0)
+        create $ setAmount this (getAmount this + byHowMuch)
+
+  {-
+  -- TODO(MA): https://github.com/digital-asset/daml/issues/14560
+  -- Switch to daml syntax once the parser supports retroactive interface implementations
+
+  retroactively implements Token where
+    getOwner = owner
+    getAmount = amount
+    setAmount x = toInterface @Token (this with amount = x)
+
+    splitImpl splitAmount = do
+      assert (splitAmount < amount)
+      cid1 <- create this with amount = splitAmount
+      cid2 <- create this with amount = amount - splitAmount
+      pure (toInterfaceContractId @Token cid1, toInterfaceContractId @Token cid2)
+
+    transferImpl newOwner = do
+      cid <- create this with owner = newOwner
+      pure (toInterfaceContractId @Token cid)
+
+    noopImpl nothing = do
+      [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism.
+      pure ()
+    -}
+
+_coimplements_Asset_Token :
+  DA.Internal.Desugar.CoImplementsT Asset Token
+_coimplements_Asset_Token = DA.Internal.Desugar.CoImplementsT
+instance DA.Internal.Desugar.HasToInterface Asset Token where
+  _toInterface = GHC.Types.primitive @"EToInterface"
+instance DA.Internal.Desugar.HasFromInterface Asset Token where
+  fromInterface = GHC.Types.primitive @"EFromInterface"
+  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+_method_Asset_Token_getOwner :
+  DA.Internal.Desugar.Method Asset Token "getOwner"
+_method_Asset_Token_getOwner
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @"getOwner"
+      (\ this@Asset {..}
+         -> let _ = this in let getOwner = owner in getOwner)
+_method_Asset_Token_getAmount :
+  DA.Internal.Desugar.Method Asset Token "getAmount"
+_method_Asset_Token_getAmount
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @"getAmount"
+      (\ this@Asset {..}
+         -> let _ = this in let getAmount = amount in getAmount)
+_method_Asset_Token_setAmount :
+  DA.Internal.Desugar.Method Asset Token "setAmount"
+_method_Asset_Token_setAmount
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @"setAmount"
+      (\ this@Asset {..}
+         -> let _ = this in
+            let setAmount x = toInterface @Token (this {amount = x})
+            in setAmount)
+_method_Asset_Token_splitImpl :
+  DA.Internal.Desugar.Method Asset Token "splitImpl"
+_method_Asset_Token_splitImpl
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @"splitImpl"
+      (\ this@Asset {..}
+         -> let _ = this in
+            let
+              splitImpl splitAmount
+                = do assert (splitAmount < amount)
+                     cid1 <- create this {amount = splitAmount}
+                     cid2 <- create this {amount = amount - splitAmount}
+                     pure
+                       (toInterfaceContractId @Token cid1,
+                        toInterfaceContractId @Token cid2)
+            in splitImpl)
+_method_Asset_Token_transferImpl :
+  DA.Internal.Desugar.Method Asset Token "transferImpl"
+_method_Asset_Token_transferImpl
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @"transferImpl"
+      (\ this@Asset {..}
+         -> let _ = this in
+            let
+              transferImpl newOwner
+                = do cid <- create this {owner = newOwner}
+                     pure (toInterfaceContractId @Token cid)
+            in transferImpl)
+_method_Asset_Token_noopImpl :
+  DA.Internal.Desugar.Method Asset Token "noopImpl"
+_method_Asset_Token_noopImpl
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @"noopImpl"
+      (\ this@Asset {..}
+         -> let _ = this in
+            let
+              noopImpl nothing
+                = do [1] === [1]
+                     pure ()
+            in noopImpl)
+
+main = scenario do
+  p <- getParty "Alice"
+  p `submit` do
+    cidAsset1 <- create Asset with
+      issuer = p
+      owner = p
+      amount = 15
+    let cidToken1 = toInterfaceContractId @Token cidAsset1
+    _ <- exercise cidToken1 (Noop ())
+    (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)
+    token2 <- fetch cidToken2
+    -- Party is duplicated because p is both observer & issuer
+    signatory token2 === [p, p]
+    getAmount token2 === 10
+    case fromInterface token2 of
+      None -> abort "expected Asset"
+      Some Asset {amount} ->
+        amount === 10
+    token3 <- fetch cidToken3
+    getAmount token3 === 5
+    case fromInterface token3 of
+      None -> abort "expected Asset"
+      Some Asset {amount} ->
+        amount === 5
+
+    cidToken4 <- exercise cidToken3 (GetRich 20)
+    token4 <- fetch cidToken4
+    getAmount token4 === 25
+    case fromInterface token4 of
+      None -> abort "expected Asset"
+      Some Asset {amount} ->
+        amount === 25
+
+    pure ()
+
+-- @ENABLE-SCENARIOS
