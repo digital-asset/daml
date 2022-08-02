@@ -262,8 +262,7 @@ final class LfValueTranslation(
         attribute: => String,
     )(value: Value): T =
       LfEngineToApi.assertOrRuntimeEx(
-        // TODO DPP-1068: this is not always right
-        failureContext = s"attempting to deserialize persisted $attribute to record",
+        failureContext = s"attempting to serialize $attribute to API record",
         lfEngineToApiFunction(eventProjectionProperties.verbose, value),
       )
     val asyncContractAguments = condFuture(renderContractArguments)(
