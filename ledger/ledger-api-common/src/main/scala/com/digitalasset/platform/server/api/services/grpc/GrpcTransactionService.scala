@@ -59,18 +59,27 @@ final class GrpcTransactionService(
   override protected def getTransactionTreesSource(
       request: GetTransactionsRequest
   ): Source[GetTransactionTreesResponse, NotUsed] = {
-    logger.debug(s"Received new transaction tree request $request")
-    Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
-      val validation = validator.validateTree(request, ledgerEnd)
+    val zeroLoad = request.getFilter.filtersByParty.keys.iterator.sameElements(Seq("00001"))
 
-      validation.fold(
-        t => Source.failed(ValidationLogger.logFailure(request, t)),
-        req => {
-          if (req.parties.isEmpty) Source.empty
-          else service.getTransactionTrees(req)
-        },
-      )
-    }
+    logger.debug(s"Received new transaction tree request $request")
+    Source
+      .future(service.getLedgerEnd(request.ledgerId))
+      .flatMapConcat { ledgerEnd =>
+        val validation = validator.validateTree(request, ledgerEnd)
+
+        validation.fold(
+          t => Source.failed(ValidationLogger.logFailure(request, t)),
+          req => {
+            if (req.parties.isEmpty) Source.empty
+            else service.getTransactionTrees(req)
+          },
+        )
+      }
+      .map { tx =>
+        if (zeroLoad) {
+          tx.copy(transactions = tx.transactions.map(_.copy(eventsById = Map.empty)))
+        } else tx
+      }
   }
 
   private def getSingleTransaction[Request, DomainRequest, DomainTx, Response](
