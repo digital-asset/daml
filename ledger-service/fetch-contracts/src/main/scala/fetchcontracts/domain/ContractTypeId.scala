@@ -38,8 +38,12 @@ object ContractTypeId {
 
   /** A contract type ID known to be a template, not an interface. */
   type Template[+PkgId] = Unknown[PkgId] // <: Unknown
+
   /** A contract type ID known to be an interface, not a template. */
-  type Interface[+PkgId] = Unknown[PkgId] // <: Unknown
+  final case class Interface[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
+      extends Unknown[PkgId] {
+    override def productPrefix = "InterfaceId"
+  }
 
   object Unknown extends Like[Unknown] {
     private[this] final case class UnknownImpl[+PkgId](
@@ -87,7 +91,8 @@ object ContractTypeId {
   }
 
   val Template = Unknown
-  val Interface = Unknown
+
+  object Interface extends Like[Interface]
 
   // TODO #14067 make an opaque subtype, produced by PackageService on
   // confirmed-present IDs only
@@ -112,7 +117,7 @@ object ContractTypeId {
         Ref.DottedName.assertFromString(a.entityName),
       )
 
-    def toLedgerApiValue(a: RequiredPkg): Ref.Identifier = {
+    final def toLedgerApiValue(a: RequiredPkg): Ref.Identifier = {
       val qfName = qualifiedName(a)
       val packageId = Ref.PackageId.assertFromString(a.packageId)
       Ref.Identifier(packageId, qfName)
