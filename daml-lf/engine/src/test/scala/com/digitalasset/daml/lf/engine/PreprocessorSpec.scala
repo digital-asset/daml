@@ -41,8 +41,8 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers {
 
   "preprocessor" should {
     "returns correct result when resuming" in {
-      val preporcessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
-      val intermediaryResult = preporcessor
+      val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+      val intermediaryResult = preprocessor
         .translateValue(
           Ast.TTyCon("Mod:Record"),
           ValueRecord("", ImmArray("owners" -> parties, "data" -> ValueInt64(42))),
@@ -53,8 +53,8 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers {
     }
 
     "returns correct error when resuming" in {
-      val preporcessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
-      val intermediaryResult = preporcessor
+      val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+      val intermediaryResult = preprocessor
         .translateValue(
           Ast.TTyCon("Mod:Record"),
           ValueRecord(
