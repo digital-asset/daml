@@ -51,10 +51,10 @@ service PartyManagementService {
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   rpc ListKnownParties (ListKnownPartiesRequest) returns (ListKnownPartiesResponse);
 
-  // Allocates a new party on the given ledger and adds it to the set managed by the backing participant.
+  // Allocates a new party on a ledger and adds it to the set managed by the backing participant.
   // Caller specifies a party identifier suggestion, the actual identifier
   // allocated might be different and is implementation specific.
-  // Caller can specify party metadata that are stored locally on the backing participant.
+  // Caller can specify party metadata that isq stored locally on the backing participant.
   // This call may:
   // - Succeed, in which case the actual allocated identifier is visible in
   //   the response.
@@ -81,7 +81,7 @@ service PartyManagementService {
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
   // - ``NOT_FOUND``: if the party is not known to the backing participant
-  rpc UpdatePartyMetadata (UpdatePartyMetadataRequest) returns (UpdatePartyMetadataResponse);
+  rpc UpdateLocalPartyMetadata (UpdatePartyMetadataRequest) returns (UpdatePartyMetadataResponse);
 
 }
 
@@ -201,5 +201,5 @@ message PartyDetails {
 
   // Represents participant local metadata of this party.
   // Optional
-  ObjectMeta metadata = 4;
+  ObjectMeta local_metadata = 4;
 }

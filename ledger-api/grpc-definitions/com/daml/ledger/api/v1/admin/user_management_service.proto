@@ -160,10 +160,6 @@ message CreateUserRequest {
     // which SHOULD include appropriate rights for the ``user.primary_party``.
     // Required
     repeated Right rights = 2;
-
-    // The metadata of this user.
-    // Optional
-    ObjectMeta metadata = 3;
 }
 
 message CreateUserResponse {

@@ -21,10 +21,12 @@ message ObjectMeta {
   // To do that include it unmodified in a change request.
   // 'PRECONDITION_VIOLATED' error is signaled when 'resourceVersion' mismatch is detected.
   //
+  // Has no effect when resource is being created.
+  //
   // If you leave it empty no concurrent change detection checks are applied.
   //
   // Optional
-  string resourceVersion = 6;
+  string resource_version = 6;
 
   // Modifiable key-value pairs.
   //
