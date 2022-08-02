@@ -144,6 +144,7 @@ def install_java_deps():
             "com.thesamet.scalapb:protoc-gen_{}:{}".format(scala_major_version, scalapb_protoc_version),
             "com.thesamet.scalapb:scalapb-runtime_{}:{}".format(scala_major_version, scalapb_version),
             "com.thesamet.scalapb:scalapb-runtime-grpc_{}:{}".format(scala_major_version, scalapb_version),
+            "com.thesamet.scalapb:scalapb-json4s_{}:0.11.1".format(scala_major_version, scalapb_version),
             # ---- end of grpc-protobuf-netty block
             "io.gatling:gatling-app:{}".format(gatling_version),
             "io.gatling:gatling-core:{}".format(gatling_version),
