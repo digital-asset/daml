@@ -391,6 +391,9 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected[this] object TpId {
     import domain.TemplateId.{OptionalPkg => Id}
+    import domain.{ContractTypeId => CtId}
+    import CtId.Interface.{OptionalPkg => IId}
+
     object Iou {
       val Iou: Id = domain.TemplateId(None, "Iou", "Iou")
       val IouTransfer: Id = domain.TemplateId(None, "Iou", "IouTransfer")
@@ -405,7 +408,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       val User: Id = domain.TemplateId(None, "User", "User")
     }
     object IIou {
-      val IIou: Id = domain.TemplateId(None, "IIou", "IIou")
+      val IIou: IId = CtId.Interface(None, "IIou", "IIou")
     }
   }
 

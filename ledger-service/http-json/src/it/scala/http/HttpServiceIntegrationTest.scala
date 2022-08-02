@@ -122,8 +122,8 @@ abstract class HttpServiceIntegrationTest
       val CIou: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "CIou", "CIou")
     }
     object Transferrable {
-      val Transferrable: domain.TemplateId.OptionalPkg =
-        domain.TemplateId(None, "Transferrable", "Transferrable")
+      val Transferrable: domain.ContractTypeId.Interface.OptionalPkg =
+        domain.ContractTypeId.Interface(None, "Transferrable", "Transferrable")
     }
 
     "templateId = interface ID" in withHttpService { fixture =>
@@ -213,7 +213,7 @@ abstract class HttpServiceIntegrationTest
               domain.ErrorResponse(Seq(onlyError), None, StatusCodes.BadRequest, None),
             ) =>
           (onlyError should include regex
-            raw"Cannot resolve Choice Argument type, given: \(TemplateId\([0-9a-f]{64},CIou,CIou\), Ambiguous\)")
+            raw"Cannot resolve Choice Argument type, given: \(ContractTypeId\([0-9a-f]{64},CIou,CIou\), Ambiguous\)")
       }
     }
   }
@@ -251,7 +251,7 @@ abstract class HttpServiceIntegrationTest
             StatusCodes.BadRequest,
             domain.ErrorResponse(Seq(lookup), None, StatusCodes.BadRequest, _),
           ) =>
-        lookup should include regex raw"Cannot resolve Template Key type, given: TemplateId\([0-9a-f]{64},IIou,IIou\)"
+        lookup should include regex raw"Cannot resolve Template Key type, given: InterfaceId\([0-9a-f]{64},IIou,IIou\)"
     }
   }
 
