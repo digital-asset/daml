@@ -37,7 +37,7 @@ import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.dao.EventProjectionProperties
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
-import io.grpc.Status
+import com.google.rpc.Status
 import io.grpc.Status.Code
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -300,11 +300,7 @@ final class LfValueTranslation(
           Future.successful(
             InterfaceView(
               interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
-              // TODO DPP-1068: is it okay to convert from io.grpc.Status to com.google.rpc.status.Status this way?
-              viewStatus = Some(
-                com.google.rpc.status.Status
-                  .of(errorStatus.getCode.value(), errorStatus.getDescription, Seq.empty)
-              ),
+              viewStatus = Some(com.google.rpc.status.Status.fromJavaProto(errorStatus)),
               viewValue = None,
             )
           )
@@ -342,7 +338,7 @@ final class LfValueTranslation(
           err
             .pipe(ErrorCause.DamlLf)
             .pipe(RejectionGenerators.commandExecutorError)
-            .getStatus
+            .pipe(_.asGrpcStatus)
             .pipe(Left.apply)
             .pipe(Future.successful)
 

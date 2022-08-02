@@ -270,6 +270,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
     Future.failed(
       RejectionGenerators
         .commandExecutorError(error)
+        .asGrpcError
     )
 
   override def close(): Unit = ()
