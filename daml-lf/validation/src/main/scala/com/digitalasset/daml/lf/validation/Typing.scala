@@ -17,11 +17,7 @@ import scala.annotation.tailrec
 private[validation] object Typing {
 
   // stack-safety achieved via a Work trampoline.
-  private sealed abstract class Work[A] {
-    def flatMap[B](f: A => Work[B]): Work[B] = {
-      Work.Bind(this, f)
-    }
-  }
+  private sealed abstract class Work[A]
   private object Work {
     final case class Ret[A](v: A) extends Work[A]
     final case class Delay[A](thunk: () => Work[A]) extends Work[A]
@@ -51,7 +47,7 @@ private[validation] object Typing {
         loop(work match {
           case Ret(x) => k(x)
           case Delay(thunk) => Bind(thunk(), k)
-          case Bind(work1, k1) => work1.flatMap(x => k1(x).flatMap(k))
+          case Bind(work1, k1) => Bind(work1, ((x: Any) => Bind(k1(x), k)))
         })
     }
     loop(work)
