@@ -971,17 +971,15 @@ private[validation] object Typing {
 
         sequenceWork(alts.map { case CaseAlt(patn, rhs) =>
           introPattern(patn).typeOf(rhs) { ty => Ret(ty) }
-        }.toList) { types =>
-          types match {
-            case t :: ts =>
-              ts.foreach(otherType =>
-                if (!alphaEquiv(t, otherType)) throw ETypeMismatch(ctx, otherType, t, None)
-              )
-              checkPatternExhaustiveness(expectedPatterns, alts, scrutType)
-              Ret(t)
-            case Nil =>
-              throw EEmptyCase(ctx)
-          }
+        }.toList) {
+          case t :: ts =>
+            ts.foreach(otherType =>
+              if (!alphaEquiv(t, otherType)) throw ETypeMismatch(ctx, otherType, t, None)
+            )
+            checkPatternExhaustiveness(expectedPatterns, alts, scrutType)
+            Ret(t)
+          case Nil =>
+            throw EEmptyCase(ctx)
         }
       }
 
