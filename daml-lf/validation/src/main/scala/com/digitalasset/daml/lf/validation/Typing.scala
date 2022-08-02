@@ -52,12 +52,12 @@ private[validation] object Typing {
     def loop[A](work: Work[A]): A = work match {
       case Ret(v) => v
       case Delay(thunk) => loop(thunk())
-      case Bind(w, k) => loop(loopBind(w, k))
-    }
-    def loopBind[A, X](work: Work[X], k: X => Work[A]): Work[A] = work match {
-      case Ret(x) => k(x)
-      case Delay(thunk) => Bind(thunk(), k)
-      case Bind(work1, k1) => work1.flatMap(k1(_).flatMap(k))
+      case Bind(work, k) =>
+        loop(work match {
+          case Ret(x) => k(x)
+          case Delay(thunk) => Bind(thunk(), k)
+          case Bind(work1, k1) => work1.flatMap(x => k1(x).flatMap(k))
+        })
     }
     loop(work)
   }
