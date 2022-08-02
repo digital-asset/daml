@@ -64,21 +64,6 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
               compressionStrategy = compressionStrategy,
             ),
             UpdateToMeteringDbDto(),
-            updatePackageMetadata = {
-              case packageUpload: state.Update.PublicPackageUpload =>
-                // new packages will be parsed and PackageMetadataView will be updated
-                // computation is executed on inputMapperExecutor
-                // since input-mapping precedes updating of the ledger-end, this ensures that upot ledger-end
-                // the PackageMetadataView will have all entries, but also means that updating is executed in
-                // a non-deterministic order, and PackageMetadataView will have more definitions and interface
-                // mappings.
-                // TODO DPP-1068: is the above approach okay? can it cause issues having inconsistently more entries?
-                //                if yes we need to move computation of these into the inMemoryUpdaterFlow, and ensure
-                //                sequential updates upto LedgerEnd
-                packageUpload.archives.foreach(packageMetadataView.update)
-
-              case _ => ()
-            },
           )
         ),
         seqMapperZero =
@@ -137,14 +122,11 @@ object ParallelIndexerSubscription {
       metrics: Metrics,
       toDbDto: Offset => state.Update => Iterator[DbDto],
       toMeteringDbDto: Iterable[(Offset, state.Update)] => Vector[DbDto.TransactionMetering],
-      updatePackageMetadata: state.Update => Unit,
   )(implicit
       loggingContext: LoggingContext
   ): Iterable[(Offset, state.Update)] => Batch[Vector[DbDto]] = { input =>
     metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)
     input.foreach { case (offset, update) =>
-      // TODO DPP-1068: This needs to be part of in memory state update process
-      updatePackageMetadata(update)
       withEnrichedLoggingContext("offset" -> offset, "update" -> update) {
         implicit loggingContext =>
           logger.info(s"Storing ${update.description}")

@@ -186,6 +186,7 @@ object LedgerApiServer {
         inMemoryState = inMemoryState,
         prepareUpdatesParallelism = indexServiceConfig.inMemoryStateUpdaterParallelism,
         metrics = metrics,
+        packageMetadataView = inMemoryState.packageMetadataView,
       )
     } yield inMemoryState -> inMemoryStateUpdater
 }

@@ -4,6 +4,7 @@
 package com.daml.platform.indexer
 
 import akka.stream._
+import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.ArchiveParser
@@ -29,7 +30,6 @@ import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.interning.UpdatingStringInterningView
 import com.daml.platform.store.packagemeta.PackageMetadataView
-import com.daml.platform.store.utils.QueueBasedConcurrencyLimiter
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -160,14 +160,9 @@ object JdbcIndexer {
       updatingPackageMetadataView: PackageMetadataView,
       packageLoadingParallelism: Int,
       computationExecutionContext: ExecutionContext,
-  )(implicit loggingContext: LoggingContext): Future[Unit] = {
+  )(implicit loggingContext: LoggingContext, materializer: Materializer): Future[Unit] = {
     // we use this execution context both for expensive deserialization/computation and Future mapping operations
     implicit val ec: ExecutionContext = computationExecutionContext
-
-    def loadPackages: Future[Set[PackageId]] =
-      dbDispatcher.executeSql(metrics.daml.index.db.loadPackages) { connection =>
-        packageStorageBackend.lfPackages(connection).keySet
-      }
 
     def loadArchiveAndUpdateMetadata(packageId: PackageId): Future[Unit] =
       for {
@@ -184,18 +179,12 @@ object JdbcIndexer {
         }
       } yield ()
 
-    val concurrencyLimiter = new QueueBasedConcurrencyLimiter(packageLoadingParallelism, ec)
-    def loadArchiveAndUpdateMetadatas(packageIds: Set[PackageId]): Future[Unit] =
-      Future
-        .traverse(packageIds)(
-          // we limit these Futures, so maximum #packageLoadingParallelism can ran in parallel
-          packageId =>
-            concurrencyLimiter.execute(
-              loadArchiveAndUpdateMetadata(packageId)
-            )
-        )
-        .map(_ => ())
-
-    loadPackages.flatMap(loadArchiveAndUpdateMetadatas)
+    Source
+      .futureSource(dbDispatcher.executeSql(metrics.daml.index.db.loadPackages) { connection =>
+        Source(packageStorageBackend.lfPackages(connection).keySet)
+      })
+      .mapAsync(packageLoadingParallelism)(loadArchiveAndUpdateMetadata)
+      .run()
+      .map(_ => ())
   }
 }

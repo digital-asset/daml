@@ -20,7 +20,8 @@ import com.daml.metrics.Metrics
 import com.daml.platform.index.InMemoryStateUpdater.UpdaterFlow
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.{Contract, Key, InMemoryState, Party}
+import com.daml.platform.store.packagemeta.PackageMetadataView
+import com.daml.platform.{Contract, InMemoryState, Key, Party}
 
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
@@ -33,12 +34,19 @@ final class InMemoryStateUpdater(
     updateCaches: Vector[TransactionLogUpdate] => Unit,
     updateToTransactionAccepted: (Offset, Update.TransactionAccepted) => TransactionLogUpdate,
     updateLedgerEnd: (Offset, Long) => Unit,
+    updatePackageMetadata: Update.PublicPackageUpload => Unit,
 ) {
 
   // TODO LLP: Considering directly returning this flow instead of the wrapper
   def flow: UpdaterFlow =
     Flow[(Vector[(Offset, Update)], Long)]
       .filter(_._1.nonEmpty)
+      .wireTap { case (batch, _) =>
+        batch.collect { case (_, e: Update.PublicPackageUpload) =>
+          updatePackageMetadata(e)
+        }
+        ()
+      }
       .mapAsync(prepareUpdatesParallelism) { case (batch, lastEventSequentialId) =>
         Future {
           val transactionsAcceptedBatch =
@@ -65,6 +73,7 @@ private[platform] object InMemoryStateUpdater {
   def owner(
       inMemoryState: InMemoryState,
       prepareUpdatesParallelism: Int,
+      packageMetadataView: PackageMetadataView,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[InMemoryStateUpdater] = for {
     prepareUpdatesExecutor <- ResourceOwner.forExecutorService(() =>
@@ -89,7 +98,14 @@ private[platform] object InMemoryStateUpdater {
     updateCaches = updateCaches(inMemoryState),
     updateToTransactionAccepted = updateToTransactionAccepted,
     updateLedgerEnd = updateLedgerEnd(inMemoryState),
+    updatePackageMetadata = updatePackageMetadata(packageMetadataView),
   )
+
+  private def updatePackageMetadata(
+      packageMetadataView: PackageMetadataView
+  )(packageUpload: Update.PublicPackageUpload): Unit = {
+    packageUpload.archives.foreach(packageMetadataView.update)
+  }
 
   private def updateCaches(inMemoryState: InMemoryState)(
       updates: Vector[TransactionLogUpdate]
