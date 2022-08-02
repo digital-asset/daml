@@ -507,38 +507,9 @@ private[index] class IndexServiceImpl(
               (party, Set.empty[Identifier])
           }.toMap,
           EventProjectionProperties(
-            verbose = verbose,
-            populateContractArgument = (for {
-              (party, filters) <- domainTransactionFilter.filtersByParty.iterator
-              inclusiveFilters <- filters.inclusive.iterator
-              templateId <- inclusiveFilters.templateIds.iterator
-            } yield party.toString -> templateId)
-              .toSet[(String, Identifier)]
-              .groupMap(_._1)(_._2)
-              .++(
-                domainTransactionFilter.filtersByParty.iterator
-                  .collect {
-                    case (party, Filters(None)) =>
-                      party.toString -> Set.empty[Identifier]
-
-                    case (party, Filters(Some(empty)))
-                        if empty.templateIds.isEmpty && empty.interfaceFilters.isEmpty =>
-                      party.toString -> Set.empty[Identifier]
-                  }
-              ),
-            populateInterfaceView = (for {
-              (party, filters) <- domainTransactionFilter.filtersByParty.iterator
-              inclusiveFilters <- filters.inclusive.iterator
-              interfaceFilter <- inclusiveFilters.interfaceFilters.iterator
-              if interfaceFilter.includeView
-              implementors <- metadata.interfaceImplementedBy(interfaceFilter.interfaceId).iterator
-              implementor <- implementors
-            } yield (party, implementor, interfaceFilter.interfaceId))
-              .toSet[(Party, Identifier, Identifier)]
-              .groupMap(_._1) { case (_, templateId, interfaceId) => templateId -> interfaceId }
-              .view
-              .mapValues(_.groupMap(_._1)(_._2))
-              .toMap,
+            domainTransactionFilter,
+            verbose,
+            metadata.interfaceImplementedBy _,
           ),
         )
     }

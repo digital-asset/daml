@@ -4,7 +4,6 @@
 package com.daml.platform.store.dao.events
 
 import java.io.ByteArrayInputStream
-
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.{ErrorCause, RejectionGenerators}
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent, InterfaceView}
@@ -246,21 +245,12 @@ final class LfValueTranslation(
       ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[ApiContractData] = {
-    // TODO DPP-1068: [implementation detail] maybe move this logic closer where we populate the EventDisplayProperties, so we have a more comprehensive unit test capabilities
-    val renderContractArguments = witnesses.iterator
-      .map(eventProjectionProperties.populateContractArgument.get)
-      .exists {
-        case Some(wildcardTemplates) if wildcardTemplates.isEmpty => true
-        case Some(nonEmptyTemplates) if nonEmptyTemplates(templateId) => true
-        case _ => false
-      }
-    val renderInterfaces = witnesses.iterator
-      .map(eventProjectionProperties.populateInterfaceView.get)
-      .foldLeft(Set.empty[LfIdentifier]) { case (interfacesSoFar, templateToInterfaces) =>
-        interfacesSoFar ++ templateToInterfaces
-          .getOrElse(Map.empty)
-          .getOrElse(templateId, Set.empty)
-      }
+
+    val renderContractArguments =
+      eventProjectionProperties.renderContractArguments(witnesses, templateId)
+
+    val renderInterfaces = eventProjectionProperties.renderInterfaces(witnesses, templateId)
+
     def condFuture[T](cond: Boolean)(f: => Future[T]): Future[Option[T]] =
       if (cond) f.map(Some(_)) else Future.successful(None)
     def enrichAsync(enrich: Value => LfEngine.Result[Value])(value: Value): Future[Value] =

@@ -21,6 +21,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
@@ -64,20 +65,6 @@ private[platform] trait LedgerDaoTransactionsReader {
       eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed]
 }
-
-// TODO 1068: improve naming
-/** @param verbose enriching in verbose mode
-  * @param populateContractArgument populate contract_argument, and contract_key. If templateId set is empty: populate.
-  * @param populateInterfaceView populate interface_views. The Map of templates to interfaces,
-  *                              and the set of implementor templates cannot be empty.
-  */
-case class EventProjectionProperties(
-    verbose: Boolean,
-    // Map(eventWitnessParty, Set(templateId))
-    populateContractArgument: Map[String, Set[Identifier]] = Map.empty,
-    // Map(eventWitnessParty, Map(templateId -> Set(interfaceId)))
-    populateInterfaceView: Map[String, Map[Identifier, Set[Identifier]]] = Map.empty,
-)
 
 private[platform] trait LedgerDaoCommandCompletionsReader {
   def getCommandCompletions(
