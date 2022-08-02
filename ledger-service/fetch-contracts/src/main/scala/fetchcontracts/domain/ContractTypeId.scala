@@ -54,6 +54,19 @@ object ContractTypeId {
         override def traverseImpl[G[_]: Applicative, A, B](fa: F[A])(f: A => G[B]): G[F[B]] =
           f(fa.packageId) map (companion(_, fa.moduleName, fa.entityName))
       }
+
+    implicit final class `ContractTypeId funs`[F[T] <: ContractTypeId.Unknown[T], T](
+        private val self: F[T]
+    ) extends AnyVal {
+
+      /** Parametrically polymorphic version of case class copy. */
+      def copy[PkgId](
+          packageId: PkgId = self.packageId,
+          moduleName: String = self.moduleName,
+          entityName: String = self.entityName,
+      )(implicit companion: ContractTypeId.Like[F]): F[PkgId] =
+        companion(packageId, moduleName, entityName)
+    }
   }
 
   val Template = Unknown
