@@ -32,6 +32,7 @@ import com.daml.platform._
 
 import scala.concurrent.Future
 
+// TODO DPP-1068: [implementation detail] EventProjectionProperties exposes some logic while this is pure inteface
 private[platform] trait LedgerDaoTransactionsReader {
   def getFlatTransactions(
       startExclusive: Offset,

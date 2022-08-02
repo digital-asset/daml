@@ -246,10 +246,12 @@ final class LfValueTranslation(
       loggingContext: LoggingContext,
   ): Future[ApiContractData] = {
 
-    val renderContractArguments =
-      eventProjectionProperties.renderContractArguments(witnesses, templateId)
+    val renderResult =
+      eventProjectionProperties.render(witnesses, templateId)
 
-    val renderInterfaces = eventProjectionProperties.renderInterfaces(witnesses, templateId)
+    val renderContractArguments = renderResult.contractArguments
+
+    val renderInterfaces = renderResult.interfaces
 
     def condFuture[T](cond: Boolean)(f: => Future[T]): Future[Option[T]] =
       if (cond) f.map(Some(_)) else Future.successful(None)
@@ -277,7 +279,7 @@ final class LfValueTranslation(
       )
         .map(toApi(LfEngineToApi.lfValueToApiValue, "create key"))
     )
-    val asyncInterfaceViews = Future.traverse(renderInterfaces.toSeq)(interfaceId =>
+    val asyncInterfaceViews = Future.traverse(renderInterfaces)(interfaceId =>
       computeInterfaceView(
         templateId,
         value.unversioned,

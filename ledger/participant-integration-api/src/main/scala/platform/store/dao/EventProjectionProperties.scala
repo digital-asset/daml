@@ -7,6 +7,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.Filters
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, Party}
+import com.daml.platform.store.dao.EventProjectionProperties.RenderResult
 
 /** @param verbose enriching in verbose mode
   * @param populateContractArgument populate contract_argument, and contract_key. If templateId set is empty: populate.
@@ -14,15 +15,15 @@ import com.daml.lf.data.Ref.{Identifier, Party}
   *                              and the set of implementor templates cannot be empty.
   */
 // TODO DPP-1068: [implementation detail] unit testing
-case class EventProjectionProperties(
+final case class EventProjectionProperties private[dao] (
     verbose: Boolean,
     // Map(eventWitnessParty, Set(templateId))
     populateContractArgument: Map[String, Set[Identifier]] = Map.empty,
     // Map(eventWitnessParty, Map(templateId -> Set(interfaceId)))
     populateInterfaceView: Map[String, Map[Identifier, Set[Identifier]]] = Map.empty,
 ) {
-  def renderContractArguments(witnesses: Seq[String], templateId: Identifier): Boolean =
-    witnesses
+  def render(witnesses: Seq[String], templateId: Identifier): RenderResult = {
+    val renderContractArguments = witnesses
       .map(populateContractArgument.get)
       .exists {
         case Some(wildcardTemplates) if wildcardTemplates.isEmpty => true
@@ -30,27 +31,35 @@ case class EventProjectionProperties(
         case _ => false
       }
 
-  def renderInterfaces(witnesses: Seq[String], templateId: Identifier): Iterator[Identifier] =
-    for {
-      witness <- witnesses.iterator
-      templateToInterfaceMap <- populateInterfaceView.get(witness).toList
-      interfaces <- templateToInterfaceMap.getOrElse(templateId, Set.empty[Identifier])
-    } yield interfaces
+    val renderInterfaces: Seq[Identifier] =
+      (for {
+        witness <- witnesses.iterator
+        templateToInterfaceMap <- populateInterfaceView.get(witness).toList
+        interfaces <- templateToInterfaceMap.getOrElse(templateId, Set.empty[Identifier])
+      } yield interfaces).toSeq
+
+    RenderResult(renderContractArguments, renderInterfaces)
+  }
+
 }
 
 object EventProjectionProperties {
 
+  case class RenderResult(
+      contractArguments: Boolean,
+      interfaces: Seq[Identifier],
+  )
+
   def apply(
       domainTransactionFilter: domain.TransactionFilter,
       verbose: Boolean,
-      interfaceImplementedBy: Ref.Identifier => Option[Set[Ref.Identifier]],
-  ): EventProjectionProperties = {
+      interfaceImplementedBy: Ref.Identifier => Set[Ref.Identifier],
+  ): EventProjectionProperties =
     EventProjectionProperties(
       verbose = verbose,
       populateContractArgument = populateContractArgument(domainTransactionFilter),
       populateInterfaceView = populateInterfaceView(domainTransactionFilter, interfaceImplementedBy),
     )
-  }
 
   private def populateContractArgument(domainTransactionFilter: domain.TransactionFilter) = {
     (for {
@@ -75,14 +84,13 @@ object EventProjectionProperties {
 
   private def populateInterfaceView(
       domainTransactionFilter: domain.TransactionFilter,
-      interfaceImplementedBy: Identifier => Option[Set[Ref.Identifier]],
+      interfaceImplementedBy: Identifier => Set[Ref.Identifier],
   ) = (for {
     (party, filters) <- domainTransactionFilter.filtersByParty.iterator
     inclusiveFilters <- filters.inclusive.iterator
     interfaceFilter <- inclusiveFilters.interfaceFilters.iterator
     if interfaceFilter.includeView
-    implementors <- interfaceImplementedBy(interfaceFilter.interfaceId).iterator
-    implementor <- implementors
+    implementor <- interfaceImplementedBy(interfaceFilter.interfaceId).iterator
   } yield (party, implementor, interfaceFilter.interfaceId))
     .toSet[(Party, Identifier, Identifier)]
     .groupMap(_._1) { case (_, templateId, interfaceId) => templateId -> interfaceId }

@@ -12,9 +12,9 @@ import com.daml.ledger.api.{TraceIdentifiers, domain}
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
 import com.daml.ledger.api.domain.{
   Filters,
+  InclusiveFilters,
   LedgerId,
   LedgerOffset,
-  InclusiveFilters,
   PackageEntry,
   PartyEntry,
   TransactionFilter,
@@ -487,7 +487,6 @@ private[index] class IndexServiceImpl(
     inclusiveFilters.interfaceFilters.iterator
       .map(_.interfaceId)
       .flatMap(metadata.interfaceImplementedBy)
-      .flatten
       .toSet
       .++(inclusiveFilters.templateIds)
 

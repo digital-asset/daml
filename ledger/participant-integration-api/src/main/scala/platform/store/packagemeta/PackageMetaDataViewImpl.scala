@@ -9,8 +9,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.DottedName
 
 trait PackageMetadata {
-  // TODO DPP-1068: [implementation detail] refactor this to non-option
-  def interfaceImplementedBy(interface: Ref.Identifier): Option[Set[Ref.Identifier]]
+  def interfaceImplementedBy(interface: Ref.Identifier): Set[Ref.Identifier]
   def interfaceExists(interface: Ref.Identifier): Boolean
   def templateExists(template: Ref.Identifier): Boolean
 }
@@ -83,8 +82,8 @@ object MetadataDefinitions {
       metadataDefinitions: MetadataDefinitions
   ) extends PackageMetadata {
 
-    override def interfaceImplementedBy(interface: Ref.Identifier): Option[Set[Ref.Identifier]] =
-      metadataDefinitions.interfacesImplementedBy.get(interface)
+    override def interfaceImplementedBy(interface: Ref.Identifier): Set[Ref.Identifier] =
+      metadataDefinitions.interfacesImplementedBy.getOrElse(interface, Set.empty)
 
     override def interfaceExists(interface: Ref.Identifier): Boolean =
       metadataDefinitions.interfaces(interface)
