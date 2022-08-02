@@ -385,7 +385,7 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
         module Mod {                     // fully resolved name: "Mod"
             
           interface (this: I) = {
-            viewtype Text;
+            viewtype Unit;
              choice Choice1 (self) (u:Unit) : Unit  // fully resolved name: "Mod.I.Choice1"
               , controllers Nil @Party
               to upure @Unit ();
@@ -402,7 +402,7 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
         module Mod {                     // fully resolved name: "Mod"
             
           interface (this: I) = {
-            viewtype Text;
+            viewtype Unit;
              choice CHOICE (self) (u:Unit) : Unit  // fully resolved name: "Mod.I.Choice"
               , controllers Nil @Party
               to upure @Unit ();
@@ -425,14 +425,14 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
         module Mod {                     
             
           interface (this: I1) = {
-             viewtype Text;
+             viewtype Unit;
              choice Choice (self) (u:Unit) : Unit  
               , controllers Nil @Party
               to upure @Unit ();
           };
 
           interface (this: I2) = {
-             viewtype Int64;
+             viewtype Unit;
              choice Choice (self) (u:Unit) : Unit  
               , controllers Nil @Party
               to upure @Unit ();
@@ -447,10 +447,10 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
               , controllers Nil @Party
               to upure @Unit ();
             implements Mod:I1{
-              view = "I1 T";
+              view = ();
             };
             implements Mod:I2{
-              view = 0;
+              view = ();
             };
           } ;
 

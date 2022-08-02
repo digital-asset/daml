@@ -62,7 +62,7 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
           };
 
           interface (this: J) = {
-            viewtype Int64;
+            viewtype Unit;
           };
 
           template (this : Contract) =  {
@@ -79,7 +79,7 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
                view = Mod:View { signatory = Mod:contractParties this, cids = Mod:Contract {cids} this } ;
              };
              implements Mod:J {
-               view = 42;
+               view = ();
              };
              key @Mod:Key (Mod:Contract {key} this) Mod:keyParties;
           };

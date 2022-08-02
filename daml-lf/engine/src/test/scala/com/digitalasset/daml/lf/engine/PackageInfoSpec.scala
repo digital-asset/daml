@@ -47,8 +47,8 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
               signatories Nil @Party;
               observers Nil @Party;
               agreement "Agreement";
-              implements 'pkgA':ModA:IA { view = "IA T11"; };
-              implements 'pkgB':ModB:IB { view = "IB T11"; };
+              implements 'pkgA':ModA:IA { view = (); };
+              implements 'pkgB':ModB:IB { view = (); };
             };
         }
 
@@ -59,8 +59,8 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
               signatories Nil @Party;
               observers Nil @Party;
               agreement "Agreement";
-              implements 'pkgA':ModA:IA { view = "IA T12"; };
-              implements 'pkgC':ModC:IC { view = "IC T12"; };
+              implements 'pkgA':ModA:IA { view = (); };
+              implements 'pkgC':ModC:IC { view = (); };
             };
         }
         """
@@ -73,24 +73,24 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
     p"""
          module Mod21 {
            interface (this: I21) = {
-             viewtype Int64;
+             viewtype Unit;
              coimplements '-pkg1-':Mod11:T11 {
-               view = 0;
+               view = ();
              };
              coimplements 'pkgA':ModA:TA {
-               view = 1;
+               view = ();
              };
            };
          }
 
          module Mod22 {
            interface (this: I22) = {
-             viewtype Text;
+             viewtype Unit;
              coimplements '-pkg1-':Mod11:T11 {
-               view = "Mod11 T11";
+               view = ();
              };
              coimplements 'pkgB':ModB:TB {
-               view = "ModB TB";
+               view = ();
              };
            };
          }
@@ -110,14 +110,14 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
             observers Nil @Party;
             agreement "Agreement";
             implements '-pkg1-':Mod11:I11 {
-              view = "I11 T31";
+              view = ();
             };
             implements 'pkgB':ModB:IB {
-              view = "IB T31";
+              view = ();
             };
           };
           interface (this: I31) = {
-            viewtype Bool;
+            viewtype Unit;
           };
         }
 
@@ -128,13 +128,13 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
               signatories Nil @Party;
               observers Nil @Party;
               agreement "Agreement";
-              implements '-pkg3-':Mod32:I32 { view = 1.5; };
-              implements 'pkgA':ModA:IA { view = "IA T32"; };
+              implements '-pkg3-':Mod32:I32 { view = (); };
+              implements 'pkgA':ModA:IA { view = (); };
             };
             interface (this: I32) = {
-             viewtype Numeric;
-             coimplements '-pkg1-':Mod11:T11 { view = 2.5; };
-             coimplements 'pkgB':ModB:TB { view = 3.5; };
+             viewtype Unit;
+             coimplements '-pkg1-':Mod11:T11 { view = (); };
+             coimplements 'pkgB':ModB:TB { view = (); };
            };
         }
         """

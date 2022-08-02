@@ -597,12 +597,12 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               , observers Cons @Party [person] (Nil @Party)
               to upure @Int64 i;
             implements Mod1:Human {
-              view = 1234;
+              view = ();
               method age = 42;
               method alive = True;
             };
             implements '-pkgId-':Mod2:Referenceable {
-              view = 5678;
+              view = ();
               method uuid = "123e4567-e89b-12d3-a456-426614174000";
             };
             key @Party (Mod:Person {name} this) (\ (p: Party) -> p);
@@ -791,7 +791,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
        module Mod {
 
           interface (this: Person) = {
-            viewtype Int64;
+            viewtype Unit;
             method asParty: Party;
             method getName: Text;
             choice Sleep (self) (u:Unit) : ContractId Mod:Person
@@ -802,7 +802,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               , observers Nil @Party
               to upure @Int64 i;
             coimplements Mod1:Company {
-              view = 1234;
+              view = ();
               method asParty = Mod1:Company {party} this;
               method getName = Mod1:Company {legalName} this;
             };

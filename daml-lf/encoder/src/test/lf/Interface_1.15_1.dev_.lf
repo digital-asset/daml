@@ -15,14 +15,14 @@ module InterfaceMod0 {
 module InterfaceMod {
 
   interface (this: Root) = {
-    viewtype Int64;
+    viewtype Unit;
     coimplements InterfaceMod0:Parcel {
-      view = 1;
+      view = ();
     };
   };
 
   interface (this: Boxy) = {
-    viewtype Text;
+    viewtype Unit;
     requires InterfaceMod:Root;
     method getParty: Party;
     choice @nonConsuming ReturnInt (self) (i: Int64): Int64
@@ -30,7 +30,7 @@ module InterfaceMod {
       , observers Nil @Party
       to upure @Int64 i;
     coimplements InterfaceMod0:Parcel {
-      view = "Parcel";
+      view = ();
       method getParty = InterfaceMod0:Parcel {party} this;
     };
   };
@@ -44,10 +44,10 @@ module InterfaceMod {
     agreement "Lorem ipsum, dolor sit amet";
 
     implements InterfaceMod:Root {
-      view = 2;
+      view = ();
     };
     implements InterfaceMod:Boxy {
-      view = "Box";
+      view = ();
       method getParty = InterfaceMod:Box {party} this;
     };
   };

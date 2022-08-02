@@ -996,7 +996,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             record @serializable Key = {person: Text, party: Party};
 
             interface (this: I) = {
-              viewtype Text;
+              viewtype Unit;
               method getParties: List Party;
             };
           }
@@ -1021,7 +1021,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                   , observers Nil @Party
                   to upure @Unit ();
               implements Mod:I {
-                view = "NegativeTestCase Mod:I T";
+                view = ();
                 method getParties = Cons @Party [NegativeTestCase:T {person} this] (Nil @Party);
               };
               key @Mod:Key
@@ -1262,7 +1262,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                   , controllers Nil @Party
                   to upure @Unit ();
               implements Mod:I {
-                view = "PositiveCaseProperType Mod:I T";
+                view = ();
                 method getParties = (); // should be of type List Party
               };
             };
@@ -1280,7 +1280,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                   , controllers Nil @Party
                   to upure @Unit ();
               implements Mod:I {
-                view = "PositiveCaseOverrideAllMethods Mod:I T";
+                view = ();
               };
             };
           }
@@ -1297,7 +1297,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                   , controllers Nil @Party
                   to upure @Unit ();
               implements Mod:I {
-                view = "PositiveCaseOverrideOnlyMethods Mod:I T";
+                view = ();
                 method getParties =
                   Cons @Party [(PositiveCase_ImplementsShouldOverrideOnlyMethods:T {person} this)] (Nil @Party);
                 method getName =
@@ -1369,12 +1369,12 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         p"""
           module NegativeTestCase {
             interface (this : X) = {
-              viewtype Text;
+              viewtype Unit;
               method getX: List Party;
             };
 
             interface (this : I) =  {
-              viewtype Bool;
+              viewtype Unit;
               method getParties: List Party;
               choice Ch1 (self) (i : Unit) : Unit,
                   controllers Nil @Party
@@ -1392,7 +1392,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
           module PositiveTestCase_ControllersShouldBeListParty {
             interface (this : I) =  {
-              viewtype Int64;
+              viewtype Unit;
               choice Ch (self) (i : Unit) : Unit,
                   controllers ()                                  // should be of type (List Party)
                 to upure @Unit ();
@@ -1401,7 +1401,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
           module PositiveTestCase_ChoiceObserversShouldBeListParty {
              interface (this : I) =  {
-              viewtype Int64;
+              viewtype Unit;
               method getParties: List Party;
               choice Ch (self) (i : Unit) : Unit,
                   controllers (call_method @NegativeTestCase:I getParties this),
@@ -1412,7 +1412,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
           module PositiveTestCase_ChoiceArgumentTypeShouldBeStar {
              interface (this : I) =  {
-              viewtype Int64;
+              viewtype Unit;
               method getParties: List Party;
               choice Ch (self) (i : List) : Unit,   // the type of i (here List) should be of kind * (here it is * -> *)
                   controllers (call_method @NegativeTestCase:I getParties this)
@@ -1422,7 +1422,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
           module PositiveTestCase_ChoiceResultTypeShouldBeStar {
              interface (this : I) =  {
-              viewtype Int64;
+              viewtype Unit;
               method getParties: List Party;
               choice Ch (self) (i : Unit) : List,   // the return type (here List) should be of kind * (here it is * -> *)
                   controllers (call_method @NegativeTestCase:I getParties this)
@@ -1432,14 +1432,14 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
           module PositiveTestCase_UnknownDefinition {
               interface (this : I) =  {
-              viewtype Int64;
+              viewtype Unit;
               requires NegativeTestCase:J;
             } ;
           }
 
           module PositiveTestCase_MissingRequiredInterface {
             interface (this : Y) =  {
-              viewtype Text;
+              viewtype Unit;
               requires NegativeTestCase:X;
             } ;
 
@@ -1450,16 +1450,16 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               observers Nil @Party;
               agreement "Agreement";
               implements PositiveTestCase_MissingRequiredInterface:Y {
-                view = "MissingRequiredInterface";
+                view = ();
               };
            };
           }
 
           module PositiveTestCase_WrongInterfaceRequirement1 {
-            interface (this : Y) = { viewtype Int64; };
-            interface (this : Z) = { viewtype Bool; };
+            interface (this : Y) = { viewtype Unit; };
+            interface (this : Z) = { viewtype Unit; };
             interface (this : X) =  {
-              viewtype Text;
+              viewtype Unit;
               requires PositiveTestCase_WrongInterfaceRequirement1:Y;
               choice ToY (self) (arg : Unit) : PositiveTestCase_WrongInterfaceRequirement1:Z,
                   controllers Nil@Party
@@ -1471,10 +1471,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           }
 
           module PositiveTestCase_WrongInterfaceRequirement2 {
-            interface (this : Y) = { viewtype Int64; };
-            interface (this : Z) = { viewtype Bool; };
+            interface (this : Y) = { viewtype Unit; };
+            interface (this : Z) = { viewtype Unit; };
             interface (this : X) =  {
-              viewtype Text;
+              viewtype Unit;
               requires PositiveTestCase_WrongInterfaceRequirement2:Y;
               choice ToY (self) (arg : PositiveTestCase_WrongInterfaceRequirement2:Z) : Option PositiveTestCase_WrongInterfaceRequirement2:X,
                   controllers Nil@Party
@@ -1486,10 +1486,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           }
 
           module NegativeTestCase_WrongInterfaceRequirement3 {
-            interface (this : Y) = { viewtype Int64; };
-            interface (this : Z) = { viewtype Bool; };
+            interface (this : Y) = { viewtype Unit; };
+            interface (this : Z) = { viewtype Unit; };
             interface (this : X) =  {
-              viewtype Text;
+              viewtype Unit;
               requires NegativeTestCase_WrongInterfaceRequirement3:Y;
               choice ToY (self) (arg : Unit) : NegativeTestCase_WrongInterfaceRequirement3:Y,
                   controllers Nil@Party
@@ -1501,10 +1501,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           }
 
           module NegativeTestCase_WrongInterfaceRequirement4 {
-            interface (this : Y) = { viewtype Int64; };
-            interface (this : Z) = { viewtype Bool; };
+            interface (this : Y) = { viewtype Unit; };
+            interface (this : Z) = { viewtype Unit; };
             interface (this : X) = {
-              viewtype Text;
+              viewtype Unit;
               requires NegativeTestCase_WrongInterfaceRequirement4:Y;
               choice ToY (self) (arg : NegativeTestCase_WrongInterfaceRequirement4:Y) : Option NegativeTestCase_WrongInterfaceRequirement4:X,
                   controllers Nil@Party
@@ -1517,33 +1517,33 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
           module PositiveTestCase_CircularInterfaceRequires {
             interface (this : X) =  {
-              viewtype Text;
+              viewtype Unit;
               requires PositiveTestCase_CircularInterfaceRequires:Y;
               requires PositiveTestCase_CircularInterfaceRequires:Z;
               requires PositiveTestCase_CircularInterfaceRequires:X;
             };
-            interface (this : Y) = { viewtype Bool; };
-            interface (this : Z) = { viewtype Int64; };
+            interface (this : Y) = { viewtype Unit; };
+            interface (this : Z) = { viewtype Unit; };
           }
 
           module PositiveTestCase_NotClosedInterfaceRequires {
             interface (this : X) =  {
-              viewtype Text;
+              viewtype Unit;
               requires PositiveTestCase_NotClosedInterfaceRequires:Y;
             };
             interface (this : Y) = {
-              viewtype Int64;
+              viewtype Unit;
               requires PositiveTestCase_NotClosedInterfaceRequires:Z;
             };
             interface (this : Z) = {
-              viewtype Bool;
+              viewtype Unit;
               requires PositiveTestCase_NotClosedInterfaceRequires:X;
             };
           }
 
           module CoImplementsBase {
             interface (this: Root) = {
-              viewtype Bool;
+              viewtype Unit;
               method getParties: List Party;
               choice RootCh (self) (i : Unit) : Unit,
                 controllers call_method @CoImplementsBase:Root getParties this
@@ -1558,7 +1558,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               observers Nil @Party;
               agreement "";
               implements CoImplementsBase:Root {
-                view = True;
+                view = ();
                 method getParties = Cons @Party [(CoImplementsBase:ParcelWithRoot {party} this)] (Nil @Party);
               };
             };
@@ -1575,7 +1575,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
           module NegativeTestCase_CoImplements {
             interface (this: Boxy) = {
-              viewtype Int64;
+              viewtype Unit;
               requires CoImplementsBase:Root;
               method getInt: Int64;
               choice BoxyCh (self) (i : Unit) : Int64,
@@ -1584,7 +1584,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                     (to_required_interface @CoImplementsBase:Root @NegativeTestCase_CoImplements:Boxy this)
                 to upure @Int64 (call_method @NegativeTestCase_CoImplements:Boxy getInt this);
               coimplements CoImplementsBase:ParcelWithRoot {
-                view = 1;
+                view = ();
                 method getInt = 42;
               };
             };
@@ -1592,7 +1592,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
           module PositiveTestCase_CoImplementsMissingRequiredInterface {
             interface (this: Boxy) = {
-              viewtype Int64;
+              viewtype Unit;
               requires CoImplementsBase:Root;
               method getInt: Int64;
               choice BoxyCh (self) (i : Unit) : Int64,
@@ -1601,7 +1601,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                     (to_required_interface @CoImplementsBase:Root @PositiveTestCase_CoImplementsMissingRequiredInterface:Boxy this)
                 to upure @Int64 (call_method @PositiveTestCase_CoImplementsMissingRequiredInterface:Boxy getInt this);
               coimplements CoImplementsBase:ParcelWithoutRoot {
-                view = 1;
+                view = ();
                 method getInt = 42;
               };
             };
@@ -1609,7 +1609,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
           module PositiveTestCase_CoImplementsMissingMethod {
             interface (this: Boxy) = {
-              viewtype Int64;
+              viewtype Unit;
               requires CoImplementsBase:Root;
               method getInt: Int64;
               choice BoxyCh (self) (i : Unit) : Int64,
@@ -1618,14 +1618,14 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                     (to_required_interface @CoImplementsBase:Root @PositiveTestCase_CoImplementsMissingMethod:Boxy this)
                 to upure @Int64 (call_method @PositiveTestCase_CoImplementsMissingMethod:Boxy getInt this);
               coimplements CoImplementsBase:ParcelWithRoot {
-                view = 1;
+                view = ();
               };
             };
           }
 
           module PositiveTestCase_CoImplementsUnknownMethod {
             interface (this: Boxy) = {
-              viewtype Int64;
+              viewtype Unit;
               requires CoImplementsBase:Root;
               method getInt: Int64;
               choice BoxyCh (self) (i : Unit) : Int64,
@@ -1634,7 +1634,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                     (to_required_interface @CoImplementsBase:Root @PositiveTestCase_CoImplementsUnknownMethod:Boxy this)
                 to upure @Int64 (call_method @PositiveTestCase_CoImplementsUnknownMethod:Boxy getInt this);
               coimplements CoImplementsBase:ParcelWithRoot {
-                view = 2;
+                view = ();
                 method getInt = 42;
                 method getBoolean = True;
               };
@@ -1650,17 +1650,17 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               observers Nil @Party;
               agreement "";
               implements CoImplementsBase:Root {
-                view = False;
+                view = ();
                 method getParties = Cons @Party [(PositiveTestCase_ConflictingImplementsCoImplements:Hexagon {party} this)] (Nil @Party);
               };
               implements PositiveTestCase_ConflictingImplementsCoImplements:Polygon {
-                view = "Hexagon implements Polygon";
+                view = ();
                 method getSides = 6;
               };
             };
 
             interface (this: Polygon) = {
-              viewtype Text;
+              viewtype Unit;
               requires CoImplementsBase:Root;
               method getSides: Int64;
               choice PolygonCh (self) (i : Unit) : Int64,
@@ -1669,7 +1669,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                     (to_required_interface @CoImplementsBase:Root @PositiveTestCase_ConflictingImplementsCoImplements:Polygon this)
                 to upure @Int64 (call_method @PositiveTestCase_ConflictingImplementsCoImplements:Polygon getSides this);
               coimplements PositiveTestCase_ConflictingImplementsCoImplements:Hexagon {
-                view = "Polygon coimplements Hexagon";
+                view = ();
                 method getSides = 6;
               };
             };
@@ -2008,19 +2008,19 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
          };
 
          interface (this : I) = {
-              viewtype Text;
+              viewtype Unit;
               method getParties: List Party;
               choice ChIface (self) (x: Int64) : Decimal,
                   controllers Nil @Party
                 to upure @INT64 (DECIMAL_TO_INT64 x);
               coimplements Mod:CoTi {
-                view = "I coimplements CoTi";
+                view = ();
                 method getParties = Cons @Party [(Mod:CoTi {person} this)] (Nil @Party);
               };
          };
 
          interface (this : SubI) = {
-              viewtype Int64;
+              viewtype Unit;
               requires Mod:I;
          };
 
@@ -2034,7 +2034,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
            agreement "Agreement";
            choice ChTmpl (self) (x: Int64) : Decimal, controllers Nil @Party to upure @INT64 (DECIMAL_TO_INT64 x);
            implements Mod:I {
-              view = "Ti implements I";
+              view = ();
               method getParties = Cons @Party [(Mod:Ti {person} this)] (Nil @Party);
            };
          };

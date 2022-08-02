@@ -335,7 +335,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
         p"""
           module NegativeTestCase1 {
             interface (this: Token) = {
-              viewtype Int64;
+              viewtype Unit;
               choice GetContractId (self) (u:Unit) : ContractId NegativeTestCase1:Token
                 , controllers Nil @Party
                 to upure @(ContractId NegativeTestCase1:Token) self;
@@ -344,7 +344,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
           module NegativeTestCase2 {
             interface (this: Token) = {
-              viewtype Bool;
+              viewtype Unit;
               choice ReturnContractId (self) (u:ContractId NegativeTestCase2:Token) : ContractId NegativeTestCase2:Token
                 , controllers Nil @Party
                 to upure @(ContractId NegativeTestCase2:Token) self;
@@ -364,7 +364,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
           module PositiveTestCase {
             interface (this: Token) = {
-              viewtype Text;
+              viewtype Unit;
               choice GetToken (self) (u:Unit) : PositiveTestCase:Token
                 , controllers Nil @Party
                 to upure @(PositiveTestCase:Token) this;

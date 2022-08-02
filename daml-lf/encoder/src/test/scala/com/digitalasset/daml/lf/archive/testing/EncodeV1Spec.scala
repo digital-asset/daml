@@ -41,11 +41,11 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
             record @serializable Person = { person: Party, name: Text } ;
 
             interface (this: Planet) = {
-              viewtype Text;
+              viewtype Unit;
             };
 
             interface (this: Human) = {
-              viewtype Int64;
+              viewtype Unit;
               requires Mod:Planet;
               method asParty: Party;
               method getName: Text;
@@ -73,10 +73,10 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
                   observers Cons @Party [Mod:Person {person} this] (Nil @Party)
               to upure @Int64 i;
               implements Mod:Planet {
-                view = "Person";
+                view = ();
               };
               implements Mod:Human {
-                view = 1;
+                view = ();
                 method asParty = Mod:Person {person} this;
                 method getName = Mod:Person {name} this;
               };
@@ -208,14 +208,14 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
              \ (p: Mod:Planet) -> observer_interface @Mod:Planet p;
 
            interface (this: Root) = {
-             viewtype Int64;
+             viewtype Unit;
              coimplements Mod0:Parcel {
-               view = 2;
+               view = ();
              };
            };
 
            interface (this: Boxy) = {
-             viewtype Text;
+             viewtype Unit;
              requires Mod:Root;
              method getParty: Party;
              choice @nonConsuming ReturnInt (self) (i: Int64): Int64
@@ -223,7 +223,7 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
                , observers Nil @Party
                to upure @Int64 i;
              coimplements Mod0:Parcel {
-               view = "Parcel";
+               view = ();
                method getParty = Mod0:Parcel {party} this;
              };
            };
