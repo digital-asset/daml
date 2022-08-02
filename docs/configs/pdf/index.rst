@@ -100,6 +100,7 @@ Early Access Features
    tools/non-repudiation
    ops/connect/helm
    ops/connect/auth0
+   daml-finance/index
 
 Daml Ecosystem
 --------------
