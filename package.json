@@ -6,7 +6,7 @@
   "version": "0.0.0",
   "resolutions": {
     "grunt/**/async": "^3.2.2",
-    "grunt-browserify/**/async": "^2.6.4",
+    "grunt-browserify/async": "^2.6.4",
     "grunt-contrib-connect/**/async": "^2.6.4",
     "**/elliptic": "^6.5.4",
     "**/bl": "^4.0.3",
