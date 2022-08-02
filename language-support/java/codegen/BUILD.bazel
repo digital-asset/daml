@@ -159,6 +159,9 @@ scala_source_jar(
     # We include 1.14 since while it has no new serializable types
     # it is the earliest version supported by HEAD damlc.
     if target != "1.13"
+    # TODO https://github.com/digital-asset/daml/issues/12051
+    #  enable 1.15
+    if target != "1.15"
 ]
 
 ########################################################
@@ -179,6 +182,9 @@ scala_source_jar(
         target = ver,
     )
     for ver in LF_VERSIONS
+    # TODO https://github.com/digital-asset/daml/issues/12051
+    #  enable 1.15
+    if ver != "1.15"
 ]
 
 daml_compile(
@@ -303,6 +309,9 @@ java_test(
     # We include 1.14 since while it has no new serializable types
     # it is the earliest version supported by HEAD damlc.
     if target != "1.13"
+    # TODO https://github.com/digital-asset/daml/issues/12051
+    #  enable 1.15
+    if target != "1.15"
 ]
 
 ########################################################
