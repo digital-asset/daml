@@ -11,6 +11,33 @@ object ContractTypeId {
   // to prove that Template and Interface completely partition the
   // Resolved[Unknown[_]] type, which is not true of the unadorned unresolved
   // contract type IDs
+  /** A contract type ID that may be either a template or an interface ID.
+    * A [[Resolved]] ID will always be either [[Template]] or [[Interface]]; an
+    * unresolved ID may be one of those, which indicates an expectation of what
+    * the resolved ID will be, or neither, which indicates that resolving what
+    * kind of ID this is will be part of the resolution.
+    *
+    * Built-in equality is solely determined by the triple of package ID, module
+    * name, entity name.  This is because there are likely insidious expectations
+    * that this be true dating to before contract type IDs were distinguished at
+    * all, and we are only interested in distinguishing them statically, which
+    * these types do, and by pattern-matching, which does work.
+    *
+    * {{{
+    *   val selector: ContractTypeId.Unknown[Unit] = Template((), "M", "E")
+    *   selector match {
+    *     case ContractTypeId.Unknown(p, m, e) =>
+    *       // this ^ will trigger a dead code warning because it matches
+    *       // unconditionally.  Place this case last to fix the problem.
+    *     case ContractTypeId.Interface(p, m, e) => // this will not match
+    *     case ContractTypeId.Template(p, m, e) => // this will match
+    *   }
+    *
+    *  val selector2: ContractTypeId.Unknown[Unit] = Unknown((), "M", "E")
+    *  // selector2 will match Unknown, but neither of
+    *  // the Interface or Template cases
+    * }}}
+    */
   sealed abstract class Unknown[+PkgId] extends Product3[PkgId, String, String] with Serializable {
     val packageId: PkgId
     val moduleName: String
@@ -37,10 +64,18 @@ object ContractTypeId {
     }
   }
 
-  /** A contract type ID known to be a template, not an interface. */
+  /** A contract type ID known to be a template, not an interface.  When resolved,
+    * it indicates that the LF environment associates this ID with a template.
+    * When unresolved, it indicates that the intent is to search only template
+    * IDs for resolution, and that resolving to an interface ID should be an error.
+    */
   type Template[+PkgId] = Unknown[PkgId] // <: Unknown
 
-  /** A contract type ID known to be an interface, not a template. */
+  /** A contract type ID known to be an interface, not a template.  When resolved,
+    * it indicates that the LF environment associates this ID with an interface.
+    * When unresolved, it indicates that the intent is to search only interface
+    * IDs for resolution, and that resolving to a template ID should be an error.
+    */
   final case class Interface[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
       extends Unknown[PkgId] {
     override def productPrefix = "InterfaceId"
