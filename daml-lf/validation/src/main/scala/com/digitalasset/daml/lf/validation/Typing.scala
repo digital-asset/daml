@@ -16,11 +16,6 @@ import scala.annotation.tailrec
 
 private[validation] object Typing {
 
-  def typeOf(env: Env, exp: Expr): Type = { // testing entry point
-    // this implementation is stack-safe
-    runWork(env.typeOfExpr(exp))
-  }
-
   // stack-safety achieved via a Work trampoline.
   private sealed abstract class Work[A] {
     def flatMap[B](f: A => Work[B]): Work[B] = {
@@ -380,11 +375,15 @@ private[validation] object Typing {
     }
 
     private def checkTopExpr(expr: Expr, typ: Type): Unit = {
-      // stack-safe type-computation for TOP-LEVEL expressions
-      // must *NOT* be used for sub-expressions
-      val exprType = runWork(typeOfExpr(expr))
+      val exprType = typeOfTopExpr(expr)
       if (!alphaEquiv(exprType, typ))
         throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
+    }
+
+    private[lf] def typeOfTopExpr(exp: Expr): Type = { // testing entry point
+      // stack-safe type-computation for TOP-LEVEL expressions
+      // must *NOT* be used for sub-expressions
+      runWork(typeOfExpr(exp))
     }
 
     /* Env Ops */

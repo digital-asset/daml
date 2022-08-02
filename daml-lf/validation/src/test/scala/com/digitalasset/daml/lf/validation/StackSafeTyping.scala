@@ -185,7 +185,7 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
       val ctx: Context = Context.None
       val env = Typing.Env(langVersion, pkgInterface, ctx)
       try {
-        val _: Type = Typing.typeOf(env, expr)
+        val _: Type = env.typeOfTopExpr(expr)
         None
       } catch {
         case e: ValidationError => Some(e)
