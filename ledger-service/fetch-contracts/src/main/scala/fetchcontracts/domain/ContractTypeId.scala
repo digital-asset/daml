@@ -1,5 +1,6 @@
 package com.daml.fetchcontracts.domain
 
+import com.daml.ledger.api.{v1 => lav1}
 import com.daml.lf.data.Ref
 import scalaz.{Traverse, Applicative}
 import scalaz.syntax.functor._
@@ -110,6 +111,9 @@ object ContractTypeId {
     implicit def `ContractTypeId.Like companion`: this.type = this
 
     def apply[PkgId](packageId: PkgId, moduleName: String, entityName: String): CtId[PkgId]
+
+    final def fromLedgerApi(in: lav1.value.Identifier): RequiredPkg =
+      apply(in.packageId, in.moduleName, in.entityName)
 
     private[this] def qualifiedName(a: CtId[_]): Ref.QualifiedName =
       Ref.QualifiedName(

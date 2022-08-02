@@ -80,9 +80,6 @@ package domain {
   }
 
   object TemplateId extends ContractTypeId.Like[TemplateId] {
-    def fromLedgerApi(in: lav1.value.Identifier): TemplateId.RequiredPkg =
-      TemplateId(in.packageId, in.moduleName, in.entityName)
-
     override def apply[PkgId](
         packageId: PkgId,
         moduleName: String,

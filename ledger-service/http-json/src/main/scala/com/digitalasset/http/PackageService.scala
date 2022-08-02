@@ -3,7 +3,6 @@
 
 package com.daml.http
 
-import com.daml.ledger.api.v1.value.{Identifier => Lav1Identifier}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.iface
@@ -52,7 +51,7 @@ private class PackageService(
       val (tpIdMap, ifaceIdMap) = getTemplateIdInterfaceMaps(newPackageStore)
       State(
         packageIds = newPackageStore.keySet,
-        contractTypeIdMap = tpIdMap ++ ifaceIdMap,
+        contractTypeIdMap = tpIdMap.widen[ContractTypeId.Unknown] ++ ifaceIdMap.widen,
         templateIdMap = tpIdMap,
         choiceTypeMap = getChoiceTypeMap(newPackageStore),
         keyTypeMap = getKeyTypeMap(newPackageStore),
@@ -280,17 +279,19 @@ object PackageService {
     TemplateId.RequiredPkg => Error \/ iface.Type
 
   final case class ContractTypeIdMap[CtId[_]](
-      all: Set[ContractTypeId.Resolved[CtId[String]]],
-      unique: Map[CtId[Unit], ContractTypeId.Resolved[CtId[String]]],
+      all: Set[ContractTypeId.Resolved[RequiredPkg[CtId]]],
+      unique: Map[NoPkg[CtId], ContractTypeId.Resolved[RequiredPkg[CtId]]],
   ) {
     // forms a monoid with Empty
-    def ++[O[X] >: CtId[X]](o: ContractTypeIdMap[O]): ContractTypeIdMap[O] = {
-      type UniqueGoal = Map[O[Unit], ContractTypeId.Resolved[CtId[String]]]
+    private[PackageService] def ++(o: ContractTypeIdMap[CtId]): ContractTypeIdMap[CtId] = {
       ContractTypeIdMap(
         all ++ o.all,
-        ((unique.toMap: UniqueGoal) -- o.unique.keySet) ++ (o.unique -- unique.keySet),
+        (unique -- o.unique.keySet) ++ (o.unique -- unique.keySet),
       )
     }
+
+    private[PackageService] def widen[O[T] >: CtId[T]]: ContractTypeIdMap[O] =
+      ContractTypeIdMap(all.toSet, unique.toMap)
   }
 
   type TemplateIdMap = ContractTypeIdMap[ContractTypeId.Template]
@@ -310,27 +311,32 @@ object PackageService {
       packageStore: PackageStore
   ): (TemplateIdMap, ContractTypeIdMap[ContractTypeId.Interface]) = {
     import TemplateIds.{getTemplateIds, getInterfaceIds}
-    def tpId(x: Lav1Identifier): TemplateId.RequiredPkg =
-      TemplateId(x.packageId, x.moduleName, x.entityName)
     val interfaces = packageStore.values.toSet
     (
-      buildTemplateIdMap(getTemplateIds(interfaces) map tpId),
-      buildTemplateIdMap(getInterfaceIds(interfaces) map tpId),
+      buildTemplateIdMap(getTemplateIds(interfaces) map ContractTypeId.Template.fromLedgerApi),
+      buildTemplateIdMap(getInterfaceIds(interfaces) map ContractTypeId.Interface.fromLedgerApi),
     )
   }
 
-  def buildTemplateIdMap(ids: Set[TemplateId.RequiredPkg]): TemplateIdMap = {
-    val all: Set[TemplateId.RequiredPkg] = ids
-    val unique: Map[TemplateId.NoPkg, TemplateId.RequiredPkg] = filterUniqueTemplateIs(all)
+  def buildTemplateIdMap[CtId[T] <: ContractTypeId.Unknown[T]: ContractTypeId.Like](
+      ids: Set[RequiredPkg[CtId]]
+  ): ContractTypeIdMap[CtId] = {
+    val all = ids
+    val unique = filterUniqueTemplateIs(all)
     ContractTypeIdMap(all, unique)
   }
 
-  private[http] def key2(k: TemplateId.RequiredPkg): TemplateId.NoPkg =
-    TemplateId[Unit]((), k.moduleName, k.entityName)
+  private type RequiredPkg[CtId[_]] = CtId[String]
+  private type NoPkg[CtId[_]] = CtId[Unit]
 
-  private def filterUniqueTemplateIs(
-      all: Set[TemplateId.RequiredPkg]
-  ): Map[TemplateId.NoPkg, TemplateId.RequiredPkg] =
+  private[http] def key2[CtId[T] <: ContractTypeId.Unknown[T]](k: RequiredPkg[CtId])(implicit
+      companion: ContractTypeId.Like[CtId]
+  ): NoPkg[CtId] =
+    companion[Unit]((), k.moduleName, k.entityName)
+
+  private def filterUniqueTemplateIs[CtId[T] <: ContractTypeId.Unknown[T]: ContractTypeId.Like](
+      all: Set[RequiredPkg[CtId]]
+  ): Map[NoPkg[CtId], RequiredPkg[CtId]] =
     all
       .groupBy(k => key2(k))
       .collect { case (k, v) if v.sizeIs == 1 => (k, v.head) }
@@ -343,9 +349,9 @@ object PackageService {
       case None => findTemplateIdByK2(m.unique)(TemplateId((), a.moduleName, a.entityName))
     }
 
-  private def findTemplateIdByK3(m: Set[TemplateId.RequiredPkg])(
-      k: TemplateId.RequiredPkg
-  ): Option[TemplateId.RequiredPkg] = Some(k).filter(m.contains)
+  private def findTemplateIdByK3[CtId[_]](m: Set[CtId[String]])(
+      k: CtId[String]
+  ): Option[CtId[String]] = Some(k).filter(m.contains)
 
   private def findTemplateIdByK2(m: Map[TemplateId.NoPkg, TemplateId.RequiredPkg])(
       k: TemplateId.NoPkg
