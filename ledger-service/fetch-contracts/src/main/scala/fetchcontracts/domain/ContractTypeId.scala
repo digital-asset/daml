@@ -17,6 +17,23 @@ object ContractTypeId {
     override def _1 = packageId
     override def _2 = moduleName
     override def _3 = entityName
+
+    // the only way we want to tell the difference dynamically is when
+    // pattern-matching.  If we didn't need that for query, we wouldn't even
+    // bother with different classes, we would just use different newtypes.
+    // Which would yield exactly the following dynamic equality behavior.
+    override final def equals(o: Any) = o match {
+      case o: Unknown[_] =>
+        (this eq o) || {
+          packageId == o.packageId && moduleName == o.moduleName && entityName == o.entityName
+        }
+      case _ => false
+    }
+
+    override final def hashCode = {
+      import scala.util.hashing.{MurmurHash3 => H}
+      H.productHash(this, H.productSeed, ignorePrefix = true)
+    }
   }
 
   /** A contract type ID known to be a template, not an interface. */
