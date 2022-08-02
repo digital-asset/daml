@@ -1158,9 +1158,13 @@ private[validation] object Typing {
       checkExpr(cid, TContractId(TTyCon(interfaceId))) {
         val choice = handleLookup(ctx, pkgInterface.lookupInterfaceChoice(interfaceId, chName))
         checkExpr(arg, choice.argBinder._2) {
-          val guardType = TFun(TTyCon(interfaceId), TBool)
-          checkExprList(guard.toList.map(x => (x, guardType))) {
-            Ret(TUpdate(choice.returnType))
+          guard match {
+            case None =>
+              Ret(TUpdate(choice.returnType))
+            case Some(guard) =>
+              checkExpr(guard, TFun(TTyCon(interfaceId), TBool)) {
+                Ret(TUpdate(choice.returnType))
+              }
           }
         }
       }
