@@ -7,6 +7,8 @@
   "resolutions": {
     "**/elliptic": "^6.5.4",
     "**/bl": "^4.0.3",
+    "grunt-browserify/**/shell-quote": "^1.7.3",
+    "@bazel/typescript/**/protobufjs": "^6.10.3",
     "**/ws": "^7.4.6",
     "**/chalk": "^2.4.1",
     "**/glob-parent": "^5.1.2",

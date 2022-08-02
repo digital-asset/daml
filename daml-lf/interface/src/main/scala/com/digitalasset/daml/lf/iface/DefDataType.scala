@@ -429,6 +429,7 @@ object TemplateChoice {
 final case class DefInterface[+Ty](
     choices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
     retroImplements: Set[Ref.TypeConName],
+    viewType: Option[Ref.TypeConName],
 ) {
   def getChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
     choices.asJava
@@ -456,6 +457,10 @@ final case class DefInterface[+Ty](
 }
 
 object DefInterface extends FWTLike[DefInterface] {
+
+  // documentation-only type synonyms for valid interface view types
+  type ViewType[+Ty] = Record[Ty]
+  type ViewTypeFWT = ViewType[Type]
 
   implicit val `InterfaceDecl fold`: Foldable[DefInterface] =
     new Foldable.FromFoldMap[DefInterface] {

@@ -18,13 +18,16 @@ import com.daml.platform.apiserver.services.admin.ApiMeteringReportService.{
   MeteringReportGenerator,
   toProtoTimestamp,
 }
+import com.google.protobuf.struct.Struct
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.temporal.ChronoUnit
-import java.time.{OffsetDateTime, ZoneOffset}
+import java.time.{Duration, OffsetDateTime, ZoneOffset}
 import scala.concurrent.Future
+import spray.json._
+import scalapb.json4s.JsonFormat
 
 class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with MockitoSugar {
 
@@ -33,9 +36,26 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
 
   private val appIdA = Ref.ApplicationId.assertFromString("AppA")
   private val appIdB = Ref.ApplicationId.assertFromString("AppB")
+  private val appIdX = Ref.ApplicationId.assertFromString("AppX")
+
+  private val from = Timestamp.now()
+  private val to = from.add(Duration.of(-1, ChronoUnit.DAYS))
 
   private val reportData =
     ReportData(applicationData = Map(appIdB -> 2, appIdA -> 4), isFinal = false)
+
+  private val reportJsonStruct = {
+    import com.daml.platform.apiserver.meteringreport.MeteringReport._
+    val report = ParticipantReport(
+      participant = someParticipantId,
+      request = Request(from, Some(to), Some(appIdX)),
+      `final` = false,
+      applications = Seq(ApplicationReport(appIdA, 4), ApplicationReport(appIdB, 2)),
+    )
+    val json = report.toJson.compactPrint
+    val struct: Struct = JsonFormat.parser.fromJsonString[Struct](json)
+    struct
+  }
 
   "the metering report generator" should {
 
@@ -47,7 +67,8 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
 
       val generationTime = toProtoTimestamp(Timestamp.now())
 
-      val actual = underTest.generate(request, reportData, generationTime)
+      val actual =
+        underTest.generate(request, from, Some(to), Some(appIdX), reportData, generationTime)
 
       val expectedReport = ParticipantMeteringReport(
         participantId = someParticipantId,
@@ -62,6 +83,7 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
         request = Some(request),
         participantReport = Some(expectedReport),
         reportGenerationTime = Some(generationTime),
+        meteringReportJson = Some(reportJsonStruct),
       )
 
       actual shouldBe expected
@@ -90,6 +112,9 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
       val expected =
         new MeteringReportGenerator(someParticipantId).generate(
           request,
+          from,
+          None,
+          None,
           reportData,
           expectedGenTime,
         )
@@ -122,6 +147,9 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
       val expected =
         new MeteringReportGenerator(someParticipantId).generate(
           request,
+          from,
+          Some(to),
+          Some(appId),
           reportData,
           expectedGenTime,
         )

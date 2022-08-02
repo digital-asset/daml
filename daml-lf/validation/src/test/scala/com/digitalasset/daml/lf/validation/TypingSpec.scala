@@ -295,7 +295,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
-        env.typeOf(exp) shouldBe expectedType
+        env.typeOfTopExpr(exp) shouldBe expectedType
       }
     }
 
@@ -334,7 +334,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of _ -> () ))",
       )
 
-      forEvery(testCases)(env.typeOf)
+      forEvery(testCases)(env.typeOfTopExpr(_))
     }
 
     "infer proper type for Scenarios" in {
@@ -360,7 +360,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
-        env.typeOf(exp) shouldBe expectedType
+        env.typeOfTopExpr(exp) shouldBe expectedType
       }
     }
 
@@ -400,7 +400,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
-        env.typeOf(exp) shouldBe expectedType
+        env.typeOfTopExpr(exp) shouldBe expectedType
       }
     }
 
@@ -442,7 +442,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
-        env.typeOf(exp) shouldBe expectedType
+        env.typeOfTopExpr(exp) shouldBe expectedType
       }
     }
 
@@ -977,7 +977,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       forEvery(testCases) { (exp, checkError) =>
         import scala.util.{Failure, Try}
 
-        val x = Try(env.typeOf(exp))
+        val x = Try(env.typeOfTopExpr(exp))
         x should matchPattern {
           case Failure(exception: ValidationError)
               if exception.context == expectedContext // check the error happened between ⸨ ⸩
@@ -1824,7 +1824,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
-        env.expandTypeSynonyms(env.typeOf(exp)) shouldBe expectedType
+        env.expandTypeSynonyms(env.typeOfTopExpr(exp)) shouldBe expectedType
       }
     }
 
@@ -1845,7 +1845,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       )
 
       forEvery(testCases) { exp =>
-        a[ValidationError] should be thrownBy env.typeOf(exp)
+        a[ValidationError] should be thrownBy env.typeOfTopExpr(exp)
       }
     }
 
