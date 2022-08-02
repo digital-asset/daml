@@ -23,7 +23,6 @@ module InterfaceMod {
 
   interface (this: Boxy) = {
     viewtype Unit;
-    requires InterfaceMod:Root;
     method getParty: Party;
     choice @nonConsuming ReturnInt (self) (i: Int64): Int64
       , controllers Cons @Party [call_method @InterfaceMod:Boxy getParty this] (Nil @Party)
