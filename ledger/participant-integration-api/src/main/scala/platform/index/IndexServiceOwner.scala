@@ -3,6 +3,7 @@
 
 package com.daml.platform.index
 
+import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.definitions.IndexErrors.IndexDbException
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.participant.state.index.v2.IndexService
@@ -23,8 +24,9 @@ import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
 
+import java.util.concurrent.Executors
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
 import scala.util.control.NoStackTrace
 
 final class IndexServiceOwner(
@@ -38,8 +40,7 @@ final class IndexServiceOwner(
     participantId: Ref.ParticipantId,
     inMemoryState: InMemoryState,
 )(implicit
-    loggingContext: LoggingContext,
-    executionContext: ExecutionContext,
+    loggingContext: LoggingContext
 ) extends ResourceOwner[IndexService] {
   private val initializationRetryDelay = 100.millis
   private val initializationMaxAttempts = 3000 // give up after 5min
@@ -54,7 +55,7 @@ final class IndexServiceOwner(
 
     for {
       ledgerId <- Resource.fromFuture(verifyLedgerId(ledgerDao))
-      _ <- Resource.fromFuture(waitForinMemoryStateInitialization())
+      _ <- Resource.fromFuture(waitForInMemoryStateInitialization())
 
       contractStore = new MutableCacheBackedContractStore(
         metrics,
@@ -70,19 +71,24 @@ final class IndexServiceOwner(
           ledgerDao.getLfArchive(packageId)(loggingContext),
       )
 
+      inMemoryFanOutExecutionContext <- buildInMemoryFanOutExecutionContext(
+        metrics = metrics,
+        threadPoolSize = config.inMemoryFanOutThreadPoolSize,
+      ).acquire()
+
       bufferedTransactionsReader = BufferedTransactionsReader(
         delegate = ledgerDao.transactionsReader,
         transactionsBuffer = inMemoryState.transactionsBuffer,
         lfValueTranslation = lfValueTranslation,
         metrics = metrics,
         eventProcessingParallelism = config.eventsProcessingParallelism,
-      )(servicesExecutionContext)
+      )(inMemoryFanOutExecutionContext)
 
       bufferedCommandCompletionsReader = BufferedCommandCompletionsReader(
         inMemoryFanoutBuffer = inMemoryState.transactionsBuffer,
         delegate = ledgerDao.completions,
         metrics = metrics,
-      )(servicesExecutionContext)
+      )(inMemoryFanOutExecutionContext)
 
       indexService = new IndexServiceImpl(
         ledgerId = ledgerId,
@@ -98,7 +104,7 @@ final class IndexServiceOwner(
     } yield new TimedIndexService(indexService, metrics)
   }
 
-  private def waitForinMemoryStateInitialization()(implicit
+  private def waitForInMemoryStateInitialization()(implicit
       executionContext: ExecutionContext
   ): Future[Unit] =
     RetryStrategy.constant(
@@ -176,6 +182,20 @@ final class IndexServiceOwner(
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
     )
+
+  private def buildInMemoryFanOutExecutionContext(
+      metrics: Metrics,
+      threadPoolSize: Int,
+  ): ResourceOwner[ExecutionContextExecutorService] =
+    ResourceOwner
+      .forExecutorService(() =>
+        new InstrumentedExecutorService(
+          Executors.newWorkStealingPool(threadPoolSize),
+          metrics.registry,
+          metrics.daml.lapi.threadpool.inMemoryFanOut.toString,
+        )
+      )
+      .map(ExecutionContext.fromExecutorService)
 
   private object InMemoryStateNotInitialized extends NoStackTrace
 }
