@@ -664,13 +664,11 @@ final class Metrics(val registry: MetricRegistry) {
         val getTransactionMetering: Timer = registry.timer(Prefix :+ "get_transaction_metering")
 
         object Buffer {
-          val Prefix: MetricName = index.Prefix :+ "in_memory_fanout_buffer"
+          val Prefix: MetricName = index.Prefix :+ "in_memory_fan_out_buffer"
 
           val push: Timer = registry.timer(Prefix :+ "push")
-          val slice: Timer = registry.timer(Prefix :+ "slice")
           val prune: Timer = registry.timer(Prefix :+ "prune")
 
-          val sliceSize: Histogram = registry.histogram(Prefix :+ "slice_size")
           val bufferSize: Histogram = registry.histogram(Prefix :+ "size")
         }
 
@@ -681,6 +679,8 @@ final class Metrics(val registry: MetricRegistry) {
           val fetchedBuffered: Counter = registry.counter(Prefix :+ "fetched_buffered")
           val fetchTimer: Timer = registry.timer(Prefix :+ "fetch")
           val conversion: Timer = registry.timer(Prefix :+ "conversion")
+          val slice: Timer = registry.timer(Prefix :+ "slice")
+          val sliceSize: Histogram = registry.histogram(Prefix :+ "slice_size")
         }
 
         val getContractStateEventsChunkSize: Histogram =
