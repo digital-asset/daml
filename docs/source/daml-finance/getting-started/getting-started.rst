@@ -158,9 +158,8 @@ workflow. Alice issues a deposit
   :start-after: -- CREATE_ALICE_HOLDING_BEGIN
   :end-before: -- CREATE_ALICE_HOLDING_END
 
-Alice creates a request to deposit 1000 USD at the Bank, the Bank then
-accepts the request and a corresponding ``Holding`` is created. ADD LINK
-TO HOLDING INTERFACE DEFINITION
+Alice creates a request to deposit ``1,000 USD`` at the Bank, the Bank then
+accepts the request and a corresponding ``Holding`` is created.
 
 You can imagine that the latter step happens only after Alice has
 showed up at the bank and delivered physical banknotes corresponding to
@@ -181,7 +180,7 @@ Bob requests the cash to be transferred to his account, Alice
 accepts the request.
 
 Further considerations
-======================
+**********************
 
 We now take a look at some aspects of the workflow and try to answer
 some questions that you might be having.
@@ -191,7 +190,7 @@ jump to the next tutorials and come back to this section when you feel
 it is the right time.
 
 How does the ``Transfer`` workflow work?
-----------------------------------------
+========================================
 
 If you look at the implementation of the ``Transfer`` workflow, you will
 notice the following lines
@@ -226,7 +225,7 @@ is because all ``Transferable``\ s implement the ``Holding`` interface,
 so the validity of this operation is guaranteed at compile-time.
 
 Why is Alice an observer on Bob’s account?
-------------------------------------------
+==========================================
 
 You might have noticed that Alice is an observer of Bob’s
 account and might be wondering why this is the case.
@@ -244,7 +243,7 @@ to Alice, we would need a third party (in this case the ``Bank``) to
 execute the ``Transfer``.
 
 What are account used for?
---------------------------
+==========================
 
 An account is used as the proof of a business relationship between an
 owner and a custodian: Alice is authorized to transfer cash to
@@ -254,7 +253,7 @@ This is done to avoid that Alice transfers cash to ``Charlie``
 without ``Charlie`` being vetted and acknowledged by the ``Bank``.
 
 Why do we need factories?
--------------------------
+=========================
 
 You might be wondering why we use ``Holding`` and ``Account`` factories
 instead of creating an account or holding directly.
@@ -265,3 +264,37 @@ upgrading procedures).
 
 This is based on the assumption that there are very few factory
 contracts which are setup on ledger initialization.
+
+Exercises
+*********
+
+There are a couple of improvements to the code that can be implemented as an exercise.
+Giving them a try will help you familiarize with the library and with Daml interfaces.
+
+Split the holding to transfer the right amount
+==================================================
+
+In the example, Bob requests ``1,000 USD`` from Alice and Alice allocates a holding for exactly the right amount, for the transfer would otherwise fail.
+We want the transfer to be successful also if Alice allocates a holding for a larger amount e.g., ``1,500 USD``.
+
+We can leverage the fact that the holding is ``Fungible``, which makes it possible to ``Split`` it into a holding of ``1,000 USD`` and one of ``500 USD``.
+In the implementation of the ``CashTransferRequest_Accept`` choice
+
+- cast the allocated holding to the ``Fungible`` interface (which is defined in ``Daml.Finance.Interface.Asset.Fungible``)
+- use the ``Split`` choice to split the larger holding into two holdings
+- execute the transfer, allocating the holding on the correct amount
+
+In the last step, you will need to cast the ``Fungible`` to a ``Transferable`` using ``toInterfaceContractId``.
+
+Temporary account Disclosure
+============================
+
+There is no reason for Alice to be an observer on Bob's account before the transfer is initiated by Bob (and after the transfer is executed).
+
+Modify the original code, such that
+
+- Bob's account is disclosed to Alice once the transfer is initiated
+- When the Transfer is executed, Alice removes herself from the account observers
+
+In order to do that, you can leverage the fact that ``Account`` implements the ``Disclosure`` interface (which is defined in ``Daml.Finance.Interface.Common``).
+This interface exposes the ``AddObservers`` and ``RemoveObservers`` choices to disclose / undisclose the account Bob's contract to Alice.

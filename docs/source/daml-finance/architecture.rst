@@ -7,14 +7,14 @@ Architecture
 This page outlines the architecture of the library and the relationships
 between the different packages.
 
-The library consists of a set of ``.dar`` packages that can be divided
+Daml Finance consists of a set of ``.dar`` packages that can be divided
 into two layers:
 
 -  an **interface layer** representing its public, stable API
 -  an **implementation layer** providing a set of standard template
    implementations
 
-Each package in the implementation layer only depends on packages in the
+Each package in the implementation layer only depends on packages of the
 interface layer.
 
 Interface layer
@@ -87,7 +87,7 @@ that these implementations will support customer applications and
 shorten their time-to-market significantly.
 
 Expected usage of the library
-*****************************
+#############################
 
 Users are expected to build their application such that it only depends
 on packages of the interface layer.
@@ -104,7 +104,6 @@ coupling to an implementation is not problematic, as these are
 considered one-time actions.
 
 The image below depicts the dependency graph of an example customer
-application using Daml Finance. Examples showcasing this pattern can be
-found in the `Tutorials <./Tutorials/>`__ folder.
+application using Daml Finance. The :doc:`Getting Started <getting-started/getting-started>` example showcases this dependency pattern.
 
 .. image:: images/customer_integration_example.png
