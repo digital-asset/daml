@@ -4,6 +4,7 @@
 package com.daml.platform.index
 
 import akka.stream.scaladsl.{Sink, Source}
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
@@ -14,6 +15,7 @@ import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.metrics.Metrics
 import com.daml.platform.index.InMemoryStateUpdaterSpec.{
   anotherMetadataChangedUpdate,
   metadataChangedUpdate,
@@ -119,6 +121,7 @@ class InMemoryStateUpdaterSpec extends AsyncFlatSpec with Matchers with AkkaBefo
       2,
       scala.concurrent.ExecutionContext.global,
       scala.concurrent.ExecutionContext.global,
+      new Metrics(new MetricRegistry),
     )(
       convertTransactionAccepted = updateToTransactionAccepted,
       convertTransactionRejected = updateToTransactionRejected,

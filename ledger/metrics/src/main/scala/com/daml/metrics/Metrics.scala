@@ -505,6 +505,9 @@ final class Metrics(val registry: MetricRegistry) {
         }
 
       }
+
+      val ledgerEndSequentialId = new VarGauge[Long](0L)
+      registry.register(Prefix :+ "ledger_end_sequential_id", ledgerEndSequentialId)
     }
 
     object indexer {
@@ -522,7 +525,6 @@ final class Metrics(val registry: MetricRegistry) {
         registry,
       )
 
-      // TODO LLP: Add ledgerEndSequentialId for Index
       val ledgerEndSequentialId = new VarGauge[Long](0L)
       registry.register(Prefix :+ "ledger_end_sequential_id", ledgerEndSequentialId)
     }
