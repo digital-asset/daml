@@ -116,9 +116,9 @@ Account
 =======
 
 Finally, account contracts are used as proof of a relationship between a
-custodian and an asset owner.
+``custodian`` and an asset ``owner``.
 
-An owner must have an account contract with a custodian before a holding
+An ``owner`` must have an account contract with a ``custodian`` before a holding
 contract can be created.
 
 This is similar to how in the real world you need to open a bank account
@@ -134,7 +134,7 @@ by the Bank).
 Signatories
 -----------
 
-An account is co-signed by the account owner and the custodian.
+An account is co-signed by the account ``owner`` and the ``custodian``.
 
 Keys
 ----
@@ -143,7 +143,7 @@ Accounts are keyed by an ``AccountKey``, which comprises
 
 -  the account ``owner``
 -  the account ``custodian``
--  a textual identifier
+-  a textual ``id``
 
 .. _implementations-2:
 
@@ -159,11 +159,11 @@ Settlement refers to the execution of holding transfers originating from
 a financial transaction.
 
 For instance, an example FX spot transaction involves the transfer of a
-EUR-denominated holding from ``Alice`` to ``Bob`` in exchange for a
+EUR-denominated holding from Alice to Bob in exchange for a
 USD-denominated holding.
 
 The library provides facilities to execute these transfers atomically
-(i.e., within the same Daml transaction).
+(i.e., within the same Daml transaction) in the package ``Daml.Finance.Interface.Settlement``.
 
 EXPLAIN INSTRUCTABLE, BATCH, INSTRUCTION USING THE FX EXAMPLE
 
