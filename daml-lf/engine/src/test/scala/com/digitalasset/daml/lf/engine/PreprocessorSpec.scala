@@ -4,40 +4,23 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.data.{FrontStack, ImmArray, Ref}
+import com.daml.lf.command.ContractMetadata
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
-import com.daml.lf.value.Value.{ValueInt64, ValueList, ValueParty, ValueRecord}
-import org.scalatest.Inside
+import com.daml.lf.speedy.{ArrayList, SValue}
+import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueList, ValueParty, ValueRecord}
+import org.scalatest.{Inside, Inspectors}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
+import com.daml.lf.value.Value
+import org.scalatest.matchers.{MatchResult, Matcher}
 
-class PreprocessorSpec extends AnyWordSpec with Inside with Matchers {
+class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspectors {
 
-  import com.daml.lf.testing.parser.Implicits._
-  import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
-
-  private[this] implicit val defaultPackageId: Ref.PackageId =
-    defaultParserParameters.defaultPackageId
-
-  private[this] lazy val pkg =
-    p"""
-        module Mod {
-
-          record @serializable Record = { owners: List Party, data : Int64 };
-
-          template (this : Record) = {
-            precondition True;
-            signatories Mod:Record {owners} this;
-            observers Mod:Record {owners} this;
-            agreement "Agreement";
-            key @(List Party) (Mod:Record {owners} this) (\ (parties: List Party) -> parties);
-          };
-
-        }
-    """
-
-  private[this] val pkgs = Map(defaultPackageId -> pkg)
-  private[this] val parties = ValueList(FrontStack(ValueParty("Alice")))
+  import PreprocessorSpec._
 
   "preprocessor" should {
     "returns correct result when resuming" in {
@@ -68,6 +51,115 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers {
         error shouldBe a[Error.Preprocessing.TypeMismatch]
       }
     }
+
+    "preprocessDisclosedContracts" should {
+      "normalised contracts are accepted" in {
+        val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+        val result = preprocessor.preprocessDisclosedContracts(ImmArray(normalizedContract))
+
+        inside(result) { case ResultDone(disclosedContracts) =>
+          all(disclosedContracts.toList) should acceptDisclosedContract
+        }
+      }
+
+      "non-normalized contracts are accepted" in {
+        val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+        val result = preprocessor.preprocessDisclosedContracts(ImmArray(nonNormalizedContract))
+
+        inside(result) { case ResultDone(disclosedContracts) =>
+          all(disclosedContracts.toList) should acceptDisclosedContract
+        }
+      }
+    }
+  }
+}
+
+object PreprocessorSpec {
+
+  implicit val defaultPackageId: Ref.PackageId = defaultParserParameters.defaultPackageId
+
+  val pkg =
+    p"""
+        module Mod {
+
+          record @serializable Record = { owners: List Party, data : Int64 };
+
+          template (this : Record) = {
+            precondition True;
+            signatories Mod:Record {owners} this;
+            observers Mod:Record {owners} this;
+            agreement "Agreement";
+            key @(List Party) (Mod:Record {owners} this) (\ (parties: List Party) -> parties);
+          };
+
+        }
+    """
+  val pkgs = Map(defaultPackageId -> pkg)
+  val alice: ValueParty = ValueParty("Alice")
+  val parties: ValueList = ValueList(FrontStack(alice))
+  val testKeyName: String = "test-key"
+  val contractId: ContractId = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
+  val templateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:Mod:Record")
+  val templateType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:Mod:Record")
+  val key: Value.ValueRecord = Value.ValueRecord(
+    None,
+    ImmArray(
+      None -> Value.ValueText(testKeyName),
+      None -> Value.ValueList(FrontStack.from(ImmArray(alice))),
+    ),
+  )
+  val keyHash: Hash = crypto.Hash.assertHashContractKey(templateType, key)
+  val normalizedContract: command.DisclosedContract =
+    buildDisclosedContract(keyHash, withNormalization = true)
+  val nonNormalizedContract: command.DisclosedContract =
+    buildDisclosedContract(keyHash, withNormalization = false)
+
+  def buildDisclosedContract(
+      keyHash: Hash,
+      withNormalization: Boolean,
+  ): command.DisclosedContract = {
+    command.DisclosedContract(
+      templateId,
+      contractId,
+      Value.ValueRecord(
+        if (withNormalization) None else Some(templateId),
+        ImmArray(
+          (if (withNormalization) None else Some(Ref.Name.assertFromString("owners"))) -> parties,
+          (if (withNormalization) None else Some(Ref.Name.assertFromString("data"))) -> Value
+            .ValueInt64(42L),
+        ),
+      ),
+      ContractMetadata(Time.Timestamp.now(), Some(keyHash), ImmArray.Empty),
+    )
   }
 
+  @SuppressWarnings(
+    Array(
+      "org.wartremover.warts.Product",
+      "org.wartremover.warts.Serializable",
+      "org.wartremover.warts.JavaSerializable",
+    )
+  )
+  def acceptDisclosedContract: Matcher[speedy.DisclosedContract] = Matcher { disclosedContract =>
+    val testResult = disclosedContract.argument match {
+      case SValue.SRecord(`templateId`, fields, values) =>
+        fields == ImmArray(
+          Ref.Name.assertFromString("owners"),
+          Ref.Name.assertFromString("data"),
+        ) &&
+        values == ArrayList(
+          SValue.SList(FrontStack(SValue.SParty(Ref.Party.assertFromString("alice")))),
+          SValue.SInt64(42L),
+        )
+
+      case _ =>
+        false
+    }
+
+    MatchResult(
+      testResult,
+      s"Failed to accept disclosed contract: $disclosedContract",
+      s"Failed to accept disclosed contract: $disclosedContract",
+    )
+  }
 }
