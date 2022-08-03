@@ -1674,6 +1674,25 @@ tests tools = testGroup "Data Dependencies" $
         , "  None -> False"
         ]
 
+    , simpleImportTest "Instances of zero-method type classes are preserved"
+        -- regression test for https://github.com/digital-asset/daml/issues/14585
+        [ "module Lib where"
+
+        , "class Marker a where"
+
+        , "instance Marker Foo"
+
+        , "data Foo = Foo"
+        ]
+        [ "module Main where"
+        , "import Lib (Marker (..), Foo (..))"
+
+        , "foo : Marker a => a -> ()"
+        , "foo _ = ()"
+
+        , "bar = foo Foo"
+        ]
+
     , dataDependenciesTestOptions "Homonymous interface doesn't trigger 'ambiguous occurrence' error"
         [ "--target=1.dev" ]
         [   (,) "A.daml"
