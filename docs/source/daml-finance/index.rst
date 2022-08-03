@@ -38,5 +38,7 @@ Next steps
 **********
 
 The :doc:`Architecture <architecture>` page gives you an overview of the available packages and their API.
+
 The :doc:`Core Concepts <core-concepts>` page defines the fundamental templates and interfaces provided by the library.
+
 The :doc:`Getting Started <getting-started/getting-started>` tutorial introduces the basic functionalities of the library through a practical example.

@@ -17,7 +17,7 @@ We are going to
 Download the code for the tutorial
 **********************************
 
-As a pre-requisite, the ``Daml SDK`` needs to be installed on your
+As a pre-requisite, the `Daml SDK <https://docs.daml.com/getting-started/installation.html>`_ needs to be installed on your
 machine.
 
 Open a terminal and run:
@@ -83,7 +83,7 @@ Creating ``Holding`` and ``Account`` factories
 ==============================================
 
 The first instruction instantiates an account factory. This is just a
-template that is used by a party (the ``Bank`` in this case) to create
+template that is used by a party (the Bank in this case) to create
 accounts as part of the ``CreateAccount`` workflow.
 
 .. literalinclude:: code/daml/Scripts/Setup.daml
@@ -105,17 +105,17 @@ to ``Credit`` and ``Debit`` holdings.
 
 This factory contract can be use to create ``Fungible`` holdings, which
 are defined in ``Daml.Finance.Asset.Fungible`` and are
-`fungible <../../Glossary.md#fungibility>`__, as well as
-`transferable <../../Glossary.md#transferability>`__.
+:ref:`fungible <fungibility>`, as well as
+:ref:`transferable <transferability>`.
 
 Opening Alice’s and Bob’s accounts
 ==================================
 
 Once the factory templates are setup, we leverage our ``CreateAccount``
-workflow to create an account at the ``Bank`` for Alice and Bob.
+workflow to create an account at the Bank for Alice and Bob.
 
 The creation of an account needs to be authorized by both the
-``custodian`` and the ``owner`` (resp. the ``Bank`` and Alice in our
+``custodian`` and the ``owner`` (resp. the Bank and Alice in our
 case). Authorization is collected using an initiate / accept pattern.
 
 .. literalinclude:: code/daml/Scripts/Setup.daml
@@ -143,8 +143,8 @@ this case) or can include complex on-ledger lifecycling logic.
 To hold one unit of the cash instrument in this scenario means that we
 can claim 1 USD from the holding’s custodian.
 
-Notice how in this case the ``Bank`` acts both as the cash instrument’s
-issuer and depository. This means that we fully trust the ``Bank`` with
+Notice how in this case the Bank acts both as the cash instrument’s
+issuer and depository. This means that we fully trust the Bank with
 any action concerning the instrument.
 
 Depositing cash on Alice’s account
@@ -239,7 +239,7 @@ interface to temporarily disclose Bob’s account to Alice and
 then undisclose it as part of the same transaction.
 
 If we wanted to avoid Bob’s account contract ever being disclosed
-to Alice, we would need a third party (in this case the ``Bank``) to
+to Alice, we would need a third party (in this case the Bank) to
 execute the ``Transfer``.
 
 What are account used for?
@@ -247,10 +247,10 @@ What are account used for?
 
 An account is used as the proof of a business relationship between an
 owner and a custodian: Alice is authorized to transfer cash to
-Bob because Bob has a valid account at the ``Bank``.
+Bob because Bob has a valid account at the Bank.
 
-This is done to avoid that Alice transfers cash to ``Charlie``
-without ``Charlie`` being vetted and acknowledged by the ``Bank``.
+This is done to avoid that Alice transfers cash to Charlie
+without Charlie being vetted and acknowledged by the Bank.
 
 Why do we need factories?
 =========================

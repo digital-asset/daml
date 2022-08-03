@@ -125,9 +125,9 @@ This is similar to how in the real world you need to open a bank account
 before you can use the bank’s services.
 
 In the library, accounts are used to prevent holding transfers to
-unvetted third parties: ``Alice`` can transfer a holding to ``Bob`` only
-if ``Bob`` has an account at the ``Bank`` (and has therefore been vetted
-by the ``Bank``).
+unvetted third parties: Alice can transfer a holding to Bob only
+if Bob has an account at the Bank (and has therefore been vetted
+by the Bank).
 
 .. _signatories-2:
 
