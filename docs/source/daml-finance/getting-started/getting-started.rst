@@ -31,7 +31,7 @@ Navigate to the folder and then run
 
 .. code-block:: shell
 
-   get-dependencies | sh
+   ./get-dependencies.sh
 
 to download the required ``daml-finance`` packages.
 You can then run
@@ -86,13 +86,10 @@ The first instruction instantiates an account factory. This is just a
 template that is used by a party (the ``Bank`` in this case) to create
 accounts as part of the ``CreateAccount`` workflow.
 
-.. code:: haskell
-
-   accountFactoryCid <- toInterfaceContractId @Account.F <$> submit bank do
-     createCmd Account.Factory
-       with
-         provider = bank
-         observers = empty
+.. literalinclude:: code/daml/Scripts/Setup.daml
+  :language: daml
+  :start-after: -- CREATE_ACCOUNT_FACTORY_BEGIN
+  :end-before: -- CREATE_ACCOUNT_FACTORY_END
 
 Notice how the ``ContractId`` is immediately converted to an interface
 upon creation: this is because our workflows do not have any knowledge
@@ -101,13 +98,10 @@ of concrete template implementations.
 Similarly, we define a holding factory which is used within an account
 to ``Credit`` and ``Debit`` holdings.
 
-.. code:: haskell
-
-   holdingFactoryCid <- toInterfaceContractId @Holding.F <$> submit bank do
-     createCmd Fungible.Factory
-       with
-         provider = bank
-         observers = empty
+.. literalinclude:: code/daml/Scripts/Setup.daml
+  :language: daml
+  :start-after: -- CREATE_HOLDING_FACTORY_BEGIN
+  :end-before: -- CREATE_HOLDING_FACTORY_END
 
 This factory contract can be use to create ``Fungible`` holdings, which
 are defined in ``Daml.Finance.Asset.Fungible`` and are
@@ -124,21 +118,10 @@ The creation of an account needs to be authorized by both the
 ``custodian`` and the ``owner`` (resp. the ``Bank`` and Alice in our
 case). Authorization is collected using an initiate / accept pattern.
 
-.. code:: haskell
-
-   aliceRequestCid <- submit alice do
-     createCmd AccountOpenRequest
-       with
-         owner = alice
-         custodian = bank
-
-   aliceAccountCid <- submit bank do
-     exerciseCmd aliceRequestCid AccountOpenRequest_Accept
-       with
-         label = "Alice@Bank"
-         accountFactoryCid = accountFactoryCid
-         holdingFactoryCid = holdingFactoryCid
-         observers = []
+.. literalinclude:: code/daml/Scripts/Setup.daml
+  :language: daml
+  :start-after: -- SETUP_ALICE_ACCOUNT_BEGIN
+  :end-before: -- SETUP_ALICE_ACCOUNT_END
 
 Bob’s account is created in a similar fashion.
 
@@ -148,17 +131,10 @@ Issuing the cash instrument
 In order to credit Alice’s account with some cash, we first need
 to introduce a cash ``Instrument`` in our model.
 
-.. code:: haskell
-
-   let instrumentId = Id with label = "USD"; version = "0"
-
-   cashInstrumentCid <- toInterfaceContractId @Instrument.I <$> submit bank do
-     createCmd Instrument
-       with
-         depository = bank
-         issuer = bank
-         id = instrumentId
-         observers = empty
+.. literalinclude:: code/daml/Scripts/Setup.daml
+  :language: daml
+  :start-after: -- ISSUE_CASH_INSTRUMENT_BEGIN
+  :end-before: -- ISSUE_CASH_INSTRUMENT_END
 
 An instrument is a representation of what it is that we are holding
 against the bank. It can be as simple as just a textual label (like in
@@ -177,16 +153,10 @@ Depositing cash on Alice’s account
 We can now deposit cash on Alice’s account, using the ``Deposit``
 workflow. Alice issues a deposit
 
-.. code:: haskell
-
-   aliceRequestCid <- submit alice do
-     createCmd DepositRequest
-       with
-         account = AccountKey with owner = alice; custodian = bank; id = "Alice@Bank"
-         instrument = InstrumentKey with issuer = bank; depository = bank; id = instrumentId
-         amount = 1000.0
-
-   aliceCashHoldingCid <- submit bank do exerciseCmd aliceRequestCid CashDepositRequest_Accept
+.. literalinclude:: code/daml/Scripts/Setup.daml
+  :language: daml
+  :start-after: -- CREATE_ALICE_HOLDING_BEGIN
+  :end-before: -- CREATE_ALICE_HOLDING_END
 
 Alice creates a request to deposit 1000 USD at the Bank, the Bank then
 accepts the request and a corresponding ``Holding`` is created. ADD LINK
@@ -202,17 +172,10 @@ Transferring cash from Alice to Bob
 The final step of our ``Setup`` script transfers Alice’s holding to Bob
 using the ``Transfer`` workflow.
 
-.. code:: haskell
-
-   transferRequestCid <- submit bob do
-     createCmd TransferRequest
-       with
-         receiverAccount = AccountKey with owner = bob; custodian = bank; id = "Bob@Bank"
-         instrument = InstrumentKey with issuer = bank; depository = bank; id = instrumentId
-         amount = 1000.0
-         sender = alice
-
-   newHoldingCid <- submit alice do exerciseCmd transferRequestCid CashTransferRequest_Accept with holdingCid = aliceCashHoldingCid
+.. literalinclude:: code/daml/Scripts/Setup.daml
+  :language: daml
+  :start-after: -- TRANSFER_BEGIN
+  :end-before: -- TRANSFER_END
 
 Bob requests the cash to be transferred to his account, Alice
 accepts the request.
@@ -233,15 +196,10 @@ How does the ``Transfer`` workflow work?
 If you look at the implementation of the ``Transfer`` workflow, you will
 notice the following lines
 
-.. code:: haskell
-
-   let transferableCid : ContractId Transferable.I = coerceContractId holdingCid
-
-   newTransferableCid <- exercise transferableCid Transferable.Transfer
-     with
-       newOwnerAccount = receiverAccount
-
-   pure $ toInterfaceContractId @Holding.I newTransferableCid
+.. literalinclude:: code/daml/Workflow/Transfer.daml
+  :language: daml
+  :start-after: -- DO_TRANSFER_BEGIN
+  :end-before: -- DO_TRANSFER_END
 
 The first line converts the holding contract id (of type
 ``ContractId Holding.I``) to the ``Transferable`` interface using
@@ -264,7 +222,7 @@ will result in a run-time error if the holding implementation at hand
 does not implement ``Transferable``.
 
 We use ``toInterfaceContractId`` to convert back to a ``Holding``. This
-is because all ``Transferable``s implement the ``Holding`` interface,
+is because all ``Transferable``\ s implement the ``Holding`` interface,
 so the validity of this operation is guaranteed at compile-time.
 
 Why is Alice an observer on Bob’s account?

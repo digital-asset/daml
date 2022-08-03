@@ -114,7 +114,7 @@ setup = do
         currentOwner = alice
 
   newHoldingCid <- submit alice do exerciseCmd transferRequestCid CashTransferRequest_Accept with holdingCid = aliceCashHoldingCid
-  -- TRANFER_END
+  -- TRANSFER_END
 
   pure ()
 

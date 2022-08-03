@@ -10,7 +10,7 @@ Daml Finance
    architecture
    core-concepts
    glossary
-   getting-started
+   getting-started/getting-started
 
 Daml Finance is currently an :doc:`Early Access Feature in Alpha status </support/status-definitions>`.
 
@@ -39,4 +39,4 @@ Next steps
 
 The :doc:`Architecture <architecture>` page gives you an overview of the available packages and their API.
 The :doc:`Core Concepts <core-concepts>` page defines the fundamental templates and interfaces provided by the library.
-The
+The :doc:`Getting Started <getting-started/getting-started>` tutorial introduces the basic functionalities of the library through a practical example.
