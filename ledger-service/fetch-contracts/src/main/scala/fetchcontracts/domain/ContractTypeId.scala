@@ -29,7 +29,8 @@ import scalaz.syntax.functor._
   */
 sealed abstract class ContractTypeId[+PkgId]
     extends Product3[PkgId, String, String]
-    with Serializable {
+    with Serializable
+    with ContractTypeId.Ops[ContractTypeId, PkgId] {
   val packageId: PkgId
   val moduleName: String
   val entityName: String
@@ -64,8 +65,15 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
       packageId: PkgId,
       moduleName: String,
       entityName: String,
-  ) extends ContractTypeId[PkgId] {
+  ) extends ContractTypeId[PkgId]
+      with Ops[UnknownImpl, PkgId] {
     override def productPrefix = "ContractTypeId"
+
+    override def copy[PkgId0](
+        packageId: PkgId0 = packageId,
+        moduleName: String = moduleName,
+        entityName: String = entityName,
+    ) = UnknownImpl(packageId, moduleName, entityName)
   }
 
   // TODO SC placeholder for the lub of Template/Interface
@@ -84,8 +92,15 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
     * IDs for resolution, and that resolving to a template ID should be an error.
     */
   final case class Interface[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
-      extends ContractTypeId[PkgId] {
+      extends ContractTypeId[PkgId]
+      with Ops[Interface, PkgId] {
     override def productPrefix = "InterfaceId"
+
+    override def copy[PkgId0](
+        packageId: PkgId0 = packageId,
+        moduleName: String = moduleName,
+        entityName: String = entityName,
+    ) = Interface(packageId, moduleName, entityName)
   }
 
   @deprecated("use root or UnknownImpl instead", since = "#14577")
@@ -102,29 +117,15 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
   def unapply[PkgId](ctId: ContractTypeId[PkgId]): Some[ContractTypeId[PkgId]] = Some(ctId)
 
   // belongs in ultimate parent `object`
-  implicit def `ContractTypeId covariant`[F[T] <: ContractTypeId[T]](implicit
-      companion: ContractTypeId.Like[F]
-  ): Traverse[F] =
+  implicit def `ContractTypeId covariant`[F[T] <: ContractTypeId[T] with ContractTypeId.Ops[F, T]]
+      : Traverse[F] =
     new Traverse[F] {
       override def map[A, B](fa: F[A])(f: A => B): F[B] =
-        companion(f(fa.packageId), fa.moduleName, fa.entityName)
+        fa.copy(packageId = f(fa.packageId))
 
       override def traverseImpl[G[_]: Applicative, A, B](fa: F[A])(f: A => G[B]): G[F[B]] =
-        f(fa.packageId) map (companion(_, fa.moduleName, fa.entityName))
+        f(fa.packageId) map (p2 => fa.copy(packageId = p2))
     }
-
-  implicit final class `ContractTypeId funs`[F[T] <: ContractTypeId[T], T](
-      private val self: F[T]
-  ) extends AnyVal {
-
-    /** Parametrically polymorphic version of case class copy. */
-    def copy[PkgId](
-        packageId: PkgId = self.packageId,
-        moduleName: String = self.moduleName,
-        entityName: String = self.entityName,
-    )(implicit companion: ContractTypeId.Like[F]): F[PkgId] =
-      companion(packageId, moduleName, entityName)
-  }
 
   val Template = this
 
@@ -136,6 +137,14 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
   type ResolvedId[+CtTyId] = CtTyId
 
   type Like[CtId[T] <: ContractTypeId[T]] = ContractTypeIdLike[CtId]
+
+  sealed trait Ops[+CtId[_], +PkgId] { this: ContractTypeId[PkgId] =>
+    def copy[PkgId0](
+        packageId: PkgId0 = packageId,
+        moduleName: String = moduleName,
+        entityName: String = entityName,
+    ): CtId[PkgId0]
+  }
 }
 
 /** A contract type ID companion. */

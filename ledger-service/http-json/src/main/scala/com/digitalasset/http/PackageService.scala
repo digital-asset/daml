@@ -157,7 +157,7 @@ private class PackageService(
     resolveContractTypeIdFromState(() => state.templateIdMap)
 
   private[this] def resolveContractTypeIdFromState[
-      CtId[T] <: ContractTypeId[T]: ContractTypeId.Like
+      CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]
   ](
       latestMap: () => ContractTypeIdMap[CtId]
   )(implicit ec: ExecutionContext): ResolveContractTypeId[CtId] = new ResolveContractTypeId[CtId] {
@@ -351,7 +351,9 @@ object PackageService {
       .groupBy(k => key2(k))
       .collect { case (k, v) if v.sizeIs == 1 => (k, v.head) }
 
-  def resolveTemplateId[CtId[T] <: domain.ContractTypeId[T]: domain.ContractTypeId.Like](
+  def resolveTemplateId[
+      CtId[T] <: domain.ContractTypeId[T] with domain.ContractTypeId.Ops[CtId, T]
+  ](
       m: ContractTypeIdMap[CtId]
   )(a: CtId[Option[String]]): Option[CtId[String]] =
     a.packageId match {
