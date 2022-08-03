@@ -185,7 +185,7 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
       val ctx: Context = Context.None
       val env = Typing.Env(langVersion, pkgInterface, ctx)
       try {
-        val _: Type = env.typeOf(expr)
+        val _: Type = env.typeOfTopExpr(expr)
         None
       } catch {
         case e: ValidationError => Some(e)
@@ -250,13 +250,8 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
     }
 
     {
-      val depth = 100 // Small enough to not cause stack-overflow, even for stack-unsafe code
-
-      // TODO https://github.com/digital-asset/daml/issues/13410
-      //
-      // testCases should not fail even when depth is LARGE, say 10k or 100k
-
-      s"typing, (SMALL) depth = $depth" - {
+      val depth = 10000 // big enough to demonstrate stack-safety
+      s"typing, (LARGE) depth = $depth" - {
         forEvery(testCases) { (name: String, recursionPoint: Expr => Expr) =>
           name in {
             // ensure examples can be typechecked and are well-typed
