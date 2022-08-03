@@ -1112,21 +1112,6 @@ private[lf] object SBuiltin {
         machine: Machine,
         onLedger: OnLedger,
     ): Control = {
-
-      def continueExpression(coinst: V.ContractInstance): SExpr = { // NICK: inline
-        coinst match {
-          case V.ContractInstance(actualTmplId, arg, _) =>
-            SEApp(
-              // The call to ToCachedContractDefRef(actualTmplId) will query package
-              // of actualTmplId if not know.
-              SEVal(ToCachedContractDefRef(actualTmplId)),
-              Array(
-                SEImportValue(Ast.TTyCon(actualTmplId), arg),
-                SEValue(args.get(1)),
-              ),
-            )
-        }
-      }
       val coid = getSContractId(args, 0)
       onLedger.cachedContracts.get(coid) match {
         case Some(cached) =>
@@ -1143,29 +1128,39 @@ private[lf] object SBuiltin {
           Control.Value(cached.any)
 
         case None =>
-          def continue(coinst: V.ContractInstance): Unit = { // NICK: Control
+          def continue(coinst: V.ContractInstance): Control = {
             machine.pushKont(KCacheContract(machine, coid))
-            val e = continueExpression(coinst)
+            val e = coinst match {
+              case V.ContractInstance(actualTmplId, arg, _) =>
+                SEApp(
+                  // The call to ToCachedContractDefRef(actualTmplId) will query package
+                  // of actualTmplId if not know.
+                  SEVal(ToCachedContractDefRef(actualTmplId)),
+                  Array(
+                    SEImportValue(Ast.TTyCon(actualTmplId), arg),
+                    SEValue(args.get(1)),
+                  ),
+                )
+            }
             machine.xctrl = e
-            machine.setControl(Control.Expression(e))
+            Control.Expression(e)
           }
 
           machine.disclosureTable.contractById.get(SContractId(coid)) match {
             case Some((templateId, arg)) =>
               val v = machine.normValue(templateId, arg)
               val coinst = V.ContractInstance(templateId, v, "")
-              // continue(coinst) //NICK: un-inline?
-              machine.pushKont(KCacheContract(machine, coid))
-              val e = continueExpression(coinst)
-              machine.xctrl = e
-              Control.Expression(e)
+              continue(coinst)
 
             case None =>
               throw SpeedyHungry(
                 SResultNeedContract(
                   coid,
                   onLedger.committers,
-                  continue,
+                  callback = { res =>
+                    val control = continue(res)
+                    machine.setControl(control)
+                  },
                 )
               )
           }
