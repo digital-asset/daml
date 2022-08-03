@@ -540,10 +540,7 @@ HTTP Request
 
 Where:
 
-- ``templateId`` is the contract template identifier, which can be formatted as either:
-
-  + ``"<package ID>:<module>:<entity>"`` or
-  + ``"<module>:<entity>"`` if contract template can be uniquely identified by its module and entity name.
+- ``templateId`` is the contract template identifier, which is formatted as ``"<package ID>:<module>:<entity>"``. As a convenience for rapid prototyping, you can also omit the package ID (i.e. specifying the ``templateId`` as ``"<module>:<entity>"``), but you are recommended to explicitly specifying the package ID as soon as you move away from the prototyping phase of development, since it's common to have more versions of a template sharing the same module and entity name but with different package IDs. If the package identifier is not specified and the template cannot be uniquely identified without it, the HTTP JSON API service will report that the specified template cannot be found.
 
 - ``payload`` field contains contract fields as defined in the Daml template and formatted according to :doc:`lf-value-specification`.
 
