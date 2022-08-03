@@ -1540,7 +1540,6 @@ private[lf] object SBuiltin {
             }
           }: Option[V.ContractId] => Boolean
 
-          // TODO (drsk) validate key hash. https://github.com/digital-asset/daml/issues/13897
           machine.disclosureTable.contractIdByKey.get(gkey.hash) match {
             case Some(coid) =>
               machine.disclosureTable.contractById.get(coid) match {
