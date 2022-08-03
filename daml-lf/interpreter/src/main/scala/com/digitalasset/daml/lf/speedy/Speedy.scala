@@ -522,7 +522,7 @@ private[lf] object Speedy {
       track = Instrumentation()
     }
 
-    def setControl(control: Control): Unit = { // NICK: inlne?
+    def setControl(control: Control): Unit = {
       newControl = control
     }
 
@@ -548,12 +548,12 @@ private[lf] object Speedy {
             case Control.WeAreHungry(res) =>
               sys.error(s"**attempt to run a hungry machine (feed me first): $res")
             case Control.Expression(exp) =>
-              xctrl = null // NICK: classification counts
+              xctrl = null
               setControl(Control.WeAreUnset())
               setControl(exp.execute(this))
               loop()
             case Control.Value(value) =>
-              xreturnValue = null // NICK: classification counts
+              xreturnValue = null
               popTempStackToBase()
               setControl(popKont().execute(value))
               loop()
@@ -594,11 +594,9 @@ private[lf] object Speedy {
               defn.cached match {
                 case Some((svalue, stackTrace)) =>
                   eval.setCached(svalue, stackTrace)
-                  xreturnValue = svalue // NICK: why? - caller will do this
                   Control.Value(svalue)
                 case None =>
                   pushKont(KCacheVal(this, eval, defn, Nil))
-                  xctrl = defn.body // NICK: why? -- caller will do this
                   Control.Expression(defn.body)
               }
             case None =>
@@ -1157,9 +1155,9 @@ private[lf] object Speedy {
   object Control {
     final case class Expression(e: SExpr) extends Control
     final case class Value(v: SValue) extends Control
-    final case class WeAreUnset() extends Control // NICK: kill?
-    final case class WeAreComplete() extends Control // NICK: kill?
-    final case class WeAreHungry(res: SResult) extends Control // NICK: kill?
+    final case class WeAreUnset() extends Control
+    final case class WeAreComplete() extends Control
+    final case class WeAreHungry(res: SResult) extends Control
   }
 
   /** Kont, or continuation. Describes the next step for the machine
