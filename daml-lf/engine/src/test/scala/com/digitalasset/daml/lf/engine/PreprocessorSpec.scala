@@ -6,7 +6,8 @@ package engine
 
 import com.daml.lf.command.ContractMetadata
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueList, ValueParty, ValueRecord}
@@ -55,18 +56,28 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
     "preprocessDisclosedContracts" should {
       "normalised contracts are accepted" in {
         val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
-        val result = preprocessor.preprocessDisclosedContracts(ImmArray(normalizedContract))
+        val intermediaryResult =
+          preprocessor.preprocessDisclosedContracts(ImmArray(normalizedContract))
 
-        inside(result) { case ResultDone(disclosedContracts) =>
+        intermediaryResult shouldBe a[ResultNeedPackage[_]]
+
+        val finalResult = intermediaryResult.consume(_ => None, pkgs.get, _ => None)
+
+        inside(finalResult) { case Right(disclosedContracts) =>
           all(disclosedContracts.toList) should acceptDisclosedContract
         }
       }
 
       "non-normalized contracts are accepted" in {
         val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
-        val result = preprocessor.preprocessDisclosedContracts(ImmArray(nonNormalizedContract))
+        val intermediaryResult =
+          preprocessor.preprocessDisclosedContracts(ImmArray(nonNormalizedContract))
 
-        inside(result) { case ResultDone(disclosedContracts) =>
+        intermediaryResult shouldBe a[ResultNeedPackage[_]]
+
+        val finalResult = intermediaryResult.consume(_ => None, pkgs.get, _ => None)
+
+        inside(finalResult) { case Right(disclosedContracts) =>
           all(disclosedContracts.toList) should acceptDisclosedContract
         }
       }
@@ -95,17 +106,21 @@ object PreprocessorSpec {
         }
     """
   val pkgs = Map(defaultPackageId -> pkg)
-  val alice: ValueParty = ValueParty("Alice")
-  val parties: ValueList = ValueList(FrontStack(alice))
+  val alice: Party = Ref.Party.assertFromString("Alice")
+  val parties: ValueList = ValueList(FrontStack(ValueParty(alice)))
   val testKeyName: String = "test-key"
-  val contractId: ContractId = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
+  val contractId: ContractId =
+    Value.ContractId.V1.assertBuild(
+      crypto.Hash.hashPrivateKey("test-contract-id"),
+      Bytes.assertFromString("deadbeef"),
+    )
   val templateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:Mod:Record")
   val templateType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:Mod:Record")
   val key: Value.ValueRecord = Value.ValueRecord(
     None,
     ImmArray(
       None -> Value.ValueText(testKeyName),
-      None -> Value.ValueList(FrontStack.from(ImmArray(alice))),
+      None -> Value.ValueList(FrontStack.from(ImmArray(ValueParty(alice)))),
     ),
   )
   val keyHash: Hash = crypto.Hash.assertHashContractKey(templateType, key)
@@ -148,7 +163,7 @@ object PreprocessorSpec {
           Ref.Name.assertFromString("data"),
         ) &&
         values == ArrayList(
-          SValue.SList(FrontStack(SValue.SParty(Ref.Party.assertFromString("alice")))),
+          SValue.SList(FrontStack(SValue.SParty(alice))),
           SValue.SInt64(42L),
         )
 
