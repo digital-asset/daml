@@ -116,7 +116,7 @@ message User {
     bool is_deactivated = 3;
 
     // The metadata of this party.
-    // Optional
+    // Required
     ObjectMeta metadata = 4;
 }
 
@@ -180,8 +180,6 @@ message GetUserResponse {
     User user = 1;
 }
 
-
-
 // Required authorization: ``HasRight(ParticipantAdmin)``
 // NOTE: The authenticated participant user is not allowed to deactivate itself.
 message UpdateUserRequest {
@@ -189,11 +187,11 @@ message UpdateUserRequest {
     // Modifiable fields:
     // 1. 'primary_party',
     // 2. 'is_deactivated',
-    // 3. 'metadata' (with the 'replace-all' semantics).
+    // 3. 'metadata' (can be nested, e.g. 'metadata.annotations').
     User user = 1;
 
     // Specifies the fields of the user resource to be updated.
-    // At least one field must be specified, e.g. "user.metadata"
+    // At least one field must be specified, e.g. 'user.metadata'.
     // Required
     google.protobuf.FieldMask update_mask = 2;
 }

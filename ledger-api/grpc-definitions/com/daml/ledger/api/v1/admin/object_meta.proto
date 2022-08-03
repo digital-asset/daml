@@ -20,10 +20,12 @@ message ObjectMeta {
   // You may use it for concurrent change detection by means of optimistic locking.
   // To do that include it unmodified in a change request.
   // 'PRECONDITION_VIOLATED' error is signaled when 'resourceVersion' mismatch is detected.
+  // If you leave it empty no concurrent change detection checks are applied.
   //
   // Has no effect when resource is being created.
   //
-  // If you leave it empty no concurrent change detection checks are applied.
+  // Usage in the field mask of an update call:
+  // - selecting 'resource_version' has no effect.
   //
   // Optional
   string resource_version = 6;
@@ -41,11 +43,11 @@ message ObjectMeta {
   // Keys with empty prefix are reserved for end users.
   // Properties set by external tools or internally by the participant must use non-empty key prefixes.
   //
-  // When used in update API calls with a field mask can only select the whole 'annotations' map with the replace-all semantics.
-  // I.e. one cannot select a particular key within the 'annotations' map.
-  //
   // Duplicate keys are disallowed by the semantics of the protobuf3 maps.
   // See: https://developers.google.com/protocol-buffers/docs/proto3#maps
+  //
+  // Usage in the field mask of an update call:
+  // - you can select 'annotations' field only as a whole, with the replace-all semantics.
   //
   // Optional
   map<string, string> annotations = 12;

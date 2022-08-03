@@ -74,14 +74,14 @@ service PartyManagementService {
   // colon, minus and underscore limited to 255 chars
   rpc AllocateParty (AllocatePartyRequest) returns (AllocatePartyResponse);
 
-  // Updates the participant local metadata of a party.
-  // This metadata is stored locally on the backing participant and is not exposed on the given ledger.
+  // Updates participant-local information about a party.
+  // Does not affect the party's representation on a ledger.
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
   // - ``NOT_FOUND``: if the party is not known to the backing participant
-  rpc UpdateLocalPartyMetadata (UpdatePartyMetadataRequest) returns (UpdatePartyMetadataResponse);
+  rpc UpdateParty (UpdatePartyRequest) returns (UpdatePartyResponse);
 
 }
 
@@ -140,8 +140,8 @@ message AllocatePartyRequest {
   string display_name = 2;
 
   // Participant local metadata to be bound to this newly allocated party.
-  // Optional
-  ObjectMeta metadata = 3;
+  // Required
+  ObjectMeta local_metadata = 3;
 }
 
 message AllocatePartyResponse {
@@ -149,37 +149,23 @@ message AllocatePartyResponse {
   PartyDetails party_details = 1;
 }
 
-// The participant local metadata of a party.
-// This metadata is stored locally on the backing participant and is not exposed on the given ledger.
-message PartyMetadata {
-
-  // The stable unique identifier of a Daml party.
-  // Must be a valid PartyIdString (as described in ``value.proto``).
-  // Required
-  string party = 1;
-
-  // The metadata of this party.
-  // Optional
-  ObjectMeta metadata = 2;
-}
-
 // Required authorization: ``HasRight(ParticipantAdmin)``
-message UpdatePartyMetadataRequest {
-  // The participant local party metadata to be updated.
+message UpdatePartyRequest {
+  // Party to be updated
   // Updatable fields:
-  // 1. 'metadata' (with the 'replace-all' semantics).
+  // 1. 'local_metadata' (can be nested, e.g. 'local_metadata.annotations').
   // Required
-  PartyMetadata party_metadata = 1;
+  PartyDetails party_details = 1;
 
-  // Specifies the fields of the party metadata resource to be updated.
-  // At least one field must be specified, e.g. "party_metadata.metadata"
+  // Specifies the fields of the party details to be updated.
+  // At least one field must be specified, e.g. 'party_metadata.local_metadata'.
   // Required
-  google.protobuf.FieldMask update_mask = 3;
+  google.protobuf.FieldMask update_mask = 2;
 }
 
-message UpdatePartyMetadataResponse {
-  // Updated party metadata resource
-  PartyMetadata party_metadata = 1;
+message UpdatePartyResponse {
+  // Updated party details
+  PartyDetails party_details = 1;
 }
 
 message PartyDetails {
@@ -199,7 +185,7 @@ message PartyDetails {
   // Required
   bool is_local = 3;
 
-  // Represents participant local metadata of this party.
+  // Participant local metadata of this party.
   // Optional
   ObjectMeta local_metadata = 4;
 }
