@@ -136,13 +136,17 @@ class LedgerApiBenchTool(
                 },
               )
             case Some(submissionConfig) =>
-              submissionStep(
+              val x = submissionStep(
                 regularUserServices = regularUserServices,
                 adminServices = adminServices,
                 submissionConfig = submissionConfig,
                 metricRegistry = metricRegistry,
                 partyAllocating = partyAllocating,
               )
+              logger.warn("Sleeping for 20 minutes..")
+              Thread.sleep(1000 * 60 * 20)
+              logger.warn("Slept for 20 minutes")
+              x
           }
         }
 
@@ -154,9 +158,6 @@ class LedgerApiBenchTool(
         _ = logger.info(
           s"Stream configs adapted after the submission step: ${prettyPrint(updatedStreamConfigs)}"
         )
-        _ = logger.warn("Sleeping for 20 minutes..")
-        _ = Thread.sleep(1000 * 60 * 20)
-        _ = logger.warn("Slept for 20 minutes")
 
         benchmarkResult <-
           if (config.latencyTest) {
