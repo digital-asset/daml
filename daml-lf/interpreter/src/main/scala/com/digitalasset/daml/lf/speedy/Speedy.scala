@@ -31,7 +31,7 @@ import scala.util.control.NoStackTrace
 
 private[lf] object Speedy {
 
-  // Would like these to have zero cost when not enabled. Better still, to be switchable at runtime.
+  // These have zero cost when not enabled. But they are not switchable at runtime.
   private[this] val enableInstrumentation: Boolean = false
   private[this] val enableLightweightStepTracing: Boolean = false
 
