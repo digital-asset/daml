@@ -4,7 +4,7 @@
 package com.daml.platform.index
 
 import akka.NotUsed
-import akka.stream.scaladsl.Flow
+import akka.stream.scaladsl.{Flow, Sink}
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.Update
@@ -37,16 +37,17 @@ final class InMemoryStateUpdater(
     updatePackageMetadata: Update.PublicPackageUpload => Unit,
 ) {
 
+  val packageMetadataFlow = Sink.foreach[(Vector[(Offset, Update)], Long)] { case (batch, _) =>
+    batch.collect { case (_, e: Update.PublicPackageUpload) =>
+      updatePackageMetadata(e)
+    }
+  }
+
   // TODO LLP: Considering directly returning this flow instead of the wrapper
-  def flow: UpdaterFlow =
+  val flow: UpdaterFlow =
     Flow[(Vector[(Offset, Update)], Long)]
       .filter(_._1.nonEmpty)
-      .wireTap { case (batch, _) =>
-        batch.collect { case (_, e: Update.PublicPackageUpload) =>
-          updatePackageMetadata(e)
-        }
-        ()
-      }
+      .alsoTo(packageMetadataFlow)
       .mapAsync(prepareUpdatesParallelism) { case (batch, lastEventSequentialId) =>
         Future {
           val transactionsAcceptedBatch =
@@ -73,7 +74,6 @@ private[platform] object InMemoryStateUpdater {
   def owner(
       inMemoryState: InMemoryState,
       prepareUpdatesParallelism: Int,
-      packageMetadataView: PackageMetadataView,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[InMemoryStateUpdater] = for {
     prepareUpdatesExecutor <- ResourceOwner.forExecutorService(() =>
@@ -98,7 +98,7 @@ private[platform] object InMemoryStateUpdater {
     updateCaches = updateCaches(inMemoryState),
     updateToTransactionAccepted = updateToTransactionAccepted,
     updateLedgerEnd = updateLedgerEnd(inMemoryState),
-    updatePackageMetadata = updatePackageMetadata(packageMetadataView),
+    updatePackageMetadata = updatePackageMetadata(inMemoryState.packageMetadataView),
   )
 
   private def updatePackageMetadata(

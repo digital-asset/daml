@@ -3,6 +3,7 @@
 
 package com.daml.platform.indexer
 
+import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.{v2 => state}
@@ -164,26 +165,25 @@ object JdbcIndexer {
     // we use this execution context both for expensive deserialization/computation and Future mapping operations
     implicit val ec: ExecutionContext = computationExecutionContext
 
-    def loadArchiveAndUpdateMetadata(packageId: PackageId): Future[Unit] =
-      for {
-        archiveBytes <- dbDispatcher.executeSql(metrics.daml.index.db.loadArchive) { connection =>
-          packageStorageBackend
-            .lfArchive(packageId)(connection)
-            .get // safe to do here, since we looked the ids up from persistence
-        }
-        archive <- Future {
-          ArchiveParser.assertFromByteArray(archiveBytes)
-        }
-        _ <- Future {
-          updatingPackageMetadataView.update(archive)
-        }
-      } yield ()
+    def loadLfArchive(packageId: PackageId): Future[Array[Byte]] = {
+      dbDispatcher.executeSql(metrics.daml.index.db.loadArchive) { connection =>
+        packageStorageBackend
+          .lfArchive(packageId)(connection)
+          .get // safe to do here, since we looked the ids up from persistence
+      }
+    }
+
+    def lfPackagesSource(): Future[Source[PackageId, NotUsed]] = {
+      dbDispatcher.executeSql(metrics.daml.index.db.loadPackages)(connection =>
+        Source(packageStorageBackend.lfPackages(connection).keySet)
+      )
+    }
 
     Source
-      .futureSource(dbDispatcher.executeSql(metrics.daml.index.db.loadPackages) { connection =>
-        Source(packageStorageBackend.lfPackages(connection).keySet)
-      })
-      .mapAsync(packageLoadingParallelism)(loadArchiveAndUpdateMetadata)
+      .futureSource(lfPackagesSource())
+      .mapAsyncUnordered(packageLoadingParallelism)(loadLfArchive)
+      .map(ArchiveParser.assertFromByteArray)
+      .map(updatingPackageMetadataView.update)
       .run()
       .map(_ => ())
   }
