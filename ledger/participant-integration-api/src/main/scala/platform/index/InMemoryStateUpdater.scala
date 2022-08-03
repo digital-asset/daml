@@ -108,7 +108,7 @@ private[platform] object InMemoryStateUpdater {
   ): Unit =
     updates.foreach { transaction: TransactionLogUpdate =>
       // TODO LLP: Batch update caches
-      inMemoryState.transactionsBuffer.push(transaction.offset, transaction)
+      inMemoryState.inMemoryFanoutBuffer.push(transaction.offset, transaction)
 
       val contractStateEventsBatch = convertToContractStateEvents(transaction)
       if (contractStateEventsBatch.nonEmpty) {
