@@ -1153,7 +1153,7 @@ private[lf] object SBuiltin {
         case None =>
           // println(s"----SBFetchAny,2") //NICK
 
-          def continue(coinst: V.ContractInstance): Unit = {
+          def continue(coinst: V.ContractInstance): Unit = { // NICK: Control. caller calls setControl
             // println(s"----SBFetchAny,continue()") //NICK
             machine.pushKont(KCacheContract(machine, coid))
             val e = continueExpression(coinst)
@@ -1170,7 +1170,8 @@ private[lf] object SBuiltin {
               machine.pushKont(KCacheContract(machine, coid))
               val e = continueExpression(coinst)
               machine.ctrl = e
-              Control.Blop("inside:SBFetchAny")
+              // Control.Blop("inside:SBFetchAny")
+              Control.Expression(e)
 
             case None =>
               // println(s"----SBFetchAny,4") //NICK
@@ -1551,8 +1552,9 @@ private[lf] object SBuiltin {
         case ContractStateMachine.KeyActive(cid) =>
           handleKeyFound(machine, cid)
         case ContractStateMachine.KeyInactive =>
-          discard(handleKeyNotFound(machine, gkey))
-          Control.Blop("handleKnownInputKey/KeyInactive")
+          val (control, _) = handleKeyNotFound(machine, gkey) // NICK
+          control
+        // Control.Blop("handleKnownInputKey/KeyInactive")
       }
   }
 
@@ -1616,8 +1618,8 @@ private[lf] object SBuiltin {
 
             case ContractStateMachine.KeyInactive =>
               // println("---SBUKeyBuiltin, Right, KeyInActive")//NICK
-              val _ = operation.handleKnownInputKey(machine, gkey, keyMapping) // NICK
-              Control.Blop("inside:SBUKeyBuiltin/A")
+              operation.handleKnownInputKey(machine, gkey, keyMapping) // NICK
+            // Control.Blop("inside:SBUKeyBuiltin/A") //NICK
           }
 
         case Left(handle) =>
@@ -1637,41 +1639,44 @@ private[lf] object SBuiltin {
                 if (onLedger.cachedContracts.contains(coid)) {
                   // println("---SBUKeyBuiltin, Left, continue(), KeyActive, if-true(in cache)")//NICK -- TODO, set newControl here
                   machine.returnValue = SUnit
-                  machine.setControl("SBUKeyBuiltin/continue/Active/in-cache", Control.Value(SUnit))
+                  // machine.setControl("SBUKeyBuiltin/continue/Active/in-cache", Control.Value(SUnit))
+                  (Control.Value(SUnit), true)
                 } else {
                   // SBFetchAny will populate onLedger.cachedContracts with the contract pointed by coid
                   val e = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
                   machine.ctrl = e
-                  machine.setControl(
-                    "SBUKeyBuiltin/continue/Active/out-cache",
-                    Control.Expression(e),
-                  ) // NICK, yuck !!!
+                  // machine.setControl("SBUKeyBuiltin/continue/Active/out-cache", Control.Expression(e),) // NICK, yuck !!!
+                  (Control.Expression(e), true)
                 }
-                true
 
               case ContractStateMachine.KeyInactive =>
                 // println("---SBUKeyBuiltin, Left, continue(), KeyInActive")//NICK
                 val (control, bool) = operation.handleKeyNotFound(machine, gkey)
                 // println("---SBUKeyBuiltin, Left, continue(), KeyInActive/2")//NICK
-                machine.setControl("SBUKeyBuiltin/continue/InActive", control) // NICK, yuck
+                // machine.setControl("SBUKeyBuiltin/continue/InActive", control) // NICK, yuck //not here
                 // NICK: TODO unify the above 3x setControl, as... "answer:NeedKey"
-                bool
+                (control, bool)
             }
-          }: Option[V.ContractId] => Boolean
+          }: Option[V.ContractId] => (Control, Boolean)
 
           // TODO (drsk) validate key hash. https://github.com/digital-asset/daml/issues/13897
           machine.disclosureTable.contractIdByKey.get(gkey.hash) match {
             case Some(coid) =>
               val vcoid = coid.value
-              discard(continue(Some(vcoid)))
-              Control.Blop("inside:SBUKeyBuiltin/B")
+              val (control, _) = continue(Some(vcoid))
+              // Control.Blop("inside:SBUKeyBuiltin/B")
+              control
 
             case None => {
               throw SpeedyHungry(
                 SResultNeedKey(
                   GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
                   onLedger.committers,
-                  continue,
+                  callback = { res =>
+                    val (control, bool) = continue(res) // NICK
+                    machine.setControl("answer:NeedKey", control)
+                    bool
+                  },
                 )
               )
             }

@@ -585,7 +585,10 @@ private[lf] object Speedy {
               setControl("Control.Value/step", popKont().execute(v))
               loop()
 
-            case Control.Blop(tag) =>
+            /*case Control.Blop(tag) =>
+              println(s"**[$xxe,$xxv,$xxb] : (Control) $newControl") //NICK
+              def xxx : Unit = ???
+              xxx
               val _ = tag
               xxb += 1
               if (returnValue != null) {
@@ -600,7 +603,7 @@ private[lf] object Speedy {
                 setControl("blop(E)/step", expr.execute(this))
                 ()
               }
-              loop()
+              loop()*/
           }
         }
         loop()
@@ -661,7 +664,7 @@ private[lf] object Speedy {
                     callback = { packages =>
                       // println("----Machine.lookupVal(continue, fixed!)") //NICK
                       this.compiledPackages = packages
-                      // To avoid infinite loop in case the packages are not updated properly by the caller //NICK: wat????
+                      // To avoid infinite loop in case the packages are not updated properly by the caller
                       assert(compiledPackages.packageIds.contains(ref.packageId))
                       ctrl = eval // NICK, why eval again??
                       setControl("answer:NeedPackage", Control.Expression(eval)) // NICK
@@ -982,8 +985,8 @@ private[lf] object Speedy {
                   .ContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
               )
             case _ =>
-              val _ = handleKeyFound(this, coid) // NICK:Control
-              Control.Blop("inside:checkKeyVisibility")
+              handleKeyFound(this, coid) // NICK:Control
+            // Control.Blop("inside:checkKeyVisibility")//NICK
           }
         case None =>
           throw SErrorCrash(
@@ -1208,7 +1211,7 @@ private[lf] object Speedy {
   // private[speedy] //NICK
   sealed abstract class Control // NICK: more greppable name?
   object Control {
-    final case class Blop(tag: String) extends Control // NICK: DIE! uses cntl/returnValue
+    // final case class Blop(tag: String) extends Control // NICK: DIE! uses cntl/returnValue
     final case class Expression(e: SExpr) extends Control
     final case class Value(v: SValue) extends Control
     final case class WeAreUnset() extends Control
@@ -1609,10 +1612,9 @@ private[lf] object Speedy {
   ) extends Kont {
     def execute(sv: SValue): Control = {
       machine.withOnLedger("KCheckKeyVisibitiy") { onLedger =>
-        val _ = machine.checkKeyVisibility(onLedger, gKey, cid, handleKeyFound) // NICK
-        ()
+        machine.checkKeyVisibility(onLedger, gKey, cid, handleKeyFound) // NICK
       }
-      Control.Blop("inside:KCheckKeyVisibitiy")
+      // Control.Blop("inside:KCheckKeyVisibitiy") //NICK
     }
   }
 
