@@ -64,6 +64,9 @@ object ContractTypeId {
     }
   }
 
+  // TODO SC placeholder for the lub of Template/Interface
+  type Definite[+PkgId] = Unknown[PkgId]
+
   /** A contract type ID known to be a template, not an interface.  When resolved,
     * it indicates that the LF environment associates this ID with a template.
     * When unresolved, it indicates that the intent is to search only template

@@ -311,7 +311,7 @@ object WebSocketService {
             res <-
               gacr.templateIds.toList
                 .traverse(x =>
-                  resolveTemplateId(lc)(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
+                  resolveTemplateId(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
                 )
                 .map(
                   _.toSet[
@@ -524,7 +524,7 @@ object WebSocketService {
         )
       request.toList
         .traverse { x: CKR[LfV] =>
-          resolveTemplateId(lc)(jwt, ledgerId)(x.ekey.templateId)
+          resolveTemplateId(jwt, ledgerId)(x.ekey.templateId)
             .map(_.toOption.flatten.map((_, x.ekey.key)).toLeft(x.ekey.templateId))
         }
         .map(

@@ -120,7 +120,7 @@ class PackageServiceTest
     "should return None for unknown Template ID" in forAll(
       Generators.genDomainTemplateIdO[Option[String]]
     ) { templateId: domain.TemplateId.OptionalPkg =>
-      val map = TemplateIdMap.Empty
+      val map = TemplateIdMap.Empty[domain.TemplateId]
       PackageService.resolveTemplateId(map)(templateId) shouldBe None
     }
   }
