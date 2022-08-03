@@ -1139,10 +1139,11 @@ private[lf] object SBuiltin {
           //println(s"----SBFetchAny,2") //NICK
 
           def continue(coinst: V.ContractInstance) : Unit = {
+            //println(s"----SBFetchAny,continue()") //NICK
             machine.pushKont(KCacheContract(machine, coid))
             val e = continueExpression(coinst)
             machine.ctrl = e
-            machine.newControl = Control.Expression(e) //NICK, yuck !!!
+            machine.setControl("SBFetchAny/continue",Control.Expression(e)) //NICK, yuck !!!
           }
 
 
@@ -1508,37 +1509,45 @@ private[lf] object SBuiltin {
     val templateId: TypeConName
 
     // Callback from the engine returned NotFound
-    def handleKeyFound(machine: Machine, cid: V.ContractId): Unit //NICK: Control
+    def handleKeyFound(machine: Machine, cid: V.ContractId): Control
     // We already saw this key, but it was undefined or was archived
-    def handleKeyNotFound(machine: Machine, gkey: GlobalKey): Boolean
+    def handleKeyNotFound(machine: Machine, gkey: GlobalKey): (Control,Boolean)
 
     final def handleKnownInputKey(
         machine: Machine,
         gkey: GlobalKey,
         keyMapping: ContractStateMachine.KeyMapping,
-    ): Unit =
+    ): Control =
       keyMapping match {
-        case ContractStateMachine.KeyActive(cid) => handleKeyFound(machine, cid)
-        case ContractStateMachine.KeyInactive => discard(handleKeyNotFound(machine, gkey))
+        case ContractStateMachine.KeyActive(cid) =>
+          handleKeyFound(machine, cid)
+        case ContractStateMachine.KeyInactive =>
+          discard(handleKeyNotFound(machine, gkey))
+          Control.Blop("handleKnownInputKey/KeyInactive")
       }
   }
 
   private[this] object KeyOperation {
     final class Fetch(override val templateId: TypeConName) extends KeyOperation {
-      override def handleKeyFound(machine: Machine, cid: V.ContractId): Unit =
+      override def handleKeyFound(machine: Machine, cid: V.ContractId): Control = {
         machine.returnValue = SContractId(cid)
-      override def handleKeyNotFound(machine: Machine, gkey: GlobalKey): Boolean = {
-        machine.ctrl = SEDamlException(IE.ContractKeyNotFound(gkey))
-        false
+        Control.Value(SContractId(cid))
+      }
+      override def handleKeyNotFound(machine: Machine, gkey: GlobalKey): (Control,Boolean) = {
+        val e = SEDamlException(IE.ContractKeyNotFound(gkey))
+        machine.ctrl = e
+        (Control.Expression(e), false)
       }
     }
 
     final class Lookup(override val templateId: TypeConName) extends KeyOperation {
-      override def handleKeyFound(machine: Machine, cid: V.ContractId): Unit =
+      override def handleKeyFound(machine: Machine, cid: V.ContractId): Control = {
         machine.returnValue = SOptional(Some(SContractId(cid)))
-      override def handleKeyNotFound(machine: Machine, key: GlobalKey): Boolean = {
+        Control.Value(SOptional(Some(SContractId(cid))))
+      }
+      override def handleKeyNotFound(machine: Machine, key: GlobalKey): (Control,Boolean) = {
         machine.returnValue = SValue.SValue.None
-        true
+        (Control.Value(SValue.SValue.None), true)
       }
     }
   }
@@ -1569,41 +1578,52 @@ private[lf] object SBuiltin {
 
       onLedger.ptx.contractState.resolveKey(gkey) match {
         case Right((keyMapping, next)) =>
+          //println("---SBUKeyBuiltin, Right")//NICK
           onLedger.ptx = onLedger.ptx.copy(contractState = next)
           keyMapping match {
             case ContractStateMachine.KeyActive(coid) =>
+              //println("---SBUKeyBuiltin, Right, KeyActive")//NICK
               machine.checkKeyVisibility(onLedger, gkey, coid, operation.handleKeyFound)
 
             case ContractStateMachine.KeyInactive =>
-              operation.handleKnownInputKey(machine, gkey, keyMapping)
-              //println("***222")//NICK
+              //println("---SBUKeyBuiltin, Right, KeyInActive")//NICK
+              val _ = operation.handleKnownInputKey(machine, gkey, keyMapping) //NICK
               Control.Blop("inside:SBUKeyBuiltin/A")
           }
 
         case Left(handle) =>
+          //println("---SBUKeyBuiltin, Left")//NICK
           def continue = { result => //NICK: Control
+            //println("---SBUKeyBuiltin, Left, continue()")//NICK
             val (keyMapping, next) = handle(result)
             onLedger.ptx = onLedger.ptx.copy(contractState = next)
             keyMapping match {
               case ContractStateMachine.KeyActive(coid) =>
+                //println("---SBUKeyBuiltin, Left, continue(), KeyActive")//NICK
                 // We do not call directly machine.checkKeyVisibility as it may throw an SError,
                 // and such error cannot be throw inside a SpeedyHungry continuation.
                 machine.pushKont(
                   KCheckKeyVisibility(machine, gkey, coid, operation.handleKeyFound)
                 )
                 if (onLedger.cachedContracts.contains(coid)) {
+                  //println("---SBUKeyBuiltin, Left, continue(), KeyActive, if-true(in cache)")//NICK -- TODO, set newControl here
                   machine.returnValue = SUnit
+                  machine.setControl("SBUKeyBuiltin/continue/Active/in-cache", Control.Value(SUnit))
                 } else {
                   // SBFetchAny will populate onLedger.cachedContracts with the contract pointed by coid
                   val e = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
                   machine.ctrl = e
-                  machine.newControl = Control.Expression(e) //NICK, yuck !!!
-
+                  machine.setControl("SBUKeyBuiltin/continue/Active/out-cache",Control.Expression(e)) //NICK, yuck !!!
                 }
                 true
 
               case ContractStateMachine.KeyInactive =>
-                operation.handleKeyNotFound(machine, gkey)
+                //println("---SBUKeyBuiltin, Left, continue(), KeyInActive")//NICK
+                val (control,bool) = operation.handleKeyNotFound(machine, gkey)
+                //println("---SBUKeyBuiltin, Left, continue(), KeyInActive/2")//NICK
+                machine.setControl("SBUKeyBuiltin/continue/InActive",control) //NICK, yuck
+                //NICK: TODO unify the above 3x setControl, as... "answer:NeedKey"
+                bool
             }
           }: Option[V.ContractId] => Boolean
 
@@ -1652,7 +1672,12 @@ private[lf] object SBuiltin {
           onLedger.dependsOnTime = true
         case OffLedger =>
       }
-      throw SpeedyHungry(SResultNeedTime(timestamp => machine.returnValue = STimestamp(timestamp)))
+      throw SpeedyHungry(
+        SResultNeedTime { timestamp =>
+          machine.returnValue = STimestamp(timestamp)
+          machine.setControl("answer:NeedTime",Control.Value(STimestamp(timestamp)))
+        }
+      )
     }
   }
 
@@ -1665,7 +1690,10 @@ private[lf] object SBuiltin {
           commands = args.get(1),
           location = optLocation,
           mustFail = mustFail,
-          callback = newValue => machine.returnValue = newValue,
+          callback = { newValue =>
+            machine.returnValue = newValue
+            machine.setControl("answer:ScenarioSubmit",Control.Value(newValue))
+          }
         )
       )
     }
@@ -1692,7 +1720,10 @@ private[lf] object SBuiltin {
       throw SpeedyHungry(
         SResultScenarioPassTime(
           relTime,
-          timestamp => machine.returnValue = STimestamp(timestamp),
+          callback = { timestamp =>
+            machine.returnValue = STimestamp(timestamp)
+            machine.setControl("answer:PassTime",Control.Value(STimestamp(timestamp)))
+          }
         )
       )
     }
@@ -1707,7 +1738,13 @@ private[lf] object SBuiltin {
       checkToken(args, 1)
       val name = getSText(args, 0)
       throw SpeedyHungry(
-        SResultScenarioGetParty(name, party => machine.returnValue = SParty(party))
+        SResultScenarioGetParty(
+          name,
+          callback = { party =>
+            machine.returnValue = SParty(party)
+            machine.setControl("answer:getParty",Control.Value(SParty(party)))
+          }
+        )
       )
     }
   }

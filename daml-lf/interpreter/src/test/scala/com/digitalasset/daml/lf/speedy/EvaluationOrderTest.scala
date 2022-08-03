@@ -1329,7 +1329,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
 
         // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key of a wrongly typed cached global contract
-        "wrongly typed contract" in {
+        "wrongly typed contract NICK" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(exercisingParty : Party) (cId: ContractId M:T) (sig: Party) ->

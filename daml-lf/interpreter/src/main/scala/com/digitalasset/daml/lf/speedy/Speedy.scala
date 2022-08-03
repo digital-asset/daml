@@ -524,7 +524,7 @@ private[lf] object Speedy {
       */
     def setExpressionToEvaluate(expr: SExpr): Unit = {
       //println(s"**Speedy.setExpressionToEvaluate() [$me]")//NICK
-      newControl = Control.Expression(expr)
+      setControl("setExpressionToEvaluate",Control.Expression(expr))
       ctrl = expr
       kontStack = initialKontStack()
       env = emptyEnv
@@ -532,6 +532,13 @@ private[lf] object Speedy {
       steps = 0
       track = Instrumentation()
     }
+
+    def setControl(tag: String, control: Control): Unit = {
+      val _ = tag
+      //println(s"**setControl($tag)") //NICK: very useful debug
+      newControl = control //NICK: the once place which may change newControl!!
+    }
+
 
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
 
@@ -549,97 +556,51 @@ private[lf] object Speedy {
             println(s"$steps: ${PrettyLightweight.ppMachine(this)}")
           }
 
-          //def xx : String = s"[$xxe,$xxv,$xxb]"
-          //println(s"**${xx} : Control.$newControl") //NICK: main debug!
+          //println(s"**[$xxe,$xxv,$xxb] : (Control) $newControl") //NICK: main debug!
 
-          newControl match {
+          newControl match { //NICK: the one place which tests newControl
             case Control.WeAreComplete() =>
               sys.error("**attempt to run a complete machine")
-            case Control.Unset() =>
+            case Control.WeAreHungry(res) =>
+              sys.error(s"**attempt to run a hungry machine (feed me first): $res")
+            case Control.WeAreUnset() =>
               sys.error("**attempt to run a machine with unset control")
 
             case Control.Expression(e) =>
               xxe += 1
-              //println(s"**${xx}Control.Expression: $e")
-
               val expr = ctrl
               if (expr != e) {
                 ???
               }
-
-              newControl = Control.Unset()
-              //newControl = Control.Blop("inside:run()") // NICK - need to prevent loop/bug
-              newControl = e.execute(this)
+              setControl("unset",Control.WeAreUnset())
+              val control = e.execute(this)
+              setControl("step",control)
               loop()
 
-              /*if (returnValue != null) {
-                /*val value = returnValue
-                returnValue = null
-                popTempStackToBase()
-                newControl = popKont().execute(value)
-                 ()*/
-                ???
-              } else {
-                val expr = ctrl
-                ctrl = null
-                newControl = expr.execute(this)
-                ()
-              }
-              loop()*/
-
-
             case Control.Value(v) =>
-              val _ = v
               xxv += 1
-              //val _ = value//NICK
-              //println(s"**${xx}Control.Value: $v")
-
               val value = returnValue
               if (value != v) {
-                //println(s"**${xx} DIFF** v    = $v")
-                //println(s"**${xx} DIFF** value= $value")
                 ??? //NICK
               }
-
-              /*returnValue = null //NICK: needed??? -- flipping heck yes. indicates bug?
+              returnValue = null
               popTempStackToBase()
-              newControl = popKont().execute(v)
-              loop()*/
-
-              if (returnValue != null) {
-                val value = returnValue
-                returnValue = null
-                popTempStackToBase()
-                //newControl = Control.Unset() //NICK; BUG kont.execute re-enters run()
-                val k = popKont() //NICK
-                //println(s"-- k.execute: $k")
-                newControl = k.execute(value)
-                ()
-              } else {
-                /*val expr = ctrl
-                ctrl = null
-                newControl = Control.Unset() //NICK: is good!
-                newControl = expr.execute(this)
-                 ()*/
-                ???
-              }
+              setControl("Control.Value/step", popKont().execute(v))
               loop()
 
             case Control.Blop(tag) =>
               val _ = tag
               xxb += 1
               if (returnValue != null) {
-                //println(s"**${xx}Control.Blop(V)$tag")
                 val value = returnValue
                 returnValue = null
                 popTempStackToBase()
-                newControl = popKont().execute(value)
+                setControl("blop(V)/step",popKont().execute(value))
                 ()
               } else {
-                //println(s"**${xx}Control.Blop(E)$tag")
                 val expr = ctrl
                 ctrl = null
-                newControl = expr.execute(this)
+                setControl("blop(E)/step",expr.execute(this))
                 ()
               }
               loop()
@@ -648,10 +609,12 @@ private[lf] object Speedy {
         loop()
       } catch {
         case SpeedyHungry(res: SResult) =>
+          //println(s"**SpeedyHungry: $res")//NICK
+          setControl("hungry",Control.WeAreHungry(res))//NICK
           res
         case SpeedyComplete(value: SValue) =>
           //println(s"**SpeedyComplete [$me]")//NICK
-          newControl = Control.WeAreComplete()//NICK
+          setControl("complete",Control.WeAreComplete())//NICK
           if (enableInstrumentation) track.print()
           ledgerMode match {
             case OffLedger => SResultFinal(value, None)
@@ -698,12 +661,14 @@ private[lf] object Speedy {
                   SResultNeedPackage(
                     ref.packageId,
                     language.Reference.Package(ref.packageId),
-                    { packages =>
+                    callback = { packages =>
+                      //println("----Machine.lookupVal(continue, fixed!)") //NICK
                       this.compiledPackages = packages
-                      // To avoid infinite loop in case the packages are not updated properly by the caller
+                      // To avoid infinite loop in case the packages are not updated properly by the caller //NICK: wat????
                       assert(compiledPackages.packageIds.contains(ref.packageId))
-                      ctrl = eval
-                    },
+                      ctrl = eval //NICK, why eval again??
+                      setControl("answer:NeedPackage",Control.Expression(eval)) //NICK
+                    }
                   )
                 )
           }
@@ -1008,7 +973,7 @@ private[lf] object Speedy {
         onLedger: OnLedger,
         gkey: GlobalKey,
         coid: V.ContractId,
-        handleKeyFound: (Machine, V.ContractId) => Unit,
+        handleKeyFound: (Machine, V.ContractId) => Control, //NICK: just changed
     ): Control =
       onLedger.cachedContracts.get(coid) match {
         case Some(cachedContract) =>
@@ -1020,7 +985,7 @@ private[lf] object Speedy {
                   .ContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
               )
             case _ =>
-              handleKeyFound(this, coid) //NICK:Control
+              val _ = handleKeyFound(this, coid) //NICK:Control
               Control.Blop("inside:checkKeyVisibility")
           }
         case None =>
@@ -1249,7 +1214,8 @@ private[lf] object Speedy {
     final case class Blop(tag: String) extends Control //NICK: DIE! uses cntl/returnValue
     final case class Expression(e: SExpr) extends Control
     final case class Value(v: SValue) extends Control
-    final case class Unset() extends Control
+    final case class WeAreUnset() extends Control
+    final case class WeAreHungry(res: SResult) extends Control
     final case class WeAreComplete() extends Control
   }
 
@@ -1638,7 +1604,7 @@ private[lf] object Speedy {
       machine: Machine,
       gKey: GlobalKey,
       cid: V.ContractId,
-      handleKeyFound: (Machine, V.ContractId) => Unit,
+      handleKeyFound: (Machine, V.ContractId) => Control, //NICK: changed!
   ) extends Kont {
     def execute(sv: SValue): Control = {
       machine.withOnLedger("KCheckKeyVisibitiy") { onLedger =>

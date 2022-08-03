@@ -79,6 +79,7 @@ object SExpr {
       _cached = Some((sValue, stack_trace))
 
     def execute(machine: Machine): Control = {
+      //println("----SEVal,execute") //NICK
       machine.lookupVal(this)
     }
   }
