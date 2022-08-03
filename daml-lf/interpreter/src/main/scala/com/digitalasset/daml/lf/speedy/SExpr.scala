@@ -48,9 +48,7 @@ object SExpr {
     def lookupValue(machine: Machine): SValue
 
     final def execute(machine: Machine): Control = {
-      val v: SValue = lookupValue(machine)
-      machine.xreturnValue = v
-      Control.Value(v)
+      Control.Value(lookupValue(machine))
     }
   }
 
@@ -113,7 +111,6 @@ object SExpr {
   final case class SEAppGeneral(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Control = {
       machine.pushKont(KArg(machine, args))
-      machine.xctrl = fun
       Control.Expression(fun)
     }
   }
@@ -192,9 +189,7 @@ object SExpr {
         sValues(i) = fvs(i).lookupValue(machine)
         i += 1
       }
-      val pap =
-        SPAP(PClosure(Profile.LabelUnset, body, sValues), ArrayList.empty, arity)
-      machine.xreturnValue = pap
+      val pap = SPAP(PClosure(Profile.LabelUnset, body, sValues), ArrayList.empty, arity)
       Control.Value(pap)
     }
   }
@@ -241,7 +236,6 @@ object SExpr {
   final case class SELet1General(rhs: SExpr, body: SExpr) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Control = {
       machine.pushKont(KPushTo(machine, machine.env, body))
-      machine.xctrl = rhs
       Control.Expression(rhs)
     }
   }
@@ -262,7 +256,6 @@ object SExpr {
       }
       val v = builtin.executePure(actuals)
       machine.pushEnv(v) // use pushEnv not env.add so instrumentation is updated
-      machine.xctrl = body
       Control.Expression(body)
     }
   }
@@ -287,7 +280,6 @@ object SExpr {
       builtin.compute(actuals) match {
         case Some(value) =>
           machine.pushEnv(value) // use pushEnv not env.add so instrumentation is updated
-          machine.xctrl = body
           Control.Expression(body)
         case None =>
           unwindToHandler(machine, builtin.buildException(actuals))
@@ -314,7 +306,6 @@ object SExpr {
   final case class SELocation(loc: Location, expr: SExpr) extends SExpr {
     def execute(machine: Machine): Control = {
       machine.pushLocation(loc)
-      machine.xctrl = expr
       Control.Expression(expr)
     }
   }
@@ -331,7 +322,6 @@ object SExpr {
   final case class SELabelClosure(label: Profile.Label, expr: SExpr) extends SExpr {
     def execute(machine: Machine): Control = {
       machine.pushKont(KLabelClosure(machine, label))
-      machine.xctrl = expr
       Control.Expression(expr)
     }
   }
@@ -363,7 +353,6 @@ object SExpr {
   final case class SETryCatch(body: SExpr, handler: SExpr) extends SExpr {
     def execute(machine: Machine): Control = {
       machine.pushKont(KTryCatchHandler(machine, handler))
-      machine.xctrl = body
       machine.withOnLedger("SETryCatch") { onLedger =>
         onLedger.ptx = onLedger.ptx.beginTry
       }
@@ -375,7 +364,6 @@ object SExpr {
   final case class SEScopeExercise(body: SExpr) extends SExpr {
     def execute(machine: Machine): Control = {
       machine.pushKont(KCloseExercise(machine))
-      machine.xctrl = body
       Control.Expression(body)
     }
   }
@@ -383,7 +371,6 @@ object SExpr {
   final case class SEPreventCatch(body: SExpr) extends SExpr {
     def execute(machine: Machine): Control = {
       machine.pushKont(KPreventException(machine))
-      machine.xctrl = body
       Control.Expression(body)
     }
   }

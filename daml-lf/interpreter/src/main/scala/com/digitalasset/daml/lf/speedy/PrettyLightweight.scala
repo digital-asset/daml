@@ -14,7 +14,7 @@ import com.daml.lf.speedy.SValue._
 private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK machine states
 
   def ppMachine(m: Machine): String = {
-    s"[${m.envBase}] ${ppEnv(m.env)} -- ${ppCtrl(m.newControl)} -- ${ppKontStack(m.kontStack)}"
+    s"[${m.envBase}] ${ppEnv(m.env)} -- ${ppCtrl(m.control)} -- ${ppKontStack(m.kontStack)}"
   }
 
   def ppCtrl(control: Control): String =

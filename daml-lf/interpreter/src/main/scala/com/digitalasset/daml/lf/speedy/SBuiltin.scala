@@ -210,9 +210,7 @@ private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltin(
       args: util.ArrayList[SValue],
       machine: Machine,
   ): Control = {
-    val v = executePure(args)
-    machine.xreturnValue = v
-    Control.Value(v)
+    Control.Value(executePure(args))
   }
 
   /** Execute the (pure) builtin with 'arity' number of arguments in 'args'.
@@ -310,7 +308,6 @@ private[lf] object SBuiltin {
     ): Control =
       compute(args) match {
         case Some(value) =>
-          machine.xreturnValue = value
           Control.Value(value)
         case None =>
           unwindToHandler(machine, buildException(args))
@@ -459,13 +456,9 @@ private[lf] object SBuiltin {
       val coid = getSContractId(args, 0).coid
       machine.ledgerMode match {
         case OffLedger =>
-          val v = SOptional(Some(SText(coid)))
-          machine.xreturnValue = v
-          Control.Value(v)
+          Control.Value(SOptional(Some(SText(coid))))
         case _ =>
-          val v = SValue.SValue.None
-          machine.xreturnValue = v
-          Control.Value(v)
+          Control.Value(SValue.SValue.None)
       }
     }
   }
@@ -570,7 +563,6 @@ private[lf] object SBuiltin {
       val init = args.get(1)
       val list = getSList(args, 2)
       machine.pushKont(KFoldl(machine, func, list))
-      machine.xreturnValue = init
       Control.Value(init)
     }
   }
@@ -614,13 +606,11 @@ private[lf] object SBuiltin {
       if (func.arity - func.actuals.size >= 2) {
         val array = list.toImmArray
         machine.pushKont(KFoldr(machine, func, array, array.length))
-        machine.xreturnValue = init
         Control.Value(init)
       } else {
         val stack = list
         stack.pop match {
           case None =>
-            machine.xreturnValue = init
             Control.Value(init)
           case Some((head, tail)) =>
             machine.pushKont(KFoldr1Map(machine, func, tail, FrontStack.empty, init))
@@ -975,9 +965,7 @@ private[lf] object SBuiltin {
         case Right((coid, newPtx)) =>
           onLedger.updateCachedContracts(coid, cached)
           onLedger.ptx = newPtx
-          val v = SContractId(coid)
-          machine.xreturnValue = v
-          Control.Value(v)
+          Control.Value(SContractId(coid))
         case Left((newPtx, err)) =>
           onLedger.ptx = newPtx // Seems wrong. But one test in ScriptService requires this.
           throw convTxError(err)
@@ -1043,7 +1031,6 @@ private[lf] object SBuiltin {
         ) match {
         case Right(ptx) =>
           onLedger.ptx = ptx
-          machine.xreturnValue = SUnit
           Control.Value(SUnit)
         case Left(err) =>
           throw convTxError(err)
@@ -1094,9 +1081,7 @@ private[lf] object SBuiltin {
       val (actualTmplId, _) = getSAnyContract(args, 1)
       if (!implementsOrCoImplements(machine, actualTmplId, ifaceId))
         throw SErrorDamlException(IE.ContractDoesNotImplementInterface(ifaceId, coid, actualTmplId))
-      val v = args.get(1)
-      machine.xreturnValue = v
-      Control.Value(v)
+      Control.Value(args.get(1))
     }
   }
 
@@ -1124,7 +1109,6 @@ private[lf] object SBuiltin {
 
             case None => ()
           }
-          machine.xreturnValue = cached.any
           Control.Value(cached.any)
 
         case None =>
@@ -1142,7 +1126,6 @@ private[lf] object SBuiltin {
                   ),
                 )
             }
-            machine.xctrl = e
             Control.Expression(e)
           }
 
@@ -1183,7 +1166,6 @@ private[lf] object SBuiltin {
       val coid = getSContractId(args, 2)
 
       val e = SEApp(SEValue(guard), Array(SEValue(SAnyContract(templateId, record))))
-      machine.xctrl = e
       machine.pushKont(KCheckChoiceGuard(machine, coid, templateId, choiceName, byInterface))
       Control.Expression(e)
     }
@@ -1231,9 +1213,7 @@ private[lf] object SBuiltin {
             actualTmplId,
           )
         )
-      val v = SBool(true)
-      machine.xreturnValue = v
-      Control.Value(v)
+      Control.Value(SBool(true))
     }
   }
 
@@ -1256,7 +1236,6 @@ private[lf] object SBuiltin {
           byKey = false,
         )
       )
-      machine.xctrl = e
       Control.Expression(e)
     }
   }
@@ -1269,7 +1248,6 @@ private[lf] object SBuiltin {
       val e = SEBuiltin(
         SBUInsertFetchNode(getSAnyContract(args, 0)._1, byKey = false)
       )
-      machine.xctrl = e
       Control.Expression(e)
     }
   }
@@ -1282,7 +1260,6 @@ private[lf] object SBuiltin {
     ): Control = {
       val (ty, record) = getSAnyContract(args, 0)
       val e = SEApp(SEVal(toDef(ty)), Array(SEValue(record)))
-      machine.xctrl = e
       Control.Expression(e)
     }
   }
@@ -1354,7 +1331,6 @@ private[lf] object SBuiltin {
           SOptional(Some(SAnyContract(actualTemplateId, record)))
         else
           SOptional(None)
-      machine.xreturnValue = v
       Control.Value(v)
     }
   }
@@ -1382,7 +1358,6 @@ private[lf] object SBuiltin {
             actualTmplId,
           )
         )
-      machine.xreturnValue = SAnyContract(actualTmplId, record)
       Control.Value(SAnyContract(actualTmplId, record))
     }
   }
@@ -1407,7 +1382,6 @@ private[lf] object SBuiltin {
           )
       }
       val e = SEApp(SEVal(ref), Array(SEValue(record)))
-      machine.xctrl = e
       Control.Expression(e)
     }
   }
@@ -1462,7 +1436,6 @@ private[lf] object SBuiltin {
       ) match {
         case Right(ptx) =>
           onLedger.ptx = ptx
-          machine.xreturnValue = SUnit
           Control.Value(SUnit)
         case Left(err) =>
           throw convTxError(err)
@@ -1508,7 +1481,6 @@ private[lf] object SBuiltin {
       ) match {
         case Right(ptx) =>
           onLedger.ptx = ptx
-          machine.xreturnValue = SUnit
           Control.Value(SUnit)
         case Left(err) =>
           throw convTxError(err)
@@ -1541,23 +1513,19 @@ private[lf] object SBuiltin {
   private[this] object KeyOperation {
     final class Fetch(override val templateId: TypeConName) extends KeyOperation {
       override def handleKeyFound(machine: Machine, cid: V.ContractId): Control = {
-        machine.xreturnValue = SContractId(cid)
         Control.Value(SContractId(cid))
       }
       override def handleKeyNotFound(machine: Machine, gkey: GlobalKey): (Control, Boolean) = {
         val e = SEDamlException(IE.ContractKeyNotFound(gkey))
-        machine.xctrl = e
         (Control.Expression(e), false)
       }
     }
 
     final class Lookup(override val templateId: TypeConName) extends KeyOperation {
       override def handleKeyFound(machine: Machine, cid: V.ContractId): Control = {
-        machine.xreturnValue = SOptional(Some(SContractId(cid)))
         Control.Value(SOptional(Some(SContractId(cid))))
       }
       override def handleKeyNotFound(machine: Machine, key: GlobalKey): (Control, Boolean) = {
-        machine.xreturnValue = SValue.SValue.None
         (Control.Value(SValue.SValue.None), true)
       }
     }
@@ -1610,12 +1578,10 @@ private[lf] object SBuiltin {
                   KCheckKeyVisibility(machine, gkey, coid, operation.handleKeyFound)
                 )
                 if (onLedger.cachedContracts.contains(coid)) {
-                  machine.xreturnValue = SUnit
                   (Control.Value(SUnit), true)
                 } else {
                   // SBFetchAny will populate onLedger.cachedContracts with the contract pointed by coid
                   val e = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
-                  machine.xctrl = e
                   (Control.Expression(e), true)
                 }
 
@@ -1678,7 +1644,6 @@ private[lf] object SBuiltin {
       }
       throw SpeedyHungry(
         SResultNeedTime { timestamp =>
-          machine.xreturnValue = STimestamp(timestamp)
           machine.setControl(Control.Value(STimestamp(timestamp)))
         }
       )
@@ -1698,7 +1663,6 @@ private[lf] object SBuiltin {
           location = optLocation,
           mustFail = mustFail,
           callback = { newValue =>
-            machine.xreturnValue = newValue
             machine.setControl(Control.Value(newValue))
           },
         )
@@ -1713,9 +1677,7 @@ private[lf] object SBuiltin {
         machine: Machine,
     ): Control = {
       checkToken(args, 1)
-      val v = args.get(0)
-      machine.xreturnValue = v
-      Control.Value(v)
+      Control.Value(args.get(0))
     }
   }
 
@@ -1731,7 +1693,6 @@ private[lf] object SBuiltin {
         SResultScenarioPassTime(
           relTime,
           callback = { timestamp =>
-            machine.xreturnValue = STimestamp(timestamp)
             machine.setControl(Control.Value(STimestamp(timestamp)))
           },
         )
@@ -1751,7 +1712,6 @@ private[lf] object SBuiltin {
         SResultScenarioGetParty(
           name,
           callback = { party =>
-            machine.xreturnValue = SParty(party)
             machine.setControl(Control.Value(SParty(party)))
           },
         )
@@ -1767,7 +1727,6 @@ private[lf] object SBuiltin {
     ): Control = {
       val message = getSText(args, 0)
       machine.traceLog.add(message, machine.lastLocation)(machine.loggingContext)
-      machine.xreturnValue = args.get(1)
       Control.Value(args.get(1))
     }
   }
@@ -1816,11 +1775,9 @@ private[lf] object SBuiltin {
       val exception = getSAnyException(args, 0)
       exception.id match {
         case ValueArithmeticError.tyCon =>
-          machine.xreturnValue = exception.values.get(0)
           Control.Value(exception.values.get(0))
         case tyCon =>
           val e = SEApp(SEVal(ExceptionMessageDefRef(tyCon)), Array(SEValue(exception)))
-          machine.xctrl = e
           Control.Expression(e)
       }
     }
@@ -2072,7 +2029,6 @@ private[lf] object SBuiltin {
           args: util.ArrayList[SValue],
           machine: Machine,
       ): Control = {
-        machine.xreturnValue = SInt64(42L)
         Control.Value(SInt64(42L))
       }
     }
