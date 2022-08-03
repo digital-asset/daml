@@ -151,7 +151,7 @@ object JsonProtocol extends JsonProtocolLow {
         deserializationError(s"Expected JsString(<packageId>:<module>:<entity>), got: $json")
     }
 
-  implicit def TemplateIdOptionalPkgFormat[CtId[T] <: domain.ContractTypeId.Unknown[T]](implicit
+  implicit def TemplateIdOptionalPkgFormat[CtId[T] <: domain.ContractTypeId[T]](implicit
       CtId: domain.ContractTypeId.Like[CtId]
   ): RootJsonFormat[CtId[Option[String]]] = {
     import CtId.{OptionalPkg => IdO}

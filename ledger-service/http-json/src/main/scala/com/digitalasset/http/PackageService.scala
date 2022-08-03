@@ -39,7 +39,7 @@ private class PackageService(
 
   private case class State(
       packageIds: Set[String],
-      contractTypeIdMap: ContractTypeIdMap[ContractTypeId.Unknown],
+      contractTypeIdMap: ContractTypeIdMap[ContractTypeId],
       templateIdMap: TemplateIdMap,
       choiceTypeMap: ChoiceTypeMap,
       keyTypeMap: KeyTypeMap,
@@ -51,7 +51,7 @@ private class PackageService(
       val (tpIdMap, ifaceIdMap) = getTemplateIdInterfaceMaps(newPackageStore)
       State(
         packageIds = newPackageStore.keySet,
-        contractTypeIdMap = tpIdMap.widen[ContractTypeId.Unknown] ++ ifaceIdMap.widen,
+        contractTypeIdMap = tpIdMap.widen[ContractTypeId] ++ ifaceIdMap.widen,
         templateIdMap = tpIdMap,
         choiceTypeMap = getChoiceTypeMap(newPackageStore),
         keyTypeMap = getKeyTypeMap(newPackageStore),
@@ -157,7 +157,7 @@ private class PackageService(
     resolveContractTypeIdFromState(() => state.templateIdMap)
 
   private[this] def resolveContractTypeIdFromState[
-      CtId[T] <: ContractTypeId.Unknown[T]: ContractTypeId.Like
+      CtId[T] <: ContractTypeId[T]: ContractTypeId.Like
   ](
       latestMap: () => ContractTypeIdMap[CtId]
   )(implicit ec: ExecutionContext): ResolveContractTypeId[CtId] = new ResolveContractTypeId[CtId] {
@@ -268,7 +268,7 @@ object PackageService {
   }
 
   object ResolveContractTypeId {
-    type AnyKind = ResolveContractTypeId[domain.ContractTypeId.Unknown]
+    type AnyKind = ResolveContractTypeId[domain.ContractTypeId]
   }
 
   type ResolveTemplateRecordType =
@@ -328,7 +328,7 @@ object PackageService {
     )
   }
 
-  def buildTemplateIdMap[CtId[T] <: ContractTypeId.Unknown[T]: ContractTypeId.Like](
+  def buildTemplateIdMap[CtId[T] <: ContractTypeId[T]: ContractTypeId.Like](
       ids: Set[RequiredPkg[CtId]]
   ): ContractTypeIdMap[CtId] = {
     val all = ids
@@ -339,19 +339,19 @@ object PackageService {
   private type RequiredPkg[CtId[_]] = CtId[String]
   private type NoPkg[CtId[_]] = CtId[Unit]
 
-  private[http] def key2[CtId[T] <: ContractTypeId.Unknown[T]](k: RequiredPkg[CtId])(implicit
+  private[http] def key2[CtId[T] <: ContractTypeId[T]](k: RequiredPkg[CtId])(implicit
       companion: ContractTypeId.Like[CtId]
   ): NoPkg[CtId] =
     companion[Unit]((), k.moduleName, k.entityName)
 
-  private def filterUniqueTemplateIs[CtId[T] <: ContractTypeId.Unknown[T]: ContractTypeId.Like](
+  private def filterUniqueTemplateIs[CtId[T] <: ContractTypeId[T]: ContractTypeId.Like](
       all: Set[RequiredPkg[CtId]]
   ): Map[NoPkg[CtId], RequiredPkg[CtId]] =
     all
       .groupBy(k => key2(k))
       .collect { case (k, v) if v.sizeIs == 1 => (k, v.head) }
 
-  def resolveTemplateId[CtId[T] <: domain.ContractTypeId.Unknown[T]: domain.ContractTypeId.Like](
+  def resolveTemplateId[CtId[T] <: domain.ContractTypeId[T]: domain.ContractTypeId.Like](
       m: ContractTypeIdMap[CtId]
   )(a: CtId[Option[String]]): Option[CtId[String]] =
     a.packageId match {
@@ -392,14 +392,14 @@ object PackageService {
       )
 
   // assert that the given identifier is resolved
-  private[this] def fromIdentifier[CtId[T] <: ContractTypeId.Unknown[T]](
+  private[this] def fromIdentifier[CtId[T] <: ContractTypeId[T]](
       b: ContractTypeId.Like[CtId],
       id: Ref.Identifier,
   ): b.Resolved =
     fromQualifiedName(b, id.packageId, id.qualifiedName)
 
   // assert that the given identifier is resolved
-  private[this] def fromQualifiedName[CtId[T] <: ContractTypeId.Unknown[T]](
+  private[this] def fromQualifiedName[CtId[T] <: ContractTypeId[T]](
       b: ContractTypeId.Like[CtId],
       pkgId: Ref.PackageId,
       qn: Ref.QualifiedName,

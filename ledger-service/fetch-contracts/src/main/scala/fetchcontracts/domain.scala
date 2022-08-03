@@ -33,7 +33,7 @@ package object domain {
   // XXX SC A TemplateId is really usually a "contract type ID" in JSON API usage.
   // So that is how we treat it in practice.  We can deprecate and fix the references
   // separately.
-  type TemplateId[+PkgId] = ContractTypeId.Unknown[PkgId]
+  type TemplateId[+PkgId] = ContractTypeId[PkgId]
 
   private[daml] implicit final class `fc domain ErrorOps`[A](private val o: Option[A])
       extends AnyVal {
@@ -85,10 +85,10 @@ package domain {
         moduleName: String,
         entityName: String,
     ): TemplateId[PkgId] =
-      ContractTypeId.Unknown(packageId, moduleName, entityName)
+      ContractTypeId.UnknownImpl(packageId, moduleName, entityName)
 
     def unapply[PkgId](tpId: TemplateId[PkgId]): Some[Product3[PkgId, String, String]] =
-      ContractTypeId.Unknown.unapply(tpId)
+      ContractTypeId.unapply(tpId)
   }
 
   final case class ActiveContract[+LfV](
@@ -150,6 +150,7 @@ package domain {
     type Error = here.Error
     final val Error = here.Error
     type LfValue = here.LfValue
+    type ContractTypeId[+PkgId] = here.ContractTypeId[PkgId]
     final val ContractTypeId = here.ContractTypeId
     type TemplateId[+PkgId] = here.TemplateId[PkgId]
     final val TemplateId = here.TemplateId

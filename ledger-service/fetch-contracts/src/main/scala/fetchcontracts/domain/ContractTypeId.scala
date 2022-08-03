@@ -56,6 +56,7 @@ sealed abstract class ContractTypeId[+PkgId]
 }
 
 object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
+  @deprecated("use root or UnknownImpl instead", since = "#14577")
   type Unknown[+PkgId] = ContractTypeId[PkgId]
 
   // TODO SC rename to Unknown
@@ -63,7 +64,7 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
       packageId: PkgId,
       moduleName: String,
       entityName: String,
-  ) extends Unknown[PkgId] {
+  ) extends ContractTypeId[PkgId] {
     override def productPrefix = "ContractTypeId"
   }
 
@@ -83,10 +84,11 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
     * IDs for resolution, and that resolving to a template ID should be an error.
     */
   final case class Interface[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
-      extends Unknown[PkgId] {
+      extends ContractTypeId[PkgId] {
     override def productPrefix = "InterfaceId"
   }
 
+  @deprecated("use root or UnknownImpl instead", since = "#14577")
   final val Unknown = this
 
   override def apply[PkgId](
@@ -100,7 +102,7 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
   def unapply[PkgId](ctId: ContractTypeId[PkgId]): Some[ContractTypeId[PkgId]] = Some(ctId)
 
   // belongs in ultimate parent `object`
-  implicit def `ContractTypeId covariant`[F[T] <: ContractTypeId.Unknown[T]](implicit
+  implicit def `ContractTypeId covariant`[F[T] <: ContractTypeId[T]](implicit
       companion: ContractTypeId.Like[F]
   ): Traverse[F] =
     new Traverse[F] {
@@ -111,7 +113,7 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
         f(fa.packageId) map (companion(_, fa.moduleName, fa.entityName))
     }
 
-  implicit final class `ContractTypeId funs`[F[T] <: ContractTypeId.Unknown[T], T](
+  implicit final class `ContractTypeId funs`[F[T] <: ContractTypeId[T], T](
       private val self: F[T]
   ) extends AnyVal {
 
@@ -124,7 +126,7 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
       companion(packageId, moduleName, entityName)
   }
 
-  val Template = Unknown
+  val Template = this
 
   object Interface extends Like[Interface]
 
@@ -133,11 +135,11 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
   /** A resolved [[ContractTypeId]], typed `CtTyId`. */
   type ResolvedId[+CtTyId] = CtTyId
 
-  type Like[CtId[T] <: Unknown[T]] = ContractTypeIdLike[CtId]
+  type Like[CtId[T] <: ContractTypeId[T]] = ContractTypeIdLike[CtId]
 }
 
 /** A contract type ID companion. */
-abstract class ContractTypeIdLike[CtId[T] <: ContractTypeId.Unknown[T]] {
+abstract class ContractTypeIdLike[CtId[T] <: ContractTypeId[T]] {
   type OptionalPkg = CtId[Option[String]]
   type RequiredPkg = CtId[String]
   type NoPkg = CtId[Unit]
