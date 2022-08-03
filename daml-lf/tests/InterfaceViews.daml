@@ -9,7 +9,6 @@ data View = View with
 
 interface I where
     viewtype View
-    _view : View
 
 template T1
   with
@@ -19,9 +18,6 @@ template T1
     signatory p
     implements I where
       view = View with
-        a
-        b = True
-      _view = View with
         a
         b = True
 
@@ -35,9 +31,6 @@ template T2
       view = View with
         a
         b = False
-      _view = View with
-        a
-        b = False
 
 template T3
   with
@@ -47,7 +40,6 @@ template T3
     signatory p
     implements I where
       view = error "view crashed"
-      _view = error "view crashed"
 
 template T4
   with
