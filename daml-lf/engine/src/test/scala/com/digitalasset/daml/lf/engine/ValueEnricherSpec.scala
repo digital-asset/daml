@@ -174,7 +174,7 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
     val testCases = Table[Ref.Identifier, Value, Value](
       ("interfaceId", "contract input", "expected output"),
       ("Mod:I", view, enrichedView),
-      ("Mod:J", ValueInt64(42L), ValueInt64(42L)),
+      ("Mod:J", ValueUnit, ValueUnit),
     )
 
     "enrich views as expected" in {
