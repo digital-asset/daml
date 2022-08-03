@@ -61,7 +61,7 @@ class CollectAuthorityState {
       compiledPackages,
       expr,
     )
-    the_sexpr = machine.ctrl
+    the_sexpr = machine.xctrl //NICK
 
     // fill the caches!
     setup()
