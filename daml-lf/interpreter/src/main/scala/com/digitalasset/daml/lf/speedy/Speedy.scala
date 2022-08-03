@@ -541,17 +541,19 @@ private[lf] object Speedy {
             println(s"$steps: ${PrettyLightweight.ppMachine(this)}")
           }
           newControl match {
+            case Control.WeAreUnset() =>
+              sys.error("**attempt to run a machine with unset control")
             case Control.WeAreComplete() =>
               sys.error("**attempt to run a complete machine")
             case Control.WeAreHungry(res) =>
               sys.error(s"**attempt to run a hungry machine (feed me first): $res")
-            case Control.WeAreUnset() =>
-              sys.error("**attempt to run a machine with unset control")
             case Control.Expression(exp) =>
+              xctrl = null // NICK: classification counts
               setControl(Control.WeAreUnset())
               setControl(exp.execute(this))
               loop()
             case Control.Value(value) =>
+              xreturnValue = null // NICK: classification counts
               popTempStackToBase()
               setControl(popKont().execute(value))
               loop()
@@ -592,11 +594,11 @@ private[lf] object Speedy {
               defn.cached match {
                 case Some((svalue, stackTrace)) =>
                   eval.setCached(svalue, stackTrace)
-                  xreturnValue = svalue
+                  xreturnValue = svalue // NICK: why? - caller will do this
                   Control.Value(svalue)
                 case None =>
                   pushKont(KCacheVal(this, eval, defn, Nil))
-                  xctrl = defn.body
+                  xctrl = defn.body // NICK: why? -- caller will do this
                   Control.Expression(defn.body)
               }
             case None =>
@@ -1156,8 +1158,8 @@ private[lf] object Speedy {
     final case class Expression(e: SExpr) extends Control
     final case class Value(v: SValue) extends Control
     final case class WeAreUnset() extends Control // NICK: kill?
-    final case class WeAreHungry(res: SResult) extends Control // NICK: kill?
     final case class WeAreComplete() extends Control // NICK: kill?
+    final case class WeAreHungry(res: SResult) extends Control // NICK: kill?
   }
 
   /** Kont, or continuation. Describes the next step for the machine

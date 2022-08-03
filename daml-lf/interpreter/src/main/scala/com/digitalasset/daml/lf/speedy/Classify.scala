@@ -4,7 +4,7 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.speedy.Speedy.Machine
+import com.daml.lf.speedy.Speedy.{Machine, Control}
 import scala.collection.mutable.Map
 
 private[speedy] object Classify { // classify the machine state w.r.t what step occurs next
@@ -24,16 +24,20 @@ private[speedy] object Classify { // classify the machine state w.r.t what step 
     }
   }
 
-  def classifyMachine(machine: Machine, counts: Counts): Unit = { //NICK: use control
-    if (machine.xreturnValue != null) {
-      // classify a value by the continution it is about to return to
-      counts.ctrlValue += 1
-      val kont = machine.kontStack.get(machine.kontStack.size - 1).getClass.getSimpleName
-      val _ = counts.konts += kont -> (counts.konts.get(kont).getOrElse(0) + 1)
-    } else {
-      counts.ctrlExpr += 1
-      val expr = machine.xctrl.getClass.getSimpleName //NICK
-      val _ = counts.exprs += expr -> (counts.exprs.get(expr).getOrElse(0) + 1)
+  def classifyMachine(machine: Machine, counts: Counts): Unit = {
+    machine.newControl match {
+      case Control.WeAreUnset() => ()
+      case Control.WeAreComplete() => ()
+      case Control.WeAreHungry(_) => ()
+      case Control.Value(_) =>
+        // classify a value by the continution it is about to return to
+        counts.ctrlValue += 1
+        val kont = machine.kontStack.get(machine.kontStack.size - 1).getClass.getSimpleName
+        val _ = counts.konts += kont -> (counts.konts.get(kont).getOrElse(0) + 1)
+      case Control.Expression(exp) =>
+        counts.ctrlExpr += 1
+        val expr = exp.getClass.getSimpleName
+        val _ = counts.exprs += expr -> (counts.exprs.get(expr).getOrElse(0) + 1)
     }
   }
 }

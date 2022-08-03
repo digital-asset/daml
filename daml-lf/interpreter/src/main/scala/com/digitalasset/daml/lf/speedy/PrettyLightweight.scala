@@ -14,10 +14,10 @@ import com.daml.lf.speedy.SValue._
 private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK machine states
 
   def ppMachine(m: Machine): String = {
-    s"[${m.envBase}] ${ppEnv(m.env)} -- ${ppCtrl(m.xctrl, m.xreturnValue)} -- ${ppKontStack(m.kontStack)}" //NICK
+    s"[${m.envBase}] ${ppEnv(m.env)} -- ${ppCtrl(m.xctrl, m.xreturnValue)} -- ${ppKontStack(m.kontStack)}" // NICK
   }
 
-  def ppCtrl(e: SExpr, v: SValue): String = //NICK: use control
+  def ppCtrl(e: SExpr, v: SValue): String = // NICK: use control
     if (v != null) {
       s"V-${pp(v)}"
     } else {
