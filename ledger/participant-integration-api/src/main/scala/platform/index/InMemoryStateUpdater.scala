@@ -32,6 +32,7 @@ final class InMemoryStateUpdater(
     prepareUpdatesParallelism: Int,
     prepareUpdatesExecutionContext: ExecutionContext,
     updateCachesExecutionContext: ExecutionContext,
+    metrics: Metrics,
 )(
     updateCaches: Vector[TransactionLogUpdate] => Unit,
     convertTransactionAccepted: (
@@ -64,6 +65,7 @@ final class InMemoryStateUpdater(
         Future {
           updateCaches(updates)
           updateLedgerEnd(lastOffset, lastEventSequentialId)
+          metrics.daml.index.ledgerEndSequentialId.updateValue(lastEventSequentialId)
         }(updateCachesExecutionContext)
       }
 }
@@ -96,6 +98,7 @@ private[platform] object InMemoryStateUpdater {
     prepareUpdatesParallelism = prepareUpdatesParallelism,
     prepareUpdatesExecutionContext = ExecutionContext.fromExecutorService(prepareUpdatesExecutor),
     updateCachesExecutionContext = ExecutionContext.fromExecutorService(updateCachesExecutor),
+    metrics = metrics,
   )(
     updateCaches = updateCaches(inMemoryState),
     convertTransactionAccepted = convertTransactionAccepted,
