@@ -11,4 +11,8 @@ interface TIf where
     controller getOwner this
     do
       dup this
-  _view: ()
+  _view: TIfView
+
+data TIfView = TIfView with
+  a : Int
+  b : Text

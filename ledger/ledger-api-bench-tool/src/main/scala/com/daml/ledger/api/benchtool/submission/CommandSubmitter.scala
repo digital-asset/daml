@@ -112,7 +112,7 @@ case class CommandSubmitter(
   private def uploadTestDars()(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info("Uploading dars...")
     for {
-      dars <- Future.fromTry(TestDars.readAll())
+      dars <- Future.delegate { Future.fromTry(TestDars.readAll()) }
       _ <- Future.sequence {
         dars.zipWithIndex
           .map { case (dar, index) =>

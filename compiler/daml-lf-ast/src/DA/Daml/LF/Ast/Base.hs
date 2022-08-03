@@ -966,7 +966,6 @@ data DefInterface = DefInterface
   , intParam :: !ExprVarName
   , intChoices :: !(NM.NameMap TemplateChoice)
   , intMethods :: !(NM.NameMap InterfaceMethod)
-  , intPrecondition :: !Expr
   , intCoImplements :: !(NM.NameMap InterfaceCoImplements)
   , intView :: !Type
   }

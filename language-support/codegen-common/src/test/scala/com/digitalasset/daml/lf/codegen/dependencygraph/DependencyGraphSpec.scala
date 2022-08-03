@@ -26,6 +26,9 @@ final class DependencyGraphSpec extends AnyWordSpec with Matchers {
       val bar = Ref.Identifier.assertFromString("a:b:Bar")
       val baz = Ref.Identifier.assertFromString("a:b:Baz")
       val quux = Ref.Identifier.assertFromString("a:b:Quux")
+      val vt = Ref.Identifier.assertFromString("a:b:Vt")
+      val minimalRecord =
+        InterfaceType.Normal(DefDataType(ImmArraySeq.empty, Record(ImmArraySeq.empty)))
       DependencyGraph
         .orderedDependencies(
           serializableTypes = Map(
@@ -34,11 +37,8 @@ final class DependencyGraphSpec extends AnyWordSpec with Matchers {
                 ImmArray(bar.qualifiedName.name.segments.last).toSeq,
                 Record(ImmArraySeq.empty),
               )
-            ),
-            bar -> InterfaceType.Normal(DefDataType(ImmArraySeq.empty, Record(ImmArraySeq.empty))),
-            baz -> InterfaceType.Normal(DefDataType(ImmArraySeq.empty, Record(ImmArraySeq.empty))),
-            quux -> InterfaceType.Normal(DefDataType(ImmArraySeq.empty, Record(ImmArraySeq.empty))),
-          ),
+            )
+          ) ++ Iterable(bar, baz, quux, vt).view.map(_ -> minimalRecord),
           interfaces = Map(
             interface -> DefInterface(
               choices = Map(
@@ -52,12 +52,17 @@ final class DependencyGraphSpec extends AnyWordSpec with Matchers {
                 )
               ),
               retroImplements = Set.empty,
+              viewType = Some(vt),
             )
           ),
         )
         .deps
-        .map(_._1) should ===(
-        Vector(foo, bar, baz, interface)
+        .map(_._1) should contain theSameElementsAs Vector(
+        foo,
+        bar,
+        baz,
+        interface,
+        vt,
       )
     }
   }

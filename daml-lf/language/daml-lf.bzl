@@ -88,17 +88,19 @@ LF_VERSIONS = [
     "1.12",
     "1.13",
     "1.14",
+    "1.15",
     "1.dev",
 ]
 
 # All LF versions for which we have protobufs.
-PROTO_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14")]
-
-# We support older LF versions using an older compiler binary
-LEGACY_COMPILER_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.lte(ver, "1.13")]
+# TODO https://github.com/digital-asset/daml/issues/12051
+#    add 1.15 once we have a snapshot for 1.15
+PROTO_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14") if ver != "1.15"]
 
 # The subset of LF versions accepted by the compiler in the syntax
 # expected by the --target option.
-COMPILER_LF_VERSIONS = [ver for ver in LF_VERSIONS if ver not in LEGACY_COMPILER_LF_VERSIONS]
+# TODO https://github.com/digital-asset/daml/issues/12051
+#    add 1.15 once the compiler produce 1.15
+COMPILER_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14") if ver != "1.15"]
 
 LF_MAJOR_VERSIONS = ["1"]

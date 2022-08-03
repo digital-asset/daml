@@ -21,7 +21,7 @@ private[validation] object Serializability {
 
     def fromVersion(version: LanguageVersion) =
       Flags(
-        checkContractId = version < LanguageVersion.Features.interfaces
+        checkContractId = version < LanguageVersion.Features.basicInterfaces
       )
   }
 
