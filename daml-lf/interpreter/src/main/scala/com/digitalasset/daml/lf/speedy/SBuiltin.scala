@@ -1147,7 +1147,7 @@ private[lf] object SBuiltin {
             machine.pushKont(KCacheContract(machine, coid))
             val e = continueExpression(coinst)
             machine.ctrl = e
-            machine.setControl("SBFetchAny/continue", Control.Expression(e))
+            machine.setControl(Control.Expression(e))
           }
 
           machine.disclosureTable.contractById.get(SContractId(coid)) match {
@@ -1643,7 +1643,7 @@ private[lf] object SBuiltin {
                   onLedger.committers,
                   callback = { res =>
                     val (control, bool) = continue(res)
-                    machine.setControl("answer:NeedKey", control)
+                    machine.setControl(control)
                     bool
                   },
                 )
@@ -1684,7 +1684,7 @@ private[lf] object SBuiltin {
       throw SpeedyHungry(
         SResultNeedTime { timestamp =>
           machine.returnValue = STimestamp(timestamp)
-          machine.setControl("answer:NeedTime", Control.Value(STimestamp(timestamp)))
+          machine.setControl(Control.Value(STimestamp(timestamp)))
         }
       )
     }
@@ -1704,7 +1704,7 @@ private[lf] object SBuiltin {
           mustFail = mustFail,
           callback = { newValue =>
             machine.returnValue = newValue
-            machine.setControl("answer:ScenarioSubmit", Control.Value(newValue))
+            machine.setControl(Control.Value(newValue))
           },
         )
       )
@@ -1737,7 +1737,7 @@ private[lf] object SBuiltin {
           relTime,
           callback = { timestamp =>
             machine.returnValue = STimestamp(timestamp)
-            machine.setControl("answer:PassTime", Control.Value(STimestamp(timestamp)))
+            machine.setControl(Control.Value(STimestamp(timestamp)))
           },
         )
       )
@@ -1757,7 +1757,7 @@ private[lf] object SBuiltin {
           name,
           callback = { party =>
             machine.returnValue = SParty(party)
-            machine.setControl("answer:getParty", Control.Value(SParty(party)))
+            machine.setControl(Control.Value(SParty(party)))
           },
         )
       )

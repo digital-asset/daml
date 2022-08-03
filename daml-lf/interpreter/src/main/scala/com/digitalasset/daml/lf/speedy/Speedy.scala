@@ -513,7 +513,7 @@ private[lf] object Speedy {
       *      i.e. run() has returned an `SResult` requiring a callback.
       */
     def setExpressionToEvaluate(expr: SExpr): Unit = {
-      setControl("setExpressionToEvaluate", Control.Expression(expr))
+      setControl(Control.Expression(expr))
       ctrl = expr
       kontStack = initialKontStack()
       env = emptyEnv
@@ -522,8 +522,7 @@ private[lf] object Speedy {
       track = Instrumentation()
     }
 
-    def setControl(tag: String, control: Control): Unit = { // NICK: kill tag. inlne?
-      val _ = tag
+    def setControl(control: Control): Unit = { // NICK: inlne?
       newControl = control
     }
 
@@ -548,25 +547,23 @@ private[lf] object Speedy {
               sys.error(s"**attempt to run a hungry machine (feed me first): $res")
             case Control.WeAreUnset() =>
               sys.error("**attempt to run a machine with unset control")
-            case Control.Expression(e) =>
-              setControl("unset", Control.WeAreUnset())
-              val control = e.execute(this)
-              setControl("step", control)
+            case Control.Expression(exp) =>
+              setControl(Control.WeAreUnset())
+              setControl(exp.execute(this))
               loop()
-            case Control.Value(v) =>
-              // returnValue = null //NICK
+            case Control.Value(value) =>
               popTempStackToBase()
-              setControl("Control.Value/step", popKont().execute(v))
+              setControl(popKont().execute(value))
               loop()
           }
         }
         loop()
       } catch {
         case SpeedyHungry(res: SResult) =>
-          setControl("hungry", Control.WeAreHungry(res))
+          setControl(Control.WeAreHungry(res))
           res
         case SpeedyComplete(value: SValue) =>
-          setControl("complete", Control.WeAreComplete())
+          setControl(Control.WeAreComplete())
           if (enableInstrumentation) track.print()
           ledgerMode match {
             case OffLedger => SResultFinal(value, None)
@@ -618,7 +615,7 @@ private[lf] object Speedy {
                       // To avoid infinite loop in case the packages are not updated properly by the caller
                       assert(compiledPackages.packageIds.contains(ref.packageId))
                       ctrl = eval
-                      setControl("answer:NeedPackage", Control.Expression(eval))
+                      setControl(Control.Expression(eval))
                     },
                   )
                 )
@@ -1156,7 +1153,6 @@ private[lf] object Speedy {
 
   private[speedy] sealed abstract class Control
   object Control {
-    // final case class Blop(tag: String) extends Control // NICK: DIE.
     final case class Expression(e: SExpr) extends Control
     final case class Value(v: SValue) extends Control
     final case class WeAreUnset() extends Control // NICK: kill?
