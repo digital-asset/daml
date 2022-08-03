@@ -118,7 +118,7 @@ private[platform] object InMemoryStateUpdater {
 
   private def updateLedgerEnd(
       inMemoryState: InMemoryState
-  )(lastOffset: Offset, lastEventSequentialId: Long)(implicit
+  )(lastOffset: Offset, lastEventSequentialId: Long)()(implicit
       loggingContext: LoggingContext
   ): Unit = {
     inMemoryState.ledgerEndCache.set((lastOffset, lastEventSequentialId))

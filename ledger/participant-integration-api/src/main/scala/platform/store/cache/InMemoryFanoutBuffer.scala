@@ -35,7 +35,7 @@ class InMemoryFanoutBuffer(
   @volatile private[cache] var _lookupMap =
     Map.empty[TransactionId, TransactionLogUpdate.TransactionAccepted]
 
-  private val bufferMetrics = metrics.daml.services.index.Buffer
+  private val bufferMetrics = metrics.daml.services.index.InMemoryFanoutBuffer
   private val pushTimer = bufferMetrics.push
   private val pruneTimer = bufferMetrics.prune
   private val bufferSizeHistogram = bufferMetrics.bufferSize
