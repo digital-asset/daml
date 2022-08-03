@@ -335,7 +335,7 @@ private[lf] final class Compiler(
       addDef(compileToCachedContract(tmplId, tmpl))
       tmpl.implements.values.foreach { impl =>
         addDef(compileImplements(tmplId, impl.interfaceId))
-        impl.methods.values.foreach(method =>
+        impl.body.methods.values.foreach(method =>
           addDef(compileImplementsMethod(tmpl.param, tmplId, impl.interfaceId, method))
         )
       }
@@ -357,7 +357,7 @@ private[lf] final class Compiler(
       )
       iface.coImplements.values.foreach { coimpl =>
         addDef(compileCoImplements(coimpl.templateId, ifaceId))
-        coimpl.methods.values.foreach(method =>
+        coimpl.body.methods.values.foreach(method =>
           addDef(compileCoImplementsMethod(iface.param, coimpl.templateId, ifaceId, method))
         )
       }
@@ -714,7 +714,7 @@ private[lf] final class Compiler(
       tmplParam: Name,
       tmplId: Identifier,
       ifaceId: Identifier,
-      method: TemplateImplementsMethod,
+      method: InterfaceInstanceMethod,
   ): (t.SDefinitionRef, SDefinition) = {
     topLevelFunction1(t.ImplementsMethodDefRef(tmplId, ifaceId, method.name)) { (tmplArgPos, env) =>
       translateExp(env.bindExprVar(tmplParam, tmplArgPos), method.value)
@@ -726,7 +726,7 @@ private[lf] final class Compiler(
       tmplParam: Name,
       tmplId: Identifier,
       ifaceId: Identifier,
-      method: InterfaceCoImplementsMethod,
+      method: InterfaceInstanceMethod,
   ): (t.SDefinitionRef, SDefinition) = {
     topLevelFunction1(t.CoImplementsMethodDefRef(tmplId, ifaceId, method.name)) {
       (tmplArgPos, env) =>
