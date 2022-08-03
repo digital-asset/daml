@@ -5,6 +5,7 @@
 module Interfaces where
 
 interface TIf where
+  viewtype ()
   getOwner: Party
   dup: Update (ContractId TIf)
   choice Ham: ContractId TIf with
@@ -30,6 +31,7 @@ template Child
         return ()
 
     implements TIf where
+      view = ()
       getOwner = party
       dup = toInterfaceContractId <$> create this
 
@@ -40,5 +42,6 @@ template ChildClone
     signatory party
 
     implements TIf where
+      view = ()
       getOwner = party
       dup = toInterfaceContractId <$> create this

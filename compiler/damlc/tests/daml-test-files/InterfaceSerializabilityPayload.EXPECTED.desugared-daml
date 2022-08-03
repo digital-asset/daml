@@ -74,3 +74,5 @@ _choice_GettableGet
      \ self this arg@Get {..}
        -> let _ = self in let _ = this in let _ = arg in do return this, 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView Gettable () where
+  _view = GHC.Types.primitive @"EViewInterface"

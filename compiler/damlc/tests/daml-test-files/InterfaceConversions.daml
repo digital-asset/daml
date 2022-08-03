@@ -10,6 +10,7 @@ import DA.Assert ((===))
 import DA.Functor (void)
 
 interface Iface where
+    viewtype ()
     getOwner : Party
     choice MyChoice : ()
         controller getOwner this
@@ -22,6 +23,7 @@ template Template1
     where
         signatory owner1
         implements Iface where
+            view = ()
             getOwner = owner1
 
 template Template2
@@ -31,6 +33,7 @@ template Template2
     where
         signatory owner2
         implements Iface where
+            view = ()
             getOwner = owner2
 
 main = scenario do

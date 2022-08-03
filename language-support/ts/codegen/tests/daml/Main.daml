@@ -172,6 +172,7 @@ template Counter with
         create Counter {c = n, ..}
 
 interface Token where
+  viewtype ()
   getTokenOwner : Party
   transferImpl : Party -> Update (ContractId Token)
 
@@ -192,15 +193,18 @@ template Asset with
       controller owner
       do return ()
     implements Token where
+      view = ()
       getTokenOwner = owner
       transferImpl newOwner = do
         cid <- create Asset with issuer = issuer, owner = newOwner
         pure (toInterfaceContractId @Token cid)
     implements Other where
+      view = ()
       getOtherOwner = owner
       somethingImpl = do
         pure ()
     implements YetAnother where
+      view = ()
       getOtherOwner = owner
       somethingImpl = do
         pure ()

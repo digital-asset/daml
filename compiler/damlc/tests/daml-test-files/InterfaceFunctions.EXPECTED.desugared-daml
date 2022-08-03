@@ -36,6 +36,8 @@ instance DA.Internal.Desugar.HasIsInterfaceType Token where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Token where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView Token () where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => Asset
   = Asset {issuer : Party, owner : Party, amount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -123,6 +125,12 @@ _method_Asset_Token_getAmount
       @"getAmount"
       (\ this@Asset {..}
          -> let _ = this in let getAmount = amount in getAmount)
+_view_Asset_Token : DA.Internal.Desugar.InterfaceView Asset Token
+_view_Asset_Token
+  = DA.Internal.Desugar.mkInterfaceView
+      @Asset
+      @Token
+      \ this@Asset {..} -> let _ = this in let view = () in view
 main
   = scenario
       do alice <- getParty "Alice"

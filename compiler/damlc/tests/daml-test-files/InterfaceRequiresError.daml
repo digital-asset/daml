@@ -9,8 +9,10 @@
 module InterfaceRequiresError where
 
 interface A where
+  viewtype ()
 
 interface B requires A where
+  viewtype ()
 
 template T
   with
@@ -18,3 +20,4 @@ template T
   where
     signatory p
     implements B where
+      view = ()

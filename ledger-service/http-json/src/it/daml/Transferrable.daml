@@ -4,6 +4,7 @@
 module Transferrable where
 
 interface Transferrable where
+  viewtype ()
   getOwner : Party
 
   choice Overridden : Text with

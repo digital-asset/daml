@@ -68,7 +68,6 @@ class InterfaceViewSpec extends AnyWordSpec with Matchers with EitherValues with
   "interface view" should {
 
     "return result of view method when it succeds" in {
-
       inside(
         computeView(
           t1,

@@ -83,6 +83,13 @@ _method_T_InterfaceChoiceCollision1:Interface_getOwner
       @InterfaceChoiceCollision1.Interface
       @"getOwner"
       (\ this@T {..} -> let _ = this in let getOwner = owner in getOwner)
+_view_T_InterfaceChoiceCollision1:Interface :
+  DA.Internal.Desugar.InterfaceView T InterfaceChoiceCollision1.Interface
+_view_T_InterfaceChoiceCollision1:Interface
+  = DA.Internal.Desugar.mkInterfaceView
+      @T
+      @InterfaceChoiceCollision1.Interface
+      \ this@T {..} -> let _ = this in let view = () in view
 _implements_T_InterfaceChoiceCollision2:Interface :
   DA.Internal.Desugar.ImplementsT T InterfaceChoiceCollision2.Interface
 _implements_T_InterfaceChoiceCollision2:Interface
@@ -100,3 +107,10 @@ _method_T_InterfaceChoiceCollision2:Interface_getOwner
       @InterfaceChoiceCollision2.Interface
       @"getOwner"
       (\ this@T {..} -> let _ = this in let getOwner = owner in getOwner)
+_view_T_InterfaceChoiceCollision2:Interface :
+  DA.Internal.Desugar.InterfaceView T InterfaceChoiceCollision2.Interface
+_view_T_InterfaceChoiceCollision2:Interface
+  = DA.Internal.Desugar.mkInterfaceView
+      @T
+      @InterfaceChoiceCollision2.Interface
+      \ this@T {..} -> let _ = this in let view = () in view

@@ -9,3 +9,4 @@
 module InterfaceNotSupported where
 
 interface A where
+    viewtype ()

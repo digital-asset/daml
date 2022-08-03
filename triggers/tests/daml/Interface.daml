@@ -25,6 +25,8 @@ test = Trigger with
   heartbeat = None
 
 interface Token where
+  viewtype ()
+
   getOwner : Party
   getAmount : Int
 
@@ -61,6 +63,7 @@ template Asset
   where
     signatory issuer
     implements Token where
+      view = ()
       getOwner = owner
       getAmount = amount
 
