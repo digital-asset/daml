@@ -9,8 +9,9 @@ import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref.{PackageId, QualifiedName, Identifier, Party}
 import com.daml.lf.data.{ImmArray}
 import com.daml.lf.language.Ast.Package
+import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ValueRecord, ValueParty, ValueInt64}
+import com.daml.lf.value.Value.{ValueBool, ValueRecord, ValueParty, ValueInt64}
 import com.daml.logging.LoggingContext
 import java.io.File
 import org.scalatest.EitherValues
@@ -58,17 +59,58 @@ class InterfaceViewSpec extends AnyWordSpec with Matchers with EitherValues with
       .computeInterfaceView(templateId, argument, interfaceId)
       .consume(_ => None, lookupPackage, _ => None)
   private val t1 = id("T1")
+  private val t2 = id("T2")
+  private val t3 = id("T3")
+  private val t4 = id("T4")
   private val i = id("I")
   private val iNoView = id("INoView")
 
   "interface view" should {
 
-    // TODO: Disabled following tests for https://github.com/digital-asset/daml/pull/14456,
-    // Re-enable in https://github.com/digital-asset/daml/pull/14565
-    // "return result of view method when it succeds"
-    // "fail with Error.Interpretation if view crashes"
-    // "fail with Error.Interpretation if template does not implement interface"
-
+    "return result of view method when it succeds" in {
+      inside(
+        computeView(
+          t1,
+          ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(42)))),
+          i,
+        )
+      ) { case Right(Versioned(_, v)) =>
+        v shouldBe ValueRecord(None, ImmArray((None, ValueInt64(42)), (None, ValueBool(true))))
+      }
+      inside(
+        computeView(
+          t2,
+          ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(23)))),
+          i,
+        )
+      ) { case Right(Versioned(_, v)) =>
+        v shouldBe ValueRecord(None, ImmArray((None, ValueInt64(23)), (None, ValueBool(false))))
+      }
+    }
+    "fail with Error.Interpretation if view crashes" in {
+      inside(
+        computeView(
+          t3,
+          ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(42)))),
+          i,
+        )
+      ) { case Left(err) =>
+        err shouldBe a[Error.Interpretation]
+      }
+    }
+    // TODO https://github.com/digital-asset/daml/issues/14112
+    // Catch during preprocessing
+    "fail with Error.Interpretation if template does not implement interface" in {
+      inside(
+        computeView(
+          t4,
+          ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(42)))),
+          i,
+        )
+      ) { case Left(err) =>
+        err shouldBe a[Error.Interpretation]
+      }
+    }
     "fail with Error.Preprocessing if interface has no view method" in {
       inside(
         computeView(
