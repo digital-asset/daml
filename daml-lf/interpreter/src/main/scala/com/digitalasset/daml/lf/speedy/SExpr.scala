@@ -48,7 +48,7 @@ object SExpr {
     def lookupValue(machine: Machine): SValue
 
     final def execute(machine: Machine): Control = {
-      val v : SValue = lookupValue(machine)
+      val v: SValue = lookupValue(machine)
       machine.returnValue = v
       Control.Value(v)
     }
@@ -79,7 +79,7 @@ object SExpr {
       _cached = Some((sValue, stack_trace))
 
     def execute(machine: Machine): Control = {
-      //println("----SEVal,execute") //NICK
+      // println("----SEVal,execute") //NICK
       machine.lookupVal(this)
     }
   }
@@ -163,7 +163,7 @@ object SExpr {
         discard(actuals.add(v))
         i += 1
       }
-      //println(s"-----SEAppAtomicSaturatedBuiltin, executing builtin: $builtin") //NICK
+      // println(s"-----SEAppAtomicSaturatedBuiltin, executing builtin: $builtin") //NICK
       builtin.execute(actuals, machine)
     }
   }

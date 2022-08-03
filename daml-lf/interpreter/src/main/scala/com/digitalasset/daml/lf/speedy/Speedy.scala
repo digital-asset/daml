@@ -33,7 +33,7 @@ private[lf] object Speedy {
 
   var mmm = 0
 
-  var xxe = 0 //NICK
+  var xxe = 0 // NICK
   var xxv = 0
   var xxb = 0
 
@@ -300,7 +300,6 @@ private[lf] object Speedy {
 
   /** The speedy CEK machine. */
   final class Machine(
-
       val me: Int,
 
       /* The control is what the machine should be evaluating. If this is not
@@ -311,7 +310,6 @@ private[lf] object Speedy {
        * been fully evaluated. If this is not null, then `ctrl` must be null.
        */
       var returnValue: SValue,
-
       var newControl: Control,
 
       /* Frame: to access values for a closure's free-vars. */
@@ -523,8 +521,8 @@ private[lf] object Speedy {
       *      i.e. run() has returned an `SResult` requiring a callback.
       */
     def setExpressionToEvaluate(expr: SExpr): Unit = {
-      //println(s"**Speedy.setExpressionToEvaluate() [$me]")//NICK
-      setControl("setExpressionToEvaluate",Control.Expression(expr))
+      // println(s"**Speedy.setExpressionToEvaluate() [$me]")//NICK
+      setControl("setExpressionToEvaluate", Control.Expression(expr))
       ctrl = expr
       kontStack = initialKontStack()
       env = emptyEnv
@@ -535,15 +533,14 @@ private[lf] object Speedy {
 
     def setControl(tag: String, control: Control): Unit = {
       val _ = tag
-      //println(s"**setControl($tag)") //NICK: very useful debug
-      newControl = control //NICK: the once place which may change newControl!!
+      // println(s"**setControl($tag)") //NICK: very useful debug
+      newControl = control // NICK: the once place which may change newControl!!
     }
-
 
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
 
     def run(): SResult = {
-      //println(s"**Speedy.run() [$me]")//NICK
+      // println(s"**Speedy.run() [$me]")//NICK
       try {
         // normal exit from this loop is when KFinished.execute throws SpeedyComplete
         @tailrec
@@ -556,9 +553,9 @@ private[lf] object Speedy {
             println(s"$steps: ${PrettyLightweight.ppMachine(this)}")
           }
 
-          //println(s"**[$xxe,$xxv,$xxb] : (Control) $newControl") //NICK: main debug!
+          // println(s"**[$xxe,$xxv,$xxb] : (Control) $newControl") //NICK: main debug!
 
-          newControl match { //NICK: the one place which tests newControl
+          newControl match { // NICK: the one place which tests newControl
             case Control.WeAreComplete() =>
               sys.error("**attempt to run a complete machine")
             case Control.WeAreHungry(res) =>
@@ -572,16 +569,16 @@ private[lf] object Speedy {
               if (expr != e) {
                 ???
               }
-              setControl("unset",Control.WeAreUnset())
+              setControl("unset", Control.WeAreUnset())
               val control = e.execute(this)
-              setControl("step",control)
+              setControl("step", control)
               loop()
 
             case Control.Value(v) =>
               xxv += 1
               val value = returnValue
               if (value != v) {
-                ??? //NICK
+                ??? // NICK
               }
               returnValue = null
               popTempStackToBase()
@@ -595,12 +592,12 @@ private[lf] object Speedy {
                 val value = returnValue
                 returnValue = null
                 popTempStackToBase()
-                setControl("blop(V)/step",popKont().execute(value))
+                setControl("blop(V)/step", popKont().execute(value))
                 ()
               } else {
                 val expr = ctrl
                 ctrl = null
-                setControl("blop(E)/step",expr.execute(this))
+                setControl("blop(E)/step", expr.execute(this))
                 ()
               }
               loop()
@@ -609,12 +606,12 @@ private[lf] object Speedy {
         loop()
       } catch {
         case SpeedyHungry(res: SResult) =>
-          //println(s"**SpeedyHungry: $res")//NICK
-          setControl("hungry",Control.WeAreHungry(res))//NICK
+          // println(s"**SpeedyHungry: $res")//NICK
+          setControl("hungry", Control.WeAreHungry(res)) // NICK
           res
         case SpeedyComplete(value: SValue) =>
-          //println(s"**SpeedyComplete [$me]")//NICK
-          setControl("complete",Control.WeAreComplete())//NICK
+          // println(s"**SpeedyComplete [$me]")//NICK
+          setControl("complete", Control.WeAreComplete()) // NICK
           if (enableInstrumentation) track.print()
           ledgerMode match {
             case OffLedger => SResultFinal(value, None)
@@ -629,7 +626,7 @@ private[lf] object Speedy {
       }
     }
 
-    def lookupVal(eval: SEVal): Control = { //NICK
+    def lookupVal(eval: SEVal): Control = { // NICK
       eval.cached match {
         case Some((v, stack_trace)) =>
           pushStackTrace(stack_trace)
@@ -662,13 +659,13 @@ private[lf] object Speedy {
                     ref.packageId,
                     language.Reference.Package(ref.packageId),
                     callback = { packages =>
-                      //println("----Machine.lookupVal(continue, fixed!)") //NICK
+                      // println("----Machine.lookupVal(continue, fixed!)") //NICK
                       this.compiledPackages = packages
                       // To avoid infinite loop in case the packages are not updated properly by the caller //NICK: wat????
                       assert(compiledPackages.packageIds.contains(ref.packageId))
-                      ctrl = eval //NICK, why eval again??
-                      setControl("answer:NeedPackage",Control.Expression(eval)) //NICK
-                    }
+                      ctrl = eval // NICK, why eval again??
+                      setControl("answer:NeedPackage", Control.Expression(eval)) // NICK
+                    },
                   )
                 )
           }
@@ -973,7 +970,7 @@ private[lf] object Speedy {
         onLedger: OnLedger,
         gkey: GlobalKey,
         coid: V.ContractId,
-        handleKeyFound: (Machine, V.ContractId) => Control, //NICK: just changed
+        handleKeyFound: (Machine, V.ContractId) => Control, // NICK: just changed
     ): Control =
       onLedger.cachedContracts.get(coid) match {
         case Some(cachedContract) =>
@@ -985,7 +982,7 @@ private[lf] object Speedy {
                   .ContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
               )
             case _ =>
-              val _ = handleKeyFound(this, coid) //NICK:Control
+              val _ = handleKeyFound(this, coid) // NICK:Control
               Control.Blop("inside:checkKeyVisibility")
           }
         case None =>
@@ -1208,10 +1205,10 @@ private[lf] object Speedy {
     kontStack
   }
 
-  //private[speedy] //NICK
-  sealed abstract class Control //NICK: more greppable name?
+  // private[speedy] //NICK
+  sealed abstract class Control // NICK: more greppable name?
   object Control {
-    final case class Blop(tag: String) extends Control //NICK: DIE! uses cntl/returnValue
+    final case class Blop(tag: String) extends Control // NICK: DIE! uses cntl/returnValue
     final case class Expression(e: SExpr) extends Control
     final case class Value(v: SValue) extends Control
     final case class WeAreUnset() extends Control
@@ -1331,7 +1328,11 @@ private[lf] object Speedy {
   }
 
   /** The scrutinee of a match has been evaluated, now match the alternatives against it. */
-  private[speedy] def executeMatchAlts(machine: Machine, alts: Array[SCaseAlt], v: SValue): Control = {
+  private[speedy] def executeMatchAlts(
+      machine: Machine,
+      alts: Array[SCaseAlt],
+      v: SValue,
+  ): Control = {
     val altOpt = v match {
       case SValue.SBool(b) =>
         alts.find { alt =>
@@ -1604,11 +1605,11 @@ private[lf] object Speedy {
       machine: Machine,
       gKey: GlobalKey,
       cid: V.ContractId,
-      handleKeyFound: (Machine, V.ContractId) => Control, //NICK: changed!
+      handleKeyFound: (Machine, V.ContractId) => Control, // NICK: changed!
   ) extends Kont {
     def execute(sv: SValue): Control = {
       machine.withOnLedger("KCheckKeyVisibitiy") { onLedger =>
-        val _ = machine.checkKeyVisibility(onLedger, gKey, cid, handleKeyFound) //NICK
+        val _ = machine.checkKeyVisibility(onLedger, gKey, cid, handleKeyFound) // NICK
         ()
       }
       Control.Blop("inside:KCheckKeyVisibitiy")
