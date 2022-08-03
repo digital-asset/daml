@@ -36,7 +36,7 @@ class DispatcherStateSpec
 
   private val thirdOffset = Offset.fromHexString(Ref.HexString.assertFromString("abcdff"))
 
-  s"$className.{startDispatcher, stopDispatcher}" should "handle correctly the Dispatcher lifecycle" in {
+  s"$className.{startDispatcher, stopDispatcher}" should "correctly handle the Dispatcher lifecycle" in {
     for {
       _ <- Future.unit
       dispatcherState = new DispatcherState(Duration.Zero)(loggingContext)
@@ -98,7 +98,7 @@ class DispatcherStateSpec
       // Getting the Dispatcher while shutdown
       _ = assertNotRunning(dispatcherState)
 
-      // Start a new Dispatcher is not possible in the shutdown state
+      // It is not possible to start a new Dispatcher in the shutdown state
       _ = intercept[IllegalStateException] {
         dispatcherState.startDispatcher(nextOffset)
       }.getMessage shouldBe "Ledger API offset dispatcher state has already shut down."
