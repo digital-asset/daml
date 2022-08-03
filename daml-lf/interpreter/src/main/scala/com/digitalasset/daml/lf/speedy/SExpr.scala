@@ -79,7 +79,6 @@ object SExpr {
       _cached = Some((sValue, stack_trace))
 
     def execute(machine: Machine): Control = {
-      // println("----SEVal,execute") //NICK
       machine.lookupVal(this)
     }
   }
@@ -163,7 +162,6 @@ object SExpr {
         discard(actuals.add(v))
         i += 1
       }
-      // println(s"-----SEAppAtomicSaturatedBuiltin, executing builtin: $builtin") //NICK
       builtin.execute(actuals, machine)
     }
   }

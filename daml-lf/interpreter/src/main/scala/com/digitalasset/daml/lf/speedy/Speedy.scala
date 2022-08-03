@@ -31,12 +31,6 @@ import scala.util.control.NoStackTrace
 
 private[lf] object Speedy {
 
-  var mmm = 0
-
-  var xxe = 0 // NICK
-  var xxv = 0
-  var xxb = 0
-
   // Would like these to have zero cost when not enabled. Better still, to be switchable at runtime.
   private[this] val enableInstrumentation: Boolean = false
   private[this] val enableLightweightStepTracing: Boolean = false
@@ -300,17 +294,15 @@ private[lf] object Speedy {
 
   /** The speedy CEK machine. */
   final class Machine(
-      val me: Int,
-
       /* The control is what the machine should be evaluating. If this is not
        * null, then `returnValue` must be null.
        */
-      var ctrl: SExpr,
+      var ctrl: SExpr, // NICK: kill
       /* `returnValue` contains the result once the expression in `ctrl` has
        * been fully evaluated. If this is not null, then `ctrl` must be null.
        */
-      var returnValue: SValue,
-      var newControl: Control,
+      var returnValue: SValue, // NICK: kill
+      var newControl: Control, // NICK: rename control. simple comment.
 
       /* Frame: to access values for a closure's free-vars. */
       var frame: Frame,
@@ -521,7 +513,6 @@ private[lf] object Speedy {
       *      i.e. run() has returned an `SResult` requiring a callback.
       */
     def setExpressionToEvaluate(expr: SExpr): Unit = {
-      // println(s"**Speedy.setExpressionToEvaluate() [$me]")//NICK
       setControl("setExpressionToEvaluate", Control.Expression(expr))
       ctrl = expr
       kontStack = initialKontStack()
@@ -531,16 +522,14 @@ private[lf] object Speedy {
       track = Instrumentation()
     }
 
-    def setControl(tag: String, control: Control): Unit = {
+    def setControl(tag: String, control: Control): Unit = { // NICK: kill tag. inlne?
       val _ = tag
-      // println(s"**setControl($tag)") //NICK: very useful debug
-      newControl = control // NICK: the once place which may change newControl!!
+      newControl = control
     }
 
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
 
     def run(): SResult = {
-      // println(s"**Speedy.run() [$me]")//NICK
       try {
         // normal exit from this loop is when KFinished.execute throws SpeedyComplete
         @tailrec
@@ -552,69 +541,32 @@ private[lf] object Speedy {
             steps += 1
             println(s"$steps: ${PrettyLightweight.ppMachine(this)}")
           }
-
-          // println(s"**[$xxe,$xxv,$xxb] : (Control) $newControl") //NICK: main debug!
-
-          newControl match { // NICK: the one place which tests newControl
+          newControl match {
             case Control.WeAreComplete() =>
               sys.error("**attempt to run a complete machine")
             case Control.WeAreHungry(res) =>
               sys.error(s"**attempt to run a hungry machine (feed me first): $res")
             case Control.WeAreUnset() =>
               sys.error("**attempt to run a machine with unset control")
-
             case Control.Expression(e) =>
-              xxe += 1
-              val expr = ctrl
-              if (expr != e) {
-                ???
-              }
               setControl("unset", Control.WeAreUnset())
               val control = e.execute(this)
               setControl("step", control)
               loop()
-
             case Control.Value(v) =>
-              xxv += 1
-              val value = returnValue
-              if (value != v) {
-                ??? // NICK
-              }
-              returnValue = null
+              // returnValue = null //NICK
               popTempStackToBase()
               setControl("Control.Value/step", popKont().execute(v))
               loop()
-
-            /*case Control.Blop(tag) =>
-              println(s"**[$xxe,$xxv,$xxb] : (Control) $newControl") //NICK
-              def xxx : Unit = ???
-              xxx
-              val _ = tag
-              xxb += 1
-              if (returnValue != null) {
-                val value = returnValue
-                returnValue = null
-                popTempStackToBase()
-                setControl("blop(V)/step", popKont().execute(value))
-                ()
-              } else {
-                val expr = ctrl
-                ctrl = null
-                setControl("blop(E)/step", expr.execute(this))
-                ()
-              }
-              loop()*/
           }
         }
         loop()
       } catch {
         case SpeedyHungry(res: SResult) =>
-          // println(s"**SpeedyHungry: $res")//NICK
-          setControl("hungry", Control.WeAreHungry(res)) // NICK
+          setControl("hungry", Control.WeAreHungry(res))
           res
         case SpeedyComplete(value: SValue) =>
-          // println(s"**SpeedyComplete [$me]")//NICK
-          setControl("complete", Control.WeAreComplete()) // NICK
+          setControl("complete", Control.WeAreComplete())
           if (enableInstrumentation) track.print()
           ledgerMode match {
             case OffLedger => SResultFinal(value, None)
@@ -629,7 +581,7 @@ private[lf] object Speedy {
       }
     }
 
-    def lookupVal(eval: SEVal): Control = { // NICK
+    def lookupVal(eval: SEVal): Control = {
       eval.cached match {
         case Some((v, stack_trace)) =>
           pushStackTrace(stack_trace)
@@ -662,12 +614,11 @@ private[lf] object Speedy {
                     ref.packageId,
                     language.Reference.Package(ref.packageId),
                     callback = { packages =>
-                      // println("----Machine.lookupVal(continue, fixed!)") //NICK
                       this.compiledPackages = packages
                       // To avoid infinite loop in case the packages are not updated properly by the caller
                       assert(compiledPackages.packageIds.contains(ref.packageId))
-                      ctrl = eval // NICK, why eval again??
-                      setControl("answer:NeedPackage", Control.Expression(eval)) // NICK
+                      ctrl = eval
+                      setControl("answer:NeedPackage", Control.Expression(eval))
                     },
                   )
                 )
@@ -973,7 +924,7 @@ private[lf] object Speedy {
         onLedger: OnLedger,
         gkey: GlobalKey,
         coid: V.ContractId,
-        handleKeyFound: (Machine, V.ContractId) => Control, // NICK: just changed
+        handleKeyFound: (Machine, V.ContractId) => Control,
     ): Control =
       onLedger.cachedContracts.get(coid) match {
         case Some(cachedContract) =>
@@ -985,8 +936,7 @@ private[lf] object Speedy {
                   .ContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
               )
             case _ =>
-              handleKeyFound(this, coid) // NICK:Control
-            // Control.Blop("inside:checkKeyVisibility")//NICK
+              handleKeyFound(this, coid)
           }
         case None =>
           throw SErrorCrash(
@@ -1021,9 +971,7 @@ private[lf] object Speedy {
         limits: interpretation.Limits = interpretation.Limits.Lenient,
         disclosedContracts: ImmArray[speedy.DisclosedContract],
     )(implicit loggingContext: LoggingContext): Machine = {
-      mmm = mmm + 1
       new Machine(
-        me = mmm,
         newControl = Control.Expression(expr),
         ctrl = expr,
         returnValue = null,
@@ -1147,9 +1095,7 @@ private[lf] object Speedy {
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
     )(implicit loggingContext: LoggingContext): Machine = {
-      mmm = mmm + 1
       new Machine(
-        me = mmm,
         newControl = Control.Expression(expr),
         ctrl = expr,
         returnValue = null,
@@ -1208,15 +1154,14 @@ private[lf] object Speedy {
     kontStack
   }
 
-  // private[speedy] //NICK
-  sealed abstract class Control // NICK: more greppable name?
+  private[speedy] sealed abstract class Control
   object Control {
-    // final case class Blop(tag: String) extends Control // NICK: DIE! uses cntl/returnValue
+    // final case class Blop(tag: String) extends Control // NICK: DIE.
     final case class Expression(e: SExpr) extends Control
     final case class Value(v: SValue) extends Control
-    final case class WeAreUnset() extends Control
-    final case class WeAreHungry(res: SResult) extends Control
-    final case class WeAreComplete() extends Control
+    final case class WeAreUnset() extends Control // NICK: kill?
+    final case class WeAreHungry(res: SResult) extends Control // NICK: kill?
+    final case class WeAreComplete() extends Control // NICK: kill?
   }
 
   /** Kont, or continuation. Describes the next step for the machine
@@ -1608,13 +1553,12 @@ private[lf] object Speedy {
       machine: Machine,
       gKey: GlobalKey,
       cid: V.ContractId,
-      handleKeyFound: (Machine, V.ContractId) => Control, // NICK: changed!
+      handleKeyFound: (Machine, V.ContractId) => Control,
   ) extends Kont {
     def execute(sv: SValue): Control = {
       machine.withOnLedger("KCheckKeyVisibitiy") { onLedger =>
-        machine.checkKeyVisibility(onLedger, gKey, cid, handleKeyFound) // NICK
+        machine.checkKeyVisibility(onLedger, gKey, cid, handleKeyFound)
       }
-      // Control.Blop("inside:KCheckKeyVisibitiy") //NICK
     }
   }
 

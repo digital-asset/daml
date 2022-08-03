@@ -62,10 +62,7 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
   /** Execute the builtin with 'arity' number of arguments in 'args'.
     * Updates the machine state accordingly.
     */
-  private[speedy] def execute(
-      args: util.ArrayList[SValue],
-      machine: Machine,
-  ): Control // NICK: needs machine to be passed??
+  private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Control
 
   protected def unexpectedType(i: Int, expected: String, found: SValue) =
     crash(s"type mismatch of argument $i: expect $expected but got $found")
@@ -1116,7 +1113,7 @@ private[lf] object SBuiltin {
         onLedger: OnLedger,
     ): Control = {
 
-      def continueExpression(coinst: V.ContractInstance): SExpr = {
+      def continueExpression(coinst: V.ContractInstance): SExpr = { // NICK: inline
         coinst match {
           case V.ContractInstance(actualTmplId, arg, _) =>
             SEApp(
@@ -1130,14 +1127,9 @@ private[lf] object SBuiltin {
             )
         }
       }
-
-      // println(s"----SBFetchAny") //NICK
-
       val coid = getSContractId(args, 0)
       onLedger.cachedContracts.get(coid) match {
         case Some(cached) =>
-          // println(s"----SBFetchAny,1") //NICK
-
           onLedger.ptx.consumedByOrInactive(coid) match {
             case Some(Left(nid)) =>
               throw SErrorDamlException(IE.ContractNotActive(coid, cached.templateId, nid))
@@ -1151,30 +1143,24 @@ private[lf] object SBuiltin {
           Control.Value(cached.any)
 
         case None =>
-          // println(s"----SBFetchAny,2") //NICK
-
-          def continue(coinst: V.ContractInstance): Unit = { // NICK: Control. caller calls setControl
-            // println(s"----SBFetchAny,continue()") //NICK
+          def continue(coinst: V.ContractInstance): Unit = { // NICK: Control
             machine.pushKont(KCacheContract(machine, coid))
             val e = continueExpression(coinst)
             machine.ctrl = e
-            machine.setControl("SBFetchAny/continue", Control.Expression(e)) // NICK, yuck !!!
+            machine.setControl("SBFetchAny/continue", Control.Expression(e))
           }
 
           machine.disclosureTable.contractById.get(SContractId(coid)) match {
             case Some((templateId, arg)) =>
-              // println(s"----SBFetchAny,3") //NICK
               val v = machine.normValue(templateId, arg)
               val coinst = V.ContractInstance(templateId, v, "")
-              // continue(coinst)//NICK
+              // continue(coinst) //NICK: un-inline?
               machine.pushKont(KCacheContract(machine, coid))
               val e = continueExpression(coinst)
               machine.ctrl = e
-              // Control.Blop("inside:SBFetchAny")
               Control.Expression(e)
 
             case None =>
-              // println(s"----SBFetchAny,4") //NICK
               throw SpeedyHungry(
                 SResultNeedContract(
                   coid,
@@ -1552,9 +1538,8 @@ private[lf] object SBuiltin {
         case ContractStateMachine.KeyActive(cid) =>
           handleKeyFound(machine, cid)
         case ContractStateMachine.KeyInactive =>
-          val (control, _) = handleKeyNotFound(machine, gkey) // NICK
+          val (control, _) = handleKeyNotFound(machine, gkey)
           control
-        // Control.Blop("handleKnownInputKey/KeyInactive")
       }
   }
 
@@ -1609,53 +1594,38 @@ private[lf] object SBuiltin {
 
       onLedger.ptx.contractState.resolveKey(gkey) match {
         case Right((keyMapping, next)) =>
-          // println("---SBUKeyBuiltin, Right")//NICK
           onLedger.ptx = onLedger.ptx.copy(contractState = next)
           keyMapping match {
             case ContractStateMachine.KeyActive(coid) =>
-              // println("---SBUKeyBuiltin, Right, KeyActive")//NICK
               machine.checkKeyVisibility(onLedger, gkey, coid, operation.handleKeyFound)
 
             case ContractStateMachine.KeyInactive =>
-              // println("---SBUKeyBuiltin, Right, KeyInActive")//NICK
-              operation.handleKnownInputKey(machine, gkey, keyMapping) // NICK
-            // Control.Blop("inside:SBUKeyBuiltin/A") //NICK
+              operation.handleKnownInputKey(machine, gkey, keyMapping)
           }
 
         case Left(handle) =>
-          // println("---SBUKeyBuiltin, Left")//NICK
-          def continue = { result => // NICK: Control
-            // println("---SBUKeyBuiltin, Left, continue()")//NICK
+          def continue = { result =>
             val (keyMapping, next) = handle(result)
             onLedger.ptx = onLedger.ptx.copy(contractState = next)
             keyMapping match {
               case ContractStateMachine.KeyActive(coid) =>
-                // println("---SBUKeyBuiltin, Left, continue(), KeyActive")//NICK
                 // We do not call directly machine.checkKeyVisibility as it may throw an SError,
                 // and such error cannot be throw inside a SpeedyHungry continuation.
                 machine.pushKont(
                   KCheckKeyVisibility(machine, gkey, coid, operation.handleKeyFound)
                 )
                 if (onLedger.cachedContracts.contains(coid)) {
-                  // println("---SBUKeyBuiltin, Left, continue(), KeyActive, if-true(in cache)")//NICK -- TODO, set newControl here
                   machine.returnValue = SUnit
-                  // machine.setControl("SBUKeyBuiltin/continue/Active/in-cache", Control.Value(SUnit))
                   (Control.Value(SUnit), true)
                 } else {
                   // SBFetchAny will populate onLedger.cachedContracts with the contract pointed by coid
                   val e = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
                   machine.ctrl = e
-                  // machine.setControl("SBUKeyBuiltin/continue/Active/out-cache", Control.Expression(e),) // NICK, yuck !!!
                   (Control.Expression(e), true)
                 }
 
               case ContractStateMachine.KeyInactive =>
-                // println("---SBUKeyBuiltin, Left, continue(), KeyInActive")//NICK
-                val (control, bool) = operation.handleKeyNotFound(machine, gkey)
-                // println("---SBUKeyBuiltin, Left, continue(), KeyInActive/2")//NICK
-                // machine.setControl("SBUKeyBuiltin/continue/InActive", control) // NICK, yuck //not here
-                // NICK: TODO unify the above 3x setControl, as... "answer:NeedKey"
-                (control, bool)
+                operation.handleKeyNotFound(machine, gkey)
             }
           }: Option[V.ContractId] => (Control, Boolean)
 
@@ -1664,7 +1634,6 @@ private[lf] object SBuiltin {
             case Some(coid) =>
               val vcoid = coid.value
               val (control, _) = continue(Some(vcoid))
-              // Control.Blop("inside:SBUKeyBuiltin/B")
               control
 
             case None => {
@@ -1673,7 +1642,7 @@ private[lf] object SBuiltin {
                   GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
                   onLedger.committers,
                   callback = { res =>
-                    val (control, bool) = continue(res) // NICK
+                    val (control, bool) = continue(res)
                     machine.setControl("answer:NeedKey", control)
                     bool
                   },
