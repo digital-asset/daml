@@ -289,8 +289,8 @@ object PackageService {
     TemplateId.RequiredPkg => Error \/ iface.Type
 
   final case class ContractTypeIdMap[CtId[_]](
-      all: Set[ContractTypeId.Resolved[RequiredPkg[CtId]]],
-      unique: Map[NoPkg[CtId], ContractTypeId.Resolved[RequiredPkg[CtId]]],
+      all: Set[ContractTypeId.ResolvedId[RequiredPkg[CtId]]],
+      unique: Map[NoPkg[CtId], ContractTypeId.ResolvedId[RequiredPkg[CtId]]],
   ) {
     // forms a monoid with Empty
     private[PackageService] def ++(o: ContractTypeIdMap[CtId]): ContractTypeIdMap[CtId] = {
