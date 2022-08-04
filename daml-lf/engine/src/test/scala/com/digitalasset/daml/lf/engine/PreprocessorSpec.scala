@@ -9,15 +9,14 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
-import com.daml.lf.speedy.{ArrayList, SValue}
+import com.daml.lf.speedy.{ArrayList, DisclosedContract, SValue}
 import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueList, ValueParty, ValueRecord}
-import org.scalatest.{Inside, Inspectors}
+import org.scalatest.{Assertion, Inside, Inspectors}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
 import com.daml.lf.value.Value
-import org.scalatest.matchers.{MatchResult, Matcher}
 
 class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspectors {
 
@@ -54,31 +53,45 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
     }
 
     "preprocessDisclosedContracts" should {
-      "normalised contracts are accepted" in {
-        val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
-        val intermediaryResult =
-          preprocessor.preprocessDisclosedContracts(ImmArray(normalizedContract))
+      "normalized contracts" should {
+        "accepted if fields are correctly ordered" in {
+          val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+          val intermediaryResult =
+            preprocessor.preprocessDisclosedContracts(ImmArray(normalizedContract))
 
-        intermediaryResult shouldBe a[ResultNeedPackage[_]]
+          intermediaryResult shouldBe a[ResultNeedPackage[_]]
 
-        val finalResult = intermediaryResult.consume(_ => None, pkgs.get, _ => None)
+          val finalResult = intermediaryResult.consume(_ => None, pkgs.get, _ => None)
 
-        inside(finalResult) { case Right(disclosedContracts) =>
-          all(disclosedContracts.toList) should acceptDisclosedContract
+          acceptDisclosedContract(finalResult)
+        }
+
+        "rejected if fields are incorrectly ordered" in {
+          val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+          val intermediaryResult =
+            preprocessor.preprocessDisclosedContracts(ImmArray(altNormalizedContract))
+
+          intermediaryResult shouldBe a[ResultNeedPackage[_]]
+
+          val finalResult = intermediaryResult.consume(_ => None, pkgs.get, _ => None)
+
+          inside(finalResult) { case Left(Error.Preprocessing(error)) =>
+            error shouldBe a[Error.Preprocessing.TypeMismatch]
+          }
         }
       }
 
       "non-normalized contracts are accepted" in {
-        val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
-        val intermediaryResult =
-          preprocessor.preprocessDisclosedContracts(ImmArray(nonNormalizedContract))
+        forAll(Seq(nonNormalizedContract, altNonNormalizedContract)) { contract =>
+          val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+          val intermediaryResult =
+            preprocessor.preprocessDisclosedContracts(ImmArray(contract))
 
-        intermediaryResult shouldBe a[ResultNeedPackage[_]]
+          intermediaryResult shouldBe a[ResultNeedPackage[_]]
 
-        val finalResult = intermediaryResult.consume(_ => None, pkgs.get, _ => None)
+          val finalResult = intermediaryResult.consume(_ => None, pkgs.get, _ => None)
 
-        inside(finalResult) { case Right(disclosedContracts) =>
-          all(disclosedContracts.toList) should acceptDisclosedContract
+          acceptDisclosedContract(finalResult)
         }
       }
     }
@@ -125,24 +138,30 @@ object PreprocessorSpec {
   )
   val keyHash: Hash = crypto.Hash.assertHashContractKey(templateType, key)
   val normalizedContract: command.DisclosedContract =
-    buildDisclosedContract(keyHash, withNormalization = true)
+    buildDisclosedContract(keyHash, withNormalization = true, withFieldsReversed = false)
   val nonNormalizedContract: command.DisclosedContract =
-    buildDisclosedContract(keyHash, withNormalization = false)
+    buildDisclosedContract(keyHash, withNormalization = false, withFieldsReversed = false)
+  val altNormalizedContract: command.DisclosedContract =
+    buildDisclosedContract(keyHash, withNormalization = true, withFieldsReversed = true)
+  val altNonNormalizedContract: command.DisclosedContract =
+    buildDisclosedContract(keyHash, withNormalization = false, withFieldsReversed = true)
 
   def buildDisclosedContract(
       keyHash: Hash,
       withNormalization: Boolean,
+      withFieldsReversed: Boolean,
   ): command.DisclosedContract = {
+    val recordFields = ImmArray(
+      (if (withNormalization) None else Some(Ref.Name.assertFromString("owners"))) -> parties,
+      (if (withNormalization) None else Some(Ref.Name.assertFromString("data"))) -> Value
+        .ValueInt64(42L),
+    )
     command.DisclosedContract(
       templateId,
       contractId,
       Value.ValueRecord(
         if (withNormalization) None else Some(templateId),
-        ImmArray(
-          (if (withNormalization) None else Some(Ref.Name.assertFromString("owners"))) -> parties,
-          (if (withNormalization) None else Some(Ref.Name.assertFromString("data"))) -> Value
-            .ValueInt64(42L),
-        ),
+        if (withFieldsReversed) recordFields.reverse else recordFields,
       ),
       ContractMetadata(Time.Timestamp.now(), Some(keyHash), ImmArray.Empty),
     )
@@ -155,26 +174,28 @@ object PreprocessorSpec {
       "org.wartremover.warts.JavaSerializable",
     )
   )
-  def acceptDisclosedContract: Matcher[speedy.DisclosedContract] = Matcher { disclosedContract =>
-    val testResult = disclosedContract.argument match {
-      case SValue.SRecord(`templateId`, fields, values) =>
-        fields == ImmArray(
-          Ref.Name.assertFromString("owners"),
-          Ref.Name.assertFromString("data"),
-        ) &&
-        values == ArrayList(
-          SValue.SList(FrontStack(SValue.SParty(alice))),
-          SValue.SInt64(42L),
-        )
+  def acceptDisclosedContract(result: Either[Error, ImmArray[DisclosedContract]]): Assertion = {
+    import Inside._
+    import Inspectors._
+    import Matchers._
 
-      case _ =>
-        false
+    inside(result) { case Right(disclosedContracts) =>
+      forAll(disclosedContracts.toList) {
+        _.argument match {
+          case SValue.SRecord(`templateId`, fields, values) =>
+            fields shouldBe ImmArray(
+              Ref.Name.assertFromString("owners"),
+              Ref.Name.assertFromString("data"),
+            )
+            values shouldBe ArrayList(
+              SValue.SList(FrontStack(SValue.SParty(alice))),
+              SValue.SInt64(42L),
+            )
+
+          case _ =>
+            fail()
+        }
+      }
     }
-
-    MatchResult(
-      testResult,
-      s"Failed to accept disclosed contract: $disclosedContract",
-      s"Failed to accept disclosed contract: $disclosedContract",
-    )
   }
 }
