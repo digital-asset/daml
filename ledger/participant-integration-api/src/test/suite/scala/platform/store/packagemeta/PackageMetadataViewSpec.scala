@@ -5,7 +5,7 @@ package com.daml.platform.store.packagemeta
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.test.ModelTestDar
+import com.daml.ledger.test.SemanticTestDar
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.platform.store.packagemeta.PackageMetadataView.MetadataDefinitions
@@ -34,7 +34,7 @@ class PackageMetadataViewSpec
   behavior of "MetadataDefinitions from"
 
   it should "handle archives" in new Scope {
-    val darFile: File = new File(rlocation(ModelTestDar.path))
+    val darFile: File = new File(rlocation(SemanticTestDar.path))
     val packages: List[DamlLf.Archive] = Using(new ZipInputStream(new FileInputStream(darFile))) {
       stream =>
         DarParser.readArchive("smth", stream)
