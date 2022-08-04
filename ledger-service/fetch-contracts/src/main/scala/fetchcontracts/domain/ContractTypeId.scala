@@ -133,6 +133,7 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
 
   type Like[CtId[T] <: ContractTypeId[T]] = ContractTypeIdLike[CtId]
 
+  // CtId serves the same role as `CC` on scala.collection.IterableOps
   sealed trait Ops[+CtId[_], +PkgId] { this: ContractTypeId[PkgId] =>
     def copy[PkgId0](
         packageId: PkgId0 = packageId,
