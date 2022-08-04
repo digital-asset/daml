@@ -1118,7 +1118,7 @@ private[lf] object SBuiltin {
               case V.ContractInstance(actualTmplId, arg, _) =>
                 SEApp(
                   // The call to ToCachedContractDefRef(actualTmplId) will query package
-                  // of actualTmplId if not know.
+                  // of actualTmplId if not known.
                   SEVal(ToCachedContractDefRef(actualTmplId)),
                   Array(
                     SEImportValue(Ast.TTyCon(actualTmplId), arg),

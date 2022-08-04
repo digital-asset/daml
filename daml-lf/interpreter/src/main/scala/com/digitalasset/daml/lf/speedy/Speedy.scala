@@ -32,8 +32,8 @@ import scala.util.control.NoStackTrace
 private[lf] object Speedy {
 
   // These have zero cost when not enabled. But they are not switchable at runtime.
-  private[this] val enableInstrumentation: Boolean = false
-  private[this] val enableLightweightStepTracing: Boolean = false
+  private val enableInstrumentation: Boolean = false
+  private val enableLightweightStepTracing: Boolean = false
 
   /** Instrumentation counters. */
   final case class Instrumentation(
@@ -518,7 +518,6 @@ private[lf] object Speedy {
     }
 
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
-
     def run(): SResult = {
       try {
         // normal exit from this loop is when KFinished.execute throws SpeedyComplete
@@ -532,14 +531,14 @@ private[lf] object Speedy {
             println(s"$steps: ${PrettyLightweight.ppMachine(this)}")
           }
           control match {
-            case Control.WeAreUnset() =>
+            case Control.WeAreUnset =>
               sys.error("**attempt to run a machine with unset control")
-            case Control.WeAreComplete() =>
+            case Control.WeAreComplete =>
               sys.error("**attempt to run a complete machine")
             case Control.WeAreHungry(res) =>
               sys.error(s"**attempt to run a hungry machine (feed me first): $res")
             case Control.Expression(exp) =>
-              setControl(Control.WeAreUnset())
+              setControl(Control.WeAreUnset)
               setControl(exp.execute(this))
               loop()
             case Control.Value(value) =>
@@ -554,7 +553,7 @@ private[lf] object Speedy {
           setControl(Control.WeAreHungry(res))
           res
         case SpeedyComplete(value: SValue) =>
-          setControl(Control.WeAreComplete())
+          setControl(Control.WeAreComplete)
           if (enableInstrumentation) track.print()
           ledgerMode match {
             case OffLedger => SResultFinal(value, None)
@@ -1111,8 +1110,8 @@ private[lf] object Speedy {
   object Control {
     final case class Expression(e: SExpr) extends Control
     final case class Value(v: SValue) extends Control
-    final case class WeAreUnset() extends Control
-    final case class WeAreComplete() extends Control
+    final case object WeAreUnset extends Control
+    final case object WeAreComplete extends Control
     final case class WeAreHungry(res: SResult) extends Control
   }
 
