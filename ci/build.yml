@@ -108,9 +108,15 @@ jobs:
   dependsOn:
     - check_for_release
   timeoutInMinutes: 360
+  strategy:
+    matrix:
+      intel:
+        assignment: default
+      apple:
+        assignment: m1
   pool:
     name: macOS-pool
-    demands: assignment -equals default
+    demands: assignment -equals $(assignment)
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
