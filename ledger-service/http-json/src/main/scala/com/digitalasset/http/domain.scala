@@ -27,10 +27,10 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
   import scalaz.{@@, Tag}
 
   type InputContractRef[LfV] =
-    (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], ContractId)
+    (ContractTypeId.Template.OptionalPkg, LfV) \/ (Option[ContractTypeId.OptionalPkg], ContractId)
 
   type ResolvedContractRef[LfV] =
-    (TemplateId.RequiredPkg, LfV) \/ (TemplateId.RequiredPkg, ContractId)
+    (ContractTypeId.Template.RequiredPkg, LfV) \/ (ContractTypeId.RequiredPkg, ContractId)
 
   type LedgerIdTag = lar.LedgerIdTag
   type LedgerId = lar.LedgerId

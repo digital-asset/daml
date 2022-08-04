@@ -5,7 +5,6 @@ package com.daml.http.json
 
 import akka.http.scaladsl.model.StatusCode
 import com.daml.http.domain
-import com.daml.http.domain.TemplateId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.lf.data.Ref.HexString
 import com.daml.lf.value.Value.ContractId
@@ -183,7 +182,7 @@ object JsonProtocol extends JsonProtocolLow {
   ): domain.InputContractRef[JsValue] =
     (fields get "templateId", fields get "key", fields get "contractId") match {
       case (Some(templateId), Some(key), None) =>
-        -\/((templateId.convertTo[domain.TemplateId.OptionalPkg], key))
+        -\/((templateId.convertTo[domain.ContractTypeId.Template.OptionalPkg], key))
       case (otid, None, Some(contractId)) =>
         val a = otid map (_.convertTo[domain.TemplateId.OptionalPkg])
         val b = contractId.convertTo[domain.ContractId]
@@ -296,14 +295,16 @@ object JsonProtocol extends JsonProtocolLow {
   // Like requestJsonReader, but suitable for exactly one extra field, simply
   // parsing it to the supplied extra type if present.
   // Can generalize to >1 field with singleton types and hlists, if you like
-  private def requestJsonReaderPlusOne[Extra: JsonReader, Request](validExtraField: String)(
+  private def requestJsonReaderPlusOne[Extra: JsonReader, TpId: JsonFormat, Request](
+      validExtraField: String
+  )(
       toRequest: (
-          OneAnd[Set, TemplateId.OptionalPkg],
+          OneAnd[Set, TpId],
           Map[String, JsValue],
           Option[Extra],
       ) => Request
   ): RootJsonReader[Request] =
-    requestJsonReader(Set(validExtraField)) { (tids, query, extra) =>
+    requestJsonReader(Set(validExtraField)) { (tids: OneAnd[Set, TpId], query, extra) =>
       toRequest(tids, query, extra get validExtraField map (_.convertTo[Extra]))
     }
 
@@ -315,15 +316,15 @@ object JsonProtocol extends JsonProtocolLow {
     *  This provides an (almost) consistent behavior when reading the 'templateIds' and
     *  'query' fields. Further extra fields may be added by concrete implementations.
     */
-  private[this] def requestJsonReader[Request](validExtraFields: Set[String])(
+  private[this] def requestJsonReader[TpId: JsonFormat, Request](validExtraFields: Set[String])(
       toRequest: (
-          OneAnd[Set, TemplateId.OptionalPkg],
+          OneAnd[Set, TpId],
           Map[String, JsValue],
           Map[String, JsValue],
       ) => Request
   ): RootJsonReader[Request] = {
     final case class BaseRequest(
-        templateIds: Set[domain.TemplateId.OptionalPkg],
+        templateIds: Set[TpId],
         query: Option[Map[String, JsValue]],
     )
     val validKeys = Set("templateIds", "query") ++ validExtraFields

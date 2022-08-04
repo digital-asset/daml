@@ -11,7 +11,7 @@ import com.daml.lf
 import com.daml.http.LedgerClientJwt.Terminates
 import com.daml.http.dbbackend.ContractDao
 import com.daml.http.domain.TemplateId.toLedgerApiValue
-import com.daml.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
+import com.daml.http.domain.{ContractTypeId, GetActiveContractsRequest, JwtPayload}
 import com.daml.http.json.JsonProtocol.LfValueCodec
 import com.daml.http.query.ValuePredicate
 import com.daml.fetchcontracts.util.{AbsoluteBookmark, ContractStreamStep, InsertDeleteStep}
@@ -119,7 +119,7 @@ class ContractsService(
   private[this] def findByContractKey(
       jwt: Jwt,
       parties: domain.PartySet,
-      templateId: TemplateId.OptionalPkg,
+      templateId: ContractTypeId.Template.OptionalPkg,
       ledgerId: LedgerApiDomain.LedgerId,
       contractKey: LfValue,
   )(implicit
@@ -638,9 +638,9 @@ object ContractsService {
   )
 
   private object SearchContext {
-    type QueryLang = SearchContext[Set[domain.TemplateId.RequiredPkg]]
-    type ById = SearchContext[Option[domain.TemplateId.OptionalPkg]]
-    type Key = SearchContext[domain.TemplateId.OptionalPkg]
+    type QueryLang = SearchContext[Set[domain.ContractTypeId.Template.RequiredPkg]]
+    type ById = SearchContext[Option[domain.ContractTypeId.Template.OptionalPkg]]
+    type Key = SearchContext[domain.ContractTypeId.Template.OptionalPkg]
   }
 
   // A prototypical abstraction over the in-memory/in-DB split, accounting for
