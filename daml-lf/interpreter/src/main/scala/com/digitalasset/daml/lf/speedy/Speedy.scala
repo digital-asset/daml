@@ -27,6 +27,7 @@ import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.annotation.tailrec
+import scala.collection.immutable.HashSet
 import scala.util.control.NoStackTrace
 
 private[lf] object Speedy {
@@ -972,7 +973,7 @@ private[lf] object Speedy {
               contractKeyUniqueness,
               initialSeeding,
               committers,
-              ImmArray.empty,
+              HashSet.empty,
             ),
           committers = committers,
           readAs = readAs,

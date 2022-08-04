@@ -175,7 +175,7 @@ private[lf] object PartialTransaction {
       contractKeyUniqueness: ContractKeyUniquenessMode,
       initialSeeds: InitialSeeding,
       committers: Set[Party],
-      disclosedContracts: ImmArray[DisclosedContract],
+      disclosedContracts: HashSet[DisclosedContract],
   ) = PartialTransaction(
     nextNodeIdx = 0,
     nodes = HashMap.empty,
@@ -202,7 +202,7 @@ private[lf] object PartialTransaction {
       locationInfo: Map[NodeId, Location],
       seeds: NodeSeeds,
       globalKeyMapping: Map[GlobalKey, KeyMapping],
-      disclosedContracts: ImmArray[DisclosedContract],
+      disclosedContracts: HashSet[DisclosedContract],
   )
 }
 

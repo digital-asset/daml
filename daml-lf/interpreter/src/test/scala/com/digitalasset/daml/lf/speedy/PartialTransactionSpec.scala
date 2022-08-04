@@ -13,6 +13,8 @@ import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.collection.immutable.HashSet
+
 class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
   private[this] val transactionSeed = crypto.Hash.hashPrivateKey("PartialTransactionSpec")
@@ -26,7 +28,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
     ContractKeyUniquenessMode.Strict,
     InitialSeeding.TransactionSeed(transactionSeed),
     committers,
-    ImmArray.Empty,
+    HashSet.empty,
   )
 
   private[this] def contractIdsInOrder(ptx: PartialTransaction): Seq[Value.ContractId] = {
