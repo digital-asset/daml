@@ -16,7 +16,7 @@ import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
-import com.daml.lf.speedy.Speedy.Machine
+import com.daml.lf.speedy.Speedy.{Machine, Control}
 import com.daml.logging.LoggingContext
 
 import java.io.File
@@ -61,7 +61,10 @@ class CollectAuthorityState {
       compiledPackages,
       expr,
     )
-    the_sexpr = machine.ctrl
+    the_sexpr = machine.control match {
+      case Control.Expression(exp) => exp
+      case x => crash(s"expected Control.Expression, got: $x")
+    }
 
     // fill the caches!
     setup()
@@ -153,9 +156,8 @@ class CollectAuthorityState {
     }
   }
 
-  def crash(reason: String) = {
-    System.err.println("Benchmark failed: " + reason)
-    System.exit(1)
+  def crash[T](reason: String): T = {
+    sys.error("Benchmark failed: " + reason)
   }
 
 }
