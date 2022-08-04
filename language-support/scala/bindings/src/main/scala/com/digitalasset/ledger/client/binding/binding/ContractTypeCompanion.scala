@@ -7,8 +7,6 @@ import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.v1.{value => rpcvalue}
 import encoding.ExerciseOn
 
-import annotation.nowarn
-
 /** Common superclass of template and interface companions objects. */
 abstract class ContractTypeCompanion[T] extends ValueRefCompanion {
 
@@ -27,15 +25,6 @@ abstract class ContractTypeCompanion[T] extends ValueRefCompanion {
       entityName: String,
   ): Primitive.TemplateId[T] =
     Primitive.TemplateId(packageId, moduleName, entityName)
-
-  @nowarn("msg=parameter value actor .* is never used") // part of generated code API
-  protected final def ` exercise`[ExOn, Out](
-      actor: Primitive.Party,
-      receiver: ExOn,
-      choiceId: String,
-      arguments: Option[rpcvalue.Value],
-  )(implicit exon: ExerciseOn[ExOn, T]): Primitive.Update[Out] =
-    Primitive.exercise(this, receiver, choiceId, arguments getOrElse Value.encode(()))
 
   protected final def ` exercise`[ExOn, Out](
       receiver: ExOn,
