@@ -38,7 +38,7 @@ import com.daml.scalautil.Statement.discard
 object SExpr {
 
   sealed abstract class SExpr extends Product with Serializable {
-    def execute(machine: Machine): Unit
+    def execute(machine: Machine): Control
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override def toString: String =
       productPrefix + productIterator.map(prettyPrint).mkString("(", ",", ")")
@@ -47,8 +47,8 @@ object SExpr {
   sealed abstract class SExprAtomic extends SExpr {
     def lookupValue(machine: Machine): SValue
 
-    final def execute(machine: Machine): Unit = {
-      machine.returnValue = lookupValue(machine)
+    final def execute(machine: Machine): Control = {
+      Control.Value(lookupValue(machine))
     }
   }
 
@@ -76,8 +76,9 @@ object SExpr {
     def setCached(sValue: SValue, stack_trace: List[Location]): Unit =
       _cached = Some((sValue, stack_trace))
 
-    def execute(machine: Machine): Unit =
+    def execute(machine: Machine): Control = {
       machine.lookupVal(this)
+    }
   }
 
   /** Reference to a builtin function */
@@ -108,9 +109,9 @@ object SExpr {
     *    Sadly, we have many code paths where this case is constructed.
     */
   final case class SEAppGeneral(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
-    def execute(machine: Machine): Unit = {
+    def execute(machine: Machine): Control = {
       machine.pushKont(KArg(machine, args))
-      machine.ctrl = fun
+      Control.Expression(fun)
     }
   }
 
@@ -120,7 +121,7 @@ object SExpr {
   final case class SEAppAtomicFun(fun: SExprAtomic, args: Array[SExpr])
       extends SExpr
       with SomeArrayEquals {
-    def execute(machine: Machine): Unit = {
+    def execute(machine: Machine): Control = {
       val vfun = fun.lookupValue(machine)
       machine.executeApplication(vfun, args)
     }
@@ -136,7 +137,7 @@ object SExpr {
   final case class SEAppAtomicGeneral(fun: SExprAtomic, args: Array[SExprAtomic])
       extends SExpr
       with SomeArrayEquals {
-    def execute(machine: Machine): Unit = {
+    def execute(machine: Machine): Control = {
       val vfun = fun.lookupValue(machine)
       machine.enterApplication(vfun, args)
     }
@@ -148,7 +149,7 @@ object SExpr {
   final case class SEAppAtomicSaturatedBuiltin(builtin: SBuiltin, args: Array[SExprAtomic])
       extends SExpr
       with SomeArrayEquals {
-    def execute(machine: Machine): Unit = {
+    def execute(machine: Machine): Control = {
       val arity = builtin.arity
       val actuals = new util.ArrayList[SValue](arity)
       var i = 0
@@ -181,15 +182,15 @@ object SExpr {
       extends SExpr
       with SomeArrayEquals {
 
-    def execute(machine: Machine): Unit = {
+    def execute(machine: Machine): Control = {
       val sValues = Array.ofDim[SValue](fvs.length)
       var i = 0
       while (i < fvs.length) {
         sValues(i) = fvs(i).lookupValue(machine)
         i += 1
       }
-      machine.returnValue =
-        SPAP(PClosure(Profile.LabelUnset, body, sValues), ArrayList.empty, arity)
+      val pap = SPAP(PClosure(Profile.LabelUnset, body, sValues), ArrayList.empty, arity)
+      Control.Value(pap)
     }
   }
 
@@ -225,7 +226,7 @@ object SExpr {
   final case class SECaseAtomic(scrut: SExprAtomic, alts: Array[SCaseAlt])
       extends SExpr
       with SomeArrayEquals {
-    def execute(machine: Machine): Unit = {
+    def execute(machine: Machine): Control = {
       val vscrut = scrut.lookupValue(machine)
       executeMatchAlts(machine, alts, vscrut)
     }
@@ -233,9 +234,9 @@ object SExpr {
 
   /** A let-expression with a single RHS */
   final case class SELet1General(rhs: SExpr, body: SExpr) extends SExpr with SomeArrayEquals {
-    def execute(machine: Machine): Unit = {
+    def execute(machine: Machine): Control = {
       machine.pushKont(KPushTo(machine, machine.env, body))
-      machine.ctrl = rhs
+      Control.Expression(rhs)
     }
   }
 
@@ -243,7 +244,7 @@ object SExpr {
   final case class SELet1Builtin(builtin: SBuiltinPure, args: Array[SExprAtomic], body: SExpr)
       extends SExpr
       with SomeArrayEquals {
-    def execute(machine: Machine): Unit = {
+    def execute(machine: Machine): Control = {
       val arity = builtin.arity
       val actuals = new util.ArrayList[SValue](arity)
       var i = 0
@@ -255,7 +256,7 @@ object SExpr {
       }
       val v = builtin.executePure(actuals)
       machine.pushEnv(v) // use pushEnv not env.add so instrumentation is updated
-      machine.ctrl = body
+      Control.Expression(body)
     }
   }
 
@@ -266,7 +267,7 @@ object SExpr {
       body: SExpr,
   ) extends SExpr
       with SomeArrayEquals {
-    def execute(machine: Machine): Unit = {
+    def execute(machine: Machine): Control = {
       val arity = builtin.arity
       val actuals = new util.ArrayList[SValue](arity)
       var i = 0
@@ -279,7 +280,7 @@ object SExpr {
       builtin.compute(actuals) match {
         case Some(value) =>
           machine.pushEnv(value) // use pushEnv not env.add so instrumentation is updated
-          machine.ctrl = body
+          Control.Expression(body)
         case None =>
           unwindToHandler(machine, builtin.buildException(actuals))
       }
@@ -303,9 +304,9 @@ object SExpr {
     * variable of the machine. When commit is begun the location is stored in 'commitLocation'.
     */
   final case class SELocation(loc: Location, expr: SExpr) extends SExpr {
-    def execute(machine: Machine): Unit = {
+    def execute(machine: Machine): Control = {
       machine.pushLocation(loc)
-      machine.ctrl = expr
+      Control.Expression(expr)
     }
   }
 
@@ -319,9 +320,9 @@ object SExpr {
     * [[AnyRef]] for the label.
     */
   final case class SELabelClosure(label: Profile.Label, expr: SExpr) extends SExpr {
-    def execute(machine: Machine): Unit = {
+    def execute(machine: Machine): Control = {
       machine.pushKont(KLabelClosure(machine, label))
-      machine.ctrl = expr
+      Control.Expression(expr)
     }
   }
 
@@ -332,7 +333,7 @@ object SExpr {
     * It is only constructed at runtime by certain builtin-ops.
     */
   final case class SEDamlException(error: interpretation.Error) extends SExpr {
-    def execute(machine: Machine): Unit = {
+    def execute(machine: Machine): Control = {
       throw SErrorDamlException(error)
     }
   }
@@ -343,34 +344,34 @@ object SExpr {
     * loaded in `machine`.
     */
   final case class SEImportValue(typ: Ast.Type, value: V) extends SExpr {
-    def execute(machine: Machine): Unit = {
+    def execute(machine: Machine): Control = {
       machine.importValue(typ, value)
     }
   }
 
   /** Exception handler */
   final case class SETryCatch(body: SExpr, handler: SExpr) extends SExpr {
-    def execute(machine: Machine): Unit = {
+    def execute(machine: Machine): Control = {
       machine.pushKont(KTryCatchHandler(machine, handler))
-      machine.ctrl = body
       machine.withOnLedger("SETryCatch") { onLedger =>
         onLedger.ptx = onLedger.ptx.beginTry
       }
+      Control.Expression(body)
     }
   }
 
   /** Exercise scope (begin..end) */
   final case class SEScopeExercise(body: SExpr) extends SExpr {
-    def execute(machine: Machine): Unit = {
+    def execute(machine: Machine): Control = {
       machine.pushKont(KCloseExercise(machine))
-      machine.ctrl = body
+      Control.Expression(body)
     }
   }
 
   final case class SEPreventCatch(body: SExpr) extends SExpr {
-    def execute(machine: Machine): Unit = {
+    def execute(machine: Machine): Control = {
       machine.pushKont(KPreventException(machine))
-      machine.ctrl = body
+      Control.Expression(body)
     }
   }
 
