@@ -81,6 +81,45 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
           cid should ===(imId)
           choiceArg should ===(encode(MyMain.OverloadedInTemplate()))
       }
+      inside(imId.exerciseOverloadedInTemplate(alice, MyMain.OverloadedInTemplate()).command.command) {
+        case rpccmd.Command.Command.Exercise(
+              rpccmd.ExerciseCommand(
+                Some(DirectTemplateId),
+                cid,
+                "OverloadedInTemplate",
+                Some(choiceArg),
+              )
+            ) =>
+          cid should ===(imId)
+          choiceArg should ===(encode(MyMain.OverloadedInTemplate()))
+      }
+    }
+
+    "invoke directly-defined without actor" in {
+      inside(imId.exerciseOverloadedInTemplate().command.command) {
+        case rpccmd.Command.Command.Exercise(
+              rpccmd.ExerciseCommand(
+                Some(DirectTemplateId),
+                cid,
+                "OverloadedInTemplate",
+                Some(choiceArg),
+              )
+            ) =>
+          cid should ===(imId)
+          choiceArg should ===(encode(MyMain.OverloadedInTemplate()))
+      }
+      inside(imId.exerciseOverloadedInTemplate(MyMain.OverloadedInTemplate()).command.command) {
+        case rpccmd.Command.Command.Exercise(
+              rpccmd.ExerciseCommand(
+                Some(DirectTemplateId),
+                cid,
+                "OverloadedInTemplate",
+                Some(choiceArg),
+              )
+            ) =>
+          cid should ===(imId)
+          choiceArg should ===(encode(MyMain.OverloadedInTemplate()))
+      }
     }
 
     "invoke interface-defined choices, even when overloaded in template" in {

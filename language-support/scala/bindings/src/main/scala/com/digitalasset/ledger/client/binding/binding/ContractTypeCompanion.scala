@@ -36,4 +36,11 @@ abstract class ContractTypeCompanion[T] extends ValueRefCompanion {
       arguments: Option[rpcvalue.Value],
   )(implicit exon: ExerciseOn[ExOn, T]): Primitive.Update[Out] =
     Primitive.exercise(this, receiver, choiceId, arguments getOrElse Value.encode(()))
+
+  protected final def ` exercise`[ExOn, Out](
+      receiver: ExOn,
+      choiceId: String,
+      arguments: Option[rpcvalue.Value],
+  )(implicit exon: ExerciseOn[ExOn, T]): Primitive.Update[Out] =
+    Primitive.exercise(this, receiver, choiceId, arguments getOrElse Value.encode(()))
 }

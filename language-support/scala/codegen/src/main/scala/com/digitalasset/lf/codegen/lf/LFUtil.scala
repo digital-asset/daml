@@ -282,15 +282,22 @@ final case class LFUtil(
     val actorParam = q"${TermName(actorParamName)}: $domainApiAlias.Primitive.Party"
     val exerciseOnParam = q"` exOn`: $domainApiAlias.encoding.ExerciseOn[$idType, $templateType]"
     val resultType = genTypeToScalaType(choiceInterface.returnType)
-    val body = q"` exercise`(${TermName(actorParamName)}, id, $choiceId, $namedArguments)"
+    val body = q"` exercise`(id, $choiceId, $namedArguments)"
 
-    Seq(q"""def $choiceMethod($actorParam, ..${typedParam.toList})(implicit $exerciseOnParam)
+    Seq(q"""@scala.annotation.nowarn("msg=parameter value actor.* is never used")
+            def $choiceMethod($actorParam, ..${typedParam.toList})(implicit $exerciseOnParam)
+                : $domainApiAlias.Primitive.Update[$resultType] = $body""",
+        q"""def $choiceMethod(..${typedParam.toList})(implicit $exerciseOnParam)
                 : $domainApiAlias.Primitive.Update[$resultType] = $body""") ++
-      denominalized.map { case (dparams, dctorName, dargs) =>
-        q"""def $choiceMethod($actorParam, ..$dparams)(implicit $exerciseOnParam)
-                  : $domainApiAlias.Primitive.Update[$resultType] =
-                $choiceMethod(${TermName(actorParamName)}, $dctorName(..$dargs))"""
-      }.toList
+      denominalized.toList.flatMap { case (dparams, dctorName, dargs) =>
+        Seq(q"""@scala.annotation.nowarn("msg=parameter value actor.* is never used")
+                def $choiceMethod($actorParam, ..$dparams)(implicit $exerciseOnParam)
+                    : $domainApiAlias.Primitive.Update[$resultType] =
+                    $choiceMethod($dctorName(..$dargs))""",
+            q"""def $choiceMethod(..$dparams)(implicit $exerciseOnParam)
+                      : $domainApiAlias.Primitive.Update[$resultType] =
+                    $choiceMethod($dctorName(..$dargs))""")
+      }
   }
 }
 
