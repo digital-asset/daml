@@ -4,13 +4,12 @@
 package com.daml.platform.apiserver.execution
 
 import java.time.Duration
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
-import com.daml.lf.command.{ApiCommands => LfCommands, DisclosedContract}
+import com.daml.lf.command.{DisclosedContract, ApiCommands => LfCommands}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.{ImmArray, Ref, Time}
@@ -22,6 +21,8 @@ import com.daml.metrics.Metrics
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+
+import scala.collection.immutable.HashSet
 
 class StoreBackedCommandExecutorSpec
     extends AsyncWordSpec
@@ -36,7 +37,7 @@ class StoreBackedCommandExecutorSpec
     dependsOnTime = false,
     nodeSeeds = ImmArray.Empty,
     globalKeyMapping = Map.empty,
-    disclosures = ImmArray.Empty,
+    disclosures = HashSet.empty,
   )
 
   "execute" should {
