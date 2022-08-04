@@ -50,8 +50,8 @@ private[platform] class InMemoryState(
   /** (Re-)initializes the participant in-memory state to a specific ledger end.
     *
     * The state is conditionally (re-)initialized depending on:
-    *    - whether it has been already initialized for the first time
-    *    - whether the ledger end cache or the last string interned id have changed
+    *    - whether is it not initialized (i.e. the dispatcher is not running)
+    *    - whether the ledger end cache or the last interned string id have changed
     *    since the last known state. Note that we additionally check the string interning view's last id,
     *    since it is updated outside this class (see [[com.daml.platform.indexer.parallel.ParallelIndexerSubscription]]).
     *    - whether it has been marked dirty. On a successful (re-)initialization, the state is marked not dirty again.

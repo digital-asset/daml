@@ -37,8 +37,13 @@ class InMemoryStateSpec
   private val initLedgerEnd = ParameterStorageBackend
     .LedgerEnd(initOffset, initEventSequentialId, initStringInterningId)
 
-  s"$className.initialized" should "return false if not initialized" in withTestFixture {
-    case (inMemoryState, _, _) => inMemoryState.initialized shouldBe false
+  s"$className.initialized" should "return true if dispatcherState is running" in withTestFixture {
+    case (inMemoryState, _, _) =>
+      when(inMemoryState.dispatcherState.isRunning).thenReturn(false)
+      inMemoryState.initialized shouldBe false
+
+      when(inMemoryState.dispatcherState.isRunning).thenReturn(true)
+      inMemoryState.initialized shouldBe true
   }
 
   s"$className.initializeTo" should "initialize the state" in withTestFixture {
@@ -47,29 +52,33 @@ class InMemoryStateSpec
           updateStringInterningView,
           inOrder,
         ) =>
-      import inMemoryState._
-      when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(Future.unit)
-      when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
-
       for {
         // Initialize the state
         _ <- inMemoryState.initializeTo(initLedgerEnd, executionContext)(updateStringInterningView)
+
         _ = {
           // Assert the state initialized
           verifyInitializedInOrder(inMemoryState, updateStringInterningView, inOrder, initLedgerEnd)
-
-          inMemoryState.initialized shouldBe true
         }
+      } yield succeed
+  }
 
-        _ = {
-          when(ledgerEndCache()).thenReturn(initOffset -> initEventSequentialId)
-          when(stringInterningView.lastId).thenReturn(initStringInterningId)
-        }
+  s"$className.initializeTo" should "not re-initialize if the conditions did not change" in withTestFixture {
+    case (
+          inMemoryState,
+          updateStringInterningView,
+          _,
+        ) =>
+      import inMemoryState._
 
+      arrangeInitialized(inMemoryState, initLedgerEnd)
+
+      for {
         // Re-initialize to the same ledger end
         _ <- inMemoryState.initializeTo(initLedgerEnd, executionContext)(updateStringInterningView)
         _ = {
           // Ledger end references checks
+          verify(dispatcherState).isRunning
           verify(ledgerEndCache).apply()
           verify(stringInterningView).lastId
 
@@ -82,8 +91,6 @@ class InMemoryStateSpec
             ledgerEndCache,
             stringInterningView,
           )
-
-          inMemoryState.initialized shouldBe true
         }
       } yield succeed
   }
@@ -95,28 +102,16 @@ class InMemoryStateSpec
           inOrder,
         ) =>
       import inMemoryState._
-      when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(Future.unit)
-      when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
-      when(dispatcherState.isRunning).thenReturn(true)
+
+      val reInitLedgerEnd = initLedgerEnd.copy(lastOffset =
+        Offset.fromHexString(Ref.HexString.assertFromString("abeeee"))
+      )
+      arrangeInitialized(inMemoryState, initLedgerEnd)
+      when(updateStringInterningView(stringInterningView, reInitLedgerEnd)).thenReturn(
+        Future.unit
+      )
 
       for {
-        // Initialize the state to the initial ledger end
-        _ <- inMemoryState.initializeTo(initLedgerEnd, executionContext)(updateStringInterningView)
-
-        reInitLedgerEnd = initLedgerEnd.copy(lastOffset =
-          Offset.fromHexString(Ref.HexString.assertFromString("abeeee"))
-        )
-        // Reset mocks
-        _ = {
-          resetMocks(inMemoryState, updateStringInterningView)
-
-          when(ledgerEndCache()).thenReturn(initOffset -> initEventSequentialId)
-          when(updateStringInterningView(stringInterningView, reInitLedgerEnd)).thenReturn(
-            Future.unit
-          )
-          when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
-        }
-
         // Re-initialize to a different ledger end
         _ <- inMemoryState.initializeTo(reInitLedgerEnd, executionContext)(
           updateStringInterningView
@@ -124,6 +119,7 @@ class InMemoryStateSpec
 
         _ = {
           // Ledger end references checks
+          verify(dispatcherState).isRunning
           verify(ledgerEndCache).apply()
           // Short-circuited by the failing ledger end cache check
           verify(stringInterningView, never).lastId
@@ -136,35 +132,6 @@ class InMemoryStateSpec
             reInitLedgerEnd,
           )
         }
-
-        // Reset mocks
-        _ = {
-          resetMocks(inMemoryState, updateStringInterningView)
-          when(ledgerEndCache()).thenReturn(
-            reInitLedgerEnd.lastOffset -> reInitLedgerEnd.lastEventSeqId
-          )
-          when(stringInterningView.lastId).thenReturn(reInitLedgerEnd.lastStringInterningId)
-        }
-
-        // Attempt to re-initialize to the same ledger end
-        _ <- inMemoryState.initializeTo(reInitLedgerEnd, executionContext)(
-          updateStringInterningView
-        )
-        _ = {
-          // Assert ledger end reference checks
-          verify(stringInterningView).lastId
-          verify(ledgerEndCache).apply()
-
-          // Assert no effect
-          verifyNoMoreInteractions(
-            dispatcherState,
-            updateStringInterningView,
-            contractStateCaches,
-            inMemoryFanoutBuffer,
-            ledgerEndCache,
-            stringInterningView,
-          )
-        }
       } yield succeed
   }
 
@@ -175,36 +142,25 @@ class InMemoryStateSpec
           inOrder,
         ) =>
       import inMemoryState._
-      when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(Future.unit)
-      when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
+
+      val newLedgerEnd =
+        initLedgerEnd.copy(lastStringInterningId = initLedgerEnd.lastStringInterningId + 1)
+
+      arrangeInitialized(inMemoryState, initLedgerEnd)
+      when(updateStringInterningView(stringInterningView, newLedgerEnd)).thenReturn(
+        Future.unit
+      )
 
       for {
-        // Initialize the state to the initial ledger end
-        _ <- inMemoryState.initializeTo(initLedgerEnd, executionContext)(updateStringInterningView)
-
-        newLedgerEnd = initLedgerEnd.copy(lastStringInterningId =
-          initLedgerEnd.lastStringInterningId + 1
-        )
-        // Reset mocks
-        _ = {
-          resetMocks(inMemoryState, updateStringInterningView)
-
-          when(ledgerEndCache()).thenReturn(initOffset -> initEventSequentialId)
-          when(updateStringInterningView(stringInterningView, newLedgerEnd)).thenReturn(
-            Future.unit
-          )
-          when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
-        }
-
-        // Re-initialize to a different ledger end
+        // Re-initialize to a different string interning id
         _ <- inMemoryState.initializeTo(newLedgerEnd, executionContext)(
           updateStringInterningView
         )
 
         _ = {
           // Ledger end references checks
+          verify(dispatcherState).isRunning
           verify(ledgerEndCache).apply()
-          // Short-circuited by the failing ledger end cache check
           verify(stringInterningView).lastId
 
           // Assert state initialized to the new ledger end
@@ -215,64 +171,23 @@ class InMemoryStateSpec
             newLedgerEnd,
           )
         }
-
-        // Reset mocks
-        _ = {
-          resetMocks(inMemoryState, updateStringInterningView)
-          when(ledgerEndCache()).thenReturn(newLedgerEnd.lastOffset -> newLedgerEnd.lastEventSeqId)
-          when(stringInterningView.lastId).thenReturn(newLedgerEnd.lastStringInterningId)
-        }
-
-        // Attempt to re-initialize to the same ledger end
-        _ <- inMemoryState.initializeTo(newLedgerEnd, executionContext)(
-          updateStringInterningView
-        )
-        _ = {
-          // Assert ledger end reference checks
-          verify(stringInterningView).lastId
-          verify(ledgerEndCache).apply()
-
-          // Assert no effect
-          verifyNoMoreInteractions(
-            dispatcherState,
-            updateStringInterningView,
-            contractStateCaches,
-            inMemoryFanoutBuffer,
-            ledgerEndCache,
-            stringInterningView,
-          )
-        }
       } yield succeed
   }
 
-  s"$className.initializeTo" should "re-initialize the state on dirty" in withTestFixture {
+  s"$className.initializeTo" should "re-initialize the state on dirty update" in withTestFixture {
     case (
           inMemoryState,
           updateStringInterningView,
           inOrder,
         ) =>
       import inMemoryState._
-      when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(Future.unit)
-      when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
+
+      arrangeInitialized(inMemoryState, initLedgerEnd)
+
+      val failingInitOffset = Offset.fromHexString(Ref.HexString.assertFromString("abeeee"))
+      val failingInitEventSeqId = 9999L
 
       for {
-        // Initialize the state
-        _ <- inMemoryState.initializeTo(initLedgerEnd, executionContext)(updateStringInterningView)
-
-        // reset mocks
-        _ = {
-          resetMocks(inMemoryState, updateStringInterningView)
-
-          when(ledgerEndCache()).thenReturn(initOffset -> initEventSequentialId)
-          when(stringInterningView.lastId).thenReturn(initStringInterningId)
-          when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(
-            Future.unit
-          )
-          when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
-        }
-
-        failingInitOffset = Offset.fromHexString(Ref.HexString.assertFromString("abeeee"))
-        failingInitEventSeqId = 9999L
         // Set dirty by simulating a failure and an external recovery
         // while attempting to set the ledger end to reInitOffset and reInitEventSequentialId
         _ <- failedUpdate(inMemoryState, failingInitOffset, failingInitEventSeqId)
@@ -297,34 +212,46 @@ class InMemoryStateSpec
           // Assert state re-initialized on dirty
           verifyInitializedInOrder(inMemoryState, updateStringInterningView, inOrder, initLedgerEnd)
         }
+      } yield succeed
+  }
 
-        // reset mocks
+  s"$className.initializeTo" should "re-initialize the state on dirty initializeTo" in withTestFixture {
+    case (
+          inMemoryState,
+          updateStringInterningView,
+          inOrder,
+        ) =>
+      import inMemoryState._
+
+      arrangeInitialized(inMemoryState, initLedgerEnd)
+
+      val failingLedgerEnd = initLedgerEnd.copy(lastOffset =
+        Offset.fromHexString(Ref.HexString.assertFromString("abeeee"))
+      )
+
+      for {
+        // Set dirty by simulating a failure and an external recovery
+        _ <- failingInitializeTo(inMemoryState, failingLedgerEnd)
+
         _ = {
-          resetMocks(inMemoryState, updateStringInterningView)
-
-          when(ledgerEndCache()).thenReturn(initOffset -> initEventSequentialId)
-          when(stringInterningView.lastId).thenReturn(initStringInterningId)
+          reset(dispatcherState, ledgerEndCache)
+          when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
           when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(
             Future.unit
           )
-          when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
+          when(dispatcherState.isRunning).thenReturn(true)
         }
-
         // Re-initialize the state to the same ledger end
         _ <- inMemoryState.initializeTo(initLedgerEnd, executionContext)(updateStringInterningView)
-        _ = {
-          // Ledger end references checks
-          verify(ledgerEndCache).apply()
-          verify(stringInterningView).lastId
 
-          // Assert no effect on state not dirty anymore
-          verifyNoMoreInteractions(
-            dispatcherState,
-            updateStringInterningView,
-            contractStateCaches,
-            inMemoryFanoutBuffer,
-            ledgerEndCache,
-          )
+        _ = {
+          verify(dispatcherState).isRunning
+          // Ledger end reference checks short-circuited by dirty check
+          verify(ledgerEndCache, never).apply()
+          verify(stringInterningView, never).lastId
+
+          // Assert state re-initialized on dirty
+          verifyInitializedInOrder(inMemoryState, updateStringInterningView, inOrder, initLedgerEnd)
         }
       } yield succeed
   }
@@ -345,23 +272,7 @@ class InMemoryStateSpec
     inOrder.verify(dispatcherState).startDispatcher(initLedgerEnd.lastOffset)
   }
 
-  private def resetMocks(
-      inMemoryState: InMemoryState,
-      updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit],
-  ): Unit = {
-    import inMemoryState._
-
-    reset(
-      dispatcherState,
-      updateStringInterningView,
-      contractStateCaches,
-      inMemoryFanoutBuffer,
-      ledgerEndCache,
-      stringInterningView,
-    )
-  }
-
-  final def failedUpdate(
+  private def failedUpdate(
       inMemoryState: InMemoryState,
       offset: Offset,
       eventSeqId: Long,
@@ -375,6 +286,24 @@ class InMemoryStateSpec
         updates = Vector(mock[TransactionLogUpdate] -> Vector.empty),
         lastOffset = offset,
         lastEventSequentialId = eventSeqId,
+      )
+      .transform {
+        case Failure(ex: RuntimeException) if ex.getMessage == failureMessage => Success(())
+        case other => fail(s"Unexpected $other")
+      }
+  }
+
+  private def failingInitializeTo(
+      inMemoryState: InMemoryState,
+      ledgerEnd: LedgerEnd,
+  ): Future[Unit] = {
+    val failureMessage = "failed"
+    when(inMemoryState.dispatcherState.stopDispatcher())
+      .thenThrow(new RuntimeException(failureMessage))
+
+    inMemoryState
+      .initializeTo(ledgerEnd = ledgerEnd, executionContext = executionContext)(
+        updateStringInterningView = null // Not used
       )
       .transform {
         case Failure(ex: RuntimeException) if ex.getMessage == failureMessage => Success(())
@@ -406,6 +335,11 @@ class InMemoryStateSpec
       updateStringInterningView,
     )
 
+    // Arrange non-initialized state
+    when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(Future.unit)
+    when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
+    when(dispatcherState.isRunning).thenReturn(false)
+
     val inMemoryState = new InMemoryState(
       ledgerEndCache = ledgerEndCache,
       contractStateCaches = contractStateCaches,
@@ -419,5 +353,17 @@ class InMemoryStateSpec
       updateStringInterningView,
       inOrderMockCalls,
     )
+  }
+
+  private def arrangeInitialized(
+      inMemoryState: InMemoryState,
+      initializedTo: LedgerEnd,
+  ): Unit = {
+    import inMemoryState._
+
+    when(ledgerEndCache()).thenReturn(initializedTo.lastOffset -> initializedTo.lastEventSeqId)
+    when(stringInterningView.lastId).thenReturn(initializedTo.lastStringInterningId)
+    when(dispatcherState.isRunning).thenReturn(true)
+    ()
   }
 }
