@@ -447,7 +447,7 @@ da_scala_test_suite(
     size = "large",
     srcs = glob(["src/test/suite/**/*Oracle*.scala"]),
     data = [
-        "//ledger/test-common:model-tests-dev.dar",
+        "//ledger/test-common:model-tests-default.dar",
         "//ledger/test-common/test-certificates",
         openssl_executable,
     ],
