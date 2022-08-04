@@ -4,7 +4,7 @@
 package com.daml.http.util
 
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.http.domain.{PartySet, TemplateId}
+import com.daml.http.domain.{ContractTypeId, PartySet}
 import com.daml.fetchcontracts.util.IdentifierConverters.apiIdentifier
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent}
 import com.daml.ledger.api.v1.transaction.Transaction
@@ -22,11 +22,12 @@ object Transactions {
 
   def transactionFilterFor(
       parties: PartySet,
-      templateIds: List[TemplateId.RequiredPkg],
+      contractTypeIds: List[ContractTypeId.Resolved],
   ): TransactionFilter = {
+    // TODO #14067 make a different filter for `ContractTypeId.Interface`s
     val filters =
-      if (templateIds.isEmpty) Filters.defaultInstance
-      else Filters(Some(InclusiveFilters(templateIds.map(apiIdentifier))))
+      if (contractTypeIds.isEmpty) Filters.defaultInstance
+      else Filters(Some(InclusiveFilters(contractTypeIds.map(apiIdentifier))))
     TransactionFilter(lar.Party.unsubst((parties: Set[lar.Party]).toVector).map(_ -> filters).toMap)
   }
 }

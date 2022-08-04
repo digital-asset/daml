@@ -139,7 +139,7 @@ class ContractsService(
   private[this] def findByContractId(
       jwt: Jwt,
       parties: domain.PartySet,
-      templateId: Option[domain.TemplateId.OptionalPkg],
+      templateId: Option[domain.ContractTypeId.OptionalPkg],
       ledgerId: LedgerApiDomain.LedgerId,
       contractId: domain.ContractId,
   )(implicit
@@ -198,11 +198,10 @@ class ContractsService(
         resolvedTemplateIds <- OptionT(
           templateId.cata(
             x =>
-              // TODO #14067 use resolveContractTypeId for subscriptions
-              resolveTemplateId(jwt, ledgerId)(x)
+              resolveContractTypeId(jwt, ledgerId)(x)
                 .map(_.toOption.flatten.map(Set(_))),
             // ignoring interface IDs for all-templates query
-            allTemplateIds(lc)(jwt, ledgerId).map(_.some),
+            allTemplateIds(lc)(jwt, ledgerId).map(_.toSet[domain.ContractTypeId.RequiredPkg].some),
           )
         )
 
@@ -226,7 +225,13 @@ class ContractsService(
         metrics: Metrics,
     ) = {
       import ctx.{jwt, parties, templateIds, ledgerId}
-      searchInMemory(jwt, ledgerId, parties, templateIds, InMemoryQuery.Params(queryParams))
+      searchInMemory(
+        jwt,
+        ledgerId,
+        parties,
+        templateIds.toSet[ContractTypeId.Resolved], // TODO #14067 remove toSet
+        InMemoryQuery.Params(queryParams),
+      )
     }
   }
 
@@ -282,7 +287,7 @@ class ContractsService(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: OneAnd[Set, domain.TemplateId.OptionalPkg],
+      templateIds: OneAnd[Set, domain.ContractTypeId.Template.OptionalPkg],
       queryParams: Map[String, JsValue],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -326,7 +331,7 @@ class ContractsService(
           val dbQueried = for {
             templateId <- OptionT(Future.successful(otemplateId))
             resolved <- OptionT(
-              resolveTemplateId(jwt, ledgerId)(templateId).map(_.toOption.flatten)
+              resolveContractTypeId(jwt, ledgerId)(templateId).map(_.toOption.flatten)
             )
             res <- OptionT(unsafeRunAsync {
               import doobie.implicits._, cats.syntax.apply._
@@ -531,7 +536,7 @@ class ContractsService(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: List[domain.TemplateId.RequiredPkg],
+      templateIds: List[domain.ContractTypeId.Resolved],
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
     val txnFilter = util.Transactions.transactionFilterFor(parties, templateIds)
     getActiveContracts(jwt, ledgerId, txnFilter, true)
@@ -548,7 +553,7 @@ class ContractsService(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: List[domain.TemplateId.RequiredPkg],
+      templateIds: List[domain.ContractTypeId.RequiredPkg],
       startOffset: Option[domain.StartingOffset] = None,
       terminates: Terminates = Terminates.AtLedgerEnd,
   )(implicit
@@ -602,14 +607,14 @@ class ContractsService(
       InternalError(Symbol("lfValueToJsValue"), e.description)
     )
 
-  private[http] def resolveTemplateIds[Tid <: domain.TemplateId.OptionalPkg](
+  private[http] def resolveTemplateIds[Tid <: domain.ContractTypeId.Template.OptionalPkg](
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   )(
       xs: OneAnd[Set, Tid]
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[(Set[domain.TemplateId.RequiredPkg], Set[Tid])] = {
+  ): Future[(Set[domain.ContractTypeId.Template.Resolved], Set[Tid])] = {
     import scalaz.syntax.traverse._
     import scalaz.std.iterable._
     import scalaz.std.list._, scalaz.std.scalaFuture._
@@ -617,9 +622,11 @@ class ContractsService(
     xs.toList
       .traverse { x =>
         resolveTemplateId(jwt, ledgerId)(x)
-          .map(_.toOption.flatten.toLeft(x)): Future[Either[domain.TemplateId.RequiredPkg, Tid]]
+          .map(_.toOption.flatten.toLeft(x)): Future[
+          Either[domain.ContractTypeId.Template.Resolved, Tid]
+        ]
       }
-      .map(_.toSet[Either[domain.TemplateId.RequiredPkg, Tid]].partitionMap(a => a))
+      .map(_.toSet[Either[domain.ContractTypeId.Template.Resolved, Tid]].partitionMap(a => a))
   }
 }
 
@@ -639,7 +646,7 @@ object ContractsService {
 
   private object SearchContext {
     type QueryLang = SearchContext[Set[domain.ContractTypeId.Template.RequiredPkg]]
-    type ById = SearchContext[Option[domain.ContractTypeId.Template.OptionalPkg]]
+    type ById = SearchContext[Option[domain.ContractTypeId.OptionalPkg]]
     type Key = SearchContext[domain.ContractTypeId.Template.OptionalPkg]
   }
 
