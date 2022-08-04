@@ -759,17 +759,27 @@ class WebSocketService(
   ): Source[StepAndErrors[Nothing, Nothing], NotUsed] =
     Source.single(StepAndErrors(Seq.empty, ContractStreamStep.LiveBegin(bookmark)))
 
-  private def getTransactionSourceForParty[A: StreamQuery](
+  // simple alias to avoid passing in the class parameters
+  private[this] def queryPredicate[A](
+      request: A,
+      jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID],
+      Q: StreamQuery[A],
+  ): Future[StreamPredicate[Q.Positive]] =
+    Q.predicate(request, resolveContractTypeId, resolveTemplateId, lookupType, jwt, ledgerId)
+
+  private def getTransactionSourceForParty[A](
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
       offPrefix: Option[domain.StartingOffset],
       rawRequest: A,
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID],
+      Q: StreamQuery[A],
   ): Source[Error \/ Message, NotUsed] = {
-    val Q = implicitly[StreamQuery[A]]
-
     // If there is a prefix, replace the empty offsets in the request with it
     val request = Q.adjustRequest(offPrefix, rawRequest)
 
@@ -779,7 +789,7 @@ class WebSocketService(
     // Stream predicates specific fo the ACS part
     val acsPred =
       acsRequest
-        .map(Q.predicate(_, resolveContractTypeId, resolveTemplateId, lookupType, jwt, ledgerId))
+        .map(queryPredicate(_, jwt, ledgerId))
         .sequence
 
     def liveFrom(resolved: Set[RequiredPkg])(
@@ -791,14 +801,7 @@ class WebSocketService(
       // Produce the predicate that is going to be applied to the incoming transaction stream
       // We need to apply this to the request with all the offsets shifted so that each stream
       // can filter out anything from liveStartingOffset to the query-specific offset
-      Q.predicate(
-        shiftedRequest,
-        resolveContractTypeId,
-        resolveTemplateId,
-        lookupType,
-        jwt,
-        ledgerId,
-      ).map { case StreamPredicate(_, _, fn, _) =>
+      queryPredicate(shiftedRequest, jwt, ledgerId).map { case StreamPredicate(_, _, fn, _) =>
         contractsService
           .insertDeleteStepSource(
             jwt,
@@ -837,14 +840,7 @@ class WebSocketService(
                 // This is the case where we made no ACS request because everything had an offset
                 // Get the earliest available offset from where to start from
                 val liveStartingOffset = Q.liveStartingOffset(offPrefix, request)
-                Q.predicate(
-                  request,
-                  resolveContractTypeId,
-                  resolveTemplateId,
-                  lookupType,
-                  jwt,
-                  ledgerId,
-                ).map { case StreamPredicate(_, _, fn, _) =>
+                queryPredicate(request, jwt, ledgerId).map { case StreamPredicate(_, _, fn, _) =>
                   contractsService
                     .insertDeleteStepSource(
                       jwt,
@@ -872,8 +868,8 @@ class WebSocketService(
 
     Source
       .lazyFutureSource { () =>
-        Q.predicate(request, resolveContractTypeId, resolveTemplateId, lookupType, jwt, ledgerId)
-          .flatMap { case StreamPredicate(resolved, unresolved, _, _) =>
+        queryPredicate(request, jwt, ledgerId).flatMap {
+          case StreamPredicate(resolved, unresolved, _, _) =>
             if (resolved.nonEmpty)
               processResolved(resolved, unresolved)
             else
@@ -884,7 +880,7 @@ class WebSocketService(
                     Source.single(-\/(InvalidUserInput(ErrorMessages.cannotResolveAnyTemplateId)))
                   )
               )
-          }
+        }
       }
       .mapMaterializedValue { _: Future[_] =>
         NotUsed
