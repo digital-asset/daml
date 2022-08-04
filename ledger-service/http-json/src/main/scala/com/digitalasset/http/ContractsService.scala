@@ -198,6 +198,7 @@ class ContractsService(
         resolvedTemplateIds <- OptionT(
           templateId.cata(
             x =>
+              // TODO #14067 use resolveContractTypeId for subscriptions
               resolveTemplateId(jwt, ledgerId)(x)
                 .map(_.toOption.flatten.map(Set(_))),
             // ignoring interface IDs for all-templates query
