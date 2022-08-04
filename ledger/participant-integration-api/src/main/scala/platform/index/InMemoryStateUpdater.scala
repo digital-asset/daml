@@ -99,12 +99,12 @@ private[platform] object InMemoryStateUpdater {
         metrics.daml.lapi.threadpool.indexBypass.updateInMemoryState,
       )
     )
-
+    updateCachesExecutionContext = ExecutionContext.fromExecutorService(updateCachesExecutor)
+    prepareUpdatesExecutionContext = ExecutionContext.fromExecutorService(prepareUpdatesExecutor)
   } yield {
-    val updateCachesExecutionContext = ExecutionContext.fromExecutorService(updateCachesExecutor)
     new InMemoryStateUpdater(
       prepareUpdatesParallelism = prepareUpdatesParallelism,
-      prepareUpdatesExecutionContext = ExecutionContext.fromExecutorService(prepareUpdatesExecutor),
+      prepareUpdatesExecutionContext = prepareUpdatesExecutionContext,
       updateCachesExecutionContext = updateCachesExecutionContext,
       metrics = metrics,
     )(

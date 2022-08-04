@@ -110,29 +110,34 @@ private[platform] class InMemoryState(
       lastOffset: Offset,
       lastEventSequentialId: Long,
   )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[Unit] =
-    if (!_dirty) {
+    if (!_dirty)
       dirtyWriteSection {
-        Future {
-          // Update caches
-          updates.foreach { case (transaction, contractStateEventsBatch) =>
-            // TODO LLP: Batch update caches
-            inMemoryFanoutBuffer.push(transaction.offset, transaction)
-            if (contractStateEventsBatch.nonEmpty) {
-              contractStateCaches.push(contractStateEventsBatch)
-            }
-          }
+        updateInternal(updates, lastOffset, lastEventSequentialId)
+      }
+    else dirtyUpdateAttempted(lastOffset, lastEventSequentialId)
 
-          // Update ledger end
-          ledgerEndCache.set((lastOffset, lastEventSequentialId))
-          // the order here is very important: first we need to make data available for point-wise lookups
-          // and SQL queries, and only then we can make it available on the streams.
-          // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
-          dispatcherState.getDispatcher.signalNewHead(lastOffset)
-          logger.info(s"Updated ledger end cache at offset $lastOffset - $lastEventSequentialId")
+  private def updateInternal(
+      updates: Vector[(TransactionLogUpdate, Vector[ContractStateEvent])],
+      lastOffset: Offset,
+      lastEventSequentialId: Long,
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[Unit] =
+    Future {
+      // Update caches
+      updates.foreach { case (transaction, contractStateEventsBatch) =>
+        // TODO LLP: Batch update caches
+        inMemoryFanoutBuffer.push(transaction.offset, transaction)
+        if (contractStateEventsBatch.nonEmpty) {
+          contractStateCaches.push(contractStateEventsBatch)
         }
       }
-    } else {
-      dirtyUpdateAttempted(lastOffset, lastEventSequentialId)
+
+      // Update ledger end
+      ledgerEndCache.set((lastOffset, lastEventSequentialId))
+      // the order here is very important: first we need to make data available for point-wise lookups
+      // and SQL queries, and only then we can make it available on the streams.
+      // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
+      dispatcherState.getDispatcher.signalNewHead(lastOffset)
+      logger.info(s"Updated ledger end cache at offset $lastOffset - $lastEventSequentialId")
     }
 
   private def dirtyUpdateAttempted(offset: Offset, eventSequentialId: Long)(implicit
