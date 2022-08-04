@@ -3,15 +3,15 @@
 
 package com.daml.platform.akkastreams.dispatcher
 
-import java.util.concurrent.atomic.AtomicReference
-
 import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Source, SourceQueueWithComplete}
 import com.daml.platform.akkastreams.dispatcher.SignalDispatcher.Signal
 import org.slf4j.LoggerFactory
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /** A fanout signaller that can be subscribed to dynamically.
   * Signals may be coalesced, but if a signal is sent, we guarantee that all consumers subscribed before
@@ -60,21 +60,34 @@ class SignalDispatcher private () {
 
   private def throwClosed(): Nothing = throw new IllegalStateException("SignalDispatcher is closed")
 
-  /** Closes this SignalDispatcher.
+  /** Closes this SignalDispatcher by gracefully completing the existing Source subscriptions.
     * For any downstream with pending signals, at least one such signal will be sent first.
     */
-  def shutdown(): Future[Unit] = {
+  def shutdown(): Future[Unit] = shutdownInternal(_.complete())
+
+  /** Closes this SignalDispatcher by failing the existing Source subscriptions with the provided throwable. */
+  def fail(throwable: Throwable): Future[Unit] =
+    shutdownInternal(_.fail(throwable)).transform {
+      // This throwable is expected so map to Success
+      case Failure(`throwable`) => Success(())
+      case other => other
+    }(ExecutionContext.parasitic)
+
+  private def shutdownInternal(
+      shutdownSourceQueue: SourceQueueWithComplete[_] => Unit
+  ): Future[Unit] = {
     implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.parasitic
     runningState
       .getAndSet(None)
       .fold(throw new IllegalStateException("SignalDispatcher is already closed")) { sources =>
-        sources.foreach(_.complete())
-        Future
-          .sequence(sources.map(_.watchCompletion()))
-          .map(_ => ())
+        Future.delegate {
+          sources.foreach(shutdownSourceQueue)
+          Future
+            .sequence(sources.map(_.watchCompletion()))
+            .map(_ => ())
+        }
       }
   }
-
 }
 
 object SignalDispatcher {

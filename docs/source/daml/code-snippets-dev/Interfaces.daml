@@ -15,6 +15,10 @@ interface MyInterface where
   method3 : Bool -> Int -> Int -> Int
 -- INTERFACE_METHODS_END
 
+-- INTERFACE_VIEWTYPE_BEGIN
+  viewtype Text
+-- INTERFACE_VIEWTYPE_END
+
 -- INTERFACE_CHOICES_BEGIN
   choice MyChoice : (ContractId MyInterface, Int)
     with
@@ -44,33 +48,35 @@ func3 = method3
 -- INTERFACE_METHODS_TOP_LEVEL_END
 
 -- EMPTY_INTERFACE_BEGIN
-interface YourInterface
+interface YourInterface where
+  viewtype ()
 -- EMPTY_INTERFACE_END
 
 -- INTERFACE_REQUIRES_BEGIN
 interface OurInterface requires MyInterface, YourInterface where
+  viewtype ()
 -- INTERFACE_REQUIRES_END
 
 -- INTERFACE_TRANSITIVE_REQUIRES_GIVEN_BEGIN
 interface Shape where
+  viewtype ()
 
 interface Rectangle requires Shape where
+  viewtype ()
 -- INTERFACE_TRANSITIVE_REQUIRES_GIVEN_END
 
 {-
 -- INTERFACE_TRANSITIVE_REQUIRES_INCORRECT_BEGIN
 -- Compiler error! "Interface Square is missing requirement [Shape]"
 interface Square requires Rectangle where
+  viewtype ()
 -- INTERFACE_TRANSITIVE_REQUIRES_INCORRECT_END
 -}
 
 -- INTERFACE_TRANSITIVE_REQUIRES_CORRECT_BEGIN
 interface Square requires Rectangle, Shape where
+  viewtype ()
 -- INTERFACE_TRANSITIVE_REQUIRES_CORRECT_END
-
--- EMPTY_INTERFACE_REQUIRES_BEGIN
-interface TheirInterface requires MyInterface, YourInterface
--- EMPTY_INTERFACE_REQUIRES_END
 
 -- TEMPLATE_HEADER_BEGIN
 template MyTemplate
@@ -82,6 +88,7 @@ template MyTemplate
 -- TEMPLATE_HEADER_END
 -- TEMPLATE_IMPLEMENTS_BEGIN
     implements MyInterface where
+      view = "MyTemplate"
       method1 = field1
       method2 = field2
       method3 False _ _ = 0
@@ -90,5 +97,6 @@ template MyTemplate
         | otherwise = y
 -- TEMPLATE_IMPLEMENTS_END
 -- TEMPLATE_EMPTY_IMPLEMENTS_BEGIN
-    implements YourInterface
+    implements YourInterface where
+      view = ()
 -- TEMPLATE_EMPTY_IMPLEMENTS_END

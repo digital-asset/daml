@@ -98,7 +98,7 @@ class LedgerApiServer(
           lfValueTranslationCache = translationCache,
           participantId = participantId,
           inMemoryState = inMemoryState,
-        )(loggingContext, servicesExecutionContext)
+        )(loggingContext)
 
         writeService <- buildWriteService(indexService)
 

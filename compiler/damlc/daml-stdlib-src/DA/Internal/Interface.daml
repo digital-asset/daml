@@ -3,6 +3,7 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 -- | MOVE Prelude interface functionality
 module DA.Internal.Interface (
@@ -16,7 +17,9 @@ module DA.Internal.Interface (
   fromInterfaceContractId,
   fetchFromInterface,
   _exerciseDefault,
-  _exerciseInterfaceGuard
+  _exerciseInterfaceGuard,
+  HasInterfaceView(..),
+  view
 ) where
 
 import DA.Internal.Prelude
@@ -161,3 +164,10 @@ _exerciseInterfaceGuard : forall i t.
   ContractId t -> (t -> Bool) -> i -> Bool
 _exerciseInterfaceGuard cid tpred ivalue =
   tpred (unsafeFromInterface (coerceContractId cid) ivalue)
+
+-- Read: Interface `i` has a view of type `v`
+class HasInterfaceView i v | i -> v where
+  _view : i -> v
+
+view : forall i t v. (Implements t i, HasInterfaceView i v) => t -> v
+view t = _view (_toInterface @t @i t)

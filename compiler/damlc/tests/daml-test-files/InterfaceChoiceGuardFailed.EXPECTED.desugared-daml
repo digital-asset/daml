@@ -75,6 +75,8 @@ _choice_IIChoice
      \ self this arg@IChoice
        -> let _ = self in let _ = this in let _ = arg in do pure (), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView I () where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => T
   = T {party : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -152,6 +154,10 @@ _method_T_I_getController
       @"getController"
       (\ this@T {..}
          -> let _ = this in let getController = party in getController)
+_view_T_I : DA.Internal.Desugar.InterfaceView T I
+_view_T_I
+  = DA.Internal.Desugar.mkInterfaceView
+      @T @I \ this@T {..} -> let _ = this in let view = () in view
 main
   = do alice <- getParty "alice"
        cidT <- alice `submit` create T {party = alice}

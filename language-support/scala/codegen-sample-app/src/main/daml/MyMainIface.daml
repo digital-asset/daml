@@ -4,6 +4,7 @@
 module MyMainIface where
 
 interface IfaceFromAnotherMod where
+  viewtype ()
   getOwner: Party
   choice FromAnotherMod: Int with
       sth: Int
