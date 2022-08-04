@@ -160,7 +160,7 @@ class ContractsService(
     override val lfvToJsValue = SearchValueFormat(lfValueToJsValue)
 
     override def findByContractKey(
-        ctx: SearchContext[Id, Option],
+        ctx: SearchContext.Key,
         contractKey: LfValue,
     )(implicit
         lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -187,7 +187,7 @@ class ContractsService(
     }.run
 
     override def findByContractId(
-        ctx: SearchContext[Option, Option],
+        ctx: SearchContext.ById,
         contractId: domain.ContractId,
     )(implicit
         lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -220,7 +220,7 @@ class ContractsService(
       } yield result
     }.run
 
-    override def search(ctx: SearchContext[Set, Id], queryParams: Map[String, JsValue])(implicit
+    override def search(ctx: SearchContext.QueryLang, queryParams: Map[String, JsValue])(implicit
         lc: LoggingContextOf[InstanceUUID with RequestID],
         metrics: Metrics,
     ) = {
@@ -315,7 +315,7 @@ class ContractsService(
         override val lfvToJsValue = SearchValueFormat(\/.right)
 
         override def findByContractId(
-            ctx: SearchContext[Option, Option],
+            ctx: SearchContext.ById,
             contractId: domain.ContractId,
         )(implicit
             lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -349,7 +349,7 @@ class ContractsService(
         }
 
         override def findByContractKey(
-            ctx: SearchContext[Id, Option],
+            ctx: SearchContext.Key,
             contractKey: LfValue,
         )(implicit
             lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -384,7 +384,7 @@ class ContractsService(
         }
 
         override def search(
-            ctx: SearchContext[Set, Id],
+            ctx: SearchContext.QueryLang,
             queryParams: Map[String, JsValue],
         )(implicit
             lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -414,7 +414,7 @@ class ContractsService(
         }
 
         private[this] def searchDb_(fetch: ContractsFetch)(
-            ctx: SearchContext[Set, Id],
+            ctx: SearchContext.QueryLang,
             queryParams: Map[String, JsValue],
         )(implicit
             lc: LoggingContextOf[InstanceUUID],
@@ -629,12 +629,18 @@ object ContractsService {
 
   private final case class SearchValueFormat[-T](encode: T => (Error \/ JsValue))
 
-  final case class SearchContext[Tids[_], Pkgs[_]](
+  private final case class SearchContext[Tids[_], Pkgs[_]](
       jwt: Jwt,
       parties: domain.PartySet,
       templateIds: Tids[domain.TemplateId[Pkgs[String]]],
       ledgerId: LedgerApiDomain.LedgerId,
   )
+
+  private object SearchContext {
+    type QueryLang = SearchContext[Set, Id]
+    type ById = SearchContext[Option, Option]
+    type Key = SearchContext[Id, Option]
+  }
 
   // A prototypical abstraction over the in-memory/in-DB split, accounting for
   // the fact that in-memory works with ADT-encoded LF values,
@@ -652,7 +658,7 @@ object ContractsService {
         override val lfvToJsValue = SearchValueFormat(\/.right)
 
         override def findByContractId(
-            ctx: SearchContext[Option, Option],
+            ctx: SearchContext.ById,
             contractId: domain.ContractId,
         )(implicit
             lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -663,7 +669,7 @@ object ContractsService {
             .flatMap(oac => toFuture(oac traverse (_ traverse convert)))
 
         override def findByContractKey(
-            ctx: SearchContext[Id, Option],
+            ctx: SearchContext.Key,
             contractKey: LfValue,
         )(implicit
             lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -674,7 +680,7 @@ object ContractsService {
             .flatMap(oac => toFuture(oac traverse (_ traverse convert)))
 
         override def search(
-            ctx: SearchContext[Set, Id],
+            ctx: SearchContext.QueryLang,
             queryParams: Map[String, JsValue],
         )(implicit
             lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -685,7 +691,7 @@ object ContractsService {
     }
 
     def findByContractId(
-        ctx: SearchContext[Option, Option],
+        ctx: SearchContext.ById,
         contractId: domain.ContractId,
     )(implicit
         lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -693,7 +699,7 @@ object ContractsService {
     ): Future[Option[domain.ActiveContract[LfV]]]
 
     def findByContractKey(
-        ctx: SearchContext[Id, Option],
+        ctx: SearchContext.Key,
         contractKey: LfValue,
     )(implicit
         lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -701,7 +707,7 @@ object ContractsService {
     ): Future[Option[domain.ActiveContract[LfV]]]
 
     def search(
-        ctx: SearchContext[Set, Id],
+        ctx: SearchContext.QueryLang,
         queryParams: Map[String, JsValue],
     )(implicit
         lc: LoggingContextOf[InstanceUUID with RequestID],
