@@ -263,7 +263,7 @@ object PackageService {
     def apply(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
         x: CtId[Option[String]]
     )(implicit lc: LoggingContextOf[InstanceUUID]): Future[
-      PackageService.Error \/ Option[CtId[String]]
+      PackageService.Error \/ Option[CtId[String]] // TODO #14067 add Resolved and with Definite
     ]
   }
 
@@ -277,7 +277,7 @@ object PackageService {
   type AllTemplateIds =
     LoggingContextOf[
       InstanceUUID
-    ] => (Jwt, LedgerApiDomain.LedgerId) => Future[Set[TemplateId.RequiredPkg]]
+    ] => (Jwt, LedgerApiDomain.LedgerId) => Future[Set[domain.ContractTypeId.Template.RequiredPkg]]
 
   type ResolveChoiceArgType =
     (

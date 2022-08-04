@@ -201,6 +201,7 @@ class ContractsService(
             x =>
               resolveTemplateId(jwt, ledgerId)(x)
                 .map(_.toOption.flatten.map(Set(_))),
+            // ignoring interface IDs for all-templates query
             allTemplateIds(lc)(jwt, ledgerId).map(_.some),
           )
         )
