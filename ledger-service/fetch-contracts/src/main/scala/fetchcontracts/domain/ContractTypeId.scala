@@ -57,20 +57,19 @@ sealed abstract class ContractTypeId[+PkgId]
 }
 
 object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
-  // TODO SC rename to Unknown
-  final case class UnknownImpl[+PkgId](
+  final case class Unknown[+PkgId](
       packageId: PkgId,
       moduleName: String,
       entityName: String,
   ) extends ContractTypeId[PkgId]
-      with Ops[UnknownImpl, PkgId] {
+      with Ops[Unknown, PkgId] {
     override def productPrefix = "ContractTypeId"
 
     override def copy[PkgId0](
         packageId: PkgId0 = packageId,
         moduleName: String = moduleName,
         entityName: String = entityName,
-    ) = UnknownImpl(packageId, moduleName, entityName)
+    ) = Unknown(packageId, moduleName, entityName)
   }
 
   // TODO SC placeholder for the lub of Template/Interface
@@ -105,7 +104,7 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
       moduleName: String,
       entityName: String,
   ): ContractTypeId[PkgId] =
-    UnknownImpl(packageId, moduleName, entityName)
+    Unknown(packageId, moduleName, entityName)
 
   // Product3 makes custom unapply really cheap
   def unapply[PkgId](ctId: ContractTypeId[PkgId]): Some[ContractTypeId[PkgId]] = Some(ctId)
@@ -120,6 +119,8 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
       override def traverseImpl[G[_]: Applicative, A, B](fa: F[A])(f: A => G[B]): G[F[B]] =
         f(fa.packageId) map (p2 => fa.copy(packageId = p2))
     }
+
+  object Unknown extends Like[Unknown]
 
   val Template = this
 

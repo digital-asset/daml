@@ -85,7 +85,7 @@ package domain {
         moduleName: String,
         entityName: String,
     ): TemplateId[PkgId] =
-      ContractTypeId.UnknownImpl(packageId, moduleName, entityName)
+      ContractTypeId.Unknown(packageId, moduleName, entityName)
 
     def unapply[PkgId](tpId: TemplateId[PkgId]): Some[Product3[PkgId, String, String]] =
       ContractTypeId.unapply(tpId)
