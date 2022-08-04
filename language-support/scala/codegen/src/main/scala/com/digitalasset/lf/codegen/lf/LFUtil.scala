@@ -285,7 +285,7 @@ final case class LFUtil(
     val body = q"` exercise`(id, $choiceId, $namedArguments)"
 
     Seq(
-      q"""@scala.annotation.nowarn("msg=parameter value actor.* is never used")
+      q"""@deprecated("Remove the actor argument", since = "2.4.0")
             def $choiceMethod($actorParam, ..${typedParam.toList})(implicit $exerciseOnParam)
                 : $domainApiAlias.Primitive.Update[$resultType] = $body""",
       q"""def $choiceMethod(..${typedParam.toList})(implicit $exerciseOnParam)
@@ -293,7 +293,7 @@ final case class LFUtil(
     ) ++
       denominalized.toList.flatMap { case (dparams, dctorName, dargs) =>
         Seq(
-          q"""@scala.annotation.nowarn("msg=parameter value actor.* is never used")
+          q"""@deprecated("Remove the actor argument", since = "2.4.0")
                 def $choiceMethod($actorParam, ..$dparams)(implicit $exerciseOnParam)
                     : $domainApiAlias.Primitive.Update[$resultType] =
                     $choiceMethod($dctorName(..$dargs))""",
