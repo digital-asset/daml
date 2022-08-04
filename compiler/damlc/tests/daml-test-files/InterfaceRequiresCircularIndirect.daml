@@ -8,5 +8,7 @@
 module InterfaceRequiresCircularIndirect where
 
 interface A requires B where
+    viewtype ()
 
 interface B requires A where
+    viewtype ()

@@ -23,7 +23,6 @@ import           Control.Monad.Extra
 import Data.List
 import           Data.Foldable (for_)
 import qualified Data.HashSet as HS
-import qualified Data.NameMap as NM
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Numeric (numericMaxScale)
@@ -184,12 +183,8 @@ checkInterface _mod0 iface = do
       checkType SRChoiceArg (snd (chcArgBinder ch))
       checkType SRChoiceRes (chcReturnType ch)
 
-  case NM.lookup (MethodName "_view") (intMethods iface) of
-    Nothing -> pure () -- If no view is found, throw error in Typecheck
-    Just method ->
-      let err = EViewNotSerializable (intName iface) (ifmType method)
-      in
-      catchAndRethrow (const err) $ checkType SRDataType $ ifmType method
+  let err = EViewNotSerializable (intName iface) (intView iface)
+  catchAndRethrow (const err) $ checkType SRViewType $ intView iface
 
 -- | Check whether exception is serializable.
 checkException :: MonadGamma m => Module -> DefException -> m ()

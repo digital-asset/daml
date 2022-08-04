@@ -8,6 +8,7 @@ module InterfaceFunctions where
 import DA.Assert ((===))
 
 interface Token where
+  viewtype ()
   getAmount : Int
 
 template Asset
@@ -19,6 +20,7 @@ template Asset
     signatory issuer
     observer issuer, owner
     implements Token where
+      view = ()
       getAmount = amount
 
 main = scenario do

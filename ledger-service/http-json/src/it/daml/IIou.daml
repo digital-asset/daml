@@ -4,6 +4,7 @@
 module IIou where
 
 interface IIou where
+  viewtype ()
   getOwner : Party
   choice Transfer : Text with
       echo : Text
@@ -23,4 +24,5 @@ template TestIIou with
   where
   signatory issuer
   implements IIou where
+    view = ()
     getOwner = owner

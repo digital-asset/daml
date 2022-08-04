@@ -5,6 +5,7 @@
 module InterfaceChoiceCollision1 where
 
 interface Interface where
+    viewtype ()
     getOwner : Party
 
     choice MyArchive : ()

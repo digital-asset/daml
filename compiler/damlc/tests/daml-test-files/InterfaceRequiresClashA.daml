@@ -5,4 +5,5 @@
 
 module InterfaceRequiresClashA where
 
-interface I
+interface I where
+    viewtype ()

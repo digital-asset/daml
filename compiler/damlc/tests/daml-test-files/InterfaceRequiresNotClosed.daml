@@ -8,7 +8,10 @@
 module InterfaceRequiresNotClosed where
 
 interface A where
+    viewtype ()
 
 interface B requires A where
+    viewtype ()
 
 interface C requires B where
+    viewtype ()

@@ -4,6 +4,7 @@ module InterfaceSerializabilityPayload where
 
 -- Test that the interface serializability payload itself is not serializable.
 interface Gettable where
+  viewtype ()
   nonconsuming choice Get : Gettable
     with anyActor : Party
     controller anyActor
