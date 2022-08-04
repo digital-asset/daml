@@ -26,7 +26,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.scalautil.ExceptionOps._
 import com.daml.nonempty.NonEmptyReturningOps._
-import scalaz.Id.Id
 import scalaz.std.option._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
@@ -131,7 +130,7 @@ class ContractsService(
       metrics.daml.HttpJsonApi.dbFindByContractKey,
       search.toFinal
         .findByContractKey(
-          SearchContext[Id, Option](jwt, parties, templateId, ledgerId),
+          SearchContext(jwt, parties, templateId, ledgerId),
           contractKey,
         ),
     )
@@ -302,7 +301,7 @@ class ContractsService(
         status = StatusCodes.BadRequest,
       )
     } else {
-      val searchCtx = SearchContext[Set, Id](jwt, parties, resolvedTemplateIds, ledgerId)
+      val searchCtx = SearchContext(jwt, parties, resolvedTemplateIds, ledgerId)
       val source = search.toFinal.search(searchCtx, queryParams)
       domain.OkResponse(source, warnings)
     }
@@ -630,17 +629,17 @@ object ContractsService {
 
   private final case class SearchValueFormat[-T](encode: T => (Error \/ JsValue))
 
-  private final case class SearchContext[Tids[_], Pkgs[_]](
+  private final case class SearchContext[+TpIds](
       jwt: Jwt,
       parties: domain.PartySet,
-      templateIds: Tids[domain.TemplateId[Pkgs[String]]],
+      templateIds: TpIds,
       ledgerId: LedgerApiDomain.LedgerId,
   )
 
   private object SearchContext {
-    type QueryLang = SearchContext[Set, Id]
-    type ById = SearchContext[Option, Option]
-    type Key = SearchContext[Id, Option]
+    type QueryLang = SearchContext[Set[domain.TemplateId.RequiredPkg]]
+    type ById = SearchContext[Option[domain.TemplateId.OptionalPkg]]
+    type Key = SearchContext[domain.TemplateId.OptionalPkg]
   }
 
   // A prototypical abstraction over the in-memory/in-DB split, accounting for
