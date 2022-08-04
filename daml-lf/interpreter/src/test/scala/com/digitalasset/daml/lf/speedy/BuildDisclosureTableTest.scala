@@ -74,7 +74,6 @@ class BuildDisclosureTableTest extends AnyFreeSpec with Inside with Matchers {
             DisclosurePreprocessing.DuplicateContractKeys(houseTemplateId)
           )
         )
-
       }
     }
   }

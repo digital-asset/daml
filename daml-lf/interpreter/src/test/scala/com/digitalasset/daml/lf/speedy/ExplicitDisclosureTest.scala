@@ -97,11 +97,11 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
           "contract ID in disclosure table only" in {
             disclosureTableQueryFailsWhenContractDisclosed(
               SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
-              disclosedCaveContract,
               contractId,
               "TestMod:destroyCave",
               committers = Set(disclosureParty),
               disclosedContracts = ImmArray(disclosedCaveContract),
+              usedDisclosedContracts = Set(disclosedCaveContract),
             )(result =>
               inside(result) {
                 case Left(
@@ -117,12 +117,12 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
           "contract ID in ledger and disclosure table" in {
             disclosureTableQueryFailsWhenContractDisclosed(
               SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
-              disclosedCaveContract,
               contractId,
               "TestMod:destroyCave",
               committers = Set(disclosureParty, ledgerParty),
               getContract = Map(contractId -> ledgerCaveContract),
               disclosedContracts = ImmArray(disclosedCaveContract),
+              usedDisclosedContracts = Set(disclosedCaveContract),
             )(result =>
               inside(result) {
                 case Left(
@@ -210,11 +210,11 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
           "contract key in disclosure table only" in {
             disclosureTableQueryFailsWhenContractDisclosed(
               SBUFetchKey(houseTemplateId)(SEValue(contractSKey)),
-              disclosedHouseContract,
               disclosureContractId,
               "TestMod:destroyHouse",
               committers = Set(disclosureParty, maintainerParty),
               disclosedContracts = ImmArray(disclosedHouseContract),
+              usedDisclosedContracts = Set(disclosedHouseContract),
             )(result =>
               inside(result) {
                 case Left(SError.SErrorDamlException(ContractKeyNotFound(`contractKey`))) =>
@@ -228,7 +228,6 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
               // Exercising a single contract ID is sufficient to make the key inactive
               disclosureTableQueryFailsWhenContractDisclosed(
                 SBUFetchKey(houseTemplateId)(SEValue(contractSKey)),
-                disclosedHouseContract,
                 contractIdToBurn,
                 "TestMod:destroyHouse",
                 committers = Set(disclosureParty, ledgerParty, maintainerParty),
@@ -240,6 +239,9 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
                 ),
                 getContract = Map(ledgerContractId -> ledgerHouseContract),
                 disclosedContracts = ImmArray(disclosedHouseContract),
+                usedDisclosedContracts =
+                  if (contractIdToBurn == disclosureContractId) Set(disclosedHouseContract)
+                  else Set.empty,
               )(result =>
                 inside(result) {
                   case Left(SError.SErrorDamlException(ContractKeyNotFound(`contractKey`))) =>
@@ -323,11 +325,11 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
           "contract key in disclosure table only" in {
             disclosureTableQueryFailsWhenContractDisclosed(
               SBULookupKey(houseTemplateId)(SEValue(contractSKey)),
-              disclosedHouseContract,
               disclosureContractId,
               "TestMod:destroyHouse",
               committers = Set(disclosureParty, maintainerParty),
               disclosedContracts = ImmArray(disclosedHouseContract),
+              usedDisclosedContracts = Set(disclosedHouseContract),
             )(result =>
               inside(result) { case Right(SValue.SOptional(None)) =>
                 succeed
@@ -340,7 +342,6 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
               // Exercising a single contract ID is sufficient to make the key inactive
               disclosureTableQueryFailsWhenContractDisclosed(
                 SBULookupKey(houseTemplateId)(SEValue(contractSKey)),
-                disclosedHouseContract,
                 contractIdToBurn,
                 "TestMod:destroyHouse",
                 committers = Set(disclosureParty, ledgerParty, maintainerParty),
@@ -352,6 +353,9 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
                 ),
                 getContract = Map(ledgerContractId -> ledgerHouseContract),
                 disclosedContracts = ImmArray(disclosedHouseContract),
+                usedDisclosedContracts =
+                  if (contractIdToBurn == disclosureContractId) Set(disclosedHouseContract)
+                  else Set.empty,
               )(result =>
                 inside(result) { case Right(SValue.SOptional(None)) =>
                   succeed
@@ -449,10 +453,10 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
 
   def disclosureTableQueryFailsWhenContractDisclosed(
       sexpr: SExpr.SExpr,
-      disclosedContract: DisclosedContract,
       contractToDestroy: ContractId,
       action: String,
       committers: Set[Party] = Set.empty,
+      usedDisclosedContracts: Set[DisclosedContract] = Set.empty,
       disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
@@ -473,7 +477,7 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
       )
 
     assertResult(result)
-    ledger should haveDisclosedContracts(disclosedContract)
+    ledger should haveDisclosedContracts(usedDisclosedContracts.toIndexedSeq: _*)
     ledger should haveCachedContractIds(contractToDestroy)
     ledger should haveInactiveContractIds(contractToDestroy)
   }

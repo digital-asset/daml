@@ -17,6 +17,8 @@ import com.daml.lf.value.Value.{ContractId, ContractInstance}
 import org.scalatest.matchers.{MatchResult, Matcher}
 import com.daml.lf.testing.parser.Implicits._
 
+import scala.collection.immutable.HashSet
+
 /** Shared test data and functions for testing explicit disclosure.
   */
 object ExplicitDisclosureLib {
@@ -317,7 +319,7 @@ object ExplicitDisclosureLib {
   def haveDisclosedContracts(contractIds: DisclosedContract*): Matcher[Speedy.OnLedger] = Matcher {
     ledger =>
       MatchResult(
-        ledger.ptx.disclosedContracts == ImmArray(contractIds: _*),
+        ledger.ptx.disclosedContracts == HashSet(contractIds: _*),
         s"Failed with unexpected disclosed contracts: ${ledger.ptx.disclosedContracts} != $contractIds",
         s"Failed with unexpected disclosed contracts: ${ledger.ptx.disclosedContracts} == $contractIds",
       )
