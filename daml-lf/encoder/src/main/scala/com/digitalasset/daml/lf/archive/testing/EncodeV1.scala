@@ -828,18 +828,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val (template, coImplements) = templateWithCoImplements
       val b = PLF.DefInterface.CoImplements.newBuilder()
       b.setTemplate(template)
-      b.accumulateLeft(coImplements.methods.sortByKey)(_ addMethods _)
-      b.setView(coImplements.view)
-      b.build()
-    }
-
-    private implicit def encodeInterfaceCoImplementsMethod(
-        nameWithMethod: (MethodName, InterfaceCoImplementsMethod)
-    ): PLF.DefInterface.CoImplementsMethod = {
-      val (name, method) = nameWithMethod
-      val b = PLF.DefInterface.CoImplementsMethod.newBuilder()
-      b.setMethodInternedName(stringsTable.insert(name))
-      b.setValue(method.value)
+      b.setBody(coImplements.body)
       b.build()
     }
 
@@ -927,16 +916,25 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val (interface, implements) = interfaceWithImplements
       val b = PLF.DefTemplate.Implements.newBuilder()
       b.setInterface(interface)
-      b.accumulateLeft(implements.methods.sortByKey)(_ addMethods _)
-      b.setView(implements.view)
+      b.setBody(implements.body)
       b.build()
     }
 
-    private implicit def encodeTemplateImplementsMethod(
-        nameWithMethod: (MethodName, TemplateImplementsMethod)
-    ): PLF.DefTemplate.ImplementsMethod = {
+    private implicit def encodeInterfaceInstanceBody(
+        iiBody: InterfaceInstanceBody
+    ): PLF.InterfaceInstanceBody = {
+      val InterfaceInstanceBody(methods, view) = iiBody
+      val b = PLF.InterfaceInstanceBody.newBuilder()
+      b.accumulateLeft(methods.sortByKey)(_ addMethods _)
+      b.setView(view)
+      b.build()
+    }
+
+    private implicit def encodeInterfaceInstanceMethod(
+        nameWithMethod: (MethodName, InterfaceInstanceMethod)
+    ): PLF.InterfaceInstanceBody.InterfaceInstanceMethod = {
       val (name, method) = nameWithMethod
-      val b = PLF.DefTemplate.ImplementsMethod.newBuilder()
+      val b = PLF.InterfaceInstanceBody.InterfaceInstanceMethod.newBuilder()
       b.setMethodInternedName(stringsTable.insert(name))
       b.setValue(method.value)
       b.build()

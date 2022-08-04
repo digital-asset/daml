@@ -123,20 +123,26 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       TemplateKey(t, body, maintainers)
     }
 
-  private lazy val method: Parser[TemplateImplementsMethod] =
+  private lazy val method: Parser[InterfaceInstanceMethod] =
     Id("method") ~>! id ~ `=` ~ expr ^^ { case (name ~ _ ~ value) =>
-      TemplateImplementsMethod(name, value)
+      InterfaceInstanceMethod(name, value)
+    }
+
+  private lazy val interfaceInstanceBody: Parser[InterfaceInstanceBody] =
+    `{` ~> rep(method <~ `;`) <~ `}` ^^ { case methods =>
+      // TODO: Represent a view method and parse it. Currently hardcoding views to unit
+      InterfaceInstanceBody.build(
+        methods,
+        EAbs((Ref.Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
+      )
     }
 
   private lazy val implements: Parser[TemplateImplements] =
-    Id("implements") ~>! fullIdentifier ~ (`{` ~> rep(method <~ `;`) <~ `}`) ^^ {
-      case ifaceId ~ methods =>
-        // TODO: Represent a view method and parse it. Currently hardcoding views to unit
-        TemplateImplements.build(
-          ifaceId,
-          methods,
-          EAbs((Ref.Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
-        )
+    Id("implements") ~>! fullIdentifier ~ interfaceInstanceBody ^^ { case ifaceId ~ body =>
+      TemplateImplements.build(
+        ifaceId,
+        body,
+      )
     }
 
   private lazy val templateDefinition: Parser[TemplDef] =
@@ -228,19 +234,12 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       InterfaceMethod(name, typ)
     }
 
-  private lazy val coImplementsMethod: Parser[InterfaceCoImplementsMethod] =
-    Id("method") ~>! id ~ `=` ~ expr ^^ { case (name ~ _ ~ value) =>
-      InterfaceCoImplementsMethod(name, value)
-    }
-
   private lazy val coImplements: Parser[InterfaceCoImplements] =
-    Id("coimplements") ~>! fullIdentifier ~ (`{` ~> rep(coImplementsMethod <~ `;`) <~ `}`) ^^ {
-      case tplId ~ methods =>
-        InterfaceCoImplements.build(
-          tplId,
-          methods,
-          EAbs((Ref.Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
-        )
+    Id("coimplements") ~>! fullIdentifier ~ interfaceInstanceBody ^^ { case tplId ~ body =>
+      InterfaceCoImplements.build(
+        tplId,
+        body,
+      )
     }
 
   private val serializableTag = Ref.Name.assertFromString("serializable")

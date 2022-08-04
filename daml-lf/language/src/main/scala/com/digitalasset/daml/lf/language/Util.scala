@@ -213,20 +213,28 @@ object Util {
     }
 
   private[this] def toSignature(
-      implementsMethod: TemplateImplementsMethod
-  ): TemplateImplementsMethodSignature =
-    implementsMethod match {
-      case TemplateImplementsMethod(name, _) =>
-        TemplateImplementsMethodSignature(name, ())
+      iiMethod: InterfaceInstanceMethod
+  ): InterfaceInstanceMethodSignature =
+    iiMethod match {
+      case InterfaceInstanceMethod(name, _) =>
+        InterfaceInstanceMethodSignature(name, ())
+    }
+
+  private[this] def toSignature(iiBody: InterfaceInstanceBody): InterfaceInstanceBodySignature =
+    iiBody match {
+      case InterfaceInstanceBody(methods, view @ _) =>
+        InterfaceInstanceBodySignature(
+          methods.transform((_, v) => toSignature(v)),
+          (),
+        )
     }
 
   private[this] def toSignature(implements: TemplateImplements): TemplateImplementsSignature =
     implements match {
-      case TemplateImplements(name, methods, _) =>
+      case TemplateImplements(name, body) =>
         TemplateImplementsSignature(
           name,
-          methods.transform((_, v) => toSignature(v)),
-          (),
+          toSignature(body),
         )
     }
 
@@ -246,22 +254,13 @@ object Util {
     }
 
   private[this] def toSignature(
-      coImplementsMethod: InterfaceCoImplementsMethod
-  ): InterfaceCoImplementsMethodSignature =
-    coImplementsMethod match {
-      case InterfaceCoImplementsMethod(name, _) =>
-        InterfaceCoImplementsMethodSignature(name, ())
-    }
-
-  private[this] def toSignature(
       coImplements: InterfaceCoImplements
   ): InterfaceCoImplementsSignature =
     coImplements match {
-      case InterfaceCoImplements(name, methods, _) =>
+      case InterfaceCoImplements(name, body) =>
         InterfaceCoImplementsSignature(
           name,
-          methods.transform((_, v) => toSignature(v)),
-          (),
+          toSignature(body),
         )
     }
 

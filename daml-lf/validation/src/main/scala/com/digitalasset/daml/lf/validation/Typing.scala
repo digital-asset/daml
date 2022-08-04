@@ -541,10 +541,10 @@ private[validation] object Typing {
       AlphaEquiv.alphaEquiv(t1, t2) ||
         AlphaEquiv.alphaEquiv(expandTypeSynonyms(t1), expandTypeSynonyms(t2))
 
-    private def checkGenImplementation(
+    private def checkInterfaceInstance(
         tplTcon: TypeConName,
         ifaceTcon: TypeConName,
-        implMethods: List[(MethodName, Expr)],
+        iiBody: InterfaceInstanceBody,
     ): Unit = {
       val DefInterfaceSignature(requires, _, _, methods, _, _) =
         // TODO https://github.com/digital-asset/daml/issues/14112
@@ -557,10 +557,10 @@ private[validation] object Typing {
         .foreach(required => throw EMissingRequiredInterface(ctx, tplTcon, ifaceTcon, required))
 
       methods.values.foreach { (method: InterfaceMethod) =>
-        if (!implMethods.exists { case (name, _) => name == method.name })
+        if (!iiBody.methods.exists { case (name, _) => name == method.name })
           throw EMissingInterfaceMethod(ctx, tplTcon, ifaceTcon, method.name)
       }
-      implMethods.foreach { case (name, value) =>
+      iiBody.methods.values.foreach { case InterfaceInstanceMethod(name, value) =>
         methods.get(name) match {
           case None =>
             throw EUnknownInterfaceMethod(ctx, tplTcon, ifaceTcon, name)
@@ -578,10 +578,10 @@ private[validation] object Typing {
       pkgInterface
         .lookupInterfaceCoImplements(tplTcon, ifaceTcon)
         .foreach(_ => throw EConflictingImplementsCoImplements(ctx, tplTcon, ifaceTcon))
-      checkGenImplementation(
+      checkInterfaceInstance(
         tplTcon,
         ifaceTcon,
-        impl.methods.values.map(TemplateImplementsMethod.unapply(_).value).toList,
+        impl.body,
       )
     }
 
@@ -604,10 +604,10 @@ private[validation] object Typing {
       // Note (MA): we use an empty environment and add `param : TTyCon(tplTcon)`
       Env(languageVersion, pkgInterface, Context.DefInterfaceCoImplements(tplTcon, ifaceTcon))
         .introExprVar(param, TTyCon(tplTcon))
-        .checkGenImplementation(
+        .checkInterfaceInstance(
           tplTcon,
           ifaceTcon,
-          coImpl.methods.values.map(InterfaceCoImplementsMethod.unapply(_).value).toList,
+          coImpl.body,
         )
     }
 
