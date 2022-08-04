@@ -487,10 +487,11 @@ prettyScenarioErrorError (Just err) =  do
         [ "Found duplicate contract IDs in submitted disclosed contracts"
         , label_ "Template: " $ prettyMay "missing template" (prettyDefName world) templateId
         ]
-    ScenarioErrorErrorDisclosurePreprocessingDuplicateContractKeys(ScenarioError_DisclosurePreprocessingDuplicateContractKeys templateId) ->
+    ScenarioErrorErrorDisclosurePreprocessingDuplicateContractKeys(ScenarioError_DisclosurePreprocessingDuplicateContractKeys templateId keyHash) ->
       pure $ vcat
         [ "Found duplicate contract keys in submitted disclosed contracts"
         , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
+        , label_ "Key Hash: " $ ltext keyHash
         ]
     ScenarioErrorErrorDisclosurePreprocessingNonExistentTemplate(ScenarioError_DisclosurePreprocessingNonExistentTemplate templateId) ->
       pure $ vcat
