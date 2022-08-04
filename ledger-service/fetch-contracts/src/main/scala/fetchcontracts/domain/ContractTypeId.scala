@@ -72,15 +72,24 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
     ) = Unknown(packageId, moduleName, entityName)
   }
 
-  // TODO SC placeholder for the lub of Template/Interface
-  type Definite[+PkgId] = ContractTypeId[PkgId]
+  sealed abstract class Definite[+PkgId] extends ContractTypeId[PkgId] with Ops[Definite, PkgId]
 
   /** A contract type ID known to be a template, not an interface.  When resolved,
     * it indicates that the LF environment associates this ID with a template.
     * When unresolved, it indicates that the intent is to search only template
     * IDs for resolution, and that resolving to an interface ID should be an error.
     */
-  type Template[+PkgId] = ContractTypeId[PkgId]
+  final case class Template[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
+      extends Definite[PkgId]
+      with Ops[Template, PkgId] {
+    override def productPrefix = "TemplateId"
+
+    override def copy[PkgId0](
+        packageId: PkgId0 = packageId,
+        moduleName: String = moduleName,
+        entityName: String = entityName,
+    ) = Template(packageId, moduleName, entityName)
+  }
 
   /** A contract type ID known to be an interface, not a template.  When resolved,
     * it indicates that the LF environment associates this ID with an interface.
@@ -88,7 +97,7 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
     * IDs for resolution, and that resolving to a template ID should be an error.
     */
   final case class Interface[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
-      extends ContractTypeId[PkgId]
+      extends Definite[PkgId]
       with Ops[Interface, PkgId] {
     override def productPrefix = "InterfaceId"
 
@@ -122,7 +131,7 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
 
   object Unknown extends Like[Unknown]
 
-  val Template = this
+  object Template extends Like[Template]
 
   object Interface extends Like[Interface]
 

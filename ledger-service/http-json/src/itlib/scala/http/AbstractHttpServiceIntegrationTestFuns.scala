@@ -392,6 +392,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected[this] object TpId {
     import domain.TemplateId.{OptionalPkg => Id}
     import domain.{ContractTypeId => CtId}
+    import CtId.Template.{OptionalPkg => TId}
     import CtId.Interface.{OptionalPkg => IId}
 
     object Iou {
@@ -402,7 +403,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       val MultiPartyContract: Id = domain.TemplateId(None, "Test", "MultiPartyContract")
     }
     object Account {
-      val Account: Id = domain.TemplateId(None, "Account", "Account")
+      val Account: TId = CtId.Template(None, "Account", "Account")
     }
     object User {
       val User: Id = domain.TemplateId(None, "User", "User")
@@ -410,6 +411,11 @@ trait AbstractHttpServiceIntegrationTestFuns
     object IIou {
       val IIou: IId = CtId.Interface(None, "IIou", "IIou")
     }
+
+    def unsafeCoerce[Like[T] <: CtId[T], T](ctId: CtId[T])(implicit
+        Like: CtId.Like[Like]
+    ): Like[T] =
+      Like(ctId.packageId, ctId.moduleName, ctId.entityName)
   }
 
   protected def iouCreateCommand(

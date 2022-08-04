@@ -118,7 +118,7 @@ class PackageServiceTest
     }
 
     "should return None for unknown Template ID" in forAll(
-      Generators.genDomainTemplateIdO[Option[String]]
+      Generators.genDomainTemplateIdO: org.scalacheck.Gen[domain.TemplateId.OptionalPkg]
     ) { templateId: domain.TemplateId.OptionalPkg =>
       val map = TemplateIdMap.Empty[domain.TemplateId]
       PackageService.resolveTemplateId(map)(templateId) shouldBe None

@@ -213,7 +213,7 @@ abstract class HttpServiceIntegrationTest
               domain.ErrorResponse(Seq(onlyError), None, StatusCodes.BadRequest, None),
             ) =>
           (onlyError should include regex
-            raw"Cannot resolve Choice Argument type, given: \(ContractTypeId\([0-9a-f]{64},CIou,CIou\), Ambiguous\)")
+            raw"Cannot resolve Choice Argument type, given: \(TemplateId\([0-9a-f]{64},CIou,CIou\), Ambiguous\)")
       }
     }
   }
@@ -237,7 +237,7 @@ abstract class HttpServiceIntegrationTest
           encodeExercise(encoder)(
             iouTransfer(
               domain.EnrichedContractKey(
-                TpId.IIou.IIou,
+                TpId.unsafeCoerce[domain.ContractTypeId.Template, Option[String]](TpId.IIou.IIou),
                 v.Value(v.Value.Sum.Party(domain.Party unwrap alice)),
               ),
               tExercise()(ShRecord(echo = "bob")),
