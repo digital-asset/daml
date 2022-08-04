@@ -81,7 +81,9 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
           cid should ===(imId)
           choiceArg should ===(encode(MyMain.OverloadedInTemplate()))
       }
-      inside(imId.exerciseOverloadedInTemplate(alice, MyMain.OverloadedInTemplate()).command.command) {
+      inside(
+        imId.exerciseOverloadedInTemplate(alice, MyMain.OverloadedInTemplate()).command.command
+      ) {
         case rpccmd.Command.Command.Exercise(
               rpccmd.ExerciseCommand(
                 Some(DirectTemplateId),
