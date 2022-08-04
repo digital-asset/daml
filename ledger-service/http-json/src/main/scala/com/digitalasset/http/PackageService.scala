@@ -328,7 +328,7 @@ object PackageService {
     )
   }
 
-  def buildTemplateIdMap[CtId[T] <: ContractTypeId[T]: ContractTypeId.Like](
+  def buildTemplateIdMap[CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]](
       ids: Set[RequiredPkg[CtId]]
   ): ContractTypeIdMap[CtId] = {
     val all = ids
@@ -339,16 +339,16 @@ object PackageService {
   private type RequiredPkg[CtId[_]] = CtId[String]
   private type NoPkg[CtId[_]] = CtId[Unit]
 
-  private[http] def key2[CtId[T] <: ContractTypeId[T]](k: RequiredPkg[CtId])(implicit
-      companion: ContractTypeId.Like[CtId]
+  private[http] def key2[CtId[T] <: ContractTypeId.Ops[CtId, T]](
+      k: RequiredPkg[CtId]
   ): NoPkg[CtId] =
-    companion[Unit]((), k.moduleName, k.entityName)
+    k.copy(packageId = ())
 
-  private def filterUniqueTemplateIs[CtId[T] <: ContractTypeId[T]: ContractTypeId.Like](
+  private def filterUniqueTemplateIs[CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]](
       all: Set[RequiredPkg[CtId]]
   ): Map[NoPkg[CtId], RequiredPkg[CtId]] =
     all
-      .groupBy(k => key2(k))
+      .groupBy(key2)
       .collect { case (k, v) if v.sizeIs == 1 => (k, v.head) }
 
   def resolveTemplateId[
