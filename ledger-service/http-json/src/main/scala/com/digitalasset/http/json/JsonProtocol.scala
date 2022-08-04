@@ -414,17 +414,17 @@ object JsonProtocol extends JsonProtocolLow {
           choice = choice,
           argument = argument,
           choiceInterfaceId =
-            fromField[Option[domain.ContractTypeId.Unknown.OptionalPkg]](json, "choiceInterfaceId"),
+            fromField[Option[domain.ContractTypeId.OptionalPkg]](json, "choiceInterfaceId"),
           meta = meta,
         )
       }
     }
 
   implicit val CreateAndExerciseCommandFormat: RootJsonFormat[
-    domain.CreateAndExerciseCommand[JsValue, JsValue, domain.ContractTypeId.Unknown.OptionalPkg]
+    domain.CreateAndExerciseCommand[JsValue, JsValue, domain.ContractTypeId.OptionalPkg]
   ] =
     jsonFormat6(
-      domain.CreateAndExerciseCommand[JsValue, JsValue, domain.ContractTypeId.Unknown.OptionalPkg]
+      domain.CreateAndExerciseCommand[JsValue, JsValue, domain.ContractTypeId.OptionalPkg]
     )
 
   implicit val CompletionOffsetFormat: JsonFormat[domain.CompletionOffset] =

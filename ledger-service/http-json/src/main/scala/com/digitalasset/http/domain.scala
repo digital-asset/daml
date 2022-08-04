@@ -143,7 +143,7 @@ package domain {
   ) extends ContractLocator[LfV]
 
   final case class EnrichedContractId(
-      templateId: Option[ContractTypeId.Unknown.OptionalPkg],
+      templateId: Option[ContractTypeId.OptionalPkg],
       contractId: domain.ContractId,
   ) extends ContractLocator[Nothing]
 
@@ -273,7 +273,7 @@ package domain {
       choice: domain.Choice,
       argument: LfV,
       // passing a template ID is allowed; we distinguish internally
-      choiceInterfaceId: Option[ContractTypeId.Unknown.OptionalPkg],
+      choiceInterfaceId: Option[ContractTypeId.OptionalPkg],
       meta: Option[CommandMeta],
   )
 
@@ -518,7 +518,7 @@ package domain {
 
     def lfType(
         fa: F[_],
-        templateId: ContractTypeId.Unknown.Resolved,
+        templateId: ContractTypeId.Resolved,
         f: PackageService.ResolveTemplateRecordType,
         g: PackageService.ResolveChoiceArgType,
         h: PackageService.ResolveKeyType,
@@ -595,7 +595,7 @@ package domain {
 
         override def lfType(
             fa: ExerciseCommand[_, domain.ContractLocator[_]],
-            templateId: ContractTypeId.Unknown.Resolved,
+            templateId: ContractTypeId.Resolved,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,

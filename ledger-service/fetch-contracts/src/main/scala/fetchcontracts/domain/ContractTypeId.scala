@@ -57,9 +57,6 @@ sealed abstract class ContractTypeId[+PkgId]
 }
 
 object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
-  @deprecated("use root or UnknownImpl instead", since = "#14577")
-  type Unknown[+PkgId] = ContractTypeId[PkgId]
-
   // TODO SC rename to Unknown
   final case class UnknownImpl[+PkgId](
       packageId: PkgId,
@@ -102,9 +99,6 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
         entityName: String = entityName,
     ) = Interface(packageId, moduleName, entityName)
   }
-
-  @deprecated("use root or UnknownImpl instead", since = "#14577")
-  final val Unknown = this
 
   override def apply[PkgId](
       packageId: PkgId,

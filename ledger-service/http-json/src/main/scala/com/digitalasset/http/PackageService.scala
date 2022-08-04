@@ -281,7 +281,7 @@ object PackageService {
 
   type ResolveChoiceArgType =
     (
-        ContractTypeId.Unknown.RequiredPkg,
+        ContractTypeId.RequiredPkg,
         Choice,
     ) => Error \/ (Option[ContractTypeId.Interface.Resolved], iface.Type)
 
@@ -311,7 +311,7 @@ object PackageService {
     def Empty[CtId[_]]: ContractTypeIdMap[CtId] = ContractTypeIdMap(Set.empty, Map.empty)
   }
 
-  private type ChoiceTypeMap = Map[ContractTypeId.Unknown.Resolved, NonEmpty[
+  private type ChoiceTypeMap = Map[ContractTypeId.Resolved, NonEmpty[
     Map[Choice, NonEmpty[Map[Option[ContractTypeId.Interface.Resolved], iface.Type]]]
   ]]
 
@@ -372,7 +372,7 @@ object PackageService {
   private def resolveChoiceArgType(
       choiceIdMap: ChoiceTypeMap
   )(
-      ctId: ContractTypeId.Unknown.Resolved,
+      ctId: ContractTypeId.Resolved,
       choice: Choice,
   ): Error \/ (Option[ContractTypeId.Interface.Resolved], iface.Type) = {
     // TODO #14067 skip indirect resolution if ctId is an interface ID
