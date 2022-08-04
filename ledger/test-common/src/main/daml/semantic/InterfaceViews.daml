@@ -9,35 +9,38 @@ data View = View with
   b : Bool
 
 interface I where
+    viewtype View
     _view : View
 
 interface INoView where
-
-interface INoTemplate where
+    viewtype ()
 
 template T1
   with
     p : Party
     a : Int
   where
-    key (p, a): (Party, Int)
-    maintainer key._1
     signatory p
     implements I where
+      view = View with
+        a
+        b = True
       _view = View with
         a
         b = True
     implements INoView where
+      view = ()
 
 template T2
   with
     p : Party
     a : Int
   where
-    key (p, a): (Party, Int)
-    maintainer key._1
     signatory p
     implements I where
+      view = View with
+        a
+        b = False
       _view = View with
         a
         b = False
@@ -49,6 +52,7 @@ template T3
   where
     signatory p
     implements I where
+      view = error "view crashed"
       _view = error "view crashed"
 
 template T4
