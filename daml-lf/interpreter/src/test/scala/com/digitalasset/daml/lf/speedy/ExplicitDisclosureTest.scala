@@ -136,6 +136,20 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
           }
         }
       }
+
+      "unused disclosed contracts not saved to ledger.ptx" in {
+        unusedDisclosedContractsNotSavedToTransaction(
+          SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
+          committers = Set(disclosureParty),
+          disclosedContracts = ImmArray(disclosedCaveContract, disclosedHouseContract),
+          usedDisclosedContracts = Set(disclosedCaveContract),
+        )(result =>
+          inside(result) {
+            case Right(SValue.SAny(_, contract @ SValue.SRecord(`caveTemplateId`, _, _))) =>
+              getOwner(contract.toUnnormalizedValue) shouldBe Some(disclosureParty)
+          }
+        )
+      }
     }
 
     "fetching contract keys" - {
@@ -252,6 +266,15 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
           }
         }
       }
+
+      "unused disclosed contracts not saved to ledger.ptx" in {
+        unusedDisclosedContractsNotSavedToTransaction(
+          SBUFetchKey(houseTemplateId)(SEValue(contractSKey)),
+          committers = Set(disclosureParty),
+          disclosedContracts = ImmArray(disclosedCaveContract, disclosedHouseContract),
+          usedDisclosedContracts = Set(disclosedHouseContract),
+        )(_ shouldBe Right(SValue.SContractId(disclosureContractId)))
+      }
     }
 
     "looking up contract keys" - {
@@ -364,6 +387,15 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
             }
           }
         }
+      }
+
+      "unused disclosed contracts not saved to ledger.ptx" in {
+        unusedDisclosedContractsNotSavedToTransaction(
+          SBULookupKey(houseTemplateId)(SEValue(contractSKey)),
+          committers = Set(disclosureParty),
+          disclosedContracts = ImmArray(disclosedCaveContract, disclosedHouseContract),
+          usedDisclosedContracts = Set(disclosedHouseContract),
+        )(_ shouldBe Right(SValue.SOptional(Some(SValue.SContractId(disclosureContractId)))))
       }
     }
   }
@@ -480,5 +512,26 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
     ledger should haveDisclosedContracts(usedDisclosedContracts.toIndexedSeq: _*)
     ledger should haveCachedContractIds(contractToDestroy)
     ledger should haveInactiveContractIds(contractToDestroy)
+  }
+
+  def unusedDisclosedContractsNotSavedToTransaction(
+      sexpr: SExpr.SExpr,
+      committers: Set[Party] = Set.empty,
+      usedDisclosedContracts: Set[DisclosedContract] = Set.empty,
+      disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
+  )(assertResult: Either[SError.SError, SValue] => Assertion): Assertion = {
+    val (result, ledger) =
+      evaluateSExpr(
+        sexpr,
+        committers = committers,
+        disclosedContracts = disclosedContracts,
+      )
+
+    assertResult(result)
+    ledger should haveDisclosedContracts(usedDisclosedContracts.toIndexedSeq: _*)
+    ledger should haveCachedContractIds(
+      usedDisclosedContracts.toIndexedSeq.map(_.contractId.value): _*
+    )
+    ledger should haveInactiveContractIds()
   }
 }
