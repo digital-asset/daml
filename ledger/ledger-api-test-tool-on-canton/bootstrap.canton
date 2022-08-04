@@ -1,11 +1,12 @@
+import com.digitalasset.canton.config.TimeoutDuration
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 
 nodes.local start
 
-test_domain.service.update_dynamic_parameters(_.copy(
+test_domain.service.update_dynamic_domain_parameters(_.update(
   ledgerTimeRecordTimeTolerance = NonNegativeFiniteDuration.ofMinutes(3),
-  mediatorReactionTimeout = NonNegativeFiniteDuration.ofMinutes(1),
-  participantResponseTimeout = NonNegativeFiniteDuration.ofMinutes(1),
+  mediatorReactionTimeout = TimeoutDuration.ofMinutes(1),
+  participantResponseTimeout = TimeoutDuration.ofMinutes(1),
 ))
 
 participants.local foreach (_.domains.connect_local(test_domain))
