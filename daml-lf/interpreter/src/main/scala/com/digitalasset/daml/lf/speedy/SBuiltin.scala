@@ -1136,7 +1136,7 @@ private[lf] object SBuiltin {
               continue(coinst)
 
             case None =>
-              throw SpeedyHungry(
+              Control.Question(
                 SResultNeedContract(
                   coid,
                   onLedger.committers,
@@ -1147,7 +1147,6 @@ private[lf] object SBuiltin {
                 )
               )
           }
-
       }
 
     }
@@ -1598,7 +1597,7 @@ private[lf] object SBuiltin {
               control
 
             case None => {
-              throw SpeedyHungry(
+              Control.Question(
                 SResultNeedKey(
                   GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
                   onLedger.committers,
@@ -1642,7 +1641,7 @@ private[lf] object SBuiltin {
           onLedger.dependsOnTime = true
         case OffLedger =>
       }
-      throw SpeedyHungry(
+      Control.Question(
         SResultNeedTime { timestamp =>
           machine.setControl(Control.Value(STimestamp(timestamp)))
         }
@@ -1656,7 +1655,7 @@ private[lf] object SBuiltin {
         machine: Machine,
     ): Control = {
       checkToken(args, 2)
-      throw SpeedyHungry(
+      Control.Question(
         SResultScenarioSubmit(
           committers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(0)),
           commands = args.get(1),
@@ -1689,7 +1688,7 @@ private[lf] object SBuiltin {
     ): Control = {
       checkToken(args, 1)
       val relTime = getSInt64(args, 0)
-      throw SpeedyHungry(
+      Control.Question(
         SResultScenarioPassTime(
           relTime,
           callback = { timestamp =>
@@ -1708,7 +1707,7 @@ private[lf] object SBuiltin {
     ): Control = {
       checkToken(args, 1)
       val name = getSText(args, 0)
-      throw SpeedyHungry(
+      Control.Question(
         SResultScenarioGetParty(
           name,
           callback = { party =>

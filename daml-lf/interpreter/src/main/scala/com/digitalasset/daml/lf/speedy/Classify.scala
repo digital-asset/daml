@@ -26,9 +26,6 @@ private[speedy] object Classify { // classify the machine state w.r.t what step 
 
   def classifyMachine(machine: Machine, counts: Counts): Unit = {
     machine.control match {
-      case Control.WeAreUnset => ()
-      case Control.WeAreComplete => ()
-      case Control.WeAreHungry(_) => ()
       case Control.Value(_) =>
         // classify a value by the continution it is about to return to
         counts.ctrlValue += 1
@@ -38,6 +35,7 @@ private[speedy] object Classify { // classify the machine state w.r.t what step 
         counts.ctrlExpr += 1
         val expr = exp.getClass.getSimpleName
         val _ = counts.exprs += expr -> (counts.exprs.get(expr).getOrElse(0) + 1)
+      case _ => ()
     }
   }
 }
