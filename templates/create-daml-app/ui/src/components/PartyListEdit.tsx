@@ -72,9 +72,14 @@ const PartyListEdit: React.FC<Props> = ({
           onAddItem={(event, { value }) => setNewParty(value?.toString())}
           onChange={(event, { value }) => setNewParty(value?.toString())}
         />
-        <Button type="submit" className="test-select-follow-button">
-          Follow
-        </Button>
+        <Button
+          fluid
+          type="submit"
+          className="test-select-follow-button"
+          disabled={isSubmitting || newParty === undefined}
+          loading={isSubmitting}
+          content="Follow"
+        />
       </Form>
     </List>
   );
