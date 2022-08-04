@@ -1113,6 +1113,13 @@ private[lf] object SBuiltin {
           machine.disclosureTable.contractById.get(SContractId(coid)) match {
             case Some((templateId, arg)) =>
               val coinst = machine.normValue(templateId, arg)
+              val disclosedContract = machine.disclosureTable.disclosedContractById.getOrElse(
+                coid,
+                crash(
+                  s"Disclosure table is in an inconsistent state: expected to find a disclosed contract for the contract ID $coid"
+                ),
+              )
+              onLedger.ptx = onLedger.ptx.addDisclosedContractUsage(disclosedContract)
               continue(V.ContractInstance(templateId, coinst, ""))
 
             case None =>
@@ -1544,6 +1551,13 @@ private[lf] object SBuiltin {
           machine.disclosureTable.contractIdByKey.get(gkey.hash) match {
             case Some(coid) =>
               val vcoid = coid.value
+              val disclosedContract = machine.disclosureTable.disclosedContractByKey.getOrElse(
+                gkey.hash,
+                crash(
+                  s"Disclosure table is in an inconsistent state: expected to find a disclosed contract for the contract key ${gkey.hash.toHexString}"
+                ),
+              )
+              onLedger.ptx = onLedger.ptx.addDisclosedContractUsage(disclosedContract)
               discard(continue(Some(vcoid)))
 
             case None => {

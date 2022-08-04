@@ -22,7 +22,7 @@ import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
-import scala.collection.immutable.HashMap
+import scala.collection.immutable.{HashMap, HashSet}
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
 
@@ -225,7 +225,7 @@ private[speedy] case class PartialTransaction(
     context: PartialTransaction.Context,
     contractState: ContractStateMachine[NodeId]#State,
     actionNodeLocations: BackStack[Option[Location]],
-    disclosedContracts: ImmArray[DisclosedContract],
+    disclosedContracts: HashSet[DisclosedContract],
 ) {
 
   import PartialTransaction._
@@ -279,6 +279,10 @@ private[speedy] case class PartialTransaction(
 
       sb.toString
     }
+
+  def addDisclosedContractUsage(contract: DisclosedContract): PartialTransaction = {
+    this.copy(disclosedContracts = disclosedContracts + contract)
+  }
 
   private def locationInfo(): Map[NodeId, Location] = {
     this.actionNodeLocations.toImmArray.toSeq.zipWithIndex.collect { case (Some(loc), n) =>
