@@ -595,7 +595,7 @@ final class Metrics(val registry: MetricRegistry) {
 
       /** The size of the queue after the indexer and before the in-memory state updating flow.
         * As opposed to [[inputBufferLength]], this counter counts batches, which are dynamically-sized
-        * based on downstream back-pressure.
+        * (for batch size, see [[inputMapping.batchSize]]).
         */
       val outputBatchedBufferLength: Counter =
         registry.counter(Prefix :+ "output_batched_buffer_length")
