@@ -22,7 +22,7 @@ import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
-import scala.collection.immutable.{HashMap, HashSet}
+import scala.collection.immutable.HashMap
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
 
@@ -175,7 +175,7 @@ private[lf] object PartialTransaction {
       contractKeyUniqueness: ContractKeyUniquenessMode,
       initialSeeds: InitialSeeding,
       committers: Set[Party],
-      disclosedContracts: HashSet[DisclosedContract],
+      disclosedContracts: ImmArray[DisclosedContract],
   ) = PartialTransaction(
     nextNodeIdx = 0,
     nodes = HashMap.empty,
@@ -202,7 +202,7 @@ private[lf] object PartialTransaction {
       locationInfo: Map[NodeId, Location],
       seeds: NodeSeeds,
       globalKeyMapping: Map[GlobalKey, KeyMapping],
-      disclosedContracts: HashSet[DisclosedContract],
+      disclosedContracts: ImmArray[DisclosedContract],
   )
 }
 
@@ -216,7 +216,7 @@ private[lf] object PartialTransaction {
   *  @param contractState summarizes the changes to the contract states caused by nodes up to now
   *  @param actionNodeLocations The optional locations of create/exercise/fetch/lookup nodes in pre-order.
   *   Used by 'locationInfo()', called by 'finish()' and 'finishIncomplete()'
-  *   @param disclosedContracts contracts that have been explicitly disclosed
+  *   @param disclosedContracts contracts that have been explicitly disclosed to Speedy (usage will be determined by 'finish()')
   */
 private[speedy] case class PartialTransaction(
     nextNodeIdx: Int,
@@ -225,7 +225,7 @@ private[speedy] case class PartialTransaction(
     context: PartialTransaction.Context,
     contractState: ContractStateMachine[NodeId]#State,
     actionNodeLocations: BackStack[Option[Location]],
-    disclosedContracts: HashSet[DisclosedContract],
+    disclosedContracts: ImmArray[DisclosedContract],
 ) {
 
   import PartialTransaction._
@@ -280,10 +280,6 @@ private[speedy] case class PartialTransaction(
       sb.toString
     }
 
-  def addDisclosedContractUsage(contract: DisclosedContract): PartialTransaction = {
-    this.copy(disclosedContracts = disclosedContracts + contract)
-  }
-
   private def locationInfo(): Map[NodeId, Location] = {
     this.actionNodeLocations.toImmArray.toSeq.zipWithIndex.collect { case (Some(loc), n) =>
       (NodeId(n), loc)
@@ -312,13 +308,15 @@ private[speedy] case class PartialTransaction(
         val roots = context.children.toImmArray
         val tx0 = Tx(nodes, roots)
         val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
+        val txResult = SubmittedTransaction(TxVersion.asVersionedTransaction(tx))
         Result(
-          SubmittedTransaction(TxVersion.asVersionedTransaction(tx)),
+          txResult,
           locationInfo(),
           seeds.zip(actionNodeSeeds.toImmArray),
           contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
-          disclosedContracts,
+          disclosedContracts.filter(disclosedContract => txResult.inputContracts.contains(disclosedContract.contractId.value)),
         )
+
       case _ =>
         InternalError.runtimeException(
           NameOf.qualifiedNameOfCurrentFunc,

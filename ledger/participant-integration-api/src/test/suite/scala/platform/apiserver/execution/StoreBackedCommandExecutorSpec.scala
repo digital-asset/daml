@@ -22,8 +22,6 @@ import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.collection.immutable.HashSet
-
 class StoreBackedCommandExecutorSpec
     extends AsyncWordSpec
     with Matchers
@@ -37,7 +35,7 @@ class StoreBackedCommandExecutorSpec
     dependsOnTime = false,
     nodeSeeds = ImmArray.Empty,
     globalKeyMapping = Map.empty,
-    disclosures = HashSet.empty,
+    disclosures = ImmArray.Empty,
   )
 
   "execute" should {

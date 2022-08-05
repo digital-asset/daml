@@ -13,7 +13,7 @@ import com.daml.lf.command.DisclosedContract
 import com.daml.lf.transaction.ContractStateMachine.KeyMapping
 
 import scala.annotation.tailrec
-import scala.collection.immutable.{HashMap, HashSet}
+import scala.collection.immutable.HashMap
 
 final case class VersionedTransaction private[lf] (
     version: TransactionVersion,
@@ -701,7 +701,7 @@ object Transaction {
     * @param nodeSeeds        : An association list that maps to each ID of create and exercise
     *                         nodes its seeds.
     * @param globalKeyMapping : input key mapping inferred by interpretation
-    * @param disclosures      : contracts explicitly disclosed to this transaction
+    * @param disclosures      : contracts explicitly disclosed to (and used by) this transaction
     */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],
@@ -710,7 +710,7 @@ object Transaction {
       dependsOnTime: Boolean,
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      disclosures: HashSet[Versioned[DisclosedContract]],
+      disclosures: ImmArray[Versioned[DisclosedContract]],
   )
 
   def commitTransaction(submittedTransaction: SubmittedTransaction): CommittedTransaction =

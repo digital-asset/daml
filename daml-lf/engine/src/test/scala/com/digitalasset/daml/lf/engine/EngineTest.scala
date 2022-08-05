@@ -38,7 +38,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.Inside._
 
-import scala.collection.immutable.{HashMap, HashSet}
+import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 
 @SuppressWarnings(
@@ -2428,7 +2428,7 @@ object EngineTest {
           dependsOnTime = state.dependsOnTime,
           nodeSeeds = state.nodeSeeds.toImmArray,
           globalKeyMapping = Map.empty,
-          disclosures = HashSet.empty,
+          disclosures = ImmArray.Empty,
         ),
       )
     )

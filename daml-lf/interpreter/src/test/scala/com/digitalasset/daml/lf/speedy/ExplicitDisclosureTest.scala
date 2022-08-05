@@ -101,7 +101,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
               "TestMod:destroyCave",
               committers = Set(disclosureParty),
               disclosedContracts = ImmArray(disclosedCaveContract),
-              usedDisclosedContracts = Set(disclosedCaveContract),
+              usedDisclosedContracts = ImmArray(disclosedCaveContract),
             )(result =>
               inside(result) {
                 case Left(
@@ -122,7 +122,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
               committers = Set(disclosureParty, ledgerParty),
               getContract = Map(contractId -> ledgerCaveContract),
               disclosedContracts = ImmArray(disclosedCaveContract),
-              usedDisclosedContracts = Set(disclosedCaveContract),
+              usedDisclosedContracts = ImmArray(disclosedCaveContract),
             )(result =>
               inside(result) {
                 case Left(
@@ -142,7 +142,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
           SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
           committers = Set(disclosureParty),
           disclosedContracts = ImmArray(disclosedCaveContract, disclosedHouseContract),
-          usedDisclosedContracts = Set(disclosedCaveContract),
+          usedDisclosedContracts = ImmArray(disclosedCaveContract),
         )(result =>
           inside(result) {
             case Right(SValue.SAny(_, contract @ SValue.SRecord(`caveTemplateId`, _, _))) =>
@@ -228,7 +228,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
               "TestMod:destroyHouse",
               committers = Set(disclosureParty, maintainerParty),
               disclosedContracts = ImmArray(disclosedHouseContract),
-              usedDisclosedContracts = Set(disclosedHouseContract),
+              usedDisclosedContracts = ImmArray(disclosedHouseContract),
             )(result =>
               inside(result) {
                 case Left(SError.SErrorDamlException(ContractKeyNotFound(`contractKey`))) =>
@@ -254,8 +254,8 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
                 getContract = Map(ledgerContractId -> ledgerHouseContract),
                 disclosedContracts = ImmArray(disclosedHouseContract),
                 usedDisclosedContracts =
-                  if (contractIdToBurn == disclosureContractId) Set(disclosedHouseContract)
-                  else Set.empty,
+                  if (contractIdToBurn == disclosureContractId) ImmArray(disclosedHouseContract)
+                  else ImmArray.Empty,
               )(result =>
                 inside(result) {
                   case Left(SError.SErrorDamlException(ContractKeyNotFound(`contractKey`))) =>
@@ -272,7 +272,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
           SBUFetchKey(houseTemplateId)(SEValue(contractSKey)),
           committers = Set(disclosureParty),
           disclosedContracts = ImmArray(disclosedCaveContract, disclosedHouseContract),
-          usedDisclosedContracts = Set(disclosedHouseContract),
+          usedDisclosedContracts = ImmArray(disclosedHouseContract),
         )(_ shouldBe Right(SValue.SContractId(disclosureContractId)))
       }
     }
@@ -352,7 +352,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
               "TestMod:destroyHouse",
               committers = Set(disclosureParty, maintainerParty),
               disclosedContracts = ImmArray(disclosedHouseContract),
-              usedDisclosedContracts = Set(disclosedHouseContract),
+              usedDisclosedContracts = ImmArray(disclosedHouseContract),
             )(result =>
               inside(result) { case Right(SValue.SOptional(None)) =>
                 succeed
@@ -377,8 +377,8 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
                 getContract = Map(ledgerContractId -> ledgerHouseContract),
                 disclosedContracts = ImmArray(disclosedHouseContract),
                 usedDisclosedContracts =
-                  if (contractIdToBurn == disclosureContractId) Set(disclosedHouseContract)
-                  else Set.empty,
+                  if (contractIdToBurn == disclosureContractId) ImmArray(disclosedHouseContract)
+                  else ImmArray.Empty,
               )(result =>
                 inside(result) { case Right(SValue.SOptional(None)) =>
                   succeed
@@ -394,7 +394,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
           SBULookupKey(houseTemplateId)(SEValue(contractSKey)),
           committers = Set(disclosureParty),
           disclosedContracts = ImmArray(disclosedCaveContract, disclosedHouseContract),
-          usedDisclosedContracts = Set(disclosedHouseContract),
+          usedDisclosedContracts = ImmArray(disclosedHouseContract),
         )(_ shouldBe Right(SValue.SOptional(Some(SValue.SContractId(disclosureContractId)))))
       }
     }
@@ -488,7 +488,7 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
       contractToDestroy: ContractId,
       action: String,
       committers: Set[Party] = Set.empty,
-      usedDisclosedContracts: Set[DisclosedContract] = Set.empty,
+      usedDisclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
       disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
@@ -517,7 +517,7 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
   def unusedDisclosedContractsNotSavedToTransaction(
       sexpr: SExpr.SExpr,
       committers: Set[Party] = Set.empty,
-      usedDisclosedContracts: Set[DisclosedContract] = Set.empty,
+      usedDisclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
       disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
   )(assertResult: Either[SError.SError, SValue] => Assertion): Assertion = {
     val (result, ledger) =
