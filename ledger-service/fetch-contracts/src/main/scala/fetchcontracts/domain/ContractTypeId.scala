@@ -136,7 +136,8 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
   object Interface extends Like[Interface]
 
   // TODO #14067 make an opaque subtype, produced by PackageService on
-  // confirmed-present IDs only
+  // confirmed-present IDs only.  Can probably start by adding
+  // `with Definite[Any]` here and seeing what happens
   /** A resolved [[ContractTypeId]], typed `CtTyId`. */
   type ResolvedId[+CtTyId] = CtTyId
 

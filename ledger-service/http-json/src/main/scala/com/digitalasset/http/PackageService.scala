@@ -229,7 +229,7 @@ private class PackageService(
           )
           reload(jwt, ledgerId)
         } else Future.successful(())
-      f.map(_ => state.templateIdMap.all)
+      f.map(_ => state.templateIdMap.all.keySet)
   }
 
   // See the above comment on resolveTemplateId
@@ -289,7 +289,7 @@ object PackageService {
     TemplateId.RequiredPkg => Error \/ iface.Type
 
   final case class ContractTypeIdMap[CtId[_]](
-      all: Set[ContractTypeId.ResolvedId[RequiredPkg[CtId]]],
+      all: Map[RequiredPkg[CtId], ContractTypeId.ResolvedId[RequiredPkg[CtId]]],
       unique: Map[NoPkg[CtId], ContractTypeId.ResolvedId[RequiredPkg[CtId]]],
   ) {
     // forms a monoid with Empty
@@ -301,14 +301,14 @@ object PackageService {
     }
 
     private[PackageService] def widen[O[T] >: CtId[T]]: ContractTypeIdMap[O] =
-      ContractTypeIdMap(all.toSet, unique.toMap)
+      ContractTypeIdMap(all.toMap, unique.toMap)
   }
 
   type TemplateIdMap = ContractTypeIdMap[ContractTypeId.Template]
   type InterfaceIdMap = ContractTypeIdMap[ContractTypeId.Interface]
 
   object TemplateIdMap {
-    def Empty[CtId[_]]: ContractTypeIdMap[CtId] = ContractTypeIdMap(Set.empty, Map.empty)
+    def Empty[CtId[_]]: ContractTypeIdMap[CtId] = ContractTypeIdMap(Map.empty, Map.empty)
   }
 
   private type ChoiceTypeMap = Map[ContractTypeId.Resolved, NonEmpty[
@@ -331,8 +331,8 @@ object PackageService {
   def buildTemplateIdMap[CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]](
       ids: Set[RequiredPkg[CtId]]
   ): ContractTypeIdMap[CtId] = {
-    val all = ids
-    val unique = filterUniqueTemplateIs(all)
+    val all = ids.view.map(k => (k, k)).toMap
+    val unique = filterUniqueTemplateIs(ids)
     ContractTypeIdMap(all, unique)
   }
 
@@ -354,24 +354,13 @@ object PackageService {
   // TODO SC #14067 make sensitive to whether `a` is Unknown, Template, or Interface
   // this will entail restructuring `ContractTypeIdMap`, possibly unifying
   // the two in how we expose ResolveContractTypeId and ResolveTemplateId
-  def resolveTemplateId[
-      CtId[T] <: domain.ContractTypeId[T] with domain.ContractTypeId.Ops[CtId, T]
-  ](
+  def resolveTemplateId[CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]](
       m: ContractTypeIdMap[CtId]
   )(a: CtId[Option[String]]): Option[CtId[String]] =
     a.packageId match {
-      case Some(p) => findTemplateIdByK3(m.all)(a.copy(packageId = p))
-      case None => findTemplateIdByK2(m.unique)(a.copy(packageId = ()))
+      case Some(p) => m.all get a.copy(packageId = p)
+      case None => m.unique get a.copy(packageId = ())
     }
-
-  // TODO SC #14067 this returns the wrong class of ctid for resolution
-  private def findTemplateIdByK3[CtId[_]](m: Set[CtId[String]])(
-      k: CtId[String]
-  ): Option[CtId[String]] = Some(k).filter(m.contains)
-
-  private def findTemplateIdByK2[CtId[_]](m: Map[NoPkg[CtId], RequiredPkg[CtId]])(
-      k: NoPkg[CtId]
-  ): Option[RequiredPkg[CtId]] = m.get(k)
 
   private def resolveChoiceArgType(
       choiceIdMap: ChoiceTypeMap
