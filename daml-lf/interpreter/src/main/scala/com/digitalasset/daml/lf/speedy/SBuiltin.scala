@@ -1496,18 +1496,6 @@ private[lf] object SBuiltin {
     def handleKeyFound(machine: Machine, cid: V.ContractId): Control
     // We already saw this key, but it was undefined or was archived
     def handleKeyNotFound(machine: Machine, err: () => IE): Control
-
-    final def handleKnownInputKey(
-        machine: Machine,
-        gkey: GlobalKey,
-        keyMapping: ContractStateMachine.KeyMapping,
-    ): Control =
-      keyMapping match {
-        case ContractStateMachine.KeyActive(cid) =>
-          handleKeyFound(machine, cid)
-        case ContractStateMachine.KeyInactive =>
-          handleKeyNotFound(machine, () => IE.ContractKeyNotFound(gkey))
-      }
   }
 
   private[this] object KeyOperation {
@@ -1563,7 +1551,7 @@ private[lf] object SBuiltin {
               machine.checkKeyVisibility(onLedger, gkey, coid, operation.handleKeyFound)
 
             case ContractStateMachine.KeyInactive =>
-              operation.handleKnownInputKey(machine, gkey, keyMapping)
+              operation.handleKeyNotFound(machine, () => IE.ContractKeyNotFound(gkey))
           }
 
         case Left(handle) =>
