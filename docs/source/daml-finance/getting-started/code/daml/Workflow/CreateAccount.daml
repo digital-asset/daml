@@ -2,7 +2,6 @@ module Workflow.CreateAccount where
 
 import DA.Map qualified as M (fromList)
 import DA.Set qualified as S (fromList, singleton)
-import Daml.Finance.Interface.Asset.Account qualified as Account (I)
 import Daml.Finance.Interface.Asset.Factory.Account qualified as Account (Create(..), F)
 import Daml.Finance.Interface.Asset.Factory.Holding qualified as Holding (F)
 import Daml.Finance.Interface.Asset.Types (AccountKey(..))
@@ -24,7 +23,7 @@ template AccountOpenRequest
     signatory owner
     observer custodian
 
-    choice AccountOpenRequest_Accept : ContractId Account.I
+    choice AccountOpenRequest_Accept : AccountKey
       -- ^ Accept the request.
       with
         label : Text
@@ -38,11 +37,16 @@ template AccountOpenRequest
 
       controller custodian
       do
-        let observersSet = S.fromList $ map S.singleton observers
-        exercise accountFactoryCid Account.Create with
-          account = AccountKey with custodian = custodian, owner = owner, id = label
+        let
+          observersSet = S.fromList $ map S.singleton observers
+          accountKey = AccountKey with custodian = custodian, owner = owner, id = label
+
+        accountCid <- exercise accountFactoryCid Account.Create with
+          account = accountKey
           holdingFactoryCid
           observers = M.fromList [("AccountObservers", observersSet)]
+
+        pure accountKey
 
     choice AccountOpenRequest_Decline : ()
       -- ^ Decline the request.

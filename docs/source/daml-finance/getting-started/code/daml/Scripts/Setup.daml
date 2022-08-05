@@ -6,7 +6,7 @@ import Daml.Script
 -- INTERFACE DEPENDENCIES --
 import Daml.Finance.Interface.Asset.Factory.Account qualified as Account (F)
 import Daml.Finance.Interface.Asset.Factory.Holding qualified as Holding (F)
-import Daml.Finance.Interface.Asset.Types (AccountKey(..), Id(..), InstrumentKey(..))
+import Daml.Finance.Interface.Asset.Types (Id(..), InstrumentKey(..))
 import Daml.Finance.Interface.Asset.Instrument qualified as Instrument (I)
 
 -- IMPLEMENTATION DEPENDENCIES --
@@ -54,7 +54,7 @@ setup = do
       with
         owner = alice
         custodian = bank
-  aliceAccountCid <- submit bank do
+  aliceAccount <- submit bank do
     exerciseCmd aliceRequestCid AccountOpenRequest_Accept
       with
         label = "Alice@Bank"
@@ -96,7 +96,7 @@ setup = do
   aliceRequestCid <- submit alice do
     createCmd DepositRequest
       with
-        account = AccountKey with owner = alice; custodian = bank; id = "Alice@Bank"
+        account = aliceAccount
         instrument = InstrumentKey with issuer = bank; depository = bank; id = instrumentId
         amount = 1000.0
 
@@ -108,7 +108,7 @@ setup = do
   transferRequestCid <- submit bob do
     createCmd TransferRequest
       with
-        receiverAccount = AccountKey with owner = bob; custodian = bank; id = "Bob@Bank"
+        receiverAccount = bobAccount
         instrument = InstrumentKey with issuer = bank; depository = bank; id = instrumentId
         amount = 1000.0
         currentOwner = alice
