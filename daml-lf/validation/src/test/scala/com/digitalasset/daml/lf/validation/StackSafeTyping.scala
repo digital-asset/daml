@@ -35,6 +35,12 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
     def arrow(ty1: Type, ty2: Type): Type = TApp(TApp(TBuiltin(BTArrow), ty1), ty2)
     def tyvar: TypeVarName = Name.assertFromString("T")
 
+    def field: FieldName = Name.assertFromString("field")
+    def field2: FieldName = Name.assertFromString("field2")
+    def makeStruct(ty1: Type, ty2: Type): Type = TStruct(
+      Struct.assertFromSeq(List((field, ty1), (field2, ty2)))
+    )
+
     // This is the code under test...
     def kindCheck(typ: Type): Option[ValidationError] = {
       val langVersion: LanguageVersion = LanguageVersion.default
@@ -53,6 +59,8 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
     def forall(x: Type): Type = TForall((tyvar, KStar), x)
     def arrowRight(x: Type) = arrow(theType, x)
     def arrowLeft(x: Type) = arrow(x, theType)
+    def struct1(x: Type) = makeStruct(x, theType)
+    def struct2(x: Type) = makeStruct(theType, x)
 
     val testCases = {
       Table[String, Type => Type](
@@ -60,6 +68,8 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
         ("forall", forall),
         ("arrowRight", arrowRight),
         ("arrowLeft", arrowLeft),
+        ("struct1", struct1),
+        ("struct2", struct2),
       )
     }
     {

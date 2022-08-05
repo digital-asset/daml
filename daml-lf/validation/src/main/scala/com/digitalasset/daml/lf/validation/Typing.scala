@@ -309,7 +309,7 @@ private[validation] object Typing {
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         cons match {
           case DataRecord(fields) =>
-            env.checkRecordType(fields)
+            env.checkRecordTypeTop(fields)
           case DataVariant(fields) =>
             env.checkVariantType(fields)
           case DataEnum(values) =>
@@ -471,9 +471,8 @@ private[validation] object Typing {
       case _ => typ0
     }
 
-    private[Typing] def checkRecordType(fields: ImmArray[(FieldName, Type)]): Unit = {
-      checkUniq[FieldName](fields.keys, EDuplicateField(ctx, _))
-      fields.values.foreach(checkType(_, KStar))
+    private[Typing] def checkRecordTypeTop(fields: ImmArray[(FieldName, Type)]): Unit = {
+      runWork(checkRecordType(fields) { Ret(()) })
     }
 
     private def checkChoice(tplName: TypeConName, choice: TemplateChoice): Unit =
@@ -689,8 +688,22 @@ private[validation] object Typing {
           Ret(KStar)
         }
       case TStruct(fields) =>
-        checkRecordType(fields.toImmArray)
-        Ret(KStar)
+        checkRecordType(fields.toImmArray) {
+          Ret(KStar)
+        }
+    }
+
+    private def checkRecordType[T](
+        fields: ImmArray[(FieldName, Type)]
+    )(work: => Work[T]): Work[T] = {
+      checkUniq[FieldName](fields.keys, EDuplicateField(ctx, _))
+      sequenceWork(fields.values.toList.map { ty =>
+        nestedCheckType(ty, KStar) {
+          Ret(())
+        }
+      }) { _ =>
+        work
+      }
     }
 
     private[lf] def expandTypeSynonyms(typ0: Type): Type = typ0 match {
