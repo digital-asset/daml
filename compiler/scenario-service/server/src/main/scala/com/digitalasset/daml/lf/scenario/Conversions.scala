@@ -240,10 +240,11 @@ final class Conversions(
 
               case DisclosurePreprocessing(err) =>
                 err match {
-                  case DisclosurePreprocessing.DuplicateContractKeys(tid) =>
+                  case DisclosurePreprocessing.DuplicateContractKeys(tid, keyHash) =>
                     builder.setDisclosurePreprocessingDuplicateContractKeys(
                       proto.ScenarioError.DisclosurePreprocessingDuplicateContractKeys.newBuilder
                         .setTemplateId(convertIdentifier(tid))
+                        .setKeyHash(keyHash.toHexString)
                     )
                   case DisclosurePreprocessing.DuplicateContractIds(tid) =>
                     builder.setDisclosurePreprocessingDuplicateContractIds(

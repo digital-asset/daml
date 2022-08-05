@@ -658,21 +658,25 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             human ->
               TemplateImplements(
                 human,
-                Map(
-                  n"age" -> TemplateImplementsMethod(n"age", e"42"),
-                  n"alive" -> TemplateImplementsMethod(n"alive", e"True"),
+                InterfaceInstanceBody(
+                  Map(
+                    n"age" -> InterfaceInstanceMethod(n"age", e"42"),
+                    n"alive" -> InterfaceInstanceMethod(n"alive", e"True"),
+                  ),
+                  EAbs((Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
                 ),
-                EAbs((Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
               ),
             referenceable -> TemplateImplements(
               referenceable,
-              Map(
-                n"uuid" -> TemplateImplementsMethod(
-                  n"uuid",
-                  e""""123e4567-e89b-12d3-a456-426614174000"""",
-                )
+              InterfaceInstanceBody(
+                Map(
+                  n"uuid" -> InterfaceInstanceMethod(
+                    n"uuid",
+                    e""""123e4567-e89b-12d3-a456-426614174000"""",
+                  )
+                ),
+                EAbs((Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
               ),
-              EAbs((Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
             ),
           ),
         )
@@ -842,17 +846,19 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             company ->
               InterfaceCoImplements(
                 company,
-                Map(
-                  n"asParty" -> InterfaceCoImplementsMethod(
-                    n"asParty",
-                    e"Mod1:Company {party} this",
+                InterfaceInstanceBody(
+                  Map(
+                    n"asParty" -> InterfaceInstanceMethod(
+                      n"asParty",
+                      e"Mod1:Company {party} this",
+                    ),
+                    n"getName" -> InterfaceInstanceMethod(
+                      n"getName",
+                      e"Mod1:Company {legalName} this",
+                    ),
                   ),
-                  n"getName" -> InterfaceCoImplementsMethod(
-                    n"getName",
-                    e"Mod1:Company {legalName} this",
-                  ),
+                  EAbs((Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
                 ),
-                EAbs((Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
               )
           ),
           view = TUnit,

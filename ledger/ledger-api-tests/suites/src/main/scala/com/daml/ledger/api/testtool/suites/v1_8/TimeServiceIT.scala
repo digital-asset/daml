@@ -65,7 +65,7 @@ final class TimeServiceIT extends LedgerTestSuite {
       thirtySecLater <- createTimestamp(initialTime.plusSeconds(30))
       checker <- ledger.create(party, TimeChecker(party, thirtySecLater))
       failure <- ledger
-        .exercise(party, checker.exerciseTimeChecker_CheckTime(_))
+        .exercise(party, checker.exerciseTimeChecker_CheckTime())
         .mustFail("submitting choice prematurely")
     } yield {
       assertGrpcErrorRegex(
@@ -90,7 +90,7 @@ final class TimeServiceIT extends LedgerTestSuite {
       thirtySecLater <- createTimestamp(initialTime.plusSeconds(30))
       checker <- ledger.create(party, TimeChecker(party, thirtySecLater))
       _ <- ledger.setTime(initialTime, initialTime.plusSeconds(30))
-      _ <- ledger.exercise(party, checker.exerciseTimeChecker_CheckTime(_))
+      _ <- ledger.exercise(party, checker.exerciseTimeChecker_CheckTime())
     } yield ()
   })
 

@@ -237,6 +237,7 @@ message ScenarioError {
   
   message DisclosurePreprocessingDuplicateContractKeys {
     Identifier template_id = 1;
+    string key_hash = 2;
   }
 
   message DisclosurePreprocessingDuplicateContractIds {
