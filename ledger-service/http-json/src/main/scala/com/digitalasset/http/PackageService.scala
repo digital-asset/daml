@@ -351,6 +351,9 @@ object PackageService {
       .groupBy(key2)
       .collect { case (k, v) if v.sizeIs == 1 => (k, v.head) }
 
+  // TODO SC #14067 make sensitive to whether `a` is Unknown, Template, or Interface
+  // this will entail restructuring `ContractTypeIdMap`, possibly unifying
+  // the two in how we expose ResolveContractTypeId and ResolveTemplateId
   def resolveTemplateId[
       CtId[T] <: domain.ContractTypeId[T] with domain.ContractTypeId.Ops[CtId, T]
   ](
@@ -361,6 +364,7 @@ object PackageService {
       case None => findTemplateIdByK2(m.unique)(a.copy(packageId = ()))
     }
 
+  // TODO SC #14067 this returns the wrong class of ctid for resolution
   private def findTemplateIdByK3[CtId[_]](m: Set[CtId[String]])(
       k: CtId[String]
   ): Option[CtId[String]] = Some(k).filter(m.contains)
