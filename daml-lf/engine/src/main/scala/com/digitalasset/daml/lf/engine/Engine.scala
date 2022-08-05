@@ -27,7 +27,6 @@ import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, Sta
 import com.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
-import com.daml.scalautil.Statement.discard
 
 /** Allows for evaluating [[Commands]] and validating [[Transaction]]s.
   * <p>
@@ -411,7 +410,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
 
         case SResultNeedKey(gk, _, cb) =>
           def continueWithCoid = (result: Option[ContractId]) => {
-            discard[Boolean](cb(result))
+            cb(None, result)
             interpretLoop(machine, time)
           }
           return ResultNeedKey(

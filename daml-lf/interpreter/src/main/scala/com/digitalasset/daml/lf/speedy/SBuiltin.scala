@@ -35,6 +35,8 @@ import com.daml.scalautil.Statement.discard
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeSet
 
+import scala.annotation.unused
+
 /**  Speedy builtins are stratified into two layers:
   *  Parent: `SBuiltin`, (which are effectful), and child: `SBuiltinPure` (which are pure).
   *
@@ -1493,7 +1495,7 @@ private[lf] object SBuiltin {
     // Callback from the engine returned NotFound
     def handleKeyFound(machine: Machine, cid: V.ContractId): Control
     // We already saw this key, but it was undefined or was archived
-    def handleKeyNotFound(machine: Machine, gkey: GlobalKey): (Control, Boolean)
+    def handleKeyNotFound(machine: Machine, err: () => IE): Control
 
     final def handleKnownInputKey(
         machine: Machine,
@@ -1504,8 +1506,7 @@ private[lf] object SBuiltin {
         case ContractStateMachine.KeyActive(cid) =>
           handleKeyFound(machine, cid)
         case ContractStateMachine.KeyInactive =>
-          val (control, _) = handleKeyNotFound(machine, gkey)
-          control
+          handleKeyNotFound(machine, () => IE.ContractKeyNotFound(gkey))
       }
   }
 
@@ -1514,9 +1515,9 @@ private[lf] object SBuiltin {
       override def handleKeyFound(machine: Machine, cid: V.ContractId): Control = {
         Control.Value(SContractId(cid))
       }
-      override def handleKeyNotFound(machine: Machine, gkey: GlobalKey): (Control, Boolean) = {
-        val e = SEDamlException(IE.ContractKeyNotFound(gkey))
-        (Control.Expression(e), false)
+      override def handleKeyNotFound(machine: Machine, err: () => IE): Control = {
+        val ie = err()
+        Control.Expression(SEDamlException(ie))
       }
     }
 
@@ -1524,8 +1525,8 @@ private[lf] object SBuiltin {
       override def handleKeyFound(machine: Machine, cid: V.ContractId): Control = {
         Control.Value(SOptional(Some(SContractId(cid))))
       }
-      override def handleKeyNotFound(machine: Machine, key: GlobalKey): (Control, Boolean) = {
-        (Control.Value(SValue.SValue.None), true)
+      override def handleKeyNotFound(machine: Machine, @unused err: () => IE): Control = {
+        Control.Value(SValue.SValue.None)
       }
     }
   }
@@ -1566,7 +1567,7 @@ private[lf] object SBuiltin {
           }
 
         case Left(handle) =>
-          def continue = { result =>
+          def continue(err: () => IE, result: Option[V.ContractId]): Control = {
             val (keyMapping, next) = handle(result)
             onLedger.ptx = onLedger.ptx.copy(contractState = next)
             keyMapping match {
@@ -1577,35 +1578,36 @@ private[lf] object SBuiltin {
                   KCheckKeyVisibility(machine, gkey, coid, operation.handleKeyFound)
                 )
                 if (onLedger.cachedContracts.contains(coid)) {
-                  (Control.Value(SUnit), true)
+                  Control.Value(SUnit)
                 } else {
                   // SBFetchAny will populate onLedger.cachedContracts with the contract pointed by coid
                   val e = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
-                  (Control.Expression(e), true)
+                  Control.Expression(e)
                 }
 
               case ContractStateMachine.KeyInactive =>
-                operation.handleKeyNotFound(machine, gkey)
+                operation.handleKeyNotFound(machine, err)
             }
-          }: Option[V.ContractId] => (Control, Boolean)
+          }
 
           // TODO (drsk) validate key hash. https://github.com/digital-asset/daml/issues/13897
           machine.disclosureTable.contractIdByKey.get(gkey.hash) match {
             case Some(coid) =>
               val vcoid = coid.value
-              val (control, _) = continue(Some(vcoid))
-              control
+              continue(() => IE.ContractKeyNotFound(gkey), Some(vcoid))
 
             case None => {
+              def callback(oerr: Option[() => IE], res: Option[V.ContractId]): Unit = {
+                val err = oerr.getOrElse(() => IE.ContractKeyNotFound(gkey))
+                val control = continue(err, res)
+                machine.setControl(control)
+              }
+
               Control.Question(
                 SResultNeedKey(
                   GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
                   onLedger.committers,
-                  callback = { res =>
-                    val (control, bool) = continue(res)
-                    machine.setControl(control)
-                    bool
-                  },
+                  callback = callback,
                 )
               )
             }

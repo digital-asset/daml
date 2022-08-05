@@ -6,6 +6,7 @@ package speedy
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
+import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.speedy.SError._
 import com.daml.lf.value.Value
@@ -74,8 +75,10 @@ object SResult {
       key: GlobalKeyWithMaintainers,
       committers: Set[Party],
       // Callback.
-      // In case of failure, the callback sets machine control to an SErrorDamlException and return false
-      callback: Option[ContractId] => Boolean,
+      // In case of failure, the callback sets machine control to 'SEDamlException(ie)'
+      // where 'ie' is the interpretation error in the first argument (if 'Some') or
+      // 'ContractKeyNotFound(key)' otherwise.
+      callback: (Option[() => IE], Option[ContractId]) => Unit,
   ) extends SResult
 
   sealed abstract class SVisibleToStakeholders

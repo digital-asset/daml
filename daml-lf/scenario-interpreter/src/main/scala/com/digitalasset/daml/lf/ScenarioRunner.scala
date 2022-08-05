@@ -8,6 +8,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ValueEnricher, Result, ResultDone, ResultError}
 import com.daml.lf.engine.preprocessing.ValueTranslator
+import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
@@ -18,7 +19,6 @@ import com.daml.lf.transaction.IncompleteTransaction
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
-import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
@@ -182,7 +182,7 @@ object ScenarioRunner {
         gk: GlobalKey,
         actAs: Set[Party],
         readAs: Set[Party],
-        canContinue: Option[ContractId] => Boolean,
+        callback: (Option[() => IE], Option[ContractId]) => Unit,
     ): Either[Error, Unit]
     def currentTime: Time.Timestamp
     def commit(
@@ -243,7 +243,7 @@ object ScenarioRunner {
         gk: GlobalKey,
         actAs: Set[Party],
         readAs: Set[Party],
-        callback: Option[ContractId] => Boolean,
+        callback: (Option[() => IE], Option[ContractId]) => Unit,
     ): Either[Error, Unit] =
       handleUnsafe(lookupKeyUnsafe(gk, actAs, readAs, callback))
 
@@ -251,16 +251,14 @@ object ScenarioRunner {
         gk: GlobalKey,
         actAs: Set[Party],
         readAs: Set[Party],
-        callback: Option[ContractId] => Boolean,
+        callback: (Option[() => IE], Option[ContractId]) => Unit,
     ): Unit = {
 
       val effectiveAt = ledger.currentTime
       val readers = actAs union readAs
 
       def missingWith(err: Error) =
-        if (!callback(None)) {
-          throw err
-        }
+        callback(Some(() => throw err), None)
 
       ledger.ledgerData.activeKeys.get(gk) match {
         case None =>
@@ -278,11 +276,9 @@ object ScenarioRunner {
             case ScenarioLedger.LookupOk(_, _, stakeholders) =>
               if (!readers.intersect(stakeholders).isEmpty)
                 // Note that even with a successful global lookup
-                // the callback can return false. This happens for a fetch-by-key
+                // the callback can fail. This happens for a fetch-by-key
                 // if the contract got archived in the meantime.
-                // We discard the result here and rely on fetch-by-key
-                // setting up the state such that continuing interpretation fails.
-                discard(callback(Some(acoid)))
+                callback(None, Some(acoid))
               else
                 throw Error.ContractKeyNotVisible(acoid, gk, actAs, readAs, stakeholders)
             case ScenarioLedger.LookupContractNotFound(coid) =>

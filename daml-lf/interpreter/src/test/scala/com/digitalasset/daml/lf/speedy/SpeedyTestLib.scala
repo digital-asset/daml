@@ -14,7 +14,6 @@ import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.logging.LoggingContext
 import transaction.{GlobalKeyWithMaintainers, SubmittedTransaction}
 import value.Value
-import scalautil.Statement.discard
 
 import scala.annotation.tailrec
 
@@ -86,7 +85,7 @@ private[speedy] object SpeedyTestLib {
               throw UnknownPackage(pkg)
           }
         case SResultNeedKey(key, _, callback) =>
-          discard(callback(getKey.lift(key)))
+          callback(None, getKey.lift(key))
           loop
         case fv: SResultFinal =>
           Right(fv)

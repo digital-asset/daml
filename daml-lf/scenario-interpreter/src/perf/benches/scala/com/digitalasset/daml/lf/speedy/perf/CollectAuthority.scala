@@ -9,6 +9,7 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref.{Identifier, Location, Party, QualifiedName}
 import com.daml.lf.data.Time
+import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast.EVal
 import com.daml.lf.speedy.SExpr.{SEValue, SExpr}
 import com.daml.lf.speedy.SResult._
@@ -202,7 +203,7 @@ class CannedLedgerApi(
       gk: GlobalKey,
       actAs: Set[Party],
       readAs: Set[Party],
-      callback: Option[ContractId] => Boolean,
+      callback: (Option[() => IE], Option[ContractId]) => Unit,
   ) =
     throw new RuntimeException("Keys are not supported in the benchmark")
   override def currentTime = throw new RuntimeException("getTime is not supported in the benchmark")
