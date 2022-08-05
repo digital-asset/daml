@@ -16,6 +16,7 @@ import com.daml.http.json.JsonProtocol.LfValueCodec
 import com.daml.http.query.ValuePredicate
 import com.daml.fetchcontracts.util.{AbsoluteBookmark, ContractStreamStep, InsertDeleteStep}
 import util.{ApiValueToLfValueConverter, toLedgerId}
+import com.daml.fetchcontracts.AcsTxStreams.transactionFilter
 import com.daml.fetchcontracts.util.ContractStreamStep.{Acs, LiveBegin}
 import com.daml.http.util.FutureUtil.toFuture
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
@@ -538,7 +539,7 @@ class ContractsService(
       parties: domain.PartySet,
       templateIds: List[domain.ContractTypeId.Resolved],
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
-    val txnFilter = util.Transactions.transactionFilterFor(parties, templateIds)
+    val txnFilter = transactionFilter(parties, templateIds)
     getActiveContracts(jwt, ledgerId, txnFilter, true)
       .map { case GetActiveContractsResponse(offset, _, activeContracts) =>
         if (activeContracts.nonEmpty) Acs(activeContracts.toVector)
@@ -560,7 +561,7 @@ class ContractsService(
       lc: LoggingContextOf[InstanceUUID]
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
 
-    val txnFilter = util.Transactions.transactionFilterFor(parties, templateIds)
+    val txnFilter = transactionFilter(parties, templateIds)
     def source = getActiveContracts(jwt, ledgerId, txnFilter, true)
 
     val transactionsSince

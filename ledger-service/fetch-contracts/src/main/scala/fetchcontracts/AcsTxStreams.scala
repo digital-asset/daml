@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.{Broadcast, Concat, Flow, GraphDSL, Source}
 import akka.stream.{FanOutShape2, Graph}
 import com.daml.scalautil.Statement.discard
-import domain.TemplateId
+import domain.ContractTypeId
 import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
 import util.IdentifierConverters.apiIdentifier
 import com.daml.ledger.api.v1.transaction.Transaction
@@ -127,13 +127,15 @@ private[daml] object AcsTxStreams {
 
   private[daml] def transactionFilter(
       parties: domain.PartySet,
-      templateIds: List[TemplateId.RequiredPkg],
+      contractTypeIds: List[ContractTypeId.Resolved],
   ): lav1.transaction_filter.TransactionFilter = {
     import lav1.transaction_filter._
 
+    // TODO #14067 make a different filter for `ContractTypeId.Interface`s
     val filters =
-      if (templateIds.isEmpty) Filters.defaultInstance
-      else Filters(Some(lav1.transaction_filter.InclusiveFilters(templateIds.map(apiIdentifier))))
+      if (contractTypeIds.isEmpty) Filters.defaultInstance
+      else
+        Filters(Some(lav1.transaction_filter.InclusiveFilters(contractTypeIds.map(apiIdentifier))))
 
     TransactionFilter(
       domain.Party.unsubst((parties: Set[domain.Party]).toVector).map(_ -> filters).toMap
