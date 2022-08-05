@@ -1,8 +1,11 @@
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform.apiserver.meteringreport
 
 import spray.json.{CompactPrinter, JsArray, JsNumber, JsObject, JsString, JsValue}
 
-/** An limited implementation of JCS https://datatracker.ietf.org/doc/html/rfc8785
+/** A limited implementation of JCS https://datatracker.ietf.org/doc/html/rfc8785
   *
   * The limitations of this implementation are that:
   * - only whole numbers are supported
@@ -10,6 +13,8 @@ import spray.json.{CompactPrinter, JsArray, JsNumber, JsObject, JsString, JsValu
   *
   * The primary reason for the above is that this is suitable for our needs and avoids
   * getting into difficult areas regarding the JCS spec
+  *
+  * For details see JCS.md
   */
 object Jcs {
 
@@ -24,10 +29,12 @@ object Jcs {
   def serialize(json: JsValue): FailOr[String] = json match {
     case JsNumber(value) if !value.isWhole =>
       Left(s"Only whole numbers are supported, not $value")
-    case JsNumber(value) if value.abs > MaximumSupportedAbsSize =>
+    case JsNumber(value) if value.abs >= MaximumSupportedAbsSize =>
       Left(
-        s"Only numbers with an absolute size less than $MaximumSupportedAbsSize are supported, not $value"
+        s"Only numbers with an abs size less than $MaximumSupportedAbsSize are supported, not $value"
       )
+    case JsNumber(value) =>
+      Right(value.toBigInt.toString())
     case JsArray(elements) =>
       elements.traverse(serialize).map(_.mkString("[", ",", "]"))
     case JsObject(fields) =>

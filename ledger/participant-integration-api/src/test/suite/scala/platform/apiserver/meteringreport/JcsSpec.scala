@@ -6,7 +6,11 @@ package com.daml.platform.apiserver.meteringreport
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.apiserver.meteringreport.Jcs.{MaximumSupportedAbsSize, serialize}
-import com.daml.platform.apiserver.meteringreport.MeteringReport.{ApplicationReport, ParticipantReport, Request}
+import com.daml.platform.apiserver.meteringreport.MeteringReport.{
+  ApplicationReport,
+  ParticipantReport,
+  Request,
+}
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -19,17 +23,16 @@ class JcsSpec extends AnyWordSpec with Matchers {
 
   def assert(value: JsValue, expected: String): Assertion = {
     val actual = Jcs.serialize(value)
-    println(s"actual|$actual|")
     actual shouldBe Right(expected)
   }
 
   "Jcs" should {
     "serialize JsString" in {
-      assert(JsString("a\tc"), "\"a\\tc\"")
+      assert(JsString("a\tb\nc"), "\"a\\tb\\nc\"")
     }
     "serialize JsBoolean" in {
-      assert(JsBoolean(true),"true")
-      assert(JsBoolean(false),"false")
+      assert(JsBoolean(true), "true")
+      assert(JsBoolean(false), "false")
     }
     "serialize JsNull" in {
       assert(JsNull, "null")
@@ -37,19 +40,23 @@ class JcsSpec extends AnyWordSpec with Matchers {
     "serialize JsNumber(0)" in {
       assert(JsNumber(0), "0")
     }
-    "serialize JsNumber <= 2^52" in {
-      assert(JsNumber(MaximumSupportedAbsSize), "4503599627370496")
-      assert(JsNumber(-MaximumSupportedAbsSize), "-4503599627370496")
+    "serialize JsNumber < 2^52" in {
+      assert(JsNumber(MaximumSupportedAbsSize - 1), "4503599627370495")
+      assert(JsNumber(-MaximumSupportedAbsSize + 1), "-4503599627370495")
     }
-    "not serialize JsNumber > 2^52" in {
-      serialize(JsNumber(MaximumSupportedAbsSize+1)).isLeft shouldBe true
-      serialize(JsNumber(-MaximumSupportedAbsSize-1)).isLeft shouldBe true
+    "not serialize JsNumber >= 2^52" in {
+      serialize(JsNumber(MaximumSupportedAbsSize)).isLeft shouldBe true
+      serialize(JsNumber(-MaximumSupportedAbsSize)).isLeft shouldBe true
     }
     "not serialize Decimals" in {
       serialize(badNumber).isLeft shouldBe true
     }
+    "serialize JsNumber without scientific notation" in {
+      assert(JsNumber(1000000000000000d), "1000000000000000")
+      assert(JsNumber(-1000000000000000d), "-1000000000000000")
+    }
     "serialize JsArray" in {
-      assert(JsArray(Vector(true, false).map(b=>JsBoolean(b))), "[true,false]")
+      assert(JsArray(Vector(true, false).map(b => JsBoolean(b))), "[true,false]")
     }
     "not serialize a JsArray containing an invalid number" in {
       serialize(JsArray(Vector(badNumber))).isLeft shouldBe true
@@ -71,20 +78,21 @@ class JcsSpec extends AnyWordSpec with Matchers {
         applications = Seq(ApplicationReport(application, 272)),
       )
       val reportJson: JsValue = report.toJson
-      assert(reportJson, expected =
-        "{" +
+      assert(
+        reportJson,
+        expected = "{" +
           "\"applications\":[{" +
-            "\"application\":\"a0\"," +
-            "\"events\":272" +
+          "\"application\":\"a0\"," +
+          "\"events\":272" +
           "}]," +
           "\"final\":false," +
           "\"participant\":\"p0\"," +
           "\"request\":{" +
-            "\"application\":\"a0\"," +
-            "\"from\":\"2022-01-01T00:00:00Z\"," +
-            "\"to\":\"2022-01-01T00:00:00Z\"" +
+          "\"application\":\"a0\"," +
+          "\"from\":\"2022-01-01T00:00:00Z\"," +
+          "\"to\":\"2022-01-01T00:00:00Z\"" +
           "}" +
-        "}"
+          "}",
       )
     }
   }
