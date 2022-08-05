@@ -29,7 +29,7 @@ class CodeGenExampleSpec extends AnyWordSpec with Matchers {
 
     val givenContractId: P.ContractId[CallablePayout] = receiveContractIdFromTheLedger
     val exerciseCommand: P.Update[P.ContractId[PayOut]] =
-      givenContractId.exerciseCall2(actor = alice)
+      givenContractId.exerciseCall2()
     sendCommand(exerciseCommand)
   }
 
@@ -38,7 +38,7 @@ class CodeGenExampleSpec extends AnyWordSpec with Matchers {
 
     val givenContractId: P.ContractId[CallablePayout] = receiveContractIdFromTheLedger
     val exerciseCommand: P.Update[P.ContractId[CallablePayout]] =
-      givenContractId.exerciseTransfer(actor = bob, newReceiver = charlie)
+      givenContractId.exerciseTransfer(newReceiver = charlie)
     sendCommand(exerciseCommand)
   }
 

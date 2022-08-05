@@ -51,7 +51,7 @@ class InterfaceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       t <- ledger.create(party, T(party))
-      tree <- ledger.exercise(party, x => t.exerciseMyArchive(x))
+      tree <- ledger.exercise(party, t.exerciseMyArchive())
     } yield {
       val events = exercisedEvents(tree)
       assertLength(s"1 successful exercise", 1, events)
@@ -67,7 +67,7 @@ class InterfaceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       t <- ledger.create(party, T(party))
-      tree <- ledger.exercise(party, x => t.toInterface[Interface1.I].exerciseMyArchive(x))
+      tree <- ledger.exercise(party, t.toInterface[Interface1.I].exerciseMyArchive())
     } yield {
       val events = exercisedEvents(tree)
       assertLength(s"1 successful exercise", 1, events)
@@ -84,7 +84,7 @@ class InterfaceIT extends LedgerTestSuite {
     for {
       t <- ledger.create(party, T(party))
       failure <- ledger
-        .exercise(party, x => useWrongId(t.toInterface[Interface1.I].exerciseChoiceI1(x), TId))
+        .exercise(party, useWrongId(t.toInterface[Interface1.I].exerciseChoiceI1(), TId))
         .mustFail("unknown choice")
     } yield {
       assertGrpcError(
@@ -104,7 +104,7 @@ class InterfaceIT extends LedgerTestSuite {
     for {
       t <- ledger.create(party, T(party))
       failure <- ledger
-        .exercise(party, x => useWrongId(t.toInterface[Interface1.I].exerciseChoiceI1(x), I2Id))
+        .exercise(party, useWrongId(t.toInterface[Interface1.I].exerciseChoiceI1(), I2Id))
         .mustFail("unknown choice")
     } yield {
       assertGrpcError(

@@ -271,20 +271,20 @@ trait ParticipantTestContext extends UserManagementTestContext {
   ): Future[(String, Primitive.ContractId[T])]
   def exercise[T](
       party: Primitive.Party,
-      exercise: Primitive.Party => Primitive.Update[T],
+      exercise: Primitive.Update[T],
   ): Future[TransactionTree]
   def exercise[T](
       actAs: List[Primitive.Party],
       readAs: List[Primitive.Party],
-      exercise: => Primitive.Update[T],
+      exercise: Primitive.Update[T],
   ): Future[TransactionTree]
   def exerciseForFlatTransaction[T](
       party: Primitive.Party,
-      exercise: Primitive.Party => Primitive.Update[T],
+      exercise: Primitive.Update[T],
   ): Future[Transaction]
   def exerciseAndGetContract[T](
       party: Primitive.Party,
-      exercise: Primitive.Party => Primitive.Update[Any],
+      exercise: Primitive.Update[Any],
   ): Future[Primitive.ContractId[T]]
   def exerciseByKey[T](
       party: Primitive.Party,
