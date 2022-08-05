@@ -113,7 +113,7 @@ jobs:
       intel:
         assignment: default
       apple:
-        assignment: m1
+        assignment: m1-builds
   pool:
     name: macOS-pool
     demands: assignment -equals $(assignment)
