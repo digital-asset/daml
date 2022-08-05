@@ -210,7 +210,7 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
         Vector.fill(contracts)(
           ledger
             .create(party, Dummy(party))
-            .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1))
+            .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1()))
         )
       )
       transactions <- ledger.flatTransactions(party)
@@ -241,7 +241,7 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
         Vector.fill(contracts)(
           ledger
             .create(party, Dummy(party))
-            .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1))
+            .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1()))
         )
       )
       transactions <- ledger.flatTransactions(party)
@@ -285,7 +285,7 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
         Vector.fill(contracts)(
           ledger
             .create(party, Dummy(party))
-            .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1))
+            .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1()))
         )
       )
       transactions <- ledger.flatTransactions(party)
@@ -306,7 +306,7 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
         val party = if (n % 2 == 0) alice else bob
         ledger
           .create(party, Dummy(party))
-          .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1))
+          .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1()))
       })
       transactions <- ledger.flatTransactions(alice, bob)
     } yield {

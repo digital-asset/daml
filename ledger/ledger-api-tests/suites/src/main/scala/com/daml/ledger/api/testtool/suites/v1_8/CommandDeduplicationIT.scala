@@ -138,11 +138,11 @@ final class CommandDeduplicationIT(
       // Create two competing requests
       requestA = ledger.submitAndWaitRequest(
         party,
-        ko.exerciseTKOFetchAndRecreate(party, Tuple2(party, key)).command,
+        ko.exerciseTKOFetchAndRecreate(Tuple2(party, key)).command,
       )
       requestB = ledger.submitAndWaitRequest(
         party,
-        ko.exerciseTKOFetchAndRecreate(party, Tuple2(party, key)).command,
+        ko.exerciseTKOFetchAndRecreate(Tuple2(party, key)).command,
       )
 
       // Submit both requests in parallel.

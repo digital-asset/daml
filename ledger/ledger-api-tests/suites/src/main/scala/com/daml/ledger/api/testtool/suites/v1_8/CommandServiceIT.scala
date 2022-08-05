@@ -348,7 +348,7 @@ final class CommandServiceIT extends LedgerTestSuite {
     for {
       dummy <- ledger.create(party, Dummy(party))
       failure <- ledger
-        .exercise(party, dummy.exerciseFailingClone)
+        .exercise(party, dummy.exerciseFailingClone())
         .mustFail("submitting a request with an interpretation error")
     } yield {
       assertGrpcErrorRegex(
@@ -407,7 +407,7 @@ final class CommandServiceIT extends LedgerTestSuite {
       val template = WithObservers(giver, Primitive.List(observer1, observer2))
       for {
         withObservers <- alpha.create(giver, template)
-        _ <- alpha.exercise(giver, withObservers.exercisePing)
+        _ <- alpha.exercise(giver, withObservers.exercisePing())
         _ <- synchronize(alpha, beta)
         observer1View <- alpha.transactionTrees(observer1)
         observer2View <- beta.transactionTrees(observer2)
@@ -459,7 +459,7 @@ final class CommandServiceIT extends LedgerTestSuite {
       for {
         callablePayout <- alpha.create(giver, CallablePayout(giver, receiver))
         _ <- synchronize(alpha, beta)
-        tree <- beta.exercise(receiver, callablePayout.exerciseTransfer(_, newReceiver))
+        tree <- beta.exercise(receiver, callablePayout.exerciseTransfer(newReceiver))
       } yield {
         val created = assertSingleton("There should only be one creation", createdEvents(tree))
         assertEquals(
@@ -477,7 +477,7 @@ final class CommandServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       factory <- ledger.create(party, DummyFactory(party))
-      tree <- ledger.exercise(party, factory.exerciseDummyFactoryCall)
+      tree <- ledger.exercise(party, factory.exerciseDummyFactoryCall())
     } yield {
       val exercise = assertSingleton("There should only be one exercise", exercisedEvents(tree))
       assert(exercise.contractId == factory.unwrap, "Contract identifier mismatch")
@@ -532,7 +532,7 @@ final class CommandServiceIT extends LedgerTestSuite {
 
   test("CSCreateAndExercise", "Implement create-and-exercise correctly", allocate(SingleParty))(
     implicit ec => { case Participants(Participant(ledger, party)) =>
-      val createAndExercise = Dummy(party).createAnd.exerciseDummyChoice1(party).command
+      val createAndExercise = Dummy(party).createAnd.exerciseDummyChoice1().command
       val request = ledger.submitAndWaitRequest(party, createAndExercise)
       for {
         _ <- ledger.submitAndWait(request)
@@ -564,7 +564,7 @@ final class CommandServiceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val createAndExercise = Dummy(party).createAnd
-      .exerciseDummyChoice1(party)
+      .exerciseDummyChoice1()
       .command
       .update(_.createAndExercise.createArguments := Record())
     val request = ledger.submitAndWaitRequest(party, createAndExercise)
@@ -588,7 +588,7 @@ final class CommandServiceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val createAndExercise = Dummy(party).createAnd
-      .exerciseDummyChoice1(party)
+      .exerciseDummyChoice1()
       .command
       .update(_.createAndExercise.choiceArgument := Value(Value.Sum.Bool(false)))
     val request = ledger.submitAndWaitRequest(party, createAndExercise)
@@ -613,7 +613,7 @@ final class CommandServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val missingChoice = "DoesNotExist"
     val createAndExercise = Dummy(party).createAnd
-      .exerciseDummyChoice1(party)
+      .exerciseDummyChoice1()
       .command
       .update(_.createAndExercise.choice := missingChoice)
     val request = ledger.submitAndWaitRequest(party, createAndExercise)

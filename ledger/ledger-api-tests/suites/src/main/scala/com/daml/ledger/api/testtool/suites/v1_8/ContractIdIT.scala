@@ -122,7 +122,7 @@ final class ContractIdIT extends LedgerTestSuite {
               alpha
                 .exercise(
                   party,
-                  ContractId[ContractRef](example).exerciseChange(_, contractCid),
+                  ContractId[ContractRef](example).exerciseChange(contractCid),
                 )
                 .transformWith(Future.successful)
           } yield result match {
@@ -145,7 +145,7 @@ final class ContractIdIT extends LedgerTestSuite {
           contractCid <- alpha.create(party, Contract(party))
           contractRefCid <- alpha.create(party, ContractRef(party = party, ref = contractCid))
           result <- alpha
-            .exercise(party, contractRefCid.exerciseChange(_, ContractId(example)))
+            .exercise(party, contractRefCid.exerciseChange(ContractId(example)))
             .transformWith(Future.successful)
         } yield result
       }
@@ -156,9 +156,8 @@ final class ContractIdIT extends LedgerTestSuite {
           result <- alpha
             .exercise(
               party,
-              p =>
-                ContractRef(party = p, ref = ContractId(example)).createAnd
-                  .exerciseChange(p, contractCid),
+              ContractRef(party = party, ref = ContractId(example)).createAnd
+                .exerciseChange(contractCid),
             )
             .transformWith(Future.successful)
         } yield result
@@ -170,9 +169,8 @@ final class ContractIdIT extends LedgerTestSuite {
           result <- alpha
             .exercise(
               party,
-              p =>
-                ContractRef(party = p, ref = contractCid).createAnd
-                  .exerciseChange(p, ContractId(example)),
+              ContractRef(party = party, ref = contractCid).createAnd
+                .exerciseChange(ContractId(example)),
             )
             .transformWith(Future.successful)
         } yield result

@@ -74,7 +74,7 @@ class TransactionServiceArgumentsIT extends LedgerTestSuite {
         party,
         template,
       )
-      tree <- ledger.exercise(party, parameterShowcase.exerciseChoice1(_, choice1))
+      tree <- ledger.exercise(party, parameterShowcase.exerciseChoice1(choice1))
     } yield {
       val contract = assertSingleton("ExerciseWithAnyType", exercisedEvents(tree))
       assertEquals("ExerciseWithAnyType", contract.getChoiceArgument, encode(choice1))
@@ -118,7 +118,7 @@ class TransactionServiceArgumentsIT extends LedgerTestSuite {
       dummy <- ledger.create(party, Dummy(party))
       tree <- ledger.exercise(
         party,
-        dummy.exerciseWrapWithAddress(_, Address("street", "city", "state", "zip")),
+        dummy.exerciseWrapWithAddress(Address("street", "city", "state", "zip")),
       )
     } yield {
       val contract = assertSingleton("Contract in transaction", createdEvents(tree))

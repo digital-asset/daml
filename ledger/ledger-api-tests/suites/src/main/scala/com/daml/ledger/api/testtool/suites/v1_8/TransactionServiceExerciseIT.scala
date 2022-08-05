@@ -26,7 +26,7 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       dummyFactory <- ledger.create(party, DummyFactory(party))
-      transactions <- ledger.exercise(party, dummyFactory.exerciseDummyFactoryCall)
+      transactions <- ledger.exercise(party, dummyFactory.exerciseDummyFactoryCall())
     } yield {
       val events = transactions.rootEventIds.collect(transactions.eventsById)
       val exercised = events.filter(_.kind.isExercised)
@@ -46,7 +46,7 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       factory <- ledger.create(party, DummyFactory(party))
-      _ <- ledger.exercise(party, factory.exerciseDummyFactoryCall)
+      _ <- ledger.exercise(party, factory.exerciseDummyFactoryCall())
       dummyWithParam <- ledger.flatTransactionsByTemplateId(DummyWithParam.id, party)
       dummyFactory <- ledger.flatTransactionsByTemplateId(DummyFactory.id, party)
     } yield {
@@ -78,7 +78,7 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
     for {
       agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
       _ <- eventually("exerciseCreateAgreement") {
-        alpha.exercise(receiver, agreementFactory.exerciseCreateAgreement)
+        alpha.exercise(receiver, agreementFactory.exerciseCreateAgreement())
       }
       _ <- synchronize(alpha, beta)
       transactions <- alpha.flatTransactions(receiver, giver)
@@ -99,7 +99,7 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
       createAndFetch <- ledger.create(party, CreateAndFetch(party))
       transaction <- ledger.exerciseForFlatTransaction(
         party,
-        createAndFetch.exerciseCreateAndFetch_Run,
+        createAndFetch.exerciseCreateAndFetch_Run(),
       )
     } yield {
       val _ = assertSingleton("There should be only one create", createdEvents(transaction))
@@ -124,7 +124,7 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
         .exercise(
           party,
           dummy
-            .exerciseConsumeIfTimeIsBetween(_, Primitive.Timestamp.MAX, Primitive.Timestamp.MAX),
+            .exerciseConsumeIfTimeIsBetween(Primitive.Timestamp.MAX, Primitive.Timestamp.MAX),
         )
         .mustFail("exercising with a failing assertion")
     } yield {
