@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver
 
 import java.net.{InetAddress, InetSocketAddress}
-
 import akka.pattern.after
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
@@ -24,7 +23,14 @@ import com.daml.platform.testing.StreamConsumer
 import com.daml.ports.Port
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
-import io.grpc.{BindableService, Channel, Server, ServerInterceptor, ServerServiceDefinition}
+import io.grpc.{
+  BindableService,
+  Channel,
+  Server,
+  ServerInterceptor,
+  ServerServiceDefinition,
+  Status,
+}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Second, Span}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -55,6 +61,23 @@ final class MetricsInterceptorSpec
       } yield {
         eventually {
           metrics.registry.timer("daml.lapi.hello_service.single").getCount shouldBe 3
+        }
+      }
+    }
+  }
+
+  it should "count the gRPC return status" in {
+    val metrics = new Metrics(new MetricRegistry)
+    serverWithMetrics(metrics, new HelloServiceAkkaImplementation).use { channel: Channel =>
+      for {
+        _ <- HelloServiceGrpc.stub(channel).single(HelloRequest(0))
+        _ <- HelloServiceGrpc.stub(channel).fails(HelloRequest(1)).failed
+      } yield {
+        val okCounter = metrics.daml.lapi.return_status.forCode(Status.Code.OK.toString)
+        val internalCounter = metrics.daml.lapi.return_status.forCode(Status.Code.INTERNAL.toString)
+        eventually {
+          okCounter.getCount shouldBe 1
+          internalCounter.getCount shouldBe 1
         }
       }
     }
