@@ -472,6 +472,7 @@ private[validation] object Typing {
     }
 
     private[Typing] def checkRecordTypeTop(fields: ImmArray[(FieldName, Type)]): Unit = {
+      // must *NOT* be used when nested with a type
       runWork(checkRecordType(fields) { Ret(()) })
     }
 
