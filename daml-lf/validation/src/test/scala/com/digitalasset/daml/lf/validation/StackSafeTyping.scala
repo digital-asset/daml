@@ -54,7 +54,7 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
     def arrowRight(x: Type) = arrow(theType, x)
     def arrowLeft(x: Type) = arrow(x, theType)
 
-    val ok100 = { // NICK: remove when we are stack-safe
+    val testCases = {
       Table[String, Type => Type](
         ("name", "recursion-point"),
         ("forall", forall),
@@ -62,51 +62,10 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
         ("arrowLeft", arrowLeft),
       )
     }
-
-    val ok1000 = { // NICK: remove when we are stack-safe
-      Table[String, Type => Type](
-        ("name", "recursion-point"),
-        ("forall", forall),
-        ("arrowRight", arrowRight),
-        // ("arrowLeft", arrowLeft), // NICK: overflow
-      )
-    }
-
-    val ok10000 = {
-      Table[String, Type => Type](
-        ("name", "recursion-point")
-        // ("forall", forall), // NICK: overflow
-        // ("arrowRight", arrowRight), // NICK: overflow
-        // ("arrowLeft", arrowLeft), // NICK: overflow
-      )
-    }
-
-    {
-      val depth = 100
-      s"kind checking, (TINY) depth = $depth" - {
-        forEvery(ok100) { (name: String, recursionPoint: Type => Type) =>
-          name in {
-            // ensure examples can be kind-checked and are well-kinded
-            runTest(depth, theType, recursionPoint, kindCheck) shouldBe None
-          }
-        }
-      }
-    }
-    {
-      val depth = 1000
-      s"kind checking, (SMALL) depth = $depth" - {
-        forEvery(ok1000) { (name: String, recursionPoint: Type => Type) =>
-          name in {
-            // ensure examples can be kind-checked and are well-kinded
-            runTest(depth, theType, recursionPoint, kindCheck) shouldBe None
-          }
-        }
-      }
-    }
     {
       val depth = 10000
       s"kind checking, (LARGE) depth = $depth" - {
-        forEvery(ok10000) { (name: String, recursionPoint: Type => Type) =>
+        forEvery(testCases) { (name: String, recursionPoint: Type => Type) =>
           name in {
             // ensure examples can be kind-checked and are well-kinded
             runTest(depth, theType, recursionPoint, kindCheck) shouldBe None
