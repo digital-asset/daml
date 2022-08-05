@@ -86,7 +86,6 @@ object RunnerMain {
         )
     }
     val flow: Future[Unit] = for {
-
       clients <-
         if (config.jsonApi) {
           val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
