@@ -38,7 +38,7 @@ import scala.collection.immutable.TreeSet
 /**  Speedy builtins are stratified into two layers:
   *  Parent: `SBuiltin`, (which are effectful), and child: `SBuiltinPure` (which are pure).
   *
-  *  Effectful builtin functions may raise `SpeedyHungry` exceptions or change machine state.
+  *  Effectful builtin functions may ask questions of the ledger or change machine state.
   *  Pure builtins can be treated specially because their evaluation is immediate.
   *  This fact is used by the execution of the ANF expression form: `SELet1Builtin`.
   *
@@ -1572,7 +1572,7 @@ private[lf] object SBuiltin {
             keyMapping match {
               case ContractStateMachine.KeyActive(coid) =>
                 // We do not call directly machine.checkKeyVisibility as it may throw an SError,
-                // and such error cannot be throw inside a SpeedyHungry continuation.
+                // and such error cannot be throw inside a ledger-question continuation.
                 machine.pushKont(
                   KCheckKeyVisibility(machine, gkey, coid, operation.handleKeyFound)
                 )

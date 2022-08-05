@@ -554,7 +554,7 @@ private[lf] object Speedy {
         }
         loop()
       } catch {
-        case serr: SError => // NICK: avoid throw which needs this catch
+        case serr: SError => // TODO: prefer Control over throw for SError
           SResultError(serr)
         case ex: RuntimeException =>
           SResultError(SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"exception: $ex")) // stop
