@@ -5,7 +5,6 @@ package com.daml.lf.codegen.backend.java
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-//import tests.recordtest.{Foo, ParametrizedContractId}
 import ut.foo.{Bar, ParameterizedContractId}
 import com.daml.ledger.javaapi.data.codegen.ContractId
 import shapeless.test.illTyped
