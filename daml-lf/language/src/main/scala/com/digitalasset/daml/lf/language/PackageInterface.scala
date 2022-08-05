@@ -214,6 +214,46 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
   ): Either[LookupError, TemplateChoiceSignature] =
     lookupTemplateChoice(tmpName, chName, Reference.TemplateChoice(tmpName, chName))
 
+  private[this] def lookupInterfaceInstance(
+      interfaceName: TypeConName,
+      templateName: TypeConName,
+      context: => Reference,
+  ): Either[
+    Either[LookupError, AmbiguousInterfaceInstanceError],
+    PackageInterface.InterfaceInstanceInfo,
+  ] = {
+    val ref = Reference.InterfaceInstance(interfaceName, templateName)
+    for {
+      interface <- lookupInterface(interfaceName, context).left.map(Left(_))
+      template <- lookupTemplate(templateName, context).left.map(Left(_))
+      onInterface = interface.coImplements.get(templateName)
+      onTemplate = template.implements.get(interfaceName)
+      ok = { tOrI: TemplateOrInterface[Unit, Unit] =>
+        PackageInterface.InterfaceInstanceInfo(tOrI, interfaceName, templateName)
+      }
+      r <- (onInterface, onTemplate) match {
+        case (None, None) => Left(Left(LookupError(ref, context)))
+        case (Some(_), None) => Right(ok(TemplateOrInterface.Interface(())))
+        case (None, Some(_)) => Right(ok(TemplateOrInterface.Template(())))
+        case (Some(_), Some(_)) =>
+          Left(Right(PackageInterface.AmbiguousInterfaceInstanceError(ref, context)))
+      }
+    } yield r
+  }
+
+  def lookupInterfaceInstance(
+      interfaceName: TypeConName,
+      templateName: TypeConName,
+  ): Either[
+    Either[LookupError, AmbiguousInterfaceInstanceError],
+    PackageInterface.InterfaceInstanceInfo,
+  ] =
+    lookupInterfaceInstance(
+      interfaceName,
+      templateName,
+      Reference.InterfaceInstance(interfaceName, templateName),
+    )
+
   private[this] def lookupTemplateImplements(
       tmpName: TypeConName,
       ifaceName: TypeConName,
@@ -482,5 +522,28 @@ object PackageInterface {
     final case class Inherited(ifaceId: TypeConName, choice: TemplateChoiceSignature)
         extends ChoiceInfo
 
+  }
+
+  final case class AmbiguousInterfaceInstanceError(
+      notFound: Reference.InterfaceInstance,
+      context: Reference,
+  )
+
+  final case class InterfaceInstanceInfo(
+      val parentTemplateOrInterface: TemplateOrInterface[Unit, Unit],
+      val interfaceId: TypeConName,
+      val templateId: TypeConName,
+  ) {
+    val parent: TemplateOrInterface[TypeConName, TypeConName] =
+      parentTemplateOrInterface match {
+        case TemplateOrInterface.Template(_) => TemplateOrInterface.Template(templateId)
+        case TemplateOrInterface.Interface(_) => TemplateOrInterface.Interface(interfaceId)
+      }
+
+    val ref: Reference =
+      Reference.ConcreteInterfaceInstance(
+        parentTemplateOrInterface,
+        Reference.InterfaceInstance(interfaceId, templateId),
+      )
   }
 }

@@ -5,6 +5,7 @@ package com.daml.lf.language
 
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
+import com.daml.lf.language.{TemplateOrInterface => TorI}
 
 final case class LookupError(notFound: Reference, context: Reference) {
   val pretty: String = "unknown " + notFound.pretty + (
@@ -101,6 +102,37 @@ object Reference {
 
   final case class TemplateKey(tyCon: TypeConName) extends Reference {
     override def pretty: String = s"template without contract key $tyCon."
+  }
+
+  /** References an interface implementation of interfaceName for templateName,
+    * if a unique one exists.
+    */
+  final case class InterfaceInstance(interfaceName: TypeConName, templateName: TypeConName)
+      extends Reference {
+    override def pretty: String = s"interface instance $interfaceName for $templateName"
+  }
+
+  /** References an interface implementation of interfaceName for templateName
+    * defined in templateName if parentTemplateOrInterface == TorI.Template(())
+    * or in interfaceName if parentTemplateOrInterface == TorI.Interface(())
+    */
+  final case class ConcreteInterfaceInstance(
+      parentTemplateOrInterface: TorI[Unit, Unit],
+      interfaceInstance: InterfaceInstance,
+  ) extends Reference {
+
+    def parent: TorI[TypeConName, TypeConName] = parentTemplateOrInterface match {
+      case TorI.Template(()) => TorI.Template(interfaceInstance.templateName)
+      case TorI.Interface(()) => TorI.Interface(interfaceInstance.interfaceName)
+    }
+
+    def prettyParent: String = parent match {
+      case TorI.Template(t) => s"template $t"
+      case TorI.Interface(i) => s"interface $i"
+    }
+
+    override def pretty: String =
+      s"$prettyParent-provided $interfaceInstance.pretty"
   }
 
   final case class TemplateImplements(templateName: TypeConName, ifaceName: TypeConName)
