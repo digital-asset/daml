@@ -34,6 +34,7 @@ package object domain {
   // So that is how we treat it in practice.  We can deprecate and fix the references
   // separately.
   type TemplateId[+PkgId] = ContractTypeId[PkgId]
+  final val TemplateId: ContractTypeId.type = ContractTypeId
 
   private[daml] implicit final class `fc domain ErrorOps`[A](private val o: Option[A])
       extends AnyVal {
@@ -77,18 +78,6 @@ package domain {
 
     implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
     implicit val `Offset ordering`: Order[Offset] = Order.orderBy[Offset, String](Offset.unwrap(_))
-  }
-
-  object TemplateId extends ContractTypeId.Like[TemplateId] {
-    override def apply[PkgId](
-        packageId: PkgId,
-        moduleName: String,
-        entityName: String,
-    ): TemplateId[PkgId] =
-      ContractTypeId.Unknown(packageId, moduleName, entityName)
-
-    def unapply[PkgId](tpId: TemplateId[PkgId]): Some[Product3[PkgId, String, String]] =
-      ContractTypeId.unapply(tpId)
   }
 
   final case class ActiveContract[+LfV](
