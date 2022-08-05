@@ -1555,7 +1555,10 @@ private[lf] object SBuiltin {
           }
 
         case Left(handle) =>
-          def continue(err: () => IE, result: Option[V.ContractId]): Control = {
+          def continue(
+              err: Option[() => IE],
+              result: Option[V.ContractId],
+          ): Control = {
             val (keyMapping, next) = handle(result)
             onLedger.ptx = onLedger.ptx.copy(contractState = next)
             keyMapping match {
@@ -1574,7 +1577,10 @@ private[lf] object SBuiltin {
                 }
 
               case ContractStateMachine.KeyInactive =>
-                operation.handleKeyNotFound(machine, err)
+                operation.handleKeyNotFound(
+                  machine,
+                  err.getOrElse(() => IE.ContractKeyNotFound(gkey)),
+                )
             }
           }
 
@@ -1582,11 +1588,10 @@ private[lf] object SBuiltin {
           machine.disclosureTable.contractIdByKey.get(gkey.hash) match {
             case Some(coid) =>
               val vcoid = coid.value
-              continue(() => IE.ContractKeyNotFound(gkey), Some(vcoid))
+              continue(None, Some(vcoid))
 
             case None => {
-              def callback(oerr: Option[() => IE], res: Option[V.ContractId]): Unit = {
-                val err = oerr.getOrElse(() => IE.ContractKeyNotFound(gkey))
+              def callback(err: Option[() => IE], res: Option[V.ContractId]): Unit = {
                 val control = continue(err, res)
                 machine.setControl(control)
               }
