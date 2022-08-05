@@ -1040,10 +1040,10 @@ convertImplements env mc tpl = NM.fromList <$>
         Just [] -> conversionError $ "No view implementation defined by " ++ renderPretty tpl ++ " for " ++ prettyPrint iface
         Just _ -> conversionError $ "More than one view implementation defined by " ++ show tpl ++ " for " ++ prettyPrint iface
 
-      pure (TemplateImplements con methods view)
+      pure (TemplateImplements con (InterfaceInstanceBody methods view))
 
     convertMethods ms = fmap NM.fromList . sequence $
-      [ TemplateImplementsMethod (MethodName k) . (`ETmApp` EVar this) <$> convertExpr env v
+      [ InterfaceInstanceMethod (MethodName k) . (`ETmApp` EVar this) <$> convertExpr env v
       | (k, v) <- ms
       ]
 

@@ -300,27 +300,27 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   )
   override def exercise[T](
       party: Primitive.Party,
-      exercise: Primitive.Party => Primitive.Update[T],
+      exercise: Primitive.Update[T],
   ): Future[TransactionTree] =
     withTimeout(s"Exercise for party $party", delegate.exercise(party, exercise))
   override def exercise[T](
       actAs: List[Primitive.Party],
       readAs: List[Primitive.Party],
-      exercise: => Primitive.Update[T],
+      exercise: Primitive.Update[T],
   ): Future[TransactionTree] = withTimeout(
     s"Exercise for actAs $actAs and readAs $readAs",
     delegate.exercise(actAs, readAs, exercise),
   )
   override def exerciseForFlatTransaction[T](
       party: Primitive.Party,
-      exercise: Primitive.Party => Primitive.Update[T],
+      exercise: Primitive.Update[T],
   ): Future[Transaction] = withTimeout(
     s"Exercise for flat transaction for party $party",
     delegate.exerciseForFlatTransaction(party, exercise),
   )
   override def exerciseAndGetContract[T](
       party: Primitive.Party,
-      exercise: Primitive.Party => Primitive.Update[Any],
+      exercise: Primitive.Update[Any],
   ): Future[Primitive.ContractId[T]] = withTimeout(
     s"Exercise and get contract for party $party",
     delegate.exerciseAndGetContract(party, exercise),

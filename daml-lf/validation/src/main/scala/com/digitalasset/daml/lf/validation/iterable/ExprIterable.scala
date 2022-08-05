@@ -195,6 +195,14 @@ private[validation] object ExprIterable {
     x match {
       case TemplateImplements(
             interface @ _,
+            body,
+          ) =>
+        iterator(body)
+    }
+
+  private[iterable] def iterator(x: InterfaceInstanceBody): Iterator[Expr] =
+    x match {
+      case InterfaceInstanceBody(
             methods,
             view,
           ) =>
@@ -202,9 +210,9 @@ private[validation] object ExprIterable {
           iterator(view)
     }
 
-  private[iterable] def iterator(x: TemplateImplementsMethod): Iterator[Expr] =
+  private[iterable] def iterator(x: InterfaceInstanceMethod): Iterator[Expr] =
     x match {
-      case TemplateImplementsMethod(name @ _, value) =>
+      case InterfaceInstanceMethod(name @ _, value) =>
         Iterator(value)
     }
 
@@ -234,17 +242,9 @@ private[validation] object ExprIterable {
     x match {
       case InterfaceCoImplements(
             template @ _,
-            methods,
-            view,
+            body,
           ) =>
-        methods.values.iterator.flatMap(iterator(_)) ++
-          iterator(view)
-    }
-
-  private[iterable] def iterator(x: InterfaceCoImplementsMethod): Iterator[Expr] =
-    x match {
-      case InterfaceCoImplementsMethod(name @ _, value) =>
-        Iterator(value)
+        iterator(body)
     }
 
   def apply(expr: Expr): Iterable[Expr] =
