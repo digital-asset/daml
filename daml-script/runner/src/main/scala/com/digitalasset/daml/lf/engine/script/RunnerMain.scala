@@ -22,14 +22,6 @@ import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.auth.TokenHolder
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientChannelConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement,
-}
-import com.daml.ledger.client.withoutledgerid.LedgerClient
-import com.google.protobuf.ByteString
 
 object RunnerMain {
 
@@ -104,27 +96,13 @@ object RunnerMain {
         } else {
           Runner.connect(participantParams, config.tlsConfig, config.maxInboundMessageSize)
         }
-      adminClient = LedgerClient.singleHost(
-        hostIp = config.ledgerHost.get,
-        port = config.ledgerPort.get,
-        configuration = LedgerClientConfiguration(
-          applicationId = "admin-client",
-          ledgerIdRequirement = LedgerIdRequirement.none,
-          commandClient = CommandClientConfiguration.default,
-          token = token,
-        ),
-        channelConfig = LedgerClientChannelConfiguration(None),
-      )
-      _ <- adminClient.packageManagementClient.uploadDarFile(
-        ByteString.copyFrom(Files.readAllBytes(config.darPath.toPath))
-      )
       result <- Runner.run(dar, scriptId, inputValue, clients, config.timeMode)
       _ <- Future {
         config.outputFile.foreach { outputFile =>
           val jsVal = LfValueCodec.apiValueToJsValue(result.toUnnormalizedValue)
-          val outDir = outputFile.getParentFile()
+          val outDir = outputFile.getParentFile
           if (outDir != null) {
-            val _ = Files.createDirectories(outDir.toPath())
+            val _ = Files.createDirectories(outDir.toPath)
           }
           Files.write(outputFile.toPath, Seq(jsVal.prettyPrint).asJava)
         }
