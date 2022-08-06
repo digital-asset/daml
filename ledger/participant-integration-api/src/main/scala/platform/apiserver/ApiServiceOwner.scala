@@ -21,14 +21,15 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.meteringreport.MeteringReportKey
 import com.daml.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
+import com.daml.platform.apiserver.services.tracking.SubmissionTracker
 import com.daml.platform.localstore.api.{PartyRecordStore, UserManagementStore}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{Port, PortFiles}
 import com.daml.telemetry.TelemetryContext
 import io.grpc.{BindableService, ServerInterceptor}
 import scalaz.{-\/, \/-}
-import java.time.Clock
 
+import java.time.Clock
 import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}
@@ -38,6 +39,7 @@ object ApiServiceOwner {
 
   def apply(
       indexService: IndexService,
+      submissionTracker: SubmissionTracker,
       userManagementStore: UserManagementStore,
       partyRecordStore: PartyRecordStore,
       ledgerId: LedgerId,
@@ -96,6 +98,7 @@ object ApiServiceOwner {
         participantId = participantId,
         optWriteService = optWriteService,
         indexService = indexService,
+        submissionTracker = submissionTracker,
         authorizer = authorizer,
         engine = engine,
         timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),

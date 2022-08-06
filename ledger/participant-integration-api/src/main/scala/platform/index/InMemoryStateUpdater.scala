@@ -20,6 +20,7 @@ import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.lf.transaction.{Node, NodeId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.apiserver.services.tracking.SubmissionTracker
 import com.daml.platform.index.InMemoryStateUpdater.{PrepareResult, UpdaterFlow}
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.dao.events.ContractStateEvent
@@ -148,8 +149,10 @@ private[platform] object InMemoryStateUpdater {
   )(result: PrepareResult): Unit = {
     inMemoryState.packageMetadataView.update(result.packageMetadata)
     updateCaches(inMemoryState, result.updates)
-    // must be the last update: see the comment inside the method for more details
+    // must be after cache updates: see the comment inside the method for more details
     updateLedgerEnd(inMemoryState, result.lastOffset, result.lastEventSequentialId)(loggingContext)
+    // must be after LedgerEnd update because this could trigger API actions relating to this LedgerEnd
+    trackSubmissions(inMemoryState.submissionTracker, result.updates)
   }
 
   private def updateCaches(
@@ -180,6 +183,22 @@ private[platform] object InMemoryStateUpdater {
     inMemoryState.dispatcherState.getDispatcher.signalNewHead(lastOffset)
     logger.debug(s"Updated ledger end at offset $lastOffset - $lastEventSequentialId")
   }
+
+  private def trackSubmissions(
+      submissionTracker: SubmissionTracker,
+      updates: Vector[TransactionLogUpdate],
+  ): Unit =
+    updates.foreach {
+      case accepted: TransactionLogUpdate.TransactionAccepted =>
+        accepted.completionDetails
+          .map(_.completionStreamResponse)
+          .foreach(submissionTracker.update)
+
+      case rejected: TransactionLogUpdate.TransactionRejected =>
+        submissionTracker.update(rejected.completionDetails.completionStreamResponse)
+
+      case _ => ()
+    }
 
   private def convertToContractStateEvents(
       tx: TransactionLogUpdate

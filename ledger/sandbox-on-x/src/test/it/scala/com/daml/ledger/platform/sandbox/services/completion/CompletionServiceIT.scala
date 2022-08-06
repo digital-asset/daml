@@ -158,10 +158,7 @@ sealed trait CompletionServiceITBase
   override def config = super.config.copy(
     participants = singleParticipant(
       apiServerConfig = ApiServerConfig.copy(
-        command = CommandConfiguration.Default.copy(
-          inputBufferSize = 1,
-          maxCommandsInFlight = 2,
-        )
+        command = CommandConfiguration.Default
       ),
       indexerConfig = IndexerConfig.copy(
         inputMappingParallelism = 2

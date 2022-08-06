@@ -94,7 +94,7 @@ private[apiserver] object ApiCommandCompletionService {
       esf: ExecutionSequencerFactory,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
-  ): (CommandCompletionService, GrpcCommandCompletionService with GrpcApiService) = {
+  ): GrpcCommandCompletionService with GrpcApiService = {
     val validator = new CompletionServiceRequestValidator(
       ledgerId,
       PartyNameChecker.AllowAllParties,
@@ -102,7 +102,7 @@ private[apiserver] object ApiCommandCompletionService {
     val impl: CommandCompletionService =
       new ApiCommandCompletionService(completionsService, validator, metrics)
 
-    impl -> new GrpcCommandCompletionService(
+    new GrpcCommandCompletionService(
       impl,
       validator,
     ) with GrpcApiService {

@@ -225,13 +225,9 @@ object ArbitraryConfig {
   )
 
   val commandConfiguration = for {
-    inputBufferSize <- Gen.chooseNum(Int.MinValue, Int.MaxValue)
-    maxCommandsInFlight <- Gen.chooseNum(Int.MinValue, Int.MaxValue)
-    trackerRetentionPeriod <- duration
+    maximumTrackingTimeout <- duration
   } yield CommandConfiguration(
-    inputBufferSize,
-    maxCommandsInFlight,
-    trackerRetentionPeriod,
+    maximumTrackingTimeout
   )
 
   val timeProviderType = Gen.oneOf(TimeProviderType.Static, TimeProviderType.WallClock)

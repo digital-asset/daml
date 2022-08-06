@@ -457,30 +457,34 @@ object CliConfig {
         ),
       opt[Int]("max-commands-in-flight")
         .optional()
-        .action((value, config) =>
-          config.copy(commandConfig = config.commandConfig.copy(maxCommandsInFlight = value))
-        )
+        .action((_, config) => config)
         .text(
-          s"Maximum number of submitted commands for which the CommandService is waiting to be completed in parallel, for each distinct set of parties, as specified by the `act_as` property of the command. Reaching this limit will cause new submissions to wait in the queue before being submitted. Default is ${CommandConfiguration.Default.maxCommandsInFlight}."
+          s"Deprecated! This configuration is not effective anymore. Maximum number of submitted commands for which the CommandService is waiting to be completed in parallel, for each distinct set of parties, as specified by the `act_as` property of the command. Reaching this limit will cause new submissions to wait in the queue before being submitted."
         ),
       opt[Int]("input-buffer-size")
         .optional()
-        .action((value, config) =>
-          config.copy(commandConfig = config.commandConfig.copy(inputBufferSize = value))
-        )
+        .action((_, config) => config)
         .text(
-          s"Maximum number of commands waiting to be submitted for each distinct set of parties, as specified by the `act_as` property of the command. Reaching this limit will cause the server to signal backpressure using the ``RESOURCE_EXHAUSTED`` gRPC status code. Default is ${CommandConfiguration.Default.inputBufferSize}."
+          s"Deprecated! This configuration is not effective anymore. Maximum number of commands waiting to be submitted for each distinct set of parties, as specified by the `act_as` property of the command. Reaching this limit will cause the server to signal backpressure using the ``RESOURCE_EXHAUSTED`` gRPC status code."
         ),
       opt[Duration]("tracker-retention-period")
         .optional()
+        .action((_, config) => config)
+        .text(
+          "Deprecated! This configuration is not effective anymore." +
+            " The duration that the command service will keep an active command tracker for a given set of parties." +
+            " A longer period cuts down on the tracker instantiation cost for a party that seldom acts." +
+            " A shorter period causes a quick removal of unused trackers."
+        ),
+      opt[Duration]("maximum-tracking-timeout")
+        .optional()
         .action((value, config) =>
-          config.copy(commandConfig = config.commandConfig.copy(trackerRetentionPeriod = value))
+          config.copy(commandConfig = config.commandConfig.copy(maximumTrackingTimeout = value))
         )
         .text(
-          "The duration that the command service will keep an active command tracker for a given set of parties." +
-            " A longer period cuts down on the tracker instantiation cost for a party that seldom acts." +
-            " A shorter period causes a quick removal of unused trackers." +
-            s" Default is ${CommandConfiguration.DefaultTrackerRetentionPeriod}."
+          "The duration that the command service will keep tracking an active command. If timeout is not" +
+            " specified on the gRPC layer, this will be used. If there is specified one, and this is a longer," +
+            s" then this will be used. Default is ${CommandConfiguration.DefaultMaximumTrackingTimeout}"
         ),
       opt[Duration]("max-deduplication-duration")
         .optional()

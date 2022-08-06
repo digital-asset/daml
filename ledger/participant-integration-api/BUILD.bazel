@@ -47,7 +47,6 @@ compile_deps = [
     "//ledger/ledger-api-errors",
     "//ledger/ledger-api-akka",
     "//ledger/ledger-api-auth",
-    "//ledger/ledger-api-client",
     "//ledger/ledger-api-common",
     "//ledger/ledger-api-domain",
     "//ledger/ledger-api-health",

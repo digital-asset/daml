@@ -4,15 +4,11 @@
 package com.daml.platform.sandbox.services.command
 
 import com.daml.grpc.{GrpcException, GrpcStatus}
-import com.daml.ledger.api.testing.utils.{
-  IsStatusException,
-  MockMessages,
-  SuiteResourceManagementAroundAll,
-}
+import com.daml.ledger.api.testing.utils.{IsStatusException, MockMessages, SuiteResourceManagementAroundAll}
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v1.commands.CreateCommand
-import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.ledger.api.v1.value.{RecordField, Value}
 import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, IndexerConfig, singleParticipant}
 import com.daml.platform.configuration.CommandConfiguration
@@ -25,8 +21,10 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, Inspectors}
 import scalaz.syntax.tag._
-import java.util.UUID
+import com.daml.ledger.api.v1.value.Record
+import com.daml.ledger.runner.common.Config
 
+import java.util.UUID
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
@@ -48,7 +46,7 @@ sealed trait CommandServiceBackPressureITBase
       Some(
         Record(
           Some(templateIds.dummy),
-          Seq(RecordField("operator", Option(Value(Value.Sum.Party(party))))),
+          scala.Seq(RecordField("operator", Option(Value(Value.Sum.Party(party))))),
         )
       ),
     ).wrap
@@ -117,13 +115,10 @@ sealed trait CommandServiceBackPressureITBase
       stageBufferSize = 1,
     )
 
-  override def config = super.config.copy(
+  override def config: Config = super.config.copy(
     participants = singleParticipant(
       apiServerConfig = ApiServerConfig.copy(
-        command = CommandConfiguration.Default.copy(
-          inputBufferSize = 1,
-          maxCommandsInFlight = 2,
-        )
+        command = CommandConfiguration.Default
       ),
       indexerConfig = IndexerConfig.copy(
         inputMappingParallelism = 2

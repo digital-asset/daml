@@ -13,24 +13,14 @@ import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2.{CompletionInfo, TransactionMeta, Update}
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.index.InMemoryStateUpdater.PrepareResult
-import com.daml.platform.index.InMemoryStateUpdaterSpec.{
-  Scope,
-  anotherMetadataChangedUpdate,
-  metadataChangedUpdate,
-  offset,
-  update1,
-  update3,
-  update4,
-  update5,
-  update6,
-}
+import com.daml.platform.index.InMemoryStateUpdater.{PrepareResult, UpdaterFlow}
+import com.daml.platform.index.InMemoryStateUpdaterSpec._
 import com.daml.platform.indexer.ha.EndlessReadService.configuration
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
@@ -40,9 +30,10 @@ import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.util.chaining._
+import scala.collection.immutable.Seq
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.FiniteDuration
+import scala.util.chaining._
 
 class InMemoryStateUpdaterSpec extends AnyFlatSpec with Matchers with AkkaBeforeAndAfterAll {
 
@@ -128,20 +119,24 @@ class InMemoryStateUpdaterSpec extends AnyFlatSpec with Matchers with AkkaBefore
 }
 
 object InMemoryStateUpdaterSpec {
+
+  private val workflowId: Ref.WorkflowId = Ref.WorkflowId.assertFromString("Workflow")
+
   trait Scope extends Matchers with ScalaFutures with IntegrationPatience {
 
-    val templateId = Identifier.assertFromString("noPkgId:Mod:I")
-    val templateId2 = Identifier.assertFromString("noPkgId:Mod:I2")
+
+    val templateId: Identifier = Identifier.assertFromString("noPkgId:Mod:I")
+    val templateId2: Identifier = Identifier.assertFromString("noPkgId:Mod:I2")
 
     val emptyArchiveToMetadata: DamlLf.Archive => PackageMetadata = _ => PackageMetadata()
-    val cacheUpdates = ArrayBuffer.empty[PrepareResult]
-    val cachesUpdateCaptor =
+    val cacheUpdates: ArrayBuffer[PrepareResult] = ArrayBuffer.empty[PrepareResult]
+    val cachesUpdateCaptor: PrepareResult => Unit =
       (v: PrepareResult) => cacheUpdates.addOne(v).pipe(_ => ())
 
-    def result(lastEventSequentialId: Long) =
+    def result(lastEventSequentialId: Long): PrepareResult =
       PrepareResult(Vector.empty, offset(1L), lastEventSequentialId, PackageMetadata())
 
-    val inMemoryStateUpdater = InMemoryStateUpdaterFlow(
+    val inMemoryStateUpdater: UpdaterFlow = InMemoryStateUpdaterFlow(
       2,
       scala.concurrent.ExecutionContext.global,
       scala.concurrent.ExecutionContext.global,
@@ -152,7 +147,7 @@ object InMemoryStateUpdaterSpec {
       update = cachesUpdateCaptor,
     )(LoggingContext.empty)
 
-    val txLogUpdate1 = TransactionLogUpdate.TransactionAccepted(
+    val txLogUpdate1: TransactionLogUpdate.TransactionAccepted = TransactionLogUpdate.TransactionAccepted(
       transactionId = "tx1",
       commandId = "",
       workflowId = workflowId,
@@ -177,7 +172,6 @@ object InMemoryStateUpdaterSpec {
 
   private val someSubmissionId: Ref.SubmissionId =
     Ref.SubmissionId.assertFromString("some submission id")
-  private val workflowId: Ref.WorkflowId = Ref.WorkflowId.assertFromString("Workflow")
   private val someTransactionMeta: TransactionMeta = TransactionMeta(
     ledgerEffectiveTime = Timestamp.Epoch,
     workflowId = Some(workflowId),
