@@ -7,84 +7,54 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.platform.store.packagemeta.PackageMetadataView._
-import scalaz._
 
 trait PackageMetadataView {
-  def update(metadataDefinitions: MetadataDefinitions): Unit
+  def update(packageMetadata: PackageMetadata): Unit
 
-  def read(): PackageMetadata
+  def current(): PackageMetadata
 }
 
 object PackageMetadataView {
   def create: PackageMetadataView = new PackageMetaDataViewImpl
 
-  trait PackageMetadata {
-    def interfaceImplementedBy(interface: Ref.Identifier): Set[Ref.Identifier]
-    def interfaceExists(interface: Ref.Identifier): Boolean
-    def templateExists(template: Ref.Identifier): Boolean
-  }
-
-  final case class MetadataDefinitions private[packagemeta] (
+  final case class PackageMetadata private[packagemeta] (
       templates: Set[Ref.Identifier] = Set.empty,
       interfaces: Set[Ref.Identifier] = Set.empty,
       interfacesImplementedBy: Map[Ref.Identifier, Set[Ref.Identifier]] = Map.empty,
-  )
+  ) {
+    def append(
+        updated: PackageMetadata
+    ): PackageMetadata =
+      PackageMetadata(
+        templates = templates ++ updated.templates,
+        interfaces = interfaces ++ updated.interfaces,
+        interfacesImplementedBy =
+          updated.interfacesImplementedBy.foldLeft(interfacesImplementedBy) {
+            case (acc, (interface, templates)) =>
+              acc + (interface -> (acc.getOrElse(interface, Set.empty) ++ templates))
+          },
+      )
+  }
 
-  object MetadataDefinitions {
-    implicit val monoid = new Monoid[MetadataDefinitions] {
-      override def zero: MetadataDefinitions = MetadataDefinitions()
-      override def append(
-          f1: MetadataDefinitions,
-          f2: => MetadataDefinitions,
-      ): MetadataDefinitions =
-        MetadataDefinitions(
-          templates = f1.templates ++ f2.templates,
-          interfaces = f1.interfaces ++ f2.interfaces,
-          interfacesImplementedBy =
-            f2.interfacesImplementedBy.foldLeft(f1.interfacesImplementedBy) {
-              case (acc, (interface, templates)) =>
-                acc + (interface -> (acc.getOrElse(interface, Set.empty) ++ templates))
-            },
-        )
-    }
-    implicit def equal: Equal[MetadataDefinitions] =
-      (a1: MetadataDefinitions, a2: MetadataDefinitions) => a1 == a2
-
-    def from(archive: DamlLf.Archive): MetadataDefinitions = {
+  object PackageMetadata {
+    def from(archive: DamlLf.Archive): PackageMetadata = {
       val packageInfo = Decode.assertDecodeInfoPackage(archive)
-      MetadataDefinitions(
+      PackageMetadata(
         templates = packageInfo.definedTemplates,
         interfaces = packageInfo.definedInterfaces,
         interfacesImplementedBy = packageInfo.interfaceInstances,
       )
     }
-
-    private[packagemeta] implicit class MetadataDefinitionsToPackageMetadata(
-        metadataDefinitions: MetadataDefinitions
-    ) extends PackageMetadata {
-      override def interfaceImplementedBy(interface: Ref.Identifier): Set[Ref.Identifier] =
-        metadataDefinitions.interfacesImplementedBy.getOrElse(interface, Set.empty)
-
-      override def interfaceExists(interface: Ref.Identifier): Boolean =
-        metadataDefinitions.interfaces(interface)
-
-      override def templateExists(template: Ref.Identifier): Boolean =
-        metadataDefinitions.templates(template)
-    }
   }
 }
 
 private[packagemeta] class PackageMetaDataViewImpl extends PackageMetadataView {
-  @volatile private var metadataDefinitions = MetadataDefinitions.monoid.zero
+  @volatile private var packageMetadata = PackageMetadata()
 
-  private def set(metadataDefinitions: MetadataDefinitions): Unit =
-    this.metadataDefinitions = metadataDefinitions
-
-  override def update(newMetadataDefinitions: MetadataDefinitions): Unit = {
+  override def update(packageMetadata: PackageMetadata): Unit =
     synchronized {
-      set(MetadataDefinitions.monoid.append(metadataDefinitions, newMetadataDefinitions))
+      this.packageMetadata = this.packageMetadata.append(packageMetadata)
     }
-  }
 
-  override def read(): PackageMetadata = metadataDefinitions
+  override def current(): PackageMetadata = packageMetadata
 }
