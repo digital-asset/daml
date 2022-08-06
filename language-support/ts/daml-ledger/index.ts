@@ -3,6 +3,7 @@
 import {
   Choice,
   ChoiceFrom,
+  DisclosedContract,
   ContractId,
   List,
   Party,
@@ -350,6 +351,11 @@ type LedgerError = {
   status: number;
   errors: string[];
   warnings: unknown | undefined;
+};
+
+export type CommandMeta = {
+  workflowId?: string;
+  disclosedContracts?: DisclosedContract[];
 };
 
 /**
@@ -997,6 +1003,7 @@ class Ledger {
     const ledgerResponse = jtv.Result.withException(
       decodeLedgerResponse.run(json),
     );
+
     if (!(ledgerResponse.status >= 200 && ledgerResponse.status <= 299)) {
       console.log(
         `Request to ${endpoint} returned status ${
@@ -1103,6 +1110,7 @@ class Ledger {
    *
    * @param template The template of the contract to be created.
    * @param payload The template arguments for the contract to be created.
+   * @param meta Optional meta fields to specify additional data on a command submission.
    *
    * @typeparam T The contract template type.
    * @typeparam K The contract key type.
@@ -1112,10 +1120,12 @@ class Ledger {
   async create<T extends object, K, I extends string>(
     template: Template<T, K, I>,
     payload: T,
+    meta?: CommandMeta,
   ): Promise<CreateEvent<T, K, I>> {
     const command = {
       templateId: template.templateId,
       payload: template.encode(payload),
+      meta,
     };
     const json = await this.submit("v1/create", command);
     return jtv.Result.withException(decodeCreateEvent(template).run(json));
@@ -1127,6 +1137,7 @@ class Ledger {
    * @param choice The choice to exercise.
    * @param contractId The contract id of the contract to exercise.
    * @param argument The choice arguments.
+   * @param meta Optional meta fields to specify additional data on a command submission.
    *
    * @typeparam T The contract template type.
    * @typeparam C The type of the contract choice.
@@ -1139,12 +1150,14 @@ class Ledger {
     choice: Choice<T, C, R, K>,
     contractId: ContractId<T>,
     argument: C,
+    meta?: CommandMeta,
   ): Promise<[R, Event<object>[]]> {
     const payload = {
       templateId: choice.template().templateId,
       contractId: ContractId(choice.template()).encode(contractId),
       choice: choice.choiceName,
       argument: choice.argumentEncode(argument),
+      meta,
     };
     const json = await this.submit("v1/exercise", payload);
     // Decode the server response into a tuple.
@@ -1167,6 +1180,7 @@ class Ledger {
    * @param choice The choice to exercise.
    * @param payload The template arguments for the newly-created contract.
    * @param argument The choice arguments.
+   * @param meta Optional meta fields to specify additional data on a command submission.
    *
    * @typeparam T The contract template type.
    * @typeparam C The type of the contract choice.
@@ -1183,12 +1197,14 @@ class Ledger {
     choice: ChoiceFrom<Template<T, K>> & Choice<T, C, R, K>,
     payload: T,
     argument: C,
+    meta?: CommandMeta,
   ): Promise<[R, Event<object>[]]> {
     const command = {
       templateId: choice.template().templateId,
       payload: choice.template().encode(payload),
       choice: choice.choiceName,
       argument: choice.argumentEncode(argument),
+      meta,
     };
     const json = await this.submit("v1/create-and-exercise", command);
 
@@ -1214,6 +1230,7 @@ class Ledger {
    * @param choice The choice to exercise.
    * @param key The contract key of the contract to exercise.
    * @param argument The choice arguments.
+   * @param meta Optional meta fields to specify additional data on a command submission.
    *
    * @typeparam T The contract template type.
    * @typeparam C The type of the contract choice.
@@ -1227,6 +1244,7 @@ class Ledger {
     choice: ChoiceFrom<Template<T, K>> & Choice<T, C, R, K>,
     key: K,
     argument: C,
+    meta?: CommandMeta,
   ): Promise<[R, Event<object>[]]> {
     if (key === undefined) {
       throw Error(
@@ -1240,6 +1258,7 @@ class Ledger {
       key: choice.template().keyEncode(key),
       choice: choice.choiceName,
       argument: choice.argumentEncode(argument),
+      meta,
     };
     const json = await this.submit("v1/exercise", payload);
     // Decode the server response into a tuple.
@@ -1261,6 +1280,7 @@ class Ledger {
    *
    * @param template The template of the contract to archive.
    * @param contractId The contract id of the contract to archive.
+   * @param meta Optional meta fields to specify additional data on a command submission.
    *
    * @typeparam T The contract template type.
    * @typeparam K The contract key type.
@@ -1270,9 +1290,10 @@ class Ledger {
   async archive<T extends object, K, I extends string>(
     template: Template<T, K, I>,
     contractId: ContractId<T>,
+    meta?: CommandMeta,
   ): Promise<ArchiveEvent<T, I>> {
     return decodeArchiveResponse(template, "archive", () =>
-      this.exercise(template.Archive, contractId, {}),
+      this.exercise(template.Archive, contractId, {}, meta),
     );
   }
 
@@ -1282,6 +1303,7 @@ class Ledger {
    *
    * @param template The template of the contract to be archived.
    * @param key The contract key of the contract to be archived.
+   * @param meta Optional meta fields to specify additional data on a command submission.
    *
    * @typeparam T The contract template type.
    * @typeparam K The contract key type.
@@ -1291,9 +1313,10 @@ class Ledger {
   async archiveByKey<T extends object, K, I extends string>(
     template: Template<T, K, I>,
     key: K,
+    meta?: CommandMeta,
   ): Promise<ArchiveEvent<T, I>> {
     return decodeArchiveResponse(template, "archiveByKey", () =>
-      this.exerciseByKey(template.Archive, key, {}),
+      this.exerciseByKey(template.Archive, key, {}, meta),
     );
   }
 
