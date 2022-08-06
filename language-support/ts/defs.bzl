@@ -12,7 +12,7 @@ def da_ts_library(
         srcs = [],
         deps = [],
         module_name = "",
-        source_map = True,
+        source_map = False,
         declaration = True,
         **kwargs):
     """Build a typescript library.

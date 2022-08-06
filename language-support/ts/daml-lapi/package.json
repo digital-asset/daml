@@ -1,6 +1,6 @@
 {
   "private": false,
-  "name": "@daml/types",
+  "name": "@daml/ledger-api",
   "version": "0.0.0-SDKVERSION",
   "description": "Primitive types of the Daml language and their serialization.",
   "keywords": [
@@ -15,12 +15,12 @@
     "url": "https://github.com/digital-asset/daml.git",
     "directory": "language-support/ts/daml-types"
   },
-  "main": "index.js",
-  "types": "index.d.ts",
+  "main": "com/daml/ledger/api/v1/value_pb.js",
+  "types": "com/daml/ledger/api/v1/value_pb.d.ts",
   "license": "Apache-2.0",
   "dependencies": {
-    "@daml/ledger-api": "0.0.0-SDKVERSION",
-    "@mojotech/json-type-validation": "^3.1.0"
+    "@mojotech/json-type-validation": "^3.1.0",
+    "google-protobuf": "^3.21.0"
   },
   "scripts": {
     "build": "tsc --build",
@@ -31,6 +31,7 @@
   "devDependencies": {
     "@types/jest": "^26.0.23",
     "@types/lodash": "4.14.161",
+    "@types/google-protobuf": "^3.15.6",
     "@typescript-eslint/eslint-plugin": "^2.16.0",
     "@typescript-eslint/parser": "^2.16.0",
     "eslint": "^6.8.0",

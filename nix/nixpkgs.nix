@@ -19,6 +19,17 @@ let
         wrapProgram $out/bin/pg_tmp --prefix PATH : ${pkgs.postgresql_11}/bin:$out/bin
       '';
     });
+    protoc-gen-grpc-web = pkgs.protoc-gen-grpc-web.overrideAttrs(oldAttrs: rec {
+      version = "1.3.1";
+      srcs = pkgs.fetchFromGitHub {
+        owner = "grpc";
+        repo = "grpc-web";
+        rev = version;
+        sha256 = "sha256-NRShN4X9JmCjqPVY/q9oSxSOvv1bP//vM9iOZ6ap5vc=";
+      };
+      makeFlags = [ "PREFIX=$(out)" "STATIC=no" ];
+      patches = [./static.patch];
+    });
     scala_2_13 = pkgs.scala_2_13.overrideAttrs (oldAttrs: rec {
       version = "2.13.8";
       name = "scala-2.13.8";

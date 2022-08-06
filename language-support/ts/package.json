@@ -1,6 +1,7 @@
 {
   "private": true,
   "workspaces": [
+    "daml-lapi",
     "daml-types",
     "daml-ledger",
     "daml-react"

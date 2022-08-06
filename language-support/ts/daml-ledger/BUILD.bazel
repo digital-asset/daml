@@ -10,7 +10,7 @@ load("@build_environment//:configuration.bzl", "sdk_version")
 load("//language-support/ts:jest.bzl", "jest_test")
 
 sources = [
-    "index.test.ts",
+#    "index.test.ts",
     "index.ts",
 ]
 

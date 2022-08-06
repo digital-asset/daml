@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
@@ -10,24 +10,22 @@ load("//language-support/ts:eslint.bzl", "eslint_test")
 load("//language-support/ts:jest.bzl", "jest_test")
 load("//language-support/ts:typedoc.bzl", "ts_docs")
 load("@build_environment//:configuration.bzl", "sdk_version")
+load("@build_bazel_rules_nodejs//:index.bzl", "js_library")
 
-sources = [
-    "index.ts",
-    "index.test.ts",
-]
+sources = glob(["**/*.ts", "**/*_pb.js"], exclude=["node_modules/**"])
 
-da_ts_library(
-    name = "daml-types",
-    srcs = sources,
-    module_name = "@daml/types",
-    tsconfig = ":tsconfig.json",
-    visibility = ["//visibility:public"],
+js_library(
+    name = "daml-lapi",
+    srcs = sources + ["package.json"],
+    package_name = "@daml/ledger-api",
     deps = [
-        "//language-support/ts/daml-lapi",
         "@language_support_ts_deps//@mojotech/json-type-validation",
         "@language_support_ts_deps//@types/jest",
         "@language_support_ts_deps//@types/lodash",
+        "@language_support_ts_deps//@types/google-protobuf",
+        "@language_support_ts_deps//google-protobuf",
     ],
+    visibility = ["//visibility:public"],
 ) if not is_windows else None
 
 genrule(
@@ -39,34 +37,17 @@ genrule(
     """,
 )
 
-eslint_test(
-    name = "lint",
-    srcs = sources,
-    data = ["tsconfig.json"],
-    tsconfig = "tsconfig.eslint.json",
-)
-
 pkg_npm(
     name = "npm_package",
-    package_name = "@daml/types",
+    package_name = "@daml/ledger-api",
     srcs = [
         ":README.md",
         ":package.json",
-        ":tsconfig.json",
     ],
     substitutions = {"0.0.0-SDKVERSION": sdk_version},
     visibility = ["//visibility:public"],
     deps = [
-        ":daml-types",
+        ":daml-lapi",
         ":license",
     ],
 ) if not is_windows else None
-
-jest_test(
-    name = "test",
-    srcs = sources,
-    deps = [
-        "@language_support_ts_deps//@mojotech/json-type-validation",
-        "@language_support_ts_deps//@types/lodash",
-    ],
-)

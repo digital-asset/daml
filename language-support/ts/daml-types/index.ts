@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import * as jtv from "@mojotech/json-type-validation";
 import _ from "lodash";
+import * as com_daml_ledger_api_v1_value_pb from '@daml/ledger-api/com/daml/ledger/api/v1/value_pb';
+import { Empty } from 'google-protobuf/google/protobuf/empty_pb';
 
 /**
  * Interface for companion objects of serializable types. Its main purpose is
@@ -18,6 +20,9 @@ export interface Serializable<T> {
    * @internal Encodes T in expected shape for JSON API.
    */
   encode: (t: T) => unknown;
+
+  decodeProto: (v: com_daml_ledger_api_v1_value_pb.Value) => T;
+  encodeProto: (t: T) => com_daml_ledger_api_v1_value_pb.Value;
 }
 
 /**
@@ -62,6 +67,7 @@ export interface Template<
    * @internal
    */
   keyEncode: (k: K) => unknown;
+  keyEncodeProto: (k: K) => com_daml_ledger_api_v1_value_pb.Value;
   // eslint-disable-next-line @typescript-eslint/ban-types
   Archive: Choice<T, {}, {}, K> & ChoiceFrom<Template<T, K, I>>;
 }
@@ -162,10 +168,14 @@ export interface Choice<T extends object, C, R, K = unknown>
    * @internal
    */
   argumentEncode: (c: C) => unknown;
+
+  argumentSerializable: () => Serializable<C>;
   /**
    * @internal Returns a deocoder to decode the return value.
    */
   resultDecoder: jtv.Decoder<R>;
+
+  resultSerializable: () => Serializable<R>;
   // note: no encoder for result, as they cannot be sent, only received.
   /**
    * The choice name.
@@ -319,6 +329,14 @@ export interface Unit {
 export const Unit: Serializable<Unit> = {
   decoder: jtv.object({}),
   encode: (t: Unit) => t,
+  decodeProto: (v: com_daml_ledger_api_v1_value_pb.Value): Unit => {
+    if (v.getSumCase() !== com_daml_ledger_api_v1_value_pb.Value.SumCase.UNIT) {
+      throw new Error(`Expected unit but got ${v}`)
+    }
+    return {};
+  },
+  encodeProto: (_t: Unit) =>
+    new com_daml_ledger_api_v1_value_pb.Value().setUnit(new Empty())
 };
 
 /**
@@ -332,6 +350,14 @@ export type Bool = boolean;
 export const Bool: Serializable<Bool> = {
   decoder: jtv.boolean(),
   encode: (b: Bool) => b,
+  decodeProto: (v: com_daml_ledger_api_v1_value_pb.Value): Bool => {
+    if (v.getSumCase() !== com_daml_ledger_api_v1_value_pb.Value.SumCase.BOOL) {
+      throw new Error(`Expected bool but got ${v}`)
+    }
+    return v.getBool();
+  },
+  encodeProto: (v: Bool) =>
+    new com_daml_ledger_api_v1_value_pb.Value().setBool(v)
 };
 
 /**
@@ -347,6 +373,14 @@ export type Int = string;
 export const Int: Serializable<Int> = {
   decoder: jtv.string(),
   encode: (i: Int) => i,
+  decodeProto: (v: com_daml_ledger_api_v1_value_pb.Value): Int => {
+    if (v.getSumCase() !== com_daml_ledger_api_v1_value_pb.Value.SumCase.INT64) {
+      throw new Error(`Expected int but got ${v}`)
+    }
+    return v.getInt64();
+  },
+  encodeProto: (v: Int) =>
+    new com_daml_ledger_api_v1_value_pb.Value().setInt64(v)
 };
 
 /**
@@ -372,6 +406,14 @@ export type Decimal = Numeric;
 export const Numeric = (_: number): Serializable<Numeric> => ({
   decoder: jtv.string(),
   encode: (n: Numeric): unknown => n,
+  decodeProto: (v: com_daml_ledger_api_v1_value_pb.Value): Numeric => {
+    if (v.getSumCase() !== com_daml_ledger_api_v1_value_pb.Value.SumCase.NUMERIC) {
+      throw new Error(`Expected numeric but got ${v}`)
+    }
+    return v.getNumeric();
+  },
+  encodeProto: (v: Numeric) =>
+    new com_daml_ledger_api_v1_value_pb.Value().setNumeric(v)
 });
 
 /**
@@ -390,6 +432,14 @@ export type Text = string;
 export const Text: Serializable<Text> = {
   decoder: jtv.string(),
   encode: (t: Text) => t,
+  decodeProto: (v: com_daml_ledger_api_v1_value_pb.Value): Text => {
+    if (v.getSumCase() !== com_daml_ledger_api_v1_value_pb.Value.SumCase.TEXT) {
+      throw new Error(`Expected text but got ${v}`)
+    }
+    return v.getText();
+  },
+  encodeProto: (v: Text) =>
+    new com_daml_ledger_api_v1_value_pb.Value().setText(v)
 };
 
 /**
@@ -405,6 +455,14 @@ export type Time = string;
 export const Time: Serializable<Time> = {
   decoder: jtv.string(),
   encode: (t: Time) => t,
+  decodeProto: (v: com_daml_ledger_api_v1_value_pb.Value): Time => {
+    if (v.getSumCase() !== com_daml_ledger_api_v1_value_pb.Value.SumCase.TIMESTAMP) {
+      throw new Error(`Expected time but got ${v}`)
+    }
+    return v.getTimestamp();
+  },
+  encodeProto: (v: Time) =>
+    new com_daml_ledger_api_v1_value_pb.Value().setTimestamp(v)
 };
 
 /**
@@ -420,6 +478,14 @@ export type Party = string;
 export const Party: Serializable<Party> = {
   decoder: jtv.string(),
   encode: (p: Party) => p,
+  decodeProto: (v: com_daml_ledger_api_v1_value_pb.Value): Party => {
+    if (v.getSumCase() !== com_daml_ledger_api_v1_value_pb.Value.SumCase.PARTY) {
+      throw new Error(`Expected party but got ${v}`)
+    }
+    return v.getParty();
+  },
+  encodeProto: (v: Party) =>
+    new com_daml_ledger_api_v1_value_pb.Value().setParty(v)
 };
 
 /**
@@ -437,6 +503,14 @@ export type List<T> = T[];
 export const List = <T>(t: Serializable<T>): Serializable<T[]> => ({
   decoder: jtv.array(t.decoder),
   encode: (l: List<T>): unknown => l.map((element: T) => t.encode(element)),
+  decodeProto: (v: com_daml_ledger_api_v1_value_pb.Value): T[] => {
+    if (v.getSumCase() !== com_daml_ledger_api_v1_value_pb.Value.SumCase.LIST) {
+      throw new Error(`Expected list but got ${v}`)
+    }
+    return v.getList()!.getElementsList().map(e => t.decodeProto(e))
+  },
+  encodeProto: (v: List<T>) =>
+    new com_daml_ledger_api_v1_value_pb.Value().setList(new com_daml_ledger_api_v1_value_pb.List().setElementsList(v.map(e => t.encodeProto(e)))),
 });
 
 /**
@@ -452,6 +526,12 @@ export type Date = string;
 export const Date: Serializable<Date> = {
   decoder: jtv.string(),
   encode: (d: Date) => d,
+  decodeProto: (_v: com_daml_ledger_api_v1_value_pb.Value): Date => {
+    throw new Error("Date decoding not implemented");
+  },
+  encodeProto: (_v: Date) => {
+    throw new Error("Data encoding not implemented")
+  },
 };
 
 /**
@@ -482,6 +562,14 @@ export const ContractId = <T>(
 ): Serializable<ContractId<T>> => ({
   decoder: jtv.string() as jtv.Decoder<ContractId<T>>,
   encode: (c: ContractId<T>): unknown => c,
+  decodeProto: (v: com_daml_ledger_api_v1_value_pb.Value): ContractId<T> => {
+    if (v.getSumCase() !== com_daml_ledger_api_v1_value_pb.Value.SumCase.CONTRACT_ID) {
+      throw new Error(`Expected time but got ${v}`)
+    }
+    return v.getContractId() as ContractId<T>;
+  },
+  encodeProto: (v: ContractId<T>) =>
+  new com_daml_ledger_api_v1_value_pb.Value().setContractId(v)
 });
 
 /**
@@ -507,6 +595,9 @@ class OptionalWorker<T> implements Serializable<Optional<T>> {
   decoder: jtv.Decoder<Optional<T>>;
   private innerDecoder: jtv.Decoder<OptionalInner<T>>;
   encode: (o: Optional<T>) => unknown;
+  decodeProto: (v: com_daml_ledger_api_v1_value_pb.Value) => Optional<T>;
+  private innerProtoDecoder: (v: com_daml_ledger_api_v1_value_pb.Value) => OptionalInner<T>;
+  encodeProto: (v : Optional<T>) => com_daml_ledger_api_v1_value_pb.Value
 
   constructor(payload: Serializable<T>) {
     if (payload instanceof OptionalWorker) {
@@ -518,10 +609,19 @@ class OptionalWorker<T> implements Serializable<Optional<T>> {
       type OptionalInnerU = Exclude<T, null>;
       const payloadInnerDecoder =
         payload.innerDecoder as jtv.Decoder<unknown> as jtv.Decoder<OptionalInnerU>;
+      const decodeProtoPayloadInner: (v: com_daml_ledger_api_v1_value_pb.Value) => OptionalInnerU =
+        payload.innerProtoDecoder as unknown as (v: com_daml_ledger_api_v1_value_pb.Value) => OptionalInnerU;
       this.innerDecoder = jtv.oneOf<[] | [Exclude<T, null>]>(
         jtv.constant<[]>([]),
         jtv.tuple([payloadInnerDecoder]),
       ) as jtv.Decoder<OptionalInner<T>>;
+      this.innerProtoDecoder = (v: com_daml_ledger_api_v1_value_pb.Value): OptionalInner<T> => {
+        if (v.getSumCase() !== com_daml_ledger_api_v1_value_pb.Value.SumCase.OPTIONAL) {
+          throw new Error(`Expected optional but got ${v}`)
+        }
+        const innerV = v.getOptional()!.getValue();
+        return (innerV ? [decodeProtoPayloadInner(innerV)] : []) as OptionalInner<T>;
+      };
       this.encode = (o: Optional<T>): unknown => {
         if (o === null) {
           // Top-level enclosing Optional where the type argument is also
@@ -535,10 +635,20 @@ class OptionalWorker<T> implements Serializable<Optional<T>> {
           return (o as unknown as T[]).map(nested => payload.encode(nested));
         }
       };
+      this.encodeProto = (o: Optional<T>) => {
+        if (o === null) {
+          return new com_daml_ledger_api_v1_value_pb.Value().setOptional(new com_daml_ledger_api_v1_value_pb.Optional());
+        } else {
+          const inner = o as unknown as T[];
+          const innerEncoded = payload.encodeProto((inner.length === 0 ? null : inner[0]) as T);
+          return new com_daml_ledger_api_v1_value_pb.Value().setOptional(new com_daml_ledger_api_v1_value_pb.Optional().setValue(innerEncoded));
+        }
+      }
     } else {
       // NOTE(MH): `T` is not of the form `Optional<U>` here and hence `null`
       // does not extend `T`. Thus, `OptionalInner<T> = T`.
       this.innerDecoder = payload.decoder as jtv.Decoder<OptionalInner<T>>;
+      this.innerProtoDecoder = payload.decodeProto as ((v: com_daml_ledger_api_v1_value_pb.Value) => OptionalInner<T>);
       this.encode = (o: Optional<T>): unknown => {
         if (o === null) {
           // This branch is only reached if we are at the top-level and the
@@ -551,8 +661,22 @@ class OptionalWorker<T> implements Serializable<Optional<T>> {
           return payload.encode(o as unknown as T);
         }
       };
+      this.encodeProto = (o: Optional<T>) => {
+        if (o === null) {
+          return new com_daml_ledger_api_v1_value_pb.Value().setOptional(new com_daml_ledger_api_v1_value_pb.Optional());
+        } else {
+          return new com_daml_ledger_api_v1_value_pb.Value().setOptional(new com_daml_ledger_api_v1_value_pb.Optional().setValue(payload.encodeProto(o as unknown as T)));
+        }
+      }
     }
     this.decoder = jtv.oneOf(jtv.constant(null), this.innerDecoder);
+    this.decodeProto = (v: com_daml_ledger_api_v1_value_pb.Value): Optional<T> => {
+      if (v.getSumCase() !== com_daml_ledger_api_v1_value_pb.Value.SumCase.OPTIONAL) {
+        throw new Error(`Expected optional but got ${v}`)
+      }
+      const innerV = v.getOptional()!.getValue();
+      return innerV ? this.innerProtoDecoder(innerV) : null;
+    };
   }
 }
 
@@ -583,6 +707,12 @@ export const TextMap = <T>(t: Serializable<T>): Serializable<TextMap<T>> => ({
     });
     return out;
   },
+  decodeProto: (_v: com_daml_ledger_api_v1_value_pb.Value): TextMap<T> => {
+    throw new Error("Decoding of textmap not implememented");
+  },
+  encodeProto: (_v: TextMap<T>) => {
+    throw new Error("Encoding of textmap not implemented");
+  }
 });
 
 /**
@@ -695,4 +825,10 @@ export const Map = <K, V>(
     .map(kvs => new MapImpl(kvs)),
   encode: (m: Map<K, V>): unknown =>
     m.entriesArray().map(e => [kd.encode(e[0]), vd.encode(e[1])]),
+  decodeProto: (_v: com_daml_ledger_api_v1_value_pb.Value): Map<K, V> => {
+    throw new Error("Decoding of map not implememented");
+  },
+  encodeProto: (_v: Map<K, V>) => {
+    throw new Error("Encoding of map not implemented");
+  }
 });
