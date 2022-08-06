@@ -6,6 +6,7 @@ package com.daml.platform
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.services.tracking.SubmissionTracker
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.cache.{
   ContractStateCaches,
@@ -27,6 +28,7 @@ private[platform] class InMemoryState(
     val stringInterningView: StringInterningView,
     val dispatcherState: DispatcherState,
     val packageMetadataView: PackageMetadataView,
+    val submissionTracker: SubmissionTracker,
 )(implicit executionContext: ExecutionContext) {
   private val logger = ContextualizedLogger.get(getClass)
 
@@ -78,6 +80,7 @@ object InMemoryState {
 
     for {
       dispatcherState <- DispatcherState.owner(apiStreamShutdownTimeout)
+      submissionTracker <- SubmissionTracker.owner
     } yield new InMemoryState(
       ledgerEndCache = MutableLedgerEndCache()
         .tap(
@@ -97,6 +100,7 @@ object InMemoryState {
       ),
       stringInterningView = new StringInterningView,
       packageMetadataView = PackageMetadataView.create,
+      submissionTracker = submissionTracker,
     )(executionContext)
   }
 }

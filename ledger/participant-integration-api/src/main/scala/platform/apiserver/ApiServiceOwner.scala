@@ -21,6 +21,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.meteringreport.MeteringReportKey
 import com.daml.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
+import com.daml.platform.apiserver.services.tracking.SubmissionTracker
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{Port, PortFiles}
 import com.daml.telemetry.TelemetryContext
@@ -37,6 +38,7 @@ object ApiServiceOwner {
 
   def apply(
       indexService: IndexService,
+      submissionTracker: SubmissionTracker,
       userManagementStore: UserManagementStore,
       ledgerId: LedgerId,
       participantId: Ref.ParticipantId,
@@ -93,6 +95,7 @@ object ApiServiceOwner {
         participantId = participantId,
         optWriteService = optWriteService,
         indexService = indexService,
+        submissionTracker = submissionTracker,
         authorizer = authorizer,
         engine = engine,
         timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),

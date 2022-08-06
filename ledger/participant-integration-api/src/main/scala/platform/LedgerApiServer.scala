@@ -20,6 +20,7 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver._
+import com.daml.platform.apiserver.services.tracking.SubmissionTracker
 import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.{IndexServiceConfig, ServerRole}
 import com.daml.platform.index.{InMemoryStateUpdater, IndexServiceOwner}
@@ -105,6 +106,7 @@ class LedgerApiServer(
           ledgerFeatures,
           engine,
           indexService,
+          inMemoryState.submissionTracker,
           metrics,
           servicesExecutionContext,
           new TimedWriteService(writeService, metrics),
@@ -124,6 +126,7 @@ class LedgerApiServer(
       ledgerFeatures: LedgerFeatures,
       sharedEngine: Engine,
       indexService: IndexService,
+      submissionTracker: SubmissionTracker,
       metrics: Metrics,
       servicesExecutionContext: ExecutionContextExecutorService,
       writeService: WriteService,
@@ -140,6 +143,7 @@ class LedgerApiServer(
   ): ResourceOwner[ApiService] =
     ApiServiceOwner(
       indexService = indexService,
+      submissionTracker = submissionTracker,
       ledgerId = ledgerId,
       config = apiServerConfig,
       optWriteService = Some(writeService),

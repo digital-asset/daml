@@ -11,7 +11,6 @@ import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.auth.services._
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.client.services.commands.CommandSubmissionFlow
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -32,9 +31,9 @@ import com.daml.platform.apiserver.execution.{
 import com.daml.platform.apiserver.meteringreport.MeteringReportKey
 import com.daml.platform.apiserver.services._
 import com.daml.platform.apiserver.services.admin._
+import com.daml.platform.apiserver.services.tracking.SubmissionTracker
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService
 import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration}
-import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.{GrpcHealthService, GrpcTransactionService}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.usermanagement.UserManagementConfig
@@ -67,6 +66,7 @@ private[daml] object ApiServices {
       participantId: Ref.ParticipantId,
       optWriteService: Option[state.WriteService],
       indexService: IndexService,
+      submissionTracker: SubmissionTracker,
       userManagementStore: UserManagementStore,
       authorizer: Authorizer,
       engine: Engine,
@@ -158,7 +158,7 @@ private[daml] object ApiServices {
       val apiConfigurationService =
         ApiLedgerConfigurationService.create(ledgerId, configurationService)
 
-      val (completionService, grpcCompletionService) =
+      val grpcCompletionService =
         ApiCommandCompletionService.create(
           ledgerId,
           completionsService,
@@ -183,7 +183,6 @@ private[daml] object ApiServices {
         intitializeWriteServiceBackedApiServices(
           ledgerId,
           ledgerConfigurationSubscription,
-          completionService,
           apiTransactionService,
           checkOverloaded,
         )
@@ -229,7 +228,6 @@ private[daml] object ApiServices {
     private def intitializeWriteServiceBackedApiServices(
         ledgerId: LedgerId,
         ledgerConfigurationSubscription: LedgerConfigurationSubscription,
-        apiCompletionService: CommandCompletionService,
         apiTransactionService: GrpcTransactionService,
         checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
     )(implicit executionContext: ExecutionContext): List[BindableService] = {
@@ -267,23 +265,19 @@ private[daml] object ApiServices {
         // services internally. These connections do not use authorization, authorization wrappers are
         // only added here to all exposed services.
         val apiCommandService = ApiCommandService.create(
+          submissionTracker = submissionTracker,
+          // Using local services skips the gRPC layer, improving performance.
+          submit = apiSubmissionService.submit,
           configuration = ApiCommandService.Configuration(
             ledgerId,
-            commandConfig.inputBufferSize,
-            commandConfig.maxCommandsInFlight,
-            commandConfig.trackerRetentionPeriod,
+            commandConfig.maximumTrackingTimeout,
           ),
-          // Using local services skips the gRPC layer, improving performance.
-          submissionFlow =
-            CommandSubmissionFlow(apiSubmissionService.submit, commandConfig.maxCommandsInFlight),
-          completionServices = apiCompletionService,
           transactionServices = new ApiCommandService.TransactionServices(
             getTransactionById = apiTransactionService.getTransactionById,
             getFlatTransactionById = apiTransactionService.getFlatTransactionById,
           ),
           timeProvider = timeProvider,
           ledgerConfigurationSubscription = ledgerConfigurationSubscription,
-          metrics = metrics,
           explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
         )
 
