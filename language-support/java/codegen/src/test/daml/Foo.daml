@@ -5,21 +5,3 @@
 module Foo where
 
 data Foo = Foo ()
-
-template Bar
-    with
-        owner : Party
-    where
-        signatory owner
-
-data ParameterizedContractId a = ParameterizedContractId
-    with
-        parameterizedContractId: ContractId a
-  deriving (Eq, Show)
-
-template Haha
-    with
-        p : ParameterizedContractId Bar
-        owner : Party
-    where
-        signatory owner

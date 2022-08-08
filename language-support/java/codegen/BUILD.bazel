@@ -104,9 +104,14 @@ daml_compile(
     srcs = ["src/test/daml/Foo.daml"],
 )
 
+daml_compile(
+    name = "test-contract-id-daml",
+    srcs = ["src/test/daml/Bar.daml"],
+)
+
 dar_to_java(
     name = "test-daml-java",
-    src = ":test-daml.dar",
+    src = ":test-contract-id-daml.dar",
     package_prefix = "ut",
 )
 
