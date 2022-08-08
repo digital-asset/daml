@@ -103,7 +103,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
         // RE-INITIALIZE THE STATE
         _ <- inMemoryState.initializeTo(reInitLedgerEnd)(
           {
-            case (`stringInterningView`: UpdatingStringInterningView, ledgerEnd: LedgerEnd) =>
+            case (`stringInterningView`, ledgerEnd: LedgerEnd) =>
               updateStringInterningView(stringInterningView, ledgerEnd)
             case (other, _) => fail(s"Unexpected stringInterningView reference $other")
           },
@@ -160,7 +160,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers {
       stringInterningView,
       dispatcherState,
       updateStringInterningView,
-      updatePackageMetadataView
+      updatePackageMetadataView,
     )
 
     val inMemoryState = new InMemoryState(
