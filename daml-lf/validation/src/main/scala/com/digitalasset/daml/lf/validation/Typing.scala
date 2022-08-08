@@ -520,7 +520,7 @@ private[validation] object Typing {
       choices.values.foreach(env.checkChoice(tplName, _))
       implementations.values.foreach { impl =>
         checkInterfaceInstance(
-          param = param,
+          tmplParam = param,
           tplTcon = tplName,
           ifaceTcon = impl.interfaceId,
           iiBody = impl.body,
@@ -549,7 +549,7 @@ private[validation] object Typing {
           choices.values.foreach(env.checkChoice(ifaceName, _))
           coImplements.values.foreach(coImpl =>
             checkInterfaceInstance(
-              param = param,
+              tmplParam = param,
               tplTcon = coImpl.templateId,
               ifaceTcon = ifaceName,
               iiBody = coImpl.body,
@@ -588,7 +588,7 @@ private[validation] object Typing {
     ): Unit = discard(checkUniqueInterfaceInstance(interfaceId, templateId))
 
     private def checkInterfaceInstance(
-        param: ExprVarName,
+        tmplParam: ExprVarName,
         tplTcon: TypeConName,
         ifaceTcon: TypeConName,
         iiBody: InterfaceInstanceBody,
@@ -596,9 +596,9 @@ private[validation] object Typing {
       val iiInfo = checkUniqueInterfaceInstance(ifaceTcon, tplTcon)
       val ctx = Context.Reference(iiInfo.ref)
 
-      // Note (MA): we use an empty environment and add `param : TTyCon(tplTcon)`
+      // Note (MA): we use an empty environment and add `tmplParam : TTyCon(tplTcon)`
       val env = Env(languageVersion, pkgInterface, ctx)
-        .introExprVar(param, TTyCon(tplTcon))
+        .introExprVar(tmplParam, TTyCon(tplTcon))
 
       val DefInterfaceSignature(requires, _, _, methods, _, _) =
         // TODO https://github.com/digital-asset/daml/issues/14112

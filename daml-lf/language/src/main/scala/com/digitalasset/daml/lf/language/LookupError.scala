@@ -135,25 +135,6 @@ object Reference {
       s"$prettyParent-provided $interfaceInstance.pretty"
   }
 
-  final case class TemplateImplements(templateName: TypeConName, ifaceName: TypeConName)
-      extends Reference {
-    override def pretty: String = s"template $templateName implementation of interface $ifaceName"
-  }
-
-  final case class InterfaceCoImplements(templateName: TypeConName, ifaceName: TypeConName)
-      extends Reference {
-    override def pretty: String =
-      s"template $templateName co-implementation of interface $ifaceName"
-  }
-
-  final case class TemplateImplementsOrInterfaceCoImplements(
-      templateName: TypeConName,
-      ifaceName: TypeConName,
-  ) extends Reference {
-    override def pretty: String =
-      s"template $templateName implementation or co-implementation of interface $ifaceName"
-  }
-
   final case class TemplateChoice(tyCon: TypeConName, choiceName: ChoiceName) extends Reference {
     override def pretty: String = s"choice $choiceName in template $tyCon"
   }
