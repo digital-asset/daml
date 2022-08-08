@@ -82,7 +82,10 @@ object ContractIdClass {
     def addContractIdConversionCompanionForwarder(): Builder = {
       idClassBuilder
         .addMethod(
-          Builder.generateContractIdConversionCompanionForwarder(contractIdClassName, templateClassName)
+          Builder.generateContractIdConversionCompanionForwarder(
+            contractIdClassName,
+            templateClassName,
+          )
         )
       this
     }
