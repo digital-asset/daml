@@ -74,7 +74,7 @@ object SResult {
       key: GlobalKeyWithMaintainers,
       committers: Set[Party],
       // Callback.
-      // In case of failure, the callback sets machine.ctrl to an SErrorDamlException and return false
+      // In case of failure, the callback sets machine control to an SErrorDamlException and return false
       callback: Option[ContractId] => Boolean,
   ) extends SResult
 

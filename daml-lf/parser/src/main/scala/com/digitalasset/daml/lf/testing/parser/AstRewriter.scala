@@ -308,22 +308,31 @@ private[daml] class AstRewriter(
     x match {
       case TemplateImplements(
             interface,
-            methods,
-            view,
+            body,
           ) =>
         TemplateImplements(
           apply(interface),
+          apply(body),
+        )
+    }
+  def apply(x: InterfaceInstanceBody): InterfaceInstanceBody =
+    x match {
+      case InterfaceInstanceBody(
+            methods,
+            view,
+          ) =>
+        InterfaceInstanceBody(
           methods.transform((_, x) => apply(x)),
           apply(view),
         )
     }
-  def apply(x: TemplateImplementsMethod): TemplateImplementsMethod =
+  def apply(x: InterfaceInstanceMethod): InterfaceInstanceMethod =
     x match {
-      case TemplateImplementsMethod(
+      case InterfaceInstanceMethod(
             name,
             value,
           ) =>
-        TemplateImplementsMethod(
+        InterfaceInstanceMethod(
           name,
           apply(value),
         )
@@ -350,24 +359,11 @@ private[daml] class AstRewriter(
     x match {
       case InterfaceCoImplements(
             templateId,
-            methods,
-            view,
+            body,
           ) =>
         InterfaceCoImplements(
           apply(templateId),
-          methods.transform((_, x) => apply(x)),
-          apply(view),
-        )
-    }
-  def apply(x: InterfaceCoImplementsMethod): InterfaceCoImplementsMethod =
-    x match {
-      case InterfaceCoImplementsMethod(
-            name,
-            value,
-          ) =>
-        InterfaceCoImplementsMethod(
-          name,
-          apply(value),
+          apply(body),
         )
     }
 

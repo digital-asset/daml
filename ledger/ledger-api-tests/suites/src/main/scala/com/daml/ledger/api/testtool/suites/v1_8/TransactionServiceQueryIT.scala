@@ -19,7 +19,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       dummy <- ledger.create(party, Dummy(party))
-      tree <- ledger.exercise(party, dummy.exerciseDummyChoice1)
+      tree <- ledger.exercise(party, dummy.exerciseDummyChoice1())
       byId <- ledger.transactionTreeById(tree.transactionId, party)
     } yield {
       assertEquals("The transaction fetched by identifier does not match", tree, byId)
@@ -33,7 +33,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(alpha, party), Participant(beta, intruder)) =>
     for {
       dummy <- alpha.create(party, Dummy(party))
-      tree <- alpha.exercise(party, dummy.exerciseDummyChoice1)
+      tree <- alpha.exercise(party, dummy.exerciseDummyChoice1())
       _ <- synchronize(alpha, beta)
       failure <- beta
         .transactionTreeById(tree.transactionId, intruder)
@@ -72,7 +72,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       dummy <- ledger.create(party, Dummy(party))
-      transaction <- ledger.exerciseForFlatTransaction(party, dummy.exerciseDummyChoice1)
+      transaction <- ledger.exerciseForFlatTransaction(party, dummy.exerciseDummyChoice1())
       byId <- ledger.flatTransactionById(transaction.transactionId, party)
     } yield {
       assertEquals("The transaction fetched by identifier does not match", transaction, byId)
@@ -86,7 +86,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party, intruder)) =>
     for {
       dummy <- ledger.create(party, Dummy(party))
-      tree <- ledger.exercise(party, dummy.exerciseDummyChoice1)
+      tree <- ledger.exercise(party, dummy.exerciseDummyChoice1())
       failure <- ledger
         .flatTransactionById(tree.transactionId, intruder)
         .mustFail("looking up an invisible flat transaction")
@@ -124,7 +124,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       dummy <- ledger.create(party, Dummy(party))
-      tree <- ledger.exercise(party, dummy.exerciseDummyChoice1)
+      tree <- ledger.exercise(party, dummy.exerciseDummyChoice1())
       byId <- ledger.transactionTreeByEventId(tree.rootEventIds.head, party)
     } yield {
       assertEquals("The transaction fetched by identifier does not match", tree, byId)
@@ -139,7 +139,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(alpha, party), Participant(beta, intruder)) =>
     for {
       dummy <- alpha.create(party, Dummy(party))
-      tree <- alpha.exercise(party, dummy.exerciseDummyChoice1)
+      tree <- alpha.exercise(party, dummy.exerciseDummyChoice1())
       _ <- synchronize(alpha, beta)
       failure <- beta
         .transactionTreeByEventId(tree.rootEventIds.head, intruder)
@@ -178,7 +178,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       dummy <- ledger.create(party, Dummy(party))
-      transaction <- ledger.exerciseForFlatTransaction(party, dummy.exerciseDummyChoice1)
+      transaction <- ledger.exerciseForFlatTransaction(party, dummy.exerciseDummyChoice1())
       event = transaction.events.head.event
       eventId = event.archived.map(_.eventId).get
       byId <- ledger.flatTransactionByEventId(eventId, party)
@@ -194,7 +194,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party, intruder)) =>
     for {
       dummy <- ledger.create(party, Dummy(party))
-      tree <- ledger.exercise(party, dummy.exerciseDummyChoice1)
+      tree <- ledger.exercise(party, dummy.exerciseDummyChoice1())
       failure <- ledger
         .flatTransactionByEventId(tree.rootEventIds.head, intruder)
         .mustFail("looking up an invisible flat transaction")

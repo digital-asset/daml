@@ -4,7 +4,6 @@
 package com.daml.platform.store.dao.events
 
 import com.daml.api.util.TimestampConversion.fromInstant
-import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
   TransactionTree,
   TreeEvent,
@@ -155,68 +154,19 @@ private[events] object TransactionLogUpdatesConversions {
     ): Future[apiEvent.Event] =
       event match {
         case createdEvent: TransactionLogUpdate.CreatedEvent =>
-          createdToFlatEvent(requestingParties, verbose, lfValueTranslation, createdEvent)
+          createdToApiCreatedEvent(
+            requestingParties,
+            verbose,
+            lfValueTranslation,
+            createdEvent,
+            _.flatEventWitnesses,
+          ).map(apiCreatedEvent => apiEvent.Event(apiEvent.Event.Event.Created(apiCreatedEvent)))
 
         case exercisedEvent: TransactionLogUpdate.ExercisedEvent if exercisedEvent.consuming =>
           Future.successful(exercisedToFlatEvent(requestingParties, exercisedEvent))
 
         case _ => Future.failed(new RuntimeException("Not a flat transaction event"))
       }
-
-    private def createdToFlatEvent(
-        requestingParties: Set[Party],
-        verbose: Boolean,
-        lfValueTranslation: LfValueTranslation,
-        createdEvent: CreatedEvent,
-    )(implicit
-        loggingContext: LoggingContext,
-        executionContext: ExecutionContext,
-    ): Future[Event] = {
-      val eventualContractKey = createdEvent.contractKey
-        .map(
-          lfValueTranslation
-            .toApiValue(
-              _,
-              verbose,
-              "create key",
-              value =>
-                lfValueTranslation.enricher
-                  .enrichContractKey(createdEvent.templateId, value.unversioned),
-            )
-            .map(Some(_))
-        )
-        .getOrElse(Future.successful(None))
-
-      val eventualCreateArguments = lfValueTranslation.toApiRecord(
-        createdEvent.createArgument,
-        verbose,
-        "create argument",
-        value =>
-          lfValueTranslation.enricher
-            .enrichContract(createdEvent.templateId, value.unversioned),
-      )
-
-      for {
-        maybeContractKey <- eventualContractKey
-        createArguments <- eventualCreateArguments
-      } yield {
-        apiEvent.Event(
-          apiEvent.Event.Event.Created(
-            apiEvent.CreatedEvent(
-              eventId = createdEvent.eventId.toLedgerString,
-              contractId = createdEvent.contractId.coid,
-              templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
-              contractKey = maybeContractKey,
-              createArguments = Some(createArguments),
-              witnessParties = requestingParties.view.filter(createdEvent.flatEventWitnesses).toSeq,
-              signatories = createdEvent.createSignatories.toSeq,
-              observers = createdEvent.createObservers.toSeq,
-              agreementText = createdEvent.createAgreementText.orElse(Some("")),
-            )
-          )
-        )
-      }
-    }
 
     private def exercisedToFlatEvent(
         requestingParties: Set[Party],
@@ -337,12 +287,14 @@ private[events] object TransactionLogUpdatesConversions {
     ): Future[TreeEvent] =
       event match {
         case createdEvent: TransactionLogUpdate.CreatedEvent =>
-          createdToTransactionTreeEvent(
+          createdToApiCreatedEvent(
             requestingParties,
             verbose,
             lfValueTranslation,
             createdEvent,
-          )
+            _.treeEventWitnesses,
+          ).map(apiCreatedEvent => TreeEvent(TreeEvent.Kind.Created(apiCreatedEvent)))
+
         case exercisedEvent: TransactionLogUpdate.ExercisedEvent =>
           exercisedToTransactionTreeEvent(
             requestingParties,
@@ -420,65 +372,6 @@ private[events] object TransactionLogUpdatesConversions {
       )
     }
 
-    private def createdToTransactionTreeEvent(
-        requestingParties: Set[Party],
-        verbose: Boolean,
-        lfValueTranslation: LfValueTranslation,
-        createdEvent: CreatedEvent,
-    )(implicit
-        loggingContext: LoggingContext,
-        executionContext: ExecutionContext,
-    ) = {
-
-      val eventualContractKey = createdEvent.contractKey
-        .map { contractKey =>
-          val contractKeyEnricher = (value: Value) =>
-            lfValueTranslation.enricher.enrichContractKey(
-              createdEvent.templateId,
-              value.unversioned,
-            )
-
-          lfValueTranslation
-            .toApiValue(
-              value = contractKey,
-              verbose = verbose,
-              attribute = "create key",
-              enrich = contractKeyEnricher,
-            )
-            .map(Some(_))
-        }
-        .getOrElse(Future.successful(None))
-
-      val contractEnricher = (value: Value) =>
-        lfValueTranslation.enricher.enrichContract(createdEvent.templateId, value.unversioned)
-
-      val eventualCreateArguments = lfValueTranslation.toApiRecord(
-        value = createdEvent.createArgument,
-        verbose = verbose,
-        attribute = "create argument",
-        enrich = contractEnricher,
-      )
-
-      for {
-        maybeContractKey <- eventualContractKey
-        createArguments <- eventualCreateArguments
-      } yield TreeEvent(
-        TreeEvent.Kind.Created(
-          apiEvent.CreatedEvent(
-            eventId = createdEvent.eventId.toLedgerString,
-            contractId = createdEvent.contractId.coid,
-            templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
-            contractKey = maybeContractKey,
-            createArguments = Some(createArguments),
-            witnessParties = requestingParties.view.filter(createdEvent.treeEventWitnesses).toSeq,
-            signatories = createdEvent.createSignatories.toSeq,
-            observers = createdEvent.createObservers.toSeq,
-            agreementText = createdEvent.createAgreementText.orElse(Some("")),
-          )
-        )
-      )
-    }
-
     private def transactionTreePredicate(
         requestingParties: Set[Party]
     ): TransactionLogUpdate.Event => Boolean = {
@@ -486,6 +379,61 @@ private[events] object TransactionLogUpdatesConversions {
       case exercised: ExercisedEvent => requestingParties.exists(exercised.treeEventWitnesses)
       case _ => false
     }
+  }
+
+  private def createdToApiCreatedEvent(
+      requestingParties: Set[Party],
+      verbose: Boolean,
+      lfValueTranslation: LfValueTranslation,
+      createdEvent: CreatedEvent,
+      createdWitnesses: CreatedEvent => Set[Party],
+  )(implicit
+      loggingContext: LoggingContext,
+      executionContext: ExecutionContext,
+  ): Future[apiEvent.CreatedEvent] = {
+    val eventualContractKey = createdEvent.contractKey
+      .map { contractKey =>
+        val contractKeyEnricher = (value: Value) =>
+          lfValueTranslation.enricher.enrichContractKey(
+            createdEvent.templateId,
+            value.unversioned,
+          )
+
+        lfValueTranslation
+          .toApiValue(
+            value = contractKey,
+            verbose = verbose,
+            attribute = "create key",
+            enrich = contractKeyEnricher,
+          )
+          .map(Some(_))
+      }
+      .getOrElse(Future.successful(None))
+
+    val contractEnricher = (value: Value) =>
+      lfValueTranslation.enricher.enrichContract(createdEvent.templateId, value.unversioned)
+
+    val eventualCreateArguments = lfValueTranslation.toApiRecord(
+      value = createdEvent.createArgument,
+      verbose = verbose,
+      attribute = "create argument",
+      enrich = contractEnricher,
+    )
+
+    for {
+      maybeContractKey <- eventualContractKey
+      createArguments <- eventualCreateArguments
+    } yield apiEvent.CreatedEvent(
+      eventId = createdEvent.eventId.toLedgerString,
+      contractId = createdEvent.contractId.coid,
+      templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
+      contractKey = maybeContractKey,
+      createArguments = Some(createArguments),
+      witnessParties = requestingParties.view.filter(createdWitnesses(createdEvent)).toSeq,
+      signatories = createdEvent.createSignatories.toSeq,
+      observers = createdEvent.createObservers.toSeq,
+      agreementText = createdEvent.createAgreementText.orElse(Some("")),
+    )
   }
 
   private def timestampToTimestamp(t: com.daml.lf.data.Time.Timestamp): Timestamp =

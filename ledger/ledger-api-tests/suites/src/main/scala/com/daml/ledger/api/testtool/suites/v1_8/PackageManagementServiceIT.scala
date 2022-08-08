@@ -73,7 +73,7 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
       knownPackages <- ledger.listKnownPackages()
       contract <- ledger.create(party, new PackageManagementTestTemplate(party))
       acsBefore <- ledger.activeContracts(party)
-      _ <- ledger.exercise(party, contract.exerciseTestChoice)
+      _ <- ledger.exercise(party, contract.exerciseTestChoice())
       acsAfter <- ledger.activeContracts(party)
     } yield {
       val duplicatePackageIds =

@@ -446,38 +446,46 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
   private val eText = EPrimLit(PLText("some text"))
   private val ifaceImpl1 = TemplateImplements(
     interfaceId = TypeConName.assertFromString("pkgId:Mod:I1"),
-    methods = Map.empty,
-    view = EAbs(
-      (Name.assertFromString("this"), TUnit),
-      EPrimCon(PCUnit),
-      None,
+    InterfaceInstanceBody(
+      methods = Map.empty,
+      view = EAbs(
+        (Name.assertFromString("this"), TUnit),
+        EPrimCon(PCUnit),
+        None,
+      ),
     ),
   )
   private val ifaceImpl2 = TemplateImplements(
     interfaceId = TypeConName.assertFromString("pkgId:Mod:I2"),
-    methods = Map.empty,
-    view = EAbs(
-      (Name.assertFromString("this"), TUnit),
-      EPrimCon(PCUnit),
-      None,
+    InterfaceInstanceBody(
+      methods = Map.empty,
+      view = EAbs(
+        (Name.assertFromString("this"), TUnit),
+        EPrimCon(PCUnit),
+        None,
+      ),
     ),
   )
   private val ifaceCoImpl1 = InterfaceCoImplements(
     templateId = TypeConName.assertFromString("pkgId:Mod:T1"),
-    methods = Map.empty,
-    view = EAbs(
-      (Name.assertFromString("this"), TUnit),
-      EPrimCon(PCUnit),
-      None,
+    InterfaceInstanceBody(
+      methods = Map.empty,
+      view = EAbs(
+        (Name.assertFromString("this"), TUnit),
+        EPrimCon(PCUnit),
+        None,
+      ),
     ),
   )
   private val ifaceCoImpl2 = InterfaceCoImplements(
     templateId = TypeConName.assertFromString("pkgId:Mod:T2"),
-    methods = Map.empty,
-    view = EAbs(
-      (Name.assertFromString("this"), TUnit),
-      EPrimCon(PCUnit),
-      None,
+    InterfaceInstanceBody(
+      methods = Map.empty,
+      view = EAbs(
+        (Name.assertFromString("this"), TUnit),
+        EPrimCon(PCUnit),
+        None,
+      ),
     ),
   )
   private val ifaceMethod1 = InterfaceMethod(name = Name.assertFromString("x"), returnType = TUnit)

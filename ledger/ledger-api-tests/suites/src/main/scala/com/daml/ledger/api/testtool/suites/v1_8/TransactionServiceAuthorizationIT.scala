@@ -38,12 +38,12 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
       for {
         agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
         agreement <- eventually("exerciseAgreementFactoryAccept") {
-          alpha.exerciseAndGetContract(receiver, agreementFactory.exerciseAgreementFactoryAccept)
+          alpha.exerciseAndGetContract(receiver, agreementFactory.exerciseAgreementFactoryAccept())
         }
         triProposalTemplate = TriProposal(operator, receiver, giver)
         triProposal <- alpha.create(operator, triProposalTemplate)
         tree <- eventually("exerciseAcceptTriProposal") {
-          beta.exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
+          beta.exercise(giver, agreement.exerciseAcceptTriProposal(triProposal))
         }
       } yield {
         val contract = assertSingleton("AcceptTriProposal", createdEvents(tree))
@@ -63,11 +63,11 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
     for {
       agreementFactory <- beta.create(giver, AgreementFactory(giver, giver))
       agreement <-
-        beta.exerciseAndGetContract(giver, agreementFactory.exerciseAgreementFactoryAccept)
+        beta.exerciseAndGetContract(giver, agreementFactory.exerciseAgreementFactoryAccept())
       triProposalTemplate = TriProposal(operator, giver, giver)
       triProposal <- alpha.create(operator, triProposalTemplate)
       tree <- eventually("exerciseAcceptTriProposal") {
-        beta.exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
+        beta.exercise(giver, agreement.exerciseAcceptTriProposal(triProposal))
       }
     } yield {
       val contract = assertSingleton("AcceptTriProposalCoinciding", createdEvents(tree))
@@ -90,7 +90,7 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
         _ <- eventually("exerciseTriProposalAccept") {
           for {
             failure <- beta
-              .exercise(giver, triProposal.exerciseTriProposalAccept)
+              .exercise(giver, triProposal.exerciseTriProposalAccept())
               .mustFail("exercising with missing authorizers")
           } yield {
             assertGrpcError(
@@ -121,14 +121,14 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
         // TODO that the contract needs to hit the target node before a choice
         // TODO is executed on it.
         agreement <- eventually("exerciseAgreementFactoryAccept") {
-          alpha.exerciseAndGetContract(receiver, agreementFactory.exerciseAgreementFactoryAccept)
+          alpha.exerciseAndGetContract(receiver, agreementFactory.exerciseAgreementFactoryAccept())
         }
         triProposalTemplate = TriProposal(operator, giver, giver)
         triProposal <- alpha.create(operator, triProposalTemplate)
         _ <- eventually("exerciseAcceptTriProposal") {
           for {
             failure <- beta
-              .exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
+              .exercise(giver, agreement.exerciseAcceptTriProposal(triProposal))
               .mustFail("exercising with failing assertion")
           } yield {
             assertGrpcError(

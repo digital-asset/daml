@@ -660,21 +660,25 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             human ->
               TemplateImplements(
                 human,
-                Map(
-                  n"age" -> TemplateImplementsMethod(n"age", e"42"),
-                  n"alive" -> TemplateImplementsMethod(n"alive", e"True"),
+                InterfaceInstanceBody(
+                  Map(
+                    n"age" -> InterfaceInstanceMethod(n"age", e"42"),
+                    n"alive" -> InterfaceInstanceMethod(n"alive", e"True"),
+                  ),
+                  e"""Mod1:HumanView { name = "Foo B. Baz" }""",
                 ),
-                e"""Mod1:HumanView { name = "Foo B. Baz" }""",
               ),
             referenceable -> TemplateImplements(
               referenceable,
-              Map(
-                n"uuid" -> TemplateImplementsMethod(
-                  n"uuid",
-                  e""""123e4567-e89b-12d3-a456-426614174000"""",
-                )
+              InterfaceInstanceBody(
+                Map(
+                  n"uuid" -> InterfaceInstanceMethod(
+                    n"uuid",
+                    e""""123e4567-e89b-12d3-a456-426614174000"""",
+                  )
+                ),
+                e"Mod1:ReferenceableView { indirect = False }",
               ),
-              e"Mod1:ReferenceableView { indirect = False }",
             ),
           ),
         )
@@ -845,17 +849,19 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             company ->
               InterfaceCoImplements(
                 company,
-                Map(
-                  n"asParty" -> InterfaceCoImplementsMethod(
-                    n"asParty",
-                    e"Mod1:Company {party} this",
+                InterfaceInstanceBody(
+                  Map(
+                    n"asParty" -> InterfaceInstanceMethod(
+                      n"asParty",
+                      e"Mod1:Company {party} this",
+                    ),
+                    n"getName" -> InterfaceInstanceMethod(
+                      n"getName",
+                      e"Mod1:Company {legalName} this",
+                    ),
                   ),
-                  n"getName" -> InterfaceCoImplementsMethod(
-                    n"getName",
-                    e"Mod1:Company {legalName} this",
-                  ),
+                  e"Mod1:PersonView { name = callMethod @Mod:Person getName this }",
                 ),
-                e"Mod1:PersonView { name = callMethod @Mod:Person getName this }",
               )
           ),
           view = t"Mod1:PersonView",

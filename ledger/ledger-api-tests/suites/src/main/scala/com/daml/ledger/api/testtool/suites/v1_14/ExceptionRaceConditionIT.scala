@@ -28,7 +28,8 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
       _ <- executeRepeatedlyWithRandomDelay(
         numberOfAttempts = 20,
         once = ledger.create(alice, ContractWithKey(alice)).map(_ => ()),
-        repeated = ledger.exercise(alice, wrapper.exerciseCreateWrapper_CreateRollback).map(_ => ()),
+        repeated =
+          ledger.exercise(alice, wrapper.exerciseCreateWrapper_CreateRollback()).map(_ => ()),
       )
       transactions <- transactions(ledger, alice)
     } yield {
@@ -54,10 +55,10 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
       contract <- ledger.create(alice, ContractWithKey(alice))
       _ <- executeRepeatedlyWithRandomDelay(
         numberOfAttempts = 10,
-        once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive),
+        once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive()),
         repeated = ledger.exercise(
           alice,
-          wrapper.exerciseExerciseWrapper_ExerciseNonConsumingRollback(_, contract),
+          wrapper.exerciseExerciseWrapper_ExerciseNonConsumingRollback(contract),
         ),
       )
       transactions <- transactions(ledger, alice)
@@ -79,10 +80,10 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
       contract <- ledger.create(alice, ContractWithKey(alice))
       _ <- executeRepeatedlyWithRandomDelay(
         numberOfAttempts = 10,
-        once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive),
+        once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive()),
         repeated = ledger.exercise(
           alice,
-          wrapper.exerciseExerciseWrapper_ExerciseConsumingRollback(_, contract),
+          wrapper.exerciseExerciseWrapper_ExerciseConsumingRollback(contract),
         ),
       )
       transactions <- transactions(ledger, alice)
@@ -104,8 +105,8 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
       fetchConract <- ledger.create(alice, FetchWrapper(alice, contract))
       _ <- executeRepeatedlyWithRandomDelay(
         numberOfAttempts = 10,
-        once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive),
-        repeated = ledger.exercise(alice, fetchConract.exerciseFetchWrapper_Fetch),
+        once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive()),
+        repeated = ledger.exercise(alice, fetchConract.exerciseFetchWrapper_Fetch()),
       )
       transactions <- transactions(ledger, alice)
     } yield {
@@ -126,8 +127,8 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
       looker <- ledger.create(alice, LookupWrapper(alice))
       _ <- executeRepeatedlyWithRandomDelay(
         numberOfAttempts = 20,
-        once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive),
-        repeated = ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup),
+        once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive()),
+        repeated = ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup()),
       )
       transactions <- transactions(ledger, alice)
     } yield {
@@ -148,7 +149,7 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
       _ <- executeRepeatedlyWithRandomDelay(
         numberOfAttempts = 5,
         once = ledger.create(alice, ContractWithKey(alice)),
-        repeated = ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup),
+        repeated = ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup()),
       )
       transactions <- transactions(ledger, alice)
     } yield {
