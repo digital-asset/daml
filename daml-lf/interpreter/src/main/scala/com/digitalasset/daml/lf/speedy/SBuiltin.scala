@@ -1403,7 +1403,8 @@ private[lf] object SBuiltin {
             s"Attempted to call view for interface ${ifaceId} on a wrapped template of type ${templateId}, which doesn't implement the interface."
           )
       }
-      SEApp(SEVal(ref), Array(SEValue(record)))
+      val e = SEApp(SEVal(ref), Array(SEValue(record)))
+      Control.Expression(e)
     }
   }
 
