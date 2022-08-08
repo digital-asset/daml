@@ -128,7 +128,7 @@ object JdbcIndexer {
                 dbDispatcher,
                 _,
                 executionContext,
-                config,
+                config.packageMetadataView,
               ),
             ),
       )
@@ -161,7 +161,7 @@ object JdbcIndexer {
       dbDispatcher: DbDispatcher,
       packageMetadataView: PackageMetadataView,
       computationExecutionContext: ExecutionContext,
-      config: IndexerConfig,
+      config: PackageMetadataViewConfig,
   )(implicit loggingContext: LoggingContext, materializer: Materializer): Future[Unit] = {
     implicit val ec: ExecutionContext = computationExecutionContext
     logger.info("Package Metadata View initialization has been started.")
@@ -196,8 +196,8 @@ object JdbcIndexer {
 
     Source
       .futureSource(lfPackagesSource())
-      .mapAsyncUnordered(config.packageMetadataViewLoadParallelism)(loadLfArchive)
-      .mapAsyncUnordered(config.packageMetadataViewProcessParallelism)(processPackage)
+      .mapAsyncUnordered(config.initLoadParallelism)(loadLfArchive)
+      .mapAsyncUnordered(config.initProcessParallelism)(processPackage)
       .runWith(Sink.foreach(packageMetadataView.update))
       .map(_ => logger.info("Package Metadata View has been initialized"))(
         computationExecutionContext
