@@ -86,6 +86,7 @@ object JdbcIndexer {
           submissionBatchSize = config.submissionBatchSize,
           metrics = metrics,
           inMemoryStateUpdaterFlow = apiUpdaterFlow,
+          stringInterningView = inMemoryState.stringInterningView,
         ),
         meteringAggregator = new MeteringAggregator.Owner(
           meteringStore = meteringStoreBackend,
@@ -106,7 +107,6 @@ object JdbcIndexer {
                 ledgerEnd,
               )
             ),
-        stringInterningView = inMemoryState.stringInterningView,
       )
 
       indexer
