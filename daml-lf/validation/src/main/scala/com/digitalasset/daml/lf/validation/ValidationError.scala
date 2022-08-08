@@ -7,6 +7,7 @@ package validation
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.Reference
 import com.daml.lf.language.LanguageVersion
 
 import scala.Ordering.Implicits.infixOrderingOps
@@ -399,14 +400,13 @@ final case class EMissingInterfaceInstance(
     s"There is no interface instance $interfaceId for $templateId"
 }
 
-final case class EMissingRequiredInterface(
+final case class EMissingRequiredInterfaceInstance(
     context: Context,
-    template: TypeConName,
     requiringIface: TypeConName,
-    missingRequiredIface: TypeConName,
+    missingRequiredInterfaceInstance: Reference.InterfaceInstance,
 ) extends ValidationError {
   override protected def prettyInternal: String =
-    s"Template $template is missing an implementation of interface $missingRequiredIface required by interface $requiringIface"
+    s"Missing required ${missingRequiredInterfaceInstance.pretty}, required by interface $requiringIface"
 }
 final case class EWrongInterfaceRequirement(
     context: Context,

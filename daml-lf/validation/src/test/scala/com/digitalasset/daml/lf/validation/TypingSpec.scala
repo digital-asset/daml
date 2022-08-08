@@ -1727,7 +1727,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       an[EUnknownDefinition] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_UnknownDefinition")
       )
-      an[EMissingRequiredInterface] shouldBe thrownBy(
+      an[EMissingRequiredInterfaceInstance] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_MissingRequiredInterface")
       )
       an[EWrongInterfaceRequirement] shouldBe thrownBy(
@@ -1742,7 +1742,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       an[ENotClosedInterfaceRequires] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_NotClosedInterfaceRequires")
       )
-      an[EMissingRequiredInterface] shouldBe thrownBy(
+      an[EMissingRequiredInterfaceInstance] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_CoImplementsMissingRequiredInterface")
       )
       an[EMissingInterfaceMethod] shouldBe thrownBy(

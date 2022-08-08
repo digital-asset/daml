@@ -7,7 +7,7 @@ import com.daml.lf.data.{ImmArray, Numeric, Struct}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface}
+import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, Reference}
 import com.daml.lf.validation.Util._
 import com.daml.lf.validation.iterable.TypeIterable
 import com.daml.scalautil.Statement.discard
@@ -606,7 +606,13 @@ private[validation] object Typing {
 
       requires
         .filterNot(required => pkgInterface.lookupInterfaceInstance(required, tplTcon).isRight)
-        .foreach(required => throw EMissingRequiredInterface(ctx, tplTcon, ifaceTcon, required))
+        .foreach(required =>
+          throw EMissingRequiredInterfaceInstance(
+            ctx,
+            ifaceTcon,
+            Reference.InterfaceInstance(required, tplTcon),
+          )
+        )
 
       methods.values.foreach { (method: InterfaceMethod) =>
         if (!iiBody.methods.exists { case (name, _) => name == method.name })
