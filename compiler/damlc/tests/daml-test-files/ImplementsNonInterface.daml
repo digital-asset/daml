@@ -15,4 +15,5 @@ template T
     p : Party
   where
     signatory p
-    implements Bool
+    implements Bool where
+      view = ()
