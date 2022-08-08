@@ -28,6 +28,12 @@ if [ -n "$SANDBOX_PID" ]; then
     echo $SANDBOX_PID | xargs kill
 fi
 
+for f in .bazelrc; do
+    echo "---------- $f -----------"
+    cat $f
+    echo ---------------------
+done
+
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 bazel build //... \
   --toolchain_resolution_debug \
@@ -37,6 +43,8 @@ bazel build //... \
   --build_event_json_file build-events.json \
   --build_event_publish_all_actions \
   --experimental_execution_log_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.log"
+
+exit 0
 
 # Set up a shared PostgreSQL instance.
 export POSTGRESQL_ROOT_DIR="${TMPDIR:-/tmp}/daml/postgresql"
