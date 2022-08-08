@@ -398,13 +398,13 @@ final case class EUnknownInterfaceMethod(
     s"Template $template implements method '$method' in its implementation of interface $iface, but this method is not part of the interface."
 }
 
-final case class ETemplateDoesNotImplementInterface(
+final case class EMissingInterfaceInstance(
     context: Context,
-    template: TypeConName,
-    iface: TypeConName,
+    interfaceId: TypeConName,
+    templateId: TypeConName,
 ) extends ValidationError {
   override protected def prettyInternal: String =
-    s"Template $template does not implement interface $iface"
+    s"There is no interface instance $interfaceId for $templateId"
 }
 
 final case class EMissingRequiredInterface(

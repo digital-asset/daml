@@ -560,7 +560,7 @@ private[validation] object Typing {
         case Left(err) =>
           err match {
             case Left(_: LookupError) =>
-              throw ETemplateDoesNotImplementInterface(ctx, interfaceId, templateId)
+              throw EMissingInterfaceInstance(ctx, interfaceId, templateId)
             case Right(_: PackageInterface.AmbiguousInterfaceInstanceError) =>
               throw EConflictingImplementsCoImplements(ctx, templateId, interfaceId)
           }

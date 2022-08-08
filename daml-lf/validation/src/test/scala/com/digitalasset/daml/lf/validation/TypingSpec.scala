@@ -929,7 +929,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                 ) =>
           },
         E"""λ (t: Mod:Ti) → ⸨ to_interface @Mod:I @Mod:T t  ⸩""" -> //
-          { case ETemplateDoesNotImplementInterface(_, _, _) => },
+          { case EMissingInterfaceInstance(_, _, _) => },
         E"""λ (t: Mod:T) → ⸨ to_interface @Mod:I @Mod:Ti t  ⸩""" -> //
           { case _: ETypeMismatch => },
         // EFromInterface
@@ -941,7 +941,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                 ) =>
           },
         E"λ (i: Mod:I) → ⸨ from_interface @Mod:I @Mod:T i ⸩" -> //
-          { case ETemplateDoesNotImplementInterface(_, _, _) => },
+          { case EMissingInterfaceInstance(_, _, _) => },
         E"λ (i: Mod:J) → ⸨ from_interface @Mod:I @Mod:Ti i ⸩" -> //
           { case _: ETypeMismatch => },
         // ECallInterface
