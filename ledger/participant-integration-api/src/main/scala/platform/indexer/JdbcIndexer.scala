@@ -187,7 +187,7 @@ object JdbcIndexer {
     def processPackage(archive: (PackageId, Array[Byte])): Future[PackageMetadata] = {
       val (packageId, packageBytes) = archive
       Future(toMetadataDefinition(packageBytes)).recover { case NonFatal(e) =>
-        logger.error(s"Failed to decode loaded archive by packageId=$packageId", e)
+        logger.error(s"Failed to decode loaded LF Archive by packageId=$packageId", e)
         throw e
       }
     }
