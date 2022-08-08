@@ -13,6 +13,7 @@ import com.daml.platform.store.cache.{
   MutableLedgerEndCache,
 }
 import com.daml.platform.store.interning.{StringInterningView, UpdatingStringInterningView}
+import com.daml.platform.store.packagemeta.PackageMetadataView
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -25,6 +26,7 @@ private[platform] class InMemoryState(
     val inMemoryFanoutBuffer: InMemoryFanoutBuffer,
     val stringInterningView: StringInterningView,
     val dispatcherState: DispatcherState,
+    val packageMetadataView: PackageMetadataView,
 )(implicit executionContext: ExecutionContext) {
   private val logger = ContextualizedLogger.get(getClass)
 
@@ -35,7 +37,8 @@ private[platform] class InMemoryState(
     * NOTE: This method is not thread-safe. Calling it concurrently leads to undefined behavior.
     */
   final def initializeTo(ledgerEnd: LedgerEnd)(
-      updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit]
+      updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit],
+      updatePackageMetadataView: PackageMetadataView => Future[Unit],
   )(implicit loggingContext: LoggingContext): Future[Unit] = {
     logger.info(s"Initializing participant in-memory state to ledger end: $ledgerEnd")
 
@@ -49,6 +52,8 @@ private[platform] class InMemoryState(
       _ <- dispatcherState.stopDispatcher()
       // Reset the string interning view to the latest ledger end
       _ <- updateStringInterningView(stringInterningView, ledgerEnd)
+      // Reset the package metadata view
+      _ <- updatePackageMetadataView(packageMetadataView)
       // Reset the Ledger API caches to the latest ledger end
       _ <- Future {
         contractStateCaches.reset(ledgerEnd.lastOffset)
@@ -93,6 +98,7 @@ object InMemoryState {
         maxBufferedChunkSize = bufferedStreamsPageSize,
       ),
       stringInterningView = new StringInterningView,
+      packageMetadataView = PackageMetadataView.create,
     )(executionContext)
   }
 }
