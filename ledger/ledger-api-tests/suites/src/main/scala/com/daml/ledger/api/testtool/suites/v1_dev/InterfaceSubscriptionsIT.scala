@@ -31,9 +31,9 @@ import scalaz.Tag
 // TODO DPP-1068: [implementation detail] Move to an appropriate place, maybe merge with InterfaceIT?
 class InterfaceSubscriptionsIT extends LedgerTestSuite {
 
-  private[this] val InterfaceId = Tag.unwrap(T1.id).copy(entityName = "I")
-  private[this] val InterfaceNoTemplateId = Tag.unwrap(T1.id).copy(entityName = "INoTemplate")
-  private[this] val InterfaceWithNoViewId = Tag.unwrap(T1.id).copy(entityName = "INoView")
+  private[this] val InterfaceId = Tag.unwrap(I.id)
+  private[this] val InterfaceNoTemplateId = Tag.unwrap(INoTemplate.id)
+  private[this] val InterfaceWithNoViewId = Tag.unwrap(INoView.id)
 
   test(
     "ISTransactionsBasic",
