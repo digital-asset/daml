@@ -38,6 +38,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
     submissionBatchSize: Long,
     metrics: Metrics,
     inMemoryStateUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
+    stringInterningView: StringInterning with InternizingStringInterningView,
 ) {
   import ParallelIndexerSubscription._
 
@@ -45,7 +46,6 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
       inputMapperExecutor: Executor,
       batcherExecutor: Executor,
       dbDispatcher: DbDispatcher,
-      stringInterningView: StringInterning with InternizingStringInterningView,
       materializer: Materializer,
   )(implicit loggingContext: LoggingContext): InitializeParallelIngestion.Initialized => Handle = {
     initialized =>
