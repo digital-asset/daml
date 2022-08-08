@@ -770,7 +770,7 @@ goToDefinitionTests mbScenarioService mbScenarioServiceDev = Tasty.testGroup "Go
     ,    testCaseDev' "Interface goto definition" $ do
             foo <- makeModule "Foo"
                 [ "interface Iface where"
-                , "  viewtype ()"
+                , "  viewtype EmptyInterfaceView"
                 , "  getOwner : Party"
                 , "  nonconsuming choice Noop : ()"
                 , "    controller getOwner this"
@@ -779,6 +779,7 @@ goToDefinitionTests mbScenarioService mbScenarioServiceDev = Tasty.testGroup "Go
                 , "type C = Noop"
                 , "meth : Implements t Iface => t -> Party"
                 , "meth = getOwner"
+                , "data EmptyInterfaceView = EmptyInterfaceView"
                 ]
             setFilesOfInterest [foo]
             expectNoErrors
