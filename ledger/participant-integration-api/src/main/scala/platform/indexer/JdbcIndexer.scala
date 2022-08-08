@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.{InMemoryState, PackageId}
 import com.daml.platform.index.InMemoryStateUpdater
@@ -35,8 +35,11 @@ import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 object JdbcIndexer {
+  private val logger = ContextualizedLogger.get(this.getClass)
+
   private[daml] final class Factory(
       participantId: Ref.ParticipantId,
       participantDataSourceConfig: ParticipantDataSourceConfig,
@@ -125,6 +128,7 @@ object JdbcIndexer {
                 dbDispatcher,
                 _,
                 executionContext,
+                config,
               ),
             ),
       )
@@ -155,18 +159,22 @@ object JdbcIndexer {
       packageStorageBackend: PackageStorageBackend,
       metrics: Metrics,
       dbDispatcher: DbDispatcher,
-      updatingPackageMetadataView: PackageMetadataView,
+      packageMetadataView: PackageMetadataView,
       computationExecutionContext: ExecutionContext,
+      config: IndexerConfig,
   )(implicit loggingContext: LoggingContext, materializer: Materializer): Future[Unit] = {
-    def loadLfArchive(packageId: PackageId): Future[Array[Byte]] =
-      dbDispatcher.executeSql(metrics.daml.index.db.loadArchive) { connection =>
-        packageStorageBackend
-          .lfArchive(packageId)(connection)
-          .getOrElse(
-            // should never happen as we received a reference to packageId
-            sys.error(s"LfArchive does not exist by packageId=$packageId")
-          )
-      }
+    implicit val ec: ExecutionContext = computationExecutionContext
+    def loadLfArchive(packageId: PackageId): Future[(PackageId, Array[Byte])] =
+      dbDispatcher
+        .executeSql(metrics.daml.index.db.loadArchive)(connection =>
+          packageStorageBackend
+            .lfArchive(packageId)(connection)
+            .getOrElse(
+              // should never happen as we received a reference to packageId
+              sys.error(s"LfArchive does not exist by packageId=$packageId")
+            )
+        )
+        .map(bytes => (packageId, bytes))
 
     def lfPackagesSource(): Future[Source[PackageId, NotUsed]] =
       dbDispatcher.executeSql(metrics.daml.index.db.loadPackages)(connection =>
@@ -176,13 +184,19 @@ object JdbcIndexer {
     def toMetadataDefinition(packageBytes: Array[Byte]): PackageMetadata =
       PackageMetadata.from(ArchiveParser.assertFromByteArray(packageBytes))
 
+    def processPackage(archive: (PackageId, Array[Byte])): Future[PackageMetadata] = {
+      val (packageId, packageBytes) = archive
+      Future(toMetadataDefinition(packageBytes)).recover { case NonFatal(e) =>
+        logger.error(s"Failed to decode loaded archive by packageId=$packageId", e)
+        throw e
+      }
+    }
+
     Source
       .futureSource(lfPackagesSource())
-      .mapAsyncUnordered(4)(loadLfArchive)
-      .mapAsyncUnordered(4)(bytes =>
-        Future(toMetadataDefinition(bytes))(computationExecutionContext)
-      )
-      .runWith(Sink.foreach(updatingPackageMetadataView.update))
+      .mapAsyncUnordered(config.packageMetadataViewLoadParallelism)(loadLfArchive)
+      .mapAsyncUnordered(config.packageMetadataViewProcessParallelism)(processPackage)
+      .runWith(Sink.foreach(packageMetadataView.update))
       .map(_ => ())(computationExecutionContext)
   }
 }
