@@ -335,7 +335,7 @@ private[lf] final class Compiler(
         impl.body.methods.values.foreach(method =>
           addDef(compileImplementsMethod(tmpl.param, tmplId, impl.interfaceId, method))
         )
-        addDef(compileImplementsView(tmpl.param, tmplId, impl.interfaceId, impl.view))
+        addDef(compileImplementsView(tmpl.param, tmplId, impl.interfaceId, impl.body.view))
       }
 
       tmpl.choices.values.foreach(x => addDef(compileTemplateChoice(tmplId, tmpl, x)))
@@ -358,7 +358,7 @@ private[lf] final class Compiler(
         coimpl.body.methods.values.foreach(method =>
           addDef(compileCoImplementsMethod(iface.param, coimpl.templateId, ifaceId, method))
         )
-        addDef(compileCoImplementsView(iface.param, coimpl.templateId, ifaceId, coimpl.view))
+        addDef(compileCoImplementsView(iface.param, coimpl.templateId, ifaceId, coimpl.body.view))
       }
     }
 
