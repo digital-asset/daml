@@ -3,6 +3,7 @@
 
 package com.daml.platform.index
 
+import akka.Done
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
@@ -119,7 +120,7 @@ object InMemoryStateUpdaterSpec {
       },
     )
 
-    def runFlow(input: Seq[(Vector[(Offset, Update)], Long)])(implicit mat: Materializer): Unit =
+    def runFlow(input: Seq[(Vector[(Offset, Update)], Long)])(implicit mat: Materializer): Done =
       Source(input)
         .via(inMemoryStateUpdater.flow)
         .runWith(Sink.ignore)
