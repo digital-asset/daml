@@ -164,6 +164,8 @@ object JdbcIndexer {
       config: IndexerConfig,
   )(implicit loggingContext: LoggingContext, materializer: Materializer): Future[Unit] = {
     implicit val ec: ExecutionContext = computationExecutionContext
+    logger.info("Package Metadata View initialization has been started.")
+
     def loadLfArchive(packageId: PackageId): Future[(PackageId, Array[Byte])] =
       dbDispatcher
         .executeSql(metrics.daml.index.db.loadArchive)(connection =>
@@ -192,19 +194,17 @@ object JdbcIndexer {
       }
     }
 
-    def onError(): PartialFunction[Throwable, Unit] = { case NonFatal(e) =>
-      logger.error(s"Failed to initialize Package Metadata View", e)
-      throw e
-    }
-
     Source
       .futureSource(lfPackagesSource())
       .mapAsyncUnordered(config.packageMetadataViewLoadParallelism)(loadLfArchive)
       .mapAsyncUnordered(config.packageMetadataViewProcessParallelism)(processPackage)
       .runWith(Sink.foreach(packageMetadataView.update))
-      .map(_ => logger.info("Package Metadata View has been initialization"))(
+      .map(_ => logger.info("Package Metadata View has been initialized"))(
         computationExecutionContext
       )
-      .recover(onError())
+      .recover { case NonFatal(e) =>
+        logger.error(s"Failed to initialize Package Metadata View", e)
+        throw e
+      }
   }
 }
