@@ -15,16 +15,17 @@ final class FromValueSpec extends AnyWordSpec with Matchers {
     "not be cast to Bar.ContractId" in {
       val fromConstructor: ParameterizedContractId[Bar] =
         new ParameterizedContractId(new Bar.ContractId("SomeID"))
-
       val parametrizedContractId: ParameterizedContractId[Bar] =
         ParameterizedContractId.fromValue(fromConstructor.toValue(_.toValue), Bar.fromValue)
       val contractIdBar: ContractId[Bar] = parametrizedContractId.parameterizedContractId
+
       illTyped(
         "contractIdBar: Bar.ContractId",
         "type mismatch.+ContractId\\[.+Bar\\].+Bar.ContractId",
       )
 
       contractIdBar should not be a[Bar.ContractId]
+      Bar.ContractId.toContractId(contractIdBar) shouldBe a[Bar.ContractId]
     }
   }
 }

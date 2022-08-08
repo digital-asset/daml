@@ -19,6 +19,8 @@ import com.daml.lf.iface.{
 }
 import com.squareup.javapoet._
 
+import ClassGenUtils.companionFieldName
+
 import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
 
@@ -44,6 +46,7 @@ object ContractIdClass {
 
   case class Builder private (
       templateClassName: ClassName,
+      contractIdClassName: ClassName,
       idClassBuilder: TypeSpec.Builder,
       choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
       packagePrefixes: Map[PackageId, String],
@@ -73,6 +76,14 @@ object ContractIdClass {
             .build()
         )
       }
+      this
+    }
+
+    def addToContractIdCompanionForwarder(): Builder = {
+      idClassBuilder
+        .addMethod(
+          Builder.generateToContractIdCompanionForwarder(contractIdClassName, templateClassName)
+        )
       this
     }
   }
@@ -204,6 +215,37 @@ object ContractIdClass {
         },
       )
 
+    private[inner] def generateToContractIdCompanionForwarder(
+        className: ClassName,
+        templateClassName: ClassName,
+    ): MethodSpec = {
+      val spec = MethodSpec
+        .methodBuilder("toContractId")
+        .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+        .returns(className)
+        .addParameters(
+          Seq(
+            ParameterSpec
+              .builder(
+                ParameterizedTypeName
+                  .get(
+                    ClassName.get(classOf[javaapi.data.codegen.ContractId[_]]),
+                    templateClassName,
+                  ),
+                "contractId",
+              )
+              .build()
+          ).asJava
+        )
+        .addStatement(
+          "return $N.$N($L)",
+          companionFieldName,
+          "toContractId",
+          "contractId",
+        )
+      spec.build()
+    }
+
     def create(
         templateClassName: ClassName,
         choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
@@ -211,6 +253,7 @@ object ContractIdClass {
         packagePrefixes: Map[PackageId, String],
     ): Builder = {
 
+      val contractIdClassName = ClassName bestGuess "ContractId"
       val idClassBuilder =
         TypeSpec
           .classBuilder("ContractId")
@@ -233,7 +276,7 @@ object ContractIdClass {
       idClassBuilder
         .addMethod(constructor)
         .addMethod(generateGetCompanion(kind))
-      Builder(templateClassName, idClassBuilder, choices, packagePrefixes)
+      Builder(templateClassName, contractIdClassName, idClassBuilder, choices, packagePrefixes)
     }
   }
 }
