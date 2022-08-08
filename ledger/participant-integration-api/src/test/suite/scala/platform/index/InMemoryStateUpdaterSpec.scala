@@ -49,10 +49,7 @@ class InMemoryStateUpdaterSpec
   behavior of classOf[InMemoryStateUpdater].getSimpleName
 
   "flow" should "correctly process updates" in new Scope {
-    val updatesInput =
-      Seq(Vector(update1, metadataChangedUpdate) -> 1L, Vector(update3, update4) -> 3L)
-
-    Source(updatesInput)
+    Source(Seq(Vector(update1, metadataChangedUpdate) -> 1L, Vector(update3, update4) -> 3L))
       .via(inMemoryStateUpdater.flow)
       .runWith(Sink.ignore)
       .futureValue
@@ -68,7 +65,7 @@ class InMemoryStateUpdaterSpec
   }
 
   "flow" should "not process empty input batches" in new Scope {
-    val updatesInput =
+    Source(
       Seq(
         // Empty input batch should have not effect
         Vector.empty -> 1L,
@@ -77,8 +74,7 @@ class InMemoryStateUpdaterSpec
         // Should still have effect on ledger end updates
         Vector(anotherMetadataChangedUpdate) -> 3L,
       )
-
-    Source(updatesInput)
+    )
       .via(inMemoryStateUpdater.flow)
       .runWith(Sink.ignore)
       .futureValue
