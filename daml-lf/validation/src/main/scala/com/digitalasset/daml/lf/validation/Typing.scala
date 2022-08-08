@@ -616,7 +616,7 @@ private[validation] object Typing {
 
       methods.values.foreach { (method: InterfaceMethod) =>
         if (!iiBody.methods.exists { case (name, _) => name == method.name })
-          throw EMissingInterfaceMethod(ctx, tplTcon, ifaceTcon, method.name)
+          throw EMissingMethodInInterfaceInstance(ctx, method.name)
       }
       iiBody.methods.values.foreach { case InterfaceInstanceMethod(name, value) =>
         methods.get(name) match {

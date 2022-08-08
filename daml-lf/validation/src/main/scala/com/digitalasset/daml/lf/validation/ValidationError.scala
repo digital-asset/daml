@@ -371,14 +371,12 @@ final case class EModuleVersionDependencies(
   override def context: Context = Context.None
 }
 
-final case class EMissingInterfaceMethod(
+final case class EMissingMethodInInterfaceInstance(
     context: Context,
-    template: TypeConName,
-    iface: TypeConName,
     method: MethodName,
 ) extends ValidationError {
   override protected def prettyInternal: String =
-    s"Template $template is missing method '$method' in its implementation of interface $iface."
+    s"Interface instance lacks an implementation for method '$method'."
 }
 
 final case class EUnknownInterfaceMethod(
