@@ -47,7 +47,7 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
 
   "alpha equivalence (stack-safety)" - {
 
-    val testCases100 = {
+    val testCases = {
       Table[String, Type => Type](
         ("name", "recursion-point"),
         ("forall", forall),
@@ -57,34 +57,10 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
         ("struct2", struct2),
       )
     }
-    val testCases10k = { // NICK: make these work!
-      Table[String, Type => Type](
-        ("name", "recursion-point")
-        // ("forall", forall),
-        // ("arrowRight", arrowRight),
-        // ("arrowLeft", arrowLeft),
-        // ("struct1", struct1),
-        // ("struct2", struct2),
-      )
-    }
-    {
-      val depth = 100
-      s"alpha equivalence, (SMALL) depth = $depth" - {
-        forEvery(testCases100) { (name: String, recursionPoint: Type => Type) =>
-          name in {
-            val a = Name.assertFromString("A")
-            val b = Name.assertFromString("B")
-            val tyA = TForall((a, KStar), makeAst(depth, TVar(a), recursionPoint))
-            val tyB = TForall((b, KStar), makeAst(depth, TVar(b), recursionPoint))
-            AlphaEquiv.alphaEquiv(tyA, tyB) shouldBe true
-          }
-        }
-      }
-    }
     {
       val depth = 10000
       s"alpha equivalence, (BIG) depth = $depth" - {
-        forEvery(testCases10k) { (name: String, recursionPoint: Type => Type) =>
+        forEvery(testCases) { (name: String, recursionPoint: Type => Type) =>
           name in {
             val a = Name.assertFromString("A")
             val b = Name.assertFromString("B")
