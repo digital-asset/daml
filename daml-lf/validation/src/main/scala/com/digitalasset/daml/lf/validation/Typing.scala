@@ -521,8 +521,8 @@ private[validation] object Typing {
       implementations.values.foreach { impl =>
         checkInterfaceInstance(
           tmplParam = param,
-          tplTcon = tplName,
-          ifaceTcon = impl.interfaceId,
+          interfaceId = impl.interfaceId,
+          templateId = tplName,
           iiBody = impl.body,
         )
       }
@@ -550,8 +550,8 @@ private[validation] object Typing {
           coImplements.values.foreach(coImpl =>
             checkInterfaceInstance(
               tmplParam = param,
-              tplTcon = coImpl.templateId,
-              ifaceTcon = ifaceName,
+              interfaceId = ifaceName,
+              templateId = coImpl.templateId,
               iiBody = coImpl.body,
             )
           )
@@ -589,28 +589,28 @@ private[validation] object Typing {
 
     private def checkInterfaceInstance(
         tmplParam: ExprVarName,
-        tplTcon: TypeConName,
-        ifaceTcon: TypeConName,
+        interfaceId: TypeConName,
+        templateId: TypeConName,
         iiBody: InterfaceInstanceBody,
     ): Unit = {
-      val iiInfo = checkUniqueInterfaceInstance(ifaceTcon, tplTcon)
+      val iiInfo = checkUniqueInterfaceInstance(interfaceId, templateId)
       val ctx = Context.Reference(iiInfo.ref)
 
-      // Note (MA): we use an empty environment and add `tmplParam : TTyCon(tplTcon)`
+      // Note (MA): we use an empty environment and add `tmplParam : TTyCon(templateId)`
       val env = Env(languageVersion, pkgInterface, ctx)
-        .introExprVar(tmplParam, TTyCon(tplTcon))
+        .introExprVar(tmplParam, TTyCon(templateId))
 
       val DefInterfaceSignature(requires, _, _, methods, _, _) =
         // TODO https://github.com/digital-asset/daml/issues/14112
-        handleLookup(ctx, pkgInterface.lookupInterface(ifaceTcon))
+        handleLookup(ctx, pkgInterface.lookupInterface(interfaceId))
 
       requires
-        .filterNot(required => pkgInterface.lookupInterfaceInstance(required, tplTcon).isRight)
+        .filterNot(required => pkgInterface.lookupInterfaceInstance(required, templateId).isRight)
         .foreach(required =>
           throw EMissingRequiredInterfaceInstance(
             ctx,
-            ifaceTcon,
-            Reference.InterfaceInstance(required, tplTcon),
+            interfaceId,
+            Reference.InterfaceInstance(required, templateId),
           )
         )
 
