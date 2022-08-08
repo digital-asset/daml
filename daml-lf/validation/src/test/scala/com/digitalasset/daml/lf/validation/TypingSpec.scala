@@ -5,7 +5,13 @@ package com.daml.lf.validation
 
 import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LookupError, PackageInterface, Reference, LanguageVersion => LV}
+import com.daml.lf.language.{
+  LookupError,
+  PackageInterface,
+  Reference,
+  LanguageVersion => LV,
+  TemplateOrInterface,
+}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.{defaultLanguageVersion, defaultPackageId}
 import com.daml.lf.validation.SpecUtil._
@@ -828,7 +834,12 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             // We double check that Ti implements I and Ti has a choice ChTmpl
             val TTyCon(conI) = t"Mod:I"
             val TTyCon(conTi) = t"Mod:Ti"
-            assert(env.pkgInterface.lookupTemplateImplements(conI, conTi).isRight)
+            env.pkgInterface.lookupInterfaceInstance(conI, conTi) should matchPattern {
+              case Right(iiInfo: PackageInterface.InterfaceInstanceInfo)
+                  if iiInfo.interfaceId == conI
+                    && iiInfo.templateId == conTi
+                    && iiInfo.parent == TemplateOrInterface.Template(conTi) =>
+            }
             assert(env.pkgInterface.lookupTemplateChoice(conTi, n"ChTmpl").isRight)
         },
         // UpdExerciseInterface
@@ -866,7 +877,12 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               // We double check that Ti implements I and Ti has a choice ChTmpl
               val TTyCon(conI) = t"Mod:I"
               val TTyCon(conTi) = t"Mod:Ti"
-              assert(env.pkgInterface.lookupTemplateImplements(conI, conTi).isRight)
+              env.pkgInterface.lookupInterfaceInstance(conI, conTi) should matchPattern {
+                case Right(iiInfo: PackageInterface.InterfaceInstanceInfo)
+                    if iiInfo.interfaceId == conI
+                      && iiInfo.templateId == conTi
+                      && iiInfo.parent == TemplateOrInterface.Template(conTi) =>
+              }
               assert(env.pkgInterface.lookupInterfaceChoice(conI, n"ChIface").isRight)
           },
         // UpdFetch
