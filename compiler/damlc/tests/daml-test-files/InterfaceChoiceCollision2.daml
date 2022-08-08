@@ -9,8 +9,10 @@ module InterfaceChoiceCollision2 where
 
 import qualified InterfaceChoiceCollision1
 
+data EmptyInterfaceView = EmptyInterfaceView
+
 interface Interface requires InterfaceChoiceCollision1.Interface where
-    viewtype ()
+    viewtype EmptyInterfaceView
     getOwner : Party
 
     choice MyArchive : ()

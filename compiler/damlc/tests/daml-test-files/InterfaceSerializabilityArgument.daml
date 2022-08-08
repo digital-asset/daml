@@ -12,8 +12,10 @@ instance Eq NonSerializable where
 instance Show NonSerializable where
   show = error "undefined"
 
+data EmptyInterfaceView = EmptyInterfaceView
+
 interface I where
-   viewtype ()
+   viewtype EmptyInterfaceView
    p : Party
 
    choice NonSerializableArgument : ()

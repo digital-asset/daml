@@ -6,13 +6,17 @@
 -- is caught prior due to missing Eq and Show instances.
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ERROR range=17:13-17:21; cannot require 'Bool' because it is not an interface
+-- @ERROR range=21:13-21:21; cannot require 'Bool' because it is not an interface
 
 module RequiresNonInterface where
 
+data EmptyInterfaceView = EmptyInterfaceView
+
 interface A where
-    viewtype ()
+    viewtype EmptyInterfaceView
+
 interface B where
-    viewtype ()
+    viewtype EmptyInterfaceView
+
 interface C requires A, Bool, B where
-    viewtype ()
+    viewtype EmptyInterfaceView

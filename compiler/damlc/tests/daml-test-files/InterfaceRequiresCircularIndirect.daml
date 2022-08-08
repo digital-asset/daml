@@ -7,8 +7,10 @@
 -- | Check that an interface cannot require itself indirectly.
 module InterfaceRequiresCircularIndirect where
 
+data EmptyInterfaceView = EmptyInterfaceView
+
 interface A requires B where
-    viewtype ()
+    viewtype EmptyInterfaceView
 
 interface B requires A where
-    viewtype ()
+    viewtype EmptyInterfaceView

@@ -5,5 +5,7 @@
 
 module InterfaceRequiresClashB where
 
+data EmptyInterfaceView = EmptyInterfaceView
+
 interface I where
-    viewtype ()
+    viewtype EmptyInterfaceView

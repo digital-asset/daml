@@ -9,8 +9,10 @@ module InterfaceConversions where
 import DA.Assert ((===))
 import DA.Functor (void)
 
+data EmptyInterfaceView = EmptyInterfaceView
+
 interface Iface where
-    viewtype ()
+    viewtype EmptyInterfaceView
     getOwner : Party
     choice MyChoice : ()
         controller getOwner this
@@ -23,7 +25,7 @@ template Template1
     where
         signatory owner1
         implements Iface where
-            view = ()
+            view = EmptyInterfaceView
             getOwner = owner1
 
 template Template2
@@ -33,7 +35,7 @@ template Template2
     where
         signatory owner2
         implements Iface where
-            view = ()
+            view = EmptyInterfaceView
             getOwner = owner2
 
 main = scenario do

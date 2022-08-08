@@ -2,12 +2,14 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ERROR range=13:10-15:14;Template T is missing method m for interface InterfaceMissingMethod:I
+-- @ERROR range=15:10-17:14;Template T is missing method m for interface InterfaceMissingMethod:I
 
 module InterfaceMissingMethod where
 
+data EmptyInterfaceView = EmptyInterfaceView
+
 interface I where
-  viewtype ()
+  viewtype EmptyInterfaceView
   m : ()
 
 template T
@@ -16,4 +18,4 @@ template T
   where
     signatory p
     implements I where
-      view = ()
+      view = EmptyInterfaceView

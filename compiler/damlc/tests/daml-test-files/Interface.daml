@@ -8,8 +8,10 @@ module Interface where
 import DA.Assert ((===))
 
 -- | An interface comment.
+data EmptyInterfaceView = EmptyInterfaceView
+
 interface Token where
-  viewtype ()
+  viewtype EmptyInterfaceView
   getOwner : Party -- ^ A method comment.
   getAmount : Int
   setAmount : Int -> Token
@@ -55,7 +57,7 @@ template Asset
   where
     signatory issuer, owner
     implements Token where
-      view = ()
+      view = EmptyInterfaceView
       getOwner = owner
       getAmount = amount
       setAmount x = toInterface @Token (this with amount = x)

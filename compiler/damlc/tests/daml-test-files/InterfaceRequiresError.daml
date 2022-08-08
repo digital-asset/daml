@@ -8,11 +8,13 @@
 -- interface A, and some template implements B, then it must implement A.
 module InterfaceRequiresError where
 
+data EmptyInterfaceView = EmptyInterfaceView
+
 interface A where
-  viewtype ()
+  viewtype EmptyInterfaceView
 
 interface B requires A where
-  viewtype ()
+  viewtype EmptyInterfaceView
 
 template T
   with
@@ -20,4 +22,4 @@ template T
   where
     signatory p
     implements B where
-      view = ()
+      view = EmptyInterfaceView
