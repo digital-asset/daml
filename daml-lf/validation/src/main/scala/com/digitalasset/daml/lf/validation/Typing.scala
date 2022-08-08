@@ -7,7 +7,7 @@ import com.daml.lf.data.{ImmArray, Numeric, Struct}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, Reference}
+import com.daml.lf.language.{LanguageVersion, PackageInterface, Reference}
 import com.daml.lf.validation.Util._
 import com.daml.lf.validation.iterable.TypeIterable
 import com.daml.scalautil.Statement.discard
@@ -573,8 +573,13 @@ private[validation] object Typing {
       pkgInterface.lookupInterfaceInstance(interfaceId, templateId) match {
         case Left(err) =>
           err match {
-            case Left(_: LookupError) =>
-              throw EMissingInterfaceInstance(ctx, interfaceId, templateId)
+            case Left(lookupErr) =>
+              lookupErr.notFound match {
+                case _: Reference.InterfaceInstance =>
+                  throw EMissingInterfaceInstance(ctx, interfaceId, templateId)
+                case _ =>
+                  throw EUnknownDefinition(ctx, lookupErr)
+              }
             case Right(_: PackageInterface.AmbiguousInterfaceInstanceError) =>
               throw EAmbiguousInterfaceInstance(ctx, interfaceId, templateId)
           }

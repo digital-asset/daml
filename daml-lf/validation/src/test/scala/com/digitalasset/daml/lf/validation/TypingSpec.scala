@@ -925,7 +925,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Interface(_), Reference.Interface(_)),
+                  LookupError(Reference.Interface(_), Reference.InterfaceInstance(_, _)),
                 ) =>
           },
         E"""λ (t: Mod:Ti) → ⸨ to_interface @Mod:I @Mod:T t  ⸩""" -> //
@@ -937,7 +937,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Template(_), Reference.Template(_)),
+                  LookupError(Reference.Template(_), Reference.InterfaceInstance(_, _)),
                 ) =>
           },
         E"λ (i: Mod:I) → ⸨ from_interface @Mod:I @Mod:T i ⸩" -> //
