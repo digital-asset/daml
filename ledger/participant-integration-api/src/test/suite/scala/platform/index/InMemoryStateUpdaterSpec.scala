@@ -32,7 +32,7 @@ import com.daml.platform.indexer.ha.EndlessReadService.configuration
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
 import com.google.rpc.status.Status
-import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -43,7 +43,6 @@ class InMemoryStateUpdaterSpec
     extends AnyFlatSpec
     with Matchers
     with ScalaFutures
-    with IntegrationPatience
     with AkkaBeforeAndAfterAll {
 
   behavior of classOf[InMemoryStateUpdater].getSimpleName
