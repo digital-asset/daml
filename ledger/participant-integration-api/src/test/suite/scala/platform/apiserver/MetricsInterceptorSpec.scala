@@ -73,8 +73,8 @@ final class MetricsInterceptorSpec
         _ <- HelloServiceGrpc.stub(channel).single(HelloRequest(0))
         _ <- HelloServiceGrpc.stub(channel).fails(HelloRequest(1)).failed
       } yield {
-        val okCounter = metrics.daml.lapi.return_status.forCode(Status.Code.OK.toString)
-        val internalCounter = metrics.daml.lapi.return_status.forCode(Status.Code.INTERNAL.toString)
+        val okCounter = metrics.daml.lapi.return_status.forCode("OK")
+        val internalCounter = metrics.daml.lapi.return_status.forCode("INTERNAL")
         eventually {
           okCounter.getCount shouldBe 1
           internalCounter.getCount shouldBe 1
