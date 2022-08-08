@@ -3,6 +3,7 @@
 
 -- TODO The exact same file exists in the //daml-lf/tests package. Refactor as lf version transits from dev to stable for Interfaces?
 module InterfaceViews where
+import qualified Interface3
 
 data View = View with
   a : Int
@@ -57,3 +58,17 @@ template T4
     a : Int
   where
     signatory p
+
+template T5
+ with
+   p : Party
+   a : Int
+ where
+   signatory p
+   implements I where
+     _view = View with
+       a
+       b = True
+   implements Interface3.I2 where
+     _view = Interface3.View2 with
+       c = 1
