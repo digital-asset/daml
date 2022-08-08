@@ -3,6 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
+data GHC.Types.DamlEnum => EmptyInterfaceView = EmptyInterfaceView
 data GHC.Types.DamlInterface => MyInterface
   = MyInterface GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep MyInterface where
@@ -81,7 +82,7 @@ _choice_MyInterfaceMyVirtualChoice
        -> let _ = self in
           let _ = this in let _ = arg in do myVirtualChoiceImpl this, 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
-instance DA.Internal.Desugar.HasInterfaceView MyInterface () where
+instance DA.Internal.Desugar.HasInterfaceView MyInterface EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => MyTemplate
   = MyTemplate {p : Party}

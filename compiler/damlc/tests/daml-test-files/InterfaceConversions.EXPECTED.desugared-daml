@@ -5,6 +5,7 @@ import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
 import DA.Assert ( (===) )
 import DA.Functor ( void )
+data GHC.Types.DamlEnum => EmptyInterfaceView = EmptyInterfaceView
 data GHC.Types.DamlInterface => Iface = Iface GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Iface where
   _interfaceTypeRep
@@ -77,7 +78,7 @@ _choice_IfaceMyChoice
      \ self this arg@MyChoice
        -> let _ = self in let _ = this in let _ = arg in do pure (), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
-instance DA.Internal.Desugar.HasInterfaceView Iface () where
+instance DA.Internal.Desugar.HasInterfaceView Iface EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => Template1
   = Template1 {owner1 : Party, value1 : Int}
@@ -171,7 +172,8 @@ _view_Template1_Iface
   = DA.Internal.Desugar.mkInterfaceView
       @Template1
       @Iface
-      \ this@Template1 {..} -> let _ = this in let view = () in view
+      \ this@Template1 {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 data GHC.Types.DamlTemplate => Template2
   = Template2 {owner2 : Party, value2 : Text}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -264,7 +266,8 @@ _view_Template2_Iface
   = DA.Internal.Desugar.mkInterfaceView
       @Template2
       @Iface
-      \ this@Template2 {..} -> let _ = this in let view = () in view
+      \ this@Template2 {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 main
   = scenario
       do p <- getParty "Alice"

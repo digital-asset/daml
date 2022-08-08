@@ -8,6 +8,7 @@ instance Eq NonSerializable where
   (==) = error "undefined"
 instance Show NonSerializable where
   show = error "undefined"
+data GHC.Types.DamlEnum => EmptyInterfaceView = EmptyInterfaceView
 data GHC.Types.DamlInterface => I = I GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep I where
   _interfaceTypeRep
@@ -83,5 +84,5 @@ _choice_INonSerializableResult
        -> let _ = self in
           let _ = this in let _ = arg in do pure (NonSerializable identity), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
-instance DA.Internal.Desugar.HasInterfaceView I () where
+instance DA.Internal.Desugar.HasInterfaceView I EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"

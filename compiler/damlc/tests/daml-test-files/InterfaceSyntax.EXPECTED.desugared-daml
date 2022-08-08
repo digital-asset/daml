@@ -3,6 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
+data GHC.Types.DamlEnum => EmptyInterfaceView = EmptyInterfaceView
 data GHC.Types.DamlInterface => I = I GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep I where
   _interfaceTypeRep
@@ -42,7 +43,7 @@ instance DA.Internal.Desugar.HasIsInterfaceType I where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq I where
   (==) = GHC.Types.primitive @"BEEqual"
-instance DA.Internal.Desugar.HasInterfaceView I () where
+instance DA.Internal.Desugar.HasInterfaceView I EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlInterface => J = J GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep J where
@@ -71,7 +72,7 @@ instance DA.Internal.Desugar.HasIsInterfaceType J where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq J where
   (==) = GHC.Types.primitive @"BEEqual"
-instance DA.Internal.Desugar.HasInterfaceView J () where
+instance DA.Internal.Desugar.HasInterfaceView J EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlInterface => K = K GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep K where
@@ -100,7 +101,7 @@ instance DA.Internal.Desugar.HasIsInterfaceType K where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq K where
   (==) = GHC.Types.primitive @"BEEqual"
-instance DA.Internal.Desugar.HasInterfaceView K () where
+instance DA.Internal.Desugar.HasInterfaceView K EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => T
   = T {p0 : Party, p1 : Party, f : Int}
@@ -208,7 +209,10 @@ _method_T_I_m1
 _view_T_I : DA.Internal.Desugar.InterfaceView T I
 _view_T_I
   = DA.Internal.Desugar.mkInterfaceView
-      @T @I \ this@T {..} -> let _ = this in let view = () in view
+      @T
+      @I
+      \ this@T {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 _implements_T_J : DA.Internal.Desugar.ImplementsT T J
 _implements_T_J = DA.Internal.Desugar.ImplementsT
 instance DA.Internal.Desugar.HasToInterface T J where
@@ -219,7 +223,10 @@ instance DA.Internal.Desugar.HasFromInterface T J where
 _view_T_J : DA.Internal.Desugar.InterfaceView T J
 _view_T_J
   = DA.Internal.Desugar.mkInterfaceView
-      @T @J \ this@T {..} -> let _ = this in let view = () in view
+      @T
+      @J
+      \ this@T {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 _implements_T_K : DA.Internal.Desugar.ImplementsT T K
 _implements_T_K = DA.Internal.Desugar.ImplementsT
 instance DA.Internal.Desugar.HasToInterface T K where
@@ -230,4 +237,7 @@ instance DA.Internal.Desugar.HasFromInterface T K where
 _view_T_K : DA.Internal.Desugar.InterfaceView T K
 _view_T_K
   = DA.Internal.Desugar.mkInterfaceView
-      @T @K \ this@T {..} -> let _ = this in let view = () in view
+      @T
+      @K
+      \ this@T {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
