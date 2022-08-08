@@ -229,7 +229,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
       onInterface = interface.coImplements.get(templateName)
       onTemplate = template.implements.get(interfaceName)
       ok = { tOrI: TemplateOrInterface[Unit, Unit] =>
-        PackageInterface.InterfaceInstanceInfo(tOrI, interfaceName, templateName)
+        PackageInterface.InterfaceInstanceInfo(tOrI, interfaceName, templateName, interface)
       }
       r <- (onInterface, onTemplate) match {
         case (None, None) => Left(Left(LookupError(ref, context)))
@@ -455,6 +455,7 @@ object PackageInterface {
       val parentTemplateOrInterface: TemplateOrInterface[Unit, Unit],
       val interfaceId: TypeConName,
       val templateId: TypeConName,
+      val interfaceSignature: DefInterfaceSignature,
   ) {
     val parent: TemplateOrInterface[TypeConName, TypeConName] =
       parentTemplateOrInterface match {

@@ -602,7 +602,7 @@ private[validation] object Typing {
 
       val DefInterfaceSignature(requires, _, _, methods, _, _) =
         // TODO https://github.com/digital-asset/daml/issues/14112
-        handleLookup(ctx, pkgInterface.lookupInterface(interfaceId))
+        iiInfo.interfaceSignature
 
       requires
         .filterNot(required => pkgInterface.lookupInterfaceInstance(required, templateId).isRight)
