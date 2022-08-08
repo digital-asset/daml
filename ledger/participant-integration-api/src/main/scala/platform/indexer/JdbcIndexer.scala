@@ -192,11 +192,19 @@ object JdbcIndexer {
       }
     }
 
+    def onError(): PartialFunction[Throwable, Unit] = { case NonFatal(e) =>
+      logger.error(s"Failed to initialize Package Metadata View", e)
+      throw e
+    }
+
     Source
       .futureSource(lfPackagesSource())
       .mapAsyncUnordered(config.packageMetadataViewLoadParallelism)(loadLfArchive)
       .mapAsyncUnordered(config.packageMetadataViewProcessParallelism)(processPackage)
       .runWith(Sink.foreach(packageMetadataView.update))
-      .map(_ => ())(computationExecutionContext)
+      .map(_ => logger.info("Package Metadata View has been initialization"))(
+        computationExecutionContext
+      )
+      .recover(onError())
   }
 }
