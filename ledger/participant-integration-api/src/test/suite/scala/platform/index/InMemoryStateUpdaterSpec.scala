@@ -3,6 +3,7 @@
 
 package com.daml.platform.index
 
+import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -48,10 +49,7 @@ class InMemoryStateUpdaterSpec
   behavior of classOf[InMemoryStateUpdater].getSimpleName
 
   "flow" should "correctly process updates" in new Scope {
-    Source(Seq(Vector(update1, metadataChangedUpdate) -> 1L, Vector(update3, update4) -> 3L))
-      .via(inMemoryStateUpdater.flow)
-      .runWith(Sink.ignore)
-      .futureValue
+    runFlow(Seq(Vector(update1, metadataChangedUpdate) -> 1L, Vector(update3, update4) -> 3L))
 
     cacheUpdates should contain theSameElementsInOrderAs Seq(
       Vector(txLogUpdate1),
@@ -64,7 +62,7 @@ class InMemoryStateUpdaterSpec
   }
 
   "flow" should "not process empty input batches" in new Scope {
-    Source(
+    runFlow(
       Seq(
         // Empty input batch should have not effect
         Vector.empty -> 1L,
@@ -74,9 +72,6 @@ class InMemoryStateUpdaterSpec
         Vector(anotherMetadataChangedUpdate) -> 3L,
       )
     )
-      .via(inMemoryStateUpdater.flow)
-      .runWith(Sink.ignore)
-      .futureValue
 
     cacheUpdates should contain theSameElementsInOrderAs Seq(
       Vector(txLogUpdate3),
@@ -90,7 +85,7 @@ class InMemoryStateUpdaterSpec
 }
 
 object InMemoryStateUpdaterSpec {
-  trait Scope extends Matchers {
+  trait Scope extends Matchers with ScalaFutures {
     val updateToTransactionAccepted
         : (Offset, Update.TransactionAccepted) => TransactionLogUpdate.TransactionAccepted = {
       case `update1` => txLogUpdate1
@@ -123,6 +118,12 @@ object InMemoryStateUpdaterSpec {
         ledgerEndUpdates.addOne(offset -> evtSeqId)
       },
     )
+
+    def runFlow(input: Seq[(Vector[(Offset, Update)], Long)])(implicit mat: Materializer): Unit =
+      Source(input)
+        .via(inMemoryStateUpdater.flow)
+        .runWith(Sink.ignore)
+        .futureValue
   }
 
   private val participantId: Ref.ParticipantId =
