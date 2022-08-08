@@ -518,7 +518,14 @@ private[validation] object Typing {
       env.checkTopExpr(observers, TParties)
       env.checkTopExpr(agreementText, TText)
       choices.values.foreach(env.checkChoice(tplName, _))
-      env.checkIfaceImplementations(tplName, implementations)
+      implementations.values.foreach { impl =>
+        checkInterfaceInstance(
+          param = param,
+          tplTcon = tplName,
+          ifaceTcon = impl.interfaceId,
+          iiBody = impl.body,
+        )
+      }
       mbKey.foreach { key =>
         checkType(key.typ, KStar)
         env.checkTopExpr(key.body, key.typ)
@@ -540,7 +547,14 @@ private[validation] object Typing {
           } throw ENotClosedInterfaceRequires(ctx, ifaceName, required, requiredRequired)
           methods.values.foreach(checkIfaceMethod)
           choices.values.foreach(env.checkChoice(ifaceName, _))
-          env.checkIfaceCoImplementations(ifaceName, param, coImplements)
+          coImplements.values.foreach(coImpl =>
+            checkInterfaceInstance(
+              param = param,
+              tplTcon = coImpl.templateId,
+              ifaceTcon = ifaceName,
+              iiBody = coImpl.body,
+            )
+          )
       }
 
     private def checkIfaceMethod(method: InterfaceMethod): Unit = {
@@ -574,11 +588,17 @@ private[validation] object Typing {
     ): Unit = discard(checkUniqueInterfaceInstance(interfaceId, templateId))
 
     private def checkInterfaceInstance(
+        param: ExprVarName,
         tplTcon: TypeConName,
         ifaceTcon: TypeConName,
         iiBody: InterfaceInstanceBody,
     ): Unit = {
-      checkUniqueInterfaceInstanceExists(ifaceTcon, tplTcon)
+      val iiInfo = checkUniqueInterfaceInstance(ifaceTcon, tplTcon)
+      val ctx = Context.Reference(iiInfo.ref)
+
+      // Note (MA): we use an empty environment and add `param : TTyCon(tplTcon)`
+      val env = Env(languageVersion, pkgInterface, ctx)
+        .introExprVar(param, TTyCon(tplTcon))
 
       val DefInterfaceSignature(requires, _, _, methods, _, _) =
         // TODO https://github.com/digital-asset/daml/issues/14112
@@ -596,53 +616,10 @@ private[validation] object Typing {
         methods.get(name) match {
           case None =>
             throw EUnknownInterfaceMethod(ctx, tplTcon, ifaceTcon, name)
-          case Some(method) =>
-            checkTopExpr(value, method.returnType)
+          case Some(method) => env.checkTopExpr(value, method.returnType)
         }
       }
     }
-
-    private def checkIfaceImplementation(
-        tplTcon: TypeConName,
-        impl: TemplateImplements,
-    ): Unit = {
-      val ifaceTcon = impl.interfaceId
-      checkInterfaceInstance(
-        tplTcon,
-        ifaceTcon,
-        impl.body,
-      )
-    }
-
-    private def checkIfaceImplementations(
-        tplTcon: TypeConName,
-        impls: Map[TypeConName, TemplateImplements],
-    ): Unit =
-      impls.values.foreach(checkIfaceImplementation(tplTcon, _))
-
-    private def checkIfaceCoImplementation(
-        ifaceTcon: TypeConName,
-        param: ExprVarName,
-        coImpl: InterfaceCoImplements,
-    ): Unit = {
-      val tplTcon = coImpl.templateId
-
-      // Note (MA): we use an empty environment and add `param : TTyCon(tplTcon)`
-      Env(languageVersion, pkgInterface, Context.DefInterfaceCoImplements(tplTcon, ifaceTcon))
-        .introExprVar(param, TTyCon(tplTcon))
-        .checkInterfaceInstance(
-          tplTcon,
-          ifaceTcon,
-          coImpl.body,
-        )
-    }
-
-    private def checkIfaceCoImplementations(
-        ifaceTcon: TypeConName,
-        param: ExprVarName,
-        coImpls: Map[TypeConName, InterfaceCoImplements],
-    ): Unit =
-      coImpls.values.foreach(checkIfaceCoImplementation(ifaceTcon, param, _))
 
     private[Typing] def checkDefException(
         excepName: TypeConName,
