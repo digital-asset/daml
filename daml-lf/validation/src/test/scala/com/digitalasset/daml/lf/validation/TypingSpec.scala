@@ -1751,7 +1751,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       an[EUnknownInterfaceMethod] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_CoImplementsUnknownMethod")
       )
-      an[EConflictingImplementsCoImplements] shouldBe thrownBy(
+      an[EAmbiguousInterfaceInstance] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_ConflictingImplementsCoImplements")
       )
     }

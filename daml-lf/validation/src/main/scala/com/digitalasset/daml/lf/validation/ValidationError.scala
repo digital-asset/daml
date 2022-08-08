@@ -441,13 +441,14 @@ final case class ECircularInterfaceRequires(
     s"Circular interface requirement is not allowed: interface $iface requires itself."
 }
 
-final case class EConflictingImplementsCoImplements(
+final case class EAmbiguousInterfaceInstance(
     context: Context,
-    template: TypeConName,
-    iface: TypeConName,
+    interfaceId: TypeConName,
+    templateId: TypeConName,
 ) extends ValidationError {
   protected def prettyInternal: String =
-    s"Template $template implementation of interface $iface conflicts with the implementation given by $iface"
+    s"A reference to interface instance $interfaceId for $templateId is ambiguous, " +
+      "both the interface and the template define this interface instance."
 }
 
 final case class EViewNotSerializable(
