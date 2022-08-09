@@ -557,8 +557,7 @@ private[validation] object Typing {
         ifaceTcon: TypeConName,
         iiBody: InterfaceInstanceBody,
     ): Unit = {
-      val DefInterfaceSignature(requires, _, _, methods, _, _) =
-        // TODO https://github.com/digital-asset/daml/issues/14112
+      val DefInterfaceSignature(requires, _, _, methods, _, view) =
         handleLookup(ctx, pkgInterface.lookupInterface(ifaceTcon))
 
       requires
@@ -579,6 +578,8 @@ private[validation] object Typing {
             checkTopExpr(value, method.returnType)
         }
       }
+
+      checkTopExpr(iiBody.view, view)
     }
 
     private def checkIfaceImplementation(
