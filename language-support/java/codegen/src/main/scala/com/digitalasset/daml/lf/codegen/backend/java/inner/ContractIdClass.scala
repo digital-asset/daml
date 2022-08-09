@@ -82,7 +82,7 @@ object ContractIdClass {
     def addContractIdConversionCompanionForwarder(): Builder = {
       idClassBuilder
         .addMethod(
-          Builder.generateContractIdConversionCompanionForwarder(
+          Builder.fromContractId(
             contractIdClassName,
             templateClassName,
           )
@@ -218,12 +218,12 @@ object ContractIdClass {
         },
       )
 
-    private[inner] def generateContractIdConversionCompanionForwarder(
+    private[inner] def fromContractId(
         className: ClassName,
         templateClassName: ClassName,
     ): MethodSpec = {
       val spec = MethodSpec
-        .methodBuilder("from")
+        .methodBuilder("fromContractId")
         .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
         .returns(className)
         .addParameters(

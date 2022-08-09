@@ -25,7 +25,7 @@ final class FromValueSpec extends AnyWordSpec with Matchers {
       )
 
       contractIdBar should not be a[Bar.ContractId]
-      Bar.ContractId.from(contractIdBar) shouldBe a[Bar.ContractId]
+      Bar.ContractId.fromContractId(contractIdBar) shouldBe a[Bar.ContractId]
     }
   }
 }
