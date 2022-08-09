@@ -66,6 +66,9 @@ da_scala_test(
         ["src/test/scala/**/*.scala"],
     ),
     data = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_lihaoyi_os_lib",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         ":script-runner-lib",
