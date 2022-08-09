@@ -64,6 +64,7 @@ private[inner] object TemplateClass extends StrictLogging {
               packagePrefixes,
             )
             .addConversionForImplementedInterfaces(template.implementedInterfaces)
+            .addContractIdConversionCompanionForwarder()
             .build()
         )
         .addType(
