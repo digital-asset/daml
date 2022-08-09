@@ -34,6 +34,8 @@ for f in .bazelrc; do
     echo ---------------------
 done
 
+ls -al
+
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 bazel build //... \
   --toolchain_resolution_debug \
