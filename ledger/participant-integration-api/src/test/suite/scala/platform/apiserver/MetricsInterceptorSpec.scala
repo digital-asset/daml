@@ -3,7 +3,6 @@
 
 package com.daml.platform.apiserver
 
-import java.net.{InetAddress, InetSocketAddress}
 import akka.pattern.after
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
@@ -23,19 +22,13 @@ import com.daml.platform.testing.StreamConsumer
 import com.daml.ports.Port
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
-import io.grpc.{
-  BindableService,
-  Channel,
-  Server,
-  ServerInterceptor,
-  ServerServiceDefinition,
-  Status,
-}
+import io.grpc.{BindableService, Channel, Server, ServerInterceptor, ServerServiceDefinition}
 import org.scalatest.concurrent.Eventually
-import org.scalatest.time.{Second, Span}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.{Second, Span}
 
+import java.net.{InetAddress, InetSocketAddress}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
