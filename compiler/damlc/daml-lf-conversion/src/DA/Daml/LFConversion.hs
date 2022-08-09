@@ -251,7 +251,6 @@ data ModuleContents = ModuleContents
   , mcInterfaceBinds :: MS.Map TypeConName InterfaceBinds
   , mcChoiceData :: MS.Map TypeConName [ChoiceData]
   , mcImplements :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
-  , mcRequires :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
   , mcInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
   , mcInterfaceViewInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [GHC.Expr GHC.CoreBndr]
   , mcModInstanceInfo :: !ModInstanceInfo
@@ -286,13 +285,6 @@ extractModuleContents env@Env{..} coreModule modIface details = do
       , "_implements_" `T.isPrefixOf` getOccText name
       , TypeCon implementsT [TypeCon tpl [], TypeCon iface []] <- [varType name]
       , NameIn DA_Internal_Desugar "ImplementsT" <- [implementsT]
-      ]
-    mcRequires = MS.fromListWith (++)
-      [ (mkTypeCon [getOccText iface1], [(convNameLoc name, iface2)])
-      | (name, _val) <- mcBinds
-      , "_requires_" `T.isPrefixOf` getOccText name
-      , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- [varType name]
-      , NameIn DA_Internal_Desugar "RequiresT" <- [requiresT]
       ]
     mcInterfaceViewInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [GHC.Expr GHC.CoreBndr]
     mcInterfaceViewInstances = MS.fromListWith (++)
@@ -530,6 +522,7 @@ data InterfaceBinds = InterfaceBinds
   { ibLoc :: Maybe SourceLoc
   , ibViewType :: Maybe GHC.Type
   , ibMethods :: MS.Map MethodName GHC.Type
+  , ibRequires :: [(GHC.TyCon, Maybe SourceLoc)]
   }
 
 emptyInterfaceBinds :: Maybe SourceLoc -> InterfaceBinds
@@ -537,6 +530,7 @@ emptyInterfaceBinds ibLoc = InterfaceBinds
   { ibLoc
   , ibViewType = Nothing
   , ibMethods = MS.empty
+  , ibRequires = []
   }
 
 setInterfaceViewType :: GHC.Type -> InterfaceBinds -> InterfaceBinds
@@ -547,6 +541,11 @@ setInterfaceViewType viewType ib = ib
 insertInterfaceMethod :: MethodName -> GHC.Type -> InterfaceBinds -> InterfaceBinds
 insertInterfaceMethod methodName retTy ib = ib
   { ibMethods = MS.insert methodName retTy (ibMethods ib)
+  }
+
+insertInterfaceRequires :: GHC.TyCon -> Maybe SourceLoc -> InterfaceBinds -> InterfaceBinds
+insertInterfaceRequires required loc ib = ib
+  { ibRequires = (required, loc) : ibRequires ib
   }
 
 scrapeInterfaceBinds ::
@@ -583,6 +582,11 @@ scrapeInterfaceBinds lfVersion tyThings binds
             Just (interface, setInterfaceViewType viewType)
           HasMethodDFunId interface methodName retTy ->
             Just (interface, insertInterfaceMethod methodName retTy)
+          name
+            | "_requires_" `T.isPrefixOf` getOccText name
+            , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- varType name
+            , NameIn DA_Internal_Desugar "RequiresT" <- requiresT
+            -> Just (iface1, insertInterfaceRequires iface2 (convNameLoc name))
           _ -> Nothing
       ]
 
@@ -611,10 +615,7 @@ convertInterfaces env mc = interfaceDefs
           intLocation = ibLoc ib
           intParam = this
         withRange intLocation $ do
-            let handleIsNotInterface tyCon =
-                  "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
-            intRequires <- fmap S.fromList $ mapM (\(mloc, iface) -> withRange mloc $ convertInterfaceTyCon env handleIsNotInterface iface) $
-                MS.findWithDefault [] intName (mcRequires mc)
+            intRequires <- convertRequires (ibRequires ib)
             intMethods <- convertMethods (ibMethods ib)
             intChoices <- convertChoices env mc intName emptyTemplateBinds
             let intCoImplements = NM.empty -- TODO: https://github.com/digital-asset/daml/issues/14047
@@ -622,6 +623,15 @@ convertInterfaces env mc = interfaceDefs
                 Nothing -> conversionError $ "No view found for interface " <> renderPretty intName
                 Just viewType -> convertType env viewType
             pure DefInterface {..}
+
+    convertRequires :: [(GHC.TyCon, Maybe SourceLoc)] -> ConvertM (S.Set (Qualified TypeConName))
+    convertRequires requires = S.fromList <$> sequence
+      [ withRange mloc $ convertInterfaceTyCon env handleIsNotInterface iface
+      | (iface, mloc) <- requires
+      ]
+      where
+        handleIsNotInterface tyCon =
+          "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
 
     convertMethods :: MS.Map MethodName GHC.Type -> ConvertM (NM.NameMap InterfaceMethod)
     convertMethods methods =
