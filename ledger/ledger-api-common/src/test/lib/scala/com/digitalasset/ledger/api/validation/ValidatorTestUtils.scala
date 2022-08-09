@@ -5,6 +5,7 @@ package com.daml.ledger.api.validation
 
 import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.InterfaceFilter
 import com.daml.ledger.api.messages.transaction
 import com.daml.lf.data.Ref
 import com.google.rpc.error_details
@@ -47,7 +48,18 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
                 ),
               )
             ),
-            interfaceFilters = Set.empty,
+            interfaceFilters = Set(
+              InterfaceFilter(
+                interfaceId = Ref.Identifier(
+                  Ref.PackageId.assertFromString(packageId),
+                  Ref.QualifiedName(
+                    Ref.DottedName.assertFromString(includedModule),
+                    Ref.DottedName.assertFromString(includedTemplate),
+                  ),
+                ),
+                includeView = true,
+              )
+            ),
           )
         )
       )

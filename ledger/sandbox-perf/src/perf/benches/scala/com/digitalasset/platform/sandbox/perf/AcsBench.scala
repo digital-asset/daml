@@ -58,7 +58,7 @@ class AcsBench extends TestCommands with InfAwait {
   ): Option[String] = {
     val events = response.activeContracts.toSet
     events.collectFirst {
-      case CreatedEvent(contractId, _, Some(id), _, _, _, _, _, _, _) if id == template =>
+      case CreatedEvent(contractId, _, Some(id), _, _, _, _, _, _, _, _) if id == template =>
         contractId
     }
   }
