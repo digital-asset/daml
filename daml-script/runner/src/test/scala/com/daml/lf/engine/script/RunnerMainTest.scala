@@ -21,7 +21,7 @@ class RunnerMainTest extends AnyFreeSpec with Matchers with Inspectors {
   "RunnerMain should not crash" - {
     "with given configurations" in {
       forAll(Seq(configLedgerParticipant, configNodeParticipants)) { clientConfig =>
-        RunnerMain.VerifiedRunnerConfig(clientConfig) shouldBe Symbol("success")
+        RunnerMain.RunnerConfig(clientConfig) shouldBe Symbol("success")
       }
     }
   }
@@ -31,7 +31,7 @@ object RunnerMainTest {
   val localHost: String = "localhost"
   val ledgerPort: Int = 8080
   val participantPort: Int = 6865
-  val configLedgerParticipant: RunnerConfig = RunnerConfig(
+  val configLedgerParticipant: RunnerCliConfig = RunnerCliConfig(
     darPath = new File("./daml-script/runner/src/test/resources/dummy.dar"),
     scriptIdentifier = "Main:setup",
     ledgerHost = Some(localHost),
@@ -46,7 +46,7 @@ object RunnerMainTest {
     maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
     applicationId = None,
   )
-  val configNodeParticipants: RunnerConfig = RunnerConfig(
+  val configNodeParticipants: RunnerCliConfig = RunnerCliConfig(
     darPath = new File("./daml-script/runner/src/test/resources/dummy.dar"),
     scriptIdentifier = "Main:setup",
     ledgerHost = None,

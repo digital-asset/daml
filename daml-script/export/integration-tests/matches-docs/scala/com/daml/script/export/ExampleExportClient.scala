@@ -12,7 +12,7 @@ import com.daml.fs.Utils.deleteRecursively
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.lf.engine.script.{RunnerConfig, RunnerMain, ScriptConfig}
+import com.daml.lf.engine.script.{RunnerCliConfig, RunnerMain, ScriptConfig}
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientChannelConfiguration,
@@ -100,7 +100,7 @@ object ExampleExportClient {
       new AkkaExecutionSequencerPool("ScriptRunnerPool")(system)
     implicit val ec: ExecutionContext = system.dispatcher
 
-    val config = RunnerConfig(
+    val config = RunnerCliConfig(
       darPath = clientConfig.darPath,
       scriptIdentifier = "ScriptExample:initializeFixed",
       ledgerHost = Some("localhost"),

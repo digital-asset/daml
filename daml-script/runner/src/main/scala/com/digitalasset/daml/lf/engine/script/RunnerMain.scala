@@ -32,7 +32,7 @@ import scala.util.Try
 
 object RunnerMain {
 
-  def main(runnerConfig: RunnerConfig): Unit = {
+  def main(runnerConfig: RunnerCliConfig): Unit = {
 
     implicit val system: ActorSystem = ActorSystem("ScriptRunner")
     implicit val sequencer: ExecutionSequencerFactory =
@@ -41,7 +41,7 @@ object RunnerMain {
     implicit val materializer: Materializer = Materializer(system)
 
     val flow: Future[Unit] = for {
-      config <- Future.fromTry(VerifiedRunnerConfig(runnerConfig))
+      config <- Future.fromTry(RunnerConfig(runnerConfig))
       clients <-
         if (config.jsonApi) {
           val ifaceDar = config.dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
@@ -74,7 +74,7 @@ object RunnerMain {
     Await.result(flow, Duration.Inf)
   }
 
-  final case class VerifiedRunnerConfig private (
+  final case class RunnerConfig private (
       dar: Dar[(PackageId, Package)],
       scriptId: Identifier,
       participantParams: Participants[ApiParameters],
@@ -88,8 +88,8 @@ object RunnerMain {
       applicationId: Option[ApplicationId],
   ) extends NoCopy
 
-  object VerifiedRunnerConfig {
-    private[script] def apply(config: RunnerConfig): Try[VerifiedRunnerConfig] = Try {
+  object RunnerConfig {
+    private[script] def apply(config: RunnerCliConfig): Try[RunnerConfig] = Try {
       val dar: Dar[(PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(config.darPath)
       val scriptId: Identifier =
         Identifier(dar.main._1, QualifiedName.assertFromString(config.scriptIdentifier))
@@ -142,7 +142,7 @@ object RunnerMain {
           )
       }
 
-      new VerifiedRunnerConfig(
+      new RunnerConfig(
         dar,
         scriptId,
         participantParams,
