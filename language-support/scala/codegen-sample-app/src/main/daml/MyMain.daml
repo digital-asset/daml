@@ -5,7 +5,7 @@
 module MyMain where
 
 import Prelude hiding (Date, Enum, Maybe)
-import MyMainIface (IfaceFromAnotherMod)
+import qualified MyMainIface
 import qualified DA.TextMap as TM
 import DA.Map
 
@@ -613,6 +613,6 @@ template InterfaceMixer with
     implements InterfaceToMix where
       view = EmptyInterfaceView
       getOwner = party
-    implements IfaceFromAnotherMod where
-      view = EmptyInterfaceView
+    implements MyMainIface.IfaceFromAnotherMod where
+      view = MyMainIface.EmptyInterfaceView
       getOwner = party
