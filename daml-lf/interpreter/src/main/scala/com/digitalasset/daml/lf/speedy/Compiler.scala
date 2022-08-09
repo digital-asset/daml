@@ -157,10 +157,7 @@ private[lf] final class Compiler(
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompileInterfaceView(view: InterfaceView): t.SExpr = {
-    // TODO https://github.com/digital-asset/daml/issues/14112
-    // PoC until we have interface views
-    val magicInterfaceView = MethodName.assertFromString("_view")
-    SBCallInterface(view.interfaceId, magicInterfaceView)(
+    SBViewInterface(view.interfaceId)(
       SBToAnyContract(view.templateId)(t.SEValue(view.argument))
     )
   }
@@ -338,6 +335,7 @@ private[lf] final class Compiler(
         impl.body.methods.values.foreach(method =>
           addDef(compileImplementsMethod(tmpl.param, tmplId, impl.interfaceId, method))
         )
+        addDef(compileImplementsView(tmpl.param, tmplId, impl.interfaceId, impl.body.view))
       }
 
       tmpl.choices.values.foreach(x => addDef(compileTemplateChoice(tmplId, tmpl, x)))
@@ -360,6 +358,7 @@ private[lf] final class Compiler(
         coimpl.body.methods.values.foreach(method =>
           addDef(compileCoImplementsMethod(iface.param, coimpl.templateId, ifaceId, method))
         )
+        addDef(compileCoImplementsView(iface.param, coimpl.templateId, ifaceId, coimpl.body.view))
       }
     }
 
@@ -731,6 +730,30 @@ private[lf] final class Compiler(
     topLevelFunction1(t.CoImplementsMethodDefRef(tmplId, ifaceId, method.name)) {
       (tmplArgPos, env) =>
         translateExp(env.bindExprVar(tmplParam, tmplArgPos), method.value)
+    }
+  }
+
+  // Compile the implementation of an interface view.
+  private[this] def compileImplementsView(
+      tmplParam: Name,
+      tmplId: Identifier,
+      ifaceId: Identifier,
+      body: Expr,
+  ): (t.SDefinitionRef, SDefinition) = {
+    topLevelFunction1(t.ImplementsViewDefRef(tmplId, ifaceId)) { (tmplArgPos, env) =>
+      translateExp(env.bindExprVar(tmplParam, tmplArgPos), body)
+    }
+  }
+
+  // Compile the interface-provided implementation of a view for the given template.
+  private[this] def compileCoImplementsView(
+      tmplParam: Name,
+      tmplId: Identifier,
+      ifaceId: Identifier,
+      body: Expr,
+  ): (t.SDefinitionRef, SDefinition) = {
+    topLevelFunction1(t.CoImplementsViewDefRef(tmplId, ifaceId)) { (tmplArgPos, env) =>
+      translateExp(env.bindExprVar(tmplParam, tmplArgPos), body)
     }
   }
 

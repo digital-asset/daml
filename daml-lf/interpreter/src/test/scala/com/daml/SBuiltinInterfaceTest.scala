@@ -161,8 +161,9 @@ object SBuiltinInterfaceTest {
 
         module I0 {
           interface (this: I0) = {
-            coimplements T_Co0_No1:T_Co0_No1 {};
-            coimplements T_Co0_Co1:T_Co0_Co1 {};
+            viewtype Unit;
+            coimplements T_Co0_No1:T_Co0_No1 { view = (); };
+            coimplements T_Co0_Co1:T_Co0_Co1 { view = (); };
           };
         }
 
@@ -174,7 +175,7 @@ object SBuiltinInterfaceTest {
             signatories Cons @Party [T_Im0_No1:T_Im0_No1 {party} this] (Nil @Party);
             observers Cons @Party [T_Im0_No1:T_Im0_No1 {party} this] (Nil @Party);
             agreement "";
-            implements I0:I0 {};
+            implements I0:I0 { view = (); };
           };
         }
 
@@ -186,18 +187,21 @@ object SBuiltinInterfaceTest {
             signatories Cons @Party [T_Im0_Co1:T_Im0_Co1 {party} this] (Nil @Party);
             observers Cons @Party [T_Im0_Co1:T_Im0_Co1 {party} this] (Nil @Party);
             agreement "";
-            implements I0:I0 {};
+            implements I0:I0 { view = (); };
           };
         }
 
         module I1 {
           interface (this: I1) = {
+            viewtype Unit;
             requires I0:I0;
             method getText: Text;
             coimplements T_Co0_Co1:T_Co0_Co1 {
+              view = ();
               method getText = APPEND_TEXT "co-implements I1 T_Co0_Co1, msg=" (T_Co0_Co1:T_Co0_Co1 {msg} this);
             };
             coimplements T_Im0_Co1:T_Im0_Co1 {
+              view = ();
               method getText = APPEND_TEXT "co-implements I1 T_Im0_Co1, msg=" (T_Im0_Co1:T_Im0_Co1 {msg} this);
             };
           };
@@ -211,8 +215,9 @@ object SBuiltinInterfaceTest {
             signatories Cons @Party [T_Im0_Im1:T_Im0_Im1 {party} this] (Nil @Party);
             observers Cons @Party [T_Im0_Im1:T_Im0_Im1 {party} this] (Nil @Party);
             agreement "";
-            implements I0:I0 {};
+            implements I0:I0 { view = (); };
             implements I1:I1 {
+              view = ();
               method getText = APPEND_TEXT "implements I1 T_Im0_Im1, msg=" (T_Im0_Im1:T_Im0_Im1 {msg} this);
             };
           };
@@ -235,7 +240,9 @@ object SBuiltinInterfaceTest {
 
         module Mod {
 
-          interface (this : Iface) = {};
+          interface (this : Iface) = {
+            viewtype Unit;
+          };
 
           record @serializable Iou = { i: Party, u: Party, name: Text };
           template (this: Iou) = {
@@ -243,7 +250,7 @@ object SBuiltinInterfaceTest {
             signatories Cons @Party [Mod:Iou {i} this] (Nil @Party);
             observers Cons @Party [Mod:Iou {u} this] (Nil @Party);
             agreement "Agreement";
-            implements Mod:Iface {};
+            implements Mod:Iface { view = (); };
           };
 
           val mkParty : Text -> Party = \(t:Text) -> case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;
@@ -278,7 +285,7 @@ object SBuiltinInterfaceTest {
             signatories Cons @Party [Mod:Iou {i} this] (Nil @Party);
             observers Cons @Party [Mod:Iou {u} this] (Nil @Party);
             agreement "Agreement";
-            implements '$basePkgId':Mod:Iface {};
+            implements '$basePkgId':Mod:Iface { view = (); };
           };
 
           val mkParty : Text -> Party = \(t:Text) -> case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;
