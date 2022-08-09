@@ -31,7 +31,7 @@ from each other.
 
 -  ``Daml.Finance.Interface.Asset`` defines interfaces for instruments,
    accounts, and holdings, as well as holding properties such as
-   fungibility, transferability, or locking.
+   :ref:`fungibility <fungibility>`, :ref:`transferability <transferability>`, or :ref:`locking <locking>`.
 -  ``Daml.Finance.Interface.Settlement`` defines interfaces for
    settlement instructions and batched settlements.
 -  ``Daml.Finance.Interface.Lifecycle`` defines interfaces used for
@@ -49,7 +49,7 @@ implementing the interfaces defined in the interface layer. These are
 the objects that are ultimately stored on the ledger.
 
 For instance, ``Daml.Finance.Asset`` defines a concrete implementation
-for a transferable, fungible holding. This template implements
+for a :ref:`transferable <transferability>`, :ref:`fungible <fungibility>` holding. This template implements
 interfaces defined in ``Daml.Finance.Interface.Asset``.
 
 The implementation layer consists of the following packages
@@ -62,7 +62,7 @@ The implementation layer consists of the following packages
    effects, as well as a rule template to facilitate their settlement.
 -  ``Daml.Finance.RefData`` includes templates used to store reference
    data on the ledger. This data is typically used within the lifeycling
-   functionality (to e.g., store calendars or rate fixings).
+   functionality (e.g. holiday calendars and rate fixings).
 
 Other packages
 **************
@@ -74,7 +74,7 @@ Extension packages
 ==================
 
 The library provides a set of **extension packages** modelling
-instruments across a variety of asset classes, and corresponding
+instruments across a variety of asset classes, and the corresponding
 lifecycle events.
 
 For instance, the ``Daml.Finance.Bond`` package defines commonly-used
@@ -86,7 +86,7 @@ core library, but rather an extension thereof. We are however confident
 that these implementations will support customer applications and
 shorten their time-to-market significantly.
 
-Expected usage of the library
+How to use the library
 #############################
 
 Users are expected to build their application such that it only depends

@@ -66,6 +66,8 @@ Transferability
 
 The ability to transfer ownership of units of an `Instrument <#instrument>`__ to a new owner at the same custodian.
 
+.. _locking:
+
 Locking
 -------
 

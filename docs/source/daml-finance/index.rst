@@ -18,13 +18,13 @@ Introduction
 ************
 
 Daml Finance is a library that supports customers modeling financial use-cases in Daml. It
-comes with Daml packages that cover the four following areas:
+comes with Daml packages that cover the following areas:
 
 -  *Instruments*: modeling a set of financial instruments and their
    economic terms (that is, their rights and obligations)
 -  *Holdings*: modeling relationships of ownership in a financial
-   instrument (that is, clearly define who owns the rights, who the
-   obligations and how much of it)
+   instrument (that is, clearly define who owns the rights, who has the
+   obligations and the amount/quantity)
 -  *Settlement*: atomic settlement of transactions involving holdings
 -  *Lifecycling*: evolution of financial instruments over their lifetime
    based on their economic terms
@@ -32,7 +32,11 @@ comes with Daml packages that cover the four following areas:
 Example use-cases
 *****************
 
-GIVE EXAMPLES OF PROBLEMS THE LIBRARY CAN HELP SOLVE
+- *Synchronized Derivatives Lifecycling*: Atomic, intermediated lifecycling and settlement of cash flows across investors and custodians
+- *Cross-entity Structured Products Issuance*: Atomic, Multi-party issuance across investors, issuer, risk book, treasury
+- *Asset-agnostic Trading Facility*: Generic DvP instructing + immediate, guaranteed settlement
+- *CBDC Sandbox*: RLN-style cash settlement of CBDC and commercial bank / private money
+- *Non-fungible tokens*: Issuance and distribution of NFTs
 
 Next steps
 **********

@@ -9,7 +9,7 @@ with Daml interfaces.
 
 We are going to
 
-#. create an account for Alice and Bob at the Bank
+#. create accounts for Alice and Bob at the Bank
 #. issue a cash instrument
 #. credit a cash holding to Alice’s account
 #. transfer the holding from Alice to Bob
@@ -95,7 +95,7 @@ Notice how the ``ContractId`` is immediately converted to an interface
 upon creation: this is because our workflows do not have any knowledge
 of concrete template implementations.
 
-Similarly, we define a holding factory which is used within an account
+Similarly, we define a holding factory, which is used within an account
 to ``Credit`` and ``Debit`` holdings.
 
 .. literalinclude:: code/daml/Scripts/Setup.daml
@@ -103,7 +103,7 @@ to ``Credit`` and ``Debit`` holdings.
   :start-after: -- CREATE_HOLDING_FACTORY_BEGIN
   :end-before: -- CREATE_HOLDING_FACTORY_END
 
-This factory contract can be use to create ``Fungible`` holdings, which
+This factory contract can be used to create ``Fungible`` holdings, which
 are defined in ``Daml.Finance.Asset.Fungible`` and are
 :ref:`fungible <fungibility>`, as well as
 :ref:`transferable <transferability>`.
@@ -112,7 +112,7 @@ Opening Alice’s and Bob’s accounts
 ==================================
 
 Once the factory templates are setup, we leverage our ``CreateAccount``
-workflow to create an account at the Bank for Alice and Bob.
+workflow to create accounts at the Bank for Alice and Bob.
 
 The creation of an account needs to be authorized by both the
 ``custodian`` and the ``owner`` (resp. the Bank and Alice in our
@@ -138,20 +138,19 @@ to introduce a cash ``Instrument`` in our model.
 
 An instrument is a representation of what it is that we are holding
 against the bank. It can be as simple as just a textual label (like in
-this case) or can include complex on-ledger lifecycling logic.
+this case) or it can include complex on-ledger lifecycling logic.
 
 To hold one unit of the cash instrument in this scenario means that we
-can claim 1 USD from the holding’s custodian.
+can claim 1 USD from the custodian of the holding.
 
-Notice how in this case the Bank acts both as the cash instrument’s
-issuer and depository. This means that we fully trust the Bank with
+Notice how in this case the Bank acts both as the issuer and depository of the cash instrument. This means that we fully trust the Bank with
 any action concerning the instrument.
 
 Depositing cash on Alice’s account
 ==================================
 
 We can now deposit cash on Alice’s account, using the ``Deposit``
-workflow. Alice issues a deposit
+workflow.
 
 .. literalinclude:: code/daml/Scripts/Setup.daml
   :language: daml
@@ -163,7 +162,7 @@ accepts the request and a corresponding ``Holding`` is created.
 
 You can imagine that the latter step happens only after Alice has
 showed up at the bank and delivered physical banknotes corresponding to
-the deposit’s amount.
+the amount of the deposit.
 
 Transferring cash from Alice to Bob
 ===================================
@@ -176,8 +175,8 @@ using the ``Transfer`` workflow.
   :start-after: -- TRANSFER_BEGIN
   :end-before: -- TRANSFER_END
 
-Bob requests the cash to be transferred to his account, Alice
-accepts the request.
+Bob requests the cash to be transferred to his account. Alice
+then accepts the request.
 
 Further considerations
 **********************
@@ -193,7 +192,7 @@ How does the ``Transfer`` workflow work?
 ========================================
 
 If you look at the implementation of the ``Transfer`` workflow, you will
-notice the following lines
+notice the following lines:
 
 .. literalinclude:: code/daml/Workflow/Transfer.daml
   :language: daml
@@ -204,8 +203,8 @@ The first line converts the holding contract id (of type
 ``ContractId Holding.I``) to the ``Transferable`` interface using
 ``coerceContractId``.
 
-Then, the ``Transfer`` choice defined as part of the ``Transferable.I``
-interface is invoked.
+Then, the ``Transfer`` choice, defined as part of the ``Transferable.I``
+interface, is invoked.
 
 Finally, the new holding is converted back to a ``Holding.I`` before it
 is returned. This is done using ``toInterfaceContractId``.
@@ -228,13 +227,13 @@ Why is Alice an observer on Bob’s account?
 ==========================================
 
 You might have noticed that Alice is an observer of Bob’s
-account and might be wondering why this is the case.
+account and you might be wondering why this is the case.
 
 This is because the party exercising the ``Transfer`` choice, which in
 this case is Alice, needs to fetch Bob’s account in order to
 verify that it has not been archived.
 
-In one of the next tutorials, we will see how to use the ``Disclosure``
+In one of the following tutorials, we will see how to use the ``Disclosure``
 interface to temporarily disclose Bob’s account to Alice and
 then undisclose it as part of the same transaction.
 
@@ -242,7 +241,7 @@ If we wanted to avoid Bob’s account contract ever being disclosed
 to Alice, we would need a third party (in this case the Bank) to
 execute the ``Transfer``.
 
-What are account used for?
+What are accounts used for?
 ==========================
 
 An account is used as the proof of a business relationship between an
@@ -255,10 +254,10 @@ without Charlie being vetted and acknowledged by the Bank.
 Why do we need factories?
 =========================
 
-You might be wondering why we use ``Holding`` and ``Account`` factories
-instead of creating an account or holding directly.
+You might be wondering why we use account factories and holding factories
+instead of creating an ``Account`` or ``Holding`` directly.
 
-This is done in order to avoid having to reference
+This is done to avoid having to reference
 ``Daml.Finance.Asset`` directly in user workflows (and hence simplify
 upgrading procedures).
 
@@ -269,12 +268,12 @@ Exercises
 *********
 
 There are a couple of improvements to the code that can be implemented as an exercise.
-Giving them a try will help you familiarize with the library and with Daml interfaces.
+Giving them a try will help you familiarize yourself with the library and with Daml interfaces.
 
 Split the holding to transfer the right amount
 ==================================================
 
-In the example, Bob requests ``1,000 USD`` from Alice and Alice allocates a holding for exactly the right amount, for the transfer would otherwise fail.
+In the example, Bob requests ``1,000 USD`` from Alice and Alice allocates a holding for exactly the right amount, because the transfer would otherwise fail.
 We want the transfer to be successful also if Alice allocates a holding for a larger amount e.g., ``1,500 USD``.
 
 We can leverage the fact that the holding is ``Fungible``, which makes it possible to ``Split`` it into a holding of ``1,000 USD`` and one of ``500 USD``.
@@ -297,4 +296,4 @@ Modify the original code, such that
 - When the Transfer is executed, Alice removes herself from the account observers
 
 In order to do that, you can leverage the fact that ``Account`` implements the ``Disclosure`` interface (which is defined in ``Daml.Finance.Interface.Common``).
-This interface exposes the ``AddObservers`` and ``RemoveObservers`` choices to disclose / undisclose the account Bob's contract to Alice.
+This interface exposes the ``AddObservers`` and ``RemoveObservers`` choices, which can be used to disclose / undisclose Bob's account contract to Alice.

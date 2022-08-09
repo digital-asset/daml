@@ -20,7 +20,7 @@ Instrument
 An Instrument contract describes the economic terms (rights and
 obligations) of one unit of a financial contract.
 
-It can be as simple as an ISIN code referencing some real-world
+It can be as simple as an ISIN code referencing some real-world (off-ledger)
 security, or it could encode specific on-ledger lifecycling logic.
 
 Signatories
@@ -99,7 +99,7 @@ A holding implementation can have specific properties such as being :ref:`fungib
 
 When, for instance, a holding is transferable, the owner has the right to transfer ownership to a different party at the same custodian.
 
-These properties are exposed by implementing the corresponding interface (respectively, ``Fungible`` and ``Transferable``).
+These properties are exposed by implementing the corresponding interface (``Fungible`` and ``Transferable``, respectively).
 
 .. _implementations-1:
 
