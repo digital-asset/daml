@@ -72,3 +72,18 @@ template T5
    implements Interface3.I2 where
      _view = Interface3.View2 with
        c = 1
+
+template T6
+ with
+   p1 : Party
+   p2 : Party
+ where
+   signatory p1
+   observer p1, p2
+   implements I where
+     _view = View with
+       a = 6
+       b = True
+   implements Interface3.I2 where
+     _view = Interface3.View2 with
+       c = 7

@@ -7,6 +7,7 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   Participant,
   Participants,
+  Parties,
   SingleParty,
   allocate,
 }
@@ -23,6 +24,7 @@ import com.daml.ledger.api.v1.transaction_filter.{
   InterfaceFilter,
   TransactionFilter,
 }
+import com.daml.ledger.api.v1.transaction_service.GetTransactionsRequest
 import com.daml.ledger.api.v1.value.{Identifier, Record}
 import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.test.semantic.InterfaceViews._
@@ -31,6 +33,74 @@ import scalaz.Tag
 
 // TODO DPP-1068: [implementation detail] Move to an appropriate place, maybe merge with InterfaceIT?
 class InterfaceSubscriptionsIT extends LedgerTestSuite {
+
+  test(
+    "ISMultipleWitness",
+    "Multiple witness",
+    allocate(Parties(3)),
+  )(implicit ec => { case Participants(Participant(ledger, party1, party2, notAWitness)) =>
+    for {
+      c <- ledger.create(
+        party1,
+        T6(party1, party2),
+      )
+      mergedTransactions <- ledger.flatTransactions(
+        ledger
+          .getTransactionsRequest(Seq.empty)
+          .update(
+            _.filter := new TransactionFilter(
+              Map(
+                party1.toString -> filters(Seq.empty, Seq((Tag.unwrap(I.id), true))),
+                party2.toString -> filters(Seq.empty, Seq((Tag.unwrap(I2.id), true))),
+              )
+            )
+          )
+      )
+
+      party1Transactions <- ledger.flatTransactions(
+        ledger
+          .getTransactionsRequest(Seq.empty)
+          .update(
+            _.filter := new TransactionFilter(
+              Map(
+                party1.toString -> filters(Seq.empty, Seq((Tag.unwrap(I.id), true)))
+              )
+            )
+          )
+      )
+
+      party3Transactions <- ledger.flatTransactions(
+        ledger
+          .getTransactionsRequest(Seq.empty)
+          .update(
+            _.filter := new TransactionFilter(
+              Map(
+                notAWitness.toString -> filters(Seq.empty, Seq((Tag.unwrap(I.id), true)))
+              )
+            )
+          )
+      )
+    } yield {
+      assertLength("single transaction found", 1, mergedTransactions)
+      val createdEvent1 = createdEvents(mergedTransactions(0)).head
+      assertEquals("Create event 1 contract ID", createdEvent1.contractId, c.toString)
+      assertViewEquals(createdEvent1.interfaceViews(0), Tag.unwrap(I.id)) { value =>
+        assertLength("View1 has 2 fields", 2, value.fields)
+        assertEquals("View1.a", value.fields(0).getValue.getInt64, 6)
+        assertEquals("View1.b", value.fields(1).getValue.getBool, true)
+      }
+      assertViewEquals(createdEvent1.interfaceViews(1), Tag.unwrap(I2.id)) { value =>
+        assertLength("View2 has 1 field", 1, value.fields)
+        assertEquals("View2.c", value.fields(0).getValue.getInt64, 7)
+      }
+
+      assertLength("single transaction found", 0, party3Transactions)
+
+      assertLength("single transaction found", 1, party1Transactions)
+      val createdEvent2 = createdEvents(party1Transactions(0)).head
+      assertEquals("Create event 1 contract ID", createdEvent2.contractId, c.toString)
+    }
+  })
 
   test(
     "ISMultipleViews",
@@ -99,7 +169,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
         Tag.unwrap(T1.id).toString,
       )
       assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.toString)
-      assertViewEquals(createdEvent1.interfaceViews(1), Tag.unwrap(I.id)) { value =>
+      assertViewEquals(createdEvent1.interfaceViews(0), Tag.unwrap(I.id)) { value =>
         assertLength("View1 has 2 fields", 2, value.fields)
         assertEquals("View1.a", value.fields(0).getValue.getInt64, 1)
         assertEquals("View1.b", value.fields(1).getValue.getBool, true)
@@ -108,7 +178,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
           s"Expected a view with labels (verbose)",
         )
       }
-      assertViewFailed(createdEvent1.interfaceViews(0), Tag.unwrap(INoView.id))
+      assertViewFailed(createdEvent1.interfaceViews(1), Tag.unwrap(INoView.id))
       assertEquals(
         "Create event 1 createArguments must NOT be empty",
         createdEvent1.createArguments.isEmpty,
@@ -465,7 +535,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
         Tag.unwrap(T1.id).toString,
       )
       assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.toString)
-      assertViewEquals(createdEvent1.interfaceViews(1), Tag.unwrap(I.id)) { value =>
+      assertViewEquals(createdEvent1.interfaceViews(0), Tag.unwrap(I.id)) { value =>
         assertLength("View1 has 2 fields", 2, value.fields)
         assertEquals("View1.a", value.fields(0).getValue.getInt64, 1)
         assertEquals("View1.b", value.fields(1).getValue.getBool, true)
@@ -474,7 +544,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
           s"Expected a view with labels (verbose)",
         )
       }
-      assertViewFailed(createdEvent1.interfaceViews(0), Tag.unwrap(INoView.id))
+      assertViewFailed(createdEvent1.interfaceViews(1), Tag.unwrap(INoView.id))
       assertEquals(
         "Create event 1 createArguments must NOT be empty",
         createdEvent1.createArguments.isEmpty,
@@ -802,28 +872,39 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       templateIds: Seq[Identifier],
       interfaceIds: Seq[(Identifier, IncludeInterfaceView)],
       ledger: ParticipantTestContext,
-  ) = {
-    val filter = new TransactionFilter(
+  ): GetTransactionsRequest =
+    ledger
+      .getTransactionsRequest(Seq(party))
+      .update(_.filter := transactionFilter(party, templateIds, interfaceIds))
+
+  def transactionFilter(
+      party: Party,
+      templateIds: Seq[Identifier],
+      interfaceIds: Seq[(Identifier, IncludeInterfaceView)],
+  ) =
+    new TransactionFilter(
       Map(
-        party.toString -> new Filters(
-          Some(
-            new InclusiveFilters(
-              templateIds = templateIds,
-              interfaceFilters = interfaceIds.map { case (id, includeInterfaceView) =>
-                new InterfaceFilter(
-                  Some(id),
-                  includeInterfaceView = includeInterfaceView,
-                )
-              },
+        party.toString -> filters(templateIds, interfaceIds)
+      )
+    )
+
+  def filters(
+      templateIds: Seq[Identifier],
+      interfaceIds: Seq[(Identifier, IncludeInterfaceView)],
+  ) =
+    new Filters(
+      Some(
+        new InclusiveFilters(
+          templateIds = templateIds,
+          interfaceFilters = interfaceIds.map { case (id, includeInterfaceView) =>
+            new InterfaceFilter(
+              Some(id),
+              includeInterfaceView = includeInterfaceView,
             )
-          )
+          },
         )
       )
     )
-    ledger
-      .getTransactionsRequest(Seq(party))
-      .update(_.filter := filter)
-  }
 
   // TODO DPP-1068: [implementation detail] Factor out methods for creating interface subscriptions, see ParticipantTestContext.getTransactionsRequest
   private def acsSubscription(
