@@ -493,8 +493,9 @@ data InterfaceBinds = InterfaceBinds
       -- point to the @interface X@ line in the daml file.
   , ibViewType :: Maybe GHC.Type
       -- ^ The view type associated with this interface.
-  , ibMethods :: MS.Map MethodName GHC.Type
-      -- ^ The methods defined in this interface and their types
+  , ibMethods :: MS.Map MethodName (GHC.Type, Maybe SourceLoc)
+      -- ^ The methods defined in this interface, together with their types
+      -- and the location of the definition.
   , ibRequires :: [(GHC.TyCon, Maybe SourceLoc)]
       -- ^ The interfaces required by this interface.
   }
@@ -512,9 +513,14 @@ setInterfaceViewType viewType ib = ib
   { ibViewType = Just viewType
   }
 
-insertInterfaceMethod :: MethodName -> GHC.Type -> InterfaceBinds -> InterfaceBinds
-insertInterfaceMethod methodName retTy ib = ib
-  { ibMethods = MS.insert methodName retTy (ibMethods ib)
+insertInterfaceMethod ::
+     MethodName
+  -> GHC.Type
+  -> Maybe SourceLoc
+  -> InterfaceBinds
+  -> InterfaceBinds
+insertInterfaceMethod methodName retTy loc ib = ib
+  { ibMethods = MS.insert methodName (retTy, loc) (ibMethods ib)
   }
 
 insertInterfaceRequires :: GHC.TyCon -> Maybe SourceLoc -> InterfaceBinds -> InterfaceBinds
@@ -555,7 +561,7 @@ scrapeInterfaceBinds lfVersion tyThings binds
           HasInterfaceViewDFunId interface viewType ->
             Just (interface, setInterfaceViewType viewType)
           HasMethodDFunId interface methodName retTy ->
-            Just (interface, insertInterfaceMethod methodName retTy)
+            Just (interface, insertInterfaceMethod methodName retTy (convNameLoc name))
           name
             | "_requires_" `T.isPrefixOf` getOccText name
             , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- varType name
@@ -733,17 +739,19 @@ convertInterfaces env mc = interfaceDefs
         handleIsNotInterface tyCon =
           "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
 
-    convertMethods :: MS.Map MethodName GHC.Type -> ConvertM (NM.NameMap InterfaceMethod)
+    convertMethods ::
+         MS.Map MethodName (GHC.Type, Maybe SourceLoc)
+      -> ConvertM (NM.NameMap InterfaceMethod)
     convertMethods methods =
       NM.fromList <$> sequence
-        [ do
+        [ withRange loc $ do
             retTy' <- convertType env retTy
             pure InterfaceMethod
-              { ifmLocation = Nothing
+              { ifmLocation = loc
               , ifmName = methodName
               , ifmType = retTy'
               }
-        | (methodName, retTy) <- MS.toList methods
+        | (methodName, (retTy, loc)) <- MS.toList methods
         ]
 
 convertConsuming :: LF.Type -> ConvertM Consuming
