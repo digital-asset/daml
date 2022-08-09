@@ -5,6 +5,7 @@ module CIou where
 
 import IIou
 import Transferrable (Transferrable)
+import qualified Transferrable
 
 template CIou with
     issuer : Party
@@ -20,7 +21,7 @@ template CIou with
     getOwner = owner
 
   implements Transferrable where
-    view = EmptyInterfaceView
+    view = Transferrable.EmptyInterfaceView
     getOwner = owner
 
   choice Overridden : Text with
