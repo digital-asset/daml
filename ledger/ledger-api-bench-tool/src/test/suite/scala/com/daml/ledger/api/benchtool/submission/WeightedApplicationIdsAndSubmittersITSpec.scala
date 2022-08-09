@@ -15,11 +15,13 @@ import com.daml.ledger.client.binding
 import com.daml.timer.Delayed
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{AppendedClues, OptionValues}
+import org.scalatest.{AppendedClues, Ignore, OptionValues}
 
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 
+// Flaky
+@Ignore
 class WeightedApplicationIdsAndSubmittersITSpec
     extends AsyncFlatSpec
     with BenchtoolSandboxFixture

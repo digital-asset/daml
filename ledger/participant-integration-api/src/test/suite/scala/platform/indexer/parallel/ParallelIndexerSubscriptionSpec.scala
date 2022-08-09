@@ -17,13 +17,19 @@ import com.daml.lf.transaction.{
   VersionedTransaction,
 }
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.{DatabaseMetrics, Metrics}
+import com.daml.platform.indexer.ha.TestConnection
 import com.daml.platform.indexer.parallel.ParallelIndexerSubscription.Batch
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{DbDto, ParameterStorageBackend}
+import com.daml.platform.store.dao.DbDispatcher
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.SpanSugar.convertIntToGrainOfTime
 
+import java.sql.Connection
 import java.time.Instant
+import scala.concurrent.{Await, Future}
 
 class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
 
@@ -118,8 +124,8 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
     event_sequential_id = 0,
   )
 
-  private val (offsetsAndUpdates, nextOffsetsAndUpdates) =
-    Vector("00", "01", "02", "03", "04", "05")
+  private val offsetsAndUpdates =
+    Vector("00", "01", "02")
       .map(offset)
       .zip(
         Vector(
@@ -128,15 +134,8 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
             .copy(recordTime = somePackageUploadRejected.recordTime.addMicros(1000)),
           somePackageUploadRejected
             .copy(recordTime = somePackageUploadRejected.recordTime.addMicros(2000)),
-          somePackageUploadRejected
-            .copy(recordTime = somePackageUploadRejected.recordTime.addMicros(3000)),
-          somePackageUploadRejected
-            .copy(recordTime = somePackageUploadRejected.recordTime.addMicros(4000)),
-          somePackageUploadRejected
-            .copy(recordTime = somePackageUploadRejected.recordTime.addMicros(5000)),
         )
       )
-      .splitAt(3)
 
   behavior of "inputMapper"
 
@@ -354,37 +353,111 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
     )
   }
 
-  behavior of "tailer"
+  behavior of "ingester"
 
-  it should "aggregate the batches and pass last ledger end correctly in happy path case" in {
-    ParallelIndexerSubscription.tailer("zero")(
-      Batch(
-        lastOffset = offset("02"),
-        lastSeqEventId = 1000,
-        lastStringInterningId = 200,
-        lastRecordTime = someTime.toEpochMilli - 1000,
-        batch = "bumm1",
-        batchSize = 3,
-        offsetsUpdates = offsetsAndUpdates,
-      ),
+  it should "apply ingestFunction and cleanUnusedBatch" in {
+    val connection = new TestConnection
+    val dbDispatcher = new DbDispatcher {
+      override def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
+          loggingContext: LoggingContext
+      ): Future[T] =
+        Future.successful(sql(connection))
+    }
+
+    val batchPayload = "Some batch payload"
+
+    val ingestFunction: (Connection, String) => Unit = {
+      case (`connection`, `batchPayload`) => ()
+      case other => fail(s"Unexpected: $other")
+    }
+
+    val inBatch = Batch(
+      lastOffset = offset("05"),
+      lastSeqEventId = 2000,
+      lastStringInterningId = 300,
+      lastRecordTime = someTime.toEpochMilli,
+      batch = batchPayload,
+      batchSize = 0,
+      offsetsUpdates = Vector.empty,
+    )
+
+    val zeroDbBatch = "zero"
+    val outBatchF =
+      ParallelIndexerSubscription.ingester(ingestFunction, "zero", dbDispatcher, metrics)(
+        LoggingContext.ForTesting
+      )(inBatch)
+
+    val outBatch = Await.result(outBatchF, 10.seconds)
+
+    outBatch shouldBe
       Batch(
         lastOffset = offset("05"),
         lastSeqEventId = 2000,
-        lastStringInterningId = 210,
+        lastStringInterningId = 300,
         lastRecordTime = someTime.toEpochMilli,
-        batch = "bumm2",
-        batchSize = 3,
-        offsetsUpdates = nextOffsetsAndUpdates,
-      ),
-    ) shouldBe Batch(
+        batch = zeroDbBatch,
+        batchSize = 0,
+        offsetsUpdates = Vector.empty,
+      )
+  }
+
+  behavior of "ingestTail"
+
+  it should "apply ingestTailFunction on the last batch and forward the batch of batches" in {
+    val connection = new TestConnection
+    val dbDispatcher = new DbDispatcher {
+      override def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
+          loggingContext: LoggingContext
+      ): Future[T] =
+        Future.successful(sql(connection))
+    }
+
+    val ledgerEnd = ParameterStorageBackend.LedgerEnd(
       lastOffset = offset("05"),
-      lastSeqEventId = 2000,
-      lastStringInterningId = 210,
-      lastRecordTime = someTime.toEpochMilli,
-      batch = "zero",
-      batchSize = 0,
-      offsetsUpdates = offsetsAndUpdates ++ nextOffsetsAndUpdates,
+      lastEventSeqId = 2000,
+      lastStringInterningId = 300,
     )
+
+    val secondBatchLedgerEnd = ParameterStorageBackend.LedgerEnd(
+      lastOffset = offset("06"),
+      lastEventSeqId = 3000,
+      lastStringInterningId = 400,
+    )
+
+    val ingestTailFunction: LedgerEnd => Connection => Unit = {
+      case `secondBatchLedgerEnd` => {
+        case `connection` => ()
+        case otherConnection => fail(s"Unexpected connection: $otherConnection")
+      }
+      case otherLedgerEnd => fail(s"Unexpected ledger end: $otherLedgerEnd")
+    }
+
+    val batch = Batch(
+      lastOffset = ledgerEnd.lastOffset,
+      lastSeqEventId = ledgerEnd.lastEventSeqId,
+      lastStringInterningId = ledgerEnd.lastStringInterningId,
+      lastRecordTime = someTime.toEpochMilli,
+      batch = "Some batch payload",
+      batchSize = 0,
+      offsetsUpdates = Vector.empty,
+    )
+
+    val batchOfBatches = Vector(
+      batch,
+      batch.copy(
+        lastSeqEventId = secondBatchLedgerEnd.lastEventSeqId,
+        lastOffset = secondBatchLedgerEnd.lastOffset,
+        lastStringInterningId = secondBatchLedgerEnd.lastStringInterningId,
+      ),
+    )
+
+    val outBatchF =
+      ParallelIndexerSubscription.ingestTail(ingestTailFunction, dbDispatcher, metrics)(
+        LoggingContext.ForTesting
+      )(batchOfBatches)
+
+    val outBatch = Await.result(outBatchF, 10.seconds)
+    outBatch shouldBe batchOfBatches
   }
 
   behavior of "ledgerEndFromBatch"

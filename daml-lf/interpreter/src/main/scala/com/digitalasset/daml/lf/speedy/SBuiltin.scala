@@ -1393,9 +1393,19 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Control = {
-      crash(
-        s"Tried to run unsupported view with interface ${ifaceId}."
-      )
+      val (templateId, record) = getSAnyContract(args, 0)
+      val ref = getImplementsOrCoImplements(machine, templateId, ifaceId) match {
+        case Some(TemplateOrInterface.Template(ImplementsDefRef(_, _))) =>
+          ImplementsViewDefRef(templateId, ifaceId)
+        case Some(TemplateOrInterface.Interface(CoImplementsDefRef(_, _))) =>
+          CoImplementsViewDefRef(templateId, ifaceId)
+        case None =>
+          crash(
+            s"Attempted to call view for interface ${ifaceId} on a wrapped template of type ${templateId}, which doesn't implement the interface."
+          )
+      }
+      val e = SEApp(SEVal(ref), Array(SEValue(record)))
+      Control.Expression(e)
     }
   }
 

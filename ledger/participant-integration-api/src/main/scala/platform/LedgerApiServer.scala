@@ -72,6 +72,7 @@ class LedgerApiServer(
               inMemoryState = inMemoryState,
               lfValueTranslationCache = translationCache,
               inMemoryStateUpdaterFlow = inMemoryStateUpdater.flow,
+              executionContext = servicesExecutionContext,
             )
           } yield new HealthChecks(
             "read" -> timedReadService,

@@ -242,6 +242,8 @@ object Profile {
       implicit val observersDefRef: Allowed[ObserversDefRef] = allowAll
       implicit val implementsMethodDefRef: Allowed[ImplementsMethodDefRef] = allowAll
       implicit val coImplementsMethodDefRef: Allowed[CoImplementsMethodDefRef] = allowAll
+      implicit val implementsViewDefRef: Allowed[ImplementsViewDefRef] = allowAll
+      implicit val coImplementsViewDefRef: Allowed[CoImplementsViewDefRef] = allowAll
       implicit val templateChoiceDefRef: Allowed[TemplateChoiceDefRef] = allowAll
       implicit val interfaceChoiceDefRef: Allowed[InterfaceChoiceDefRef] = allowAll
       implicit val fetchTemplateDefRef: Allowed[FetchTemplateDefRef] = allowAll

@@ -23,7 +23,7 @@ import com.daml.platform.configuration.{
   PartyConfiguration,
 }
 import com.daml.platform.indexer.ha.HaConfig
-import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
+import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, PackageMetadataViewConfig}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport.{
   ConnectionPoolConfig,
@@ -313,6 +313,9 @@ class PureConfigReaderWriter(secure: Boolean = true) {
 
   implicit val participantIdWriter: ConfigWriter[Ref.ParticipantId] =
     ConfigWriter.toString[Ref.ParticipantId](_.toString)
+
+  implicit val packageMetadataViewConfigConvert: ConfigConvert[PackageMetadataViewConfig] =
+    deriveConvert[PackageMetadataViewConfig]
 
   implicit val indexerConfigConvert: ConfigConvert[IndexerConfig] = deriveConvert[IndexerConfig]
 
