@@ -597,10 +597,12 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               , observers Cons @Party [person] (Nil @Party)
               to upure @Int64 i;
             implements Mod1:Human {
+              view = Mod1:HumanView { name = "Foo B. Baz" };
               method age = 42;
               method alive = True;
             };
             implements '-pkgId-':Mod2:Referenceable {
+              view = Mod1:ReferenceableView { indirect = False };
               method uuid = "123e4567-e89b-12d3-a456-426614174000";
             };
             key @Party (Mod:Person {name} this) (\ (p: Party) -> p);
@@ -663,7 +665,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                     n"age" -> InterfaceInstanceMethod(n"age", e"42"),
                     n"alive" -> InterfaceInstanceMethod(n"alive", e"True"),
                   ),
-                  EAbs((Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
+                  e"""Mod1:HumanView { name = "Foo B. Baz" }""",
                 ),
               ),
             referenceable -> TemplateImplements(
@@ -675,7 +677,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                     e""""123e4567-e89b-12d3-a456-426614174000"""",
                   )
                 ),
-                EAbs((Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
+                e"Mod1:ReferenceableView { indirect = False }",
               ),
             ),
           ),
@@ -791,8 +793,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
 
       val p = """
        module Mod {
-
           interface (this: Person) = {
+            viewtype Mod1:PersonView;
             method asParty: Party;
             method getName: Text;
             choice Sleep (self) (u:Unit) : ContractId Mod:Person
@@ -803,6 +805,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               , observers Nil @Party
               to upure @Int64 i;
             coimplements Mod1:Company {
+              view = Mod1:PersonView { name = callMethod @Mod:Person getName this };
               method asParty = Mod1:Company {party} this;
               method getName = Mod1:Company {legalName} this;
             };
@@ -857,11 +860,11 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                       e"Mod1:Company {legalName} this",
                     ),
                   ),
-                  EAbs((Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
+                  e"Mod1:PersonView { name = callMethod @Mod:Person getName this }",
                 ),
               )
           ),
-          view = TUnit,
+          view = t"Mod1:PersonView",
         )
 
       val person = DottedName.assertFromString("Person")

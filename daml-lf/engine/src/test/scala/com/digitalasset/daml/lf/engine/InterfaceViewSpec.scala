@@ -63,7 +63,6 @@ class InterfaceViewSpec extends AnyWordSpec with Matchers with EitherValues with
   private val t3 = id("T3")
   private val t4 = id("T4")
   private val i = id("I")
-  private val iNoView = id("INoView")
 
   "interface view" should {
 
@@ -109,17 +108,6 @@ class InterfaceViewSpec extends AnyWordSpec with Matchers with EitherValues with
         )
       ) { case Left(err) =>
         err shouldBe a[Error.Interpretation]
-      }
-    }
-    "fail with Error.Preprocessing if interface has no view method" in {
-      inside(
-        computeView(
-          t1,
-          ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(42)))),
-          iNoView,
-        )
-      ) { case Left(err) =>
-        err shouldBe a[Error.Preprocessing]
       }
     }
     "fail with Error.Preprocessing if argument has invalid type" in {

@@ -309,7 +309,7 @@ private[validation] object Typing {
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         cons match {
           case DataRecord(fields) =>
-            env.checkRecordType(fields)
+            env.checkRecordTypeTop(fields)
           case DataVariant(fields) =>
             env.checkVariantType(fields)
           case DataEnum(values) =>
@@ -364,6 +364,16 @@ private[validation] object Typing {
       eVars: Map[ExprVarName, Type] = Map.empty,
   ) {
 
+    private[lf] def kindOf(typ: Type): Kind = { // testing entry point
+      // must *NOT* be used for sub-types
+      runWork(kindOfType(typ))
+    }
+
+    private[Typing] def checkType(typ: Type, kind: Kind): Unit = {
+      // must *NOT* be used for sub-types
+      runWork(nestedCheckType(typ, kind) { Ret(()) })
+    }
+
     // continuation style is for convenience of caller
     private def typeOf[T](e: Expr)(k: Type => Work[T]): Work[T] = {
       // stack-safe type-computation for sub-expressions
@@ -371,6 +381,7 @@ private[validation] object Typing {
     }
 
     private def checkTopExpr(expr: Expr, typ: Type): Unit = {
+      // must *NOT* be used for sub-expressions
       val exprType = typeOfTopExpr(expr)
       if (!alphaEquiv(exprType, typ))
         throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
@@ -460,9 +471,9 @@ private[validation] object Typing {
       case _ => typ0
     }
 
-    private[Typing] def checkRecordType(fields: ImmArray[(FieldName, Type)]): Unit = {
-      checkUniq[FieldName](fields.keys, EDuplicateField(ctx, _))
-      fields.values.foreach(checkType(_, KStar))
+    private[Typing] def checkRecordTypeTop(fields: ImmArray[(FieldName, Type)]): Unit = {
+      // must *NOT* be used when nested with a type
+      runWork(checkRecordType(fields) { Ret(()) })
     }
 
     private def checkChoice(tplName: TypeConName, choice: TemplateChoice): Unit =
@@ -536,7 +547,6 @@ private[validation] object Typing {
       checkType(method.returnType, KStar)
     }
 
-    // TODO https://github.com/digital-asset/daml/issues/13410 -- ensure alphaEquiv is stack-safe
     private def alphaEquiv(t1: Type, t2: Type) =
       AlphaEquiv.alphaEquiv(t1, t2) ||
         AlphaEquiv.alphaEquiv(expandTypeSynonyms(t1), expandTypeSynonyms(t2))
@@ -634,46 +644,69 @@ private[validation] object Typing {
         TypeSubst.substitute((tparams.keys zip tArgs.iterator).toMap, dataCons)
     }
 
-    private[Typing] def checkType(typ: Type, kind: Kind): Unit = {
-      val typKind = kindOf(typ)
-      if (kind != typKind)
-        throw EKindMismatch(ctx, foundKind = typKind, expectedKind = kind)
+    private def nestedCheckType[T](typ: Type, kind: Kind)(work: => Work[T]): Work[T] = {
+      nestedKindOf(typ) { typKind =>
+        if (kind != typKind) {
+          throw EKindMismatch(ctx, foundKind = typKind, expectedKind = kind)
+        }
+        work
+      }
+    }
+
+    private def nestedKindOf[T](typ: Type)(k: Kind => Work[T]): Work[T] = {
+      Bind(Delay(() => kindOfType(typ)), k)
     }
 
     private def kindOfDataType(defDataType: DDataType): Kind =
       defDataType.params.reverse.foldLeft[Kind](KStar) { case (acc, (_, k)) => KArrow(k, acc) }
 
-    // TODO https://github.com/digital-asset/daml/issues/13410 -- ensure kindOf is stack-safe
-    def kindOf(typ0: Type): Kind = typ0 match { // testing entry point
-
+    private def kindOfType(typ0: Type): Work[Kind] = typ0 match {
       case TSynApp(syn, args) =>
         val ty = expandSynApp(syn, args)
-        checkType(ty, KStar)
-        KStar
+        nestedCheckType(ty, KStar) {
+          Ret(KStar)
+        }
       case TVar(v) =>
-        lookupTypeVar(v)
+        Ret(lookupTypeVar(v))
       case TNat(_) =>
-        KNat
+        Ret(KNat)
       case TTyCon(tycon) =>
-        kindOfDataType(handleLookup(ctx, pkgInterface.lookupDataType(tycon)))
+        Ret(kindOfDataType(handleLookup(ctx, pkgInterface.lookupDataType(tycon))))
       case TApp(tFun, tArg) =>
-        kindOf(tFun) match {
+        nestedKindOf(tFun) {
           case KStar | KNat => throw EExpectedHigherKind(ctx, KStar)
           case KArrow(argKind, resKind) =>
-            checkType(tArg, argKind)
-            resKind
+            nestedCheckType(tArg, argKind) {
+              Ret(resKind)
+            }
         }
       case TBuiltin(bType) =>
-        kindOfBuiltin(bType)
+        Ret(kindOfBuiltin(bType))
       case TForall((v, k), b) =>
         checkKind(k)
-        introTypeVar(v, k).checkType(b, KStar)
-        KStar
+        introTypeVar(v, k).nestedCheckType(b, KStar) {
+          Ret(KStar)
+        }
       case TStruct(fields) =>
-        checkRecordType(fields.toImmArray)
-        KStar
+        checkRecordType(fields.toImmArray) {
+          Ret(KStar)
+        }
     }
 
+    private def checkRecordType[T](
+        fields: ImmArray[(FieldName, Type)]
+    )(work: => Work[T]): Work[T] = {
+      checkUniq[FieldName](fields.keys, EDuplicateField(ctx, _))
+      sequenceWork(fields.values.toList.map { ty =>
+        nestedCheckType(ty, KStar) {
+          Ret(())
+        }
+      }) { _ =>
+        work
+      }
+    }
+
+    // TODO https://github.com/digital-asset/daml/issues/13410 -- make expandTypeSynonyms be stack-safe
     private[lf] def expandTypeSynonyms(typ0: Type): Type = typ0 match {
       case TSynApp(syn, args) =>
         val ty = expandSynApp(syn, args)

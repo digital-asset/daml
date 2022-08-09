@@ -115,6 +115,7 @@ object IndexerStabilityTestFixture {
                     lfValueTranslationCache = LfValueTranslationCache.Cache.none,
                     inMemoryState = inMemoryState,
                     inMemoryStateUpdaterFlow = inMemoryStateUpdater.flow,
+                    executionContext = servicesExecutionContext,
                   ).acquire()
                 } yield ReadServiceAndIndexer(readService, indexing)
               )

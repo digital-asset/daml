@@ -27,13 +27,12 @@ import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.annotation.tailrec
-import scala.util.control.NoStackTrace
 
 private[lf] object Speedy {
 
   // These have zero cost when not enabled. But they are not switchable at runtime.
-  private[this] val enableInstrumentation: Boolean = false
-  private[this] val enableLightweightStepTracing: Boolean = false
+  private val enableInstrumentation: Boolean = false
+  private val enableLightweightStepTracing: Boolean = false
 
   /** Instrumentation counters. */
   final case class Instrumentation(
@@ -519,10 +518,8 @@ private[lf] object Speedy {
     }
 
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
-
     def run(): SResult = {
       try {
-        // normal exit from this loop is when KFinished.execute throws SpeedyComplete
         @tailrec
         def loop(): SResult = {
           if (enableInstrumentation) {
@@ -532,38 +529,33 @@ private[lf] object Speedy {
             steps += 1
             println(s"$steps: ${PrettyLightweight.ppMachine(this)}")
           }
-          control match {
-            case Control.WeAreUnset() =>
+          val thisControl = control
+          setControl(Control.WeAreUnset)
+          thisControl match {
+            case Control.WeAreUnset =>
               sys.error("**attempt to run a machine with unset control")
-            case Control.WeAreComplete() =>
-              sys.error("**attempt to run a complete machine")
-            case Control.WeAreHungry(res) =>
-              sys.error(s"**attempt to run a hungry machine (feed me first): $res")
             case Control.Expression(exp) =>
-              setControl(Control.WeAreUnset())
               setControl(exp.execute(this))
               loop()
             case Control.Value(value) =>
               popTempStackToBase()
               setControl(popKont().execute(value))
               loop()
+            case Control.Question(res: SResult) =>
+              res
+            case Control.Complete(value: SValue) =>
+              if (enableInstrumentation) track.print()
+              ledgerMode match {
+                case OffLedger => SResultFinal(value, None)
+                case onLedger: OnLedger =>
+                  val ctx = onLedger.ptx.finish
+                  SResultFinal(value, Some(ctx))
+              }
           }
         }
         loop()
       } catch {
-        case SpeedyHungry(res: SResult) =>
-          setControl(Control.WeAreHungry(res))
-          res
-        case SpeedyComplete(value: SValue) =>
-          setControl(Control.WeAreComplete())
-          if (enableInstrumentation) track.print()
-          ledgerMode match {
-            case OffLedger => SResultFinal(value, None)
-            case onLedger: OnLedger =>
-              val ctx = onLedger.ptx.finish
-              SResultFinal(value, Some(ctx))
-          }
-        case serr: SError =>
+        case serr: SError => // TODO: prefer Control over throw for SError
           SResultError(serr)
         case ex: RuntimeException =>
           SResultError(SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"exception: $ex")) // stop
@@ -595,7 +587,7 @@ private[lf] object Speedy {
                   s"definition $ref not found even after caller provided new set of packages",
                 )
               else
-                throw SpeedyHungry(
+                Control.Question(
                   SResultNeedPackage(
                     ref.packageId,
                     language.Reference.Package(ref.packageId),
@@ -1100,7 +1092,7 @@ private[lf] object Speedy {
   //
   // Whilst the machine is running, we ensure the kontStack is *never* empty.
   // We do this by pushing a KFinished continutaion on the initially empty stack, which
-  // returns the final result (by raising it as a SpeedyHungry exception).
+  // returns the final result
 
   private[this] def initialKontStack(): util.ArrayList[Kont] = {
     val kontStack = new util.ArrayList[Kont](128)
@@ -1110,11 +1102,11 @@ private[lf] object Speedy {
 
   private[speedy] sealed abstract class Control
   object Control {
+    final case object WeAreUnset extends Control
     final case class Expression(e: SExpr) extends Control
     final case class Value(v: SValue) extends Control
-    final case class WeAreUnset() extends Control
-    final case class WeAreComplete() extends Control
-    final case class WeAreHungry(res: SResult) extends Control
+    final case class Question(res: SResult) extends Control
+    final case class Complete(res: SValue) extends Control
   }
 
   /** Kont, or continuation. Describes the next step for the machine
@@ -1129,7 +1121,7 @@ private[lf] object Speedy {
   /** Final continuation; machine has computed final value */
   private[speedy] final case object KFinished extends Kont {
     def execute(v: SValue): Control = {
-      throw SpeedyComplete(v)
+      Control.Complete(v)
     }
   }
 
@@ -1670,18 +1662,6 @@ private[lf] object Speedy {
       Control.Value(v)
     }
   }
-
-  /** Internal exception thrown when a continuation result needs to be returned.
-    */
-  private[speedy] final case class SpeedyHungry(result: SResult)
-      extends RuntimeException
-      with NoStackTrace
-
-  /** Internal exception thrown when execution has reached a final value.
-    */
-  private[speedy] final case class SpeedyComplete(value: SValue)
-      extends RuntimeException
-      with NoStackTrace
 
   private[speedy] def deriveTransactionSeed(
       submissionSeed: crypto.Hash,

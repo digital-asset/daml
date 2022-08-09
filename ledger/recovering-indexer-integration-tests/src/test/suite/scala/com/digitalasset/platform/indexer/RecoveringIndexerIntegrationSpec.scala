@@ -46,7 +46,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 import java.time.Instant
 import java.time.temporal.ChronoUnit.SECONDS
 import java.util.UUID
-import java.util.concurrent.CompletionStage
+import java.util.concurrent.{CompletionStage, Executors}
 import java.util.concurrent.atomic.AtomicLong
 import scala.collection.mutable
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -202,6 +202,9 @@ class RecoveringIndexerIntegrationSpec
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem())
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
       participantState <- newParticipantState(ledgerId, participantId)(materializer, loggingContext)
+      servicesExecutionContext <- ResourceOwner
+        .forExecutorService(() => Executors.newWorkStealingPool())
+        .map(ExecutionContext.fromExecutorService)
       (inMemoryState, inMemoryStateUpdater) <-
         LedgerApiServer
           .createInMemoryStateAndUpdater(
@@ -221,6 +224,7 @@ class RecoveringIndexerIntegrationSpec
         participantDataSourceConfig = participantDataSourceConfig,
         inMemoryState = inMemoryState,
         inMemoryStateUpdaterFlow = inMemoryStateUpdater.flow,
+        executionContext = servicesExecutionContext,
       )(materializer, loggingContext)
     } yield participantState._2
   }

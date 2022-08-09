@@ -6,7 +6,6 @@ package testing.parser
 
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.Util._
 import com.daml.lf.testing.parser.Parsers._
 import com.daml.lf.testing.parser.Token._
 import com.daml.scalautil.Statement.discard
@@ -129,13 +128,16 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
     }
 
   private lazy val interfaceInstanceBody: Parser[InterfaceInstanceBody] =
-    `{` ~> rep(method <~ `;`) <~ `}` ^^ { case methods =>
+    `{` ~> (implementsView <~ `;`) ~ rep(method <~ `;`) <~ `}` ^^ { case view ~ methods =>
       // TODO: Represent a view method and parse it. Currently hardcoding views to unit
       InterfaceInstanceBody.build(
         methods,
-        EAbs((Ref.Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
+        view,
       )
     }
+
+  private lazy val implementsView: Parser[Expr] =
+    Id("view") ~>! `=` ~>! expr
 
   private lazy val implements: Parser[TemplateImplements] =
     Id("implements") ~>! fullIdentifier ~ interfaceInstanceBody ^^ { case ifaceId ~ body =>
@@ -210,22 +212,26 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   private val interfaceDefinition: Parser[IfaceDef] =
     Id("interface") ~ `(` ~> id ~ `:` ~ dottedName ~ `)` ~ `=` ~ `{` ~
+      (interfaceView <~ `;`) ~
       rep(interfaceRequires <~ `;`) ~
       rep(interfaceMethod <~ `;`) ~
       rep(templateChoice <~ `;`) ~
       rep(coImplements <~ `;`) <~
       `}` ^^ {
         case x ~ _ ~ tycon ~ _ ~ _ ~ _ ~
+            view ~
             requires ~
             methods ~
             choices ~
             coImplements =>
           IfaceDef(
             tycon,
-            // TODO: https://github.com/digital-asset/daml/issues/14112
-            DefInterface.build(Set.from(requires), x, choices, methods, coImplements, TUnit),
+            DefInterface.build(Set.from(requires), x, choices, methods, coImplements, view),
           )
       }
+  private val interfaceView: Parser[Type] =
+    Id("viewtype") ~>! typ
+
   private val interfaceRequires: Parser[Ref.TypeConName] =
     Id("requires") ~>! fullIdentifier
 

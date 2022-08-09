@@ -3,6 +3,8 @@
 
 package com.daml.platform.index
 
+import akka.Done
+import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -17,6 +19,7 @@ import com.daml.lf.transaction.CommittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.metrics.Metrics
 import com.daml.platform.index.InMemoryStateUpdaterSpec.{
+  Scope,
   anotherMetadataChangedUpdate,
   metadataChangedUpdate,
   offset,
@@ -31,73 +34,60 @@ import com.daml.platform.indexer.ha.EndlessReadService.configuration
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
 import com.google.rpc.status.Status
-import org.scalatest.Assertion
-import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.util.chaining._
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.Future
 
-class InMemoryStateUpdaterSpec extends AsyncFlatSpec with Matchers with AkkaBeforeAndAfterAll {
+class InMemoryStateUpdaterSpec
+    extends AnyFlatSpec
+    with Matchers
+    with ScalaFutures
+    with IntegrationPatience
+    with AkkaBeforeAndAfterAll {
+
   behavior of classOf[InMemoryStateUpdater].getSimpleName
 
-  "flow" should "correctly process updates" in withFixture {
-    case (inMemoryStateUpdater, cacheUpdates, ledgerEndUpdates) =>
-      val updatesInput =
-        Seq(Vector(update1, metadataChangedUpdate) -> 1L, Vector(update3, update4) -> 3L)
+  "flow" should "correctly process updates" in new Scope {
+    runFlow(Seq(Vector(update1, metadataChangedUpdate) -> 1L, Vector(update3, update4) -> 3L))
 
-      Source(updatesInput)
-        .via(inMemoryStateUpdater.flow)
-        .runWith(Sink.ignore)
-        .map { _ =>
-          cacheUpdates should contain theSameElementsInOrderAs Seq(
-            Vector(txLogUpdate1),
-            Vector(txLogUpdate3, txRejected),
-          )
-          ledgerEndUpdates should contain theSameElementsInOrderAs Seq(
-            offset(2L) -> 1L,
-            offset(4L) -> 3L,
-          )
-        }
+    cacheUpdates should contain theSameElementsInOrderAs Seq(
+      Vector(txLogUpdate1),
+      Vector(txLogUpdate3, txRejected),
+    )
+    ledgerEndUpdates should contain theSameElementsInOrderAs Seq(
+      offset(2L) -> 1L,
+      offset(4L) -> 3L,
+    )
   }
 
-  "flow" should "not process empty input batches" in withFixture {
-    case (inMemoryStateUpdater, cacheUpdates, ledgerEndUpdates) =>
-      val updatesInput =
-        Seq(
-          // Empty input batch should have not effect
-          Vector.empty -> 1L,
-          Vector(update3) -> 3L,
-          // Results in empty batch after processing
-          // Should still have effect on ledger end updates
-          Vector(anotherMetadataChangedUpdate) -> 3L,
-        )
+  "flow" should "not process empty input batches" in new Scope {
+    runFlow(
+      Seq(
+        // Empty input batch should have not effect
+        Vector.empty -> 1L,
+        Vector(update3) -> 3L,
+        // Results in empty batch after processing
+        // Should still have effect on ledger end updates
+        Vector(anotherMetadataChangedUpdate) -> 3L,
+      )
+    )
 
-      Source(updatesInput)
-        .via(inMemoryStateUpdater.flow)
-        .runWith(Sink.ignore)
-        .map { _ =>
-          cacheUpdates should contain theSameElementsInOrderAs Seq(
-            Vector(txLogUpdate3),
-            Vector(),
-          )
-          ledgerEndUpdates should contain theSameElementsInOrderAs Seq(
-            offset(3L) -> 3L,
-            offset(5L) -> 3L,
-          )
-        }
+    cacheUpdates should contain theSameElementsInOrderAs Seq(
+      Vector(txLogUpdate3),
+      Vector(),
+    )
+    ledgerEndUpdates should contain theSameElementsInOrderAs Seq(
+      offset(3L) -> 3L,
+      offset(5L) -> 3L,
+    )
   }
+}
 
-  private def withFixture(
-      test: (
-          (
-              InMemoryStateUpdater,
-              ArrayBuffer[Vector[TransactionLogUpdate]],
-              ArrayBuffer[(Offset, Long)],
-          )
-      ) => Future[Assertion]
-  ): Future[Assertion] = {
+object InMemoryStateUpdaterSpec {
+  trait Scope extends Matchers with ScalaFutures {
     val updateToTransactionAccepted
         : (Offset, Update.TransactionAccepted) => TransactionLogUpdate.TransactionAccepted = {
       case `update1` => txLogUpdate1
@@ -130,11 +120,14 @@ class InMemoryStateUpdaterSpec extends AsyncFlatSpec with Matchers with AkkaBefo
         ledgerEndUpdates.addOne(offset -> evtSeqId)
       },
     )
-    test(inMemoryStateUpdater, cacheUpdates, ledgerEndUpdates)
-  }
-}
 
-object InMemoryStateUpdaterSpec {
+    def runFlow(input: Seq[(Vector[(Offset, Update)], Long)])(implicit mat: Materializer): Done =
+      Source(input)
+        .via(inMemoryStateUpdater.flow)
+        .runWith(Sink.ignore)
+        .futureValue
+  }
+
   private val participantId: Ref.ParticipantId =
     Ref.ParticipantId.assertFromString("EndlessReadServiceParticipant")
 

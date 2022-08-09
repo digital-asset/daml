@@ -46,9 +46,11 @@ class ApiCommandPreprocessorSpec
                 observers Nil @Party
               to create @Mod:Record Mod:Record { owners = Mod:Box @(List Party) {content} box, data = Mod:Record {data} this } ;
             implements Mod:Iface{
+              view = ();
               method getCtrls = Mod:Record {owners} this;
               };
             implements Mod:Iface3{
+              view = ();
               method getCtrls = Mod:Record {owners} this;
               };
             key @(List Party) (Mod:Record {owners} this) (\ (parties: List Party) -> parties);
@@ -69,6 +71,7 @@ class ApiCommandPreprocessorSpec
           };
 
           interface (this: Iface) = {
+            viewtype Unit;
             requires Mod:Iface3;
             method getCtrls: List Party;
             choice IfaceChoice (self) (u:Unit) : Unit
@@ -77,6 +80,7 @@ class ApiCommandPreprocessorSpec
           } ;
 
           interface (this: Iface2) = {
+            viewtype Unit;
             method getCtrls: List Party;
             choice IfaceChoice2 (self) (u:Unit) : Unit
               , controllers (call_method @Mod:Iface2 getCtrls this)
@@ -84,6 +88,7 @@ class ApiCommandPreprocessorSpec
           } ;
 
           interface (this: Iface3) = {
+            viewtype Unit;
             method getCtrls: List Party;
             choice IfaceChoice3 (self) (u:Unit) : Unit
               , controllers (call_method @Mod:Iface3 getCtrls this)

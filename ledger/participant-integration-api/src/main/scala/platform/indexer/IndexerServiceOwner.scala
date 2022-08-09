@@ -15,7 +15,7 @@ import com.daml.platform.index.InMemoryStateUpdater
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 final class IndexerServiceOwner(
     participantId: Ref.ParticipantId,
@@ -27,6 +27,7 @@ final class IndexerServiceOwner(
     inMemoryState: InMemoryState,
     inMemoryStateUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
     additionalMigrationPaths: Seq[String] = Seq.empty,
+    executionContext: ExecutionContext,
 )(implicit materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[ReportsHealth] {
 
@@ -47,6 +48,7 @@ final class IndexerServiceOwner(
       lfValueTranslationCache,
       inMemoryState,
       inMemoryStateUpdaterFlow,
+      executionContext,
     )
     val indexer = RecoveringIndexer(
       materializer.system.scheduler,
