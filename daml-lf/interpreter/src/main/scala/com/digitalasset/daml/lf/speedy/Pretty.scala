@@ -194,7 +194,7 @@ private[lf] object Pretty {
 
       case InconsistentDisclosureTable.IncorrectlyTypedContract(coid, expected, actual) =>
         text(
-          "Inconsistent disclosure table: invalid key hash mapping for contract id"
+          "Inconsistent disclosure table: invalid key hash mapping for disclosed contract id"
         ) & prettyContractId(coid) /
           text("Expected contract of type") & prettyTypeConName(expected) & text(
             "but got"
