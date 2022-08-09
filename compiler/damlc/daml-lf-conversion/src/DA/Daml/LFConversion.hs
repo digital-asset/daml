@@ -105,6 +105,7 @@ import           Data.Foldable (foldlM)
 import           Data.Int
 import           Data.List.Extra
 import qualified Data.Map.Strict as MS
+import qualified Data.Map.Merge.Strict as MMS
 import qualified Data.Set as S
 import           Data.Maybe
 import qualified Data.NameMap as NM
@@ -247,12 +248,11 @@ data ModuleContents = ModuleContents
   , mcTypeDefs :: [TyThing]
   , mcTemplateBinds :: MS.Map TypeConName TemplateBinds
   , mcExceptionBinds :: MS.Map TypeConName ExceptionBinds
+  , mcInterfaceBinds :: MS.Map TypeConName InterfaceBinds
   , mcChoiceData :: MS.Map TypeConName [ChoiceData]
   , mcImplements :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
   , mcRequires :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
   , mcInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
-  , mcInterfaces :: MS.Map TypeConName GHC.TyCon
-  , mcInterfaceViews :: MS.Map TypeConName GHC.Type
   , mcInterfaceViewInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [GHC.Expr GHC.CoreBndr]
   , mcModInstanceInfo :: !ModInstanceInfo
   , mcDepOrphanModules :: [GHC.Module]
@@ -279,7 +279,7 @@ extractModuleContents env@Env{..} coreModule modIface details = do
           Rec binds -> binds
       ]
     mcTypeDefs = eltsUFM (cm_types coreModule)
-    mcInterfaces = interfaceNames envLfVersion mcTypeDefs
+    mcInterfaceBinds = scrapeInterfaceBinds envLfVersion mcTypeDefs mcBinds
     mcImplements = MS.fromListWith (++)
       [ (mkTypeCon [getOccText tpl], [(convNameLoc name, iface)])
       | (name, _val) <- mcBinds
@@ -329,7 +329,6 @@ extractModuleContents env@Env{..} coreModule modIface details = do
         , "_choice_" `T.isPrefixOf` getOccText name
         , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
         ]
-    mcInterfaceViews = interfaceViews envLfVersion mcBinds
     mcTemplateBinds = scrapeTemplateBinds mcBinds
     mcExceptionBinds
         | envLfVersion `supports` featureExceptions =
@@ -527,22 +526,56 @@ modInstanceInfoFromDetails :: ModDetails -> ModInstanceInfo
 modInstanceInfoFromDetails ModDetails{..} = MS.fromList
     [ (is_dfun, overlapMode is_flag) | ClsInst{..} <- md_insts ]
 
-interfaceNames :: LF.Version -> [TyThing] -> MS.Map TypeConName TyCon
-interfaceNames lfVersion tyThings
-    | lfVersion `supports` featureInterfaces = MS.fromList
-        [ (mkTypeCon [getOccText t], t)
-        | ATyCon t <- tyThings
-        , hasDamlInterfaceCtx t
-        ]
-    | otherwise = MS.empty
+data InterfaceBinds = InterfaceBinds
+  { ibLoc :: Maybe SourceLoc
+  , ibViewType :: Maybe GHC.Type
+  }
 
-interfaceViews :: LF.Version -> [(Var, GHC.Expr Var)] -> MS.Map TypeConName GHC.Type
-interfaceViews lfVersion binds
-    | lfVersion `supports` featureInterfaces = MS.fromList
-        [ (mkTypeCon [getOccText $ GHC.tyConName ifaceTyCon], viewType)
-        | (HasInterfaceViewDFunId ifaceTyCon viewType, _) <- binds
-        ]
-    | otherwise = MS.empty
+emptyInterfaceBinds :: Maybe SourceLoc -> InterfaceBinds
+emptyInterfaceBinds ibLoc = InterfaceBinds
+  { ibLoc
+  , ibViewType = Nothing
+  }
+
+setInterfaceViewType :: GHC.Type -> InterfaceBinds -> InterfaceBinds
+setInterfaceViewType viewType ib = ib
+  { ibViewType = Just viewType
+  }
+
+scrapeInterfaceBinds ::
+     LF.Version
+  -> [TyThing]
+  -> [(Var, GHC.Expr Var)]
+  -> MS.Map TypeConName InterfaceBinds
+scrapeInterfaceBinds lfVersion tyThings binds
+  | lfVersion `supports` featureInterfaces =
+      MMS.merge
+        {- drop bind funcs without interfaces -}
+        MMS.dropMissing
+        {- keep interfaces without bind funcs -}
+        MMS.preserveMissing'
+        {- apply bind funcs to interfaces -}
+        (MMS.zipWithMatched (const ($!)))
+        interfaceBindFs
+        interfaces
+  | otherwise = MS.empty
+  where
+    interfaces :: MS.Map TypeConName InterfaceBinds
+    interfaces = MS.fromList
+      [ (mkTypeCon [getOccText t], emptyInterfaceBinds (convNameLoc t))
+      | ATyCon t <- tyThings
+      , hasDamlInterfaceCtx t
+      ]
+
+    interfaceBindFs :: MS.Map TypeConName (InterfaceBinds -> InterfaceBinds)
+    interfaceBindFs = MS.fromListWith (.)
+      [ (mkTypeCon [getOccText interface], fn)
+      | (name, expr) <- binds
+      , Just (interface, fn) <- pure $ case name of
+          HasInterfaceViewDFunId interface viewType ->
+            Just (interface, setInterfaceViewType viewType)
+          _ -> Nothing
+      ]
 
 convertInterfaceTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
 convertInterfaceTyCon env errHandler tycon
@@ -559,14 +592,15 @@ convertInterfaces env mc = interfaceDefs
   where
     interfaceDefs :: ConvertM [Definition]
     interfaceDefs = sequence
-        [ DInterface <$> convertInterface name tycon
-        | (name, tycon) <- MS.toList (mcInterfaces mc)
+        [ DInterface <$> convertInterface name ib
+        | (name, ib) <- MS.toList (mcInterfaceBinds mc)
         ]
 
-    convertInterface :: LF.TypeConName -> GHC.TyCon -> ConvertM DefInterface
-    convertInterface intName tyCon = do
-        let intLocation = convNameLoc (GHC.tyConName tyCon)
-        let intParam = this
+    convertInterface :: LF.TypeConName -> InterfaceBinds -> ConvertM DefInterface
+    convertInterface intName ib = do
+        let
+          intLocation = ibLoc ib
+          intParam = this
         withRange intLocation $ do
             let handleIsNotInterface tyCon =
                   "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
@@ -575,7 +609,7 @@ convertInterfaces env mc = interfaceDefs
             intMethods <- NM.fromList <$> convertMethods tyCon
             intChoices <- convertChoices env mc intName emptyTemplateBinds
             let intCoImplements = NM.empty -- TODO: https://github.com/digital-asset/daml/issues/14047
-            intView <- case MS.lookup intName (mcInterfaceViews mc) of
+            intView <- case ibViewType ib of
                 Nothing -> conversionError $ "No view found for interface " <> renderPretty intName
                 Just viewType -> convertType env viewType
             pure DefInterface {..}
@@ -1127,7 +1161,7 @@ convertBind env mc (name, x)
 
     -- Remove interface worker.
     | Just iface <- T.stripPrefix "$W" (getOccText name)
-    , mkTypeCon [iface] `MS.member` mcInterfaces mc = pure []
+    , mkTypeCon [iface] `MS.member` mcInterfaceBinds mc = pure []
 
     -- NOTE(MH): Our inline return type syntax produces a local letrec for
     -- recursive functions. We currently don't support local letrecs.
