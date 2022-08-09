@@ -95,7 +95,7 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
               case BufferSlice.LastBufferChunkSuffix(bufferedStartExclusive, slice) =>
                 val sourceFromBuffer =
                   fetchFromPersistence(
-                    startExclusive = startExclusive,
+                    startExclusive = scannedToInclusive,
                     endInclusive = bufferedStartExclusive,
                     filter = persistenceFetchArgs,
                   )(loggingContext)
