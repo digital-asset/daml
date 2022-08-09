@@ -3,13 +3,16 @@
 
 package com.daml.platform.indexer
 
+import akka.NotUsed
 import akka.stream._
+import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.InMemoryState
+import com.daml.platform.{InMemoryState, PackageId}
 import com.daml.platform.index.InMemoryStateUpdater
 import com.daml.platform.indexer.parallel.{
   InitializeParallelIngestion,
@@ -18,18 +21,25 @@ import com.daml.platform.indexer.parallel.{
 }
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.backend.{
+  PackageStorageBackend,
   ParameterStorageBackend,
   StorageBackendFactory,
   StringInterningStorageBackend,
 }
+import com.daml.platform.store.cache.ImmutableLedgerEndCache
 import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.interning.UpdatingStringInterningView
+import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
+import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 object JdbcIndexer {
+  private val logger = ContextualizedLogger.get(this.getClass)
+
   private[daml] final class Factory(
       participantId: Ref.ParticipantId,
       participantDataSourceConfig: ParticipantDataSourceConfig,
@@ -39,6 +49,7 @@ object JdbcIndexer {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       inMemoryState: InMemoryState,
       apiUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
+      executionContext: ExecutionContext,
   )(implicit materializer: Materializer) {
 
     def initialized()(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
@@ -100,14 +111,25 @@ object JdbcIndexer {
         readService = readService,
         initializeInMemoryState = dbDispatcher =>
           ledgerEnd =>
-            inMemoryState.initializeTo(ledgerEnd)((updatingStringInterningView, ledgerEnd) =>
-              updateStringInterningView(
-                stringInterningStorageBackend,
+            inMemoryState.initializeTo(ledgerEnd)(
+              updateStringInterningView = (updatingStringInterningView, ledgerEnd) =>
+                updateStringInterningView(
+                  stringInterningStorageBackend,
+                  metrics,
+                  dbDispatcher,
+                  updatingStringInterningView,
+                  ledgerEnd,
+                ),
+              updatePackageMetadataView = updatePackageMetadataView(
+                factory.createPackageStorageBackend(
+                  ImmutableLedgerEndCache(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
+                ),
                 metrics,
                 dbDispatcher,
-                updatingStringInterningView,
-                ledgerEnd,
-              )
+                _,
+                executionContext,
+                config.packageMetadataView,
+              ),
             ),
       )
 
@@ -132,4 +154,57 @@ object JdbcIndexer {
             )
           }
     )
+
+  private def updatePackageMetadataView(
+      packageStorageBackend: PackageStorageBackend,
+      metrics: Metrics,
+      dbDispatcher: DbDispatcher,
+      packageMetadataView: PackageMetadataView,
+      computationExecutionContext: ExecutionContext,
+      config: PackageMetadataViewConfig,
+  )(implicit loggingContext: LoggingContext, materializer: Materializer): Future[Unit] = {
+    implicit val ec: ExecutionContext = computationExecutionContext
+    logger.info("Package Metadata View initialization has been started.")
+
+    def loadLfArchive(packageId: PackageId): Future[(PackageId, Array[Byte])] =
+      dbDispatcher
+        .executeSql(metrics.daml.index.db.loadArchive)(connection =>
+          packageStorageBackend
+            .lfArchive(packageId)(connection)
+            .getOrElse(
+              // should never happen as we received a reference to packageId
+              sys.error(s"LfArchive does not exist by packageId=$packageId")
+            )
+        )
+        .map(bytes => (packageId, bytes))
+
+    def lfPackagesSource(): Future[Source[PackageId, NotUsed]] =
+      dbDispatcher.executeSql(metrics.daml.index.db.loadPackages)(connection =>
+        Source(packageStorageBackend.lfPackages(connection).keySet)
+      )
+
+    def toMetadataDefinition(packageBytes: Array[Byte]): PackageMetadata =
+      PackageMetadata.from(ArchiveParser.assertFromByteArray(packageBytes))
+
+    def processPackage(archive: (PackageId, Array[Byte])): Future[PackageMetadata] = {
+      val (packageId, packageBytes) = archive
+      Future(toMetadataDefinition(packageBytes)).recover { case NonFatal(e) =>
+        logger.error(s"Failed to decode loaded LF Archive by packageId=$packageId", e)
+        throw e
+      }
+    }
+
+    Source
+      .futureSource(lfPackagesSource())
+      .mapAsyncUnordered(config.initLoadParallelism)(loadLfArchive)
+      .mapAsyncUnordered(config.initProcessParallelism)(processPackage)
+      .runWith(Sink.foreach(packageMetadataView.update))
+      .map(_ => logger.info("Package Metadata View has been initialized"))(
+        computationExecutionContext
+      )
+      .recover { case NonFatal(e) =>
+        logger.error(s"Failed to initialize Package Metadata View", e)
+        throw e
+      }
+  }
 }

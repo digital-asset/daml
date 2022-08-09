@@ -22,6 +22,7 @@ case class IndexerConfig(
     ingestionParallelism: Int = DefaultIngestionParallelism,
     inputMappingParallelism: Int = DefaultInputMappingParallelism,
     maxInputBufferSize: Int = DefaultMaxInputBufferSize,
+    packageMetadataView: PackageMetadataViewConfig = DefaultPackageMetadataViewConfig,
     restartDelay: FiniteDuration = DefaultRestartDelay,
     startupMode: IndexerStartupMode = DefaultIndexerStartupMode,
     submissionBatchSize: Long = DefaultSubmissionBatchSize,
@@ -69,4 +70,6 @@ object IndexerConfig {
   val DefaultEnableCompression: Boolean = false
   val DefaultMaxOutputBatchedBufferSize: Int = 16
   val DefaultMaxTailerBatchSize: Int = 10
+  val DefaultPackageMetadataViewConfig: PackageMetadataViewConfig =
+    PackageMetadataViewConfig.Default
 }
