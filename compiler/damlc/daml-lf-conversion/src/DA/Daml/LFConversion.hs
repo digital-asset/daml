@@ -529,17 +529,24 @@ modInstanceInfoFromDetails ModDetails{..} = MS.fromList
 data InterfaceBinds = InterfaceBinds
   { ibLoc :: Maybe SourceLoc
   , ibViewType :: Maybe GHC.Type
+  , ibMethods :: MS.Map MethodName GHC.Type
   }
 
 emptyInterfaceBinds :: Maybe SourceLoc -> InterfaceBinds
 emptyInterfaceBinds ibLoc = InterfaceBinds
   { ibLoc
   , ibViewType = Nothing
+  , ibMethods = MS.empty
   }
 
 setInterfaceViewType :: GHC.Type -> InterfaceBinds -> InterfaceBinds
 setInterfaceViewType viewType ib = ib
   { ibViewType = Just viewType
+  }
+
+insertInterfaceMethod :: MethodName -> GHC.Type -> InterfaceBinds -> InterfaceBinds
+insertInterfaceMethod methodName retTy ib = ib
+  { ibMethods = MS.insert methodName retTy (ibMethods ib)
   }
 
 scrapeInterfaceBinds ::
@@ -574,6 +581,8 @@ scrapeInterfaceBinds lfVersion tyThings binds
       , Just (interface, fn) <- pure $ case name of
           HasInterfaceViewDFunId interface viewType ->
             Just (interface, setInterfaceViewType viewType)
+          HasMethodDFunId interface methodName retTy ->
+            Just (interface, insertInterfaceMethod methodName retTy)
           _ -> Nothing
       ]
 
@@ -606,7 +615,7 @@ convertInterfaces env mc = interfaceDefs
                   "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
             intRequires <- fmap S.fromList $ mapM (\(mloc, iface) -> withRange mloc $ convertInterfaceTyCon env handleIsNotInterface iface) $
                 MS.findWithDefault [] intName (mcRequires mc)
-            intMethods <- NM.fromList <$> convertMethods tyCon
+            intMethods <- convertMethods (ibMethods ib)
             intChoices <- convertChoices env mc intName emptyTemplateBinds
             let intCoImplements = NM.empty -- TODO: https://github.com/digital-asset/daml/issues/14047
             intView <- case ibViewType ib of
@@ -614,17 +623,18 @@ convertInterfaces env mc = interfaceDefs
                 Just viewType -> convertType env viewType
             pure DefInterface {..}
 
-    convertMethods :: GHC.TyCon -> ConvertM [InterfaceMethod]
-    convertMethods tyCon = sequence $ do
-      (name, val) <- mcBinds mc
-      HasMethodDFunId tyCon methodName retTy <- [name]
-      pure $ do
-        retTy' <- convertType env retTy
-        pure InterfaceMethod
-          { ifmLocation = Nothing
-          , ifmName = methodName
-          , ifmType = retTy'
-          }
+    convertMethods :: MS.Map MethodName GHC.Type -> ConvertM (NM.NameMap InterfaceMethod)
+    convertMethods methods =
+      NM.fromList <$> sequence
+        [ do
+            retTy' <- convertType env retTy
+            pure InterfaceMethod
+              { ifmLocation = Nothing
+              , ifmName = methodName
+              , ifmType = retTy'
+              }
+        | (methodName, retTy) <- MS.toList methods
+        ]
 
 convertConsuming :: LF.Type -> ConvertM Consuming
 convertConsuming consumingTy = case consumingTy of
