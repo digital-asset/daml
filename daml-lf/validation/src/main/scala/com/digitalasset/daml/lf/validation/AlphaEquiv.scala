@@ -46,15 +46,15 @@ private[validation] object AlphaEquiv {
           }
         case (TStruct(fs1), TStruct(fs2)) =>
           (fs1.names sameElements fs2.names) && {
-            val more = (fs1.values zip fs2.values).toList.map { case (x1, x2) => (env, x1, x2) }
-            alphaEquivList(more ++ trips)
+            val more = (fs1.values zip fs2.values).map { case (x1, x2) => (env, x1, x2) }
+            alphaEquivList(more ++: trips)
           }
         case (TSynApp(f, xs), TSynApp(g, ys)) =>
           // We treat type synonyms nominally here. If alpha equivalence
           // fails, we expand all of them and try again.
           f == g && xs.length == ys.length && {
-            val more = (xs.iterator zip ys.iterator).toList.map { case (x1, x2) => (env, x1, x2) }
-            alphaEquivList(more ++ trips)
+            val more = (xs.iterator zip ys.iterator).map { case (x1, x2) => (env, x1, x2) }
+            alphaEquivList(more ++: trips)
           }
         case _ =>
           false
