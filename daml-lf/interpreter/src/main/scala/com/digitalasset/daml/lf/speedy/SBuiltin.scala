@@ -9,6 +9,7 @@ import java.util.regex.Pattern
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
+import com.daml.lf.interpretation.Error.InconsistentDisclosureTable
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.ArrayList.Implicits._
@@ -1592,11 +1593,27 @@ private[lf] object SBuiltin {
           // TODO (drsk) validate key hash. https://github.com/digital-asset/daml/issues/13897
           machine.disclosureTable.contractIdByKey.get(gkey.hash) match {
             case Some(coid) =>
-              val vcoid = coid.value
-              val (control, _) = continue(Some(vcoid))
-              control
+              machine.disclosureTable.contractById.get(coid) match {
+                case Some((actualTemplateId, _)) if actualTemplateId == operation.templateId =>
+                  val vcoid = coid.value
+                  continue(Some(vcoid))._1
 
-            case None => {
+                case Some((actualTemplateId, _)) =>
+                  throw SErrorDamlException(
+                    InconsistentDisclosureTable.IncorrectlyTypedContract(
+                      coid.value,
+                      operation.templateId,
+                      actualTemplateId,
+                    )
+                  )
+
+                case None =>
+                  crash(
+                    s"Disclosure table is in an inconsistent state: unable to locate the contract ${coid.value} even though we know its key hash ${gkey.hash}"
+                  )
+              }
+
+            case None =>
               Control.Question(
                 SResultNeedKey(
                   GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
@@ -1608,7 +1625,6 @@ private[lf] object SBuiltin {
                   },
                 )
               )
-            }
           }
       }
     }
