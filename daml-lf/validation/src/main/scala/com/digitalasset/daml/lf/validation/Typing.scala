@@ -547,7 +547,6 @@ private[validation] object Typing {
       checkType(method.returnType, KStar)
     }
 
-    // TODO https://github.com/digital-asset/daml/issues/13410 -- ensure alphaEquiv is stack-safe
     private def alphaEquiv(t1: Type, t2: Type) =
       AlphaEquiv.alphaEquiv(t1, t2) ||
         AlphaEquiv.alphaEquiv(expandTypeSynonyms(t1), expandTypeSynonyms(t2))
@@ -707,6 +706,7 @@ private[validation] object Typing {
       }
     }
 
+    // TODO https://github.com/digital-asset/daml/issues/13410 -- make expandTypeSynonyms be stack-safe
     private[lf] def expandTypeSynonyms(typ0: Type): Type = typ0 match {
       case TSynApp(syn, args) =>
         val ty = expandSynApp(syn, args)
