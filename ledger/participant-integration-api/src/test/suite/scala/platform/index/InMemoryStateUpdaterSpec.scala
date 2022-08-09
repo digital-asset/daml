@@ -19,11 +19,11 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.metrics.Metrics
+import com.daml.platform.index.InMemoryStateUpdater.PrepareResult
 import com.daml.platform.index.InMemoryStateUpdaterSpec.{
   Scope,
   anotherMetadataChangedUpdate,
   metadataChangedUpdate,
-  offset,
   txLogUpdate1,
   txLogUpdate3,
   txRejected,
@@ -35,6 +35,7 @@ import com.daml.platform.index.InMemoryStateUpdaterSpec.{
 import com.daml.platform.indexer.ha.EndlessReadService.configuration
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
+import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
@@ -61,14 +62,6 @@ class InMemoryStateUpdaterSpec extends AnyFlatSpec with Matchers with AkkaBefore
       Vector(txLogUpdate3, txRejected),
       Vector(),
     )
-    ledgerEndUpdates should contain theSameElementsInOrderAs Seq(
-      offset(2L) -> 1L,
-      offset(4L) -> 3L,
-      offset(5L) -> 4L,
-    )
-    packageUploads should contain theSameElementsInOrderAs Seq(
-      update5._2
-    )
   }
 
   "flow" should "not process empty input batches" in new Scope {
@@ -89,14 +82,6 @@ class InMemoryStateUpdaterSpec extends AnyFlatSpec with Matchers with AkkaBefore
       Vector(),
       Vector(),
     )
-    ledgerEndUpdates should contain theSameElementsInOrderAs Seq(
-      offset(3L) -> 3L,
-      offset(5L) -> 3L,
-      offset(5L) -> 4L,
-    )
-    packageUploads should contain theSameElementsInOrderAs Seq(
-      update5._2
-    )
   }
 }
 
@@ -115,13 +100,9 @@ object InMemoryStateUpdaterSpec {
       case _ => fail()
     }
 
-    val cacheUpdates = ArrayBuffer.empty[Vector[TransactionLogUpdate]]
+    val cacheUpdates = ArrayBuffer.empty[PrepareResult]
     val cachesUpdateCaptor =
-      (v: Vector[TransactionLogUpdate]) => cacheUpdates.addOne(v).pipe(_ => ())
-
-    val ledgerEndUpdates = ArrayBuffer.empty[(Offset, Long)]
-
-    val packageUploads = ArrayBuffer.empty[Update.PublicPackageUpload]
+      (v: PrepareResult) => cacheUpdates.addOne(v).pipe(_ => ())
 
     val inMemoryStateUpdater = new InMemoryStateUpdater(
       2,
@@ -129,13 +110,8 @@ object InMemoryStateUpdaterSpec {
       scala.concurrent.ExecutionContext.global,
       new Metrics(new MetricRegistry),
     )(
-      convertTransactionAccepted = updateToTransactionAccepted,
-      convertTransactionRejected = updateToTransactionRejected,
-      updateCaches = cachesUpdateCaptor,
-      updateLedgerEnd = { case (offset, evtSeqId) =>
-        ledgerEndUpdates.addOne(offset -> evtSeqId)
-      },
-      updatePackageMetadata = packageUploads.addOne,
+      prepare = (_, _) => PrepareResult(Vector.empty, offset(1L), 0L, PackageMetadata()),
+      update = cachesUpdateCaptor,
     )
 
     def runFlow(input: Seq[(Vector[(Offset, Update)], Long)])(implicit mat: Materializer): Done =

@@ -3,8 +3,8 @@
 
 package com.daml.platform.index
 
-import akka.{Done, NotUsed}
-import akka.stream.scaladsl.{Flow, Sink}
+import akka.NotUsed
+import akka.stream.scaladsl.Flow
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.offset.Offset
@@ -18,13 +18,12 @@ import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.lf.transaction.{Node, NodeId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.index.InMemoryStateUpdater.UpdaterFlow
+import com.daml.platform.index.InMemoryStateUpdater.{PrepareResult, UpdaterFlow}
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
-import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.{Contract, InMemoryState, Key, Party}
 
 import java.util.concurrent.Executors
@@ -36,52 +35,35 @@ final class InMemoryStateUpdater(
     updateCachesExecutionContext: ExecutionContext,
     metrics: Metrics,
 )(
-    updateCaches: Vector[TransactionLogUpdate] => Unit,
-    convertTransactionAccepted: (
-        Offset,
-        Update.TransactionAccepted,
-    ) => TransactionLogUpdate.TransactionAccepted,
-    convertTransactionRejected: (
-        Offset,
-        Update.CommandRejected,
-    ) => TransactionLogUpdate.TransactionRejected,
-    updateLedgerEnd: (Offset, Long) => Unit,
-    updatePackageMetadata: Update.PublicPackageUpload => Unit,
+    prepare: (Vector[(Offset, Update)], Long) => PrepareResult,
+    update: PrepareResult => Unit,
 ) {
-
-  val packageMetadataFlow: Sink[(Vector[(Offset, Update)], Long), Future[Done]] = Sink.foreach {
-    case (batch, _) =>
-      batch
-        .collect { case (_, event: Update.PublicPackageUpload) => event }
-        .foreach(updatePackageMetadata)
-  }
 
   // TODO LLP: Considering directly returning this flow instead of the wrapper
   val flow: UpdaterFlow =
     Flow[(Vector[(Offset, Update)], Long)]
       .filter(_._1.nonEmpty)
-      .alsoTo(packageMetadataFlow)
       .mapAsync(prepareUpdatesParallelism) { case (batch, lastEventSequentialId) =>
         Future {
-          val updatesBatch =
-            batch.collect {
-              case (offset, u: Update.TransactionAccepted) => convertTransactionAccepted(offset, u)
-              case (offset, u: Update.CommandRejected) => convertTransactionRejected(offset, u)
-            }
-          (updatesBatch, batch.last._1, lastEventSequentialId)
+          prepare(batch, lastEventSequentialId)
         }(prepareUpdatesExecutionContext)
       }
       .async
-      .mapAsync(1) { case (updates, lastOffset, lastEventSequentialId) =>
+      .mapAsync(1) { result =>
         Future {
-          updateCaches(updates)
-          updateLedgerEnd(lastOffset, lastEventSequentialId)
-          metrics.daml.index.ledgerEndSequentialId.updateValue(lastEventSequentialId)
+          update(result)
+          metrics.daml.index.ledgerEndSequentialId.updateValue(result.lastEventSequentialId)
         }(updateCachesExecutionContext)
       }
 }
 
 private[platform] object InMemoryStateUpdater {
+  case class PrepareResult(
+      logUpdate: Vector[TransactionLogUpdate],
+      lastOffset: Offset,
+      lastEventSequentialId: Long,
+      packageMetadata: PackageMetadata,
+  )
   type UpdaterFlow = Flow[(Vector[(Offset, Update)], Long), Unit, NotUsed]
 
   private val logger = ContextualizedLogger.get(getClass)
@@ -111,22 +93,42 @@ private[platform] object InMemoryStateUpdater {
     updateCachesExecutionContext = ExecutionContext.fromExecutorService(updateCachesExecutor),
     metrics = metrics,
   )(
-    updateCaches = updateCaches(inMemoryState),
-    convertTransactionAccepted = convertTransactionAccepted,
-    convertTransactionRejected = convertTransactionRejected,
-    updateLedgerEnd = updateLedgerEnd(inMemoryState),
-    updatePackageMetadata = updatePackageMetadata(inMemoryState.packageMetadataView),
+    prepare = prepare,
+    update = update(inMemoryState, loggingContext),
   )
 
-  private def updatePackageMetadata(
-      packageMetadataView: PackageMetadataView
-  )(packageUpload: Update.PublicPackageUpload): Unit =
-    packageUpload.archives
-      .map(PackageMetadata.from)
-      .foreach(packageMetadataView.update)
+  def combinePackageMetadata(batch: Vector[(Offset, Update)]): PackageMetadata =
+    batch.foldLeft(PackageMetadata()) {
+      case (metadata, (_, uploadEvent: Update.PublicPackageUpload)) =>
+        uploadEvent.archives.foldLeft(metadata) { case (acc, archive) =>
+          acc.append(PackageMetadata.from(archive))
+        }
+      case (metadata, _) => metadata
+    }
 
-  private def updateCaches(inMemoryState: InMemoryState)(
-      updates: Vector[TransactionLogUpdate]
+  def prepare(batch: Vector[(Offset, Update)], lastEventSequentialId: Long): PrepareResult =
+    PrepareResult(
+      logUpdate = batch.collect {
+        case (offset, u: Update.TransactionAccepted) => convertTransactionAccepted(offset, u)
+        case (offset, u: Update.CommandRejected) => convertTransactionRejected(offset, u)
+      },
+      lastOffset = batch.last._1,
+      lastEventSequentialId = lastEventSequentialId,
+      packageMetadata = combinePackageMetadata(batch),
+    )
+
+  def update(
+      inMemoryState: InMemoryState,
+      loggingContext: LoggingContext,
+  )(result: PrepareResult): Unit = {
+    inMemoryState.packageMetadataView.update(result.packageMetadata)
+    updateCaches(inMemoryState, result.logUpdate)
+    updateLedgerEnd(inMemoryState, result.lastOffset, result.lastEventSequentialId)(loggingContext)
+  }
+
+  private def updateCaches(
+      inMemoryState: InMemoryState,
+      updates: Vector[TransactionLogUpdate],
   ): Unit =
     updates.foreach { transaction: TransactionLogUpdate =>
       // TODO LLP: Batch update caches
@@ -139,8 +141,10 @@ private[platform] object InMemoryStateUpdater {
     }
 
   private def updateLedgerEnd(
-      inMemoryState: InMemoryState
-  )(lastOffset: Offset, lastEventSequentialId: Long)(implicit
+      inMemoryState: InMemoryState,
+      lastOffset: Offset,
+      lastEventSequentialId: Long,
+  )(implicit
       loggingContext: LoggingContext
   ): Unit = {
     inMemoryState.ledgerEndCache.set((lastOffset, lastEventSequentialId))
