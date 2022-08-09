@@ -129,7 +129,6 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   private lazy val interfaceInstanceBody: Parser[InterfaceInstanceBody] =
     `{` ~> (implementsView <~ `;`) ~ rep(method <~ `;`) <~ `}` ^^ { case view ~ methods =>
-      // TODO: Represent a view method and parse it. Currently hardcoding views to unit
       InterfaceInstanceBody.build(
         methods,
         view,
