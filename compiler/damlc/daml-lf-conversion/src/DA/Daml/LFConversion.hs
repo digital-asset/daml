@@ -102,6 +102,7 @@ import           DA.Daml.Options.Types (EnableScenarios (..))
 import           Data.Data hiding (TyCon)
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
+import           Data.Function (on)
 import           Data.Int
 import           Data.List.Extra
 import qualified Data.Map.Strict as MS
@@ -249,10 +250,8 @@ data ModuleContents = ModuleContents
   , mcTemplateBinds :: MS.Map TypeConName TemplateBinds
   , mcExceptionBinds :: MS.Map TypeConName ExceptionBinds
   , mcInterfaceBinds :: MS.Map TypeConName InterfaceBinds
+  , mcInterfaceInstanceBinds :: MS.Map TypeConName (MS.Map InterfaceInstanceKey InterfaceInstanceBinds)
   , mcChoiceData :: MS.Map TypeConName [ChoiceData]
-  , mcImplements :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
-  , mcInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
-  , mcInterfaceViewInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [GHC.Expr GHC.CoreBndr]
   , mcModInstanceInfo :: !ModInstanceInfo
   , mcDepOrphanModules :: [GHC.Module]
   , mcExports :: [GHC.AvailInfo]
@@ -279,42 +278,7 @@ extractModuleContents env@Env{..} coreModule modIface details = do
       ]
     mcTypeDefs = eltsUFM (cm_types coreModule)
     mcInterfaceBinds = scrapeInterfaceBinds envLfVersion mcTypeDefs mcBinds
-    mcImplements = MS.fromListWith (++)
-      [ (mkTypeCon [getOccText tpl], [(convNameLoc name, iface)])
-      | (name, _val) <- mcBinds
-      , "_implements_" `T.isPrefixOf` getOccText name
-      , TypeCon implementsT [TypeCon tpl [], TypeCon iface []] <- [varType name]
-      , NameIn DA_Internal_Desugar "ImplementsT" <- [implementsT]
-      ]
-    mcInterfaceViewInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [GHC.Expr GHC.CoreBndr]
-    mcInterfaceViewInstances = MS.fromListWith (++)
-        [
-        ( (mod, mkTypeCon [getOccText iface], mkTypeCon [getOccText tpl])
-        , [untick val]
-        )
-        | (name, val) <- mcBinds
-        , TypeCon interfaceViewNewtype
-        [ TypeCon tpl []
-        , TypeCon iface []
-        ] <- [varType name]
-        , NameIn DA_Internal_Desugar "InterfaceView" <- [interfaceViewNewtype]
-        , Just mod <- [nameModule_maybe (getName iface)]
-        ]
-    mcInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
-    mcInterfaceMethodInstances = MS.fromListWith (++)
-      [
-        ( (mod, mkTypeCon [getOccText iface], mkTypeCon [getOccText tpl])
-        , [(methodName, untick val)]
-        )
-      | (name, val) <- mcBinds
-      , TypeCon methodNewtype
-        [ TypeCon tpl []
-        , TypeCon iface []
-        , StrLitTy methodName
-        ] <- [varType name]
-      , NameIn DA_Internal_Desugar "Method" <- [methodNewtype]
-      , Just mod <- [nameModule_maybe (getName iface)]
-      ]
+    mcInterfaceInstanceBinds = scrapeInterfaceInstanceBinds env mcBinds
     mcChoiceData = MS.fromListWith (++)
         [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
         | (name, v) <- mcBinds
@@ -587,6 +551,112 @@ scrapeInterfaceBinds lfVersion tyThings binds
             , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- varType name
             , NameIn DA_Internal_Desugar "RequiresT" <- requiresT
             -> Just (iface1, insertInterfaceRequires iface2 (convNameLoc name))
+          _ -> Nothing
+      ]
+
+data InterfaceInstanceKey = InterfaceInstanceKey
+  { iikInterface :: GHC.TyCon
+  , iikTemplate :: GHC.TyCon
+  }
+  deriving (Eq)
+
+instance Ord InterfaceInstanceKey where
+  compare = compare `on` modTypeCons
+    where
+      modTypeCons InterfaceInstanceKey {..} =
+        ( getName iikInterface
+        , getName iikTemplate
+        )
+
+data InterfaceInstanceBinds = InterfaceInstanceBinds
+  { iibLoc :: Maybe SourceLoc
+  , iibMethods :: MS.Map MethodName (GHC.Expr GHC.CoreBndr)
+  , iibView :: [GHC.Expr GHC.CoreBndr]
+  }
+
+emptyInterfaceInstanceBinds ::
+     Maybe SourceLoc
+  -> InterfaceInstanceBinds
+emptyInterfaceInstanceBinds iibLoc = InterfaceInstanceBinds
+  { iibLoc
+  , iibMethods = MS.empty
+  , iibView = []
+  }
+
+insertInterfaceInstanceView ::
+     GHC.TyCon
+  -> GHC.TyCon
+  -> GHC.Expr GHC.CoreBndr
+  -> MS.Map InterfaceInstanceKey InterfaceInstanceBinds
+  -> MS.Map InterfaceInstanceKey InterfaceInstanceBinds
+insertInterfaceInstanceView interface template view =
+  MS.adjust
+    (\iib -> iib { iibView = view : iibView iib })
+    (InterfaceInstanceKey interface template)
+
+insertInterfaceInstanceMethod ::
+     GHC.TyCon
+  -> GHC.TyCon
+  -> MethodName
+  -> GHC.Expr GHC.CoreBndr
+  -> MS.Map InterfaceInstanceKey InterfaceInstanceBinds
+  -> MS.Map InterfaceInstanceKey InterfaceInstanceBinds
+insertInterfaceInstanceMethod interface template methodName methodExpr =
+  MS.adjust
+    (\iib -> iib { iibMethods = MS.insert methodName methodExpr (iibMethods iib) })
+    (InterfaceInstanceKey interface template)
+
+scrapeInterfaceInstanceBinds ::
+     Env
+  -> [(Var, GHC.Expr CoreBndr)]
+  -> MS.Map TypeConName (MS.Map InterfaceInstanceKey InterfaceInstanceBinds)
+scrapeInterfaceInstanceBinds env binds
+  | envLfVersion env `supports` featureInterfaces =
+      MMS.merge
+        {- drop bind funcs without interface instances -}
+        MMS.dropMissing
+        {- keep interface instances without bind funcs -}
+        MMS.preserveMissing'
+        {- apply bind funcs to interface instances -}
+        (MMS.zipWithMatched (const ($!)))
+        interfaceInstanceBindFs
+        interfaceInstances
+  | otherwise = MS.empty
+  where
+    interfaceInstances :: MS.Map TypeConName (MS.Map InterfaceInstanceKey InterfaceInstanceBinds)
+    interfaceInstances = MS.fromListWith MS.union
+      [ ( mkTypeCon [getOccText template]
+        , MS.singleton
+            (InterfaceInstanceKey interface template)
+            (emptyInterfaceInstanceBinds (convNameLoc name))
+        )
+      | (name, _val) <- binds
+      , "_implements_" `T.isPrefixOf` getOccText name
+      , TypeCon implementsT [TypeCon template [], TypeCon interface []] <- [varType name]
+      , NameIn DA_Internal_Desugar "ImplementsT" <- [implementsT]
+      ]
+
+    interfaceInstanceBindFs ::
+      MS.Map TypeConName
+        (MS.Map InterfaceInstanceKey InterfaceInstanceBinds
+          -> MS.Map InterfaceInstanceKey InterfaceInstanceBinds)
+    interfaceInstanceBindFs = MS.fromListWith (.)
+      [ (mkTypeCon [getOccText template], fn)
+      | (name, untick -> expr) <- binds
+      , Just (template, fn) <- pure $ case name of
+          name
+            | TypeCon (NameIn DA_Internal_Desugar "InterfaceView")
+                [ TypeCon template []
+                , TypeCon interface []
+                ] <- varType name
+            -> Just (template, insertInterfaceInstanceView interface template expr)
+          name
+            | TypeCon (NameIn DA_Internal_Desugar "Method")
+                [ TypeCon template []
+                , TypeCon interface []
+                , StrLitTy (MethodName -> methodName)
+                ] <- varType name
+            -> Just (template, insertInterfaceInstanceMethod interface template methodName expr)
           _ -> Nothing
       ]
 
@@ -1064,32 +1134,26 @@ useSingleMethodDict env x _ =
 
 convertImplements :: Env -> ModuleContents -> LF.TypeConName -> ConvertM (NM.NameMap TemplateImplements)
 convertImplements env mc tpl = NM.fromList <$>
-  mapM convertInterface (MS.findWithDefault [] tpl (mcImplements mc))
+  mapM convertInterface (maybe [] MS.assocs (MS.lookup tpl (mcInterfaceInstanceBinds mc)))
   where
-    convertInterface :: (Maybe LF.SourceLoc, GHC.TyCon) -> ConvertM TemplateImplements
-    convertInterface (originLoc, iface) = withRange originLoc $ do
+    convertInterface :: (InterfaceInstanceKey, InterfaceInstanceBinds) -> ConvertM TemplateImplements
+    convertInterface (iik, iib) = withRange (iibLoc iib) $ do
       let handleIsNotInterface tyCon =
             "cannot implement '" ++ prettyPrint tyCon ++ "' because it is not an interface"
-      con <- convertInterfaceTyCon env handleIsNotInterface iface
-      let mod = nameModule (getName iface)
-
-      methods <- convertMethods $ MS.findWithDefault []
-        (mod, qualObject con, tpl)
-        (mcInterfaceMethodInstances mc)
-
-      view <- case MS.lookup (mod, qualObject con, tpl) (mcInterfaceViewInstances mc) of
-        Just [view] -> do
+      interfaceQualTypeCon <- convertInterfaceTyCon env handleIsNotInterface (iikInterface iik)
+      methods <- convertMethods $ iibMethods iib
+      view <- case iibView iib of
+        [view] -> do
             viewLFExpr <- convertExpr env view
             pure $ viewLFExpr `ETmApp` EVar this
-        Nothing -> conversionError $ "No view implementation defined by " ++ renderPretty tpl ++ " for " ++ prettyPrint iface
-        Just [] -> conversionError $ "No view implementation defined by " ++ renderPretty tpl ++ " for " ++ prettyPrint iface
-        Just _ -> conversionError $ "More than one view implementation defined by " ++ show tpl ++ " for " ++ prettyPrint iface
+        [] -> conversionError $ "No view implementation defined by " ++ renderPretty tpl ++ " for " ++ prettyPrint (iikInterface iik)
+        _ -> conversionError $ "More than one view implementation defined by " ++ renderPretty tpl ++ " for " ++ prettyPrint (iikInterface iik)
 
-      pure (TemplateImplements con (InterfaceInstanceBody methods view))
+      pure (TemplateImplements interfaceQualTypeCon (InterfaceInstanceBody methods view))
 
     convertMethods ms = fmap NM.fromList . sequence $
-      [ InterfaceInstanceMethod (MethodName k) . (`ETmApp` EVar this) <$> convertExpr env v
-      | (k, v) <- ms
+      [ InterfaceInstanceMethod k . (`ETmApp` EVar this) <$> convertExpr env v
+      | (k, v) <- MS.assocs ms
       ]
 
 convertChoices :: Env -> ModuleContents -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
