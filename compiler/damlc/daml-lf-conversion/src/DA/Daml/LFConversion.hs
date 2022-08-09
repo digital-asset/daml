@@ -660,15 +660,27 @@ scrapeInterfaceInstanceBinds env binds
           _ -> Nothing
       ]
 
-convertInterfaceTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
-convertInterfaceTyCon env errHandler tycon
-    | hasDamlInterfaceCtx tycon = do
+convertDamlTyCon ::
+     (TyCon -> Bool)
+  -> String
+  -> Env
+  -> (GHC.TyCon -> String)
+  -> GHC.TyCon
+  -> ConvertM (LF.Qualified LF.TypeConName)
+convertDamlTyCon hasExpectedCtx unhandledStr env errHandler tycon
+    | hasExpectedCtx tycon = do
         lfType <- convertTyCon env tycon
         case lfType of
             TCon con -> pure con
-            _ -> unhandled "interface type" tycon
+            _ -> unhandled unhandledStr tycon
     | otherwise =
         conversionError $ errHandler tycon
+
+convertInterfaceTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
+convertInterfaceTyCon = convertDamlTyCon hasDamlInterfaceCtx "interface type"
+
+convertTemplateTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
+convertTemplateTyCon = convertDamlTyCon hasDamlTemplateCtx "interface type"
 
 convertInterfaces :: Env -> ModuleContents -> ConvertM [Definition]
 convertInterfaces env mc = interfaceDefs
@@ -1134,27 +1146,58 @@ useSingleMethodDict env x _ =
 
 convertImplements :: Env -> ModuleContents -> LF.TypeConName -> ConvertM (NM.NameMap TemplateImplements)
 convertImplements env mc tpl = NM.fromList <$>
-  mapM convertInterface (maybe [] MS.assocs (MS.lookup tpl (mcInterfaceInstanceBinds mc)))
+  mapM convertImplements1 (maybe [] MS.assocs (MS.lookup tpl (mcInterfaceInstanceBinds mc)))
   where
-    convertInterface :: (InterfaceInstanceKey, InterfaceInstanceBinds) -> ConvertM TemplateImplements
-    convertInterface (iik, iib) = withRange (iibLoc iib) $ do
-      let handleIsNotInterface tyCon =
-            "cannot implement '" ++ prettyPrint tyCon ++ "' because it is not an interface"
-      interfaceQualTypeCon <- convertInterfaceTyCon env handleIsNotInterface (iikInterface iik)
-      methods <- convertMethods $ iibMethods iib
-      view <- case iibView iib of
-        [view] -> do
-            viewLFExpr <- convertExpr env view
-            pure $ viewLFExpr `ETmApp` EVar this
-        [] -> conversionError $ "No view implementation defined by " ++ renderPretty tpl ++ " for " ++ prettyPrint (iikInterface iik)
-        _ -> conversionError $ "More than one view implementation defined by " ++ renderPretty tpl ++ " for " ++ prettyPrint (iikInterface iik)
+    convertImplements1 :: (InterfaceInstanceKey, InterfaceInstanceBinds) -> ConvertM TemplateImplements
+    convertImplements1 =
+      convertInterfaceInstance (\iface _ -> TemplateImplements iface) env
 
-      pure (TemplateImplements interfaceQualTypeCon (InterfaceInstanceBody methods view))
+convertInterfaceInstance ::
+     (Qualified TypeConName -> Qualified TypeConName -> InterfaceInstanceBody -> r)
+  -> Env
+  -> (InterfaceInstanceKey, InterfaceInstanceBinds)
+  -> ConvertM r
+convertInterfaceInstance mkR env (iik, iib) = withRange (iibLoc iib) $ do
+  interfaceQualTypeCon <- qualifyInterfaceCon (iikInterface iik)
+  templateQualTypeCon <- qualifyTemplateCon (iikTemplate iik)
+  methods <- convertMethods (iibMethods iib)
+  view <- convertView (iibView iib)
+  pure $ mkR
+    interfaceQualTypeCon
+    templateQualTypeCon
+    (InterfaceInstanceBody methods view)
+  where
+    qualifyInterfaceCon =
+      convertInterfaceTyCon env handleIsNotInterface
+      where
+        handleIsNotInterface tyCon =
+          mkErr $ "'" <> prettyPrint tyCon <> "' is not an interface"
+
+    qualifyTemplateCon =
+      convertTemplateTyCon env handleIsNotTemplate
+      where
+        handleIsNotTemplate tyCon =
+          mkErr $ "'" <> prettyPrint tyCon <> "' is not a template"
 
     convertMethods ms = fmap NM.fromList . sequence $
       [ InterfaceInstanceMethod k . (`ETmApp` EVar this) <$> convertExpr env v
       | (k, v) <- MS.assocs ms
       ]
+
+    convertView vs = case vs of
+        [view] -> do
+            viewLFExpr <- convertExpr env view
+            pure $ viewLFExpr `ETmApp` EVar this
+        [] -> conversionError $ mkErr "no view implementation defined"
+        _ -> conversionError $ mkErr "more than one view implementation defined"
+
+    mkErr s = unwords
+        [ "Invalid 'interface instance"
+        , prettyPrint (iikInterface iik)
+        , "for"
+        , prettyPrint (iikTemplate iik) <> "':"
+        , s
+        ]
 
 convertChoices :: Env -> ModuleContents -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
 convertChoices env mc tplTypeCon tbinds =
