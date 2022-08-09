@@ -15,7 +15,7 @@ template Foo with
         return ()
 
     implements TIf where
-      view = ()
+      view = EmptyInterfaceView
       getOwner = party
       dup = toInterfaceContractId <$> create this
 
@@ -24,8 +24,10 @@ template Foo with
       getOwner = party
       dup = toInterfaceContractId <$> create this
 
+data EmptyInterfaceView = EmptyInterfaceView
+
 interface TIf where
-  viewtype ()
+  viewtype EmptyInterfaceView
   getOwner: Party
   dup: Update (ContractId TIf)
   choice Useless: ContractId TIf with

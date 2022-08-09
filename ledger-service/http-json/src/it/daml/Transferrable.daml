@@ -3,8 +3,10 @@
 
 module Transferrable where
 
+data EmptyInterfaceView = EmptyInterfaceView
+
 interface Transferrable where
-  viewtype ()
+  viewtype EmptyInterfaceView
   getOwner : Party
 
   choice Overridden : Text with

@@ -16,11 +16,11 @@ template CIou with
   maintainer key
 
   implements IIou where
-    view = ()
+    view = EmptyInterfaceView
     getOwner = owner
 
   implements Transferrable where
-    view = ()
+    view = EmptyInterfaceView
     getOwner = owner
 
   choice Overridden : Text with

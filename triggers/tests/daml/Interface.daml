@@ -24,8 +24,10 @@ test = Trigger with
   registeredTemplates = AllInDar
   heartbeat = None
 
+data EmptyInterfaceView = EmptyInterfaceView
+
 interface Token where
-  viewtype ()
+  viewtype EmptyInterfaceView
 
   getOwner : Party
   getAmount : Int
@@ -63,7 +65,7 @@ template Asset
   where
     signatory issuer
     implements Token where
-      view = ()
+      view = EmptyInterfaceView
       getOwner = owner
       getAmount = amount
 
