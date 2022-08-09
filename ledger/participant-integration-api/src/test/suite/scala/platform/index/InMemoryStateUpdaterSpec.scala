@@ -9,7 +9,6 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2.{CompletionInfo, TransactionMeta, Update}
@@ -24,17 +23,12 @@ import com.daml.platform.index.InMemoryStateUpdaterSpec.{
   Scope,
   anotherMetadataChangedUpdate,
   metadataChangedUpdate,
-  txLogUpdate1,
-  txLogUpdate3,
-  txRejected,
   update1,
   update3,
   update4,
   update5,
 }
 import com.daml.platform.indexer.ha.EndlessReadService.configuration
-import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
@@ -58,9 +52,9 @@ class InMemoryStateUpdaterSpec extends AnyFlatSpec with Matchers with AkkaBefore
       )
     )
     cacheUpdates should contain theSameElementsInOrderAs Seq(
-      Vector(txLogUpdate1),
-      Vector(txLogUpdate3, txRejected),
-      Vector(),
+      result(1L),
+      result(3L),
+      result(4L),
     )
   }
 
@@ -78,31 +72,22 @@ class InMemoryStateUpdaterSpec extends AnyFlatSpec with Matchers with AkkaBefore
     )
 
     cacheUpdates should contain theSameElementsInOrderAs Seq(
-      Vector(txLogUpdate3),
-      Vector(),
-      Vector(),
+      result(3L),
+      result(3L),
+      result(4L),
     )
   }
 }
 
 object InMemoryStateUpdaterSpec {
   trait Scope extends Matchers with ScalaFutures with IntegrationPatience {
-    val updateToTransactionAccepted
-        : (Offset, Update.TransactionAccepted) => TransactionLogUpdate.TransactionAccepted = {
-      case `update1` => txLogUpdate1
-      case `update3` => txLogUpdate3
-      case _ => fail()
-    }
-
-    val updateToTransactionRejected
-        : (Offset, Update.CommandRejected) => TransactionLogUpdate.TransactionRejected = {
-      case `update4` => txRejected
-      case _ => fail()
-    }
 
     val cacheUpdates = ArrayBuffer.empty[PrepareResult]
     val cachesUpdateCaptor =
       (v: PrepareResult) => cacheUpdates.addOne(v).pipe(_ => ())
+
+    def result(lastEventSequentialId: Long) =
+      PrepareResult(Vector.empty, offset(1L), lastEventSequentialId, PackageMetadata())
 
     val inMemoryStateUpdater = new InMemoryStateUpdater(
       2,
@@ -110,7 +95,7 @@ object InMemoryStateUpdaterSpec {
       scala.concurrent.ExecutionContext.global,
       new Metrics(new MetricRegistry),
     )(
-      prepare = (_, _) => PrepareResult(Vector.empty, offset(1L), 0L, PackageMetadata()),
+      prepare = (_, lastEventSequentialId) => result(lastEventSequentialId),
       update = cachesUpdateCaptor,
     )
 
@@ -193,34 +178,6 @@ object InMemoryStateUpdaterSpec {
 
   private val anotherMetadataChangedUpdate =
     offset(5L) -> metadataChangedUpdate._2.copy(recordTime = Time.Timestamp.assertFromLong(1337L))
-
-  private val txLogUpdate1 = TransactionLogUpdate.TransactionAccepted(
-    transactionId = "tx1",
-    commandId = "",
-    workflowId = "",
-    effectiveAt = Timestamp.Epoch,
-    offset = offset(1L),
-    events = Vector(null),
-    completionDetails = None,
-  )
-
-  private val txLogUpdate3 = TransactionLogUpdate.TransactionAccepted(
-    transactionId = "tx3",
-    commandId = "",
-    workflowId = "",
-    effectiveAt = Timestamp.Epoch,
-    offset = offset(3L),
-    events = Vector(null),
-    completionDetails = None,
-  )
-
-  private val txRejected = TransactionLogUpdate.TransactionRejected(
-    offset = offset(4L),
-    completionDetails = CompletionDetails(
-      completionStreamResponse = new CompletionStreamResponse(),
-      submitters = Set.empty,
-    ),
-  )
 
   private def offset(idx: Long): Offset = {
     val base = BigInt(1) << 32

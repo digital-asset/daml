@@ -97,7 +97,7 @@ private[platform] object InMemoryStateUpdater {
     update = update(inMemoryState, loggingContext),
   )
 
-  def combinePackageMetadata(batch: Vector[(Offset, Update)]): PackageMetadata =
+  def extractMetadataFromUploadedPackage(batch: Vector[(Offset, Update)]): PackageMetadata =
     batch.foldLeft(PackageMetadata()) {
       case (metadata, (_, uploadEvent: Update.PublicPackageUpload)) =>
         uploadEvent.archives.foldLeft(metadata) { case (acc, archive) =>
@@ -114,7 +114,7 @@ private[platform] object InMemoryStateUpdater {
       },
       lastOffset = batch.last._1,
       lastEventSequentialId = lastEventSequentialId,
-      packageMetadata = combinePackageMetadata(batch),
+      packageMetadata = extractMetadataFromUploadedPackage(batch),
     )
 
   def update(
@@ -123,6 +123,7 @@ private[platform] object InMemoryStateUpdater {
   )(result: PrepareResult): Unit = {
     inMemoryState.packageMetadataView.update(result.packageMetadata)
     updateCaches(inMemoryState, result.logUpdate)
+    // must be the last update: see the comment inside the method for more details
     updateLedgerEnd(inMemoryState, result.lastOffset, result.lastEventSequentialId)(loggingContext)
   }
 
