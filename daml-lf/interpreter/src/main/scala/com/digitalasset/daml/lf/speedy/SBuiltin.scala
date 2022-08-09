@@ -9,8 +9,9 @@ import java.util.regex.Pattern
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
+import com.daml.lf.interpretation.Error.InconsistentDisclosureTable
 import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.language.{Ast, TemplateOrInterface}
+import com.daml.lf.language.Ast
 import com.daml.lf.speedy.ArrayList.Implicits._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -1049,27 +1050,25 @@ private[lf] object SBuiltin {
     }
   }
 
-  private[this] def getImplementsOrCoImplements(
+  private[this] def getInterfaceInstance(
       machine: Machine,
-      templateId: TypeConName,
       interfaceId: TypeConName,
-  ): Option[TemplateOrInterface[ImplementsDefRef, CoImplementsDefRef]] = {
-    val implements = ImplementsDefRef(templateId, interfaceId)
-    val coImplements = CoImplementsDefRef(templateId, interfaceId)
-    if (machine.compiledPackages.getDefinition(implements).nonEmpty)
-      Some(TemplateOrInterface.Template(implements))
-    else if (machine.compiledPackages.getDefinition(coImplements).nonEmpty)
-      Some(TemplateOrInterface.Interface(coImplements))
-    else
-      None
+      templateId: TypeConName,
+  ): Option[InterfaceInstanceDefRef] = {
+    def mkRef(parent: TypeConName) =
+      InterfaceInstanceDefRef(parent, interfaceId, templateId)
+
+    List(mkRef(templateId), mkRef(interfaceId)) find { ref =>
+      machine.compiledPackages.getDefinition(ref).nonEmpty
+    }
   }
 
-  private[this] def implementsOrCoImplements(
+  private[this] def interfaceInstanceExists(
       machine: Machine,
-      templateId: TypeConName,
       interfaceId: TypeConName,
+      templateId: TypeConName,
   ): Boolean =
-    getImplementsOrCoImplements(machine, templateId, interfaceId).nonEmpty
+    getInterfaceInstance(machine, interfaceId, templateId).nonEmpty
 
   // SBCastAnyInterface: ContractId ifaceId -> Any -> ifaceId
   final case class SBCastAnyInterface(ifaceId: TypeConName) extends SBuiltin(2) {
@@ -1079,7 +1078,7 @@ private[lf] object SBuiltin {
     ): Control = {
       def coid = getSContractId(args, 0)
       val (actualTmplId, _) = getSAnyContract(args, 1)
-      if (!implementsOrCoImplements(machine, actualTmplId, ifaceId))
+      if (!interfaceInstanceExists(machine, ifaceId, actualTmplId))
         throw SErrorDamlException(IE.ContractDoesNotImplementInterface(ifaceId, coid, actualTmplId))
       Control.Value(args.get(1))
     }
@@ -1203,7 +1202,7 @@ private[lf] object SBuiltin {
     ): Control = {
       val contractId = getSContractId(args, 0)
       val (actualTmplId, record @ _) = getSAnyContract(args, 1)
-      if (!implementsOrCoImplements(machine, actualTmplId, requiringIfaceId))
+      if (!interfaceInstanceExists(machine, requiringIfaceId, actualTmplId))
         throw SErrorDamlException(
           IE.ContractDoesNotImplementRequiringInterface(
             requiringIfaceId,
@@ -1326,7 +1325,7 @@ private[lf] object SBuiltin {
     ) = {
       val (actualTemplateId, record) = getSAnyContract(args, 0)
       val v =
-        if (implementsOrCoImplements(machine, actualTemplateId, requiringIfaceId))
+        if (interfaceInstanceExists(machine, requiringIfaceId, actualTemplateId))
           SOptional(Some(SAnyContract(actualTemplateId, record)))
         else
           SOptional(None)
@@ -1348,7 +1347,7 @@ private[lf] object SBuiltin {
     ) = {
       val coid = getSContractId(args, 0)
       val (actualTmplId, record) = getSAnyContract(args, 1)
-      if (!implementsOrCoImplements(machine, actualTmplId, requiringIfaceId))
+      if (!interfaceInstanceExists(machine, requiringIfaceId, actualTmplId))
         throw SErrorDamlException(
           IE.ContractDoesNotImplementRequiringInterface(
             requiringIfaceId,
@@ -1370,16 +1369,12 @@ private[lf] object SBuiltin {
         machine: Machine,
     ): Control = {
       val (templateId, record) = getSAnyContract(args, 0)
-      val ref = getImplementsOrCoImplements(machine, templateId, ifaceId) match {
-        case Some(TemplateOrInterface.Template(ImplementsDefRef(_, _))) =>
-          ImplementsMethodDefRef(templateId, ifaceId, methodName)
-        case Some(TemplateOrInterface.Interface(CoImplementsDefRef(_, _))) =>
-          CoImplementsMethodDefRef(templateId, ifaceId, methodName)
-        case None =>
-          crash(
-            s"Attempted to call interface ${ifaceId} method ${methodName} on a wrapped template of type ${ifaceId}, which doesn't implement the interface."
-          )
-      }
+      val ref = getInterfaceInstance(machine, ifaceId, templateId).fold(
+        crash(
+          s"Attempted to call interface ${ifaceId} method ${methodName} on a wrapped " +
+            s"template of type ${ifaceId}, but there's no matching interface instance."
+        )
+      )(iiRef => InterfaceInstanceMethodDefRef(iiRef, methodName))
       val e = SEApp(SEVal(ref), Array(SEValue(record)))
       Control.Expression(e)
     }
@@ -1392,9 +1387,15 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Control = {
-      crash(
-        s"Tried to run unsupported view with interface ${ifaceId}."
-      )
+      val (templateId, record) = getSAnyContract(args, 0)
+      val ref = getInterfaceInstance(machine, ifaceId, templateId).fold(
+        crash(
+          s"Attempted to call view for interface ${ifaceId} on a wrapped " +
+            s"template of type ${ifaceId}, but there's no matching interface instance."
+        )
+      )(iiRef => InterfaceInstanceViewDefRef(iiRef))
+      val e = SEApp(SEVal(ref), Array(SEValue(record)))
+      Control.Expression(e)
     }
   }
 
@@ -1592,10 +1593,27 @@ private[lf] object SBuiltin {
           // TODO (drsk) validate key hash. https://github.com/digital-asset/daml/issues/13897
           machine.disclosureTable.contractIdByKey.get(gkey.hash) match {
             case Some(coid) =>
-              val vcoid = coid.value
-              continue(Some(vcoid))._1
+              machine.disclosureTable.contractById.get(coid) match {
+                case Some((actualTemplateId, _)) if actualTemplateId == operation.templateId =>
+                  val vcoid = coid.value
+                  continue(Some(vcoid))._1
 
-            case None => {
+                case Some((actualTemplateId, _)) =>
+                  throw SErrorDamlException(
+                    InconsistentDisclosureTable.IncorrectlyTypedContract(
+                      coid.value,
+                      operation.templateId,
+                      actualTemplateId,
+                    )
+                  )
+
+                case None =>
+                  crash(
+                    s"Disclosure table is in an inconsistent state: unable to locate the contract ${coid.value} even though we know its key hash ${gkey.hash}"
+                  )
+              }
+
+            case None =>
               Control.Question(
                 SResultNeedKey(
                   GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
@@ -1607,7 +1625,6 @@ private[lf] object SBuiltin {
                   },
                 )
               )
-            }
           }
       }
     }

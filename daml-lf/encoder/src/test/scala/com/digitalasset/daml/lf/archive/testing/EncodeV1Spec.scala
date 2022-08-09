@@ -40,9 +40,12 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
             record @serializable Person = { person: Party, name: Text } ;
 
-            interface (this: Planet) = {};
+            interface (this: Planet) = {
+              viewtype Unit;
+            };
 
             interface (this: Human) = {
+              viewtype Unit;
               requires Mod:Planet;
               method asParty: Party;
               method getName: Text;
@@ -70,8 +73,10 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
                   observers Cons @Party [Mod:Person {person} this] (Nil @Party)
               to upure @Int64 i;
               implements Mod:Planet {
+                view = ();
               };
               implements Mod:Human {
+                view = ();
                 method asParty = Mod:Person {person} this;
                 method getName = Mod:Person {name} this;
               };
@@ -203,10 +208,14 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
              \ (p: Mod:Planet) -> observer_interface @Mod:Planet p;
 
            interface (this: Root) = {
-             coimplements Mod0:Parcel {};
+             viewtype Unit;
+             coimplements Mod0:Parcel {
+               view = ();
+             };
            };
 
            interface (this: Boxy) = {
+             viewtype Unit;
              requires Mod:Root;
              method getParty: Party;
              choice @nonConsuming ReturnInt (self) (i: Int64): Int64
@@ -214,6 +223,7 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
                , observers Nil @Party
                to upure @Int64 i;
              coimplements Mod0:Parcel {
+               view = ();
                method getParty = Mod0:Parcel {party} this;
              };
            };

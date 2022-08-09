@@ -27,11 +27,6 @@ import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.annotation.tailrec
-<<<<<<< Updated upstream
-import scala.collection.immutable.HashSet
-=======
-import scala.util.control.NoStackTrace
->>>>>>> Stashed changes
 
 private[lf] object Speedy {
 

@@ -441,46 +441,45 @@ object SExpr {
   final case class ObserversDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ToCachedContractDefRef(ref: DefinitionRef) extends SDefinitionRef
 
-  /** ImplementsDefRef(templateId, ifaceId) points to the Unit value if
-    * the template implements the interface.
+  /** InterfaceInstanceDefRef(parent, interfaceId, templateId)
+    * points to the Unit value if 'parent' defines an interface instance
+    * of the interface for the template.
+    *
+    * invariants:
+    *   * parent == interfaceId || parent == templateId
+    *   * at most one of the following is defined:
+    *       InterfaceInstanceDefRef(i, i, t)
+    *       InterfaceInstanceDefRef(t, i, t)
+    *
+    * The parent is used to determine what package and module define
+    * the interface instance, which is used to fetch the appropriate
+    * package in case it's missing.
     */
-  final case class ImplementsDefRef(
+  final case class InterfaceInstanceDefRef(
+      parent: TypeConName,
+      interfaceId: TypeConName,
       templateId: TypeConName,
-      ifaceId: TypeConName,
   ) extends SDefinitionRef {
-    override def ref = templateId;
+    override def ref = parent;
   }
 
-  /** CoImplementsDefRef(templateId, ifaceId) points to the Unit value if
-    * the interface provides an implementation for (co-implements) the template.
+  /** InterfaceInstanceMethodDefRef(interfaceInstance, method) invokes
+    * the interface instance's implementation of the method.
     */
-  final case class CoImplementsDefRef(
-      templateId: TypeConName,
-      ifaceId: TypeConName,
-  ) extends SDefinitionRef {
-    override def ref = ifaceId;
-  }
-
-  /** ImplementsMethodDefRef(templateId, ifaceId, method) invokes the template's
-    * implementation of an interface method.
-    */
-  final case class ImplementsMethodDefRef(
-      templateId: TypeConName,
-      ifaceId: TypeConName,
+  final case class InterfaceInstanceMethodDefRef(
+      interfaceInstance: InterfaceInstanceDefRef,
       methodName: MethodName,
   ) extends SDefinitionRef {
-    override def ref = templateId;
+    override def ref = interfaceInstance.ref;
   }
 
-  /** CoImplementsMethodDefRef(templateId, ifaceId, method) invokes the
-    * interface-provided implementation of the method for the given template.
+  /** InterfaceInstanceViewDefRef(interfaceInstance) invokes
+    * the interface instance's implementation of the view.
     */
-  final case class CoImplementsMethodDefRef(
-      templateId: TypeConName,
-      ifaceId: TypeConName,
-      methodName: MethodName,
+  final case class InterfaceInstanceViewDefRef(
+      interfaceInstance: InterfaceInstanceDefRef
   ) extends SDefinitionRef {
-    override def ref = ifaceId;
+    override def ref = interfaceInstance.ref;
   }
 
   final case object AnonymousClosure

@@ -4,9 +4,14 @@
 package com.daml.lf
 package speedy
 
+import com.daml.lf.command.ContractMetadata
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.ImmArray
-import com.daml.lf.interpretation.Error.{ContractKeyNotFound, ContractNotActive}
+import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.interpretation.Error.{
+  ContractKeyNotFound,
+  ContractNotActive,
+  InconsistentDisclosureTable,
+}
 import com.daml.lf.speedy.SExpr.SEValue
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -15,7 +20,7 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import com.daml.lf.speedy.SBuiltin.{SBFetchAny, SBUFetchKey, SBULookupKey}
 import com.daml.lf.speedy.SValue.SContractId
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
 import com.daml.lf.testing.parser.Implicits._
 
 class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
@@ -275,6 +280,12 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
           usedDisclosedContracts = ImmArray(disclosedHouseContract),
         )(_ shouldBe Right(SValue.SContractId(disclosureContractId)))
       }
+
+      "wrongly typed contract disclosures are rejected" in {
+        wronglyTypedDisclosedContractsRejected(
+          SBUFetchKey(houseTemplateType)(SEValue(contractSKey))
+        )
+      }
     }
 
     "looking up contract keys" - {
@@ -396,6 +407,12 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
           disclosedContracts = ImmArray(disclosedCaveContract, disclosedHouseContract),
           usedDisclosedContracts = ImmArray(disclosedHouseContract),
         )(_ shouldBe Right(SValue.SOptional(Some(SValue.SContractId(disclosureContractId)))))
+      }
+
+      "wrongly typed contract disclosures are rejected" in {
+        wronglyTypedDisclosedContractsRejected(
+          SBULookupKey(houseTemplateType)(SEValue(contractSKey))
+        )
       }
     }
   }
@@ -532,6 +549,47 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
     ledger should haveCachedContractIds(
       usedDisclosedContracts.toIndexedSeq.map(_.contractId.value): _*
     )
+    ledger should haveInactiveContractIds()
+  }
+
+  def wronglyTypedDisclosedContractsRejected(sexpr: SExpr.SExpr): Assertion = {
+    val houseContractKey: GlobalKey = buildContractKey(maintainerParty)
+    // Here the disclosed contract has a caveTemplateType, but its key has a houseTemplateType
+    val malformedDisclosedContract: DisclosedContract =
+      DisclosedContract(
+        caveTemplateType,
+        SContractId(disclosureContractId),
+        SValue.SRecord(
+          caveTemplateType,
+          ImmArray(
+            Ref.Name.assertFromString("owner"),
+            Ref.Name.assertFromString("key_maintainer"),
+          ),
+          ArrayList(SValue.SParty(disclosureParty), SValue.SParty(maintainerParty)),
+        ),
+        ContractMetadata(Time.Timestamp.now(), Some(houseContractKey.hash), ImmArray.Empty),
+      )
+    val (result, ledger) =
+      evaluateSExpr(
+        sexpr,
+        committers = Set(disclosureParty),
+        disclosedContracts = ImmArray(malformedDisclosedContract),
+      )
+
+    inside(result) {
+      case Left(
+            SError.SErrorDamlException(
+              InconsistentDisclosureTable.IncorrectlyTypedContract(
+                `disclosureContractId`,
+                `houseTemplateType`,
+                `caveTemplateType`,
+              )
+            )
+          ) =>
+        succeed
+    }
+    ledger should haveDisclosedContracts(malformedDisclosedContract)
+    ledger should haveCachedContractIds()
     ledger should haveInactiveContractIds()
   }
 }

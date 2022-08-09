@@ -4,7 +4,8 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.data.{FrontStack, ImmArray, Ref}
+import com.daml.lf.command.ContractMetadata
+import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.data.Ref.{Location, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
@@ -69,9 +70,10 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       variant @serializable Either (a:*) (b:*) = Left: a | Right : b;
 
-      interface (this : I1) =  {};
+      interface (this : I1) =  { viewtype Unit; };
 
       interface (this: Person) = {
+        viewtype Unit;
         method asParty: Party;
         method getCtrl: Party;
         method getName: Text;
@@ -115,6 +117,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           controllers Cons @Party [M:Human {person} this] (Nil @Party)
           to upure @Unit (TRACE @Unit "archive" ());
         implements M:Person {
+          view = ();
           method asParty = M:Human {person} this;
           method getName = "foobar";
           method getCtrl = M:Human {ctrl} this;
@@ -337,6 +340,21 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "agreement",
     ),
   )
+
+  private[this] def buildDisclosedContract(signatory: Party): Versioned[DisclosedContract] =
+    Versioned(
+      TransactionVersion.minExplicitDisclosure,
+      DisclosedContract(
+        Dummy,
+        SContractId(cId),
+        SRecord(
+          Dummy,
+          ImmArray(Ref.Name.assertFromString("signatory")),
+          ArrayList(SParty(signatory)),
+        ),
+        ContractMetadata(Time.Timestamp.now(), None, ImmArray.Empty),
+      ),
+    )
 
   private[this] val visibleContract = buildContract(bob)
   private[this] val nonVisibleContract = buildContract(alice)
@@ -2145,6 +2163,27 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
             msgs shouldBe Seq("starts test")
+          }
+        }
+      }
+
+      "a disclosed contract" - {
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly typed disclosed contract
+        "wrongly typed contract" in {
+          val (result, events) = evalUpdateApp(
+            pkgs,
+            e"""\(sig : Party) (fetchingParty: Party) (cId1: ContractId M:Dummy) ->
+             let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
+             in Test:fetch_by_id fetchingParty cId2""",
+            Array(SParty(alice), SParty(alice), SContractId(cId)),
+            Set(alice),
+            disclosedContracts = ImmArray(buildDisclosedContract(alice)),
+          )
+
+          inside(result) {
+            case Success(Left(SErrorDamlException(IE.WronglyTypedContract(`cId`, T, Dummy)))) =>
+              events shouldBe Seq("starts test")
           }
         }
       }

@@ -328,8 +328,8 @@ object ExplicitDisclosureLib {
       )
   }
 
-  def haveDisclosedContracts(disclosedContracts: DisclosedContract*): Matcher[Speedy.OnLedger] = Matcher {
-    ledger =>
+  def haveDisclosedContracts(disclosedContracts: DisclosedContract*): Matcher[Speedy.OnLedger] =
+    Matcher { ledger =>
       val expectedResult = ImmArray(disclosedContracts: _*)
       val actualResult = ledger.ptx.finish.disclosedContracts
       val debugMessage = Seq(
@@ -343,5 +343,5 @@ object ExplicitDisclosureLib {
         s"Failed with unexpected disclosed contracts: $expectedResult == $actualResult",
       )
 
-  }
+    }
 }

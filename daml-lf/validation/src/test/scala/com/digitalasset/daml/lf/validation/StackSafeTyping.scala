@@ -18,6 +18,101 @@ import scala.annotation.tailrec
 
 class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
 
+  def unitT: Type = TBuiltin(BTUnit)
+  def theType: Type = unitT
+  def arrow(ty1: Type, ty2: Type): Type = TApp(TApp(TBuiltin(BTArrow), ty1), ty2)
+  def tyvar: TypeVarName = Name.assertFromString("T")
+
+  def field: FieldName = Name.assertFromString("field")
+  def field2: FieldName = Name.assertFromString("field2")
+  def makeStruct(ty1: Type, ty2: Type): Type = TStruct(
+    Struct.assertFromSeq(List((field, ty1), (field2, ty2)))
+  )
+
+  def forall(x: Type): Type = TForall((tyvar, KStar), x)
+  def arrowRight(x: Type) = arrow(theType, x)
+  def arrowLeft(x: Type) = arrow(x, theType)
+  def struct1(x: Type) = makeStruct(x, theType)
+  def struct2(x: Type) = makeStruct(theType, x)
+
+  /* We test stack-safety by building deep expressions through different recursion points
+   * of an AST, then check we can run the 'code under test', without blowing the stack.
+   */
+  def makeAst[Ast](depth: Int, init: Ast, cons: Ast => Ast): Ast = {
+    // Make an AST by iterating the 'cons' function, 'depth' times, starting from 'init'
+    @tailrec def loop(x: Ast, n: Int): Ast = if (n == 0) x else loop(cons(x), n - 1)
+    val ast: Ast = loop(init, depth)
+    ast
+  }
+
+  "alpha equivalence (stack-safety)" - {
+
+    val testCases = {
+      Table[String, Type => Type](
+        ("name", "recursion-point"),
+        ("forall", forall),
+        ("arrowRight", arrowRight),
+        ("arrowLeft", arrowLeft),
+        ("struct1", struct1),
+        ("struct2", struct2),
+      )
+    }
+    {
+      val depth = 10000
+      s"alpha equivalence, (BIG) depth = $depth" - {
+        forEvery(testCases) { (name: String, recursionPoint: Type => Type) =>
+          name in {
+            val a = Name.assertFromString("A")
+            val b = Name.assertFromString("B")
+            val tyA = TForall((a, KStar), makeAst(depth, TVar(a), recursionPoint))
+            val tyB = TForall((b, KStar), makeAst(depth, TVar(b), recursionPoint))
+            AlphaEquiv.alphaEquiv(tyA, tyB) shouldBe true
+          }
+        }
+      }
+    }
+  }
+
+  "kind checking (stack-safety)" - {
+
+    // This is the code under test...
+    def kindCheck(typ: Type): Option[ValidationError] = {
+      val langVersion: LanguageVersion = LanguageVersion.default
+      val signatures: PartialFunction[PackageId, PackageSignature] = Map.empty
+      val pkgInterface = new PackageInterface(signatures)
+      val ctx: Context = Context.None
+      val env = Typing.Env(langVersion, pkgInterface, ctx)
+      try {
+        val _: Kind = env.kindOf(typ)
+        None
+      } catch {
+        case e: ValidationError => Some(e)
+      }
+    }
+
+    val testCases = {
+      Table[String, Type => Type](
+        ("name", "recursion-point"),
+        ("forall", forall),
+        ("arrowRight", arrowRight),
+        ("arrowLeft", arrowLeft),
+        ("struct1", struct1),
+        ("struct2", struct2),
+      )
+    }
+    {
+      val depth = 10000
+      s"kind checking, (LARGE) depth = $depth" - {
+        forEvery(testCases) { (name: String, recursionPoint: Type => Type) =>
+          name in {
+            // ensure examples can be kind-checked and are well-kinded
+            kindCheck(makeAst(depth, theType, recursionPoint)) shouldBe None
+          }
+        }
+      }
+    }
+  }
+
   "typing (stack-safety)" - {
 
     // types
@@ -192,17 +287,6 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
       }
     }
 
-    /* We test stack-safety by building deep expressions through each of the different
-     * recursion points of an expression, using one of the builder functions below, and
-     * then ensuring we can 'typecheck' the expression, without blowing the stack.
-     */
-    def runTest[T](check: Expr => T)(depth: Int, cons: Expr => Expr): T = {
-      // Make an expression by iterating the 'cons' function, 'depth' times
-      @tailrec def loop(x: Expr, n: Int): Expr = if (n == 0) x else loop(cons(x), n - 1)
-      val source: Expr = loop(theExp, depth)
-      check(source)
-    }
-
     // TODO https://github.com/digital-asset/daml/issues/13410
     //
     // Add tests for recursion points in all syntactic classes which may recurse:
@@ -255,7 +339,7 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
         forEvery(testCases) { (name: String, recursionPoint: Expr => Expr) =>
           name in {
             // ensure examples can be typechecked and are well-typed
-            runTest(typecheck)(depth, recursionPoint) shouldBe None
+            typecheck(makeAst(depth, theExp, recursionPoint)) shouldBe None
           }
         }
       }

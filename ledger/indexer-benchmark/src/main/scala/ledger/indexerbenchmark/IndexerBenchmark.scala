@@ -72,6 +72,10 @@ class IndexerBenchmark() {
       val readService = createReadService(updates)
 
       val resource = for {
+        servicesExecutionContext <- ResourceOwner
+          .forExecutorService(() => Executors.newWorkStealingPool())
+          .map(ExecutionContext.fromExecutorService)
+          .acquire()
         (inMemoryState, inMemoryStateUpdater) <-
           LedgerApiServer
             .createInMemoryStateAndUpdater(
@@ -89,6 +93,7 @@ class IndexerBenchmark() {
           LfValueTranslationCache.Cache.none,
           inMemoryState,
           inMemoryStateUpdater.flow,
+          servicesExecutionContext,
         )
         _ <- metricsResource(config, metrics)
         _ = println("Setting up the index database...")
