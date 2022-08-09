@@ -7,9 +7,12 @@ package speedy
 import com.daml.lf.command.ContractMetadata
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.interpretation.Error.{ContractKeyNotFound, ContractNotActive}
+import com.daml.lf.interpretation.Error.{
+  ContractKeyNotFound,
+  ContractNotActive,
+  InconsistentDisclosureTable,
+}
 import com.daml.lf.speedy.SExpr.SEValue
-import com.daml.lf.interpretation.Error.WronglyTypedContract
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import org.scalatest.{Assertion, Inside}
@@ -519,7 +522,7 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
     inside(result) {
       case Left(
             SError.SErrorDamlException(
-              WronglyTypedContract(
+              InconsistentDisclosureTable.IncorrectlyTypedContract(
                 `disclosureContractId`,
                 `houseTemplateType`,
                 `caveTemplateType`,
