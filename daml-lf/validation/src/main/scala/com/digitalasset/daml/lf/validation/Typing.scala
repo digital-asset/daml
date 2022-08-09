@@ -7,7 +7,7 @@ import com.daml.lf.data.{ImmArray, Numeric, Struct}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.language.{LanguageVersion, PackageInterface}
+import com.daml.lf.language.{LanguageVersion, PackageInterface, Reference}
 import com.daml.lf.validation.Util._
 import com.daml.lf.validation.iterable.TypeIterable
 import com.daml.scalautil.Statement.discard
@@ -518,7 +518,14 @@ private[validation] object Typing {
       env.checkTopExpr(observers, TParties)
       env.checkTopExpr(agreementText, TText)
       choices.values.foreach(env.checkChoice(tplName, _))
-      env.checkIfaceImplementations(tplName, implementations)
+      implementations.values.foreach { impl =>
+        checkInterfaceInstance(
+          tmplParam = param,
+          interfaceId = impl.interfaceId,
+          templateId = tplName,
+          iiBody = impl.body,
+        )
+      }
       mbKey.foreach { key =>
         checkType(key.typ, KStar)
         env.checkTopExpr(key.body, key.typ)
@@ -540,7 +547,14 @@ private[validation] object Typing {
           } throw ENotClosedInterfaceRequires(ctx, ifaceName, required, requiredRequired)
           methods.values.foreach(checkIfaceMethod)
           choices.values.foreach(env.checkChoice(ifaceName, _))
-          env.checkIfaceCoImplementations(ifaceName, param, coImplements)
+          coImplements.values.foreach(coImpl =>
+            checkInterfaceInstance(
+              tmplParam = param,
+              interfaceId = ifaceName,
+              templateId = coImpl.templateId,
+              iiBody = coImpl.body,
+            )
+          )
       }
 
     private def checkIfaceMethod(method: InterfaceMethod): Unit = {
@@ -551,82 +565,71 @@ private[validation] object Typing {
       AlphaEquiv.alphaEquiv(t1, t2) ||
         AlphaEquiv.alphaEquiv(expandTypeSynonyms(t1), expandTypeSynonyms(t2))
 
+    private def checkUniqueInterfaceInstance(
+        interfaceId: TypeConName,
+        templateId: TypeConName,
+    ): PackageInterface.InterfaceInstanceInfo = {
+      pkgInterface.lookupInterfaceInstance(interfaceId, templateId) match {
+        case Left(err) =>
+          err match {
+            case Left(lookupErr) =>
+              lookupErr.notFound match {
+                case _: Reference.InterfaceInstance =>
+                  throw EMissingInterfaceInstance(ctx, interfaceId, templateId)
+                case _ =>
+                  throw EUnknownDefinition(ctx, lookupErr)
+              }
+            case Right(_: PackageInterface.AmbiguousInterfaceInstanceError) =>
+              throw EAmbiguousInterfaceInstance(ctx, interfaceId, templateId)
+          }
+        case Right(iiInfo) => iiInfo
+      }
+    }
+
+    private def checkUniqueInterfaceInstanceExists(
+        interfaceId: TypeConName,
+        templateId: TypeConName,
+    ): Unit = discard(checkUniqueInterfaceInstance(interfaceId, templateId))
+
     private def checkInterfaceInstance(
-        tplTcon: TypeConName,
-        ifaceTcon: TypeConName,
+        tmplParam: ExprVarName,
+        interfaceId: TypeConName,
+        templateId: TypeConName,
         iiBody: InterfaceInstanceBody,
     ): Unit = {
+      val iiInfo = checkUniqueInterfaceInstance(interfaceId, templateId)
+      val ctx = Context.Reference(iiInfo.ref)
+
+      // Note (MA): we use an empty environment and add `tmplParam : TTyCon(templateId)`
+      val env = Env(languageVersion, pkgInterface, ctx)
+        .introExprVar(tmplParam, TTyCon(templateId))
+
       val DefInterfaceSignature(requires, _, _, methods, _, _) =
         // TODO https://github.com/digital-asset/daml/issues/14112
-        handleLookup(ctx, pkgInterface.lookupInterface(ifaceTcon))
+        iiInfo.interfaceSignature
 
       requires
-        .filterNot(required =>
-          pkgInterface.lookupTemplateImplementsOrInterfaceCoImplements(tplTcon, required).isRight
+        .filterNot(required => pkgInterface.lookupInterfaceInstance(required, templateId).isRight)
+        .foreach(required =>
+          throw EMissingRequiredInterfaceInstance(
+            ctx,
+            interfaceId,
+            Reference.InterfaceInstance(required, templateId),
+          )
         )
-        .foreach(required => throw EMissingRequiredInterface(ctx, tplTcon, ifaceTcon, required))
 
       methods.values.foreach { (method: InterfaceMethod) =>
         if (!iiBody.methods.exists { case (name, _) => name == method.name })
-          throw EMissingInterfaceMethod(ctx, tplTcon, ifaceTcon, method.name)
+          throw EMissingMethodInInterfaceInstance(ctx, method.name)
       }
       iiBody.methods.values.foreach { case InterfaceInstanceMethod(name, value) =>
         methods.get(name) match {
           case None =>
-            throw EUnknownInterfaceMethod(ctx, tplTcon, ifaceTcon, name)
-          case Some(method) =>
-            checkTopExpr(value, method.returnType)
+            throw EUnknownMethodInInterfaceInstance(ctx, name)
+          case Some(method) => env.checkTopExpr(value, method.returnType)
         }
       }
     }
-
-    private def checkIfaceImplementation(
-        tplTcon: TypeConName,
-        impl: TemplateImplements,
-    ): Unit = {
-      val ifaceTcon = impl.interfaceId
-      pkgInterface
-        .lookupInterfaceCoImplements(tplTcon, ifaceTcon)
-        .foreach(_ => throw EConflictingImplementsCoImplements(ctx, tplTcon, ifaceTcon))
-      checkInterfaceInstance(
-        tplTcon,
-        ifaceTcon,
-        impl.body,
-      )
-    }
-
-    private def checkIfaceImplementations(
-        tplTcon: TypeConName,
-        impls: Map[TypeConName, TemplateImplements],
-    ): Unit =
-      impls.values.foreach(checkIfaceImplementation(tplTcon, _))
-
-    private def checkIfaceCoImplementation(
-        ifaceTcon: TypeConName,
-        param: ExprVarName,
-        coImpl: InterfaceCoImplements,
-    ): Unit = {
-      val tplTcon = coImpl.templateId
-      pkgInterface
-        .lookupTemplateImplements(tplTcon, ifaceTcon)
-        .foreach(_ => throw EConflictingImplementsCoImplements(ctx, tplTcon, ifaceTcon))
-
-      // Note (MA): we use an empty environment and add `param : TTyCon(tplTcon)`
-      Env(languageVersion, pkgInterface, Context.DefInterfaceCoImplements(tplTcon, ifaceTcon))
-        .introExprVar(param, TTyCon(tplTcon))
-        .checkInterfaceInstance(
-          tplTcon,
-          ifaceTcon,
-          coImpl.body,
-        )
-    }
-
-    private def checkIfaceCoImplementations(
-        ifaceTcon: TypeConName,
-        param: ExprVarName,
-        coImpls: Map[TypeConName, InterfaceCoImplements],
-    ): Unit =
-      coImpls.values.foreach(checkIfaceCoImplementation(ifaceTcon, param, _))
 
     private[Typing] def checkDefException(
         excepName: TypeConName,
@@ -1033,17 +1036,17 @@ private[validation] object Typing {
 
     private[this] def typOfExprInterface(expr: ExprInterface): Work[Type] = expr match {
       case EToInterface(iface, tpl, value) =>
-        checkImplements(tpl, iface)
+        checkUniqueInterfaceInstanceExists(iface, tpl)
         checkExpr(value, TTyCon(tpl)) {
           Ret(TTyCon(iface))
         }
       case EFromInterface(iface, tpl, value) =>
-        checkImplements(tpl, iface)
+        checkUniqueInterfaceInstanceExists(iface, tpl)
         checkExpr(value, TTyCon(iface)) {
           Ret(TOptional(TTyCon(tpl)))
         }
       case EUnsafeFromInterface(iface, tpl, cid, value) =>
-        checkImplements(tpl, iface)
+        checkUniqueInterfaceInstanceExists(iface, tpl)
         checkExpr(cid, TContractId(TTyCon(iface))) {
           checkExpr(value, TTyCon(iface)) {
             Ret(TTyCon(tpl))
@@ -1223,14 +1226,6 @@ private[validation] object Typing {
       discard(handleLookup(ctx, pkgInterface.lookupInterface(tpl)))
       checkExpr(cid, TContractId(TTyCon(tpl))) {
         Ret(TUpdate(TTyCon(tpl)))
-      }
-    }
-
-    private def checkImplements(tpl: TypeConName, iface: TypeConName): Unit = {
-      discard(handleLookup(ctx, pkgInterface.lookupInterface(iface)))
-      discard(handleLookup(ctx, pkgInterface.lookupTemplate(tpl)))
-      if (pkgInterface.lookupTemplateImplementsOrInterfaceCoImplements(tpl, iface).isLeft) {
-        throw ETemplateDoesNotImplementInterface(ctx, tpl, iface)
       }
     }
 
