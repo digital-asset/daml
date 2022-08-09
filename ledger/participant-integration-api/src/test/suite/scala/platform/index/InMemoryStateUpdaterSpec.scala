@@ -7,6 +7,7 @@ import akka.Done
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
+import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
@@ -29,10 +30,12 @@ import com.daml.platform.index.InMemoryStateUpdaterSpec.{
   update1,
   update3,
   update4,
+  update5,
 }
 import com.daml.platform.indexer.ha.EndlessReadService.configuration
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
+import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -46,15 +49,25 @@ class InMemoryStateUpdaterSpec extends AnyFlatSpec with Matchers with AkkaBefore
   behavior of classOf[InMemoryStateUpdater].getSimpleName
 
   "flow" should "correctly process updates" in new Scope {
-    runFlow(Seq(Vector(update1, metadataChangedUpdate) -> 1L, Vector(update3, update4) -> 3L))
-
+    runFlow(
+      Seq(
+        Vector(update1, metadataChangedUpdate) -> 1L,
+        Vector(update3, update4) -> 3L,
+        Vector(update5) -> 4L,
+      )
+    )
     cacheUpdates should contain theSameElementsInOrderAs Seq(
       Vector(txLogUpdate1),
       Vector(txLogUpdate3, txRejected),
+      Vector(),
     )
     ledgerEndUpdates should contain theSameElementsInOrderAs Seq(
       offset(2L) -> 1L,
       offset(4L) -> 3L,
+      offset(5L) -> 4L,
+    )
+    packageUploads should contain theSameElementsInOrderAs Seq(
+      update5._2
     )
   }
 
@@ -67,16 +80,22 @@ class InMemoryStateUpdaterSpec extends AnyFlatSpec with Matchers with AkkaBefore
         // Results in empty batch after processing
         // Should still have effect on ledger end updates
         Vector(anotherMetadataChangedUpdate) -> 3L,
+        Vector(update5) -> 4L,
       )
     )
 
     cacheUpdates should contain theSameElementsInOrderAs Seq(
       Vector(txLogUpdate3),
       Vector(),
+      Vector(),
     )
     ledgerEndUpdates should contain theSameElementsInOrderAs Seq(
       offset(3L) -> 3L,
       offset(5L) -> 3L,
+      offset(5L) -> 4L,
+    )
+    packageUploads should contain theSameElementsInOrderAs Seq(
+      update5._2
     )
   }
 }
@@ -102,6 +121,8 @@ object InMemoryStateUpdaterSpec {
 
     val ledgerEndUpdates = ArrayBuffer.empty[(Offset, Long)]
 
+    val packageUploads = ArrayBuffer.empty[Update.PublicPackageUpload]
+
     val inMemoryStateUpdater = new InMemoryStateUpdater(
       2,
       scala.concurrent.ExecutionContext.global,
@@ -114,6 +135,7 @@ object InMemoryStateUpdaterSpec {
       updateLedgerEnd = { case (offset, evtSeqId) =>
         ledgerEndUpdates.addOne(offset -> evtSeqId)
       },
+      updatePackageMetadata = packageUploads.addOne,
     )
 
     def runFlow(input: Seq[(Vector[(Offset, Update)], Long)])(implicit mat: Materializer): Done =
@@ -180,6 +202,19 @@ object InMemoryStateUpdaterSpec {
     ),
     reasonTemplate = FinalReason(new Status()),
   )
+  private val archive = DamlLf.Archive.newBuilder
+    .setHash("00001")
+    .setHashFunction(DamlLf.HashFunction.SHA256)
+    .setPayload(ByteString.copyFromUtf8("payload 1"))
+    .build
+
+  private val update5 = offset(5L) -> Update.PublicPackageUpload(
+    archives = List(archive),
+    sourceDescription = None,
+    recordTime = Timestamp.Epoch,
+    submissionId = None,
+  )
+
   private val anotherMetadataChangedUpdate =
     offset(5L) -> metadataChangedUpdate._2.copy(recordTime = Time.Timestamp.assertFromLong(1337L))
 

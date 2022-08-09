@@ -3,8 +3,8 @@
 
 package com.daml.platform.index
 
-import akka.NotUsed
-import akka.stream.scaladsl.Flow
+import akka.{Done, NotUsed}
+import akka.stream.scaladsl.{Flow, Sink}
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.offset.Offset
@@ -23,6 +23,8 @@ import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
+import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
+import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.{Contract, InMemoryState, Key, Party}
 
 import java.util.concurrent.Executors
@@ -44,12 +46,21 @@ final class InMemoryStateUpdater(
         Update.CommandRejected,
     ) => TransactionLogUpdate.TransactionRejected,
     updateLedgerEnd: (Offset, Long) => Unit,
+    updatePackageMetadata: Update.PublicPackageUpload => Unit,
 ) {
 
+  val packageMetadataFlow: Sink[(Vector[(Offset, Update)], Long), Future[Done]] = Sink.foreach {
+    case (batch, _) =>
+      batch
+        .collect { case (_, event: Update.PublicPackageUpload) => event }
+        .foreach(updatePackageMetadata)
+  }
+
   // TODO LLP: Considering directly returning this flow instead of the wrapper
-  def flow: UpdaterFlow =
+  val flow: UpdaterFlow =
     Flow[(Vector[(Offset, Update)], Long)]
       .filter(_._1.nonEmpty)
+      .alsoTo(packageMetadataFlow)
       .mapAsync(prepareUpdatesParallelism) { case (batch, lastEventSequentialId) =>
         Future {
           val updatesBatch =
@@ -104,7 +115,15 @@ private[platform] object InMemoryStateUpdater {
     convertTransactionAccepted = convertTransactionAccepted,
     convertTransactionRejected = convertTransactionRejected,
     updateLedgerEnd = updateLedgerEnd(inMemoryState),
+    updatePackageMetadata = updatePackageMetadata(inMemoryState.packageMetadataView),
   )
+
+  private def updatePackageMetadata(
+      packageMetadataView: PackageMetadataView
+  )(packageUpload: Update.PublicPackageUpload): Unit =
+    packageUpload.archives
+      .map(PackageMetadata.from)
+      .foreach(packageMetadataView.update)
 
   private def updateCaches(inMemoryState: InMemoryState)(
       updates: Vector[TransactionLogUpdate]
