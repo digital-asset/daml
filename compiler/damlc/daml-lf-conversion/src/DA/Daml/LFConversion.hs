@@ -329,7 +329,7 @@ extractModuleContents env@Env{..} coreModule modIface details = do
         , "_choice_" `T.isPrefixOf` getOccText name
         , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
         ]
-    mcInterfaceViews = interfaceViews envLfVersion (md_insts details)
+    mcInterfaceViews = interfaceViews envLfVersion mcBinds
     mcTemplateBinds = scrapeTemplateBinds mcBinds
     mcExceptionBinds
         | envLfVersion `supports` featureExceptions =
@@ -536,14 +536,11 @@ interfaceNames lfVersion tyThings
         ]
     | otherwise = MS.empty
 
-interfaceViews :: LF.Version -> [ClsInst] -> MS.Map TypeConName GHC.Type
-interfaceViews lfVersion classInstances
+interfaceViews :: LF.Version -> [(Var, GHC.Expr Var)] -> MS.Map TypeConName GHC.Type
+interfaceViews lfVersion binds
     | lfVersion `supports` featureInterfaces = MS.fromList
         [ (mkTypeCon [getOccText $ GHC.tyConName ifaceTyCon], viewType)
-        | ClsInst { is_cls_nm, is_tys } <- classInstances
-        , NameIn DA_Internal_Interface "HasInterfaceView" <- pure is_cls_nm
-        , [ifaceType, viewType] <- pure is_tys
-        , TyConApp ifaceTyCon [] <- pure ifaceType
+        | (HasInterfaceViewDFunId ifaceTyCon viewType, _) <- binds
         ]
     | otherwise = MS.empty
 
