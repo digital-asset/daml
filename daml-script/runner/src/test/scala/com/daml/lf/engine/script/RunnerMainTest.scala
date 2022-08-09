@@ -31,8 +31,15 @@ object RunnerMainTest {
   val localHost: String = "localhost"
   val ledgerPort: Int = 8080
   val participantPort: Int = 6865
+  val darFilePath: String =
+    Seq(".", "daml-script", "runner", "src", "test", "resources", "dummy.dar").mkString(
+      File.separator
+    )
+  val participantConfigPath: String =
+    Seq(".", "daml-script", "runner", "src", "test", "resources", "participantConfig.json")
+      .mkString(File.separator)
   val configLedgerParticipant: RunnerCliConfig = RunnerCliConfig(
-    darPath = new File("./daml-script/runner/src/test/resources/dummy.dar"),
+    darPath = new File(darFilePath),
     scriptIdentifier = "Main:setup",
     ledgerHost = Some(localHost),
     ledgerPort = Some(ledgerPort),
@@ -47,12 +54,11 @@ object RunnerMainTest {
     applicationId = None,
   )
   val configNodeParticipants: RunnerCliConfig = RunnerCliConfig(
-    darPath = new File("./daml-script/runner/src/test/resources/dummy.dar"),
+    darPath = new File(darFilePath),
     scriptIdentifier = "Main:setup",
     ledgerHost = None,
     ledgerPort = None,
-    participantConfig =
-      Some(new File("./daml-script/runner/src/test/resources/participantConfig.json")),
+    participantConfig = Some(new File(participantConfigPath)),
     timeMode = ScriptConfig.DefaultTimeMode,
     inputFile = None,
     outputFile = None,
