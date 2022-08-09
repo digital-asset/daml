@@ -102,7 +102,6 @@ import           DA.Daml.Options.Types (EnableScenarios (..))
 import           Data.Data hiding (TyCon)
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
-import           Data.Function (on)
 import           Data.Int
 import           Data.List.Extra
 import qualified Data.Map.Strict as MS
@@ -251,10 +250,8 @@ data ModuleContents = ModuleContents
   , mcExceptionBinds :: MS.Map TypeConName ExceptionBinds
   , mcInterfaceBinds :: MS.Map TypeConName InterfaceBinds
     -- ^ Maps an interface to the contents of its definition.
-  , mcInterfaceInstanceBinds :: MS.Map TypeConName (MS.Map InterfaceInstanceKey InterfaceInstanceBinds)
-    -- ^ Maps a template to the interface instances defined in it, represented as
-    -- a map from interface instance key (interface + template) to interface binds
-    -- (view, methods and location of the interface instance)
+  , mcInterfaceInstanceBinds :: MS.Map TypeConName InterfaceInstanceGroup
+    -- ^ Maps a template to the interface instances defined in it.
   , mcChoiceData :: MS.Map TypeConName [ChoiceData]
   , mcModInstanceInfo :: !ModInstanceInfo
   , mcDepOrphanModules :: [GHC.Module]
@@ -570,26 +567,14 @@ scrapeInterfaceBinds lfVersion tyThings binds
           _ -> Nothing
       ]
 
--- | The interface and template that identify an interface instance.
--- During conversion we don't care if two interface instances with the same key
--- are given in the interface and the template, we leave it to the typechecker.
-data InterfaceInstanceKey = InterfaceInstanceKey
-  { iikInterface :: GHC.TyCon
-  , iikTemplate :: GHC.TyCon
-  }
-  deriving (Eq)
-
-instance Ord InterfaceInstanceKey where
-  compare = compare `on` modTypeCons
-    where
-      modTypeCons InterfaceInstanceKey {..} =
-        ( getName iikInterface
-        , getName iikTemplate
-        )
-
--- | Represents the contents of some interface instance
+-- | Represents an interface instance, including the interface + template pair
+-- for which it is defined. Different 'InterfaceInstanceGroup's might contain
+-- 'InterfaceInstanceBinds's with the same interface + template pair, but
+-- we don't care during conversion, leaving it to the typechecker.
 data InterfaceInstanceBinds = InterfaceInstanceBinds
-  { iibLoc :: Maybe SourceLoc
+  { iibInterface :: GHC.TyCon
+  , iibTemplate :: GHC.TyCon
+  , iibLoc :: Maybe SourceLoc
       -- ^ Location associated to the @_implements_@ marker, which should
       -- point to the @interface instance@ line in the daml file.
   , iibMethods :: MS.Map MethodName (GHC.Expr GHC.CoreBndr)
@@ -598,61 +583,90 @@ data InterfaceInstanceBinds = InterfaceInstanceBinds
       -- ^ View implementation.
   }
 
-emptyInterfaceInstanceBinds ::
-     Maybe SourceLoc
-  -> InterfaceInstanceBinds
-emptyInterfaceInstanceBinds iibLoc = InterfaceInstanceBinds
-  { iibLoc
-  , iibMethods = MS.empty
-  , iibView = []
+-- | A group of interface instances under a certain template.
+newtype InterfaceInstanceGroup = InterfaceInstanceGroup
+  { iigMap :: MS.Map (Name, Name) InterfaceInstanceBinds
+      -- ^ The keys should be @(GHC.TyCon, GHC.TyCon)@, but there's no
+      -- @instance Ord GHC.TyCon@. Instead, we use @(Name, Name)@ and
+      -- apply 'iigKey' when necessary.
   }
+
+iigKey :: GHC.TyCon -> GHC.TyCon -> (Name, Name)
+iigKey interface template =
+  (getName interface, getName template)
+
+iigAdjust ::
+     GHC.TyCon
+  -> GHC.TyCon
+  -> (InterfaceInstanceBinds -> InterfaceInstanceBinds)
+  -> (InterfaceInstanceGroup -> InterfaceInstanceGroup)
+iigAdjust interface template f =
+  InterfaceInstanceGroup . MS.adjust f (iigKey interface template) . iigMap
+
+iigUnion :: InterfaceInstanceGroup -> InterfaceInstanceGroup -> InterfaceInstanceGroup
+iigUnion g h = InterfaceInstanceGroup (MS.union (iigMap g) (iigMap h))
+
+interfaceInstanceGroupBinds :: InterfaceInstanceGroup -> [InterfaceInstanceBinds]
+interfaceInstanceGroupBinds = MS.elems . iigMap
+
+singletonInterfaceInstanceGroup ::
+     GHC.TyCon
+  -> GHC.TyCon
+  -> Maybe SourceLoc
+  -> InterfaceInstanceGroup
+singletonInterfaceInstanceGroup iibInterface iibTemplate iibLoc =
+  InterfaceInstanceGroup (MS.singleton (iigKey iibInterface iibTemplate) iib)
+  where
+    iib = InterfaceInstanceBinds
+      { iibInterface
+      , iibTemplate
+      , iibLoc
+      , iibMethods = MS.empty
+      , iibView = []
+      }
 
 insertInterfaceInstanceView ::
      GHC.TyCon
   -> GHC.TyCon
   -> GHC.Expr GHC.CoreBndr
-  -> MS.Map InterfaceInstanceKey InterfaceInstanceBinds
-  -> MS.Map InterfaceInstanceKey InterfaceInstanceBinds
+  -> InterfaceInstanceGroup
+  -> InterfaceInstanceGroup
 insertInterfaceInstanceView interface template view =
-  MS.adjust
+  iigAdjust interface template
     (\iib -> iib { iibView = view : iibView iib })
-    (InterfaceInstanceKey interface template)
 
 insertInterfaceInstanceMethod ::
      GHC.TyCon
   -> GHC.TyCon
   -> MethodName
   -> GHC.Expr GHC.CoreBndr
-  -> MS.Map InterfaceInstanceKey InterfaceInstanceBinds
-  -> MS.Map InterfaceInstanceKey InterfaceInstanceBinds
+  -> InterfaceInstanceGroup
+  -> InterfaceInstanceGroup
 insertInterfaceInstanceMethod interface template methodName methodExpr =
-  MS.adjust
+  iigAdjust interface template
     (\iib -> iib { iibMethods = MS.insert methodName methodExpr (iibMethods iib) })
-    (InterfaceInstanceKey interface template)
 
 scrapeInterfaceInstanceBinds ::
      Env
   -> [(Var, GHC.Expr CoreBndr)]
-  -> MS.Map TypeConName (MS.Map InterfaceInstanceKey InterfaceInstanceBinds)
+  -> MS.Map TypeConName InterfaceInstanceGroup
 scrapeInterfaceInstanceBinds env binds
   | envLfVersion env `supports` featureInterfaces =
       MMS.merge
-        {- drop bind funcs without interface instances -}
+        {- drop group funcs without interface instances -}
         MMS.dropMissing
-        {- keep interface instances without bind funcs -}
+        {- keep interface instances without group funcs -}
         MMS.preserveMissing'
-        {- apply bind funcs to interface instances -}
+        {- apply group funcs to interface instances -}
         (MMS.zipWithMatched (const ($!)))
-        interfaceInstanceBindFs
-        interfaceInstances
+        interfaceInstanceGroupFs
+        interfaceInstanceGroups
   | otherwise = MS.empty
   where
-    interfaceInstances :: MS.Map TypeConName (MS.Map InterfaceInstanceKey InterfaceInstanceBinds)
-    interfaceInstances = MS.fromListWith MS.union
+    interfaceInstanceGroups :: MS.Map TypeConName InterfaceInstanceGroup
+    interfaceInstanceGroups = MS.fromListWith iigUnion
       [ ( mkTypeCon [getOccText template]
-        , MS.singleton
-            (InterfaceInstanceKey interface template)
-            (emptyInterfaceInstanceBinds (convNameLoc name))
+        , singletonInterfaceInstanceGroup interface template (convNameLoc name)
         )
       | (name, _val) <- binds
       , "_implements_" `T.isPrefixOf` getOccText name
@@ -660,11 +674,9 @@ scrapeInterfaceInstanceBinds env binds
       , NameIn DA_Internal_Desugar "ImplementsT" <- [implementsT]
       ]
 
-    interfaceInstanceBindFs ::
-      MS.Map TypeConName
-        (MS.Map InterfaceInstanceKey InterfaceInstanceBinds
-          -> MS.Map InterfaceInstanceKey InterfaceInstanceBinds)
-    interfaceInstanceBindFs = MS.fromListWith (.)
+    interfaceInstanceGroupFs ::
+      MS.Map TypeConName (InterfaceInstanceGroup -> InterfaceInstanceGroup)
+    interfaceInstanceGroupFs = MS.fromListWith (.)
       [ (mkTypeCon [getOccText template], fn)
       | (name, untick -> expr) <- binds
       , Just (template, fn) <- pure $ case name of
@@ -1172,20 +1184,21 @@ useSingleMethodDict env x _ =
 
 convertImplements :: Env -> ModuleContents -> LF.TypeConName -> ConvertM (NM.NameMap TemplateImplements)
 convertImplements env mc tpl = NM.fromList <$>
-  mapM convertImplements1 (maybe [] MS.assocs (MS.lookup tpl (mcInterfaceInstanceBinds mc)))
+  mapM convertImplements1
+    (maybe [] interfaceInstanceGroupBinds (MS.lookup tpl (mcInterfaceInstanceBinds mc)))
   where
-    convertImplements1 :: (InterfaceInstanceKey, InterfaceInstanceBinds) -> ConvertM TemplateImplements
+    convertImplements1 :: InterfaceInstanceBinds -> ConvertM TemplateImplements
     convertImplements1 =
       convertInterfaceInstance (\iface _ -> TemplateImplements iface) env
 
 convertInterfaceInstance ::
      (Qualified TypeConName -> Qualified TypeConName -> InterfaceInstanceBody -> r)
   -> Env
-  -> (InterfaceInstanceKey, InterfaceInstanceBinds)
+  -> InterfaceInstanceBinds
   -> ConvertM r
-convertInterfaceInstance mkR env (iik, iib) = withRange (iibLoc iib) $ do
-  interfaceQualTypeCon <- qualifyInterfaceCon (iikInterface iik)
-  templateQualTypeCon <- qualifyTemplateCon (iikTemplate iik)
+convertInterfaceInstance mkR env iib = withRange (iibLoc iib) $ do
+  interfaceQualTypeCon <- qualifyInterfaceCon (iibInterface iib)
+  templateQualTypeCon <- qualifyTemplateCon (iibTemplate iib)
   methods <- convertMethods (iibMethods iib)
   view <- convertView (iibView iib)
   pure $ mkR
@@ -1219,9 +1232,9 @@ convertInterfaceInstance mkR env (iik, iib) = withRange (iibLoc iib) $ do
 
     mkErr s = unwords
         [ "Invalid 'interface instance"
-        , prettyPrint (iikInterface iik)
+        , prettyPrint (iibInterface iib)
         , "for"
-        , prettyPrint (iikTemplate iik) <> "':"
+        , prettyPrint (iibTemplate iib) <> "':"
         , s
         ]
 
