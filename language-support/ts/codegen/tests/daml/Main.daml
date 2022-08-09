@@ -5,8 +5,8 @@ module Main where
 
 import DA.TextMap
 import qualified DA.Map
-import Lib.Mod hiding (Overridden)
-import Lib.ModIfaceOnly
+import qualified Lib.Mod hiding (Overridden)
+import qualified Lib.ModIfaceOnly
 
 import T
 
@@ -28,7 +28,7 @@ template AllTypes with
     textMap: TextMap Int
     monoRecord: Person
     polyRecord: Pair Int Text
-    imported: Imported
+    imported: Lib.Mod.Imported
     archiveX: Archive
     either: Either Int Text
     tuple: (Int, Text)
@@ -200,13 +200,13 @@ template Asset with
       transferImpl newOwner = do
         cid <- create Asset with issuer = issuer, owner = newOwner
         pure (toInterfaceContractId @Token cid)
-    implements Other where
-      view = EmptyInterfaceView
+    implements Lib.Mod.Other where
+      view = Lib.Mod.EmptyInterfaceView
       getOtherOwner = owner
       somethingImpl = do
         pure ()
-    implements YetAnother where
-      view = EmptyInterfaceView
+    implements Lib.ModIfaceOnly.YetAnother where
+      view = Lib.ModIfaceOnly.EmptyInterfaceView
       getOtherOwner = owner
       somethingImpl = do
         pure ()
