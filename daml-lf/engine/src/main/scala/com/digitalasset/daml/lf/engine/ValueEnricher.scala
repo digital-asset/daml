@@ -63,8 +63,6 @@ final class ValueEnricher(
       interfaceId: Identifier,
       viewValue: Value,
   ): Result[Value] = for {
-    // TODO: https://github.com/digital-asset/daml/issues/14112
-    // Switch to builtin views once those are implemented.
     iface <- handleLookup(
       compiledPackages.pkgInterface.lookupInterface(interfaceId)
     )
