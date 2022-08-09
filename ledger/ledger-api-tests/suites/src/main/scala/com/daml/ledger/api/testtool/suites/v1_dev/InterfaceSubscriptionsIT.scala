@@ -99,6 +99,12 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       assertLength("single transaction found", 1, party1Transactions)
       val createdEvent2 = createdEvents(party1Transactions(0)).head
       assertEquals("Create event 1 contract ID", createdEvent2.contractId, c.toString)
+      assertLength("single view found", 1, createdEvent2.interfaceViews)
+      assertViewEquals(createdEvent2.interfaceViews(0), Tag.unwrap(I.id)) { value =>
+        assertLength("View1 has 2 fields", 2, value.fields)
+        assertEquals("View1.a", value.fields(0).getValue.getInt64, 6)
+        assertEquals("View1.b", value.fields(1).getValue.getBool, true)
+      }
     }
   })
 
