@@ -16,7 +16,7 @@ import com.daml.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
 import com.daml.platform.store.dao.BufferedStreamsReaderSpec._
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import org.scalatest.Assertion
-import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -260,8 +260,9 @@ class BufferedStreamsReaderSpec
 }
 
 object BufferedStreamsReaderSpec {
-  trait TestFixtures extends Matchers with ScalaFutures {
+  trait TestFixtures extends Matchers with ScalaFutures with IntegrationPatience {
     self: AkkaBeforeAndAfterAll =>
+
     implicit val lc: LoggingContext = LoggingContext.ForTesting
     val metrics = new Metrics(new MetricRegistry())
     val Seq(offset0, offset1, offset2, offset3) = (0 to 3) map { idx => offset(idx.toLong) }
