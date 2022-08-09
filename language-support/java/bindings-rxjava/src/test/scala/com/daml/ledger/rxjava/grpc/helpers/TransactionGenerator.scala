@@ -6,17 +6,23 @@ package com.daml.ledger.rxjava.grpc.helpers
 import java.time.Instant
 import java.util
 import java.util.Collections
-
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
 import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created}
-import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
+import com.daml.ledger.api.v1.event.{
+  ArchivedEvent,
+  CreatedEvent,
+  Event,
+  ExercisedEvent,
+  InterfaceView,
+}
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
 import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.{Timestamp => ScalaTimestamp}
+import com.google.rpc.status.Status
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 
 import scala.jdk.CollectionConverters._
@@ -178,6 +184,21 @@ object TransactionGenerator {
   val unitValueGen: Gen[(Sum.Unit, data.Unit)] =
     Gen.const((Sum.Unit(Empty()), data.Unit.getInstance()))
 
+  val statusGen = for {
+    code <- Gen.chooseNum(0, Int.MaxValue)
+    message <- Gen.alphaNumStr
+  } yield Status(code, message)
+
+  val interfaceViewGen: Gen[InterfaceView] = for {
+    scalaRecord <- Gen.option(Gen.sized(recordGen)).map(_.map(_._1))
+    interfaceId <- Gen.option(identifierGen).map(_.map(_._1))
+    status <- Gen.option(statusGen)
+  } yield InterfaceView(
+    interfaceId,
+    status,
+    scalaRecord,
+  )
+
   val createdEventGen: Gen[(Created, data.CreatedEvent)] = for {
     eventId <- nonEmptyId
     contractId <- nonEmptyId
@@ -187,6 +208,7 @@ object TransactionGenerator {
     (scalaRecord, javaRecord) <- Gen.sized(recordGen)
     signatories <- Gen.listOf(nonEmptyId)
     observers <- Gen.listOf(nonEmptyId)
+    interfaceViews <- Gen.listOf(interfaceViewGen)
   } yield (
     Created(
       CreatedEvent(
@@ -195,6 +217,7 @@ object TransactionGenerator {
         Some(scalaTemplateId),
         contractKey.map(_._1),
         Some(scalaRecord),
+        interfaceViews,
         signatories ++ observers,
         signatories,
         observers,
