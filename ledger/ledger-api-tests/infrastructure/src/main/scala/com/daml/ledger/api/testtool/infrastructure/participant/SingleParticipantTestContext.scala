@@ -453,16 +453,16 @@ final class SingleParticipantTestContext private[participant] (
 
   override def exercise[T](
       party: Party,
-      exercise: Party => Primitive.Update[T],
+      exercise: Primitive.Update[T],
   ): Future[TransactionTree] =
     submitAndWaitForTransactionTree(
-      submitAndWaitRequest(party, exercise(party).command)
+      submitAndWaitRequest(party, exercise.command)
     ).map(_.getTransaction)
 
   override def exercise[T](
       actAs: List[Party],
       readAs: List[Party],
-      exercise: => Primitive.Update[T],
+      exercise: Primitive.Update[T],
   ): Future[TransactionTree] =
     submitAndWaitForTransactionTree(
       submitAndWaitRequest(actAs, readAs, exercise.command)
@@ -470,18 +470,18 @@ final class SingleParticipantTestContext private[participant] (
 
   override def exerciseForFlatTransaction[T](
       party: Party,
-      exercise: Party => Primitive.Update[T],
+      exercise: Primitive.Update[T],
   ): Future[Transaction] =
     submitAndWaitForTransaction(
-      submitAndWaitRequest(party, exercise(party).command)
+      submitAndWaitRequest(party, exercise.command)
     ).map(_.getTransaction)
 
   override def exerciseAndGetContract[T](
       party: Party,
-      exercise: Party => Primitive.Update[Any],
+      exercise: Primitive.Update[Any],
   ): Future[Primitive.ContractId[T]] =
     submitAndWaitForTransaction(
-      submitAndWaitRequest(party, exercise(party).command)
+      submitAndWaitRequest(party, exercise.command)
     )
       .map(_.getTransaction)
       .map(extractContracts)

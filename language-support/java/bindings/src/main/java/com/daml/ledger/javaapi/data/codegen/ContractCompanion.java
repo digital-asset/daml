@@ -36,6 +36,10 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
    */
   public abstract Ct fromCreatedEvent(CreatedEvent event);
 
+  public Id toContractId(ContractId<Data> parameterizedContractId) {
+    return newContractId.apply(parameterizedContractId.contractId);
+  }
+
   protected ContractCompanion(
       String templateClassName,
       Identifier templateId,

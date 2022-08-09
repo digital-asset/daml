@@ -18,4 +18,4 @@ instance Show NonSerializable where
   show = error "undefined"
 
 interface I where
-  _view : NonSerializable
+  viewtype NonSerializable

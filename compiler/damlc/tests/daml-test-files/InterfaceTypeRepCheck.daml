@@ -9,6 +9,7 @@
 module InterfaceTypeRepCheck where
 
 interface I where
+  viewtype ()
   getOwner : Party
   choice MyArchive : ()
     controller getOwner this
@@ -20,6 +21,7 @@ template T1
   where
     signatory owner1
     implements I where
+      view = ()
       getOwner = owner1
 
 template T2
@@ -28,6 +30,7 @@ template T2
   where
     signatory owner2
     implements I where
+      view = ()
       getOwner = owner2
 
 main = scenario do

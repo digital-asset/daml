@@ -16,9 +16,11 @@ template CIou with
   maintainer key
 
   implements IIou where
+    view = ()
     getOwner = owner
 
   implements Transferrable where
+    view = ()
     getOwner = owner
 
   choice Overridden : Text with

@@ -17,6 +17,7 @@ template NonTopLevel with
     signatory party
 
 interface Other where
+  viewtype ()
   getOtherOwner : Party
   somethingImpl : Update ()
   choice Something : ()

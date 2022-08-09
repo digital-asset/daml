@@ -7,4 +7,4 @@
 module InterfaceViewSerializable where
 
 interface I where
-  _view : Int
+  viewtype Int

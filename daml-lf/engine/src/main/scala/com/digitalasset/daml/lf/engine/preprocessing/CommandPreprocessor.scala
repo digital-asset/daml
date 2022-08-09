@@ -263,15 +263,6 @@ private[lf] final class CommandPreprocessor(
       )
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
 
-    // TODO https://github.com/digital-asset/daml/issues/14112
-    // Add check if interface does not have magic view method.
-    val interfaceSig = handleLookup(pkgInterface.lookupInterface(interfaceId))
-    val viewMethodName = Ref.MethodName.assertFromString("_view")
-    interfaceSig.methods.get(viewMethodName) match {
-      case None => throw Error.Preprocessing.NoViewMethod(interfaceId)
-      case _ => {}
-    }
-
     speedy.InterfaceView(templateId, arg, interfaceId, version)
   }
 }

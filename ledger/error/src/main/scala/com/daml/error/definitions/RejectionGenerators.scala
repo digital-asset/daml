@@ -144,6 +144,9 @@ object RejectionGenerators {
             .Error(
               renderedMessage
             )
+        case _: LfInterpretationError.InconsistentDisclosureTable.IncorrectlyTypedContract =>
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
+            .Error(renderedMessage)
       }
     }
 

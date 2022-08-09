@@ -72,3 +72,7 @@ instance DA.Internal.Desugar.HasToInterface T I where
 instance DA.Internal.Desugar.HasFromInterface T I where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+_view_T_I : DA.Internal.Desugar.InterfaceView T I
+_view_T_I
+  = DA.Internal.Desugar.mkInterfaceView
+      @T @I \ this@T {..} -> let _ = this in let view = () in view

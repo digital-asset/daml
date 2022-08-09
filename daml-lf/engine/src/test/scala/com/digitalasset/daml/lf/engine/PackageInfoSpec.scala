@@ -47,8 +47,8 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
               signatories Nil @Party;
               observers Nil @Party;
               agreement "Agreement";
-              implements 'pkgA':ModA:IA {};
-              implements 'pkgB':ModB:IB {};
+              implements 'pkgA':ModA:IA { view = (); };
+              implements 'pkgB':ModB:IB { view = (); };
             };
         }
 
@@ -59,8 +59,8 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
               signatories Nil @Party;
               observers Nil @Party;
               agreement "Agreement";
-              implements 'pkgA':ModA:IA {};
-              implements 'pkgC':ModC:IC {};
+              implements 'pkgA':ModA:IA { view = (); };
+              implements 'pkgC':ModC:IC { view = (); };
             };
         }
         """
@@ -73,15 +73,25 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
     p"""
          module Mod21 {
            interface (this: I21) = {
-             coimplements '-pkg1-':Mod11:T11 {};
-             coimplements 'pkgA':ModA:TA {};
+             viewtype Unit;
+             coimplements '-pkg1-':Mod11:T11 {
+               view = ();
+             };
+             coimplements 'pkgA':ModA:TA {
+               view = ();
+             };
            };
          }
 
          module Mod22 {
            interface (this: I22) = {
-             coimplements '-pkg1-':Mod11:T11 {};
-             coimplements 'pkgB':ModB:TB {};
+             viewtype Unit;
+             coimplements '-pkg1-':Mod11:T11 {
+               view = ();
+             };
+             coimplements 'pkgB':ModB:TB {
+               view = ();
+             };
            };
          }
      """
@@ -99,10 +109,16 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
             signatories Nil @Party;
             observers Nil @Party;
             agreement "Agreement";
-            implements '-pkg1-':Mod11:I11 {};
-            implements 'pkgB':ModB:IB {};
+            implements '-pkg1-':Mod11:I11 {
+              view = ();
+            };
+            implements 'pkgB':ModB:IB {
+              view = ();
+            };
           };
-          interface (this: I31) = {};
+          interface (this: I31) = {
+            viewtype Unit;
+          };
         }
 
         module Mod32 {
@@ -112,12 +128,13 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
               signatories Nil @Party;
               observers Nil @Party;
               agreement "Agreement";
-              implements '-pkg3-':Mod32:I32 {};
-              implements 'pkgA':ModA:IA {};
+              implements '-pkg3-':Mod32:I32 { view = (); };
+              implements 'pkgA':ModA:IA { view = (); };
             };
             interface (this: I32) = {
-             coimplements '-pkg1-':Mod11:T11 {};
-             coimplements 'pkgB':ModB:TB {};
+             viewtype Unit;
+             coimplements '-pkg1-':Mod11:T11 { view = (); };
+             coimplements 'pkgB':ModB:TB { view = (); };
            };
         }
         """

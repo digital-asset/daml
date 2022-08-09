@@ -636,14 +636,18 @@ pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observe
       implementsDoc = map (pPrintTemplateImplements lvl) (NM.toList implements)
 
 pPrintTemplateImplements :: PrettyLevel -> TemplateImplements -> Doc ann
-pPrintTemplateImplements lvl (TemplateImplements name methods _)
-  | NM.null methods = keyword_ "implements" <-> pPrintPrec lvl 0 name
-  | otherwise = vcat $
-      [ keyword_ "implements" <-> pPrintPrec lvl 0 name
-      ] ++ map (nest 2 . pPrintTemplateImplementsMethod lvl) (NM.toList methods)
+pPrintTemplateImplements lvl (TemplateImplements name body) =
+  hang
+    (keyword_ "implements" <-> pPrintPrec lvl 0 name)
+    2
+    (pPrintInterfaceInstanceBody lvl body)
 
-pPrintTemplateImplementsMethod :: PrettyLevel -> TemplateImplementsMethod -> Doc ann
-pPrintTemplateImplementsMethod lvl (TemplateImplementsMethod name expr) =
+pPrintInterfaceInstanceBody :: PrettyLevel -> InterfaceInstanceBody -> Doc ann
+pPrintInterfaceInstanceBody lvl (InterfaceInstanceBody methods _view) =
+  vcat $ map (pPrintInterfaceInstanceMethod lvl) (NM.toList methods)
+
+pPrintInterfaceInstanceMethod :: PrettyLevel -> InterfaceInstanceMethod -> Doc ann
+pPrintInterfaceInstanceMethod lvl (InterfaceInstanceMethod name expr) =
     pPrintPrec lvl 0 name <-> keyword_ "=" <-> pPrintPrec lvl 0 expr
 
 pPrintFeatureFlags :: FeatureFlags -> Doc ann

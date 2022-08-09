@@ -883,16 +883,6 @@ checkIface m iface = do
   introExprVar (intParam iface) (TCon tcon) $ do
     forM_ (intChoices iface) (checkTemplateChoice tcon)
 
-  -- check view method exists
-  case NM.lookup (MethodName "_view") (intMethods iface) of
-    Nothing ->
-      pure () -- throwWithContext $ ENoViewFound (intName iface)
-      -- ^ TODO: Make views mandatory when name clash issue is resolved,
-      -- https://github.com/digital-asset/daml/issues/14112
-      -- https://github.com/digital-asset/daml/pull/14322#issuecomment-1173692581
-    Just _ ->
-      pure () -- Check that view is serializable in Serializability module
-
 checkIfaceMethod :: MonadGamma m => InterfaceMethod -> m ()
 checkIfaceMethod InterfaceMethod{ifmType} = do
   checkType ifmType KStar
@@ -956,7 +946,8 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
 
 checkIfaceImplementation :: MonadGamma m => Template -> TemplateImplements -> m ()
 checkIfaceImplementation Template{tplTypeCon, tplImplements} TemplateImplements{..} = do
-  DefInterface {intRequires, intMethods} <- inWorld $ lookupInterface tpiInterface
+  DefInterface {intRequires, intMethods, intView} <- inWorld $ lookupInterface tpiInterface
+  let InterfaceInstanceBody {iiMethods, iiView} = tpiBody
 
   -- check requires
   let missingRequires = S.difference intRequires (S.fromList (NM.names tplImplements))
@@ -964,14 +955,17 @@ checkIfaceImplementation Template{tplTypeCon, tplImplements} TemplateImplements{
     throwWithContext (EMissingRequiredInterface tplTypeCon tpiInterface missingInterface)
 
   -- check methods
-  let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet tpiMethods)
+  let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet iiMethods)
   whenJust (listToMaybe (HS.toList missingMethods)) $ \methodName ->
     throwWithContext (EMissingInterfaceMethod tplTypeCon tpiInterface methodName)
-  forM_ tpiMethods $ \TemplateImplementsMethod{tpiMethodName, tpiMethodExpr} -> do
-    case NM.lookup tpiMethodName intMethods of
-      Nothing -> throwWithContext (EUnknownInterfaceMethod tplTypeCon tpiInterface tpiMethodName)
+  forM_ iiMethods $ \InterfaceInstanceMethod{iiMethodName, iiMethodExpr} -> do
+    case NM.lookup iiMethodName intMethods of
+      Nothing -> throwWithContext (EUnknownInterfaceMethod tplTypeCon tpiInterface iiMethodName)
       Just InterfaceMethod{ifmType} ->
-        checkExpr tpiMethodExpr ifmType
+        checkExpr iiMethodExpr ifmType
+
+  -- check view result type matches interface result type
+  checkExpr iiView intView
 
 checkFeature :: MonadGamma m => Feature -> m ()
 checkFeature feature = do

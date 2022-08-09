@@ -3,7 +3,7 @@
 
 package com.daml.ledger.runner.common
 
-import com.daml.jwt.{LeewayOptions}
+import com.daml.jwt.LeewayOptions
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.interpretation.Limits
 import com.daml.lf.language.LanguageVersion
@@ -24,7 +24,7 @@ import com.daml.platform.configuration.{
   InitialLedgerConfiguration,
   PartyConfiguration,
 }
-import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
+import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, PackageMetadataViewConfig}
 import com.daml.platform.indexer.ha.HaConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
@@ -349,6 +349,11 @@ object ArbitraryConfig {
     indexerWorkerLockId,
   )
 
+  val packageMetadataViewConfig = for {
+    initLoadParallelism <- Gen.chooseNum(0, Int.MaxValue)
+    initProcessParallelism <- Gen.chooseNum(0, Int.MaxValue)
+  } yield PackageMetadataViewConfig(initLoadParallelism, initProcessParallelism)
+
   val indexerConfig = for {
     batchingParallelism <- Gen.chooseNum(0, Int.MaxValue)
     dataSourceProperties <- Gen.option(dataSourceProperties)
@@ -360,6 +365,7 @@ object ArbitraryConfig {
     restartDelay <- Gen.finiteDuration
     startupMode <- indexerStartupMode
     submissionBatchSize <- Gen.long
+    packageMetadataViewConfig <- packageMetadataViewConfig
   } yield IndexerConfig(
     batchingParallelism = batchingParallelism,
     dataSourceProperties = dataSourceProperties,
@@ -371,6 +377,7 @@ object ArbitraryConfig {
     restartDelay = restartDelay,
     startupMode = startupMode,
     submissionBatchSize = submissionBatchSize,
+    packageMetadataView = packageMetadataViewConfig,
   )
 
   val lfValueTranslationCache = for {

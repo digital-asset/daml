@@ -240,10 +240,11 @@ final class Conversions(
 
               case DisclosurePreprocessing(err) =>
                 err match {
-                  case DisclosurePreprocessing.DuplicateContractKeys(tid) =>
+                  case DisclosurePreprocessing.DuplicateContractKeys(tid, keyHash) =>
                     builder.setDisclosurePreprocessingDuplicateContractKeys(
                       proto.ScenarioError.DisclosurePreprocessingDuplicateContractKeys.newBuilder
                         .setTemplateId(convertIdentifier(tid))
+                        .setKeyHash(keyHash.toHexString)
                     )
                   case DisclosurePreprocessing.DuplicateContractIds(tid) =>
                     builder.setDisclosurePreprocessingDuplicateContractIds(
@@ -265,6 +266,18 @@ final class Conversions(
                         .setTemplateId(convertIdentifier(templateId))
                     )
                 }
+
+              case InconsistentDisclosureTable.IncorrectlyTypedContract(
+                    contractId,
+                    expectedTemplateId,
+                    actualTemplateId,
+                  ) =>
+                builder.setInconsistentDisclosureTableIncorrectlyTypedContract(
+                  proto.ScenarioError.InconsistentDisclosureTableIncorrectlyTypedContract.newBuilder
+                    .setContractId(coidToEventId(contractId).toLedgerString)
+                    .setExpected(convertIdentifier(expectedTemplateId))
+                    .setActual(convertIdentifier(actualTemplateId))
+                )
             }
         }
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>

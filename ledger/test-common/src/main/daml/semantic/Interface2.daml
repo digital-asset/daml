@@ -4,6 +4,7 @@
 module Interface2 where
 
 interface I where
+    viewtype ()
     getOwner : Party
     nonconsuming choice ChocieI2: ()
       controller getOwner this

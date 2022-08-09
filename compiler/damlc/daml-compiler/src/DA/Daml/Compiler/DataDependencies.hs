@@ -1305,6 +1305,7 @@ isDFunBody = \case
     LF.ETyLam _ body -> isDFunBody body
     LF.ETmLam _ body -> isDFunBody body
     LF.EStructCon _ -> True
+    LF.EUnit -> True
     _ -> False
 
 -- | Get the relevant references from a dictionary function.

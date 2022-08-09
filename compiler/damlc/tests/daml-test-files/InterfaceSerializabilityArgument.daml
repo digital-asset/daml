@@ -13,6 +13,7 @@ instance Show NonSerializable where
   show = error "undefined"
 
 interface I where
+   viewtype ()
    p : Party
 
    choice NonSerializableArgument : ()

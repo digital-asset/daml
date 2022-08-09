@@ -11,12 +11,14 @@ import DA.Optional (isNone)
 import DA.Functor (void)
 
 interface A where
+  viewtype ()
   getOwner : Party
   nonconsuming choice ChoiceA : Int
     controller getOwner this
     do pure 10
 
 interface B requires A where
+  viewtype ()
   getCoolness : Int
   nonconsuming choice ChoiceB : Int
     controller getOwner this
@@ -28,8 +30,10 @@ template T1
   where
     signatory p1
     implements A where
+      view = ()
       getOwner = p1
     implements B where
+      view = ()
       getCoolness = 20
 
 template T2
@@ -38,6 +42,7 @@ template T2
   where
     signatory p2
     implements A where
+      view = ()
       getOwner = p2
 
 main = scenario do
