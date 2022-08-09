@@ -180,6 +180,14 @@ pattern HasInterfaceViewDFunId tyCon viewTy <-
         , viewTy
         ]
 
+pattern HasMethodDFunId :: TyCon -> LF.MethodName -> GHC.Type -> GHC.Var
+pattern HasMethodDFunId tyCon methodName retTy <-
+    DesugarDFunId [] [] (NameIn DA_Internal_Desugar "HasMethod")
+        [ splitTyConApp_maybe -> Just (tyCon, [])
+        , StrLitTy (LF.MethodName -> methodName)
+        , retTy
+        ]
+
 -- | Break down a constraint tuple projection function name
 -- into an (index, arity) pair. These names have the form
 -- "$p1(%,%)" "$p2(%,%)" "$p1(%,,%)" etc.

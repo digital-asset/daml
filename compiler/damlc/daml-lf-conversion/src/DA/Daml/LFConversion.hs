@@ -617,18 +617,12 @@ convertInterfaces env mc = interfaceDefs
     convertMethods :: GHC.TyCon -> ConvertM [InterfaceMethod]
     convertMethods tyCon = sequence $ do
       (name, val) <- mcBinds mc
-      DFunId _ <- [idDetails name]
-      TypeCon hasMethodCls
-        [ TypeCon ((== tyCon) -> True) []
-        , StrLitTy methodName
-        , retTy
-        ] <- [varType name]
-      NameIn DA_Internal_Desugar "HasMethod" <- [hasMethodCls]
+      HasMethodDFunId tyCon methodName retTy <- [name]
       pure $ do
         retTy' <- convertType env retTy
         pure InterfaceMethod
           { ifmLocation = Nothing
-          , ifmName = MethodName methodName
+          , ifmName = methodName
           , ifmType = retTy'
           }
 
