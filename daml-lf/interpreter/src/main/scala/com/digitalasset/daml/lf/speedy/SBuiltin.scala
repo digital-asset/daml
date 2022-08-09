@@ -9,6 +9,7 @@ import java.util.regex.Pattern
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
+import com.daml.lf.interpretation.Error.InconsistentDisclosureTable
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.{Ast, TemplateOrInterface}
 import com.daml.lf.speedy.ArrayList.Implicits._
@@ -1599,7 +1600,11 @@ private[lf] object SBuiltin {
 
                 case Some((actualTemplateId, _)) =>
                   throw SErrorDamlException(
-                    IE.WronglyTypedContract(coid.value, operation.templateId, actualTemplateId)
+                    InconsistentDisclosureTable.IncorrectlyTypedContract(
+                      coid.value,
+                      operation.templateId,
+                      actualTemplateId,
+                    )
                   )
 
                 case None =>
