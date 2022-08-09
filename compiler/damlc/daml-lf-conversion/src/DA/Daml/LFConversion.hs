@@ -250,7 +250,11 @@ data ModuleContents = ModuleContents
   , mcTemplateBinds :: MS.Map TypeConName TemplateBinds
   , mcExceptionBinds :: MS.Map TypeConName ExceptionBinds
   , mcInterfaceBinds :: MS.Map TypeConName InterfaceBinds
+    -- ^ Maps an interface to the contents of its definition.
   , mcInterfaceInstanceBinds :: MS.Map TypeConName (MS.Map InterfaceInstanceKey InterfaceInstanceBinds)
+    -- ^ Maps a template to the interface instances defined in it, represented as
+    -- a map from interface instance key (interface + template) to interface binds
+    -- (view, methods and location of the interface instance)
   , mcChoiceData :: MS.Map TypeConName [ChoiceData]
   , mcModInstanceInfo :: !ModInstanceInfo
   , mcDepOrphanModules :: [GHC.Module]
@@ -482,11 +486,17 @@ modInstanceInfoFromDetails :: ModDetails -> ModInstanceInfo
 modInstanceInfoFromDetails ModDetails{..} = MS.fromList
     [ (is_dfun, overlapMode is_flag) | ClsInst{..} <- md_insts ]
 
+-- | Represents the contents of some interface instance
 data InterfaceBinds = InterfaceBinds
   { ibLoc :: Maybe SourceLoc
+      -- ^ Location associated to the type declaration, which should
+      -- point to the @interface X@ line in the daml file.
   , ibViewType :: Maybe GHC.Type
+      -- ^ The view type associated with this interface.
   , ibMethods :: MS.Map MethodName GHC.Type
+      -- ^ The methods defined in this interface and their types
   , ibRequires :: [(GHC.TyCon, Maybe SourceLoc)]
+      -- ^ The interfaces required by this interface.
   }
 
 emptyInterfaceBinds :: Maybe SourceLoc -> InterfaceBinds
@@ -554,6 +564,9 @@ scrapeInterfaceBinds lfVersion tyThings binds
           _ -> Nothing
       ]
 
+-- | The interface and template that identify an interface instance.
+-- During conversion we don't care if two interface instances with the same key
+-- are given in the interface and the template, we leave it to the typechecker.
 data InterfaceInstanceKey = InterfaceInstanceKey
   { iikInterface :: GHC.TyCon
   , iikTemplate :: GHC.TyCon
@@ -568,10 +581,15 @@ instance Ord InterfaceInstanceKey where
         , getName iikTemplate
         )
 
+-- | Represents the contents of some interface instance
 data InterfaceInstanceBinds = InterfaceInstanceBinds
   { iibLoc :: Maybe SourceLoc
+      -- ^ Location associated to the @_implements_@ marker, which should
+      -- point to the @interface instance@ line in the daml file.
   , iibMethods :: MS.Map MethodName (GHC.Expr GHC.CoreBndr)
+      -- ^ Method implementations.
   , iibView :: [GHC.Expr GHC.CoreBndr]
+      -- ^ View implementation.
   }
 
 emptyInterfaceInstanceBinds ::
