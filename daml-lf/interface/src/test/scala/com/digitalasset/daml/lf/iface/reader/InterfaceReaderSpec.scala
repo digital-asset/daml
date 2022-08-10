@@ -264,10 +264,6 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       }
     }
 
-    "identify a missing/unit interface view as None" in {
-      itp.main.astInterfaces(TIf).viewType shouldBe empty
-    }
-
     def viewNameExpectsRec =
       (
         // TODO SC #14067 use the LibTIf DefInterface's view instead, requires #14112

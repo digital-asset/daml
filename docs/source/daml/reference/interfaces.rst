@@ -62,11 +62,17 @@ Interface View Type
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
    :language: daml
+   :start-after: -- INTERFACE_VIEWTYPE_DATATYPE_BEGIN
+   :end-before: -- INTERFACE_VIEWTYPE_DATATYPE_END
+
+.. literalinclude:: ../code-snippets-dev/Interfaces.daml
+   :language: daml
    :start-after: -- INTERFACE_VIEWTYPE_BEGIN
    :end-before: -- INTERFACE_VIEWTYPE_END
 
 - All implementing templates must define a special ``view`` method which returns
   a value of type declared by ``viewtype``.
+- The type must be a record.
 - This type is returned by subscriptions on interfaces.
 
 .. _interface-choices:

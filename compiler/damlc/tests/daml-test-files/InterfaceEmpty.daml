@@ -4,10 +4,12 @@
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 
 -- | Test that empty interfaces are fine.
-module InterfaceEmpty (I) where
+module InterfaceEmpty (I, EmptyInterfaceView(..)) where
+
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface I where
-  viewtype ()
+  viewtype EmptyInterfaceView
 
 template T
   with
@@ -16,4 +18,4 @@ template T
     signatory p
 
     implements I where
-      view = ()
+      view = EmptyInterfaceView
