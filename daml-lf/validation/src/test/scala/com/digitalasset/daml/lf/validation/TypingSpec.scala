@@ -5,7 +5,13 @@ package com.daml.lf.validation
 
 import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LookupError, PackageInterface, Reference, LanguageVersion => LV}
+import com.daml.lf.language.{
+  LookupError,
+  PackageInterface,
+  Reference,
+  LanguageVersion => LV,
+  TemplateOrInterface,
+}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.{defaultLanguageVersion, defaultPackageId}
 import com.daml.lf.validation.SpecUtil._
@@ -828,7 +834,12 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             // We double check that Ti implements I and Ti has a choice ChTmpl
             val TTyCon(conI) = t"Mod:I"
             val TTyCon(conTi) = t"Mod:Ti"
-            assert(env.pkgInterface.lookupTemplateImplements(conI, conTi).isRight)
+            env.pkgInterface.lookupInterfaceInstance(conI, conTi) should matchPattern {
+              case Right(iiInfo: PackageInterface.InterfaceInstanceInfo)
+                  if iiInfo.interfaceId == conI
+                    && iiInfo.templateId == conTi
+                    && iiInfo.parent == TemplateOrInterface.Template(conTi) =>
+            }
             assert(env.pkgInterface.lookupTemplateChoice(conTi, n"ChTmpl").isRight)
         },
         // UpdExerciseInterface
@@ -866,7 +877,12 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               // We double check that Ti implements I and Ti has a choice ChTmpl
               val TTyCon(conI) = t"Mod:I"
               val TTyCon(conTi) = t"Mod:Ti"
-              assert(env.pkgInterface.lookupTemplateImplements(conI, conTi).isRight)
+              env.pkgInterface.lookupInterfaceInstance(conI, conTi) should matchPattern {
+                case Right(iiInfo: PackageInterface.InterfaceInstanceInfo)
+                    if iiInfo.interfaceId == conI
+                      && iiInfo.templateId == conTi
+                      && iiInfo.parent == TemplateOrInterface.Template(conTi) =>
+              }
               assert(env.pkgInterface.lookupInterfaceChoice(conI, n"ChIface").isRight)
           },
         // UpdFetch
@@ -909,11 +925,11 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Interface(_), Reference.Interface(_)),
+                  LookupError(Reference.Interface(_), Reference.InterfaceInstance(_, _)),
                 ) =>
           },
         E"""λ (t: Mod:Ti) → ⸨ to_interface @Mod:I @Mod:T t  ⸩""" -> //
-          { case ETemplateDoesNotImplementInterface(_, _, _) => },
+          { case EMissingInterfaceInstance(_, _, _) => },
         E"""λ (t: Mod:T) → ⸨ to_interface @Mod:I @Mod:Ti t  ⸩""" -> //
           { case _: ETypeMismatch => },
         // EFromInterface
@@ -921,11 +937,11 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Template(_), Reference.Template(_)),
+                  LookupError(Reference.Template(_), Reference.InterfaceInstance(_, _)),
                 ) =>
           },
         E"λ (i: Mod:I) → ⸨ from_interface @Mod:I @Mod:T i ⸩" -> //
-          { case ETemplateDoesNotImplementInterface(_, _, _) => },
+          { case EMissingInterfaceInstance(_, _, _) => },
         E"λ (i: Mod:J) → ⸨ from_interface @Mod:I @Mod:Ti i ⸩" -> //
           { case _: ETypeMismatch => },
         // ECallInterface
@@ -1354,10 +1370,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         checkModule("PositiveTestCase_MaintainersShouldNotUseThis")
       )
 
-      an[EMissingInterfaceMethod] shouldBe thrownBy(
+      an[EMissingMethodInInterfaceInstance] shouldBe thrownBy(
         checkModule("PositiveCase_ImplementsShouldOverrideAllMethods")
       )
-      an[EUnknownInterfaceMethod] shouldBe thrownBy(
+      an[EUnknownMethodInInterfaceInstance] shouldBe thrownBy(
         checkModule("PositiveCase_ImplementsShouldOverrideOnlyMethods")
       )
     }
@@ -1711,7 +1727,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       an[EUnknownDefinition] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_UnknownDefinition")
       )
-      an[EMissingRequiredInterface] shouldBe thrownBy(
+      an[EMissingRequiredInterfaceInstance] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_MissingRequiredInterface")
       )
       an[EWrongInterfaceRequirement] shouldBe thrownBy(
@@ -1726,16 +1742,16 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       an[ENotClosedInterfaceRequires] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_NotClosedInterfaceRequires")
       )
-      an[EMissingRequiredInterface] shouldBe thrownBy(
+      an[EMissingRequiredInterfaceInstance] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_CoImplementsMissingRequiredInterface")
       )
-      an[EMissingInterfaceMethod] shouldBe thrownBy(
+      an[EMissingMethodInInterfaceInstance] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_CoImplementsMissingMethod")
       )
-      an[EUnknownInterfaceMethod] shouldBe thrownBy(
+      an[EUnknownMethodInInterfaceInstance] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_CoImplementsUnknownMethod")
       )
-      an[EConflictingImplementsCoImplements] shouldBe thrownBy(
+      an[EAmbiguousInterfaceInstance] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_ConflictingImplementsCoImplements")
       )
     }

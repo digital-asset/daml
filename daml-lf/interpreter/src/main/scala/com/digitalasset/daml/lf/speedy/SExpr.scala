@@ -22,7 +22,6 @@ import com.daml.lf.language.Ast
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
-import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.{SExpr0 => compileTime}
 import com.daml.scalautil.Statement.discard
@@ -326,18 +325,6 @@ object SExpr {
     }
   }
 
-  /** We cannot crash in the engine call back.
-    * Rather, we set the control to this expression and then crash when executing.
-    *
-    * The SEDamlException form is never constructed when compiling user LF.
-    * It is only constructed at runtime by certain builtin-ops.
-    */
-  final case class SEDamlException(error: interpretation.Error) extends SExpr {
-    def execute(machine: Machine): Control = {
-      throw SErrorDamlException(error)
-    }
-  }
-
   /** The SEImportValue form is never constructed when compiling user LF.
     * It is only constructed at runtime by certain builtin-ops.
     * Assumes the packages needed to import value of type `typ` is already
@@ -441,66 +428,45 @@ object SExpr {
   final case class ObserversDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ToCachedContractDefRef(ref: DefinitionRef) extends SDefinitionRef
 
-  /** ImplementsDefRef(templateId, ifaceId) points to the Unit value if
-    * the template implements the interface.
+  /** InterfaceInstanceDefRef(parent, interfaceId, templateId)
+    * points to the Unit value if 'parent' defines an interface instance
+    * of the interface for the template.
+    *
+    * invariants:
+    *   * parent == interfaceId || parent == templateId
+    *   * at most one of the following is defined:
+    *       InterfaceInstanceDefRef(i, i, t)
+    *       InterfaceInstanceDefRef(t, i, t)
+    *
+    * The parent is used to determine what package and module define
+    * the interface instance, which is used to fetch the appropriate
+    * package in case it's missing.
     */
-  final case class ImplementsDefRef(
+  final case class InterfaceInstanceDefRef(
+      parent: TypeConName,
+      interfaceId: TypeConName,
       templateId: TypeConName,
-      ifaceId: TypeConName,
   ) extends SDefinitionRef {
-    override def ref = templateId;
+    override def ref = parent;
   }
 
-  /** CoImplementsDefRef(templateId, ifaceId) points to the Unit value if
-    * the interface provides an implementation for (co-implements) the template.
+  /** InterfaceInstanceMethodDefRef(interfaceInstance, method) invokes
+    * the interface instance's implementation of the method.
     */
-  final case class CoImplementsDefRef(
-      templateId: TypeConName,
-      ifaceId: TypeConName,
-  ) extends SDefinitionRef {
-    override def ref = ifaceId;
-  }
-
-  /** ImplementsMethodDefRef(templateId, ifaceId, method) invokes the template's
-    * implementation of an interface method.
-    */
-  final case class ImplementsMethodDefRef(
-      templateId: TypeConName,
-      ifaceId: TypeConName,
+  final case class InterfaceInstanceMethodDefRef(
+      interfaceInstance: InterfaceInstanceDefRef,
       methodName: MethodName,
   ) extends SDefinitionRef {
-    override def ref = templateId;
+    override def ref = interfaceInstance.ref;
   }
 
-  /** CoImplementsMethodDefRef(templateId, ifaceId, method) invokes the
-    * interface-provided implementation of the method for the given template.
+  /** InterfaceInstanceViewDefRef(interfaceInstance) invokes
+    * the interface instance's implementation of the view.
     */
-  final case class CoImplementsMethodDefRef(
-      templateId: TypeConName,
-      ifaceId: TypeConName,
-      methodName: MethodName,
+  final case class InterfaceInstanceViewDefRef(
+      interfaceInstance: InterfaceInstanceDefRef
   ) extends SDefinitionRef {
-    override def ref = ifaceId;
-  }
-
-  /** ImplementsViewDefRef(templateId, ifaceId) invokes the template's
-    * implementation of an interface view.
-    */
-  final case class ImplementsViewDefRef(
-      templateId: TypeConName,
-      ifaceId: TypeConName,
-  ) extends SDefinitionRef {
-    override def ref = templateId;
-  }
-
-  /** CoImplementsViewDefRef(templateId, ifaceId) invokes the
-    * interface-provided implementation of the view for the given template.
-    */
-  final case class CoImplementsViewDefRef(
-      templateId: TypeConName,
-      ifaceId: TypeConName,
-  ) extends SDefinitionRef {
-    override def ref = ifaceId;
+    override def ref = interfaceInstance.ref;
   }
 
   final case object AnonymousClosure
