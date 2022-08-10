@@ -113,6 +113,18 @@ class IdeLedgerClient(
     }
   }
 
+  override def queryInterfaceId(
+      parties: OneAnd[Set, Ref.Party],
+      templateId: Identifier,
+      cid: ContractId,
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Option[Value]] = {
+    // Future.successful(None) // NICK
+    sys.error("Not Implemented: IdeLedgerClient.queryInterfaceId")
+  }
+
   override def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,

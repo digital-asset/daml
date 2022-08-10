@@ -116,6 +116,19 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     }
   }
 
+  override def queryInterfaceId(
+      parties: OneAnd[Set, Ref.Party],
+      templateId: Identifier,
+      cid: ContractId,
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Option[Value]] = {
+    import com.daml.lf.data.ImmArray
+    val v = Value.ValueRecord(None, ImmArray((None, Value.ValueText("hacky-mc-hackface")))) // NICK
+    Future.successful(Some(v))
+  }
+
   // TODO (MK) https://github.com/digital-asset/daml/issues/11737
   private val catchableStatusCodes =
     Set(

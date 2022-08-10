@@ -84,6 +84,15 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]]
 
+  def queryInterfaceId(
+      parties: OneAnd[Set, Ref.Party],
+      templateId: Identifier,
+      cid: ContractId,
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Option[Value]]
+
   def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,

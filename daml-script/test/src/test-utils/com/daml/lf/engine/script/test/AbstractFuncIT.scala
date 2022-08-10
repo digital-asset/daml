@@ -428,5 +428,19 @@ abstract class AbstractFuncIT
           )
       } yield r shouldBe SUnit
     }
+
+    "test_queryInterfaceId should succeed (NICK)" in {
+      for {
+        clients <- participantClients()
+        v <- run(
+          clients,
+          QualifiedName.assertFromString("TestInterfaces:test_queryInterfaceId"),
+          dar = devDar,
+        )
+      } yield {
+        assert(v == SUnit)
+      }
+    }
+
   }
 }

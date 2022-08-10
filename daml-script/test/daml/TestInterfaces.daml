@@ -84,3 +84,33 @@ test = script do
   asset2 === Asset with {issuer = p, owner = p, amount = 10}
   asset3 === Asset with {issuer = p, owner = p, amount = 5}
   pure ()
+
+
+-- Testing for queryInterfaceId
+
+interface MyInterface where
+  viewtype MyView
+
+data MyView = MyView { info : Text }
+
+template MyTemplate
+  with
+    p : Party
+    v : Text
+  where
+    signatory p
+
+    interface instance MyInterface for MyTemplate where
+      view = MyView { info = v }
+
+test_queryInterfaceId : Script ()
+test_queryInterfaceId = do
+  p <- allocateParty "p"
+  cid <- submit p do createCmd (MyTemplate p "42")
+  optR <- queryContractId p cid
+  let (Some r) = optR
+  r === MyTemplate p "42"
+  let iid : ContractId MyInterface = toInterfaceContractId @MyInterface cid
+  Some v <- queryInterfaceId p iid
+  v.info === "hacky-mc-hackface" -- NICK
+  pure ()

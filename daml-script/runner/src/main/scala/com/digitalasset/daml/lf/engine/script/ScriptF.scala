@@ -86,6 +86,12 @@ object ScriptF {
         case Left(err) => Left(err.pretty)
       }
 
+    def lookupInterfaceViewTy(id: Identifier): Either[String, Ast.Type] =
+      compiledPackages.pkgInterface.lookupInterface(id) match {
+        case Right(key) => Right(key.view)
+        case Left(err) => Left(err.pretty)
+      }
+
     def translateValue(ty: Ast.Type, value: Value): Either[String, SValue] =
       valueTranslator.translateValue(ty, value).left.map(_.toString)
 
@@ -249,11 +255,35 @@ object ScriptF {
       for {
         client <- Converter.toFuture(env.clients.getPartyParticipant(parties.head))
         optR <- client.queryContractId(parties, tplId, cid)
-        optR <- Converter.toFuture(
-          optR.traverse(Converter.fromContract(env.valueTranslator, _))
-        )
+        optR <- Converter.toFuture(optR.traverse(Converter.fromContract(env.valueTranslator, _)))
       } yield SEAppAtomic(SEValue(continue), Array(SEValue(SOptional(optR))))
   }
+
+  final case class QueryInterfaceId(
+      parties: OneAnd[Set, Party],
+      interfaceId: Identifier,
+      cid: ContractId,
+      stackTrace: StackTrace,
+      continue: SValue,
+  ) extends Cmd {
+    override def description = "queryInterfaceId"
+
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = {
+      for {
+        viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
+        client <- Converter.toFuture(env.clients.getPartyParticipant(parties.head))
+        optR <- client.queryInterfaceId(parties, interfaceId, cid)
+        optR <- Converter.toFuture(
+          optR.traverse(Converter.fromInterfaceView(env.valueTranslator, viewType, _))
+        )
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(SOptional(optR))))
+    }
+  }
+
   final case class QueryContractKey(
       parties: OneAnd[Set, Party],
       tplId: Identifier,
@@ -696,6 +726,32 @@ object ScriptF {
     }
   }
 
+  private def parseQueryInterfaceId(
+      ctx: Ctx,
+      v: SValue,
+  ): Either[String, QueryInterfaceId] = {
+    def convert(
+        actAs: SValue,
+        interfaceId: SValue,
+        cid: SValue,
+        stackTrace: Option[SValue],
+        continue: SValue,
+    ) =
+      for {
+        actAs <- Converter.toParties(actAs)
+        interfaceId <- Converter.typeRepToIdentifier(interfaceId)
+        cid <- toContractId(cid)
+        stackTrace <- toStackTrace(ctx, stackTrace)
+      } yield QueryInterfaceId(actAs, interfaceId, cid, stackTrace, continue)
+    v match {
+      case SRecord(_, _, ArrayList(actAs, interfaceId, cid, continue)) =>
+        convert(actAs, interfaceId, cid, None, continue)
+      case SRecord(_, _, ArrayList(actAs, interfaceId, cid, continue, stackTrace)) =>
+        convert(actAs, interfaceId, cid, Some(stackTrace), continue)
+      case _ => Left(s"Expected QueryInterfaceId payload but got $v")
+    }
+  }
+
   private def parseQueryContractKey(ctx: Ctx, v: SValue): Either[String, QueryContractKey] = {
     def convert(
         actAs: SValue,
@@ -934,6 +990,7 @@ object ScriptF {
       case "SubmitTree" => parseSubmit(ctx, v).map(SubmitTree(_))
       case "Query" => parseQuery(ctx, v)
       case "QueryContractId" => parseQueryContractId(ctx, v)
+      case "QueryInterfaceId" => parseQueryInterfaceId(ctx, v)
       case "QueryContractKey" => parseQueryContractKey(ctx, v)
       case "AllocParty" => parseAllocParty(ctx, v)
       case "ListKnownParties" => parseListKnownParties(ctx, v)
