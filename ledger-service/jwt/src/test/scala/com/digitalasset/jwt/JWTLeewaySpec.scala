@@ -44,7 +44,7 @@ class JWTLeewaySpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
             .withExpiresAt(oneSecondEarlierFrom(now))
             .sign(algorithm)
 
-          val leeway1 = Some(LeewayOptions(Some(5), None, None, None))
+          val leeway1 = Some(JwtTimestampLeeway(Some(5), None, None, None))
           jwtVerifier(leeway1).verifier
             .verify(token)
         }
@@ -56,7 +56,7 @@ class JWTLeewaySpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
             .withExpiresAt(oneSecondEarlierFrom(now))
             .sign(algorithm)
 
-          val expiresAt1 = Some(LeewayOptions(None, Some(5), None, None))
+          val expiresAt1 = Some(JwtTimestampLeeway(None, Some(5), None, None))
           jwtVerifier(expiresAt1).verifier
             .verify(token)
         }
@@ -81,7 +81,7 @@ class JWTLeewaySpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
             .withExpiresAt(fiveSecondsEarlierFrom(now))
             .sign(algorithm)
 
-          val leeway1 = Some(LeewayOptions(Some(1), None, None, None))
+          val leeway1 = Some(JwtTimestampLeeway(Some(1), None, None, None))
           assertThrows[TokenExpiredException] {
             jwtVerifier(leeway1).verifier
               .verify(token)
@@ -95,7 +95,7 @@ class JWTLeewaySpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
             .withExpiresAt(fiveSecondsEarlierFrom(now))
             .sign(algorithm)
 
-          val leeway = Some(LeewayOptions(Some(1), Some(10), None, None))
+          val leeway = Some(JwtTimestampLeeway(Some(1), Some(10), None, None))
           jwtVerifier(leeway).verifier
             .verify(token)
         }
@@ -107,7 +107,7 @@ class JWTLeewaySpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
             .withExpiresAt(fiveSecondsEarlierFrom(now))
             .sign(algorithm)
 
-          val leeway = Some(LeewayOptions(Some(10), Some(1), None, None))
+          val leeway = Some(JwtTimestampLeeway(Some(10), Some(1), None, None))
           assertThrows[TokenExpiredException] {
             jwtVerifier(leeway).verifier
               .verify(token)
@@ -132,7 +132,7 @@ class JWTLeewaySpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
             .withIssuedAt(oneSecondLaterFrom(now))
             .sign(algorithm)
 
-          val leeway1 = Some(LeewayOptions(Some(5), None, None, None))
+          val leeway1 = Some(JwtTimestampLeeway(Some(5), None, None, None))
           jwtVerifier(leeway1).verifier
             .verify(token)
         }
@@ -144,7 +144,7 @@ class JWTLeewaySpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
             .withIssuedAt(oneSecondLaterFrom(now))
             .sign(algorithm)
 
-          val issuedAt1 = Some(LeewayOptions(None, None, Some(5), None))
+          val issuedAt1 = Some(JwtTimestampLeeway(None, None, Some(5), None))
           jwtVerifier(issuedAt1).verifier
             .verify(token)
         }
@@ -169,7 +169,7 @@ class JWTLeewaySpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
             .withIssuedAt(fiveSecondsLaterFrom(now))
             .sign(algorithm)
 
-          val leeway1 = Some(LeewayOptions(Some(1), None, None, None))
+          val leeway1 = Some(JwtTimestampLeeway(Some(1), None, None, None))
           assertThrows[InvalidClaimException] {
             jwtVerifier(leeway1).verifier
               .verify(token)
@@ -183,7 +183,7 @@ class JWTLeewaySpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
             .withIssuedAt(fiveSecondsLaterFrom(now))
             .sign(algorithm)
 
-          val leeway = Some(LeewayOptions(Some(1), None, Some(10), None))
+          val leeway = Some(JwtTimestampLeeway(Some(1), None, Some(10), None))
           jwtVerifier(leeway).verifier
             .verify(token)
         }
@@ -195,7 +195,7 @@ class JWTLeewaySpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
             .withIssuedAt(fiveSecondsLaterFrom(now))
             .sign(algorithm)
 
-          val leeway = Some(LeewayOptions(Some(10), None, Some(1), None))
+          val leeway = Some(JwtTimestampLeeway(Some(10), None, Some(1), None))
           assertThrows[InvalidClaimException] {
             jwtVerifier(leeway).verifier
               .verify(token)
@@ -220,7 +220,7 @@ class JWTLeewaySpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
             .withNotBefore(oneSecondLaterFrom(now))
             .sign(algorithm)
 
-          val leeway1 = Some(LeewayOptions(Some(5), None, None, None))
+          val leeway1 = Some(JwtTimestampLeeway(Some(5), None, None, None))
           jwtVerifier(leeway1).verifier
             .verify(token)
         }
@@ -232,7 +232,7 @@ class JWTLeewaySpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
             .withNotBefore(oneSecondLaterFrom(now))
             .sign(algorithm)
 
-          val notBefore1 = Some(LeewayOptions(None, None, None, Some(5)))
+          val notBefore1 = Some(JwtTimestampLeeway(None, None, None, Some(5)))
           jwtVerifier(notBefore1).verifier
             .verify(token)
         }
@@ -257,7 +257,7 @@ class JWTLeewaySpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
             .withNotBefore(fiveSecondsLaterFrom(now))
             .sign(algorithm)
 
-          val leeway1 = Some(LeewayOptions(Some(1), None, None, None))
+          val leeway1 = Some(JwtTimestampLeeway(Some(1), None, None, None))
           assertThrows[InvalidClaimException] {
             jwtVerifier(leeway1).verifier
               .verify(token)
@@ -271,7 +271,7 @@ class JWTLeewaySpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
             .withNotBefore(fiveSecondsLaterFrom(now))
             .sign(algorithm)
 
-          val leeway = Some(LeewayOptions(Some(1), None, None, Some(10)))
+          val leeway = Some(JwtTimestampLeeway(Some(1), None, None, Some(10)))
           jwtVerifier(leeway).verifier
             .verify(token)
         }
@@ -283,7 +283,7 @@ class JWTLeewaySpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
             .withNotBefore(fiveSecondsLaterFrom(now))
             .sign(algorithm)
 
-          val leeway = Some(LeewayOptions(Some(10), None, None, Some(1)))
+          val leeway = Some(JwtTimestampLeeway(Some(10), None, None, Some(1)))
           assertThrows[InvalidClaimException] {
             jwtVerifier(leeway).verifier
               .verify(token)
@@ -322,12 +322,18 @@ object JWTLeewaySpec extends TableDrivenPropertyChecks {
   val privateKeyECDSA512 = keyPairECDSA512.getPrivate.asInstanceOf[ECPrivateKey]
   val publicKeyECDSA512 = keyPairECDSA512.getPublic.asInstanceOf[ECPublicKey]
 
-  val hmac256Verifier_ = HMAC256Verifier(secret, _: Option[LeewayOptions]).assertRight
-  val rsa256Verifier_ = RSA256Verifier(publicKeyRSA, _: Option[LeewayOptions]).assertRight
+  val hmac256Verifier_ = HMAC256Verifier(secret, _: Option[JwtTimestampLeeway]).assertRight
+  val rsa256Verifier_ = RSA256Verifier(publicKeyRSA, _: Option[JwtTimestampLeeway]).assertRight
   val ecdsa256Verifier_ =
-    ECDSAVerifier(Algorithm.ECDSA256(publicKeyECDSA256, null), _: Option[LeewayOptions]).assertRight
+    ECDSAVerifier(
+      Algorithm.ECDSA256(publicKeyECDSA256, null),
+      _: Option[JwtTimestampLeeway],
+    ).assertRight
   val ecdsa512Verifier_ =
-    ECDSAVerifier(Algorithm.ECDSA512(publicKeyECDSA512, null), _: Option[LeewayOptions]).assertRight
+    ECDSAVerifier(
+      Algorithm.ECDSA512(publicKeyECDSA512, null),
+      _: Option[JwtTimestampLeeway],
+    ).assertRight
 
   val verifires = Table(
     ("verifier name", "algorithm", "verifier"),

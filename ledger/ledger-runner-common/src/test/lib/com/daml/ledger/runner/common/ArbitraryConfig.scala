@@ -3,7 +3,7 @@
 
 package com.daml.ledger.runner.common
 
-import com.daml.jwt.LeewayOptions
+import com.daml.jwt.JwtTimestampLeeway
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.interpretation.Limits
 import com.daml.lf.language.LanguageVersion
@@ -183,14 +183,14 @@ object ArbitraryConfig {
     maxUsersPageSize = maxUsersPageSize,
   )
 
-  def leewayOptionsGen: Gen[LeewayOptions] = {
+  def leewayOptionsGen: Gen[JwtTimestampLeeway] = {
     for {
-      leeway <- Gen.option(Gen.posNum[Long])
+      default <- Gen.option(Gen.posNum[Long])
       expiresAt <- Gen.option(Gen.posNum[Long])
       issuedAt <- Gen.option(Gen.posNum[Long])
       notBefore <- Gen.option(Gen.posNum[Long])
-    } yield LeewayOptions(
-      leeway = leeway,
+    } yield JwtTimestampLeeway(
+      default = default,
       expiresAt = expiresAt,
       issuedAt = issuedAt,
       notBefore = notBefore,
