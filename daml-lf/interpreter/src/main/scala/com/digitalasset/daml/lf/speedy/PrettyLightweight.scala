@@ -24,6 +24,7 @@ private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK
       case Control.Expression(e) => s"E-${pp(e)}"
       case Control.Question(_) => "question"
       case Control.Complete(_) => "complete"
+      case Control.Error(_) => "error"
     }
 
   def ppEnv(env: Env): String = {
