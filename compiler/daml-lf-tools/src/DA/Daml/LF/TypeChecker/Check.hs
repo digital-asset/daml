@@ -1,7 +1,6 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE RankNTypes #-}
 -- | This module contains the Daml-LF type checker.
 --
 -- Some notes:
