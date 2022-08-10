@@ -58,6 +58,7 @@ class InterfaceViewSpec extends AnyWordSpec with Matchers with EitherValues with
     engine
       .computeInterfaceView(templateId, argument, interfaceId)
       .consume(_ => None, lookupPackage, _ => None)
+
   private val t1 = id("T1")
   private val t2 = id("T2")
   private val t3 = id("T3")
@@ -97,9 +98,7 @@ class InterfaceViewSpec extends AnyWordSpec with Matchers with EitherValues with
         err shouldBe a[Error.Interpretation]
       }
     }
-    // TODO https://github.com/digital-asset/daml/issues/14112
-    // Catch during preprocessing
-    "fail with Error.Interpretation if template does not implement interface" in {
+    "fail with Error.Preprocessing if template does not implement interface" in {
       inside(
         computeView(
           t4,
@@ -107,7 +106,7 @@ class InterfaceViewSpec extends AnyWordSpec with Matchers with EitherValues with
           i,
         )
       ) { case Left(err) =>
-        err shouldBe a[Error.Interpretation]
+        err shouldBe a[Error.Preprocessing]
       }
     }
     "fail with Error.Preprocessing if argument has invalid type" in {

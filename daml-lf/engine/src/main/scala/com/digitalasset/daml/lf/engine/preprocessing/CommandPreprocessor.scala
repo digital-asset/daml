@@ -263,6 +263,12 @@ private[lf] final class CommandPreprocessor(
       )
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
 
+    discard(
+      handleLookup(
+        pkgInterface.lookupTemplateImplementsOrInterfaceCoImplements(templateId, interfaceId)
+      )
+    )
+
     speedy.InterfaceView(templateId, arg, interfaceId, version)
   }
 }
