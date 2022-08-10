@@ -943,17 +943,21 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPObservers $ checkExpr observers (TList TParty)
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
-    forM_ implements \TemplateImplements {tpiInterface, tpiBody} -> do
-      let iiKey = InterfaceInstanceKey tpiInterface tcon
-      withPart (TPInterfaceInstance iiKey) do
-        checkInterfaceInstance iiKey tpiBody
+  forM_ implements \TemplateImplements {tpiInterface, tpiBody} -> do
+    let iiKey = InterfaceInstanceKey tpiInterface tcon
+    withPart (TPInterfaceInstance iiKey) do
+      checkInterfaceInstance param iiKey tpiBody
   whenJust mbKey $ checkTemplateKey param tcon
 
   where
     withPart p = withContext (ContextTemplate m t p)
 
-checkInterfaceInstance :: MonadGamma m => InterfaceInstanceKey -> InterfaceInstanceBody -> m ()
-checkInterfaceInstance iiKey iiBody = do
+checkInterfaceInstance :: MonadGamma m =>
+     ExprVarName
+  -> InterfaceInstanceKey
+  -> InterfaceInstanceBody
+  -> m ()
+checkInterfaceInstance tmplParam iiKey iiBody = do
   let
     InterfaceInstanceKey { iiInterface, iiTemplate } = iiKey
     InterfaceInstanceBody {iiMethods, iiView} = iiBody
@@ -971,18 +975,21 @@ checkInterfaceInstance iiKey iiBody = do
     whenLeft eRequired \(_ :: LookupError) ->
       throwWithContext (EMissingRequiredInterfaceInstance requiredInterfaceInstance iiInterface)
 
-  -- check methods
-  let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet iiMethods)
-  whenJust (listToMaybe (HS.toList missingMethods)) \methodName ->
-    throwWithContext (EMissingMethodInInterfaceInstance methodName)
-  forM_ iiMethods \InterfaceInstanceMethod{iiMethodName, iiMethodExpr} -> do
-    case NM.lookup iiMethodName intMethods of
-      Nothing -> throwWithContext (EUnknownMethodInInterfaceInstance iiMethodName)
-      Just InterfaceMethod{ifmType} ->
-        checkExpr iiMethodExpr ifmType
+  -- check definitions in interface instance
+  -- Note (MA): we use an empty environment and add `tmplParam : TTyCon(iiTemplate)`
+  introExprVar tmplParam (TCon iiTemplate) $ do
+    -- check methods
+    let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet iiMethods)
+    whenJust (listToMaybe (HS.toList missingMethods)) \methodName ->
+      throwWithContext (EMissingMethodInInterfaceInstance methodName)
+    forM_ iiMethods \InterfaceInstanceMethod{iiMethodName, iiMethodExpr} -> do
+      case NM.lookup iiMethodName intMethods of
+        Nothing -> throwWithContext (EUnknownMethodInInterfaceInstance iiMethodName)
+        Just InterfaceMethod{ifmType} ->
+          checkExpr iiMethodExpr ifmType
 
-  -- check view result type matches interface result type
-  checkExpr iiView intView
+    -- check view result type matches interface result type
+    checkExpr iiView intView
 
 checkFeature :: MonadGamma m => Feature -> m ()
 checkFeature feature = do
