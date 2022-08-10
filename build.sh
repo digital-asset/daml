@@ -31,10 +31,16 @@ fi
 for f in .bazelrc; do
     echo "---------- $f -----------"
     cat $f
-    echo ---------------------
 done
 
+echo ---------- ls -----------
 ls -al
+echo ---------- uname -a -----------
+uname -a
+echo ---------------------
+
+
+
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 bazel build //... \
