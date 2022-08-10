@@ -145,7 +145,6 @@ data Error
   | EMissingInterfaceChoice !ChoiceName
   | EMissingInterfaceMethod !TypeConName !(Qualified TypeConName) !MethodName
   | EUnknownInterfaceMethod !TypeConName !(Qualified TypeConName) !MethodName
-  | ETemplateDoesNotImplementInterface !(Qualified TypeConName) !(Qualified TypeConName)
   | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
   | EUnknownExperimental !T.Text !Type
   | EViewNotSerializable !TypeConName !Type
@@ -418,8 +417,6 @@ instance Pretty Error where
       "Template " <> pretty tpl <> " is missing method " <> pretty method <> " for interface " <> pretty iface
     EUnknownInterfaceMethod tpl iface method ->
       "Template " <> pretty tpl <> " implements " <> pretty method <> " but interface " <> pretty iface <> " has no such method."
-    ETemplateDoesNotImplementInterface tpl iface ->
-      "Template " <> pretty tpl <> " does not implement interface " <> pretty iface
     EWrongInterfaceRequirement requiringIface requiredIface ->
       "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
     EUnknownExperimental name ty ->

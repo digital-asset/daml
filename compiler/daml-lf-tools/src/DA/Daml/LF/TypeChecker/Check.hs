@@ -620,13 +620,16 @@ checkFetchInterface tpl cid = do
   void $ inWorld (lookupInterface tpl)
   checkExpr cid (TContractId (TCon tpl))
 
--- | Check that a template implements a given interface.
-checkImplements :: MonadGamma m => Qualified TypeConName -> Qualified TypeConName -> m ()
-checkImplements tpl iface = do
-  void $ inWorld (lookupInterface iface)
-  Template {tplImplements} <- inWorld (lookupTemplate tpl)
-  unless (NM.member iface tplImplements) $ do
-    throwWithContext (ETemplateDoesNotImplementInterface tpl iface)
+-- | Check that there's a unique interface instance for the given
+-- interface + template pair, and return relevant details.
+checkUniqueInterfaceInstance :: MonadGamma m =>
+  InterfaceInstanceKey -> m InterfaceInstanceInfo
+checkUniqueInterfaceInstance = inWorld . lookupInterfaceInstance
+
+-- | Check that there's a unique interface instance for the given
+-- interface + template pair.
+checkUniqueInterfaceInstanceExists :: MonadGamma m => InterfaceInstanceKey -> m ()
+checkUniqueInterfaceInstanceExists = void . checkUniqueInterfaceInstance
 
 -- returns the contract id and contract type
 checkRetrieveByKey :: MonadGamma m => RetrieveByKey -> m (Type, Type)
@@ -742,15 +745,15 @@ typeOf' = \case
     checkExpr val ty2
     pure ty1
   EToInterface iface tpl val -> do
-    checkImplements tpl iface
+    checkUniqueInterfaceInstanceExists (InterfaceInstanceKey iface tpl)
     checkExpr val (TCon tpl)
     pure (TCon iface)
   EFromInterface iface tpl val -> do
-    checkImplements tpl iface
+    checkUniqueInterfaceInstanceExists (InterfaceInstanceKey iface tpl)
     checkExpr val (TCon iface)
     pure (TOptional (TCon tpl))
   EUnsafeFromInterface iface tpl cid val -> do
-    checkImplements tpl iface
+    checkUniqueInterfaceInstanceExists (InterfaceInstanceKey iface tpl)
     checkExpr cid (TContractId (TCon iface))
     checkExpr val (TCon iface)
     pure (TCon tpl)
