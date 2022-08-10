@@ -8,7 +8,7 @@ instance Eq NonSerializable where
   (==) = error "undefined"
 instance Show NonSerializable where
   show = error "undefined"
-data GHC.Types.DamlEnum => EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => I = I GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep I where
   _interfaceTypeRep

@@ -5,7 +5,7 @@ import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
 import qualified InterfaceRequiresClashA as A
 import qualified InterfaceRequiresClashB as B
-data GHC.Types.DamlEnum => EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => C = C GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep C where
   _interfaceTypeRep

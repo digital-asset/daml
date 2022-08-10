@@ -6,7 +6,7 @@ import (implicit) DA.Internal.RebindableSyntax
 import DA.Assert ( (===) )
 import DA.Optional ( isNone )
 import DA.Functor ( void )
-data GHC.Types.DamlEnum => EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => A = A GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep A where
   _interfaceTypeRep

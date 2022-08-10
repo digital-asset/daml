@@ -4,7 +4,7 @@ import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
 import qualified InterfaceChoiceCollision1
-data GHC.Types.DamlEnum => EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => Interface
   = Interface GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Interface where
