@@ -62,6 +62,15 @@
 > 
 > * **Method transferImpl : **[Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072) ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-interface-token-10651))
 
+## Data Types
+
+<a name="type-interface-emptyinterfaceview-28816"></a>**data** [EmptyInterfaceView](#type-interface-emptyinterfaceview-28816)
+
+> <a name="constr-interface-emptyinterfaceview-1101"></a>[EmptyInterfaceView](#constr-interface-emptyinterfaceview-1101)
+> 
+> 
+> **instance** [HasInterfaceView](https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasinterfaceview-4492) [Token](#type-interface-token-10651) [EmptyInterfaceView](#type-interface-emptyinterfaceview-28816)
+
 ## Functions
 
 <a name="function-interface-getowner-36980"></a>[getOwner](#function-interface-getowner-36980)

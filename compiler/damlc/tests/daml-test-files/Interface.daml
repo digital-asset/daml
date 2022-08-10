@@ -7,9 +7,9 @@ module Interface where
 
 import DA.Assert ((===))
 
--- | An interface comment.
 data EmptyInterfaceView = EmptyInterfaceView
 
+-- | An interface comment.
 interface Token where
   viewtype EmptyInterfaceView
   getOwner : Party -- ^ A method comment.
