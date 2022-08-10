@@ -13,6 +13,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2.{CompletionInfo, TransactionMeta, Update}
 import com.daml.lf.crypto
+import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
@@ -23,12 +24,15 @@ import com.daml.platform.index.InMemoryStateUpdaterSpec.{
   Scope,
   anotherMetadataChangedUpdate,
   metadataChangedUpdate,
+  offset,
   update1,
   update3,
   update4,
   update5,
+  update6,
 }
 import com.daml.platform.indexer.ha.EndlessReadService.configuration
+import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
@@ -43,7 +47,7 @@ class InMemoryStateUpdaterSpec extends AnyFlatSpec with Matchers with AkkaBefore
 
   behavior of classOf[InMemoryStateUpdater].getSimpleName
 
-  "flow" should "correctly process updates" in new Scope {
+  "flow" should "correctly process updates in order" in new Scope {
     runFlow(
       Seq(
         Vector(update1, metadataChangedUpdate) -> 1L,
@@ -64,8 +68,6 @@ class InMemoryStateUpdaterSpec extends AnyFlatSpec with Matchers with AkkaBefore
         // Empty input batch should have not effect
         Vector.empty -> 1L,
         Vector(update3) -> 3L,
-        // Results in empty batch after processing
-        // Should still have effect on ledger end updates
         Vector(anotherMetadataChangedUpdate) -> 3L,
         Vector(update5) -> 4L,
       )
@@ -73,8 +75,55 @@ class InMemoryStateUpdaterSpec extends AnyFlatSpec with Matchers with AkkaBefore
 
     cacheUpdates should contain theSameElementsInOrderAs Seq(
       result(3L),
-      result(3L),
-      result(4L),
+      result(3L), // Results in empty batch after processing
+      result(4L), // Should still have effect on ledger end updates
+    )
+  }
+
+  "prepare" should "throw exception for an empty vector" in new Scope {
+    an[NoSuchElementException] should be thrownBy {
+      InMemoryStateUpdater.prepare(emptyArchiveToMetadata)(Vector.empty, 0L)
+    }
+  }
+
+  "prepare" should "prepare a batch of a single update" in new Scope {
+    InMemoryStateUpdater.prepare(emptyArchiveToMetadata)(
+      Vector(update1),
+      0L,
+    ) shouldBe PrepareResult(
+      Vector(txLogUpdate1),
+      offset(1L),
+      0L,
+      PackageMetadata(),
+    )
+  }
+
+  "prepare" should "set last offset and eventSequentialId to last element" in new Scope {
+    InMemoryStateUpdater.prepare(emptyArchiveToMetadata)(
+      Vector(update1, metadataChangedUpdate),
+      6L,
+    ) shouldBe PrepareResult(
+      Vector(txLogUpdate1),
+      offset(2L),
+      6L,
+      PackageMetadata(),
+    )
+  }
+
+  "prepare" should "append package metadata" in new Scope {
+    def metadata: DamlLf.Archive => PackageMetadata = {
+      case archive if archive.getHash == "00001" => PackageMetadata(templates = Set(templateId))
+      case archive if archive.getHash == "00002" => PackageMetadata(templates = Set(templateId2))
+    }
+
+    InMemoryStateUpdater.prepare(metadata)(
+      Vector(update5, update6),
+      0L,
+    ) shouldBe PrepareResult(
+      Vector(),
+      offset(6L),
+      0L,
+      PackageMetadata(templates = Set(templateId, templateId2)),
     )
   }
 }
@@ -82,6 +131,10 @@ class InMemoryStateUpdaterSpec extends AnyFlatSpec with Matchers with AkkaBefore
 object InMemoryStateUpdaterSpec {
   trait Scope extends Matchers with ScalaFutures with IntegrationPatience {
 
+    val templateId = Identifier.assertFromString("noPkgId:Mod:I")
+    val templateId2 = Identifier.assertFromString("noPkgId:Mod:I2")
+
+    val emptyArchiveToMetadata: DamlLf.Archive => PackageMetadata = _ => PackageMetadata()
     val cacheUpdates = ArrayBuffer.empty[PrepareResult]
     val cachesUpdateCaptor =
       (v: PrepareResult) => cacheUpdates.addOne(v).pipe(_ => ())
@@ -97,6 +150,16 @@ object InMemoryStateUpdaterSpec {
     )(
       prepare = (_, lastEventSequentialId) => result(lastEventSequentialId),
       update = cachesUpdateCaptor,
+    )
+
+    val txLogUpdate1 = TransactionLogUpdate.TransactionAccepted(
+      transactionId = "tx1",
+      commandId = "",
+      workflowId = workflowId,
+      effectiveAt = Timestamp.Epoch,
+      offset = offset(1L),
+      events = Vector(),
+      completionDetails = None,
     )
 
     def runFlow(input: Seq[(Vector[(Offset, Update)], Long)])(implicit mat: Materializer): Done =
@@ -169,8 +232,21 @@ object InMemoryStateUpdaterSpec {
     .setPayload(ByteString.copyFromUtf8("payload 1"))
     .build
 
+  private val archive2 = DamlLf.Archive.newBuilder
+    .setHash("00002")
+    .setHashFunction(DamlLf.HashFunction.SHA256)
+    .setPayload(ByteString.copyFromUtf8("payload 2"))
+    .build
+
   private val update5 = offset(5L) -> Update.PublicPackageUpload(
     archives = List(archive),
+    sourceDescription = None,
+    recordTime = Timestamp.Epoch,
+    submissionId = None,
+  )
+
+  private val update6 = offset(6L) -> Update.PublicPackageUpload(
+    archives = List(archive2),
     sourceDescription = None,
     recordTime = Timestamp.Epoch,
     submissionId = None,

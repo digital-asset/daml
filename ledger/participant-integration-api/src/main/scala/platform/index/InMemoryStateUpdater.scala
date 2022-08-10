@@ -6,6 +6,7 @@ package com.daml.platform.index
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.codahale.metrics.InstrumentedExecutorService
+import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
@@ -93,20 +94,25 @@ private[platform] object InMemoryStateUpdater {
     updateCachesExecutionContext = ExecutionContext.fromExecutorService(updateCachesExecutor),
     metrics = metrics,
   )(
-    prepare = prepare,
+    prepare = prepare(PackageMetadata.from),
     update = update(inMemoryState, loggingContext),
   )
 
-  private def extractMetadataFromUploadedPackages(
+  private[index] def extractMetadataFromUploadedPackages(
+      archiveToMetadata: DamlLf.Archive => PackageMetadata
+  )(
       batch: Vector[(Offset, Update)]
   ): PackageMetadata =
     batch.view
       .collect { case (_, packageUpload: Update.PublicPackageUpload) => packageUpload }
       .flatMap(_.archives.view)
-      .map(PackageMetadata.from)
+      .map(archiveToMetadata)
       .foldLeft(PackageMetadata())(_ append _)
 
-  private def prepare(batch: Vector[(Offset, Update)], lastEventSequentialId: Long): PrepareResult =
+  private[index] def prepare(archiveToMetadata: DamlLf.Archive => PackageMetadata)(
+      batch: Vector[(Offset, Update)],
+      lastEventSequentialId: Long,
+  ): PrepareResult =
     PrepareResult(
       updates = batch.collect {
         case (offset, u: Update.TransactionAccepted) => convertTransactionAccepted(offset, u)
@@ -114,10 +120,10 @@ private[platform] object InMemoryStateUpdater {
       },
       lastOffset = batch.last._1,
       lastEventSequentialId = lastEventSequentialId,
-      packageMetadata = extractMetadataFromUploadedPackages(batch),
+      packageMetadata = extractMetadataFromUploadedPackages(archiveToMetadata)(batch),
     )
 
-  private def update(
+  private[index] def update(
       inMemoryState: InMemoryState,
       loggingContext: LoggingContext,
   )(result: PrepareResult): Unit = {
