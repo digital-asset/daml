@@ -66,28 +66,18 @@ object EventProjectionProperties {
 
   private def witnessTemplateIdFilter(
       domainTransactionFilter: domain.TransactionFilter
-  ): Map[String, Set[Identifier]] = {
-
-    val (wildcardFilters, nonWildcardFilters) = domainTransactionFilter.filtersByParty
-      .partition {
-        case (_, Filters(None)) => true
-        case (_, Filters(Some(empty)))
+  ): Map[String, Set[Identifier]] =
+    domainTransactionFilter.filtersByParty.iterator
+      .map { case (party, filters) => (party.toString, filters) }
+      .collect {
+        case (party, Filters(None)) => party -> Set.empty[Identifier]
+        case (party, Filters(Some(empty)))
             if empty.templateIds.isEmpty && empty.interfaceFilters.isEmpty =>
-          true
-        case _ =>
-          false
+          party -> Set.empty[Identifier]
+        case (party, Filters(Some(nonEmptyFilter))) if nonEmptyFilter.templateIds.nonEmpty =>
+          party -> nonEmptyFilter.templateIds
       }
-
-    val templateFilters: Map[String, Set[Identifier]] = (for {
-      (party, filters) <- nonWildcardFilters
-      inclusiveFilters <- filters.inclusive.iterator
-      templateId <- inclusiveFilters.templateIds.iterator
-    } yield party.toString -> templateId)
-      .toSet[(String, Identifier)]
-      .groupMap(_._1)(_._2)
-
-    templateFilters ++ wildcardFilters.map(_._1.toString -> Set.empty[Identifier])
-  }
+      .toMap
 
   private def witnessInterfaceViewFilter(
       domainTransactionFilter: domain.TransactionFilter,
