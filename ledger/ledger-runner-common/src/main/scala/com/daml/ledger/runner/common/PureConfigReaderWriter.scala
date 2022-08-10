@@ -232,7 +232,7 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   implicit val userManagementConfigConvert: ConfigConvert[UserManagementConfig] =
     deriveConvert[UserManagementConfig]
 
-  implicit val leewayConfigOptionsConvert: ConfigConvert[JwtTimestampLeeway] =
+  implicit val jwtTimestampLeewayConfigConvert: ConfigConvert[JwtTimestampLeeway] =
     deriveConvert[JwtTimestampLeeway]
 
   implicit val authServiceConfigUnsafeJwtHmac256Reader

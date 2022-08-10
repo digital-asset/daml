@@ -183,7 +183,7 @@ object ArbitraryConfig {
     maxUsersPageSize = maxUsersPageSize,
   )
 
-  def leewayOptionsGen: Gen[JwtTimestampLeeway] = {
+  def jwtTimestampLeewayGen: Gen[JwtTimestampLeeway] = {
     for {
       default <- Gen.option(Gen.posNum[Long])
       expiresAt <- Gen.option(Gen.posNum[Long])
@@ -199,28 +199,28 @@ object ArbitraryConfig {
 
   val UnsafeJwtHmac256 = for {
     secret <- Gen.alphaStr
-    mbLeewayOptions <- Gen.option(leewayOptionsGen)
-  } yield AuthServiceConfig.UnsafeJwtHmac256(secret, mbLeewayOptions)
+    mbJwtTimestampLeeway <- Gen.option(jwtTimestampLeewayGen)
+  } yield AuthServiceConfig.UnsafeJwtHmac256(secret, mbJwtTimestampLeeway)
 
   val JwtRs256Crt = for {
     certificate <- Gen.alphaStr
-    mbLeewayOptions <- Gen.option(leewayOptionsGen)
-  } yield AuthServiceConfig.JwtRs256(certificate, mbLeewayOptions)
+    mbJwtTimestampLeeway <- Gen.option(jwtTimestampLeewayGen)
+  } yield AuthServiceConfig.JwtRs256(certificate, mbJwtTimestampLeeway)
 
   val JwtEs256Crt = for {
     certificate <- Gen.alphaStr
-    mbLeewayOptions <- Gen.option(leewayOptionsGen)
-  } yield AuthServiceConfig.JwtEs256(certificate, mbLeewayOptions)
+    mbJwtTimestampLeeway <- Gen.option(jwtTimestampLeewayGen)
+  } yield AuthServiceConfig.JwtEs256(certificate, mbJwtTimestampLeeway)
 
   val JwtEs512Crt = for {
     certificate <- Gen.alphaStr
-    mbLeewayOptions <- Gen.option(leewayOptionsGen)
-  } yield AuthServiceConfig.JwtEs512(certificate, mbLeewayOptions)
+    mbJwtTimestampLeeway <- Gen.option(jwtTimestampLeewayGen)
+  } yield AuthServiceConfig.JwtEs512(certificate, mbJwtTimestampLeeway)
 
   val JwtRs256Jwks = for {
     url <- Gen.alphaStr
-    mbLeewayOptions <- Gen.option(leewayOptionsGen)
-  } yield AuthServiceConfig.JwtRs256Jwks(url, mbLeewayOptions)
+    mbJwtTimestampLeeway <- Gen.option(jwtTimestampLeewayGen)
+  } yield AuthServiceConfig.JwtRs256Jwks(url, mbJwtTimestampLeeway)
 
   val authServiceConfig = Gen.oneOf(
     Gen.const(AuthServiceConfig.Wildcard),
