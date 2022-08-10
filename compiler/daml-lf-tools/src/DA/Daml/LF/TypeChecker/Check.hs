@@ -880,17 +880,25 @@ checkIface m iface = do
 
   -- check methods
   checkUnique (EDuplicateInterfaceMethodName (intName iface)) $ NM.names (intMethods iface)
-  forM_ (intMethods iface) checkIfaceMethod
+  forM_ (intMethods iface) \method ->
+    withPart (IPMethod method) do
+      checkIfaceMethod method
 
   -- check choices
   checkUnique (EDuplicateInterfaceChoiceName (intName iface)) $ NM.names (intChoices iface)
-  introExprVar (intParam iface) (TCon tcon) $ do
-    forM_ (intChoices iface) (checkTemplateChoice tcon)
+  introExprVar (intParam iface) (TCon tcon) do
+    forM_ (intChoices iface) \choice ->
+      withPart (IPChoice choice) do
+        checkTemplateChoice tcon choice
 
   -- check interface instances
   forM_ (intCoImplements iface) \InterfaceCoImplements {iciTemplate, iciBody} -> do
     let iiKey = InterfaceInstanceKey tcon iciTemplate
-    checkInterfaceInstance (intParam iface) iiKey iciBody
+    withPart (IPInterfaceInstance iiKey) do
+      checkInterfaceInstance (intParam iface) iiKey iciBody
+
+  where
+    withPart p = withContext (ContextDefInterface m iface p)
 
 checkIfaceMethod :: MonadGamma m => InterfaceMethod -> m ()
 checkIfaceMethod InterfaceMethod{ifmType} = do
@@ -1029,7 +1037,7 @@ checkModule m@(Module _modName _path _flags synonyms dataTypes values templates 
   traverse_ (with (ContextDefDataType m) $ checkDefDataType m) dataTypes
   -- NOTE(SF): Interfaces should be checked before templates, because the typechecking
   -- for templates relies on well-typed interface definitions.
-  traverse_ (with (ContextDefInterface m) (checkIface m)) interfaces
+  traverse_ (with (\i -> ContextDefInterface m i IPWhole) (checkIface m)) interfaces
   traverse_ (with (\t -> ContextTemplate m t TPWhole) $ checkTemplate m) templates
   traverse_ (with (ContextDefException m) (checkDefException m)) exceptions
   traverse_ (with (ContextDefValue m) checkDefValue) values

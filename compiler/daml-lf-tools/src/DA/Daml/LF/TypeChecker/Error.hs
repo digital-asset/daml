@@ -5,6 +5,7 @@ module DA.Daml.LF.TypeChecker.Error(
     Context(..),
     Error(..),
     TemplatePart(..),
+    InterfacePart(..),
     UnserializabilityReason(..),
     SerializabilityRequirement(..),
     errorLocation,
@@ -30,7 +31,7 @@ data Context
   | ContextTemplate !Module !Template !TemplatePart
   | ContextDefValue !Module !DefValue
   | ContextDefException !Module !DefException
-  | ContextDefInterface !Module !DefInterface
+  | ContextDefInterface !Module !DefInterface !InterfacePart
 
 data TemplatePart
   = TPWhole
@@ -42,6 +43,12 @@ data TemplatePart
   | TPKey
   | TPChoice TemplateChoice
   | TPInterfaceInstance InterfaceInstanceKey
+
+data InterfacePart
+  = IPWhole
+  | IPMethod InterfaceMethod
+  | IPChoice TemplateChoice
+  | IPInterfaceInstance InterfaceInstanceKey
 
 data SerializabilityRequirement
   = SRTemplateArg
@@ -158,7 +165,7 @@ contextLocation = \case
   ContextTemplate _ t _  -> tplLocation t
   ContextDefValue _ v    -> dvalLocation v
   ContextDefException _ e -> exnLocation e
-  ContextDefInterface _ i -> intLocation i
+  ContextDefInterface _ i _ -> intLocation i
 
 errorLocation :: Error -> Maybe SourceLoc
 errorLocation = \case
@@ -178,8 +185,8 @@ instance Show Context where
       "value " <> show (moduleName m) <> "." <> show (fst $ dvalBinder v)
     ContextDefException m e ->
       "exception " <> show (moduleName m) <> "." <> show (exnName e)
-    ContextDefInterface m i ->
-      "interface " <> show (moduleName m) <> "." <> show (intName i)
+    ContextDefInterface m i p ->
+      "interface " <> show (moduleName m) <> "." <> show (intName i) <> " " <> show p
 
 instance Show TemplatePart where
   show = \case
@@ -192,6 +199,13 @@ instance Show TemplatePart where
     TPKey -> "key"
     TPChoice choice -> "choice " <> T.unpack (unChoiceName $ chcName choice)
     TPInterfaceInstance iiKey -> renderPretty iiKey
+
+instance Show InterfacePart where
+  show = \case
+    IPWhole -> ""
+    IPMethod method -> "method " <> T.unpack (unMethodName $ ifmName method)
+    IPChoice choice -> "choice " <> T.unpack (unChoiceName $ chcName choice)
+    IPInterfaceInstance iiKey -> renderPretty iiKey
 
 instance Pretty SerializabilityRequirement where
   pPrint = \case
@@ -447,8 +461,8 @@ instance Pretty Context where
       hsep [ "value", pretty (moduleName m) <> "." <> pretty (fst $ dvalBinder v) ]
     ContextDefException m e ->
       hsep [ "exception", pretty (moduleName m) <> "." <> pretty (exnName e) ]
-    ContextDefInterface m i ->
-      hsep [ "interface", pretty (moduleName m) <> "." <> pretty (intName i)]
+    ContextDefInterface m i p ->
+      hsep [ "interface", pretty (moduleName m) <> "." <> pretty (intName i), string (show p)]
 
 toDiagnostic :: DiagnosticSeverity -> Error -> Diagnostic
 toDiagnostic sev err = Diagnostic
