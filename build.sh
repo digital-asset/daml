@@ -37,6 +37,8 @@ echo ---------- ls -----------
 ls -al
 echo ---------- uname -m -----------
 uname -m
+echo ---------- arch uname -m -----------
+arch -arm64 uname -m
 echo ---------- if -----------
 echo "\$1=$1"
 echo $(if [ "_macos-m1" == "$1" ]; then echo "--host-platform=//:ci-m1 --platforms=//:ci-m1"; fi)
