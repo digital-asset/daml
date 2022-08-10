@@ -29,6 +29,8 @@ comes with Daml packages that cover the following areas:
 -  *Lifecycling*: evolution of financial instruments over their lifetime
    based on their economic terms
 
+The main goal of Daml Finance is to decrease time-to-market, and to increase productivity of development teams. Without it, every single customer would have to “reinvent the wheel” to produce the same models required in most financial use cases.
+
 Example use-cases
 *****************
 

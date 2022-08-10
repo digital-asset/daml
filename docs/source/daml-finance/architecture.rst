@@ -49,7 +49,7 @@ implementing the interfaces defined in the interface layer. These are
 the objects that are ultimately stored on the ledger.
 
 For instance, ``Daml.Finance.Asset`` defines a concrete implementation
-for a :ref:`transferable <transferability>`, :ref:`fungible <fungibility>` holding. This template implements
+of a :ref:`transferable <transferability>`, :ref:`fungible <fungibility>` holding. This template implements
 interfaces defined in ``Daml.Finance.Interface.Asset``.
 
 The implementation layer consists of the following packages
@@ -107,3 +107,14 @@ The image below depicts the dependency graph of an example customer
 application using Daml Finance. The :doc:`Getting Started <getting-started/getting-started>` example showcases this dependency pattern.
 
 .. image:: images/customer_integration_example.png
+
+Extension Points
+****************
+
+Each of the provided interfaces allows a user to extend the library with custom functionality. The important extension points are:
+
+-  *Holding interface hierarchy*: can be implemented to support specific requirements around fungibility (e.g. fixed divisibility), transferability (e.g. transfer restrictions), or just to hold additional information required on a holding contract.
+-  *Instrument interface*: can be implemented to support specific financial instruments and data models (e.g. a CDM-based instrument)
+-  *Account interface*: can be implemented to support different account types (e.g. gold bars located at shelfs in vaults)
+-  *Settlement interfaces*: can be implemented to support new settlement modes (e.g. involving off-ledger legs, or HTLC-type mechanisms)
+-  *Lifecycle interfaces*: can be implemented to support new lifecycle events, or observation types

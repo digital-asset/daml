@@ -8,9 +8,9 @@ The most important definitions are also summarized in the :doc:`glossary <glossa
 Asset model
 ***********
 
-The library’s asset model is the set of contracts that describe the financial rights and obligations that exist between parties.
+The library’s asset model is the set of contracts that describe the financial rights and obligations that exist between parties. It is composed of instruments, holdings, and accounts.
 
-It is composed of instruments, holdings, and accounts.
+It is important to note that she economic terms of an asset are separated from the representation of an asset holding. This is to allow centralized management of instruments (e.g. lifecycling), and to allow reuse of instruments and associated logic across different entities (e.g. custodians). It also avoids the data redundancy of replicating instrument data and logic on every holding contract.
 
 All asset model interfaces are defined in the ``Daml.Finance.Interface.Asset`` package. Implementations are in ``Daml.Finance.Asset``.
 

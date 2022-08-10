@@ -21,7 +21,7 @@ Instrument
 
 An Instrument describes the economic terms (rights and obligations) of one unit of a financial contract.
 
-An Instrument is referenced by `holdings <#holding>`__. It can be as simple as an ISIN code referencing some real-world security, or it could encode specific on-ledger lifecycling logic.
+An Instrument is referenced by `holdings <#holding>`__. It can be as simple as an ISIN code referencing some real-world (off-ledger) security, or it could encode specific on-ledger lifecycling logic.
 
 .. _holding:
 
