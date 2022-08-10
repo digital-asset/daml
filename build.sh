@@ -35,8 +35,8 @@ done
 
 echo ---------- ls -----------
 ls -al
-echo ---------- uname -a -----------
-uname -a
+echo ---------- uname -m -----------
+uname -m
 echo ---------------------
 
 
