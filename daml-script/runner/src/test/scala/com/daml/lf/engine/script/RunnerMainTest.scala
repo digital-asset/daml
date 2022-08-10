@@ -31,9 +31,9 @@ object RunnerMainTest {
   val localHost: String = "localhost"
   val ledgerPort: Int = 8080
   val participantPort: Int = 6865
-  val darFilePath: Path = Paths.get("./daml-script/runner/src/test/resources/dummy.dar")
+  val darFilePath: Path = Paths.get("daml-script/runner/src/test/resources/dummy.dar")
   val participantConfigPath: Path =
-    Paths.get("./daml-script/runner/src/test/resources/participantConfig.json")
+    Paths.get("daml-script/runner/src/test/resources/participantConfig.json")
   val configLedgerParticipant: RunnerCliConfig = RunnerCliConfig(
     darPath = darFilePath.toFile,
     scriptIdentifier = "Main:setup",
