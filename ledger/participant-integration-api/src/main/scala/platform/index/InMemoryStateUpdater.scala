@@ -38,8 +38,9 @@ final class InMemoryStateUpdater(
 ) {
 
   val packageMetadataFlow = Sink.foreach[(Vector[(Offset, Update)], Long)] { case (batch, _) =>
-    batch.collect { case (_, e: Update.PublicPackageUpload) =>
-      updatePackageMetadata(e)
+    batch.foreach {
+      case (_, e: Update.PublicPackageUpload) => updatePackageMetadata(e)
+      case _ => ()
     }
   }
 

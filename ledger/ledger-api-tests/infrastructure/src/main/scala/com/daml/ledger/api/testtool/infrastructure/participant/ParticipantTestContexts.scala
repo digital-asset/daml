@@ -4,7 +4,6 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.time.Instant
-
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Endpoint
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.CompletionResponse
@@ -43,6 +42,7 @@ import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfiguration
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.package_service.{GetPackageResponse, PackageStatus}
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
+import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
@@ -157,6 +157,12 @@ trait ParticipantTestContext extends UserManagementTestContext {
       templateIds: Seq[TemplateId] = Seq.empty,
       begin: LedgerOffset = referenceOffset,
   ): GetTransactionsRequest
+
+  def transactionsRequest(
+      transactionFilter: TransactionFilter,
+      begin: LedgerOffset = referenceOffset,
+  ): GetTransactionsRequest
+
   def transactionStream(
       request: GetTransactionsRequest,
       responseObserver: StreamObserver[GetTransactionsResponse],

@@ -20,6 +20,7 @@ template T1
     a : Int
   where
     key (p, a): (Party, Int)
+    maintainer key._1
     signatory p
     implements I where
       _view = View with

@@ -5,7 +5,6 @@ package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.time.Instant
 import java.util.concurrent.TimeoutException
-
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Endpoint
 import com.daml.ledger.api.testtool.infrastructure.time.{DelayMechanism, Durations}
@@ -43,6 +42,7 @@ import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfiguration
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.package_service.{GetPackageResponse, PackageStatus}
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
+import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
@@ -166,6 +166,12 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       templateIds: Seq[TemplateId],
       begin: LedgerOffset,
   ): GetTransactionsRequest = delegate.getTransactionsRequest(parties, templateIds, begin)
+
+  override def transactionsRequest(
+      transactionFilter: TransactionFilter,
+      begin: LedgerOffset = referenceOffset,
+  ): GetTransactionsRequest = delegate.transactionsRequest(transactionFilter, begin)
+
   override def transactionStream(
       request: GetTransactionsRequest,
       responseObserver: StreamObserver[GetTransactionsResponse],

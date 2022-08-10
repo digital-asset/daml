@@ -37,8 +37,8 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   test(
     "ISMultipleWitness",
     "Multiple witness",
-    allocate(Parties(3)),
-  )(implicit ec => { case Participants(Participant(ledger, party1, party2, notAWitness)) =>
+    allocate(Parties(2)),
+  )(implicit ec => { case Participants(Participant(ledger, party1, party2)) =>
     for {
       c <- ledger.create(
         party1,
@@ -46,9 +46,8 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       )
       mergedTransactions <- ledger.flatTransactions(
         ledger
-          .getTransactionsRequest(Seq.empty)
-          .update(
-            _.filter := new TransactionFilter(
+          .transactionsRequest(
+            new TransactionFilter(
               Map(
                 party1.toString -> filters(Seq.empty, Seq((Tag.unwrap(I.id), true))),
                 party2.toString -> filters(Seq.empty, Seq((Tag.unwrap(I2.id), true))),
@@ -59,23 +58,10 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
 
       party1Transactions <- ledger.flatTransactions(
         ledger
-          .getTransactionsRequest(Seq.empty)
-          .update(
-            _.filter := new TransactionFilter(
+          .transactionsRequest(
+            new TransactionFilter(
               Map(
                 party1.toString -> filters(Seq.empty, Seq((Tag.unwrap(I.id), true)))
-              )
-            )
-          )
-      )
-
-      party3Transactions <- ledger.flatTransactions(
-        ledger
-          .getTransactionsRequest(Seq.empty)
-          .update(
-            _.filter := new TransactionFilter(
-              Map(
-                notAWitness.toString -> filters(Seq.empty, Seq((Tag.unwrap(I.id), true)))
               )
             )
           )
@@ -84,23 +70,21 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       assertLength("single transaction found", 1, mergedTransactions)
       val createdEvent1 = createdEvents(mergedTransactions(0)).head
       assertEquals("Create event 1 contract ID", createdEvent1.contractId, c.toString)
-      assertViewEquals(createdEvent1.interfaceViews(0), Tag.unwrap(I.id)) { value =>
+      assertViewEquals(createdEvent1.interfaceViews, Tag.unwrap(I.id)) { value =>
         assertLength("View1 has 2 fields", 2, value.fields)
         assertEquals("View1.a", value.fields(0).getValue.getInt64, 6)
         assertEquals("View1.b", value.fields(1).getValue.getBool, true)
       }
-      assertViewEquals(createdEvent1.interfaceViews(1), Tag.unwrap(I2.id)) { value =>
+      assertViewEquals(createdEvent1.interfaceViews, Tag.unwrap(I2.id)) { value =>
         assertLength("View2 has 1 field", 1, value.fields)
         assertEquals("View2.c", value.fields(0).getValue.getInt64, 7)
       }
-
-      assertLength("single transaction found", 0, party3Transactions)
 
       assertLength("single transaction found", 1, party1Transactions)
       val createdEvent2 = createdEvents(party1Transactions(0)).head
       assertEquals("Create event 1 contract ID", createdEvent2.contractId, c.toString)
       assertLength("single view found", 1, createdEvent2.interfaceViews)
-      assertViewEquals(createdEvent2.interfaceViews(0), Tag.unwrap(I.id)) { value =>
+      assertViewEquals(createdEvent2.interfaceViews, Tag.unwrap(I.id)) { value =>
         assertLength("View1 has 2 fields", 2, value.fields)
         assertEquals("View1.a", value.fields(0).getValue.getInt64, 6)
         assertEquals("View1.b", value.fields(1).getValue.getBool, true)
@@ -130,12 +114,12 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       assertLength("single transaction found", 1, transactions)
       val createdEvent = createdEvents(transactions(0)).head
       assertEquals("Create event 1 contract ID", createdEvent.contractId, c.toString)
-      assertViewEquals(createdEvent.interfaceViews(0), Tag.unwrap(I.id)) { value =>
+      assertViewEquals(createdEvent.interfaceViews, Tag.unwrap(I.id)) { value =>
         assertLength("View1 has 2 fields", 2, value.fields)
         assertEquals("View1.a", value.fields(0).getValue.getInt64, 31337)
         assertEquals("View1.b", value.fields(1).getValue.getBool, true)
       }
-      assertViewEquals(createdEvent.interfaceViews(1), Tag.unwrap(I2.id)) { value =>
+      assertViewEquals(createdEvent.interfaceViews, Tag.unwrap(I2.id)) { value =>
         assertLength("View2 has 1 field", 1, value.fields)
         assertEquals("View2.c", value.fields(0).getValue.getInt64, 1)
       }
@@ -175,7 +159,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
         Tag.unwrap(T1.id).toString,
       )
       assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.toString)
-      assertViewEquals(createdEvent1.interfaceViews(0), Tag.unwrap(I.id)) { value =>
+      assertViewEquals(createdEvent1.interfaceViews, Tag.unwrap(I.id)) { value =>
         assertLength("View1 has 2 fields", 2, value.fields)
         assertEquals("View1.a", value.fields(0).getValue.getInt64, 1)
         assertEquals("View1.b", value.fields(1).getValue.getBool, true)
@@ -204,7 +188,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
         Tag.unwrap(T2.id).toString,
       )
       assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.toString)
-      assertViewEquals(createdEvent2.interfaceViews.head, Tag.unwrap(I.id)) { value =>
+      assertViewEquals(createdEvent2.interfaceViews, Tag.unwrap(I.id)) { value =>
         assertLength("View2 has 2 fields", 2, value.fields)
         assertEquals("View2.a", value.fields(0).getValue.getInt64, 2)
         assertEquals("View2.b", value.fields(1).getValue.getBool, false)
@@ -282,7 +266,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.toString)
       // Expect view to be delivered even though there is an ambiguous
       // includeInterfaceView flag set to true and false at the same time (true wins)
-      assertViewEquals(createdEvent2.interfaceViews.head, Tag.unwrap(I.id)) { value =>
+      assertViewEquals(createdEvent2.interfaceViews, Tag.unwrap(I.id)) { value =>
         assertLength("View2 has 2 fields", 2, value.fields)
         assertEquals("View2.a", value.fields(0).getValue.getInt64, 2)
         assertEquals("View2.b", value.fields(1).getValue.getBool, false)
@@ -324,7 +308,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.toString)
       // Expect view to be delivered even though there is an ambiguous
       // includeInterfaceView flag set to true and false at the same time.
-      assertViewEquals(createdEvent2.interfaceViews.head, Tag.unwrap(I.id)) { value =>
+      assertViewEquals(createdEvent2.interfaceViews, Tag.unwrap(I.id)) { value =>
         assertLength("View2 has 2 fields", 2, value.fields)
         assertEquals("View2.a", value.fields(0).getValue.getInt64, 2)
         assertEquals("View2.b", value.fields(1).getValue.getBool, false)
@@ -541,7 +525,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
         Tag.unwrap(T1.id).toString,
       )
       assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.toString)
-      assertViewEquals(createdEvent1.interfaceViews(0), Tag.unwrap(I.id)) { value =>
+      assertViewEquals(createdEvent1.interfaceViews, Tag.unwrap(I.id)) { value =>
         assertLength("View1 has 2 fields", 2, value.fields)
         assertEquals("View1.a", value.fields(0).getValue.getInt64, 1)
         assertEquals("View1.b", value.fields(1).getValue.getBool, true)
@@ -575,7 +559,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
         Tag.unwrap(T2.id).toString,
       )
       assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.toString)
-      assertViewEquals(createdEvent2.interfaceViews.head, Tag.unwrap(I.id)) { value =>
+      assertViewEquals(createdEvent2.interfaceViews, Tag.unwrap(I.id)) { value =>
         assertLength("View2 has 2 fields", 2, value.fields)
         assertEquals("View2.a", value.fields(0).getValue.getInt64, 2)
         assertEquals("View2.b", value.fields(1).getValue.getBool, false)
@@ -658,7 +642,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.toString)
       // Expect view to be delivered even though there is an ambiguous
       // includeInterfaceView flag set to true and false at the same time (true wins)
-      assertViewEquals(createdEvent2.interfaceViews.head, Tag.unwrap(I.id)) { value =>
+      assertViewEquals(createdEvent2.interfaceViews, Tag.unwrap(I.id)) { value =>
         assertLength("View2 has 2 fields", 2, value.fields)
         assertEquals("View2.a", value.fields(0).getValue.getInt64, 2)
         assertEquals("View2.b", value.fields(1).getValue.getBool, false)
@@ -859,9 +843,16 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
     assertNotEquals("Status must be failed", status.code, 0)
   }
 
-  private def assertViewEquals(view: InterfaceView, interfaceId: Identifier)(
+  private def assertViewEquals(views: Seq[InterfaceView], interfaceId: Identifier)(
       checkValue: Record => Unit
   ): Unit = {
+    val viewSearch = views.find(_.interfaceId.contains(interfaceId))
+
+    val view = assertDefined(viewSearch, "View could not be found")
+
+    val viewCount = views.count(_.interfaceId.contains(interfaceId))
+    assertEquals(s"Only one view of interfaceId=$interfaceId must be defined", viewCount, 1)
+
     val actualInterfaceId = assertDefined(view.interfaceId, "Interface ID is not defined")
     assertEquals("View has correct interface ID", actualInterfaceId, interfaceId)
 

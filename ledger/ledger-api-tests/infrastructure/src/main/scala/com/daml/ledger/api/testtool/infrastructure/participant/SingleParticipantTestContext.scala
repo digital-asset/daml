@@ -304,6 +304,18 @@ final class SingleParticipantTestContext private[participant] (
       verbose = true,
     )
 
+  override def transactionsRequest(
+      transactionFilter: TransactionFilter,
+      begin: LedgerOffset = referenceOffset,
+  ): GetTransactionsRequest =
+    new GetTransactionsRequest(
+      ledgerId = ledgerId,
+      begin = Some(begin),
+      end = Some(end),
+      filter = Some(transactionFilter),
+      verbose = true,
+    )
+
   private def transactions[Res](
       n: Int,
       request: GetTransactionsRequest,
