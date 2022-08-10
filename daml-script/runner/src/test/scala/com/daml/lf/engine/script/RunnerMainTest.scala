@@ -9,6 +9,8 @@ import org.scalatest.Inspectors
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.nio.file.{Path, Paths}
+
 class RunnerMainTest extends AnyFreeSpec with Matchers with Inspectors {
 
   import RunnerMainTest._
@@ -29,11 +31,11 @@ object RunnerMainTest {
   val localHost: String = "localhost"
   val ledgerPort: Int = 8080
   val participantPort: Int = 6865
-  val darFilePath: os.Path = os.Path("./daml-script/runner/src/test/resources/dummy.dar", os.pwd)
-  val participantConfigPath: os.Path =
-    os.Path("./daml-script/runner/src/test/resources/participantConfig.json", os.pwd)
+  val darFilePath: Path = Paths.get("./daml-script/runner/src/test/resources/dummy.dar")
+  val participantConfigPath: Path =
+    Paths.get("./daml-script/runner/src/test/resources/participantConfig.json")
   val configLedgerParticipant: RunnerCliConfig = RunnerCliConfig(
-    darPath = darFilePath.toIO,
+    darPath = darFilePath.toFile,
     scriptIdentifier = "Main:setup",
     ledgerHost = Some(localHost),
     ledgerPort = Some(ledgerPort),
@@ -48,11 +50,11 @@ object RunnerMainTest {
     applicationId = None,
   )
   val configNodeParticipants: RunnerCliConfig = RunnerCliConfig(
-    darPath = darFilePath.toIO,
+    darPath = darFilePath.toFile,
     scriptIdentifier = "Main:setup",
     ledgerHost = None,
     ledgerPort = None,
-    participantConfig = Some(participantConfigPath.toIO),
+    participantConfig = Some(participantConfigPath.toFile),
     timeMode = ScriptConfig.DefaultTimeMode,
     inputFile = None,
     outputFile = None,
