@@ -80,12 +80,11 @@ object Blinding {
     )
   }
 
-  /* Calculate the packages needed by a party to interpret the projection   */
   private[engine] def partyPackages(
       tx: VersionedTransaction,
-      bindingInfo: BlindingInfo,
+      blindingInfo: BlindingInfo,
   ): Relation[Party, Ref.PackageId] = {
-    val entries = bindingInfo.disclosure.view.flatMap { case (nodeId, parties) =>
+    val entries = blindingInfo.disclosure.view.flatMap { case (nodeId, parties) =>
       def toEntries(tyCon: Ref.TypeConName) = parties.view.map(_ -> tyCon.packageId)
       tx.nodes(nodeId) match {
         case action: Node.LeafOnlyAction =>
@@ -99,6 +98,7 @@ object Blinding {
     Relation.from(entries)
   }
 
+  /* Calculate the packages needed by a party to interpret the projection   */
   def partyPackages(tx: VersionedTransaction): Relation[Party, PackageId] =
     partyPackages(tx, blind(tx))
 
