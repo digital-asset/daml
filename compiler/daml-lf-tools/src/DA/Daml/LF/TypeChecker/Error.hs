@@ -41,6 +41,7 @@ data TemplatePart
   | TPAgreement
   | TPKey
   | TPChoice TemplateChoice
+  | TPInterfaceInstance InterfaceInstanceKey
 
 data SerializabilityRequirement
   = SRTemplateArg
@@ -140,11 +141,11 @@ data Error
   | EUnknownInterface !TypeConName
   | ECircularInterfaceRequires !TypeConName !(Maybe (Qualified TypeConName))
   | ENotClosedInterfaceRequires !TypeConName !(Qualified TypeConName) ![Qualified TypeConName]
-  | EMissingRequiredInterface { emriTemplate :: !(Qualified TypeConName), emriRequiringInterface :: !(Qualified TypeConName), emriRequiredInterface :: !(Qualified TypeConName) }
+  | EMissingRequiredInterfaceInstance !InterfaceInstanceKey !(Qualified TypeConName)
   | EBadInheritedChoices { ebicInterface :: !(Qualified TypeConName), ebicExpected :: ![ChoiceName], ebicGot :: ![ChoiceName] }
   | EMissingInterfaceChoice !ChoiceName
-  | EMissingInterfaceMethod !(Qualified TypeConName) !(Qualified TypeConName) !MethodName
-  | EUnknownInterfaceMethod !(Qualified TypeConName) !(Qualified TypeConName) !MethodName
+  | EMissingMethodInInterfaceInstance !MethodName
+  | EUnknownMethodInInterfaceInstance !MethodName
   | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
   | EUnknownExperimental !T.Text !Type
   | EViewNotSerializable !TypeConName !Type
@@ -190,6 +191,7 @@ instance Show TemplatePart where
     TPAgreement -> "agreement"
     TPKey -> "key"
     TPChoice choice -> "choice " <> T.unpack (unChoiceName $ chcName choice)
+    TPInterfaceInstance iiKey -> renderPretty iiKey
 
 instance Pretty SerializabilityRequirement where
   pPrint = \case
@@ -402,10 +404,13 @@ instance Pretty Error where
       "Interface " <> pretty iface
         <> " is missing requirement " <> pretty ifaceMissing
         <> " required by " <> pretty ifaceRequired
-    EMissingRequiredInterface {..} ->
-      "Template " <> pretty emriTemplate <>
-      " is missing an implementation of interface " <> pretty emriRequiredInterface <>
-      " required by interface " <> pretty emriRequiringInterface
+    EMissingRequiredInterfaceInstance requiredInterfaceInstance requiringInterface ->
+      hsep
+        [ "Missing required"
+        , quotes (pretty requiredInterfaceInstance) <> ","
+        , "required by interface"
+        , quotes (pretty requiringInterface)
+        ]
     EBadInheritedChoices {ebicInterface, ebicExpected, ebicGot} ->
       vcat
       [ "List of inherited choices does not match interface definition for " <> pretty ebicInterface
@@ -413,10 +418,14 @@ instance Pretty Error where
       , "But got: " <> pretty ebicGot
       ]
     EMissingInterfaceChoice ch -> "Missing interface choice implementation for " <> pretty ch
-    EMissingInterfaceMethod tpl iface method ->
-      "Template " <> pretty tpl <> " is missing method " <> pretty method <> " for interface " <> pretty iface
-    EUnknownInterfaceMethod tpl iface method ->
-      "Template " <> pretty tpl <> " implements " <> pretty method <> " but interface " <> pretty iface <> " has no such method."
+    EMissingMethodInInterfaceInstance method ->
+      "Interface instance lacks an implementation for method" <-> quotes (pretty method)
+    EUnknownMethodInInterfaceInstance method ->
+      hsep
+        [ "Interface instance has an implementation for method"
+        , quotes (pretty method) <> ","
+        , "but this method is not part of the interface."
+        ]
     EWrongInterfaceRequirement requiringIface requiredIface ->
       "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
     EUnknownExperimental name ty ->
