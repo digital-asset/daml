@@ -46,6 +46,13 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     ) shouldBe RenderResult(true, Set.empty)
   }
 
+  it should "project contract arguments in case of empty InclusiveFilters" in new Scope {
+    EventProjectionProperties(emptyInclusiveFilters, true, noInterface).render(
+      Set(party),
+      template1,
+    ) shouldBe RenderResult(true, Set.empty)
+  }
+
   it should "project interface in case of match by interface id and witness" in new Scope {
     val filter = Filters(
       Some(InclusiveFilters(Set.empty, Set(InterfaceFilter(iface1, includeView = true))))
@@ -146,6 +153,9 @@ object EventProjectionPropertiesSpec {
     val party2 = Ref.Party.assertFromString("party2")
     val noFilter = new TransactionFilter(Map())
     val wildcardFilter = new TransactionFilter(Map(party -> Filters(None)))
+    val emptyInclusiveFilters = new TransactionFilter(
+      Map(party -> Filters(Some(InclusiveFilters(Set.empty, Set.empty))))
+    )
     def templateFilterFor(templateId: Ref.Identifier): Option[InclusiveFilters] = Some(
       InclusiveFilters(Set(templateId), Set.empty)
     )
