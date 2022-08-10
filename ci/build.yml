@@ -112,8 +112,10 @@ jobs:
     matrix:
       intel:
         assignment: default
+        name: macos
       apple:
         assignment: m1-builds
+        name: macos-m1
   pool:
     name: macOS-pool
     demands: assignment -equals $(assignment)
@@ -140,7 +142,7 @@ jobs:
     - template: build-unix.yml
       parameters:
         release_tag: $(release_tag)
-        name: macos
+        name: $(name)
         is_release: variables.is_release
     - template: upload-bazel-metrics.yml
     - template: tell-slack-failed.yml

@@ -39,11 +39,9 @@ echo ---------- uname -m -----------
 uname -m
 echo ---------------------
 
-
-
-
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 bazel build //... \
+  "$(if [ "macos-m1" == "$1" ]; then echo "--host-platform=//:ci-1 --platforms=//:ci-m1"; fi)" \
   --toolchain_resolution_debug \
   --build_tag_filters "$tag_filter" \
   --profile build-profile.json \

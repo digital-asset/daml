@@ -841,12 +841,3 @@ nixpkgs_package(
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 ) if not is_windows else None
-
-# Host platofrm is not detected correctly by Bazel on CI
-platform(
-    name = "ci-m1"
-    constraint_values = [
-        "@platforms//os:macos",
-        "@platforms//cpu:arm64",
-    ],
-)
