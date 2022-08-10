@@ -59,7 +59,7 @@ final class InMemoryStateUpdater(
 
 private[platform] object InMemoryStateUpdater {
   case class PrepareResult(
-      logUpdate: Vector[TransactionLogUpdate],
+      updates: Vector[TransactionLogUpdate],
       lastOffset: Offset,
       lastEventSequentialId: Long,
       packageMetadata: PackageMetadata,
@@ -97,32 +97,32 @@ private[platform] object InMemoryStateUpdater {
     update = update(inMemoryState, loggingContext),
   )
 
-  def extractMetadataFromUploadedPackage(batch: Vector[(Offset, Update)]): PackageMetadata =
-    batch.foldLeft(PackageMetadata()) {
-      case (metadata, (_, uploadEvent: Update.PublicPackageUpload)) =>
-        uploadEvent.archives.foldLeft(metadata) { case (acc, archive) =>
-          acc.append(PackageMetadata.from(archive))
-        }
-      case (metadata, _) => metadata
-    }
+  private def extractMetadataFromUploadedPackages(
+      batch: Vector[(Offset, Update)]
+  ): PackageMetadata =
+    batch.view
+      .collect { case (_, packageUpload: Update.PublicPackageUpload) => packageUpload }
+      .flatMap(_.archives.view)
+      .map(PackageMetadata.from)
+      .foldLeft(PackageMetadata())(_ append _)
 
-  def prepare(batch: Vector[(Offset, Update)], lastEventSequentialId: Long): PrepareResult =
+  private def prepare(batch: Vector[(Offset, Update)], lastEventSequentialId: Long): PrepareResult =
     PrepareResult(
-      logUpdate = batch.collect {
+      updates = batch.collect {
         case (offset, u: Update.TransactionAccepted) => convertTransactionAccepted(offset, u)
         case (offset, u: Update.CommandRejected) => convertTransactionRejected(offset, u)
       },
       lastOffset = batch.last._1,
       lastEventSequentialId = lastEventSequentialId,
-      packageMetadata = extractMetadataFromUploadedPackage(batch),
+      packageMetadata = extractMetadataFromUploadedPackages(batch),
     )
 
-  def update(
+  private def update(
       inMemoryState: InMemoryState,
       loggingContext: LoggingContext,
   )(result: PrepareResult): Unit = {
     inMemoryState.packageMetadataView.update(result.packageMetadata)
-    updateCaches(inMemoryState, result.logUpdate)
+    updateCaches(inMemoryState, result.updates)
     // must be the last update: see the comment inside the method for more details
     updateLedgerEnd(inMemoryState, result.lastOffset, result.lastEventSequentialId)(loggingContext)
   }
