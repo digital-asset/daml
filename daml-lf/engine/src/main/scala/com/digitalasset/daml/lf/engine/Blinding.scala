@@ -90,7 +90,7 @@ object Blinding {
         case action: Node.LeafOnlyAction =>
           toEntries(action.templateId)
         case exe: Node.Exercise =>
-          toEntries(exe.templateId) ++ exe.interfaceId.view.flatMap(toEntries)
+          toEntries(exe.templateId) ++ exe.interfaceId.toList.view.flatMap(toEntries)
         case _: Node.Rollback =>
           Iterable.empty
       }
