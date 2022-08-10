@@ -24,9 +24,9 @@ mentioning `@gary`.
 
 > Note: You should not have to make any change to this repo.
 
-1. Open a PR on the [assembly] repo using the most recent [Canton]
-   snapshot. See the instructions in the README of the [assembly] repo
-   for details.
+1. On Wednesday morning, a cron should create a release PR on the [assembly]
+   repo, mentioning you. Please reach out to `@gary` on Slack if that's
+   missing.
 
 2. Merge the PR and wait for the corresponding `main` build to finish.
 
