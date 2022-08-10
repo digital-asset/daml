@@ -4,7 +4,7 @@
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 module InterfaceErrors where
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface MyInterface where
     viewtype EmptyInterfaceView

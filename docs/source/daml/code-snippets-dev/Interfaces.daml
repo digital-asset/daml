@@ -53,7 +53,7 @@ func3 = method3
 -- INTERFACE_METHODS_TOP_LEVEL_END
 
 -- EMPTY_INTERFACE_BEGIN
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface YourInterface where
   viewtype EmptyInterfaceView

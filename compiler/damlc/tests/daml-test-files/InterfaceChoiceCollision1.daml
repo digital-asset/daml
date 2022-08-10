@@ -4,7 +4,7 @@
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 module InterfaceChoiceCollision1 where
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface Interface where
     viewtype EmptyInterfaceView

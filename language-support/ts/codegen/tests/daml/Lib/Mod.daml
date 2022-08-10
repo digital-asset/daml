@@ -16,7 +16,7 @@ template NonTopLevel with
   where
     signatory party
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface Other where
   viewtype EmptyInterfaceView

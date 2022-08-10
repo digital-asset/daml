@@ -7,7 +7,7 @@
 -- | Check that an interface cannot require itself.
 module InterfaceRequiresCircular where
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface A requires A where
     viewtype EmptyInterfaceView

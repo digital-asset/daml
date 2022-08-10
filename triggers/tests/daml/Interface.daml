@@ -24,7 +24,7 @@ test = Trigger with
   registeredTemplates = AllInDar
   heartbeat = None
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface Token where
   viewtype EmptyInterfaceView

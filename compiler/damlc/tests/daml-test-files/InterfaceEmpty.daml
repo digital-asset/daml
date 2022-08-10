@@ -6,7 +6,7 @@
 -- | Test that empty interfaces are fine.
 module InterfaceEmpty (I, EmptyInterfaceView(..)) where
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface I where
   viewtype EmptyInterfaceView

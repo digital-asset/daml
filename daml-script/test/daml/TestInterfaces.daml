@@ -6,7 +6,7 @@ module TestInterfaces where
 import Daml.Script
 import DA.Assert
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface Token where
   viewtype EmptyInterfaceView

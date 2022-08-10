@@ -9,7 +9,7 @@ module InterfaceConversions where
 import DA.Assert ((===))
 import DA.Functor (void)
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface Iface where
     viewtype EmptyInterfaceView

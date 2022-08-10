@@ -10,7 +10,7 @@
 
 module RequiresNonInterface where
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface A where
     viewtype EmptyInterfaceView

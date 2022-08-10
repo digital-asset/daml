@@ -7,7 +7,7 @@
 -- | Check that interface requirements are transitively closed.
 module InterfaceRequiresNotClosed where
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface A where
     viewtype EmptyInterfaceView

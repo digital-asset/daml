@@ -779,7 +779,7 @@ goToDefinitionTests mbScenarioService mbScenarioServiceDev = Tasty.testGroup "Go
                 , "type C = Noop"
                 , "meth : Implements t Iface => t -> Party"
                 , "meth = getOwner"
-                , "data EmptyInterfaceView = EmptyInterfaceView"
+                , "data EmptyInterfaceView = EmptyInterfaceView {}"
                 ]
             setFilesOfInterest [foo]
             expectNoErrors

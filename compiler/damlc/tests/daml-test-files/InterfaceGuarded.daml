@@ -7,7 +7,7 @@ module InterfaceGuarded where
 
 import DA.Exception (GeneralError (..), throwPure)
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface Token where
   viewtype EmptyInterfaceView

@@ -3,7 +3,7 @@
 
 module Interfaces where
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface I1 where
     viewtype EmptyInterfaceView

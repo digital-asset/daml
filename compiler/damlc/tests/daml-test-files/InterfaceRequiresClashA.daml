@@ -5,7 +5,7 @@
 
 module InterfaceRequiresClashA where
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface I where
     viewtype EmptyInterfaceView

@@ -3,7 +3,7 @@
 
 module MyMainIface where
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface IfaceFromAnotherMod where
   viewtype EmptyInterfaceView

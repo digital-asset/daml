@@ -592,7 +592,7 @@ template JustMapUser
     where
       signatory party
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface InterfaceToMix where
   viewtype EmptyInterfaceView

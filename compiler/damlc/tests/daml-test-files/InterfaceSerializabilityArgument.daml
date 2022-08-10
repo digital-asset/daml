@@ -12,7 +12,7 @@ instance Eq NonSerializable where
 instance Show NonSerializable where
   show = error "undefined"
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface I where
    viewtype EmptyInterfaceView

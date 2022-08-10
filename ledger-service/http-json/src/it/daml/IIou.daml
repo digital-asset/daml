@@ -3,7 +3,7 @@
 
 module IIou where
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface IIou where
   viewtype EmptyInterfaceView

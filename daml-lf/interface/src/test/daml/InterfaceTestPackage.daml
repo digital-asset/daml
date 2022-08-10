@@ -24,7 +24,7 @@ template Foo with
       getOwner = party
       dup = toInterfaceContractId <$> create this
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface TIf where
   viewtype EmptyInterfaceView

@@ -7,7 +7,7 @@ module InterfaceFunctions where
 
 import DA.Assert ((===))
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface Token where
   viewtype EmptyInterfaceView

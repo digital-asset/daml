@@ -4,7 +4,7 @@
 module InterfaceChoiceGuardFailed where
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface I where
   viewtype EmptyInterfaceView

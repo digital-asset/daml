@@ -10,7 +10,7 @@ import DA.Assert ((===))
 import DA.Optional (isNone)
 import DA.Functor (void)
 
-data EmptyInterfaceView = EmptyInterfaceView
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface A where
   viewtype EmptyInterfaceView
