@@ -10,7 +10,6 @@ import org.scalatest.Inspectors
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.io.File
 import java.nio.file.{Path, Paths}
 
 class RunnerMainTest extends AnyFreeSpec with Matchers with Inspectors {
