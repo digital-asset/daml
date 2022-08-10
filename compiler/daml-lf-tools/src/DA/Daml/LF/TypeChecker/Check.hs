@@ -862,7 +862,6 @@ checkDefTypeSyn DefTypeSyn{synParams,synType} = do
   where
     base = checkType synType KStar
 
-
 -- | Check that an interface definition is well defined.
 checkIface :: MonadGamma m => Module -> DefInterface -> m ()
 checkIface m iface = do
@@ -887,6 +886,11 @@ checkIface m iface = do
   checkUnique (EDuplicateInterfaceChoiceName (intName iface)) $ NM.names (intChoices iface)
   introExprVar (intParam iface) (TCon tcon) $ do
     forM_ (intChoices iface) (checkTemplateChoice tcon)
+
+  -- check interface instances
+  forM_ (intCoImplements iface) \InterfaceCoImplements {iciTemplate, iciBody} -> do
+    let iiKey = InterfaceInstanceKey tcon iciTemplate
+    checkInterfaceInstance (intParam iface) iiKey iciBody
 
 checkIfaceMethod :: MonadGamma m => InterfaceMethod -> m ()
 checkIfaceMethod InterfaceMethod{ifmType} = do
