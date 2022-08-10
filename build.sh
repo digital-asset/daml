@@ -42,10 +42,12 @@ arch -arm64 uname -m
 echo ---------- if -----------
 echo "\$1=$1"
 echo $(if [ "_macos-m1" == "$1" ]; then echo "--host-platform=//:ci-m1 --platforms=//:ci-m1"; fi)
-echo ---------- if -----------
+echo ---------- arch -----------
 arch
+echo
+echo ---------- file -----------
+file /nix/store/ifmdllb8axga08r0j5wpy7fqyjghirrc-curl-7.81.0-bin/bin/curl
 echo ---------------------
-
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 bazel build //ci/... \
