@@ -13,7 +13,6 @@ import com.daml.lf.interpretation.Error.{
   InconsistentDisclosureTable,
 }
 import com.daml.lf.speedy.SExpr.SEValue
-import com.daml.lf.interpretation.Error.WronglyTypedContract
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import org.scalatest.{Assertion, Inside}
