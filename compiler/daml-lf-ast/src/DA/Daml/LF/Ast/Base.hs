@@ -957,6 +957,14 @@ data InterfaceInstanceMethod = InterfaceInstanceMethod
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
+-- | The interface and template that identify an interface instance.
+-- Currently not part of the AST.
+data InterfaceInstanceKey = InterfaceInstanceKey
+  { iiInterface :: !(Qualified TypeConName)
+  , iiTemplate :: !(Qualified TypeConName)
+  }
+  deriving (Eq, Ord, Data, Generic, NFData, Show)
+
 -- | Definition of an exception type.
 data DefException = DefException
   { exnLocation :: !(Maybe SourceLoc)
