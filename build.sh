@@ -40,12 +40,8 @@ uname -m
 echo ---------- if -----------
 echo "\$1=$1"
 echo $(if [ "_macos-m1" == "$1" ]; then echo "--host-platform=//:ci-m1 --platforms=//:ci-m1"; fi)
-echo ---------- \$0 -----------
-echo $0
-echo ---------- which bash -----------
-which bash
-echo ---------- env -----------
-env
+echo ---------- if -----------
+arch
 echo ---------------------
 
 
@@ -93,7 +89,7 @@ stop_postgresql # in case it's running from a previous build
 start_postgresql
 
 # Run the tests.
-bazel test //... \
+arch -arm64 bazel test //... \
   --build_tag_filters "$tag_filter" \
   --test_tag_filters "$tag_filter" \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
