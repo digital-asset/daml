@@ -943,17 +943,14 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPObservers $ checkExpr observers (TList TParty)
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
-    forM_ implements $ checkIfaceImplementation tcon
+    forM_ implements \TemplateImplements {tpiInterface, tpiBody} -> do
+      let iiKey = InterfaceInstanceKey tpiInterface tcon
+      withPart (TPInterfaceInstance iiKey) do
+        checkInterfaceInstance iiKey tpiBody
   whenJust mbKey $ checkTemplateKey param tcon
 
   where
     withPart p = withContext (ContextTemplate m t p)
-
-checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> TemplateImplements -> m ()
-checkIfaceImplementation templateQualTypeCon TemplateImplements{..} = do
-  checkInterfaceInstance
-    (InterfaceInstanceKey templateQualTypeCon tpiInterface)
-    tpiBody
 
 checkInterfaceInstance :: MonadGamma m => InterfaceInstanceKey -> InterfaceInstanceBody -> m ()
 checkInterfaceInstance iiKey iiBody = do
@@ -972,15 +969,15 @@ checkInterfaceInstance iiKey iiBody = do
     let requiredInterfaceInstance = InterfaceInstanceKey required iiTemplate
     eRequired <- inWorld (Right . lookupInterfaceInstance requiredInterfaceInstance)
     whenLeft eRequired \(_ :: LookupError) ->
-      throwWithContext (EMissingRequiredInterface iiTemplate iiInterface required)
+      throwWithContext (EMissingRequiredInterfaceInstance requiredInterfaceInstance iiInterface)
 
   -- check methods
   let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet iiMethods)
   whenJust (listToMaybe (HS.toList missingMethods)) \methodName ->
-    throwWithContext (EMissingInterfaceMethod iiTemplate iiInterface methodName)
+    throwWithContext (EMissingMethodInInterfaceInstance methodName)
   forM_ iiMethods \InterfaceInstanceMethod{iiMethodName, iiMethodExpr} -> do
     case NM.lookup iiMethodName intMethods of
-      Nothing -> throwWithContext (EUnknownInterfaceMethod iiTemplate iiInterface iiMethodName)
+      Nothing -> throwWithContext (EUnknownMethodInInterfaceInstance iiMethodName)
       Just InterfaceMethod{ifmType} ->
         checkExpr iiMethodExpr ifmType
 
