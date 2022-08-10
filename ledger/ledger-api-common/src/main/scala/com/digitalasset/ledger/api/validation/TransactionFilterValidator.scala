@@ -45,7 +45,7 @@ object TransactionFilterValidator {
         inclusive =>
           val validatedIdents =
             inclusive.templateIds.toList traverse validateIdentifier
-          validatedIdents.map(ids => domain.Filters(Some(InclusiveFilters(ids.toSet))))
+          validatedIdents.map(ids => domain.Filters(Some(InclusiveFilters(ids.toSet, Set.empty))))
       }
   }
 }
