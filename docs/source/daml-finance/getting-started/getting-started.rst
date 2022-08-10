@@ -242,7 +242,7 @@ to Alice, we would need a third party (in this case the Bank) to
 execute the ``Transfer``.
 
 What are accounts used for?
-==========================
+===========================
 
 An account is used as the proof of a business relationship between an
 owner and a custodian: Alice is authorized to transfer cash to
