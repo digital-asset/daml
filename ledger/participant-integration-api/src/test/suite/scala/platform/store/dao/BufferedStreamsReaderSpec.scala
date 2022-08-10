@@ -227,32 +227,12 @@ class BufferedStreamsReaderSpec
         )
       }
 
-      "return the correct ranges when starting from the an offset originally in the buffer at subscription time" in {
-        testConsumerFallingBehind(
-          bufferSize = bufferSize,
-          bufferChunkSize = bufferChunkSize,
-          consumerSubscriptionFrom = bufferSize / 2,
-          updateAgainWithCount = bufferSize,
-        )
-      }
-    }
-
-    "falling partially behind" should {
-      "return the correct ranges when starting from the beginning" in {
-        testConsumerFallingBehind(
-          bufferSize = bufferSize,
-          bufferChunkSize = bufferChunkSize,
-          consumerSubscriptionFrom = 0,
-          updateAgainWithCount = bufferSize / 2,
-        )
-      }
-
       "return the correct ranges when starting from an offset originally in the buffer at subscription time" in {
         testConsumerFallingBehind(
           bufferSize = bufferSize,
           bufferChunkSize = bufferChunkSize,
           consumerSubscriptionFrom = bufferSize / 2,
-          updateAgainWithCount = bufferSize / 2,
+          updateAgainWithCount = bufferSize,
         )
       }
     }
