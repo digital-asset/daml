@@ -18,13 +18,13 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 //
 // We use 'backing participant' to refer to this specific participant in the methods of this API.
 //
-// Allows inspecting the party management state of a ledger known the backing participant
-// and managing participant local party properties.
+// Allows inspecting the party management state of the ledger known to the backing participant
+// and managing participant-local party metadata.
 //
 // The authorization rules for its RPCs are specified on the ``<RpcName>Request``
-// messages as boolean expressions over the fact:
-// (1) ``HasRight(r)`` denoting whether the authenticated user has right ``r``
+// messages as boolean expressions over the fact ``HasRight(r)`` denoting whether the authenticated user has right ``r``.
 //
+// TODO pbatko: Explain 'Optional', 'Required', 'Read-Write', 'Read-Only'
 service PartyManagementService {
 
   // Return the identifier of the backing participant.
@@ -75,14 +75,7 @@ service PartyManagementService {
   rpc AllocateParty (AllocatePartyRequest) returns (AllocatePartyResponse);
 
   // Updates participant-local information about a party.
-  // Does not affect the party's representation on a ledger.
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
-  // - ``NOT_FOUND``: if the party is not known to the backing participant
-  rpc UpdateParty (UpdatePartyRequest) returns (UpdatePartyResponse);
-
+  rpc UpdatePartyDetails (UpdatePartyDetailsRequest) returns (UpdatePartyDetailsResponse);
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
@@ -150,20 +143,18 @@ message AllocatePartyResponse {
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
-message UpdatePartyRequest {
+message UpdatePartyDetailsRequest {
   // Party to be updated
-  // Updatable fields:
-  // 1. 'local_metadata' (can be nested, e.g. 'local_metadata.annotations').
-  // Required
+  // Required, Read-Write
   PartyDetails party_details = 1;
 
   // Specifies the fields of the party details to be updated.
-  // At least one field must be specified, e.g. 'party_metadata.local_metadata'.
+  // At least one field must be specified, e.g. 'party_details.local_metadata'.
   // Required
   google.protobuf.FieldMask update_mask = 2;
 }
 
-message UpdatePartyResponse {
+message UpdatePartyDetailsResponse {
   // Updated party details
   PartyDetails party_details = 1;
 }
@@ -172,20 +163,21 @@ message PartyDetails {
 
   // The stable unique identifier of a Daml party.
   // Must be a valid PartyIdString (as described in ``value.proto``).
-  // Required
+  // Required, Read-Only
   string party = 1;
 
-  // Human readable name associated with the party. Caution, it might not be
-  // unique.
-  // Use of this field is discouraged. Consider using modifiable participant local party metadata instead.
-  // Optional
+  // Human readable name associated with the party at allocation time.
+  // Caution, it might not be unique.
+  // Use of this field is discouraged. Consider using the `local_metadata` field instead.
+  // Optional, Read-Only
   string display_name = 2;
 
   // true if party is hosted by the backing participant.
-  // Required
+  // Required when used in 'AllocateParty' party request, optional otherwise.
+  // Read-Only
   bool is_local = 3;
 
-  // Participant local metadata of this party.
-  // Optional
+  // Participant-local metadata of this party.
+  // Optional, Read-Write
   ObjectMeta local_metadata = 4;
 }

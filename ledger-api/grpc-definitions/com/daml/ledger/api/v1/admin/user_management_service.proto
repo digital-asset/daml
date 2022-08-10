@@ -21,6 +21,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // (1) ``HasRight(r)`` denoting whether the authenticated user has right ``r`` and
 // (2) ``IsAuthenticatedUser(uid)`` denoting whether ``uid`` is the empty string or equal to the id of the authenticated user.
 //
+// TODO: Explain 'Optional' and 'Required'. Same for party management
 service UserManagementService {
 
     // Create a new user.
@@ -40,11 +41,16 @@ service UserManagementService {
     rpc GetUser (GetUserRequest) returns (GetUserResponse);
 
     // Updates a user resource.
-    // Errors:
-    // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-    // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-    // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
-    // - ``NOT_FOUND``: if the user doesn't exist
+    // TODO pbatko: Improve to be better organized.
+    // Update rules for fields (including fields in nested messages) in the request described as:
+    // 1) 'Read-Only' cannot be updated and cannot be stated explicitly in an update mask,
+    // 2) 'Read-Write' can be updated if stated, explicitly or using the shortcut notation, by the paths in the update mask.
+    //
+    // In order to update a field to a non-default value you may specify its explicit path (e.g. 'user.is_deactivated')
+    // or use a shortcut notation (e.g. 'user') to recursively merge the values of the specified nested message.
+    // In order to update a field, which is not a nested message itself, to its default value you must specify its explicit path.
+    // TODO pbatko: What if the field one wants to reset is a nested message? What would current POC impl do in such a case? Desired behavior: apply merge effectively changing nothing in the specified subfield vs. reset it to null. Probably reset it to null.
+    // TODO pbatko: Apply same description to UpdatePartyDetails rpc
     rpc UpdateUser (UpdateUserRequest) returns (UpdateUserResponse);
 
     // Delete an existing user and all its rights.
@@ -63,6 +69,7 @@ service UserManagementService {
     rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
 
     // Grant rights to a user.
+    // TODO pbatko: Document that rights are not per-se part of a user resource
     // Errors:
     // - ``NOT_FOUND``: if the user doesn't exist
     // - ``UNAUTHENTICATED``: if the request does not include a valid access token
@@ -98,7 +105,7 @@ service UserManagementService {
 message User {
     // The user identifier, which must be a non-empty string of at most 128
     // characters that are either lowercase alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:".
-    // Required
+    // Required, Read-Only
     string id = 1;
 
     // The primary party as which this user reads and acts by default on the ledger
@@ -107,16 +114,16 @@ message User {
     // Ledger API clients SHOULD set this field to a non-empty value for all users to
     // enable the users to act on the ledger using their own Daml party.
     // Users for participant administrators MAY have an associated primary party.
-    // Optional
+    // Optional, Read-Write
     string primary_party = 2;
 
-    // When set to 'true' deny this user is denied all access to the Ledger API.
-    // When set 'false' this users can access the Ledger API access at the level corresponding to its user rights.
-    // Optional
+    // When set, then the user is denied all access to the Ledger API.
+    // Otherwise, the user has access to the Ledger API as per the user's rights.
+    // Optional, Read-Write
     bool is_deactivated = 3;
 
-    // The metadata of this party.
-    // Required
+    // The metadata of this user.
+    // Required, Read-Write
     ObjectMeta metadata = 4;
 }
 
@@ -184,10 +191,7 @@ message GetUserResponse {
 // NOTE: The authenticated participant user is not allowed to deactivate itself.
 message UpdateUserRequest {
     // The user to update.
-    // Modifiable fields:
-    // 1. 'primary_party',
-    // 2. 'is_deactivated',
-    // 3. 'metadata' (can be nested, e.g. 'metadata.annotations').
+    // Optional, Read-Write
     User user = 1;
 
     // Specifies the fields of the user resource to be updated.
