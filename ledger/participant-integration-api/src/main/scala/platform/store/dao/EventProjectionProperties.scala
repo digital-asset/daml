@@ -8,7 +8,11 @@ import com.daml.ledger.api.domain.Filters
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.platform.store.dao.EventProjectionProperties.RenderResult
 
-/** @param verbose enriching in verbose mode
+/**  This class encapsulates the logic of how contract arguments and interface views are
+  *  being projected to the consumer based on the filter criteria and the relation between
+  *  interfaces and templates implementing them.
+  *
+  * @param verbose enriching in verbose mode
   * @param populateContractArgument populate contract_argument, and contract_key. If templateId set is empty: populate.
   * @param populateInterfaceView populate interface_views. The Map of templates to interfaces,
   *                              and the set of implementor templates cannot be empty.
