@@ -22,7 +22,6 @@ class RunnerMainTest extends AnyFreeSpec with Matchers with Inspectors {
   "RunnerMain should not crash" - {
     "with given configurations" in {
       forAll(Seq(configLedgerParticipant, configNodeParticipants)) { clientConfig =>
-        println(s"DEBUGGY-getenv: ${System.getenv()}")
         RunnerMain.RunnerConfig(clientConfig) shouldBe Symbol("success")
       }
     }
