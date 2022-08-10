@@ -40,7 +40,12 @@ uname -m
 echo ---------- if -----------
 echo "\$1=$1"
 echo $(if [ "_macos-m1" == "$1" ]; then echo "--host-platform=//:ci-m1 --platforms=//:ci-m1"; fi)
+echo ---------- \$0 -----------
+echo $0
+echo ---------- which bash -----------
+which bash
 echo ---------------------
+
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 bazel build //ci/... \
