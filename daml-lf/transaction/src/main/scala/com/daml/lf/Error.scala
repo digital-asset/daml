@@ -158,6 +158,14 @@ object Error {
     ) extends Error
   }
 
+  object InconsistentDisclosureTable {
+    final case class IncorrectlyTypedContract(
+        coid: ContractId,
+        expected: TypeConName,
+        actual: TypeConName,
+    ) extends Error
+  }
+
   final case class Limit(error: Limit.Error) extends Error
 
   object Limit {

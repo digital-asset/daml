@@ -3,10 +3,10 @@
 
 package com.daml.metrics
 
-import java.time.Instant
-
 import com.codahale.metrics.MetricRegistry.MetricSupplier
 import com.codahale.metrics._
+
+import java.time.Instant
 
 object Metrics {
   def fromSharedMetricRegistries(registryName: String): Metrics =
@@ -270,6 +270,11 @@ final class Metrics(val registry: MetricRegistry) {
       private val Prefix: MetricName = daml.Prefix :+ "lapi"
 
       def forMethod(name: String): Timer = registry.timer(Prefix :+ name)
+
+      object return_status {
+        private val Prefix: MetricName = lapi.Prefix :+ "return_status"
+        def forCode(code: String): Counter = registry.counter(Prefix :+ code)
+      }
 
       object threadpool {
         private val Prefix: MetricName = lapi.Prefix :+ "threadpool"
