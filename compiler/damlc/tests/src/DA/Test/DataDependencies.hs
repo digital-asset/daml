@@ -1659,6 +1659,7 @@ tests tools = testGroup "Data Dependencies" $
         [ "--target=1.dev" ]
         [ "module Lib where"
 
+        , "data EmptyInterfaceView = EmptyInterfaceView"
         , "interface I where viewtype EmptyInterfaceView"
         ]
         [ "{-# OPTIONS_GHC -Werror #-}"
@@ -1703,6 +1704,7 @@ tests tools = testGroup "Data Dependencies" $
             [ "module B where"
             , "import qualified A"
 
+            , "data EmptyInterfaceView = EmptyInterfaceView"
             , "interface Instrument where"
             , "  viewtype EmptyInterfaceView"
             , "  f : ()"
@@ -1719,6 +1721,7 @@ tests tools = testGroup "Data Dependencies" $
         [   (,) "Lib.daml"
             [ "module Lib where"
 
+            , "data EmptyInterfaceView = EmptyInterfaceView"
             , "interface Token where"
             , "  viewtype EmptyInterfaceView"
             , "  getOwner : Party -- ^ A method comment."
@@ -1840,6 +1843,7 @@ tests tools = testGroup "Data Dependencies" $
             [ "module Lib where"
             , "import DA.Assert"
 
+            , "data EmptyInterfaceView = EmptyInterfaceView"
             , "interface Token where"
             , "  viewtype EmptyInterfaceView"
             , "  getOwner : Party -- ^ A method comment."
@@ -1960,6 +1964,7 @@ tests tools = testGroup "Data Dependencies" $
         [   (,) "Lib.daml"
             [ "module Lib where"
 
+            , "data EmptyInterfaceView = EmptyInterfaceView"
             , "interface Token where"
             , "  viewtype EmptyInterfaceView"
             , "  getOwner : Party -- ^ A method comment."
@@ -2183,6 +2188,7 @@ tests tools = testGroup "Data Dependencies" $
           writeFileUTF8 (damlMod tokenProj "Token") $ unlines
             [ "module Token where"
 
+            , "data EmptyInterfaceView = EmptyInterfaceView"
             , "interface Token where"
             , "  viewtype EmptyInterfaceView"
             , "  getOwner : Party -- ^ A method comment."
