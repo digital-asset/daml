@@ -24,19 +24,17 @@ final case class EventProjectionProperties private[dao] (
     // Map(eventWitnessParty, Map(templateId -> Set(interfaceId)))
     populateInterfaceView: Map[String, Map[Identifier, Set[Identifier]]] = Map.empty,
 ) {
-  def render(witnesses: Seq[String], templateId: Identifier): RenderResult = {
-    val renderContractArguments = witnesses.view
+  def render(witnesses: Set[String], templateId: Identifier): RenderResult = {
+    val renderContractArguments: Boolean = witnesses.view
       .flatMap(populateContractArgument.get)
       .exists(templates => templates.isEmpty || templates(templateId))
 
-    val renderInterfaces: Set[Identifier] =
-      (for {
-        witness <- witnesses.iterator
-        templateToInterfaceMap <- populateInterfaceView.get(witness).iterator
-        interfaces <- templateToInterfaceMap.getOrElse(templateId, Set.empty[Identifier])
-      } yield interfaces).toSet
+    val interfacesToRender: Set[Identifier] = witnesses.view
+      .flatMap(populateInterfaceView.get(_).iterator)
+      .flatMap(_.getOrElse(templateId, Set.empty[Identifier]))
+      .toSet
 
-    RenderResult(renderContractArguments, renderInterfaces)
+    RenderResult(renderContractArguments, interfacesToRender)
   }
 
 }
@@ -48,21 +46,21 @@ object EventProjectionProperties {
       interfaces: Set[Identifier],
   )
 
-  /** @param domainTransactionFilter Transaction filter as defined by the consumer of the API.
+  /** @param transactionFilter Transaction filter as defined by the consumer of the API.
     * @param verbose                 enriching in verbose mode
     * @param interfaceImplementedBy  The relation between an interface id and template id.
     *                                If template has no relation to the interface,
     *                                an empty Set must be returned.
     */
   def apply(
-      domainTransactionFilter: domain.TransactionFilter,
+      transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
       interfaceImplementedBy: Identifier => Set[Identifier],
   ): EventProjectionProperties =
     EventProjectionProperties(
       verbose = verbose,
-      populateContractArgument = populateContractArgument(domainTransactionFilter),
-      populateInterfaceView = populateInterfaceView(domainTransactionFilter, interfaceImplementedBy),
+      populateContractArgument = populateContractArgument(transactionFilter),
+      populateInterfaceView = populateInterfaceView(transactionFilter, interfaceImplementedBy),
     )
 
   private def populateContractArgument(
