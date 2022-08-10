@@ -27,7 +27,7 @@ import com.daml.platform.configuration.{
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, PackageMetadataViewConfig}
 import com.daml.platform.indexer.ha.HaConfig
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
+import com.daml.platform.store.DbSupport
 import com.daml.platform.store.DbSupport.DataSourceProperties
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
@@ -375,13 +375,6 @@ object ArbitraryConfig {
     packageMetadataView = packageMetadataViewConfig,
   )
 
-  val lfValueTranslationCache = for {
-    eventsMaximumSize <- Gen.long
-    contractsMaximumSize <- Gen.long
-  } yield LfValueTranslationCache.Config(
-    eventsMaximumSize = eventsMaximumSize,
-    contractsMaximumSize = contractsMaximumSize,
-  )
   val indexServiceConfig = for {
     eventsPageSize <- Gen.chooseNum(0, Int.MaxValue)
     eventsProcessingParallelism <- Gen.chooseNum(0, Int.MaxValue)
@@ -417,7 +410,6 @@ object ArbitraryConfig {
     dataSourceProperties <- dataSourceProperties
     indexService <- indexServiceConfig
     indexer <- indexerConfig
-    lfValueTranslationCache <- lfValueTranslationCache
     jwtTimestampLeeway <- Gen.option(jwtTimestampLeewayGen)
   } yield ParticipantConfig(
     apiServer = apiServer,
@@ -427,7 +419,6 @@ object ArbitraryConfig {
     dataSourceProperties = dataSourceProperties,
     indexService = indexService,
     indexer = indexer,
-    lfValueTranslationCache = lfValueTranslationCache,
   )
 
   val config = for {

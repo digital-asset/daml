@@ -109,7 +109,6 @@ class PureConfigReaderWriterSpec
     testReaderWriterIsomorphism(secure, ArbitraryConfig.commandConfiguration)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.apiServerConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.haConfig)
-    testReaderWriterIsomorphism(secure, ArbitraryConfig.lfValueTranslationCache)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.indexServiceConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.participantConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.config)

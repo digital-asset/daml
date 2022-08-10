@@ -33,7 +33,7 @@ import com.daml.platform.store.DbSupport.{
   ParticipantDataSourceConfig,
 }
 import com.daml.platform.store.cache.MutableLedgerEndCache
-import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
+import com.daml.platform.store.DbSupport
 import com.daml.platform.testing.LogCollector
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.timer.RetryStrategy
@@ -220,7 +220,6 @@ class RecoveringIndexerIntegrationSpec
           restartDelay = restartDelay,
         ),
         metrics = metrics,
-        lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         participantDataSourceConfig = participantDataSourceConfig,
         inMemoryState = inMemoryState,
         inMemoryStateUpdaterFlow = inMemoryStateUpdaterFlow,

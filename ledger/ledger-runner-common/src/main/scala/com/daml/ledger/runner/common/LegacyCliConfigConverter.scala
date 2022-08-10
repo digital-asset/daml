@@ -11,7 +11,6 @@ import com.daml.platform.store.DbSupport.{
   DataSourceProperties,
   ParticipantDataSourceConfig,
 }
-import com.daml.platform.store.LfValueTranslationCache
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
@@ -38,10 +37,6 @@ object LegacyCliConfigConverter {
       maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
       maxTransactionsInMemoryFanOutBufferSize = cliConfig.maxTransactionsInMemoryFanOutBufferSize,
       inMemoryStateUpdaterParallelism = IndexServiceConfig.DefaultInMemoryStateUpdaterParallelism,
-    ),
-    lfValueTranslationCache = LfValueTranslationCache.Config(
-      contractsMaximumSize = cliConfig.lfValueTranslationContractCache.maximumSize,
-      eventsMaximumSize = cliConfig.lfValueTranslationEventCache.maximumSize,
     ),
     dataSourceProperties = DataSourceProperties(
       connectionPool = ConnectionPoolConfig(
