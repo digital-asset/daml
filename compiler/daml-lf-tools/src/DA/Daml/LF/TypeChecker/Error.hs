@@ -140,11 +140,11 @@ data Error
   | EUnknownInterface !TypeConName
   | ECircularInterfaceRequires !TypeConName !(Maybe (Qualified TypeConName))
   | ENotClosedInterfaceRequires !TypeConName !(Qualified TypeConName) ![Qualified TypeConName]
-  | EMissingRequiredInterface { emriTemplate :: !TypeConName, emriRequiringInterface :: !(Qualified TypeConName), emriRequiredInterface :: !(Qualified TypeConName) }
+  | EMissingRequiredInterface { emriTemplate :: !(Qualified TypeConName), emriRequiringInterface :: !(Qualified TypeConName), emriRequiredInterface :: !(Qualified TypeConName) }
   | EBadInheritedChoices { ebicInterface :: !(Qualified TypeConName), ebicExpected :: ![ChoiceName], ebicGot :: ![ChoiceName] }
   | EMissingInterfaceChoice !ChoiceName
-  | EMissingInterfaceMethod !TypeConName !(Qualified TypeConName) !MethodName
-  | EUnknownInterfaceMethod !TypeConName !(Qualified TypeConName) !MethodName
+  | EMissingInterfaceMethod !(Qualified TypeConName) !(Qualified TypeConName) !MethodName
+  | EUnknownInterfaceMethod !(Qualified TypeConName) !(Qualified TypeConName) !MethodName
   | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
   | EUnknownExperimental !T.Text !Type
   | EViewNotSerializable !TypeConName !Type
