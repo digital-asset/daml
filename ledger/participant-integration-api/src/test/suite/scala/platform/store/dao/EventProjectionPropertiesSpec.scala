@@ -21,12 +21,12 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
 
   it should "project nothing in case of empty filters" in new Scope {
     EventProjectionProperties(noFilter, true, noInterface)
-      .render(Seq.empty, id) shouldBe RenderResult(false, Seq.empty)
+      .render(Seq.empty, id) shouldBe RenderResult(false, Set.empty)
   }
 
   it should "project nothing in case of irrelevant filters" in new Scope {
     EventProjectionProperties(wildcardFilter, true, interfaceImpl)
-      .render(Seq.empty, id) shouldBe RenderResult(false, Seq.empty)
+      .render(Seq.empty, id) shouldBe RenderResult(false, Set.empty)
   }
 
   it should "project contract arguments in case of match by template" in new Scope {
@@ -36,14 +36,14 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     EventProjectionProperties(transactionFilter, true, noInterface).render(
       Seq(party),
       template1,
-    ) shouldBe RenderResult(true, Seq.empty)
+    ) shouldBe RenderResult(true, Set.empty)
   }
 
   it should "project contract arguments in case of wildcard match" in new Scope {
     EventProjectionProperties(wildcardFilter, true, noInterface).render(
       Seq(party),
       template1,
-    ) shouldBe RenderResult(true, Seq.empty)
+    ) shouldBe RenderResult(true, Set.empty)
   }
 
   it should "project interface in case of match by interface id and witness" in new Scope {
@@ -52,7 +52,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     )
     val transactionFilter = new TransactionFilter(Map(party -> filter))
     EventProjectionProperties(transactionFilter, true, interfaceImpl)
-      .render(Seq(party), template1) shouldBe RenderResult(false, Seq(iface1))
+      .render(Seq(party), template1) shouldBe RenderResult(false, Set(iface1))
   }
 
   it should "not project interface in case of match by interface id and witness" in new Scope {
@@ -62,7 +62,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     val transactionFilter = new TransactionFilter(Map(party -> filter))
 
     EventProjectionProperties(transactionFilter, true, interfaceImpl)
-      .render(Seq(party), template1) shouldBe RenderResult(false, Seq.empty)
+      .render(Seq(party), template1) shouldBe RenderResult(false, Set.empty)
   }
 
   it should "project an interface and template in case of match by interface id, template and witness" in new Scope {
@@ -75,7 +75,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       )
     )
     EventProjectionProperties(transactionFilter, true, interfaceImpl)
-      .render(Seq(party), template1) shouldBe RenderResult(true, Seq(iface1))
+      .render(Seq(party), template1) shouldBe RenderResult(true, Set(iface1))
   }
 
   it should "project multiple interfaces in case of match by multiple interface ids and witness" in new Scope {
@@ -92,7 +92,38 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     )
     val transactionFilter = new TransactionFilter(Map(party -> filter))
     EventProjectionProperties(transactionFilter, true, interfaceImpl)
-      .render(Seq(party), template1) shouldBe RenderResult(false, Seq(iface1, iface2))
+      .render(Seq(party), template1) shouldBe RenderResult(false, Set(iface1, iface2))
+  }
+
+  it should "deduplicate projected interfaces and include the view" in new Scope {
+    val transactionFilter = new TransactionFilter(
+      Map(
+        party -> Filters(
+          Some(
+            InclusiveFilters(
+              Set.empty,
+              Set(
+                InterfaceFilter(iface1, includeView = false),
+                InterfaceFilter(iface2, includeView = true),
+              ),
+            )
+          )
+        ),
+        party2 -> Filters(
+          Some(
+            InclusiveFilters(
+              Set.empty,
+              Set(
+                InterfaceFilter(iface1, includeView = true),
+                InterfaceFilter(iface2, includeView = true),
+              ),
+            )
+          )
+        ),
+      )
+    )
+    EventProjectionProperties(transactionFilter, true, interfaceImpl)
+      .render(Seq(party, party2), template1) shouldBe RenderResult(false, Set(iface2, iface1))
   }
 
 }
@@ -112,6 +143,7 @@ object EventProjectionPropertiesSpec {
       case _ => Set.empty
     }
     val party = Ref.Party.assertFromString("party")
+    val party2 = Ref.Party.assertFromString("party2")
     val noFilter = new TransactionFilter(Map())
     val wildcardFilter = new TransactionFilter(Map(party -> Filters(None)))
     def templateFilterFor(templateId: Ref.Identifier): Option[InclusiveFilters] = Some(
