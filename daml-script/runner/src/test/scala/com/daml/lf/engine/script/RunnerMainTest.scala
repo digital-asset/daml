@@ -4,6 +4,7 @@
 package com.daml.lf.engine.script
 
 import akka.actor.ActorSystem
+import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.tls.TlsConfiguration
 import org.scalatest.Inspectors
 import org.scalatest.freespec.AnyFreeSpec
@@ -22,11 +23,7 @@ class RunnerMainTest extends AnyFreeSpec with Matchers with Inspectors {
   "RunnerMain should not crash" - {
     "with given configurations" in {
       forAll(Seq(configLedgerParticipant, configNodeParticipants)) { clientConfig =>
-        println(s"DEBUGGY: ${System.getProperty("user.dir")}")
-        println(
-          s"DEBUGGY-user.dir: ${new File(System.getProperty("user.dir")).listFiles().mkString("Array(", ", ", ")")}"
-        )
-        println(s"DEBUGGY-cwd: ${new File(".").listFiles().mkString("Array(", ", ", ")")}")
+        println(s"DEBUGGY-getenv: ${System.getenv()}")
         RunnerMain.RunnerConfig(clientConfig) shouldBe Symbol("success")
       }
     }
@@ -37,9 +34,12 @@ object RunnerMainTest {
   val localHost: String = "localhost"
   val ledgerPort: Int = 8080
   val participantPort: Int = 6865
-  val darFilePath: Path = Paths.get("daml-script/runner/src/test/resources/dummy.dar")
+  val darFilePath: Path =
+    BazelRunfiles.rlocation(Paths.get("daml-script/runner/src/test/resources/dummy.dar"))
   val participantConfigPath: Path =
-    Paths.get("daml-script/runner/src/test/resources/participantConfig.json")
+    BazelRunfiles.rlocation(
+      Paths.get("daml-script/runner/src/test/resources/participantConfig.json")
+    )
   val configLedgerParticipant: RunnerCliConfig = RunnerCliConfig(
     darPath = darFilePath.toFile,
     scriptIdentifier = "Main:setup",
