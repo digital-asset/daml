@@ -1,6 +1,8 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE BlockArguments #-}
+
 -- | This module contains the Daml-LF type checker.
 --
 -- Some notes:
@@ -36,6 +38,7 @@ module DA.Daml.LF.TypeChecker.Check
 import Data.Hashable
 import           Control.Lens hiding (Context, MethodName, para)
 import           Control.Monad.Extra
+import           Data.Either.Combinators (whenLeft)
 import           Data.Foldable
 import           Data.Functor
 import           Data.List.Extended
@@ -940,21 +943,23 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPObservers $ checkExpr observers (TList TParty)
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
-    forM_ implements $ checkIfaceImplementation t
+    forM_ implements $ checkIfaceImplementation tcon t
   whenJust mbKey $ checkTemplateKey param tcon
 
   where
     withPart p = withContext (ContextTemplate m t p)
 
-checkIfaceImplementation :: MonadGamma m => Template -> TemplateImplements -> m ()
-checkIfaceImplementation Template{tplTypeCon, tplImplements} TemplateImplements{..} = do
+checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> Template -> TemplateImplements -> m ()
+checkIfaceImplementation templateQualTypeCon Template{tplTypeCon} TemplateImplements{..} = do
   DefInterface {intRequires, intMethods, intView} <- inWorld $ lookupInterface tpiInterface
   let InterfaceInstanceBody {iiMethods, iiView} = tpiBody
 
   -- check requires
-  let missingRequires = S.difference intRequires (S.fromList (NM.names tplImplements))
-  whenJust (listToMaybe (S.toList missingRequires)) $ \missingInterface ->
-    throwWithContext (EMissingRequiredInterface tplTypeCon tpiInterface missingInterface)
+  forM_ intRequires \required -> do
+    let requiredInterfaceInstance = InterfaceInstanceKey required templateQualTypeCon
+    eRequired <- inWorld (Right . lookupInterfaceInstance requiredInterfaceInstance)
+    whenLeft eRequired \(_ :: LookupError) ->
+      throwWithContext (EMissingRequiredInterface tplTypeCon tpiInterface required)
 
   -- check methods
   let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet iiMethods)
