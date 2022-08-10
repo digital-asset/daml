@@ -53,6 +53,22 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     ) shouldBe RenderResult(true, Set.empty)
   }
 
+  it should "project contract arguments with wildcard and another filter" in new Scope {
+    EventProjectionProperties(
+      new TransactionFilter(
+        Map(
+          party -> Filters(Some(InclusiveFilters(Set.empty, Set.empty))),
+          party2 -> Filters(Some(InclusiveFilters(Set(template1), Set.empty))),
+        )
+      ),
+      true,
+      noInterface,
+    ).render(
+      Set(party, party2),
+      template2,
+    ) shouldBe RenderResult(true, Set.empty)
+  }
+
   it should "project interface in case of match by interface id and witness" in new Scope {
     val filter = Filters(
       Some(InclusiveFilters(Set.empty, Set(InterfaceFilter(iface1, includeView = true))))

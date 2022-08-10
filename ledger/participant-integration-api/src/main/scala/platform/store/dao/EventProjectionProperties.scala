@@ -68,26 +68,25 @@ object EventProjectionProperties {
       domainTransactionFilter: domain.TransactionFilter
   ): Map[String, Set[Identifier]] = {
 
-    val wildcardFilters = domainTransactionFilter.filtersByParty.iterator
-      .collect {
-        case (party, Filters(None)) => party
-        case (party, Filters(Some(empty)))
+    val (wildcardFilters, nonWildcardFilters) = domainTransactionFilter.filtersByParty
+      .partition {
+        case (_, Filters(None)) => true
+        case (_, Filters(Some(empty)))
             if empty.templateIds.isEmpty && empty.interfaceFilters.isEmpty =>
-          party
+          true
+        case _ =>
+          false
       }
-      .map(_.toString -> Set.empty[Identifier])
 
-    val templateFilters = (for {
-      (party, filters) <- domainTransactionFilter.filtersByParty.iterator
+    val templateFilters: Map[String, Set[Identifier]] = (for {
+      (party, filters) <- nonWildcardFilters
       inclusiveFilters <- filters.inclusive.iterator
       templateId <- inclusiveFilters.templateIds.iterator
     } yield party.toString -> templateId)
       .toSet[(String, Identifier)]
       .groupMap(_._1)(_._2)
 
-    // wildcard filters must take precedence over template filters
-    // therefore the order of concatenation matters here.
-    templateFilters ++ wildcardFilters
+    templateFilters ++ wildcardFilters.map(_._1.toString -> Set.empty[Identifier])
   }
 
   private def witnessInterfaceViewFilter(
