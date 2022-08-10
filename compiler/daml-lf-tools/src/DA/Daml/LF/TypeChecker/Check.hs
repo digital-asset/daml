@@ -943,31 +943,44 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPObservers $ checkExpr observers (TList TParty)
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
-    forM_ implements $ checkIfaceImplementation tcon t
+    forM_ implements $ checkIfaceImplementation tcon
   whenJust mbKey $ checkTemplateKey param tcon
 
   where
     withPart p = withContext (ContextTemplate m t p)
 
-checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> Template -> TemplateImplements -> m ()
-checkIfaceImplementation templateQualTypeCon Template{tplTypeCon} TemplateImplements{..} = do
-  DefInterface {intRequires, intMethods, intView} <- inWorld $ lookupInterface tpiInterface
-  let InterfaceInstanceBody {iiMethods, iiView} = tpiBody
+checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> TemplateImplements -> m ()
+checkIfaceImplementation templateQualTypeCon TemplateImplements{..} = do
+  checkInterfaceInstance
+    (InterfaceInstanceKey templateQualTypeCon tpiInterface)
+    tpiBody
+
+checkInterfaceInstance :: MonadGamma m => InterfaceInstanceKey -> InterfaceInstanceBody -> m ()
+checkInterfaceInstance iiKey iiBody = do
+  let
+    InterfaceInstanceKey { iiInterface, iiTemplate } = iiKey
+    InterfaceInstanceBody {iiMethods, iiView} = iiBody
+
+  -- Check that this is the only interface instance for this key
+  iiInfo <- checkUniqueInterfaceInstance iiKey
+
+  let
+    DefInterface {intRequires, intMethods, intView} = defInterface iiInfo
 
   -- check requires
   forM_ intRequires \required -> do
-    let requiredInterfaceInstance = InterfaceInstanceKey required templateQualTypeCon
+    let requiredInterfaceInstance = InterfaceInstanceKey required iiTemplate
     eRequired <- inWorld (Right . lookupInterfaceInstance requiredInterfaceInstance)
     whenLeft eRequired \(_ :: LookupError) ->
-      throwWithContext (EMissingRequiredInterface tplTypeCon tpiInterface required)
+      throwWithContext (EMissingRequiredInterface iiTemplate iiInterface required)
 
   -- check methods
   let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet iiMethods)
-  whenJust (listToMaybe (HS.toList missingMethods)) $ \methodName ->
-    throwWithContext (EMissingInterfaceMethod tplTypeCon tpiInterface methodName)
-  forM_ iiMethods $ \InterfaceInstanceMethod{iiMethodName, iiMethodExpr} -> do
+  whenJust (listToMaybe (HS.toList missingMethods)) \methodName ->
+    throwWithContext (EMissingInterfaceMethod iiTemplate iiInterface methodName)
+  forM_ iiMethods \InterfaceInstanceMethod{iiMethodName, iiMethodExpr} -> do
     case NM.lookup iiMethodName intMethods of
-      Nothing -> throwWithContext (EUnknownInterfaceMethod tplTypeCon tpiInterface iiMethodName)
+      Nothing -> throwWithContext (EUnknownInterfaceMethod iiTemplate iiInterface iiMethodName)
       Just InterfaceMethod{ifmType} ->
         checkExpr iiMethodExpr ifmType
 
