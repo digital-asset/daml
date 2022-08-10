@@ -9,7 +9,7 @@ import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.daml.ledger.api.auth.{AuthService, Authorizer}
+import com.daml.ledger.api.auth.{AuthService, AuthServiceJWT, Authorizer}
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.index.v2.{IndexService, UserManagementStore}
@@ -71,6 +71,11 @@ object ApiServiceOwner {
       }
     }
 
+    val jwtTimestampLeeway = authService match {
+      case auth @ AuthServiceJWT(_) => auth.getJwtTimestampLeeway
+      case _ => None
+    }
+
     val authorizer = new Authorizer(
       Clock.systemUTC.instant _,
       ledgerId,
@@ -79,6 +84,7 @@ object ApiServiceOwner {
       servicesExecutionContext,
       userRightsCheckIntervalInSeconds = config.userManagement.cacheExpiryAfterWriteInSeconds,
       akkaScheduler = actorSystem.scheduler,
+      jwtTimestampLeeway = jwtTimestampLeeway,
     )
     // TODO LLP: Consider fusing the index health check with the indexer health check
     val healthChecksWithIndexService = healthChecks + ("index" -> indexService)

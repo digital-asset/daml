@@ -16,9 +16,14 @@ import scalaz.syntax.traverse._
 
 abstract class JwtVerifierBase {
   def verify(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String]
+
+  def getJwtTimestampLeeway: Option[JwtTimestampLeeway]
 }
 
-class JwtVerifier(val verifier: com.auth0.jwt.interfaces.JWTVerifier) extends JwtVerifierBase {
+class JwtVerifier(
+    val verifier: com.auth0.jwt.interfaces.JWTVerifier,
+    val jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+) extends JwtVerifierBase {
 
   def verify(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String] = {
     // The auth0 library verification already fails if the token has expired,
@@ -27,6 +32,8 @@ class JwtVerifier(val verifier: com.auth0.jwt.interfaces.JWTVerifier) extends Jw
       .map(a => domain.DecodedJwt(header = a.getHeader, payload = a.getPayload))
       .flatMap(base64Decode)
   }
+
+  def getJwtTimestampLeeway: Option[JwtTimestampLeeway] = jwtTimestampLeeway
 
   private def base64Decode(jwt: domain.DecodedJwt[String]): Error \/ domain.DecodedJwt[String] =
     jwt.traverse(Base64.decode).leftMap(e => Error(Symbol("base64Decode"), e.shows))
@@ -55,7 +62,7 @@ object HMAC256Verifier extends StrictLogging with Leeway {
 
       val algorithm = Algorithm.HMAC256(secret)
       val verifier = getVerifier(algorithm, jwtTimestampLeeway)
-      new JwtVerifier(verifier)
+      new JwtVerifier(verifier, jwtTimestampLeeway)
     }(e => Error(Symbol("HMAC256"), e.getMessage))
 }
 
@@ -67,7 +74,7 @@ object ECDSAVerifier extends StrictLogging with Leeway {
   ): Error \/ JwtVerifier =
     \/.attempt {
       val verifier = getVerifier(algorithm, jwtTimestampLeeway)
-      new JwtVerifier(verifier)
+      new JwtVerifier(verifier, jwtTimestampLeeway)
     }(e => Error(Symbol(algorithm.getName), e.getMessage))
 
   def fromCrtFile(
@@ -97,7 +104,7 @@ object RSA256Verifier extends StrictLogging with Leeway {
 
       val algorithm = Algorithm.RSA256(publicKey, null)
       val verifier = getVerifier(algorithm, jwtTimestampLeeway)
-      new JwtVerifier(verifier)
+      new JwtVerifier(verifier, jwtTimestampLeeway)
     }(e => Error(Symbol("RSA256"), e.getMessage))
 
   def apply(keyProvider: RSAKeyProvider): Error \/ JwtVerifier =
@@ -116,7 +123,7 @@ object RSA256Verifier extends StrictLogging with Leeway {
 
       val algorithm = Algorithm.RSA256(keyProvider)
       val verifier = getVerifier(algorithm, jwtTimestampLeeway)
-      new JwtVerifier(verifier)
+      new JwtVerifier(verifier, jwtTimestampLeeway)
     }(e => Error(Symbol("RSA256"), e.getMessage))
 
   /** Create a RSA256 validator with the key loaded from the given file.

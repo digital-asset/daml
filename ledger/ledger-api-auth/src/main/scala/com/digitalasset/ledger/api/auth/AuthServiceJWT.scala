@@ -6,7 +6,7 @@ package com.daml.ledger.api.auth
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import com.daml.lf.data.Ref
-import com.daml.jwt.{JwtVerifier, JwtVerifierBase}
+import com.daml.jwt.{JwtVerifier, JwtVerifierBase, JwtTimestampLeeway}
 import com.daml.ledger.api.auth.AuthServiceJWT.Error
 import io.grpc.Metadata
 import org.slf4j.{Logger, LoggerFactory}
@@ -18,9 +18,14 @@ import scala.util.Try
 /** An AuthService that reads a JWT token from a `Authorization: Bearer` HTTP header.
   * The token is expected to use the format as defined in [[AuthServiceJWTPayload]]:
   */
-class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
+case class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
 
   protected val logger: Logger = LoggerFactory.getLogger(AuthServiceJWT.getClass)
+
+  /** Return the leeway parameters for the Authorization Service if they exist.
+    * Return None when the leeway parameters are not defined.
+    */
+  def getJwtTimestampLeeway: Option[JwtTimestampLeeway] = verifier.getJwtTimestampLeeway
 
   override def decodeMetadata(headers: Metadata): CompletionStage[ClaimSet] =
     CompletableFuture.completedFuture {
