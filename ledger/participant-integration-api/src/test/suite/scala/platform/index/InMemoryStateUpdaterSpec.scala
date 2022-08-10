@@ -41,12 +41,7 @@ import org.scalatest.matchers.should.Matchers
 import scala.util.chaining._
 import scala.collection.mutable.ArrayBuffer
 
-class InMemoryStateUpdaterSpec
-    extends AnyFlatSpec
-    with Matchers
-    with ScalaFutures
-    with IntegrationPatience
-    with AkkaBeforeAndAfterAll {
+class InMemoryStateUpdaterSpec extends AnyFlatSpec with Matchers with AkkaBeforeAndAfterAll {
 
   behavior of classOf[InMemoryStateUpdater].getSimpleName
 
@@ -87,7 +82,7 @@ class InMemoryStateUpdaterSpec
 }
 
 object InMemoryStateUpdaterSpec {
-  trait Scope extends Matchers with ScalaFutures {
+  trait Scope extends Matchers with ScalaFutures with IntegrationPatience {
     val updateToTransactionAccepted
         : (Offset, Update.TransactionAccepted) => TransactionLogUpdate.TransactionAccepted = {
       case `update1` => txLogUpdate1
