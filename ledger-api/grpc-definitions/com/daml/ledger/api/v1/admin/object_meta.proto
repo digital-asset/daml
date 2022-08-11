@@ -31,11 +31,8 @@ message ObjectMeta {
   // When creating a new instance of a resource you must leave it empty. Its value will be populated by the participant server
   // upon successful resource creation.
   //
-  // Usage in the field mask of an update call:
-  // - you must not user 'resource_version' in an update mask's path as its value is managed internally by the participant server.
-  // TODO pbatko: Consider generalizing to all Read-Only fields. If used in an update mask explictly the server shall complain.
-  //
-  // Optional, Read-Only
+  // Optional
+  // Read-Only
   string resource_version = 6;
 
   // A set of modifiable key-value pairs that can be used to represent arbitrary, client-specific metadata.
@@ -54,10 +51,12 @@ message ObjectMeta {
   // Duplicate keys are disallowed by the semantics of the protobuf3 maps.
   // See: https://developers.google.com/protocol-buffers/docs/proto3#maps
   //
-  // Usage in the field mask of an update call:
-  // - you can select 'annotations' field only as a whole, with the replace-all semantics.
-  //
-  // Optional, Read-Write (replace-all)
+  // Optional
+  // Read-Write (with replace-all semantics)
+  // TODO pbatko: 'FieldMask' doc suggests doing 'merge' message fields by default with alternative semantics enabled as an option.
+  // TODO         This could mean adding such an option field:
+  // TODO         'string annotations_update_mode = ...' with null or "merge" meaning merge, and "replace-all" meaning replace-all semantics.
+  // TODO         Cons: this pollutes the object_meta with a field that makes sense only in update calls.
+  // TODO         Pros: It would be compatible with 'FieldMask' doc
   map<string, string> annotations = 12;
-
 }

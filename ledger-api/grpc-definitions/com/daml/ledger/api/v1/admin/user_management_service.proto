@@ -21,7 +21,16 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // (1) ``HasRight(r)`` denoting whether the authenticated user has right ``r`` and
 // (2) ``IsAuthenticatedUser(uid)`` denoting whether ``uid`` is the empty string or equal to the id of the authenticated user.
 //
-// TODO: Explain 'Optional' and 'Required'. Same for party management
+// We annotate the fields of request messages (and their sub-messages) with 'Optional' and 'Required' markers.
+// 'Optional' means that the client can leave the field unset (set to a default value) when sending a request.
+// 'Required' means that the client must set the field to a non-default value when sending a request.
+//
+// For request messages (and their sub-messages) used in 'Update<Resource>' calls we annotate their fields, corresponding to the resource being update,
+// with 'Read-Only' and 'Read-Write' markers.
+// 'Read-Only' means that the field (and its sub-fields) cannot be updated; i.e. the field's name can never be used in a valid update mask's path.
+// 'Read-Write' means that the field can be updated; i.e. the field's name can be used in a valid update mask's path.
+// TODO pbatko: Document the same for PartyM
+// TODO pbatko: Add conformance tests verifying participant rejects invalid update masks: 1) paths that contain read-only items, 2) paths that contain non-existent items, 3) empty paths
 service UserManagementService {
 
     // Create a new user.
@@ -69,7 +78,7 @@ service UserManagementService {
     rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
 
     // Grant rights to a user.
-    // TODO pbatko: Document that rights are not per-se part of a user resource
+    // TODO pbatko: Document whether the updates to user rights (grant/revoke) changes the corresponding user resource internal version
     // Errors:
     // - ``NOT_FOUND``: if the user doesn't exist
     // - ``UNAUTHENTICATED``: if the request does not include a valid access token
@@ -105,7 +114,9 @@ service UserManagementService {
 message User {
     // The user identifier, which must be a non-empty string of at most 128
     // characters that are either lowercase alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:".
-    // Required, Read-Only
+    //
+    // Required
+    // Read-Only
     string id = 1;
 
     // The primary party as which this user reads and acts by default on the ledger
@@ -114,16 +125,25 @@ message User {
     // Ledger API clients SHOULD set this field to a non-empty value for all users to
     // enable the users to act on the ledger using their own Daml party.
     // Users for participant administrators MAY have an associated primary party.
-    // Optional, Read-Write
+    //
+    // Optional
+    // Read-Write
     string primary_party = 2;
 
     // When set, then the user is denied all access to the Ledger API.
     // Otherwise, the user has access to the Ledger API as per the user's rights.
-    // Optional, Read-Write
+    //
+    // Optional
+    // Read-Write
     bool is_deactivated = 3;
 
     // The metadata of this user.
-    // Required, Read-Write
+    // TODO pbatko: Consider relaxing it to be Optional.
+    // TODO         If usnset, the client does not want to check for concurrent updates in update rpr and the client does not want to set the annotations in a create or update rpc
+    // TODO pbatko: Add a conformance test that verifies participant rejects requests where this field is
+    // TODO         listed explicitly in the update mask and its value is set to None (i.e. client is attempting to delete it)
+    // Required (TODO pbatko: ?make it Optional?)
+    // Read-Write
     ObjectMeta metadata = 4;
 }
 
@@ -143,6 +163,8 @@ message Right {
         string party = 1;
     }
 
+    // TODO pbatko: Make sure, in conformance tests, that the default value (empty) is rejected
+    // Required
     oneof kind {
         // The user can administrate the participant node.
         ParticipantAdmin participant_admin = 1;
@@ -165,7 +187,9 @@ message CreateUserRequest {
 
     // The rights to be assigned to the user upon creation,
     // which SHOULD include appropriate rights for the ``user.primary_party``.
-    // Required
+    //
+    // TODO pbatko: Make sure, in conformance tests, that empty rights are that the default value (empty) is accepted. Because we allow deleting all rights from a user so it makes little sense to disallow at creation time
+    // Optional
     repeated Right rights = 2;
 }
 
@@ -191,11 +215,16 @@ message GetUserResponse {
 // NOTE: The authenticated participant user is not allowed to deactivate itself.
 message UpdateUserRequest {
     // The user to update.
-    // Optional, Read-Write
+    //
+    // TODO pbatko: Make sure, in conformance tests, that the default value (none) is rejected
+    // Required
+    // Read-Write
     User user = 1;
 
     // Specifies the fields of the user resource to be updated.
     // At least one field must be specified, e.g. 'user.metadata'.
+    //
+    // TODO pbatko: Make sure, in conformance tests, that the default value (none) is rejected
     // Required
     google.protobuf.FieldMask update_mask = 2;
 }
@@ -249,6 +278,8 @@ message GrantUserRightsRequest {
     string user_id = 1;
 
     // The rights to grant.
+    //
+    // TODO pbatko: If this field is required, than we should reject attempting to grant 0 rights. Ensure in conformance tests
     // Required
     repeated Right rights = 2;
 }
@@ -267,6 +298,8 @@ message RevokeUserRightsRequest {
     string user_id = 1;
 
     // The rights to revoke.
+    //
+    // TODO pbatko: If this field is required, than we must reject attempting to revoke 0 rights. Ensure in conformance tests
     // Required
     repeated Right rights = 2;
 }

@@ -145,11 +145,14 @@ message AllocatePartyResponse {
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message UpdatePartyDetailsRequest {
   // Party to be updated
-  // Required, Read-Write
+  //
+  // Required
+  // Read-Write
   PartyDetails party_details = 1;
 
   // Specifies the fields of the party details to be updated.
   // At least one field must be specified, e.g. 'party_details.local_metadata'.
+  //
   // Required
   google.protobuf.FieldMask update_mask = 2;
 }
@@ -163,21 +166,28 @@ message PartyDetails {
 
   // The stable unique identifier of a Daml party.
   // Must be a valid PartyIdString (as described in ``value.proto``).
-  // Required, Read-Only
+  //
+  // Required
+  // Read-Only
   string party = 1;
 
   // Human readable name associated with the party at allocation time.
   // Caution, it might not be unique.
   // Use of this field is discouraged. Consider using the `local_metadata` field instead.
-  // Optional, Read-Only
+  //
+  // Optional
+  // Read-Only
   string display_name = 2;
 
   // true if party is hosted by the backing participant.
-  // Required when used in 'AllocateParty' party request, optional otherwise.
+  //
+  // Optional
   // Read-Only
   bool is_local = 3;
 
   // Participant-local metadata of this party.
-  // Optional, Read-Write
+  //
+  // Required
+  // Read-Write
   ObjectMeta local_metadata = 4;
 }
