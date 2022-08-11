@@ -53,7 +53,7 @@ class LedgerApiServer(
       )
 
       for {
-        (inMemoryState, inMemoryStateUpdater) <-
+        (inMemoryState, inMemoryStateUpdaterFlow) <-
           LedgerApiServer.createInMemoryStateAndUpdater(
             participantConfig.indexService,
             metrics,
@@ -71,7 +71,7 @@ class LedgerApiServer(
               metrics = metrics,
               inMemoryState = inMemoryState,
               lfValueTranslationCache = translationCache,
-              inMemoryStateUpdaterFlow = inMemoryStateUpdater.flow,
+              inMemoryStateUpdaterFlow = inMemoryStateUpdaterFlow,
               executionContext = servicesExecutionContext,
             )
           } yield new HealthChecks(
@@ -171,7 +171,7 @@ object LedgerApiServer {
       executionContext: ExecutionContext,
   )(implicit
       loggingContext: LoggingContext
-  ): ResourceOwner[(InMemoryState, InMemoryStateUpdater)] =
+  ): ResourceOwner[(InMemoryState, InMemoryStateUpdater.UpdaterFlow)] =
     for {
       inMemoryState <- InMemoryState.owner(
         apiStreamShutdownTimeout = indexServiceConfig.apiStreamShutdownTimeout,

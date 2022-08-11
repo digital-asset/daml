@@ -76,7 +76,7 @@ class IndexerBenchmark() {
           .forExecutorService(() => Executors.newWorkStealingPool())
           .map(ExecutionContext.fromExecutorService)
           .acquire()
-        (inMemoryState, inMemoryStateUpdater) <-
+        (inMemoryState, inMemoryStateUpdaterFlow) <-
           LedgerApiServer
             .createInMemoryStateAndUpdater(
               config.indexServiceConfig,
@@ -92,7 +92,7 @@ class IndexerBenchmark() {
           metrics,
           LfValueTranslationCache.Cache.none,
           inMemoryState,
-          inMemoryStateUpdater.flow,
+          inMemoryStateUpdaterFlow,
           servicesExecutionContext,
         )
         _ <- metricsResource(config, metrics)
