@@ -284,13 +284,3 @@ gazelle(
     ],
     command = "update-repos",
 )
-
-# Host platofrm is not detected correctly by Bazel on CI
-platform(
-    name = "ci-m1",
-    constraint_values = [
-        "@platforms//os:macos",
-        "@platforms//cpu:arm64",
-        "@io_tweag_rules_nixpkgs//nixpkgs/constraints:support_nix",
-    ],
-)
