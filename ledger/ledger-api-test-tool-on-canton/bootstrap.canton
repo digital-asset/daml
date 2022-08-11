@@ -7,7 +7,7 @@ test_domain.service.update_dynamic_domain_parameters(_.update(
   ledgerTimeRecordTimeTolerance = NonNegativeFiniteDuration.ofMinutes(3),
   mediatorReactionTimeout = TimeoutDuration.ofMinutes(1),
   participantResponseTimeout = TimeoutDuration.ofMinutes(1),
-))
+), force = true)
 
 participants.local foreach (_.domains.connect_local(test_domain))
 
