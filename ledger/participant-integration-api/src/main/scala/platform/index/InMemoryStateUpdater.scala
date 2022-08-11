@@ -30,18 +30,16 @@ import com.daml.platform.{Contract, InMemoryState, Key, Party}
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 
-final class InMemoryStateUpdater(
-    prepareUpdatesParallelism: Int,
-    prepareUpdatesExecutionContext: ExecutionContext,
-    updateCachesExecutionContext: ExecutionContext,
-    metrics: Metrics,
-)(
-    prepare: (Vector[(Offset, Update)], Long) => PrepareResult,
-    update: PrepareResult => Unit,
-) {
-
-  // TODO LLP: Considering directly returning this flow instead of the wrapper
-  val flow: UpdaterFlow =
+private[platform] object InMemoryStateUpdaterFlow {
+  private[index] def apply(
+      prepareUpdatesParallelism: Int,
+      prepareUpdatesExecutionContext: ExecutionContext,
+      updateCachesExecutionContext: ExecutionContext,
+      metrics: Metrics,
+  )(
+      prepare: (Vector[(Offset, Update)], Long) => PrepareResult,
+      update: PrepareResult => Unit,
+  ): UpdaterFlow =
     Flow[(Vector[(Offset, Update)], Long)]
       .filter(_._1.nonEmpty)
       .mapAsync(prepareUpdatesParallelism) { case (batch, lastEventSequentialId) =>
@@ -73,7 +71,7 @@ private[platform] object InMemoryStateUpdater {
       inMemoryState: InMemoryState,
       prepareUpdatesParallelism: Int,
       metrics: Metrics,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[InMemoryStateUpdater] = for {
+  )(implicit loggingContext: LoggingContext): ResourceOwner[UpdaterFlow] = for {
     prepareUpdatesExecutor <- ResourceOwner.forExecutorService(() =>
       new InstrumentedExecutorService(
         Executors.newWorkStealingPool(prepareUpdatesParallelism),
@@ -88,7 +86,7 @@ private[platform] object InMemoryStateUpdater {
         metrics.daml.lapi.threadpool.indexBypass.updateInMemoryState,
       )
     )
-  } yield new InMemoryStateUpdater(
+  } yield InMemoryStateUpdaterFlow(
     prepareUpdatesParallelism = prepareUpdatesParallelism,
     prepareUpdatesExecutionContext = ExecutionContext.fromExecutorService(prepareUpdatesExecutor),
     updateCachesExecutionContext = ExecutionContext.fromExecutorService(updateCachesExecutor),

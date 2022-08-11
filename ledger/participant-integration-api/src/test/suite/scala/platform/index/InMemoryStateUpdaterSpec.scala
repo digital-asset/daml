@@ -45,8 +45,6 @@ import scala.collection.mutable.ArrayBuffer
 
 class InMemoryStateUpdaterSpec extends AnyFlatSpec with Matchers with AkkaBeforeAndAfterAll {
 
-  behavior of classOf[InMemoryStateUpdater].getSimpleName
-
   "flow" should "correctly process updates in order" in new Scope {
     runFlow(
       Seq(
@@ -142,7 +140,7 @@ object InMemoryStateUpdaterSpec {
     def result(lastEventSequentialId: Long) =
       PrepareResult(Vector.empty, offset(1L), lastEventSequentialId, PackageMetadata())
 
-    val inMemoryStateUpdater = new InMemoryStateUpdater(
+    val inMemoryStateUpdater = InMemoryStateUpdaterFlow(
       2,
       scala.concurrent.ExecutionContext.global,
       scala.concurrent.ExecutionContext.global,
@@ -164,7 +162,7 @@ object InMemoryStateUpdaterSpec {
 
     def runFlow(input: Seq[(Vector[(Offset, Update)], Long)])(implicit mat: Materializer): Done =
       Source(input)
-        .via(inMemoryStateUpdater.flow)
+        .via(inMemoryStateUpdater)
         .runWith(Sink.ignore)
         .futureValue
   }
