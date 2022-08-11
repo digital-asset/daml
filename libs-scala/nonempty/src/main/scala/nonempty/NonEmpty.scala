@@ -280,6 +280,8 @@ object NonEmptyCollInstances {
     def min1(implicit ev: Ordering[A]): A = (self: ESelf).min
     def max1(implicit ev: Ordering[A]): A = (self: ESelf).max
 
+    def minBy1[B](f: A => B)(implicit ev: Ordering[B]): A = (self: ESelf).minBy(f)
+    def maxBy1[B](f: A => B)(implicit ev: Ordering[B]): A = (self: ESelf).maxBy(f)
   }
 }
 
