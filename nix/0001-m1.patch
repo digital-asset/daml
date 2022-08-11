@@ -1,6 +1,6 @@
-From e3e80f523f4f1a9a45adbf94b0b2c8c27606de30 Mon Sep 17 00:00:00 2001
+From 7cd32eb90f1a52be9f90d2cb1a4d9c0c1c3069bc Mon Sep 17 00:00:00 2001
 From: Gary Verhaegen <gary.verhaegen@digitalasset.com>
-Date: Thu, 11 Aug 2022 15:51:02 +0200
+Date: Thu, 11 Aug 2022 15:58:14 +0200
 Subject: [PATCH] m1
 
 ---
@@ -51,27 +51,27 @@ index 03b7417369..a0eaa008c6 100755
  # assume that they know what they're doing and have their own way of versioning
  # Bazel. Thus, we don't have to print our helpful messages or error out in case
 diff --git a/src/main/java/com/google/devtools/build/lib/analysis/config/AutoCpuConverter.java b/src/main/java/com/google/devtools/build/lib/analysis/config/AutoCpuConverter.java
-index 9f5fbca65f..e896803edc 100644
+index 9f5fbca65f..461cd202f0 100644
 --- a/src/main/java/com/google/devtools/build/lib/analysis/config/AutoCpuConverter.java
 +++ b/src/main/java/com/google/devtools/build/lib/analysis/config/AutoCpuConverter.java
 @@ -32,6 +32,7 @@ public class AutoCpuConverter implements Converter<String> {
      if (input.isEmpty()) {
        // TODO(philwo) - replace these deprecated names with more logical ones (e.g. k8 becomes
        // linux-x86_64, darwin includes the CPU architecture, ...).
-+        System.out.println("OS.getCurrent: " + OS.getCurrent());
++        System.err.println("OS.getCurrent: " + OS.getCurrent());
        switch (OS.getCurrent()) {
          case DARWIN:
            switch (CPU.getCurrent()) {
 diff --git a/src/main/java/com/google/devtools/build/lib/rules/apple/AppleConfiguration.java b/src/main/java/com/google/devtools/build/lib/rules/apple/AppleConfiguration.java
-index 771aefbfa8..fccd1bdb03 100644
+index 771aefbfa8..fcde9859ea 100644
 --- a/src/main/java/com/google/devtools/build/lib/rules/apple/AppleConfiguration.java
 +++ b/src/main/java/com/google/devtools/build/lib/rules/apple/AppleConfiguration.java
 @@ -184,6 +184,8 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     */
    @Override
    public String getSingleArchitecture() {
-+      System.out.println("getSingleArchitecture" + appleSplitCpu);
-+      System.out.println("getSingleArchitecture" + applePlatformType);
++      System.err.println("getSingleArchitecture" + appleSplitCpu);
++      System.err.println("getSingleArchitecture" + applePlatformType);
      if (!Strings.isNullOrEmpty(appleSplitCpu)) {
        return appleSplitCpu;
      }
