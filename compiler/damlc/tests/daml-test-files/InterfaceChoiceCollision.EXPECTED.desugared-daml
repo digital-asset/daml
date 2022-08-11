@@ -89,7 +89,9 @@ _view_T_InterfaceChoiceCollision1:Interface
   = DA.Internal.Desugar.mkInterfaceView
       @T
       @InterfaceChoiceCollision1.Interface
-      \ this@T {..} -> let _ = this in let view = () in view
+      \ this@T {..}
+        -> let _ = this in
+           let view = InterfaceChoiceCollision1.EmptyInterfaceView in view
 _implements_T_InterfaceChoiceCollision2:Interface :
   DA.Internal.Desugar.ImplementsT T InterfaceChoiceCollision2.Interface
 _implements_T_InterfaceChoiceCollision2:Interface
@@ -113,4 +115,6 @@ _view_T_InterfaceChoiceCollision2:Interface
   = DA.Internal.Desugar.mkInterfaceView
       @T
       @InterfaceChoiceCollision2.Interface
-      \ this@T {..} -> let _ = this in let view = () in view
+      \ this@T {..}
+        -> let _ = this in
+           let view = InterfaceChoiceCollision2.EmptyInterfaceView in view

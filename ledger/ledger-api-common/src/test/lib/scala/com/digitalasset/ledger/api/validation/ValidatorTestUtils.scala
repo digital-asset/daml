@@ -38,7 +38,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
       filters shouldEqual domain.Filters(
         Some(
           domain.InclusiveFilters(
-            Set(
+            templateIds = Set(
               Ref.Identifier(
                 Ref.PackageId.assertFromString(packageId),
                 Ref.QualifiedName(
@@ -46,7 +46,8 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
                   Ref.DottedName.assertFromString(includedTemplate),
                 ),
               )
-            )
+            ),
+            interfaceFilters = Set.empty,
           )
         )
       )

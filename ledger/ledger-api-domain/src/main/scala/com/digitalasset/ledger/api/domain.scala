@@ -45,7 +45,15 @@ object domain {
     def apply(inclusive: InclusiveFilters) = new Filters(Some(inclusive))
   }
 
-  final case class InclusiveFilters(templateIds: immutable.Set[Ref.Identifier])
+  final case class InterfaceFilter(
+      interfaceId: Ref.Identifier,
+      includeView: Boolean,
+  )
+
+  final case class InclusiveFilters(
+      templateIds: immutable.Set[Ref.Identifier],
+      interfaceFilters: immutable.Set[InterfaceFilter],
+  )
 
   sealed abstract class LedgerOffset extends Product with Serializable
 

@@ -3,7 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
-import InterfaceEmpty ( I )
+import InterfaceEmpty ( I, EmptyInterfaceView(..) )
 data GHC.Types.DamlTemplate => T
   = T {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -75,4 +75,7 @@ instance DA.Internal.Desugar.HasFromInterface T I where
 _view_T_I : DA.Internal.Desugar.InterfaceView T I
 _view_T_I
   = DA.Internal.Desugar.mkInterfaceView
-      @T @I \ this@T {..} -> let _ = this in let view = () in view
+      @T
+      @I
+      \ this@T {..}
+        -> let _ = this in let view = EmptyInterfaceView in view

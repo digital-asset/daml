@@ -8,5 +8,7 @@
 -- (e.g. LF 1.14) results in a reasonable error.
 module InterfaceNotSupported where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface A where
-    viewtype ()
+    viewtype EmptyInterfaceView

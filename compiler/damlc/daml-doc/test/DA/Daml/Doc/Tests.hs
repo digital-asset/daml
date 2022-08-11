@@ -187,13 +187,16 @@ unitTests =
            Nothing
            "Interface implementations"
            [ testModHdr
+           , "data EmptyInterfaceView = EmptyInterfaceView"
            , "interface Bar where"
+           , "  viewtype EmptyInterfaceView"
            , "  method : Update ()"
            , "template Foo with"
            , "    field1 : Party"
            , "  where"
            , "    signatory field1"
            , "    implements Bar where"
+           , "      view = EmptyInterfaceView"
            , "      method = pure ()"
            ]
            (\md -> assertBool

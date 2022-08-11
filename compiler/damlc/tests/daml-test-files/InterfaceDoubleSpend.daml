@@ -9,8 +9,10 @@
 module InterfaceDoubleSpend where
 
 -- | An interface comment.
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface Token where
-  viewtype ()
+  viewtype EmptyInterfaceView
   getIssuer : Party
   getOwner : Party
   getAmount : Int
@@ -33,7 +35,7 @@ template Asset
     signatory issuer
     observer owner
     implements Token where
-      view = ()
+      view = EmptyInterfaceView
       getOwner = owner
       getIssuer = issuer
       getAmount = amount

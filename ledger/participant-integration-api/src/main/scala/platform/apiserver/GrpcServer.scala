@@ -51,10 +51,10 @@ private[apiserver] object GrpcServer {
     builder.maxInboundMessageSize(maxInboundMessageSize)
     // NOTE: Interceptors run in the reverse order in which they were added.
     interceptors.foreach(builder.intercept)
+    rateLimitingConfig.foreach(c => builder.intercept(RateLimitingInterceptor(metrics, config = c)))
     builder.intercept(new MetricsInterceptor(metrics))
     builder.intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
     builder.intercept(new ErrorInterceptor)
-    rateLimitingConfig.foreach(c => builder.intercept(RateLimitingInterceptor(metrics, config = c)))
     services.foreach { service =>
       builder.addService(service)
       toLegacyService(service).foreach(builder.addService)

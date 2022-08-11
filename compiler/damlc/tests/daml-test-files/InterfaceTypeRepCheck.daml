@@ -8,8 +8,10 @@
 -- through a T2 contract id, via interface choices.
 module InterfaceTypeRepCheck where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface I where
-  viewtype ()
+  viewtype EmptyInterfaceView
   getOwner : Party
   choice MyArchive : ()
     controller getOwner this
@@ -21,7 +23,7 @@ template T1
   where
     signatory owner1
     implements I where
-      view = ()
+      view = EmptyInterfaceView
       getOwner = owner1
 
 template T2
@@ -30,7 +32,7 @@ template T2
   where
     signatory owner2
     implements I where
-      view = ()
+      view = EmptyInterfaceView
       getOwner = owner2
 
 main = scenario do

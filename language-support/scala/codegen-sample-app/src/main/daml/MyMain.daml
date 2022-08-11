@@ -5,7 +5,7 @@
 module MyMain where
 
 import Prelude hiding (Date, Enum, Maybe)
-import MyMainIface (IfaceFromAnotherMod)
+import qualified MyMainIface
 import qualified DA.TextMap as TM
 import DA.Map
 
@@ -592,8 +592,10 @@ template JustMapUser
     where
       signatory party
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface InterfaceToMix where
-  viewtype ()
+  viewtype EmptyInterfaceView
   getOwner: Party
   choice InheritedOnly: ContractId InterfaceToMix with
     controller getOwner this
@@ -609,8 +611,8 @@ template InterfaceMixer with
       controller party
       do return ()
     implements InterfaceToMix where
-      view = ()
+      view = EmptyInterfaceView
       getOwner = party
-    implements IfaceFromAnotherMod where
-      view = ()
+    implements MyMainIface.IfaceFromAnotherMod where
+      view = MyMainIface.EmptyInterfaceView
       getOwner = party

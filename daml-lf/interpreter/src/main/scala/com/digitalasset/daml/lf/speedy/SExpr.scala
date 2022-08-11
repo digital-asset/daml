@@ -22,7 +22,6 @@ import com.daml.lf.language.Ast
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
-import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.{SExpr0 => compileTime}
 import com.daml.scalautil.Statement.discard
@@ -323,18 +322,6 @@ object SExpr {
     def execute(machine: Machine): Control = {
       machine.pushKont(KLabelClosure(machine, label))
       Control.Expression(expr)
-    }
-  }
-
-  /** We cannot crash in the engine call back.
-    * Rather, we set the control to this expression and then crash when executing.
-    *
-    * The SEDamlException form is never constructed when compiling user LF.
-    * It is only constructed at runtime by certain builtin-ops.
-    */
-  final case class SEDamlException(error: interpretation.Error) extends SExpr {
-    def execute(machine: Machine): Control = {
-      throw SErrorDamlException(error)
     }
   }
 

@@ -116,7 +116,7 @@ jobs:
           artifactName: perf-speedy
 
   - job: check_releases
-    timeoutInMinutes: 360
+    timeoutInMinutes: 480
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default

@@ -4,8 +4,10 @@
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 module InterfaceChoiceCollision1 where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface Interface where
-    viewtype ()
+    viewtype EmptyInterfaceView
     getOwner : Party
 
     choice MyArchive : ()

@@ -605,7 +605,6 @@ private[lf] object Pretty {
 
         case x: SEImportValue => str(x)
         case x: SELabelClosure => str(x)
-        case x: SEDamlException => str(x)
       }
   }
 
