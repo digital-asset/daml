@@ -190,8 +190,8 @@ object TransactionGenerator {
   } yield Status(code, message)
 
   val interfaceViewGen: Gen[InterfaceView] = for {
-    scalaRecord <- Gen.option(Gen.sized(recordGen)).map(_.map(_._1))
-    interfaceId <- Gen.option(identifierGen).map(_.map(_._1))
+    scalaRecord <- Gen.option(Gen.sized(recordGen).map(_._1))
+    interfaceId <- Gen.option(identifierGen.map(_._1))
     status <- Gen.option(statusGen)
   } yield InterfaceView(
     interfaceId,
