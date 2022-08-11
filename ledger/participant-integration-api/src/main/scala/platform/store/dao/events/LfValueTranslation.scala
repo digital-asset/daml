@@ -4,14 +4,13 @@
 package com.daml.platform.store.dao.events
 
 import java.io.ByteArrayInputStream
-
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.value.{
   Identifier => ApiIdentifier,
   Record => ApiRecord,
   Value => ApiValue,
 }
-import com.daml.lf.engine.ValueEnricher
+import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.{engine => LfEngine}
@@ -79,12 +78,14 @@ trait LfValueSerialization {
 final class LfValueTranslation(
     val cache: LfValueTranslationCache.Cache,
     metrics: Metrics,
-    enricherO: Option[LfEngine.ValueEnricher],
+    engineO: Option[Engine],
     loadPackage: (
         LfPackageId,
         LoggingContext,
     ) => Future[Option[com.daml.daml_lf_dev.DamlLf.Archive]],
 ) extends LfValueSerialization {
+
+  private val enricherO = engineO.map(new ValueEnricher(_))
 
   private[this] val packageLoader = new DeduplicatingPackageLoader()
 

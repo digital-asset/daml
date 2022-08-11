@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWrit
 import com.daml.ledger.participant.state.v2.{ReadService, WriteService}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
-import com.daml.lf.engine.{Engine, ValueEnricher}
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.metrics.Metrics
@@ -94,7 +94,7 @@ class LedgerApiServer(
           dbSupport = readDbSupport,
           initialLedgerId = domain.LedgerId(ledgerId),
           metrics = metrics,
-          enricher = new ValueEnricher(engine),
+          engine = engine,
           servicesExecutionContext = servicesExecutionContext,
           lfValueTranslationCache = translationCache,
           participantId = participantId,
