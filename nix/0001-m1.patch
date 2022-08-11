@@ -1,14 +1,14 @@
-From 7228ea4c4ae233be9132fd55b768e5f70fa72956 Mon Sep 17 00:00:00 2001
+From f4a36d9311f0e1f2f6762475100c8e52df6a7153 Mon Sep 17 00:00:00 2001
 From: Gary Verhaegen <gary.verhaegen@digitalasset.com>
-Date: Thu, 11 Aug 2022 14:34:28 +0200
+Date: Thu, 11 Aug 2022 15:25:40 +0200
 Subject: [PATCH] m1
 
 ---
- scripts/packages/bazel.sh | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ scripts/packages/bazel.sh | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
 diff --git a/scripts/packages/bazel.sh b/scripts/packages/bazel.sh
-index 03b7417369..db416edb6e 100755
+index 03b7417369..1f8fa63244 100755
 --- a/scripts/packages/bazel.sh
 +++ b/scripts/packages/bazel.sh
 @@ -16,6 +16,9 @@
@@ -31,6 +31,14 @@ index 03b7417369..db416edb6e 100755
  
  function get_bazel_version() {
    bazel_version=""
+@@ -142,6 +146,7 @@ function get_bazel_version() {
+     fi
+   fi
+ 
++  echo "bazel_version: \"$bazel_version\""
+   readonly reason
+   readonly bazel_version
+ }
 -- 
 2.37.1
 
