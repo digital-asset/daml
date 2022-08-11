@@ -84,4 +84,7 @@ testUnionWith = scenario do
   unionWith (-) m1 m2
     === fromList [(1, -2), (2, -3), (3, 3), (4, 7)]
 
+testInsertWith = scenario do
+  insertWith (-) 1 2 (fromList []) === fromList [(1, 2)]
+  insertWith (-) 1 2 (fromList [(1,1)]) === fromList [(1, 2-1)]
 -- @ENABLE-SCENARIOS
