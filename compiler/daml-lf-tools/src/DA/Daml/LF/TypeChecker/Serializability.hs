@@ -205,5 +205,5 @@ checkModule mod0 = do
     withContext (ContextDefException mod0 exn) $
       checkException mod0 exn
   for_ (moduleInterfaces mod0) $ \iface ->
-    withContext (ContextDefInterface mod0 iface) $
+    withContext (ContextDefInterface mod0 iface IPWhole) $
       checkInterface mod0 iface
