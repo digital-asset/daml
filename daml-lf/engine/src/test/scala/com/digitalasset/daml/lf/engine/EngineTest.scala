@@ -666,7 +666,7 @@ class EngineTest
     }
   }
 
-  "fecth-by-key" should {
+  "fetch-by-key" should {
     val seed = hash("fetch-by-key")
 
     val now = Time.Timestamp.now()
@@ -2428,7 +2428,7 @@ object EngineTest {
           dependsOnTime = state.dependsOnTime,
           nodeSeeds = state.nodeSeeds.toImmArray,
           globalKeyMapping = Map.empty,
-          disclosures = ImmArray.Empty,
+          disclosures = ImmArray.empty,
         ),
       )
     )

@@ -452,7 +452,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
             dependsOnTime = onLedger.dependsOnTime,
             nodeSeeds = nodeSeeds,
             globalKeyMapping = globalKeyMapping,
-            disclosures = disclosedContracts.map(versionDisclosedContract), // FIXME: ????
+            disclosures = disclosedContracts.map(versionDisclosedContract),
           )
           config.profileDir.foreach { dir =>
             val desc = Engine.profileDesc(tx)
