@@ -53,8 +53,10 @@ echo ---------- ls bazel -----------
 ls /nix/store/dnfddpxqffw1yzgpwk01by7a8h9wzyav-bazel-4.2.2/bin
 echo ---------------------
 
+arch -arm64 bazel clean --expunge
+
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
-bazel build //ci/... \
+arch -arm64 bazel build //ci/... \
   $(if [ "_macos-m1" == "$1" ]; then echo "--host_platform=//:ci-m1 --platforms=//:ci-m1"; fi) \
   --toolchain_resolution_debug \
   --build_tag_filters "$tag_filter" \
