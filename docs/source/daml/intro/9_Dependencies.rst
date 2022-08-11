@@ -67,7 +67,7 @@ Dependencies under the ``daml.yaml`` ``dependencies`` group rely on the ``*.hi``
 
 However, as you can see above, this information isn't preserved. Furthermore, preserving this information may not even be desirable. Imagine we had built ``intro7`` with SDK 1.100.0, and are building ``intro9`` with SDK 1.101.0. All the typeclasses and instances on the inbuilt types may have changed and are now present twice -- once from the current SDK and once from the dependency. This gets messy fast, which is why the SDK does not support ``dependencies`` across SDK versions. For dependencies on contract models that were fetched from a ledger, or come from an older SDK version, there is a simpler kind of dependency called ``data-dependencies``. The syntax for ``data-dependencies`` is the same, but they only rely on the "binary" ``*.dalf`` files. The name tries to confer that the main purpose of such dependencies is to handle data: Records, Choices, Templates. The stuff one needs to use contract composability across projects.
 
-For an extension model like this one,``data-dependencies`` are appropriate, so the chapter 9 project includes the chapter 7 that way.
+For an extension model like this one,``data-dependencies`` are appropriate, so the chapter 9 project includes chapter 7 that way.
 
 .. literalinclude:: daml/daml-intro-9/daml.yaml.template
   :language: yaml
@@ -81,7 +81,7 @@ Structuring Projects
 
 As you've seen here, identifiers depend on the package as a whole and packages always bring all their dependencies with them. Thus changing anything in a complex dependency graph can have significant repercussions. It is therefore advisable to keep dependency graphs simple, and to separate concerns which are likely to change at different rates into separate packages.
 
-For example, in all our projects in this intro, including this chapter, our scripts are in the same project as our templates. In practice, that means changing a test changes all identifiers, which is not desirable. It's better for maintainability to separate tests from main templates. If we had done that in chapter 7, that would also have saved us from copying the chapter 7.
+For example, in all our projects in this intro, including this chapter, our scripts are in the same project as our templates. In practice, that means changing a test changes all identifiers, which is not desirable. It's better for maintainability to separate tests from main templates. If we had done that in chapter 7, that would also have saved us from copying chapter 7.
 
 Similarly, we included ``Trade`` in the same project as ``Asset`` in chapter 7, even though ``Trade`` is a pure extension to the core ``Asset`` model. If we expect ``Trade`` to need more frequent changes, it may be a good idea to split it out into a separate project from the start.
 
