@@ -11,6 +11,7 @@ Daml Finance
    core-concepts
    glossary
    getting-started/getting-started
+   getting-started/lifecycling
 
 Daml Finance is currently an :doc:`Early Access Feature in Alpha status </support/status-definitions>`.
 

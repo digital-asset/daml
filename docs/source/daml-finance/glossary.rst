@@ -92,6 +92,8 @@ The (possibly simultaneous) execution of ownership transfers according to predef
 
 Many financial transactions are traditionally settled a few days after execution.
 
+.. _lifecycling:
+
 Lifecycling
 -----------
 
