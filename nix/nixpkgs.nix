@@ -36,6 +36,8 @@ let
         # This should be upstreamed once we tested it a bit
         # on our own setup.
         ./bazel-retry-cache.patch
+        # TODO
+        ./0001-m1.patch
       ];
     });
     haskell = pkgs.haskell // {
