@@ -55,7 +55,6 @@ final case class CliConfig[Extra](
     timeProviderType: TimeProviderType,
     tlsConfig: Option[TlsConfiguration],
     userManagementConfig: UserManagementConfig,
-    // TODO LLP: Move to `CliParticipantConfig`
     maxTransactionsInMemoryFanOutBufferSize: Int,
     configFiles: Seq[File] = Seq(),
     configMap: Map[String, String] = Map(),

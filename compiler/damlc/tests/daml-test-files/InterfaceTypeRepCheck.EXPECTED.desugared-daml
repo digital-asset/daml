@@ -3,6 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => I = I GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep I where
   _interfaceTypeRep
@@ -75,6 +76,8 @@ _choice_IMyArchive
      \ self this arg@MyArchive
        -> let _ = self in let _ = this in let _ = arg in do pure (), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView I EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => T1
   = T1 {owner1 : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -151,6 +154,13 @@ _method_T1_I_getOwner
       @"getOwner"
       (\ this@T1 {..}
          -> let _ = this in let getOwner = owner1 in getOwner)
+_view_T1_I : DA.Internal.Desugar.InterfaceView T1 I
+_view_T1_I
+  = DA.Internal.Desugar.mkInterfaceView
+      @T1
+      @I
+      \ this@T1 {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 data GHC.Types.DamlTemplate => T2
   = T2 {owner2 : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -227,6 +237,13 @@ _method_T2_I_getOwner
       @"getOwner"
       (\ this@T2 {..}
          -> let _ = this in let getOwner = owner2 in getOwner)
+_view_T2_I : DA.Internal.Desugar.InterfaceView T2 I
+_view_T2_I
+  = DA.Internal.Desugar.mkInterfaceView
+      @T2
+      @I
+      \ this@T2 {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 main
   = scenario
       do p <- getParty "Alice"

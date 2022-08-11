@@ -3,6 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
   _interfaceTypeRep
@@ -100,6 +101,8 @@ _choice_TokenTransfer
        -> let _ = self in
           let _ = this in let _ = arg in do transferImpl this newOwner, 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView Token EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => Asset
   = Asset {issuer : Party, owner : Party, amount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -217,6 +220,13 @@ _method_Asset_Token_transferImpl
                 = do cid <- create this {owner = newOwner}
                      pure (toInterfaceContractId @Token cid)
             in transferImpl)
+_view_Asset_Token : DA.Internal.Desugar.InterfaceView Asset Token
+_view_Asset_Token
+  = DA.Internal.Desugar.mkInterfaceView
+      @Asset
+      @Token
+      \ this@Asset {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 main
   = scenario
       do alice <- getParty "Alice"

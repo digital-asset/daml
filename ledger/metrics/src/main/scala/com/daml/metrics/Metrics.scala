@@ -3,10 +3,10 @@
 
 package com.daml.metrics
 
-import java.time.Instant
-
 import com.codahale.metrics.MetricRegistry.MetricSupplier
 import com.codahale.metrics._
+
+import java.time.Instant
 
 object Metrics {
   def fromSharedMetricRegistries(registryName: String): Metrics =
@@ -81,8 +81,6 @@ final class Metrics(val registry: MetricRegistry) {
 
         val registerCacheUpdate: Timer = registry.timer(Prefix :+ "register_update")
 
-        val dispatcherLag: Timer = registry.timer(Prefix :+ "dispatcher_lag")
-
         val resolveDivulgenceLookup: Counter =
           registry.counter(Prefix :+ "resolve_divulgence_lookup")
 
@@ -90,12 +88,6 @@ final class Metrics(val registry: MetricRegistry) {
           registry.counter(Prefix :+ "resolve_full_lookup")
 
         val readThroughNotFound: Counter = registry.counter(Prefix :+ "read_through_not_found")
-
-        val indexSequentialId = new VarGauge[Long](0L)
-        registry.register(
-          Prefix :+ "index_sequential_id",
-          indexSequentialId,
-        )
       }
     }
 
@@ -213,8 +205,6 @@ final class Metrics(val registry: MetricRegistry) {
             registry.timer(Prefix :+ "failed_to_acquire_transaction")
           val releaseTransactionLock: Timer = registry.timer(Prefix :+ "release_transaction_lock")
 
-          val stateValueCache = new CacheMetrics(registry, Prefix :+ "state_value_cache")
-
           // The below metrics are only generated during parallel validation.
           // The counters track how many submissions we're processing in parallel.
           val batchSizes: Histogram = registry.histogram(Prefix :+ "batch_sizes")
@@ -279,10 +269,17 @@ final class Metrics(val registry: MetricRegistry) {
 
       def forMethod(name: String): Timer = registry.timer(Prefix :+ name)
 
+      object return_status {
+        private val Prefix: MetricName = lapi.Prefix :+ "return_status"
+        def forCode(code: String): Counter = registry.counter(Prefix :+ code)
+      }
+
       object threadpool {
         private val Prefix: MetricName = lapi.Prefix :+ "threadpool"
 
         val apiServices: MetricName = Prefix :+ "api-services"
+
+        val inMemoryFanOut: MetricName = Prefix :+ "in_memory_fan_out"
 
         object indexBypass {
           private val Prefix: MetricName = threadpool.Prefix :+ "index_bypass"
@@ -305,51 +302,6 @@ final class Metrics(val registry: MetricRegistry) {
       }
     }
 
-    object ledger {
-      private val Prefix: MetricName = daml.Prefix :+ "ledger"
-
-      object database {
-        private val Prefix: MetricName = ledger.Prefix :+ "database"
-
-        object queries {
-          private val Prefix: MetricName = database.Prefix :+ "queries"
-
-          val selectLatestLogEntryId: Timer = registry.timer(Prefix :+ "select_latest_log_entry_id")
-          val selectFromLog: Timer = registry.timer(Prefix :+ "select_from_log")
-          val selectStateValuesByKeys: Timer =
-            registry.timer(Prefix :+ "select_state_values_by_keys")
-          val updateOrRetrieveLedgerId: Timer =
-            registry.timer(Prefix :+ "update_or_retrieve_ledger_id")
-          val insertRecordIntoLog: Timer = registry.timer(Prefix :+ "insert_record_into_log")
-          val updateState: Timer = registry.timer(Prefix :+ "update_state")
-          val truncate: Timer = registry.timer(Prefix :+ "truncate")
-        }
-
-        object transactions {
-          private val Prefix: MetricName = database.Prefix :+ "transactions"
-
-          def acquireConnection(name: String): Timer =
-            registry.timer(Prefix :+ name :+ "acquire_connection")
-          def run(name: String): Timer =
-            registry.timer(Prefix :+ name :+ "run")
-        }
-      }
-
-      object log {
-        private val Prefix: MetricName = ledger.Prefix :+ "log"
-
-        val append: Timer = registry.timer(Prefix :+ "append")
-        val read: Timer = registry.timer(Prefix :+ "read")
-      }
-
-      object state {
-        private val Prefix: MetricName = ledger.Prefix :+ "state"
-
-        val read: Timer = registry.timer(Prefix :+ "read")
-        val write: Timer = registry.timer(Prefix :+ "write")
-      }
-    }
-
     object userManagement {
       private val Prefix = daml.Prefix :+ "user_management"
 
@@ -367,16 +319,6 @@ final class Metrics(val registry: MetricRegistry) {
     object index {
       private val Prefix = daml.Prefix :+ "index"
 
-      val decodeStateEvent: Timer = registry.timer(Prefix :+ "decode_state_event")
-
-      val updateCaches: Timer = registry.timer(Prefix :+ "update_caches")
-      val updateInMemoryState: Timer = registry.timer(Prefix :+ "update_in_memory_state")
-
-      val decodeTransactionLogUpdate: Timer =
-        registry.timer(Prefix :+ "transaction_log_update_decode")
-      val inMemoryFanoutBufferSize: Counter =
-        registry.counter(Prefix :+ "in_memory_fanout_buffer_size")
-
       val transactionTreesBufferSize: Counter =
         registry.counter(Prefix :+ "transaction_trees_buffer_size")
       val flatTransactionsBufferSize: Counter =
@@ -386,12 +328,6 @@ final class Metrics(val registry: MetricRegistry) {
       val completionsBufferSize: Counter =
         registry.counter(Prefix :+ "completions_buffer_size")
 
-      val contractStateEventsBufferSize: Counter =
-        registry.counter(Prefix :+ "contract_state_events_buffer_size")
-
-      val acsRetrievalSequentialProcessing: Timer =
-        registry.timer(Prefix :+ "acs_retrieval_sequential_processing")
-
       // FIXME Name mushing and inconsistencies here, tracked by https://github.com/digital-asset/daml/issues/5926
       object db {
         private val Prefix: MetricName = index.Prefix :+ "db"
@@ -399,13 +335,8 @@ final class Metrics(val registry: MetricRegistry) {
         val storePartyEntry: Timer = registry.timer(Prefix :+ "store_party_entry")
         val storePackageEntry: Timer = registry.timer(Prefix :+ "store_package_entry")
 
-        val storeTransaction: Timer = registry.timer(Prefix :+ "store_ledger_entry")
         val storeTransactionCombined: Timer =
           registry.timer(Prefix :+ "store_ledger_entry_combined")
-        val storeTransactionEvents: Timer = registry.timer(Prefix :+ "store_ledger_entry_events")
-        val storeTransactionState: Timer = registry.timer(Prefix :+ "store_ledger_entry_state")
-        val storeTransactionCompletion: Timer =
-          registry.timer(Prefix :+ "store_ledger_entry_completion")
 
         val storeRejection: Timer = registry.timer(Prefix :+ "store_rejection")
         val storeConfigurationEntry: Timer = registry.timer(Prefix :+ "store_configuration_entry")
@@ -413,14 +344,10 @@ final class Metrics(val registry: MetricRegistry) {
         val lookupLedgerId: Timer = registry.timer(Prefix :+ "lookup_ledger_id")
         val lookupParticipantId: Timer = registry.timer(Prefix :+ "lookup_participant_id")
         val lookupLedgerEnd: Timer = registry.timer(Prefix :+ "lookup_ledger_end")
-        val lookupLedgerEndSequentialId: Timer =
-          registry.timer(Prefix :+ "lookup_ledger_end_sequential_id")
-        val lookupTransaction: Timer = registry.timer(Prefix :+ "lookup_transaction")
         val lookupLedgerConfiguration: Timer =
           registry.timer(Prefix :+ "lookup_ledger_configuration")
         val lookupKey: Timer = registry.timer(Prefix :+ "lookup_key")
         val lookupActiveContract: Timer = registry.timer(Prefix :+ "lookup_active_contract")
-        val lookupMaximumLedgerTime: Timer = registry.timer(Prefix :+ "lookup_maximum_ledger_time")
         val getParties: Timer = registry.timer(Prefix :+ "get_parties")
         val listKnownParties: Timer = registry.timer(Prefix :+ "list_known_parties")
         val listLfPackages: Timer = registry.timer(Prefix :+ "list_lf_packages")
@@ -438,11 +365,9 @@ final class Metrics(val registry: MetricRegistry) {
         val getLedgerId: DatabaseMetrics = createDbMetrics("get_ledger_id")
         val getParticipantId: DatabaseMetrics = createDbMetrics("get_participant_id")
         val getLedgerEnd: DatabaseMetrics = createDbMetrics("get_ledger_end")
-        val getInitialLedgerEnd: DatabaseMetrics = createDbMetrics("get_initial_ledger_end")
         val initializeLedgerParameters: DatabaseMetrics = createDbMetrics(
           "initialize_ledger_parameters"
         )
-        val initializeParticipantId: DatabaseMetrics = createDbMetrics("initialize_participant_id")
         val lookupConfiguration: DatabaseMetrics = createDbMetrics("lookup_configuration")
         val loadConfigurationEntries: DatabaseMetrics = createDbMetrics(
           "load_configuration_entries"
@@ -454,29 +379,10 @@ final class Metrics(val registry: MetricRegistry) {
           "store_party_entry"
         ) // FIXME Base name conflicts with storePartyEntry
         val loadPartyEntries: DatabaseMetrics = createDbMetrics("load_party_entries")
-        val getTransactionLogUpdates: DatabaseMetrics = createDbMetrics(
-          "get_transaction_log_updates"
-        )
 
         object storeTransactionDbMetrics
-            extends DatabaseMetrics(registry, Prefix, "store_ledger_entry") {
-          // outside of SQL transaction
-          val prepareBatches: Timer = registry.timer(dbPrefix :+ "prepare_batches")
+            extends DatabaseMetrics(registry, Prefix, "store_ledger_entry")
 
-          // in order within SQL transaction
-          val eventsBatch: Timer = registry.timer(dbPrefix :+ "events_batch")
-          val deleteContractWitnessesBatch: Timer =
-            registry.timer(dbPrefix :+ "delete_contract_witnesses_batch")
-          val deleteContractsBatch: Timer = registry.timer(dbPrefix :+ "delete_contracts_batch")
-          val nullifyPastKeysBatch: Timer =
-            registry.timer(dbPrefix :+ "nullify_contract_keys_batch")
-          val insertContractsBatch: Timer = registry.timer(dbPrefix :+ "insert_contracts_batch")
-          val insertContractWitnessesBatch: Timer =
-            registry.timer(dbPrefix :+ "insert_contract_witnesses_batch")
-
-          val insertCompletion: Timer = registry.timer(dbPrefix :+ "insert_completion")
-          val updateLedgerEnd: Timer = registry.timer(dbPrefix :+ "update_ledger_end")
-        }
         val storeRejectionDbMetrics: DatabaseMetrics = createDbMetrics(
           "store_rejection"
         ) // FIXME Base name conflicts with storeRejection
@@ -491,7 +397,6 @@ final class Metrics(val registry: MetricRegistry) {
         val pruneDbMetrics: DatabaseMetrics = createDbMetrics(
           "prune"
         ) // FIXME Base name conflicts with prune
-        val truncateAllTables: DatabaseMetrics = createDbMetrics("truncate_all_tables")
         val lookupActiveContractDbMetrics: DatabaseMetrics = createDbMetrics(
           "lookup_active_contract"
         ) // FIXME Base name conflicts with lookupActiveContract
@@ -512,9 +417,6 @@ final class Metrics(val registry: MetricRegistry) {
         val getEventSeqIdRange: DatabaseMetrics = createDbMetrics("get_event_sequential_id_range")
         val getAcsEventSeqIdRange: DatabaseMetrics =
           createDbMetrics("get_acs_event_sequential_id_range")
-        val getContractStateEvents: DatabaseMetrics = createDbMetrics(
-          "get_contract_state_events"
-        )
         val loadStringInterningEntries: DatabaseMetrics = createDbMetrics(
           "load_string_interning_entries"
         )
@@ -558,6 +460,9 @@ final class Metrics(val registry: MetricRegistry) {
         }
 
       }
+
+      val ledgerEndSequentialId = new VarGauge[Long](0L)
+      registry.register(Prefix :+ "ledger_end_sequential_id", ledgerEndSequentialId)
     }
 
     object indexer {
@@ -592,6 +497,13 @@ final class Metrics(val registry: MetricRegistry) {
 
       // The size of the queue before the indexer
       val inputBufferLength: Counter = registry.counter(Prefix :+ "input_buffer_length")
+
+      /** The size of the queue after the indexer and before the in-memory state updating flow.
+        * As opposed to [[inputBufferLength]], this counter counts batches, which are dynamically-sized
+        * (for batch size, see [[inputMapping.batchSize]]).
+        */
+      val outputBatchedBufferLength: Counter =
+        registry.counter(Prefix :+ "output_batched_buffer_length")
 
       // Input mapping stage
       // Translating state updates to data objects corresponding to individual SQL insert statements
@@ -661,14 +573,12 @@ final class Metrics(val registry: MetricRegistry) {
         val prune: Timer = registry.timer(Prefix :+ "prune")
         val getTransactionMetering: Timer = registry.timer(Prefix :+ "get_transaction_metering")
 
-        object Buffer {
-          val Prefix: MetricName = index.Prefix :+ "in_memory_fanout_buffer"
+        object InMemoryFanoutBuffer {
+          val Prefix: MetricName = index.Prefix :+ "in_memory_fan_out_buffer"
 
           val push: Timer = registry.timer(Prefix :+ "push")
-          val slice: Timer = registry.timer(Prefix :+ "slice")
           val prune: Timer = registry.timer(Prefix :+ "prune")
 
-          val sliceSize: Histogram = registry.histogram(Prefix :+ "slice_size")
           val bufferSize: Histogram = registry.histogram(Prefix :+ "size")
         }
 
@@ -679,12 +589,9 @@ final class Metrics(val registry: MetricRegistry) {
           val fetchedBuffered: Counter = registry.counter(Prefix :+ "fetched_buffered")
           val fetchTimer: Timer = registry.timer(Prefix :+ "fetch")
           val conversion: Timer = registry.timer(Prefix :+ "conversion")
+          val slice: Timer = registry.timer(Prefix :+ "slice")
+          val sliceSize: Histogram = registry.histogram(Prefix :+ "slice_size")
         }
-
-        val getContractStateEventsChunkSize: Histogram =
-          registry.histogram(Prefix :+ "get_contract_state_events_chunk_fetch_size")
-        val getTransactionLogUpdatesChunkSize: Histogram =
-          registry.histogram(Prefix :+ "get_transaction_log_updates_chunk_fetch_size")
       }
 
       object read {

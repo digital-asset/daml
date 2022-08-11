@@ -68,17 +68,18 @@ object TransactionVersion {
     )
   }
 
-  private[lf] def asVersionedTransaction(
-      tx: Transaction
-  ): VersionedTransaction = {
+  private[lf] def txVersion(tx: Transaction) = {
     import scala.Ordering.Implicits.infixOrderingOps
-
-    val txVersion = tx.nodes.valuesIterator.foldLeft(TransactionVersion.minVersion) {
+    tx.nodes.valuesIterator.foldLeft(TransactionVersion.minVersion) {
       case (acc, action: Node.Action) => acc max action.version
       case (acc, _: Node.Rollback) => acc max minExceptions
     }
-    VersionedTransaction(txVersion, tx.nodes, tx.roots)
   }
+
+  private[lf] def asVersionedTransaction(
+      tx: Transaction
+  ): VersionedTransaction =
+    VersionedTransaction(txVersion(tx), tx.nodes, tx.roots)
 
   val StableVersions: VersionRange[TransactionVersion] =
     LanguageVersion.StableVersions.map(assignNodeVersion)

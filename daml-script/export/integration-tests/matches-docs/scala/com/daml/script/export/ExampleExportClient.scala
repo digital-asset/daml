@@ -3,14 +3,27 @@
 
 package com.daml.script.export
 
+import akka.actor.ActorSystem
+
 import java.io.File
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
-
 import com.daml.SdkVersion
 import com.daml.fs.Utils.deleteRecursively
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.lf.engine.script.{RunnerConfig, RunnerMain, ScriptConfig}
+import com.daml.lf.engine.script.{RunnerCliConfig, RunnerMain, ScriptConfig}
+import com.daml.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement,
+}
+import com.daml.ledger.client.withoutledgerid.LedgerClient
+import com.google.protobuf.ByteString
+
+import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.duration.Duration
 
 case class ExampleExportClientConfig(
     darPath: File,
@@ -82,23 +95,41 @@ object ExampleExportClient {
     }
   }
   def main(clientConfig: ExampleExportClientConfig): Unit = {
-    RunnerMain.main(
-      RunnerConfig(
-        darPath = clientConfig.darPath,
-        scriptIdentifier = "ScriptExample:initializeFixed",
-        ledgerHost = Some("localhost"),
-        ledgerPort = Some(clientConfig.targetPort),
-        participantConfig = None,
-        timeMode = ScriptConfig.DefaultTimeMode,
-        inputFile = None,
-        outputFile = None,
-        accessTokenFile = None,
-        tlsConfig = TlsConfiguration(false, None, None, None),
-        jsonApi = false,
-        maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
-        applicationId = None,
-      )
+    implicit val system: ActorSystem = ActorSystem("ScriptRunner")
+    implicit val sequencer: ExecutionSequencerFactory =
+      new AkkaExecutionSequencerPool("ScriptRunnerPool")(system)
+    implicit val ec: ExecutionContext = system.dispatcher
+
+    val config = RunnerCliConfig(
+      darPath = clientConfig.darPath,
+      scriptIdentifier = "ScriptExample:initializeFixed",
+      ledgerHost = Some("localhost"),
+      ledgerPort = Some(clientConfig.targetPort),
+      participantConfig = None,
+      timeMode = ScriptConfig.DefaultTimeMode,
+      inputFile = None,
+      outputFile = None,
+      accessTokenFile = None,
+      tlsConfig = TlsConfiguration(enabled = false, None, None, None),
+      jsonApi = false,
+      maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
+      applicationId = None,
     )
+    val adminClient = LedgerClient.singleHost(
+      hostIp = config.ledgerHost.get,
+      port = config.ledgerPort.get,
+      configuration = LedgerClientConfiguration(
+        applicationId = "admin-client",
+        ledgerIdRequirement = LedgerIdRequirement.none,
+        commandClient = CommandClientConfiguration.default,
+        token = None,
+      ),
+      channelConfig = LedgerClientChannelConfiguration(None),
+    )
+    adminClient.packageManagementClient.uploadDarFile(
+      ByteString.copyFrom(Files.readAllBytes(config.darPath.toPath))
+    )
+    RunnerMain.main(config)
     withTemporaryDirectory { outputPath =>
       Main.main(
         Config.Empty.copy(
@@ -120,6 +151,7 @@ object ExampleExportClient {
       moveFile(outputPath.resolve("args.json").toFile, clientConfig.outputArgsJson.toFile)
       moveFile(outputPath.resolve("daml.yaml").toFile, clientConfig.outputDamlYaml.toFile)
     }
+    val _ = Await.result(system.terminate(), Duration.Inf)
   }
 
   private def moveFile(src: File, dst: File): Unit = {

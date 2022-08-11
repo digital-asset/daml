@@ -7,7 +7,11 @@ module InterfaceGuarded where
 
 import DA.Exception (GeneralError (..), throwPure)
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface Token where
+  viewtype EmptyInterfaceView
+
   getOwner : Party
   getAmount : Int
   setAmount : Int -> Token
@@ -20,7 +24,8 @@ interface Token where
         assert (byHowMuch > 0)
         create $ setAmount this (getAmount this + byHowMuch)
 
-interface SubToken requires Token
+interface SubToken requires Token where
+  viewtype EmptyInterfaceView
 
 template Asset
   with
@@ -31,6 +36,7 @@ template Asset
     signatory owner
 
     implements Token where
+      view = EmptyInterfaceView
       getOwner = owner
       getAmount = amount
       setAmount x = toInterface @Token (this with amount = x)
@@ -42,10 +48,12 @@ template AnotherAsset
   where
     signatory owner
     implements Token where
+      view = EmptyInterfaceView
       getOwner = owner
       getAmount = amount
       setAmount x = toInterface @Token (this with amount = x)
-    implements SubToken
+    implements SubToken where
+      view = EmptyInterfaceView
 
 exception GuardException
     with

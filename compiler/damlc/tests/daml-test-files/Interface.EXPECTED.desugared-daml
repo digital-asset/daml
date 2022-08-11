@@ -4,6 +4,7 @@ import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
 import DA.Assert ( (===) )
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
   _interfaceTypeRep
@@ -271,6 +272,8 @@ _choice_TokenGetRich
             do assert (byHowMuch > 0)
                create $ setAmount this (getAmount this + byHowMuch), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView Token EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => Asset
   = Asset {issuer : Party, owner : Party, amount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -424,6 +427,13 @@ _method_Asset_Token_noopImpl
                 = do [1] === [1]
                      pure ()
             in noopImpl)
+_view_Asset_Token : DA.Internal.Desugar.InterfaceView Asset Token
+_view_Asset_Token
+  = DA.Internal.Desugar.mkInterfaceView
+      @Asset
+      @Token
+      \ this@Asset {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 main
   = scenario
       do p <- getParty "Alice"

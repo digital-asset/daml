@@ -20,8 +20,8 @@ object BatchingParallelIngestionPipe {
       batcher: IN_BATCH => Future[DB_BATCH],
       ingestingParallelism: Int,
       ingester: DB_BATCH => Future[DB_BATCH],
-      tailer: (DB_BATCH, DB_BATCH) => DB_BATCH,
-      ingestTail: DB_BATCH => Future[DB_BATCH],
+      maxTailerBatchSize: Int,
+      ingestTail: Vector[DB_BATCH] => Future[Vector[DB_BATCH]],
   )(source: Source[IN, NotUsed]): Source[DB_BATCH, NotUsed] =
     // Stage 1: the stream coming from ReadService, involves deserialization and translation to Update-s
     source
@@ -37,8 +37,9 @@ object BatchingParallelIngestionPipe {
       // Stage 5: Inserting data into the database. Almost no CPU load here, threads are executing SQL commands over JDBC, and waiting for the result. This defines the parallelism on the SQL database side, same amount of PostgreSQL Backend processes will do the ingestion work.
       .async
       .mapAsync(ingestingParallelism)(ingester)
-      // Stage 6: Preparing data sequentially for throttled mutations in database (tracking the ledger-end, corresponding sequential event ids and latest-at-the-time configurations)
-      .conflate(tailer)
+      // Stage 6: Batching data for throttled ledger-end update in database
+      .batch(maxTailerBatchSize.toLong, Vector(_))(_ :+ _)
       // Stage 7: Updating ledger-end and related data in database (this stage completion demarcates the consistent point-in-time)
       .mapAsync(1)(ingestTail)
+      .mapConcat(identity)
 }

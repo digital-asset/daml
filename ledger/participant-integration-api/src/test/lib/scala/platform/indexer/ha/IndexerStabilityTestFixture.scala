@@ -96,7 +96,7 @@ object IndexerStabilityTestFixture {
                       }
                     )
                     .acquire()
-                  (inMemoryState, inMemoryStateUpdater) <-
+                  (inMemoryState, inMemoryStateUpdaterFlow) <-
                     LedgerApiServer
                       .createInMemoryStateAndUpdater(
                         IndexServiceConfig(),
@@ -114,7 +114,8 @@ object IndexerStabilityTestFixture {
                     metrics = metrics,
                     lfValueTranslationCache = LfValueTranslationCache.Cache.none,
                     inMemoryState = inMemoryState,
-                    inMemoryStateUpdaterFlow = inMemoryStateUpdater.flow,
+                    inMemoryStateUpdaterFlow = inMemoryStateUpdaterFlow,
+                    executionContext = servicesExecutionContext,
                   ).acquire()
                 } yield ReadServiceAndIndexer(readService, indexing)
               )

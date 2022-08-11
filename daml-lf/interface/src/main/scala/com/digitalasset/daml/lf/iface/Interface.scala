@@ -39,6 +39,15 @@ sealed abstract class InterfaceType extends Product with Serializable {
         j.Optional.of(tpl)
       },
     )
+
+  private[iface] def asInterfaceViewType: Option[DefInterface.ViewTypeFWT] = this match {
+    case InterfaceType.Template(r, _) => Some(r)
+    case InterfaceType.Normal(DefDataType(_, dt)) =>
+      dt match {
+        case r @ Record(_) => Some(r)
+        case Variant(_) | Enum(_) => None
+      }
+  }
 }
 object InterfaceType {
   final case class Normal(`type`: DefDataType.FWT) extends InterfaceType
@@ -159,6 +168,9 @@ final case class Interface(
     }
     (sEnd, copy(typeDecls = typeDecls ++ newTpls, astInterfaces = newIfcs))
   }
+
+  private def resolveInterfaceViewType(n: Ref.QualifiedName): Option[Record.FWT] =
+    typeDecls get n flatMap (_.asInterfaceViewType)
 }
 
 object Interface {
@@ -236,5 +248,16 @@ object Interface {
     def go(id: Identifier) = pkg(id.packageId).flatMap(_.astInterfaces get id.qualifiedName)
     Function unlift go
   }
+
+  /** Given a database of interfaces, return a function that will match a
+    * [[DefInterface#viewType]] with its record definition if present.
+    * The function will not match if the definition is missing or is not a record.
+    */
+  def resolveInterfaceViewType(
+      findInterface: PartialFunction[PackageId, Interface]
+  ): PartialFunction[Ref.TypeConName, DefInterface.ViewTypeFWT] =
+    Function unlift { tcn =>
+      findInterface.lift(tcn.packageId) flatMap (_ resolveInterfaceViewType tcn.qualifiedName)
+    }
 
 }

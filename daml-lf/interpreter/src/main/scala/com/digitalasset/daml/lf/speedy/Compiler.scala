@@ -157,10 +157,7 @@ private[lf] final class Compiler(
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompileInterfaceView(view: InterfaceView): t.SExpr = {
-    // TODO https://github.com/digital-asset/daml/issues/14112
-    // PoC until we have interface views
-    val magicInterfaceView = MethodName.assertFromString("_view")
-    SBCallInterface(view.interfaceId, magicInterfaceView)(
+    SBViewInterface(view.interfaceId)(
       SBToAnyContract(view.templateId)(t.SEValue(view.argument))
     )
   }
@@ -334,10 +331,13 @@ private[lf] final class Compiler(
       addDef(compileObservers(tmplId, tmpl))
       addDef(compileToCachedContract(tmplId, tmpl))
       tmpl.implements.values.foreach { impl =>
-        addDef(compileImplements(tmplId, impl.interfaceId))
-        impl.methods.values.foreach(method =>
-          addDef(compileImplementsMethod(tmpl.param, tmplId, impl.interfaceId, method))
-        )
+        compileInterfaceInstance(
+          parent = tmplId,
+          tmplParam = tmpl.param,
+          interfaceId = impl.interfaceId,
+          templateId = tmplId,
+          interfaceInstanceBody = impl.body,
+        ).foreach(addDef(_))
       }
 
       tmpl.choices.values.foreach(x => addDef(compileTemplateChoice(tmplId, tmpl, x)))
@@ -356,10 +356,13 @@ private[lf] final class Compiler(
         addDef(compileInterfaceChoice(ifaceId, iface.param, choice))
       )
       iface.coImplements.values.foreach { coimpl =>
-        addDef(compileCoImplements(coimpl.templateId, ifaceId))
-        coimpl.methods.values.foreach(method =>
-          addDef(compileCoImplementsMethod(iface.param, coimpl.templateId, ifaceId, method))
-        )
+        compileInterfaceInstance(
+          parent = ifaceId,
+          tmplParam = iface.param,
+          interfaceId = ifaceId,
+          templateId = coimpl.templateId,
+          interfaceInstanceBody = coimpl.body,
+        ).foreach(addDef(_))
       }
     }
 
@@ -694,43 +697,52 @@ private[lf] final class Compiler(
 
   private[this] val UnitDef = SDefinition(t.SEValue.Unit)
 
-  // Witness the fact that the template 'tmplId' implements the interface 'ifaceId'
-  private[this] def compileImplements(
-      tmplId: Identifier,
-      ifaceId: Identifier,
-  ): (t.SDefinitionRef, SDefinition) =
-    t.ImplementsDefRef(tmplId, ifaceId) -> UnitDef
+  // Compile the contents of an interface instance, including a witness for
+  // the existence of said interface instance.
+  private[this] def compileInterfaceInstance(
+      parent: TypeConName,
+      tmplParam: Name,
+      interfaceId: TypeConName,
+      templateId: TypeConName,
+      interfaceInstanceBody: InterfaceInstanceBody,
+  ): Iterable[(t.SDefinitionRef, SDefinition)] = {
+    val builder = Iterable.newBuilder[(t.SDefinitionRef, SDefinition)]
+    def addDef(binding: (t.SDefinitionRef, SDefinition)): Unit = discard(builder += binding)
 
-  // Witness the fact that the interface 'ifaceId' provides an implementation
-  // for (co-implements) the template 'tmplId'
-  private[this] def compileCoImplements(
-      tmplId: Identifier,
-      ifaceId: Identifier,
-  ): (t.SDefinitionRef, SDefinition) =
-    t.CoImplementsDefRef(tmplId, ifaceId) -> UnitDef
+    val interfaceInstanceDefRef = t.InterfaceInstanceDefRef(parent, interfaceId, templateId)
+    addDef(interfaceInstanceDefRef -> UnitDef)
+
+    interfaceInstanceBody.methods.values.foreach(method =>
+      addDef(compileInterfaceInstanceMethod(interfaceInstanceDefRef, tmplParam, method))
+    )
+
+    addDef(
+      compileInterfaceInstanceView(interfaceInstanceDefRef, tmplParam, interfaceInstanceBody.view)
+    )
+
+    builder.result()
+  }
 
   // Compile the implementation of an interface method.
-  private[this] def compileImplementsMethod(
+  private[this] def compileInterfaceInstanceMethod(
+      interfaceInstanceDefRef: t.InterfaceInstanceDefRef,
       tmplParam: Name,
-      tmplId: Identifier,
-      ifaceId: Identifier,
-      method: TemplateImplementsMethod,
+      method: InterfaceInstanceMethod,
   ): (t.SDefinitionRef, SDefinition) = {
-    topLevelFunction1(t.ImplementsMethodDefRef(tmplId, ifaceId, method.name)) { (tmplArgPos, env) =>
-      translateExp(env.bindExprVar(tmplParam, tmplArgPos), method.value)
+    topLevelFunction1(t.InterfaceInstanceMethodDefRef(interfaceInstanceDefRef, method.name)) {
+      (tmplArgPos, env) =>
+        translateExp(env.bindExprVar(tmplParam, tmplArgPos), method.value)
     }
   }
 
-  // Compile the interface-provided implementation of a method for the given template.
-  private[this] def compileCoImplementsMethod(
+  // Compile the implementation of an interface view.
+  private[this] def compileInterfaceInstanceView(
+      interfaceInstanceDefRef: t.InterfaceInstanceDefRef,
       tmplParam: Name,
-      tmplId: Identifier,
-      ifaceId: Identifier,
-      method: InterfaceCoImplementsMethod,
+      body: Expr,
   ): (t.SDefinitionRef, SDefinition) = {
-    topLevelFunction1(t.CoImplementsMethodDefRef(tmplId, ifaceId, method.name)) {
-      (tmplArgPos, env) =>
-        translateExp(env.bindExprVar(tmplParam, tmplArgPos), method.value)
+    topLevelFunction1(t.InterfaceInstanceViewDefRef(interfaceInstanceDefRef)) { (tmplArgPos, env) =>
+      translateExp(env.bindExprVar(tmplParam, tmplArgPos), body)
     }
   }
 

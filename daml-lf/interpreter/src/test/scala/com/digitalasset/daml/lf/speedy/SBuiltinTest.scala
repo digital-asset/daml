@@ -1639,7 +1639,7 @@ object SBuiltinTest {
           val from2 : AnyException -> Text = \(e:AnyException) -> case from_any_exception @Mod:Ex2 e of None -> "NONE" | Some x -> Mod:Ex2 { message} x;
           val from3 : AnyException -> Text = \(e:AnyException) -> case from_any_exception @Mod:Ex3 e of None -> "NONE" | Some x -> Mod:Ex3 { message} x;
 
-          interface (this : Iface) = {};
+          interface (this : Iface) = { viewtype Unit; };
 
           record @serializable Iou = { i: Party, u: Party, name: Text };
           template (this: Iou) = {
@@ -1647,7 +1647,7 @@ object SBuiltinTest {
             signatories Cons @Party [Mod:Iou {i} this] (Nil @Party);
             observers Cons @Party [Mod:Iou {u} this] (Nil @Party);
             agreement "Agreement";
-            implements Mod:Iface {};
+            implements Mod:Iface { view = (); };
           };
 
           val mkParty : Text -> Party = \(t:Text) -> case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;

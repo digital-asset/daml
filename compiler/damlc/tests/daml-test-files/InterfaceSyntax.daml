@@ -6,17 +6,18 @@
 
 module InterfaceSyntax where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface I where
+  viewtype EmptyInterfaceView
   m0 : Bool -> Party
   m1 : Either Int Bool -> Text
 
--- empty interfaces with 'where'
+-- empty interfaces with only viewtype
 interface J where
+  viewtype EmptyInterfaceView
 interface K where
-
--- empty interfaces without 'where'
-interface L
-interface M
+  viewtype EmptyInterfaceView
 
 template T
   with
@@ -27,6 +28,7 @@ template T
     signatory p0, p1
 
     implements I where
+      view = EmptyInterfaceView
       -- method defined over multiple clauses with pattern matches
       m0 False = p0
       m0 True = p1
@@ -38,10 +40,8 @@ template T
       m1 (Right True) = "true"
       m1 (Right False) = "false"
 
-    -- empty implements blocks without 'where'
-    implements J
-    implements L
-
-    -- empty implements blocks with 'where'
+    -- empty implements blocks with only 'view'
+    implements J where
+      view = EmptyInterfaceView
     implements K where
-    implements M where
+      view = EmptyInterfaceView

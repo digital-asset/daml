@@ -109,6 +109,20 @@ Interfaces
   
   + **Method transferImpl \: **`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_ \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072>`_ (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-interface-token-10651_>`_)
 
+Data Types
+^^^^^^^^^^
+
+.. _type-interface-emptyinterfaceview-28816:
+
+**data** `EmptyInterfaceView <type-interface-emptyinterfaceview-28816_>`_
+
+  .. _constr-interface-emptyinterfaceview-1101:
+  
+  `EmptyInterfaceView <constr-interface-emptyinterfaceview-1101_>`_
+  
+  
+  **instance** `HasInterfaceView <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasinterfaceview-4492>`_ `Token <type-interface-token-10651_>`_ `EmptyInterfaceView <type-interface-emptyinterfaceview-28816_>`_
+
 Functions
 ^^^^^^^^^
 

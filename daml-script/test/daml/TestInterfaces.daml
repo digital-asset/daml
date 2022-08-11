@@ -6,7 +6,11 @@ module TestInterfaces where
 import Daml.Script
 import DA.Assert
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface Token where
+  viewtype EmptyInterfaceView
+
   getOwner : Party
   getAmount : Int
 
@@ -43,6 +47,8 @@ template Asset
   where
     signatory issuer, owner
     implements Token where
+      view = EmptyInterfaceView
+
       getOwner = owner
       getAmount = amount
 

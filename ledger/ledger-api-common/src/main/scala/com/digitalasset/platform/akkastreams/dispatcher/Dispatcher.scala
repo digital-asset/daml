@@ -37,7 +37,16 @@ trait Dispatcher[Index] {
       endInclusive: Option[Index] = None,
   ): Source[(Index, T), NotUsed]
 
+  /** Triggers shutdown of the Dispatcher by completing all outstanding stream subscriptions.
+    * This method ensures that all outstanding subscriptions have been notified with the latest signalled head
+    * and waits for their graceful completion.
+    */
   def shutdown(): Future[Unit]
+
+  /** Triggers shutdown of the Dispatcher by eagerly failing
+    * all outstanding stream subscriptions with the given throwable.
+    */
+  def cancel(throwable: Throwable): Future[Unit]
 }
 
 object Dispatcher {

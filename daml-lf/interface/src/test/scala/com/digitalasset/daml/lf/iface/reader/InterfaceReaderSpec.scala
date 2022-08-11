@@ -213,6 +213,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     val Archive = cn("Archive")
     val TIf = qn("InterfaceTestPackage:TIf")
     val LibTIf = qn("InterfaceTestLib:TIf")
+    val LibTIfView = qn("InterfaceTestLib:TIfView")
     val Useless = cn("Useless")
     val UselessTy = qn("InterfaceTestPackage:Useless")
     import itp.main.{packageId => itpPid}
@@ -255,6 +256,33 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       inside(itp.main.astInterfaces(TIf).choices get Useless) {
         case Some(TheUselessChoice(UselessTy, TIf)) =>
       }
+    }
+
+    // TODO SC #14067 depends on #14112
+    "identify a record interface view" ignore {
+      inside(itp.main.astInterfaces(LibTIf).viewType) { case Some(Ref.TypeConName(_, LibTIfView)) =>
+      }
+    }
+
+    def viewNameExpectsRec =
+      (
+        // TODO SC #14067 use the LibTIf DefInterface's view instead, requires #14112
+        Ref.TypeConName(itp.main.packageId, LibTIfView),
+        inside(itp.main.typeDecls(LibTIfView)) { case InterfaceType.Normal(DefDataType(_, rec)) =>
+          rec
+        },
+      )
+
+    "finds an interface view from Interface sets" in {
+      val (viewName, expectedRec) = viewNameExpectsRec
+      Interface.resolveInterfaceViewType {
+        case id if id == itp.main.packageId => itp.main
+      }(viewName) should ===(expectedRec)
+    }
+
+    "finds an interface view from EnvironmentInterface" in {
+      val (viewName, expectedRec) = viewNameExpectsRec
+      itpEI.resolveInterfaceViewType(viewName) should ===(Some(expectedRec))
     }
 
     def foundResolvedChoices(foo: Option[InterfaceType]) = inside(foo) {

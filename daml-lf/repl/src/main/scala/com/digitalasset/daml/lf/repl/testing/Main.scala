@@ -484,7 +484,6 @@ object Repl {
             }
             val endTime = System.nanoTime()
             val diff = (endTime - startTime) / 1000 / 1000
-            machine.print(1)
             println(s"time: ${diff}ms")
             valueOpt match {
               case None => ()

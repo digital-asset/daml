@@ -15,16 +15,19 @@ template Foo with
         return ()
 
     implements TIf where
+      view = EmptyInterfaceView
       getOwner = party
       dup = toInterfaceContractId <$> create this
-      _view = ()
 
     implements L.TIf where
+      view = L.TIfView 42 "hi"
       getOwner = party
       dup = toInterfaceContractId <$> create this
-      _view = ()
+
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface TIf where
+  viewtype EmptyInterfaceView
   getOwner: Party
   dup: Update (ContractId TIf)
   choice Useless: ContractId TIf with
@@ -32,4 +35,3 @@ interface TIf where
     controller getOwner this
     do
       dup this
-  _view: ()

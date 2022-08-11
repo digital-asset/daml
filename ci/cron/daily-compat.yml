@@ -115,215 +115,12 @@ jobs:
           targetPath: $(Build.StagingDirectory)/perf-results-speedy.json
           artifactName: perf-speedy
 
-  - job: perf_http_json
-    timeoutInMinutes: 120
-    pool:
-      name: "ubuntu_20_04"
-      demands: assignment -equals default
-    steps:
-      - checkout: self
-      - bash: ci/dev-env-install.sh
-        displayName: 'Build/Install the Developer Environment'
-      - bash: ci/configure-bazel.sh
-        displayName: 'Configure Bazel for root workspace'
-        env:
-          IS_FORK: $(System.PullRequest.IsFork)
-          # to upload to the bazel cache
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - template: ../bash-lib.yml
-        parameters:
-          var_name: bash_lib
-      - bash: |
-          set -euo pipefail
-          eval "$(dev-env/bin/dade assist)"
-          source $(bash_lib)
-
-          SCENARIOS="\
-           com.daml.http.perf.scenario.CreateCommand \
-           com.daml.http.perf.scenario.ExerciseCommand \
-           com.daml.http.perf.scenario.CreateAndExerciseCommand \
-           com.daml.http.perf.scenario.AsyncQueryConstantAcs \
-           com.daml.http.perf.scenario.SyncQueryConstantAcs \
-           com.daml.http.perf.scenario.SyncQueryNewAcs \
-           com.daml.http.perf.scenario.SyncQueryVariableAcs \
-          "
-
-          bazel build //docs:quickstart-model
-          DAR="${PWD}/bazel-bin/docs/quickstart-model.dar"
-
-          START=$(git log -n1 --format=%cd --date=format:%Y%m%d).$(git rev-list --count HEAD).$(Build.BuildId).$(git log -n1 --format=%h --abbrev=8)
-          REPORT_ID="http_json_perf_results_${START}"
-          OUT="$(Build.StagingDirectory)/${REPORT_ID}"
-
-          for scenario in $SCENARIOS; do
-            bazel run //ledger-service/http-json-perf:http-json-perf-binary-ce -- \
-            --scenario=${scenario} \
-            --dars=${DAR} \
-            --reports-dir=${OUT}
-          done
-
-          GZIP=-9 tar -zcvf ${OUT}.tgz ${OUT}
-
-          gcs "$GCRED" cp "$OUT.tgz" "gs://daml-data/perf/http-json/${REPORT_ID}.tgz"
-
-        displayName: measure http-json performance
-        env:
-          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-
-  - job: perf_http_json_querystore
-    timeoutInMinutes: 120
-    strategy:
-      matrix:
-        #postgres:
-        #  querystore: postgres
-        oracle:
-          querystore: oracle
-    pool:
-      name: "ubuntu_20_04"
-      demands: assignment -equals default
-    steps:
-      - checkout: self
-      - bash: ci/dev-env-install.sh
-        displayName: 'Build/Install the Developer Environment'
-      - bash: ci/configure-bazel.sh
-        displayName: 'Configure Bazel for root workspace'
-        env:
-          IS_FORK: $(System.PullRequest.IsFork)
-          # to upload to the bazel cache
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - template: ../bash-lib.yml
-        parameters:
-          var_name: bash_lib
-      - bash: |
-          set -euo pipefail
-          eval "$(dev-env/bin/dade assist)"
-          source $(bash_lib)
-
-          QUERY_STORE=$(querystore)
-
-          #setup oracle docker vm for perf tests against oracle.
-          if [[ "$QUERY_STORE" == "oracle" ]]; then
-              docker login --username "$DOCKER_LOGIN" --password "$DOCKER_PASSWORD"
-              IMAGE=$(cat ci/oracle_image)
-              docker pull $IMAGE
-              # Cleanup stray containers that might still be running from
-              # another build that didn’t get shut down cleanly.
-              docker rm -f oracle || true
-              # Oracle does not like if you connect to it via localhost if it’s running in the container.
-              # Interestingly it works if you use the external IP of the host so the issue is
-              # not the host it is listening on (it claims for that to be 0.0.0.0).
-              # --network host is a cheap escape hatch for this.
-              docker run -d --rm --name oracle --network host -e ORACLE_PWD=$ORACLE_PWD $IMAGE
-              function cleanup() {
-              docker rm -f oracle
-            }
-              trap cleanup EXIT
-              testConnection() {
-              docker exec oracle bash -c 'sqlplus -L '"$ORACLE_USERNAME"'/'"$ORACLE_PWD"'@//localhost:'"$ORACLE_PORT"'/ORCLPDB1 <<< "select * from dba_users;"; exit $?' >/dev/null
-            }
-
-            # dont want to wait forever to test connection , 15m is more than sufficient here.
-              declare -xf testConnection
-              timeout 15m bash -c 'until testConnection; do echo "Could not connect to Oracle, trying again..." ; sleep 1 ; done'
-          fi
-
-          bazel build //ledger-service/http-json-perf/...
-          DAR="${PWD}/bazel-bin/ledger-service/http-json-perf/LargeAcs.dar"
-
-          # {
-          #  "https://daml.com/ledger-api": {
-          #    "ledgerId": "MyLedger",
-          #    "applicationId": "foobar",
-          #    "actAs": [
-          #      "Alice"
-          #    ]
-          #  }
-          # }
-
-          METADATA=$(git log -n1 --format=%cd --date=format:%Y%m%d).$(git rev-list --count HEAD).$(Build.BuildId).$(git log -n1 --format=%h --abbrev=8)
-          REPORT_ID="http_json_perf_${QUERY_STORE}_results_${METADATA}"
-          OUT="$(Build.StagingDirectory)/${REPORT_ID}"
-          LOG_DIR="$(Build.StagingDirectory)/log"
-
-          mkdir -p $LOG_DIR
-
-          # Overall we want to populate the test cache , run some fetch by key queries and then some index queries
-
-          export NUM_RECORDS=100000 # 100k ACS for a single template
-          export NUM_QUERIES=10000 # 10k queries in total
-          export NUM_READERS=100 # 100 users in parallel.
-
-          READ_PERF_KEYS="\
-           fetchByKey \
-           fetchByQuery \
-          "
-          RESULT=""
-
-          if [[ "$QUERY_STORE" == "oracle" ]]
-          then
-            # We run test cases in isolation and retain data between them.
-            TEST_CASES="\
-             populateCache \
-             fetchByKey \
-             fetchByQuery \
-            "
-            for CASE in $TEST_CASES; do
-              RUN_MODE=${CASE} \
-              USE_DEFAULT_USER=true \
-              RETAIN_DATA=true \
-              bazel run //ledger-service/http-json-perf:http-json-perf-binary-ee -- \
-                --scenario=com.daml.http.perf.scenario.MultiUserQueryScenario \
-                --dars=${DAR} \
-                --reports-dir=${OUT}/${CASE} \
-                --query-store-index=${QUERY_STORE} > "${LOG_DIR}/${CASE}_log.out"
-            done
-            for KEY in $READ_PERF_KEYS; do
-              # capture the avg, stddev, p90, p99, requests_per_second numbers from gatling summary csv
-              perf=$(cat ${OUT}/${KEY}/*/summary.csv | tail -n 1 | awk -F, '{printf "%.1f, %.1f, %.1f, %.1f, %.1f", $11, $12, $6, $8, $13 }')
-              RESULT="${RESULT}json_${QUERY_STORE}/${KEY}: $perf\n"
-            done
-          elif [[ "$QUERY_STORE" == "postgres" ]]
-          then
-            # the test case to run in MultiUserQueryScenario for postgres
-            TEST_CASE="populateAndFetch"
-
-            RUN_MODE=${TEST_CASE} \
-            bazel run //ledger-service/http-json-perf:http-json-perf-binary-ee -- \
-            --scenario=com.daml.http.perf.scenario.MultiUserQueryScenario \
-            --dars=${DAR} \
-            --reports-dir=${OUT}/${TEST_CASE} \
-            --query-store-index=${QUERY_STORE} > "${LOG_DIR}/${TEST_CASE}_log.out"
-
-            for KEY in $READ_PERF_KEYS; do
-              # capture the avg, stddev, p90, p99, requests_per_second numbers from gatling summary csv
-              perf=$(cat ${OUT}/${TEST_CASE}/*/summary.csv | grep -i "$KEY" | awk -F, '{printf "%.1f, %.1f, %.1f, %.1f, %.1f", $11, $12, $6, $8, $13 }')
-              RESULT="${RESULT}json_${QUERY_STORE}/${KEY}: $perf\n"
-            done
-          fi
-
-          RESULT=${RESULT%"\n"}
-          setvar ${QUERY_STORE}_perf_results "$RESULT"
-
-          GZIP=-9 tar -zcf ${OUT}.tgz ${OUT}
-
-          gcs "$GCRED" cp "$OUT.tgz" "gs://daml-data/perf/http-json-${QUERY_STORE}/${REPORT_ID}.tgz"
-
-        displayName: http-json-$(querystore) perf
-        name: out
-        env:
-          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-          DOCKER_LOGIN: $(DOCKER_LOGIN)
-          DOCKER_PASSWORD: $(DOCKER_PASSWORD)
-      - task: PublishPipelineArtifact@0
-        inputs:
-          targetPath: $(Build.StagingDirectory)/log
-          artifactName: perf_http_json_$(querystore)
-
   - job: check_releases
-    timeoutInMinutes: 360
+    timeoutInMinutes: 480
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default
+    condition: eq(variables['Build.SourceBranchName'], 'main')
     steps:
       - checkout: self
       - bash: ci/dev-env-install.sh
@@ -638,7 +435,7 @@ jobs:
 
   - job: report
     dependsOn: [compatibility_ts_libs, compatibility, compatibility_windows,
-                perf_speedy, perf_http_json, perf_http_json_querystore, check_releases,
+                perf_speedy, check_releases,
                 blackduck_scan, run_notices_pr_build, bump_canton, compat_versions_pr]
     condition: and(succeededOrFailed(),
                    eq(variables['Build.SourceBranchName'], 'main'))
@@ -651,10 +448,6 @@ jobs:
       compatibility_windows: $[ dependencies.compatibility_windows.result ]
       perf_speedy: $[ dependencies.perf_speedy.result ]
       speedy_perf: $[ dependencies.perf_speedy.outputs['out.speedy_perf'] ]
-      perf_http_json: $[ dependencies.perf_http_json.result ]
-      perf_http_json_querystore: $[ dependencies.perf_http_json_querystore.result ]
-      oracle_perf_results: $[ dependencies.perf_http_json_querystore.outputs['oracle.out.oracle_perf_results'] ]
-      postgres_perf_results: $[ dependencies.perf_http_json_querystore.outputs['postgres.out.postgres_perf_results'] ]
       check_releases: $[ dependencies.check_releases.result ]
       blackduck_scan: $[ dependencies.blackduck_scan.result ]
       run_notices_pr_build: $[ dependencies.run_notices_pr_build.result ]
@@ -677,8 +470,6 @@ jobs:
            && "$(compatibility)" == "Succeeded"
            && "$(compatibility_windows)" == "Succeeded"
            && "$(perf_speedy)" == "Succeeded"
-           && "$(perf_http_json)" == "Succeeded"
-           && "$(perf_http_json_querystore)" == "Succeeded"
            && "$(check_releases)" == "Succeeded"
            && "$(bump_canton)" == "Succeeded"
            && ("$(blackduck_scan)" == "Succeeded" || "$(blackduck_scan)" == "Skipped")
@@ -686,11 +477,7 @@ jobs:
            && "$(compat_versions_pr)" == "Succeeded"
            ]]; then
             MSG="Daily tests passed: $COMMIT_LINK"
-            REPORT='```
-        speedy_perf: $(speedy_perf)
-        $(oracle_perf_results)
-        $(postgres_perf_results)
-        ```
+            REPORT='```speedy_perf: $(speedy_perf)```
         '
             tell_slack "$(echo -e "$MSG\n$REPORT")" "$(Slack.ci-failures-daml)"
         else

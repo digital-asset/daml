@@ -13,6 +13,7 @@ import com.daml.platform.store.cache.{
   MutableLedgerEndCache,
 }
 import com.daml.platform.store.interning.{StringInterningView, UpdatingStringInterningView}
+import com.daml.platform.store.packagemeta.PackageMetadataView
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -22,37 +23,43 @@ import scala.util.chaining._
 private[platform] class InMemoryState(
     val ledgerEndCache: MutableLedgerEndCache,
     val contractStateCaches: ContractStateCaches,
-    val transactionsBuffer: InMemoryFanoutBuffer,
+    val inMemoryFanoutBuffer: InMemoryFanoutBuffer,
     val stringInterningView: StringInterningView,
     val dispatcherState: DispatcherState,
+    val packageMetadataView: PackageMetadataView,
 )(implicit executionContext: ExecutionContext) {
   private val logger = ContextualizedLogger.get(getClass)
 
-  final def initialized: Boolean = dispatcherState.initialized
+  final def initialized: Boolean = dispatcherState.isRunning
 
   /** (Re-)initializes the participant in-memory state to a specific ledger end.
     *
     * NOTE: This method is not thread-safe. Calling it concurrently leads to undefined behavior.
     */
   final def initializeTo(ledgerEnd: LedgerEnd)(
-      updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit]
+      updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit],
+      updatePackageMetadataView: PackageMetadataView => Future[Unit],
   )(implicit loggingContext: LoggingContext): Future[Unit] = {
     logger.info(s"Initializing participant in-memory state to ledger end: $ledgerEnd")
 
-    // TODO LLP: Reset the in-memory state only if the initialization ledgerEnd
-    //           is different than the ledgerEndCache.
     for {
+      // First stop the active dispatcher (if exists) to ensure
+      // termination of existing Ledger API subscriptions and to also ensure
+      // that new Ledger API subscriptions racing with `initializeTo`
+      // do not observe an inconsistent state.
+      _ <- dispatcherState.stopDispatcher()
+      // Reset the string interning view to the latest ledger end
       _ <- updateStringInterningView(stringInterningView, ledgerEnd)
+      // Reset the package metadata view
+      _ <- updatePackageMetadataView(packageMetadataView)
+      // Reset the Ledger API caches to the latest ledger end
       _ <- Future {
         contractStateCaches.reset(ledgerEnd.lastOffset)
-        transactionsBuffer.flush()
+        inMemoryFanoutBuffer.flush()
         ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
       }
-      // TODO LLP: Consider the implementation of a two-stage reset with:
-      //            - first teardown existing dispatcher
-      //            - reset caches
-      //            - start new dispatcher
-      _ <- dispatcherState.reset(ledgerEnd)
+      // Start a new Ledger API offset dispatcher
+      _ = dispatcherState.startDispatcher(ledgerEnd.lastOffset)
     } yield ()
   }
 }
@@ -83,12 +90,13 @@ object InMemoryState {
         maxContractKeyStateCacheSize,
         metrics,
       )(executionContext, loggingContext),
-      transactionsBuffer = new InMemoryFanoutBuffer(
+      inMemoryFanoutBuffer = new InMemoryFanoutBuffer(
         maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
         metrics = metrics,
         maxBufferedChunkSize = bufferedStreamsPageSize,
       ),
       stringInterningView = new StringInterningView,
+      packageMetadataView = PackageMetadataView.create,
     )(executionContext)
   }
 }

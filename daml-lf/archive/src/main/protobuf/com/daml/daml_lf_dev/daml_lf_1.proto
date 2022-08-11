@@ -1532,6 +1532,19 @@ message KeyExpr {
   }
 }
 
+  // Contents of an interface instance.
+  // *Available in versions >= 1.15*
+message InterfaceInstanceBody {
+
+  message InterfaceInstanceMethod {
+    int32 method_interned_name = 1;
+    Expr value = 2;
+  }
+
+  repeated InterfaceInstanceMethod methods = 1;
+  Expr view = 2;
+}
+
 // Contract template definition
 message DefTemplate {
 
@@ -1547,19 +1560,11 @@ message DefTemplate {
     Expr maintainers = 3; // a function from the key type to [Party]
   }
 
-  // Implementation of an interface method.
-  // *Available in versions >= 1.15*
-  message ImplementsMethod {
-    int32 method_interned_name = 1;
-    Expr value = 2;
-  }
-
-  // Implementation of an interface.
+  // An interface instance defined in this template.
   // *Available in versions >= 1.15*
   message Implements {
     TypeConName interface = 1;
-    repeated ImplementsMethod methods = 2;
-    Expr view = 3;
+    InterfaceInstanceBody body = 2;
   }
 
   // The type constructor for the template, acting as both
@@ -1612,7 +1617,7 @@ message DefTemplate {
   // The key definition for the template, if present
   DefKey key = 10; // optional
 
-  // Interfaces that this template implements.
+  // Interface instances defined in this template.
   repeated Implements implements = 13; // *Available in versions >= 1.15*
 }
 
@@ -1628,15 +1633,10 @@ message InterfaceMethod {
 // *Available in versions >= 1.15*
 message DefInterface {
 
-  message CoImplementsMethod {
-    int32 method_interned_name = 1;
-    Expr value = 2;
-  }
-
+  // An interface instance defined in this interface.
   message CoImplements {
     TypeConName template = 1;
-    repeated CoImplementsMethod methods = 2;
-    Expr view = 3;
+    InterfaceInstanceBody body = 2;
   }
 
   Location location = 1;
@@ -1648,7 +1648,7 @@ message DefInterface {
 
   repeated TemplateChoice choices = 5;
 
-  // Templates which this interface co-implements.
+  // Interface instances defined in this interface.
   repeated CoImplements coImplements = 6;
 
   // View type for this interface

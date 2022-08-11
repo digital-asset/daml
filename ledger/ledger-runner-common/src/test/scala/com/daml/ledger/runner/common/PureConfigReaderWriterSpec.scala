@@ -28,7 +28,7 @@ import com.daml.platform.configuration.{
   InitialLedgerConfiguration,
   PartyConfiguration,
 }
-import com.daml.platform.indexer.IndexerConfig
+import com.daml.platform.indexer.{IndexerConfig, PackageMetadataViewConfig}
 import com.daml.platform.indexer.ha.HaConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
@@ -105,6 +105,7 @@ class PureConfigReaderWriterSpec
     )
     testReaderWriterIsomorphism(secure, ArbitraryConfig.indexerConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.indexerStartupMode)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.packageMetadataViewConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.commandConfiguration)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.apiServerConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.haConfig)
@@ -586,6 +587,16 @@ class PureConfigReaderWriterSpec
     |  worker-lock-acquire-retry-millis = 500
     |  """.stripMargin
     convert(haConfigConvert, value).value shouldBe HaConfig()
+  }
+
+  behavior of "PackageMetadataViewConfig"
+
+  it should "support current defaults" in {
+    val value = """
+                  |  init-load-parallelism = 16
+                  |  init-process-parallelism = 16
+                  |  """.stripMargin
+    convert(packageMetadataViewConfigConvert, value).value shouldBe PackageMetadataViewConfig()
   }
 
   behavior of "IndexerConfig"

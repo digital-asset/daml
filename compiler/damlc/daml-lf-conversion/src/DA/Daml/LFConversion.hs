@@ -85,6 +85,7 @@ import           DA.Daml.LFConversion.MetadataEncoding
 import           DA.Daml.Preprocessor (isInternal)
 import           DA.Daml.UtilGHC
 import           DA.Daml.UtilLF
+import           DA.Pretty (renderPretty)
 
 import           Development.IDE.Types.Diagnostics
 import           Development.IDE.Types.Location
@@ -104,6 +105,7 @@ import           Data.Foldable (foldlM)
 import           Data.Int
 import           Data.List.Extra
 import qualified Data.Map.Strict as MS
+import qualified Data.Map.Merge.Strict as MMS
 import qualified Data.Set as S
 import           Data.Maybe
 import qualified Data.NameMap as NM
@@ -246,11 +248,11 @@ data ModuleContents = ModuleContents
   , mcTypeDefs :: [TyThing]
   , mcTemplateBinds :: MS.Map TypeConName TemplateBinds
   , mcExceptionBinds :: MS.Map TypeConName ExceptionBinds
+  , mcInterfaceBinds :: MS.Map TypeConName InterfaceBinds
+    -- ^ Maps an interface to the contents of its definition.
+  , mcInterfaceInstanceBinds :: MS.Map TypeConName InterfaceInstanceGroup
+    -- ^ Maps a template to the interface instances defined in it.
   , mcChoiceData :: MS.Map TypeConName [ChoiceData]
-  , mcImplements :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
-  , mcRequires :: MS.Map TypeConName [(Maybe LF.SourceLoc, GHC.TyCon)]
-  , mcInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
-  , mcInterfaces :: MS.Map TypeConName GHC.TyCon
   , mcModInstanceInfo :: !ModInstanceInfo
   , mcDepOrphanModules :: [GHC.Module]
   , mcExports :: [GHC.AvailInfo]
@@ -276,36 +278,8 @@ extractModuleContents env@Env{..} coreModule modIface details = do
           Rec binds -> binds
       ]
     mcTypeDefs = eltsUFM (cm_types coreModule)
-    mcInterfaces = interfaceNames envLfVersion mcTypeDefs
-    mcImplements = MS.fromListWith (++)
-      [ (mkTypeCon [getOccText tpl], [(convNameLoc name, iface)])
-      | (name, _val) <- mcBinds
-      , "_implements_" `T.isPrefixOf` getOccText name
-      , TypeCon implementsT [TypeCon tpl [], TypeCon iface []] <- [varType name]
-      , NameIn DA_Internal_Desugar "ImplementsT" <- [implementsT]
-      ]
-    mcRequires = MS.fromListWith (++)
-      [ (mkTypeCon [getOccText iface1], [(convNameLoc name, iface2)])
-      | (name, _val) <- mcBinds
-      , "_requires_" `T.isPrefixOf` getOccText name
-      , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- [varType name]
-      , NameIn DA_Internal_Desugar "RequiresT" <- [requiresT]
-      ]
-    mcInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
-    mcInterfaceMethodInstances = MS.fromListWith (++)
-      [
-        ( (mod, mkTypeCon [getOccText iface], mkTypeCon [getOccText tpl])
-        , [(methodName, untick val)]
-        )
-      | (name, val) <- mcBinds
-      , TypeCon methodNewtype
-        [ TypeCon tpl []
-        , TypeCon iface []
-        , StrLitTy methodName
-        ] <- [varType name]
-      , NameIn DA_Internal_Desugar "Method" <- [methodNewtype]
-      , Just mod <- [nameModule_maybe (getName iface)]
-      ]
+    mcInterfaceBinds = scrapeInterfaceBinds envLfVersion mcTypeDefs mcBinds
+    mcInterfaceInstanceBinds = scrapeInterfaceInstanceBinds env mcBinds
     mcChoiceData = MS.fromListWith (++)
         [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
         | (name, v) <- mcBinds
@@ -509,66 +483,288 @@ modInstanceInfoFromDetails :: ModDetails -> ModInstanceInfo
 modInstanceInfoFromDetails ModDetails{..} = MS.fromList
     [ (is_dfun, overlapMode is_flag) | ClsInst{..} <- md_insts ]
 
-interfaceNames :: LF.Version -> [TyThing] -> MS.Map TypeConName TyCon
-interfaceNames lfVersion tyThings
-    | lfVersion `supports` featureInterfaces = MS.fromList
-        [ (mkTypeCon [getOccText t], t)
-        | ATyCon t <- tyThings
-        , hasDamlInterfaceCtx t
-        ]
-    | otherwise = MS.empty
+-- | Represents the contents of some interface instance
+data InterfaceBinds = InterfaceBinds
+  { ibLoc :: Maybe SourceLoc
+      -- ^ Location associated to the type declaration, which should
+      -- point to the @interface X@ line in the daml file.
+  , ibViewType :: Maybe GHC.Type
+      -- ^ The view type associated with this interface.
+  , ibMethods :: MS.Map MethodName (GHC.Type, Maybe SourceLoc)
+      -- ^ The methods defined in this interface, together with their types
+      -- and the location of the definition.
+  , ibRequires :: [(GHC.TyCon, Maybe SourceLoc)]
+      -- ^ The interfaces required by this interface.
+  }
 
-convertInterfaceTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
-convertInterfaceTyCon env errHandler tycon
-    | hasDamlInterfaceCtx tycon = do
+emptyInterfaceBinds :: Maybe SourceLoc -> InterfaceBinds
+emptyInterfaceBinds ibLoc = InterfaceBinds
+  { ibLoc
+  , ibViewType = Nothing
+  , ibMethods = MS.empty
+  , ibRequires = []
+  }
+
+setInterfaceViewType :: GHC.Type -> InterfaceBinds -> InterfaceBinds
+setInterfaceViewType viewType ib = ib
+  { ibViewType = Just viewType
+  }
+
+insertInterfaceMethod ::
+     MethodName
+  -> GHC.Type
+  -> Maybe SourceLoc
+  -> InterfaceBinds
+  -> InterfaceBinds
+insertInterfaceMethod methodName retTy loc ib = ib
+  { ibMethods = MS.insert methodName (retTy, loc) (ibMethods ib)
+  }
+
+insertInterfaceRequires :: GHC.TyCon -> Maybe SourceLoc -> InterfaceBinds -> InterfaceBinds
+insertInterfaceRequires required loc ib = ib
+  { ibRequires = (required, loc) : ibRequires ib
+  }
+
+scrapeInterfaceBinds ::
+     LF.Version
+  -> [TyThing]
+  -> [(Var, GHC.Expr Var)]
+  -> MS.Map TypeConName InterfaceBinds
+scrapeInterfaceBinds lfVersion tyThings binds
+  | lfVersion `supports` featureInterfaces =
+      MMS.merge
+        {- drop bind funcs without interfaces -}
+        MMS.dropMissing
+        {- keep interfaces without bind funcs -}
+        MMS.preserveMissing'
+        {- apply bind funcs to interfaces -}
+        (MMS.zipWithMatched (const ($!)))
+        interfaceBindFs
+        interfaces
+  | otherwise = MS.empty
+  where
+    interfaces :: MS.Map TypeConName InterfaceBinds
+    interfaces = MS.fromList
+      [ (mkTypeCon [getOccText t], emptyInterfaceBinds (convNameLoc t))
+      | ATyCon t <- tyThings
+      , hasDamlInterfaceCtx t
+      ]
+
+    interfaceBindFs :: MS.Map TypeConName (InterfaceBinds -> InterfaceBinds)
+    interfaceBindFs = MS.fromListWith (.)
+      [ (mkTypeCon [getOccText interface], fn)
+      | (name, expr) <- binds
+      , Just (interface, fn) <- pure $ case name of
+          HasInterfaceViewDFunId interface viewType ->
+            Just (interface, setInterfaceViewType viewType)
+          HasMethodDFunId interface methodName retTy ->
+            Just (interface, insertInterfaceMethod methodName retTy (convNameLoc name))
+          name
+            | "_requires_" `T.isPrefixOf` getOccText name
+            , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- varType name
+            , NameIn DA_Internal_Desugar "RequiresT" <- requiresT
+            -> Just (iface1, insertInterfaceRequires iface2 (convNameLoc name))
+          _ -> Nothing
+      ]
+
+-- | Represents an interface instance, including the interface + template pair
+-- for which it is defined. Different 'InterfaceInstanceGroup's might contain
+-- 'InterfaceInstanceBinds's with the same interface + template pair, but
+-- we don't care during conversion, leaving it to the typechecker.
+data InterfaceInstanceBinds = InterfaceInstanceBinds
+  { iibInterface :: GHC.TyCon
+  , iibTemplate :: GHC.TyCon
+  , iibLoc :: Maybe SourceLoc
+      -- ^ Location associated to the @_implements_@ marker, which should
+      -- point to the @interface instance@ line in the daml file.
+  , iibMethods :: MS.Map MethodName (GHC.Expr GHC.CoreBndr)
+      -- ^ Method implementations.
+  , iibView :: [GHC.Expr GHC.CoreBndr]
+      -- ^ View implementation.
+  }
+
+-- | A group of interface instances under a certain template.
+newtype InterfaceInstanceGroup = InterfaceInstanceGroup
+  { iigMap :: MS.Map (Name, Name) InterfaceInstanceBinds
+      -- ^ The keys should be @(GHC.TyCon, GHC.TyCon)@, but there's no
+      -- @instance Ord GHC.TyCon@. Instead, we use @(Name, Name)@ and
+      -- apply 'iigKey' when necessary.
+  }
+
+iigKey :: GHC.TyCon -> GHC.TyCon -> (Name, Name)
+iigKey interface template =
+  (getName interface, getName template)
+
+iigAdjust ::
+     GHC.TyCon
+  -> GHC.TyCon
+  -> (InterfaceInstanceBinds -> InterfaceInstanceBinds)
+  -> (InterfaceInstanceGroup -> InterfaceInstanceGroup)
+iigAdjust interface template f =
+  InterfaceInstanceGroup . MS.adjust f (iigKey interface template) . iigMap
+
+iigUnion :: InterfaceInstanceGroup -> InterfaceInstanceGroup -> InterfaceInstanceGroup
+iigUnion g h = InterfaceInstanceGroup (MS.union (iigMap g) (iigMap h))
+
+interfaceInstanceGroupBinds :: InterfaceInstanceGroup -> [InterfaceInstanceBinds]
+interfaceInstanceGroupBinds = MS.elems . iigMap
+
+singletonInterfaceInstanceGroup ::
+     GHC.TyCon
+  -> GHC.TyCon
+  -> Maybe SourceLoc
+  -> InterfaceInstanceGroup
+singletonInterfaceInstanceGroup iibInterface iibTemplate iibLoc =
+  InterfaceInstanceGroup (MS.singleton (iigKey iibInterface iibTemplate) iib)
+  where
+    iib = InterfaceInstanceBinds
+      { iibInterface
+      , iibTemplate
+      , iibLoc
+      , iibMethods = MS.empty
+      , iibView = []
+      }
+
+insertInterfaceInstanceView ::
+     GHC.TyCon
+  -> GHC.TyCon
+  -> GHC.Expr GHC.CoreBndr
+  -> InterfaceInstanceGroup
+  -> InterfaceInstanceGroup
+insertInterfaceInstanceView interface template view =
+  iigAdjust interface template
+    (\iib -> iib { iibView = view : iibView iib })
+
+insertInterfaceInstanceMethod ::
+     GHC.TyCon
+  -> GHC.TyCon
+  -> MethodName
+  -> GHC.Expr GHC.CoreBndr
+  -> InterfaceInstanceGroup
+  -> InterfaceInstanceGroup
+insertInterfaceInstanceMethod interface template methodName methodExpr =
+  iigAdjust interface template
+    (\iib -> iib { iibMethods = MS.insert methodName methodExpr (iibMethods iib) })
+
+scrapeInterfaceInstanceBinds ::
+     Env
+  -> [(Var, GHC.Expr CoreBndr)]
+  -> MS.Map TypeConName InterfaceInstanceGroup
+scrapeInterfaceInstanceBinds env binds
+  | envLfVersion env `supports` featureInterfaces =
+      MMS.merge
+        {- drop group funcs without interface instances -}
+        MMS.dropMissing
+        {- keep interface instances without group funcs -}
+        MMS.preserveMissing'
+        {- apply group funcs to interface instances -}
+        (MMS.zipWithMatched (const ($!)))
+        interfaceInstanceGroupFs
+        interfaceInstanceGroups
+  | otherwise = MS.empty
+  where
+    interfaceInstanceGroups :: MS.Map TypeConName InterfaceInstanceGroup
+    interfaceInstanceGroups = MS.fromListWith iigUnion
+      [ ( mkTypeCon [getOccText template]
+        , singletonInterfaceInstanceGroup interface template (convNameLoc name)
+        )
+      | (name, _val) <- binds
+      , "_implements_" `T.isPrefixOf` getOccText name
+      , TypeCon implementsT [TypeCon template [], TypeCon interface []] <- [varType name]
+      , NameIn DA_Internal_Desugar "ImplementsT" <- [implementsT]
+      ]
+
+    interfaceInstanceGroupFs ::
+      MS.Map TypeConName (InterfaceInstanceGroup -> InterfaceInstanceGroup)
+    interfaceInstanceGroupFs = MS.fromListWith (.)
+      [ (mkTypeCon [getOccText template], fn)
+      | (name, untick -> expr) <- binds
+      , Just (template, fn) <- pure $ case name of
+          name
+            | TypeCon (NameIn DA_Internal_Desugar "InterfaceView")
+                [ TypeCon template []
+                , TypeCon interface []
+                ] <- varType name
+            -> Just (template, insertInterfaceInstanceView interface template expr)
+          name
+            | TypeCon (NameIn DA_Internal_Desugar "Method")
+                [ TypeCon template []
+                , TypeCon interface []
+                , StrLitTy (MethodName -> methodName)
+                ] <- varType name
+            -> Just (template, insertInterfaceInstanceMethod interface template methodName expr)
+          _ -> Nothing
+      ]
+
+convertDamlTyCon ::
+     (TyCon -> Bool)
+  -> String
+  -> Env
+  -> (GHC.TyCon -> String)
+  -> GHC.TyCon
+  -> ConvertM (LF.Qualified LF.TypeConName)
+convertDamlTyCon hasExpectedCtx unhandledStr env errHandler tycon
+    | hasExpectedCtx tycon = do
         lfType <- convertTyCon env tycon
         case lfType of
             TCon con -> pure con
-            _ -> unhandled "interface type" tycon
+            _ -> unhandled unhandledStr tycon
     | otherwise =
         conversionError $ errHandler tycon
+
+convertInterfaceTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
+convertInterfaceTyCon = convertDamlTyCon hasDamlInterfaceCtx "interface type"
+
+convertTemplateTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
+convertTemplateTyCon = convertDamlTyCon hasDamlTemplateCtx "interface type"
 
 convertInterfaces :: Env -> ModuleContents -> ConvertM [Definition]
 convertInterfaces env mc = interfaceDefs
   where
     interfaceDefs :: ConvertM [Definition]
     interfaceDefs = sequence
-        [ DInterface <$> convertInterface name tycon
-        | (name, tycon) <- MS.toList (mcInterfaces mc)
+        [ DInterface <$> convertInterface name ib
+        | (name, ib) <- MS.toList (mcInterfaceBinds mc)
         ]
 
-    convertInterface :: LF.TypeConName -> GHC.TyCon -> ConvertM DefInterface
-    convertInterface intName tyCon = do
-        let intLocation = convNameLoc (GHC.tyConName tyCon)
-        let intParam = this
+    convertInterface :: LF.TypeConName -> InterfaceBinds -> ConvertM DefInterface
+    convertInterface intName ib = do
+        let
+          intLocation = ibLoc ib
+          intParam = this
         withRange intLocation $ do
-            let handleIsNotInterface tyCon =
-                  "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
-            intRequires <- fmap S.fromList $ mapM (\(mloc, iface) -> withRange mloc $ convertInterfaceTyCon env handleIsNotInterface iface) $
-                MS.findWithDefault [] intName (mcRequires mc)
-            intMethods <- NM.fromList <$> convertMethods tyCon
+            intRequires <- convertRequires (ibRequires ib)
+            intMethods <- convertMethods (ibMethods ib)
             intChoices <- convertChoices env mc intName emptyTemplateBinds
             let intCoImplements = NM.empty -- TODO: https://github.com/digital-asset/daml/issues/14047
-            let intView = TBuiltin BTUnit -- TODO: Stub view, will extract later, https://github.com/digital-asset/daml/pull/14439
+            intView <- case ibViewType ib of
+                Nothing -> conversionError $ "No view found for interface " <> renderPretty intName
+                Just viewType -> convertType env viewType
             pure DefInterface {..}
 
-    convertMethods :: GHC.TyCon -> ConvertM [InterfaceMethod]
-    convertMethods tyCon = sequence $ do
-      (name, val) <- mcBinds mc
-      DFunId _ <- [idDetails name]
-      TypeCon hasMethodCls
-        [ TypeCon ((== tyCon) -> True) []
-        , StrLitTy methodName
-        , retTy
-        ] <- [varType name]
-      NameIn DA_Internal_Desugar "HasMethod" <- [hasMethodCls]
-      pure $ do
-        retTy' <- convertType env retTy
-        pure InterfaceMethod
-          { ifmLocation = Nothing
-          , ifmName = MethodName methodName
-          , ifmType = retTy'
-          }
+    convertRequires :: [(GHC.TyCon, Maybe SourceLoc)] -> ConvertM (S.Set (Qualified TypeConName))
+    convertRequires requires = S.fromList <$> sequence
+      [ withRange mloc $ convertInterfaceTyCon env handleIsNotInterface iface
+      | (iface, mloc) <- requires
+      ]
+      where
+        handleIsNotInterface tyCon =
+          "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
+
+    convertMethods ::
+         MS.Map MethodName (GHC.Type, Maybe SourceLoc)
+      -> ConvertM (NM.NameMap InterfaceMethod)
+    convertMethods methods =
+      NM.fromList <$> sequence
+        [ withRange loc $ do
+            retTy' <- convertType env retTy
+            pure InterfaceMethod
+              { ifmLocation = loc
+              , ifmName = methodName
+              , ifmType = retTy'
+              }
+        | (methodName, (retTy, loc)) <- MS.toList methods
+        ]
 
 convertConsuming :: LF.Type -> ConvertM Consuming
 convertConsuming consumingTy = case consumingTy of
@@ -988,28 +1184,59 @@ useSingleMethodDict env x _ =
 
 convertImplements :: Env -> ModuleContents -> LF.TypeConName -> ConvertM (NM.NameMap TemplateImplements)
 convertImplements env mc tpl = NM.fromList <$>
-  mapM convertInterface (MS.findWithDefault [] tpl (mcImplements mc))
+  mapM convertImplements1
+    (maybe [] interfaceInstanceGroupBinds (MS.lookup tpl (mcInterfaceInstanceBinds mc)))
   where
-    convertInterface :: (Maybe LF.SourceLoc, GHC.TyCon) -> ConvertM TemplateImplements
-    convertInterface (originLoc, iface) = withRange originLoc $ do
-      let handleIsNotInterface tyCon =
-            "cannot implement '" ++ prettyPrint tyCon ++ "' because it is not an interface"
-      con <- convertInterfaceTyCon env handleIsNotInterface iface
-      let mod = nameModule (getName iface)
+    convertImplements1 :: InterfaceInstanceBinds -> ConvertM TemplateImplements
+    convertImplements1 =
+      convertInterfaceInstance (\iface _ -> TemplateImplements iface) env
 
-      -- TODO: Stub view, will extract later, https://github.com/digital-asset/daml/pull/14439
-      let view = ETmLam (ExprVarName "this", TCon con) (EBuiltin BEUnit)
+convertInterfaceInstance ::
+     (Qualified TypeConName -> Qualified TypeConName -> InterfaceInstanceBody -> r)
+  -> Env
+  -> InterfaceInstanceBinds
+  -> ConvertM r
+convertInterfaceInstance mkR env iib = withRange (iibLoc iib) $ do
+  interfaceQualTypeCon <- qualifyInterfaceCon (iibInterface iib)
+  templateQualTypeCon <- qualifyTemplateCon (iibTemplate iib)
+  methods <- convertMethods (iibMethods iib)
+  view <- convertView (iibView iib)
+  pure $ mkR
+    interfaceQualTypeCon
+    templateQualTypeCon
+    (InterfaceInstanceBody methods view)
+  where
+    qualifyInterfaceCon =
+      convertInterfaceTyCon env handleIsNotInterface
+      where
+        handleIsNotInterface tyCon =
+          mkErr $ "'" <> prettyPrint tyCon <> "' is not an interface"
 
-      methods <- convertMethods $ MS.findWithDefault []
-        (mod, qualObject con, tpl)
-        (mcInterfaceMethodInstances mc)
-
-      pure (TemplateImplements con methods view)
+    qualifyTemplateCon =
+      convertTemplateTyCon env handleIsNotTemplate
+      where
+        handleIsNotTemplate tyCon =
+          mkErr $ "'" <> prettyPrint tyCon <> "' is not a template"
 
     convertMethods ms = fmap NM.fromList . sequence $
-      [ TemplateImplementsMethod (MethodName k) . (`ETmApp` EVar this) <$> convertExpr env v
-      | (k, v) <- ms
+      [ InterfaceInstanceMethod k . (`ETmApp` EVar this) <$> convertExpr env v
+      | (k, v) <- MS.assocs ms
       ]
+
+    convertView vs = case vs of
+        [view] -> do
+            viewLFExpr <- convertExpr env view
+            pure $ viewLFExpr `ETmApp` EVar this
+        [] -> conversionError $ mkErr "no view implementation defined"
+        _ -> conversionError $ mkErr "more than one view implementation defined"
+
+    mkErr s = unwords
+        [ "Invalid 'interface instance"
+        , prettyPrint (iibInterface iib)
+        , "for"
+        , prettyPrint (iibTemplate iib) <> "':"
+        , s
+        ]
 
 convertChoices :: Env -> ModuleContents -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
 convertChoices env mc tplTypeCon tbinds =
@@ -1094,7 +1321,7 @@ convertBind env mc (name, x)
 
     -- Remove interface worker.
     | Just iface <- T.stripPrefix "$W" (getOccText name)
-    , mkTypeCon [iface] `MS.member` mcInterfaces mc = pure []
+    , mkTypeCon [iface] `MS.member` mcInterfaceBinds mc = pure []
 
     -- NOTE(MH): Our inline return type syntax produces a local letrec for
     -- recursive functions. We currently don't support local letrecs.
@@ -1203,7 +1430,6 @@ desugarTypes = mkUniqSet
     , "ImplementsT"
     , "RequiresT"
     , "InterfaceView"
-    , "HasInterfaceView"
     ]
 
 internalFunctions :: UniqFM (UniqSet FastString)
@@ -1219,7 +1445,6 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
     , ("DA.Internal.Desugar",
         [ "mkMethod"
         , "mkInterfaceView"
-        , "view"
         ])
     ]
 

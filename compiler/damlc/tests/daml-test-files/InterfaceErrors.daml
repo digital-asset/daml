@@ -4,7 +4,10 @@
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 module InterfaceErrors where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface MyInterface where
+    viewtype EmptyInterfaceView
     myVirtualChoiceImpl : Update ()
     choice MyVirtualChoice : ()
         controller [] : [Party]
@@ -17,7 +20,7 @@ template MyTemplate
     where
         signatory p
 
--- @ERROR range=21:1-21:17; Attempt to use a contract via an interface that the contract does not implement
+-- @ERROR range=24:1-24:17; Attempt to use a contract via an interface that the contract does not implement
 fetchBadContract = scenario do
     p <- getParty "Alice"
     p `submit` do
@@ -25,7 +28,7 @@ fetchBadContract = scenario do
         let cid' : ContractId MyInterface = coerceContractId cid
         fetch cid'
 
--- @ERROR range=29:1-29:20; Attempt to use a contract via an interface that the contract does not implement
+-- @ERROR range=32:1-32:20; Attempt to use a contract via an interface that the contract does not implement
 exerciseBadContract = scenario do
     p <- getParty "Alice"
     p `submit` do

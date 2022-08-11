@@ -245,8 +245,18 @@ object InterfaceReader {
       astIf: Ast.DefInterface,
   ): InterfaceReaderError \/ (QualifiedName, DefInterface.FWT) = for {
     choices <- astIf.choices.traverse(visitChoice(name, _))
+    rawViewType <- toIfaceType(name, astIf.view)
+    viewType <- rawViewType match {
+      case TypeCon(TypeConName(tcn), Seq()) => \/-(Some(tcn))
+      case TypePrim(PrimType.Unit, _) => \/-(None)
+      case _ =>
+        invalidDataTypeDefinition(
+          name,
+          s"interface view type ${astIf.view.pretty} must be either a no-argument type reference or unit",
+        )
+    }
     // TODO #14081 pass actual retroactive implements instead of empty
-  } yield name -> iface.DefInterface(choices, Set.empty)
+  } yield name -> iface.DefInterface(choices, Set.empty, viewType)
 
   private[lf] def toIfaceType(
       ctx: QualifiedName,

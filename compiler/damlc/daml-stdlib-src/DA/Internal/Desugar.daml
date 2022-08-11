@@ -25,7 +25,6 @@ module DA.Internal.Desugar (
     Method,
     mkMethod,
     InterfaceView,
-    HasInterfaceView(..),
     mkInterfaceView
 ) where
 
@@ -120,9 +119,6 @@ newtype Method t i (m : Symbol) = Method ()
 -- it's extracted unmodified.
 mkMethod : (Implements t i, HasMethod i m r) => (t -> r) -> Method t i m
 mkMethod = magic @"mkMethod"
-
--- Read: Interface `i` has a view of type `r`
-class HasInterfaceView i v | i -> v
 
 -- | This is only a marker for the container, it doesn't contain the
 -- actual implementation of the view.
