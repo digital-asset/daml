@@ -1,14 +1,14 @@
-From f4a36d9311f0e1f2f6762475100c8e52df6a7153 Mon Sep 17 00:00:00 2001
+From b18f9b6c6724d04f45fb41261a4a03ffe19f6a5d Mon Sep 17 00:00:00 2001
 From: Gary Verhaegen <gary.verhaegen@digitalasset.com>
-Date: Thu, 11 Aug 2022 15:25:40 +0200
+Date: Thu, 11 Aug 2022 15:37:15 +0200
 Subject: [PATCH] m1
 
 ---
- scripts/packages/bazel.sh | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ scripts/packages/bazel.sh | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/scripts/packages/bazel.sh b/scripts/packages/bazel.sh
-index 03b7417369..1f8fa63244 100755
+index 03b7417369..a0eaa008c6 100755
 --- a/scripts/packages/bazel.sh
 +++ b/scripts/packages/bazel.sh
 @@ -16,6 +16,9 @@
@@ -39,6 +39,15 @@ index 03b7417369..1f8fa63244 100755
    readonly reason
    readonly bazel_version
  }
+@@ -166,6 +171,8 @@ if [[ ! -x ${BAZEL_REAL} && -x ${bazel_real_path} ]]; then
+   fi
+ fi
+ 
++echo "BAZEL_REAL=\"$BAZEL_REAL\""
++
+ # If the repository contains a checked-in executable called tools/bazel, we
+ # assume that they know what they're doing and have their own way of versioning
+ # Bazel. Thus, we don't have to print our helpful messages or error out in case
 -- 
 2.37.1
 
