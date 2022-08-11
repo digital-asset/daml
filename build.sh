@@ -45,8 +45,12 @@ echo $(if [ "_macos-m1" == "$1" ]; then echo "--host-platform=//:ci-m1 --platfor
 echo ---------- arch -----------
 arch
 echo
-echo ---------- file -----------
+echo ---------- file curl -----------
 file /nix/store/ifmdllb8axga08r0j5wpy7fqyjghirrc-curl-7.81.0-bin/bin/curl
+echo ---------- file bazel -----------
+file /nix/store/dnfddpxqffw1yzgpwk01by7a8h9wzyav-bazel-4.2.2/bin/bazel-4.2.2-darwin-aarch64
+echo ---------- ls bazel -----------
+ls /nix/store/dnfddpxqffw1yzgpwk01by7a8h9wzyav-bazel-4.2.2/bin
 echo ---------------------
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
