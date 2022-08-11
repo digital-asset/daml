@@ -99,6 +99,7 @@ final class IndexServiceOwner(
         contractStore = contractStore,
         pruneBuffers = inMemoryState.inMemoryFanoutBuffer.prune,
         dispatcher = () => inMemoryState.dispatcherState.getDispatcher,
+        packageMetadataView = inMemoryState.packageMetadataView,
         metrics = metrics,
       )
     } yield new TimedIndexService(indexService, metrics)

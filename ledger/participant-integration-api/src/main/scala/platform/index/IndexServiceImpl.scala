@@ -11,6 +11,8 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.{TraceIdentifiers, domain}
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
 import com.daml.ledger.api.domain.{
+  Filters,
+  InclusiveFilters,
   LedgerId,
   LedgerOffset,
   PackageEntry,
@@ -51,11 +53,14 @@ import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.dao.{
+  EventProjectionProperties,
   LedgerDaoCommandCompletionsReader,
   LedgerDaoTransactionsReader,
   LedgerReadDao,
 }
 import com.daml.platform.store.entries.PartyLedgerEntry
+import com.daml.platform.store.packagemeta.PackageMetadataView
+import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.ToTagOps
@@ -71,6 +76,7 @@ private[index] class IndexServiceImpl(
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
     dispatcher: () => Dispatcher[Offset],
+    packageMetadataView: PackageMetadataView,
     metrics: Metrics,
 ) extends IndexService {
   // An Akka stream buffer is added at the end of all streaming queries,
@@ -94,9 +100,9 @@ private[index] class IndexServiceImpl(
   override def transactions(
       startExclusive: domain.LedgerOffset,
       endInclusive: Option[domain.LedgerOffset],
-      filter: domain.TransactionFilter,
+      transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] =
+  )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] = {
     between(startExclusive, endInclusive) { (from, to) =>
       from.foreach(offset =>
         Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
@@ -107,7 +113,14 @@ private[index] class IndexServiceImpl(
       dispatcher()
         .startingAt(
           from.getOrElse(Offset.beforeBegin),
-          RangeSource(transactionsReader.getFlatTransactions(_, _, convertFilter(filter), verbose)),
+          RangeSource { (startExclusive, endInclusive) =>
+            val (filter, properties) = eventDisplayProperties(transactionFilter, verbose)
+            if (filter.isEmpty) {
+              Source.empty
+            } else
+              transactionsReader
+                .getFlatTransactions(startExclusive, endInclusive, filter, properties)
+          },
           to,
         )
         .mapError(shutdownError)
@@ -120,13 +133,52 @@ private[index] class IndexServiceImpl(
         )
         .foreach(Spans.addEventToCurrentSpan)
     )
+  }
+
+  private def templateIds(
+      metadata: PackageMetadata
+  )(inclusiveFilters: InclusiveFilters): Set[Identifier] =
+    inclusiveFilters.interfaceFilters.iterator
+      .map(_.interfaceId)
+      .flatMap(metadata.interfacesImplementedBy)
+      .toSet
+      .++(inclusiveFilters.templateIds)
+
+  private def eventDisplayProperties(
+      domainTransactionFilter: domain.TransactionFilter,
+      verbose: Boolean,
+  ): (Map[Party, Set[Identifier]], EventProjectionProperties) = {
+    val metadata: PackageMetadata = packageMetadataView.current()
+    val filter = domainTransactionFilter.filtersByParty.collect {
+      case (party, Filters(Some(inclusiveFilters)))
+          if templateIds(metadata)(inclusiveFilters).nonEmpty =>
+        (party, templateIds(metadata)(inclusiveFilters))
+      case (party, Filters(None)) =>
+        (party, Set.empty[Identifier])
+    }.toMap
+
+    val properties = EventProjectionProperties(
+      domainTransactionFilter,
+      verbose,
+      interfaceId => metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty),
+    )
+
+    (filter, properties)
+  }
 
   override def transactionTrees(
       startExclusive: LedgerOffset,
       endInclusive: Option[LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetTransactionTreesResponse, NotUsed] =
+  )(implicit loggingContext: LoggingContext): Source[GetTransactionTreesResponse, NotUsed] = {
+    val parties = filter.filtersByParty.keySet
+    val eventProjectionProperties = EventProjectionProperties(
+      verbose = verbose,
+      witnessTemplateIdFilter = parties.iterator
+        .map(party => party -> Set.empty[Identifier])
+        .toMap,
+    )
     between(startExclusive, endInclusive) { (from, to) =>
       from.foreach(offset =>
         Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
@@ -138,7 +190,8 @@ private[index] class IndexServiceImpl(
         .startingAt(
           from.getOrElse(Offset.beforeBegin),
           RangeSource(
-            transactionsReader.getTransactionTrees(_, _, filter.filtersByParty.keySet, verbose)
+            transactionsReader
+              .getTransactionTrees(_, _, filter.filtersByParty.keySet, eventProjectionProperties)
           ),
           to,
         )
@@ -152,6 +205,7 @@ private[index] class IndexServiceImpl(
         )
         .foreach(Spans.addEventToCurrentSpan)
     )
+  }
 
   override def getCompletions(
       startExclusive: LedgerOffset,
@@ -192,16 +246,17 @@ private[index] class IndexServiceImpl(
       .buffered(metrics.daml.index.completionsBufferSize, LedgerApiStreamsBufferSize)
 
   override def getActiveContracts(
-      filter: TransactionFilter,
+      transactionFilter: TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
     val currentLedgerEnd = ledgerEnd()
+    val (filter, properties) = eventDisplayProperties(transactionFilter, verbose)
 
     ledgerDao.transactionsReader
       .getActiveContracts(
         currentLedgerEnd,
-        convertFilter(filter),
-        verbose,
+        filter,
+        properties,
       )
       .concat(
         Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(currentLedgerEnd)))
@@ -394,11 +449,6 @@ private[index] class IndexServiceImpl(
         }
     }
   }
-
-  private def convertFilter(filter: TransactionFilter): Map[Party, Set[Identifier]] =
-    filter.filtersByParty.map { case (party, filters) =>
-      party -> filters.inclusive.fold(Set.empty[Identifier])(_.templateIds)
-    }
 
   private def concreteOffset(startExclusive: Option[LedgerOffset.Absolute]): Future[Offset] =
     startExclusive

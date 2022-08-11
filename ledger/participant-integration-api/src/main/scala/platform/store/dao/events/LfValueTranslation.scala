@@ -31,6 +31,7 @@ import com.daml.platform.{
 import com.daml.platform.packages.DeduplicatingPackageLoader
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.dao.EventProjectionProperties
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -60,7 +61,7 @@ trait LfValueSerialization {
 
   def deserialize[E](
       raw: Raw.Created[E],
-      verbose: Boolean,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
@@ -224,7 +225,7 @@ final class LfValueTranslation(
 
   def toApiRecord(
       value: LfValue,
-      verbose: Boolean,
+      eventProjectionProperties: EventProjectionProperties,
       attribute: => String,
       enrich: LfValue => LfEngine.Result[com.daml.lf.value.Value],
   )(implicit
@@ -232,7 +233,7 @@ final class LfValueTranslation(
       loggingContext: LoggingContext,
   ): Future[ApiRecord] = for {
     enrichedValue <-
-      if (verbose)
+      if (eventProjectionProperties.verbose)
         consumeEnricherResult(enrich(value))
       else
         Future.successful(value.unversioned)
@@ -241,7 +242,7 @@ final class LfValueTranslation(
       failureContext = s"attempting to deserialize persisted $attribute to record",
       LfEngineToApi
         .lfValueToApiRecord(
-          verbose = verbose,
+          verbose = eventProjectionProperties.verbose,
           recordValue = enrichedValue,
         ),
     )
@@ -275,7 +276,7 @@ final class LfValueTranslation(
 
   override def deserialize[E](
       raw: Raw.Created[E],
-      verbose: Boolean,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
@@ -300,7 +301,7 @@ final class LfValueTranslation(
     for {
       createArguments <- toApiRecord(
         value = create.argument,
-        verbose = verbose,
+        eventProjectionProperties = eventProjectionProperties,
         attribute = "create argument",
         enrich = value => enricher.enrichContract(templateId, value.unversioned),
       )
@@ -308,7 +309,7 @@ final class LfValueTranslation(
         case Some(key) =>
           toApiValue(
             value = key,
-            verbose = verbose,
+            verbose = eventProjectionProperties.verbose,
             attribute = "create key",
             enrich = value => enricher.enrichContractKey(templateId, value.unversioned),
           ).map(Some(_))
