@@ -114,7 +114,7 @@ private[index] class IndexServiceImpl(
         .startingAt(
           from.getOrElse(Offset.beforeBegin),
           RangeSource { (startExclusive, endInclusive) =>
-            val (filter, properties) = eventDisplayProperties(transactionFilter, verbose)
+            val (filter, properties) = eventProjectionProperties(transactionFilter, verbose)
             if (filter.isEmpty) {
               Source.empty
             } else
@@ -144,7 +144,7 @@ private[index] class IndexServiceImpl(
       .toSet
       .++(inclusiveFilters.templateIds)
 
-  private def eventDisplayProperties(
+  private def eventProjectionProperties(
       domainTransactionFilter: domain.TransactionFilter,
       verbose: Boolean,
   ): (Map[Party, Set[Identifier]], EventProjectionProperties) = {
@@ -250,7 +250,7 @@ private[index] class IndexServiceImpl(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
     val currentLedgerEnd = ledgerEnd()
-    val (filter, properties) = eventDisplayProperties(transactionFilter, verbose)
+    val (filter, properties) = eventProjectionProperties(transactionFilter, verbose)
 
     ledgerDao.transactionsReader
       .getActiveContracts(
