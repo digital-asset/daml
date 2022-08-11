@@ -84,7 +84,7 @@ object JdbcIndexer {
           translation = new LfValueTranslation(
             cache = lfValueTranslationCache,
             metrics = metrics,
-            enricherO = None,
+            engineO = None,
             loadPackage = (_, _) => Future.successful(None),
           ),
           compressionStrategy =

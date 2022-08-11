@@ -17,7 +17,7 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.ValueEnricher
+import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntry
@@ -49,7 +49,7 @@ private class JdbcLedgerDao(
     acsGlobalParallelism: Int,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
-    enricher: Option[ValueEnricher],
+    engine: Option[Engine],
     sequentialIndexer: SequentialWriteDao,
     participantId: Ref.ParticipantId,
     readStorageBackend: ReadStorageBackend,
@@ -450,7 +450,7 @@ private class JdbcLedgerDao(
     new LfValueTranslation(
       cache = lfValueTranslationCache,
       metrics = metrics,
-      enricherO = enricher,
+      engineO = engine,
       loadPackage = (packageId, loggingContext) => this.getLfArchive(packageId)(loggingContext),
     )
 
@@ -577,7 +577,7 @@ private[platform] object JdbcLedgerDao {
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
-      enricher: Option[ValueEnricher],
+      engine: Option[Engine],
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
@@ -596,7 +596,7 @@ private[platform] object JdbcLedgerDao {
         acsGlobalParallelism,
         metrics,
         lfValueTranslationCache,
-        enricher,
+        engine,
         SequentialWriteDao.noop,
         participantId,
         dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
@@ -619,7 +619,7 @@ private[platform] object JdbcLedgerDao {
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
-      enricher: Option[ValueEnricher],
+      engine: Option[Engine],
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
@@ -638,7 +638,7 @@ private[platform] object JdbcLedgerDao {
         acsGlobalParallelism,
         metrics,
         lfValueTranslationCache,
-        enricher,
+        engine,
         sequentialWriteDao,
         participantId,
         dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
