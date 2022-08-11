@@ -42,13 +42,13 @@ data TemplatePart
   | TPAgreement
   | TPKey
   | TPChoice TemplateChoice
-  | TPInterfaceInstance InterfaceInstanceKey
+  | TPInterfaceInstance InterfaceInstanceHead
 
 data InterfacePart
   = IPWhole
   | IPMethod InterfaceMethod
   | IPChoice TemplateChoice
-  | IPInterfaceInstance InterfaceInstanceKey
+  | IPInterfaceInstance InterfaceInstanceHead
 
 data SerializabilityRequirement
   = SRTemplateArg
@@ -148,7 +148,7 @@ data Error
   | EUnknownInterface !TypeConName
   | ECircularInterfaceRequires !TypeConName !(Maybe (Qualified TypeConName))
   | ENotClosedInterfaceRequires !TypeConName !(Qualified TypeConName) ![Qualified TypeConName]
-  | EMissingRequiredInterfaceInstance !InterfaceInstanceKey !(Qualified TypeConName)
+  | EMissingRequiredInterfaceInstance !InterfaceInstanceHead !(Qualified TypeConName)
   | EBadInheritedChoices { ebicInterface :: !(Qualified TypeConName), ebicExpected :: ![ChoiceName], ebicGot :: ![ChoiceName] }
   | EMissingInterfaceChoice !ChoiceName
   | EMissingMethodInInterfaceInstance !MethodName
@@ -198,14 +198,14 @@ instance Show TemplatePart where
     TPAgreement -> "agreement"
     TPKey -> "key"
     TPChoice choice -> "choice " <> T.unpack (unChoiceName $ chcName choice)
-    TPInterfaceInstance iiKey -> renderPretty iiKey
+    TPInterfaceInstance iiHead -> renderPretty iiHead
 
 instance Show InterfacePart where
   show = \case
     IPWhole -> ""
     IPMethod method -> "method " <> T.unpack (unMethodName $ ifmName method)
     IPChoice choice -> "choice " <> T.unpack (unChoiceName $ chcName choice)
-    IPInterfaceInstance iiKey -> renderPretty iiKey
+    IPInterfaceInstance iiHead -> renderPretty iiHead
 
 instance Pretty SerializabilityRequirement where
   pPrint = \case

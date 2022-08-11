@@ -959,7 +959,7 @@ data InterfaceInstanceMethod = InterfaceInstanceMethod
 
 -- | The interface and template that identify an interface instance.
 -- Currently not part of the AST.
-data InterfaceInstanceKey = InterfaceInstanceKey
+data InterfaceInstanceHead = InterfaceInstanceHead
   { iiInterface :: !(Qualified TypeConName)
   , iiTemplate :: !(Qualified TypeConName)
   }

@@ -626,12 +626,12 @@ checkFetchInterface tpl cid = do
 -- | Check that there's a unique interface instance for the given
 -- interface + template pair, and return relevant details.
 checkUniqueInterfaceInstance :: MonadGamma m =>
-  InterfaceInstanceKey -> m InterfaceInstanceInfo
+  InterfaceInstanceHead -> m InterfaceInstanceInfo
 checkUniqueInterfaceInstance = inWorld . lookupInterfaceInstance
 
 -- | Check that there's a unique interface instance for the given
 -- interface + template pair.
-checkUniqueInterfaceInstanceExists :: MonadGamma m => InterfaceInstanceKey -> m ()
+checkUniqueInterfaceInstanceExists :: MonadGamma m => InterfaceInstanceHead -> m ()
 checkUniqueInterfaceInstanceExists = void . checkUniqueInterfaceInstance
 
 -- returns the contract id and contract type
@@ -748,15 +748,15 @@ typeOf' = \case
     checkExpr val ty2
     pure ty1
   EToInterface iface tpl val -> do
-    checkUniqueInterfaceInstanceExists (InterfaceInstanceKey iface tpl)
+    checkUniqueInterfaceInstanceExists (InterfaceInstanceHead iface tpl)
     checkExpr val (TCon tpl)
     pure (TCon iface)
   EFromInterface iface tpl val -> do
-    checkUniqueInterfaceInstanceExists (InterfaceInstanceKey iface tpl)
+    checkUniqueInterfaceInstanceExists (InterfaceInstanceHead iface tpl)
     checkExpr val (TCon iface)
     pure (TOptional (TCon tpl))
   EUnsafeFromInterface iface tpl cid val -> do
-    checkUniqueInterfaceInstanceExists (InterfaceInstanceKey iface tpl)
+    checkUniqueInterfaceInstanceExists (InterfaceInstanceHead iface tpl)
     checkExpr cid (TContractId (TCon iface))
     checkExpr val (TCon iface)
     pure (TCon tpl)
@@ -893,9 +893,9 @@ checkIface m iface = do
 
   -- check interface instances
   forM_ (intCoImplements iface) \InterfaceCoImplements {iciTemplate, iciBody} -> do
-    let iiKey = InterfaceInstanceKey tcon iciTemplate
-    withPart (IPInterfaceInstance iiKey) do
-      checkInterfaceInstance (intParam iface) iiKey iciBody
+    let iiHead = InterfaceInstanceHead tcon iciTemplate
+    withPart (IPInterfaceInstance iiHead) do
+      checkInterfaceInstance (intParam iface) iiHead iciBody
 
   where
     withPart p = withContext (ContextDefInterface m iface p)
@@ -956,9 +956,9 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
   forM_ implements \TemplateImplements {tpiInterface, tpiBody} -> do
-    let iiKey = InterfaceInstanceKey tpiInterface tcon
-    withPart (TPInterfaceInstance iiKey) do
-      checkInterfaceInstance param iiKey tpiBody
+    let iiHead = InterfaceInstanceHead tpiInterface tcon
+    withPart (TPInterfaceInstance iiHead) do
+      checkInterfaceInstance param iiHead tpiBody
   whenJust mbKey $ checkTemplateKey param tcon
 
   where
@@ -966,23 +966,23 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
 
 checkInterfaceInstance :: MonadGamma m =>
      ExprVarName
-  -> InterfaceInstanceKey
+  -> InterfaceInstanceHead
   -> InterfaceInstanceBody
   -> m ()
-checkInterfaceInstance tmplParam iiKey iiBody = do
+checkInterfaceInstance tmplParam iiHead iiBody = do
   let
-    InterfaceInstanceKey { iiInterface, iiTemplate } = iiKey
+    InterfaceInstanceHead { iiInterface, iiTemplate } = iiHead
     InterfaceInstanceBody {iiMethods, iiView} = iiBody
 
-  -- Check that this is the only interface instance for this key
-  iiInfo <- checkUniqueInterfaceInstance iiKey
+  -- Check that this is the only interface instance with this head
+  iiInfo <- checkUniqueInterfaceInstance iiHead
 
   let
     DefInterface {intRequires, intMethods, intView} = defInterface iiInfo
 
   -- check requires
   forM_ intRequires \required -> do
-    let requiredInterfaceInstance = InterfaceInstanceKey required iiTemplate
+    let requiredInterfaceInstance = InterfaceInstanceHead required iiTemplate
     eRequired <- inWorld (Right . lookupInterfaceInstance requiredInterfaceInstance)
     whenLeft eRequired \(_ :: LookupError) ->
       throwWithContext (EMissingRequiredInterfaceInstance requiredInterfaceInstance iiInterface)

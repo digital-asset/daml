@@ -650,8 +650,8 @@ pPrintInterfaceInstanceMethod :: PrettyLevel -> InterfaceInstanceMethod -> Doc a
 pPrintInterfaceInstanceMethod lvl (InterfaceInstanceMethod name expr) =
     pPrintPrec lvl 0 name <-> keyword_ "=" <-> pPrintPrec lvl 0 expr
 
-pPrintInterfaceInstanceKey :: PrettyLevel -> InterfaceInstanceKey -> Doc ann
-pPrintInterfaceInstanceKey lvl InterfaceInstanceKey {..} =
+pPrintInterfaceInstanceHead :: PrettyLevel -> InterfaceInstanceHead -> Doc ann
+pPrintInterfaceInstanceHead lvl InterfaceInstanceHead {..} =
   hsep
     [ keyword_ "interface instance"
     , pPrintPrec lvl 0 iiInterface
@@ -659,8 +659,8 @@ pPrintInterfaceInstanceKey lvl InterfaceInstanceKey {..} =
     , pPrintPrec lvl 0 iiTemplate
     ]
 
-instance Pretty InterfaceInstanceKey where
-  pPrintPrec lvl _prec = pPrintInterfaceInstanceKey lvl
+instance Pretty InterfaceInstanceHead where
+  pPrintPrec lvl _prec = pPrintInterfaceInstanceHead lvl
 
 pPrintFeatureFlags :: FeatureFlags -> Doc ann
 pPrintFeatureFlags FeatureFlags = mempty

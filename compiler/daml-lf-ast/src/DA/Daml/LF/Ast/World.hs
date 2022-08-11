@@ -107,8 +107,8 @@ data LookupError
   | LEChoice !(Qualified TypeConName) !ChoiceName
   | LEInterface !(Qualified TypeConName)
   | LEInterfaceMethod !(Qualified TypeConName) !MethodName
-  | LEUnknownInterfaceInstance !InterfaceInstanceKey
-  | LEAmbiguousInterfaceInstance !InterfaceInstanceKey
+  | LEUnknownInterfaceInstance !InterfaceInstanceHead
+  | LEAmbiguousInterfaceInstance !InterfaceInstanceHead
   deriving (Eq, Ord, Show)
 
 lookupModule :: Qualified a -> World -> Either LookupError Module
@@ -180,15 +180,15 @@ data InterfaceInstanceInfo = InterfaceInstanceInfo
   }
 
 lookupInterfaceInstance ::
-  InterfaceInstanceKey -> World -> Either LookupError InterfaceInstanceInfo
-lookupInterfaceInstance iiKey@InterfaceInstanceKey {..} world = do
+  InterfaceInstanceHead -> World -> Either LookupError InterfaceInstanceInfo
+lookupInterfaceInstance iiHead@InterfaceInstanceHead {..} world = do
   interface <- lookupInterface iiInterface world
   template <- lookupTemplate iiTemplate world
   let
     onInterface = NM.lookup iiTemplate (intCoImplements interface)
     onTemplate = NM.lookup iiInterface (tplImplements template)
     ok = Right . InterfaceInstanceInfo interface
-    err mkErr = Left (mkErr iiKey)
+    err mkErr = Left (mkErr iiHead)
   case (onInterface, onTemplate) of
     (Nothing, Nothing) -> err LEUnknownInterfaceInstance
     (Just _, Nothing) -> ok (TemplateOrInterface.Interface iiInterface)
@@ -208,10 +208,10 @@ instance Pretty LookupError where
     LEChoice tplRef chName -> "unknown choice:" <-> pretty tplRef <> ":" <> pretty chName
     LEInterface ifaceRef -> "unknown interface:" <-> pretty ifaceRef
     LEInterfaceMethod ifaceRef methodName -> "unknown interface method:" <-> pretty ifaceRef <> "." <> pretty methodName
-    LEUnknownInterfaceInstance iiKey -> "unknown" <-> quotes (pretty iiKey)
-    LEAmbiguousInterfaceInstance iiKey ->
+    LEUnknownInterfaceInstance iiHead -> "unknown" <-> quotes (pretty iiHead)
+    LEAmbiguousInterfaceInstance iiHead ->
       hsep
         [ "ambiguous"
-        , quotes (pretty iiKey) <> ","
+        , quotes (pretty iiHead) <> ","
         , "both the interface and the template define this interface instance."
         ]
