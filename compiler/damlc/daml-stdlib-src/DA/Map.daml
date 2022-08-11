@@ -46,6 +46,7 @@ module DA.Map
     , filterWithKey
     , delete
     , insert
+    , insertWith
     , alter
     , union
     , unionWith
@@ -151,6 +152,15 @@ delete = primitive @"BEGenMapDelete"
 -- supplied value.
 insert : Ord k => k -> v -> Map k v -> Map k v
 insert = primitive @"BEGenMapInsert"
+
+-- | Insert a new key/value pair in the map. If the key is already
+-- present in the map, it is combined with the previous value using the given function
+-- `f new_value old_value`.
+insertWith : Ord k => (v -> v -> v) -> k -> v -> Map k v -> Map k v
+insertWith f k v m =
+  case lookup k m of
+    None -> insert k v m
+    Some v' -> insert k (f v v') m
 
 -- | Update the value in `m` at `k` with `f`, inserting or deleting as
 -- required.  `f` will be called with either the value at `k`, or `None`
