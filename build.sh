@@ -35,8 +35,8 @@ done
 
 echo ---------- ls -----------
 ls -al
-echo ---------- uname -m -----------
-uname -m
+echo ---------- uname -a -----------
+uname -a
 echo ---------- arch uname -m -----------
 arch -arm64 uname -m
 echo ---------- if -----------
