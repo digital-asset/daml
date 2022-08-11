@@ -1,14 +1,14 @@
-From b3078d3502fb8a52194ea27e0c42fdd9e67f74a0 Mon Sep 17 00:00:00 2001
+From 7228ea4c4ae233be9132fd55b768e5f70fa72956 Mon Sep 17 00:00:00 2001
 From: Gary Verhaegen <gary.verhaegen@digitalasset.com>
-Date: Thu, 11 Aug 2022 14:24:09 +0200
+Date: Thu, 11 Aug 2022 14:34:28 +0200
 Subject: [PATCH] m1
 
 ---
- scripts/packages/bazel.sh | 4 ++++
- 1 file changed, 4 insertions(+)
+ scripts/packages/bazel.sh | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/scripts/packages/bazel.sh b/scripts/packages/bazel.sh
-index 03b7417369..cde34ec644 100755
+index 03b7417369..db416edb6e 100755
 --- a/scripts/packages/bazel.sh
 +++ b/scripts/packages/bazel.sh
 @@ -16,6 +16,9 @@
@@ -21,10 +21,12 @@ index 03b7417369..cde34ec644 100755
  # This is a script which can be installed as your "bazel" binary instead of the
  # real Bazel binary. When called, it tries to determine and run the correct
  # Bazel version for a given project and forwards all arguments to it.
-@@ -104,6 +107,7 @@ get_workspace_root
+@@ -103,7 +106,8 @@ function get_workspace_root() {
+ get_workspace_root
  
  readonly wrapper_dir="$(dirname "$(get_realpath "${BASH_SOURCE[0]}")")"
- readonly os_arch_suffix="$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)"
+-readonly os_arch_suffix="$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)"
++readonly os_arch_suffix=darwin-arm64 #"$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)"
 +echo os_arch_suffix: \"$os_arch_suffix\"
  
  function get_bazel_version() {
