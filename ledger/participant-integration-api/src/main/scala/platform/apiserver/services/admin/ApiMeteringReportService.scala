@@ -136,6 +136,7 @@ private[apiserver] object ApiMeteringReportService {
         request = Request(from, to, applicationId),
         `final` = reportData.isFinal,
         applications = applicationReports,
+        check = None, // TODO populate me
       )
 
       JsonFormat.parser.fromJsonString[Struct](report.toJson.compactPrint)
