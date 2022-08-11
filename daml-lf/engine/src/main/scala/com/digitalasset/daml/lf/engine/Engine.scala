@@ -551,7 +551,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           ResultError(
             Error.Interpretation.Internal(
               NameOf.qualifiedNameOfCurrentFunc,
-              s"uexpected ${err.getClass.getSimpleName}",
+              s"unexpected ${err.getClass.getSimpleName}",
               None,
             )
           )
