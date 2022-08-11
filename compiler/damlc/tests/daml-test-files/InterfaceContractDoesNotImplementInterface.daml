@@ -4,11 +4,13 @@
 module InterfaceContractDoesNotImplementInterface where
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface I where
-  viewtype ()
+  viewtype EmptyInterfaceView
 
 interface J requires I where
-  viewtype ()
+  viewtype EmptyInterfaceView
   getController : Party
   choice JChoice : ()
     controller getController this
@@ -20,10 +22,10 @@ template T
   where
     signatory party
     implements I where
-      view = ()
+      view = EmptyInterfaceView
 
 -- @ENABLE-SCENARIOS
--- @ERROR range=27:1-27:5; Attempt to use a contract via an interface that the contract does not implement
+-- @ERROR range=29:1-29:5; Attempt to use a contract via an interface that the contract does not implement
 main = do
   alice <- getParty "alice"
   cidT <- alice `submit` create T with party = alice

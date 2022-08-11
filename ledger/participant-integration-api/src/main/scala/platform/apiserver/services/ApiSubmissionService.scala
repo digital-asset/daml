@@ -103,7 +103,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
       request: SubmitRequest
   )(implicit telemetryContext: TelemetryContext): Future[Unit] =
     withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
-      logger.info("Submitting transaction")
+      logger.info("Submitting commands for interpretation")
       logger.trace(s"Commands: ${request.commands.commands.commands}")
 
       implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
@@ -252,6 +252,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
       result: CommandExecutionResult
   )(implicit telemetryContext: TelemetryContext): Future[state.SubmissionResult] = {
     metrics.daml.commands.validSubmissions.mark()
+    logger.debug("Submitting transaction to ledger")
     writeService
       .submitTransaction(
         result.submitterInfo,

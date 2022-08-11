@@ -3,8 +3,10 @@
 module InterfaceSerializabilityPayload where
 
 -- Test that the interface serializability payload itself is not serializable.
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface Gettable where
-  viewtype ()
+  viewtype EmptyInterfaceView
   nonconsuming choice Get : Gettable
     with anyActor : Party
     controller anyActor

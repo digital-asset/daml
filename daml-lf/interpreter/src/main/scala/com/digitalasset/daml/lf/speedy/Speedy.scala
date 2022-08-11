@@ -555,6 +555,8 @@ private[lf] object Speedy {
                   val ctx = onLedger.ptx.finish
                   SResultFinal(value, Some(ctx))
               }
+            case Control.Error(ie) =>
+              SResultError(SErrorDamlException(ie))
           }
         }
         loop()
@@ -1111,6 +1113,7 @@ private[lf] object Speedy {
     final case class Value(v: SValue) extends Control
     final case class Question(res: SResult) extends Control
     final case class Complete(res: SValue) extends Control
+    final case class Error(err: interpretation.Error) extends Control
   }
 
   /** Kont, or continuation. Describes the next step for the machine
@@ -1620,7 +1623,7 @@ private[lf] object Speedy {
         machine.kontStack.clear()
         machine.env.clear()
         machine.envBase = 0
-        throw SErrorDamlException(
+        Control.Error(
           IError.UnhandledException(excep.ty, excep.value.toUnnormalizedValue)
         )
     }

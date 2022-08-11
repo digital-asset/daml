@@ -51,6 +51,7 @@ private[apiserver] final class MetricsInterceptor(metrics: Metrics) extends Serv
       timer: Timer.Context,
   ) extends SimpleForwardingServerCall[ReqT, RespT](delegate) {
     override def close(status: Status, trailers: Metadata): Unit = {
+      metrics.daml.lapi.return_status.forCode(status.getCode.toString).inc()
       delegate.close(status, trailers)
       timer.stop()
       ()

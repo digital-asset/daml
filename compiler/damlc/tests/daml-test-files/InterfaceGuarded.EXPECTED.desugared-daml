@@ -4,6 +4,7 @@ import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
 import DA.Exception ( GeneralError(..), throwPure )
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
   _interfaceTypeRep
@@ -99,7 +100,7 @@ _choice_TokenGetRich
             do assert (byHowMuch > 0)
                create $ setAmount this (getAmount this + byHowMuch), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
-instance DA.Internal.Desugar.HasInterfaceView Token () where
+instance DA.Internal.Desugar.HasInterfaceView Token EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlInterface => SubToken
   = SubToken GHC.Types.Opaque
@@ -138,7 +139,7 @@ instance DA.Internal.Desugar.HasIsInterfaceType SubToken where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq SubToken where
   (==) = GHC.Types.primitive @"BEEqual"
-instance DA.Internal.Desugar.HasInterfaceView SubToken () where
+instance DA.Internal.Desugar.HasInterfaceView SubToken EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => Asset
   = Asset {issuer : Party, owner : Party, amount : Int}
@@ -250,7 +251,8 @@ _view_Asset_Token
   = DA.Internal.Desugar.mkInterfaceView
       @Asset
       @Token
-      \ this@Asset {..} -> let _ = this in let view = () in view
+      \ this@Asset {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 data GHC.Types.DamlTemplate => AnotherAsset
   = AnotherAsset {owner : Party, amount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -363,7 +365,8 @@ _view_AnotherAsset_Token
   = DA.Internal.Desugar.mkInterfaceView
       @AnotherAsset
       @Token
-      \ this@AnotherAsset {..} -> let _ = this in let view = () in view
+      \ this@AnotherAsset {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 _implements_AnotherAsset_SubToken :
   DA.Internal.Desugar.ImplementsT AnotherAsset SubToken
 _implements_AnotherAsset_SubToken = DA.Internal.Desugar.ImplementsT
@@ -378,7 +381,8 @@ _view_AnotherAsset_SubToken
   = DA.Internal.Desugar.mkInterfaceView
       @AnotherAsset
       @SubToken
-      \ this@AnotherAsset {..} -> let _ = this in let view = () in view
+      \ this@AnotherAsset {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 data DA.Internal.Desugar.DamlException => GuardException
   = GuardException {m : Text}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)

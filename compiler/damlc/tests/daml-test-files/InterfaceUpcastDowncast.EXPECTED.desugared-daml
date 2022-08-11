@@ -6,6 +6,7 @@ import (implicit) DA.Internal.RebindableSyntax
 import DA.Assert ( (===) )
 import DA.Optional ( isNone )
 import DA.Functor ( void )
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => A = A GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep A where
   _interfaceTypeRep
@@ -78,7 +79,7 @@ _choice_AChoiceA
      \ self this arg@ChoiceA
        -> let _ = self in let _ = this in let _ = arg in do pure 10, 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-instance DA.Internal.Desugar.HasInterfaceView A () where
+instance DA.Internal.Desugar.HasInterfaceView A EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlInterface => B = B GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep B where
@@ -161,7 +162,7 @@ _choice_BChoiceB
        -> let _ = self in
           let _ = this in let _ = arg in do pure (getCoolness this), 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-instance DA.Internal.Desugar.HasInterfaceView B () where
+instance DA.Internal.Desugar.HasInterfaceView B EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => T1
   = T1 {p1 : Party}
@@ -241,7 +242,10 @@ _method_T1_A_getOwner
 _view_T1_A : DA.Internal.Desugar.InterfaceView T1 A
 _view_T1_A
   = DA.Internal.Desugar.mkInterfaceView
-      @T1 @A \ this@T1 {..} -> let _ = this in let view = () in view
+      @T1
+      @A
+      \ this@T1 {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 _implements_T1_B : DA.Internal.Desugar.ImplementsT T1 B
 _implements_T1_B = DA.Internal.Desugar.ImplementsT
 instance DA.Internal.Desugar.HasToInterface T1 B where
@@ -261,7 +265,10 @@ _method_T1_B_getCoolness
 _view_T1_B : DA.Internal.Desugar.InterfaceView T1 B
 _view_T1_B
   = DA.Internal.Desugar.mkInterfaceView
-      @T1 @B \ this@T1 {..} -> let _ = this in let view = () in view
+      @T1
+      @B
+      \ this@T1 {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 data GHC.Types.DamlTemplate => T2
   = T2 {p2 : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -340,7 +347,10 @@ _method_T2_A_getOwner
 _view_T2_A : DA.Internal.Desugar.InterfaceView T2 A
 _view_T2_A
   = DA.Internal.Desugar.mkInterfaceView
-      @T2 @A \ this@T2 {..} -> let _ = this in let view = () in view
+      @T2
+      @A
+      \ this@T2 {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 main
   = scenario
       do p <- getParty "Alice"
