@@ -33,5 +33,3 @@ packer build -only=init-3.tart-cli.init-3 daml-build.pkr.hcl
 
 
 
-
-
