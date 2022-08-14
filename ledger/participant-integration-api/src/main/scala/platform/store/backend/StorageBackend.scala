@@ -223,9 +223,6 @@ trait ContractStorageBackend {
   def activeContractWithoutArgument(readers: Set[Party], contractId: ContractId)(
       connection: Connection
   ): Option[String]
-  def contractKey(readers: Set[Party], key: Key)(
-      connection: Connection
-  ): Option[ContractId]
   def contractStateEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
   ): Vector[ContractStorageBackend.RawContractStateEvent]
