@@ -45,7 +45,6 @@ import org.scalatest.{Assertion, BeforeAndAfterAll}
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-// TODO LLP: Extract unit test for [[com.daml.platform.store.cache.ContractStateCaches]] in own unit test
 class MutableCacheBackedContractStoreSpec
     extends AsyncWordSpec
     with Matchers
