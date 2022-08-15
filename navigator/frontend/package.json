@@ -90,8 +90,6 @@
     "whatwg-fetch": "^3.5.0"
   },
   "resolutions": {
-    "**/elliptic": "^6.5.4",
-    "**/ssri": "^8.0.1",
     "**/hosted-git-info": "^4.0.2",
     "**/ws": "^7.4.6",
     "**/css-what": "^5.0.1",
