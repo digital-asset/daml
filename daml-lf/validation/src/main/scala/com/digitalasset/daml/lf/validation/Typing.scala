@@ -605,7 +605,6 @@ private[validation] object Typing {
         .introExprVar(tmplParam, TTyCon(templateId))
 
       val DefInterfaceSignature(requires, _, _, methods, _, view) =
-        // TODO https://github.com/digital-asset/daml/issues/14112
         iiInfo.interfaceSignature
 
       requires
