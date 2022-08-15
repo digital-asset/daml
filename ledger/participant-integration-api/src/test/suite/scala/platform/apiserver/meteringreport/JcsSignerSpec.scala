@@ -6,7 +6,13 @@ package com.daml.platform.apiserver.meteringreport
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.apiserver.meteringreport.JcsSigner.VerificationStatus._
-import com.daml.platform.apiserver.meteringreport.MeteringReport.{ApplicationReport, Check, ParticipantReport, Request, Scheme}
+import com.daml.platform.apiserver.meteringreport.MeteringReport.{
+  ApplicationReport,
+  Check,
+  ParticipantReport,
+  Request,
+  Scheme,
+}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -29,7 +35,7 @@ class JcsSignerSpec extends AnyWordSpec with Matchers {
     request = Request(from, Some(to), Some(application)),
     `final` = false,
     applications = Seq(ApplicationReport(application, 272)),
-    check = None
+    check = None,
   )
 
   JcsSigner.getClass.getName should {
@@ -43,7 +49,8 @@ class JcsSignerSpec extends AnyWordSpec with Matchers {
 
     "ignore existing check" in {
       val Right(expected) = JcsSigner.sign(report.copy(check = None), scheme, hmacKey)
-      val Right(actual) = JcsSigner.sign(report.copy(check = Some(Check("some", "other"))), scheme, hmacKey)
+      val Right(actual) =
+        JcsSigner.sign(report.copy(check = Some(Check("some", "other"))), scheme, hmacKey)
       actual shouldBe expected
     }
 
@@ -66,12 +73,14 @@ class JcsSignerSpec extends AnyWordSpec with Matchers {
     }
 
     "fail verification if check sections is missing" in {
-      JcsSigner.verify(report.copy(check=None), keyLookup) shouldBe MissingCheckSection
+      JcsSigner.verify(report.copy(check = None), keyLookup) shouldBe MissingCheckSection
     }
 
     "fail verification if check scheme is unknown" in {
       val check = Check("unknown", "digest")
-      JcsSigner.verify(report.copy(check = Some(check)), keyLookup) shouldBe UnknownScheme(check.scheme)
+      JcsSigner.verify(report.copy(check = Some(check)), keyLookup) shouldBe UnknownScheme(
+        check.scheme
+      )
     }
 
     "fail verification check regeneration fails" in {
@@ -80,6 +89,5 @@ class JcsSignerSpec extends AnyWordSpec with Matchers {
     }
 
   }
-
 
 }
