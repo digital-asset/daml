@@ -38,7 +38,7 @@ message ObjectMeta {
   //
   // Constraints:
   // 1. The total size over all keys and values cannot exceed 256kb in UTF-8 encoding.
-  // 2. Keys are composed of an optional prefix segment and required name segment such that:
+  // 2. Keys are composed of an optional prefix segment and a required name segment such that:
   //    - key prefix, when present, must be a valid DNS subdomain with at most 253 characters, followed by a '/' (forward slash) character,
   //    - name segment must have at most 63 characters that are either alphanumeric ([a-z0-9A-Z]), or a '.' (dot), '-' (dash) or '_' (underscore);
   //      additionally it must start and end with an alphanumeric character.
