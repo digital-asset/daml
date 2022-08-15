@@ -111,7 +111,11 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
 
     // TODO (drsk) remove this assertion once disclosed contracts feature becomes stable.
     // https://github.com/digital-asset/daml/issues/13952.
-    assert(disclosures.isEmpty || config.allowedLanguageVersions.contains(LanguageVersion.Features.explicitDisclosure))
+    assert(
+      disclosures.isEmpty || config.allowedLanguageVersions.contains(
+        LanguageVersion.Features.explicitDisclosure
+      )
+    )
     val submissionTime = cmds.ledgerEffectiveTime
 
     for {

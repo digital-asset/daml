@@ -331,7 +331,7 @@ object ExplicitDisclosureLib {
   def haveDisclosedContracts(disclosedContracts: DisclosedContract*): Matcher[Speedy.OnLedger] =
     Matcher { ledger =>
       val expectedResult = ImmArray(disclosedContracts: _*)
-      val actualResult = ledger.ptx.finish.disclosedContracts
+      val actualResult = ledger.ptx.disclosedContracts
       val debugMessage = Seq(
         s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.contractId)}",
         s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.contractId)}",

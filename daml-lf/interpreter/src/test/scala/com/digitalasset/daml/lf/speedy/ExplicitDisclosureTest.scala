@@ -141,20 +141,6 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
           }
         }
       }
-
-      "unused disclosed contracts not saved to ledger.ptx" in { // FIXME:
-        unusedDisclosedContractsNotSavedToTransaction(
-          SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
-          committers = Set(disclosureParty),
-          disclosedContracts = ImmArray(disclosedCaveContract, disclosedHouseContract),
-          usedDisclosedContracts = ImmArray(disclosedCaveContract),
-        )(result =>
-          inside(result) {
-            case Right(SValue.SAny(_, contract @ SValue.SRecord(`caveTemplateId`, _, _))) =>
-              getOwner(contract.toUnnormalizedValue) shouldBe Some(disclosureParty)
-          }
-        )
-      }
     }
 
     "fetching contract keys" - {
@@ -268,15 +254,6 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
             }
           }
         }
-      }
-
-      "unused disclosed contracts not saved to ledger.ptx" in { // FIXME:
-        unusedDisclosedContractsNotSavedToTransaction(
-          SBUFetchKey(houseTemplateId)(SEValue(contractSKey)),
-          committers = Set(disclosureParty),
-          disclosedContracts = ImmArray(disclosedCaveContract, disclosedHouseContract),
-          usedDisclosedContracts = ImmArray(disclosedHouseContract),
-        )(_ shouldBe Right(SValue.SContractId(disclosureContractId)))
       }
 
       "wrongly typed contract disclosures are rejected" in {
@@ -394,15 +371,6 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
             }
           }
         }
-      }
-
-      "unused disclosed contracts not saved to ledger.ptx" in { // FIXME:
-        unusedDisclosedContractsNotSavedToTransaction(
-          SBULookupKey(houseTemplateId)(SEValue(contractSKey)),
-          committers = Set(disclosureParty),
-          disclosedContracts = ImmArray(disclosedCaveContract, disclosedHouseContract),
-          usedDisclosedContracts = ImmArray(disclosedHouseContract),
-        )(_ shouldBe Right(SValue.SOptional(Some(SValue.SContractId(disclosureContractId)))))
       }
 
       "wrongly typed contract disclosures are rejected" in {
@@ -525,27 +493,6 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
     ledger should haveDisclosedContracts(disclosedContract)
     ledger should haveCachedContractIds(contractToDestroy)
     ledger should haveInactiveContractIds(contractToDestroy)
-  }
-
-  def unusedDisclosedContractsNotSavedToTransaction(
-      sexpr: SExpr.SExpr,
-      committers: Set[Party] = Set.empty,
-      usedDisclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
-      disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
-  )(assertResult: Either[SError.SError, SValue] => Assertion): Assertion = { // FIXME:
-    val (result, ledger) =
-      evaluateSExpr(
-        sexpr,
-        committers = committers,
-        disclosedContracts = disclosedContracts,
-      )
-
-    assertResult(result)
-    ledger should haveDisclosedContracts(usedDisclosedContracts.toIndexedSeq: _*)
-    ledger should haveCachedContractIds(
-      usedDisclosedContracts.toIndexedSeq.map(_.contractId.value): _*
-    )
-    ledger should haveInactiveContractIds()
   }
 
   def wronglyTypedDisclosedContractsRejected(sexpr: SExpr.SExpr): Assertion = {
