@@ -17,7 +17,7 @@ message ObjectMeta {
 
   // An opaque value populated by a participant server which represents the internal version of the resource
   // this ObjectMeta message is attached to. The participant server will change it to a unique value each time the corresponding resource is updated.
-  // You must not rely on resource version value format. Implementations are free to choose any suitable versioning scheme and change it
+  // You must not rely on the format of resource version. The participant server might change it without notice.
   // without notice.
   //
   // You can obtain the newest resource version value by issuing a read request.
