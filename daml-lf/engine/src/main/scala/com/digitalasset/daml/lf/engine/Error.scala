@@ -127,7 +127,8 @@ object Error {
 
     final case class BadDisclosedContract(message: String) extends Error
 
-    final case class AmbiguousInterfaceInstance(interface: Ref.Identifier, template: Ref.Identifier) extends Error {
+    final case class AmbiguousInterfaceInstance(interface: Ref.Identifier, template: Ref.Identifier)
+        extends Error {
       override def message: String =
         s"Ambiguous interface instance: two instances for interface $interface and template $template"
     }
