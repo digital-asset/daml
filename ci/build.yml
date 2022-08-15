@@ -110,7 +110,6 @@ jobs:
     assignment: default
 
 - template: macOS.yml
-  condition: eq(variables['Build.SourceBranchName'], 'main')
   parameters:
     name: m1
     assignment: m1-builds
