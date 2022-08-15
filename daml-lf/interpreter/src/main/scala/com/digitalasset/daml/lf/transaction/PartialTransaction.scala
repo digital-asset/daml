@@ -314,7 +314,9 @@ private[speedy] case class PartialTransaction(
           locationInfo(),
           seeds.zip(actionNodeSeeds.toImmArray),
           contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
-          disclosedContracts,
+          disclosedContracts.filter(disclosedContract =>
+            txResult.inputContracts.contains(disclosedContract.contractId.value)
+          ),
         )
 
       case _ =>

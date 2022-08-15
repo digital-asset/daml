@@ -11,20 +11,11 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.transaction.{
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  Node,
-  NodeId,
-  SubmittedTransaction,
-  VersionedTransaction,
-  Transaction => Tx,
-  TransactionVersion => TxVersions,
-}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node, NodeId, SubmittedTransaction, VersionedTransaction, Transaction => Tx, TransactionVersion => TxVersions}
 import com.daml.lf.transaction.{Normalization, ReplayMismatch, Validation}
 import com.daml.lf.value.Value
 import Value._
-import com.daml.lf.speedy.{ArrayList, InitialSeeding, SValue, svalue}
+import com.daml.lf.speedy.{ArrayList, DisclosedContract, InitialSeeding, SValue, Speedy, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.engine.Error.Interpretation
@@ -37,6 +28,7 @@ import org.scalatest.EitherValues
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.Inside._
+import org.scalatest.matchers.{MatchResult, Matcher}
 
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
@@ -749,6 +741,7 @@ class EngineTest
           )
       }
     }
+
     "error if Speedy fails to find the key" in {
       val templateId = Identifier(basicTestsPkgId, "BasicTests:FailedFetchByKey")
 
@@ -795,6 +788,36 @@ class EngineTest
           )
       }
     }
+
+//    "unused disclosed contracts not saved to ledger" in {
+//      // TODO:
+//      val templateId = Identifier(basicTestsPkgId, "BasicTests:FetcherByKey")
+//      val cmds = ImmArray(
+//        speedy.Command.FetchByKey(
+//          templateId = templateId,
+//          key = ???
+//        )
+//      )
+//      val submitters = Set(alice)
+//      val result = suffixLenientEngine
+//        .interpretCommands(
+//          validating = false,
+//          submitters = submitters,
+//          readAs = Set.empty,
+//          commands = cmds,
+//          ledgerTime = now,
+//          submissionTime = now,
+//          seeding = InitialSeeding.TransactionSeed(seed),
+//          disclosures = ImmArray(unusedDisclosedContract, usedDisclosedContract),
+//        )
+//        .consume(_ => None, lookupPackage, lookupKey)
+//
+//      inside(result) {
+//        case Right((transaction, metadata)) =>
+//          transaction should haveDisclosedContractInputs(usedDisclosedContract)
+//          metadata should haveDisclosedContracts(usedDisclosedContract)
+//      }
+//    }
   }
 
   "create-and-exercise command" should {
@@ -1383,9 +1406,7 @@ class EngineTest
   }
 
   "lookup by key" should {
-
     val seed = hash("interpreting lookup by key nodes")
-
     val lookedUpCid = toContractId("1")
     val lookerUpTemplate = "BasicTests:LookerUpByKey"
     val lookerUpTemplateId = Identifier(basicTestsPkgId, lookerUpTemplate)
@@ -1568,6 +1589,72 @@ class EngineTest
         err.message should include(
           "Update failed due to a contract key with an empty sey of maintainers"
         )
+      }
+    }
+
+//    "unused disclosed contracts not saved to ledger" in {
+//      // TODO:
+//      val templateId = Identifier(basicTestsPkgId, "BasicTests:FetcherByKey")
+//      val cmds = ImmArray(
+//        speedy.Command.LookupByKey(
+//          templateId = templateId,
+//          contractKey = ???
+//        )
+//      )
+//      val submitters = Set(alice)
+//      val result = suffixLenientEngine
+//        .interpretCommands(
+//          validating = false,
+//          submitters = submitters,
+//          readAs = Set.empty,
+//          commands = cmds,
+//          ledgerTime = now,
+//          submissionTime = now,
+//          seeding = InitialSeeding.TransactionSeed(seed),
+//          disclosures = ImmArray(unusedDisclosedContract, usedDisclosedContract),
+//        )
+//        .consume(_ => None, lookupPackage, lookupKey)
+//
+//      inside(result) {
+//        case Right((transaction, metadata)) =>
+//          transaction should haveDisclosedContractInputs(usedDisclosedContract)
+//          metadata should haveDisclosedContracts(usedDisclosedContract)
+//      }
+//    }
+  }
+
+  "fetch template" should {
+    val seed = hash("fetch template")
+    val now = Time.Timestamp.now()
+    val templateId = Identifier(basicTestsPkgId, "BasicTests:Simple")
+    val usedDisclosedContract = DisclosedContract(templateId, SValue.SContractId(toContractId("BasicTests:Simple:1")), ???, ContractMetadata(now, None, ImmArray.empty))
+    val unusedDisclosedContract = DisclosedContract(templateId, SValue.SContractId(toContractId("BasicTests:Simple:2")), ???, ContractMetadata(now, None, ImmArray.empty))
+
+    "unused disclosed contracts not saved to ledger" in {
+      val cmds = ImmArray(
+        speedy.Command.FetchTemplate(
+          templateId = templateId,
+          coid = usedDisclosedContract.contractId
+        )
+      )
+      val submitters = Set(alice)
+      val result = suffixLenientEngine
+        .interpretCommands(
+          validating = false,
+          submitters = submitters,
+          readAs = Set.empty,
+          commands = cmds,
+          ledgerTime = now,
+          submissionTime = now,
+          seeding = InitialSeeding.TransactionSeed(seed),
+          disclosures = ImmArray(unusedDisclosedContract, usedDisclosedContract),
+        )
+        .consume(_ => None, lookupPackage, lookupKey)
+
+      inside(result) {
+        case Right((transaction, metadata)) =>
+          transaction should haveDisclosedContractInputs(usedDisclosedContract)
+          metadata should haveDisclosedContracts(usedDisclosedContract)
       }
     }
   }
@@ -2249,7 +2336,6 @@ class EngineTest
     }
 
   }
-
 }
 
 object EngineTest {
@@ -2434,4 +2520,35 @@ object EngineTest {
     )
   }
 
+  def haveDisclosedContracts(disclosedContracts: DisclosedContract*): Matcher[Tx.Metadata] =
+    Matcher { metadata =>
+      val expectedResult = ImmArray(disclosedContracts: _*)
+      val actualResult = metadata.disclosures.map(_.unversioned)
+      val debugMessage = Seq(
+        s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.contractId)}",
+        s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.contractId)}",
+      ).mkString("\n  ", "\n  ", "")
+
+      MatchResult(
+        expectedResult == actualResult,
+        s"Failed with unexpected disclosed contracts: $expectedResult != $actualResult $debugMessage",
+        s"Failed with unexpected disclosed contracts: $expectedResult == $actualResult",
+      )
+    }
+
+  def haveDisclosedContractInputs(disclosedContracts: DisclosedContract*): Matcher[SubmittedTransaction] =
+    Matcher { transaction =>
+      val expectedResult = Set(disclosedContracts: _*).map(_.contractId.value)
+      val actualResult = transaction.inputContracts
+      val debugMessage = Seq(
+        s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_))}",
+        s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_))}",
+      ).mkString("\n  ", "\n  ", "")
+
+      MatchResult(
+        expectedResult == actualResult,
+        s"Failed with unexpected disclosed contracts: $expectedResult != $actualResult $debugMessage",
+        s"Failed with unexpected disclosed contracts: $expectedResult == $actualResult",
+      )
+    }
 }
