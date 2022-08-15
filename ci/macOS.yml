@@ -13,7 +13,7 @@ jobs:
   pool:
     name: macOS-pool
     demands: assignment -equals ${{parameters.assignment}}
-  condition: or(eq("${{parameters.name}}", "macOS"),
+  condition: or(eq('${{parameters.name}}', 'macOS'),
                 eq(variables['Build.SourceBranchName'], 'main'))
   variables:
     - name: release_sha
