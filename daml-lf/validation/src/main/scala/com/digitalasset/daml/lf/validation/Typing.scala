@@ -630,7 +630,7 @@ private[validation] object Typing {
         }
       }
 
-      checkTopExpr(iiBody.view, view)
+      env.checkTopExpr(iiBody.view, view)
     }
 
     private[Typing] def checkDefException(
