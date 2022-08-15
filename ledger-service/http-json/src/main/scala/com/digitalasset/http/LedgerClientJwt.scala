@@ -135,12 +135,12 @@ object LedgerClientJwt {
   private def logLedgeClientCallTime[T, C](
       clientCallName: String
   )(block: => Future[T])(implicit ec: EC, lc: LoggingContextOf[C]): Future[T] = {
-    // TODO: We shouldn't even get the nanoTime() if the logging level is not DEBUG OR TRACE
+    // TODO: It shouldn't even get the nanoTime() if the logging level is not DEBUG OR TRACE
     val start = System.nanoTime()
     val futureResult = block
     futureResult.andThen { case _ =>
       logger.debug(
-        // TODO: follow the logging format as DB call.
+        // TODO: Follow the logging format of DB call.
         s"Ledger client call $clientCallName elapsed time: ${System.nanoTime() - start} ns"
       )
     }
