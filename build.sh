@@ -28,7 +28,7 @@ if [ -n "$SANDBOX_PID" ]; then
     echo $SANDBOX_PID | xargs kill
 fi
 
-if [ "$1" = "_macos-m1" ]; then
+if [ "$1" = "_m1" ]; then
     bazel="arch -arm64 bazel"
 else
     bazel=bazel
