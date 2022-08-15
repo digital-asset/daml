@@ -28,35 +28,14 @@ if [ -n "$SANDBOX_PID" ]; then
     echo $SANDBOX_PID | xargs kill
 fi
 
-for f in .bazelrc; do
-    echo "---------- $f -----------"
-    cat $f
-done
-
-echo ---------- ls -----------
-ls -al
-echo ---------- uname -a -----------
-uname -a
-echo ---------- arch uname -m -----------
-arch -arm64 uname -m
-echo ---------- if -----------
-echo "\$1=$1"
-echo $(if [ "_macos-m1" == "$1" ]; then echo "--host-platform=//:ci-m1 --platforms=//:ci-m1"; fi)
-echo ---------- arch -----------
-arch
-echo
-echo ---------- file curl -----------
-file /nix/store/ifmdllb8axga08r0j5wpy7fqyjghirrc-curl-7.81.0-bin/bin/curl
-echo ---------- file bazel -----------
-file /nix/store/dnfddpxqffw1yzgpwk01by7a8h9wzyav-bazel-4.2.2/bin/bazel-4.2.2-darwin-aarch64
-echo ---------- ls bazel -----------
-ls /nix/store/dnfddpxqffw1yzgpwk01by7a8h9wzyav-bazel-4.2.2/bin
-echo ---------------------
-
-arch -arm64 bazel clean --expunge
+if [ "$0" = "_macos-m1" ]; then
+    echo macos-m1
+else
+    echo not m1
+fi
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
-arch -arm64 bazel build //ci/... \
+arch -arm64 bazel build //... \
   --toolchain_resolution_debug \
   --build_tag_filters "$tag_filter" \
   --profile build-profile.json \
@@ -64,8 +43,6 @@ arch -arm64 bazel build //ci/... \
   --build_event_json_file build-events.json \
   --build_event_publish_all_actions \
   --experimental_execution_log_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.log"
-
-exit 0
 
 # Set up a shared PostgreSQL instance.
 export POSTGRESQL_ROOT_DIR="${TMPDIR:-/tmp}/daml/postgresql"
