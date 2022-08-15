@@ -129,7 +129,7 @@ message AllocatePartyRequest {
   // Optional
   string display_name = 2;
 
-  // Participant local metadata to be bound to this newly allocated party.
+  // Participant-local metadata to be stored in the ``PartyDetails`` of this newly allocated party.
   // Required
   ObjectMeta local_metadata = 3;
 }
