@@ -170,7 +170,7 @@ message PartyDetails {
 
   // Human readable name associated with the party at allocation time.
   // Caution, it might not be unique.
-  // Use of this field is discouraged. Consider using the `local_metadata` field instead.
+  // Use of this field is discouraged. Use the `local_metadata` field instead.
   //
   // Optional
   // Read-Only
