@@ -45,6 +45,9 @@ object LookupError {
   def apply(notFound: Reference, context: Reference) =
     NotFound(notFound, context)
 
+  def unapply(err: LookupError.NotFound): Option[(Reference, Reference)] =
+    Some(err.notFound, err.context)
+
 }
 
 sealed abstract class Reference extends Product with Serializable {
