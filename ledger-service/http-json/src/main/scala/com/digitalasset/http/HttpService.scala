@@ -152,7 +152,7 @@ object HttpService {
         { case (jwt, ledgerId, byteString) =>
           implicit lc =>
             LedgerClientJwt
-              .uploadDar(pkgManagementClient)(jwt, ledgerId, byteString)(lc)
+              .uploadDar(pkgManagementClient)(ec)(jwt, ledgerId, byteString)(lc)
               .flatMap(_ => packageService.reload(jwt, ledgerId))
               .map(_ => ())
         },
@@ -160,7 +160,7 @@ object HttpService {
 
       meteringReportService = new MeteringReportService(
         { case (jwt, request) =>
-          implicit lc => LedgerClientJwt.getMeteringReport(client)(jwt, request)(lc)
+          implicit lc => LedgerClientJwt.getMeteringReport(client)(ec)(jwt, request)(lc)
         }
       )
 

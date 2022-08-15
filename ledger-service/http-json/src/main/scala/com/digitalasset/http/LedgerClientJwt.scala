@@ -47,16 +47,25 @@ object LedgerClientJwt {
     (
         Jwt,
         SubmitAndWaitRequest,
-    ) => EFuture[SubmitError, SubmitAndWaitForTransactionResponse]
+    ) => LoggingContextOf[InstanceUUID with RequestID] => EFuture[
+      SubmitError,
+      SubmitAndWaitForTransactionResponse,
+    ]
 
   type SubmitAndWaitForTransactionTree =
     (
         Jwt,
         SubmitAndWaitRequest,
-    ) => EFuture[SubmitError, SubmitAndWaitForTransactionTreeResponse]
+    ) => LoggingContextOf[InstanceUUID with RequestID] => EFuture[
+      SubmitError,
+      SubmitAndWaitForTransactionTreeResponse,
+    ]
 
   type GetTermination =
-    (Jwt, LedgerApiDomain.LedgerId) => Future[Option[Terminates.AtAbsolute]]
+    (
+        Jwt,
+        LedgerApiDomain.LedgerId,
+    ) => LoggingContextOf[InstanceUUID] => Future[Option[Terminates.AtAbsolute]]
 
   type GetActiveContracts =
     (
@@ -76,16 +85,24 @@ object LedgerClientJwt {
     ) => Source[Transaction, NotUsed]
 
   type ListKnownParties =
-    Jwt => EFuture[PermissionDenied, List[api.domain.PartyDetails]]
+    Jwt => LoggingContextOf[InstanceUUID with RequestID] => EFuture[PermissionDenied, List[
+      api.domain.PartyDetails
+    ]]
 
   type GetParties =
     (
         Jwt,
         OneAnd[Set, Ref.Party],
-    ) => EFuture[PermissionDenied, List[api.domain.PartyDetails]]
+    ) => LoggingContextOf[InstanceUUID with RequestID] => EFuture[PermissionDenied, List[
+      api.domain.PartyDetails
+    ]]
 
   type AllocateParty =
-    (Jwt, Option[Ref.Party], Option[String]) => Future[api.domain.PartyDetails]
+    (
+        Jwt,
+        Option[Ref.Party],
+        Option[String],
+    ) => LoggingContextOf[InstanceUUID with RequestID] => Future[api.domain.PartyDetails]
 
   type ListPackages =
     (Jwt, LedgerApiDomain.LedgerId) => LoggingContextOf[InstanceUUID with RequestID] => Future[
@@ -115,29 +132,55 @@ object LedgerClientJwt {
 
   private def bearer(jwt: Jwt): Some[String] = Some(jwt.value: String)
 
+  private def timeFuture[T, C](
+      clientCallName: String
+  )(
+      block: => Future[T]
+  )(implicit
+      ec: EC,
+      lc: LoggingContextOf[C],
+  ): Future[T] = {
+    val start = System.nanoTime()
+    val futureResult = block
+    futureResult.andThen { case _ =>
+      logger.debug(
+        s">> Ledger client call $clientCallName. Elapsed time: ${System.nanoTime() - start} ns"
+      )
+    }
+  }
+
   def submitAndWaitForTransaction(
       client: DamlLedgerClient
   )(implicit ec: EC): SubmitAndWaitForTransaction =
     (jwt, req) =>
-      client.commandServiceClient
-        .submitAndWaitForTransaction(req, bearer(jwt))
-        .requireHandling(submitErrors)
-
+      implicit lc => {
+        timeFuture("SynchronousCommandClient submitAndWaitForTransaction") {
+          client.commandServiceClient
+            .submitAndWaitForTransaction(req, bearer(jwt))
+        }.requireHandling(submitErrors)
+      }
   def submitAndWaitForTransactionTree(
       client: DamlLedgerClient
   )(implicit ec: EC): SubmitAndWaitForTransactionTree =
     (jwt, req) =>
-      client.commandServiceClient
-        .submitAndWaitForTransactionTree(req, bearer(jwt))
-        .requireHandling(submitErrors)
+      implicit lc => {
+        timeFuture("SynchronousCommandClient submitAndWaitForTransactionTree") {
+          client.commandServiceClient
+            .submitAndWaitForTransactionTree(req, bearer(jwt))
+        }.requireHandling(submitErrors)
+      }
 
   def getTermination(client: DamlLedgerClient)(implicit ec: EC): GetTermination =
     (jwt, ledgerId) =>
-      client.transactionClient.getLedgerEnd(ledgerId, bearer(jwt)).map {
-        _.offset flatMap {
-          _.value match {
-            case off @ LedgerOffset.Value.Absolute(_) => Some(Terminates.AtAbsolute(off))
-            case LedgerOffset.Value.Boundary(_) | LedgerOffset.Value.Empty => None // at beginning
+      implicit lc => {
+        timeFuture("TransactionClient getLedgerEnd") {
+          client.transactionClient.getLedgerEnd(ledgerId, bearer(jwt))
+        }.map {
+          _.offset flatMap {
+            _.value match {
+              case off @ LedgerOffset.Value.Absolute(_) => Some(Terminates.AtAbsolute(off))
+              case LedgerOffset.Value.Boundary(_) | LedgerOffset.Value.Empty => None // at beginning
+            }
           }
         }
       }
@@ -199,50 +242,70 @@ object LedgerClientJwt {
 
   def listKnownParties(client: DamlLedgerClient)(implicit ec: EC): ListKnownParties =
     jwt =>
-      client.partyManagementClient.listKnownParties(bearer(jwt)).requireHandling {
-        case Code.PERMISSION_DENIED => PermissionDenied
+      implicit lc => {
+        timeFuture("PartyManagementClient listKnownParties") {
+          client.partyManagementClient.listKnownParties(bearer(jwt))
+        }.requireHandling { case Code.PERMISSION_DENIED =>
+          PermissionDenied
+        }
       }
 
   def getParties(client: DamlLedgerClient)(implicit ec: EC): GetParties =
     (jwt, partyIds) =>
-      client.partyManagementClient.getParties(partyIds, bearer(jwt)).requireHandling {
-        case Code.PERMISSION_DENIED => PermissionDenied
+      implicit lc => {
+        timeFuture("PartyManagementClient getParties") {
+          client.partyManagementClient.getParties(partyIds, bearer(jwt))
+        }.requireHandling { case Code.PERMISSION_DENIED =>
+          PermissionDenied
+        }
       }
 
-  def allocateParty(client: DamlLedgerClient): AllocateParty =
+  def allocateParty(client: DamlLedgerClient)(implicit ec: EC): AllocateParty =
     (jwt, identifierHint, displayName) =>
-      client.partyManagementClient.allocateParty(
-        hint = identifierHint,
-        displayName = displayName,
-        token = bearer(jwt),
-      )
+      implicit lc => {
+        timeFuture("PartyManagementClient allocateParty") {
+          client.partyManagementClient.allocateParty(
+            hint = identifierHint,
+            displayName = displayName,
+            token = bearer(jwt),
+          )
+        }
+      }
 
-  def listPackages(client: DamlLedgerClient): ListPackages =
+  def listPackages(client: DamlLedgerClient)(implicit ec: EC): ListPackages =
     (jwt, ledgerId) =>
       implicit lc => {
         logger.trace("sending list packages request to ledger")
-        client.packageClient.listPackages(ledgerId, bearer(jwt))
+        timeFuture("PackageClient listPackages") {
+          client.packageClient.listPackages(ledgerId, bearer(jwt))
+        }
       }
 
-  def getPackage(client: DamlLedgerClient): GetPackage =
+  def getPackage(client: DamlLedgerClient)(implicit ec: EC): GetPackage =
     (jwt, ledgerId, packageId) =>
       implicit lc => {
         logger.trace("sending get packages request to ledger")
-        client.packageClient.getPackage(packageId, ledgerId, token = bearer(jwt))
+        timeFuture("PackageClient getPackage") {
+          client.packageClient.getPackage(packageId, ledgerId, token = bearer(jwt))
+        }
       }
 
-  def uploadDar(client: DamlLedgerClient): UploadDarFile =
+  def uploadDar(client: DamlLedgerClient)(implicit ec: EC): UploadDarFile =
     (jwt, _, byteString) =>
       implicit lc => {
         logger.trace("sending upload dar request to ledger")
-        client.packageManagementClient.uploadDarFile(darFile = byteString, token = bearer(jwt))
+        timeFuture("PackageManagementClient uploadDarFile") {
+          client.packageManagementClient.uploadDarFile(darFile = byteString, token = bearer(jwt))
+        }
       }
 
-  def getMeteringReport(client: DamlLedgerClient): GetMeteringReport =
+  def getMeteringReport(client: DamlLedgerClient)(implicit ec: EC): GetMeteringReport =
     (jwt, request) =>
       implicit lc => {
         logger.trace("sending metering report request to ledger")
-        client.meteringReportClient.getMeteringReport(request, bearer(jwt))
+        timeFuture("MeteringReportClient getMeteringReport") {
+          client.meteringReportClient.getMeteringReport(request, bearer(jwt))
+        }
       }
 
   // a shim error model to stand in for https://github.com/digital-asset/daml/issues/9834
