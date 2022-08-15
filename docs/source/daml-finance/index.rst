@@ -13,6 +13,7 @@ Daml Finance
    getting-started/getting-started
    getting-started/settlement
    getting-started/lifecycling
+   tutorial/bond-extension
 
 Daml Finance is currently an :doc:`Early Access Feature in Alpha status </support/status-definitions>`.
 
