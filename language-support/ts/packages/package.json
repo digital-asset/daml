@@ -28,8 +28,6 @@
     "typedoc": "^0.22.11"
   },
   "resolutions": {
-    "**/y18n": "^4.0.1",
-    "**/hosted-git-info": "^4.0.2",
     "**/protobufjs": "^6.10.3"
   }
 }
