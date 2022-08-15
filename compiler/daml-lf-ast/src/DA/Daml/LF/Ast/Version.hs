@@ -54,7 +54,7 @@ version1_15 = V1 $ PointStable 15
 
 -- | The Daml-LF version used by default.
 versionDefault :: Version
-versionDefault = version1_14
+versionDefault = version1_15
 
 -- | The Daml-LF development version.
 versionDev :: Version
