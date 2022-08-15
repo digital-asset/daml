@@ -119,7 +119,7 @@ jobs:
   pool:
     name: macOS-pool
     demands: assignment -equals $(assignment)
-  #condition: or(eq(variables.name, 'macos'), eq(variables['Build.SourceBranchName'], 'main'))
+  condition: or(eq(variables.name, 'macos'), eq(variables['Build.SourceBranchName'], 'main'))
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
