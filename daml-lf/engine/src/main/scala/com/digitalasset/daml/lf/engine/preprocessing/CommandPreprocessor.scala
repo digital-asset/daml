@@ -257,6 +257,8 @@ private[lf] final class CommandPreprocessor(
   ): speedy.InterfaceView = {
     discard(handleLookup(pkgInterface.lookupTemplate(templateId)))
     discard(handleLookup(pkgInterface.lookupInterface(interfaceId)))
+    discard(handleLookup(pkgInterface.lookupInterfaceInstance(interfaceId, templateId)))
+
     val version =
       TransactionVersion.assignNodeVersion(
         pkgInterface.packageLanguageVersion(interfaceId.packageId)
