@@ -25,7 +25,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // 'Optional' means that the client can leave the field unset (set to a default value) when sending a request.
 // 'Required' means that the client must set the field to a non-default value when sending a request.
 //
-// For request messages (and their sub-messages) used in 'Update<Resource>' calls we annotate their fields, corresponding to the resource being update,
+// For request messages (and their sub-messages) used in 'Update<Resource>' calls we annotate their fields, corresponding to the resource being updated,
 // with 'Read-Only' and 'Read-Write' markers.
 // 'Read-Only' means that the field (and its sub-fields) cannot be updated; i.e. the field's name can never be used in a valid update mask's path.
 // 'Read-Write' means that the field can be updated; i.e. the field's name can be used in a valid update mask's path.
