@@ -575,7 +575,7 @@ data InterfaceInstanceBinds = InterfaceInstanceBinds
   { iibInterface :: GHC.TyCon
   , iibTemplate :: GHC.TyCon
   , iibLoc :: Maybe SourceLoc
-      -- ^ Location associated to the @_implements_@ marker, which should
+      -- ^ Location associated to the @_interface_instance_@ marker, which should
       -- point to the @interface instance@ line in the daml file.
   , iibMethods :: MS.Map MethodName (GHC.Expr GHC.CoreBndr)
       -- ^ Method implementations.
@@ -665,34 +665,39 @@ scrapeInterfaceInstanceBinds env binds
   where
     interfaceInstanceGroups :: MS.Map TypeConName InterfaceInstanceGroup
     interfaceInstanceGroups = MS.fromListWith iigUnion
-      [ ( mkTypeCon [getOccText template]
+      [ ( mkTypeCon [getOccText parent]
         , singletonInterfaceInstanceGroup interface template (convNameLoc name)
         )
       | (name, _val) <- binds
-      , "_implements_" `T.isPrefixOf` getOccText name
-      , TypeCon implementsT [TypeCon template [], TypeCon interface []] <- [varType name]
-      , NameIn DA_Internal_Desugar "ImplementsT" <- [implementsT]
+      , "_interface_instance_" `T.isPrefixOf` getOccText name
+      , TypeCon (NameIn DA_Internal_Desugar "InterfaceInstance")
+          [ TypeCon parent []
+          , TypeCon interface []
+          , TypeCon template []
+          ] <- [varType name]
       ]
 
     interfaceInstanceGroupFs ::
       MS.Map TypeConName (InterfaceInstanceGroup -> InterfaceInstanceGroup)
     interfaceInstanceGroupFs = MS.fromListWith (.)
-      [ (mkTypeCon [getOccText template], fn)
+      [ (mkTypeCon [getOccText parent], fn)
       | (name, untick -> expr) <- binds
-      , Just (template, fn) <- pure $ case name of
+      , Just (parent, fn) <- pure $ case name of
           name
             | TypeCon (NameIn DA_Internal_Desugar "InterfaceView")
-                [ TypeCon template []
+                [ TypeCon parent []
                 , TypeCon interface []
+                , TypeCon template []
                 ] <- varType name
-            -> Just (template, insertInterfaceInstanceView interface template expr)
+            -> Just (parent, insertInterfaceInstanceView interface template expr)
           name
             | TypeCon (NameIn DA_Internal_Desugar "Method")
-                [ TypeCon template []
+                [ TypeCon parent []
                 , TypeCon interface []
+                , TypeCon template []
                 , StrLitTy (MethodName -> methodName)
                 ] <- varType name
-            -> Just (template, insertInterfaceInstanceMethod interface template methodName expr)
+            -> Just (parent, insertInterfaceInstanceMethod interface template methodName expr)
           _ -> Nothing
       ]
 
@@ -1304,7 +1309,7 @@ convertBind env mc (name, x)
     | "_interface_choice_" `T.isPrefixOf` getOccText name
     = pure []
     -- These are only used as markers for the LF conversion.
-    | "_implements_" `T.isPrefixOf` getOccText name
+    | "_interface_instance_" `T.isPrefixOf` getOccText name
     = pure []
     | "_requires_" `T.isPrefixOf` getOccText name
     = pure []
@@ -1427,7 +1432,7 @@ desugarTypes = mkUniqSet
     , "NonConsuming"
     , "Method"
     , "HasMethod"
-    , "ImplementsT"
+    , "InterfaceInstance"
     , "RequiresT"
     , "InterfaceView"
     ]
@@ -1443,7 +1448,8 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         [ "getTag"
         ])
     , ("DA.Internal.Desugar",
-        [ "mkMethod"
+        [ "mkInterfaceInstance"
+        , "mkMethod"
         , "mkInterfaceView"
         ])
     ]
@@ -1484,10 +1490,10 @@ convertExpr env0 e = do
     go env (VarIn GHC_Types "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
     -- erase mkMethod calls and leave only the body.
-    go env (VarIn DA_Internal_Desugar "mkMethod") (LType _tpl : LType _iface : LType _methodName : LType _methodTy : LExpr _implDict : LExpr _hasMethodDic : LExpr body : args)
+    go env (VarIn DA_Internal_Desugar "mkMethod") (LType _parent : LType _iface : LType _tpl : LType _methodName : LType _methodTy : LExpr _implDict : LExpr _hasMethodDic : LExpr body : args)
         = go env body args
     -- erase mkInterfaceView calls and leave only the body.
-    go env (VarIn DA_Internal_Desugar "mkInterfaceView") (LType _tpl : LType _iface : LType _viewTy : LExpr _implDict : LExpr _hasInterfaceViewDic : LExpr body : args)
+    go env (VarIn DA_Internal_Desugar "mkInterfaceView") (LType _parent : LType _iface : LType _tpl : LType _viewTy : LExpr _implDict : LExpr _hasInterfaceViewDic : LExpr body : args)
         = go env body args
     go env (VarIn GHC_Types "primitiveInterface") (LType (isStrLitTy -> Just y) : LType t : args)
         = do
