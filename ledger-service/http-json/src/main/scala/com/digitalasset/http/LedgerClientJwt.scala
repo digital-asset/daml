@@ -132,19 +132,14 @@ object LedgerClientJwt {
 
   private def bearer(jwt: Jwt): Some[String] = Some(jwt.value: String)
 
-  private def timeFuture[T, C](
+  private def logLedgeClientCallTime[T, C](
       clientCallName: String
-  )(
-      block: => Future[T]
-  )(implicit
-      ec: EC,
-      lc: LoggingContextOf[C],
-  ): Future[T] = {
+  )(block: => Future[T])(implicit ec: EC, lc: LoggingContextOf[C]): Future[T] = {
     val start = System.nanoTime()
     val futureResult = block
     futureResult.andThen { case _ =>
       logger.debug(
-        s">> Ledger client call $clientCallName. Elapsed time: ${System.nanoTime() - start} ns"
+        s"Ledger client call $clientCallName elapsed time: ${System.nanoTime() - start} ns"
       )
     }
   }
@@ -154,7 +149,7 @@ object LedgerClientJwt {
   )(implicit ec: EC): SubmitAndWaitForTransaction =
     (jwt, req) =>
       implicit lc => {
-        timeFuture("SynchronousCommandClient submitAndWaitForTransaction") {
+        logLedgeClientCallTime("SynchronousCommandClient submitAndWaitForTransaction") {
           client.commandServiceClient
             .submitAndWaitForTransaction(req, bearer(jwt))
         }.requireHandling(submitErrors)
@@ -164,7 +159,7 @@ object LedgerClientJwt {
   )(implicit ec: EC): SubmitAndWaitForTransactionTree =
     (jwt, req) =>
       implicit lc => {
-        timeFuture("SynchronousCommandClient submitAndWaitForTransactionTree") {
+        logLedgeClientCallTime("SynchronousCommandClient submitAndWaitForTransactionTree") {
           client.commandServiceClient
             .submitAndWaitForTransactionTree(req, bearer(jwt))
         }.requireHandling(submitErrors)
@@ -173,7 +168,7 @@ object LedgerClientJwt {
   def getTermination(client: DamlLedgerClient)(implicit ec: EC): GetTermination =
     (jwt, ledgerId) =>
       implicit lc => {
-        timeFuture("TransactionClient getLedgerEnd") {
+        logLedgeClientCallTime("TransactionClient getLedgerEnd") {
           client.transactionClient.getLedgerEnd(ledgerId, bearer(jwt))
         }.map {
           _.offset flatMap {
@@ -243,7 +238,7 @@ object LedgerClientJwt {
   def listKnownParties(client: DamlLedgerClient)(implicit ec: EC): ListKnownParties =
     jwt =>
       implicit lc => {
-        timeFuture("PartyManagementClient listKnownParties") {
+        logLedgeClientCallTime("PartyManagementClient listKnownParties") {
           client.partyManagementClient.listKnownParties(bearer(jwt))
         }.requireHandling { case Code.PERMISSION_DENIED =>
           PermissionDenied
@@ -253,7 +248,7 @@ object LedgerClientJwt {
   def getParties(client: DamlLedgerClient)(implicit ec: EC): GetParties =
     (jwt, partyIds) =>
       implicit lc => {
-        timeFuture("PartyManagementClient getParties") {
+        logLedgeClientCallTime("PartyManagementClient getParties") {
           client.partyManagementClient.getParties(partyIds, bearer(jwt))
         }.requireHandling { case Code.PERMISSION_DENIED =>
           PermissionDenied
@@ -263,7 +258,7 @@ object LedgerClientJwt {
   def allocateParty(client: DamlLedgerClient)(implicit ec: EC): AllocateParty =
     (jwt, identifierHint, displayName) =>
       implicit lc => {
-        timeFuture("PartyManagementClient allocateParty") {
+        logLedgeClientCallTime("PartyManagementClient allocateParty") {
           client.partyManagementClient.allocateParty(
             hint = identifierHint,
             displayName = displayName,
@@ -276,7 +271,7 @@ object LedgerClientJwt {
     (jwt, ledgerId) =>
       implicit lc => {
         logger.trace("sending list packages request to ledger")
-        timeFuture("PackageClient listPackages") {
+        logLedgeClientCallTime("PackageClient listPackages") {
           client.packageClient.listPackages(ledgerId, bearer(jwt))
         }
       }
@@ -285,7 +280,7 @@ object LedgerClientJwt {
     (jwt, ledgerId, packageId) =>
       implicit lc => {
         logger.trace("sending get packages request to ledger")
-        timeFuture("PackageClient getPackage") {
+        logLedgeClientCallTime("PackageClient getPackage") {
           client.packageClient.getPackage(packageId, ledgerId, token = bearer(jwt))
         }
       }
@@ -294,7 +289,7 @@ object LedgerClientJwt {
     (jwt, _, byteString) =>
       implicit lc => {
         logger.trace("sending upload dar request to ledger")
-        timeFuture("PackageManagementClient uploadDarFile") {
+        logLedgeClientCallTime("PackageManagementClient uploadDarFile") {
           client.packageManagementClient.uploadDarFile(darFile = byteString, token = bearer(jwt))
         }
       }
@@ -303,7 +298,7 @@ object LedgerClientJwt {
     (jwt, request) =>
       implicit lc => {
         logger.trace("sending metering report request to ledger")
-        timeFuture("MeteringReportClient getMeteringReport") {
+        logLedgeClientCallTime("MeteringReportClient getMeteringReport") {
           client.meteringReportClient.getMeteringReport(request, bearer(jwt))
         }
       }
