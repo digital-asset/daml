@@ -28,7 +28,8 @@ if [ -n "$SANDBOX_PID" ]; then
     echo $SANDBOX_PID | xargs kill
 fi
 
-if [ "$0" = "_macos-m1" ]; then
+echo $1
+if [ "$1" = "_macos-m1" ]; then
     echo macos-m1
 else
     echo not m1
