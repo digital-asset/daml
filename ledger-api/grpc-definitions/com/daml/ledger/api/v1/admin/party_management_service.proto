@@ -51,7 +51,7 @@ service PartyManagementService {
   // Allocates a new party on a ledger and adds it to the set managed by the backing participant.
   // Caller specifies a party identifier suggestion, the actual identifier
   // allocated might be different and is implementation specific.
-  // Caller can specify party metadata that isq stored locally on the backing participant.
+  // Caller can specify party metadata that is stored locally on the backing participant.
   // This call may:
   // - Succeed, in which case the actual allocated identifier is visible in
   //   the response.
