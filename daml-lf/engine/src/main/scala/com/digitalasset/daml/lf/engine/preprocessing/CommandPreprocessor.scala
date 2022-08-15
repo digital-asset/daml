@@ -257,19 +257,13 @@ private[lf] final class CommandPreprocessor(
   ): speedy.InterfaceView = {
     discard(handleLookup(pkgInterface.lookupTemplate(templateId)))
     discard(handleLookup(pkgInterface.lookupInterface(interfaceId)))
+    discard(handleLookup(pkgInterface.lookupInterfaceInstance(interfaceId, templateId)))
+
     val version =
       TransactionVersion.assignNodeVersion(
         pkgInterface.packageLanguageVersion(interfaceId.packageId)
       )
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
-
-    pkgInterface.lookupInterfaceInstance(interfaceId, templateId) match {
-      case Left(Left(err)) =>
-        throw Error.Preprocessing.Lookup(err)
-      case Left(Right(err @ _)) =>
-        throw Error.Preprocessing.AmbiguousInterfaceInstance(interfaceId, templateId)
-      case Right(_) => {}
-    }
 
     speedy.InterfaceView(templateId, arg, interfaceId, version)
   }
