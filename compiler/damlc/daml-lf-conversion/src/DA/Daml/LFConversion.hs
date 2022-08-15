@@ -743,7 +743,7 @@ convertInterfaces env mc = interfaceDefs
             intRequires <- convertRequires (ibRequires ib)
             intMethods <- convertMethods (ibMethods ib)
             intChoices <- convertChoices env mc intName emptyTemplateBinds
-            let intCoImplements = NM.empty -- TODO: https://github.com/digital-asset/daml/issues/14047
+            intCoImplements <- convertCoImplements intName
             intView <- case ibViewType ib of
                 Nothing -> conversionError $ "No view found for interface " <> renderPretty intName
                 Just viewType -> convertType env viewType
@@ -772,6 +772,18 @@ convertInterfaces env mc = interfaceDefs
               }
         | (methodName, (retTy, loc)) <- MS.toList methods
         ]
+
+    convertCoImplements :: LF.TypeConName -> ConvertM (NM.NameMap InterfaceCoImplements)
+    convertCoImplements interface = NM.fromList <$>
+      mapM convertCoImplements1
+        (maybe [] interfaceInstanceGroupBinds (MS.lookup interface (mcInterfaceInstanceBinds mc)))
+      where
+        convertCoImplements1 :: InterfaceInstanceBinds -> ConvertM InterfaceCoImplements
+        convertCoImplements1 =
+          convertInterfaceInstance
+            (TemplateOrInterface.Interface interface)
+            (\_ template -> InterfaceCoImplements template)
+            env
 
 convertConsuming :: LF.Type -> ConvertM Consuming
 convertConsuming consumingTy = case consumingTy of
