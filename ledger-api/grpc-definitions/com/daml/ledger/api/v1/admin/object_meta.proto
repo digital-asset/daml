@@ -15,7 +15,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // See https://github.com/kubernetes/apimachinery/blob/master/pkg/apis/meta/v1/generated.proto#L640
 message ObjectMeta {
 
-  // An opaque value populated by a participant server which represents the internal version of a resource
+  // An opaque value populated by a participant server which represents the internal version of the resource
   // this ObjectMeta message is attached to. Participant server will change it to a unique value upon each time the corresponding resource is updated.
   // You must not rely on resource version value format. Implementations are free to choose any suitable versioning scheme and change it
   // without notice.
