@@ -28,15 +28,14 @@ if [ -n "$SANDBOX_PID" ]; then
     echo $SANDBOX_PID | xargs kill
 fi
 
-echo $1
 if [ "$1" = "_macos-m1" ]; then
-    echo macos-m1
+    bazel="arch -arm64 bazel"
 else
-    echo not m1
+    bazel=bazel
 fi
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
-arch -arm64 bazel build //... \
+$bazel build //... \
   --toolchain_resolution_debug \
   --build_tag_filters "$tag_filter" \
   --profile build-profile.json \
@@ -76,7 +75,7 @@ stop_postgresql # in case it's running from a previous build
 start_postgresql
 
 # Run the tests.
-arch -arm64 bazel test //... \
+$bazel test //... \
   --build_tag_filters "$tag_filter" \
   --test_tag_filters "$tag_filter" \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
@@ -90,7 +89,7 @@ arch -arm64 bazel test //... \
   --experimental_execution_log_file "$ARTIFACT_DIRS/logs/test_execution${execution_log_postfix}.log"
 
 # Make sure that Bazel query works.
-bazel query 'deps(//...)' >/dev/null
+$bazel query 'deps(//...)' >/dev/null
 
 # Check that we can load damlc in ghci
 # Disabled on darwin since it sometimes seem to hang and this only
