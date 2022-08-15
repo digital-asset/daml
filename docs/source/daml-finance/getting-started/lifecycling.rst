@@ -1,5 +1,5 @@
-Getting started tutorial
-########################
+Getting started 3 : Lifecycling
+###############################
 
 This tutorial describes the :ref:`lifecycle <lifecycling>` flow between two counterparties.
 We will use a bond instrument to illustrate the different steps:
@@ -33,7 +33,7 @@ Defining the clock for time-based events
 ========================================
 
 Since the bond pays a coupon on a yearly basis, we talk about a time-based event.
-The requirement to pay the copuon is governed by actual time.
+The requirement to pay the coupon is governed by actual time.
 However, in a trading and settlement system, it is useful to be able to control
 the time variable, in order to simulate previous/future payments, or to have some flexibility
 regarding when to process events.
@@ -51,6 +51,8 @@ We define a clock contract to control the passage of time:
 Lifecycling the bond instrument
 ===============================
 
+We use the ``Lifecyclable`` interface, which is defined in ``Daml.Finance.Interface.Lifecycle.Lifecyclable``.
+
 The issuer of the bond is responsible for initiating the coupon payment,
 by calling ``Lifecycle`` on the coupon date:
 
@@ -60,8 +62,13 @@ by calling ``Lifecycle`` on the coupon date:
   (bondLifecyclableCid2, effectCids) <- Instrument.submitExerciseInterfaceByKeyCmd @Lifecyclable.I [issuer] readAs bondInstrument
     Lifecyclable.Lifecycle with settler; eventCid = clockEventCid; observableCids; ruleName = "Time"; clockCid
 
+This internally uses the ``Event`` interface, which is defined in ``Daml.Finance.Interface.Lifecycle.Event``. In our case, the event
+is a clock event, since the coupon is defined by the passage of time.
+
 The ``effectCids`` will contain the effect(s) of the lifecycling, in this case a coupon payment.
 If there is nothing to lifecycle, for example because there is no coupon to be paid today, ``effectCids`` would be empty.
+The ``Effect`` interface is defined in ``Daml.Finance.Interface.Lifecycle.Effect``.
+
 
 
 Settling the instructions

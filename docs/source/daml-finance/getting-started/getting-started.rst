@@ -1,5 +1,5 @@
-Getting started tutorial
-########################
+Getting started 1 : Transfer
+############################
 
 This tutorial introduces the core asset model of the library through a
 simple example. The purpose is to illustrate the concepts of
