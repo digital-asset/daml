@@ -35,6 +35,7 @@ import com.daml.scalautil.Statement.discard
 
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeSet
+import scala.math.Ordering.Implicits.infixOrderingOps
 
 /**  Speedy builtins are stratified into two layers:
   *  Parent: `SBuiltin`, (which are effectful), and child: `SBuiltinPure` (which are pure).
@@ -1018,6 +1019,9 @@ private[lf] object SBuiltin {
       val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
       onLedger.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
       val mbKey = cached.key
+      val templateVersion = machine.tmplId2TxVersion(templateId)
+      val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
+      val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
 
       onLedger.ptx
         .beginExercises(
@@ -1034,7 +1038,7 @@ private[lf] object SBuiltin {
           mbKey = mbKey,
           byKey = byKey,
           chosenValue = chosenValue,
-          version = machine.tmplId2TxVersion(templateId),
+          version = exerciseVersion,
         ) match {
         case Right(ptx) =>
           onLedger.ptx = ptx
