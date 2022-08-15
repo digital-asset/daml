@@ -125,7 +125,7 @@ message AllocatePartyRequest {
 
   // Human-readable name of the party to be added to the participant. It doesn't
   // have to be unique.
-  // Use of this field is discouraged. Consider using modifiable participant local party metadata instead.
+  // Use of this field is discouraged. Use ``local_metadata`` instead.
   // Optional
   string display_name = 2;
 
