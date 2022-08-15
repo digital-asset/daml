@@ -573,15 +573,19 @@ private[validation] object Typing {
       pkgInterface.lookupInterfaceInstance(interfaceId, templateId) match {
         case Left(err) =>
           err match {
-            case lookupErr : LookupError.NotFound =>
+            case lookupErr: LookupError.NotFound =>
               lookupErr.notFound match {
                 case _: Reference.InterfaceInstance =>
                   throw EMissingInterfaceInstance(ctx, interfaceId, templateId)
                 case _ =>
                   throw EUnknownDefinition(ctx, lookupErr)
               }
-            case ambiIfaceErr : LookupError.AmbiguousInterfaceInstance =>
-              throw EAmbiguousInterfaceInstance(ctx, ambiIfaceErr.instance.interfaceName, ambiIfaceErr.instance.templateName)
+            case ambiIfaceErr: LookupError.AmbiguousInterfaceInstance =>
+              throw EAmbiguousInterfaceInstance(
+                ctx,
+                ambiIfaceErr.instance.interfaceName,
+                ambiIfaceErr.instance.templateName,
+              )
           }
         case Right(iiInfo) => iiInfo
       }

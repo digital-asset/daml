@@ -19,8 +19,7 @@ object LookupError {
       case otherwise => " while looking for " + otherwise.pretty
     }
 
-  final case class NotFound(notFound: Reference, context: Reference)
-      extends LookupError {
+  final case class NotFound(notFound: Reference, context: Reference) extends LookupError {
     def pretty: String = "unknown " + notFound.pretty + (
       if (context == notFound) "" else LookupError.contextDetails(context)
     )
