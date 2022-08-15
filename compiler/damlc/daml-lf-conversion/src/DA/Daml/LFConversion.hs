@@ -850,7 +850,7 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
                 }
             ]
         else
-            unsupported "Daml interfaces are only available with --target=1.dev" ()
+            unsupported "Daml interfaces are only available with --target=1.15" ()
             -- TODO https://github.com/digital-asset/daml/issues/12051
             --   Change when interfaces are released.
 
