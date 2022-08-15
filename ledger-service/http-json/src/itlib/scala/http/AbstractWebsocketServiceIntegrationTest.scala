@@ -1394,7 +1394,10 @@ abstract class AbstractWebsocketServiceIntegrationTest
   "ContractKeyStreamRequest" - {
     import json.JsonProtocol._
     val baseVal =
-      domain.EnrichedContractKey(domain.TemplateId(Some("ab"), "cd", "ef"), JsString("42"): JsValue)
+      domain.EnrichedContractKey(
+        domain.ContractTypeId.Template(Some("ab"), "cd", "ef"),
+        JsString("42"): JsValue,
+      )
     val baseMap = baseVal.toJson.asJsObject.fields
     val withSome = JsObject(baseMap + (contractIdAtOffsetKey -> JsString("hi")))
     val withNone = JsObject(baseMap + (contractIdAtOffsetKey -> JsNull))

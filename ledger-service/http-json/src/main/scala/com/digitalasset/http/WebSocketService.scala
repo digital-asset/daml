@@ -195,6 +195,7 @@ object WebSocketService {
 
     private[WebSocketService] def predicate(
         request: A,
+        resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
         resolveTemplateId: PackageService.ResolveTemplateId,
         lookupType: ValuePredicate.TypeLookup,
         jwt: Jwt,
@@ -256,6 +257,7 @@ object WebSocketService {
 
       override private[WebSocketService] def predicate(
           request: SearchForeverRequest,
+          resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
           resolveTemplateId: PackageService.ResolveTemplateId,
           lookupType: ValuePredicate.TypeLookup,
           jwt: Jwt,
@@ -311,7 +313,7 @@ object WebSocketService {
             res <-
               gacr.templateIds.toList
                 .traverse(x =>
-                  resolveTemplateId(lc)(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
+                  resolveContractTypeId(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
                 )
                 .map(
                   _.toSet[
@@ -455,6 +457,7 @@ object WebSocketService {
 
     override private[WebSocketService] def predicate(
         request: NonEmptyList[CKR[LfV]],
+        resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
         resolveTemplateId: PackageService.ResolveTemplateId,
         lookupType: TypeLookup,
         jwt: Jwt,
@@ -524,7 +527,7 @@ object WebSocketService {
         )
       request.toList
         .traverse { x: CKR[LfV] =>
-          resolveTemplateId(lc)(jwt, ledgerId)(x.ekey.templateId)
+          resolveTemplateId(jwt, ledgerId)(x.ekey.templateId)
             .map(_.toOption.flatten.map((_, x.ekey.key)).toLeft(x.ekey.templateId))
         }
         .map(
@@ -591,6 +594,7 @@ object WebSocketService {
 
 class WebSocketService(
     contractsService: ContractsService,
+    resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
     resolveTemplateId: PackageService.ResolveTemplateId,
     decoder: DomainJsonDecoder,
     lookupType: ValuePredicate.TypeLookup,
@@ -755,17 +759,27 @@ class WebSocketService(
   ): Source[StepAndErrors[Nothing, Nothing], NotUsed] =
     Source.single(StepAndErrors(Seq.empty, ContractStreamStep.LiveBegin(bookmark)))
 
-  private def getTransactionSourceForParty[A: StreamQuery](
+  // simple alias to avoid passing in the class parameters
+  private[this] def queryPredicate[A](
+      request: A,
+      jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID],
+      Q: StreamQuery[A],
+  ): Future[StreamPredicate[Q.Positive]] =
+    Q.predicate(request, resolveContractTypeId, resolveTemplateId, lookupType, jwt, ledgerId)
+
+  private def getTransactionSourceForParty[A](
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
       offPrefix: Option[domain.StartingOffset],
       rawRequest: A,
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID],
+      Q: StreamQuery[A],
   ): Source[Error \/ Message, NotUsed] = {
-    val Q = implicitly[StreamQuery[A]]
-
     // If there is a prefix, replace the empty offsets in the request with it
     val request = Q.adjustRequest(offPrefix, rawRequest)
 
@@ -774,7 +788,9 @@ class WebSocketService(
 
     // Stream predicates specific fo the ACS part
     val acsPred =
-      acsRequest.map(Q.predicate(_, resolveTemplateId, lookupType, jwt, ledgerId)).sequence
+      acsRequest
+        .map(queryPredicate(_, jwt, ledgerId))
+        .sequence
 
     def liveFrom(resolved: Set[RequiredPkg])(
         acsEnd: Option[StartingOffset]
@@ -785,19 +801,18 @@ class WebSocketService(
       // Produce the predicate that is going to be applied to the incoming transaction stream
       // We need to apply this to the request with all the offsets shifted so that each stream
       // can filter out anything from liveStartingOffset to the query-specific offset
-      Q.predicate(shiftedRequest, resolveTemplateId, lookupType, jwt, ledgerId).map {
-        case StreamPredicate(_, _, fn, _) =>
-          contractsService
-            .insertDeleteStepSource(
-              jwt,
-              ledgerId,
-              parties,
-              resolved.toList,
-              liveStartingOffset,
-              Terminates.Never,
-            )
-            .via(convertFilterContracts(fn))
-            .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
+      queryPredicate(shiftedRequest, jwt, ledgerId).map { case StreamPredicate(_, _, fn, _) =>
+        contractsService
+          .insertDeleteStepSource(
+            jwt,
+            ledgerId,
+            parties,
+            resolved.toList,
+            liveStartingOffset,
+            Terminates.Never,
+          )
+          .via(convertFilterContracts(fn))
+          .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
       }
     }
 
@@ -825,19 +840,18 @@ class WebSocketService(
                 // This is the case where we made no ACS request because everything had an offset
                 // Get the earliest available offset from where to start from
                 val liveStartingOffset = Q.liveStartingOffset(offPrefix, request)
-                Q.predicate(request, resolveTemplateId, lookupType, jwt, ledgerId).map {
-                  case StreamPredicate(_, _, fn, _) =>
-                    contractsService
-                      .insertDeleteStepSource(
-                        jwt,
-                        ledgerId,
-                        parties,
-                        resolved.toList,
-                        liveStartingOffset,
-                        Terminates.Never,
-                      )
-                      .via(convertFilterContracts(fn))
-                      .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
+                queryPredicate(request, jwt, ledgerId).map { case StreamPredicate(_, _, fn, _) =>
+                  contractsService
+                    .insertDeleteStepSource(
+                      jwt,
+                      ledgerId,
+                      parties,
+                      resolved.toList,
+                      liveStartingOffset,
+                      Terminates.Never,
+                    )
+                    .via(convertFilterContracts(fn))
+                    .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
                 }
               },
             )
@@ -854,7 +868,7 @@ class WebSocketService(
 
     Source
       .lazyFutureSource { () =>
-        Q.predicate(request, resolveTemplateId, lookupType, jwt, ledgerId).flatMap {
+        queryPredicate(request, jwt, ledgerId).flatMap {
           case StreamPredicate(resolved, unresolved, _, _) =>
             if (resolved.nonEmpty)
               processResolved(resolved, unresolved)

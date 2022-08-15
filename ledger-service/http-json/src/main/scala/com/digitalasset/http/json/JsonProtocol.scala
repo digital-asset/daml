@@ -5,7 +5,6 @@ package com.daml.http.json
 
 import akka.http.scaladsl.model.StatusCode
 import com.daml.http.domain
-import com.daml.http.domain.TemplateId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.lf.data.Ref.HexString
 import com.daml.lf.value.Value.ContractId
@@ -151,18 +150,22 @@ object JsonProtocol extends JsonProtocolLow {
         deserializationError(s"Expected JsString(<packageId>:<module>:<entity>), got: $json")
     }
 
-  implicit val TemplateIdOptionalPkgFormat: RootJsonFormat[domain.TemplateId.OptionalPkg] =
-    new RootJsonFormat[domain.TemplateId.OptionalPkg] {
-      override def write(a: domain.TemplateId.OptionalPkg): JsValue = a.packageId match {
+  implicit def TemplateIdOptionalPkgFormat[CtId[T] <: domain.ContractTypeId[T]](implicit
+      CtId: domain.ContractTypeId.Like[CtId]
+  ): RootJsonFormat[CtId[Option[String]]] = {
+    import CtId.{OptionalPkg => IdO}
+    new RootJsonFormat[IdO] {
+
+      override def write(a: IdO): JsValue = a.packageId match {
         case Some(p) => JsString(s"${p: String}:${a.moduleName: String}:${a.entityName: String}")
         case None => JsString(s"${a.moduleName: String}:${a.entityName: String}")
       }
 
-      override def read(json: JsValue): domain.TemplateId.OptionalPkg = json match {
+      override def read(json: JsValue): IdO = json match {
         case JsString(str) =>
           str.split(':') match {
-            case Array(p, m, e) => domain.TemplateId(Some(p), m, e)
-            case Array(m, e) => domain.TemplateId(None, m, e)
+            case Array(p, m, e) => CtId(Some(p), m, e)
+            case Array(m, e) => CtId(None, m, e)
             case _ => error(json)
           }
         case _ => error(json)
@@ -171,6 +174,7 @@ object JsonProtocol extends JsonProtocolLow {
       private def error(json: JsValue): Nothing =
         deserializationError(s"Expected JsString([<packageId>:]<module>:<entity>), got: $json")
     }
+  }
 
   private[this] def decodeContractRef(
       fields: Map[String, JsValue],
@@ -178,7 +182,7 @@ object JsonProtocol extends JsonProtocolLow {
   ): domain.InputContractRef[JsValue] =
     (fields get "templateId", fields get "key", fields get "contractId") match {
       case (Some(templateId), Some(key), None) =>
-        -\/((templateId.convertTo[domain.TemplateId.OptionalPkg], key))
+        -\/((templateId.convertTo[domain.ContractTypeId.Template.OptionalPkg], key))
       case (otid, None, Some(contractId)) =>
         val a = otid map (_.convertTo[domain.TemplateId.OptionalPkg])
         val b = contractId.convertTo[domain.ContractId]
@@ -291,14 +295,16 @@ object JsonProtocol extends JsonProtocolLow {
   // Like requestJsonReader, but suitable for exactly one extra field, simply
   // parsing it to the supplied extra type if present.
   // Can generalize to >1 field with singleton types and hlists, if you like
-  private def requestJsonReaderPlusOne[Extra: JsonReader, Request](validExtraField: String)(
+  private def requestJsonReaderPlusOne[Extra: JsonReader, TpId: JsonFormat, Request](
+      validExtraField: String
+  )(
       toRequest: (
-          OneAnd[Set, TemplateId.OptionalPkg],
+          OneAnd[Set, TpId],
           Map[String, JsValue],
           Option[Extra],
       ) => Request
   ): RootJsonReader[Request] =
-    requestJsonReader(Set(validExtraField)) { (tids, query, extra) =>
+    requestJsonReader(Set(validExtraField)) { (tids: OneAnd[Set, TpId], query, extra) =>
       toRequest(tids, query, extra get validExtraField map (_.convertTo[Extra]))
     }
 
@@ -310,15 +316,15 @@ object JsonProtocol extends JsonProtocolLow {
     *  This provides an (almost) consistent behavior when reading the 'templateIds' and
     *  'query' fields. Further extra fields may be added by concrete implementations.
     */
-  private[this] def requestJsonReader[Request](validExtraFields: Set[String])(
+  private[this] def requestJsonReader[TpId: JsonFormat, Request](validExtraFields: Set[String])(
       toRequest: (
-          OneAnd[Set, TemplateId.OptionalPkg],
+          OneAnd[Set, TpId],
           Map[String, JsValue],
           Map[String, JsValue],
       ) => Request
   ): RootJsonReader[Request] = {
     final case class BaseRequest(
-        templateIds: Set[domain.TemplateId.OptionalPkg],
+        templateIds: Set[TpId],
         query: Option[Map[String, JsValue]],
     )
     val validKeys = Set("templateIds", "query") ++ validExtraFields
@@ -409,17 +415,17 @@ object JsonProtocol extends JsonProtocolLow {
           choice = choice,
           argument = argument,
           choiceInterfaceId =
-            fromField[Option[domain.ContractTypeId.Unknown.OptionalPkg]](json, "choiceInterfaceId"),
+            fromField[Option[domain.ContractTypeId.OptionalPkg]](json, "choiceInterfaceId"),
           meta = meta,
         )
       }
     }
 
   implicit val CreateAndExerciseCommandFormat: RootJsonFormat[
-    domain.CreateAndExerciseCommand[JsValue, JsValue, domain.ContractTypeId.Unknown.OptionalPkg]
+    domain.CreateAndExerciseCommand[JsValue, JsValue, domain.ContractTypeId.OptionalPkg]
   ] =
     jsonFormat6(
-      domain.CreateAndExerciseCommand[JsValue, JsValue, domain.ContractTypeId.Unknown.OptionalPkg]
+      domain.CreateAndExerciseCommand[JsValue, JsValue, domain.ContractTypeId.OptionalPkg]
     )
 
   implicit val CompletionOffsetFormat: JsonFormat[domain.CompletionOffset] =

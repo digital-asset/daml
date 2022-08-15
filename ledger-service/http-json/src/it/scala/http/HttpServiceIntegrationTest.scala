@@ -122,8 +122,8 @@ abstract class HttpServiceIntegrationTest
       val CIou: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "CIou", "CIou")
     }
     object Transferrable {
-      val Transferrable: domain.TemplateId.OptionalPkg =
-        domain.TemplateId(None, "Transferrable", "Transferrable")
+      val Transferrable: domain.ContractTypeId.Interface.OptionalPkg =
+        domain.ContractTypeId.Interface(None, "Transferrable", "Transferrable")
     }
 
     "templateId = interface ID" in withHttpService { fixture =>
@@ -237,7 +237,7 @@ abstract class HttpServiceIntegrationTest
           encodeExercise(encoder)(
             iouTransfer(
               domain.EnrichedContractKey(
-                TpId.IIou.IIou,
+                TpId.unsafeCoerce[domain.ContractTypeId.Template, Option[String]](TpId.IIou.IIou),
                 v.Value(v.Value.Sum.Party(domain.Party unwrap alice)),
               ),
               tExercise()(ShRecord(echo = "bob")),
@@ -251,7 +251,7 @@ abstract class HttpServiceIntegrationTest
             StatusCodes.BadRequest,
             domain.ErrorResponse(Seq(lookup), None, StatusCodes.BadRequest, _),
           ) =>
-        lookup should include regex raw"Cannot resolve Template Key type, given: TemplateId\([0-9a-f]{64},IIou,IIou\)"
+        lookup should include regex raw"Cannot resolve Template Key type, given: InterfaceId\([0-9a-f]{64},IIou,IIou\)"
     }
   }
 
