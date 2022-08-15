@@ -5,6 +5,7 @@ parameters:
 - name: name
 - name: assignment
 
+jobs:
 - job: ${{parameters.name}}
   dependsOn:
     - check_for_release
