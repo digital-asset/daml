@@ -213,7 +213,6 @@ message GetUserResponse {
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
-// NOTE: The authenticated participant user is not allowed to deactivate itself.
 message UpdateUserRequest {
     // The user to update.
     //
