@@ -98,6 +98,8 @@ import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Numeric
+import           DA.Daml.LF.TemplateOrInterface (TemplateOrInterface')
+import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 import           DA.Daml.Options.Types (EnableScenarios (..))
 import           Data.Data hiding (TyCon)
 import qualified Data.Decimal as Decimal
@@ -1194,16 +1196,21 @@ convertImplements env mc tpl = NM.fromList <$>
   where
     convertImplements1 :: InterfaceInstanceBinds -> ConvertM TemplateImplements
     convertImplements1 =
-      convertInterfaceInstance (\iface _ -> TemplateImplements iface) env
+      convertInterfaceInstance
+        (TemplateOrInterface.Template tpl)
+        (\iface _ -> TemplateImplements iface)
+        env
 
 convertInterfaceInstance ::
-     (Qualified TypeConName -> Qualified TypeConName -> InterfaceInstanceBody -> r)
+     TemplateOrInterface' TypeConName
+  -> (Qualified TypeConName -> Qualified TypeConName -> InterfaceInstanceBody -> r)
   -> Env
   -> InterfaceInstanceBinds
   -> ConvertM r
-convertInterfaceInstance mkR env iib = withRange (iibLoc iib) $ do
+convertInterfaceInstance parent mkR env iib = withRange (iibLoc iib) $ do
   interfaceQualTypeCon <- qualifyInterfaceCon (iibInterface iib)
   templateQualTypeCon <- qualifyTemplateCon (iibTemplate iib)
+  checkParent interfaceQualTypeCon templateQualTypeCon
   methods <- convertMethods (iibMethods iib)
   view <- convertView (iibView iib)
   pure $ mkR
@@ -1222,6 +1229,19 @@ convertInterfaceInstance mkR env iib = withRange (iibLoc iib) $ do
       where
         handleIsNotTemplate tyCon =
           mkErr $ "'" <> prettyPrint tyCon <> "' is not a template"
+
+    checkParent interfaceQualTypeCon templateQualTypeCon =
+      case parent of
+        TemplateOrInterface.Template t ->
+          checkParent' "template" (qualifyLocally env t == templateQualTypeCon)
+        TemplateOrInterface.Interface i ->
+          checkParent' "interface" (qualifyLocally env i == interfaceQualTypeCon)
+      where
+        checkParent' tOrI check = do
+          unless check $ conversionError $ mkErr $ unwords
+            [ "The", tOrI, "of this interface instance does not match the"
+            , "enclosing", tOrI, "declaration."
+            ]
 
     convertMethods ms = fmap NM.fromList . sequence $
       [ InterfaceInstanceMethod k . (`ETmApp` EVar this) <$> convertExpr env v
