@@ -102,7 +102,7 @@ private[index] class IndexServiceImpl(
       endInclusive: Option[domain.LedgerOffset],
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] = {
+  )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] =
     between(startExclusive, endInclusive) { (from, to) =>
       from.foreach(offset =>
         Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
@@ -114,12 +114,28 @@ private[index] class IndexServiceImpl(
         .startingAt(
           from.getOrElse(Offset.beforeBegin),
           RangeSource { (startExclusive, endInclusive) =>
-            val (filter, properties) = eventProjectionProperties(transactionFilter, verbose)
-            if (filter.isEmpty) {
+            val metadata = packageMetadataView.current()
+
+            val templateFilter =
+              IndexServiceImpl.templateFilter(metadata, transactionFilter)
+
+            if (templateFilter.isEmpty) {
               Source.empty
-            } else
+            } else {
+              val eventProjectionProperties = EventProjectionProperties(
+                transactionFilter,
+                verbose,
+                interfaceId => metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty),
+              )
+
               transactionsReader
-                .getFlatTransactions(startExclusive, endInclusive, filter, properties)
+                .getFlatTransactions(
+                  startExclusive,
+                  endInclusive,
+                  templateFilter,
+                  eventProjectionProperties,
+                )
+            }
           },
           to,
         )
@@ -133,38 +149,6 @@ private[index] class IndexServiceImpl(
         )
         .foreach(Spans.addEventToCurrentSpan)
     )
-  }
-
-  private def templateIds(
-      metadata: PackageMetadata
-  )(inclusiveFilters: InclusiveFilters): Set[Identifier] =
-    inclusiveFilters.interfaceFilters.iterator
-      .map(_.interfaceId)
-      .flatMap(metadata.interfacesImplementedBy)
-      .toSet
-      .++(inclusiveFilters.templateIds)
-
-  private def eventProjectionProperties(
-      domainTransactionFilter: domain.TransactionFilter,
-      verbose: Boolean,
-  ): (Map[Party, Set[Identifier]], EventProjectionProperties) = {
-    val metadata: PackageMetadata = packageMetadataView.current()
-    val filter = domainTransactionFilter.filtersByParty.collect {
-      case (party, Filters(Some(inclusiveFilters)))
-          if templateIds(metadata)(inclusiveFilters).nonEmpty =>
-        (party, templateIds(metadata)(inclusiveFilters))
-      case (party, Filters(None)) =>
-        (party, Set.empty[Identifier])
-    }.toMap
-
-    val properties = EventProjectionProperties(
-      domainTransactionFilter,
-      verbose,
-      interfaceId => metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty),
-    )
-
-    (filter, properties)
-  }
 
   override def transactionTrees(
       startExclusive: LedgerOffset,
@@ -250,13 +234,24 @@ private[index] class IndexServiceImpl(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
     val currentLedgerEnd = ledgerEnd()
-    val (filter, properties) = eventProjectionProperties(transactionFilter, verbose)
+
+    val metadata = packageMetadataView.current()
+
+    val eventProjectionProperties =
+      EventProjectionProperties(
+        transactionFilter,
+        verbose,
+        interfaceId => metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty),
+      )
+
+    val templateFilter =
+      IndexServiceImpl.templateFilter(metadata, transactionFilter)
 
     ledgerDao.transactionsReader
       .getActiveContracts(
         currentLedgerEnd,
-        filter,
-        properties,
+        templateFilter,
+        eventProjectionProperties,
       )
       .concat(
         Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(currentLedgerEnd)))
@@ -469,4 +464,31 @@ private[index] class IndexServiceImpl(
       .Reject("Index Service")(new DamlContextualizedErrorLogger(logger, loggingContext, None))
       .asGrpcError
   }
+}
+
+object IndexServiceImpl {
+
+  private def templateIds(
+      metadata: PackageMetadata
+  )(inclusiveFilters: InclusiveFilters): Set[Identifier] =
+    inclusiveFilters.interfaceFilters.iterator
+      .map(_.interfaceId)
+      .flatMap(metadata.interfacesImplementedBy.getOrElse(_, Set.empty))
+      .toSet
+      .++(inclusiveFilters.templateIds)
+
+  private[index] def templateFilter(
+      metadata: PackageMetadata,
+      transactionFilter: domain.TransactionFilter,
+  ): Map[Party, Set[Identifier]] =
+    transactionFilter.filtersByParty.collect {
+      case (party, Filters(Some(inclusiveFilters)))
+          if templateIds(metadata)(inclusiveFilters).nonEmpty =>
+        (party, templateIds(metadata)(inclusiveFilters))
+      case (party, Filters(None)) =>
+        (party, Set.empty[Identifier])
+      case (party, Filters(Some(InclusiveFilters(templateIds, interfaceFilters))))
+          if templateIds.isEmpty && interfaceFilters.isEmpty =>
+        (party, Set.empty[Identifier])
+    }.toMap
 }

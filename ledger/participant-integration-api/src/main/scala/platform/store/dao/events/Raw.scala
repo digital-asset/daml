@@ -30,7 +30,8 @@ sealed trait Raw[+E] {
     * the deserialization on contained values.
     *
     * @param lfValueTranslation The delegate in charge of applying deserialization
-    * @param verbose If true, field names of records will be included
+    * @param eventProjectionProperties The properties of how contract arguments and interface views for
+    *                                  the event are projected and merged
     */
   def applyDeserialization(
       lfValueTranslation: LfValueTranslation,

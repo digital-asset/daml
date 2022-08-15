@@ -97,7 +97,6 @@ private[dao] final class TransactionsReader(
     logger.debug(
       s"getFlatTransactions($startExclusive, $endInclusive, $filter, $eventProjectionProperties)"
     )
-    // TODO logging
 
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
 
@@ -164,7 +163,7 @@ private[dao] final class TransactionsReader(
           timer = dbMetrics.lookupFlatTransactionById.translationTimer,
           value = Future.traverse(rawEvents)(
             deserializeEntry(
-              EventProjectionProperties( // TODO why???
+              EventProjectionProperties(
                 verbose = true,
                 requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
               )
@@ -283,7 +282,7 @@ private[dao] final class TransactionsReader(
     val contextualizedErrorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
     val span =
       Telemetry.Transactions.createSpan(activeAt)(qualifiedNameOfCurrentFunc)
-    // TODO logging
+
     logger.debug(s"getActiveContracts($activeAt, $filter, $eventProjectionProperties)")
 
     Source
