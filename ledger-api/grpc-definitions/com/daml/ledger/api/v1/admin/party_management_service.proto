@@ -21,7 +21,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // The authorization rules for its RPCs are specified on the ``<RpcName>Request``
 // messages as boolean expressions over the fact ``HasRight(r)`` denoting whether the authenticated user has right ``r``.
 //
-// TODO pbatko: Explain 'Optional', 'Required', 'Read-Write', 'Read-Only'
+// TODO pbatko: Explain 'Optional', 'Required', 'Modifiable'
 service PartyManagementService {
 
   // Return the identifier of the backing participant.
@@ -130,7 +130,7 @@ message AllocatePartyRequest {
   string display_name = 2;
 
   // Participant-local metadata to be stored in the ``PartyDetails`` of this newly allocated party.
-  // Required
+  // Optional
   ObjectMeta local_metadata = 3;
 }
 
@@ -144,7 +144,7 @@ message UpdatePartyDetailsRequest {
   // Party to be updated
   //
   // Required
-  // Read-Write
+  // Modifiable
   PartyDetails party_details = 1;
 
   // Specifies the fields of the party details to be updated.
@@ -165,7 +165,6 @@ message PartyDetails {
   // Must be a valid PartyIdString (as described in ``value.proto``).
   //
   // Required
-  // Read-Only
   string party = 1;
 
   // Human readable name associated with the party at allocation time.
@@ -173,18 +172,16 @@ message PartyDetails {
   // Use of this field is discouraged. Use the `local_metadata` field instead.
   //
   // Optional
-  // Read-Only
   string display_name = 2;
 
   // true if party is hosted by the backing participant.
   //
   // Optional
-  // Read-Only
   bool is_local = 3;
 
   // Participant-local metadata of this party.
   //
-  // Required
-  // Read-Write
+  // Optional
+  // Modifiable
   ObjectMeta local_metadata = 4;
 }

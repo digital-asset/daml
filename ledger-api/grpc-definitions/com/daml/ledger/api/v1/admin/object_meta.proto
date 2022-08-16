@@ -31,7 +31,6 @@ message ObjectMeta {
   // upon successful resource creation.
   //
   // Optional
-  // Read-Only
   string resource_version = 6;
 
   // A set of modifiable key-value pairs that can be used to represent arbitrary, client-specific metadata.
@@ -41,21 +40,22 @@ message ObjectMeta {
   // 2. Keys are composed of an optional prefix segment and a required name segment such that:
   //    - key prefix, when present, must be a valid DNS subdomain with at most 253 characters, followed by a '/' (forward slash) character,
   //    - name segment must have at most 63 characters that are either alphanumeric ([a-z0-9A-Z]), or a '.' (dot), '-' (dash) or '_' (underscore);
-  //      additionally it must start and end with an alphanumeric character.
+  //      and it must start and end with an alphanumeric character.
   // 2. Values can be any valid strings.
   //
-  // Keys with empty prefix are reserved for end users.
+  // Keys with empty prefix are reserved for end-users.
   // Properties set by external tools or internally by the participant must use non-empty key prefixes.
   //
   // Duplicate keys are disallowed by the semantics of the protobuf3 maps.
   // See: https://developers.google.com/protocol-buffers/docs/proto3#maps
   //
+  // You can explicitly specify the update semantics of the 'annotations' map by appending one of the two modifiers to an update mask's path:
+  // (1) '!merge' to use merge semantics,
+  // (2) '!replace' to use replace-all semantics.
+  // Example path: 'user.metadata.annotations!replace'.
+  // NOTE: Merge semantics is used by default.
+  //
   // Optional
-  // Read-Write (with replace-all semantics)
-  // TODO pbatko: 'FieldMask' doc suggests doing 'merge' message fields by default with alternative semantics enabled as an option.
-  // TODO         This could mean adding such an option field:
-  // TODO         'string annotations_update_mode = ...' with null or "merge" meaning merge, and "replace-all" meaning replace-all semantics.
-  // TODO         Cons: this pollutes the object_meta with a field that makes sense only in update calls.
-  // TODO         Pros: It would be compatible with 'FieldMask' doc
+  // Modifiable (with 'merge' or 'replace' semantics)
   map<string, string> annotations = 12;
 }
