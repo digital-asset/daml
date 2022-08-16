@@ -123,7 +123,14 @@ echo "created cache partitions"
 su -l vsts <<'END'
 set -euo pipefail
 export PATH="/usr/sbin:$PATH"
-bash <(curl -sSfL https://releases.nixos.org/nix/nix-2.3.16/install)
+(
+cd $(mktemp -d)
+curl https://releases.nixos.org/nix/nix-2.10.3/nix-2.10.3-aarch64-darwin.tar.xz > tarball
+tar xzf tarball
+cd nix-2.10.3-aarch64-darwin
+printf '64d\nw\n' | ed -s install
+./install --no-daemon
+)
 source /Users/vsts/.nix-profile/etc/profile.d/nix.sh
 nix upgrade-nix
 echo "build:darwin --disk_cache=~/.bazel-cache" > ~/.bazelrc
