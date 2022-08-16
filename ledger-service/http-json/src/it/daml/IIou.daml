@@ -25,6 +25,6 @@ template TestIIou with
     amount : Text
   where
   signatory issuer
-  implements IIou where
+  interface instance IIou for TestIIou where
     view = EmptyInterfaceView
     getOwner = owner
