@@ -61,7 +61,7 @@ versionDev :: Version
 versionDev = V1 PointDev
 
 supportedOutputVersions :: [Version]
-supportedOutputVersions = [version1_14, version1_15, versionDev]
+supportedOutputVersions = [version1_15, versionDev]
 
 supportedInputVersions :: [Version]
 supportedInputVersions = [version1_8, version1_11, version1_12, version1_13, version1_14] ++ supportedOutputVersions
@@ -120,11 +120,18 @@ featureNatSynonyms = Feature
     , featureCppFlag = Just "DAML_NAT_SYN"
     }
 
-featureInterfaces :: Feature
-featureInterfaces = Feature
-    { featureName = "Daml Interfaces"
+featureSimpleInterfaces :: Feature
+featureSimpleInterfaces = Feature
+    { featureName = "Daml Interfaces without guards and requires"
     , featureMinVersion = version1_15
     , featureCppFlag = Just "DAML_INTERFACE"
+    }
+
+featureExtendedInterfaces :: Feature
+featureExtendedInterfaces = Feature
+    { featureName = "Daml Interfaces with guards and requires"
+    , featureMinVersion = versionDev
+    , featureCppFlag = Just "DAML_INTERFACE_EXTENDED"
     }
 
 featureExperimental :: Feature
@@ -141,7 +148,8 @@ allFeatures =
     , featureBigNumeric
     , featureExceptions
     , featureNatSynonyms
-    , featureInterfaces
+    , featureSimpleInterfaces
+    , featureExtendedInterfaces
     , featureUnstable
     , featureExperimental
     ]
