@@ -15,12 +15,14 @@ import com.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   Node,
   NodeId,
+  Normalization,
+  ReplayMismatch,
   SubmittedTransaction,
+  Validation,
   VersionedTransaction,
   Transaction => Tx,
   TransactionVersion => TxVersions,
 }
-import com.daml.lf.transaction.{Normalization, ReplayMismatch, Validation}
 import com.daml.lf.value.Value
 import Value._
 import com.daml.bazeltools.BazelRunfiles.rlocation
@@ -714,13 +716,7 @@ class EngineTest
         ImmArray("_1", "_2").map(Ref.Name.assertFromString),
         values = ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
       )
-      val usedContractKey = Value.ValueRecord(
-        None,
-        ImmArray(
-          None -> Value.ValueParty(alice),
-          None -> Value.ValueInt64(42),
-        ),
-      )
+      val usedContractKey = usedContractSKey.toNormalizedValue(TxVersions.minExplicitDisclosure)
       val unusedContractKey = Value.ValueRecord(
         None,
         ImmArray(
@@ -761,7 +757,7 @@ class EngineTest
         key = usedContractSKey,
       )
 
-      unusedDisclosedContractsNotSavedToLedger(
+      ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
         fetchByKeyCommand,
         unusedDisclosedContract,
         usedDisclosedContract,
@@ -1594,7 +1590,7 @@ class EngineTest
         contractKey = usedContractSKey,
       )
 
-      unusedDisclosedContractsNotSavedToLedger(
+      ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
         lookupByKeyCommand,
         unusedDisclosedContract,
         usedDisclosedContract,
@@ -1631,7 +1627,7 @@ class EngineTest
         coid = usedDisclosedContract.contractId,
       )
 
-      unusedDisclosedContractsNotSavedToLedger(
+      ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
         fetchTemplateCommand,
         unusedDisclosedContract,
         usedDisclosedContract,
@@ -2562,74 +2558,76 @@ object EngineTest {
     )
   }
 
-  def unusedDisclosedContractsNotSavedToLedger(
-      cmd: speedy.Command,
-      unusedDisclosedContract: DisclosedContract,
-      usedDisclosedContract: DisclosedContract,
-  ): Assertion = {
-    val result = suffixLenientEngine
-      .interpretCommands(
-        validating = false,
-        submitters = Set(alice),
-        readAs = Set.empty,
-        commands = ImmArray(cmd),
-        ledgerTime = Time.Timestamp.now(),
-        submissionTime = Time.Timestamp.now(),
-        seeding = InitialSeeding.TransactionSeed(hash(s"$cmd")),
-        disclosures = ImmArray(unusedDisclosedContract, usedDisclosedContract),
-      )
-      .consume(_ => None, lookupPackage, lookupKey)
+  object ExplicitDisclosureTesting {
+    def unusedDisclosedContractsNotSavedToLedger(
+        cmd: speedy.Command,
+        unusedDisclosedContract: DisclosedContract,
+        usedDisclosedContract: DisclosedContract,
+    ): Assertion = {
+      val result = suffixLenientEngine
+        .interpretCommands(
+          validating = false,
+          submitters = Set(alice),
+          readAs = Set.empty,
+          commands = ImmArray(cmd),
+          ledgerTime = Time.Timestamp.now(),
+          submissionTime = Time.Timestamp.now(),
+          seeding = InitialSeeding.TransactionSeed(hash(s"$cmd")),
+          disclosures = ImmArray(unusedDisclosedContract, usedDisclosedContract),
+        )
+        .consume(_ => None, lookupPackage, lookupKey)
 
-    inside(result) { case Right((transaction, metadata)) =>
-      transaction should haveDisclosedInputContracts(usedDisclosedContract)
-      metadata should haveDisclosedContracts(usedDisclosedContract)(preprocessor)
+      inside(result) { case Right((transaction, metadata)) =>
+        transaction should haveDisclosedInputContracts(usedDisclosedContract)
+        metadata should haveDisclosedContracts(usedDisclosedContract)(preprocessor)
+      }
     }
-  }
 
-  @SuppressWarnings(
-    Array(
-      "org.wartremover.warts.JavaSerializable",
-      "org.wartremover.warts.Product",
-      "org.wartremover.warts.Serializable",
+    @SuppressWarnings(
+      Array(
+        "org.wartremover.warts.JavaSerializable",
+        "org.wartremover.warts.Product",
+        "org.wartremover.warts.Serializable",
+      )
     )
-  )
-  def haveDisclosedContracts(
-      disclosedContracts: DisclosedContract*
-  )(preprocessor: preprocessing.Preprocessor): Matcher[Tx.Metadata] =
-    Matcher { metadata =>
-      val expectedResult = ImmArray(disclosedContracts: _*)
-      val actualResult = metadata.disclosures
-        .map(_.unversioned)
-        .map(preprocessor.commandPreprocessor.unsafePreprocessDisclosedContract)
-      val debugMessage = Seq(
-        s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.contractId.value)}",
-        s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.contractId)}",
-      ).mkString("\n  ", "\n  ", "")
+    def haveDisclosedContracts(
+        disclosedContracts: DisclosedContract*
+    )(preprocessor: preprocessing.Preprocessor): Matcher[Tx.Metadata] =
+      Matcher { metadata =>
+        val expectedResult = ImmArray(disclosedContracts: _*)
+        val actualResult = metadata.disclosures
+          .map(_.unversioned)
+          .map(preprocessor.commandPreprocessor.unsafePreprocessDisclosedContract)
+        val debugMessage = Seq(
+          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.contractId.value)}",
+          s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.contractId)}",
+        ).mkString("\n  ", "\n  ", "")
 
-      MatchResult(
-        expectedResult == actualResult,
-        s"Failed with unexpected disclosed contracts: $expectedResult != $actualResult $debugMessage",
-        s"Failed with unexpected disclosed contracts: $expectedResult == $actualResult",
-      )
-    }
+        MatchResult(
+          expectedResult == actualResult,
+          s"Failed with unexpected disclosed contracts: $expectedResult != $actualResult $debugMessage",
+          s"Failed with unexpected disclosed contracts: $expectedResult == $actualResult",
+        )
+      }
 
-  def haveDisclosedInputContracts(
-      disclosedContracts: DisclosedContract*
-  ): Matcher[VersionedTransaction] =
-    Matcher { transaction =>
-      val expectedResult = Set(disclosedContracts: _*).map(_.contractId.value)
-      val actualResult = transaction.inputContracts
-      val debugMessage = Seq(
-        s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_))}",
-        s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_))}",
-      ).mkString("\n  ", "\n  ", "")
+    def haveDisclosedInputContracts(
+        disclosedContracts: DisclosedContract*
+    ): Matcher[VersionedTransaction] =
+      Matcher { transaction =>
+        val expectedResult = Set(disclosedContracts: _*).map(_.contractId.value)
+        val actualResult = transaction.inputContracts
+        val debugMessage = Seq(
+          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_))}",
+          s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_))}",
+        ).mkString("\n  ", "\n  ", "")
 
-      MatchResult(
-        expectedResult == actualResult,
-        s"Failed with unexpected disclosed contracts: $expectedResult != $actualResult $debugMessage",
-        s"Failed with unexpected disclosed contracts: $expectedResult == $actualResult",
-      )
-    }
+        MatchResult(
+          expectedResult == actualResult,
+          s"Failed with unexpected disclosed contracts: $expectedResult != $actualResult $debugMessage",
+          s"Failed with unexpected disclosed contracts: $expectedResult == $actualResult",
+        )
+      }
+  }
 
   case class ReinterpretState(
       contracts: Map[ContractId, VersionedContractInstance],
