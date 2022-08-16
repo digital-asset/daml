@@ -15,7 +15,7 @@ class HmacSha256Spec extends AnyWordSpec with Matchers {
   import HmacSha256._
 
   private def testCommunityKey(): Key = {
-    val keyPath = "keys/community.json"
+    val keyPath = "metering-keys/community.json"
     val keyUrl = ClassLoader.getSystemResource(keyPath)
     val json = new String(keyUrl.openStream().readAllBytes(), StandardCharsets.UTF_8)
     println(json)
@@ -23,6 +23,13 @@ class HmacSha256Spec extends AnyWordSpec with Matchers {
   }
 
   "HmacSha256" should {
+    "generate serialize/deserialize bytes" in {
+      val expected = Bytes("some string".getBytes)
+      val json = expected.toJson.prettyPrint
+      val actual = json.parseJson.convertTo[Bytes]
+      actual shouldBe expected
+
+    }
     "generate serialize/deserialize key" in {
       val expected = HmacSha256.generateKey()
       val json = expected.toJson.prettyPrint

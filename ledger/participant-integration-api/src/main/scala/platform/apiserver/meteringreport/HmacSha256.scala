@@ -4,7 +4,7 @@
 package com.daml.platform.apiserver.meteringreport
 
 import spray.json.DefaultJsonProtocol._
-import spray.json.RootJsonFormat
+import spray.json.{JsValue, JsonFormat, RootJsonFormat, deserializationError}
 
 import java.util.Base64
 import javax.crypto.spec.SecretKeySpec
@@ -14,6 +14,9 @@ import scala.util.Try
 object HmacSha256 {
 
   def toBase64(bytes: Array[Byte]): String = Base64.getUrlEncoder.encodeToString(bytes)
+  def fromBase64(base64: String): Either[Throwable, Array[Byte]] = Try(
+    Base64.getUrlDecoder.decode(base64)
+  ).toEither
 
   // The key used for both mac and key generation as defined in
   // https://docs.oracle.com/javase/9/docs/specs/security/standard-names.html
@@ -43,7 +46,14 @@ object HmacSha256 {
     override def toString: String = toBase64
     def toBase64: String = HmacSha256.toBase64(bytes)
   }
-  implicit val BytesFormat: RootJsonFormat[Bytes] = jsonFormat1(Bytes.apply)
+
+  implicit val BytesFormat: RootJsonFormat[Bytes] = new RootJsonFormat[Bytes] {
+    private[this] val base = implicitly[JsonFormat[String]]
+    override def write(obj: Bytes): JsValue = base.write(obj.toBase64)
+    override def read(json: JsValue): Bytes = fromBase64(base.read(json))
+      .map(Bytes)
+      .fold(deserializationError(s"Failed to deserialize $json", _), identity)
+  }
 
   final case class Key(encoded: Bytes, algorithm: String)
   implicit val KeyFormat: RootJsonFormat[Key] = jsonFormat2(Key.apply)
