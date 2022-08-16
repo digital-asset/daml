@@ -125,8 +125,6 @@ object HttpService {
 
       _ = logger.info(s"contractDao: ${contractDao.toString}")
 
-      logLevelBelowOrEqualDebug = isLogLevelEqualOrBelowDebug(logLevel)
-
       packageService = new PackageService(doLoad(pkgManagementClient.packageClient))
 
       commandService = new CommandService(
