@@ -85,7 +85,10 @@ private[events] object TransactionLogUpdatesConversions {
           toFlatTransaction(
             transactionAccepted = transactionAccepted,
             filter = requestingParties.map(_ -> Set.empty[Ref.Identifier]).toMap,
-            eventProjectionProperties = EventProjectionProperties(verbose = true),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = requestingParties.map(_ -> Set.empty[Ref.Identifier]).toMap,
+            ),
             lfValueTranslation = lfValueTranslation,
           )
         )
@@ -213,7 +216,10 @@ private[events] object TransactionLogUpdatesConversions {
           toTransactionTree(
             transactionAccepted = tx,
             requestingParties,
-            eventProjectionProperties = EventProjectionProperties(verbose = true),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = requestingParties.map(_ -> Set.empty[Ref.Identifier]).toMap,
+            ),
             lfValueTranslation = lfValueTranslation,
           )
         )

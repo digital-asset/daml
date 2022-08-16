@@ -182,7 +182,11 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from,
             endInclusive = to,
             filter = Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
-            eventProjectionProperties = EventProjectionProperties(verbose = true),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter =
+                Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
+            ),
           )
       )
     } yield {
@@ -212,7 +216,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
             filter = Map(alice -> Set.empty),
-            eventProjectionProperties = EventProjectionProperties(verbose = true),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(alice -> Set.empty),
+            ),
           )
       )
       resultForBob <- transactionsOf(
@@ -221,7 +228,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
             filter = Map(bob -> Set.empty),
-            eventProjectionProperties = EventProjectionProperties(verbose = true),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(bob -> Set.empty),
+            ),
           )
       )
       resultForCharlie <- transactionsOf(
@@ -230,7 +240,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
             filter = Map(charlie -> Set.empty),
-            eventProjectionProperties = EventProjectionProperties(verbose = true),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(charlie -> Set.empty),
+            ),
           )
       )
     } yield {

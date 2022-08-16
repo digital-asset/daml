@@ -165,7 +165,8 @@ private[dao] final class TransactionsReader(
             deserializeEntry(
               EventProjectionProperties(
                 verbose = true,
-                requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
+                witnessTemplateIdFilter =
+                  requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
               )
             )
           ),
@@ -266,7 +267,8 @@ private[dao] final class TransactionsReader(
             deserializeEntry(
               EventProjectionProperties(
                 verbose = true,
-                requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
+                witnessTemplateIdFilter =
+                  requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
               )
             )
           ),
