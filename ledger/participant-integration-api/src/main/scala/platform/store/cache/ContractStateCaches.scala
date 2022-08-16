@@ -13,7 +13,7 @@ import com.daml.platform.store.dao.events.ContractStateEvent
 
 import scala.concurrent.ExecutionContext
 
-/** Encapsulates the contract and key state caches with operations mutating them.
+/** Encapsulates the contract and key state caches with operations for mutating them.
   * The caches are used for serving contract activeness and key lookups
   * for command interpretation performed during command submission.
   *
