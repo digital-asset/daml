@@ -5,7 +5,7 @@ package com.daml.platform.index
 
 import com.daml.ledger.api.domain.{Filters, InclusiveFilters, InterfaceFilter, TransactionFilter}
 import com.daml.lf.data.Ref
-import com.daml.platform.index.IndexServiceImpl.{templateFilter,unknownTemplatesOrInterfaces}
+import com.daml.platform.index.IndexServiceImpl.{templateFilter, unknownTemplatesOrInterfaces}
 import com.daml.platform.index.IndexServiceImplSpec.Scope
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import org.scalatest.flatspec.AnyFlatSpec
