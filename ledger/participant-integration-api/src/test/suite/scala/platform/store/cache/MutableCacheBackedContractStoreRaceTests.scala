@@ -4,10 +4,10 @@
 package com.daml.platform.store.cache
 
 import akka.Done
-import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.offset.Offset
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{Ref, Time}
@@ -28,32 +28,20 @@ import com.daml.platform.store.cache.MutableCacheBackedContractStoreRaceTests.{
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
-import org.mockito.MockitoSugar
 import org.scalatest.Assertions.fail
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
-import org.scalatest.matchers.should.Matchers
 
 import java.util.concurrent.Executors
 import scala.annotation.tailrec
 import scala.collection.immutable.{TreeMap, VectorMap}
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 
-class MutableCacheBackedContractStoreRaceTests
-    extends AsyncFlatSpec
-    with Matchers
-    with Eventually
-    with MockitoSugar
-    with BeforeAndAfterAll {
+class MutableCacheBackedContractStoreRaceTests extends AsyncFlatSpec with AkkaBeforeAndAfterAll {
   behavior of "Mutable state cache updates"
 
   private val unboundedExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
-  private val actorSystem = ActorSystem()
-  private implicit val materializer: Materializer = Materializer(actorSystem)
 
   it should "preserve causal monotonicity under contention for key state" in {
     val workload = generateWorkload(keysCount = 10L, contractsCount = 1000L)
@@ -77,11 +65,6 @@ class MutableCacheBackedContractStoreRaceTests
         assert_sync_vs_async_race_contract(contractStore)(event)(ec)
       }
     } yield succeed
-  }
-
-  override def afterAll(): Unit = {
-    Await.ready(actorSystem.terminate(), 10.seconds)
-    materializer.shutdown()
   }
 }
 
