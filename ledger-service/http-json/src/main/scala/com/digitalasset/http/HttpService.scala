@@ -130,8 +130,8 @@ object HttpService {
       packageService = new PackageService(doLoad(pkgManagementClient.packageClient))
 
       commandService = new CommandService(
-        LedgerClientJwt.submitAndWaitForTransaction(client, logLevelBelowOrEqualDebug),
-        LedgerClientJwt.submitAndWaitForTransactionTree(client, logLevelBelowOrEqualDebug),
+        LedgerClientJwt.submitAndWaitForTransaction(client),
+        LedgerClientJwt.submitAndWaitForTransactionTree(client),
       )
 
       contractsService = new ContractsService(
@@ -140,24 +140,24 @@ object HttpService {
         packageService.allTemplateIds,
         LedgerClientJwt.getActiveContracts(client),
         LedgerClientJwt.getCreatesAndArchivesSince(client),
-        LedgerClientJwt.getTermination(client, logLevelBelowOrEqualDebug),
+        LedgerClientJwt.getTermination(client),
         LedgerReader.damlLfTypeLookup(() => packageService.packageStore),
         contractDao,
       )
 
       partiesService = new PartiesService(
-        LedgerClientJwt.listKnownParties(client, logLevelBelowOrEqualDebug),
-        LedgerClientJwt.getParties(client, logLevelBelowOrEqualDebug),
-        LedgerClientJwt.allocateParty(client, logLevelBelowOrEqualDebug),
+        LedgerClientJwt.listKnownParties(client),
+        LedgerClientJwt.getParties(client),
+        LedgerClientJwt.allocateParty(client),
       )
 
       packageManagementService = new PackageManagementService(
-        LedgerClientJwt.listPackages(pkgManagementClient, logLevelBelowOrEqualDebug),
-        LedgerClientJwt.getPackage(pkgManagementClient, logLevelBelowOrEqualDebug),
+        LedgerClientJwt.listPackages(pkgManagementClient),
+        LedgerClientJwt.getPackage(pkgManagementClient),
         { case (jwt, ledgerId, byteString) =>
           implicit lc =>
             LedgerClientJwt
-              .uploadDar(pkgManagementClient, logLevelBelowOrEqualDebug)(ec)(
+              .uploadDar(pkgManagementClient)(ec)(
                 jwt,
                 ledgerId,
                 byteString,
@@ -170,7 +170,7 @@ object HttpService {
       meteringReportService = new MeteringReportService(
         { case (jwt, request) =>
           implicit lc =>
-            LedgerClientJwt.getMeteringReport(client, logLevelBelowOrEqualDebug)(ec)(jwt, request)(
+            LedgerClientJwt.getMeteringReport(client)(ec)(jwt, request)(
               lc
             )
         }
