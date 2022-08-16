@@ -131,7 +131,7 @@ private[daml] object AcsTxStreams {
   ): lav1.transaction_filter.TransactionFilter = {
     import lav1.transaction_filter._
 
-    // TODO #14067 make a different filter for `ContractTypeId.Interface`s
+    // TODO #14727 make a different filter for `ContractTypeId.Interface`s
     val filters =
       if (contractTypeIds.isEmpty) Filters.defaultInstance
       else

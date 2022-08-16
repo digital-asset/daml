@@ -230,7 +230,7 @@ class ContractsService(
         jwt,
         ledgerId,
         parties,
-        templateIds.toSet[ContractTypeId.Resolved], // TODO #14067 remove toSet
+        templateIds.toSet[ContractTypeId.Resolved], // TODO #14727 remove toSet
         InMemoryQuery.Params(queryParams),
       )
     }

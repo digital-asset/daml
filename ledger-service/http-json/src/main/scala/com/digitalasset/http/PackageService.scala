@@ -263,7 +263,7 @@ object PackageService {
     def apply(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
         x: CtId[Option[String]]
     )(implicit lc: LoggingContextOf[InstanceUUID]): Future[
-      PackageService.Error \/ Option[CtId[String]] // TODO #14067 add Resolved and with Definite
+      PackageService.Error \/ Option[CtId[String]] // TODO #14727 add Resolved and with Definite
     ]
   }
 
@@ -351,7 +351,7 @@ object PackageService {
       .groupBy(key2)
       .collect { case (k, v) if v.sizeIs == 1 => (k, v.head) }
 
-  // TODO SC #14067 make sensitive to whether `a` is Unknown, Template, or Interface
+  // TODO SC #14727 make sensitive to whether `a` is Unknown, Template, or Interface
   // this will entail restructuring `ContractTypeIdMap`, possibly unifying
   // the two in how we expose ResolveContractTypeId and ResolveTemplateId
   def resolveTemplateId[CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]](
@@ -368,7 +368,7 @@ object PackageService {
       ctId: ContractTypeId.Resolved,
       choice: Choice,
   ): Error \/ (Option[ContractTypeId.Interface.Resolved], iface.Type) = {
-    // TODO #14067 skip indirect resolution if ctId is an interface ID
+    // TODO #14727 skip indirect resolution if ctId is an interface ID
     val resolution = for {
       choices <- choiceIdMap get ctId
       overloads <- choices get choice
