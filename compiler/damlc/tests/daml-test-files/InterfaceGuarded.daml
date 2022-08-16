@@ -35,7 +35,7 @@ template Asset
   where
     signatory owner
 
-    implements Token where
+    interface instance Token for Asset where
       view = EmptyInterfaceView
       getOwner = owner
       getAmount = amount
@@ -47,12 +47,12 @@ template AnotherAsset
     amount: Int
   where
     signatory owner
-    implements Token where
+    interface instance Token for AnotherAsset where
       view = EmptyInterfaceView
       getOwner = owner
       getAmount = amount
       setAmount x = toInterface @Token (this with amount = x)
-    implements SubToken where
+    interface instance SubToken for AnotherAsset where
       view = EmptyInterfaceView
 
 exception GuardException
