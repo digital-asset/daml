@@ -51,7 +51,7 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
       request = Request(from, Some(to), Some(appIdX)),
       `final` = false,
       applications = Seq(ApplicationReport(appIdA, 4), ApplicationReport(appIdB, 2)),
-      check = None,  // TODO populate
+      check = None, // TODO populate
     )
     val json = report.toJson.compactPrint
     val struct: Struct = JsonFormat.parser.fromJsonString[Struct](json)
