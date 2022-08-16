@@ -123,7 +123,7 @@ da_scala_test(
         "src/test/**/MinVersionTest.scala",
     ]),
     data = [
-        "//ledger/test-common:dar-files-1.14",
+        "//ledger/test-common:dar-files-1.15",
     ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
@@ -146,7 +146,7 @@ da_scala_test(
         "//ledger/ledger-runner-common",
         "//ledger/participant-integration-api",
         "//ledger/sandbox-on-x",
-        "//ledger/test-common:dar-files-1.14-lib",
+        "//ledger/test-common:dar-files-1.15-lib",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:com_google_protobuf_protobuf_java",

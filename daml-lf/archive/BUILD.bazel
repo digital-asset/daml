@@ -159,7 +159,7 @@ da_scala_test_suite(
     ],
     scalacopts = lf_scalacopts,
     deps = [
-        ":daml_lf_1.14_archive_proto_java",
+        ":daml_lf_1.15_archive_proto_java",
         ":daml_lf_1.dev_archive_proto_java",
         ":daml_lf_archive_reader",
         "//bazel_tools/runfiles:scala_runfiles",
