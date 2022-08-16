@@ -3,12 +3,13 @@
 
 package com.daml.platform.apiserver.meteringreport
 
+import com.daml.crypto.MacPrototype
 import spray.json.DefaultJsonProtocol._
 import spray.json.{JsValue, JsonFormat, RootJsonFormat, deserializationError}
 
 import java.util.Base64
 import javax.crypto.spec.SecretKeySpec
-import javax.crypto.{KeyGenerator, Mac}
+import javax.crypto.KeyGenerator
 import scala.util.Try
 
 object HmacSha256 {
@@ -21,10 +22,11 @@ object HmacSha256 {
   // The key used for both mac and key generation as defined in
   // https://docs.oracle.com/javase/9/docs/specs/security/standard-names.html
   val algorithm = "HmacSHA256"
+  private val macPrototype = new MacPrototype(algorithm)
 
   def compute(key: Key, message: Array[Byte]): Either[Throwable, Array[Byte]] = {
     Try {
-      val mac = Mac.getInstance(algorithm)
+      val mac = macPrototype.newMac
       val secretKey = new SecretKeySpec(key.encoded.bytes, key.algorithm)
       mac.init(secretKey)
       mac.doFinal(message)
