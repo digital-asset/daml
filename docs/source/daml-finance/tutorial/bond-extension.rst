@@ -1,12 +1,12 @@
 Tutorials : How to use the Bond extension package
 #################################################
 
-The bond extension package currently supports the following bond types:
+How to create a bond instrument
+*******************************
 
-#. Fixed rate
-#. Floating rate
-#. Inflation linked
-#. Zero coupon
+There are different types of bonds, which mainly differ in the way the coupon is defined.
+How to create a bond instrument depends on the type of coupon you need.
+The bond extension package currently supports the following bond types:
 
 Fixed rate
 ==========
@@ -99,3 +99,26 @@ Here is an example of a zero coupon bond:
 
   bondInstrument <- originateZeroCouponBond custodian issuer "BOND" obs now issueDate maturityDate cashInstrumentCid
   investorBondTransferableCid <- Account.credit [publicParty] bondInstrument redemptionAmount investorAccount
+
+
+How to trade and transfer a bond
+********************************
+
+When you have created a holding on a bond instrument this can be transfered to another party.
+This is described in :doc:`Getting Started: Transfer <../getting-started/getting-started>`.
+
+In order to trade a bond (transfer it in exchange for cash) you can also initiate a delivery versus payment with atomic settlement.
+This is described in :doc:`Getting Started: Settlement <../getting-started/settlement>`.
+
+How to process coupon payments
+******************************
+
+On the coupon payment date, the issuer will need to lifecycle the bond.
+This will result in a lifecycle effect for the coupon, which can be cash settled.
+This is described in detail in :doc:`Getting Started: Lifecycling <../getting-started/lifecycling>`.
+
+How to redeem a bond
+********************
+
+On the redemption date, both the last coupon and the redemption amount with be paid.
+This is processed in the same way as a single coupon payment described above.
