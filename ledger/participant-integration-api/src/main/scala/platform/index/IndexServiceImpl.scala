@@ -175,7 +175,7 @@ private[index] class IndexServiceImpl(
           from.getOrElse(Offset.beforeBegin),
           RangeSource(
             transactionsReader
-              .getTransactionTrees(_, _, filter.filtersByParty.keySet, eventProjectionProperties)
+              .getTransactionTrees(_, _, parties, eventProjectionProperties)
           ),
           to,
         )
@@ -247,12 +247,17 @@ private[index] class IndexServiceImpl(
     val templateFilter =
       IndexServiceImpl.templateFilter(metadata, transactionFilter)
 
-    ledgerDao.transactionsReader
-      .getActiveContracts(
-        currentLedgerEnd,
-        templateFilter,
-        eventProjectionProperties,
-      )
+    val activeContractsSource =
+      if (templateFilter.nonEmpty)
+        ledgerDao.transactionsReader
+          .getActiveContracts(
+            currentLedgerEnd,
+            templateFilter,
+            eventProjectionProperties,
+          )
+      else Source.empty
+
+    activeContractsSource
       .concat(
         Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(currentLedgerEnd)))
       )
@@ -459,11 +464,10 @@ private[index] class IndexServiceImpl(
     toGrpcError
   }
 
-  private def toGrpcError(implicit loggingContext: LoggingContext): StatusRuntimeException = {
+  private def toGrpcError(implicit loggingContext: LoggingContext): StatusRuntimeException =
     LedgerApiErrors.ServiceNotRunning
       .Reject("Index Service")(new DamlContextualizedErrorLogger(logger, loggingContext, None))
       .asGrpcError
-  }
 }
 
 object IndexServiceImpl {
@@ -481,7 +485,7 @@ object IndexServiceImpl {
       metadata: PackageMetadata,
       transactionFilter: domain.TransactionFilter,
   ): Map[Party, Set[Identifier]] =
-    transactionFilter.filtersByParty.collect {
+    transactionFilter.filtersByParty.view.collect {
       case (party, Filters(Some(inclusiveFilters)))
           if templateIds(metadata)(inclusiveFilters).nonEmpty =>
         (party, templateIds(metadata)(inclusiveFilters))
