@@ -22,7 +22,8 @@ import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.{Timestamp => ScalaTimestamp}
-import com.google.rpc.status.Status
+import com.google.rpc.{Status => JStatus}
+import com.google.rpc.status.{Status => SStatus}
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 
 import scala.jdk.CollectionConverters._
@@ -184,22 +185,25 @@ object TransactionGenerator {
   val unitValueGen: Gen[(Sum.Unit, data.Unit)] =
     Gen.const((Sum.Unit(Empty()), data.Unit.getInstance()))
 
-  val statusGen = for {
+  private val statusGen: Gen[(SStatus, JStatus)] = for {
     code <- Gen.chooseNum(0, Int.MaxValue)
     message <- Gen.alphaNumStr
-  } yield Status(code, message)
+  } yield (SStatus(code, message), JStatus.newBuilder().setCode(code).setMessage(message).build)
 
-  val interfaceViewGen: Gen[InterfaceView] = for {
-    scalaRecord <- Gen.option(Gen.sized(recordGen).map(_._1))
-    interfaceId <- Gen.option(identifierGen.map(_._1))
-    status <- Gen.option(statusGen)
-  } yield InterfaceView(
-    interfaceId,
-    status,
-    scalaRecord,
+  private val interfaceViewGen
+      : Gen[(InterfaceView, (data.Identifier, Either[JStatus, data.DamlRecord]))] = for {
+    (scalaInterfaceId, javaInterfaceId) <- identifierGen
+    statusOrRecord <- Gen.either(statusGen, Gen.sized(recordGen))
+  } yield (
+    InterfaceView(
+      Some(scalaInterfaceId),
+      statusOrRecord.left.toOption.map(_._1),
+      statusOrRecord.toOption.map(_._1),
+    ),
+    (javaInterfaceId, statusOrRecord.left.map(_._2).map(_._2)),
   )
 
-  val createdEventGen: Gen[(Created, data.CreatedEvent)] = for {
+  private val createdEventGen: Gen[(Created, data.CreatedEvent)] = for {
     eventId <- nonEmptyId
     contractId <- nonEmptyId
     agreementText <- Gen.option(Gen.asciiStr)
@@ -217,7 +221,7 @@ object TransactionGenerator {
         Some(scalaTemplateId),
         contractKey.map(_._1),
         Some(scalaRecord),
-        interfaceViews,
+        interfaceViews.map(_._1),
         signatories ++ observers,
         signatories,
         observers,
@@ -230,6 +234,8 @@ object TransactionGenerator {
       javaTemplateId,
       contractId,
       javaRecord,
+      interfaceViews.view.collect { case (_, (id, Right(rec))) => (id, rec) }.toMap.asJava,
+      interfaceViews.view.collect { case (_, (id, Left(stat))) => (id, stat) }.toMap.asJava,
       agreementText.toJava,
       contractKey.map(_._2).toJava,
       signatories.toSet.asJava,
