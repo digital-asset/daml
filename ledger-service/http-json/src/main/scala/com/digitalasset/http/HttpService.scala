@@ -63,6 +63,9 @@ object HttpService {
 
   final case class Error(message: String)
 
+  private def isLogLevelEqualOrBelowDebug(logLevel: Option[LogLevel]) =
+    logLevel.exists(!_.isGreaterOrEqual(LogLevel.INFO))
+
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   def start(
       startSettings: StartSettings,
@@ -122,11 +125,13 @@ object HttpService {
 
       _ = logger.info(s"contractDao: ${contractDao.toString}")
 
+      logLevelBelowOrEqualDebug = isLogLevelEqualOrBelowDebug(logLevel)
+
       packageService = new PackageService(doLoad(pkgManagementClient.packageClient))
 
       commandService = new CommandService(
-        LedgerClientJwt.submitAndWaitForTransaction(client),
-        LedgerClientJwt.submitAndWaitForTransactionTree(client),
+        LedgerClientJwt.submitAndWaitForTransaction(client, logLevelBelowOrEqualDebug),
+        LedgerClientJwt.submitAndWaitForTransactionTree(client, logLevelBelowOrEqualDebug),
       )
 
       contractsService = new ContractsService(
@@ -135,24 +140,28 @@ object HttpService {
         packageService.allTemplateIds,
         LedgerClientJwt.getActiveContracts(client),
         LedgerClientJwt.getCreatesAndArchivesSince(client),
-        LedgerClientJwt.getTermination(client),
+        LedgerClientJwt.getTermination(client, logLevelBelowOrEqualDebug),
         LedgerReader.damlLfTypeLookup(() => packageService.packageStore),
         contractDao,
       )
 
       partiesService = new PartiesService(
-        LedgerClientJwt.listKnownParties(client),
-        LedgerClientJwt.getParties(client),
-        LedgerClientJwt.allocateParty(client),
+        LedgerClientJwt.listKnownParties(client, logLevelBelowOrEqualDebug),
+        LedgerClientJwt.getParties(client, logLevelBelowOrEqualDebug),
+        LedgerClientJwt.allocateParty(client, logLevelBelowOrEqualDebug),
       )
 
       packageManagementService = new PackageManagementService(
-        LedgerClientJwt.listPackages(pkgManagementClient),
-        LedgerClientJwt.getPackage(pkgManagementClient),
+        LedgerClientJwt.listPackages(pkgManagementClient, logLevelBelowOrEqualDebug),
+        LedgerClientJwt.getPackage(pkgManagementClient, logLevelBelowOrEqualDebug),
         { case (jwt, ledgerId, byteString) =>
           implicit lc =>
             LedgerClientJwt
-              .uploadDar(pkgManagementClient)(ec)(jwt, ledgerId, byteString)(lc)
+              .uploadDar(pkgManagementClient, logLevelBelowOrEqualDebug)(ec)(
+                jwt,
+                ledgerId,
+                byteString,
+              )(lc)
               .flatMap(_ => packageService.reload(jwt, ledgerId))
               .map(_ => ())
         },
@@ -160,7 +169,10 @@ object HttpService {
 
       meteringReportService = new MeteringReportService(
         { case (jwt, request) =>
-          implicit lc => LedgerClientJwt.getMeteringReport(client)(ec)(jwt, request)(lc)
+          implicit lc =>
+            LedgerClientJwt.getMeteringReport(client, logLevelBelowOrEqualDebug)(ec)(jwt, request)(
+              lc
+            )
         }
       )
 
@@ -185,7 +197,7 @@ object HttpService {
         healthService,
         encoder,
         decoder,
-        logLevel.exists(!_.isGreaterOrEqual(LogLevel.INFO)), // Everything below DEBUG enables this
+        isLogLevelEqualOrBelowDebug(logLevel),
         client.userManagementClient,
         client.identityClient,
       )
