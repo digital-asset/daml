@@ -132,7 +132,7 @@ object LedgerClientJwt {
 
   private def bearer(jwt: Jwt): Some[String] = Some(jwt.value: String)
 
-  private def logLedgeClientCallTime[T, C](
+  private def logLedgerClientCallTime[T, C](
       clientCallName: String,
       shouldLog: Boolean,
   )(block: => Future[T])(implicit ec: EC, lc: LoggingContextOf[C]): Future[T] = if (shouldLog) {
@@ -152,7 +152,7 @@ object LedgerClientJwt {
   )(implicit ec: EC): SubmitAndWaitForTransaction =
     (jwt, req) =>
       implicit lc => {
-        logLedgeClientCallTime(
+        logLedgerClientCallTime(
           "SynchronousCommandClient submitAndWaitForTransaction",
           shouldLogCallTime,
         ) {
@@ -166,7 +166,7 @@ object LedgerClientJwt {
   )(implicit ec: EC): SubmitAndWaitForTransactionTree =
     (jwt, req) =>
       implicit lc => {
-        logLedgeClientCallTime(
+        logLedgerClientCallTime(
           "SynchronousCommandClient submitAndWaitForTransactionTree",
           shouldLogCallTime,
         ) {
@@ -180,7 +180,7 @@ object LedgerClientJwt {
   ): GetTermination =
     (jwt, ledgerId) =>
       implicit lc => {
-        logLedgeClientCallTime("TransactionClient getLedgerEnd", shouldLogCallTime) {
+        logLedgerClientCallTime("TransactionClient getLedgerEnd", shouldLogCallTime) {
           client.transactionClient.getLedgerEnd(ledgerId, bearer(jwt))
         }.map {
           _.offset flatMap {
@@ -252,7 +252,7 @@ object LedgerClientJwt {
   ): ListKnownParties =
     jwt =>
       implicit lc => {
-        logLedgeClientCallTime("PartyManagementClient listKnownParties", shouldLogCallTime) {
+        logLedgerClientCallTime("PartyManagementClient listKnownParties", shouldLogCallTime) {
           client.partyManagementClient.listKnownParties(bearer(jwt))
         }.requireHandling { case Code.PERMISSION_DENIED =>
           PermissionDenied
@@ -264,7 +264,7 @@ object LedgerClientJwt {
   ): GetParties =
     (jwt, partyIds) =>
       implicit lc => {
-        logLedgeClientCallTime("PartyManagementClient getParties", shouldLogCallTime) {
+        logLedgerClientCallTime("PartyManagementClient getParties", shouldLogCallTime) {
           client.partyManagementClient.getParties(partyIds, bearer(jwt))
         }.requireHandling { case Code.PERMISSION_DENIED =>
           PermissionDenied
@@ -276,7 +276,7 @@ object LedgerClientJwt {
   ): AllocateParty =
     (jwt, identifierHint, displayName) =>
       implicit lc => {
-        logLedgeClientCallTime("PartyManagementClient allocateParty", shouldLogCallTime) {
+        logLedgerClientCallTime("PartyManagementClient allocateParty", shouldLogCallTime) {
           client.partyManagementClient.allocateParty(
             hint = identifierHint,
             displayName = displayName,
@@ -291,7 +291,7 @@ object LedgerClientJwt {
     (jwt, ledgerId) =>
       implicit lc => {
         logger.trace("sending list packages request to ledger")
-        logLedgeClientCallTime("PackageClient listPackages", shouldLogCallTime) {
+        logLedgerClientCallTime("PackageClient listPackages", shouldLogCallTime) {
           client.packageClient.listPackages(ledgerId, bearer(jwt))
         }
       }
@@ -302,7 +302,7 @@ object LedgerClientJwt {
     (jwt, ledgerId, packageId) =>
       implicit lc => {
         logger.trace("sending get packages request to ledger")
-        logLedgeClientCallTime("PackageClient getPackage", shouldLogCallTime) {
+        logLedgerClientCallTime("PackageClient getPackage", shouldLogCallTime) {
           client.packageClient.getPackage(packageId, ledgerId, token = bearer(jwt))
         }
       }
@@ -313,7 +313,7 @@ object LedgerClientJwt {
     (jwt, _, byteString) =>
       implicit lc => {
         logger.trace("sending upload dar request to ledger")
-        logLedgeClientCallTime("PackageManagementClient uploadDarFile", shouldLogCallTime) {
+        logLedgerClientCallTime("PackageManagementClient uploadDarFile", shouldLogCallTime) {
           client.packageManagementClient.uploadDarFile(darFile = byteString, token = bearer(jwt))
         }
       }
@@ -324,7 +324,7 @@ object LedgerClientJwt {
     (jwt, request) =>
       implicit lc => {
         logger.trace("sending metering report request to ledger")
-        logLedgeClientCallTime("MeteringReportClient getMeteringReport", shouldLogCallTime) {
+        logLedgerClientCallTime("MeteringReportClient getMeteringReport", shouldLogCallTime) {
           client.meteringReportClient.getMeteringReport(request, bearer(jwt))
         }
       }
