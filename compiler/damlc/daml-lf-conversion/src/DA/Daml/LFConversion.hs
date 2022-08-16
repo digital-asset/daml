@@ -908,7 +908,7 @@ convertSimpleRecordDef env tycon = do
     let fields = zipExact labels fieldTypes
         tconName = mkTypeCon [getOccText tycon]
         typeDef = defDataType tconName tyVars (DataRecord fields)
-        workerDef = defNewtypeWorker (envLFModuleName env) tycon tconName con tyVars fields
+        workerDef = defNewtypeWorker env tycon tconName con tyVars fields
 
     pure $ typeDef : [workerDef | flavour == NewtypeFlavour]
 
@@ -1040,11 +1040,11 @@ convertExports env mc = do
             let exportType = encodeExportInfo info
             in DValue (mkMetadataStub (exportName i) exportType)
 
-defNewtypeWorker :: NamedThing a => LF.ModuleName -> a -> TypeConName -> DataCon
+defNewtypeWorker :: NamedThing a => Env -> a -> TypeConName -> DataCon
     -> [(TypeVarName, LF.Kind)] -> [(FieldName, LF.Type)] -> Definition
-defNewtypeWorker lfModuleName loc tconName con tyVars fields =
+defNewtypeWorker env loc tconName con tyVars fields =
     let tcon = TypeConApp
-            (Qualified PRSelf lfModuleName tconName)
+            (qualifyLocally env tconName)
             (map (TVar . fst) tyVars)
         workerName = mkWorkerName (getOccText con)
         workerType = mkTForalls tyVars $ mkTFuns (map snd fields) $ typeConAppToType tcon
@@ -1077,7 +1077,7 @@ convertVariantConDef env tycon tyVars con =
             let recName = synthesizeVariantRecord ctorName tconName
                 recDef = defDataType recName tyVars (DataRecord fields)
                 recType = TConApp
-                    (Qualified PRSelf (envLFModuleName env) recName)
+                    (qualifyLocally env recName)
                     (map (TVar . fst) tyVars)
             pure ((ctorName, recType), [recDef])
     where
@@ -1134,7 +1134,7 @@ convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
                             `ETmApp` EBuiltin (BEText "Template precondition violated: " )
                             `ETmApp`
                                 (EStructProj (FieldName "m_show")
-                                    (EVal (Qualified PRSelf (envLFModuleName env) (convVal showDict)))
+                                    (EVal (qualifyLocally env (convVal showDict)))
                                 `ETmApp` EUnit
                                 `ETmApp` EVar this)
                     ]
@@ -1149,7 +1149,7 @@ convertTemplateKey env tname TemplateBinds{..}
     , Just fKey <- tbKey
     , Just fMaintainer <- tbMaintainer
     = do
-        let qtname = Qualified PRSelf (envLFModuleName env) tname
+        let qtname = qualifyLocally env tname
         tplKeyType <- convertType env keyTy
         tplKeyBody <- useSingleMethodDict env fKey (`ETmApp` EVar this)
         tplKeyMaintainers <- useSingleMethodDict env fMaintainer
@@ -2310,6 +2310,13 @@ promotedTextTy env text = do
             (mkModName ["DA", "Internal", "PromotedText"])
             (mkTypeCon ["PromotedText"]))
         (TStruct [(FieldName ("_" <> text), TUnit)])
+
+qualifyLocally :: Env -> a -> Qualified a
+qualifyLocally env qualObject = Qualified
+  { qualPackage = PRSelf
+  , qualModule = envLFModuleName env
+  , qualObject
+  }
 
 -- | Rewrite an a qualified name into a reference into one of the hardcoded
 -- stable packages if there is one.
