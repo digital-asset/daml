@@ -10,6 +10,7 @@ module DA.Daml.LF.Ast.Pretty(
 import qualified Data.Ratio                 as Ratio
 import           Control.Lens
 import           Control.Lens.Ast   (rightSpine)
+import           Data.Maybe (maybeToList, isJust)
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import qualified Data.Time.Clock.POSIX      as Clock.Posix
@@ -405,9 +406,13 @@ instance Pretty Update where
       pPrintAppKeyword lvl prec "exercise"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
     UExerciseInterface interface choice cid arg guard ->
-      -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
-      pPrintAppKeyword lvl prec "exercise_interface"
-      [interfaceArg interface, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg, TmArg guard]
+      let -- We distinguish guarded and unguarded exercises by Just/Nothing in guard
+          keyword = "exercise_interface" ++ if isJust guard then "_guarded" else ""
+          guardArg = TmArg <$> maybeToList guard
+          -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
+      in
+      pPrintAppKeyword lvl prec keyword $
+      [interfaceArg interface, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg] ++ guardArg
     UExerciseByKey tpl choice key arg ->
       pPrintAppKeyword lvl prec "exercise_by_key"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg key, TmArg arg]

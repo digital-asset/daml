@@ -24,6 +24,7 @@ import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Recursive
 import qualified DA.Daml.LF.Ast.Type as Type
 
+import Data.Foldable (fold)
 import Data.Functor.Foldable (cata)
 import qualified Data.Set as Set
 import qualified Data.Text as T
@@ -145,7 +146,7 @@ freeVarsStep = \case
         UCreateF _ e -> e
         UCreateInterfaceF _ e -> e
         UExerciseF _ _ e1 e2 -> e1 <> e2
-        UExerciseInterfaceF _ _ e1 e2 e3 -> e1 <> e2 <> e3
+        UExerciseInterfaceF _ _ e1 e2 e3 -> e1 <> e2 <> fold e3
         UExerciseByKeyF _ _ e1 e2 -> e1 <> e2
         UFetchF _ e -> e
         UFetchInterfaceF _ e -> e

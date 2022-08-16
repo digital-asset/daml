@@ -593,12 +593,14 @@ typeOfExercise tpl chName cid arg = do
   pure (TUpdate (chcReturnType choice))
 
 typeOfExerciseInterface :: MonadGamma m =>
-  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> Expr -> m Type
-typeOfExerciseInterface iface chName cid arg guard = do
+  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> Maybe Expr -> m Type
+typeOfExerciseInterface iface chName cid arg mayGuard = do
   choice <- inWorld (lookupInterfaceChoice (iface, chName))
   checkExpr cid (TContractId (TCon iface))
   checkExpr arg (chcArgType choice)
-  checkExpr guard (TCon iface :-> TBool)
+  case mayGuard of
+    Nothing -> pure ()
+    Just guard -> checkExpr guard (TCon iface :-> TBool)
   pure (TUpdate (chcReturnType choice))
 
 typeOfExerciseByKey :: MonadGamma m =>

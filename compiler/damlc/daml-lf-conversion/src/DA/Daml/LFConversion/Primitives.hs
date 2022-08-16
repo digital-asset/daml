@@ -284,7 +284,7 @@ convertPrim _ "UExerciseInterface"
         , exeChoice     = choiceName
         , exeContractId = EVar (mkVar "this")
         , exeArg        = EVar (mkVar "arg")
-        , exeGuard      = EVar (mkVar "pred")
+        , exeGuard      = Just (EVar (mkVar "pred"))
         }
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
