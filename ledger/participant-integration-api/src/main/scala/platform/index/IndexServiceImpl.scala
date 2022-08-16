@@ -29,6 +29,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
@@ -52,6 +53,7 @@ import com.daml.platform.{ApiOffset, PruneBuffers}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
+import com.daml.platform.index.IndexServiceImpl.withValidatedFilter
 import com.daml.platform.store.dao.{
   EventProjectionProperties,
   LedgerDaoCommandCompletionsReader,
@@ -467,6 +469,67 @@ private[index] class IndexServiceImpl(
 }
 
 object IndexServiceImpl {
+  private val logger = ContextualizedLogger.get(getClass)
+
+  private[index] def unknownTemplatesOrInterfaces(
+      domainTransactionFilter: domain.TransactionFilter,
+      metadata: PackageMetadata,
+  ) =
+    (for {
+      (_, inclusiveFilterOption) <- domainTransactionFilter.filtersByParty.iterator
+      inclusiveFilter <- inclusiveFilterOption.inclusive.iterator
+      unknownInterfaces =
+        inclusiveFilter.interfaceFilters
+          .collect {
+            case interfaceFilter if !metadata.interfaces.contains(interfaceFilter.interfaceId) =>
+              Right(interfaceFilter.interfaceId)
+          }
+      unknownTemplates = inclusiveFilter.templateIds
+        .collect {
+          case templateId if !metadata.templates.contains(templateId) => Left(templateId)
+        }
+      unknownTemplateOrInterface <- unknownInterfaces ++ unknownTemplates
+    } yield unknownTemplateOrInterface).toList
+
+  private[index] def withValidatedFilter[T](
+      domainTransactionFilter: domain.TransactionFilter,
+      metadata: PackageMetadata,
+  )(
+      source: => Source[T, NotUsed]
+  )(implicit loggingContext: LoggingContext): Source[T, NotUsed] = {
+    implicit val errorLogger: DamlContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
+    val templatesOrInterfaces = unknownTemplatesOrInterfaces(domainTransactionFilter, metadata)
+
+    if (templatesOrInterfaces.nonEmpty) {
+      Source.failed(
+        invalidArgument(
+          invalidTemplateOrInterfaceMessage(templatesOrInterfaces)
+        )
+      )
+    } else
+      source
+  }
+
+  private[index] def invalidTemplateOrInterfaceMessage(
+      unknownTemplatesOrInterfaces: List[Either[Identifier, Identifier]]
+  ) = {
+    val templates = unknownTemplatesOrInterfaces.collect { case Left(value) =>
+      value
+    }
+    val interfaces = unknownTemplatesOrInterfaces.collect { case Right(value) =>
+      value
+    }
+    val templatesMessage = if (templates.nonEmpty) {
+      s"Templates do not exist: [${templates.mkString(", ")}]. "
+    } else ""
+    val interfacesMessage = if (interfaces.nonEmpty) {
+      s"Interfaces do not exist: [${interfaces.mkString(", ")}]. "
+    } else
+      ""
+    (templatesMessage + interfacesMessage).trim
+  }
 
   private def templateIds(
       metadata: PackageMetadata
