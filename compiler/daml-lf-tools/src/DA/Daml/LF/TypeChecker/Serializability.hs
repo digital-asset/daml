@@ -54,7 +54,7 @@ serializabilityConditionsType
 serializabilityConditionsType world0 version mbCurrentModule vars = go
   where
     noConditions = Right HS.empty
-    supportsInterfaces = version `supports` featureInterfaces
+    supportsInterfaces = version `supports` featureSimpleInterfaces
     go = \case
       -- This is the only way 'ContractId's, 'List's and 'Optional's are allowed. Other cases handled below.
       TContractId typ
