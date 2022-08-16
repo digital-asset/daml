@@ -138,6 +138,13 @@ message User {
     // Optional
     // Modifiable
     ObjectMeta metadata = 4;
+
+    // The name of an authentication domain this user belongs to.
+    // An authentication domain specifies how the participant authenticates the authentication tokens issued for this user.
+    //
+    // Optional. The empty string value is equivalent to specifying the 'default' authentication domain.
+    // Modifiable
+    string auth_domain_name = 5;
 }
 
 
