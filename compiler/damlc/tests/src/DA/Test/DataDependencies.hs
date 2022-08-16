@@ -1775,7 +1775,7 @@ tests tools = testGroup "Data Dependencies" $
             , "    amount : Int"
             , "  where"
             , "    signatory issuer, owner"
-            , "    implements Token where"
+            , "    interface instance Token for Asset where"
             , "      view = EmptyInterfaceView"
             , "      getOwner = owner"
             , "      getAmount = amount"
@@ -1890,7 +1890,7 @@ tests tools = testGroup "Data Dependencies" $
             , "    amount : Int"
             , "  where"
             , "    signatory issuer, owner"
-            , "    implements Token where"
+            , "    interface instance Token for Asset where"
             , "      view = EmptyInterfaceView"
             , "      getOwner = owner"
             , "      getAmount = amount"
@@ -2021,7 +2021,7 @@ tests tools = testGroup "Data Dependencies" $
             , "    amount : Int"
             , "  where"
             , "    signatory issuer, owner"
-            , "    implements Token where"
+            , "    interface instance Token for Asset where"
             , "      view = EmptyInterfaceView"
             , "      getOwner = owner"
             , "      getAmount = amount"
@@ -2041,7 +2041,7 @@ tests tools = testGroup "Data Dependencies" $
             , "        [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism."
             , "        pure ()"
 
-            , "    implements FancyToken where"
+            , "    interface instance FancyToken for Asset where"
             , "      view = EmptyInterfaceView"
             , "      multiplier = 5"
 
@@ -2272,7 +2272,7 @@ tests tools = testGroup "Data Dependencies" $
             , "    amount : Int"
             , "  where"
             , "    signatory issuer, owner"
-            , "    implements Token where"
+            , "    interface instance Token for Asset where"
             , "      view = EmptyInterfaceView"
             , "      getOwner = owner"
             , "      getAmount = amount"
@@ -2292,7 +2292,7 @@ tests tools = testGroup "Data Dependencies" $
             , "        [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism."
             , "        pure ()"
 
-            , "    implements FancyToken where"
+            , "    interface instance FancyToken for Asset where"
             , "      view = EmptyInterfaceView"
             , "      multiplier = 5"
             ]

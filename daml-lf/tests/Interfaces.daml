@@ -34,7 +34,7 @@ template T1
     owner1 : Party
   where
     signatory owner1
-    implements I1 where
+    interface instance I1 for T1 where
       view = EmptyInterfaceView
       getOwner1 = owner1
     choice OwnChoice : ()
@@ -46,12 +46,12 @@ template T2
     owner2 : Party
   where
     signatory owner2
-    implements I1 where
+    interface instance I1 for T2 where
       view = EmptyInterfaceView
       getOwner1 = owner2
-    implements I2 where
+    interface instance I2 for T2 where
       view = EmptyInterfaceView
       getOwner2 = owner2
-    implements I4 where
+    interface instance I4 for T2 where
       view = EmptyInterfaceView
       getOwner4 = owner2
