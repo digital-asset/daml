@@ -12,7 +12,7 @@ load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration_current")
 
 [
     da_scala_binary(
-        name = "ledger-api-bench-tool-%s" % version_alias,
+        name = "ledger-api-bench-tool%s" % ("" if version_alias == "default" else version_alias),
         srcs = [],
         main_class = "com.daml.ledger.api.benchtool.LedgerApiBenchTool",
         resources = [
