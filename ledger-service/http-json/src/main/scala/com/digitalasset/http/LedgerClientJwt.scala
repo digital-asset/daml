@@ -448,7 +448,7 @@ object LedgerClientJwt {
       futureResult.andThen { case _ =>
         logger.debug(
           s"Ledger client request ${requestLog.className} ${requestLog.name} executed, elapsed time: " +
-            s"${(System.nanoTime() - start) / 1000L} ms"
+            s"${(System.nanoTime() - start) / 1000000L} ms"
         )
       }
     } else block
