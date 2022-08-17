@@ -38,6 +38,7 @@ import com.daml.platform.packages.DeduplicatingPackageLoader
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.dao.EventProjectionProperties
+import com.daml.platform.store.dao.events.LfValueTranslation.ApiContractData
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 import com.google.rpc.Status
 import com.google.rpc.status.{Status => ProtoStatus}
@@ -365,12 +366,6 @@ final class LfValueTranslation(
     }
   }
 
-  case class ApiContractData(
-      createArguments: Option[ApiRecord],
-      contractKey: Option[ApiValue],
-      interfaceViews: Seq[InterfaceView],
-  )
-
   def toApiContractData(
       value: LfValue,
       key: Option[VersionedValue],
@@ -385,21 +380,17 @@ final class LfValueTranslation(
     val renderResult =
       eventProjectionProperties.render(witnesses, templateId)
 
-    val renderContractArguments = renderResult.contractArguments
-
-    val renderInterfaces = renderResult.interfaces
-
     val verbose = eventProjectionProperties.verbose
 
-    val asyncContractAguments = condFuture(renderContractArguments)(
+    val asyncContractAguments = condFuture(renderResult.contractArguments)(
       enrichAsync(verbose, value.unversioned, enricher.enrichContract(templateId, _))
         .map(toContractArgumentApi(verbose))
     )
-    val asyncContractKey = condFuture(renderContractArguments && key.isDefined)(
+    val asyncContractKey = condFuture(renderResult.contractArguments && key.isDefined)(
       enrichAsync(verbose, key.get.unversioned, enricher.enrichContractKey(templateId, _))
         .map(toContractKeyApi(verbose))
     )
-    val asyncInterfaceViews = Future.traverse(renderInterfaces.toList)(interfaceId =>
+    val asyncInterfaceViews = Future.traverse(renderResult.interfaces.toList)(interfaceId =>
       computeInterfaceView(
         templateId,
         value.unversioned,
@@ -518,4 +509,13 @@ final class LfValueTranslation(
     Future(engine.computeInterfaceView(templateId, value, interfaceId))
       .flatMap(goAsync)
   }
+}
+
+object LfValueTranslation {
+
+  case class ApiContractData(
+      createArguments: Option[ApiRecord],
+      contractKey: Option[ApiValue],
+      interfaceViews: Seq[InterfaceView],
+  )
 }
