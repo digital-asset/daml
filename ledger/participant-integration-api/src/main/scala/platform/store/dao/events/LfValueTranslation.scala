@@ -3,8 +3,11 @@
 
 package com.daml.platform.store.dao.events
 
+import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.{ErrorCause, RejectionGenerators}
+
 import java.io.ByteArrayInputStream
-import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
+import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent, InterfaceView}
 import com.daml.ledger.api.v1.value.{
   Identifier => ApiIdentifier,
   Record => ApiRecord,
@@ -12,9 +15,11 @@ import com.daml.ledger.api.v1.value.{
 }
 import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.lf.ledger.EventId
+import com.daml.lf.transaction.Versioned
+import com.daml.lf.value.Value
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.{engine => LfEngine}
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.{
   ContractId,
@@ -33,6 +38,10 @@ import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.dao.EventProjectionProperties
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
+import com.google.rpc.Status
+import com.google.rpc.status.{Status => ProtoStatus}
+import io.grpc.Status.Code
+import scala.util.chaining._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -85,6 +94,8 @@ final class LfValueTranslation(
         LoggingContext,
     ) => Future[Option[com.daml.daml_lf_dev.DamlLf.Archive]],
 ) extends LfValueSerialization {
+
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   private val enricherO = engineO.map(new ValueEnricher(_))
 
@@ -223,31 +234,6 @@ final class LfValueTranslation(
     )
   }
 
-  def toApiRecord(
-      value: LfValue,
-      eventProjectionProperties: EventProjectionProperties,
-      attribute: => String,
-      enrich: LfValue => LfEngine.Result[com.daml.lf.value.Value],
-  )(implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContext,
-  ): Future[ApiRecord] = for {
-    enrichedValue <-
-      if (eventProjectionProperties.verbose)
-        consumeEnricherResult(enrich(value))
-      else
-        Future.successful(value.unversioned)
-  } yield {
-    LfEngineToApi.assertOrRuntimeEx(
-      failureContext = s"attempting to deserialize persisted $attribute to record",
-      LfEngineToApi
-        .lfValueToApiRecord(
-          verbose = eventProjectionProperties.verbose,
-          recordValue = enrichedValue,
-        ),
-    )
-  }
-
   private[this] def apiIdentifierToDamlLfIdentifier(id: ApiIdentifier): LfIdentifier =
     LfIdentifier(
       LfPackageId.assertFromString(id.packageId),
@@ -281,46 +267,37 @@ final class LfValueTranslation(
       ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[CreatedEvent] = {
-    // Load the deserialized contract argument and contract key from the cache
-    // This returns the values in Daml-LF format.
-    val create =
-      cache.events
-        .getIfPresent(eventKey(raw.partial.eventId))
-        .getOrElse(
-          LfValueTranslationCache.EventCache.Value.Create(
-            argument = decompressAndDeserialize(raw.createArgumentCompression, raw.createArgument),
-            key = raw.createKeyValue.map(decompressAndDeserialize(raw.createKeyValueCompression, _)),
-          )
-        )
-        .assertCreate()
-
     lazy val templateId: LfIdentifier = apiIdentifierToDamlLfIdentifier(raw.partial.templateId.get)
 
-    // Convert Daml-LF values to ledger API values.
-    // In verbose mode, this involves loading Daml-LF packages and filling in missing type information.
     for {
-      createArguments <- toApiRecord(
+      create <- Future(
+        // Load the deserialized contract argument and contract key from the cache
+        // This returns the values in Daml-LF format.
+        cache.events
+          .getIfPresent(eventKey(raw.partial.eventId))
+          .getOrElse(
+            LfValueTranslationCache.EventCache.Value.Create(
+              argument =
+                decompressAndDeserialize(raw.createArgumentCompression, raw.createArgument),
+              key =
+                raw.createKeyValue.map(decompressAndDeserialize(raw.createKeyValueCompression, _)),
+            )
+          )
+          .assertCreate()
+      )
+
+      apiContractData <- toApiContractData(
         value = create.argument,
+        key = create.key,
+        templateId = templateId,
+        witnesses = raw.partial.witnessParties.toSet,
         eventProjectionProperties = eventProjectionProperties,
-        attribute = "create argument",
-        enrich = value => enricher.enrichContract(templateId, value.unversioned),
       )
-      contractKey <- create.key match {
-        case Some(key) =>
-          toApiValue(
-            value = key,
-            verbose = eventProjectionProperties.verbose,
-            attribute = "create key",
-            enrich = value => enricher.enrichContractKey(templateId, value.unversioned),
-          ).map(Some(_))
-        case None => Future.successful(None)
-      }
-    } yield {
-      raw.partial.copy(
-        createArguments = Some(createArguments),
-        contractKey = contractKey,
-      )
-    }
+    } yield raw.partial.copy(
+      createArguments = apiContractData.createArguments,
+      contractKey = apiContractData.contractKey,
+      interfaceViews = apiContractData.interfaceViews,
+    )
   }
 
   override def deserialize(
@@ -377,5 +354,142 @@ final class LfValueTranslation(
         exerciseResult = exerciseResult,
       )
     }
+  }
+
+  case class ApiContractData(
+      createArguments: Option[ApiRecord],
+      contractKey: Option[ApiValue],
+      interfaceViews: Seq[InterfaceView],
+  )
+
+  def toApiContractData(
+      value: LfValue,
+      key: Option[VersionedValue],
+      templateId: LfIdentifier,
+      witnesses: Set[String],
+      eventProjectionProperties: EventProjectionProperties,
+  )(implicit
+      ec: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[ApiContractData] = {
+
+    val renderResult =
+      eventProjectionProperties.render(witnesses, templateId)
+
+    val renderContractArguments = renderResult.contractArguments
+
+    val renderInterfaces = renderResult.interfaces
+
+    def condFuture[T](cond: Boolean)(f: => Future[T]): Future[Option[T]] =
+      if (cond) f.map(Some(_)) else Future.successful(None)
+    def enrichAsync(enrich: Value => LfEngine.Result[Value])(value: Value): Future[Value] =
+      condFuture(eventProjectionProperties.verbose)(
+        Future(enrich(value)).flatMap(consumeEnricherResult)
+      ).map(_.getOrElse(value))
+    def toApi[T](
+        lfEngineToApiFunction: (Boolean, Value) => Either[String, T],
+        attribute: => String,
+    )(value: Value): T =
+      LfEngineToApi.assertOrRuntimeEx(
+        failureContext = s"attempting to serialize $attribute to API record",
+        lfEngineToApiFunction(eventProjectionProperties.verbose, value),
+      )
+    val asyncContractAguments = condFuture(renderContractArguments)(
+      enrichAsync(enricher.enrichContract(templateId, _))(value.unversioned)
+        .map(toApi(LfEngineToApi.lfValueToApiRecord, "create argument"))
+    )
+    val asyncContractKey = condFuture(renderContractArguments && key.isDefined)(
+      enrichAsync(
+        enricher.enrichContractKey(templateId, _)
+      )(
+        key.get.unversioned
+      )
+        .map(toApi(LfEngineToApi.lfValueToApiValue, "create key"))
+    )
+    val asyncInterfaceViews = Future.traverse(renderInterfaces.toList)(interfaceId =>
+      computeInterfaceView(
+        templateId,
+        value.unversioned,
+        interfaceId,
+      ).flatMap {
+        case Right(versionedValue) =>
+          enrichAsync(enricher.enrichView(interfaceId, _))(versionedValue.unversioned)
+            .map(toApi(LfEngineToApi.lfValueToApiRecord, "interface view"))
+            .map(Some(_))
+            .map(
+              InterfaceView(
+                interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
+                viewStatus = Some(ProtoStatus.of(Code.OK.value(), "", Seq.empty)),
+                _,
+              )
+            )
+
+        case Left(errorStatus) =>
+          Future.successful(
+            InterfaceView(
+              interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
+              viewStatus = Some(ProtoStatus.fromJavaProto(errorStatus)),
+              viewValue = None,
+            )
+          )
+      }
+    )
+
+    for {
+      contractArguments <- asyncContractAguments
+      contractKey <- asyncContractKey
+      interfaceViews <- asyncInterfaceViews
+    } yield ApiContractData(
+      createArguments = contractArguments,
+      contractKey = contractKey,
+      interfaceViews = interfaceViews,
+    )
+  }
+
+  private def computeInterfaceView(
+      templateId: LfIdentifier,
+      value: com.daml.lf.value.Value,
+      interfaceId: LfIdentifier,
+  )(implicit
+      loggingContext: LoggingContext,
+      executionContext: ExecutionContext,
+  ): Future[Either[Status, Versioned[Value]]] = {
+    implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
+    def goAsync(res: LfEngine.Result[Versioned[Value]]): Future[Either[Status, Versioned[Value]]] =
+      res match {
+        case LfEngine.ResultDone(x) =>
+          Future.successful(Right(x))
+
+        case LfEngine.ResultError(err) =>
+          err
+            .pipe(ErrorCause.DamlLf)
+            .pipe(RejectionGenerators.commandExecutorError)
+            .pipe(_.asGrpcStatus)
+            .pipe(Left.apply)
+            .pipe(Future.successful)
+
+        // Note: the compiler should enforce that the computation is a pure function,
+        // ResultNeedContract and ResultNeedKey should never appear in the result.
+        case LfEngine.ResultNeedContract(_, _) =>
+          Future.failed(new IllegalStateException("View computation must be a pure function"))
+
+        case LfEngine.ResultNeedKey(_, _) =>
+          Future.failed(new IllegalStateException("View computation must be a pure function"))
+
+        case LfEngine.ResultNeedPackage(packageId, resume) =>
+          packageLoader
+            .loadPackage(
+              packageId = packageId,
+              delegate = packageId => loadPackage(packageId, loggingContext),
+              metric = metrics.daml.index.db.translation.getLfPackage,
+            )
+            .map(resume)
+            .flatMap(goAsync)
+      }
+
+    Future(engineO.get.computeInterfaceView(templateId, value, interfaceId))
+      .flatMap(goAsync)
   }
 }
