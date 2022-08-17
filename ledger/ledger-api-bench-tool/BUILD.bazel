@@ -8,7 +8,6 @@ load(
     "da_scala_test",
     "da_scala_test_suite",
 )
-
 load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration_current")
 
 [
