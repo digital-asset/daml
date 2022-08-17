@@ -157,7 +157,7 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
 }
 
 /** A contract type ID companion. */
-abstract class ContractTypeIdLike[CtId[T] <: ContractTypeId[T]] {
+sealed abstract class ContractTypeIdLike[CtId[T] <: ContractTypeId[T]] {
   type OptionalPkg = CtId[Option[String]]
   type RequiredPkg = CtId[String]
   type NoPkg = CtId[Unit]

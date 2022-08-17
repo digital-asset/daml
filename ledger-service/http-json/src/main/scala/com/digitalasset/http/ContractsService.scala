@@ -202,7 +202,7 @@ class ContractsService(
               resolveContractTypeId(jwt, ledgerId)(x)
                 .map(_.toOption.flatten.map(Set(_))),
             // ignoring interface IDs for all-templates query
-            allTemplateIds(lc)(jwt, ledgerId).map(_.toSet[domain.ContractTypeId.RequiredPkg].some),
+            allTemplateIds(lc)(jwt, ledgerId).map(_.toSet[domain.ContractTypeId.Resolved].some),
           )
         )
 
@@ -467,7 +467,7 @@ class ContractsService(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: Set[domain.TemplateId.RequiredPkg],
+      templateIds: Set[domain.TemplateId.Resolved],
       queryParams: InMemoryQuery,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
@@ -509,7 +509,7 @@ class ContractsService(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.TemplateId.Resolved,
       queryParams: InMemoryQuery.P,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
@@ -554,7 +554,7 @@ class ContractsService(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: List[domain.ContractTypeId.RequiredPkg],
+      templateIds: List[domain.ContractTypeId.Resolved],
       startOffset: Option[domain.StartingOffset] = None,
       terminates: Terminates = Terminates.AtLedgerEnd,
   )(implicit
@@ -646,7 +646,7 @@ object ContractsService {
   )
 
   private object SearchContext {
-    type QueryLang = SearchContext[Set[domain.ContractTypeId.Template.RequiredPkg]]
+    type QueryLang = SearchContext[Set[domain.ContractTypeId.Template.Resolved]]
     type ById = SearchContext[Option[domain.ContractTypeId.OptionalPkg]]
     type Key = SearchContext[domain.ContractTypeId.Template.OptionalPkg]
   }

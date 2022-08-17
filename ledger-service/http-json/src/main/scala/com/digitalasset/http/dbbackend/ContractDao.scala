@@ -169,15 +169,15 @@ object ContractDao {
     * @return Any template IDs that are lagging, and the offset to catch them up to, if defined;
     *         otherwise everything is fine.
     */
-  def laggingOffsets(
+  def laggingOffsets[CtId <: domain.TemplateId.RequiredPkg](
       parties: Set[domain.Party],
       expectedOffset: domain.Offset,
-      templateIds: NonEmpty[Set[domain.TemplateId.RequiredPkg]],
+      templateIds: NonEmpty[Set[CtId]],
   )(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[Option[(domain.Offset, Set[domain.TemplateId.RequiredPkg])]] = {
+  ): ConnectionIO[Option[(domain.Offset, Set[CtId])]] = {
     type Unsynced[Party, Off] = Map[Queries.SurrogateTpId, Map[Party, Off]]
     import scalaz.syntax.traverse._
     import sjd.q.queries.unsyncedOffsets
@@ -185,7 +185,7 @@ object ContractDao {
       tpids <- {
         import Queries.CompatImplicits.monadFromCatsMonad
         templateIds.toVector.toNEF.traverse { trp => surrogateTemplateId(trp) map ((_, trp)) }
-      }: ConnectionIO[NonEmptyF[Vector, (SurrogateTpId, domain.TemplateId.RequiredPkg)]]
+      }: ConnectionIO[NonEmptyF[Vector, (SurrogateTpId, CtId)]]
       surrogatesToDomains = tpids.toMap
       unsyncedRaw <- unsyncedOffsets(
         domain.Offset unwrap expectedOffset,

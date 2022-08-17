@@ -277,11 +277,11 @@ object PackageService {
   type AllTemplateIds =
     LoggingContextOf[
       InstanceUUID
-    ] => (Jwt, LedgerApiDomain.LedgerId) => Future[Set[domain.ContractTypeId.Template.RequiredPkg]]
+    ] => (Jwt, LedgerApiDomain.LedgerId) => Future[Set[domain.ContractTypeId.Template.Resolved]]
 
   type ResolveChoiceArgType =
     (
-        ContractTypeId.RequiredPkg,
+        ContractTypeId.Resolved,
         Choice,
     ) => Error \/ (Option[ContractTypeId.Interface.Resolved], iface.Type)
 
@@ -387,14 +387,14 @@ object PackageService {
       )
 
   // assert that the given identifier is resolved
-  private[this] def fromIdentifier[CtId[T] <: ContractTypeId[T]](
+  private[this] def fromIdentifier[CtId[T] <: ContractTypeId.Definite[T]](
       b: ContractTypeId.Like[CtId],
       id: Ref.Identifier,
   ): b.Resolved =
     fromQualifiedName(b, id.packageId, id.qualifiedName)
 
   // assert that the given identifier is resolved
-  private[this] def fromQualifiedName[CtId[T] <: ContractTypeId[T]](
+  private[this] def fromQualifiedName[CtId[T] <: ContractTypeId.Definite[T]](
       b: ContractTypeId.Like[CtId],
       pkgId: Ref.PackageId,
       qn: Ref.QualifiedName,

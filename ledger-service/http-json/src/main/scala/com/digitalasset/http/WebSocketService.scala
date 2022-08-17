@@ -63,7 +63,7 @@ object WebSocketService {
     Map[domain.TemplateId.RequiredPkg, (ValuePredicate, LfV => Boolean)]
 
   private final case class StreamPredicate[+Positive](
-      resolved: Set[domain.TemplateId.RequiredPkg],
+      resolved: Set[domain.TemplateId.Resolved],
       unresolved: Set[domain.TemplateId.OptionalPkg],
       fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive],
       dbQuery: (domain.PartySet, dbbackend.ContractDao) => ConnectionIO[
@@ -317,7 +317,7 @@ object WebSocketService {
                 )
                 .map(
                   _.toSet[
-                    Either[domain.TemplateId.RequiredPkg, domain.TemplateId.OptionalPkg]
+                    Either[domain.TemplateId.Resolved, domain.TemplateId.OptionalPkg]
                   ]
                     .partitionMap(identity)
                 )
@@ -345,7 +345,7 @@ object WebSocketService {
       }
 
       private def prepareFilters(
-          ids: Set[domain.TemplateId.RequiredPkg],
+          ids: Set[domain.TemplateId.Resolved],
           queryExpr: Map[String, JsValue],
           lookupType: ValuePredicate.TypeLookup,
       ): CompiledQueries =
