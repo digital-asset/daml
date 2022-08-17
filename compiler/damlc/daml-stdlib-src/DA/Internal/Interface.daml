@@ -169,5 +169,9 @@ _exerciseInterfaceGuard cid tpred ivalue =
 class HasInterfaceView i v | i -> v where
   _view : i -> v
 
-view : forall i t v. (Implements t i, HasInterfaceView i v) => t -> v
-view t = _view (_toInterface @t @i t)
+-- Note that 'view' and '_view' really are identical, unlike 'toInterface'
+-- and '_toInterface'. Still, it's probably a good idea to keep them separate
+-- so we can change them more easily in the future.
+
+view : forall i v. HasInterfaceView i v => i -> v
+view = _view
