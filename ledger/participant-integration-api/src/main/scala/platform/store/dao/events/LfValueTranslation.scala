@@ -254,21 +254,19 @@ final class LfValueTranslation(
   private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: Array[Byte]) =
     ValueSerializer.deserializeValue(algorithm.decompress(new ByteArrayInputStream(value)))
 
-  def enricher: ValueEnricher = {
+  def enricher: ValueEnricher =
     enricherO.getOrElse(
       sys.error(
         "LfValueTranslation used to deserialize values in verbose mode without an Engine"
       )
     )
-  }
 
-  def engine: Engine = {
+  def engine: Engine =
     engineO.getOrElse(
       sys.error(
         "LfValueTranslation used to deserialize values in verbose mode without an Engine"
       )
     )
-  }
 
   override def deserialize[E](
       raw: Raw.Created[E],
@@ -382,7 +380,7 @@ final class LfValueTranslation(
 
     val verbose = eventProjectionProperties.verbose
 
-    val asyncContractAguments = condFuture(renderResult.contractArguments)(
+    val asyncContractArguments = condFuture(renderResult.contractArguments)(
       enrichAsync(verbose, value.unversioned, enricher.enrichContract(templateId, _))
         .map(toContractArgumentApi(verbose))
     )
@@ -399,7 +397,7 @@ final class LfValueTranslation(
     )
 
     for {
-      contractArguments <- asyncContractAguments
+      contractArguments <- asyncContractArguments
       contractKey <- asyncContractKey
       interfaceViews <- asyncInterfaceViews
     } yield ApiContractData(
@@ -443,7 +441,7 @@ final class LfValueTranslation(
   private def toApi[T](
       verbose: Boolean,
       lfEngineToApiFunction: (Boolean, Value) => Either[String, T],
-      attribute: => String,
+      attribute: String,
   )(value: Value): T =
     LfEngineToApi.assertOrRuntimeEx(
       failureContext = s"attempting to serialize $attribute to API record",
