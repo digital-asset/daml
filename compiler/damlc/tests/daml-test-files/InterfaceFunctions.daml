@@ -21,7 +21,7 @@ template Asset
   where
     signatory issuer
     observer issuer, owner
-    implements Token where
+    interface instance Token for Asset where
       view = EmptyInterfaceView
       getAmount = amount
 
