@@ -24,8 +24,9 @@ import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
-import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
+import com.daml.platform.packagemeta.PackageMetadata
 import com.daml.platform.{Contract, InMemoryState, Key, Party}
+import com.daml.platform.store.packagemeta.PackageMetadataView
 
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
@@ -98,7 +99,7 @@ private[platform] object InMemoryStateUpdater {
     updateCachesExecutionContext = ExecutionContext.fromExecutorService(updateCachesExecutor),
     metrics = metrics,
   )(
-    prepare = prepare(PackageMetadata.from),
+    prepare = prepare(PackageMetadataView.fromArchive),
     update = update(inMemoryState, loggingContext),
   )
 

@@ -42,7 +42,7 @@ private[apiserver] final class ApiActiveContractsService private (
       request: GetActiveContractsRequest
   ): Source[GetActiveContractsResponse, NotUsed] =
     TransactionFilterValidator
-      .validate(request.getFilter)
+      .validate(request.getFilter, backend.currentPackageMetadata())
       .fold(
         t => Source.failed(ValidationLogger.logFailure(request, t)),
         filters =>

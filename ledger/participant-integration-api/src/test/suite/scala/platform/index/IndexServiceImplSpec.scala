@@ -7,7 +7,7 @@ import com.daml.ledger.api.domain.{Filters, InclusiveFilters, InterfaceFilter, T
 import com.daml.lf.data.Ref
 import com.daml.platform.index.IndexServiceImpl.templateFilter
 import com.daml.platform.index.IndexServiceImplSpec.Scope
-import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
+import com.daml.platform.packagemeta.PackageMetadata
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

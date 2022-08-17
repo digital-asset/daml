@@ -20,7 +20,7 @@ import scala.concurrent.Future
 /** Serves as a backend to implement
   * [[com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService]]
   */
-trait IndexTransactionsService extends LedgerEndService {
+trait IndexTransactionsService extends LedgerEndService with PackageMetadataService {
   def transactions(
       begin: LedgerOffset,
       endAt: Option[LedgerOffset],

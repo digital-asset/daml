@@ -52,6 +52,7 @@ import com.daml.platform.{ApiOffset, PruneBuffers}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
+import com.daml.platform.packagemeta.PackageMetadata
 import com.daml.platform.store.dao.{
   EventProjectionProperties,
   LedgerDaoCommandCompletionsReader,
@@ -60,7 +61,6 @@ import com.daml.platform.store.dao.{
 }
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.packagemeta.PackageMetadataView
-import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.ToTagOps
@@ -464,6 +464,8 @@ private[index] class IndexServiceImpl(
       source(templateFilter, eventProjectionProperties)
     }
   }
+
+  override def currentPackageMetadata(): PackageMetadata = packageMetadataView.current()
 }
 
 object IndexServiceImpl {

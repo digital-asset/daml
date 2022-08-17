@@ -33,7 +33,7 @@ import com.daml.platform.index.InMemoryStateUpdaterSpec.{
 }
 import com.daml.platform.indexer.ha.EndlessReadService.configuration
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
+import com.daml.platform.packagemeta.PackageMetadata
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}

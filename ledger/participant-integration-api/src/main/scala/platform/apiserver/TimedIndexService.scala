@@ -29,6 +29,7 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.packagemeta.PackageMetadata
 
 import scala.concurrent.Future
 
@@ -223,4 +224,6 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       delegate.getMeteringReportData(from, to, applicationId),
     )
   }
+
+  override def currentPackageMetadata(): PackageMetadata = delegate.currentPackageMetadata()
 }

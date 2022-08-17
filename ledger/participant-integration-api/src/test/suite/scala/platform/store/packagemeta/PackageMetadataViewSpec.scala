@@ -4,7 +4,7 @@
 package com.daml.platform.store.packagemeta
 
 import com.daml.lf.data.Ref
-import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
+import com.daml.platform.packagemeta.PackageMetadata
 import com.daml.scalatest.FlatSpecCheckLaws
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.flatspec.AnyFlatSpec

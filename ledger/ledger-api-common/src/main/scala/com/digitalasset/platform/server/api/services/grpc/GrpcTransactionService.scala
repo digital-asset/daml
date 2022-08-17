@@ -45,7 +45,7 @@ final class GrpcTransactionService(
   ): Source[GetTransactionsResponse, NotUsed] = {
     logger.debug(s"Received new transaction request $request")
     Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
-      val validation = validator.validate(request, ledgerEnd)
+      val validation = validator.validate(request, ledgerEnd, service.currentPackageMetadata())
 
       validation.fold(
         t => Source.failed(ValidationLogger.logFailure(request, t)),

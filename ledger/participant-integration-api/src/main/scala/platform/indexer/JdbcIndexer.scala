@@ -30,7 +30,7 @@ import com.daml.platform.store.cache.ImmutableLedgerEndCache
 import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.interning.UpdatingStringInterningView
-import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
+import com.daml.platform.packagemeta.PackageMetadata
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
@@ -184,7 +184,7 @@ object JdbcIndexer {
       )
 
     def toMetadataDefinition(packageBytes: Array[Byte]): PackageMetadata =
-      PackageMetadata.from(ArchiveParser.assertFromByteArray(packageBytes))
+      PackageMetadataView.fromArchive(ArchiveParser.assertFromByteArray(packageBytes))
 
     def processPackage(archive: (PackageId, Array[Byte])): Future[PackageMetadata] = {
       val (packageId, packageBytes) = archive

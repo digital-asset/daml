@@ -10,12 +10,8 @@ import com.daml.ledger.api.domain.{LedgerId, LedgerOffset, optionalLedgerId}
 import com.daml.ledger.api.messages.transaction
 import com.daml.ledger.api.messages.transaction.GetTransactionTreesRequest
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.daml.ledger.api.v1.transaction_service.{
-  GetLedgerEndRequest,
-  GetTransactionByEventIdRequest,
-  GetTransactionByIdRequest,
-  GetTransactionsRequest,
-}
+import com.daml.ledger.api.v1.transaction_service.{GetLedgerEndRequest, GetTransactionByEventIdRequest, GetTransactionByIdRequest, GetTransactionsRequest}
+import com.daml.platform.packagemeta.PackageMetadata
 import com.daml.platform.server.api.validation.FieldValidations
 import io.grpc.StatusRuntimeException
 
@@ -71,6 +67,7 @@ class TransactionServiceRequestValidator(
   def validate(
       req: GetTransactionsRequest,
       ledgerEnd: LedgerOffset.Absolute,
+      packageMetadata: PackageMetadata
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Result[transaction.GetTransactionsRequest] = {
@@ -87,7 +84,7 @@ class TransactionServiceRequestValidator(
         partial.end,
         ledgerEnd,
       )
-      convertedFilter <- TransactionFilterValidator.validate(partial.transactionFilter)
+      convertedFilter <- TransactionFilterValidator.validate(partial.transactionFilter, packageMetadata)
     } yield {
       transaction.GetTransactionsRequest(
         partial.ledgerId,

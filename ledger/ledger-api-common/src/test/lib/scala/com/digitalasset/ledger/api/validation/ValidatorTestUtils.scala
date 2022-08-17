@@ -8,6 +8,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.InterfaceFilter
 import com.daml.ledger.api.messages.transaction
 import com.daml.lf.data.Ref
+import com.daml.platform.packagemeta.PackageMetadata
 import com.google.rpc.error_details
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
@@ -30,6 +31,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
   protected val eventId = "eventId"
   protected val transactionId = "42"
   protected val ledgerEnd = domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString("1000"))
+  protected val packageMetadata = PackageMetadata()
 
   protected def hasExpectedFilters(req: transaction.GetTransactionsRequest) = {
     val filtersByParty = req.filter.filtersByParty

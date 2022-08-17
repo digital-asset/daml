@@ -94,7 +94,7 @@ class TransactionServiceRequestValidatorTest
     "validating regular requests" should {
 
       "accept requests with empty ledger ID" in {
-        inside(validator.validate(txReq.withLedgerId(""), ledgerEnd)) { case Right(req) =>
+        inside(validator.validate(txReq.withLedgerId(""), ledgerEnd, packageMetadata)) { case Right(req) =>
           req.ledgerId shouldEqual None
           req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
           req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
@@ -108,7 +108,7 @@ class TransactionServiceRequestValidatorTest
 
       "return the correct error on missing filter" in {
         requestMustFailWith(
-          validator.validate(txReq.update(_.optionalFilter := None), ledgerEnd),
+          validator.validate(txReq.update(_.optionalFilter := None), ledgerEnd, packageMetadata),
           code = INVALID_ARGUMENT,
           description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: filter",
@@ -121,6 +121,7 @@ class TransactionServiceRequestValidatorTest
           request = validator.validate(
             txReq.update(_.filter.filtersByParty := Map.empty),
             ledgerEnd,
+            packageMetadata
           ),
           code = INVALID_ARGUMENT,
           description =
@@ -136,6 +137,7 @@ class TransactionServiceRequestValidatorTest
               p -> f.update(_.inclusive := InclusiveFilters(Nil, Seq(InterfaceFilter(None, true))))
             })),
             ledgerEnd,
+            packageMetadata
           ),
           code = INVALID_ARGUMENT,
           description =
@@ -146,7 +148,7 @@ class TransactionServiceRequestValidatorTest
 
       "return the correct error on missing begin" in {
         requestMustFailWith(
-          request = validator.validate(txReq.update(_.optionalBegin := None), ledgerEnd),
+          request = validator.validate(txReq.update(_.optionalBegin := None), ledgerEnd, packageMetadata),
           code = INVALID_ARGUMENT,
           description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: begin",
@@ -156,7 +158,7 @@ class TransactionServiceRequestValidatorTest
 
       "return the correct error on empty begin " in {
         requestMustFailWith(
-          request = validator.validate(txReq.update(_.begin := LedgerOffset()), ledgerEnd),
+          request = validator.validate(txReq.update(_.begin := LedgerOffset()), ledgerEnd, packageMetadata),
           code = INVALID_ARGUMENT,
           description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: begin.(boundary|value)",
@@ -166,7 +168,7 @@ class TransactionServiceRequestValidatorTest
 
       "return the correct error on empty end " in {
         requestMustFailWith(
-          request = validator.validate(txReq.withEnd(LedgerOffset()), ledgerEnd),
+          request = validator.validate(txReq.withEnd(LedgerOffset()), ledgerEnd, packageMetadata),
           code = INVALID_ARGUMENT,
           description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: end.(boundary|value)",
@@ -181,6 +183,7 @@ class TransactionServiceRequestValidatorTest
               LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.Unrecognized(7)))
             ),
             ledgerEnd,
+            packageMetadata
           ),
           code = INVALID_ARGUMENT,
           description =
@@ -196,6 +199,7 @@ class TransactionServiceRequestValidatorTest
               LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.Unrecognized(7)))
             ),
             ledgerEnd,
+            packageMetadata
           ),
           code = INVALID_ARGUMENT,
           description =
@@ -211,6 +215,7 @@ class TransactionServiceRequestValidatorTest
               LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))
             ),
             ledgerEnd,
+            packageMetadata
           ),
           code = OUT_OF_RANGE,
           description =
@@ -226,6 +231,7 @@ class TransactionServiceRequestValidatorTest
               LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))
             ),
             ledgerEnd,
+            packageMetadata
           ),
           code = OUT_OF_RANGE,
           description =
@@ -235,7 +241,7 @@ class TransactionServiceRequestValidatorTest
       }
 
       "tolerate missing end" in {
-        inside(validator.validate(txReq.update(_.optionalEnd := None), ledgerEnd)) {
+        inside(validator.validate(txReq.update(_.optionalEnd := None), ledgerEnd, packageMetadata)) {
           case Right(req) =>
             req.ledgerId shouldEqual Some(expectedLedgerId)
             req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
@@ -254,6 +260,7 @@ class TransactionServiceRequestValidatorTest
               p -> f.update(_.inclusive := InclusiveFilters(Nil, Nil))
             })),
             ledgerEnd,
+            packageMetadata
           )
         ) { case Right(req) =>
           req.ledgerId shouldEqual Some(expectedLedgerId)
@@ -276,6 +283,7 @@ class TransactionServiceRequestValidatorTest
               p -> f.update(_.optionalInclusive := None)
             })),
             ledgerEnd,
+            packageMetadata
           )
         ) { case Right(req) =>
           req.ledgerId shouldEqual Some(expectedLedgerId)
@@ -292,7 +300,7 @@ class TransactionServiceRequestValidatorTest
       }
 
       "tolerate all fields filled out" in {
-        inside(validator.validate(txReq, ledgerEnd)) { case Right(req) =>
+        inside(validator.validate(txReq, ledgerEnd, packageMetadata)) { case Right(req) =>
           req.ledgerId shouldEqual Some(expectedLedgerId)
           req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
           req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
@@ -479,7 +487,7 @@ class TransactionServiceRequestValidatorTest
       "reject transaction requests for unknown parties" in {
         requestMustFailWith(
           request =
-            partyRestrictiveValidator.validate(txReq.withFilter(filterWithUnknown), ledgerEnd),
+            partyRestrictiveValidator.validate(txReq.withFilter(filterWithUnknown), ledgerEnd, packageMetadata),
           code = INVALID_ARGUMENT,
           description =
             "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unknown parties: [Alice, Bob]",
@@ -526,6 +534,7 @@ class TransactionServiceRequestValidatorTest
         partyRestrictiveValidator.validate(
           txReq.withFilter(filterWithKnown),
           ledgerEnd,
+          packageMetadata
         ) shouldBe a[Right[_, _]]
       }
 

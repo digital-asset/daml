@@ -18,12 +18,15 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.platform.packagemeta.PackageMetadata
 
 import scala.concurrent.Future
 
 trait TransactionService {
 
   def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute]
+
+  def currentPackageMetadata(): PackageMetadata
 
   def getTransactions(req: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed]
 
