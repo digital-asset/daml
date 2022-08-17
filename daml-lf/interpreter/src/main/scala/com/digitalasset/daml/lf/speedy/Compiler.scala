@@ -512,9 +512,9 @@ private[lf] final class Compiler(
             env.toSEVar(payloadPos),
             env.toSEVar(choiceArgPos),
             env.toSEVar(cidPos),
-            translateExp(env, choice.controllers),
+            s.SEPreventCatch(translateExp(env, choice.controllers)),
             choice.choiceObservers match {
-              case Some(observers) => translateExp(env, observers)
+              case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
               case None => s.SEValue.EmptyList
             },
           ),
