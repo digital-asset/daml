@@ -486,7 +486,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
          record @serializable E = { } ;
          exception E = { message \(e: M:E) -> "E" };
 
-         record @serializable T = { party: Party, viewFails: Bool }; 
+         record @serializable T = { party: Party }; 
 
          interface (this: I) = {
            viewtype Unit;
