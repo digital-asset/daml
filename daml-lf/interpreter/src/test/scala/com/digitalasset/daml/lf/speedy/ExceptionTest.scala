@@ -485,26 +485,47 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
        
          record @serializable E = { } ;
          exception E = { message \(e: M:E) -> "E" };
-          
-         record @serializable T = { party: Party }; 
-                  
+
+         record @serializable T = { party: Party, viewFails: Bool }; 
+
+         interface (this: I) = {
+           viewtype Unit;
+           method parties: List Party;
+           choice BodyCrash (self) (u: Unit) : Unit, 
+             controllers (call_method @M:I parties this),
+             observers Nil @Party
+             to upure @Unit (throw @Unit @M:E (M:E {}));
+           choice ControllersCrash (self) (u: Unit) : Unit, 
+             controllers throw @(List Party) @M:E (M:E {}),
+             observers Nil @Party
+             to upure @Unit ();
+           choice ObserversCrash (self) (u: Unit) : Unit, 
+             controllers (call_method @M:I parties this),
+             observers throw @(List Party) @M:E (M:E {})
+             to upure @Unit (); 
+         };
+
          template (this: T) = {
            precondition True;
            signatories Cons @Party [M:T {party} this] Nil @Party;
            observers Nil @Party;
            agreement "Agreement";
-             choice BodyCrash (self) (u: Unit) : Unit, 
-                 controllers Cons @Party [M:T {party} this] Nil @Party,
-                 observers Nil @Party
-               to upure @Unit (throw @Unit @M:E (M:E {}));
-             choice ControllersCrash (self) (u: Unit) : Unit, 
-                 controllers throw @(List Party) @M:E (M:E {}),
-                 observers Nil @Party
-               to upure @Unit ();
-             choice ObserversCrash (self) (u: Unit) : Unit, 
-                 controllers Cons @Party [M:T {party} this] Nil @Party,
-                 observers throw @(List Party) @M:E (M:E {})
-               to upure @Unit ();
+           choice BodyCrash (self) (u: Unit) : Unit, 
+             controllers Cons @Party [M:T {party} this] Nil @Party,
+             observers Nil @Party
+             to upure @Unit (throw @Unit @M:E (M:E {}));
+           choice ControllersCrash (self) (u: Unit) : Unit, 
+             controllers throw @(List Party) @M:E (M:E {}),
+             observers Nil @Party
+             to upure @Unit ();
+           choice ObserversCrash (self) (u: Unit) : Unit, 
+             controllers Cons @Party [M:T {party} this] Nil @Party,
+             observers throw @(List Party) @M:E (M:E {})
+             to upure @Unit ();
+           implements M:I {
+             view = ();
+             method parties = Cons @Party [M:T {party} this] Nil @Party;
+           }; 
          };
        }
       """)
@@ -512,17 +533,20 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
       val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
       val testCases = Table[String, Boolean](
-        ("choice", "caught"),
-        ("BodyCrash", true),
-        ("ControllersCrash", false),
-        ("ObserversCrash", false),
+        ("update", "caught"),
+        ("exercise @M:T BodyCrash cid ()", true),
+        ("exercise @M:T ControllersCrash cid ()", false),
+        ("exercise @M:T ObserversCrash cid ()", false),
+        ("exercise_interface @M:I BodyCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()", true),
+        ("exercise_interface @M:I ControllersCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()", false),
+        ("exercise_interface @M:I ObserversCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()", false),
       )
 
-      forEvery(testCases) { (choice, caught) =>
+      forEvery(testCases) { (update, caught) =>
         val expr =
           e"""\(sig: Party) ->
               ubind cid : ContractId M:T <- create @M:T (M:T {party = sig}) 
-              in try @Unit (exercise @M:T $choice cid ()) 
+              in try @Unit ($update) 
                  catch e -> Some @(Update Unit) (upure @Unit ())
               """
 
