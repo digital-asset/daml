@@ -488,11 +488,15 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
          record @serializable E = { } ;
          exception E = { message \(e: M:E) -> "E" };
 
-         record @serializable T = { party: Party }; 
+         record @serializable T = { party: Party, viewFails: Bool }; 
 
          interface (this: I) = {
            viewtype M:MyUnit;
            method parties: List Party;
+           choice Noop (self) (u: Unit) : Unit, 
+             controllers (call_method @M:I parties this),
+             observers Nil @Party
+             to upure @Unit ();
            choice BodyCrash (self) (u: Unit) : Unit, 
              controllers (call_method @M:I parties this),
              observers Nil @Party
@@ -525,8 +529,10 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
              observers throw @(List Party) @M:E (M:E {})
              to upure @Unit ();
            implements M:I {
-             view = M:MyUnit {};
-             method parties = Cons @Party [M:T {party} this] Nil @Party;
+             view = case (M:T {viewFails} this) of 
+                 False -> M:MyUnit {}
+               | True -> throw @M:MyUnit @M:E (M:E {});
+              method parties = Cons @Party [M:T {party} this] Nil @Party;
            }; 
          };
        }
@@ -535,21 +541,70 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
       val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
       val testCases = Table[String, Boolean](
-        ("update", "caught"),
-        ("exercise @M:T BodyCrash cid ()", true),
-        ("exercise @M:T ControllersCrash cid ()", false),
-        ("exercise @M:T ObserversCrash cid ()", false),
-        ("exercise_interface @M:I BodyCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()", true),
-        ("exercise_interface @M:I ControllersCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()", false),
-        ("exercise_interface @M:I ObserversCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()", false),
+        ("udpate", "caught"),
+        """
+            ubind 
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False}) 
+            in exercise @M:T BodyCrash cid ()
+        """ -> true,
+        """
+            ubind 
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
+            in exercise @M:T ControllersCrash cid ()
+        """ -> false,
+        """
+            ubind 
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
+            in exercise @M:T ObserversCrash cid ()
+        """ -> false,
+        """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False}) 
+            in exercise_interface @M:I BodyCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()
+        """ -> true,
+        """
+            ubind 
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False}) 
+            in exercise_interface @M:I ControllersCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()
+        """ -> false,
+        """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
+            in exercise_interface @M:I ObserversCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()
+        """ -> false,
+        """
+            ubind
+              cid : ContractId M:I <- create_by_interface @M:I (to_interface @M:I @M:T (M:T {party = sig, viewFails = True})) 
+            in () 
+        """ -> false,
+        """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False}) 
+            in exercise_interface @M:I BodyCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()
+        """ -> true,
+        """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False}) 
+            in exercise_interface @M:I ObserversCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()
+        """ -> false,
+        """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = True})
+            in exercise_interface @M:I Noop (COERCE_CONTRACT_ID @M:T @M:I cid) ()
+        """ -> false,
+        """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = True});
+              i: M:I <- fetch_interface @M:I (COERCE_CONTRACT_ID @M:T @M:I cid) 
+            in ()
+        """ -> false,
       )
 
       forEvery(testCases) { (update, caught) =>
         val expr =
           e"""\(sig: Party) ->
-              ubind cid : ContractId M:T <- create @M:T (M:T {party = sig}) 
-              in try @Unit ($update) 
-                 catch e -> Some @(Update Unit) (upure @Unit ())
+              try @Unit ($update) 
+              catch e -> Some @(Update Unit) (upure @Unit ())
               """
 
         val res = Speedy.Machine

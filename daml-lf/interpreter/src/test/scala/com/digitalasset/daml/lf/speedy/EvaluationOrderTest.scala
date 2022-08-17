@@ -90,7 +90,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       } ;
 
       record @serializable T = { signatory : Party, observer : Party, precondition : Bool, key: M:TKey, nested: M:Nested };
-      template (this : T) = {
+      template (this: T) = {
         precondition TRACE @Bool "precondition" (M:T {precondition} this);
         signatories TRACE @(List Party) "contract signatories" (Cons @Party [M:T {signatory} this] (Nil @Party));
         observers TRACE @(List Party) "contract observers" (Cons @Party [M:T {observer} this] (Nil @Party));
@@ -111,7 +111,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       };
 
       record @serializable Human = { person: Party, obs: Party, ctrl: Party, precond: Bool, key: M:TKey, nested: M:Nested };
-      template (this : Human) = {
+      template (this: Human) = {
         precondition TRACE @Bool "precondition" (M:Human {precond} this);
         signatories TRACE @(List Party) "contract signatories" (Cons @Party [M:Human {person} this] (Nil @Party));
         observers TRACE @(List Party) "contract observers" (Cons @Party [M:Human {obs} this] (Nil @Party));
@@ -120,7 +120,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           controllers Cons @Party [M:Human {person} this] (Nil @Party)
           to upure @Unit (TRACE @Unit "archive" ());
         implements M:Person {
-          view = M:MyUnit {};
+          view = TRACE @M:MyUnit "view" (M:MyUnit {});
           method asParty = M:Human {person} this;
           method getName = "foobar";
           method getCtrl = M:Human {ctrl} this;
@@ -242,7 +242,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           controllers Cons @Party [Test:Helper {obs} this] (Nil @Party),
           observers Nil @Party
            to let sig: Party = Test:Helper {sig} this
-           in create @M:T M:T { signatory = sig, observer = sig, precondition = True, key = M:toKey sig, nested = M:buildNested 0 };
+           in create @M:T M:T { signatory = sig, observer = sig, precondition = True,key = M:toKey sig, nested = M:buildNested 0 };
         choice Exe (self) (arg: Test:ExeArg): M:Nested,
           controllers Cons @Party [Test:Helper {sig} this] (Nil @Party),
           observers Nil @Party
@@ -381,12 +381,12 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       Value.ValueRecord(
         None,
         ImmArray(
-          None -> Value.ValueParty(alice),
-          None -> Value.ValueParty(bob),
-          None -> Value.ValueParty(alice),
-          None -> Value.ValueTrue,
-          None -> keyValue,
-          None -> emptyNestedValue,
+          None /*"person"  */ -> Value.ValueParty(alice),
+          None /*"obs"     */ -> Value.ValueParty(bob),
+          None /*"ctrl"    */ -> Value.ValueParty(alice),
+          None /*"precond" */ -> Value.ValueTrue,
+          None /*"key"     */ -> keyValue,
+          None /*"nested"  */ -> emptyNestedValue,
         ),
       ),
       "agreement",
@@ -671,6 +671,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             "contract observers",
             "key",
             "maintainers",
+            "view",
             "ends test",
           )
         }
@@ -1624,6 +1625,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                 "contract observers",
                 "key",
                 "maintainers",
+                "view",
                 "interface guard",
                 "choice controllers",
                 "choice observers",
@@ -1669,6 +1671,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                 "contract observers",
                 "key",
                 "maintainers",
+                "view",
                 "interface guard",
                 "choice controllers",
                 "choice observers",
@@ -1694,6 +1697,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             inside(res) { case Success(Right(_)) =>
               msgs shouldBe buildLog(
                 "starts test",
+                "view",
                 "interface guard",
                 "choice controllers",
                 "choice observers",
@@ -1776,6 +1780,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
               msgs shouldBe buildLog(
                 "starts test",
+                "view",
                 "interface guard",
                 "choice controllers",
                 "choice observers",
@@ -1800,6 +1805,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             inside(res) { case Success(Right(_)) =>
               msgs shouldBe buildLog(
                 "starts test",
+                "view",
                 "interface guard",
                 "choice controllers",
                 "choice observers",
@@ -1896,6 +1902,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                   ) =>
                 msgs shouldBe buildLog(
                   "starts test",
+                  "view",
                   "interface guard",
                   "choice controllers",
                   "choice observers",
@@ -2518,6 +2525,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "contract observers",
               "key",
               "maintainers",
+              "view",
               "ends test",
             )
           }
@@ -2558,6 +2566,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "contract observers",
               "key",
               "maintainers",
+              "view",
             )
           }
         }
@@ -2578,7 +2587,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             getContract = getIfaceContract,
           )
           inside(res) { case Success(Right(_)) =>
-            msgs shouldBe Seq("starts test", "ends test")
+            msgs shouldBe Seq("starts test", "view", "ends test")
           }
         }
 
@@ -2648,7 +2657,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
 
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq("starts test")
+            msgs shouldBe Seq("starts test", "view")
           }
         }
       }
@@ -2666,7 +2675,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             Set(alice),
           )
           inside(res) { case Success(Right(_)) =>
-            msgs shouldBe Seq("starts test", "ends test")
+            msgs shouldBe Seq("starts test", "view", "ends test")
           }
         }
 
@@ -2736,7 +2745,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
 
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq("starts test")
+            msgs shouldBe Seq("starts test", "view")
           }
         }
       }
