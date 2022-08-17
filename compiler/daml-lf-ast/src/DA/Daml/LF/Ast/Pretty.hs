@@ -633,14 +633,16 @@ pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observe
           , nest 2 (keyword_ "body" <-> pPrintPrec lvl 0 (tplKeyBody key))
           , nest 2 (keyword_ "maintainers" <-> pPrintPrec lvl 0 (tplKeyMaintainers key))
           ]
-      implementsDoc = map (pPrintTemplateImplements lvl) (NM.toList implements)
+      implementsDoc =
+        [ pPrintInterfaceInstance lvl (InterfaceInstanceHead interface qTpl) body
+        | TemplateImplements interface body <- NM.toList implements
+        ]
+      qTpl = Qualified PRSelf modName tpl
 
--- TODO(MA): Handle interface instances in interfaces
--- https://github.com/digital-asset/daml/issues/14047
-pPrintTemplateImplements :: PrettyLevel -> TemplateImplements -> Doc ann
-pPrintTemplateImplements lvl (TemplateImplements name body) =
+pPrintInterfaceInstance :: PrettyLevel -> InterfaceInstanceHead -> InterfaceInstanceBody -> Doc ann
+pPrintInterfaceInstance lvl head body =
   hang
-    (keyword_ "implements" <-> pPrintPrec lvl 0 name)
+    (pPrintInterfaceInstanceHead lvl head)
     2
     (pPrintInterfaceInstanceBody lvl body)
 
