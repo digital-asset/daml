@@ -384,58 +384,58 @@ object LedgerClientJwt {
 
   object LedgerClientRequestTimeLogger {
     sealed trait RequestLog {
-      def clientClass: Class[_]
+      def className: String
       def name: String
     }
 
     case object SubmitAndWaitForTransactionLog extends RequestLog {
-      override def clientClass: Class[_] = classOf[SynchronousCommandClient]
-      override def name = "submitAndWaitForTransaction"
+      override def className: String = classOf[SynchronousCommandClient].getSimpleName
+      override def name: String = "submitAndWaitForTransaction"
     }
 
     case object SubmitAndWaitForTransactionTreeLog extends RequestLog {
-      override def clientClass: Class[_] = classOf[SynchronousCommandClient]
-      override def name = "submitAndWaitForTransactionTree"
+      override def className: String = classOf[SynchronousCommandClient].getSimpleName
+      override def name: String = "submitAndWaitForTransactionTree"
     }
 
     case object GetLedgerEndLog extends RequestLog {
-      override def clientClass: Class[_] = classOf[TransactionClient]
-      override def name = "getLedgerEnd"
+      override def className: String = classOf[TransactionClient].getSimpleName
+      override def name: String = "getLedgerEnd"
     }
 
     case object ListKnownPartiesLog extends RequestLog {
-      override def clientClass: Class[_] = classOf[PartyManagementClient]
-      override def name = "listKnownParties"
+      override def className: String = classOf[PartyManagementClient].getSimpleName
+      override def name: String = "listKnownParties"
     }
 
     case object GetPartiesLog extends RequestLog {
-      override def clientClass: Class[_] = classOf[PartyManagementClient]
-      override def name = "getParties"
+      override def className: String = classOf[PartyManagementClient].getSimpleName
+      override def name: String = "getParties"
     }
 
     case object AllocatePartyLog extends RequestLog {
-      override def clientClass: Class[_] = classOf[PartyManagementClient]
-      override def name = "allocateParty"
+      override def className: String = classOf[PartyManagementClient].getSimpleName
+      override def name: String = "allocateParty"
     }
 
     case object ListPackagesLog extends RequestLog {
-      override def clientClass: Class[_] = classOf[PackageClient]
-      override def name = "listPackages"
+      override def className: String = classOf[PackageClient].getSimpleName
+      override def name: String = "listPackages"
     }
 
     case object GetPackageLog extends RequestLog {
-      override def clientClass: Class[_] = classOf[PackageClient]
-      override def name = "getPackages"
+      override def className: String = classOf[PackageClient].getSimpleName
+      override def name: String = "getPackages"
     }
 
     case object UploadDarFileLog extends RequestLog {
-      override def clientClass: Class[_] = classOf[PackageManagementClient]
-      override def name = "uploadDarFile"
+      override def className: String = classOf[PackageManagementClient].getSimpleName
+      override def name: String = "uploadDarFile"
     }
 
     case object GetMeteringReportLog extends RequestLog {
-      override def clientClass: Class[_] = classOf[MeteringReportClient]
-      override def name = "getMeteringReport"
+      override def className: String = classOf[MeteringReportClient].getSimpleName
+      override def name: String = "getMeteringReport"
     }
 
     private[LedgerClientJwt] def log[T, C](
@@ -447,8 +447,8 @@ object LedgerClientJwt {
       val futureResult = block
       futureResult.andThen { case _ =>
         logger.debug(
-          s"Ledger client request ${requestLog.clientClass.getSimpleName} ${requestLog.name} executed, elapsed time: ${System
-              .nanoTime() - start} ns"
+          s"Ledger client request ${requestLog.className} ${requestLog.name} executed, elapsed time: " +
+            s"${(System.nanoTime() - start) / 1000L} ms"
         )
       }
     } else block
