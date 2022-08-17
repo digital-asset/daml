@@ -115,7 +115,7 @@ This is all done in the processClockUpdate function. We will now break it apart 
     -- Recover claims tree as of the lastEventTimestamp. For a bond, this just requires lifecycling as of the lastEventTimestamp
     initialClaims <- HasClaims.getClaims claimInstrument
 
-Here we have the inital claims of the instrument. By keeping track of lastEventTimestamp  (the last time a coupon was paid),
+Here we have the inital claims of the instrument. By keeping track of lastEventTimestamp (the last time a coupon was paid),
 we can "fast forward" to the remaining claims of the instrument:
 
 .. code:: daml

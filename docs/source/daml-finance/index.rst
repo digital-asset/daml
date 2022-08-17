@@ -16,6 +16,7 @@ Daml Finance
    tutorial/bond-extension
    tutorial/derivative-extension
    tutorial/contingent-claims-instrument
+   tutorial/contingent-claims-on-vs-off-ledger
 
 Daml Finance is currently an :doc:`Early Access Feature in Alpha status </support/status-definitions>`.
 

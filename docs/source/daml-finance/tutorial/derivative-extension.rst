@@ -25,8 +25,14 @@ This could be modeled in the following way using Contingent Claims:
       , when (TimeGte $ expiry) $ scale (Const 0.02) $ one cashInstrument
       , when (TimeGte $ expiry) $ scale (Const 1.0) $ one cashInstrument
       ]
+
+Then we can create a derivative instrument.
+
+.. code:: daml
+
   derivativeInstrument <- originateDerivative csd issuer "BOND" now claims obs now
 
+This will create an instrument containing the Contingent Claims tree on the ledger.
 
 How to trade and transfer a generic instrument
 **********************************************
