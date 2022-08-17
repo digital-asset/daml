@@ -5,7 +5,7 @@ How to create a bond instrument
 *******************************
 
 There are different types of bonds, which mainly differ in the way the coupon is defined.
-How to create a bond instrument depends on the type of coupon you need.
+In order to create a bond instrument you first have to decide what type it is.
 The bond extension package currently supports the following bond types:
 
 Fixed rate
@@ -54,12 +54,15 @@ Here is an example of a bond paying Euribor 3M + 1.1% p.a. with a 3M coupon peri
   bondInstrument <- originateFloatingRateBond custodian issuer "BOND" obs now issueDate holidayCalendarId calendarDataProvider firstCouponDate maturityDate dayCountConvention businessDayConvention couponRate couponPeriod couponPeriodMultiplier cashInstrumentCid referenceRateId
   investorBondTransferableCid <- Account.credit [publicParty] bondInstrument redemptionAmount investorAccount
 
+The reference rate is observed once at the beginning of each coupon period and used for
+the coupon payment at the end of that period.
 
 Inflation linked
 ================
 
 Inflation linked bonds pay a fixed coupon rate at the end of every coupon period.
-This is calculated based on a principal that is adjusted according to an inflation index, for example the Consumer Price Index (CPI) in the U.S.
+The coupon is calculated based on a principal that is adjusted according to an inflation index,
+for example the Consumer Price Index (CPI) in the U.S.
 
 Here is an example of a bond paying 1.1% p.a. (on a CPI adjusted principal) with a 3M coupon period:
 

@@ -36,7 +36,7 @@ Since the bond pays a coupon on a yearly basis, we talk about a time-based event
 The requirement to pay the coupon is governed by actual time.
 However, in a trading and settlement system, it is useful to be able to control
 the time variable, in order to simulate previous/future payments, or to have some flexibility
-regarding when to process events.
+regarding when to process actual events.
 
 We define a clock contract to control the passage of time:
 
@@ -51,7 +51,8 @@ We define a clock contract to control the passage of time:
 Lifecycling the bond instrument
 ===============================
 
-We use the ``Lifecyclable`` interface, which is defined in ``Daml.Finance.Interface.Lifecycle.Lifecyclable``.
+In order to lifecycle the instrument we use the ``Lifecyclable`` interface,
+which is defined in ``Daml.Finance.Interface.Lifecycle.Lifecyclable``.
 
 The issuer of the bond is responsible for initiating the coupon payment,
 by calling ``Lifecycle`` on the coupon date:

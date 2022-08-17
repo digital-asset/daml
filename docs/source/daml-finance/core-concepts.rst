@@ -8,7 +8,7 @@ The most important definitions are also summarized in the :doc:`glossary <glossa
 Asset model
 ***********
 
-The library’s asset model is the set of contracts that describe the financial rights and obligations that exist between parties. It is composed of instruments, holdings, and accounts.
+The asset model of the library is the set of contracts that describe the financial rights and obligations that exist between parties. It is composed of instruments, holdings, and accounts.
 
 It is important to note that she economic terms of an asset are separated from the representation of an asset holding. This is to allow centralized management of instruments (e.g. lifecycling), and to allow reuse of instruments and associated logic across different entities (e.g. custodians). It also avoids the data redundancy of replicating instrument data and logic on every holding contract.
 
@@ -172,6 +172,10 @@ Lifecycling
 
 Lifecycling is the evolution of instruments over their lifetime.
 
-EXPLAIN THE CONCEPT OF AN INSTRUMENT VERSION
+For example, when a bond pays a coupon, a new version of the instrument
+(which excludes the current coupon) is created. As part of the coupon payment transaction,
+the bond owner receives this new version of the bond. This is to ensure that
+the bond owner does not receive the same coupon multiple times.
+The old version (which includes the current coupon) is returned to the issuer.
 
 It is important to understand that these are two different instruments.
