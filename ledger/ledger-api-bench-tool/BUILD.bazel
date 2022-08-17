@@ -9,150 +9,162 @@ load(
     "da_scala_test_suite",
 )
 
-da_scala_binary(
-    name = "ledger-api-bench-tool",
-    srcs = [],
-    main_class = "com.daml.ledger.api.benchtool.LedgerApiBenchTool",
-    resources = [
-        "src/main/resources/logback.xml",
-    ],
-    tags = [
-        "fat_jar",
-        "maven_coordinates=com.daml:ledger-api-bench-tool:__VERSION__",
-        "no_scala_version_suffix",
-    ],
-    visibility = ["//visibility:public"],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_classic",
-    ],
-    deps = [
-        ":ledger-api-bench-tool-lib",
-    ],
-)
+load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration_current")
 
-da_scala_library(
-    name = "ledger-api-bench-tool-lib",
-    srcs = glob(["src/main/scala/com/daml/ledger/api/benchtool/**/*.scala"]),
-    resources = [],
-    scala_deps = [
-        "@maven//:com_github_scopt_scopt",
-        "@maven//:com_lihaoyi_fansi",
-        "@maven//:com_lihaoyi_pprint",
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_actor_typed",
-        "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:io_circe_circe_core",
-        "@maven//:io_circe_circe_yaml",
-        "@maven//:org_typelevel_cats_core",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//language-support/scala/bindings",
-        "//ledger-service/cli-opts",
-        "//ledger-service/jwt",
-        "//ledger/error",
-        "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-auth-client",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-resources",
-        "//ledger/metrics",
-        "//ledger/participant-state-index",
-        "//libs-scala/resources",
-        "//libs-scala/resources-akka",
-        "//libs-scala/resources-grpc",
-        "//libs-scala/timer-utils",
-        "//ledger/test-common:benchtool-tests-%s.scala" % "1.15",  # TODO: make the LF version configurable
-        "//ledger/test-common:dar-files-%s-lib" % "1.15",  # TODO: make the LF version configurable
-        "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_core",
-        "@maven//:io_grpc_grpc_netty",
-        "@maven//:io_netty_netty_handler",
-        "@maven//:org_slf4j_slf4j_api",
-    ],
-)
+[
+    da_scala_binary(
+        name = "ledger-api-bench-tool-%s" % version_alias,
+        srcs = [],
+        main_class = "com.daml.ledger.api.benchtool.LedgerApiBenchTool",
+        resources = [
+            "src/main/resources/logback.xml",
+        ],
+        tags = [
+            "fat_jar",
+            "maven_coordinates=com.daml:ledger-api-bench-tool:__VERSION__",
+            "no_scala_version_suffix",
+        ],
+        visibility = ["//visibility:public"],
+        runtime_deps = [
+            "@maven//:ch_qos_logback_logback_classic",
+        ],
+        deps = [
+            ":ledger-api-bench-tool-lib-%s" % version_alias,
+        ],
+    )
+    for (version_alias, version) in lf_version_configuration_current.items()
+]
 
-da_scala_library(
-    name = "ledger-api-bench-tool-test-lib",
-    srcs = glob(["src/test/lib/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalactic_scalactic",
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_stream",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":ledger-api-bench-tool-lib",
-        "//bazel_tools/runfiles:scala_runfiles",
-        "//ledger-api/testing-utils",
-        "//libs-scala/ports",
-        "//ledger/test-common:dar-files-%s-lib" % "1.15",
-        "//language-support/scala/bindings",
-        "//ledger-api/rs-grpc-bridge",
-        "//ledger/sandbox-on-x",
-        "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
-        "//ledger/test-common:dar-files-default-lib",
-        "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:org_slf4j_slf4j_api",
-    ],
-)
+[
+    da_scala_library(
+        name = "ledger-api-bench-tool-lib-%s" % version_alias,
+        srcs = glob(["src/main/scala/com/daml/ledger/api/benchtool/**/*.scala"]),
+        resources = [],
+        scala_deps = [
+            "@maven//:com_github_scopt_scopt",
+            "@maven//:com_lihaoyi_fansi",
+            "@maven//:com_lihaoyi_pprint",
+            "@maven//:com_typesafe_akka_akka_actor",
+            "@maven//:com_typesafe_akka_akka_actor_typed",
+            "@maven//:com_typesafe_akka_akka_stream",
+            "@maven//:io_circe_circe_core",
+            "@maven//:io_circe_circe_yaml",
+            "@maven//:org_typelevel_cats_core",
+        ],
+        visibility = ["//visibility:public"],
+        deps = [
+            "//language-support/scala/bindings",
+            "//ledger-service/cli-opts",
+            "//ledger-service/jwt",
+            "//ledger/error",
+            "//ledger/ledger-api-auth",
+            "//ledger/ledger-api-auth-client",
+            "//ledger/ledger-api-common",
+            "//ledger/ledger-resources",
+            "//ledger/metrics",
+            "//ledger/participant-state-index",
+            "//libs-scala/resources",
+            "//libs-scala/resources-akka",
+            "//libs-scala/resources-grpc",
+            "//libs-scala/timer-utils",
+            "//ledger/test-common:benchtool-tests-%s.scala" % version,
+            "//ledger/test-common:dar-files-%s-lib" % version_alias,
+            "@maven//:io_dropwizard_metrics_metrics_core",
+            "@maven//:io_grpc_grpc_api",
+            "@maven//:io_grpc_grpc_core",
+            "@maven//:io_grpc_grpc_netty",
+            "@maven//:io_netty_netty_handler",
+            "@maven//:org_slf4j_slf4j_api",
+        ],
+    )
+    for (version_alias, version) in lf_version_configuration_current.items()
+]
 
-da_scala_test_suite(
-    name = "ledger-api-bench-tool-tests",
-    size = "medium",
-    srcs = glob(
-        ["src/test/suite/**/*.scala"],
-    ),
-    data = [
-        "//daml-lf/encoder:testing-dars",
-        "//ledger/test-common:benchtool-tests-default.dar",
-        "//ledger/test-common/test-certificates",
-    ],
-    scala_deps = [
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:com_typesafe_akka_akka_actor_typed",
-        "@maven//:com_typesafe_akka_akka_actor_testkit_typed",
-        "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:org_scalatest_scalatest_wordspec",
-        "@maven//:org_scalatestplus_scalacheck_1_15",
-    ],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_classic",
-    ],
-    deps = [
-        ":ledger-api-bench-tool-lib",
-        ":ledger-api-bench-tool-test-lib",
-        "//ledger/test-common",
-        "//libs-scala/postgresql-testing",
-        "//libs-scala/timer-utils",
-        "//ledger/test-common:benchtool-tests-%s.scala" % "1.15",
-        "//ledger/test-common:dar-files-%s-lib" % "1.15",
-        "//daml-script/runner:script-runner-lib",
-        "//language-support/scala/bindings",
-        "//ledger-api/rs-grpc-bridge",
-        "//ledger-api/testing-utils",
-        "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-client",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
-        "//ledger/ledger-resources",
-        "//ledger/ledger-runner-common",
-        "//ledger/metrics",
-        "//ledger/sandbox-on-x",
-        "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
-        "//ledger/test-common:dar-files-default-lib",
-        "//libs-scala/adjustable-clock",
-        "//libs-scala/ports",
-        "//libs-scala/resources",
-        "@maven//:com_typesafe_config",
-        "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_core",
-        "@maven//:org_scalatest_scalatest_compatible",
-    ],
-)
+[
+    da_scala_library(
+        name = "ledger-api-bench-tool-test-lib-%s" % version_alias,
+        srcs = glob(["src/test/lib/**/*.scala"]),
+        scala_deps = [
+            "@maven//:org_scalatest_scalatest_core",
+            "@maven//:org_scalactic_scalactic",
+            "@maven//:com_typesafe_akka_akka_actor",
+            "@maven//:com_typesafe_akka_akka_stream",
+        ],
+        visibility = ["//visibility:public"],
+        deps = [
+            ":ledger-api-bench-tool-lib-%s" % version_alias,
+            "//bazel_tools/runfiles:scala_runfiles",
+            "//ledger-api/testing-utils",
+            "//libs-scala/ports",
+            "//ledger/test-common:dar-files-%s-lib" % version_alias,
+            "//language-support/scala/bindings",
+            "//ledger-api/rs-grpc-bridge",
+            "//ledger/sandbox-on-x",
+            "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
+            "@maven//:io_dropwizard_metrics_metrics_core",
+            "@maven//:org_slf4j_slf4j_api",
+        ],
+    )
+    for (version_alias, version) in lf_version_configuration_current.items()
+]
+
+[
+    da_scala_test_suite(
+        name = "ledger-api-bench-tool-tests-%s" % version_alias,
+        size = "medium",
+        srcs = glob(
+            ["src/test/suite/**/*.scala"],
+        ),
+        data = [
+            "//daml-lf/encoder:testing-dars",
+            "//ledger/test-common:benchtool-tests-%s.dar" % version_alias,
+            "//ledger/test-common/test-certificates",
+        ],
+        scala_deps = [
+            "@maven//:com_typesafe_akka_akka_actor",
+            "@maven//:com_typesafe_akka_akka_stream",
+            "@maven//:com_typesafe_akka_akka_actor_typed",
+            "@maven//:com_typesafe_akka_akka_actor_testkit_typed",
+            "@maven//:org_scalacheck_scalacheck",
+            "@maven//:org_scalatest_scalatest_core",
+            "@maven//:org_scalatest_scalatest_matchers_core",
+            "@maven//:org_scalatest_scalatest_shouldmatchers",
+            "@maven//:org_scalatest_scalatest_wordspec",
+            "@maven//:org_scalatestplus_scalacheck_1_15",
+        ],
+        runtime_deps = [
+            "@maven//:ch_qos_logback_logback_classic",
+        ],
+        deps = [
+            ":ledger-api-bench-tool-lib-%s" % version_alias,
+            ":ledger-api-bench-tool-test-lib-%s" % version_alias,
+            "//ledger/test-common",
+            "//libs-scala/postgresql-testing",
+            "//libs-scala/timer-utils",
+            "//ledger/test-common:benchtool-tests-%s.scala" % version,
+            "//ledger/test-common:dar-files-%s-lib" % version_alias,
+            "//daml-script/runner:script-runner-lib",
+            "//language-support/scala/bindings",
+            "//ledger-api/rs-grpc-bridge",
+            "//ledger-api/testing-utils",
+            "//ledger/ledger-api-auth",
+            "//ledger/ledger-api-client",
+            "//ledger/ledger-api-common",
+            "//ledger/ledger-api-domain",
+            "//ledger/ledger-resources",
+            "//ledger/ledger-runner-common",
+            "//ledger/metrics",
+            "//ledger/sandbox-on-x",
+            "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
+            "//libs-scala/adjustable-clock",
+            "//libs-scala/ports",
+            "//libs-scala/resources",
+            "@maven//:com_typesafe_config",
+            "@maven//:io_dropwizard_metrics_metrics_core",
+            "@maven//:io_grpc_grpc_api",
+            "@maven//:io_grpc_grpc_core",
+            "@maven//:org_scalatest_scalatest_compatible",
+        ],
+    )
+    for (version_alias, version) in lf_version_configuration_current.items()
+]

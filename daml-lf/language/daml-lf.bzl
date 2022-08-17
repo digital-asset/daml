@@ -63,6 +63,11 @@ lf_version_configuration = {
 
 lf_version_configuration_versions = depset(lf_version_configuration.values()).to_list()
 
+lf_version_configuration_current = {
+    "default": lf_version_configuration["default"],
+    "latest": lf_version_configuration["latest"],
+}
+
 # aggregates a list of version keywords and versions:
 # 1. converts keyword in version
 # 2. removes "preview" if no preview version is available.
