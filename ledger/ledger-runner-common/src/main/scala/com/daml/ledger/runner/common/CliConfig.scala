@@ -36,7 +36,6 @@ final case class CliConfig[Extra](
     acsIdPageSize: Int,
     configurationLoadTimeout: Duration,
     commandConfig: CommandConfiguration,
-    enableInMemoryFanOutForLedgerApi: Boolean,
     eventsPageSize: Int,
     bufferedStreamsPageSize: Int,
     eventsProcessingParallelism: Int,
@@ -88,7 +87,6 @@ object CliConfig {
       acsIdPageSize = IndexServiceConfig.DefaultAcsIdPageSize,
       configurationLoadTimeout = Duration.ofSeconds(10),
       commandConfig = CommandConfiguration.Default,
-      enableInMemoryFanOutForLedgerApi = false,
       eventsPageSize = IndexServiceConfig.DefaultEventsPageSize,
       bufferedStreamsPageSize = IndexServiceConfig.DefaultBufferedStreamsPageSize,
       eventsProcessingParallelism = IndexServiceConfig.DefaultEventsProcessingParallelism,
@@ -666,13 +664,12 @@ object CliConfig {
         .hidden()
         .text("Legacy flag with no effect")
         .action((_, config) => config),
+      // TODO remove
       opt[Unit]("buffered-ledger-api-streams")
         .optional()
         .hidden()
-        .text(
-          "Experimental buffer for Ledger API streaming queries. Should not be used in production."
-        )
-        .action((_, config) => config.copy(enableInMemoryFanOutForLedgerApi = true)),
+        .text("Legacy flag with no effect.")
+        .action((_, config) => config),
       opt[Boolean]("enable-user-management")
         .optional()
         .text(

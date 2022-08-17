@@ -21,7 +21,7 @@ class JcsSpec extends AnyWordSpec with Matchers {
   private val uno: JsValue = JsNumber(1)
   private val badNumber: JsValue = JsNumber(1.2)
 
-  def assert(value: JsValue, expected: String): Assertion = {
+  private def assert(value: JsValue, expected: String): Assertion = {
     val actual = Jcs.serialize(value)
     actual shouldBe Right(expected)
   }
@@ -76,6 +76,7 @@ class JcsSpec extends AnyWordSpec with Matchers {
         request = Request(from, Some(to), Some(application)),
         `final` = false,
         applications = Seq(ApplicationReport(application, 272)),
+        check = None,
       )
       val reportJson: JsValue = report.toJson
       assert(

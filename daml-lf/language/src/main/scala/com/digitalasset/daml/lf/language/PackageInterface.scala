@@ -219,24 +219,24 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
       templateName: TypeConName,
       context: => Reference,
   ): Either[
-    Either[LookupError, AmbiguousInterfaceInstanceError],
+    LookupError,
     PackageInterface.InterfaceInstanceInfo,
   ] = {
     val ref = Reference.InterfaceInstance(interfaceName, templateName)
     for {
-      interface <- lookupInterface(interfaceName, context).left.map(Left(_))
-      template <- lookupTemplate(templateName, context).left.map(Left(_))
+      interface <- lookupInterface(interfaceName, context)
+      template <- lookupTemplate(templateName, context)
       onInterface = interface.coImplements.get(templateName)
       onTemplate = template.implements.get(interfaceName)
       ok = { tOrI: TemplateOrInterface[Unit, Unit] =>
         PackageInterface.InterfaceInstanceInfo(tOrI, interfaceName, templateName, interface)
       }
       r <- (onInterface, onTemplate) match {
-        case (None, None) => Left(Left(LookupError(ref, context)))
+        case (None, None) => Left(LookupError.NotFound(ref, context))
         case (Some(_), None) => Right(ok(TemplateOrInterface.Interface(())))
         case (None, Some(_)) => Right(ok(TemplateOrInterface.Template(())))
         case (Some(_), Some(_)) =>
-          Left(Right(PackageInterface.AmbiguousInterfaceInstanceError(ref, context)))
+          Left(LookupError.AmbiguousInterfaceInstance(ref))
       }
     } yield r
   }
@@ -245,7 +245,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
       interfaceName: TypeConName,
       templateName: TypeConName,
   ): Either[
-    Either[LookupError, AmbiguousInterfaceInstanceError],
+    LookupError,
     PackageInterface.InterfaceInstanceInfo,
   ] =
     lookupInterfaceInstance(
@@ -445,11 +445,6 @@ object PackageInterface {
         extends ChoiceInfo
 
   }
-
-  final case class AmbiguousInterfaceInstanceError(
-      notFound: Reference.InterfaceInstance,
-      context: Reference,
-  )
 
   final case class InterfaceInstanceInfo(
       val parentTemplateOrInterface: TemplateOrInterface[Unit, Unit],

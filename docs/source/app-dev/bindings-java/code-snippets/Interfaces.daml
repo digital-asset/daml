@@ -29,7 +29,7 @@ template Child
       do
         return ()
 
-    implements TIf where
+    interface instance TIf for Child where
       view = TIfView "Child"
       getOwner = party
       dup = toInterfaceContractId <$> create this

@@ -15,5 +15,5 @@ template T
     p : Party
   where
     signatory p
-    implements Bool where
+    interface instance Bool for T where
       view = ()

@@ -7,10 +7,8 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.{TemplateOrInterface => TorI}
 
-final case class LookupError(notFound: Reference, context: Reference) {
-  val pretty: String = "unknown " + notFound.pretty + (
-    if (context == notFound) "" else LookupError.contextDetails(context)
-  )
+sealed abstract class LookupError {
+  def pretty: String
 }
 
 object LookupError {
@@ -21,8 +19,20 @@ object LookupError {
       case otherwise => " while looking for " + otherwise.pretty
     }
 
+  final case class NotFound(notFound: Reference, context: Reference) extends LookupError {
+    def pretty: String = "unknown " + notFound.pretty + (
+      if (context == notFound) "" else LookupError.contextDetails(context)
+    )
+  }
+
+  final case class AmbiguousInterfaceInstance(instance: Reference.InterfaceInstance)
+      extends LookupError {
+    def pretty: String =
+      s"Ambiguous interface instance: two instances for ${instance.pretty}"
+  }
+
   object MissingPackage {
-    def unapply(err: LookupError): Option[(PackageId, Reference)] =
+    def unapply(err: LookupError.NotFound): Option[(PackageId, Reference)] =
       err.notFound match {
         case Reference.Package(packageId) => Some(packageId -> err.context)
         case _ => None
@@ -31,6 +41,12 @@ object LookupError {
     def pretty(pkgId: PackageId, context: Reference): String =
       s"Couldn't find package $pkgId" + contextDetails(context)
   }
+
+  def apply(notFound: Reference, context: Reference) =
+    NotFound(notFound, context)
+
+  def unapply(err: LookupError.NotFound): Option[(Reference, Reference)] =
+    Some(err.notFound, err.context)
 
 }
 

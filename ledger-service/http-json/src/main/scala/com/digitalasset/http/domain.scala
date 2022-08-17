@@ -27,10 +27,10 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
   import scalaz.{@@, Tag}
 
   type InputContractRef[LfV] =
-    (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], ContractId)
+    (ContractTypeId.Template.OptionalPkg, LfV) \/ (Option[ContractTypeId.OptionalPkg], ContractId)
 
   type ResolvedContractRef[LfV] =
-    (TemplateId.RequiredPkg, LfV) \/ (TemplateId.RequiredPkg, ContractId)
+    (ContractTypeId.Template.RequiredPkg, LfV) \/ (ContractTypeId.RequiredPkg, ContractId)
 
   type LedgerIdTag = lar.LedgerIdTag
   type LedgerId = lar.LedgerId
@@ -138,12 +138,12 @@ package domain {
   sealed abstract class ContractLocator[+LfV] extends Product with Serializable
 
   final case class EnrichedContractKey[+LfV](
-      templateId: TemplateId.OptionalPkg,
+      templateId: ContractTypeId.Template.OptionalPkg,
       key: LfV,
   ) extends ContractLocator[LfV]
 
   final case class EnrichedContractId(
-      templateId: Option[ContractTypeId.Unknown.OptionalPkg],
+      templateId: Option[ContractTypeId.OptionalPkg],
       contractId: domain.ContractId,
   ) extends ContractLocator[Nothing]
 
@@ -153,13 +153,15 @@ package domain {
   )
 
   final case class GetActiveContractsRequest(
-      templateIds: OneAnd[Set, TemplateId.OptionalPkg],
+      // TODO #14067 remove .Template for subscriptions
+      templateIds: OneAnd[Set, ContractTypeId.Template.OptionalPkg],
       query: Map[String, JsValue],
       readAs: Option[NonEmptyList[Party]],
   )
 
   final case class SearchForeverQuery(
-      templateIds: OneAnd[Set, TemplateId.OptionalPkg],
+      // TODO #14067 remove .Template for subscriptions
+      templateIds: OneAnd[Set, ContractTypeId.Template.OptionalPkg],
       query: Map[String, JsValue],
       offset: Option[domain.Offset],
   )
@@ -273,7 +275,7 @@ package domain {
       choice: domain.Choice,
       argument: LfV,
       // passing a template ID is allowed; we distinguish internally
-      choiceInterfaceId: Option[ContractTypeId.Unknown.OptionalPkg],
+      choiceInterfaceId: Option[ContractTypeId.OptionalPkg],
       meta: Option[CommandMeta],
   )
 
@@ -518,7 +520,7 @@ package domain {
 
     def lfType(
         fa: F[_],
-        templateId: ContractTypeId.Unknown.Resolved,
+        templateId: ContractTypeId.Resolved,
         f: PackageService.ResolveTemplateRecordType,
         g: PackageService.ResolveChoiceArgType,
         h: PackageService.ResolveKeyType,
@@ -595,7 +597,7 @@ package domain {
 
         override def lfType(
             fa: ExerciseCommand[_, domain.ContractLocator[_]],
-            templateId: ContractTypeId.Unknown.Resolved,
+            templateId: ContractTypeId.Resolved,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,

@@ -32,7 +32,7 @@ template Child
       do
         return ()
 
-    implements TIf where
+    interface instance TIf for Child where
       view = EmptyInterfaceView
       getOwner = party
       dup = toInterfaceContractId <$> create this
@@ -43,7 +43,7 @@ template ChildClone
   where
     signatory party
 
-    implements TIf where
+    interface instance TIf for ChildClone where
       view = EmptyInterfaceView
       getOwner = party
       dup = toInterfaceContractId <$> create this

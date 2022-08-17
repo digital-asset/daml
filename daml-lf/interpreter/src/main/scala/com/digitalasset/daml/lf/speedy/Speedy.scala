@@ -241,7 +241,7 @@ private[lf] object Speedy {
           )
 
         case None =>
-          val m1_prime = table.contractById + (coid -> (d.templateId, arg))
+          val contractByIdUpdates = table.contractById + (coid -> (d.templateId, arg))
           d.metadata.keyHash match {
             case Some(hash) =>
               // check for duplicate contract key hashes
@@ -256,14 +256,18 @@ private[lf] object Speedy {
                     )
                   )
 
-                case None => DisclosureTable(table.contractIdByKey + (hash -> coid), m1_prime)
+                case None =>
+                  DisclosureTable(
+                    table.contractIdByKey + (hash -> coid),
+                    contractByIdUpdates,
+                  )
               }
 
             case None =>
               packageInterface.lookupTemplate(d.templateId) match {
                 case Right(template) if template.key.isEmpty =>
                   // Success - template exists, but has no key defined
-                  table.copy(contractById = m1_prime)
+                  table.copy(contractById = contractByIdUpdates)
 
                 case Right(_) =>
                   // Error - disclosed contract lacks a key hash, but the template requires a key

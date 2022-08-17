@@ -17,7 +17,7 @@ If you no longer have your projects set up, please follow the setup instructions
 Daml Test Tooling
 -----------------
 
-There are three primary tools available in the SDK to test and interact with Daml contracts. It is highly recommended to explore the respective docs. The chapter 8 model lends itself well to being tested using these tools.
+There are three primary tools available in the SDK to test and interact with Daml contracts. It is highly recommended to explore the respective docs. The chapter 9 model lends itself well to being tested using these tools.
 
 :doc:`Daml Script </daml-script/index>`
 

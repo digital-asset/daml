@@ -171,62 +171,69 @@ _choice_AssetArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_implements_Asset_Token :
-  DA.Internal.Desugar.ImplementsT Asset Token
-_implements_Asset_Token = DA.Internal.Desugar.ImplementsT
+_interface_instance_Asset_Token_Asset :
+  DA.Internal.Desugar.InterfaceInstance Asset Token Asset
+_interface_instance_Asset_Token_Asset
+  = DA.Internal.Desugar.mkInterfaceInstance @Asset @Token @Asset
+_method_Asset_Token_Asset_getOwner :
+  DA.Internal.Desugar.Method Asset Token Asset "getOwner"
+_method_Asset_Token_Asset_getOwner
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @Asset
+      @"getOwner"
+      \ this@Asset {..}
+        -> let _ = this in let getOwner = owner in getOwner
+_method_Asset_Token_Asset_getIssuer :
+  DA.Internal.Desugar.Method Asset Token Asset "getIssuer"
+_method_Asset_Token_Asset_getIssuer
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @Asset
+      @"getIssuer"
+      \ this@Asset {..}
+        -> let _ = this in let getIssuer = issuer in getIssuer
+_method_Asset_Token_Asset_getAmount :
+  DA.Internal.Desugar.Method Asset Token Asset "getAmount"
+_method_Asset_Token_Asset_getAmount
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @Asset
+      @"getAmount"
+      \ this@Asset {..}
+        -> let _ = this in let getAmount = amount in getAmount
+_method_Asset_Token_Asset_transferImpl :
+  DA.Internal.Desugar.Method Asset Token Asset "transferImpl"
+_method_Asset_Token_Asset_transferImpl
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @Asset
+      @"transferImpl"
+      \ this@Asset {..}
+        -> let _ = this in
+           let
+             transferImpl newOwner
+               = do cid <- create this {owner = newOwner}
+                    pure (toInterfaceContractId @Token cid)
+           in transferImpl
+_view_Asset_Token_Asset :
+  DA.Internal.Desugar.InterfaceView Asset Token Asset
+_view_Asset_Token_Asset
+  = DA.Internal.Desugar.mkInterfaceView
+      @Asset
+      @Token
+      @Asset
+      \ this@Asset {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 instance DA.Internal.Desugar.HasToInterface Asset Token where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Asset Token where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-_method_Asset_Token_getOwner :
-  DA.Internal.Desugar.Method Asset Token "getOwner"
-_method_Asset_Token_getOwner
-  = DA.Internal.Desugar.mkMethod
-      @Asset
-      @Token
-      @"getOwner"
-      (\ this@Asset {..}
-         -> let _ = this in let getOwner = owner in getOwner)
-_method_Asset_Token_getIssuer :
-  DA.Internal.Desugar.Method Asset Token "getIssuer"
-_method_Asset_Token_getIssuer
-  = DA.Internal.Desugar.mkMethod
-      @Asset
-      @Token
-      @"getIssuer"
-      (\ this@Asset {..}
-         -> let _ = this in let getIssuer = issuer in getIssuer)
-_method_Asset_Token_getAmount :
-  DA.Internal.Desugar.Method Asset Token "getAmount"
-_method_Asset_Token_getAmount
-  = DA.Internal.Desugar.mkMethod
-      @Asset
-      @Token
-      @"getAmount"
-      (\ this@Asset {..}
-         -> let _ = this in let getAmount = amount in getAmount)
-_method_Asset_Token_transferImpl :
-  DA.Internal.Desugar.Method Asset Token "transferImpl"
-_method_Asset_Token_transferImpl
-  = DA.Internal.Desugar.mkMethod
-      @Asset
-      @Token
-      @"transferImpl"
-      (\ this@Asset {..}
-         -> let _ = this in
-            let
-              transferImpl newOwner
-                = do cid <- create this {owner = newOwner}
-                     pure (toInterfaceContractId @Token cid)
-            in transferImpl)
-_view_Asset_Token : DA.Internal.Desugar.InterfaceView Asset Token
-_view_Asset_Token
-  = DA.Internal.Desugar.mkInterfaceView
-      @Asset
-      @Token
-      \ this@Asset {..}
-        -> let _ = this in let view = EmptyInterfaceView in view
 main
   = scenario
       do alice <- getParty "Alice"

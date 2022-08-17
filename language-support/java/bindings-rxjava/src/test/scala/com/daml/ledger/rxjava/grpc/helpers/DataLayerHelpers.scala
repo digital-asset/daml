@@ -54,6 +54,6 @@ trait DataLayerHelpers {
 
   def filterFor(party: String): FiltersByParty =
     new FiltersByParty(
-      Map(party -> new InclusiveFilter(Set.empty[Identifier].asJava).asInstanceOf[Filter]).asJava
+      Map(party -> (InclusiveFilter.ofTemplateIds(Set.empty[Identifier].asJava): Filter)).asJava
     )
 }

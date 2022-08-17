@@ -640,6 +640,8 @@ pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observe
           ]
       implementsDoc = map (pPrintTemplateImplements lvl) (NM.toList implements)
 
+-- TODO(MA): Handle interface instances in interfaces
+-- https://github.com/digital-asset/daml/issues/14047
 pPrintTemplateImplements :: PrettyLevel -> TemplateImplements -> Doc ann
 pPrintTemplateImplements lvl (TemplateImplements name body) =
   hang

@@ -4,10 +4,10 @@
 Work with Dependencies
 ======================
 
-The application from Chapter 7 is a complete and secure model for atomic swaps of assets, but there is plenty of room for improvement. However, one can't implement all feature before going live with an application so it's important to understand way to change already running code. There are fundamentally two types of change one may want to make:
+The application from Chapter 7 is a complete and secure model for atomic swaps of assets, but there is plenty of room for improvement. However, one can't implement all features before going live with an application so it's important to understand how to change already running code. There are fundamentally two types of change one may want to make:
 
 1. Upgrades, which change existing logic. For example, one might want the ``Asset`` template to have multiple signatories.
-2. Extensions, which merely add new functionality though additional templates.
+2. Extensions, which merely add new functionality through additional templates.
 
 Upgrades are covered in their own section outside this introduction to Daml: :doc:`/upgrade/index` so in this section we will extend the chapter 7 model with a simple second workflow: a multi-leg trade. In doing so, you'll learn about:
 
@@ -18,14 +18,14 @@ Upgrades are covered in their own section outside this introduction to Daml: :do
 Since we are extending chapter 7, the setup for this chapter is slightly more complex:
 
 #. In a base directory, load the chapter 7 project using ``daml new intro7 --template daml-intro-7``. The directory ``intro7`` here is important as it'll be referenced by the other project we are creating.
-#. In the same directory, load the chapter 8 project using ``daml new intro9 --template daml-intro-9``.
+#. In the same directory, load the chapter 9 project using ``daml new intro9 --template daml-intro-9``.
 
-``8Dependencies`` contains a new module ``Intro.Asset.MultiTrade`` and a corresponding test module ``Test.Intro.Asset.MultiTrade``.
+``Dependencies`` contains a new module ``Intro.Asset.MultiTrade`` and a corresponding test module ``Test.Intro.Asset.MultiTrade``.
 
 DAR, DALF, Daml-LF, and the Engine
 ----------------------------------
 
-In :doc:`7_Composing` you already learnt a little about projects, Daml-LF, DAR files, and dependencies. In this chapter we will actually need to have dependencies from the chapter 8 project to the chapter 7 project so it's time to learn a little more about all this.
+In :doc:`7_Composing` you already learnt a little about projects, Daml-LF, DAR files, and dependencies. In this chapter we will actually need to have dependencies from the chapter 9 project to the chapter 7 project so it's time to learn a little more about all this.
 
 Let's have a look inside the DAR file of chapter 7. DAR files, like Java JAR files are just ZIP archives, but the SDK also has a utility to inspect DARs out of the box:
 
@@ -65,9 +65,9 @@ Dependencies and Data Dependencies
 
 Dependencies under the ``daml.yaml`` ``dependencies`` group rely on the ``*.hi`` files. The information in these files is crucial for dependencies like the Standard Library, which provide functions, types and typeclasses.
 
-However, as you can see above, this information isn't preserved. Furthermore, preserving this information may not even be desirable. Imagine we had built ``intro7`` with SDK 1.100.0, and are building ``intro8`` with SDK 1.101.0. All the typeclasses and instances on the inbuilt types may have changed and are now present twice -- once from the current SDK and once from the dependency. This gets messy fast, which is why the SDK does not support ``dependencies`` across SDK versions. For dependencies on contract models that were fetched from a ledger, or come from an older SDK version, there is a simpler kind of dependency called ``data-dependencies``. The syntax for ``data-dependencies`` is the same, but they only rely on the "binary" ``*.dalf`` files. The name tries to confer that the main purpose of such dependencies is to handle data: Records, Choices, Templates. The stuff one needs to use contract composability across projects.
+However, as you can see above, this information isn't preserved. Furthermore, preserving this information may not even be desirable. Imagine we had built ``intro7`` with SDK 1.100.0, and are building ``intro9`` with SDK 1.101.0. All the typeclasses and instances on the inbuilt types may have changed and are now present twice -- once from the current SDK and once from the dependency. This gets messy fast, which is why the SDK does not support ``dependencies`` across SDK versions. For dependencies on contract models that were fetched from a ledger, or come from an older SDK version, there is a simpler kind of dependency called ``data-dependencies``. The syntax for ``data-dependencies`` is the same, but they only rely on the "binary" ``*.dalf`` files. The name tries to confer that the main purpose of such dependencies is to handle data: Records, Choices, Templates. The stuff one needs to use contract composability across projects.
 
-For an extension model like this one, ``data-dependencies`` are appropriate so the chapter 8 project includes the chapter 7 that way.
+For an extension model like this one,``data-dependencies`` are appropriate, so the chapter 9 project includes chapter 7 that way.
 
 .. literalinclude:: daml/daml-intro-9/daml.yaml.template
   :language: yaml
@@ -81,11 +81,11 @@ Structuring Projects
 
 As you've seen here, identifiers depend on the package as a whole and packages always bring all their dependencies with them. Thus changing anything in a complex dependency graph can have significant repercussions. It is therefore advisable to keep dependency graphs simple, and to separate concerns which are likely to change at different rates into separate packages.
 
-For example, in all our projects in this intro, including this chapter, our scripts are in the same project as our templates. In practice, that means changing a test changes all identifiers, which is not desirable. It's better for maintainability to separate tests from main templates. If we had done that in chapter 7, that would also have saved us from copying the chapter 7
+For example, in all our projects in this intro, including this chapter, our scripts are in the same project as our templates. In practice, that means changing a test changes all identifiers, which is not desirable. It's better for maintainability to separate tests from main templates. If we had done that in chapter 7, that would also have saved us from copying chapter 7.
 
 Similarly, we included ``Trade`` in the same project as ``Asset`` in chapter 7, even though ``Trade`` is a pure extension to the core ``Asset`` model. If we expect ``Trade`` to need more frequent changes, it may be a good idea to split it out into a separate project from the start.
 
 Next Up
 -------
 
-The ``MultiTrade`` model has more complex control flow and data handling than previous models. In :doc:`10_Functional101` you'll learn how to write more advanced logic: control flow, folds, common typeclasses, custom functions, and the Standard Library. We'll be using the same projects so don't delete your chapter 7 and 8 folders just yet.
+The ``MultiTrade`` model has more complex control flow and data handling than previous models. In :doc:`10_Functional101` you'll learn how to write more advanced logic: control flow, folds, common typeclasses, custom functions, and the Standard Library. We'll be using the same projects so don't delete your chapter 7 and 9 folders just yet.

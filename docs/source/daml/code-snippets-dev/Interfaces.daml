@@ -94,7 +94,7 @@ template MyTemplate
     signatory field1
 -- TEMPLATE_HEADER_END
 -- TEMPLATE_IMPLEMENTS_BEGIN
-    implements MyInterface where
+    interface instance MyInterface for MyTemplate where
       view = MyInterfaceViewType "MyTemplate" 100
       method1 = field1
       method2 = field2
@@ -104,6 +104,6 @@ template MyTemplate
         | otherwise = y
 -- TEMPLATE_IMPLEMENTS_END
 -- TEMPLATE_EMPTY_IMPLEMENTS_BEGIN
-    implements YourInterface where
+    interface instance YourInterface for MyTemplate where
       view = EmptyInterfaceView
 -- TEMPLATE_EMPTY_IMPLEMENTS_END
