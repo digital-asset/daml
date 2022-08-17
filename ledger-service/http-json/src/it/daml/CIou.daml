@@ -16,11 +16,11 @@ template CIou with
   key issuer: Party
   maintainer key
 
-  implements IIou where
+  interface instance IIou for CIou where
     view = EmptyInterfaceView
     getOwner = owner
 
-  implements Transferrable where
+  interface instance Transferrable for CIou where
     view = Transferrable.EmptyInterfaceView
     getOwner = owner
 

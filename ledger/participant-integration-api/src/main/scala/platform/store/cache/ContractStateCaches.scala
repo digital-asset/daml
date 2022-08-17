@@ -13,12 +13,25 @@ import com.daml.platform.store.dao.events.ContractStateEvent
 
 import scala.concurrent.ExecutionContext
 
+/** Encapsulates the contract and key state caches with operations for mutating them.
+  * The caches are used for serving contract activeness and key lookups
+  * for command interpretation performed during command submission.
+  *
+  * @param keyState The contract key state cache.
+  * @param contractState The contract state cache.
+  * @param loggingContext The logging context.
+  */
 class ContractStateCaches(
     private[cache] val keyState: StateCache[GlobalKey, ContractKeyStateValue],
     private[cache] val contractState: StateCache[ContractId, ContractStateValue],
 )(implicit loggingContext: LoggingContext) {
   private val logger = ContextualizedLogger.get(getClass)
 
+  /** Update the state caches with a batch of events.
+    *
+    * @param eventsBatch The contract state update events batch.
+    *                    The updates batch must be non-empty and with strictly increasing event sequential ids.
+    */
   def push(eventsBatch: Vector[ContractStateEvent]): Unit =
     if (eventsBatch.isEmpty) {
       logger.error("push triggered with empty events batch")
@@ -46,11 +59,13 @@ class ContractStateCaches(
       val contractMappings = contractMappingsBuilder.result()
 
       val validAt = eventsBatch.last.eventOffset
-      if (keyMappings.nonEmpty) keyState.putBatch(validAt, keyMappings)
-      if (contractMappings.nonEmpty)
-        contractState.putBatch(validAt, contractMappings)
+      if (keyMappings.nonEmpty) {
+        keyState.putBatch(validAt, keyMappings)
+      }
+      contractState.putBatch(validAt, contractMappings)
     }
 
+  /** Reset the contract and key state caches to the specified offset. */
   def reset(lastPersistedLedgerEnd: Offset): Unit = {
     keyState.reset(lastPersistedLedgerEnd)
     contractState.reset(lastPersistedLedgerEnd)

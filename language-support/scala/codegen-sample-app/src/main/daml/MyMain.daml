@@ -610,9 +610,9 @@ template InterfaceMixer with
     choice OverloadedInTemplate: () with
       controller party
       do return ()
-    implements InterfaceToMix where
+    interface instance InterfaceToMix for InterfaceMixer where
       view = EmptyInterfaceView
       getOwner = party
-    implements MyMainIface.IfaceFromAnotherMod where
+    interface instance MyMainIface.IfaceFromAnotherMod for InterfaceMixer where
       view = MyMainIface.EmptyInterfaceView
       getOwner = party

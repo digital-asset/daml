@@ -1570,12 +1570,12 @@ private[lf] object SBuiltin {
           NameOf.qualifiedNameOfCurrentFunc,
           skey,
         )
+
       if (keyWithMaintainers.maintainers.isEmpty) {
         Control.Error(
           IE.FetchEmptyContractKeyMaintainers(operation.templateId, keyWithMaintainers.key)
         )
       } else {
-
         val gkey = GlobalKey(operation.templateId, keyWithMaintainers.key)
 
         onLedger.ptx.contractState.resolveKey(gkey) match {

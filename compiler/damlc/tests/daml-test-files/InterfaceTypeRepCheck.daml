@@ -22,7 +22,7 @@ template T1
     owner1: Party
   where
     signatory owner1
-    implements I where
+    interface instance I for T1 where
       view = EmptyInterfaceView
       getOwner = owner1
 
@@ -31,7 +31,7 @@ template T2
     owner2: Party
   where
     signatory owner2
-    implements I where
+    interface instance I for T2 where
       view = EmptyInterfaceView
       getOwner = owner2
 

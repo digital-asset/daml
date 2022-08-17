@@ -28,6 +28,7 @@ class MeteringReportSpec extends AsyncWordSpec with Matchers {
         request = Request(from, Some(to), Some(application)),
         `final` = false,
         applications = Seq(ApplicationReport(application, 272)),
+        check = Some(Check("community", "digest0")),
       )
 
       val json = expected.toJson.prettyPrint

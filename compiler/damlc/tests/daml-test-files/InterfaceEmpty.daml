@@ -17,5 +17,5 @@ template T
   where
     signatory p
 
-    implements I where
+    interface instance I for T where
       view = EmptyInterfaceView

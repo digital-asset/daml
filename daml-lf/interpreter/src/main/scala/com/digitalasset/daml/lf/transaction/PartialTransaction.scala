@@ -216,7 +216,7 @@ private[lf] object PartialTransaction {
   *  @param contractState summarizes the changes to the contract states caused by nodes up to now
   *  @param actionNodeLocations The optional locations of create/exercise/fetch/lookup nodes in pre-order.
   *   Used by 'locationInfo()', called by 'finish()' and 'finishIncomplete()'
-  *   @param disclosedContracts contracts that have been explicitly disclosed
+  *   @param disclosedContracts contracts that have been explicitly disclosed to Speedy (usage will be determined by 'finish()')
   */
 private[speedy] case class PartialTransaction(
     nextNodeIdx: Int,
@@ -308,13 +308,17 @@ private[speedy] case class PartialTransaction(
         val roots = context.children.toImmArray
         val tx0 = Tx(nodes, roots)
         val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
+        val txResult = SubmittedTransaction(TxVersion.asVersionedTransaction(tx))
         Result(
-          SubmittedTransaction(TxVersion.asVersionedTransaction(tx)),
+          txResult,
           locationInfo(),
           seeds.zip(actionNodeSeeds.toImmArray),
           contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
-          disclosedContracts,
+          disclosedContracts.filter(disclosedContract =>
+            txResult.inputContracts.contains(disclosedContract.contractId.value)
+          ),
         )
+
       case _ =>
         InternalError.runtimeException(
           NameOf.qualifiedNameOfCurrentFunc,

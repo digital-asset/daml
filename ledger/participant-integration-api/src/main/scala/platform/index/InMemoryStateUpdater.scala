@@ -30,6 +30,12 @@ import com.daml.platform.{Contract, InMemoryState, Key, Party}
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 
+/** Builder of the in-memory state updater Akka flow.
+  *
+  * This flow is attached at the end of the Indexer pipeline,
+  * consumes the [[com.daml.ledger.participant.state.v2.Update]]s (that have been ingested by the Indexer
+  * into the Index database) for populating the Ledger API server in-memory state (see [[InMemoryState]]).
+  */
 private[platform] object InMemoryStateUpdaterFlow {
   private[index] def apply(
       prepareUpdatesParallelism: Int,

@@ -24,7 +24,7 @@ template Template1
         value1: Int
     where
         signatory owner1
-        implements Iface where
+        interface instance Iface for Template1 where
             view = EmptyInterfaceView
             getOwner = owner1
 
@@ -34,7 +34,7 @@ template Template2
         value2: Text
     where
         signatory owner2
-        implements Iface where
+        interface instance Iface for Template2 where
             view = EmptyInterfaceView
             getOwner = owner2
 

@@ -19,5 +19,5 @@ instance DA.Internal.Desugar.HasMethod T "foo" T where
 
 main : Int
 main =
-    let _ = DA.Internal.Desugar.mkMethod @T @T @"foo" identity
+    let _ = DA.Internal.Desugar.mkMethod @T @T @T @"foo" identity
     in 10

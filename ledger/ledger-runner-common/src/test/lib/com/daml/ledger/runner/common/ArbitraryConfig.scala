@@ -400,7 +400,6 @@ object ArbitraryConfig {
     maxContractStateCacheSize <- Gen.long
     maxContractKeyStateCacheSize <- Gen.long
     maxTransactionsInMemoryFanOutBufferSize <- Gen.chooseNum(0, Int.MaxValue)
-    enableInMemoryFanOutForLedgerApi <- Gen.oneOf(true, false)
     apiStreamShutdownTimeout <- Gen.finiteDuration
   } yield IndexServiceConfig(
     eventsPageSize,
@@ -415,7 +414,6 @@ object ArbitraryConfig {
     maxContractStateCacheSize,
     maxContractKeyStateCacheSize,
     maxTransactionsInMemoryFanOutBufferSize,
-    enableInMemoryFanOutForLedgerApi,
     apiStreamShutdownTimeout,
   )
 
