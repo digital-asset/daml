@@ -12,6 +12,7 @@ import com.daml.fetchcontracts.util.{
   BeginBookmark,
   ContractStreamStep,
   InsertDeleteStep,
+  LedgerBegin,
 }
 import com.daml.http.EndpointsCompanion._
 import com.daml.http.domain.{JwtPayload, SearchForeverRequest, StartingOffset}
@@ -25,6 +26,7 @@ import query.ValuePredicate.{LfV, TypeLookup}
 import com.daml.jwt.domain.Jwt
 import com.daml.http.query.ValuePredicate
 import doobie.ConnectionIO
+import doobie.free.{connection => fconn}
 import doobie.syntax.string._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
@@ -731,20 +733,23 @@ class WebSocketService(
   ): Future[Source[StepAndErrors[Positive, JsValue], NotUsed]] =
     contractsService.daoAndFetch.cata(
       { case (dao, fetch) =>
-        val tx = fetch.fetchAndPersistBracket(jwt, ledgerId, parties, predicate.resolved.toList) {
-          bookmark =>
-            for {
-              mdContracts <- predicate.dbQuery(parties, dao)
-            } yield {
-              val acs =
-                if (mdContracts.nonEmpty)
-                  Source.single(StepAndErrors(Seq.empty, ContractStreamStep.Acs(mdContracts)))
-                else
-                  Source.empty
-              val liveMarker = liveBegin(bookmark.map(_.toDomain))
-              acs ++ liveMarker
-            }
-        }
+        val tx: ConnectionIO[Source[StepAndErrors[Positive, JsValue], NotUsed]] =
+          fetch.fetchAndPersistBracket(jwt, ledgerId, parties, predicate.resolved.toList) {
+            case LedgerBegin =>
+              fconn.pure(liveBegin(LedgerBegin))
+            case bookmark @ AbsoluteBookmark(_) =>
+              for {
+                mdContracts <- predicate.dbQuery(parties, dao)
+              } yield {
+                val acs =
+                  if (mdContracts.nonEmpty)
+                    Source.single(StepAndErrors(Seq.empty, ContractStreamStep.Acs(mdContracts)))
+                  else
+                    Source.empty
+                val liveMarker = liveBegin(bookmark.map(_.toDomain))
+                acs ++ liveMarker
+              }
+          }
         dao.transact(tx).unsafeToFuture()
       },
       Future.successful {
