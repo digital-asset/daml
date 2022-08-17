@@ -11,6 +11,7 @@ import qualified Data.Ratio                 as Ratio
 import           Control.Lens
 import           Control.Lens.Ast   (rightSpine)
 import qualified Data.NameMap as NM
+import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Time.Clock.POSIX      as Clock.Posix
 import qualified Data.Time.Format           as Time.Format
@@ -666,11 +667,61 @@ pPrintInterfaceInstanceHead lvl InterfaceInstanceHead {..} =
 instance Pretty InterfaceInstanceHead where
   pPrintPrec lvl _prec = pPrintInterfaceInstanceHead lvl
 
+pPrintInterfaceMethod ::
+  PrettyLevel -> InterfaceMethod -> Doc ann
+pPrintInterfaceMethod lvl InterfaceMethod {ifmLocation, ifmName, ifmType} =
+  withSourceLoc lvl ifmLocation $
+    keyword_ "method" <-> pPrintAndType lvl 0 (ifmName, ifmType)
+
+pPrintDefInterface :: PrettyLevel -> ModuleName -> DefInterface -> Doc ann
+pPrintDefInterface lvl modName defInterface =
+  withSourceLoc lvl intLocation $
+    hang header 2 body
+  where
+    DefInterface
+      { intLocation
+      , intName
+      , intRequires
+      , intParam
+      , intView
+      , intMethods
+      , intChoices
+      , intCoImplements
+      } = defInterface
+
+    header = hsep
+      [ keyword_ "interface"
+      , pPrint intName
+      , pPrint intParam
+      , requiresDoc
+      , keyword_ "where"
+      ]
+
+    body = vcat
+      [ viewDoc
+      , vcat methodDocs
+      , vcat choiceDocs
+      , vcat interfaceInstanceDocs
+      ]
+
+    requiresDoc = case S.toList intRequires of
+      [] -> mempty
+      reqs -> keyword_ "requires" <-> hsep (punctuate comma (pPrint <$> reqs))
+
+    viewDoc = keyword_ "viewtype" <-> pPrint intView
+    methodDocs = map (pPrintInterfaceMethod lvl) (NM.toList intMethods)
+    choiceDocs = map (pPrintTemplateChoice lvl modName intName) (NM.toList intChoices)
+    interfaceInstanceDocs =
+      [ pPrintInterfaceInstance lvl (InterfaceInstanceHead qIntName template) body
+      | InterfaceCoImplements template body <- NM.toList intCoImplements
+      ]
+    qIntName = Qualified PRSelf modName intName
+
 pPrintFeatureFlags :: FeatureFlags -> Doc ann
 pPrintFeatureFlags FeatureFlags = mempty
 
 instance Pretty Module where
-  pPrintPrec lvl _prec (Module modName _path flags synonyms dataTypes values templates exceptions _interfaces) = -- TODO interfaces
+  pPrintPrec lvl _prec (Module modName _path flags synonyms dataTypes values templates exceptions interfaces) =
     vcat $
       pPrintFeatureFlags flags
       : (keyword_ "module" <-> pPrint modName <-> keyword_ "where")
@@ -680,6 +731,7 @@ instance Pretty Module where
         , map (pPrintPrec lvl 0) (NM.toList values)
         , map (pPrintTemplate lvl modName) (NM.toList templates)
         , map (pPrintPrec lvl 0) (NM.toList exceptions)
+        , map (pPrintDefInterface lvl modName) (NM.toList interfaces)
         ]
 
 instance Pretty PackageName where
