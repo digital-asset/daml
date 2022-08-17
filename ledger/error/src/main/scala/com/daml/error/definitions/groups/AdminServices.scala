@@ -44,7 +44,7 @@ object AdminServices extends LedgerApiErrors.AdminServicesErrorGroup {
   }
 
   @Explanation(
-    "A cryptographic used by the configured system is not valid"
+    "A cryptographic key used by the configured system is not valid"
   )
   @Resolution("Contact support.")
   object InternallyInvalidKey
