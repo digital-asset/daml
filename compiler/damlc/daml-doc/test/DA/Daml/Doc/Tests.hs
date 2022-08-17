@@ -185,7 +185,7 @@ unitTests =
 
          , damldocExpect
            Nothing
-           "Interface implementations"
+           "Interface instances"
            [ testModHdr
            , "data EmptyInterfaceView = EmptyInterfaceView"
            , "interface Bar where"
@@ -195,12 +195,12 @@ unitTests =
            , "    field1 : Party"
            , "  where"
            , "    signatory field1"
-           , "    implements Bar where"
+           , "    interface instance Bar for Foo where"
            , "      view = EmptyInterfaceView"
            , "      method = pure ()"
            ]
            (\md -> assertBool
-                   ("Expected interface implementation, got " <> show md)
+                   ("Expected interface instance, got " <> show md)
                    (isJust $ do t  <- getSingle $ md_templates md
                                 impl <- getSingle $ td_impls t
                                 check $ getTypeAppName (impl_iface impl) == Just "Bar"))

@@ -148,7 +148,7 @@ object Reference {
     }
 
     override def pretty: String =
-      s"$prettyParent-provided $interfaceInstance.pretty"
+      s"$prettyParent-provided ${interfaceInstance.pretty}"
   }
 
   final case class TemplateChoice(tyCon: TypeConName, choiceName: ChoiceName) extends Reference {

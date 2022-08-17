@@ -16,4 +16,44 @@ public abstract class Filter {
   }
 
   public abstract TransactionFilterOuterClass.Filters toProto();
+
+  /**
+   * Settings for including an interface in {@link InclusiveFilter}. There are two values: {@link
+   * #INCLUDE_VIEW} and {@link #HIDE_VIEW}.
+   */
+  public static final class Interface {
+    public final boolean includeInterfaceView;
+    // add equals and hashCode if adding more fields
+
+    public static final Interface INCLUDE_VIEW = new Interface(true);
+    public static final Interface HIDE_VIEW = new Interface(false);
+
+    private Interface(boolean includeInterfaceView) {
+      this.includeInterfaceView = includeInterfaceView;
+    }
+
+    private static Interface includeInterfaceView(boolean includeInterfaceView) {
+      return includeInterfaceView ? INCLUDE_VIEW : HIDE_VIEW;
+    }
+
+    public TransactionFilterOuterClass.InterfaceFilter toProto(Identifier interfaceId) {
+      return TransactionFilterOuterClass.InterfaceFilter.newBuilder()
+          .setInterfaceId(interfaceId.toProto())
+          .setIncludeInterfaceView(includeInterfaceView)
+          .build();
+    }
+
+    static Interface fromProto(TransactionFilterOuterClass.InterfaceFilter proto) {
+      return includeInterfaceView(proto.getIncludeInterfaceView());
+    }
+
+    Interface merge(Interface other) {
+      return includeInterfaceView(includeInterfaceView || other.includeInterfaceView);
+    }
+
+    @Override
+    public String toString() {
+      return "Filter.Interface{" + "includeInterfaceView=" + includeInterfaceView + '}';
+    }
+  }
 }

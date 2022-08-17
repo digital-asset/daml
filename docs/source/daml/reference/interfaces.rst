@@ -160,24 +160,21 @@ For context, a simple template definition:
    :start-after: -- TEMPLATE_HEADER_BEGIN
    :end-before: -- TEMPLATE_HEADER_END
 
-Implements Clause
------------------
+Interface Instances
+-------------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
    :language: daml
    :start-after: -- TEMPLATE_IMPLEMENTS_BEGIN
    :end-before: -- TEMPLATE_IMPLEMENTS_END
 
-- To make a template implement an interface, an ``implements`` clause is added to
-  the body of the template.
+- To make a template implement an interface, an ``interface instance`` clause is added to the body of the template.
+- The clause must start with the keywords ``interface instance``, followed by the name of the interface, then the keyword ``for`` and the name of the template, and finally the keyword ``where``, which introduces a block where **all** the methods of the interface must be implemented.
+- The special ``view`` method must be implemented with the same return type as the interface's view type.
+- Methods can be defined using the same syntax as for top level functions, including pattern matches and guards (e.g. ``method3``).
 
-- The clause must start with the keyword ``implements``, followed by the name of
-  the interface, followed by the keyword ``where``, which introduces a block
-  where **all** the methods of the interface must be implemented.
-- The special ``view`` method must be implemented with the same return type as
-  the interface's view type.
-- Methods can be defined using the same syntax as for top level functions,
-  including pattern matches and guards (e.g. ``method3``).
+..TODO(MA): explain interface instances on interfaces
+  https://github.com/digital-asset/daml/issues/14047
 
 Empty Implements Clause
 -----------------------

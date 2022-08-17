@@ -14,7 +14,12 @@ import com.daml.http.domain.TemplateId.toLedgerApiValue
 import com.daml.http.domain.{ContractTypeId, GetActiveContractsRequest, JwtPayload}
 import com.daml.http.json.JsonProtocol.LfValueCodec
 import com.daml.http.query.ValuePredicate
-import com.daml.fetchcontracts.util.{AbsoluteBookmark, ContractStreamStep, InsertDeleteStep}
+import com.daml.fetchcontracts.util.{
+  AbsoluteBookmark,
+  ContractStreamStep,
+  InsertDeleteStep,
+  LedgerBegin,
+}
 import util.{ApiValueToLfValueConverter, toLedgerId}
 import com.daml.fetchcontracts.AcsTxStreams.transactionFilter
 import com.daml.fetchcontracts.util.ContractStreamStep.{Acs, LiveBegin}
@@ -440,12 +445,15 @@ class ContractsService(
               Lambda[ConnectionIO ~> ConnectionIO](
                 timed(metrics.daml.HttpJsonApi.Db.searchFetch, _)
               ),
-            ) { _ =>
-              timed(
-                metrics.daml.HttpJsonApi.Db.searchQuery,
-                templateIds.toVector
-                  .traverse(tpId => searchDbOneTpId_(parties, tpId, queryParams)),
-              )
+            ) {
+              case LedgerBegin =>
+                fconn.pure(Vector.empty[Vector[domain.ActiveContract[JsValue]]])
+              case AbsoluteBookmark(_) =>
+                timed(
+                  metrics.daml.HttpJsonApi.Db.searchQuery,
+                  templateIds.toVector
+                    .traverse(tpId => searchDbOneTpId_(parties, tpId, queryParams)),
+                )
             }
           } yield cts.flatten
         }

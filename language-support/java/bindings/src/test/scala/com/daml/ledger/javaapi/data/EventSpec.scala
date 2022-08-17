@@ -26,20 +26,33 @@ class EventSpec extends AnyFlatSpec with Matchers with ScalaCheckDrivenPropertyC
   }
 
   "CreatedEvents" should "be protected from mutations of the parameters" in forAll(
-    createdEventGen
-  ) { e =>
-    val mutatingWitnesses = new java.util.ArrayList[String](e.getWitnessPartiesList)
-    val mutatingSignatories = new java.util.ArrayList[String](e.getSignatoriesList)
-    val mutatingObservers = new java.util.ArrayList[String](e.getObserversList)
+    createdEventGen,
+    identifierGen,
+    identifierGen,
+  ) { (e, extraIV, extraFIV) =>
+    val base = CreatedEvent fromProto e
+    def mutList[X](xs: java.util.Collection[_ <: X]) = new java.util.ArrayList[X](xs)
+    def mutMap[K, V](m: java.util.Map[K, V]) = new java.util.HashMap(m)
+    val mutatingWitnesses = mutList(e.getWitnessPartiesList)
+    val mutatingSignatories = mutList(e.getSignatoriesList)
+    val mutatingObservers = mutList(e.getObserversList)
+    val extraIVJ = Identifier fromProto extraIV
+    val extraFIVJ = Identifier fromProto extraFIV
+    val mutatingIVs = mutMap(base.getInterfaceViews)
+    val mutatingFIVs = mutMap(base.getFailedInterfaceViews)
+    mutatingIVs.remove(extraIVJ)
+    mutatingIVs.remove(extraFIVJ)
 
     val event = new CreatedEvent(
       mutatingWitnesses,
-      e.getEventId,
-      Identifier.fromProto(e.getTemplateId),
-      e.getContractId,
-      DamlRecord.fromProto(e.getCreateArguments),
-      java.util.Optional.empty(),
-      java.util.Optional.empty(),
+      base.getEventId,
+      base.getTemplateId,
+      base.getContractId,
+      base.getArguments,
+      mutatingIVs,
+      mutatingFIVs,
+      base.getAgreementText,
+      base.getContractKey,
       mutatingSignatories,
       mutatingObservers,
     )
@@ -47,24 +60,18 @@ class EventSpec extends AnyFlatSpec with Matchers with ScalaCheckDrivenPropertyC
     mutatingWitnesses.add("INTRUDER!")
     mutatingSignatories.add("INTRUDER!")
     mutatingObservers.add("INTRUDER!")
+    mutatingIVs.put(extraIVJ, base.getArguments)
+    mutatingFIVs.put(extraFIVJ, com.google.rpc.Status.getDefaultInstance)
 
     event.getWitnessParties should not contain "INTRUDER!"
     event.getSignatories should not contain "INTRUDER!"
     event.getObservers should not contain "INTRUDER!"
+    event.getInterfaceViews shouldNot contain key extraIVJ
+    event.getFailedInterfaceViews shouldNot contain key extraFIVJ
   }
 
   "CreatedEvents" should "disallow mutation of its mutable fields" in forAll(createdEventGen) { e =>
-    val event = new CreatedEvent(
-      e.getWitnessPartiesList,
-      e.getEventId,
-      Identifier.fromProto(e.getTemplateId),
-      e.getContractId,
-      DamlRecord.fromProto(e.getCreateArguments),
-      java.util.Optional.empty(),
-      java.util.Optional.empty(),
-      e.getSignatoriesList,
-      e.getObserversList,
-    )
+    val event = CreatedEvent fromProto e
 
     an[UnsupportedOperationException] shouldBe thrownBy(event.getWitnessParties.add("INTRUDER!"))
     an[UnsupportedOperationException] shouldBe thrownBy(event.getSignatories.add("INTRUDER!"))

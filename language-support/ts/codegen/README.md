@@ -363,7 +363,7 @@ template Iou
     key owner : Party
     maintainer key
 
-    implements Asset where
+    interface instance Asset for Iou where
 
       let getAmount = amount
 
@@ -374,7 +374,7 @@ template Iou
         do
           create this with owner = newOwner
 
-    implements Other where
+    interface instance Other for Iou where
       choice SomethingElse : ()
         controller owner
         do

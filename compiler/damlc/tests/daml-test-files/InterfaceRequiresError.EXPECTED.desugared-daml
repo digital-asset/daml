@@ -131,17 +131,20 @@ _choice_TArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_implements_T_B : DA.Internal.Desugar.ImplementsT T B
-_implements_T_B = DA.Internal.Desugar.ImplementsT
+_interface_instance_T_B_T :
+  DA.Internal.Desugar.InterfaceInstance T B T
+_interface_instance_T_B_T
+  = DA.Internal.Desugar.mkInterfaceInstance @T @B @T
+_view_T_B_T : DA.Internal.Desugar.InterfaceView T B T
+_view_T_B_T
+  = DA.Internal.Desugar.mkInterfaceView
+      @T
+      @B
+      @T
+      \ this@T {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 instance DA.Internal.Desugar.HasToInterface T B where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T B where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-_view_T_B : DA.Internal.Desugar.InterfaceView T B
-_view_T_B
-  = DA.Internal.Desugar.mkInterfaceView
-      @T
-      @B
-      \ this@T {..}
-        -> let _ = this in let view = EmptyInterfaceView in view
