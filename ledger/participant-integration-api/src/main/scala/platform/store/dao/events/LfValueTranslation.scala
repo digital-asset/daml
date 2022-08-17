@@ -13,6 +13,7 @@ import com.daml.ledger.api.v1.value.{
   Record => ApiRecord,
   Value => ApiValue,
 }
+import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Versioned
@@ -41,8 +42,8 @@ import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 import com.google.rpc.Status
 import com.google.rpc.status.{Status => ProtoStatus}
 import io.grpc.Status.Code
-import scala.util.chaining._
 
+import scala.util.chaining._
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Serializes and deserializes Daml-Lf values and events.
@@ -88,6 +89,9 @@ trait LfValueSerialization {
 final class LfValueTranslation(
     val cache: LfValueTranslationCache.Cache,
     metrics: Metrics,
+    // Note: LfValueTranslation is used by JdbcLedgerDao for both serialization and deserialization.
+    // Sometimes the JdbcLedgerDao is used in a way that it never needs to deserialize data in verbose mode
+    // (e.g., the indexer, or some tests). In this case, the engine is not required.
     engineO: Option[Engine],
     loadPackage: (
         LfPackageId,
@@ -250,12 +254,17 @@ final class LfValueTranslation(
     ValueSerializer.deserializeValue(algorithm.decompress(new ByteArrayInputStream(value)))
 
   def enricher: ValueEnricher = {
-    // Note: LfValueTranslation is used by JdbcLedgerDao for both serialization and deserialization.
-    // Sometimes the JdbcLedgerDao is used in a way that it never needs to deserialize data in verbose mode
-    // (e.g., the indexer, or some tests). In this case, the enricher is not required.
     enricherO.getOrElse(
       sys.error(
-        "LfValueTranslation used to deserialize values in verbose mode without a ValueEnricher"
+        "LfValueTranslation used to deserialize values in verbose mode without an Engine"
+      )
+    )
+  }
+
+  def engine: Engine = {
+    engineO.getOrElse(
+      sys.error(
+        "LfValueTranslation used to deserialize values in verbose mode without an Engine"
       )
     )
   }
@@ -380,59 +389,22 @@ final class LfValueTranslation(
 
     val renderInterfaces = renderResult.interfaces
 
-    def condFuture[T](cond: Boolean)(f: => Future[T]): Future[Option[T]] =
-      if (cond) f.map(Some(_)) else Future.successful(None)
-    def enrichAsync(enrich: Value => LfEngine.Result[Value])(value: Value): Future[Value] =
-      condFuture(eventProjectionProperties.verbose)(
-        Future(enrich(value)).flatMap(consumeEnricherResult)
-      ).map(_.getOrElse(value))
-    def toApi[T](
-        lfEngineToApiFunction: (Boolean, Value) => Either[String, T],
-        attribute: => String,
-    )(value: Value): T =
-      LfEngineToApi.assertOrRuntimeEx(
-        failureContext = s"attempting to serialize $attribute to API record",
-        lfEngineToApiFunction(eventProjectionProperties.verbose, value),
-      )
+    val verbose = eventProjectionProperties.verbose
+
     val asyncContractAguments = condFuture(renderContractArguments)(
-      enrichAsync(enricher.enrichContract(templateId, _))(value.unversioned)
-        .map(toApi(LfEngineToApi.lfValueToApiRecord, "create argument"))
+      enrichAsync(verbose, value.unversioned, enricher.enrichContract(templateId, _))
+        .map(toCreateArgumentApi(verbose))
     )
     val asyncContractKey = condFuture(renderContractArguments && key.isDefined)(
-      enrichAsync(
-        enricher.enrichContractKey(templateId, _)
-      )(
-        key.get.unversioned
-      )
-        .map(toApi(LfEngineToApi.lfValueToApiValue, "create key"))
+      enrichAsync(verbose, key.get.unversioned, enricher.enrichContractKey(templateId, _))
+        .map(toCreateKeyApi(verbose))
     )
     val asyncInterfaceViews = Future.traverse(renderInterfaces.toList)(interfaceId =>
       computeInterfaceView(
         templateId,
         value.unversioned,
         interfaceId,
-      ).flatMap {
-        case Right(versionedValue) =>
-          enrichAsync(enricher.enrichView(interfaceId, _))(versionedValue.unversioned)
-            .map(toApi(LfEngineToApi.lfValueToApiRecord, "interface view"))
-            .map(Some(_))
-            .map(
-              InterfaceView(
-                interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
-                viewStatus = Some(ProtoStatus.of(Code.OK.value(), "", Seq.empty)),
-                _,
-              )
-            )
-
-        case Left(errorStatus) =>
-          Future.successful(
-            InterfaceView(
-              interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
-              viewStatus = Some(ProtoStatus.fromJavaProto(errorStatus)),
-              viewValue = None,
-            )
-          )
-      }
+      ).flatMap(toInterfaceView(eventProjectionProperties.verbose, interfaceId))
     )
 
     for {
@@ -445,6 +417,60 @@ final class LfValueTranslation(
       interfaceViews = interfaceViews,
     )
   }
+
+  private def toInterfaceView(verbose: Boolean, interfaceId: Identifier)(
+      result: Either[Status, Versioned[Value]]
+  )(implicit ec: ExecutionContext, loggingContext: LoggingContext): Future[InterfaceView] =
+    result match {
+      case Right(versionedValue) =>
+        enrichAsync(verbose, versionedValue.unversioned, enricher.enrichView(interfaceId, _))
+          .map(toInterfaceViewApi(verbose, interfaceId))
+      case Left(errorStatus) =>
+        Future.successful(
+          InterfaceView(
+            interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
+            viewStatus = Some(ProtoStatus.fromJavaProto(errorStatus)),
+            viewValue = None,
+          )
+        )
+    }
+
+  private def condFuture[T](cond: Boolean)(f: => Future[T])(implicit
+      ec: ExecutionContext
+  ): Future[Option[T]] =
+    if (cond) f.map(Some(_)) else Future.successful(None)
+
+  private def enrichAsync(verbose: Boolean, value: Value, enrich: Value => LfEngine.Result[Value])(
+      implicit
+      ec: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Value] =
+    condFuture(verbose)(
+      Future(enrich(value)).flatMap(consumeEnricherResult)
+    ).map(_.getOrElse(value))
+
+  private def toApi[T](
+      verbose: Boolean,
+      lfEngineToApiFunction: (Boolean, Value) => Either[String, T],
+      attribute: => String,
+  )(value: Value): T =
+    LfEngineToApi.assertOrRuntimeEx(
+      failureContext = s"attempting to serialize $attribute to API record",
+      lfEngineToApiFunction(verbose, value),
+    )
+
+  private def toCreateArgumentApi(verbose: Boolean)(value: Value): ApiRecord =
+    toApi(verbose, LfEngineToApi.lfValueToApiRecord, "create argument")(value)
+
+  private def toCreateKeyApi(verbose: Boolean)(value: Value): ApiValue =
+    toApi(verbose, LfEngineToApi.lfValueToApiValue, "create key")(value)
+
+  private def toInterfaceViewApi(verbose: Boolean, interfaceId: Identifier)(value: Value) =
+    InterfaceView(
+      interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
+      viewStatus = Some(ProtoStatus.of(Code.OK.value(), "", Seq.empty)),
+      viewValue = Some(toApi(verbose, LfEngineToApi.lfValueToApiRecord, "interface view")(value)),
+    )
 
   private def computeInterfaceView(
       templateId: LfIdentifier,
@@ -489,7 +515,7 @@ final class LfValueTranslation(
             .flatMap(goAsync)
       }
 
-    Future(engineO.get.computeInterfaceView(templateId, value, interfaceId))
+    Future(engine.computeInterfaceView(templateId, value, interfaceId))
       .flatMap(goAsync)
   }
 }
