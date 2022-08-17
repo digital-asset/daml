@@ -393,11 +393,11 @@ final class LfValueTranslation(
 
     val asyncContractAguments = condFuture(renderContractArguments)(
       enrichAsync(verbose, value.unversioned, enricher.enrichContract(templateId, _))
-        .map(toCreateArgumentApi(verbose))
+        .map(toContractArgumentApi(verbose))
     )
     val asyncContractKey = condFuture(renderContractArguments && key.isDefined)(
       enrichAsync(verbose, key.get.unversioned, enricher.enrichContractKey(templateId, _))
-        .map(toCreateKeyApi(verbose))
+        .map(toContractKeyApi(verbose))
     )
     val asyncInterfaceViews = Future.traverse(renderInterfaces.toList)(interfaceId =>
       computeInterfaceView(
@@ -459,10 +459,10 @@ final class LfValueTranslation(
       lfEngineToApiFunction(verbose, value),
     )
 
-  private def toCreateArgumentApi(verbose: Boolean)(value: Value): ApiRecord =
+  private def toContractArgumentApi(verbose: Boolean)(value: Value): ApiRecord =
     toApi(verbose, LfEngineToApi.lfValueToApiRecord, "create argument")(value)
 
-  private def toCreateKeyApi(verbose: Boolean)(value: Value): ApiValue =
+  private def toContractKeyApi(verbose: Boolean)(value: Value): ApiValue =
     toApi(verbose, LfEngineToApi.lfValueToApiValue, "create key")(value)
 
   private def toInterfaceViewApi(verbose: Boolean, interfaceId: Identifier)(value: Value) =
