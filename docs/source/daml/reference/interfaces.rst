@@ -10,10 +10,7 @@ Reference: Interfaces
   This feature is under active development and not officially supported in
   production environments.
 
-In Daml, an interface defines an abstract type which specifies the behavior
-that a template must implement. This allows decoupling such behavior from its
-implementation, so other developers can write applications in terms of the
-interface instead of the concrete template.
+In Daml, an interface defines an abstract type together with a behavior specified by its view type, method signatures, and choices. For a template to be considered an instance of this interface, there must be a corresponding ``interface instance`` clause where all the methods of the interface (including the special ``view`` method) are implemented. This allows decoupling such behavior from its implementation, so other developers can write applications in terms of the interface instead of the concrete template.
 
 Interface Declaration
 *********************
@@ -41,9 +38,7 @@ Interface Methods
    :end-before: -- INTERFACE_METHODS_END
 
 - An interface may define any number of methods.
-- Methods are in scope as functions at the top level, in the ensure clause, and
-  in interface choices. These functions always take an unstated first argument
-  corresponding to a contract that implements the interface:
+- Methods are in scope as functions at the top level and in interface choices. These functions always take an unstated first argument corresponding to a contract of a template type that is an ``interface instance`` of the interface:
 
   .. literalinclude:: ../code-snippets-dev/Interfaces.daml
      :language: daml
@@ -70,8 +65,7 @@ Interface View Type
    :start-after: -- INTERFACE_VIEWTYPE_BEGIN
    :end-before: -- INTERFACE_VIEWTYPE_END
 
-- All implementing templates must define a special ``view`` method which returns
-  a value of type declared by ``viewtype``.
+- All interface instances must implement a special ``view`` method which returns a value of the type declared by ``viewtype``.
 - The type must be a record.
 - This type is returned by subscriptions on interfaces.
 
@@ -85,8 +79,7 @@ Interface Choices
    :start-after: -- INTERFACE_CHOICES_BEGIN
    :end-before: -- INTERFACE_CHOICES_END
 
-- Interface choices work in a very similar way to template choices. Any contract
-  of an implementing interface will grant the choice to the controlling party.
+- Interface choices work in a very similar way to template choices. Any contract of a template type that is an ``interface instance`` of the interface will grant the choice to the controlling party.
 - Interface methods can be used to define the controller of a choice
   (e.g. ``method1``) as well as the actions that run when the choice is
   *exercised* (e.g. ``method2`` and ``method3``).
@@ -147,11 +140,10 @@ Required Interfaces
      :start-after: -- INTERFACE_TRANSITIVE_REQUIRES_CORRECT_BEGIN
      :end-before: -- INTERFACE_TRANSITIVE_REQUIRES_CORRECT_END
 
-- For a template's implementation of an interface to be valid, all its required
-  interfaces must also be implemented by the template.
+- For a template ``T`` to be a valid ``interface instance`` of an interface ``I``, ``T`` must also be an ``interface instance`` of each of the interfaces required by ``I``.
 
-Interface Implementation
-************************
+Interface Instances
+*******************
 
 For context, a simple template definition:
 
@@ -160,32 +152,31 @@ For context, a simple template definition:
    :start-after: -- TEMPLATE_HEADER_BEGIN
    :end-before: -- TEMPLATE_HEADER_END
 
-Interface Instances
--------------------
+``Interface Instance`` clauses
+------------------------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
    :language: daml
-   :start-after: -- TEMPLATE_IMPLEMENTS_BEGIN
-   :end-before: -- TEMPLATE_IMPLEMENTS_END
+   :start-after: -- INTERFACE_INSTANCE_BEGIN
+   :end-before: -- INTERFACE_INSTANCE_END
 
-- To make a template implement an interface, an ``interface instance`` clause is added to the body of the template.
+- To make a template an instance of an interface, an ``interface instance`` clause must be defined in either the template declaration or the interface declaration.
+- Either the template or the interface of the clause must match the enclosing declaration. In other words, a template ``T`` declaration can only contain ``interface instance`` clauses where the template is ``T``, and an interface ``I`` declaration can only contain ``interface instance`` clauses where the interface is ``I``.
+- The rules for an ``interface instance`` clause are the same whether the enclosing declaration is a template or an interface.
 - The clause must start with the keywords ``interface instance``, followed by the name of the interface, then the keyword ``for`` and the name of the template, and finally the keyword ``where``, which introduces a block where **all** the methods of the interface must be implemented.
+- Within the clause, there's an implicit local binding ``this`` referring to a contract of the template type. The template parameters of this contract are also in scope.
 - The special ``view`` method must be implemented with the same return type as the interface's view type.
-- Methods can be defined using the same syntax as for top level functions, including pattern matches and guards (e.g. ``method3``).
-
-..TODO(MA): explain interface instances on interfaces
-  https://github.com/digital-asset/daml/issues/14047
+- Method implementations can be defined using the same syntax as for top level functions, including pattern matches and guards (e.g. ``method3``).
 
 Empty Implements Clause
 -----------------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
    :language: daml
-   :start-after: -- TEMPLATE_EMPTY_IMPLEMENTS_BEGIN
-   :end-before: -- TEMPLATE_EMPTY_IMPLEMENTS_END
+   :start-after: -- EMPTY_INTERFACE_INSTANCE_BEGIN
+   :end-before: -- EMPTY_INTERFACE_INSTANCE_END
 
-- If the interface being implemented has no methods, only the ``view`` method
-  needs to be implemented.
+- If the interface has no methods, the interface instance only needs to implement the ``view`` method.
 
 Interface Functions
 *******************
