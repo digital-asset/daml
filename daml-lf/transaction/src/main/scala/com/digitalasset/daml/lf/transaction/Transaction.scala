@@ -775,6 +775,8 @@ object Transaction {
     * @param nodeSeeds        : An association list that maps to each ID of create and exercise
     *                         nodes its seeds.
     * @param globalKeyMapping : input key mapping inferred by interpretation
+    * @param topologySnapshotTime : Time of topology snapshot against which implementations got resolved.
+    *   None if no dynamic choice implementation have been resolved.
     */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],
@@ -784,6 +786,7 @@ object Transaction {
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
       disclosures: ImmArray[Versioned[DisclosedContract]],
+      topologySnapshotTime: Option[Time.Timestamp],
   )
 
   def commitTransaction(submittedTransaction: SubmittedTransaction): CommittedTransaction =
