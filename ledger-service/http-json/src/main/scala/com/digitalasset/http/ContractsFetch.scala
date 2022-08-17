@@ -304,7 +304,7 @@ private class ContractsFetch(
           transactionFilter(parties, List(templateId)),
           _: lav1.ledger_offset.LedgerOffset,
           absEnd,
-        )
+        )(lc)
 
         // include ACS iff starting at LedgerBegin
         val (idses, lastOff) = (startOffset, disableAcs) match {
@@ -315,7 +315,7 @@ private class ContractsFetch(
               ledgerId,
               transactionFilter(parties, List(templateId)),
               true,
-            )
+            )(lc)
             (stepsAndOffset.out0, stepsAndOffset.out1)
 
           case (AbsoluteBookmark(_), _) | (LedgerBegin, true) =>

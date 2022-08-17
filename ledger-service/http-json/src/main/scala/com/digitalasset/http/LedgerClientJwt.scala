@@ -32,6 +32,7 @@ import com.daml.ledger.api.v1.admin.metering_report_service.{
   GetMeteringReportRequest,
   GetMeteringReportResponse,
 }
+import com.daml.ledger.client.services.acs.ActiveContractSetClient
 import com.daml.ledger.client.services.admin.{
   MeteringReportClient,
   PackageManagementClient,
@@ -83,7 +84,10 @@ object LedgerClientJwt {
         LedgerApiDomain.LedgerId,
         TransactionFilter,
         Boolean,
-    ) => Source[GetActiveContractsResponse, NotUsed]
+    ) => LoggingContextOf[InstanceUUID] => Source[
+      GetActiveContractsResponse,
+      NotUsed,
+    ]
 
   type GetCreatesAndArchivesSince =
     (
@@ -92,7 +96,7 @@ object LedgerClientJwt {
         TransactionFilter,
         LedgerOffset,
         Terminates,
-    ) => Source[Transaction, NotUsed]
+    ) => LoggingContextOf[InstanceUUID] => Source[Transaction, NotUsed]
 
   type ListKnownParties =
     Jwt => LoggingContextOf[InstanceUUID with RequestID] => EFuture[PermissionDenied, List[
@@ -148,7 +152,7 @@ object LedgerClientJwt {
     (jwt, req) =>
       implicit lc => {
         LedgerClientRequestTimeLogger
-          .log(SubmitAndWaitForTransactionLog) {
+          .logFuture(SubmitAndWaitForTransactionLog) {
             client.commandServiceClient
               .submitAndWaitForTransaction(req, bearer(jwt))
           }
@@ -160,7 +164,7 @@ object LedgerClientJwt {
     (jwt, req) =>
       implicit lc => {
         LedgerClientRequestTimeLogger
-          .log(SubmitAndWaitForTransactionTreeLog) {
+          .logFuture(SubmitAndWaitForTransactionTreeLog) {
             client.commandServiceClient
               .submitAndWaitForTransactionTree(req, bearer(jwt))
           }
@@ -173,7 +177,7 @@ object LedgerClientJwt {
     (jwt, ledgerId) =>
       implicit lc => {
         LedgerClientRequestTimeLogger
-          .log(GetLedgerEndLog) {
+          .logFuture(GetLedgerEndLog) {
             client.transactionClient.getLedgerEnd(ledgerId, bearer(jwt))
           }
           .map {
@@ -189,9 +193,14 @@ object LedgerClientJwt {
 
   def getActiveContracts(client: DamlLedgerClient): GetActiveContracts =
     (jwt, ledgerId, filter, verbose) =>
-      client.activeContractSetClient
-        .getActiveContracts(filter, ledgerId, verbose, bearer(jwt))
-        .mapMaterializedValue(_ => NotUsed)
+      implicit lc => {
+        LedgerClientRequestTimeLogger
+          .log(GetActiveContractsLog) {
+            client.activeContractSetClient
+              .getActiveContracts(filter, ledgerId, verbose, bearer(jwt))
+              .mapMaterializedValue(_ => NotUsed)
+          }
+      }
 
   sealed abstract class Terminates extends Product with Serializable {
     import Terminates._
@@ -217,20 +226,25 @@ object LedgerClientJwt {
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
 
   def getCreatesAndArchivesSince(client: DamlLedgerClient): GetCreatesAndArchivesSince =
-    (jwt, ledgerId, filter, offset, terminates) => {
-      val end = terminates.toOffset
-      if (skipRequest(offset, end))
-        Source.empty[Transaction]
-      else
-        client.transactionClient
-          .getTransactions(
-            offset,
-            terminates.toOffset,
-            filter,
-            ledgerId,
-            verbose = true,
-            token = bearer(jwt),
-          )
+    (jwt, ledgerId, filter, offset, terminates) => { implicit lc =>
+      {
+        val end = terminates.toOffset
+        if (skipRequest(offset, end))
+          Source.empty[Transaction]
+        else {
+          LedgerClientRequestTimeLogger.log(GetTransactionsLog) {
+            client.transactionClient
+              .getTransactions(
+                offset,
+                terminates.toOffset,
+                filter,
+                ledgerId,
+                verbose = true,
+                token = bearer(jwt),
+              )
+          }
+        }
+      }
     }
 
   private def skipRequest(start: LedgerOffset, end: Option[LedgerOffset]): Boolean = {
@@ -248,7 +262,7 @@ object LedgerClientJwt {
     jwt =>
       implicit lc => {
         LedgerClientRequestTimeLogger
-          .log(ListKnownPartiesLog) {
+          .logFuture(ListKnownPartiesLog) {
             client.partyManagementClient.listKnownParties(bearer(jwt))
           }
           .requireHandling { case Code.PERMISSION_DENIED =>
@@ -262,7 +276,7 @@ object LedgerClientJwt {
     (jwt, partyIds) =>
       implicit lc => {
         LedgerClientRequestTimeLogger
-          .log(GetPartiesLog) {
+          .logFuture(GetPartiesLog) {
             client.partyManagementClient.getParties(partyIds, bearer(jwt))
           }
           .requireHandling { case Code.PERMISSION_DENIED =>
@@ -275,7 +289,7 @@ object LedgerClientJwt {
   ): AllocateParty =
     (jwt, identifierHint, displayName) =>
       implicit lc => {
-        LedgerClientRequestTimeLogger.log(AllocatePartyLog) {
+        LedgerClientRequestTimeLogger.logFuture(AllocatePartyLog) {
           client.partyManagementClient.allocateParty(
             hint = identifierHint,
             displayName = displayName,
@@ -290,7 +304,7 @@ object LedgerClientJwt {
     (jwt, ledgerId) =>
       implicit lc => {
         logger.trace("sending list packages request to ledger")
-        LedgerClientRequestTimeLogger.log(ListPackagesLog) {
+        LedgerClientRequestTimeLogger.logFuture(ListPackagesLog) {
           client.packageClient.listPackages(ledgerId, bearer(jwt))
         }
       }
@@ -301,7 +315,7 @@ object LedgerClientJwt {
     (jwt, ledgerId, packageId) =>
       implicit lc => {
         logger.trace("sending get packages request to ledger")
-        LedgerClientRequestTimeLogger.log(GetPackageLog) {
+        LedgerClientRequestTimeLogger.logFuture(GetPackageLog) {
           client.packageClient.getPackage(packageId, ledgerId, token = bearer(jwt))
         }
       }
@@ -312,7 +326,7 @@ object LedgerClientJwt {
     (jwt, _, byteString) =>
       implicit lc => {
         logger.trace("sending upload dar request to ledger")
-        LedgerClientRequestTimeLogger.log(UploadDarFileLog) {
+        LedgerClientRequestTimeLogger.logFuture(UploadDarFileLog) {
           client.packageManagementClient.uploadDarFile(darFile = byteString, token = bearer(jwt))
         }
       }
@@ -323,7 +337,7 @@ object LedgerClientJwt {
     (jwt, request) =>
       implicit lc => {
         logger.trace("sending metering report request to ledger")
-        LedgerClientRequestTimeLogger.log(GetMeteringReportLog) {
+        LedgerClientRequestTimeLogger.logFuture(GetMeteringReportLog) {
           client.meteringReportClient.getMeteringReport(request, bearer(jwt))
         }
       }
@@ -385,60 +399,75 @@ object LedgerClientJwt {
   object LedgerClientRequestTimeLogger {
     sealed trait RequestLog {
       def className: String
-      def name: String
+      def requestName: String
     }
 
     case object SubmitAndWaitForTransactionLog extends RequestLog {
       override def className: String = classOf[SynchronousCommandClient].getSimpleName
-      override def name: String = "submitAndWaitForTransaction"
+      override def requestName: String = "submitAndWaitForTransaction"
     }
 
     case object SubmitAndWaitForTransactionTreeLog extends RequestLog {
       override def className: String = classOf[SynchronousCommandClient].getSimpleName
-      override def name: String = "submitAndWaitForTransactionTree"
+      override def requestName: String = "submitAndWaitForTransactionTree"
     }
 
     case object GetLedgerEndLog extends RequestLog {
       override def className: String = classOf[TransactionClient].getSimpleName
-      override def name: String = "getLedgerEnd"
+      override def requestName: String = "getLedgerEnd"
     }
 
     case object ListKnownPartiesLog extends RequestLog {
       override def className: String = classOf[PartyManagementClient].getSimpleName
-      override def name: String = "listKnownParties"
+      override def requestName: String = "listKnownParties"
     }
 
     case object GetPartiesLog extends RequestLog {
       override def className: String = classOf[PartyManagementClient].getSimpleName
-      override def name: String = "getParties"
+      override def requestName: String = "getParties"
     }
 
     case object AllocatePartyLog extends RequestLog {
       override def className: String = classOf[PartyManagementClient].getSimpleName
-      override def name: String = "allocateParty"
+      override def requestName: String = "allocateParty"
     }
 
     case object ListPackagesLog extends RequestLog {
       override def className: String = classOf[PackageClient].getSimpleName
-      override def name: String = "listPackages"
+      override def requestName: String = "listPackages"
     }
 
     case object GetPackageLog extends RequestLog {
       override def className: String = classOf[PackageClient].getSimpleName
-      override def name: String = "getPackages"
+      override def requestName: String = "getPackages"
     }
 
     case object UploadDarFileLog extends RequestLog {
       override def className: String = classOf[PackageManagementClient].getSimpleName
-      override def name: String = "uploadDarFile"
+      override def requestName: String = "uploadDarFile"
     }
 
     case object GetMeteringReportLog extends RequestLog {
       override def className: String = classOf[MeteringReportClient].getSimpleName
-      override def name: String = "getMeteringReport"
+      override def requestName: String = "getMeteringReport"
     }
 
-    private[LedgerClientJwt] def log[T, C](
+    case object GetActiveContractsLog extends RequestLog {
+      override def className: String = classOf[ActiveContractSetClient].getSimpleName
+      override def requestName: String = "getActiveContracts"
+    }
+
+    case object GetTransactionsLog extends RequestLog {
+      override def className: String = classOf[TransactionClient].getSimpleName
+      override def requestName: String = "getTransactions"
+    }
+
+    private[LedgerClientJwt] def logMessage(startTime: Long, requestLog: RequestLog): String = {
+      s"Ledger client request ${requestLog.className} ${requestLog.requestName} executed, elapsed time: " +
+        s"${(System.nanoTime() - startTime) / 1000000L} ms"
+    }
+
+    private[LedgerClientJwt] def logFuture[T, C](
         requestLog: RequestLog
     )(block: => Future[T])(implicit ec: EC, lc: LoggingContextOf[C]): Future[T] = if (
       logger.debug.isEnabled
@@ -446,11 +475,17 @@ object LedgerClientJwt {
       val start = System.nanoTime()
       val futureResult = block
       futureResult.andThen { case _ =>
-        logger.debug(
-          s"Ledger client request ${requestLog.className} ${requestLog.name} executed, elapsed time: " +
-            s"${(System.nanoTime() - start) / 1000000L} ms"
-        )
+        logger.debug(logMessage(start, requestLog))
       }
+    } else block
+
+    private[LedgerClientJwt] def log[T, C](
+        requestLog: RequestLog
+    )(block: => T)(implicit lc: LoggingContextOf[C]): T = if (logger.debug.isEnabled) {
+      val start = System.nanoTime()
+      val result = block
+      logger.debug(logMessage(start, requestLog))
+      result
     } else block
   }
 }

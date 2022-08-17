@@ -531,9 +531,9 @@ class ContractsService(
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
       templateIds: List[domain.TemplateId.RequiredPkg],
-  ): Source[ContractStreamStep.LAV1, NotUsed] = {
+  )(implicit lc: LoggingContextOf[InstanceUUID]): Source[ContractStreamStep.LAV1, NotUsed] = {
     val txnFilter = util.Transactions.transactionFilterFor(parties, templateIds)
-    getActiveContracts(jwt, ledgerId, txnFilter, true)
+    getActiveContracts(jwt, ledgerId, txnFilter, true)(lc)
       .map { case GetActiveContractsResponse(offset, _, activeContracts) =>
         if (activeContracts.nonEmpty) Acs(activeContracts.toVector)
         else LiveBegin(AbsoluteBookmark(domain.Offset(offset)))
@@ -555,7 +555,7 @@ class ContractsService(
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
 
     val txnFilter = util.Transactions.transactionFilterFor(parties, templateIds)
-    def source = getActiveContracts(jwt, ledgerId, txnFilter, true)
+    def source = getActiveContracts(jwt, ledgerId, txnFilter, true)(lc)
 
     val transactionsSince
         : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
@@ -565,7 +565,7 @@ class ContractsService(
         txnFilter,
         _: api.ledger_offset.LedgerOffset,
         terminates,
-      )
+      )(lc)
 
     import com.daml.fetchcontracts.AcsTxStreams.{
       acsFollowingAndBoundary,
