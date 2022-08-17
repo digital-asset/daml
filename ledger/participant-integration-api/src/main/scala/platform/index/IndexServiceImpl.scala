@@ -486,14 +486,10 @@ object IndexServiceImpl {
       inclusiveFilter <- inclusiveFilterOption.inclusive.iterator
       unknownInterfaces =
         inclusiveFilter.interfaceFilters
-          .collect {
-            case interfaceFilter if !metadata.interfaces.contains(interfaceFilter.interfaceId) =>
-              Right(interfaceFilter.interfaceId)
-          }
-      unknownTemplates = inclusiveFilter.templateIds
-        .collect {
-          case templateId if !metadata.templates.contains(templateId) => Left(templateId)
-        }
+          .map(_.interfaceId)
+          .diff(metadata.interfaces)
+          .map(Right(_))
+      unknownTemplates = inclusiveFilter.templateIds.diff(metadata.templates).map(Left(_))
       unknownTemplateOrInterface <- unknownInterfaces ++ unknownTemplates
     } yield unknownTemplateOrInterface).toList
 
@@ -508,13 +504,13 @@ object IndexServiceImpl {
 
     val templatesOrInterfaces = unknownTemplatesOrInterfaces(domainTransactionFilter, metadata)
 
-    if (templatesOrInterfaces.nonEmpty) {
+    if (templatesOrInterfaces.nonEmpty)
       Source.failed(
         invalidArgument(
           invalidTemplateOrInterfaceMessage(templatesOrInterfaces)
         )
       )
-    } else
+    else
       source
   }
 
