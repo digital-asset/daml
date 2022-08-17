@@ -11,7 +11,6 @@ import com.daml.platform.apiserver.meteringreport.MeteringReport.{
   Check,
   ParticipantReport,
   Request,
-  Scheme,
 }
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -23,9 +22,8 @@ class JcsSignerSpec extends AnyWordSpec with Matchers {
 
   import HmacSha256._
 
-  private val scheme: Scheme = "test"
-  private val hmacKey: Key = HmacSha256.generateKey()
-  private val keyLookup = Map(scheme -> hmacKey).get _
+  private val testKey: Key = HmacSha256.generateKey("test")
+  private val keyLookup = Map(testKey.scheme -> testKey).get _
 
   private val application = Ref.ApplicationId.assertFromString("a0")
   private val from = Timestamp.now()
@@ -40,26 +38,26 @@ class JcsSignerSpec extends AnyWordSpec with Matchers {
 
   JcsSigner.getClass.getName should {
 
-    val badKey = Key(Bytes(Array.empty), "bad")
+    val badKey = Key("bad", Bytes(Array.empty), "bad")
 
     "sign report" in {
-      val Right(signed) = JcsSigner.sign(report, scheme, hmacKey)
+      val Right(signed) = JcsSigner.sign(report, testKey)
       JcsSigner.verify(signed, keyLookup) shouldBe Ok
     }
 
     "ignore existing check" in {
-      val Right(expected) = JcsSigner.sign(report.copy(check = None), scheme, hmacKey)
+      val Right(expected) = JcsSigner.sign(report.copy(check = None), testKey)
       val Right(actual) =
-        JcsSigner.sign(report.copy(check = Some(Check("some", "other"))), scheme, hmacKey)
+        JcsSigner.sign(report.copy(check = Some(Check("some", "other"))), testKey)
       actual shouldBe expected
     }
 
     "fail generation if key is not valid" in {
-      val Left(_) = JcsSigner.sign(report, scheme, badKey)
+      val Left(_) = JcsSigner.sign(report, badKey)
     }
 
     "fail verification if details are changed" in {
-      val Right(signed) = JcsSigner.sign(report, scheme, hmacKey)
+      val Right(signed) = JcsSigner.sign(report, testKey)
       val modified = signed.copy(`final` = !signed.`final`)
       val DigestMismatch(_) = JcsSigner.verify(modified, keyLookup)
     }
