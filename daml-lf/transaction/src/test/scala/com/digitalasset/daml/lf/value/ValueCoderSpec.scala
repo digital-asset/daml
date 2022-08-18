@@ -155,7 +155,7 @@ class ValueCoderSpec
     }
 
     "do versioned value with supported override version" in forAll(versionedValueGen) {
-      case VersionedValue(version, value) => testRoundTrip(value, version)
+      case Versioned(version, value) => testRoundTrip(value, version)
     }
 
   }
