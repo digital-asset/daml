@@ -242,7 +242,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           controllers Cons @Party [Test:Helper {obs} this] (Nil @Party),
           observers Nil @Party
            to let sig: Party = Test:Helper {sig} this
-           in create @M:T M:T { signatory = sig, observer = sig, precondition = True,key = M:toKey sig, nested = M:buildNested 0 };
+           in create @M:T M:T { signatory = sig, observer = sig, precondition = True, key = M:toKey sig, nested = M:buildNested 0 };
         choice Exe (self) (arg: Test:ExeArg): M:Nested,
           controllers Cons @Party [Test:Helper {sig} this] (Nil @Party),
           observers Nil @Party
@@ -381,12 +381,12 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       Value.ValueRecord(
         None,
         ImmArray(
-          None /*"person"  */ -> Value.ValueParty(alice),
-          None /*"obs"     */ -> Value.ValueParty(bob),
-          None /*"ctrl"    */ -> Value.ValueParty(alice),
-          None /*"precond" */ -> Value.ValueTrue,
-          None /*"key"     */ -> keyValue,
-          None /*"nested"  */ -> emptyNestedValue,
+          None -> Value.ValueParty(alice),
+          None -> Value.ValueParty(bob),
+          None -> Value.ValueParty(alice),
+          None -> Value.ValueTrue,
+          None -> keyValue,
+          None -> emptyNestedValue,
         ),
       ),
       "agreement",
