@@ -196,8 +196,8 @@ For context, a simple template definition:
 - Method implementations can be defined using the same syntax as for top level
   functions, including pattern matches and guards (e.g. ``method3``).
 
-Empty Implements Clause
------------------------
+Empty ``Interface Instance`` clause
+-----------------------------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
    :language: daml
