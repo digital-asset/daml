@@ -4,15 +4,16 @@
 package com.daml.platform.apiserver
 
 import java.util.UUID
-
 import akka.actor.ActorSystem
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.metrics.Metrics
 
 import scala.concurrent.Future
 
-private[daml] final class ExecutionSequencerFactoryOwner(implicit actorSystem: ActorSystem)
-    extends ResourceOwner[ExecutionSequencerFactory] {
+private[daml] final class ExecutionSequencerFactoryOwner(metrics: Metrics)(implicit
+    actorSystem: ActorSystem
+) extends ResourceOwner[ExecutionSequencerFactory] {
   // NOTE: Pick a unique pool name as we want to allow multiple LedgerApiServer instances,
   // and it's pretty difficult to wait for the name to become available again.
   // The name deregistration is asynchronous and the close method does not wait, and it isn't
@@ -23,5 +24,13 @@ private[daml] final class ExecutionSequencerFactoryOwner(implicit actorSystem: A
   private val ActorCount = Runtime.getRuntime.availableProcessors() * 8
 
   override def acquire()(implicit context: ResourceContext): Resource[ExecutionSequencerFactory] =
-    Resource(Future(new AkkaExecutionSequencerPool(poolName, ActorCount)))(_.closeAsync())
+    Resource(
+      Future(
+        new AkkaExecutionSequencerPool(
+          poolName = poolName,
+          actorCount = ActorCount,
+          metrics = metrics,
+        )
+      )
+    )(_.closeAsync())
 }

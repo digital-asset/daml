@@ -7,7 +7,9 @@ import akka.Done
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, ExtendedActorSystem, Props}
 import akka.pattern.{AskTimeoutException, ask}
 import akka.util.Timeout
+import com.codahale.metrics.Timer
 import com.daml.grpc.adapter.RunnableSequencingActor.ShutdownRequest
+import com.daml.metrics.{Metrics, Timed}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -15,11 +17,13 @@ import scala.util.control.NonFatal
 
 /** Implements serial execution semantics by forwarding the Runnables it receives to an underlying actor.
   */
-class AkkaExecutionSequencer private (private val actorRef: ActorRef)(implicit
+class AkkaExecutionSequencer private (private val actorRef: ActorRef, timer: Timer)(implicit
     terminationTimeout: Timeout
 ) extends ExecutionSequencer {
 
-  override def sequence(runnable: Runnable): Unit = actorRef ! runnable
+  override def sequence(runnable: Runnable): Unit = actorRef ! new Runnable {
+    override def run(): Unit = Timed.value(timer, runnable.run())
+  }
 
   override def close(): Unit = {
     closeAsync(ExecutionContext.parasitic)
@@ -41,19 +45,23 @@ class AkkaExecutionSequencer private (private val actorRef: ActorRef)(implicit
 }
 
 object AkkaExecutionSequencer {
-  def apply(name: String, terminationTimeout: FiniteDuration)(implicit
+  def apply(metrics: Metrics, name: String, terminationTimeout: FiniteDuration)(implicit
       system: ActorSystem
   ): AkkaExecutionSequencer = {
+    val executionTimer = metrics.registry.timer(s"$name")
     system match {
       case extendedSystem: ExtendedActorSystem =>
         new AkkaExecutionSequencer(
-          extendedSystem.systemActorOf(Props[RunnableSequencingActor](), name)
+          extendedSystem.systemActorOf(Props[RunnableSequencingActor](), name),
+          executionTimer,
         )(Timeout.durationToTimeout(terminationTimeout))
       case _ =>
-        new AkkaExecutionSequencer(system.actorOf(Props[RunnableSequencingActor](), name))(
+        new AkkaExecutionSequencer(
+          system.actorOf(Props[RunnableSequencingActor](), name),
+          executionTimer,
+        )(
           Timeout.durationToTimeout(terminationTimeout)
         )
-
     }
   }
 

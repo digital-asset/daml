@@ -4,9 +4,10 @@
 package com.daml.grpc.adapter
 
 import java.util.concurrent.atomic.AtomicInteger
-
 import akka.Done
 import akka.actor.ActorSystem
+import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.Metrics
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -15,6 +16,7 @@ class AkkaExecutionSequencerPool(
     poolName: String,
     actorCount: Int = AkkaExecutionSequencerPool.defaultActorCount,
     terminationTimeout: FiniteDuration = 30.seconds,
+    metrics: Metrics = new Metrics(new MetricRegistry),
 )(implicit system: ActorSystem)
     extends ExecutionSequencerFactory {
   require(actorCount > 0)
@@ -23,7 +25,7 @@ class AkkaExecutionSequencerPool(
 
   private val pool =
     Array.fill(actorCount)(
-      AkkaExecutionSequencer(s"$poolName-${counter.getAndIncrement()}", terminationTimeout)
+      AkkaExecutionSequencer(metrics, s"$poolName-${counter.getAndIncrement()}", terminationTimeout)
     )
 
   override def getExecutionSequencer: ExecutionSequencer =

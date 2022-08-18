@@ -81,7 +81,7 @@ object ApiServiceOwner {
     val healthChecksWithIndexService = healthChecks + ("index" -> indexService)
 
     for {
-      executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
+      executionSequencerFactory <- new ExecutionSequencerFactoryOwner(metrics)
       apiServicesOwner = new ApiServices.Owner(
         participantId = participantId,
         optWriteService = optWriteService,
