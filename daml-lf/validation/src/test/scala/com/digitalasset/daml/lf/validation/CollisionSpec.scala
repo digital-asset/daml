@@ -383,9 +383,11 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       val negativeTestCase =
         p"""
         module Mod {                     // fully resolved name: "Mod"
+          
+          record @serializable MyUnit = {};  
             
           interface (this: I) = {
-            viewtype Unit;
+            viewtype Mod:MyUnit;
              choice Choice1 (self) (u:Unit) : Unit  // fully resolved name: "Mod.I.Choice1"
               , controllers Nil @Party
               to upure @Unit ();
@@ -400,9 +402,11 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       val positiveTestCase =
         p"""
         module Mod {                     // fully resolved name: "Mod"
+          
+          record @serializable MyUnit = {};  
             
           interface (this: I) = {
-            viewtype Unit;
+            viewtype Mod:MyUnit;
              choice CHOICE (self) (u:Unit) : Unit  // fully resolved name: "Mod.I.Choice"
               , controllers Nil @Party
               to upure @Unit ();
@@ -423,16 +427,18 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
       val testCase = p"""
         module Mod {                     
+          
+          record @serializable MyUnit = {};  
             
           interface (this: I1) = {
-             viewtype Unit;
+             viewtype Mod:MyUnit;
              choice Choice (self) (u:Unit) : Unit  
               , controllers Nil @Party
               to upure @Unit ();
           };
 
           interface (this: I2) = {
-             viewtype Unit;
+             viewtype Mod:MyUnit;
              choice Choice (self) (u:Unit) : Unit  
               , controllers Nil @Party
               to upure @Unit ();
@@ -447,10 +453,10 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
               , controllers Nil @Party
               to upure @Unit ();
             implements Mod:I1{
-              view = ();
+              view = Mod:MyUnit {};
             };
             implements Mod:I2{
-              view = ();
+              view = Mod:MyUnit {};
             };
           } ;
 
