@@ -380,6 +380,14 @@ object TransactionBuilder {
 
     implicit def toField(t: (String, Value)): (Option[Ref.Name], Value) = toTuple(t)
 
+    implicit def toTypeId(
+        x: TemplateOrInterface[String, String]
+    ): TemplateOrInterface[Ref.TypeConName, Ref.TypeConName] =
+      x match {
+        case TemplateOrInterface.Template(value) => TemplateOrInterface.Template(value)
+        case TemplateOrInterface.Interface(value) => TemplateOrInterface.Interface(value)
+      }
+
   }
 
   def valueRecord(id: Option[Ref.Identifier], fields: (Option[Ref.Name], Value)*) =
