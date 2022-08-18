@@ -122,47 +122,6 @@ Empty Interfaces
   methods, precondition or choices. However, a view type must always be defined,
   though it can be set to unit.
 
-Required Interfaces
--------------------
-
-.. literalinclude:: ../code-snippets-dev/Interfaces.daml
-   :language: daml
-   :start-after: -- INTERFACE_REQUIRES_BEGIN
-   :end-before: -- INTERFACE_REQUIRES_END
-
-- An interface can depend on other interfaces. These are specified with the
-  ``requires`` keyword after the interface name but before the
-  ``where`` keyword, separated by commas.
-- For an interface declaration to be valid, its list of required interfaces
-  must be transitively closed. In other words, an interface ``I`` cannot
-  require an interface ``J`` without also explicitly requiring all the
-  interfaces required by ``J``. The order, however, is irrelevant.
-
-  For example, given
-
-  .. literalinclude:: ../code-snippets-dev/Interfaces.daml
-     :language: daml
-     :start-after: -- INTERFACE_TRANSITIVE_REQUIRES_GIVEN_BEGIN
-     :end-before: -- INTERFACE_TRANSITIVE_REQUIRES_GIVEN_END
-
-  This declaration for interface ``Square`` would cause a compiler error
-
-  .. literalinclude:: ../code-snippets-dev/Interfaces.daml
-     :language: daml
-     :start-after: -- INTERFACE_TRANSITIVE_REQUIRES_INCORRECT_BEGIN
-     :end-before: -- INTERFACE_TRANSITIVE_REQUIRES_INCORRECT_END
-
-  Explicitly adding ``Shape`` to the required interfaces fixes the error
-
-  .. literalinclude:: ../code-snippets-dev/Interfaces.daml
-     :language: daml
-     :start-after: -- INTERFACE_TRANSITIVE_REQUIRES_CORRECT_BEGIN
-     :end-before: -- INTERFACE_TRANSITIVE_REQUIRES_CORRECT_END
-
-- For a template ``T`` to be a valid ``interface instance`` of an interface
-  ``I``, ``T`` must also be an ``interface instance`` of each of the interfaces
-  required by ``I``.
-
 Interface Instances
 *******************
 
@@ -247,28 +206,21 @@ Interface Functions
    * - ``toInterface``
      - ``forall i t. HasToInterface t i => t -> i``
      - ``MyTemplate -> MyInterface``
-     - Converts a template value into an interface value. Can also be used to
-       convert an interface value to one of its required interfaces.
+     - Converts a template value into an interface value.
    * - ``fromInterface``
      - ``HasFromInterface t i => i -> Optional t``
      - ``MyInterface -> Optional MyTemplate``
      - Attempts to convert an interface value back into a template value.
        The result is ``None`` if the expected template type doesn't match the
-       underlying template type used to construct the contract. Can also be
-       used to convert a value of an interface type to one of its
-       requiring interfaces.
+       underlying template type used to construct the contract.
    * - ``toInterfaceContractId``
      - ``forall i t. HasToInterface t i => ContractId t -> ContractId i``
      - ``ContractId MyTemplate -> ContractId MyInterface``
-     - Convert a template contract id into an interface contract id. Can also
-       be used to convert an interface contract id into a contract id of one of
-       its required interfaces.
+     - Convert a template contract id into an interface contract id.
    * - ``fromInterfaceContractId``
      - ``forall t i. HasFromInterface t i => ContractId i -> ContractId t``
      - ``ContractId MyInterface -> ContractId MyTemplate``
      - Converts an interface contract id into a template contract id.
-       Can also be used to convert an interface contract id into a contract id
-       of a one of its requiring interfaces.
        This function does not verify that the given contract id actually points
        to a contract of the resulting type; if that is not the case, a
        subsequent ``fetch``, ``exercise`` or ``archive`` will fail.
@@ -283,5 +235,73 @@ Interface Functions
      - Attempts to fetch and convert an interface contract id into a template,
        returning both the converted contract and its contract id if the
        conversion is successful, or ``None`` otherwise.
-       Can also be used to fetch and convert an interface contract id into a
+
+Required Interfaces
+*******************
+
+.. warning::
+  This feature is under active development and not officially supported in
+  production environments.
+  Required interfaces are only available when targeting Daml-LF 1.dev.
+
+.. literalinclude:: ../code-snippets-dev/Interfaces.daml
+   :language: daml
+   :start-after: -- INTERFACE_REQUIRES_BEGIN
+   :end-before: -- INTERFACE_REQUIRES_END
+
+- An interface can depend on other interfaces. These are specified with the
+  ``requires`` keyword after the interface name but before the
+  ``where`` keyword, separated by commas.
+- For an interface declaration to be valid, its list of required interfaces
+  must be transitively closed. In other words, an interface ``I`` cannot
+  require an interface ``J`` without also explicitly requiring all the
+  interfaces required by ``J``. The order, however, is irrelevant.
+
+  For example, given
+
+  .. literalinclude:: ../code-snippets-dev/Interfaces.daml
+     :language: daml
+     :start-after: -- INTERFACE_TRANSITIVE_REQUIRES_GIVEN_BEGIN
+     :end-before: -- INTERFACE_TRANSITIVE_REQUIRES_GIVEN_END
+
+  This declaration for interface ``Square`` would cause a compiler error
+
+  .. literalinclude:: ../code-snippets-dev/Interfaces.daml
+     :language: daml
+     :start-after: -- INTERFACE_TRANSITIVE_REQUIRES_INCORRECT_BEGIN
+     :end-before: -- INTERFACE_TRANSITIVE_REQUIRES_INCORRECT_END
+
+  Explicitly adding ``Shape`` to the required interfaces fixes the error
+
+  .. literalinclude:: ../code-snippets-dev/Interfaces.daml
+     :language: daml
+     :start-after: -- INTERFACE_TRANSITIVE_REQUIRES_CORRECT_BEGIN
+     :end-before: -- INTERFACE_TRANSITIVE_REQUIRES_CORRECT_END
+
+- For a template ``T`` to be a valid ``interface instance`` of an interface
+  ``I``, ``T`` must also be an ``interface instance`` of each of the interfaces
+  required by ``I``.
+
+Interface Functions
+-------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - Notes
+   * - ``toInterface``
+     - Can also be used to convert an interface value to one of its required
+       interfaces.
+   * - ``fromInterface``
+     - Can also be used to convert a value of an interface type to one of its
+       requiring interfaces.
+   * - ``toInterfaceContractId``
+     - Can also be used to convert an interface contract id into a contract id
+       of one of its required interfaces.
+   * - ``fromInterfaceContractId``
+     - Can also be used to convert an interface contract id into a contract id
+       of one of its requiring interfaces.
+   * - ``fetchFromInterface``
+     - Can also be used to fetch and convert an interface contract id into a
        contract and contract id of one of its requiring interfaces.
