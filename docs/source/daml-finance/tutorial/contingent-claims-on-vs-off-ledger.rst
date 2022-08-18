@@ -22,8 +22,7 @@ Off ledger
 
 When we create a :doc:`strongly typed bond instrument <contingent-claims-instrument>`
 only the key parameters of the bond are stored on the ledger. The claims tree
-is created on the fly, when needed (for example, in the case of lifecycling) and is not
-stored on the ledger.
+is not, it is created on the fly, when needed (for example, in the case of lifecycling).
 Consequently, if a holiday calendar changes, this will automatically impact the claims tree
 the next time it is dynamically created.
 
