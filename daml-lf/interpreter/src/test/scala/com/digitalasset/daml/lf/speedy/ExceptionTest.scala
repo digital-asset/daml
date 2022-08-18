@@ -606,7 +606,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
         if (description.contains("can be caught"))
           inside(res) { case SResultFinal(SUnit, _) =>
           }
-        else if (description.contains("can be caught"))
+        else if (description.contains("cannot be caught"))
           inside(res) { case SResultError(SErrorDamlException(err)) =>
             err shouldBe a[IE.UnhandledException]
           }
