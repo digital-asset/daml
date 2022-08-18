@@ -44,18 +44,25 @@ Interface Methods
    :end-before: -- INTERFACE_METHODS_END
 
 - An interface may define any number of methods.
-- Methods are in scope as functions at the top level and in interface choices.
-  These functions always take an unstated first argument corresponding to a
-  contract of a template type that is an ``interface instance`` of the
-  interface:
+- A method definition consists of the method name and the method type, separated
+  by a single colon ``:``. The name of the method must be a valid identifier
+  beginning with a lowercase letter or an underscore.
+- A method definition introduces a top level function of the same name. If the
+  interface is called ``I``, the method is called ``m``, and the method type is
+  ``M``, this introduces the function ``m : Implements t I => t -> M``:
 
   .. literalinclude:: ../code-snippets-dev/Interfaces.daml
      :language: daml
      :start-after: -- INTERFACE_METHODS_TOP_LEVEL_BEGIN
      :end-before: -- INTERFACE_METHODS_TOP_LEVEL_END
 
-- Methods are also in scope in interface choices
-  (see :ref:`interface-choices` below).
+- The ``Implements t I`` constraint means that the function can be applied to
+  any value of type ``t`` such that:
+
+  - ``t`` is a template type and there exists an ``interface instance`` of
+    ``I`` for ``t``, **OR**
+  - ``t`` is the interface type ``I`` itself.
+
 - One special method, ``view``, must be defined for the viewtype.
   (see :ref:`interface-viewtype` below).
 
@@ -186,10 +193,12 @@ For context, a simple template definition:
 - Within the clause, there's an implicit local binding ``this`` referring to the
   current contract, which has the type of the template's data record. The
   template parameters of this contract are also in scope.
-- The special ``view`` method must be implemented with the same return type as
-  the interface's view type.
 - Method implementations can be defined using the same syntax as for top level
   functions, including pattern matches and guards (e.g. ``method3``).
+- Each method implementation must return the same type as specified for that
+  method in the interface declaration.
+- The implementation of the special ``view`` method must return the type
+  specified as the ``viewtype`` in the interface declaration.
 
 ``interface instance`` clause in the interface
 ----------------------------------------------
