@@ -199,6 +199,13 @@ final case class Template(
   def parameter: DamlLfTypeCon = DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq())
 }
 
+/** Interfaces. */
+final case class Interface(
+    id: DamlLfIdentifier,
+    choices: List[Choice],
+    key: Option[DamlLfType],
+) extends DamlLfNode
+
 /** Template choice. */
 case class Choice(
     name: ApiTypes.Choice,

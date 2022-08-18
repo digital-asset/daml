@@ -13,6 +13,7 @@ case class PackageRegistry(
     private val packages: Map[DamlLfRef.PackageId, DamlLfPackage] = Map.empty,
     private val templates: Map[DamlLfIdentifier, Template] = Map.empty,
     private val typeDefs: Map[DamlLfIdentifier, DamlLfDefDataType] = Map.empty,
+    private val interfaces: Map[DamlLfIdentifier, Interface] = Map.empty,
 ) {
   // TODO (#13969) ignores inherited choices; interfaces aren't handled at all
   private[this] def template(
