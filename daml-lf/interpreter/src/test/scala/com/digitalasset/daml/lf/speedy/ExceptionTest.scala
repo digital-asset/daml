@@ -482,14 +482,16 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
       val pkgs: PureCompiledPackages = typeAndCompile(p"""
        module M {
-       
+         
+         record @serializable MyUnit = {};  
+
          record @serializable E = { } ;
          exception E = { message \(e: M:E) -> "E" };
 
          record @serializable T = { party: Party }; 
 
          interface (this: I) = {
-           viewtype Unit;
+           viewtype M:MyUnit;
            method parties: List Party;
            choice BodyCrash (self) (u: Unit) : Unit, 
              controllers (call_method @M:I parties this),
@@ -523,7 +525,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
              observers throw @(List Party) @M:E (M:E {})
              to upure @Unit ();
            implements M:I {
-             view = ();
+             view = M:MyUnit {};
              method parties = Cons @Party [M:T {party} this] Nil @Party;
            }; 
          };

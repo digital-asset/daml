@@ -52,8 +52,11 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
   private[this] implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters(defaultPackageId, languageVersion = LanguageVersion.v1_dev)
 
-  private val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
+  private lazy val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
     module M {
+              
+      record @serializable MyUnit = {};  
+
       record @serializable TKey = { maintainers : List Party, optCid : Option (ContractId Unit), nested: M:Nested };
 
       record @serializable Nested = { f : Option M:Nested };
@@ -70,10 +73,10 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       variant @serializable Either (a:*) (b:*) = Left: a | Right : b;
 
-      interface (this : I1) =  { viewtype Unit; };
+      interface (this : I1) =  { viewtype M:MyUnit; };
 
       interface (this: Person) = {
-        viewtype Unit;
+        viewtype M:MyUnit;
         method asParty: Party;
         method getCtrl: Party;
         method getName: Text;
@@ -117,7 +120,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           controllers Cons @Party [M:Human {person} this] (Nil @Party)
           to upure @Unit (TRACE @Unit "archive" ());
         implements M:Person {
-          view = ();
+          view = M:MyUnit {};
           method asParty = M:Human {person} this;
           method getName = "foobar";
           method getCtrl = M:Human {ctrl} this;
