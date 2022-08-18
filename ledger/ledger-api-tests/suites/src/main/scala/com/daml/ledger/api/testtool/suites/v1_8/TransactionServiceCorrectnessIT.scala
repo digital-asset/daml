@@ -29,13 +29,13 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
       _ <- Future.sequence(Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
       endAfterFirstSection <- ledger.currentEnd()
       firstSectionRequest = ledger
-        .getTransactionsRequest(Seq(party))
+        .getTransactionsRequest(ledger.transactionFilter(Seq(party)))
         .update(_.end := endAfterFirstSection)
       firstSection <- ledger.flatTransactions(firstSectionRequest)
       _ <- Future.sequence(Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
       endAfterSecondSection <- ledger.currentEnd()
       secondSectionRequest = ledger
-        .getTransactionsRequest(Seq(party))
+        .getTransactionsRequest(ledger.transactionFilter(Seq(party)))
         .update(_.begin := endAfterFirstSection, _.end := endAfterSecondSection)
       secondSection <- ledger.flatTransactions(secondSectionRequest)
       fullSequence <- ledger.flatTransactions(party)
