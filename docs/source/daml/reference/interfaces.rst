@@ -79,7 +79,7 @@ Interface Choices
    :start-after: -- INTERFACE_CHOICES_BEGIN
    :end-before: -- INTERFACE_CHOICES_END
 
-- Interface choices work in a very similar way to template choices. Any contract of a template type that is an ``interface instance`` of the interface will grant the choice to the controlling party.
+- Interface choices work in a very similar way to template choices. Any contract of a template type for which an interface instance exists, will grant the choice to the controlling party.
 - Interface methods can be used to define the controller of a choice
   (e.g. ``method1``) as well as the actions that run when the choice is
   *exercised* (e.g. ``method2`` and ``method3``).
