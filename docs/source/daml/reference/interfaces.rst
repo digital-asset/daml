@@ -166,7 +166,7 @@ For context, a simple template definition:
    :start-after: -- TEMPLATE_HEADER_BEGIN
    :end-before: -- TEMPLATE_HEADER_END
 
-``Interface Instance`` clause
+``interface instance`` clause
 -----------------------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
@@ -191,7 +191,7 @@ For context, a simple template definition:
 - Method implementations can be defined using the same syntax as for top level
   functions, including pattern matches and guards (e.g. ``method3``).
 
-``Interface Instance`` clause in the interface
+``interface instance`` clause in the interface
 ----------------------------------------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
@@ -209,7 +209,7 @@ For context, a simple template definition:
   implicit local binding ``this`` always has the type of the *template*'s
   record.
 
-Empty ``Interface Instance`` clause
+Empty ``interface instance`` clause
 -----------------------------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
