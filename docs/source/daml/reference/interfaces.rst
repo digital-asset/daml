@@ -166,35 +166,48 @@ For context, a simple template definition:
    :start-after: -- TEMPLATE_HEADER_BEGIN
    :end-before: -- TEMPLATE_HEADER_END
 
-``Interface Instance`` clauses
-------------------------------
+``Interface Instance`` clause
+-----------------------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
    :language: daml
-   :start-after: -- INTERFACE_INSTANCE_BEGIN
-   :end-before: -- INTERFACE_INSTANCE_END
+   :start-after: -- INTERFACE_INSTANCE_IN_TEMPLATE_BEGIN
+   :end-before: -- INTERFACE_INSTANCE_IN_TEMPLATE_END
 
-- To make a template an instance of an interface, an ``interface instance``
-  clause must be defined in either the template declaration or the interface
-  declaration.
-- Either the template or the interface of the clause must match the enclosing
-  declaration. In other words, a template ``T`` declaration can only contain
-  ``interface instance`` clauses where the template is ``T``, and an interface
-  ``I`` declaration can only contain ``interface instance`` clauses where the
-  interface is ``I``.
-- The rules for an ``interface instance`` clause are the same whether the
-  enclosing declaration is a template or an interface.
+- To make a template an instance of an existing interface, an
+  ``interface instance`` clause must be defined in the template declaration.
+- The template of the clause must match the enclosing declaration. In other
+  words, a template ``T`` declaration can only contain ``interface instance``
+  clauses where the template is ``T``.
 - The clause must start with the keywords ``interface instance``, followed by
   the name of the interface, then the keyword ``for`` and the name of the
   template, and finally the keyword ``where``, which introduces a block where
   **all** the methods of the interface must be implemented.
-- Within the clause, there's an implicit local binding ``this`` referring to a
-  contract of the template type. The template parameters of this contract are
-  also in scope.
+- Within the clause, there's an implicit local binding ``this`` referring to the
+  current contract, which has the type of the template's data record. The
+  template parameters of this contract are also in scope.
 - The special ``view`` method must be implemented with the same return type as
   the interface's view type.
 - Method implementations can be defined using the same syntax as for top level
   functions, including pattern matches and guards (e.g. ``method3``).
+
+``Interface Instance`` clause in the interface
+----------------------------------------------
+
+.. literalinclude:: ../code-snippets-dev/Interfaces.daml
+   :language: daml
+   :start-after: -- INTERFACE_INSTANCE_IN_INTERFACE_BEGIN
+   :end-before: -- INTERFACE_INSTANCE_IN_INTERFACE_END
+
+- To make an *existing* template an instance of a new interface, the
+  ``interface instance`` clause must be defined in the *interface* declaration.
+- In this case, the *interface* of the clause must match the enclosing
+  declaration. In other words, an interface ``I`` declaration can only contain
+  ``interface instance`` clauses where the interface is ``I``.
+- All other rules for ``interface instance`` clauses are the same whether the
+  enclosing declaration is a template or an interface. In particular, the
+  implicit local binding ``this`` always has the type of the *template*'s
+  record.
 
 Empty ``Interface Instance`` clause
 -----------------------------------
