@@ -104,6 +104,8 @@ object Node {
     def versionedCoinst: Value.VersionedContractInstance = versioned(coinst)
 
     def versionedKey: Option[VersionedKeyWithMaintainers] = key.map(versioned)
+
+    def keyValue: Option[Value] = key.map(_.key)
   }
 
   @deprecated("use Node.Fetch", since = "1.18.0")
@@ -134,6 +136,8 @@ object Node {
       copy(coid = f(coid), key = key.map(_.mapCid(f)))
 
     def versionedKey: Option[VersionedKeyWithMaintainers] = key.map(versioned)
+
+    def keyValue: Option[Value] = key.map(_.key)
   }
 
   @deprecated("use Node.Exercise", since = "1.18.0")
@@ -188,6 +192,8 @@ object Node {
     def versionedExerciseResult: Option[Value.VersionedValue] = exerciseResult.map(versioned)
 
     def versionedKey: Option[VersionedKeyWithMaintainers] = key.map(versioned)
+
+    def keyValue: Option[Value] = key.map(_.key)
   }
 
   @deprecated("use Node.LookupByKey", since = "1.18.0")
@@ -217,6 +223,8 @@ object Node {
       copy(version = version)
 
     def versionedKey: VersionedKeyWithMaintainers = versioned(key)
+
+    def keyValue: Value = key.key
   }
 
   final case class KeyWithMaintainers(key: Value, maintainers: Set[Party])
