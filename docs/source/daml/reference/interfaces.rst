@@ -13,7 +13,7 @@ Reference: Interfaces
 In Daml, an interface defines an abstract type together with a behavior
 specified by its view type, method signatures, and choices. For a template to
 conform to this interface, there must be a corresponding ``interface instance``
-clause where all the methods of the interface (including the special ``view``
+definition where all the methods of the interface (including the special ``view``
 method) are implemented. This allows decoupling such behavior from its
 implementation, so other developers can write applications in terms of the
 interface instead of the concrete template.
