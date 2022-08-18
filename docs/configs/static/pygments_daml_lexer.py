@@ -11,7 +11,21 @@ class DamlLexer(HaskellLexer):
     aliases = ['daml']
     filenames = ['*.daml']
 
-    daml_reserved = ('template', 'with', 'controller', 'can', 'ensure', 'daml', 'observer', 'signatory', 'agreement', 'controller', 'nonconsuming', 'return', 'this')
+    daml_reserved = (
+        'template',
+        'with',
+        'controller',
+        'can',
+        'ensure',
+        'daml',
+        'observer',
+        'signatory',
+        'agreement',
+        'controller',
+        'nonconsuming',
+        'return',
+        'this',
+        )
 
     tokens = {
         'root': [
