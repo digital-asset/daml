@@ -38,23 +38,21 @@ object JcsSigner {
 
   def sign(
       report: ParticipantReport,
-      scheme: Scheme,
       key: Key,
   ): Either[Error, ParticipantReport] = {
-    generateCheck(report: ParticipantReport, scheme: Scheme, key: Key).map(check =>
+    generateCheck(report: ParticipantReport, key: Key).map(check =>
       report.copy(check = Some(check))
     )
   }
 
   private def generateCheck(
       report: ParticipantReport,
-      scheme: Scheme,
       key: Key,
   ): Either[Error, Check] = {
     for {
       jcs <- Jcs.serialize(report.copy(check = None).toJson)
       digest <- HmacSha256.compute(key, jcs.getBytes(StandardCharsets.UTF_8)).left.map(_.getMessage)
-    } yield Check(scheme, toBase64(digest))
+    } yield Check(key.scheme, toBase64(digest))
   }
 
   def verify(json: String, keyLookup: Scheme => Option[Key]): VerificationStatus = {
@@ -68,7 +66,7 @@ object JcsSigner {
     val result: Either[VerificationStatus, VerificationStatus] = for {
       actual <- report.check.toRight(MissingCheckSection)
       key <- keyLookup(actual.scheme).toRight(UnknownScheme(actual.scheme))
-      expected <- generateCheck(report, actual.scheme, key).left.map(CheckGeneration)
+      expected <- generateCheck(report, key).left.map(CheckGeneration)
     } yield {
       if (actual == expected) Ok else DigestMismatch(expected.digest)
     }

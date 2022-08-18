@@ -13,8 +13,9 @@ import com.google.protobuf.struct.Struct
 import com.google.protobuf.timestamp.{Timestamp => ProtoTimestamp}
 import scalapb.json4s.JsonFormat
 import spray.json.enrichAny
+import HmacSha256.Key
 
-class MeteringReportGenerator(participantId: Ref.ParticipantId) {
+class MeteringReportGenerator(participantId: Ref.ParticipantId, key: Key) {
 
   def generate(
       request: GetMeteringReportRequest,
@@ -23,14 +24,16 @@ class MeteringReportGenerator(participantId: Ref.ParticipantId) {
       applicationId: Option[Ref.ApplicationId],
       reportData: ReportData,
       generationTime: ProtoTimestamp,
-  ): GetMeteringReportResponse = {
+  ): Either[String, GetMeteringReportResponse] = {
 
-    GetMeteringReportResponse(
-      request = Some(request),
-      participantReport = Some(genParticipantReport(reportData)),
-      reportGenerationTime = Some(generationTime),
-      meteringReportJson = Some(genMeteringReportJson(from, to, applicationId, reportData)),
-    )
+    genMeteringReportJson(from, to, applicationId, reportData).map { reportJson =>
+      GetMeteringReportResponse(
+        request = Some(request),
+        participantReport = Some(genParticipantReport(reportData)),
+        reportGenerationTime = Some(generationTime),
+        meteringReportJson = Some(reportJson),
+      )
+    }
 
   }
 
@@ -40,7 +43,7 @@ class MeteringReportGenerator(participantId: Ref.ParticipantId) {
       to: Option[Timestamp],
       applicationId: Option[ApplicationId],
       reportData: ReportData,
-  ) = {
+  ): Either[String, Struct] = {
 
     val applicationReports = reportData.applicationData.toList
       .sortBy(_._1)
@@ -51,10 +54,12 @@ class MeteringReportGenerator(participantId: Ref.ParticipantId) {
       request = Request(from, to, applicationId),
       `final` = reportData.isFinal,
       applications = applicationReports,
-      check = None, // TODO populate me
+      check = None,
     )
 
-    JsonFormat.parser.fromJsonString[Struct](report.toJson.compactPrint)
+    JcsSigner.sign(report, key).map { signedReport =>
+      JsonFormat.parser.fromJsonString[Struct](signedReport.toJson.compactPrint)
+    }
   }
 
   private def genParticipantReport(reportData: ReportData) = {
