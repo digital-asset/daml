@@ -37,8 +37,8 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
          metadata ( 'foobar' : '0.0.1' )
 
          module Mod {
-          
-            record @serializable MyUnit = {};  
+
+            record @serializable MyUnit = {};
 
             record @serializable Person = { person: Party, name: Text } ;
 

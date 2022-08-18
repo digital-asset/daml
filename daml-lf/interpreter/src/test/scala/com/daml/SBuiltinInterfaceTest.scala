@@ -239,7 +239,7 @@ object SBuiltinInterfaceTest {
         }
 
         module Mod {
- 
+
           record @serializable MyUnit = {};
 
           interface (this : Iface) = {
@@ -283,7 +283,7 @@ object SBuiltinInterfaceTest {
 
           record @serializable MyUnit = {};
           record @serializable Iou = { i: Party, u: Party, name: Text };
-    
+
           template (this: Iou) = {
             precondition True;
             signatories Cons @Party [Mod:Iou {i} this] (Nil @Party);

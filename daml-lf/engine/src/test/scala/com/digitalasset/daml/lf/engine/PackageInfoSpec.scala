@@ -73,9 +73,9 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
 
     p"""
          module Mod {
-           record @serializable MyUnit = {};  
+           record @serializable MyUnit = {};
          }
-                       
+
          module Mod21 {
            interface (this: I21) = {
              viewtype Mod:MyUnit;
@@ -107,7 +107,7 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
       parser.ParserParameters("-pkg3-", parser.defaultLanguageVersion)
 
     p"""
-        
+
         module Mod31 {
           record @serializable T31 = {};
           template (this : T31) =  {

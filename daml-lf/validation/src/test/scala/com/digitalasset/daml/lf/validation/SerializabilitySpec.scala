@@ -336,7 +336,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
           module Mod {
             record @serializable MyUnit = {};
           }
-            
+
           module NegativeTestCase1 {
             interface (this: Token) = {
               viewtype Mod:MyUnit;

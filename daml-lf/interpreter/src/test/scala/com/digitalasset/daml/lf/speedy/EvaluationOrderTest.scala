@@ -54,8 +54,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
   private lazy val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
     module M {
-              
-      record @serializable MyUnit = {};  
+
+      record @serializable MyUnit = {};
 
       record @serializable TKey = { maintainers : List Party, optCid : Option (ContractId Unit), nested: M:Nested };
 
@@ -916,7 +916,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "inconsistent key" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(maintainer: Party) (exercisingParty: Party) (cId: ContractId M:T) ->  
+            e"""\(maintainer: Party) (exercisingParty: Party) (cId: ContractId M:T) ->
                ubind x : Option (ContractId M:T) <- lookup_by_key @M:T (M:toKey maintainer)
                in Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
                """,
@@ -1980,7 +1980,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "inconsistent key" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(maintainer: Party) (fetchingParty: Party) (cId: ContractId M:T) ->  
+            e"""\(maintainer: Party) (fetchingParty: Party) (cId: ContractId M:T) ->
                ubind x : Option (ContractId M:T) <- lookup_by_key @M:T (M:toKey maintainer)
                in Test:fetch_by_id fetchingParty cId
                """,
