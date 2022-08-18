@@ -102,7 +102,7 @@ instance RenderDoc ImplDoc where
 
 instance RenderDoc MethodDoc where
     renderDoc MethodDoc {..} = mconcat
-      [ RenderParagraph $ RenderStrong ("Method " <> unTypename mtd_name <> " : ") <> renderType mtd_type
+      [ RenderParagraph $ renderUnwords [ RenderStrong ("Method " <> unTypename mtd_name <> " :") , renderType mtd_type ]
       , renderDoc mtd_descr
       ]
 
