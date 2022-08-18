@@ -3,9 +3,8 @@
 
 package com.daml.lf.language
 
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{TemplateOrInterface => TorI}
 import com.daml.lf.data.Ref._
-import com.daml.lf.language.{TemplateOrInterface => TorI}
 
 sealed abstract class LookupError {
   def pretty: String
@@ -64,7 +63,7 @@ object Reference {
     override def pretty: String = s"module $packageId:$moduleName"
   }
 
-  final case class Definition(identifier: Ref.Identifier) extends Reference {
+  final case class Definition(identifier: Identifier) extends Reference {
     override def pretty: String = s"definition $identifier"
   }
 
@@ -104,7 +103,7 @@ object Reference {
     override def pretty: String = s"constructor $constructorName in enumeration $tyCon"
   }
 
-  final case class Value(identifier: Ref.Identifier) extends Reference {
+  final case class Value(identifier: Identifier) extends Reference {
     override def pretty: String = s"value $identifier"
   }
 

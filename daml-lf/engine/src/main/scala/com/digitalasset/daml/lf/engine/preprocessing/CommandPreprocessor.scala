@@ -6,7 +6,7 @@ package engine
 package preprocessing
 
 import com.daml.lf.data._
-import com.daml.lf.language.{Ast, TemplateOrInterface, PackageInterface}
+import com.daml.lf.language.{Ast, PackageInterface}
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
