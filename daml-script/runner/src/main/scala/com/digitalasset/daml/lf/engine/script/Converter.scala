@@ -268,14 +268,14 @@ object Converter {
         } yield anyChoice match {
           case AnyChoice.Template(name, arg) =>
             command.ApiCommand.Exercise(
-              typeId = tplId,
+              typeId = TemplateOrInterface.Template(tplId),
               contractId = cid,
               choiceId = name,
               argument = arg.toUnnormalizedValue,
             )
           case AnyChoice.Interface(ifaceId, name, arg) =>
             command.ApiCommand.Exercise(
-              typeId = ifaceId,
+              typeId = TemplateOrInterface.Interface(ifaceId),
               contractId = cid,
               choiceId = name,
               argument = arg.toUnnormalizedValue,
