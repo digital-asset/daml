@@ -59,9 +59,12 @@ getTemplateDocs DocCtx{..} typeMap interfaceInstanceMap =
 
 -- | Build interface docs up from class docs.
 getInterfaceDocs :: DocCtx
-    -> MS.Map Typename ADTDoc -- ^ maps template names to their ADT docs
+    -> MS.Map Typename ADTDoc
+        -- ^ maps type names to their ADT docs
+    -> MS.Map Typename (Set.Set InterfaceInstanceDoc)
+        -- ^ maps type names to the interface instances contained in their declaration.
     -> [InterfaceDoc]
-getInterfaceDocs DocCtx{..} typeMap =
+getInterfaceDocs DocCtx{..} typeMap interfaceInstanceMap =
     map mkInterfaceDoc $ Set.toList dc_interfaces
   where
     -- The following functions use the type map and choice map in scope, so
@@ -73,6 +76,8 @@ getInterfaceDocs DocCtx{..} typeMap =
       , if_descr = ad_descr ifADT
       , if_choices = map (mkChoiceDoc typeMap) choices
       , if_methods = [] -- filled by distributeInstanceDocs
+      , if_interfaceInstances =
+          Set.toList (MS.findWithDefault mempty name interfaceInstanceMap)
       }
       where
         ifADT = asADT typeMap name

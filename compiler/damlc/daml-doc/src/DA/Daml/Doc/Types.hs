@@ -127,6 +127,7 @@ data InterfaceDoc = InterfaceDoc
   , if_choices :: [ChoiceDoc]
   , if_methods :: [MethodDoc]
   , if_descr :: Maybe DocText
+  , if_interfaceInstances :: [InterfaceInstanceDoc]
   }
   deriving (Eq, Show, Generic)
 

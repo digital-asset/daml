@@ -93,6 +93,11 @@ instance RenderDoc InterfaceDoc where
             , RenderList (map renderDoc if_choices)
             , RenderList (map renderDoc if_methods)
             ]
+        , if null if_interfaceInstances
+          then mempty
+          else RenderBlock $ mconcat
+                [ RenderList (map renderDoc if_interfaceInstances)
+                ]
         ]
 
 instance RenderDoc InterfaceInstanceDoc where
