@@ -515,6 +515,7 @@ case object LedgerApiV1 {
         V1.commands.Command.Command.Exercise(
           V1.commands.ExerciseCommand(
             Some(contract.template.id.asApi),
+            None,
             Tag.unwrap(contractId),
             Tag.unwrap(choiceId),
             Some(argument),
