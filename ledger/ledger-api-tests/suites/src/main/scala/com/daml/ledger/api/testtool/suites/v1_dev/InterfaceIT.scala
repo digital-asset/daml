@@ -84,7 +84,9 @@ class InterfaceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       t <- ledger.create(party, T(party))
-      tree <- ledger.exercise(party, t.toInterface[Interface3.I].exerciseMyArchive())
+      tree <-
+        ledger
+          .exercise(party, t.asInstanceOf[Primitive.ContractId[Interface3.I]].exerciseMyArchive())
     } yield {
       val events = exercisedEvents(tree)
       assertLength(s"1 successful exercise", 1, events)
