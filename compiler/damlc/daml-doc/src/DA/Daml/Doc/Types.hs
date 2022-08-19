@@ -117,7 +117,7 @@ data TemplateDoc = TemplateDoc
   , td_descr   :: Maybe DocText
   , td_payload :: [FieldDoc]
   , td_choices :: [ChoiceDoc]
-  , td_impls :: [ImplDoc]
+  , td_interfaceInstances :: [InterfaceInstanceDoc]
   }
   deriving (Eq, Show, Generic)
 
@@ -130,9 +130,11 @@ data InterfaceDoc = InterfaceDoc
   }
   deriving (Eq, Show, Generic)
 
-data ImplDoc = ImplDoc
-  { impl_iface :: Type
-  } deriving (Eq, Show, Generic)
+data InterfaceInstanceDoc = InterfaceInstanceDoc
+  { ii_interface :: Type
+  , ii_template :: Type
+  }
+  deriving (Eq, Ord, Show, Generic)
 
 data ClassDoc = ClassDoc
   { cl_anchor :: Maybe Anchor
@@ -331,10 +333,10 @@ instance ToJSON ChoiceDoc where
 instance FromJSON ChoiceDoc where
     parseJSON = genericParseJSON aesonOptions
 
-instance ToJSON ImplDoc where
+instance ToJSON InterfaceInstanceDoc where
     toJSON = genericToJSON aesonOptions
 
-instance FromJSON ImplDoc where
+instance FromJSON InterfaceInstanceDoc where
     parseJSON = genericParseJSON aesonOptions
 
 instance ToJSON TemplateDoc where

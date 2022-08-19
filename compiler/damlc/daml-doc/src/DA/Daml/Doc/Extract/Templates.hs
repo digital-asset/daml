@@ -10,7 +10,6 @@ module DA.Daml.Doc.Extract.Templates
     ) where
 
 import DA.Daml.Doc.Types
-import qualified DA.Daml.Doc.Types as DDoc
 import DA.Daml.Doc.Extract.Types
 import DA.Daml.Doc.Extract.Util
 import DA.Daml.Doc.Extract.TypeExpr
@@ -32,10 +31,12 @@ import "ghc-lib-parser" Id
 -- | Build template docs up from ADT and class docs.
 getTemplateDocs ::
     DocCtx
-    -> MS.Map Typename ADTDoc -- ^ maps template names to their ADT docs
-    -> MS.Map Typename (Set.Set DDoc.Type)-- ^ maps template names to their implemented interfaces' types
+    -> MS.Map Typename ADTDoc
+      -- ^ maps type names to their ADT docs
+    -> MS.Map Typename (Set.Set InterfaceInstanceDoc)
+      -- ^ maps type names to the interface instances contained in their declaration.
     -> [TemplateDoc]
-getTemplateDocs DocCtx{..} typeMap templateImplementsMap =
+getTemplateDocs DocCtx{..} typeMap interfaceInstanceMap =
     map mkTemplateDoc $ Set.toList dc_templates
   where
     -- The following functions use the type map and choice map in scope, so
@@ -48,9 +49,8 @@ getTemplateDocs DocCtx{..} typeMap templateImplementsMap =
       , td_payload = getFields tmplADT
       -- assumes exactly one record constructor (syntactic, template syntax)
       , td_choices = map (mkChoiceDoc typeMap) choices
-      , td_impls =
-          ImplDoc <$>
-            Set.toList (MS.findWithDefault mempty name templateImplementsMap)
+      , td_interfaceInstances =
+          Set.toList (MS.findWithDefault mempty name interfaceInstanceMap)
      }
       where
         tmplADT = asADT typeMap name

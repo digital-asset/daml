@@ -78,12 +78,12 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
             typeMap = MS.fromList $ mapMaybe (getTypeDocs ctx) dc_decls
             md_classes = mapMaybe (getClsDocs ctx) dc_decls
 
-            templateImplementsMap = getTemplateImplementsMap ctx dc_decls
+            interfaceInstanceMap = getInterfaceInstanceMap ctx dc_decls
 
             md_name = dc_modname
             md_anchor = Just (moduleAnchor md_name)
             md_descr = modDoc tcmod
-            md_templates = getTemplateDocs ctx typeMap templateImplementsMap
+            md_templates = getTemplateDocs ctx typeMap interfaceInstanceMap
             md_interfaces = getInterfaceDocs ctx typeMap
             md_functions = mapMaybe (getFctDocs ctx) dc_decls
             md_instances = map (getInstanceDocs ctx) dc_insts
@@ -196,20 +196,22 @@ haddockParse diagsLogger opts f = MaybeT $ do
 
 ------------------------------------------------------------
 
--- | Extracts the set of interface types implemented by each template type.
--- TODO(MA): Handle interface instances in interfaces
--- https://github.com/digital-asset/daml/issues/14047
-getTemplateImplementsMap :: DocCtx -> [DeclData] -> MS.Map Typename (Set.Set DDoc.Type)
-getTemplateImplementsMap ctx@DocCtx{..} decls =
+-- | Extracts the set of interface instances declared in each (template or interface) type.
+getInterfaceInstanceMap :: DocCtx -> [DeclData] -> MS.Map Typename (Set.Set InterfaceInstanceDoc)
+getInterfaceInstanceMap ctx@DocCtx{..} decls =
     MS.fromListWith Set.union
-        [ (t, Set.singleton iface)
+        [ (parent, Set.singleton (InterfaceInstanceDoc interface template))
         | DeclData decl _ <- decls
         , name <- case unLoc decl of
             SigD _ (TypeSig _ (L _ n :_) _) -> [packRdrName n]
             _ -> []
         , Just _ <- [T.stripPrefix "_interface_instance_" name]
         , Just id <- [MS.lookup (Fieldname name) dc_ids]
-        , TypeApp _ (Typename "InterfaceInstance") [_parent, iface, TypeApp _ t []] <- [typeToType ctx $ idType id]
+        , TypeApp _ (Typename "InterfaceInstance")
+            [ TypeApp _ parent []
+            , interface
+            , template
+            ] <- [typeToType ctx $ idType id]
         ]
 
 -- | Extracts the documentation of a function. Comments are either

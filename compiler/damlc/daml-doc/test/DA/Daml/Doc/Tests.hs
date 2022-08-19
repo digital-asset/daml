@@ -202,8 +202,10 @@ unitTests =
            (\md -> assertBool
                    ("Expected interface instance, got " <> show md)
                    (isJust $ do t  <- getSingle $ md_templates md
-                                impl <- getSingle $ td_impls t
-                                check $ getTypeAppName (impl_iface impl) == Just "Bar"))
+                                InterfaceInstanceDoc {..} <- getSingle $ td_interfaceInstances t
+                                check $
+                                  getTypeAppName ii_interface == Just "Bar"
+                                  && getTypeAppName ii_template == Just "Foo"))
 
          , damldocExpect
            Nothing
