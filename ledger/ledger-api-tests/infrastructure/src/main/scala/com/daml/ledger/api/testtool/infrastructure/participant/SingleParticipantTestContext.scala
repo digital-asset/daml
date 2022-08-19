@@ -365,11 +365,12 @@ final class SingleParticipantTestContext private[participant] (
     transactions(request, services.transaction.getTransactions)
       .map(_.flatMap(_.transactions))
 
-  override def flatTransactionsPromise(
-      request: GetTransactionsRequest,
+  override def flatTransactionPromise(
+      request: GetTransactionsRequest
   ): Promise[GetTransactionsResponse] =
-    new StreamConsumer[GetTransactionsResponse](services.transaction.getTransactions(request, _))
-      .promise
+    new StreamConsumer[GetTransactionsResponse](
+      services.transaction.getTransactions(request, _)
+    ).promise
 
   override def flatTransactions(parties: Party*): Future[Vector[Transaction]] =
     flatTransactions(getTransactionsRequest(transactionFilter(parties)))

@@ -86,31 +86,25 @@ alias(
     for target in lf_version_configuration_versions
 ]
 
+# Carbon tests helps to test upgrades when packages are dependent on each other
+carbon_test_names = [
+    "carbonv1",
+    "carbonv2",  #carbonv2 depends on carbon v1
+]
+
+general_test_names = [
+    "benchtool",
+    "model",
+    "semantic",
+    "performance",
+    "package_management",
+]
+
 # Correspond to the directories under src/test/lib/daml
 test_names = {
-    "1.dev": [
-        "benchtool",
-        "model",
-        "semantic",
-        "performance",
-        "package_management",
-        "carbonv1",
-        "carbonv2",
-    ],
-    "1.8": [
-        "benchtool",
-        "model",
-        "semantic",
-        "performance",
-        "package_management",
-    ],
-    "1.14": [
-        "benchtool",
-        "model",
-        "semantic",
-        "performance",
-        "package_management",
-    ],
+    "1.dev": general_test_names + carbon_test_names,
+    "1.8": general_test_names,
+    "1.14": general_test_names,
 }
 
 da_scala_dar_resources_library(

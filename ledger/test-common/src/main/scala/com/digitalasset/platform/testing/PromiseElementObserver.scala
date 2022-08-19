@@ -7,9 +7,7 @@ import io.grpc.stub.StreamObserver
 
 import scala.concurrent.Promise
 
-/** Implementation of [[StreamObserver]] designed to expose a finite amount of items
-  *
-  * THIS WILL NEVER COMPLETE IF FED AN UNBOUND STREAM!!!
+/** Implementation of [[StreamObserver]] designed to expose a promise of a single element
   */
 private[testing] final class PromiseElementObserver[A] extends StreamObserver[A] {
 

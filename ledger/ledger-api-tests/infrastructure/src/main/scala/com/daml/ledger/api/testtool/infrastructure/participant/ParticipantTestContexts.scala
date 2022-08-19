@@ -185,7 +185,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
     */
   def flatTransactions(request: GetTransactionsRequest): Future[Vector[Transaction]]
 
-  def flatTransactionsPromise(
+  def flatTransactionPromise(
       request: GetTransactionsRequest
   ): Promise[GetTransactionsResponse]
 

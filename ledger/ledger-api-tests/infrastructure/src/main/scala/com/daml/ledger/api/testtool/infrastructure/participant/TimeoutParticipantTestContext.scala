@@ -509,7 +509,7 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)],
   ): Filters = delegate.filters(templateIds, interfaceFilters)
 
-  override def flatTransactionsPromise(
+  override def flatTransactionPromise(
       request: GetTransactionsRequest
-  ): Promise[GetTransactionsResponse] = delegate.flatTransactionsPromise(request)
+  ): Promise[GetTransactionsResponse] = delegate.flatTransactionPromise(request)
 }
