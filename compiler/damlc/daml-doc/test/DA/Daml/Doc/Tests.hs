@@ -209,6 +209,30 @@ unitTests =
 
          , damldocExpect
            Nothing
+           "Interface instance in interface"
+           [ testModHdr
+           , "data EmptyInterfaceView = EmptyInterfaceView"
+           , "template Foo with"
+           , "    field1 : Party"
+           , "  where"
+           , "    signatory field1"
+           , "interface Bar where"
+           , "  viewtype EmptyInterfaceView"
+           , "  method : Update ()"
+           , "  interface instance Bar for Foo where"
+           , "    view = EmptyInterfaceView"
+           , "    method = pure ()"
+           ]
+           (\md -> assertBool
+                   ("Expected interface instance, got " <> show md)
+                   (isJust $ do i  <- getSingle $ md_interfaces md
+                                InterfaceInstanceDoc {..} <- getSingle $ if_interfaceInstances i
+                                check $
+                                  getTypeAppName ii_interface == Just "Bar"
+                                  && getTypeAppName ii_template == Just "Foo"))
+
+         , damldocExpect
+           Nothing
            "Class doc"
            [ testModHdr
            , "-- | Class description"
