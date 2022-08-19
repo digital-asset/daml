@@ -4,16 +4,17 @@
 parameters:
 - name: name
 - name: assignment
+- name: job_name
 
 jobs:
-- job: ${{parameters.name}}
+- job: ${{parameters.job_name}}
   dependsOn:
     - check_for_release
   timeoutInMinutes: 360
   pool:
     name: macOS-pool
     demands: assignment -equals ${{parameters.assignment}}
-  condition: or(eq('${{parameters.name}}', 'macOS'),
+  condition: or(eq('${{parameters.name}}', 'macos'),
                 eq(variables['Build.SourceBranchName'], 'main'))
   variables:
     - name: release_sha
