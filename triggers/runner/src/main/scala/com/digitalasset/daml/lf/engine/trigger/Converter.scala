@@ -438,6 +438,7 @@ object Converter {
           choiceArg <- toLedgerValue(anyChoice.arg)
         } yield ExerciseCommand(
           Some(toApiIdentifier(choiceTypeId)),
+          None,
           anyContractId.contractId.coid,
           anyChoice.name,
           Some(choiceArg),
