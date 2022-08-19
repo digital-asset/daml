@@ -149,9 +149,11 @@ message CreateCommand {
 
 // Exercise a choice on an existing contract.
 message ExerciseCommand {
-  // The template of contract the client wants to exercise.
-  // Required
+  // The template or the interface ID where the choice is defined.
+  // One and only one of the fields template_id and interface_id must
+  // be defined
   Identifier template_id = 1;
+  Identifier interface_id = 5;
 
   // The ID of the contract the client wants to exercise upon.
   // Must be a valid LedgerString (as described in ``value.proto``).

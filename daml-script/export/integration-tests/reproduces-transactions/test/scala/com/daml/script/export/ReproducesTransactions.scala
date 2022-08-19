@@ -254,6 +254,7 @@ trait ReproducesTransactions
           Command().withExercise(
             ExerciseCommand(
               templateId = Some(iouId("Iou")),
+              interfaceId = None,
               choice = "Iou_Split",
               contractId = cid0,
               choiceArgument = Some(
@@ -276,6 +277,7 @@ trait ReproducesTransactions
           Command().withExercise(
             ExerciseCommand(
               templateId = Some(iouId("Iou")),
+              interfaceId = None,
               choice = "Iou_Transfer",
               contractId = cid2,
               choiceArgument = Some(
@@ -297,6 +299,7 @@ trait ReproducesTransactions
           Command().withExercise(
             ExerciseCommand(
               templateId = Some(iouId("IouTransfer")),
+              interfaceId = None,
               choice = "IouTransfer_Accept",
               contractId = cid3,
               choiceArgument = Some(api.Value().withRecord(api.Record())),

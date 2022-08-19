@@ -505,7 +505,7 @@ reset args = do
                   L.Commands
                     { coms =
                         [ L.ExerciseCommand
-                          { tid = tid
+                          { choiceTypeId = Left tid
                           , cid = cid
                           , choice = L.Choice "Archive"
                           , arg = L.VRecord $ L.Record Nothing []

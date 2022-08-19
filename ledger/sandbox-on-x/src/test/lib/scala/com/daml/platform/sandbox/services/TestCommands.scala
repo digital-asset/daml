@@ -162,7 +162,7 @@ trait TestCommands {
       choice: String,
       args: Option[Value] = Some(Value(Sum.Record(Record.defaultInstance))),
   ): Command =
-    Command(Exercise(ExerciseCommand(Some(templateId), contractId, choice, args)))
+    Command(Exercise(ExerciseCommand(Some(templateId), None, contractId, choice, args)))
 
   import language.implicitConversions
   implicit def SubmitRequestEnhancer(request: SubmitRequest): SubmitRequestEnhancer =

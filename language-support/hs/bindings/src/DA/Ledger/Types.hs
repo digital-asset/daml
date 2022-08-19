@@ -50,6 +50,7 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     LedgerId(..),
     PackageId(..),
     TemplateId(..),
+    InterfaceId(..),
     TransactionId(..),
     WorkflowId(..),
     SubmissionId(..),
@@ -95,10 +96,10 @@ data Command
       , args :: Record
       }
     | ExerciseCommand
-      { tid    :: TemplateId
-      , cid    :: ContractId
-      , choice :: Choice
-      , arg    :: Value
+      { choiceTypeId :: Either TemplateId InterfaceId
+      , cid          :: ContractId
+      , choice       :: Choice
+      , arg          :: Value
       }
     | CreateAndExerciseCommand
       { tid        :: TemplateId
@@ -275,6 +276,7 @@ newtype DaysSinceEpoch = DaysSinceEpoch { unDaysSinceEpoch :: Int}
     deriving (Eq,Ord,Show)
 
 newtype TemplateId = TemplateId Identifier deriving (Eq,Ord,Show)
+newtype InterfaceId = InterfaceId Identifier deriving (Eq,Ord,Show)
 
 newtype ApplicationId = ApplicationId { unApplicationId :: Text } deriving (Eq,Ord,Show)
 instance A.FromJSON ApplicationId where

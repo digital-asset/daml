@@ -4,7 +4,6 @@
 package com.daml.lf.engine.script.ledgerinteraction
 
 import java.util.UUID
-
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimestampConversion
@@ -22,7 +21,7 @@ import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{Ref, TemplateOrInterface, Time}
 import com.daml.lf.engine.script.Converter
 import com.daml.lf.speedy.{SValue, svalue}
 import com.daml.lf.value.Value
@@ -299,10 +298,12 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       case command.ExerciseCommand(typeId, contractId, choice, argument) =>
         for {
           arg <- lfValueToApiValue(true, argument)
+          (templateId, interfaceId) = typeId match {
+            case TemplateOrInterface.Template(value) => (Some(toApiIdentifier(value)), None)
+            case TemplateOrInterface.Interface(value) => (None, Some(toApiIdentifier(value)))
+          }
         } yield Command().withExercise(
-          // TODO: https://github.com/digital-asset/daml/issues/14747
-          //  Fix once the new field interface_id have been added to the API Exercise Command
-          ExerciseCommand(Some(toApiIdentifier(typeId.merge)), contractId.coid, choice, Some(arg))
+          ExerciseCommand(templateId, interfaceId, contractId.coid, choice, Some(arg))
         )
       case command.ExerciseByKeyCommand(templateId, key, choice, argument) =>
         for {

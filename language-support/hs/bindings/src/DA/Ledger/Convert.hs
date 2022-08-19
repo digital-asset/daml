@@ -96,9 +96,13 @@ lowerCommand = \case
         createCommandTemplateId = Just (lowerTemplateId tid),
         createCommandCreateArguments = Just (lowerRecord args)}
 
-    ExerciseCommand{..} ->
+    ExerciseCommand{..} -> do
+        let (tmplId, ifaceId) = case choiceTypeId of
+              Left (TemplateId tid) -> (Just $ lowerIdentifier tid, Nothing)
+              Right (InterfaceId iid) -> (Nothing, Just $ lowerIdentifier iid)
         LL.Command $ Just $ LL.CommandCommandExercise $ LL.ExerciseCommand {
-        exerciseCommandTemplateId = Just (lowerTemplateId tid),
+        exerciseCommandTemplateId = tmplId,
+        exerciseCommandInterfaceId = ifaceId,
         exerciseCommandContractId = unContractId cid,
         exerciseCommandChoice = unChoice choice,
         exerciseCommandChoiceArgument = Just (lowerValue arg) }

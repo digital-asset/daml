@@ -147,16 +147,24 @@ final class CommandsValidator(ledgerId: LedgerId) {
 
       case e: ProtoExercise =>
         for {
-          templateId <- requirePresence(e.value.templateId, "template_id")
-          validatedTemplateId <- validateIdentifier(templateId)
+          validatedTemplateId <- validateOptionalIdentifier(e.value.templateId)
+          validatedInterfaceId <- validateOptionalIdentifier(e.value.interfaceId)
+          validateChoiceTypeId <- (validatedTemplateId, validatedInterfaceId) match {
+            case (Some(tmplId), None) => Right(TemplateOrInterface.Template(tmplId))
+            case (None, Some(ifaceId)) => Right(TemplateOrInterface.Interface(ifaceId))
+            case (_, _) =>
+              Left(
+                invalidArgument(
+                  "one and only one of the filed template_id and interface_id must be defined"
+                )
+              )
+          }
           contractId <- requireContractId(e.value.contractId, "contract_id")
           choice <- requireName(e.value.choice, "choice")
           value <- requirePresence(e.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
         } yield ApiCommand.Exercise(
-          // TODO: https://github.com/digital-asset/daml/issues/14747
-          //  Fix once the new field interface_id have been added to the API Exercise Command
-          typeId = TemplateOrInterface.Template(validatedTemplateId),
+          typeId = validateChoiceTypeId,
           contractId = contractId,
           choiceId = choice,
           argument = validatedValue,
