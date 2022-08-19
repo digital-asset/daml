@@ -119,7 +119,7 @@ class ApiCommandPreprocessorSpec
       )
       // TEST_EVIDENCE: Input Validation: well formed exercise API command is accepted
       val validExeTemplate = ApiCommand.Exercise(
-        "Mod:Record",
+        TemplateOrInterface.Template("Mod:Record"),
         newCid,
         "Transfer",
         ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
@@ -133,7 +133,7 @@ class ApiCommandPreprocessorSpec
       )
       // TEST_EVIDENCE: Input Validation: well formed exercise-by-interface command is accepted
       val validExeInterface = ApiCommand.Exercise(
-        "Mod:Iface",
+        TemplateOrInterface.Interface("Mod:Iface"),
         newCid,
         "IfaceChoice",
         ValueUnit,
@@ -162,7 +162,9 @@ class ApiCommandPreprocessorSpec
         validCreate.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
         // TEST_EVIDENCE: Input Validation: ill-formed exercise API command is rejected
-        validExeTemplate.copy(typeId = "Mod:Undefined") ->
+        validExeTemplate.copy(typeId = TemplateOrInterface.Template("Mod:Undefined")) ->
+          a[Error.Preprocessing.Lookup],
+        validExeTemplate.copy(typeId = TemplateOrInterface.Interface("Mod:Undefined")) ->
           a[Error.Preprocessing.Lookup],
         validExeTemplate.copy(choiceId = "Undefined") ->
           a[Error.Preprocessing.Lookup],
@@ -215,13 +217,13 @@ class ApiCommandPreprocessorSpec
         ValueRecord("", ImmArray("" -> valueParties, "" -> ValueContractId(culpritCid))),
       ),
       ApiCommand.Exercise(
-        "Mod:RecordRef",
+        TemplateOrInterface.Template("Mod:RecordRef"),
         innocentCid,
         "Change",
         ValueContractId(culpritCid),
       ),
       ApiCommand.Exercise(
-        "Mod:RecordRef",
+        TemplateOrInterface.Template("Mod:RecordRef"),
         culpritCid,
         "Change",
         ValueContractId(innocentCid),
