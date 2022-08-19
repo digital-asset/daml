@@ -81,13 +81,13 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
             md_classes = mapMaybe (getClsDocs ctx) dc_decls
 
             interfaceInstanceMap = getInterfaceInstanceMap ctx dc_decls
-            _interfaceViewtypeMap = getInterfaceViewtypeMap ctx dc_insts
+            interfaceViewtypeMap = getInterfaceViewtypeMap ctx dc_insts
 
             md_name = dc_modname
             md_anchor = Just (moduleAnchor md_name)
             md_descr = modDoc tcmod
             md_templates = getTemplateDocs ctx typeMap interfaceInstanceMap
-            md_interfaces = getInterfaceDocs ctx typeMap interfaceInstanceMap
+            md_interfaces = getInterfaceDocs ctx typeMap interfaceViewtypeMap interfaceInstanceMap
             md_functions = mapMaybe (getFctDocs ctx) dc_decls
             md_instances = map (getInstanceDocs ctx) dc_insts
 

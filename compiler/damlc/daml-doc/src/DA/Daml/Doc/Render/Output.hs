@@ -90,6 +90,10 @@ instance RenderDoc InterfaceDoc where
             ]
         , RenderBlock $ mconcat
             [ renderDoc if_descr
+            , RenderParagraph . renderUnwords $
+                [ RenderStrong "viewtype"
+                , renderType if_viewtype
+                ]
             , RenderList (map renderDoc if_choices)
             , RenderList (map renderDoc if_methods)
             ]
