@@ -380,7 +380,7 @@ private[speedy] case class PartialTransaction(
     CheckAuthorization.authorizeCreate(optLocation, createNode)(auth) match {
       case fa :: _ => Left((ptx, Tx.AuthFailureDuringExecution(nid, fa)))
       case Nil =>
-        ptx.contractState.visitCreate(templateId, cid, key) match {
+        ptx.contractState.visitCreate(templateId, cid, key.map(_.key)) match {
           case Right(next) =>
             val nextPtx = ptx.copy(contractState = next)
             Right((cid, nextPtx))
@@ -418,7 +418,7 @@ private[speedy] case class PartialTransaction(
     mustBeActive(NameOf.qualifiedNameOfCurrentFunc, coid) {
       val newContractState = assertRightKey(
         // evaluation order tests require visitFetch proceeds authorizeFetch
-        contractState.visitFetch(templateId, coid, key, byKey)
+        contractState.visitFetch(templateId, coid, key.map(_.key), byKey)
       )
       CheckAuthorization.authorizeFetch(optLocation, node)(auth) match {
         case fa :: _ => Left(Tx.AuthFailureDuringExecution(nid, fa))
@@ -500,7 +500,7 @@ private[speedy] case class PartialTransaction(
       // important: the semantics of Daml dictate that contracts are immediately
       // inactive as soon as you exercise it. therefore, mark it as consumed now.
       val newContractState = assertRightKey(
-        contractState.visitExercise(nid, templateId, targetId, mbKey, byKey, consuming)
+        contractState.visitExercise(nid, templateId, targetId, mbKey.map(_.key), byKey, consuming)
       )
       CheckAuthorization.authorizeExercise(optLocation, makeExNode(ec))(auth) match {
         case fa :: _ => Left(Tx.AuthFailureDuringExecution(nid, fa))
