@@ -65,7 +65,7 @@ object LanguageVersion {
 
   // All the stable versions.
   val StableVersions: VersionRange[LanguageVersion] =
-    VersionRange(min = v1_6, max = v1_15)
+    VersionRange(min = v1_6, max = v1_14)
 
   // All versions compatible with legacy contract ID scheme.
   val LegacyVersions: VersionRange[LanguageVersion] =
