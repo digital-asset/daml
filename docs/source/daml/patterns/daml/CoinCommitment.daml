@@ -31,7 +31,7 @@ template CoinCommitment
       do
         inputCoin <- fetch coinCid
         assert (inputCoin.owner == owner && inputCoin.issuer == issuer && inputCoin.amount == amount )
-        --the original coin firstly transferred to issuer and then archivaed
+        --the original coin firstly transferred to issuer and then archived
         prop <- exercise coinCid Transfer with newOwner = issuer
         do
           id <- exercise prop AcceptTransfer
