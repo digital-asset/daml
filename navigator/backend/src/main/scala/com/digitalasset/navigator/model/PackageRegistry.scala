@@ -38,32 +38,6 @@ case class PackageRegistry(
     c.consuming,
   )
 
-  private[this] def resolveRetroImplements(
-    templates: Map[DamlLfIdentifier, Template],
-    sig: DamlLfIface.Interface
-  ): Map[DamlLfIdentifier, Template] = {
-    val templateIdToAstInterfaceIdSet: Map[TypeConName, Set[DamlLfIdentifier]] = (
-      for {
-        (astInterfaceName, astInterface) <- sig.astInterfaces.toSeq
-        templateId <- astInterface.retroImplements
-      } yield templateId -> DamlLfIdentifier(sig.packageId, astInterfaceName)
-    ).groupBy(_._1)
-      .map { case (k, v) => k -> v.map(_._2).toSet }
-
-    templates.map {
-      case (tId, template) =>
-        tId -> (
-          templateIdToAstInterfaceIdSet.get(tId) match {
-            case Some(implementedInterfaceSet) =>
-              val newImplementedInterfaces = template.implementedInterfaces ++ implementedInterfaceSet
-                template.copy(implementedInterfaces = newImplementedInterfaces)
-            case None =>
-              template
-          }
-        )
-    }
-  }
-
   private def resolveRetroImplements(newSigs: List[DamlLfIface.Interface], packageRegistry: PackageRegistry): PackageRegistry = {
     val templateIdToAstInterfaceIdSet: Map[TypeConName, Set[DamlLfIdentifier]] = (
       for {
