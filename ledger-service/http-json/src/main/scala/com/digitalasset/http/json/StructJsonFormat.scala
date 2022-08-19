@@ -15,7 +15,7 @@ import spray.json.{
   RootJsonFormat,
 }
 
-object StructJsonFormat extends RootJsonFormat[Struct] {
+private[json] object StructJsonFormat extends RootJsonFormat[Struct] {
 
   import com.google.protobuf.struct
   import com.google.protobuf.struct.Value.Kind
