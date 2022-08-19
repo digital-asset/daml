@@ -30,7 +30,7 @@ Templates
   + **Choice Archive**
     
 
-  + **implements** `Token <type-interface-token-10651_>`_
+  + **interface instance** `Token <type-interface-token-10651_>`_ **for** `Asset <type-interface-asset-25340_>`_
 
 Interfaces
 ^^^^^^^^^^

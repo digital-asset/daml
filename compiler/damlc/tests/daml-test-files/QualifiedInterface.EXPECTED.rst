@@ -30,4 +30,4 @@ Templates
   + **Choice Archive**
     
 
-  + **implements** Token
+  + **interface instance** Token **for** `Asset <type-qualifiedinterface-asset-82061_>`_

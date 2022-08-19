@@ -14,7 +14,7 @@
 >   
 >   (no fields)
 
-> * **implements** [Token](#type-interface-token-10651)
+> * **interface instance** [Token](#type-interface-token-10651) **for** [Asset](#type-interface-asset-25340)
 
 ## Interfaces
 
