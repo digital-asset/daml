@@ -41,6 +41,8 @@ import "ghc-lib-parser" DataCon
 import "ghc-lib-parser" Class
 import "ghc-lib-parser" BasicTypes
 import "ghc-lib-parser" Bag (bagToList)
+import "ghc-lib-parser" InstEnv (ClsInst (..))
+import "ghc-lib-parser" Var (varType)
 
 import Control.Monad
 import Control.Monad.IO.Class
@@ -79,6 +81,7 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
             md_classes = mapMaybe (getClsDocs ctx) dc_decls
 
             interfaceInstanceMap = getInterfaceInstanceMap ctx dc_decls
+            _interfaceViewtypeMap = getInterfaceViewtypeMap ctx dc_insts
 
             md_name = dc_modname
             md_anchor = Just (moduleAnchor md_name)
@@ -213,6 +216,18 @@ getInterfaceInstanceMap ctx@DocCtx{..} decls =
             , template
             ] <- [typeToType ctx $ idType id]
         ]
+
+-- | Extracts the viewtype declared for each interface.
+getInterfaceViewtypeMap :: DocCtx -> [ClsInst] -> MS.Map Typename DDoc.Type
+getInterfaceViewtypeMap ctx insts =
+  MS.fromList
+    [ (interface, viewtype)
+    | ClsInst {is_dfun} <- insts
+    , TypeApp _ (Typename "HasInterfaceView")
+        [ TypeApp _ interface []
+        , viewtype
+        ] <- [typeToType ctx $ varType is_dfun ]
+    ]
 
 -- | Extracts the documentation of a function. Comments are either
 --   adjacent to a type signature, or to the actual function definition. If
