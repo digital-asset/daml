@@ -16,7 +16,8 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.v1.event.Event.Event
-import com.daml.ledger.api.v1.event.InterfaceView
+import com.daml.ledger.api.v1.event.{CreatedEvent, InterfaceView}
+import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v1.value.{Identifier, Record}
 import com.daml.ledger.test.semantic.InterfaceViews._
@@ -44,88 +45,8 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
           )
         )
       )
-    } yield {
-      assertLength("3 transactions found", 3, transactions)
-
-      // T1
-      val createdEvent1 = createdEvents(transactions(0)).head
-      assertLength("Create event 1 has a view", 1, createdEvent1.interfaceViews)
-      assertEquals(
-        "Create event 1 template ID",
-        createdEvent1.templateId.get.toString,
-        Tag.unwrap(T1.id).toString,
-      )
-      assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.toString)
-      assertViewEquals(createdEvent1.interfaceViews, Tag.unwrap(I.id)) { value =>
-        assertLength("View1 has 2 fields", 2, value.fields)
-        assertEquals("View1.a", value.fields(0).getValue.getInt64, 1)
-        assertEquals("View1.b", value.fields(1).getValue.getBool, true)
-        assert(
-          value.fields.forall(_.label.nonEmpty),
-          s"Expected a view with labels (verbose)",
-        )
-      }
-      assertEquals(
-        "Create event 1 createArguments must be defined",
-        createdEvent1.createArguments.nonEmpty,
-        true,
-      )
-      assertEquals(
-        "Create event 1 should have a contract key defined",
-        createdEvent1.contractKey.isDefined,
-        true,
-      )
-      assert(
-        createdEvent1.getCreateArguments.fields.forall(_.label.nonEmpty),
-        s"Expected a contract with labels (verbose)",
-      )
-
-      // T2
-      val createdEvent2 = createdEvents(transactions(1)).head
-      assertLength("Create event 2 has a view", 1, createdEvent2.interfaceViews)
-      assertEquals(
-        "Create event 2 template ID",
-        createdEvent2.templateId.get.toString,
-        Tag.unwrap(T2.id).toString,
-      )
-      assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.toString)
-      assertViewEquals(createdEvent2.interfaceViews, Tag.unwrap(I.id)) { value =>
-        assertLength("View2 has 2 fields", 2, value.fields)
-        assertEquals("View2.a", value.fields(0).getValue.getInt64, 2)
-        assertEquals("View2.b", value.fields(1).getValue.getBool, false)
-      }
-      assertEquals(
-        "Create event 2 createArguments must be empty",
-        createdEvent2.createArguments.isEmpty,
-        true,
-      )
-      assertEquals(
-        "Create event 1 should have a contract key empty",
-        createdEvent2.contractKey.isEmpty,
-        true,
-      )
-
-      // T3
-      val createdEvent3 = createdEvents(transactions(2)).head
-      assertLength("Create event 3 has a view", 1, createdEvent3.interfaceViews)
-      assertEquals(
-        "Create event 3 template ID",
-        createdEvent3.templateId.get.toString,
-        Tag.unwrap(T3.id).toString,
-      )
-      assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3.toString)
-      assertViewFailed(createdEvent3.interfaceViews, Tag.unwrap(I.id))
-      assertEquals(
-        "Create event 3 createArguments must be empty",
-        createdEvent3.createArguments.isEmpty,
-        true,
-      )
-      assertEquals(
-        "Create event 1 should have empty contract key",
-        createdEvent3.contractKey.isEmpty,
-        true,
-      )
-    }
+      events = transactions.flatMap(createdEvents)
+    } yield basicAssertions(c1.toString, c2.toString, c3.toString, events)
   })
 
   test(
@@ -135,94 +56,98 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
-      c1 <- create(
-        party,
-        T1(party, 1),
-      ) // Implements: I with view (1, true)
-      c2 <- create(party, T2(party, 2)) // Implements I with view (2, false)
-      c3 <- create(party, T3(party, 3)) // Implements I with a view that crashes
-      _ <- create(party, T4(party, 4)) // Does not implement I
-      (_, acs) <- activeContracts(
+      c1 <- create(party, T1(party, 1))
+      c2 <- create(party, T2(party, 2))
+      c3 <- create(party, T3(party, 3))
+      _ <- create(party, T4(party, 4))
+      (_, createdEvents) <- activeContracts(
         activeContractsRequest(Seq(party), Seq(T1.id), Seq((I.id, true)))
       )
-    } yield {
-      assertLength("3 transactions found", 3, acs)
+    } yield basicAssertions(c1.toString, c2.toString, c3.toString, createdEvents)
+  })
 
-      // T1
-      val createdEvent1 = acs(0)
-      assertLength("Create event 1 has a view", 1, createdEvent1.interfaceViews)
-      assertEquals(
-        "Create event 1 template ID",
-        createdEvent1.templateId.get.toString,
-        Tag.unwrap(T1.id).toString,
-      )
-      assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.toString)
-      assertViewEquals(createdEvent1.interfaceViews, Tag.unwrap(I.id)) { value =>
-        assertLength("View1 has 2 fields", 2, value.fields)
-        assertEquals("View1.a", value.fields(0).getValue.getInt64, 1)
-        assertEquals("View1.b", value.fields(1).getValue.getBool, true)
-        assert(
-          value.fields.forall(_.label.nonEmpty),
-          s"Expected a view with labels (verbose)",
-        )
-      }
-      assertEquals(
-        "Create event 1 createArguments must NOT be empty",
-        createdEvent1.createArguments.isEmpty,
-        false,
-      )
+  private def basicAssertions(
+      c1: String,
+      c2: String,
+      c3: String,
+      createdEvents: Vector[CreatedEvent],
+  ): Unit = {
+    assertLength("3 transactions found", 3, createdEvents)
+
+    // T1
+    val createdEvent1 = createdEvents(0)
+    assertLength("Create event 1 has a view", 1, createdEvent1.interfaceViews)
+    assertEquals(
+      "Create event 1 template ID",
+      createdEvent1.templateId.get.toString,
+      Tag.unwrap(T1.id).toString,
+    )
+    assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1)
+    assertViewEquals(createdEvent1.interfaceViews, Tag.unwrap(I.id)) { value =>
+      assertLength("View1 has 2 fields", 2, value.fields)
+      assertEquals("View1.a", value.fields(0).getValue.getInt64, 1)
+      assertEquals("View1.b", value.fields(1).getValue.getBool, true)
       assert(
-        createdEvent1.getCreateArguments.fields.forall(_.label.nonEmpty),
-        s"Expected a contract with labels (verbose)",
-      )
-      assertEquals(
-        "Create event 1 should have a contract key defined",
-        createdEvent1.contractKey.isDefined,
-        true,
-      )
-
-      // T2
-      val createdEvent2 = acs(1)
-      assertLength("Create event 2 has a view", 1, createdEvent2.interfaceViews)
-      assertEquals(
-        "Create event 2 template ID",
-        createdEvent2.templateId.get.toString,
-        Tag.unwrap(T2.id).toString,
-      )
-      assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.toString)
-      assertViewEquals(createdEvent2.interfaceViews, Tag.unwrap(I.id)) { value =>
-        assertLength("View2 has 2 fields", 2, value.fields)
-        assertEquals("View2.a", value.fields(0).getValue.getInt64, 2)
-        assertEquals("View2.b", value.fields(1).getValue.getBool, false)
-      }
-      assertEquals(
-        "Create event 2 createArguments must be empty",
-        createdEvent2.createArguments.isEmpty,
-        true,
-      )
-      assertEquals(
-        "Create event 2 should not have a contract key defined, as no match by template_id",
-        createdEvent2.contractKey.isDefined,
-        false,
-      )
-
-      // T3
-      val createdEvent3 = acs(2)
-      assertLength("Create event 3 has a view", 1, createdEvent3.interfaceViews)
-      assertEquals(
-        "Create event 3 template ID",
-        createdEvent3.templateId.get.toString,
-        Tag.unwrap(T3.id).toString,
-      )
-      assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3.toString)
-      assertViewFailed(createdEvent3.interfaceViews, Tag.unwrap(I.id))
-      assertEquals(
-        "Create event 3 createArguments must be empty",
-        createdEvent3.createArguments.isEmpty,
-        true,
+        value.fields.forall(_.label.nonEmpty),
+        "Expected a view with labels (verbose)",
       )
     }
-  })
+    assertEquals(
+      "Create event 1 createArguments must NOT be empty",
+      createdEvent1.createArguments.isEmpty,
+      false,
+    )
+    assert(
+      createdEvent1.getCreateArguments.fields.forall(_.label.nonEmpty),
+      "Expected a contract with labels (verbose)",
+    )
+    assertEquals(
+      "Create event 1 should have a contract key defined",
+      createdEvent1.contractKey.isDefined,
+      true,
+    )
+
+    // T2
+    val createdEvent2 = createdEvents(1)
+    assertLength("Create event 2 has a view", 1, createdEvent2.interfaceViews)
+    assertEquals(
+      "Create event 2 template ID",
+      createdEvent2.templateId.get.toString,
+      Tag.unwrap(T2.id).toString,
+    )
+    assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2)
+    assertViewEquals(createdEvent2.interfaceViews, Tag.unwrap(I.id)) { value =>
+      assertLength("View2 has 2 fields", 2, value.fields)
+      assertEquals("View2.a", value.fields(0).getValue.getInt64, 2)
+      assertEquals("View2.b", value.fields(1).getValue.getBool, false)
+    }
+    assertEquals(
+      "Create event 2 createArguments must be empty",
+      createdEvent2.createArguments.isEmpty,
+      true,
+    )
+    assertEquals(
+      "Create event 2 should have a contract key empty, as no match by template_id",
+      createdEvent2.contractKey.isEmpty,
+      true,
+    )
+
+    // T3
+    val createdEvent3 = createdEvents(2)
+    assertLength("Create event 3 has a view", 1, createdEvent3.interfaceViews)
+    assertEquals(
+      "Create event 3 template ID",
+      createdEvent3.templateId.get.toString,
+      Tag.unwrap(T3.id).toString,
+    )
+    assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3)
+    assertViewFailed(createdEvent3.interfaceViews, Tag.unwrap(I.id))
+    assertEquals(
+      "Create event 3 createArguments must be empty",
+      createdEvent3.createArguments.isEmpty,
+      true,
+    )
+  }
 
   test(
     "ISMultipleWitness",
@@ -318,7 +243,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
-      _ <- create(party, T4(party, 4)) // Does not implement I
+      _ <- create(party, T4(party, 4))
       transactions <- flatTransactions(
         getTransactionsRequest(
           transactionFilter(Seq(party), Seq.empty, Seq((INoTemplate.id, true)))
@@ -337,13 +262,10 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
-      c1 <- create(
-        party,
-        T1(party, 1),
-      )
-      c2 <- create(party, T2(party, 2)) // Implements I with view (2, false)
-      c3 <- create(party, T3(party, 3)) // Implements I with a view that crashes
-      _ <- create(party, T4(party, 4)) // Does not implement I
+      c1 <- create(party, T1(party, 1))
+      c2 <- create(party, T2(party, 2))
+      c3 <- create(party, T3(party, 3))
+      _ <- create(party, T4(party, 4))
       transactions <- flatTransactions(
         getTransactionsRequest(
           transactionFilter(
@@ -505,29 +427,13 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       )
       assertEquals(
         "2 and 3 find the same contract_arguments (but not the same views)",
-        transactions2,
-        transactions3.map(tx =>
-          tx.copy(events = tx.events.map { event =>
-            event.copy(event = event.event match {
-              case created: Event.Created =>
-                created.copy(value = created.value.copy(interfaceViews = Seq.empty))
-              case other => other
-            })
-          })
-        ),
+        transactions2.map(updateTransaction()),
+        transactions3.map(updateTransaction(emptyView = true)),
       )
       assertEquals(
         "1 and 3 produce the same views (but not the same create arguments)",
-        transactions1,
-        transactions3.map(tx =>
-          tx.copy(events = tx.events.map { event =>
-            event.copy(event = event.event match {
-              case created: Event.Created =>
-                created.copy(value = created.value.copy(createArguments = None, contractKey = None))
-              case other => other
-            })
-          })
-        ),
+        transactions1.map(updateTransaction()),
+        transactions3.map(updateTransaction(emptyContractKey = true, emptyCreateArguments = true)),
       )
     }
   })
@@ -589,69 +495,59 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
         getTransactionsRequest(transactionFilter(Seq(party2), Seq.empty, Seq((I.id, false))))
       )
     } yield {
-      def emptyWitnessParty(
-          emptyView: Boolean
-      )(tx: com.daml.ledger.api.v1.transaction.Transaction) = {
-        tx.copy(
-          events = tx.events.map { event =>
-            event.copy(event = event.event match {
-              case created: Event.Created if emptyView =>
-                created.copy(value =
-                  created.value.copy(witnessParties = Seq.empty, interfaceViews = Seq.empty)
-                )
-              case created: Event.Created if !emptyView =>
-                created.copy(value = created.value.copy(witnessParties = Seq.empty))
-              case other => other
-            })
-          },
-          commandId = "",
-        )
-      }
-
       assertEquals(
-        party1Iface1transactionsWithView.map(emptyWitnessParty(false)),
-        party2Iface1transactionsWithView.map(emptyWitnessParty(false)),
+        party1Iface1transactionsWithView.map(
+          updateTransaction(emptyView = false, emptyWitness = true)
+        ),
+        party2Iface1transactionsWithView.map(
+          updateTransaction(emptyView = false, emptyWitness = true)
+        ),
       )
 
       assertEquals(
-        party1Iface1transactionsWithoutView.map(emptyWitnessParty(false)),
-        party2Iface1transactionsWithoutView.map(emptyWitnessParty(false)),
+        party1Iface1transactionsWithoutView.map(
+          updateTransaction(emptyView = false, emptyWitness = true)
+        ),
+        party2Iface1transactionsWithoutView.map(
+          updateTransaction(emptyView = false, emptyWitness = true)
+        ),
       )
 
       assertEquals(
-        party1Iface1transactionsWithView.map(emptyWitnessParty(true)),
-        party2Iface1transactionsWithoutView.map(emptyWitnessParty(false)),
+        party1Iface1transactionsWithView.map(
+          updateTransaction(emptyView = true, emptyWitness = true)
+        ),
+        party2Iface1transactionsWithoutView.map(
+          updateTransaction(emptyView = false, emptyWitness = true)
+        ),
       )
     }
   })
 
-  test(
-    "ISTransactionsSubscribeBeforeTemplateCreated",
-    "Subscribing on transaction stream by interface before template is created",
-    allocate(SingleParty),
-  )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    import ledger._
-    for {
-      transactions <- flatTransactions(
-        getTransactionsRequest(
-          transactionFilter(Seq(party), Seq.empty, Seq((INoTemplate.id, true)))
-        )
-      )
-      /* TODO
-      assert no template instances before package is uploaded
-      assert package is not uploaded before we attempt to upload it
-      upload a package with interface only definition
-      subscribe to that interface which was just uploaded
-      assert no elements in the stream yet
-      upload a package with a template referring an interface defined before.
-      create a contract of that template
-      assert there is a new transaction with just created contract
-       */
-    } yield {
-      assertLength("0 transactions should be found", 0, transactions)
-      ()
-    }
-  })
+  private def updateTransaction(
+      emptyView: Boolean = false,
+      emptyWitness: Boolean = false,
+      emptyCreateArguments: Boolean = false,
+      emptyContractKey: Boolean = false,
+  )(tx: com.daml.ledger.api.v1.transaction.Transaction): Transaction = {
+    tx.copy(
+      events = tx.events.map { event =>
+        event.copy(event = event.event match {
+          case created: Event.Created =>
+            created.copy(value =
+              created.value.copy(
+                witnessParties = if (emptyWitness) Seq.empty else created.value.witnessParties,
+                interfaceViews = if (emptyView) Seq.empty else created.value.interfaceViews,
+                contractKey = if (emptyContractKey) None else created.value.contractKey,
+                createArguments = if (emptyCreateArguments) None else created.value.createArguments,
+              )
+            )
+          case other => other
+        })
+      },
+      commandId = "",
+    )
+  }
 
   private def assertViewFailed(views: Seq[InterfaceView], interfaceId: Identifier): Unit = {
     val viewSearch = views.find(_.interfaceId.contains(interfaceId))
