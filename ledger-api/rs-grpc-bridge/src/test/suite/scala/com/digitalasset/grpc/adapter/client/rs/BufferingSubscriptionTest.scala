@@ -41,6 +41,7 @@ class BufferingSubscriptionTest extends AnyWordSpecLike with Matchers {
 }
 object BufferingSubscriptionTest {
   class MockClientCallStreamObserver extends ClientCallStreamObserver[String] {
+    @volatile
     var cancelled = false
     override def cancel(message: String, cause: Throwable): Unit = cancelled = true
     override def isReady: Boolean = ???
