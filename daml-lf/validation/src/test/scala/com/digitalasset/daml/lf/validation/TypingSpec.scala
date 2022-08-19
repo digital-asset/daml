@@ -1005,7 +1005,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
           module Mod {
             record @serializable MyUnit = {};
-          
+
             record @serializable Key = {person: Text, party: Party};
 
             interface (this: I) = {
@@ -1383,7 +1383,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           module Mod {
             record @serializable MyUnit = {};
           }
-            
+
           module NegativeTestCase {
             interface (this : X) = {
               viewtype Mod:MyUnit;
