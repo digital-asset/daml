@@ -210,13 +210,13 @@ For context, a simple template definition:
 Empty ``interface instance`` clause
 -----------------------------------
 
+- If the interface has no methods, the interface instance only needs to
+  implement the ``view`` method:
+
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
    :language: daml
    :start-after: -- EMPTY_INTERFACE_INSTANCE_BEGIN
    :end-before: -- EMPTY_INTERFACE_INSTANCE_END
-
-- If the interface has no methods, the interface instance only needs to
-  implement the ``view`` method.
 
 .. _daml-ref-interface-functions:
 
