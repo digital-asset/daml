@@ -23,6 +23,8 @@ import Control.Monad
 import           Control.Monad.Trans.Maybe
 import qualified Data.Aeson.Encode.Pretty as AP
 import           Data.List.Extra
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import qualified Data.Text          as T
 import qualified Data.Text.Extended as T
 import qualified Data.Text.Lazy as TL
@@ -299,6 +301,20 @@ damldocExpect importPathM testname input check =
 -- | Generate the docs for a given input file and optional import directory.
 runDamldoc :: FilePath -> Maybe FilePath -> IO ModuleDoc
 runDamldoc testfile importPathM = do
+  -- The first module is the one we're testing
+  (\(names, modMap) -> modMap Map.! head names)
+    <$> runDamldocMany' [testfile] importPathM
+
+-- | Generate the docs for a given list of input files and optional import directory.
+runDamldocMany :: [FilePath] -> Maybe FilePath -> IO (Map Modulename ModuleDoc)
+runDamldocMany testfiles importPathM =
+  snd <$> runDamldocMany' testfiles importPathM
+
+-- | Generate the docs for a given list of input files and optional import directory.
+-- The fst of the result has the names of Modulenames for each file path in the input.
+-- The snd has a map from all the modules (including imported ones) to their docs.
+runDamldocMany' :: [FilePath] -> Maybe FilePath -> IO ([Modulename], Map Modulename ModuleDoc)
+runDamldocMany' testfiles importPathM = do
     let opts = (defaultOptions Nothing)
           { optHaddock = Haddock True
           , optScenarioService = EnableScenarioService False
@@ -311,21 +327,23 @@ runDamldoc testfile importPathM = do
         defaultExtractOptions
         diagnosticsLogger
         opts
-        [toNormalizedFilePath' testfile]
+        (toNormalizedFilePath' <$> testfiles)
 
     case mbResult of
       Nothing ->
-        assertFailure $ unlines ["Parse error(s) for test file " <> testfile]
+        assertFailure $ unlines
+          ["Parse error(s) for test file(s) " <> intercalate ", " testfiles]
 
       Just docs -> do
-          let docs' = applyTransform defaultTransformOptions docs
+          let names = md_name <$> take (length testfiles) docs
+                -- extract names from docs since the front of docs matches testfiles
+              docs' = applyTransform defaultTransformOptions docs
                 -- apply transforms to get instance data
-              name = md_name (head docs)
-                -- first module in docs is the one we're testing,
-                -- we need to find it in docs' because applyTransform
-                -- will reorder the docs
-              docM = find ((== name) . md_name) docs'
-          pure $ fromJust docM
+              moduleMap = Map.fromList
+                [ (md_name docM, docM)
+                | docM <- docs'
+                ]
+          pure (names, moduleMap)
 
 -- | For the given file <name>.daml (assumed), this test checks if any
 -- <name>.EXPECTED.<suffix> exists, and produces output according to <suffix>
