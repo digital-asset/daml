@@ -103,6 +103,7 @@ case class DamlLfPackage(
     id: DamlLfRef.PackageId,
     typeDefs: Map[DamlLfIdentifier, DamlLfDefDataType],
     templates: Map[DamlLfIdentifier, Template],
+    astInterfaces: Map[DamlLfIdentifier, AstInterface],
 )
 
 /** A boxed DefDataType that also includes the ID of the type.
@@ -194,7 +195,7 @@ final case class Template(
     id: DamlLfIdentifier,
     choices: List[Choice],
     key: Option[DamlLfType],
-    implementedInterfaces: Set[DamlLfIdentifier]
+    implementedInterfaces: Set[DamlLfIdentifier],
 ) extends DamlLfNode {
   def topLevelDecl: String = id.qualifiedName.toString()
   def parameter: DamlLfTypeCon = DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq())
@@ -204,7 +205,6 @@ final case class Template(
 final case class AstInterface(
     id: DamlLfIdentifier,
     choices: List[Choice],
-    key: Option[DamlLfType],
 ) extends DamlLfNode
 
 /** Template choice. */

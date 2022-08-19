@@ -91,7 +91,6 @@ object ModelCodec {
     implicit val PartyListJsonFormat: RootJsonFormat[List[ApiTypes.Party]] =
       listFormat[ApiTypes.Party]
     implicit val choiceFormat: RootJsonFormat[Choice] = jsonFormat4(Choice.apply)
-    implicit val templateFormat: RootJsonFormat[Template] = jsonFormat3(Template.apply)
-
+    implicit val templateFormat: RootJsonFormat[Template] = jsonFormat4(Template.apply)
   }
 }

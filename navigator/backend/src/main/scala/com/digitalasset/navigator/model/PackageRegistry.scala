@@ -14,19 +14,30 @@ case class PackageRegistry(
     private val packages: Map[DamlLfRef.PackageId, DamlLfPackage] = Map.empty,
     private val templates: Map[DamlLfIdentifier, Template] = Map.empty,
     private val typeDefs: Map[DamlLfIdentifier, DamlLfDefDataType] = Map.empty,
-    private val interfaces: Map[DamlLfIdentifier, AstInterface] = Map.empty
+    private val astInterfaces: Map[DamlLfIdentifier, AstInterface] = Map.empty,
 ) {
   // TODO (#13969) ignores inherited choices; interfaces aren't handled at all
   private[this] def template(
       packageId: DamlLfRef.PackageId,
       qname: DamlLfQualifiedName,
-      t: DamlLfIface.DefTemplate[DamlLfIface.Type]
+      t: DamlLfIface.DefTemplate[DamlLfIface.Type],
   ): Template = Template(
     DamlLfIdentifier(packageId, qname),
     t.tChoices.directChoices.toList.map(c => choice(c._1, c._2)),
     t.key,
     Set.empty,
   )
+
+  private[this] def astInterface(
+      packageId: DamlLfRef.PackageId,
+      qname: DamlLfQualifiedName,
+      astInterface: DamlLfIface.DefInterface[DamlLfIface.Type],
+  ): AstInterface = {
+    AstInterface(
+      DamlLfIdentifier(packageId, qname),
+      astInterface.choices.toList.map(c => choice(c._1, c._2)),
+    )
+  }
 
   private[this] def choice(
       name: String,
@@ -38,23 +49,31 @@ case class PackageRegistry(
     c.consuming,
   )
 
-  private def resolveRetroImplements(newSigs: List[DamlLfIface.Interface], packageRegistry: PackageRegistry): PackageRegistry = {
+  private def resolveRetroImplements(
+      newSigs: List[DamlLfIface.Interface],
+      packageRegistry: PackageRegistry,
+  ): PackageRegistry = {
     val templateIdToAstInterfaceIdSet: Map[TypeConName, Set[DamlLfIdentifier]] = (
       for {
         sig <- newSigs
         (astInterfaceName, astInterface) <- sig.astInterfaces.toSeq
         templateId <- astInterface.retroImplements
       } yield templateId -> DamlLfIdentifier(sig.packageId, astInterfaceName)
-      ).groupBy(_._1)
+    ).groupBy(_._1)
       .map { case (k, v) => k -> v.map(_._2).toSet }
 
     templateIdToAstInterfaceIdSet.foldLeft(packageRegistry) {
       case (pr, (templateId, astInterfaceId)) =>
-        val addImplementedInterfaceIds = (t: Template) => t.copy(implementedInterfaces = t.implementedInterfaces ++ astInterfaceId)
+        val addImplementedInterfaceIds =
+          (t: Template) => t.copy(implementedInterfaces = t.implementedInterfaces ++ astInterfaceId)
 
         val newPackages = pr.packages.updatedWith(templateId.packageId) {
-          _.map(p => p.copy(templates = p.templates
-            .updatedWith(templateId)(_.map(addImplementedInterfaceIds))))
+          _.map(p =>
+            p.copy(templates =
+              p.templates
+                .updatedWith(templateId)(_.map(addImplementedInterfaceIds))
+            )
+          )
         }
 
         val newTemplates = pr.templates.updatedWith(templateId)(
@@ -82,7 +101,10 @@ case class PackageRegistry(
           case (qname, DamlLfIface.InterfaceType.Template(r @ _, t)) =>
             DamlLfIdentifier(p.packageId, qname) -> template(p.packageId, qname, t)
         }
-        p.packageId -> DamlLfPackage(p.packageId, typeDefs, templates)
+        val astInterfaces = p.astInterfaces.collect { case (qname, defInterface) =>
+          DamlLfIdentifier(p.packageId, qname) -> astInterface(p.packageId, qname, defInterface)
+        }
+        p.packageId -> DamlLfPackage(p.packageId, typeDefs, templates, astInterfaces)
       }
 
     val newTemplates = newPackages
@@ -91,13 +113,17 @@ case class PackageRegistry(
     val newTypeDefs = newPackages
       .flatMap(_._2.typeDefs)
 
+    val newAstInterface = newPackages
+      .flatMap(_._2.astInterfaces)
+
     resolveRetroImplements(
       interfaces,
       copy(
         packages = packages ++ newPackages,
         templates = templates ++ newTemplates,
         typeDefs = typeDefs ++ newTypeDefs,
-      )
+        astInterfaces = astInterfaces ++ newAstInterface,
+      ),
     )
   }
 
