@@ -13,14 +13,17 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   allocate,
 }
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.infrastructure.{Dars, LedgerTestSuite}
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
+import com.daml.ledger.api.testtool.infrastructure.future.FutureUtil
 import com.daml.ledger.api.v1.event.Event.Event
 import com.daml.ledger.api.v1.event.{CreatedEvent, InterfaceView}
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v1.value.{Identifier, Record}
 import com.daml.ledger.test.semantic.InterfaceViews._
+import com.daml.ledger.test.carbonv1
+import com.daml.ledger.test.carbonv2
 import scalaz.Tag
 
 class InterfaceSubscriptionsIT extends LedgerTestSuite {
@@ -521,6 +524,62 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
           updateTransaction(emptyView = false, emptyWitness = true)
         ),
       )
+    }
+  })
+
+  test(
+    "ISTransactionsSubscribeBeforeTemplateCreated",
+    "Subscribing on transaction stream by interface before template is created",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    import ledger._
+    for {
+      f1 <- flatTransactions(
+        getTransactionsRequest(
+          transactionFilter(Seq(party), Seq.empty, Seq((carbonv1.CarbonV1.I.id, true)))
+        )
+      ).mustFail("Subscribing to not-yet known interface")
+
+      _ <- FutureUtil.sequential(Dars.resources.filter(_.contains("carbonv1")))(x =>
+        ledger.uploadDarFile(Dars.read(x))
+      )
+
+      transactionPromise = flatTransactionsPromise(
+        getTransactionsRequest(
+          transactionFilter(Seq(party), Seq.empty, Seq((carbonv1.CarbonV1.I.id, true)))
+        ).update(_.optionalEnd := None)
+      )
+      _ = assertEquals(transactionPromise.isCompleted, false)
+
+      _ <- FutureUtil.sequential(Dars.resources.filter(_.contains("carbonv2")))(x =>
+        ledger.uploadDarFile(Dars.read(x))
+      )
+
+      c <- create(party, carbonv2.CarbonV2.T(party, 21))
+
+      response <- transactionPromise.future
+
+    } yield {
+      assertGrpcError(
+        f1,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
+        Some(s"Interfaces do not exist"),
+      )
+      assertLength("transaction should be found", 1, response.transactions)
+
+      // T2
+      val createdEvent = createdEvents(response.transactions(0)).head
+      assertLength("Create event has a view", 1, createdEvent.interfaceViews)
+      assertEquals(
+        "Create event 2 template ID",
+        createdEvent.templateId.get.toString,
+        Tag.unwrap(carbonv2.CarbonV2.T.id).toString,
+      )
+      assertEquals("Create event 2 contract ID", createdEvent.contractId, c.toString)
+      assertViewEquals(createdEvent.interfaceViews, Tag.unwrap(carbonv1.CarbonV1.I.id)) { value =>
+        assertLength("View has 1 field", 1, value.fields)
+        assertEquals("View.a", value.fields(0).getValue.getInt64, 21)
+      }
     }
   })
 

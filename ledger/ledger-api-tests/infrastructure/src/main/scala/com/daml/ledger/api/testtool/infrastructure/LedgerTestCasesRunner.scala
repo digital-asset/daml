@@ -157,8 +157,11 @@ final class LedgerTestCasesRunner(
               identifierSuffix = identifierSuffix,
               features = session.features,
             )
-            // upload the dars sequentially to avoid conflicts
-            _ <- FutureUtil.sequential(Dars.resources)(uploadDar(context, _))
+            // upload the dars sequentially to avoid conflicts,
+            // ignore dars which include "carbon" in it, as later uploaded during the test
+            _ <- FutureUtil.sequential(Dars.resources.filterNot(_.contains("carbon")))(
+              uploadDar(context, _)
+            )
           } yield ()
         }
         .map(_ => ())

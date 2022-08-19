@@ -22,6 +22,7 @@ _zipper = attr.label(
 def _daml_configure_impl(ctx):
     project_name = ctx.attr.project_name
     project_version = ctx.attr.project_version
+    data_dependencies = ctx.attr.data_dependencies
     daml_yaml = ctx.outputs.daml_yaml
     target = ctx.attr.target
     opts = ["--target={}".format(target)] if target else []
@@ -32,6 +33,7 @@ def _daml_configure_impl(ctx):
             name: {name}
             version: {version}
             source: .
+            data-dependencies: [{data_dependencies} ]
             dependencies: []
             build-options: [{opts} ]
         """.format(
@@ -39,6 +41,7 @@ def _daml_configure_impl(ctx):
             name = project_name,
             version = project_version,
             opts = ", ".join(opts),
+            data_dependencies = ", ".join(data_dependencies),
         ),
     )
 
@@ -59,6 +62,9 @@ _daml_configure = rule(
         ),
         "target": attr.string(
             doc = "Daml-LF version to output.",
+        ),
+        "data_dependencies": attr.string_list(
+            doc = "Data dependencies.",
         ),
     },
 )
@@ -273,12 +279,15 @@ def daml_compile(
         project_name = None,
         ghc_options = default_damlc_opts,
         enable_scenarios = False,
+        dar_dict = {},
+        data_dependencies = [],
         **kwargs):
     "Build a Daml project, with a generated daml.yaml."
     if len(srcs) == 0:
         fail("daml_compile: Expected `srcs' to be non-empty.")
     daml_yaml = name + ".yaml"
     _daml_configure(
+        data_dependencies = data_dependencies,
         name = name + ".configure",
         project_name = project_name or name,
         project_version = version,
@@ -290,7 +299,7 @@ def daml_compile(
         name = name + ".build",
         daml_yaml = daml_yaml,
         srcs = srcs,
-        dar_dict = {},
+        dar_dict = dar_dict,
         dar = name + ".dar",
         ghc_options =
             ghc_options +

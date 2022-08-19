@@ -1,0 +1,7 @@
+module CarbonV1 where
+
+data View = View with
+  a : Int
+
+interface I where
+    viewtype View
