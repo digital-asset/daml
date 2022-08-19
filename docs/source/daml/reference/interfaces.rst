@@ -69,21 +69,29 @@ Interface Methods
 - A method definition consists of the method name and the method type, separated
   by a single colon ``:``. The name of the method must be a valid identifier
   beginning with a lowercase letter or an underscore.
-- A method definition introduces a top level function of the same name. If the
-  interface is called ``I``, the method is called ``m``, and the method type is
-  ``M``, this introduces the function ``m : Implements t I => t -> M``:
+- A method definition introduces a top level function of the same name:
 
-  .. literalinclude:: ../code-snippets-dev/Interfaces.daml
-     :language: daml
-     :start-after: -- INTERFACE_METHODS_TOP_LEVEL_BEGIN
-     :end-before: -- INTERFACE_METHODS_TOP_LEVEL_END
+  - If the interface is called ``I``, the method is called ``m``, and the
+    method type is ``M`` (which might be a function type), this introduces
+    the function ``m : Implements t I => t -> M``:
 
-- The ``Implements t I`` constraint means that the function can be applied to
-  any value of type ``t`` such that:
+    .. literalinclude:: ../code-snippets-dev/Interfaces.daml
+      :language: daml
+      :start-after: -- INTERFACE_METHODS_TOP_LEVEL_BEGIN
+      :end-before: -- INTERFACE_METHODS_TOP_LEVEL_END
 
-  - ``t`` is a template type and there exists an ``interface instance`` of
-    ``I`` for ``t``, **OR**
-  - ``t`` is the interface type ``I`` itself.
+  - The ``Implements t I`` constraint means that the function can be applied to
+    any argument of type ``t`` such that:
+
+    - ``t`` is a template type and there exists an ``interface instance`` of
+      ``I`` for ``t``, **OR**
+    - ``t`` is the abstract interface type ``I`` itself.
+
+  - Applying the function to such argument results in a value of type ``M``,
+    corresponding to the implementation of ``m`` in the interface instance of
+    ``I`` for ``t`` with ``this`` bound to the ``t`` argument. If ``t`` is the
+    abstract interface type ``I``, the interface instance used is the one for
+    the underlying template type.
 
 - One special method, ``view``, must be defined for the viewtype.
   (see :ref:`interface-viewtype` below).
@@ -172,8 +180,8 @@ For context, a simple template definition:
   template, and finally the keyword ``where``, which introduces a block where
   **all** the methods of the interface must be implemented.
 - Within the clause, there's an implicit local binding ``this`` referring to the
-  current contract, which has the type of the template's data record. The
-  template parameters of this contract are also in scope.
+  contract on which the method is applied, which has the type of the template's
+  data record. The template parameters of this contract are also in scope.
 - Method implementations can be defined using the same syntax as for top level
   functions, including pattern matches and guards (e.g. ``method3``).
 - Each method implementation must return the same type as specified for that
