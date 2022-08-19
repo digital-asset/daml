@@ -153,8 +153,10 @@ object TransactionVersionTest {
   val (interfacesPkgId, interfacesPkg) =
     PackageId.assertFromString("interfaces-pkg") -> p"""
          module InterfacesMod {
+           record @serializable EmptyInterfaceView = {};
+
            interface (this: Interface1) = {
-             viewtype Unit;
+             viewtype 'interfaces-pkg':InterfacesMod:EmptyInterfaceView;
              method getPerson: Party;
              choice Destroy (self) (arg: Unit): Unit,
                controllers Cons @Party [call_method @'interfaces-pkg':InterfacesMod:Interface1 getPerson this] (Nil @Party),
@@ -163,7 +165,7 @@ object TransactionVersionTest {
            };
 
            interface (this: Interface2) = {
-             viewtype Unit;
+             viewtype 'interfaces-pkg':InterfacesMod:EmptyInterfaceView;
              method getPerson: Party;
              method getLabel: Text;
              choice Destroy (self) (arg: Unit): Unit,
@@ -183,7 +185,7 @@ object TransactionVersionTest {
             observers (Nil @Party);
             agreement "Agreement for template TemplateImplements1";
             implements 'interfaces-pkg':InterfacesMod:Interface1 {
-              view = ();
+              view = 'interfaces-pkg':InterfacesMod:EmptyInterfaceView {};
               method getPerson = 'implements-pkg':ImplementsMod:TemplateImplements1 {person} this;
             };
           };
@@ -195,7 +197,7 @@ object TransactionVersionTest {
             observers (Nil @Party);
             agreement "Agreement for template TemplateImplements2";
             implements 'interfaces-pkg':InterfacesMod:Interface2 {
-              view = ();
+              view = 'interfaces-pkg':InterfacesMod:EmptyInterfaceView {};
               method getPerson = 'implements-pkg':ImplementsMod:TemplateImplements2 {person} this;
               method getLabel = "template-implements-2";
             };
@@ -208,11 +210,11 @@ object TransactionVersionTest {
             observers (Nil @Party);
             agreement "Agreement for template TemplateImplements12";
             implements 'interfaces-pkg':InterfacesMod:Interface1 {
-              view = ();
+              view = 'interfaces-pkg':InterfacesMod:EmptyInterfaceView {};
               method getPerson = 'implements-pkg':ImplementsMod:TemplateImplements12 {person} this;
             };
             implements 'interfaces-pkg':InterfacesMod:Interface2 {
-              view = ();
+              view = 'interfaces-pkg':InterfacesMod:EmptyInterfaceView {};
               method getPerson = 'implements-pkg':ImplementsMod:TemplateImplements12 {person} this;
               method getLabel = "template-implements-1-2";
             };
@@ -222,8 +224,10 @@ object TransactionVersionTest {
   val (coImplementsPkgId, coImplementsPkg) =
     PackageId.assertFromString("coimplements-pkg") -> p"""
         module CoImplementsMod {
+          record @serializable EmptyInterfaceView = {};
+
           interface (this: InterfaceCoImplements1) = {
-            viewtype Unit;
+            viewtype 'coimplements-pkg':CoImplementsMod:EmptyInterfaceView;
             method getPerson: Party;
             method getLabel: Text;
             choice Destroy (self) (arg: Unit): Unit,
@@ -231,7 +235,7 @@ object TransactionVersionTest {
               observers Nil @Party
               to upure @Unit ();
             coimplements 'template-pkg':TemplateMod:Template1 {
-              view = ();
+              view = 'coimplements-pkg':CoImplementsMod:EmptyInterfaceView {};
               method getPerson = 'template-pkg':TemplateMod:Template1 {person} this;
               method getLabel = 'template-pkg':TemplateMod:Template1 {label} this;
             };
