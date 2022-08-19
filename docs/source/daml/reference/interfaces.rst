@@ -1,7 +1,7 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-.. _interfaces:
+.. _daml-ref-interfaces:
 
 Reference: Interfaces
 #####################
@@ -34,6 +34,28 @@ Interface Name
 - This is the name of the interface.
 - It's preceded by the keyword ``interface`` and followed by the keyword ``where``.
 - It must begin with a capital letter, like any other type name.
+
+Implicit abstract type
+----------------------
+
+- Whenever an interface is defined, an abstract type is defined with the same
+  name. "Abstract" here means:
+
+  - Values of this type cannot be created using a data constructor. Instead,
+    they are constructed by applying the function ``toInterface`` to a template
+    value.
+  - Values of this type cannot be inspected directly via case analysis.
+    Instead, use functions such as ``fromInterface``.
+  - See :ref:`daml-ref-interface-functions` for more information on these and
+    other functions for interacting with interface values.
+
+- An interface value carries inside it the type and parameters of the template
+  value from which it was constructed.
+- As for templates, the existence of a local binding ``b`` of type ``I``, where
+  ``I`` is an interface does not necessarily imply the existence on the ledger
+  of a contract with the template type and parameters used to construct ``b``.
+  This can only be assumed if ``b`` the result of a fetch from the ledger within
+  the same transaction.
 
 Interface Methods
 -----------------
@@ -187,6 +209,8 @@ Empty ``interface instance`` clause
 
 - If the interface has no methods, the interface instance only needs to
   implement the ``view`` method.
+
+.. _daml-ref-interface-functions:
 
 Interface Functions
 *******************
