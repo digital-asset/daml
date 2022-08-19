@@ -38,6 +38,8 @@
 > 
 > * **Method transferImpl :** [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072) ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-retroactiveinterfaceinstance-token-49693))
 
+> * **interface instance** [Token](#type-retroactiveinterfaceinstance-token-49693) **for** Asset
+
 ## Data Types
 
 <a name="type-retroactiveinterfaceinstance-tokenview-57374"></a>**data** [TokenView](#type-retroactiveinterfaceinstance-tokenview-57374)

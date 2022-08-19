@@ -72,6 +72,8 @@ Interfaces
   
   + **Method transferImpl \:** `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_ \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072>`_ (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-retroactiveinterfaceinstance-token-49693_>`_)
 
+  + **interface instance** `Token <type-retroactiveinterfaceinstance-token-49693_>`_ **for** Asset
+
 Data Types
 ^^^^^^^^^^
 
