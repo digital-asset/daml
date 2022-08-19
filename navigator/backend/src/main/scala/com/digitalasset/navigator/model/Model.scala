@@ -194,13 +194,14 @@ final case class Template(
     id: DamlLfIdentifier,
     choices: List[Choice],
     key: Option[DamlLfType],
+    implementedInterfaces: Set[DamlLfIdentifier]
 ) extends DamlLfNode {
   def topLevelDecl: String = id.qualifiedName.toString()
   def parameter: DamlLfTypeCon = DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq())
 }
 
 /** Interfaces. */
-final case class Interface(
+final case class AstInterface(
     id: DamlLfIdentifier,
     choices: List[Choice],
     key: Option[DamlLfType],

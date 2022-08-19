@@ -5,6 +5,7 @@ package com.daml.navigator.model
 
 import com.daml.navigator.{model => Model}
 import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.lf.data.Ref.TypeConName
 import com.daml.lf.{iface => DamlLfIface}
 import com.daml.lf.data.{Ref => DamlLfRef}
 
@@ -13,17 +14,18 @@ case class PackageRegistry(
     private val packages: Map[DamlLfRef.PackageId, DamlLfPackage] = Map.empty,
     private val templates: Map[DamlLfIdentifier, Template] = Map.empty,
     private val typeDefs: Map[DamlLfIdentifier, DamlLfDefDataType] = Map.empty,
-    private val interfaces: Map[DamlLfIdentifier, Interface] = Map.empty,
+    private val interfaces: Map[DamlLfIdentifier, AstInterface] = Map.empty
 ) {
   // TODO (#13969) ignores inherited choices; interfaces aren't handled at all
   private[this] def template(
       packageId: DamlLfRef.PackageId,
       qname: DamlLfQualifiedName,
-      t: DamlLfIface.DefTemplate[DamlLfIface.Type],
+      t: DamlLfIface.DefTemplate[DamlLfIface.Type]
   ): Template = Template(
     DamlLfIdentifier(packageId, qname),
     t.tChoices.directChoices.toList.map(c => choice(c._1, c._2)),
     t.key,
+    Set.empty,
   )
 
   private[this] def choice(
@@ -35,6 +37,62 @@ case class PackageRegistry(
     c.returnType,
     c.consuming,
   )
+
+  private[this] def resolveRetroImplements(
+    templates: Map[DamlLfIdentifier, Template],
+    sig: DamlLfIface.Interface
+  ): Map[DamlLfIdentifier, Template] = {
+    val templateIdToAstInterfaceIdSet: Map[TypeConName, Set[DamlLfIdentifier]] = (
+      for {
+        (astInterfaceName, astInterface) <- sig.astInterfaces.toSeq
+        templateId <- astInterface.retroImplements
+      } yield templateId -> DamlLfIdentifier(sig.packageId, astInterfaceName)
+    ).groupBy(_._1)
+      .map { case (k, v) => k -> v.map(_._2).toSet }
+
+    templates.map {
+      case (tId, template) =>
+        tId -> (
+          templateIdToAstInterfaceIdSet.get(tId) match {
+            case Some(implementedInterfaceSet) =>
+              val newImplementedInterfaces = template.implementedInterfaces ++ implementedInterfaceSet
+                template.copy(implementedInterfaces = newImplementedInterfaces)
+            case None =>
+              template
+          }
+        )
+    }
+  }
+
+  private def resolveRetroImplements(newSigs: List[DamlLfIface.Interface], packageRegistry: PackageRegistry): PackageRegistry = {
+    val templateIdToAstInterfaceIdSet: Map[TypeConName, Set[DamlLfIdentifier]] = (
+      for {
+        sig <- newSigs
+        (astInterfaceName, astInterface) <- sig.astInterfaces.toSeq
+        templateId <- astInterface.retroImplements
+      } yield templateId -> DamlLfIdentifier(sig.packageId, astInterfaceName)
+      ).groupBy(_._1)
+      .map { case (k, v) => k -> v.map(_._2).toSet }
+
+    templateIdToAstInterfaceIdSet.foldLeft(packageRegistry) {
+      case (pr, (templateId, astInterfaceId)) =>
+        val addImplementedInterfaceIds = (t: Template) => t.copy(implementedInterfaces = t.implementedInterfaces ++ astInterfaceId)
+
+        val newPackages = pr.packages.updatedWith(templateId.packageId) {
+          _.map(p => p.copy(templates = p.templates
+            .updatedWith(templateId)(_.map(addImplementedInterfaceIds))))
+        }
+
+        val newTemplates = pr.templates.updatedWith(templateId)(
+          _.map(addImplementedInterfaceIds)
+        )
+
+        packageRegistry.copy(
+          packages = newPackages,
+          templates = newTemplates,
+        )
+    }
+  }
 
   def withPackages(interfaces: List[DamlLfIface.Interface]): PackageRegistry = {
     val newPackages = interfaces
@@ -59,10 +117,13 @@ case class PackageRegistry(
     val newTypeDefs = newPackages
       .flatMap(_._2.typeDefs)
 
-    copy(
-      packages = packages ++ newPackages,
-      templates = templates ++ newTemplates,
-      typeDefs = typeDefs ++ newTypeDefs,
+    resolveRetroImplements(
+      interfaces,
+      copy(
+        packages = packages ++ newPackages,
+        templates = templates ++ newTemplates,
+        typeDefs = typeDefs ++ newTypeDefs,
+      )
     )
   }
 
