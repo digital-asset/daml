@@ -79,6 +79,7 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
         case rpccmd.Command.Command.Exercise(
               rpccmd.ExerciseCommand(
                 Some(DirectTemplateId),
+                None,
                 cid,
                 "OverloadedInTemplate",
                 Some(choiceArg),
@@ -96,6 +97,7 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
         case rpccmd.Command.Command.Exercise(
               rpccmd.ExerciseCommand(
                 Some(DirectTemplateId),
+                None,
                 cid,
                 "OverloadedInTemplate",
                 Some(choiceArg),
@@ -111,6 +113,7 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
         case rpccmd.Command.Command.Exercise(
               rpccmd.ExerciseCommand(
                 Some(DirectTemplateId),
+                None,
                 cid,
                 "OverloadedInTemplate",
                 Some(choiceArg),
@@ -123,6 +126,7 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
         case rpccmd.Command.Command.Exercise(
               rpccmd.ExerciseCommand(
                 Some(DirectTemplateId),
+                None,
                 cid,
                 "OverloadedInTemplate",
                 Some(choiceArg),
@@ -144,6 +148,7 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
         case rpccmd.Command.Command.Exercise(
               rpccmd.ExerciseCommand(
                 Some(FAMTemplateId),
+                None,
                 cid,
                 "OverloadedInTemplate",
                 Some(choiceArg),
@@ -159,6 +164,7 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
         case rpccmd.Command.Command.Exercise(
               rpccmd.ExerciseCommand(
                 Some(ITMTemplateId),
+                None,
                 cid,
                 "InheritedOnly",
                 Some(choiceArg),
@@ -174,6 +180,7 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
         case rpccmd.Command.Command.Exercise(
               rpccmd.ExerciseCommand(
                 Some(FAMTemplateId),
+                None,
                 cid,
                 "FromAnotherMod",
                 Some(choiceArg),
