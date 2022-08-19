@@ -4,6 +4,8 @@
 
 <a name="type-retroactiveinterfaceinstance-token-49693"></a>**interface** [Token](#type-retroactiveinterfaceinstance-token-49693)
 
+> **viewtype** [TokenView](#type-retroactiveinterfaceinstance-tokenview-57374)
+> 
 > * **Choice GetRich**
 >   
 >   | Field                                                                          | Type                                                                           | Description |

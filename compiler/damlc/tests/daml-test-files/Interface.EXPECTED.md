@@ -22,6 +22,8 @@
 
 > An interface comment.
 > 
+> **viewtype** [EmptyInterfaceView](#type-interface-emptyinterfaceview-28816)
+> 
 > * **Choice GetRich**
 >   
 >   | Field                                                                          | Type                                                                           | Description |

@@ -10,6 +10,8 @@ Interfaces
 
 **interface** `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_
 
+  **viewtype** `TokenView <type-qualifiedretroactiveinterfaceinstance-tokenview-25557_>`_
+  
   + **Choice GetRich**
     
     .. list-table::

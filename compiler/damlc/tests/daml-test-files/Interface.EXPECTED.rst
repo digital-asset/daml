@@ -41,6 +41,8 @@ Interfaces
 
   An interface comment\.
   
+  **viewtype** `EmptyInterfaceView <type-interface-emptyinterfaceview-28816_>`_
+  
   + **Choice GetRich**
     
     .. list-table::
