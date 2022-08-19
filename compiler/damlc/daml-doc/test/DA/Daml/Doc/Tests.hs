@@ -298,6 +298,22 @@ damldocExpect importPathM testname input check =
     doc <- runDamldoc testfile importPathM
     check doc
 
+damldocExpectMany ::
+     Maybe FilePath
+  -> String
+  -> [(String, [T.Text])]
+  -> (Map Modulename ModuleDoc -> Assertion)
+  -> Tasty.TestTree
+damldocExpectMany importPathM testname input check =
+  testCase testname $
+  withTempDir $ \dir -> do
+    testfiles <- forM input $ \(modName, content) -> do
+      let testfile = dir </> modName <.> "daml"
+      T.writeFileUtf8 testfile (T.unlines content)
+      pure testfile
+    docs <- runDamldocMany testfiles importPathM
+    check docs
+
 -- | Generate the docs for a given input file and optional import directory.
 runDamldoc :: FilePath -> Maybe FilePath -> IO ModuleDoc
 runDamldoc testfile importPathM = do
