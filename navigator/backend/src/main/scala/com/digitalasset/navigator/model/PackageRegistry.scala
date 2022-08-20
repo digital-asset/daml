@@ -25,7 +25,7 @@ case class PackageRegistry(
     DamlLfIdentifier(packageId, qname),
     t.tChoices.directChoices.toList.map(c => choice(c._1, c._2)),
     t.key,
-    Set.empty,
+    t.implementedInterfaces.toSet
   )
 
   private[this] def astInterface(
