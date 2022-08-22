@@ -62,11 +62,11 @@ object SignatureReader {
 
   private[reader] final case class State(
       typeDecls: Map[QualifiedName, TypeDecl] = Map.empty,
-      astInterfaces: Map[QualifiedName, typesig.DefInterface.FWT] = Map.empty,
+      interfaces: Map[QualifiedName, typesig.DefInterface.FWT] = Map.empty,
       errors: Error.Tree = mzero[Error.Tree],
   ) {
     def asOut(packageId: PackageId, metadata: Option[PackageMetadata]): typesig.PackageSignature =
-      typesig.PackageSignature(packageId, metadata, typeDecls, astInterfaces)
+      typesig.PackageSignature(packageId, metadata, typeDecls, interfaces)
   }
 
   private[reader] object State {
@@ -75,7 +75,7 @@ object SignatureReader {
         (l, r) =>
           State(
             l.typeDecls ++ r.typeDecls,
-            l.astInterfaces ++ r.astInterfaces,
+            l.interfaces ++ r.interfaces,
             l.errors |+| r.errors,
           ),
         State(),
@@ -183,14 +183,14 @@ object SignatureReader {
       .partitionMap(identity)
     val ddts = dataTypes.view.collect { case Some(x) => x }.toMap
 
-    val (ierrors, astIfs) = module.interfaces.partitionMap { case (name, interface) =>
+    val (ierrors, astIfs) = module.interfaces.partitionMap { case (name, astIf) =>
       val fullName = QualifiedName(module.name, name)
-      val result = astInterface(fullName, interface)
+      val result = interface(fullName, astIf)
       locate(Symbol("name"), rootErrOf[ErrorLoc](result)).toEither
     }
 
     import scalaz.std.iterable._
-    State(typeDecls = ddts, astInterfaces = astIfs.toMap, errors = (derrors ++ ierrors).suml)
+    State(typeDecls = ddts, interfaces = astIfs.toMap, errors = (derrors ++ ierrors).suml)
   }
 
   private[reader] def record[T >: TypeDecl.Normal](
@@ -271,7 +271,7 @@ object SignatureReader {
       toIfaceType(ctx, typ).map(x => fieldName -> x)
     }
 
-  private[this] def astInterface(
+  private[this] def interface(
       name: QualifiedName,
       astIf: Ast.DefInterface,
   ): Error \/ (QualifiedName, DefInterface.FWT) = for {
