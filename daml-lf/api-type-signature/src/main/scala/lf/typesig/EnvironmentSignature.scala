@@ -16,9 +16,10 @@ import scalaz.Semigroup
 /** The combination of multiple [[PackageSignature]]s, such as from a dar. */
 final case class EnvironmentSignature(
     metadata: Map[PackageId, PackageMetadata],
-    typeDecls: Map[Identifier, InterfaceType],
+    typeDecls: Map[Identifier, PackageSignature.TypeDecl],
     astInterfaces: Map[Ref.TypeConName, DefInterface.FWT],
 ) {
+  import PackageSignature.TypeDecl
 
   /** Replace all resolvable `inheritedChoices` in `typeDecls` with concrete
     * choices copied from `astInterfaces`.  If a template has any missing choices,
@@ -39,10 +40,10 @@ final case class EnvironmentSignature(
   def resolveChoices: EnvironmentSignature =
     copy(typeDecls = typeDecls.transform { (_, it) =>
       it match {
-        case itpl: InterfaceType.Template =>
+        case itpl: TypeDecl.Template =>
           val errOrTpl2 = itpl.template resolveChoices astInterfaces
           errOrTpl2.fold(_ => itpl, tpl2 => itpl.copy(template = tpl2))
-        case z: InterfaceType.Normal => z
+        case z: TypeDecl.Normal => z
       }
     })
 

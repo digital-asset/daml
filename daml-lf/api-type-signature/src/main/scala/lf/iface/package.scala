@@ -58,10 +58,10 @@ package object iface {
   // @deprecated("moved to typesig.DefInterface", since = "2.4.0")
   final val DefInterface = typesig.DefInterface
 
-  // @deprecated("moved to typesig.InterfaceType", since = "2.4.0")
-  type InterfaceType = typesig.InterfaceType
-  // @deprecated("moved to typesig.InterfaceType", since = "2.4.0")
-  final val InterfaceType = typesig.InterfaceType
+  // @deprecated("renamed to typesig.PackageSignature.TypeDecl", since = "2.4.0")
+  type InterfaceType = typesig.PackageSignature.TypeDecl
+  // @deprecated("renamed to typesig.PackageSignature.TypeDecl", since = "2.4.0")
+  final val InterfaceType = typesig.PackageSignature.TypeDecl
 
   // @deprecated("moved to typesig.PackageMetadata", since = "2.4.0")
   type PackageMetadata = typesig.PackageMetadata

@@ -21,6 +21,7 @@ import scalaz.syntax.functor._
 import scala.language.implicitConversions
 
 class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
+  import PackageSignature.TypeDecl
 
   private def dnfs(args: String*): Ref.DottedName = Ref.DottedName.assertFromSegments(args)
   private val moduleName: Ref.ModuleName = dnfs("Main")
@@ -40,7 +41,7 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
 
     val expectedResult = Map(
       qualifiedName ->
-        iface.InterfaceType.Normal(
+        TypeDecl.Normal(
           DefDataType(
             ImmArray[Ref.Name]("call", "put").toSeq,
             Variant(ImmArray(name("Call") -> TypeVar("call"), name("Put") -> TypeVar("put")).toSeq),
@@ -81,7 +82,7 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
       SignatureReader.foldModule(wrappInModule(dnfs("NameClashRecordVariant"), variantDataType))
     val expectedResult = Map(
       Ref.QualifiedName(moduleName, dnfs("NameClashRecordVariant")) ->
-        iface.InterfaceType.Normal(
+        TypeDecl.Normal(
           DefDataType(
             ImmArraySeq.Empty,
             Variant(
@@ -120,7 +121,7 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
 
     val expectedResult = Map(
       Ref.QualifiedName(moduleName, dnfs("Record")) ->
-        iface.InterfaceType.Normal(
+        TypeDecl.Normal(
           DefDataType(
             ImmArraySeq.Empty,
             Record(
@@ -151,7 +152,7 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     val actual = SignatureReader.foldModule(wrappInModule(dnfs("MapRecord"), dataType))
     val expectedResult = Map(
       Ref.QualifiedName(moduleName, dnfs("MapRecord")) ->
-        iface.InterfaceType.Normal(
+        TypeDecl.Normal(
           DefDataType(
             ImmArraySeq.Empty,
             Record(
@@ -222,7 +223,7 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     import itp.main.{packageId => itpPid}
 
     "exclude interface choices with template choices" in {
-      inside(itp.main.typeDecls get Foo) { case Some(InterfaceType.Template(_, tpl)) =>
+      inside(itp.main.typeDecls get Foo) { case Some(TypeDecl.Template(_, tpl)) =>
         tpl.tChoices.directChoices.keySet should ===(Set("Bar", "Archive"))
       }
     }
@@ -230,7 +231,7 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     "include interface choices in separate inheritedChoices" in {
       inside(itp.main.typeDecls get Foo) {
         case Some(
-              InterfaceType.Template(_, DefTemplate(TemplateChoices.Unresolved(_, inherited), _, _))
+              TypeDecl.Template(_, DefTemplate(TemplateChoices.Unresolved(_, inherited), _, _))
             ) =>
           inherited.map(_.qualifiedName) should ===(Set(TIf, LibTIf))
       }
@@ -271,7 +272,7 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
       (
         // TODO SC #14067 use the LibTIf DefInterface's view instead, requires #14112
         Ref.TypeConName(itp.main.packageId, LibTIfView),
-        inside(itp.main.typeDecls(LibTIfView)) { case InterfaceType.Normal(DefDataType(_, rec)) =>
+        inside(itp.main.typeDecls(LibTIfView)) { case TypeDecl.Normal(DefDataType(_, rec)) =>
           rec
         },
       )
@@ -288,12 +289,12 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
       itpES.resolveInterfaceViewType(viewName) should ===(Some(expectedRec))
     }
 
-    def foundResolvedChoices(foo: Option[InterfaceType]) = inside(foo) {
-      case Some(InterfaceType.Template(_, DefTemplate(TemplateChoices.Resolved(resolved), _, _))) =>
+    def foundResolvedChoices(foo: Option[TypeDecl]) = inside(foo) {
+      case Some(TypeDecl.Template(_, DefTemplate(TemplateChoices.Resolved(resolved), _, _))) =>
         resolved
     }
 
-    def foundUselessChoice(foo: Option[InterfaceType]) =
+    def foundUselessChoice(foo: Option[TypeDecl]) =
       inside(foundResolvedChoices(foo).get(Useless).map(_.forgetNE.toSeq)) {
         case Some(Seq((Some(origin1), choice1), (Some(origin2), choice2))) =>
           Seq(origin1, origin2) should contain theSameElementsAs Seq(

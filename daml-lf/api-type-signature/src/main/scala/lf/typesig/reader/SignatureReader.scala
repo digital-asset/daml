@@ -23,6 +23,7 @@ import scala.collection.immutable.Map
 
 object SignatureReader {
   import Errors._
+  import PackageSignature.TypeDecl
 
   // @deprecated("renamed to SignatureReader.Error", since = "2.4.0")
   type InterfaceReaderError = Error
@@ -60,7 +61,7 @@ object SignatureReader {
   }
 
   private[reader] final case class State(
-      typeDecls: Map[QualifiedName, typesig.InterfaceType] = Map.empty,
+      typeDecls: Map[QualifiedName, TypeDecl] = Map.empty,
       astInterfaces: Map[QualifiedName, typesig.DefInterface.FWT] = Map.empty,
       errors: Error.Tree = mzero[Error.Tree],
   ) {
@@ -161,7 +162,7 @@ object SignatureReader {
         val fullName = QualifiedName(module.name, name)
         val tyVars: ImmArraySeq[Ast.TypeVarName] = params.map(_._1).toSeq
 
-        val result: Error \/ Option[(QualifiedName, typesig.InterfaceType)] =
+        val result: Error \/ Option[(QualifiedName, TypeDecl)] =
           dataType match {
             case dfn: Ast.DataRecord =>
               val it = module.templates.get(name) match {
@@ -192,16 +193,16 @@ object SignatureReader {
     State(typeDecls = ddts, astInterfaces = astIfs.toMap, errors = (derrors ++ ierrors).suml)
   }
 
-  private[reader] def record[T >: typesig.InterfaceType.Normal](
+  private[reader] def record[T >: TypeDecl.Normal](
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
       record: Ast.DataRecord,
   ) =
     for {
       fields <- fieldsOrCons(name, record.fields)
-    } yield name -> (typesig.InterfaceType.Normal(DefDataType(tyVars, Record(fields))): T)
+    } yield name -> (TypeDecl.Normal(DefDataType(tyVars, Record(fields))): T)
 
-  private[reader] def template[T >: typesig.InterfaceType.Template](
+  private[reader] def template[T >: TypeDecl.Template](
       name: QualifiedName,
       record: Ast.DataRecord,
       dfn: Ast.Template,
@@ -210,7 +211,7 @@ object SignatureReader {
       fields <- fieldsOrCons(name, record.fields)
       choices <- dfn.choices traverse (visitChoice(name, _))
       key <- dfn.key traverse (k => toIfaceType(name, k.typ))
-    } yield name -> (typesig.InterfaceType.Template(
+    } yield name -> (TypeDecl.Template(
       Record(fields),
       DefTemplate(visitChoices(choices, dfn.implements), key, dfn.implements.keys),
     ): T)
@@ -238,24 +239,24 @@ object SignatureReader {
       returnType = tReturn,
     )
 
-  private[reader] def variant[T >: typesig.InterfaceType.Normal](
+  private[reader] def variant[T >: TypeDecl.Normal](
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
       variant: Ast.DataVariant,
   ) = {
     for {
       cons <- fieldsOrCons(name, variant.variants)
-    } yield name -> (typesig.InterfaceType.Normal(DefDataType(tyVars, Variant(cons))): T)
+    } yield name -> (TypeDecl.Normal(DefDataType(tyVars, Variant(cons))): T)
   }
 
-  private[reader] def enumeration[T >: typesig.InterfaceType.Normal](
+  private[reader] def enumeration[T >: TypeDecl.Normal](
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
       enumeration: Ast.DataEnum,
   ): Error \/ (QualifiedName, T) =
     if (tyVars.isEmpty)
       \/-(
-        name -> typesig.InterfaceType.Normal(
+        name -> TypeDecl.Normal(
           DefDataType(ImmArraySeq.empty, Enum(enumeration.constructors.toSeq))
         )
       )

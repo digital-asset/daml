@@ -19,43 +19,6 @@ import scalaz.syntax.std.boolean._
 import scala.collection.immutable.{Map, SeqOps}
 import scala.jdk.CollectionConverters._
 
-sealed abstract class InterfaceType extends Product with Serializable {
-  def `type`: DefDataType.FWT
-
-  def fold[Z](normal: DefDataType.FWT => Z, template: (Record.FWT, DefTemplate[Type]) => Z): Z =
-    this match {
-      case InterfaceType.Normal(typ) => normal(typ)
-      case InterfaceType.Template(typ, tpl) => template(typ, tpl)
-    }
-
-  /** Alias for `type`. */
-  def getType: DefDataType.FWT = `type`
-  def getTemplate: j.Optional[_ <: DefTemplate.FWT] =
-    fold(
-      { _ =>
-        j.Optional.empty()
-      },
-      { (_, tpl) =>
-        j.Optional.of(tpl)
-      },
-    )
-
-  private[typesig] def asInterfaceViewType: Option[DefInterface.ViewTypeFWT] = this match {
-    case InterfaceType.Template(r, _) => Some(r)
-    case InterfaceType.Normal(DefDataType(_, dt)) =>
-      dt match {
-        case r @ Record(_) => Some(r)
-        case Variant(_) | Enum(_) => None
-      }
-  }
-}
-object InterfaceType {
-  final case class Normal(`type`: DefDataType.FWT) extends InterfaceType
-  final case class Template(rec: Record.FWT, template: DefTemplate[Type]) extends InterfaceType {
-    def `type`: DefDataType.FWT = DefDataType(ImmArraySeq.empty, rec)
-  }
-}
-
 // Duplicate of the one in com.daml.lf.language to separate Ast and Iface
 final case class PackageMetadata(
     name: PackageName,
@@ -70,10 +33,12 @@ final case class PackageMetadata(
 final case class PackageSignature(
     packageId: PackageId,
     metadata: Option[PackageMetadata],
-    typeDecls: Map[QualifiedName, InterfaceType],
+    typeDecls: Map[QualifiedName, PackageSignature.TypeDecl],
     astInterfaces: Map[QualifiedName, DefInterface.FWT],
 ) {
-  def getTypeDecls: j.Map[QualifiedName, InterfaceType] = typeDecls.asJava
+  import PackageSignature.TypeDecl
+
+  def getTypeDecls: j.Map[QualifiedName, TypeDecl] = typeDecls.asJava
   def getAstInterfaces: j.Map[QualifiedName, DefInterface.FWT] = astInterfaces.asJava
 
   private def resolveChoices(
@@ -85,7 +50,7 @@ final case class PackageSignature(
       if (id.packageId == packageId) astInterfaces get id.qualifiedName
       else outside(id)
     val tplFindIface = Function unlift findIface
-    def transformTemplate(ift: InterfaceType.Template) = {
+    def transformTemplate(ift: TypeDecl.Template) = {
       val errOrItt = (ift.template resolveChoices tplFindIface)
         .bimap(
           _.map(partial => ift.copy(template = partial)),
@@ -103,8 +68,8 @@ final case class PackageSignature(
     }
     copy(typeDecls = typeDecls transform { (_, ift) =>
       ift match {
-        case ift: InterfaceType.Template => transformTemplate(ift)
-        case n: InterfaceType.Normal => n
+        case ift: TypeDecl.Template => transformTemplate(ift)
+        case n: TypeDecl.Normal => n
       }
     })
   }
@@ -145,7 +110,7 @@ final case class PackageSignature(
   private def resolveRetroImplements[S](
       s: S
   )(setTemplate: SetterAt[Ref.TypeConName, S, DefTemplate.FWT]): (S, PackageSignature) = {
-    type SandTpls = (S, Map[QualifiedName, InterfaceType.Template])
+    type SandTpls = (S, Map[QualifiedName, TypeDecl.Template])
     def setTpl(
         sm: SandTpls,
         tcn: Ref.TypeConName,
@@ -153,7 +118,7 @@ final case class PackageSignature(
       import PackageSignature.findTemplate
       val (s, tplsM) = sm
       if (tcn.packageId == packageId)
-        findTemplate(tplsM, tcn.qualifiedName).map { case itt @ InterfaceType.Template(_, dt) =>
+        findTemplate(tplsM, tcn.qualifiedName).map { case itt @ TypeDecl.Template(_, dt) =>
           f => (s, tplsM.updated(tcn.qualifiedName, itt.copy(template = f(dt))))
         }
       else setTemplate(s, tcn) map (_ andThen ((_, tplsM)))
@@ -177,6 +142,44 @@ object PackageSignature {
   import Errors._
   import reader.SignatureReader._
 
+  sealed abstract class TypeDecl extends Product with Serializable {
+    def `type`: DefDataType.FWT
+
+    def fold[Z](normal: DefDataType.FWT => Z, template: (Record.FWT, DefTemplate[Type]) => Z): Z =
+      this match {
+        case TypeDecl.Normal(typ) => normal(typ)
+        case TypeDecl.Template(typ, tpl) => template(typ, tpl)
+      }
+
+    /** Alias for `type`. */
+    def getType: DefDataType.FWT = `type`
+    def getTemplate: j.Optional[_ <: DefTemplate.FWT] =
+      fold(
+        { _ =>
+          j.Optional.empty()
+        },
+        { (_, tpl) =>
+          j.Optional.of(tpl)
+        },
+      )
+
+    private[typesig] def asInterfaceViewType: Option[DefInterface.ViewTypeFWT] = this match {
+      case TypeDecl.Template(r, _) => Some(r)
+      case TypeDecl.Normal(DefDataType(_, dt)) =>
+        dt match {
+          case r @ Record(_) => Some(r)
+          case Variant(_) | Enum(_) => None
+        }
+    }
+  }
+
+  object TypeDecl {
+    final case class Normal(`type`: DefDataType.FWT) extends TypeDecl
+    final case class Template(rec: Record.FWT, template: DefTemplate[Type]) extends TypeDecl {
+      def `type`: DefDataType.FWT = DefDataType(ImmArraySeq.empty, rec)
+    }
+  }
+
   def read(lf: DamlLf.Archive): (Errors[ErrorLoc, InvalidDataTypeDefinition], PackageSignature) =
     readPackageSignature(lf)
 
@@ -184,10 +187,10 @@ object PackageSignature {
     readPackageSignature(lf)
 
   private[typesig] def findTemplate[K](
-      m: Map[K, InterfaceType],
+      m: Map[K, TypeDecl],
       k: K,
-  ): Option[InterfaceType.Template] =
-    m get k collect { case itt: InterfaceType.Template => itt }
+  ): Option[TypeDecl.Template] =
+    m get k collect { case itt: TypeDecl.Template => itt }
 
   // Given a lookup function for package state setters, produce a lookup function
   // for setters on specific templates in that set of packages.
