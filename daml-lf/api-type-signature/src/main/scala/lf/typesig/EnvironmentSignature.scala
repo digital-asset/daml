@@ -66,13 +66,25 @@ final case class EnvironmentSignature(
 }
 
 object EnvironmentSignature {
+  // @deprecated("renamed to fromPackageSignatures", since = "2.4.0")
   def fromReaderInterfaces(i: PackageSignature, o: PackageSignature*): EnvironmentSignature =
-    fromReaderInterfaces(i +: o)
+    fromPackageSignatures(i, o: _*)
 
+  def fromPackageSignatures(i: PackageSignature, o: PackageSignature*): EnvironmentSignature =
+    fromPackageSignatures(i +: o)
+
+  // @deprecated("renamed to fromPackageSignatures", since = "2.4.0")
   def fromReaderInterfaces(dar: Dar[PackageSignature]): EnvironmentSignature =
-    fromReaderInterfaces(dar.main, dar.dependencies: _*)
+    fromPackageSignatures(dar)
 
-  def fromReaderInterfaces(all: Iterable[PackageSignature]): EnvironmentSignature = {
+  def fromPackageSignatures(dar: Dar[PackageSignature]): EnvironmentSignature =
+    fromPackageSignatures(dar.main, dar.dependencies: _*)
+
+  // @deprecated("renamed to fromPackageSignatures", since = "2.4.0")
+  def fromReaderInterfaces(all: Iterable[PackageSignature]): EnvironmentSignature =
+    fromPackageSignatures(all)
+
+  def fromPackageSignatures(all: Iterable[PackageSignature]): EnvironmentSignature = {
     val typeDecls = all.iterator.flatMap { case PackageSignature(packageId, _, typeDecls, _) =>
       typeDecls mapKeys (Identifier(packageId, _))
     }.toMap

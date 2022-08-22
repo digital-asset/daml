@@ -200,7 +200,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
         }
       }
     }
-    lazy val itpES = EnvironmentSignature.fromReaderInterfaces(itp).resolveChoices
+    lazy val itpES = EnvironmentSignature.fromPackageSignatures(itp).resolveChoices
 
     "load without errors" in {
       itp shouldBe itp
