@@ -191,7 +191,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     import archive.DarReader.readArchiveFromFile
 
     lazy val itp = {
-      val file = requiredResource("daml-lf/interface/InterfaceTestPackage.dar")
+      val file = requiredResource("daml-lf/api-type-signature/InterfaceTestPackage.dar")
       inside(readArchiveFromFile(file)) { case Right(dar) =>
         dar.map { payload =>
           val (errors, ii) = iface.Interface.read(payload)
