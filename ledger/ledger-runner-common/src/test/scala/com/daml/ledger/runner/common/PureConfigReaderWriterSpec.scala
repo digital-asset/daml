@@ -226,7 +226,7 @@ class PureConfigReaderWriterSpec
 
     convert(engineConvert, value).value shouldBe Config.DefaultEngineConfig
   }
-  */
+   */
 
   behavior of "MetricsReporter"
 
