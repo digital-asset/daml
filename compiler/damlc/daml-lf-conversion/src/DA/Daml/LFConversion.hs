@@ -751,7 +751,7 @@ convertInterfaces env mc = interfaceDefs
 
     convertRequires :: [(GHC.TyCon, Maybe SourceLoc)] -> ConvertM (S.Set (Qualified TypeConName))
     convertRequires requires = S.fromList <$> sequence
-      [ guardSupportsInterfaceRequires $ withRange mloc $ convertInterfaceTyCon env handleIsNotInterface iface
+      [ withRange mloc $ guardSupportsInterfaceRequires $ convertInterfaceTyCon env handleIsNotInterface iface
       | (iface, mloc) <- requires
       ]
       where
