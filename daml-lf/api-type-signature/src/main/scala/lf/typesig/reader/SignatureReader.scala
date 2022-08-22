@@ -24,9 +24,14 @@ import scala.collection.immutable.Map
 object SignatureReader {
   import Errors._
 
-  sealed abstract class InterfaceReaderError extends Product with Serializable
-  final case class UnserializableDataType(error: String) extends InterfaceReaderError
-  final case class InvalidDataTypeDefinition(error: String) extends InterfaceReaderError
+  // @deprecated("renamed to SignatureReader.Error", since = "2.4.0")
+  type InterfaceReaderError = Error
+  // @deprecated("renamed to SignatureReader.Error", since = "2.4.0")
+  final val InterfaceReaderError = Error
+
+  sealed abstract class Error extends Product with Serializable
+  final case class UnserializableDataType(error: String) extends Error
+  final case class InvalidDataTypeDefinition(error: String) extends Error
 
   private def errorMessage(ctx: QualifiedName, reason: String): String =
     s"Invalid data definition: $ctx, reason: $reason"
@@ -34,17 +39,17 @@ object SignatureReader {
   private def invalidDataTypeDefinition[Bot](
       ctx: QualifiedName,
       reason: String,
-  ): InterfaceReaderError \/ Bot = -\/(InvalidDataTypeDefinition(errorMessage(ctx, reason)))
+  ): Error \/ Bot = -\/(InvalidDataTypeDefinition(errorMessage(ctx, reason)))
 
   private def unserializableDataType[Bot](
       ctx: QualifiedName,
       reason: String,
-  ): InterfaceReaderError \/ Bot = -\/(UnserializableDataType(errorMessage(ctx, reason)))
+  ): Error \/ Bot = -\/(UnserializableDataType(errorMessage(ctx, reason)))
 
-  object InterfaceReaderError {
-    type Tree = Errors[ErrorLoc, InterfaceReaderError]
+  object Error {
+    type Tree = Errors[ErrorLoc, Error]
 
-    implicit def `IRE semigroup`: Semigroup[InterfaceReaderError] =
+    implicit def `IRE semigroup`: Semigroup[Error] =
       Semigroup.firstSemigroup
 
     def treeReport(errors: Errors[ErrorLoc, SignatureReader.InvalidDataTypeDefinition]): Cord =
@@ -57,7 +62,7 @@ object SignatureReader {
   private[reader] final case class State(
       typeDecls: Map[QualifiedName, typesig.InterfaceType] = Map.empty,
       astInterfaces: Map[QualifiedName, typesig.DefInterface.FWT] = Map.empty,
-      errors: InterfaceReaderError.Tree = mzero[InterfaceReaderError.Tree],
+      errors: Error.Tree = mzero[Error.Tree],
   ) {
     def asOut(packageId: PackageId, metadata: Option[PackageMetadata]): typesig.PackageSignature =
       typesig.PackageSignature(packageId, metadata, typeDecls, astInterfaces)
@@ -146,7 +151,7 @@ object SignatureReader {
     PackageMetadata(metadata.name, metadata.version)
 
   private def filterOutUnserializableErrors(
-      es: InterfaceReaderError.Tree
+      es: Error.Tree
   ): Errors[ErrorLoc, InvalidDataTypeDefinition] =
     es.collectAndPrune { case x: InvalidDataTypeDefinition => x }
 
@@ -156,7 +161,7 @@ object SignatureReader {
         val fullName = QualifiedName(module.name, name)
         val tyVars: ImmArraySeq[Ast.TypeVarName] = params.map(_._1).toSeq
 
-        val result: InterfaceReaderError \/ Option[(QualifiedName, typesig.InterfaceType)] =
+        val result: Error \/ Option[(QualifiedName, typesig.InterfaceType)] =
           dataType match {
             case dfn: Ast.DataRecord =>
               val it = module.templates.get(name) match {
@@ -223,7 +228,7 @@ object SignatureReader {
   private def visitChoice(
       ctx: QualifiedName,
       choice: Ast.TemplateChoice,
-  ): InterfaceReaderError \/ TemplateChoice[Type] =
+  ): Error \/ TemplateChoice[Type] =
     for {
       tParam <- toIfaceType(ctx, choice.argBinder._2)
       tReturn <- toIfaceType(ctx, choice.returnType)
@@ -247,7 +252,7 @@ object SignatureReader {
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
       enumeration: Ast.DataEnum,
-  ): InterfaceReaderError \/ (QualifiedName, T) =
+  ): Error \/ (QualifiedName, T) =
     if (tyVars.isEmpty)
       \/-(
         name -> typesig.InterfaceType.Normal(
@@ -260,7 +265,7 @@ object SignatureReader {
   private[reader] def fieldsOrCons(
       ctx: QualifiedName,
       fields: ImmArray[(Ref.Name, Ast.Type)],
-  ): InterfaceReaderError \/ ImmArraySeq[(Ref.Name, Type)] =
+  ): Error \/ ImmArraySeq[(Ref.Name, Type)] =
     fields.toSeq traverse { case (fieldName, typ) =>
       toIfaceType(ctx, typ).map(x => fieldName -> x)
     }
@@ -268,7 +273,7 @@ object SignatureReader {
   private[this] def astInterface(
       name: QualifiedName,
       astIf: Ast.DefInterface,
-  ): InterfaceReaderError \/ (QualifiedName, DefInterface.FWT) = for {
+  ): Error \/ (QualifiedName, DefInterface.FWT) = for {
     choices <- astIf.choices.traverse(visitChoice(name, _))
     rawViewType <- toIfaceType(name, astIf.view)
     viewType <- rawViewType match {
@@ -287,7 +292,7 @@ object SignatureReader {
       ctx: QualifiedName,
       a: Ast.Type,
       args: FrontStack[Type] = FrontStack.empty,
-  ): InterfaceReaderError \/ Type =
+  ): Error \/ Type =
     a match {
       case Ast.TVar(x) =>
         if (args.isEmpty)
@@ -312,8 +317,8 @@ object SignatureReader {
       ctx: QualifiedName,
       a: Ast.BuiltinType,
       args: ImmArraySeq[Type],
-  ): InterfaceReaderError \/ T = {
-    type Eo[A] = InterfaceReaderError \/ A
+  ): Error \/ T = {
+    type Eo[A] = Error \/ A
     for {
       ab <- (a match {
         case Ast.BTUnit => \/-((0, PrimType.Unit))
