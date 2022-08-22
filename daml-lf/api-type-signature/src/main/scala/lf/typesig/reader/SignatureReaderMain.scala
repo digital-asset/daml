@@ -8,7 +8,7 @@ import java.nio.file.Files
 
 import com.daml.daml_lf_dev.DamlLf
 
-object InterfaceReaderMain extends App {
+object SignatureReaderMain extends App {
 
   val lfFile = new java.io.File(args.apply(0))
 
