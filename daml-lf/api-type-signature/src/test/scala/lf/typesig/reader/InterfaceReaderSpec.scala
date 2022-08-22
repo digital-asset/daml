@@ -275,7 +275,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
 
     "finds an interface view from Interface sets" in {
       val (viewName, expectedRec) = viewNameExpectsRec
-      Interface.resolveInterfaceViewType {
+      PackageSignature.resolveInterfaceViewType {
         case id if id == itp.main.packageId => itp.main
       }(viewName) should ===(expectedRec)
     }
@@ -321,7 +321,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
 
     "resolve retro implements harmlessly when there are none" in {
-      Interface.resolveRetroImplements((), itp.all)((_, _) => None) should ===((), itp.all)
+      PackageSignature.resolveRetroImplements((), itp.all)((_, _) => None) should ===((), itp.all)
       itpES.resolveRetroImplements should ===(itpES)
     }
   }

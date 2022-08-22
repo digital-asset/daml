@@ -67,7 +67,7 @@ final case class PackageMetadata(
   * with separate package IDs and overlapping [[QualifiedName]]s; for a
   * dar use [[EnvironmentInterface]] instead.
   */
-final case class Interface(
+final case class PackageSignature(
     packageId: PackageId,
     metadata: Option[PackageMetadata],
     typeDecls: Map[QualifiedName, InterfaceType],
@@ -79,7 +79,7 @@ final case class Interface(
   private def resolveChoices(
       findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT],
       failIfUnresolvedChoicesLeft: Boolean,
-  ): Interface = {
+  ): PackageSignature = {
     val outside = findInterface.lift
     def findIface(id: Identifier) =
       if (id.packageId == packageId) astInterfaces get id.qualifiedName
@@ -109,13 +109,13 @@ final case class Interface(
     })
   }
 
-  /** Like [[EnvironmentInterface#resolveChoices]], but permits incremental
+  /** Like [[EnvironmentSignature#resolveChoices]], but permits incremental
     * resolution of newly-loaded interfaces, such as json-api does.
     *
     * {{{
     *  // suppose
-    *  i: Interface; ei: EnvironmentInterface
-    *  val eidelta = EnvironmentInterface.fromReaderInterfaces(i)
+    *  i: PackageSignature; ei: EnvironmentSignature
+    *  val eidelta = EnvironmentSignature.fromReaderInterfaces(i)
     *  // such that
     *  ei |+| eidelta
     *  // contains the whole environment of i.  Then
@@ -126,7 +126,7 @@ final case class Interface(
     */
   def resolveChoicesAndFailOnUnresolvableChoices(
       findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT]
-  ): Interface = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = true)
+  ): PackageSignature = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = true)
 
   /** Like resolveChoicesAndFailOnUnresolvableChoices, but simply discard
     * unresolved choices from the structure.  Not wise to use on a receiver
@@ -134,7 +134,7 @@ final case class Interface(
     */
   def resolveChoicesAndIgnoreUnresolvedChoices(
       findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT]
-  ): Interface = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = false)
+  ): PackageSignature = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = false)
 
   /** Update internal templates, as well as external templates via `setTemplates`,
     * with retroactive interface implementations.
@@ -144,13 +144,13 @@ final case class Interface(
     */
   private def resolveRetroImplements[S](
       s: S
-  )(setTemplate: SetterAt[Ref.TypeConName, S, DefTemplate.FWT]): (S, Interface) = {
+  )(setTemplate: SetterAt[Ref.TypeConName, S, DefTemplate.FWT]): (S, PackageSignature) = {
     type SandTpls = (S, Map[QualifiedName, InterfaceType.Template])
     def setTpl(
         sm: SandTpls,
         tcn: Ref.TypeConName,
     ): Option[(DefTemplate.FWT => DefTemplate.FWT) => SandTpls] = {
-      import Interface.findTemplate
+      import PackageSignature.findTemplate
       val (s, tplsM) = sm
       if (tcn.packageId == packageId)
         findTemplate(tplsM, tcn.qualifiedName).map { case itt @ InterfaceType.Template(_, dt) =>
@@ -173,14 +173,14 @@ final case class Interface(
     typeDecls get n flatMap (_.asInterfaceViewType)
 }
 
-object Interface {
+object PackageSignature {
   import Errors._
   import reader.InterfaceReader._
 
-  def read(lf: DamlLf.Archive): (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
+  def read(lf: DamlLf.Archive): (Errors[ErrorLoc, InvalidDataTypeDefinition], PackageSignature) =
     readInterface(lf)
 
-  def read(lf: ArchivePayload): (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
+  def read(lf: ArchivePayload): (Errors[ErrorLoc, InvalidDataTypeDefinition], PackageSignature) =
     readInterface(lf)
 
   private[typesig] def findTemplate[K](
@@ -192,7 +192,7 @@ object Interface {
   // Given a lookup function for package state setters, produce a lookup function
   // for setters on specific templates in that set of packages.
   private[this] def setPackageTemplates[S](
-      findPackage: GetterSetterAt[PackageId, S, Interface]
+      findPackage: GetterSetterAt[PackageId, S, PackageSignature]
   ): SetterAt[Ref.TypeConName, S, DefTemplate.FWT] = {
     def go(s: S, tcn: Ref.TypeConName): Option[(DefTemplate.FWT => DefTemplate.FWT) => S] = for {
       foundPkg <- findPackage(s, tcn.packageId)
@@ -215,11 +215,11 @@ object Interface {
     */
   def resolveRetroImplements[S, CC[B] <: Seq[B] with SeqOps[B, CC, CC[B]]](
       s: S,
-      newInterfaces: CC[Interface],
+      newInterfaces: CC[PackageSignature],
   )(
-      findPackage: GetterSetterAt[PackageId, S, Interface]
-  ): (S, CC[Interface]) = {
-    type St = (S, CC[Interface])
+      findPackage: GetterSetterAt[PackageId, S, PackageSignature]
+  ): (S, CC[PackageSignature]) = {
+    type St = (S, CC[PackageSignature])
     val findTpl = setPackageTemplates[St] { case ((s, newInterfaces), pkgId) =>
       findPackage(s, pkgId).map(_.rightMap(_ andThen ((_, newInterfaces)))).orElse {
         val ix = newInterfaces indexWhere (_.packageId == pkgId)
@@ -242,7 +242,7 @@ object Interface {
     * such as json-api's `LedgerReader.PackageStore`.
     */
   def findAstInterface(
-      findPackage: PartialFunction[PackageId, Interface]
+      findPackage: PartialFunction[PackageId, PackageSignature]
   ): PartialFunction[Ref.TypeConName, DefInterface.FWT] = {
     val pkg = findPackage.lift
     def go(id: Identifier) = pkg(id.packageId).flatMap(_.astInterfaces get id.qualifiedName)
@@ -254,7 +254,7 @@ object Interface {
     * The function will not match if the definition is missing or is not a record.
     */
   def resolveInterfaceViewType(
-      findInterface: PartialFunction[PackageId, Interface]
+      findInterface: PartialFunction[PackageId, PackageSignature]
   ): PartialFunction[Ref.TypeConName, DefInterface.ViewTypeFWT] =
     Function unlift { tcn =>
       findInterface.lift(tcn.packageId) flatMap (_ resolveInterfaceViewType tcn.qualifiedName)

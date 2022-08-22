@@ -13,7 +13,7 @@ import scalaz.syntax.functor._
 import scalaz.syntax.std.map._
 import scalaz.Semigroup
 
-/** The combination of multiple [[Interface]]s, such as from a dar. */
+/** The combination of multiple [[PackageSignature]]s, such as from a dar. */
 final case class EnvironmentSignature(
     metadata: Map[PackageId, PackageMetadata],
     typeDecls: Map[Identifier, InterfaceType],
@@ -47,7 +47,7 @@ final case class EnvironmentSignature(
     })
 
   def resolveRetroImplements: EnvironmentSignature = {
-    import Interface.findTemplate
+    import PackageSignature.findTemplate
     val (newTypeDecls, newAstInterfaces) = astInterfaces.foldLeft((typeDecls, astInterfaces)) {
       case ((typeDecls, astInterfaces), (ifTc, defIf)) =>
         defIf
@@ -66,20 +66,21 @@ final case class EnvironmentSignature(
 }
 
 object EnvironmentSignature {
-  def fromReaderInterfaces(i: Interface, o: Interface*): EnvironmentSignature =
+  def fromReaderInterfaces(i: PackageSignature, o: PackageSignature*): EnvironmentSignature =
     fromReaderInterfaces(i +: o)
 
-  def fromReaderInterfaces(dar: Dar[Interface]): EnvironmentSignature =
+  def fromReaderInterfaces(dar: Dar[PackageSignature]): EnvironmentSignature =
     fromReaderInterfaces(dar.main, dar.dependencies: _*)
 
-  def fromReaderInterfaces(all: Iterable[Interface]): EnvironmentSignature = {
-    val typeDecls = all.iterator.flatMap { case Interface(packageId, _, typeDecls, _) =>
+  def fromReaderInterfaces(all: Iterable[PackageSignature]): EnvironmentSignature = {
+    val typeDecls = all.iterator.flatMap { case PackageSignature(packageId, _, typeDecls, _) =>
       typeDecls mapKeys (Identifier(packageId, _))
     }.toMap
-    val astInterfaces = all.iterator.flatMap { case Interface(packageId, _, _, astInterfaces) =>
-      astInterfaces mapKeys (Identifier(packageId, _))
+    val astInterfaces = all.iterator.flatMap {
+      case PackageSignature(packageId, _, _, astInterfaces) =>
+        astInterfaces mapKeys (Identifier(packageId, _))
     }.toMap
-    val metadata = all.iterator.flatMap { case Interface(packageId, metadata, _, _) =>
+    val metadata = all.iterator.flatMap { case PackageSignature(packageId, metadata, _, _) =>
       metadata.iterator.map(md => packageId -> md)
     }.toMap
     EnvironmentSignature(metadata, typeDecls, astInterfaces)
