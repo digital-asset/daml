@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import com.daml.ledger.test.{Carbonv2TestDar, Carbonv1TestDar, TestDar}
+import com.daml.ledger.test.TestDar
 import com.google.protobuf.ByteString
 
 object Dars {
@@ -14,7 +14,13 @@ object Dars {
 
   // `DoNotLoadAtStartupResources` are not uploaded during the startup as being uploaded
   // later in the conformance test.
-  private val DoNotLoadAtStartupResources = Set(Carbonv1TestDar.path, Carbonv2TestDar.path)
+  // TODO when Interface Subscriptions land stable version,
+  // this can be updated to import classes instead of Strings
+  // import com.daml.ledger.test.{Carbonv2TestDar, Carbonv1TestDar}
+  private val DoNotLoadAtStartupResources: Set[String] = Set(
+    "ledger/test-common/carbonv1-tests-1.dev.dar",
+    "ledger/test-common/carbonv2-tests-1.dev.dar",
+  )
 
   val startupResources: List[String] = resources.filterNot(DoNotLoadAtStartupResources.contains)
 
