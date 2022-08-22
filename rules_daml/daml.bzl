@@ -273,7 +273,7 @@ def damlc_for_target(target):
         return "@damlc_legacy//:damlc_legacy"
 
 def path_to_dar(data):
-    return paths.basename(data) + ".dar"
+    return paths.basename(data).rpartition(":")[2] + ".dar"
 
 def daml_compile(
         name,
