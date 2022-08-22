@@ -55,12 +55,12 @@ object SignatureReader {
   }
 
   private[reader] final case class State(
-      typeDecls: Map[QualifiedName, iface.InterfaceType] = Map.empty,
-      astInterfaces: Map[QualifiedName, iface.DefInterface.FWT] = Map.empty,
+      typeDecls: Map[QualifiedName, typesig.InterfaceType] = Map.empty,
+      astInterfaces: Map[QualifiedName, typesig.DefInterface.FWT] = Map.empty,
       errors: InterfaceReaderError.Tree = mzero[InterfaceReaderError.Tree],
   ) {
-    def asOut(packageId: PackageId, metadata: Option[PackageMetadata]): iface.Interface =
-      iface.Interface(packageId, metadata, typeDecls, astInterfaces)
+    def asOut(packageId: PackageId, metadata: Option[PackageMetadata]): typesig.PackageSignature =
+      typesig.PackageSignature(packageId, metadata, typeDecls, astInterfaces)
   }
 
   private[reader] object State {
@@ -113,7 +113,7 @@ object SignatureReader {
 
   private val dummyPkgId = PackageId.assertFromString("-dummyPkg-")
 
-  private val dummyInterface = iface.Interface(dummyPkgId, None, Map.empty, Map.empty)
+  private val dummyInterface = typesig.PackageSignature(dummyPkgId, None, Map.empty, Map.empty)
 
   // @deprecated("renamed to readPackageSignature", since = "2.4.0")
   def readInterface(
@@ -156,7 +156,7 @@ object SignatureReader {
         val fullName = QualifiedName(module.name, name)
         val tyVars: ImmArraySeq[Ast.TypeVarName] = params.map(_._1).toSeq
 
-        val result: InterfaceReaderError \/ Option[(QualifiedName, iface.InterfaceType)] =
+        val result: InterfaceReaderError \/ Option[(QualifiedName, typesig.InterfaceType)] =
           dataType match {
             case dfn: Ast.DataRecord =>
               val it = module.templates.get(name) match {
@@ -187,16 +187,16 @@ object SignatureReader {
     State(typeDecls = ddts, astInterfaces = astIfs.toMap, errors = (derrors ++ ierrors).suml)
   }
 
-  private[reader] def record[T >: iface.InterfaceType.Normal](
+  private[reader] def record[T >: typesig.InterfaceType.Normal](
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
       record: Ast.DataRecord,
   ) =
     for {
       fields <- fieldsOrCons(name, record.fields)
-    } yield name -> (iface.InterfaceType.Normal(DefDataType(tyVars, Record(fields))): T)
+    } yield name -> (typesig.InterfaceType.Normal(DefDataType(tyVars, Record(fields))): T)
 
-  private[reader] def template[T >: iface.InterfaceType.Template](
+  private[reader] def template[T >: typesig.InterfaceType.Template](
       name: QualifiedName,
       record: Ast.DataRecord,
       dfn: Ast.Template,
@@ -205,7 +205,7 @@ object SignatureReader {
       fields <- fieldsOrCons(name, record.fields)
       choices <- dfn.choices traverse (visitChoice(name, _))
       key <- dfn.key traverse (k => toIfaceType(name, k.typ))
-    } yield name -> (iface.InterfaceType.Template(
+    } yield name -> (typesig.InterfaceType.Template(
       Record(fields),
       DefTemplate(visitChoices(choices, dfn.implements), key, dfn.implements.keys),
     ): T)
@@ -233,24 +233,24 @@ object SignatureReader {
       returnType = tReturn,
     )
 
-  private[reader] def variant[T >: iface.InterfaceType.Normal](
+  private[reader] def variant[T >: typesig.InterfaceType.Normal](
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
       variant: Ast.DataVariant,
   ) = {
     for {
       cons <- fieldsOrCons(name, variant.variants)
-    } yield name -> (iface.InterfaceType.Normal(DefDataType(tyVars, Variant(cons))): T)
+    } yield name -> (typesig.InterfaceType.Normal(DefDataType(tyVars, Variant(cons))): T)
   }
 
-  private[reader] def enumeration[T >: iface.InterfaceType.Normal](
+  private[reader] def enumeration[T >: typesig.InterfaceType.Normal](
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
       enumeration: Ast.DataEnum,
   ): InterfaceReaderError \/ (QualifiedName, T) =
     if (tyVars.isEmpty)
       \/-(
-        name -> iface.InterfaceType.Normal(
+        name -> typesig.InterfaceType.Normal(
           DefDataType(ImmArraySeq.empty, Enum(enumeration.constructors.toSeq))
         )
       )
@@ -281,7 +281,7 @@ object SignatureReader {
         )
     }
     // TODO #14081 pass actual retroactive implements instead of empty
-  } yield name -> iface.DefInterface(choices, Set.empty, viewType)
+  } yield name -> typesig.DefInterface(choices, Set.empty, viewType)
 
   private[lf] def toIfaceType(
       ctx: QualifiedName,
