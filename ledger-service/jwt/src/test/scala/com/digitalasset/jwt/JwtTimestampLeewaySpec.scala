@@ -18,9 +18,9 @@ import org.scalatest.wordspec.AnyWordSpec
 import scalaz.{\/, Show}
 import scalaz.syntax.show._
 
-class JWTLeewaySpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class JwtTimestampLeewaySpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
-  import JWTLeewaySpec._
+  import JwtTimestampLeewaySpec._
 
   "Jwt" when {
     forAll(verifires) { (verifierType, algorithm, jwtVerifier) =>
@@ -294,7 +294,7 @@ class JWTLeewaySpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
   }
 }
 
-object JWTLeewaySpec extends TableDrivenPropertyChecks {
+object JwtTimestampLeewaySpec extends TableDrivenPropertyChecks {
 
   // HMAC
   val secret = "secret key"
