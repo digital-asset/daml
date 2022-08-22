@@ -17,9 +17,12 @@ import scalaz.Semigroup
 final case class EnvironmentSignature(
     metadata: Map[PackageId, PackageMetadata],
     typeDecls: Map[Identifier, PackageSignature.TypeDecl],
-    astInterfaces: Map[Ref.TypeConName, DefInterface.FWT],
+    interfaces: Map[Ref.TypeConName, DefInterface.FWT],
 ) {
   import PackageSignature.TypeDecl
+
+  // @deprecated("renamed to interfaces", since = "2.4.0")
+  def astInterfaces: interfaces.type = interfaces
 
   /** Replace all resolvable `inheritedChoices` in `typeDecls` with concrete
     * choices copied from `astInterfaces`.  If a template has any missing choices,
@@ -41,7 +44,7 @@ final case class EnvironmentSignature(
     copy(typeDecls = typeDecls.transform { (_, it) =>
       it match {
         case itpl: TypeDecl.Template =>
-          val errOrTpl2 = itpl.template resolveChoices astInterfaces
+          val errOrTpl2 = itpl.template resolveChoices interfaces
           errOrTpl2.fold(_ => itpl, tpl2 => itpl.copy(template = tpl2))
         case z: TypeDecl.Normal => z
       }
@@ -49,17 +52,17 @@ final case class EnvironmentSignature(
 
   def resolveRetroImplements: EnvironmentSignature = {
     import PackageSignature.findTemplate
-    val (newTypeDecls, newAstInterfaces) = astInterfaces.foldLeft((typeDecls, astInterfaces)) {
-      case ((typeDecls, astInterfaces), (ifTc, defIf)) =>
+    val (newTypeDecls, newInterfaces) = interfaces.foldLeft((typeDecls, interfaces)) {
+      case ((typeDecls, interfaces), (ifTc, defIf)) =>
         defIf
           .resolveRetroImplements(ifTc, typeDecls) { case (typeDecls, tplName) =>
             findTemplate(typeDecls, tplName) map { itt => f =>
               typeDecls.updated(tplName, itt.copy(template = f(itt.template)))
             }
           }
-          .map(defIf => astInterfaces.updated(ifTc, defIf))
+          .map(defIf => interfaces.updated(ifTc, defIf))
     }
-    copy(typeDecls = newTypeDecls, astInterfaces = newAstInterfaces)
+    copy(typeDecls = newTypeDecls, interfaces = newInterfaces)
   }
 
   def resolveInterfaceViewType(tcn: Ref.TypeConName): Option[DefInterface.ViewTypeFWT] =
@@ -104,7 +107,7 @@ object EnvironmentSignature {
       EnvironmentSignature(
         f1.metadata ++ f2.metadata,
         f1.typeDecls ++ f2.typeDecls,
-        f1.astInterfaces ++ f2.astInterfaces,
+        f1.interfaces ++ f2.interfaces,
       )
   }
 }
