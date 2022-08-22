@@ -1,12 +1,9 @@
-import com.digitalasset.canton.config.TimeoutDuration
-import com.digitalasset.canton.time.NonNegativeFiniteDuration
-
 nodes.local.start
 
 test_domain.service.update_dynamic_domain_parameters(_.update(
-  ledgerTimeRecordTimeTolerance = NonNegativeFiniteDuration.ofMinutes(3),
-  mediatorReactionTimeout = TimeoutDuration.ofMinutes(1),
-  participantResponseTimeout = TimeoutDuration.ofMinutes(1),
+  ledgerTimeRecordTimeTolerance = 3.minutes,
+  mediatorReactionTimeout = 1.minute,
+  participantResponseTimeout = 1.minute,
 ),
   force = true,
 )
