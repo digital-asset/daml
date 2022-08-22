@@ -256,15 +256,15 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
 
     "have interfaces with choices" in {
-      itp.main.astInterfaces.keySet should ===(Set(LibTIf, TIf))
-      inside(itp.main.astInterfaces(TIf).choices get Useless) {
+      itp.main.interfaces.keySet should ===(Set(LibTIf, TIf))
+      inside(itp.main.interfaces(TIf).choices get Useless) {
         case Some(TheUselessChoice(UselessTy, TIf)) =>
       }
     }
 
     // TODO SC #14067 depends on #14112
     "identify a record interface view" ignore {
-      inside(itp.main.astInterfaces(LibTIf).viewType) { case Some(Ref.TypeConName(_, LibTIfView)) =>
+      inside(itp.main.interfaces(LibTIf).viewType) { case Some(Ref.TypeConName(_, LibTIfView)) =>
       }
     }
 

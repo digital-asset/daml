@@ -22,7 +22,7 @@ class UtilTest extends UtilTestHelpers with ScalaCheckDrivenPropertyChecks {
       packageId = PackageId.assertFromString("abcdef"),
       metadata = None,
       typeDecls = Map.empty,
-      astInterfaces = Map.empty,
+      interfaces = Map.empty,
     )
   val scalaPackageParts = Array("com", "digitalasset")
   val scalaPackage: String = scalaPackageParts.mkString(".")

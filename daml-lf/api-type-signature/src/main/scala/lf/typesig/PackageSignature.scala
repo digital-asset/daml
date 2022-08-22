@@ -34,12 +34,17 @@ final case class PackageSignature(
     packageId: PackageId,
     metadata: Option[PackageMetadata],
     typeDecls: Map[QualifiedName, PackageSignature.TypeDecl],
-    astInterfaces: Map[QualifiedName, DefInterface.FWT],
+    @deprecatedName("astInterfaces", "2.4.0") interfaces: Map[QualifiedName, DefInterface.FWT],
 ) {
   import PackageSignature.TypeDecl
 
+  // @deprecated("renamed to interfaces", since = "2.4.0")
+  def astInterfaces: interfaces.type = interfaces
+  // @deprecated("renamed to getInterfaces", since = "2.4.0")
+  def getAstInterfaces: j.Map[QualifiedName, DefInterface.FWT] = getInterfaces
+
   def getTypeDecls: j.Map[QualifiedName, TypeDecl] = typeDecls.asJava
-  def getAstInterfaces: j.Map[QualifiedName, DefInterface.FWT] = astInterfaces.asJava
+  def getInterfaces: j.Map[QualifiedName, DefInterface.FWT] = interfaces.asJava
 
   private def resolveChoices(
       findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT],
@@ -47,7 +52,7 @@ final case class PackageSignature(
   ): PackageSignature = {
     val outside = findInterface.lift
     def findIface(id: Identifier) =
-      if (id.packageId == packageId) astInterfaces get id.qualifiedName
+      if (id.packageId == packageId) interfaces get id.qualifiedName
       else outside(id)
     val tplFindIface = Function unlift findIface
     def transformTemplate(ift: TypeDecl.Template) = {
@@ -124,14 +129,14 @@ final case class PackageSignature(
       else setTemplate(s, tcn) map (_ andThen ((_, tplsM)))
     }
 
-    val ((sEnd, newTpls), newIfcs) = astInterfaces.foldLeft(
+    val ((sEnd, newTpls), newIfcs) = interfaces.foldLeft(
       ((s, Map.empty): SandTpls, Map.empty[QualifiedName, DefInterface.FWT])
     ) { case ((s, astIfs), (ifcName, astIf)) =>
       astIf
         .resolveRetroImplements(Ref.TypeConName(packageId, ifcName), s)(setTpl)
         .rightMap(newIf => astIfs.updated(ifcName, newIf))
     }
-    (sEnd, copy(typeDecls = typeDecls ++ newTpls, astInterfaces = newIfcs))
+    (sEnd, copy(typeDecls = typeDecls ++ newTpls, interfaces = newIfcs))
   }
 
   private def resolveInterfaceViewType(n: Ref.QualifiedName): Option[Record.FWT] =
@@ -248,7 +253,7 @@ object PackageSignature {
       findPackage: PartialFunction[PackageId, PackageSignature]
   ): PartialFunction[Ref.TypeConName, DefInterface.FWT] = {
     val pkg = findPackage.lift
-    def go(id: Identifier) = pkg(id.packageId).flatMap(_.astInterfaces get id.qualifiedName)
+    def go(id: Identifier) = pkg(id.packageId).flatMap(_.interfaces get id.qualifiedName)
     Function unlift go
   }
 
