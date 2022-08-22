@@ -3,6 +3,8 @@
 
 - target: //daml-assistant/scala-daml-project-config:scala-daml-project-config
   type: jar-scala
+- target: //daml-lf/api-type-signature:api-type-signature
+  type: jar-scala
 - target: //daml-lf/archive:daml_lf_1.14_archive_proto_jar
   type: jar-lib
 - target: //daml-lf/archive:daml_lf_1.14_archive_proto_java
@@ -20,8 +22,6 @@
 - target: //daml-lf/encoder:encoder
   type: jar-scala
 - target: //daml-lf/engine:engine
-  type: jar-scala
-- target: //daml-lf/interface:interface
   type: jar-scala
 - target: //daml-lf/interpreter:interpreter
   type: jar-scala
