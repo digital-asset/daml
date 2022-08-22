@@ -62,8 +62,6 @@ class JwksVerifier(
     RSA256Verifier(publicKey, jwtTimestampLeeway)
   }
 
-  override def getJwtTimestampLeeway: Option[JwtTimestampLeeway] = jwtTimestampLeeway
-
   /** Looks up the verifier for the given keyId from the local cache.
     * On a cache miss, creates a new verifier by fetching the public key from the JWKS URL.
     */

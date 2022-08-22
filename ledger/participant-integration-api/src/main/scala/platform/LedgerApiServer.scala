@@ -161,6 +161,7 @@ class LedgerApiServer(
       ledgerFeatures = ledgerFeatures,
       participantId = participantId,
       authService = authService,
+      jwtTimestampLeeway = participantConfig.authentication.jwtTimestampLeeway,
     )
 }
 

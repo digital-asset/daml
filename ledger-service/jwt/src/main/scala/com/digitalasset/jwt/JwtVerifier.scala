@@ -16,8 +16,6 @@ import scalaz.syntax.traverse._
 
 abstract class JwtVerifierBase {
   def verify(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String]
-
-  def getJwtTimestampLeeway: Option[JwtTimestampLeeway]
 }
 
 class JwtVerifier(
@@ -32,8 +30,6 @@ class JwtVerifier(
       .map(a => domain.DecodedJwt(header = a.getHeader, payload = a.getPayload))
       .flatMap(base64Decode)
   }
-
-  def getJwtTimestampLeeway: Option[JwtTimestampLeeway] = jwtTimestampLeeway
 
   private def base64Decode(jwt: domain.DecodedJwt[String]): Error \/ domain.DecodedJwt[String] =
     jwt.traverse(Base64.decode).leftMap(e => Error(Symbol("base64Decode"), e.shows))

@@ -15,6 +15,7 @@ import com.daml.ledger.api.auth.{AuthService, AuthServiceJWT, AuthServiceWildcar
 
 sealed trait AuthServiceConfig {
   def create(): AuthService
+  val jwtTimestampLeeway: Option[JwtTimestampLeeway] = None
 }
 object AuthServiceConfig {
 
@@ -26,7 +27,7 @@ object AuthServiceConfig {
   /** [UNSAFE] Enables JWT-based authorization with shared secret HMAC256 signing: USE THIS EXCLUSIVELY FOR TESTING */
   final case class UnsafeJwtHmac256(
       secret: String,
-      jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+      override val jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
   ) extends AuthServiceConfig {
     // note that HMAC256Verifier only returns an error for a `null` secret and UnsafeJwtHmac256 therefore can't throw an
     // exception when reading secret from a config value
@@ -40,7 +41,7 @@ object AuthServiceConfig {
   /** Enables JWT-based authorization, where the JWT is signed by RSA256 with the verifying public key loaded from the given X509 certificate file (.crt) */
   final case class JwtRs256(
       certificate: String,
-      jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+      override val jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
   ) extends AuthServiceConfig {
     private lazy val verifier = RSA256Verifier
       .fromCrtFile(certificate, jwtTimestampLeeway)
@@ -51,7 +52,7 @@ object AuthServiceConfig {
   /** "Enables JWT-based authorization, where the JWT is signed by ECDSA256 with the verifying public key loaded from the given X509 certificate file (.crt)" */
   final case class JwtEs256(
       certificate: String,
-      jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+      override val jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
   ) extends AuthServiceConfig {
     private lazy val verifier = ECDSAVerifier
       .fromCrtFile(certificate, Algorithm.ECDSA256(_, null), jwtTimestampLeeway)
@@ -64,7 +65,7 @@ object AuthServiceConfig {
   /** Enables JWT-based authorization, where the JWT is signed by ECDSA512 with the verifying public key loaded from the given X509 certificate file (.crt) */
   final case class JwtEs512(
       certificate: String,
-      jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+      override val jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
   ) extends AuthServiceConfig {
     private lazy val verifier = ECDSAVerifier
       .fromCrtFile(certificate, Algorithm.ECDSA512(_, null), jwtTimestampLeeway)
@@ -75,8 +76,10 @@ object AuthServiceConfig {
   }
 
   /** Enables JWT-based authorization, where the JWT is signed by RSA256 with the verifying public key loaded from the given JWKS URL */
-  final case class JwtRs256Jwks(url: String, jwtTimestampLeeway: Option[JwtTimestampLeeway] = None)
-      extends AuthServiceConfig {
+  final case class JwtRs256Jwks(
+      url: String,
+      override val jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+  ) extends AuthServiceConfig {
     private lazy val verifier = JwksVerifier(url, jwtTimestampLeeway)
     override def create(): AuthService = AuthServiceJWT(verifier)
   }
