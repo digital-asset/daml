@@ -39,6 +39,7 @@ class BufferingSubscriptionTest extends AnyWordSpecLike with Matchers {
     }
   }
 }
+
 object BufferingSubscriptionTest {
   class MockClientCallStreamObserver extends ClientCallStreamObserver[String] {
     @volatile
