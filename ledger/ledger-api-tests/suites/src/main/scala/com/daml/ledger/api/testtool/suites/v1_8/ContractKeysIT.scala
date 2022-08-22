@@ -467,7 +467,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         _ <- synchronize(ledger1, ledger2)
       } yield ()
   })
-  import scalaz.syntax.tag._
+
   test(
     "CKDisclosedContractKeyReusabilityAsSubmitter",
     "Subsequent disclosed contracts can use the same contract key (disclosure because of submitting)",
@@ -488,7 +488,7 @@ final class ContractKeysIT extends LedgerTestSuite {
 
         _ <- synchronize(ledger1, ledger2)
 
-        Seq(withKey1Event) <- ledger1.activeContractsByTemplateId(List(WithKey.id.unwrap), party1)
+        Seq(withKey1Event) <- ledger1.activeContractsByTemplateId(List(WithKey.id), party1)
         withKey1 = ContractId.apply[WithKey](withKey1Event.contractId)
         // Archive the disclosed contract
         _ <- ledger1.exercise(party1, withKey1.exerciseArchive())
