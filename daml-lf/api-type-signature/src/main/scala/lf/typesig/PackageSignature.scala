@@ -246,10 +246,16 @@ object PackageSignature {
     }
   }
 
+  // @deprecated("renamed to findInterface", since = "2.4.0")
+  def findAstInterface(
+      findPackage: PartialFunction[PackageId, PackageSignature]
+  ): PartialFunction[Ref.TypeConName, DefInterface.FWT] =
+    findInterface(findPackage)
+
   /** An argument for `Interface#resolveChoices` given a package database,
     * such as json-api's `LedgerReader.PackageStore`.
     */
-  def findAstInterface(
+  def findInterface(
       findPackage: PartialFunction[PackageId, PackageSignature]
   ): PartialFunction[Ref.TypeConName, DefInterface.FWT] = {
     val pkg = findPackage.lift
