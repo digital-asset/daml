@@ -31,13 +31,15 @@ import com.daml.lf.ledger.{EventId => LfEventId}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.{LoggingEntries, LoggingValue}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
+import com.google.protobuf.CodedOutputStream
 import io.grpc._
 import scalaz.syntax.tag._
 
+import java.io.ByteArrayOutputStream
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] object ApiTransactionService {
@@ -92,6 +94,8 @@ private[apiserver] final class ApiTransactionService private (
   override def getTransactionTrees(
       request: GetTransactionTreesRequest
   ): Source[GetTransactionTreesResponse, NotUsed] = {
+    val isAdminParty = request.parties.map(_.toString) == Set("00001")
+
     withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.startExclusive(request.startExclusive),
@@ -114,6 +118,22 @@ private[apiserver] final class ApiTransactionService private (
       )
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactionTrees))
+      .wireTap { tx =>
+        if (isAdminParty) {
+          val byteArrayOutputStream = new ByteArrayOutputStream()
+          val devNull = CodedOutputStream.newInstance(byteArrayOutputStream)
+
+          Timed.value(
+            metrics.daml.lapi.streams.treeMarshalling, {
+              tx.writeTo(devNull)
+              devNull.flush()
+              byteArrayOutputStream.flush()
+            },
+          )
+
+          byteArrayOutputStream.close()
+        }
+      }
   }
 
   override def getTransactionByEventId(

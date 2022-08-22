@@ -299,6 +299,7 @@ final class Metrics(val registry: MetricRegistry) {
         val activeName: MetricName = Prefix :+ "active"
         val active: Counter = registry.counter(activeName)
 
+        val treeMarshalling: Timer = registry.timer(Prefix :+ "tree_marshalling_00001")
       }
     }
 
