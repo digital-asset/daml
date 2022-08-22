@@ -5,7 +5,7 @@ package com.daml.platform.index
 
 import com.daml.ledger.api.domain.{Filters, InclusiveFilters, InterfaceFilter, TransactionFilter}
 import com.daml.lf.data.Ref
-import com.daml.platform.index.IndexServiceImpl.templateFilter
+import com.daml.platform.index.IndexServiceImpl.{templateFilter, unknownTemplatesOrInterfaces}
 import com.daml.platform.index.IndexServiceImplSpec.Scope
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import org.scalatest.flatspec.AnyFlatSpec
@@ -121,6 +121,88 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers {
     ) shouldBe Map(party -> Set(template1, template2, template3))
   }
 
+  behavior of "IndexServiceImpl.unknownTemplatesOrInterfaces"
+
+  it should "provide an empty list in case of empty filter and package metadata" in new Scope {
+    unknownTemplatesOrInterfaces(
+      new TransactionFilter(Map.empty),
+      PackageMetadata(),
+    ) shouldBe List()
+  }
+
+  it should "return an unknown template for not known template" in new Scope {
+    unknownTemplatesOrInterfaces(
+      new TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(template1), Set())))),
+      PackageMetadata(),
+    ) shouldBe List(Left(template1))
+  }
+
+  it should "return an unknown interface for not known interface" in new Scope {
+    unknownTemplatesOrInterfaces(
+      new TransactionFilter(
+        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true)))))
+      ),
+      PackageMetadata(),
+    ) shouldBe List(Right(iface1))
+  }
+
+  it should "return zero unknown interfaces for known interface" in new Scope {
+    unknownTemplatesOrInterfaces(
+      new TransactionFilter(
+        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true)))))
+      ),
+      PackageMetadata(interfaces = Set(iface1)),
+    ) shouldBe List()
+
+  }
+
+  it should "return zero unknown templates for known templates" in new Scope {
+    unknownTemplatesOrInterfaces(
+      new TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(template1), Set())))),
+      PackageMetadata(templates = Set(template1)),
+    ) shouldBe List()
+  }
+
+  it should "only return unknown templates and interfaces" in new Scope {
+    unknownTemplatesOrInterfaces(
+      new TransactionFilter(
+        Map(
+          party -> Filters(InclusiveFilters(Set(template1), Set(InterfaceFilter(iface1, true)))),
+          party2 -> Filters(
+            InclusiveFilters(Set(template2, template3), Set(InterfaceFilter(iface2, true)))
+          ),
+        )
+      ),
+      PackageMetadata(
+        templates = Set(template1),
+        interfaces = Set(iface1),
+      ),
+    ) shouldBe List(Right(iface2), Left(template2), Left(template3))
+  }
+
+  behavior of "IndexServiceImpl.invalidTemplateOrInterfaceMessage"
+
+  it should "provide no message if the list of invalid templates or interfaces is empty" in new Scope {
+    IndexServiceImpl.invalidTemplateOrInterfaceMessage(List.empty) shouldBe ""
+  }
+
+  it should "combine a message containing invalid interfaces and templates together" in new Scope {
+    IndexServiceImpl.invalidTemplateOrInterfaceMessage(
+      List(Right(iface2), Left(template2), Left(template3))
+    ) shouldBe "Templates do not exist: [PackageName:ModuleName:template2, PackageName:ModuleName:template3]. Interfaces do not exist: [PackageName:ModuleName:iface2]."
+  }
+
+  it should "provide a message for invalid templates" in new Scope {
+    IndexServiceImpl.invalidTemplateOrInterfaceMessage(
+      List(Left(template2), Left(template3))
+    ) shouldBe "Templates do not exist: [PackageName:ModuleName:template2, PackageName:ModuleName:template3]."
+  }
+
+  it should "provide a message for invalid interfaces" in new Scope {
+    IndexServiceImpl.invalidTemplateOrInterfaceMessage(
+      List(Right(iface1), Right(iface2))
+    ) shouldBe "Interfaces do not exist: [PackageName:ModuleName:iface1, PackageName:ModuleName:iface2]."
+  }
 }
 
 object IndexServiceImplSpec {

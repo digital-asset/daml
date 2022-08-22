@@ -201,6 +201,11 @@ data QueryContractIdPayload a = QueryContractIdPayload
 -- | Query for the contract with the given contract id.
 --
 -- Returns `None` if there is no active contract the party is a stakeholder on.
+--
+-- WARNING: Over the gRPC and with the JSON API
+-- in-memory backend this performs a linear search so only use this if the number of
+-- active contracts is small.
+--
 -- This is semantically equivalent to calling `query`
 -- and filtering on the client side.
 queryContractId : forall t p. (Template t, IsParties p) => HasCallStack => p -> ContractId t -> Script (Optional t)
@@ -219,8 +224,13 @@ data QueryContractKeyPayload a = QueryContractKeyPayload
   , locations : [(Text, SrcLoc)]
   } deriving Functor
 
--- Returns `None` if there is no active contract with the given key that
+-- | Returns `None` if there is no active contract with the given key that
 -- the party is a stakeholder on.
+--
+-- WARNING: Over the gRPC and with the JSON API
+-- in-memory backend this performs a linear search so only use this if the number of
+-- active contracts is small.
+--
 -- This is semantically equivalent to calling `query`
 -- and filtering on the client side.
 queryContractKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, t))

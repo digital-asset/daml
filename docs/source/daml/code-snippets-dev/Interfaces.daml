@@ -93,7 +93,7 @@ template MyTemplate
   where
     signatory field1
 -- TEMPLATE_HEADER_END
--- TEMPLATE_IMPLEMENTS_BEGIN
+-- INTERFACE_INSTANCE_IN_TEMPLATE_BEGIN
     interface instance MyInterface for MyTemplate where
       view = MyInterfaceViewType "MyTemplate" 100
       method1 = field1
@@ -102,8 +102,24 @@ template MyTemplate
       method3 True x y
         | x > 0 = x + y
         | otherwise = y
--- TEMPLATE_IMPLEMENTS_END
--- TEMPLATE_EMPTY_IMPLEMENTS_BEGIN
+-- INTERFACE_INSTANCE_IN_TEMPLATE_END
+-- EMPTY_INTERFACE_INSTANCE_BEGIN
     interface instance YourInterface for MyTemplate where
       view = EmptyInterfaceView
--- TEMPLATE_EMPTY_IMPLEMENTS_END
+-- EMPTY_INTERFACE_INSTANCE_END
+
+-- INTERFACE_INSTANCE_IN_INTERFACE_BEGIN
+interface MyNewInterface where
+  viewtype EmptyInterfaceView
+  myNewMethod1 : Party
+  myNewMethod2 : Int -> Int
+
+  choice MyNewChoice : Int
+    controller myNewMethod1 this
+    do pure $ myNewMethod2 this 0
+
+  interface instance MyNewInterface for MyTemplate where
+    view = EmptyInterfaceView
+    myNewMethod1 = field1
+    myNewMethod2 x = field2 `min` x
+-- INTERFACE_INSTANCE_IN_INTERFACE_END

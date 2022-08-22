@@ -38,14 +38,16 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
          module Mod {
 
+            record @serializable MyUnit = {};
+
             record @serializable Person = { person: Party, name: Text } ;
 
             interface (this: Planet) = {
-              viewtype Unit;
+              viewtype Mod:MyUnit;
             };
 
             interface (this: Human) = {
-              viewtype Unit;
+              viewtype Mod:MyUnit;
               requires Mod:Planet;
               method asParty: Party;
               method getName: Text;
@@ -73,10 +75,10 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
                   observers Cons @Party [Mod:Person {person} this] (Nil @Party)
               to upure @Int64 i;
               implements Mod:Planet {
-                view = ();
+                view = Mod:MyUnit {};
               };
               implements Mod:Human {
-                view = ();
+                view = Mod:MyUnit {};
                 method asParty = Mod:Person {person} this;
                 method getName = Mod:Person {name} this;
               };
@@ -208,14 +210,14 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
              \ (p: Mod:Planet) -> observer_interface @Mod:Planet p;
 
            interface (this: Root) = {
-             viewtype Unit;
+             viewtype Mod:MyUnit;
              coimplements Mod0:Parcel {
-               view = ();
+               view = Mod:MyUnit {};
              };
            };
 
            interface (this: Boxy) = {
-             viewtype Unit;
+             viewtype Mod:MyUnit;
              requires Mod:Root;
              method getParty: Party;
              choice @nonConsuming ReturnInt (self) (i: Int64): Int64
@@ -223,7 +225,7 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
                , observers Nil @Party
                to upure @Int64 i;
              coimplements Mod0:Parcel {
-               view = ();
+               view = Mod:MyUnit {};
                method getParty = Mod0:Parcel {party} this;
              };
            };

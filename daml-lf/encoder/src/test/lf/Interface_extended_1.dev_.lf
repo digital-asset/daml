@@ -4,11 +4,11 @@
 module InterfaceExtMod {
 
   interface (this: Root) = {
-    viewtype Unit;
+    viewtype RecordMod:MyUnit;
   };
 
   interface (this: Boxy) = {
-    viewtype Unit;
+    viewtype RecordMod:MyUnit;
     requires InterfaceExtMod:Root;
     method getParty: Party;
     choice @nonConsuming ReturnInt (self) (i: Int64): Int64
@@ -26,10 +26,10 @@ module InterfaceExtMod {
     agreement "Lorem ipsum, dolor sit amet";
 
     implements InterfaceExtMod:Root {
-      view = ();
+      view = RecordMod:MyUnit {};
     };
     implements InterfaceExtMod:Boxy {
-      view = ();
+      view = RecordMod:MyUnit {};
       method getParty = InterfaceExtMod:Box {party} this;
     };
   };

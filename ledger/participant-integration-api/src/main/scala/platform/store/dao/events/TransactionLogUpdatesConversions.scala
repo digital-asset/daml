@@ -402,49 +402,28 @@ private[events] object TransactionLogUpdatesConversions {
       loggingContext: LoggingContext,
       executionContext: ExecutionContext,
   ): Future[apiEvent.CreatedEvent] = {
-    val eventualContractKey = createdEvent.contractKey
-      .map { contractKey =>
-        val contractKeyEnricher = (value: Value) =>
-          lfValueTranslation.enricher.enrichContractKey(
-            createdEvent.templateId,
-            value.unversioned,
-          )
-
-        lfValueTranslation
-          .toApiValue(
-            value = contractKey,
-            verbose = eventProjectionProperties.verbose,
-            attribute = "create key",
-            enrich = contractKeyEnricher,
-          )
-          .map(Some(_))
-      }
-      .getOrElse(Future.successful(None))
-
-    val contractEnricher = (value: Value) =>
-      lfValueTranslation.enricher.enrichContract(createdEvent.templateId, value.unversioned)
-
-    val eventualCreateArguments = lfValueTranslation.toApiRecord(
-      value = createdEvent.createArgument,
-      eventProjectionProperties = eventProjectionProperties,
-      attribute = "create argument",
-      enrich = contractEnricher,
-    )
-
-    for {
-      maybeContractKey <- eventualContractKey
-      createArguments <- eventualCreateArguments
-    } yield apiEvent.CreatedEvent(
-      eventId = createdEvent.eventId.toLedgerString,
-      contractId = createdEvent.contractId.coid,
-      templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
-      contractKey = maybeContractKey,
-      createArguments = Some(createArguments),
-      witnessParties = requestingParties.view.filter(createdWitnesses(createdEvent)).toSeq,
-      signatories = createdEvent.createSignatories.toSeq,
-      observers = createdEvent.createObservers.toSeq,
-      agreementText = createdEvent.createAgreementText.orElse(Some("")),
-    )
+    lfValueTranslation
+      .toApiContractData(
+        value = createdEvent.createArgument,
+        key = createdEvent.contractKey,
+        templateId = createdEvent.templateId,
+        witnesses = requestingParties.view.filter(createdWitnesses(createdEvent)).toSet,
+        eventProjectionProperties = eventProjectionProperties,
+      )
+      .map(apiContractData =>
+        apiEvent.CreatedEvent(
+          eventId = createdEvent.eventId.toLedgerString,
+          contractId = createdEvent.contractId.coid,
+          templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
+          contractKey = apiContractData.contractKey,
+          createArguments = apiContractData.createArguments,
+          interfaceViews = apiContractData.interfaceViews,
+          witnessParties = requestingParties.view.filter(createdWitnesses(createdEvent)).toSeq,
+          signatories = createdEvent.createSignatories.toSeq,
+          observers = createdEvent.createObservers.toSeq,
+          agreementText = createdEvent.createAgreementText.orElse(Some("")),
+        )
+      )
   }
 
   private def timestampToTimestamp(t: com.daml.lf.data.Time.Timestamp): Timestamp =

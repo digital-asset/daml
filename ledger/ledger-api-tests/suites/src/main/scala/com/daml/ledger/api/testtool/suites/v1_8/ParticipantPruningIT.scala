@@ -110,14 +110,14 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
       transactionsAfterPrune <- participant.transactionTrees(
         participant
-          .getTransactionsRequest(parties = Seq(submitter))
+          .getTransactionsRequest(participant.transactionFilter(parties = Seq(submitter)))
           .update(_.begin := offsetToPruneUpTo)
       )
 
       cannotReadAnymore <- participant
         .transactionTrees(
           participant
-            .getTransactionsRequest(parties = Seq(submitter))
+            .getTransactionsRequest(participant.transactionFilter(parties = Seq(submitter)))
             .update(_.begin := offsetOfSecondToLastPrunedTransaction)
         )
         .mustFail("attempting to read transactions before the pruning cut-off")
@@ -156,14 +156,14 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
       txAfterPrune <- participant.flatTransactions(
         participant
-          .getTransactionsRequest(parties = Seq(submitter))
+          .getTransactionsRequest(participant.transactionFilter(parties = Seq(submitter)))
           .update(_.begin := offsetToPruneUpTo)
       )
 
       cannotReadAnymore <- participant
         .flatTransactions(
           participant
-            .getTransactionsRequest(parties = Seq(submitter))
+            .getTransactionsRequest(participant.transactionFilter(parties = Seq(submitter)))
             .update(_.begin := offsetOfSecondToLastPrunedTransaction)
         )
         .mustFail("attempting to read transactions before the pruning cut-off")
@@ -452,7 +452,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
       transactionsAfterPrune <- participant.transactionTrees(
         participant
-          .getTransactionsRequest(parties = Seq(submitter))
+          .getTransactionsRequest(participant.transactionFilter(parties = Seq(submitter)))
           .update(_.begin := offsetToPruneUpTo)
       )
 
@@ -462,7 +462,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
       transactionsAfterRedundantPrune <- participant.transactionTrees(
         participant
-          .getTransactionsRequest(parties = Seq(submitter))
+          .getTransactionsRequest(participant.transactionFilter(parties = Seq(submitter)))
           .update(_.begin := offsetToPruneUpTo)
       )
 
@@ -476,7 +476,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
       transactionsAfterSecondPrune <- participant.transactionTrees(
         participant
-          .getTransactionsRequest(parties = Seq(submitter))
+          .getTransactionsRequest(participant.transactionFilter(parties = Seq(submitter)))
           .update(_.begin := offsetToPruneUpToInSecondRealPrune)
       )
 
@@ -542,11 +542,17 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- participant.prune(offsetToPruneUpTo)
 
       emptyRangeAtBegin = participant
-        .getTransactionsRequest(parties = Seq(submitter), begin = participant.begin)
+        .getTransactionsRequest(
+          participant.transactionFilter(parties = Seq(submitter)),
+          begin = participant.begin,
+        )
         .update(_.end := participant.begin)
 
       emptyRangeInPrunedSpace = participant
-        .getTransactionsRequest(parties = Seq(submitter), begin = offsetInPrunedRange)
+        .getTransactionsRequest(
+          participant.transactionFilter(parties = Seq(submitter)),
+          begin = offsetInPrunedRange,
+        )
         .update(_.end := offsetInPrunedRange)
 
       emptyBeginTreesWillFail <- participant.transactionTrees(emptyRangeAtBegin)
@@ -802,7 +808,10 @@ class ParticipantPruningIT extends LedgerTestSuite {
           } yield ()
         })
       trees <- participant.transactionTrees(
-        participant.getTransactionsRequest(parties = Seq(submitter), begin = endOffsetAtTestStart)
+        participant.getTransactionsRequest(
+          participant.transactionFilter(parties = Seq(submitter)),
+          begin = endOffsetAtTestStart,
+        )
       )
     } yield trees
 

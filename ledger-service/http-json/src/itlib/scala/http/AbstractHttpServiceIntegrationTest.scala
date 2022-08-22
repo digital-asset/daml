@@ -10,11 +10,7 @@ import com.daml.api.util.TimestampConversion
 import com.daml.lf.data.Ref
 import com.daml.http.domain.ContractId
 import com.daml.http.domain.TemplateId.OptionalPkg
-import com.daml.http.endpoints.MeteringReportEndpoint.{
-  MeteringReport,
-  MeteringReportDateRequest,
-  MeteringReportRequest,
-}
+import com.daml.http.endpoints.MeteringReportEndpoint.MeteringReportDateRequest
 import com.daml.http.json.SprayJson.objectField
 import com.daml.http.json._
 import com.daml.http.util.ClientUtil.{boxedRecord, uniqueId}
@@ -41,8 +37,8 @@ import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
-import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.{value => lfv}
+import com.google.protobuf.struct.Struct
 import lfv.test.TypedValueGenerators.{ValueAddend => VA}
 
 import java.util.UUID
@@ -127,19 +123,18 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
       to = None,
       application = None,
     )
-    val expected = MeteringReportRequest(
-      from = Timestamp.assertFromString(s"${isoDate}T00:00:00Z"),
-      to = None,
-      application = None,
-    )
     fixture
-      .postJsonRequestWithMinimumAuth[MeteringReport](
+      .postJsonRequestWithMinimumAuth[Struct](
         Uri.Path("/v1/metering-report"),
         request.toJson,
       )
       .map(inside(_) {
         case (StatusCodes.OK, domain.OkResponse(meteringReport, _, StatusCodes.OK)) =>
-          meteringReport.request shouldBe expected
+          meteringReport
+            .fields("request")
+            .getStructValue
+            .fields("from")
+            .getStringValue shouldBe s"${isoDate}T00:00:00Z"
       })
   }
 

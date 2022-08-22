@@ -3,6 +3,8 @@
 
 module RecordMod {
 
+  record @serializable MyUnit = {};
+
   record @serializable Pair (a:*) (b: *) = { fst: a, snd: b };
 
   record @serializable Box = { x: RecordMod:Pair Int64 (Numeric 10), party: Party } ;

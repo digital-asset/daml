@@ -4,6 +4,7 @@
 package com.daml.lf
 package language
 
+import com.daml.lf.data.TemplateOrInterface
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 

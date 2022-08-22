@@ -110,19 +110,39 @@ class InterfacesTest
 
     /* generic exercise tests */
     "be able to exercise interface I1 on a T1 contract" in {
-      val command = ApiCommand.Exercise(idI1, cid1, "C1", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(
+        TemplateOrInterface.Interface(idI1),
+        cid1,
+        "C1",
+        ValueRecord(None, ImmArray.empty),
+      )
       runApi(command) shouldBe a[Right[_, _]]
     }
     "be able to exercise interface I1 on a T2 contract" in {
-      val command = ApiCommand.Exercise(idI1, cid2, "C1", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(
+        TemplateOrInterface.Interface(idI1),
+        cid2,
+        "C1",
+        ValueRecord(None, ImmArray.empty),
+      )
       runApi(command) shouldBe a[Right[_, _]]
     }
     "be able to exercise interface I2 on a T2 contract" in {
-      val command = ApiCommand.Exercise(idI2, cid2, "C2", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(
+        TemplateOrInterface.Interface(idI2),
+        cid2,
+        "C2",
+        ValueRecord(None, ImmArray.empty),
+      )
       runApi(command) shouldBe a[Right[_, _]]
     }
     "be unable to exercise interface I2 on a T1 contract" in {
-      val command = ApiCommand.Exercise(idI2, cid1, "C2", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(
+        TemplateOrInterface.Interface(idI2),
+        cid1,
+        "C2",
+        ValueRecord(None, ImmArray.empty),
+      )
       inside(runApi(command)) { case Left(Error.Interpretation(err, _)) =>
         err shouldBe Error.Interpretation.DamlException(
           IE.ContractDoesNotImplementInterface(idI2, cid1, idT1)
@@ -130,19 +150,39 @@ class InterfacesTest
       }
     }
     "be able to exercise T1 by interface I1" in {
-      val command = ApiCommand.Exercise(idI1, cid1, "C1", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(
+        TemplateOrInterface.Interface(idI1),
+        cid1,
+        "C1",
+        ValueRecord(None, ImmArray.empty),
+      )
       runApi(command) shouldBe a[Right[_, _]]
     }
     "be able to exercise T2 by interface I1" in {
-      val command = ApiCommand.Exercise(idI1, cid2, "C1", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(
+        TemplateOrInterface.Interface(idI1),
+        cid2,
+        "C1",
+        ValueRecord(None, ImmArray.empty),
+      )
       runApi(command) shouldBe a[Right[_, _]]
     }
     "be able to exercise T2 by interface I2" in {
-      val command = ApiCommand.Exercise(idI2, cid2, "C2", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(
+        TemplateOrInterface.Interface(idI2),
+        cid2,
+        "C2",
+        ValueRecord(None, ImmArray.empty),
+      )
       runApi(command) shouldBe a[Right[_, _]]
     }
     "be unable to exercise T1 by interface I2 (stopped in preprocessor)" in {
-      val command = ApiCommand.Exercise(idT1, cid1, "C2", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(
+        TemplateOrInterface.Interface(idT1),
+        cid1,
+        "C2",
+        ValueRecord(None, ImmArray.empty),
+      )
       preprocessApi(command) shouldBe a[Left[_, _]]
     }
   }

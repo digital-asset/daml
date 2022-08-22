@@ -482,60 +482,136 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
       val pkgs: PureCompiledPackages = typeAndCompile(p"""
        module M {
-       
+
+         record @serializable MyUnit = {};
+
          record @serializable E = { } ;
          exception E = { message \(e: M:E) -> "E" };
-          
-         record @serializable T = { party: Party }; 
-                  
+
+         record @serializable T = { party: Party, viewFails: Bool };
+
+         interface (this: I) = {
+           viewtype M:MyUnit;
+           method parties: List Party;
+           choice Noop (self) (u: Unit) : Unit,
+             controllers (call_method @M:I parties this),
+             observers Nil @Party
+             to upure @Unit ();
+           choice BodyCrash (self) (u: Unit) : Unit,
+             controllers (call_method @M:I parties this),
+             observers Nil @Party
+             to upure @Unit (throw @Unit @M:E (M:E {}));
+           choice ControllersCrash (self) (u: Unit) : Unit,
+             controllers throw @(List Party) @M:E (M:E {}),
+             observers Nil @Party
+             to upure @Unit ();
+           choice ObserversCrash (self) (u: Unit) : Unit,
+             controllers (call_method @M:I parties this),
+             observers throw @(List Party) @M:E (M:E {})
+             to upure @Unit ();
+         };
+
          template (this: T) = {
            precondition True;
            signatories Cons @Party [M:T {party} this] Nil @Party;
            observers Nil @Party;
            agreement "Agreement";
-             choice BodyCrash (self) (u: Unit) : Unit, 
-                 controllers Cons @Party [M:T {party} this] Nil @Party,
-                 observers Nil @Party
-               to upure @Unit (throw @Unit @M:E (M:E {}));
-             choice ControllersCrash (self) (u: Unit) : Unit, 
-                 controllers throw @(List Party) @M:E (M:E {}),
-                 observers Nil @Party
-               to upure @Unit ();
-             choice ObserversCrash (self) (u: Unit) : Unit, 
-                 controllers Cons @Party [M:T {party} this] Nil @Party,
-                 observers throw @(List Party) @M:E (M:E {})
-               to upure @Unit ();
+           choice BodyCrash (self) (u: Unit) : Unit,
+             controllers Cons @Party [M:T {party} this] Nil @Party,
+             observers Nil @Party
+             to upure @Unit (throw @Unit @M:E (M:E {}));
+           choice ControllersCrash (self) (u: Unit) : Unit,
+             controllers throw @(List Party) @M:E (M:E {}),
+             observers Nil @Party
+             to upure @Unit ();
+           choice ObserversCrash (self) (u: Unit) : Unit,
+             controllers Cons @Party [M:T {party} this] Nil @Party,
+             observers throw @(List Party) @M:E (M:E {})
+             to upure @Unit ();
+           implements M:I {
+             view = case (M:T {viewFails} this) of
+                 False -> M:MyUnit {}
+               | True -> throw @M:MyUnit @M:E (M:E {});
+              method parties = Cons @Party [M:T {party} this] Nil @Party;
+           };
          };
        }
       """)
 
       val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
-      val testCases = Table[String, Boolean](
-        ("choice", "caught"),
-        ("BodyCrash", true),
-        ("ControllersCrash", false),
-        ("ObserversCrash", false),
+      val testCases = Table[String, String](
+        ("description", "update"),
+        "exception thrown by the evaluation of the choice body during exercise by template can be caught" ->
+          """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
+            in exercise @M:T BodyCrash cid ()
+        """,
+        "exception thrown by the evaluation of the choice controllers during exercise by template cannot be caught" ->
+          """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
+            in exercise @M:T ControllersCrash cid ()
+        """,
+        "exception thrown by the evaluation of the choice observers during exercise by template cannot be caught" ->
+          """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
+            in exercise @M:T ObserversCrash cid ()
+        """,
+        "exception thrown by the evaluation of the view during create by interface cannot be caught" ->
+          """
+            ubind
+              cid : ContractId M:I <- create_by_interface @M:I (to_interface @M:I @M:T (M:T {party = sig, viewFails = True}))
+            in ()
+        """,
+        "exception thrown by the evaluation of the view during fetch by interface cannot be caught" ->
+          """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = True});
+              i: M:I <- fetch_interface @M:I (COERCE_CONTRACT_ID @M:T @M:I cid)
+            in ()
+        """,
+        "exception thrown by the evaluation of the choice body during exercise by interface can be caught" ->
+          """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
+            in exercise_interface @M:I BodyCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()
+        """,
+        "exception thrown by the evaluation of the choice controllers during exercise by interface cannot be caught" ->
+          """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
+            in exercise_interface @M:I ControllersCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()
+        """,
+        "exception thrown by the evaluation of the choice observers during exercise by interface cannot be caught" ->
+          """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
+            in exercise_interface @M:I ObserversCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()
+        """,
       )
 
-      forEvery(testCases) { (choice, caught) =>
+      forEvery(testCases) { (description, update) =>
         val expr =
           e"""\(sig: Party) ->
-              ubind cid : ContractId M:T <- create @M:T (M:T {party = sig}) 
-              in try @Unit (exercise @M:T $choice cid ()) 
-                 catch e -> Some @(Update Unit) (upure @Unit ())
+              try @Unit ($update)
+              catch e -> Some @(Update Unit) (upure @Unit ())
               """
 
         val res = Speedy.Machine
           .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, expr, party), Set(party))
           .run()
-        if (caught)
+        if (description.contains("can be caught"))
           inside(res) { case SResultFinal(SUnit, _) =>
           }
-        else
+        else if (description.contains("cannot be caught"))
           inside(res) { case SResultError(SErrorDamlException(err)) =>
             err shouldBe a[IE.UnhandledException]
           }
+        else
+          sys.error("the description should contains \"can be caught\" or \"cannot be caught\"")
       }
     }
   }
@@ -587,7 +663,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
           signatories Cons @Party [M:T1 {party} record] (Nil @Party);
           observers Nil @Party;
           agreement "Agreement";
-          choice MyChoice (self) (i : Unit) : Unit, 
+          choice MyChoice (self) (i : Unit) : Unit,
             controllers Cons @Party [M:T1 {party} record] (Nil @Party)
             to
               ubind

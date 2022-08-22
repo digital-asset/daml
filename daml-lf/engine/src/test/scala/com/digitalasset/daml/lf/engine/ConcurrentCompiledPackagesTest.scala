@@ -17,7 +17,7 @@ class ConcurrentCompiledPackagesTest extends AnyWordSpec with Matchers with Insi
 
     val pkg =
       p"""
-        module Mod { 
+        module Mod {
           val string: Text = "t";
         }
       """
@@ -35,7 +35,7 @@ class ConcurrentCompiledPackagesTest extends AnyWordSpec with Matchers with Insi
 
       val illFormedPackage =
         p"""
-        module Mod { 
+        module Mod {
           val string: Text = 1;
         }
       """;

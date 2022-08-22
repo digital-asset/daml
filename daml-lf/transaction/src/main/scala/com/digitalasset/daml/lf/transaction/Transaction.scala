@@ -665,9 +665,6 @@ sealed abstract class HasTxNodes {
 
 object Transaction {
 
-  @deprecated("use com.daml.transaction.GenTransaction directly", since = "1.18.0")
-  type WithTxValue = Transaction
-
   private[this] val Empty = Transaction(HashMap.empty, ImmArray.Empty)
 
   private[lf] def empty: Transaction = Empty
@@ -677,14 +674,6 @@ object Transaction {
   private[lf] case object DanglingNodeId extends NotWellFormedErrorReason
   private[lf] case object OrphanedNode extends NotWellFormedErrorReason
   private[lf] case object AliasedNode extends NotWellFormedErrorReason
-
-  @deprecated("use com.daml.value.Value.VersionedContractInstance", since = "1.18.0")
-  type ContractInstance = Value.VersionedContractInstance
-
-  @deprecated("use com.daml.transaction.Node.Action directly", since = "1.18.0")
-  type ActionNode = Node.Action
-  @deprecated("use com.daml.transaction.Node.LeafOnlyAction directly", since = "1.18.0")
-  type LeafNode = Node.LeafOnlyAction
 
   /** Transaction meta data
     *

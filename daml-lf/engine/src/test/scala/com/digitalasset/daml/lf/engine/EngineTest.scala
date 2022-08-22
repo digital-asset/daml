@@ -266,7 +266,12 @@ class EngineTest
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("BasicTests:Simple:1")
     val command =
-      ApiCommand.Exercise(templateId, cid, "Hello", ValueRecord(Some(hello), ImmArray.Empty))
+      ApiCommand.Exercise(
+        TemplateOrInterface.Template(templateId),
+        cid,
+        "Hello",
+        ValueRecord(Some(hello), ImmArray.Empty),
+      )
     val submitters = Set(party)
     val readAs = (Set.empty: Set[Party])
 
@@ -1043,7 +1048,7 @@ class EngineTest
     // we need to fix time as cid are depending on it
     val let = Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")
     val command = ApiCommand.Exercise(
-      templateId,
+      TemplateOrInterface.Template(templateId),
       originalCoid,
       "Transfer",
       ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty(clara)))),
@@ -1226,7 +1231,7 @@ class EngineTest
 
     def runExample(cid: ContractId, exerciseActor: Party) = {
       val command = ApiCommand.Exercise(
-        fetcherTid,
+        TemplateOrInterface.Template(fetcherTid),
         cid,
         "DoFetch",
         ValueRecord(None, ImmArray((Some[Name]("cid"), ValueContractId(fetchedCid)))),
@@ -1390,7 +1395,7 @@ class EngineTest
 
     "mark all lookupByKey nodes as byKey" in {
       val exerciseCmd = ApiCommand.Exercise(
-        lookerUpTemplateId,
+        TemplateOrInterface.Template(lookerUpTemplateId),
         lookerUpCid,
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))),
@@ -1422,7 +1427,7 @@ class EngineTest
 
     "be reinterpreted to the same node when lookup finds a contract" in {
       val exerciseCmd = ApiCommand.Exercise(
-        lookerUpTemplateId,
+        TemplateOrInterface.Template(lookerUpTemplateId),
         lookerUpCid,
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))),
@@ -1465,7 +1470,7 @@ class EngineTest
 
     "be reinterpreted to the same node when lookup doesn't find a contract" in {
       val exerciseCmd = ApiCommand.Exercise(
-        lookerUpTemplateId,
+        TemplateOrInterface.Template(lookerUpTemplateId),
         lookerUpCid,
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(57)))),
@@ -1742,7 +1747,7 @@ class EngineTest
         .preprocessApiCommands(
           ImmArray(
             ApiCommand.Exercise(
-              fetcherTemplateId,
+              TemplateOrInterface.Template(fetcherTemplateId),
               fetcherCid,
               "Fetch",
               ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))),
@@ -1809,16 +1814,21 @@ class EngineTest
     val lookupContract = contracts.get _
     val correctCommand =
       ApiCommand.Exercise(
-        withKeyId,
+        TemplateOrInterface.Template(withKeyId),
         cid,
         "SumToK",
         ValueRecord(None, ImmArray((None, ValueInt64(42)))),
       )
     val incorrectCommand =
-      ApiCommand.Exercise(simpleId, cid, "Hello", ValueRecord(None, ImmArray.Empty))
+      ApiCommand.Exercise(
+        TemplateOrInterface.Template(simpleId),
+        cid,
+        "Hello",
+        ValueRecord(None, ImmArray.Empty),
+      )
     val incorrectFetch =
       ApiCommand.Exercise(
-        fetcherId,
+        TemplateOrInterface.Template(fetcherId),
         fetcherCid,
         "DoFetch",
         ValueRecord(None, ImmArray((None, ValueContractId(cid)))),

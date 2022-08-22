@@ -28,6 +28,7 @@ import com.daml.platform.apiserver.execution.{
   StoreBackedCommandExecutor,
   TimedCommandExecutor,
 }
+import com.daml.platform.apiserver.meteringreport.MeteringReportKey
 import com.daml.platform.apiserver.services._
 import com.daml.platform.apiserver.services.admin._
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService
@@ -88,6 +89,7 @@ private[daml] object ApiServices {
       ledgerFeatures: LedgerFeatures,
       userManagementConfig: UserManagementConfig,
       apiStreamShutdownTimeout: scala.concurrent.duration.Duration,
+      meteringReportKey: MeteringReportKey,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -209,7 +211,7 @@ private[daml] object ApiServices {
         }
 
       val apiMeteringReportService =
-        new ApiMeteringReportService(participantId, meteringStore)
+        new ApiMeteringReportService(participantId, meteringStore, meteringReportKey)
 
       apiTimeServiceOpt.toList :::
         writeServiceBackedApiServices :::
