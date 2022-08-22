@@ -198,7 +198,7 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
       val file = requiredResource("daml-lf/api-type-signature/InterfaceTestPackage.dar")
       inside(readArchiveFromFile(file)) { case Right(dar) =>
         dar.map { payload =>
-          val (errors, ii) = iface.Interface.read(payload)
+          val (errors, ii) = typesig.PackageSignature.read(payload)
           errors should ===(Errors.zeroErrors)
           ii
         }

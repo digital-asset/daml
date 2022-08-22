@@ -3,7 +3,6 @@
 
 package com.daml.lf
 
-// @deprecated("package moved to com.daml.lf.typesig", since = "2.4.0")
 package object iface {
   // @deprecated("renamed to typesig.EnvironmentSignature", since = "2.4.0")
   type EnvironmentInterface = typesig.EnvironmentSignature
