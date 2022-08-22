@@ -14,7 +14,7 @@ package object reader {
   type Errors[K, A] = tsr.Errors[K, A]
   // @deprecated("moved to typesig.reader.Errors", since = "2.4.0")
   final val Errors = tsr.Errors
-  // @deprecated("moved to typesig.reader.InterfaceReader", since = "2.4.0")
+  // @deprecated("renamed to typesig.reader.SignatureReader", since = "2.4.0")
   final val InterfaceReader = tsr.SignatureReader
   // @deprecated("moved to typesig.reader.InterfaceReaderMain", since = "2.4.0")
   final val InterfaceReaderMain = tsr.InterfaceReaderMain
