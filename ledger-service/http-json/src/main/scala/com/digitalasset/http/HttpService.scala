@@ -63,6 +63,9 @@ object HttpService {
 
   final case class Error(message: String)
 
+  private def isLogLevelEqualOrBelowDebug(logLevel: Option[LogLevel]) =
+    logLevel.exists(!_.isGreaterOrEqual(LogLevel.INFO))
+
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   def start(
       startSettings: StartSettings,
@@ -152,7 +155,11 @@ object HttpService {
         { case (jwt, ledgerId, byteString) =>
           implicit lc =>
             LedgerClientJwt
-              .uploadDar(pkgManagementClient)(jwt, ledgerId, byteString)(lc)
+              .uploadDar(pkgManagementClient)(ec)(
+                jwt,
+                ledgerId,
+                byteString,
+              )(lc)
               .flatMap(_ => packageService.reload(jwt, ledgerId))
               .map(_ => ())
         },
@@ -160,7 +167,10 @@ object HttpService {
 
       meteringReportService = new MeteringReportService(
         { case (jwt, request) =>
-          implicit lc => LedgerClientJwt.getMeteringReport(client)(jwt, request)(lc)
+          implicit lc =>
+            LedgerClientJwt.getMeteringReport(client)(ec)(jwt, request)(
+              lc
+            )
         }
       )
 
@@ -185,7 +195,7 @@ object HttpService {
         healthService,
         encoder,
         decoder,
-        logLevel.exists(!_.isGreaterOrEqual(LogLevel.INFO)), // Everything below DEBUG enables this
+        isLogLevelEqualOrBelowDebug(logLevel),
         client.userManagementClient,
         client.identityClient,
       )

@@ -74,7 +74,7 @@ class CommandService(
       val command = createCommand(input)
       val request = submitAndWaitRequest(jwtPayload, input.meta, command, "create")
       val et: ET[ActiveContract[lav1.value.Value]] = for {
-        response <- logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request))
+        response <- logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request)(lc))
         contract <- either(exactlyOneActiveContract(response))
       } yield contract
       et.run
@@ -99,7 +99,7 @@ class CommandService(
 
           val et: ET[ExerciseResponse[lav1.value.Value]] = for {
             response <-
-              logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request))
+              logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request)(lc))
             exerciseResult <- either(exerciseResult(response))
             contracts <- either(contracts(response))
           } yield ExerciseResponse(exerciseResult, contracts)
@@ -122,7 +122,7 @@ class CommandService(
       val et: ET[ExerciseResponse[lav1.value.Value]] = for {
         response <- logResult(
           Symbol("createAndExercise"),
-          submitAndWaitForTransactionTree(jwt, request),
+          submitAndWaitForTransactionTree(jwt, request)(lc),
         )
         exerciseResult <- either(exerciseResult(response))
         contracts <- either(contracts(response))
