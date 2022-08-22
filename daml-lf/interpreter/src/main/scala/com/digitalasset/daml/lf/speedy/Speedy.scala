@@ -256,7 +256,37 @@ private[lf] object Speedy {
                     )
                   )
 
-                case None => DisclosureTable(table.contractIdByKey + (hash -> coid), m1_prime)
+                case None =>
+                  packageInterface.lookupTemplateKey(d.templateId) match {
+                    case Right(templateKey) =>
+                          // TODO: extract key by applying arg to templateKey
+                          val key = templateKey.body
+                          val expectedHash = crypto.Hash.assertHashContractKey(d.templateId, key)
+
+                          if (hash == expectedHash) {
+                            // Success - template exists, has a key and key hash is correct
+                            DisclosureTable(table.contractIdByKey + (hash -> coid), m1_prime)
+                          } else {
+                            // Error - disclosed contract key hash is invalid
+                            throw SErrorDamlException(
+                              IError.DisclosurePreprocessing(
+                                IError.DisclosurePreprocessing.InvalidDisclosedContractKeyHash(
+                                  coid.value,
+                                  expectedHash,
+                                  hash,
+                                )
+                              )
+                            )
+                          }
+
+                    case Left(error) =>
+                      // Error - template key lookup failed
+                      throw SErrorDamlException(
+                        IError.DisclosurePreprocessing(
+                          IError.DisclosurePreprocessing.TemplateLookupError(error)
+                        )
+                      )
+                  }
               }
 
             case None =>
