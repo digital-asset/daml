@@ -9,20 +9,9 @@ import akka.stream.scaladsl.Source
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.{
-  Filters,
-  LedgerId,
-  LedgerOffset,
-  TransactionFilter,
-  TransactionId,
-}
+import com.daml.ledger.api.domain.{Filters, LedgerId, LedgerOffset, TransactionFilter, TransactionId}
 import com.daml.ledger.api.messages.transaction._
-import com.daml.ledger.api.v1.transaction_service.{
-  GetFlatTransactionResponse,
-  GetTransactionResponse,
-  GetTransactionTreesResponse,
-  GetTransactionsResponse,
-}
+import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionResponse, GetTransactionTreesResponse, GetTransactionsResponse}
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
@@ -40,6 +29,8 @@ import io.grpc._
 import scalaz.syntax.tag._
 
 import java.io.ByteArrayOutputStream
+import java.util.Base64
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] object ApiTransactionService {
@@ -65,6 +56,8 @@ private[apiserver] final class ApiTransactionService private (
     metrics: Metrics,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends TransactionService {
+
+  private val counter = new AtomicInteger(0)
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
@@ -132,6 +125,10 @@ private[apiserver] final class ApiTransactionService private (
           )
 
           byteArrayOutputStream.close()
+          val ctr = counter.incrementAndGet()
+          if (ctr > 10000 && ctr % 11 == 0) {
+            logger.info(s"TX tree: ${Base64.getEncoder.encodeToString(tx.toByteArray)}")
+          }
         }
       }
   }
