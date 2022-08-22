@@ -201,6 +201,10 @@ object ParallelIndexerSubscription {
             // we do not increase the event_seq_id here, because all the CreateFilter DbDto-s must have the same eventSeqId as the preceding EventCreate
             dbDto.copy(event_sequential_id = eventSeqId)
 
+          case dbDto: DbDto.ContractKey =>
+            // we do not increase the event_seq_id here, because all the ContractKey DbDto-s must have the same eventSeqId as the preceding EventCreate
+            dbDto.copy(create_event_sequential_id = eventSeqId)
+
           case unChanged => unChanged
         }
 

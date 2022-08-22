@@ -77,4 +77,31 @@ private[backend] object Table {
       fields: (String, Field[FROM, _, _])*
   ): Table[FROM] =
     batchedInsertBase(batchedInsertStatement(tableName, fields))(fields)
+
+  def batchedDelete[FROM](
+      tableName: String
+  )(field: (String, Field[FROM, _, _])): Table[FROM] = {
+    val tableField = field._1
+    val selectField = field._2.selectFieldExpression("?")
+    val deleteStatement = {
+      s"""
+         |DELETE FROM $tableName
+         |WHERE $tableField = $selectField
+         |""".stripMargin
+    }
+    new BaseTable[FROM](Seq(field)) {
+      override def executeUpdate: Array[Array[_]] => Connection => Unit =
+        data =>
+          connection =>
+            ifNonEmpty(data) {
+              val preparedStatement = connection.prepareStatement(deleteStatement)
+              data(0).indices.foreach { i =>
+                field._2.prepareData(preparedStatement, 1, data(0)(i))
+                preparedStatement.addBatch()
+              }
+              preparedStatement.executeBatch()
+              preparedStatement.close()
+            }
+    }
+  }
 }

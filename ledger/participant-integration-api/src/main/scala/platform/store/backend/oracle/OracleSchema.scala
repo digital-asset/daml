@@ -30,6 +30,9 @@ private[oracle] object OracleSchema {
     ): Table[FROM] =
       Table.batchedInsert(tableName)(fields: _*)
 
+    override def delete[FROM](tableName: String)(field: (String, Field[FROM, _, _])): Table[FROM] =
+      Table.batchedDelete(tableName)(field)
+
     override def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM] =

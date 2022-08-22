@@ -58,7 +58,7 @@ private[platform] trait LedgerDaoContractsReader {
     */
   def lookupKeyState(key: GlobalKey, validAt: Offset)(implicit
       loggingContext: LoggingContext
-  ): Future[KeyState]
+  ): Future[Vector[ContractId]]
 }
 
 object LedgerDaoContractsReader {
@@ -75,9 +75,11 @@ object LedgerDaoContractsReader {
       contract: Contract,
       stakeholders: Set[Party],
       ledgerEffectiveTime: Timestamp,
+      contractKeyHash: Option[String],
   ) extends ContractState
 
-  final case class ArchivedContract(stakeholders: Set[Party]) extends ContractState
+  final case class ArchivedContract(stakeholders: Set[Party], contractKeyHash: Option[String])
+      extends ContractState
 
   sealed trait KeyState extends Product with Serializable
 

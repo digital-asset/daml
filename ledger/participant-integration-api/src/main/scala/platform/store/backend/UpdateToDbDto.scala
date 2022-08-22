@@ -4,6 +4,7 @@
 package com.daml.platform.store.backend
 
 import java.util.UUID
+
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
@@ -148,6 +149,8 @@ object UpdateToDbDto {
               val templateId = create.templateId.toString
               val stakeholders = create.stakeholders.map(_.toString)
               val (createArgument, createKeyValue) = translation.serialize(eventId, create)
+              val createKey = create.key
+                .map(key => Key.assertBuild(create.templateId, key.key))
               Iterator(
                 DbDto.EventCreate(
                   event_offset = Some(offset.toHexString),
@@ -172,8 +175,8 @@ object UpdateToDbDto {
                   create_agreement_text = Some(create.agreementText).filter(_.nonEmpty),
                   create_key_value = createKeyValue
                     .map(compressionStrategy.createKeyValueCompression.compress),
-                  create_key_hash = create.key
-                    .map(key => Key.assertBuild(create.templateId, key.key).hash.bytes.toHexString),
+                  create_key_hash = createKey
+                    .map(_.hash.bytes.toHexString),
                   create_argument_compression = compressionStrategy.createArgumentCompression.id,
                   create_key_value_compression =
                     compressionStrategy.createKeyValueCompression.id.filter(_ =>
@@ -186,6 +189,12 @@ object UpdateToDbDto {
                   event_sequential_id = 0, // this is filled later
                   template_id = templateId,
                   _,
+                )
+              ) ++ createKey.iterator.map(key =>
+                DbDto.ContractKey(
+                  contract_key_hash = PersistentContractKeyHash(key),
+                  create_event_sequential_id = 0, // this is filled later
+                  contract_id = create.coid.coid,
                 )
               )
 
@@ -232,7 +241,9 @@ object UpdateToDbDto {
                   exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
                   event_sequential_id = 0, // this is filled later
                 )
-              )
+              ) ++ exercise.key.iterator
+                .filter(_ => exercise.consuming)
+                .map(_ => DbDto.RemovedContractKey(exercise.targetCoid.coid))
 
             case _ =>
               Iterator.empty // It is okay to collect: blinding info is already there, we are free at hand to filter out the fetch and lookup nodes here already

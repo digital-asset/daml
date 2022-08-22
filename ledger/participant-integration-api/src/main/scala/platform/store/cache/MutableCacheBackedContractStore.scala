@@ -10,7 +10,7 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.VersionedContractInstance
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.store.cache.ContractKeyStateValue._
+import com.daml.platform.store.backend.PersistentContractKeyHash
 import com.daml.platform.store.cache.ContractStateValue._
 import com.daml.platform.store.cache.MutableCacheBackedContractStore._
 import com.daml.platform.store.dao.events.ContractStateEvent
@@ -19,7 +19,6 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   ActiveContract,
   ArchivedContract,
   ContractState,
-  KeyState,
 }
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -53,10 +52,10 @@ private[platform] class MutableCacheBackedContractStore(
       loggingContext: LoggingContext
   ): Future[Option[ContractId]] =
     contractStateCaches.keyState
-      .get(key)
+      .get(PersistentContractKeyHash(key))
       .map(Future.successful)
       .getOrElse(readThroughKeyCache(key))
-      .map(keyStateToResponse(_, readers))
+      .flatMap(keyStateToResponse(_, readers, key))
 
   override def lookupMaximumLedgerTimeAfterInterpretation(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
@@ -85,8 +84,8 @@ private[platform] class MutableCacheBackedContractStore(
       .getOrElse(readThroughContractsCache(contractId))
       .map {
         case NotFound => None
-        case Active(contract, _, let) => Some(contract -> let)
-        case Archived(_) => None
+        case Active(contract, _, let, _) => Some(contract -> let)
+        case Archived(_, _) => None
       }
 
   private def readThroughMaximumLedgerTime(
@@ -132,7 +131,7 @@ private[platform] class MutableCacheBackedContractStore(
         case (Right(timestamps), (_, None)) => Right(timestamps)
 
         // failure cases
-        case (acc, (cid, Some(Archived(_) | NotFound))) =>
+        case (acc, (cid, Some(Archived(_, _) | NotFound))) =>
           val missingContracts = acc.left.getOrElse(Set.empty) + cid
           Left(missingContracts)
         case (acc @ Left(_), _) => acc
@@ -172,12 +171,50 @@ private[platform] class MutableCacheBackedContractStore(
   }
 
   private def keyStateToResponse(
-      value: ContractKeyStateValue,
+      mappings: Vector[ContractId],
       readers: Set[Party],
-  ): Option[ContractId] = value match {
-    case Assigned(contractId, createWitnesses) if nonEmptyIntersection(readers, createWitnesses) =>
-      Some(contractId)
-    case _: Assigned | Unassigned => Option.empty
+      key: GlobalKey,
+  ): Future[Option[ContractId]] = {
+    mappings.headOption match {
+      case None => Future.successful(None)
+      case Some(latestContractId) =>
+        contractStateCaches.contractState
+          .get(latestContractId)
+          .map(Future.successful)
+          .getOrElse(readThroughContractsCache(latestContractId))
+          .transformWith {
+            // not found cases...we just continue, should not happen (except archival and pruning happened silently)
+            case Failure(ContractReadThroughNotFound(_)) =>
+              keyStateToResponse(mappings.tail, readers, key)
+            case Success(ContractStateValue.NotFound) =>
+              keyStateToResponse(mappings.tail, readers, key)
+
+            // if contract hash does not match, let's keep looking (this we only need for resolving collisions, with nonUCK engine might resolve this)
+            case Success(active: ContractStateValue.Active)
+                if active.contractKeyHash.get != key.hash.bytes.toHexString =>
+              keyStateToResponse(mappings.tail, readers, key)
+            case Success(archived: ContractStateValue.Archived)
+                if archived.contractKeyHash.get != key.hash.bytes.toHexString =>
+              keyStateToResponse(mappings.tail, readers, key)
+
+            // latest active contract is accessible means assigned if UCK
+            case Success(active: ContractStateValue.Active)
+                if nonEmptyIntersection(readers, active.stakeholders) =>
+              Future.successful(Some(latestContractId))
+
+            // latest active contract is not accessible means unassigned if UCK
+            case Success(_: ContractStateValue.Active) =>
+              Future.successful(None)
+
+            // latest contract is archived means unassigned if UCK
+            case Success(_: ContractStateValue.Archived) =>
+              Future.successful(None)
+
+            // the rest of the errors will be bubble up
+            case Failure(throwable) =>
+              Future.failed(throwable)
+          }
+    }
   }
 
   private def contractStateToResponse(readers: Set[Party], contractId: ContractId)(
@@ -186,9 +223,9 @@ private[platform] class MutableCacheBackedContractStore(
       loggingContext: LoggingContext
   ): Future[Option[Contract]] =
     value match {
-      case Active(contract, stakeholders, _) if nonEmptyIntersection(stakeholders, readers) =>
+      case Active(contract, stakeholders, _, _) if nonEmptyIntersection(stakeholders, readers) =>
         Future.successful(Some(contract))
-      case Archived(stakeholders) if nonEmptyIntersection(stakeholders, readers) =>
+      case Archived(stakeholders, _) if nonEmptyIntersection(stakeholders, readers) =>
         Future.successful(Option.empty)
       case contractStateValue =>
         // This flow is exercised when the readers are not stakeholders of the contract
@@ -207,7 +244,7 @@ private[platform] class MutableCacheBackedContractStore(
       loggingContext: LoggingContext
   ): Future[Option[Contract]] =
     contractStateValue match {
-      case Active(contract, _, _) =>
+      case Active(contract, _, _, _) =>
         metrics.daml.execution.cache.resolveDivulgenceLookup.inc()
         contractsReader.lookupActiveContractWithCachedArgument(
           forParties,
@@ -225,26 +262,18 @@ private[platform] class MutableCacheBackedContractStore(
     }
 
   private val toContractCacheValue: Option[ContractState] => ContractStateValue = {
-    case Some(ActiveContract(contract, stakeholders, ledgerEffectiveTime)) =>
-      ContractStateValue.Active(contract, stakeholders, ledgerEffectiveTime)
-    case Some(ArchivedContract(stakeholders)) =>
-      ContractStateValue.Archived(stakeholders)
+    case Some(ActiveContract(contract, stakeholders, ledgerEffectiveTime, contractKeyHash)) =>
+      ContractStateValue.Active(contract, stakeholders, ledgerEffectiveTime, contractKeyHash)
+    case Some(ArchivedContract(stakeholders, contractKeyHash)) =>
+      ContractStateValue.Archived(stakeholders, contractKeyHash)
     case None => ContractStateValue.NotFound
-  }
-
-  private val toKeyCacheValue: KeyState => ContractKeyStateValue = {
-    case LedgerDaoContractsReader.KeyAssigned(contractId, stakeholders) =>
-      Assigned(contractId, stakeholders)
-    case LedgerDaoContractsReader.KeyUnassigned =>
-      Unassigned
   }
 
   private def readThroughKeyCache(
       key: GlobalKey
-  )(implicit loggingContext: LoggingContext): Future[ContractKeyStateValue] = {
-    val readThroughRequest = (validAt: Offset) =>
-      contractsReader.lookupKeyState(key, validAt).map(toKeyCacheValue)
-    contractStateCaches.keyState.putAsync(key, readThroughRequest)
+  )(implicit loggingContext: LoggingContext): Future[Vector[ContractId]] = {
+    val readThroughRequest = (validAt: Offset) => contractsReader.lookupKeyState(key, validAt)
+    contractStateCaches.keyState.putAsync(PersistentContractKeyHash(key), readThroughRequest)
   }
 
   private def nonEmptyIntersection[T](one: Set[T], other: Set[T]): Boolean =

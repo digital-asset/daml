@@ -4,6 +4,7 @@
 package com.daml.platform.store.backend.common
 
 import java.sql.Connection
+
 import anorm.SqlParser.{array, byteArray, int, long}
 import anorm.{ResultSetParser, Row, RowParser, SimpleSql, SqlParser, ~}
 import com.daml.platform.{ContractId, Key, Party}
@@ -11,14 +12,9 @@ import com.daml.platform.store.backend.Conversions.{contractId, offset, timestam
 import com.daml.ledger.offset.Offset
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
-import com.daml.platform.store.backend.ContractStorageBackend
+import com.daml.platform.store.backend.{ContractStorageBackend, PersistentContractKeyHash}
 import com.daml.platform.store.backend.ContractStorageBackend.RawContractState
 import com.daml.platform.store.cache.LedgerEndCache
-import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
-  KeyAssigned,
-  KeyState,
-  KeyUnassigned,
-}
 import com.daml.platform.store.interning.StringInterning
 
 class ContractStorageBackendTemplate(
@@ -28,35 +24,13 @@ class ContractStorageBackendTemplate(
 ) extends ContractStorageBackend {
   import com.daml.platform.store.backend.Conversions.ArrayColumnToIntArray._
 
-  override def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState = {
-    val resultParser =
-      (contractId("contract_id") ~ array[Int]("flat_event_witnesses")).map {
-        case cId ~ stakeholders =>
-          KeyAssigned(cId, stakeholders.view.map(stringInterning.party.externalize).toSet)
-      }.singleOpt
-
-    import com.daml.platform.store.backend.Conversions.HashToStatement
-    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+  override def keyState(key: Key, validAt: Offset)(connection: Connection): Vector[ContractId] = {
     SQL"""
-         WITH last_contract_key_create AS (
-                SELECT participant_events_create.*
-                  FROM participant_events_create
-                 WHERE create_key_hash = ${key.hash}
-                   AND event_offset <= $validAt
-                 ORDER BY event_sequential_id DESC
-                 FETCH NEXT 1 ROW ONLY
-              )
-         SELECT contract_id, flat_event_witnesses
-           FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
-         WHERE NOT EXISTS
-                (SELECT 1
-                   FROM participant_events_consuming_exercise
-                  WHERE
-                    contract_id = last_contract_key_create.contract_id
-                    AND event_offset <= $validAt
-                )"""
-      .as(resultParser)(connection)
-      .getOrElse(KeyUnassigned)
+         SELECT contract_id
+         FROM contract_keys
+         WHERE contract_key_hash = ${PersistentContractKeyHash(key)}
+         ORDER BY create_event_sequential_id DESC"""
+      .asVectorOf(contractId("contract_id"))(connection)
   }
 
   private val fullDetailsContractRowParser: RowParser[ContractStorageBackend.RawContractState] =
@@ -65,9 +39,11 @@ class ContractStorageBackendTemplate(
       ~ byteArray("create_argument").?
       ~ int("create_argument_compression").?
       ~ int("event_kind")
-      ~ timestampFromMicros("ledger_effective_time").?)
+      ~ timestampFromMicros("ledger_effective_time").?
+      ~ byteArray("create_key_value").?
+      ~ int("create_key_value_compression").?)
       .map {
-        case internalTemplateId ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ eventKind ~ ledgerEffectiveTime =>
+        case internalTemplateId ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ eventKind ~ ledgerEffectiveTime ~ createKeyValue ~ createKeyValueCompression =>
           RawContractState(
             templateId = internalTemplateId.map(stringInterning.templateId.unsafe.externalize),
             flatEventWitnesses = flatEventWitnesses.view
@@ -77,6 +53,8 @@ class ContractStorageBackendTemplate(
             createArgumentCompression = createArgumentCompression,
             eventKind = eventKind,
             ledgerEffectiveTime = ledgerEffectiveTime,
+            createKeyValue = createKeyValue,
+            createKeyValueCompression = createKeyValueCompression,
           )
       }
 
@@ -93,7 +71,9 @@ class ContractStorageBackendTemplate(
              create_argument,
              create_argument_compression,
              10 as event_kind,
-             ledger_effective_time
+             ledger_effective_time,
+             create_key_value,
+             create_key_value_compression
            FROM participant_events_create
            WHERE
              contract_id = $contractId
@@ -106,7 +86,9 @@ class ContractStorageBackendTemplate(
              NULL as create_argument,
              NULL as create_argument_compression,
              20 as event_kind,
-             ledger_effective_time
+             ledger_effective_time,
+             create_key_value,
+             create_key_value_compression
            FROM participant_events_consuming_exercise
            WHERE
              contract_id = $contractId

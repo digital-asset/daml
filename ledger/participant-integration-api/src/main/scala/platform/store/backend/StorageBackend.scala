@@ -29,7 +29,6 @@ import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeP
 import com.daml.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
-import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.platform.store.interning.StringInterning
 import com.daml.scalautil.NeverEqualsOverride
 
@@ -260,7 +259,7 @@ trait CompletionStorageBackend {
 }
 
 trait ContractStorageBackend {
-  def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState
+  def keyState(key: Key, validAt: Offset)(connection: Connection): Vector[ContractId]
   def contractState(contractId: ContractId, before: Offset)(
       connection: Connection
   ): Option[ContractStorageBackend.RawContractState]
@@ -283,6 +282,8 @@ object ContractStorageBackend {
       createArgumentCompression: Option[Int],
       eventKind: Int,
       ledgerEffectiveTime: Option[Timestamp],
+      createKeyValue: Option[Array[Byte]],
+      createKeyValueCompression: Option[Int],
   )
 
   class RawContract(

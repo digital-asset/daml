@@ -80,6 +80,7 @@ private[backend] object AppendOnlySchema {
       BooleanOptional(extractor)
 
     def insert[FROM](tableName: String)(fields: (String, Field[FROM, _, _])*): Table[FROM]
+    def delete[FROM](tableName: String)(field: (String, Field[FROM, _, _])): Table[FROM]
     def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM]
@@ -299,6 +300,18 @@ private[backend] object AppendOnlySchema {
         "ledger_offset" -> fieldStrategy.string(_ => _.ledger_offset),
       )
 
+    val contractKeys: Table[DbDto.ContractKey] =
+      fieldStrategy.insert("contract_keys")(
+        fields = "contract_key_hash" -> fieldStrategy.bigint(_ => _.contract_key_hash),
+        "create_event_sequential_id" -> fieldStrategy.bigint(_ => _.create_event_sequential_id),
+        "contract_id" -> fieldStrategy.string(_ => _.contract_id),
+      )
+
+    val removedContractKeys: Table[DbDto.RemovedContractKey] =
+      fieldStrategy.delete(tableName = "contract_keys")(
+        field = "contract_id" -> fieldStrategy.string(_ => _.contract_id)
+      )
+
     val executes: Seq[Array[Array[_]] => Connection => Unit] = List(
       eventsDivulgence.executeUpdate,
       eventsCreate.executeUpdate,
@@ -312,6 +325,8 @@ private[backend] object AppendOnlySchema {
       stringInterningTable.executeUpdate,
       createFilter.executeUpdate,
       transactionMetering.executeUpdate,
+      contractKeys.executeUpdate,
+      removedContractKeys.executeUpdate,
     )
 
     new Schema[DbDto] {
@@ -338,6 +353,8 @@ private[backend] object AppendOnlySchema {
           stringInterningTable.prepareData(collect[StringInterningDto], stringInterning),
           createFilter.prepareData(collect[CreateFilter], stringInterning),
           transactionMetering.prepareData(collect[TransactionMetering], stringInterning),
+          contractKeys.prepareData(collect[ContractKey], stringInterning),
+          removedContractKeys.prepareData(collect[RemovedContractKey], stringInterning),
         )
       }
 

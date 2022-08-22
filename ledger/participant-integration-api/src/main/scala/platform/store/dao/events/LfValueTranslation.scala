@@ -476,4 +476,10 @@ object LfValueTranslation {
       contractKey: Option[ApiValue],
       interfaceViews: Seq[InterfaceView],
   )
+
+  def decompressAndDeserialize(
+      algorithm: Compression.Algorithm,
+      value: Array[Byte],
+  ): VersionedValue =
+    ValueSerializer.deserializeValue(algorithm.decompress(new ByteArrayInputStream(value)))
 }

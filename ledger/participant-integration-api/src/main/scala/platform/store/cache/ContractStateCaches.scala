@@ -4,10 +4,9 @@
 package com.daml.platform.store.cache
 
 import com.daml.ledger.offset.Offset
-import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned}
+import com.daml.platform.store.backend.PersistentContractKeyHash
 import com.daml.platform.store.cache.ContractStateValue.{Active, Archived, ExistingContractValue}
 import com.daml.platform.store.dao.events.ContractStateEvent
 
@@ -22,7 +21,7 @@ import scala.concurrent.ExecutionContext
   * @param loggingContext The logging context.
   */
 class ContractStateCaches(
-    private[cache] val keyState: StateCache[GlobalKey, ContractKeyStateValue],
+    private[cache] val keyState: ContractKeyStateCache,
     private[cache] val contractState: StateCache[ContractId, ContractStateValue],
 )(implicit loggingContext: LoggingContext) {
   private val logger = ContextualizedLogger.get(getClass)
@@ -36,31 +35,41 @@ class ContractStateCaches(
     if (eventsBatch.isEmpty) {
       logger.error("push triggered with empty events batch")
     } else {
-      val keyMappingsBuilder = Map.newBuilder[Key, ContractKeyStateValue]
+      val newKeyMappingsBuilder = Vector.newBuilder[(Long, ContractId)]
+      val removedKeyMappingsBuilder = Vector.newBuilder[(Long, ContractId)]
       val contractMappingsBuilder = Map.newBuilder[ContractId, ExistingContractValue]
 
       eventsBatch.foreach {
         case created: ContractStateEvent.Created =>
           created.globalKey.foreach { key =>
-            keyMappingsBuilder.addOne(key -> Assigned(created.contractId, created.stakeholders))
+            newKeyMappingsBuilder.addOne(PersistentContractKeyHash(key) -> created.contractId)
           }
           contractMappingsBuilder.addOne(
             created.contractId,
-            Active(created.contract, created.stakeholders, created.ledgerEffectiveTime),
+            Active(
+              created.contract,
+              created.stakeholders,
+              created.ledgerEffectiveTime,
+              created.globalKey.map(_.hash.bytes.toHexString),
+            ),
           )
         case archived: ContractStateEvent.Archived =>
           archived.globalKey.foreach { key =>
-            keyMappingsBuilder.addOne(key -> Unassigned)
+            removedKeyMappingsBuilder.addOne(PersistentContractKeyHash(key) -> archived.contractId)
           }
-          contractMappingsBuilder.addOne(archived.contractId, Archived(archived.stakeholders))
+          contractMappingsBuilder.addOne(
+            archived.contractId,
+            Archived(archived.stakeholders, archived.globalKey.map(_.hash.bytes.toHexString)),
+          )
       }
 
-      val keyMappings = keyMappingsBuilder.result()
+      val newKeyMappings = newKeyMappingsBuilder.result()
+      val removedKeyMappings = removedKeyMappingsBuilder.result()
       val contractMappings = contractMappingsBuilder.result()
 
       val validAt = eventsBatch.last.eventOffset
-      if (keyMappings.nonEmpty) {
-        keyState.putBatch(validAt, keyMappings)
+      if (newKeyMappings.nonEmpty || removedKeyMappings.nonEmpty) {
+        keyState.putBatch(validAt, newKeyMappings, removedKeyMappings)
       }
       contractState.putBatch(validAt, contractMappings)
     }

@@ -192,8 +192,8 @@ private object MutableCacheBackedContractStoreRaceTests {
       _ <- indexViewContractsReader
         .lookupKeyState(event.key, event.offset)
         .map {
-          case KeyAssigned(contractId, _) if contractId == event.contractId && event.created =>
-          case KeyUnassigned if !event.created =>
+          case Vector(contractId) if contractId == event.contractId && event.created =>
+          case Vector() if !event.created =>
           case actual =>
             fail(
               s"Test bug: actual $actual after event $event: index view: ${indexViewContractsReader.keyStateStore
@@ -203,9 +203,9 @@ private object MutableCacheBackedContractStoreRaceTests {
       _ <- indexViewContractsReader
         .lookupContractState(event.contractId, event.offset)
         .map {
-          case Some(ActiveContract(actualContract, _, _))
+          case Some(ActiveContract(actualContract, _, _, _))
               if event.created && event.contract == actualContract =>
-          case Some(ArchivedContract(_)) if !event.created =>
+          case Some(ArchivedContract(_, _)) if !event.created =>
           case actual =>
             fail(
               s"Test bug: actual $actual after event $event: index view: ${indexViewContractsReader.contractStateStore
@@ -342,6 +342,7 @@ private object MutableCacheBackedContractStoreRaceTests {
       contract: Contract,
       createdAt: Offset,
       archivedAt: Option[Offset],
+      keyHash: Option[String],
   )
 
   // Simplified view of the index which models the evolution of the key and contracts state
@@ -364,6 +365,7 @@ private object MutableCacheBackedContractStoreRaceTests {
                 contract = event.contract,
                 createdAt = event.offset,
                 archivedAt = None,
+                keyHash = Some(event.key.hash.bytes.toHexString),
               )
             )
           case lastState @ Some(_) =>
@@ -383,7 +385,7 @@ private object MutableCacheBackedContractStoreRaceTests {
       } else {
         // On archive
         contractStateStore = contractStateStore.updatedWith(event.contractId) {
-          case Some(contractLifecycle @ ContractLifecycle(contractId, _, createdAt, None))
+          case Some(contractLifecycle @ ContractLifecycle(contractId, _, createdAt, None, _))
               if event.offset > createdAt && event.contractId == contractId =>
             Some(contractLifecycle.copy(archivedAt = Some(event.offset)))
           case lastState =>
@@ -411,29 +413,29 @@ private object MutableCacheBackedContractStoreRaceTests {
         val _ = loggingContext
         contractStateStore
           .get(contractId)
-          .flatMap { case ContractLifecycle(_, contract, createdAt, maybeArchivedAt) =>
+          .flatMap { case ContractLifecycle(_, contract, createdAt, maybeArchivedAt, keyHash) =>
             if (validAt < createdAt) None
             else if (maybeArchivedAt.forall(_ > validAt))
-              Some(ActiveContract(contract, stakeholders, Time.Timestamp.MinValue))
-            else Some(ArchivedContract(stakeholders))
+              Some(ActiveContract(contract, stakeholders, Time.Timestamp.MinValue, keyHash))
+            else Some(ArchivedContract(stakeholders, keyHash))
           }
       }(ec)
 
     override def lookupKeyState(key: Key, validAt: Offset)(implicit
         loggingContext: LoggingContext
-    ): Future[KeyState] = Future {
+    ): Future[Vector[ContractId]] = Future {
       val _ = loggingContext
       keyStateStore
         .get(key)
         .map(_.maxBefore(nextAfter(validAt)) match {
           case Some((_, contractId)) =>
             contractStateStore(contractId).archivedAt match {
-              case Some(archivedAt) if archivedAt <= validAt => KeyUnassigned
-              case _ => KeyAssigned(contractId, stakeholders)
+              case Some(archivedAt) if archivedAt <= validAt => Vector.empty
+              case _ => Vector(contractId)
             }
-          case None => KeyUnassigned
+          case None => Vector.empty
         })
-        .getOrElse(KeyUnassigned)
+        .getOrElse(Vector.empty)
     }(ec)
 
     override def lookupActiveContractAndLoadArgument(readers: Set[Party], contractId: ContractId)(

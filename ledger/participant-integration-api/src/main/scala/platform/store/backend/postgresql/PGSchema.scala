@@ -35,6 +35,9 @@ private[postgresql] object PGSchema {
     ): Table[FROM] =
       PGTable.transposedInsert(tableName)(fields: _*)
 
+    override def delete[FROM](tableName: String)(field: (String, Field[FROM, _, _])): Table[FROM] =
+      PGTable.transposedDelete(tableName)(field)
+
     override def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM] =

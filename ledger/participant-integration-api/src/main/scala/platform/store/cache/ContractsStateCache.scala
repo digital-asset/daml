@@ -35,7 +35,15 @@ object ContractStateValue {
       contract: Contract,
       stakeholders: Set[Party],
       createLedgerEffectiveTime: Timestamp,
+      contractKeyHash: Option[
+        String
+      ], // TODO this is not really needed, only for being able to resolve hash conflicts. Hash conflicts would still be there later too, if we are truncating the key-hash, but they should be resolved in the engine instead with non-UCKs
   ) extends ExistingContractValue
 
-  final case class Archived(stakeholders: Set[Party]) extends ExistingContractValue
+  final case class Archived(
+      stakeholders: Set[Party],
+      contractKeyHash: Option[
+        String
+      ], // TODO this is not really needed, only for being able to resolve hash conflicts. Hash conflicts would still be there later too, if we are truncating the key-hash, but they should be resolved in the engine instead with non-UCKs
+  ) extends ExistingContractValue
 }

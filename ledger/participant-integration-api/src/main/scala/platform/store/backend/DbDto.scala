@@ -155,4 +155,14 @@ object DbDto {
       metering_timestamp: Long,
       ledger_offset: String,
   ) extends DbDto
+
+  final case class ContractKey(
+      contract_key_hash: Long,
+      create_event_sequential_id: Long,
+      contract_id: String,
+  ) extends DbDto
+
+  final case class RemovedContractKey(
+      contract_id: String
+  ) extends DbDto
 }

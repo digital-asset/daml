@@ -36,7 +36,7 @@ private[dao] sealed class ContractsReader(
     */
   override def lookupKeyState(key: Key, validAt: Offset)(implicit
       loggingContext: LoggingContext
-  ): Future[KeyState] =
+  ): Future[Vector[ContractId]] =
     Timed.future(
       metrics.daml.index.db.lookupKey,
       dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics)(
@@ -77,8 +77,21 @@ private[dao] sealed class ContractsReader(
               assertPresent(raw.ledgerEffectiveTime)(
                 "ledger_effective_time must be present for a create event"
               ),
+              contractKeyHash = fullKeyHash(
+                Identifier.assertFromString(raw.templateId.get),
+                raw.createKeyValue,
+                raw.createKeyValueCompression,
+              ),
             )
-          case raw if raw.eventKind == 20 => ArchivedContract(raw.flatEventWitnesses)
+          case raw if raw.eventKind == 20 =>
+            ArchivedContract(
+              stakeholders = raw.flatEventWitnesses,
+              contractKeyHash = fullKeyHash(
+                Identifier.assertFromString(raw.templateId.get),
+                raw.createKeyValue,
+                raw.createKeyValueCompression,
+              ),
+            )
           case raw =>
             throw throw IndexErrors.DatabaseErrors.ResultSetError
               .Reject(s"Unexpected event kind ${raw.eventKind}")
@@ -86,6 +99,20 @@ private[dao] sealed class ContractsReader(
         }),
     )
   }
+
+  private def fullKeyHash(
+      templateId: Identifier,
+      createKeyValue: Option[Array[Byte]],
+      compression: Option[Int],
+  ): Option[String] =
+    createKeyValue
+      .map(
+        LfValueTranslation
+          .decompressAndDeserialize(Compression.Algorithm.assertLookup(compression), _)
+      )
+      .map(_.unversioned)
+      .map(Key.assertBuild(templateId, _))
+      .map(_.hash.bytes.toHexString)
 
   /** Lookup of a contract in the case the contract value is not already known */
   override def lookupActiveContractAndLoadArgument(

@@ -43,6 +43,7 @@ class IndexerBenchmark() {
       val indexerExecutor = Executors.newWorkStealingPool()
       val indexerExecutionContext = ExecutionContext.fromExecutor(indexerExecutor)
 
+      println("Indexer Benchmark for test branch")
       println("Generating state updates...")
       val updates = Await.result(createUpdates(), Duration(10, "minute"))
 
