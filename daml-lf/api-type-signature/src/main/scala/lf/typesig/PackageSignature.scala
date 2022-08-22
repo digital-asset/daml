@@ -216,33 +216,33 @@ object PackageSignature {
   }
 
   /** Extend the set of interfaces represented by `s` and `findPackage` with
-    * `newInterfaces`.  Produce the resulting `S` and a replacement copy of
-    * `newInterfaces` with templates and interfaces therein resolved.
+    * `newSignatures`.  Produce the resulting `S` and a replacement copy of
+    * `newSignatures` with templates and interfaces therein resolved.
     *
     * Does not search members of `s` for fresh interfaces.
     */
   def resolveRetroImplements[S, CC[B] <: Seq[B] with SeqOps[B, CC, CC[B]]](
       s: S,
-      newInterfaces: CC[PackageSignature],
+      @deprecatedName("newInterfaces", "2.4.0") newSignatures: CC[PackageSignature],
   )(
       findPackage: GetterSetterAt[PackageId, S, PackageSignature]
   ): (S, CC[PackageSignature]) = {
     type St = (S, CC[PackageSignature])
-    val findTpl = setPackageTemplates[St] { case ((s, newInterfaces), pkgId) =>
-      findPackage(s, pkgId).map(_.rightMap(_ andThen ((_, newInterfaces)))).orElse {
-        val ix = newInterfaces indexWhere (_.packageId == pkgId)
-        (ix >= 0) option ((newInterfaces(ix), newSig => (s, newInterfaces.updated(ix, newSig))))
+    val findTpl = setPackageTemplates[St] { case ((s, newSignatures), pkgId) =>
+      findPackage(s, pkgId).map(_.rightMap(_ andThen ((_, newSignatures)))).orElse {
+        val ix = newSignatures indexWhere (_.packageId == pkgId)
+        (ix >= 0) option ((newSignatures(ix), newSig => (s, newSignatures.updated(ix, newSig))))
       }
     }
 
-    (0 until newInterfaces.size).foldLeft((s, newInterfaces)) {
-      case (st @ (_, newInterfaces), ifcK) =>
-        val ((s2, newInterfaces2), newAtIfcK) =
-          newInterfaces(ifcK).resolveRetroImplements(st)(findTpl)
-        // the tricky part here: newInterfaces2 is guaranteed not to have altered
+    (0 until newSignatures.size).foldLeft((s, newSignatures)) {
+      case (st @ (_, newSignatures), ifcK) =>
+        val ((s2, newSignatures2), newAtIfcK) =
+          newSignatures(ifcK).resolveRetroImplements(st)(findTpl)
+        // the tricky part here: newSignatures2 is guaranteed not to have altered
         // the value at ifcK, and to have made all "self" changes in newAtIfcK.
         // So there is no conflict, we can discard the value in the seq
-        (s2, newInterfaces2.updated(ifcK, newAtIfcK))
+        (s2, newSignatures2.updated(ifcK, newAtIfcK))
     }
   }
 
@@ -252,7 +252,7 @@ object PackageSignature {
   ): PartialFunction[Ref.TypeConName, DefInterface.FWT] =
     findInterface(findPackage)
 
-  /** An argument for `Interface#resolveChoices` given a package database,
+  /** An argument for [[PackageSignature#resolveChoices]] given a package database,
     * such as json-api's `LedgerReader.PackageStore`.
     */
   def findInterface(
@@ -268,10 +268,13 @@ object PackageSignature {
     * The function will not match if the definition is missing or is not a record.
     */
   def resolveInterfaceViewType(
-      findInterface: PartialFunction[PackageId, PackageSignature]
+      @deprecatedName("findInterface", "2.4.0") findPackage: PartialFunction[
+        PackageId,
+        PackageSignature,
+      ]
   ): PartialFunction[Ref.TypeConName, DefInterface.ViewTypeFWT] =
     Function unlift { tcn =>
-      findInterface.lift(tcn.packageId) flatMap (_ resolveInterfaceViewType tcn.qualifiedName)
+      findPackage.lift(tcn.packageId) flatMap (_ resolveInterfaceViewType tcn.qualifiedName)
     }
 
 }
