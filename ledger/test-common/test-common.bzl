@@ -16,7 +16,6 @@ def da_scala_dar_resources_library(
         maven_name_prefix = "",
         exclusions = {},
         enable_scenarios = False,
-        dar_dict = {},
         data_dependencies = {},
         **kwargs):
     """
@@ -35,7 +34,6 @@ def da_scala_dar_resources_library(
             daml_compile_kwargs.update(kwargs)
             daml_compile(
                 name = daml_compile_name,
-                dar_dict = dar_dict.get(daml_compile_name, {}),
                 data_dependencies = data_dependencies.get(daml_compile_name, []),
                 **daml_compile_kwargs
             )

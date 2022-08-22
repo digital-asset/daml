@@ -4,6 +4,7 @@
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "versions")
+load("@bazel_skylib//lib:paths.bzl", "paths")
 
 _damlc = attr.label(
     default = Label("//compiler/damlc:damlc-compile-only"),
@@ -271,6 +272,9 @@ def damlc_for_target(target):
     else:
         return "@damlc_legacy//:damlc_legacy"
 
+def path_to_dar(data):
+    return paths.basename(data) + ".dar"
+
 def daml_compile(
         name,
         srcs,
@@ -279,7 +283,6 @@ def daml_compile(
         project_name = None,
         ghc_options = default_damlc_opts,
         enable_scenarios = False,
-        dar_dict = {},
         data_dependencies = [],
         **kwargs):
     "Build a Daml project, with a generated daml.yaml."
@@ -287,7 +290,7 @@ def daml_compile(
         fail("daml_compile: Expected `srcs' to be non-empty.")
     daml_yaml = name + ".yaml"
     _daml_configure(
-        data_dependencies = data_dependencies,
+        data_dependencies = [path_to_dar(data) for data in data_dependencies],
         name = name + ".configure",
         project_name = project_name or name,
         project_version = version,
@@ -299,7 +302,7 @@ def daml_compile(
         name = name + ".build",
         daml_yaml = daml_yaml,
         srcs = srcs,
-        dar_dict = dar_dict,
+        dar_dict = {data: path_to_dar(data) for data in data_dependencies},
         dar = name + ".dar",
         ghc_options =
             ghc_options +
