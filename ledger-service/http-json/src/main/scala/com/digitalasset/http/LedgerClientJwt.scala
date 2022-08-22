@@ -397,77 +397,37 @@ object LedgerClientJwt {
   }
 
   object LedgerClientRequestTimeLogger {
-    sealed trait RequestLog {
-      def className: String
-      def requestName: String
+    sealed abstract class RequestLog(klass: Class[_], val requestName: String)
+        extends Product
+        with Serializable {
+      final def className: String = klass.getSimpleName
     }
 
-    case object SubmitAndWaitForTransactionLog extends RequestLog {
-      override def className: String = classOf[SynchronousCommandClient].getSimpleName
-      override def requestName: String = "submitAndWaitForTransaction"
-    }
-
-    case object SubmitAndWaitForTransactionTreeLog extends RequestLog {
-      override def className: String = classOf[SynchronousCommandClient].getSimpleName
-      override def requestName: String = "submitAndWaitForTransactionTree"
-    }
-
-    case object GetLedgerEndLog extends RequestLog {
-      override def className: String = classOf[TransactionClient].getSimpleName
-      override def requestName: String = "getLedgerEnd"
-    }
-
-    case object ListKnownPartiesLog extends RequestLog {
-      override def className: String = classOf[PartyManagementClient].getSimpleName
-      override def requestName: String = "listKnownParties"
-    }
-
-    case object GetPartiesLog extends RequestLog {
-      override def className: String = classOf[PartyManagementClient].getSimpleName
-      override def requestName: String = "getParties"
-    }
-
-    case object AllocatePartyLog extends RequestLog {
-      override def className: String = classOf[PartyManagementClient].getSimpleName
-      override def requestName: String = "allocateParty"
-    }
-
-    case object ListPackagesLog extends RequestLog {
-      override def className: String = classOf[PackageClient].getSimpleName
-      override def requestName: String = "listPackages"
-    }
-
-    case object GetPackageLog extends RequestLog {
-      override def className: String = classOf[PackageClient].getSimpleName
-      override def requestName: String = "getPackages"
-    }
-
-    case object UploadDarFileLog extends RequestLog {
-      override def className: String = classOf[PackageManagementClient].getSimpleName
-      override def requestName: String = "uploadDarFile"
-    }
-
-    case object GetMeteringReportLog extends RequestLog {
-      override def className: String = classOf[MeteringReportClient].getSimpleName
-      override def requestName: String = "getMeteringReport"
-    }
-
-    case object GetActiveContractsLog extends RequestLog {
-      override def className: String = classOf[ActiveContractSetClient].getSimpleName
-      override def requestName: String = "getActiveContracts"
-    }
-
-    case object GetTransactionsLog extends RequestLog {
-      override def className: String = classOf[TransactionClient].getSimpleName
-      override def requestName: String = "getTransactions"
-    }
+    case object SubmitAndWaitForTransactionLog
+        extends RequestLog(classOf[SynchronousCommandClient], "submitAndWaitForTransaction")
+    case object SubmitAndWaitForTransactionTreeLog
+        extends RequestLog(classOf[SynchronousCommandClient], "submitAndWaitForTransactionTree")
+    case object GetLedgerEndLog extends RequestLog(classOf[TransactionClient], "getLedgerEnd")
+    case object ListKnownPartiesLog
+        extends RequestLog(classOf[PartyManagementClient], "listKnownParties")
+    case object GetPartiesLog extends RequestLog(classOf[PartyManagementClient], "getParties")
+    case object AllocatePartyLog extends RequestLog(classOf[PartyManagementClient], "allocateParty")
+    case object ListPackagesLog extends RequestLog(classOf[PackageClient], "listPackages")
+    case object GetPackageLog extends RequestLog(classOf[PackageClient], "getPackages")
+    case object UploadDarFileLog
+        extends RequestLog(classOf[PackageManagementClient], "uploadDarFile")
+    case object GetMeteringReportLog
+        extends RequestLog(classOf[MeteringReportClient], "getMeteringReport")
+    case object GetActiveContractsLog
+        extends RequestLog(classOf[ActiveContractSetClient], "getActiveContracts")
+    case object GetTransactionsLog extends RequestLog(classOf[TransactionClient], "getTransactions")
 
     private[LedgerClientJwt] def logMessage(startTime: Long, requestLog: RequestLog): String = {
       s"Ledger client request ${requestLog.className} ${requestLog.requestName} executed, elapsed time: " +
         s"${(System.nanoTime() - startTime) / 1000000L} ms"
     }
 
-    private[LedgerClientJwt] def logFuture[T, C](
+    private[http] def logFuture[T, C](
         requestLog: RequestLog
     )(block: => Future[T])(implicit ec: EC, lc: LoggingContextOf[C]): Future[T] = if (
       logger.debug.isEnabled
@@ -479,7 +439,7 @@ object LedgerClientJwt {
       }
     } else block
 
-    private[LedgerClientJwt] def log[T, C](
+    private[http] def log[T, C](
         requestLog: RequestLog
     )(block: => T)(implicit lc: LoggingContextOf[C]): T = if (logger.debug.isEnabled) {
       val start = System.nanoTime()
