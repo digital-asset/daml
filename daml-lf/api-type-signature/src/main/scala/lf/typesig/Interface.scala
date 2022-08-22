@@ -1,13 +1,13 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.iface
+package com.daml.lf.typesig
 
 import java.{util => j}
 
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref, Ref.{Identifier, PackageId, PackageName, PackageVersion, QualifiedName}
-import com.daml.lf.iface.reader.Errors
+import reader.Errors
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.ArchivePayload
 
@@ -40,7 +40,7 @@ sealed abstract class InterfaceType extends Product with Serializable {
       },
     )
 
-  private[iface] def asInterfaceViewType: Option[DefInterface.ViewTypeFWT] = this match {
+  private[typesig] def asInterfaceViewType: Option[DefInterface.ViewTypeFWT] = this match {
     case InterfaceType.Template(r, _) => Some(r)
     case InterfaceType.Normal(DefDataType(_, dt)) =>
       dt match {
@@ -183,7 +183,7 @@ object Interface {
   def read(lf: ArchivePayload): (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
     readInterface(lf)
 
-  private[iface] def findTemplate[K](
+  private[typesig] def findTemplate[K](
       m: Map[K, InterfaceType],
       k: K,
   ): Option[InterfaceType.Template] =

@@ -6,15 +6,15 @@ package com.daml.lf
 import data.Ref
 
 // Types to be used internally
-package object iface {
+package object typesig {
 
   type FieldWithType = (Ref.Name, Type)
 
-  private[iface] type GetterSetterAt[-I, S, A] = (S, I) => Option[(A, A => S)]
+  private[typesig] type GetterSetterAt[-I, S, A] = (S, I) => Option[(A, A => S)]
 
-  private[iface] type SetterAt[-I, S, A] = (S, I) => Option[(A => A) => S]
+  private[typesig] type SetterAt[-I, S, A] = (S, I) => Option[(A => A) => S]
 
-  private[iface] def lfprintln(
+  private[typesig] def lfprintln(
       @deprecated("shut up unused arguments warning", "") s: => String
   ): Unit = ()
 }

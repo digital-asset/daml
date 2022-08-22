@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.iface
+package com.daml.lf.typesig
 package reader
 
 import com.daml.lf.data.Ref.{DottedName, Name}

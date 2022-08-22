@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
-package iface
+package typesig
 package reader
 
 import com.daml.bazeltools.BazelRunfiles.requiredResource
@@ -200,7 +200,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
         }
       }
     }
-    lazy val itpEI = EnvironmentInterface.fromReaderInterfaces(itp).resolveChoices
+    lazy val itpES = EnvironmentSignature.fromReaderInterfaces(itp).resolveChoices
 
     "load without errors" in {
       itp shouldBe itp
@@ -282,7 +282,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
 
     "finds an interface view from EnvironmentInterface" in {
       val (viewName, expectedRec) = viewNameExpectsRec
-      itpEI.resolveInterfaceViewType(viewName) should ===(Some(expectedRec))
+      itpES.resolveInterfaceViewType(viewName) should ===(Some(expectedRec))
     }
 
     def foundResolvedChoices(foo: Option[InterfaceType]) = inside(foo) {
@@ -302,7 +302,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       }
 
     "resolve inherited choices" in {
-      foundUselessChoice(itpEI.typeDecls get Ref.Identifier(itpPid, Foo))
+      foundUselessChoice(itpES.typeDecls get Ref.Identifier(itpPid, Foo))
     }
 
     "resolve choices internally" in {
@@ -312,7 +312,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
 
     "collect direct and resolved choices in one map" in {
-      foundResolvedChoices(itpEI.typeDecls get Ref.Identifier(itpPid, Foo))
+      foundResolvedChoices(itpES.typeDecls get Ref.Identifier(itpPid, Foo))
         .transform((_, cs) => cs.keySet) should contain theSameElementsAs Map(
         Useless -> Set(Some(Ref.Identifier(itpPid, TIf)), Some(Ref.Identifier(itpPid, LibTIf))),
         Bar -> Set(None),
@@ -322,7 +322,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
 
     "resolve retro implements harmlessly when there are none" in {
       Interface.resolveRetroImplements((), itp.all)((_, _) => None) should ===((), itp.all)
-      itpEI.resolveRetroImplements should ===(itpEI)
+      itpES.resolveRetroImplements should ===(itpES)
     }
   }
 

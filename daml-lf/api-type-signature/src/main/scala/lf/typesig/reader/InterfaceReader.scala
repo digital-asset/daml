@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
-package iface
+package typesig
 package reader
 
 import com.daml.daml_lf_dev.DamlLf

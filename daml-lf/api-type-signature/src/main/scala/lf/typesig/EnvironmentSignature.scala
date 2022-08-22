@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
-package iface
+package typesig
 
 import com.daml.lf.archive.Dar
 import data.Ref, Ref.{Identifier, PackageId}
@@ -14,7 +14,7 @@ import scalaz.syntax.std.map._
 import scalaz.Semigroup
 
 /** The combination of multiple [[Interface]]s, such as from a dar. */
-final case class EnvironmentInterface(
+final case class EnvironmentSignature(
     metadata: Map[PackageId, PackageMetadata],
     typeDecls: Map[Identifier, InterfaceType],
     astInterfaces: Map[Ref.TypeConName, DefInterface.FWT],
@@ -34,9 +34,9 @@ final case class EnvironmentInterface(
     * }}}
     *
     * Therefore there is no reason to bother with `resolveChoices` until you've
-    * accumulated an `EnvironmentInterface` representing the whole environment.
+    * accumulated an `EnvironmentSignature` representing the whole environment.
     */
-  def resolveChoices: EnvironmentInterface =
+  def resolveChoices: EnvironmentSignature =
     copy(typeDecls = typeDecls.transform { (_, it) =>
       it match {
         case itpl: InterfaceType.Template =>
@@ -46,7 +46,7 @@ final case class EnvironmentInterface(
       }
     })
 
-  def resolveRetroImplements: EnvironmentInterface = {
+  def resolveRetroImplements: EnvironmentSignature = {
     import Interface.findTemplate
     val (newTypeDecls, newAstInterfaces) = astInterfaces.foldLeft((typeDecls, astInterfaces)) {
       case ((typeDecls, astInterfaces), (ifTc, defIf)) =>
@@ -65,14 +65,14 @@ final case class EnvironmentInterface(
     typeDecls get tcn flatMap (_.asInterfaceViewType)
 }
 
-object EnvironmentInterface {
-  def fromReaderInterfaces(i: Interface, o: Interface*): EnvironmentInterface =
+object EnvironmentSignature {
+  def fromReaderInterfaces(i: Interface, o: Interface*): EnvironmentSignature =
     fromReaderInterfaces(i +: o)
 
-  def fromReaderInterfaces(dar: Dar[Interface]): EnvironmentInterface =
+  def fromReaderInterfaces(dar: Dar[Interface]): EnvironmentSignature =
     fromReaderInterfaces(dar.main, dar.dependencies: _*)
 
-  def fromReaderInterfaces(all: Iterable[Interface]): EnvironmentInterface = {
+  def fromReaderInterfaces(all: Iterable[Interface]): EnvironmentSignature = {
     val typeDecls = all.iterator.flatMap { case Interface(packageId, _, typeDecls, _) =>
       typeDecls mapKeys (Identifier(packageId, _))
     }.toMap
@@ -82,12 +82,12 @@ object EnvironmentInterface {
     val metadata = all.iterator.flatMap { case Interface(packageId, metadata, _, _) =>
       metadata.iterator.map(md => packageId -> md)
     }.toMap
-    EnvironmentInterface(metadata, typeDecls, astInterfaces)
+    EnvironmentSignature(metadata, typeDecls, astInterfaces)
   }
 
-  implicit val environmentInterfaceSemigroup: Semigroup[EnvironmentInterface] = Semigroup instance {
+  implicit val environmentInterfaceSemigroup: Semigroup[EnvironmentSignature] = Semigroup instance {
     (f1, f2) =>
-      EnvironmentInterface(
+      EnvironmentSignature(
         f1.metadata ++ f2.metadata,
         f1.typeDecls ++ f2.typeDecls,
         f1.astInterfaces ++ f2.astInterfaces,
