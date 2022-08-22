@@ -20,7 +20,7 @@ import scalaz.syntax.functor._
 
 import scala.language.implicitConversions
 
-class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
+class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
 
   private def dnfs(args: String*): Ref.DottedName = Ref.DottedName.assertFromSegments(args)
   private val moduleName: Ref.ModuleName = dnfs("Main")
@@ -36,7 +36,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       cons = Ast.DataVariant(ImmArray(varField("Call", "call"), varField("Put", "put"))),
     )
 
-    val actual = InterfaceReader.foldModule(wrappInModule(dataName, variantDataType))
+    val actual = SignatureReader.foldModule(wrappInModule(dataName, variantDataType))
 
     val expectedResult = Map(
       qualifiedName ->
@@ -78,7 +78,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     )
 
     val actual =
-      InterfaceReader.foldModule(wrappInModule(dnfs("NameClashRecordVariant"), variantDataType))
+      SignatureReader.foldModule(wrappInModule(dnfs("NameClashRecordVariant"), variantDataType))
     val expectedResult = Map(
       Ref.QualifiedName(moduleName, dnfs("NameClashRecordVariant")) ->
         iface.InterfaceType.Normal(
@@ -116,7 +116,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       ),
     )
 
-    val actual = InterfaceReader.foldModule(wrappInModule(dnfs("Record"), dataType))
+    val actual = SignatureReader.foldModule(wrappInModule(dnfs("Record"), dataType))
 
     val expectedResult = Map(
       Ref.QualifiedName(moduleName, dnfs("Record")) ->
@@ -148,7 +148,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       ),
     )
 
-    val actual = InterfaceReader.foldModule(wrappInModule(dnfs("MapRecord"), dataType))
+    val actual = SignatureReader.foldModule(wrappInModule(dnfs("MapRecord"), dataType))
     val expectedResult = Map(
       Ref.QualifiedName(moduleName, dnfs("MapRecord")) ->
         iface.InterfaceType.Normal(
@@ -181,8 +181,8 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     val name = Ref.PackageName.assertFromString("my-package")
     val version = Ref.PackageVersion.assertFromString("1.2.3")
     val present = pkg(Some(Ast.PackageMetadata(name, version)))
-    InterfaceReader.readInterface(() => \/-((packageId, notPresent)))._2.metadata shouldBe None
-    InterfaceReader.readInterface(() => \/-((packageId, present)))._2.metadata shouldBe Some(
+    SignatureReader.readInterface(() => \/-((packageId, notPresent)))._2.metadata shouldBe None
+    SignatureReader.readInterface(() => \/-((packageId, present)))._2.metadata shouldBe Some(
       PackageMetadata(name, version)
     )
   }

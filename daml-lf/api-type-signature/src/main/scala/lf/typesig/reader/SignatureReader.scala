@@ -21,7 +21,7 @@ import com.daml.nonempty.NonEmpty
 
 import scala.collection.immutable.Map
 
-object InterfaceReader {
+object SignatureReader {
   import Errors._
 
   sealed abstract class InterfaceReaderError extends Product with Serializable
@@ -47,7 +47,7 @@ object InterfaceReader {
     implicit def `IRE semigroup`: Semigroup[InterfaceReaderError] =
       Semigroup.firstSemigroup
 
-    def treeReport(errors: Errors[ErrorLoc, InterfaceReader.InvalidDataTypeDefinition]): Cord =
+    def treeReport(errors: Errors[ErrorLoc, SignatureReader.InvalidDataTypeDefinition]): Cord =
       stringReport(errors)(
         _.fold(prop => Cord(s".${prop.name}"), ixName => Cord(s"'$ixName'")),
         e => Cord(e.error),

@@ -16,7 +16,7 @@ object InterfaceReaderMain extends App {
   try {
     val bis = new BufferedInputStream(is)
     val archive = DamlLf.Archive.parser().parseFrom(bis)
-    val out = InterfaceReader.readInterface(archive)
+    val out = SignatureReader.readInterface(archive)
     println(s"out: $out")
   } finally {
     is.close()

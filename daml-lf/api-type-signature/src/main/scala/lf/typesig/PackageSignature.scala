@@ -175,7 +175,7 @@ final case class PackageSignature(
 
 object PackageSignature {
   import Errors._
-  import reader.InterfaceReader._
+  import reader.SignatureReader._
 
   def read(lf: DamlLf.Archive): (Errors[ErrorLoc, InvalidDataTypeDefinition], PackageSignature) =
     readInterface(lf)
