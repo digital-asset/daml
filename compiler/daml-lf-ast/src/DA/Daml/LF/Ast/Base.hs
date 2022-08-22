@@ -715,7 +715,8 @@ data Update
       -- ^ Argument for the choice.
     , exeGuard      :: !(Maybe Expr)
       -- ^ Exercise guard (Interface -> Bool) to abort the transaction eagerly
-      -- if the payload does not satisfy the predicate.
+      -- if the payload does not satisfy the predicate. Nothing if the exercise
+      -- was unguarded.
     }
   -- | Exercise a choice on a contract by key.
   | UExerciseByKey
