@@ -76,29 +76,54 @@ object SignatureReader {
       )
   }
 
+  // @deprecated("renamed to readPackageSignature", since = "2.4.0")
   def readInterface(
       lf: DamlLf.Archive
-  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) =
-    readInterface(() => DamlLfArchiveReader.readPackage(lf))
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
+    readPackageSignature(lf)
 
+  // @deprecated("renamed to readPackageSignature", since = "2.4.0")
   def readInterface(
       packageId: Ref.PackageId,
       damlLf: DamlLf.ArchivePayload,
-  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) =
-    readInterface(() => DamlLfArchiveReader.readPackage(packageId, damlLf))
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
+    readPackageSignature(packageId, damlLf)
 
+  // @deprecated("renamed to readPackageSignature", since = "2.4.0")
   def readInterface(
       payload: ArchivePayload
-  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) =
-    readInterface(() => DamlLfArchiveReader.readPackage(payload))
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
+    readPackageSignature(payload)
+
+  def readPackageSignature(
+      lf: DamlLf.Archive
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
+    readPackageSignature(() => DamlLfArchiveReader.readPackage(lf))
+
+  def readPackageSignature(
+      packageId: Ref.PackageId,
+      damlLf: DamlLf.ArchivePayload,
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
+    readPackageSignature(() => DamlLfArchiveReader.readPackage(packageId, damlLf))
+
+  def readPackageSignature(
+      payload: ArchivePayload
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
+    readPackageSignature(() => DamlLfArchiveReader.readPackage(payload))
 
   private val dummyPkgId = PackageId.assertFromString("-dummyPkg-")
 
   private val dummyInterface = iface.Interface(dummyPkgId, None, Map.empty, Map.empty)
 
+  // @deprecated("renamed to readPackageSignature", since = "2.4.0")
   def readInterface(
       f: () => String \/ (PackageId, Ast.Package)
-  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) =
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
+    readPackageSignature(f)
+
+  def readPackageSignature(
+      f: () => String \/ (PackageId, Ast.Package)
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
     f() match {
       case -\/(e) =>
         (point(InvalidDataTypeDefinition(e)), dummyInterface)

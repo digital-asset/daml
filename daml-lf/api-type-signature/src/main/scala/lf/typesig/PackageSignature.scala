@@ -178,10 +178,10 @@ object PackageSignature {
   import reader.SignatureReader._
 
   def read(lf: DamlLf.Archive): (Errors[ErrorLoc, InvalidDataTypeDefinition], PackageSignature) =
-    readInterface(lf)
+    readPackageSignature(lf)
 
   def read(lf: ArchivePayload): (Errors[ErrorLoc, InvalidDataTypeDefinition], PackageSignature) =
-    readInterface(lf)
+    readPackageSignature(lf)
 
   private[typesig] def findTemplate[K](
       m: Map[K, InterfaceType],

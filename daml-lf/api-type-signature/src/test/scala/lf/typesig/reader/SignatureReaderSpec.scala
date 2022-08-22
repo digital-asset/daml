@@ -181,8 +181,11 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     val name = Ref.PackageName.assertFromString("my-package")
     val version = Ref.PackageVersion.assertFromString("1.2.3")
     val present = pkg(Some(Ast.PackageMetadata(name, version)))
-    SignatureReader.readInterface(() => \/-((packageId, notPresent)))._2.metadata shouldBe None
-    SignatureReader.readInterface(() => \/-((packageId, present)))._2.metadata shouldBe Some(
+    SignatureReader
+      .readPackageSignature(() => \/-((packageId, notPresent)))
+      ._2
+      .metadata shouldBe None
+    SignatureReader.readPackageSignature(() => \/-((packageId, present)))._2.metadata shouldBe Some(
       PackageMetadata(name, version)
     )
   }
