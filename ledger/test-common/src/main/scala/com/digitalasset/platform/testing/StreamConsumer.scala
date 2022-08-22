@@ -6,7 +6,7 @@ package com.daml.platform.testing
 import io.grpc.stub.StreamObserver
 
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 
 final class StreamConsumer[A](attach: StreamObserver[A] => Unit) {
 
@@ -50,12 +50,6 @@ final class StreamConsumer[A](attach: StreamObserver[A] => Unit) {
     val observer = new FiniteStreamObserver[A]
     attach(new TimeBoundObserver(duration)(new SizeBoundObserver(sizeCap = 1)(observer)))
     observer.result
-  }
-
-  def promise: Promise[A] = {
-    val observer = new PromiseElementObserver[A]
-    attach(observer)
-    observer.promise
   }
 
 }

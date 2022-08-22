@@ -59,7 +59,7 @@ import com.google.protobuf.ByteString
 import io.grpc.health.v1.health.HealthCheckResponse
 import io.grpc.stub.StreamObserver
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.Future
 
 trait ParticipantTestContext extends UserManagementTestContext {
 
@@ -184,10 +184,6 @@ trait ParticipantTestContext extends UserManagementTestContext {
   /** Non-managed version of [[flatTransactions]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
   def flatTransactions(request: GetTransactionsRequest): Future[Vector[Transaction]]
-
-  def flatTransactionPromise(
-      request: GetTransactionsRequest
-  ): Promise[GetTransactionsResponse]
 
   /** Managed version of [[flatTransactions]], use this unless you need to tweak the request (i.e. to test low-level details)
     */

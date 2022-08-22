@@ -540,7 +540,8 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
 
       _ <- ledger.uploadDarFile(Dars.read(Carbonv1TestDar.path))
 
-      transactionPromise = flatTransactionPromise(
+      transactionFuture = flatTransactions(
+        take = 1,
         getTransactionsRequest(
           transactionFilter(Seq(party), Seq.empty, Seq((carbonv1.CarbonV1.I.id, true)))
         )
@@ -548,17 +549,17 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
           // template is uploaded and contract with this template is created
           .update(
             _.optionalEnd := None
-          )
+          ),
       )
-      _ = assertEquals(transactionPromise.isCompleted, false)
+      _ = assertEquals(transactionFuture.isCompleted, false)
 
       _ <- ledger.uploadDarFile(Dars.read(Carbonv2TestDar.path))
 
-      _ = assertEquals(transactionPromise.isCompleted, false)
+      _ = assertEquals(transactionFuture.isCompleted, false)
 
       contract <- create(party, carbonv2.CarbonV2.T(party, 21))
 
-      response <- transactionPromise.future
+      transactions <- transactionFuture
 
     } yield {
       assertGrpcError(
@@ -566,9 +567,9 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
         LedgerApiErrors.RequestValidation.InvalidArgument,
         Some(s"Interfaces do not exist"),
       )
-      assertLength("transaction should be found", 1, response.transactions)
+      assertLength("transaction should be found", 1, transactions)
 
-      val createdEvent = createdEvents(response.transactions(0)).head
+      val createdEvent = createdEvents(transactions(0)).head
       assertLength("Create event has a view", 1, createdEvent.interfaceViews)
       assertEquals(
         "Create event template ID",

@@ -100,7 +100,7 @@ import scalaz.Tag
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Failure
 import scala.util.control.NonFatal
 
@@ -364,13 +364,6 @@ final class SingleParticipantTestContext private[participant] (
   override def flatTransactions(request: GetTransactionsRequest): Future[Vector[Transaction]] =
     transactions(request, services.transaction.getTransactions)
       .map(_.flatMap(_.transactions))
-
-  override def flatTransactionPromise(
-      request: GetTransactionsRequest
-  ): Promise[GetTransactionsResponse] =
-    new StreamConsumer[GetTransactionsResponse](
-      services.transaction.getTransactions(request, _)
-    ).promise
 
   override def flatTransactions(parties: Party*): Future[Vector[Transaction]] =
     flatTransactions(getTransactionsRequest(transactionFilter(parties)))

@@ -59,7 +59,7 @@ import io.grpc.health.v1.health.HealthCheckResponse
 import io.grpc.stub.StreamObserver
 
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 
 class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: ParticipantTestContext)
     extends ParticipantTestContext {
@@ -508,8 +508,4 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       templateIds: Seq[TemplateId],
       interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)],
   ): Filters = delegate.filters(templateIds, interfaceFilters)
-
-  override def flatTransactionPromise(
-      request: GetTransactionsRequest
-  ): Promise[GetTransactionsResponse] = delegate.flatTransactionPromise(request)
 }
