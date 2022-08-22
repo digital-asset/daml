@@ -4,6 +4,7 @@
 package com.daml.platform.indexer
 
 import akka.NotUsed
+import akka.actor.Cancellable
 import akka.stream._
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.{v2 => state}
@@ -165,6 +166,7 @@ object JdbcIndexer {
   )(implicit loggingContext: LoggingContext, materializer: Materializer): Future[Unit] = {
     implicit val ec: ExecutionContext = computationExecutionContext
     logger.info("Package Metadata View initialization has been started.")
+    val startedTime = System.currentTimeMillis()
 
     def loadLfArchive(packageId: PackageId): Future[(PackageId, Array[Byte])] =
       dbDispatcher
@@ -194,17 +196,43 @@ object JdbcIndexer {
       }
     }
 
-    Source
+    val initFuture = Source
       .futureSource(lfPackagesSource())
       .mapAsyncUnordered(config.initLoadParallelism)(loadLfArchive)
       .mapAsyncUnordered(config.initProcessParallelism)(processPackage)
       .runWith(Sink.foreach(packageMetadataView.update))
-      .map(_ => logger.info("Package Metadata View has been initialized"))(
+
+    val check = checkInitTakesTooLong(config, startedTime, initFuture)
+    initFuture
+      .map { _ =>
+        logger.info("Package Metadata View has been initialized")
+        val _ = check.cancel()
+      }(
         computationExecutionContext
       )
       .recover { case NonFatal(e) =>
         logger.error(s"Failed to initialize Package Metadata View", e)
+        val _ = check.cancel()
         throw e
       }
   }
+  private def checkInitTakesTooLong[T](
+      config: PackageMetadataViewConfig,
+      startedTime: Long,
+      f: Future[T],
+  )(implicit
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+  ): Cancellable =
+    materializer.scheduleAtFixedRate(
+      initialDelay = config.initTakesTooLongInitialDelay,
+      interval = config.initTakesTooLongInterval,
+      task = () =>
+        if (!f.isCompleted) {
+          val now = System.currentTimeMillis()
+          logger.warn(
+            s"Package Metadata View initialization takes to long (${now - startedTime}ms)"
+          )
+        },
+    )
 }
