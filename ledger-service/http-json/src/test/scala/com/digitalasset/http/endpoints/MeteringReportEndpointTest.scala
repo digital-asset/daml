@@ -5,12 +5,16 @@ package com.daml.http
 package endpoints
 
 import com.daml.ledger.api.v1.admin.metering_report_service
-import com.daml.lf.data.Ref.{ApplicationId, ParticipantId}
+import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp
+import com.google.protobuf.struct
+import com.google.protobuf.struct.Struct
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.\/-
 import spray.json.enrichAny
+
+import java.time.LocalDate
 
 class MeteringReportEndpointTest extends AnyFreeSpec with Matchers {
 
@@ -20,41 +24,28 @@ class MeteringReportEndpointTest extends AnyFreeSpec with Matchers {
 
     val appX = ApplicationId.assertFromString("appX")
 
-    val request = MeteringReportRequest(
-      Timestamp.assertFromString("2022-02-03T14:00:00Z"),
-      Some(Timestamp.assertFromString("2022-02-03T15:00:00Z")),
+    val request = MeteringReportDateRequest(
+      LocalDate.of(2022, 2, 3),
+      Some(LocalDate.of(2022, 2, 4)),
       Some(appX),
     )
 
-    val report = MeteringReport(
-      ParticipantId.assertFromString("Part"),
-      request.copy(to = None),
-      `final` = true,
-      Seq(ApplicationMeteringReport(appX, 63)),
-    )
-
     "should read/write request" in {
-      val actual = request.toJson.convertTo[MeteringReportRequest]
+      val actual = request.toJson.convertTo[MeteringReportDateRequest]
       actual shouldBe request
     }
 
-    "should read/write report" in {
-      val json = report.toJson
-      val actual = json.convertTo[MeteringReport]
-      actual shouldBe report
-    }
-
     "should convert to timestamp to protobuf timestamp" in {
-      val expected = Timestamp.assertFromString("2022-02-03T14:00:00Z")
-      val actual = toTimestamp(toPbTimestamp(expected))
+      val expected = Timestamp.assertFromString("2022-02-03T00:00:00Z")
+      val actual = toTimestamp(LocalDate.of(2022, 2, 3))
       actual shouldBe expected
     }
 
     "should convert to protobuf request" in {
       import request._
       val expected = metering_report_service.GetMeteringReportRequest(
-        Some(toPbTimestamp(from)),
-        to.map(toPbTimestamp),
+        Some(toPbTimestamp(toTimestamp(from))),
+        to.map(toTimestamp).map(toPbTimestamp),
         application.get,
       )
       val actual = MeteringReportEndpoint.toPbRequest(request)
@@ -62,22 +53,12 @@ class MeteringReportEndpointTest extends AnyFreeSpec with Matchers {
     }
 
     "should convert from protobuf response" in {
-      val expected = \/-(report)
+      val expected = Struct.of(Map("" -> struct.Value.of(struct.Value.Kind.StringValue("ok"))))
       val response = metering_report_service.GetMeteringReportResponse(
-        request = Some(MeteringReportEndpoint.toPbRequest(report.request)),
-        participantReport = Some(
-          metering_report_service.ParticipantMeteringReport(
-            participantId = report.participant,
-            isFinal = report.`final`,
-            applicationReports = report.applications.map(r =>
-              metering_report_service.ApplicationMeteringReport(r.application, r.events)
-            ),
-          )
-        ),
-        reportGenerationTime = None,
+        meteringReportJson = Some(expected)
       )
-      val actual = MeteringReportEndpoint.toMeteringReport(response)
-      actual shouldBe expected
+      val actual = MeteringReportEndpoint.toJsonMeteringReport(response)
+      actual shouldBe \/-(expected)
     }
 
   }
