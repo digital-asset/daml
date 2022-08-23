@@ -82,7 +82,7 @@ object Machine extends StrictLogging {
   // Run speedy until we arrive at a value.
   def stepToValue(machine: Speedy.Machine): SValue = {
     machine.run() match {
-      case SResultFinalValue(v) => v
+      case SResultFinal(v, _) => v
       case SResultError(err) => {
         logger.error(Pretty.prettyError(err).render(80))
         throw err
@@ -114,11 +114,11 @@ object Trigger extends StrictLogging {
   }
 
   private def detectHasReadAs(
-      interface: PackageInterface,
+      pkgInterface: PackageInterface,
       triggerIds: TriggerIds,
   ): Either[String, Boolean] =
     for {
-      fieldInfo <- interface
+      fieldInfo <- pkgInterface
         .lookupRecordFieldInfo(
           triggerIds.damlTriggerLowLevel("Trigger"),
           Name.assertFromString("initialState"),
@@ -183,10 +183,10 @@ object Trigger extends StrictLogging {
 
     val compiler = compiledPackages.compiler
     for {
-      definition <- compiledPackages.interface.lookupValue(triggerId).left.map(_.pretty)
+      definition <- compiledPackages.pkgInterface.lookupValue(triggerId).left.map(_.pretty)
       expr <- detectTriggerType(triggerId, definition.typ)
       triggerIds = TriggerIds(expr.ty.tycon.packageId)
-      hasReadAs <- detectHasReadAs(compiledPackages.interface, triggerIds)
+      hasReadAs <- detectHasReadAs(compiledPackages.pkgInterface, triggerIds)
       converter: Converter = Converter(compiledPackages, triggerIds)
       filter <- getTriggerFilter(compiledPackages, compiler, converter, expr)
       heartbeat <- getTriggerHeartbeat(compiledPackages, compiler, converter, expr)
@@ -225,7 +225,7 @@ object Trigger extends StrictLogging {
     Machine.stepToValue(machine) match {
       case SVariant(_, "AllInDar", _, _) => {
         val packages = compiledPackages.packageIds
-          .map(pkgId => (pkgId, compiledPackages.interface.lookupPackage(pkgId).toOption.get))
+          .map(pkgId => (pkgId, compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.get))
           .toSeq
         val templateIds = packages.flatMap({ case (pkgId, pkg) =>
           pkg.modules.toList.flatMap({ case (modName, module) =>

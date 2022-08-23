@@ -28,14 +28,25 @@ trait Dispatcher[Index] {
   /** Signals and stores a new head in memory. */
   def signalNewHead(head: Index): Unit
 
-  /** Returns a stream of elements with the next index from start (exclusive) to end (inclusive) */
+  /** Returns a stream of elements with the next index from start (exclusive) to end (inclusive)
+    * Throws `DispatcherIsClosedException` if dispatcher is in the shutting down state
+    */
   def startingAt[T](
       startExclusive: Index,
       subSource: SubSource[Index, T],
       endInclusive: Option[Index] = None,
   ): Source[(Index, T), NotUsed]
 
+  /** Triggers shutdown of the Dispatcher by completing all outstanding stream subscriptions.
+    * This method ensures that all outstanding subscriptions have been notified with the latest signalled head
+    * and waits for their graceful completion.
+    */
   def shutdown(): Future[Unit]
+
+  /** Triggers shutdown of the Dispatcher by eagerly failing
+    * all outstanding stream subscriptions with the given throwable.
+    */
+  def cancel(throwable: Throwable): Future[Unit]
 }
 
 object Dispatcher {

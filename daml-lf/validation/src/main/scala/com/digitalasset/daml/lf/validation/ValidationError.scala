@@ -7,6 +7,7 @@ package validation
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.Reference
 import com.daml.lf.language.LanguageVersion
 
 import scala.Ordering.Implicits.infixOrderingOps
@@ -152,15 +153,12 @@ abstract class ValidationError extends java.lang.RuntimeException with Product w
   override def getMessage: String = pretty
   protected def prettyInternal: String
 }
+
 final case class ENatKindRightOfArrow(context: Context, kind: Kind) extends ValidationError {
   protected def prettyInternal: String = s"invalid kind ${kind.pretty}"
 }
 final case class EUnknownTypeVar(context: Context, varName: TypeVarName) extends ValidationError {
   protected def prettyInternal: String = s"unknown type variable: $varName"
-}
-final case class EIllegalShadowingExprVar(context: Context, varName: ExprVarName)
-    extends ValidationError {
-  protected def prettyInternal: String = s"illegal shadowing expr variable: $varName"
 }
 final case class EUnknownExprVar(context: Context, varName: ExprVarName) extends ValidationError {
   protected def prettyInternal: String = s"unknown expr variable: $varName"
@@ -304,25 +302,6 @@ final case class EExpectedSerializableType(
        | * problem: ${requirement.pretty}
      """.stripMargin
 }
-final case class ETypeConMismatch(
-    context: Context,
-    foundConName: TypeConName,
-    expectedConName: TypeConName,
-) extends ValidationError {
-  protected def prettyInternal: String =
-    s"""type constructor mismatch:
-       | * expected: ${expectedConName.qualifiedName}
-       | * found: ${foundConName.qualifiedName}""".stripMargin
-}
-final case class EExpectedDataType(context: Context, typ: Type) extends ValidationError {
-  protected def prettyInternal: String = s"expected data type, but found: ${typ.pretty}"
-}
-final case class EExpectedListType(context: Context, typ: Type) extends ValidationError {
-  protected def prettyInternal: String = s"expected list type, but found: ${typ.pretty}"
-}
-final case class EExpectedOptionType(context: Context, typ: Type) extends ValidationError {
-  protected def prettyInternal: String = s"expected option type, but found: ${typ.pretty}"
-}
 final case class EEmptyCase(context: Context) extends ValidationError {
   protected def prettyInternal: String = "empty case"
 }
@@ -347,18 +326,6 @@ final case class ETypeSynCycle(context: Context, names: List[TypeSynName]) exten
   protected def prettyInternal: String =
     s"cycle in type synonym definitions ${names.mkString(" -> ")}"
 }
-final case class EImpredicativePolymorphism(context: Context, typ: Type) extends ValidationError {
-  protected def prettyInternal: String =
-    s"impredicative polymorphism is not supported: ${typ.pretty}"
-}
-final case class EKeyOperationForTemplateWithNoKey(context: Context, template: TypeConName)
-    extends ValidationError {
-  protected def prettyInternal: String =
-    s"tried to perform key lookup or fetch on template ${template.qualifiedName}"
-}
-final case class EIllegalKeyExpression(context: Context, expr: Expr) extends ValidationError {
-  protected def prettyInternal: String = s"illegal template key expression"
-}
 final case class EIllegalHigherEnumType(context: Context, defn: TypeConName)
     extends ValidationError {
   protected def prettyInternal: String = s"illegal higher order enum type"
@@ -367,16 +334,9 @@ final case class EIllegalHigherInterfaceType(context: Context, defn: TypeConName
     extends ValidationError {
   protected def prettyInternal: String = s"illegal higher interface type"
 }
-final case class EIllegalEnumArgument(context: Context, typ: Type) extends ValidationError {
-  protected def prettyInternal: String = s"illegal non Unit enum argument"
-}
 sealed abstract class PartyLiteralRef extends Product with Serializable
 final case class PartyLiteral(party: Party) extends PartyLiteralRef
 final case class ValRefWithPartyLiterals(valueRef: ValueRef) extends PartyLiteralRef
-final case class EForbiddenPartyLiterals(context: Context, ref: PartyLiteralRef)
-    extends ValidationError {
-  protected def prettyInternal: String = s"Found forbidden party literals in ${ref}"
-}
 /* Collision */
 
 final case class ECollision(
@@ -411,54 +371,38 @@ final case class EModuleVersionDependencies(
   override def context: Context = Context.None
 }
 
-final case class EBadInheritedChoices(
+final case class EMissingMethodInInterfaceInstance(
     context: Context,
-    iface: TypeConName,
-    template: TypeConName,
-    expected: Set[ChoiceName],
-    got: Set[ChoiceName],
-) extends ValidationError {
-  override protected def prettyInternal: String =
-    s"Inherited choices for template $template implementation of interface $iface does not match interface definition.\n Expected: $expected\n But got: $got"
-}
-
-final case class EMissingInterfaceMethod(
-    context: Context,
-    template: TypeConName,
-    iface: TypeConName,
     method: MethodName,
 ) extends ValidationError {
   override protected def prettyInternal: String =
-    s"Template $template is missing method '$method' in its implementation of interface $iface."
+    s"Interface instance lacks an implementation for method '$method'."
 }
 
-final case class EUnknownInterfaceMethod(
+final case class EUnknownMethodInInterfaceInstance(
     context: Context,
-    template: TypeConName,
-    iface: TypeConName,
     method: MethodName,
 ) extends ValidationError {
   override protected def prettyInternal: String =
-    s"Template $template implements method '$method' in its implementation of interface $iface, but this method is not part of the interface."
+    s"Interface instance has an implementation for method '$method', but this method is not part of the interface."
 }
 
-final case class ETemplateDoesNotImplementInterface(
+final case class EMissingInterfaceInstance(
     context: Context,
-    template: TypeConName,
-    iface: TypeConName,
+    interfaceId: TypeConName,
+    templateId: TypeConName,
 ) extends ValidationError {
   override protected def prettyInternal: String =
-    s"Template $template does not implement interface $iface"
+    s"There is no interface instance $interfaceId for $templateId"
 }
 
-final case class EMissingRequiredInterface(
+final case class EMissingRequiredInterfaceInstance(
     context: Context,
-    template: TypeConName,
     requiringIface: TypeConName,
-    missingRequiredIface: TypeConName,
+    missingRequiredInterfaceInstance: Reference.InterfaceInstance,
 ) extends ValidationError {
   override protected def prettyInternal: String =
-    s"Template $template is missing an implementation of interface $missingRequiredIface required by interface $requiringIface"
+    s"Missing required ${missingRequiredInterfaceInstance.pretty}, required by interface $requiringIface"
 }
 final case class EWrongInterfaceRequirement(
     context: Context,
@@ -483,4 +427,23 @@ final case class ECircularInterfaceRequires(
 ) extends ValidationError {
   protected def prettyInternal: String =
     s"Circular interface requirement is not allowed: interface $iface requires itself."
+}
+
+final case class EAmbiguousInterfaceInstance(
+    context: Context,
+    interfaceId: TypeConName,
+    templateId: TypeConName,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"A reference to interface instance $interfaceId for $templateId is ambiguous, " +
+      "both the interface and the template define this interface instance."
+}
+
+final case class EViewNotSerializable(
+    context: Context,
+    iface: TypeConName,
+    nonSerializableReturnType: Type,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"Interface $iface has a view method which returns a non-serializable type $nonSerializableReturnType"
 }

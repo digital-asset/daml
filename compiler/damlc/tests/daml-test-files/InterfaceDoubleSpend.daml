@@ -9,14 +9,15 @@
 module InterfaceDoubleSpend where
 
 -- | An interface comment.
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface Token where
+  viewtype EmptyInterfaceView
   getIssuer : Party
   getOwner : Party
   getAmount : Int
 
   transferImpl : Party -> Update (ContractId Token)
-
-  ensure (getAmount this >= 0)
 
   choice Transfer : ContractId Token
     with
@@ -33,7 +34,8 @@ template Asset
   where
     signatory issuer
     observer owner
-    implements Token where
+    interface instance Token for Asset where
+      view = EmptyInterfaceView
       getOwner = owner
       getIssuer = issuer
       getAmount = amount

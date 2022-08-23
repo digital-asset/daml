@@ -6,6 +6,7 @@ package com.daml.ledger.runner.common
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.configuration.Configuration
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
+import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.InitialLedgerConfiguration
 import com.daml.platform.services.time.TimeProviderType
 
@@ -37,6 +38,6 @@ class ConfigAdaptor {
       case TimeProviderType.WallClock => None
     }
 
-  def authService(apiServerConfig: ApiServerConfig): AuthService =
-    apiServerConfig.authentication.create()
+  def authService(participantConfig: ParticipantConfig): AuthService =
+    participantConfig.authentication.create()
 }

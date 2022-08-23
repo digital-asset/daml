@@ -268,14 +268,14 @@ object Converter {
         } yield anyChoice match {
           case AnyChoice.Template(name, arg) =>
             command.ApiCommand.Exercise(
-              typeId = tplId,
+              typeId = TemplateOrInterface.Template(tplId),
               contractId = cid,
               choiceId = name,
               argument = arg.toUnnormalizedValue,
             )
           case AnyChoice.Interface(ifaceId, name, arg) =>
             command.ApiCommand.Exercise(
-              typeId = ifaceId,
+              typeId = TemplateOrInterface.Interface(ifaceId),
               contractId = cid,
               choiceId = name,
               argument = arg.toUnnormalizedValue,
@@ -345,7 +345,7 @@ object Converter {
         Script.DummyLoggingContext
       )
     machine.run() match {
-      case SResultFinalValue(v) =>
+      case SResultFinal(v, _) =>
         v match {
           case SStruct(_, values) if values.size == 2 =>
             Right((values.get(fstOutputIdx), values.get(sndOutputIdx)))
@@ -816,7 +816,7 @@ object Converter {
         }
       valueTranslator =
         new preprocessing.ValueTranslator(
-          compiledPackages.interface,
+          compiledPackages.pkgInterface,
           requireV1ContractIdSuffix = false,
         )
       sValue <- valueTranslator

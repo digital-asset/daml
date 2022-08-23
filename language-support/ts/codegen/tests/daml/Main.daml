@@ -5,8 +5,8 @@ module Main where
 
 import DA.TextMap
 import qualified DA.Map
-import Lib.Mod
-import Lib.ModIfaceOnly
+import qualified Lib.Mod hiding (Overridden)
+import qualified Lib.ModIfaceOnly
 
 import T
 
@@ -28,7 +28,7 @@ template AllTypes with
     textMap: TextMap Int
     monoRecord: Person
     polyRecord: Pair Int Text
-    imported: Imported
+    imported: Lib.Mod.Imported
     archiveX: Archive
     either: Either Int Text
     tuple: (Int, Text)
@@ -171,7 +171,10 @@ template Counter with
       do
         create Counter {c = n, ..}
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface Token where
+  viewtype EmptyInterfaceView
   getTokenOwner : Party
   transferImpl : Party -> Update (ContractId Token)
 
@@ -188,16 +191,22 @@ template Asset with
   where
     signatory issuer
     observer owner
-    implements Token where
+    choice Overridden : ()
+      controller owner
+      do return ()
+    interface instance Token for Asset where
+      view = EmptyInterfaceView
       getTokenOwner = owner
       transferImpl newOwner = do
         cid <- create Asset with issuer = issuer, owner = newOwner
         pure (toInterfaceContractId @Token cid)
-    implements Other where
+    interface instance Lib.Mod.Other for Asset where
+      view = Lib.Mod.EmptyInterfaceView
       getOtherOwner = owner
       somethingImpl = do
         pure ()
-    implements YetAnother where
+    interface instance Lib.ModIfaceOnly.YetAnother for Asset where
+      view = Lib.ModIfaceOnly.EmptyInterfaceView
       getOtherOwner = owner
       somethingImpl = do
         pure ()

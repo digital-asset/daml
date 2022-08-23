@@ -3,20 +3,21 @@
 
 package com.daml.platform.apiserver
 
-import java.io.IOException
-import java.net.{BindException, InetAddress, InetSocketAddress}
-import java.util.concurrent.Executor
-import java.util.concurrent.TimeUnit.SECONDS
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.error.ErrorInterceptor
+import com.daml.platform.apiserver.ratelimiting.RateLimitingInterceptor
 import com.daml.ports.Port
 import com.google.protobuf.Message
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
 import io.netty.handler.ssl.SslContext
 
+import java.io.IOException
+import java.net.{BindException, InetAddress, InetSocketAddress}
+import java.util.concurrent.Executor
+import java.util.concurrent.TimeUnit.SECONDS
 import scala.concurrent.duration.DurationInt
 import scala.util.Failure
 import scala.util.control.NoStackTrace
@@ -50,10 +51,10 @@ private[apiserver] object GrpcServer {
     builder.maxInboundMessageSize(maxInboundMessageSize)
     // NOTE: Interceptors run in the reverse order in which they were added.
     interceptors.foreach(builder.intercept)
+    rateLimitingConfig.foreach(c => builder.intercept(RateLimitingInterceptor(metrics, config = c)))
     builder.intercept(new MetricsInterceptor(metrics))
     builder.intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
     builder.intercept(new ErrorInterceptor)
-    rateLimitingConfig.foreach(c => builder.intercept(new RateLimitingInterceptor(metrics, c)))
     services.foreach { service =>
       builder.addService(service)
       toLegacyService(service).foreach(builder.addService)

@@ -10,10 +10,11 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
+import com.daml.platform.LedgerApiServer
+import com.daml.platform.configuration.IndexServiceConfig
+import com.daml.platform.indexer.{IndexerConfig, IndexerServiceOwner, IndexerStartupMode}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.LfValueTranslationCache
-import com.daml.platform.store.interning.StringInterningView
 
 import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
@@ -69,6 +70,7 @@ object IndexerStabilityTestFixture {
     )
 
     newLoggingContext { implicit loggingContext =>
+      val participantDataSourceConfig = ParticipantDataSourceConfig(jdbcUrl)
       for {
         // This execution context is not used for indexing in the append-only schema, it can be shared
         servicesExecutionContext <- ResourceOwner
@@ -78,6 +80,8 @@ object IndexerStabilityTestFixture {
 
         // Start N indexers that all compete for the same database
         _ = logger.info(s"Starting $indexerCount indexers for database $jdbcUrl")
+        metricRegistry = new MetricRegistry
+        metrics = new Metrics(metricRegistry)
         indexers <- Resource
           .sequence(
             (1 to indexerCount).toList
@@ -92,17 +96,26 @@ object IndexerStabilityTestFixture {
                       }
                     )
                     .acquire()
-                  metricRegistry = new MetricRegistry
-                  metrics = new Metrics(metricRegistry)
+                  (inMemoryState, inMemoryStateUpdaterFlow) <-
+                    LedgerApiServer
+                      .createInMemoryStateAndUpdater(
+                        IndexServiceConfig(),
+                        metrics,
+                        servicesExecutionContext,
+                      )
+                      .acquire()
+
                   // Create an indexer and immediately start it
-                  indexing <- new StandaloneIndexerServer(
+                  indexing <- new IndexerServiceOwner(
                     participantId = EndlessReadService.participantId,
-                    participantDataSourceConfig = ParticipantDataSourceConfig(jdbcUrl),
+                    participantDataSourceConfig = participantDataSourceConfig,
                     readService = readService,
                     config = indexerConfig,
                     metrics = metrics,
                     lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-                    stringInterningViewO = Some(new StringInterningView),
+                    inMemoryState = inMemoryState,
+                    inMemoryStateUpdaterFlow = inMemoryStateUpdaterFlow,
+                    executionContext = servicesExecutionContext,
                   ).acquire()
                 } yield ReadServiceAndIndexer(readService, indexing)
               )

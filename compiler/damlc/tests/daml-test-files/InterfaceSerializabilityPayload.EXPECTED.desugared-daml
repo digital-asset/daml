@@ -3,6 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => Gettable
   = Gettable GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Gettable where
@@ -27,8 +28,6 @@ instance DA.Internal.Desugar.HasObserver Gettable where
   observer = GHC.Types.primitive @"EObserverInterface"
 instance DA.Internal.Desugar.HasCreate Gettable where
   create = GHC.Types.primitive @"UCreateInterface"
-instance DA.Internal.Desugar.HasEnsure Gettable where
-  ensure this = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.HasIsInterfaceType Gettable where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Gettable where
@@ -76,3 +75,5 @@ _choice_GettableGet
      \ self this arg@Get {..}
        -> let _ = self in let _ = this in let _ = arg in do return this, 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView Gettable EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"

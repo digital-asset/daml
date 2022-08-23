@@ -297,15 +297,15 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
 --
 --              , "template S with p: Party where"
 --              , "  signatory p"
---              , "  implements I where"
+--              , "  interface instance I for S where"
 --              , "    iGetParty = p"
---              , "  implements J where"
+--              , "  interface instance J for S where"
 --              , "    jGetParty = p"
 --              , "template T with p: Party where"
 --              , "  signatory p"
---              , "  implements I where"
+--              , "  interface instance I for T where"
 --              , "    iGetParty = p"
---              , "  implements J where"
+--              , "  interface instance J for T where"
 --              , "    jGetParty = p"
 --
 --              , "x = script do"
@@ -672,6 +672,58 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
             [ "test"
             , "--project-root"
             , tempDir ]
+    , testCase "Rollback archive" $ do
+        withTempDir $ \dir -> do
+            writeFileUTF8 (dir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: test-rollback-archive"
+              , "version: 0.0.1"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+              ]
+            let file = dir </> "Main.daml"
+            T.writeFileUtf8 file $ T.unlines
+                  [ "module Main where"
+                  , "import Daml.Script"
+                  , "import DA.Exception"
+                  , ""
+                  , "template Foo"
+                  , "  with"
+                  , "    owner : Party"
+                  , "  where"
+                  , "    signatory owner"
+                  , "    nonconsuming choice Catch : ()"
+                  , "      controller owner"
+                  , "        do try do"
+                  , "              exercise self Fail"
+                  , "            catch"
+                  , "              GeneralError _ -> pure ()"
+                  , "    nonconsuming choice Fail : ()"
+                  , "      controller owner"
+                  , "        do  exercise self Archive"
+                  , "            abort \"\""
+                  , ""
+                  , "test: Script ()"
+                  , "test = script do"
+                  , "  a <- allocateParty \"a\""
+                  , "  c <- submit a do"
+                  , "    createCmd Foo with"
+                  , "      owner = a"
+                  , "  submit a do"
+                  , "    exerciseCmd c Catch"
+                  , "  submit a do"
+                  , "    exerciseCmd c Catch"
+                  ]
+            (exitCode, stdout, _stderr) <-
+              readProcessWithExitCode
+                damlc
+                [ "test"
+                , "--project-root"
+                , dir ]
+                ""
+            exitCode @?= ExitSuccess
+            let out = lines stdout
+            out!!3 @?= "./Main.daml:test: ok, 1 active contracts, 3 transactions."
     ] <>
     [ testCase ("damlc test " <> unwords (args "") <> " in project") $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")

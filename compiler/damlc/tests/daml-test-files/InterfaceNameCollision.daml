@@ -3,11 +3,13 @@
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 
--- | Checks that interfaces choices and method names cannot collide.
--- @ERROR name collision between interface method InterfaceNameCollision:Iface.foobar and interface choice InterfaceNameCollision:Iface.FooBar
+-- | Checks that interfaces choices and method names can collide.
 module InterfaceNameCollision where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface Iface where
+    viewtype EmptyInterfaceView
     owner : Party
     foobar : ()
     choice FooBar : ()

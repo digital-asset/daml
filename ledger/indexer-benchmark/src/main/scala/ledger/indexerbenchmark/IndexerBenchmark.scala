@@ -17,7 +17,8 @@ import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{JvmMetricSet, Metrics}
-import com.daml.platform.indexer.{Indexer, JdbcIndexer, StandaloneIndexerServer}
+import com.daml.platform.LedgerApiServer
+import com.daml.platform.indexer.{Indexer, IndexerServiceOwner, JdbcIndexer}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.resources
@@ -69,17 +70,31 @@ class IndexerBenchmark() {
 
       println("Creating read service and indexer...")
       val readService = createReadService(updates)
-      val indexerFactory: JdbcIndexer.Factory = new JdbcIndexer.Factory(
-        config.participantId,
-        config.dataSource,
-        config.indexerConfig,
-        readService,
-        metrics,
-        LfValueTranslationCache.Cache.none,
-        None,
-      )
 
       val resource = for {
+        servicesExecutionContext <- ResourceOwner
+          .forExecutorService(() => Executors.newWorkStealingPool())
+          .map(ExecutionContext.fromExecutorService)
+          .acquire()
+        (inMemoryState, inMemoryStateUpdaterFlow) <-
+          LedgerApiServer
+            .createInMemoryStateAndUpdater(
+              config.indexServiceConfig,
+              metrics,
+              indexerExecutionContext,
+            )
+            .acquire()
+        indexerFactory = new JdbcIndexer.Factory(
+          config.participantId,
+          config.dataSource,
+          config.indexerConfig,
+          readService,
+          metrics,
+          LfValueTranslationCache.Cache.none,
+          inMemoryState,
+          inMemoryStateUpdaterFlow,
+          servicesExecutionContext,
+        )
         _ <- metricsResource(config, metrics)
         _ = println("Setting up the index database...")
         indexer <- indexer(config, indexerExecutionContext, indexerFactory)
@@ -121,7 +136,7 @@ class IndexerBenchmark() {
   ): resources.Resource[ResourceContext, Indexer] =
     Await
       .result(
-        StandaloneIndexerServer
+        IndexerServiceOwner
           .migrateOnly(config.dataSource.jdbcUrl)
           .map(_ => indexerFactory.initialized())(indexerExecutionContext),
         Duration(5, "minute"),

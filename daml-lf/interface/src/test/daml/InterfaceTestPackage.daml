@@ -14,15 +14,20 @@ template Foo with
       do
         return ()
 
-    implements TIf where
+    interface instance TIf for Foo where
+      view = EmptyInterfaceView
       getOwner = party
       dup = toInterfaceContractId <$> create this
 
-    implements L.TIf where
+    interface instance L.TIf for Foo where
+      view = L.TIfView 42 "hi"
       getOwner = party
       dup = toInterfaceContractId <$> create this
+
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface TIf where
+  viewtype EmptyInterfaceView
   getOwner: Party
   dup: Update (ContractId TIf)
   choice Useless: ContractId TIf with

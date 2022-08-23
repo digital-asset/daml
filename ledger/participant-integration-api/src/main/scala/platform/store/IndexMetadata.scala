@@ -7,15 +7,15 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.resources.ResourceContext
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
-import com.daml.platform.store.dao.JdbcLedgerDao
 import com.daml.platform.store.cache.MutableLedgerEndCache
+import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.interning.StringInterningView
 import scalaz.Tag
 
@@ -27,20 +27,28 @@ object IndexMetadata {
   def read(
       jdbcUrl: String
   )(implicit
-      resourceContext: ResourceContext,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
-  ): Future[IndexMetadata] =
-    ownDao(jdbcUrl).use { dao =>
-      for {
-        ledgerId <- dao.lookupLedgerId()
-        participantId <- dao.lookupParticipantId()
-        ledgerEnd <- ledgerId match {
-          case Some(_) => dao.lookupLedgerEnd().map(x => Some(x.lastOffset))
-          case None => Future.successful(None)
-        }
-      } yield metadata(ledgerId, participantId, ledgerEnd)
-    }
+  ): ResourceOwner[IndexMetadata] = {
+    for {
+      dao <- ownDao(jdbcUrl)
+      matadata <- ResourceOwner.forFuture(() => metadata(dao))
+    } yield matadata
+  }
+
+  private def metadata(dao: LedgerReadDao)(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[IndexMetadata] = {
+    for {
+      ledgerId <- dao.lookupLedgerId()
+      participantId <- dao.lookupParticipantId()
+      ledgerEnd <- ledgerId match {
+        case Some(_) => dao.lookupLedgerEnd().map(x => Some(x.lastOffset))
+        case None => Future.successful(None)
+      }
+    } yield metadata(ledgerId, participantId, ledgerEnd)
+  }
 
   private def ownDao(
       jdbcUrl: String
@@ -75,7 +83,7 @@ object IndexMetadata {
           servicesExecutionContext = executionContext,
           metrics = metrics,
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-          enricher = None,
+          engine = None,
           participantId = Ref.ParticipantId.assertFromString("1"),
           ledgerEndCache = MutableLedgerEndCache(), // not used
           stringInterning = new StringInterningView(), // not used

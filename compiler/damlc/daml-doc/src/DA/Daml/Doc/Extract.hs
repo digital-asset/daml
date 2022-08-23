@@ -197,6 +197,8 @@ haddockParse diagsLogger opts f = MaybeT $ do
 ------------------------------------------------------------
 
 -- | Extracts the set of interface types implemented by each template type.
+-- TODO(MA): Handle interface instances in interfaces
+-- https://github.com/digital-asset/daml/issues/14047
 getTemplateImplementsMap :: DocCtx -> [DeclData] -> MS.Map Typename (Set.Set DDoc.Type)
 getTemplateImplementsMap ctx@DocCtx{..} decls =
     MS.fromListWith Set.union
@@ -205,9 +207,9 @@ getTemplateImplementsMap ctx@DocCtx{..} decls =
         , name <- case unLoc decl of
             SigD _ (TypeSig _ (L _ n :_) _) -> [packRdrName n]
             _ -> []
-        , Just _ <- [T.stripPrefix "_implements_" name]
+        , Just _ <- [T.stripPrefix "_interface_instance_" name]
         , Just id <- [MS.lookup (Fieldname name) dc_ids]
-        , TypeApp _ (Typename "ImplementsT") [TypeApp _ t [], iface] <- [typeToType ctx $ idType id]
+        , TypeApp _ (Typename "InterfaceInstance") [_parent, iface, TypeApp _ t []] <- [typeToType ctx $ idType id]
         ]
 
 -- | Extracts the documentation of a function. Comments are either
@@ -236,9 +238,10 @@ getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
 
     guard (exportsFunction dc_exports fct_name)
     guard (not $ "_choice_" `T.isPrefixOf` packRdrName name)
-    guard (not $ "_implements_" `T.isPrefixOf` packRdrName name)
+    guard (not $ "_interface_instance_" `T.isPrefixOf` packRdrName name)
     guard (not $ "_requires_" `T.isPrefixOf` packRdrName name)
     guard (not $ "_method_" `T.isPrefixOf` packRdrName name)
+    guard (not $ "_view_" `T.isPrefixOf` packRdrName name)
     Just FunctionDoc {..}
 
 getClsDocs :: DocCtx -> DeclData -> Maybe ClassDoc

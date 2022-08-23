@@ -141,6 +141,17 @@ const computeUserToken = (name: string) =>
     "HS256",
   );
 
+const ADMIN_TOKEN = encode(
+  {
+    "https://daml.com/ledger-api": {
+      ledgerId: LEDGER_ID,
+      applicationId: APPLICATION_ID,
+      admin: true,
+    },
+  },
+  SECRET_KEY,
+  "HS256",
+);
 const ALICE_PARTY = "Alice";
 const ALICE_TOKEN = computeToken(ALICE_PARTY);
 const BOB_PARTY = "Bob";
@@ -179,20 +190,14 @@ const spawnJvm = (
 
 beforeAll(async () => {
   console.log("build-and-lint-1.0.0 (" + buildAndLint.packageId + ") loaded");
-  const darPath = getEnv("DAR");
   sandboxProcess = spawnJvm(getEnv("SANDBOX"), [
-    "--dev-mode-unsafe",
-    "--contract-id-seeding",
-    "testing-weak",
-    "--port",
-    "0",
-    "--port-file",
-    SANDBOX_PORT_FILE,
-    "--ledgerid",
-    LEDGER_ID,
-    "--wall-clock-time",
-    "--log-level=INFO",
-    darPath,
+    "run-legacy-cli-config",
+    "--daml-lf-dev-mode-unsafe",
+    "--contract-id-seeding=testing-weak",
+    "--enable-user-management=true",
+    "--participant=participant-id=example,port=0,port-file=" +
+      SANDBOX_PORT_FILE,
+    "--ledger-id=" + LEDGER_ID,
   ]);
   await waitOn({ resources: [`file:${SANDBOX_PORT_FILE}`] });
   const sandboxPortData = await fs.readFile(SANDBOX_PORT_FILE, {
@@ -223,6 +228,25 @@ beforeAll(async () => {
     encoding: "utf8",
   });
   jsonApiPort = parseInt(jsonApiPortData);
+
+  console.log("Uploading required dar files ..." + getEnv("DAR"));
+  const ledger = new Ledger({ token: ADMIN_TOKEN, httpBaseUrl: httpBaseUrl() });
+  const upDar = await fs.readFile(getEnv("DAR"));
+  await ledger.uploadDarFile(upDar);
+  console.log("Explicitly allocating parties");
+  await ledger.allocateParty({
+    identifierHint: ALICE_PARTY,
+    displayName: ALICE_PARTY,
+  });
+  await ledger.allocateParty({
+    identifierHint: BOB_PARTY,
+    displayName: BOB_PARTY,
+  });
+  await ledger.allocateParty({
+    identifierHint: CHARLIE_PARTY,
+    displayName: CHARLIE_PARTY,
+  });
+
   console.log("JSON API listening on port " + jsonApiPort.toString());
 }, 300_000);
 
@@ -671,6 +695,48 @@ describe("interface definition", () => {
       templateId: emptyIfcId,
     });
   });
+  describe("choice name collision", () => {
+    // statically assert that an expression is a choice
+    const theChoice = <T extends object, C, R, K>(c: Choice<T, C, R, K>) => c;
+
+    // Something is inherited
+    test("unambiguous inherited is inherited", () => {
+      const c: Choice<
+        buildAndLint.Main.Asset,
+        buildAndLint.Lib.Mod.Something,
+        {},
+        undefined
+      > = tpl.Something;
+      expect(c).toBeDefined();
+      expect(c).toEqual(theChoice(if2.Something));
+      expect(c.template()).toBe(if2);
+    });
+    test("choice from two interfaces is not inherited", () => {
+      const k = "PeerIfaceOverload";
+      expect(theChoice(if2[k])).toBeDefined();
+      expect(
+        theChoice(buildAndLint.Lib.ModIfaceOnly.YetAnother[k]),
+      ).toBeDefined();
+      // statically check that k isn't in tpl
+      const tplK: Extract<keyof typeof tpl, typeof k> extends never
+        ? true
+        : never = true;
+      expect(tplK).toEqual(true); // useless, but suppresses unused error
+      // dynamically check the same
+      expect(_.get(tpl, k)).toBeUndefined();
+    });
+    test("choice from template and interface prefers template", () => {
+      const k = "Overridden";
+      const c: Choice<
+        buildAndLint.Main.Asset,
+        buildAndLint.Main.Overridden,
+        {},
+        undefined
+      > = tpl[k];
+      expect(c).not.toEqual(theChoice(if2[k]));
+      expect(c.template()).toBe(tpl);
+    });
+  });
 });
 
 test("interfaces", async () => {
@@ -999,6 +1065,7 @@ test("party API", async () => {
   expect(_.sortBy(allParties, [(p: PartyInfo) => p.identifier])).toEqual([
     p("Alice"),
     p("Bob"),
+    p("Charlie"),
   ]);
 
   const newParty1 = await ledger.allocateParty({});
@@ -1013,6 +1080,7 @@ test("party API", async () => {
     _.sortBy([
       "Alice",
       "Bob",
+      "Charlie",
       "Dave",
       newParty1.identifier,
       newParty2.identifier,

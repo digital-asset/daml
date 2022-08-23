@@ -38,7 +38,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
     case class Reject(message: String)(implicit errorLogger: ContextualizedErrorLogger)
         extends DamlErrorWithDefiniteAnswer(
-          cause = s"The request exercised an unsupported operation: ${message}"
+          cause = s"The request exercised an unsupported operation: $message"
         )
   }
 
@@ -63,6 +63,101 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         extends DamlErrorWithDefiniteAnswer(
           cause = s"The participant is overloaded: $reason",
           extraContext = Map("reason" -> reason),
+        )
+  }
+
+  @Explanation(
+    "This error happens when the JVM heap memory pool exceeds a pre-configured limit."
+  )
+  @Resolution(
+    """The following actions can be taken:
+      |1. Review the historical use of heap space by inspecting the metric given in the message.
+      |2. Review the current heap space limits configured in the rate limiting configuration.
+      |3. Try to space out requests that are likely to require a large amount of memory to process."""
+  )
+  object HeapMemoryOverLimit
+      extends ErrorCode(
+        id = "HEAP_MEMORY_OVER_LIMIT",
+        ErrorCategory.ContentionOnSharedResources,
+      ) {
+    case class Rejection(
+        memoryPool: String,
+        limit: Long,
+        metricPrefix: String,
+        fullMethodName: String,
+    )(implicit errorLogger: ContextualizedErrorLogger)
+        extends DamlErrorWithDefiniteAnswer(
+          cause =
+            s"The $memoryPool collection usage threshold has exceeded the maximum ($limit). Jvm memory metrics are available at $metricPrefix.",
+          extraContext = Map(
+            "memoryPool" -> memoryPool,
+            "limit" -> limit,
+            "metricPrefix" -> metricPrefix,
+            "fullMethodName" -> fullMethodName,
+          ),
+        )
+  }
+
+  @Explanation(
+    "This error happens when the number of concurrent gRPC streaming requests exceeds the configured limit."
+  )
+  @Resolution(
+    """The following actions can be taken:
+      |1. Review the historical need for concurrent streaming by inspecting the metric given in the message.
+      |2. Review the maximum streams limit configured in the rate limiting configuration.
+      |3. Try to space out streaming requests such that they do not need to run in parallel with each other."""
+  )
+  object MaximumNumberOfStreams
+      extends ErrorCode(
+        id = "MAXIMUM_NUMBER_OF_STREAMS",
+        ErrorCategory.ContentionOnSharedResources,
+      ) {
+    case class Rejection(value: Long, limit: Int, metricPrefix: String, fullMethodName: String)(
+        implicit errorLogger: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause =
+            s"The number of streams in use ($value) has reached or exceeded the limit ($limit). Metrics are available at $metricPrefix.",
+          extraContext = Map(
+            "value" -> value,
+            "limit" -> limit,
+            "metricPrefix" -> metricPrefix,
+            "fullMethodName" -> fullMethodName,
+          ),
+        )
+  }
+
+  @Explanation(
+    "This happens when the rate of submitted gRPC requests requires more CPU or database power than is available."
+  )
+  @Resolution(
+    """The following actions can be taken:
+      |Here the 'queue size' for the threadpool = 'submitted tasks' - 'completed tasks' - 'running tasks'
+      |1. Review the historical 'queue size' growth by inspecting the metric given in the message.
+      |2. Review the maximum 'queue size' limits configured in the rate limiting configuration.
+      |3. Try to space out requests that are likely to require a lot of CPU or database power.
+      """
+  )
+  object ThreadpoolOverloaded
+      extends ErrorCode(
+        id = "THREADPOOL_OVERLOADED",
+        ErrorCategory.ContentionOnSharedResources,
+      ) {
+    case class Rejection(
+        name: String,
+        queued: Long,
+        limit: Int,
+        metricPrefix: String,
+        fullMethodName: String,
+    )(implicit errorLogger: ContextualizedErrorLogger)
+        extends DamlErrorWithDefiniteAnswer(
+          s"The $name queue size ($queued) has exceeded the maximum ($limit). Api services metrics are available at $metricPrefix.",
+          extraContext = Map(
+            "name" -> name,
+            "queued" -> queued,
+            "limit" -> limit,
+            "metricPrefix" -> metricPrefix,
+            "fullMethodName" -> fullMethodName,
+          ),
         )
   }
 
@@ -97,7 +192,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     case class Reject(serviceName: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"${serviceName} has been shut down.",
+          cause = s"$serviceName has been shut down.",
           extraContext = Map("service_name" -> serviceName),
         )
   }
@@ -166,7 +261,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     case class Validation(reason: ReplayMismatch)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"Observed un-expected replay mismatch: ${reason}"
+          cause = s"Observed un-expected replay mismatch: $reason"
         )
 
     case class Interpretation(
@@ -176,7 +271,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     )(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"Daml-Engine interpretation failed with internal error: ${where} / ${message}",
+          cause = s"Daml-Engine interpretation failed with internal error: $where / $message",
           extraContext = Map("detailMessage" -> detailMessage),
         )
 

@@ -78,75 +78,45 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       ).toJson
   }
 
-  // TEST_EVIDENCE: Authorization: create IOU should work with correct user rights
-  "create IOU should work with correct user rights" in withHttpService { fixture =>
-    import fixture.{encoder, client => ledgerClient}
-    val alice = getUniqueParty("Alice")
-    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
-    val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
-    for {
-      user <- createUser(ledgerClient)(
-        Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
-        initialRights = List(
-          CanActAs(Ref.Party.assertFromString(alice.unwrap))
-        ),
-      )
-      response <- fixture
-        .postJsonRequest(
-          Uri.Path("/v1/create"),
-          input,
-          headers = headersWithUserAuth(user.id),
-        )
-        .parseResponse[domain.ActiveContract[JsValue]]
-    } yield inside(response) {
-      case (StatusCodes.OK, domain.OkResponse(activeContract, _, StatusCodes.OK)) =>
-        assertActiveContract(activeContract)(command, encoder)
-    }
-  }
-
-  // TEST_EVIDENCE: Authorization: create IOU should fail if user has no permission
-  "create IOU should fail if user has no permission" in withHttpService { fixture =>
-    import fixture.{encoder, client => ledgerClient}
-    val alice = getUniqueParty("Alice")
-    val bob = getUniqueParty("Bob")
-    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
-    val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
-    for {
-      user <- createUser(ledgerClient)(
-        Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
-        initialRights = List(
-          CanActAs(Ref.Party.assertFromString(bob.unwrap))
-        ),
-      )
-      response <- fixture
-        .postJsonRequest(
-          Uri.Path("/v1/create"),
-          input,
-          headers = headersWithUserAuth(user.id),
-        )
-        .parseResponse[JsValue]
-    } yield inside(response) {
-      case (StatusCodes.BadRequest, domain.ErrorResponse(_, _, StatusCodes.BadRequest, _)) =>
-        succeed
-    }
-  }
-
-  // TEST_EVIDENCE: Authorization: create IOU should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights
-  "create IOU should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights" in withHttpService {
-    fixture =>
+  "create IOU" - {
+    // TEST_EVIDENCE: Authorization: create IOU should work with correct user rights
+    "should work with correct user rights" in withHttpService { fixture =>
       import fixture.{encoder, client => ledgerClient}
       val alice = getUniqueParty("Alice")
-      val bob = getUniqueParty("Bob")
-      val meta = domain.CommandMeta(None, Some(NonEmptyList(bob)), None)
-      val command: domain.CreateCommand[v.Record, OptionalPkg] =
-        iouCreateCommand(alice.unwrap, meta = Some(meta))
+      val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
       val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
       for {
         user <- createUser(ledgerClient)(
           Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
           initialRights = List(
-            CanActAs(Ref.Party.assertFromString(alice.unwrap)),
-            CanActAs(Ref.Party.assertFromString(bob.unwrap)),
+            CanActAs(Ref.Party.assertFromString(alice.unwrap))
+          ),
+        )
+        response <- fixture
+          .postJsonRequest(
+            Uri.Path("/v1/create"),
+            input,
+            headers = headersWithUserAuth(user.id),
+          )
+          .parseResponse[domain.ActiveContract[JsValue]]
+      } yield inside(response) {
+        case (StatusCodes.OK, domain.OkResponse(activeContract, _, StatusCodes.OK)) =>
+          assertActiveContract(activeContract)(command, encoder)
+      }
+    }
+
+    // TEST_EVIDENCE: Authorization: create IOU should fail if user has no permission
+    "should fail if user has no permission" in withHttpService { fixture =>
+      import fixture.{encoder, client => ledgerClient}
+      val alice = getUniqueParty("Alice")
+      val bob = getUniqueParty("Bob")
+      val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
+      val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
+      for {
+        user <- createUser(ledgerClient)(
+          Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
+          initialRights = List(
+            CanActAs(Ref.Party.assertFromString(bob.unwrap))
           ),
         )
         response <- fixture
@@ -160,6 +130,44 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         case (StatusCodes.BadRequest, domain.ErrorResponse(_, _, StatusCodes.BadRequest, _)) =>
           succeed
       }
+    }
+
+    // TEST_EVIDENCE: Authorization: create IOU should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights
+    "should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights" in withHttpService {
+      fixture =>
+        import fixture.{encoder, client => ledgerClient}
+        val alice = getUniqueParty("Alice")
+        val bob = getUniqueParty("Bob")
+        val meta = domain.CommandMeta(
+          None,
+          Some(NonEmptyList(bob)),
+          None,
+          submissionId = None,
+          deduplicationPeriod = None,
+        )
+        val command: domain.CreateCommand[v.Record, OptionalPkg] =
+          iouCreateCommand(alice, meta = Some(meta))
+        val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
+        for {
+          user <- createUser(ledgerClient)(
+            Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
+            initialRights = List(
+              CanActAs(Ref.Party.assertFromString(alice.unwrap)),
+              CanActAs(Ref.Party.assertFromString(bob.unwrap)),
+            ),
+          )
+          response <- fixture
+            .postJsonRequest(
+              Uri.Path("/v1/create"),
+              input,
+              headers = headersWithUserAuth(user.id),
+            )
+            .parseResponse[JsValue]
+        } yield inside(response) {
+          case (StatusCodes.BadRequest, domain.ErrorResponse(_, _, StatusCodes.BadRequest, _)) =>
+            succeed
+        }
+    }
   }
 
   "requesting the user id should be possible via the user endpoint" in withHttpService { fixture =>
@@ -188,36 +196,36 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     } yield assertion
   }
 
-  "requesting the user rights for a specific user should be possible via a POST to the user/rights endpoint" in withHttpServiceAndClient {
-    (uri, _, _, ledgerClient, _) =>
-      import spray.json._
-      val alice = getUniqueParty("Alice")
-      val bob = getUniqueParty("Bob")
-      for {
-        user <- createUser(ledgerClient)(
-          Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
-          initialRights = List(
-            CanActAs(Ref.Party.assertFromString(alice.unwrap)),
-            CanActAs(Ref.Party.assertFromString(bob.unwrap)),
-          ),
-        )
-        response <- postRequest(
-          uri.withPath(Uri.Path("/v1/user/rights")),
-          domain.ListUserRightsRequest(user.id).toJson,
-          headers = headersWithAdminAuth,
-        ).parseResponse[List[domain.UserRight]]
-      } yield inside(response) {
-        case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
-          result should contain theSameElementsAs
-            List[domain.UserRight](
-              domain.CanActAs(alice),
-              domain.CanActAs(bob),
-            )
-      }
-  }
+  "user/rights endpoint" - {
+    "POST yields user rights for a specific user" in withHttpServiceAndClient {
+      (uri, _, _, ledgerClient, _) =>
+        import spray.json._
+        val alice = getUniqueParty("Alice")
+        val bob = getUniqueParty("Bob")
+        for {
+          user <- createUser(ledgerClient)(
+            Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
+            initialRights = List(
+              CanActAs(Ref.Party.assertFromString(alice.unwrap)),
+              CanActAs(Ref.Party.assertFromString(bob.unwrap)),
+            ),
+          )
+          response <- postRequest(
+            uri.withPath(Uri.Path("/v1/user/rights")),
+            domain.ListUserRightsRequest(user.id).toJson,
+            headers = headersWithAdminAuth,
+          ).parseResponse[List[domain.UserRight]]
+        } yield inside(response) {
+          case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+            result should contain theSameElementsAs
+              List[domain.UserRight](
+                domain.CanActAs(alice),
+                domain.CanActAs(bob),
+              )
+        }
+    }
 
-  "requesting the user rights for the current user should be possible via a GET to the user/rights endpoint" in withHttpService {
-    fixture =>
+    "GET yields user rights for the current user" in withHttpService { fixture =>
       import fixture.{client => ledgerClient}
       val alice = getUniqueParty("Alice")
       val bob = getUniqueParty("Bob")
@@ -246,10 +254,11 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           }
         }
       } yield assertion
+    }
   }
 
-  "creating a user should be possible via the user/create endpoint" in withHttpServiceAndClient {
-    (uri, _, _, _, _) =>
+  "user/create endpoint" - {
+    "supports creating a user" in withHttpServiceAndClient { (uri, _, _, _, _) =>
       import spray.json._
       val alice = getUniqueParty("Alice")
       val createUserRequest = domain.CreateUserRequest(
@@ -271,35 +280,36 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       } yield inside(response) { case (StatusCodes.OK, domain.OkResponse(r, _, _)) =>
         r shouldBe JsObject()
       }
-  }
+    }
 
-  "creating a user with default values should be possible via the user/create endpoint" in withHttpServiceAndClient {
-    (uri, _, _, _, _) =>
-      import spray.json._
-      val username = getUniqueUserName("nice.user")
-      for {
-        (status, _) <- postRequest(
-          uri.withPath(Uri.Path("/v1/user/create")),
-          JsObject("userId" -> JsString(username)),
-          headers = headersWithAdminAuth,
-        )
-        _ <- status shouldBe StatusCodes.OK
-        response2 <- postRequest(
-          uri.withPath(Uri.Path("/v1/user")),
-          domain.GetUserRequest(username).toJson,
-          headers = headersWithAdminAuth,
-        ).parseResponse[UserDetails]
-        _ <- inside(response2) { case (StatusCodes.OK, domain.OkResponse(ud, _, _)) =>
-          ud shouldEqual UserDetails(username, None)
+    "supports creating a user with default values" in withHttpServiceAndClient {
+      (uri, _, _, _, _) =>
+        import spray.json._
+        val username = getUniqueUserName("nice.user")
+        for {
+          (status, _) <- postRequest(
+            uri.withPath(Uri.Path("/v1/user/create")),
+            JsObject("userId" -> JsString(username)),
+            headers = headersWithAdminAuth,
+          )
+          _ <- status shouldBe StatusCodes.OK
+          response2 <- postRequest(
+            uri.withPath(Uri.Path("/v1/user")),
+            domain.GetUserRequest(username).toJson,
+            headers = headersWithAdminAuth,
+          ).parseResponse[UserDetails]
+          _ <- inside(response2) { case (StatusCodes.OK, domain.OkResponse(ud, _, _)) =>
+            ud shouldEqual UserDetails(username, None)
+          }
+          response3 <- postRequest(
+            uri.withPath(Uri.Path("/v1/user/rights")),
+            domain.ListUserRightsRequest(username).toJson,
+            headers = headersWithAdminAuth,
+          ).parseResponse[List[domain.UserRight]]
+        } yield inside(response3) { case (StatusCodes.OK, domain.OkResponse(List(), _, _)) =>
+          succeed
         }
-        response3 <- postRequest(
-          uri.withPath(Uri.Path("/v1/user/rights")),
-          domain.ListUserRightsRequest(username).toJson,
-          headers = headersWithAdminAuth,
-        ).parseResponse[List[domain.UserRight]]
-      } yield inside(response3) { case (StatusCodes.OK, domain.OkResponse(List(), _, _)) =>
-        succeed
-      }
+    }
   }
 
   "getting all users should be possible via the users endpoint" in withHttpService { fixture =>
@@ -344,44 +354,44 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     }
   }
 
-  "getting information about a specific user should be possible via the user endpoint" in withHttpServiceAndClient {
-    (uri, _, _, _, _) =>
-      import spray.json._
-      val alice = getUniqueParty("Alice")
-      val createUserRequest = domain.CreateUserRequest(
-        getUniqueUserName("nice.user"),
-        Some(alice.unwrap),
-        Some(
-          List[domain.UserRight](
-            domain.CanActAs(alice),
-            domain.ParticipantAdmin,
-          )
-        ),
-      )
-      for {
-        response1 <- postRequest(
-          uri.withPath(Uri.Path("/v1/user/create")),
-          createUserRequest.toJson,
-          headers = headersWithAdminAuth,
-        ).parseResponse[JsValue]
-        _ <- inside(response1) { case (StatusCodes.OK, domain.OkResponse(r, _, _)) =>
-          r shouldBe JsObject()
-        }
-        response2 <- postRequest(
-          uri.withPath(Uri.Path(s"/v1/user")),
-          domain.GetUserRequest(createUserRequest.userId).toJson,
-          headers = headersWithAdminAuth,
-        ).parseResponse[UserDetails]
-      } yield inside(response2) { case (StatusCodes.OK, domain.OkResponse(ud, _, _)) =>
-        ud shouldBe UserDetails(
-          createUserRequest.userId,
-          createUserRequest.primaryParty,
+  "user endpoint" - {
+    "POST yields information about a specific user" in withHttpServiceAndClient {
+      (uri, _, _, _, _) =>
+        import spray.json._
+        val alice = getUniqueParty("Alice")
+        val createUserRequest = domain.CreateUserRequest(
+          getUniqueUserName("nice.user"),
+          Some(alice.unwrap),
+          Some(
+            List[domain.UserRight](
+              domain.CanActAs(alice),
+              domain.ParticipantAdmin,
+            )
+          ),
         )
-      }
-  }
+        for {
+          response1 <- postRequest(
+            uri.withPath(Uri.Path("/v1/user/create")),
+            createUserRequest.toJson,
+            headers = headersWithAdminAuth,
+          ).parseResponse[JsValue]
+          _ <- inside(response1) { case (StatusCodes.OK, domain.OkResponse(r, _, _)) =>
+            r shouldBe JsObject()
+          }
+          response2 <- postRequest(
+            uri.withPath(Uri.Path(s"/v1/user")),
+            domain.GetUserRequest(createUserRequest.userId).toJson,
+            headers = headersWithAdminAuth,
+          ).parseResponse[UserDetails]
+        } yield inside(response2) { case (StatusCodes.OK, domain.OkResponse(ud, _, _)) =>
+          ud shouldBe UserDetails(
+            createUserRequest.userId,
+            createUserRequest.primaryParty,
+          )
+        }
+    }
 
-  "getting information about the current user should be possible via the user endpoint" in withHttpService {
-    fixture =>
+    "GET yields information about the current user" in withHttpService { fixture =>
       import fixture.uri
       import spray.json._
       val alice = getUniqueParty("Alice")
@@ -416,6 +426,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           createUserRequest.primaryParty,
         )
       }
+    }
   }
 
   "deleting a specific user should be possible via the user/delete endpoint" in withHttpService {

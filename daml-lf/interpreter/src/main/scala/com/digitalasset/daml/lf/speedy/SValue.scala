@@ -5,7 +5,6 @@ package com.daml.lf
 package speedy
 
 import java.util
-
 import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
@@ -16,8 +15,9 @@ import com.daml.lf.value.{Value => V}
 import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
 
+import scala.collection.IndexedSeqView
 import scala.jdk.CollectionConverters._
-import scala.collection.immutable.TreeMap
+import scala.collection.immutable.{SortedMap, TreeMap}
 import scala.util.hashing.MurmurHash3
 
 /** Speedy values. These are the value types recognized by the
@@ -171,7 +171,7 @@ object SValue {
 
   final case class SList(list: FrontStack[SValue]) extends SValue
 
-  // We make the constructor private to ensure entries are sorted according `SMap Ordering`
+  // We make the constructor private to ensure entries are sorted using `SMap Ordering`
   final case class SMap private (isTextMap: Boolean, entries: TreeMap[SValue, SValue])
       extends SValue
       with NoCopy {
@@ -193,13 +193,71 @@ object SValue {
       discard[Int](`SMap Ordering`.compare(k, k))
     }
 
-    def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SMap = {
+    /** Build an SMap from an indexed sequence of SValue key/value pairs.
+      *
+      * SValue keys are assumed to be in ascending order - hence the SMap's TreeMap will be built in time O(n) using a
+      * sorted map specialisation.
+      */
+    def fromOrderedEntries(
+        isTextMap: Boolean,
+        entries: IndexedSeqView[(SValue, SValue)],
+    ): SMap = {
+      require(
+        entries
+          .foldLeft[(Boolean, Option[SValue])]((true, None)) {
+            case ((result, previousKey), (currentKey, _)) =>
+              (result && previousKey.forall(`SMap Ordering`.lteq(_, currentKey)), Some(currentKey))
+          }
+          ._1,
+        "The entries are not in descending order",
+      )
+
+      val sortedEntryMap: SortedMap[SValue, SValue] = new SortedMap[SValue, SValue] {
+        private[this] val encapsulatedSortedMap = SortedMap.from(entries)
+
+        override def iterator: Iterator[(SValue, SValue)] = entries.iterator
+
+        override def size: Int = entries.size
+
+        override def ordering: Ordering[SValue] = `SMap Ordering`
+
+        override def updated[V1 >: SValue](key: SValue, value: V1): SortedMap[SValue, V1] =
+          encapsulatedSortedMap.updated(key, value)
+
+        override def removed(key: SValue): SortedMap[SValue, SValue] =
+          encapsulatedSortedMap.removed(key)
+
+        override def iteratorFrom(start: SValue): Iterator[(SValue, SValue)] =
+          encapsulatedSortedMap.iteratorFrom(start)
+
+        override def keysIteratorFrom(start: SValue): Iterator[SValue] =
+          encapsulatedSortedMap.keysIteratorFrom(start)
+
+        override def rangeImpl(
+            from: Option[SValue],
+            until: Option[SValue],
+        ): SortedMap[SValue, SValue] = encapsulatedSortedMap.rangeImpl(from, until)
+
+        override def get(key: SValue): Option[SValue] = encapsulatedSortedMap.get(key)
+      }
+
+      SMap(isTextMap, TreeMap.from(sortedEntryMap))
+    }
+
+    /** Build an SMap from an iterator over SValue key/value pairs.
+      *
+      * SValue keys are not assumed to be ordered - hence the SMap will be built in time O(n log(n)).
+      */
+    def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SMap =
       SMap(
         isTextMap,
         entries.map { case p @ (k, _) => comparable(k); p }.to(TreeMap),
       )
-    }
 
+    /** Build an SMap from a vararg sequence of SValue key/value pairs.
+      *
+      * SValue keys are not assumed to be ordered - hence the SMap will be built in time O(n log(n)).
+      */
     def apply(isTextMap: Boolean, entries: (SValue, SValue)*): SMap =
       SMap(isTextMap: Boolean, entries.iterator)
   }

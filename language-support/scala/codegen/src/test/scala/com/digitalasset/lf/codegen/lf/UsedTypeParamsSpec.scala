@@ -132,7 +132,13 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     ).map { case (k, v) => (ref(k), iface.InterfaceType.Normal(v)) }
   }
 
-  private val sampleInterfaces = Map(ref("SomeInterface") -> iface.DefInterface(Map.empty))
+  private val sampleInterfaces = Map(
+    ref("SomeInterface") -> iface.DefInterface(
+      Map.empty,
+      retroImplements = Set.empty,
+      viewType = None,
+    )
+  )
 
   private val sampleEi = iface.EnvironmentInterface(Map.empty, sampleDecls, sampleInterfaces)
 

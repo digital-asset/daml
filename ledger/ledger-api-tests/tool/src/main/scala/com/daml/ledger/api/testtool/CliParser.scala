@@ -63,7 +63,7 @@ object CliParser {
       .optional()
       .text("TLS: The pem file to be used as the private key. Applied to all endpoints.")
       .action { (path: File, config: Config) =>
-        config.withTlsConfig(_.copy(keyFile = Some(path)))
+        config.withTlsConfig(_.copy(privateKeyFile = Some(path)))
       }
 
     opt[File]("crt")
@@ -73,14 +73,14 @@ object CliParser {
           |Required if any other TLS parameters are set. Applied to all endpoints.""".stripMargin
       )
       .action { (path: File, config: Config) =>
-        config.withTlsConfig(_.copy(keyCertChainFile = Some(path)))
+        config.withTlsConfig(_.copy(certChainFile = Some(path)))
       }
 
     opt[File]("cacrt")
       .optional()
       .text("TLS: The crt file to be used as the trusted root CA. Applied to all endpoints.")
       .action { (path: File, config: Config) =>
-        config.withTlsConfig(_.copy(trustCertCollectionFile = Some(path)))
+        config.withTlsConfig(_.copy(trustCollectionFile = Some(path)))
       }
 
     opt[Double](name = "timeout-scale-factor")

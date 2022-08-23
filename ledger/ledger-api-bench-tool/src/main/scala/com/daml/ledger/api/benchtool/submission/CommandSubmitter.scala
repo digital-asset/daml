@@ -25,23 +25,15 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining._
 import scala.util.control.NonFatal
 
-case class AllocatedParties(
-    signatory: client.binding.Primitive.Party,
-    observers: List[client.binding.Primitive.Party],
-    divulgees: List[client.binding.Primitive.Party],
-    extraSubmitters: List[client.binding.Primitive.Party],
-) {
-  val allAllocatedParties: List[Primitive.Party] =
-    List(signatory) ++ observers ++ divulgees ++ extraSubmitters
-}
-
 case class CommandSubmitter(
     names: Names,
     benchtoolUserServices: LedgerApiServices,
     adminServices: LedgerApiServices,
+    partyAllocating: PartyAllocating,
     metricRegistry: MetricRegistry,
     metricsManager: MetricsManager[LatencyNanos],
     waitForSubmission: Boolean,
+    commandGenerationParallelism: Int = 8,
 ) {
   private val logger = LoggerFactory.getLogger(getClass)
   private val submitLatencyTimer = if (waitForSubmission) {
@@ -53,30 +45,11 @@ case class CommandSubmitter(
   def prepare(config: SubmissionConfig)(implicit
       ec: ExecutionContext
   ): Future[AllocatedParties] = {
-    val observerPartyNames =
-      names.observerPartyNames(config.numberOfObservers, config.uniqueParties)
-    val divulgeePartyNames =
-      names.divulgeePartyNames(config.numberOfDivulgees, config.uniqueParties)
-    val extraSubmittersPartyNames =
-      names.extraSubmitterPartyNames(config.numberOfExtraSubmitters, config.uniqueParties)
-
-    logger.info("Generating contracts...")
     logger.info(s"Identifier suffix: ${names.identifierSuffix}")
     (for {
-      signatory <- allocateSignatoryParty()
-      observers <- allocateParties(observerPartyNames)
-      divulgees <- allocateParties(divulgeePartyNames)
-      extraSubmitters <- allocateParties(extraSubmittersPartyNames)
+      allocatedParties <- partyAllocating.allocateParties(config)
       _ <- uploadTestDars()
-    } yield {
-      logger.info("Prepared command submission.")
-      AllocatedParties(
-        signatory = signatory,
-        observers = observers,
-        divulgees = divulgees,
-        extraSubmitters = extraSubmitters,
-      )
-    })
+    } yield allocatedParties)
       .recoverWith { case NonFatal(ex) =>
         logger.error(
           s"Command submission preparation failed. Details: ${ex.getLocalizedMessage}",
@@ -128,17 +101,6 @@ case class CommandSubmitter(
       }
   }
 
-  private def allocateSignatoryParty()(implicit ec: ExecutionContext): Future[Primitive.Party] =
-    adminServices.partyManagementService.allocateParty(names.signatoryPartyName)
-
-  private def allocateParties(divulgeePartyNames: Seq[String])(implicit
-      ec: ExecutionContext
-  ): Future[List[Primitive.Party]] = {
-    Future.sequence(
-      divulgeePartyNames.toList.map(adminServices.partyManagementService.allocateParty)
-    )
-  }
-
   private def uploadDar(dar: TestDars.DarFile, submissionId: String)(implicit
       ec: ExecutionContext
   ): Future[Unit] =
@@ -147,16 +109,20 @@ case class CommandSubmitter(
       submissionId = submissionId,
     )
 
-  private def uploadTestDars()(implicit ec: ExecutionContext): Future[Unit] =
+  private def uploadTestDars()(implicit ec: ExecutionContext): Future[Unit] = {
+    logger.info("Uploading dars...")
     for {
-      dars <- Future.fromTry(TestDars.readAll())
+      dars <- Future.delegate { Future.fromTry(TestDars.readAll()) }
       _ <- Future.sequence {
         dars.zipWithIndex
           .map { case (dar, index) =>
             uploadDar(dar, names.darId(index))
           }
       }
-    } yield ()
+    } yield {
+      logger.info("Uplading dars completed")
+    }
+  }
 
   private def submit(
       id: String,
@@ -217,7 +183,7 @@ case class CommandSubmitter(
           _ <- Source
             .fromIterator(() => (1 to config.numberOfInstances).iterator)
             .wireTap(i => if (i == 1) progressMeter.start())
-            .mapAsync(8)(index =>
+            .mapAsync(commandGenerationParallelism)(index =>
               Future.fromTry(
                 generator.next().map(cmd => index -> cmd)
               )

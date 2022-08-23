@@ -4,7 +4,6 @@
 package com.daml.fetchcontracts
 
 import com.daml.lf
-import lf.data.Ref
 import util.ClientUtil.boxedRecord
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
@@ -30,6 +29,12 @@ package object domain {
   type PartySet = NonEmpty[Set[Party]]
 
   type Offset = String @@ OffsetTag
+
+  // XXX SC A TemplateId is really usually a "contract type ID" in JSON API usage.
+  // So that is how we treat it in practice.  We can deprecate and fix the references
+  // separately.
+  type TemplateId[+PkgId] = ContractTypeId[PkgId]
+  final val TemplateId: ContractTypeId.type = ContractTypeId
 
   private[daml] implicit final class `fc domain ErrorOps`[A](private val o: Option[A])
       extends AnyVal {
@@ -73,30 +78,6 @@ package domain {
 
     implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
     implicit val `Offset ordering`: Order[Offset] = Order.orderBy[Offset, String](Offset.unwrap(_))
-  }
-
-  final case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
-
-  object TemplateId {
-    type OptionalPkg = TemplateId[Option[String]]
-    type RequiredPkg = TemplateId[String]
-    type NoPkg = TemplateId[Unit]
-
-    def fromLedgerApi(in: lav1.value.Identifier): TemplateId.RequiredPkg =
-      TemplateId(in.packageId, in.moduleName, in.entityName)
-
-    def qualifiedName(a: TemplateId[_]): Ref.QualifiedName =
-      Ref.QualifiedName(
-        Ref.DottedName.assertFromString(a.moduleName),
-        Ref.DottedName.assertFromString(a.entityName),
-      )
-
-    def toLedgerApiValue(a: RequiredPkg): Ref.Identifier = {
-      val qfName = qualifiedName(a)
-      val packageId = Ref.PackageId.assertFromString(a.packageId)
-      Ref.Identifier(packageId, qfName)
-    }
-
   }
 
   final case class ActiveContract[+LfV](
@@ -158,6 +139,8 @@ package domain {
     type Error = here.Error
     final val Error = here.Error
     type LfValue = here.LfValue
+    type ContractTypeId[+PkgId] = here.ContractTypeId[PkgId]
+    final val ContractTypeId = here.ContractTypeId
     type TemplateId[+PkgId] = here.TemplateId[PkgId]
     final val TemplateId = here.TemplateId
     type ContractId = here.ContractId

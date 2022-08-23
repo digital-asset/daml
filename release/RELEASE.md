@@ -24,9 +24,9 @@ mentioning `@gary`.
 
 > Note: You should not have to make any change to this repo.
 
-1. Open a PR on the [assembly] repo using the most recent [Canton]
-   snapshot. See the instructions in the README of the [assembly] repo
-   for details.
+1. On Wednesday morning, a cron should create a release PR on the [assembly]
+   repo, mentioning you. Please reach out to `@gary` on Slack if that's
+   missing.
 
 2. Merge the PR and wait for the corresponding `main` build to finish.
 
@@ -73,7 +73,9 @@ The process is similar to the weekly snapshot, except that both the [daml] and
 7. Once the `main` build of the [assembly] repo has finished, you should
    proceed with testing. You should open up this document _in the branch of
    the release you're making_, as testing instructions change over time.
-8. After testing, if everything went well, you should go on to turning the RC
+8. If this was a main-branch release, bump the `NIGHTLY_PREFIX` file in the
+   daml repo.
+9. After testing, if everything went well, you should go on to turning the RC
    into a stable release. If something went wrong, make appropriate changes to
    the release branch and start over.
 

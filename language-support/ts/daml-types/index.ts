@@ -90,6 +90,24 @@ export interface Choice<T extends object, C, R, K = unknown> {
 /**
  * @internal
  */
+export function assembleTemplate<T extends object>(
+  template: Template<T>,
+  ...interfaces: Template<object>[]
+): Template<T> {
+  const combined = {};
+  const overloaded: string[] = [];
+  for (const iface of interfaces) {
+    _.mergeWith(combined, iface, (left, right, k) => {
+      if (left !== undefined && right !== undefined) overloaded.push(k);
+      return undefined;
+    });
+  }
+  return Object.assign(_.omit(combined, overloaded), template);
+}
+
+/**
+ * @internal
+ */
 const registeredTemplates: { [key: string]: Template<object> } = {};
 
 /**

@@ -284,6 +284,11 @@ alphaExpr' env = \case
     ELocation _ e1 -> \case
         ELocation _ e2 -> alphaExpr' env e1 e2
         _ -> False
+    EViewInterface iface1 expr1 -> \case
+        EViewInterface iface2 expr2
+            -> alphaTypeCon iface1 iface2
+            && alphaExpr' env expr1 expr2
+        _ -> False
     EExperimental n1 t1 -> \case
         EExperimental n2 t2 -> n1 == n2 && alphaType t1 t2
         _ -> False

@@ -5,18 +5,15 @@ package com.daml.ledger.sandbox
 
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.runner.common.MetricsConfig.MetricRegistryType
-import com.daml.ledger.runner.common.{
-  Config,
-  MetricsConfig,
-  ParticipantConfig => _ParticipantConfig,
-}
+import com.daml.ledger.runner.common.Config
+import com.daml.platform.config.{MetricsConfig, ParticipantConfig => _ParticipantConfig}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.engine.{EngineConfig => _EngineConfig}
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.apiserver.{ApiServerConfig => _ApiServerConfig}
+import com.daml.platform.apiserver.{AuthServiceConfig, ApiServerConfig => _ApiServerConfig}
+import com.daml.platform.config.MetricsConfig.MetricRegistryType
 import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
 import com.daml.platform.indexer.{IndexerConfig => _IndexerConfig}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
@@ -72,10 +69,12 @@ object SandboxOnXForTest {
   def singleParticipant(
       apiServerConfig: _ApiServerConfig = ApiServerConfig,
       indexerConfig: _IndexerConfig = IndexerConfig,
+      authentication: AuthServiceConfig = AuthServiceConfig.Wildcard,
   ) = Map(
     ParticipantId -> ParticipantConfig.copy(
       apiServer = apiServerConfig,
       indexer = indexerConfig,
+      authentication = authentication,
     )
   )
 
@@ -91,7 +90,7 @@ object SandboxOnXForTest {
   )
 
   class ConfigAdaptor(authServiceOverwrite: Option[AuthService]) extends BridgeConfigAdaptor {
-    override def authService(apiServerConfig: _ApiServerConfig): AuthService = {
+    override def authService(participantConfig: _ParticipantConfig): AuthService = {
       authServiceOverwrite.getOrElse(AuthServiceWildcard)
     }
   }

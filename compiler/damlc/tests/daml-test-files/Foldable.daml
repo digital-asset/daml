@@ -1,0 +1,57 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ENABLE-SCENARIOS
+
+module Foldable where
+
+import Prelude hiding (concat, foldl1, foldl, foldr, foldr1)
+
+--import qualified DA.List as L
+import DA.Assert
+import DA.Foldable
+
+data RList a = RN | RC { rh: a, rb: RList a } deriving (Eq, Show)
+data LList a = LN | LC { lt: LList a, lh: a } deriving (Eq, Show)
+
+instance Foldable RList where
+  -- foldr : (a -> b -> b) -> b -> t a -> b
+  foldr _ z RN = z
+  foldr f z (RC h t) = f h (foldr f z t)
+
+instance Foldable LList where
+  -- foldl : (b -> a -> b) -> b -> t a -> b
+  foldl _ z LN = z
+  foldl f z (LC t h) = f (foldl f z t) h
+  foldMap f = foldl (\z x -> z <> f x)  mempty
+
+testFoldl = scenario do
+   27 === foldl1 (\a b -> (a + (2 * b))) ll
+   23 === foldl1 (\a b -> (a + (2 * b))) rll
+   41 === foldr1 (\a b -> (a + (2 * b))) ll
+   29 === foldr1 (\a b -> (a + (2 * b))) rll
+   27 === foldl1 (\a b -> (a + (2 * b))) rl
+   23 === foldl1 (\a b -> (a + (2 * b))) rrl
+   41 === foldr1 (\a b -> (a + (2 * b))) rl
+   29 === foldr1 (\a b -> (a + (2 * b))) rrl
+ where
+   ll = RC 3 (RC 5 (RC 7 RN))
+   rll = RC 7 (RC 5 (RC 3 RN))
+   rl = LC (LC (LC LN 3) 5) 7
+   rrl = LC (LC (LC LN 7) 5) 3
+
+testToList = scenario do
+  []  === toList (RN @())
+  [0] === toList (RC 0 RN)
+  [0, 1, 2] === toList (RC 0 (RC 1 (RC 2 RN)))
+  []  === toList (LN @())
+  [0] === toList (LC LN 0)
+  [0, 1, 2] === toList (LC (LC (LC LN 0) 1) 2)
+
+testConcat = scenario do
+  [] === concat (RN @[()])
+  [] === concat (RC [] (RN @[()]))
+  [0] === concat (RC [0] RN)
+  [0, 1] === concat (RC [0] (RC [1] RN))
+  [0, 1, 2, 3] === concat (RC [0, 1] (RC [2, 3] RN))
+  [0, 1, 2, 3] === concat (LC (LC LN [0, 1]) [2, 3])

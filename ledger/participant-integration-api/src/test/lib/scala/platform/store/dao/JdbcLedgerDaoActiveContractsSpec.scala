@@ -41,7 +41,11 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
           .getActiveContracts(
             activeAt = before.lastOffset,
             filter = Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter =
+                Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
+            ),
           )
       )
       activeContractsAfter <- activeContractsOf(
@@ -49,7 +53,11 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
           .getActiveContracts(
             activeAt = after.lastOffset,
             filter = Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter =
+                Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
+            ),
           )
       )
     } yield {
@@ -72,7 +80,11 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
           .getActiveContracts(
             activeAt = offset,
             filter = Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter =
+                Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
+            ),
           )
       )
       (_, _) <- store(singleCreate)
@@ -86,7 +98,11 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
           .getActiveContracts(
             activeAt = offset,
             filter = Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter =
+                Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
+            ),
           )
       )
     } yield {
@@ -114,7 +130,10 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
           .getActiveContracts(
             activeAt = ledgerEnd.lastOffset,
             filter = Map(party1 -> Set(otherTemplateId)),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(party1 -> Set(otherTemplateId)),
+            ),
           )
       )
     } yield {
@@ -147,7 +166,13 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               party1 -> Set(otherTemplateId),
               party2 -> Set(otherTemplateId),
             ),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(
+                party1 -> Set(otherTemplateId),
+                party2 -> Set(otherTemplateId),
+              ),
+            ),
           )
       )
     } yield {
@@ -187,7 +212,13 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               party1 -> Set(someTemplateId),
               party2 -> Set(otherTemplateId),
             ),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(
+                party1 -> Set(someTemplateId),
+                party2 -> Set(otherTemplateId),
+              ),
+            ),
           )
       )
     } yield {
@@ -227,7 +258,13 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               party1 -> Set(someTemplateId),
               party2 -> Set.empty,
             ),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              Map(
+                party1 -> Set(someTemplateId),
+                party2 -> Set.empty,
+              ),
+            ),
           )
       )
     } yield {
@@ -273,7 +310,13 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               party1 -> Set(someTemplateId),
               party2 -> Set.empty,
             ),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(
+                party1 -> Set(someTemplateId),
+                party2 -> Set.empty,
+              ),
+            ),
           )
       )
       resultUnknownParty <- activeContractsOf(
@@ -285,7 +328,14 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               party2 -> Set.empty,
               unknownParty -> Set.empty,
             ),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(
+                party1 -> Set(someTemplateId),
+                party2 -> Set.empty,
+                unknownParty -> Set.empty,
+              ),
+            ),
           )
       )
       resultUnknownTemplate <- activeContractsOf(
@@ -296,7 +346,13 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               party1 -> Set(someTemplateId, unknownTemplate),
               party2 -> Set.empty,
             ),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(
+                party1 -> Set(someTemplateId, unknownTemplate),
+                party2 -> Set.empty,
+              ),
+            ),
           )
       )
       resultUnknownPartyAndTemplate <- activeContractsOf(
@@ -308,7 +364,14 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               party2 -> Set.empty,
               unknownParty -> Set.empty,
             ),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(
+                party1 -> Set(someTemplateId, unknownTemplate),
+                party2 -> Set.empty,
+                unknownParty -> Set.empty,
+              ),
+            ),
           )
       )
       resultUnknownsOnly <- activeContractsOf(
@@ -318,7 +381,12 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             filter = Map(
               unknownParty -> Set(unknownTemplate)
             ),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(
+                unknownParty -> Set(unknownTemplate)
+              ),
+            ),
           )
       )
     } yield {
@@ -340,7 +408,8 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         .getActiveContracts(
           activeAt = end.lastOffset,
           filter = Map(alice -> Set.empty),
-          verbose = true,
+          eventProjectionProperties =
+            EventProjectionProperties(verbose = true, Map(alice -> Set.empty)),
         )
         .runWith(Sink.seq)
 

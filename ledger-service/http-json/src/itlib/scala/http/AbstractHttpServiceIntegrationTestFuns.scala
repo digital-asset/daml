@@ -85,6 +85,8 @@ object AbstractHttpServiceIntegrationTestFuns {
 
     // nest assertFromString into arbitrary VA structures
     val partyStr: VA.Aux[String] = VA.party.xmap(identity[String])(Ref.Party.assertFromString)
+
+    val partyDomain: VA.Aux[domain.Party] = domain.Party.subst[VA.Aux, String](partyStr)
   }
 
   private[http] trait UriFixture {
@@ -377,19 +379,22 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   private[this] val (_, iouVA) = {
     import com.daml.lf.data.Numeric.Scale
-    import com.daml.lf.value.test.TypedValueGenerators.RNil
-    import shapeless.syntax.singleton._
-    val iouT = Symbol("issuer") ->> VA.party ::
-      Symbol("owner") ->> VA.party ::
-      Symbol("currency") ->> VA.text ::
-      Symbol("amount") ->> VA.numeric(Scale assertFromInt 10) ::
-      Symbol("observers") ->> VA.list(VA.party) ::
-      RNil
+    val iouT = ShRecord(
+      issuer = VA.party,
+      owner = VA.party,
+      currency = VA.text,
+      amount = VA.numeric(Scale assertFromInt 10),
+      observers = VA.list(VA.party),
+    )
     VA.record(Ref.Identifier assertFromString "none:Iou:Iou", iouT)
   }
 
   protected[this] object TpId {
     import domain.TemplateId.{OptionalPkg => Id}
+    import domain.{ContractTypeId => CtId}
+    import CtId.Template.{OptionalPkg => TId}
+    import CtId.Interface.{OptionalPkg => IId}
+
     object Iou {
       val Iou: Id = domain.TemplateId(None, "Iou", "Iou")
       val IouTransfer: Id = domain.TemplateId(None, "Iou", "IouTransfer")
@@ -398,23 +403,28 @@ trait AbstractHttpServiceIntegrationTestFuns
       val MultiPartyContract: Id = domain.TemplateId(None, "Test", "MultiPartyContract")
     }
     object Account {
-      val Account: Id = domain.TemplateId(None, "Account", "Account")
+      val Account: TId = CtId.Template(None, "Account", "Account")
     }
     object User {
       val User: Id = domain.TemplateId(None, "User", "User")
     }
     object IIou {
-      val IIou: Id = domain.TemplateId(None, "IIou", "IIou")
+      val IIou: IId = CtId.Interface(None, "IIou", "IIou")
     }
+
+    def unsafeCoerce[Like[T] <: CtId[T], T](ctId: CtId[T])(implicit
+        Like: CtId.Like[Like]
+    ): Like[T] =
+      Like(ctId.packageId, ctId.moduleName, ctId.entityName)
   }
 
   protected def iouCreateCommand(
-      partyName: String,
+      partyName: domain.Party,
       amount: String = "999.9900000000",
       currency: String = "USD",
       meta: Option[domain.CommandMeta] = None,
   ): domain.CreateCommand[v.Record, OptionalPkg] = {
-    val party = Ref.Party assertFromString partyName
+    val party = Ref.Party assertFromString partyName.unwrap
     val arg = argToApi(iouVA)(
       ShRecord(
         issuer = party,
@@ -436,15 +446,16 @@ trait AbstractHttpServiceIntegrationTestFuns
       recordFromFields(ShRecord(newOwner = v.Value.Sum.Party("Bob")))
     val choice = lar.Choice("Iou_Transfer")
 
-    domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
+    domain.ExerciseCommand(reference, choice, boxedRecord(arg), None, None)
   }
 
   protected def iouCreateAndExerciseTransferCommand(
-      partyName: String,
+      partyName: domain.Party,
       amount: String = "999.9900000000",
       currency: String = "USD",
+      meta: Option[domain.CommandMeta] = None,
   ): domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] = {
-    val party = Ref.Party assertFromString partyName
+    val party = Ref.Party assertFromString partyName.unwrap
     val payload = argToApi(iouVA)(
       ShRecord(
         issuer = party,
@@ -464,7 +475,8 @@ trait AbstractHttpServiceIntegrationTestFuns
       payload = payload,
       choice = choice,
       argument = boxedRecord(arg),
-      meta = None,
+      choiceInterfaceId = None,
+      meta = meta,
     )
   }
 
@@ -489,6 +501,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     domain.ExerciseCommand(
       reference = domain.EnrichedContractId(Some(TpId.Test.MultiPartyContract), cid),
       argument = argument,
+      choiceInterfaceId = None,
       choice = lar.Choice("MPAddSignatories"),
       meta = None,
     )
@@ -512,6 +525,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     domain.ExerciseCommand(
       reference = domain.EnrichedContractId(Some(TpId.Test.MultiPartyContract), cid),
       argument = argument,
+      choiceInterfaceId = None,
       choice = lar.Choice("MPFetchOther"),
       meta = None,
     )

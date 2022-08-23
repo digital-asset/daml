@@ -4,7 +4,6 @@
 package com.daml.auth.middleware.oauth2
 
 import java.time.Duration
-
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model._
@@ -21,6 +20,7 @@ import com.daml.ledger.api.auth.{
   AuthServiceJWTPayload,
   CustomDamlJWTPayload,
   StandardJWTPayload,
+  StandardJWTTokenFormat,
 }
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.Party
@@ -153,7 +153,7 @@ abstract class TestMiddleware
     "accept user tokens" in {
       import com.daml.auth.middleware.oauth2.Server.rightsProvideClaims
       rightsProvideClaims(
-        StandardJWTPayload("foo", None, None),
+        StandardJWTPayload("foo", None, None, StandardJWTTokenFormat.Scope),
         Claims(
           admin = true,
           actAs = List(ApiTypes.Party("Alice")),
@@ -388,6 +388,7 @@ class TestMiddlewareUserToken extends TestMiddleware {
       userId = "test-application",
       participantId = None,
       exp = expiresIn.map(in => clock.instant.plus(in)),
+      format = StandardJWTTokenFormat.Scope,
     )
 }
 

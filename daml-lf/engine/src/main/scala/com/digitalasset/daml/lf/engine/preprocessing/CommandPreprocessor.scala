@@ -5,21 +5,23 @@ package com.daml.lf
 package engine
 package preprocessing
 
+import com.daml.lf.data
 import com.daml.lf.data._
 import com.daml.lf.language.{Ast, PackageInterface}
+import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 
 import scala.annotation.nowarn
 
 private[lf] final class CommandPreprocessor(
-    interface: language.PackageInterface,
+    pkgInterface: language.PackageInterface,
     requireV1ContractIdSuffix: Boolean,
 ) {
 
   val valueTranslator =
     new ValueTranslator(
-      interface = interface,
+      pkgInterface = pkgInterface,
       requireV1ContractIdSuffix = requireV1ContractIdSuffix,
     )
 
@@ -29,7 +31,7 @@ private[lf] final class CommandPreprocessor(
   def unsafePreprocessDisclosedContract(
       disc: command.DisclosedContract
   ): speedy.DisclosedContract = {
-    discard(handleLookup(interface.lookupTemplate(disc.templateId)))
+    discard(handleLookup(pkgInterface.lookupTemplate(disc.templateId)))
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(disc.templateId), disc.argument)
     val coid = valueTranslator.unsafeTranslateCid(disc.contractId)
     speedy.DisclosedContract(
@@ -45,7 +47,7 @@ private[lf] final class CommandPreprocessor(
       templateId: Ref.Identifier,
       argument: Value,
   ): speedy.Command.Create = {
-    discard(handleLookup(interface.lookupTemplate(templateId)))
+    discard(handleLookup(pkgInterface.lookupTemplate(templateId)))
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
     speedy.Command.Create(templateId, arg)
   }
@@ -60,7 +62,7 @@ private[lf] final class CommandPreprocessor(
       choiceId: Ref.ChoiceName,
       argument: Value,
   ): speedy.Command =
-    handleLookup(interface.lookupLenientChoice(templateId, choiceId)) match {
+    handleLookup(pkgInterface.lookupLenientChoice(templateId, choiceId)) match {
       case PackageInterface.ChoiceInfo.Template(choice) =>
         speedy.Command.ExerciseTemplate(
           templateId = templateId,
@@ -78,17 +80,24 @@ private[lf] final class CommandPreprocessor(
     }
 
   def unsafePreprocessExercise(
-      typeId: Ref.Identifier,
+      typeId: data.TemplateOrInterface[Ref.Identifier, Ref.Identifier],
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
       argument: Value,
-  ): speedy.Command =
-    handleLookup(interface.lookupTemplateOrInterface(typeId)) match {
-      case Left(_) =>
-        unsafePreprocessExerciseTemplate(typeId, contractId, choiceId, argument)
-      case Right(_) =>
-        unsafePreprocessExerciseInterface(typeId, contractId, choiceId, argument)
-    }
+  ): speedy.Command = typeId match {
+    // TODO: https://github.com/digital-asset/daml/issues/14747
+    //  In order to split the issue in several PRs, we allow abusing the templateId case as an interface.
+    //  We will change once we have added the interface_id field to the legder API Exercise command
+    case TemplateOrInterface.Template(templateId) =>
+      handleLookup(pkgInterface.lookupTemplateOrInterface(templateId)) match {
+        case TemplateOrInterface.Template(_) =>
+          unsafePreprocessExerciseTemplate(templateId, contractId, choiceId, argument)
+        case TemplateOrInterface.Interface(_) =>
+          unsafePreprocessExerciseInterface(templateId, contractId, choiceId, argument)
+      }
+    case TemplateOrInterface.Interface(ifaceId) =>
+      unsafePreprocessExerciseInterface(ifaceId, contractId, choiceId, argument)
+  }
 
   def unsafePreprocessExerciseTemplate(
       templateId: Ref.Identifier,
@@ -96,7 +105,7 @@ private[lf] final class CommandPreprocessor(
       choiceId: Ref.ChoiceName,
       argument: Value,
   ): speedy.Command = {
-    val choice = handleLookup(interface.lookupTemplateChoice(templateId, choiceId))
+    val choice = handleLookup(pkgInterface.lookupTemplateChoice(templateId, choiceId))
     speedy.Command.ExerciseTemplate(
       templateId = templateId,
       contractId = valueTranslator.unsafeTranslateCid(contractId),
@@ -111,7 +120,7 @@ private[lf] final class CommandPreprocessor(
       choiceId: Ref.ChoiceName,
       argument: Value,
   ): speedy.Command = {
-    val choice = handleLookup(interface.lookupInterfaceChoice(ifaceId, choiceId))
+    val choice = handleLookup(pkgInterface.lookupInterfaceChoice(ifaceId, choiceId))
     speedy.Command.ExerciseInterface(
       interfaceId = ifaceId,
       contractId = valueTranslator.unsafeTranslateCid(contractId),
@@ -128,9 +137,9 @@ private[lf] final class CommandPreprocessor(
       argument: Value,
   ): speedy.Command.ExerciseByKey = {
     val choiceArgType = handleLookup(
-      interface.lookupTemplateChoice(templateId, choiceId)
+      pkgInterface.lookupTemplateChoice(templateId, choiceId)
     ).argBinder._2
-    val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
+    val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
     val arg = valueTranslator.unsafeTranslateValue(choiceArgType, argument)
     val key = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)
     speedy.Command.ExerciseByKey(templateId, key, choiceId, arg)
@@ -146,7 +155,7 @@ private[lf] final class CommandPreprocessor(
     val createArg =
       valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), createArgument)
     val choiceArgType = handleLookup(
-      interface.lookupTemplateChoice(templateId, choiceId)
+      pkgInterface.lookupTemplateChoice(templateId, choiceId)
     ).argBinder._2
     val choiceArg =
       valueTranslator.unsafeTranslateValue(choiceArgType, choiceArgument)
@@ -164,7 +173,7 @@ private[lf] final class CommandPreprocessor(
       templateId: Ref.ValueRef,
       contractKey: Value,
   ): speedy.Command.LookupByKey = {
-    val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
+    val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
     val key = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)
     speedy.Command.LookupByKey(templateId, key)
   }
@@ -177,8 +186,8 @@ private[lf] final class CommandPreprocessor(
     cmd match {
       case command.ApiCommand.Create(templateId, argument) =>
         unsafePreprocessCreate(templateId, argument)
-      case command.ApiCommand.Exercise(templateId, contractId, choiceId, argument) =>
-        unsafePreprocessExercise(templateId, contractId, choiceId, argument)
+      case command.ApiCommand.Exercise(typeId, contractId, choiceId, argument) =>
+        unsafePreprocessExercise(typeId, contractId, choiceId, argument)
       case command.ApiCommand.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
         unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument)
       case command.ApiCommand.CreateAndExercise(
@@ -222,18 +231,18 @@ private[lf] final class CommandPreprocessor(
         unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument)
       case command.ReplayCommand.Fetch(typeId, coid) =>
         val cid = valueTranslator.unsafeTranslateCid(coid)
-        handleLookup(interface.lookupTemplateOrInterface(typeId)) match {
-          case Left(_) =>
+        handleLookup(pkgInterface.lookupTemplateOrInterface(typeId)) match {
+          case TemplateOrInterface.Template(_) =>
             speedy.Command.FetchTemplate(typeId, cid)
-          case Right(_) =>
+          case TemplateOrInterface.Interface(_) =>
             speedy.Command.FetchInterface(typeId, cid)
         }
       case command.ReplayCommand.FetchByKey(templateId, key) =>
-        val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
+        val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
         val sKey = valueTranslator.unsafeTranslateValue(ckTtype, key)
         speedy.Command.FetchByKey(templateId, sKey)
       case command.ReplayCommand.LookupByKey(templateId, key) =>
-        val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
+        val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
         val sKey = valueTranslator.unsafeTranslateValue(ckTtype, key)
         speedy.Command.LookupByKey(templateId, sKey)
     }
@@ -247,4 +256,23 @@ private[lf] final class CommandPreprocessor(
       discs: ImmArray[command.DisclosedContract]
   ): ImmArray[speedy.DisclosedContract] =
     discs.map(unsafePreprocessDisclosedContract)
+
+  @throws[Error.Preprocessing.Error]
+  def unsafePreprocessInterfaceView(
+      templateId: Ref.Identifier,
+      argument: Value,
+      interfaceId: Ref.Identifier,
+  ): speedy.InterfaceView = {
+    discard(handleLookup(pkgInterface.lookupTemplate(templateId)))
+    discard(handleLookup(pkgInterface.lookupInterface(interfaceId)))
+    discard(handleLookup(pkgInterface.lookupInterfaceInstance(interfaceId, templateId)))
+
+    val version =
+      TransactionVersion.assignNodeVersion(
+        pkgInterface.packageLanguageVersion(interfaceId.packageId)
+      )
+    val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
+
+    speedy.InterfaceView(templateId, arg, interfaceId, version)
+  }
 }

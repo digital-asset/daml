@@ -16,7 +16,7 @@ import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.semantic.Interface._
-import com.daml.ledger.test.semantic.{Interface1, Interface2}
+import com.daml.ledger.test.semantic.{Interface1, Interface2, Interface3}
 import scalaz.Tag
 
 class InterfaceIT extends LedgerTestSuite {
@@ -24,6 +24,7 @@ class InterfaceIT extends LedgerTestSuite {
   private[this] val TId = Tag.unwrap(T.id)
   private[this] val I1Id = Tag.unwrap(Interface1.I.id)
   private[this] val I2Id = Tag.unwrap(Interface2.I.id)
+  private[this] val I3Id = Tag.unwrap(Interface3.I.id)
 
   // replace identifier with the wrong identifier for some of these tests
   private[this] def useWrongId[X](
@@ -51,7 +52,7 @@ class InterfaceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       t <- ledger.create(party, T(party))
-      tree <- ledger.exercise(party, x => t.exerciseMyArchive(x))
+      tree <- ledger.exercise(party, t.exerciseMyArchive())
     } yield {
       val events = exercisedEvents(tree)
       assertLength(s"1 successful exercise", 1, events)
@@ -67,12 +68,30 @@ class InterfaceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       t <- ledger.create(party, T(party))
-      tree <- ledger.exercise(party, x => t.toInterface[Interface1.I].exerciseMyArchive(x))
+      tree <- ledger.exercise(party, t.toInterface[Interface1.I].exerciseMyArchive())
     } yield {
       val events = exercisedEvents(tree)
       assertLength(s"1 successful exercise", 1, events)
       assertEquals(events.head.interfaceId, Some(I1Id))
       assertEquals(events.head.getExerciseResult.getText, "Interface1.I")
+    }
+  })
+
+  test(
+    "ExerciseRetroactiveInterfaceInstanceSuccess",
+    "Success and set interfaceId in output event",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    for {
+      t <- ledger.create(party, T(party))
+      tree <-
+        ledger
+          .exercise(party, t.asInstanceOf[Primitive.ContractId[Interface3.I]].exerciseMyArchive())
+    } yield {
+      val events = exercisedEvents(tree)
+      assertLength(s"1 successful exercise", 1, events)
+      assertEquals(events.head.interfaceId, Some(I3Id))
+      assertEquals(events.head.getExerciseResult.getText, "Interface3.I")
     }
   })
 
@@ -84,7 +103,7 @@ class InterfaceIT extends LedgerTestSuite {
     for {
       t <- ledger.create(party, T(party))
       failure <- ledger
-        .exercise(party, x => useWrongId(t.toInterface[Interface1.I].exerciseChoiceI1(x), TId))
+        .exercise(party, useWrongId(t.toInterface[Interface1.I].exerciseChoiceI1(), TId))
         .mustFail("unknown choice")
     } yield {
       assertGrpcError(
@@ -104,7 +123,7 @@ class InterfaceIT extends LedgerTestSuite {
     for {
       t <- ledger.create(party, T(party))
       failure <- ledger
-        .exercise(party, x => useWrongId(t.toInterface[Interface1.I].exerciseChoiceI1(x), I2Id))
+        .exercise(party, useWrongId(t.toInterface[Interface1.I].exerciseChoiceI1(), I2Id))
         .mustFail("unknown choice")
     } yield {
       assertGrpcError(

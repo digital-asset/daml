@@ -24,7 +24,8 @@ import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.configuration.ServerRole
+import com.daml.platform.LedgerApiServer
+import com.daml.platform.configuration.{IndexServiceConfig, ServerRole}
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
 import com.daml.platform.store.DbSupport.{
   ConnectionPoolConfig,
@@ -45,11 +46,11 @@ import org.scalatest.wordspec.AsyncWordSpec
 import java.time.Instant
 import java.time.temporal.ChronoUnit.SECONDS
 import java.util.UUID
-import java.util.concurrent.CompletionStage
+import java.util.concurrent.{CompletionStage, Executors}
 import java.util.concurrent.atomic.AtomicLong
 import scala.collection.mutable
-import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters.{CompletionStageOps, FutureOps}
 import scala.util.Try
 
@@ -195,20 +196,35 @@ class RecoveringIndexerIntegrationSpec
     val participantId = Ref.ParticipantId.assertFromString(s"participant-$testId")
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase()}-$testId;db_close_delay=-1;db_close_on_exit=false"
+    val metrics = new Metrics(new MetricRegistry)
+    val participantDataSourceConfig = ParticipantDataSourceConfig(jdbcUrl)
     for {
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem())
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
       participantState <- newParticipantState(ledgerId, participantId)(materializer, loggingContext)
-      _ <- new StandaloneIndexerServer(
+      servicesExecutionContext <- ResourceOwner
+        .forExecutorService(() => Executors.newWorkStealingPool())
+        .map(ExecutionContext.fromExecutorService)
+      (inMemoryState, inMemoryStateUpdaterFlow) <-
+        LedgerApiServer
+          .createInMemoryStateAndUpdater(
+            IndexServiceConfig(),
+            metrics,
+            ExecutionContext.global,
+          )
+      _ <- new IndexerServiceOwner(
         readService = participantState._1,
         participantId = participantId,
         config = IndexerConfig(
           startupMode = IndexerStartupMode.MigrateAndStart(),
           restartDelay = restartDelay,
         ),
-        metrics = new Metrics(new MetricRegistry),
+        metrics = metrics,
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-        participantDataSourceConfig = ParticipantDataSourceConfig(jdbcUrl),
+        participantDataSourceConfig = participantDataSourceConfig,
+        inMemoryState = inMemoryState,
+        inMemoryStateUpdaterFlow = inMemoryStateUpdaterFlow,
+        executionContext = servicesExecutionContext,
       )(materializer, loggingContext)
     } yield participantState._2
   }

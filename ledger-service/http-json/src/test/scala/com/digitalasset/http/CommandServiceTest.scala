@@ -50,6 +50,8 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside {
                 None,
                 actAs = Some(domain.Party subst specialActAs),
                 readAs = Some(domain.Party subst specialReadAs),
+                submissionId = None,
+                deduplicationPeriod = None,
               )
             )
           ),
@@ -100,27 +102,29 @@ object CommandServiceTest {
     (
       new CommandService(
         submitAndWaitForTransaction = (_, req) =>
-          Future {
-            txns.add(req)
-            import lav1.event.{CreatedEvent, Event}, Event.Event.Created
-            val creation = Event(
-              Created(
-                CreatedEvent(
-                  templateId = Some(
-                    lav1.value
-                      .Identifier(tplId.packageId, tplId.moduleName, tplId.entityName)
-                  ),
-                  createArguments = Some(lav1.value.Record()),
+          _ =>
+            Future {
+              txns.add(req)
+              import lav1.event.{CreatedEvent, Event}, Event.Event.Created
+              val creation = Event(
+                Created(
+                  CreatedEvent(
+                    templateId = Some(
+                      lav1.value
+                        .Identifier(tplId.packageId, tplId.moduleName, tplId.entityName)
+                    ),
+                    createArguments = Some(lav1.value.Record()),
+                  )
                 )
               )
-            )
-            \/-(SubmitAndWaitForTransactionResponse(Some(Transaction(events = Seq(creation)))))
-          },
+              \/-(SubmitAndWaitForTransactionResponse(Some(Transaction(events = Seq(creation)))))
+            },
         submitAndWaitForTransactionTree = (_, req) =>
-          Future {
-            trees.add(req)
-            \/-(SubmitAndWaitForTransactionTreeResponse(Some(TransactionTree())))
-          },
+          _ =>
+            Future {
+              trees.add(req)
+              \/-(SubmitAndWaitForTransactionTreeResponse(Some(TransactionTree())))
+            },
       ),
       txns.asScala,
       trees.asScala,

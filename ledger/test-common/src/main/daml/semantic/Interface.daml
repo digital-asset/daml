@@ -13,9 +13,11 @@ template T
     signatory owner
     key owner : Party
     maintainer key
-    implements Interface1.I where
+    interface instance Interface1.I for T where
+      view = Interface1.EmptyInterfaceView
       getOwner = owner
-    implements Interface2.I where
+    interface instance Interface2.I for T where
+      view = Interface2.EmptyInterfaceView
       getOwner = owner
     nonconsuming choice ChoiceT: ()
       controller owner

@@ -22,7 +22,6 @@ case class ApiServerConfig(
     address: Option[String] =
       ApiServerConfig.DefaultAddress, // This defaults to "localhost" when set to `None`.
     apiStreamShutdownTimeout: Duration = ApiServerConfig.DefaultApiStreamShutdownTimeout,
-    authentication: AuthServiceConfig = ApiServerConfig.DefaultAuthentication,
     command: CommandConfiguration = ApiServerConfig.DefaultCommand,
     configurationLoadTimeout: Duration = ApiServerConfig.DefaultConfigurationLoadTimeout,
     initialLedgerConfiguration: Option[InitialLedgerConfiguration] =
@@ -32,7 +31,7 @@ case class ApiServerConfig(
     party: PartyConfiguration = ApiServerConfig.DefaultParty,
     port: Port = ApiServerConfig.DefaultPort,
     portFile: Option[Path] = ApiServerConfig.DefaultPortFile,
-    rateLimitingConfig: Option[RateLimitingConfig] = ApiServerConfig.DefaultRateLimitingConfig,
+    rateLimit: Option[RateLimitingConfig] = ApiServerConfig.DefaultRateLimitingConfig,
     seeding: Seeding = ApiServerConfig.DefaultSeeding,
     timeProviderType: TimeProviderType = ApiServerConfig.DefaultTimeProviderType,
     tls: Option[TlsConfiguration] = ApiServerConfig.DefaultTls,
@@ -44,16 +43,17 @@ object ApiServerConfig {
   val DefaultAddress: Option[String] = None
   val DefaultTls: Option[TlsConfiguration] = None
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
-  val DefaultInitialLedgerConfiguration: Option[InitialLedgerConfiguration] = None
+  val DefaultInitialLedgerConfiguration: Option[InitialLedgerConfiguration] = Some(
+    InitialLedgerConfiguration()
+  )
   val DefaultConfigurationLoadTimeout: Duration = 10.seconds
   val DefaultPortFile: Option[Path] = None
   val DefaultSeeding: Seeding = Seeding.Strong
   val DefaultManagementServiceTimeout: FiniteDuration = 2.minutes
   val DefaultUserManagement: UserManagementConfig = UserManagementConfig.default(enabled = false)
-  val DefaultAuthentication: AuthServiceConfig = AuthServiceConfig.Wildcard
   val DefaultParty: PartyConfiguration = PartyConfiguration.Default
   val DefaultCommand: CommandConfiguration = CommandConfiguration.Default
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
   val DefaultApiStreamShutdownTimeout: FiniteDuration = FiniteDuration(5, "seconds")
-  val DefaultRateLimitingConfig: Option[RateLimitingConfig] = Some(RateLimitingConfig.default)
+  val DefaultRateLimitingConfig: Option[RateLimitingConfig] = Some(RateLimitingConfig.Default)
 }

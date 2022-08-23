@@ -25,6 +25,8 @@ module DA.Daml.Helper.Util
   , waitForHttpServer
   , tokenFor
   , StaticTime(..)
+  , SandboxPorts(..)
+  , defaultSandboxPorts
   , CantonOptions(..)
   , decodeCantonSandboxPort
   , CantonReplApi(..)
@@ -249,6 +251,16 @@ tokenFor parties ledgerId applicationId =
                   ])
             ]
       }
+
+data SandboxPorts = SandboxPorts
+  { ledger :: Int
+  , admin :: Int
+  , domainPublic :: Int
+  , domainAdmin :: Int
+  }
+
+defaultSandboxPorts :: SandboxPorts
+defaultSandboxPorts = SandboxPorts 6865 6866 6867 6868
 
 runCantonSandbox :: CantonOptions -> [String] -> IO ()
 runCantonSandbox options args = withCantonSandbox options args (const $ pure ())

@@ -4,7 +4,7 @@
 #
 # Run formatters and linter, anything platform-independent and quick
 #
-# Usage: ./fmt.sh [--test]
+# Usage: ./fmt.sh [--test] [--diff]
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -68,6 +68,7 @@ Usage: ./fmt.sh [options]
 Options:
   -h, --help: shows this help
   --test:     only test for formatting changes, used by CI
+  --diff:     only consider files that changed since main
 USAGE
       exit
       ;;

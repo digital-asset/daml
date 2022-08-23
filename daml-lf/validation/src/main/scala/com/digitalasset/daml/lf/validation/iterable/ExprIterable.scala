@@ -82,6 +82,8 @@ private[validation] object ExprIterable {
         iterator(body)
       case ESignatoryInterface(iface @ _, body) =>
         iterator(body)
+      case EViewInterface(ifaceId @ _, expr) =>
+        iterator(expr)
       case EObserverInterface(iface @ _, body) =>
         iterator(body)
     }
@@ -104,7 +106,7 @@ private[validation] object ExprIterable {
       case UpdateExercise(templateId @ _, choice @ _, cid, arg) =>
         Iterator(cid, arg)
       case UpdateExerciseInterface(interface @ _, choice @ _, cid, arg, guard) =>
-        Iterator(cid, arg, guard)
+        Iterator(cid, arg) ++ guard.iterator
       case UpdateExerciseByKey(templateId @ _, choice @ _, key, arg) =>
         Iterator(key, arg)
       case UpdateGetTime => Iterator.empty
@@ -193,14 +195,24 @@ private[validation] object ExprIterable {
     x match {
       case TemplateImplements(
             interface @ _,
-            methods,
+            body,
           ) =>
-        methods.values.iterator.flatMap(iterator(_))
+        iterator(body)
     }
 
-  private[iterable] def iterator(x: TemplateImplementsMethod): Iterator[Expr] =
+  private[iterable] def iterator(x: InterfaceInstanceBody): Iterator[Expr] =
     x match {
-      case TemplateImplementsMethod(name @ _, value) =>
+      case InterfaceInstanceBody(
+            methods,
+            view,
+          ) =>
+        methods.values.iterator.flatMap(iterator(_)) ++
+          iterator(view)
+    }
+
+  private[iterable] def iterator(x: InterfaceInstanceMethod): Iterator[Expr] =
+    x match {
+      case InterfaceInstanceMethod(name @ _, value) =>
         Iterator(value)
     }
 
@@ -219,9 +231,20 @@ private[validation] object ExprIterable {
             param @ _,
             choices,
             methods @ _,
-            precond,
+            coImplements,
+            view @ _,
           ) =>
-        Iterator(precond) ++ choices.values.iterator.flatMap(iterator(_))
+        choices.values.iterator.flatMap(iterator(_)) ++
+          coImplements.values.iterator.flatMap(iterator(_))
+    }
+
+  private[iterable] def iterator(x: InterfaceCoImplements): Iterator[Expr] =
+    x match {
+      case InterfaceCoImplements(
+            template @ _,
+            body,
+          ) =>
+        iterator(body)
     }
 
   def apply(expr: Expr): Iterable[Expr] =

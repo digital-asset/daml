@@ -10,13 +10,13 @@ import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref.{Identifier, Location, Party, QualifiedName}
 import com.daml.lf.data.Time
 import com.daml.lf.language.Ast.EVal
-import com.daml.lf.speedy.SExpr.{SExpr, SEValue}
+import com.daml.lf.speedy.SExpr.{SEValue, SExpr}
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{NodeId, GlobalKey, SubmittedTransaction}
+import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
-import com.daml.lf.speedy.Speedy.Machine
+import com.daml.lf.speedy.Speedy.{Machine, Control}
 import com.daml.logging.LoggingContext
 
 import java.io.File
@@ -61,7 +61,10 @@ class CollectAuthorityState {
       compiledPackages,
       expr,
     )
-    the_sexpr = machine.ctrl
+    the_sexpr = machine.control match {
+      case Control.Expression(exp) => exp
+      case x => crash(s"expected Control.Expression, got: $x")
+    }
 
     // fill the caches!
     setup()
@@ -101,7 +104,7 @@ class CollectAuthorityState {
           }
         case SResultNeedContract(_, _, _) =>
           crash("Off-ledger need contract callback")
-        case SResultFinalValue(v) => finalValue = v
+        case SResultFinal(v, _) => finalValue = v
         case r => crash(s"bench run: unexpected result from speedy: ${r}")
       }
     }
@@ -145,7 +148,7 @@ class CollectAuthorityState {
               cachedContract ++= api.cachedContract
               step = api.step
           }
-        case SResultFinalValue(v) =>
+        case SResultFinal(v, _) =>
           finalValue = v
         case r =>
           crash(s"setup run: unexpected result from speedy: ${r}")
@@ -153,9 +156,8 @@ class CollectAuthorityState {
     }
   }
 
-  def crash(reason: String) = {
-    System.err.println("Benchmark failed: " + reason)
-    System.exit(1)
+  def crash[T](reason: String): T = {
+    sys.error("Benchmark failed: " + reason)
   }
 
 }

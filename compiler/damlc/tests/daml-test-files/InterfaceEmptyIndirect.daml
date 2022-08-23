@@ -6,7 +6,7 @@
 -- | Test that empty interfaces work fine across modules.
 module InterfaceEmptyIndirect where
 
-import InterfaceEmpty (I)
+import InterfaceEmpty (I, EmptyInterfaceView(..))
 
 template T
   with
@@ -14,4 +14,5 @@ template T
   where
     signatory p
 
-    implements I where
+    interface instance I for T where
+      view = EmptyInterfaceView

@@ -7,7 +7,7 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
 )
-load("//ledger/ledger-api-tests:conformance.bzl", "conformance_test", "server_conformance_test")
+load("//ledger/ledger-api-tests:conformance.bzl", "conformance_test", "generate_conf", "server_conformance_test")
 load("@oracle//:index.bzl", "oracle_tags")
 load("@os_info//:os_info.bzl", "is_windows")
 
@@ -19,6 +19,9 @@ da_scala_library(
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_github_pureconfig_pureconfig_core",
+        "@maven//:com_github_pureconfig_pureconfig_generic",
+        "@maven//:com_chuusai_shapeless",
     ],
     tags = ["maven_coordinates=com.daml:sandbox-on-x:__VERSION__"],
     visibility = [
@@ -45,7 +48,6 @@ da_scala_library(
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
-        "//ledger/participant-state-metrics",
         "//libs-scala/build-info",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
@@ -63,58 +65,6 @@ da_scala_library(
 )
 
 da_scala_library(
-    name = "sandbox-classic-server",
-    srcs = glob(["src/classic/scala/**/*.scala"]),
-    resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
-    scala_deps = [
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    tags = ["maven_coordinates=com.daml:sandbox-classic-server:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_core",
-        "@maven//:com_h2database_h2",
-        "@maven//:org_postgresql_postgresql",
-    ],
-    deps = [
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/data",
-        "//daml-lf/engine",
-        "//daml-lf/language",
-        "//daml-lf/transaction",
-        "//language-support/scala/bindings",
-        "//ledger/caching",
-        "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
-        "//ledger/ledger-api-health",
-        "//ledger/ledger-resources",
-        "//ledger/ledger-runner-common",
-        "//ledger/metrics",
-        "//ledger/participant-integration-api",
-        "//ledger/participant-state",
-        "//ledger/participant-state-index",
-        "//ledger/sandbox-common",
-        "//ledger/sandbox-on-x",
-        "//libs-scala/build-info",
-        "//libs-scala/contextualized-logging",
-        "//libs-scala/logging-entries",
-        "//libs-scala/ports",
-        "//libs-scala/resources",
-        "//libs-scala/resources-akka",
-        "//libs-scala/resources-grpc",
-        "@maven//:com_typesafe_config",
-        "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:org_slf4j_slf4j_api",
-    ],
-)
-
-da_scala_library(
     name = "sandbox-on-x-test-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
     scala_deps = [
@@ -125,8 +75,10 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_flatspec",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_lihaoyi_sourcecode",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
     ],
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_slf4j",
@@ -138,28 +90,35 @@ da_scala_library(
     ],
     deps = [
         ":sandbox-on-x",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
+        "//ledger-service/jwt",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-auth-client",
         "//ledger/ledger-api-client",
+        "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-resources",
         "//ledger/ledger-runner-common",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
+        "//ledger/test-common:dar-files-default-lib",
         "//libs-scala/grpc-utils",
         "//libs-scala/ports",
+        "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
         "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
         "//libs-scala/timer-utils",
+        "@maven//:com_auth0_java_jwt",
         "@maven//:io_netty_netty_handler",
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
@@ -248,8 +207,6 @@ da_scala_test_suite(
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-        "//ledger/sandbox-common",
-        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
@@ -313,7 +270,6 @@ da_scala_library(
         "//ledger/ledger-runner-common",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
@@ -335,16 +291,11 @@ da_scala_library(
     name = "sandbox-on-x-app-lib",
     srcs = glob(["src/app/scala/**/*.scala"]),
     resources = glob(["src/app/resources/**/*"]),
-    scala_deps = [
-    ],
     tags = ["maven_coordinates=com.daml:sandbox-on-x-app:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox-on-x",
-        "//ledger/ledger-resources",
         "//ledger/ledger-runner-common",
-        "//libs-scala/contextualized-logging",
-        "//libs-scala/resources",
     ],
 )
 
@@ -352,8 +303,6 @@ da_scala_library(
     name = "sandbox-on-x-test-app",
     srcs = glob(["src/test/app/scala/**/*.scala"]),
     resources = glob(["src/test/app/resources/**/*"]),
-    scala_deps = [
-    ],
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox-on-x",
@@ -361,14 +310,11 @@ da_scala_library(
         "//daml-lf/engine",
         "//ledger/caching",
         "//ledger/ledger-api-common",
-        "//ledger/ledger-resources",
         "//ledger/ledger-runner-common",
         "//ledger/participant-integration-api",
-        "//libs-scala/contextualized-logging",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
-        "//libs-scala/resources",
     ],
 )
 
@@ -423,28 +369,161 @@ da_scala_binary(
     ],
 )
 
+generate_conf(
+    "generate-oracle-conf",
+    "oracle.conf",
+    content = """
+        ledger {
+          data-source {
+            default = $${?DEFAULT_PARTICIPANT_DATABASE_JDBC_URL}
+          }
+          participants {
+            default {
+              indexer {
+                high-availability {
+                  indexer-lock-id = $${?INDEXER_HIGH_AVAILABILITY_LOCK_ID}
+                  indexer-worker-lock-id = $${?INDEXER_HIGH_AVAILABILITY_WORKER_LOCK_ID}
+                }
+              }
+            }
+          }
+        }
+    """,
+    data = [],
+)
+
+generate_conf(
+    "generate-postgres-conf",
+    "postgres.conf",
+    content = """
+        ledger {
+          data-source {
+            default = $${?DEFAULT_PARTICIPANT_DATABASE_JDBC_URL}
+          }
+        }
+    """,
+    data = [],
+)
+
 SERVERS = {
     "h2database": {
         "binary": ":app",
+        "server_args": ["run"],
     },
     "postgresql": {
         "binary": ":conformance-test-postgres-bin",
+        "server_args": ["run -c $(rootpath :postgres.conf)"],
+        "extra_data": [":postgres.conf"],
     },
     "oracle": {
         "binary": ":conformance-test-oracle-bin",
         "tags": oracle_tags,
+        "server_args": ["run -c $(rootpath :oracle.conf)"],
+        "extra_data": [":oracle.conf"],
     },
 }
 
+# Conformance with default settings but with covering buffer size (i.e. big enough) for the in-memory fan-out,
+# ensuring that all Ledger API read requests are served from the in-memory fan-out buffer.
+server_conformance_test(
+    name = "conformance-test-in-memory-fan-out-covering",
+    hocon = True,
+    hocon_config = """
+    {
+      ledger.participants.default {
+        api-server {
+          seeding = testing-weak
+          user-management {
+            enabled = true
+          }
+        }
+        index-service {
+          max-transactions-in-memory-fan-out-buffer-size = 20000
+        }
+      }
+    }
+    """,
+    servers = SERVERS,
+    test_tool_args = [
+        "--verbose",
+    ],
+)
+
+# By default, participants are tuned for performance. The buffers and caches used by the participant
+# are by default so large that they are not filled by the small amount of data produced by the conformance test.
+# We run one conformance test with small buffer/cache sizes to make sure we cover cases where data doesn't fit
+# into a cache or where multiple buffers have to be combined.
+server_conformance_test(
+    name = "conformance-test-tiny-buffers",
+    hocon = True,
+    hocon_config = """
+    {
+      ledger.participants.default {
+        api-server {
+          seeding = testing-weak
+          user-management {
+            enabled = true
+            max-cache-size = 2
+          }
+        }
+        index-service {
+          max-contract-key-state-cache-size = 2
+          max-contract-state-cache-size = 2
+          acs-id-page-size = 2
+          events-page-size = 2
+          max-transactions-in-memory-fan-out-buffer-size = 3
+          buffered-streams-page-size = 1
+        }
+      }
+    }
+    """,
+    servers = SERVERS,
+    test_tool_args = [
+        "--verbose",
+    ],
+)
+
+# Conformance test with the in-memory fan-out, mutable contract state cache and user management cache disabled
+# (i.e. cache/buffer sizes set to 0).
+server_conformance_test(
+    name = "conformance-test-caches-disabled",
+    hocon = True,
+    hocon_config = """
+    {
+      ledger.participants.default {
+        api-server {
+          seeding = testing-weak
+          user-management {
+            enabled = true
+            max-cache-size = 0
+          }
+        }
+        index-service {
+          max-contract-key-state-cache-size = 0
+          max-contract-state-cache-size = 0
+          max-transactions-in-memory-fan-out-buffer-size = 0
+        }
+      }
+    }
+    """,
+    servers = SERVERS,
+    test_tool_args = [
+        "--verbose",
+    ],
+)
+
 conformance_test(
     name = "conformance-test-no-conflict-checking",
+    hocon = True,
     ports = [6865],
     server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865",
-        "--disable-conflict-checking",
-    ],
+    server_args = ["run"],
+    server_hocon_config = """
+    {
+      ledger.participants.default.api-server.seeding = testing-weak
+      bridge.conflict-checking-enabled = false
+    }
+    """,
     test_tool_args = [
         "--verbose",
         "--exclude=ClosedWorldIT",
@@ -461,80 +540,42 @@ conformance_test(
     ],
 )
 
+conformance_test(
+    name = "conformance-test-static-time",
+    hocon = True,
+    ports = [6865],
+    server = ":app",
+    server_args = ["run"],
+    server_hocon_config = """
+    {
+      ledger.participants.default.api-server {
+        seeding = testing-weak
+        time-provider-type = static
+      }
+    }
+    """,
+    test_tool_args = [
+        "--verbose",
+    ],
+)
+
+# TODO Make sure InterfaceSubscriptionsIT is run on all servers, after Interface feature is on stable lf
 server_conformance_test(
-    name = "conformance-test",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865",
-        "--enable-user-management=true",
+    name = "conformance-test-interface-subscriptions",
+    hocon = True,
+    hocon_config = """
+        ledger.participants.default.api-server.seeding = testing-weak
+    """,
+    lf_versions = [
+        "1.dev",
     ],
     servers = SERVERS,
     test_tool_args = [
         "--verbose",
+        "--include=InterfaceSubscriptionsIT",
     ],
 )
 
-# By default, participants are tuned for performance. The buffers and caches used by the participant
-# are by default so large that they are not filled by the small amount of data produced by the conformance test.
-# We run one conformance test with small buffer/cache sizes to make sure we cover cases where data doesn't fit
-# into a cache or where multiple buffers have to be combined.
-server_conformance_test(
-    name = "conformance-test-tiny-buffers",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865,contract-state-cache-max-size=2,contract-key-state-cache-max-size=2",
-        "--enable-user-management=true",
-        "--events-page-size=2",
-        "--acs-id-page-size=2",
-        "--user-management-max-cache-size=2",
-        # "--user-management-max-users-page-size=2" -- minimum size is 100 which is not tiny anymore
-    ],
-    servers = {"postgresql": SERVERS["postgresql"]},
-    test_tool_args = [
-        "--verbose",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-static-time",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865",
-        "--static-time",
-    ],
-    test_tool_args = [
-        "--verbose",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-in-memory-fan-out",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865",
-        "--buffered-ledger-api-streams",
-    ],
-    test_tool_args = [
-        "--verbose",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-in-memory-fan-out-tiny-buffer",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865",
-        "--ledger-api-transactions-buffer-max-size=3",
-        "--buffered-streams-page-size=1",
-        "--buffered-ledger-api-streams",
-    ],
-    test_tool_args = [
-        "--verbose",
-    ],
-)
+exports_files([
+    "src/app/resources/logback.xml",
+])

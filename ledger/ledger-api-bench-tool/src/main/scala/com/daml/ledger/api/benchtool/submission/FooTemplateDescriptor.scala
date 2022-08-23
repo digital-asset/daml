@@ -18,19 +18,19 @@ object FooTemplateDescriptor {
 
   val Foo1: FooTemplateDescriptor = FooTemplateDescriptor(
     name = "Foo1",
-    templateId = com.daml.ledger.test.model.Foo.Foo1.id.asInstanceOf[Identifier],
+    templateId = com.daml.ledger.test.benchtool.Foo.Foo1.id.asInstanceOf[Identifier],
     consumingChoiceName = "Foo1_ConsumingChoice",
     nonconsumingChoiceName = "Foo1_NonconsumingChoice",
   )
   val Foo2: FooTemplateDescriptor = FooTemplateDescriptor(
     name = "Foo2",
-    templateId = com.daml.ledger.test.model.Foo.Foo2.id.asInstanceOf[Identifier],
+    templateId = com.daml.ledger.test.benchtool.Foo.Foo2.id.asInstanceOf[Identifier],
     consumingChoiceName = "Foo2_ConsumingChoice",
     nonconsumingChoiceName = "Foo2_NonconsumingChoice",
   )
   val Foo3: FooTemplateDescriptor = FooTemplateDescriptor(
     name = "Foo3",
-    templateId = com.daml.ledger.test.model.Foo.Foo3.id.asInstanceOf[Identifier],
+    templateId = com.daml.ledger.test.benchtool.Foo.Foo3.id.asInstanceOf[Identifier],
     consumingChoiceName = "Foo3_ConsumingChoice",
     nonconsumingChoiceName = "Foo3_NonconsumingChoice",
   )
@@ -42,7 +42,7 @@ object FooTemplateDescriptor {
     all.getOrElse(templateName, sys.error(s"Invalid template: $templateName"))
 
   val Divulger_templateId: Identifier =
-    com.daml.ledger.test.model.Foo.Divulger.id.asInstanceOf[Identifier]
+    com.daml.ledger.test.benchtool.Foo.Divulger.id.asInstanceOf[Identifier]
   val Divulger_DivulgeContractImmediate = "DivulgeContractImmediate"
   val Divulger_DivulgeConsumingExercise = "DivulgeConsumingExercise"
 }

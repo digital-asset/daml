@@ -80,6 +80,11 @@ case class ObservedEvents(
     expectedTemplateNames.map(name => name -> groups.get(name).fold(0)(_.size)).toMap
   }
 
+  val numberOfNonConsumingExercisesPerTemplateName: Map[String, Int] = {
+    val groups = nonConsumingExercises.groupBy(_.templateName)
+    expectedTemplateNames.map(name => name -> groups.get(name).fold(0)(_.size)).toMap
+  }
+
   val avgSizeOfCreateEventPerTemplateName: Map[String, Int] = {
     val groups = createEvents.groupBy(_.templateName)
     expectedTemplateNames.map { name =>

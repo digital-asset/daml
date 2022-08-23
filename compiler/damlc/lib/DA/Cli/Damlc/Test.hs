@@ -263,11 +263,7 @@ prettyErr lfVersion err = case err of
 prettyResult :: SS.ScenarioResult -> DA.Pretty.Doc Pretty.SyntaxClass
 prettyResult result =
     let nTx = length (SS.scenarioResultScenarioSteps result)
-        isActive node =
-            case SS.nodeNode node of
-                Just SS.NodeNodeCreate{} -> isNothing (SS.nodeConsumedBy node)
-                _ -> False
-        nActive = length $ filter isActive (V.toList (SS.scenarioResultNodes result))
+        nActive = length $ filter (SS.isActive (SS.activeContractsFromScenarioResult result)) (V.toList (SS.scenarioResultNodes result))
     in DA.Pretty.typeDoc_ "ok, "
     <> DA.Pretty.int nActive <> DA.Pretty.typeDoc_ " active contracts, "
     <> DA.Pretty.int nTx <> DA.Pretty.typeDoc_ " transactions."

@@ -603,6 +603,11 @@ data Expr
   | EScenario !Scenario
   -- | An expression annotated with a source location.
   | ELocation !SourceLoc !Expr
+  -- | Obtain an interface view
+  | EViewInterface
+    { viewInterfaceInterface :: !(Qualified TypeConName)
+    , viewInterfaceExpr :: !Expr
+    }
   -- | Experimental Expression Hook
   | EExperimental !T.Text !Type
   deriving (Eq, Data, Generic, NFData, Ord, Show)
@@ -927,23 +932,38 @@ data Template = Template
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
--- | Template implementation of an interface in the template declaration.
+-- | Interface instance in the template declaration.
 data TemplateImplements = TemplateImplements
   { tpiInterface :: !(Qualified TypeConName)
     -- ^ Interface name for implementation.
-  , tpiMethods :: !(NM.NameMap TemplateImplementsMethod)
+  , tpiBody :: !InterfaceInstanceBody
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
--- | Template implementation of an interface's method in the template declaration.
-data TemplateImplementsMethod = TemplateImplementsMethod
-  { tpiMethodName :: !MethodName
+-- | Contents of an interface instance.
+data InterfaceInstanceBody = InterfaceInstanceBody
+  { iiMethods :: !(NM.NameMap InterfaceInstanceMethod)
+  , iiView :: !Expr
+  }
+  deriving (Eq, Data, Generic, NFData, Show)
+
+-- | An implementation of an interface's method.
+data InterfaceInstanceMethod = InterfaceInstanceMethod
+  { iiMethodName :: !MethodName
     -- ^ Name of method.
-  , tpiMethodExpr :: !Expr
+  , iiMethodExpr :: !Expr
     -- ^ Method expression. Has type @mty@ (the method's type as defined in the interface)
     -- and the template parameter in scope with type @tpl@ (the type of the template).
   }
   deriving (Eq, Data, Generic, NFData, Show)
+
+-- | The interface and template that identify an interface instance.
+-- Currently not part of the AST.
+data InterfaceInstanceHead = InterfaceInstanceHead
+  { iiInterface :: !(Qualified TypeConName)
+  , iiTemplate :: !(Qualified TypeConName)
+  }
+  deriving (Eq, Ord, Data, Generic, NFData, Show)
 
 -- | Definition of an exception type.
 data DefException = DefException
@@ -960,8 +980,8 @@ data DefInterface = DefInterface
   , intParam :: !ExprVarName
   , intChoices :: !(NM.NameMap TemplateChoice)
   , intMethods :: !(NM.NameMap InterfaceMethod)
-  , intPrecondition :: !Expr
   , intCoImplements :: !(NM.NameMap InterfaceCoImplements)
+  , intView :: !Type
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -972,20 +992,10 @@ data InterfaceMethod = InterfaceMethod
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
--- | Template implementation of an interface in the interface declaration.
+-- | Interface instance in the interface declaration.
 data InterfaceCoImplements = InterfaceCoImplements
   { iciTemplate :: !(Qualified TypeConName)
-  , iciMethods :: !(NM.NameMap InterfaceCoImplementsMethod)
-  }
-  deriving (Eq, Data, Generic, NFData, Show)
-
--- | Template implementation of an interface's method in the interface declaration.
-data InterfaceCoImplementsMethod = InterfaceCoImplementsMethod
-  { iciMethodName :: !MethodName
-    -- ^ Name of method.
-  , iciMethodExpr :: !Expr
-    -- ^ Method expression. Has type @mty@ (the method's type as defined in the interface)
-    -- and the template parameter in scope with type @tpl@ (the type of the template).
+  , iciBody :: !InterfaceInstanceBody
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -1103,10 +1113,6 @@ instance NM.Named InterfaceCoImplements where
   type Name InterfaceCoImplements = Qualified TypeConName
   name = iciTemplate
 
-instance NM.Named InterfaceCoImplementsMethod where
-  type Name InterfaceCoImplementsMethod = MethodName
-  name = iciMethodName
-
 instance NM.Named Template where
   type Name Template = TypeConName
   name = tplTypeCon
@@ -1115,9 +1121,9 @@ instance NM.Named TemplateImplements where
   type Name TemplateImplements = Qualified TypeConName
   name = tpiInterface
 
-instance NM.Named TemplateImplementsMethod where
-  type Name TemplateImplementsMethod = MethodName
-  name = tpiMethodName
+instance NM.Named InterfaceInstanceMethod where
+  type Name InterfaceInstanceMethod = MethodName
+  name = iiMethodName
 
 instance NM.Named Module where
   type Name Module = ModuleName

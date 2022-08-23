@@ -70,6 +70,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
         commands.deduplicationPeriod,
         maxDeduplicationDuration,
       )
+      _ <- validateExplicitDisclosure(commands)
     } yield domain.Commands(
       ledgerId = ledgerId,
       workflowId = workflowId,
@@ -110,7 +111,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
     }
   }
 
-  private def validateInnerCommands(
+  // Public because it is used by Canton.
+  def validateInnerCommands(
       commands: Seq[ProtoCommand]
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -124,7 +126,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
       } yield validatedInnerCommands :+ validatedInnerCommand
     })
 
-  private def validateInnerCommand(
+  // Public so that clients have an easy way to convert ProtoCommand.Command to ApiCommand.
+  def validateInnerCommand(
       command: ProtoCommand.Command
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -151,7 +154,9 @@ final class CommandsValidator(ledgerId: LedgerId) {
           value <- requirePresence(e.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
         } yield ApiCommand.Exercise(
-          typeId = validatedTemplateId,
+          // TODO: https://github.com/digital-asset/daml/issues/14747
+          //  Fix once the new field interface_id have been added to the API Exercise Command
+          typeId = TemplateOrInterface.Template(validatedTemplateId),
           contractId = contractId,
           choiceId = choice,
           argument = validatedValue,
@@ -266,6 +271,21 @@ final class CommandsValidator(ledgerId: LedgerId) {
             )
       }
     }
+
+  private def validateExplicitDisclosure(commands: ProtoCommands)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Unit] =
+    Either.cond(
+      // TODO Explicit disclosure: Enrich condition with feature flag check (when introduced)
+      commands.disclosedContracts.isEmpty,
+      (),
+      LedgerApiErrors.RequestValidation.InvalidField
+        .Reject(
+          "disclosed_contracts",
+          "feature in development: disclosed_contracts should not be set",
+        )
+        .asGrpcError,
+    )
 }
 
 object CommandsValidator {

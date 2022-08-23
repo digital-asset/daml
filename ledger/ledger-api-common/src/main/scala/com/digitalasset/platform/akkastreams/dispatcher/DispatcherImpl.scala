@@ -4,9 +4,9 @@
 package com.daml.platform.akkastreams.dispatcher
 
 import java.util.concurrent.atomic.AtomicReference
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.daml.platform.akkastreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable
@@ -123,22 +123,31 @@ final class DispatcherImpl[Index: Ordering](
     Ordering[Index].gt(zeroIndex, checkedIndex)
 
   override def shutdown(): Future[Unit] =
+    shutdownInternal { dispatcher =>
+      dispatcher.signal()
+      dispatcher.shutdown()
+    }
+
+  override def cancel(throwable: Throwable): Future[Unit] =
+    shutdownInternal(_.fail(throwable))
+
+  private def shutdownInternal(shutdown: SignalDispatcher => Future[Unit]): Future[Unit] =
     state.getAndUpdate {
       case Running(idx, _) => Closed(idx)
       case c: Closed => c
     } match {
-      case Running(_, disp) =>
-        disp.signal()
-        disp.shutdown()
+      case Running(_, disp) => shutdown(disp)
       case _: Closed => Future.unit
     }
 
-  private def closedError: IllegalStateException =
-    new IllegalStateException(s"$name: Dispatcher is closed")
+  private def closedError: DispatcherIsClosedException =
+    new DispatcherIsClosedException(s"$name: Dispatcher is closed")
 
 }
 
 object DispatcherImpl {
+  class DispatcherIsClosedException(msg: String) extends IllegalStateException(msg)
+
   private sealed abstract class State[Index] extends Product with Serializable {
     def getSignalDispatcher: Option[SignalDispatcher]
 

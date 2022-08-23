@@ -13,13 +13,13 @@ import com.daml.platform.indexer.Indexer
 import com.daml.platform.indexer.ha.{HaConfig, HaCoordinator, Handle, NoopHaCoordinator}
 import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.store.DbSupport.DbConfig
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend}
 import com.daml.platform.store.dao.DbDispatcher
-import com.daml.platform.store.interning.StringInterningView
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-
-import java.util.Timer
+import java.util.{Timer, concurrent}
 import java.util.concurrent.Executors
+
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
@@ -39,7 +39,7 @@ object ParallelIndexerFactory {
       meteringAggregator: DbDispatcher => ResourceOwner[Unit],
       mat: Materializer,
       readService: ReadService,
-      stringInterningViewO: Option[StringInterningView],
+      initializeInMemoryState: DbDispatcher => LedgerEnd => Future[Unit],
   )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] =
     for {
       inputMapperExecutor <- asyncPool(
@@ -76,7 +76,24 @@ object ParallelIndexerFactory {
             // The life-cycle of such connections matches the life-cycle of a protectedExecution
             dataSource = dataSourceStorageBackend.createDataSource(dbConfig.dataSourceConfig)
           } yield HaCoordinator.databaseLockBasedHaCoordinator(
-            connectionFactory = () => dataSource.getConnection,
+            mainConnectionFactory = () => {
+              val connection = dataSource.getConnection
+              val directExecutor = new concurrent.Executor {
+                override def execute(command: Runnable): Unit = {
+                  // this will execute on the same thread which started the Executor.execute()
+                  command.run()
+                }
+              }
+              // direct executor is beneficial in context of main connection and network timeout:
+              // all socket/Connection closure will be happening on the thread which called the JDBC execute,
+              // instead of happening asynchronously - after error with network timeout the Connection
+              // needs to be closed anyway.
+              connection.setNetworkTimeout(
+                directExecutor,
+                haConfig.mainLockCheckerJdbcNetworkTimeoutMillis,
+              )
+              connection
+            },
             storageBackend = dbLockStorageBackend,
             executionContext = executionContext,
             timer = timer,
@@ -105,19 +122,17 @@ object ParallelIndexerFactory {
             _ <- meteringAggregator(dbDispatcher)
           } yield dbDispatcher
         ) { dbDispatcher =>
-          val stringInterningView = stringInterningViewO.getOrElse(new StringInterningView)
           initializeParallelIngestion(
             dbDispatcher = dbDispatcher,
-            updatingStringInterningView = stringInterningView,
+            additionalInitialization = initializeInMemoryState(dbDispatcher),
             readService = readService,
-            ec = ec,
             mat = mat,
+            ec = ec,
           ).map(
             parallelIndexerSubscription(
               inputMapperExecutor = inputMapperExecutor,
               batcherExecutor = batcherExecutor,
               dbDispatcher = dbDispatcher,
-              stringInterningView = stringInterningView,
               materializer = mat,
             )
           )

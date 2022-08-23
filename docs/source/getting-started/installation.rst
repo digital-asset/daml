@@ -94,7 +94,7 @@ The installer will setup the ``PATH`` variable for you. In order for it to take 
 log out and log in again.
 
 If the ``daml`` command is not available in your terminal after logging out and logging in again, you need to set the ``PATH`` environment variable
-  manually. You can find instructions on how to do this :doc:`here <path-variables>`.
+manually. You can find instructions on how to do this :doc:`here <path-variables>`.
 
 .. _installing_daml_enterprise:
 
@@ -105,8 +105,6 @@ If you have a license for Daml Enterprise, you
 can install it as follows:
 
 
-- Canton can be downloaded from this `repository <https://digitalasset.jfrog.io/artifactory/canton-enterprise/>`_
-  , or you can use our Canton Enterprise Docker images as described in our `Docker instructions <https://www.canton.io/docs/dev/user-manual/usermanual/docker.html#docker-instructions>`_.
 - On Windows, download the installer from Artifactory_ instead of Github
   releases. 
 - On Linux and MacOS, download the corresponding tarball,

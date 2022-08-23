@@ -15,6 +15,7 @@ if [[ -d "${HOME}/.daml-head" ]]; then
   rm -rf "${HOME}/.daml-head"
 fi
 
+BAZEL_MODE_FLAGS=()
 
 NUKE=0
 PROFILING=0
@@ -55,6 +56,10 @@ for opt in "$@"; do
     "--ee")
       EE=1
       ;;
+    "--ghc-repo-override="*)
+      GHC_REPO_OVERRIDE="${opt#*=}"
+      BAZEL_MODE_FLAGS+=(--override_repository=da-ghc="$GHC_REPO_OVERRIDE")
+      ;;
     *)
       echo "Unknown option: $opt"
       echo "Available options:"
@@ -67,12 +72,11 @@ for opt in "$@"; do
       echo "  --damlc  Update damlc only, if daml-head is already installed."
       echo "  --sha  Include SHA information in version number."
       echo "  --ee  Build the EE edition."
+      echo "  --ghc-repo-override=<path>  Override GHC dependency for bazel build."
 
       exit 1
   esac
 done
-
-BAZEL_MODE_FLAGS=()
 
 if [[ "$PROFILING" -ne 0 ]]; then
   BAZEL_MODE_FLAGS+=(-c dbg)
@@ -206,7 +210,7 @@ if [[ "$SKIP_JARS" -eq 0 ]]; then
     }
     trap cleanup EXIT
 
-    bazel build //release:release
+    bazel build ${BAZEL_MODE_FLAGS[@]:-} //release:release
     tmp="$(mktemp -d)"
     RELEASE_ARGS=(--release-dir "$tmp" --install-head-jars --no-ts)
     if [[ "$SKIP_JAR_DOCS" -eq 1 ]]; then

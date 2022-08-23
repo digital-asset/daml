@@ -10,14 +10,15 @@ import com.daml.lf.ledger.EventId
 import com.daml.lf.value.{Value => LfValue}
 import com.daml.platform.{ContractId, Identifier}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 
 /** Generic ledger update event.
   *
   * Used as data source template for in-memory fan-out buffers for Ledger API streams serving.
-  *
-  * @see [[LedgerDaoTransactionsReader.getTransactionLogUpdates()]]
   */
-sealed trait TransactionLogUpdate extends Product with Serializable
+sealed trait TransactionLogUpdate extends Product with Serializable {
+  def offset: Offset
+}
 
 object TransactionLogUpdate {
 
@@ -28,27 +29,37 @@ object TransactionLogUpdate {
     * @param effectiveAt The transaction ledger time.
     * @param offset The transaction's offset in the ledger.
     * @param events The transaction events, in execution order.
+    * @param completionDetails The successful submission's completion details.
     */
-  final case class Transaction(
+  final case class TransactionAccepted(
       transactionId: String,
+      commandId: String,
       workflowId: String,
       effectiveAt: Timestamp,
       offset: Offset,
       events: Vector[Event],
-  ) extends TransactionLogUpdate {
-    require(events.nonEmpty, "Transaction must have at least an event")
-  }
+      completionDetails: Option[CompletionDetails],
+  ) extends TransactionLogUpdate
 
-  /** A special event which signifies that the ledger end has been reached in a stream.
+  /** A rejected submission.
     *
-    * TODO LLP: Remove this class with the implementation of the Ledger API - Indexer bypass.
-    *
-    * @see [[LedgerDaoTransactionsReader.getTransactionLogUpdates()]]
-    * @param eventOffset The ledger end offset.
-    * @param eventSequentialId The ledger end event sequential id.
+    * @param offset The offset at which the rejection has been enqueued in the ledger.
+    * @param completionDetails The rejected submission's completion details.
     */
-  final case class LedgerEndMarker(eventOffset: Offset, eventSequentialId: EventSequentialId)
-      extends TransactionLogUpdate
+  final case class TransactionRejected(
+      offset: Offset,
+      completionDetails: CompletionDetails,
+  ) extends TransactionLogUpdate
+
+  /** The transaction's completion details.
+    *
+    * @param completionStreamResponse The completion details
+    * @param submitters The original command submitters
+    */
+  final case class CompletionDetails(
+      completionStreamResponse: CompletionStreamResponse,
+      submitters: Set[String],
+  )
 
   /* Models all but divulgence events */
   sealed trait Event extends Product with Serializable {

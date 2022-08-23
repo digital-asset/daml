@@ -220,7 +220,11 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             startExclusive = from,
             endInclusive = to,
             requestingParties = Set(alice, bob, charlie),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter =
+                Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
+            ),
           )
       )
     } yield {
@@ -250,7 +254,10 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
             requestingParties = Set(alice),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(alice -> Set.empty),
+            ),
           )
       )
       resultForBob <- transactionsOf(
@@ -259,7 +266,10 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
             requestingParties = Set(bob),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(bob -> Set.empty),
+            ),
           )
       )
       resultForCharlie <- transactionsOf(
@@ -268,7 +278,10 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
             requestingParties = Set(charlie),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(charlie -> Set.empty),
+            ),
           )
       )
     } yield {

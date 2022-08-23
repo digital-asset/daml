@@ -29,8 +29,4 @@ object ContractStateEvent {
       eventOffset: Offset,
       eventSequentialId: Long,
   ) extends ContractStateEvent
-  final case class LedgerEndMarker(
-      eventOffset: Offset,
-      eventSequentialId: Long,
-  ) extends ContractStateEvent
 }

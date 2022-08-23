@@ -58,6 +58,7 @@ case class HaConfig(
     workerLockAcquireRetryMillis: Long = 500,
     workerLockAcquireMaxRetry: Long = 1000,
     mainLockCheckerPeriodMillis: Long = 1000,
+    mainLockCheckerJdbcNetworkTimeoutMillis: Int = 10000,
     indexerLockId: Int = 0x646d6c0, // note 0x646d6c equals ASCII encoded "dml"
     indexerWorkerLockId: Int = 0x646d6c1,
 )
@@ -73,12 +74,12 @@ object HaCoordinator {
     * - provides a ConnectionInitializer function which is mandatory to execute on all worker connections during execution
     * - will spawn a polling-daemon to observe continuous presence of the main lock
     *
-    * @param connectionFactory to spawn the main connection which keeps the Indexer Main Lock
+    * @param mainConnectionFactory to spawn the main connection which keeps the Indexer Main Lock
     * @param storageBackend is the database-independent abstraction of session/connection level database locking
     * @param executionContext which is use to execute initialisation, will do blocking/IO work, so dedicated execution context is recommended
     */
   def databaseLockBasedHaCoordinator(
-      connectionFactory: () => Connection,
+      mainConnectionFactory: () => Connection,
       storageBackend: DBLockStorageBackend,
       executionContext: ExecutionContext,
       timer: Timer,
@@ -99,7 +100,7 @@ object HaCoordinator {
           storageBackend
             .tryAcquire(lockId, lockMode)(connection)
             .getOrElse(
-              throw new Exception(s"Cannot acquire lock $lockId in lock-mode $lockMode: lock busy")
+              throw new CannotAcquireLockException(lockId, lockMode)
             )
         }
 
@@ -112,7 +113,7 @@ object HaCoordinator {
           import sequenceHelper._
           logger.info("Starting IndexDB HA Coordinator")
           for {
-            mainConnection <- go[Connection](connectionFactory())
+            mainConnection <- go[Connection](mainConnectionFactory())
             _ = logger.debug("Step 1: creating main-connection - DONE")
             _ = registerRelease {
               logger.debug("Releasing main connection...")
@@ -121,18 +122,20 @@ object HaCoordinator {
               logger.info("Stepped down as leader, IndexDB HA Coordinator shut down")
             }
             _ = logger.info("Waiting to be elected as leader")
-            _ <- retry(haConfig.mainLockAcquireRetryMillis)(acquireMainLock(mainConnection))
+            _ <- retry(
+              waitMillisBetweenRetries = haConfig.mainLockAcquireRetryMillis,
+              retryable = _.isInstanceOf[CannotAcquireLockException],
+            )(acquireMainLock(mainConnection))
             _ = logger.info("Elected as leader: starting initialization")
             _ = logger.info("Waiting for previous IndexDB HA Coordinator to finish work")
             _ = logger.debug(
               "Step 2: acquire exclusive Indexer Main Lock on main-connection - DONE"
             )
             exclusiveWorkerLock <- retry[Lock](
-              haConfig.workerLockAcquireRetryMillis,
-              haConfig.workerLockAcquireMaxRetry,
-            )(
-              acquireLock(mainConnection, indexerWorkerLockId, LockMode.Exclusive)
-            )
+              waitMillisBetweenRetries = haConfig.workerLockAcquireRetryMillis,
+              maxAmountOfRetries = haConfig.workerLockAcquireMaxRetry,
+              retryable = _.isInstanceOf[CannotAcquireLockException],
+            )(acquireLock(mainConnection, indexerWorkerLockId, LockMode.Exclusive))
             _ = logger.info(
               "Previous IndexDB HA Coordinator finished work, starting DB connectivity polling"
             )
@@ -181,6 +184,11 @@ object HaCoordinator {
         }
       }
     }
+  }
+
+  class CannotAcquireLockException(lockId: LockId, lockMode: LockMode) extends RuntimeException {
+    override def getMessage: String =
+      s"Cannot acquire lock $lockId in lock-mode $lockMode"
   }
 }
 

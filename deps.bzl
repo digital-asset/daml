@@ -34,18 +34,14 @@ load("//:canton_dep.bzl", "canton")
 rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
 rules_scala_sha256 = "6899cddf7407d09266dddcf6faf9f2a8b414de5e2b35ef8b294418f559172f28"
 
-rules_haskell_version = "e1017b429526e6549ef327e80ce7b3f3af3470a3"
-rules_haskell_sha256 = "f527f0e1a654cf2031a6540f674af328dc5f32a0fae55b5ac588861aa7a608e6"
+rules_haskell_version = "d3caf0cc94a8dc6af682da42d3b89ef7e85cb987"
+rules_haskell_sha256 = "16f6ba4997fa4847d7dc26db2c08f71087b591e53ac8c334b1e7f62f6cf3a5da"
 rules_haskell_patches = [
     # This is a daml specific patch and not upstreamable.
     "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
     # This should be made configurable in rules_haskell.
     # Remove this patch once that's available.
     "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
-    # This should be upstreamed
-    "@com_github_digital_asset_daml//bazel_tools:haskell-rts-docs.patch",
-    # This should be upstreamed
-    "@com_github_digital_asset_daml//bazel_tools:haskell-ghc-includes.patch",
 ]
 rules_nixpkgs_version = "210d30a81cedde04b4281fd163428722278fddfb"
 rules_nixpkgs_sha256 = "61b24e273821a15146f9ae7577e64b53f6aa332d5a7056abe8221ae2c346fdbd"
@@ -76,14 +72,14 @@ davl_v3_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
 davl_v3_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae166"
 
 # daml cheat sheet
-daml_cheat_sheet_version = "2710b8df28d97253b5487a68feb2d1452d29fc54"  # 2021-09-17
-daml_cheat_sheet_sha256 = "eb022565a929a69d869f0ab0497f02d1a3eacb4dafdafa076a82ecbe7c401315"
+daml_cheat_sheet_version = "d41ef10405635f092c10a6237df2763a7b011afa"  # 2022-06-13
+daml_cheat_sheet_sha256 = "726bfa931c6a39f2bd37a1bf3c3228e7a4ddc65bba0e6c8183fb7eccc1c314fa"
 
 platforms_version = "0.0.4"
 platforms_sha256 = "2697e95e085c6e1f970637d178e9dfa1231dca3a099d584ff85a7cb9c0af3826"
 
-rules_sh_version = "47b4d823128f484ec1b06aa20349c4898216f486"
-rules_sh_sha256 = "107d4312073d80a9977d3ccff236060d3906bda939fa2fbda4d724268c5b5383"
+rules_sh_version = "f02af9ac549d2a7246a9ee12eb17d113aa218d90"
+rules_sh_sha256 = "9bf2a139af12e290a02411b993007ea5f8dd7cad5d0fe26741df6ef3aaa984bc"
 
 def daml_deps():
     if "platforms" not in native.existing_rules():

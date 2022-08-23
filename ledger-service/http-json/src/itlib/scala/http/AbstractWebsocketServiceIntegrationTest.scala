@@ -184,8 +184,8 @@ abstract class AbstractWebsocketServiceIntegrationTest
     }
   }
 
-  "query endpoint should publish transactions when command create is completed" in withHttpService {
-    fixture =>
+  "transactions when command create is completed from" - {
+    "query endpoint" in withHttpService { fixture =>
       import fixture.uri
       for {
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
@@ -203,10 +203,9 @@ abstract class AbstractWebsocketServiceIntegrationTest
         result should include(""""amount":"999.99"""")
         Inspectors.forAll(heartbeats)(assertHeartbeat)
       }
-  }
+    }
 
-  "fetch endpoint should publish transactions when command create is completed" in withHttpService {
-    fixture =>
+    "fetch endpoint" in withHttpService { fixture =>
       import fixture.uri
       for {
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
@@ -223,57 +222,60 @@ abstract class AbstractWebsocketServiceIntegrationTest
         result should not include (""""offset":"""")
         Inspectors.forAll(heartbeats)(assertHeartbeat)
       }
+    }
   }
 
-  "query endpoint should warn on unknown template IDs" in withHttpService { fixture =>
-    import fixture.uri
-    for {
-      aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
-      (alice, headers) = aliceHeaders
-      _ <- initialIouCreate(uri, alice, headers)
+  "warn on unknown template IDs from" - {
+    "query endpoint" in withHttpService { fixture =>
+      import fixture.uri
+      for {
+        aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        (alice, headers) = aliceHeaders
+        _ <- initialIouCreate(uri, alice, headers)
 
-      clientMsg <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
-        .flatMap(
-          singleClientQueryStream(
+        clientMsg <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+          .flatMap(
+            singleClientQueryStream(
+              _,
+              uri,
+              """{"templateIds": ["Iou:Iou", "Unknown:Template"]}""",
+            )
+              .take(3)
+              .runWith(collectResultsAsTextMessage)
+          )
+      } yield inside(clientMsg) { case warning +: result +: heartbeats =>
+        warning should include("\"warnings\":{\"unknownTemplateIds\":[\"Unk")
+        result should include(s""""issuer":"$alice"""")
+        Inspectors.forAll(heartbeats)(assertHeartbeat)
+      }
+    }
+
+    "fetch endpoint" in withHttpService { fixture =>
+      import fixture.uri
+      for {
+        aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        (alice, headers) = aliceHeaders
+        _ <- initialAccountCreate(fixture, alice, headers)
+
+        clientMsg <- jwtForParties(uri)(List(alice.unwrap), List(), testId).flatMap(
+          singleClientFetchStream(
             _,
             uri,
-            """{"templateIds": ["Iou:Iou", "Unknown:Template"]}""",
-          )
-            .take(3)
+            s"""[{"templateId": "Account:Account", "key": ["$alice", "abc123"]}, {"templateId": "Unknown:Template", "key": ["$alice", "abc123"]}]""",
+          ).take(3)
             .runWith(collectResultsAsTextMessage)
         )
-    } yield inside(clientMsg) { case warning +: result +: heartbeats =>
-      warning should include("\"warnings\":{\"unknownTemplateIds\":[\"Unk")
-      result should include(s""""issuer":"$alice"""")
-      Inspectors.forAll(heartbeats)(assertHeartbeat)
+      } yield inside(clientMsg) { case warning +: result +: heartbeats =>
+        warning should include("""{"warnings":{"unknownTemplateIds":["Unk""")
+        result should include(s""""owner":"$alice"""")
+        result should include(""""number":"abc123"""")
+        Inspectors.forAll(heartbeats)(assertHeartbeat)
+      }
     }
   }
 
-  "fetch endpoint should warn on unknown template IDs" in withHttpService { fixture =>
-    import fixture.uri
-    for {
-      aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
-      (alice, headers) = aliceHeaders
-      _ <- initialAccountCreate(fixture, alice, headers)
-
-      clientMsg <- jwtForParties(uri)(List(alice.unwrap), List(), testId).flatMap(
-        singleClientFetchStream(
-          _,
-          uri,
-          s"""[{"templateId": "Account:Account", "key": ["$alice", "abc123"]}, {"templateId": "Unknown:Template", "key": ["$alice", "abc123"]}]""",
-        ).take(3)
-          .runWith(collectResultsAsTextMessage)
-      )
-    } yield inside(clientMsg) { case warning +: result +: heartbeats =>
-      warning should include("""{"warnings":{"unknownTemplateIds":["Unk""")
-      result should include(s""""owner":"$alice"""")
-      result should include(""""number":"abc123"""")
-      Inspectors.forAll(heartbeats)(assertHeartbeat)
-    }
-  }
-
-  "query endpoint should send error msg when receiving malformed message" in withHttpService {
-    (uri, _, _, _) =>
+  "error msg when receiving malformed message," - {
+    "query endpoint" in withHttpService { (uri, _, _, _) =>
       val clientMsg = jwt(uri).flatMap(
         singleClientQueryStream(_, uri, "{}")
           .runWith(collectResultsAsTextMessageSkipOffsetTicks)
@@ -285,10 +287,9 @@ abstract class AbstractWebsocketServiceIntegrationTest
       val errorResponse = decodeErrorResponse(result.head)
       errorResponse.status shouldBe StatusCodes.BadRequest
       errorResponse.errors should have size 1
-  }
+    }
 
-  "fetch endpoint should send error msg when receiving malformed message" in withHttpService {
-    fixture =>
+    "fetch endpoint" in withHttpService { fixture =>
       import fixture.uri
       val clientMsg = jwt(uri)
         .flatMap(
@@ -302,6 +303,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       val errorResponse = decodeErrorResponse(result.head)
       errorResponse.status shouldBe StatusCodes.BadRequest
       errorResponse.errors should have size 1
+    }
   }
 
   private def exercisePayload(cid: domain.ContractId, amount: BigDecimal = BigDecimal("42.42")) = {
@@ -388,111 +390,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
       }
   }
 
-  "query should receive deltas as contracts are archived/created" in withHttpService { fixture =>
-    import fixture.uri
-    val getAliceHeaders = fixture.getUniquePartyAndAuthHeaders("Alice")
-
-    @nowarn("msg=pattern var evtsWrapper .* is never used")
-    def resp(
-        iouCid: domain.ContractId,
-        kill: UniqueKillSwitch,
-    ): Sink[JsValue, Future[ShouldHaveEnded]] = {
-      val dslSyntax = Consume.syntax[JsValue]
-      import dslSyntax._
-      Consume
-        .interpret(
-          for {
-            ContractDelta(Vector((ctid, _)), Vector(), None) <- readOne
-            _ = (ctid: String) shouldBe (iouCid.unwrap: String)
-            _ <- liftF(
-              getAliceHeaders.flatMap { case (_, headers) =>
-                fixture.postJsonRequest(
-                  Uri.Path("/v1/exercise"),
-                  exercisePayload(domain.ContractId(ctid)),
-                  headers,
-                ) map { case (statusCode, _) =>
-                  statusCode.isSuccess shouldBe true
-                }
-              }
-            )
-
-            ContractDelta(Vector(), _, Some(offset)) <- readOne
-
-            (preOffset, consumedCtid) = (offset, ctid)
-            evtsWrapper @ ContractDelta(
-              Vector((fstId, fst), (sndId, snd)),
-              Vector(observeConsumed),
-              Some(lastSeenOffset),
-            ) <- readOne
-            (liveStartOffset, msgCount) = {
-              observeConsumed.contractId should ===(consumedCtid)
-              Set(fstId, sndId, consumedCtid) should have size 3
-              inside(evtsWrapper) { case JsObject(obj) =>
-                inside(obj get "events") {
-                  case Some(
-                        JsArray(
-                          Vector(
-                            Archived(_, _),
-                            Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
-                            Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _)),
-                          )
-                        )
-                      ) =>
-                    Set((amt1, ixes1), (amt2, ixes2)) should ===(
-                      Set(
-                        (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
-                        (BigDecimal("957.57"), Vector(BigDecimal(1), BigDecimal(2))),
-                      )
-                    )
-                }
-              }
-              (preOffset, 2)
-            }
-
-            _ = kill.shutdown()
-            heartbeats <- drain
-            hbCount = (heartbeats.iterator.map(heartbeatOffset).toSet + lastSeenOffset).size - 1
-          } yield
-          // don't count empty events block if lastSeenOffset does not change
-          ShouldHaveEnded(
-            liveStartOffset = liveStartOffset,
-            msgCount = msgCount + hbCount,
-            lastSeenOffset = lastSeenOffset,
-          )
-        )
-    }
-
-    val query =
-      """[
-          {"templateIds": ["Iou:Iou"], "query": {"amount": {"%lte": 50}}},
-          {"templateIds": ["Iou:Iou"], "query": {"amount": {"%gt": 50}}},
-          {"templateIds": ["Iou:Iou"]}
-        ]"""
-
-    for {
-      aliceHeaders <- getAliceHeaders
-      (party, headers) = aliceHeaders
-      creation <- initialIouCreate(uri, party, headers)
-      iouCid = inside(creation) { case (_: StatusCodes.Success, domain.OkResponse(c, _, _)) =>
-        c.contractId
-      }
-      jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
-      (kill, source) = singleClientQueryStream(jwt, uri, query)
-        .viaMat(KillSwitches.single)(Keep.right)
-        .preMaterialize()
-      lastState <- source via parseResp runWith resp(iouCid, kill)
-      liveOffset = inside(lastState) { case ShouldHaveEnded(liveStart, 2, lastSeen) =>
-        lastSeen.unwrap should be > liveStart.unwrap
-        liveStart
-      }
-      rescan <- (singleClientQueryStream(jwt, uri, query, Some(liveOffset))
-        via parseResp).take(1) runWith remainingDeltas
-    } yield inside(rescan) {
-      case (Vector((fstId, fst @ _), (sndId, snd @ _)), Vector(observeConsumed), Some(_)) =>
-        Set(fstId, sndId, observeConsumed.contractId) should have size 3
-    }
-  }
-
   private[this] def resultContractId(
       r: (StatusCode, domain.SyncResponse[domain.ActiveContract[_]])
   ) =
@@ -500,8 +397,113 @@ abstract class AbstractWebsocketServiceIntegrationTest
       result.contractId
     }
 
-  "multi-party query should receive deltas as contracts are archived/created" in withHttpService {
-    fixture =>
+  "deltas as contracts are archived/created from" - {
+    "single-party query" in withHttpService { fixture =>
+      import fixture.uri
+      val getAliceHeaders = fixture.getUniquePartyAndAuthHeaders("Alice")
+
+      @nowarn("msg=pattern var evtsWrapper .* is never used")
+      def resp(
+          iouCid: domain.ContractId,
+          kill: UniqueKillSwitch,
+      ): Sink[JsValue, Future[ShouldHaveEnded]] = {
+        val dslSyntax = Consume.syntax[JsValue]
+        import dslSyntax._
+        Consume
+          .interpret(
+            for {
+              ContractDelta(Vector((ctid, _)), Vector(), None) <- readOne
+              _ = (ctid: String) shouldBe (iouCid.unwrap: String)
+              _ <- liftF(
+                getAliceHeaders.flatMap { case (_, headers) =>
+                  fixture.postJsonRequest(
+                    Uri.Path("/v1/exercise"),
+                    exercisePayload(domain.ContractId(ctid)),
+                    headers,
+                  ) map { case (statusCode, _) =>
+                    statusCode.isSuccess shouldBe true
+                  }
+                }
+              )
+
+              ContractDelta(Vector(), _, Some(offset)) <- readOne
+
+              (preOffset, consumedCtid) = (offset, ctid)
+              evtsWrapper @ ContractDelta(
+                Vector((fstId, fst), (sndId, snd)),
+                Vector(observeConsumed),
+                Some(lastSeenOffset),
+              ) <- readOne
+              (liveStartOffset, msgCount) = {
+                observeConsumed.contractId should ===(consumedCtid)
+                Set(fstId, sndId, consumedCtid) should have size 3
+                inside(evtsWrapper) { case JsObject(obj) =>
+                  inside(obj get "events") {
+                    case Some(
+                          JsArray(
+                            Vector(
+                              Archived(_, _),
+                              Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
+                              Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _)),
+                            )
+                          )
+                        ) =>
+                      Set((amt1, ixes1), (amt2, ixes2)) should ===(
+                        Set(
+                          (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
+                          (BigDecimal("957.57"), Vector(BigDecimal(1), BigDecimal(2))),
+                        )
+                      )
+                  }
+                }
+                (preOffset, 2)
+              }
+
+              _ = kill.shutdown()
+              heartbeats <- drain
+              hbCount = (heartbeats.iterator.map(heartbeatOffset).toSet + lastSeenOffset).size - 1
+            } yield
+            // don't count empty events block if lastSeenOffset does not change
+            ShouldHaveEnded(
+              liveStartOffset = liveStartOffset,
+              msgCount = msgCount + hbCount,
+              lastSeenOffset = lastSeenOffset,
+            )
+          )
+      }
+
+      val query =
+        """[
+          {"templateIds": ["Iou:Iou"], "query": {"amount": {"%lte": 50}}},
+          {"templateIds": ["Iou:Iou"], "query": {"amount": {"%gt": 50}}},
+          {"templateIds": ["Iou:Iou"]}
+        ]"""
+
+      for {
+        aliceHeaders <- getAliceHeaders
+        (party, headers) = aliceHeaders
+        creation <- initialIouCreate(uri, party, headers)
+        iouCid = inside(creation) { case (_: StatusCodes.Success, domain.OkResponse(c, _, _)) =>
+          c.contractId
+        }
+        jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
+        (kill, source) = singleClientQueryStream(jwt, uri, query)
+          .viaMat(KillSwitches.single)(Keep.right)
+          .preMaterialize()
+        lastState <- source via parseResp runWith resp(iouCid, kill)
+        liveOffset = inside(lastState) { case ShouldHaveEnded(liveStart, 2, lastSeen) =>
+          lastSeen.unwrap should be > liveStart.unwrap
+          liveStart
+        }
+        rescan <- (singleClientQueryStream(jwt, uri, query, Some(liveOffset))
+          via parseResp).take(1) runWith remainingDeltas
+      } yield inside(rescan) {
+        case (Vector((fstId, fst @ _), (sndId, snd @ _)), Vector(observeConsumed), Some(_)) =>
+          Set(fstId, sndId, observeConsumed.contractId) should have size 3
+      }
+    }
+
+    "multi-party query" in withHttpService { fixture =>
       import fixture.uri
       for {
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
@@ -610,10 +612,9 @@ abstract class AbstractWebsocketServiceIntegrationTest
       } yield inside(rescan) { case (Vector(_), _, Some(_)) =>
         succeed
       }
-  }
+    }
 
-  "fetch should receive deltas as contracts are archived/created, filtering out phantom archives" in withHttpService {
-    fixture =>
+    "fetch, filtering out phantom archives" in withHttpService { fixture =>
       import fixture.uri
       for {
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
@@ -725,78 +726,9 @@ abstract class AbstractWebsocketServiceIntegrationTest
         }
 
       } yield resumes.foldLeft(1 shouldBe 1)((_, a) => a)
-  }
+    }
 
-  "fetch multiple keys should work" in withHttpService { fixture =>
-    import fixture.uri
-    for {
-      aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
-      (alice, headers) = aliceHeaders
-      jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
-      create = (account: String) =>
-        for {
-          r <- postCreateCommand(
-            accountCreateCommand(alice, account),
-            fixture,
-            headers,
-          )
-        } yield resultContractId(r)
-      archive = (id: domain.ContractId) =>
-        for {
-          r <- postArchiveCommand(
-            domain.TemplateId(None, "Account", "Account"),
-            id,
-            fixture,
-            headers,
-          )
-        } yield {
-          assert(r._1.isSuccess)
-        }
-      resp = (kill: UniqueKillSwitch) => {
-        val dslSyntax = Consume.syntax[JsValue]
-        import dslSyntax._
-        Consume.interpret(
-          for {
-            ContractDelta(Vector(), Vector(), Some(liveStartOffset)) <- readOne
-            cid1 <- liftF(create("abc123"))
-            ContractDelta(Vector((cid, _)), Vector(), Some(_)) <- readOne
-            _ = cid shouldBe cid1
-            _ <- liftF(create("abc124"))
-            _ <- liftF(create("abc125"))
-            cid2 <- liftF(create("def456"))
-            ContractDelta(Vector((cid, _)), Vector(), Some(_)) <- readOne
-            _ = cid shouldBe cid2
-            _ <- liftF(archive(cid2))
-            ContractDelta(Vector(), Vector(cid), Some(_)) <- readOne
-            _ = cid.contractId shouldBe cid2
-            _ <- liftF(archive(cid1))
-            ContractDelta(Vector(), Vector(cid), Some(_)) <- readOne
-            _ = cid.contractId shouldBe cid1
-            _ = kill.shutdown()
-            heartbeats <- drain
-            _ = heartbeats.foreach { d =>
-              inside(d) { case ContractDelta(Vector(), Vector(), Some(_)) =>
-                succeed
-              }
-            }
-          } yield succeed
-        )
-      }
-      req =
-        s"""
-               |[{"templateId": "Account:Account", "key": ["$alice", "abc123"]},
-               | {"templateId": "Account:Account", "key": ["$alice", "def456"]}]
-               |""".stripMargin
-      (kill, source) = singleClientFetchStream(jwt, uri, req)
-        .viaMat(KillSwitches.single)(Keep.right)
-        .preMaterialize()
-
-      res <- source.via(parseResp).runWith(resp(kill))
-    } yield res
-  }
-
-  "multi-party fetch-by-key query should receive deltas as contracts are archived/created" in withHttpService {
-    fixture =>
+    "multi-party fetch-by-key" in withHttpService { fixture =>
       import fixture.uri
       for {
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
@@ -889,6 +821,75 @@ abstract class AbstractWebsocketServiceIntegrationTest
       } yield inside(rescan) { case (Vector(), Vector(_, _), Some(_)) =>
         succeed
       }
+    }
+  }
+
+  "fetch multiple keys should work" in withHttpService { fixture =>
+    import fixture.uri
+    for {
+      aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
+      (alice, headers) = aliceHeaders
+      jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+      create = (account: String) =>
+        for {
+          r <- postCreateCommand(
+            accountCreateCommand(alice, account),
+            fixture,
+            headers,
+          )
+        } yield resultContractId(r)
+      archive = (id: domain.ContractId) =>
+        for {
+          r <- postArchiveCommand(
+            domain.TemplateId(None, "Account", "Account"),
+            id,
+            fixture,
+            headers,
+          )
+        } yield {
+          assert(r._1.isSuccess)
+        }
+      resp = (kill: UniqueKillSwitch) => {
+        val dslSyntax = Consume.syntax[JsValue]
+        import dslSyntax._
+        Consume.interpret(
+          for {
+            ContractDelta(Vector(), Vector(), Some(liveStartOffset)) <- readOne
+            cid1 <- liftF(create("abc123"))
+            ContractDelta(Vector((cid, _)), Vector(), Some(_)) <- readOne
+            _ = cid shouldBe cid1
+            _ <- liftF(create("abc124"))
+            _ <- liftF(create("abc125"))
+            cid2 <- liftF(create("def456"))
+            ContractDelta(Vector((cid, _)), Vector(), Some(_)) <- readOne
+            _ = cid shouldBe cid2
+            _ <- liftF(archive(cid2))
+            ContractDelta(Vector(), Vector(cid), Some(_)) <- readOne
+            _ = cid.contractId shouldBe cid2
+            _ <- liftF(archive(cid1))
+            ContractDelta(Vector(), Vector(cid), Some(_)) <- readOne
+            _ = cid.contractId shouldBe cid1
+            _ = kill.shutdown()
+            heartbeats <- drain
+            _ = heartbeats.foreach { d =>
+              inside(d) { case ContractDelta(Vector(), Vector(), Some(_)) =>
+                succeed
+              }
+            }
+          } yield succeed
+        )
+      }
+      req =
+        s"""
+               |[{"templateId": "Account:Account", "key": ["$alice", "abc123"]},
+               | {"templateId": "Account:Account", "key": ["$alice", "def456"]}]
+               |""".stripMargin
+      (kill, source) = singleClientFetchStream(jwt, uri, req)
+        .viaMat(KillSwitches.single)(Keep.right)
+        .preMaterialize()
+
+      res <- source.via(parseResp).runWith(resp(kill))
+    } yield res
   }
 
   /** Consume ACS blocks expecting `createCount` contracts.  Fail if there
@@ -1005,7 +1006,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       // make a contract
       create <- liftF(
         postCreateCommand(
-          iouCreateCommand(domain.Party unwrap party),
+          iouCreateCommand(party),
           fixture,
           headers,
         )
@@ -1393,7 +1394,10 @@ abstract class AbstractWebsocketServiceIntegrationTest
   "ContractKeyStreamRequest" - {
     import json.JsonProtocol._
     val baseVal =
-      domain.EnrichedContractKey(domain.TemplateId(Some("ab"), "cd", "ef"), JsString("42"): JsValue)
+      domain.EnrichedContractKey(
+        domain.ContractTypeId.Template(Some("ab"), "cd", "ef"),
+        JsString("42"): JsValue,
+      )
     val baseMap = baseVal.toJson.asJsObject.fields
     val withSome = JsObject(baseMap + (contractIdAtOffsetKey -> JsString("hi")))
     val withNone = JsObject(baseMap + (contractIdAtOffsetKey -> JsNull))

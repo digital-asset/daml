@@ -30,6 +30,7 @@ da_scala_binary(
         "//daml-script/runner:script-runner-lib",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
         "//libs-scala/fs-utils",
@@ -52,7 +53,7 @@ client_server_build(
     output_env = "EXPORT_OUT",
     server = "//ledger/sandbox-on-x:sandbox-on-x-ephemeral-postgresql",
     server_args = [
-        " --participant=participant-id=example,port=0,port-file=%PORT_FILE%",
+        "run-legacy-cli-config --participant=participant-id=example,port=0,port-file=%PORT_FILE%",
     ],
 ) if not is_windows else None
 # Disabled on Windows since postgres gets unhappy in client_server_build.

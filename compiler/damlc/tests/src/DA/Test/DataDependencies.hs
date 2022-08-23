@@ -31,7 +31,9 @@ main = do
     setEnv "TASTY_NUM_THREADS" "3" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
+    damlScriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
     oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
+    libWithScriptDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "lib-with-script-0.0.1-sdk-2.2.0-lf-1.14.dar")
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
     defaultMain $ tests Tools{..}
 
@@ -39,7 +41,9 @@ data Tools = Tools -- and places
   { damlc :: FilePath
   , damlcLegacy :: FilePath
   , validate :: FilePath -> IO ()
+  , damlScriptDar :: FilePath
   , oldProjDar :: FilePath
+  , libWithScriptDar :: FilePath
   }
 
 damlcForTarget :: Tools -> LF.Version -> FilePath
@@ -65,7 +69,7 @@ lfVersionTestPairs =
     in legacyPairs ++ zip versions (tail versions)
 
 tests :: Tools -> TestTree
-tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
+tests tools = testGroup "Data Dependencies" $
     [ testCaseSteps ("Cross Daml-LF version: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
@@ -1651,12 +1655,75 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
         , "z f g = f <<< g &&& id"
         ]
 
+    , simpleImportTestOptions "No 'inaccessible RHS' when pattern matching on interface"
+        [ "--target=1.dev" ]
+        [ "module Lib where"
+
+        , "data EmptyInterfaceView = EmptyInterfaceView {}"
+        , "interface I where viewtype EmptyInterfaceView"
+        ]
+        [ "{-# OPTIONS_GHC -Werror #-}"
+        , "module Main where"
+        , "import Lib"
+
+        , "isJustI : Optional I -> Bool"
+        , "isJustI mI = case mI of"
+            -- If `I` lacks constructors, GHC infers the first case alternative
+            -- to be inaccessible, since it's isomorphic to `Some (_ : Void)`,
+            -- which can't be constructed.
+        , "  Some _ -> True"
+        , "  None -> False"
+        ]
+
+    , simpleImportTest "Instances of zero-method type classes are preserved"
+        -- regression test for https://github.com/digital-asset/daml/issues/14585
+        [ "module Lib where"
+
+        , "class Marker a where"
+
+        , "instance Marker Foo"
+
+        , "data Foo = Foo"
+        ]
+        [ "module Main where"
+        , "import Lib (Marker (..), Foo (..))"
+
+        , "foo : Marker a => a -> ()"
+        , "foo _ = ()"
+
+        , "bar = foo Foo"
+        ]
+
+    , dataDependenciesTestOptions "Homonymous interface doesn't trigger 'ambiguous occurrence' error"
+        [ "--target=1.dev" ]
+        [   (,) "A.daml"
+            [ "module A where"
+            , "data Instrument = Instrument {}"
+            ]
+        ,   (,) "B.daml"
+            [ "module B where"
+            , "import qualified A"
+
+            , "data EmptyInterfaceView = EmptyInterfaceView {}"
+            , "interface Instrument where"
+            , "  viewtype EmptyInterfaceView"
+            , "  f : ()"
+            , "x = A.Instrument"
+            ]
+        ]
+        [   (,) "Main.daml"
+            [ "module Main where"
+            ]
+        ]
+
     , dataDependenciesTestOptions "implement interface from data-dependency"
         [ "--target=1.dev" ]
         [   (,) "Lib.daml"
             [ "module Lib where"
 
+            , "data EmptyInterfaceView = EmptyInterfaceView {}"
             , "interface Token where"
+            , "  viewtype EmptyInterfaceView"
             , "  getOwner : Party -- ^ A method comment."
             , "  getAmount : Int"
             , "  setAmount : Int -> Token"
@@ -1664,8 +1731,6 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "  splitImpl : Int -> Update (ContractId Token, ContractId Token)"
             , "  transferImpl : Party -> Update (ContractId Token)"
             , "  noopImpl : () -> Update ()"
-
-            , "  ensure (getAmount this >= 0)"
 
             , "  choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment."
             , "    with"
@@ -1710,7 +1775,8 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "    amount : Int"
             , "  where"
             , "    signatory issuer, owner"
-            , "    implements Token where"
+            , "    interface instance Token for Asset where"
+            , "      view = EmptyInterfaceView"
             , "      getOwner = owner"
             , "      getAmount = amount"
             , "      setAmount x = toInterface @Token (this with amount = x)"
@@ -1777,7 +1843,9 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             [ "module Lib where"
             , "import DA.Assert"
 
+            , "data EmptyInterfaceView = EmptyInterfaceView {}"
             , "interface Token where"
+            , "  viewtype EmptyInterfaceView"
             , "  getOwner : Party -- ^ A method comment."
             , "  getAmount : Int"
             , "  setAmount : Int -> Token"
@@ -1785,8 +1853,6 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "  splitImpl : Int -> Update (ContractId Token, ContractId Token)"
             , "  transferImpl : Party -> Update (ContractId Token)"
             , "  noopImpl : () -> Update ()"
-
-            , "  ensure (getAmount this >= 0)"
 
             , "  choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment."
             , "    with"
@@ -1824,7 +1890,8 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "    amount : Int"
             , "  where"
             , "    signatory issuer, owner"
-            , "    implements Token where"
+            , "    interface instance Token for Asset where"
+            , "      view = EmptyInterfaceView"
             , "      getOwner = owner"
             , "      getAmount = amount"
             , "      setAmount x = toInterface @Token (this with amount = x)"
@@ -1897,7 +1964,9 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
         [   (,) "Lib.daml"
             [ "module Lib where"
 
+            , "data EmptyInterfaceView = EmptyInterfaceView {}"
             , "interface Token where"
+            , "  viewtype EmptyInterfaceView"
             , "  getOwner : Party -- ^ A method comment."
             , "  getAmount : Int"
             , "  setAmount : Int -> Token"
@@ -1905,8 +1974,6 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "  splitImpl : Int -> Update (ContractId Token, ContractId Token)"
             , "  transferImpl : Party -> Update (ContractId Token)"
             , "  noopImpl : () -> Update ()"
-
-            , "  ensure (getAmount this >= 0)"
 
             , "  choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment."
             , "    with"
@@ -1937,6 +2004,7 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "import DA.Assert"
 
             , "interface FancyToken requires Token where"
+            , "  viewtype EmptyInterfaceView"
             , "  multiplier : Int"
             , "  choice GetRich : ContractId Token"
             , "    with"
@@ -1953,7 +2021,8 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "    amount : Int"
             , "  where"
             , "    signatory issuer, owner"
-            , "    implements Token where"
+            , "    interface instance Token for Asset where"
+            , "      view = EmptyInterfaceView"
             , "      getOwner = owner"
             , "      getAmount = amount"
             , "      setAmount x = toInterface @Token (this with amount = x)"
@@ -1972,7 +2041,8 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "        [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism."
             , "        pure ()"
 
-            , "    implements FancyToken where"
+            , "    interface instance FancyToken for Asset where"
+            , "      view = EmptyInterfaceView"
             , "      multiplier = 5"
 
             , "main = scenario do"
@@ -2118,7 +2188,9 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
           writeFileUTF8 (damlMod tokenProj "Token") $ unlines
             [ "module Token where"
 
+            , "data EmptyInterfaceView = EmptyInterfaceView {}"
             , "interface Token where"
+            , "  viewtype EmptyInterfaceView"
             , "  getOwner : Party -- ^ A method comment."
             , "  getAmount : Int"
             , "  setAmount : Int -> Token"
@@ -2126,8 +2198,6 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "  splitImpl : Int -> Update (ContractId Token, ContractId Token)"
             , "  transferImpl : Party -> Update (ContractId Token)"
             , "  noopImpl : () -> Update ()"
-
-            , "  ensure (getAmount this >= 0)"
 
             , "  choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment."
             , "    with"
@@ -2166,6 +2236,7 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "import Token"
 
             , "interface FancyToken requires Token where"
+            , "  viewtype EmptyInterfaceView"
             , "  multiplier : Int"
             , "  choice GetRich : ContractId Token"
             , "    with"
@@ -2201,7 +2272,8 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "    amount : Int"
             , "  where"
             , "    signatory issuer, owner"
-            , "    implements Token where"
+            , "    interface instance Token for Asset where"
+            , "      view = EmptyInterfaceView"
             , "      getOwner = owner"
             , "      getAmount = amount"
             , "      setAmount x = toInterface @Token (this with amount = x)"
@@ -2220,7 +2292,8 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "        [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism."
             , "        pure ()"
 
-            , "    implements FancyToken where"
+            , "    interface instance FancyToken for Asset where"
+            , "      view = EmptyInterfaceView"
             , "      multiplier = 5"
             ]
           callProcessSilent damlc
@@ -2287,6 +2360,63 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
           callProcessSilent damlc
             [ "build"
             , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+            , "--project-root", path mainProj
+            ]
+
+    , testCaseSteps "Cross-SDK data-dependency with daml-script" $ \step' -> withTempDir $ \tmpDir -> do
+        -- regression test for https://github.com/digital-asset/daml/issues/14291
+        let
+          mainProj = "main"
+
+          path proj = tmpDir </> proj
+          damlYaml proj = path proj </> "daml.yaml"
+          damlMod proj mod = path proj </> mod <.> "daml"
+          step proj = step' ("building '" <> proj <> "' project")
+
+        step mainProj >> do
+          createDirectoryIfMissing True (path mainProj)
+          writeFileUTF8 (damlYaml mainProj) $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: " <> mainProj
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib, " <> damlScriptDar <> "]"
+            , "data-dependencies: [" <> libWithScriptDar <> "]"
+            ]
+          writeFileUTF8 (damlMod mainProj "Main") $ unlines
+            [ "module Main where"
+            , "import Daml.Script"
+            , "import Lib qualified"
+
+            , "template T1"
+            , "  with"
+            , "    party : Party"
+            , "  where"
+            , "    signatory party"
+
+            , "    nonconsuming choice C1 : Bool"
+            , "     controller party"
+            , "        do pure False"
+
+            , "run1 : Lib.Script ()"
+            , "run1 = Lib.run"
+
+            , "run2 : Script ()"
+            , "run2 = script do"
+            , "  alice <- allocateParty \"alice\""
+
+            , "  t <- alice `submit` createCmd Lib.T0 with party = alice"
+            , "  b <- alice `submit` exerciseCmd t Lib.C0"
+            , "  debug b"
+            , "  alice `submit` archiveCmd t"
+
+            , "  t <- alice `submit` createCmd T1 with party = alice"
+            , "  b <- alice `submit` exerciseCmd t C1"
+            , "  debug b"
+            , "  alice `submit` archiveCmd t"
+            ]
+          callProcessSilent damlc
+            [ "test"
             , "--project-root", path mainProj
             ]
 
@@ -2467,9 +2597,20 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "--target", LF.renderVersion LF.versionDev ]
     ]
   where
+    Tools
+      { damlc
+      , validate
+      , damlScriptDar
+      , oldProjDar
+      , libWithScriptDar
+      } = tools
+
     simpleImportTest :: String -> [String] -> [String] -> TestTree
-    simpleImportTest title lib main =
-        dataDependenciesTest title [("Lib.daml", lib)] [("Main.daml", main)]
+    simpleImportTest title = simpleImportTestOptions title []
+
+    simpleImportTestOptions :: String -> [String] -> [String] -> [String] -> TestTree
+    simpleImportTestOptions title options lib main =
+        dataDependenciesTestOptions title options [("Lib.daml", lib)] [("Main.daml", main)]
 
     dataDependenciesTest :: String -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
     dataDependenciesTest title = dataDependenciesTestOptions title []

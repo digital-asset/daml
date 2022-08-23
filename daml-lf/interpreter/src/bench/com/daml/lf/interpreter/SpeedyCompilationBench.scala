@@ -22,7 +22,7 @@ class SpeedyCompilationBench {
 
   private var dar: Dar[(PackageId, Package)] = _
   private var darMap: Map[PackageId, Package] = _
-  private var interface: PackageInterface = _
+  private var pkgInterface: PackageInterface = _
 
   @Setup(Level.Trial)
   def setup(): Unit = {
@@ -33,13 +33,13 @@ class SpeedyCompilationBench {
     )
     dar = DarDecoder.assertReadArchiveFromFile(darFile)
     darMap = dar.all.toMap
-    interface = PackageInterface(darMap)
+    pkgInterface = PackageInterface(darMap)
   }
 
   @Benchmark
   def bench(): Unit = {
     val config = Config.Default.copy(packageValidation = NoPackageValidation)
-    val res = compilePackages(interface, darMap, config)
+    val res = compilePackages(pkgInterface, darMap, config)
     assert(res.isRight)
   }
 }

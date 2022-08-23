@@ -240,8 +240,8 @@ decodeDefInterface LF1.DefInterface {..} = do
   intParam <- decodeNameId ExprVarName defInterfaceParamInternedStr
   intChoices <- decodeNM DuplicateChoice decodeChoice defInterfaceChoices
   intMethods <- decodeNM DuplicateMethod decodeInterfaceMethod defInterfaceMethods
-  intPrecondition <- mayDecode "defInterfacePrecond" defInterfacePrecond decodeExpr
   intCoImplements <- decodeNM DuplicateCoImplements decodeInterfaceCoImplements defInterfaceCoImplements
+  intView <- mayDecode "defInterfaceView" defInterfaceView decodeType
   pure DefInterface {..}
 
 decodeInterfaceMethod :: LF1.InterfaceMethod -> Decode InterfaceMethod
@@ -256,12 +256,7 @@ decodeMethodName = decodeNameId MethodName
 decodeInterfaceCoImplements :: LF1.DefInterface_CoImplements -> Decode InterfaceCoImplements
 decodeInterfaceCoImplements LF1.DefInterface_CoImplements {..} = InterfaceCoImplements
   <$> mayDecode "defInterface_CoImplementsTemplate" defInterface_CoImplementsTemplate decodeTypeConName
-  <*> decodeNM DuplicateMethod decodeInterfaceCoImplementsMethod defInterface_CoImplementsMethods
-
-decodeInterfaceCoImplementsMethod :: LF1.DefInterface_CoImplementsMethod -> Decode InterfaceCoImplementsMethod
-decodeInterfaceCoImplementsMethod LF1.DefInterface_CoImplementsMethod {..} = InterfaceCoImplementsMethod
-  <$> decodeMethodName defInterface_CoImplementsMethodMethodInternedName
-  <*> mayDecode "defInterface_CoImplementsMethodValue" defInterface_CoImplementsMethodValue decodeExpr
+  <*> mayDecode "defInterface_CoImplementsBody" defInterface_CoImplementsBody decodeInterfaceInstanceBody
 
 decodeFeatureFlags :: LF1.FeatureFlags -> Decode FeatureFlags
 decodeFeatureFlags LF1.FeatureFlags{..} =
@@ -341,12 +336,17 @@ decodeDefTemplate LF1.DefTemplate{..} = do
 decodeDefTemplateImplements :: LF1.DefTemplate_Implements -> Decode TemplateImplements
 decodeDefTemplateImplements LF1.DefTemplate_Implements{..} = TemplateImplements
   <$> mayDecode "defTemplate_ImplementsInterface" defTemplate_ImplementsInterface decodeTypeConName
-  <*> decodeNM DuplicateMethod decodeDefTemplateImplementsMethod defTemplate_ImplementsMethods
+  <*> mayDecode "defTemplate_ImplementsBody" defTemplate_ImplementsBody decodeInterfaceInstanceBody
 
-decodeDefTemplateImplementsMethod :: LF1.DefTemplate_ImplementsMethod -> Decode TemplateImplementsMethod
-decodeDefTemplateImplementsMethod LF1.DefTemplate_ImplementsMethod{..} = TemplateImplementsMethod
-  <$> decodeMethodName defTemplate_ImplementsMethodMethodInternedName
-  <*> mayDecode "defTemplate_ImplementsMethodValue" defTemplate_ImplementsMethodValue decodeExpr
+decodeInterfaceInstanceBody :: LF1.InterfaceInstanceBody -> Decode InterfaceInstanceBody
+decodeInterfaceInstanceBody LF1.InterfaceInstanceBody{..} = InterfaceInstanceBody
+  <$> decodeNM DuplicateMethod decodeInterfaceInstanceMethod interfaceInstanceBodyMethods
+  <*> mayDecode "defTemplate_ImplementsView" interfaceInstanceBodyView decodeExpr
+
+decodeInterfaceInstanceMethod :: LF1.InterfaceInstanceBody_InterfaceInstanceMethod -> Decode InterfaceInstanceMethod
+decodeInterfaceInstanceMethod LF1.InterfaceInstanceBody_InterfaceInstanceMethod{..} = InterfaceInstanceMethod
+  <$> decodeMethodName interfaceInstanceBody_InterfaceInstanceMethodMethodInternedName
+  <*> mayDecode "interfaceInstanceBody_InterfaceInstanceMethodValue" interfaceInstanceBody_InterfaceInstanceMethodValue decodeExpr
 
 decodeDefTemplateKey :: ExprVarName -> LF1.DefTemplate_DefKey -> Decode TemplateKey
 decodeDefTemplateKey templateParam LF1.DefTemplate_DefKey{..} = do
@@ -706,6 +706,9 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
   LF1.ExprSumObserverInterface LF1.Expr_ObserverInterface {..} -> EObserverInterface
     <$> mayDecode "expr_ObserverInterfaceInterface" expr_ObserverInterfaceInterface decodeTypeConName
     <*> mayDecode "expr_ObserverInterfaceExpr" expr_ObserverInterfaceExpr decodeExpr
+  LF1.ExprSumViewInterface LF1.Expr_ViewInterface {..} -> EViewInterface
+    <$> mayDecode "expr_ViewInterfaceInterface" expr_ViewInterfaceInterface decodeTypeConName
+    <*> mayDecode "expr_ViewInterfaceExpr" expr_ViewInterfaceExpr decodeExpr
   LF1.ExprSumExperimental (LF1.Expr_Experimental name mbType) -> do
     ty <- mayDecode "expr_Experimental" mbType decodeType
     pure $ EExperimental (decodeString name) ty

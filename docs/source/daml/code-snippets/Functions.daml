@@ -9,6 +9,7 @@ import Daml.Script
 import DA.Assert
 import DA.Text
 
+-- PARTIAL_APPLICATION_START
 multiplyThreeNumbers : Int -> Int -> Int -> Int
 multiplyThreeNumbers xx yy zz =
   xx * yy * zz
@@ -18,13 +19,16 @@ multiplyTwoNumbersWith7 = multiplyThreeNumbers 7
 multiplyWith21 = multiplyTwoNumbersWith7 3
 
 multiplyWith18 = multiplyThreeNumbers 3 6
+-- PARTIAL_APPLICATION_END
 
+-- PARTIAL_LAMBDA_START
 multiplyWith18_v2 : Int -> Int
-multiplyWith18_v2 xx = 
+multiplyWith18_v2 xx =
   multiplyThreeNumbers 3 6 xx
+-- PARTIAL_LAMBDA_END
 
 
--- Higher order function
+-- HIGHER_ORDER_START
 applyFilter (filter : Int -> Int -> Bool)
     (x : Int)
     (y : Int) = filter x y
@@ -39,12 +43,11 @@ compute = script do
     explode "me" === ["m", "e"]
 
     applyFilter (\a b -> a /= b) 3 2 === True
+-- HIGHER_ORDER_END
 
-
-
-
+-- GENERIC_FUNCTION_START
 compose (f : b -> c) (g : a -> b) (x : a) : c = f (g x)
-
+-- GENERIC_FUNCTION_END
 
 t = script do
   compose ((+) 4) ((*) 2) 3 === 10

@@ -340,8 +340,8 @@ class PlatformStore(
         Some(
           GrpcSslContexts
             .forClient()
-            .trustManager(c.trustCertCollectionFile.orNull)
-            .keyManager(c.keyCertChainFile.orNull, c.keyFile.orNull)
+            .trustManager(c.trustCollectionFile.orNull)
+            .keyManager(c.certChainFile.orNull, c.privateKeyFile.orNull)
             .build
         )
       else None

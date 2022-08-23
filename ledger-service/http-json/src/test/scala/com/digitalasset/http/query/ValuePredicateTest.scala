@@ -11,7 +11,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.http.dbbackend.SurrogateTemplateIdCache
 import com.daml.lf.iface
 import com.daml.lf.value.{Value => V}
-import com.daml.lf.value.test.TypedValueGenerators.{genAddendNoListMap, RNil, ValueAddend => VA}
+import com.daml.lf.value.test.TypedValueGenerators.{genAddendNoListMap, ValueAddend => VA}
 import com.daml.lf.value.test.ValueGenerators.coidGen
 import com.daml.metrics.Metrics
 import org.scalacheck.Arbitrary
@@ -40,20 +40,15 @@ class ValuePredicateTest
   private[this] val dummyPackageId = Ref.PackageId assertFromString "dummy-package-id"
 
   private[this] val (tuple3Id, (tuple3DDT, tuple3VA)) = {
-    import shapeless.syntax.singleton._
-    val sig = Symbol("_1") ->> VA.int64 ::
-      Symbol("_2") ->> VA.text ::
-      Symbol("_3") ->> VA.bool ::
-      RNil
+    import shapeless.record.{Record => HRecord}
+    val sig = HRecord(_1 = VA.int64, _2 = VA.text, _3 = VA.bool)
     val id = Ref.Identifier(dummyPackageId, qn("Foo:Tuple3"))
     (id, VA.record(id, sig))
   }
 
   private[this] def eitherT = {
-    import shapeless.syntax.singleton._
-    val sig = Symbol("Left") ->> VA.int64 ::
-      Symbol("Right") ->> VA.text ::
-      RNil
+    import shapeless.record.{Record => HRecord}
+    val sig = HRecord(Left = VA.int64, Right = VA.text)
     val id = Ref.Identifier(dummyPackageId, qn("Foo:Either"))
     (id, VA.variant(id, sig))
   }

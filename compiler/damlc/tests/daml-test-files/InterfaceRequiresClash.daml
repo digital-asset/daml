@@ -8,4 +8,7 @@ module InterfaceRequiresClash where
 import InterfaceRequiresClashA qualified as A
 import InterfaceRequiresClashB qualified as B
 
-interface C requires A.I, B.I
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface C requires A.I, B.I where
+    viewtype EmptyInterfaceView

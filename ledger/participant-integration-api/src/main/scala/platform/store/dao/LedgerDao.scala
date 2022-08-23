@@ -24,18 +24,10 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
-import com.daml.platform.{
-  ApplicationId,
-  FilterRelation,
-  PackageId,
-  Party,
-  TransactionId,
-  WorkflowId,
-}
-import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
-import com.daml.platform.store.interfaces.{LedgerDaoContractsReader, TransactionLogUpdate}
+import com.daml.platform.store.interfaces.LedgerDaoContractsReader
+import com.daml.platform._
 
 import scala.concurrent.Future
 
@@ -44,7 +36,7 @@ private[platform] trait LedgerDaoTransactionsReader {
       startExclusive: Offset,
       endInclusive: Offset,
       filter: FilterRelation,
-      verbose: Boolean,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed]
 
   def lookupFlatTransactionById(
@@ -56,26 +48,10 @@ private[platform] trait LedgerDaoTransactionsReader {
       startExclusive: Offset,
       endInclusive: Offset,
       requestingParties: Set[Party],
-      verbose: Boolean,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed]
-
-  /** An unfiltered stream of generic ledger updates.
-    *
-    * Contains complete transactions used to populate the in-memory fan-out buffers for Ledger API streams serving.
-    * Aside from transactions, special marker events are introduced - [[TransactionLogUpdate.LedgerEndMarker]] -
-    * which signal to consumers that the current page request has been fully fetched
-    * (i.e. up to the previously dispatched ledger head).
-    *
-    * @param startExclusive Start (exclusive) of the stream in the form of (offset, event_sequential_id).
-    * @param endInclusive End (inclusive) of the event stream in the form of (offset, event_sequential_id).
-    * @param loggingContext The logging context.
-    * @return The Akka Source of transaction log updates.
-    */
-  def getTransactionLogUpdates(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(
-      implicit loggingContext: LoggingContext
-  ): Source[((Offset, Long), TransactionLogUpdate), NotUsed]
 
   def lookupTransactionTreeById(
       transactionId: TransactionId,
@@ -85,17 +61,8 @@ private[platform] trait LedgerDaoTransactionsReader {
   def getActiveContracts(
       activeAt: Offset,
       filter: FilterRelation,
-      verbose: Boolean,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed]
-
-  /** A stream of updates to contracts' states read from the index database.
-    *
-    * @param startExclusive Start (exclusive) of the stream in the form of (offset, event_sequential_id)
-    * @param endInclusive End (inclusive) of the event stream in the form of (offset, event_sequential_id)
-    */
-  def getContractStateEvents(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(implicit
-      loggingContext: LoggingContext
-  ): Source[((Offset, Long), Vector[ContractStateEvent]), NotUsed]
 }
 
 private[platform] trait LedgerDaoCommandCompletionsReader {

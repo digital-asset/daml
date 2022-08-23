@@ -56,6 +56,8 @@ object TypedValueGenerators {
   }
 
   object ValueAddend extends PrimInstances[Lambda[a => ValueAddend { type Inj = a }]] {
+    import shapeless.HList
+
     type Aux[Inj0] = ValueAddend {
       type Inj = Inj0
     }
@@ -222,13 +224,16 @@ object TypedValueGenerators {
       }
     }
 
-    /** See [[RecVarSpec]] companion for usage examples. */
-    def record(name: Ref.Identifier, spec: RecVarSpec): (DefDataType.FWT, Aux[spec.HRec]) =
+    /** See [[RecVarExample]] for usage examples. */
+    def record[Spec <: HList](name: Ref.Identifier, fields: Spec)(implicit
+        rvs: RecVarSpec[Spec]
+    ): (DefDataType.FWT, Aux[rvs.HRec]) = {
+      val spec = rvs configure fields
       (
         DefDataType(ImmArraySeq.empty, Record(spec.t.to(ImmArraySeq))),
         new ValueAddend {
           private[this] val lfvFieldNames = spec.t map { case (n, _) => Some(n) }
-          type Inj = spec.HRec
+          type Inj = rvs.HRec
           override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
           override def inj(hl: Inj) =
             ValueRecord(
@@ -245,13 +250,17 @@ object TypedValueGenerators {
           override def injshrink = spec.recshrink
         },
       )
+    }
 
-    /** See [[RecVarSpec]] companion for usage examples. */
-    def variant(name: Ref.Identifier, spec: RecVarSpec): (DefDataType.FWT, Aux[spec.HVar]) =
+    /** See [[RecVarExample]] companion for usage examples. */
+    def variant[Spec <: HList](name: Ref.Identifier, constructors: Spec)(implicit
+        rvs: RecVarSpec[Spec]
+    ): (DefDataType.FWT, Aux[rvs.HVar]) = {
+      val spec = rvs configure constructors
       (
         DefDataType(ImmArraySeq.empty, Variant(spec.t.to(ImmArraySeq))),
         new ValueAddend {
-          type Inj = spec.HVar
+          type Inj = rvs.HVar
           override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
           override def inj(cp: Inj) = {
             val (ctor, v) = spec.injVar(cp)
@@ -268,6 +277,7 @@ object TypedValueGenerators {
           override def injshrink = spec.varshrink
         },
       )
+    }
 
     def enumeration(
         name: Ref.Identifier,
@@ -318,140 +328,169 @@ object TypedValueGenerators {
     }
   }
 
-  sealed abstract class RecVarSpec { self =>
-    import shapeless.{::, :+:, Coproduct, HList, Inl, Inr, Witness}
-    import shapeless.labelled.{field, FieldType => :->>:}
+  @deprecated("use shapeless.HNil instead", since = "2.4.0")
+  private[daml] val RNil: shapeless.HNil.type = shapeless.HNil
+
+  sealed abstract class RecVarSpec[-In] { self =>
+    import shapeless.{Coproduct, HList}
 
     type HRec <: HList
     type HVar <: Coproduct
-    def ::[K <: Symbol](h: K :->>: ValueAddend)(implicit ev: Witness.Aux[K]): RecVarSpec {
-      type HRec = (K :->>: h.Inj) :: self.HRec
-      type HVar = (K :->>: h.Inj) :+: self.HVar
-    } =
-      new RecVarSpec {
+
+    private[TypedValueGenerators] def configure(in: In): Rules
+    private[TypedValueGenerators] sealed abstract class Rules {
+      val t: List[(Ref.Name, Type)]
+
+      def injRec(v: HRec): List[Value]
+      def prjRec(v: ImmArray[(_, Value)]): Option[HRec]
+      implicit def record: Order[HRec]
+      implicit def recarb: Arbitrary[HRec]
+      implicit def recshrink: Shrink[HRec]
+
+      def injVar(v: HVar): (Ref.Name, Value)
+      type PrjResult = Option[HVar]
+      val prjVar: Map[Ref.Name, Value => PrjResult]
+      implicit def varord: Order[HVar]
+      implicit def vararb: Map[Ref.Name, Gen[HVar]]
+      implicit def varshrink: Shrink[HVar]
+    }
+  }
+
+  object RecVarSpec {
+    import shapeless.{::, :+:, CNil, Coproduct, HList, HNil, Inl, Inr, Witness}
+    import shapeless.labelled.{field, FieldType => :->>:}
+
+    type Aux[In, HRec0 <: HList, HVar0 <: Coproduct] = RecVarSpec[In] {
+      type HRec = HRec0
+      type HVar = HVar0
+    }
+
+    implicit val rvsHnil: Aux[HNil, HNil, CNil] = new RecVarSpec[HNil] {
+      type HRec = HNil
+      type HVar = CNil
+      override def configure(in: HNil): Rules = new Rules {
+        override val t = List.empty
+
+        override def injRec(v: HNil) = List.empty
+        override def prjRec(v: ImmArray[(_, Value)]) =
+          Some(HNil)
+        override def record = (_, _) => Ordering.EQ
+        override def recarb =
+          Arbitrary(Gen const HNil)
+        override def recshrink =
+          Shrink.shrinkAny
+
+        override def injVar(v: CNil) = v.impossible
+        override val prjVar = Map.empty
+        override def varord = (v, _) => v.impossible
+        override def vararb = Map.empty
+        override def varshrink = Shrink.shrinkAny
+      }
+    }
+
+    implicit def rvsHcons[KS <: Symbol, KT, Tl <: HList](implicit
+        ev: Witness.Aux[KS],
+        TL: RecVarSpec[Tl],
+    ): Aux[(KS :->>: ValueAddend.Aux[
+      KT
+    ]) :: Tl, (KS :->>: KT) :: TL.HRec, (KS :->>: KT) :+: TL.HVar] =
+      new RecVarSpec[(KS :->>: ValueAddend.Aux[KT]) :: Tl] {
+        type HRec = (KS :->>: KT) :: TL.HRec
+        type HVar = (KS :->>: KT) :+: TL.HVar
         private[this] val fname = Ref.Name assertFromString ev.value.name
-        type HRec = (K :->>: h.Inj) :: self.HRec
-        type HVar = (K :->>: h.Inj) :+: self.HVar
-        override val t = (fname, h.t) :: self.t
-        override def injRec(v: HRec) =
-          h.inj(v.head) :: self.injRec(v.tail)
-        override def prjRec(v: ImmArray[(_, Value)]) = v match {
-          case ImmArrayCons(vh, vt) =>
-            for {
-              pvh <- h.prj(vh._2)
-              pvt <- self.prjRec(vt)
-            } yield field[K](pvh) :: pvt
-          case _ => None
-        }
+        override def configure(in: (KS :->>: ValueAddend.Aux[KT]) :: Tl): Rules = new Rules {
+          private[this] val hVA :: tlVAs = in
+          private[this] val tlRules = TL configure tlVAs
+          type K = KS
 
-        override def record = {
-          import h.{injord => hord}, self.{record => tailord}
-          Order.orderBy { case ah :: at => (ah: h.Inj, at) }
-        }
+          override val t = (fname, hVA.t) :: tlRules.t
 
-        override def recarb = {
-          import self.{recarb => tailarb}, h.{injarb => headarb}
-          Arbitrary(arbitrary[(h.Inj, self.HRec)] map { case (vh, vt) =>
-            field[K](vh) :: vt
-          })
-        }
+          override def injRec(v: HRec) =
+            hVA.inj(v.head) :: tlRules.injRec(v.tail)
 
-        override def recshrink: Shrink[HRec] = {
-          import h.{injshrink => hshrink}, self.{recshrink => tshrink}
-          Shrink { case vh :: vt =>
-            (Shrink.shrink(vh: h.Inj) zip Shrink.shrink(vt)) map { case (nh, nt) =>
-              field[K](nh) :: nt
+          override def prjRec(v: ImmArray[(_, Value)]) = v match {
+            case ImmArrayCons(vh, vt) =>
+              for {
+                pvh <- hVA.prj(vh._2)
+                pvt <- tlRules.prjRec(vt)
+              } yield field[K](pvh) :: pvt
+            case _ => None
+          }
+
+          override def record = {
+            import hVA.{injord => hord}, tlRules.{record => tailord}
+            Order.orderBy { case ah :: at => (ah: hVA.Inj, at) }
+          }
+
+          override def recarb = {
+            import tlRules.{recarb => tailarb}, hVA.{injarb => headarb}
+            Arbitrary(arbitrary[(hVA.Inj, TL.HRec)] map { case (vh, vt) =>
+              field[K](vh) :: vt
+            })
+          }
+
+          override def recshrink: Shrink[HRec] = {
+            import hVA.{injshrink => hshrink}, tlRules.{recshrink => tshrink}
+            Shrink { case vh :: vt =>
+              (Shrink.shrink(vh: hVA.Inj) zip Shrink.shrink(vt)) map { case (nh, nt) =>
+                field[K](nh) :: nt
+              }
             }
           }
-        }
 
-        override def injVar(v: HVar) = v match {
-          case Inl(hv) => (fname, h.inj(hv))
-          case Inr(tl) => self.injVar(tl)
-        }
+          override def injVar(v: HVar) = v match {
+            case Inl(hv) => (fname, hVA.inj(hv))
+            case Inr(tl) => tlRules.injVar(tl)
+          }
 
-        override val prjVar = {
-          val r = self.prjVar transform { (_, tf) => tv: Value => tf(tv) map (Inr(_)) }
-          r.updated(
-            fname,
-            (hv: Value) => h.prj(hv) map (pv => Inl(field[K](pv))),
-          )
-        }
+          override val prjVar: Map[Ref.Name, Value => PrjResult] = {
+            val r = tlRules.prjVar transform { (_, tf) => tv: Value => tf(tv) map (Inr(_)) }
+            r.updated(
+              fname,
+              (hv: Value) => hVA.prj(hv) map (pv => Inl(field[K](pv))),
+            )
+          }
 
-        override def varord =
-          (a, b) =>
-            (a, b) match {
-              case (Inr(at), Inr(bt)) => self.varord.order(at, bt)
-              case (Inl(_), Inr(_)) => Ordering.LT
-              case (Inr(_), Inl(_)) => Ordering.GT
-              case (Inl(ah), Inl(bh)) => h.injord.order(ah, bh)
+          override def varord =
+            (a, b) =>
+              (a, b) match {
+                case (Inr(at), Inr(bt)) => tlRules.varord.order(at, bt)
+                case (Inl(_), Inr(_)) => Ordering.LT
+                case (Inr(_), Inl(_)) => Ordering.GT
+                case (Inl(ah), Inl(bh)) => hVA.injord.order(ah, bh)
+              }
+
+          override def vararb: Map[Ref.Name, Gen[HVar]] = {
+            val r =
+              tlRules.vararb transform { (_, ta) =>
+                ta map (Inr(_))
+              }
+            r.updated(
+              fname, {
+                import hVA.{injarb => harb}
+                arbitrary[hVA.Inj] map (hv => Inl(field[K](hv)))
+              },
+            )
+          }
+
+          override def varshrink = {
+            val lshr: Shrink[hVA.Inj] = hVA.injshrink
+            val rshr: Shrink[TL.HVar] = tlRules.varshrink
+            Shrink {
+              case Inl(hv) => lshr shrink hv map (shv => Inl(field[K](shv)))
+              case Inr(tl) => rshr shrink tl map (Inr(_))
             }
-
-        override def vararb = {
-          val r =
-            self.vararb transform { (_, ta) =>
-              ta map (Inr(_))
-            }
-          r.updated(
-            fname, {
-              import h.{injarb => harb}
-              arbitrary[h.Inj] map (hv => Inl(field[K](hv)))
-            },
-          )
-        }
-
-        override def varshrink = {
-          val lshr: Shrink[h.Inj] = h.injshrink
-          val rshr: Shrink[self.HVar] = self.varshrink
-          Shrink {
-            case Inl(hv) => lshr shrink hv map (shv => Inl(field[K](shv)))
-            case Inr(tl) => rshr shrink tl map (Inr(_))
           }
         }
       }
-
-    private[TypedValueGenerators] val t: List[(Ref.Name, Type)]
-    private[TypedValueGenerators] def injRec(v: HRec): List[Value]
-    private[TypedValueGenerators] def prjRec(v: ImmArray[(_, Value)]): Option[HRec]
-    private[TypedValueGenerators] implicit def record: Order[HRec]
-    private[TypedValueGenerators] implicit def recarb: Arbitrary[HRec]
-    private[TypedValueGenerators] implicit def recshrink: Shrink[HRec]
-
-    private[TypedValueGenerators] def injVar(v: HVar): (Ref.Name, Value)
-    private[TypedValueGenerators] type PrjResult = Option[HVar]
-    private[TypedValueGenerators] val prjVar: Map[Ref.Name, Value => PrjResult]
-    private[TypedValueGenerators] implicit def varord: Order[HVar]
-    private[TypedValueGenerators] implicit def vararb: Map[Ref.Name, Gen[HVar]]
-    private[TypedValueGenerators] implicit def varshrink: Shrink[HVar]
   }
 
-  case object RNil extends RecVarSpec {
-    import shapeless.{HNil, CNil}
-    type HRec = HNil
-    type HVar = CNil
-    private[TypedValueGenerators] override val t = List.empty
-    private[TypedValueGenerators] override def injRec(v: HNil) = List.empty
-    private[TypedValueGenerators] override def prjRec(v: ImmArray[(_, Value)]) =
-      Some(HNil)
-    private[TypedValueGenerators] override def record = (_, _) => Ordering.EQ
-    private[TypedValueGenerators] override def recarb =
-      Arbitrary(Gen const HNil)
-    private[TypedValueGenerators] override def recshrink =
-      Shrink.shrinkAny
-
-    private[TypedValueGenerators] override def injVar(v: CNil) = v.impossible
-    private[TypedValueGenerators] override val prjVar = Map.empty
-    private[TypedValueGenerators] override def varord = (v, _) => v.impossible
-    private[TypedValueGenerators] override def vararb = Map.empty
-    private[TypedValueGenerators] override def varshrink = Shrink.shrinkAny
-  }
-
-  private[value] object RecVarSpec {
+  private[value] object RecVarExample {
     // specifying records and variants works the same way: a
-    // record written with ->> and ::, terminated with RNil (*not* HNil)
+    // record written with the Record macro
     val sample = {
-      import shapeless.syntax.singleton._
-      Symbol("foo") ->> ValueAddend.int64 :: Symbol("bar") ->> ValueAddend.text :: RNil
+      import shapeless.record.{Record => ShRecord}
+      ShRecord(foo = ValueAddend.int64, bar = ValueAddend.text)
     }
 
     // a RecVarSpec can be turned into a ValueAddend for records
@@ -465,11 +504,9 @@ object TypedValueGenerators {
       )
     import shapeless.record.Record
     // You can ascribe a matching value
-    // using either the spec,
-    val sampleData: sample.HRec =
+    // using the record ValueAddend
+    val sampleData: sampleAsRecord.Inj =
       Record(foo = 42L, bar = "hi")
-    // or the record VA
-    val sampleDataAgain: sampleAsRecord.Inj = sampleData
     // ascription is not necessary; a correct `Record` expression already
     // has the correct type, as implicit conversion is not used at all
 
@@ -479,9 +516,9 @@ object TypedValueGenerators {
     // you can do so with `align`. The resulting error messages are far worse, so
     // I recommend just writing them in the correct order
     shapeless.test
-      .illTyped("""Record(bar = "bye", foo = 84L): sample.HRec""", "type mismatch.*")
-    val backwardsSampleData: sample.HRec =
-      Record(bar = "bye", foo = 84L).align[sample.HRec]
+      .illTyped("""Record(bar = "bye", foo = 84L): sampleAsRecord.Inj""", "type mismatch.*")
+    val backwardsSampleData: sampleAsRecord.Inj =
+      Record(bar = "bye", foo = 84L).align[sampleAsRecord.Inj]
 
     // a RecVarSpec can be turned into a ValueAddend for variants
     val (sampleVariantDDT, sampleAsVariant) =
@@ -495,15 +532,15 @@ object TypedValueGenerators {
     // You can create a matching value with Coproduct
     import shapeless.Coproduct, shapeless.syntax.singleton._
     val sampleVt =
-      Coproduct[sample.HVar](Symbol("foo") ->> 42L)
+      Coproduct[sampleAsVariant.Inj](Symbol("foo") ->> 42L)
     val anotherSampleVt =
-      Coproduct[sample.HVar](Symbol("bar") ->> "hi")
+      Coproduct[sampleAsVariant.Inj](Symbol("bar") ->> "hi")
     // and the `variant` function produces Inj as a synonym for HVar
     // just as `record` makes it a synonym for HRec
     val samples: List[sampleAsVariant.Inj] = List(sampleVt, anotherSampleVt)
     // Coproduct can be factored out, but the implicit resolution means you cannot
     // turn this into the obvious `map` call
-    val sampleCp = Coproduct[sample.HVar]
+    val sampleCp = Coproduct[sampleAsVariant.Inj]
     val moreSamples = List(sampleCp(Symbol("foo") ->> 84L), sampleCp(Symbol("bar") ->> "bye"))
   }
 

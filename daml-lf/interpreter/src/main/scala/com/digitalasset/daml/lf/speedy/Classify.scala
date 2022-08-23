@@ -4,7 +4,7 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.speedy.Speedy.Machine
+import com.daml.lf.speedy.Speedy.{Machine, Control}
 import scala.collection.mutable.Map
 
 private[speedy] object Classify { // classify the machine state w.r.t what step occurs next
@@ -25,15 +25,17 @@ private[speedy] object Classify { // classify the machine state w.r.t what step 
   }
 
   def classifyMachine(machine: Machine, counts: Counts): Unit = {
-    if (machine.returnValue != null) {
-      // classify a value by the continution it is about to return to
-      counts.ctrlValue += 1
-      val kont = machine.kontStack.get(machine.kontStack.size - 1).getClass.getSimpleName
-      val _ = counts.konts += kont -> (counts.konts.get(kont).getOrElse(0) + 1)
-    } else {
-      counts.ctrlExpr += 1
-      val expr = machine.ctrl.getClass.getSimpleName
-      val _ = counts.exprs += expr -> (counts.exprs.get(expr).getOrElse(0) + 1)
+    machine.control match {
+      case Control.Value(_) =>
+        // classify a value by the continution it is about to return to
+        counts.ctrlValue += 1
+        val kont = machine.kontStack.get(machine.kontStack.size - 1).getClass.getSimpleName
+        val _ = counts.konts += kont -> (counts.konts.get(kont).getOrElse(0) + 1)
+      case Control.Expression(exp) =>
+        counts.ctrlExpr += 1
+        val expr = exp.getClass.getSimpleName
+        val _ = counts.exprs += expr -> (counts.exprs.get(expr).getOrElse(0) + 1)
+      case _ => ()
     }
   }
 }

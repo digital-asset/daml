@@ -96,7 +96,7 @@ pattern GHC_Types <- ModuleIn DamlPrim "GHC.Types"
 pattern GHC_Show <- ModuleIn DamlPrim "GHC.Show"
 
 -- daml-stdlib module patterns
-pattern DA_Action, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record, DA_Internal_Desugar, DA_Internal_Template_Functions, DA_Internal_Exception :: GHC.Module
+pattern DA_Action, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record, DA_Internal_Desugar, DA_Internal_Template_Functions, DA_Internal_Exception, DA_Internal_Interface :: GHC.Module
 pattern DA_Action <- ModuleIn DamlStdlib "DA.Action"
 pattern DA_Internal_LF <- ModuleIn DamlStdlib "DA.Internal.LF"
 pattern DA_Internal_Prelude <- ModuleIn DamlStdlib "DA.Internal.Prelude"
@@ -104,6 +104,7 @@ pattern DA_Internal_Record <- ModuleIn DamlStdlib "DA.Internal.Record"
 pattern DA_Internal_Desugar <- ModuleIn DamlStdlib "DA.Internal.Desugar"
 pattern DA_Internal_Template_Functions <- ModuleIn DamlStdlib "DA.Internal.Template.Functions"
 pattern DA_Internal_Exception <- ModuleIn DamlStdlib "DA.Internal.Exception"
+pattern DA_Internal_Interface <- ModuleIn DamlStdlib "DA.Internal.Interface"
 
 -- | Deconstruct a dictionary function (DFun) identifier into a tuple
 -- containing, in order:
@@ -172,6 +173,20 @@ pattern HasMessageDFunId tyCon <-
     DesugarDFunId [] [] (NameIn DA_Internal_Exception "HasMessage")
         [splitTyConApp_maybe -> Just (tyCon, [])]
 
+pattern HasInterfaceViewDFunId :: TyCon -> GHC.Type -> GHC.Var
+pattern HasInterfaceViewDFunId tyCon viewTy <-
+    DesugarDFunId [] [] (NameIn DA_Internal_Interface "HasInterfaceView")
+        [ splitTyConApp_maybe -> Just (tyCon, [])
+        , viewTy
+        ]
+
+pattern HasMethodDFunId :: TyCon -> LF.MethodName -> GHC.Type -> GHC.Var
+pattern HasMethodDFunId tyCon methodName retTy <-
+    DesugarDFunId [] [] (NameIn DA_Internal_Desugar "HasMethod")
+        [ splitTyConApp_maybe -> Just (tyCon, [])
+        , StrLitTy (LF.MethodName -> methodName)
+        , retTy
+        ]
 
 -- | Break down a constraint tuple projection function name
 -- into an (index, arity) pair. These names have the form

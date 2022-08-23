@@ -9,11 +9,12 @@ import com.daml.ledger.runner.common.Config.{
   DefaultParticipants,
   DefaultParticipantsDatasourceConfig,
 }
-import com.daml.ledger.runner.common.MetricsConfig.DefaultMetricsConfig
+import com.daml.platform.config.MetricsConfig.DefaultMetricsConfig
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
+import com.daml.platform.config.{MetricsConfig, ParticipantConfig}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 
 final case class Config(
@@ -40,7 +41,9 @@ object Config {
     ParticipantConfig.DefaultParticipantId -> ParticipantConfig()
   )
   val DefaultParticipantsDatasourceConfig: Map[ParticipantId, ParticipantDataSourceConfig] = Map(
-    ParticipantConfig.DefaultParticipantId -> ParticipantDataSourceConfig("default-jdbc-url")
+    ParticipantConfig.DefaultParticipantId -> ParticipantDataSourceConfig(
+      "jdbc:h2:mem:default;db_close_delay=-1;db_close_on_exit=false"
+    )
   )
   val Default: Config = Config()
 }

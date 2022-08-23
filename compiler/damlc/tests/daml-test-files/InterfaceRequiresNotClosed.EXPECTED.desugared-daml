@@ -3,6 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => A = A GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep A where
   _interfaceTypeRep
@@ -26,12 +27,12 @@ instance DA.Internal.Desugar.HasObserver A where
   observer = GHC.Types.primitive @"EObserverInterface"
 instance DA.Internal.Desugar.HasCreate A where
   create = GHC.Types.primitive @"UCreateInterface"
-instance DA.Internal.Desugar.HasEnsure A where
-  ensure this = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.HasIsInterfaceType A where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq A where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView A EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlInterface => B = B GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep B where
   _interfaceTypeRep
@@ -63,12 +64,12 @@ instance DA.Internal.Desugar.HasObserver B where
   observer = GHC.Types.primitive @"EObserverInterface"
 instance DA.Internal.Desugar.HasCreate B where
   create = GHC.Types.primitive @"UCreateInterface"
-instance DA.Internal.Desugar.HasEnsure B where
-  ensure this = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.HasIsInterfaceType B where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq B where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView B EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlInterface => C = C GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep C where
   _interfaceTypeRep
@@ -100,9 +101,9 @@ instance DA.Internal.Desugar.HasObserver C where
   observer = GHC.Types.primitive @"EObserverInterface"
 instance DA.Internal.Desugar.HasCreate C where
   create = GHC.Types.primitive @"UCreateInterface"
-instance DA.Internal.Desugar.HasEnsure C where
-  ensure this = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.HasIsInterfaceType C where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq C where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView C EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"

@@ -436,11 +436,6 @@ genrule(
     tar -xzf $(location //language-support/ts/daml-react:docs) --strip-components 1 -C $$DIR/html/app-dev/bindings-ts/daml-react/
     tar -xzf $(location //language-support/ts/daml-ledger:docs) --strip-components 1 -C $$DIR/html/app-dev/bindings-ts/daml-ledger/
     tar -xzf $(location //language-support/ts/daml-types:docs) --strip-components 1 -C $$DIR/html/app-dev/bindings-ts/daml-types/
-    # The generated docs of the typescript libraries are published at two places: The npm
-    # registry and on docs.daml.com. The docs at the npm registry contain a link pointing
-    # to docs.daml.com. We remove it for the version published at docs.daml.com as it would be
-    # pointing to itself.
-    sed -i -e 's,^.*\\(Comprehensive documentation\\|<h2>Documentation</h2>\\|0.0.0-SDKVERSION\\).*$$,,' $$DIR/html/app-dev/bindings-ts/*/index.html
 
     # Get the daml cheat sheet
     mkdir -p $$DIR/html/cheat-sheet

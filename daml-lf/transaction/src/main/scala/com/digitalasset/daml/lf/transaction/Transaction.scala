@@ -52,6 +52,7 @@ final case class VersionedTransaction private[lf] (
   *
   * @param nodes The nodes of this transaction.
   * @param roots References to the root nodes of the transaction.
+  *
   * Users of this class may assume that all instances are well-formed, i.e., `isWellFormed.isEmpty`.
   * For performance reasons, users are not required to call `isWellFormed`.
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
@@ -255,7 +256,7 @@ sealed abstract class HasTxNodes {
 
   def roots: ImmArray[NodeId]
 
-  /** The union of the informees of a all the action nodes. */
+  /** The union of the informees of all the action nodes. */
   lazy val informees: Set[Ref.Party] =
     nodes.values.foldLeft(Set.empty[Ref.Party]) {
       case (acc, node: Node.Action) => acc | node.informeesOfNode
@@ -350,8 +351,8 @@ sealed abstract class HasTxNodes {
     }
 
   /** Returns the IDs of all the consumed contracts.
-    *  This includes transient contracts but it does not include contracts
-    *  consumed in rollback nodes.
+    * This includes transient contracts but it does not include contracts
+    * consumed in rollback nodes.
     */
   final def consumedContracts[Cid2 >: ContractId]: Set[Cid2] =
     foldInExecutionOrder(Set.empty[Cid2])(
@@ -371,7 +372,10 @@ sealed abstract class HasTxNodes {
     */
   final def inactiveContracts[Cid2 >: ContractId]: Set[Cid2] = {
     final case class LedgerState(
+        // Contracts created up to this point including rolled back contracts.
         createdCids: Set[Cid2],
+        // Contracts that have been marked as inactive either by a rollback of a create
+        // or an archive.
         inactiveCids: Set[Cid2],
     ) {
       def create(cid: Cid2): LedgerState =
@@ -403,7 +407,10 @@ sealed abstract class HasTxNodes {
         copy(
           currentState = beginState.copy(
             inactiveCids =
-              beginState.inactiveCids union (currentState.createdCids diff beginState.createdCids)
+              // Add all contracts created under rollback to inactive contracts.
+              // We don’t care if they are nested further below other rollbacks.
+              beginState.inactiveCids union (currentState.createdCids diff beginState.createdCids),
+            createdCids = currentState.createdCids,
           ),
           rollbackStack = rollbackStack.tail,
         )
@@ -459,6 +466,28 @@ sealed abstract class HasTxNodes {
     }
   }
 
+  /** Keys are contracts (that have been consumed) and values are the nodes where the contract was consumed.
+    * Nodes under rollbacks (both exercises and creates) are ignored (as they have been rolled back).
+    * The result includes both local contracts created in the transaction (if they’ve been consumed) as well as global
+    * contracts created in previous transactions. It does not include local contracts created under a rollback.
+    */
+  final def consumedBy: Map[ContractId, NodeId] =
+    foldInExecutionOrder[Map[ContractId, NodeId]](HashMap.empty)(
+      exerciseBegin = (consumedByMap, nodeId, exerciseNode) => {
+        if (exerciseNode.consuming) {
+          (consumedByMap + (exerciseNode.targetCoid -> nodeId), ChildrenRecursion.DoRecurse)
+        } else {
+          (consumedByMap, ChildrenRecursion.DoRecurse)
+        }
+      },
+      rollbackBegin = (consumedByMap, _, _) => {
+        (consumedByMap, ChildrenRecursion.DoNotRecurse)
+      },
+      leaf = (consumedByMap, _, _) => consumedByMap,
+      exerciseEnd = (consumedByMap, _, _) => consumedByMap,
+      rollbackEnd = (consumedByMap, _, _) => consumedByMap,
+    )
+
   /** Return the expected contract key inputs (i.e. the state before the transaction)
     * for this transaction or an error if the transaction contains a
     * duplicate key error or has an inconsistent mapping for a key. For
@@ -485,7 +514,14 @@ sealed abstract class HasTxNodes {
       rollbackBegin =
         (acc, _, _) => (acc.map(_.beginRollback()), Transaction.ChildrenRecursion.DoRecurse),
       rollbackEnd = (acc, _, _) => acc.map(_.endRollback()),
-      leaf = (acc, _, leaf) => acc.flatMap(_.handleLeaf(leaf)),
+      leaf = (
+          acc,
+          nid,
+          leaf,
+      ) =>
+        acc.flatMap(
+          _.handleNode(nid, leaf, None)
+        ), // ok to use None as keyInput, because mode is strict
     ).map(_.globalKeyInputs)
   }
 
@@ -629,9 +665,6 @@ sealed abstract class HasTxNodes {
 
 object Transaction {
 
-  @deprecated("use com.daml.transaction.GenTransaction directly", since = "1.18.0")
-  type WithTxValue = Transaction
-
   private[this] val Empty = Transaction(HashMap.empty, ImmArray.Empty)
 
   private[lf] def empty: Transaction = Empty
@@ -641,14 +674,6 @@ object Transaction {
   private[lf] case object DanglingNodeId extends NotWellFormedErrorReason
   private[lf] case object OrphanedNode extends NotWellFormedErrorReason
   private[lf] case object AliasedNode extends NotWellFormedErrorReason
-
-  @deprecated("use com.daml.value.Value.VersionedContractInstance", since = "1.18.0")
-  type ContractInstance = Value.VersionedContractInstance
-
-  @deprecated("use com.daml.transaction.Node.Action directly", since = "1.18.0")
-  type ActionNode = Node.Action
-  @deprecated("use com.daml.transaction.Node.LeafOnlyAction directly", since = "1.18.0")
-  type LeafNode = Node.LeafOnlyAction
 
   /** Transaction meta data
     *
@@ -665,6 +690,7 @@ object Transaction {
     * @param nodeSeeds        : An association list that maps to each ID of create and exercise
     *                         nodes its seeds.
     * @param globalKeyMapping : input key mapping inferred by interpretation
+    * @param disclosures      : contracts passed via explicit disclosure that have been used in this transaction
     */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],
@@ -707,7 +733,6 @@ object Transaction {
   final case class DuplicateContractKey(
       key: GlobalKey
   ) extends TransactionError
-      with KeyInputError
 
   final case class AuthFailureDuringExecution(
       nid: NodeId,
@@ -743,16 +768,16 @@ object Transaction {
     override def isActive: Boolean = true
   }
 
+  /** An exercise, fetch or lookupByKey failed because the mapping of key -> contract id
+    * was inconsistent with earlier nodes (in execution order). This can happened in case
+    * of a race condition between the contract and the contract keys queried to the ledger
+    * during an interpretation.
+    */
+  final case class InconsistentContractKey(key: GlobalKey)
+
   /** contractKeyInputs failed to produce an input due to an error for the given key.
     */
-  sealed trait KeyInputError extends Product with Serializable {
-    def key: GlobalKey
-  }
-
-  /** An exercise, fetch or lookupByKey failed because the mapping of key -> contract id
-    * was inconsistent with earlier nodes (in execution order).
-    */
-  final case class InconsistentKeys(key: GlobalKey) extends KeyInputError
+  type KeyInputError = Either[InconsistentContractKey, DuplicateContractKey]
 
   sealed abstract class ChildrenRecursion
   object ChildrenRecursion {

@@ -141,12 +141,16 @@ beforeAll(async () => {
     DAR_PATH,
   ];
 
-
   const sandboxOnXOptions = [
     `--ledger-id=${SANDBOX_LEDGER_ID}`,
     `--participant=participant-id=sandbox,port=0,port-file=${SANDBOX_PORT_FILE_NAME}`
   ];
-  const sandboxOptions = process.env.SANDBOX_VERSION[0] == "1" ? kvSandboxOptions : sandboxOnXOptions;
+
+  const sandboxOnXCommand = semver.gt(process.env.SANDBOX_VERSION, "2.4.0-snapshot.20220712.10212.0.0bf28176" ) || process.env.SANDBOX_VERSION === "0.0.0"
+      ? ["run-legacy-cli-config"]
+      : [];
+
+  const sandboxOptions = process.env.SANDBOX_VERSION[0] == "1" ? kvSandboxOptions : sandboxOnXCommand.concat(sandboxOnXOptions);
 
   sandbox = spawn(process.env.DAML_SANDBOX, sandboxOptions, {
     cwd: "..",

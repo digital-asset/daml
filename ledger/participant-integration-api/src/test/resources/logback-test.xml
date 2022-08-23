@@ -56,7 +56,7 @@
         <appender-ref ref="IndexerStabilitySpecAppender"/>
     </logger>
 
-    <root level="DEBUG">
+    <root level="INFO">
         <appender-ref ref="STDOUT"/>
         <appender-ref ref="ASYNC"/>
     </root>

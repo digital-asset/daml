@@ -66,37 +66,61 @@ _choice_TArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_implements_T_InterfaceChoiceCollision1:Interface :
-  DA.Internal.Desugar.ImplementsT T InterfaceChoiceCollision1.Interface
-_implements_T_InterfaceChoiceCollision1:Interface
-  = DA.Internal.Desugar.ImplementsT
+_interface_instance_T_InterfaceChoiceCollision1:Interface_T :
+  DA.Internal.Desugar.InterfaceInstance T InterfaceChoiceCollision1.Interface T
+_interface_instance_T_InterfaceChoiceCollision1:Interface_T
+  = DA.Internal.Desugar.mkInterfaceInstance
+      @T @InterfaceChoiceCollision1.Interface @T
+_method_T_InterfaceChoiceCollision1:Interface_T_getOwner :
+  DA.Internal.Desugar.Method T InterfaceChoiceCollision1.Interface T "getOwner"
+_method_T_InterfaceChoiceCollision1:Interface_T_getOwner
+  = DA.Internal.Desugar.mkMethod
+      @T
+      @InterfaceChoiceCollision1.Interface
+      @T
+      @"getOwner"
+      \ this@T {..} -> let _ = this in let getOwner = owner in getOwner
+_view_T_InterfaceChoiceCollision1:Interface_T :
+  DA.Internal.Desugar.InterfaceView T InterfaceChoiceCollision1.Interface T
+_view_T_InterfaceChoiceCollision1:Interface_T
+  = DA.Internal.Desugar.mkInterfaceView
+      @T
+      @InterfaceChoiceCollision1.Interface
+      @T
+      \ this@T {..}
+        -> let _ = this in
+           let view = InterfaceChoiceCollision1.EmptyInterfaceView in view
 instance DA.Internal.Desugar.HasToInterface T InterfaceChoiceCollision1.Interface where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T InterfaceChoiceCollision1.Interface where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-_method_T_InterfaceChoiceCollision1:Interface_getOwner :
-  DA.Internal.Desugar.Method T InterfaceChoiceCollision1.Interface "getOwner"
-_method_T_InterfaceChoiceCollision1:Interface_getOwner
+_interface_instance_T_InterfaceChoiceCollision2:Interface_T :
+  DA.Internal.Desugar.InterfaceInstance T InterfaceChoiceCollision2.Interface T
+_interface_instance_T_InterfaceChoiceCollision2:Interface_T
+  = DA.Internal.Desugar.mkInterfaceInstance
+      @T @InterfaceChoiceCollision2.Interface @T
+_method_T_InterfaceChoiceCollision2:Interface_T_getOwner :
+  DA.Internal.Desugar.Method T InterfaceChoiceCollision2.Interface T "getOwner"
+_method_T_InterfaceChoiceCollision2:Interface_T_getOwner
   = DA.Internal.Desugar.mkMethod
       @T
-      @InterfaceChoiceCollision1.Interface
+      @InterfaceChoiceCollision2.Interface
+      @T
       @"getOwner"
-      (\ this@T {..} -> let _ = this in let getOwner = owner in getOwner)
-_implements_T_InterfaceChoiceCollision2:Interface :
-  DA.Internal.Desugar.ImplementsT T InterfaceChoiceCollision2.Interface
-_implements_T_InterfaceChoiceCollision2:Interface
-  = DA.Internal.Desugar.ImplementsT
+      \ this@T {..} -> let _ = this in let getOwner = owner in getOwner
+_view_T_InterfaceChoiceCollision2:Interface_T :
+  DA.Internal.Desugar.InterfaceView T InterfaceChoiceCollision2.Interface T
+_view_T_InterfaceChoiceCollision2:Interface_T
+  = DA.Internal.Desugar.mkInterfaceView
+      @T
+      @InterfaceChoiceCollision2.Interface
+      @T
+      \ this@T {..}
+        -> let _ = this in
+           let view = InterfaceChoiceCollision2.EmptyInterfaceView in view
 instance DA.Internal.Desugar.HasToInterface T InterfaceChoiceCollision2.Interface where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T InterfaceChoiceCollision2.Interface where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-_method_T_InterfaceChoiceCollision2:Interface_getOwner :
-  DA.Internal.Desugar.Method T InterfaceChoiceCollision2.Interface "getOwner"
-_method_T_InterfaceChoiceCollision2:Interface_getOwner
-  = DA.Internal.Desugar.mkMethod
-      @T
-      @InterfaceChoiceCollision2.Interface
-      @"getOwner"
-      (\ this@T {..} -> let _ = this in let getOwner = owner in getOwner)

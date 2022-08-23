@@ -463,8 +463,10 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           UpdateFetchInterface(I.tycon, e"e"),
         "exercise @Mod:T Choice cid arg" ->
           UpdateExercise(T.tycon, n"Choice", e"cid", e"arg"),
-        "exercise_by_interface @Mod:I Choice cid arg guard" ->
-          UpdateExerciseInterface(I.tycon, n"Choice", e"cid", e"arg", e"guard"),
+        "exercise_interface @Mod:I Choice cid arg" ->
+          UpdateExerciseInterface(I.tycon, n"Choice", e"cid", e"arg", None),
+        "exercise_interface_with_guard @Mod:I Choice cid arg guard" ->
+          UpdateExerciseInterface(I.tycon, n"Choice", e"cid", e"arg", Some(e"guard")),
         "exercise_by_key @Mod:T Choice key arg" ->
           UpdateExerciseByKey(T.tycon, n"Choice", e"key", e"arg"),
         "fetch_by_key @Mod:T e" ->
@@ -595,10 +597,12 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               , observers Cons @Party [person] (Nil @Party)
               to upure @Int64 i;
             implements Mod1:Human {
+              view = Mod1:HumanView { name = "Foo B. Baz" };
               method age = 42;
               method alive = True;
             };
             implements '-pkgId-':Mod2:Referenceable {
+              view = Mod1:ReferenceableView { indirect = False };
               method uuid = "123e4567-e89b-12d3-a456-426614174000";
             };
             key @Party (Mod:Person {name} this) (\ (p: Party) -> p);
@@ -656,18 +660,24 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             human ->
               TemplateImplements(
                 human,
-                Map(
-                  n"age" -> TemplateImplementsMethod(n"age", e"42"),
-                  n"alive" -> TemplateImplementsMethod(n"alive", e"True"),
+                InterfaceInstanceBody(
+                  Map(
+                    n"age" -> InterfaceInstanceMethod(n"age", e"42"),
+                    n"alive" -> InterfaceInstanceMethod(n"alive", e"True"),
+                  ),
+                  e"""Mod1:HumanView { name = "Foo B. Baz" }""",
                 ),
               ),
             referenceable -> TemplateImplements(
               referenceable,
-              Map(
-                n"uuid" -> TemplateImplementsMethod(
-                  n"uuid",
-                  e""""123e4567-e89b-12d3-a456-426614174000"""",
-                )
+              InterfaceInstanceBody(
+                Map(
+                  n"uuid" -> InterfaceInstanceMethod(
+                    n"uuid",
+                    e""""123e4567-e89b-12d3-a456-426614174000"""",
+                  )
+                ),
+                e"Mod1:ReferenceableView { indirect = False }",
               ),
             ),
           ),
@@ -783,9 +793,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
 
       val p = """
        module Mod {
-
           interface (this: Person) = {
-            precondition False;
+            viewtype Mod1:PersonView;
             method asParty: Party;
             method getName: Text;
             choice Sleep (self) (u:Unit) : ContractId Mod:Person
@@ -795,16 +804,21 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               , controllers Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)
               , observers Nil @Party
               to upure @Int64 i;
+            coimplements Mod1:Company {
+              view = Mod1:PersonView { name = callMethod @Mod:Person getName this };
+              method asParty = Mod1:Company {party} this;
+              method getName = Mod1:Company {legalName} this;
+            };
           } ;
        }
 
       """
+      val TTyCon(company) = t"Mod1:Company"
 
       val interface =
         DefInterface(
           requires = Set.empty,
           param = n"this",
-          precond = e"False",
           methods = Map(
             n"asParty" -> InterfaceMethod(n"asParty", t"Party"),
             n"getName" -> InterfaceMethod(n"getName", t"Text"),
@@ -831,6 +845,26 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               update = e"upure @Int64 i",
             ),
           ),
+          coImplements = Map(
+            company ->
+              InterfaceCoImplements(
+                company,
+                InterfaceInstanceBody(
+                  Map(
+                    n"asParty" -> InterfaceInstanceMethod(
+                      n"asParty",
+                      e"Mod1:Company {party} this",
+                    ),
+                    n"getName" -> InterfaceInstanceMethod(
+                      n"getName",
+                      e"Mod1:Company {legalName} this",
+                    ),
+                  ),
+                  e"Mod1:PersonView { name = callMethod @Mod:Person getName this }",
+                ),
+              )
+          ),
+          view = t"Mod1:PersonView",
         )
 
       val person = DottedName.assertFromString("Person")

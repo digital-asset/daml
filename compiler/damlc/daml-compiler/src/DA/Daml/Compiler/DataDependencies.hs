@@ -613,10 +613,9 @@ generateSrcFromLf env = noLoc mod
     interfaceDecls :: [Gen (LHsDecl GhcPs)]
     interfaceDecls = do
         interface <- NM.toList $ LF.moduleInterfaces $ envMod env
-        [interfaceName] <- [LF.unTypeConName $ LF.intName interface]
-        let interfaceType = HsTyVar noExt NotPromoted $ mkRdrName interfaceName
         meth <- NM.toList $ LF.intMethods interface
         pure $ do
+            interfaceType <- convType env reexportedClasses . LF.TCon . qualify . LF.intName $ interface
             methodType <- convType env reexportedClasses $ LF.ifmType meth
             cls <- mkDesugarType env "HasMethod"
             let methodNameSymbol = HsTyLit noExt $ HsStrTy NoSourceText $ fsFromText $ LF.unMethodName $ LF.ifmName meth
@@ -739,8 +738,9 @@ generateSrcFromLf env = noLoc mod
                 [ mkConDecl (occNameFor conName) (PrefixCon [])
                 | conName <- cons
                 ]
-
-        LF.DataInterface -> pure []
+        LF.DataInterface -> do
+            opaque <- mkGhcType env "Opaque"
+            pure [mkConDecl occName (PrefixCon [noLoc opaque])]
       where
         occName = mkOccName varName (T.unpack dataTypeCon0)
         occNameFor (LF.VariantConName c) = mkOccName varName (T.unpack c)
@@ -1305,6 +1305,7 @@ isDFunBody = \case
     LF.ETyLam _ body -> isDFunBody body
     LF.ETmLam _ body -> isDFunBody body
     LF.EStructCon _ -> True
+    LF.EUnit -> True
     _ -> False
 
 -- | Get the relevant references from a dictionary function.

@@ -38,15 +38,17 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
          module Mod {
 
+            record @serializable MyUnit = {};
+
             record @serializable Person = { person: Party, name: Text } ;
 
             interface (this: Planet) = {
-              precondition True;
+              viewtype Mod:MyUnit;
             };
 
             interface (this: Human) = {
+              viewtype Mod:MyUnit;
               requires Mod:Planet;
-              precondition False;
               method asParty: Party;
               method getName: Text;
               choice HumanSleep (self) (u:Unit) : ContractId Mod:Human
@@ -73,8 +75,10 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
                   observers Cons @Party [Mod:Person {person} this] (Nil @Party)
               to upure @Int64 i;
               implements Mod:Planet {
+                view = Mod:MyUnit {};
               };
               implements Mod:Human {
+                view = Mod:MyUnit {};
                 method asParty = Mod:Person {person} this;
                 method getName = Mod:Person {name} this;
               };
@@ -204,8 +208,39 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
            val concrete_observer_interface: Mod:Planet -> List Party =
              \ (p: Mod:Planet) -> observer_interface @Mod:Planet p;
+
+           interface (this: Root) = {
+             viewtype Mod:MyUnit;
+             coimplements Mod0:Parcel {
+               view = Mod:MyUnit {};
+             };
+           };
+
+           interface (this: Boxy) = {
+             viewtype Mod:MyUnit;
+             requires Mod:Root;
+             method getParty: Party;
+             choice @nonConsuming ReturnInt (self) (i: Int64): Int64
+               , controllers Cons @Party [call_method @Mod:Boxy getParty this] (Nil @Party)
+               , observers Nil @Party
+               to upure @Int64 i;
+             coimplements Mod0:Parcel {
+               view = Mod:MyUnit {};
+               method getParty = Mod0:Parcel {party} this;
+             };
+           };
          }
 
+         module Mod0 {
+           record @serializable Parcel = { party: Party };
+
+           template (this: Parcel) = {
+             precondition True;
+             signatories Cons @Party [Mod0:Parcel {party} this] (Nil @Party);
+             observers Cons @Party [Mod0:Parcel {party} this] (Nil @Party);
+             agreement "";
+           };
+         }
       """
 
       validate(pkgId, pkg)

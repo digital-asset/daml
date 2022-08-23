@@ -99,6 +99,9 @@ private[validation] object TypeIterable {
         Iterator(TTyCon(ifaceId)) ++ iterator(body)
       case EObserverInterface(ifaceId, body) =>
         Iterator(TTyCon(ifaceId)) ++ iterator(body)
+      case EViewInterface(ifaceId, expr) =>
+        Iterator(TTyCon(ifaceId)) ++
+          iterator(expr)
       case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EApp(_, _) | ECase(_, _) |
           ELocation(_, _) | EStructCon(_) | EStructProj(_, _) | EStructUpd(_, _, _) | ETyAbs(_, _) |
           EExperimental(_, _) =>
@@ -133,7 +136,7 @@ private[validation] object TypeIterable {
         Iterator(TTyCon(interface)) ++
           iterator(cid) ++
           iterator(arg) ++
-          iterator(guard)
+          guard.iterator.flatMap(iterator(_))
       case UpdateExerciseByKey(templateId, choice @ _, key, arg) =>
         Iterator(TTyCon(templateId)) ++
           iterator(key) ++
@@ -244,24 +247,36 @@ private[validation] object TypeIterable {
 
   private[validation] def iterator(impl: TemplateImplements): Iterator[Type] =
     impl match {
-      case TemplateImplements(interface, methods) =>
-        Iterator(TTyCon(interface)) ++
-          methods.values.flatMap(iterator(_))
+      case TemplateImplements(interface, body) =>
+        Iterator(TTyCon(interface)) ++ iterator(body)
     }
 
-  private[validation] def iterator(method: TemplateImplementsMethod): Iterator[Type] =
+  private[validation] def iterator(iiBody: InterfaceInstanceBody): Iterator[Type] =
+    iiBody match {
+      case InterfaceInstanceBody(methods, view) =>
+        methods.values.iterator.flatMap(iterator) ++ iterator(view)
+    }
+
+  private[validation] def iterator(method: InterfaceInstanceMethod): Iterator[Type] =
     method match {
-      case TemplateImplementsMethod(name @ _, value) =>
+      case InterfaceInstanceMethod(name @ _, value) =>
         iterator(value)
+    }
+
+  private[validation] def iterator(coImpl: InterfaceCoImplements): Iterator[Type] =
+    coImpl match {
+      case InterfaceCoImplements(template, body) =>
+        Iterator(TTyCon(template)) ++ iterator(body)
     }
 
   private[validation] def iterator(interface: DefInterface): Iterator[Type] =
     interface match {
-      case DefInterface(requires, _, choices, methods, precond) =>
+      case DefInterface(requires, _, choices, methods, coImplements, view) =>
         requires.iterator.map(TTyCon) ++
-          iterator(precond) ++
           choices.values.iterator.flatMap(iterator) ++
-          methods.values.iterator.flatMap(iterator)
+          methods.values.iterator.flatMap(iterator) ++
+          coImplements.values.flatMap(iterator) ++
+          iterator(view)
     }
 
   private[validation] def iterator(imethod: InterfaceMethod): Iterator[Type] =

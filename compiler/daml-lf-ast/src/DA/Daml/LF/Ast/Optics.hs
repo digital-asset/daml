@@ -79,13 +79,19 @@ templateExpr f (Template loc tpl param precond signatories observers agreement c
   <*> (NM.traverse . templateImplementsExpr) f implements
 
 templateImplementsExpr :: Traversal' TemplateImplements Expr
-templateImplementsExpr f (TemplateImplements iface methods) =
+templateImplementsExpr f (TemplateImplements iface body) =
   TemplateImplements iface
-    <$> (NM.traverse . templateImplementsMethodExpr) f methods
+    <$> interfaceInstanceBodyExpr f body
 
-templateImplementsMethodExpr :: Traversal' TemplateImplementsMethod Expr
-templateImplementsMethodExpr f (TemplateImplementsMethod name body) =
-  TemplateImplementsMethod name <$> f body
+interfaceInstanceBodyExpr :: Traversal' InterfaceInstanceBody Expr
+interfaceInstanceBodyExpr f (InterfaceInstanceBody methods view) =
+  InterfaceInstanceBody
+    <$> (NM.traverse . interfaceInstanceMethodExpr) f methods
+    <*> f view
+
+interfaceInstanceMethodExpr :: Traversal' InterfaceInstanceMethod Expr
+interfaceInstanceMethodExpr f (InterfaceInstanceMethod name body) =
+  InterfaceInstanceMethod name <$> f body
 
 templateKeyExpr :: Traversal' TemplateKey Expr
 templateKeyExpr f (TemplateKey typ body maintainers) =
@@ -190,7 +196,6 @@ instance MonoTraversable ModuleRef DefException
 instance MonoTraversable ModuleRef InterfaceMethod
 instance MonoTraversable ModuleRef DefInterface
 instance MonoTraversable ModuleRef InterfaceCoImplements
-instance MonoTraversable ModuleRef InterfaceCoImplementsMethod
 
 instance MonoTraversable ModuleRef IsTest
 instance MonoTraversable ModuleRef DefValue
@@ -202,7 +207,8 @@ instance MonoTraversable ModuleRef TemplateChoice
 instance MonoTraversable ModuleRef TemplateKey
 instance MonoTraversable ModuleRef Template
 instance MonoTraversable ModuleRef TemplateImplements
-instance MonoTraversable ModuleRef TemplateImplementsMethod
+instance MonoTraversable ModuleRef InterfaceInstanceBody
+instance MonoTraversable ModuleRef InterfaceInstanceMethod
 
 instance MonoTraversable ModuleRef FeatureFlags
 instance MonoTraversable ModuleRef Module

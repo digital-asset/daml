@@ -157,9 +157,9 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
   private def configWithProtocols(minTls: Option[TlsVersion]): TlsConfiguration = {
     TlsConfiguration(
       enabled = true,
-      keyCertChainFile = Some(certChainFilePath),
-      keyFile = Some(privateKeyFilePath),
-      trustCertCollectionFile = Some(trustCertCollectionFilePath),
+      certChainFile = Some(certChainFilePath),
+      privateKeyFile = Some(privateKeyFilePath),
+      trustCollectionFile = Some(trustCertCollectionFilePath),
       minimumServerProtocolVersion = minTls,
     )
   }

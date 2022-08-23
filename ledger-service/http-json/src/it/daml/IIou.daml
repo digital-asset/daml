@@ -3,14 +3,21 @@
 
 module IIou where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface IIou where
+  viewtype EmptyInterfaceView
   getOwner : Party
-  transferTo : Party -> Update (ContractId IIou)
-  choice Transfer : ContractId IIou with
-      to : Party
+  choice Transfer : Text with
+      echo : Text
     controller getOwner this
     do
-      transferTo this to
+      pure $ echo <> " invoked IIou.Transfer"
+  choice Ambiguous : Text with
+      echo : Text
+    controller getOwner this
+    do
+      pure $ echo <> " should have failed, but reached IIou.Ambiguous"
 
 template TestIIou with
     issuer : Party
@@ -18,6 +25,6 @@ template TestIIou with
     amount : Text
   where
   signatory issuer
-  implements IIou where
+  interface instance IIou for TestIIou where
+    view = EmptyInterfaceView
     getOwner = owner
-    transferTo to = toInterfaceContractId <$> create this { owner = to }

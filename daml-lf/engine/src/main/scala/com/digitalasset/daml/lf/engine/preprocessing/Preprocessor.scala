@@ -41,11 +41,11 @@ private[engine] final class Preprocessor(
 
   import Preprocessor._
 
-  import compiledPackages.interface
+  import compiledPackages.pkgInterface
 
   val commandPreprocessor =
     new CommandPreprocessor(
-      interface = interface,
+      pkgInterface = pkgInterface,
       requireV1ContractIdSuffix = requireV1ContractIdSuffix,
     )
   val transactionPreprocessor = new TransactionPreprocessor(commandPreprocessor)
@@ -85,16 +85,16 @@ private[engine] final class Preprocessor(
         ResultDone(acc.toList)
     }
 
-  private[this] def collectNewPackagesFromTemplateIds(
-      templateIds: Iterable[Ref.TypeConName]
+  private[this] def collectNewPackagesFromTemplatesOrInterfaces(
+      tycons: Iterable[Ref.TypeConName]
   ): List[(Ref.PackageId, language.Reference)] =
-    templateIds
-      .foldLeft(Map.empty[Ref.PackageId, language.Reference]) { (acc, tmplId) =>
-        val pkgId = tmplId.packageId
+    tycons
+      .foldLeft(Map.empty[Ref.PackageId, language.Reference]) { (acc, tycon) =>
+        val pkgId = tycon.packageId
         if (compiledPackages.packageIds(pkgId) || acc.contains(pkgId))
           acc
         else
-          acc.updated(pkgId, language.Reference.TemplateOrInterface(tmplId))
+          acc.updated(pkgId, language.Reference.TemplateOrInterface(tycon))
       }
       .toList
 
@@ -120,7 +120,10 @@ private[engine] final class Preprocessor(
     collectNewPackagesFromTypes(List(typ)).flatMap(pullPackages)
 
   private[this] def pullTemplatePackage(tyCons: Iterable[Ref.TypeConName]): Result[Unit] =
-    pullPackages(collectNewPackagesFromTemplateIds(tyCons))
+    pullPackages(collectNewPackagesFromTemplatesOrInterfaces(tyCons))
+
+  private[this] def pullInterfacePackage(tyCons: Iterable[Ref.TypeConName]): Result[Unit] =
+    pullPackages(collectNewPackagesFromTemplatesOrInterfaces(tyCons))
 
   /** Translates the LF value `v0` of type `ty0` to a speedy value.
     * Fails if the nesting is too deep or if v0 does not match the type `ty0`.
@@ -134,7 +137,7 @@ private[engine] final class Preprocessor(
   private[engine] def preprocessApiCommand(
       cmd: command.ApiCommand
   ): Result[speedy.Command] =
-    safelyRun(pullTemplatePackage(List(cmd.typeId))) {
+    safelyRun(pullTemplatePackage(List(cmd.typeId.merge))) {
       commandPreprocessor.unsafePreprocessApiCommand(cmd)
     }
 
@@ -143,7 +146,7 @@ private[engine] final class Preprocessor(
   def preprocessApiCommands(
       cmds: data.ImmArray[command.ApiCommand]
   ): Result[ImmArray[speedy.Command]] =
-    safelyRun(pullTemplatePackage(cmds.toSeq.view.map(_.typeId))) {
+    safelyRun(pullTemplatePackage(cmds.toSeq.view.map(_.typeId.merge))) {
       commandPreprocessor.unsafePreprocessApiCommands(cmds)
     }
 
@@ -173,6 +176,16 @@ private[engine] final class Preprocessor(
       transactionPreprocessor.unsafeTranslateTransactionRoots(tx)
     }
 
+  def preprocessInterfaceView(
+      templateId: Ref.Identifier,
+      argument: Value,
+      interfaceId: Ref.Identifier,
+  ): Result[speedy.InterfaceView] =
+    safelyRun(
+      pullTemplatePackage(Seq(templateId)).flatMap(_ => pullInterfacePackage(Seq(interfaceId)))
+    ) {
+      commandPreprocessor.unsafePreprocessInterfaceView(templateId, argument, interfaceId)
+    }
 }
 
 private[preprocessing] object Preprocessor {

@@ -4,7 +4,10 @@
 -- start snippet: interface example
 module Interfaces where
 
+data TIfView = TIfView { name : Text }
+
 interface TIf where
+  viewtype TIfView
   getOwner: Party
   dup: Update (ContractId TIf)
   choice Ham: ContractId TIf with
@@ -26,7 +29,8 @@ template Child
       do
         return ()
 
-    implements TIf where
+    interface instance TIf for Child where
+      view = TIfView "Child"
       getOwner = party
       dup = toInterfaceContractId <$> create this
 -- end snippet: interface example

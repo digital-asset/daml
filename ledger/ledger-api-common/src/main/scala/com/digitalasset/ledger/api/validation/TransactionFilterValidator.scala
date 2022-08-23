@@ -6,7 +6,7 @@ package com.daml.ledger.api.validation
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.InclusiveFilters
-import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.v1.transaction_filter.{Filters, InterfaceFilter, TransactionFilter}
 import com.daml.platform.server.api.validation.FieldValidations
 import io.grpc.StatusRuntimeException
 import scalaz.std.either._
@@ -43,9 +43,25 @@ object TransactionFilterValidator {
     filters.inclusive
       .fold[Either[StatusRuntimeException, domain.Filters]](Right(domain.Filters.noFilter)) {
         inclusive =>
-          val validatedIdents =
-            inclusive.templateIds.toList traverse validateIdentifier
-          validatedIdents.map(ids => domain.Filters(Some(InclusiveFilters(ids.toSet))))
+          for {
+            validatedIdents <- inclusive.templateIds.toList traverse validateIdentifier
+            validatedInterfaces <-
+              inclusive.interfaceFilters.toList traverse validateInterfaceFilter
+          } yield domain.Filters(
+            Some(InclusiveFilters(validatedIdents.toSet, validatedInterfaces.toSet))
+          )
       }
+  }
+
+  def validateInterfaceFilter(filter: InterfaceFilter)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, domain.InterfaceFilter] = {
+    for {
+      interfaceId <- requirePresence(filter.interfaceId, "interfaceId")
+      validatedId <- validateIdentifier(interfaceId)
+    } yield domain.InterfaceFilter(
+      validatedId,
+      filter.includeInterfaceView,
+    )
   }
 }

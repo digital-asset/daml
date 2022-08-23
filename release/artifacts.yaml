@@ -161,12 +161,6 @@
   type: jar-scala
 - target: //ledger/participant-state-metrics:participant-state-metrics
   type: jar-scala
-- target: //ledger/sandbox-common:sandbox-common
-  type: jar-scala
-- target: //ledger/sandbox-classic:sandbox-classic
-  type: jar-scala
-- target: //ledger/sandbox-on-x:sandbox-classic-server
-  type: jar-scala
 - target: //ledger/sandbox-on-x:sandbox-on-x
   type: jar-scala
 - target: //ledger/sandbox-on-x:sandbox-on-x-app-lib
@@ -198,6 +192,10 @@
 - target: //ledger/test-common:test-common-1.14
   type: jar-scala
 - target: //ledger/test-common:test-common-1.dev
+  type: jar-scala
+- target: //ledger/test-common:carbonv1-tests-1.dev.scala
+  type: jar-scala
+- target: //ledger/test-common:carbonv2-tests-1.dev.scala
   type: jar-scala
 - target: //ledger-service/lf-value-json:lf-value-json
   type: jar-scala

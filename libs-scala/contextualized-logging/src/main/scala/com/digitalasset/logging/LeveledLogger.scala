@@ -8,7 +8,7 @@ import org.slf4j.{Logger, Marker}
 private[logging] object LeveledLogger {
 
   final class Trace(logger: Logger) extends LeveledLogger {
-    override protected def isEnabled: Boolean =
+    override def isEnabled: Boolean =
       logger.isTraceEnabled()
     override protected def log(msg: String): Unit =
       logger.trace(msg)
@@ -23,7 +23,7 @@ private[logging] object LeveledLogger {
   }
 
   final class Debug(logger: Logger) extends LeveledLogger {
-    override protected def isEnabled: Boolean =
+    override def isEnabled: Boolean =
       logger.isDebugEnabled()
     override protected def log(msg: String): Unit =
       logger.debug(msg)
@@ -38,7 +38,7 @@ private[logging] object LeveledLogger {
   }
 
   final class Info(logger: Logger) extends LeveledLogger {
-    override protected def isEnabled: Boolean =
+    override def isEnabled: Boolean =
       logger.isInfoEnabled()
     override protected def log(msg: String): Unit =
       logger.info(msg)
@@ -53,7 +53,7 @@ private[logging] object LeveledLogger {
   }
 
   final class Warn(logger: Logger) extends LeveledLogger {
-    override protected def isEnabled: Boolean =
+    override def isEnabled: Boolean =
       logger.isWarnEnabled()
     override protected def log(msg: String): Unit =
       logger.warn(msg)
@@ -68,7 +68,7 @@ private[logging] object LeveledLogger {
   }
 
   final class Error(logger: Logger) extends LeveledLogger {
-    override protected def isEnabled: Boolean =
+    override def isEnabled: Boolean =
       logger.isErrorEnabled()
     override protected def log(msg: String): Unit =
       logger.error(msg)
@@ -86,7 +86,7 @@ private[logging] object LeveledLogger {
 
 private[logging] sealed abstract class LeveledLogger {
 
-  protected def isEnabled: Boolean
+  def isEnabled: Boolean
 
   protected def log(msg: String): Unit
   protected def log(msg: String, t: Throwable): Unit

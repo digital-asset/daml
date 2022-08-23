@@ -74,7 +74,7 @@ def install_java_deps():
             maven.artifact("com.github.pureconfig", "pureconfig-macros_2.12", "0.14.0", neverlink = True),
             "com.github.scopt:scopt_{}:4.0.0".format(scala_major_version),
             "com.google.code.findbugs:jsr305:3.0.2",
-            "com.google.code.gson:gson:2.8.2",
+            "com.google.code.gson:gson:2.9.0",
             "com.google.guava:guava:{}".format(guava_version),
             "com.h2database:h2:2.1.210",
             "com.github.pathikrit:better-files_{}:3.8.0".format(scala_major_version),
@@ -144,6 +144,7 @@ def install_java_deps():
             "com.thesamet.scalapb:protoc-gen_{}:{}".format(scala_major_version, scalapb_protoc_version),
             "com.thesamet.scalapb:scalapb-runtime_{}:{}".format(scala_major_version, scalapb_version),
             "com.thesamet.scalapb:scalapb-runtime-grpc_{}:{}".format(scala_major_version, scalapb_version),
+            "com.thesamet.scalapb:scalapb-json4s_{}:0.11.1".format(scala_major_version, scalapb_version),
             # ---- end of grpc-protobuf-netty block
             "io.gatling:gatling-app:{}".format(gatling_version),
             "io.gatling:gatling-core:{}".format(gatling_version),

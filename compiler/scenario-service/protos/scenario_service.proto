@@ -170,14 +170,14 @@ message ScenarioError {
     Value key = 3;
   }
 
-   message FetchEmptyContractKeyMaintainers {
+  message FetchEmptyContractKeyMaintainers {
       Identifier template_id = 1;
       Value key = 2;
-    }
+  }
 
   message ContractNotActive {
     ContractRef contract_ref = 1;
-    NodeId consumed_by = 2;
+    NodeId consumed_by = 2; // optional. A contract whose create was rolled back will not have this set.
   }
 
   message ContractNotVisible {
@@ -234,10 +234,35 @@ message ScenarioError {
     Identifier requiring_interface_id = 2;
     Identifier required_interface_id = 3;
   }
+  
+  message DisclosurePreprocessingDuplicateContractKeys {
+    Identifier template_id = 1;
+    string key_hash = 2;
+  }
+
+  message DisclosurePreprocessingDuplicateContractIds {
+    Identifier template_id = 1;
+  }
+
+  message DisclosurePreprocessingNonExistentTemplate {
+      Identifier template_id = 1;
+  }
+
+  message DisclosurePreprocessingNonExistentDisclosedContractKeyHash {
+      string contract_id = 1;
+      Identifier template_id = 2;
+  }
+
+  message InconsistentDisclosureTableIncorrectlyTypedContract {
+      string contract_id = 1;
+      Identifier expected = 2;
+      Identifier actual = 3;
+  }
 
   // The state of the ledger at the time of the error
   repeated ScenarioStep scenario_steps = 1;
   repeated Node nodes = 2;
+  repeated string active_contracts = 37;
 
   reserved 3; // was environment
   reserved 4; // was call stack
@@ -305,6 +330,11 @@ message ScenarioError {
     ContractDoesNotImplementInterface contract_does_not_implement_interface = 35;
     ContractDoesNotImplementRequiringInterface contract_does_not_implement_requiring_interface
     = 36;
+    DisclosurePreprocessingDuplicateContractIds disclosure_preprocessing_duplicate_contract_ids = 38;
+    DisclosurePreprocessingDuplicateContractKeys disclosure_preprocessing_duplicate_contract_keys = 39;
+    DisclosurePreprocessingNonExistentTemplate disclosure_preprocessing_non_existent_template = 40;
+    DisclosurePreprocessingNonExistentDisclosedContractKeyHash disclosure_preprocessing_non_existent_disclosed_contract_key_hash = 41;
+    InconsistentDisclosureTableIncorrectlyTypedContract inconsistent_disclosure_table_incorrectly_typed_contract = 42;
   }
 }
 
@@ -428,6 +458,7 @@ message ScenarioResult {
   sfixed64 final_time = 4;
   repeated TraceMessage trace_log = 5;
   repeated WarningMessage warnings = 6;
+  repeated string active_contracts = 7;
 }
 
 message ScenarioStep {
@@ -539,7 +570,8 @@ message GlobalKey {
 message CommitError {
   oneof sum {
     FailedAuthorizations failed_authorizations = 1;
-    GlobalKey unique_key_violation = 2;
+    GlobalKey unique_contract_key_violation = 2;
+    GlobalKey inconsistent_contract_key = 3;
   }
 }
 
@@ -568,10 +600,11 @@ message KeyWithMaintainers {
 // from the reference ledger.
 message Node {
   message Create {
-    ContractInstance contract_instance = 1;
-    repeated Party signatories = 2;
-    repeated Party stakeholders = 3;
-    KeyWithMaintainers key_with_maintainers = 4; // optional
+    string contract_id = 1;
+    ContractInstance contract_instance = 2;
+    repeated Party signatories = 3;
+    repeated Party stakeholders = 4;
+    KeyWithMaintainers key_with_maintainers = 5; // optional
   }
 
   message Fetch {
@@ -579,6 +612,7 @@ message Node {
     Identifier template_id = 2;
     repeated Party signatories = 3;
     repeated Party stakeholders = 4;
+    KeyWithMaintainers fetch_by_key = 13; // optional, if non-empty then fetched by key
   }
 
   message Exercise {
@@ -593,6 +627,7 @@ message Node {
     repeated Party stakeholders = 9;
     repeated NodeId children = 11;
     Value exercise_result = 12; // None for incomplete/aborted exercise nodes.
+    KeyWithMaintainers exercise_by_key = 13; // optional, if non-empty then exercised by key
   }
 
   message LookupByKey {

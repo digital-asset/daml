@@ -65,7 +65,7 @@ object ScriptF {
     def clients = _clients
     def compiledPackages = machine.compiledPackages
     val valueTranslator = new ValueTranslator(
-      interface = compiledPackages.interface,
+      pkgInterface = compiledPackages.pkgInterface,
       requireV1ContractIdSuffix = false,
     )
     val utcClock = Clock.systemUTC()
@@ -78,10 +78,10 @@ object ScriptF {
         ifaceId: Option[Identifier],
         choice: Name,
     ): Either[String, Ast.TemplateChoiceSignature] =
-      compiledPackages.interface.lookupChoice(tmplId, ifaceId, choice).left.map(_.pretty)
+      compiledPackages.pkgInterface.lookupChoice(tmplId, ifaceId, choice).left.map(_.pretty)
 
     def lookupKeyTy(id: Identifier): Either[String, Ast.Type] =
-      compiledPackages.interface.lookupTemplateKey(id) match {
+      compiledPackages.pkgInterface.lookupTemplateKey(id) match {
         case Right(key) => Right(key.typ)
         case Left(err) => Left(err.pretty)
       }

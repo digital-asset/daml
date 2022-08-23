@@ -8,6 +8,8 @@ import com.daml.lf.archive.Dar
 import data.Ref, Ref.{Identifier, PackageId}
 
 import scala.collection.immutable.Map
+import scalaz.std.tuple._
+import scalaz.syntax.functor._
 import scalaz.syntax.std.map._
 import scalaz.Semigroup
 
@@ -43,6 +45,24 @@ final case class EnvironmentInterface(
         case z: InterfaceType.Normal => z
       }
     })
+
+  def resolveRetroImplements: EnvironmentInterface = {
+    import Interface.findTemplate
+    val (newTypeDecls, newAstInterfaces) = astInterfaces.foldLeft((typeDecls, astInterfaces)) {
+      case ((typeDecls, astInterfaces), (ifTc, defIf)) =>
+        defIf
+          .resolveRetroImplements(ifTc, typeDecls) { case (typeDecls, tplName) =>
+            findTemplate(typeDecls, tplName) map { itt => f =>
+              typeDecls.updated(tplName, itt.copy(template = f(itt.template)))
+            }
+          }
+          .map(defIf => astInterfaces.updated(ifTc, defIf))
+    }
+    copy(typeDecls = newTypeDecls, astInterfaces = newAstInterfaces)
+  }
+
+  def resolveInterfaceViewType(tcn: Ref.TypeConName): Option[DefInterface.ViewTypeFWT] =
+    typeDecls get tcn flatMap (_.asInterfaceViewType)
 }
 
 object EnvironmentInterface {

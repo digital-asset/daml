@@ -1,6 +1,6 @@
 [![Daml logo](daml-logo.png)](https://www.digitalasset.com/developers)
 
-[![Download](https://img.shields.io/github/release/digital-asset/daml.svg?label=Download)](https://docs.daml.com/getting-started/installation.html)
+[![Download](https://img.shields.io/github/release/digital-asset/daml.svg?label=Download&sort=semver)](https://docs.daml.com/getting-started/installation.html)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/digital-asset/daml/blob/main/LICENSE)
 [![Build](https://dev.azure.com/digitalasset/daml/_apis/build/status/digital-asset.daml?branchName=main&label=Build)](https://dev.azure.com/digitalasset/daml/_build/latest?definitionId=4&branchName=main)
 
@@ -80,6 +80,21 @@ fi
 # End Nix
 ```
 See https://github.com/NixOS/nix/issues/3616 for more information about this issue.
+
+##### MacOS M1
+
+The above procedure will use and build native arm64 M1 binaries for this
+project. However, note that at the time of writing the CI system of the Daml
+project does not yet include MacOS M1 nodes. Therefore, the M1 configuration is
+untested on CI, and the remote cache is not populated with native M1 artifacts.
+
+If you encounter issues with a native M1 build, then you can configure project
+to build x86-64 binaries instead and run them through Rosetta. To do that
+replace the contents of the file `nix/system.nix` with the following content:
+
+```nix
+"x86_64-darwin"
+```
 
 #### Windows
 

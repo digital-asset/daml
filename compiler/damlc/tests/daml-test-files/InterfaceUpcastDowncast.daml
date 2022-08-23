@@ -10,13 +10,17 @@ import DA.Assert ((===))
 import DA.Optional (isNone)
 import DA.Functor (void)
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface A where
+  viewtype EmptyInterfaceView
   getOwner : Party
   nonconsuming choice ChoiceA : Int
     controller getOwner this
     do pure 10
 
 interface B requires A where
+  viewtype EmptyInterfaceView
   getCoolness : Int
   nonconsuming choice ChoiceB : Int
     controller getOwner this
@@ -27,9 +31,11 @@ template T1
     p1 : Party
   where
     signatory p1
-    implements A where
+    interface instance A for T1 where
+      view = EmptyInterfaceView
       getOwner = p1
-    implements B where
+    interface instance B for T1 where
+      view = EmptyInterfaceView
       getCoolness = 20
 
 template T2
@@ -37,7 +43,8 @@ template T2
     p2 : Party
   where
     signatory p2
-    implements A where
+    interface instance A for T2 where
+      view = EmptyInterfaceView
       getOwner = p2
 
 main = scenario do

@@ -7,15 +7,17 @@ import java.io.File
 import java.nio.file.Files
 
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
+import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCode, StatusCodes, Uri}
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref
-import com.daml.lf.value.test.TypedValueGenerators.{RNil, ValueAddend => VA}
+import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
 import com.daml.scalautil.Statement.discard
+import json.SprayJson.{decode => jdecode}
 import com.daml.http.util.TestUtil.writeToFile
 import org.scalacheck.Gen
 import org.scalatest.{Assertion, BeforeAndAfterAll}
+import scalaz.\/-
 import shapeless.record.{Record => ShRecord}
 import spray.json.JsValue
 
@@ -24,6 +26,7 @@ import scala.concurrent.Future
 abstract class HttpServiceIntegrationTest
     extends AbstractHttpServiceIntegrationTestTokenIndependent
     with BeforeAndAfterAll {
+  import HttpServiceIntegrationTest._
   import AbstractHttpServiceIntegrationTestFuns.ciouDar
 
   private val staticContent: String = "static"
@@ -73,13 +76,15 @@ abstract class HttpServiceIntegrationTest
         }: Future[Assertion]
   }
 
-  // TODO(#13668) Redesign the test once the issue is fixed
-  "pick up new package's inherited interfaces" ignore withHttpService { fixture =>
-    import fixture.encoder
+  "exercise interface choices" - {
     import json.JsonProtocol._
+    import AbstractHttpServiceIntegrationTestFuns.{UriFixture, EncoderFixture}
+
     def createIouAndExerciseTransfer(
+        fixture: UriFixture with EncoderFixture,
         initialTplId: domain.TemplateId.OptionalPkg,
-        exerciseBy: domain.TemplateId.OptionalPkg,
+        exerciseTid: domain.TemplateId.OptionalPkg,
+        choice: TExercise[_] = tExercise(choiceArgType = echoTextVA)(echoTextSample),
     ) = for {
       aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, aliceHeaders) = aliceH
@@ -91,38 +96,126 @@ abstract class HttpServiceIntegrationTest
       testIIouID = inside(createTest) { case (StatusCodes.OK, domain.OkResponse(result, _, _)) =>
         result.contractId
       }
-      bobH <- fixture.getUniquePartyAndAuthHeaders("Bob")
-      (bob, _) = bobH
       exerciseTest <- fixture
         .postJsonRequest(
           Uri.Path("/v1/exercise"),
-          encodeExercise(encoder)(
-            iouTransfer(domain.EnrichedContractId(Some(exerciseBy), testIIouID), bob)
+          encodeExercise(fixture.encoder)(
+            iouTransfer(
+              domain.EnrichedContractId(Some(exerciseTid), testIIouID),
+              choice,
+            )
           ),
           aliceHeaders,
         )
-        .parseResponse[JsValue]
-    } yield inside(exerciseTest) {
-      case (StatusCodes.OK, domain.OkResponse(_, None, StatusCodes.OK)) => succeed
+        .parseResponse[domain.ExerciseResponse[JsValue]]
+    } yield exerciseTest
+
+    def exerciseSucceeded[A](
+        exerciseTest: (StatusCode, domain.SyncResponse[domain.ExerciseResponse[JsValue]])
+    ) =
+      inside(exerciseTest) { case (StatusCodes.OK, domain.OkResponse(er, None, StatusCodes.OK)) =>
+        inside(jdecode[String](er.exerciseResult)) { case \/-(decoded) => decoded }
+      }
+
+    // nested like this similar to TpId so the references look nicer
+    object CIou {
+      val CIou: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "CIou", "CIou")
+    }
+    object Transferrable {
+      val Transferrable: domain.ContractTypeId.Interface.OptionalPkg =
+        domain.ContractTypeId.Interface(None, "Transferrable", "Transferrable")
     }
 
-    for {
-      _ <- uploadPackage(fixture)(ciouDar)
-      // first, use IIou only
-      _ <- createIouAndExerciseTransfer(
-        initialTplId = domain.TemplateId(None, "IIou", "TestIIou"),
-        // whether we can exercise by interface-ID
-        exerciseBy = TpId.IIou.IIou,
-      )
-      // ideally we would upload IIou.daml only above, then upload ciou here;
-      // however tests currently don't play well with reload -SC
-      // next, use CIou
-      _ <- createIouAndExerciseTransfer(
-        initialTplId = domain.TemplateId(None, "CIou", "CIou"),
-        // whether we can exercise inherited by concrete template ID
-        exerciseBy = domain.TemplateId(None, "CIou", "CIou"),
-      )
-    } yield succeed
+    "templateId = interface ID" in withHttpService { fixture =>
+      for {
+        _ <- uploadPackage(fixture)(ciouDar)
+        result <- createIouAndExerciseTransfer(
+          fixture,
+          initialTplId = domain.TemplateId(None, "IIou", "TestIIou"),
+          // whether we can exercise by interface-ID
+          exerciseTid = TpId.IIou.IIou,
+        ) map exerciseSucceeded
+      } yield result should ===("Bob invoked IIou.Transfer")
+    }
+
+    // ideally we would upload IIou.daml, then force a reload, then upload ciou;
+    // however tests currently don't play well with reload -SC
+    "templateId = template ID" in withHttpService { fixture =>
+      for {
+        _ <- uploadPackage(fixture)(ciouDar)
+        result <- createIouAndExerciseTransfer(
+          fixture,
+          initialTplId = CIou.CIou,
+          // whether we can exercise inherited by concrete template ID
+          exerciseTid = CIou.CIou,
+        ) map exerciseSucceeded
+      } yield result should ===("Bob invoked IIou.Transfer")
+    }
+
+    "templateId = template ID, choiceInterfaceId = interface ID" in withHttpService { fixture =>
+      for {
+        _ <- uploadPackage(fixture)(ciouDar)
+        result <- createIouAndExerciseTransfer(
+          fixture,
+          initialTplId = CIou.CIou,
+          exerciseTid = CIou.CIou,
+          choice = tExercise(choiceInterfaceId = Some(TpId.IIou.IIou), choiceArgType = echoTextVA)(
+            echoTextSample
+          ),
+        ) map exerciseSucceeded
+      } yield result should ===("Bob invoked IIou.Transfer")
+    }
+
+    "templateId = template, no choiceInterfaceId, picks template Overridden" in withHttpService {
+      fixture =>
+        for {
+          _ <- uploadPackage(fixture)(ciouDar)
+          result <- createIouAndExerciseTransfer(
+            fixture,
+            initialTplId = CIou.CIou,
+            exerciseTid = CIou.CIou,
+            choice = tExercise(choiceName = "Overridden", choiceArgType = echoTextPairVA)(
+              ShRecord(echo = ShRecord(_1 = "yes", _2 = "no"))
+            ),
+          ) map exerciseSucceeded
+        } yield result should ===("(\"yes\",\"no\") invoked CIou.Overridden")
+    }
+
+    "templateId = template, choiceInterfaceId = interface, picks interface Overridden" in withHttpService {
+      fixture =>
+        for {
+          _ <- uploadPackage(fixture)(ciouDar)
+          result <- createIouAndExerciseTransfer(
+            fixture,
+            initialTplId = CIou.CIou,
+            exerciseTid = CIou.CIou,
+            choice = tExercise(Some(Transferrable.Transferrable), "Overridden", echoTextVA)(
+              ShRecord(echo = "yesyes")
+            ),
+          ) map exerciseSucceeded
+        } yield result should ===("yesyes invoked Transferrable.Overridden")
+    }
+
+    "templateId = template, no choiceInterfaceId, ambiguous" in withHttpService { fixture =>
+      for {
+        _ <- uploadPackage(fixture)(ciouDar)
+        response <- createIouAndExerciseTransfer(
+          fixture,
+          initialTplId = CIou.CIou,
+          exerciseTid = CIou.CIou,
+          choice = tExercise(choiceName = "Ambiguous", choiceArgType = echoTextVA)(
+            ShRecord(echo = "ambiguous-test")
+          ),
+        )
+      } yield inside(response) {
+        case (
+              StatusCodes.BadRequest,
+              domain.ErrorResponse(Seq(onlyError), None, StatusCodes.BadRequest, None),
+            ) =>
+          (onlyError should include regex
+            raw"Cannot resolve Choice Argument type, given: \(TemplateId\([0-9a-f]{64},CIou,CIou\), Ambiguous\)")
+      }
+    }
   }
 
   "fail to exercise by key with interface ID" in withHttpService { fixture =>
@@ -138,18 +231,16 @@ abstract class HttpServiceIntegrationTest
         aliceHeaders,
       )
       _ = createTest._1 should ===(StatusCodes.OK)
-      bobH <- fixture.getUniquePartyAndAuthHeaders("Bob")
-      (bob, _) = bobH
       exerciseTest <- fixture
         .postJsonRequest(
           Uri.Path("/v1/exercise"),
           encodeExercise(encoder)(
             iouTransfer(
               domain.EnrichedContractKey(
-                TpId.IIou.IIou,
+                TpId.unsafeCoerce[domain.ContractTypeId.Template, Option[String]](TpId.IIou.IIou),
                 v.Value(v.Value.Sum.Party(domain.Party unwrap alice)),
               ),
-              bob,
+              tExercise()(ShRecord(echo = "bob")),
             )
           ),
           aliceHeaders,
@@ -160,16 +251,12 @@ abstract class HttpServiceIntegrationTest
             StatusCodes.BadRequest,
             domain.ErrorResponse(Seq(lookup), None, StatusCodes.BadRequest, _),
           ) =>
-        lookup should include regex raw"Cannot resolve Template Key type, given: TemplateId\([0-9a-f]{64},IIou,IIou\)"
+        lookup should include regex raw"Cannot resolve Template Key type, given: InterfaceId\([0-9a-f]{64},IIou,IIou\)"
     }
   }
 
   private[this] val (_, ciouVA) = {
-    import shapeless.syntax.singleton._
-    val iouT = Symbol("issuer") ->> VA.party ::
-      Symbol("owner") ->> VA.party ::
-      Symbol("amount") ->> VA.text ::
-      RNil
+    val iouT = ShRecord(issuer = VA.party, owner = VA.party, amount = VA.text)
     VA.record(Ref.Identifier assertFromString "none:Iou:Iou", iouT)
   }
 
@@ -185,18 +272,51 @@ abstract class HttpServiceIntegrationTest
     domain.CreateCommand(templateId, iouT, None)
   }
 
-  private[this] def iouTransfer(
+  private[this] def iouTransfer[Inj](
       locator: domain.ContractLocator[v.Value],
-      to: domain.Party,
+      choice: TExercise[Inj],
   ) = {
-    val payload = recordFromFields(ShRecord(to = v.Value.Sum.Party(domain.Party unwrap to)))
+    import choice.{choiceInterfaceId, choiceName, choiceArgType, choiceArg}
+    val payload = argToApi(choiceArgType)(choiceArg)
     domain.ExerciseCommand(
       locator,
-      domain.Choice("Transfer"),
+      domain.Choice(choiceName),
       v.Value(v.Value.Sum.Record(payload)),
+      choiceInterfaceId,
       None,
     )
   }
+}
+
+object HttpServiceIntegrationTest {
+  private[this] val irrelevant = Ref.Identifier assertFromString "none:Discarded:Identifier"
+
+  private val (_, echoTextVA) =
+    VA.record(irrelevant, ShRecord(echo = VA.text))
+
+  private val (_, echoTextPairVA) =
+    VA.record(
+      irrelevant,
+      ShRecord(echo = VA.record(irrelevant, ShRecord(_1 = VA.text, _2 = VA.text))._2),
+    )
+
+  private val echoTextSample: echoTextVA.Inj = ShRecord(echo = "Bob")
+
+  private def tExercise(
+      choiceInterfaceId: Option[domain.ContractTypeId.Interface.OptionalPkg] = None,
+      choiceName: String = "Transfer",
+      choiceArgType: VA = echoTextVA,
+  )(
+      choiceArg: choiceArgType.Inj
+  ): TExercise[choiceArgType.Inj] =
+    TExercise(choiceInterfaceId, choiceName, choiceArgType, choiceArg)
+
+  private final case class TExercise[Inj](
+      choiceInterfaceId: Option[domain.ContractTypeId.Interface.OptionalPkg],
+      choiceName: String,
+      choiceArgType: VA.Aux[Inj],
+      choiceArg: Inj,
+  )
 }
 
 final class HttpServiceIntegrationTestCustomToken

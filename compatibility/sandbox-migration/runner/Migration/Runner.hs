@@ -18,6 +18,7 @@ import Control.Exception
 import Control.Lens
 import Control.Monad
 import Data.Either
+import Data.Either.Extra
 import Data.List
 import Data.List.Extra (lower)
 import Data.Maybe
@@ -102,6 +103,9 @@ main = do
 supportsSandboxOnX :: SemVer.Version -> Bool
 supportsSandboxOnX v = v == SemVer.initial || v >= (SemVer.initial & SemVer.major .~ 2)
 
+supportsSandboxOnXHocon :: SemVer.Version -> Bool
+supportsSandboxOnXHocon ver = ver == SemVer.initial || ver > (fromRight' $ SemVer.fromText "2.4.0-snapshot.20220712.10212.0.0bf28176")
+
 supportsAppendOnly :: SemVer.Version -> Bool
 supportsAppendOnly v = v == SemVer.initial
 -- Note: until the append-only migration is frozen, only the head version of it should be used
@@ -142,9 +146,11 @@ withSandbox (AppendOnly appendOnly) assistant jdbcUrl f =
     -- The CLI of sandbox on x is not compatible with Sandbox
     -- so rather than using the utilities from the Sandbox module
     -- we spin it up directly.
+    sandboxOnXCommand = ["run-legacy-cli-config" | supportsSandboxOnXHocon version]
+
     withSandboxOnX portFile f = do
           let args =
-                  [ "--contract-id-seeding=testing-weak", "--mutable-contract-state-cache"
+                  sandboxOnXCommand ++ [ "--contract-id-seeding=testing-weak", "--mutable-contract-state-cache"
                   , "--ledger-id=" <> ledgerid
                   , "--participant=participant-id=sandbox-participant,port=0,port-file=" <> portFile <> ",server-jdbc-url=" <> T.unpack jdbcUrl <> ",ledgerid=" <> ledgerid
                   ]

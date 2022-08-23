@@ -4,11 +4,15 @@
 module Exceptions where
 
 import DA.Assert
-import DA.Exception (throw)
+import DA.Exception (throw,throwPure)
 
 exception E
   where
     message "E"
+
+exception Ecid with cid: ContractId K
+  where
+    message "Ecid"
 
 template K
   with
@@ -90,6 +94,41 @@ template T
            E -> pure ()
          (_, k) <- fetchByKey @K (p, i)
          k === K p i "rollback"
+
+    nonconsuming choice ExerciseAfterRollbackCreate: ()
+      controller p
+      do
+        try do
+          cid <- create (K p 1 "")
+          throw (Ecid cid)
+        catch (Ecid cid) -> archive cid
+
+    nonconsuming choice ThrowInHandler : ()
+      controller p
+      do
+        try
+          try throw E
+          catch E -> throw E
+        catch
+          E -> pure ()
+
+    nonconsuming choice ThrowPureInHandler : ()
+      controller p
+      do
+        try
+          try throw E
+          catch E -> throwPure E
+        catch
+          E -> pure ()
+
+    nonconsuming choice ThrowPureInHandlerPattern : ()
+      controller p
+      do
+        try
+          try throw E
+          catch E | throwPure E -> pure ()
+        catch
+          E -> pure ()
 
 -- This template is used to test that the
 -- engine only ever looks up a global key once.

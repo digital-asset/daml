@@ -4,11 +4,13 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.time.{Clock, Instant}
-
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
-import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.CompletionResponse
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.{
+  CompletionResponse,
+  IncludeInterfaceView,
+}
 import com.daml.ledger.api.testtool.infrastructure.time.{
   DelayMechanism,
   StaticTimeDelayMechanism,
@@ -71,7 +73,12 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.package_service._
 import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, GetTimeResponse, SetTimeRequest}
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
-import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
+import com.daml.ledger.api.v1.transaction_filter.{
+  Filters,
+  InclusiveFilters,
+  InterfaceFilter,
+  TransactionFilter,
+}
 import com.daml.ledger.api.v1.transaction_service.{
   GetLedgerEndRequest,
   GetTransactionByEventIdRequest,
@@ -79,7 +86,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsRequest,
   GetTransactionsResponse,
 }
-import com.daml.ledger.api.v1.value.{Identifier, Value}
+import com.daml.ledger.api.v1.value.Value
 import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.client.binding.{Primitive, Template}
 import com.daml.lf.data.Ref
@@ -115,8 +122,6 @@ final class SingleParticipantTestContext private[participant] (
 )(protected[participant] implicit val ec: ExecutionContext)
     extends ParticipantTestContext {
   private val logger = ContextualizedLogger.get(getClass)
-
-  import SingleParticipantTestContext._
 
   private[this] val identifierPrefix =
     s"$applicationId-$endpointId-$identifierSuffix"
@@ -274,11 +279,12 @@ final class SingleParticipantTestContext private[participant] (
 
   override def activeContractsRequest(
       parties: Seq[Party],
-      templateIds: Seq[Identifier] = Seq.empty,
+      templateIds: Seq[TemplateId] = Seq.empty,
+      interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
   ): GetActiveContractsRequest =
     new GetActiveContractsRequest(
       ledgerId = ledgerId,
-      filter = transactionFilter(Tag.unsubst(parties), templateIds),
+      filter = Some(transactionFilter(parties, templateIds, interfaceFilters)),
       verbose = true,
     )
 
@@ -286,23 +292,49 @@ final class SingleParticipantTestContext private[participant] (
     activeContractsByTemplateId(Seq.empty, parties: _*)
 
   override def activeContractsByTemplateId(
-      templateIds: Seq[Identifier],
+      templateIds: Seq[TemplateId],
       parties: Party*
   ): Future[Vector[CreatedEvent]] =
     activeContracts(activeContractsRequest(parties, templateIds)).map(_._2)
 
-  override def getTransactionsRequest(
+  def transactionFilter(
       parties: Seq[Party],
       templateIds: Seq[TemplateId] = Seq.empty,
-      begin: LedgerOffset = referenceOffset,
-  ): GetTransactionsRequest =
-    new GetTransactionsRequest(
-      ledgerId = ledgerId,
-      begin = Some(begin),
-      end = Some(end),
-      filter = transactionFilter(Tag.unsubst(parties), Tag.unsubst(templateIds)),
-      verbose = true,
+      interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+  ): TransactionFilter =
+    new TransactionFilter(
+      parties.map(party => party.unwrap -> filters(templateIds, interfaceFilters)).toMap
     )
+
+  def filters(
+      templateIds: Seq[TemplateId] = Seq.empty,
+      interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+  ): Filters = new Filters(
+    if (templateIds.isEmpty && interfaceFilters.isEmpty) None
+    else
+      Some(
+        new InclusiveFilters(
+          templateIds = templateIds.map(Tag.unwrap).toSeq,
+          interfaceFilters = interfaceFilters.map { case (id, includeInterfaceView) =>
+            new InterfaceFilter(
+              Some(Tag.unwrap(id)),
+              includeInterfaceView = includeInterfaceView,
+            )
+          }.toSeq,
+        )
+      )
+  )
+
+  def getTransactionsRequest(
+      transactionFilter: TransactionFilter,
+      begin: LedgerOffset = referenceOffset,
+  ): GetTransactionsRequest = new GetTransactionsRequest(
+    ledgerId = ledgerId,
+    begin = Some(begin),
+    end = Some(end),
+    filter = Some(transactionFilter),
+    verbose = true,
+  )
 
   private def transactions[Res](
       n: Int,
@@ -327,14 +359,14 @@ final class SingleParticipantTestContext private[participant] (
       templateId: TemplateId,
       parties: Party*
   ): Future[Vector[Transaction]] =
-    flatTransactions(getTransactionsRequest(parties, Seq(templateId)))
+    flatTransactions(getTransactionsRequest(transactionFilter(parties, Seq(templateId))))
 
   override def flatTransactions(request: GetTransactionsRequest): Future[Vector[Transaction]] =
     transactions(request, services.transaction.getTransactions)
       .map(_.flatMap(_.transactions))
 
   override def flatTransactions(parties: Party*): Future[Vector[Transaction]] =
-    flatTransactions(getTransactionsRequest(parties))
+    flatTransactions(getTransactionsRequest(transactionFilter(parties)))
 
   override def flatTransactions(
       take: Int,
@@ -344,20 +376,20 @@ final class SingleParticipantTestContext private[participant] (
       .map(_.flatMap(_.transactions))
 
   override def flatTransactions(take: Int, parties: Party*): Future[Vector[Transaction]] =
-    flatTransactions(take, getTransactionsRequest(parties))
+    flatTransactions(take, getTransactionsRequest(transactionFilter(parties)))
 
   override def transactionTreesByTemplateId(
       templateId: TemplateId,
       parties: Party*
   ): Future[Vector[TransactionTree]] =
-    transactionTrees(getTransactionsRequest(parties, Seq(templateId)))
+    transactionTrees(getTransactionsRequest(transactionFilter(parties, Seq(templateId))))
 
   override def transactionTrees(request: GetTransactionsRequest): Future[Vector[TransactionTree]] =
     transactions(request, services.transaction.getTransactionTrees)
       .map(_.flatMap(_.transactions))
 
   override def transactionTrees(parties: Party*): Future[Vector[TransactionTree]] =
-    transactionTrees(getTransactionsRequest(parties))
+    transactionTrees(getTransactionsRequest(transactionFilter(parties)))
 
   override def transactionTrees(
       take: Int,
@@ -367,7 +399,7 @@ final class SingleParticipantTestContext private[participant] (
       .map(_.flatMap(_.transactions))
 
   override def transactionTrees(take: Int, parties: Party*): Future[Vector[TransactionTree]] =
-    transactionTrees(take, getTransactionsRequest(parties))
+    transactionTrees(take, getTransactionsRequest(transactionFilter(parties)))
 
   override def getTransactionByIdRequest(
       transactionId: String,
@@ -453,16 +485,16 @@ final class SingleParticipantTestContext private[participant] (
 
   override def exercise[T](
       party: Party,
-      exercise: Party => Primitive.Update[T],
+      exercise: Primitive.Update[T],
   ): Future[TransactionTree] =
     submitAndWaitForTransactionTree(
-      submitAndWaitRequest(party, exercise(party).command)
+      submitAndWaitRequest(party, exercise.command)
     ).map(_.getTransaction)
 
   override def exercise[T](
       actAs: List[Party],
       readAs: List[Party],
-      exercise: => Primitive.Update[T],
+      exercise: Primitive.Update[T],
   ): Future[TransactionTree] =
     submitAndWaitForTransactionTree(
       submitAndWaitRequest(actAs, readAs, exercise.command)
@@ -470,18 +502,18 @@ final class SingleParticipantTestContext private[participant] (
 
   override def exerciseForFlatTransaction[T](
       party: Party,
-      exercise: Party => Primitive.Update[T],
+      exercise: Primitive.Update[T],
   ): Future[Transaction] =
     submitAndWaitForTransaction(
-      submitAndWaitRequest(party, exercise(party).command)
+      submitAndWaitRequest(party, exercise.command)
     ).map(_.getTransaction)
 
   override def exerciseAndGetContract[T](
       party: Party,
-      exercise: Party => Primitive.Update[Any],
+      exercise: Primitive.Update[Any],
   ): Future[Primitive.ContractId[T]] =
     submitAndWaitForTransaction(
-      submitAndWaitRequest(party, exercise(party).command)
+      submitAndWaitRequest(party, exercise.command)
     )
       .map(_.getTransaction)
       .map(extractContracts)
@@ -751,20 +783,4 @@ final class SingleParticipantTestContext private[participant] (
 
   private def reservePartyNames(n: Int): Future[Vector[Party]] =
     Future.successful(Vector.fill(n)(Party(nextPartyHintId())))
-}
-
-private[testtool] object SingleParticipantTestContext {
-
-  private[this] def filter(templateIds: Seq[Identifier]): Filters =
-    new Filters(
-      if (templateIds.isEmpty) None
-      else Some(new InclusiveFilters(templateIds))
-    )
-
-  private def transactionFilter(
-      parties: Seq[String],
-      templateIds: Seq[Identifier],
-  ): Some[TransactionFilter] =
-    Some(new TransactionFilter(Map(parties.map(_ -> filter(templateIds)): _*)))
-
 }

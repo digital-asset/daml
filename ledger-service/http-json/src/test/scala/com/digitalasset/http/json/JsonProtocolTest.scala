@@ -18,6 +18,7 @@ import com.daml.http.Generators.{
 }
 import com.daml.scalautil.Statement.discard
 import com.daml.http.domain
+import com.daml.lf.data.Ref
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Gen.{identifier, listOf}
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
@@ -54,7 +55,7 @@ class JsonProtocolTest
   }
 
   "domain.TemplateId.OptionalPkg" - {
-    "can be serialized to JSON" in forAll(genDomainTemplateIdO(OptionalPackageIdGen)) {
+    "can be serialized to JSON" in forAll(genDomainTemplateIdO) {
       a: domain.TemplateId.OptionalPkg =>
         val expectedStr: String = a.packageId.cata(
           p => s"${p: String}:${a.moduleName}:${a.entityName}",
@@ -100,6 +101,28 @@ class JsonProtocolTest
     }
   }
 
+  "domain.DeduplicationPeriod" - {
+    @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
+    def roundtrip(p: domain.DeduplicationPeriod, expected: JsValue) = {
+      SprayJson.encode(p) should ===(\/-(expected))
+      SprayJson.decode[domain.DeduplicationPeriod](expected) should ===(\/-(p))
+    }
+
+    "encodes durations" in {
+      roundtrip(
+        domain.DeduplicationPeriod.Duration(10000L),
+        Map("type" -> "Duration".toJson, "durationInMillis" -> 10000L.toJson).toJson,
+      )
+    }
+
+    "encodes offsets" in {
+      roundtrip(
+        domain.DeduplicationPeriod.Offset(Ref.HexString assertFromString "0123579236ab"),
+        Map("type" -> "Offset", "offset" -> "0123579236ab").toJson,
+      )
+    }
+  }
+
   "domain.ServiceWarning" - {
     "UnknownTemplateIds serialization" in forAll(genUnknownTemplateIds) { x =>
       val expectedTemplateIds: Vector[JsValue] = x.unknownTemplateIds.view.map(_.toJson).toVector
@@ -130,7 +153,7 @@ class JsonProtocolTest
 
   "domain.OkResponse" - {
 
-    "response with warnings" in forAll(listOf(genDomainTemplateIdO(OptionalPackageIdGen))) {
+    "response with warnings" in forAll(listOf(genDomainTemplateIdO)) {
       templateIds: List[domain.TemplateId.OptionalPkg] =>
         val response: domain.OkResponse[Int] =
           domain.OkResponse(result = 100, warnings = Some(domain.UnknownTemplateIds(templateIds)))
@@ -213,7 +236,10 @@ class JsonProtocolTest
         val expectedFields: Map[String, JsValue] = referenceFields ++ Map[String, JsValue](
           "choice" -> JsString(cmd.choice.unwrap),
           "argument" -> cmd.argument,
-        ) ++ cmd.meta.cata(x => Map("meta" -> x.toJson), Map.empty)
+        ) ++ Iterable(
+          cmd.choiceInterfaceId.map(x => "choiceInterfaceId" -> x.toJson),
+          cmd.meta.map(x => "meta" -> x.toJson),
+        ).collect { case Some(x) => x }
 
         actual shouldBe JsObject(expectedFields)
     }

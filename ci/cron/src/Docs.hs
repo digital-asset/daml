@@ -38,7 +38,8 @@ import qualified Data.List
 import Data.Maybe (fromMaybe)
 import qualified Data.Ord
 import qualified Data.Set as Set
-import qualified System.Directory as Directory
+import qualified System.Directory.Extra as Directory
+import qualified System.FilePath as FilePath
 import qualified System.Environment
 import qualified System.Exit as Exit
 import System.FilePath.Posix ((</>))
@@ -71,7 +72,9 @@ shell_ cmd = do
     Control.void $ shell cmd
 
 proc_ :: [String] -> IO ()
-proc_ args = Control.void $ proc args
+proc_ args = Control.void $ do
+    print args
+    proc args
 
 shell_env_ :: [(String, String)] -> String -> IO ()
 shell_env_ env cmd = do
@@ -163,20 +166,24 @@ update_s3 opts temp vs = do
 
 update_top_level :: DocOptions -> FilePath -> Version -> Maybe Version -> IO ()
 update_top_level opts temp new mayOld = do
-    new_files <- Set.fromList <$> Directory.listDirectory (temp </> show new)
+    new_files <- Set.fromList <$> files_under new
     old_files <- case mayOld of
         Nothing -> pure Set.empty
-        Just old -> Set.fromList <$> Directory.listDirectory (temp </> show old)
+        Just old -> Set.fromList <$> files_under old
     let to_delete = Set.toList $ old_files `Set.difference` new_files
     Control.when (not $ null to_delete) $ do
         putStrLn $ "Deleting top-level files: " <> show to_delete
         Data.Foldable.for_ to_delete (\f -> do
-            proc_ ["aws", "s3", "rm", s3Path opts f, "--recursive"])
+            proc_ ["aws", "s3", "rm", s3Path opts f])
         putStrLn "Done."
     putStrLn $ "Pushing " <> show new <> " to top-level..."
-    let path = s3Path opts "" <> "/"
-    proc_ ["aws", "s3", "cp", temp </> show new, path, "--recursive", "--acl", "public-read"]
+    let root = s3Path opts "" <> "/"
+    proc_ ["aws", "s3", "cp", temp </> show new, root, "--recursive", "--acl", "public-read"]
     putStrLn "Done."
+  where files_under folder = do
+          let root = temp </> show folder
+          full_paths <- Directory.listFilesRecursive root
+          return $ map (FilePath.makeRelative root) full_paths
 
 reset_cloudfront :: IO ()
 reset_cloudfront = do

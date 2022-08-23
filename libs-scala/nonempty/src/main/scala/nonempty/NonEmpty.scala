@@ -140,6 +140,23 @@ object NonEmptyColl extends NonEmptyCollInstances {
     def forgetNE: A = self
   }
 
+  /** Operations that can ''return'' new maps or sets.  There is no reason to include any other
+    * kind of operation here, because they are covered by `#widen`.
+    */
+  implicit final class `SortedMap Ops`[
+      K,
+      V,
+      CC[X, +Y] <: imm.SortedMap[X, Y] with imm.SortedMapOps[X, Y, CC, _],
+  ](private val self: NonEmpty[imm.SortedMapOps[K, V, CC, _]])
+      extends AnyVal {
+    private type ESelf = imm.SortedMapOps[K, V, CC, _]
+    import NonEmptyColl.Instance.{unsafeNarrow => un}
+    def unsorted: NonEmpty[Map[K, V]] = un((self: ESelf).unsorted)
+    def updated(key: K, value: V): NonEmpty[CC[K, V]] = un((self: ESelf).updated(key, value))
+    def transform[W](f: (K, V) => W): NonEmpty[CC[K, W]] = un((self: ESelf).transform(f))
+    def keySet: NonEmpty[imm.SortedSet[K]] = un((self: ESelf).keySet)
+  }
+
   /** Operations that can ''return'' new maps.  There is no reason to include any other
     * kind of operation here, because they are covered by `#widen`.
     */
@@ -263,6 +280,8 @@ object NonEmptyCollInstances {
     def min1(implicit ev: Ordering[A]): A = (self: ESelf).min
     def max1(implicit ev: Ordering[A]): A = (self: ESelf).max
 
+    def minBy1[B](f: A => B)(implicit ev: Ordering[B]): A = (self: ESelf).minBy(f)
+    def maxBy1[B](f: A => B)(implicit ev: Ordering[B]): A = (self: ESelf).maxBy(f)
   }
 }
 

@@ -101,7 +101,7 @@ private[speedy] object PhaseOne {
 }
 
 private[lf] final class PhaseOne(
-    interface: PackageInterface,
+    pkgInterface: PackageInterface,
     config: PhaseOne.Config,
 ) {
 
@@ -230,7 +230,7 @@ private[lf] final class PhaseOne(
               tapp.tycon,
               handleLookup(
                 NameOf.qualifiedNameOfCurrentFunc,
-                interface.lookupRecordFieldInfo(tapp.tycon, field),
+                pkgInterface.lookupRecordFieldInfo(tapp.tycon, field),
               ).index,
             )(record)
           )
@@ -276,13 +276,13 @@ private[lf] final class PhaseOne(
       case EEnumCon(tyCon, consName) =>
         val rank = handleLookup(
           NameOf.qualifiedNameOfCurrentFunc,
-          interface.lookupEnumConstructor(tyCon, consName),
+          pkgInterface.lookupEnumConstructor(tyCon, consName),
         )
         Return(SEValue(SEnum(tyCon, consName, rank)))
       case EVariantCon(tapp, variant, arg) =>
         val rank = handleLookup(
           NameOf.qualifiedNameOfCurrentFunc,
-          interface.lookupVariantConstructor(tapp.tycon, variant),
+          pkgInterface.lookupVariantConstructor(tapp.tycon, variant),
         ).rank
         compileExp(env, arg) { arg =>
           Return(SBVariantCon(tapp.tycon, variant, rank)(arg))
@@ -366,6 +366,10 @@ private[lf] final class PhaseOne(
       case EObserverInterface(ifaceId, exp) =>
         compileExp(env, exp) { exp =>
           Return(SBObserverInterface(ifaceId)(exp))
+        }
+      case EViewInterface(ifaceId, exp) =>
+        compileExp(env, exp) { exp =>
+          Return(SBViewInterface(ifaceId)(exp))
         }
       case EExperimental(name, _) =>
         Return(SBExperimental(name))
@@ -573,7 +577,7 @@ private[lf] final class PhaseOne(
     if (fields.length == 1) {
       val index = handleLookup(
         NameOf.qualifiedNameOfCurrentFunc,
-        interface.lookupRecordFieldInfo(tapp.tycon, fields.head),
+        pkgInterface.lookupRecordFieldInfo(tapp.tycon, fields.head),
       ).index
       compileExp(env, record) { record =>
         compileExp(env, updates.head) { update =>
@@ -585,7 +589,7 @@ private[lf] final class PhaseOne(
         fields.map(name =>
           handleLookup(
             NameOf.qualifiedNameOfCurrentFunc,
-            interface.lookupRecordFieldInfo(tapp.tycon, name),
+            pkgInterface.lookupRecordFieldInfo(tapp.tycon, name),
           ).index
         )
       compileExps(env, record :: updates) { exps =>
@@ -622,7 +626,7 @@ private[lf] final class PhaseOne(
       case CPVariant(tycon, variant, binder) =>
         val rank = handleLookup(
           NameOf.qualifiedNameOfCurrentFunc,
-          interface.lookupVariantConstructor(tycon, variant),
+          pkgInterface.lookupVariantConstructor(tycon, variant),
         ).rank
         compileExp(env.pushExprVar(binder), rhs) { rhs =>
           k(SCaseAlt(t.SCPVariant(tycon, variant, rank), rhs))
@@ -630,7 +634,7 @@ private[lf] final class PhaseOne(
       case CPEnum(tycon, constructor) =>
         val rank = handleLookup(
           NameOf.qualifiedNameOfCurrentFunc,
-          interface.lookupEnumConstructor(tycon, constructor),
+          pkgInterface.lookupEnumConstructor(tycon, constructor),
         )
         compileExp(env, rhs) { rhs =>
           k(SCaseAlt(t.SCPEnum(tycon, constructor, rank), rhs))
@@ -708,9 +712,18 @@ private[lf] final class PhaseOne(
         compileExp(env, arg) { arg =>
           Return(t.CreateDefRef(tmplId)(arg))
         }
-      case UpdateCreateInterface(_, arg) =>
-        compileExp(env, arg) { arg =>
-          Return(SBResolveCreate(arg))
+      case UpdateCreateInterface(ifaceId, arg) =>
+        unaryFunction(env) { (tokPos, env) =>
+          compileExp(env, arg) { arg =>
+            let(env, arg) { (payloadPos, env) =>
+              let(env, SBResolveCreate(env.toSEVar(payloadPos), env.toSEVar(tokPos))) {
+                (cidPos, env) =>
+                  let(env, SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos)))) {
+                    (_, env) => Return(env.toSEVar(cidPos))
+                  }
+              }
+            }
+          }
         }
       case UpdateExercise(tmplId, chId, cid, arg) =>
         compileExp(env, cid) { cid =>
@@ -718,17 +731,16 @@ private[lf] final class PhaseOne(
             Return(t.TemplateChoiceDefRef(tmplId, chId)(cid, arg))
           }
         }
-      case UpdateExerciseInterface(ifaceId, chId, cid, arg, guard) =>
+      case UpdateExerciseInterface(ifaceId, chId, cid, arg, maybeGuard) =>
         compileExp(env, cid) { cid =>
           compileExp(env, arg) { arg =>
-            compileExp(env, guard) { guard =>
-              Return(
-                t.InterfaceChoiceDefRef(ifaceId, chId)(
-                  guard,
-                  cid,
-                  arg,
-                )
-              )
+            def choiceDefRef(guard: SExpr) =
+              Return(t.InterfaceChoiceDefRef(ifaceId, chId)(guard, cid, arg))
+            maybeGuard match {
+              case Some(guard) =>
+                compileExp(env, guard)(choiceDefRef(_))
+              case None =>
+                choiceDefRef(SEAbs(1, SEValue.True))
             }
           }
         }
