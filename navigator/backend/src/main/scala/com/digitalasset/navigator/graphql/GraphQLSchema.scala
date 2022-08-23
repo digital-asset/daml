@@ -166,6 +166,11 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
       ),
       Field("parameter", JsonType.DamlLfTypeType, resolve = _.value.parameter),
       Field("consuming", BooleanType, resolve = _.value.consuming),
+      Field(
+        "inheritedInterface",
+        OptionType(StringType),
+        resolve = _.value.inheritedInterface.map(_.asOpaqueString),
+      ),
     ),
   )
 
@@ -195,6 +200,11 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
             SearchArg :: FilterArg :: IncludeArchivedArg :: CountArg :: StartArg :: SortArg :: Nil,
           resolve = context =>
             buildTemplateContractPager(context).fetch(context.ctx.ledger, context.ctx.templates),
+        ),
+        Field(
+          "implementedInterfaces",
+          ListType(StringType),
+          resolve = _.value.implementedInterfaces.toList.map(_.asOpaqueString),
         ),
       ),
   )

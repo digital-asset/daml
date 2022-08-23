@@ -186,6 +186,7 @@ const query = gql`
           choices {
             name
             parameter
+            inheritedInterface
           }
         }
       }
