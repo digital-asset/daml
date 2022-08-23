@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.iface
+package com.daml.lf.typesig
 
 import scalaz.std.map._
 import scalaz.std.option._
@@ -214,7 +214,7 @@ final case class DefTemplate[+Ty](
 
   def getKey: j.Optional[_ <: Ty] = key.toJava
 
-  private[iface] def extendWithInterface[OTy >: Ty](
+  private[typesig] def extendWithInterface[OTy >: Ty](
       ifaceName: Ref.TypeConName,
       ifc: DefInterface[OTy],
   ): DefTemplate[OTy] = {
@@ -310,7 +310,7 @@ sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
   /** Coerce to [[Resolved]] based on the environment `astInterfaces`, or fail
     * with the choices that could not be resolved.
     */
-  private[iface] def resolveChoices[O >: Ty](
+  private[typesig] def resolveChoices[O >: Ty](
       astInterfaces: PartialFunction[Ref.TypeConName, DefInterface[O]]
   ): Either[ResolveError[Resolved[O]], Resolved[O]] = this match {
     case Unresolved(direct, unresolved) =>
@@ -348,14 +348,14 @@ object TemplateChoices {
       missingInterfaces: NonEmpty[Set[Ref.TypeConName]],
       partialResolution: Partial,
   ) {
-    private[iface] def describeError: String =
+    private[typesig] def describeError: String =
       missingInterfaces.mkString(", ")
 
-    private[iface] def map[B](f: Partial => B): ResolveError[B] =
+    private[typesig] def map[B](f: Partial => B): ResolveError[B] =
       copy(partialResolution = f(partialResolution))
   }
 
-  private[iface] final case class Unresolved[+Ty](
+  private[typesig] final case class Unresolved[+Ty](
       directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
       unresolvedChoiceSources: NonEmpty[Set[Ref.TypeConName]],
   ) extends TemplateChoices[Ty] {
@@ -368,7 +368,7 @@ object TemplateChoices {
   ) =
     directChoices transform ((_, c) => NonEmpty(Map, (none[Ref.TypeConName], c)))
 
-  private[iface] final case class Resolved[+Ty](
+  private[typesig] final case class Resolved[+Ty](
       resolvedChoices: Map[Ref.ChoiceName, NonEmpty[
         Map[Option[Ref.TypeConName], TemplateChoice[Ty]]
       ]]
@@ -384,7 +384,8 @@ object TemplateChoices {
 
     // choice type abstracted over the TemplateChoice, for specifying
     // aggregation of choices (typically with tags, foldMap, semigroup)
-    private[iface] type Choices[C] = Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], C]]]
+    private[typesig] type Choices[C] =
+      Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], C]]]
   }
 
   implicit val `TemplateChoices traverse`: Traverse[TemplateChoices] = new Traverse[TemplateChoices]
@@ -436,12 +437,12 @@ final case class DefInterface[+Ty](
 
   // Restructure `choices` in the resolved-choices data structure format,
   // for aggregation with [[TemplateChoices.Resolved]].
-  private[iface] def choicesAsResolved[Name](
+  private[typesig] def choicesAsResolved[Name](
       selfName: Name
   ): Map[Ref.ChoiceName, NonEmpty[Map[Option[Name], TemplateChoice[Ty]]]] =
     choices transform ((_, tc) => NonEmpty(Map, some(selfName) -> tc))
 
-  private[iface] def resolveRetroImplements[S, OTy >: Ty](selfName: Ref.TypeConName, s: S)(
+  private[typesig] def resolveRetroImplements[S, OTy >: Ty](selfName: Ref.TypeConName, s: S)(
       setTemplate: SetterAt[Ref.TypeConName, S, DefTemplate[OTy]]
   ): (S, DefInterface[OTy]) = {
     def addMySelf(dt: DefTemplate[OTy]) =

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
-package iface
+package typesig
 package reader
 
 import com.daml.daml_lf_dev.DamlLf
@@ -21,12 +21,18 @@ import com.daml.nonempty.NonEmpty
 
 import scala.collection.immutable.Map
 
-object InterfaceReader {
+object SignatureReader {
   import Errors._
+  import PackageSignature.TypeDecl
 
-  sealed abstract class InterfaceReaderError extends Product with Serializable
-  final case class UnserializableDataType(error: String) extends InterfaceReaderError
-  final case class InvalidDataTypeDefinition(error: String) extends InterfaceReaderError
+  // @deprecated("renamed to SignatureReader.Error", since = "2.4.0")
+  type InterfaceReaderError = Error
+  // @deprecated("renamed to SignatureReader.Error", since = "2.4.0")
+  final val InterfaceReaderError = Error
+
+  sealed abstract class Error extends Product with Serializable
+  final case class UnserializableDataType(error: String) extends Error
+  final case class InvalidDataTypeDefinition(error: String) extends Error
 
   private def errorMessage(ctx: QualifiedName, reason: String): String =
     s"Invalid data definition: $ctx, reason: $reason"
@@ -34,20 +40,20 @@ object InterfaceReader {
   private def invalidDataTypeDefinition[Bot](
       ctx: QualifiedName,
       reason: String,
-  ): InterfaceReaderError \/ Bot = -\/(InvalidDataTypeDefinition(errorMessage(ctx, reason)))
+  ): Error \/ Bot = -\/(InvalidDataTypeDefinition(errorMessage(ctx, reason)))
 
   private def unserializableDataType[Bot](
       ctx: QualifiedName,
       reason: String,
-  ): InterfaceReaderError \/ Bot = -\/(UnserializableDataType(errorMessage(ctx, reason)))
+  ): Error \/ Bot = -\/(UnserializableDataType(errorMessage(ctx, reason)))
 
-  object InterfaceReaderError {
-    type Tree = Errors[ErrorLoc, InterfaceReaderError]
+  object Error {
+    type Tree = Errors[ErrorLoc, Error]
 
-    implicit def `IRE semigroup`: Semigroup[InterfaceReaderError] =
+    implicit def `IRE semigroup`: Semigroup[Error] =
       Semigroup.firstSemigroup
 
-    def treeReport(errors: Errors[ErrorLoc, InterfaceReader.InvalidDataTypeDefinition]): Cord =
+    def treeReport(errors: Errors[ErrorLoc, SignatureReader.InvalidDataTypeDefinition]): Cord =
       stringReport(errors)(
         _.fold(prop => Cord(s".${prop.name}"), ixName => Cord(s"'$ixName'")),
         e => Cord(e.error),
@@ -55,12 +61,12 @@ object InterfaceReader {
   }
 
   private[reader] final case class State(
-      typeDecls: Map[QualifiedName, iface.InterfaceType] = Map.empty,
-      astInterfaces: Map[QualifiedName, iface.DefInterface.FWT] = Map.empty,
-      errors: InterfaceReaderError.Tree = mzero[InterfaceReaderError.Tree],
+      typeDecls: Map[QualifiedName, TypeDecl] = Map.empty,
+      interfaces: Map[QualifiedName, typesig.DefInterface.FWT] = Map.empty,
+      errors: Error.Tree = mzero[Error.Tree],
   ) {
-    def asOut(packageId: PackageId, metadata: Option[PackageMetadata]): iface.Interface =
-      iface.Interface(packageId, metadata, typeDecls, astInterfaces)
+    def asOut(packageId: PackageId, metadata: Option[PackageMetadata]): typesig.PackageSignature =
+      typesig.PackageSignature(packageId, metadata, typeDecls, interfaces)
   }
 
   private[reader] object State {
@@ -69,36 +75,61 @@ object InterfaceReader {
         (l, r) =>
           State(
             l.typeDecls ++ r.typeDecls,
-            l.astInterfaces ++ r.astInterfaces,
+            l.interfaces ++ r.interfaces,
             l.errors |+| r.errors,
           ),
         State(),
       )
   }
 
+  // @deprecated("renamed to readPackageSignature", since = "2.4.0")
   def readInterface(
       lf: DamlLf.Archive
-  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) =
-    readInterface(() => DamlLfArchiveReader.readPackage(lf))
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
+    readPackageSignature(lf)
 
+  // @deprecated("renamed to readPackageSignature", since = "2.4.0")
   def readInterface(
       packageId: Ref.PackageId,
       damlLf: DamlLf.ArchivePayload,
-  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) =
-    readInterface(() => DamlLfArchiveReader.readPackage(packageId, damlLf))
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
+    readPackageSignature(packageId, damlLf)
 
+  // @deprecated("renamed to readPackageSignature", since = "2.4.0")
   def readInterface(
       payload: ArchivePayload
-  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) =
-    readInterface(() => DamlLfArchiveReader.readPackage(payload))
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
+    readPackageSignature(payload)
+
+  def readPackageSignature(
+      lf: DamlLf.Archive
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
+    readPackageSignature(() => DamlLfArchiveReader.readPackage(lf))
+
+  def readPackageSignature(
+      packageId: Ref.PackageId,
+      damlLf: DamlLf.ArchivePayload,
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
+    readPackageSignature(() => DamlLfArchiveReader.readPackage(packageId, damlLf))
+
+  def readPackageSignature(
+      payload: ArchivePayload
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
+    readPackageSignature(() => DamlLfArchiveReader.readPackage(payload))
 
   private val dummyPkgId = PackageId.assertFromString("-dummyPkg-")
 
-  private val dummyInterface = iface.Interface(dummyPkgId, None, Map.empty, Map.empty)
+  private val dummyInterface = typesig.PackageSignature(dummyPkgId, None, Map.empty, Map.empty)
 
+  // @deprecated("renamed to readPackageSignature", since = "2.4.0")
   def readInterface(
       f: () => String \/ (PackageId, Ast.Package)
-  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) =
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
+    readPackageSignature(f)
+
+  def readPackageSignature(
+      f: () => String \/ (PackageId, Ast.Package)
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
     f() match {
       case -\/(e) =>
         (point(InvalidDataTypeDefinition(e)), dummyInterface)
@@ -121,7 +152,7 @@ object InterfaceReader {
     PackageMetadata(metadata.name, metadata.version)
 
   private def filterOutUnserializableErrors(
-      es: InterfaceReaderError.Tree
+      es: Error.Tree
   ): Errors[ErrorLoc, InvalidDataTypeDefinition] =
     es.collectAndPrune { case x: InvalidDataTypeDefinition => x }
 
@@ -131,7 +162,7 @@ object InterfaceReader {
         val fullName = QualifiedName(module.name, name)
         val tyVars: ImmArraySeq[Ast.TypeVarName] = params.map(_._1).toSeq
 
-        val result: InterfaceReaderError \/ Option[(QualifiedName, iface.InterfaceType)] =
+        val result: Error \/ Option[(QualifiedName, TypeDecl)] =
           dataType match {
             case dfn: Ast.DataRecord =>
               val it = module.templates.get(name) match {
@@ -152,26 +183,26 @@ object InterfaceReader {
       .partitionMap(identity)
     val ddts = dataTypes.view.collect { case Some(x) => x }.toMap
 
-    val (ierrors, astIfs) = module.interfaces.partitionMap { case (name, interface) =>
+    val (ierrors, astIfs) = module.interfaces.partitionMap { case (name, astIf) =>
       val fullName = QualifiedName(module.name, name)
-      val result = astInterface(fullName, interface)
+      val result = interface(fullName, astIf)
       locate(Symbol("name"), rootErrOf[ErrorLoc](result)).toEither
     }
 
     import scalaz.std.iterable._
-    State(typeDecls = ddts, astInterfaces = astIfs.toMap, errors = (derrors ++ ierrors).suml)
+    State(typeDecls = ddts, interfaces = astIfs.toMap, errors = (derrors ++ ierrors).suml)
   }
 
-  private[reader] def record[T >: iface.InterfaceType.Normal](
+  private[reader] def record[T >: TypeDecl.Normal](
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
       record: Ast.DataRecord,
   ) =
     for {
       fields <- fieldsOrCons(name, record.fields)
-    } yield name -> (iface.InterfaceType.Normal(DefDataType(tyVars, Record(fields))): T)
+    } yield name -> (TypeDecl.Normal(DefDataType(tyVars, Record(fields))): T)
 
-  private[reader] def template[T >: iface.InterfaceType.Template](
+  private[reader] def template[T >: TypeDecl.Template](
       name: QualifiedName,
       record: Ast.DataRecord,
       dfn: Ast.Template,
@@ -180,7 +211,7 @@ object InterfaceReader {
       fields <- fieldsOrCons(name, record.fields)
       choices <- dfn.choices traverse (visitChoice(name, _))
       key <- dfn.key traverse (k => toIfaceType(name, k.typ))
-    } yield name -> (iface.InterfaceType.Template(
+    } yield name -> (TypeDecl.Template(
       Record(fields),
       DefTemplate(visitChoices(choices, dfn.implements), key, dfn.implements.keys),
     ): T)
@@ -198,7 +229,7 @@ object InterfaceReader {
   private def visitChoice(
       ctx: QualifiedName,
       choice: Ast.TemplateChoice,
-  ): InterfaceReaderError \/ TemplateChoice[Type] =
+  ): Error \/ TemplateChoice[Type] =
     for {
       tParam <- toIfaceType(ctx, choice.argBinder._2)
       tReturn <- toIfaceType(ctx, choice.returnType)
@@ -208,24 +239,24 @@ object InterfaceReader {
       returnType = tReturn,
     )
 
-  private[reader] def variant[T >: iface.InterfaceType.Normal](
+  private[reader] def variant[T >: TypeDecl.Normal](
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
       variant: Ast.DataVariant,
   ) = {
     for {
       cons <- fieldsOrCons(name, variant.variants)
-    } yield name -> (iface.InterfaceType.Normal(DefDataType(tyVars, Variant(cons))): T)
+    } yield name -> (TypeDecl.Normal(DefDataType(tyVars, Variant(cons))): T)
   }
 
-  private[reader] def enumeration[T >: iface.InterfaceType.Normal](
+  private[reader] def enumeration[T >: TypeDecl.Normal](
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
       enumeration: Ast.DataEnum,
-  ): InterfaceReaderError \/ (QualifiedName, T) =
+  ): Error \/ (QualifiedName, T) =
     if (tyVars.isEmpty)
       \/-(
-        name -> iface.InterfaceType.Normal(
+        name -> TypeDecl.Normal(
           DefDataType(ImmArraySeq.empty, Enum(enumeration.constructors.toSeq))
         )
       )
@@ -235,15 +266,15 @@ object InterfaceReader {
   private[reader] def fieldsOrCons(
       ctx: QualifiedName,
       fields: ImmArray[(Ref.Name, Ast.Type)],
-  ): InterfaceReaderError \/ ImmArraySeq[(Ref.Name, Type)] =
+  ): Error \/ ImmArraySeq[(Ref.Name, Type)] =
     fields.toSeq traverse { case (fieldName, typ) =>
       toIfaceType(ctx, typ).map(x => fieldName -> x)
     }
 
-  private[this] def astInterface(
+  private[this] def interface(
       name: QualifiedName,
       astIf: Ast.DefInterface,
-  ): InterfaceReaderError \/ (QualifiedName, DefInterface.FWT) = for {
+  ): Error \/ (QualifiedName, DefInterface.FWT) = for {
     choices <- astIf.choices.traverse(visitChoice(name, _))
     rawViewType <- toIfaceType(name, astIf.view)
     viewType <- rawViewType match {
@@ -256,13 +287,13 @@ object InterfaceReader {
         )
     }
     // TODO #14081 pass actual retroactive implements instead of empty
-  } yield name -> iface.DefInterface(choices, Set.empty, viewType)
+  } yield name -> typesig.DefInterface(choices, Set.empty, viewType)
 
   private[lf] def toIfaceType(
       ctx: QualifiedName,
       a: Ast.Type,
       args: FrontStack[Type] = FrontStack.empty,
-  ): InterfaceReaderError \/ Type =
+  ): Error \/ Type =
     a match {
       case Ast.TVar(x) =>
         if (args.isEmpty)
@@ -287,8 +318,8 @@ object InterfaceReader {
       ctx: QualifiedName,
       a: Ast.BuiltinType,
       args: ImmArraySeq[Type],
-  ): InterfaceReaderError \/ T = {
-    type Eo[A] = InterfaceReaderError \/ A
+  ): Error \/ T = {
+    type Eo[A] = Error \/ A
     for {
       ab <- (a match {
         case Ast.BTUnit => \/-((0, PrimType.Unit))

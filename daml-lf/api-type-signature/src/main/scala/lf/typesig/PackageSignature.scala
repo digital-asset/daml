@@ -1,13 +1,13 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.iface
+package com.daml.lf.typesig
 
 import java.{util => j}
 
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref, Ref.{Identifier, PackageId, PackageName, PackageVersion, QualifiedName}
-import com.daml.lf.iface.reader.Errors
+import reader.Errors
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.ArchivePayload
 
@@ -18,43 +18,6 @@ import scalaz.syntax.std.boolean._
 
 import scala.collection.immutable.{Map, SeqOps}
 import scala.jdk.CollectionConverters._
-
-sealed abstract class InterfaceType extends Product with Serializable {
-  def `type`: DefDataType.FWT
-
-  def fold[Z](normal: DefDataType.FWT => Z, template: (Record.FWT, DefTemplate[Type]) => Z): Z =
-    this match {
-      case InterfaceType.Normal(typ) => normal(typ)
-      case InterfaceType.Template(typ, tpl) => template(typ, tpl)
-    }
-
-  /** Alias for `type`. */
-  def getType: DefDataType.FWT = `type`
-  def getTemplate: j.Optional[_ <: DefTemplate.FWT] =
-    fold(
-      { _ =>
-        j.Optional.empty()
-      },
-      { (_, tpl) =>
-        j.Optional.of(tpl)
-      },
-    )
-
-  private[iface] def asInterfaceViewType: Option[DefInterface.ViewTypeFWT] = this match {
-    case InterfaceType.Template(r, _) => Some(r)
-    case InterfaceType.Normal(DefDataType(_, dt)) =>
-      dt match {
-        case r @ Record(_) => Some(r)
-        case Variant(_) | Enum(_) => None
-      }
-  }
-}
-object InterfaceType {
-  final case class Normal(`type`: DefDataType.FWT) extends InterfaceType
-  final case class Template(rec: Record.FWT, template: DefTemplate[Type]) extends InterfaceType {
-    def `type`: DefDataType.FWT = DefDataType(ImmArraySeq.empty, rec)
-  }
-}
 
 // Duplicate of the one in com.daml.lf.language to separate Ast and Iface
 final case class PackageMetadata(
@@ -67,25 +30,32 @@ final case class PackageMetadata(
   * with separate package IDs and overlapping [[QualifiedName]]s; for a
   * dar use [[EnvironmentInterface]] instead.
   */
-final case class Interface(
+final case class PackageSignature(
     packageId: PackageId,
     metadata: Option[PackageMetadata],
-    typeDecls: Map[QualifiedName, InterfaceType],
-    astInterfaces: Map[QualifiedName, DefInterface.FWT],
+    typeDecls: Map[QualifiedName, PackageSignature.TypeDecl],
+    @deprecatedName("astInterfaces", "2.4.0") interfaces: Map[QualifiedName, DefInterface.FWT],
 ) {
-  def getTypeDecls: j.Map[QualifiedName, InterfaceType] = typeDecls.asJava
-  def getAstInterfaces: j.Map[QualifiedName, DefInterface.FWT] = astInterfaces.asJava
+  import PackageSignature.TypeDecl
+
+  // @deprecated("renamed to interfaces", since = "2.4.0")
+  def astInterfaces: interfaces.type = interfaces
+  // @deprecated("renamed to getInterfaces", since = "2.4.0")
+  def getAstInterfaces: j.Map[QualifiedName, DefInterface.FWT] = getInterfaces
+
+  def getTypeDecls: j.Map[QualifiedName, TypeDecl] = typeDecls.asJava
+  def getInterfaces: j.Map[QualifiedName, DefInterface.FWT] = interfaces.asJava
 
   private def resolveChoices(
       findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT],
       failIfUnresolvedChoicesLeft: Boolean,
-  ): Interface = {
+  ): PackageSignature = {
     val outside = findInterface.lift
     def findIface(id: Identifier) =
-      if (id.packageId == packageId) astInterfaces get id.qualifiedName
+      if (id.packageId == packageId) interfaces get id.qualifiedName
       else outside(id)
     val tplFindIface = Function unlift findIface
-    def transformTemplate(ift: InterfaceType.Template) = {
+    def transformTemplate(ift: TypeDecl.Template) = {
       val errOrItt = (ift.template resolveChoices tplFindIface)
         .bimap(
           _.map(partial => ift.copy(template = partial)),
@@ -103,19 +73,19 @@ final case class Interface(
     }
     copy(typeDecls = typeDecls transform { (_, ift) =>
       ift match {
-        case ift: InterfaceType.Template => transformTemplate(ift)
-        case n: InterfaceType.Normal => n
+        case ift: TypeDecl.Template => transformTemplate(ift)
+        case n: TypeDecl.Normal => n
       }
     })
   }
 
-  /** Like [[EnvironmentInterface#resolveChoices]], but permits incremental
+  /** Like [[EnvironmentSignature#resolveChoices]], but permits incremental
     * resolution of newly-loaded interfaces, such as json-api does.
     *
     * {{{
     *  // suppose
-    *  i: Interface; ei: EnvironmentInterface
-    *  val eidelta = EnvironmentInterface.fromReaderInterfaces(i)
+    *  i: PackageSignature; ei: EnvironmentSignature
+    *  val eidelta = EnvironmentSignature.fromReaderInterfaces(i)
     *  // such that
     *  ei |+| eidelta
     *  // contains the whole environment of i.  Then
@@ -126,7 +96,7 @@ final case class Interface(
     */
   def resolveChoicesAndFailOnUnresolvableChoices(
       findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT]
-  ): Interface = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = true)
+  ): PackageSignature = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = true)
 
   /** Like resolveChoicesAndFailOnUnresolvableChoices, but simply discard
     * unresolved choices from the structure.  Not wise to use on a receiver
@@ -134,7 +104,7 @@ final case class Interface(
     */
   def resolveChoicesAndIgnoreUnresolvedChoices(
       findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT]
-  ): Interface = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = false)
+  ): PackageSignature = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = false)
 
   /** Update internal templates, as well as external templates via `setTemplates`,
     * with retroactive interface implementations.
@@ -144,55 +114,93 @@ final case class Interface(
     */
   private def resolveRetroImplements[S](
       s: S
-  )(setTemplate: SetterAt[Ref.TypeConName, S, DefTemplate.FWT]): (S, Interface) = {
-    type SandTpls = (S, Map[QualifiedName, InterfaceType.Template])
+  )(setTemplate: SetterAt[Ref.TypeConName, S, DefTemplate.FWT]): (S, PackageSignature) = {
+    type SandTpls = (S, Map[QualifiedName, TypeDecl.Template])
     def setTpl(
         sm: SandTpls,
         tcn: Ref.TypeConName,
     ): Option[(DefTemplate.FWT => DefTemplate.FWT) => SandTpls] = {
-      import Interface.findTemplate
+      import PackageSignature.findTemplate
       val (s, tplsM) = sm
       if (tcn.packageId == packageId)
-        findTemplate(tplsM, tcn.qualifiedName).map { case itt @ InterfaceType.Template(_, dt) =>
+        findTemplate(tplsM, tcn.qualifiedName).map { case itt @ TypeDecl.Template(_, dt) =>
           f => (s, tplsM.updated(tcn.qualifiedName, itt.copy(template = f(dt))))
         }
       else setTemplate(s, tcn) map (_ andThen ((_, tplsM)))
     }
 
-    val ((sEnd, newTpls), newIfcs) = astInterfaces.foldLeft(
+    val ((sEnd, newTpls), newIfcs) = interfaces.foldLeft(
       ((s, Map.empty): SandTpls, Map.empty[QualifiedName, DefInterface.FWT])
     ) { case ((s, astIfs), (ifcName, astIf)) =>
       astIf
         .resolveRetroImplements(Ref.TypeConName(packageId, ifcName), s)(setTpl)
         .rightMap(newIf => astIfs.updated(ifcName, newIf))
     }
-    (sEnd, copy(typeDecls = typeDecls ++ newTpls, astInterfaces = newIfcs))
+    (sEnd, copy(typeDecls = typeDecls ++ newTpls, interfaces = newIfcs))
   }
 
   private def resolveInterfaceViewType(n: Ref.QualifiedName): Option[Record.FWT] =
     typeDecls get n flatMap (_.asInterfaceViewType)
 }
 
-object Interface {
+object PackageSignature {
   import Errors._
-  import reader.InterfaceReader._
+  import reader.SignatureReader._
 
-  def read(lf: DamlLf.Archive): (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
-    readInterface(lf)
+  sealed abstract class TypeDecl extends Product with Serializable {
+    def `type`: DefDataType.FWT
 
-  def read(lf: ArchivePayload): (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
-    readInterface(lf)
+    def fold[Z](normal: DefDataType.FWT => Z, template: (Record.FWT, DefTemplate[Type]) => Z): Z =
+      this match {
+        case TypeDecl.Normal(typ) => normal(typ)
+        case TypeDecl.Template(typ, tpl) => template(typ, tpl)
+      }
 
-  private[iface] def findTemplate[K](
-      m: Map[K, InterfaceType],
+    /** Alias for `type`. */
+    def getType: DefDataType.FWT = `type`
+    def getTemplate: j.Optional[_ <: DefTemplate.FWT] =
+      fold(
+        { _ =>
+          j.Optional.empty()
+        },
+        { (_, tpl) =>
+          j.Optional.of(tpl)
+        },
+      )
+
+    private[typesig] def asInterfaceViewType: Option[DefInterface.ViewTypeFWT] = this match {
+      case TypeDecl.Template(r, _) => Some(r)
+      case TypeDecl.Normal(DefDataType(_, dt)) =>
+        dt match {
+          case r @ Record(_) => Some(r)
+          case Variant(_) | Enum(_) => None
+        }
+    }
+  }
+
+  object TypeDecl {
+    final case class Normal(`type`: DefDataType.FWT) extends TypeDecl
+    final case class Template(rec: Record.FWT, template: DefTemplate[Type]) extends TypeDecl {
+      def `type`: DefDataType.FWT = DefDataType(ImmArraySeq.empty, rec)
+    }
+  }
+
+  def read(lf: DamlLf.Archive): (Errors[ErrorLoc, InvalidDataTypeDefinition], PackageSignature) =
+    readPackageSignature(lf)
+
+  def read(lf: ArchivePayload): (Errors[ErrorLoc, InvalidDataTypeDefinition], PackageSignature) =
+    readPackageSignature(lf)
+
+  private[typesig] def findTemplate[K](
+      m: Map[K, TypeDecl],
       k: K,
-  ): Option[InterfaceType.Template] =
-    m get k collect { case itt: InterfaceType.Template => itt }
+  ): Option[TypeDecl.Template] =
+    m get k collect { case itt: TypeDecl.Template => itt }
 
   // Given a lookup function for package state setters, produce a lookup function
   // for setters on specific templates in that set of packages.
   private[this] def setPackageTemplates[S](
-      findPackage: GetterSetterAt[PackageId, S, Interface]
+      findPackage: GetterSetterAt[PackageId, S, PackageSignature]
   ): SetterAt[Ref.TypeConName, S, DefTemplate.FWT] = {
     def go(s: S, tcn: Ref.TypeConName): Option[(DefTemplate.FWT => DefTemplate.FWT) => S] = for {
       foundPkg <- findPackage(s, tcn.packageId)
@@ -208,44 +216,50 @@ object Interface {
   }
 
   /** Extend the set of interfaces represented by `s` and `findPackage` with
-    * `newInterfaces`.  Produce the resulting `S` and a replacement copy of
-    * `newInterfaces` with templates and interfaces therein resolved.
+    * `newSignatures`.  Produce the resulting `S` and a replacement copy of
+    * `newSignatures` with templates and interfaces therein resolved.
     *
     * Does not search members of `s` for fresh interfaces.
     */
   def resolveRetroImplements[S, CC[B] <: Seq[B] with SeqOps[B, CC, CC[B]]](
       s: S,
-      newInterfaces: CC[Interface],
+      @deprecatedName("newInterfaces", "2.4.0") newSignatures: CC[PackageSignature],
   )(
-      findPackage: GetterSetterAt[PackageId, S, Interface]
-  ): (S, CC[Interface]) = {
-    type St = (S, CC[Interface])
-    val findTpl = setPackageTemplates[St] { case ((s, newInterfaces), pkgId) =>
-      findPackage(s, pkgId).map(_.rightMap(_ andThen ((_, newInterfaces)))).orElse {
-        val ix = newInterfaces indexWhere (_.packageId == pkgId)
-        (ix >= 0) option ((newInterfaces(ix), newSig => (s, newInterfaces.updated(ix, newSig))))
+      findPackage: GetterSetterAt[PackageId, S, PackageSignature]
+  ): (S, CC[PackageSignature]) = {
+    type St = (S, CC[PackageSignature])
+    val findTpl = setPackageTemplates[St] { case ((s, newSignatures), pkgId) =>
+      findPackage(s, pkgId).map(_.rightMap(_ andThen ((_, newSignatures)))).orElse {
+        val ix = newSignatures indexWhere (_.packageId == pkgId)
+        (ix >= 0) option ((newSignatures(ix), newSig => (s, newSignatures.updated(ix, newSig))))
       }
     }
 
-    (0 until newInterfaces.size).foldLeft((s, newInterfaces)) {
-      case (st @ (_, newInterfaces), ifcK) =>
-        val ((s2, newInterfaces2), newAtIfcK) =
-          newInterfaces(ifcK).resolveRetroImplements(st)(findTpl)
-        // the tricky part here: newInterfaces2 is guaranteed not to have altered
+    (0 until newSignatures.size).foldLeft((s, newSignatures)) {
+      case (st @ (_, newSignatures), ifcK) =>
+        val ((s2, newSignatures2), newAtIfcK) =
+          newSignatures(ifcK).resolveRetroImplements(st)(findTpl)
+        // the tricky part here: newSignatures2 is guaranteed not to have altered
         // the value at ifcK, and to have made all "self" changes in newAtIfcK.
         // So there is no conflict, we can discard the value in the seq
-        (s2, newInterfaces2.updated(ifcK, newAtIfcK))
+        (s2, newSignatures2.updated(ifcK, newAtIfcK))
     }
   }
 
-  /** An argument for `Interface#resolveChoices` given a package database,
+  // @deprecated("renamed to findInterface", since = "2.4.0")
+  def findAstInterface(
+      findPackage: PartialFunction[PackageId, PackageSignature]
+  ): PartialFunction[Ref.TypeConName, DefInterface.FWT] =
+    findInterface(findPackage)
+
+  /** An argument for [[PackageSignature#resolveChoices]] given a package database,
     * such as json-api's `LedgerReader.PackageStore`.
     */
-  def findAstInterface(
-      findPackage: PartialFunction[PackageId, Interface]
+  def findInterface(
+      findPackage: PartialFunction[PackageId, PackageSignature]
   ): PartialFunction[Ref.TypeConName, DefInterface.FWT] = {
     val pkg = findPackage.lift
-    def go(id: Identifier) = pkg(id.packageId).flatMap(_.astInterfaces get id.qualifiedName)
+    def go(id: Identifier) = pkg(id.packageId).flatMap(_.interfaces get id.qualifiedName)
     Function unlift go
   }
 
@@ -254,10 +268,13 @@ object Interface {
     * The function will not match if the definition is missing or is not a record.
     */
   def resolveInterfaceViewType(
-      findInterface: PartialFunction[PackageId, Interface]
+      @deprecatedName("findInterface", "2.4.0") findPackage: PartialFunction[
+        PackageId,
+        PackageSignature,
+      ]
   ): PartialFunction[Ref.TypeConName, DefInterface.ViewTypeFWT] =
     Function unlift { tcn =>
-      findInterface.lift(tcn.packageId) flatMap (_ resolveInterfaceViewType tcn.qualifiedName)
+      findPackage.lift(tcn.packageId) flatMap (_ resolveInterfaceViewType tcn.qualifiedName)
     }
 
 }

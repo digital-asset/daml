@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
-package iface
+package typesig
 package reader
 
 import com.daml.lf.data.Ref
@@ -24,7 +24,7 @@ object DamlLfArchiveReader {
   ): String \/ (Ref.PackageId, Ast.Package) =
     fromEither(archive.Reader.readArchivePayload(packageId, lf)) flatMap readPackage
 
-  private[iface] def readPackage(
+  private[typesig] def readPackage(
       payLoad: archive.ArchivePayload
   ): String \/ (Ref.PackageId, Ast.Package) =
     fromEither(archive.Decode.decodeArchivePayload(payLoad, onlySerializableDataDefs = true))

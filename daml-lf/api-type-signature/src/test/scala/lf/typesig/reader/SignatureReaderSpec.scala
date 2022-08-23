@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
-package iface
+package typesig
 package reader
 
 import com.daml.bazeltools.BazelRunfiles.requiredResource
@@ -20,7 +20,8 @@ import scalaz.syntax.functor._
 
 import scala.language.implicitConversions
 
-class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
+class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
+  import PackageSignature.TypeDecl
 
   private def dnfs(args: String*): Ref.DottedName = Ref.DottedName.assertFromSegments(args)
   private val moduleName: Ref.ModuleName = dnfs("Main")
@@ -36,11 +37,11 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       cons = Ast.DataVariant(ImmArray(varField("Call", "call"), varField("Put", "put"))),
     )
 
-    val actual = InterfaceReader.foldModule(wrappInModule(dataName, variantDataType))
+    val actual = SignatureReader.foldModule(wrappInModule(dataName, variantDataType))
 
     val expectedResult = Map(
       qualifiedName ->
-        iface.InterfaceType.Normal(
+        TypeDecl.Normal(
           DefDataType(
             ImmArray[Ref.Name]("call", "put").toSeq,
             Variant(ImmArray(name("Call") -> TypeVar("call"), name("Put") -> TypeVar("put")).toSeq),
@@ -78,10 +79,10 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     )
 
     val actual =
-      InterfaceReader.foldModule(wrappInModule(dnfs("NameClashRecordVariant"), variantDataType))
+      SignatureReader.foldModule(wrappInModule(dnfs("NameClashRecordVariant"), variantDataType))
     val expectedResult = Map(
       Ref.QualifiedName(moduleName, dnfs("NameClashRecordVariant")) ->
-        iface.InterfaceType.Normal(
+        TypeDecl.Normal(
           DefDataType(
             ImmArraySeq.Empty,
             Variant(
@@ -116,11 +117,11 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       ),
     )
 
-    val actual = InterfaceReader.foldModule(wrappInModule(dnfs("Record"), dataType))
+    val actual = SignatureReader.foldModule(wrappInModule(dnfs("Record"), dataType))
 
     val expectedResult = Map(
       Ref.QualifiedName(moduleName, dnfs("Record")) ->
-        iface.InterfaceType.Normal(
+        TypeDecl.Normal(
           DefDataType(
             ImmArraySeq.Empty,
             Record(
@@ -148,10 +149,10 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       ),
     )
 
-    val actual = InterfaceReader.foldModule(wrappInModule(dnfs("MapRecord"), dataType))
+    val actual = SignatureReader.foldModule(wrappInModule(dnfs("MapRecord"), dataType))
     val expectedResult = Map(
       Ref.QualifiedName(moduleName, dnfs("MapRecord")) ->
-        iface.InterfaceType.Normal(
+        TypeDecl.Normal(
           DefDataType(
             ImmArraySeq.Empty,
             Record(
@@ -181,8 +182,11 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     val name = Ref.PackageName.assertFromString("my-package")
     val version = Ref.PackageVersion.assertFromString("1.2.3")
     val present = pkg(Some(Ast.PackageMetadata(name, version)))
-    InterfaceReader.readInterface(() => \/-((packageId, notPresent)))._2.metadata shouldBe None
-    InterfaceReader.readInterface(() => \/-((packageId, present)))._2.metadata shouldBe Some(
+    SignatureReader
+      .readPackageSignature(() => \/-((packageId, notPresent)))
+      ._2
+      .metadata shouldBe None
+    SignatureReader.readPackageSignature(() => \/-((packageId, present)))._2.metadata shouldBe Some(
       PackageMetadata(name, version)
     )
   }
@@ -191,16 +195,16 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     import archive.DarReader.readArchiveFromFile
 
     lazy val itp = {
-      val file = requiredResource("daml-lf/interface/InterfaceTestPackage.dar")
+      val file = requiredResource("daml-lf/api-type-signature/InterfaceTestPackage.dar")
       inside(readArchiveFromFile(file)) { case Right(dar) =>
         dar.map { payload =>
-          val (errors, ii) = iface.Interface.read(payload)
+          val (errors, ii) = typesig.PackageSignature.read(payload)
           errors should ===(Errors.zeroErrors)
           ii
         }
       }
     }
-    lazy val itpEI = EnvironmentInterface.fromReaderInterfaces(itp).resolveChoices
+    lazy val itpES = EnvironmentSignature.fromPackageSignatures(itp).resolveChoices
 
     "load without errors" in {
       itp shouldBe itp
@@ -219,7 +223,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     import itp.main.{packageId => itpPid}
 
     "exclude interface choices with template choices" in {
-      inside(itp.main.typeDecls get Foo) { case Some(InterfaceType.Template(_, tpl)) =>
+      inside(itp.main.typeDecls get Foo) { case Some(TypeDecl.Template(_, tpl)) =>
         tpl.tChoices.directChoices.keySet should ===(Set("Bar", "Archive"))
       }
     }
@@ -227,7 +231,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     "include interface choices in separate inheritedChoices" in {
       inside(itp.main.typeDecls get Foo) {
         case Some(
-              InterfaceType.Template(_, DefTemplate(TemplateChoices.Unresolved(_, inherited), _, _))
+              TypeDecl.Template(_, DefTemplate(TemplateChoices.Unresolved(_, inherited), _, _))
             ) =>
           inherited.map(_.qualifiedName) should ===(Set(TIf, LibTIf))
       }
@@ -252,15 +256,15 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
 
     "have interfaces with choices" in {
-      itp.main.astInterfaces.keySet should ===(Set(LibTIf, TIf))
-      inside(itp.main.astInterfaces(TIf).choices get Useless) {
+      itp.main.interfaces.keySet should ===(Set(LibTIf, TIf))
+      inside(itp.main.interfaces(TIf).choices get Useless) {
         case Some(TheUselessChoice(UselessTy, TIf)) =>
       }
     }
 
     // TODO SC #14067 depends on #14112
     "identify a record interface view" ignore {
-      inside(itp.main.astInterfaces(LibTIf).viewType) { case Some(Ref.TypeConName(_, LibTIfView)) =>
+      inside(itp.main.interfaces(LibTIf).viewType) { case Some(Ref.TypeConName(_, LibTIfView)) =>
       }
     }
 
@@ -268,29 +272,29 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       (
         // TODO SC #14067 use the LibTIf DefInterface's view instead, requires #14112
         Ref.TypeConName(itp.main.packageId, LibTIfView),
-        inside(itp.main.typeDecls(LibTIfView)) { case InterfaceType.Normal(DefDataType(_, rec)) =>
+        inside(itp.main.typeDecls(LibTIfView)) { case TypeDecl.Normal(DefDataType(_, rec)) =>
           rec
         },
       )
 
     "finds an interface view from Interface sets" in {
       val (viewName, expectedRec) = viewNameExpectsRec
-      Interface.resolveInterfaceViewType {
+      PackageSignature.resolveInterfaceViewType {
         case id if id == itp.main.packageId => itp.main
       }(viewName) should ===(expectedRec)
     }
 
     "finds an interface view from EnvironmentInterface" in {
       val (viewName, expectedRec) = viewNameExpectsRec
-      itpEI.resolveInterfaceViewType(viewName) should ===(Some(expectedRec))
+      itpES.resolveInterfaceViewType(viewName) should ===(Some(expectedRec))
     }
 
-    def foundResolvedChoices(foo: Option[InterfaceType]) = inside(foo) {
-      case Some(InterfaceType.Template(_, DefTemplate(TemplateChoices.Resolved(resolved), _, _))) =>
+    def foundResolvedChoices(foo: Option[TypeDecl]) = inside(foo) {
+      case Some(TypeDecl.Template(_, DefTemplate(TemplateChoices.Resolved(resolved), _, _))) =>
         resolved
     }
 
-    def foundUselessChoice(foo: Option[InterfaceType]) =
+    def foundUselessChoice(foo: Option[TypeDecl]) =
       inside(foundResolvedChoices(foo).get(Useless).map(_.forgetNE.toSeq)) {
         case Some(Seq((Some(origin1), choice1), (Some(origin2), choice2))) =>
           Seq(origin1, origin2) should contain theSameElementsAs Seq(
@@ -302,7 +306,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       }
 
     "resolve inherited choices" in {
-      foundUselessChoice(itpEI.typeDecls get Ref.Identifier(itpPid, Foo))
+      foundUselessChoice(itpES.typeDecls get Ref.Identifier(itpPid, Foo))
     }
 
     "resolve choices internally" in {
@@ -312,7 +316,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
 
     "collect direct and resolved choices in one map" in {
-      foundResolvedChoices(itpEI.typeDecls get Ref.Identifier(itpPid, Foo))
+      foundResolvedChoices(itpES.typeDecls get Ref.Identifier(itpPid, Foo))
         .transform((_, cs) => cs.keySet) should contain theSameElementsAs Map(
         Useless -> Set(Some(Ref.Identifier(itpPid, TIf)), Some(Ref.Identifier(itpPid, LibTIf))),
         Bar -> Set(None),
@@ -321,8 +325,8 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
 
     "resolve retro implements harmlessly when there are none" in {
-      Interface.resolveRetroImplements((), itp.all)((_, _) => None) should ===((), itp.all)
-      itpEI.resolveRetroImplements should ===(itpEI)
+      PackageSignature.resolveRetroImplements((), itp.all)((_, _) => None) should ===((), itp.all)
+      itpES.resolveRetroImplements should ===(itpES)
     }
   }
 

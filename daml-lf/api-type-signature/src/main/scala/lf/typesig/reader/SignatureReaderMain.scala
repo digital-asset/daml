@@ -1,14 +1,14 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.iface.reader
+package com.daml.lf.typesig.reader
 
 import java.io.BufferedInputStream
 import java.nio.file.Files
 
 import com.daml.daml_lf_dev.DamlLf
 
-object InterfaceReaderMain extends App {
+object SignatureReaderMain extends App {
 
   val lfFile = new java.io.File(args.apply(0))
 
@@ -16,7 +16,7 @@ object InterfaceReaderMain extends App {
   try {
     val bis = new BufferedInputStream(is)
     val archive = DamlLf.Archive.parser().parseFrom(bis)
-    val out = InterfaceReader.readInterface(archive)
+    val out = SignatureReader.readPackageSignature(archive)
     println(s"out: $out")
   } finally {
     is.close()

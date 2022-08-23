@@ -12,7 +12,7 @@ load("//rules_daml:daml.bzl", "daml_compile")
 load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration")
 
 da_scala_library(
-    name = "interface",
+    name = "api-type-signature",
     srcs = glob(["src/main/**/*.scala"]),
     scala_deps = [
         "@maven//:com_typesafe_scala_logging_scala_logging",
@@ -58,7 +58,7 @@ da_scala_test(
     ],
     scalacopts = lf_scalacopts,
     deps = [
-        ":interface",
+        ":api-type-signature",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
