@@ -213,4 +213,5 @@ case class Choice(
     parameter: DamlLfType,
     returnType: DamlLfType,
     consuming: Boolean,
+    inheritedInterface: Option[DamlLfIdentifier] = None,
 )

@@ -25,7 +25,11 @@ case class PackageRegistry(
       t: DamlLfIface.DefTemplate[DamlLfIface.Type],
   ): Template = Template(
     DamlLfIdentifier(packageId, qname),
-    t.tChoices.directChoices.toList.map(c => choice(c._1, c._2)),
+    t.tChoices.resolvedChoices.toList.flatMap { case (choiceName, resolvedChoices) =>
+      resolvedChoices.map { case (interfaceIdOption, templateChoice) =>
+        choice(choiceName, templateChoice, interfaceIdOption)
+      }
+    },
     t.key,
     t.implementedInterfaces.toSet,
   )
@@ -44,11 +48,13 @@ case class PackageRegistry(
   private[this] def choice(
       name: String,
       c: DamlLfIface.TemplateChoice[DamlLfIface.Type],
+      inheritedInterface: Option[DamlLfIdentifier] = None,
   ): Model.Choice = Model.Choice(
     ApiTypes.Choice(name),
     c.param,
     c.returnType,
     c.consuming,
+    inheritedInterface,
   )
 
   def withPackages(interfaces: List[DamlLfIface.Interface]): PackageRegistry = {
