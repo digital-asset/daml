@@ -99,9 +99,8 @@ general_test_names = [
 
 # Correspond to the directories under src/test/lib/daml
 test_names = {
-    "1.dev": general_test_names + carbon_test_names,
-    "1.8": general_test_names,
-    "1.14": general_test_names,
+    version: general_test_names + (carbon_test_names if alias == "dev" else [])
+    for alias, version in lf_version_configuration.items()
 }
 
 da_scala_dar_resources_library(

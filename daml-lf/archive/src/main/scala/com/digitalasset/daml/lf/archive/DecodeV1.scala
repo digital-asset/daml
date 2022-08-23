@@ -1180,7 +1180,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           )
 
         case PLF.Expr.SumCase.UNSAFE_FROM_INTERFACE =>
-          assertSince(LV.Features.extendedInterfaces, "Expr.unsafe_from_interface")
+          assertSince(LV.Features.basicInterfaces, "Expr.unsafe_from_interface")
           val unsafeFromInterface = lfExpr.getUnsafeFromInterface
           EUnsafeFromInterface(
             interfaceId = decodeTypeConName(unsafeFromInterface.getInterfaceType),
@@ -1218,7 +1218,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           )
 
         case PLF.Expr.SumCase.INTERFACE_TEMPLATE_TYPE_REP =>
-          assertSince(LV.Features.extendedInterfaces, "Expr.interface_template_type_rep")
+          assertSince(LV.Features.basicInterfaces, "Expr.interface_template_type_rep")
           val interfaceTemplateTypeRep = lfExpr.getInterfaceTemplateTypeRep
           EInterfaceTemplateTypeRep(
             ifaceId = decodeTypeConName(interfaceTemplateTypeRep.getInterface),

@@ -533,7 +533,7 @@ scrapeInterfaceBinds ::
   -> [(Var, GHC.Expr Var)]
   -> MS.Map TypeConName InterfaceBinds
 scrapeInterfaceBinds lfVersion tyThings binds
-  | lfVersion `supports` featureInterfaces =
+  | lfVersion `supports` featureSimpleInterfaces =
       MMS.merge
         {- drop bind funcs without interfaces -}
         MMS.dropMissing
@@ -653,7 +653,7 @@ scrapeInterfaceInstanceBinds ::
   -> [(Var, GHC.Expr CoreBndr)]
   -> MS.Map TypeConName InterfaceInstanceGroup
 scrapeInterfaceInstanceBinds env binds
-  | envLfVersion env `supports` featureInterfaces =
+  | envLfVersion env `supports` featureSimpleInterfaces =
       MMS.merge
         {- drop group funcs without interface instances -}
         MMS.dropMissing
@@ -751,10 +751,13 @@ convertInterfaces env mc = interfaceDefs
 
     convertRequires :: [(GHC.TyCon, Maybe SourceLoc)] -> ConvertM (S.Set (Qualified TypeConName))
     convertRequires requires = S.fromList <$> sequence
-      [ withRange mloc $ convertInterfaceTyCon env handleIsNotInterface iface
+      [ guardSupportsInterfaceRequires $ withRange mloc $ convertInterfaceTyCon env handleIsNotInterface iface
       | (iface, mloc) <- requires
       ]
       where
+        guardSupportsInterfaceRequires action
+          | envLfVersion env `supports` featureExtendedInterfaces = action
+          | otherwise = unsupported "Requires in Daml interfaces are only available with --target=1.dev" ()
         handleIsNotInterface tyCon =
           "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
 
@@ -857,7 +860,7 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     -> pure []
 
     | hasDamlInterfaceCtx t
-    ->  if envLfVersion env `supports` featureInterfaces then
+    ->  if envLfVersion env `supports` featureSimpleInterfaces then
             pure [ DDataType DefDataType
                 { dataLocation = Nothing
                 , dataTypeCon = mkTypeCon [getOccText t]
@@ -869,7 +872,7 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
                 }
             ]
         else
-            unsupported "Daml interfaces are only available with --target=1.dev" ()
+            unsupported "Daml interfaces are only available with --target=1.15 or higher" ()
             -- TODO https://github.com/digital-asset/daml/issues/12051
             --   Change when interfaces are released.
 
