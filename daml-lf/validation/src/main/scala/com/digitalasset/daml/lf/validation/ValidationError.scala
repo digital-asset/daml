@@ -319,6 +319,10 @@ final case class EExpectedExceptionableType(context: Context, conName: TypeConNa
   protected def prettyInternal: String =
     s"expected monomorphic record type in exception definition, but found: ${conName.qualifiedName}"
 }
+final case class EExpectedViewType(context: Context, typ: Type) extends ValidationError {
+  protected def prettyInternal: String =
+    s"expected monomorphic record type in view type, but found: ${typ.pretty}"
+}
 final case class EImportCycle(context: Context, modName: List[ModuleName]) extends ValidationError {
   protected def prettyInternal: String = s"cycle in module dependency ${modName.mkString(" -> ")}"
 }
