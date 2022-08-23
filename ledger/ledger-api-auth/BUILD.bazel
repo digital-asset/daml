@@ -24,6 +24,7 @@ da_scala_library(
     runtime_deps = [],
     deps = [
         "//daml-lf/data",
+        "//language-support/scala/bindings",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-service/jwt",
         "//ledger/error",

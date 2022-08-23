@@ -12,11 +12,13 @@ import com.daml.ledger.api.messages.transaction.{
   GetTransactionTreesRequest,
   GetTransactionsRequest,
 }
+import com.daml.ledger.api.v1.TransactionServiceOuterClass.{
+  GetTransactionTreesResponse,
+  GetTransactionsResponse,
+}
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
-  GetTransactionTreesResponse,
-  GetTransactionsResponse,
 }
 
 import scala.concurrent.Future

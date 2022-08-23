@@ -9,28 +9,39 @@ import akka.stream.scaladsl.Source
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.{Filters, LedgerId, LedgerOffset, TransactionFilter, TransactionId}
+import com.daml.ledger.api.domain.{
+  Filters,
+  LedgerId,
+  LedgerOffset,
+  TransactionFilter,
+  TransactionId,
+}
 import com.daml.ledger.api.messages.transaction._
-import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionResponse, GetTransactionTreesResponse, GetTransactionsResponse}
+import com.daml.ledger.api.v1.TransactionServiceOuterClass.{
+  GetTransactionTreesResponse,
+  GetTransactionsResponse,
+}
+import com.daml.ledger.api.v1.transaction_service
+import com.daml.ledger.api.v1.transaction_service.GetTransactionsResponse.toJavaProto
+import com.daml.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse,
+}
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.ledger.{EventId => LfEventId}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
-import com.daml.logging.entries.{LoggingEntries, LoggingValue}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
-import com.google.protobuf.CodedOutputStream
 import io.grpc._
+import com.daml.metrics.InstrumentedGraph._
 import scalaz.syntax.tag._
 
-import java.io.ByteArrayOutputStream
-import java.util.Base64
-import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] object ApiTransactionService {
@@ -57,8 +68,6 @@ private[apiserver] final class ApiTransactionService private (
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends TransactionService {
 
-  private val counter = new AtomicInteger(0)
-
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
@@ -79,7 +88,10 @@ private[apiserver] final class ApiTransactionService private (
     logger.trace(s"Transaction request: $request")
     transactionsService
       .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
-      .via(logger.enrichedDebugStream("Responding with transactions.", transactionsLoggable))
+      .mapAsync(4) { tx =>
+        Timed.future(metrics.daml.lapi.streams.flatTxToJavaProto, Future(toJavaProto(tx)))
+      }
+      .buffered(metrics.daml.lapi.streams.outFlatTxBuffer, 128)
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactions))
   }
@@ -87,8 +99,6 @@ private[apiserver] final class ApiTransactionService private (
   override def getTransactionTrees(
       request: GetTransactionTreesRequest
   ): Source[GetTransactionTreesResponse, NotUsed] = {
-    val isAdminParty = request.parties.map(_.toString) == Set("00001")
-
     withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.startExclusive(request.startExclusive),
@@ -106,31 +116,15 @@ private[apiserver] final class ApiTransactionService private (
         TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
         request.verbose,
       )
-      .via(
-        logger.enrichedDebugStream("Responding with transaction trees.", transactionTreesLoggable)
-      )
+      .mapAsync(4) { tx =>
+        Timed.future(
+          metrics.daml.lapi.streams.treeTxToJavaProto,
+          Future(transaction_service.GetTransactionTreesResponse.toJavaProto(tx)),
+        )
+      }
+      .buffered(metrics.daml.lapi.streams.outTreeTxBuffer, 128)
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactionTrees))
-      .wireTap { tx =>
-        if (isAdminParty) {
-          val byteArrayOutputStream = new ByteArrayOutputStream()
-          val devNull = CodedOutputStream.newInstance(byteArrayOutputStream)
-
-          Timed.value(
-            metrics.daml.lapi.streams.treeMarshalling, {
-              tx.writeTo(devNull)
-              devNull.flush()
-              byteArrayOutputStream.flush()
-            },
-          )
-
-          byteArrayOutputStream.close()
-          val ctr = counter.incrementAndGet()
-          if (ctr > 10000 && ctr % 11 == 0) {
-            logger.info(s"TX tree: ${Base64.getEncoder.encodeToString(tx.toByteArray)}")
-          }
-        }
-      }
   }
 
   override def getTransactionByEventId(
@@ -248,34 +242,4 @@ private[apiserver] final class ApiTransactionService private (
           )
         case Some(transaction) => Future.successful(transaction)
       }
-
-  private def transactionTreesLoggable(trees: GetTransactionTreesResponse): LoggingEntries =
-    LoggingEntries(
-      "transactions" -> LoggingValue.OfIterable(
-        trees.transactions.toList.map(t =>
-          entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset)
-        )
-      )
-    )
-
-  private def transactionsLoggable(trees: GetTransactionsResponse): LoggingEntries = LoggingEntries(
-    "transactions" -> LoggingValue.OfIterable(
-      trees.transactions.toList.map(t =>
-        entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset)
-      )
-    )
-  )
-
-  private def entityLoggable(
-      commandId: String,
-      transactionId: String,
-      workflowId: String,
-      offset: String,
-  ): LoggingValue.Nested =
-    LoggingValue.Nested.fromEntries(
-      logging.commandId(commandId),
-      logging.transactionId(transactionId),
-      logging.workflowId(workflowId),
-      logging.offset(offset),
-    )
 }

@@ -9,8 +9,20 @@ import akka.stream.scaladsl.Source
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.TransactionServiceOuterClass.{
+  GetTransactionTreesResponse,
+  GetTransactionsResponse,
+}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.transaction_service._
+import com.daml.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetLedgerEndRequest,
+  GetLedgerEndResponse,
+  GetTransactionByEventIdRequest,
+  GetTransactionByIdRequest,
+  GetTransactionResponse,
+  GetTransactionsRequest,
+}
 import com.daml.ledger.api.validation.TransactionServiceRequestValidator.Result
 import com.daml.ledger.api.validation.{PartyNameChecker, TransactionServiceRequestValidator}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}

@@ -299,7 +299,11 @@ final class Metrics(val registry: MetricRegistry) {
         val activeName: MetricName = Prefix :+ "active"
         val active: Counter = registry.counter(activeName)
 
-        val treeMarshalling: Timer = registry.timer(Prefix :+ "tree_marshalling_00001")
+        val flatTxToJavaProto: Timer = registry.timer(Prefix :+ "flat_tx_to_java_proto")
+        val treeTxToJavaProto: Timer = registry.timer(Prefix :+ "tree_tx_to_java_proto")
+
+        val outFlatTxBuffer: Counter = registry.counter(Prefix :+ "out_flat_tx_buffer")
+        val outTreeTxBuffer: Counter = registry.counter(Prefix :+ "out_tree_tx_buffer")
       }
     }
 
