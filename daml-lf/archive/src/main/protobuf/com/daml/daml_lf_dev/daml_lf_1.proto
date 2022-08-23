@@ -510,7 +510,7 @@ enum BuiltinFunction {
   TEXT_TO_TEXT = 60;
   TIMESTAMP_TO_TEXT = 61;
   DATE_TO_TEXT = 71;
-  PARTY_TO_QUOTED_TEXT = 63; // *Available in versions <= 1.dev*
+  PARTY_TO_QUOTED_TEXT = 63; // *Available in versions < 1.14*
   PARTY_TO_TEXT = 94;
   TEXT_TO_PARTY = 95;
   TEXT_TO_INT64 = 103;

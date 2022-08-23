@@ -53,8 +53,8 @@
 syntax = "proto3";
 package daml_lf_1;
 
-option java_package = "com.daml.daml_lf_15";
-option csharp_namespace = "Com.Daml.Daml_Lf_15.DamlLf1";
+option java_package = "com.daml.daml_lf_dev";
+option csharp_namespace = "Com.Daml.Daml_Lf_Dev.DamlLf1";
 
 // Canonical encoding in one-ofs for cases that carry no meaningful
 // values.
@@ -509,7 +509,7 @@ enum BuiltinFunction {
   TEXT_TO_TEXT = 60;
   TIMESTAMP_TO_TEXT = 61;
   DATE_TO_TEXT = 71;
-  PARTY_TO_QUOTED_TEXT = 63; // *Available in versions <= 1.dev*
+  PARTY_TO_QUOTED_TEXT = 63; // *Available in versions < 1.14*
   PARTY_TO_TEXT = 94;
   TEXT_TO_PARTY = 95;
   TEXT_TO_INT64 = 103;
@@ -569,6 +569,18 @@ enum BuiltinFunction {
   BIGNUMERIC_TO_TEXT = 146; // *Available in versions >= 1.13*
 
   TYPEREP_TYCON_NAME = 148; // *Available in versions >= 1.dev*
+
+  // Next id is 149.
+
+  // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
+  TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*
+  TEXT_TO_LOWER = 9902; // *Available in versions >= 1.dev*
+  TEXT_SLICE = 9903; // *Available in versions >= 1.dev*
+  TEXT_SLICE_INDEX = 9904; // *Available in versions >= 1.dev*
+  TEXT_CONTAINS_ONLY = 9905; // *Available in versions >= 1.dev*
+  TEXT_REPLICATE = 9906; // *Available in versions >= 1.dev*
+  TEXT_SPLIT_ON = 9907; // *Available in versions >= 1.dev*
+  TEXT_INTERCALATE = 9908; // *Available in versions >= 1.dev*
 }
 
 // Builtin literals
