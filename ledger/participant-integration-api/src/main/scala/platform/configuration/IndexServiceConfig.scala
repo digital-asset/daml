@@ -23,7 +23,8 @@ final case class IndexServiceConfig(
     inMemoryStateUpdaterParallelism: Int =
       IndexServiceConfig.DefaultInMemoryStateUpdaterParallelism,
     inMemoryFanOutThreadPoolSize: Int = IndexServiceConfig.DefaultInMemoryFanOutThreadPoolSize,
-    preparePackageMetadataTimeOutWarning: FiniteDuration = IndexServiceConfig.PreparePackageMetadataTimeOutWarning
+    preparePackageMetadataTimeOutWarning: FiniteDuration =
+      IndexServiceConfig.PreparePackageMetadataTimeOutWarning,
 )
 
 object IndexServiceConfig {
