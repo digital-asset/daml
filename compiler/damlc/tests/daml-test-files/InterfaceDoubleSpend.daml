@@ -5,7 +5,7 @@
 --   This should be tested as part of evaluation order for FetchInterface
 --   Drop this test once it is done
 
--- @SINCE-LF-FEATURE DAML_INTERFACE_EXTENDED
+-- @SINCE-LF-FEATURE DAML_BASIC_EXTENDED
 module InterfaceDoubleSpend where
 
 -- | An interface comment.
