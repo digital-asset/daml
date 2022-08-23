@@ -158,7 +158,7 @@ final class LedgerTestCasesRunner(
               features = session.features,
             )
             // upload the dars sequentially to avoid conflicts
-            _ <- FutureUtil.sequential(Dars.startupResources)(uploadDar(context, _))
+            _ <- FutureUtil.sequential(Dars.resources)(uploadDar(context, _))
           } yield ()
         }
         .map(_ => ())
