@@ -7,8 +7,8 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.interfaces.{Verification}
 
-final case class LeewayOptions(
-    leeway: Option[Long] = None,
+final case class JwtTimestampLeeway(
+    default: Option[Long] = None,
     expiresAt: Option[Long] = None,
     issuedAt: Option[Long] = None,
     notBefore: Option[Long] = None,
@@ -17,14 +17,17 @@ final case class LeewayOptions(
 trait Leeway {
   def getVerifier(
       algorithm: Algorithm,
-      mbLeewayOptions: Option[LeewayOptions] = None,
+      mbJwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
   ): com.auth0.jwt.interfaces.JWTVerifier = {
-    def addLeeway(verification: Verification, leewayOptions: LeewayOptions): Verification = {
+    def addLeeway(
+        verification: Verification,
+        jwtTimestampLeeway: JwtTimestampLeeway,
+    ): Verification = {
       val mbOptionsActions: List[(Option[Long], (Verification, Long) => Verification)] = List(
-        (leewayOptions.leeway, _.acceptLeeway(_)),
-        (leewayOptions.expiresAt, _.acceptExpiresAt(_)),
-        (leewayOptions.issuedAt, _.acceptIssuedAt(_)),
-        (leewayOptions.notBefore, _.acceptNotBefore(_)),
+        (jwtTimestampLeeway.default, _.acceptLeeway(_)),
+        (jwtTimestampLeeway.expiresAt, _.acceptExpiresAt(_)),
+        (jwtTimestampLeeway.issuedAt, _.acceptIssuedAt(_)),
+        (jwtTimestampLeeway.notBefore, _.acceptNotBefore(_)),
       )
       mbOptionsActions.foldLeft(verification) {
         case (verifier, (None, _)) => verifier
@@ -32,7 +35,7 @@ trait Leeway {
       }
     }
     val defaultVerifier = JWT.require(algorithm)
-    val verification = mbLeewayOptions.fold(defaultVerifier)(addLeeway(defaultVerifier, _))
+    val verification = mbJwtTimestampLeeway.fold(defaultVerifier)(addLeeway(defaultVerifier, _))
     verification.build()
   }
 }

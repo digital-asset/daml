@@ -69,10 +69,7 @@ alias(
                 "//visibility:public",
             ],
             deps = [
-                "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
-                "//daml-lf/archive:daml_lf_archive_reader",
                 "//ledger-api/grpc-definitions:ledger_api_proto_scala",
-                "//ledger/test-common:dar-files-%s-lib" % target,
                 "//libs-scala/scala-utils",
                 "//libs-scala/timer-utils",
                 "@maven//:ch_qos_logback_logback_classic",
@@ -86,8 +83,13 @@ alias(
     for target in lf_version_configuration_versions
 ]
 
-# Correspond to the directories under src/test/lib/daml
-test_names = [
+# Carbon tests helps to test upgrades when packages are dependent on each other
+carbon_test_names = [
+    "carbonv1",
+    "carbonv2",  #carbonv2 depends on carbon v1
+]
+
+general_test_names = [
     "benchtool",
     "model",
     "semantic",
@@ -95,10 +97,20 @@ test_names = [
     "package_management",
 ]
 
+# Correspond to the directories under src/test/lib/daml
+test_names = {
+    "1.dev": general_test_names + carbon_test_names,
+    "1.8": general_test_names,
+    "1.14": general_test_names,
+}
+
 da_scala_dar_resources_library(
     add_maven_tag = True,
     daml_dir_names = test_names,
     daml_root_dir = "src/main/daml",
+    data_dependencies = {
+        "carbonv2-tests-1.dev": ["//ledger/test-common:carbonv1-tests-1.dev.build"],
+    },
     enable_scenarios = True,
     exclusions = {
         "1.8": [
@@ -144,7 +156,7 @@ da_scala_dar_resources_library(
                 ],
             ),
         ]
-        for test_name in test_names
+        for test_name in test_names.get(target, [])
     ]
     for target in lf_version_configuration_versions
 ]

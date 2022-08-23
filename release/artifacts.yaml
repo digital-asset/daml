@@ -193,6 +193,10 @@
   type: jar-scala
 - target: //ledger/test-common:test-common-1.dev
   type: jar-scala
+- target: //ledger/test-common:carbonv1-tests-1.dev.scala
+  type: jar-scala
+- target: //ledger/test-common:carbonv2-tests-1.dev.scala
+  type: jar-scala
 - target: //ledger-service/lf-value-json:lf-value-json
   type: jar-scala
 - target: //ledger-service/cli-opts:cli-opts

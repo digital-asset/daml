@@ -3,7 +3,7 @@
 
 package com.daml.ledger.runner.common
 
-import com.daml.jwt.LeewayOptions
+import com.daml.jwt.JwtTimestampLeeway
 import com.daml.lf.interpretation.Limits
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.ContractKeyUniquenessMode
@@ -358,8 +358,8 @@ class PureConfigReaderWriterSpec
   it should "be isomorphic and support redaction" in forAll(ArbitraryConfig.authServiceConfig) {
     generatedValue =>
       val redacted = generatedValue match {
-        case AuthServiceConfig.UnsafeJwtHmac256(_, leeway) =>
-          AuthServiceConfig.UnsafeJwtHmac256("<REDACTED>", leeway)
+        case AuthServiceConfig.UnsafeJwtHmac256(_, jwtTimestampLeeway) =>
+          AuthServiceConfig.UnsafeJwtHmac256("<REDACTED>", jwtTimestampLeeway)
         case _ => generatedValue
       }
       val insecureWriter = new PureConfigReaderWriter(false)
@@ -395,60 +395,60 @@ class PureConfigReaderWriterSpec
       """
         |type = unsafe-jwt-hmac-256
         |secret = mysecret3
-        |leeway-options {
-        |  leeway = 1
+        |jwt-timestamp-leeway {
+        |  default = 1
         |}
         |""".stripMargin,
       AuthServiceConfig.UnsafeJwtHmac256(
         "mysecret3",
-        Some(LeewayOptions(Some(1), None, None, None)),
+        Some(JwtTimestampLeeway(Some(1), None, None, None)),
       ),
     )
     compare(
       """
         |type = unsafe-jwt-hmac-256
         |secret = mysecret3
-        |leeway-options {
+        |jwt-timestamp-leeway {
         |  expires-at = 2
         |}
         |""".stripMargin,
       AuthServiceConfig.UnsafeJwtHmac256(
         "mysecret3",
-        Some(LeewayOptions(None, Some(2), None, None)),
+        Some(JwtTimestampLeeway(None, Some(2), None, None)),
       ),
     )
     compare(
       """
         |type = unsafe-jwt-hmac-256
         |secret = mysecret3
-        |leeway-options {
+        |jwt-timestamp-leeway {
         |  issued-at = 3
         |}
         |""".stripMargin,
       AuthServiceConfig.UnsafeJwtHmac256(
         "mysecret3",
-        Some(LeewayOptions(None, None, Some(3), None)),
+        Some(JwtTimestampLeeway(None, None, Some(3), None)),
       ),
     )
     compare(
       """
         |type = unsafe-jwt-hmac-256
         |secret = mysecret3
-        |leeway-options {
+        |jwt-timestamp-leeway {
         |  not-before = 4
         |}
         |""".stripMargin,
       AuthServiceConfig.UnsafeJwtHmac256(
         "mysecret3",
-        Some(LeewayOptions(None, None, None, Some(4))),
+        Some(JwtTimestampLeeway(None, None, None, Some(4))),
       ),
     )
     compare(
       """
         |type = unsafe-jwt-hmac-256
         |secret = mysecret3
-        |leeway-options {
-        |  leeway = 1
+        |jwt-timestamp-leeway {
+        |  default = 1
         |  expires-at = 2
         |  issued-at = 3
         |  not-before = 4
@@ -456,7 +456,7 @@ class PureConfigReaderWriterSpec
         |""".stripMargin,
       AuthServiceConfig.UnsafeJwtHmac256(
         "mysecret3",
-        Some(LeewayOptions(Some(1), Some(2), Some(3), Some(4))),
+        Some(JwtTimestampLeeway(Some(1), Some(2), Some(3), Some(4))),
       ),
     )
     compare(
