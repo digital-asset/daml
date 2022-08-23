@@ -21,22 +21,30 @@ import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
 // Choice TCRK: II+I
 // Template TKI: II+
 
+// template companion
+// pass IfU = never for template companions with no direct interface implementations
 interface ToInterface<T, IfU> {
-  // without the conditional, you could simply specify <never> and
-  // use contract ID covariance to get any interface you want.  This
-  // isn't perfect but should prevent most mistakes, and miraculously
-  // still allows inferring from context (see exercise examples below).
-  // It helps that TS infers a surprising number of type expressions
-  // to be equal to never
-  toInterface: <If extends IfU>(cid: ContractId<T>) =>
-    ContractId<If extends never ? unknown : If>,
-  unsafeFromInterface: (cid: ContractId<IfU>) => ContractId<T>
+  toInterface<If extends IfU>(ic: FromTemplate<If, unknown>, cid: ContractId<T>):
+    ContractId<If>; // overload for direct interface implementations
+  toInterface<If>(ic: FromTemplate<If, T>, cid: ContractId<T>):
+    ContractId<If>; // overload for retroactive interface implementations
+  /*toInterface<If, Z>(ic: FromTemplate<If, Z>, cid: ContractId<T>):
+    ContractId<Z>;*/
+  unsafeFromInterface(ic: FromTemplate<IfU, unknown>, cid: ContractId<IfU>): ContractId<T>;
+  unsafeFromInterface<If>(ic: FromTemplate<If, T>, cid: ContractId<If>): ContractId<T>;
+}
+
+// interface companion
+const fromTemplateMarker: unique symbol = Symbol(); // in @daml/types
+// pass TU=unknown for companions with no retros
+interface FromTemplate<If, TU> {
+  readonly [fromTemplateMarker]: [If, TU];
 }
 
 const interfaceMarker: unique symbol = Symbol(); // in @daml/types
 type Interface<IfId> = { readonly [interfaceMarker]: IfId }; // in @daml/types
 type I1 = Interface<"pkgid:mod:foo">; // codegenned marker type
-interface I1I { // tparam removed
+interface I1I extends FromTemplate<I1, unknown> { // tparam removed
   // ^ marker type always used, including for contract IDs (mbSubst unneeded)
   IChoice: Choice<I1, IChoice, ContractId<I1>, undefined>;
 }
@@ -51,7 +59,7 @@ type IChoice2 = {};
 const I2: Template<I2, undefined, "bar"> & I2I = null as never;
 
 type I3 = Interface<"pkgid:mod:quuux">;
-interface I3I {
+interface I3I extends FromTemplate<I3, unknown> {
   IChoice3: Choice<I3, IChoice3, ContractId<I3>, undefined>;
 }
 type IChoice3 = {};
@@ -74,6 +82,13 @@ interface TI extends ToInterface<T, I1 | I2> {
 type TChoice = {};
 const T: Template<T, undefined, "baz"> & TI = null as never;
 
+type RI4 = Interface<"pkgid:mod:retro">;
+interface RI4I extends FromTemplate<RI4, T & U> {
+  IChoice4: Choice<RI4, IChoice4, ContractId<RI4>, undefined>;
+}
+type IChoice4 = {};
+const RI4: Template<RI4, undefined, "retro"> & RI4I = null as never;
+
 type U = { quux: Int };
 
 function myCreate<T extends object, K>(tpl: Template<T, K, string>, t: T) {}
@@ -89,6 +104,7 @@ function widenCid(
   cidU: ContractId<U>,
   cidI1: ContractId<I1>,
   cidI3: ContractId<I3>,
+  cidI4: ContractId<RI4>,
 ): ContractId<I1> {
   myCreate(T, { baz: "42" });
   myCreate(I1, I1); // disallowed correctly
@@ -96,22 +112,37 @@ function widenCid(
   myExercise(T.TChoice, cidT, {});
   myExercise(T.TChoice, cidU, {}); // disallowed correctly
   myExercise(T.IChoice, cidT, {}); // broken by redesign
-  const cidTAsI1 = T.toInterface<I1>(cidT); // infers ContractId<I1>
-  const cidTAsI = T.toInterface(cidT); // infers ContractId<I1 | I2>. Not ideal
-  // surprisingly, this infers the If tparam to toInterface correctly
-  myExercise(I1.IChoice, T.toInterface(cidT), {}); // allowed
+  const cidTAsI1 = T.toInterface(I1, cidT); // infers ContractId<I1>
+  // const cidTAsI = T.toInterface(cidT); // did infer ContractId<I1 | I2>, but fixed by redesign
+  const cidTAsI4 = T.toInterface(RI4, cidT); // infers ContractId<RI4>
+  const cidTAsI3 = T.toInterface(I3, cidT); // disallowed correctly
+  myExercise(I1.IChoice, T.toInterface(I1, cidT), {}); // allowed
   myExercise(I1.IChoice, cidU, {}); // disallowed
   myExercise(I1.IChoice, cidI1, {}); // allowed
   myExercise(I2.IChoice2, cidI1, {}); // disallowed
-  const cidI1AsT = T.unsafeFromInterface(cidI1); // infers ContractId<T>
-  // "argument of type ContractId<I3> is not assignable to parameter
-  // of type ContractId<I1 | I2>"
-  const cidI3AsT = T.unsafeFromInterface(cidI3); // disallowed
+  myExercise(RI4.IChoice4, T.toInterface(RI4, cidT), {}); // allowed
+  const cidI1AsT = T.unsafeFromInterface(I1, cidI1); // infers ContractId<T>
+  /*
+  No overload matches this call.
+  Overload 1 of 2, '(ic: FromTemplate<I1 | I2, unknown>, cid: ContractId<I1 | I2>): ContractId<T>', gave the following error.
+    Argument of type 'Template<I3, undefined, "quuux"> & I3I' is not assignable to parameter of type 'FromTemplate<I1 | I2, unknown>'.
+  Overload 2 of 2, '(ic: FromTemplate<I3, T>, cid: ContractId<I3>): ContractId<T>', gave the following error.
+    Argument of type 'Template<I3, undefined, "quuux"> & I3I' is not assignable to parameter of type 'FromTemplate<I3, T>'
+    */
+  const cidI3AsT = T.unsafeFromInterface(I3, cidI3); // disallowed
+  const cidI4AsT = T.unsafeFromInterface(RI4, cidI4); // infers ContractId<T>
   myExercise(I1.IChoice, cidU, {}); // disallowed
-  // error is "argument of type ContractId<I1 | I2> is not assignable
-  // to parameter of type ContractId<I3>"
-  myExercise(I3.IChoice3, T.toInterface(cidT), {}); // should be disallowed
-  return T.toInterface(cidT);
+  /*
+  Argument of type 'ContractId<I1 | I2>' is not assignable to parameter of type 'ContractId<I3>'.
+  Type 'ContractId<I1 | I2>' is not assignable to type '{ [ContractIdBrand]: I3; }'.
+    Types of property '[ContractIdBrand]' are incompatible.
+      Type 'I1 | I2' is not assignable to type 'I3'.
+        Type 'I1' is not assignable to type 'I3'.
+          Types of property '[interfaceMarker]' are incompatible.
+            Type '"pkgid:mod:foo"' is not assignable to type '"pkgid:mod:quuux"'.
+  */
+  myExercise(I3.IChoice3, T.toInterface(I3, cidT), {}); // should be disallowed
+  return T.toInterface(I1, cidT);
   // ^ works v doesn't work
 }
 
