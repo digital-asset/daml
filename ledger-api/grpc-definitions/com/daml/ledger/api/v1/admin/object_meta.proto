@@ -49,7 +49,8 @@ message ObjectMeta {
   // Duplicate keys are disallowed by the semantics of the protobuf3 maps.
   // See: https://developers.google.com/protocol-buffers/docs/proto3#maps
   //
-  // You can explicitly specify the update semantics of the 'annotations' map by appending one of the two modifiers to an update mask's path:
+  // Annotations map may be a part of a modifiable resource whose update rpc call uses an update mask ('google/protobuf/field_mask.proto').
+  // For such update calls you may explicitly specify the update semantics of the 'annotations' map by appending one of the two modifiers to the update mask's path:
   // (1) '!merge' to use merge semantics,
   // (2) '!replace' to use replace-all semantics.
   // Example path: 'user.metadata.annotations!replace'.
