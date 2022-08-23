@@ -876,6 +876,12 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
             -- TODO https://github.com/digital-asset/daml/issues/12051
             --   Change when interfaces are released.
 
+    -- Remove guarded exercise instances when Extended Interfaces are unsupported
+    | not (envLfVersion env `supports` featureExtendedInterfaces)
+    , Just cls <- tyConClass_maybe t
+    , NameIn DA_Internal_Template "HasExerciseGuarded" <- cls
+    ->  pure []
+
     -- Constraint tuples are represented by LF structs.
     | isConstraintTupleTyCon t
     -> pure []
@@ -1352,6 +1358,15 @@ convertBind env mc (name, x)
     | "_method_" `T.isPrefixOf` getOccText name
     = pure []
     | "_view_" `T.isPrefixOf` getOccText name
+    = pure []
+
+    -- Remove guarded exercise when Extended Interfaces are unsupported
+    | not (envLfVersion env `supports` featureExtendedInterfaces)
+    , NameIn DA_Internal_Template "exerciseGuarded" <- name
+    = pure []
+
+    | not (envLfVersion env `supports` featureExtendedInterfaces)
+    , NameIn DA_Internal_Desugar "_exerciseDefault" <- name
     = pure []
 
     -- Remove internal functions.
