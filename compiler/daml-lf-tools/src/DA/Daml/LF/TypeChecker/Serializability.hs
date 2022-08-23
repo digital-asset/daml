@@ -182,9 +182,8 @@ checkInterface _mod0 iface = do
   for_ (intChoices iface) $ \ch -> do
       checkType SRChoiceArg (snd (chcArgBinder ch))
       checkType SRChoiceRes (chcReturnType ch)
-
-  let err = EViewNotSerializable (intName iface) (intView iface)
-  catchAndRethrow (const err) $ checkType SRViewType $ intView iface
+      
+  checkType SRView $ intView iface
 
 -- | Check whether exception is serializable.
 checkException :: MonadGamma m => Module -> DefException -> m ()

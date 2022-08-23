@@ -57,7 +57,7 @@ data SerializabilityRequirement
   | SRKey
   | SRDataType
   | SRExceptionArg
-  | SRViewType
+  | SRView
 
 -- | Reason why a type is not serializable.
 data UnserializabilityReason
@@ -156,7 +156,6 @@ data Error
   | EUnknownMethodInInterfaceInstance !MethodName
   | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
   | EUnknownExperimental !T.Text !Type
-  | EViewNotSerializable !TypeConName !Type
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -216,7 +215,7 @@ instance Pretty SerializabilityRequirement where
     SRDataType -> "serializable data type"
     SRKey -> "template key"
     SRExceptionArg -> "exception argument"
-    SRViewType -> "view type"
+    SRView -> "view"
 
 instance Pretty UnserializabilityReason where
   pPrint = \case
@@ -447,8 +446,6 @@ instance Pretty Error where
       "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
     EUnknownExperimental name ty ->
       "Unknown experimental primitive " <> string (show name) <> " : " <> pretty ty
-    EViewNotSerializable name ty ->
-      "Interface " <> pretty name <> " has a view method which returns a non-serializable type " <> pretty ty
 
 instance Pretty Context where
   pPrint = \case
