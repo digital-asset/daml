@@ -532,12 +532,6 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
     for {
-      notYetKnownInterfaceFailure <- flatTransactions(
-        getTransactionsRequest(
-          transactionFilter(Seq(party), Seq.empty, Seq((carbonv1.CarbonV1.I.id, true)))
-        )
-      ).mustFail("Subscribing to not-yet known interface")
-
       _ <- ledger.uploadDarFile(Dars.read(Carbonv1TestDar.path))
 
       transactionFuture = flatTransactions(
@@ -562,11 +556,6 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       transactions <- transactionFuture
 
     } yield {
-      assertGrpcError(
-        notYetKnownInterfaceFailure,
-        LedgerApiErrors.RequestValidation.InvalidArgument,
-        Some(s"Interfaces do not exist"),
-      )
       assertLength("transaction should be found", 1, transactions)
 
       val createdEvent = createdEvents(transactions(0)).head
