@@ -14,57 +14,52 @@ object FutureCheck {
     *
     * @param delay  The delay duration before the first check is being done.
     * @param period The duration between checking tasks are being triggered.
-    * @param ifIncomplete A closure which will be called in case of future is not yet completed.
+    * @param onDeadlineExceeded A closure which will be called in case of future is not yet completed.
     * @param f         The original future.
     */
   def check[T](delay: Duration, period: Duration)(
       f: Future[T]
-  )(ifIncomplete: => Unit): Unit = {
+  )(onDeadlineExceeded: => Unit): Unit =
     Timer.scheduleAtFixedRate(
-      new TimerTask {
-        override def run(): Unit = {
-          if (!f.isCompleted) {
-            ifIncomplete
-          } else {
-            val _ = cancel()
-          }
-        }
-      },
+      task(f, onDeadlineExceeded),
       delay.toMillis,
       period.toMillis,
     )
-  }
 
   /** Creates a special checker task around passed future to check if it was completed or not after delay.
     * If it was not completed - a passed closure is being called.
     *
     * @param delay        The delay duration before the check is done.
-    * @param ifIncomplete A closure which will be called in case of future is not yet completed.
+    * @param onDeadlineExceeded A closure which will be called in case of future is not yet completed.
     * @param f            The original future.
     */
   def check[T](delay: Duration)(
       f: Future[T]
-  )(ifIncomplete: => Unit) = Timer.schedule(
-    new TimerTask {
-      override def run(): Unit = {
-        if (!f.isCompleted) {
-          ifIncomplete
-        } else {
-          val _ = cancel()
-        }
-      }
-    },
+  )(onDeadlineExceeded: => Unit): Unit = Timer.schedule(
+    task(f, onDeadlineExceeded),
     delay.toMillis,
   )
 
+  private def task[T](f: Future[T], onDeadlineExceeded: => Unit): TimerTask =
+    new TimerTask {
+      override def run(): Unit =
+        if (!f.isCompleted) {
+          onDeadlineExceeded
+        } else {
+          val _ = cancel()
+        }
+    }
+
   implicit class FutureTimeoutOps[T](val f: Future[T]) extends AnyVal {
-    def checkIfComplete(delay: Duration)(ifIncomplete: => Unit): Future[T] = {
-      FutureCheck.check(delay)(f)(ifIncomplete)
+    def checkIfComplete(delay: Duration)(onDeadlineExceeded: => Unit): Future[T] = {
+      FutureCheck.check(delay)(f)(onDeadlineExceeded)
       f
     }
 
-    def checkIfComplete(delay: Duration, period: Duration)(ifIncomplete: => Unit): Future[T] = {
-      FutureCheck.check(delay, period)(f)(ifIncomplete)
+    def checkIfComplete(delay: Duration, period: Duration)(
+        onDeadlineExceeded: => Unit
+    ): Future[T] = {
+      FutureCheck.check(delay, period)(f)(onDeadlineExceeded)
       f
     }
   }
