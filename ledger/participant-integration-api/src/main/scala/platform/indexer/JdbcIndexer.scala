@@ -205,11 +205,11 @@ object JdbcIndexer {
     val check = checkInitTakesTooLong(config, startedTime, initFuture)
     initFuture
       .map { _ =>
-        logger.info("Package Metadata View has been initialized")
+        logger.info(
+          s"Package Metadata View has been initialized (${System.currentTimeMillis() - startedTime}ms)"
+        )
         val _ = check.cancel()
-      }(
-        computationExecutionContext
-      )
+      }(computationExecutionContext)
       .recover { case NonFatal(e) =>
         logger.error(s"Failed to initialize Package Metadata View", e)
         val _ = check.cancel()
@@ -229,9 +229,8 @@ object JdbcIndexer {
       interval = config.initTakesTooLongInterval,
       task = () =>
         if (!f.isCompleted) {
-          val now = System.currentTimeMillis()
           logger.warn(
-            s"Package Metadata View initialization takes to long (${now - startedTime}ms)"
+            s"Package Metadata View initialization takes to long (${System.currentTimeMillis() - startedTime}ms)"
           )
         },
     )
