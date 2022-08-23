@@ -23,6 +23,7 @@ class HmacSha256Spec extends AnyWordSpec with Matchers {
     "generate serialize/deserialize key" in {
       val expected = generateKey("test")
       val json = expected.toJson.prettyPrint
+      println(json)
       val actual = json.parseJson.convertTo[Key]
       actual shouldBe expected
     }
