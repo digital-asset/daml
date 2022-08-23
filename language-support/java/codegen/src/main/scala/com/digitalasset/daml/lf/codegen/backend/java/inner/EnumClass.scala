@@ -4,7 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.daml.lf.iface
+import com.daml.lf.typesig
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
@@ -15,7 +15,7 @@ private[inner] object EnumClass extends StrictLogging {
 
   def generate(
       className: ClassName,
-      enumeration: iface.Enum,
+      enumeration: typesig.Enum,
   ): TypeSpec = {
     TrackLineage.of("enum", className.simpleName()) {
       logger.info("Start")
@@ -31,7 +31,7 @@ private[inner] object EnumClass extends StrictLogging {
     }
   }
 
-  private def generateValuesArray(enumeration: iface.Enum): FieldSpec = {
+  private def generateValuesArray(enumeration: typesig.Enum): FieldSpec = {
     val fieldSpec = FieldSpec.builder(ArrayTypeName.of(classOf[javaapi.data.DamlEnum]), "__values$")
     fieldSpec.addModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
     val constructorValues = enumeration.constructors
@@ -61,7 +61,10 @@ private[inner] object EnumClass extends StrictLogging {
       .initializer("$T.__buildEnumsMap$$()", className)
       .build()
 
-  private def generateEnumsMapBuilder(className: ClassName, enumeration: iface.Enum): MethodSpec = {
+  private def generateEnumsMapBuilder(
+      className: ClassName,
+      enumeration: typesig.Enum,
+  ): MethodSpec = {
     val builder = MethodSpec.methodBuilder("__buildEnumsMap$")
     builder.addModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
     builder.returns(mapType(className))
@@ -75,7 +78,7 @@ private[inner] object EnumClass extends StrictLogging {
 
   private def generateFromValue(
       className: ClassName,
-      enumeration: iface.Enum,
+      enumeration: typesig.Enum,
   ): MethodSpec = {
     logger.debug(s"Generating fromValue static method for ${enumeration}")
 
