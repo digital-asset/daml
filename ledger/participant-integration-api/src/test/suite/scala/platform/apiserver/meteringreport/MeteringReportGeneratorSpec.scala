@@ -36,6 +36,8 @@ class MeteringReportGeneratorSpec extends AsyncWordSpec with Matchers {
   private val reportData =
     ReportData(applicationData = Map(appIdB -> 2, appIdA -> 4), isFinal = false)
 
+  private val testKey = HmacSha256.generateKey("test")
+
   private val reportJsonStruct = {
     import com.daml.platform.apiserver.meteringreport.MeteringReport._
     val report = ParticipantReport(
@@ -43,9 +45,10 @@ class MeteringReportGeneratorSpec extends AsyncWordSpec with Matchers {
       request = Request(from, Some(to), Some(appIdX)),
       `final` = false,
       applications = Seq(ApplicationReport(appIdA, 4), ApplicationReport(appIdB, 2)),
-      check = None, // TODO populate
+      check = None,
     )
-    val json = report.toJson.compactPrint
+    val Right(signedReport) = JcsSigner.sign(report, testKey)
+    val json = signedReport.toJson.compactPrint
     val struct: Struct = JsonFormat.parser.fromJsonString[Struct](json)
     struct
   }
@@ -53,14 +56,11 @@ class MeteringReportGeneratorSpec extends AsyncWordSpec with Matchers {
   "MeteringReportGenerator" should {
     "generate report" in {
 
-      val underTest = new MeteringReportGenerator(someParticipantId)
+      val underTest = new MeteringReportGenerator(someParticipantId, testKey)
 
       val request = GetMeteringReportRequest.defaultInstance
 
       val generationTime = toProtoTimestamp(Timestamp.now())
-
-      val actual =
-        underTest.generate(request, from, Some(to), Some(appIdX), reportData, generationTime)
 
       val expectedReport = ParticipantMeteringReport(
         participantId = someParticipantId,
@@ -78,6 +78,12 @@ class MeteringReportGeneratorSpec extends AsyncWordSpec with Matchers {
         meteringReportJson = Some(reportJsonStruct),
       )
 
+      val Right(actual) =
+        underTest.generate(request, from, Some(to), Some(appIdX), reportData, generationTime)
+
+      actual.meteringReportJson.get.fields
+        .get("check") shouldBe expected.meteringReportJson.get.fields.get("check")
+      actual.meteringReportJson shouldBe expected.meteringReportJson
       actual shouldBe expected
 
     }

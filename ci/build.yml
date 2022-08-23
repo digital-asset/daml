@@ -106,11 +106,13 @@ jobs:
 
 - template: macOS.yml
   parameters:
-    name: macOS
+    job_name: macOS
+    name: macos
     assignment: default
 
 - template: macOS.yml
   parameters:
+    job_name: m1
     name: m1
     assignment: m1-builds
 

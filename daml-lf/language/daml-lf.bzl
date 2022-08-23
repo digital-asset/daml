@@ -58,6 +58,7 @@ lf_version_configuration = {
     "legacy": "1.8",
     "default": "1.14",
     "latest": "1.14",
+    "preview": "1.15",
     "dev": "1.dev",
 }
 
@@ -101,6 +102,6 @@ PROTO_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14") if 
 # expected by the --target option.
 # TODO https://github.com/digital-asset/daml/issues/12051
 #    add 1.15 once the compiler produce 1.15
-COMPILER_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14") if ver != "1.15"]
+COMPILER_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14")]
 
 LF_MAJOR_VERSIONS = ["1"]

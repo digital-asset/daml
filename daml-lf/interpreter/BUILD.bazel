@@ -87,8 +87,8 @@ da_scala_test_suite(
     deps = [
         ":interpreter",
         ":interpreter-test-lib",
+        "//daml-lf/api-type-signature",
         "//daml-lf/data",
-        "//daml-lf/interface",
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/transaction",

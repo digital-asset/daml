@@ -334,10 +334,10 @@ object SBuiltinBigNumericTest {
   private val pkg =
     p"""
         module BigNumeric {
-        
+
           val maxScale: Int64 = ${SValue.SBigNumeric.MaxScale};
           val minScale: Int64 = SUB_INT64 1 BigNumeric:maxScale;
-               
+
           val zero: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 0. ;
           val one: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 1. ;
           val two: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 2. ;
@@ -345,31 +345,31 @@ object SBuiltinBigNumericTest {
           val minusOne: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 -1. ;
           val minusTwo: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 -2. ;
           val ten: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 10. ;
-          val underSqrtOfTen: BigNumeric = 
+          val underSqrtOfTen: BigNumeric =
             NUMERIC_TO_BIGNUMERIC @37 3.1622776601683793319988935444327185337;
-          val overSqrtOfTen: BigNumeric = 
+          val overSqrtOfTen: BigNumeric =
             NUMERIC_TO_BIGNUMERIC @37 3.1622776601683793319988935444327185338;
-          val nineteen: BigNumeric = 
+          val nineteen: BigNumeric =
             NUMERIC_TO_BIGNUMERIC @0 19.;
-          val twentyEight: BigNumeric = 
-            NUMERIC_TO_BIGNUMERIC @0 28.;  
-          val twentyNine: BigNumeric = 
-            NUMERIC_TO_BIGNUMERIC @0 29.;  
-          val minPositive: BigNumeric = 
+          val twentyEight: BigNumeric =
+            NUMERIC_TO_BIGNUMERIC @0 28.;
+          val twentyNine: BigNumeric =
+            NUMERIC_TO_BIGNUMERIC @0 29.;
+          val minPositive: BigNumeric =
             SHIFT_RIGHT_BIGNUMERIC BigNumeric:maxScale BigNumeric:one;
           val maxPositive: BigNumeric =
             let x: BigNumeric = SUB_BIGNUMERIC BigNumeric:one BigNumeric:minPositive in
             ADD_BIGNUMERIC x (SHIFT_RIGHT_BIGNUMERIC (SUB_INT64 0 BigNumeric:maxScale) x);
           val maxNegative: BigNumeric =
             SHIFT_RIGHT_BIGNUMERIC BigNumeric:maxScale BigNumeric:minusOne;
-          val minNegative: BigNumeric = 
+          val minNegative: BigNumeric =
             let x: BigNumeric = ADD_BIGNUMERIC BigNumeric:minusOne BigNumeric:minPositive in
               ADD_BIGNUMERIC x (SHIFT_RIGHT_BIGNUMERIC (SUB_INT64 0 BigNumeric:maxScale) x);
-          
+
           val tenPower: Int64 -> BigNumeric = \(n: Int64) ->
            SHIFT_RIGHT_BIGNUMERIC (SUB_INT64 0 n) BigNumeric:one;
-          val x: BigNumeric = SHIFT_RIGHT_BIGNUMERIC ${SValue.SBigNumeric.MinScale} (NUMERIC_TO_BIGNUMERIC @0 5.); 
-          val almostX: BigNumeric = SUB_BIGNUMERIC BigNumeric:x BigNumeric:minPositive; 
+          val x: BigNumeric = SHIFT_RIGHT_BIGNUMERIC ${SValue.SBigNumeric.MinScale} (NUMERIC_TO_BIGNUMERIC @0 5.);
+          val almostX: BigNumeric = SUB_BIGNUMERIC BigNumeric:x BigNumeric:minPositive;
           val minusX: BigNumeric = SUB_BIGNUMERIC BigNumeric:zero BigNumeric:x;
         }
 

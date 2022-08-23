@@ -52,8 +52,11 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
   private[this] implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters(defaultPackageId, languageVersion = LanguageVersion.v1_dev)
 
-  private val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
+  private lazy val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
     module M {
+
+      record @serializable MyUnit = {};
+
       record @serializable TKey = { maintainers : List Party, optCid : Option (ContractId Unit), nested: M:Nested };
 
       record @serializable Nested = { f : Option M:Nested };
@@ -70,10 +73,10 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       variant @serializable Either (a:*) (b:*) = Left: a | Right : b;
 
-      interface (this : I1) =  { viewtype Unit; };
+      interface (this : I1) =  { viewtype M:MyUnit; };
 
       interface (this: Person) = {
-        viewtype Unit;
+        viewtype M:MyUnit;
         method asParty: Party;
         method getCtrl: Party;
         method getName: Text;
@@ -87,7 +90,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       } ;
 
       record @serializable T = { signatory : Party, observer : Party, precondition : Bool, key: M:TKey, nested: M:Nested };
-      template (this : T) = {
+      template (this: T) = {
         precondition TRACE @Bool "precondition" (M:T {precondition} this);
         signatories TRACE @(List Party) "contract signatories" (Cons @Party [M:T {signatory} this] (Nil @Party));
         observers TRACE @(List Party) "contract observers" (Cons @Party [M:T {observer} this] (Nil @Party));
@@ -108,7 +111,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       };
 
       record @serializable Human = { person: Party, obs: Party, ctrl: Party, precond: Bool, key: M:TKey, nested: M:Nested };
-      template (this : Human) = {
+      template (this: Human) = {
         precondition TRACE @Bool "precondition" (M:Human {precond} this);
         signatories TRACE @(List Party) "contract signatories" (Cons @Party [M:Human {person} this] (Nil @Party));
         observers TRACE @(List Party) "contract observers" (Cons @Party [M:Human {obs} this] (Nil @Party));
@@ -117,7 +120,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           controllers Cons @Party [M:Human {person} this] (Nil @Party)
           to upure @Unit (TRACE @Unit "archive" ());
         implements M:Person {
-          view = ();
+          view = TRACE @M:MyUnit "view" (M:MyUnit {});
           method asParty = M:Human {person} this;
           method getName = "foobar";
           method getCtrl = M:Human {ctrl} this;
@@ -668,6 +671,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             "contract observers",
             "key",
             "maintainers",
+            "view",
             "ends test",
           )
         }
@@ -912,7 +916,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "inconsistent key" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(maintainer: Party) (exercisingParty: Party) (cId: ContractId M:T) ->  
+            e"""\(maintainer: Party) (exercisingParty: Party) (cId: ContractId M:T) ->
                ubind x : Option (ContractId M:T) <- lookup_by_key @M:T (M:toKey maintainer)
                in Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
                """,
@@ -1621,6 +1625,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                 "contract observers",
                 "key",
                 "maintainers",
+                "view",
                 "interface guard",
                 "choice controllers",
                 "choice observers",
@@ -1666,6 +1671,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                 "contract observers",
                 "key",
                 "maintainers",
+                "view",
                 "interface guard",
                 "choice controllers",
                 "choice observers",
@@ -1691,6 +1697,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             inside(res) { case Success(Right(_)) =>
               msgs shouldBe buildLog(
                 "starts test",
+                "view",
                 "interface guard",
                 "choice controllers",
                 "choice observers",
@@ -1773,6 +1780,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
               msgs shouldBe buildLog(
                 "starts test",
+                "view",
                 "interface guard",
                 "choice controllers",
                 "choice observers",
@@ -1797,6 +1805,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             inside(res) { case Success(Right(_)) =>
               msgs shouldBe buildLog(
                 "starts test",
+                "view",
                 "interface guard",
                 "choice controllers",
                 "choice observers",
@@ -1893,6 +1902,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                   ) =>
                 msgs shouldBe buildLog(
                   "starts test",
+                  "view",
                   "interface guard",
                   "choice controllers",
                   "choice observers",
@@ -1970,7 +1980,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "inconsistent key" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(maintainer: Party) (fetchingParty: Party) (cId: ContractId M:T) ->  
+            e"""\(maintainer: Party) (fetchingParty: Party) (cId: ContractId M:T) ->
                ubind x : Option (ContractId M:T) <- lookup_by_key @M:T (M:toKey maintainer)
                in Test:fetch_by_id fetchingParty cId
                """,
@@ -2515,6 +2525,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "contract observers",
               "key",
               "maintainers",
+              "view",
               "ends test",
             )
           }
@@ -2555,6 +2566,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "contract observers",
               "key",
               "maintainers",
+              "view",
             )
           }
         }
@@ -2575,7 +2587,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             getContract = getIfaceContract,
           )
           inside(res) { case Success(Right(_)) =>
-            msgs shouldBe Seq("starts test", "ends test")
+            msgs shouldBe Seq("starts test", "view", "ends test")
           }
         }
 
@@ -2645,7 +2657,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
 
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq("starts test")
+            msgs shouldBe Seq("starts test", "view")
           }
         }
       }
@@ -2663,7 +2675,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             Set(alice),
           )
           inside(res) { case Success(Right(_)) =>
-            msgs shouldBe Seq("starts test", "ends test")
+            msgs shouldBe Seq("starts test", "view", "ends test")
           }
         }
 
@@ -2733,7 +2745,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
 
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq("starts test")
+            msgs shouldBe Seq("starts test", "view")
           }
         }
       }

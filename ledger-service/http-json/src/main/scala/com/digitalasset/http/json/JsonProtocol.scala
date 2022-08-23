@@ -9,6 +9,7 @@ import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.lf.data.Ref.HexString
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
+import com.google.protobuf.struct.Struct
 import scalaz.syntax.std.option._
 import scalaz.{-\/, NonEmptyList, OneAnd, \/-}
 import spray.json._
@@ -513,6 +514,8 @@ object JsonProtocol extends JsonProtocolLow {
 
   implicit val ErrorResponseFormat: RootJsonFormat[domain.ErrorResponse] =
     jsonFormat4(domain.ErrorResponse)
+
+  implicit val StructFormat: RootJsonFormat[Struct] = StructJsonFormat
 
   implicit def SyncResponseFormat[R: JsonFormat]: RootJsonFormat[domain.SyncResponse[R]] =
     new RootJsonFormat[domain.SyncResponse[R]] {

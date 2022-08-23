@@ -6,11 +6,11 @@ package command
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.value.Value
-import com.daml.lf.data.{ImmArray, Time}
+import com.daml.lf.data.{ImmArray, TemplateOrInterface, Time}
 
 /** Accepted commands coming from API */
 sealed abstract class ApiCommand extends Product with Serializable {
-  def typeId: TypeConName
+  def typeId: TemplateOrInterface[TypeConName, TypeConName]
 }
 
 object ApiCommand {
@@ -21,7 +21,7 @@ object ApiCommand {
     * @param argument   value passed to the template
     */
   final case class Create(templateId: TypeConName, argument: Value) extends ApiCommand {
-    def typeId: TypeConName = templateId
+    def typeId: TemplateOrInterface.Template[TypeConName] = TemplateOrInterface.Template(templateId)
   }
 
   /** Command for exercising a choice on an existing contract
@@ -32,7 +32,7 @@ object ApiCommand {
     * @param argument   value passed for the choice
     */
   final case class Exercise(
-      typeId: TypeConName,
+      typeId: TemplateOrInterface[TypeConName, TypeConName],
       contractId: Value.ContractId,
       choiceId: ChoiceName,
       argument: Value,
@@ -51,7 +51,7 @@ object ApiCommand {
       choiceId: ChoiceName,
       argument: Value,
   ) extends ApiCommand {
-    def typeId: TypeConName = templateId
+    def typeId: TemplateOrInterface.Template[TypeConName] = TemplateOrInterface.Template(templateId)
   }
 
   /** Command for creating a contract and exercising a choice
@@ -68,7 +68,7 @@ object ApiCommand {
       choiceId: ChoiceName,
       choiceArgument: Value,
   ) extends ApiCommand {
-    def typeId: TypeConName = templateId
+    def typeId: TemplateOrInterface.Template[TypeConName] = TemplateOrInterface.Template(templateId)
   }
 }
 

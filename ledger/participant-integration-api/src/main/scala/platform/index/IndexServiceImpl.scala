@@ -29,6 +29,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
@@ -52,6 +53,7 @@ import com.daml.platform.{ApiOffset, PruneBuffers}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
+import com.daml.platform.index.IndexServiceImpl.withValidatedFilter
 import com.daml.platform.store.dao.{
   EventProjectionProperties,
   LedgerDaoCommandCompletionsReader,
@@ -103,81 +105,84 @@ private[index] class IndexServiceImpl(
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] =
-    between(startExclusive, endInclusive) { (from, to) =>
-      from.foreach(offset =>
-        Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
-      )
-      to.foreach(offset =>
-        Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
-      )
-      dispatcher()
-        .startingAt(
-          from.getOrElse(Offset.beforeBegin),
-          RangeSource { (startExclusive, endInclusive) =>
-            filterSource(transactionFilter, verbose) {
-              (templateFilter, eventProjectionProperties) =>
-                transactionsReader
-                  .getFlatTransactions(
-                    startExclusive,
-                    endInclusive,
-                    templateFilter,
-                    eventProjectionProperties,
-                  )
-            }
-          },
-          to,
+    withValidatedFilter(transactionFilter, packageMetadataView.current()) {
+      between(startExclusive, endInclusive) { (from, to) =>
+        from.foreach(offset =>
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
         )
-        .mapError(shutdownError)
-        .map(_._2)
-        .buffered(metrics.daml.index.flatTransactionsBufferSize, LedgerApiStreamsBufferSize)
-    }.wireTap(
-      _.transactions.view
-        .map(transaction =>
-          Event(transaction.commandId, TraceIdentifiers.fromTransaction(transaction))
+        to.foreach(offset =>
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
         )
-        .foreach(Spans.addEventToCurrentSpan)
-    )
+        dispatcher()
+          .startingAt(
+            from.getOrElse(Offset.beforeBegin),
+            RangeSource { (startExclusive, endInclusive) =>
+              filterSource(transactionFilter, verbose) {
+                (templateFilter, eventProjectionProperties) =>
+                  transactionsReader
+                    .getFlatTransactions(
+                      startExclusive,
+                      endInclusive,
+                      templateFilter,
+                      eventProjectionProperties,
+                    )
+              }
+            },
+            to,
+          )
+          .mapError(shutdownError)
+          .map(_._2)
+          .buffered(metrics.daml.index.flatTransactionsBufferSize, LedgerApiStreamsBufferSize)
+      }.wireTap(
+        _.transactions.view
+          .map(transaction =>
+            Event(transaction.commandId, TraceIdentifiers.fromTransaction(transaction))
+          )
+          .foreach(Spans.addEventToCurrentSpan)
+      )
+    }
 
   override def transactionTrees(
       startExclusive: LedgerOffset,
       endInclusive: Option[LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetTransactionTreesResponse, NotUsed] = {
-    val parties = filter.filtersByParty.keySet
-    val eventProjectionProperties = EventProjectionProperties(
-      verbose = verbose,
-      witnessTemplateIdFilter = parties.iterator
-        .map(party => party -> Set.empty[Identifier])
-        .toMap,
-    )
-    between(startExclusive, endInclusive) { (from, to) =>
-      from.foreach(offset =>
-        Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
+  )(implicit loggingContext: LoggingContext): Source[GetTransactionTreesResponse, NotUsed] =
+    withValidatedFilter(filter, packageMetadataView.current()) {
+      val parties = filter.filtersByParty.keySet
+      val eventProjectionProperties = EventProjectionProperties(
+        verbose = verbose,
+        witnessTemplateIdFilter = parties.iterator
+          .map(party => party -> Set.empty[Identifier])
+          .toMap,
       )
-      to.foreach(offset =>
-        Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
+      between(startExclusive, endInclusive) { (from, to) =>
+        from.foreach(offset =>
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
+        )
+        to.foreach(offset =>
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
+        )
+        dispatcher()
+          .startingAt(
+            from.getOrElse(Offset.beforeBegin),
+            RangeSource(
+              transactionsReader
+                .getTransactionTrees(_, _, parties, eventProjectionProperties)
+            ),
+            to,
+          )
+          .mapError(shutdownError)
+          .map(_._2)
+          .buffered(metrics.daml.index.transactionTreesBufferSize, LedgerApiStreamsBufferSize)
+      }.wireTap(
+        _.transactions.view
+          .map(transaction =>
+            Event(transaction.commandId, TraceIdentifiers.fromTransactionTree(transaction))
+          )
+          .foreach(Spans.addEventToCurrentSpan)
       )
-      dispatcher()
-        .startingAt(
-          from.getOrElse(Offset.beforeBegin),
-          RangeSource(
-            transactionsReader
-              .getTransactionTrees(_, _, parties, eventProjectionProperties)
-          ),
-          to,
-        )
-        .mapError(shutdownError)
-        .map(_._2)
-        .buffered(metrics.daml.index.transactionTreesBufferSize, LedgerApiStreamsBufferSize)
-    }.wireTap(
-      _.transactions.view
-        .map(transaction =>
-          Event(transaction.commandId, TraceIdentifiers.fromTransactionTree(transaction))
-        )
-        .foreach(Spans.addEventToCurrentSpan)
-    )
-  }
+    }
 
   override def getCompletions(
       startExclusive: LedgerOffset,
@@ -220,25 +225,28 @@ private[index] class IndexServiceImpl(
   override def getActiveContracts(
       transactionFilter: TransactionFilter,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
-    val currentLedgerEnd = ledgerEnd()
+  )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] =
+    withValidatedFilter(transactionFilter, packageMetadataView.current()) {
+      val currentLedgerEnd = ledgerEnd()
 
-    val activeContractsSource = filterSource(transactionFilter, verbose) {
-      (templateFilter, eventProjectionProperties) =>
-        ledgerDao.transactionsReader
-          .getActiveContracts(
-            currentLedgerEnd,
-            templateFilter,
-            eventProjectionProperties,
+      val activeContractsSource = filterSource(transactionFilter, verbose) {
+        (templateFilter, eventProjectionProperties) =>
+          ledgerDao.transactionsReader
+            .getActiveContracts(
+              currentLedgerEnd,
+              templateFilter,
+              eventProjectionProperties,
+            )
+      }
+
+      activeContractsSource
+        .concat(
+          Source.single(
+            GetActiveContractsResponse(offset = ApiOffset.toApiString(currentLedgerEnd))
           )
+        )
+        .buffered(metrics.daml.index.activeContractsBufferSize, LedgerApiStreamsBufferSize)
     }
-
-    activeContractsSource
-      .concat(
-        Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(currentLedgerEnd)))
-      )
-      .buffered(metrics.daml.index.activeContractsBufferSize, LedgerApiStreamsBufferSize)
-  }
 
   override def lookupActiveContract(
       forParties: Set[Ref.Party],
@@ -467,6 +475,63 @@ private[index] class IndexServiceImpl(
 }
 
 object IndexServiceImpl {
+  private val logger = ContextualizedLogger.get(getClass)
+
+  private[index] def unknownTemplatesOrInterfaces(
+      domainTransactionFilter: domain.TransactionFilter,
+      metadata: PackageMetadata,
+  ) =
+    (for {
+      (_, inclusiveFilterOption) <- domainTransactionFilter.filtersByParty.iterator
+      inclusiveFilter <- inclusiveFilterOption.inclusive.iterator
+      unknownInterfaces =
+        inclusiveFilter.interfaceFilters
+          .map(_.interfaceId)
+          .diff(metadata.interfaces)
+          .map(Right(_))
+      unknownTemplates = inclusiveFilter.templateIds.diff(metadata.templates).map(Left(_))
+      unknownTemplateOrInterface <- unknownInterfaces ++ unknownTemplates
+    } yield unknownTemplateOrInterface).toList
+
+  private[index] def withValidatedFilter[T](
+      domainTransactionFilter: domain.TransactionFilter,
+      metadata: PackageMetadata,
+  )(
+      source: => Source[T, NotUsed]
+  )(implicit loggingContext: LoggingContext): Source[T, NotUsed] = {
+    implicit val errorLogger: DamlContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
+    val templatesOrInterfaces = unknownTemplatesOrInterfaces(domainTransactionFilter, metadata)
+
+    if (templatesOrInterfaces.nonEmpty)
+      Source.failed(
+        invalidArgument(
+          invalidTemplateOrInterfaceMessage(templatesOrInterfaces)
+        )
+      )
+    else
+      source
+  }
+
+  private[index] def invalidTemplateOrInterfaceMessage(
+      unknownTemplatesOrInterfaces: List[Either[Identifier, Identifier]]
+  ) = {
+    val templates = unknownTemplatesOrInterfaces.collect { case Left(value) =>
+      value
+    }
+    val interfaces = unknownTemplatesOrInterfaces.collect { case Right(value) =>
+      value
+    }
+    val templatesMessage = if (templates.nonEmpty) {
+      s"Templates do not exist: [${templates.mkString(", ")}]. "
+    } else ""
+    val interfacesMessage = if (interfaces.nonEmpty) {
+      s"Interfaces do not exist: [${interfaces.mkString(", ")}]. "
+    } else
+      ""
+    (templatesMessage + interfacesMessage).trim
+  }
 
   private def templateIds(
       metadata: PackageMetadata

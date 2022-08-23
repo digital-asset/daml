@@ -265,6 +265,22 @@ Version: 1.14
     - Add `TryCatch` update
     - Add `ANY_EXCEPTION_MESSAGE` builtin functions,
 
+Version: 1.15
+.............
+
+* Introduction date:
+
+     2022-08-17
+
+* Description:
+
+  + **Add** interfaces.
+    - Add `ToInterface`, `FromInterface` expressions
+    - Add `CallInterface` expressions
+    - Add `ViewInterface` expressions
+    - Add `coImplements` and `view` to `DefInterface`
+    - Add `implements` to `Template`
+
 Version: 1.dev (development)
 ............................
 
