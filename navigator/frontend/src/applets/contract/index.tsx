@@ -38,13 +38,15 @@ export const setError = (error: string): Action => ({
 export interface State {
   id: string;
   choice?: string;
+  ifc?: string;
   choiceLoading: boolean;
   error?: string;
 }
 
-export const init = (id: string, choice?: string): State => ({
+export const init = (id: string, choice?: string, ifc?: string): State => ({
   id,
   choice,
+  ifc,
   choiceLoading: false,
 });
 
@@ -158,6 +160,7 @@ class Component extends React.Component<Props, {}> {
         <ContractComponent
           contract={contract}
           choice={state.choice}
+          ifc={state.ifc}
           choiceLoading={state.choiceLoading}
           error={state.error}
           exercise={this.exercise}

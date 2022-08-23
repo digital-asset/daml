@@ -2,6 +2,7 @@ type Choice {
   name: String!
   parameter: DamlLfType!
   consuming: Boolean!
+  inheritedInterface: String
 }
 
 interface Command {
@@ -202,6 +203,7 @@ type Template implements Node & DamlLfNode {
   parameterDef: DamlLfDefDataType!
   choices: [Choice!]!
   contracts(search: String, filter: [FilterCriterion!], includeArchived: Boolean, count: Int, start: String, sort: [SortCriterion!]): ContractPagination!
+  implementedInterfaces: [String!]!
 }
 
 type TemplateEdge {

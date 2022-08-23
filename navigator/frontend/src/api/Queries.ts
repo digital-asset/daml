@@ -21,6 +21,7 @@ export interface ContractDetailsById_node_Contract_template_choices {
   __typename: "Choice";
   name: string;
   parameter: OpaqueTypes.DamlLfType;
+  inheritedInterface: string | null;
 }
 
 export interface ContractDetailsById_node_Contract_template {
@@ -325,6 +326,7 @@ export interface TemplatesQuery_templates_edges_node_contracts {
 export interface TemplatesQuery_templates_edges_node {
   __typename: "Template";
   id: string;
+  implementedInterfaces: string[];
   topLevelDecl: string;
   contracts: TemplatesQuery_templates_edges_node_contracts;
 }
