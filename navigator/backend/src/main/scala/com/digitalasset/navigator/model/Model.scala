@@ -103,7 +103,7 @@ case class DamlLfPackage(
     id: DamlLfRef.PackageId,
     typeDefs: Map[DamlLfIdentifier, DamlLfDefDataType],
     templates: Map[DamlLfIdentifier, Template],
-    astInterfaces: Map[DamlLfIdentifier, AstInterface],
+    interfaces: Map[DamlLfIdentifier, Interface],
 )
 
 /** A boxed DefDataType that also includes the ID of the type.
@@ -202,7 +202,7 @@ final case class Template(
 }
 
 /** Interfaces. */
-final case class AstInterface(
+final case class Interface(
     id: DamlLfIdentifier,
     choices: List[Choice],
 ) extends DamlLfNode

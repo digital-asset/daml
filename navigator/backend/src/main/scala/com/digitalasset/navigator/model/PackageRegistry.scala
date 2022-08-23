@@ -16,7 +16,7 @@ case class PackageRegistry(
     private val packages: Map[DamlLfRef.PackageId, DamlLfPackage] = Map.empty,
     private val templates: Map[DamlLfIdentifier, Template] = Map.empty,
     private val typeDefs: Map[DamlLfIdentifier, DamlLfDefDataType] = Map.empty,
-    private val astInterfaces: Map[DamlLfIdentifier, AstInterface] = Map.empty,
+    private val interfaces: Map[DamlLfIdentifier, Interface] = Map.empty,
 ) {
   // TODO (#13969) ignores inherited choices; interfaces aren't handled at all
   private[this] def template(
@@ -34,14 +34,14 @@ case class PackageRegistry(
     t.implementedInterfaces.toSet,
   )
 
-  private[this] def astInterface(
+  private[this] def interface(
       packageId: DamlLfRef.PackageId,
       qname: DamlLfQualifiedName,
-      astInterface: DamlLfIface.DefInterface[DamlLfIface.Type],
-  ): AstInterface = {
-    AstInterface(
+      interface: DamlLfIface.DefInterface[DamlLfIface.Type],
+  ): Interface = {
+    Interface(
       DamlLfIdentifier(packageId, qname),
-      astInterface.choices.toList.map(c => choice(c._1, c._2)),
+      interface.choices.toList.map(c => choice(c._1, c._2)),
     )
   }
 
@@ -71,17 +71,17 @@ case class PackageRegistry(
         case (qname, DamlLfIface.InterfaceType.Template(r @ _, t)) =>
           DamlLfIdentifier(p.packageId, qname) -> template(p.packageId, qname, t)
       }
-      val astInterfaces = p.astInterfaces.collect { case (qname, defInterface) =>
-        DamlLfIdentifier(p.packageId, qname) -> astInterface(p.packageId, qname, defInterface)
+      val interfaces = p.astInterfaces.collect { case (qname, defInterface) =>
+        DamlLfIdentifier(p.packageId, qname) -> interface(p.packageId, qname, defInterface)
       }
-      p.packageId -> DamlLfPackage(p.packageId, typeDefs, templates, astInterfaces)
+      p.packageId -> DamlLfPackage(p.packageId, typeDefs, templates, interfaces)
     }.toMap
 
     copy(
       packages = newPackages,
       templates = newPackages.flatMap(_._2.templates),
       typeDefs = newPackages.flatMap(_._2.typeDefs),
-      astInterfaces = newPackages.flatMap(_._2.astInterfaces),
+      interfaces = newPackages.flatMap(_._2.interfaces),
     )
   }
 
