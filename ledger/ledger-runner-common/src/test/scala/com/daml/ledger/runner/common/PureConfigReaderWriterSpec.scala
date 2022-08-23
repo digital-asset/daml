@@ -595,6 +595,8 @@ class PureConfigReaderWriterSpec
     val value = """
                   |  init-load-parallelism = 16
                   |  init-process-parallelism = 16
+                  |  init-takes-too-long-initial-delay = 1 minute
+                  |  init-takes-too-long-interval = 10 seconds
                   |  """.stripMargin
     convert(packageMetadataViewConfigConvert, value).value shouldBe PackageMetadataViewConfig()
   }
