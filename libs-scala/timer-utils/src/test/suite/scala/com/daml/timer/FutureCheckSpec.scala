@@ -48,15 +48,19 @@ class FutureCheckSpec extends AsyncWordSpec with Matchers {
       }
     }
 
-    "run periodically for late future" in {
+    "run periodically for late future and cancel when its complete" in {
       val flag: AtomicInteger = new AtomicInteger(0)
       for {
         result <- Delayed.by(100.millis)(1).checkIfComplete(50.millis, 10.millis) {
           val _ = flag.incrementAndGet()
         }
+        capturedValue = flag.get()
+        _ <- Delayed.by(100.millis)(1)
       } yield {
         result shouldBe 1
         flag.get() should (be >= 3 and be <= 7)
+        capturedValue should (be >= 3 and be <= 7)
+        capturedValue shouldBe flag.get()
       }
     }
   }
