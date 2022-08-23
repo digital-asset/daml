@@ -23,6 +23,7 @@ final case class IndexServiceConfig(
     inMemoryStateUpdaterParallelism: Int =
       IndexServiceConfig.DefaultInMemoryStateUpdaterParallelism,
     inMemoryFanOutThreadPoolSize: Int = IndexServiceConfig.DefaultInMemoryFanOutThreadPoolSize,
+    preparePackageMetadataTimeOutWarning: FiniteDuration = IndexServiceConfig.PreparePackageMetadataTimeOutWarning
 )
 
 object IndexServiceConfig {
@@ -41,4 +42,5 @@ object IndexServiceConfig {
   val DefaultApiStreamShutdownTimeout: Duration = FiniteDuration(5, "seconds")
   val DefaultInMemoryStateUpdaterParallelism: Int = 2
   val DefaultInMemoryFanOutThreadPoolSize: Int = 16
+  val PreparePackageMetadataTimeOutWarning: FiniteDuration = FiniteDuration(1, "second")
 }

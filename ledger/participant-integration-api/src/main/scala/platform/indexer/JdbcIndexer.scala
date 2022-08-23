@@ -4,7 +4,6 @@
 package com.daml.platform.indexer
 
 import akka.NotUsed
-import akka.actor.Cancellable
 import akka.stream._
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.{v2 => state}
@@ -35,6 +34,7 @@ import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
+import com.daml.timer.FutureCheck._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
@@ -196,42 +196,24 @@ object JdbcIndexer {
       }
     }
 
-    val initFuture = Source
+    Source
       .futureSource(lfPackagesSource())
       .mapAsyncUnordered(config.initLoadParallelism)(loadLfArchive)
       .mapAsyncUnordered(config.initProcessParallelism)(processPackage)
       .runWith(Sink.foreach(packageMetadataView.update))
-
-    val check = checkInitTakesTooLong(config, startedTime, initFuture)
-    initFuture
-      .map { _ =>
+      .checkIfComplete(config.initTakesTooLongInitialDelay, config.initTakesTooLongInterval)(
+        logger.warn(
+          s"Package Metadata View initialization takes to long (${System.currentTimeMillis() - startedTime}ms)"
+        )
+      )
+      .map(_ =>
         logger.info(
           s"Package Metadata View has been initialized (${System.currentTimeMillis() - startedTime}ms)"
         )
-        val _ = check.cancel()
-      }(computationExecutionContext)
+      )(computationExecutionContext)
       .recover { case NonFatal(e) =>
         logger.error(s"Failed to initialize Package Metadata View", e)
-        val _ = check.cancel()
         throw e
       }
   }
-  private def checkInitTakesTooLong[T](
-      config: PackageMetadataViewConfig,
-      startedTime: Long,
-      f: Future[T],
-  )(implicit
-      materializer: Materializer,
-      loggingContext: LoggingContext,
-  ): Cancellable =
-    materializer.scheduleAtFixedRate(
-      initialDelay = config.initTakesTooLongInitialDelay,
-      interval = config.initTakesTooLongInterval,
-      task = () =>
-        if (!f.isCompleted) {
-          logger.warn(
-            s"Package Metadata View initialization takes to long (${System.currentTimeMillis() - startedTime}ms)"
-          )
-        },
-    )
 }

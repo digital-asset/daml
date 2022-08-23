@@ -644,7 +644,11 @@ class PureConfigReaderWriterSpec
     |  events-processing-parallelism = 8
     |  max-contract-key-state-cache-size = 100000
     |  max-contract-state-cache-size = 100000
-    |  max-transactions-in-memory-fan-out-buffer-size = 10000""".stripMargin
+    |  max-transactions-in-memory-fan-out-buffer-size = 10000
+    |  in-memory-state-updater-parallelism = 2
+    |  in-memory-fan-out-thread-pool-size = 16
+    |  prepare-package-metadata-time-out-warning = 1 second
+    |  """.stripMargin
     convert(indexServiceConfigConvert, value).value shouldBe IndexServiceConfig()
   }
 
