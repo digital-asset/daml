@@ -305,7 +305,7 @@ object ContractDao {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def selectContracts(
       parties: domain.PartySet,
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.ContractTypeId.Resolved,
       predicate: doobie.Fragment,
   )(implicit
       log: LogHandler,
@@ -325,7 +325,7 @@ object ContractDao {
 
   private[http] def selectContractsMultiTemplate[Pos](
       parties: domain.PartySet,
-      predicates: Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)],
+      predicates: Seq[(domain.ContractTypeId.Resolved, doobie.Fragment)],
       trackMatchIndices: MatchedQueryMarker[Pos],
   )(implicit
       log: LogHandler,
@@ -379,7 +379,7 @@ object ContractDao {
 
   private[http] def fetchById(
       parties: domain.PartySet,
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.TemplateId.Resolved,
       contractId: domain.ContractId,
   )(implicit
       log: LogHandler,
@@ -399,7 +399,7 @@ object ContractDao {
 
   private[http] def fetchByKey(
       parties: domain.PartySet,
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.TemplateId.Resolved,
       key: Hash,
   )(implicit
       log: LogHandler,
@@ -424,7 +424,7 @@ object ContractDao {
       templateId.entityName,
     )
 
-  private def toDomain(templateId: domain.TemplateId.RequiredPkg)(
+  private def toDomain(templateId: domain.ContractTypeId.Resolved)(
       a: Queries.DBContract[_, JsValue, JsValue, Vector[String]]
   ): domain.ActiveContract[JsValue] =
     domain.ActiveContract(

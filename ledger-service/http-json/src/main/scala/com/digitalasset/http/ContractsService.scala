@@ -460,7 +460,7 @@ class ContractsService(
 
         private[this] def searchDbOneTpId_(
             parties: domain.PartySet,
-            templateId: domain.TemplateId.RequiredPkg,
+            templateId: domain.ContractTypeId.Resolved,
             queryParams: Map[String, JsValue],
         )(implicit
             lc: LoggingContextOf[InstanceUUID]

@@ -41,8 +41,7 @@ import scalaz.syntax.traverse._
 import scalaz.std.list._
 import scalaz.{-\/, Foldable, Liskov, NonEmptyList, OneAnd, Tag, \/, \/-}
 import Liskov.<~<
-import com.daml.http.domain.TemplateId.toLedgerApiValue
-import com.daml.http.domain.TemplateId.{OptionalPkg, RequiredPkg}
+import com.daml.http.domain.TemplateId.{toLedgerApiValue, OptionalPkg}
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.lf.crypto.Hash
@@ -62,7 +61,7 @@ object WebSocketService {
   private val logger = ContextualizedLogger.get(getClass)
 
   private type CompiledQueries =
-    Map[domain.TemplateId.RequiredPkg, (ValuePredicate, LfV => Boolean)]
+    Map[domain.TemplateId.Resolved, (ValuePredicate, LfV => Boolean)]
 
   private final case class StreamPredicate[+Positive](
       resolved: Set[domain.TemplateId.Resolved],
@@ -286,7 +285,9 @@ object WebSocketService {
         }
 
         def fn(
-            q: Map[RequiredPkg, NonEmptyList[((ValuePredicate, LfV => Boolean), (Int, Int))]]
+            q: Map[domain.ContractTypeId.Resolved, NonEmptyList[
+              ((ValuePredicate, LfV => Boolean), (Int, Int))
+            ]]
         )(a: domain.ActiveContract[LfV], o: Option[domain.Offset]): Option[Positive] = {
           q.get(a.templateId).flatMap { preds =>
             preds.collect(Function unlift { case ((_, p), (ix, pos)) =>
@@ -296,11 +297,11 @@ object WebSocketService {
           }
         }
 
-        def dbQueriesPlan(
-            q: Map[RequiredPkg, NonEmptyList[((ValuePredicate, LfV => Boolean), (Int, Int))]]
+        def dbQueriesPlan[CtId <: domain.ContractTypeId.RequiredPkg](
+            q: Map[CtId, NonEmptyList[((ValuePredicate, LfV => Boolean), (Int, Int))]]
         )(implicit
             sjd: dbbackend.SupportedJdbcDriver.TC
-        ): (Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)], Map[Int, Int]) = {
+        ): (Seq[(CtId, doobie.Fragment)], Map[Int, Int]) = {
           val annotated = q.toSeq.flatMap { case (tpid, nel) =>
             nel.toVector.map { case ((vp, _), (_, pos)) => (tpid, vp.toSqlWhereClause, pos) }
           }
@@ -469,23 +470,10 @@ object WebSocketService {
     ): Future[StreamPredicate[Positive]] = {
 
       // invariant: every set is non-empty
-      def getQ(
-          resolvedWithKey: Set[
-            (
-                domain.TemplateId.RequiredPkg,
-                query.ValuePredicate.LfV,
-            )
-          ]
-      ): Map[domain.TemplateId.RequiredPkg, HashSet[LfV]] =
-        resolvedWithKey.foldLeft(Map.empty[domain.TemplateId.RequiredPkg, HashSet[LfV]])(
-          (acc, el) =>
-            acc.get(el._1) match {
-              case Some(v) => acc.updated(el._1, v += el._2)
-              case None => acc.updated(el._1, HashSet(el._2))
-            }
-        )
+      def getQ[K, V](resolvedWithKey: Set[(K, V)]): Map[K, HashSet[V]] =
+        resolvedWithKey.to(HashSet).groupMap(_._1)(_._2)
       def fn(
-          q: Map[domain.TemplateId.RequiredPkg, HashSet[LfV]]
+          q: Map[domain.ContractTypeId.Resolved, HashSet[LfV]]
       ): (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive] = { (a, _) =>
         a.key match {
           case None => None
@@ -493,11 +481,11 @@ object WebSocketService {
             if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
         }
       }
-      def dbQueries(
-          q: Map[domain.TemplateId.RequiredPkg, HashSet[LfV]]
+      def dbQueries[CtId <: domain.TemplateId.RequiredPkg](
+          q: Map[CtId, HashSet[LfV]]
       )(implicit
           sjd: dbbackend.SupportedJdbcDriver.TC
-      ): Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)] =
+      ): Seq[(CtId, doobie.Fragment)] =
         q.toSeq map { case (t, lfvKeys) =>
           val khd +: ktl = lfvKeys.toVector
           import dbbackend.Queries.joinFragment, com.daml.lf.crypto.Hash
@@ -512,7 +500,7 @@ object WebSocketService {
           )
         }
       def streamPredicate(
-          q: Map[domain.TemplateId.RequiredPkg, HashSet[LfV]],
+          q: Map[domain.TemplateId.Resolved, HashSet[LfV]],
           unresolved: Set[OptionalPkg],
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
@@ -533,7 +521,7 @@ object WebSocketService {
             .map(_.toOption.flatten.map((_, x.ekey.key)).toLeft(x.ekey.templateId))
         }
         .map(
-          _.toSet[Either[(RequiredPkg, LfV), OptionalPkg]].partitionMap(identity)
+          _.toSet[Either[(domain.ContractTypeId.Resolved, LfV), OptionalPkg]].partitionMap(identity)
         )
         .map { case (resolvedWithKey, unresolved) =>
           val q = getQ(resolvedWithKey)
@@ -797,7 +785,7 @@ class WebSocketService(
         .map(queryPredicate(_, jwt, ledgerId))
         .sequence
 
-    def liveFrom(resolved: Set[RequiredPkg])(
+    def liveFrom(resolved: Set[domain.ContractTypeId.Resolved])(
         acsEnd: Option[StartingOffset]
     ): Future[Source[StepAndErrors[Q.Positive, JsValue], NotUsed]] = {
       val shiftedRequest = Q.adjustRequest(acsEnd, request)
@@ -821,7 +809,10 @@ class WebSocketService(
       }
     }
 
-    def processResolved(resolved: Set[RequiredPkg], unresolved: Set[OptionalPkg]) =
+    def processResolved(
+        resolved: Set[domain.ContractTypeId.Resolved],
+        unresolved: Set[OptionalPkg],
+    ) =
       acsPred
         .flatMap(
           _.map(fetchAndPreFilterAcs(_, jwt, ledgerId, parties))
