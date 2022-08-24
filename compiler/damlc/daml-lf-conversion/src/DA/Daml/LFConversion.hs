@@ -1362,7 +1362,12 @@ convertBind env mc (name, x)
 
     -- Remove guarded exercise when Extended Interfaces are unsupported
     | not (envLfVersion env `supports` featureExtendedInterfaces)
-    , "exerciseGuarded" `T.isInfixOf` getOccText name
+    , "$cexerciseGuarded" `T.isPrefixOf` getOccText name
+    = pure []
+
+    -- Remove guarded exercise when Extended Interfaces are unsupported
+    | not (envLfVersion env `supports` featureExtendedInterfaces)
+    , NameIn DA_Internal_Template_Functions "exerciseGuarded" <- name
     = pure []
 
     | not (envLfVersion env `supports` featureExtendedInterfaces)
