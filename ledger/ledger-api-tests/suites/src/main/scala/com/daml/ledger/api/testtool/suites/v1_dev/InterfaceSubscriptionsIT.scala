@@ -586,6 +586,41 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
     }
   })
 
+  test(
+    "ISTransactionsRetroactiveInterface",
+    "Subscribe to retroactive interface",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    import ledger._
+    for {
+      contract <- create(party, T4(party, 313))
+      transactions <- flatTransactions(
+        getTransactionsRequest(
+          transactionFilter(
+            Seq(party),
+            Seq.empty,
+            Seq((RetroI.id, true)),
+          )
+        )
+      )
+    } yield {
+      assertLength("transaction should be found", 1, transactions)
+
+      val createdEvent = createdEvents(transactions(0)).head
+      assertLength("Create event has a view", 1, createdEvent.interfaceViews)
+      assertEquals(
+        "Create event template ID",
+        createdEvent.templateId.get.toString,
+        Tag.unwrap(T4.id).toString,
+      )
+      assertEquals("Create event contract ID", createdEvent.contractId, contract.toString)
+      assertViewEquals(createdEvent.interfaceViews, Tag.unwrap(RetroI.id)) { value =>
+        assertLength("View has 1 field", 1, value.fields)
+        assertEquals("View.c", value.fields(0).getValue.getInt64, 313)
+      }
+    }
+  })
+
   private def updateTransaction(
       emptyView: Boolean = false,
       emptyWitness: Boolean = false,
