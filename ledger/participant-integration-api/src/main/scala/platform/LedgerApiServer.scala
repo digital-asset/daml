@@ -187,6 +187,8 @@ object LedgerApiServer {
       inMemoryStateUpdater <- InMemoryStateUpdater.owner(
         inMemoryState = inMemoryState,
         prepareUpdatesParallelism = indexServiceConfig.inMemoryStateUpdaterParallelism,
+        preparePackageMetadataTimeOutWarning =
+          indexServiceConfig.preparePackageMetadataTimeOutWarning,
         metrics = metrics,
       )
     } yield inMemoryState -> inMemoryStateUpdater

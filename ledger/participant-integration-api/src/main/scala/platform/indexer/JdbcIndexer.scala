@@ -34,6 +34,7 @@ import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
+import com.daml.timer.FutureCheck._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
@@ -165,6 +166,7 @@ object JdbcIndexer {
   )(implicit loggingContext: LoggingContext, materializer: Materializer): Future[Unit] = {
     implicit val ec: ExecutionContext = computationExecutionContext
     logger.info("Package Metadata View initialization has been started.")
+    val startedTime = System.currentTimeMillis()
 
     def loadLfArchive(packageId: PackageId): Future[(PackageId, Array[Byte])] =
       dbDispatcher
@@ -199,9 +201,16 @@ object JdbcIndexer {
       .mapAsyncUnordered(config.initLoadParallelism)(loadLfArchive)
       .mapAsyncUnordered(config.initProcessParallelism)(processPackage)
       .runWith(Sink.foreach(packageMetadataView.update))
-      .map(_ => logger.info("Package Metadata View has been initialized"))(
-        computationExecutionContext
+      .checkIfComplete(config.initTakesTooLongInitialDelay, config.initTakesTooLongInterval)(
+        logger.warn(
+          s"Package Metadata View initialization takes to long (${System.currentTimeMillis() - startedTime}ms)"
+        )
       )
+      .map(_ =>
+        logger.info(
+          s"Package Metadata View has been initialized (${System.currentTimeMillis() - startedTime}ms)"
+        )
+      )(computationExecutionContext)
       .recover { case NonFatal(e) =>
         logger.error(s"Failed to initialize Package Metadata View", e)
         throw e
