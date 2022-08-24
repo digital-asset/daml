@@ -102,12 +102,3 @@ template T6
    interface instance I2 for T6 where
      view = View2 with
        c = 7
-
--- Retroactive interface on top of template T4, to expose information encapsulated in T4
-interface RetroI where
-  viewtype View2
-  getA: Int
-  interface instance RetroI for T4 where
-    getA = a
-    view = View2 with
-      c = a

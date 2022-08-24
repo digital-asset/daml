@@ -586,6 +586,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
     }
   })
 
+  /*
   test(
     "ISTransactionsRetroactiveInterface",
     "Subscribe to retroactive interface",
@@ -620,6 +621,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       }
     }
   })
+   */
 
   private def updateTransaction(
       emptyView: Boolean = false,
