@@ -115,7 +115,8 @@ pattern DA_Internal_Template <- ModuleIn DamlStdlib "DA.Internal.Template"
 --   4. the type class arguments
 splitDFunId :: GHC.Var -> Maybe ([GHC.TyCoVar], [GHC.Type], GHC.Class, [GHC.Type])
 splitDFunId v
-    | DFunId _ <- idDetails v
+    | isId v
+    , DFunId _ <- idDetails v
     , (tyCoVars, ty1) <- splitForAllTys (varType v)
     , (dfunArgs, ty2) <- splitFunTys ty1
     , Just (tyCon, tyClsArgs) <- splitTyConApp_maybe ty2
