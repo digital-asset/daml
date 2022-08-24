@@ -161,7 +161,7 @@ private class PackageService(
   ](
       latestMap: () => ContractTypeIdMap[CtId]
   )(implicit ec: ExecutionContext): ResolveContractTypeId[CtId] = new ResolveContractTypeId[CtId] {
-    private type ResultType = Option[CtId[String]]
+    private type ResultType = Option[ResolvedOf[CtId]]
     def apply(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
         x: CtId[Option[String]]
     )(implicit lc: LoggingContextOf[InstanceUUID]): Future[Error \/ ResultType] = {
@@ -263,7 +263,7 @@ object PackageService {
     def apply(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
         x: CtId[Option[String]]
     )(implicit lc: LoggingContextOf[InstanceUUID]): Future[
-      PackageService.Error \/ Option[CtId[String]] // TODO #14727 add Resolved and with Definite
+      PackageService.Error \/ Option[ResolvedOf[CtId]]
     ]
   }
 
@@ -289,8 +289,8 @@ object PackageService {
     TemplateId.RequiredPkg => Error \/ iface.Type
 
   final case class ContractTypeIdMap[CtId[_]](
-      all: Map[RequiredPkg[CtId], ContractTypeId.ResolvedId[RequiredPkg[CtId]]],
-      unique: Map[NoPkg[CtId], ContractTypeId.ResolvedId[RequiredPkg[CtId]]],
+      all: Map[RequiredPkg[CtId], ResolvedOf[CtId]],
+      unique: Map[NoPkg[CtId], ResolvedOf[CtId]],
   ) {
     // forms a monoid with Empty
     private[PackageService] def ++(o: ContractTypeIdMap[CtId]): ContractTypeIdMap[CtId] = {
@@ -336,6 +336,7 @@ object PackageService {
     ContractTypeIdMap(all, unique)
   }
 
+  private type ResolvedOf[CtId[_]] = ContractTypeId.ResolvedId[RequiredPkg[CtId]]
   private type RequiredPkg[CtId[_]] = CtId[String]
   private type NoPkg[CtId[_]] = CtId[Unit]
 
@@ -356,7 +357,7 @@ object PackageService {
   // the two in how we expose ResolveContractTypeId and ResolveTemplateId
   def resolveTemplateId[CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]](
       m: ContractTypeIdMap[CtId]
-  )(a: CtId[Option[String]]): Option[CtId[String]] =
+  )(a: CtId[Option[String]]): Option[ResolvedOf[CtId]] =
     a.packageId match {
       case Some(p) => m.all get a.copy(packageId = p)
       case None => m.unique get a.copy(packageId = ())
