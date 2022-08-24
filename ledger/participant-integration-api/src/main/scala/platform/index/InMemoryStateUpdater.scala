@@ -111,7 +111,7 @@ private[platform] object InMemoryStateUpdater {
     metrics = metrics,
   )(
     prepare = prepare(archive =>
-      Timed.value(metrics.daml.index.packageMetadata.decode, PackageMetadata.from(archive))
+      Timed.value(metrics.daml.index.packageMetadata.decodeArchive, PackageMetadata.from(archive))
     ),
     update = update(inMemoryState, loggingContext),
   )

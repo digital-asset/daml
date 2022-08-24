@@ -473,7 +473,7 @@ final class Metrics(val registry: MetricRegistry) {
       object packageMetadata {
         private val Prefix = index.Prefix :+ "package_metadata"
 
-        val decode: Timer = registry.timer(Prefix :+ "decode")
+        val decodeArchive: Timer = registry.timer(Prefix :+ "decode_archive")
 
         val viewInitialisation: Timer = registry.timer(Prefix :+ "view_init")
       }

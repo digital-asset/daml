@@ -185,11 +185,13 @@ object JdbcIndexer {
         Source(packageStorageBackend.lfPackages(connection).keySet)
       )
 
-    def toMetadataDefinition(packageBytes: Array[Byte]): PackageMetadata =
+    def toMetadataDefinition(packageBytes: Array[Byte]): PackageMetadata = {
+      val archive = ArchiveParser.assertFromByteArray(packageBytes)
       Timed.value(
-        metrics.daml.index.packageMetadata.decode,
-        PackageMetadata.from(ArchiveParser.assertFromByteArray(packageBytes)),
+        metrics.daml.index.packageMetadata.decodeArchive,
+        PackageMetadata.from(archive),
       )
+    }
 
     def processPackage(archive: (PackageId, Array[Byte])): Future[PackageMetadata] = {
       val (packageId, packageBytes) = archive
