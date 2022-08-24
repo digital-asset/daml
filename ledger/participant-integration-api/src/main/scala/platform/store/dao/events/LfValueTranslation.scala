@@ -381,19 +381,11 @@ final class LfValueTranslation(
     val verbose = eventProjectionProperties.verbose
 
     val asyncContractArguments = condFuture(renderResult.contractArguments)(
-      Timed
-        .future(
-          metrics.daml.index.lfValue.enrich.contract,
-          enrichAsync(verbose, value.unversioned, enricher.enrichContract(templateId, _)),
-        )
+      enrichAsync(verbose, value.unversioned, enricher.enrichContract(templateId, _))
         .map(toContractArgumentApi(verbose))
     )
     val asyncContractKey = condFuture(renderResult.contractArguments && key.isDefined)(
-      Timed
-        .future(
-          metrics.daml.index.lfValue.enrich.contractKey,
-          enrichAsync(verbose, key.get.unversioned, enricher.enrichContractKey(templateId, _)),
-        )
+      enrichAsync(verbose, key.get.unversioned, enricher.enrichContractKey(templateId, _))
         .map(toContractKeyApi(verbose))
     )
     val asyncInterfaceViews = Future.traverse(renderResult.interfaces.toList)(interfaceId =>
@@ -420,11 +412,7 @@ final class LfValueTranslation(
   )(implicit ec: ExecutionContext, loggingContext: LoggingContext): Future[InterfaceView] =
     result match {
       case Right(versionedValue) =>
-        Timed
-          .future(
-            metrics.daml.index.lfValue.enrich.interfaceView,
-            enrichAsync(verbose, versionedValue.unversioned, enricher.enrichView(interfaceId, _)),
-          )
+        enrichAsync(verbose, versionedValue.unversioned, enricher.enrichView(interfaceId, _))
           .map(toInterfaceViewApi(verbose, interfaceId))
       case Left(errorStatus) =>
         Future.successful(

@@ -466,15 +466,8 @@ final class Metrics(val registry: MetricRegistry) {
 
       object lfValue {
         private val Prefix = index.Prefix :+ "lf_value"
+
         val computeInterfaceView: Timer = registry.timer(Prefix :+ "compute_interface_view")
-
-        object enrich {
-          private val Prefix = lfValue.Prefix :+ "enrich"
-
-          val contract: Timer = registry.timer(Prefix :+ "contract")
-          val contractKey: Timer = registry.timer(Prefix :+ "contract_key")
-          val interfaceView: Timer = registry.timer(Prefix :+ "interface_view")
-        }
       }
 
       object packageMetadata {
