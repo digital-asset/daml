@@ -26,7 +26,7 @@ class FilterSpec extends AnyFlatSpec with Matchers {
       false,
     )
   )
-  val template = Template(C.complexRecordId, choices, None)
+  val template = Template(C.complexRecordId, choices, None, Set.empty)
   val contractId = ApiTypes.ContractId("ContractIou")
   val commandId = ApiTypes.CommandId("Cmd")
   val workflowId = ApiTypes.WorkflowId("Workflow")
