@@ -61,9 +61,8 @@ case class PackageRegistry(
     val newPackageStore = packageState.append(interfaces.map(p => p.packageId -> p).toMap)
 
     val newPackages = newPackageStore.packages.values.map { p =>
-      val typeDefs = p.typeDecls.map {
-        case (qname,td) =>
-          DamlLfIdentifier(p.packageId, qname) -> td.`type`
+      val typeDefs = p.typeDecls.map { case (qname, td) =>
+        DamlLfIdentifier(p.packageId, qname) -> td.`type`
       }
       val templates = p.typeDecls.collect {
         case (qname, DamlLfIface.InterfaceType.Template(r @ _, t)) =>
