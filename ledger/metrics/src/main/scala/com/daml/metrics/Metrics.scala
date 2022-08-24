@@ -463,6 +463,27 @@ final class Metrics(val registry: MetricRegistry) {
 
       val ledgerEndSequentialId = new VarGauge[Long](0L)
       registry.register(Prefix :+ "ledger_end_sequential_id", ledgerEndSequentialId)
+
+      object lfValue {
+        private val Prefix = index.Prefix :+ "lf_value"
+        val computeInterfaceView: Timer = registry.timer(Prefix :+ "compute_interface_view")
+
+        object enrich {
+          private val Prefix = lfValue.Prefix :+ "enrich"
+
+          val contract: Timer = registry.timer(Prefix :+ "contract")
+          val contractKey: Timer = registry.timer(Prefix :+ "contract_key")
+          val interfaceView: Timer = registry.timer(Prefix :+ "interface_view")
+        }
+      }
+
+      object packageMetadata {
+        private val Prefix = index.Prefix :+ "package_metadata"
+
+        val decode: Timer = registry.timer(Prefix :+ "decode")
+
+        val viewInitialisation: Timer = registry.timer(Prefix :+ "view_init")
+      }
     }
 
     object indexer {

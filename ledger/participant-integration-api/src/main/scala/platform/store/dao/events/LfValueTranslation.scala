@@ -21,7 +21,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.{engine => LfEngine}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.{
   ContractId,
   Create,
@@ -381,11 +381,19 @@ final class LfValueTranslation(
     val verbose = eventProjectionProperties.verbose
 
     val asyncContractArguments = condFuture(renderResult.contractArguments)(
-      enrichAsync(verbose, value.unversioned, enricher.enrichContract(templateId, _))
+      Timed
+        .future(
+          metrics.daml.index.lfValue.enrich.contract,
+          enrichAsync(verbose, value.unversioned, enricher.enrichContract(templateId, _)),
+        )
         .map(toContractArgumentApi(verbose))
     )
     val asyncContractKey = condFuture(renderResult.contractArguments && key.isDefined)(
-      enrichAsync(verbose, key.get.unversioned, enricher.enrichContractKey(templateId, _))
+      Timed
+        .future(
+          metrics.daml.index.lfValue.enrich.contractKey,
+          enrichAsync(verbose, key.get.unversioned, enricher.enrichContractKey(templateId, _)),
+        )
         .map(toContractKeyApi(verbose))
     )
     val asyncInterfaceViews = Future.traverse(renderResult.interfaces.toList)(interfaceId =>
@@ -412,7 +420,11 @@ final class LfValueTranslation(
   )(implicit ec: ExecutionContext, loggingContext: LoggingContext): Future[InterfaceView] =
     result match {
       case Right(versionedValue) =>
-        enrichAsync(verbose, versionedValue.unversioned, enricher.enrichView(interfaceId, _))
+        Timed
+          .future(
+            metrics.daml.index.lfValue.enrich.interfaceView,
+            enrichAsync(verbose, versionedValue.unversioned, enricher.enrichView(interfaceId, _)),
+          )
           .map(toInterfaceViewApi(verbose, interfaceId))
       case Left(errorStatus) =>
         Future.successful(
@@ -468,45 +480,49 @@ final class LfValueTranslation(
   )(implicit
       loggingContext: LoggingContext,
       executionContext: ExecutionContext,
-  ): Future[Either[Status, Versioned[Value]]] = {
-    implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+  ): Future[Either[Status, Versioned[Value]]] = Timed.future(
+    metrics.daml.index.lfValue.computeInterfaceView, {
+      implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
+        new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-    def goAsync(res: LfEngine.Result[Versioned[Value]]): Future[Either[Status, Versioned[Value]]] =
-      res match {
-        case LfEngine.ResultDone(x) =>
-          Future.successful(Right(x))
+      def goAsync(
+          res: LfEngine.Result[Versioned[Value]]
+      ): Future[Either[Status, Versioned[Value]]] =
+        res match {
+          case LfEngine.ResultDone(x) =>
+            Future.successful(Right(x))
 
-        case LfEngine.ResultError(err) =>
-          err
-            .pipe(ErrorCause.DamlLf)
-            .pipe(RejectionGenerators.commandExecutorError)
-            .pipe(_.asGrpcStatus)
-            .pipe(Left.apply)
-            .pipe(Future.successful)
+          case LfEngine.ResultError(err) =>
+            err
+              .pipe(ErrorCause.DamlLf)
+              .pipe(RejectionGenerators.commandExecutorError)
+              .pipe(_.asGrpcStatus)
+              .pipe(Left.apply)
+              .pipe(Future.successful)
 
-        // Note: the compiler should enforce that the computation is a pure function,
-        // ResultNeedContract and ResultNeedKey should never appear in the result.
-        case LfEngine.ResultNeedContract(_, _) =>
-          Future.failed(new IllegalStateException("View computation must be a pure function"))
+          // Note: the compiler should enforce that the computation is a pure function,
+          // ResultNeedContract and ResultNeedKey should never appear in the result.
+          case LfEngine.ResultNeedContract(_, _) =>
+            Future.failed(new IllegalStateException("View computation must be a pure function"))
 
-        case LfEngine.ResultNeedKey(_, _) =>
-          Future.failed(new IllegalStateException("View computation must be a pure function"))
+          case LfEngine.ResultNeedKey(_, _) =>
+            Future.failed(new IllegalStateException("View computation must be a pure function"))
 
-        case LfEngine.ResultNeedPackage(packageId, resume) =>
-          packageLoader
-            .loadPackage(
-              packageId = packageId,
-              delegate = packageId => loadPackage(packageId, loggingContext),
-              metric = metrics.daml.index.db.translation.getLfPackage,
-            )
-            .map(resume)
-            .flatMap(goAsync)
-      }
+          case LfEngine.ResultNeedPackage(packageId, resume) =>
+            packageLoader
+              .loadPackage(
+                packageId = packageId,
+                delegate = packageId => loadPackage(packageId, loggingContext),
+                metric = metrics.daml.index.db.translation.getLfPackage,
+              )
+              .map(resume)
+              .flatMap(goAsync)
+        }
 
-    Future(engine.computeInterfaceView(templateId, value, interfaceId))
-      .flatMap(goAsync)
-  }
+      Future(engine.computeInterfaceView(templateId, value, interfaceId))
+        .flatMap(goAsync)
+    },
+  )
 }
 
 object LfValueTranslation {

@@ -11,7 +11,7 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.{InMemoryState, PackageId}
 import com.daml.platform.index.InMemoryStateUpdater
 import com.daml.platform.indexer.parallel.{
@@ -33,8 +33,8 @@ import com.daml.platform.store.interning.UpdatingStringInterningView
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
-
 import com.daml.timer.FutureCheck._
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
@@ -186,7 +186,10 @@ object JdbcIndexer {
       )
 
     def toMetadataDefinition(packageBytes: Array[Byte]): PackageMetadata =
-      PackageMetadata.from(ArchiveParser.assertFromByteArray(packageBytes))
+      Timed.value(
+        metrics.daml.index.packageMetadata.decode,
+        PackageMetadata.from(ArchiveParser.assertFromByteArray(packageBytes)),
+      )
 
     def processPackage(archive: (PackageId, Array[Byte])): Future[PackageMetadata] = {
       val (packageId, packageBytes) = archive
@@ -196,11 +199,15 @@ object JdbcIndexer {
       }
     }
 
-    Source
-      .futureSource(lfPackagesSource())
-      .mapAsyncUnordered(config.initLoadParallelism)(loadLfArchive)
-      .mapAsyncUnordered(config.initProcessParallelism)(processPackage)
-      .runWith(Sink.foreach(packageMetadataView.update))
+    Timed
+      .future(
+        metrics.daml.index.packageMetadata.viewInitialisation,
+        Source
+          .futureSource(lfPackagesSource())
+          .mapAsyncUnordered(config.initLoadParallelism)(loadLfArchive)
+          .mapAsyncUnordered(config.initProcessParallelism)(processPackage)
+          .runWith(Sink.foreach(packageMetadataView.update)),
+      )
       .checkIfComplete(config.initTakesTooLongInitialDelay, config.initTakesTooLongInterval)(
         logger.warn(
           s"Package Metadata View initialization takes to long (${System.currentTimeMillis() - startedTime}ms)"
