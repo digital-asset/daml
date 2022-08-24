@@ -2363,6 +2363,52 @@ tests tools = testGroup "Data Dependencies" $
             , "--project-root", path mainProj
             ]
 
+    , simpleImportTestOptions "retroactive interface instance of template from data-dependency"
+        [ "--target=1.dev" ]
+        [ "module Lib where"
+
+        , "template T with"
+        , "    p : Party"
+        , "  where"
+        , "    signatory p"
+        ]
+        [ "{-# OPTIONS_GHC -Werror #-}"
+        , "module Main where"
+        , "import Lib"
+
+        , "data EmptyInterfaceView = EmptyInterfaceView {}"
+
+        , "interface I where"
+        , "  viewtype EmptyInterfaceView"
+        , "  m : ()"
+        , "  interface instance I for T where"
+        , "    view = EmptyInterfaceView"
+        , "    m = ()"
+        ]
+
+    , simpleImportTestOptions "retroactive interface instance of qualified template from data-dependency"
+        [ "--target=1.dev" ]
+        [ "module Lib where"
+
+        , "template T with"
+        , "    p : Party"
+        , "  where"
+        , "    signatory p"
+        ]
+        [ "{-# OPTIONS_GHC -Werror #-}"
+        , "module Main where"
+        , "import qualified Lib"
+
+        , "data EmptyInterfaceView = EmptyInterfaceView {}"
+
+        , "interface I where"
+        , "  viewtype EmptyInterfaceView"
+        , "  m : ()"
+        , "  interface instance I for Lib.T where"
+        , "    view = EmptyInterfaceView"
+        , "    m = ()"
+        ]
+
     , testCaseSteps "Cross-SDK data-dependency with daml-script" $ \step' -> withTempDir $ \tmpDir -> do
         -- regression test for https://github.com/digital-asset/daml/issues/14291
         let
