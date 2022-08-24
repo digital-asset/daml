@@ -8,7 +8,7 @@ import com.daml.lf.iface
 
 import scala.collection.immutable.Map
 
-case class PackageState(packages: PackageState.PackageStore) {
+final case class PackageState(packages: PackageState.PackageStore) {
   import PackageState.PackageStore
   def append(diff: PackageStore): PackageState = {
     val newPackages = resolveChoicesIn(
@@ -19,7 +19,7 @@ case class PackageState(packages: PackageState.PackageStore) {
 
   private[this] def appendAndResolveRetroactiveInterfaces(diff: PackageStore): PackageStore = {
     def lookupIf(packageStore: PackageStore, pkId: Ref.PackageId) =
-      packages
+      packageStore
         .get(pkId)
         .map((_, { newSig: iface.Interface => packageStore.updated(pkId, newSig) }))
 
