@@ -879,7 +879,7 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     -- Remove guarded exercise instances when Extended Interfaces are unsupported
     | not (envLfVersion env `supports` featureExtendedInterfaces)
     , Just cls <- tyConClass_maybe t
-    , NameIn DA_Internal_Template "HasExerciseGuarded" <- cls
+    , NameIn DA_Internal_Template_Functions "HasExerciseGuarded" <- cls
     ->  pure []
 
     -- Constraint tuples are represented by LF structs.
@@ -1362,11 +1362,15 @@ convertBind env mc (name, x)
 
     -- Remove guarded exercise when Extended Interfaces are unsupported
     | not (envLfVersion env `supports` featureExtendedInterfaces)
-    , NameIn DA_Internal_Template "exerciseGuarded" <- name
+    , "exerciseGuarded" `T.isInfixOf` getOccText name
     = pure []
 
     | not (envLfVersion env `supports` featureExtendedInterfaces)
-    , NameIn DA_Internal_Desugar "_exerciseDefault" <- name
+    , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasExerciseGuarded") _ <- name
+    = pure []
+
+    | not (envLfVersion env `supports` featureExtendedInterfaces)
+    , NameIn DA_Internal_Interface "_exerciseDefault" <- name
     = pure []
 
     -- Remove internal functions.
