@@ -255,8 +255,16 @@ class PlatformStore(
     case CreateContract(party, templateId, value) =>
       createContract(state.time.time.getCurrentTime, party, templateId, value, sender())
 
-    case ExerciseChoice(party, contractId, choiceId, value) =>
-      exerciseChoice(state.time.time.getCurrentTime, party, contractId, choiceId, value, sender())
+    case ExerciseChoice(party, contractId, interfaceId, choiceId, value) =>
+      exerciseChoice(
+        state.time.time.getCurrentTime,
+        party,
+        contractId,
+        interfaceId,
+        choiceId,
+        value,
+        sender(),
+      )
 
     case GetParties(search) =>
       val lowerCaseSearch = search.toLowerCase
@@ -461,7 +469,7 @@ class PlatformStore(
     val workflowId = workflowIdGenerator.generateRandom
     val index = commandIndex.incrementAndGet()
 
-    parseOpaqueIdentifier(templateId).fold({
+    parseTemplateOpaqueIdentifier(templateId).fold({
       val msg = s"Create contract command not sent, '$templateId' is not a valid Daml-LF identifier"
       log.warning(msg)
       sender ! Failure(StoreException(msg))
@@ -476,6 +484,7 @@ class PlatformStore(
       platformTime: Instant,
       party: PartyState,
       contractId: ApiTypes.ContractId,
+      interfaceId: Option[InterfaceStringId],
       choice: ApiTypes.Choice,
       value: ApiValue,
       sender: ActorRef,
@@ -500,6 +509,7 @@ class PlatformStore(
             platformTime,
             contractId,
             contract.template.id,
+            interfaceId.flatMap(parseInterfaceOpaqueIdentifier),
             choice,
             value,
           )

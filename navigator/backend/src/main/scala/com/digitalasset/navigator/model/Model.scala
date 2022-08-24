@@ -87,6 +87,7 @@ final case class ExerciseCommand(
     platformTime: Instant,
     contract: ApiTypes.ContractId,
     template: DamlLfIdentifier,
+    interfaceId: Option[DamlLfIdentifier],
     choice: ApiTypes.Choice,
     argument: ApiValue,
 ) extends Command

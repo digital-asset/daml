@@ -24,6 +24,7 @@ final case class CommandRow(
     template: Option[String],
     recordArgument: Option[String],
     contractId: Option[String],
+    interfaceId: Option[String],
     choice: Option[String],
     argumentValue: Option[String],
 ) {
@@ -58,6 +59,7 @@ final case class CommandRow(
         (for {
           tp <- Try(template.get)
           tid <- Try(parseOpaqueIdentifier(tp).get)
+          iidOp <- Try(interfaceId.map(parseOpaqueIdentifier(_).get))
           t <- Try(types.template(tid).get)
           cId <- Try(contractId.get)
           ch <- Try(choice.get)
@@ -72,6 +74,7 @@ final case class CommandRow(
             Instant.parse(platformTime),
             ApiTypes.ContractId(cId),
             tid,
+            iidOp,
             ApiTypes.Choice(ch),
             arg,
           )
@@ -103,6 +106,7 @@ object CommandRow {
           None,
           None,
           None,
+          None,
         )
       case e: ExerciseCommand =>
         CommandRow(
@@ -114,6 +118,7 @@ object CommandRow {
           Some(e.template.asOpaqueString),
           None,
           Some(e.contract.unwrap),
+          e.interfaceId.map(_.asOpaqueString),
           Some(e.choice.unwrap),
           Some(ApiCodecVerbose.apiValueToJsValue(e.argument).compactPrint),
         )

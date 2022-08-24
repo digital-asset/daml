@@ -125,8 +125,8 @@ interface Props {
 export default (props: Props): JSX.Element => {
   const toInterfaceModuleAndEntity = (interfaceId: string): string => {
     const matches = interfaceId.match(/^([^:@]+):([^:@]+)@([^:@]+)$/);
-    return matches ? `${matches[1]}:${matches[2]}` : interfaceId
-  }
+    return matches ? `${matches[1]}:${matches[2]}` : interfaceId;
+  };
 
   const { contract, choice, ifc, exercise, choiceLoading, error } = props;
   const choices = contract.template.choices;
@@ -135,8 +135,10 @@ export default (props: Props): JSX.Element => {
   let selectedChoice;
 
   if (choice) {
-    selectedChoice = choices.filter(({ name, inheritedInterface }) =>
-      name === choice && ( ifc ? inheritedInterface === ifc : !inheritedInterface )
+    selectedChoice = choices.filter(
+      ({ name, inheritedInterface }) =>
+        name === choice &&
+        (ifc ? inheritedInterface === ifc : !inheritedInterface),
     )[0];
     const parameter = selectedChoice.parameter;
 
@@ -152,10 +154,14 @@ export default (props: Props): JSX.Element => {
   }
 
   const choicesEl = choices.map(({ name, inheritedInterface }) => {
-    const interfacePrefix = inheritedInterface ? toInterfaceModuleAndEntity(inheritedInterface) + ":" : "";
-    const fullChoiceName = `${interfacePrefix}${name}`
+    const interfacePrefix = inheritedInterface
+      ? toInterfaceModuleAndEntity(inheritedInterface) + ":"
+      : "";
+    const fullChoiceName = `${interfacePrefix}${name}`;
     const isAnyActive = choice !== undefined;
-    const isActive = name === choice && ( ifc ? inheritedInterface === ifc : !inheritedInterface );
+    const isActive =
+      name === choice &&
+      (ifc ? inheritedInterface === ifc : !inheritedInterface);
     return (
       <ChoiceLink
         key={fullChoiceName}
@@ -193,14 +199,14 @@ export default (props: Props): JSX.Element => {
             </Truncate>
           </Breadcrumbs>
         </div>
-        { choice && selectedChoice && selectedChoice.inheritedInterface && (<div>
-          <Breadcrumbs>
-            Interface
-            <Truncate>
-              {selectedChoice.inheritedInterface}
-            </Truncate>
-          </Breadcrumbs>
-        </div>)}
+        {choice && selectedChoice && selectedChoice.inheritedInterface && (
+          <div>
+            <Breadcrumbs>
+              Interface
+              <Truncate>{selectedChoice.inheritedInterface}</Truncate>
+            </Breadcrumbs>
+          </div>
+        )}
         <p>{isArchived ? "ARCHIVED" : null}</p>
         <ColumnContainer>
           <Column>

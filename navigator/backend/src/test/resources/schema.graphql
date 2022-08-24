@@ -127,6 +127,7 @@ interface Event {
 type ExerciseCommand implements Node & Command {
   contract: Contract
   contractId: String!
+  interfaceId: String
   choice: String!
   argument: DamlLfValue!
 }
@@ -161,7 +162,7 @@ type LedgerTime {
 type Mutation {
   advanceTime(time: Time!): LedgerTime!
   create(templateId: ID!, argument: DamlLfValue): CommandId!
-  exercise(contractId: ID!, choiceId: ID!, argument: DamlLfValue): CommandId!
+  exercise(contractId: ID!, interfaceId: ID, choiceId: ID!, argument: DamlLfValue): CommandId!
 }
 
 interface Node {

@@ -58,7 +58,7 @@ export const contract = new Route<ContractParams, Action, State>(
       state: Contract.init(
         decodeURIComponent(id),
         choice,
-       ifc && decodeURIComponent(ifc)
+        ifc && decodeURIComponent(ifc),
       ),
     }),
   ({ page }: State) => {
