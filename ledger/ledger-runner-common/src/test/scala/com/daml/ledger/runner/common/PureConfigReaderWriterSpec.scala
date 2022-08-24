@@ -599,6 +599,8 @@ class PureConfigReaderWriterSpec
     val value = """
                   |  init-load-parallelism = 16
                   |  init-process-parallelism = 16
+                  |  init-takes-too-long-initial-delay = 1 minute
+                  |  init-takes-too-long-interval = 10 seconds
                   |  """.stripMargin
     convert(packageMetadataViewConfigConvert, value).value shouldBe PackageMetadataViewConfig()
   }
@@ -646,7 +648,11 @@ class PureConfigReaderWriterSpec
     |  events-processing-parallelism = 8
     |  max-contract-key-state-cache-size = 100000
     |  max-contract-state-cache-size = 100000
-    |  max-transactions-in-memory-fan-out-buffer-size = 10000""".stripMargin
+    |  max-transactions-in-memory-fan-out-buffer-size = 10000
+    |  in-memory-state-updater-parallelism = 2
+    |  in-memory-fan-out-thread-pool-size = 16
+    |  prepare-package-metadata-time-out-warning = 1 second
+    |  """.stripMargin
     convert(indexServiceConfigConvert, value).value shouldBe IndexServiceConfig()
   }
 

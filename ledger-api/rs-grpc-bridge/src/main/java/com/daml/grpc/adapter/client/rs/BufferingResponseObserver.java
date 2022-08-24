@@ -75,7 +75,6 @@ class BufferingResponseObserver<Req, Resp> implements ClientResponseObserver<Req
     logger.trace("{}gRPC upstream emitted error.", logPrefix, throwable);
     es.sequence(
         () -> {
-          subscription.onStreamClosure();
           if (!subscription.isCancelled()) {
             if (buffer.hasNoElement()) {
               subscription.getSubscriber().onError(throwable);
@@ -91,7 +90,6 @@ class BufferingResponseObserver<Req, Resp> implements ClientResponseObserver<Req
     logger.trace("{}gRPC upstream completed.", logPrefix);
     es.sequence(
         () -> {
-          subscription.onStreamClosure();
           if (!subscription.isCancelled()) {
             if (buffer.hasNoElement()) {
               subscription.getSubscriber().onComplete();

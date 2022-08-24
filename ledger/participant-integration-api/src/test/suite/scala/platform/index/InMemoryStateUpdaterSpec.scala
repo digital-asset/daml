@@ -18,6 +18,7 @@ import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.index.InMemoryStateUpdater.PrepareResult
 import com.daml.platform.index.InMemoryStateUpdaterSpec.{
@@ -42,6 +43,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.util.chaining._
 import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.duration.FiniteDuration
 
 class InMemoryStateUpdaterSpec extends AnyFlatSpec with Matchers with AkkaBeforeAndAfterAll {
 
@@ -144,11 +146,12 @@ object InMemoryStateUpdaterSpec {
       2,
       scala.concurrent.ExecutionContext.global,
       scala.concurrent.ExecutionContext.global,
+      FiniteDuration(10, "seconds"),
       new Metrics(new MetricRegistry),
     )(
       prepare = (_, lastEventSequentialId) => result(lastEventSequentialId),
       update = cachesUpdateCaptor,
-    )
+    )(LoggingContext.empty)
 
     val txLogUpdate1 = TransactionLogUpdate.TransactionAccepted(
       transactionId = "tx1",
