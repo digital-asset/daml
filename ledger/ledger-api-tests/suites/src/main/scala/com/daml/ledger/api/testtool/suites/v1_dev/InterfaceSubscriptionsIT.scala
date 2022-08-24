@@ -14,6 +14,7 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
 }
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{Dars, LedgerTestSuite}
+import com.daml.ledger.api.testtool.infrastructure.FutureAssertions._
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.v1.event.Event.Event
 import com.daml.ledger.api.v1.event.{CreatedEvent, InterfaceView}
@@ -22,7 +23,10 @@ import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v1.value.{Identifier, Record}
 import com.daml.ledger.test.semantic.InterfaceViews._
 import com.daml.ledger.test.{Carbonv1TestDar, Carbonv2TestDar, carbonv1, carbonv2}
+import com.daml.logging.LoggingContext
 import scalaz.Tag
+
+import scala.concurrent.duration._
 
 class InterfaceSubscriptionsIT extends LedgerTestSuite {
 
@@ -531,6 +535,9 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     import ledger._
+
+    implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
     for {
       _ <- ledger.uploadDarFile(Dars.read(Carbonv1TestDar.path))
 
@@ -551,7 +558,13 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
 
       _ = assertEquals(transactionFuture.isCompleted, false)
 
-      contract <- create(party, carbonv2.CarbonV2.T(party, 21))
+      contract <- succeedsEventually(
+        maxRetryDuration = 10.seconds,
+        description = "Topology processing around Dar upload can take a bit of time.",
+        delayMechanism = ledger.delayMechanism,
+      ) {
+        create(party, carbonv2.CarbonV2.T(party, 21))
+      }
 
       transactions <- transactionFuture
 
