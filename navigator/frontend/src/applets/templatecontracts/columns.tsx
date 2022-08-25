@@ -57,10 +57,14 @@ export default (param: DamlLfRecord): ContractColumn<Contract>[] => [
     createCell: ({ cellData }) => (
       <ChoicesButton
         contract={cellData}
-        renderLink={(id, name) => (
+        renderLink={(id, name, inheritedInterface) => (
           <Link
             route={Routes.contract}
-            params={{ id: encodeURIComponent(id), choice: name }}>
+            params={{
+              id: encodeURIComponent(id),
+              choice: name,
+              ifc: inheritedInterface && encodeURIComponent(inheritedInterface),
+            }}>
             <div>{name}</div>
           </Link>
         )}

@@ -52,6 +52,7 @@ class RowSpec extends AnyWordSpec with Matchers {
         Instant.EPOCH,
         ApiTypes.ContractId("#0:0"),
         C.complexRecordId,
+        Some(C.complexRecordId),
         ApiTypes.Choice("text"),
         C.simpleTextV,
       )

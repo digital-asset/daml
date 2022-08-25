@@ -276,7 +276,7 @@ applySubstInUpdate subst = \case
         choiceName
         (applySubstInExpr subst e1)
         (applySubstInExpr subst e2)
-        (applySubstInExpr subst e3)
+        (applySubstInExpr subst <$> e3)
     UExerciseByKey templateName choiceName e1 e2 -> UExerciseByKey
         templateName
         choiceName

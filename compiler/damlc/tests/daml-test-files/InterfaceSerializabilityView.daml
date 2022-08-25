@@ -2,12 +2,10 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ERROR Interface I has a view method which returns a non-serializable type InterfaceViewNonSerializable:NonSerializable
+-- @ERROR range=18:11-18:12; error type checking interface InterfaceSerializabilityView.I : expected serializable type: * reason: view * found: InterfaceSerializabilityView:NonSerializable * problem: unserializable data type InterfaceSerializabilityView:NonSerializable
+module InterfaceSerializabilityView where
 
--- | Check that error is thrown if interface view isn't serializable
-module InterfaceViewNonSerializable where
-
-data NonSerializable = NonSerializable (() -> ())
+data NonSerializable = NonSerializable { function :  (() -> ()) }
 
 -- Dummy Eq and Show instances so we blow up in the serializability checker rather than
 -- the GHC typechecker.

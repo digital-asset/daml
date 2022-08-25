@@ -593,12 +593,14 @@ typeOfExercise tpl chName cid arg = do
   pure (TUpdate (chcReturnType choice))
 
 typeOfExerciseInterface :: MonadGamma m =>
-  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> Expr -> m Type
-typeOfExerciseInterface iface chName cid arg guard = do
+  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> Maybe Expr -> m Type
+typeOfExerciseInterface iface chName cid arg mayGuard = do
   choice <- inWorld (lookupInterfaceChoice (iface, chName))
   checkExpr cid (TContractId (TCon iface))
   checkExpr arg (chcArgType choice)
-  checkExpr guard (TCon iface :-> TBool)
+  case mayGuard of
+    Nothing -> pure ()
+    Just guard -> checkExpr guard (TCon iface :-> TBool)
   pure (TUpdate (chcReturnType choice))
 
 typeOfExerciseByKey :: MonadGamma m =>
@@ -865,7 +867,12 @@ checkDefTypeSyn DefTypeSyn{synParams,synType} = do
 -- | Check that an interface definition is well defined.
 checkIface :: MonadGamma m => Module -> DefInterface -> m ()
 checkIface m iface = do
-  let tcon = Qualified PRSelf (moduleName m) (intName iface)
+  
+  -- check view
+  tycon <- match _TCon (EExpectedViewType viewtype) viewtype
+  DefDataType _loc _naem _serializable tparams dataCons <- inWorld (lookupDataType tycon)
+  unless (null tparams) $ throwWithContext (EExpectedViewType viewtype)
+  _ <- match _DataRecord (EExpectedViewType viewtype) dataCons
 
   -- check requires
   when (tcon `S.member` intRequires iface) $
@@ -898,6 +905,8 @@ checkIface m iface = do
       checkInterfaceInstance (intParam iface) iiHead iciBody
 
   where
+    tcon = Qualified PRSelf (moduleName m) (intName iface)
+    viewtype = intView iface
     withPart p = withContext (ContextDefInterface m iface p)
 
 checkIfaceMethod :: MonadGamma m => InterfaceMethod -> m ()

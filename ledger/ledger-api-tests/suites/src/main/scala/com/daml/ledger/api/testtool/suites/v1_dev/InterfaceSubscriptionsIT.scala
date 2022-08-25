@@ -22,7 +22,14 @@ import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v1.value.{Identifier, Record}
 import com.daml.ledger.test.semantic.InterfaceViews._
-import com.daml.ledger.test.{Carbonv1TestDar, Carbonv2TestDar, carbonv1, carbonv2}
+import com.daml.ledger.test.{
+  Carbonv1TestDar,
+  Carbonv2TestDar,
+  Carbonv3TestDar,
+  carbonv1,
+  carbonv2,
+  carbonv3,
+}
 import com.daml.logging.LoggingContext
 import scalaz.Tag
 
@@ -568,23 +575,69 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
 
       transactions <- transactionFuture
 
-    } yield {
-      assertLength("transaction should be found", 1, transactions)
-
-      val createdEvent = createdEvents(transactions(0)).head
-      assertLength("Create event has a view", 1, createdEvent.interfaceViews)
-      assertEquals(
-        "Create event template ID",
-        createdEvent.templateId.get.toString,
-        Tag.unwrap(carbonv2.CarbonV2.T.id).toString,
-      )
-      assertEquals("Create event contract ID", createdEvent.contractId, contract.toString)
-      assertViewEquals(createdEvent.interfaceViews, Tag.unwrap(carbonv1.CarbonV1.I.id)) { value =>
-        assertLength("View has 1 field", 1, value.fields)
-        assertEquals("View.a", value.fields(0).getValue.getInt64, 21)
-      }
-    }
+    } yield assertSingleContractWithSimpleView(
+      transactions = transactions,
+      contractIdentifier = Tag.unwrap(carbonv2.CarbonV2.T.id),
+      viewIdentifier = Tag.unwrap(carbonv1.CarbonV1.I.id),
+      contractId = contract.toString,
+      viewValue = 21,
+    )
   })
+
+  test(
+    "ISTransactionsRetroactiveInterface",
+    "Subscribe to retroactive interface",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    import ledger._
+    implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
+    for {
+      _ <- ledger.uploadDarFile(Dars.read(Carbonv1TestDar.path))
+      _ <- ledger.uploadDarFile(Dars.read(Carbonv2TestDar.path))
+      contract <- succeedsEventually(
+        maxRetryDuration = 10.seconds,
+        description = "Topology processing around Dar upload can take a bit of time.",
+        delayMechanism = ledger.delayMechanism,
+      ) {
+        create(party, carbonv2.CarbonV2.T(party, 77))
+      }
+      _ <- ledger.uploadDarFile(Dars.read(Carbonv3TestDar.path))
+      transactions <- flatTransactions(
+        getTransactionsRequest(
+          transactionFilter(Seq(party), Seq.empty, Seq((carbonv3.CarbonV3.RetroI.id, true)))
+        )
+      )
+    } yield assertSingleContractWithSimpleView(
+      transactions = transactions,
+      contractIdentifier = Tag.unwrap(carbonv2.CarbonV2.T.id),
+      viewIdentifier = Tag.unwrap(carbonv3.CarbonV3.RetroI.id),
+      contractId = contract.toString,
+      viewValue = 77,
+    )
+  })
+
+  private def assertSingleContractWithSimpleView(
+      transactions: Vector[Transaction],
+      contractIdentifier: Identifier,
+      viewIdentifier: Identifier,
+      contractId: String,
+      viewValue: Long,
+  ): Unit = {
+    assertLength("transaction should be found", 1, transactions)
+    val createdEvent = createdEvents(transactions(0)).head
+    assertLength("Create event has a view", 1, createdEvent.interfaceViews)
+    assertEquals(
+      "Create event template ID",
+      createdEvent.templateId.get.toString,
+      contractIdentifier.toString,
+    )
+    assertEquals("Create event contract ID", createdEvent.contractId, contractId)
+    assertViewEquals(createdEvent.interfaceViews, viewIdentifier) { value =>
+      assertLength("View has 1 field", 1, value.fields)
+      assertEquals("View.value", value.fields(0).getValue.getInt64, viewValue)
+    }
+  }
 
   private def updateTransaction(
       emptyView: Boolean = false,
@@ -628,7 +681,10 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
   ): Unit = {
     val viewSearch = views.find(_.interfaceId.contains(interfaceId))
 
-    val view = assertDefined(viewSearch, "View could not be found")
+    val view = assertDefined(
+      viewSearch,
+      s"View could not be found, there are: ${views.map(_.interfaceId).mkString("[", ",", "]")}",
+    )
 
     val viewCount = views.count(_.interfaceId.contains(interfaceId))
     assertEquals(s"Only one view of interfaceId=$interfaceId must be defined", viewCount, 1)

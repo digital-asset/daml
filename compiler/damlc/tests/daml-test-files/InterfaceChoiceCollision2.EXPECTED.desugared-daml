@@ -62,7 +62,7 @@ instance ((DA.Internal.Desugar.HasIsInterfaceType t),
          DA.Internal.Desugar.HasExerciseGuarded t MyArchive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
-        @"UExerciseInterface"
+        @"UExerciseInterfaceGuarded"
         (DA.Internal.Desugar.toInterfaceContractId @Interface cid)
         arg
         (DA.Internal.Desugar._exerciseInterfaceGuard @Interface cid pred)
@@ -70,7 +70,11 @@ instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Interface)) =>
          DA.Internal.Desugar.HasExercise t MyArchive (()) where
-  exercise = DA.Internal.Desugar._exerciseDefault
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @Interface cid)
+        arg
 data MyArchive
   = MyArchive {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)

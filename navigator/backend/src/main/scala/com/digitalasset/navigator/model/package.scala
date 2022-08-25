@@ -19,6 +19,9 @@ package object model extends NavigatorModelAliases[String] {
   type TemplateStringId = String @@ TemplateStringIdTag
   val TemplateStringId = Tag.of[TemplateStringIdTag]
 
+  type InterfaceStringId = String @@ InterfaceStringIdTag
+  val InterfaceStringId = Tag.of[InterfaceStringIdTag]
+
   // ----------------------------------------------------------------------------------------------
   // Types used in the ledger API
   // ----------------------------------------------------------------------------------------------
@@ -100,11 +103,14 @@ package object model extends NavigatorModelAliases[String] {
     }
   }
 
-  def parseOpaqueIdentifier(id: TemplateStringId): Option[DamlLfRef.Identifier] =
+  def parseTemplateOpaqueIdentifier(id: TemplateStringId): Option[DamlLfRef.Identifier] =
     parseOpaqueIdentifier(TemplateStringId.unwrap(id))
 
+  def parseInterfaceOpaqueIdentifier(id: InterfaceStringId): Option[DamlLfRef.Identifier] =
+    parseOpaqueIdentifier(InterfaceStringId.unwrap(id))
 }
 
 package model {
   sealed trait TemplateStringIdTag
+  sealed trait InterfaceStringIdTag
 }

@@ -16,10 +16,11 @@ object Dars {
   // later in the conformance test.
   // TODO when Interface Subscriptions land stable version,
   // this can be updated to import classes instead of Strings
-  // import com.daml.ledger.test.{Carbonv2TestDar, Carbonv1TestDar}
+  // import com.daml.ledger.test.{Carbonv2TestDar, Carbonv1TestDar, Carbonv3TestDar}
   private val DoNotLoadAtStartupResources: Set[String] = Set(
     "ledger/test-common/carbonv1-tests-1.dev.dar",
     "ledger/test-common/carbonv2-tests-1.dev.dar",
+    "ledger/test-common/carbonv3-tests-1.dev.dar",
   )
 
   val startupResources: List[String] = resources.filterNot(DoNotLoadAtStartupResources.contains)

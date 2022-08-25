@@ -537,7 +537,7 @@ private[validation] object Typing {
 
     private[Typing] def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
-        case DefInterface(requires, param, choices, methods, coImplements, _) =>
+        case DefInterface(requires, param, choices, methods, coImplements, view) =>
           val env = introExprVar(param, TTyCon(ifaceName))
           if (requires(ifaceName))
             throw ECircularInterfaceRequires(ctx, ifaceName)
@@ -556,6 +556,17 @@ private[validation] object Typing {
               iiBody = coImpl.body,
             )
           )
+          def error = throw EExpectedViewType(env.ctx, view)
+          view match {
+            case TTyCon(tycon) =>
+              handleLookup(env.ctx, pkgInterface.lookupDataType(tycon)) match {
+                case DDataType(_, ImmArray(), DataRecord(_)) =>
+                case _ =>
+                  error
+              }
+            case _ =>
+              error
+          }
       }
 
     private def checkIfaceMethod(method: InterfaceMethod): Unit = {

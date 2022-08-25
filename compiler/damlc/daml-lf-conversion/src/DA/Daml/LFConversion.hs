@@ -723,7 +723,7 @@ convertInterfaceTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (
 convertInterfaceTyCon = convertDamlTyCon hasDamlInterfaceCtx "interface type"
 
 convertTemplateTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
-convertTemplateTyCon = convertDamlTyCon hasDamlTemplateCtx "interface type"
+convertTemplateTyCon = convertDamlTyCon hasDamlTemplateCtx "template type"
 
 convertInterfaces :: Env -> ModuleContents -> ConvertM [Definition]
 convertInterfaces env mc = interfaceDefs
@@ -751,7 +751,7 @@ convertInterfaces env mc = interfaceDefs
 
     convertRequires :: [(GHC.TyCon, Maybe SourceLoc)] -> ConvertM (S.Set (Qualified TypeConName))
     convertRequires requires = S.fromList <$> sequence
-      [ guardSupportsInterfaceRequires $ withRange mloc $ convertInterfaceTyCon env handleIsNotInterface iface
+      [ withRange mloc $ guardSupportsInterfaceRequires $ convertInterfaceTyCon env handleIsNotInterface iface
       | (iface, mloc) <- requires
       ]
       where
@@ -875,6 +875,12 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
             unsupported "Daml interfaces are only available with --target=1.15 or higher" ()
             -- TODO https://github.com/digital-asset/daml/issues/12051
             --   Change when interfaces are released.
+
+    -- Remove guarded exercise instances when Extended Interfaces are unsupported
+    | not (envLfVersion env `supports` featureExtendedInterfaces)
+    , Just cls <- tyConClass_maybe t
+    , NameIn DA_Internal_Template_Functions "HasExerciseGuarded" <- cls
+    ->  pure []
 
     -- Constraint tuples are represented by LF structs.
     | isConstraintTupleTyCon t
@@ -1352,6 +1358,24 @@ convertBind env mc (name, x)
     | "_method_" `T.isPrefixOf` getOccText name
     = pure []
     | "_view_" `T.isPrefixOf` getOccText name
+    = pure []
+
+    -- Remove guarded exercise when Extended Interfaces are unsupported
+    | not (envLfVersion env `supports` featureExtendedInterfaces)
+    , "$cexerciseGuarded" `T.isPrefixOf` getOccText name
+    = pure []
+
+    -- Remove guarded exercise when Extended Interfaces are unsupported
+    | not (envLfVersion env `supports` featureExtendedInterfaces)
+    , NameIn DA_Internal_Template_Functions "exerciseGuarded" <- name
+    = pure []
+
+    | not (envLfVersion env `supports` featureExtendedInterfaces)
+    , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasExerciseGuarded") _ <- name
+    = pure []
+
+    | not (envLfVersion env `supports` featureExtendedInterfaces)
+    , NameIn DA_Internal_Interface "_exerciseDefault" <- name
     = pure []
 
     -- Remove internal functions.
