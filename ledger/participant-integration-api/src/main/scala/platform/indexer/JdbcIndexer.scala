@@ -217,7 +217,7 @@ object JdbcIndexer {
         val duration = System.nanoTime() - startedTime
         metrics.daml.index.packageMetadata.viewInitialisation.update(duration, TimeUnit.NANOSECONDS)
         logger.info(
-          s"Package Metadata View has been initialized ($duration ms)"
+          s"Package Metadata View has been initialized (${duration / 1000000L} ms)"
         )
       }(computationExecutionContext)
       .recover { case NonFatal(e) =>
