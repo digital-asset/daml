@@ -231,10 +231,16 @@ ColumnConfig<any, any>[] {
                 return (
                   <ChoicesButton
                     contract={props.rowData}
-                    renderLink={(id, name) => (
+                    renderLink={(id, name, inheritedInterface) => (
                       <Link
                         route={Routes.contract}
-                        params={{ id: encodeURIComponent(id), choice: name }}>
+                        params={{
+                          id: encodeURIComponent(id),
+                          choice: name,
+                          ifc:
+                            inheritedInterface &&
+                            encodeURIComponent(inheritedInterface),
+                        }}>
                         <div>{name}</div>
                       </Link>
                     )}
