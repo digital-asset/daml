@@ -6,11 +6,11 @@ package com.daml.lf.typesig
 import java.{util => j}
 
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref, Ref.{Identifier, PackageId, PackageName, PackageVersion, QualifiedName}
+import com.daml.lf.data.Ref
+import Ref.{Identifier, PackageId, PackageName, PackageVersion, QualifiedName}
 import reader.Errors
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.ArchivePayload
-
 import scalaz.std.either._
 import scalaz.std.tuple._
 import scalaz.syntax.bifunctor._
@@ -123,8 +123,9 @@ final case class PackageSignature(
       import PackageSignature.findTemplate
       val (s, tplsM) = sm
       if (tcn.packageId == packageId)
-        findTemplate(tplsM, tcn.qualifiedName).map { case itt @ TypeDecl.Template(_, dt) =>
-          f => (s, tplsM.updated(tcn.qualifiedName, itt.copy(template = f(dt))))
+        findTemplate(tplsM orElse typeDecls, tcn.qualifiedName).map {
+          case itt @ TypeDecl.Template(_, dt) =>
+            f => (s, tplsM.updated(tcn.qualifiedName, itt.copy(template = f(dt))))
         }
       else setTemplate(s, tcn) map (_ andThen ((_, tplsM)))
     }
@@ -192,10 +193,10 @@ object PackageSignature {
     readPackageSignature(lf)
 
   private[typesig] def findTemplate[K](
-      m: Map[K, TypeDecl],
+      m: PartialFunction[K, TypeDecl],
       k: K,
   ): Option[TypeDecl.Template] =
-    m get k collect { case itt: TypeDecl.Template => itt }
+    m.lift(k) collect { case itt: TypeDecl.Template => itt }
 
   // Given a lookup function for package state setters, produce a lookup function
   // for setters on specific templates in that set of packages.
