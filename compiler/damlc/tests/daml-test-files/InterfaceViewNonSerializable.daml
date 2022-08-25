@@ -7,7 +7,7 @@
 -- | Check that error is thrown if interface view isn't serializable
 module InterfaceViewNonSerializable where
 
-data NonSerializable = NonSerializable (() -> ())
+data NonSerializable = NonSerializable { function :  (() -> ()) }
 
 -- Dummy Eq and Show instances so we blow up in the serializability checker rather than
 -- the GHC typechecker.
