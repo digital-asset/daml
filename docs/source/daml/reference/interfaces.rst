@@ -20,7 +20,7 @@ interface instead of the concrete template.
 
 Configuration
 *************
-In order to be able to test this experimental feature, you need to enable
+In order to test this experimental feature, you need to enable
 the dev mode on both Daml and Canton.
 
 For Daml, you need to add in ``daml.yaml`` the following line:
