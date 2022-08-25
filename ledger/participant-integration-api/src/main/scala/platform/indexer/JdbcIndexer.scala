@@ -35,6 +35,7 @@ import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 import com.daml.timer.FutureCheck._
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
@@ -166,7 +167,7 @@ object JdbcIndexer {
   )(implicit loggingContext: LoggingContext, materializer: Materializer): Future[Unit] = {
     implicit val ec: ExecutionContext = computationExecutionContext
     logger.info("Package Metadata View initialization has been started.")
-    val startedTime = System.currentTimeMillis()
+    val startedTime = System.nanoTime()
 
     def loadLfArchive(packageId: PackageId): Future[(PackageId, Array[Byte])] =
       dbDispatcher
@@ -201,25 +202,24 @@ object JdbcIndexer {
       }
     }
 
-    Timed
-      .future(
-        metrics.daml.index.packageMetadata.viewInitialisation,
-        Source
-          .futureSource(lfPackagesSource())
-          .mapAsyncUnordered(config.initLoadParallelism)(loadLfArchive)
-          .mapAsyncUnordered(config.initProcessParallelism)(processPackage)
-          .runWith(Sink.foreach(packageMetadataView.update)),
-      )
-      .checkIfComplete(config.initTakesTooLongInitialDelay, config.initTakesTooLongInterval)(
+    Source
+      .futureSource(lfPackagesSource())
+      .mapAsyncUnordered(config.initLoadParallelism)(loadLfArchive)
+      .mapAsyncUnordered(config.initProcessParallelism)(processPackage)
+      .runWith(Sink.foreach(packageMetadataView.update))
+      .checkIfComplete(config.initTakesTooLongInitialDelay, config.initTakesTooLongInterval) {
+        val duration = (System.nanoTime() - startedTime) / 1000000L
         logger.warn(
-          s"Package Metadata View initialization takes to long (${System.currentTimeMillis() - startedTime}ms)"
+          s"Package Metadata View initialization takes to long ($duration ms)"
         )
-      )
-      .map(_ =>
+      }
+      .map { _ =>
+        val duration = System.nanoTime() - startedTime
+        metrics.daml.index.packageMetadata.viewInitialisation.update(duration, TimeUnit.NANOSECONDS)
         logger.info(
-          s"Package Metadata View has been initialized (${System.currentTimeMillis() - startedTime}ms)"
+          s"Package Metadata View has been initialized ($duration ms)"
         )
-      )(computationExecutionContext)
+      }(computationExecutionContext)
       .recover { case NonFatal(e) =>
         logger.error(s"Failed to initialize Package Metadata View", e)
         throw e
