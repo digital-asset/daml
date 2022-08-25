@@ -18,10 +18,7 @@ abstract class JwtVerifierBase {
   def verify(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String]
 }
 
-class JwtVerifier(
-    val verifier: com.auth0.jwt.interfaces.JWTVerifier,
-    val jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
-) extends JwtVerifierBase {
+class JwtVerifier(val verifier: com.auth0.jwt.interfaces.JWTVerifier) extends JwtVerifierBase {
 
   def verify(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String] = {
     // The auth0 library verification already fails if the token has expired,
@@ -58,7 +55,7 @@ object HMAC256Verifier extends StrictLogging with Leeway {
 
       val algorithm = Algorithm.HMAC256(secret)
       val verifier = getVerifier(algorithm, jwtTimestampLeeway)
-      new JwtVerifier(verifier, jwtTimestampLeeway)
+      new JwtVerifier(verifier)
     }(e => Error(Symbol("HMAC256"), e.getMessage))
 }
 
@@ -70,7 +67,7 @@ object ECDSAVerifier extends StrictLogging with Leeway {
   ): Error \/ JwtVerifier =
     \/.attempt {
       val verifier = getVerifier(algorithm, jwtTimestampLeeway)
-      new JwtVerifier(verifier, jwtTimestampLeeway)
+      new JwtVerifier(verifier)
     }(e => Error(Symbol(algorithm.getName), e.getMessage))
 
   def fromCrtFile(
@@ -100,7 +97,7 @@ object RSA256Verifier extends StrictLogging with Leeway {
 
       val algorithm = Algorithm.RSA256(publicKey, null)
       val verifier = getVerifier(algorithm, jwtTimestampLeeway)
-      new JwtVerifier(verifier, jwtTimestampLeeway)
+      new JwtVerifier(verifier)
     }(e => Error(Symbol("RSA256"), e.getMessage))
 
   def apply(keyProvider: RSAKeyProvider): Error \/ JwtVerifier =
@@ -119,7 +116,7 @@ object RSA256Verifier extends StrictLogging with Leeway {
 
       val algorithm = Algorithm.RSA256(keyProvider)
       val verifier = getVerifier(algorithm, jwtTimestampLeeway)
-      new JwtVerifier(verifier, jwtTimestampLeeway)
+      new JwtVerifier(verifier)
     }(e => Error(Symbol("RSA256"), e.getMessage))
 
   /** Create a RSA256 validator with the key loaded from the given file.

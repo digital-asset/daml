@@ -95,14 +95,13 @@ object ClaimSet {
     /** Returns false if the expiration timestamp exists and is greater than or equal to the current time */
     def notExpired(
         now: Instant,
-        leeway: Option[JwtTimestampLeeway],
+        jwtTimestampLeeway: Option[JwtTimestampLeeway],
     ): Either[AuthorizationError, Unit] = {
-      val leewayExpiresAt: Option[Long] =
-        leeway.flatMap(l => if (l.expiresAt.isDefined) l.expiresAt else l.default)
-      val relaxedNow = leewayExpiresAt match {
-        case Some(extra) => now.minus(Duration.ofSeconds(extra))
-        case None => now
-      }
+      val relaxedNow =
+        jwtTimestampLeeway
+          .flatMap(l => l.expiresAt.orElse(l.default))
+          .map(leeway => now.minus(Duration.ofSeconds(leeway)))
+          .getOrElse(now)
       Either.cond(
         expiration.forall(relaxedNow.isBefore),
         (),

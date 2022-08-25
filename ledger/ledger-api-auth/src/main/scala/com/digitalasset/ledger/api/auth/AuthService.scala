@@ -4,6 +4,7 @@
 package com.daml.ledger.api.auth
 
 import java.util.concurrent.CompletionStage
+
 import io.grpc.Metadata
 
 /** An interface for authorizing the ledger API access to a participant.
