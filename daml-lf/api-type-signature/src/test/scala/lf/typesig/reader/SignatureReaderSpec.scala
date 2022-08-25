@@ -193,6 +193,8 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
 
   "a real dar" should {
     import archive.DarReader.readArchiveFromFile
+    import QualifiedName.{assertFromString => qn}
+    import Ref.ChoiceName.{assertFromString => cn}
 
     lazy val itp = {
       val file = requiredResource("daml-lf/api-type-signature/InterfaceTestPackage.dar")
@@ -206,17 +208,24 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
     lazy val itpES = EnvironmentSignature.fromPackageSignatures(itp).resolveChoices
 
+    lazy val itpWithoutRetroImplements = itp.copy(
+      main = itp.main.copy(
+        interfaces = itp.main.interfaces - qn("RetroInterface:RetroIf")
+      )
+    )
+    lazy val itpESWithoutRetroImplements =
+      EnvironmentSignature.fromPackageSignatures(itpWithoutRetroImplements).resolveChoices
+
     "load without errors" in {
       itp shouldBe itp
     }
 
-    import QualifiedName.{assertFromString => qn}
-    import Ref.ChoiceName.{assertFromString => cn}
     val Foo = qn("InterfaceTestPackage:Foo")
     val Bar = cn("Bar")
     val Archive = cn("Archive")
     val TIf = qn("InterfaceTestPackage:TIf")
     val LibTIf = qn("InterfaceTestLib:TIf")
+    val RetroIf = qn("RetroInterface:RetroIf")
     val LibTIfView = qn("InterfaceTestLib:TIfView")
     val Useless = cn("Useless")
     val UselessTy = qn("InterfaceTestPackage:Useless")
@@ -256,10 +265,17 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
 
     "have interfaces with choices" in {
-      itp.main.interfaces.keySet should ===(Set(LibTIf, TIf))
+      itp.main.interfaces.keySet should ===(Set(LibTIf, TIf, RetroIf))
       inside(itp.main.interfaces(TIf).choices get Useless) {
         case Some(TheUselessChoice(UselessTy, TIf)) =>
       }
+    }
+
+    "have interfaces with retroImplements" in {
+      itp.main.interfaces.keySet should ===(Set(LibTIf, TIf, RetroIf))
+      itp.main.interfaces(RetroIf).retroImplements should ===(
+        Set(Ref.TypeConName(itp.main.packageId, Foo))
+      )
     }
 
     // TODO SC #14067 depends on #14112
@@ -326,7 +342,24 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
 
     "resolve retro implements harmlessly when there are none" in {
       PackageSignature.resolveRetroImplements((), itp.all)((_, _) => None) should ===((), itp.all)
-      itpES.resolveRetroImplements should ===(itpES)
+      itpESWithoutRetroImplements.resolveRetroImplements should ===(itpESWithoutRetroImplements)
+    }
+
+    "resolve retro implements" in {
+      val itsESResolvedRetroImplements = itpES.resolveRetroImplements
+      itsESResolvedRetroImplements should !==(itpES)
+      inside(
+        itsESResolvedRetroImplements.interfaces(Ref.TypeConName(itp.main.packageId, RetroIf))
+      ) { case DefInterface(_, retroImplements, _) =>
+        retroImplements shouldBe empty
+      }
+
+      inside(itsESResolvedRetroImplements.typeDecls(Ref.TypeConName(itp.main.packageId, Foo))) {
+        case TypeDecl.Template(_, t) =>
+          inside(t) { case DefTemplate(_, _, implementedInterfaces) =>
+            implementedInterfaces should contain(Ref.TypeConName(itp.main.packageId, RetroIf))
+          }
+      }
     }
   }
 
