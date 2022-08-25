@@ -432,3 +432,16 @@ da_scala_benchmark_jmh(
         "//libs-scala/contextualized-logging",
     ],
 )
+
+da_scala_benchmark_jmh(
+    name = "iface-subscriptions-tools-benchmark",
+    srcs = glob(["src/bench/platform/index/**/*.scala"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/data",
+        "//ledger/ledger-api-domain",
+        "//ledger/participant-integration-api",
+        "//libs-scala/contextualized-logging",
+    ],
+)
