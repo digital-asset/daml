@@ -273,6 +273,22 @@ convertPrim _ "UExercise"
 convertPrim _ "UExerciseInterface"
     (   TContractId (TCon iface)
     :-> TCon choice
+    :->  TUpdate _returnTy) =
+    ETmLam (mkVar "this", TContractId (TCon iface)) $
+    ETmLam (mkVar "arg", TCon choice) $
+    EUpdate $ UExerciseInterface
+        { exeInterface  = iface
+        , exeChoice     = choiceName
+        , exeContractId = EVar (mkVar "this")
+        , exeArg        = EVar (mkVar "arg")
+        , exeGuard      = Nothing
+        }
+  where
+    choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
+
+convertPrim _ "UExerciseInterfaceGuarded"
+    (   TContractId (TCon iface)
+    :-> TCon choice
     :-> (TCon iface2 :-> TBuiltin BTBool)
     :->  TUpdate _returnTy)
     | iface == iface2 =
@@ -284,7 +300,7 @@ convertPrim _ "UExerciseInterface"
         , exeChoice     = choiceName
         , exeContractId = EVar (mkVar "this")
         , exeArg        = EVar (mkVar "arg")
-        , exeGuard      = EVar (mkVar "pred")
+        , exeGuard      = Just (EVar (mkVar "pred"))
         }
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)

@@ -278,7 +278,7 @@ Version: 1.15
     - Add `ToInterface`, `FromInterface` expressions
     - Add `CallInterface` expressions
     - Add `ViewInterface` expressions
-    - Add `coImplements` and `view` to `DefInterface`
+    - Add `interfaces` to `Module`
     - Add `implements` to `Template`
 
 Version: 1.dev (development)

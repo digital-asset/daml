@@ -122,14 +122,14 @@ featureNatSynonyms = Feature
 
 featureSimpleInterfaces :: Feature
 featureSimpleInterfaces = Feature
-    { featureName = "Daml Interfaces without guards and requires"
+    { featureName = "Daml Interfaces"
     , featureMinVersion = version1_15
     , featureCppFlag = Just "DAML_INTERFACE"
     }
 
 featureExtendedInterfaces :: Feature
 featureExtendedInterfaces = Feature
-    { featureName = "Daml Interfaces with guards and requires"
+    { featureName = "Guards and requires in interfaces"
     , featureMinVersion = versionDev
     , featureCppFlag = Just "DAML_INTERFACE_EXTENDED"
     }

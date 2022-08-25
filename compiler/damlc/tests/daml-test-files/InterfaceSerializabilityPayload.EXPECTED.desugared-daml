@@ -46,7 +46,7 @@ instance ((DA.Internal.Desugar.HasIsInterfaceType t),
          DA.Internal.Desugar.HasExerciseGuarded t Get (Gettable) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
-        @"UExerciseInterface"
+        @"UExerciseInterfaceGuarded"
         (DA.Internal.Desugar.toInterfaceContractId @Gettable cid)
         arg
         (DA.Internal.Desugar._exerciseInterfaceGuard @Gettable cid pred)
@@ -54,7 +54,11 @@ instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Gettable)) =>
          DA.Internal.Desugar.HasExercise t Get (Gettable) where
-  exercise = DA.Internal.Desugar._exerciseDefault
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @Gettable cid)
+        arg
 data Get
   = Get {anyActor : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
