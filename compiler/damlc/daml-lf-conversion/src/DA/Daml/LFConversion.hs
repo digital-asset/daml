@@ -723,7 +723,7 @@ convertInterfaceTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (
 convertInterfaceTyCon = convertDamlTyCon hasDamlInterfaceCtx "interface type"
 
 convertTemplateTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
-convertTemplateTyCon = convertDamlTyCon hasDamlTemplateCtx "interface type"
+convertTemplateTyCon = convertDamlTyCon hasDamlTemplateCtx "template type"
 
 convertInterfaces :: Env -> ModuleContents -> ConvertM [Definition]
 convertInterfaces env mc = interfaceDefs
