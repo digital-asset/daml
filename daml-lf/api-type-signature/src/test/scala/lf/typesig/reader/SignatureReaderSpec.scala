@@ -341,6 +341,7 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
 
     "resolve retro implements harmlessly when there are none" in {
+      // TODO: CL This one shouldn't pass imo
       PackageSignature.resolveRetroImplements((), itp.all)((_, _) => None) should ===((), itp.all)
       itpESWithoutRetroImplements.resolveRetroImplements should ===(itpESWithoutRetroImplements)
     }
