@@ -5,6 +5,7 @@ def deps(lf_version):
     carbon_tests = [
         "//ledger/test-common:carbonv1-tests-1.dev.scala",
         "//ledger/test-common:carbonv2-tests-1.dev.scala",
+        "//ledger/test-common:carbonv3-tests-1.dev.scala",
     ]
     additional_tests = carbon_tests if (lf_version == "1.dev") else []
     return [
