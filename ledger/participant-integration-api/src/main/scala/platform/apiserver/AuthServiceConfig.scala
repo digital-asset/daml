@@ -28,11 +28,11 @@ object AuthServiceConfig {
       secret: String,
       jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
   ) extends AuthServiceConfig {
-    // note that HMAC256Verifier only returns an error for a `null` secret and UnsafeJwtHmac256 therefore can't throw an
-    // exception when reading secret from a config value
     private lazy val verifier =
       HMAC256Verifier(secret, jwtTimestampLeeway).valueOr(err =>
-        throw new IllegalArgumentException(s"Failed to create HMAC256 verifier (secret: $secret): $err")
+        throw new IllegalArgumentException(
+          s"Failed to create HMAC256 verifier (secret: $secret): $err"
+        )
       )
     override def create(): AuthService = AuthServiceJWT(verifier)
   }
