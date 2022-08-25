@@ -6,7 +6,8 @@ package com.daml.http
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.iface
-import com.daml.http.domain.{Choice, ContractTypeId, TemplateId}
+import domain.{Choice, ContractTypeId, TemplateId}
+import ContractTypeId.ResolvedOf
 import com.daml.http.util.IdentifierConverters
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.jwt.domain.Jwt
@@ -328,7 +329,7 @@ object PackageService {
     )
   }
 
-  def buildTemplateIdMap[CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]](
+  def buildTemplateIdMap[CtId[T] <: ContractTypeId.Definite[T] with ContractTypeId.Ops[CtId, T]](
       ids: Set[RequiredPkg[CtId]]
   ): ContractTypeIdMap[CtId] = {
     val all = ids.view.map(k => (k, k)).toMap
@@ -336,7 +337,6 @@ object PackageService {
     ContractTypeIdMap(all, unique)
   }
 
-  private type ResolvedOf[CtId[_]] = ContractTypeId.ResolvedId[RequiredPkg[CtId]]
   private type RequiredPkg[CtId[_]] = CtId[String]
   private type NoPkg[CtId[_]] = CtId[Unit]
 

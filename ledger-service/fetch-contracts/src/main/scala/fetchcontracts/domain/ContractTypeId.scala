@@ -144,6 +144,8 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
   /** A resolved [[ContractTypeId]], typed `CtTyId`. */
   type ResolvedId[+CtTyId] = CtTyId
 
+  type ResolvedOf[+CtId[_]] = ResolvedId[CtId[String] with Definite[String]]
+
   type Like[CtId[T] <: ContractTypeId[T]] = ContractTypeIdLike[CtId]
 
   // CtId serves the same role as `CC` on scala.collection.IterableOps
@@ -161,7 +163,7 @@ sealed abstract class ContractTypeIdLike[CtId[T] <: ContractTypeId[T]] {
   type OptionalPkg = CtId[Option[String]]
   type RequiredPkg = CtId[String]
   type NoPkg = CtId[Unit]
-  type Resolved = ContractTypeId.ResolvedId[RequiredPkg]
+  type Resolved = ContractTypeId.ResolvedOf[CtId]
 
   // treat the companion like a typeclass instance
   implicit def `ContractTypeIdLike companion`: this.type = this
