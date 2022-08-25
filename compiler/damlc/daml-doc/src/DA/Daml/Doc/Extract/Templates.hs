@@ -81,6 +81,8 @@ getInterfaceDocs DocCtx{..} typeMap interfaceViewtypeMap interfaceInstanceMap =
       , if_interfaceInstances =
           Set.toList (MS.findWithDefault mempty name interfaceInstanceMap)
       , if_viewtype =
+          -- it's fine to use 'MS.!' here because the compiler doesn't 
+          -- allow declaring an interface without a viewtype.
           interfaceViewtypeMap MS.! name
       }
       where
