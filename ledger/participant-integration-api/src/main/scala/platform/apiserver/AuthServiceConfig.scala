@@ -15,12 +15,14 @@ import com.daml.ledger.api.auth.{AuthService, AuthServiceJWT, AuthServiceWildcar
 
 sealed trait AuthServiceConfig {
   def create(): AuthService
+  def jwtTimestampLeeway: Option[JwtTimestampLeeway]
 }
 object AuthServiceConfig {
 
   /** [default] Allows everything */
   final object Wildcard extends AuthServiceConfig {
     override def create(): AuthService = AuthServiceWildcard
+    def jwtTimestampLeeway: Option[JwtTimestampLeeway] = None
   }
 
   /** [UNSAFE] Enables JWT-based authorization with shared secret HMAC256 signing: USE THIS EXCLUSIVELY FOR TESTING */
