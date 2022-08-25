@@ -341,25 +341,40 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
 
     "resolve retro implements harmlessly when there are none" in {
-      // TODO: CL This one shouldn't pass imo
-      PackageSignature.resolveRetroImplements((), itp.all)((_, _) => None) should ===((), itp.all)
+      PackageSignature.resolveRetroImplements((), itpWithoutRetroImplements.all)((_, _) =>
+        None
+      ) should ===((), itpWithoutRetroImplements.all)
       itpESWithoutRetroImplements.resolveRetroImplements should ===(itpESWithoutRetroImplements)
     }
 
     "resolve retro implements" in {
-      val itsESResolvedRetroImplements = itpES.resolveRetroImplements
-      itsESResolvedRetroImplements should !==(itpES)
+      val (_, itpResolvedRetro) =
+        PackageSignature.resolveRetroImplements((), itp.all)((_, _) => None)
+      itpResolvedRetro should !==(itp.all)
       inside(
-        itsESResolvedRetroImplements.interfaces(Ref.TypeConName(itp.main.packageId, RetroIf))
-      ) { case DefInterface(_, retroImplements, _) =>
+        itpResolvedRetro.find(_.packageId == itp.main.packageId)
+      ) { case Some(packageSignature) =>
+        inside(packageSignature.interfaces.get(RetroIf)) {
+          case Some(DefInterface(_, retroImplements, _)) =>
+            retroImplements shouldBe empty
+        }
+        inside(packageSignature.typeDecls.get(Foo)) {
+          case Some(TypeDecl.Template(_, DefTemplate(_, _, implementedInterfaces))) =>
+            implementedInterfaces should contain(Ref.TypeConName(itp.main.packageId, RetroIf))
+        }
+      }
+
+      val itsESResolvedRetro = itpES.resolveRetroImplements
+      itsESResolvedRetro should !==(itpES)
+      inside(
+        itsESResolvedRetro.interfaces.get(Ref.TypeConName(itp.main.packageId, RetroIf))
+      ) { case Some(DefInterface(_, retroImplements, _)) =>
         retroImplements shouldBe empty
       }
 
-      inside(itsESResolvedRetroImplements.typeDecls(Ref.TypeConName(itp.main.packageId, Foo))) {
-        case TypeDecl.Template(_, t) =>
-          inside(t) { case DefTemplate(_, _, implementedInterfaces) =>
-            implementedInterfaces should contain(Ref.TypeConName(itp.main.packageId, RetroIf))
-          }
+      inside(itsESResolvedRetro.typeDecls.get(Ref.TypeConName(itp.main.packageId, Foo))) {
+        case Some(TypeDecl.Template(_, DefTemplate(_, _, implementedInterfaces))) =>
+          implementedInterfaces should contain(Ref.TypeConName(itp.main.packageId, RetroIf))
       }
     }
   }
