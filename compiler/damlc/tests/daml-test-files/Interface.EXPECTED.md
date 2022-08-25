@@ -14,13 +14,15 @@
 >   
 >   (no fields)
 
-> * **implements** [Token](#type-interface-token-10651)
+> * **interface instance** [Token](#type-interface-token-10651) **for** [Asset](#type-interface-asset-25340)
 
 ## Interfaces
 
 <a name="type-interface-token-10651"></a>**interface** [Token](#type-interface-token-10651)
 
 > An interface comment.
+> 
+> **viewtype** [EmptyInterfaceView](#type-interface-emptyinterfaceview-28816)
 > 
 > * **Choice GetRich**
 >   
