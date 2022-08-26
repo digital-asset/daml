@@ -23,7 +23,7 @@ import scala.concurrent.Future
 
 /** Common tests for implementations of [[UserManagementStore]]
   */
-trait UserManagementStoreSpecBase extends TestResourceContext with Matchers with EitherValues {
+trait UserManagementStoreTests extends TestResourceContext with Matchers with EitherValues {
   self: AsyncFreeSpec =>
 
   implicit val lc: LoggingContext = LoggingContext.ForTesting
