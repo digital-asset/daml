@@ -48,8 +48,6 @@ trait PersistentStoreSpecBase
     val dbMetrics = DatabaseMetrics.ForTesting(getClass.getSimpleName)
     val resetDbF = dbSupport.dbDispatcher.executeSql(dbMetrics) { connection =>
       backend.reset.resetAll(connection)
-      updateLedgerEndCache(connection)
-      backend.stringInterningSupport.reset()
     }
     Await.ready(resetDbF, 10.seconds)
     assert(
