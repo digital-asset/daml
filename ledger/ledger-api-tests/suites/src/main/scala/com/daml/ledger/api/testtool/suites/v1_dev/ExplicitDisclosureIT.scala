@@ -28,7 +28,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
 
   test(
     "EDCorrectDisclosure",
-    "Submission works if the correct disclosure is provided",
+    "Submission is successful if the correct disclosure is provided",
     allocate(Parties(2)),
     enabled = _.explicitDisclosure,
   )(implicit ec => { case Participants(Participant(ledger, owner, delegate)) =>
@@ -37,7 +37,9 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
 
       // Exercise a choice on the Delegation that fetches the Delegated contract
       // Fails because the submitter doesn't see the contract being fetched
-      exerciseFetchError <- testContext.exerciseFetchDelegated().failed
+      exerciseFetchError <- testContext
+        .exerciseFetchDelegated()
+        .mustFail("the submitter does not see the contract")
 
       // Exercise the same choice, this time using correct explicit disclosure
       _ <- testContext.exerciseFetchDelegated(testContext.disclosedContract)
@@ -133,7 +135,9 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       _ <- ledger.exercise(owner, testContext.delegatedCid.exerciseArchive())
 
       // Exercise the choice using the now inactive disclosed contract
-      exerciseError <- testContext.exerciseFetchDelegated(testContext.disclosedContract).failed
+      exerciseError <- testContext
+        .exerciseFetchDelegated(testContext.disclosedContract)
+        .mustFail("the contract is already archived")
     } yield {
       assertGrpcError(
         exerciseError,
@@ -159,7 +163,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           testContext.disclosedContract
             .update(_.contractId := ContractId.V1.assertFromString("00" + "00" * 32).coid)
         )
-        .failed
+        .mustFail("using a mismatching contract id")
 
       // Exercise a choice using invalid explicit disclosure (bad contract key)
       errorBadKey <- testContext
@@ -167,7 +171,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           testContext.disclosedContract
             .update(_.arguments := Delegated(owner, "wrongKey").arguments)
         )
-        .failed
+        .mustFail("using a mismatching contract key")
 
       // Exercise a choice using invalid explicit disclosure (bad ledger time)
       errorBadLet <- testContext
@@ -175,7 +179,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           testContext.disclosedContract
             .update(_.metadata.createdAt := com.google.protobuf.timestamp.Timestamp.of(1, 0))
         )
-        .failed
+        .mustFail("using a mismatching ledger time")
 
       // Exercise a choice using invalid explicit disclosure (bad payload)
       errorBadPayload <- testContext
@@ -183,7 +187,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           testContext.disclosedContract
             .update(_.arguments := Delegated(delegate, testContext.contractKey).arguments)
         )
-        .failed
+        .mustFail("using an invalid disclosed contract payload")
     } yield {
       assertGrpcError(
         errorMismatchingContractId,
@@ -229,7 +233,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           testContext.disclosedContract
             .update(_.arguments := malformedArgument)
         )
-        .failed
+        .mustFail("using a malformed contract argument")
 
       // Exercise a choice using an invalid disclosed contract (missing templateId)
       errorMissingTemplateId <- testContext
@@ -237,7 +241,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           testContext.disclosedContract
             .update(_.modify(_.clearTemplateId))
         )
-        .failed
+        .mustFail("using a disclosed contract with missing templateId")
 
       // Exercise a choice using an invalid disclosed contract (missing contractId)
       errorMissingContractId <- testContext
@@ -245,7 +249,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           testContext.disclosedContract
             .update(_.modify(_.clearTemplateId))
         )
-        .failed
+        .mustFail("using a disclosed contract with missing contractId")
     } yield {
       assertGrpcError(
         errorMalformedPayload,
