@@ -7,7 +7,8 @@ import java.sql.Connection
 
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
-import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.ledger.api.domain.User
+import com.daml.ledger.participant.state.index.v2.{UserManagementStore, UserUpdate}
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
   Result,
   TooManyUserRights,
@@ -99,7 +100,8 @@ class PersistentUserManagementStore(
     inTransaction(_.getUserInfo) { implicit connection =>
       withUser(id) { dbUser =>
         val rights = backend.getUserRights(internalId = dbUser.internalId)(connection)
-        UserInfo(dbUser.domainUser, rights.map(_.domainRight))
+        val domainUser = toDomainUser(dbUser)
+        UserInfo(domainUser, rights.map(_.domainRight))
       }
     }
   }
@@ -107,11 +109,16 @@ class PersistentUserManagementStore(
   override def createUser(
       user: domain.User,
       rights: Set[domain.UserRight],
-  )(implicit loggingContext: LoggingContext): Future[Result[Unit]] = {
+  )(implicit loggingContext: LoggingContext): Future[Result[User]] = {
     inTransaction(_.createUser) { implicit connection: Connection =>
       withoutUser(user.id) {
         val now = epochMicroseconds()
-        val internalId = backend.createUser(user, createdAt = now)(connection)
+        val dbUser = UserManagementStorageBackend.DbUserPayload(
+          id = user.id,
+          primaryPartyO = user.primaryParty,
+          createdAt = now,
+        )
+        val internalId = backend.createUser(user = dbUser)(connection)
         rights.foreach(right =>
           backend.addUserRight(internalId = internalId, right = right, grantedAt = now)(
             connection
@@ -119,16 +126,23 @@ class PersistentUserManagementStore(
         )
         if (backend.countUserRights(internalId)(connection) > maxRightsPerUser) {
           throw TooManyUserRightsRuntimeException(user.id)
-        } else {
-          ()
         }
-        ()
+        toDomainUser(
+          dbUser = dbUser
+        )
       }
     }.map(tapSuccess { _ =>
       logger.info(
         s"Created new user: ${user} with ${rights.size} rights: ${rightsDigestText(rights)}"
       )
     })(scala.concurrent.ExecutionContext.parasitic)
+  }
+
+  override def updateUser(
+      userUpdate: UserUpdate
+  )(implicit loggingContext: LoggingContext): Future[Result[User]] = {
+    // TODO um-for-hub: Implement me
+    ???
   }
 
   override def deleteUser(
@@ -165,7 +179,7 @@ class PersistentUserManagementStore(
           }
         }
         if (backend.countUserRights(user.internalId)(connection) > maxRightsPerUser) {
-          throw TooManyUserRightsRuntimeException(user.domainUser.id)
+          throw TooManyUserRightsRuntimeException(user.payload.id)
         } else {
           addedRights
         }
@@ -203,10 +217,11 @@ class PersistentUserManagementStore(
       loggingContext: LoggingContext
   ): Future[Result[UsersPage]] = {
     inTransaction(_.listUsers) { connection =>
-      val users: Seq[domain.User] = fromExcl match {
+      val dbUsers = fromExcl match {
         case None => backend.getUsersOrderedById(None, maxResults)(connection)
         case Some(fromExcl) => backend.getUsersOrderedById(Some(fromExcl), maxResults)(connection)
       }
+      val users = dbUsers.map(toDomainUser)
       Right(UsersPage(users = users))
     }
   }
@@ -221,9 +236,29 @@ class PersistentUserManagementStore(
       }(ExecutionContext.parasitic)
   }
 
+  private def toDomainUser(
+      dbUser: UserManagementStorageBackend.DbUserWithId
+  ): domain.User = {
+    toDomainUser(
+      dbUser = dbUser.payload
+    )
+  }
+
+  private def toDomainUser(
+      dbUser: UserManagementStorageBackend.DbUserPayload
+  ): domain.User = {
+    val payload = dbUser
+    domain.User(
+      id = payload.id,
+      primaryParty = payload.primaryPartyO,
+    )
+  }
+
   private def withUser[T](
       id: Ref.UserId
-  )(f: UserManagementStorageBackend.DbUser => T)(implicit connection: Connection): Result[T] = {
+  )(
+      f: UserManagementStorageBackend.DbUserWithId => T
+  )(implicit connection: Connection): Result[T] = {
     backend.getUser(id = id)(connection) match {
       case Some(user) => Right(f(user))
       case None => Left(UserNotFound(userId = id))
@@ -234,7 +269,7 @@ class PersistentUserManagementStore(
       id: Ref.UserId
   )(t: => T)(implicit connection: Connection): Result[T] = {
     backend.getUser(id = id)(connection) match {
-      case Some(user) => Left(UserExists(userId = user.domainUser.id))
+      case Some(user) => Left(UserExists(userId = user.payload.id))
       case None => Right(t)
     }
   }

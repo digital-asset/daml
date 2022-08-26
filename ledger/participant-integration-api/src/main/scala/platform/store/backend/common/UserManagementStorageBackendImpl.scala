@@ -20,15 +20,12 @@ import scala.util.Try
 object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
 
   private val ParticipantUserParser: RowParser[(Int, String, Option[String], Long)] =
-    int("internal_id") ~ str("user_id") ~ str("primary_party").? ~ long("created_at") map {
-      case internalId ~ userId ~ primaryParty ~ createdAt =>
+    int("internal_id") ~
+      str("user_id") ~
+      str("primary_party").? ~
+      long("created_at") map { case internalId ~ userId ~ primaryParty ~ createdAt =>
         (internalId, userId, primaryParty, createdAt)
-    }
-
-  private val ParticipantUserParser2: RowParser[(String, Option[String])] =
-    str("user_id") ~ str("primary_party").? map { case userId ~ primaryParty =>
-      (userId, primaryParty)
-    }
+      }
 
   private val UserRightParser: RowParser[(Int, Option[String], Long)] =
     int("user_right") ~ str("for_party").? ~ long("granted_at") map {
@@ -39,54 +36,64 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   private val IntParser0: RowParser[Int] =
     int("dummy") map { i => i }
 
-  override def createUser(user: domain.User, createdAt: Long)(
-      connection: Connection
-  ): Int = {
+  override def createUser(
+      user: UserManagementStorageBackend.DbUserPayload
+  )(connection: Connection): Int = {
+    val id = user.id: String
+    val primaryParty = user.primaryPartyO: Option[String]
+    val createdAt = user.createdAt
     val internalId: Try[Int] =
       SQL"""
          INSERT INTO participant_users (user_id, primary_party, created_at)
-         VALUES (${user.id: String}, ${user.primaryParty: Option[String]}, $createdAt)
+         VALUES ($id, $primaryParty, $createdAt)
        """.executeInsert1("internal_id")(SqlParser.scalar[Int].single)(connection)
     internalId.get
   }
 
   override def getUser(
       id: UserId
-  )(connection: Connection): Option[UserManagementStorageBackend.DbUser] = {
+  )(connection: Connection): Option[UserManagementStorageBackend.DbUserWithId] = {
     SQL"""
-       SELECT internal_id, user_id, primary_party, created_at
+       SELECT internal_id, user_id, primary_party,  created_at
        FROM participant_users
        WHERE user_id = ${id: String}
        """
       .as(ParticipantUserParser.singleOpt)(connection)
       .map { case (internalId, userId, primaryPartyRaw, createdAt) =>
-        UserManagementStorageBackend.DbUser(
+        UserManagementStorageBackend.DbUserWithId(
           internalId = internalId,
-          domainUser = domain.User(
+          payload = UserManagementStorageBackend.DbUserPayload(
             id = UserId.assertFromString(userId),
-            primaryParty = dbStringToPartyString(primaryPartyRaw),
+            primaryPartyO = dbStringToPartyString(primaryPartyRaw),
+            createdAt = createdAt,
           ),
-          createdAt = createdAt,
         )
       }
   }
 
   override def getUsersOrderedById(fromExcl: Option[UserId], maxResults: Int)(
       connection: Connection
-  ): Vector[domain.User] = {
+  ): Vector[UserManagementStorageBackend.DbUserWithId] = {
     import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
     val whereClause = fromExcl match {
       case None => cSQL""
       case Some(id: String) => cSQL"WHERE user_id > ${id}"
     }
-    SQL"""SELECT user_id, primary_party
+    SQL"""SELECT internal_id, user_id, primary_party, created_at
           FROM participant_users
           $whereClause
           ORDER BY user_id
           ${QueryStrategy.limitClause(Some(maxResults))}"""
-      .asVectorOf(ParticipantUserParser2)(connection)
-      .map { case (userId, primaryPartyRaw) =>
-        toDomainUser(userId, dbStringToPartyString(primaryPartyRaw))
+      .asVectorOf(ParticipantUserParser)(connection)
+      .map { case (internalId, userId, primaryPartyRaw, createdAt) =>
+        UserManagementStorageBackend.DbUserWithId(
+          internalId = internalId,
+          payload = UserManagementStorageBackend.DbUserPayload(
+            id = UserId.assertFromString(userId),
+            primaryPartyO = dbStringToPartyString(primaryPartyRaw),
+            createdAt = createdAt,
+          ),
+        )
       }
   }
 
@@ -207,13 +214,6 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     forParty.fold(cSQL"IS NULL") { party: Party =>
       cSQL"= ${party: String}"
     }
-  }
-
-  private def toDomainUser(userId: String, primaryParty: Option[String]): domain.User = {
-    domain.User(
-      UserId.assertFromString(userId),
-      primaryParty.map(Party.assertFromString),
-    )
   }
 
 }
