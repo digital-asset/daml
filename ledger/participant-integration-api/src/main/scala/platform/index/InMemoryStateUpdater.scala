@@ -18,7 +18,7 @@ import com.daml.lf.transaction.Node.{Create, Exercise}
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.lf.transaction.{Node, NodeId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.index.InMemoryStateUpdater.{PrepareResult, UpdaterFlow}
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.dao.events.ContractStateEvent
@@ -110,7 +110,9 @@ private[platform] object InMemoryStateUpdater {
     preparePackageMetadataTimeOutWarning = preparePackageMetadataTimeOutWarning,
     metrics = metrics,
   )(
-    prepare = prepare(PackageMetadata.from),
+    prepare = prepare(archive =>
+      Timed.value(metrics.daml.index.packageMetadata.decodeArchive, PackageMetadata.from(archive))
+    ),
     update = update(inMemoryState, loggingContext),
   )
 

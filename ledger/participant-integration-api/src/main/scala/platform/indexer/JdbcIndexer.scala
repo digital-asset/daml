@@ -11,7 +11,7 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.{InMemoryState, PackageId}
 import com.daml.platform.index.InMemoryStateUpdater
 import com.daml.platform.indexer.parallel.{
@@ -33,8 +33,9 @@ import com.daml.platform.store.interning.UpdatingStringInterningView
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
-
 import com.daml.timer.FutureCheck._
+
+import java.util.concurrent.TimeUnit
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
@@ -166,7 +167,7 @@ object JdbcIndexer {
   )(implicit loggingContext: LoggingContext, materializer: Materializer): Future[Unit] = {
     implicit val ec: ExecutionContext = computationExecutionContext
     logger.info("Package Metadata View initialization has been started.")
-    val startedTime = System.currentTimeMillis()
+    val startedTime = System.nanoTime()
 
     def loadLfArchive(packageId: PackageId): Future[(PackageId, Array[Byte])] =
       dbDispatcher
@@ -185,8 +186,13 @@ object JdbcIndexer {
         Source(packageStorageBackend.lfPackages(connection).keySet)
       )
 
-    def toMetadataDefinition(packageBytes: Array[Byte]): PackageMetadata =
-      PackageMetadata.from(ArchiveParser.assertFromByteArray(packageBytes))
+    def toMetadataDefinition(packageBytes: Array[Byte]): PackageMetadata = {
+      val archive = ArchiveParser.assertFromByteArray(packageBytes)
+      Timed.value(
+        metrics.daml.index.packageMetadata.decodeArchive,
+        PackageMetadata.from(archive),
+      )
+    }
 
     def processPackage(archive: (PackageId, Array[Byte])): Future[PackageMetadata] = {
       val (packageId, packageBytes) = archive
@@ -201,16 +207,19 @@ object JdbcIndexer {
       .mapAsyncUnordered(config.initLoadParallelism)(loadLfArchive)
       .mapAsyncUnordered(config.initProcessParallelism)(processPackage)
       .runWith(Sink.foreach(packageMetadataView.update))
-      .checkIfComplete(config.initTakesTooLongInitialDelay, config.initTakesTooLongInterval)(
+      .checkIfComplete(config.initTakesTooLongInitialDelay, config.initTakesTooLongInterval) {
+        val duration = (System.nanoTime() - startedTime) / 1000000L
         logger.warn(
-          s"Package Metadata View initialization takes to long (${System.currentTimeMillis() - startedTime}ms)"
+          s"Package Metadata View initialization takes to long ($duration ms)"
         )
-      )
-      .map(_ =>
+      }
+      .map { _ =>
+        val duration = System.nanoTime() - startedTime
+        metrics.daml.index.packageMetadata.viewInitialisation.update(duration, TimeUnit.NANOSECONDS)
         logger.info(
-          s"Package Metadata View has been initialized (${System.currentTimeMillis() - startedTime}ms)"
+          s"Package Metadata View has been initialized (${duration / 1000000L} ms)"
         )
-      )(computationExecutionContext)
+      }(computationExecutionContext)
       .recover { case NonFatal(e) =>
         logger.error(s"Failed to initialize Package Metadata View", e)
         throw e
