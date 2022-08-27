@@ -31,6 +31,11 @@ import scalaz.syntax.tag._
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable
 import scala.annotation.nowarn
+import com.daml.ledger.api.v1.commands.{
+  Command => ProtoCommand,
+  Commands => ProtoCommands,
+  DisclosedContract => ProtoDisclosedContract,
+}
 
 final class CommandsValidator(ledgerId: LedgerId) {
 
@@ -71,6 +76,9 @@ final class CommandsValidator(ledgerId: LedgerId) {
         maxDeduplicationDuration,
       )
       _ <- validateExplicitDisclosure(commands)
+      disclosedContracts <- validateDisclosedContracts(
+        commands.disclosedContracts
+      )
     } yield domain.Commands(
       ledgerId = ledgerId,
       workflowId = workflowId,
@@ -86,6 +94,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
         ledgerEffectiveTime = ledgerEffectiveTimestamp,
         commandsReference = workflowId.fold("")(_.unwrap),
       ),
+      disclosedContracts = disclosedContracts,
     )
 
   private def validateLedgerTime(
@@ -286,6 +295,55 @@ final class CommandsValidator(ledgerId: LedgerId) {
         )
         .asGrpcError,
     )
+
+  private def validateDisclosedContracts(
+      disclosedContracts: Seq[ProtoDisclosedContract]
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, ImmArray[DisclosedContract]] = {
+    // TODO DPP-1026: Use something more efficient to build an ImmArray
+    disclosedContracts
+      .foldLeft[Either[StatusRuntimeException, List[DisclosedContract]]](
+        Right(List.empty[DisclosedContract])
+      )((contractz, contract) => {
+        for {
+          validatedContracts <- contractz
+          validatedContract <- validateDisclosedContract(contract)
+        } yield validatedContracts :+ validatedContract
+      })
+      .map(ImmArray.from)
+  }
+
+  private def validateDisclosedContract(
+      disclosedContract: ProtoDisclosedContract
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, DisclosedContract] = {
+    for {
+      templateId <- requirePresence(disclosedContract.templateId, "template_id")
+      validatedTemplateId <- validateIdentifier(templateId)
+      contractId <- requireContractId(disclosedContract.contractId, "contract_id")
+      createArguments <- requirePresence(disclosedContract.arguments, "arguments")
+      recordId <- validateOptionalIdentifier(createArguments.recordId)
+      validatedRecordField <- validateRecordFields(createArguments.fields)
+      metadata <- requirePresence(disclosedContract.metadata, "metadata")
+      createdAt <- requirePresence(metadata.createdAt, "created_at")
+      validatedCreatedAt = TimestampConversion.toLf(
+        createdAt,
+        TimestampConversion.ConversionMode.Exact,
+      )
+      keyHash <- validateHash(metadata.contractKeyHash, "contract_key_hash")
+    } yield DisclosedContract(
+      contractId = contractId,
+      templateId = validatedTemplateId,
+      argument = Lf.ValueRecord(recordId, validatedRecordField),
+      metadata = ContractMetadata(
+        createdAt = validatedCreatedAt,
+        keyHash = keyHash,
+        driverMetadata = ImmArray.from(metadata.driverMetadata.toByteArray),
+      ),
+    )
+  }
 }
 
 object CommandsValidator {

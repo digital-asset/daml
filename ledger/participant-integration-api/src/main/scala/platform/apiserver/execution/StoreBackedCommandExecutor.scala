@@ -88,7 +88,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       updateTx: SubmittedTransaction,
       meta: Transaction.Metadata,
       interpretationTimeNanos: Long,
-  ) = {
+  ) =
     CommandExecutionResult(
       submitterInfo = state.SubmitterInfo(
         commands.actAs.toList,
@@ -116,8 +116,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
       dependsOnLedgerTime = meta.dependsOnTime,
       interpretationTimeNanos = interpretationTimeNanos,
       globalKeyMapping = meta.globalKeyMapping,
+      explicitlyDisclosedContracts = commands.disclosedContracts,
     )
-  }
 
   private def submitToEngine(
       commands: ApiCommands,

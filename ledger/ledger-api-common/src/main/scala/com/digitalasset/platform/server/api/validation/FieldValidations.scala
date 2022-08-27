@@ -13,6 +13,9 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value.ContractId
 import io.grpc.StatusRuntimeException
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.{Bytes, Ref}
+import com.google.protobuf.ByteString
 
 object FieldValidations {
 
@@ -172,4 +175,21 @@ object FieldValidations {
   ): Either[StatusRuntimeException, Option[T]] =
     if (s.isEmpty) Right(None)
     else someValidation(s).map(Option(_))
+
+  def validateHash(
+      value: ByteString,
+      fieldName: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Option[Hash]] =
+    if (value.isEmpty) {
+      Right(None)
+    } else {
+      val bytes = Bytes.fromByteString(value)
+      Hash
+        .fromBytes(bytes)
+        .map(Some(_))
+        .left
+        .map(invalidField(fieldName, _))
+    }
 }
