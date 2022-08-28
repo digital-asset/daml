@@ -4,14 +4,13 @@
 package com.daml.ledger.api
 
 import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
-import com.daml.ledger.api.v1.commands.DisclosedContract
 import com.daml.ledger.configuration.Configuration
-import com.daml.lf.command.{ApiCommands => LfCommands}
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.command.{DisclosedContract, ApiCommands => LfCommands}
 import com.daml.lf.data.Ref.LedgerString.ordering
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.logging._
-import com.daml.lf.transaction.{GlobalKey, Versioned}
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId => LfContractId}
 import com.daml.lf.value.{Value => Lf}
 import com.daml.logging.entries.LoggingValue.OfString
@@ -316,7 +315,7 @@ object domain {
       submittedAt: Timestamp,
       deduplicationPeriod: DeduplicationPeriod,
       commands: LfCommands,
-      disclosedContracts: ImmArray[Versioned[DisclosedContract]],
+      disclosedContracts: ImmArray[DisclosedContract],
   )
 
   object Commands {

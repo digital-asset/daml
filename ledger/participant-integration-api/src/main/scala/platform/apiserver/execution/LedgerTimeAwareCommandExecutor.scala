@@ -6,12 +6,9 @@ package com.daml.platform.apiserver.execution
 import com.daml.error.definitions.ErrorCause
 import com.daml.ledger.api.domain.Commands
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
-import com.daml.lf.command.DisclosedContract
+import com.daml.ledger.participant.state.index.v2.MaximumLedgerTime
 import com.daml.lf.crypto
 import com.daml.lf.data.Time
-import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -21,7 +18,7 @@ import scala.util.{Failure, Success}
 
 private[apiserver] final class LedgerTimeAwareCommandExecutor(
     delegate: CommandExecutor,
-    contractStore: ContractStore,
+    resolveMaximumLedgerTime: ResolveMaximumLedgerTime,
     maxRetries: Int,
     metrics: Metrics,
 )(implicit
@@ -66,10 +63,6 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
             .inputContracts[ContractId]
             .collect { case id: ContractId => id }
 
-          val usedDisclosedContracts = cer.explicitlyDisclosedContracts.toSeq.toSet
-          val usedDisclosedContractIds = usedDisclosedContracts.map(_.unversioned.contractId)
-          val usedLocalContractIds = usedContractIds -- usedDisclosedContractIds
-
           def failed = Future.successful(Left(ErrorCause.LedgerTime(maxRetries - retriesLeft)))
           def success(c: CommandExecutionResult) = Future.successful(Right(c))
           def retry(c: Commands) = {
@@ -77,9 +70,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
             loop(c, submissionSeed, ledgerConfiguration, retriesLeft - 1)
           }
 
-          contractStore
-            .lookupMaximumLedgerTimeAfterInterpretation(usedLocalContractIds)
-            .map(adjustTimeForDisclosedContracts(_, usedDisclosedContracts))
+          resolveMaximumLedgerTime(cer.disclosedContracts, usedContractIds)
             .transformWith {
               case Success(MaximumLedgerTime.NotAvailable) =>
                 success(cer)
@@ -107,7 +98,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
               case Success(MaximumLedgerTime.Archived(contracts)) =>
                 if (retriesLeft > 0) {
                   logger.info(
-                    s"Some input contracts are archived: ${contracts.mkString("[", ", ", "]")} Restarting the computation."
+                    s"Some input contracts are archived: ${contracts.mkString("[", ", ", "]")}. Restarting the computation."
                   )
                   retry(commands)
                 } else {
@@ -123,7 +114,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
               case Failure(error) =>
                 logger.info(
                   s"Lookup of maximum ledger time failed after ${maxRetries - retriesLeft}. Used contracts: ${usedContractIds
-                      .mkString("[", ", "1, "]")}. Details: $error"
+                      .mkString("[", ", ", "]")}. Details: $error"
                 )
                 failed
             }
@@ -134,25 +125,6 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
       newTime: Time.Timestamp,
   ): CommandExecutionResult =
     res.copy(transactionMeta = res.transactionMeta.copy(ledgerEffectiveTime = newTime))
-
-  private[this] def adjustTimeForDisclosedContracts(
-      result: MaximumLedgerTime,
-      disclosedContracts: Set[Versioned[DisclosedContract]],
-  ): MaximumLedgerTime =
-    if (disclosedContracts.isEmpty) {
-      result
-    } else {
-      val maxDisclosedContractTime = disclosedContracts.map(_.unversioned.metadata.createdAt).max
-      result match {
-        case MaximumLedgerTime.Max(maxUsedTime) =>
-          MaximumLedgerTime.Max(
-            implicitly[Ordering[Timestamp]].max(maxDisclosedContractTime, maxUsedTime)
-          )
-        case MaximumLedgerTime.NotAvailable =>
-          MaximumLedgerTime.Max(maxDisclosedContractTime)
-        case other => other
-      }
-    }
 
   private[this] def advanceInputTime(cmd: Commands, newTime: Time.Timestamp): Commands =
     cmd.copy(commands = cmd.commands.copy(ledgerEffectiveTime = newTime))

@@ -116,7 +116,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       dependsOnLedgerTime = meta.dependsOnTime,
       interpretationTimeNanos = interpretationTimeNanos,
       globalKeyMapping = meta.globalKeyMapping,
-      explicitlyDisclosedContracts = commands.disclosedContracts,
+      disclosedContracts = commands.disclosedContracts,
     )
 
   private def submitToEngine(
@@ -140,7 +140,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           commitAuthorizers,
           commands.readAs,
           commands.commands,
-          ImmArray.empty,
+          commands.disclosedContracts,
           participant,
           submissionSeed,
         )

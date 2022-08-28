@@ -10,7 +10,7 @@ import com.daml.lf.transaction.NodeId
 /** Meta-data of a transaction visible to all parties that can see a part of
   * the transaction.
   *
-  * @param ledgerEffectiveTime: the submitter-provided time at which the
+  * @param ledgerEffectiveTime: the submitter-participant-provided time at which the
   *   transaction should be interpreted. This is the time returned by the
   *   Daml interpreter on a `getTime :: Update Time` call. See the docs on
   *   [[WriteService.submitTransaction]] for how it relates to the notion of

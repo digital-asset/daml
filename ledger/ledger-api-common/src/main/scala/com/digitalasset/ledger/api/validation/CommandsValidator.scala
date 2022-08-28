@@ -3,8 +3,6 @@
 
 package com.daml.ledger.api.validation
 
-import java.time.{Duration, Instant}
-
 import com.daml.api.util.{DurationConversion, TimestampConversion}
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
@@ -17,7 +15,11 @@ import com.daml.ledger.api.v1.commands.Command.Command.{
   Exercise => ProtoExercise,
   ExerciseByKey => ProtoExerciseByKey,
 }
-import com.daml.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
+import com.daml.ledger.api.v1.commands.{
+  Command => ProtoCommand,
+  Commands => ProtoCommands,
+  DisclosedContract => ProtoDisclosedContract,
+}
 import com.daml.ledger.api.validation.CommandsValidator.{Submitters, effectiveSubmitters}
 import com.daml.ledger.api.{DeduplicationPeriod, domain}
 import com.daml.ledger.offset.Offset
@@ -28,19 +30,15 @@ import com.daml.platform.server.api.validation.{DeduplicationPeriodValidator, Fi
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._
 
+import java.time.{Duration, Instant}
 import scala.Ordering.Implicits.infixOrderingOps
-import scala.collection.immutable
 import scala.annotation.nowarn
-import com.daml.ledger.api.v1.commands.{
-  Command => ProtoCommand,
-  Commands => ProtoCommands,
-  DisclosedContract => ProtoDisclosedContract,
-}
+import scala.collection.immutable
 
 final class CommandsValidator(ledgerId: LedgerId) {
 
-  import ValidationErrors._
   import FieldValidations._
+  import ValidationErrors._
   import ValueValidator._
 
   def validateCommands(
