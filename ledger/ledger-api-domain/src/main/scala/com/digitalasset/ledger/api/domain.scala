@@ -5,8 +5,8 @@ package com.daml.ledger.api
 
 import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.daml.ledger.configuration.Configuration
-import com.daml.lf.command.{ApiCommands => LfCommands}
-import com.daml.lf.data.Ref
+import com.daml.lf.command.{DisclosedContract, ApiCommands => LfCommands}
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Ref.LedgerString.ordering
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.logging._
@@ -315,6 +315,7 @@ object domain {
       submittedAt: Timestamp,
       deduplicationPeriod: DeduplicationPeriod,
       commands: LfCommands,
+      disclosedContracts: ImmArray[DisclosedContract],
   )
 
   object Commands {
