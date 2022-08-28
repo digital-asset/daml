@@ -86,7 +86,7 @@ class TimestampConversionSpec
   "fromLf" when {
     "given a value in specified domain" should {
       "be retracted by toLf" in forAll(lfTimestampGen) { ts =>
-        toLf(fromLf(ts), ConversionMode.Exact) shouldBe ts
+        assertToLf(fromLf(ts), ConversionMode.Exact) shouldBe ts
       }
     }
   }
@@ -95,14 +95,14 @@ class TimestampConversionSpec
     "given a valid microsecond timestamp" should {
       "be retracted by fromLf" in forAll(anyMicroInRange) { ts =>
         val protoTs = fromInstant(ts)
-        fromLf(toLf(protoTs, ConversionMode.Exact)) shouldBe protoTs
+        fromLf(assertToLf(protoTs, ConversionMode.Exact)) shouldBe protoTs
       }
     }
 
     "given a valid nanosecond timestamp" should {
       "round half up" in forAll(anyTimeInRange) { ts =>
         val protoTs = fromInstant(ts)
-        val halfUp = toLf(protoTs, ConversionMode.HalfUp)
+        val halfUp = assertToLf(protoTs, ConversionMode.HalfUp)
         halfUp.toInstant should be > ts.plusNanos(-500)
         halfUp.toInstant should be <= ts.plusNanos(500)
       }

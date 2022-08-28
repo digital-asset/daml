@@ -41,7 +41,7 @@ class GrpcCommandSubmissionService(
 
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private val validator = new SubmitRequestValidator(
-    new CommandsValidator(ledgerId)
+    CommandsValidator(ledgerId, explicitDisclosureEnabled = false)
   )
 
   override def submit(request: ApiSubmitRequest): Future[Empty] = {

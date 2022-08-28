@@ -3,12 +3,12 @@
 
 package com.daml.api.util
 
+import com.daml.ledger.api.v1.value.Value
+import com.daml.lf.data.Time.{Timestamp => LfTimestamp}
+import com.google.protobuf.timestamp.{Timestamp => ProtoTimestamp}
+
 import java.time.Instant
 import java.util.concurrent.TimeUnit
-
-import com.daml.ledger.api.v1.value.Value
-import com.google.protobuf.timestamp.{Timestamp => ProtoTimestamp}
-import com.daml.lf.data.Time.{Timestamp => LfTimestamp}
 
 object TimestampConversion {
   val MIN = Instant parse "0001-01-01T00:00:00Z"
@@ -45,9 +45,14 @@ object TimestampConversion {
     new ProtoTimestamp().withSeconds(instant.getEpochSecond).withNanos(instant.getNano)
   }
 
-  def toLf(protoTimestamp: ProtoTimestamp, mode: ConversionMode): LfTimestamp = {
+  def assertToLf(protoTimestamp: ProtoTimestamp, mode: ConversionMode): LfTimestamp = {
     val instant = roundToMicros(toInstant(protoTimestamp), mode)
     LfTimestamp.assertFromInstant(instant)
+  }
+
+  def toLf(protoTimestamp: ProtoTimestamp, mode: ConversionMode): Either[String, LfTimestamp] = {
+    val instant = roundToMicros(toInstant(protoTimestamp), mode)
+    LfTimestamp.fromInstant(instant)
   }
 
   def fromLf(timestamp: LfTimestamp): ProtoTimestamp = {

@@ -63,7 +63,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       inside(result.value.transaction) { case Some(transaction) =>
         transaction.commandId shouldBe tx.commandId.get
         transaction.offset shouldBe ApiOffset.toApiString(offset)
-        TimestampConversion.toLf(
+        TimestampConversion.assertToLf(
           transaction.effectiveAt.value,
           TimestampConversion.ConversionMode.Exact,
         ) shouldBe tx.ledgerEffectiveTime
@@ -98,7 +98,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         transaction.commandId shouldBe exercise.commandId.get
         transaction.offset shouldBe ApiOffset.toApiString(offset)
         transaction.transactionId shouldBe exercise.transactionId
-        TimestampConversion.toLf(
+        TimestampConversion.assertToLf(
           transaction.effectiveAt.value,
           TimestampConversion.ConversionMode.Exact,
         ) shouldBe exercise.ledgerEffectiveTime
@@ -160,7 +160,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         transaction.commandId shouldBe tx.commandId.get
         transaction.offset shouldBe ApiOffset.toApiString(offset)
         transaction.transactionId shouldBe tx.transactionId
-        TimestampConversion.toLf(
+        TimestampConversion.assertToLf(
           transaction.effectiveAt.value,
           TimestampConversion.ConversionMode.Exact,
         ) shouldBe tx.ledgerEffectiveTime

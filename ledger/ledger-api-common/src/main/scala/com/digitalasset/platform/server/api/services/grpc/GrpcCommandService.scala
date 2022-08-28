@@ -34,7 +34,7 @@ class GrpcCommandService(
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
   private[this] val validator = new SubmitAndWaitRequestValidator(
-    new CommandsValidator(ledgerId)
+    CommandsValidator(ledgerId, explicitDisclosureEnabled = false)
   )
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =

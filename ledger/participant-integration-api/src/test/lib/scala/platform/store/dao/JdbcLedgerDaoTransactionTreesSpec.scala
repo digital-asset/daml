@@ -60,7 +60,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           tx.transaction.nodes.head
         transaction.commandId shouldBe tx.commandId.get
         transaction.offset shouldBe ApiOffset.toApiString(offset)
-        TimestampConversion.toLf(
+        TimestampConversion.assertToLf(
           transaction.effectiveAt.value,
           TimestampConversion.ConversionMode.Exact,
         ) shouldBe tx.ledgerEffectiveTime
@@ -94,7 +94,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           exercise.transaction.nodes.head
         transaction.commandId shouldBe exercise.commandId.get
         transaction.offset shouldBe ApiOffset.toApiString(offset)
-        TimestampConversion.toLf(
+        TimestampConversion.assertToLf(
           transaction.effectiveAt.value,
           TimestampConversion.ConversionMode.Exact,
         ) shouldBe exercise.ledgerEffectiveTime
@@ -136,7 +136,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         transaction.offset shouldBe ApiOffset.toApiString(offset)
         transaction.transactionId shouldBe tx.transactionId
         transaction.workflowId shouldBe tx.workflowId.getOrElse("")
-        TimestampConversion.toLf(
+        TimestampConversion.assertToLf(
           transaction.effectiveAt.value,
           TimestampConversion.ConversionMode.Exact,
         ) shouldBe tx.ledgerEffectiveTime

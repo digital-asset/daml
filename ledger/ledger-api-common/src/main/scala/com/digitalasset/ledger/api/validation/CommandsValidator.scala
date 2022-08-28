@@ -15,11 +15,7 @@ import com.daml.ledger.api.v1.commands.Command.Command.{
   Exercise => ProtoExercise,
   ExerciseByKey => ProtoExerciseByKey,
 }
-import com.daml.ledger.api.v1.commands.{
-  Command => ProtoCommand,
-  Commands => ProtoCommands,
-  DisclosedContract => ProtoDisclosedContract,
-}
+import com.daml.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
 import com.daml.ledger.api.validation.CommandsValidator.{Submitters, effectiveSubmitters}
 import com.daml.ledger.api.{DeduplicationPeriod, domain}
 import com.daml.ledger.offset.Offset
@@ -35,7 +31,10 @@ import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.nowarn
 import scala.collection.immutable
 
-final class CommandsValidator(ledgerId: LedgerId) {
+final class CommandsValidator(
+    ledgerId: LedgerId,
+    validateDisclosedContracts: ValidateDisclosedContracts,
+) {
 
   import FieldValidations._
   import ValidationErrors._
@@ -64,19 +63,16 @@ final class CommandsValidator(ledgerId: LedgerId) {
       ledgerEffectiveTimestamp <- Time.Timestamp
         .fromInstant(ledgerEffectiveTime)
         .left
-        .map(_ =>
+        .map(errMsg =>
           invalidArgument(
-            s"Can not represent command ledger time $ledgerEffectiveTime as a Daml timestamp"
+            s"Can not represent command ledger time $ledgerEffectiveTime as a Daml timestamp: $errMsg"
           )
         )
       deduplicationPeriod <- validateDeduplicationPeriod(
         commands.deduplicationPeriod,
         maxDeduplicationDuration,
       )
-      _ <- validateExplicitDisclosure(commands)
-      disclosedContracts <- validateDisclosedContracts(
-        commands.disclosedContracts
-      )
+      disclosedContracts <- validateDisclosedContracts(commands)
     } yield domain.Commands(
       ledgerId = ledgerId,
       workflowId = workflowId,
@@ -278,73 +274,14 @@ final class CommandsValidator(ledgerId: LedgerId) {
             )
       }
     }
-
-  private def validateExplicitDisclosure(commands: ProtoCommands)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Unit] =
-    Either.cond(
-      // TODO Explicit disclosure: Enrich condition with feature flag check (when introduced)
-      commands.disclosedContracts.isEmpty,
-      (),
-      LedgerApiErrors.RequestValidation.InvalidField
-        .Reject(
-          "disclosed_contracts",
-          "feature in development: disclosed_contracts should not be set",
-        )
-        .asGrpcError,
-    )
-
-  private def validateDisclosedContracts(
-      disclosedContracts: Seq[ProtoDisclosedContract]
-  )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, ImmArray[DisclosedContract]] = {
-    // TODO DPP-1026: Use something more efficient to build an ImmArray
-    disclosedContracts
-      .foldLeft[Either[StatusRuntimeException, List[DisclosedContract]]](
-        Right(List.empty[DisclosedContract])
-      )((contractz, contract) => {
-        for {
-          validatedContracts <- contractz
-          validatedContract <- validateDisclosedContract(contract)
-        } yield validatedContracts :+ validatedContract
-      })
-      .map(ImmArray.from)
-  }
-
-  private def validateDisclosedContract(
-      disclosedContract: ProtoDisclosedContract
-  )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, DisclosedContract] = {
-    for {
-      templateId <- requirePresence(disclosedContract.templateId, "template_id")
-      validatedTemplateId <- validateIdentifier(templateId)
-      contractId <- requireContractId(disclosedContract.contractId, "contract_id")
-      createArguments <- requirePresence(disclosedContract.arguments, "arguments")
-      recordId <- validateOptionalIdentifier(createArguments.recordId)
-      validatedRecordField <- validateRecordFields(createArguments.fields)
-      metadata <- requirePresence(disclosedContract.metadata, "metadata")
-      createdAt <- requirePresence(metadata.createdAt, "created_at")
-      validatedCreatedAt = TimestampConversion.toLf(
-        createdAt,
-        TimestampConversion.ConversionMode.Exact,
-      )
-      keyHash <- validateHash(metadata.contractKeyHash, "contract_key_hash")
-    } yield DisclosedContract(
-      contractId = contractId,
-      templateId = validatedTemplateId,
-      argument = Lf.ValueRecord(recordId, validatedRecordField),
-      metadata = ContractMetadata(
-        createdAt = validatedCreatedAt,
-        keyHash = keyHash,
-        driverMetadata = ImmArray.from(metadata.driverMetadata.toByteArray),
-      ),
-    )
-  }
 }
 
 object CommandsValidator {
+  def apply(ledgerId: LedgerId, explicitDisclosureEnabled: Boolean) =
+    new CommandsValidator(
+      ledgerId = ledgerId,
+      validateDisclosedContracts = new ValidateDisclosedContracts(explicitDisclosureEnabled),
+    )
 
   /** Effective submitters of a command
     * @param actAs Guaranteed to be non-empty. Will contain exactly one element in most cases.
