@@ -27,22 +27,23 @@ class ResolveMaximumLedgerTime(contractStore: ContractStore) {
       .map(adjustTimeForDisclosedContracts(_, usedDisclosedContracts))(ExecutionContext.parasitic)
   }
 
-  private[this] def adjustTimeForDisclosedContracts(
-      result: MaximumLedgerTime,
+  private def adjustTimeForDisclosedContracts(
+      lookupMaximumLet: MaximumLedgerTime,
       disclosedContracts: Set[DisclosedContract],
   ): MaximumLedgerTime =
-    if (disclosedContracts.isEmpty) {
-      result
-    } else {
-      val maxDisclosedContractTime = disclosedContracts.map(_.metadata.createdAt).max
-      result match {
-        case MaximumLedgerTime.Max(maxUsedTime) =>
-          MaximumLedgerTime.Max(
-            implicitly[Ordering[Timestamp]].max(maxDisclosedContractTime, maxUsedTime)
-          )
-        case MaximumLedgerTime.NotAvailable =>
-          MaximumLedgerTime.Max(maxDisclosedContractTime)
-        case other => other
-      }
-    }
+    disclosedContracts
+      .map(_.metadata.createdAt)
+      .maxOption
+      .fold(lookupMaximumLet)(adjust(lookupMaximumLet, _))
+
+  private def adjust(
+      lookedMaximumLet: MaximumLedgerTime,
+      maxDisclosedContractTime: Timestamp,
+  ): MaximumLedgerTime = lookedMaximumLet match {
+    case MaximumLedgerTime.Max(maxUsedTime) =>
+      MaximumLedgerTime.Max(Ordering[Timestamp].max(maxDisclosedContractTime, maxUsedTime))
+    case MaximumLedgerTime.NotAvailable =>
+      MaximumLedgerTime.Max(maxDisclosedContractTime)
+    case other => other
+  }
 }
