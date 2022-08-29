@@ -9,7 +9,7 @@ import com.daml.lf.data.{Decimal, ImmArray, Numeric, Ref, SortedLookupList, Time
 import ImmArray.ImmArraySeq
 import com.codahale.metrics.MetricRegistry
 import com.daml.http.dbbackend.SurrogateTemplateIdCache
-import com.daml.lf.iface
+import com.daml.lf.typesig
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.test.TypedValueGenerators.{genAddendNoListMap, ValueAddend => VA}
 import com.daml.lf.value.test.ValueGenerators.coidGen
@@ -57,17 +57,17 @@ class ValuePredicateTest
     qn("Foo:Bar"),
   )
   private[this] val dummyFieldName = Ref.Name assertFromString "foo"
-  private[this] val dummyTypeCon = iface.TypeCon(iface.TypeConName(dummyId), ImmArraySeq.empty)
+  private[this] val dummyTypeCon = typesig.TypeCon(typesig.TypeConName(dummyId), ImmArraySeq.empty)
   private[this] val (eitherId, (eitherDDT, eitherVA)) = eitherT
   private[this] def valueAndTypeInObject(
       v: V,
-      ty: iface.Type,
+      ty: typesig.Type,
   ): (V, ValuePredicate.TypeLookup) =
     (V.ValueRecord(Some(dummyId), ImmArray((Some(dummyFieldName), v))), typeInObject(ty))
-  private[this] def typeInObject(ty: iface.Type): ValuePredicate.TypeLookup =
+  private[this] def typeInObject(ty: typesig.Type): ValuePredicate.TypeLookup =
     Map(
-      dummyId -> iface
-        .DefDataType(ImmArraySeq.empty, iface.Record(ImmArraySeq((dummyFieldName, ty)))),
+      dummyId -> typesig
+        .DefDataType(ImmArraySeq.empty, typesig.Record(ImmArraySeq((dummyFieldName, ty)))),
       eitherId -> eitherDDT,
       tuple3Id -> tuple3DDT,
     ).lift
