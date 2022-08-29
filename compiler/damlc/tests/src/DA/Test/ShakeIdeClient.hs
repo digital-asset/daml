@@ -777,7 +777,7 @@ goToDefinitionTests mbScenarioService mbScenarioServiceDev = Tasty.testGroup "Go
                 , "    do pure ()"
                 , "type I = Iface"
                 , "type C = Noop"
-                , "meth : Implements t Iface => t -> Party"
+                , "meth : Iface -> Party"
                 , "meth = getOwner"
                 , "data EmptyInterfaceView = EmptyInterfaceView {}"
                 ]

@@ -102,10 +102,8 @@ instance DA.Internal.Desugar.HasFromInterface Bar Bar where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
 instance DA.Internal.Desugar.HasMethod Bar "bar" (Bool)
-bar : DA.Internal.Desugar.Implements t Bar => t -> Bool
-bar t
-  = GHC.Types.primitiveInterface
-      @"bar" (DA.Internal.Desugar._toInterface @_ @Bar t)
+bar : Bar -> Bool
+bar = GHC.Types.primitiveInterface @"bar"
 instance DA.Internal.Desugar.HasToAnyTemplate Bar where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate Bar where

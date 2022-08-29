@@ -86,25 +86,24 @@ Interface Methods
 
   - If the interface is called ``I``, the method is called ``m``, and the
     method type is ``M`` (which might be a function type), this introduces
-    the function ``m : Implements t I => t -> M``:
+    the function ``m : I -> M``:
 
     .. literalinclude:: ../code-snippets-dev/Interfaces.daml
       :language: daml
       :start-after: -- INTERFACE_METHODS_TOP_LEVEL_BEGIN
       :end-before: -- INTERFACE_METHODS_TOP_LEVEL_END
 
-  - The ``Implements t I`` constraint means that the function can be applied to
-    any argument of type ``t`` such that:
-
-    - ``t`` is a template type and there exists an ``interface instance`` of
-      ``I`` for ``t``, **OR**
-    - ``t`` is the abstract interface type ``I`` itself.
+  - The first argument's type ``I`` means that the function can only be applied
+    to values of the interface type ``I`` itself. Methods cannot
+    be applied to template values, even if there exists an
+    ``interface instance`` of ``I`` for that template. To use an interface
+    method on a template value, first convert it using the ``toInterface``
+    function.
 
   - Applying the function to such argument results in a value of type ``M``,
     corresponding to the implementation of ``m`` in the interface instance of
-    ``I`` for ``t`` with ``this`` bound to the ``t`` argument. If ``t`` is the
-    abstract interface type ``I``, the interface instance used is the one for
-    the underlying template type.
+    ``I`` for the underlying template type ``t`` (the type of the template value
+    from which the interface value was constructed).
 
 - One special method, ``view``, must be defined for the viewtype.
   (see :ref:`interface-viewtype` below).
@@ -140,8 +139,11 @@ Interface Choices
    :end-before: -- INTERFACE_CHOICES_END
 
 - Interface choices work in a very similar way to template choices. Any contract
-  of a template type for which an interface instance exists, will grant the
+  of a template type for which an interface instance exists will grant the
   choice to the controlling party.
+- Interface choices can only be exercised on values of the corresponding
+  interface type. To exercise an interface choice on a template value, first
+  convert it using the ``toInterface`` function.
 - Interface methods can be used to define the controller of a choice
   (e.g. ``method1``) as well as the actions that run when the choice is
   *exercised* (e.g. ``method2`` and ``method3``).

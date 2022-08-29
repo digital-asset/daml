@@ -1,9 +1,8 @@
-module InterfaceFunctions where
+module InterfaceNoMethodOnTemplate where
 import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
-import DA.Assert ( (===) )
 data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
@@ -16,9 +15,16 @@ instance DA.Internal.Desugar.HasToInterface Token Token where
 instance DA.Internal.Desugar.HasFromInterface Token Token where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
+instance DA.Internal.Desugar.HasMethod Token "getOwner" (Party)
+getOwner : Token -> Party
+getOwner = GHC.Types.primitiveInterface @"getOwner"
 instance DA.Internal.Desugar.HasMethod Token "getAmount" (Int)
 getAmount : Token -> Int
 getAmount = GHC.Types.primitiveInterface @"getAmount"
+instance DA.Internal.Desugar.HasMethod Token "setAmount" (Int
+                                                          -> Token)
+setAmount : Token -> Int -> Token
+setAmount = GHC.Types.primitiveInterface @"setAmount"
 instance DA.Internal.Desugar.HasToAnyTemplate Token where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate Token where
@@ -51,14 +57,12 @@ instance DA.Internal.Record.HasField "amount" Asset Int where
   setField = DA.Internal.Record.setFieldPrim @"amount" @Asset @Int
 instance DA.Internal.Desugar.HasSignatory Asset where
   signatory this@Asset {..}
-    = DA.Internal.Desugar.toParties (issuer)
+    = DA.Internal.Desugar.toParties (owner)
     where
         _ = this
 instance DA.Internal.Desugar.HasObserver Asset where
   observer this@Asset {..}
-    = DA.Internal.Desugar.concat
-        [DA.Internal.Desugar.toParties (owner),
-         DA.Internal.Desugar.toParties (issuer)]
+    = []
     where
         _ = this
 instance DA.Internal.Desugar.HasEnsure Asset where
@@ -111,6 +115,16 @@ _interface_instance_Asset_Token_Asset :
   DA.Internal.Desugar.InterfaceInstance Asset Token Asset
 _interface_instance_Asset_Token_Asset
   = DA.Internal.Desugar.mkInterfaceInstance @Asset @Token @Asset
+_method_Asset_Token_Asset_getOwner :
+  DA.Internal.Desugar.Method Asset Token Asset "getOwner"
+_method_Asset_Token_Asset_getOwner
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @Asset
+      @"getOwner"
+      \ this@Asset {..}
+        -> let _ = this in let getOwner = owner in getOwner
 _method_Asset_Token_Asset_getAmount :
   DA.Internal.Desugar.Method Asset Token Asset "getAmount"
 _method_Asset_Token_Asset_getAmount
@@ -121,6 +135,18 @@ _method_Asset_Token_Asset_getAmount
       @"getAmount"
       \ this@Asset {..}
         -> let _ = this in let getAmount = amount in getAmount
+_method_Asset_Token_Asset_setAmount :
+  DA.Internal.Desugar.Method Asset Token Asset "setAmount"
+_method_Asset_Token_Asset_setAmount
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @Asset
+      @"setAmount"
+      \ this@Asset {..}
+        -> let _ = this in
+           let setAmount x = toInterface @Token (this {amount = x})
+           in setAmount
 _view_Asset_Token_Asset :
   DA.Internal.Desugar.InterfaceView Asset Token Asset
 _view_Asset_Token_Asset
@@ -135,21 +161,5 @@ instance DA.Internal.Desugar.HasToInterface Asset Token where
 instance DA.Internal.Desugar.HasFromInterface Asset Token where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-main
-  = scenario
-      do alice <- getParty "Alice"
-         bob <- getParty "Bob"
-         let asset = Asset alice bob 15
-         let token = toInterface @Token asset
-         fromInterface token === Some asset
-         getAmount token === 15
-         submit
-           alice
-           do cid <- create token
-              token' <- fetch cid
-              fromInterface token' === Some asset
-              getAmount token' === 15
-              signatory token === [alice]
-              observer token === [bob, alice]
-              assert (interfaceTypeRep token == templateTypeRep @Asset)
-              assert (interfaceTypeRep token /= templateTypeRep @Token)
+cannotCall : Asset -> Token
+cannotCall asset = setAmount asset 1_000_000
