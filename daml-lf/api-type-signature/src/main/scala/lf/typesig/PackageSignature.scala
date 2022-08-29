@@ -38,7 +38,7 @@ final case class PackageSignature(
 ) {
   import PackageSignature.TypeDecl
 
-  // @deprecated("renamed to interfaces", since = "2.4.0")
+  @deprecated("renamed to interfaces", since = "2.4.0")
   def astInterfaces: interfaces.type = interfaces
   @deprecated("renamed to getInterfaces", since = "2.4.0")
   def getAstInterfaces: j.Map[QualifiedName, DefInterface.FWT] = getInterfaces
@@ -247,7 +247,7 @@ object PackageSignature {
     }
   }
 
-  // @deprecated("renamed to findInterface", since = "2.4.0")
+  @deprecated("renamed to findInterface", since = "2.4.0")
   def findAstInterface(
       findPackage: PartialFunction[PackageId, PackageSignature]
   ): PartialFunction[Ref.TypeConName, DefInterface.FWT] =
