@@ -94,7 +94,7 @@ Interface Methods
       :end-before: -- INTERFACE_METHODS_TOP_LEVEL_END
 
   - The first argument's type ``I`` means that the function can only be applied
-    to values of the interface type ``I`` itself. In particular, methods cannot
+    to values of the interface type ``I`` itself. Methods cannot
     be applied to template values, even if there exists an
     ``interface instance`` of ``I`` for that template. To use an interface
     method on a template value, first convert it using the ``toInterface``
@@ -139,7 +139,7 @@ Interface Choices
    :end-before: -- INTERFACE_CHOICES_END
 
 - Interface choices work in a very similar way to template choices. Any contract
-  of a template type for which an interface instance exists, will grant the
+  of a template type for which an interface instance exists will grant the
   choice to the controlling party.
 - Interface choices can only be exercised on values of the corresponding
   interface type. To exercise an interface choice on a template value, first
