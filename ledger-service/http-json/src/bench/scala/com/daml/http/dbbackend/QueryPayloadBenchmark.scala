@@ -7,7 +7,7 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.iface
 import com.daml.http.dbbackend.Queries.SurrogateTpId
-import com.daml.http.domain.{Party, TemplateId}
+import com.daml.http.domain.{Party, ContractTypeId}
 import com.daml.http.query.ValuePredicate
 import com.daml.http.util.Logging.instanceUUIDLogCtx
 import com.daml.nonempty.NonEmpty
@@ -23,7 +23,7 @@ trait QueryPayloadBenchmark extends ContractDaoBenchmark {
   @Param(Array("1", "100", "100"))
   var extraPayloadValues: Int = _
 
-  private val tpid = TemplateId("-pkg-", "M", "T")
+  private val tpid = ContractTypeId.Template("-pkg-", "M", "T")
   private var surrogateTpid: SurrogateTpId = _
   val party = "Alice"
 
