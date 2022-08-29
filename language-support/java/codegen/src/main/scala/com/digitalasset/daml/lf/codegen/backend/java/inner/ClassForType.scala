@@ -44,7 +44,7 @@ object ClassForType extends StrictLogging {
       packagePrefixes: Map[PackageId, String],
   ): List[JavaFile] =
     for {
-      (interfaceName, interface) <- typeWithContext.interface.astInterfaces.toList
+      (interfaceName, interface) <- typeWithContext.interface.interfaces.toList
       className = ClassName.bestGuess(fullyQualifiedName(interfaceName))
       packageName = className.packageName()
       interfaceClass =
