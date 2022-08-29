@@ -128,7 +128,7 @@ data InterfaceDoc = InterfaceDoc
   , if_methods :: [MethodDoc]
   , if_descr :: Maybe DocText
   , if_interfaceInstances :: [InterfaceInstanceDoc]
-  , if_viewtype :: InterfaceViewtypeDoc
+  , if_viewtype :: Maybe InterfaceViewtypeDoc
   }
   deriving (Eq, Show, Generic)
 
