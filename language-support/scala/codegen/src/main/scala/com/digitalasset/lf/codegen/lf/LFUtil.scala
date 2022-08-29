@@ -8,7 +8,8 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import parent.exception.UnsupportedDamlTypeException
 import com.daml.lf.iface
-import iface.{Type => IType, PrimType => PT, _}
+import com.daml.lf.typesig
+import typesig.{Type => IType, PrimType => PT, _}
 import com.daml.lf.iface.InterfaceType
 import java.io.File
 
@@ -25,7 +26,7 @@ import scalaz.syntax.std.option._
   */
 final case class LFUtil(
     packageName: String,
-    iface: EnvironmentInterface,
+    iface: EnvironmentSignature,
     outputDir: File,
 ) {
 
