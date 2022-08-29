@@ -559,11 +559,11 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
             _.optionalEnd := None
           ),
       )
-      // _ = assertEquals(transactionFuture.isCompleted, false)
+      _ = assertEquals(transactionFuture.isCompleted, false)
 
       _ <- ledger.uploadDarFile(Dars.read(Carbonv2TestDar.path))
 
-      // _ = assertEquals(transactionFuture.isCompleted, false)
+      _ = assertEquals(transactionFuture.isCompleted, false)
 
       contract <- succeedsEventually(
         maxRetryDuration = 10.seconds,
