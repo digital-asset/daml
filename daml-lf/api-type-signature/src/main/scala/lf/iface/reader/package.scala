@@ -6,7 +6,7 @@ package com.daml.lf.iface
 import com.daml.lf.typesig.{reader => tsr}
 
 package object reader {
-  // @deprecated("moved to typesig.reader.DamlLfArchiveReader", since = "2.4.0")
+  @deprecated("moved to typesig.reader.DamlLfArchiveReader", since = "2.4.0")
   final val DamlLfArchiveReader = tsr.DamlLfArchiveReader
 
   // @deprecated("moved to typesig.reader.Errors", since = "2.4.0")
@@ -15,6 +15,6 @@ package object reader {
   final val Errors = tsr.Errors
   // @deprecated("renamed to typesig.reader.SignatureReader", since = "2.4.0")
   final val InterfaceReader = tsr.SignatureReader
-  // @deprecated("renamed to typesig.reader.SignatureReaderMain", since = "2.4.0")
+  @deprecated("renamed to typesig.reader.SignatureReaderMain", since = "2.4.0")
   final val InterfaceReaderMain = tsr.SignatureReaderMain
 }

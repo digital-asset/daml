@@ -42,7 +42,7 @@ package object iface {
   // @deprecated("moved to typesig.DefTemplate", since = "2.4.0")
   final val DefTemplate = typesig.DefTemplate
 
-  // @deprecated("moved to typesig.TemplateChoices", since = "2.4.0")
+  @deprecated("moved to typesig.TemplateChoices", since = "2.4.0")
   type TemplateChoices[+Ty] = typesig.TemplateChoices[Ty]
   // @deprecated("moved to typesig.TemplateChoices", since = "2.4.0")
   final val TemplateChoices = typesig.TemplateChoices
@@ -76,11 +76,11 @@ package object iface {
   type Type = typesig.Type
   // @deprecated("moved to typesig.Type", since = "2.4.0")
   final val Type = typesig.Type
-  // @deprecated("moved to typesig.TypeCon", since = "2.4.0")
+  @deprecated("moved to typesig.TypeCon", since = "2.4.0")
   type TypeCon = typesig.TypeCon
   // @deprecated("moved to typesig.TypeCon", since = "2.4.0")
   final val TypeCon = typesig.TypeCon
-  // @deprecated("moved to typesig.TypeNumeric", since = "2.4.0")
+  @deprecated("moved to typesig.TypeNumeric", since = "2.4.0")
   type TypeNumeric = typesig.TypeNumeric
   // @deprecated("moved to typesig.TypeNumeric", since = "2.4.0")
   final val TypeNumeric = typesig.TypeNumeric
@@ -96,7 +96,7 @@ package object iface {
   // @deprecated("moved to typesig.TypeConNameOrPrimType", since = "2.4.0")
   type TypeConNameOrPrimType = typesig.TypeConNameOrPrimType
 
-  // @deprecated("moved to typesig.TypeConName", since = "2.4.0")
+  @deprecated("moved to typesig.TypeConName", since = "2.4.0")
   type TypeConName = typesig.TypeConName
   // @deprecated("moved to typesig.TypeConName", since = "2.4.0")
   final val TypeConName = typesig.TypeConName
@@ -130,6 +130,6 @@ package object iface {
   // @deprecated("moved to typesig.PrimTypeGenMap", since = "2.4.0")
   final val PrimTypeGenMap = typesig.PrimTypeGenMap
 
-  // @deprecated("moved to typesig.PrimTypeVisitor", since = "2.4.0")
+  @deprecated("moved to typesig.PrimTypeVisitor", since = "2.4.0")
   type PrimTypeVisitor[+Z] = typesig.PrimTypeVisitor[Z]
 }

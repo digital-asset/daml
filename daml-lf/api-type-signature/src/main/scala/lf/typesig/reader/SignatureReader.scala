@@ -82,7 +82,7 @@ object SignatureReader {
       )
   }
 
-  // @deprecated("renamed to readPackageSignature", since = "2.4.0")
+  @deprecated("renamed to readPackageSignature", since = "2.4.0")
   def readInterface(
       lf: DamlLf.Archive
   ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
@@ -95,7 +95,7 @@ object SignatureReader {
   ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
     readPackageSignature(packageId, damlLf)
 
-  // @deprecated("renamed to readPackageSignature", since = "2.4.0")
+  @deprecated("renamed to readPackageSignature", since = "2.4.0")
   def readInterface(
       payload: ArchivePayload
   ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =

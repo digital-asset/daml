@@ -84,7 +84,7 @@ object EnvironmentSignature {
   def fromPackageSignatures(dar: Dar[PackageSignature]): EnvironmentSignature =
     fromPackageSignatures(dar.main, dar.dependencies: _*)
 
-  // @deprecated("renamed to fromPackageSignatures", since = "2.4.0")
+  @deprecated("renamed to fromPackageSignatures", since = "2.4.0")
   def fromReaderInterfaces(all: Iterable[PackageSignature]): EnvironmentSignature =
     fromPackageSignatures(all)
 
