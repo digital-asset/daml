@@ -38,13 +38,10 @@ class ResolveMaximumLedgerTimeSpec
       buildDisclosedContract(cId_2, t2),
     )
 
-    private val actualResult: MaximumLedgerTime =
-      resolveMaximumLedgerTime(disclosedContracts, Set(cId_2, cId_3, cId_4)).futureValue
-
-    actualResult match {
-      case MaximumLedgerTime.Max(actualLedgerTime) => actualLedgerTime shouldBe t4
-      case other => fail(s"Unexpected $other")
-    }
+    resolveMaximumLedgerTime(
+      disclosedContracts,
+      Set(cId_2, cId_3, cId_4),
+    ).futureValue shouldBe MaximumLedgerTime.Max(t4)
   }
 
   it should "resolve maximum ledger time when all contracts are provided as explicitly disclosed" in new TestScope {
@@ -53,23 +50,17 @@ class ResolveMaximumLedgerTimeSpec
       buildDisclosedContract(cId_2, t2),
     )
 
-    private val actualResult: MaximumLedgerTime =
-      resolveMaximumLedgerTime(disclosedContracts, Set(cId_1, cId_2)).futureValue
-
-    actualResult match {
-      case MaximumLedgerTime.Max(actualLedgerTime) => actualLedgerTime shouldBe t2
-      case other => fail(s"Unexpected $other")
-    }
+    resolveMaximumLedgerTime(
+      disclosedContracts,
+      Set(cId_1, cId_2),
+    ).futureValue shouldBe MaximumLedgerTime.Max(t2)
   }
 
   it should "resolve maximum ledger time when no disclosed contracts are provided" in new TestScope {
-    private val actualResult: MaximumLedgerTime =
-      resolveMaximumLedgerTime(ImmArray.empty, Set(cId_1, cId_2)).futureValue
-
-    actualResult match {
-      case MaximumLedgerTime.Max(actualLedgerTime) => actualLedgerTime shouldBe t2
-      case other => fail(s"Unexpected $other")
-    }
+    resolveMaximumLedgerTime(
+      ImmArray.empty,
+      Set(cId_1, cId_2),
+    ).futureValue shouldBe MaximumLedgerTime.Max(t2)
   }
 
   it should "forward contract store lookup result on archived contracts" in new TestScope {
