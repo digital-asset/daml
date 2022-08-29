@@ -23,7 +23,7 @@ Configuration
 In order to test this experimental feature, you need to enable
 the dev mode for both the Daml compiler and Canton.
 
-For Daml, you need to add in ``daml.yaml`` the following line:
+For the Daml compiler, add the following line to your `daml.yaml` file:
 .. code-block:: none
 
    build-options: [--target=1.dev]
