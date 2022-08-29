@@ -27,7 +27,7 @@ object ContractIdClass {
 
   def builder(
       templateClassName: ClassName,
-      choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
+      choices: Map[ChoiceName, TemplateChoice[typesig.Type]],
       kind: For,
       packagePrefixes: Map[PackageId, String],
   ) = Builder.create(
@@ -244,7 +244,7 @@ object ContractIdClass {
 
     def create(
         templateClassName: ClassName,
-        choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
+        choices: Map[ChoiceName, TemplateChoice[typesig.Type]],
         kind: For,
         packagePrefixes: Map[PackageId, String],
     ): Builder = {

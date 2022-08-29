@@ -5,7 +5,7 @@ package com.daml.http
 
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import com.daml.ledger.api.domain.User
-import com.daml.lf.iface
+import com.daml.lf.typesig
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.nonempty.NonEmpty
@@ -50,7 +50,7 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
   type SubmissionId = String @@ SubmissionIdTag
   val SubmissionId = Tag.of[SubmissionIdTag]
 
-  type LfType = iface.Type
+  type LfType = typesig.Type
 
   type RetryInfoDetailDuration = scala.concurrent.duration.Duration @@ RetryInfoDetailDurationTag
   val RetryInfoDetailDuration = Tag.of[RetryInfoDetailDurationTag]

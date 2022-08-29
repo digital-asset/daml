@@ -5,7 +5,7 @@ package com.daml.navigator.model
 
 import com.daml.navigator.{model => Model}
 import com.daml.ledger.api.refinements.ApiTypes
-import com.daml.lf.{iface => DamlLfIface}
+import com.daml.lf.{typesig => DamlLfIface}
 import com.daml.lf.data.{Ref => DamlLfRef}
 
 /** Manages a set of known Daml-LF packages. */
@@ -57,7 +57,7 @@ case class PackageRegistry(
     inheritedInterface,
   )
 
-  def withPackages(interfaces: List[DamlLfIface.Interface]): PackageRegistry = {
+  def withPackages(interfaces: List[DamlLfIface.PackageSignature]): PackageRegistry = {
     val newPackageStore = packageState.append(interfaces.map(p => p.packageId -> p).toMap)
 
     val newPackages = newPackageStore.packages.values.map { p =>
@@ -65,10 +65,10 @@ case class PackageRegistry(
         DamlLfIdentifier(p.packageId, qname) -> td.`type`
       }
       val templates = p.typeDecls.collect {
-        case (qname, DamlLfIface.InterfaceType.Template(r @ _, t)) =>
+        case (qname, DamlLfIface.PackageSignature.TypeDecl.Template(r @ _, t)) =>
           DamlLfIdentifier(p.packageId, qname) -> template(p.packageId, qname, t)
       }
-      val interfaces = p.astInterfaces.map { case (qname, defInterface) =>
+      val interfaces = p.interfaces.map { case (qname, defInterface) =>
         DamlLfIdentifier(p.packageId, qname) -> interface(p.packageId, qname, defInterface)
       }
       p.packageId -> DamlLfPackage(p.packageId, typeDefs, templates, interfaces)
