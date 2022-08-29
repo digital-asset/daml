@@ -17,7 +17,7 @@ import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test._
-import com.daml.lf.value.Value.ContractId
+import com.google.protobuf.ByteString
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -43,16 +43,6 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
 
       // Exercise the same choice, this time using correct explicit disclosure
       _ <- testContext.exerciseFetchDelegated(testContext.disclosedContract)
-
-      // Create an extra disclosed contract
-      extraKey = ledger.nextKeyId()
-      _ <- ledger.create(owner, Delegated(owner, extraKey))
-      delegatedTxs <- ledger.flatTransactionsByTemplateId(Delegated.id, owner)
-      extraDelegatedEvent = createdEvents(delegatedTxs(1)).head
-      extraDisclosedContract = createEventToDisclosedContract(extraDelegatedEvent)
-
-      // Exercise the same choice, this time with superfluous disclosure
-      _ <- testContext.exerciseFetchDelegated(testContext.disclosedContract, extraDisclosedContract)
     } yield {
       assertGrpcError(
         exerciseFetchError,
@@ -64,8 +54,35 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
   })
 
   test(
+    "EDSuperfluousDisclosure",
+    "Submission is successful when unnecessary disclosed contract is provided",
+    allocate(Parties(2)),
+    enabled = _.explicitDisclosure,
+  )(implicit ec => { case Participants(Participant(ledger, owner, delegate)) =>
+    for {
+      testContext <- initializeTest(ledger, owner, delegate)
+
+      dummyCid <- ledger.create(owner, Dummy(owner))
+      dummyTxs <- ledger.flatTransactionsByTemplateId(Dummy.id, owner)
+      dummyCreate = createdEvents(dummyTxs(0)).head
+      dummyDisclosedContract = createEventToDisclosedContract(dummyCreate)
+
+      // Exercise works with provided disclosed contract
+      _ <- testContext.exerciseFetchDelegated(testContext.disclosedContract)
+      // Exercise works with the Dummy contract as a superfluous disclosed contract
+      _ <- testContext.exerciseFetchDelegated(testContext.disclosedContract, dummyDisclosedContract)
+
+      // Archive the Dummy contract
+      _ <- ledger.exercise(owner, dummyCid.exerciseArchive())
+
+      // Exercise works with the archived superfluous disclosed contract
+      _ <- testContext.exerciseFetchDelegated(testContext.disclosedContract, dummyDisclosedContract)
+    } yield ()
+  })
+
+  test(
     "EDExerciseByKeyDisclosedContract",
-    "A disclosed contract can be exercised by key by non-stakeholder if authorized",
+    "A disclosed contract can be exercised by key by non-witness reader if authorized",
     partyAllocation = allocate(TwoParties),
     enabled = _.explicitDisclosure,
   ) { implicit ec =>
@@ -76,12 +93,22 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         withKeyTxIds <- ledger.flatTransactionsByTemplateId(WithKey.id, owner)
         withKeyCreate = createdEvents(withKeyTxIds(1)).head
         withKeyDisclosedContract = createEventToDisclosedContract(withKeyCreate)
+        exerciseByKeyError <- ledger
+          .submitAndWait(
+            exerciseWithKey_byKey_request(ledger, owner, divulgee, None)
+          )
+          .mustFail("divulgee does not see the contract")
         // Assert that a random party can exercise the contract by key (if authorized)
         // when passing the disclosed contract to the submission
         _ <- ledger.submitAndWait(
-          exerciseWithKey_byKey_request(ledger, owner, divulgee, withKeyDisclosedContract)
+          exerciseWithKey_byKey_request(ledger, owner, divulgee, Some(withKeyDisclosedContract))
         )
-      } yield ()
+      } yield assertGrpcError(
+        exerciseByKeyError,
+        LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
+        None,
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   }
 
@@ -100,6 +127,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       someTransactionId = flats.head.transactionId
       flatById <- ledger.flatTransactionById(someTransactionId, owner)
       treeById <- ledger.transactionTreeById(someTransactionId, owner)
+      acs <- ledger.activeContracts(owner)
     } yield {
       assertLength("flatTransactions", 2, flats)
       assertLength("transactionTrees", 2, trees)
@@ -118,6 +146,10 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       assert(
         createdEvents(treeById).forall(_.metadata.isDefined),
         "Metadata is empty for transactionTreeById",
+      )
+      assert(
+        acs.forall(_.metadata.isDefined),
+        "Metadata is empty for activeContracts",
       )
     }
   })
@@ -157,21 +189,13 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
     for {
       testContext <- initializeTest(ledger, owner, delegate)
 
-      // Exercise a choice using invalid explicit disclosure (mismatching contract id)
-      errorMismatchingContractId <- testContext
-        .exerciseFetchDelegated(
-          testContext.disclosedContract
-            .update(_.contractId := ContractId.V1.assertFromString("00" + "00" * 32).coid)
-        )
-        .mustFail("using a mismatching contract id")
-
       // Exercise a choice using invalid explicit disclosure (bad contract key)
       errorBadKey <- testContext
         .exerciseFetchDelegated(
           testContext.disclosedContract
-            .update(_.arguments := Delegated(owner, "wrongKey").arguments)
+            .update(_.metadata.contractKeyHash := ByteString.copyFromUtf8("badKeyMeta"))
         )
-        .mustFail("using a mismatching contract key")
+        .mustFail("using a mismatching contract key hash in metadata")
 
       // Exercise a choice using invalid explicit disclosure (bad ledger time)
       errorBadLet <- testContext
@@ -189,12 +213,6 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         )
         .mustFail("using an invalid disclosed contract payload")
     } yield {
-      assertGrpcError(
-        errorMismatchingContractId,
-        LedgerApiErrors.ConsistencyErrors.DisclosedContractInvalid,
-        None,
-        checkDefiniteAnswerMetadata = true,
-      )
       assertGrpcError(
         errorBadKey,
         LedgerApiErrors.ConsistencyErrors.DisclosedContractInvalid,
@@ -243,17 +261,39 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         )
         .mustFail("using a disclosed contract with missing templateId")
 
-      // Exercise a choice using an invalid disclosed contract (missing contractId)
+      // Exercise a choice using an invalid disclosed contract (empty contractId)
       errorMissingContractId <- testContext
         .exerciseFetchDelegated(
           testContext.disclosedContract
-            .update(_.modify(_.clearTemplateId))
+            .update(_.contractId := "")
         )
-        .mustFail("using a disclosed contract with missing contractId")
+        .mustFail("using a disclosed contract with empty contractId")
+
+      // Exercise a choice using an invalid disclosed contract (empty create arguments)
+      errorMissingArguments <- testContext
+        .exerciseFetchDelegated(
+          testContext.disclosedContract.update(_.modify(_.clearArguments))
+        )
+        .mustFail("using a disclosed contract with empty arguments")
+
+      // Exercise a choice using an invalid disclosed contract (missing contract metadata)
+      errorMissingMetadata <- testContext
+        .exerciseFetchDelegated(
+          testContext.disclosedContract.update(_.modify(_.clearArguments))
+        )
+        .mustFail("using a disclosed contract with missing contract metadata")
+
+      // Exercise a choice using an invalid disclosed contract (missing createdAt in contract metadata)
+      errorMissingCreatedAt <- testContext
+        .exerciseFetchDelegated(
+          testContext.disclosedContract.update(_.metadata.modify(_.clearCreatedAt))
+        )
+        .mustFail("using a disclosed contract with missing createdAt in contract metadata")
     } yield {
       assertGrpcError(
         errorMalformedPayload,
         // TODO ED: Verify that this error code is good enough for the user
+        //          and that it includes the contract id
         LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
         None,
         checkDefiniteAnswerMetadata = true,
@@ -266,6 +306,24 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       )
       assertGrpcError(
         errorMissingContractId,
+        LedgerApiErrors.RequestValidation.MissingField,
+        None,
+        checkDefiniteAnswerMetadata = true,
+      )
+      assertGrpcError(
+        errorMissingMetadata,
+        LedgerApiErrors.RequestValidation.MissingField,
+        None,
+        checkDefiniteAnswerMetadata = true,
+      )
+      assertGrpcError(
+        errorMissingArguments,
+        LedgerApiErrors.RequestValidation.MissingField,
+        None,
+        checkDefiniteAnswerMetadata = true,
+      )
+      assertGrpcError(
+        errorMissingCreatedAt,
         LedgerApiErrors.RequestValidation.MissingField,
         None,
         checkDefiniteAnswerMetadata = true,
@@ -323,7 +381,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       disclosedContract = createEventToDisclosedContract(createdEvent)
 
       _ <- ledger.submitAndWait(
-        exerciseWithKey_byKey_request(ledger, owner, party, disclosedContract)
+        exerciseWithKey_byKey_request(ledger, owner, party, Some(disclosedContract))
       )
     } yield ()
   }
@@ -401,7 +459,7 @@ object ExplicitDisclosureIT {
       ledger: ParticipantTestContext,
       owner: Primitive.Party,
       party: Primitive.Party,
-      withKeyDisclosedContract: DisclosedContract,
+      withKeyDisclosedContract: Option[DisclosedContract],
   ): SubmitAndWaitRequest =
     ledger
       .submitAndWaitRequest(
@@ -417,5 +475,5 @@ object ExplicitDisclosureIT {
           )
         ),
       )
-      .update(_.commands.disclosedContracts := Seq(withKeyDisclosedContract))
+      .update(_.commands.disclosedContracts := withKeyDisclosedContract.toSeq)
 }

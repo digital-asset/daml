@@ -26,7 +26,6 @@ template Dummy
       controller operator
       do assert False
 
-
     nonconsuming choice Clone: ContractId Dummy
       controller operator
       do create Dummy with operator
