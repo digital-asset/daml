@@ -73,13 +73,10 @@ class ResolveMaximumLedgerTimeSpec
   }
 
   it should "forward contract store lookup result on archived contracts" in new TestScope {
-    private val actualResult: MaximumLedgerTime =
-      resolveMaximumLedgerTime(ImmArray.empty, archived.contracts + cId_1).futureValue
-
-    actualResult match {
-      case `archived` => ()
-      case other => fail(s"Unexpected $other")
-    }
+    resolveMaximumLedgerTime(
+      ImmArray.empty,
+      archived.contracts + cId_1,
+    ).futureValue shouldBe archived
   }
 
   private def buildDisclosedContract(cId: ContractId, createdAt: Time.Timestamp) =
