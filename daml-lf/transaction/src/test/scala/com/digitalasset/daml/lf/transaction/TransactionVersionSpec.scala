@@ -11,24 +11,35 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class TransactionVersionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
-  import LanguageVersion.{v1_6, v1_7, v1_8, v1_11, v1_dev}
-  import TransactionVersion.{V10, V11, VDev}
-
   "TransactionVersion.assignNodeVersion" should {
 
-    val testCases = Table(
-      "language version" -> "transaction version",
-      v1_6 -> V10,
-      v1_7 -> V10,
-      v1_8 -> V10,
-      v1_11 -> V11,
-      v1_dev -> VDev,
-    )
-
     "be stable" in {
+      val testCases = Table(
+        "language version" -> "transaction version",
+        LanguageVersion.v1_6 -> TransactionVersion.V10,
+        LanguageVersion.v1_7 -> TransactionVersion.V10,
+        LanguageVersion.v1_8 -> TransactionVersion.V10,
+        LanguageVersion.v1_11 -> TransactionVersion.V11,
+        LanguageVersion.v1_12 -> TransactionVersion.V12,
+        LanguageVersion.v1_13 -> TransactionVersion.V13,
+        LanguageVersion.v1_14 -> TransactionVersion.V14,
+        LanguageVersion.v1_15 -> TransactionVersion.V15,
+        LanguageVersion.v1_dev -> TransactionVersion.VDev,
+      )
+
       forEvery(testCases) { (languageVersion, transactionVersions) =>
         TransactionVersion.assignNodeVersion(languageVersion) shouldBe transactionVersions
       }
+    }
+
+    "be total" in {
+      LanguageVersion.All.foreach(TransactionVersion.assignNodeVersion(_))
+    }
+
+    "surjective" in {
+      LanguageVersion.All
+        .map(TransactionVersion.assignNodeVersion(_))
+        .toSet shouldBe TransactionVersion.All.toSet
     }
 
   }
