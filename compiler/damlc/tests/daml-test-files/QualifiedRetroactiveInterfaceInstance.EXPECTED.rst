@@ -113,19 +113,19 @@ Functions
 .. _function-qualifiedretroactiveinterfaceinstance-setamount-51253:
 
 `setAmount <function-qualifiedretroactiveinterfaceinstance-setamount-51253_>`_
-  \: `Implements <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077>`_ t `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_ \=\> t \-\> `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_ \-\> `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_
+  \: `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_ \-\> `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_ \-\> `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_
 
 .. _function-qualifiedretroactiveinterfaceinstance-splitimpl-65579:
 
 `splitImpl <function-qualifiedretroactiveinterfaceinstance-splitimpl-65579_>`_
-  \: `Implements <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077>`_ t `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_ \=\> t \-\> `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_ \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072>`_ (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_, `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_)
+  \: `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_ \-\> `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_ \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072>`_ (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_, `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_)
 
 .. _function-qualifiedretroactiveinterfaceinstance-transferimpl-9125:
 
 `transferImpl <function-qualifiedretroactiveinterfaceinstance-transferimpl-9125_>`_
-  \: `Implements <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077>`_ t `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_ \=\> t \-\> `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_ \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072>`_ (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_)
+  \: `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_ \-\> `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_ \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072>`_ (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_)
 
 .. _function-qualifiedretroactiveinterfaceinstance-noopimpl-17100:
 
 `noopImpl <function-qualifiedretroactiveinterfaceinstance-noopimpl-17100_>`_
-  \: `Implements <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077>`_ t `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_ \=\> t \-\> () \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072>`_ ()
+  \: `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_ \-\> () \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072>`_ ()

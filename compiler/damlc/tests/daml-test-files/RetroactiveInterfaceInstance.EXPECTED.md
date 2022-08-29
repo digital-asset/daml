@@ -63,16 +63,16 @@
 
 <a name="function-retroactiveinterfaceinstance-setamount-92750"></a>[setAmount](#function-retroactiveinterfaceinstance-setamount-92750)
 
-> : [Implements](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077) t [Token](#type-retroactiveinterfaceinstance-token-49693) =\> t -\> [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) -\> [Token](#type-retroactiveinterfaceinstance-token-49693)
+> : [Token](#type-retroactiveinterfaceinstance-token-49693) -\> [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) -\> [Token](#type-retroactiveinterfaceinstance-token-49693)
 
 <a name="function-retroactiveinterfaceinstance-splitimpl-44512"></a>[splitImpl](#function-retroactiveinterfaceinstance-splitimpl-44512)
 
-> : [Implements](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077) t [Token](#type-retroactiveinterfaceinstance-token-49693) =\> t -\> [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072) ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-retroactiveinterfaceinstance-token-49693), [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-retroactiveinterfaceinstance-token-49693))
+> : [Token](#type-retroactiveinterfaceinstance-token-49693) -\> [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072) ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-retroactiveinterfaceinstance-token-49693), [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-retroactiveinterfaceinstance-token-49693))
 
 <a name="function-retroactiveinterfaceinstance-transferimpl-49252"></a>[transferImpl](#function-retroactiveinterfaceinstance-transferimpl-49252)
 
-> : [Implements](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077) t [Token](#type-retroactiveinterfaceinstance-token-49693) =\> t -\> [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072) ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-retroactiveinterfaceinstance-token-49693))
+> : [Token](#type-retroactiveinterfaceinstance-token-49693) -\> [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072) ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-retroactiveinterfaceinstance-token-49693))
 
 <a name="function-retroactiveinterfaceinstance-noopimpl-82337"></a>[noopImpl](#function-retroactiveinterfaceinstance-noopimpl-82337)
 
-> : [Implements](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077) t [Token](#type-retroactiveinterfaceinstance-token-49693) =\> t -\> () -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072) ()
+> : [Token](#type-retroactiveinterfaceinstance-token-49693) -\> () -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072) ()
