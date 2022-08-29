@@ -42,13 +42,13 @@ interface MyInterface where
 -- INTERFACE_CHOICES_END
 
 -- INTERFACE_METHODS_TOP_LEVEL_BEGIN
-func1 : Implements t MyInterface => t -> Party
+func1 : MyInterface -> Party
 func1 = method1
 
-func2 : Implements t MyInterface => t -> Int
+func2 : MyInterface -> Int
 func2 = method2
 
-func3 : Implements t MyInterface => t -> Bool -> Int -> Int -> Int
+func3 : MyInterface -> Bool -> Int -> Int -> Int
 func3 = method3
 -- INTERFACE_METHODS_TOP_LEVEL_END
 
