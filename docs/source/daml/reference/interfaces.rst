@@ -18,6 +18,19 @@ method) are implemented. This allows decoupling such behavior from its
 implementation, so other developers can write applications in terms of the
 interface instead of the concrete template.
 
+Configuration
+*************
+In order to test this experimental feature, you need to enable
+the dev mode for both the Daml compiler and Canton.
+
+For the Daml compiler, add the following line to your `daml.yaml` file:
+.. code-block:: none
+
+   build-options: [--target=1.dev]
+
+To enable dev mode for Canton, follow the instructions in :ref:`this documentation <how-do-i-enable-unsupported-features>`
+to enable experimental features.
+
 Interface Declaration
 *********************
 
