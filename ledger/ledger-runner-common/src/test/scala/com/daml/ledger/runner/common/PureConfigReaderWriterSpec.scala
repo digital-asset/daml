@@ -147,7 +147,7 @@ class PureConfigReaderWriterSpec
     compare(LanguageVersion.EarlyAccessVersions, "early-access")
     compare(LanguageVersion.LegacyVersions, "legacy")
 
-    versionRangeWriter.to(LanguageVersion.StableVersions) shouldBe fromAnyRef("early-access")
+    versionRangeWriter.to(LanguageVersion.StableVersions) shouldBe fromAnyRef("stable")
 
     versionRangeReader
       .from(fromAnyRef("stable"))
@@ -206,7 +206,7 @@ class PureConfigReaderWriterSpec
   it should "support current defaults" in {
     val value =
       """
-        |allowed-language-versions = early-access
+        |allowed-language-versions = stable
         |contract-key-uniqueness = strict
         |forbid-v-0-contract-id = true
         |limits {
