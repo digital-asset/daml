@@ -6,7 +6,8 @@ package com.daml.http
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.iface
-import com.daml.http.domain.{Choice, ContractTypeId, TemplateId}
+import domain.{Choice, ContractTypeId, TemplateId}
+import ContractTypeId.ResolvedOf
 import com.daml.http.util.IdentifierConverters
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.jwt.domain.Jwt
@@ -161,7 +162,7 @@ private class PackageService(
   ](
       latestMap: () => ContractTypeIdMap[CtId]
   )(implicit ec: ExecutionContext): ResolveContractTypeId[CtId] = new ResolveContractTypeId[CtId] {
-    private type ResultType = Option[CtId[String]]
+    private type ResultType = Option[ResolvedOf[CtId]]
     def apply(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
         x: CtId[Option[String]]
     )(implicit lc: LoggingContextOf[InstanceUUID]): Future[Error \/ ResultType] = {
@@ -263,7 +264,7 @@ object PackageService {
     def apply(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
         x: CtId[Option[String]]
     )(implicit lc: LoggingContextOf[InstanceUUID]): Future[
-      PackageService.Error \/ Option[CtId[String]] // TODO #14067 add Resolved and with Definite
+      PackageService.Error \/ Option[ResolvedOf[CtId]]
     ]
   }
 
@@ -277,11 +278,11 @@ object PackageService {
   type AllTemplateIds =
     LoggingContextOf[
       InstanceUUID
-    ] => (Jwt, LedgerApiDomain.LedgerId) => Future[Set[domain.ContractTypeId.Template.RequiredPkg]]
+    ] => (Jwt, LedgerApiDomain.LedgerId) => Future[Set[domain.ContractTypeId.Template.Resolved]]
 
   type ResolveChoiceArgType =
     (
-        ContractTypeId.RequiredPkg,
+        ContractTypeId.Resolved,
         Choice,
     ) => Error \/ (Option[ContractTypeId.Interface.Resolved], iface.Type)
 
@@ -289,8 +290,8 @@ object PackageService {
     TemplateId.RequiredPkg => Error \/ iface.Type
 
   final case class ContractTypeIdMap[CtId[_]](
-      all: Map[RequiredPkg[CtId], ContractTypeId.ResolvedId[RequiredPkg[CtId]]],
-      unique: Map[NoPkg[CtId], ContractTypeId.ResolvedId[RequiredPkg[CtId]]],
+      all: Map[RequiredPkg[CtId], ResolvedOf[CtId]],
+      unique: Map[NoPkg[CtId], ResolvedOf[CtId]],
   ) {
     // forms a monoid with Empty
     private[PackageService] def ++(o: ContractTypeIdMap[CtId]): ContractTypeIdMap[CtId] = {
@@ -328,7 +329,7 @@ object PackageService {
     )
   }
 
-  def buildTemplateIdMap[CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]](
+  def buildTemplateIdMap[CtId[T] <: ContractTypeId.Definite[T] with ContractTypeId.Ops[CtId, T]](
       ids: Set[RequiredPkg[CtId]]
   ): ContractTypeIdMap[CtId] = {
     val all = ids.view.map(k => (k, k)).toMap
@@ -351,12 +352,12 @@ object PackageService {
       .groupBy(key2)
       .collect { case (k, v) if v.sizeIs == 1 => (k, v.head) }
 
-  // TODO SC #14067 make sensitive to whether `a` is Unknown, Template, or Interface
+  // TODO SC #14727 make sensitive to whether `a` is Unknown, Template, or Interface
   // this will entail restructuring `ContractTypeIdMap`, possibly unifying
   // the two in how we expose ResolveContractTypeId and ResolveTemplateId
   def resolveTemplateId[CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]](
       m: ContractTypeIdMap[CtId]
-  )(a: CtId[Option[String]]): Option[CtId[String]] =
+  )(a: CtId[Option[String]]): Option[ResolvedOf[CtId]] =
     a.packageId match {
       case Some(p) => m.all get a.copy(packageId = p)
       case None => m.unique get a.copy(packageId = ())
@@ -368,7 +369,7 @@ object PackageService {
       ctId: ContractTypeId.Resolved,
       choice: Choice,
   ): Error \/ (Option[ContractTypeId.Interface.Resolved], iface.Type) = {
-    // TODO #14067 skip indirect resolution if ctId is an interface ID
+    // TODO #14727 skip indirect resolution if ctId is an interface ID
     val resolution = for {
       choices <- choiceIdMap get ctId
       overloads <- choices get choice
@@ -387,14 +388,14 @@ object PackageService {
       )
 
   // assert that the given identifier is resolved
-  private[this] def fromIdentifier[CtId[T] <: ContractTypeId[T]](
+  private[this] def fromIdentifier[CtId[T] <: ContractTypeId.Definite[T]](
       b: ContractTypeId.Like[CtId],
       id: Ref.Identifier,
   ): b.Resolved =
     fromQualifiedName(b, id.packageId, id.qualifiedName)
 
   // assert that the given identifier is resolved
-  private[this] def fromQualifiedName[CtId[T] <: ContractTypeId[T]](
+  private[this] def fromQualifiedName[CtId[T] <: ContractTypeId.Definite[T]](
       b: ContractTypeId.Like[CtId],
       pkgId: Ref.PackageId,
       qn: Ref.QualifiedName,

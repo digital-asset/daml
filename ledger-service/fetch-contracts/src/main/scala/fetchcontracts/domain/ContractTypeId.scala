@@ -138,11 +138,13 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
 
   object Interface extends Like[Interface]
 
-  // TODO #14067 make an opaque subtype, produced by PackageService on
+  // TODO #14727 make an opaque subtype, produced by PackageService on
   // confirmed-present IDs only.  Can probably start by adding
   // `with Definite[Any]` here and seeing what happens
   /** A resolved [[ContractTypeId]], typed `CtTyId`. */
   type ResolvedId[+CtTyId] = CtTyId
+
+  type ResolvedOf[+CtId[_]] = ResolvedId[CtId[String] with Definite[String]]
 
   type Like[CtId[T] <: ContractTypeId[T]] = ContractTypeIdLike[CtId]
 
@@ -157,11 +159,11 @@ object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
 }
 
 /** A contract type ID companion. */
-abstract class ContractTypeIdLike[CtId[T] <: ContractTypeId[T]] {
+sealed abstract class ContractTypeIdLike[CtId[T] <: ContractTypeId[T]] {
   type OptionalPkg = CtId[Option[String]]
   type RequiredPkg = CtId[String]
   type NoPkg = CtId[Unit]
-  type Resolved = ContractTypeId.ResolvedId[RequiredPkg]
+  type Resolved = ContractTypeId.ResolvedOf[CtId]
 
   // treat the companion like a typeclass instance
   implicit def `ContractTypeIdLike companion`: this.type = this

@@ -64,7 +64,7 @@ private class ContractsFetch(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: List[domain.TemplateId.RequiredPkg],
+      templateIds: List[domain.TemplateId.Resolved],
       tickFetch: ConnectionIO ~> ConnectionIO = NaturalTransformation.refl,
   )(within: BeginBookmark[Terminates.AtAbsolute] => ConnectionIO[A])(implicit
       ec: ExecutionContext,
@@ -76,7 +76,7 @@ private class ContractsFetch(
     val fetchContext = FetchContext(jwt, ledgerId, parties)
     def go(
         maxAttempts: Int,
-        fetchTemplateIds: List[domain.TemplateId.RequiredPkg],
+        fetchTemplateIds: List[domain.TemplateId.Resolved],
         absEnd: Terminates.AtAbsolute,
     ): ConnectionIO[A] = for {
       bb <- tickFetch(fetchToAbsEnd(fetchContext, fetchTemplateIds, absEnd))
@@ -88,7 +88,7 @@ private class ContractsFetch(
       lagging <- (templateIds.toSet, bb.map(_.toDomain)) match {
         case (NonEmpty(tids), AbsoluteBookmark(expectedOff)) =>
           laggingOffsets(parties, expectedOff, tids)
-        case _ => fconn.pure(none[(domain.Offset, Set[domain.TemplateId.RequiredPkg])])
+        case _ => fconn.pure(none[(domain.Offset, Set[domain.TemplateId.Resolved])])
       }
       retriedA <- lagging.cata(
         { case (newOff, laggingTids) =>
@@ -120,7 +120,7 @@ private class ContractsFetch(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: List[domain.TemplateId.RequiredPkg],
+      templateIds: List[domain.TemplateId.Resolved],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -135,7 +135,7 @@ private class ContractsFetch(
 
   private[this] def fetchToAbsEnd(
       fetchContext: FetchContext,
-      templateIds: List[domain.TemplateId.RequiredPkg],
+      templateIds: List[domain.TemplateId.Resolved],
       absEnd: Terminates.AtAbsolute,
   )(implicit
       ec: ExecutionContext,
@@ -191,7 +191,7 @@ private class ContractsFetch(
       fetchContext: FetchContext,
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.TemplateId.Resolved,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -220,7 +220,7 @@ private class ContractsFetch(
       fetchContext: FetchContext,
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.TemplateId.Resolved,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -278,7 +278,7 @@ private class ContractsFetch(
 
   private def contractsFromOffsetIo(
       fetchContext: FetchContext,
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.TemplateId.Resolved,
       offsets: Map[domain.Party, domain.Offset],
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,

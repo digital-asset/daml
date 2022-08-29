@@ -153,14 +153,14 @@ package domain {
   )
 
   final case class GetActiveContractsRequest(
-      // TODO #14067 remove .Template for subscriptions
+      // TODO #14727 remove .Template for subscriptions
       templateIds: OneAnd[Set, ContractTypeId.Template.OptionalPkg],
       query: Map[String, JsValue],
       readAs: Option[NonEmptyList[Party]],
   )
 
   final case class SearchForeverQuery(
-      // TODO #14067 remove .Template for subscriptions
+      // TODO #14727 remove .Template for subscriptions
       templateIds: OneAnd[Set, ContractTypeId.Template.OptionalPkg],
       query: Map[String, JsValue],
       offset: Option[domain.Offset],
@@ -259,15 +259,15 @@ package domain {
       deduplicationPeriod: Option[domain.DeduplicationPeriod],
   )
 
-  final case class CreateCommand[+LfV, TmplId](
+  final case class CreateCommand[+LfV, +TmplId](
       templateId: TmplId,
       payload: LfV,
       meta: Option[CommandMeta],
   ) {
-    def traversePayload[G[_]: Applicative, LfVB](
+    def traversePayload[G[_]: Applicative, LfVB, TmplId0 >: TmplId](
         f: LfV => G[LfVB]
-    ): G[CreateCommand[LfVB, TmplId]] =
-      Bitraverse[CreateCommand].leftTraverse.traverse(this)(f)
+    ): G[CreateCommand[LfVB, TmplId0]] =
+      Bitraverse[CreateCommand].leftTraverse[TmplId0].traverse(this)(f)
   }
 
   final case class ExerciseCommand[+LfV, +Ref](
@@ -405,7 +405,7 @@ package domain {
 
         override def lfType(
             fa: ActiveContract[_],
-            templateId: TemplateId.RequiredPkg,
+            templateId: TemplateId.Resolved,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
@@ -490,7 +490,7 @@ package domain {
 
         override def lfType(
             fa: EnrichedContractKey[_],
-            templateId: TemplateId.RequiredPkg,
+            templateId: TemplateId.Resolved,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
@@ -544,7 +544,7 @@ package domain {
 
           override def lfType(
               fa: F[_],
-              templateId: TemplateId.RequiredPkg,
+              templateId: TemplateId.Resolved,
               f: PackageService.ResolveTemplateRecordType,
               g: PackageService.ResolveChoiceArgType,
               h: PackageService.ResolveKeyType,

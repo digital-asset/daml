@@ -52,10 +52,13 @@ object JsonProtocol extends JsonProtocolLow {
     jsonFormatFromReaderWriter(NonEmptyListReader, NonEmptyListWriter)
 
   // Do not design your own open typeclasses like JsonFormat was designed.
-  private[this] def jsonFormatFromReaderWriter[A: JsonReader: JsonWriter]: JsonFormat[A] =
+  private[this] def jsonFormatFromReaderWriter[A](implicit
+      R: JsonReader[_ <: A],
+      W: JsonWriter[_ >: A],
+  ): JsonFormat[A] =
     new JsonFormat[A] {
-      override def read(json: JsValue) = json.convertTo[A]
-      override def write(obj: A) = obj.toJson
+      override def read(json: JsValue) = R read json
+      override def write(obj: A) = W write obj
     }
 
   /** This intuitively pointless extra type is here to give it specificity so
@@ -133,15 +136,17 @@ object JsonProtocol extends JsonProtocolLow {
     }
   }
 
-  implicit val TemplateIdRequiredPkgFormat: RootJsonFormat[domain.TemplateId.RequiredPkg] =
-    new RootJsonFormat[domain.TemplateId.RequiredPkg] {
-      override def write(a: domain.TemplateId.RequiredPkg): JsValue =
+  implicit def TemplateIdRequiredPkgFormat[CtId[T] <: domain.ContractTypeId[T]](implicit
+      CtId: domain.ContractTypeId.Like[CtId]
+  ): RootJsonFormat[CtId[String]] =
+    new RootJsonFormat[CtId[String]] {
+      override def write(a: CtId[String]) =
         JsString(s"${a.packageId: String}:${a.moduleName: String}:${a.entityName: String}")
 
-      override def read(json: JsValue): domain.TemplateId.RequiredPkg = json match {
+      override def read(json: JsValue) = json match {
         case JsString(str) =>
           str.split(':') match {
-            case Array(p, m, e) => domain.TemplateId(p, m, e)
+            case Array(p, m, e) => CtId(p, m, e)
             case _ => error(json)
           }
         case _ => error(json)
@@ -287,8 +292,16 @@ object JsonProtocol extends JsonProtocolLow {
       }
     }
 
-  implicit val ActiveContractFormat: RootJsonFormat[domain.ActiveContract[JsValue]] =
+  implicit val ActiveContractFormat: RootJsonFormat[domain.ActiveContract[JsValue]] = {
+    implicit val `ctid resolved fmt`: JsonFormat[domain.ContractTypeId.Resolved] =
+      jsonFormatFromReaderWriter(
+        TemplateIdRequiredPkgFormat[domain.ContractTypeId.Template],
+        // we only write (below) in main, but read ^ in tests.  For ^, getting
+        // the proper contract type ID right doesn't matter
+        TemplateIdRequiredPkgFormat[domain.ContractTypeId],
+      )
     jsonFormat7(domain.ActiveContract.apply[JsValue])
+  }
 
   implicit val ArchivedContractFormat: RootJsonFormat[domain.ArchivedContract] =
     jsonFormat2(domain.ArchivedContract.apply)
