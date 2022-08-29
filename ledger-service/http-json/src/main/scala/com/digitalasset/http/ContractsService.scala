@@ -235,7 +235,7 @@ class ContractsService(
         jwt,
         ledgerId,
         parties,
-        templateIds.toSet[ContractTypeId.Resolved], // TODO #14727 remove toSet
+        templateIds,
         InMemoryQuery.Params(queryParams),
       )
     }
@@ -293,27 +293,27 @@ class ContractsService(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: OneAnd[Set, domain.ContractTypeId.Template.OptionalPkg],
+      templateIds: OneAnd[Set, domain.ContractTypeId.OptionalPkg],
       queryParams: Map[String, JsValue],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: Metrics,
   ): Future[SearchResult[Error \/ domain.ActiveContract[JsValue]]] = for {
-    res <- resolveTemplateIds(jwt, ledgerId)(templateIds)
-    (resolvedTemplateIds, unresolvedTemplateIds) = res
+    res <- resolveContractTypeIds(jwt, ledgerId)(templateIds)
+    (resolvedContractTypeIds, unresolvedContractTypeIds) = res
 
     warnings: Option[domain.UnknownTemplateIds] =
-      if (unresolvedTemplateIds.isEmpty) None
-      else Some(domain.UnknownTemplateIds(unresolvedTemplateIds.toList))
+      if (unresolvedContractTypeIds.isEmpty) None
+      else Some(domain.UnknownTemplateIds(unresolvedContractTypeIds.toList))
   } yield
-    if (resolvedTemplateIds.isEmpty) {
+    if (resolvedContractTypeIds.isEmpty) {
       domain.ErrorResponse(
         errors = List(ErrorMessages.cannotResolveAnyTemplateId),
         warnings = warnings,
         status = StatusCodes.BadRequest,
       )
     } else {
-      val searchCtx = SearchContext(jwt, parties, resolvedTemplateIds, ledgerId)
+      val searchCtx = SearchContext(jwt, parties, resolvedContractTypeIds, ledgerId)
       val source = search.toFinal.search(searchCtx, queryParams)
       domain.OkResponse(source, warnings)
     }
@@ -616,26 +616,26 @@ class ContractsService(
       InternalError(Symbol("lfValueToJsValue"), e.description)
     )
 
-  private[http] def resolveTemplateIds[Tid <: domain.ContractTypeId.Template.OptionalPkg](
+  private[http] def resolveContractTypeIds[Tid <: domain.ContractTypeId.OptionalPkg](
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   )(
       xs: OneAnd[Set, Tid]
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[(Set[domain.ContractTypeId.Template.Resolved], Set[Tid])] = {
+  ): Future[(Set[domain.ContractTypeId.Resolved], Set[Tid])] = {
     import scalaz.syntax.traverse._
     import scalaz.std.iterable._
     import scalaz.std.list._, scalaz.std.scalaFuture._
 
     xs.toList
       .traverse { x =>
-        resolveTemplateId(jwt, ledgerId)(x)
+        resolveContractTypeId(jwt, ledgerId)(x)
           .map(_.toOption.flatten.toLeft(x)): Future[
-          Either[domain.ContractTypeId.Template.Resolved, Tid]
+          Either[domain.ContractTypeId.Resolved, Tid]
         ]
       }
-      .map(_.toSet[Either[domain.ContractTypeId.Template.Resolved, Tid]].partitionMap(a => a))
+      .map(_.toSet[Either[domain.ContractTypeId.Resolved, Tid]].partitionMap(a => a))
   }
 }
 
@@ -654,7 +654,9 @@ object ContractsService {
   )
 
   private object SearchContext {
-    type QueryLang = SearchContext[Set[domain.ContractTypeId.Template.Resolved]]
+    type QueryLang = SearchContext[
+      Set[domain.ContractTypeId.Resolved]
+    ]
     type ById = SearchContext[Option[domain.ContractTypeId.OptionalPkg]]
     type Key = SearchContext[domain.ContractTypeId.Template.OptionalPkg]
   }

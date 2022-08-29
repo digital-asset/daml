@@ -130,12 +130,25 @@ private[daml] object AcsTxStreams {
       contractTypeIds: List[ContractTypeId.Resolved],
   ): lav1.transaction_filter.TransactionFilter = {
     import lav1.transaction_filter._
+    val (templateIds, interfaceIds) = contractTypeIds.partitionMap {
+      // TODO 'Resolved' only is non-exhaustive
+      case t @ ( _: domain.ContractTypeId.Template.Resolved | _: domain.ContractTypeId.Template.RequiredPkg) => Left(t)
+      case i @ ( _: domain.ContractTypeId.Interface.Resolved | _: domain.ContractTypeId.Interface.RequiredPkg)=> Right(i)
+    }
 
-    // TODO #14815 make a different filter for `ContractTypeId.Interface`s
-    val filters =
-      if (contractTypeIds.isEmpty) Filters.defaultInstance
-      else
-        Filters(Some(lav1.transaction_filter.InclusiveFilters(contractTypeIds.map(apiIdentifier))))
+    val filters = Filters(
+      Some(
+        lav1.transaction_filter.InclusiveFilters(
+          templateIds = templateIds.map(apiIdentifier),
+          interfaceFilters = interfaceIds.map(interfaceId =>
+            InterfaceFilter(
+              interfaceId = Some(apiIdentifier(interfaceId)),
+              includeInterfaceView = true,
+            )
+          ),
+        )
+      )
+    )
 
     TransactionFilter(
       domain.Party.unsubst((parties: Set[domain.Party]).toVector).map(_ -> filters).toMap
