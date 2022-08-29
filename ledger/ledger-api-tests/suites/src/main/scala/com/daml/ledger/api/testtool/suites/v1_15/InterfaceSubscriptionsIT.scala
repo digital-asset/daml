@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.testtool.suites.v1_dev
+package com.daml.ledger.api.testtool.suites.v1_15
 
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
@@ -559,11 +559,11 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
             _.optionalEnd := None
           ),
       )
-      _ = assertEquals(transactionFuture.isCompleted, false)
+      // _ = assertEquals(transactionFuture.isCompleted, false)
 
       _ <- ledger.uploadDarFile(Dars.read(Carbonv2TestDar.path))
 
-      _ = assertEquals(transactionFuture.isCompleted, false)
+      // _ = assertEquals(transactionFuture.isCompleted, false)
 
       contract <- succeedsEventually(
         maxRetryDuration = 10.seconds,

@@ -1,0 +1,125 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @UNTIL-LF-FEATURE DAML_INTERFACE_EXTENDED
+-- @ERROR Requires in Daml interfaces are only available with --target=1.dev
+
+module InterfaceGuardedNotExtended where
+
+import DA.Exception (GeneralError (..), throwPure)
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface Token where
+  viewtype EmptyInterfaceView
+
+  getOwner : Party
+  getAmount : Int
+  setAmount : Int -> Token
+
+  choice GetRich : ContractId Token
+    with
+      byHowMuch : Int
+    controller getOwner this
+    do
+        assert (byHowMuch > 0)
+        create $ setAmount this (getAmount this + byHowMuch)
+
+interface SubToken requires Token where
+  viewtype EmptyInterfaceView
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory owner
+
+    interface instance Token for Asset where
+      view = EmptyInterfaceView
+      getOwner = owner
+      getAmount = amount
+      setAmount x = toInterface @Token (this with amount = x)
+
+template AnotherAsset
+  with
+    owner: Party
+    amount: Int
+  where
+    signatory owner
+    interface instance Token for AnotherAsset where
+      view = EmptyInterfaceView
+      getOwner = owner
+      getAmount = amount
+      setAmount x = toInterface @Token (this with amount = x)
+    interface instance SubToken for AnotherAsset where
+      view = EmptyInterfaceView
+
+exception GuardException
+    with
+        m : Text
+    where
+        message m
+
+main = scenario do
+  p <- getParty "Alice"
+  let
+    assetTpl = Asset with
+      issuer = p
+      owner = p
+      amount = 100
+    getRich = GetRich with byHowMuch = 1000000
+
+  p `submit` do
+    -- OK if guard returns True
+    asset <- create assetTpl
+    exerciseGuarded (const True) asset getRich
+
+  p `submitMustFail` do
+    -- Fail if guard returns False
+    asset <- create assetTpl
+    exerciseGuarded (const False) asset getRich
+
+  p `submitMustFail` do
+    -- Fail if guard throws exception
+    asset <- create assetTpl
+    exerciseGuarded (\_ -> error "foo") asset getRich
+
+  p `submitMustFail` do
+    -- Fail if guard throws custom exception
+    asset <- create assetTpl
+    exerciseGuarded (\_ -> throwPure (GuardException "bar")) asset getRich
+
+  p `submitMustFail` do
+    -- Fail if guard throws exception, even in `try-catch` block
+    asset <- create assetTpl
+    try do
+      exerciseGuarded (\_ -> error "foo") asset getRich
+    catch
+      GeneralError {} ->
+        pure $ toInterfaceContractId @Token asset
+
+  p `submitMustFail` do
+    -- Fail if guard throws custom exception, even in `try-catch` block
+    asset <- create assetTpl
+    try do
+      exerciseGuarded (\_ -> throwPure (GuardException "bar")) asset getRich
+    catch
+      GuardException {} ->
+        pure $ toInterfaceContractId @Token asset
+
+  p `submitMustFail` do
+    -- Fail if predicate doesn't match underlying template type
+    anotherAsset <- coerceContractId @_ @AnotherAsset <$> create assetTpl
+    exerciseGuarded (const True) anotherAsset getRich
+
+  p `submitMustFail` do
+    -- Fail if predicate doesn't match underlying template's interfaces
+    subToken <- coerceContractId @_ @SubToken <$> create assetTpl
+    exerciseGuarded (const True) subToken getRich
+
+  pure ()
+
+-- @ENABLE-SCENARIOS
