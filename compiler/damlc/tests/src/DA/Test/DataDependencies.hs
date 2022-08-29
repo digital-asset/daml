@@ -2009,10 +2009,12 @@ tests tools = testGroup "Data Dependencies" $
             , "  choice GetRich : ContractId Token"
             , "    with"
             , "      byHowMuch : Int"
-            , "    controller getOwner this"
+            , "    controller getOwner (toInterface @Token this)"
             , "    do"
             , "        assert (byHowMuch > 0)"
-            , "        create $ setAmount this ((getAmount this + byHowMuch) * multiplier this)"
+            , "        create $ setAmount"
+            , "          (toInterface @Token this)"
+            , "          ((getAmount (toInterface @Token this) + byHowMuch) * multiplier this)"
 
             , "template Asset"
             , "  with"
@@ -2075,7 +2077,7 @@ tests tools = testGroup "Data Dependencies" $
             , "      Some Asset {amount} ->"
             , "        amount === 5"
 
-            , "    cidToken4 <- exercise (fromInterfaceContractId @Asset cidToken3) (GetRich 20)"
+            , "    cidToken4 <- exercise (fromInterfaceContractId @FancyToken cidToken3) (GetRich 20)"
             , "    token4 <- fetch cidToken4"
             , "    getAmount token4 === 125"
             , "    case fromInterface token4 of"
@@ -2241,10 +2243,12 @@ tests tools = testGroup "Data Dependencies" $
             , "  choice GetRich : ContractId Token"
             , "    with"
             , "      byHowMuch : Int"
-            , "    controller getOwner this"
+            , "    controller getOwner (toInterface @Token this)"
             , "    do"
             , "        assert (byHowMuch > 0)"
-            , "        create $ setAmount this ((getAmount this + byHowMuch) * multiplier this)"
+            , "        create $ setAmount"
+            , "          (toInterface @Token this)"
+            , "          ((getAmount (toInterface @Token this) + byHowMuch) * multiplier this)"
             ]
           callProcessSilent damlc
             [ "build"
@@ -2347,7 +2351,7 @@ tests tools = testGroup "Data Dependencies" $
             , "      Some Asset {amount} ->"
             , "        amount === 5"
 
-            , "    cidToken4 <- exercise (fromInterfaceContractId @Asset cidToken3) (GetRich 20)"
+            , "    cidToken4 <- exercise (fromInterfaceContractId @FancyToken cidToken3) (GetRich 20)"
             , "    token4 <- fetch cidToken4"
             , "    getAmount token4 === 125"
             , "    case fromInterface token4 of"
