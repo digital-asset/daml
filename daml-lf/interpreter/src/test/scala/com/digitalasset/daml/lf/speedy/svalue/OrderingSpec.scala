@@ -13,7 +13,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.daml.lf.value.test.ValueGenerators.{comparableCoidsGen, suffixedV1CidGen}
 import com.daml.lf.PureCompiledPackages
-import com.daml.lf.iface
+import com.daml.lf.typesig
 import com.daml.lf.interpretation.Error.ContractIdComparability
 import com.daml.lf.language.{Ast, Util => AstUtil}
 import org.scalacheck.{Arbitrary, Gen}
@@ -43,30 +43,31 @@ class OrderingSpec
 
   import SpeedyTestLib.loggingContext
 
-  private[lf] def toAstType(typ: iface.Type): Ast.Type = typ match {
-    case iface.TypeCon(name, typArgs) =>
+  private[lf] def toAstType(typ: typesig.Type): Ast.Type = typ match {
+    case typesig.TypeCon(name, typArgs) =>
       typArgs.foldLeft[Ast.Type](Ast.TTyCon(name.identifier))((acc, typ) =>
         Ast.TApp(acc, toAstType(typ))
       )
-    case iface.TypeNumeric(scale) =>
+    case typesig.TypeNumeric(scale) =>
       AstUtil.TNumeric(Ast.TNat(scale))
-    case iface.TypePrim(prim, typArgs) =>
+    case typesig.TypePrim(prim, typArgs) =>
+      import typesig.PrimType._
       val init = prim match {
-        case iface.PrimTypeBool => AstUtil.TBool
-        case iface.PrimTypeInt64 => AstUtil.TInt64
-        case iface.PrimTypeText => AstUtil.TText
-        case iface.PrimTypeDate => AstUtil.TDate
-        case iface.PrimTypeTimestamp => AstUtil.TTimestamp
-        case iface.PrimTypeParty => AstUtil.TParty
-        case iface.PrimTypeContractId => AstUtil.TContractId.cons
-        case iface.PrimTypeList => AstUtil.TList.cons
-        case iface.PrimTypeUnit => AstUtil.TUnit
-        case iface.PrimTypeOptional => AstUtil.TOptional.cons
-        case iface.PrimTypeTextMap => AstUtil.TTextMap.cons
-        case iface.PrimTypeGenMap => AstUtil.TGenMap.cons
+        case Bool => AstUtil.TBool
+        case Int64 => AstUtil.TInt64
+        case Text => AstUtil.TText
+        case Date => AstUtil.TDate
+        case Timestamp => AstUtil.TTimestamp
+        case Party => AstUtil.TParty
+        case ContractId => AstUtil.TContractId.cons
+        case List => AstUtil.TList.cons
+        case Unit => AstUtil.TUnit
+        case Optional => AstUtil.TOptional.cons
+        case TextMap => AstUtil.TTextMap.cons
+        case GenMap => AstUtil.TGenMap.cons
       }
       typArgs.foldLeft[Ast.Type](init)((acc, typ) => Ast.TApp(acc, toAstType(typ)))
-    case iface.TypeVar(name) =>
+    case typesig.TypeVar(name) =>
       Ast.TVar(name)
   }
 
@@ -183,7 +184,7 @@ class OrderingSpec
   private[this] val txSeed = crypto.Hash.hashPrivateKey("OrderingSpec")
   private[this] val committers = Set(Ref.Party.assertFromString("Alice"))
 
-  private def translatePrimValue(typ: iface.Type, v: Value) = {
+  private def translatePrimValue(typ: typesig.Type, v: Value) = {
 
     val machine = Speedy.Machine.fromUpdateSExpr(
       PureCompiledPackages.Empty,
