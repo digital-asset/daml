@@ -16,15 +16,11 @@ instance DA.Internal.Desugar.HasFromInterface Iface Iface where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
 instance DA.Internal.Desugar.HasMethod Iface "owner" (Party)
-owner : DA.Internal.Desugar.Implements t Iface => t -> Party
-owner t
-  = GHC.Types.primitiveInterface
-      @"owner" (DA.Internal.Desugar._toInterface @_ @Iface t)
+owner : Iface -> Party
+owner = GHC.Types.primitiveInterface @"owner"
 instance DA.Internal.Desugar.HasMethod Iface "foobar" (())
-foobar : DA.Internal.Desugar.Implements t Iface => t -> ()
-foobar t
-  = GHC.Types.primitiveInterface
-      @"foobar" (DA.Internal.Desugar._toInterface @_ @Iface t)
+foobar : Iface -> ()
+foobar = GHC.Types.primitiveInterface @"foobar"
 instance DA.Internal.Desugar.HasToAnyTemplate Iface where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate Iface where
@@ -41,28 +37,20 @@ instance DA.Internal.Desugar.HasIsInterfaceType Iface where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Iface where
   (==) = GHC.Types.primitive @"BEEqual"
-instance (DA.Internal.Desugar.Implements t Iface) =>
-         DA.Internal.Desugar.HasToAnyChoice t FooBar (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Iface FooBar (()) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Iface])
-instance (DA.Internal.Desugar.Implements t Iface) =>
-         DA.Internal.Desugar.HasFromAnyChoice t FooBar (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Iface FooBar (()) where
   _fromAnyChoice _
     = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Iface])
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t Iface)) =>
-         DA.Internal.Desugar.HasExerciseGuarded t FooBar (()) where
+instance DA.Internal.Desugar.HasExerciseGuarded Iface FooBar (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
         @"UExerciseInterfaceGuarded"
         (DA.Internal.Desugar.toInterfaceContractId @Iface cid)
         arg
         (DA.Internal.Desugar._exerciseInterfaceGuard @Iface cid pred)
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t Iface)) =>
-         DA.Internal.Desugar.HasExercise t FooBar (()) where
+instance DA.Internal.Desugar.HasExercise Iface FooBar (()) where
   exercise cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"

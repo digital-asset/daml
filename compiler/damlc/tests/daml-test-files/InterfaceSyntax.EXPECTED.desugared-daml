@@ -16,17 +16,12 @@ instance DA.Internal.Desugar.HasFromInterface I I where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
 instance DA.Internal.Desugar.HasMethod I "m0" (Bool -> Party)
-m0 : DA.Internal.Desugar.Implements t I => t -> Bool -> Party
-m0 t
-  = GHC.Types.primitiveInterface
-      @"m0" (DA.Internal.Desugar._toInterface @_ @I t)
+m0 : I -> Bool -> Party
+m0 = GHC.Types.primitiveInterface @"m0"
 instance DA.Internal.Desugar.HasMethod I "m1" (Either Int Bool
                                                -> Text)
-m1 :
-  DA.Internal.Desugar.Implements t I => t -> Either Int Bool -> Text
-m1 t
-  = GHC.Types.primitiveInterface
-      @"m1" (DA.Internal.Desugar._toInterface @_ @I t)
+m1 : I -> Either Int Bool -> Text
+m1 = GHC.Types.primitiveInterface @"m1"
 instance DA.Internal.Desugar.HasToAnyTemplate I where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate I where

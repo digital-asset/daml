@@ -19,10 +19,8 @@ instance DA.Internal.Desugar.HasFromInterface A A where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
 instance DA.Internal.Desugar.HasMethod A "getOwner" (Party)
-getOwner : DA.Internal.Desugar.Implements t A => t -> Party
-getOwner t
-  = GHC.Types.primitiveInterface
-      @"getOwner" (DA.Internal.Desugar._toInterface @_ @A t)
+getOwner : A -> Party
+getOwner = GHC.Types.primitiveInterface @"getOwner"
 instance DA.Internal.Desugar.HasToAnyTemplate A where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate A where
@@ -39,28 +37,20 @@ instance DA.Internal.Desugar.HasIsInterfaceType A where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq A where
   (==) = GHC.Types.primitive @"BEEqual"
-instance (DA.Internal.Desugar.Implements t A) =>
-         DA.Internal.Desugar.HasToAnyChoice t ChoiceA (Int) where
+instance DA.Internal.Desugar.HasToAnyChoice A ChoiceA (Int) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [A])
-instance (DA.Internal.Desugar.Implements t A) =>
-         DA.Internal.Desugar.HasFromAnyChoice t ChoiceA (Int) where
+instance DA.Internal.Desugar.HasFromAnyChoice A ChoiceA (Int) where
   _fromAnyChoice _
     = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [A])
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t A)) =>
-         DA.Internal.Desugar.HasExerciseGuarded t ChoiceA (Int) where
+instance DA.Internal.Desugar.HasExerciseGuarded A ChoiceA (Int) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
         @"UExerciseInterfaceGuarded"
         (DA.Internal.Desugar.toInterfaceContractId @A cid)
         arg
         (DA.Internal.Desugar._exerciseInterfaceGuard @A cid pred)
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t A)) =>
-         DA.Internal.Desugar.HasExercise t ChoiceA (Int) where
+instance DA.Internal.Desugar.HasExercise A ChoiceA (Int) where
   exercise cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"
@@ -105,10 +95,8 @@ instance DA.Internal.Desugar.HasFromInterface B A where
   unsafeFromInterface
     = GHC.Types.primitive @"EUnsafeFromRequiredInterface"
 instance DA.Internal.Desugar.HasMethod B "getCoolness" (Int)
-getCoolness : DA.Internal.Desugar.Implements t B => t -> Int
-getCoolness t
-  = GHC.Types.primitiveInterface
-      @"getCoolness" (DA.Internal.Desugar._toInterface @_ @B t)
+getCoolness : B -> Int
+getCoolness = GHC.Types.primitiveInterface @"getCoolness"
 instance DA.Internal.Desugar.HasToAnyTemplate B where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate B where
@@ -125,28 +113,20 @@ instance DA.Internal.Desugar.HasIsInterfaceType B where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq B where
   (==) = GHC.Types.primitive @"BEEqual"
-instance (DA.Internal.Desugar.Implements t B) =>
-         DA.Internal.Desugar.HasToAnyChoice t ChoiceB (Int) where
+instance DA.Internal.Desugar.HasToAnyChoice B ChoiceB (Int) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [B])
-instance (DA.Internal.Desugar.Implements t B) =>
-         DA.Internal.Desugar.HasFromAnyChoice t ChoiceB (Int) where
+instance DA.Internal.Desugar.HasFromAnyChoice B ChoiceB (Int) where
   _fromAnyChoice _
     = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [B])
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t B)) =>
-         DA.Internal.Desugar.HasExerciseGuarded t ChoiceB (Int) where
+instance DA.Internal.Desugar.HasExerciseGuarded B ChoiceB (Int) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
         @"UExerciseInterfaceGuarded"
         (DA.Internal.Desugar.toInterfaceContractId @B cid)
         arg
         (DA.Internal.Desugar._exerciseInterfaceGuard @B cid pred)
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t B)) =>
-         DA.Internal.Desugar.HasExercise t ChoiceB (Int) where
+instance DA.Internal.Desugar.HasExercise B ChoiceB (Int) where
   exercise cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"
