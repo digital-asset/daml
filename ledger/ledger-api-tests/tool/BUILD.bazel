@@ -80,43 +80,42 @@ da_scala_binary(
     for lf_version in lf_version_configuration_versions
 ]
 
-# Disable conformance_test in PR 14836
-# conformance_test(
-#     name = "conformance-test",
-#     extra_data = [
-#         "//ledger/test-common/test-certificates:client.crt",
-#         "//ledger/test-common/test-certificates:client.pem",
-#         "//ledger/test-common/test-certificates:server.crt",
-#         "//ledger/test-common/test-certificates:server.pem",
-#         "//ledger/test-common/test-certificates:server.pem.enc",
-#         "//ledger/test-common/test-certificates:ca.crt",
-#     ],
-#     hocon = True,
-#     lf_versions = [version for version in lf_version_configuration_versions],
-#     ports = [6865],
-#     server = "//ledger/sandbox-on-x:conformance-test-postgres-bin",
-#     server_args = ["run"],
-#     server_hocon_config = """
-#         ledger.participants.default.api-server {
-#           seeding=testing-weak
-#           tls {
-#             enabled=true
-#             cert-chain-file=$(rootpath //ledger/test-common/test-certificates:server.crt)
-#             trust-collection-file=$(rootpath //ledger/test-common/test-certificates:ca.crt)
-#             private-key-file=$(rootpath //ledger/test-common/test-certificates:server.pem.enc)
-#             secrets-url="https://raw.githubusercontent.com/digital-asset/daml/main/ledger/test-common/files/server-pem-decryption-parameters.json"
-#             minimum-server-protocol-version=TLSv1.3
-#           }
-#         }
-#     """,
-#     test_tool_args = [
-#         "--verbose",
-#         "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.crt))",
-#         "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
-#         "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.pem))",
-#         "--additional=TLSOnePointThreeIT",
-#     ],
-# )
+conformance_test(
+    name = "conformance-test",
+    extra_data = [
+        "//ledger/test-common/test-certificates:client.crt",
+        "//ledger/test-common/test-certificates:client.pem",
+        "//ledger/test-common/test-certificates:server.crt",
+        "//ledger/test-common/test-certificates:server.pem",
+        "//ledger/test-common/test-certificates:server.pem.enc",
+        "//ledger/test-common/test-certificates:ca.crt",
+    ],
+    hocon = True,
+    lf_versions = [version for version in lf_version_configuration_versions],
+    ports = [6865],
+    server = "//ledger/sandbox-on-x:conformance-test-postgres-bin",
+    server_args = ["run"],
+    server_hocon_config = """
+        ledger.participants.default.api-server {
+          seeding=testing-weak
+          tls {
+            enabled=true
+            cert-chain-file=$(rootpath //ledger/test-common/test-certificates:server.crt)
+            trust-collection-file=$(rootpath //ledger/test-common/test-certificates:ca.crt)
+            private-key-file=$(rootpath //ledger/test-common/test-certificates:server.pem.enc)
+            secrets-url="https://raw.githubusercontent.com/digital-asset/daml/main/ledger/test-common/files/server-pem-decryption-parameters.json"
+            minimum-server-protocol-version=TLSv1.3
+          }
+        }
+    """,
+    test_tool_args = [
+        "--verbose",
+        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.crt))",
+        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
+        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.pem))",
+        "--additional=TLSOnePointThreeIT",
+    ],
+)
 
 conformance_test(
     name = "conformance-test-tls1.2-or-newer",
