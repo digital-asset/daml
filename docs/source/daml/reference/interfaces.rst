@@ -21,7 +21,7 @@ interface instead of the concrete template.
 Configuration
 *************
 In order to test this experimental feature, you need to enable
-the dev mode on both Daml and Canton.
+the dev mode for both the Daml compiler and Canton.
 
 For Daml, you need to add in ``daml.yaml`` the following line:
 .. code-block:: none
