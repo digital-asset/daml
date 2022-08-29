@@ -49,15 +49,17 @@ object WorkflowConfigParser {
     }
 
     implicit val partyFilterDecoder: Decoder[StreamConfig.PartyFilter] =
-      Decoder.forProduct2(
+      Decoder.forProduct3(
         "party",
         "templates",
+        "interfaces",
       )(StreamConfig.PartyFilter.apply)
 
     implicit val partySetTemplateFilterDecoder: Decoder[StreamConfig.PartyNamePrefixFilter] =
-      Decoder.forProduct2(
+      Decoder.forProduct3(
         "party_name_prefix",
         "templates",
+        "interfaces",
       )(StreamConfig.PartyNamePrefixFilter.apply)
 
     implicit val transactionStreamDecoder: Decoder[StreamConfig.TransactionsStreamConfig] =

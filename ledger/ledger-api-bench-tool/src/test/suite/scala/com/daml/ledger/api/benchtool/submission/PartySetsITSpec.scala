@@ -123,6 +123,7 @@ class PartySetsITSpec
         WorkflowConfig.StreamConfig.PartyFilter(
           party = party,
           templates = filterByTemplates,
+          interfaces = List.empty,
         )
       ),
       partyNamePrefixFilterO = filterByPartyNamePrefixO.map(partyNamePrefix =>

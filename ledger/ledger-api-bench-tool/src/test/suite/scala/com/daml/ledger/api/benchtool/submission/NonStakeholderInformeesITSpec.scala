@@ -147,6 +147,7 @@ class NonStakeholderInformeesITSpec
             WorkflowConfig.StreamConfig.PartyFilter(
               party = party.toString,
               templates = List.empty,
+              interfaces = List.empty,
             )
           ),
           beginOffset = None,
@@ -164,6 +165,7 @@ class NonStakeholderInformeesITSpec
             WorkflowConfig.StreamConfig.PartyFilter(
               party = party.toString,
               templates = List.empty,
+              interfaces = List.empty,
             )
           ),
           beginOffset = None,

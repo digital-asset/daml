@@ -48,14 +48,17 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
           PartyFilter(
             party = "Obs-0",
             templates = templates,
+            interfaces = List.empty,
           ),
           PartyFilter(
             party = "Sig-0",
             templates = templates,
+            interfaces = List.empty,
           ),
           PartyFilter(
             party = "UnknownParty-0",
             templates = templates,
+            interfaces = List.empty,
           ),
         ),
         partyNamePrefixFilterO = Some(
@@ -71,22 +74,27 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
         PartyFilter(
           party = "Obs-0-foo-123",
           templates = enrichedTemplates,
+          interfaces = List.empty,
         ),
         PartyFilter(
           party = "Sig-0-foo-123",
           templates = enrichedTemplates,
+          interfaces = List.empty,
         ),
         PartyFilter(
           party = "UnknownParty-0",
           templates = enrichedTemplates,
+          interfaces = List.empty,
         ),
         PartyFilter(
           party = "MyParty-0-foo-123",
           templates = enrichedTemplates,
+          interfaces = List.empty,
         ),
         PartyFilter(
           party = "MyParty-1-foo-123",
           templates = enrichedTemplates,
+          interfaces = List.empty,
         ),
       ),
       partyNamePrefixFilterO = None,

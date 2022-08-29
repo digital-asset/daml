@@ -13,19 +13,29 @@ import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.{
   TransactionsStreamConfig,
 }
 import com.daml.ledger.api.benchtool.submission.AllocatedParties
+import com.daml.ledger.client.binding.Primitive.TemplateId
 import com.daml.ledger.test.benchtool.Foo.{Foo1, Foo2, Foo3}
+import com.daml.ledger.test.benchtool.InterfaceSubscription.{FooI1, FooI2, FooI3}
 import scalaz.syntax.tag._
 
 class ConfigEnricher(allocatedParties: AllocatedParties) {
+
+  private def toTemplateId[T](templateId: TemplateId[T]): (String, String) = {
+    val id = templateId.unwrap
+    id.entityName -> s"${id.packageId}:${id.moduleName}:${id.entityName}"
+  }
+
+  private val interfaceNameToFullyQualifiedNameMap: Map[String, String] = List(
+    FooI1.id,
+    FooI2.id,
+    FooI3.id,
+  ).map(toTemplateId).toMap
 
   private val templateNameToFullyQualifiedNameMap: Map[String, String] = List(
     Foo1.id,
     Foo2.id,
     Foo3.id,
-  ).map { templateId =>
-    val id = templateId.unwrap
-    id.entityName -> s"${id.packageId}:${id.moduleName}:${id.entityName}"
-  }.toMap
+  ).map(toTemplateId).toMap
 
   def enrichStreamConfig(
       streamConfig: StreamConfig
@@ -77,8 +87,11 @@ class ConfigEnricher(allocatedParties: AllocatedParties) {
       filter: PartyNamePrefixFilter
   ): List[PartyFilter] = {
     val convertedTemplates = filter.templates.map(convertTemplate)
+    val convertedInterfaces = filter.interfaces.map(convertInterface)
     val convertedParties = convertPartySet(filter.partyNamePrefix)
-    convertedParties.map(party => PartyFilter(party = party, templates = convertedTemplates))
+    convertedParties.map(party =>
+      PartyFilter(party = party, templates = convertedTemplates, interfaces = convertedInterfaces)
+    )
   }
 
   private def convertPartySet(partySetName: String): List[String] =
@@ -103,11 +116,15 @@ class ConfigEnricher(allocatedParties: AllocatedParties) {
       StreamConfig.PartyFilter(
         party = convertParty(filter.party),
         templates = filter.templates.map(convertTemplate),
+        interfaces = filter.interfaces.map(convertInterface),
       )
     }
   }
 
   def convertTemplate(shortTemplateName: String): String =
     templateNameToFullyQualifiedNameMap.getOrElse(shortTemplateName, shortTemplateName)
+
+  def convertInterface(shortInterfaceName: String): String =
+    interfaceNameToFullyQualifiedNameMap.getOrElse(shortInterfaceName, shortInterfaceName)
 
 }

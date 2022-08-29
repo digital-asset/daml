@@ -56,6 +56,7 @@ class FibonacciCommandSubmitterITSpec
             WorkflowConfig.StreamConfig.PartyFilter(
               party = allocatedParties.signatory.toString,
               templates = List.empty,
+              interfaces = List.empty,
             )
           ),
           beginOffset = None,

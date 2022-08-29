@@ -56,6 +56,8 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |        templates:
           |         - Foo1
           |         - Foo3
+          |        interfaces:
+          |         - FooI3
           |    objectives:
           |      min_item_rate: 123
           |      max_item_rate: 456
@@ -115,6 +117,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 WorkflowConfig.StreamConfig.PartyFilter(
                   party = "Obs-2",
                   templates = List("Foo1", "Foo3"),
+                  interfaces = List("FooI3"),
                 )
               ),
               objectives = Some(
@@ -226,6 +229,8 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |        templates:
         |         - Foo1
         |         - Foo3
+        |        interfaces:
+        |         - FooI3
         |    filter_by_party_set:
         |      party_name_prefix: My-Party
         |      templates: [Foo1, Foo2]
@@ -248,12 +253,14 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 WorkflowConfig.StreamConfig.PartyFilter(
                   party = "Obs-2",
                   templates = List("Foo1", "Foo3"),
+                  interfaces = List("FooI3"),
                 )
               ),
               partyNamePrefixFilterO = Some(
                 PartyNamePrefixFilter(
                   partyNamePrefix = "My-Party",
                   templates = List("Foo1", "Foo2"),
+                  interfaces = List("FooI3"),
                 )
               ),
               beginOffset = Some(offset("foo")),
@@ -285,6 +292,8 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |        templates:
           |         - Foo1
           |         - Foo3
+          |        interfaces:
+          |         - FooI3
           |    begin_offset: foo
           |    end_offset: bar
           |    objectives:
@@ -300,6 +309,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 WorkflowConfig.StreamConfig.PartyFilter(
                   party = "Obs-2",
                   templates = List("Foo1", "Foo3"),
+                  interfaces = List("FooI3"),
                 )
               ),
               beginOffset = Some(offset("foo")),
@@ -330,6 +340,8 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |        templates:
           |         - Foo1
           |         - Foo3
+          |        interfaces:
+          |         - FooI3
           |    begin_offset: foo
           |    end_offset: bar""".stripMargin
       parseYaml(yaml) shouldBe Right(
@@ -342,6 +354,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 WorkflowConfig.StreamConfig.PartyFilter(
                   party = "Obs-2",
                   templates = List("Foo1", "Foo3"),
+                  interfaces = List("FooI3"),
                 )
               ),
               beginOffset = Some(offset("foo")),
@@ -365,6 +378,8 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |        templates:
           |         - Foo1
           |         - Foo3
+          |        interfaces:
+          |         - FooI3
           |    begin_offset: foo
           |    end_offset: bar
           |    objectives:
@@ -382,6 +397,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 WorkflowConfig.StreamConfig.PartyFilter(
                   party = "Obs-2",
                   templates = List("Foo1", "Foo3"),
+                  interfaces = List("FooI3"),
                 )
               ),
               beginOffset = Some(offset("foo")),
@@ -412,6 +428,8 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |        templates:
           |         - Foo1
           |         - Foo3
+          |        interfaces:
+          |         - FooI3         
           |    objectives:
           |      min_item_rate: 123
           |      max_item_rate: 4567""".stripMargin
@@ -425,6 +443,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 WorkflowConfig.StreamConfig.PartyFilter(
                   party = "Obs-2",
                   templates = List("Foo1", "Foo3"),
+                  interfaces = List("FooI3"),
                 )
               ),
               objectives = Some(
@@ -487,6 +506,8 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |        templates:
           |         - Foo1
           |         - Foo3
+          |        interfaces:
+          |         - FooI3
           |    begin_offset: ledger-begin
           |    end_offset: ledger-end""".stripMargin
       parseYaml(yaml) shouldBe Right(
@@ -499,6 +520,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 WorkflowConfig.StreamConfig.PartyFilter(
                   party = "Obs-2",
                   templates = List("Foo1", "Foo3"),
+                  interfaces = List("FooI3"),
                 )
               ),
               beginOffset = Some(ledgerBeginOffset),
