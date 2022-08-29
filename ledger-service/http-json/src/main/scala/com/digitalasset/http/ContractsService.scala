@@ -313,9 +313,28 @@ class ContractsService(
         status = StatusCodes.BadRequest,
       )
     } else {
-      val searchCtx = SearchContext(jwt, parties, resolvedContractTypeIds, ledgerId)
-      val source = search.toFinal.search(searchCtx, queryParams)
-      domain.OkResponse(source, warnings)
+      val (templateIds, interfaceIds) = resolvedContractTypeIds.partitionMap {
+        // TODO 'Resolved' only is non-exhaustive
+        case t @ ( _: domain.ContractTypeId.Template.Resolved | _: domain.ContractTypeId.Template.RequiredPkg) => Left(t)
+        case i @ ( _: domain.ContractTypeId.Interface.Resolved | _: domain.ContractTypeId.Interface.RequiredPkg)=> Right(i)
+      }
+      if(templateIds.nonEmpty && interfaceIds.nonEmpty) {
+        domain.ErrorResponse(
+          errors = List(ErrorMessages.cannotQueryBothTemplateIdsAndInterfaceIds),
+          warnings = warnings,
+          status = StatusCodes.BadRequest,
+        )
+      } else if(templateIds.isEmpty && interfaceIds.size != 1) {
+        domain.ErrorResponse(
+          errors = List(ErrorMessages.canOnlyQueryOneInterfaceId),
+          warnings = warnings,
+          status = StatusCodes.BadRequest,
+        )
+      } else {
+        val searchCtx = SearchContext(jwt, parties, resolvedContractTypeIds, ledgerId)
+        val source = search.toFinal.search(searchCtx, queryParams)
+        domain.OkResponse(source, warnings)
+      }
     }
 
   private[this] val SearchDb: Option[Search { type LfV = JsValue }] = daoAndFetch map {
