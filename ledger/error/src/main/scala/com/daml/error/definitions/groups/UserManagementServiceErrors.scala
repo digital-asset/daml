@@ -3,7 +3,7 @@
 
 package com.daml.error.definitions.groups
 
-import com.daml.error.definitions.DamlErrorWithDefiniteAnswer
+import com.daml.error.definitions.{DamlError, DamlErrorWithDefiniteAnswer}
 import com.daml.error.{
   ContextualizedErrorLogger,
   ErrorCategory,
@@ -14,6 +14,23 @@ import com.daml.error.{
 }
 
 object UserManagementServiceErrors extends AdminServices.UserManagementServiceErrorGroup {
+
+  object ConcurrentUserUpdateDetected
+      extends ErrorCode(
+        id = "CONCURRENT_USER_UPDATE_DETECTED",
+        ErrorCategory.ContentionOnSharedResources,
+      ) {
+    case class Reject(userId: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlError(
+          cause =
+            s"Update operation for user '${userId}' failed due a concurrent update to the same user"
+        ) {
+      override def resources: Seq[(ErrorResource, String)] = Seq(
+        ErrorResource.User -> userId
+      )
+    }
+  }
 
   @Explanation("The user referred to by the request was not found.")
   @Resolution(
@@ -77,5 +94,30 @@ object UserManagementServiceErrors extends AdminServices.UserManagementServiceEr
       )
     }
   }
+
+//  // TODO pbatko: Define an error than can be applied to both users and parties
+//  @Explanation(
+//    """|A user can have only a limited number of user rights.
+//       |There was an attempt to create a user with too many rights or grant too many rights to a user."""
+//  )
+//  @Resolution(
+//    """|Retry with a smaller number of rights or delete some of the already existing rights of this user.
+//       |Contact the participant operator if the limit is too low."""
+//  )
+//  object TooManyAnnotations
+//    extends ErrorCode(
+//      id = "TOO_MANY_ANNOTATIONS",
+//      ErrorCategory.InvalidGivenCurrentSystemStateOther,
+//    ) {
+//    case class Reject(operation: String, userId: String)(implicit
+//                                                         loggingContext: ContextualizedErrorLogger
+//    ) extends DamlErrorWithDefiniteAnswer(
+//      cause = s"${operation} failed, as user \"${userId}\" would have too many annotations."
+//    ) {
+//      override def resources: Seq[(ErrorResource, String)] = Seq(
+//        ErrorResource.User -> userId
+//      )
+//    }
+//  }
 
 }

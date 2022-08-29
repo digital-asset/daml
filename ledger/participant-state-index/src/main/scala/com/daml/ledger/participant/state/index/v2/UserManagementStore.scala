@@ -6,8 +6,32 @@ package com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
+import scalapb.{GeneratedMessage, GeneratedMessageCompanion}
 
 import scala.concurrent.{ExecutionContext, Future}
+
+// TODO pbatko: Rename, move, cleanup?
+object MyFieldMaskUtils {
+  def fieldNameForNumber[M <: GeneratedMessage: GeneratedMessageCompanion](
+                                                                            fieldNumber: Int
+                                                                          ): String = {
+    val companion = implicitly[GeneratedMessageCompanion[M]]
+    companion.scalaDescriptor
+      .findFieldByNumber(fieldNumber)
+      .getOrElse(sys.error(s"Unknown field number $fieldNumber on $companion"))
+      .name
+  }
+
+  def fieldNameForNumber2[A <: GeneratedMessageCompanion[_]](
+                                                              companion: A
+                                                            )(fieldNumberFun: A => Int): String = {
+    val fieldNumber = fieldNumberFun(companion)
+    companion.scalaDescriptor
+      .findFieldByNumber(fieldNumber)
+      .getOrElse(sys.error(s"Unknown field number $fieldNumber on $companion"))
+      .name
+  }
+}
 
 case class UserUpdate(
     id: Ref.UserId,

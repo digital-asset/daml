@@ -16,12 +16,19 @@ import com.daml.ledger.api.v1.admin.config_management_service.{
   SetTimeModelResponse,
   TimeModel,
 }
+import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.admin.package_management_service.{
   PackageDetails,
   UploadDarFileRequest,
 }
 import com.daml.ledger.api.v1.admin.participant_pruning_service.PruneResponse
-import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails
+import com.daml.ledger.api.v1.admin.party_management_service.{
+  AllocatePartyRequest,
+  AllocatePartyResponse,
+  PartyDetails,
+  UpdatePartyDetailsRequest,
+  UpdatePartyDetailsResponse,
+}
 import com.daml.ledger.api.v1.command_completion_service.{
   Checkpoint,
   CompletionEndRequest,
@@ -117,12 +124,22 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   )
   override def allocateParty(): Future[Primitive.Party] =
     withTimeout("Allocate party", delegate.allocateParty())
+
+  def allocateParty_full(req: AllocatePartyRequest): Future[AllocatePartyResponse] =
+    withTimeout("Allocate party full", delegate.allocateParty_full(req))
+
+  override def updatePartyDetails(
+      req: UpdatePartyDetailsRequest
+  ): Future[UpdatePartyDetailsResponse] =
+    withTimeout("Update party details", delegate.updatePartyDetails(req))
+
   override def allocateParty(
       partyIdHint: Option[String],
       displayName: Option[String],
+      localMetadata: Option[ObjectMeta] = None,
   ): Future[Primitive.Party] = withTimeout(
     s"Allocate party with hint $partyIdHint and display name $displayName",
-    delegate.allocateParty(partyIdHint, displayName),
+    delegate.allocateParty(partyIdHint, displayName, localMetadata),
   )
   override def allocateParties(n: Int): Future[Vector[Primitive.Party]] = withTimeout(
     s"Allocate $n parties",

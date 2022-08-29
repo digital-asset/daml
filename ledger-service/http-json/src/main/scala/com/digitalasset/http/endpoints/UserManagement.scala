@@ -20,7 +20,7 @@ import scalaz.{-\/, EitherT, Monad, \/, \/-}
 
 import scala.concurrent.{ExecutionContext, Future}
 import com.daml.logging.LoggingContextOf
-import com.daml.ledger.api.domain.{User, UserRight}
+import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.lf.data.Ref.UserId
 
@@ -62,18 +62,29 @@ private[http] final class UserManagement(
             primaryParty <- createUserRequest.primaryParty.traverse(it =>
               Ref.Party.fromString(it).disjunction
             )
+            isDeactivated = createUserRequest.isDeactivated
+            metadata = com.daml.ledger.api.domain.ObjectMeta(
+              // TODO pbatko: resource version
+              resourceVersionO = createUserRequest.metadata.resourceVersionO.map(_.toLong),
+              annotations = createUserRequest.metadata.annotations,
+            )
             rights <- domain.UserRights.toLedgerUserRights(
               createUserRequest.rights.getOrElse(List.empty)
             )
-          } yield (username, primaryParty, rights)
+          } yield (username, primaryParty, isDeactivated, metadata, rights)
         for {
           info <- EitherT.either(input.leftMap(InvalidUserInput)): ET[
-            (UserId, Option[Ref.Party], List[UserRight])
+            (UserId, Option[Ref.Party], Boolean, ObjectMeta, List[UserRight])
           ]
-          (username, primaryParty, initialRights) = info
+          (username, primaryParty, isDeactivated, metadata, initialRights) = info
           _ <- EitherT.rightT(
             userManagementClient.createUser(
-              User(username, primaryParty),
+              User(
+                id = username,
+                primaryParty = primaryParty,
+                isDeactivated = isDeactivated,
+                metadata = metadata,
+              ),
               initialRights,
               Some(jwt.value),
             )

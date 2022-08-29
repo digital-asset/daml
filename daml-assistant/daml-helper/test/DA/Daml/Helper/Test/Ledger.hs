@@ -66,7 +66,7 @@ main = do
                     , hjTokenFile
                     ]
               out <- readProcess damlHelper ("ledger" : "list-parties" : ledgerOpts) ""
-              ((show $ PartyDetails (Party "Bob") "Bob" True) `elem` lines out) @?
+              ((show $ PartyDetails (Party "Bob") "Bob" True Nothing) `elem` lines out) @?
                 "Bob is not contained in list-parties output."
           ]
       , testGroup "allocate-parties"
@@ -91,9 +91,9 @@ main = do
               -- check for parties via gRPC
               let ledgerOpts = ["--host=localhost", "--port", show sandboxPort]
               out <- readProcess damlHelper ("ledger" : "list-parties" : ledgerOpts) ""
-              ((show $ PartyDetails (Party "Bob") "Bob" True) `elem` lines out) @?
+              ((show $ PartyDetails (Party "Bob") "Bob" True Nothing) `elem` lines out) @?
                 "Bob is not contained in list-parties output."
-              ((show $ PartyDetails (Party "Charlie") "Charlie" True) `elem` lines out) @?
+              ((show $ PartyDetails (Party "Charlie") "Charlie" True Nothing) `elem` lines out) @?
                 "Charlie is not contained in list-parties output."
           ]
       , testGroup "upload-dar"

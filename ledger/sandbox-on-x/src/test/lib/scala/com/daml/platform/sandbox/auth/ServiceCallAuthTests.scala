@@ -18,9 +18,11 @@ import io.grpc.stub.AbstractStub
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-
 import java.time.Duration
 import java.util.UUID
+
+import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
+
 import scala.concurrent.Future
 import scala.util.control.NonFatal
 
@@ -185,9 +187,21 @@ trait ServiceCallAuthTests
       rights: Vector[proto.Right] = Vector.empty,
   ): Future[(proto.User, Option[String])] = {
     val userToken = Option(toHeader(standardToken(userId)))
-    val req = proto.CreateUserRequest(Some(proto.User(userId)), rights)
+    val user = proto.User(
+      id = userId,
+      metadata = Some(ObjectMeta()),
+    )
+    val req = proto.CreateUserRequest(Some(user), rights)
     stub(proto.UserManagementServiceGrpc.stub(channel), canReadAsAdminStandardJWT)
       .createUser(req)
       .map(res => (res.user.get, userToken))
+  }
+
+  protected def updateUser(
+      accessToken: String,
+      req: proto.UpdateUserRequest,
+  ): Future[proto.UpdateUserResponse] = {
+    stub(proto.UserManagementServiceGrpc.stub(channel), Some(accessToken))
+      .updateUser(req)
   }
 }

@@ -23,7 +23,7 @@ import com.daml.ledger.api.auth.{
   StandardJWTPayload,
   StandardJWTTokenFormat,
 }
-import com.daml.ledger.api.domain.{User, UserRight}
+import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{
   OwnedResource,
@@ -607,7 +607,7 @@ final class JsonApiIt
         p1 <- grpcClient.partyManagementClient.allocateParty(None, None).map(_.party)
         p2 <- grpcClient.partyManagementClient.allocateParty(None, None).map(_.party)
         u <- grpcClient.userManagementClient.createUser(
-          User(UserId.assertFromString("u"), None),
+          User(UserId.assertFromString("u"), None, false, ObjectMeta.empty),
           Seq(UserRight.CanActAs(p1), UserRight.CanActAs(p2)),
         )
         clients <- getUserClients(u.id)

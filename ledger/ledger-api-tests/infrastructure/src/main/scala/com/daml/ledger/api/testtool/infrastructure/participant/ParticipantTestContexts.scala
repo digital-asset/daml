@@ -18,12 +18,19 @@ import com.daml.ledger.api.v1.admin.config_management_service.{
   SetTimeModelResponse,
   TimeModel,
 }
+import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.admin.package_management_service.{
   PackageDetails,
   UploadDarFileRequest,
 }
 import com.daml.ledger.api.v1.admin.participant_pruning_service.PruneResponse
-import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails
+import com.daml.ledger.api.v1.admin.party_management_service.{
+  AllocatePartyRequest,
+  AllocatePartyResponse,
+  PartyDetails,
+  UpdatePartyDetailsRequest,
+  UpdatePartyDetailsResponse,
+}
 import com.daml.ledger.api.v1.command_completion_service.{
   Checkpoint,
   CompletionEndRequest,
@@ -126,7 +133,11 @@ trait ParticipantTestContext extends UserManagementTestContext {
   def allocateParty(
       partyIdHint: Option[String],
       displayName: Option[String],
+      localMetadata: Option[ObjectMeta] = None,
   ): Future[Primitive.Party]
+
+  def allocateParty_full(req: AllocatePartyRequest): Future[AllocatePartyResponse]
+  def updatePartyDetails(req: UpdatePartyDetailsRequest): Future[UpdatePartyDetailsResponse]
   def allocateParties(n: Int): Future[Vector[Primitive.Party]]
   def getParties(parties: Seq[Primitive.Party]): Future[Seq[PartyDetails]]
   def listKnownParties(): Future[Set[Primitive.Party]]

@@ -6,6 +6,7 @@ package com.daml.ledger.api.auth.interceptor
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.auth._
+import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.UserRight
 import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
@@ -83,6 +84,29 @@ final class AuthorizationInterceptor(
         for {
           userManagementStore <- getUserManagementStore(userManagementStoreO)
           userId <- getUserId(userIdStr)
+          userResult <- userManagementStore.getUser(id = userId)
+          _ <- userResult match {
+            case Left(msg) =>
+              Future.failed(
+                LedgerApiErrors.AuthorizationChecks.PermissionDenied
+                  .Reject(
+                    s"Could not resolve is_deactivated status for user '$userId' due to '$msg'"
+                  )(errorLogger)
+                  .asGrpcError
+              )
+            case Right(user: domain.User) =>
+              if (user.isDeactivated) {
+                Future.failed(
+                  LedgerApiErrors.AuthorizationChecks.PermissionDenied
+                    .Reject(
+                      s"User $userId is deactivated"
+                    )(errorLogger)
+                    .asGrpcError
+                )
+              } else {
+                Future.successful(())
+              }
+          }
           userRightsResult <- userManagementStore.listUserRights(userId)
           claimsSet <- userRightsResult match {
             case Left(msg) =>

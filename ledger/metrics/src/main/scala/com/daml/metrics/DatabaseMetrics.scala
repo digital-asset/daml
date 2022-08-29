@@ -5,7 +5,9 @@ package com.daml.metrics
 
 import com.codahale.metrics.{MetricRegistry, Timer}
 
-class DatabaseMetrics private[metrics] (
+class DatabaseMetrics
+//private[metrics]
+(
     registry: MetricRegistry,
     prefix: MetricName,
     val name: String,

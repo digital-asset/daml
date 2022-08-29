@@ -33,6 +33,7 @@ import com.daml.ledger.api.v1.admin.config_management_service.{
   SetTimeModelResponse,
   TimeModel,
 }
+import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.admin.package_management_service.{
   ListKnownPackagesRequest,
   PackageDetails,
@@ -41,10 +42,13 @@ import com.daml.ledger.api.v1.admin.package_management_service.{
 import com.daml.ledger.api.v1.admin.participant_pruning_service.{PruneRequest, PruneResponse}
 import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
+  AllocatePartyResponse,
   GetParticipantIdRequest,
   GetPartiesRequest,
   ListKnownPartiesRequest,
   PartyDetails,
+  UpdatePartyDetailsRequest,
+  UpdatePartyDetailsResponse,
 }
 import com.daml.ledger.api.v1.command_completion_service.{
   Checkpoint,
@@ -218,16 +222,26 @@ final class SingleParticipantTestContext private[participant] (
 
   override def allocateParty(
       partyIdHint: Option[String],
-      displayName: Option[String],
+      displayName: Option[String] = None,
+      localMetadata: Option[ObjectMeta],
   ): Future[Party] =
     services.partyManagement
       .allocateParty(
         new AllocatePartyRequest(
           partyIdHint = partyIdHint.getOrElse(""),
           displayName = displayName.getOrElse(""),
+          localMetadata = localMetadata,
         )
       )
       .map(r => Party(r.partyDetails.get.party))
+
+  override def allocateParty_full(req: AllocatePartyRequest): Future[AllocatePartyResponse] =
+    services.partyManagement
+      .allocateParty(req)
+
+  def updatePartyDetails(req: UpdatePartyDetailsRequest): Future[UpdatePartyDetailsResponse] = {
+    services.partyManagement.updatePartyDetails(req)
+  }
 
   override def allocateParties(n: Int): Future[Vector[Party]] =
     Future.sequence(Vector.fill(n)(allocateParty()))

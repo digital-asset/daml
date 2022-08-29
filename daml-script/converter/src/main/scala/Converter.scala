@@ -30,6 +30,10 @@ private[daml] object Converter {
   def toText(v: SValue): ErrorOr[String] =
     v.expect("SText", { case SText(s) => s })
 
+  // TODO pbatko: Use string in api domain ObjectMeta
+  def toInt64(v: SValue): ErrorOr[Long] =
+    v.expect("SInt64", { case SInt64(s) => s })
+
   // Helper to make constructing an SRecord more convenient
   def record(ty: Identifier, fields: (String, SValue)*): SValue = {
     val fieldNames = fields.view.map { case (n, _) => Name.assertFromString(n) }.to(ImmArray)

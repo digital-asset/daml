@@ -70,4 +70,12 @@ message UserManagementFeature {
   // Servers MUST support at least a 100 users per page.
   // A value of 0 means that the server enforces no page size limit.
   int32 max_users_page_size = 3;
+
+  // TODO pbatko: These might get handy for selectively disabling conformance tests when running against Canton participant that doesn't have these features yet
+
+  bool user_deactivation_supported = 4;
+
+  bool modifiable_primary_party_supported = 5;
+
+  bool user_metadata_annotations_and_resource_version_supported = 6;
 }

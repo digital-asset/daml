@@ -3,6 +3,8 @@
 
 package com.daml.platform.server.api.validation
 
+import java.nio.charset.StandardCharsets
+
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain
@@ -14,7 +16,11 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value.ContractId
 import io.grpc.StatusRuntimeException
 
+import scala.util.matching.Regex
+
 object FieldValidations {
+
+  val MaxAnnotationsSizeInBytes: Int = 256 * 1024
 
   def matchLedgerId(
       ledgerId: LedgerId
@@ -36,6 +42,82 @@ object FieldValidations {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, String] =
     Either.cond(s.nonEmpty, s, missingField(fieldName))
+
+  def requireEmptyString(s: String, fieldName: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, String] =
+    Either.cond(s.isEmpty, s, invalidArgument(s"field $fieldName must be not set"))
+
+  def verifyMetadataAnnotations(annotations: Map[String, String], fieldName: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Map[String, String]] = {
+    verifyMetadataAnnotations2(annotations) match {
+      case Left(ExceededAnnotationsSizeError(actual)) =>
+        Left(
+          invalidArgument(
+            s"annotations from field $fieldName are larger than the limit of 256kb, actual size: $actual bytes"
+          )
+        )
+      case Left(InvalidAnnotationsKeySyntaxError()) => Left(invalidArgument(s"invalid key syntax"))
+      case Right(_) => Right(annotations)
+    }
+  }
+
+  sealed trait MetadataAnnotationsError
+  final case class ExceededAnnotationsSizeError(actualSizeInBytes: Long)
+      extends MetadataAnnotationsError
+  final case class InvalidAnnotationsKeySyntaxError() extends MetadataAnnotationsError
+
+  // TODO pbatko: Cleanup impl
+  def verifyMetadataAnnotations2(
+      annotations: Map[String, String]
+  ): Either[MetadataAnnotationsError, Unit] = {
+    val totalSize = annotations.iterator.foldLeft(0L) { case (size, (key, value)) =>
+      val keySize = key.getBytes(StandardCharsets.UTF_8).length
+      val valSize = value.getBytes(StandardCharsets.UTF_8).length
+      size + keySize + valSize
+    }
+    if (totalSize > MaxAnnotationsSizeInBytes) {
+      Left(ExceededAnnotationsSizeError(actualSizeInBytes = totalSize))
+    } else {
+      if (!annotations.keys.forall(isValidKey)) {
+        Left(InvalidAnnotationsKeySyntaxError())
+      } else {
+        Right(())
+      }
+
+    }
+  }
+
+  // Based on K8s annotations and labels
+  val NamePattern = "([a-zA-Z0-9]+[a-zA-Z0-9-]*)?[a-zA-Z0-9]+"
+  val AnnotationsKeyRegex: Regex = "^([a-zA-Z0-9]+[a-zA-Z0-9.\\-_]*)?[a-zA-Z0-9]+$".r
+  val DnsSubdomainRegex: Regex = ("^(" + NamePattern + "[.])*" + NamePattern + "$").r
+
+  def isValidKey(v: String): Boolean = {
+    v.split('/') match {
+      case Array(name) => isValidKeyNameSegment(name)
+      case Array(prefix, name) =>
+        isValidKeyPrefixSegment(prefix) && isValidKeyNameSegment(name)
+      case _ => false
+    }
+  }
+
+  def isValidKeyPrefixSegment(v: String): Boolean = {
+    if (v.length > 253) {
+      false
+    } else {
+      DnsSubdomainRegex.matches(v)
+    }
+  }
+
+  def isValidKeyNameSegment(v: String): Boolean = {
+    if (v.length > 63) {
+      false
+    } else {
+      AnnotationsKeyRegex.matches(v)
+    }
+  }
 
   def requireIdentifier(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -158,6 +240,17 @@ object FieldValidations {
       Left(missingField(fieldName))
     )(Right(_))
 
+  def requirePresence2[A, B](s: Option[A], fieldName: String)(
+      someValidation: A => Either[StatusRuntimeException, B]
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, B] = {
+    s match {
+      case None => Left(missingField(fieldName))
+      case Some(v) => someValidation(v)
+    }
+  }
+
   def validateIdentifier(identifier: Identifier)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.Identifier] =
@@ -172,4 +265,5 @@ object FieldValidations {
   ): Either[StatusRuntimeException, Option[T]] =
     if (s.isEmpty) Right(None)
     else someValidation(s).map(Option(_))
+
 }

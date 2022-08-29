@@ -12,7 +12,11 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.configuration.LedgerId
-import com.daml.ledger.participant.state.index.v2.{IndexService, UserManagementStore}
+import com.daml.ledger.participant.state.index.v2.{
+  IndexService,
+  PartyRecordStore,
+  UserManagementStore,
+}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
@@ -36,25 +40,26 @@ object ApiServiceOwner {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def apply(
-      indexService: IndexService,
-      userManagementStore: UserManagementStore,
-      ledgerId: LedgerId,
-      participantId: Ref.ParticipantId,
-      config: ApiServerConfig,
-      optWriteService: Option[state.WriteService],
-      healthChecks: HealthChecks,
-      metrics: Metrics,
-      timeServiceBackend: Option[TimeServiceBackend] = None,
-      otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
-      otherInterceptors: List[ServerInterceptor] = List.empty,
-      engine: Engine,
-      servicesExecutionContext: ExecutionContextExecutor,
-      checkOverloaded: TelemetryContext => Option[state.SubmissionResult] =
+             indexService: IndexService,
+             userManagementStore: UserManagementStore,
+             partyRecordStore: PartyRecordStore,
+             ledgerId: LedgerId,
+             participantId: Ref.ParticipantId,
+             config: ApiServerConfig,
+             optWriteService: Option[state.WriteService],
+             healthChecks: HealthChecks,
+             metrics: Metrics,
+             timeServiceBackend: Option[TimeServiceBackend] = None,
+             otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
+             otherInterceptors: List[ServerInterceptor] = List.empty,
+             engine: Engine,
+             servicesExecutionContext: ExecutionContextExecutor,
+             checkOverloaded: TelemetryContext => Option[state.SubmissionResult] =
         _ => None, // Used for Canton rate-limiting,
-      ledgerFeatures: LedgerFeatures,
-      authService: AuthService,
-      meteringReportKey: MeteringReportKey = CommunityKey,
-      jwtTimestampLeeway: Option[JwtTimestampLeeway],
+             ledgerFeatures: LedgerFeatures,
+             authService: AuthService,
+             meteringReportKey: MeteringReportKey = CommunityKey,
+             jwtTimestampLeeway: Option[JwtTimestampLeeway],
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -111,6 +116,7 @@ object ApiServiceOwner {
         managementServiceTimeout = config.managementServiceTimeout,
         checkOverloaded = checkOverloaded,
         userManagementStore = userManagementStore,
+        partyRecordStore = partyRecordStore,
         ledgerFeatures = ledgerFeatures,
         userManagementConfig = config.userManagement,
         apiStreamShutdownTimeout = config.apiStreamShutdownTimeout,

@@ -492,7 +492,7 @@ tAllocateParty withSandbox = testCase "tAllocateParty" $ run withSandbox $ \_dar
     let party = Party (TL.pack $ "me" <> show testId)
     before <- listKnownParties
     let displayName = "Only Me"
-    let request = AllocatePartyRequest { partyIdHint = unParty party, displayName }
+    let request = AllocatePartyRequest { partyIdHint = unParty party, displayName, Nothing }
     deats <- allocateParty request
     let expected = PartyDetails { party, displayName, isLocal = True }
     liftIO $ assertEqual "deats" expected deats
