@@ -51,20 +51,20 @@ class OrderingSpec
     case typesig.TypeNumeric(scale) =>
       AstUtil.TNumeric(Ast.TNat(scale))
     case typesig.TypePrim(prim, typArgs) =>
-      import typesig.PrimType._
+      import typesig.{PrimType => P}
       val init = prim match {
-        case Bool => AstUtil.TBool
-        case Int64 => AstUtil.TInt64
-        case Text => AstUtil.TText
-        case Date => AstUtil.TDate
-        case Timestamp => AstUtil.TTimestamp
-        case Party => AstUtil.TParty
-        case ContractId => AstUtil.TContractId.cons
-        case List => AstUtil.TList.cons
-        case Unit => AstUtil.TUnit
-        case Optional => AstUtil.TOptional.cons
-        case TextMap => AstUtil.TTextMap.cons
-        case GenMap => AstUtil.TGenMap.cons
+        case P.Bool => AstUtil.TBool
+        case P.Int64 => AstUtil.TInt64
+        case P.Text => AstUtil.TText
+        case P.Date => AstUtil.TDate
+        case P.Timestamp => AstUtil.TTimestamp
+        case P.Party => AstUtil.TParty
+        case P.ContractId => AstUtil.TContractId.cons
+        case P.List => AstUtil.TList.cons
+        case P.Unit => AstUtil.TUnit
+        case P.Optional => AstUtil.TOptional.cons
+        case P.TextMap => AstUtil.TTextMap.cons
+        case P.GenMap => AstUtil.TGenMap.cons
       }
       typArgs.foldLeft[Ast.Type](init)((acc, typ) => Ast.TApp(acc, toAstType(typ)))
     case typesig.TypeVar(name) =>
