@@ -28,7 +28,7 @@ For the Daml compiler, add the following line to your `daml.yaml` file:
 
    build-options: [--target=1.dev]
 
-To enable dev mode for Canton, follow the instructions in [this documentation](https://www.canton.io/docs/dev/user-manual/usermanual/FAQ.html#how-do-i-enable-unsupported-features)
+To enable dev mode for Canton, follow the instructions in :ref:`this documentation <how-do-i-enable-unsupported-features>`
 to enable experimental features.
 
 Interface Declaration
