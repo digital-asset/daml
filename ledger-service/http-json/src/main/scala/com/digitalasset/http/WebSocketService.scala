@@ -743,7 +743,15 @@ class WebSocketService(
       Future.successful {
         contractsService
           .liveAcsAsInsertDeleteStepSource(jwt, ledgerId, parties, predicate.resolved.toList)
-          .via(convertFilterContracts(predicate.fn))
+          // TODO Ray fixme
+          .via(
+            convertFilterContracts(
+              domain
+                .ResolvedQuery(predicate.resolved)
+                .fold(_ => throw new Exception("BOOM"), identity),
+              predicate.fn,
+            )
+          )
       },
     )
 
@@ -804,7 +812,13 @@ class WebSocketService(
             liveStartingOffset,
             Terminates.Never,
           )
-          .via(convertFilterContracts(fn))
+          // TODO Ray fixme
+          .via(
+            convertFilterContracts(
+              domain.ResolvedQuery(resolved).fold(_ => throw new Exception("BOOM"), identity),
+              fn,
+            )
+          )
           .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
       }
     }
@@ -846,7 +860,15 @@ class WebSocketService(
                       liveStartingOffset,
                       Terminates.Never,
                     )
-                    .via(convertFilterContracts(fn))
+                    // TODO Ray fixme
+                    .via(
+                      convertFilterContracts(
+                        domain
+                          .ResolvedQuery(resolved)
+                          .fold(_ => throw new Exception("BOOM"), identity),
+                        fn,
+                      )
+                    )
                     .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
                 }
               },
@@ -952,7 +974,8 @@ class WebSocketService(
     TextMessage(jsVal.compactPrint)
 
   private def convertFilterContracts[Pos](
-      fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Pos]
+      resolvedQuery: domain.ResolvedQuery,
+      fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Pos],
   ): Flow[ContractStreamStep.LAV1, StepAndErrors[Pos, JsValue], NotUsed] =
     Flow
       .fromFunction { step: ContractStreamStep.LAV1 =>
@@ -962,8 +985,9 @@ class WebSocketService(
               .fromLedgerApi(ae)
               .liftErr(ServerError.fromMsg),
           ce =>
+            // TODO Ray use ResolvedQuery.apply?
             domain.ActiveContract
-              .fromLedgerApi(ce)
+              .fromLedgerApi(resolvedQuery, ce)
               .liftErr(ServerError.fromMsg)
               .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError.fromMsg)),
         )(Seq)

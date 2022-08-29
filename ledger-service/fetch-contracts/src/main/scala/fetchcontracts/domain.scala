@@ -96,12 +96,18 @@ package domain {
       a.key.fold(false)(_ == k)
 
     def fromLedgerApi(
-        gacr: lav1.active_contracts_service.GetActiveContractsResponse
+        resolvedQuery: domain.ResolvedQuery,
+        gacr: lav1.active_contracts_service.GetActiveContractsResponse,
     ): Error \/ List[ActiveContract[lav1.value.Value]] = {
-      gacr.activeContracts.toList.traverse(fromLedgerApi(_))
+      gacr.activeContracts.toList.traverse(fromLedgerApi(resolvedQuery, _))
     }
 
-    def fromLedgerApi(in: lav1.event.CreatedEvent): Error \/ ActiveContract[lav1.value.Value] =
+    def fromLedgerApi(
+        resolvedQuery: domain.ResolvedQuery,
+        in: lav1.event.CreatedEvent,
+    ): Error \/ ActiveContract[lav1.value.Value] = {
+      // TODO Ray use resolvedQuery to return interface view or template data
+      println(resolvedQuery)
       for {
         templateId <- in.templateId required "templateId"
         payload <- in.createArguments required "createArguments"
@@ -114,6 +120,7 @@ package domain {
         observers = Party.subst(in.observers),
         agreementText = in.agreementText getOrElse "",
       )
+    }
 
     implicit val covariant: Traverse[ActiveContract] = new Traverse[ActiveContract] {
 
@@ -152,5 +159,7 @@ package domain {
     final val Offset = here.Offset
     type ActiveContract[+LfV] = here.ActiveContract[LfV]
     final val ActiveContract = here.ActiveContract
+    final val ResolvedQuery = here.ResolvedQuery
+    type ResolvedQuery = here.ResolvedQuery
   }
 }

@@ -216,7 +216,10 @@ class ContractsService(
             jwt,
             ledgerId,
             parties,
-            resolvedTemplateIds,
+            // TODO Ray, maybe can ignore, and assume resolvedTemplateIds is template ids only
+            domain
+              .ResolvedQuery(resolvedTemplateIds)
+              .fold(_ => throw new Exception("BOOM"), identity),
             InMemoryQuery.Filter(isContractId(contractId)),
           )
             .runWith(Sink.headOption)
@@ -305,37 +308,31 @@ class ContractsService(
     warnings: Option[domain.UnknownTemplateIds] =
       if (unresolvedContractTypeIds.isEmpty) None
       else Some(domain.UnknownTemplateIds(unresolvedContractTypeIds.toList))
-  } yield
-    if (resolvedContractTypeIds.isEmpty) {
-      domain.ErrorResponse(
-        errors = List(ErrorMessages.cannotResolveAnyTemplateId),
-        warnings = warnings,
-        status = StatusCodes.BadRequest,
-      )
-    } else {
-      val (templateIds, interfaceIds) = resolvedContractTypeIds.partitionMap {
-        // TODO 'Resolved' only is non-exhaustive
-        case t @ ( _: domain.ContractTypeId.Template.Resolved | _: domain.ContractTypeId.Template.RequiredPkg) => Left(t)
-        case i @ ( _: domain.ContractTypeId.Interface.Resolved | _: domain.ContractTypeId.Interface.RequiredPkg)=> Right(i)
+  } yield {
+    domain
+      .ResolvedQuery(resolvedContractTypeIds)
+      .leftMap {
+        case domain.ResolvedQuery.CannotBeEmpty =>
+          mkErrorResponse(ErrorMessages.cannotResolveAnyTemplateId, warnings)
+        case domain.ResolvedQuery.CannotQueryBothTemplateIdsAndInterfaceIds =>
+          mkErrorResponse(ErrorMessages.cannotQueryBothTemplateIdsAndInterfaceIds, warnings)
+        case domain.ResolvedQuery.CannotQueryManyInterfaceIds =>
+          mkErrorResponse(ErrorMessages.canOnlyQueryOneInterfaceId, warnings)
       }
-      if(templateIds.nonEmpty && interfaceIds.nonEmpty) {
-        domain.ErrorResponse(
-          errors = List(ErrorMessages.cannotQueryBothTemplateIdsAndInterfaceIds),
-          warnings = warnings,
-          status = StatusCodes.BadRequest,
-        )
-      } else if(templateIds.isEmpty && interfaceIds.size != 1) {
-        domain.ErrorResponse(
-          errors = List(ErrorMessages.canOnlyQueryOneInterfaceId),
-          warnings = warnings,
-          status = StatusCodes.BadRequest,
-        )
-      } else {
-        val searchCtx = SearchContext(jwt, parties, resolvedContractTypeIds, ledgerId)
+      .map { resolvedQuery =>
+        val searchCtx = SearchContext(jwt, parties, resolvedQuery, ledgerId)
         val source = search.toFinal.search(searchCtx, queryParams)
         domain.OkResponse(source, warnings)
       }
-    }
+      .fold(identity, identity)
+  }
+
+  private def mkErrorResponse(errorMessage: String, warnings: Option[domain.UnknownTemplateIds]) =
+    domain.ErrorResponse(
+      errors = List(errorMessage),
+      warnings = warnings,
+      status = StatusCodes.BadRequest,
+    )
 
   private[this] val SearchDb: Option[Search { type LfV = JsValue }] = daoAndFetch map {
     case (dao, fetch) =>
@@ -460,7 +457,7 @@ class ContractsService(
               jwt,
               ledgerId,
               parties,
-              templateIds.toList,
+              templateIds.resolved.toList,
               Lambda[ConnectionIO ~> ConnectionIO](
                 timed(metrics.daml.HttpJsonApi.Db.searchFetch, _)
               ),
@@ -470,7 +467,7 @@ class ContractsService(
               case AbsoluteBookmark(_) =>
                 timed(
                   metrics.daml.HttpJsonApi.Db.searchQuery,
-                  templateIds.toVector
+                  templateIds.resolved.toVector
                     .traverse(tpId => searchDbOneTpId_(parties, tpId, queryParams)),
                 )
             }
@@ -494,12 +491,12 @@ class ContractsService(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: Set[domain.TemplateId.Resolved],
+      resolvedQuery: domain.ResolvedQuery,
       queryParams: InMemoryQuery,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
   ): Source[InternalError \/ domain.ActiveContract[LfValue], NotUsed] = {
-
+    val templateIds = resolvedQuery.resolved
     logger.debug(
       s"Searching in memory, parties: $parties, templateIds: $templateIds, queryParms: $queryParams"
     )
@@ -515,7 +512,7 @@ class ContractsService(
       .map { step =>
         val (errors, converted) = step.toInsertDelete.partitionMapPreservingIds { apiEvent =>
           domain.ActiveContract
-            .fromLedgerApi(apiEvent)
+            .fromLedgerApi(resolvedQuery, apiEvent)
             .leftMap(e => InternalError(Symbol("searchInMemory"), e.shows))
             .flatMap(apiAcToLfAc): Error \/ Ac
         }
@@ -540,8 +537,12 @@ class ContractsService(
       queryParams: InMemoryQuery.P,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
-  ): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
-    searchInMemory(jwt, ledgerId, parties, Set(templateId), InMemoryQuery.Filter(queryParams))
+  ): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] = {
+    // TODO Ray fixme
+    val resolvedQuery =
+      domain.ResolvedQuery(Set(templateId)).fold(_ => throw new Exception("BOOM"), identity)
+    searchInMemory(jwt, ledgerId, parties, resolvedQuery, InMemoryQuery.Filter(queryParams))
+  }
 
   private[this] sealed abstract class InMemoryQuery extends Product with Serializable {
     import InMemoryQuery._
@@ -673,8 +674,9 @@ object ContractsService {
   )
 
   private object SearchContext {
+
     type QueryLang = SearchContext[
-      Set[domain.ContractTypeId.Resolved]
+      domain.ResolvedQuery
     ]
     type ById = SearchContext[Option[domain.ContractTypeId.OptionalPkg]]
     type Key = SearchContext[domain.ContractTypeId.Template.OptionalPkg]

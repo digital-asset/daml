@@ -331,7 +331,11 @@ package domain {
     def fromEvent(event: lav1.event.Event): Error \/ Contract[lav1.value.Value] =
       event.event match {
         case lav1.event.Event.Event.Created(created) =>
-          ActiveContract.fromLedgerApi(created).map(a => Contract[lav1.value.Value](\/-(a)))
+          // TODO Ray fixme?
+          val resolved = domain.ResolvedQuery.Empty
+          ActiveContract
+            .fromLedgerApi(resolved, created)
+            .map(a => Contract[lav1.value.Value](\/-(a)))
         case lav1.event.Event.Event.Archived(archived) =>
           ArchivedContract.fromLedgerApi(archived).map(a => Contract[lav1.value.Value](-\/(a)))
         case lav1.event.Event.Event.Empty =>
@@ -350,8 +354,11 @@ package domain {
         case head +: tail =>
           eventsById(head).kind match {
             case lav1.transaction.TreeEvent.Kind.Created(created) =>
+              // TODO Ray fixme?
               val a =
-                ActiveContract.fromLedgerApi(created).map(a => Contract[lav1.value.Value](\/-(a)))
+                ActiveContract
+                  .fromLedgerApi(domain.ResolvedQuery.Empty, created)
+                  .map(a => Contract[lav1.value.Value](\/-(a)))
               val newAcc = ^(acc, a)(_ :+ _)
               loop(tail, newAcc)
             case lav1.transaction.TreeEvent.Kind.Exercised(exercised) =>

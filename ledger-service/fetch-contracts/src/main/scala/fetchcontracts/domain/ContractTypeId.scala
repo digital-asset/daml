@@ -5,7 +5,7 @@ package com.daml.fetchcontracts.domain
 
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.lf.data.Ref
-import scalaz.{Traverse, Applicative}
+import scalaz.{-\/, Applicative, Traverse, \/, \/-}
 import scalaz.syntax.functor._
 
 /** A contract type ID that may be either a template or an interface ID.
@@ -57,6 +57,53 @@ sealed abstract class ContractTypeId[+PkgId]
     import scala.util.hashing.{MurmurHash3 => H}
     H.productHash(this, H.productSeed, ignorePrefix = true)
   }
+}
+
+object ResolvedQuery {
+  def apply(resolved: Set[ContractTypeId.Resolved]): Unsupported \/ ResolvedQuery = {
+    val (templateIds, interfaceIds) = resolved.partitionMap {
+      // TODO 'Resolved' only is non-exhaustive, which should not be the case.
+      case t: ContractTypeId.Template.Resolved =>
+        Left[ContractTypeId.Template.Resolved, ContractTypeId.Interface.Resolved](t)
+      case i: ContractTypeId.Interface.Resolved =>
+        Right[ContractTypeId.Template.Resolved, ContractTypeId.Interface.Resolved](i)
+      case unexpected => throw new Exception(s"unexpected,  ContractTypeId.Resolved is $unexpected")
+    }
+    if (templateIds.nonEmpty && interfaceIds.nonEmpty) {
+      -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
+    } else if (templateIds.isEmpty && interfaceIds.size != 1) {
+      -\/(CannotQueryManyInterfaceIds)
+    } else if (templateIds.isEmpty && interfaceIds.size == 1) {
+      \/-(ByInterfaceId(interfaceIds.head))
+    } else if (templateIds.nonEmpty) {
+      \/-(ByTemplateIds(templateIds))
+    } else {
+      -\/(CannotBeEmpty)
+    }
+  }
+  sealed trait Unsupported
+  final case object CannotQueryBothTemplateIdsAndInterfaceIds extends Unsupported
+  final case object CannotQueryManyInterfaceIds extends Unsupported
+  final case object CannotBeEmpty extends Unsupported
+
+  // TODO Ray This is a dummy, please check occurrences if this makes sense
+  final case object Empty extends ResolvedQuery {
+    def resolved = Set.empty[ContractTypeId.Resolved]
+  }
+  final case class ByTemplateIds(templateIds: Set[ContractTypeId.Template.Resolved])
+      extends ResolvedQuery {
+    def resolved: Set[ContractTypeId.Resolved] =
+      templateIds.toSet[ContractTypeId.Resolved]
+  }
+  final case class ByInterfaceId(interfaceId: ContractTypeId.Interface.Resolved)
+      extends ResolvedQuery {
+    def resolved: Set[ContractTypeId.Resolved] =
+      Set(interfaceId).toSet[ContractTypeId.Resolved]
+  }
+}
+
+sealed trait ResolvedQuery {
+  def resolved: Set[ContractTypeId.Resolved]
 }
 
 object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {

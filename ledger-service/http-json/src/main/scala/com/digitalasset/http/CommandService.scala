@@ -288,7 +288,8 @@ class CommandService(
   ): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] = {
     Transactions
       .allCreatedEvents(tx)
-      .traverse(ActiveContract.fromLedgerApi(_))
+      // TODO Ray fixme?
+      .traverse(ActiveContract.fromLedgerApi(domain.ResolvedQuery.Empty, _))
       .leftMap(e => InternalError(Some(Symbol("activeContracts")), e.shows))
   }
 
