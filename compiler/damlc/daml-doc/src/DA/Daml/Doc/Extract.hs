@@ -218,10 +218,10 @@ getInterfaceInstanceMap ctx@DocCtx{..} decls =
         ]
 
 -- | Extracts the viewtype declared for each interface.
-getInterfaceViewtypeMap :: DocCtx -> [ClsInst] -> MS.Map Typename DDoc.Type
+getInterfaceViewtypeMap :: DocCtx -> [ClsInst] -> MS.Map Typename InterfaceViewtypeDoc
 getInterfaceViewtypeMap ctx insts =
   MS.fromList
-    [ (interface, viewtype)
+    [ (interface, InterfaceViewtypeDoc viewtype)
     | ClsInst {is_dfun} <- insts
     , TypeApp _ (Typename "HasInterfaceView")
         [ TypeApp _ interface []

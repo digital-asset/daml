@@ -61,7 +61,7 @@ getTemplateDocs DocCtx{..} typeMap interfaceInstanceMap =
 getInterfaceDocs :: DocCtx
     -> MS.Map Typename ADTDoc
         -- ^ maps type names to their ADT docs
-    -> MS.Map Typename DDoc.Type
+    -> MS.Map Typename InterfaceViewtypeDoc
         -- ^ maps type names to interface viewtypes
     -> MS.Map Typename (Set.Set InterfaceInstanceDoc)
         -- ^ maps type names to the interface instances contained in their declaration.
