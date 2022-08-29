@@ -54,7 +54,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       id: UserId
   )(connection: Connection): Option[UserManagementStorageBackend.DbUserWithId] = {
     SQL"""
-       SELECT internal_id, user_id, primary_party,  created_at
+       SELECT internal_id, user_id, primary_party, created_at
        FROM participant_users
        WHERE user_id = ${id: String}
        """

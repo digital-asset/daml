@@ -436,6 +436,25 @@ trait UserManagementStoreTests extends TestResourceContext with Matchers with Ei
       }
     }
 
+    "should raise an error on resource version mismatch" in {
+      testIt { tested =>
+        val user = createdUser("user1")
+        for {
+          _ <- tested.createUser(user, Set.empty)
+          res1 <- tested.updateUser(
+            UserUpdate(
+              id = user.id,
+              metadataUpdate = ObjectMetaUpdate(
+                resourceVersionO = Some("100"),
+                annotationsUpdateO = Some(Merge.fromNonEmpty(Map("k1" -> "v1"))),
+              ),
+            )
+          )
+          _ = res1.left.value shouldBe UserManagementStore.ConcurrentUserUpdate(user.id)
+        } yield succeed
+      }
+    }
+
   }
 
 }

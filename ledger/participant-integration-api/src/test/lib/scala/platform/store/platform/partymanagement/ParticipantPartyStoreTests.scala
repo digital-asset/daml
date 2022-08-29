@@ -275,6 +275,31 @@ trait ParticipantPartyStoreTests extends TestResourceContext with Matchers with 
           } yield succeed
         }
       }
+
+      "should raise an error on resource version mismatch" in {
+        testIt { tested =>
+          val pr = createdPartyRecord("party1")
+          for {
+            _ <- tested.createPartyRecord(pr)
+            res1 <- tested.updatePartyRecord(
+              PartyRecordUpdate(
+                party = pr.party,
+                metadataUpdate = ObjectMetaUpdate(
+                  resourceVersionO = Some("100"),
+                  annotationsUpdateO = Some(Merge.fromNonEmpty(Map("k1" -> "v1"))),
+                ),
+              ),
+              ledgerPartyExists = _ =>
+                Future(
+                  fail(
+                    "Unexpected ledger party existence check while updating an existing participant party record"
+                  )
+                ),
+            )
+            _ = res1.left.value shouldBe ParticipantPartyRecordStore.ConcurrentPartyUpdate(pr.party)
+          } yield succeed
+        }
+      }
     }
   }
 

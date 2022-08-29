@@ -16,11 +16,6 @@ case class UserUpdate(
     metadataUpdate: ObjectMetaUpdate,
 )
 
-case class PartyRecordUpdate(
-    party: Ref.Party,
-    metadataUpdate: ObjectMetaUpdate,
-)
-
 sealed trait AnnotationsUpdate {
   def annotations: Map[String, String]
 }
@@ -131,4 +126,5 @@ object UserManagementStore {
   final case class UserNotFound(userId: Ref.UserId) extends Error
   final case class UserExists(userId: Ref.UserId) extends Error
   final case class TooManyUserRights(userId: Ref.UserId) extends Error
+  final case class ConcurrentUserUpdate(party: Ref.UserId) extends Error
 }

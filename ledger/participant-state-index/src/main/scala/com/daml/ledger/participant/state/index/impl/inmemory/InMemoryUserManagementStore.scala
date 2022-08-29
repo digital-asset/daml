@@ -32,7 +32,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def getUserInfo(id: UserId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserManagementStore.UserInfo]] =
-    withUser(id)(identity)
+    withUser(id)(Right(_))
 
   override def createUser(user: User, rights: Set[UserRight])(implicit
       loggingContext: LoggingContext
@@ -55,25 +55,37 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
           case AnnotationsUpdate.Merge(newAnnotations) => existingAnnotations.concat(newAnnotations)
           case AnnotationsUpdate.Replace(newAnnotations) => newAnnotations
         }
-      val newResourceVersion = (userInfo.user.metadata.resourceVersionO
+      val currentResourceVersion = userInfo.user.metadata.resourceVersionO
         // TODO um-for-hub: Use error codes
         .getOrElse(
           sys.error(
             s"Could not find resource version on user: ${userInfo.user}. All created users must have a resource version"
           )
         )
-        .toLong + 1).toString
-      val updatedUserInfo = userInfo.copy(
-        user = userInfo.user.copy(
-          primaryParty = updatedPrimaryParty,
-          metadata = ObjectMeta(
-            resourceVersionO = Some(newResourceVersion),
-            annotations = updatedAnnotations,
-          ),
+      val newResourceVersionEither = userUpdate.metadataUpdate.resourceVersionO match {
+        case None => Right((currentResourceVersion.toLong + 1).toString)
+        case Some(requestResourceVersion) =>
+          if (requestResourceVersion == currentResourceVersion) {
+            Right((currentResourceVersion.toLong + 1).toString): Result[String]
+          } else {
+            Left(UserManagementStore.ConcurrentUserUpdate(userUpdate.id))
+          }
+      }
+      for {
+        newResourceVersion <- newResourceVersionEither
+      } yield {
+        val updatedUserInfo = userInfo.copy(
+          user = userInfo.user.copy(
+            primaryParty = updatedPrimaryParty,
+            metadata = ObjectMeta(
+              resourceVersionO = Some(newResourceVersion),
+              annotations = updatedAnnotations,
+            ),
+          )
         )
-      )
-      state.update(userUpdate.id, updatedUserInfo)
-      updatedUserInfo.user
+        state.update(userUpdate.id, updatedUserInfo)
+        updatedUserInfo.user
+      }
     }
   }
 
@@ -82,7 +94,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   )(implicit loggingContext: LoggingContext): Future[Result[Unit]] =
     withUser(id) { _ =>
       state.remove(id)
-      ()
+      Right(())
     }
 
   override def grantRights(
@@ -95,7 +107,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       assert(
         replaceInfo(userInfo, userInfo.copy(rights = userInfo.rights ++ newlyGranted))
       )
-      newlyGranted
+      Right(newlyGranted)
     }
 
   override def revokeRights(
@@ -108,7 +120,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       assert(
         replaceInfo(userInfo, userInfo.copy(rights = userInfo.rights -- effectivelyRevoked))
       )
-      effectivelyRevoked
+      Right(effectivelyRevoked)
     }
 
   override def listUsers(
@@ -135,10 +147,10 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       Future.successful(t)
     )
 
-  private def withUser[T](id: Ref.UserId)(f: UserInfo => T): Future[Result[T]] =
+  private def withUser[T](id: Ref.UserId)(f: UserInfo => Result[T]): Future[Result[T]] =
     withState(
       state.get(id) match {
-        case Some(user) => Right(f(user))
+        case Some(user) => f(user)
         case None => Left(UserNotFound(id))
       }
     )

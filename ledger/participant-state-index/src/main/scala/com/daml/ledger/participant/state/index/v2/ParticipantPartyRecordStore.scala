@@ -16,6 +16,11 @@ trait LedgerPartyExists {
   def exists(party: Ref.Party): Future[Boolean]
 }
 
+case class PartyRecordUpdate(
+    party: Ref.Party,
+    metadataUpdate: ObjectMetaUpdate,
+)
+
 trait ParticipantPartyRecordStore {
   import ParticipantPartyRecordStore._
 
@@ -44,6 +49,5 @@ object ParticipantPartyRecordStore {
   final case class PartyRecordNotFound(party: Ref.Party) extends Error
   final case class PartyRecordExists(party: Ref.Party) extends Error
   final case class ConcurrentPartyUpdate(party: Ref.Party) extends Error
-  final case class ExplicitMergeUpdateWithDefaultValue(party: Ref.Party) extends Error
 
 }

@@ -27,7 +27,7 @@ import scala.concurrent.{ExecutionContext, Future}
 object InMemoryParticipantPartyRecordStore {
   case class PartyRecordInfo(
       party: Ref.Party,
-      resourceVersion: Int,
+      resourceVersion: Long,
       annotations: Map[String, String],
   )
 
@@ -54,7 +54,9 @@ class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
   override def getPartyRecord(
       party: Party
   )(implicit loggingContext: LoggingContext): Future[Result[ParticipantParty.PartyRecord]] = {
-    withState(withPartyRecord[ParticipantParty.PartyRecord](party)(toPartyRecord))
+    withState(
+      withPartyRecord[ParticipantParty.PartyRecord](party)(info => Right(toPartyRecord(info)))
+    )
   }
 
   override def createPartyRecord(
@@ -74,12 +76,13 @@ class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
     val attemptedUpdateF = withState(
       state.get(party) match {
         case Some(info) =>
-          val updatedInfo: PartyRecordInfo = doUpdatePartyRecord(
-            partyRecordUpdate = partyRecordUpdate,
-            party = party,
-            info = info,
-          )
-          Right(toPartyRecord(updatedInfo))
+          for {
+            updatedInfo <- doUpdatePartyRecord(
+              partyRecordUpdate = partyRecordUpdate,
+              party = party,
+              info = info,
+            )
+          } yield toPartyRecord(updatedInfo)
         case None =>
           throw PartyRecordNotFoundOnUpdateException
       }
@@ -102,16 +105,15 @@ class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
                     doCreatePartyRecord(newPartyRecord)
                   }
                   _ <- withPartyRecord(party) { info =>
-                    val updatedInfo: PartyRecordInfo = doUpdatePartyRecord(
+                    doUpdatePartyRecord(
                       partyRecordUpdate = partyRecordUpdate,
                       party = party,
                       info = info,
-                    )
-                    toPartyRecord(updatedInfo)
+                    ).map(toPartyRecord)
                   }
                   updatePartyRecord <- {
                     withPartyRecord(party) { updatedInfo =>
-                      toPartyRecord(updatedInfo)
+                      Right(toPartyRecord(updatedInfo))
                     }
                   }
                 } yield updatePartyRecord
@@ -133,20 +135,34 @@ class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
       partyRecordUpdate: PartyRecordUpdate,
       party: Party,
       info: PartyRecordInfo,
-  ): PartyRecordInfo = {
+  ): Result[PartyRecordInfo] = {
     val existingAnnotations = info.annotations
     val updatedAnnotations =
       partyRecordUpdate.metadataUpdate.annotationsUpdateO.fold(existingAnnotations) {
         case AnnotationsUpdate.Merge(newAnnotations) => existingAnnotations.concat(newAnnotations)
         case AnnotationsUpdate.Replace(newAnnotations) => newAnnotations
       }
-    val updatedInfo = PartyRecordInfo(
-      party = party,
-      resourceVersion = info.resourceVersion + 1,
-      annotations = updatedAnnotations,
-    )
-    state.put(party, updatedInfo)
-    updatedInfo
+    val currentResourceVersion = info.resourceVersion
+    val newResourceVersionEither = partyRecordUpdate.metadataUpdate.resourceVersionO match {
+      case None => Right(currentResourceVersion + 1)
+      case Some(requestResourceVersion) =>
+        if (requestResourceVersion == currentResourceVersion.toString) {
+          Right(currentResourceVersion + 1)
+        } else {
+          Left(ParticipantPartyRecordStore.ConcurrentPartyUpdate(partyRecordUpdate.party))
+        }
+    }
+    for {
+      newResourceVersion <- newResourceVersionEither
+    } yield {
+      val updatedInfo = PartyRecordInfo(
+        party = party,
+        resourceVersion = newResourceVersion,
+        annotations = updatedAnnotations,
+      )
+      state.put(party, updatedInfo)
+      updatedInfo
+    }
   }
 
   private def doCreatePartyRecord(
@@ -168,9 +184,9 @@ class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
 
   private def withPartyRecord[T](
       party: Ref.Party
-  )(f: InMemoryParticipantPartyRecordStore.PartyRecordInfo => T): Result[T] =
+  )(f: InMemoryParticipantPartyRecordStore.PartyRecordInfo => Result[T]): Result[T] =
     state.get(party) match {
-      case Some(partyRecord) => Right(f(partyRecord))
+      case Some(partyRecord) => f(partyRecord)
       case None => Left(PartyRecordNotFound(party))
     }
 
