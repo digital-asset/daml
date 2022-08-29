@@ -9,7 +9,9 @@ import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.User
 import com.daml.ledger.participant.state.index.v2.{UserManagementStore, UserUpdate}
+import com.daml.ledger.participant.state.index.v2.AnnotationsUpdate
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
+  ConcurrentUserUpdateDetected,
   Result,
   TooManyUserRights,
   UserExists,
@@ -23,7 +25,10 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.backend.UserManagementStorageBackend
-import com.daml.platform.usermanagement.PersistentUserManagementStore.TooManyUserRightsRuntimeException
+import com.daml.platform.usermanagement.PersistentUserManagementStore.{
+  ConcurrentUserUpdateDetectedRuntimeException,
+  TooManyUserRightsRuntimeException,
+}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -56,6 +61,9 @@ object PersistentUserManagementStore {
     * The resulting failed future will get mapped to a successful future containing scala.util.Left
     */
   final case class TooManyUserRightsRuntimeException(userId: Ref.UserId) extends RuntimeException
+
+  final case class ConcurrentUserUpdateDetectedRuntimeException(userId: Ref.UserId)
+      extends RuntimeException
 
   def cached(
       dbSupport: DbSupport,
@@ -100,7 +108,8 @@ class PersistentUserManagementStore(
     inTransaction(_.getUserInfo) { implicit connection =>
       withUser(id) { dbUser =>
         val rights = backend.getUserRights(internalId = dbUser.internalId)(connection)
-        val domainUser = toDomainUser(dbUser)
+        val annotations = backend.getUserAnnotations(internalId = dbUser.internalId)(connection)
+        val domainUser = toDomainUser(dbUser, annotations)
         UserInfo(domainUser, rights.map(_.domainRight))
       }
     }
@@ -116,9 +125,19 @@ class PersistentUserManagementStore(
         val dbUser = UserManagementStorageBackend.DbUserPayload(
           id = user.id,
           primaryPartyO = user.primaryParty,
+          isDeactivated = user.isDeactivated,
+          resourceVersion = 0,
           createdAt = now,
         )
         val internalId = backend.createUser(user = dbUser)(connection)
+        user.metadata.annotations.foreach { case (key, value) =>
+          backend.addUserAnnotation(
+            internalId = internalId,
+            key = key,
+            value = value,
+            updatedAt = now,
+          )(connection)
+        }
         rights.foreach(right =>
           backend.addUserRight(internalId = internalId, right = right, grantedAt = now)(
             connection
@@ -126,9 +145,12 @@ class PersistentUserManagementStore(
         )
         if (backend.countUserRights(internalId)(connection) > maxRightsPerUser) {
           throw TooManyUserRightsRuntimeException(user.id)
+        } else {
+          ()
         }
         toDomainUser(
-          dbUser = dbUser
+          dbUser = dbUser,
+          annotations = user.metadata.annotations,
         )
       }
     }.map(tapSuccess { _ =>
@@ -141,8 +163,74 @@ class PersistentUserManagementStore(
   override def updateUser(
       userUpdate: UserUpdate
   )(implicit loggingContext: LoggingContext): Future[Result[User]] = {
-    // TODO um-for-hub: Implement me
-    ???
+    inTransaction(_.updateUser) { implicit connection =>
+      for {
+        _ <- withUser(id = userUpdate.id) { dbUser =>
+          val now = epochMicroseconds()
+          // Step 1: Update resource version
+          // NOTE: We starts by writing to the 'resource_version' attribute
+          //       of 'participant_users' to effectively obtain an exclusive lock for
+          //       updating this user for the rest of the transaction.
+          // TODO um-for-hub: See if we can generalize some of this logic between User and PartyRecord stores
+          userUpdate.metadataUpdate.resourceVersionO match {
+            case Some(expectedResourceVersion) =>
+              if (
+                !backend.compareAndIncreaseResourceVersion(
+                  internalId = dbUser.internalId,
+                  expectedResourceVersion = expectedResourceVersion,
+                )(connection)
+              ) {
+                throw ConcurrentUserUpdateDetectedRuntimeException(
+                  userUpdate.id
+                )
+              }
+            case None =>
+              backend.increaseResourceVersion(
+                internalId = dbUser.internalId
+              )(connection)
+          }
+          // Step 2: Update annotations
+          userUpdate.metadataUpdate.annotationsUpdateO.foreach { annotationsUpdate =>
+            val updatedAnnotations = annotationsUpdate match {
+              case AnnotationsUpdate.Merge(newAnnotations) => {
+                val existingAnnotations =
+                  backend.getUserAnnotations(dbUser.internalId)(connection)
+                existingAnnotations.concat(newAnnotations)
+              }
+              case AnnotationsUpdate.Replace(newAnnotations) => newAnnotations
+            }
+            backend.deleteUserAnnotations(internalId = dbUser.internalId)(connection)
+            updatedAnnotations.iterator.foreach { case (key, value) =>
+              backend.addUserAnnotation(
+                internalId = dbUser.internalId,
+                key = key,
+                value = value,
+                updatedAt = now,
+              )(connection)
+            }
+          }
+          // update is_deactivated
+          userUpdate.isDeactivatedUpdateO.foreach { newValue =>
+            backend.updateUserIsDeactivated(
+              internalId = dbUser.internalId,
+              isDeactivated = newValue,
+            )(connection)
+          }
+          // update primary_party
+          userUpdate.primaryPartyUpdateO.foreach { newValue =>
+            backend.updateUserPrimaryParty(
+              internalId = dbUser.internalId,
+              primaryPartyO = newValue,
+            )(connection)
+          }
+        }
+        domainUser <- withUser(id = userUpdate.id) { dbUserAfterUpdates =>
+          val annotations =
+            backend.getUserAnnotations(internalId = dbUserAfterUpdates.internalId)(connection)
+          toDomainUser(dbUser = dbUserAfterUpdates, annotations = annotations)
+        }
+      } yield domainUser
+    }
   }
 
   override def deleteUser(
@@ -221,7 +309,10 @@ class PersistentUserManagementStore(
         case None => backend.getUsersOrderedById(None, maxResults)(connection)
         case Some(fromExcl) => backend.getUsersOrderedById(Some(fromExcl), maxResults)(connection)
       }
-      val users = dbUsers.map(toDomainUser)
+      val users = dbUsers.map { dbUser =>
+        val annotations = backend.getUserAnnotations(dbUser.internalId)(connection)
+        toDomainUser(dbUser = dbUser, annotations = annotations)
+      }
       Right(UsersPage(users = users))
     }
   }
@@ -231,26 +322,36 @@ class PersistentUserManagementStore(
   )(thunk: Connection => Result[T])(implicit loggingContext: LoggingContext): Future[Result[T]] = {
     dbDispatcher
       .executeSql(dbMetric(metrics.daml.userManagement))(thunk)
-      .recover { case TooManyUserRightsRuntimeException(userId) =>
-        Left(TooManyUserRights(userId))
+      .recover[Result[T]] {
+        case TooManyUserRightsRuntimeException(userId) => Left(TooManyUserRights(userId))
+        case ConcurrentUserUpdateDetectedRuntimeException(userId) =>
+          Left(ConcurrentUserUpdateDetected(userId))
       }(ExecutionContext.parasitic)
   }
 
   private def toDomainUser(
-      dbUser: UserManagementStorageBackend.DbUserWithId
+      dbUser: UserManagementStorageBackend.DbUserWithId,
+      annotations: Map[String, String],
   ): domain.User = {
     toDomainUser(
-      dbUser = dbUser.payload
+      dbUser = dbUser.payload,
+      annotations = annotations,
     )
   }
 
   private def toDomainUser(
-      dbUser: UserManagementStorageBackend.DbUserPayload
+      dbUser: UserManagementStorageBackend.DbUserPayload,
+      annotations: Map[String, String],
   ): domain.User = {
     val payload = dbUser
     domain.User(
       id = payload.id,
       primaryParty = payload.primaryPartyO,
+      isDeactivated = payload.isDeactivated,
+      metadata = domain.ObjectMeta(
+        resourceVersionO = Some(payload.resourceVersion),
+        annotations = annotations,
+      ),
     )
   }
 

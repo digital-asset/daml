@@ -32,4 +32,8 @@ trait CommonStorageBackendFactory extends StorageBackendFactory {
     MeteringStorageBackendWriteTemplate
   }
 
+  // TODO pbatko: Is this needed?
+  override def createPartyRecordStorageBackend: PartyRecordStorageBackend =
+    new PartyRecordStorageBackendTemplate()
+
 }

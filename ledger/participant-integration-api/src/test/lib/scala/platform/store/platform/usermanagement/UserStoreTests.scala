@@ -15,21 +15,16 @@ import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
   UserNotFound,
   UsersPage,
 }
-import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Party, UserId}
 import com.daml.logging.LoggingContext
 import org.scalatest.freespec.AsyncFreeSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{Assertion, EitherValues}
 
 import scala.language.implicitConversions
-import scala.concurrent.Future
 
 /** Common tests for implementations of [[UserManagementStore]]
   */
-trait UserManagementStoreTests extends TestResourceContext with Matchers with EitherValues {
-  self: AsyncFreeSpec =>
+trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
 
   implicit val lc: LoggingContext = LoggingContext.ForTesting
 
@@ -38,8 +33,6 @@ trait UserManagementStoreTests extends TestResourceContext with Matchers with Ei
 
   private implicit def toUserId(s: String): UserId =
     UserId.assertFromString(s)
-
-  def testIt(f: UserManagementStore => Future[Assertion]): Future[Assertion]
 
   def newUser(name: String, annotations: Map[String, String] = Map.empty): User = User(
     id = name,
@@ -53,7 +46,7 @@ trait UserManagementStoreTests extends TestResourceContext with Matchers with Ei
 
   def createdUser(
       name: String,
-      resourceVersion: String = "0",
+      resourceVersion: Long = 0,
       annotations: Map[String, String] = Map.empty,
   ): User =
     User(
@@ -372,7 +365,7 @@ trait UserManagementStoreTests extends TestResourceContext with Matchers with Ei
           )
           _ = update1.value shouldBe createdUser(
             "user1",
-            resourceVersion = "1",
+            resourceVersion = 1,
             annotations = Map("k1" -> "v1b", "k2" -> "v2", "k3" -> "v3"),
           )
           // second update: with replace annotations semantics
@@ -394,7 +387,7 @@ trait UserManagementStoreTests extends TestResourceContext with Matchers with Ei
           )
           _ = update2.value shouldBe createdUser(
             "user1",
-            resourceVersion = "2",
+            resourceVersion = 2,
             annotations = Map("k1" -> "v1c", "k4" -> "v4"),
           )
           // third update: with replace annotations semantics - effectively deleting all annotations
@@ -409,7 +402,7 @@ trait UserManagementStoreTests extends TestResourceContext with Matchers with Ei
           )
           _ = update3.value shouldBe createdUser(
             "user1",
-            resourceVersion = "3",
+            resourceVersion = 3,
             annotations = Map.empty,
           )
         } yield {

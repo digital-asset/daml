@@ -16,6 +16,7 @@ trait StorageBackendFactory {
   def createMeteringParameterStorageBackend: MeteringParameterStorageBackend
   def createConfigurationStorageBackend(ledgerEndCache: LedgerEndCache): ConfigurationStorageBackend
   def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend
+  def createPartyRecordStorageBackend: PartyRecordStorageBackend
   def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend
   def createCompletionStorageBackend(stringInterning: StringInterning): CompletionStorageBackend
   def createContractStorageBackend(

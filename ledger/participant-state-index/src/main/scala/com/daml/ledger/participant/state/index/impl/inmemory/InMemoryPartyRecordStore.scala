@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.index.impl.inmemory
 
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{ObjectMeta, ParticipantParty}
-import com.daml.ledger.participant.state.index.v2.ParticipantPartyRecordStore.{
+import com.daml.ledger.participant.state.index.v2.PartyRecordStore.{
   PartyRecordExists,
   PartyRecordNotFound,
   PartyRecordNotFoundOnUpdateException,
@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.index.v2.ParticipantPartyRecordStore.{
 import com.daml.ledger.participant.state.index.v2.{
   AnnotationsUpdate,
   LedgerPartyExists,
-  ParticipantPartyRecordStore,
+  PartyRecordStore,
   PartyRecordUpdate,
 }
 import com.daml.lf.data.Ref
@@ -24,10 +24,10 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-object InMemoryParticipantPartyRecordStore {
+object InMemoryPartyRecordStore {
   case class PartyRecordInfo(
       party: Ref.Party,
-      resourceVersion: Int,
+      resourceVersion: Long,
       annotations: Map[String, String],
   )
 
@@ -35,16 +35,15 @@ object InMemoryParticipantPartyRecordStore {
     ParticipantParty.PartyRecord(
       party = info.party,
       metadata = ObjectMeta(
-        resourceVersionO = Some(info.resourceVersion.toString),
+        resourceVersionO = Some(info.resourceVersion),
         annotations = info.annotations,
       ),
     )
 
 }
 
-class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
-    extends ParticipantPartyRecordStore {
-  import InMemoryParticipantPartyRecordStore._
+class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends PartyRecordStore {
+  import InMemoryPartyRecordStore._
 
   implicit private val ec: ExecutionContext = executionContext
   private val logger = ContextualizedLogger.get(getClass)
@@ -66,6 +65,7 @@ class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
     })
   }
 
+  // TODO um-for-hub: Add a conformance test exercising a race conditions: multiple update on the same non-existing party-record (which exists on the ledger and is indexed by this participant) calls
   override def updatePartyRecord(
       partyRecordUpdate: PartyRecordUpdate,
       ledgerPartyExists: LedgerPartyExists,
@@ -122,7 +122,7 @@ class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
               })(scala.concurrent.ExecutionContext.parasitic)
             } else {
               Future.successful(
-                Left(ParticipantPartyRecordStore.PartyNotFound(party))
+                Left(PartyRecordStore.PartyNotFound(party))
               )
             }
         } yield createdPartyRecord
@@ -168,7 +168,7 @@ class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
 
   private def withPartyRecord[T](
       party: Ref.Party
-  )(f: InMemoryParticipantPartyRecordStore.PartyRecordInfo => T): Result[T] =
+  )(f: InMemoryPartyRecordStore.PartyRecordInfo => T): Result[T] =
     state.get(party) match {
       case Some(partyRecord) => Right(f(partyRecord))
       case None => Left(PartyRecordNotFound(party))

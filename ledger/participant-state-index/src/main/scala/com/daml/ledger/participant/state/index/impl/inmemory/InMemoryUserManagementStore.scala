@@ -39,7 +39,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   ): Future[Result[User]] =
     withoutUser(user.id) {
       val userWithResourceVersion =
-        user.copy(metadata = user.metadata.copy(resourceVersionO = Some("0")))
+        user.copy(metadata = user.metadata.copy(resourceVersionO = Some(0)))
       state.update(user.id, UserInfo(userWithResourceVersion, rights))
       userWithResourceVersion
     }
@@ -55,14 +55,13 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
           case AnnotationsUpdate.Merge(newAnnotations) => existingAnnotations.concat(newAnnotations)
           case AnnotationsUpdate.Replace(newAnnotations) => newAnnotations
         }
-      val newResourceVersion = (userInfo.user.metadata.resourceVersionO
+      val newResourceVersion = 1L + userInfo.user.metadata.resourceVersionO
         // TODO um-for-hub: Use error codes
         .getOrElse(
           sys.error(
             s"Could not find resource version on user: ${userInfo.user}. All created users must have a resource version"
           )
         )
-        .toLong + 1).toString
       val updatedUserInfo = userInfo.copy(
         user = userInfo.user.copy(
           primaryParty = updatedPrimaryParty,

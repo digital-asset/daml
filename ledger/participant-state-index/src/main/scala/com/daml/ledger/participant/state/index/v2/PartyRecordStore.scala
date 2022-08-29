@@ -16,8 +16,8 @@ trait LedgerPartyExists {
   def exists(party: Ref.Party): Future[Boolean]
 }
 
-trait ParticipantPartyRecordStore {
-  import ParticipantPartyRecordStore._
+trait PartyRecordStore {
+  import PartyRecordStore._
 
   def createPartyRecord(partyRecord: domain.ParticipantParty.PartyRecord)(implicit
       loggingContext: LoggingContext
@@ -33,9 +33,12 @@ trait ParticipantPartyRecordStore {
 
 }
 
-object ParticipantPartyRecordStore {
+object PartyRecordStore {
   type Result[T] = Either[Error, T]
 
+  /** Represents an edge case where a participant server submits a party allocation command
+    * but crashes before it had a chance to create a corresponding party-record (upon the successful party allocation).
+    */
   final case object PartyRecordNotFoundOnUpdateException extends RuntimeException
 
   sealed trait Error extends RuntimeException

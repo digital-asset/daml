@@ -51,7 +51,7 @@ object AnnotationsUpdate {
 }
 
 case class ObjectMetaUpdate(
-    resourceVersionO: Option[String],
+    resourceVersionO: Option[Long],
     annotationsUpdateO: Option[AnnotationsUpdate],
 )
 object ObjectMetaUpdate {
@@ -131,4 +131,5 @@ object UserManagementStore {
   final case class UserNotFound(userId: Ref.UserId) extends Error
   final case class UserExists(userId: Ref.UserId) extends Error
   final case class TooManyUserRights(userId: Ref.UserId) extends Error
+  final case class ConcurrentUserUpdateDetected(userId: Ref.UserId) extends Error
 }

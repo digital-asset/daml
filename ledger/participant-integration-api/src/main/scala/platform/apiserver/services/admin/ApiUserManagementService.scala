@@ -200,6 +200,14 @@ private[apiserver] final class ApiUserManagementService(
             .asGrpcError
         )
 
+      case Left(e @ UserManagementStore.ConcurrentUserUpdateDetected(_)) =>
+        Future.failed(
+          // TODO um-for-hub: Change the error code when the update rpc is implemented
+          LedgerApiErrors.UnsupportedOperation
+            .Reject(s"Unexpected $e. Update user RPC is not implemented yet")
+            .asGrpcError
+        )
+
       case scala.util.Right(t) =>
         Future.successful(t)
     }
