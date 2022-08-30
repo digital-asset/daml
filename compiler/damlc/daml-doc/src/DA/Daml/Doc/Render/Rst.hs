@@ -113,7 +113,7 @@ header headerChar title =
     ]
 
 renderRstFields :: RenderEnv -> [(RenderText, RenderText, RenderText)] -> [T.Text]
-renderRstFields _ []  = mempty
+renderRstFields _ []  = ["(no fields)"]
 renderRstFields env fields = concat
     [ [ ".. list-table::"
       , "   :widths: 15 10 30"
