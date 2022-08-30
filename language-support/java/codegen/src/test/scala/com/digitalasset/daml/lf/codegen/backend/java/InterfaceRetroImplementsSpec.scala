@@ -16,7 +16,7 @@ final class InterfaceRetroImplementsSpec extends AnyWordSpec with Matchers {
       val contractViaInterface: InterfaceRetro.ContractId = contractId.toInterface(InterfaceRetro.INTERFACE)
       val cmd = contractViaInterface.exerciseTransfer("newOwner")
       cmd.getContractId shouldEqual contractId.contractId
-      cmd.getTemplateId shouldEqual "failed"
+      cmd.getTemplateId shouldEqual InterfaceRetro.TEMPLATE_ID
     }
   }
 }
