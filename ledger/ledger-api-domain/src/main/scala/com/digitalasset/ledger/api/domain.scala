@@ -398,10 +398,35 @@ object domain {
       value => value.unwrap
   }
 
+  final case class ObjectMeta(
+      resourceVersionO: Option[String],
+      annotations: Map[String, String],
+  )
+
+  object ObjectMeta {
+    def empty: ObjectMeta = ObjectMeta(
+      resourceVersionO = None,
+      annotations = Map.empty,
+    )
+  }
+
   final case class User(
       id: Ref.UserId,
       primaryParty: Option[Ref.Party],
+      // TODO um-for-hub: Remove default values
+      // NOTE: Do not set 'isDeactivated' and 'metadata'. These are work-in-progress features.
+      isDeactivated: Boolean = false,
+      metadata: ObjectMeta = ObjectMeta.empty,
   )
+
+  object ParticipantParty {
+
+    final case class PartyRecord(
+        party: Ref.Party,
+        metadata: ObjectMeta,
+    )
+
+  }
 
   sealed abstract class UserRight extends Product with Serializable
   object UserRight {

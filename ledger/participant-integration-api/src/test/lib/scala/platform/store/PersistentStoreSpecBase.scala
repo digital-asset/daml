@@ -39,6 +39,7 @@ trait PersistentStoreSpecBase
   private val thisSimpleName = getClass.getSimpleName
 
   protected var dbSupport: DbSupport = _
+  protected var dbSupportResource: Resource[ResourceContext, DbSupport] = _
 
   // Each test should start with an empty database to allow testing low-level behavior
   // However, creating a fresh database for each test would be too expensive.
@@ -65,6 +66,11 @@ trait PersistentStoreSpecBase
     super.afterEach()
   }
 
+  override protected def afterAll(): Unit = {
+    Await.ready(dbSupportResource.release(), 10.seconds)
+    super.afterAll()
+  }
+
   override protected def beforeAll(): Unit = {
     super.beforeAll()
     implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(
@@ -73,7 +79,7 @@ trait PersistentStoreSpecBase
       )
     )
     implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
-    val dbSupportResource: Resource[ResourceContext, DbSupport] = DbSupport
+    dbSupportResource = DbSupport
       .owner(
         dbConfig = DbConfig(
           jdbcUrl,

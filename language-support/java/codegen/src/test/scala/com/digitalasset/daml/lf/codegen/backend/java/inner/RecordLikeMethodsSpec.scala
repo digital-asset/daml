@@ -6,7 +6,7 @@ package com.daml.lf.codegen.backend.java.inner
 import com.daml.ledger.javaapi
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
-import com.daml.lf.iface.{PrimTypeBool, TypePrim}
+import com.daml.lf.typesig.{PrimTypeBool, TypePrim}
 import com.squareup.javapoet._
 import javax.lang.model.element.Modifier
 import org.scalatest.{OptionValues, TryValues}

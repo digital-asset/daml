@@ -3,7 +3,7 @@
 
 package com.daml.lf.codegen.dependencygraph
 
-import com.daml.lf.iface.{DefTemplate, DefInterface, DefDataType, Record}
+import com.daml.lf.typesig.{DefTemplate, DefInterface, DefDataType, Record}
 
 sealed abstract class NodeType extends Product with Serializable
 

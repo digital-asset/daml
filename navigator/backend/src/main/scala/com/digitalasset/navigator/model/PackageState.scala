@@ -4,7 +4,7 @@
 package com.daml.navigator.model
 
 import com.daml.lf.data.Ref
-import com.daml.lf.iface
+import com.daml.lf.typesig
 
 import scala.collection.immutable.Map
 
@@ -21,20 +21,20 @@ final case class PackageState(packages: PackageState.PackageStore) {
     def lookupIf(packageStore: PackageStore, pkId: Ref.PackageId) =
       packageStore
         .get(pkId)
-        .map((_, { newSig: iface.Interface => packageStore.updated(pkId, newSig) }))
+        .map((_, { newSig: typesig.PackageSignature => packageStore.updated(pkId, newSig) }))
 
     val (packageStore2, diffElems) =
-      iface.Interface.resolveRetroImplements(packages, diff.values.toSeq)(lookupIf)
+      typesig.PackageSignature.resolveRetroImplements(packages, diff.values.toSeq)(lookupIf)
     packageStore2 ++ diffElems.view.map(p => (p.packageId, p))
   }
 
   private[this] def resolveChoicesIn(diff: PackageStore): PackageStore = {
     def lookupIf(pkgId: Ref.PackageId) = (packages get pkgId) orElse (diff get pkgId)
-    val findIface = iface.Interface.findAstInterface(Function unlift lookupIf)
+    val findIface = typesig.PackageSignature.findInterface(Function unlift lookupIf)
     diff.transform((_, iface) => iface resolveChoicesAndFailOnUnresolvableChoices findIface)
   }
 }
 
 object PackageState {
-  type PackageStore = Map[String, iface.Interface]
+  type PackageStore = Map[String, typesig.PackageSignature]
 }

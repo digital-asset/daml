@@ -128,9 +128,12 @@ data InterfaceDoc = InterfaceDoc
   , if_methods :: [MethodDoc]
   , if_descr :: Maybe DocText
   , if_interfaceInstances :: [InterfaceInstanceDoc]
-  , if_viewtype :: Type
+  , if_viewtype :: Maybe InterfaceViewtypeDoc
   }
   deriving (Eq, Show, Generic)
+
+newtype InterfaceViewtypeDoc = InterfaceViewtypeDoc Type
+  deriving (Eq, Ord, Show, Generic)
 
 data InterfaceInstanceDoc = InterfaceInstanceDoc
   { ii_interface :: Type
@@ -351,6 +354,12 @@ instance ToJSON InterfaceDoc where
     toJSON = genericToJSON aesonOptions
 
 instance FromJSON InterfaceDoc where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON InterfaceViewtypeDoc where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON InterfaceViewtypeDoc where
     parseJSON = genericParseJSON aesonOptions
 
 instance ToJSON MethodDoc where

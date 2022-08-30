@@ -8,7 +8,7 @@ import com.daml.lf.typesig.{DefDataType, Record, TypeCon}
 import com.daml.lf.typesig.PackageSignature.TypeDecl
 
 import java.util.Optional
-import com.daml.lf.iface._
+import com.daml.lf.typesig._
 import com.squareup.javapoet._
 import com.daml.ledger.javaapi
 

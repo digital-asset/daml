@@ -8,7 +8,7 @@ import java.io.File
 import com.daml.lf.codegen.lf.LFUtil
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref, Ref.{Identifier, QualifiedName}
-import com.daml.lf.iface
+import com.daml.lf.typesig
 import com.typesafe.scalalogging.Logger
 import scalaz.syntax.std.option._
 
@@ -101,7 +101,7 @@ object DamlContractTemplateGen {
 
   private[lf] def genChoiceImplicitClass(
       util: LFUtil
-  )(templateName: util.DamlScalaName, choices: Map[Ref.ChoiceName, iface.TemplateChoice.FWT]) = {
+  )(templateName: util.DamlScalaName, choices: Map[Ref.ChoiceName, typesig.TemplateChoice.FWT]) = {
     val templateChoiceMethods = choices.flatMap { case (id, interface) =>
       util.genTemplateChoiceMethods(
         templateType = tq"${TypeName(templateName.name)}",

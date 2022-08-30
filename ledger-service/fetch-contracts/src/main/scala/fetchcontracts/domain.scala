@@ -82,7 +82,7 @@ package domain {
 
   final case class ActiveContract[+LfV](
       contractId: ContractId,
-      templateId: TemplateId.RequiredPkg,
+      templateId: ContractTypeId.Resolved,
       key: Option[LfV],
       payload: LfV,
       signatories: Seq[Party],
@@ -107,7 +107,7 @@ package domain {
         payload <- in.createArguments required "createArguments"
       } yield ActiveContract(
         contractId = ContractId(in.contractId),
-        templateId = TemplateId fromLedgerApi templateId,
+        templateId = ContractTypeId.Template fromLedgerApi templateId,
         key = in.contractKey,
         payload = boxedRecord(payload),
         signatories = Party.subst(in.signatories),

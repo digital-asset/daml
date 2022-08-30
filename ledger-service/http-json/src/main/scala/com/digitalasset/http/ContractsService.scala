@@ -207,7 +207,7 @@ class ContractsService(
               resolveContractTypeId(jwt, ledgerId)(x)
                 .map(_.toOption.flatten.map(Set(_))),
             // ignoring interface IDs for all-templates query
-            allTemplateIds(lc)(jwt, ledgerId).map(_.toSet[domain.ContractTypeId.RequiredPkg].some),
+            allTemplateIds(lc)(jwt, ledgerId).map(_.toSet[domain.ContractTypeId.Resolved].some),
           )
         )
 
@@ -235,7 +235,7 @@ class ContractsService(
         jwt,
         ledgerId,
         parties,
-        templateIds.toSet[ContractTypeId.Resolved], // TODO #14067 remove toSet
+        templateIds.toSet[ContractTypeId.Resolved], // TODO #14727 remove toSet
         InMemoryQuery.Params(queryParams),
       )
     }
@@ -460,7 +460,7 @@ class ContractsService(
 
         private[this] def searchDbOneTpId_(
             parties: domain.PartySet,
-            templateId: domain.TemplateId.RequiredPkg,
+            templateId: domain.ContractTypeId.Resolved,
             queryParams: Map[String, JsValue],
         )(implicit
             lc: LoggingContextOf[InstanceUUID]
@@ -475,7 +475,7 @@ class ContractsService(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: Set[domain.TemplateId.RequiredPkg],
+      templateIds: Set[domain.TemplateId.Resolved],
       queryParams: InMemoryQuery,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
@@ -517,7 +517,7 @@ class ContractsService(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.TemplateId.Resolved,
       queryParams: InMemoryQuery.P,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
@@ -562,7 +562,7 @@ class ContractsService(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: List[domain.ContractTypeId.RequiredPkg],
+      templateIds: List[domain.ContractTypeId.Resolved],
       startOffset: Option[domain.StartingOffset] = None,
       terminates: Terminates = Terminates.AtLedgerEnd,
   )(implicit
@@ -654,7 +654,7 @@ object ContractsService {
   )
 
   private object SearchContext {
-    type QueryLang = SearchContext[Set[domain.ContractTypeId.Template.RequiredPkg]]
+    type QueryLang = SearchContext[Set[domain.ContractTypeId.Template.Resolved]]
     type ById = SearchContext[Option[domain.ContractTypeId.OptionalPkg]]
     type Key = SearchContext[domain.ContractTypeId.Template.OptionalPkg]
   }
