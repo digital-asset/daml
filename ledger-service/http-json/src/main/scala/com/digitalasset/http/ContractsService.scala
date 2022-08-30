@@ -210,8 +210,13 @@ class ContractsService(
             allTemplateIds(lc)(jwt, ledgerId).map(_.toSet[domain.ContractTypeId.Resolved].some),
           )
         )
-        resolvedQuery <- OptionT(Future.successful(domain
-              .ResolvedQuery(resolvedTemplateIds).toOption))
+        resolvedQuery <- OptionT(
+          Future.successful(
+            domain
+              .ResolvedQuery(resolvedTemplateIds)
+              .toOption
+          )
+        )
         result <- OptionT(
           searchInMemory(
             jwt,
