@@ -311,7 +311,10 @@ renderTest format externalAnchors (name, input) expected =
                  Html -> error "HTML testing not supported (use Markdown)"
     output = T.strip $ renderer input
     expect = T.strip expected
+  compareRendered output expect
 
+compareRendered :: T.Text -> T.Text -> IO ()
+compareRendered output expect = do
   unless (output == expect) $ do
     T.putStrLn $ T.unlines
       [ "Output differs from expectation:"
