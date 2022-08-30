@@ -89,7 +89,11 @@ interface RI4I extends FromTemplate<RI4, T & U> {
 type IChoice4 = {};
 const RI4: Template<RI4, undefined, "retro"> & RI4I = null as never;
 
-type U = { quux: Int };
+type U = { baz: Text };
+
+type V = { baz: Text[] };
+interface VI extends ToInterface<V, never>{}
+const V: Template<V, undefined, "v"> & VI = null as never;
 
 function myCreate<T extends object, K>(tpl: Template<T, K, string>, t: T) {}
 
@@ -102,6 +106,7 @@ function myExercise<T extends object, C, R, K>(
 function widenCid(
   cidT: ContractId<T>,
   cidU: ContractId<U>,
+  cidV: ContractId<V>,
   cidI1: ContractId<I1>,
   cidI3: ContractId<I3>,
   cidI4: ContractId<RI4>,
@@ -116,6 +121,7 @@ function widenCid(
   // const cidTAsI = T.toInterface(cidT); // did infer ContractId<I1 | I2>, but fixed by redesign
   const cidTAsI4 = T.toInterface(RI4, cidT); // infers ContractId<RI4>
   const cidTAsI3 = T.toInterface(I3, cidT); // disallowed correctly
+  const cidVAsI4 = V.toInterface(RI4, cidV); // disallowed correctly
   myExercise(I1.IChoice, T.toInterface(I1, cidT), {}); // allowed
   myExercise(I1.IChoice, cidU, {}); // disallowed
   myExercise(I1.IChoice, cidI1, {}); // allowed
