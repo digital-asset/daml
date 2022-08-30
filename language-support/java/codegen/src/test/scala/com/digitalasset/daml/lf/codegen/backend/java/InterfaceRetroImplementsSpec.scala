@@ -13,7 +13,8 @@ final class InterfaceRetroImplementsSpec extends AnyWordSpec with Matchers {
   "TemplateRetro.ContractId where `TemplateRetro` is implementing `InterfaceRetro` retroactively" should {
     "be able to convert to a interface id of `InterfaceRetro`" in {
       val contractId = new TemplateRetro.ContractId("SomeID")
-      val contractViaInterface: InterfaceRetro.ContractId = contractId.toInterface(InterfaceRetro.INTERFACE)
+      val contractViaInterface: InterfaceRetro.ContractId =
+        contractId.toInterface(InterfaceRetro.INTERFACE)
       val cmd = contractViaInterface.exerciseTransfer("newOwner")
       cmd.getContractId shouldEqual contractId.contractId
       cmd.getTemplateId shouldEqual InterfaceRetro.TEMPLATE_ID
