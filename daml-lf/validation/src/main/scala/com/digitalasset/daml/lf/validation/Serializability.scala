@@ -191,12 +191,7 @@ private[validation] object Serializability {
       Env(flags, pkgInterface, context, SRChoiceRes, choice.returnType).checkType()
     }
 
-    try {
-      Env(flags, pkgInterface, context, SRChoiceRes, defInterface.view).checkType()
-    } catch {
-      case _: ValidationError =>
-        throw EViewNotSerializable(context, tyCon.tycon, defInterface.view);
-    }
+    Env(flags, pkgInterface, context, SRView, defInterface.view).checkType()
   }
 
   def checkModule(pkgInterface: PackageInterface, pkgId: PackageId, module: Module): Unit = {

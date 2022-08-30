@@ -57,7 +57,7 @@ data SerializabilityRequirement
   | SRKey
   | SRDataType
   | SRExceptionArg
-  | SRViewType
+  | SRView
 
 -- | Reason why a type is not serializable.
 data UnserializabilityReason
@@ -126,6 +126,7 @@ data Error
   | EExpectedDataType      !Type
   | EExpectedListType      !Type
   | EExpectedOptionalType  !Type
+  | EExpectedViewType !Type
   | EEmptyCase
   | EClashingPatternVariables !ExprVarName
   | EExpectedTemplatableType !TypeConName
@@ -155,7 +156,6 @@ data Error
   | EUnknownMethodInInterfaceInstance !MethodName
   | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
   | EUnknownExperimental !T.Text !Type
-  | EViewNotSerializable !TypeConName !Type
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -215,7 +215,7 @@ instance Pretty SerializabilityRequirement where
     SRDataType -> "serializable data type"
     SRKey -> "template key"
     SRExceptionArg -> "exception argument"
-    SRViewType -> "view type"
+    SRView -> "view"
 
 instance Pretty UnserializabilityReason where
   pPrint = \case
@@ -385,6 +385,8 @@ instance Pretty Error where
       "tried to perform key lookup or fetch on template " <> pretty tpl
     EExpectedOptionalType typ -> do
       "expected list type, but found: " <> pretty typ
+    EExpectedViewType typ -> do
+      "expected monomorphic record type in view type, but found:" <> pretty typ  
     EUnsupportedFeature Feature{..} ->
       "unsupported feature:" <-> pretty featureName
       <-> "only supported in Daml-LF version" <-> pretty featureMinVersion <-> "and later"
@@ -444,8 +446,6 @@ instance Pretty Error where
       "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
     EUnknownExperimental name ty ->
       "Unknown experimental primitive " <> string (show name) <> " : " <> pretty ty
-    EViewNotSerializable name ty ->
-      "Interface " <> pretty name <> " has a view method which returns a non-serializable type " <> pretty ty
 
 instance Pretty Context where
   pPrint = \case

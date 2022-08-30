@@ -1382,6 +1382,8 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         p"""
           module Mod {
             record @serializable MyUnit = {};
+            record @serializable Box a = {x: a};
+            enum Color = Red | Green | Blue;
           }
 
           module NegativeTestCase {
@@ -1558,6 +1560,24 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             };
           }
 
+          module PositiveTestCase_ViewtypeIsNotUserDefined {
+            interface (this : X) = {
+              viewtype Unit;
+            };
+          }
+
+          module PositiveTestCase_ViewtypeIsNotARecord {
+            interface (this : X) = {
+              viewtype Mod:Color;
+            };
+          }
+
+           module PositiveTestCase_ViewtypeIsNotMonomorphic {
+            interface (this : X) = {
+              viewtype Mod:Box;
+            };
+          }
+
           module CoImplementsBase {
             interface (this: Root) = {
               viewtype Mod:MyUnit;
@@ -1705,6 +1725,13 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         "PositiveTestCase_ChoiceResultTypeShouldBeStar",
       )
 
+      val notViewTypeCases = Table(
+        "moduleName",
+        "PositiveTestCase_ViewtypeIsNotUserDefined",
+        "PositiveTestCase_ViewtypeIsNotARecord",
+        "PositiveTestCase_ViewtypeIsNotMonomorphic",
+      )
+
       val pkgInterface = PackageInterface(Map(defaultPackageId -> pkg))
 
       def checkModule(pkg: Package, modName: String) =
@@ -1742,6 +1769,9 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       )
       an[ENotClosedInterfaceRequires] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_NotClosedInterfaceRequires")
+      )
+      forEvery(notViewTypeCases)(module =>
+        an[EExpectedViewType] shouldBe thrownBy(checkModule(pkg, module))
       )
       an[EMissingRequiredInterfaceInstance] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_CoImplementsMissingRequiredInterface")

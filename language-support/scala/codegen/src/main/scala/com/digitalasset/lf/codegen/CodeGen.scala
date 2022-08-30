@@ -7,15 +7,15 @@ import java.io._
 
 import com.daml.lf.codegen.types.Namespace
 import com.daml.lf.archive.{ArchivePayload, Dar, UniversalArchiveReader}
-import com.daml.lf.iface
 import com.daml.lf.data.Ref
-import com.daml.lf.iface.{Type => _, _}
-import com.daml.lf.iface.reader.{Errors, InterfaceReader}
+import com.daml.lf.typesig
+import typesig.{Type => _, reader => _, _}
+import typesig.reader.{Errors, SignatureReader}
+import Errors.ErrorLoc
 import com.daml.lf.codegen.dependencygraph._
 import com.daml.lf.codegen.exception.PackageInterfaceException
 import lf.{LFUtil, ScopedDataType}
 import com.daml.lf.data.Ref._
-import com.daml.lf.iface.reader.Errors.ErrorLoc
 import com.typesafe.scalalogging.Logger
 import scalaz.{Enum => _, _}
 import scalaz.std.tuple._
@@ -73,7 +73,7 @@ object CodeGen {
       outputDir: File,
       roots: Seq[String],
   ): ValidationNel[String, Unit] =
-    decodeInterfaces(files).map { interfaces: NonEmptyList[EnvironmentInterface] =>
+    decodeInterfaces(files).map { interfaces: NonEmptyList[EnvironmentSignature] =>
       val combined = interfaces.suml1.resolveRetroImplements
       val interface = combined.copy(
         typeDecls = Util.filterTemplatesBy(roots.map(_.r))(combined.typeDecls)
@@ -83,7 +83,7 @@ object CodeGen {
 
   private def decodeInterfaces(
       files: NonEmptyList[File]
-  ): ValidationNel[String, NonEmptyList[EnvironmentInterface]] = {
+  ): ValidationNel[String, NonEmptyList[EnvironmentSignature]] = {
     files.traverse(f => decodeInterface(parseFile(_))(f).validationNel)
   }
 
@@ -97,36 +97,36 @@ object CodeGen {
 
   private def decodeInterface(parse: File => String \/ Dar[ArchivePayload])(
       file: File
-  ): String \/ EnvironmentInterface =
+  ): String \/ EnvironmentSignature =
     parse(file).flatMap(decodeInterface)
 
-  private def decodeInterface(dar: Dar[ArchivePayload]): String \/ EnvironmentInterface = {
+  private def decodeInterface(dar: Dar[ArchivePayload]): String \/ EnvironmentSignature = {
     import scalaz.syntax.traverse._
     dar.traverse(decodeInterface).map(combineInterfaces)
   }
 
-  private def decodeInterface(p: ArchivePayload): String \/ Interface =
+  private def decodeInterface(p: ArchivePayload): String \/ PackageSignature =
     \/.attempt {
       logger.info(s"decoding archive with Package ID: ${p.pkgId}")
-      val (errors, out) = Interface.read(p)
+      val (errors, out) = PackageSignature.read(p)
       (if (!errors.empty) {
          -\/(formatDecodeErrors(p.pkgId, errors))
-       } else \/-(out)): String \/ Interface
+       } else \/-(out)): String \/ PackageSignature
     }(_.getLocalizedMessage).join
 
   private def formatDecodeErrors(
       packageId: PackageId,
-      errors: Errors[ErrorLoc, InterfaceReader.InvalidDataTypeDefinition],
+      errors: Errors[ErrorLoc, SignatureReader.InvalidDataTypeDefinition],
   ): String =
     (Cord(s"Errors decoding LF archive (Package ID: $packageId):\n") ++
-      InterfaceReader.InterfaceReaderError.treeReport(errors)).toString
+      SignatureReader.Error.treeReport(errors)).toString
 
-  private def combineInterfaces(dar: Dar[Interface]): EnvironmentInterface =
-    EnvironmentInterface.fromReaderInterfaces(dar)
+  private def combineInterfaces(dar: Dar[PackageSignature]): EnvironmentSignature =
+    EnvironmentSignature.fromPackageSignatures(dar)
 
-  private def templateCount(types: Iterable[(_, InterfaceType)]): Int =
+  private def templateCount(types: Iterable[(_, PackageSignature.TypeDecl)]): Int =
     types.count {
-      case (_, _: InterfaceType.Template) => true
+      case (_, _: PackageSignature.TypeDecl.Template) => true
       case _ => false
     }
 
@@ -134,7 +134,7 @@ object CodeGen {
     val typeDeclarationsToGenerate =
       DependencyGraph.transitiveClosure(
         serializableTypes = util.iface.typeDecls,
-        interfaces = util.iface.astInterfaces,
+        interfaces = util.iface.interfaces,
       )
 
     // Each record/variant has Scala code generated for it individually, unless their names are related
@@ -229,7 +229,7 @@ object CodeGen {
     * figured by examining the _2: left means splatted, right means
     * unchanged.
     */
-  private[this] def splatVariants[RT <: iface.Type, VT <: iface.Type](
+  private[this] def splatVariants[RT <: typesig.Type, VT <: typesig.Type](
       definitions: Vector[ScopedDataType.DT[RT, VT]]
   ): (
       Vector[ScopedDataType[Record[RT]]],

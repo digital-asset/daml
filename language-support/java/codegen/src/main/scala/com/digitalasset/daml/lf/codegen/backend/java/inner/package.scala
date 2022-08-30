@@ -10,7 +10,7 @@ import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.daml.ledger.javaapi.data.{DamlGenMap, DamlList, DamlOptional, DamlTextMap}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.daml.lf.iface._
+import com.daml.lf.typesig._
 import com.squareup.javapoet._
 import javax.lang.model.element.Modifier
 

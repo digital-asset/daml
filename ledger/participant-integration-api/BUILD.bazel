@@ -312,6 +312,7 @@ da_scala_test_suite(
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_guava_guava",
         "@maven//:com_typesafe_config",
         "@maven//:com_zaxxer_HikariCP",
         "@maven//:commons_io_commons_io",

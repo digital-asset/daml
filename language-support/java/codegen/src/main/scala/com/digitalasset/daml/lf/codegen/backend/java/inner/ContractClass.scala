@@ -6,7 +6,7 @@ package com.daml.lf.codegen.backend.java.inner
 import com.daml.ledger.javaapi
 import ClassGenUtils.{companionFieldName, optional, optionalString, setOfStrings}
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.iface.Type
+import com.daml.lf.typesig.Type
 import com.squareup.javapoet._
 import scalaz.syntax.std.option._
 

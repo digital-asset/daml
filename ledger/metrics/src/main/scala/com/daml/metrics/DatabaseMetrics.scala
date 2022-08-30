@@ -19,3 +19,13 @@ class DatabaseMetrics private[metrics] (
   val commitTimer: Timer = registry.timer(dbPrefix :+ "commit")
   val queryTimer: Timer = registry.timer(dbPrefix :+ "query")
 }
+
+object DatabaseMetrics {
+
+  def ForTesting(metricsName: String): DatabaseMetrics =
+    new DatabaseMetrics(
+      registry = new MetricRegistry(),
+      prefix = MetricName("ForTesting"),
+      name = metricsName,
+    )
+}

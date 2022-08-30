@@ -25,6 +25,7 @@ export const query: DocumentNode = gql`
         node {
           __typename
           id
+          implementedInterfaces
           ... on Template {
             topLevelDecl
             contracts {

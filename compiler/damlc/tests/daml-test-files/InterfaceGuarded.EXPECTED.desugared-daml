@@ -17,22 +17,15 @@ instance DA.Internal.Desugar.HasFromInterface Token Token where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
 instance DA.Internal.Desugar.HasMethod Token "getOwner" (Party)
-getOwner : DA.Internal.Desugar.Implements t Token => t -> Party
-getOwner t
-  = GHC.Types.primitiveInterface
-      @"getOwner" (DA.Internal.Desugar._toInterface @_ @Token t)
+getOwner : Token -> Party
+getOwner = GHC.Types.primitiveInterface @"getOwner"
 instance DA.Internal.Desugar.HasMethod Token "getAmount" (Int)
-getAmount : DA.Internal.Desugar.Implements t Token => t -> Int
-getAmount t
-  = GHC.Types.primitiveInterface
-      @"getAmount" (DA.Internal.Desugar._toInterface @_ @Token t)
+getAmount : Token -> Int
+getAmount = GHC.Types.primitiveInterface @"getAmount"
 instance DA.Internal.Desugar.HasMethod Token "setAmount" (Int
                                                           -> Token)
-setAmount :
-  DA.Internal.Desugar.Implements t Token => t -> Int -> Token
-setAmount t
-  = GHC.Types.primitiveInterface
-      @"setAmount" (DA.Internal.Desugar._toInterface @_ @Token t)
+setAmount : Token -> Int -> Token
+setAmount = GHC.Types.primitiveInterface @"setAmount"
 instance DA.Internal.Desugar.HasToAnyTemplate Token where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate Token where
@@ -49,29 +42,25 @@ instance DA.Internal.Desugar.HasIsInterfaceType Token where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Token where
   (==) = GHC.Types.primitive @"BEEqual"
-instance (DA.Internal.Desugar.Implements t Token) =>
-         DA.Internal.Desugar.HasToAnyChoice t GetRich (ContractId Token) where
+instance DA.Internal.Desugar.HasToAnyChoice Token GetRich (ContractId Token) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])
-instance (DA.Internal.Desugar.Implements t Token) =>
-         DA.Internal.Desugar.HasFromAnyChoice t GetRich (ContractId Token) where
+instance DA.Internal.Desugar.HasFromAnyChoice Token GetRich (ContractId Token) where
   _fromAnyChoice _
     = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Token])
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t Token)) =>
-         DA.Internal.Desugar.HasExerciseGuarded t GetRich (ContractId Token) where
+instance DA.Internal.Desugar.HasExerciseGuarded Token GetRich (ContractId Token) where
   exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Token cid pred)
+instance DA.Internal.Desugar.HasExercise Token GetRich (ContractId Token) where
+  exercise cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
-        (DA.Internal.Desugar._exerciseInterfaceGuard @Token cid pred)
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t Token)) =>
-         DA.Internal.Desugar.HasExercise t GetRich (ContractId Token) where
-  exercise = DA.Internal.Desugar._exerciseDefault
 data GetRich
   = GetRich {byHowMuch : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -417,46 +406,40 @@ instance DA.Internal.Desugar.HasFromAnyException GuardException where
 main
   = scenario
       do p <- getParty "Alice"
-         let assetTpl = Asset {issuer = p, owner = p, amount = 100}
+         let assetAsTokenTpl
+               = toInterface @Token $ Asset {issuer = p, owner = p, amount = 100}
          let getRich = GetRich {byHowMuch = 1000000}
          p `submit`
-             do asset <- create assetTpl
-                exerciseGuarded (const True) asset getRich
+             do assetAsToken <- create assetAsTokenTpl
+                exerciseGuarded (const True) assetAsToken getRich
          p `submitMustFail`
-             do asset <- create assetTpl
-                exerciseGuarded (const False) asset getRich
+             do assetAsToken <- create assetAsTokenTpl
+                exerciseGuarded (const False) assetAsToken getRich
          p `submitMustFail`
-             do asset <- create assetTpl
-                exerciseGuarded (\ _ -> error "foo") asset getRich
+             do assetAsToken <- create assetAsTokenTpl
+                exerciseGuarded (\ _ -> error "foo") assetAsToken getRich
          p `submitMustFail`
-             do asset <- create assetTpl
+             do assetAsToken <- create assetAsTokenTpl
                 exerciseGuarded
-                  (\ _ -> throwPure (GuardException "bar")) asset getRich
+                  (\ _ -> throwPure (GuardException "bar")) assetAsToken getRich
          p `submitMustFail`
-             do asset <- create assetTpl
+             do assetAsToken <- create assetAsTokenTpl
                 DA.Internal.Desugar._tryCatch
-                  \ _ -> do exerciseGuarded (\ _ -> error "foo") asset getRich
+                  \ _ -> do exerciseGuarded (\ _ -> error "foo") assetAsToken getRich
                   \case
                     (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some GeneralError {})
                       -> DA.Internal.Desugar.Some
-                           pure $ toInterfaceContractId @Token asset
+                           pure $ toInterfaceContractId @Token assetAsToken
                     _ -> DA.Internal.Desugar.None
          p `submitMustFail`
-             do asset <- create assetTpl
+             do assetAsToken <- create assetAsTokenTpl
                 DA.Internal.Desugar._tryCatch
                   \ _
                     -> do exerciseGuarded
-                            (\ _ -> throwPure (GuardException "bar")) asset getRich
+                            (\ _ -> throwPure (GuardException "bar")) assetAsToken getRich
                   \case
                     (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some GuardException {})
                       -> DA.Internal.Desugar.Some
-                           pure $ toInterfaceContractId @Token asset
+                           pure $ toInterfaceContractId @Token assetAsToken
                     _ -> DA.Internal.Desugar.None
-         p `submitMustFail`
-             do anotherAsset <- coerceContractId @_ @AnotherAsset
-                                  <$> create assetTpl
-                exerciseGuarded (const True) anotherAsset getRich
-         p `submitMustFail`
-             do subToken <- coerceContractId @_ @SubToken <$> create assetTpl
-                exerciseGuarded (const True) subToken getRich
          pure ()

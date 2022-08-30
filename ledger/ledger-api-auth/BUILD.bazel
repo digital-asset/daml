@@ -72,6 +72,7 @@ da_scala_test_suite(
         "//daml-lf/data",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
+        "//ledger-service/jwt",
         "//ledger/error",
         "//ledger/error:error-test-lib",
         "//ledger/ledger-api-common",

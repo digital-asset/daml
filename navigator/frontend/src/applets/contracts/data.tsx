@@ -49,6 +49,7 @@ export const query: DocumentNode = gql`
               id
               choices {
                 name
+                inheritedInterface
               }
             }
           }

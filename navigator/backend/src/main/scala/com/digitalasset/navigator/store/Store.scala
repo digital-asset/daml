@@ -48,6 +48,7 @@ object Store {
   case class ExerciseChoice(
       party: PartyState,
       contractId: ApiTypes.ContractId,
+      interfaceId: Option[InterfaceStringId],
       choiceId: ApiTypes.Choice,
       argument: ApiValue,
   )

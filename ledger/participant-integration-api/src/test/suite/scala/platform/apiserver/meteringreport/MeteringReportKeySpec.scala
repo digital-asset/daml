@@ -24,6 +24,12 @@ class MeteringReportKeySpec extends AnyWordSpec with Matchers {
       val expected = HmacSha256.generateKey("test-enterprise")
       EnterpriseKey(expected).key shouldBe expected
     }
+    "read test key from test classpath" in {
+      val key = MeteringReportKey.readSystemResourceAsKey(
+        getClass.getClassLoader.getResource("test-metering-key.json")
+      )
+      key.scheme shouldBe "test"
+    }
   }
 
 }

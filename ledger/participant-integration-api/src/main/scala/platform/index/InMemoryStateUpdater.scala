@@ -18,7 +18,7 @@ import com.daml.lf.transaction.Node.{Create, Exercise}
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.lf.transaction.{Node, NodeId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.index.InMemoryStateUpdater.{PrepareResult, UpdaterFlow}
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.dao.events.ContractStateEvent
@@ -26,8 +26,10 @@ import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import com.daml.platform.{Contract, InMemoryState, Key, Party}
+import com.daml.timer.FutureCheck._
 
 import java.util.concurrent.Executors
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Builder of the in-memory state updater Akka flow.
@@ -37,21 +39,29 @@ import scala.concurrent.{ExecutionContext, Future}
   * into the Index database) for populating the Ledger API server in-memory state (see [[InMemoryState]]).
   */
 private[platform] object InMemoryStateUpdaterFlow {
+  private val logger = ContextualizedLogger.get(getClass)
+
   private[index] def apply(
       prepareUpdatesParallelism: Int,
       prepareUpdatesExecutionContext: ExecutionContext,
       updateCachesExecutionContext: ExecutionContext,
+      preparePackageMetadataTimeOutWarning: FiniteDuration,
       metrics: Metrics,
   )(
       prepare: (Vector[(Offset, Update)], Long) => PrepareResult,
       update: PrepareResult => Unit,
-  ): UpdaterFlow =
+  )(implicit loggingContext: LoggingContext): UpdaterFlow =
     Flow[(Vector[(Offset, Update)], Long)]
       .filter(_._1.nonEmpty)
       .mapAsync(prepareUpdatesParallelism) { case (batch, lastEventSequentialId) =>
         Future {
           prepare(batch, lastEventSequentialId)
         }(prepareUpdatesExecutionContext)
+          .checkIfComplete(preparePackageMetadataTimeOutWarning)(
+            logger.warn(
+              s"Package Metadata View live update did not finish in ${preparePackageMetadataTimeOutWarning.toMillis}ms"
+            )
+          )
       }
       .async
       .mapAsync(1) { result =>
@@ -76,6 +86,7 @@ private[platform] object InMemoryStateUpdater {
   def owner(
       inMemoryState: InMemoryState,
       prepareUpdatesParallelism: Int,
+      preparePackageMetadataTimeOutWarning: FiniteDuration,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[UpdaterFlow] = for {
     prepareUpdatesExecutor <- ResourceOwner.forExecutorService(() =>
@@ -96,9 +107,12 @@ private[platform] object InMemoryStateUpdater {
     prepareUpdatesParallelism = prepareUpdatesParallelism,
     prepareUpdatesExecutionContext = ExecutionContext.fromExecutorService(prepareUpdatesExecutor),
     updateCachesExecutionContext = ExecutionContext.fromExecutorService(updateCachesExecutor),
+    preparePackageMetadataTimeOutWarning = preparePackageMetadataTimeOutWarning,
     metrics = metrics,
   )(
-    prepare = prepare(PackageMetadata.from),
+    prepare = prepare(archive =>
+      Timed.value(metrics.daml.index.packageMetadata.decodeArchive, PackageMetadata.from(archive))
+    ),
     update = update(inMemoryState, loggingContext),
   )
 

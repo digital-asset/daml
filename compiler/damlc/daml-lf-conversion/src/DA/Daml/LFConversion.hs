@@ -533,7 +533,7 @@ scrapeInterfaceBinds ::
   -> [(Var, GHC.Expr Var)]
   -> MS.Map TypeConName InterfaceBinds
 scrapeInterfaceBinds lfVersion tyThings binds
-  | lfVersion `supports` featureInterfaces =
+  | lfVersion `supports` featureSimpleInterfaces =
       MMS.merge
         {- drop bind funcs without interfaces -}
         MMS.dropMissing
@@ -653,7 +653,7 @@ scrapeInterfaceInstanceBinds ::
   -> [(Var, GHC.Expr CoreBndr)]
   -> MS.Map TypeConName InterfaceInstanceGroup
 scrapeInterfaceInstanceBinds env binds
-  | envLfVersion env `supports` featureInterfaces =
+  | envLfVersion env `supports` featureSimpleInterfaces =
       MMS.merge
         {- drop group funcs without interface instances -}
         MMS.dropMissing
@@ -723,7 +723,7 @@ convertInterfaceTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (
 convertInterfaceTyCon = convertDamlTyCon hasDamlInterfaceCtx "interface type"
 
 convertTemplateTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
-convertTemplateTyCon = convertDamlTyCon hasDamlTemplateCtx "interface type"
+convertTemplateTyCon = convertDamlTyCon hasDamlTemplateCtx "template type"
 
 convertInterfaces :: Env -> ModuleContents -> ConvertM [Definition]
 convertInterfaces env mc = interfaceDefs
@@ -751,10 +751,13 @@ convertInterfaces env mc = interfaceDefs
 
     convertRequires :: [(GHC.TyCon, Maybe SourceLoc)] -> ConvertM (S.Set (Qualified TypeConName))
     convertRequires requires = S.fromList <$> sequence
-      [ withRange mloc $ convertInterfaceTyCon env handleIsNotInterface iface
+      [ withRange mloc $ guardSupportsInterfaceRequires $ convertInterfaceTyCon env handleIsNotInterface iface
       | (iface, mloc) <- requires
       ]
       where
+        guardSupportsInterfaceRequires action
+          | envLfVersion env `supports` featureExtendedInterfaces = action
+          | otherwise = unsupported "Requires in Daml interfaces are only available with --target=1.dev" ()
         handleIsNotInterface tyCon =
           "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
 
@@ -857,7 +860,7 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     -> pure []
 
     | hasDamlInterfaceCtx t
-    ->  if envLfVersion env `supports` featureInterfaces then
+    ->  if envLfVersion env `supports` featureSimpleInterfaces then
             pure [ DDataType DefDataType
                 { dataLocation = Nothing
                 , dataTypeCon = mkTypeCon [getOccText t]
@@ -869,9 +872,15 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
                 }
             ]
         else
-            unsupported "Daml interfaces are only available with --target=1.dev" ()
+            unsupported "Daml interfaces are only available with --target=1.15 or higher" ()
             -- TODO https://github.com/digital-asset/daml/issues/12051
             --   Change when interfaces are released.
+
+    -- Remove guarded exercise instances when Extended Interfaces are unsupported
+    | not (envLfVersion env `supports` featureExtendedInterfaces)
+    , Just cls <- tyConClass_maybe t
+    , NameIn DA_Internal_Template_Functions "HasExerciseGuarded" <- cls
+    ->  pure []
 
     -- Constraint tuples are represented by LF structs.
     | isConstraintTupleTyCon t
@@ -1349,6 +1358,24 @@ convertBind env mc (name, x)
     | "_method_" `T.isPrefixOf` getOccText name
     = pure []
     | "_view_" `T.isPrefixOf` getOccText name
+    = pure []
+
+    -- Remove guarded exercise when Extended Interfaces are unsupported
+    | not (envLfVersion env `supports` featureExtendedInterfaces)
+    , "$cexerciseGuarded" `T.isPrefixOf` getOccText name
+    = pure []
+
+    -- Remove guarded exercise when Extended Interfaces are unsupported
+    | not (envLfVersion env `supports` featureExtendedInterfaces)
+    , NameIn DA_Internal_Template_Functions "exerciseGuarded" <- name
+    = pure []
+
+    | not (envLfVersion env `supports` featureExtendedInterfaces)
+    , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasExerciseGuarded") _ <- name
+    = pure []
+
+    | not (envLfVersion env `supports` featureExtendedInterfaces)
+    , NameIn DA_Internal_Interface "_exerciseDefault" <- name
     = pure []
 
     -- Remove internal functions.

@@ -4,7 +4,9 @@
 package com.daml.platform.apiserver.execution
 
 import com.daml.ledger.participant.state.{v2 => state}
-import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
+import com.daml.lf.command.DisclosedContract
+import com.daml.lf.data.ImmArray
+import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Versioned}
 import com.daml.lf.value.Value
 
 /** The result of command execution.
@@ -19,6 +21,13 @@ import com.daml.lf.value.Value
   *                                 transaction ([[state.TransactionMeta.ledgerEffectiveTime]])
   *                                 can safely be changed after command interpretation.
   * @param interpretationTimeNanos  Wall-clock time that interpretation took for the engine.
+  * @param globalKeyMapping         Input key mapping inferred by interpretation.
+  *                                 The map should contain all contract keys that were used during interpretation.
+  *                                 A value of None means no contract was found with this contract key.
+  * @param usedDisclosedContracts   The disclosed contracts used as part of command interpretation.
+  *                                 Note that this may be a subset of the `disclosed_contracts`
+  *                                 provided as part of the command submission by the client,
+  *                                 as superfluously-provided contracts are discarded by the Daml engine.
   */
 private[apiserver] final case class CommandExecutionResult(
     submitterInfo: state.SubmitterInfo,
@@ -27,4 +36,5 @@ private[apiserver] final case class CommandExecutionResult(
     dependsOnLedgerTime: Boolean,
     interpretationTimeNanos: Long,
     globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
+    usedDisclosedContracts: ImmArray[Versioned[DisclosedContract]],
 )

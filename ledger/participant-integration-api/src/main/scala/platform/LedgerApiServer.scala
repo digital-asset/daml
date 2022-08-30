@@ -161,6 +161,7 @@ class LedgerApiServer(
       ledgerFeatures = ledgerFeatures,
       participantId = participantId,
       authService = authService,
+      jwtTimestampLeeway = participantConfig.authentication.jwtTimestampLeeway,
     )
 }
 
@@ -187,6 +188,8 @@ object LedgerApiServer {
       inMemoryStateUpdater <- InMemoryStateUpdater.owner(
         inMemoryState = inMemoryState,
         prepareUpdatesParallelism = indexServiceConfig.inMemoryStateUpdaterParallelism,
+        preparePackageMetadataTimeOutWarning =
+          indexServiceConfig.preparePackageMetadataTimeOutWarning,
         metrics = metrics,
       )
     } yield inMemoryState -> inMemoryStateUpdater

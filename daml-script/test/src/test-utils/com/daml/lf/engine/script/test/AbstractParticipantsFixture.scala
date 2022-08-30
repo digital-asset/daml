@@ -11,8 +11,8 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{Identifier, Name, PackageId, QualifiedName}
 import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
 import com.daml.lf.engine.script.{Participants, Runner}
-import com.daml.lf.iface.EnvironmentInterface
-import com.daml.lf.iface.reader.InterfaceReader
+import com.daml.lf.typesig.EnvironmentSignature
+import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.StablePackage
 import com.daml.lf.speedy.{ArrayList, SValue}
@@ -29,10 +29,10 @@ trait AbstractScriptTest extends AkkaBeforeAndAfterAll {
   self: Suite =>
   protected def timeMode: ScriptTimeMode
 
-  protected def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentInterface) = {
+  protected def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentSignature) = {
     val dar = DarDecoder.assertReadArchiveFromFile(file)
-    val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
-    val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+    val ifaceDar = dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
+    val envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
     (dar, envIface)
   }
 

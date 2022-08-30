@@ -16,8 +16,13 @@ object Generators {
       e <- Gen.identifier
     } yield lav1.value.Identifier(packageId = p, moduleName = m, entityName = e)
 
-  def genDomainTemplateId: Gen[domain.TemplateId.RequiredPkg] =
-    genApiIdentifier.map(domain.TemplateId.fromLedgerApi)
+  def genDomainTemplateId: Gen[domain.ContractTypeId.Template.RequiredPkg] =
+    genDomainContractTypeId[domain.ContractTypeId.Template]
+
+  private def genDomainContractTypeId[CtId[T] <: domain.ContractTypeId[T]](implicit
+      CtId: domain.ContractTypeId.Like[CtId]
+  ): Gen[CtId.RequiredPkg] =
+    genApiIdentifier.map(CtId.fromLedgerApi)
 
   def genDomainTemplateIdO[CtId[T] <: domain.ContractTypeId[T], A](implicit
       CtId: domain.ContractTypeId.Like[CtId],
@@ -38,24 +43,18 @@ object Generators {
       otherPackageIds <- nonEmptySetOf(Gen.identifier.filter(x => x != id0.packageId))
     } yield Set(id0) ++ otherPackageIds.map(a => id0.copy(packageId = a))
 
-  def genDuplicateModuleEntityTemplateIds: Gen[Set[domain.TemplateId.RequiredPkg]] =
-    genDuplicateModuleEntityApiIdentifiers.map(xs => xs.map(domain.TemplateId.fromLedgerApi))
+  def genDuplicateModuleEntityTemplateIds: Gen[Set[domain.ContractTypeId.Template.RequiredPkg]] =
+    genDuplicateModuleEntityApiIdentifiers.map(xs =>
+      xs.map(domain.ContractTypeId.Template.fromLedgerApi)
+    )
 
-  trait PackageIdGen[A] {
-    def gen: Gen[A]
-  }
+  final case class PackageIdGen[A](gen: Gen[A])
 
-  implicit object RequiredPackageIdGen extends PackageIdGen[String] {
-    override def gen: Gen[String] = Gen.identifier
-  }
-
-  implicit object NoPackageIdGen extends PackageIdGen[Unit] {
-    override def gen: Gen[Unit] = Gen.const(())
-  }
-
-  implicit object OptionalPackageIdGen extends PackageIdGen[Option[String]] {
-    override def gen: Gen[Option[String]] = Gen.option(RequiredPackageIdGen.gen)
-  }
+  implicit val RequiredPackageIdGen: PackageIdGen[String] = PackageIdGen(Gen.identifier)
+  implicit val NoPackageIdGen: PackageIdGen[Unit] = PackageIdGen(Gen.const(()))
+  implicit val OptionalPackageIdGen: PackageIdGen[Option[String]] = PackageIdGen(
+    Gen.option(RequiredPackageIdGen.gen)
+  )
 
   def contractIdGen: Gen[domain.ContractId] = domain.ContractId subst Gen.identifier
   def partyGen: Gen[domain.Party] = domain.Party subst Gen.identifier
@@ -81,7 +80,10 @@ object Generators {
   def activeContractGen: Gen[domain.ActiveContract[JsValue]] =
     for {
       contractId <- contractIdGen
-      templateId <- Generators.genDomainTemplateId
+      templateId <- Gen.oneOf(
+        genDomainTemplateIdO[domain.ContractTypeId.Template, String],
+        genDomainTemplateIdO[domain.ContractTypeId.Interface, String],
+      )
       key <- Gen.option(Gen.identifier.map(JsString(_)))
       argument <- Gen.identifier.map(JsString(_))
       signatories <- Gen.listOf(partyGen)

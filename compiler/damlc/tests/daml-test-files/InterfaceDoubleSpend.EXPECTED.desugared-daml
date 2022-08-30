@@ -16,28 +16,18 @@ instance DA.Internal.Desugar.HasFromInterface Token Token where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
 instance DA.Internal.Desugar.HasMethod Token "getIssuer" (Party)
-getIssuer : DA.Internal.Desugar.Implements t Token => t -> Party
-getIssuer t
-  = GHC.Types.primitiveInterface
-      @"getIssuer" (DA.Internal.Desugar._toInterface @_ @Token t)
+getIssuer : Token -> Party
+getIssuer = GHC.Types.primitiveInterface @"getIssuer"
 instance DA.Internal.Desugar.HasMethod Token "getOwner" (Party)
-getOwner : DA.Internal.Desugar.Implements t Token => t -> Party
-getOwner t
-  = GHC.Types.primitiveInterface
-      @"getOwner" (DA.Internal.Desugar._toInterface @_ @Token t)
+getOwner : Token -> Party
+getOwner = GHC.Types.primitiveInterface @"getOwner"
 instance DA.Internal.Desugar.HasMethod Token "getAmount" (Int)
-getAmount : DA.Internal.Desugar.Implements t Token => t -> Int
-getAmount t
-  = GHC.Types.primitiveInterface
-      @"getAmount" (DA.Internal.Desugar._toInterface @_ @Token t)
+getAmount : Token -> Int
+getAmount = GHC.Types.primitiveInterface @"getAmount"
 instance DA.Internal.Desugar.HasMethod Token "transferImpl" (Party
                                                              -> Update (ContractId Token))
-transferImpl :
-  DA.Internal.Desugar.Implements t Token =>
-  t -> Party -> Update (ContractId Token)
-transferImpl t
-  = GHC.Types.primitiveInterface
-      @"transferImpl" (DA.Internal.Desugar._toInterface @_ @Token t)
+transferImpl : Token -> Party -> Update (ContractId Token)
+transferImpl = GHC.Types.primitiveInterface @"transferImpl"
 instance DA.Internal.Desugar.HasToAnyTemplate Token where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate Token where
@@ -54,29 +44,25 @@ instance DA.Internal.Desugar.HasIsInterfaceType Token where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Token where
   (==) = GHC.Types.primitive @"BEEqual"
-instance (DA.Internal.Desugar.Implements t Token) =>
-         DA.Internal.Desugar.HasToAnyChoice t Transfer (ContractId Token) where
+instance DA.Internal.Desugar.HasToAnyChoice Token Transfer (ContractId Token) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])
-instance (DA.Internal.Desugar.Implements t Token) =>
-         DA.Internal.Desugar.HasFromAnyChoice t Transfer (ContractId Token) where
+instance DA.Internal.Desugar.HasFromAnyChoice Token Transfer (ContractId Token) where
   _fromAnyChoice _
     = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Token])
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t Token)) =>
-         DA.Internal.Desugar.HasExerciseGuarded t Transfer (ContractId Token) where
+instance DA.Internal.Desugar.HasExerciseGuarded Token Transfer (ContractId Token) where
   exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Token cid pred)
+instance DA.Internal.Desugar.HasExercise Token Transfer (ContractId Token) where
+  exercise cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
-        (DA.Internal.Desugar._exerciseInterfaceGuard @Token cid pred)
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t Token)) =>
-         DA.Internal.Desugar.HasExercise t Transfer (ContractId Token) where
-  exercise = DA.Internal.Desugar._exerciseDefault
 data Transfer
   = Transfer {newOwner : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)

@@ -9,6 +9,53 @@ import com.daml.logging.LoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
+case class UserUpdate(
+    id: Ref.UserId,
+    primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
+    isDeactivatedUpdateO: Option[Boolean] = None,
+    metadataUpdate: ObjectMetaUpdate,
+)
+
+sealed trait AnnotationsUpdate {
+  def annotations: Map[String, String]
+}
+
+object AnnotationsUpdate {
+  final case class Merge private (nonEmptyAnnotations: Map[String, String])
+      extends AnnotationsUpdate {
+    def annotations: Map[String, String] = nonEmptyAnnotations
+  }
+
+  object Merge {
+    def apply(annotations: Map[String, String]): Option[Merge] = {
+      if (annotations.isEmpty) None
+      else Some(new Merge(annotations))
+    }
+
+    def fromNonEmpty(annotations: Map[String, String]): Merge = {
+      // TODO um-for-hub: Use error codes
+      require(
+        annotations.nonEmpty,
+        "Unexpected new value for merge update: an empty map. Only non-empty maps are allowed",
+      )
+      new Merge(annotations)
+    }
+  }
+
+  final case class Replace(annotations: Map[String, String]) extends AnnotationsUpdate
+}
+
+case class ObjectMetaUpdate(
+    resourceVersionO: Option[String],
+    annotationsUpdateO: Option[AnnotationsUpdate],
+)
+object ObjectMetaUpdate {
+  def empty: ObjectMetaUpdate = ObjectMetaUpdate(
+    resourceVersionO = None,
+    annotationsUpdateO = None,
+  )
+}
+
 trait UserManagementStore {
 
   import UserManagementStore._
@@ -30,7 +77,11 @@ trait UserManagementStore {
 
   def createUser(user: User, rights: Set[UserRight])(implicit
       loggingContext: LoggingContext
-  ): Future[Result[Unit]]
+  ): Future[Result[User]]
+
+  def updateUser(userUpdate: UserUpdate)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[User]]
 
   def deleteUser(id: Ref.UserId)(implicit loggingContext: LoggingContext): Future[Result[Unit]]
 
@@ -75,4 +126,5 @@ object UserManagementStore {
   final case class UserNotFound(userId: Ref.UserId) extends Error
   final case class UserExists(userId: Ref.UserId) extends Error
   final case class TooManyUserRights(userId: Ref.UserId) extends Error
+  final case class ConcurrentUserUpdate(party: Ref.UserId) extends Error
 }

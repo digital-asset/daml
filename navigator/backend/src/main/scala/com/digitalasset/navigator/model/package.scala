@@ -6,7 +6,7 @@ package com.daml.navigator
 import scalaz.{@@, Tag}
 import com.daml.lf.{data => DamlLfData}
 import com.daml.lf.data.{Ref => DamlLfRef}
-import com.daml.lf.{iface => DamlLfIface}
+import com.daml.lf.{typesig => DamlLfIface}
 import com.daml.lf.value.json.NavigatorModelAliases
 import com.daml.ledger.api.{v1 => ApiV1}
 import com.daml.ledger.api.refinements.ApiTypes
@@ -18,6 +18,9 @@ package object model extends NavigatorModelAliases[String] {
     */
   type TemplateStringId = String @@ TemplateStringIdTag
   val TemplateStringId = Tag.of[TemplateStringIdTag]
+
+  type InterfaceStringId = String @@ InterfaceStringIdTag
+  val InterfaceStringId = Tag.of[InterfaceStringIdTag]
 
   // ----------------------------------------------------------------------------------------------
   // Types used in the ledger API
@@ -100,11 +103,14 @@ package object model extends NavigatorModelAliases[String] {
     }
   }
 
-  def parseOpaqueIdentifier(id: TemplateStringId): Option[DamlLfRef.Identifier] =
+  def parseTemplateOpaqueIdentifier(id: TemplateStringId): Option[DamlLfRef.Identifier] =
     parseOpaqueIdentifier(TemplateStringId.unwrap(id))
 
+  def parseInterfaceOpaqueIdentifier(id: InterfaceStringId): Option[DamlLfRef.Identifier] =
+    parseOpaqueIdentifier(InterfaceStringId.unwrap(id))
 }
 
 package model {
   sealed trait TemplateStringIdTag
+  sealed trait InterfaceStringIdTag
 }

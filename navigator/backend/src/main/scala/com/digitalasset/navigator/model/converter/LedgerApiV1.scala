@@ -4,18 +4,20 @@
 package com.daml.navigator.model.converter
 
 import java.time.Instant
-
 import com.daml.lf.data.Ref
 import com.daml.lf.data.LawlessTraversals._
-import com.daml.lf.iface
+import com.daml.lf.typesig
 import com.daml.lf.value.{Value => V}
 import com.daml.ledger.api.{v1 => V1}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.validation.NoLoggingValueValidator.{validateRecord, validateValue}
 import com.daml.navigator.{model => Model}
-import com.daml.navigator.model.{IdentifierApiConversions, IdentifierDamlConversions}
+import com.daml.navigator.model.{
+  DamlLfIdentifier,
+  IdentifierApiConversions,
+  IdentifierDamlConversions,
+}
 import com.daml.platform.participant.util.LfEngineToApi.{lfValueToApiRecord, lfValueToApiValue}
-
 import scalaz.Tag
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.traverse._
@@ -280,8 +282,9 @@ case object LedgerApiV1 {
         .damlLfDefDataType(typeCon.name.identifier)
         .toRight(GenericConversionError(s"Unknown type ${typeCon.name.identifier}"))
       dt <- typeCon.instantiate(ddt) match {
-        case r @ iface.Record(_) => Right(r)
-        case iface.Variant(_) | iface.Enum(_) => Left(GenericConversionError(s"Record expected"))
+        case r @ typesig.Record(_) => Right(r)
+        case typesig.Variant(_) | typesig.Enum(_) =>
+          Left(GenericConversionError(s"Record expected"))
       }
       fields <- value.fields.toSeq zip dt.fields traverseEitherStrictly {
         case ((von, vv), (tn, fieldType)) =>
@@ -382,8 +385,8 @@ case object LedgerApiV1 {
         .damlLfDefDataType(typeCon.name.identifier)
         .toRight(GenericConversionError(s"Unknown type ${typeCon.name.identifier}"))
       dt <- typeCon.instantiate(ddt) match {
-        case v @ iface.Variant(_) => Right(v)
-        case iface.Record(_) | iface.Enum(_) =>
+        case v @ typesig.Variant(_) => Right(v)
+        case typesig.Record(_) | typesig.Enum(_) =>
           Left(GenericConversionError(s"Variant expected"))
       }
       constructor = variant.variant
@@ -467,7 +470,7 @@ case object LedgerApiV1 {
       case cmd: Model.CreateCommand =>
         writeCreateContract(party, cmd.template, cmd.argument)
       case cmd: Model.ExerciseCommand =>
-        writeExerciseChoice(party, cmd.contract, cmd.choice, cmd.argument)
+        writeExerciseChoice(party, cmd.contract, cmd.interfaceId, cmd.choice, cmd.argument)
     }
   }
 
@@ -497,6 +500,7 @@ case object LedgerApiV1 {
   def writeExerciseChoice(
       party: Model.PartyState,
       contractId: ApiTypes.ContractId,
+      interfaceId: Option[DamlLfIdentifier],
       choiceId: ApiTypes.Choice,
       value: Model.ApiValue,
   ): Result[V1.commands.Command] = {
@@ -514,7 +518,7 @@ case object LedgerApiV1 {
       V1.commands.Command(
         V1.commands.Command.Command.Exercise(
           V1.commands.ExerciseCommand(
-            Some(contract.template.id.asApi),
+            interfaceId.orElse(Some(contract.template.id)).map(_.asApi),
             Tag.unwrap(contractId),
             Tag.unwrap(choiceId),
             Some(argument),

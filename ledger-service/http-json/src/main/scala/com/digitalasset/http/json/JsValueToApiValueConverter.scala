@@ -4,7 +4,7 @@
 package com.daml.http.json
 
 import com.daml.lf
-import com.daml.lf.iface
+import com.daml.lf.typesig
 import com.daml.http.domain
 import com.daml.http.json.JsValueToApiValueConverter.LfTypeLookup
 import com.daml.http.json.JsonProtocol.LfValueCodec
@@ -26,7 +26,7 @@ class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
     )(identity).liftErr(JsonError)
 
   def jsValueToLfValue(
-      lfType: iface.Type,
+      lfType: typesig.Type,
       jsValue: JsValue,
   ): JsonError \/ lf.value.Value =
     \/.attempt(
@@ -43,7 +43,7 @@ class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
 object JsValueToApiValueConverter {
   import com.daml.http.util.ErrorOps._
 
-  type LfTypeLookup = lf.data.Ref.Identifier => Option[lf.iface.DefDataType.FWT]
+  type LfTypeLookup = lf.data.Ref.Identifier => Option[lf.typesig.DefDataType.FWT]
 
   def lfValueToApiValue(lfValue: domain.LfValue): JsonError \/ lav1.value.Value =
     \/.fromEither(LfEngineToApi.lfValueToApiValue(verbose = true, lfValue)).liftErr(JsonError)

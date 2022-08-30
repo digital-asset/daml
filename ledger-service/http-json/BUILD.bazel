@@ -52,8 +52,8 @@ hj_scalacopts = lf_scalacopts + [
         ],
         deps = [
             "//runtime-components/jdbc-drivers:jdbc-drivers-{}".format(edition),
+            "//daml-lf/api-type-signature",
             "//daml-lf/data",
-            "//daml-lf/interface",
             "//daml-lf/transaction",
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
@@ -114,8 +114,8 @@ json_scala_deps = [
 ]
 
 json_deps_shared = [
+    "//daml-lf/api-type-signature",
     "//daml-lf/data",
-    "//daml-lf/interface",
     "//daml-lf/transaction",
     "//language-support/scala/bindings-akka",
     "//ledger/metrics",
@@ -241,8 +241,8 @@ daml_compile(
         deps = [
             ":http-json-{}".format(edition),
             "//bazel_tools/runfiles:scala_runfiles",
+            "//daml-lf/api-type-signature",
             "//daml-lf/data",
-            "//daml-lf/interface",
             "//daml-lf/transaction",
             "//daml-lf/transaction-test-lib",
             "//language-support/scala/bindings-akka",
@@ -306,8 +306,8 @@ alias(
         deps = [
             ":http-json-{}".format(edition),
             "//bazel_tools/runfiles:scala_runfiles",
+            "//daml-lf/api-type-signature",
             "//daml-lf/data",
-            "//daml-lf/interface",
             "//daml-lf/transaction",
             "//daml-lf/transaction-test-lib",
             "//language-support/scala/bindings-akka",
@@ -380,8 +380,8 @@ alias(
         deps = [
             ":http-json-{}".format(edition),
             ":integration-tests-lib-{}".format(edition),
+            "//daml-lf/api-type-signature",
             "//daml-lf/data",
-            "//daml-lf/interface",
             "//daml-lf/transaction",
             "//daml-lf/transaction-test-lib",
             "//language-support/scala/bindings-akka",
@@ -460,8 +460,8 @@ alias(
             ":integration-tests-lib-{}".format(edition),
             ":integration-tests-lib-postgres-{}".format(edition),
             "//bazel_tools/runfiles:scala_runfiles",
+            "//daml-lf/api-type-signature",
             "//daml-lf/data",
-            "//daml-lf/interface",
             "//daml-lf/transaction",
             "//daml-lf/transaction-test-lib",
             "//language-support/scala/bindings-akka",
@@ -661,7 +661,7 @@ da_scala_benchmark_jmh(
     ],
     deps = [
         ":http-json",
-        "//daml-lf/interface",
+        "//daml-lf/api-type-signature",
         "//language-support/scala/bindings",
         "//ledger-service/db-backend",
         "//ledger-service/fetch-contracts",

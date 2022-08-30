@@ -69,6 +69,9 @@ case object SRInterfaceArg extends SerializabilityRequirement {
 case object SRChoiceRes extends SerializabilityRequirement {
   def pretty: String = "choice result"
 }
+case object SRView extends SerializabilityRequirement {
+  def pretty: String = "view"
+}
 case object SRKey extends SerializabilityRequirement {
   def pretty: String = "serializable data type"
 }
@@ -319,6 +322,10 @@ final case class EExpectedExceptionableType(context: Context, conName: TypeConNa
   protected def prettyInternal: String =
     s"expected monomorphic record type in exception definition, but found: ${conName.qualifiedName}"
 }
+final case class EExpectedViewType(context: Context, typ: Type) extends ValidationError {
+  protected def prettyInternal: String =
+    s"expected monomorphic record type in view type, but found: ${typ.pretty}"
+}
 final case class EImportCycle(context: Context, modName: List[ModuleName]) extends ValidationError {
   protected def prettyInternal: String = s"cycle in module dependency ${modName.mkString(" -> ")}"
 }
@@ -437,13 +444,4 @@ final case class EAmbiguousInterfaceInstance(
   protected def prettyInternal: String =
     s"A reference to interface instance $interfaceId for $templateId is ambiguous, " +
       "both the interface and the template define this interface instance."
-}
-
-final case class EViewNotSerializable(
-    context: Context,
-    iface: TypeConName,
-    nonSerializableReturnType: Type,
-) extends ValidationError {
-  protected def prettyInternal: String =
-    s"Interface $iface has a view method which returns a non-serializable type $nonSerializableReturnType"
 }

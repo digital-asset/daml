@@ -22,6 +22,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
     ],
+    tags = ["maven_coordinates=com.daml:ledger-indexer-benchmark-lib:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -35,48 +36,9 @@ da_scala_library(
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//libs-scala/contextualized-logging",
-        "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
         "@maven//:io_dropwizard_metrics_metrics_core",
-    ],
-)
-
-da_scala_library(
-    name = "indexer-benchmark-app",
-    srcs = glob(["src/app/scala/**/*.scala"]),
-    resources = glob(["src/app/resources/**/*"]),
-    scala_deps = [
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_stream",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":indexer-benchmark-lib",
-        "//ledger/ledger-api-health",
-        "//ledger/ledger-offset",
-        "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-        "//ledger/participant-state",
-        "//libs-scala/contextualized-logging",
-    ],
-)
-
-da_scala_binary(
-    name = "indexer-benchmark",
-    main_class = "com.daml.ledger.indexerbenchmark.Main",
-    tags = [
-        "fat_jar",
-        "maven_coordinates=com.daml:ledger-indexer-benchmark:__VERSION__",
-        "no_scala_version_suffix",
-    ],
-    visibility = ["//visibility:public"],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:ch_qos_logback_logback_core",
-        "@maven//:com_h2database_h2",
-    ],
-    deps = [
-        ":indexer-benchmark-app",
     ],
 )
