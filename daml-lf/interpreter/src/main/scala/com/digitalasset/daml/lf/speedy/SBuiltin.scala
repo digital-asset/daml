@@ -1620,6 +1620,7 @@ private[lf] object SBuiltin {
                 machine.disclosureTable.contractById.get(coid) match {
                   case Some((actualTemplateId, cachedContract))
                       if actualTemplateId == operation.templateId =>
+                    // FIXME: cachedContract is actually an SRecord contract instance!
                     val optionalKey: SValue = SBStructProj(Ref.Name.assertFromString("mbKey"))
                       .executePure(ArrayList(cachedContract))
 
