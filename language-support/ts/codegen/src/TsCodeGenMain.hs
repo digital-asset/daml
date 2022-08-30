@@ -495,7 +495,7 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId} = (jsSourc
         -- TODO #14082 pass an intersection of type refs to retroImplements when
         -- non-empty; 'unknown' is correct if empty
         , "  damlTypes.FromTemplate<" <> ifName <> ", unknown> &"
-        , "  " <> ifName <> "Interface<object>;"
+        , "  " <> ifName <> "Interface;"
         ]
       ]
     ifaceId =
@@ -515,17 +515,16 @@ ifaceDefTempl name mbKeyTy impls choices =
   , [ "}" ]
   ]
   where
-    mbSubst = Just (Set.fromList . map fst $ impls, implTy)
+    mbSubst = Nothing
     keyTy = fromMaybe "undefined" mbKeyTy
     extension
       | null impls = ""
       | otherwise = "extends " <> implTy'
-    implTy = T.intercalate " & " implRefs 
     implTy' = T.intercalate " , " implRefs
     implRefs = [if Set.null omit then baseInherit
                 else "Omit<" <> baseInherit <> ", " <> literalOmit <> ">"
                | ((TsTypeConRef impl, _), omit) <- impls `zip` omitFromExtends
-               , let baseInherit = impl <> "Interface<" <> name <> ">"
+               , let baseInherit = impl <> "Interface"
                      literalOmit = T.intercalate " | "
                                  . map (renderDecoderConstant . ConstantString)
                                  . Set.toList $ omit]
@@ -556,16 +555,16 @@ uniques =
 ifaceDefIface :: T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
 ifaceDefIface name mbKeyTy choices =
   concat
-  [ ["export declare interface " <> name <> "Interface " <> "<T extends object>{"]
+  [ ["export declare interface " <> name <> "Interface " <> "{"]
   , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
-      "T, " <>
+      name <> ", " <>
       tsTypeRef (genType chcArgTy mbSubst) <> ", " <>
       tsTypeRef (genType chcRetTy mbSubst) <> ", " <>
       keyTy <> ">;" | ChoiceDef{..} <- choices ]
   , [ "}" ]
   ]
   where
-    mbSubst = Just (Set.singleton (TsTypeConRef name), name <> "Interface<T>")
+    mbSubst = Nothing
     keyTy = fromMaybe "undefined" mbKeyTy
 
 data ChoiceDef = ChoiceDef
