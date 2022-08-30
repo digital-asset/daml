@@ -44,6 +44,9 @@ package object domain {
 }
 
 package domain {
+
+  import scalaz.\/-
+
   final case class Error(id: Symbol, message: String)
 
   object Error {
@@ -106,14 +109,27 @@ package domain {
         resolvedQuery: domain.ResolvedQuery,
         in: lav1.event.CreatedEvent,
     ): Error \/ ActiveContract[lav1.value.Value] = {
-      // TODO Ray use resolvedQuery to return interface view or template data
-      println(resolvedQuery)
+
+      def getIdAndPayload: (Error\/ lav1.value.Identifier, Error\/ lav1.value.Record) = resolvedQuery match {
+        case ResolvedQuery.ByInterfaceId(interfaceId) =>
+          // TODO is there an easier way to do this?
+          val id = lav1.value.Identifier(packageId = interfaceId.packageId, moduleName = interfaceId.moduleName, entityName = interfaceId.entityName)
+          val payload = in
+            .interfaceViews
+            .find(_.interfaceId.exists(_ == id))
+            .flatMap(_.viewValue) required "interfaceView"
+          (\/-(id),payload)
+        case _ =>
+          (in.templateId required "templateId", in.createArguments required "createArguments")
+      }
+
+      val (getId, getPayload) = getIdAndPayload
       for {
-        templateId <- in.templateId required "templateId"
-        payload <- in.createArguments required "createArguments"
+        id <- getId
+        payload <- getPayload
       } yield ActiveContract(
         contractId = ContractId(in.contractId),
-        templateId = ContractTypeId.Template fromLedgerApi templateId,
+        templateId = ContractTypeId.Template fromLedgerApi id,
         key = in.contractKey,
         payload = boxedRecord(payload),
         signatories = Party.subst(in.signatories),
