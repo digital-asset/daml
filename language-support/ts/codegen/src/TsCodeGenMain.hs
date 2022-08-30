@@ -443,9 +443,7 @@ renderTemplateDef TemplateDef {..} =
                         tplChoices'
         , [ "export declare const " <> tplName <> ":"
           , "  damlTypes.Template<" <> tplName <> ", " <> keyTy <> ", '" <> templateId <> "'> &"
-          -- TODO SC pass a union of type refs to interface implements when
-          -- non-empty; 'never' is correct if empty
-          , "  damlTypes.ToInterface<" <> tplName <> ", never> &"
+          , "  damlTypes.ToInterface<" <> tplName <> ", " <> implsUnion <> "> &"
           , "  " <> tplName <> "Interface;"
           ]
         ]
@@ -453,6 +451,8 @@ renderTemplateDef TemplateDef {..} =
   where (keyTy, keyDec) = case tplKeyDecoder of
             Nothing -> ("undefined", DecoderConstant ConstantUndefined)
             Just d -> (tplName <> ".Key", DecoderLazy d)
+        implsUnion = if null tplImplements' then "never"
+          else T.intercalate " | " [ impl | (TsTypeConRef impl, _, _) <- tplImplements' ]
         templateId =
             unPackageId tplPkgId <> ":" <>
             T.intercalate "." (unModuleName tplModule) <> ":" <>
