@@ -234,6 +234,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |    filter_by_party_set:
         |      party_name_prefix: My-Party
         |      templates: [Foo1, Foo2]
+        |      interfaces: [FooI3]
         |    begin_offset: foo
         |    end_offset: bar
         |    objectives:
