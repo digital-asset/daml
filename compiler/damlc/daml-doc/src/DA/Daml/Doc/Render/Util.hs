@@ -11,6 +11,7 @@ module DA.Daml.Doc.Render.Util
   , inParens
   , wrapOp
   , escapeText
+  , (<->)
   ) where
 
 import qualified Data.Text as T
@@ -61,3 +62,11 @@ escapeText p = T.pack . concatMap escapeChar . T.unpack
     escapeChar c
       | p c = ['\\', c]
       | otherwise = [c]
+
+-- | Appends two texts with a space in between, unless one of the arguments is
+-- empty, like '(Text.PrettyPrint.Annotated.Extended.<->)' but for 'T.Text'.
+(<->) :: T.Text -> T.Text -> T.Text
+l <-> r
+  | T.null l = r
+  | T.null r = l
+  | otherwise = T.concat [l, " ", r]
