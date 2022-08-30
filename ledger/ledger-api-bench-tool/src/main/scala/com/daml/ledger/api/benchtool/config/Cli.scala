@@ -374,7 +374,7 @@ object Cli {
         case party :: templates =>
           Right(
             WorkflowConfig.StreamConfig.PartyFilter(party, templates, List.empty)
-          ) // TODO what to do here with the interface?
+          ) // Interfaces are not supported via Cli
         case _ => Left("Filter cannot be empty")
       }
     }
