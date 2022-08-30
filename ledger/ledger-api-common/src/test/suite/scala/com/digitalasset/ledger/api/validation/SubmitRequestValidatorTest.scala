@@ -4,8 +4,8 @@
 package com.daml.ledger.api.validation
 
 import java.time.{Instant, Duration => JDuration}
-
 import com.daml.api.util.{DurationConversion, TimestampConversion}
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.DomainMocks.{applicationId, commandId, submissionId, workflowId}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
@@ -14,14 +14,19 @@ import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{List => ApiList, Map => ApiMap, Optional => ApiOptional, _}
 import com.daml.ledger.api.{DeduplicationPeriod, DomainMocks}
-import com.daml.lf.command.{ApiCommand => LfCommand, ApiCommands => LfCommands}
+import com.daml.lf.command.{
+  ContractMetadata,
+  DisclosedContract,
+  ApiCommand => LfCommand,
+  ApiCommands => LfCommands,
+}
 import com.daml.lf.data._
 import com.daml.lf.value.Value.ValueRecord
 import com.daml.lf.value.{Value => Lf}
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code.{INVALID_ARGUMENT, NOT_FOUND}
-import org.mockito.MockitoSugar
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
@@ -33,7 +38,8 @@ class SubmitRequestValidatorTest
     extends AnyWordSpec
     with ValidatorTestUtils
     with TableDrivenPropertyChecks
-    with MockitoSugar {
+    with MockitoSugar
+    with ArgumentMatchersSugar {
   private val ledgerId = LedgerId("ledger-id")
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
 
@@ -82,6 +88,26 @@ class SubmitRequestValidatorTest
       api.deduplicationDuration.nanos.toLong,
     )
 
+    val templateId: Ref.Identifier = Ref.Identifier(
+      Ref.PackageId.assertFromString("package"),
+      Ref.QualifiedName(
+        Ref.ModuleName.assertFromString("module"),
+        Ref.DottedName.assertFromString("entity"),
+      ),
+    )
+
+    val disclosedContracts: ImmArray[DisclosedContract] = ImmArray(
+      DisclosedContract(
+        templateId,
+        Lf.ContractId.V1.assertFromString("00" + "00" * 32),
+        ValueRecord(
+          Some(templateId),
+          ImmArray.empty,
+        ),
+        ContractMetadata(Time.Timestamp.now(), None, ImmArray.Empty),
+      )
+    )
+
     val emptyCommands = ApiCommands(
       ledgerId = Some(ledgerId),
       workflowId = Some(workflowId),
@@ -95,22 +121,10 @@ class SubmitRequestValidatorTest
       commands = LfCommands(
         ImmArray(
           LfCommand.Create(
-            Ref.Identifier(
-              Ref.PackageId.assertFromString("package"),
-              Ref.QualifiedName(
-                Ref.ModuleName.assertFromString("module"),
-                Ref.DottedName.assertFromString("entity"),
-              ),
-            ),
+            templateId,
             Lf.ValueRecord(
               Option(
-                Ref.Identifier(
-                  Ref.PackageId.assertFromString("package"),
-                  Ref.QualifiedName(
-                    Ref.ModuleName.assertFromString("module"),
-                    Ref.DottedName.assertFromString("entity"),
-                  ),
-                )
+                templateId
               ),
               ImmArray((Option(Ref.Name.assertFromString("something")), Lf.ValueTrue)),
             ),
@@ -119,7 +133,7 @@ class SubmitRequestValidatorTest
         Time.Timestamp.assertFromInstant(ledgerTime),
         workflowId.unwrap,
       ),
-      disclosedContracts = ImmArray.empty,
+      disclosedContracts,
     )
   }
 
@@ -132,12 +146,26 @@ class SubmitRequestValidatorTest
 
   private def unexpectedError = sys.error("unexpected error")
 
+  private val validateDisclosedContractsMock = mock[ValidateDisclosedContracts]
+
+  when(validateDisclosedContractsMock(any[Commands])(any[ContextualizedErrorLogger]))
+    .thenReturn(Right(internal.disclosedContracts))
+
   private val testedCommandValidator =
-    new CommandsValidator(ledgerId)
+    new CommandsValidator(ledgerId, validateDisclosedContractsMock)
   private val testedValueValidator = ValueValidator
 
   "CommandSubmissionRequestValidator" when {
     "validating command submission requests" should {
+      "validate a complete request" in {
+        testedCommandValidator.validateCommands(
+          api.commands,
+          internal.ledgerTime,
+          internal.submittedAt,
+          Some(internal.maxDeduplicationDuration),
+        ) shouldEqual Right(internal.emptyCommands)
+      }
+
       "tolerate a missing submissionId" in {
         testedCommandValidator.validateCommands(
           api.commands.withSubmissionId(""),
@@ -169,7 +197,6 @@ class SubmitRequestValidatorTest
           internal.submittedAt,
           Some(internal.maxDeduplicationDuration),
         ) shouldEqual Right(internal.emptyCommands.copy(ledgerId = None))
-
       }
 
       "tolerate a missing workflowId" in {
@@ -407,6 +434,30 @@ class SubmitRequestValidatorTest
           code = NOT_FOUND,
           description =
             "LEDGER_CONFIGURATION_NOT_FOUND(11,0): The ledger configuration could not be retrieved.",
+          metadata = Map.empty,
+        )
+      }
+
+      "fail when disclosed contracts validation fails" in {
+        when(validateDisclosedContractsMock(any[Commands])(any[ContextualizedErrorLogger]))
+          .thenReturn(
+            Left(
+              LedgerApiErrors.RequestValidation.InvalidField
+                .Reject("some failed", "some message")
+                .asGrpcError
+            )
+          )
+        requestMustFailWith(
+          request = testedCommandValidator
+            .validateCommands(
+              api.commands,
+              internal.ledgerTime,
+              internal.submittedAt,
+              Some(internal.maxDeduplicationDuration),
+            ),
+          code = INVALID_ARGUMENT,
+          description =
+            "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field some failed: some message",
           metadata = Map.empty,
         )
       }
@@ -841,7 +892,5 @@ class SubmitRequestValidatorTest
         )
       }
     }
-
   }
-
 }
