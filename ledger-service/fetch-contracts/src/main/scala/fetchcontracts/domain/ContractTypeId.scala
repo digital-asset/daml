@@ -60,6 +60,13 @@ sealed abstract class ContractTypeId[+PkgId]
 }
 
 object ResolvedQuery {
+  def apply(resolved: ContractTypeId.Resolved): ResolvedQuery = {
+    resolved match {
+      case t: ContractTypeId.Template.Resolved => ByTemplateId(t)
+      case i: ContractTypeId.Interface.Resolved => ByInterfaceId(i)
+      case unexpected => throw new Exception(s"unexpected,  ContractTypeId.Resolved is $unexpected")
+    }
+  }
   def apply(resolved: Set[ContractTypeId.Resolved]): Unsupported \/ ResolvedQuery = {
     val (templateIds, interfaceIds) = resolved.partitionMap {
       // TODO 'Resolved' only is non-exhaustive, which should not be the case.
@@ -86,7 +93,7 @@ object ResolvedQuery {
   final case object CannotQueryManyInterfaceIds extends Unsupported
   final case object CannotBeEmpty extends Unsupported
 
-  // TODO Ray This is a dummy, please check occurrences if this makes sense
+  // TODO RR #14871 verify that `ResolvedQuery.Empty` is ok where it is used
   final case object Empty extends ResolvedQuery {
     def resolved = Set.empty[ContractTypeId.Resolved]
   }
@@ -95,6 +102,12 @@ object ResolvedQuery {
     def resolved: Set[ContractTypeId.Resolved] =
       templateIds.toSet[ContractTypeId.Resolved]
   }
+  final case class ByTemplateId(templateId: ContractTypeId.Template.Resolved)
+      extends ResolvedQuery {
+    def resolved: Set[ContractTypeId.Resolved] =
+      Set(templateId).toSet[ContractTypeId.Resolved]
+  }
+
   final case class ByInterfaceId(interfaceId: ContractTypeId.Interface.Resolved)
       extends ResolvedQuery {
     def resolved: Set[ContractTypeId.Resolved] =

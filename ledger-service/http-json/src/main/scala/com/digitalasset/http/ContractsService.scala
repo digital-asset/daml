@@ -210,16 +210,14 @@ class ContractsService(
             allTemplateIds(lc)(jwt, ledgerId).map(_.toSet[domain.ContractTypeId.Resolved].some),
           )
         )
-
+        resolvedQuery <- OptionT(Future.successful(domain
+              .ResolvedQuery(resolvedTemplateIds).toOption))
         result <- OptionT(
           searchInMemory(
             jwt,
             ledgerId,
             parties,
-            // TODO Ray, maybe can ignore, and assume resolvedTemplateIds is template ids only
-            domain
-              .ResolvedQuery(resolvedTemplateIds)
-              .fold(_ => throw new Exception("BOOM"), identity),
+            resolvedQuery,
             InMemoryQuery.Filter(isContractId(contractId)),
           )
             .runWith(Sink.headOption)
@@ -538,9 +536,7 @@ class ContractsService(
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
   ): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] = {
-    // TODO Ray fixme
-    val resolvedQuery =
-      domain.ResolvedQuery(Set(templateId)).fold(_ => throw new Exception("BOOM"), identity)
+    val resolvedQuery = domain.ResolvedQuery(templateId)
     searchInMemory(jwt, ledgerId, parties, resolvedQuery, InMemoryQuery.Filter(queryParams))
   }
 

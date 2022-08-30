@@ -985,7 +985,6 @@ class WebSocketService(
               .fromLedgerApi(ae)
               .liftErr(ServerError.fromMsg),
           ce =>
-            // TODO Ray use ResolvedQuery.apply?
             domain.ActiveContract
               .fromLedgerApi(resolvedQuery, ce)
               .liftErr(ServerError.fromMsg)

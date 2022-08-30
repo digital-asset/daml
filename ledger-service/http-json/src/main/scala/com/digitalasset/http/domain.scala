@@ -331,7 +331,7 @@ package domain {
     def fromEvent(event: lav1.event.Event): Error \/ Contract[lav1.value.Value] =
       event.event match {
         case lav1.event.Event.Event.Created(created) =>
-          // TODO Ray fixme?
+          // TODO RR #14871 verify that `ResolvedQuery.Empty` is ok in this scenario
           val resolved = domain.ResolvedQuery.Empty
           ActiveContract
             .fromLedgerApi(resolved, created)
@@ -354,7 +354,7 @@ package domain {
         case head +: tail =>
           eventsById(head).kind match {
             case lav1.transaction.TreeEvent.Kind.Created(created) =>
-              // TODO Ray fixme?
+              // TODO RR #14871 verify that `ResolvedQuery.Empty` is ok in this scenario
               val a =
                 ActiveContract
                   .fromLedgerApi(domain.ResolvedQuery.Empty, created)
