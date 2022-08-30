@@ -160,6 +160,7 @@ package domain {
     type ActiveContract[+LfV] = here.ActiveContract[LfV]
     final val ActiveContract = here.ActiveContract
     final val ResolvedQuery = here.ResolvedQuery
+    type ContractTypeIdsQuery = here.ResolvedQuery.ContractTypeIdsQuery
     type ResolvedQuery = here.ResolvedQuery
   }
 }

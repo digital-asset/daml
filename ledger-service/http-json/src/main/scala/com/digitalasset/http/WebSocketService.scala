@@ -743,12 +743,9 @@ class WebSocketService(
       Future.successful {
         contractsService
           .liveAcsAsInsertDeleteStepSource(jwt, ledgerId, parties, predicate.resolved.toList)
-          // TODO Ray fixme
           .via(
             convertFilterContracts(
-              domain
-                .ResolvedQuery(predicate.resolved)
-                .fold(_ => throw new Exception("BOOM"), identity),
+              domain.ResolvedQuery.ContractTypeIdsQuery(predicate.resolved),
               predicate.fn,
             )
           )
@@ -812,10 +809,9 @@ class WebSocketService(
             liveStartingOffset,
             Terminates.Never,
           )
-          // TODO Ray fixme
           .via(
             convertFilterContracts(
-              domain.ResolvedQuery(resolved).fold(_ => throw new Exception("BOOM"), identity),
+              domain.ResolvedQuery.ContractTypeIdsQuery(resolved),
               fn,
             )
           )
@@ -860,12 +856,9 @@ class WebSocketService(
                       liveStartingOffset,
                       Terminates.Never,
                     )
-                    // TODO Ray fixme
                     .via(
                       convertFilterContracts(
-                        domain
-                          .ResolvedQuery(resolved)
-                          .fold(_ => throw new Exception("BOOM"), identity),
+                        domain.ResolvedQuery.ContractTypeIdsQuery(resolved),
                         fn,
                       )
                     )

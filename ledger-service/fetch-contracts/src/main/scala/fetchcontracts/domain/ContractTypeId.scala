@@ -97,6 +97,12 @@ object ResolvedQuery {
   final case object Empty extends ResolvedQuery {
     def resolved = Set.empty[ContractTypeId.Resolved]
   }
+
+  // TODO SC Should only be used by WebsocketService, assuming the ids are verified earlier upstream.
+  final case class ContractTypeIdsQuery(ids: Set[ContractTypeId.Resolved]) extends ResolvedQuery {
+    def resolved: Set[ContractTypeId.Resolved] = ids
+  }
+
   final case class ByTemplateIds(templateIds: Set[ContractTypeId.Template.Resolved])
       extends ResolvedQuery {
     def resolved: Set[ContractTypeId.Resolved] =
