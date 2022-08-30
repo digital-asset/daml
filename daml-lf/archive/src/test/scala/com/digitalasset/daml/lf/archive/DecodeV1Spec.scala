@@ -990,6 +990,30 @@ class DecodeV1Spec
           )
           .build()
 
+        val interfaceTemplateTypeRep = DamlLf1.Expr
+          .newBuilder()
+          .setInterfaceTemplateTypeRep(
+            DamlLf1.Expr.InterfaceTemplateTypeRep
+              .newBuilder()
+              .setInterface(ifaceTyConName)
+              .setExpr(unitExpr)
+              .build()
+          )
+          .build()
+
+        val unsafeFromInterface = DamlLf1.Expr
+          .newBuilder()
+          .setUnsafeFromInterface(
+            DamlLf1.Expr.UnsafeFromInterface
+              .newBuilder()
+              .setInterfaceType(ifaceTyConName)
+              .setTemplateType(templateTyConName)
+              .setContractIdExpr(unitExpr)
+              .setInterfaceExpr(falseExpr)
+              .build()
+          )
+          .build()
+
         Table(
           "input" -> "expected output",
           signatoryInterface -> Ast
@@ -1004,6 +1028,16 @@ class DecodeV1Spec
             interfaceId = scalaIfaceTyConName,
             templateId = scalaTemplateTyConName,
             value = EUnit,
+          ),
+          interfaceTemplateTypeRep -> Ast.EInterfaceTemplateTypeRep(
+            ifaceId = scalaIfaceTyConName,
+            body = EUnit,
+          ),
+          unsafeFromInterface -> Ast.EUnsafeFromInterface(
+            interfaceId = scalaIfaceTyConName,
+            templateId = scalaTemplateTyConName,
+            contractIdExpr = EUnit,
+            ifaceExpr = EFalse,
           ),
         )
       }
@@ -1033,33 +1067,6 @@ class DecodeV1Spec
           DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(3)
         val scalaIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:I")
         val scalaRequiredIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:J")
-        val templateTyConName =
-          DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(1)
-        val scalaTemplateTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:T")
-
-        val interfaceTemplateTypeRep = DamlLf1.Expr
-          .newBuilder()
-          .setInterfaceTemplateTypeRep(
-            DamlLf1.Expr.InterfaceTemplateTypeRep
-              .newBuilder()
-              .setInterface(ifaceTyConName)
-              .setExpr(unitExpr)
-              .build()
-          )
-          .build()
-
-        val unsafeFromInterface = DamlLf1.Expr
-          .newBuilder()
-          .setUnsafeFromInterface(
-            DamlLf1.Expr.UnsafeFromInterface
-              .newBuilder()
-              .setInterfaceType(ifaceTyConName)
-              .setTemplateType(templateTyConName)
-              .setContractIdExpr(unitExpr)
-              .setInterfaceExpr(falseExpr)
-              .build()
-          )
-          .build()
 
         val toRequiredInterface = DamlLf1.Expr
           .newBuilder()
@@ -1105,16 +1112,6 @@ class DecodeV1Spec
 
         Table(
           "input" -> "expected output",
-          interfaceTemplateTypeRep -> Ast.EInterfaceTemplateTypeRep(
-            ifaceId = scalaIfaceTyConName,
-            body = EUnit,
-          ),
-          unsafeFromInterface -> Ast.EUnsafeFromInterface(
-            interfaceId = scalaIfaceTyConName,
-            templateId = scalaTemplateTyConName,
-            contractIdExpr = EUnit,
-            ifaceExpr = EFalse,
-          ),
           toRequiredInterface -> Ast.EToRequiredInterface(
             requiredIfaceId = scalaRequiredIfaceTyConName,
             requiringIfaceId = scalaIfaceTyConName,
