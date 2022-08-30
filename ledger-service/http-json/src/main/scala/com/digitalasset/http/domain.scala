@@ -313,12 +313,6 @@ package domain {
 
   object Contract {
 
-    def fromTransaction(
-        tx: lav1.transaction.Transaction
-    ): Error \/ List[Contract[lav1.value.Value]] = {
-      tx.events.toList.traverse(fromEvent(_))
-    }
-
     def fromTransactionTree(
         tx: lav1.transaction.TransactionTree
     ): Error \/ Vector[Contract[lav1.value.Value]] = {
@@ -327,21 +321,6 @@ package domain {
         .sequence
         .map(_.flatten)
     }
-
-    def fromEvent(event: lav1.event.Event): Error \/ Contract[lav1.value.Value] =
-      event.event match {
-        case lav1.event.Event.Event.Created(created) =>
-          // TODO RR #14871 verify that `ResolvedQuery.Empty` is ok in this scenario
-          val resolved = domain.ResolvedQuery.Empty
-          ActiveContract
-            .fromLedgerApi(resolved, created)
-            .map(a => Contract[lav1.value.Value](\/-(a)))
-        case lav1.event.Event.Event.Archived(archived) =>
-          ArchivedContract.fromLedgerApi(archived).map(a => Contract[lav1.value.Value](-\/(a)))
-        case lav1.event.Event.Event.Empty =>
-          val errorMsg = s"Expected either Created or Archived event, got: Empty"
-          -\/(Error(Symbol("Contract_fromLedgerApi"), errorMsg))
-      }
 
     def fromTreeEvent(
         eventsById: Map[String, lav1.transaction.TreeEvent]
