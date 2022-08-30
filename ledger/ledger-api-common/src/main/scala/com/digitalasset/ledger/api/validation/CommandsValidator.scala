@@ -86,6 +86,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
         ledgerEffectiveTime = ledgerEffectiveTimestamp,
         commandsReference = workflowId.fold("")(_.unwrap),
       ),
+      disclosedContracts = ImmArray.empty,
     )
 
   private def validateLedgerTime(
