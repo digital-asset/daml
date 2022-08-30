@@ -5,11 +5,11 @@
 <a name="type-newtype-nat-87202"></a>**data** [Nat](#type-newtype-nat-87202)
 
 > <a name="constr-newtype-nat-30825"></a>[Nat](#constr-newtype-nat-30825)
-> 
+>
 > > | Field                                                                          | Type                                                                           | Description |
 > > | :----------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :---------- |
 > > | unNat                                                                          | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) |  |
-> 
+>
 > **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "unNat" [Nat](#type-newtype-nat-87202) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 
 ## Functions

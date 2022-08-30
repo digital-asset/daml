@@ -115,7 +115,7 @@ expectRst asFolder =
             , ""
             , "**type** `T <type-typedef-t_>`_ a"
             , "  \\= TT TTT"
-            , "  "
+            , ""
             , "  T descr"
             ] []
         , mkExpectRst asFolder "module-twotypes" "TwoTypes" "" []
@@ -124,7 +124,7 @@ expectRst asFolder =
             , ""
             , "**type** `T <type-twotypes-t_>`_ a"
             , "  \\= TT"
-            , "  "
+            , ""
             , "  T descr"
             , ""
             , ".. _data-twotypes-d:"
@@ -132,9 +132,9 @@ expectRst asFolder =
             , "**data** `D <data-twotypes-d_>`_ d"
             , ""
             , "  .. _constr-twotypes-d:"
-            , "  "
+            , ""
             , "  `D <constr-twotypes-d_>`_ a"
-            , "  "
+            , ""
             , "    D descr"
             ]
             []
@@ -143,7 +143,7 @@ expectRst asFolder =
             , ""
             , "`f <function-function1-f_>`_"
             , "  \\: TheType"
-            , "  "
+            , ""
             , "  the doc"
             ]
         , mkExpectRst asFolder "module-function3" "Function3" "" [] [] []
@@ -159,7 +159,7 @@ expectRst asFolder =
             , "**class** `C <class-onlyclass-c_>`_ a **where**"
             , ""
             , "  .. _function-onlyclass-member:"
-            , "  "
+            , ""
             , "  `member <function-onlyclass-member_>`_"
             , "    \\: a"
             ]
@@ -173,13 +173,13 @@ expectRst asFolder =
             , "**data** `D <data-multilinefield-d_>`_"
             , ""
             , "  .. _constr-multilinefield-d:"
-            , "  "
+            , ""
             , "  `D <constr-multilinefield-d_>`_"
-            , "  "
+            , ""
             , "    .. list-table::"
             , "       :widths: 15 10 30"
             , "       :header-rows: 1"
-            , "    "
+            , ""
             , "       * - Field"
             , "         - Type"
             , "         - Description"
@@ -193,7 +193,7 @@ expectRst asFolder =
             , ""
             , "`g <function-g_>`_"
             , "  \\: Eq t \\=\\> t \\-\\> Bool"
-            , "  "
+            , ""
             , "  function with context"
             ]
         ]
@@ -243,7 +243,7 @@ expectRstIndex = T.unlines
   [ ".. toctree::"
   , "   :maxdepth: 3"
   , "   :titlesonly:"
-  , "   "
+  , ""
   , "   Empty <Empty>"
   , "   Function1 <Function1>"
   , "   Function3 <Function3>"
@@ -261,7 +261,7 @@ expectMarkdown =
             [ "<a name=\"type-typedef-t\"></a>**type** [T](#type-typedef-t) a"
             , ""
             , "> = TT TTT"
-            , "> "
+            , ">"
             , "> T descr"
             ]
             []
@@ -269,13 +269,13 @@ expectMarkdown =
             [ "<a name=\"type-twotypes-t\"></a>**type** [T](#type-twotypes-t) a"
             , ""
             , "> = TT"
-            , "> "
+            , ">"
             , "> T descr"
             , ""
             , "<a name=\"data-twotypes-d\"></a>**data** [D](#data-twotypes-d) d"
             , ""
             , "> <a name=\"constr-twotypes-d\"></a>[D](#constr-twotypes-d) a"
-            , "> "
+            , ">"
             , "> > D descr"
             ]
             []
@@ -283,7 +283,7 @@ expectMarkdown =
             [ "<a name=\"function-function1-f\"></a>[f](#function-function1-f)"
             , ""
             , "> : TheType"
-            , "> "
+            , ">"
             , "> the doc"
             ]
         , mkExpectMD "module-function3" "Function3" "" [] [] []
@@ -296,7 +296,7 @@ expectMarkdown =
             [ "<a name=\"class-onlyclass-c\"></a>**class** [C](#class-onlyclass-c) a **where**"
             , ""
             , "> <a name=\"function-onlyclass-member\"></a>[member](#function-onlyclass-member)"
-            , "> "
+            , ">"
             , "> > : a"
             ]
             []
@@ -307,7 +307,7 @@ expectMarkdown =
             [ "<a name=\"data-multilinefield-d\"></a>**data** [D](#data-multilinefield-d)"
             , ""
             , "> <a name=\"constr-multilinefield-d\"></a>[D](#constr-multilinefield-d)"
-            , "> "
+            , ">"
             , "> > | Field | Type  | Description |"
             , "> > | :---- | :---- | :---------- |"
             , "> > | f     | T     | This is a multiline field description |"
@@ -317,7 +317,7 @@ expectMarkdown =
             [ "<a name=\"function-g\"></a>[g](#function-g)"
             , ""
             , "> : Eq t =\\> t -\\> Bool"
-            , "> "
+            , ">"
             , "> function with context"
             ]
         ]
