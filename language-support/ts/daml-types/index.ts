@@ -71,9 +71,6 @@ export interface ToInterface<T extends object, IfU> {
   ): ContractId<If>;
   // overload for retroactive interface implementations
   toInterface<If>(ic: FromTemplate<If, T>, cid: ContractId<T>): ContractId<If>;
-  /*TODO SC possible implementation signature:
-  toInterface<If, Z>(ic: FromTemplate<If, Z>, cid: ContractId<T>):
-    ContractId<Z>;*/
 
   // overload for direct interface implementations
   unsafeFromInterface(
