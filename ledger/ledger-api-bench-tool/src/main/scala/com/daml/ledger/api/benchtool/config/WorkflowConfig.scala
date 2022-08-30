@@ -108,7 +108,7 @@ object WorkflowConfig {
     final case class PartyFilter(
         party: String,
         templates: List[String] = List.empty,
-        interfaces: List[String],
+        interfaces: List[String] = List.empty,
     )
 
     final case class PartyNamePrefixFilter(

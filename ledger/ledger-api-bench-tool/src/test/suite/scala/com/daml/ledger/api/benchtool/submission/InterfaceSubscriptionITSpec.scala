@@ -3,17 +3,14 @@
 
 package com.daml.ledger.api.benchtool.submission
 
-import com.daml.ledger.api.benchtool.BenchtoolSandboxFixture
+import com.daml.ledger.api.benchtool.{BenchtoolSandboxFixture, ConfigEnricher}
 import com.daml.ledger.api.benchtool.config.WorkflowConfig
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
-import com.daml.ledger.api.benchtool.util.ObserverWithResult
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.client.binding
 import org.scalatest.AppendedClues
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
 
@@ -61,7 +58,7 @@ class InterfaceSubscriptionITSpec
     for {
       (apiServices, names, submitter) <- benchtoolFixture()
       allocatedParties <- submitter.prepare(config)
-      _ = allocatedParties.divulgees shouldBe empty
+      configDesugaring = new ConfigEnricher(allocatedParties)
       tested = new FooSubmission(
         submitter = submitter,
         maxInFlightCommands = 1,
@@ -71,19 +68,28 @@ class InterfaceSubscriptionITSpec
         names = names,
       )
       _ <- tested.performSubmission()
-      _ <- observer(
+      observedEvents <- observer(
+        configDesugaring = configDesugaring,
         apiServices = apiServices,
         party = allocatedParties.signatory,
       )
     } yield {
-      succeed
+      observedEvents.createEvents.forall(_.interfaceViews.nonEmpty) shouldBe true
+      observedEvents.createEvents
+        .flatMap(_.interfaceViews)
+        .forall(_.serializedSize > 0) shouldBe true
+      observedEvents.createEvents
+        .flatMap(_.interfaceViews)
+        .map(_.interfaceName)
+        .toSet shouldBe Set("FooI2", "FooI1", "FooI3")
     }
   }
 
   private def observer(
+      configDesugaring: ConfigEnricher,
       apiServices: LedgerApiServices,
       party: binding.Primitive.Party,
-  ): Future[Unit] = {
+  ): Future[ObservedEvents] = {
     val config = WorkflowConfig.StreamConfig.ActiveContractsStreamConfig(
       name = "dummy-name",
       filters = List(
@@ -98,14 +104,10 @@ class InterfaceSubscriptionITSpec
       timeoutInSecondsO = None,
     )
     apiServices.activeContractsService.getActiveContracts(
-      config = config,
-      observer = new ObserverWithResult[GetActiveContractsResponse, Unit](
-        LoggerFactory.getLogger(getClass)
-      ) {
-        override def streamName: String = "???"
-
-        override def completeWith(): Future[Unit] = Future.unit
-      },
+      config = configDesugaring
+        .enrichStreamConfig(config)
+        .asInstanceOf[WorkflowConfig.StreamConfig.ActiveContractsStreamConfig],
+      observer = ActiveContractsObserver(Set("Foo1", "Foo2", "Foo3")),
     )
   }
 

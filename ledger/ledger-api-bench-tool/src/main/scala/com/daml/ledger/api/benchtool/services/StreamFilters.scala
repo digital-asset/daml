@@ -4,7 +4,12 @@
 package com.daml.ledger.api.benchtool.services
 
 import com.daml.ledger.api.benchtool.config.WorkflowConfig
-import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
+import com.daml.ledger.api.v1.transaction_filter.{
+  Filters,
+  InclusiveFilters,
+  InterfaceFilter,
+  TransactionFilter,
+}
 import com.daml.ledger.api.v1.value.Identifier
 
 object StreamFilters {
@@ -20,13 +25,20 @@ object StreamFilters {
   private def toTransactionFilter(
       filter: WorkflowConfig.StreamConfig.PartyFilter
   ): Either[String, (String, Filters)] =
-    (filter.templates match {
-      case Nil =>
+    ((filter.templates, filter.interfaces) match {
+      case (Nil, Nil) =>
         Right(Filters.defaultInstance)
-      case templateIds =>
-        templateIdentifiers(templateIds).map { identifiers =>
+      case (templateIds, interfaceIds) =>
+        for {
+          tplIds <- templateIdentifiers(templateIds)
+          ifaceIds <- templateIdentifiers(interfaceIds)
+        } yield {
+          val interfaceFilters =
+            ifaceIds.map(interfaceId => InterfaceFilter(Some(interfaceId), true))
           Filters.defaultInstance.withInclusive(
-            InclusiveFilters.defaultInstance.addAllTemplateIds(identifiers)
+            InclusiveFilters.defaultInstance
+              .addAllTemplateIds(tplIds)
+              .addAllInterfaceFilters(interfaceFilters)
           )
         }
     }).map(templateFilters => filter.party -> templateFilters)
