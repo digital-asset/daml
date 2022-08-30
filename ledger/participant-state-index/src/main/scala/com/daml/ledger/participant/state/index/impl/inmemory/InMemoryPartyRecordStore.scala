@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.index.impl.inmemory
 
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{ObjectMeta, ParticipantParty}
-import com.daml.ledger.participant.state.index.v2.ParticipantPartyRecordStore.{
+import com.daml.ledger.participant.state.index.v2.PartyRecordStore.{
   PartyRecordExists,
   PartyRecordNotFound,
   PartyRecordNotFoundOnUpdateException,
@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.index.v2.ParticipantPartyRecordStore.{
 import com.daml.ledger.participant.state.index.v2.{
   AnnotationsUpdate,
   LedgerPartyExists,
-  ParticipantPartyRecordStore,
+  PartyRecordStore,
   PartyRecordUpdate,
 }
 import com.daml.lf.data.Ref
@@ -24,7 +24,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-object InMemoryParticipantPartyRecordStore {
+object InMemoryPartyRecordStore {
   case class PartyRecordInfo(
       party: Ref.Party,
       resourceVersion: Long,
@@ -35,16 +35,15 @@ object InMemoryParticipantPartyRecordStore {
     ParticipantParty.PartyRecord(
       party = info.party,
       metadata = ObjectMeta(
-        resourceVersionO = Some(info.resourceVersion.toString),
+        resourceVersionO = Some(info.resourceVersion),
         annotations = info.annotations,
       ),
     )
 
 }
 
-class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
-    extends ParticipantPartyRecordStore {
-  import InMemoryParticipantPartyRecordStore._
+class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends PartyRecordStore {
+  import InMemoryPartyRecordStore._
 
   implicit private val ec: ExecutionContext = executionContext
   private val logger = ContextualizedLogger.get(getClass)
@@ -68,6 +67,7 @@ class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
     })
   }
 
+  // TODO um-for-hub: Add a conformance test exercising a race conditions: multiple update on the same non-existing party-record (which exists on the ledger and is indexed by this participant) calls
   override def updatePartyRecord(
       partyRecordUpdate: PartyRecordUpdate,
       ledgerPartyExists: LedgerPartyExists,
@@ -91,44 +91,55 @@ class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
     })
     attemptedUpdateF.recoverWith[Result[domain.ParticipantParty.PartyRecord]] {
       case PartyRecordNotFoundOnUpdateException =>
-        for {
-          partyExistsOnLedger <- ledgerPartyExists.exists(party)
-          createdPartyRecord <-
-            if (partyExistsOnLedger) {
-              withState {
-                val newPartyRecord = domain.ParticipantParty.PartyRecord(
-                  party = party,
-                  metadata = domain.ObjectMeta.empty,
-                )
-                for {
-                  _ <- withoutPartyRecord(party = newPartyRecord.party) {
-                    doCreatePartyRecord(newPartyRecord)
-                  }
-                  _ <- withPartyRecord(party) { info =>
-                    doUpdatePartyRecord(
-                      partyRecordUpdate = partyRecordUpdate,
-                      party = party,
-                      info = info,
-                    ).map(toPartyRecord)
-                  }
-                  updatePartyRecord <- {
-                    withPartyRecord(party) { updatedInfo =>
-                      Right(toPartyRecord(updatedInfo))
-                    }
-                  }
-                } yield updatePartyRecord
-              }.map(tapSuccess { newPartyRecord =>
-                logger.error(
-                  s"Created a new party record in a participant local store: ${newPartyRecord}"
-                )
-              })(scala.concurrent.ExecutionContext.parasitic)
-            } else {
-              Future.successful(
-                Left(ParticipantPartyRecordStore.PartyNotFound(party))
-              )
-            }
-        } yield createdPartyRecord
+        createAndUpdatePartyRecord(
+          partyRecordUpdate = partyRecordUpdate,
+          ledgerPartyExists = ledgerPartyExists,
+        )
     }
+  }
+
+  private def createAndUpdatePartyRecord(
+      partyRecordUpdate: PartyRecordUpdate,
+      ledgerPartyExists: LedgerPartyExists,
+  )(implicit loggingContext: LoggingContext): Future[Result[ParticipantParty.PartyRecord]] = {
+    val party = partyRecordUpdate.party
+    for {
+      partyExistsOnLedger <- ledgerPartyExists.exists(party)
+      createdPartyRecord <-
+        if (partyExistsOnLedger) {
+          withState {
+            val newPartyRecord = domain.ParticipantParty.PartyRecord(
+              party = party,
+              metadata = domain.ObjectMeta.empty,
+            )
+            for {
+              _ <- withoutPartyRecord(party = newPartyRecord.party) {
+                doCreatePartyRecord(newPartyRecord)
+              }
+              _ <- withPartyRecord(party) { info =>
+                doUpdatePartyRecord(
+                  partyRecordUpdate = partyRecordUpdate,
+                  party = party,
+                  info = info,
+                ).map(toPartyRecord)
+              }
+              updatePartyRecord <- {
+                withPartyRecord(party) { updatedInfo =>
+                  Right(toPartyRecord(updatedInfo))
+                }
+              }
+            } yield updatePartyRecord
+          }.map(tapSuccess { newPartyRecord =>
+            logger.error(
+              s"Created a new party record in a participant local store: ${newPartyRecord}"
+            )
+          })(scala.concurrent.ExecutionContext.parasitic)
+        } else {
+          Future.successful(
+            Left(PartyRecordStore.PartyNotFound(party))
+          )
+        }
+    } yield createdPartyRecord
   }
 
   private def doUpdatePartyRecord(
@@ -146,10 +157,10 @@ class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
     val newResourceVersionEither = partyRecordUpdate.metadataUpdate.resourceVersionO match {
       case None => Right(currentResourceVersion + 1)
       case Some(requestResourceVersion) =>
-        if (requestResourceVersion == currentResourceVersion.toString) {
+        if (requestResourceVersion == currentResourceVersion) {
           Right(currentResourceVersion + 1)
         } else {
-          Left(ParticipantPartyRecordStore.ConcurrentPartyUpdate(partyRecordUpdate.party))
+          Left(PartyRecordStore.ConcurrentPartyUpdate(partyRecordUpdate.party))
         }
     }
     for {
@@ -184,7 +195,7 @@ class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
 
   private def withPartyRecord[T](
       party: Ref.Party
-  )(f: InMemoryParticipantPartyRecordStore.PartyRecordInfo => Result[T]): Result[T] =
+  )(f: InMemoryPartyRecordStore.PartyRecordInfo => Result[T]): Result[T] =
     state.get(party) match {
       case Some(partyRecord) => f(partyRecord)
       case None => Left(PartyRecordNotFound(party))

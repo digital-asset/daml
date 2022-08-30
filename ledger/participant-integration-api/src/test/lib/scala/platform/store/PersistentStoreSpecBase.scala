@@ -26,10 +26,8 @@ import scala.concurrent.duration._
   * - Before each test case resets the contents of the database.
   * - Ensures that at most one test case runs at a time.
   */
-trait PersistentStoreSpecBase
-    extends BeforeAndAfterEach
-    with BeforeAndAfterAll
-    with StorageBackendProvider { this: Suite =>
+trait PersistentStoreSpecBase extends BeforeAndAfterEach with BeforeAndAfterAll {
+  this: Suite with StorageBackendProvider =>
 
   implicit protected val loggingContext: LoggingContext = LoggingContext.ForTesting
 
@@ -84,7 +82,7 @@ trait PersistentStoreSpecBase
         dbConfig = DbConfig(
           jdbcUrl,
           connectionPool = ConnectionPoolConfig(
-            connectionPoolSize = 1,
+            connectionPoolSize = 2,
             connectionTimeout = 250.millis,
           ),
         ),

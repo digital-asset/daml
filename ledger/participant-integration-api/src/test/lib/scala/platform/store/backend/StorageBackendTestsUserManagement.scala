@@ -6,8 +6,8 @@ package com.daml.platform.store.backend
 import java.sql.SQLException
 import java.util.UUID
 
+import com.daml.ledger.api.domain.UserRight
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
-import com.daml.ledger.api.domain.{UserRight}
 import com.daml.lf.data.Ref
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -17,7 +17,8 @@ private[backend] trait StorageBackendTestsUserManagement
     extends Matchers
     with Inside
     with StorageBackendSpec
-    with OptionValues {
+    with OptionValues
+    with ParticipantResourceMetadataTests {
   this: AnyFlatSpec =>
 
   behavior of "StorageBackend (user management)"
@@ -29,6 +30,54 @@ private[backend] trait StorageBackendTestsUserManagement
   private val zeroMicros: Long = 0
 
   private def tested = backend.userManagement
+
+  override def newResource(): TestedResource = new TestedResource {
+    private val user = newDbUser()
+
+    override def createResourceAndReturnInternalId(): Int = {
+      val internalId = executeSql(tested.createUser(user))
+      internalId
+    }
+
+    override def fetchResourceVersion(): Long = {
+      executeSql(tested.getUser(user.id)).value.payload.resourceVersion
+    }
+  }
+
+  override def resourceVersionTableName: String = "participant_users"
+
+  override def resourceAnnotationsTableName: String = "participant_user_annotations"
+
+  it should "update existing user's primaryParty attribute" in {
+    val user = newDbUser(createdAt = 123, primaryPartyOverride = Some(None))
+    val internalId = executeSql(tested.createUser(user))
+    val party1 = newParty
+    // Change None -> party1
+    executeSql(
+      tested.updateUserPrimaryParty(internalId, primaryPartyO = Some(party1))
+    ) shouldBe true
+    executeSql((tested.getUser(user.id))).value.payload.primaryPartyO shouldBe Some(party1)
+    // Change party1 -> None
+    executeSql(tested.updateUserPrimaryParty(internalId, primaryPartyO = None)) shouldBe true
+    executeSql((tested.getUser(user.id))).value.payload.primaryPartyO shouldBe None
+    // Repeated change party1 -> None
+    executeSql(tested.updateUserPrimaryParty(internalId, primaryPartyO = None)) shouldBe true
+    executeSql((tested.getUser(user.id))).value.payload.primaryPartyO shouldBe None
+  }
+
+  it should "update existing user's isDeactivated attribute" in {
+    val user = newDbUser(createdAt = 123, primaryPartyOverride = Some(None), isDeactivated = false)
+    val internalId = executeSql(tested.createUser(user))
+    // Deactivate
+    executeSql(tested.updateUserIsDeactivated(internalId, isDeactivated = true)) shouldBe true
+    executeSql((tested.getUser(user.id))).value.payload.isDeactivated shouldBe true
+    // Activate
+    executeSql(tested.updateUserIsDeactivated(internalId, isDeactivated = false)) shouldBe true
+    executeSql((tested.getUser(user.id))).value.payload.isDeactivated shouldBe false
+    // Deactivate again
+    executeSql(tested.updateUserIsDeactivated(internalId, isDeactivated = true)) shouldBe true
+    executeSql((tested.getUser(user.id))).value.payload.isDeactivated shouldBe true
+  }
 
   it should "handle created_at and granted_at attributes correctly" in {
     val user = newDbUser(createdAt = 123)
@@ -325,7 +374,9 @@ private[backend] trait StorageBackendTestsUserManagement
 
   private def newDbUser(
       userId: String = "",
+      isDeactivated: Boolean = false,
       primaryPartyOverride: Option[Option[Ref.Party]] = None,
+      resourceVersion: Long = 0,
       createdAt: Long = zeroMicros,
   ): UserManagementStorageBackend.DbUserPayload = {
     val uuid = UUID.randomUUID.toString
@@ -336,8 +387,13 @@ private[backend] trait StorageBackendTestsUserManagement
     UserManagementStorageBackend.DbUserPayload(
       id = Ref.UserId.assertFromString(userIdStr),
       primaryPartyO = primaryParty,
+      isDeactivated = isDeactivated,
+      resourceVersion = resourceVersion,
       createdAt = createdAt,
     )
   }
+
+  private def newParty: Ref.Party =
+    Ref.Party.assertFromString(s"party_${UUID.randomUUID.toString}")
 
 }

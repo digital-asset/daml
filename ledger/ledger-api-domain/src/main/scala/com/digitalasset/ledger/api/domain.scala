@@ -399,11 +399,12 @@ object domain {
   }
 
   final case class ObjectMeta(
-      resourceVersionO: Option[String],
+      resourceVersionO: Option[Long],
       annotations: Map[String, String],
   )
 
   object ObjectMeta {
+    // TODO um-for-hub: Review usage
     def empty: ObjectMeta = ObjectMeta(
       resourceVersionO = None,
       annotations = Map.empty,
@@ -419,6 +420,7 @@ object domain {
       metadata: ObjectMeta = ObjectMeta.empty,
   )
 
+  // TODO um-for-hub: Drop redundant ParticipantParty object
   object ParticipantParty {
 
     final case class PartyRecord(

@@ -46,7 +46,7 @@ object AnnotationsUpdate {
 }
 
 case class ObjectMetaUpdate(
-    resourceVersionO: Option[String],
+    resourceVersionO: Option[Long],
     annotationsUpdateO: Option[AnnotationsUpdate],
 )
 object ObjectMetaUpdate {

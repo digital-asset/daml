@@ -39,7 +39,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   ): Future[Result[User]] =
     withoutUser(user.id) {
       val userWithResourceVersion =
-        user.copy(metadata = user.metadata.copy(resourceVersionO = Some("0")))
+        user.copy(metadata = user.metadata.copy(resourceVersionO = Some(0)))
       state.update(user.id, UserInfo(userWithResourceVersion, rights))
       userWithResourceVersion
     }
@@ -63,10 +63,10 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
           )
         )
       val newResourceVersionEither = userUpdate.metadataUpdate.resourceVersionO match {
-        case None => Right((currentResourceVersion.toLong + 1).toString)
+        case None => Right(currentResourceVersion + 1)
         case Some(requestResourceVersion) =>
           if (requestResourceVersion == currentResourceVersion) {
-            Right((currentResourceVersion.toLong + 1).toString): Result[String]
+            Right(currentResourceVersion + 1)
           } else {
             Left(UserManagementStore.ConcurrentUserUpdate(userUpdate.id))
           }
