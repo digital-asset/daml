@@ -278,20 +278,21 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
       )
     }
 
-    // TODO SC #14067 depends on #14112
-    "identify a record interface view" ignore {
+    "identify a record interface view" in {
       inside(itp.main.interfaces(LibTIf).viewType) { case Some(Ref.TypeConName(_, LibTIfView)) =>
       }
     }
 
     def viewNameExpectsRec =
-      (
-        // TODO SC #14067 use the LibTIf DefInterface's view instead, requires #14112
-        Ref.TypeConName(itp.main.packageId, LibTIfView),
-        inside(itp.main.typeDecls(LibTIfView)) { case TypeDecl.Normal(DefDataType(_, rec)) =>
-          rec
-        },
-      )
+      inside(itp.main.interfaces(LibTIf).viewType) { case Some(viewName) =>
+        (
+          viewName,
+          inside(itp.main.typeDecls(viewName.qualifiedName)) {
+            case TypeDecl.Normal(DefDataType(_, rec)) =>
+              rec
+          },
+        )
+      }
 
     "finds an interface view from Interface sets" in {
       val (viewName, expectedRec) = viewNameExpectsRec
