@@ -144,8 +144,6 @@ class PersistentUserManagementStore(
         )
         if (backend.countUserRights(internalId)(connection) > maxRightsPerUser) {
           throw TooManyUserRightsRuntimeException(user.id)
-        } else {
-          ()
         }
         toDomainUser(
           dbUser = dbUser,

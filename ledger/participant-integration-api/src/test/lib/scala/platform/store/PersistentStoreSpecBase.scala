@@ -65,7 +65,7 @@ trait PersistentStoreSpecBase extends BeforeAndAfterEach with BeforeAndAfterAll 
   }
 
   override protected def afterAll(): Unit = {
-    Await.ready(dbSupportResource.release(), 10.seconds)
+    Await.ready(dbSupportResource.release(), 15.seconds)
     super.afterAll()
   }
 
@@ -96,7 +96,7 @@ trait PersistentStoreSpecBase extends BeforeAndAfterEach with BeforeAndAfterAll 
       _ <- new FlywayMigrations(jdbcUrl).migrate()
       _ = logger.warn(s"$thisSimpleName Completed Flyway migrations")
     } yield dbSupport
-    dbSupport = Await.result(initializeDbAndGetDbSupportFuture, 10.seconds)
+    dbSupport = Await.result(initializeDbAndGetDbSupportFuture, 30.seconds)
   }
 
 }

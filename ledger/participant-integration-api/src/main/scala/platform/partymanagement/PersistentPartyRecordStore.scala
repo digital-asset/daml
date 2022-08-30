@@ -67,7 +67,7 @@ class PersistentPartyRecordStore(
         }
       } yield createPartyRecord
     }.map(tapSuccess { _ =>
-      logger.error(
+      logger.info(
         s"Created new party record in participant local store: ${partyRecord}"
       )
     })(scala.concurrent.ExecutionContext.parasitic)
@@ -190,7 +190,7 @@ class PersistentPartyRecordStore(
         }
       } yield updatePartyRecord
     }.map(tapSuccess { newPartyRecord =>
-      logger.error(
+      logger.info(
         s"Party record to update didn't exist so created a new party record in participant local store: ${newPartyRecord}"
       )
     })(scala.concurrent.ExecutionContext.parasitic)
@@ -280,10 +280,10 @@ class PersistentPartyRecordStore(
   }
 
   private def inTransaction[T](
-      dbMetric: metrics.daml.participantPartyManagement.type => DatabaseMetrics
+      dbMetric: metrics.daml.partyRecordStore.type => DatabaseMetrics
   )(thunk: Connection => Result[T])(implicit loggingContext: LoggingContext): Future[Result[T]] = {
     dbDispatcher
-      .executeSql(dbMetric(metrics.daml.participantPartyManagement))(thunk)
+      .executeSql(dbMetric(metrics.daml.partyRecordStore))(thunk)
       .recover[Result[T]] { case ConcurrentPartyRecordUpdateDetectedRuntimeException(userId) =>
         Left(ConcurrentPartyUpdate(userId))
       }(ExecutionContext.parasitic)

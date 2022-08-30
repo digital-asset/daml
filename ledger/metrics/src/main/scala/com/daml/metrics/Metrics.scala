@@ -318,8 +318,8 @@ final class Metrics(val registry: MetricRegistry) {
       val listUsers: DatabaseMetrics = createDbMetrics("list_users")
     }
 
-    object participantPartyManagement {
-      private val Prefix = daml.Prefix :+ "participant_party_management"
+    object partyRecordStore {
+      private val Prefix = daml.Prefix :+ "party_record_store"
 
       private def createDbMetrics(name: String): DatabaseMetrics =
         new DatabaseMetrics(registry, Prefix, name)
@@ -327,7 +327,7 @@ final class Metrics(val registry: MetricRegistry) {
       val createPartyRecord: DatabaseMetrics = createDbMetrics("create_party_record")
       val updatePartyRecord: DatabaseMetrics = createDbMetrics("update_party_record")
       val createPartyRecordOnUpdate: DatabaseMetrics = createDbMetrics(
-        "update_party_record_on_update"
+        "create_party_record_on_update"
       )
     }
 
