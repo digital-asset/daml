@@ -52,6 +52,68 @@ export interface Template<
 }
 
 /**
+ * A mixin for [[Template]] that provides the `toInterface` and
+ * `unsafeFromInterface` contract ID conversion functions.
+ *
+ * Even templates that directly implement no interfaces implement this, because
+ * this also permits conversion with interfaces that supply retroactive
+ * implementations to this template.
+ *
+ * @typeparam T The template type.
+ * @typeparam IfU The union of implemented interfaces, or `never` for templates
+ *            that directly implement no interface.
+ */
+export interface ToInterface<T extends object, IfU> {
+  // overload for direct interface implementations
+  toInterface<If extends IfU>(
+    ic: FromTemplate<If, unknown>,
+    cid: ContractId<T>,
+  ): ContractId<If>;
+  // overload for retroactive interface implementations
+  toInterface<If>(ic: FromTemplate<If, T>, cid: ContractId<T>): ContractId<If>;
+  /*TODO SC possible implementation signature:
+  toInterface<If, Z>(ic: FromTemplate<If, Z>, cid: ContractId<T>):
+    ContractId<Z>;*/
+
+  // overload for direct interface implementations
+  unsafeFromInterface(
+    ic: FromTemplate<IfU, unknown>,
+    cid: ContractId<IfU>,
+  ): ContractId<T>;
+  // overload for retroactive interface implementations
+  unsafeFromInterface<If>(
+    ic: FromTemplate<If, T>,
+    cid: ContractId<If>,
+  ): ContractId<T>;
+}
+
+const InterfaceBrand: unique symbol = Symbol();
+
+/**
+ * An interface type, for use with contract IDs.
+ *
+ * @typeparam IfId The interface ID as a constant string.
+ */
+export type Interface<IfId> = { readonly [InterfaceBrand]: IfId };
+
+const FromTemplateBrand: unique symbol = Symbol();
+
+/**
+ * Interface for objects representing Daml interfaces.  This supplies the basis
+ * for the methods of [[ToInterface]].
+ *
+ * Even interfaces that retroactively implement for no templates implement this,
+ * because forward implementations still require this marker to work.
+ *
+ * @typeparam If The interface type.
+ * @typeparam TX The intersection of template types this interface retroactively
+ *               implements, or `unknown` if there are none.
+ */
+export interface FromTemplate<If, TX> {
+  readonly [FromTemplateBrand]: [If, TX];
+}
+
+/**
  * Interface for objects representing Daml choices.
  *
  * @typeparam T The template type.

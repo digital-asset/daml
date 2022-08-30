@@ -11,7 +11,7 @@ import Ledger, {
   PartyInfo,
   UserRightHelper,
 } from "@daml/ledger";
-import { Choice, ContractId, Int, emptyMap, Map, Template } from "@daml/types";
+import { Choice, ContractId, Int, emptyMap, Map, Template, Interface, ToInterface, FromTemplate, } from "@daml/types";
 import pEvent from "p-event";
 import _ from "lodash";
 import WebSocket from "ws";
@@ -21,28 +21,6 @@ import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
 // Choice TCRK: II+I
 // Template TKI: II+
 
-// template companion
-// pass IfU = never for template companions with no direct interface implementations
-interface ToInterface<T, IfU> {
-  toInterface<If extends IfU>(ic: FromTemplate<If, unknown>, cid: ContractId<T>):
-    ContractId<If>; // overload for direct interface implementations
-  toInterface<If>(ic: FromTemplate<If, T>, cid: ContractId<T>):
-    ContractId<If>; // overload for retroactive interface implementations
-  /*toInterface<If, Z>(ic: FromTemplate<If, Z>, cid: ContractId<T>):
-    ContractId<Z>;*/
-  unsafeFromInterface(ic: FromTemplate<IfU, unknown>, cid: ContractId<IfU>): ContractId<T>;
-  unsafeFromInterface<If>(ic: FromTemplate<If, T>, cid: ContractId<If>): ContractId<T>;
-}
-
-// interface companion
-const fromTemplateMarker: unique symbol = Symbol(); // in @daml/types
-// pass TU=unknown for companions with no retros
-interface FromTemplate<If, TU> {
-  readonly [fromTemplateMarker]: [If, TU];
-}
-
-const interfaceMarker: unique symbol = Symbol(); // in @daml/types
-type Interface<IfId> = { readonly [interfaceMarker]: IfId }; // in @daml/types
 type I1 = Interface<"pkgid:mod:foo">; // codegenned marker type
 interface I1I extends FromTemplate<I1, unknown> { // tparam removed
   // ^ marker type always used, including for contract IDs (mbSubst unneeded)
@@ -92,7 +70,7 @@ const RI4: Template<RI4, undefined, "retro"> & RI4I = null as never;
 type U = { baz: Text };
 
 type V = { baz: Text[] };
-interface VI extends ToInterface<V, never>{}
+interface VI extends ToInterface<V, never> {}
 const V: Template<V, undefined, "v"> & VI = null as never;
 
 function myCreate<T extends object, K>(tpl: Template<T, K, string>, t: T) {}
@@ -144,7 +122,7 @@ function widenCid(
     Types of property '[ContractIdBrand]' are incompatible.
       Type 'I1 | I2' is not assignable to type 'I3'.
         Type 'I1' is not assignable to type 'I3'.
-          Types of property '[interfaceMarker]' are incompatible.
+          Types of property '[InterfaceBrand]' are incompatible.
             Type '"pkgid:mod:foo"' is not assignable to type '"pkgid:mod:quuux"'.
   */
   myExercise(I3.IChoice3, T.toInterface(I3, cidT), {}); // should be disallowed
