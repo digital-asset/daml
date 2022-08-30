@@ -149,13 +149,28 @@ export interface Choice<T extends object, C, R, K = unknown> {
   choiceName: string;
 }
 
+function toInterfaceMixin<T extends object, IfU>(): ToInterface<T, IfU> {
+  return {
+    toInterface<If>(ic: FromTemplate<If, unknown>, cid: ContractId<T>) {
+      return cid as ContractId<never> as ContractId<If>;
+    },
+
+    unsafeFromInterface<If>(
+      ic: FromTemplate<If, unknown>,
+      cid: ContractId<If>,
+    ) {
+      return cid as ContractId<never> as ContractId<T>;
+    },
+  };
+}
+
 /**
  * @internal
  */
-export function assembleTemplate<T extends object>(
+export function assembleTemplate<T extends object, IfU>(
   template: Template<T>,
-  ...interfaces: Template<object>[]
-): Template<T> {
+  ...interfaces: FromTemplate<IfU, unknown>[]
+): Template<T> & ToInterface<T, IfU> {
   const combined = {};
   const overloaded: string[] = [];
   for (const iface of interfaces) {
@@ -164,7 +179,11 @@ export function assembleTemplate<T extends object>(
       return undefined;
     });
   }
-  return Object.assign(_.omit(combined, overloaded), template);
+  return Object.assign(
+    _.omit(combined, overloaded),
+    toInterfaceMixin<T, IfU>(),
+    template,
+  );
 }
 
 /**
