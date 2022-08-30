@@ -442,7 +442,11 @@ renderTemplateDef TemplateDef {..} =
                         ((\(tsRef, _, inChcs) -> (tsRef, inChcs)) <$> tplImplements')
                         tplChoices'
         , [ "export declare const " <> tplName <> ":"
-          , "  damlTypes.Template<" <> tplName <> ", " <> keyTy <> ", '" <> templateId <> "'> & " <> tplName <> "Interface;"
+          , "  damlTypes.Template<" <> tplName <> ", " <> keyTy <> ", '" <> templateId <> "'> &"
+          -- TODO SC pass a union of type refs to interface implements when
+          -- non-empty; 'never' is correct if empty
+          , "  damlTypes.ToInterface<" <> tplName <> ", never> &"
+          , "  " <> tplName <> "Interface;"
           ]
         ]
     in (jsSource, tsDecl)
@@ -484,7 +488,13 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId} = (jsSourc
       ]
     tsDecl = T.unlines $ concat
       [ifaceDefIface ifName Nothing ifChoices
-      , ["export declare const " <> ifName <> ": damlTypes.Template<object, undefined, '" <> ifaceId <> "'> & " <> ifName <> "Interface<object>;"]
+      , [ "export declare const " <> ifName <> ":"
+        , "  damlTypes.Template<object, undefined, '" <> ifaceId <> "'> &"
+        -- TODO SC pass an intersection of type refs to retroImplements when
+        -- non-empty; 'unknown' is correct if empty
+        , "  damlTypes.FromTemplate<" <> ifName <> ", unknown> &"
+        , "  " <> ifName <> "Interface<object>;"
+        ]
       ]
     ifaceId =
         unPackageId ifPkgId <> ":" <>
