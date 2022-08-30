@@ -141,11 +141,13 @@ private[speedy] object SpeedyTestLib {
 
   object Implicits {
     implicit class SpeedyMachineTestMethods(machine: Machine) {
-      def withDisclosureTableUpdates(disclosureTableUpdates: DisclosureTable): Machine = {
+      private[speedy] def withDisclosureTableUpdates(
+          disclosureTableUpdates: DisclosureTable
+      ): Machine = {
         val modifiedDisclosureTable = DisclosureTable(
           contractIdByKey =
-            machine.disclosureTable.contractIdByKey + disclosureTableUpdates.contractIdByKey,
-          contractById = machine.disclosureTable.contractById + disclosureTableUpdates.contractById,
+            machine.disclosureTable.contractIdByKey ++ disclosureTableUpdates.contractIdByKey,
+          contractById = machine.disclosureTable.contractById ++ disclosureTableUpdates.contractById,
         )
 
         new Machine(
