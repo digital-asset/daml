@@ -1600,14 +1600,12 @@ private[lf] object SBuiltin {
                   machine.pushKont(
                     KCheckKeyVisibility(machine, gkey, coid, operation.handleKeyFound)
                   )
-                  onLedger.cachedContracts.get(coid) match {
-                    case Some(cachedContract) if cachedContract.key =>
-                      (Control.Value(SUnit), true)
-
-                    case None =>
-                      // SBFetchAny will populate onLedger.cachedContracts with the contract pointed by coid
-                      val fetchAny = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
-                      (Control.Expression(fetchAny), true)
+                  if (onLedger.cachedContracts.contains(coid)) {
+                    (Control.Value(SUnit), true)
+                  } else {
+                    // SBFetchAny will populate onLedger.cachedContracts with the contract pointed by coid
+                    val fetchAny = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
+                    (Control.Expression(fetchAny), true)
                   }
 
                 case ContractStateMachine.KeyInactive =>
