@@ -194,18 +194,18 @@ template Asset with
     choice Overridden : ()
       controller owner
       do return ()
-    implements Token where
+    interface instance Token for Asset where
       view = EmptyInterfaceView
       getTokenOwner = owner
       transferImpl newOwner = do
         cid <- create Asset with issuer = issuer, owner = newOwner
         pure (toInterfaceContractId @Token cid)
-    implements Lib.Mod.Other where
+    interface instance Lib.Mod.Other for Asset where
       view = Lib.Mod.EmptyInterfaceView
       getOtherOwner = owner
       somethingImpl = do
         pure ()
-    implements Lib.ModIfaceOnly.YetAnother where
+    interface instance Lib.ModIfaceOnly.YetAnother for Asset where
       view = Lib.ModIfaceOnly.EmptyInterfaceView
       getOtherOwner = owner
       somethingImpl = do

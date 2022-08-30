@@ -5,12 +5,6 @@
   "private": true,
   "version": "0.0.0",
   "resolutions": {
-    "grunt/**/async": "^3.2.2",
-    "grunt-browserify/async": "^2.6.4",
-    "grunt-contrib-connect/**/async": "^2.6.4",
-    "**/elliptic": "^6.5.4",
-    "**/bl": "^4.0.3",
-    "grunt-browserify/**/shell-quote": "^1.7.3",
     "@bazel/typescript/**/protobufjs": "^6.10.3",
     "**/ws": "^7.4.6",
     "**/chalk": "^2.4.1",

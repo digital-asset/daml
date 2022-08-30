@@ -3,14 +3,11 @@
 
 package com.daml.lf.language
 
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{TemplateOrInterface => TorI}
 import com.daml.lf.data.Ref._
-import com.daml.lf.language.{TemplateOrInterface => TorI}
 
-final case class LookupError(notFound: Reference, context: Reference) {
-  val pretty: String = "unknown " + notFound.pretty + (
-    if (context == notFound) "" else LookupError.contextDetails(context)
-  )
+sealed abstract class LookupError {
+  def pretty: String
 }
 
 object LookupError {
@@ -21,8 +18,20 @@ object LookupError {
       case otherwise => " while looking for " + otherwise.pretty
     }
 
+  final case class NotFound(notFound: Reference, context: Reference) extends LookupError {
+    def pretty: String = "unknown " + notFound.pretty + (
+      if (context == notFound) "" else LookupError.contextDetails(context)
+    )
+  }
+
+  final case class AmbiguousInterfaceInstance(instance: Reference.InterfaceInstance)
+      extends LookupError {
+    def pretty: String =
+      s"Ambiguous interface instance: two instances for ${instance.pretty}"
+  }
+
   object MissingPackage {
-    def unapply(err: LookupError): Option[(PackageId, Reference)] =
+    def unapply(err: LookupError.NotFound): Option[(PackageId, Reference)] =
       err.notFound match {
         case Reference.Package(packageId) => Some(packageId -> err.context)
         case _ => None
@@ -31,6 +40,12 @@ object LookupError {
     def pretty(pkgId: PackageId, context: Reference): String =
       s"Couldn't find package $pkgId" + contextDetails(context)
   }
+
+  def apply(notFound: Reference, context: Reference) =
+    NotFound(notFound, context)
+
+  def unapply(err: LookupError.NotFound): Option[(Reference, Reference)] =
+    Some(err.notFound, err.context)
 
 }
 
@@ -48,7 +63,7 @@ object Reference {
     override def pretty: String = s"module $packageId:$moduleName"
   }
 
-  final case class Definition(identifier: Ref.Identifier) extends Reference {
+  final case class Definition(identifier: Identifier) extends Reference {
     override def pretty: String = s"definition $identifier"
   }
 
@@ -88,7 +103,7 @@ object Reference {
     override def pretty: String = s"constructor $constructorName in enumeration $tyCon"
   }
 
-  final case class Value(identifier: Ref.Identifier) extends Reference {
+  final case class Value(identifier: Identifier) extends Reference {
     override def pretty: String = s"value $identifier"
   }
 
@@ -132,7 +147,7 @@ object Reference {
     }
 
     override def pretty: String =
-      s"$prettyParent-provided $interfaceInstance.pretty"
+      s"$prettyParent-provided ${interfaceInstance.pretty}"
   }
 
   final case class TemplateChoice(tyCon: TypeConName, choiceName: ChoiceName) extends Reference {

@@ -1,0 +1,37 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module InterfaceTestPackage where
+
+import qualified InterfaceTestLib as L
+
+template Foo with
+    party: Party
+  where
+    signatory party
+    choice Bar: () with
+      controller party
+      do
+        return ()
+
+    interface instance TIf for Foo where
+      view = EmptyInterfaceView
+      getOwner = party
+      dup = toInterfaceContractId <$> create this
+
+    interface instance L.TIf for Foo where
+      view = L.TIfView 42 "hi"
+      getOwner = party
+      dup = toInterfaceContractId <$> create this
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface TIf where
+  viewtype EmptyInterfaceView
+  getOwner: Party
+  dup: Update (ContractId TIf)
+  choice Useless: ContractId TIf with
+      interfacely: ContractId TIf
+    controller getOwner this
+    do
+      dup this

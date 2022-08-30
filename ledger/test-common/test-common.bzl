@@ -16,12 +16,13 @@ def da_scala_dar_resources_library(
         maven_name_prefix = "",
         exclusions = {},
         enable_scenarios = False,
+        data_dependencies = {},
         **kwargs):
     """
     Define a Scala library with dar files as resources.
     """
     for lf_version in lf_versions:
-        for daml_dir_name in daml_dir_names:
+        for daml_dir_name in daml_dir_names.get(lf_version, []):
             # 1. Compile daml files
             daml_compile_name = "%s-tests-%s" % (daml_dir_name, lf_version)
             daml_compile_kwargs = {
@@ -31,7 +32,11 @@ def da_scala_dar_resources_library(
                 "enable_scenarios": enable_scenarios,
             }
             daml_compile_kwargs.update(kwargs)
-            daml_compile(name = daml_compile_name, **daml_compile_kwargs)
+            daml_compile(
+                name = daml_compile_name,
+                data_dependencies = [dep % (lf_version) for dep in data_dependencies.get(daml_dir_name, [])],
+                **daml_compile_kwargs
+            )
 
         # 2. Generate lookup objects
         genrule_name = "test-dar-lookup-%s" % lf_version
@@ -49,11 +54,11 @@ object TestDar {{
 EOF
 """.format(lf_version = mangle_for_java(lf_version)) + "\n".join(["""
 echo "    \\"%s/%s-tests-%s.dar\\"," >> $@
-""" % (native.package_name(), test_name, lf_version) for test_name in daml_dir_names]) + """
+""" % (native.package_name(), test_name, lf_version) for test_name in daml_dir_names.get(lf_version, [])]) + """
 echo "  )\n}\n" >> $@
 """ + "\n".join(["""
 echo "case object %sTestDar extends TestDar { val path = \\"%s/%s-tests-%s.dar\\" }" >> $@
-""" % (to_camel_case(test_name), native.package_name(), test_name, lf_version) for test_name in daml_dir_names])
+""" % (to_camel_case(test_name), native.package_name(), test_name, lf_version) for test_name in daml_dir_names.get(lf_version, [])])
 
         genrule_kwargs = {
             "outs": ["TestDar-%s.scala" % mangle_for_java(lf_version)],
@@ -65,7 +70,7 @@ echo "case object %sTestDar extends TestDar { val path = \\"%s/%s-tests-%s.dar\\
         # 3. Build a Scala library with the above
         filegroup_name = "dar-files-%s" % lf_version
         filegroup_kwargs = {
-            "srcs": ["%s-tests-%s.dar" % (dar_name, lf_version) for dar_name in daml_dir_names],
+            "srcs": ["%s-tests-%s.dar" % (dar_name, lf_version) for dar_name in daml_dir_names.get(lf_version, [])],
         }
         filegroup_kwargs.update(kwargs)
         native.filegroup(name = filegroup_name, **filegroup_kwargs)

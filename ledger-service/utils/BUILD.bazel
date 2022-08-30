@@ -18,10 +18,10 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:http-json-utils:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/interface",
         "//daml-lf/language",
         "//language-support/scala/bindings-akka",
         "//libs-scala/contextualized-logging",

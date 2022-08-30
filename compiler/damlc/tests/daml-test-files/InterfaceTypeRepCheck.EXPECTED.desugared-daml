@@ -16,10 +16,8 @@ instance DA.Internal.Desugar.HasFromInterface I I where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
 instance DA.Internal.Desugar.HasMethod I "getOwner" (Party)
-getOwner : DA.Internal.Desugar.Implements t I => t -> Party
-getOwner t
-  = GHC.Types.primitiveInterface
-      @"getOwner" (DA.Internal.Desugar._toInterface @_ @I t)
+getOwner : I -> Party
+getOwner = GHC.Types.primitiveInterface @"getOwner"
 instance DA.Internal.Desugar.HasToAnyTemplate I where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate I where
@@ -36,29 +34,25 @@ instance DA.Internal.Desugar.HasIsInterfaceType I where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq I where
   (==) = GHC.Types.primitive @"BEEqual"
-instance (DA.Internal.Desugar.Implements t I) =>
-         DA.Internal.Desugar.HasToAnyChoice t MyArchive (()) where
+instance DA.Internal.Desugar.HasToAnyChoice I MyArchive (()) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [I])
-instance (DA.Internal.Desugar.Implements t I) =>
-         DA.Internal.Desugar.HasFromAnyChoice t MyArchive (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice I MyArchive (()) where
   _fromAnyChoice _
     = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [I])
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t I)) =>
-         DA.Internal.Desugar.HasExerciseGuarded t MyArchive (()) where
+instance DA.Internal.Desugar.HasExerciseGuarded I MyArchive (()) where
   exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @I cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @I cid pred)
+instance DA.Internal.Desugar.HasExercise I MyArchive (()) where
+  exercise cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @I cid)
         arg
-        (DA.Internal.Desugar._exerciseInterfaceGuard @I cid pred)
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t I)) =>
-         DA.Internal.Desugar.HasExercise t MyArchive (()) where
-  exercise = DA.Internal.Desugar._exerciseDefault
 data MyArchive
   = MyArchive {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -139,28 +133,32 @@ _choice_T1Archive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_implements_T1_I : DA.Internal.Desugar.ImplementsT T1 I
-_implements_T1_I = DA.Internal.Desugar.ImplementsT
+_interface_instance_T1_I_T1 :
+  DA.Internal.Desugar.InterfaceInstance T1 I T1
+_interface_instance_T1_I_T1
+  = DA.Internal.Desugar.mkInterfaceInstance @T1 @I @T1
+_method_T1_I_T1_getOwner :
+  DA.Internal.Desugar.Method T1 I T1 "getOwner"
+_method_T1_I_T1_getOwner
+  = DA.Internal.Desugar.mkMethod
+      @T1
+      @I
+      @T1
+      @"getOwner"
+      \ this@T1 {..} -> let _ = this in let getOwner = owner1 in getOwner
+_view_T1_I_T1 : DA.Internal.Desugar.InterfaceView T1 I T1
+_view_T1_I_T1
+  = DA.Internal.Desugar.mkInterfaceView
+      @T1
+      @I
+      @T1
+      \ this@T1 {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 instance DA.Internal.Desugar.HasToInterface T1 I where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T1 I where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-_method_T1_I_getOwner : DA.Internal.Desugar.Method T1 I "getOwner"
-_method_T1_I_getOwner
-  = DA.Internal.Desugar.mkMethod
-      @T1
-      @I
-      @"getOwner"
-      (\ this@T1 {..}
-         -> let _ = this in let getOwner = owner1 in getOwner)
-_view_T1_I : DA.Internal.Desugar.InterfaceView T1 I
-_view_T1_I
-  = DA.Internal.Desugar.mkInterfaceView
-      @T1
-      @I
-      \ this@T1 {..}
-        -> let _ = this in let view = EmptyInterfaceView in view
 data GHC.Types.DamlTemplate => T2
   = T2 {owner2 : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -222,28 +220,32 @@ _choice_T2Archive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_implements_T2_I : DA.Internal.Desugar.ImplementsT T2 I
-_implements_T2_I = DA.Internal.Desugar.ImplementsT
+_interface_instance_T2_I_T2 :
+  DA.Internal.Desugar.InterfaceInstance T2 I T2
+_interface_instance_T2_I_T2
+  = DA.Internal.Desugar.mkInterfaceInstance @T2 @I @T2
+_method_T2_I_T2_getOwner :
+  DA.Internal.Desugar.Method T2 I T2 "getOwner"
+_method_T2_I_T2_getOwner
+  = DA.Internal.Desugar.mkMethod
+      @T2
+      @I
+      @T2
+      @"getOwner"
+      \ this@T2 {..} -> let _ = this in let getOwner = owner2 in getOwner
+_view_T2_I_T2 : DA.Internal.Desugar.InterfaceView T2 I T2
+_view_T2_I_T2
+  = DA.Internal.Desugar.mkInterfaceView
+      @T2
+      @I
+      @T2
+      \ this@T2 {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 instance DA.Internal.Desugar.HasToInterface T2 I where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T2 I where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-_method_T2_I_getOwner : DA.Internal.Desugar.Method T2 I "getOwner"
-_method_T2_I_getOwner
-  = DA.Internal.Desugar.mkMethod
-      @T2
-      @I
-      @"getOwner"
-      (\ this@T2 {..}
-         -> let _ = this in let getOwner = owner2 in getOwner)
-_view_T2_I : DA.Internal.Desugar.InterfaceView T2 I
-_view_T2_I
-  = DA.Internal.Desugar.mkInterfaceView
-      @T2
-      @I
-      \ this@T2 {..}
-        -> let _ = this in let view = EmptyInterfaceView in view
 main
   = scenario
       do p <- getParty "Alice"

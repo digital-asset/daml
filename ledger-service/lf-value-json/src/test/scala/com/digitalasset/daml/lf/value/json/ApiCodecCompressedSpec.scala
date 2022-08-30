@@ -508,9 +508,10 @@ class ApiCodecCompressedSpec
     }
 
     "dealing with Contract Key" should {
+      import typesig.PackageSignature.TypeDecl.{Template => TDTemplate}
 
       "decode type Key = Party from JSON" in {
-        val templateDef: iface.InterfaceType.Template = mustBeOne(
+        val templateDef: TDTemplate = mustBeOne(
           MetadataReader.templateByName(darMetadata)(
             Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByParty")
           )
@@ -523,7 +524,7 @@ class ApiCodecCompressedSpec
       }
 
       "decode type Key = (Party, Int) from JSON" in {
-        val templateDef: iface.InterfaceType.Template = mustBeOne(
+        val templateDef: TDTemplate = mustBeOne(
           MetadataReader.templateByName(darMetadata)(
             Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByPartyInt")
           )
@@ -553,7 +554,7 @@ class ApiCodecCompressedSpec
       }
 
       "decode type Key = (Party, (Int, Foo, BazRecord)) from JSON" in {
-        val templateDef: iface.InterfaceType.Template = mustBeOne(
+        val templateDef: TDTemplate = mustBeOne(
           MetadataReader.templateByName(darMetadata)(
             Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByVariantAndRecord")
           )

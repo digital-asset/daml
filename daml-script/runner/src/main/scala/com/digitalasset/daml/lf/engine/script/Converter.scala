@@ -12,8 +12,6 @@ import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.engine.script.ledgerinteraction.ScriptLedgerClient
-import com.daml.lf.iface.EnvironmentInterface
-import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.StablePackage
 import com.daml.lf.speedy.SBuiltin._
@@ -22,6 +20,8 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{ArrayList, Pretty, SValue, Speedy}
 import com.daml.lf.speedy.SExpr.SExpr
+import com.daml.lf.typesig.EnvironmentSignature
+import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
@@ -268,14 +268,14 @@ object Converter {
         } yield anyChoice match {
           case AnyChoice.Template(name, arg) =>
             command.ApiCommand.Exercise(
-              typeId = tplId,
+              typeId = TemplateOrInterface.Template(tplId),
               contractId = cid,
               choiceId = name,
               argument = arg.toUnnormalizedValue,
             )
           case AnyChoice.Interface(ifaceId, name, arg) =>
             command.ApiCommand.Exercise(
-              typeId = ifaceId,
+              typeId = TemplateOrInterface.Interface(ifaceId),
               contractId = cid,
               choiceId = name,
               argument = arg.toUnnormalizedValue,
@@ -784,21 +784,21 @@ object Converter {
   def toIfaceType(
       ctx: QualifiedName,
       astTy: Type,
-  ): Either[String, iface.Type] =
-    InterfaceReader.toIfaceType(ctx, astTy) match {
+  ): Either[String, typesig.Type] =
+    SignatureReader.toIfaceType(ctx, astTy) match {
       case -\/(e) => Left(e.toString)
       case \/-(ty) => Right(ty)
     }
 
   def fromJsonValue(
       ctx: QualifiedName,
-      environmentInterface: EnvironmentInterface,
+      environmentSignature: EnvironmentSignature,
       compiledPackages: CompiledPackages,
       ty: Type,
       jsValue: JsValue,
   ): Either[String, SValue] = {
-    def damlLfTypeLookup(id: Identifier): Option[iface.DefDataType.FWT] =
-      environmentInterface.typeDecls.get(id).map(_.`type`)
+    def damlLfTypeLookup(id: Identifier): Option[typesig.DefDataType.FWT] =
+      environmentSignature.typeDecls.get(id).map(_.`type`)
     for {
       paramIface <- Converter
         .toIfaceType(ctx, ty)

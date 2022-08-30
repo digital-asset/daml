@@ -7,16 +7,9 @@ import com.daml.ledger.javaapi
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
-import com.daml.lf.iface.{
-  InterfaceType,
-  PrimType,
-  TemplateChoice,
-  Type,
-  TypeCon,
-  TypeNumeric,
-  TypePrim,
-  TypeVar,
-}
+import com.daml.lf.typesig
+import typesig.{PrimType, TemplateChoice, Type, TypeCon, TypeNumeric, TypePrim, TypeVar}
+import typesig.PackageSignature.TypeDecl
 import com.squareup.javapoet._
 
 import ClassGenUtils.companionFieldName
@@ -34,7 +27,7 @@ object ContractIdClass {
 
   def builder(
       templateClassName: ClassName,
-      choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
+      choices: Map[ChoiceName, TemplateChoice[typesig.Type]],
       kind: For,
       packagePrefixes: Map[PackageId, String],
   ) = Builder.create(
@@ -48,7 +41,7 @@ object ContractIdClass {
       templateClassName: ClassName,
       contractIdClassName: ClassName,
       idClassBuilder: TypeSpec.Builder,
-      choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
+      choices: Map[ChoiceName, TemplateChoice[typesig.Type]],
       packagePrefixes: Map[PackageId, String],
   ) {
     def build(): TypeSpec = idClassBuilder.build()
@@ -96,7 +89,7 @@ object ContractIdClass {
 
   private[inner] def generateExercisesInterface(
       choices: Map[ChoiceName, TemplateChoice.FWT],
-      typeDeclarations: Map[QualifiedName, InterfaceType],
+      typeDeclarations: Map[QualifiedName, TypeDecl],
       packageId: PackageId,
       packagePrefixes: Map[PackageId, String],
   ) = {
@@ -251,7 +244,7 @@ object ContractIdClass {
 
     def create(
         templateClassName: ClassName,
-        choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
+        choices: Map[ChoiceName, TemplateChoice[typesig.Type]],
         kind: For,
         packagePrefixes: Map[PackageId, String],
     ): Builder = {

@@ -205,7 +205,7 @@ class RecoveringIndexerIntegrationSpec
       servicesExecutionContext <- ResourceOwner
         .forExecutorService(() => Executors.newWorkStealingPool())
         .map(ExecutionContext.fromExecutorService)
-      (inMemoryState, inMemoryStateUpdater) <-
+      (inMemoryState, inMemoryStateUpdaterFlow) <-
         LedgerApiServer
           .createInMemoryStateAndUpdater(
             IndexServiceConfig(),
@@ -223,7 +223,7 @@ class RecoveringIndexerIntegrationSpec
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         participantDataSourceConfig = participantDataSourceConfig,
         inMemoryState = inMemoryState,
-        inMemoryStateUpdaterFlow = inMemoryStateUpdater.flow,
+        inMemoryStateUpdaterFlow = inMemoryStateUpdaterFlow,
         executionContext = servicesExecutionContext,
       )(materializer, loggingContext)
     } yield participantState._2

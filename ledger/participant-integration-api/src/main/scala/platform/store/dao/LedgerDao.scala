@@ -36,7 +36,7 @@ private[platform] trait LedgerDaoTransactionsReader {
       startExclusive: Offset,
       endInclusive: Offset,
       filter: FilterRelation,
-      verbose: Boolean,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed]
 
   def lookupFlatTransactionById(
@@ -48,7 +48,7 @@ private[platform] trait LedgerDaoTransactionsReader {
       startExclusive: Offset,
       endInclusive: Offset,
       requestingParties: Set[Party],
-      verbose: Boolean,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed]
@@ -61,7 +61,7 @@ private[platform] trait LedgerDaoTransactionsReader {
   def getActiveContracts(
       activeAt: Offset,
       filter: FilterRelation,
-      verbose: Boolean,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed]
 }
 

@@ -1,0 +1,149 @@
+module AmbiguousInterfaceInstance where
+import (implicit) qualified DA.Internal.Record
+import (implicit) qualified GHC.Types
+import (implicit) qualified DA.Internal.Desugar
+import (implicit) DA.Internal.RebindableSyntax
+data GHC.Types.DamlTemplate => Foo
+  = Foo {owner : Party}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.HasField "owner" Foo Party where
+  getField = DA.Internal.Record.getFieldPrim @"owner" @Foo @Party
+  setField = DA.Internal.Record.setFieldPrim @"owner" @Foo @Party
+instance DA.Internal.Desugar.HasSignatory Foo where
+  signatory this@Foo {..}
+    = DA.Internal.Desugar.toParties (owner)
+    where
+        _ = this
+instance DA.Internal.Desugar.HasObserver Foo where
+  observer this@Foo {..}
+    = []
+    where
+        _ = this
+instance DA.Internal.Desugar.HasEnsure Foo where
+  ensure this@Foo {..}
+    = DA.Internal.Desugar.True
+    where
+        _ = this
+instance DA.Internal.Desugar.HasAgreement Foo where
+  agreement this@Foo {..}
+    = ""
+    where
+        _ = this
+instance DA.Internal.Desugar.HasArchive Foo where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+    where
+        _ = cid
+instance DA.Internal.Desugar.HasCreate Foo where
+  create = GHC.Types.primitive @"UCreate"
+instance DA.Internal.Desugar.HasFetch Foo where
+  fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasToAnyTemplate Foo where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate Foo where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep Foo where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasIsInterfaceType Foo where
+  _isInterfaceType _ = DA.Internal.Desugar.False
+instance DA.Internal.Desugar.HasExercise Foo DA.Internal.Desugar.Archive (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice Foo DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyTemplateChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Foo DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyTemplateChoice"
+_choice_FooArchive :
+  (Foo -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId Foo
+   -> Foo
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming Foo,
+   DA.Internal.Desugar.Optional (Foo
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+_choice_FooArchive
+  = (\ this _ -> DA.Internal.Desugar.signatory this, 
+     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
+     DA.Internal.Desugar.None)
+_interface_instance_Foo_Bar_Foo :
+  DA.Internal.Desugar.InterfaceInstance Foo Bar Foo
+_interface_instance_Foo_Bar_Foo
+  = DA.Internal.Desugar.mkInterfaceInstance @Foo @Bar @Foo
+_method_Foo_Bar_Foo_bar :
+  DA.Internal.Desugar.Method Foo Bar Foo "bar"
+_method_Foo_Bar_Foo_bar
+  = DA.Internal.Desugar.mkMethod
+      @Foo
+      @Bar
+      @Foo
+      @"bar"
+      \ this@Foo {..} -> let _ = this in let bar = False in bar
+_view_Foo_Bar_Foo : DA.Internal.Desugar.InterfaceView Foo Bar Foo
+_view_Foo_Bar_Foo
+  = DA.Internal.Desugar.mkInterfaceView
+      @Foo
+      @Bar
+      @Foo
+      \ this@Foo {..} -> let _ = this in let view = BarView {} in view
+instance DA.Internal.Desugar.HasToInterface Foo Bar where
+  _toInterface = GHC.Types.primitive @"EToInterface"
+instance DA.Internal.Desugar.HasFromInterface Foo Bar where
+  fromInterface = GHC.Types.primitive @"EFromInterface"
+  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+data BarView = BarView {}
+data GHC.Types.DamlInterface => Bar = Bar GHC.Types.Opaque
+instance DA.Internal.Desugar.HasInterfaceTypeRep Bar where
+  _interfaceTypeRep
+    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
+instance DA.Internal.Desugar.HasFetch Bar where
+  fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasToInterface Bar Bar where
+  _toInterface this = this
+instance DA.Internal.Desugar.HasFromInterface Bar Bar where
+  fromInterface this = DA.Internal.Desugar.Some this
+  unsafeFromInterface _ this = this
+instance DA.Internal.Desugar.HasMethod Bar "bar" (Bool)
+bar : Bar -> Bool
+bar = GHC.Types.primitiveInterface @"bar"
+instance DA.Internal.Desugar.HasToAnyTemplate Bar where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate Bar where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep Bar where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasSignatory Bar where
+  signatory = GHC.Types.primitive @"ESignatoryInterface"
+instance DA.Internal.Desugar.HasObserver Bar where
+  observer = GHC.Types.primitive @"EObserverInterface"
+instance DA.Internal.Desugar.HasCreate Bar where
+  create = GHC.Types.primitive @"UCreateInterface"
+instance DA.Internal.Desugar.HasIsInterfaceType Bar where
+  _isInterfaceType _ = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.Eq Bar where
+  (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView Bar BarView where
+  _view = GHC.Types.primitive @"EViewInterface"
+_interface_instance_Bar_Bar_Foo :
+  DA.Internal.Desugar.InterfaceInstance Bar Bar Foo
+_interface_instance_Bar_Bar_Foo
+  = DA.Internal.Desugar.mkInterfaceInstance @Bar @Bar @Foo
+_method_Bar_Bar_Foo_bar :
+  DA.Internal.Desugar.Method Bar Bar Foo "bar"
+_method_Bar_Bar_Foo_bar
+  = DA.Internal.Desugar.mkMethod
+      @Bar
+      @Bar
+      @Foo
+      @"bar"
+      \ this@Foo {..} -> let _ = this in let bar = True in bar
+_view_Bar_Bar_Foo : DA.Internal.Desugar.InterfaceView Bar Bar Foo
+_view_Bar_Bar_Foo
+  = DA.Internal.Desugar.mkInterfaceView
+      @Bar
+      @Bar
+      @Foo
+      \ this@Foo {..} -> let _ = this in let view = BarView {} in view
+instance DA.Internal.Desugar.HasToInterface Foo Bar where
+  _toInterface = GHC.Types.primitive @"EToInterface"
+instance DA.Internal.Desugar.HasFromInterface Foo Bar where
+  fromInterface = GHC.Types.primitive @"EFromInterface"
+  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"

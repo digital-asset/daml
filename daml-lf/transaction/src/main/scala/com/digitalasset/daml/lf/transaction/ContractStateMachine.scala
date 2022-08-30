@@ -5,7 +5,6 @@ package com.daml.lf
 package transaction
 
 import com.daml.lf.data.Ref.{Identifier, TypeConName}
-import com.daml.lf.transaction.Node.KeyWithMaintainers
 import com.daml.lf.transaction.Transaction.{
   DuplicateContractKey,
   InconsistentContractKey,
@@ -127,12 +126,12 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
 
     /** Visit a create node */
     def handleCreate(node: Node.Create): Either[KeyInputError, State] =
-      visitCreate(node.templateId, node.coid, node.key).left.map(Right(_))
+      visitCreate(node.templateId, node.coid, node.keyValue).left.map(Right(_))
 
     private[lf] def visitCreate(
         templateId: TypeConName,
         contractId: ContractId,
-        key: Option[KeyWithMaintainers],
+        mbKey: Option[Value],
     ): Either[DuplicateContractKey, State] = {
       val me =
         this.copy(
@@ -144,10 +143,10 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
         )
       // if we have a contract key being added, include it in the list of
       // active keys
-      key match {
+      mbKey match {
         case None => Right(me)
-        case Some(kWithM) =>
-          val ck = GlobalKey(templateId, kWithM.key)
+        case Some(key) =>
+          val ck = GlobalKey(templateId, key)
 
           val conflict = lookupActiveKey(ck).exists(_ != KeyInactive)
 
@@ -166,7 +165,14 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     }
 
     def handleExercise(nid: Nid, exe: Node.Exercise): Either[KeyInputError, State] =
-      visitExercise(nid, exe.templateId, exe.targetCoid, exe.key, exe.byKey, exe.consuming).left
+      visitExercise(
+        nid,
+        exe.templateId,
+        exe.targetCoid,
+        exe.keyValue,
+        exe.byKey,
+        exe.consuming,
+      ).left
         .map(Left(_))
 
     /** Omits the key lookup that are done in [[com.daml.lf.speedy.Compiler.compileChoiceByKey]] for by-bey nodes,
@@ -177,7 +183,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
         nodeId: Nid,
         templateId: TypeConName,
         targetId: ContractId,
-        mbKey: Option[KeyWithMaintainers],
+        mbKey: Option[Value],
         byKey: Boolean,
         consuming: Boolean,
     ): Either[InconsistentContractKey, State] = {
@@ -276,28 +282,28 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     }
 
     def handleFetch(node: Node.Fetch): Either[KeyInputError, State] =
-      visitFetch(node.templateId, node.coid, node.key, node.byKey).left.map(Left(_))
+      visitFetch(node.templateId, node.coid, node.keyValue, node.byKey).left.map(Left(_))
 
     private[lf] def visitFetch(
         templateId: TypeConName,
         contractId: ContractId,
-        key: Option[KeyWithMaintainers],
+        mbKey: Option[Value],
         byKey: Boolean,
     ): Either[InconsistentContractKey, State] =
       if (byKey || mode == ContractKeyUniquenessMode.Strict)
-        assertKeyMapping(templateId, contractId, key)
+        assertKeyMapping(templateId, contractId, mbKey)
       else
         Right(this)
 
     private[this] def assertKeyMapping(
         templateId: Identifier,
         cid: Value.ContractId,
-        optKey: Option[Node.KeyWithMaintainers],
-    ): Either[InconsistentContractKey, State] = {
-      optKey match {
+        mbKey: Option[Value],
+    ): Either[InconsistentContractKey, State] =
+      mbKey match {
         case None => Right(this)
-        case Some(kWithM) =>
-          val gk = GlobalKey.assertBuild(templateId, kWithM.key)
+        case Some(key) =>
+          val gk = GlobalKey.assertBuild(templateId, key)
           val (keyMapping, next) = resolveKey(gk) match {
             case Right(result) => result
             case Left(handle) => handle(Some(cid))
@@ -305,7 +311,6 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
           // Since keys is defined only where keyInputs is defined, we don't need to update keyInputs.
           Either.cond(keyMapping == KeyActive(cid), next, InconsistentContractKey(gk))
       }
-    }
 
     /** Utility method that takes a node and computes the corresponding next state.
       * The method does not handle any children of `node`; it is up to the caller to do that.

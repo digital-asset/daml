@@ -166,6 +166,11 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
       ),
       Field("parameter", JsonType.DamlLfTypeType, resolve = _.value.parameter),
       Field("consuming", BooleanType, resolve = _.value.consuming),
+      Field(
+        "inheritedInterface",
+        OptionType(StringType),
+        resolve = _.value.inheritedInterface.map(_.asOpaqueString),
+      ),
     ),
   )
 
@@ -195,6 +200,11 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
             SearchArg :: FilterArg :: IncludeArchivedArg :: CountArg :: StartArg :: SortArg :: Nil,
           resolve = context =>
             buildTemplateContractPager(context).fetch(context.ctx.ledger, context.ctx.templates),
+        ),
+        Field(
+          "implementedInterfaces",
+          ListType(StringType),
+          resolve = _.value.implementedInterfaces.toList.map(_.asOpaqueString),
         ),
       ),
   )
@@ -499,6 +509,11 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
           resolve = context => Tag.unwrap[String, ApiTypes.ContractIdTag](context.value.contract),
         ),
         Field(
+          "interfaceId",
+          OptionType(StringType),
+          resolve = _.value.interfaceId.map(_.asOpaqueString),
+        ),
+        Field(
           "choice",
           StringType,
           resolve = context => Tag.unwrap[String, ApiTypes.ChoiceTag](context.value.choice),
@@ -708,6 +723,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
   val TemplateIdArgument = Argument("templateId", IDType)
   val ContractIdArgument = Argument("contractId", IDType)
   val ChoiceIdArgument = Argument("choiceId", IDType)
+  val InterfaceIdArgument = Argument("interfaceId", OptionInputType(IDType))
   val AnyArgument = Argument("argument", OptionInputType(JsonType.ApiValueType))
 
   val MutationType = ObjectType(
@@ -738,11 +754,13 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
       Field(
         "exercise",
         CommandIdType,
-        arguments = ContractIdArgument :: ChoiceIdArgument :: AnyArgument :: Nil,
+        arguments =
+          ContractIdArgument :: InterfaceIdArgument :: ChoiceIdArgument :: AnyArgument :: Nil,
         resolve = context => {
           val command = ExerciseChoice(
             context.ctx.party,
             ApiTypes.ContractId(context.arg(ContractIdArgument)),
+            context.arg(InterfaceIdArgument).map(InterfaceStringId(_)),
             ApiTypes.Choice(context.arg(ChoiceIdArgument)),
             context.arg(AnyArgument).orNull,
           )

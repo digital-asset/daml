@@ -3,7 +3,7 @@
 
 module InterfaceContractDoesNotImplementInterface where
 
--- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @SINCE-LF-FEATURE DAML_INTERFACE_EXTENDED
 data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface I where
@@ -21,7 +21,7 @@ template T
     party : Party
   where
     signatory party
-    implements I where
+    interface instance I for T where
       view = EmptyInterfaceView
 
 -- @ENABLE-SCENARIOS

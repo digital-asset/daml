@@ -31,7 +31,6 @@ object LegacyCliConfigConverter {
       acsGlobalParallelism = cliConfig.acsGlobalParallelism,
       acsIdFetchingParallelism = cliConfig.acsIdFetchingParallelism,
       acsIdPageSize = cliConfig.acsIdPageSize,
-      enableInMemoryFanOutForLedgerApi = cliConfig.enableInMemoryFanOutForLedgerApi,
       eventsPageSize = cliConfig.eventsPageSize,
       bufferedStreamsPageSize = cliConfig.bufferedStreamsPageSize,
       eventsProcessingParallelism = cliConfig.eventsProcessingParallelism,

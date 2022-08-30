@@ -6,7 +6,7 @@ package com.daml.lf.codegen.lf
 import java.io.File
 
 import com.daml.lf.data.Ref
-import com.daml.lf.iface
+import com.daml.lf.typesig
 import com.typesafe.scalalogging.Logger
 
 import LFUtil.domainApiAlias
@@ -15,7 +15,7 @@ import DamlContractTemplateGen.{genChoiceImplicitClass, generateTemplateIdDef}
 import scala.reflect.runtime.universe._
 
 object DamlInterfaceGen {
-  type DataType = iface.DefInterface.FWT
+  type DataType = typesig.DefInterface.FWT
 
   def generate(
       util: LFUtil,

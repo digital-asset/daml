@@ -18,6 +18,7 @@ import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.index.InMemoryStateUpdater.PrepareResult
 import com.daml.platform.index.InMemoryStateUpdaterSpec.{
@@ -42,10 +43,9 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.util.chaining._
 import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.duration.FiniteDuration
 
 class InMemoryStateUpdaterSpec extends AnyFlatSpec with Matchers with AkkaBeforeAndAfterAll {
-
-  behavior of classOf[InMemoryStateUpdater].getSimpleName
 
   "flow" should "correctly process updates in order" in new Scope {
     runFlow(
@@ -142,15 +142,16 @@ object InMemoryStateUpdaterSpec {
     def result(lastEventSequentialId: Long) =
       PrepareResult(Vector.empty, offset(1L), lastEventSequentialId, PackageMetadata())
 
-    val inMemoryStateUpdater = new InMemoryStateUpdater(
+    val inMemoryStateUpdater = InMemoryStateUpdaterFlow(
       2,
       scala.concurrent.ExecutionContext.global,
       scala.concurrent.ExecutionContext.global,
+      FiniteDuration(10, "seconds"),
       new Metrics(new MetricRegistry),
     )(
       prepare = (_, lastEventSequentialId) => result(lastEventSequentialId),
       update = cachesUpdateCaptor,
-    )
+    )(LoggingContext.empty)
 
     val txLogUpdate1 = TransactionLogUpdate.TransactionAccepted(
       transactionId = "tx1",
@@ -164,7 +165,7 @@ object InMemoryStateUpdaterSpec {
 
     def runFlow(input: Seq[(Vector[(Offset, Update)], Long)])(implicit mat: Materializer): Done =
       Source(input)
-        .via(inMemoryStateUpdater.flow)
+        .via(inMemoryStateUpdater)
         .runWith(Sink.ignore)
         .futureValue
   }

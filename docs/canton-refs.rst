@@ -16,3 +16,5 @@ Dummy Canton Refs
 .. _utils.generate_daml_script_participants_conf:
 
 .. _automation-using-bootstrap-scripts:
+
+.. _how-do-i-enable-unsupported-features:

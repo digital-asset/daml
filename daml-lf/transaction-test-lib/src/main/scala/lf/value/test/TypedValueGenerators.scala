@@ -9,7 +9,7 @@ package test
 import data.{FrontStack, ImmArray, ImmArrayCons, Numeric, Ref, SortedLookupList, Time}
 import ImmArray.ImmArraySeq
 import data.DataArbitrary._
-import iface.{
+import typesig.{
   DefDataType,
   Enum,
   Record,

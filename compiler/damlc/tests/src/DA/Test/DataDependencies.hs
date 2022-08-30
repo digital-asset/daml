@@ -1775,7 +1775,7 @@ tests tools = testGroup "Data Dependencies" $
             , "    amount : Int"
             , "  where"
             , "    signatory issuer, owner"
-            , "    implements Token where"
+            , "    interface instance Token for Asset where"
             , "      view = EmptyInterfaceView"
             , "      getOwner = owner"
             , "      getAmount = amount"
@@ -1890,7 +1890,7 @@ tests tools = testGroup "Data Dependencies" $
             , "    amount : Int"
             , "  where"
             , "    signatory issuer, owner"
-            , "    implements Token where"
+            , "    interface instance Token for Asset where"
             , "      view = EmptyInterfaceView"
             , "      getOwner = owner"
             , "      getAmount = amount"
@@ -2009,10 +2009,12 @@ tests tools = testGroup "Data Dependencies" $
             , "  choice GetRich : ContractId Token"
             , "    with"
             , "      byHowMuch : Int"
-            , "    controller getOwner this"
+            , "    controller getOwner (toInterface @Token this)"
             , "    do"
             , "        assert (byHowMuch > 0)"
-            , "        create $ setAmount this ((getAmount this + byHowMuch) * multiplier this)"
+            , "        create $ setAmount"
+            , "          (toInterface @Token this)"
+            , "          ((getAmount (toInterface @Token this) + byHowMuch) * multiplier this)"
 
             , "template Asset"
             , "  with"
@@ -2021,7 +2023,7 @@ tests tools = testGroup "Data Dependencies" $
             , "    amount : Int"
             , "  where"
             , "    signatory issuer, owner"
-            , "    implements Token where"
+            , "    interface instance Token for Asset where"
             , "      view = EmptyInterfaceView"
             , "      getOwner = owner"
             , "      getAmount = amount"
@@ -2041,7 +2043,7 @@ tests tools = testGroup "Data Dependencies" $
             , "        [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism."
             , "        pure ()"
 
-            , "    implements FancyToken where"
+            , "    interface instance FancyToken for Asset where"
             , "      view = EmptyInterfaceView"
             , "      multiplier = 5"
 
@@ -2075,7 +2077,7 @@ tests tools = testGroup "Data Dependencies" $
             , "      Some Asset {amount} ->"
             , "        amount === 5"
 
-            , "    cidToken4 <- exercise (fromInterfaceContractId @Asset cidToken3) (GetRich 20)"
+            , "    cidToken4 <- exercise (fromInterfaceContractId @FancyToken cidToken3) (GetRich 20)"
             , "    token4 <- fetch cidToken4"
             , "    getAmount token4 === 125"
             , "    case fromInterface token4 of"
@@ -2241,10 +2243,12 @@ tests tools = testGroup "Data Dependencies" $
             , "  choice GetRich : ContractId Token"
             , "    with"
             , "      byHowMuch : Int"
-            , "    controller getOwner this"
+            , "    controller getOwner (toInterface @Token this)"
             , "    do"
             , "        assert (byHowMuch > 0)"
-            , "        create $ setAmount this ((getAmount this + byHowMuch) * multiplier this)"
+            , "        create $ setAmount"
+            , "          (toInterface @Token this)"
+            , "          ((getAmount (toInterface @Token this) + byHowMuch) * multiplier this)"
             ]
           callProcessSilent damlc
             [ "build"
@@ -2272,7 +2276,7 @@ tests tools = testGroup "Data Dependencies" $
             , "    amount : Int"
             , "  where"
             , "    signatory issuer, owner"
-            , "    implements Token where"
+            , "    interface instance Token for Asset where"
             , "      view = EmptyInterfaceView"
             , "      getOwner = owner"
             , "      getAmount = amount"
@@ -2292,7 +2296,7 @@ tests tools = testGroup "Data Dependencies" $
             , "        [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism."
             , "        pure ()"
 
-            , "    implements FancyToken where"
+            , "    interface instance FancyToken for Asset where"
             , "      view = EmptyInterfaceView"
             , "      multiplier = 5"
             ]
@@ -2347,7 +2351,7 @@ tests tools = testGroup "Data Dependencies" $
             , "      Some Asset {amount} ->"
             , "        amount === 5"
 
-            , "    cidToken4 <- exercise (fromInterfaceContractId @Asset cidToken3) (GetRich 20)"
+            , "    cidToken4 <- exercise (fromInterfaceContractId @FancyToken cidToken3) (GetRich 20)"
             , "    token4 <- fetch cidToken4"
             , "    getAmount token4 === 125"
             , "    case fromInterface token4 of"
@@ -2362,6 +2366,52 @@ tests tools = testGroup "Data Dependencies" $
             , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root", path mainProj
             ]
+
+    , simpleImportTestOptions "retroactive interface instance of template from data-dependency"
+        [ "--target=1.dev" ]
+        [ "module Lib where"
+
+        , "template T with"
+        , "    p : Party"
+        , "  where"
+        , "    signatory p"
+        ]
+        [ "{-# OPTIONS_GHC -Werror #-}"
+        , "module Main where"
+        , "import Lib"
+
+        , "data EmptyInterfaceView = EmptyInterfaceView {}"
+
+        , "interface I where"
+        , "  viewtype EmptyInterfaceView"
+        , "  m : ()"
+        , "  interface instance I for T where"
+        , "    view = EmptyInterfaceView"
+        , "    m = ()"
+        ]
+
+    , simpleImportTestOptions "retroactive interface instance of qualified template from data-dependency"
+        [ "--target=1.dev" ]
+        [ "module Lib where"
+
+        , "template T with"
+        , "    p : Party"
+        , "  where"
+        , "    signatory p"
+        ]
+        [ "{-# OPTIONS_GHC -Werror #-}"
+        , "module Main where"
+        , "import qualified Lib"
+
+        , "data EmptyInterfaceView = EmptyInterfaceView {}"
+
+        , "interface I where"
+        , "  viewtype EmptyInterfaceView"
+        , "  m : ()"
+        , "  interface instance I for Lib.T where"
+        , "    view = EmptyInterfaceView"
+        , "    m = ()"
+        ]
 
     , testCaseSteps "Cross-SDK data-dependency with daml-script" $ \step' -> withTempDir $ \tmpDir -> do
         -- regression test for https://github.com/digital-asset/daml/issues/14291

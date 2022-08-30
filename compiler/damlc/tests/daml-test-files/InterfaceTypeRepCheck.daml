@@ -1,7 +1,10 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SINCE-LF-FEATURE DAML_INTERFACE
+-- Temporarily disable this test to merge #14773
+-- Re-enable in subsequent PR
+-- @IGNORE
+-- @SINCE-LF-FEATURE DAML_INTERFACE_EXTENDED
 -- @ERROR Attempt to fetch or exercise a wrongly typed contract
 
 -- | Verify that you can't accidentally exercise a T1 template
@@ -22,7 +25,7 @@ template T1
     owner1: Party
   where
     signatory owner1
-    implements I where
+    interface instance I for T1 where
       view = EmptyInterfaceView
       getOwner = owner1
 
@@ -31,7 +34,7 @@ template T2
     owner2: Party
   where
     signatory owner2
-    implements I where
+    interface instance I for T2 where
       view = EmptyInterfaceView
       getOwner = owner2
 

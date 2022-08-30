@@ -7,7 +7,7 @@ import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.Value
 import com.daml.lf.codegen.backend.java.{JavaEscaper, ObjectMethods}
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.iface._
+import com.daml.lf.typesig.{Type, TypeVar}
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier

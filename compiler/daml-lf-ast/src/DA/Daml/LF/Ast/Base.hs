@@ -713,9 +713,10 @@ data Update
       -- ^ Contract id of the contract template instance to exercise choice on.
     , exeArg        :: !Expr
       -- ^ Argument for the choice.
-    , exeGuard      :: !Expr
+    , exeGuard      :: !(Maybe Expr)
       -- ^ Exercise guard (Interface -> Bool) to abort the transaction eagerly
-      -- if the payload does not satisfy the predicate.
+      -- if the payload does not satisfy the predicate. Nothing if the exercise
+      -- was unguarded.
     }
   -- | Exercise a choice on a contract by key.
   | UExerciseByKey
@@ -956,6 +957,14 @@ data InterfaceInstanceMethod = InterfaceInstanceMethod
     -- and the template parameter in scope with type @tpl@ (the type of the template).
   }
   deriving (Eq, Data, Generic, NFData, Show)
+
+-- | The interface and template that identify an interface instance.
+-- Currently not part of the AST.
+data InterfaceInstanceHead = InterfaceInstanceHead
+  { iiInterface :: !(Qualified TypeConName)
+  , iiTemplate :: !(Qualified TypeConName)
+  }
+  deriving (Eq, Ord, Data, Generic, NFData, Show)
 
 -- | Definition of an exception type.
 data DefException = DefException

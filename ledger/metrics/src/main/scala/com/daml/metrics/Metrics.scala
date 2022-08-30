@@ -205,8 +205,6 @@ final class Metrics(val registry: MetricRegistry) {
             registry.timer(Prefix :+ "failed_to_acquire_transaction")
           val releaseTransactionLock: Timer = registry.timer(Prefix :+ "release_transaction_lock")
 
-          val stateValueCache = new CacheMetrics(registry, Prefix :+ "state_value_cache")
-
           // The below metrics are only generated during parallel validation.
           // The counters track how many submissions we're processing in parallel.
           val batchSizes: Histogram = registry.histogram(Prefix :+ "batch_sizes")
@@ -304,51 +302,6 @@ final class Metrics(val registry: MetricRegistry) {
       }
     }
 
-    object ledger {
-      private val Prefix: MetricName = daml.Prefix :+ "ledger"
-
-      object database {
-        private val Prefix: MetricName = ledger.Prefix :+ "database"
-
-        object queries {
-          private val Prefix: MetricName = database.Prefix :+ "queries"
-
-          val selectLatestLogEntryId: Timer = registry.timer(Prefix :+ "select_latest_log_entry_id")
-          val selectFromLog: Timer = registry.timer(Prefix :+ "select_from_log")
-          val selectStateValuesByKeys: Timer =
-            registry.timer(Prefix :+ "select_state_values_by_keys")
-          val updateOrRetrieveLedgerId: Timer =
-            registry.timer(Prefix :+ "update_or_retrieve_ledger_id")
-          val insertRecordIntoLog: Timer = registry.timer(Prefix :+ "insert_record_into_log")
-          val updateState: Timer = registry.timer(Prefix :+ "update_state")
-          val truncate: Timer = registry.timer(Prefix :+ "truncate")
-        }
-
-        object transactions {
-          private val Prefix: MetricName = database.Prefix :+ "transactions"
-
-          def acquireConnection(name: String): Timer =
-            registry.timer(Prefix :+ name :+ "acquire_connection")
-          def run(name: String): Timer =
-            registry.timer(Prefix :+ name :+ "run")
-        }
-      }
-
-      object log {
-        private val Prefix: MetricName = ledger.Prefix :+ "log"
-
-        val append: Timer = registry.timer(Prefix :+ "append")
-        val read: Timer = registry.timer(Prefix :+ "read")
-      }
-
-      object state {
-        private val Prefix: MetricName = ledger.Prefix :+ "state"
-
-        val read: Timer = registry.timer(Prefix :+ "read")
-        val write: Timer = registry.timer(Prefix :+ "write")
-      }
-    }
-
     object userManagement {
       private val Prefix = daml.Prefix :+ "user_management"
 
@@ -374,9 +327,6 @@ final class Metrics(val registry: MetricRegistry) {
         registry.counter(Prefix :+ "active_contracts_buffer_size")
       val completionsBufferSize: Counter =
         registry.counter(Prefix :+ "completions_buffer_size")
-
-      val acsRetrievalSequentialProcessing: Timer =
-        registry.timer(Prefix :+ "acs_retrieval_sequential_processing")
 
       // FIXME Name mushing and inconsistencies here, tracked by https://github.com/digital-asset/daml/issues/5926
       object db {
@@ -513,6 +463,20 @@ final class Metrics(val registry: MetricRegistry) {
 
       val ledgerEndSequentialId = new VarGauge[Long](0L)
       registry.register(Prefix :+ "ledger_end_sequential_id", ledgerEndSequentialId)
+
+      object lfValue {
+        private val Prefix = index.Prefix :+ "lf_value"
+
+        val computeInterfaceView: Timer = registry.timer(Prefix :+ "compute_interface_view")
+      }
+
+      object packageMetadata {
+        private val Prefix = index.Prefix :+ "package_metadata"
+
+        val decodeArchive: Timer = registry.timer(Prefix :+ "decode_archive")
+
+        val viewInitialisation: Timer = registry.timer(Prefix :+ "view_init")
+      }
     }
 
     object indexer {

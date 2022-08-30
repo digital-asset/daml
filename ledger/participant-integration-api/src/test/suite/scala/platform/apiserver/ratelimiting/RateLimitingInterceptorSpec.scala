@@ -339,7 +339,8 @@ final class RateLimitingInterceptorSpec
         status1 <- fStatus1
       } yield {
         status1.getCode shouldBe Code.CANCELLED
-        metrics.daml.lapi.streams.active.getCount shouldBe 0
+
+        eventually { metrics.daml.lapi.streams.active.getCount shouldBe 0 }
       }
     }
   }

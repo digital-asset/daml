@@ -1,7 +1,10 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SINCE-LF-FEATURE DAML_INTERFACE
+-- Temporarily disable this test to merge #14773
+-- Re-enable in subsequent PR
+-- @IGNORE
+-- @SINCE-LF-FEATURE DAML_INTERFACE_EXTENDED
 
 -- | Try out some upcasts and downcasts, checking that everything works.
 module InterfaceUpcastDowncast where
@@ -31,10 +34,10 @@ template T1
     p1 : Party
   where
     signatory p1
-    implements A where
+    interface instance A for T1 where
       view = EmptyInterfaceView
       getOwner = p1
-    implements B where
+    interface instance B for T1 where
       view = EmptyInterfaceView
       getCoolness = 20
 
@@ -43,7 +46,7 @@ template T2
     p2 : Party
   where
     signatory p2
-    implements A where
+    interface instance A for T2 where
       view = EmptyInterfaceView
       getOwner = p2
 

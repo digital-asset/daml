@@ -253,9 +253,8 @@ private[validation] object TypeIterable {
 
   private[validation] def iterator(iiBody: InterfaceInstanceBody): Iterator[Type] =
     iiBody match {
-      // TODO https://github.com/digital-asset/daml/issues/14112
-      case InterfaceInstanceBody(methods, view @ _) =>
-        methods.values.iterator.flatMap(iterator)
+      case InterfaceInstanceBody(methods, view) =>
+        methods.values.iterator.flatMap(iterator) ++ iterator(view)
     }
 
   private[validation] def iterator(method: InterfaceInstanceMethod): Iterator[Type] =

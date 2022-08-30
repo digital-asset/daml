@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref.{QualifiedName, PackageId}
 import java.io.IOException
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{FileVisitResult, Files, Path, SimpleFileVisitor}
-import com.daml.lf.{iface => I}
+import com.daml.lf.{typesig => S}
 
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
@@ -18,18 +18,18 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 class UtilTest extends UtilTestHelpers with ScalaCheckDrivenPropertyChecks {
 
   val packageInterface =
-    I.Interface(
+    S.PackageSignature(
       packageId = PackageId.assertFromString("abcdef"),
       metadata = None,
       typeDecls = Map.empty,
-      astInterfaces = Map.empty,
+      interfaces = Map.empty,
     )
   val scalaPackageParts = Array("com", "digitalasset")
   val scalaPackage: String = scalaPackageParts.mkString(".")
   val util =
     lf.LFUtil(
       scalaPackage,
-      I.EnvironmentInterface fromReaderInterfaces packageInterface,
+      S.EnvironmentSignature fromPackageSignatures packageInterface,
       outputDir.toFile,
     )
 

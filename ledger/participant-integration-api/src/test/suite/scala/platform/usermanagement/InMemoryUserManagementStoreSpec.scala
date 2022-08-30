@@ -5,13 +5,13 @@ package com.daml.platform.usermanagement
 
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
-import com.daml.platform.store.platform.usermanagement.UserManagementStoreSpecBase
+import com.daml.platform.store.platform.usermanagement.UserManagementStoreTests
 import org.scalatest.Assertion
 import org.scalatest.freespec.AsyncFreeSpec
 
 import scala.concurrent.Future
 
-class InMemoryUserManagementStoreSpec extends AsyncFreeSpec with UserManagementStoreSpecBase {
+class InMemoryUserManagementStoreSpec extends AsyncFreeSpec with UserManagementStoreTests {
 
   override def testIt(f: UserManagementStore => Future[Assertion]): Future[Assertion] = {
     f(

@@ -119,7 +119,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       (dummy, _, _) <- createDummyContracts(party, ledger)
-      activeContracts <- ledger.activeContractsByTemplateId(Seq(Dummy.id.unwrap), party)
+      activeContracts <- ledger.activeContractsByTemplateId(Seq(Dummy.id), party)
     } yield {
       assert(
         activeContracts.size == 1,
@@ -185,7 +185,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
         ledger.activeContractsRequest(Seq(party))
       )
       dummyWithParam <- ledger.create(party, DummyWithParam(party))
-      request = ledger.getTransactionsRequest(Seq(party))
+      request = ledger.getTransactionsRequest(ledger.transactionFilter(Seq(party)))
       fromOffset = request.update(_.begin := offset)
       transactions <- ledger.flatTransactions(fromOffset)
     } yield {
@@ -253,9 +253,9 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       allContractsForAlice <- ledger.activeContracts(alice)
       allContractsForBob <- ledger.activeContracts(bob)
       allContractsForAliceAndBob <- ledger.activeContracts(alice, bob)
-      dummyContractsForAlice <- ledger.activeContractsByTemplateId(Seq(Dummy.id.unwrap), alice)
+      dummyContractsForAlice <- ledger.activeContractsByTemplateId(Seq(Dummy.id), alice)
       dummyContractsForAliceAndBob <- ledger.activeContractsByTemplateId(
-        Seq(Dummy.id.unwrap),
+        Seq(Dummy.id),
         alice,
         bob,
       )

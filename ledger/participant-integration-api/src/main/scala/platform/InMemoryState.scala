@@ -42,8 +42,6 @@ private[platform] class InMemoryState(
   )(implicit loggingContext: LoggingContext): Future[Unit] = {
     logger.info(s"Initializing participant in-memory state to ledger end: $ledgerEnd")
 
-    // TODO LLP: Reset the in-memory state only if the initialization ledgerEnd
-    //           is different than the ledgerEndCache.
     for {
       // First stop the active dispatcher (if exists) to ensure
       // termination of existing Ledger API subscriptions and to also ensure

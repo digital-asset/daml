@@ -95,8 +95,8 @@ object TransactionCoder {
       value: ValueOuterClass.VersionedValue,
   ): Either[DecodeError, Value] =
     ValueCoder.decodeVersionedValue(cidDecoder, value).flatMap {
-      case Value.VersionedValue(`nodeVersion`, value) => Right(value)
-      case Value.VersionedValue(version, _) =>
+      case Versioned(`nodeVersion`, value) => Right(value)
+      case Versioned(version, _) =>
         Left(
           DecodeError(
             s"A node of version $nodeVersion cannot contain values of different version (${version})"

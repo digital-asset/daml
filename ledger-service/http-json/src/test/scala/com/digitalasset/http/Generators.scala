@@ -16,15 +16,23 @@ object Generators {
       e <- Gen.identifier
     } yield lav1.value.Identifier(packageId = p, moduleName = m, entityName = e)
 
-  def genDomainTemplateId: Gen[domain.TemplateId.RequiredPkg] =
-    genApiIdentifier.map(domain.TemplateId.fromLedgerApi)
+  def genDomainTemplateId: Gen[domain.ContractTypeId.Template.RequiredPkg] =
+    genDomainContractTypeId[domain.ContractTypeId.Template]
 
-  def genDomainTemplateIdO[A](implicit ev: PackageIdGen[A]): Gen[domain.TemplateId[A]] =
+  private def genDomainContractTypeId[CtId[T] <: domain.ContractTypeId[T]](implicit
+      CtId: domain.ContractTypeId.Like[CtId]
+  ): Gen[CtId.RequiredPkg] =
+    genApiIdentifier.map(CtId.fromLedgerApi)
+
+  def genDomainTemplateIdO[CtId[T] <: domain.ContractTypeId[T], A](implicit
+      CtId: domain.ContractTypeId.Like[CtId],
+      ev: PackageIdGen[A],
+  ): Gen[CtId[A]] =
     for {
       p <- ev.gen
       m <- Gen.identifier
       e <- Gen.identifier
-    } yield domain.TemplateId(p, m, e)
+    } yield CtId(p, m, e)
 
   def nonEmptySetOf[A](gen: Gen[A]): Gen[Set[A]] = Gen.nonEmptyListOf(gen).map(_.toSet)
 
@@ -35,24 +43,18 @@ object Generators {
       otherPackageIds <- nonEmptySetOf(Gen.identifier.filter(x => x != id0.packageId))
     } yield Set(id0) ++ otherPackageIds.map(a => id0.copy(packageId = a))
 
-  def genDuplicateModuleEntityTemplateIds: Gen[Set[domain.TemplateId.RequiredPkg]] =
-    genDuplicateModuleEntityApiIdentifiers.map(xs => xs.map(domain.TemplateId.fromLedgerApi))
+  def genDuplicateModuleEntityTemplateIds: Gen[Set[domain.ContractTypeId.Template.RequiredPkg]] =
+    genDuplicateModuleEntityApiIdentifiers.map(xs =>
+      xs.map(domain.ContractTypeId.Template.fromLedgerApi)
+    )
 
-  trait PackageIdGen[A] {
-    def gen: Gen[A]
-  }
+  final case class PackageIdGen[A](gen: Gen[A])
 
-  implicit object RequiredPackageIdGen extends PackageIdGen[String] {
-    override def gen: Gen[String] = Gen.identifier
-  }
-
-  implicit object NoPackageIdGen extends PackageIdGen[Unit] {
-    override def gen: Gen[Unit] = Gen.const(())
-  }
-
-  implicit object OptionalPackageIdGen extends PackageIdGen[Option[String]] {
-    override def gen: Gen[Option[String]] = Gen.option(RequiredPackageIdGen.gen)
-  }
+  implicit val RequiredPackageIdGen: PackageIdGen[String] = PackageIdGen(Gen.identifier)
+  implicit val NoPackageIdGen: PackageIdGen[Unit] = PackageIdGen(Gen.const(()))
+  implicit val OptionalPackageIdGen: PackageIdGen[Option[String]] = PackageIdGen(
+    Gen.option(RequiredPackageIdGen.gen)
+  )
 
   def contractIdGen: Gen[domain.ContractId] = domain.ContractId subst Gen.identifier
   def partyGen: Gen[domain.Party] = domain.Party subst Gen.identifier
@@ -62,8 +64,11 @@ object Generators {
 
   def inputContractRefGen[LfV](lfv: Gen[LfV]): Gen[domain.InputContractRef[LfV]] =
     scalazEitherGen(
-      Gen.zip(genDomainTemplateIdO[Option[String]], lfv),
-      Gen.zip(Gen.option(genDomainTemplateIdO[Option[String]]), contractIdGen),
+      Gen.zip(genDomainTemplateIdO[domain.ContractTypeId.Template, Option[String]], lfv),
+      Gen.zip(
+        Gen.option(genDomainTemplateIdO: Gen[domain.ContractTypeId.OptionalPkg]),
+        contractIdGen,
+      ),
     )
 
   def contractLocatorGen[LfV](lfv: Gen[LfV]): Gen[domain.ContractLocator[LfV]] =
@@ -75,7 +80,10 @@ object Generators {
   def activeContractGen: Gen[domain.ActiveContract[JsValue]] =
     for {
       contractId <- contractIdGen
-      templateId <- Generators.genDomainTemplateId
+      templateId <- Gen.oneOf(
+        genDomainTemplateIdO[domain.ContractTypeId.Template, String],
+        genDomainTemplateIdO[domain.ContractTypeId.Interface, String],
+      )
       key <- Gen.option(Gen.identifier.map(JsString(_)))
       argument <- Gen.identifier.map(JsString(_))
       signatories <- Gen.listOf(partyGen)
@@ -105,13 +113,13 @@ object Generators {
 
   def enrichedContractKeyGen: Gen[domain.EnrichedContractKey[JsObject]] =
     for {
-      templateId <- genDomainTemplateIdO(OptionalPackageIdGen)
+      templateId <- genDomainTemplateIdO[domain.ContractTypeId.Template, Option[String]]
       key <- genJsObj
     } yield domain.EnrichedContractKey(templateId, key)
 
   def enrichedContractIdGen: Gen[domain.EnrichedContractId] =
     for {
-      templateId <- Gen.option(genDomainTemplateIdO(OptionalPackageIdGen))
+      templateId <- Gen.option(genDomainTemplateIdO: Gen[domain.ContractTypeId.OptionalPkg])
       contractId <- contractIdGen
     } yield domain.EnrichedContractId(templateId, contractId)
 
@@ -119,7 +127,7 @@ object Generators {
     for {
       ref <- contractLocatorGen
       arg <- genJsObj
-      cIfId <- Gen.option(genDomainTemplateIdO[Option[String]])
+      cIfId <- Gen.option(genDomainTemplateIdO: Gen[domain.ContractTypeId.OptionalPkg])
       choice <- Gen.identifier.map(domain.Choice(_))
       meta <- Gen.option(metaGen)
     } yield domain.ExerciseCommand(
@@ -154,7 +162,7 @@ object Generators {
 
   def genUnknownTemplateIds: Gen[domain.UnknownTemplateIds] =
     Gen
-      .listOf(genDomainTemplateIdO(OptionalPackageIdGen))
+      .listOf(genDomainTemplateIdO: Gen[domain.ContractTypeId.OptionalPkg])
       .map(domain.UnknownTemplateIds)
 
   def genUnknownParties: Gen[domain.UnknownParties] =

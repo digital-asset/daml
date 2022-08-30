@@ -5,14 +5,18 @@ package com.daml.navigator.model
 
 import com.daml.navigator.{model => Model}
 import com.daml.ledger.api.refinements.ApiTypes
-import com.daml.lf.{iface => DamlLfIface}
+import com.daml.lf.{typesig => DamlLfIface}
 import com.daml.lf.data.{Ref => DamlLfRef}
 
 /** Manages a set of known Daml-LF packages. */
 case class PackageRegistry(
+    private val packageState: PackageState = PackageState(Map.empty),
+
+    // These are just projections from `packageState` for performance. `packageState` is the source of truth
     private val packages: Map[DamlLfRef.PackageId, DamlLfPackage] = Map.empty,
     private val templates: Map[DamlLfIdentifier, Template] = Map.empty,
     private val typeDefs: Map[DamlLfIdentifier, DamlLfDefDataType] = Map.empty,
+    private val interfaces: Map[DamlLfIdentifier, Interface] = Map.empty,
 ) {
   // TODO (#13969) ignores inherited choices; interfaces aren't handled at all
   private[this] def template(
@@ -21,47 +25,60 @@ case class PackageRegistry(
       t: DamlLfIface.DefTemplate[DamlLfIface.Type],
   ): Template = Template(
     DamlLfIdentifier(packageId, qname),
-    t.tChoices.directChoices.toList.map(c => choice(c._1, c._2)),
+    t.tChoices.resolvedChoices.toList.flatMap { case (choiceName, resolvedChoices) =>
+      resolvedChoices.map { case (interfaceIdOption, templateChoice) =>
+        choice(choiceName, templateChoice, interfaceIdOption)
+      }
+    },
     t.key,
+    t.implementedInterfaces.toSet,
   )
+
+  private[this] def interface(
+      packageId: DamlLfRef.PackageId,
+      qname: DamlLfQualifiedName,
+      interface: DamlLfIface.DefInterface[DamlLfIface.Type],
+  ): Interface = {
+    Interface(
+      DamlLfIdentifier(packageId, qname),
+      interface.choices.toList.map(c => choice(c._1, c._2)),
+    )
+  }
 
   private[this] def choice(
       name: String,
       c: DamlLfIface.TemplateChoice[DamlLfIface.Type],
+      inheritedInterface: Option[DamlLfIdentifier] = None,
   ): Model.Choice = Model.Choice(
     ApiTypes.Choice(name),
     c.param,
     c.returnType,
     c.consuming,
+    inheritedInterface,
   )
 
-  def withPackages(interfaces: List[DamlLfIface.Interface]): PackageRegistry = {
-    val newPackages = interfaces
-      .filterNot(p => packages.contains(p.packageId))
-      .map { p =>
-        val typeDefs = p.typeDecls.collect {
-          case (qname, DamlLfIface.InterfaceType.Normal(t)) =>
-            DamlLfIdentifier(p.packageId, qname) -> t
-          case (qname, DamlLfIface.InterfaceType.Template(r, _)) =>
-            DamlLfIdentifier(p.packageId, qname) -> DamlLfDefDataType(DamlLfImmArraySeq.empty, r)
-        }
-        val templates = p.typeDecls.collect {
-          case (qname, DamlLfIface.InterfaceType.Template(r @ _, t)) =>
-            DamlLfIdentifier(p.packageId, qname) -> template(p.packageId, qname, t)
-        }
-        p.packageId -> DamlLfPackage(p.packageId, typeDefs, templates)
+  def withPackages(interfaces: List[DamlLfIface.PackageSignature]): PackageRegistry = {
+    val newPackageStore = packageState.append(interfaces.map(p => p.packageId -> p).toMap)
+
+    val newPackages = newPackageStore.packages.values.map { p =>
+      val typeDefs = p.typeDecls.map { case (qname, td) =>
+        DamlLfIdentifier(p.packageId, qname) -> td.`type`
       }
-
-    val newTemplates = newPackages
-      .flatMap(_._2.templates)
-
-    val newTypeDefs = newPackages
-      .flatMap(_._2.typeDefs)
+      val templates = p.typeDecls.collect {
+        case (qname, DamlLfIface.PackageSignature.TypeDecl.Template(r @ _, t)) =>
+          DamlLfIdentifier(p.packageId, qname) -> template(p.packageId, qname, t)
+      }
+      val interfaces = p.interfaces.map { case (qname, defInterface) =>
+        DamlLfIdentifier(p.packageId, qname) -> interface(p.packageId, qname, defInterface)
+      }
+      p.packageId -> DamlLfPackage(p.packageId, typeDefs, templates, interfaces)
+    }.toMap
 
     copy(
-      packages = packages ++ newPackages,
-      templates = templates ++ newTemplates,
-      typeDefs = typeDefs ++ newTypeDefs,
+      packages = newPackages,
+      templates = newPackages.flatMap(_._2.templates),
+      typeDefs = newPackages.flatMap(_._2.typeDefs),
+      interfaces = newPackages.flatMap(_._2.interfaces),
     )
   }
 

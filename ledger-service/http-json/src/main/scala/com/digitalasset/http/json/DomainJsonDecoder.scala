@@ -27,7 +27,7 @@ import scalaz.std.scalaFuture._
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 class DomainJsonDecoder(
-    resolveContractTypeId: PackageService.ResolveContractTypeId,
+    resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
     resolveTemplateRecordType: PackageService.ResolveTemplateRecordType,
     resolveChoiceArgType: PackageService.ResolveChoiceArgType,
     resolveKeyType: PackageService.ResolveKeyType,
@@ -143,7 +143,7 @@ class DomainJsonDecoder(
         (if (oIfaceId.isDefined)
            (oIfaceId: Option[domain.ContractTypeId.Interface.RequiredPkg]).pure[ET]
          else cmd0.choiceInterfaceId.traverse(templateId_(_, jwt, ledgerId)))
-          .map(_ map (_ map some))
+          .map(_ map ((_: domain.ContractTypeId.RequiredPkg) map some))
 
       cmd1 <-
         cmd0
@@ -199,9 +199,9 @@ class DomainJsonDecoder(
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): ET[domain.TemplateId.RequiredPkg] =
+  ): ET[domain.TemplateId.Resolved] =
     eitherT(
-      resolveContractTypeId(lc)(jwt, ledgerId)(id)
+      resolveContractTypeId(jwt, ledgerId)(id)
         .map(_.toOption.flatten.toRightDisjunction(JsonError(cannotResolveTemplateId(id))))
     )
 

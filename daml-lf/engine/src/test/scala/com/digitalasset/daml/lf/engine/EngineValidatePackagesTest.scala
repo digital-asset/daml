@@ -21,7 +21,7 @@ class EngineValidatePackagesTest extends AnyWordSpec with Matchers with Inside {
 
     val pkg =
       p"""
-        module Mod { 
+        module Mod {
           val string: Text = "t";
         }
       """
@@ -36,7 +36,7 @@ class EngineValidatePackagesTest extends AnyWordSpec with Matchers with Inside {
 
       val illTypedPackage =
         p"""
-        module Mod { 
+        module Mod {
           val string: Text = 1;
         }
       """
@@ -69,7 +69,7 @@ class EngineValidatePackagesTest extends AnyWordSpec with Matchers with Inside {
 
       val dependentPackage =
         p"""
-        module Mod { 
+        module Mod {
           val string: Text = '-library-':Mod:Text;
         }
       """

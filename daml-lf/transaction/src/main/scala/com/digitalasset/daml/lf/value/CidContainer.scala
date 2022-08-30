@@ -42,14 +42,6 @@ trait CidContainer[+A] {
     }
   }
 
-  @deprecated("use cids method instead", since = "1.18.0")
-  final def ensureNoCid: Either[Value.ContractId, A] =
-    traverseCid[Value.ContractId](Left(_))
-
-  @deprecated("use foreachCid or cids method instead", since = "1.18.0")
-  final def assertNoCid(message: Value.ContractId => String): A =
-    data.assertRight(ensureNoCid.left.map(message))
-
   // Sets the suffix of any the V1 ContractId `coid` of the container that are not already suffixed.
   // Uses `f(coid.discriminator)` as suffix.
   final def suffixCid(f: crypto.Hash => Bytes): Either[String, A] =

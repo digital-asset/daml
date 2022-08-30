@@ -182,7 +182,11 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from,
             endInclusive = to,
             filter = Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter =
+                Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
+            ),
           )
       )
     } yield {
@@ -212,7 +216,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
             filter = Map(alice -> Set.empty),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(alice -> Set.empty),
+            ),
           )
       )
       resultForBob <- transactionsOf(
@@ -221,7 +228,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
             filter = Map(bob -> Set.empty),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(bob -> Set.empty),
+            ),
           )
       )
       resultForCharlie <- transactionsOf(
@@ -230,7 +240,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
             filter = Map(charlie -> Set.empty),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(charlie -> Set.empty),
+            ),
           )
       )
     } yield {
@@ -260,7 +273,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
             filter = Map(alice -> Set(otherTemplateId)),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(verbose = true),
           )
       )
     } yield {
@@ -294,7 +307,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               alice -> Set(otherTemplateId),
               bob -> Set(otherTemplateId),
             ),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(verbose = true),
           )
       )
     } yield {
@@ -334,7 +347,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               alice -> Set(someTemplateId),
               bob -> Set(otherTemplateId),
             ),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(verbose = true),
           )
       )
     } yield {
@@ -374,7 +387,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               alice -> Set(otherTemplateId),
               bob -> Set.empty,
             ),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(verbose = true),
           )
       )
     } yield {
@@ -402,7 +415,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           from.lastOffset,
           offset,
           exercise.actAs.map(submitter => submitter -> Set.empty[Identifier]).toMap,
-          verbose = true,
+          eventProjectionProperties = EventProjectionProperties(verbose = true),
         )
         .runWith(Sink.seq)
     } yield {
@@ -434,7 +447,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           offset1,
           offset2,
           exercise.actAs.map(submitter => submitter -> Set.empty[Identifier]).toMap,
-          verbose = true,
+          eventProjectionProperties = EventProjectionProperties(verbose = true),
         )
         .runWith(Sink.seq)
 
@@ -464,7 +477,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           beginOffsetFromTheFuture,
           endOffsetFromTheFuture,
           Map(alice -> Set.empty[Identifier]),
-          verbose = true,
+          eventProjectionProperties = EventProjectionProperties(verbose = true),
         )
         .runWith(Sink.seq)
 
@@ -513,7 +526,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             beginOffset,
             endOffset,
             Map(alice -> Set.empty[Identifier]),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(verbose = true),
           )
           .runWith(Sink.seq)
       )(ResourceContext(executionContext))
@@ -559,7 +572,12 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           }
           to <- ledgerDao.lookupLedgerEnd()
           response <- ledgerDao.transactionsReader
-            .getFlatTransactions(from.lastOffset, to.lastOffset, cp.filter, verbose = false)
+            .getFlatTransactions(
+              from.lastOffset,
+              to.lastOffset,
+              cp.filter,
+              EventProjectionProperties(verbose = true),
+            )
             .runWith(Sink.seq)
           readOffsets = response flatMap { case (_, gtr) => gtr.transactions map (_.offset) }
           readCreates = extractAllTransactions(response) flatMap (_.events)

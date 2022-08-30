@@ -111,7 +111,11 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
 
     // TODO (drsk) remove this assertion once disclosed contracts feature becomes stable.
     // https://github.com/digital-asset/daml/issues/13952.
-    assert(disclosures.isEmpty || config.allowedLanguageVersions.contains(LanguageVersion.v1_dev))
+    assert(
+      disclosures.isEmpty || config.allowedLanguageVersions.contains(
+        LanguageVersion.Features.explicitDisclosure
+      )
+    )
     val submissionTime = cmds.ledgerEffectiveTime
 
     for {
@@ -462,6 +466,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           }
           ResultDone((tx, meta))
         }
+
       case SResultFinal(_, None) =>
         ResultError(
           Error.Interpretation.Internal(
@@ -551,7 +556,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           ResultError(
             Error.Interpretation.Internal(
               NameOf.qualifiedNameOfCurrentFunc,
-              s"uexpected ${err.getClass.getSimpleName}",
+              s"unexpected ${err.getClass.getSimpleName}",
               None,
             )
           )

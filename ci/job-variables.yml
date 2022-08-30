@@ -5,7 +5,7 @@ variables:
   - name: pipeline_timestamp
     value: $[ format('{0:yyyy}-{0:MM}-{0:dd}T{0:HH}:{0:mm}:{0:ss}.{0:fffffff}', pipeline.startTime) ]
   - name: pipeline_id
-    value: $(pipeline_timestamp)-$(System.JobDisplayName)-$(System.JobId)-$(System.JobAttempt)
+    value: $(pipeline_timestamp)-$(System.JobName)-$(System.JobId)-$(System.JobAttempt)
   - name: git_branch_sha
     value: $[ dependencies.git_sha.outputs['out.branch'] ]
   - name: git_main_sha

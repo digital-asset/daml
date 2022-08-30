@@ -16,7 +16,7 @@ import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.store.platform.usermanagement.UserManagementStoreSpecBase
+import com.daml.platform.store.platform.usermanagement.UserManagementStoreTests
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.freespec.AsyncFreeSpec
@@ -26,7 +26,7 @@ import scala.concurrent.Future
 
 class CachedUserManagementStoreSpec
     extends AsyncFreeSpec
-    with UserManagementStoreSpecBase
+    with UserManagementStoreTests
     with TestResourceContext
     with Matchers
     with MockitoSugar

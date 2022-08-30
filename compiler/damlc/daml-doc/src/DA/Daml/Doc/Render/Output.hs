@@ -74,10 +74,10 @@ instance RenderDoc TemplateDoc where
             , fieldTable td_payload
             , RenderList (map renderDoc td_choices)
             ]
-        , if null td_impls
+        , if null td_interfaceInstances
           then mempty
           else RenderBlock $ mconcat
-                [ RenderList (map renderDoc td_impls)
+                [ RenderList (map renderDoc td_interfaceInstances)
                 ]
         ]
 
@@ -90,19 +90,37 @@ instance RenderDoc InterfaceDoc where
             ]
         , RenderBlock $ mconcat
             [ renderDoc if_descr
+            , renderDoc if_viewtype
             , RenderList (map renderDoc if_choices)
             , RenderList (map renderDoc if_methods)
             ]
+        , if null if_interfaceInstances
+          then mempty
+          else RenderBlock $ mconcat
+                [ RenderList (map renderDoc if_interfaceInstances)
+                ]
         ]
 
-instance RenderDoc ImplDoc where
-    renderDoc ImplDoc {..} =
+instance RenderDoc InterfaceViewtypeDoc where
+  renderDoc (InterfaceViewtypeDoc viewtype) =
+    RenderParagraph . renderUnwords $
+      [ RenderStrong "viewtype"
+      , renderType viewtype
+      ]
+
+instance RenderDoc InterfaceInstanceDoc where
+    renderDoc InterfaceInstanceDoc {..} =
         RenderParagraph $
-            renderUnwords [ RenderStrong "implements", renderType impl_iface ]
+            renderUnwords
+                [ RenderStrong "interface instance"
+                , renderType ii_interface
+                , RenderStrong "for"
+                , renderType ii_template
+                ]
 
 instance RenderDoc MethodDoc where
     renderDoc MethodDoc {..} = mconcat
-      [ RenderParagraph $ RenderStrong ("Method " <> unTypename mtd_name <> " : ") <> renderType mtd_type
+      [ RenderParagraph $ renderUnwords [ RenderStrong ("Method " <> unTypename mtd_name <> " :") , renderType mtd_type ]
       , renderDoc mtd_descr
       ]
 

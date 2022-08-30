@@ -27,6 +27,7 @@ import com.daml.platform.store.dao.events.TransactionLogUpdatesConversions.{
 import com.daml.platform.store.dao.{
   BufferedStreamsReader,
   BufferedTransactionByIdReader,
+  EventProjectionProperties,
   LedgerDaoTransactionsReader,
 }
 import com.daml.platform.store.interfaces.TransactionLogUpdate
@@ -37,11 +38,11 @@ import scala.concurrent.{ExecutionContext, Future}
 private[events] class BufferedTransactionsReader(
     delegate: LedgerDaoTransactionsReader,
     bufferedFlatTransactionsReader: BufferedStreamsReader[
-      (FilterRelation, Boolean),
+      (FilterRelation, EventProjectionProperties),
       GetTransactionsResponse,
     ],
     bufferedTransactionTreesReader: BufferedStreamsReader[
-      (Set[Party], Boolean),
+      (Set[Party], EventProjectionProperties),
       GetTransactionTreesResponse,
     ],
     bufferedFlatTransactionByIdReader: BufferedTransactionByIdReader[
@@ -58,7 +59,7 @@ private[events] class BufferedTransactionsReader(
       startExclusive: Offset,
       endInclusive: Offset,
       filter: FilterRelation,
-      verbose: Boolean,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val (parties, partiesTemplates) = filter.partition(_._2.isEmpty)
     val wildcardParties = parties.keySet
@@ -70,11 +71,11 @@ private[events] class BufferedTransactionsReader(
       .stream(
         startExclusive = startExclusive,
         endInclusive = endInclusive,
-        persistenceFetchArgs = (filter, verbose),
+        persistenceFetchArgs = (filter, eventProjectionProperties),
         bufferFilter =
           ToFlatTransaction.filter(wildcardParties, templatesParties, requestingParties),
-        toApiResponse =
-          ToFlatTransaction.toGetTransactionsResponse(filter, verbose, lfValueTranslation)(
+        toApiResponse = ToFlatTransaction
+          .toGetTransactionsResponse(filter, eventProjectionProperties, lfValueTranslation)(
             loggingContext,
             executionContext,
           ),
@@ -85,7 +86,7 @@ private[events] class BufferedTransactionsReader(
       startExclusive: Offset,
       endInclusive: Offset,
       requestingParties: Set[Party],
-      verbose: Boolean,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
@@ -93,10 +94,14 @@ private[events] class BufferedTransactionsReader(
       .stream(
         startExclusive = startExclusive,
         endInclusive = endInclusive,
-        persistenceFetchArgs = (requestingParties, verbose),
+        persistenceFetchArgs = (requestingParties, eventProjectionProperties),
         bufferFilter = ToTransactionTree.filter(requestingParties),
         toApiResponse = ToTransactionTree
-          .toGetTransactionTreesResponse(requestingParties, verbose, lfValueTranslation)(
+          .toGetTransactionTreesResponse(
+            requestingParties,
+            eventProjectionProperties,
+            lfValueTranslation,
+          )(
             loggingContext,
             executionContext,
           ),
@@ -114,10 +119,14 @@ private[events] class BufferedTransactionsReader(
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
     bufferedTransactionTreeByIdReader.fetch(transactionId, requestingParties)
 
-  override def getActiveContracts(activeAt: Offset, filter: FilterRelation, verbose: Boolean)(
-      implicit loggingContext: LoggingContext
+  override def getActiveContracts(
+      activeAt: Offset,
+      filter: FilterRelation,
+      eventProjectionProperties: EventProjectionProperties,
+  )(implicit
+      loggingContext: LoggingContext
   ): Source[GetActiveContractsResponse, NotUsed] =
-    delegate.getActiveContracts(activeAt, filter, verbose)
+    delegate.getActiveContracts(activeAt, filter, eventProjectionProperties)
 }
 
 private[platform] object BufferedTransactionsReader {
@@ -131,42 +140,62 @@ private[platform] object BufferedTransactionsReader {
       executionContext: ExecutionContext
   ): BufferedTransactionsReader = {
     val flatTransactionsStreamReader =
-      new BufferedStreamsReader[(FilterRelation, Boolean), GetTransactionsResponse](
+      new BufferedStreamsReader[
+        (FilterRelation, EventProjectionProperties),
+        GetTransactionsResponse,
+      ](
         inMemoryFanoutBuffer = transactionsBuffer,
-        fetchFromPersistence =
-          new FetchFromPersistence[(FilterRelation, Boolean), GetTransactionsResponse] {
-            override def apply(
-                startExclusive: Offset,
-                endInclusive: Offset,
-                filter: (FilterRelation, Boolean),
-            )(implicit
-                loggingContext: LoggingContext
-            ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
-              val (filterRelation, verbose) = filter
-              delegate.getFlatTransactions(startExclusive, endInclusive, filterRelation, verbose)
-            }
-          },
+        fetchFromPersistence = new FetchFromPersistence[
+          (FilterRelation, EventProjectionProperties),
+          GetTransactionsResponse,
+        ] {
+          override def apply(
+              startExclusive: Offset,
+              endInclusive: Offset,
+              filter: (FilterRelation, EventProjectionProperties),
+          )(implicit
+              loggingContext: LoggingContext
+          ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
+            val (filterRelation, eventProjectionProperties) = filter
+            delegate.getFlatTransactions(
+              startExclusive,
+              endInclusive,
+              filterRelation,
+              eventProjectionProperties,
+            )
+          }
+        },
         bufferedStreamEventsProcessingParallelism = eventProcessingParallelism,
         metrics = metrics,
         streamName = "transactions",
       )
 
     val transactionTreesStreamReader =
-      new BufferedStreamsReader[(Set[Party], Boolean), GetTransactionTreesResponse](
+      new BufferedStreamsReader[
+        (Set[Party], EventProjectionProperties),
+        GetTransactionTreesResponse,
+      ](
         inMemoryFanoutBuffer = transactionsBuffer,
-        fetchFromPersistence =
-          new FetchFromPersistence[(Set[Party], Boolean), GetTransactionTreesResponse] {
-            override def apply(
-                startExclusive: Offset,
-                endInclusive: Offset,
-                filter: (Set[Party], Boolean),
-            )(implicit
-                loggingContext: LoggingContext
-            ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
-              val (requestingParties, verbose) = filter
-              delegate.getTransactionTrees(startExclusive, endInclusive, requestingParties, verbose)
-            }
-          },
+        fetchFromPersistence = new FetchFromPersistence[
+          (Set[Party], EventProjectionProperties),
+          GetTransactionTreesResponse,
+        ] {
+          override def apply(
+              startExclusive: Offset,
+              endInclusive: Offset,
+              filter: (Set[Party], EventProjectionProperties),
+          )(implicit
+              loggingContext: LoggingContext
+          ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
+            val (requestingParties, eventProjectionProperties) = filter
+            delegate.getTransactionTrees(
+              startExclusive,
+              endInclusive,
+              requestingParties,
+              eventProjectionProperties,
+            )
+          }
+        },
         bufferedStreamEventsProcessingParallelism = eventProcessingParallelism,
         metrics = metrics,
         streamName = "transaction_trees",

@@ -7,6 +7,7 @@ import com.daml.lf.data.{ImmArray, Numeric, Struct}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
+import com.daml.lf.language.LookupError
 import com.daml.lf.language.{LanguageVersion, PackageInterface, Reference}
 import com.daml.lf.validation.Util._
 import com.daml.lf.validation.iterable.TypeIterable
@@ -536,7 +537,7 @@ private[validation] object Typing {
 
     private[Typing] def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
-        case DefInterface(requires, param, choices, methods, coImplements, _) =>
+        case DefInterface(requires, param, choices, methods, coImplements, view) =>
           val env = introExprVar(param, TTyCon(ifaceName))
           if (requires(ifaceName))
             throw ECircularInterfaceRequires(ctx, ifaceName)
@@ -555,6 +556,17 @@ private[validation] object Typing {
               iiBody = coImpl.body,
             )
           )
+          def error = throw EExpectedViewType(env.ctx, view)
+          view match {
+            case TTyCon(tycon) =>
+              handleLookup(env.ctx, pkgInterface.lookupDataType(tycon)) match {
+                case DDataType(_, ImmArray(), DataRecord(_)) =>
+                case _ =>
+                  error
+              }
+            case _ =>
+              error
+          }
       }
 
     private def checkIfaceMethod(method: InterfaceMethod): Unit = {
@@ -572,15 +584,19 @@ private[validation] object Typing {
       pkgInterface.lookupInterfaceInstance(interfaceId, templateId) match {
         case Left(err) =>
           err match {
-            case Left(lookupErr) =>
+            case lookupErr: LookupError.NotFound =>
               lookupErr.notFound match {
                 case _: Reference.InterfaceInstance =>
                   throw EMissingInterfaceInstance(ctx, interfaceId, templateId)
                 case _ =>
                   throw EUnknownDefinition(ctx, lookupErr)
               }
-            case Right(_: PackageInterface.AmbiguousInterfaceInstanceError) =>
-              throw EAmbiguousInterfaceInstance(ctx, interfaceId, templateId)
+            case ambiIfaceErr: LookupError.AmbiguousInterfaceInstance =>
+              throw EAmbiguousInterfaceInstance(
+                ctx,
+                ambiIfaceErr.instance.interfaceName,
+                ambiIfaceErr.instance.templateName,
+              )
           }
         case Right(iiInfo) => iiInfo
       }
@@ -604,8 +620,7 @@ private[validation] object Typing {
       val env = Env(languageVersion, pkgInterface, ctx)
         .introExprVar(tmplParam, TTyCon(templateId))
 
-      val DefInterfaceSignature(requires, _, _, methods, _, _) =
-        // TODO https://github.com/digital-asset/daml/issues/14112
+      val DefInterfaceSignature(requires, _, _, methods, _, view) =
         iiInfo.interfaceSignature
 
       requires
@@ -629,6 +644,8 @@ private[validation] object Typing {
           case Some(method) => env.checkTopExpr(value, method.returnType)
         }
       }
+
+      env.checkTopExpr(iiBody.view, view)
     }
 
     private[Typing] def checkDefException(

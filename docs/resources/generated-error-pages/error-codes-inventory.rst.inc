@@ -461,6 +461,22 @@ CONFIGURATION_ENTRY_REJECTED
 
 
 
+.. _error_code_INTERNALLY_INVALID_KEY:
+
+INTERNALLY_INVALID_KEY
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: A cryptographic key used by the configured system is not valid
+
+    **Category**: SystemInternalAssumptionViolated
+
+    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+
+    **Resolution**: Contact support.
+
+
+
+
 .. _error_code_PACKAGE_UPLOAD_REJECTED:
 
 PACKAGE_UPLOAD_REJECTED

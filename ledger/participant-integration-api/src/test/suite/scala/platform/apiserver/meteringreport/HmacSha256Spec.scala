@@ -1,0 +1,50 @@
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.daml.platform.apiserver.meteringreport
+
+import com.daml.platform.apiserver.meteringreport.HmacSha256.{Bytes, Key, generateKey, toBase64}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import spray.json._
+
+import java.nio.charset.StandardCharsets
+
+class HmacSha256Spec extends AnyWordSpec with Matchers {
+
+  HmacSha256.getClass.getName should {
+
+    "generate serialize/deserialize bytes" in {
+      val expected = Bytes("some string".getBytes)
+      val json = expected.toJson.prettyPrint
+      val actual = json.parseJson.convertTo[Bytes]
+      actual shouldBe expected
+    }
+    "generate serialize/deserialize key" in {
+      val expected = generateKey("test")
+      val json = expected.toJson.prettyPrint
+      val actual = json.parseJson.convertTo[Key]
+      actual shouldBe expected
+    }
+
+    "compute MAC" in {
+      val expected = "uFfrKWtNvoMl-GdCBrotl33cTFOqLeF8EjaooomUKOw="
+      val key = MeteringReportKey.communityKey()
+      val Right(mac) = HmacSha256.compute(key, "some message".getBytes(StandardCharsets.UTF_8))
+      val actual = toBase64(mac)
+      actual shouldBe expected
+    }
+
+    "fail if key is invalid" in {
+      val key = Key("invalid", Bytes(Array.empty), "")
+      val Left(_) = HmacSha256.compute(key, "some message".getBytes(StandardCharsets.UTF_8))
+    }
+
+    "generate key" in {
+      val expected = "test"
+      HmacSha256.generateKey(expected).scheme shouldBe expected
+    }
+
+  }
+
+}

@@ -73,7 +73,7 @@ class ArchiveConversionsSpec extends AnyWordSpec with Matchers with Inside {
         archive = encodePackage(
           p"""
             metadata ( 'Package$differentiator' : '0.0.1' )
-    
+
             module Mod$differentiator {
               record Record$differentiator = {};
             }

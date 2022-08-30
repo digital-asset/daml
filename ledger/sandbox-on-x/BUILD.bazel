@@ -559,6 +559,23 @@ conformance_test(
     ],
 )
 
+# TODO Make sure InterfaceSubscriptionsIT is run on all servers, after Interface feature is on stable lf
+server_conformance_test(
+    name = "conformance-test-interface-subscriptions",
+    hocon = True,
+    hocon_config = """
+        ledger.participants.default.api-server.seeding = testing-weak
+    """,
+    lf_versions = [
+        "1.15",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--verbose",
+        "--include=InterfaceSubscriptionsIT",
+    ],
+)
+
 exports_files([
     "src/app/resources/logback.xml",
 ])
