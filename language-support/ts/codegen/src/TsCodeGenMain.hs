@@ -487,10 +487,12 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId} = (jsSourc
       , [ "};" ]
       ]
     tsDecl = T.unlines $ concat
-      [ifaceDefIface ifName Nothing ifChoices
+      [ [ "export declare type " <> ifName <> " = damlTypes.Interface<"
+          <> renderDecoderConstant (ConstantString ifaceId) <> ">;" ]
+      , ifaceDefIface ifName Nothing ifChoices
       , [ "export declare const " <> ifName <> ":"
-        , "  damlTypes.Template<object, undefined, '" <> ifaceId <> "'> &"
-        -- TODO SC pass an intersection of type refs to retroImplements when
+        , "  damlTypes.Template<" <> ifName <> ", undefined, '" <> ifaceId <> "'> &"
+        -- TODO #14082 pass an intersection of type refs to retroImplements when
         -- non-empty; 'unknown' is correct if empty
         , "  damlTypes.FromTemplate<" <> ifName <> ", unknown> &"
         , "  " <> ifName <> "Interface<object>;"
