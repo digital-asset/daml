@@ -116,17 +116,30 @@ private[index] class IndexServiceImpl(
         dispatcher()
           .startingAt(
             from.getOrElse(Offset.beforeBegin),
-            RangeSource { (startExclusive, endInclusive) =>
-              filterSource(transactionFilter, verbose) {
-                (templateFilter, eventProjectionProperties) =>
-                  transactionsReader
-                    .getFlatTransactions(
-                      startExclusive,
-                      endInclusive,
-                      templateFilter,
-                      eventProjectionProperties,
-                    )
-              }
+            RangeSource {
+              @volatile var metadata: PackageMetadata = null
+              @volatile var source
+                  : Source[(Map[Party, Set[Identifier]], EventProjectionProperties), NotUsed] =
+                Source.empty
+
+              (startExclusive, endInclusive) =>
+                val currentMetadata = packageMetadataView.current()
+                if (metadata ne currentMetadata) {
+                  // if packageMetadataView is updated with the new value,
+                  // we are recalculating the source, as it is expensive operation
+                  metadata = currentMetadata
+                  source = filterSource(transactionFilter, verbose, metadata)
+                }
+                source
+                  .flatMapConcat { case (templateFilter, eventProjectionProperties) =>
+                    transactionsReader
+                      .getFlatTransactions(
+                        startExclusive,
+                        endInclusive,
+                        templateFilter,
+                        eventProjectionProperties,
+                      )
+                  }
             },
             to,
           )
@@ -229,15 +242,16 @@ private[index] class IndexServiceImpl(
     withValidatedFilter(transactionFilter, packageMetadataView.current()) {
       val currentLedgerEnd = ledgerEnd()
 
-      val activeContractsSource = filterSource(transactionFilter, verbose) {
-        (templateFilter, eventProjectionProperties) =>
-          ledgerDao.transactionsReader
-            .getActiveContracts(
-              currentLedgerEnd,
-              templateFilter,
-              eventProjectionProperties,
-            )
-      }
+      val activeContractsSource =
+        filterSource(transactionFilter, verbose, packageMetadataView.current()).flatMapConcat {
+          case (templateFilter, eventProjectionProperties) =>
+            ledgerDao.transactionsReader
+              .getActiveContracts(
+                currentLedgerEnd,
+                templateFilter,
+                eventProjectionProperties,
+              )
+        }
 
       activeContractsSource
         .concat(
@@ -453,12 +467,12 @@ private[index] class IndexServiceImpl(
       .Reject("Index Service")(new DamlContextualizedErrorLogger(logger, loggingContext, None))
       .asGrpcError
 
-  private def filterSource[T](transactionFilter: domain.TransactionFilter, verbose: Boolean)(
-      source: (Map[Party, Set[Identifier]], EventProjectionProperties) => Source[T, NotUsed]
-  ): Source[T, NotUsed] = {
-    val metadata = packageMetadataView.current()
-
-    val templateFilter =
+  private def filterSource(
+      transactionFilter: domain.TransactionFilter,
+      verbose: Boolean,
+      metadata: PackageMetadata,
+  ): Source[(Map[Party, Set[Identifier]], EventProjectionProperties), NotUsed] = {
+    val templateFilter: Map[Party, Set[Identifier]] =
       IndexServiceImpl.templateFilter(metadata, transactionFilter)
 
     if (templateFilter.isEmpty) {
@@ -469,7 +483,7 @@ private[index] class IndexServiceImpl(
         verbose,
         interfaceId => metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty),
       )
-      source(templateFilter, eventProjectionProperties)
+      Source.single((templateFilter, eventProjectionProperties))
     }
   }
 }
