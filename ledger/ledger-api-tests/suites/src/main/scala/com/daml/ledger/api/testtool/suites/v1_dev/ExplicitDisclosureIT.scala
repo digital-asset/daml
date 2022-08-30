@@ -359,6 +359,33 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
     )
   })
 
+  test(
+    "EDFeatureDiasbled",
+    "Submission when disclosed contracts provided on feature disabled",
+    allocate(Parties(2)),
+    enabled = feature => !feature.explicitDisclosure,
+  )(implicit ec => { case Participants(Participant(ledger, owner, delegate)) =>
+    for {
+      testContext <- initializeTest(ledger, owner, delegate)
+
+      exerciseFetchError <- testContext
+        .exerciseFetchDelegated(testContext.disclosedContract)
+        .mustFail("explicit disclosure feature is disabled")
+    } yield {
+      assertGrpcError(
+        exerciseFetchError,
+        LedgerApiErrors.RequestValidation.InvalidField,
+        None,
+        checkDefiniteAnswerMetadata = true,
+        throwable =>
+          assertEquals(
+            throwable.getMessage,
+            "INVALID_ARGUMENT: INVALID_FIELD(8,EDFeatur): The submitted command has a field with invalid value: Invalid field disclosed_contracts: feature in development: disclosed_contracts should not be set",
+          ),
+      )
+    }
+  })
+
   private def disclosedContractNormalizationSubmissionTest(
       ledger: ParticipantTestContext,
       owner: binding.Primitive.Party,
@@ -475,5 +502,5 @@ object ExplicitDisclosureIT {
           )
         ),
       )
-      .update(_.commands.disclosedContracts := withKeyDisclosedContract.toSeq)
+      .update(_.commands.disclosedContracts := withKeyDisclosedContract.iterator.toSeq)
 }
