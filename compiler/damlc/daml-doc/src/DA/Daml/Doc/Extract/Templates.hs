@@ -82,8 +82,8 @@ getInterfaceDocs DocCtx{..} typeMap interfaceInstanceMap =
         ifADT = asADT typeMap name
         choices = Set.toList . fromMaybe Set.empty $ MS.lookup name dc_choices
 
--- | Extracts all names of templates defined in a module,
--- and a map of template names to its set of choices
+-- | Extracts all names of templates and interfaces defined in a module,
+-- and a map of template/interface names to its set of choices
 getTemplateData :: ParsedModule ->
     ( Set.Set Typename
     , Set.Set Typename
@@ -123,9 +123,9 @@ hasGhcTypesConstraint c decl
   , occNameString cst == c = Just $ Typename $ packRdrName $ unLoc tcdLName
   | otherwise = Nothing
 
--- | If the given instance declaration is declaring a template choice instance,
---   return template and choice name (IdP). Used to build the set of choices
---   per template declared in a module.
+-- | If the given instance declaration is declaring a template/interface choice instance,
+--   return template/interface and choice name (IdP). Used to build the set of choices
+--   per template/interface declared in a module.
 isChoice :: ClsInstDecl GhcPs -> Maybe (Typename, Typename)
 isChoice (XClsInstDecl _) = Nothing
 isChoice ClsInstDecl{..}
