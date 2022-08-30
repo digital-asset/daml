@@ -145,7 +145,8 @@ _choice_BChoiceB :
 _choice_BChoiceB
   = (\ this arg@ChoiceB
        -> let _ = this in
-          let _ = arg in DA.Internal.Desugar.toParties (getOwner this), 
+          let _ = arg
+          in DA.Internal.Desugar.toParties (getOwner (toInterface @A this)), 
      \ self this arg@ChoiceB
        -> let _ = self in
           let _ = this in let _ = arg in do pure (getCoolness this), 
@@ -368,11 +369,8 @@ main
               Some t1 === (fromInterface @B t1a >>= fromInterface @T1)
               Some t2 === fromInterface @T2 t2a
               None === (fromInterface @B t2a >> pure ())
-              getCoolness t1 === 20
               getCoolness t1b === 20
-              getOwner t1 === p
               getOwner t1a === p
-              getOwner t1b === p
               cidt1 <- create t1
               cidt2 <- create t2
               let cidt1b = toInterfaceContractId @B cidt1
@@ -387,10 +385,7 @@ main
                 (fetchPair1 == Some (cidt1b, t1b))
               assertMsg "fetchPair2 != None" (isNone fetchPair2)
               exercise cidt1a ChoiceA
-              exercise cidt1b ChoiceA
               exercise cidt1b ChoiceB
-              exercise cidt1 ChoiceA
-              exercise cidt1 ChoiceB
               pure ()
          let useAction : (ContractId B -> Update ()) -> Update ()
              useAction action
@@ -398,7 +393,5 @@ main
                     action (fromInterfaceContractId @B cid)
          submit p do useAction $ \ _bcid -> pure ()
          submitMustFail p do useAction $ \ bcid -> void (fetch bcid)
-         submitMustFail
-           p do useAction $ \ bcid -> void (exercise bcid ChoiceA)
          submitMustFail
            p do useAction $ \ bcid -> void (exercise bcid ChoiceB)

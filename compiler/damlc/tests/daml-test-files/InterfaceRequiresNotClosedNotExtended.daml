@@ -1,0 +1,20 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @UNTIL-LF-FEATURE DAML_INTERFACE_EXTENDED
+-- @ERROR Requires in Daml interfaces are only available with --target=1.dev
+
+-- | Check that interface requirements are transitively closed.
+module InterfaceRequiresNotClosedNotExtended where
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface A where
+    viewtype EmptyInterfaceView
+
+interface B requires A where
+    viewtype EmptyInterfaceView
+
+interface C requires B where
+    viewtype EmptyInterfaceView

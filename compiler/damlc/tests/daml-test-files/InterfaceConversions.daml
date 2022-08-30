@@ -1,9 +1,6 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- Temporarily disable this test to merge #14773
--- Re-enable in subsequent PR
--- @IGNORE
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 
 -- | Test interface conversion functions specifically.
@@ -81,7 +78,6 @@ main = scenario do
             action (fromInterfaceContractId @Template2 cid)
     submit p do useAction $ \_cid -> pure ()
     submitMustFail p do useAction $ \cid -> void (fetch cid)
-    submitMustFail p do useAction $ \cid -> exercise cid MyChoice
     submitMustFail p do useAction $ \cid -> archive cid
 
 -- @ENABLE-SCENARIOS

@@ -147,8 +147,7 @@ class PureConfigReaderWriterSpec
     compare(LanguageVersion.EarlyAccessVersions, "early-access")
     compare(LanguageVersion.LegacyVersions, "legacy")
 
-    // TODO: #14770 Re-enable when early access becomes stable
-    // versionRangeWriter.to(LanguageVersion.StableVersions) shouldBe fromAnyRef("early-access")
+    versionRangeWriter.to(LanguageVersion.StableVersions) shouldBe fromAnyRef("stable")
 
     versionRangeReader
       .from(fromAnyRef("stable"))
@@ -204,12 +203,10 @@ class PureConfigReaderWriterSpec
 
   behavior of "EngineConfig"
 
-  // TODO: #14770 Re-enable when early access becomes stable
-  /*
   it should "support current defaults" in {
     val value =
       """
-        |allowed-language-versions = early-access
+        |allowed-language-versions = stable
         |contract-key-uniqueness = strict
         |forbid-v-0-contract-id = true
         |limits {
@@ -226,7 +223,6 @@ class PureConfigReaderWriterSpec
 
     convert(engineConvert, value).value shouldBe Config.DefaultEngineConfig
   }
-   */
 
   behavior of "MetricsReporter"
 
