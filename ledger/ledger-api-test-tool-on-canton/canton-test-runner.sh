@@ -8,7 +8,7 @@ set -o pipefail
 
 JAVA="$(rlocation local_jdk/bin/java)"
 
-command=("$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/canton_deploy.jar)" daemon "$@")
+command=("/home/remy/work/canton/community/app/target/scala-2.13/canton-open-source-2.4.0-SNAPSHOT.jar" daemon "$@")
 
 # Change HOME since Canton uses ammonite in the default configuration, which tries to write to
 # ~/.ammonite/cache, which is read-only when sandboxing is enabled.
