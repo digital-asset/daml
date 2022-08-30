@@ -192,14 +192,26 @@ private[lf] object Pretty {
             )
         }
 
-      case InconsistentDisclosureTable.IncorrectlyTypedContract(coid, expected, actual) =>
+      case InconsistentDisclosureTable.IncorrectlyTypedContract(contractId, expected, actual) =>
         text(
           "Inconsistent disclosure table: invalid key hash mapping for disclosed contract id"
-        ) & prettyContractId(coid) /
+        ) & prettyContractId(contractId) /
           text("Expected contract of type") & prettyTypeConName(expected) & text(
             "but got"
           ) & prettyTypeConName(
             actual
+          )
+
+      case InconsistentDisclosureTable.InvalidContractKeyHash(
+            contractId,
+            expectedHash,
+            actualHash,
+          ) =>
+        text(
+          "Inconsistent disclosure table: invalid key hash disclosed contract id"
+        ) & prettyContractId(contractId) /
+          text(
+            s"Expected contract key hash ${expectedHash.toHexString} but got ${actualHash.toHexString}"
           )
     }
   }

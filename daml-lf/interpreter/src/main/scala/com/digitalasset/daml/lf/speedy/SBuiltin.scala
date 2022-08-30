@@ -1618,10 +1618,10 @@ private[lf] object SBuiltin {
             machine.disclosureTable.contractIdByKey.get(actualKeyHash) match {
               case Some(coid) =>
                 machine.disclosureTable.contractById.get(coid) match {
-                  case Some((actualTemplateId, contract))
+                  case Some((actualTemplateId, cachedContract))
                       if actualTemplateId == operation.templateId =>
                     val optionalKey: SValue = SBStructProj(Ref.Name.assertFromString("mbKey"))
-                      .executePure(ArrayList(contract))
+                      .executePure(ArrayList(cachedContract))
 
                     extractOptionalKeyWithMaintainers(
                       machine,
