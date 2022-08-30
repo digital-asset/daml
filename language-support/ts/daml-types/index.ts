@@ -152,10 +152,7 @@ function toInterfaceMixin<T extends object, IfU>(): ToInterface<T, IfU> {
       return cid as ContractId<never> as ContractId<If>;
     },
 
-    unsafeFromInterface<If>(
-      _: FromTemplate<If, unknown>,
-      cid: ContractId<If>,
-    ) {
+    unsafeFromInterface<If>(_: FromTemplate<If, unknown>, cid: ContractId<If>) {
       return cid as ContractId<never> as ContractId<T>;
     },
   };
