@@ -87,6 +87,7 @@ da_scala_test(
     deps = [
         ":lib",
         ":test-daml-java.jar",
+        ":test-interface-retro-implements-daml-java.jar",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -112,6 +113,19 @@ daml_compile(
 dar_to_java(
     name = "test-daml-java",
     src = ":test-contract-id-daml.dar",
+    package_prefix = "ut",
+)
+
+daml_compile(
+    name = "test-interface-retro-implements-daml",
+    srcs = ["src/test/daml/Retro.daml"],
+    # TODO(#13296) change to "latest" when interfaces released
+    target = lf_version_configuration.get("dev"),
+)
+
+dar_to_java(
+    name = "test-interface-retro-implements-daml-java",
+    src = ":test-interface-retro-implements-daml.dar",
     package_prefix = "ut",
 )
 
