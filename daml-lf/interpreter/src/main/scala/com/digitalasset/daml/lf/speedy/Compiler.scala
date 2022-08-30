@@ -337,7 +337,7 @@ private[lf] final class Compiler(
           interfaceId = impl.interfaceId,
           templateId = tmplId,
           interfaceInstanceBody = impl.body,
-        ).foreach(addDef(_))
+        ).foreach(addDef)
       }
 
       tmpl.choices.values.foreach(x => addDef(compileTemplateChoice(tmplId, tmpl, x)))
@@ -362,7 +362,7 @@ private[lf] final class Compiler(
           interfaceId = ifaceId,
           templateId = coimpl.templateId,
           interfaceInstanceBody = coimpl.body,
-        ).foreach(addDef(_))
+        ).foreach(addDef)
       }
     }
 

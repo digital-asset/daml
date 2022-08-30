@@ -1102,7 +1102,6 @@ private[lf] object SBuiltin {
     *    -> Optional {key: key, maintainers: List Party} (template key, if present)
     *    -> a
     */
-
   final case object SBFetchAny extends OnLedgerBuiltin(2) {
     override protected def execute(
         args: util.ArrayList[SValue],
@@ -1124,21 +1123,19 @@ private[lf] object SBuiltin {
           }
 
         case None =>
-          def continue(coinst: V.ContractInstance): Control = {
-            machine.pushKont(KCacheContract(machine, coid))
-            val e = coinst match {
-              case V.ContractInstance(actualTmplId, arg, _) =>
-                SEApp(
-                  // The call to ToCachedContractDefRef(actualTmplId) will query package
-                  // of actualTmplId if not known.
-                  SEVal(ToCachedContractDefRef(actualTmplId)),
-                  Array(
-                    SEImportValue(Ast.TTyCon(actualTmplId), arg),
-                    SEValue(args.get(1)),
-                  ),
-                )
-            }
-            Control.Expression(e)
+          def continue: V.ContractInstance => Control = {
+            case V.ContractInstance(actualTmplId, arg, _) =>
+              machine.pushKont(KCacheContract(machine, coid))
+              val expr = SEApp(
+                // The call to ToCachedContractDefRef(actualTmplId) will query package
+                // of actualTmplId if not known.
+                SEVal(ToCachedContractDefRef(actualTmplId)),
+                Array(
+                  SEImportValue(Ast.TTyCon(actualTmplId), arg),
+                  SEValue(args.get(1)),
+                ),
+              )
+              Control.Expression(expr)
           }
 
           machine.disclosureTable.contractById.get(SContractId(coid)) match {
@@ -1160,7 +1157,6 @@ private[lf] object SBuiltin {
               )
           }
       }
-
     }
   }
 
@@ -1570,12 +1566,12 @@ private[lf] object SBuiltin {
           NameOf.qualifiedNameOfCurrentFunc,
           skey,
         )
+
       if (keyWithMaintainers.maintainers.isEmpty) {
         Control.Error(
           IE.FetchEmptyContractKeyMaintainers(operation.templateId, keyWithMaintainers.key)
         )
       } else {
-
         val gkey = GlobalKey(operation.templateId, keyWithMaintainers.key)
 
         onLedger.ptx.contractState.resolveKey(gkey) match {
@@ -1590,7 +1586,7 @@ private[lf] object SBuiltin {
             }
 
           case Left(handle) =>
-            def continue = { result =>
+            def continue: Option[V.ContractId] => (Control, Boolean) = { result =>
               val (keyMapping, next) = handle(result)
               onLedger.ptx = onLedger.ptx.copy(contractState = next)
               keyMapping match {
@@ -1600,25 +1596,59 @@ private[lf] object SBuiltin {
                   machine.pushKont(
                     KCheckKeyVisibility(machine, gkey, coid, operation.handleKeyFound)
                   )
-                  if (onLedger.cachedContracts.contains(coid)) {
-                    (Control.Value(SUnit), true)
-                  } else {
-                    // SBFetchAny will populate onLedger.cachedContracts with the contract pointed by coid
-                    val e = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
-                    (Control.Expression(e), true)
+                  onLedger.cachedContracts.get(coid) match {
+                    case Some(cachedContract) if cachedContract.key =>
+                      (Control.Value(SUnit), true)
+
+                    case None =>
+                      // SBFetchAny will populate onLedger.cachedContracts with the contract pointed by coid
+                      val fetchAny = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
+                      (Control.Expression(fetchAny), true)
                   }
 
                 case ContractStateMachine.KeyInactive =>
                   operation.handleKeyNotFound(machine, gkey)
               }
-            }: Option[V.ContractId] => (Control, Boolean)
+            }
 
-            machine.disclosureTable.contractIdByKey.get(gkey.hash) match {
+            val actualKeyHash = gkey.hash
+
+            machine.disclosureTable.contractIdByKey.get(actualKeyHash) match {
               case Some(coid) =>
                 machine.disclosureTable.contractById.get(coid) match {
-                  case Some((actualTemplateId, _)) if actualTemplateId == operation.templateId =>
-                    val vcoid = coid.value
-                    continue(Some(vcoid))._1
+                  case Some((actualTemplateId, contract))
+                      if actualTemplateId == operation.templateId =>
+                    val optionalKey: SValue = SBStructProj(Ref.Name.assertFromString("mbKey"))
+                      .executePure(ArrayList(contract))
+
+                    extractOptionalKeyWithMaintainers(
+                      machine,
+                      actualTemplateId,
+                      NameOf.qualifiedNameOfCurrentFunc,
+                      optionalKey,
+                    ) match {
+                      case Some(expectedKey) =>
+                        val expectedKeyHash =
+                          crypto.Hash.assertHashContractKey(actualTemplateId, expectedKey.key)
+                        val vcoid = coid.value
+
+                        if (expectedKeyHash == actualKeyHash) {
+                          continue(Some(vcoid))._1
+                        } else {
+                          Control.Error(
+                            InconsistentDisclosureTable.InvalidContractKeyHash(
+                              vcoid,
+                              expectedKeyHash,
+                              gkey.hash,
+                            )
+                          )
+                        }
+
+                      case None =>
+                        crash(
+                          s"Disclosure table is in an inconsistent state: for disclosed contract ${coid.value}, unable to extract a contract key"
+                        )
+                    }
 
                   case Some((actualTemplateId, _)) =>
                     Control.Error(

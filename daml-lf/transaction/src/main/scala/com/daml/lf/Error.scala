@@ -7,7 +7,7 @@ package interpretation
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.transaction.{GlobalKey, NodeId}
-import com.daml.lf.language.{Ast, LookupError}
+import com.daml.lf.language.Ast
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
@@ -156,12 +156,6 @@ object Error {
         coid: Value.ContractId,
         templateId: TypeConName,
     ) extends Error
-    final case class InvalidDisclosedContractKeyHash(
-      coid: Value.ContractId,
-      expectedHash: crypto.Hash,
-      actualHash: crypto.Hash,
-    ) extends Error
-    final case class TemplateLookupError(error: LookupError) extends Error
   }
 
   object InconsistentDisclosureTable {
@@ -169,6 +163,11 @@ object Error {
         coid: ContractId,
         expected: TypeConName,
         actual: TypeConName,
+    ) extends Error
+    final case class InvalidContractKeyHash(
+        coid: ContractId,
+        expectedHash: crypto.Hash,
+        actualHash: crypto.Hash,
     ) extends Error
   }
 
