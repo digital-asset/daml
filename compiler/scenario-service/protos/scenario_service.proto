@@ -259,6 +259,12 @@ message ScenarioError {
       Identifier actual = 3;
   }
 
+  message InconsistentDisclosureTableInvalidContractKeyHash {
+      string contract_id = 1;
+      string expected_hash = 2;
+      string actual_hash = 3;
+  }
+
   // The state of the ledger at the time of the error
   repeated ScenarioStep scenario_steps = 1;
   repeated Node nodes = 2;
@@ -335,6 +341,7 @@ message ScenarioError {
     DisclosurePreprocessingNonExistentTemplate disclosure_preprocessing_non_existent_template = 40;
     DisclosurePreprocessingNonExistentDisclosedContractKeyHash disclosure_preprocessing_non_existent_disclosed_contract_key_hash = 41;
     InconsistentDisclosureTableIncorrectlyTypedContract inconsistent_disclosure_table_incorrectly_typed_contract = 42;
+    InconsistentDisclosureTableInvalidContractKeyHash inconsistent_disclosure_table_invalid_contract_key_hash = 43;
   }
 }
 

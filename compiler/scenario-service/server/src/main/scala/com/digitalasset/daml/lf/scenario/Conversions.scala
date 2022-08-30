@@ -278,6 +278,18 @@ final class Conversions(
                     .setExpected(convertIdentifier(expectedTemplateId))
                     .setActual(convertIdentifier(actualTemplateId))
                 )
+
+              case InconsistentDisclosureTable.InvalidContractKeyHash(
+                    contractId,
+                    expectedKeyHash,
+                    actualKeyHash,
+                  ) =>
+                builder.setInconsistentDisclosureTableInvalidContractKeyHash(
+                  proto.ScenarioError.InconsistentDisclosureTableInvalidContractKeyHash.newBuilder
+                    .setContractId(coidToEventId(contractId).toLedgerString)
+                    .setExpectedHash(expectedKeyHash.toHexString)
+                    .setActualHash(actualKeyHash.toHexString)
+                )
             }
         }
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>

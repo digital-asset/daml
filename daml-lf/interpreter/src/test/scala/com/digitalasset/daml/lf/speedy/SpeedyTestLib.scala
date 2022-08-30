@@ -5,16 +5,30 @@ package com.daml
 package lf
 package speedy
 
-import data.Ref.PackageId
-import data.Time
+import data.Ref.{Location, PackageId, Party}
+import data.{ImmArray, Time}
 import SResult._
 import com.daml.lf.language.{Ast, PackageInterface}
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.logging.LoggingContext
-import transaction.{GlobalKeyWithMaintainers, SubmittedTransaction}
+import transaction.{ContractKeyUniquenessMode, GlobalKeyWithMaintainers, SubmittedTransaction}
 import value.Value
 import scalautil.Statement.discard
+
+import com.daml.lf.speedy.SError.SErrorDamlException
+import com.daml.lf.speedy.SExpr.SExpr
+import com.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
+import com.daml.lf.speedy.Speedy.{
+  Control,
+  DisclosureTable,
+  Instrumentation,
+  Machine,
+  OnLedger,
+  buildDiscTable,
+  emptyEnv,
+  initialKontStack,
+}
 
 import scala.annotation.tailrec
 
@@ -136,4 +150,36 @@ private[speedy] object SpeedyTestLib {
       parserParameter: ParserParameters[X]
   ): PureCompiledPackages =
     typeAndCompile(Map(parserParameter.defaultPackageId -> pkg))
+
+  object Implicits {
+    implicit class SpeedyMachineTestMethods(machine: Machine) {
+      def withDisclosureTableUpdates(disclosureTableUpdates: DisclosureTable): Machine = {
+        val modifiedDisclosureTable = DisclosureTable(
+          contractIdByKey =
+            machine.disclosureTable.contractIdByKey + disclosureTableUpdates.contractIdByKey,
+          contractById = machine.disclosureTable.contractById + disclosureTableUpdates.contractById,
+        )
+
+        new Machine(
+          machine.control,
+          machine.frame,
+          machine.actuals,
+          machine.env,
+          machine.envBase,
+          machine.kontStack,
+          machine.lastLocation,
+          machine.traceLog,
+          machine.warningLog,
+          machine.loggingContext,
+          machine.compiledPackages,
+          machine.steps,
+          machine.track,
+          machine.profile,
+          machine.submissionTime,
+          machine.ledgerMode,
+          modifiedDisclosureTable,
+        )
+      }
+    }
+  }
 }
