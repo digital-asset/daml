@@ -148,12 +148,12 @@ export interface Choice<T extends object, C, R, K = unknown> {
 
 function toInterfaceMixin<T extends object, IfU>(): ToInterface<T, IfU> {
   return {
-    toInterface<If>(ic: FromTemplate<If, unknown>, cid: ContractId<T>) {
+    toInterface<If>(_: FromTemplate<If, unknown>, cid: ContractId<T>) {
       return cid as ContractId<never> as ContractId<If>;
     },
 
     unsafeFromInterface<If>(
-      ic: FromTemplate<If, unknown>,
+      _: FromTemplate<If, unknown>,
       cid: ContractId<If>,
     ) {
       return cid as ContractId<never> as ContractId<T>;
