@@ -11,124 +11,12 @@ import Ledger, {
   PartyInfo,
   UserRightHelper,
 } from "@daml/ledger";
-import { Choice, ContractId, Int, emptyMap, Map, Template, Interface, ToInterface, FromTemplate, } from "@daml/types";
+import { Choice, Int, emptyMap, Map } from "@daml/types";
 import pEvent from "p-event";
 import _ from "lodash";
 import WebSocket from "ws";
 
 import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
-
-// Choice TCRK: II+I
-// Template TKI: II+
-
-type I1 = Interface<"pkgid:mod:foo">; // codegenned marker type
-interface I1I extends FromTemplate<I1, unknown> { // tparam removed
-  // ^ marker type always used, including for contract IDs (mbSubst unneeded)
-  IChoice: Choice<I1, IChoice, ContractId<I1>, undefined>;
-}
-type IChoice = {};
-const I1: Template<I1, undefined, "foo"> & I1I = null as never;
-
-type I2 = Interface<"pkgid:mod:bar">;
-interface I2I {
-  IChoice2: Choice<I2, IChoice2, ContractId<I2>, undefined>;
-}
-type IChoice2 = {};
-const I2: Template<I2, undefined, "bar"> & I2I = null as never;
-
-type I3 = Interface<"pkgid:mod:quuux">;
-interface I3I extends FromTemplate<I3, unknown> {
-  IChoice3: Choice<I3, IChoice3, ContractId<I3>, undefined>;
-}
-type IChoice3 = {};
-const I3: Template<I3, undefined, "quuux"> & I3I = null as never;
-
-
-// Note that we don't really want to "brand" T, because
-// this is the simple create argument format as well.  So
-// we can't use template types to stash extra information about
-// implemented interfaces.
-//
-// This has much broader type-safety implications: for example, if
-// the associated record types for templates T1 and T2 have the same
-// field names and types, then the types ContractId<T1> and ContractId<T2> are
-// also equal.  We don't try to fix that as part of this design change.
-type T = { baz: Int };
-interface TI extends ToInterface<T, I1 | I2> {
-  TChoice: Choice<T, TChoice, ContractId<T>, undefined>;
-}
-type TChoice = {};
-const T: Template<T, undefined, "baz"> & TI = null as never;
-
-type RI4 = Interface<"pkgid:mod:retro">;
-interface RI4I extends FromTemplate<RI4, T & U> {
-  IChoice4: Choice<RI4, IChoice4, ContractId<RI4>, undefined>;
-}
-type IChoice4 = {};
-const RI4: Template<RI4, undefined, "retro"> & RI4I = null as never;
-
-type U = { baz: Text };
-
-type V = { baz: Text[] };
-interface VI extends ToInterface<V, never> {}
-const V: Template<V, undefined, "v"> & VI = null as never;
-
-function myCreate<T extends object, K>(tpl: Template<T, K, string>, t: T) {}
-
-function myExercise<T extends object, C, R, K>(
-  choice: Choice<T, C, R, K>,
-  contractId: ContractId<T>,
-  argument: C,
-) {}
-
-function widenCid(
-  cidT: ContractId<T>,
-  cidU: ContractId<U>,
-  cidV: ContractId<V>,
-  cidI1: ContractId<I1>,
-  cidI3: ContractId<I3>,
-  cidI4: ContractId<RI4>,
-): ContractId<I1> {
-  myCreate(T, { baz: "42" });
-  myCreate(I1, I1); // disallowed correctly
-  myCreate(I1, {}); // disallowed correctly
-  myExercise(T.TChoice, cidT, {});
-  myExercise(T.TChoice, cidU, {}); // disallowed correctly
-  myExercise(T.IChoice, cidT, {}); // broken by redesign
-  const cidTAsI1 = T.toInterface(I1, cidT); // infers ContractId<I1>
-  // const cidTAsI = T.toInterface(cidT); // did infer ContractId<I1 | I2>, but fixed by redesign
-  const cidTAsI4 = T.toInterface(RI4, cidT); // infers ContractId<RI4>
-  const cidTAsI3 = T.toInterface(I3, cidT); // disallowed correctly
-  const cidVAsI4 = V.toInterface(RI4, cidV); // disallowed correctly
-  myExercise(I1.IChoice, T.toInterface(I1, cidT), {}); // allowed
-  myExercise(I1.IChoice, cidU, {}); // disallowed
-  myExercise(I1.IChoice, cidI1, {}); // allowed
-  myExercise(I2.IChoice2, cidI1, {}); // disallowed
-  myExercise(RI4.IChoice4, T.toInterface(RI4, cidT), {}); // allowed
-  const cidI1AsT = T.unsafeFromInterface(I1, cidI1); // infers ContractId<T>
-  /*
-  No overload matches this call.
-  Overload 1 of 2, '(ic: FromTemplate<I1 | I2, unknown>, cid: ContractId<I1 | I2>): ContractId<T>', gave the following error.
-    Argument of type 'Template<I3, undefined, "quuux"> & I3I' is not assignable to parameter of type 'FromTemplate<I1 | I2, unknown>'.
-  Overload 2 of 2, '(ic: FromTemplate<I3, T>, cid: ContractId<I3>): ContractId<T>', gave the following error.
-    Argument of type 'Template<I3, undefined, "quuux"> & I3I' is not assignable to parameter of type 'FromTemplate<I3, T>'
-    */
-  const cidI3AsT = T.unsafeFromInterface(I3, cidI3); // disallowed
-  const cidI4AsT = T.unsafeFromInterface(RI4, cidI4); // infers ContractId<T>
-  myExercise(I1.IChoice, cidU, {}); // disallowed
-  /*
-  Argument of type 'ContractId<I1 | I2>' is not assignable to parameter of type 'ContractId<I3>'.
-  Type 'ContractId<I1 | I2>' is not assignable to type '{ [ContractIdBrand]: I3; }'.
-    Types of property '[ContractIdBrand]' are incompatible.
-      Type 'I1 | I2' is not assignable to type 'I3'.
-        Type 'I1' is not assignable to type 'I3'.
-          Types of property '[InterfaceBrand]' are incompatible.
-            Type '"pkgid:mod:foo"' is not assignable to type '"pkgid:mod:quuux"'.
-  */
-  myExercise(I3.IChoice3, T.toInterface(I3, cidT), {}); // should be disallowed
-  return T.toInterface(I1, cidT);
-  // ^ works v doesn't work
-}
 
 const LEDGER_ID = "build-and-lint-test";
 const APPLICATION_ID = "build-and-lint-test";
