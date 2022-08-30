@@ -35,9 +35,11 @@ Templates
   
   + **Choice Archive**
     
+    (no fields)
   
   + **Choice DoNothing**
     
+    (no fields)
   
   + **Choice Merge**
     

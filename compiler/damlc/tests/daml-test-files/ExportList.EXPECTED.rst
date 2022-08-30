@@ -26,9 +26,11 @@ Templates
   
   + **Choice Archive**
     
+    (no fields)
   
   + **Choice Choice0**
     
+    (no fields)
 
 .. _type-exportlist-template1-69519:
 
@@ -50,9 +52,11 @@ Templates
   
   + **Choice Archive**
     
+    (no fields)
   
   + **Choice Choice1**
     
+    (no fields)
 
 .. _type-exportlist-template2-27508:
 
@@ -74,9 +78,11 @@ Templates
   
   + **Choice Archive**
     
+    (no fields)
   
   + **Choice Choice2**
     
+    (no fields)
 
 .. _type-exportlist-template3-29585:
 
@@ -98,9 +104,11 @@ Templates
   
   + **Choice Archive**
     
+    (no fields)
   
   + **Choice Choice3**
     
+    (no fields)
 
 Typeclasses
 ^^^^^^^^^^^
@@ -161,6 +169,7 @@ Data Types
   
   `Constr3 <constr-exportlist-constr3-11999_>`_
   
+    (no fields)
   
   **instance** `HasField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839>`_ \"field3\" `Data3 <type-exportlist-data3-37219_>`_ `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
 

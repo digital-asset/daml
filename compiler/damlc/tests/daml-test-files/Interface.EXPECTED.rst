@@ -29,6 +29,7 @@ Templates
   
   + **Choice Archive**
     
+    (no fields)
 
   + **interface instance** `Token <type-interface-token-10651_>`_ **for** `Asset <type-interface-asset-25340_>`_
 
@@ -122,6 +123,7 @@ Data Types
   
   `EmptyInterfaceView <constr-interface-emptyinterfaceview-1101_>`_
   
+    (no fields)
   
   **instance** `HasInterfaceView <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasinterfaceview-4492>`_ `Token <type-interface-token-10651_>`_ `EmptyInterfaceView <type-interface-emptyinterfaceview-28816_>`_
 
