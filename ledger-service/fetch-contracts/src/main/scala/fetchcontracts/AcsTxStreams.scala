@@ -130,17 +130,8 @@ private[daml] object AcsTxStreams {
       contractTypeIds: List[ContractTypeId.Resolved],
   ): lav1.transaction_filter.TransactionFilter = {
     import lav1.transaction_filter._
-    // TODO Ray refactor, use ResolvedQuery ADT
-    val (templateIds, interfaceIds) = contractTypeIds.partitionMap {
-      // TODO 'Resolved' only is non-exhaustive
-      case t @ (_: domain.ContractTypeId.Template.Resolved |
-          _: domain.ContractTypeId.Template.RequiredPkg) =>
-        Left(t)
-      case i @ (_: domain.ContractTypeId.Interface.Resolved |
-          _: domain.ContractTypeId.Interface.RequiredPkg) =>
-        Right(i)
-    }
 
+    val (templateIds, interfaceIds) = domain.ResolvedQuery.partition(contractTypeIds)
     val filters = Filters(
       Some(
         lav1.transaction_filter.InclusiveFilters(

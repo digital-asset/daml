@@ -8,6 +8,8 @@ import com.daml.lf.data.Ref
 import scalaz.{-\/, Applicative, Traverse, \/, \/-}
 import scalaz.syntax.functor._
 
+import scala.collection.IterableOps
+
 /** A contract type ID that may be either a template or an interface ID.
   * A [[ContractTypeId.Resolved]] ID will always be either [[ContractTypeId.Template]]
   * or [[ContractTypeId.Interface]]; an
@@ -68,14 +70,7 @@ object ResolvedQuery {
     }
   }
   def apply(resolved: Set[ContractTypeId.Resolved]): Unsupported \/ ResolvedQuery = {
-    val (templateIds, interfaceIds) = resolved.partitionMap {
-      // TODO 'Resolved' only is non-exhaustive, which should not be the case.
-      case t: ContractTypeId.Template.Resolved =>
-        Left[ContractTypeId.Template.Resolved, ContractTypeId.Interface.Resolved](t)
-      case i: ContractTypeId.Interface.Resolved =>
-        Right[ContractTypeId.Template.Resolved, ContractTypeId.Interface.Resolved](i)
-      case unexpected => throw new Exception(s"unexpected,  ContractTypeId.Resolved is $unexpected")
-    }
+    val (templateIds, interfaceIds) = partition(resolved)
     if (templateIds.nonEmpty && interfaceIds.nonEmpty) {
       -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
     } else if (templateIds.isEmpty && interfaceIds.size != 1) {
@@ -88,6 +83,17 @@ object ResolvedQuery {
       -\/(CannotBeEmpty)
     }
   }
+
+  def partition[CC[_], C](resolved: IterableOps[ContractTypeId.Resolved, CC, C]): (CC[ContractTypeId.Template.Resolved], CC[ContractTypeId.Interface.Resolved]) =
+    resolved.partitionMap {
+      // TODO SC 'Resolved' only is non-exhaustive, which should not be the case.
+      case t: ContractTypeId.Template.Resolved =>
+        Left[ContractTypeId.Template.Resolved, ContractTypeId.Interface.Resolved](t)
+      case i: ContractTypeId.Interface.Resolved =>
+        Right[ContractTypeId.Template.Resolved, ContractTypeId.Interface.Resolved](i)
+      case unexpected => throw new Exception(s"unexpected,  ContractTypeId.Resolved is $unexpected")
+    }
+
   sealed trait Unsupported
   final case object CannotQueryBothTemplateIdsAndInterfaceIds extends Unsupported
   final case object CannotQueryManyInterfaceIds extends Unsupported
