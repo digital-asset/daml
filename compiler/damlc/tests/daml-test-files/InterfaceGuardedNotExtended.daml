@@ -71,32 +71,34 @@ main = scenario do
       owner = p
       amount = 100
     getRich = GetRich with byHowMuch = 1000000
+    exerciseGetRich guard asset =
+      exerciseGuarded guard (toInterfaceContractId @Token asset) getRich
 
   p `submit` do
     -- OK if guard returns True
     asset <- create assetTpl
-    exerciseGuarded (const True) asset getRich
+    exerciseGetRich (const True) asset
 
   p `submitMustFail` do
     -- Fail if guard returns False
     asset <- create assetTpl
-    exerciseGuarded (const False) asset getRich
+    exerciseGetRich (const False) asset
 
   p `submitMustFail` do
     -- Fail if guard throws exception
     asset <- create assetTpl
-    exerciseGuarded (\_ -> error "foo") asset getRich
+    exerciseGetRich (\_ -> error "foo") asset
 
   p `submitMustFail` do
     -- Fail if guard throws custom exception
     asset <- create assetTpl
-    exerciseGuarded (\_ -> throwPure (GuardException "bar")) asset getRich
+    exerciseGetRich (\_ -> throwPure (GuardException "bar")) asset
 
   p `submitMustFail` do
     -- Fail if guard throws exception, even in `try-catch` block
     asset <- create assetTpl
     try do
-      exerciseGuarded (\_ -> error "foo") asset getRich
+      exerciseGetRich (\_ -> error "foo") asset
     catch
       GeneralError {} ->
         pure $ toInterfaceContractId @Token asset
@@ -105,7 +107,7 @@ main = scenario do
     -- Fail if guard throws custom exception, even in `try-catch` block
     asset <- create assetTpl
     try do
-      exerciseGuarded (\_ -> throwPure (GuardException "bar")) asset getRich
+      exerciseGetRich (\_ -> throwPure (GuardException "bar")) asset
     catch
       GuardException {} ->
         pure $ toInterfaceContractId @Token asset
@@ -113,12 +115,12 @@ main = scenario do
   p `submitMustFail` do
     -- Fail if predicate doesn't match underlying template type
     anotherAsset <- coerceContractId @_ @AnotherAsset <$> create assetTpl
-    exerciseGuarded (const True) anotherAsset getRich
+    exerciseGetRich (const True) anotherAsset
 
   p `submitMustFail` do
     -- Fail if predicate doesn't match underlying template's interfaces
     subToken <- coerceContractId @_ @SubToken <$> create assetTpl
-    exerciseGuarded (const True) subToken getRich
+    exerciseGetRich (const True) subToken
 
   pure ()
 
