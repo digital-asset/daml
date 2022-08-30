@@ -5,30 +5,18 @@ package com.daml
 package lf
 package speedy
 
-import data.Ref.{Location, PackageId, Party}
-import data.{ImmArray, Time}
+import data.Ref.PackageId
+import data.Time
 import SResult._
 import com.daml.lf.language.{Ast, PackageInterface}
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.logging.LoggingContext
-import transaction.{ContractKeyUniquenessMode, GlobalKeyWithMaintainers, SubmittedTransaction}
+import transaction.{GlobalKeyWithMaintainers, SubmittedTransaction}
 import value.Value
 import scalautil.Statement.discard
 
-import com.daml.lf.speedy.SError.SErrorDamlException
-import com.daml.lf.speedy.SExpr.SExpr
-import com.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
-import com.daml.lf.speedy.Speedy.{
-  Control,
-  DisclosureTable,
-  Instrumentation,
-  Machine,
-  OnLedger,
-  buildDiscTable,
-  emptyEnv,
-  initialKontStack,
-}
+import com.daml.lf.speedy.Speedy.{DisclosureTable, Machine}
 
 import scala.annotation.tailrec
 
