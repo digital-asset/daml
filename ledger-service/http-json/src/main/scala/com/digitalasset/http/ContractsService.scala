@@ -36,13 +36,12 @@ import scalaz.std.option._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{~>, -\/, OneAnd, OptionT, Show, \/, \/-}
+import scalaz.{-\/, OneAnd, OptionT, Show, \/, \/-, ~>}
 import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import scalaz.std.scalaFuture._
-
 import com.codahale.metrics.Timer
 import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
@@ -314,20 +313,23 @@ class ContractsService(
   } yield {
     domain
       .ResolvedQuery(resolvedContractTypeIds)
-      .leftMap {
-        case domain.ResolvedQuery.CannotBeEmpty =>
-          mkErrorResponse(ErrorMessages.cannotResolveAnyTemplateId, warnings)
-        case domain.ResolvedQuery.CannotQueryBothTemplateIdsAndInterfaceIds =>
-          mkErrorResponse(ErrorMessages.cannotQueryBothTemplateIdsAndInterfaceIds, warnings)
-        case domain.ResolvedQuery.CannotQueryManyInterfaceIds =>
-          mkErrorResponse(ErrorMessages.canOnlyQueryOneInterfaceId, warnings)
-      }
+      .leftMap(handleResolvedQueryErrors(warnings))
       .map { resolvedQuery =>
         val searchCtx = SearchContext(jwt, parties, resolvedQuery, ledgerId)
         val source = search.toFinal.search(searchCtx, queryParams)
         domain.OkResponse(source, warnings)
       }
       .merge
+  }
+  private def handleResolvedQueryErrors(
+      warnings: Option[domain.UnknownTemplateIds]
+  ): PartialFunction[domain.ResolvedQuery.Unsupported, domain.ErrorResponse] = {
+    case domain.ResolvedQuery.CannotBeEmpty =>
+      mkErrorResponse(ErrorMessages.cannotResolveAnyTemplateId, warnings)
+    case domain.ResolvedQuery.CannotQueryBothTemplateIdsAndInterfaceIds =>
+      mkErrorResponse(ErrorMessages.cannotQueryBothTemplateIdsAndInterfaceIds, warnings)
+    case domain.ResolvedQuery.CannotQueryManyInterfaceIds =>
+      mkErrorResponse(ErrorMessages.canOnlyQueryOneInterfaceId, warnings)
   }
 
   private def mkErrorResponse(errorMessage: String, warnings: Option[domain.UnknownTemplateIds]) =
@@ -421,12 +423,20 @@ class ContractsService(
             lc: LoggingContextOf[InstanceUUID with RequestID],
             metrics: Metrics,
         ): Source[Error \/ domain.ActiveContract[LfV], NotUsed] = {
+          import ctx.{jwt, ledgerId, parties, templateIds => query}
+          query match {
+            case rq: domain.ResolvedQuery.ByInterfaceId =>
+              import com.daml.http.json.JsonProtocol._
+              // TODO query store support for interface query/fetch #14819
+              searchInMemory(jwt, ledgerId, parties, rq, InMemoryQuery.Params(queryParams))
+                .map(_.map(_.map(LfValueCodec.apiValueToJsValue)))
+            case _ =>
+              // TODO use `stream` when materializing DBContracts, so we could stream ActiveContracts
+              val fv: Future[Vector[domain.ActiveContract[JsValue]]] =
+                unsafeRunAsync(searchDb_(fetch)(ctx, queryParams))
 
-          // TODO use `stream` when materializing DBContracts, so we could stream ActiveContracts
-          val fv: Future[Vector[domain.ActiveContract[JsValue]]] =
-            unsafeRunAsync(searchDb_(fetch)(ctx, queryParams))
-
-          Source.future(fv).mapConcat(identity).map(\/.right)
+              Source.future(fv).mapConcat(identity).map(\/.right)
+          }
         }
 
         private[this] def unsafeRunAsync[A](cio: doobie.ConnectionIO[A]) =
