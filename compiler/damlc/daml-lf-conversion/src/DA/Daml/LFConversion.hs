@@ -1299,10 +1299,6 @@ convertBind env mc (name, x)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasExerciseGuarded") _ <- name
     = pure []
 
-    | not (envLfVersion env `supports` featureExtendedInterfaces)
-    , NameIn DA_Internal_Interface "_exerciseDefault" <- name
-    = pure []
-
     -- Remove internal functions.
     | Just internals <- lookupUFM internalFunctions (envGHCModuleName env)
     , getOccFS name `elementOfUniqSet` internals
