@@ -21,7 +21,7 @@ class InterfaceSubscriptionITSpec
     with Matchers
     with AppendedClues {
 
-  it should "populate participant with create, consuming and non consuming exercises" in {
+  it should "make interface subscriptions exposed to the benchtool" in {
 
     val foo1Config = WorkflowConfig.FooSubmissionConfig.ContractDescription(
       template = "Foo1",
