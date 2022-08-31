@@ -1,4 +1,19 @@
-module DA.Daml.LFConversion.ConvertM where
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module DA.Daml.LFConversion.ConvertM (
+    ConversionError(..),
+    ConversionEnv(..),
+    ConvertM(..),
+    runConvertM,
+    withRange,
+    freshTmVar,
+    resetFreshVarCounters,
+    conversionError,
+    unsupported,
+    unknown,
+    unhandled
+  ) where
 
 import           DA.Daml.UtilLF
 
@@ -90,4 +105,5 @@ unknown unitId pkgMap = conversionError errMsg
 
 unhandled :: (HasCallStack, Data a, Outputable a) => String -> a -> ConvertM e
 unhandled typ x = unsupported (typ ++ " with " ++ lower (show (toConstr x))) x
+
 
