@@ -651,18 +651,16 @@ scrapeInterfaceInstanceBinds ::
      Env
   -> [(Var, GHC.Expr CoreBndr)]
   -> MS.Map TypeConName InterfaceInstanceGroup
-scrapeInterfaceInstanceBinds env binds
-  | envLfVersion env `supports` featureSimpleInterfaces =
-      MMS.merge
-        {- drop group funcs without interface instances -}
-        MMS.dropMissing
-        {- keep interface instances without group funcs -}
-        MMS.preserveMissing'
-        {- apply group funcs to interface instances -}
-        (MMS.zipWithMatched (const ($!)))
-        interfaceInstanceGroupFs
-        interfaceInstanceGroups
-  | otherwise = MS.empty
+scrapeInterfaceInstanceBinds env binds =
+  MMS.merge
+    {- drop group funcs without interface instances -}
+    MMS.dropMissing
+    {- keep interface instances without group funcs -}
+    MMS.preserveMissing'
+    {- apply group funcs to interface instances -}
+    (MMS.zipWithMatched (const ($!)))
+    interfaceInstanceGroupFs
+    interfaceInstanceGroups
   where
     interfaceInstanceGroups :: MS.Map TypeConName InterfaceInstanceGroup
     interfaceInstanceGroups = MS.fromListWith iigUnion
@@ -1233,7 +1231,9 @@ convertInterfaceInstance ::
   -> Env
   -> InterfaceInstanceBinds
   -> ConvertM r
-convertInterfaceInstance parent mkR env iib = withRange (iibLoc iib) $ do
+convertInterfaceInstance parent mkR env iib = withRange (iibLoc iib) do
+  unless (envLfVersion env `supports` featureSimpleInterfaces) do
+    unsupported "Daml interfaces are only available with --target=1.15 or higher" ()
   interfaceQualTypeCon <- qualifyInterfaceCon (iibInterface iib)
   templateQualTypeCon <- qualifyTemplateCon (iibTemplate iib)
   checkParent interfaceQualTypeCon templateQualTypeCon
