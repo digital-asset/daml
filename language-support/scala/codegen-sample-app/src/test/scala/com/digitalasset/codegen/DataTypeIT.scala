@@ -92,10 +92,15 @@ class DataTypeIT extends AnyWordSpec with Matchers {
     val sleId: P.ContractId[MyMain.SimpleListExample] = P.ContractId("fakesle")
     val imId: P.ContractId[MyMain.InterfaceMixer] = P.ContractId("fakeimid")
     val itmId: P.ContractId[MyMainIface.IfaceFromAnotherMod] = P.ContractId("fakeitmid")
+    val itrmId: P.ContractId[MyMainIfaceRetro.MyMainIfaceRetro] = P.ContractId("fakeitrmid")
 
     "coerce from template to interface" in {
       val ifId = imId.toInterface[MyMainIface.IfaceFromAnotherMod]
       (ifId: MyMainIface.IfaceFromAnotherMod.ContractId) should ===(imId)
+
+      val ifRetroId = imId.toInterface[MyMainIfaceRetro.MyMainIfaceRetro]
+      (ifRetroId: MyMainIfaceRetro.MyMainIfaceRetro.ContractId) should ===(imId)
+
       illTyped(
         "sleId.toInterface[MyMainIface.IfaceFromAnotherMod]",
         "com.daml.sample.MyMain.SimpleListExample is not a template that implements interface com.daml.sample.MyMainIface.IfaceFromAnotherMod",
@@ -109,6 +114,10 @@ class DataTypeIT extends AnyWordSpec with Matchers {
     "coerce from interface to template" in {
       val tpId = itmId.unsafeToTemplate[MyMain.InterfaceMixer]
       (tpId: MyMain.InterfaceMixer.ContractId) should ===(itmId)
+
+      val tpIdRetro = itrmId.unsafeToTemplate[MyMain.InterfaceMixer]
+      (tpIdRetro: MyMain.InterfaceMixer.ContractId) should ===(itrmId)
+
       illTyped(
         "itmId.unsafeToTemplate[MyMain.SimpleListExample]",
         ".*SimpleListExample is not a template that implements interface .*IfaceFromAnotherMod",
