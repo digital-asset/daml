@@ -127,7 +127,7 @@ object ResolvedQuery {
   }
 }
 
-sealed trait ResolvedQuery {
+sealed abstract class ResolvedQuery extends Product with Serializable {
   def resolved: Set[ContractTypeId.Resolved]
 }
 
