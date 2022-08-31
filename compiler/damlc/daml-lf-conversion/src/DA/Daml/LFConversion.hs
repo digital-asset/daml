@@ -727,12 +727,11 @@ convertTemplateTyCon = convertDamlTyCon hasDamlTemplateCtx "template type"
 
 convertInterfaces :: Env -> ModuleContents -> ConvertM [Definition]
 convertInterfaces env mc =
-  sequence
-    [ DInterface <$> convertInterface env mc name ib
-    | (name, ib) <- MS.toList (mcInterfaceBinds mc)
-    ]
+  concatMapM
+    (\(name, binds) -> convertInterface env mc name binds)
+    (MS.toList (mcInterfaceBinds mc))
 
-convertInterface :: Env -> ModuleContents -> LF.TypeConName -> InterfaceBinds -> ConvertM DefInterface
+convertInterface :: Env -> ModuleContents -> LF.TypeConName -> InterfaceBinds -> ConvertM [Definition]
 convertInterface env mc intName ib = do
   let
     intLocation = convNameLoc (ibTyCon ib)
@@ -745,7 +744,7 @@ convertInterface env mc intName ib = do
     intView <- case ibViewType ib of
         Nothing -> conversionError $ "No view found for interface " <> renderPretty intName
         Just viewType -> convertType env viewType
-    pure DefInterface {..}
+    pure [DInterface DefInterface {..}]
   where
     convertRequires :: [(GHC.TyCon, Maybe SourceLoc)] -> ConvertM (S.Set (Qualified TypeConName))
     convertRequires requires = S.fromList <$> sequence
