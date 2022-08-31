@@ -69,6 +69,7 @@ object ResolvedQuery {
       case i @ Interface(_, _, _) => ByInterfaceId(i)
     }
   }
+
   def apply(resolved: Set[ContractTypeId.Resolved]): Unsupported \/ ResolvedQuery = {
     val (templateIds, interfaceIds) = partition(resolved)
     if (templateIds.nonEmpty && interfaceIds.nonEmpty) {
