@@ -726,29 +726,27 @@ convertTemplateTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (L
 convertTemplateTyCon = convertDamlTyCon hasDamlTemplateCtx "template type"
 
 convertInterfaces :: Env -> ModuleContents -> ConvertM [Definition]
-convertInterfaces env mc = interfaceDefs
+convertInterfaces env mc =
+  sequence
+    [ DInterface <$> convertInterface env mc name ib
+    | (name, ib) <- MS.toList (mcInterfaceBinds mc)
+    ]
+
+convertInterface :: Env -> ModuleContents -> LF.TypeConName -> InterfaceBinds -> ConvertM DefInterface
+convertInterface env mc intName ib = do
+  let
+    intLocation = convNameLoc (ibTyCon ib)
+    intParam = this
+  withRange intLocation $ do
+    intRequires <- convertRequires (ibRequires ib)
+    intMethods <- convertMethods (ibMethods ib)
+    intChoices <- convertChoices env mc intName emptyTemplateBinds
+    intCoImplements <- convertCoImplements intName
+    intView <- case ibViewType ib of
+        Nothing -> conversionError $ "No view found for interface " <> renderPretty intName
+        Just viewType -> convertType env viewType
+    pure DefInterface {..}
   where
-    interfaceDefs :: ConvertM [Definition]
-    interfaceDefs = sequence
-        [ DInterface <$> convertInterface name ib
-        | (name, ib) <- MS.toList (mcInterfaceBinds mc)
-        ]
-
-    convertInterface :: LF.TypeConName -> InterfaceBinds -> ConvertM DefInterface
-    convertInterface intName ib = do
-        let
-          intLocation = convNameLoc (ibTyCon ib)
-          intParam = this
-        withRange intLocation $ do
-            intRequires <- convertRequires (ibRequires ib)
-            intMethods <- convertMethods (ibMethods ib)
-            intChoices <- convertChoices env mc intName emptyTemplateBinds
-            intCoImplements <- convertCoImplements intName
-            intView <- case ibViewType ib of
-                Nothing -> conversionError $ "No view found for interface " <> renderPretty intName
-                Just viewType -> convertType env viewType
-            pure DefInterface {..}
-
     convertRequires :: [(GHC.TyCon, Maybe SourceLoc)] -> ConvertM (S.Set (Qualified TypeConName))
     convertRequires requires = S.fromList <$> sequence
       [ withRange mloc $ guardSupportsInterfaceRequires $ convertInterfaceTyCon env handleIsNotInterface iface
