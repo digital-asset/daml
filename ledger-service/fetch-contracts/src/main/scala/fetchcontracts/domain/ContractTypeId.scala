@@ -94,7 +94,7 @@ object ResolvedQuery {
       case unexpected => throw new Exception(s"unexpected,  ContractTypeId.Resolved is $unexpected")
     }
 
-  sealed trait Unsupported
+  sealed abstract class Unsupported extends Product with Serializable
   final case object CannotQueryBothTemplateIdsAndInterfaceIds extends Unsupported
   final case object CannotQueryManyInterfaceIds extends Unsupported
   final case object CannotBeEmpty extends Unsupported
