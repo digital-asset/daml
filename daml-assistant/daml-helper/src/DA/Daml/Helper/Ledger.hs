@@ -81,6 +81,7 @@ import DA.Ledger.Types (ApplicationId(..))
 import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.Time.Calendar (Day(..))
 import DA.Ledger.Services.MeteringReportService(MeteringRequestByDay(..))
+import qualified Data.Aeson as Aeson
 
 data LedgerApi
   = Grpc
@@ -664,7 +665,7 @@ runLedgerMeteringReport flags fromIso toIso application compactOutput = do
     let output = BSC.unpack bsc
     putStrLn output
 
-meteringReport :: LedgerArgs -> Day -> Maybe Day -> Maybe ApplicationId -> IO L.MeteringReport
+meteringReport :: LedgerArgs -> Day -> Maybe Day -> Maybe ApplicationId -> IO Aeson.Value
 meteringReport args from to application =
   case api args of
     Grpc ->
