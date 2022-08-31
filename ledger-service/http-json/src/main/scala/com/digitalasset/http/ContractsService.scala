@@ -327,7 +327,7 @@ class ContractsService(
         val source = search.toFinal.search(searchCtx, queryParams)
         domain.OkResponse(source, warnings)
       }
-      .fold(identity, identity)
+      .merge
   }
 
   private def mkErrorResponse(errorMessage: String, warnings: Option[domain.UnknownTemplateIds]) =
