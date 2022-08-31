@@ -84,7 +84,9 @@ object ResolvedQuery {
     }
   }
 
-  def partition[CC[_], C](resolved: IterableOps[ContractTypeId.Resolved, CC, C]): (CC[ContractTypeId.Template.Resolved], CC[ContractTypeId.Interface.Resolved]) =
+  def partition[CC[_], C](
+      resolved: IterableOps[ContractTypeId.Resolved, CC, C]
+  ): (CC[ContractTypeId.Template.Resolved], CC[ContractTypeId.Interface.Resolved]) =
     resolved.partitionMap {
       case t @ ContractTypeId.Template(_, _, _) => Left(t)
       case i @ ContractTypeId.Interface(_, _, _) => Right(i)
