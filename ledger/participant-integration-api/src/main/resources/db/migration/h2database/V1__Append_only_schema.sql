@@ -378,6 +378,9 @@ CREATE TABLE participant_metering (
 
 CREATE UNIQUE INDEX participant_metering_from_to_application ON participant_metering(from_timestamp, to_timestamp, application_id);
 
+
+-- NOTE: We keep participant user and party record tables independent from indexer-based tables, such that
+--       we maintain a property that they can be moved to a separate database without any extra schema changes.
 ---------------------------------------------------------------------------------------------------
 -- Participant local store: users
 ---------------------------------------------------------------------------------------------------

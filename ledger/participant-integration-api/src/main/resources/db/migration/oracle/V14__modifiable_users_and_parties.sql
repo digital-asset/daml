@@ -1,6 +1,9 @@
 --  Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 --  SPDX-License-Identifier: Apache-2.0
 
+-- NOTE: We keep participant user and party record tables independent from indexer-based tables, such that
+--       we maintain a property that they can be moved to a separate database without any extra schema changes.
+
 -- User tables
 CREATE TABLE participant_user_annotations (
     internal_id         NUMBER                NOT NULL REFERENCES participant_users (internal_id) ON DELETE CASCADE,
