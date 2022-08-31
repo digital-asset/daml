@@ -873,8 +873,6 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
             ]
         else
             unsupported "Daml interfaces are only available with --target=1.15 or higher" ()
-            -- TODO https://github.com/digital-asset/daml/issues/12051
-            --   Change when interfaces are released.
 
     -- Remove guarded exercise instances when Extended Interfaces are unsupported
     | not (envLfVersion env `supports` featureExtendedInterfaces)
