@@ -160,7 +160,9 @@ For example, for the Slack message:
 >
 > For testing:
 >
-> ...
+> - Follow the [instructions](https://github.com/digital-asset/daml/blob/v2.4.0-snapshot.20220830.10494.0.4622de48/release/RELEASE.md).
+> - Install on macOS/Linux with `curl -sSL https://get.daml.com/ | sh -s 2.4.0-snapshot.20220830.10494.0.4622de48`.
+> - Install on Windows using this [link](https://github.com/digital-asset/daml/releases/download/v2.4.0-snapshot.20220830.10494.0.4622de48/daml-sdk-2.4.0-snapshot.20220830.10494.0.4622de48-windows.exe).
 
 we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
 
