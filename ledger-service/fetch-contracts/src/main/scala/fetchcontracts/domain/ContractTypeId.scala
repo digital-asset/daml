@@ -63,10 +63,10 @@ sealed abstract class ContractTypeId[+PkgId]
 
 object ResolvedQuery {
   def apply(resolved: ContractTypeId.Resolved): ResolvedQuery = {
+    import ContractTypeId._
     resolved match {
-      case t: ContractTypeId.Template.Resolved => ByTemplateId(t)
-      case i: ContractTypeId.Interface.Resolved => ByInterfaceId(i)
-      case unexpected => throw new Exception(s"unexpected,  ContractTypeId.Resolved is $unexpected")
+      case t @ Template(_, _, _) => ByTemplateId(t)
+      case i @ Interface(_, _, _) => ByInterfaceId(i)
     }
   }
   def apply(resolved: Set[ContractTypeId.Resolved]): Unsupported \/ ResolvedQuery = {
