@@ -487,9 +487,9 @@ modInstanceInfoFromDetails ModDetails{..} = MS.fromList
 
 -- | Represents the contents of some interface instance
 data InterfaceBinds = InterfaceBinds
-  { ibLoc :: Maybe SourceLoc
-      -- ^ Location associated to the type declaration, which should
-      -- point to the @interface X@ line in the daml file.
+  { ibTyCon :: TyCon
+      -- ^ Type constructor associated to the interface declaration. Its location
+      -- should point to the @interface X@ line in the daml file.
   , ibViewType :: Maybe GHC.Type
       -- ^ The view type associated with this interface.
   , ibMethods :: MS.Map MethodName (GHC.Type, Maybe SourceLoc)
@@ -499,9 +499,9 @@ data InterfaceBinds = InterfaceBinds
       -- ^ The interfaces required by this interface.
   }
 
-emptyInterfaceBinds :: Maybe SourceLoc -> InterfaceBinds
-emptyInterfaceBinds ibLoc = InterfaceBinds
-  { ibLoc
+emptyInterfaceBinds :: TyCon -> InterfaceBinds
+emptyInterfaceBinds ibTyCon = InterfaceBinds
+  { ibTyCon
   , ibViewType = Nothing
   , ibMethods = MS.empty
   , ibRequires = []
@@ -547,7 +547,7 @@ scrapeInterfaceBinds lfVersion tyThings binds
   where
     interfaces :: MS.Map TypeConName InterfaceBinds
     interfaces = MS.fromList
-      [ (mkTypeCon [getOccText t], emptyInterfaceBinds (convNameLoc t))
+      [ (mkTypeCon [getOccText t], emptyInterfaceBinds t)
       | ATyCon t <- tyThings
       , hasDamlInterfaceCtx t
       ]
@@ -737,7 +737,7 @@ convertInterfaces env mc = interfaceDefs
     convertInterface :: LF.TypeConName -> InterfaceBinds -> ConvertM DefInterface
     convertInterface intName ib = do
         let
-          intLocation = ibLoc ib
+          intLocation = convNameLoc (ibTyCon ib)
           intParam = this
         withRange intLocation $ do
             intRequires <- convertRequires (ibRequires ib)
