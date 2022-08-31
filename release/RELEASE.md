@@ -233,7 +233,7 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
    > `./ad-hoc.sh destroy $ID`. Here `$ID` is the identity for your GCP instance - this is printed when you create your 
    > Windows instance.
 
-3. Prerequisites for running the tests:
+1. Prerequisites for running the tests:
     - [Visual Studio Code, Java-SDK](https://docs.daml.com/getting-started/installation.html)
     - [Node.js](https://nodejs.org/en/download/)
       - Just the bare install; no need to build C dependencies.
@@ -242,10 +242,10 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
         running `nix-shell -p nodejs-14_x` before running the `npm` commands below.
     - [Maven](https://maven.apache.org)
 
-4. Run `daml version --assistant=yes` and verify that the new version is
+1. Run `daml version --assistant=yes` and verify that the new version is
    selected as the assistant version and the default version for new projects.
 
-5. Tests for the getting started guide (macOS/Linux **and** Windows). Note: if
+1. Tests for the getting started guide (macOS/Linux **and** Windows). Note: if
    using a remote Windows VM and an RDP client that supports copy/paste, you
    can run through this on both Windows and your local unix in parallel fairly
    easily.
@@ -255,110 +255,110 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
        at `https://docs.daml.com/$VERSION/getting-started/index.html`. Please ensure that `$VERSION` is expanded 
        correctly before trying this link!
 
-    2. `daml new create-daml-app --template create-daml-app`
+    1. `daml new create-daml-app --template create-daml-app`
 
-    3. `cd create-daml-app`
+    1. `cd create-daml-app`
 
        1. `daml start`
 
-    4. In a new terminal (with nodejs configured as above), from the `ui` folder:
+    1. In a new terminal (with nodejs configured as above), from the `ui` folder:
 
        1. `npm install`
            - if this command returns with an exit code of 0, errors may be safely ignored. 
 
-       3. `npm start`
+       1. `npm start`
 
-    5. Open two browser windows (you want to see them simultaneously ideally) at `localhost:3000`.
+    1. Open two browser windows (you want to see them simultaneously ideally) at `localhost:3000`.
 
-    6. Log in as `alice` in the first window, log in as `bob` in the second window.
+    1. Log in as `alice` in the first window, log in as `bob` in the second window.
 
-    7. In the first window, where you are logged in as `Alice`, follow
+    1. In the first window, where you are logged in as `Alice`, follow
        `Bob` by typing their name in the drop down (note that it will
        be `Bob` not `bob`, the former is the global alias, the latter
        is the participant-local username).  Verify that `Bob` appears
        in the list of users `Alice` is following. Verify in the other
        browser window that `Alice` shows up in `Bob`’s network.
 
-    8. In the second window, where you are logged in as `Bob`,
+    1. In the second window, where you are logged in as `Bob`,
        follow `Alice` by selecting it in the drop down.
        Verify that `Alice` appears in
        the list of users `Bob` is following. Verify in the other
        browser window that `Bob` shows up in `Alice`’s network.
 
-    9. Open the your first feature section of the Getting Started Guide, e.g., from
+    1. Open the your first feature section of the Getting Started Guide, e.g., from
        `https://docs.daml.com/$VERSION/getting-started/first-feature.html`
        if you did not build docs locally.
 
-    10. In a third terminal window, run `daml studio --replace=always` from the project root
+    1. In a third terminal window, run `daml studio --replace=always` from the project root
         directory and open `daml/User.daml`.
 
-    11. Copy the `Message` template from the documentation to the end of `User.daml`.
+    1. Copy the `Message` template from the documentation to the end of `User.daml`.
 
-    12. Copy the `SendMessage` choice from the documentation to the
+    1. Copy the `SendMessage` choice from the documentation to the
         `User` template below the `Follow` choice.
 
-    13. Save your changes and close VSCode.
+    1. Save your changes and close VSCode.
 
-    14. In the first terminal window (where `daml start` is running), press 'r'
+    1. In the first terminal window (where `daml start` is running), press 'r'
         (respectively 'r' + 'Enter' on Windows).
 
-    15. In the third terminal window, run `daml studio`.
+    1. In the third terminal window, run `daml studio`.
 
-    16. Create `MessageList.tsx`, `MessageEdit.tsx` and modify
+    1. Create `MessageList.tsx`, `MessageEdit.tsx` and modify
         `MainView.tsx` as described in the documentation.
 
-    17. Verify that you do not see errors in the typescript code in VSCode.
+    1. Verify that you do not see errors in the typescript code in VSCode.
 
-    18. Save your changes and close VSCode.
+    1. Save your changes and close VSCode.
 
-    19. As before, open two browser windows at `localhost:3000` and log
+    1. As before, open two browser windows at `localhost:3000` and log
         in as `alice` and `bob`.
 
-    20. Make `Alice` follow `Bob`.
+    1. Make `Alice` follow `Bob`.
 
-    21. From `Bob`, select Alice in the `Select a follower` drop down,
+    1. From `Bob`, select Alice in the `Select a follower` drop down,
         insert `hi alice` in the message field and click on `Send`.
 
-    22. Verify that `Alice` has received the message in the other window.
+    1. Verify that `Alice` has received the message in the other window.
 
-    23. Make `Bob` follow `Alice`.
+    1. Make `Bob` follow `Alice`.
 
-    24. From `Alice`, select Bob in the `Select a follower` drop down,
+    1. From `Alice`, select Bob in the `Select a follower` drop down,
         insert `hi bob` in the message field and click on `Send`.
 
-    25. Verify that `Bob` has received the message in the other window.
+    1. Verify that `Bob` has received the message in the other window.
 
-    26. You can now close both browser windows and both running processes (`daml
+    1. You can now close both browser windows and both running processes (`daml
         start` and `npm start`).
 
-    27. Don't forget to run this on the other platform! E.g. if you just ran
+    1. Don't forget to run this on the other platform! E.g. if you just ran
         through on Linux or macOS, you still need to run on Windows, and vice
         versa. For testing on Windows instances, please refer to the _Tips for Windows testing in an ad-hoc machine_ 
         notes above.
 
-6. Run through the following test plan on Windows. This is slightly shortened to
+1. Run through the following test plan on Windows. This is slightly shortened to
    make testing faster and since most issues are not platform specific.
 
    1. Run `daml new myproject` to create a new project and switch to it using
       `cd myproject`.
-   2. Run `daml start`.
-   3. Open your browser at `http://localhost:7500`, verify that you can login as
+   1. Run `daml start`.
+   1. Open your browser at `http://localhost:7500`, verify that you can login as
       alice and there is one contract, and that the template list contains
       `Main:Asset` among other templates.
-   4. Kill `daml start` with `Ctrl-C`.
-   5. Run `daml studio --replace=always` and open `daml/Main.daml`. Verify that
+   1. Kill `daml start` with `Ctrl-C`.
+   1. Run `daml studio --replace=always` and open `daml/Main.daml`. Verify that
       the script result appears within 30 seconds.
          - you will need to click on the _Script results_ link in the open VS code window in order to verify this
-   6. Add `+` at the end of line 26 after `(PartyIdHint "Alice")` and verify that
+   1. Add `+` at the end of line 26 after `(PartyIdHint "Alice")` and verify that
       you get an error on line 27.
 
-7. On your PR (the one that triggered the release process: on
+1. On your PR (the one that triggered the release process: on
    [daml] for 1.x releases, and on [assembly] for 2.x
    releases), add the comment:
 
    > Manual tests passed on Windows.
 
-8. Tests for `quickstart-java` (Linux/macOS)
+1. Tests for `quickstart-java` (Linux/macOS)
 
    While this is no longer the default in the Getting Started Guide, we still test it
    since the process covers things not covered by the new Getting Started Guide
@@ -462,7 +462,7 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
     > back to the published version of the extension, including auto-upgrades,
     > you can run `daml studio --replace=published`.
 
-9. On your PR (the one that triggered the release process: on
+1. On your PR (the one that triggered the release process: on
    [daml] for 1.x releases, and on [assembly] for 2.x
    releases), add the comment:
 
@@ -470,18 +470,18 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
 
    specifying which platform you tested on.
 
-10. If the release is bad, delete the release from the [releases page]. Mention
-    why it is bad as a comment on your PR, and **stop the process here**.
+1. If the release is bad, delete the release from the [releases page]. Mention
+   why it is bad as a comment on your PR, and **stop the process here**.
 
-    Note that **the Standard-Change label must remain on the PR**, even if the
-    release has failed.
+   Note that **the Standard-Change label must remain on the PR**, even if the
+   release has failed.
 
-11. Announce the release on `#product-daml` on Slack. For a stable release,
-    direct people to the release blog post; for a prerelease, you can include
-    the raw output of the `unreleased.sh` script in a thread after the
-    announcement. If there were any errors during testing, but we decided to keep
-    the release anyway, report those on the PR and include a link to the PR in the
-    announcement.
+1. Announce the release on `#product-daml` on Slack. For a stable release,
+   direct people to the release blog post; for a prerelease, you can include
+   the raw output of the `unreleased.sh` script in a thread after the
+   announcement. If there were any errors during testing, but we decided to keep
+   the release anyway, report those on the PR and include a link to the PR in the
+   announcement.
 
 For a stable release, you need to additionally:
 
