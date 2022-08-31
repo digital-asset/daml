@@ -49,18 +49,30 @@ object WorkflowConfigParser {
     }
 
     implicit val partyFilterDecoder: Decoder[StreamConfig.PartyFilter] =
-      Decoder.forProduct3(
-        "party",
-        "templates",
-        "interfaces",
-      )(StreamConfig.PartyFilter.apply)
+      (c: HCursor) => {
+        for {
+          party <- c.downField("party").as[String]
+          templates <- c.downField("templates").as[List[String]]
+          interfaces <- c.downField("interfaces").as[Option[List[String]]]
+        } yield StreamConfig.PartyFilter(
+          party,
+          templates,
+          interfaces.getOrElse(List.empty),
+        )
+      }
 
     implicit val partySetTemplateFilterDecoder: Decoder[StreamConfig.PartyNamePrefixFilter] =
-      Decoder.forProduct3(
-        "party_name_prefix",
-        "templates",
-        "interfaces",
-      )(StreamConfig.PartyNamePrefixFilter.apply)
+      (c: HCursor) => {
+        for {
+          partyNamePrefix <- c.downField("party_name_prefix").as[String]
+          templates <- c.downField("templates").as[List[String]]
+          interfaces <- c.downField("interfaces").as[Option[List[String]]]
+        } yield StreamConfig.PartyNamePrefixFilter(
+          partyNamePrefix,
+          templates,
+          interfaces.getOrElse(List.empty),
+        )
+      }
 
     implicit val transactionStreamDecoder: Decoder[StreamConfig.TransactionsStreamConfig] =
       Decoder.forProduct8(
