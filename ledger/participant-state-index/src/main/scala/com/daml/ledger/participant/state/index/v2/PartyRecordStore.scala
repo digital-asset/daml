@@ -28,6 +28,7 @@ trait PartyRecordStore {
       loggingContext: LoggingContext
   ): Future[Result[domain.ParticipantParty.PartyRecord]]
 
+  // TODO um-for-hub major: Validate the size of update annotations is within max annotations size
   def updatePartyRecord(partyRecordUpdate: PartyRecordUpdate, ledgerPartyExists: LedgerPartyExists)(
       implicit loggingContext: LoggingContext
   ): Future[Result[domain.ParticipantParty.PartyRecord]]

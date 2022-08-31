@@ -9,7 +9,7 @@ import com.daml.platform.store.backend.common.{
   ConfigurationStorageBackendTemplate,
   IngestionStorageBackendTemplate,
   PackageStorageBackendTemplate,
-  PartyRecordStorageBackendTemplate,
+  PartyRecordStorageBackendImpl,
   PartyStorageBackendTemplate,
 }
 import com.daml.platform.store.backend.{
@@ -46,7 +46,7 @@ object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageB
     new PartyStorageBackendTemplate(H2QueryStrategy, ledgerEndCache)
 
   override def createPartyRecordStorageBackend: PartyRecordStorageBackend =
-    new PartyRecordStorageBackendTemplate()
+    new PartyRecordStorageBackendImpl()
 
   override def createCompletionStorageBackend(
       stringInterning: StringInterning

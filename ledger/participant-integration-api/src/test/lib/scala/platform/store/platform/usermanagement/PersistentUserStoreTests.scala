@@ -48,12 +48,13 @@ trait PersistentUserStoreTests extends PersistentStoreSpecBase with UserStoreTes
       val ec = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(1))
 
       val eventsQueue = new ConcurrentLinkedQueue[String]()
-      // Latches to ensure the initial state
+      // Latches to coordinate the initial state
       val barStarted = new CountDownLatch(1)
-      val updateStatementInADone = new CountDownLatch(1)
-      val externalCheckDone = new CountDownLatch(1)
       val fooIssuedUpdateQuery = new CountDownLatch(1)
       val barIsAboutToIssueUpdateQuery = new CountDownLatch(1)
+      // Latches to coordinate an assertion while both transaction are still in-flight.
+      val updateStatementInFooDone = new CountDownLatch(1)
+      val externalCheckDone = new CountDownLatch(1)
 
       val userId = Ref.UserId.assertFromString("user1")
       for {
@@ -88,7 +89,7 @@ trait PersistentUserStoreTests extends PersistentStoreSpecBase with UserStoreTes
             val resourceVersion = getUserFun(connection)
             barIsAboutToIssueUpdateQuery.await()
             eventsQueue.add("Foo1")
-            updateStatementInADone.countDown()
+            updateStatementInFooDone.countDown()
             externalCheckDone.await()
             resourceVersion -> updateSucceeded
           }
@@ -105,7 +106,7 @@ trait PersistentUserStoreTests extends PersistentStoreSpecBase with UserStoreTes
           val resourceVersion = getUserFun(connection)
           resourceVersion -> updateSucceeded
         }
-        _ = updateStatementInADone.await()
+        _ = updateStatementInFooDone.await()
         // NOTE: Sequence is of events {"Bar0", "Foo0", "Bar1"} represents an initial state guaranteed by the countdown latch setup.
         //       It means both Foo and Bar transaction are in progress and Foo additionally completed an update query.
         // NOTE: The thing we are testing for is that Bar cannot finish before Foo, because

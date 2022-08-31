@@ -5,7 +5,7 @@ package com.daml.platform.store.backend.common
 
 import java.sql.Connection
 
-import com.daml.platform.store.backend.{PartyRecordStorageBackend}
+import com.daml.platform.store.backend.PartyRecordStorageBackend
 
 import anorm.SqlParser.{int, long, str}
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
@@ -13,7 +13,7 @@ import com.daml.lf.data.Ref
 
 import scala.util.Try
 
-class PartyRecordStorageBackendTemplate extends PartyRecordStorageBackend {
+class PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
 
   private val PartyRecordParser: RowParser[(Int, String, Long, Long)] =
     int("internal_id") ~

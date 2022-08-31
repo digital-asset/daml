@@ -130,7 +130,7 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
               }
             } yield updatePartyRecord
           }.map(tapSuccess { newPartyRecord =>
-            logger.error(
+            logger.info(
               s"Created a new party record in a participant local store: ${newPartyRecord}"
             )
           })(scala.concurrent.ExecutionContext.parasitic)

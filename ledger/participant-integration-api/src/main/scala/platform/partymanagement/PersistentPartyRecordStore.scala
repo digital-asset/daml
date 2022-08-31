@@ -58,14 +58,14 @@ class PersistentPartyRecordStore(
         _ <- withoutPartyRecord(id = partyRecord.party) {
           doCreatePartyRecord(partyRecord)(connection)
         }
-        createPartyRecord <- withPartyRecord(id = partyRecord.party) { dbPartyRecord =>
+        createdPartyRecord <- withPartyRecord(id = partyRecord.party) { dbPartyRecord =>
           val annotations = backend.getPartyAnnotations(dbPartyRecord.internalId)(connection)
           toDomainPartyRecord(
             dbPartyRecord.payload,
             annotations,
           )
         }
-      } yield createPartyRecord
+      } yield createdPartyRecord
     }.map(tapSuccess { _ =>
       logger.info(
         s"Created new party record in participant local store: ${partyRecord}"
