@@ -1,5 +1,6 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
@@ -732,20 +733,28 @@ convertInterfaces env mc =
     (MS.toList (mcInterfaceBinds mc))
 
 convertInterface :: Env -> ModuleContents -> LF.TypeConName -> InterfaceBinds -> ConvertM [Definition]
-convertInterface env mc intName ib = do
-  let
-    intLocation = convNameLoc (ibTyCon ib)
-    intParam = this
-  withRange intLocation $ do
-    intRequires <- convertRequires (ibRequires ib)
-    intMethods <- convertMethods (ibMethods ib)
-    intChoices <- convertChoices env mc intName emptyTemplateBinds
-    intCoImplements <- convertCoImplements intName
-    intView <- case ibViewType ib of
-        Nothing -> conversionError $ "No view found for interface " <> renderPretty intName
-        Just viewType -> convertType env viewType
-    pure [DInterface DefInterface {..}]
+convertInterface env mc intName ib =
+  withRange intLocation do
+    defInterface <- convertDefInterface
+    pure
+      [ defInterface
+      ]
   where
+    intLocation = convNameLoc (ibTyCon ib)
+
+    convertDefInterface :: ConvertM Definition
+    convertDefInterface = do
+      let
+        intParam = this
+      intRequires <- convertRequires (ibRequires ib)
+      intMethods <- convertMethods (ibMethods ib)
+      intChoices <- convertChoices env mc intName emptyTemplateBinds
+      intCoImplements <- convertCoImplements intName
+      intView <- case ibViewType ib of
+          Nothing -> conversionError $ "No view found for interface " <> renderPretty intName
+          Just viewType -> convertType env viewType
+      pure $ DInterface DefInterface {..}
+
     convertRequires :: [(GHC.TyCon, Maybe SourceLoc)] -> ConvertM (S.Set (Qualified TypeConName))
     convertRequires requires = S.fromList <$> sequence
       [ withRange mloc $ guardSupportsInterfaceRequires $ convertInterfaceTyCon env handleIsNotInterface iface
