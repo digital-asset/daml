@@ -14,6 +14,8 @@ import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.Value
 import Value._
 import com.daml.lf.command.ApiCommand
+import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.lf.transaction.Transaction
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -106,7 +108,8 @@ class InterfacesTest
             seeding = seeding,
           )
       } yield result
-    def runApi(cmd: ApiCommand) = consume(run(cmd)(preprocessor.preprocessApiCommand))
+    def runApi(cmd: ApiCommand): Either[Error, (SubmittedTransaction, Transaction.Metadata)] =
+      consume(run(cmd)(preprocessor.preprocessApiCommand))
 
     /* generic exercise tests */
     "be able to exercise interface I1 on a T1 contract" in {
