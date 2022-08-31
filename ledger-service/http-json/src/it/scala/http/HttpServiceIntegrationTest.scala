@@ -20,6 +20,7 @@ import org.scalatest.{Assertion, BeforeAndAfterAll}
 import scalaz.\/-
 import shapeless.record.{Record => ShRecord}
 import spray.json.JsValue
+import spray.json._
 
 import scala.concurrent.Future
 
@@ -56,6 +57,11 @@ abstract class HttpServiceIntegrationTest
     discard { dummyFile.delete() }
     discard { staticContentDir.delete() }
     super.afterAll()
+  }
+
+  // nested like this similar to TpId so the references look nicer
+  object CIou {
+    val CIou: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "CIou", "CIou")
   }
 
   "should serve static content from configured directory" in withHttpService {
@@ -116,11 +122,6 @@ abstract class HttpServiceIntegrationTest
       inside(exerciseTest) { case (StatusCodes.OK, domain.OkResponse(er, None, StatusCodes.OK)) =>
         inside(jdecode[String](er.exerciseResult)) { case \/-(decoded) => decoded }
       }
-
-    // nested like this similar to TpId so the references look nicer
-    object CIou {
-      val CIou: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "CIou", "CIou")
-    }
     object Transferrable {
       val Transferrable: domain.ContractTypeId.Interface.OptionalPkg =
         domain.ContractTypeId.Interface(None, "Transferrable", "Transferrable")
@@ -268,6 +269,39 @@ abstract class HttpServiceIntegrationTest
         lookup should include regex raw"Cannot resolve Template Key type, given: InterfaceId\([0-9a-f]{64},IIou,IIou\)"
     }
   }
+
+  "query POST with empty query" - {
+    "with an interface ID" in withHttpService { fixture =>
+      import com.daml.http.json.JsonProtocol._
+      for {
+        _ <- uploadPackage(fixture)(ciouDar)
+        aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        (alice, aliceHeaders) = aliceH
+        _ <- postCreateCommand(
+          iouCommand(alice, CIou.CIou),
+          fixture,
+          aliceHeaders,
+        )
+
+        searchResp <- search(
+          List.empty,
+          Map(
+            "templateIds" -> Seq(TpId.IIou.IIou).toJson,
+            "query" -> spray.json.JsObject(),
+          ).toJson.asJsObject,
+          fixture,
+          aliceHeaders,
+        )
+      } yield inside(searchResp) {
+        case domain.OkResponse(acl, None, StatusCodes.OK) => {
+          discard { acl.size shouldBe 1 }
+          discard { acl.head.templateId shouldBe TpId.IIou.IIou.copy(packageId = acl.head.templateId.packageId) }
+          acl.head.payload shouldBe spray.json.JsObject()
+        }
+      }
+    }
+  }
+
 
   private[this] val (_, ciouVA) = {
     val iouT = ShRecord(issuer = VA.party, owner = VA.party, amount = VA.text)

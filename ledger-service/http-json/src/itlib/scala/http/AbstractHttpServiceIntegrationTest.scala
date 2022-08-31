@@ -149,7 +149,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     with AbstractHttpServiceIntegrationTestFuns {
 
   import AbstractHttpServiceIntegrationTestFuns.{
-    ciouDar,
     VAx,
     UriFixture,
     HttpServiceTestFixtureData,
@@ -281,31 +280,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           .map(acl => acl.size shouldBe 2)
       } yield {
         assert(true)
-      }
-    }
-
-    "fails given interface ID" in withHttpService { fixture =>
-      for {
-        _ <- uploadPackage(fixture)(ciouDar)
-        aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
-        (alice, aliceHeaders) = aliceH
-        searchResp <- search(
-          List.empty,
-          Map(
-            "templateIds" -> Seq(TpId.IIou.IIou).toJson,
-            "query" -> spray.json.JsObject(),
-          ).toJson.asJsObject,
-          fixture,
-          aliceHeaders,
-        )
-      } yield inside(searchResp) {
-        case domain.ErrorResponse(
-              Seq(_),
-              Some(domain.UnknownTemplateIds(Seq(TpId.IIou.IIou))),
-              StatusCodes.BadRequest,
-              _,
-            ) =>
-          succeed
       }
     }
   }

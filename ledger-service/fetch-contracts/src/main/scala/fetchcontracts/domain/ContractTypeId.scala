@@ -74,7 +74,7 @@ object ResolvedQuery {
     val (templateIds, interfaceIds) = partition(resolved)
     if (templateIds.nonEmpty && interfaceIds.nonEmpty) {
       -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
-    } else if (templateIds.isEmpty && interfaceIds.size != 1) {
+    } else if (templateIds.isEmpty && interfaceIds.size > 1) {
       -\/(CannotQueryManyInterfaceIds)
     } else if (templateIds.isEmpty && interfaceIds.size == 1) {
       \/-(ByInterfaceId(interfaceIds.head))

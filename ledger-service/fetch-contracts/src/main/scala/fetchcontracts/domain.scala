@@ -110,7 +110,7 @@ package domain {
         in: lav1.event.CreatedEvent,
     ): Error \/ ActiveContract[lav1.value.Value] = {
 
-      def getIdAndPayload: (Error \/ lav1.value.Identifier, Error \/ lav1.value.Record) =
+      def getIdAndPayload: (Error \/ ContractTypeId.Resolved, Error \/ lav1.value.Record) =
         resolvedQuery match {
           case ResolvedQuery.ByInterfaceId(interfaceId) =>
             import util.IdentifierConverters.apiIdentifier
@@ -118,9 +118,10 @@ package domain {
             val payload = in.interfaceViews
               .find(_.interfaceId.exists(_ == id))
               .flatMap(_.viewValue) required "interfaceView"
-            (\/-(id), payload)
+            (\/-(ContractTypeId.Interface fromLedgerApi id), payload)
           case _ =>
-            (in.templateId required "templateId", in.createArguments required "createArguments")
+            val id = in.templateId.required("templateId").map(ContractTypeId.Template.fromLedgerApi)
+            (id, in.createArguments required "createArguments")
         }
 
       val (getId, getPayload) = getIdAndPayload
@@ -129,7 +130,7 @@ package domain {
         payload <- getPayload
       } yield ActiveContract(
         contractId = ContractId(in.contractId),
-        templateId = ContractTypeId.Template fromLedgerApi id,
+        templateId = id,
         key = in.contractKey,
         payload = boxedRecord(payload),
         signatories = Party.subst(in.signatories),
