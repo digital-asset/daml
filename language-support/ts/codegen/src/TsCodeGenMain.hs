@@ -309,16 +309,17 @@ genDataDef curPkgId mod ifcChoices tpls def = case unTypeConName (dataTypeCon de
         tyDecls = [d | DeclTypeDef d <- decls]
 
 genIfaceDecl :: PackageId -> Module -> DefInterface -> ([TsDecl], Set.Set ModuleRef)
-genIfaceDecl pkgId mod DefInterface {intName, intChoices} =
+genIfaceDecl pkgId mod DefInterface {intName, intChoices, intCoImplements} =
   ( [ DeclInterface
         (InterfaceDef
            { ifName = name
            , ifChoices = choices
            , ifModule = moduleName mod
            , ifPkgId = pkgId
+           , ifRetroImplements = retroImplements
            })
     ]
-  , Set.unions choiceRefs)
+  , Set.unions $ choiceRefs <> retroImplementRefs)
   where
     -- interfaces are not declared in JS code, only in the TS type declarations.
     (TsTypeConRef name, _) = genTypeCon (moduleName mod) (Qualified PRSelf (moduleName mod) intName)
@@ -330,6 +331,13 @@ genIfaceDecl pkgId mod DefInterface {intName, intChoices} =
       , let rTy = TypeRef (moduleName mod) (chcReturnType chc)
       , let argRefs = Set.setOf typeModuleRef (refType argTy)
       , let retRefs = Set.setOf typeModuleRef (refType rTy)
+      ]
+    -- likewise, retroactive implementations only occur in type declarations
+    (retroImplements, retroImplementRefs) =
+      unzip $
+      [ (retroName, Set.setOf qualifiedModuleRef tpl)
+      | tpl <- NM.names intCoImplements
+      , let (TsTypeConRef retroName, _) = genTypeCon (moduleName mod) tpl
       ]
 
 -- | The typescript declarations we produce.
@@ -463,10 +471,11 @@ data InterfaceDef = InterfaceDef
   , ifModule :: ModuleName
   , ifPkgId :: PackageId
   , ifChoices :: [ChoiceDef]
+  , ifRetroImplements :: [T.Text]
   }
 
 renderInterfaceDef :: InterfaceDef -> (T.Text, T.Text)
-renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId} = (jsSource, tsDecl)
+renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId, ifRetroImplements} = (jsSource, tsDecl)
   where
     jsSource = T.unlines $ concat
       [ [ "exports." <> ifName <> " = {"
@@ -492,12 +501,12 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId} = (jsSourc
       , ifaceDefIface ifName Nothing ifChoices
       , [ "export declare const " <> ifName <> ":"
         , "  damlTypes.Template<" <> ifName <> ", undefined, '" <> ifaceId <> "'> &"
-        -- TODO #14082 pass an intersection of type refs to retroImplements when
-        -- non-empty; 'unknown' is correct if empty
-        , "  damlTypes.FromTemplate<" <> ifName <> ", unknown> &"
+        , "  damlTypes.FromTemplate<" <> ifName <> ", " <> retroImplsIntersection <> "> &"
         , "  " <> ifName <> "Interface;"
         ]
       ]
+    retroImplsIntersection = if null ifRetroImplements then "unknown"
+      else T.intercalate " & " ifRetroImplements
     ifaceId =
         unPackageId ifPkgId <> ":" <>
         T.intercalate "." (unModuleName ifModule) <> ":" <>
