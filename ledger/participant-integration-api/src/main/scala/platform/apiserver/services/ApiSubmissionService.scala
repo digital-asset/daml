@@ -3,20 +3,18 @@
 
 package com.daml.platform.apiserver.services
 
-import java.time.{Duration, Instant}
-import java.util.UUID
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode.LoggedApiException
 import com.daml.error.definitions.{ErrorCause, LedgerApiErrors, RejectionGenerators}
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.{LedgerId, SubmissionId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
-import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.Ref
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -32,8 +30,10 @@ import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.telemetry.TelemetryContext
 import com.daml.timer.Delayed
 
-import scala.jdk.FutureConverters.CompletionStageOps
+import java.time.{Duration, Instant}
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.util.{Failure, Success, Try}
 
 private[apiserver] object ApiSubmissionService {
@@ -260,7 +260,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
         result.transaction,
         result.interpretationTimeNanos,
         result.globalKeyMapping,
-        ImmArray.empty,
+        result.usedDisclosedContracts,
       )
       .toScalaUnwrapped
   }
