@@ -6,13 +6,19 @@
 
 
 -- | The Daml-LF primitives, matched with their type, and using 'primitive' on the libraries side.
-module DA.Daml.LFConversion.Primitives(convertPrim) where
+module DA.Daml.LFConversion.Primitives(convertPrim, convertPrimVersioned) where
 
+import           DA.Daml.LFConversion.ConvertM
 import           DA.Daml.LF.Ast
 import           DA.Daml.UtilLF
 import           DA.Pretty (renderPretty)
 import qualified Data.Text as T
 import qualified Data.List as L
+
+convertPrimVersioned :: Version -> String -> Type -> ConvertM Expr
+convertPrimVersioned version "UExerciseInterfaceGuarded" _ | not (version `supports` featureExtendedInterfaces)
+  = conversionError "Guards on choice exercises are only available with --target=1.dev"
+convertPrimVersioned version primitiveName type_ = pure $ convertPrim version primitiveName type_
 
 convertPrim :: Version -> String -> Type -> Expr
 -- Update
