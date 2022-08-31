@@ -1,0 +1,32 @@
+-- Copyright (c) 2022, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module InterfaceChoiceGuardFailedNotExtended where
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @UNTIL-LF-FEATURE DAML_INTERFACE_EXTENDED
+-- @ERROR Guarded exercises are only available with --target=1.dev
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface I where
+  viewtype EmptyInterfaceView
+  getController : Party
+  choice IChoice : ()
+    controller getController this
+    do pure ()
+
+template T
+  with
+    party : Party
+  where
+    signatory party
+    interface instance I for T where
+      view = EmptyInterfaceView
+      getController = party
+
+-- @ENABLE-SCENARIOS
+main = do
+  alice <- getParty "alice"
+  cidT <- alice `submit` create T with party = alice
+  let cidI = toInterfaceContractId @I cidT
+  alice `submit` exerciseGuarded (const False) cidI IChoice
