@@ -3,7 +3,7 @@
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 -- @UNTIL-LF-FEATURE DAML_INTERFACE_EXTENDED
--- @ERROR Requires in Daml interfaces are only available with --target=1.dev
+-- @ERROR Guarded exercises are only available with --target=1.dev
 
 module InterfaceGuardedNotExtended where
 
@@ -25,9 +25,6 @@ interface Token where
     do
         assert (byHowMuch > 0)
         create $ setAmount this (getAmount this + byHowMuch)
-
-interface SubToken requires Token where
-  viewtype EmptyInterfaceView
 
 template Asset
   with
@@ -54,8 +51,6 @@ template AnotherAsset
       getOwner = owner
       getAmount = amount
       setAmount x = toInterface @Token (this with amount = x)
-    interface instance SubToken for AnotherAsset where
-      view = EmptyInterfaceView
 
 exception GuardException
     with
@@ -116,11 +111,6 @@ main = scenario do
     -- Fail if predicate doesn't match underlying template type
     anotherAsset <- coerceContractId @_ @AnotherAsset <$> create assetTpl
     exerciseGetRich (const True) anotherAsset
-
-  p `submitMustFail` do
-    -- Fail if predicate doesn't match underlying template's interfaces
-    subToken <- coerceContractId @_ @SubToken <$> create assetTpl
-    exerciseGetRich (const True) subToken
 
   pure ()
 
