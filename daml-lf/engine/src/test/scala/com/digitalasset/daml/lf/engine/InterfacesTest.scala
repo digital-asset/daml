@@ -56,10 +56,13 @@ class InterfacesTest
     )
 
   "interfaces" should {
-    val (interfacesPkgId, _, allInterfacesPkgs) = loadPackage("daml-lf/tests/Interfaces.dar")
+    val (interfacesPkgId, _, _) = loadPackage("daml-lf/tests/Interfaces.dar")
+    val (interfaceRetroPkgId, _, allInterfacesPkgs) =
+      loadPackage("daml-lf/tests/InterfaceRetro.dar")
     val lookupPackage = allInterfacesPkgs.get(_)
     val idI1 = Identifier(interfacesPkgId, "Interfaces:I1")
     val idI2 = Identifier(interfacesPkgId, "Interfaces:I2")
+    val idI5 = Identifier(interfaceRetroPkgId, "InterfaceRetro:I5")
     val idT1 = Identifier(interfacesPkgId, "Interfaces:T1")
     val idT2 = Identifier(interfacesPkgId, "Interfaces:T2")
     val let = Time.Timestamp.now()
@@ -187,6 +190,16 @@ class InterfacesTest
         ValueRecord(None, ImmArray.empty),
       )
       preprocessApi(command) shouldBe a[Left[_, _]]
+    }
+
+    "be able to exercise T2 by interface I5 and usedPackages should include I5's packageId" in {
+      val command = ApiCommand.Exercise(
+        TemplateOrInterface.Interface(idI5),
+        cid2,
+        "C5",
+        ValueRecord(None, ImmArray.empty),
+      )
+      runApi(command).value._2.usedPackages should contain(interfaceRetroPkgId)
     }
   }
 }
