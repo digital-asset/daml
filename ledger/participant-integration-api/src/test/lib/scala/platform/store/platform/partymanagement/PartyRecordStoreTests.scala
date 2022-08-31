@@ -162,7 +162,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
             )
             _ = update1.value shouldBe createdPartyRecord(
               "party1",
-              resourceVersion = 1,
+              resourceVersion = 0,
               annotations = Map("k1" -> "v1", "k2" -> "v2"),
             )
           } yield succeed

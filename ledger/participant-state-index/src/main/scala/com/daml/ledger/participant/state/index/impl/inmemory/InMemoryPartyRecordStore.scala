@@ -42,6 +42,7 @@ object InMemoryPartyRecordStore {
 
 }
 
+// TODO um-for-hub: Consider unifying InMemoryPartyRecordStore and PersistentPartyRecordStore, such that InMemoryPartyRecordStore is obtained by having a in-memory storage backend
 class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends PartyRecordStore {
   import InMemoryPartyRecordStore._
 
@@ -91,18 +92,19 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
     })
     attemptedUpdateF.recoverWith[Result[domain.ParticipantParty.PartyRecord]] {
       case PartyRecordNotFoundOnUpdateException =>
-        createAndUpdatePartyRecord(
-          partyRecordUpdate = partyRecordUpdate,
+        onUpdatingNonExistentPartyRecord(
           ledgerPartyExists = ledgerPartyExists,
+          party = party,
+          annotationsUpdateO = partyRecordUpdate.metadataUpdate.annotationsUpdateO,
         )
     }
   }
 
-  private def createAndUpdatePartyRecord(
-      partyRecordUpdate: PartyRecordUpdate,
+  private def onUpdatingNonExistentPartyRecord(
       ledgerPartyExists: LedgerPartyExists,
+      party: Party,
+      annotationsUpdateO: Option[AnnotationsUpdate],
   )(implicit loggingContext: LoggingContext): Future[Result[ParticipantParty.PartyRecord]] = {
-    val party = partyRecordUpdate.party
     for {
       partyExistsOnLedger <- ledgerPartyExists.exists(party)
       createdPartyRecord <-
@@ -110,25 +112,13 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
           withState {
             val newPartyRecord = domain.ParticipantParty.PartyRecord(
               party = party,
-              metadata = domain.ObjectMeta.empty,
+              metadata = domain.ObjectMeta(
+                resourceVersionO = None,
+                annotations = annotationsUpdateO.fold(Map.empty[String, String])(_.annotations),
+              ),
             )
-            for {
-              _ <- withoutPartyRecord(party = newPartyRecord.party) {
-                doCreatePartyRecord(newPartyRecord)
-              }
-              _ <- withPartyRecord(party) { info =>
-                doUpdatePartyRecord(
-                  partyRecordUpdate = partyRecordUpdate,
-                  party = party,
-                  info = info,
-                ).map(toPartyRecord)
-              }
-              updatePartyRecord <- {
-                withPartyRecord(party) { updatedInfo =>
-                  Right(toPartyRecord(updatedInfo))
-                }
-              }
-            } yield updatePartyRecord
+            val info = doCreatePartyRecord(newPartyRecord)
+            Right(toPartyRecord(info))
           }.map(tapSuccess { newPartyRecord =>
             logger.info(
               s"Created a new party record in a participant local store: ${newPartyRecord}"
