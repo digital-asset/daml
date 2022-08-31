@@ -1053,7 +1053,6 @@ class DecodeV1Spec
       }
     }
 
-    // TODO: #14770 Re-enable when lf 15 protobuf is cleaned up and ready
     s"decode extended interface primitives iff version < ${LV.Features.extendedInterfaces}" in {
       val testCases = {
 
