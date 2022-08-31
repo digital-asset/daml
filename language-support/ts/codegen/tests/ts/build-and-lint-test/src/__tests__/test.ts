@@ -11,7 +11,7 @@ import Ledger, {
   PartyInfo,
   UserRightHelper,
 } from "@daml/ledger";
-import { Choice, Int, emptyMap, Map } from "@daml/types";
+import { Choice, ContractId, Int, emptyMap, Map } from "@daml/types";
 import pEvent from "p-event";
 import _ from "lodash";
 import WebSocket from "ws";
@@ -638,6 +638,20 @@ describe("interface definition", () => {
       > = tpl[k];
       expect(c).not.toEqual(theChoice(if2[k]));
       expect(c.template()).toBe(tpl);
+    });
+
+    test("retroactive interfaces permit contract ID conversion", () => {
+      const cid = "test" as ContractId<buildAndLint.Main.Asset>;
+      const icid: ContractId<buildAndLint.Retro.Retro> = tpl.toInterface(
+        buildAndLint.Retro.Retro,
+        cid,
+      );
+      const tcid: ContractId<buildAndLint.Main.Asset> = tpl.unsafeFromInterface(
+        buildAndLint.Retro.Retro,
+        icid,
+      );
+      expect(icid).toBe(cid);
+      expect(tcid).toBe(icid);
     });
   });
 });
