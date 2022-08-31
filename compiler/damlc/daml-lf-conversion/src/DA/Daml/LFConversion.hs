@@ -766,14 +766,13 @@ convertInterface env mc intName ib =
       pure $ DInterface DefInterface {..}
 
     convertRequires :: [(GHC.TyCon, Maybe SourceLoc)] -> ConvertM (S.Set (Qualified TypeConName))
-    convertRequires requires = S.fromList <$> sequence
-      [ withRange mloc $ guardSupportsInterfaceRequires $ convertInterfaceTyCon env handleIsNotInterface iface
-      | (iface, mloc) <- requires
-      ]
+    convertRequires requires = S.fromList <$>
+      forM requires \(iface, mloc) ->
+        withRange mloc do
+          unless (envLfVersion env `supports` featureExtendedInterfaces) do
+            unsupported "Requires in Daml interfaces are only available with --target=1.dev" ()
+          convertInterfaceTyCon env handleIsNotInterface iface
       where
-        guardSupportsInterfaceRequires action
-          | envLfVersion env `supports` featureExtendedInterfaces = action
-          | otherwise = unsupported "Requires in Daml interfaces are only available with --target=1.dev" ()
         handleIsNotInterface tyCon =
           "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
 
