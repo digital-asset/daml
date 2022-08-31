@@ -605,7 +605,7 @@ describe("interface definition", () => {
     // Something is inherited
     test("unambiguous inherited is inherited", () => {
       const c: Choice<
-        buildAndLint.Main.Asset,
+        buildAndLint.Lib.Mod.Other,
         buildAndLint.Lib.Mod.Something,
         {},
         undefined
@@ -643,6 +643,8 @@ describe("interface definition", () => {
 });
 
 test("interfaces", async () => {
+  const Asset = buildAndLint.Main.Asset;
+  const Token = buildAndLint.Main.Token;
   const aliceLedger = new Ledger({
     token: ALICE_TOKEN,
     httpBaseUrl: httpBaseUrl(),
@@ -662,8 +664,8 @@ test("interfaces", async () => {
   );
   expect(ifaceContract.payload).toEqual(assetPayload);
   const [, events1] = await aliceLedger.exercise(
-    buildAndLint.Main.Asset.Transfer,
-    ifaceContract.contractId,
+    Asset.Transfer,
+    Asset.toInterface(Token, ifaceContract.contractId),
     { newOwner: BOB_PARTY },
   );
   expect(events1).toMatchObject([
@@ -687,7 +689,7 @@ test("interfaces", async () => {
   );
   const [, events2] = await bobLedger.exercise(
     buildAndLint.Main.Token.Transfer,
-    ifaceContract2.contractId,
+    Asset.toInterface(Token, ifaceContract2.contractId),
     { newOwner: ALICE_PARTY },
   );
   expect(events2).toMatchObject([
