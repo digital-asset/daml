@@ -106,7 +106,12 @@ daml_compile(
 
 daml_compile(
     name = "test-contract-id-daml",
-    srcs = ["src/test/daml/Bar.daml"],
+    srcs = [
+        "src/test/daml/Bar.daml",
+        "src/test/daml/Retro.daml",
+    ],
+    # TODO(#13296) change to "latest" when interfaces released
+    target = lf_version_configuration.get("dev"),
 )
 
 dar_to_java(
