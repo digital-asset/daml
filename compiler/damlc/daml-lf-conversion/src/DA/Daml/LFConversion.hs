@@ -1476,6 +1476,8 @@ convertExpr env0 e = do
     -- erase mkMethod calls and leave only the body.
     go env (VarIn DA_Internal_Desugar "mkMethod") (LType _parent : LType _iface : LType _tpl : LType _methodName : LType _methodTy : LExpr _implDict : LExpr _hasMethodDic : LExpr body : args)
         = go env body args
+    go env (VarIn DA_Internal_Template_Functions "exerciseGuarded") _
+        = conversionError "Guarded exercises are only available with --target=1.dev"
     -- erase mkInterfaceView calls and leave only the body.
     go env (VarIn DA_Internal_Desugar "mkInterfaceView") (LType _parent : LType _iface : LType _tpl : LType _viewTy : LExpr _implDict : LExpr _hasInterfaceViewDic : LExpr body : args)
         = go env body args
