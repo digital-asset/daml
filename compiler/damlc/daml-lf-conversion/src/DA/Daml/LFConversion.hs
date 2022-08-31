@@ -737,10 +737,22 @@ convertInterface env mc intName ib =
   withRange intLocation do
     defInterface <- convertDefInterface
     pure
-      [ defInterface
+      [ defInterfaceDataType
+      , defInterface
       ]
   where
     intLocation = convNameLoc (ibTyCon ib)
+
+    defInterfaceDataType :: Definition
+    defInterfaceDataType = DDataType DefDataType
+      { dataLocation = Nothing
+      , dataTypeCon = intName
+      , dataSerializable = IsSerializable False
+      -- TODO https://github.com/digital-asset/daml/issues/12051
+      -- validate that the type has no parameters.
+      , dataParams = []
+      , dataCons = DataInterface
+      }
 
     convertDefInterface :: ConvertM Definition
     convertDefInterface = do
@@ -867,16 +879,7 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
 
     | hasDamlInterfaceCtx t
     ->  if envLfVersion env `supports` featureSimpleInterfaces then
-            pure [ DDataType DefDataType
-                { dataLocation = Nothing
-                , dataTypeCon = mkTypeCon [getOccText t]
-                , dataSerializable = IsSerializable False
-                -- TODO https://github.com/digital-asset/daml/issues/12051
-                -- validate that the type has no parameters.
-                , dataParams = []
-                , dataCons = DataInterface
-                }
-            ]
+            pure []
         else
             unsupported "Daml interfaces are only available with --target=1.15 or higher" ()
 
