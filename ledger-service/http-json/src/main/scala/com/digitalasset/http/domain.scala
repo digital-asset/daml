@@ -159,7 +159,7 @@ package domain {
   )
 
   final case class SearchForeverQuery(
-      templateIds: OneAnd[Set, ContractTypeId.OptionalPkg],
+      templateIds: OneAnd[Set, ContractTypeId.Template.OptionalPkg],
       query: Map[String, JsValue],
       offset: Option[domain.Offset],
   )
