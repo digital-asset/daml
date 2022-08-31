@@ -1,0 +1,20 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module MyMainIfaceRetro where
+
+import qualified MyMain
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface MyMainIfaceRetro where
+  viewtype EmptyInterfaceView
+  getOwner: Party
+  choice Retro: Int with
+      sth: Int
+    controller getOwner this
+    do return $ sth + 1
+
+  interface instance MyMainIfaceRetro for MyMain.InterfaceMixer where
+    view = EmptyInterfaceView
+    getOwner = party
