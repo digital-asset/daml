@@ -216,6 +216,20 @@ abstract class HttpServiceIntegrationTest
             raw"Cannot resolve Choice Argument type, given: \(TemplateId\([0-9a-f]{64},CIou,CIou\), Ambiguous\)")
       }
     }
+
+    "templateId = template ID, retroactive implements choice" in withHttpService { fixture =>
+      for {
+        _ <- uploadPackage(fixture)(ciouDar)
+        result <- createIouAndExerciseTransfer(
+          fixture,
+          initialTplId = CIou.CIou,
+          exerciseTid = CIou.CIou,
+          choice = tExercise(choiceName = "TransferPlease", choiceArgType = echoTextVA)(
+            echoTextSample
+          ),
+        ) map exerciseSucceeded
+      } yield result should ===("Bob invoked RIIou.TransferPlease")
+    }
   }
 
   "fail to exercise by key with interface ID" in withHttpService { fixture =>

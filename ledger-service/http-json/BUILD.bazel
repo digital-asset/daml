@@ -199,6 +199,7 @@ daml_compile(
     srcs = ["src/it/daml/%s.daml" % m for m in [
         "CIou",
         "IIou",
+        "RIIou",
         "Transferrable",
     ]],
     target = lf_version_configuration.get("dev"),  # TODO(SC #13296) remove when interfaces in default
