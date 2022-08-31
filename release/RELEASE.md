@@ -192,7 +192,7 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
    > Assuming `direnv` is installed, entering the `daml-language-ad-hoc` project directory will be sufficient to 
    > configure and install the extra software (e.g. the GCP SDK) required for your environment.
    >
-   > A new GCP windows instance can be created by running `./ad-hoc.sh create windows` - this command prints IP address,
+   > A new GCP windows instance can be created by running `./ad-hoc.sh temp windows` - this command prints IP address,
    > username and password for the created Windows VM. Save this output. You will need this information later when you 
    > create an RDP connection.
    >
