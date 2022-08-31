@@ -112,8 +112,8 @@ package domain {
 
       def getIdAndPayload: (Error\/ lav1.value.Identifier, Error\/ lav1.value.Record) = resolvedQuery match {
         case ResolvedQuery.ByInterfaceId(interfaceId) =>
-          // TODO is there an easier way to do this?
-          val id = lav1.value.Identifier(packageId = interfaceId.packageId, moduleName = interfaceId.moduleName, entityName = interfaceId.entityName)
+          import util.IdentifierConverters.apiIdentifier
+          val id = apiIdentifier(interfaceId)
           val payload = in
             .interfaceViews
             .find(_.interfaceId.exists(_ == id))
