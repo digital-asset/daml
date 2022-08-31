@@ -86,12 +86,8 @@ object ResolvedQuery {
 
   def partition[CC[_], C](resolved: IterableOps[ContractTypeId.Resolved, CC, C]): (CC[ContractTypeId.Template.Resolved], CC[ContractTypeId.Interface.Resolved]) =
     resolved.partitionMap {
-      // TODO SC 'Resolved' only is non-exhaustive, which should not be the case.
-      case t: ContractTypeId.Template.Resolved =>
-        Left[ContractTypeId.Template.Resolved, ContractTypeId.Interface.Resolved](t)
-      case i: ContractTypeId.Interface.Resolved =>
-        Right[ContractTypeId.Template.Resolved, ContractTypeId.Interface.Resolved](i)
-      case unexpected => throw new Exception(s"unexpected,  ContractTypeId.Resolved is $unexpected")
+      case t @ ContractTypeId.Template(_, _, _) => Left(t)
+      case i @ ContractTypeId.Interface(_, _, _) => Right(i)
     }
 
   sealed abstract class Unsupported extends Product with Serializable
