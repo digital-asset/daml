@@ -733,24 +733,27 @@ convertInterface env mc intName ib =
   withRange intLocation do
     unless (envLfVersion env `supports` featureSimpleInterfaces) do
       unsupported "Daml interfaces are only available with --target=1.15 or higher" ()
+    defInterfaceDataType <- convertDefInterfaceDataType
     defInterface <- convertDefInterface
     pure
       [ defInterfaceDataType
       , defInterface
       ]
   where
-    intLocation = convNameLoc (ibTyCon ib)
+    tyCon = ibTyCon ib
+    intLocation = convNameLoc tyCon
 
-    defInterfaceDataType :: Definition
-    defInterfaceDataType = DDataType DefDataType
-      { dataLocation = Nothing
-      , dataTypeCon = intName
-      , dataSerializable = IsSerializable False
-      -- TODO https://github.com/digital-asset/daml/issues/12051
-      -- validate that the type has no parameters.
-      , dataParams = []
-      , dataCons = DataInterface
-      }
+    convertDefInterfaceDataType :: ConvertM Definition
+    convertDefInterfaceDataType = do
+      unless (null (tyConTyVars tyCon)) do
+        unhandled "interface type constructor with type parameters" tyCon
+      pure $ DDataType DefDataType
+        { dataLocation = Nothing
+        , dataTypeCon = intName
+        , dataSerializable = IsSerializable False
+        , dataParams = []
+        , dataCons = DataInterface
+        }
 
     convertDefInterface :: ConvertM Definition
     convertDefInterface = do
