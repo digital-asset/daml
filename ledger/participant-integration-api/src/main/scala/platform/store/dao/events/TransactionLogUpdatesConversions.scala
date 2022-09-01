@@ -3,7 +3,9 @@
 
 package com.daml.platform.store.dao.events
 
+import com.daml.api.util.TimestampConversion
 import com.daml.api.util.TimestampConversion.fromInstant
+import com.daml.ledger.api.v1.contract_metadata.ContractMetadata
 import com.daml.ledger.api.v1.transaction.{
   TransactionTree,
   TreeEvent,
@@ -29,6 +31,7 @@ import com.daml.platform.{ApiOffset, FilterRelation, Value}
 import com.google.protobuf.timestamp.Timestamp
 
 import scala.concurrent.{ExecutionContext, Future}
+import com.google.protobuf.ByteString
 
 private[events] object TransactionLogUpdatesConversions {
   object ToFlatTransaction {
@@ -422,6 +425,15 @@ private[events] object TransactionLogUpdatesConversions {
           signatories = createdEvent.createSignatories.toSeq,
           observers = createdEvent.createObservers.toSeq,
           agreementText = createdEvent.createAgreementText.orElse(Some("")),
+          metadata = Some(
+            ContractMetadata(
+              createdAt = Some(TimestampConversion.fromLf(createdEvent.ledgerEffectiveTime)),
+              contractKeyHash =
+                createdEvent.createKeyHash.fold(ByteString.EMPTY)(_.bytes.toByteString),
+              // TODO DPP-1026: Store driver metadata in the database
+              driverMetadata = ByteString.EMPTY,
+            )
+          ),
         )
       )
   }
