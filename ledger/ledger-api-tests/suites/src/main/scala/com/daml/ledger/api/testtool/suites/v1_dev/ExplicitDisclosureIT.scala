@@ -29,6 +29,7 @@ import scalaz.syntax.tag._
 
 import java.time.temporal.ChronoUnit
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Success, Try}
 
 final class ExplicitDisclosureIT extends LedgerTestSuite {
   import ExplicitDisclosureIT._
@@ -89,7 +90,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
 
   test(
     "EDExerciseByKeyDisclosedContract",
-    "A disclosed contract can be exercised by key by non-witness reader if authorized",
+    "A disclosed contract can be exercised by key with non-witness readers if authorized",
     partyAllocation = allocate(TwoParties),
     enabled = _.explicitDisclosure,
   ) { implicit ec =>
@@ -202,6 +203,55 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         checkDefiniteAnswerMetadata = true,
       )
     }
+  })
+
+  test(
+    "EDDisclosedContractsArchiveRaceTest",
+    "Only when archival succeeds in a race between a normal exercise and one with disclosed contracts",
+    allocate(SingleParty, SingleParty),
+    enabled = _.explicitDisclosure,
+    repeated = 3,
+  )(implicit ec => {
+    case Participants(Participant(ledger1, party1), Participant(ledger2, party2)) =>
+      val attempts = 10
+
+      Future
+        .traverse((1 to attempts).toList) {
+          _ =>
+            for {
+              contractId <- ledger1.create(party1, Dummy(party1))
+
+              transactions <- ledger1.flatTransactionsByTemplateId(WithKey.id, party1)
+              create = createdEvents(transactions(1)).head
+              disclosedContract = createEventToDisclosedContract(create)
+
+              // Submit concurrently two consuming exercise choices (with and without disclosed contract)
+              party1_exerciseF = ledger1.exercise(party1, contractId.exerciseArchive())
+              party2_exerciseWithDisclosureF =
+                ledger2.submitAndWait(
+                  ledger2
+                    .submitAndWaitRequest(party2, contractId.exercisePublicChoice(party2).command)
+                    .update(_.commands.disclosedContracts := scala.Seq(disclosedContract))
+                )
+
+              // Wait for both commands to finish
+              party1_exercise_result <- party1_exerciseF.transform(Success(_))
+              party2_exerciseWithDisclosure <- party2_exerciseWithDisclosureF.transform(Success(_))
+            } yield {
+              oneFailedWith(
+                party1_exercise_result,
+                party2_exerciseWithDisclosure,
+              )(
+                assertGrpcError(
+                  _,
+                  LedgerApiErrors.ConsistencyErrors.ContractNotFound,
+                  None,
+                  checkDefiniteAnswerMetadata = true,
+                )
+              )
+            }
+        }
+        .map(_ => ())
   })
 
   test(
@@ -366,6 +416,38 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         checkDefiniteAnswerMetadata = true,
       )
     }
+  })
+
+  test(
+    "EDInconsistentSuperfluousDisclosedContracts",
+    "The ledger accepts superfluous disclosed contracts with mismatching payload",
+    allocate(Parties(2)),
+    enabled = _.explicitDisclosure,
+  )(implicit ec => { case Participants(Participant(ledger, owner, delegate)) =>
+    for {
+      testContext <- initializeTest(ledger, owner, delegate)
+
+      // Exercise a choice using invalid explicit disclosure (bad contract key)
+      _ <- testContext
+        .exerciseFetchDelegated(
+          testContext.disclosedContract
+            .update(_.metadata.contractKeyHash := ByteString.copyFromUtf8("badKeyMeta"))
+        )
+
+      // Exercise a choice using invalid explicit disclosure (bad ledger time)
+      _ <- testContext
+        .exerciseFetchDelegated(
+          testContext.disclosedContract
+            .update(_.metadata.createdAt := com.google.protobuf.timestamp.Timestamp.of(1, 0))
+        )
+
+      // Exercise a choice using invalid explicit disclosure (bad payload)
+      _ <- testContext
+        .exerciseFetchDelegated(
+          testContext.disclosedContract
+            .update(_.arguments := Delegated(delegate, testContext.contractKey).arguments)
+        )
+    } yield ()
   })
 
   test(
@@ -567,6 +649,16 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       }
     }
   }
+
+  private def oneFailedWith(result1: Try[_], result2: Try[_])(
+      assertError: Throwable => Unit
+  ): Unit =
+    (result1.isFailure, result2.isFailure) match {
+      case (true, false) => assertError(result1.failed.get)
+      case (false, true) => assertError(result2.failed.get)
+      case (true, true) => fail("Exactly one request should have failed, but both failed")
+      case (false, false) => fail("Exactly one request should have failed, but both succeeded")
+    }
 }
 
 object ExplicitDisclosureIT {

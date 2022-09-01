@@ -49,6 +49,12 @@ template Dummy
       controller operator
       do create AddressWrapper with operator; address
 
+    choice PublicChoice: ()
+      with
+        anyParty: Party
+      controller anyParty
+      do return ()
+
 data Address = Address
   { street: Text
   , city: Text
