@@ -5,13 +5,73 @@ package com.daml.platform.index
 
 import com.daml.ledger.api.domain.{Filters, InclusiveFilters, InterfaceFilter, TransactionFilter}
 import com.daml.lf.data.Ref
-import com.daml.platform.index.IndexServiceImpl.{templateFilter, unknownTemplatesOrInterfaces}
+import com.daml.lf.data.Ref.Identifier
+import com.daml.platform.index.IndexServiceImpl.{
+  memoizedTransactionFilterProjection,
+  templateFilter,
+  unknownTemplatesOrInterfaces,
+}
 import com.daml.platform.index.IndexServiceImplSpec.Scope
+import com.daml.platform.store.dao.EventProjectionProperties
+import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
+import org.mockito.MockitoSugar
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-class IndexServiceImplSpec extends AnyFlatSpec with Matchers {
+class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+
+  behavior of "IndexServiceImpl.memoizedTransactionFilterProjection"
+
+  it should "give an empty result if no packages" in new Scope {
+    when(view.current()).thenReturn(PackageMetadata())
+    val memoFunc = memoizedTransactionFilterProjection(view, TransactionFilter(Map.empty), true)
+    memoFunc() shouldBe None
+  }
+
+  it should "change the result in case of new package arrived" in new Scope {
+    when(view.current()).thenReturn(PackageMetadata())
+    // subscribing to iface1
+    val memoFunc = memoizedTransactionFilterProjection(
+      view,
+      TransactionFilter(
+        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true)))))
+      ),
+      true,
+    )
+    memoFunc() shouldBe None // no template implementing iface1
+    when(view.current())
+      .thenReturn(
+        PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1)))
+      ) // template1 implements iface1
+
+    memoFunc() shouldBe Some(
+      (
+        Map(party -> Set(template1)),
+        EventProjectionProperties(
+          true,
+          Map.empty[String, Set[Identifier]],
+          Map(party.toString -> Map(template1 -> Set(iface1))),
+        ),
+      )
+    ) // filter gets complicated, filters template1 for iface1, projects iface1
+
+    when(view.current())
+      .thenReturn(
+        PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1, template2)))
+      ) // template2 also implements iface1 as template1
+
+    memoFunc() shouldBe Some(
+      (
+        Map(party -> Set(template1, template2)),
+        EventProjectionProperties(
+          true,
+          Map.empty[String, Set[Identifier]],
+          Map(party.toString -> Map(template1 -> Set(iface1), template2 -> Set(iface1))),
+        ),
+      )
+    ) // filter gets even more complicated, filters template1 and template2 for iface1, projects iface1 for both templates
+  }
 
   behavior of "IndexServiceImpl.templateFilter"
 
@@ -206,7 +266,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers {
 }
 
 object IndexServiceImplSpec {
-  trait Scope {
+  trait Scope extends MockitoSugar {
     val party = Ref.Party.assertFromString("party")
     val party2 = Ref.Party.assertFromString("party2")
     val template1 = Ref.Identifier.assertFromString("PackageName:ModuleName:template1")
@@ -214,5 +274,6 @@ object IndexServiceImplSpec {
     val template3 = Ref.Identifier.assertFromString("PackageName:ModuleName:template3")
     val iface1 = Ref.Identifier.assertFromString("PackageName:ModuleName:iface1")
     val iface2 = Ref.Identifier.assertFromString("PackageName:ModuleName:iface2")
+    val view = mock[PackageMetadataView]
   }
 }
