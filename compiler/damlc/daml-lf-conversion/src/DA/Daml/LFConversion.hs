@@ -83,6 +83,7 @@ module DA.Daml.LFConversion
 
 import           DA.Daml.LFConversion.Primitives
 import           DA.Daml.LFConversion.MetadataEncoding
+import           DA.Daml.LFConversion.ConvertM
 import           DA.Daml.Preprocessor (isInternal)
 import           DA.Daml.UtilGHC
 import           DA.Daml.UtilLF
@@ -95,14 +96,12 @@ import           Development.IDE.GHC.Util
 import           Control.Lens hiding (MethodName)
 import           Control.Monad.Except
 import           Control.Monad.Extra
-import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Numeric
 import           DA.Daml.LF.TemplateOrInterface (TemplateOrInterface')
 import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 import           DA.Daml.Options.Types (EnableScenarios (..))
-import           Data.Data hiding (TyCon)
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
 import           Data.Int
@@ -128,39 +127,6 @@ import qualified "ghc-lib-parser" Avail as GHC
 import qualified "ghc-lib-parser" BooleanFormula as BF
 import           Safe.Exact (zipExact, zipExactMay)
 import           SdkVersion
-
----------------------------------------------------------------------
--- FAILURE REPORTING
-
-conversionError :: String -> ConvertM e
-conversionError msg = do
-  ConversionEnv{..} <- ask
-  throwError $ (convModuleFilePath,ShowDiag,) Diagnostic
-      { _range = maybe noRange sourceLocToRange convRange
-      , _severity = Just DsError
-      , _source = Just "Core to Daml-LF"
-      , _message = T.pack msg
-      , _code = Nothing
-      , _relatedInformation = Nothing
-      , _tags = Nothing
-      }
-
-unsupported :: (HasCallStack, Outputable a) => String -> a -> ConvertM e
-unsupported typ x = conversionError errMsg
-    where
-         errMsg =
-             "Failure to process Daml program, this feature is not currently supported.\n" ++
-             typ ++ "\n" ++
-             prettyPrint x
-
-unknown :: HasCallStack => GHC.UnitId -> MS.Map GHC.UnitId DalfPackage -> ConvertM e
-unknown unitId pkgMap = conversionError errMsg
-    where errMsg =
-              "Unknown package: " ++ GHC.unitIdString unitId
-              ++ "\n" ++  "Loaded packages are:" ++ prettyPrint (MS.keys pkgMap)
-
-unhandled :: (HasCallStack, Data a, Outputable a) => String -> a -> ConvertM e
-unhandled typ x = unsupported (typ ++ " with " ++ lower (show (toConstr x))) x
 
 ---------------------------------------------------------------------
 -- FUNCTIONS ON THE ENVIRONMENT
@@ -308,47 +274,6 @@ getDepOrphanModules = dep_orphs . mi_deps
 
 ---------------------------------------------------------------------
 -- CONVERSION
-
-data ConversionError
-  = ConversionError
-     { errorFilePath :: !NormalizedFilePath
-     , errorRange :: !(Maybe Range)
-     , errorMessage :: !String
-     }
-  deriving Show
-
-data ConversionEnv = ConversionEnv
-  { convModuleFilePath :: !NormalizedFilePath
-  , convRange :: !(Maybe SourceLoc)
-  }
-
-data ConversionState = ConversionState
-    { freshTmVarCounter :: Int
-    }
-
-newtype ConvertM a = ConvertM (ReaderT ConversionEnv (StateT ConversionState (Except FileDiagnostic)) a)
-  deriving (Functor, Applicative, Monad, MonadError FileDiagnostic, MonadState ConversionState, MonadReader ConversionEnv)
-
-instance MonadFail ConvertM where
-    fail = conversionError
-
-runConvertM :: ConversionEnv -> ConvertM a -> Either FileDiagnostic a
-runConvertM s (ConvertM a) = runExcept (evalStateT (runReaderT a s) st0)
-  where
-    st0 = ConversionState
-        { freshTmVarCounter = 0
-        }
-
-withRange :: Maybe SourceLoc -> ConvertM a -> ConvertM a
-withRange r = local (\s -> s { convRange = r })
-
-freshTmVar :: ConvertM LF.ExprVarName
-freshTmVar = do
-    n <- state (\st -> let k = freshTmVarCounter st + 1 in (k, st{freshTmVarCounter = k}))
-    pure $ LF.ExprVarName ("$$v" <> T.show n)
-
-resetFreshVarCounters :: ConvertM ()
-resetFreshVarCounters = modify' (\st -> st{freshTmVarCounter = 0})
 
 convertInt64 :: Integer -> ConvertM LF.Expr
 convertInt64 x
@@ -1381,10 +1306,6 @@ convertBind env mc (name, x)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasExerciseGuarded") _ <- name
     = pure []
 
-    | not (envLfVersion env `supports` featureExtendedInterfaces)
-    , NameIn DA_Internal_Interface "_exerciseDefault" <- name
-    = pure []
-
     -- Remove internal functions.
     | Just internals <- lookupUFM internalFunctions (envGHCModuleName env)
     , getOccFS name `elementOfUniqSet` internals
@@ -1554,7 +1475,7 @@ convertExpr env0 e = do
             let mkFieldProj i (name, _typ) = (mkIndexedField i, EStructProj name (EVar v))
             pure $ ETmLam (v, TStruct fields) $ ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields
     go env (VarIn GHC_Types "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
-        = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
+        = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) =<< convertType env t
     -- erase mkMethod calls and leave only the body.
     go env (VarIn DA_Internal_Desugar "mkMethod") (LType _parent : LType _iface : LType _tpl : LType _methodName : LType _methodTy : LExpr _implDict : LExpr _hasMethodDic : LExpr body : args)
         = go env body args
@@ -1631,6 +1552,9 @@ convertExpr env0 e = do
         t1' <- convertType env t1
         t2' <- convertType env t2
         pure (x' `ETyApp` t1' `ETyApp` t2' `ETmApp` EBuiltin (BEText (unpackCStringUtf8 s)))
+    go env (VarIn DA_Internal_Template_Functions "exerciseGuarded") _
+        | not $ envLfVersion env `supports` featureExtendedInterfaces
+        = conversionError "Guarded exercises are only available with --target=1.dev"
 
     go env (ConstraintTupleProjection index arity) args
         | (LExpr x : args') <- drop arity args -- drop the type arguments
