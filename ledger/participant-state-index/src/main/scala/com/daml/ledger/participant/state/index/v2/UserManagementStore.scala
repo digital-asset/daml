@@ -14,7 +14,10 @@ case class UserUpdate(
     primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
     isDeactivatedUpdateO: Option[Boolean] = None,
     metadataUpdate: ObjectMetaUpdate,
-)
+) {
+  def isNoUpdate: Boolean =
+    primaryPartyUpdateO.isEmpty && isDeactivatedUpdateO.isEmpty && metadataUpdate.isNoUpdate
+}
 
 sealed trait AnnotationsUpdate {
   def annotations: Map[String, String]
@@ -48,7 +51,9 @@ object AnnotationsUpdate {
 case class ObjectMetaUpdate(
     resourceVersionO: Option[Long],
     annotationsUpdateO: Option[AnnotationsUpdate],
-)
+) {
+  def isNoUpdate: Boolean = annotationsUpdateO.isEmpty
+}
 object ObjectMetaUpdate {
   def empty: ObjectMetaUpdate = ObjectMetaUpdate(
     resourceVersionO = None,
