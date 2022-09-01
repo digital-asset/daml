@@ -99,6 +99,21 @@ private[index] class IndexServiceImpl(
   ): Future[Option[ContractId]] =
     contractStore.lookupContractKey(readers, key)
 
+  def memoizedTransactionFilterProjection(
+      transactionFilter: domain.TransactionFilter,
+      verbose: Boolean,
+  ): () => Option[(Map[Party, Set[Identifier]], EventProjectionProperties)] = {
+    @volatile var metadata: PackageMetadata = null
+    @volatile var filters: Option[(Map[Party, Set[Identifier]], EventProjectionProperties)] = None
+    () =>
+      val currentMetadata = packageMetadataView.current()
+      if (metadata ne currentMetadata) {
+        metadata = currentMetadata
+        filters = transactionFilterProjection(transactionFilter, verbose, metadata)
+      }
+      filters
+  }
+
   override def transactions(
       startExclusive: domain.LedgerOffset,
       endInclusive: Option[domain.LedgerOffset],
@@ -117,20 +132,9 @@ private[index] class IndexServiceImpl(
           .startingAt(
             from.getOrElse(Offset.beforeBegin),
             RangeSource {
-              @volatile var metadata: PackageMetadata = null
-              @volatile var source
-                  : Source[(Map[Party, Set[Identifier]], EventProjectionProperties), NotUsed] =
-                Source.empty
-
+              val memoFilter = memoizedTransactionFilterProjection(transactionFilter, verbose)
               (startExclusive, endInclusive) =>
-                val currentMetadata = packageMetadataView.current()
-                if (metadata ne currentMetadata) {
-                  // if packageMetadataView is updated with the new value,
-                  // we are recalculating the source, as it is expensive operation
-                  metadata = currentMetadata
-                  source = filterSource(transactionFilter, verbose, metadata)
-                }
-                source
+                Source(memoFilter().toList)
                   .flatMapConcat { case (templateFilter, eventProjectionProperties) =>
                     transactionsReader
                       .getFlatTransactions(
@@ -243,14 +247,19 @@ private[index] class IndexServiceImpl(
       val currentLedgerEnd = ledgerEnd()
 
       val activeContractsSource =
-        filterSource(transactionFilter, verbose, packageMetadataView.current()).flatMapConcat {
-          case (templateFilter, eventProjectionProperties) =>
-            ledgerDao.transactionsReader
-              .getActiveContracts(
-                currentLedgerEnd,
-                templateFilter,
-                eventProjectionProperties,
-              )
+        Source(
+          transactionFilterProjection(
+            transactionFilter,
+            verbose,
+            packageMetadataView.current(),
+          ).toList
+        ).flatMapConcat { case (templateFilter, eventProjectionProperties) =>
+          ledgerDao.transactionsReader
+            .getActiveContracts(
+              currentLedgerEnd,
+              templateFilter,
+              eventProjectionProperties,
+            )
         }
 
       activeContractsSource
@@ -467,23 +476,23 @@ private[index] class IndexServiceImpl(
       .Reject("Index Service")(new DamlContextualizedErrorLogger(logger, loggingContext, None))
       .asGrpcError
 
-  private def filterSource(
+  private def transactionFilterProjection(
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
       metadata: PackageMetadata,
-  ): Source[(Map[Party, Set[Identifier]], EventProjectionProperties), NotUsed] = {
+  ): Option[(Map[Party, Set[Identifier]], EventProjectionProperties)] = {
     val templateFilter: Map[Party, Set[Identifier]] =
       IndexServiceImpl.templateFilter(metadata, transactionFilter)
 
     if (templateFilter.isEmpty) {
-      Source.empty
+      None
     } else {
       val eventProjectionProperties = EventProjectionProperties(
         transactionFilter,
         verbose,
         interfaceId => metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty),
       )
-      Source.single((templateFilter, eventProjectionProperties))
+      Some((templateFilter, eventProjectionProperties))
     }
   }
 }
