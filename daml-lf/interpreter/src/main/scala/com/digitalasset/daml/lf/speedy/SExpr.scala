@@ -426,6 +426,7 @@ object SExpr {
   final case class ExceptionMessageDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class SignatoriesDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ObserversDefRef(ref: DefinitionRef) extends SDefinitionRef
+  final case class ContractKeyWithMaintainersDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ToCachedContractDefRef(ref: DefinitionRef) extends SDefinitionRef
 
   /** InterfaceInstanceDefRef(parent, interfaceId, templateId)
