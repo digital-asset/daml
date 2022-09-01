@@ -52,11 +52,11 @@ object WorkflowConfigParser {
       (c: HCursor) => {
         for {
           party <- c.downField("party").as[String]
-          templates <- c.downField("templates").as[List[String]]
+          templates <- c.downField("templates").as[Option[List[String]]]
           interfaces <- c.downField("interfaces").as[Option[List[String]]]
         } yield StreamConfig.PartyFilter(
           party,
-          templates,
+          templates.getOrElse(List.empty),
           interfaces.getOrElse(List.empty),
         )
       }
@@ -65,11 +65,11 @@ object WorkflowConfigParser {
       (c: HCursor) => {
         for {
           partyNamePrefix <- c.downField("party_name_prefix").as[String]
-          templates <- c.downField("templates").as[List[String]]
+          templates <- c.downField("templates").as[Option[List[String]]]
           interfaces <- c.downField("interfaces").as[Option[List[String]]]
         } yield StreamConfig.PartyNamePrefixFilter(
           partyNamePrefix,
-          templates,
+          templates.getOrElse(List.empty),
           interfaces.getOrElse(List.empty),
         )
       }

@@ -520,8 +520,6 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |    name: stream-1
         |    filters:
         |      - party: Obs-2
-        |        templates:
-        |         - Foo3
         |        interfaces:
         |         - FooInterface
         |    begin_offset: foo
@@ -538,7 +536,6 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
             filters = List(
               WorkflowConfig.StreamConfig.PartyFilter(
                 party = "Obs-2",
-                templates = List("Foo3"),
                 interfaces = List("FooInterface"),
               )
             ),
@@ -572,7 +569,6 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |         - Foo3
         |    filter_by_party_set:
         |      party_name_prefix: My-Party
-        |      templates: [Foo1, Foo2]
         |      interfaces: [FooInterface]
         |    begin_offset: foo
         |    end_offset: bar
@@ -598,7 +594,6 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
             partyNamePrefixFilterO = Some(
               PartyNamePrefixFilter(
                 partyNamePrefix = "My-Party",
-                templates = List("Foo1", "Foo2"),
                 interfaces = List("FooInterface"),
               )
             ),
