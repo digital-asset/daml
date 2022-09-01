@@ -36,7 +36,6 @@ import com.daml.scalautil.Statement.discard
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeSet
 import scala.math.Ordering.Implicits.infixOrderingOps
-import scala.util.{Failure, Success, Try}
 
 private[speedy] abstract class SpeedyBuiltin(val arity: Int) {
 
