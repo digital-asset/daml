@@ -14,6 +14,7 @@ data FooData = FooData
     templateName: Text
   deriving (Eq, Show)
 
+-- FooI1 is exposing the most simple case of the interface views - just copying the data from within the template
 interface FooI1 where
   viewtype FooData
 
@@ -34,6 +35,7 @@ foo2Roundtrip n x
   | n <= 0 = x
   | otherwise = foo2Roundtrip (n - 1) (fooDataToFoo2 $ foo2ToFooData x)
 
+-- FooI2 is exposing a FooData view through 10 round-trips in the recursion calls
 interface FooI2 where
   viewtype FooData
 
@@ -53,6 +55,7 @@ foo3Roundtrip n x
   | n <= 0 = x
   | otherwise = foo3Roundtrip (n - 1) (fooDataToFoo3 $ foo3ToFooData x)
 
+-- FooI3 is exposing a FooData view through 100 round-trips in the recursion calls
 interface FooI3 where
   viewtype FooData
 
