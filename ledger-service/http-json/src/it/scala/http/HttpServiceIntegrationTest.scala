@@ -293,10 +293,9 @@ abstract class HttpServiceIntegrationTest
           aliceHeaders,
         )
       } yield inside(searchResp) {
-        case domain.OkResponse(acl, None, StatusCodes.OK) => {
-          discard { acl.size shouldBe 1 }
-          discard { acl.head.templateId shouldBe TpId.IIou.IIou.copy(packageId = acl.head.templateId.packageId) }
-          acl.head.payload shouldBe spray.json.JsObject()
+        case domain.OkResponse(Seq(ac), None, StatusCodes.OK) => {
+          discard { ac.templateId shouldBe TpId.IIou.IIou.copy(packageId = ac.templateId.packageId) }
+          ac.payload shouldBe spray.json.JsObject()
         }
       }
     }
