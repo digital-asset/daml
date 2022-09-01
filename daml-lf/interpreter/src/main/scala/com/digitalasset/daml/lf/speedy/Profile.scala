@@ -249,6 +249,8 @@ object Profile {
       implicit val choiceByKeyDefRef: Allowed[ChoiceByKeyDefRef] = allowAll
       implicit val fetchByKeyDefRef: Allowed[FetchByKeyDefRef] = allowAll
       implicit val lookupByKeyDefRef: Allowed[LookupByKeyDefRef] = allowAll
+      implicit val contractKeyWithMaintainersDefRef: Allowed[ContractKeyWithMaintainersDefRef] =
+        allowAll
       implicit val createAndExerciseLabel: Allowed[CreateAndExerciseLabel] = allowAll
       implicit val exceptionMessageDefRef: Allowed[ExceptionMessageDefRef] = allowAll
       implicit val scenarioLabel: Allowed[ScenarioLabel] = allowAll
@@ -264,6 +266,7 @@ object Profile {
           case CreateDefRef(tmplRef) => s"create @${tmplRef.qualifiedName}"
           case SignatoriesDefRef(tmplRef) => s"signatories @${tmplRef.qualifiedName}"
           case ObserversDefRef(tmplRef) => s"observers @${tmplRef.qualifiedName}"
+          case ContractKeyWithMaintainersDefRef(tmplRef) => s"key @${tmplRef.qualifiedName}"
           case ToCachedContractDefRef(tmplRef) => s"toAnyContract @${tmplRef.qualifiedName}"
           case InterfaceInstanceMethodDefRef(ii, methodName) =>
             s"interfaceInstanceMethod @${ii.parent.qualifiedName} @${ii.interfaceId.qualifiedName} @${ii.templateId.qualifiedName} ${methodName}"

@@ -1,0 +1,36 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Retro where
+
+template TemplateRetro
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory issuer, owner
+
+
+data TokenView = TokenView with
+  owner : Party
+  amount : Int
+
+interface InterfaceRetro where
+  viewtype TokenView
+
+  transferImpl : Party -> Update (ContractId InterfaceRetro)
+
+  choice Transfer : ContractId InterfaceRetro
+    with
+      newOwner : Party
+    controller (view this).owner, newOwner
+    do
+      transferImpl this newOwner
+
+  interface instance InterfaceRetro for TemplateRetro where
+    view = TokenView with owner, amount
+
+    transferImpl newOwner = do
+      cid <- create this with owner = newOwner
+      pure (toInterfaceContractId @InterfaceRetro cid)

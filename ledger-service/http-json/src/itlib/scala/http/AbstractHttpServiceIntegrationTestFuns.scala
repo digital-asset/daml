@@ -411,6 +411,9 @@ trait AbstractHttpServiceIntegrationTestFuns
     object IIou {
       val IIou: IId = CtId.Interface(None, "IIou", "IIou")
     }
+    object RIIou {
+      val RIIou: IId = CtId.Interface(None, "RIIou", "RIIou")
+    }
 
     def unsafeCoerce[Like[T] <: CtId[T], T](ctId: CtId[T])(implicit
         Like: CtId.Like[Like]

@@ -343,6 +343,7 @@ private[lf] final class Compiler(
       tmpl.choices.values.foreach(x => addDef(compileTemplateChoice(tmplId, tmpl, x)))
 
       tmpl.key.foreach { tmplKey =>
+        addDef(compileContractKeyWithMaintainers(tmplId, tmpl, tmplKey))
         addDef(compileFetchByKey(tmplId, tmpl, tmplKey))
         addDef(compileLookupByKey(tmplId, tmplKey))
         tmpl.choices.values.foreach(x => addDef(compileChoiceByKey(tmplId, tmpl, tmplKey, x)))
@@ -803,6 +804,22 @@ private[lf] final class Compiler(
           )
       }
     }
+
+  private[this] def compileContractKeyWithMaintainers(
+      tmplId: Identifier,
+      tmpl: Template,
+      tmplKey: TemplateKey,
+  ): (t.SDefinitionRef, SDefinition) = {
+    // compile a template with key into:
+    // ContractKeyWithMaintainersDefRef(tmplId) = \ <tmplArg> <token> ->
+    //   let <key> = tmplKey.body(<tmplArg>)
+    //   in { key = <key> ; maintainers = [tmplKey.maintainers] <key> }
+    topLevelFunction2(t.ContractKeyWithMaintainersDefRef(tmplId)) { (tmplArg, _, env) =>
+      let(env, translateExp(env.bindExprVar(tmpl.param, tmplArg), tmplKey.body)) { (keyPos, env) =>
+        translateKeyWithMaintainers(env, keyPos, tmplKey)
+      }
+    }
+  }
 
   private[this] def compileLookupByKey(
       tmplId: Identifier,
