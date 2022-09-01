@@ -149,11 +149,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     with StrictLogging
     with AbstractHttpServiceIntegrationTestFuns {
 
-  import AbstractHttpServiceIntegrationTestFuns.{
-    VAx,
-    UriFixture,
-    HttpServiceTestFixtureData,
-  }
+  import AbstractHttpServiceIntegrationTestFuns.{VAx, UriFixture, HttpServiceTestFixtureData}
   import HttpServiceTestFixture.{UseTls, accountCreateCommand, archiveCommand}
   import json.JsonProtocol._
   import AbstractHttpServiceIntegrationTestFuns.ciouDar
@@ -312,7 +308,9 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         )
       } yield inside(searchResp) {
         case domain.OkResponse(Seq(ac), None, StatusCodes.OK) => {
-          discard { ac.templateId shouldBe TpId.IIou.IIou.copy(packageId = ac.templateId.packageId) }
+          discard {
+            ac.templateId shouldBe TpId.IIou.IIou.copy(packageId = ac.templateId.packageId)
+          }
           ac.payload shouldBe spray.json.JsObject()
         }
       }
