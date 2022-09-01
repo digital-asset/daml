@@ -5,7 +5,7 @@ package com.daml.fetchcontracts.domain
 
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.lf.data.Ref
-import scalaz.{-\/, Applicative, Traverse, \/, \/-}
+import scalaz.{Monoid, -\/, Applicative, Traverse, \/, \/-}
 import scalaz.syntax.functor._
 
 import scala.collection.IterableOps
@@ -123,6 +123,11 @@ object ResolvedQuery {
       extends ResolvedQuery {
     def resolved: Set[ContractTypeId.Resolved] =
       Set(interfaceId).toSet[ContractTypeId.Resolved]
+  }
+
+  implicit def `ResolvedQuery monoid`: Monoid[ResolvedQuery] = {
+    // TODO ChunLok fix the Incorrect Monoid of ResolvedQuery
+    Monoid.instance((a, b) => apply(a.resolved ++ b.resolved).getOrElse(Empty), Empty)
   }
 }
 

@@ -64,7 +64,7 @@ object WebSocketService {
     Map[domain.TemplateId.Resolved, (ValuePredicate, LfV => Boolean)]
 
   private final case class StreamPredicate[+Positive](
-      resolved: Set[domain.TemplateId.Resolved],
+      resolved: domain.ResolvedQuery,
       unresolved: Set[domain.TemplateId.OptionalPkg],
       fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive],
       dbQuery: (domain.PartySet, dbbackend.ContractDao) => ConnectionIO[
@@ -320,13 +320,15 @@ object WebSocketService {
                 )
                 .map(
                   _.toSet[
-                    Either[domain.TemplateId.Resolved, domain.TemplateId.OptionalPkg]
+                    Either[domain.ContractTypeId.Resolved, domain.ContractTypeId.OptionalPkg]
                   ]
                     .partitionMap(identity)
                 )
             (resolved, unresolved) = res
-            q = prepareFilters(resolved, gacr.query, lookupType): CompiledQueries
-          } yield (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, (ix, pos)))))
+            // TODO ChunLok handle unsupported resolved query
+            resolvedQuery = domain.ResolvedQuery(resolved).getOrElse(domain.ResolvedQuery.Empty)
+            q = prepareFilters(resolvedQuery.resolved, gacr.query, lookupType): CompiledQueries
+          } yield (resolvedQuery, unresolved, q transform ((_, p) => NonEmptyList((p, (ix, pos)))))
         for {
           res <-
             request.queriesWithPos.zipWithIndex // index is used to ensure matchesOffset works properly
@@ -506,7 +508,8 @@ object WebSocketService {
           lc: LoggingContextOf[InstanceUUID]
       ) =
         StreamPredicate(
-          q.keySet,
+          // TODO ChunLok handle unsupported resolved query
+          domain.ResolvedQuery(q.keySet).getOrElse(domain.ResolvedQuery.Empty),
           unresolved,
           fn(q),
           { (parties, dao) =>
@@ -718,11 +721,19 @@ class WebSocketService(
       parties: domain.PartySet,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
-  ): Future[Source[StepAndErrors[Positive, JsValue], NotUsed]] =
-    contractsService.daoAndFetch.cata(
+  ): Future[Source[StepAndErrors[Positive, JsValue], NotUsed]] = {
+    val daoAndFetch = predicate.resolved match {
+      case domain.ResolvedQuery.ByInterfaceId(_) =>
+        None
+      case _ =>
+        contractsService.daoAndFetch
+    }
+
+    daoAndFetch.cata(
       { case (dao, fetch) =>
         val tx: ConnectionIO[Source[StepAndErrors[Positive, JsValue], NotUsed]] =
-          fetch.fetchAndPersistBracket(jwt, ledgerId, parties, predicate.resolved.toList) {
+          fetch.fetchAndPersistBracket(jwt, ledgerId, parties, predicate.resolved.resolved.toList) {
+            // TODO ChunLok Sth else instead of .resolved.resolved?
             case LedgerBegin =>
               fconn.pure(liveBegin(LedgerBegin))
             case bookmark @ AbsoluteBookmark(_) =>
@@ -742,15 +753,23 @@ class WebSocketService(
       },
       Future.successful {
         contractsService
-          .liveAcsAsInsertDeleteStepSource(jwt, ledgerId, parties, predicate.resolved.toList)
+          // TODO ChunLok Sth else instead of .resolved.resolved?
+          .liveAcsAsInsertDeleteStepSource(
+            jwt,
+            ledgerId,
+            parties,
+            predicate.resolved.resolved.toList,
+          )
           .via(
             convertFilterContracts(
-              domain.ResolvedQuery.ContractTypeIdsQuery(predicate.resolved),
+              // TODO ChunLok Sth else instead of .resolved.resolved?
+              domain.ResolvedQuery.ContractTypeIdsQuery(predicate.resolved.resolved),
               predicate.fn,
             )
           )
       },
     )
+  }
 
   private[this] def liveBegin(
       bookmark: BeginBookmark[domain.Offset]
@@ -881,8 +900,8 @@ class WebSocketService(
       .lazyFutureSource { () =>
         queryPredicate(request, jwt, ledgerId).flatMap {
           case StreamPredicate(resolved, unresolved, _, _) =>
-            if (resolved.nonEmpty)
-              processResolved(resolved, unresolved)
+            if (resolved.resolved.nonEmpty)
+              processResolved(resolved.resolved, unresolved)
             else
               Future.successful(
                 reportUnresolvedTemplateIds(unresolved)
