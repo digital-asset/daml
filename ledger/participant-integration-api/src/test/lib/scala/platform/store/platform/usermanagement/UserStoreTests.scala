@@ -6,11 +6,13 @@ package com.daml.platform.store.platform.usermanagement
 import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
 import com.daml.ledger.participant.state.index.v2.AnnotationsUpdate.{Merge, Replace}
 import com.daml.ledger.participant.state.index.v2.{
+  AnnotationsUpdate,
   ObjectMetaUpdate,
   UserManagementStore,
   UserUpdate,
 }
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
+  MaxAnnotationsSizeExceeded,
   UserExists,
   UserNotFound,
   UsersPage,
@@ -34,7 +36,9 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
   private implicit def toUserId(s: String): UserId =
     UserId.assertFromString(s)
 
-  def newUser(name: String, annotations: Map[String, String] = Map.empty): User = User(
+  private val userId1 = "user1"
+
+  def newUser(name: String = userId1, annotations: Map[String, String] = Map.empty): User = User(
     id = name,
     primaryParty = None,
     isDeactivated = false,
@@ -45,7 +49,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
   )
 
   def createdUser(
-      name: String,
+      name: String = userId1,
       resourceVersion: Long = 0,
       annotations: Map[String, String] = Map.empty,
   ): User =
@@ -58,6 +62,22 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
         annotations = annotations,
       ),
     )
+
+  // TODO um-for-hub: Consider defining a method like this directly on UserUdpate
+  def makeUserUpdate(
+      id: String = userId1,
+      primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
+      isDeactivatedUpdateO: Option[Boolean] = None,
+      annotationsUpdateO: Option[AnnotationsUpdate] = None,
+  ): UserUpdate = UserUpdate(
+    id = id,
+    primaryPartyUpdateO = primaryPartyUpdateO,
+    isDeactivatedUpdateO = isDeactivatedUpdateO,
+    metadataUpdate = ObjectMetaUpdate(
+      resourceVersionO = None,
+      annotationsUpdateO = annotationsUpdateO,
+    ),
+  )
 
   def resetResourceVersion(
       user: User
@@ -431,7 +451,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
 
     "should raise an error on resource version mismatch" in {
       testIt { tested =>
-        val user = createdUser("user1")
+        val user = newUser("user1")
         for {
           _ <- tested.createUser(user, Set.empty)
           res1 <- tested.updateUser(
@@ -445,6 +465,34 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           )
           _ = res1.left.value shouldBe UserManagementStore.ConcurrentUserUpdate(user.id)
         } yield succeed
+      }
+    }
+
+    "raise an error when annotations byte size max size exceeded" - {
+      // This value consumes just a bit over half the allowed max size limit
+      val bigValue = "big value:" + ("a" * 128 * 1024)
+
+      "when creating a user" in {
+        testIt { tested =>
+          val user = newUser(annotations = Map("k1" -> bigValue, "k2" -> bigValue))
+          for {
+            res1 <- tested.createUser(user, Set.empty)
+            _ = res1.left.value shouldBe MaxAnnotationsSizeExceeded(user.id)
+          } yield succeed
+        }
+      }
+
+      "when updating an existing user" in {
+        testIt { tested =>
+          val user = newUser(annotations = Map("k1" -> bigValue))
+          for {
+            _ <- tested.createUser(user, Set.empty)
+            res1 <- tested.updateUser(
+              makeUserUpdate(annotationsUpdateO = Some(Merge.fromNonEmpty(Map("k2" -> bigValue))))
+            )
+            _ = res1.left.value shouldBe MaxAnnotationsSizeExceeded(user.id)
+          } yield succeed
+        }
       }
     }
 

@@ -17,6 +17,7 @@ import com.daml.logging.LoggingContext
 import scala.collection.mutable
 import scala.concurrent.Future
 
+// TODO um-for-hub: For consideration: Store interfaces and their in-memory impls should live in a dedicated bazel package
 class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManagementStore {
   import InMemoryUserManagementStore._
 
@@ -38,10 +39,14 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       loggingContext: LoggingContext
   ): Future[Result[User]] =
     withoutUser(user.id) {
-      val userWithResourceVersion =
-        user.copy(metadata = user.metadata.copy(resourceVersionO = Some(0)))
-      state.update(user.id, UserInfo(userWithResourceVersion, rights))
-      userWithResourceVersion
+      for {
+        _ <- validateAnnotationsSize(user.metadata.annotations, user.id)
+      } yield {
+        val userWithResourceVersion =
+          user.copy(metadata = user.metadata.copy(resourceVersionO = Some(0)))
+        state.update(user.id, UserInfo(userWithResourceVersion, rights))
+        userWithResourceVersion
+      }
     }
 
   override def updateUser(
@@ -72,6 +77,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
           }
       }
       for {
+        _ <- validateAnnotationsSize(updatedAnnotations, userUpdate.id)
         newResourceVersion <- newResourceVersionEither
       } yield {
         val updatedUserInfo = userInfo.copy(
@@ -155,11 +161,11 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       }
     )
 
-  private def withoutUser[T](id: Ref.UserId)(t: => T): Future[Result[T]] =
+  private def withoutUser[T](id: Ref.UserId)(t: => Result[T]): Future[Result[T]] =
     withState(
       state.get(id) match {
         case Some(_) => Left(UserExists(id))
-        case None => Right(t)
+        case None => t
       }
     )
 
@@ -171,6 +177,17 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
     state.get(oldInfo.user.id) match {
       case Some(`oldInfo`) => state.update(newInfo.user.id, newInfo); true
       case _ => false
+    }
+  }
+
+  private def validateAnnotationsSize(
+      annotations: Map[String, String],
+      userId: Ref.UserId,
+  ): Result[Unit] = {
+    if (!ResourceAnnotationValidation.isWithinMaxAnnotationsByteSize(annotations)) {
+      Left(MaxAnnotationsSizeExceeded(userId))
+    } else {
+      Right(())
     }
   }
 

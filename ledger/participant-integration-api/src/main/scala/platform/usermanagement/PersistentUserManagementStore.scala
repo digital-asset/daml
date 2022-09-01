@@ -22,10 +22,12 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
+import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.backend.UserManagementStorageBackend
 import com.daml.platform.usermanagement.PersistentUserManagementStore.{
   ConcurrentUserUpdateDetectedRuntimeException,
+  MaxAnnotationsSizeExceededException,
   TooManyUserRightsRuntimeException,
 }
 
@@ -63,6 +65,8 @@ object PersistentUserManagementStore {
 
   final case class ConcurrentUserUpdateDetectedRuntimeException(userId: Ref.UserId)
       extends RuntimeException
+
+  final case class MaxAnnotationsSizeExceededException(userId: Ref.UserId) extends RuntimeException
 
   def cached(
       dbSupport: DbSupport,
@@ -121,6 +125,12 @@ class PersistentUserManagementStore(
     inTransaction(_.createUser) { implicit connection: Connection =>
       withoutUser(user.id) {
         val now = epochMicroseconds()
+        if (
+          !ResourceAnnotationValidation
+            .isWithinMaxAnnotationsByteSize(user.metadata.annotations)
+        ) {
+          throw MaxAnnotationsSizeExceededException(userId = user.id)
+        }
         val dbUser = UserManagementStorageBackend.DbUserPayload(
           id = user.id,
           primaryPartyO = user.primaryParty,
@@ -192,7 +202,14 @@ class PersistentUserManagementStore(
               case AnnotationsUpdate.Merge(newAnnotations) => {
                 val existingAnnotations =
                   backend.getUserAnnotations(dbUser.internalId)(connection)
-                existingAnnotations.concat(newAnnotations)
+                val combined = existingAnnotations.concat(newAnnotations)
+                if (
+                  !ResourceAnnotationValidation
+                    .isWithinMaxAnnotationsByteSize(combined)
+                ) {
+                  throw MaxAnnotationsSizeExceededException(userId = userUpdate.id)
+                }
+                combined
               }
               case AnnotationsUpdate.Replace(newAnnotations) => newAnnotations
             }
@@ -323,6 +340,8 @@ class PersistentUserManagementStore(
         case TooManyUserRightsRuntimeException(userId) => Left(TooManyUserRights(userId))
         case ConcurrentUserUpdateDetectedRuntimeException(userId) =>
           Left(UserManagementStore.ConcurrentUserUpdate(userId))
+        case MaxAnnotationsSizeExceededException(userId) =>
+          Left(UserManagementStore.MaxAnnotationsSizeExceeded(userId))
       }(ExecutionContext.parasitic)
   }
 
