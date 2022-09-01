@@ -176,10 +176,9 @@ checkTemplate mod0 tpl = do
 
 -- | Check whether a template satisfies all serializability constraints.
 checkInterface :: MonadGamma m => Module -> DefInterface -> m ()
-checkInterface _mod0 iface = do
-  -- TODO https://github.com/digital-asset/daml/issues/12051
-  -- Add per interface choice context.
+checkInterface mod0 iface = do
   for_ (intChoices iface) $ \ch -> do
+    withContext (ContextDefInterface mod0 iface (IPChoice ch)) $ do
       checkType SRChoiceArg (snd (chcArgBinder ch))
       checkType SRChoiceRes (chcReturnType ch)
       
