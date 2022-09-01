@@ -15,9 +15,19 @@ Daml Documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
+   :caption: Set Up Your Developer Environment
+
+   Installation </getting-started/installation>
+   System Requirements </ops/requirements>
+   Set JAVA_HOME and PATH Variables </getting-started/path-variables>
+   Manual Installation </getting-started/manual-download>
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 2
+   :hidden:
    :caption: Getting started
 
-   Installing the SDK <getting-started/installation>
    Building Your App <getting-started/index>
    getting-started/app-architecture
    getting-started/first-feature

@@ -16,6 +16,8 @@ Getting Started
    getting-started/app-architecture
    getting-started/first-feature
    getting-started/testing
+   getting-started/manual-download
+   getting-started/path-variables
    Cheat Sheet <https://docs.daml.com/cheat-sheet>
 
 Writing Daml
