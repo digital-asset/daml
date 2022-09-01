@@ -225,8 +225,25 @@ instance MonoTraversable ModuleRef PackageMetadata
 instance MonoTraversable ModuleRef Package
 instance MonoTraversable ModuleRef T.Text where monoTraverse _ = pure
 
-instance (MonoTraversableNameMap ModuleRef a) => MonoTraversable ModuleRef (NM.NameMap a) where
+instance {-# OVERLAPPABLE #-} (MonoTraversableNameMap ModuleRef a) => MonoTraversable ModuleRef (NM.NameMap a) where
   monoTraverse = NM.traverse . monoTraverse
+
+-- The following two instances overlap the one above.
+--
+-- They should be okay since 'NM.traverseAsList' doesn't fail if the names change,
+-- and we don't care if these particular 'NM.NameMap's change names
+-- (which isn't necessarily the case for other 'NM.NameMap's).
+--
+-- Note that if a traversal changes two elements so their new names are equal,
+-- this will still be a runtime error, but 'DA.Daml.Compiler.Validate.validateWellTyped'
+-- (through 'packageRefs'), the only place where these instances are used as a
+-- traversal rather than just a fold, just rewrites 'PRImport's that refer to
+-- the package being validated into 'PRSelf', and since the module was decoded with
+-- 'DecodeAsDependency', there can be no pre-existing 'PRSelf's to clash with.
+instance {-# OVERLAPPING #-} MonoTraversable ModuleRef (NM.NameMap TemplateImplements) where
+  monoTraverse = NM.traverseAsList . monoTraverse
+instance {-# OVERLAPPING #-} MonoTraversable ModuleRef (NM.NameMap InterfaceCoImplements) where
+  monoTraverse = NM.traverseAsList . monoTraverse
 
 type MonoTraversableNameMap e a =
   ( NM.Named a
