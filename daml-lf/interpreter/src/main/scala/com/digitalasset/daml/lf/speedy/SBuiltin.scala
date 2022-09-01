@@ -21,13 +21,7 @@ import com.daml.lf.speedy.{SExpr0 => compileTime}
 import com.daml.lf.speedy.{SExpr => runTime}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.SValue.{SValue => SV}
-import com.daml.lf.transaction.{
-  ContractStateMachine,
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  Node,
-  Transaction => Tx,
-}
+import com.daml.lf.transaction.{ContractStateMachine, GlobalKey, GlobalKeyWithMaintainers, Node, Transaction => Tx}
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.nameof.NameOf
@@ -36,6 +30,50 @@ import com.daml.scalautil.Statement.discard
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeSet
 import scala.math.Ordering.Implicits.infixOrderingOps
+import scala.util.{Failure, Success, Try}
+
+private[speedy] abstract class SpeedyBuiltin(val arity: Int) {
+
+  private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Control
+
+  protected def crash(msg: String): Nothing =
+    throw SErrorCrash(getClass.getCanonicalName, msg)
+
+  protected def unexpectedType(i: Int, expected: String, found: SValue): Nothing =
+    crash(s"type mismatch of argument $i: expected $expected but got $found")
+}
+
+/** Extensions of this mixin trait ensure that builtin argument lists have a length matching the builtin's arity.
+  */
+private[speedy] trait BuiltinArityChecking { inner: SpeedyBuiltin =>
+
+  @inline
+  private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Control = {
+    require(args.size() == inner.arity)
+
+    inner.execute(args, machine)
+  }
+}
+
+/** Extensions of this mixin trait ensure that the last member of the non-empty argument list is a Speedy token.
+  */
+private[speedy] trait BuiltinTokenChecking { inner: SpeedyBuiltin =>
+
+  @inline
+  private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Control = {
+    require(args.size() > 0)
+
+    checkToken(args, inner.arity - 1)
+
+    inner.execute(args, machine)
+  }
+
+  private def checkToken(args: util.ArrayList[SValue], i: Int): Unit =
+    args.get(i) match {
+      case SToken => ()
+      case otherwise => unexpectedType(i, "SToken", otherwise)
+    }
+}
 
 /**  Speedy builtins are stratified into two layers:
   *  Parent: `SBuiltin`, (which are effectful), and child: `SBuiltinPure` (which are pure).
@@ -46,9 +84,9 @@ import scala.math.Ordering.Implicits.infixOrderingOps
   *
   *  Most builtins are pure, and so they extend `SBuiltinPure`
   */
-private[speedy] sealed abstract class SBuiltin(val arity: Int) {
-  protected def crash(msg: String): Nothing =
-    throw SErrorCrash(getClass.getCanonicalName, msg)
+private[speedy] sealed abstract class SBuiltin(arity: Int)
+    extends SpeedyBuiltin(arity)
+    with BuiltinArityChecking {
 
   // Helper for constructing expressions applying this builtin.
   // E.g. SBCons(SEVar(1), SEVar(2))
@@ -60,14 +98,6 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
   // TODO: avoid constructing application expression at run time
   private[lf] def apply(args: runTime.SExpr*): runTime.SExpr =
     runTime.SEApp(runTime.SEBuiltin(this), args.toArray)
-
-  /** Execute the builtin with 'arity' number of arguments in 'args'.
-    * Updates the machine state accordingly.
-    */
-  private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Control
-
-  protected def unexpectedType(i: Int, expected: String, found: SValue) =
-    crash(s"type mismatch of argument $i: expect $expected but got $found")
 
   final protected def getSBool(args: util.ArrayList[SValue], i: Int): Boolean =
     args.get(i) match {
@@ -197,16 +227,17 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
       case SAnyContract(tyCon, value) => (tyCon, value)
       case otherwise => unexpectedType(i, "AnyContract", otherwise)
     }
-
-  final protected def checkToken(args: util.ArrayList[SValue], i: Int): Unit =
-    args.get(i) match {
-      case SToken => ()
-      case otherwise => unexpectedType(i, "SToken", otherwise)
-    }
-
 }
 
 private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltin(arity) {
+
+  /** Pure builtins do not modify the machine state and do not ask questions of the ledger. As a result, pure builtin
+    * execution is immediate.
+    *
+    * @param args arguments for executing the pure builtin
+    * @return the pure builtin's resulting value (wrapped as a Control value)
+    */
+  private[speedy] def executePure(args: util.ArrayList[SValue]): SValue
 
   override private[speedy] final def execute(
       args: util.ArrayList[SValue],
@@ -214,25 +245,30 @@ private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltin(
   ): Control = {
     Control.Value(executePure(args))
   }
-
-  /** Execute the (pure) builtin with 'arity' number of arguments in 'args'.
-    *    Returns the resulting value
-    */
-  private[speedy] def executePure(args: util.ArrayList[SValue]): SValue
 }
 
 private[speedy] sealed abstract class OnLedgerBuiltin(arity: Int)
     extends SBuiltin(arity)
     with Product {
 
-  protected def execute(
+  /** On ledger builtins may reference the Speedy machine's ledger state.
+    *
+    * @param args arguments for executing the builtin
+    * @param machine the Speedy machine (machine state may be modified by the builtin)
+    * @param onLedger a reference to the Speedy machine's ledger state (which may be modified by the builtin)
+    * @return the builtin execution's resulting control value
+    */
+  protected def executeWithLedger(
       args: util.ArrayList[SValue],
       machine: Machine,
       onLedger: OnLedger,
   ): Control
 
-  final override def execute(args: util.ArrayList[SValue], machine: Machine): Control = {
-    machine.withOnLedger(productPrefix)(execute(args, machine, _))
+  override private[speedy] final def execute(
+      args: util.ArrayList[SValue],
+      machine: Machine,
+  ): Control = {
+    machine.withOnLedger(productPrefix)(executeWithLedger(args, machine, _))
   }
 }
 
@@ -943,7 +979,7 @@ private[lf] object SBuiltin {
     *    -> ContractId arg
     */
   final case object SBUCreate extends OnLedgerBuiltin(2) {
-    override protected def execute(
+    override protected def executeWithLedger(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
@@ -1000,7 +1036,7 @@ private[lf] object SBuiltin {
       byKey: Boolean,
   ) extends OnLedgerBuiltin(4) {
 
-    override protected def execute(
+    override protected def executeWithLedger(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
@@ -1108,7 +1144,7 @@ private[lf] object SBuiltin {
     */
 
   final case object SBFetchAny extends OnLedgerBuiltin(2) {
-    override protected def execute(
+    override protected def executeWithLedger(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
@@ -1437,7 +1473,7 @@ private[lf] object SBuiltin {
       templateId: TypeConName,
       byKey: Boolean,
   ) extends OnLedgerBuiltin(1) {
-    override protected def execute(
+    override protected def executeWithLedger(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
@@ -1476,7 +1512,7 @@ private[lf] object SBuiltin {
     *    -> ()
     */
   final case class SBUInsertLookupNode(templateId: TypeConName) extends OnLedgerBuiltin(2) {
-    override protected def execute(
+    override protected def executeWithLedger(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
@@ -1561,7 +1597,7 @@ private[lf] object SBuiltin {
       operation: KeyOperation
   ) extends OnLedgerBuiltin(1) {
 
-    final override def execute(
+    final override def executeWithLedger(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
@@ -1673,12 +1709,11 @@ private[lf] object SBuiltin {
       extends SBUKeyBuiltin(new KeyOperation.Lookup(templateId))
 
   /** $getTime :: Token -> Timestamp */
-  final case object SBGetTime extends SBuiltin(1) {
+  final case object SBGetTime extends SBuiltin(1) with BuiltinTokenChecking {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Control = {
-      checkToken(args, 0)
       // $ugettime :: Token -> Timestamp
       machine.ledgerMode match {
         case onLedger: OnLedger =>
@@ -1693,12 +1728,13 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case class SBSSubmit(optLocation: Option[Location], mustFail: Boolean) extends SBuiltin(3) {
+  final case class SBSSubmit(optLocation: Option[Location], mustFail: Boolean)
+      extends SBuiltin(3)
+      with BuiltinTokenChecking {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Control = {
-      checkToken(args, 2)
       Control.Question(
         SResultScenarioSubmit(
           committers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(0)),
@@ -1714,23 +1750,21 @@ private[lf] object SBuiltin {
   }
 
   /** $pure :: a -> Token -> a */
-  final case object SBSPure extends SBuiltin(2) {
+  final case object SBSPure extends SBuiltin(2) with BuiltinTokenChecking {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Control = {
-      checkToken(args, 1)
       Control.Value(args.get(0))
     }
   }
 
   /** $pass :: Int64 -> Token -> Timestamp */
-  final case object SBSPass extends SBuiltin(2) {
+  final case object SBSPass extends SBuiltin(2) with BuiltinTokenChecking {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Control = {
-      checkToken(args, 1)
       val relTime = getSInt64(args, 0)
       Control.Question(
         SResultScenarioPassTime(
@@ -1744,12 +1778,11 @@ private[lf] object SBuiltin {
   }
 
   /** $getParty :: Text -> Token -> Party */
-  final case object SBSGetParty extends SBuiltin(2) {
+  final case object SBSGetParty extends SBuiltin(2) with BuiltinTokenChecking {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Control = {
-      checkToken(args, 1)
       val name = getSText(args, 0)
       Control.Question(
         SResultScenarioGetParty(
@@ -1796,14 +1829,13 @@ private[lf] object SBuiltin {
   }
 
   /** $try-handler :: Optional (Token -> a) -> AnyException -> Token -> a (or re-throw) */
-  final case object SBTryHandler extends SBuiltin(3) {
+  final case object SBTryHandler extends SBuiltin(3) with BuiltinTokenChecking {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Control = {
       val opt = getSOptional(args, 0)
       val excep = getSAny(args, 1)
-      checkToken(args, 2)
       opt match {
         case None =>
           unwindToHandler(machine, excep) // re-throw
