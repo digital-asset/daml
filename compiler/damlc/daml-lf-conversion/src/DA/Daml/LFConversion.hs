@@ -1468,7 +1468,7 @@ convertExpr env0 e = do
             let mkFieldProj i (name, _typ) = (mkIndexedField i, EStructProj name (EVar v))
             pure $ ETmLam (v, TStruct fields) $ ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields
     go env (VarIn GHC_Types "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
-        = fmap (, args) $ convertPrimVersioned (envLfVersion env) (unpackFS y) =<< convertType env t
+        = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) =<< convertType env t
     -- erase mkMethod calls and leave only the body.
     go env (VarIn DA_Internal_Desugar "mkMethod") (LType _parent : LType _iface : LType _tpl : LType _methodName : LType _methodTy : LExpr _implDict : LExpr _hasMethodDic : LExpr body : args)
         = go env body args
