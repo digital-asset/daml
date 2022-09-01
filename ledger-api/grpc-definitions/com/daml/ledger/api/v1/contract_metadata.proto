@@ -23,7 +23,7 @@ message ContractMetadata {
   bytes contract_key_hash = 2;
 
   // Driver-specific metadata. This is opaque and cannot be decoded.
-  // Required
+  // Optional
   bytes driver_metadata = 3;
 }
 
