@@ -422,7 +422,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
   // TODO ED: Deduplicate with CKLocalKeyVisibility
   test(
     "EDLocalKeyVisibility",
-    "A contract key can be fetched/looked-up -by-key when the readers are not the contracts' stakeholders",
+    "A local contract can be fetched/looked-up -by-key when the readers are not the contracts' stakeholders",
     allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
   )(implicit ec => {

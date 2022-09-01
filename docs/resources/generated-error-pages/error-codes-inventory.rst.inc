@@ -818,13 +818,13 @@ CONTRACT_NOT_FOUND
 DISCLOSED_CONTRACT_INVALID
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: This error occurs if one of the disclosed contracts' payload or its metadata does not match the actual payload or metadata of the contract.
+    **Explanation**: This error occurs if the disclosed payload or metadata of one of the contracts does not match the actual payload or metadata of the contract.
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
     **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
 
-    **Resolution**: Use a valid disclosed contract payload and metadata and re-submit the command.
+    **Resolution**: Re-submit the command using valid disclosed contract payload and metadata.
 
 
 

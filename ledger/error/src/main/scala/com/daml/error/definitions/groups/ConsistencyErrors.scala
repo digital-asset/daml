@@ -162,10 +162,10 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
   }
 
   @Explanation(
-    """This error occurs if one of the disclosed contracts' payload or its metadata
+    """This error occurs if the disclosed payload or metadata of one of the contracts
       |does not match the actual payload or metadata of the contract."""
   )
-  @Resolution("Use a valid disclosed contract payload and metadata and re-submit the command.")
+  @Resolution("Re-submit the command using valid disclosed contract payload and metadata.")
   object DisclosedContractInvalid
       extends ErrorCode(
         id = "DISCLOSED_CONTRACT_INVALID",
