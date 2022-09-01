@@ -8,8 +8,10 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.lf.command.{ContractMetadata, DisclosedContract}
 import com.daml.lf.data.ImmArray
-import com.daml.ledger.api.v1.commands.{Commands => ProtoCommands}
-import com.daml.ledger.api.v1.commands.{DisclosedContract => ProtoDisclosedContract}
+import com.daml.ledger.api.v1.commands.{
+  Commands => ProtoCommands,
+  DisclosedContract => ProtoDisclosedContract,
+}
 import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 import com.daml.ledger.api.validation.ValueValidator.{
   validateOptionalIdentifier,
@@ -29,13 +31,13 @@ import com.daml.lf.data.Time
 import scala.collection.mutable
 import scala.util.Try
 
-class ValidateDisclosedContracts(featureEnabled: Boolean) {
+class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
   def apply(commands: ProtoCommands)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, ImmArray[DisclosedContract]] =
     for {
       _ <- Either.cond(
-        featureEnabled || commands.disclosedContracts.isEmpty,
+        explicitDisclosureFeatureEnabled || commands.disclosedContracts.isEmpty,
         (),
         LedgerApiErrors.RequestValidation.InvalidField
           .Reject(
@@ -59,9 +61,9 @@ class ValidateDisclosedContracts(featureEnabled: Boolean) {
       ]
 
     disclosedContracts
-      .foldLeft[ZeroType](Right(ImmArray.newBuilder))((contractz, contract) =>
+      .foldLeft[ZeroType](Right(ImmArray.newBuilder))((contracts, contract) =>
         for {
-          validatedContracts <- contractz
+          validatedContracts <- contracts
           validatedContract <- validateDisclosedContract(contract)
         } yield validatedContracts.addOne(validatedContract)
       )

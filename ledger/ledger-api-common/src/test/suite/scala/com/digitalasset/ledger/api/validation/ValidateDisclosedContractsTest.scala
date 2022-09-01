@@ -214,9 +214,11 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
 }
 
 object ValidateDisclosedContractsTest {
-  private val validateDisclosedContracts = new ValidateDisclosedContracts(featureEnabled = true)
+  private val validateDisclosedContracts = new ValidateDisclosedContracts(
+    explicitDisclosureFeatureEnabled = true
+  )
   private val disabledValidateDisclosedContracts = new ValidateDisclosedContracts(
-    featureEnabled = false
+    explicitDisclosureFeatureEnabled = false
   )
 
   private object api {
