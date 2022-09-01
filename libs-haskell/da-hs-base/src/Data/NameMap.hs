@@ -56,7 +56,6 @@ import Prelude hiding (lookup, map, traverse, null)
 import qualified Prelude
 
 import           Control.DeepSeq
-import           Control.Lens.MonoTraversal
 import           Control.Monad (void)
 import           Data.Aeson
 import           Data.Binary
@@ -213,6 +212,3 @@ instance (Named a, Binary a) => Binary (NameMap a) where
   get = fromList <$> get
 
 deriving instance (Data a, Data (Name a), Named a) => Data (NameMap a)
-
-instance (Named a, MonoTraversable e a) => MonoTraversable e (NameMap a) where
-  monoTraverse = traverse . monoTraverse
