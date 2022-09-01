@@ -100,6 +100,32 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
       assertInfixOf "DAR is valid" stdout
       stderr @?= ""
 
+  , testCaseSteps "Good (interface)" $ \step -> withTempDir $ \projDir -> do
+      step "prepare"
+      writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+        [ "sdk-version: " <> sdkVersion
+        , "build-options: [ --target=1.15 ]"
+        , "name: good"
+        , "version: 0.0.1"
+        , "source: ."
+        , "dependencies: [daml-prim, daml-stdlib]"
+        ]
+      writeFileUTF8 (projDir </> "Good.daml") $ unlines
+        [ "module Good where"
+        , "data MyIView = MyIView {}"
+        , "interface MyI where"
+        , "  viewtype MyIView"
+        , "  iMethod : ()"
+        ]
+      step "build"
+      callProcessSilent damlc ["build", "--project-root", projDir]
+      let dar = projDir </> ".daml/dist/good-0.0.1.dar"
+      step "validate"
+      (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["validate-dar", dar] ""
+      stderr @?= ""
+      exitCode @?= ExitSuccess
+      assertInfixOf "DAR is valid" stdout
+
   , testCaseSteps "Bad, DAR contains a bad DALF" $ \step -> withTempDir $ \projDir -> do
       step "prepare"
       writeFileUTF8 (projDir </> "daml.yaml") $ unlines
