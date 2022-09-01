@@ -159,9 +159,7 @@ _exerciseInterfaceGuard : forall i t.
   ContractId t -> (t -> Bool) -> i -> Bool
 _exerciseInterfaceGuard cid tpred ivalue =
   tpred (unsafeFromInterface (coerceContractId cid) ivalue)
-#endif
-
-#ifndef DAML_INTERFACE_EXTENDED
+#else
 _exerciseInterfaceGuard : forall t i a b c. a -> b -> c -> Bool
 _exerciseInterfaceGuard cid tpred ivalue =
   error "Interfaces not supported in this version of Daml LF"
