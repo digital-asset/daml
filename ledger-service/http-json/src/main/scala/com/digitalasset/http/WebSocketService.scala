@@ -41,6 +41,8 @@ import scalaz.syntax.traverse._
 import scalaz.std.list._
 import scalaz.{-\/, Foldable, Liskov, NonEmptyList, OneAnd, Tag, \/, \/-}
 import Liskov.<~<
+import com.daml.fetchcontracts.domain.ResolvedQuery
+import com.daml.fetchcontracts.domain.ResolvedQuery.Unsupported
 import com.daml.http.domain.TemplateId.{OptionalPkg, toLedgerApiValue}
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
@@ -75,9 +77,11 @@ object WebSocketService {
           _ <: Vector[(domain.ActiveContract[JsValue], Positive)]
         ],
     ) extends StreamPredicate[Positive]
-    final case class InvalidStreamPredicate[+Positive](
+    final case class AllContractTypeIdsNotResolved[+Positive](
         unresolved: NonEmpty[Set[domain.TemplateId.OptionalPkg]]
     ) extends StreamPredicate[Positive]
+    final case class UnsupportedQuery[+Positive](reason: Unsupported)
+        extends StreamPredicate[Positive]
   }
 
   /** If an element satisfies `prefix`, consume it and emit the result alongside
@@ -333,27 +337,51 @@ object WebSocketService {
                     .partitionMap(identity)
                 )
             (resolved, unresolved) = res
-            // TODO SC ChunLok handle unsupported resolved query and combine contract type id
-            resolvedQuery = domain.ResolvedQuery(resolved).getOrElse(domain.ResolvedQuery.Empty)
-            q = prepareFilters(resolvedQuery, gacr.query, lookupType): CompiledQueries
-          } yield (resolvedQuery, unresolved, q transform ((_, p) => NonEmptyList((p, (ix, pos)))))
+            // TODO SC ChunLok So hacky here to specially handling empty as empty is not allow but we want to handle
+            errorOrResolvedQuery = domain.ResolvedQuery(resolved)
+            q = prepareFilters(
+              errorOrResolvedQuery.getOrElse(ResolvedQuery.Empty),
+              gacr.query,
+              lookupType,
+            ): CompiledQueries
+          } yield (
+            errorOrResolvedQuery,
+            resolved,
+            unresolved,
+            q transform ((_, p) => NonEmptyList((p, (ix, pos)))),
+          )
         for {
           res <-
             request.queriesWithPos.zipWithIndex // index is used to ensure matchesOffset works properly
               .map { case ((q, pos), ix) => (q, pos, ix) }
               .foldMapM(query.tupled)
-          (resolved, unresolved, q) = res
-        } yield StreamPredicate.ValidStreamPredicate(
-          resolved,
-          unresolved,
-          fn(q),
-          { (parties, dao) =>
-            import dao.{logHandler, jdbcDriver}
-            import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
-            val (dbQueries, posMap) = dbQueriesPlan(q)
-            selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.ByNelInt)
-              .map(_ map (_ rightMap (_ map posMap)))
-          },
+          (unsupportedOrResolvedQuery, resolved, unresolved, q) = res
+        } yield (
+          unresolved match {
+            case NonEmpty(unresolvedSet) if resolved.isEmpty =>
+              StreamPredicate.AllContractTypeIdsNotResolved(unresolvedSet)
+            case _ =>
+              unsupportedOrResolvedQuery match {
+                case \/-(resolvedQuery: ResolvedQuery) =>
+                  StreamPredicate.ValidStreamPredicate(
+                    resolvedQuery,
+                    unresolved,
+                    fn(q),
+                    { (parties, dao) =>
+                      import dao.{logHandler, jdbcDriver}
+                      import dbbackend.ContractDao.{
+                        selectContractsMultiTemplate,
+                        MatchedQueryMarker,
+                      }
+                      val (dbQueries, posMap) = dbQueriesPlan(q)
+                      selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.ByNelInt)
+                        .map(_ map (_ rightMap (_ map posMap)))
+                    },
+                  )
+                case -\/(unsupported) =>
+                  StreamPredicate.UnsupportedQuery(unsupported)
+              }
+          }
         )
       }
 
@@ -511,13 +539,13 @@ object WebSocketService {
         }
       def streamPredicate(
           q: Map[domain.TemplateId.Resolved, HashSet[LfV]],
+          resolvedQuery: ResolvedQuery,
           unresolved: Set[OptionalPkg],
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
       ) =
         StreamPredicate.ValidStreamPredicate(
-          // TODO ChunLok handle unsupported resolved query
-          domain.ResolvedQuery(q.keySet).getOrElse(domain.ResolvedQuery.Empty),
+          resolvedQuery,
           unresolved,
           fn(q),
           { (parties, dao) =>
@@ -536,7 +564,18 @@ object WebSocketService {
         )
         .map { case (resolvedWithKey, unresolved) =>
           val q = getQ(resolvedWithKey)
-          streamPredicate(q, unresolved)
+          unresolved match {
+            case NonEmpty(unresolvedSet) if q.isEmpty =>
+              StreamPredicate.AllContractTypeIdsNotResolved(unresolvedSet)
+            case _ =>
+              domain.ResolvedQuery(q.keySet) match {
+                case \/-(resolvedQuery: ResolvedQuery) =>
+                  streamPredicate(q, resolvedQuery, unresolved)
+                case -\/(unsupported) =>
+                  StreamPredicate.UnsupportedQuery(unsupported)
+              }
+
+          }
         }
     }
 
@@ -845,7 +884,8 @@ class WebSocketService(
               )
             )
             .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
-        case InvalidStreamPredicate(_) =>
+        // TODO: CL how to handle AllContractTypeIdsNotResolved? What will be the behaviour change?
+        case AllContractTypeIdsNotResolved(_) | UnsupportedQuery(_) =>
           // TODO: CL Do we really want to handle InvalidStreamPredicate everywhere? It should be resolved earlier :/
           // is this possible as it should have failed earlier.
           // just make it compile for now and fix it later
@@ -930,13 +970,18 @@ class WebSocketService(
                   )
               )
             }
-          case InvalidStreamPredicate(unresolved) =>
+          case AllContractTypeIdsNotResolved(unresolved) =>
             Future.successful(
               reportUnresolvedTemplateIds(unresolved)
                 .map(jsv => \/-(wsMessage(jsv)))
                 .concat(
                   Source.single(-\/(InvalidUserInput(ErrorMessages.cannotResolveAnyTemplateId)))
                 )
+            )
+          case AllContractTypeIdsNotResolved(_) | UnsupportedQuery(_) =>
+            // TODO CL put error message depends on reason
+            Future.successful(
+              Source.single(-\/(InvalidUserInput(ErrorMessages.cannotResolveAnyTemplateId)))
             )
         }
       }
