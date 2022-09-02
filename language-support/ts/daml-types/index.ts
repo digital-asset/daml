@@ -111,7 +111,13 @@ export type Interface<IfId> = { readonly [InterfaceBrand]: IfId };
  * Interface for objects representing Daml interfaces.
  */
 export interface InterfaceCompanion<T extends object, I extends string = string>
-  extends ContractTypeCompanion<T, I> {}
+  extends ContractTypeCompanion<T, unknown, I> {}
+
+export type TemplateOrInterface<
+  T extends object,
+  K = unknown,
+  I extends string = string,
+> = Template<T, K, I> | (unknown extends K ? InterfaceCompanion<T, I> : never);
 
 const FromTemplateBrand: unique symbol = Symbol();
 
@@ -466,7 +472,7 @@ export type ContractId<T> = string & { [ContractIdBrand]: T };
  * Companion object of the [[ContractId]] type.
  */
 export const ContractId = <T>(
-  _t: Serializable<T>, // eslint-disable-line @typescript-eslint/no-unused-vars
+  _t: Serializable<T> | TemplateOrInterface<T & object>, // eslint-disable-line @typescript-eslint/no-unused-vars
 ): Serializable<ContractId<T>> => ({
   decoder: jtv.string() as jtv.Decoder<ContractId<T>>,
   encode: (c: ContractId<T>): unknown => c,

@@ -6,6 +6,7 @@ import {
   List,
   Party,
   Template,
+  TemplateOrInterface,
   Text,
   lookupTemplate,
 } from "@daml/types";
@@ -156,7 +157,7 @@ export type Event<T extends object, K = unknown, I extends string = string> =
  * Decoder for a [[CreateEvent]].
  */
 const decodeCreateEvent = <T extends object, K, I extends string>(
-  template: Template<T, K, I>,
+  template: TemplateOrInterface<T, K, I>,
 ): jtv.Decoder<CreateEvent<T, K, I>> =>
   jtv.object({
     templateId: jtv.constant(template.templateId),
