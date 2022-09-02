@@ -159,6 +159,7 @@ package domain {
   )
 
   final case class SearchForeverQuery(
+      // TODO #14727 remove .Template for subscriptions
       templateIds: OneAnd[Set, ContractTypeId.Template.OptionalPkg],
       query: Map[String, JsValue],
       offset: Option[domain.Offset],
