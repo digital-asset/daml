@@ -40,7 +40,7 @@ subgraphToExpectedSubgraph :: V.SubGraph -> ExpectedSubGraph
 subgraphToExpectedSubgraph vSubgraph = ExpectedSubGraph vNodes vFields vTplName
     where vNodes = map (T.unpack . LF.unChoiceName . V.displayChoiceName) (V.nodes vSubgraph)
           vFields = map T.unpack (V.templateFields vSubgraph)
-          vTplName = T.unpack $ V.clusterName vSubgraph
+          vTplName = T.unpack $ V.nameUnqual $ V.clusterName vSubgraph
 
 graphToExpectedGraph :: V.Graph -> ExpectedGraph
 graphToExpectedGraph vGraph = ExpectedGraph vSubgrpaghs vEdges
