@@ -218,15 +218,15 @@ export function assembleInterface<
   C extends object,
 >(
   templateId: I,
-  decoderSource: Serializable<T>,
+  decoderSource: () => Serializable<T>,
   choices: C,
 ): InterfaceCompanion<Interface<I> & T, unknown, I> & C {
   return {
     templateId: templateId,
     sdkVersion: "0.0.0-SDKVERSION",
     // `Interface<I> &` is a phantom intersection
-    decoder: decoderSource.decoder as jtv.Decoder<Interface<I> & T>,
-    keyDecoder: jtv.constant(null),
+    decoder: lazyMemo(() => decoderSource().decoder as jtv.Decoder<Interface<I> & T>),
+    keyDecoder: jtv.succeed(undefined), // ignore input
     ...choices,
   };
 }
