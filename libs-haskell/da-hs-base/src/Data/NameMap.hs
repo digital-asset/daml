@@ -11,13 +11,12 @@
 -- 1. Things can be looked up in constant time by their names.
 --
 -- 2. Functions like 'insert' and 'fromList' fail when there are multiple
---    things with the same name.
+--    things with the same name. Higher order functions like 'map' and
+--    'traverse' fail when the function passed results in multiple items with
+--    the same name.
 --
 -- 3. Functions like 'toList', 'traverse' and the 'Foldable' methods yield the
 --    things in the order they were inserted.
---
--- 4. Higher-order functions like 'map' and 'traverse' fail when the function
---    passed in tries to change the name of a thing.
 module Data.NameMap
   ( Named (..)
   , NameMap
@@ -62,7 +61,6 @@ import           Data.Binary
 import           Data.Data
 import           Data.Foldable hiding (toList, null)
 import           Data.Function (on)
-import           Data.Functor.Identity
 import           Data.Hashable
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.HashSet as HS
@@ -120,17 +118,10 @@ insertEither x (NameMap ras0 idx0) = do
       pure (NameMap ras1 idx1)
 
 -- | @traverse f m@ applies the function @f@ to all elements of @m@ in the
--- order they have been inserted into @m@. Fails when there is an element @x@
--- with @name x /= name (f x)@.
-traverse :: (Applicative f, Named a) => (a -> f a) -> NameMap a -> f (NameMap a)
-traverse f (NameMap ras _) = build <$> Prelude.traverse f' (reverse ras)
-  where
-    f' (n, x) = checkName n <$> f x
-    checkName n y
-      | n == name y = (n, y)
-      | otherwise = error $
-          "Data.NameMap.traverse: function changed name from " ++ show n ++ " to " ++ show (name y)
-    build as = NameMap (reverse as) (HMS.fromList as)
+-- order they have been inserted into @m@. Fails when there are two elements
+-- @x@, @y@ with @name (f x) == name (f y)@.
+traverse :: (Applicative f, Named a, Named b) => (a -> f b) -> NameMap a -> f (NameMap b)
+traverse f = fmap (errorOnDuplicate "traverse" . fromListEither) . Prelude.traverse f . toList
 
 instance Foldable NameMap where
   foldr f z (NameMap ras _) = foldl' f' z ras
@@ -189,9 +180,9 @@ union (NameMap _ nm1) (NameMap _ nm2) =
   Just x -> x
 
 -- | @map f m@ applies the function @f@ to all elements of @m@.
--- Fails when there is an element @x@ with @name x /= name (f x)@.
+-- Fails when there are two elements @x@, @y@ with @name (f x) == name (f y)@.
 map :: Named a => (a -> a) -> NameMap a -> NameMap a
-map f = runIdentity . traverse (Identity . f)
+map f = errorOnDuplicate "map" . fromListEither . Prelude.map f . toList
 
 errorOnDuplicate :: (HasCallStack, Named a) => String -> Either (Name a) (NameMap a) -> NameMap a
 errorOnDuplicate fun = \case
