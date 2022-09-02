@@ -207,7 +207,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
 
   test(
     "EDDisclosedContractsArchiveRaceTest",
-    "Only when archival succeeds in a race between a normal exercise and one with disclosed contracts",
+    "Only one archival succeeds in a race between a normal exercise and one with disclosed contracts",
     allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
     repeated = 3,
