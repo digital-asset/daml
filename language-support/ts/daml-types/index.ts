@@ -21,24 +21,38 @@ export interface Serializable<T> {
 }
 
 /**
+ * Companion objects for templates and interfaces, containing their choices.
+ *
+ * @typeparam T The template payload format or interface view.
+ * @typeparam I The template or interface id.
+ */
+export interface ContractTypeCompanion<T extends object, I extends string> {
+  templateId: I;
+  /**
+   * @internal
+   */
+  sdkVersion: "0.0.0-SDKVERSION";
+  /**
+   * @internal
+   */
+  decoder: jtv.Decoder<T>;
+}
+
+/**
  * Interface for objects representing Daml templates. It is similar to the
  * `Template` type class in Daml.
  *
  * @typeparam T The template type.
  * @typeparam K The contract key type.
- * @typeparam I The contract id type.
+ * @typeparam I The template id type.
  *
  */
 export interface Template<
   T extends object,
   K = unknown,
   I extends string = string,
-> extends Serializable<T> {
-  templateId: I;
-  /**
-   * @internal
-   */
-  sdkVersion: "0.0.0-SDKVERSION";
+> extends ContractTypeCompanion<T, I>,
+    Serializable<T> {
   /**
    * @internal
    */
@@ -92,6 +106,9 @@ const InterfaceBrand: unique symbol = Symbol();
  * @typeparam IfId The interface ID as a constant string.
  */
 export type Interface<IfId> = { readonly [InterfaceBrand]: IfId };
+
+export interface InterfaceCompanion<T, I extends string = string>
+  extends ContractTypeCompanion<Interface<I> & T, I> {}
 
 const FromTemplateBrand: unique symbol = Symbol();
 
@@ -178,6 +195,26 @@ export function assembleTemplate<T extends object, IfU>(
     toInterfaceMixin<T, IfU>(),
     template,
   );
+}
+
+/**
+ * @internal
+ */
+export function assembleInterface<
+  T extends object,
+  I extends string,
+  C extends object,
+>(
+  templateId: I,
+  decoderSource: Serializable<T>,
+  choices: C,
+): InterfaceCompanion<T, I> & C {
+  return {
+    templateId: templateId,
+    sdkVersion: "0.0.0-SDKVERSION",
+    decoder: decoderSource.decoder,
+    ...choices,
+  };
 }
 
 /**
