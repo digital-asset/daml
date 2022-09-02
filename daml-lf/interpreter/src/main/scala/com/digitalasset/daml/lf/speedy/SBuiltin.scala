@@ -21,7 +21,13 @@ import com.daml.lf.speedy.{SExpr0 => compileTime}
 import com.daml.lf.speedy.{SExpr => runTime}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.SValue.{SValue => SV}
-import com.daml.lf.transaction.{ContractStateMachine, GlobalKey, GlobalKeyWithMaintainers, Node, Transaction => Tx}
+import com.daml.lf.transaction.{
+  ContractStateMachine,
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  Node,
+  Transaction => Tx,
+}
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.nameof.NameOf
@@ -30,50 +36,6 @@ import com.daml.scalautil.Statement.discard
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeSet
 import scala.math.Ordering.Implicits.infixOrderingOps
-import scala.util.{Failure, Success, Try}
-
-private[speedy] abstract class SpeedyBuiltin(val arity: Int) {
-
-  private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Control
-
-  protected def crash(msg: String): Nothing =
-    throw SErrorCrash(getClass.getCanonicalName, msg)
-
-  protected def unexpectedType(i: Int, expected: String, found: SValue): Nothing =
-    crash(s"type mismatch of argument $i: expected $expected but got $found")
-}
-
-/** Extensions of this mixin trait ensure that builtin argument lists have a length matching the builtin's arity.
-  */
-private[speedy] trait BuiltinArityChecking { inner: SpeedyBuiltin =>
-
-  @inline
-  private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Control = {
-    require(args.size() == inner.arity)
-
-    inner.execute(args, machine)
-  }
-}
-
-/** Extensions of this mixin trait ensure that the last member of the non-empty argument list is a Speedy token.
-  */
-private[speedy] trait BuiltinTokenChecking { inner: SpeedyBuiltin =>
-
-  @inline
-  private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Control = {
-    require(args.size() > 0)
-
-    checkToken(args, inner.arity - 1)
-
-    inner.execute(args, machine)
-  }
-
-  private def checkToken(args: util.ArrayList[SValue], i: Int): Unit =
-    args.get(i) match {
-      case SToken => ()
-      case otherwise => unexpectedType(i, "SToken", otherwise)
-    }
-}
 
 /**  Speedy builtins are stratified into two layers:
   *  Parent: `SBuiltin`, (which are effectful), and child: `SBuiltinPure` (which are pure).
@@ -84,9 +46,9 @@ private[speedy] trait BuiltinTokenChecking { inner: SpeedyBuiltin =>
   *
   *  Most builtins are pure, and so they extend `SBuiltinPure`
   */
-private[speedy] sealed abstract class SBuiltin(arity: Int)
-    extends SpeedyBuiltin(arity)
-    with BuiltinArityChecking {
+private[speedy] sealed abstract class SBuiltin(val arity: Int) {
+  protected def crash(msg: String): Nothing =
+    throw SErrorCrash(getClass.getCanonicalName, msg)
 
   // Helper for constructing expressions applying this builtin.
   // E.g. SBCons(SEVar(1), SEVar(2))
@@ -98,6 +60,14 @@ private[speedy] sealed abstract class SBuiltin(arity: Int)
   // TODO: avoid constructing application expression at run time
   private[lf] def apply(args: runTime.SExpr*): runTime.SExpr =
     runTime.SEApp(runTime.SEBuiltin(this), args.toArray)
+
+  /** Execute the builtin with 'arity' number of arguments in 'args'.
+    * Updates the machine state accordingly.
+    */
+  private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Control
+
+  protected def unexpectedType(i: Int, expected: String, found: SValue): Nothing =
+    crash(s"type mismatch of argument $i: expect $expected but got $found")
 
   final protected def getSBool(args: util.ArrayList[SValue], i: Int): Boolean =
     args.get(i) match {
@@ -227,6 +197,13 @@ private[speedy] sealed abstract class SBuiltin(arity: Int)
       case SAnyContract(tyCon, value) => (tyCon, value)
       case otherwise => unexpectedType(i, "AnyContract", otherwise)
     }
+
+  final protected def checkToken(args: util.ArrayList[SValue], i: Int): Unit =
+    args.get(i) match {
+      case SToken => ()
+      case otherwise => unexpectedType(i, "SToken", otherwise)
+    }
+
 }
 
 private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltin(arity) {
@@ -1709,11 +1686,12 @@ private[lf] object SBuiltin {
       extends SBUKeyBuiltin(new KeyOperation.Lookup(templateId))
 
   /** $getTime :: Token -> Timestamp */
-  final case object SBGetTime extends SBuiltin(1) with BuiltinTokenChecking {
+  final case object SBGetTime extends SBuiltin(1) {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Control = {
+      checkToken(args, 0)
       // $ugettime :: Token -> Timestamp
       machine.ledgerMode match {
         case onLedger: OnLedger =>
@@ -1728,13 +1706,12 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case class SBSSubmit(optLocation: Option[Location], mustFail: Boolean)
-      extends SBuiltin(3)
-      with BuiltinTokenChecking {
+  final case class SBSSubmit(optLocation: Option[Location], mustFail: Boolean) extends SBuiltin(3) {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Control = {
+      checkToken(args, 2)
       Control.Question(
         SResultScenarioSubmit(
           committers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(0)),
@@ -1750,21 +1727,23 @@ private[lf] object SBuiltin {
   }
 
   /** $pure :: a -> Token -> a */
-  final case object SBSPure extends SBuiltin(2) with BuiltinTokenChecking {
+  final case object SBSPure extends SBuiltin(2) {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Control = {
+      checkToken(args, 1)
       Control.Value(args.get(0))
     }
   }
 
   /** $pass :: Int64 -> Token -> Timestamp */
-  final case object SBSPass extends SBuiltin(2) with BuiltinTokenChecking {
+  final case object SBSPass extends SBuiltin(2) {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Control = {
+      checkToken(args, 1)
       val relTime = getSInt64(args, 0)
       Control.Question(
         SResultScenarioPassTime(
@@ -1778,11 +1757,12 @@ private[lf] object SBuiltin {
   }
 
   /** $getParty :: Text -> Token -> Party */
-  final case object SBSGetParty extends SBuiltin(2) with BuiltinTokenChecking {
+  final case object SBSGetParty extends SBuiltin(2) {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Control = {
+      checkToken(args, 1)
       val name = getSText(args, 0)
       Control.Question(
         SResultScenarioGetParty(
@@ -1829,11 +1809,12 @@ private[lf] object SBuiltin {
   }
 
   /** $try-handler :: Optional (Token -> a) -> AnyException -> Token -> a (or re-throw) */
-  final case object SBTryHandler extends SBuiltin(3) with BuiltinTokenChecking {
+  final case object SBTryHandler extends SBuiltin(3) {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Control = {
+      checkToken(args, 2)
       val opt = getSOptional(args, 0)
       val excep = getSAny(args, 1)
       opt match {
@@ -2124,6 +2105,30 @@ private[lf] object SBuiltin {
         SBError(compileTime.SEValue(SText(s"experimental $name not supported."))),
       )
 
+  }
+
+  private[speedy] final case class SBUpdateContractCache(
+      disclosures: ImmArray[DisclosedContract],
+      sexpr: SExpr,
+  ) extends OnLedgerBuiltin(1) {
+
+    override protected def executeWithLedger(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+        onLedger: OnLedger,
+    ): Control = {
+      val token = args.get(0)
+
+      // TODO: manage error scenarios - use Control.Error(???) as return value for these cases
+      for (disclosedContract <- disclosures) {
+        val contractId = disclosedContract.contractId
+        val cachedContract = ??? // TODO: construct from machine.compiledPacjages.getDefinition
+
+        onLedger.updateCachedContracts(contractId.value, cachedContract)
+      }
+
+      Control.Expression(SEAppGeneral(sexpr, Array(SEValue(token))))
+    }
   }
 
   private[speedy] def convTxError(err: Tx.TransactionError): interpretation.Error = {

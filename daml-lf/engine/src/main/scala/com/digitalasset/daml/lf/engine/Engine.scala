@@ -283,9 +283,13 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       seeding: speedy.InitialSeeding,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
-      sexpr <- runCompilerSafely(
+      sexprCommands <- runCompilerSafely(
         NameOf.qualifiedNameOfCurrentFunc,
         compiledPackages.compiler.unsafeCompile(commands),
+      )
+      sexpr <- runCompilerSafely(
+        NameOf.qualifiedNameOfCurrentFunc,
+        compiledPackages.compiler.unsafeCompileContractDisclosures(disclosures, sexprCommands),
       )
       result <- interpretExpression(
         validating,

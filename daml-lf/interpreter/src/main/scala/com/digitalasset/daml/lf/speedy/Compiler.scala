@@ -128,6 +128,14 @@ private[lf] final class Compiler(
 
   @throws[PackageNotFound]
   @throws[CompilationError]
+  def unsafeCompileContractDisclosures(
+      disclosures: ImmArray[DisclosedContract],
+      sexpr: t.SExpr,
+  ): t.SExpr =
+    compileContractDisclosures(disclosures, sexpr)
+
+  @throws[PackageNotFound]
+  @throws[CompilationError]
   def unsafeCompileForReinterpretation(cmd: Command): t.SExpr =
     compileCommandForReinterpretation(cmd)
 
@@ -296,6 +304,12 @@ private[lf] final class Compiler(
 
   private[this] def compileCommands(cmds: ImmArray[Command]): t.SExpr =
     pipeline(translateCommands(Env.Empty, cmds))
+
+  private[this] def compileContractDisclosures(
+      disclosures: ImmArray[DisclosedContract],
+      sexpr: t.SExpr,
+  ): t.SExpr =
+    pipeline(translateContractDisclosures(Env.Empty, disclosures, sexpr))
 
   private[this] def compileCommandForReinterpretation(cmd: Command): t.SExpr =
     pipeline(translateCommandForReinterpretation(cmd))
@@ -811,10 +825,10 @@ private[lf] final class Compiler(
       tmplKey: TemplateKey,
   ): (t.SDefinitionRef, SDefinition) = {
     // compile a template with key into:
-    // ContractKeyWithMaintainersDefRef(tmplId) = \ <tmplArg> <token> ->
+    // ContractKeyWithMaintainersDefRef(tmplId) = \ <tmplArg> ->
     //   let <key> = tmplKey.body(<tmplArg>)
     //   in { key = <key> ; maintainers = [tmplKey.maintainers] <key> }
-    topLevelFunction2(t.ContractKeyWithMaintainersDefRef(tmplId)) { (tmplArg, _, env) =>
+    topLevelFunction1(t.ContractKeyWithMaintainersDefRef(tmplId)) { (tmplArg, env) =>
       let(env, translateExp(env.bindExprVar(tmpl.param, tmplArg), tmplKey.body)) { (keyPos, env) =>
         translateKeyWithMaintainers(env, keyPos, tmplKey)
       }
@@ -997,5 +1011,14 @@ private[lf] final class Compiler(
             }
           }
         }
+    }
+
+  private[this] def translateContractDisclosures(
+      env: Env,
+      disclosures: ImmArray[DisclosedContract],
+      sexpr: t.SExpr,
+  ): s.SExpr =
+    unaryFunction(env) { (tokenPos, env) =>
+      SBUpdateContractCache(disclosures, sexpr)(env.toSEVar(tokenPos))
     }
 }
