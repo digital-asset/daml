@@ -720,6 +720,34 @@ describe("interfaces", () => {
       },
     ]);
   });
+
+  test("sync query without predicate", async () => {
+    const aliceLedger = new Ledger({
+      token: ALICE_TOKEN,
+      httpBaseUrl: httpBaseUrl(),
+    });
+
+    const assetPayload = {
+      issuer: ALICE_PARTY,
+      owner: ALICE_PARTY,
+    };
+    const expectedView = {}; // TODO #14920 a real view
+
+    const contract = await aliceLedger.create(Asset, assetPayload);
+    const acs = await aliceLedger.query(Token);
+    const expectedAcs: typeof acs = [
+      {
+        templateId: Token.templateId, // NB: the interface ID
+        contractId: contract.contractId,
+        signatories: [ALICE_PARTY],
+        observers: [ALICE_PARTY],
+        agreementText: "",
+        key: undefined,
+        payload: expectedView,
+      },
+    ];
+    expect(acs).toEqual(expectedAcs);
+  });
 });
 
 test("createAndExercise", async () => {
