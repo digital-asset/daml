@@ -1,3 +1,6 @@
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform.store.dao.events
 
 import com.daml.lf.data.Ref
@@ -22,17 +25,13 @@ class EventsTableFlatEventsRangeQueriesSpec
     )
   }
 
-  it should "translate to wildcard" in new Scope {
-  }
+  it should "translate to wildcard" in new Scope {}
 
-  it should "translate to parties and templates" in new Scope {
-  }
+  it should "translate to parties and templates" in new Scope {}
 
-  it should "support translation of wildcard parties and non-wildcard at the same time" in new Scope {
-  }
+  it should "support translation of wildcard parties and non-wildcard at the same time" in new Scope {}
 
-  it should "optimize if all parties request the same templates" in new Scope {
-  }
+  it should "optimize if all parties request the same templates" in new Scope {}
 
 }
 
