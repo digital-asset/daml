@@ -484,14 +484,14 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId, ifRetroImp
         , "  {"
         ]
       , concat
-        [ [ "  " <> chcName' <> ": {"
-          , "    template: function () { return exports." <> ifName <> "; },"
-          , "    choiceName: '" <> chcName' <> "',"
-          , "    argumentDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcArgTy)) <> ","
-          , "    argumentEncode: " <> renderEncode (EncodeRef chcArgTy) <> ","
-          , "    resultDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcRetTy)) <> ","
-          , "    resultEncode: " <> renderEncode (EncodeRef chcRetTy) <> ","
-          , "  },"
+        [ [ "    " <> chcName' <> ": {"
+          , "      template: function () { return exports." <> ifName <> "; },"
+          , "      choiceName: '" <> chcName' <> "',"
+          , "      argumentDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcArgTy)) <> ","
+          , "      argumentEncode: " <> renderEncode (EncodeRef chcArgTy) <> ","
+          , "      resultDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcRetTy)) <> ","
+          , "      resultEncode: " <> renderEncode (EncodeRef chcRetTy) <> ","
+          , "    },"
           ]
           | ChoiceDef{..} <- ifChoices
           ]
