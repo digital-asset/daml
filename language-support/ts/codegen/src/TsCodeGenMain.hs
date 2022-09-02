@@ -478,8 +478,10 @@ renderInterfaceDef :: InterfaceDef -> (T.Text, T.Text)
 renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId, ifRetroImplements} = (jsSource, tsDecl)
   where
     jsSource = T.unlines $ concat
-      [ [ "exports." <> ifName <> " = {"
-        , "  templateId: '" <> ifaceId <> "',"
+      [ [ "exports." <> ifName <> " = damlTypes.assembleInterface("
+        , "  '" <> ifaceId <> "',"
+        , "  {decoder: 'TODO #14920 view companion'},"
+        , "  {"
         ]
       , concat
         [ [ "  " <> chcName' <> ": {"
@@ -493,14 +495,14 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId, ifRetroImp
           ]
           | ChoiceDef{..} <- ifChoices
           ]
-      , [ "};" ]
+      , [ "  });" ]
       ]
     tsDecl = T.unlines $ concat
       [ [ "export declare type " <> ifName <> " = damlTypes.Interface<"
-          <> renderDecoderConstant (ConstantString ifaceId) <> ">;" ]
+          <> renderDecoderConstant (ConstantString ifaceId) <> ">;" ] -- TODO #14920 & view
       , ifaceDefIface ifName Nothing ifChoices
       , [ "export declare const " <> ifName <> ":"
-        , "  damlTypes.Template<" <> ifName <> ", undefined, '" <> ifaceId <> "'> &"
+        , "  damlTypes.InterfaceCompanion<" <> ifName <> ", '" <> ifaceId <> "'> &"
         , "  damlTypes.FromTemplate<" <> ifName <> ", " <> retroImplsIntersection <> "> &"
         , "  " <> ifName <> "Interface;"
         ]
