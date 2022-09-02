@@ -70,7 +70,7 @@ object WebSocketService {
 
   private object StreamPredicate {
     final case class ValidStreamPredicate[+Positive](
-        resolved: domain.ResolvedQuery,
+        resolvedQurey: domain.ResolvedQuery,
         unresolved: Set[domain.TemplateId.OptionalPkg],
         fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive],
         dbQuery: (domain.PartySet, dbbackend.ContractDao) => ConnectionIO[
@@ -337,7 +337,6 @@ object WebSocketService {
                     .partitionMap(identity)
                 )
             (resolved, unresolved) = res
-            // TODO SC ChunLok So hacky here to specially handling empty as empty is not allow but we want to handle
             errorOrResolvedQuery = domain.ResolvedQuery(resolved)
             q = prepareFilters(
               errorOrResolvedQuery.getOrElse(ResolvedQuery.Empty),
@@ -771,7 +770,7 @@ class WebSocketService(
       lc: LoggingContextOf[InstanceUUID]
   ): Future[Source[StepAndErrors[Positive, JsValue], NotUsed]] = {
     // TODO query store support for interface query/fetch #14819
-    val daoAndFetch = predicate.resolved match {
+    val daoAndFetch = predicate.resolvedQurey match {
       case domain.ResolvedQuery.ByInterfaceId(_) =>
         None
       case _ =>
@@ -781,8 +780,12 @@ class WebSocketService(
     daoAndFetch.cata(
       { case (dao, fetch) =>
         val tx: ConnectionIO[Source[StepAndErrors[Positive, JsValue], NotUsed]] =
-          fetch.fetchAndPersistBracket(jwt, ledgerId, parties, predicate.resolved.resolved.toList) {
-            // TODO ChunLok Sth else instead of .resolved.resolved?
+          fetch.fetchAndPersistBracket(
+            jwt,
+            ledgerId,
+            parties,
+            predicate.resolvedQurey.resolved.toList,
+          ) {
             case LedgerBegin =>
               fconn.pure(liveBegin(LedgerBegin))
             case bookmark @ AbsoluteBookmark(_) =>
@@ -802,16 +805,15 @@ class WebSocketService(
       },
       Future.successful {
         contractsService
-          // TODO ChunLok Sth else instead of .resolved.resolved?
           .liveAcsAsInsertDeleteStepSource(
             jwt,
             ledgerId,
             parties,
-            predicate.resolved.resolved.toList,
+            predicate.resolvedQurey.resolved.toList,
           )
           .via(
             convertFilterContracts(
-              predicate.resolved,
+              predicate.resolvedQurey,
               predicate.fn,
             )
           )
@@ -835,7 +837,7 @@ class WebSocketService(
   ): Future[StreamPredicate[Q.Positive]] =
     Q.predicate(request, resolveContractTypeId, resolveTemplateId, lookupType, jwt, ledgerId)
 
-  private def getTransactionSourceForParty[A]( // TODO raw request
+  private def getTransactionSourceForParty[A](
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
@@ -884,11 +886,8 @@ class WebSocketService(
               )
             )
             .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
-        // TODO: CL how to handle AllContractTypeIdsNotResolved? What will be the behaviour change?
         case AllContractTypeIdsNotResolved(_) | UnsupportedQuery(_) =>
-          // TODO: CL Do we really want to handle InvalidStreamPredicate everywhere? It should be resolved earlier :/
-          // is this possible as it should have failed earlier.
-          // just make it compile for now and fix it later
+          // TODO: CL how to handle AllContractTypeIdsNotResolved? What will be the behaviour change?
           Source.empty
       }
     }
