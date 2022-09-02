@@ -731,22 +731,23 @@ describe("interfaces", () => {
       issuer: ALICE_PARTY,
       owner: ALICE_PARTY,
     };
-    const expectedView = {}; // TODO #14920 a real view
+    const expectedView: buildAndLint.Main.TokenView = {
+      tokenOwner: ALICE_PARTY,
+    };
 
     const contract = await aliceLedger.create(Asset, assetPayload);
     const acs = await aliceLedger.query(Token);
-    const expectedAcs: typeof acs = [
-      {
-        templateId: Token.templateId, // NB: the interface ID
-        contractId: contract.contractId,
-        signatories: [ALICE_PARTY],
-        observers: [ALICE_PARTY],
-        agreementText: "",
-        key: undefined,
-        payload: expectedView,
-      },
-    ];
-    expect(acs).toEqual(expectedAcs);
+    const expectedAc: typeof acs extends (infer ce)[]
+      ? Omit<ce, "key">
+      : never = {
+      templateId: Token.templateId, // NB: the interface ID
+      contractId: Asset.toInterface(Token, contract.contractId),
+      signatories: [ALICE_PARTY],
+      observers: [],
+      agreementText: "",
+      payload: expectedView as buildAndLint.Main.Token,
+    };
+    expect(acs).toContainEqual(expectedAc);
   });
 });
 
