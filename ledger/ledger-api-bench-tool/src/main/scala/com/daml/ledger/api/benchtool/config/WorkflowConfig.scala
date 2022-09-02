@@ -105,11 +105,16 @@ object WorkflowConfig {
 
   object StreamConfig {
 
-    final case class PartyFilter(party: String, templates: List[String] = List.empty)
+    final case class PartyFilter(
+        party: String,
+        templates: List[String] = List.empty,
+        interfaces: List[String] = List.empty,
+    )
 
     final case class PartyNamePrefixFilter(
         partyNamePrefix: String,
         templates: List[String] = List.empty,
+        interfaces: List[String] = List.empty,
     )
 
     final case class TransactionsStreamConfig(

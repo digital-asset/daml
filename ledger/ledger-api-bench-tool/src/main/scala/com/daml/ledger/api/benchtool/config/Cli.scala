@@ -372,7 +372,9 @@ object Cli {
         .split('@')
         .toList match {
         case party :: templates =>
-          Right(WorkflowConfig.StreamConfig.PartyFilter(party, templates))
+          Right(
+            WorkflowConfig.StreamConfig.PartyFilter(party, templates, List.empty)
+          ) // Interfaces are not supported via Cli
         case _ => Left("Filter cannot be empty")
       }
     }
