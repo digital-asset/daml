@@ -3,10 +3,11 @@
 
 module Transferrable where
 
-data EmptyInterfaceView = EmptyInterfaceView {}
+data AmountView = AmountView with
+  amount: Text
 
 interface Transferrable where
-  viewtype EmptyInterfaceView
+  viewtype AmountView
   getOwner : Party
 
   choice Overridden : Text with

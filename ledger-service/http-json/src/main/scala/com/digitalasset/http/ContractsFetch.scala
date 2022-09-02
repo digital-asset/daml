@@ -249,7 +249,8 @@ private class ContractsFetch(
     import scalaz.std.option._
     import com.daml.lf.crypto.Hash
     for {
-      ac <- domain.ActiveContract fromLedgerApi ce leftMap (de =>
+      // TODO RR #14871 verify that `ResolvedQuery.Empty` is ok in this scenario
+      ac <- domain.ActiveContract fromLedgerApi (domain.ResolvedQuery.Empty, ce) leftMap (de =>
         new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"): Exception
       )
       lfKey <- ac.key.traverse(apiValueToLfValue).leftMap(_.cause: Exception)

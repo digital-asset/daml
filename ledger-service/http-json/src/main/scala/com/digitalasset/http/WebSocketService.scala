@@ -743,7 +743,12 @@ class WebSocketService(
       Future.successful {
         contractsService
           .liveAcsAsInsertDeleteStepSource(jwt, ledgerId, parties, predicate.resolved.toList)
-          .via(convertFilterContracts(predicate.fn))
+          .via(
+            convertFilterContracts(
+              domain.ResolvedQuery.ContractTypeIdsQuery(predicate.resolved),
+              predicate.fn,
+            )
+          )
       },
     )
 
@@ -804,7 +809,12 @@ class WebSocketService(
             liveStartingOffset,
             Terminates.Never,
           )
-          .via(convertFilterContracts(fn))
+          .via(
+            convertFilterContracts(
+              domain.ResolvedQuery.ContractTypeIdsQuery(resolved),
+              fn,
+            )
+          )
           .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
       }
     }
@@ -846,7 +856,12 @@ class WebSocketService(
                       liveStartingOffset,
                       Terminates.Never,
                     )
-                    .via(convertFilterContracts(fn))
+                    .via(
+                      convertFilterContracts(
+                        domain.ResolvedQuery.ContractTypeIdsQuery(resolved),
+                        fn,
+                      )
+                    )
                     .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
                 }
               },
@@ -952,7 +967,8 @@ class WebSocketService(
     TextMessage(jsVal.compactPrint)
 
   private def convertFilterContracts[Pos](
-      fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Pos]
+      resolvedQuery: domain.ResolvedQuery,
+      fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Pos],
   ): Flow[ContractStreamStep.LAV1, StepAndErrors[Pos, JsValue], NotUsed] =
     Flow
       .fromFunction { step: ContractStreamStep.LAV1 =>
@@ -963,7 +979,7 @@ class WebSocketService(
               .liftErr(ServerError.fromMsg),
           ce =>
             domain.ActiveContract
-              .fromLedgerApi(ce)
+              .fromLedgerApi(resolvedQuery, ce)
               .liftErr(ServerError.fromMsg)
               .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError.fromMsg)),
         )(Seq)

@@ -131,11 +131,20 @@ private[daml] object AcsTxStreams {
   ): lav1.transaction_filter.TransactionFilter = {
     import lav1.transaction_filter._
 
-    // TODO #14815 make a different filter for `ContractTypeId.Interface`s
-    val filters =
-      if (contractTypeIds.isEmpty) Filters.defaultInstance
-      else
-        Filters(Some(lav1.transaction_filter.InclusiveFilters(contractTypeIds.map(apiIdentifier))))
+    val (templateIds, interfaceIds) = domain.ResolvedQuery.partition(contractTypeIds)
+    val filters = Filters(
+      Some(
+        lav1.transaction_filter.InclusiveFilters(
+          templateIds = templateIds.map(apiIdentifier),
+          interfaceFilters = interfaceIds.map(interfaceId =>
+            InterfaceFilter(
+              interfaceId = Some(apiIdentifier(interfaceId)),
+              includeInterfaceView = true,
+            )
+          ),
+        )
+      )
+    )
 
     TransactionFilter(
       domain.Party.unsubst((parties: Set[domain.Party]).toVector).map(_ -> filters).toMap

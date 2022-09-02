@@ -11,6 +11,7 @@ import com.daml.lf.typesig.{DefDataType, PackageSignature}
 import com.daml.ledger.api.v1.package_service.GetPackageResponse
 import com.daml.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.client.services.pkg.withoutledgerid.{PackageClient => LoosePackageClient}
+import com.daml.lf.data.ImmArray.ImmArraySeq
 import scalaz.Scalaz._
 import scalaz._
 
@@ -90,9 +91,19 @@ object LedgerReader {
     }(_.getLocalizedMessage).join
   }
 
-  def damlLfTypeLookup(packageStore: () => PackageStore)(id: Identifier): Option[DefDataType.FWT] =
-    for {
-      iface <- packageStore().get(id.packageId)
-      ifaceType <- iface.typeDecls.get(id.qualifiedName)
-    } yield ifaceType.`type`
+  def damlLfTypeLookup(
+      packageStore: () => PackageStore
+  )(id: Identifier): Option[DefDataType.FWT] = {
+    val store = packageStore()
+
+    store.get(id.packageId).flatMap { packageSignature =>
+      packageSignature.typeDecls.get(id.qualifiedName).map(_.`type`).orElse {
+        for {
+          interface <- packageSignature.interfaces.get(id.qualifiedName)
+          viewTypeId <- interface.viewType
+          viewType <- PackageSignature.resolveInterfaceViewType(store).lift(viewTypeId)
+        } yield DefDataType(ImmArraySeq(), viewType)
+      }
+    }
+  }
 }

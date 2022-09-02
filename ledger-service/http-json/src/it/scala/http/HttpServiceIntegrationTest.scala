@@ -116,11 +116,6 @@ abstract class HttpServiceIntegrationTest
       inside(exerciseTest) { case (StatusCodes.OK, domain.OkResponse(er, None, StatusCodes.OK)) =>
         inside(jdecode[String](er.exerciseResult)) { case \/-(decoded) => decoded }
       }
-
-    // nested like this similar to TpId so the references look nicer
-    object CIou {
-      val CIou: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "CIou", "CIou")
-    }
     object Transferrable {
       val Transferrable: domain.ContractTypeId.Interface.OptionalPkg =
         domain.ContractTypeId.Interface(None, "Transferrable", "Transferrable")
@@ -267,23 +262,6 @@ abstract class HttpServiceIntegrationTest
           ) =>
         lookup should include regex raw"Cannot resolve Template Key type, given: InterfaceId\([0-9a-f]{64},IIou,IIou\)"
     }
-  }
-
-  private[this] val (_, ciouVA) = {
-    val iouT = ShRecord(issuer = VA.party, owner = VA.party, amount = VA.text)
-    VA.record(Ref.Identifier assertFromString "none:Iou:Iou", iouT)
-  }
-
-  private[this] def iouCommand(party: domain.Party, templateId: domain.TemplateId.OptionalPkg) = {
-    val issuer = Ref.Party assertFromString domain.Party.unwrap(party)
-    val iouT = argToApi(ciouVA)(
-      ShRecord(
-        issuer = issuer,
-        owner = issuer,
-        amount = "42",
-      )
-    )
-    domain.CreateCommand(templateId, iouT, None)
   }
 
   private[this] def iouTransfer[Inj](
