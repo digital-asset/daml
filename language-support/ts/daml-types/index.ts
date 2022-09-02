@@ -24,9 +24,10 @@ export interface Serializable<T> {
  * Companion objects for templates and interfaces, containing their choices.
  *
  * @typeparam T The template payload format or interface view.
+ * @typeparam K The contract key type.
  * @typeparam I The template or interface id.
  */
-export interface ContractTypeCompanion<T extends object, I extends string> {
+export interface ContractTypeCompanion<T extends object, K, I extends string> {
   templateId: I;
   /**
    * @internal
@@ -36,6 +37,10 @@ export interface ContractTypeCompanion<T extends object, I extends string> {
    * @internal
    */
   decoder: jtv.Decoder<T>;
+  /**
+   * @internal
+   */
+  keyDecoder: jtv.Decoder<K>;
 }
 
 /**
@@ -51,12 +56,8 @@ export interface Template<
   T extends object,
   K = unknown,
   I extends string = string,
-> extends ContractTypeCompanion<T, I>,
+> extends ContractTypeCompanion<T, K, I>,
     Serializable<T> {
-  /**
-   * @internal
-   */
-  keyDecoder: jtv.Decoder<K>;
   /**
    * @internal
    */
@@ -225,6 +226,7 @@ export function assembleInterface<
     sdkVersion: "0.0.0-SDKVERSION",
     // `Interface<I> &` is a phantom intersection
     decoder: decoderSource.decoder as jtv.Decoder<Interface<I> & T>,
+    keyDecoder: jtv.constant(null),
     ...choices,
   };
 }
