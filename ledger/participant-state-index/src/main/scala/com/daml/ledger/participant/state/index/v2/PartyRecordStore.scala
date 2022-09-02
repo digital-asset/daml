@@ -19,7 +19,9 @@ trait LedgerPartyExists {
 case class PartyRecordUpdate(
     party: Ref.Party,
     metadataUpdate: ObjectMetaUpdate,
-)
+) {
+  def isNoUpdate: Boolean = metadataUpdate.isNoUpdate
+}
 
 trait PartyRecordStore {
   import PartyRecordStore._

@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.update
 
-sealed trait UpdatePathError extends RuntimeException
+sealed trait UpdatePathError
 
 object UpdatePathError {
 
@@ -15,7 +15,7 @@ object UpdatePathError {
 
   final case class UnknownUpdateModifier(rawPath: String) extends UpdatePathError
 
-  final case class MoreThanOneExclamationMarkSymbol(rawPath: String) extends UpdatePathError
+  final case class InvalidUpdatePathSyntax(rawPath: String) extends UpdatePathError
 
   final case class EmptyFieldPath(rawPath: String) extends UpdatePathError
 
