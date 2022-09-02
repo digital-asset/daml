@@ -5,6 +5,7 @@ package com.daml.platform.apiserver.update
 
 import collection.mutable
 import scala.annotation.tailrec
+import scala.collection.immutable.SortedMap
 
 object UpdatePathsTrie {
   case class MatchResult(
@@ -18,18 +19,75 @@ object UpdatePathsTrie {
       modifierO: Option[UpdatePathModifier],
       nodes: (String, UpdatePathsTrie)*
   ) = new UpdatePathsTrie(
-    nodes = mutable.SortedMap.from(nodes),
+    nodes = SortedMap.from(nodes),
     modifierO = modifierO,
   )
 
   def fromPaths(paths: Seq[UpdatePath]): Result[UpdatePathsTrie] = {
-    val t: Result[UpdatePathsTrie] = Right(UpdatePathsTrie(None))
-    paths.foldLeft(t)((trieResult, path) =>
+    val builder: Result[Builder] = Right(Builder(None))
+    val buildResult = paths.foldLeft(builder)((builderResult, path) =>
       for {
-        t <- trieResult
-        _ <- t.insertUniquePath(path)
-      } yield t
+        b <- builderResult
+        _ <- b.insertUniquePath(path)
+      } yield b
     )
+    buildResult.map(build)
+  }
+
+  private def build(builder: Builder): UpdatePathsTrie = {
+    new UpdatePathsTrie(
+      modifierO = builder.modifierO,
+      nodes = SortedMap.from(builder.nodes.view.mapValues(build)),
+    )
+  }
+
+  private object Builder {
+    def apply(
+        modifierO: Option[UpdatePathModifier],
+        nodes: (String, Builder)*
+    ) = new Builder(
+      nodes = mutable.SortedMap.from(nodes),
+      modifierO = modifierO,
+    )
+  }
+
+  private case class Builder(
+      nodes: mutable.SortedMap[String, Builder],
+      var modifierO: Option[UpdatePathModifier],
+  ) {
+
+    /** @param updatePath unique path to be inserted
+      */
+    def insertUniquePath(updatePath: UpdatePath): Result[Unit] = {
+      if (!doInsertUniquePath(updatePath.fieldPath, updatePath.modifier)) {
+        Left(UpdatePathError.DuplicatedFieldPath(updatePath.toRawString))
+      } else Right(())
+    }
+
+    /** @return true if successfully inserted the field path, false if the field path was already present in this trie
+      */
+    @tailrec
+    private def doInsertUniquePath(
+        fieldPath: List[String],
+        modifier: UpdatePathModifier,
+    ): Boolean = {
+      fieldPath match {
+        case Nil =>
+          if (this.modifierO.nonEmpty) {
+            false
+          } else {
+            this.modifierO = Some(modifier)
+            true
+          }
+        case key :: subpath =>
+          if (!nodes.contains(key)) {
+            val empty = new Builder(nodes = mutable.SortedMap.empty, modifierO = None)
+            nodes.put(key, empty)
+          }
+          nodes(key).doInsertUniquePath(subpath, modifier)
+      }
+    }
+
   }
 }
 
@@ -44,8 +102,8 @@ object UpdatePathsTrie {
   * @param modifierO - non empty to signify a path ending in this node exists
   */
 private[update] case class UpdatePathsTrie(
-    nodes: mutable.SortedMap[String, UpdatePathsTrie],
-    var modifierO: Option[UpdatePathModifier],
+    nodes: SortedMap[String, UpdatePathsTrie],
+    modifierO: Option[UpdatePathModifier],
 ) {
   import UpdatePathsTrie._
 
@@ -75,35 +133,6 @@ private[update] case class UpdatePathsTrie(
           .collectFirst { case Some((modifier, prefix)) =>
             MatchResult(isExact = false, matchedPath = UpdatePath(prefix, modifier))
           }
-    }
-  }
-
-  /** @param updatePath unique path to be inserted
-    */
-  def insertUniquePath(updatePath: UpdatePath): Result[Unit] = {
-    if (!doInsertUniquePath(updatePath.fieldPath, updatePath.modifier)) {
-      Left(UpdatePathError.DuplicatedFieldPath(updatePath.toRawString))
-    } else Right(())
-  }
-
-  /** @return true if successfully inserted the field path, false if the field path was already present in this trie
-    */
-  @tailrec
-  private def doInsertUniquePath(fieldPath: List[String], modifier: UpdatePathModifier): Boolean = {
-    fieldPath match {
-      case Nil =>
-        if (this.modifierO.nonEmpty) {
-          false
-        } else {
-          this.modifierO = Some(modifier)
-          true
-        }
-      case key :: subpath =>
-        if (!nodes.contains(key)) {
-          val empty = new UpdatePathsTrie(nodes = mutable.SortedMap.empty, modifierO = None)
-          nodes.put(key, empty)
-        }
-        nodes(key).doInsertUniquePath(subpath, modifier)
     }
   }
 
