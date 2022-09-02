@@ -111,8 +111,11 @@ export type Interface<IfId> = { readonly [InterfaceBrand]: IfId };
 /**
  * Interface for objects representing Daml interfaces.
  */
-export interface InterfaceCompanion<T extends object, K, I extends string = string>
-  extends ContractTypeCompanion<T, K, I> {}
+export interface InterfaceCompanion<
+  T extends object,
+  K,
+  I extends string = string,
+> extends ContractTypeCompanion<T, K, I> {}
 
 export type TemplateOrInterface<
   T extends object,
@@ -225,7 +228,9 @@ export function assembleInterface<
     templateId: templateId,
     sdkVersion: "0.0.0-SDKVERSION",
     // `Interface<I> &` is a phantom intersection
-    decoder: lazyMemo(() => decoderSource().decoder as jtv.Decoder<Interface<I> & T>),
+    decoder: lazyMemo(
+      () => decoderSource().decoder as jtv.Decoder<Interface<I> & T>,
+    ),
     keyDecoder: jtv.succeed(undefined), // ignore input
     ...choices,
   };

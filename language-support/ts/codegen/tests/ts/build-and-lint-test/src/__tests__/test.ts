@@ -639,20 +639,20 @@ describe("interface definition", () => {
       expect(c).not.toEqual(theChoice(if2[k]));
       expect(c.template()).toBe(tpl);
     });
+  });
 
-    test("retroactive interfaces permit contract ID conversion", () => {
-      const cid = "test" as ContractId<buildAndLint.Main.Asset>;
-      const icid: ContractId<buildAndLint.Retro.Retro> = tpl.toInterface(
-        buildAndLint.Retro.Retro,
-        cid,
-      );
-      const tcid: ContractId<buildAndLint.Main.Asset> = tpl.unsafeFromInterface(
-        buildAndLint.Retro.Retro,
-        icid,
-      );
-      expect(icid).toBe(cid);
-      expect(tcid).toBe(icid);
-    });
+  test("retroactive interfaces permit contract ID conversion", () => {
+    const cid = "test" as ContractId<buildAndLint.Main.Asset>;
+    const icid: ContractId<buildAndLint.Retro.Retro> = tpl.toInterface(
+      buildAndLint.Retro.Retro,
+      cid,
+    );
+    const tcid: ContractId<buildAndLint.Main.Asset> = tpl.unsafeFromInterface(
+      buildAndLint.Retro.Retro,
+      icid,
+    );
+    expect(icid).toBe(cid);
+    expect(tcid).toBe(icid);
   });
 });
 
