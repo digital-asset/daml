@@ -111,9 +111,9 @@ const decode = <R>(decoder: jtv.Decoder<R>, data: unknown): R => {
 /**
  * A newly created contract.
  *
- * @typeparam T The contract template type.
+ * @typeparam T The contract payload type.
  * @typeparam K The contract key type.
- * @typeparam I The contract id type.
+ * @typeparam I The contract type id.
  *
  */
 export type CreateEvent<
@@ -133,8 +133,8 @@ export type CreateEvent<
 /**
  * An archived contract.
  *
- * @typeparam T The contract template type.
- * @typeparam I The contract id type.
+ * @typeparam T The contract template or interface type.
+ * @typeparam I The template or interface id.
  */
 export type ArchiveEvent<T extends object, I extends string = string> = {
   templateId: I;
