@@ -930,13 +930,13 @@ class WebSocketService(
                     jwt,
                     ledgerId,
                     parties,
-                    resolved.toList,
+                    resolvedQuery.resolved.toList,
                     liveStartingOffset,
                     Terminates.Never,
                   )
                   .via(
                     convertFilterContracts(
-                      domain.ResolvedQuery.ContractTypeIdsQuery(resolved),
+                      domain.ResolvedQuery.ContractTypeIdsQuery(resolvedQuery.resolved),
                       fn,
                     )
                   )
