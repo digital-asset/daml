@@ -960,7 +960,7 @@ class WebSocketService(
           case ValidStreamPredicate(resolved, unresolved, fn, _) =>
             if (resolved.resolved.nonEmpty)
               processResolved(resolved.resolved, unresolved, fn)
-            else {
+            else
               Future.successful(
                 reportUnresolvedTemplateIds(unresolved)
                   .map(jsv => \/-(wsMessage(jsv)))
@@ -968,7 +968,6 @@ class WebSocketService(
                     Source.single(-\/(InvalidUserInput(ErrorMessages.cannotResolveAnyTemplateId)))
                   )
               )
-            }
           case AllContractTypeIdsNotResolved(unresolved) =>
             Future.successful(
               reportUnresolvedTemplateIds(unresolved)
