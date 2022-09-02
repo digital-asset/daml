@@ -859,7 +859,7 @@ class WebSocketService(
         .map(queryPredicate(_, jwt, ledgerId))
         .sequence
 
-    def liveFrom(resolved: Set[domain.ContractTypeId.Resolved])(
+    def liveFrom(resolvedQuery: ResolvedQuery)(
         acsEnd: Option[StartingOffset]
     ): Future[Source[StepAndErrors[Q.Positive, JsValue], NotUsed]] = {
       val shiftedRequest = Q.adjustRequest(acsEnd, request)
@@ -875,13 +875,13 @@ class WebSocketService(
               jwt,
               ledgerId,
               parties,
-              resolved.toList,
+              resolvedQuery.resolved.toList,
               liveStartingOffset,
               Terminates.Never,
             )
             .via(
               convertFilterContracts(
-                domain.ResolvedQuery.ContractTypeIdsQuery(resolved),
+                domain.ResolvedQuery.ContractTypeIdsQuery(resolvedQuery.resolved),
                 fn,
               )
             )
@@ -893,7 +893,7 @@ class WebSocketService(
     }
 
     def processResolved(
-        resolved: Set[domain.ContractTypeId.Resolved],
+        resolvedQuery: ResolvedQuery,
         unresolved: Set[OptionalPkg],
         fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Q.Positive],
     ) =
@@ -914,10 +914,10 @@ class WebSocketService(
                     Future.successful(Source.empty)
                   case liveBegin @ StepAndErrors(_, LiveBegin(offset)) =>
                     val acsEnd = offset.toOption.map(domain.StartingOffset(_))
-                    liveFrom(resolved)(acsEnd).map(it => Source.single(liveBegin) ++ it)
+                    liveFrom(resolvedQuery)(acsEnd).map(it => Source.single(liveBegin) ++ it)
                   case txn @ StepAndErrors(_, Txn(_, offset)) =>
                     val acsEnd = Some(domain.StartingOffset(offset))
-                    liveFrom(resolved)(acsEnd).map(it => Source.single(txn) ++ it)
+                    liveFrom(resolvedQuery)(acsEnd).map(it => Source.single(txn) ++ it)
                 }
                 .flatMapConcat(it => it)
             }, {
@@ -959,7 +959,7 @@ class WebSocketService(
         queryPredicate(request, jwt, ledgerId).flatMap {
           case ValidStreamPredicate(resolved, unresolved, fn, _) =>
             if (resolved.resolved.nonEmpty)
-              processResolved(resolved.resolved, unresolved, fn)
+              processResolved(resolved, unresolved, fn)
             else
               Future.successful(
                 reportUnresolvedTemplateIds(unresolved)
@@ -977,7 +977,7 @@ class WebSocketService(
                 )
             )
           case AllContractTypeIdsNotResolved(_) | UnsupportedQuery(_) =>
-            // TODO CL put error message depends on reason
+            // TODO ChunLok put error message depends on reason
             Future.successful(
               Source.single(-\/(InvalidUserInput(ErrorMessages.cannotResolveAnyTemplateId)))
             )
