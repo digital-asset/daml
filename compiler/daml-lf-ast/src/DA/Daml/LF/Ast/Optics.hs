@@ -2,15 +2,9 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE UndecidableInstances #-}
-
 module DA.Daml.LF.Ast.Optics(
     ModuleRef,
     moduleModuleRef,
@@ -37,9 +31,6 @@ import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.TypeLevelNat
 import DA.Daml.LF.Ast.Recursive
 import DA.Daml.LF.Ast.Version (Version)
-
-import qualified Data.Kind as K (Type, Constraint)
-import GHC.TypeLits
 
 -- | WARNING: The result is not a proper prism.
 -- The intended use case is something along the lines of
@@ -225,86 +216,8 @@ instance MonoTraversable ModuleRef PackageMetadata
 instance MonoTraversable ModuleRef Package
 instance MonoTraversable ModuleRef T.Text where monoTraverse _ = pure
 
-instance {-# OVERLAPPABLE #-} (MonoTraversableNameMap ModuleRef a) => MonoTraversable ModuleRef (NM.NameMap a) where
+instance (NM.Named a, MonoTraversable ModuleRef a) => MonoTraversable ModuleRef (NM.NameMap a) where
   monoTraverse = NM.traverse . monoTraverse
-
--- The following two instances overlap the one above.
---
--- They should be okay since 'NM.traverseAsList' doesn't fail if the names change,
--- and we don't care if these particular 'NM.NameMap's change names
--- (which isn't necessarily the case for other 'NM.NameMap's).
---
--- Note that if a traversal changes two elements so their new names are equal,
--- this will still be a runtime error, but 'DA.Daml.Compiler.Validate.validateWellTyped'
--- (through 'packageRefs'), the only place where these instances are used as a
--- traversal rather than just a fold, just rewrites 'PRImport's that refer to
--- the package being validated into 'PRSelf', and since the module was decoded with
--- 'DecodeAsDependency', there can be no pre-existing 'PRSelf's to clash with.
-instance {-# OVERLAPPING #-} MonoTraversable ModuleRef (NM.NameMap TemplateImplements) where
-  monoTraverse = NM.traverseAsList . monoTraverse
-instance {-# OVERLAPPING #-} MonoTraversable ModuleRef (NM.NameMap InterfaceCoImplements) where
-  monoTraverse = NM.traverseAsList . monoTraverse
-
-type MonoTraversableNameMap e a =
-  ( NM.Named a
-  , MonoTraversable e a
-  , MonoTraversableNameMapName e (NM.Name a) a
-  )
-
--- | @MonoTraversableNameMapName e n a@ is used to check that a type @a@ such that
---
--- > instance NM.Named a where
--- >   type NM.Name a = n
--- >   name = (...)
---
--- is acceptable for use with
---
--- > monoTraverse @e @(NM.NameMap a)
---
--- This check is necessary because 'NM.traverse' fails at runtime if the
--- supplied function changes the names of the items in the map.
---
--- An empty instance of this class means that @n@ is an acceptable 'NM.Name'
--- for @a@ when 'monoTraverse' targets values of type @e@, in other words,
---
--- > monoTraverse @e @(NM.NameMap a)
---
--- is not expected to change the names of type @n@.
---
--- An instance with a constraint 'BadMonoTraversableNameMapName e n a' means
--- that @n@ is _not_ an acceptable name for @a@, because 'monoTraverse' would
--- change the names at runtime, causing 'NM.traverse' to fail.
---
-class MonoTraversableNameMapName e n a
-instance MonoTraversableNameMapName ModuleRef ModuleName a
-instance MonoTraversableNameMapName ModuleRef TypeSynName a
-instance MonoTraversableNameMapName ModuleRef ExprValName a
-instance MonoTraversableNameMapName ModuleRef TypeConName a
-instance MonoTraversableNameMapName ModuleRef MethodName a
-instance MonoTraversableNameMapName ModuleRef ChoiceName a
-
--- | Given @type NM.Name a = Qualified _@,
---
--- > monoTraverse @ModuleRef @(NM.NameMap a)
---
--- is very likely to fail because @Qualified x@ is effectively a tuple of
--- @(ModuleRef, a)@, so any function on @ModuleRef@ would change the names.
---
-instance BadMonoTraversableNameMapName ModuleRef (Qualified x) a
-      => MonoTraversableNameMapName ModuleRef (Qualified x) a
-
-type family BadMonoTraversableNameMapName (e :: K.Type) (n :: K.Type) (a :: K.Type) :: K.Constraint where
-  BadMonoTraversableNameMapName e n a =
-    TypeError
-      ( 'Text "Cannot use " ':<>: 'ShowType n
-        ':$$: 'Text "as the Name of " ':<>: 'ShowType a
-        ':$$: 'Text "because it would break"
-        ':$$: 'Text "  monoTraverse @"
-          ':<>: 'ShowType e
-          ':<>: 'Text " @("
-          ':<>: 'ShowType (NM.NameMap a)
-          ':<>: 'Text ")"
-      )
 
 -- | Traverse over all references to top-level values in an expression.
 exprValueRef

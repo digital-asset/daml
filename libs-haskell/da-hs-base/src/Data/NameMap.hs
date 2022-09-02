@@ -43,7 +43,6 @@ module Data.NameMap
   -- * Transformations
   , map
   , traverse
-  , traverseAsList
 
   -- * Conversions
   , toList
@@ -132,13 +131,6 @@ traverse f (NameMap ras _) = build <$> Prelude.traverse f' (reverse ras)
       | otherwise = error $
           "Data.NameMap.traverse: function changed name from " ++ show n ++ " to " ++ show (name y)
     build as = NameMap (reverse as) (HMS.fromList as)
-
--- | @traverseAsList f m@ applies the function @f@ to all elements of @m@ in the
--- order they have been inserted into @m@. Unlike @traverse f m@, it does not
--- fail when there is an element @x@ with @name x /= name (f x)@. It *does* fail
--- when there are two elements @x@, @y@ with @name (f x) == name (f y)@.
-traverseAsList :: (Applicative f, Named a) => (a -> f a) -> NameMap a -> f (NameMap a)
-traverseAsList f = fmap fromList . Prelude.traverse f . toList
 
 instance Foldable NameMap where
   foldr f z (NameMap ras _) = foldl' f' z ras
