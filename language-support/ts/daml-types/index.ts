@@ -111,14 +111,14 @@ export type Interface<IfId> = { readonly [InterfaceBrand]: IfId };
 /**
  * Interface for objects representing Daml interfaces.
  */
-export interface InterfaceCompanion<T extends object, I extends string = string>
-  extends ContractTypeCompanion<T, unknown, I> {}
+export interface InterfaceCompanion<T extends object, K, I extends string = string>
+  extends ContractTypeCompanion<T, K, I> {}
 
 export type TemplateOrInterface<
   T extends object,
   K = unknown,
   I extends string = string,
-> = Template<T, K, I> | (unknown extends K ? InterfaceCompanion<T, I> : never);
+> = Template<T, K, I> | InterfaceCompanion<T, K, I>;
 
 const FromTemplateBrand: unique symbol = Symbol();
 
@@ -220,7 +220,7 @@ export function assembleInterface<
   templateId: I,
   decoderSource: Serializable<T>,
   choices: C,
-): InterfaceCompanion<Interface<I> & T, I> & C {
+): InterfaceCompanion<Interface<I> & T, unknown, I> & C {
   return {
     templateId: templateId,
     sdkVersion: "0.0.0-SDKVERSION",

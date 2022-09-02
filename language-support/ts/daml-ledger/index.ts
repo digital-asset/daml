@@ -303,7 +303,7 @@ export type Query<T> = T extends object ? { [K in keyof T]?: Query<T[K]> } : T;
  * encoding here.
  */
 function encodeQuery<T extends object, K, I extends string>(
-  _template: Template<T, K, I>,
+  _template: TemplateOrInterface<T, K, I>,
   query?: Query<T>,
 ): unknown {
   return query;
@@ -995,7 +995,7 @@ class Ledger {
    *
    */
   async query<T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     query?: Query<T>,
   ): Promise<CreateEvent<T, K, I>[]> {
     const payload = {

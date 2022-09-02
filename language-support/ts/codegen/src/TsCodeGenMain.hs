@@ -502,7 +502,7 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId, ifRetroImp
           <> renderDecoderConstant (ConstantString ifaceId) <> ">;" ] -- TODO #14920 & view
       , ifaceDefIface ifName Nothing ifChoices
       , [ "export declare const " <> ifName <> ":"
-        , "  damlTypes.InterfaceCompanion<" <> ifName <> ", '" <> ifaceId <> "'> &"
+        , "  damlTypes.InterfaceCompanion<" <> ifName <> ", unknown, '" <> ifaceId <> "'> &"
         , "  damlTypes.FromTemplate<" <> ifName <> ", " <> retroImplsIntersection <> "> &"
         , "  " <> ifName <> "Interface;"
         ]
