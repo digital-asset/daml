@@ -45,6 +45,15 @@ class EventsTableFlatEventsRangeQueriesSpec
     )
   }
 
+  it should "optimize if all parties request the same templates" in new Scope {
+    filterParams(
+      Map(party -> Set(template1), party2 -> Set(template1))
+    ) shouldBe FilterParams(
+      wildCardParties = Set.empty,
+      partiesAndTemplates = Set((Set(party, party2), Set(template1))),
+    )
+  }
+
 }
 
 object EventsTableFlatEventsRangeQueriesSpec {
