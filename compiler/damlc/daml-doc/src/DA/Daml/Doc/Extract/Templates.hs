@@ -6,7 +6,6 @@ module DA.Daml.Doc.Extract.Templates
     , getTemplateData
     , getInstanceDocs
     , getInterfaceDocs
-    , stripInstanceSuffix
     ) where
 
 import DA.Daml.Doc.Types as DDoc
@@ -19,7 +18,6 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Tuple.Extra (second)
 import qualified Data.Set as Set
 import qualified Data.Text as T
-import Data.Monoid (First (..))
 
 import "ghc-lib" GHC
 import "ghc-lib-parser" Var (varType)
@@ -84,8 +82,8 @@ getInterfaceDocs DocCtx{..} typeMap interfaceInstanceMap =
         ifADT = asADT typeMap name
         choices = Set.toList . fromMaybe Set.empty $ MS.lookup name dc_choices
 
--- | Extracts all names of templates defined in a module,
--- and a map of template names to its set of choices
+-- | Extracts all names of templates and interfaces defined in a module,
+-- and a map of template/interface names to its set of choices
 getTemplateData :: ParsedModule ->
     ( Set.Set Typename
     , Set.Set Typename
@@ -98,8 +96,7 @@ getTemplateData ParsedModule{..} =
     interfaces = mapMaybe isInterface dataDs
     choiceMap = MS.fromListWith (<>) $
                 map (second Set.singleton) $
-                mapMaybe isChoice instDs ++
-                mapMaybe isIfaceChoice instDs
+                mapMaybe isChoice instDs
   in
     (Set.fromList templates, Set.fromList interfaces, choiceMap)
     where
@@ -126,9 +123,9 @@ hasGhcTypesConstraint c decl
   , occNameString cst == c = Just $ Typename $ packRdrName $ unLoc tcdLName
   | otherwise = Nothing
 
--- | If the given instance declaration is declaring a template choice instance,
---   return template and choice name (IdP). Used to build the set of choices
---   per template declared in a module.
+-- | If the given instance declaration is declaring a template/interface choice instance,
+--   return template/interface and choice name (IdP). Used to build the set of choices
+--   per template/interface declared in a module.
 isChoice :: ClsInstDecl GhcPs -> Maybe (Typename, Typename)
 isChoice (XClsInstDecl _) = Nothing
 isChoice ClsInstDecl{..}
@@ -149,51 +146,6 @@ isChoiceTy ty
   = Just (Typename . packRdrName $ tmplName, Typename . packRdrName $ choiceName)
 
   | otherwise = Nothing
-
--- | If the given instance declaration is declaring an interface choice instance, return interface
--- name and choice name.
-isIfaceChoice :: ClsInstDecl GhcPs -> Maybe (Typename, Typename)
-isIfaceChoice (XClsInstDecl _) = Nothing
-isIfaceChoice decl@ClsInstDecl{}
-  | Just (ifaceName, ty) <- hasImplementsConstraint decl
-  , Just (_templ, choiceName) <- isChoiceTy ty
-  = Just (Typename . packRdrName $ ifaceName, choiceName)
-
-  | otherwise = Nothing
-
--- | Matches on a DA.Internal.Desugar.Implements interface constraint in the context of the instance
--- declaration. Returns the interface name and the body of the instance in case the constraint is
--- present, else nothing.
-hasImplementsConstraint :: ClsInstDecl GhcPs -> Maybe (RdrName, HsType GhcPs)
-hasImplementsConstraint (XClsInstDecl _) = Nothing
-hasImplementsConstraint ClsInstDecl{..} =
-  let (L _ ctxs, L _ ty) = splitLHsQualTy $ hsSigType cid_poly_ty
-  in (,ty) <$> getFirst (foldMap (First . getImplementsConstraint) ctxs)
-
--- | If the given type is a (DA.Internal.Desugar.Implements t I) constraint,
--- returns the name of I.
-getImplementsConstraint :: LHsType GhcPs -> Maybe RdrName
-getImplementsConstraint lctx
-  | L _ ctx <- dropParTy lctx
-  , HsAppTy _ (L _ app1) (L _ iface) <- ctx
-  , HsTyVar _ _ (L _ ifaceName) <- iface
-  , HsAppTy _ (L _ impl) (L _ _t) <- app1
-  , HsTyVar _ _ (L _ implCls) <- impl
-  , Qual implClsModule implClassOcc <- implCls
-  , moduleNameString implClsModule == "DA.Internal.Desugar"
-  , occNameString implClassOcc == "Implements"
-  = Just ifaceName
-  | otherwise = Nothing
-
--- | Removes any `HsParTy` constructors from an `LHsType a`.
-dropParTy :: LHsType a -> LHsType a
-dropParTy (L _ (HsParTy _ ty)) = dropParTy ty
-dropParTy ty = ty
-
--- | Strip the @Instance@ suffix off of a typename, if it's there.
--- Otherwise returns 'Nothing'.
-stripInstanceSuffix :: Typename -> Maybe Typename
-stripInstanceSuffix (Typename t) = Typename <$> T.stripSuffix "Instance" t
 
 -- | Get (normal) typeclass instances data.
 getInstanceDocs :: DocCtx -> ClsInst -> InstanceDoc

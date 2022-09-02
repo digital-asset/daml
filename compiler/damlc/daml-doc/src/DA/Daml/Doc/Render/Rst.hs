@@ -9,7 +9,7 @@ module DA.Daml.Doc.Render.Rst
 
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render.Monoid
-import DA.Daml.Doc.Render.Util (escapeText)
+import DA.Daml.Doc.Render.Util (escapeText, (<->))
 
 import qualified Prettyprinter as Pretty
 import Prettyprinter (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
@@ -36,7 +36,7 @@ renderRst env = \case
         [ ".. toctree::"
         , "   :maxdepth: 3"
         , "   :titlesonly:"
-        , "   "
+        , ""
         ] ++
         [ T.concat
             [ "   "
@@ -100,11 +100,14 @@ spaced = intercalate [""] . respace
         [] -> []
 
 indent :: [T.Text] -> [T.Text]
-indent = map ("  " <>)
+indent = map indent1 where
+  indent1 t
+    | T.null t = ""
+    | otherwise = "  " <> t
 
 bullet :: [T.Text] -> [T.Text]
 bullet [] = []
-bullet (x : xs) = ("+ " <> x) : indent xs
+bullet (x : xs) = ("+" <-> x) : indent xs
 
 header :: T.Text -> T.Text -> [T.Text]
 header headerChar title =
@@ -113,7 +116,7 @@ header headerChar title =
     ]
 
 renderRstFields :: RenderEnv -> [(RenderText, RenderText, RenderText)] -> [T.Text]
-renderRstFields _ []  = mempty
+renderRstFields _ []  = ["(no fields)"]
 renderRstFields env fields = concat
     [ [ ".. list-table::"
       , "   :widths: 15 10 30"
@@ -126,9 +129,9 @@ renderRstFields env fields = concat
     ]
   where
     fieldRows = concat
-        [ [ "   * - " <> renderRstText env name
-          , "     - " <> renderRstText env ty
-          , "     - " <> renderRstText env doc ]
+        [ [ "   * -" <-> renderRstText env name
+          , "     -" <-> renderRstText env ty
+          , "     -" <-> renderRstText env doc ]
         | (name, ty, doc) <- fields
         ]
 

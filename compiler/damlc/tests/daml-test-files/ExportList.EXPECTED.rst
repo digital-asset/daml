@@ -13,22 +13,24 @@ Templates
   .. list-table::
      :widths: 15 10 30
      :header-rows: 1
-  
+
      * - Field
        - Type
        - Description
      * - tfield0
        - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
-       - 
+       -
      * - tfield0'
        - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
-       - 
-  
+       -
+
   + **Choice Archive**
-    
-  
+
+    (no fields)
+
   + **Choice Choice0**
-    
+
+    (no fields)
 
 .. _type-exportlist-template1-69519:
 
@@ -37,22 +39,24 @@ Templates
   .. list-table::
      :widths: 15 10 30
      :header-rows: 1
-  
+
      * - Field
        - Type
        - Description
      * - tfield1
        - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
-       - 
+       -
      * - tfield1'
        - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
-       - 
-  
+       -
+
   + **Choice Archive**
-    
-  
+
+    (no fields)
+
   + **Choice Choice1**
-    
+
+    (no fields)
 
 .. _type-exportlist-template2-27508:
 
@@ -61,22 +65,24 @@ Templates
   .. list-table::
      :widths: 15 10 30
      :header-rows: 1
-  
+
      * - Field
        - Type
        - Description
      * - tfield2
        - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
-       - 
+       -
      * - tfield2'
        - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
-       - 
-  
+       -
+
   + **Choice Archive**
-    
-  
+
+    (no fields)
+
   + **Choice Choice2**
-    
+
+    (no fields)
 
 .. _type-exportlist-template3-29585:
 
@@ -85,22 +91,24 @@ Templates
   .. list-table::
      :widths: 15 10 30
      :header-rows: 1
-  
+
      * - Field
        - Type
        - Description
      * - tfield3
        - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
-       - 
+       -
      * - tfield3'
        - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
-       - 
-  
+       -
+
   + **Choice Archive**
-    
-  
+
+    (no fields)
+
   + **Choice Choice3**
-    
+
+    (no fields)
 
 Typeclasses
 ^^^^^^^^^^^
@@ -120,7 +128,7 @@ Typeclasses
 **class** `Class3 <class-exportlist-class3-68865_>`_ t **where**
 
   .. _function-exportlist-member3-18707:
-  
+
   `member3 <function-exportlist-member3-18707_>`_
     \: t
 
@@ -129,12 +137,12 @@ Typeclasses
 **class** `Class4 <class-exportlist-class4-14138_>`_ t **where**
 
   .. _function-exportlist-member4-25320:
-  
+
   `member4 <function-exportlist-member4-25320_>`_
     \: t
-  
+
   .. _function-exportlist-member4tick-39232:
-  
+
   `member4' <function-exportlist-member4tick-39232_>`_
     \: t
 
@@ -158,10 +166,11 @@ Data Types
 **data** `Data3 <type-exportlist-data3-37219_>`_
 
   .. _constr-exportlist-constr3-11999:
-  
+
   `Constr3 <constr-exportlist-constr3-11999_>`_
-  
-  
+
+    (no fields)
+
   **instance** `HasField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839>`_ \"field3\" `Data3 <type-exportlist-data3-37219_>`_ `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
 
 .. _type-exportlist-data4-52140:
@@ -175,20 +184,20 @@ Data Types
 **data** `Data5 <type-exportlist-data5-28529_>`_
 
   .. _constr-exportlist-constr5-98773:
-  
+
   `Constr5 <constr-exportlist-constr5-98773_>`_
-  
+
     .. list-table::
        :widths: 15 10 30
        :header-rows: 1
-    
+
        * - Field
          - Type
          - Description
        * - field5
          - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
-         - 
-  
+         -
+
   **instance** `HasField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839>`_ \"field5\" `Data5 <type-exportlist-data5-28529_>`_ `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
 
 .. _type-exportlist-data6-43450:
@@ -196,25 +205,25 @@ Data Types
 **data** `Data6 <type-exportlist-data6-43450_>`_
 
   .. _constr-exportlist-constr6-5386:
-  
+
   `Constr6 <constr-exportlist-constr6-5386_>`_
-  
+
     .. list-table::
        :widths: 15 10 30
        :header-rows: 1
-    
+
        * - Field
          - Type
          - Description
        * - field6
          - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
-         - 
-  
+         -
+
   .. _constr-exportlist-constr6tick-99942:
-  
+
   `Constr6' <constr-exportlist-constr6tick-99942_>`_
-  
-  
+
+
   **instance** `HasField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839>`_ \"field6\" `Data6 <type-exportlist-data6-43450_>`_ `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
 
 Functions
