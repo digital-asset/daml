@@ -311,7 +311,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           discard {
             ac.templateId shouldBe TpId.IIou.IIou.copy(packageId = ac.templateId.packageId)
           }
-          ac.payload shouldBe spray.json.JsObject()
+          ac.payload shouldBe JsObject("amount" -> JsString("42"))
         }
       }
     }
