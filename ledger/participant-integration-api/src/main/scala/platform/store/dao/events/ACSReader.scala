@@ -22,6 +22,7 @@ import scala.util.chaining._
 trait ACSReader {
   def acsStream(
       filter: FilterRelation,
+      wildcardParties: Set[Party],
       activeAt: (Offset, Long),
   )(implicit
       loggingContext: LoggingContext
@@ -48,16 +49,19 @@ class FilterTableACSReader(
 
   def acsStream(
       filter: FilterRelation,
+      wildcardParties: Set[Party],
       activeAt: (Offset, Long),
   )(implicit
       loggingContext: LoggingContext
   ): Source[Vector[EventStorageBackend.Entry[Raw.FlatEvent]], NotUsed] = {
-    val allFilterParties = filter.keySet
-    val filters = filter.iterator.flatMap {
-      case (party, templateIds) if templateIds.isEmpty => Iterator(Filter(party, None))
-      case (party, templateIds) =>
-        templateIds.iterator.map(templateId => Filter(party, Some(templateId)))
-    }.toVector
+    val allFilterParties = filter.values.flatten.toSet ++ wildcardParties
+
+    val wildcardFilters = wildcardParties.map { party =>
+      Filter(party, None)
+    }
+    val filters = filter.iterator.flatMap { case (templateId, parties) =>
+      parties.iterator.map(party => Filter(party, Some(templateId)))
+    }.toVector ++ wildcardFilters
 
     val idQueryLimiter =
       new QueueBasedConcurrencyLimiter(idFetchingParallelism, executionContext)

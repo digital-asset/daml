@@ -90,6 +90,7 @@ private[dao] final class TransactionsReader(
       startExclusive: Offset,
       endInclusive: Offset,
       filter: FilterRelation,
+      wildcardParties: Set[Party],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val span =
@@ -106,6 +107,7 @@ private[dao] final class TransactionsReader(
         getTransactions(
           EventsRange(range.startExclusive._2, range.endInclusive._2),
           filter,
+          wildcardParties,
           pageSize,
         )(connection),
         range.startExclusive._1,
@@ -279,18 +281,23 @@ private[dao] final class TransactionsReader(
   override def getActiveContracts(
       activeAt: Offset,
       filter: FilterRelation,
+      wildcardParties: Set[Party],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
     val contextualizedErrorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
     val span =
       Telemetry.Transactions.createSpan(activeAt)(qualifiedNameOfCurrentFunc)
 
-    logger.debug(s"getActiveContracts($activeAt, $filter, $eventProjectionProperties)")
+    logger.debug(
+      s"getActiveContracts($activeAt, $filter, $wildcardParties, $eventProjectionProperties)"
+    )
 
     Source
       .futureSource(
         getAcsEventSeqIdRange(activeAt)
-          .map(requestedRange => acsReader.acsStream(filter, requestedRange.endInclusive))
+          .map(requestedRange =>
+            acsReader.acsStream(filter, wildcardParties, requestedRange.endInclusive)
+          )
       )
       .mapAsync(eventProcessingParallelism) { rawResult =>
         Timed.future(

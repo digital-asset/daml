@@ -123,14 +123,16 @@ private[index] class IndexServiceImpl(
                 )
               (startExclusive, endInclusive) =>
                 Source(memoFilter().toList)
-                  .flatMapConcat { case (templateFilter, eventProjectionProperties) =>
-                    transactionsReader
-                      .getFlatTransactions(
-                        startExclusive,
-                        endInclusive,
-                        templateFilter,
-                        eventProjectionProperties,
-                      )
+                  .flatMapConcat {
+                    case (templateFilter, wildcardParties, eventProjectionProperties) =>
+                      transactionsReader
+                        .getFlatTransactions(
+                          startExclusive,
+                          endInclusive,
+                          templateFilter,
+                          wildcardParties,
+                          eventProjectionProperties,
+                        )
                   }
             },
             to,
@@ -241,11 +243,12 @@ private[index] class IndexServiceImpl(
             verbose,
             packageMetadataView.current(),
           ).toList
-        ).flatMapConcat { case (templateFilter, eventProjectionProperties) =>
+        ).flatMapConcat { case (templateFilter, wildcardParties, eventProjectionProperties) =>
           ledgerDao.transactionsReader
             .getActiveContracts(
               currentLedgerEnd,
               templateFilter,
+              wildcardParties,
               eventProjectionProperties,
             )
         }
@@ -515,9 +518,9 @@ object IndexServiceImpl {
       packageMetadataView: PackageMetadataView,
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
-  ): () => Option[(FilterRelation, EventProjectionProperties)] = {
+  ): () => Option[(FilterRelation, Set[Party], EventProjectionProperties)] = {
     @volatile var metadata: PackageMetadata = null
-    @volatile var filters: Option[(FilterRelation, EventProjectionProperties)] = None
+    @volatile var filters: Option[(FilterRelation, Set[Party], EventProjectionProperties)] = None
     () =>
       val currentMetadata = packageMetadataView.current()
       if (metadata ne currentMetadata) {
@@ -531,11 +534,13 @@ object IndexServiceImpl {
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
       metadata: PackageMetadata,
-  ): Option[(FilterRelation, EventProjectionProperties)] = {
-    val templateFilter: Map[Party, Set[Identifier]] =
+  ): Option[(FilterRelation, Set[Party], EventProjectionProperties)] = {
+    val templateFilter: Map[Identifier, Set[Party]] =
       IndexServiceImpl.templateFilter(metadata, transactionFilter)
 
-    if (templateFilter.isEmpty) {
+    val wildcardFilter: Set[Party] = IndexServiceImpl.wildcardFilter(transactionFilter)
+
+    if (templateFilter.isEmpty && wildcardFilter.isEmpty) {
       None
     } else {
       val eventProjectionProperties = EventProjectionProperties(
@@ -543,7 +548,7 @@ object IndexServiceImpl {
         verbose,
         interfaceId => metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty),
       )
-      Some((templateFilter, eventProjectionProperties))
+      Some((templateFilter, wildcardFilter, eventProjectionProperties))
     }
   }
 
@@ -559,15 +564,27 @@ object IndexServiceImpl {
   private[index] def templateFilter(
       metadata: PackageMetadata,
       transactionFilter: domain.TransactionFilter,
-  ): Map[Party, Set[Identifier]] =
-    transactionFilter.filtersByParty.view.collect {
-      case (party, Filters(Some(inclusiveFilters)))
+  ): Map[Identifier, Set[Party]] = {
+    transactionFilter.filtersByParty.view.foldLeft(Map.empty[Identifier, Set[Party]]) {
+      case (acc, (party, Filters(Some(inclusiveFilters))))
           if templateIds(metadata)(inclusiveFilters).nonEmpty =>
-        (party, templateIds(metadata)(inclusiveFilters))
+        templateIds(metadata)(inclusiveFilters).foldLeft(acc) { case (acc, templateId) =>
+          acc.updated(templateId, acc.getOrElse(templateId, Set.empty[Party]) + party)
+        }
+      case (acc, _) =>
+        acc
+    }
+  }
+
+  private[index] def wildcardFilter(
+      transactionFilter: domain.TransactionFilter
+  ): Set[Party] = {
+    transactionFilter.filtersByParty.view.collect {
       case (party, Filters(None)) =>
-        (party, Set.empty[Identifier])
+        party
       case (party, Filters(Some(InclusiveFilters(templateIds, interfaceFilters))))
           if templateIds.isEmpty && interfaceFilters.isEmpty =>
-        (party, Set.empty[Identifier])
-    }.toMap
+        party
+    }.toSet
+  }
 }

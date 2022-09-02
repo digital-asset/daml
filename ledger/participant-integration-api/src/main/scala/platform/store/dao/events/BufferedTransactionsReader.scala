@@ -19,7 +19,6 @@ import com.daml.metrics.Metrics
 import com.daml.platform
 import com.daml.platform.store.cache.InMemoryFanoutBuffer
 import com.daml.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
-import com.daml.platform.store.dao.events.BufferedTransactionsReader.invertMapping
 import com.daml.platform.store.dao.events.TransactionLogUpdatesConversions.{
   ToFlatTransaction,
   ToTransactionTree,
@@ -31,14 +30,14 @@ import com.daml.platform.store.dao.{
   LedgerDaoTransactionsReader,
 }
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.{FilterRelation, Identifier, Party}
+import com.daml.platform.{FilterRelation, Party}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 private[events] class BufferedTransactionsReader(
     delegate: LedgerDaoTransactionsReader,
     bufferedFlatTransactionsReader: BufferedStreamsReader[
-      (FilterRelation, EventProjectionProperties),
+      (FilterRelation, Set[Party], EventProjectionProperties),
       GetTransactionsResponse,
     ],
     bufferedTransactionTreesReader: BufferedStreamsReader[
@@ -59,23 +58,22 @@ private[events] class BufferedTransactionsReader(
       startExclusive: Offset,
       endInclusive: Offset,
       filter: FilterRelation,
+      wildcardParties: Set[Party],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
-    val (parties, partiesTemplates) = filter.partition(_._2.isEmpty)
-    val wildcardParties = parties.keySet
-
-    val templatesParties = invertMapping(partiesTemplates)
-    val requestingParties = filter.keySet
-
+    val requestingParties = filter.values.flatten.toSet ++ wildcardParties
     bufferedFlatTransactionsReader
       .stream(
         startExclusive = startExclusive,
         endInclusive = endInclusive,
-        persistenceFetchArgs = (filter, eventProjectionProperties),
-        bufferFilter =
-          ToFlatTransaction.filter(wildcardParties, templatesParties, requestingParties),
+        persistenceFetchArgs = (filter, wildcardParties, eventProjectionProperties),
+        bufferFilter = ToFlatTransaction.filter(wildcardParties, filter, requestingParties),
         toApiResponse = ToFlatTransaction
-          .toGetTransactionsResponse(filter, eventProjectionProperties, lfValueTranslation)(
+          .toGetTransactionsResponse(
+            wildcardParties,
+            eventProjectionProperties,
+            lfValueTranslation,
+          )(
             loggingContext,
             executionContext,
           ),
@@ -122,11 +120,12 @@ private[events] class BufferedTransactionsReader(
   override def getActiveContracts(
       activeAt: Offset,
       filter: FilterRelation,
+      wildcardParties: Set[Party],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContext
   ): Source[GetActiveContractsResponse, NotUsed] =
-    delegate.getActiveContracts(activeAt, filter, eventProjectionProperties)
+    delegate.getActiveContracts(activeAt, filter, wildcardParties, eventProjectionProperties)
 }
 
 private[platform] object BufferedTransactionsReader {
@@ -141,26 +140,27 @@ private[platform] object BufferedTransactionsReader {
   ): BufferedTransactionsReader = {
     val flatTransactionsStreamReader =
       new BufferedStreamsReader[
-        (FilterRelation, EventProjectionProperties),
+        (FilterRelation, Set[Party], EventProjectionProperties),
         GetTransactionsResponse,
       ](
         inMemoryFanoutBuffer = transactionsBuffer,
         fetchFromPersistence = new FetchFromPersistence[
-          (FilterRelation, EventProjectionProperties),
+          (FilterRelation, Set[Party], EventProjectionProperties),
           GetTransactionsResponse,
         ] {
           override def apply(
               startExclusive: Offset,
               endInclusive: Offset,
-              filter: (FilterRelation, EventProjectionProperties),
+              filter: (FilterRelation, Set[Party], EventProjectionProperties),
           )(implicit
               loggingContext: LoggingContext
           ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
-            val (filterRelation, eventProjectionProperties) = filter
+            val (filterRelation, wildcardParties, eventProjectionProperties) = filter
             delegate.getFlatTransactions(
               startExclusive,
               endInclusive,
               filterRelation,
+              wildcardParties,
               eventProjectionProperties,
             )
           }
@@ -252,18 +252,4 @@ private[platform] object BufferedTransactionsReader {
       bufferedTransactionTreeByIdReader = bufferedTransactionTreeByIdReader,
     )
   }
-
-  private[events] def invertMapping(
-      partiesTemplates: Map[Party, Set[Identifier]]
-  ): Map[Identifier, Set[Party]] =
-    partiesTemplates
-      .foldLeft(Map.empty[Identifier, Set[Party]]) {
-        case (templatesToParties, (party, templates)) =>
-          templates.foldLeft(templatesToParties) { case (aux, templateId) =>
-            aux.updatedWith(templateId) {
-              case None => Some(Set(party))
-              case Some(partySet) => Some(partySet + party)
-            }
-          }
-      }
 }

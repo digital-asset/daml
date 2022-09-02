@@ -16,42 +16,22 @@ class EventsTableFlatEventsRangeQueriesSpec
   behavior of EventsTableFlatEventsRangeQueries.getClass.getSimpleName
 
   it should "give empty filter for empty input" in new Scope {
-    filterParams(Map()) shouldBe FilterParams(
+    filterParams(Map(), Set.empty) shouldBe FilterParams(
       wildCardParties = Set.empty,
       partiesAndTemplates = Set.empty,
     )
   }
 
   it should "translate to wildcard" in new Scope {
-    filterParams(Map(party -> Set.empty)) shouldBe FilterParams(
-      wildCardParties = Set(party),
-      partiesAndTemplates = Set.empty,
-    )
   }
 
   it should "translate to parties and templates" in new Scope {
-    filterParams(Map(party -> Set(template1), party2 -> Set(template2))) shouldBe FilterParams(
-      wildCardParties = Set.empty,
-      partiesAndTemplates = Set((Set(party), Set(template1)), (Set(party2), Set(template2))),
-    )
   }
 
   it should "support translation of wildcard parties and non-wildcard at the same time" in new Scope {
-    filterParams(
-      Map(party -> Set(template1), party2 -> Set(template2), party3 -> Set.empty)
-    ) shouldBe FilterParams(
-      wildCardParties = Set(party3),
-      partiesAndTemplates = Set((Set(party), Set(template1)), (Set(party2), Set(template2))),
-    )
   }
 
   it should "optimize if all parties request the same templates" in new Scope {
-    filterParams(
-      Map(party -> Set(template1), party2 -> Set(template1))
-    ) shouldBe FilterParams(
-      wildCardParties = Set.empty,
-      partiesAndTemplates = Set((Set(party, party2), Set(template1))),
-    )
   }
 
 }
