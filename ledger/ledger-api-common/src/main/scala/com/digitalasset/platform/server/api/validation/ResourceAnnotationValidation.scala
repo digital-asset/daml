@@ -27,7 +27,7 @@ object ResourceAnnotationValidation {
       val valSize = value.getBytes(StandardCharsets.UTF_8).length
       size + keySize + valSize
     }
-    totalSizeInBytes < MaxAnnotationsSizeInBytes
+    totalSizeInBytes <= MaxAnnotationsSizeInBytes
   }
 
   def validateAnnotations(
