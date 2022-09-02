@@ -4,9 +4,9 @@
 -- | Main entry-point of the Daml compiler
 module DA.Daml.Visual
   ( execVisual
-  , tplNameUnqual
-  , TemplateChoices(..)
-  , ChoiceAndAction(..)
+  , nameUnqual
+  , Choices(..)
+  , ChoiceWithActions(..)
   , Action(..)
   , Graph(..)
   , SubGraph(..)
@@ -48,21 +48,23 @@ type IsConsuming = Bool
 data Action = ACreate (LF.Qualified LF.TypeConName)
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
 
-data ChoiceAndAction = ChoiceAndAction
+data ChoiceWithActions = ChoiceWithActions
     { choiceName :: LF.ChoiceName
     , choiceConsuming :: IsConsuming
     , actions :: Set.Set Action
     } deriving (Show)
 
 
-data TemplateChoices = TemplateChoices
-    { template :: LF.Qualified LF.Template
-    , choiceAndActions :: [ChoiceAndAction]
-    } deriving (Show)
+data Choices
+  = Choices
+    { templateOrInterface :: LF.Qualified (Either LF.Template LF.DefInterface)
+    , choiceWithActions :: [ChoiceWithActions]
+    }
+    deriving (Show)
 
-templateId :: TemplateChoices -> LF.Qualified LF.TypeConName
-templateId TemplateChoices{..} =
-    fmap LF.tplTypeCon template
+choicesParentId :: Choices -> LF.Qualified LF.TypeConName
+choicesParentId Choices{..} =
+    fmap (either LF.tplTypeCon LF.intName) templateOrInterface
 
 data ChoiceDetails = ChoiceDetails
     { nodeId :: Int
@@ -73,12 +75,13 @@ data ChoiceDetails = ChoiceDetails
 data SubGraph = SubGraph
     { nodes :: [ChoiceDetails]
     , templateFields :: [T.Text]
-    , clusterTemplate :: LF.Template
+    , clusterName :: LF.TypeConName
     } deriving (Show, Eq)
 
 data Graph = Graph
     { subgraphs :: [SubGraph]
     , edges :: [(ChoiceDetails, ChoiceDetails)]
+    , subgraphEdges :: [(LF.TypeConName, LF.TypeConName)]
     } deriving (Show, Eq)
 
 data D3Link = D3Link
@@ -115,7 +118,7 @@ d3NodesFromGraph :: Graph -> [D3Node]
 d3NodesFromGraph g = concatMap subGraphToD3Nodes (subgraphs g)
         where subGraphToD3Nodes sg = map (\chcD ->
                                             D3Node (T.unlines $ templateFields sg)
-                                            (tplNameUnqual $ clusterTemplate sg)
+                                            (nameUnqual $ clusterName sg)
                                             (nodeId chcD)
                                             (DAP.renderPretty $ displayChoiceName chcD)
                                             )
@@ -136,17 +139,12 @@ startFromUpdate seen world update = case update of
     LF.UGetTime -> Set.empty
     LF.UEmbedExpr _ upEx -> startFromExpr seen world upEx
     LF.UCreate tpl _ -> Set.singleton (ACreate tpl)
-    LF.UCreateInterface{} ->
-      error "Interfaces are not supported"
+    LF.UCreateInterface iface _ -> Set.singleton (ACreate iface)
     LF.UExercise tpl choice _ _ -> Set.singleton (AExercise tpl choice)
-    LF.UExerciseInterface{} ->
-      -- TODO https://github.com/digital-asset/daml/issues/12051
-      error "Interfaces are not supported"
+    LF.UExerciseInterface iface choice _ _ _ -> Set.singleton (AExercise iface choice)
     LF.UExerciseByKey tpl choice _ _ -> Set.singleton (AExercise tpl choice)
     LF.UFetch{} -> Set.empty
-    LF.UFetchInterface{} ->
-      -- TODO https://github.com/digital-asset/daml/issues/12051
-      error "Interfaces are not supported"
+    LF.UFetchInterface{} -> Set.empty
     LF.ULookupByKey{} -> Set.empty
     LF.UFetchByKey{} -> Set.empty
     LF.UTryCatch _ e1 _ e2 -> startFromExpr seen world e1 `Set.union` startFromExpr seen world e2
@@ -162,6 +160,7 @@ startFromExpr seen world e = case e of
         | any (`T.isPrefixOf` ref)
             [ "$fHasCreate"
             , "$fHasExercise"
+            , "$fHasExerciseGuarded"
             , "$fHasArchive"
             , "$fHasFetch" -- also filters out $fHasFetchByKey
             , "$fHasLookupByKey"
@@ -182,6 +181,8 @@ startFromExpr seen world e = case e of
     -- instance and produce the corresponding edge in the graph.
     EInternalTemplateVal "exercise" `LF.ETyApp` LF.TCon tpl `LF.ETyApp` LF.TCon (LF.Qualified _ _ (LF.TypeConName [chc])) `LF.ETyApp` _ret `LF.ETmApp` _dict ->
         Set.singleton (AExercise tpl (LF.ChoiceName chc))
+    EInternalTemplateVal "exerciseGuarded" `LF.ETyApp` LF.TCon iface `LF.ETyApp` LF.TCon (LF.Qualified _ _ (LF.TypeConName [chc])) `LF.ETyApp` _ret `LF.ETmApp` _dict ->
+        Set.singleton (AExercise iface (LF.ChoiceName chc))
     EInternalTemplateVal "exerciseByKey" `LF.ETyApp` LF.TCon tpl `LF.ETyApp` _ `LF.ETyApp` LF.TCon (LF.Qualified _ _ (LF.TypeConName [chc])) `LF.ETyApp` _ret `LF.ETmApp` _dict ->
         Set.singleton (AExercise tpl (LF.ChoiceName chc))
     expr -> Set.unions $ map (startFromExpr seen world) $ children expr
@@ -193,18 +194,35 @@ pattern EInternalTemplateVal val <-
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 
-templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
+templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceWithActions]
 templatePossibleUpdates world tpl = map toActions $ NM.toList $ LF.tplChoices tpl
-    where toActions c = ChoiceAndAction {
+    where toActions c = ChoiceWithActions {
                 choiceName = LF.chcName c
               , choiceConsuming = LF.chcConsuming c
               , actions = startFromChoice world c
               }
 
-moduleAndTemplates :: LF.World -> LF.PackageRef -> LF.Module -> [TemplateChoices]
-moduleAndTemplates world pkgRef mod =
-    map (\t -> TemplateChoices (LF.Qualified pkgRef (LF.moduleName mod) t) (templatePossibleUpdates world t))
-        (NM.toList $ LF.moduleTemplates mod)
+interfacePossibleUpdates :: LF.World -> LF.DefInterface -> [ChoiceWithActions]
+interfacePossibleUpdates world iface = map toActions $ NM.toList $ LF.intChoices iface
+    where toActions c = ChoiceWithActions {
+                choiceName = LF.chcName c
+              , choiceConsuming = LF.chcConsuming c
+              , actions = startFromChoice world c
+              }
+
+moduleChoices :: LF.World -> LF.PackageRef -> LF.Module -> [Choices]
+moduleChoices world pkgRef mod =
+    let mkTemplateChoices t =
+            Choices
+                (LF.Qualified pkgRef (LF.moduleName mod) (Left t))
+                (templatePossibleUpdates world t)
+        mkInterfaceChoices i =
+            Choices
+                (LF.Qualified pkgRef (LF.moduleName mod) (Right i))
+                (interfacePossibleUpdates world i)
+    in
+    map mkTemplateChoices (NM.toList $ LF.moduleTemplates mod) ++
+    map mkInterfaceChoices (NM.toList $ LF.moduleInterfaces mod)
 
 dalfBytesToPakage :: BSL.ByteString -> ExternalPackage
 dalfBytesToPakage bytes = case Archive.decodeArchive Archive.DecodeAsDependency $ BSL.toStrict bytes of
@@ -218,26 +236,26 @@ darToWorld Dalfs{..} = case Archive.decodeArchive Archive.DecodeAsMain $ BSL.toS
     where
         pkgs = map dalfBytesToPakage dalfs
 
-tplNameUnqual :: LF.Template -> T.Text
-tplNameUnqual LF.Template {..} = headNote "tplNameUnqual" (LF.unTypeConName tplTypeCon)
+nameUnqual :: LF.TypeConName -> T.Text
+nameUnqual = headNote "nameUnqual" . LF.unTypeConName
 
 data ChoiceIdentifier = ChoiceIdentifier
   { choiceIdTemplate :: !(LF.Qualified LF.TypeConName)
   , choiceIdName :: !LF.ChoiceName
   } deriving (Eq, Show, Ord)
 
-choiceNameWithId :: [TemplateChoices] -> Map.Map ChoiceIdentifier ChoiceDetails
+choiceNameWithId :: [Choices] -> Map.Map ChoiceIdentifier ChoiceDetails
 choiceNameWithId tplChcActions = Map.unions (evalState (mapM f tplChcActions) 0)
   where
-    f :: TemplateChoices -> State Int (Map.Map ChoiceIdentifier ChoiceDetails)
-    f tpl@TemplateChoices{..} = do
-        choices <- forM (createChoice : choiceAndActions) $ \ChoiceAndAction{..} -> do
+    f :: Choices -> State Int (Map.Map ChoiceIdentifier ChoiceDetails)
+    f tpl@Choices{..} = do
+        choices <- forM (createChoice : choiceWithActions) $ \ChoiceWithActions{..} -> do
           id <- get
           put (id + 1)
-          let choiceId = ChoiceIdentifier (templateId tpl) choiceName
+          let choiceId = ChoiceIdentifier (choicesParentId tpl) choiceName
           pure (choiceId, ChoiceDetails id choiceConsuming choiceName)
         pure (Map.fromList choices)
-    createChoice = ChoiceAndAction
+    createChoice = ChoiceWithActions
         { choiceName = LF.ChoiceName "Create"
         , choiceConsuming = False
         , actions = Set.empty
@@ -248,12 +266,12 @@ nodeIdForChoice nodeLookUp chc = case Map.lookup chc nodeLookUp of
   Just node -> node
   Nothing -> error "Template node lookup failed"
 
-addCreateChoice :: TemplateChoices -> Map.Map ChoiceIdentifier ChoiceDetails -> ChoiceDetails
-addCreateChoice tpl lookupData = nodeIdForChoice lookupData tplNameCreateChoice
+addCreateChoice :: LF.Qualified LF.TypeConName -> Map.Map ChoiceIdentifier ChoiceDetails -> ChoiceDetails
+addCreateChoice name lookupData = nodeIdForChoice lookupData tplNameCreateChoice
   where
     tplNameCreateChoice =
         ChoiceIdentifier
-            (templateId tpl)
+            name
             createChoiceName
 
 labledField :: T.Text -> T.Text -> T.Text
@@ -272,18 +290,22 @@ typeConFields qName world = case LF.lookupDataType qName world of
     LF.DataVariant _ -> [""]
     LF.DataEnum _ -> [""]
     -- TODO https://github.com/digital-asset/daml/issues/12051
-    LF.DataInterface -> error "interfaces are not implemented"
+    LF.DataInterface -> [""]
   Left _ -> error "malformed template constructor"
 
-constructSubgraphsWithLables :: LF.World -> Map.Map ChoiceIdentifier ChoiceDetails -> TemplateChoices -> SubGraph
-constructSubgraphsWithLables wrld lookupData tpla@TemplateChoices {..} =
-    SubGraph (addCreateChoice tpla lookupData : choices) fieldsInTemplate (LF.qualObject template)
+constructSubgraphsWithLables :: LF.World -> Map.Map ChoiceIdentifier ChoiceDetails -> Choices -> SubGraph
+constructSubgraphsWithLables wrld lookupData choices@Choices {..} =
+    case LF.qualObject templateOrInterface of
+      Left _ ->
+        SubGraph (addCreateChoice parentId lookupData : choiceNodeIds) fields (LF.qualObject parentId)
+      Right _ ->
+        SubGraph choiceNodeIds fields (LF.qualObject parentId)
   where
-    fieldsInTemplate = typeConFields (templateId tpla) wrld
-    choicesInTemplate =
-        map (\c -> ChoiceIdentifier (templateId tpla) (choiceName c))
-            choiceAndActions
-    choices = map (nodeIdForChoice lookupData) choicesInTemplate
+    parentId = choicesParentId choices
+    fields = typeConFields parentId wrld
+    choiceNodeIds =
+        map (\c -> nodeIdForChoice lookupData (ChoiceIdentifier parentId (choiceName c)))
+            choiceWithActions
 
 createChoiceName :: LF.ChoiceName
 createChoiceName = LF.ChoiceName "Create"
@@ -294,22 +316,25 @@ actionToChoice (ACreate tpl) =
 actionToChoice (AExercise tpl chcT) =
     ChoiceIdentifier tpl chcT
 
-choiceActionToChoicePairs :: LF.Qualified LF.TypeConName -> ChoiceAndAction -> [(ChoiceIdentifier, ChoiceIdentifier)]
-choiceActionToChoicePairs tpl ChoiceAndAction{..} =
+choiceActionToChoicePairs :: LF.Qualified LF.TypeConName -> ChoiceWithActions -> [(ChoiceIdentifier, ChoiceIdentifier)]
+choiceActionToChoicePairs tpl ChoiceWithActions{..} =
     map (\a -> (choiceId, actionToChoice a)) (Set.elems actions)
   where
      choiceId = ChoiceIdentifier tpl choiceName
 
-graphEdges :: Map.Map ChoiceIdentifier ChoiceDetails -> [TemplateChoices] -> [(ChoiceDetails, ChoiceDetails)]
+graphEdges :: Map.Map ChoiceIdentifier ChoiceDetails -> [Choices] -> [(ChoiceDetails, ChoiceDetails)]
 graphEdges lookupData tplChcActions =
     map (both (nodeIdForChoice lookupData)) $
     concat $
     concatMap
-        (\tpl -> map (choiceActionToChoicePairs (templateId tpl)) (choiceAndActions tpl))
+        (\tpl -> map (choiceActionToChoicePairs (choicesParentId tpl)) (choiceWithActions tpl))
         tplChcActions
 
+typeConNodeName :: LF.TypeConName -> String
+typeConNodeName = DAP.renderPretty . head . LF.unTypeConName
+
 subGraphHeader :: SubGraph -> String
-subGraphHeader sg = "subgraph cluster_" ++ (DAP.renderPretty $ head (LF.unTypeConName $ LF.tplTypeCon $ clusterTemplate sg)) ++ "{\n"
+subGraphHeader sg = "subgraph cluster_" ++ typeConNodeName (clusterName sg) ++ "{\nDUMMY_" ++ typeConNodeName (clusterName sg) ++ " [shape=point style=invis];\n"
 
 choiceDetailsColorCode :: IsConsuming -> String
 choiceDetailsColorCode True = "red"
@@ -321,7 +346,7 @@ subGraphBodyLine chc = "n" ++ show (nodeId chc)++ "[label=" ++ DAP.renderPretty 
 subGraphEnd :: SubGraph -> String
 subGraphEnd sg = "label=<" ++ tHeader ++ tTitle ++ tBody  ++ tclose ++ ">" ++ ";color=" ++ "blue" ++ "\n}"
     where tHeader = "<table align = \"left\" border=\"0\" cellborder=\"0\" cellspacing=\"1\">\n"
-          tTitle =  "<tr><td align=\"center\"><b>" ++  DAP.renderPretty (LF.tplTypeCon $ clusterTemplate sg) ++ "</b></td></tr>"
+          tTitle =  "<tr><td align=\"center\"><b>" ++  DAP.renderPretty (clusterName sg) ++ "</b></td></tr>"
           tBody = concatMap fieldTableLine (templateFields sg)
           fieldTableLine field = "<tr><td align=\"left\">" ++ T.unpack field  ++ "</td></tr> \n"
           tclose = "</table>"
@@ -332,23 +357,39 @@ subGraphCluster sg@SubGraph {..} = subGraphHeader sg ++ unlines (map subGraphBod
 drawEdge :: ChoiceDetails -> ChoiceDetails -> String
 drawEdge n1 n2 = "n" ++ show (nodeId n1) ++ "->" ++ "n" ++ show (nodeId n2)
 
+-- TODO: Is there a better way of connecting two subgraphs via dummy nodes?
+drawSubgraphEdge :: LF.TypeConName -> LF.TypeConName -> String
+drawSubgraphEdge iface tpl =
+    "DUMMY_" ++ typeConNodeName tpl ++ " -> DUMMY_" ++ typeConNodeName iface ++
+        " [ltail=cluster_" ++ typeConNodeName tpl ++ ", lhead=cluster_" ++ typeConNodeName iface ++ "]"
+
 constructDotGraph :: Graph -> String
-constructDotGraph graph  = "digraph G {\ncompound=true;\n" ++ "rankdir=LR;\n"++ graphLines ++ "\n}\n"
-  where subgraphsLines = concatMap subGraphCluster (subgraphs graph)
-        edgesLines = unlines $ map (uncurry drawEdge) (edges graph)
-        graphLines = subgraphsLines ++ edgesLines
+constructDotGraph graph  = "digraph G {\ncompound=true;\n" ++ "rankdir=LR;\n"++ unlines graphLines ++ "\n}\n"
+  where subgraphsLines = map subGraphCluster (subgraphs graph)
+        edgesLines = map (uncurry drawEdge) (edges graph)
+        subgraphEdgesLines = map (uncurry drawSubgraphEdge) (subgraphEdges graph)
+        graphLines = subgraphsLines ++ edgesLines ++ subgraphEdgesLines
 
 graphFromWorld :: LF.World -> Graph
-graphFromWorld world = Graph subGraphs edges
+graphFromWorld world = Graph subGraphs edges subgraphEdges
   where
-    templatesAndModules = concat
-        [ moduleAndTemplates world pkgRef mod
+    allChoices = concat
+        [ moduleChoices world pkgRef mod
         | (pkgRef, pkg) <- pkgs
         , mod <- NM.toList $ LF.packageModules pkg
         ]
-    nodes = choiceNameWithId templatesAndModules
-    subGraphs = map (constructSubgraphsWithLables world nodes) templatesAndModules
-    edges = graphEdges nodes templatesAndModules
+    nodes = choiceNameWithId allChoices
+    subGraphs = map (constructSubgraphsWithLables world nodes) allChoices
+    subgraphEdges = do
+        choice <- allChoices
+        case LF.qualObject (templateOrInterface choice) of
+            Left template -> do
+                implements <- NM.elems (LF.tplImplements template)
+                pure (LF.qualObject (LF.tpiInterface implements), LF.tplTypeCon template)
+            Right interface -> do
+                coimplements <- NM.elems (LF.intCoImplements interface)
+                pure (LF.intName interface, LF.qualObject (LF.iciTemplate coimplements))
+    edges = graphEdges nodes allChoices
     pkgs =
         (LF.PRSelf, getWorldSelf world)
         : map (\ExternalPackage{..} -> (LF.PRImport extPackageId, extPackagePkg))
