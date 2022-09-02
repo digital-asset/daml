@@ -197,41 +197,32 @@ convertPrim _ "BENumericToText" (TNumeric n :-> TText) =
 convertPrim _ "BETextToNumeric" (TText :-> TOptional (TNumeric n)) =
     pure $ ETyApp (EBuiltin BETextToNumeric) n
 
-convertPrim version "BEScaleBigNumeric" ty@(TBigNumeric :-> TInt64) =
-    pure $
-      whenRuntimeSupports version featureBigNumeric ty $
+convertPrim version "BEScaleBigNumeric" (TBigNumeric :-> TInt64) =
+    whenSupports version featureBigNumeric $
         EBuiltin BEScaleBigNumeric
-convertPrim version "BEPrecisionBigNumeric" ty@(TBigNumeric :-> TInt64) =
-    pure $
-      whenRuntimeSupports version featureBigNumeric ty $
+convertPrim version "BEPrecisionBigNumeric" (TBigNumeric :-> TInt64) =
+    whenSupports version featureBigNumeric $
         EBuiltin BEPrecisionBigNumeric
-convertPrim version "BEAddBigNumeric" ty@(TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
-    pure $
-      whenRuntimeSupports version featureBigNumeric ty $
+convertPrim version "BEAddBigNumeric" (TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
+    whenSupports version featureBigNumeric $
         EBuiltin BEAddBigNumeric
-convertPrim version "BESubBigNumeric" ty@(TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
-    pure $
-      whenRuntimeSupports version featureBigNumeric ty $
+convertPrim version "BESubBigNumeric" (TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
+    whenSupports version featureBigNumeric $
         EBuiltin BESubBigNumeric
-convertPrim version "BEMulBigNumeric" ty@(TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
-    pure $
-      whenRuntimeSupports version featureBigNumeric ty $
+convertPrim version "BEMulBigNumeric" (TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
+    whenSupports version featureBigNumeric $
         EBuiltin BEMulBigNumeric
-convertPrim version "BEDivBigNumeric" ty@(TInt64 :-> TRoundingMode :-> TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
-    pure $
-      whenRuntimeSupports version featureBigNumeric ty $
+convertPrim version "BEDivBigNumeric" (TInt64 :-> TRoundingMode :-> TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
+    whenSupports version featureBigNumeric $
         EBuiltin BEDivBigNumeric
-convertPrim version "BEShiftRightBigNumeric" ty@(TInt64 :-> TBigNumeric :-> TBigNumeric) =
-    pure $
-      whenRuntimeSupports version featureBigNumeric ty $
+convertPrim version "BEShiftRightBigNumeric" (TInt64 :-> TBigNumeric :-> TBigNumeric) =
+    whenSupports version featureBigNumeric $
         EBuiltin BEShiftRightBigNumeric
-convertPrim version "BENumericToBigNumeric" ty@(TNumeric n :-> TBigNumeric) =
-    pure $
-      whenRuntimeSupports version featureBigNumeric ty $
+convertPrim version "BENumericToBigNumeric" (TNumeric n :-> TBigNumeric) =
+    whenSupports version featureBigNumeric $
         EBuiltin BENumericToBigNumeric `ETyApp` n
-convertPrim version "BEBigNumericToNumeric" ty@(TBigNumeric :-> TNumeric n) =
-    pure $
-      whenRuntimeSupports version featureBigNumeric ty $
+convertPrim version "BEBigNumericToNumeric" (TBigNumeric :-> TNumeric n) =
+    whenSupports version featureBigNumeric $
         EBuiltin BEBigNumericToNumeric `ETyApp` n
 
 -- Experimental text primitives.
@@ -527,10 +518,10 @@ projChoice :: Type -> Expr -> Expr
 projChoice _ = EStructProj choiceField
 
 -- | Some builtins are only supported in specific versions of Daml-LF.
-whenRuntimeSupports :: Version -> Feature -> Type -> Expr -> Expr
-whenRuntimeSupports version feature t e
-    | version `supports` feature = e
-    | otherwise = runtimeError t (featureErrorMessage feature)
+whenSupports :: Version -> Feature -> Expr -> ConvertM Expr
+whenSupports version feature e
+    | version `supports` feature = pure e
+    | otherwise = conversionError (T.unpack (featureErrorMessage feature))
 
 runtimeError :: Type -> T.Text -> Expr
 runtimeError t msg = ETmApp (ETyApp (EBuiltin BEError) t) (EBuiltin (BEText msg))
