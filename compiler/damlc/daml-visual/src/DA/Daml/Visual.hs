@@ -289,7 +289,6 @@ typeConFields qName world = case LF.lookupDataType qName world of
     LF.DataRecord re -> concatMap (typeConFieldsNames world) re
     LF.DataVariant _ -> [""]
     LF.DataEnum _ -> [""]
-    -- TODO https://github.com/digital-asset/daml/issues/12051
     LF.DataInterface -> [""]
   Left _ -> error "malformed template constructor"
 
