@@ -30,9 +30,10 @@ object UpdatePath {
     for {
       pathAndModifierO <- {
         rawPath.split('!') match {
+          case Array() => Left(UpdatePathError.EmptyFieldPath(rawPath))
           case Array(path) => Right((path, None))
           case Array(path, updateModifier) => Right((path, Some(updateModifier)))
-          case _ => Left(UpdatePathError.MoreThanOneExclamationMarkSymbol(rawPath))
+          case _ => Left(UpdatePathError.InvalidUpdatePathSyntax(rawPath))
         }
       }
       (fieldPathRaw, modifierO) = pathAndModifierO

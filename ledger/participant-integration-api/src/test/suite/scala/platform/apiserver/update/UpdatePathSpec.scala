@@ -37,6 +37,10 @@ class UpdatePathSpec extends AnyFreeSpec with Matchers with EitherValues {
     UpdatePath.parseAll(Seq("foo!bad")).left.value shouldBe UpdatePathError.UnknownUpdateModifier(
       "foo!bad"
     )
+    UpdatePath.parseAll(Seq("foo!!bad")).left.value shouldBe UpdatePathError
+      .InvalidUpdatePathSyntax("foo!!bad")
+    UpdatePath.parseAll(Seq("!")).left.value shouldBe UpdatePathError.EmptyFieldPath("!")
+    UpdatePath.parseAll(Seq("!!")).left.value shouldBe UpdatePathError.EmptyFieldPath("!!")
   }
 
 }
