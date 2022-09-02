@@ -107,13 +107,16 @@ const InterfaceBrand: unique symbol = Symbol();
  */
 export type Interface<IfId> = { readonly [InterfaceBrand]: IfId };
 
+/**
+ * Interface for objects representing Daml interfaces.
+ */
 export interface InterfaceCompanion<T, I extends string = string>
   extends ContractTypeCompanion<Interface<I> & T, I> {}
 
 const FromTemplateBrand: unique symbol = Symbol();
 
 /**
- * Interface for objects representing Daml interfaces.  This supplies the basis
+ * A mixin for [[InterfaceCompanion]].  This supplies the basis
  * for the methods of [[ToInterface]].
  *
  * Even interfaces that retroactively implement for no templates implement this,
@@ -212,7 +215,8 @@ export function assembleInterface<
   return {
     templateId: templateId,
     sdkVersion: "0.0.0-SDKVERSION",
-    decoder: decoderSource.decoder,
+    // `Interface<I> &` is a phantom intersection
+    decoder: decoderSource.decoder as jtv.Decoder<Interface<I> & T>,
     ...choices,
   };
 }
