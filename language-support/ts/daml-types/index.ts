@@ -143,7 +143,9 @@ export interface Choice<T extends object, C, R, K = unknown> {
   /**
    * Returns the template to which this choice belongs.
    */
-  template: () => Template<T, K>;
+  template: () => T extends Interface<infer I>
+    ? InterfaceCompanion<T, I & string>
+    : Template<T, K>;
   /**
    * @internal Returns a decoder to decode the choice arguments.
    *
