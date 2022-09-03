@@ -12,7 +12,7 @@ You can generate visual graphs for the contracts in your Daml project. To do thi
 2. Open a terminal and navigate to your project root directory.
 3. Generate a DAR from your project by running ``daml build -o project.dar``.
 4. Generate a `dot file <https://en.wikipedia.org/wiki/DOT_(graph_description_language)>`_ from that DAR by running ``daml damlc visual project.dar --dot project.dot``
-5. Generate the visual graph with Graphviz by running ``dot -Tpng project.dot > project.png``
+5. Generate the visual graph with Graphviz by running ``dot -T png project.dot -o project.png``
 
 You can of course choose different names for the files, as long as you're consistent between file creation and point of use.
 
