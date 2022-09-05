@@ -128,10 +128,11 @@ private[lf] final class Compiler(
 
   @throws[PackageNotFound]
   @throws[CompilationError]
-  def unsafeCompileContractDisclosures(
-      disclosures: ImmArray[DisclosedContract]
+  def unsafeCompileWithContractDisclosures(
+      cmds: ImmArray[Command],
+      disclosures: ImmArray[DisclosedContract],
   ): t.SExpr =
-    compileContractDisclosures(disclosures)
+    compileWithContractDisclosures(cmds, disclosures)
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -304,10 +305,11 @@ private[lf] final class Compiler(
   private[this] def compileCommands(cmds: ImmArray[Command]): t.SExpr =
     pipeline(translateCommands(Env.Empty, cmds))
 
-  private[this] def compileContractDisclosures(
-      disclosures: ImmArray[DisclosedContract]
+  private[this] def compileWithContractDisclosures(
+      cmds: ImmArray[Command],
+      disclosures: ImmArray[DisclosedContract],
   ): t.SExpr =
-    pipeline(translateContractDisclosures(Env.Empty, disclosures))
+    pipeline(translateWithContractDisclosures(Env.Empty, cmds, disclosures))
 
   private[this] def compileCommandForReinterpretation(cmd: Command): t.SExpr =
     pipeline(translateCommandForReinterpretation(cmd))
@@ -1009,6 +1011,18 @@ private[lf] final class Compiler(
             }
           }
         }
+    }
+
+  private[this] def translateWithContractDisclosures(
+      env: Env,
+      cmds: ImmArray[Command],
+      disclosures: ImmArray[DisclosedContract],
+  ): s.SExpr =
+    unaryFunction(env) { (tokenPos, env) =>
+      let(env, app(translateContractDisclosures(env, disclosures), env.toSEVar(tokenPos))) {
+        (tokenResultPos, env) =>
+          app(translateCommands(env, cmds), env.toSEVar(tokenResultPos))
+      }
     }
 
   private[this] def translateContractDisclosures(

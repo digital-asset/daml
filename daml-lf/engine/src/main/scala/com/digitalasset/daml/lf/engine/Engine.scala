@@ -9,7 +9,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError, SValue}
-import com.daml.lf.speedy.SExpr.{SEApp, SELet1General, SEValue, SExpr}
+import com.daml.lf.speedy.SExpr.{SEApp, SEValue, SExpr}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{
@@ -283,15 +283,10 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       seeding: speedy.InitialSeeding,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
-      disclosureUpdates <- runCompilerSafely(
+      sexpr <- runCompilerSafely(
         NameOf.qualifiedNameOfCurrentFunc,
-        compiledPackages.compiler.unsafeCompileContractDisclosures(disclosures),
+        compiledPackages.compiler.unsafeCompileWithContractDisclosures(commands, disclosures),
       )
-      commandEvals <- runCompilerSafely(
-        NameOf.qualifiedNameOfCurrentFunc,
-        compiledPackages.compiler.unsafeCompile(commands),
-      )
-      sexpr = SELet1General(disclosureUpdates, commandEvals) // FIXME: is this correct?
       result <- interpretExpression(
         validating,
         submitters,
