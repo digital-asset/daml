@@ -881,7 +881,7 @@ class WebSocketService(
             )
             .via(
               convertFilterContracts(
-                domain.ResolvedQuery.ContractTypeIdsQuery(resolvedQuery.resolved),
+                resolvedQuery,
                 fn,
               )
             )
@@ -936,7 +936,7 @@ class WebSocketService(
                   )
                   .via(
                     convertFilterContracts(
-                      domain.ResolvedQuery.ContractTypeIdsQuery(resolvedQuery.resolved),
+                      resolvedQuery,
                       fn,
                     )
                   )
