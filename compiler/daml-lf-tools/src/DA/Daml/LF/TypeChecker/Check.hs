@@ -53,7 +53,7 @@ import qualified Data.Text as T
 import           Safe.Exact (zipExactMay)
 
 import           DA.Daml.LF.Ast
-import           DA.Daml.LF.Ast.Optics (dataConsType)
+import           DA.Daml.LF.Ast.Optics (dataConsType, _TypeSplitApp)
 import           DA.Daml.LF.Ast.Type
 import           DA.Daml.LF.Ast.Alpha
 import           DA.Daml.LF.Ast.Numeric
@@ -869,10 +869,15 @@ checkIface :: MonadGamma m => Module -> DefInterface -> m ()
 checkIface m iface = do
   
   -- check view
-  tycon <- match _TCon (EExpectedViewType viewtype) viewtype
+  let (func, _) = viewtype ^. _TypeSplitApp
+  tycon <- match _TCon (EExpectedViewType "non-type-constructor" viewtype) func
   DefDataType _loc _naem _serializable tparams dataCons <- inWorld (lookupDataType tycon)
-  unless (null tparams) $ throwWithContext (EExpectedViewType viewtype)
-  _ <- match _DataRecord (EExpectedViewType viewtype) dataCons
+  unless (null tparams) $ throwWithContext (EExpectedViewType "type-constructor with type variables" viewtype)
+  case dataCons of
+    DataRecord {} -> pure ()
+    DataVariant {} -> throwWithContext (EExpectedViewType "variant type" viewtype)
+    DataEnum {} -> throwWithContext (EExpectedViewType "enum type" viewtype)
+    DataInterface {} -> throwWithContext (EExpectedViewType "interface type" viewtype)
 
   -- check requires
   when (tcon `S.member` intRequires iface) $
