@@ -958,16 +958,7 @@ class WebSocketService(
       .lazyFutureSource { () =>
         queryPredicate(request, jwt, ledgerId).flatMap {
           case ValidStreamPredicate(resolved, unresolved, fn, _) =>
-            if (resolved.resolved.nonEmpty)
-              processResolved(resolved, unresolved, fn)
-            else
-              Future.successful(
-                reportUnresolvedTemplateIds(unresolved)
-                  .map(jsv => \/-(wsMessage(jsv)))
-                  .concat(
-                    Source.single(-\/(InvalidUserInput(ErrorMessages.cannotResolveAnyTemplateId)))
-                  )
-              )
+            processResolved(resolved, unresolved, fn)
           case AllContractTypeIdsNotResolved(unresolved) =>
             Future.successful(
               reportUnresolvedTemplateIds(unresolved)
@@ -976,10 +967,18 @@ class WebSocketService(
                   Source.single(-\/(InvalidUserInput(ErrorMessages.cannotResolveAnyTemplateId)))
                 )
             )
-          case AllContractTypeIdsNotResolved(_) | UnsupportedQuery(_) =>
-            // TODO ChunLok put error message depends on reason
+          case UnsupportedQuery(unsupportedReason) =>
+            val message = unsupportedReason match {
+              case ResolvedQuery.CannotBeEmpty =>
+                ErrorMessages.cannotResolveAnyTemplateId
+              case domain.ResolvedQuery.CannotQueryBothTemplateIdsAndInterfaceIds =>
+                ErrorMessages.cannotQueryBothTemplateIdsAndInterfaceIds
+              case domain.ResolvedQuery.CannotQueryManyInterfaceIds =>
+                ErrorMessages.canOnlyQueryOneInterfaceId
+            }
+
             Future.successful(
-              Source.single(-\/(InvalidUserInput(ErrorMessages.cannotResolveAnyTemplateId)))
+              Source.single(-\/(InvalidUserInput(message)))
             )
         }
       }
