@@ -121,7 +121,6 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
     }
   }
 
-  // TODO ED: When the conformance tests are enabled, check this test for flakiness
   test(
     "EDMetadata",
     "All create events have correctly-defined metadata",

@@ -430,7 +430,7 @@ private[events] object TransactionLogUpdatesConversions {
               createdAt = Some(TimestampConversion.fromLf(createdEvent.ledgerEffectiveTime)),
               contractKeyHash =
                 createdEvent.createKeyHash.fold(ByteString.EMPTY)(_.bytes.toByteString),
-              // TODO DPP-1026: Store driver metadata in the database
+              // TODO ED: Store driver metadata in the database
               driverMetadata = ByteString.EMPTY,
             )
           ),
