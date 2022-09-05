@@ -13,7 +13,6 @@ module DA.Daml.LF.Ast.Optics(
     moduleExpr,
     dataConsType,
     _PRSelfModule,
-    _TypeSplitApp,
     exprValueRef,
     packageRefs,
     templateExpr,
@@ -27,7 +26,6 @@ import Data.Functor.Foldable (cata, embed)
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import qualified Data.Set as S
-import Data.Foldable (foldl')
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.TypeLevelNat
@@ -58,14 +56,6 @@ _PRSelfModule :: ModuleName -> Prism' (Qualified a) a
 _PRSelfModule modName = prism (Qualified PRSelf modName) $ \case
   Qualified PRSelf modName' x | modName' == modName -> Right x
   q -> Left q
-
-_TypeSplitApp :: Iso' Type (Type, [Type])
-_TypeSplitApp = iso (splitOut []) joinIn
-  where
-    splitOut argsSoFar (TApp func arg) =
-      splitOut (arg:argsSoFar) func
-    splitOut argsSoFar func = (func, argsSoFar)
-    joinIn (func, args) = foldl' TApp func args
 
 templateChoiceExpr :: Traversal' TemplateChoice Expr
 templateChoiceExpr f (TemplateChoice loc name consuming controllers observers selfBinder argBinder typ update) =

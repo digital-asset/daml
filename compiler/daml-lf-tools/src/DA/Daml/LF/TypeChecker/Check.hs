@@ -53,7 +53,7 @@ import qualified Data.Text as T
 import           Safe.Exact (zipExactMay)
 
 import           DA.Daml.LF.Ast
-import           DA.Daml.LF.Ast.Optics (dataConsType, _TypeSplitApp)
+import           DA.Daml.LF.Ast.Optics (dataConsType)
 import           DA.Daml.LF.Ast.Type
 import           DA.Daml.LF.Ast.Alpha
 import           DA.Daml.LF.Ast.Numeric
@@ -869,7 +869,7 @@ checkIface :: MonadGamma m => Module -> DefInterface -> m ()
 checkIface m iface = do
   
   -- check view
-  let (func, _) = viewtype ^. _TypeSplitApp
+  let (func, _) = viewtype ^. _TApps
   tycon <- match _TCon (EExpectedViewType "non-type-constructor" viewtype) func
   DefDataType _loc _naem _serializable tparams dataCons <- inWorld (lookupDataType tycon)
   unless (null tparams) $ throwWithContext (EExpectedViewType "type-constructor with type variables" viewtype)
