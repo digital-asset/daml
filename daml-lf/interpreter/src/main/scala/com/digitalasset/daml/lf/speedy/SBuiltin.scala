@@ -2134,9 +2134,8 @@ private[lf] object SBuiltin {
           Machine
             .fromPureSExpr(
               machine.compiledPackages,
-              flattenToAnf(
-                closureConvert(ToCachedContractDefRef(templateId)(contract, contractKey))
-              ),
+              machine.compiledPackages.compiler
+                .unsafeClosureConvert(ToCachedContractDefRef(templateId)(contract, contractKey)),
             )(machine.loggingContext)
             .run() match {
             case SResultFinal(value, _) => value
