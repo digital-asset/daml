@@ -14,50 +14,49 @@ import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckWithCommittedSpec._
 import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission
+import com.daml.lf.command.{ContractMetadata, DisclosedContract}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{BlindingInfo, GlobalKey, Transaction}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
+import com.daml.lf.value.Value.{ContractId, ValueTrue, VersionedContractInstance}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.FixtureContext
-import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.time.Duration
 import scala.concurrent.Future
 
 class ConflictCheckWithCommittedSpec
-    extends AsyncFlatSpec
+    extends AnyFlatSpec
     with Matchers
     with MockitoSugar
+    with ScalaFutures
     with ArgumentMatchersSugar {
 
   behavior of classOf[ConflictCheckWithCommittedImpl].getSimpleName
 
   it should "validate causal monotonicity and key usages" in new TestContext {
-    conflictCheckWithCommitted(input).map(_ shouldBe input)
+    conflictCheckWithCommitted(input).futureValue shouldBe input
   }
 
   it should "pass causal monotonicity check if referred contracts is empty" in new TestContext {
     val submissionWithEmptyReferredContracts: PreparedTransactionSubmission =
       preparedTransactionSubmission.copy(inputContracts = inputContracts -- referredContracts)
-    for {
-      validationResult <- conflictCheckWithCommitted(
-        Right(offset -> submissionWithEmptyReferredContracts)
-      )
-    } yield {
-      verify(indexServiceMock, never).lookupMaximumLedgerTimeAfterInterpretation(
-        any[Set[ContractId]]
-      )(
-        any[LoggingContext]
-      )
-      validationResult shouldBe Right(offset -> submissionWithEmptyReferredContracts)
-    }
+
+    private val validationResult = conflictCheckWithCommitted(
+      Right(offset -> submissionWithEmptyReferredContracts)
+    ).futureValue
+
+    verify(indexServiceMock, never)
+      .lookupMaximumLedgerTimeAfterInterpretation(any[Set[ContractId]])(any[LoggingContext])
+    validationResult shouldBe Right(offset -> submissionWithEmptyReferredContracts)
   }
 
   it should "handle causal monotonicity violation" in new TestContext {
@@ -67,13 +66,15 @@ class ConflictCheckWithCommittedSpec
         txSubmission.copy(transactionMeta = transactionMeta.copy(ledgerEffectiveTime = lateTxLet))
       )
 
-    conflictCheckWithCommitted(Right(offset -> nonCausalTxSubmission))
-      .map {
-        case Left(CausalMonotonicityViolation(actualContractMaxLedgerTime, actualTxLet)) =>
-          actualContractMaxLedgerTime shouldBe contractMaxLedgerTime
-          actualTxLet shouldBe lateTxLet
-        case failure => fail(s"Expectation mismatch: got $failure")
-      }
+    private val validationResult =
+      conflictCheckWithCommitted(Right(offset -> nonCausalTxSubmission)).futureValue
+
+    validationResult match {
+      case Left(CausalMonotonicityViolation(actualContractMaxLedgerTime, actualTxLet)) =>
+        actualContractMaxLedgerTime shouldBe contractMaxLedgerTime
+        actualTxLet shouldBe lateTxLet
+      case failure => fail(s"Expectation mismatch: got $failure")
+    }
   }
 
   it should "handle missing contracts" in new TestContext {
@@ -82,13 +83,14 @@ class ConflictCheckWithCommittedSpec
       indexServiceMock.lookupMaximumLedgerTimeAfterInterpretation(referredContracts)(loggingContext)
     )
       .thenReturn(Future.successful(MaximumLedgerTime.Archived(missingContracts)))
+    private val validationResult =
+      conflictCheckWithCommitted(input).futureValue
 
-    conflictCheckWithCommitted(input)
-      .map {
-        case Left(UnknownContracts(actualMissingContracts)) =>
-          actualMissingContracts shouldBe missingContracts
-        case failure => fail(s"Expectation mismatch: got $failure")
-      }
+    validationResult match {
+      case Left(UnknownContracts(actualMissingContracts)) =>
+        actualMissingContracts shouldBe missingContracts
+      case failure => fail(s"Expectation mismatch: got $failure")
+    }
   }
 
   it should "handle a generic lookupMaximumLedgerTime error" in new TestContext {
@@ -98,25 +100,26 @@ class ConflictCheckWithCommittedSpec
       indexServiceMock.lookupMaximumLedgerTimeAfterInterpretation(referredContracts)(loggingContext)
     )
       .thenReturn(Future.failed(someInternalError))
+    private val validationResult = conflictCheckWithCommitted(input).futureValue
 
-    conflictCheckWithCommitted(input)
-      .map {
-        case Left(LedgerBridgeInternalError(actualInternalError, _)) =>
-          actualInternalError shouldBe someInternalError
-        case failure => fail(s"Expectation mismatch: got $failure")
-      }
+    validationResult match {
+      case Left(LedgerBridgeInternalError(actualInternalError, _)) =>
+        actualInternalError shouldBe someInternalError
+      case failure => fail(s"Expectation mismatch: got $failure")
+    }
   }
 
   it should "handle an inconsistent contract key (on key active input)" in new TestContext {
     when(indexServiceMock.lookupContractKey(informeesSet, activeKey)(loggingContext))
       .thenReturn(Future.successful(None))
+    private val validationResult =
+      conflictCheckWithCommitted(input).futureValue
 
-    conflictCheckWithCommitted(input)
-      .map {
-        case Left(InconsistentContractKey(Some(actualInputContract), None)) =>
-          actualInputContract shouldBe inputContract
-        case failure => fail(s"Expectation mismatch: got $failure")
-      }
+    validationResult match {
+      case Left(InconsistentContractKey(Some(actualInputContract), None)) =>
+        actualInputContract shouldBe inputContract
+      case failure => fail(s"Expectation mismatch: got $failure")
+    }
   }
 
   it should "handle an inconsistent contract key (on negative lookup input)" in new TestContext {
@@ -124,13 +127,14 @@ class ConflictCheckWithCommittedSpec
 
     when(indexServiceMock.lookupContractKey(informeesSet, nonExistingKey)(loggingContext))
       .thenReturn(Future.successful(Some(existingContractForKey)))
+    private val validationResult =
+      conflictCheckWithCommitted(input).futureValue
 
-    conflictCheckWithCommitted(input)
-      .map {
-        case Left(InconsistentContractKey(None, Some(actualExistingContractForKey))) =>
-          actualExistingContractForKey shouldBe existingContractForKey
-        case failure => fail(s"Expectation mismatch: got $failure")
-      }
+    validationResult match {
+      case Left(InconsistentContractKey(None, Some(actualExistingContractForKey))) =>
+        actualExistingContractForKey shouldBe existingContractForKey
+      case failure => fail(s"Expectation mismatch: got $failure")
+    }
   }
 
   it should "handle a duplicate contract key" in new TestContext {
@@ -138,12 +142,93 @@ class ConflictCheckWithCommittedSpec
 
     when(indexServiceMock.lookupContractKey(informeesSet, keyCreated)(loggingContext))
       .thenReturn(Future.successful(Some(existingContractForKey)))
+    private val validationResult = conflictCheckWithCommitted(input).futureValue
 
-    conflictCheckWithCommitted(input)
-      .map {
-        case Left(DuplicateKey(actualDuplicateKey)) => actualDuplicateKey shouldBe keyCreated
-        case failure => fail(s"Expectation mismatch: got $failure")
-      }
+    validationResult match {
+      case Left(DuplicateKey(actualDuplicateKey)) => actualDuplicateKey shouldBe keyCreated
+      case failure => fail(s"Expectation mismatch: got $failure")
+    }
+  }
+
+  it should "fail validation mismatching let in disclosed contract" in new TestContext {
+    when(
+      indexServiceMock.lookupContractAfterInterpretation(eqTo(disclosedContract.contractId))(
+        any[LoggingContext]
+      )
+    )
+      .thenReturn(
+        Future.successful(
+          Some(
+            VersionedContractInstance(
+              templateId,
+              Versioned(TransactionVersion.VDev, disclosedContract.argument),
+              "",
+            ) -> disclosedContract.metadata.createdAt.add(Duration.ofSeconds(1000L))
+          )
+        )
+      )
+
+    private val validationResult = conflictCheckWithCommitted(input).futureValue
+
+    validationResult match {
+      case Left(DisclosedContractInvalid(contractId, _)) =>
+        contractId shouldBe disclosedContract.contractId
+      case failure => fail(s"Expectation mismatch: got $failure")
+    }
+  }
+
+  it should "fail validation mismatching contract argument in disclosed contract" in new TestContext {
+    when(
+      indexServiceMock.lookupContractAfterInterpretation(eqTo(disclosedContract.contractId))(
+        any[LoggingContext]
+      )
+    )
+      .thenReturn(
+        Future.successful(
+          Some(
+            VersionedContractInstance(
+              templateId,
+              Versioned(TransactionVersion.VDev, ValueTrue),
+              "",
+            ) -> disclosedContract.metadata.createdAt
+          )
+        )
+      )
+
+    private val validationResult = conflictCheckWithCommitted(input).futureValue
+
+    validationResult match {
+      case Left(DisclosedContractInvalid(contractId, _)) =>
+        contractId shouldBe disclosedContract.contractId
+      case failure => fail(s"Expectation mismatch: got $failure")
+    }
+  }
+
+  it should "fail validation mismatching template id in disclosed contract" in new TestContext {
+    when(
+      indexServiceMock.lookupContractAfterInterpretation(eqTo(disclosedContract.contractId))(
+        any[LoggingContext]
+      )
+    )
+      .thenReturn(
+        Future.successful(
+          Some(
+            VersionedContractInstance(
+              templateId.copy(packageId = Ref.PackageId.assertFromString("anotherPackageId")),
+              Versioned(TransactionVersion.VDev, disclosedContract.argument),
+              "",
+            ) -> disclosedContract.metadata.createdAt
+          )
+        )
+      )
+
+    private val validationResult = conflictCheckWithCommitted(input).futureValue
+
+    validationResult match {
+      case Left(DisclosedContractInvalid(contractId, _)) =>
+        contractId shouldBe disclosedContract.contractId
+      case failure => fail(s"Expectation mismatch: got $failure")
+    }
   }
 
   private class TestContext extends FixtureContext {
@@ -187,11 +272,23 @@ class ConflictCheckWithCommittedSpec
     val informeesSet: Set[Ref.Party] = transactionInformees.toSet
     val blindingInfo: BlindingInfo = BlindingInfo(Map(), Map(divulgedContract -> Set(informee1)))
 
+    val disclosedContract: DisclosedContract = DisclosedContract(
+      templateId = templateId,
+      contractId = cid(1),
+      argument = Value.ValueText("Some contract value"),
+      metadata = ContractMetadata(
+        createdAt = Time.Timestamp.now(),
+        keyHash = None, // Not affected by this validation
+        driverMetadata = ImmArray.empty, // Not affected by this validation
+      ),
+    )
+
     val txSubmission: Submission.Transaction = Submission.Transaction(
       submitterInfo = submitterInfo,
       transactionMeta = transactionMeta,
       transaction = TransactionBuilder.EmptySubmitted,
       estimatedInterpretationCost = 0L,
+      disclosedContracts = ImmArray(Versioned(TransactionVersion.VDev, disclosedContract)),
     )(loggingContext)
 
     val preparedTransactionSubmission: PreparedTransactionSubmission =
@@ -220,6 +317,23 @@ class ConflictCheckWithCommittedSpec
       .thenReturn(Future.successful(Some(inputContract)))
     when(indexServiceMock.lookupContractKey(informeesSet, nonExistingKey))
       .thenReturn(Future.successful(None))
+
+    when(
+      indexServiceMock.lookupContractAfterInterpretation(eqTo(disclosedContract.contractId))(
+        any[LoggingContext]
+      )
+    )
+      .thenReturn(
+        Future.successful(
+          Some(
+            VersionedContractInstance(
+              templateId,
+              Versioned(TransactionVersion.VDev, disclosedContract.argument),
+              "",
+            ) -> disclosedContract.metadata.createdAt
+          )
+        )
+      )
   }
 }
 

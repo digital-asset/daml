@@ -6,15 +6,18 @@ package com.daml.ledger.sandbox.bridge.validate
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{IndexService, MaximumLedgerTime}
-import ConflictCheckingLedgerBridge._
 import com.daml.ledger.participant.state.v2.CompletionInfo
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
+import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge._
 import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission.Transaction
-import com.daml.lf.data.Ref
+import com.daml.lf.command.DisclosedContract
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.{Transaction => LfTransaction}
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.transaction.{Versioned, Transaction => LfTransaction}
+import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Timed
 
@@ -49,26 +52,38 @@ private[validate] class ConflictCheckWithCommittedImpl(
             ),
           )
         ) =>
-      withErrorLogger(originalSubmission.submitterInfo.submissionId) { implicit errorLogger =>
+      val submissionId = originalSubmission.submissionId
+      withErrorLogger(Some(submissionId)) { implicit errorLogger =>
         Timed
           .future(
             bridgeMetrics.Stages.ConflictCheckWithCommitted.timer,
-            validateCausalMonotonicity(
-              transaction = originalSubmission,
-              inputContracts = inputContracts,
-              transactionLedgerEffectiveTime =
-                originalSubmission.transactionMeta.ledgerEffectiveTime,
-              divulged = blindingInfo.divulgence.keySet,
-            ).flatMap {
-              case Right(_) =>
-                validateKeyUsages(
-                  transactionInformees,
-                  keyInputs,
-                  originalSubmission.loggingContext,
-                  originalSubmission.submitterInfo.toCompletionInfo(),
-                )
-              case rejection => Future.successful(rejection)
-            },
+            withEnrichedLoggingContext("submissionId" -> submissionId) { implicit loggingContext =>
+              validateExplicitDisclosure(
+                originalSubmission.disclosedContracts,
+                originalSubmission.submitterInfo.toCompletionInfo(),
+              )
+            }(originalSubmission.loggingContext)
+              .flatMap {
+                case Right(_) =>
+                  validateCausalMonotonicity(
+                    transaction = originalSubmission,
+                    inputContracts = inputContracts,
+                    transactionLedgerEffectiveTime =
+                      originalSubmission.transactionMeta.ledgerEffectiveTime,
+                    divulged = blindingInfo.divulgence.keySet,
+                  )
+                case rejection => Future.successful(rejection)
+              }
+              .flatMap {
+                case Right(_) =>
+                  validateKeyUsages(
+                    transactionInformees,
+                    keyInputs,
+                    originalSubmission.loggingContext,
+                    originalSubmission.submitterInfo.toCompletionInfo(),
+                  )
+                case rejection => Future.successful(rejection)
+              },
           )
           .map(_.map(_ => validated))
       }(originalSubmission.loggingContext, logger)
@@ -108,8 +123,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
               )
             )
 
-          case Success(_) =>
-            Success(Right(()))
+          case Success(_) => Success(Right(()))
         }
   }
 
@@ -149,4 +163,63 @@ private[validate] class ConflictCheckWithCommittedImpl(
     }
   }
 
+  private def sameContractData(
+      actual: (Value.VersionedContractInstance, Timestamp),
+      provided: Versioned[DisclosedContract],
+  ): Either[String, Unit] = {
+    val providedContractId = provided.unversioned.contractId
+
+    val actualTemplate = actual._1.unversioned.template
+    val providedTemplate = provided.unversioned.templateId
+
+    val actualArgument = actual._1.unversioned.arg
+    val providedArgument = provided.unversioned.argument
+
+    val actualLet = actual._2
+    val providedLet = provided.unversioned.metadata.createdAt
+
+    if (actualTemplate != providedTemplate)
+      Left(s"Disclosed contract $providedContractId has invalid template id")
+    else if (actualArgument != providedArgument)
+      Left(s"Disclosed contract $providedContractId has invalid argument")
+    else if (actualLet != providedLet)
+      Left(s"Disclosed contract $providedContractId has invalid ledgerEffectiveTime")
+    else
+      Right(())
+  }
+
+  private def validateExplicitDisclosure(
+      disclosedContracts: ImmArray[Versioned[DisclosedContract]],
+      completionInfo: CompletionInfo,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger,
+      loggingContext: LoggingContext,
+  ): AsyncValidation[Unit] = {
+    // Note that the validation fails fast on the first unknown/invalid contract.
+    disclosedContracts.foldLeft(Future.successful[Validation[Unit]](Right(()))) {
+      case (f, provided) =>
+        f.flatMap {
+          case Right(_) =>
+            val eventualMaybeTuple = indexService
+              .lookupContractAfterInterpretation(provided.unversioned.contractId)
+            eventualMaybeTuple
+              .map {
+                case None =>
+                  Left(
+                    // Disclosed contract was archived or never existed
+                    UnknownContracts(Set(provided.unversioned.contractId))(completionInfo)
+                  )
+                case Some(actual) =>
+                  val result = sameContractData(actual, provided)
+                  result.left.map { errMessage =>
+                    // TODO .: Add submission id to logging context
+                    logger.info(errMessage)
+                    DisclosedContractInvalid(provided.unversioned.contractId, completionInfo)
+                  }
+                case _ => Right(())
+              }
+          case left => Future.successful(left)
+        }
+    }
+  }
 }

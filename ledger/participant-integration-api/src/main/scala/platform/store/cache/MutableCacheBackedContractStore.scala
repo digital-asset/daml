@@ -7,6 +7,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.value.Value.VersionedContractInstance
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.store.cache.ContractKeyStateValue._
@@ -71,6 +72,21 @@ private[platform] class MutableCacheBackedContractStore(
 
         case Right((cached, toBeFetched)) =>
           readThroughMaximumLedgerTime(toBeFetched.toList, cached.maxOption)
+      }
+
+  override def lookupContractAfterInterpretation(
+      contractId: ContractId
+  )(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[(VersionedContractInstance, Timestamp)]] =
+    contractStateCaches.contractState
+      .get(contractId)
+      .map(Future.successful)
+      .getOrElse(readThroughContractsCache(contractId))
+      .map {
+        case NotFound => None
+        case Active(contract, _, let) => Some(contract -> let)
+        case Archived(_) => None
       }
 
   private def readThroughMaximumLedgerTime(
