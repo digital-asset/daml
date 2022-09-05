@@ -27,6 +27,7 @@ import Data.Functor.Foldable (cata, embed)
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import qualified Data.Set as S
+import Data.Foldable (foldl')
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.TypeLevelNat
@@ -64,7 +65,7 @@ _TypeSplitApp = iso (splitOut []) joinIn
     splitOut argsSoFar (TApp func arg) =
       splitOut (arg:argsSoFar) func
     splitOut argsSoFar func = (func, argsSoFar)
-    joinIn (func, args) = foldl TApp func args
+    joinIn (func, args) = foldl' TApp func args
 
 templateChoiceExpr :: Traversal' TemplateChoice Expr
 templateChoiceExpr f (TemplateChoice loc name consuming controllers observers selfBinder argBinder typ update) =
