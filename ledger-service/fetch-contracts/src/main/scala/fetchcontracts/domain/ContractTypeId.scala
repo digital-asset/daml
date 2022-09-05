@@ -3,7 +3,6 @@
 
 package com.daml.fetchcontracts.domain
 
-import com.daml.http.ErrorMessages
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.lf.data.Ref
 import scalaz.{-\/, Applicative, Monoid, Traverse, \/, \/-}
@@ -101,10 +100,7 @@ object ResolvedQuery {
       extends Unsupported("Cannot resolve any template ID from request")
   final case object CannotQueryManyInterfaceIds
       extends Unsupported("Cannot query more than one interface ID")
-  final case object CannotBeEmpty
-      extends Unsupported(
-        ErrorMessages.cannotResolveAnyTemplateId
-      )
+  final case object CannotBeEmpty extends Unsupported("Cannot resolve any template ID from request")
 
   // TODO RR #14871 verify that `ResolvedQuery.Empty` is ok where it is used
   final case object Empty extends ResolvedQuery {
