@@ -875,9 +875,9 @@ checkIface m iface = do
   unless (null tparams) $ throwWithContext (EExpectedViewType "type constructor with type variables" viewtype)
   case dataCons of
     DataRecord {} -> pure ()
-    DataVariant {} -> throwWithContext (EExpectedViewType "variant type" viewtype)
-    DataEnum {} -> throwWithContext (EExpectedViewType "enum type" viewtype)
-    DataInterface {} -> throwWithContext (EExpectedViewType "interface type" viewtype)
+    DataVariant {} -> throwWithContext (EExpectedViewType "a variant type" viewtype)
+    DataEnum {} -> throwWithContext (EExpectedViewType "an enum type" viewtype)
+    DataInterface {} -> throwWithContext (EExpectedViewType "a interface type" viewtype)
 
   -- check requires
   when (tcon `S.member` intRequires iface) $
