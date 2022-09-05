@@ -870,9 +870,9 @@ checkIface m iface = do
   
   -- check view
   let (func, _) = viewtype ^. _TApps
-  tycon <- match _TCon (EExpectedViewType "non-type-constructor" viewtype) func
+  tycon <- match _TCon (EExpectedViewType "non type constructor" viewtype) func
   DefDataType _loc _naem _serializable tparams dataCons <- inWorld (lookupDataType tycon)
-  unless (null tparams) $ throwWithContext (EExpectedViewType "type-constructor with type variables" viewtype)
+  unless (null tparams) $ throwWithContext (EExpectedViewType "type constructor with type variables" viewtype)
   case dataCons of
     DataRecord {} -> pure ()
     DataVariant {} -> throwWithContext (EExpectedViewType "variant type" viewtype)
