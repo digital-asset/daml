@@ -15,7 +15,7 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractInstance, ValueRecord, ValueText}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.store.cache.MutableCacheBackedContractStoreSpec._
+import com.daml.platform.store.cache.MutableCacheBackedContractStoreSpec.{cId_5, _}
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
@@ -234,6 +234,43 @@ class MutableCacheBackedContractStoreSpec extends AsyncWordSpec with Matchers wi
       } yield {
         // since with cacheIndex 2L both of them are archived due to set semantics it is accidental which we check first with read-through
         maxLedgerTime shouldBe a[MaximumLedgerTime.Archived]
+      }
+    }
+  }
+
+  "lookupContractAfterInterpretation" should {
+    "resolve lookup from cache" in {
+      for {
+        store <- contractStore(cachesSize = 2L).asFuture
+        _ = store.contractStateCaches.contractState.putBatch(
+          offset2,
+          Map(
+            // Populate the cache with an active contract
+            cId_4 -> ContractStateValue.Active(
+              contract = contract4,
+              stakeholders = Set.empty,
+              createLedgerEffectiveTime = t4,
+            ),
+            // Populate the cache with an archived contract
+            cId_5 -> ContractStateValue.Archived(Set.empty),
+          ),
+        )
+        activeContractLookupResult <- store.lookupContractAfterInterpretation(cId_4)
+        archivedContractLookupResult <- store.lookupContractAfterInterpretation(cId_5)
+      } yield {
+        activeContractLookupResult shouldBe Some(contract4 -> t4)
+        archivedContractLookupResult shouldBe None
+      }
+    }
+
+    "resolve lookup from the ContractsReader when not cached" in {
+      for {
+        store <- contractStore(cachesSize = 0L).asFuture
+        activeContractLookupResult <- store.lookupContractAfterInterpretation(cId_4)
+        archivedContractLookupResult <- store.lookupContractAfterInterpretation(cId_5)
+      } yield {
+        activeContractLookupResult shouldBe Some(contract4 -> t4)
+        archivedContractLookupResult shouldBe None
       }
     }
   }

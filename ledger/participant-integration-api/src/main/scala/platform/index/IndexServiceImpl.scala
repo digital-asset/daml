@@ -273,6 +273,11 @@ private[index] class IndexServiceImpl(
   ): Future[Option[VersionedContractInstance]] =
     contractStore.lookupActiveContract(forParties, contractId)
 
+  override def lookupContractAfterInterpretation(contractId: ContractId)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[(VersionedContractInstance, Timestamp)]] =
+    contractStore.lookupContractAfterInterpretation(contractId)
+
   override def getTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],
@@ -469,7 +474,6 @@ private[index] class IndexServiceImpl(
     LedgerApiErrors.ServiceNotRunning
       .Reject("Index Service")(new DamlContextualizedErrorLogger(logger, loggingContext, None))
       .asGrpcError
-
 }
 
 object IndexServiceImpl {

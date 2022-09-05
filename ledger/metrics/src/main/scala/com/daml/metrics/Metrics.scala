@@ -418,6 +418,8 @@ final class Metrics(val registry: MetricRegistry) {
         val getTransactionTreeById: Timer = registry.timer(Prefix :+ "get_transaction_tree_by_id")
         val getActiveContracts: Timer = registry.timer(Prefix :+ "get_active_contracts")
         val lookupActiveContract: Timer = registry.timer(Prefix :+ "lookup_active_contract")
+        val lookupContractAfterInterpretation: Timer =
+          registry.timer(Prefix :+ "lookup_contract_after_interpretation")
         val lookupContractKey: Timer = registry.timer(Prefix :+ "lookup_contract_key")
         val lookupMaximumLedgerTime: Timer = registry.timer(Prefix :+ "lookup_maximum_ledger_time")
         val getParticipantId: Timer = registry.timer(Prefix :+ "get_participant_id")

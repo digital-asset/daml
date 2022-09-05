@@ -27,6 +27,7 @@ import com.daml.lf.data.Ref.{ApplicationId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value.VersionedContractInstance
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 
@@ -223,4 +224,12 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       delegate.getMeteringReportData(from, to, applicationId),
     )
   }
+
+  override def lookupContractAfterInterpretation(contractId: Value.ContractId)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[(VersionedContractInstance, Timestamp)]] =
+    Timed.future(
+      metrics.daml.services.index.lookupContractAfterInterpretation,
+      delegate.lookupContractAfterInterpretation(contractId),
+    )
 }
