@@ -79,6 +79,7 @@ conformance_test_tool_args = [
         "TLSAtLeastOnePointTwoIT",
         "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
         "DeeplyNestedValueIT",  # FIXME: Too deeply nested values flake with a time out (half of the time)
+        "InterfaceSubscriptionsIT:ISTransactionsUnknownTemplateOrInterface",  # FIXME: Remove exclusion after the next Canton SDK upgrade
     ]),
 ]
 
