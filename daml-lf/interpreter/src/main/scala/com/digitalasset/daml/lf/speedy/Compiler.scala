@@ -309,7 +309,7 @@ private[lf] final class Compiler(
       cmds: ImmArray[Command],
       disclosures: ImmArray[DisclosedContract],
   ): t.SExpr =
-    pipeline(translateWithContractDisclosures(Env.Empty, cmds, disclosures))
+    pipeline(translateCommandsWithContractDisclosures(Env.Empty, cmds, disclosures))
 
   private[this] def compileCommandForReinterpretation(cmd: Command): t.SExpr =
     pipeline(translateCommandForReinterpretation(cmd))
@@ -351,7 +351,7 @@ private[lf] final class Compiler(
           interfaceId = impl.interfaceId,
           templateId = tmplId,
           interfaceInstanceBody = impl.body,
-        ).foreach(addDef(_))
+        ).foreach(addDef)
       }
 
       tmpl.choices.values.foreach(x => addDef(compileTemplateChoice(tmplId, tmpl, x)))
@@ -377,7 +377,7 @@ private[lf] final class Compiler(
           interfaceId = ifaceId,
           templateId = coimpl.templateId,
           interfaceInstanceBody = coimpl.body,
-        ).foreach(addDef(_))
+        ).foreach(addDef)
       }
     }
 
@@ -1013,7 +1013,7 @@ private[lf] final class Compiler(
         }
     }
 
-  private[this] def translateWithContractDisclosures(
+  private[this] def translateCommandsWithContractDisclosures(
       env: Env,
       cmds: ImmArray[Command],
       disclosures: ImmArray[DisclosedContract],

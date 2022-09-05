@@ -1329,7 +1329,7 @@ private[lf] object Speedy {
     * This continuation is used to implement both function application and lets. In
     * the case of function application the arguments are pushed into the 'actuals' array of
     * the PAP that is being built, and in the case of lets the evaluated value is pushed
-    * direy into the environment.
+    * directly into the environment.
     */
   private[speedy] final case class KPushTo(
       machine: Machine,
@@ -1488,7 +1488,6 @@ private[lf] object Speedy {
         Control.Value(cached.any)
       }
     }
-
   }
 
   private[speedy] final case class KCheckKeyVisibility(
@@ -1497,6 +1496,7 @@ private[lf] object Speedy {
       cid: V.ContractId,
       handleKeyFound: (Machine, V.ContractId) => Control,
   ) extends Kont {
+
     def execute(sv: SValue): Control = {
       machine.withOnLedger("KCheckKeyVisibitiy") { onLedger =>
         machine.checkKeyVisibility(onLedger, gKey, cid, handleKeyFound)

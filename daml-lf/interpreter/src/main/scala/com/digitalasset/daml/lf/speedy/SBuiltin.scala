@@ -2120,12 +2120,15 @@ private[lf] object SBuiltin {
 
       val token = args.get(0)
 
-      // TODO: manage error scenarios - use Control.Error(???) as return value in this case
       for (disclosedContract <- disclosures) {
-        val contractId = disclosedContract.contractId
         val templateId = disclosedContract.templateId
+
+        if (machine.compiledPackages.pkgInterface.lookupTemplate(templateId).isLeft) {
+          crash(s"???")
+        }
+
+        val contractId = disclosedContract.contractId
         val contract = SExpr0.SEValue(disclosedContract.argument)
-        // TODO: check template exists!
         val contractKey = SExpr.ContractKeyWithMaintainersDefRef(templateId)(contract)
         val cachedContract = extractCachedContract(
           machine,
