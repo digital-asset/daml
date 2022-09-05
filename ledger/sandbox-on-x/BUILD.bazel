@@ -34,6 +34,7 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
+        "//ledger-service/jwt",
         "//ledger/caching",
         "//ledger/error",
         "//ledger/ledger-api-auth",

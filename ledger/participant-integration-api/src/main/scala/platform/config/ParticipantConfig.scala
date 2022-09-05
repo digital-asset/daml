@@ -3,6 +3,7 @@
 
 package com.daml.platform.config
 
+import com.daml.jwt.JwtTimestampLeeway
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.configuration.IndexServiceConfig
@@ -15,6 +16,7 @@ import scala.concurrent.duration._
 final case class ParticipantConfig(
     apiServer: ApiServerConfig = ApiServerConfig(),
     authentication: AuthServiceConfig = AuthServiceConfig.Wildcard,
+    jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
     dataSourceProperties: DataSourceProperties = DataSourceProperties(
       connectionPool = ConnectionPoolConfig(
         connectionPoolSize = 16,

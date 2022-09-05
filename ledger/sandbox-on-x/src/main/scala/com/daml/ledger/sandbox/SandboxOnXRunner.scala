@@ -259,13 +259,14 @@ object SandboxOnXRunner {
       extra: BridgeConfig,
   ): Unit = {
     val apiServerConfig = participantConfig.apiServer
-    val authentication = participantConfig.authentication.create() match {
-      case _: AuthServiceJWT => "JWT-based authentication"
-      case AuthServiceNone => "none authenticated"
-      case _: AuthServiceStatic => "static authentication"
-      case AuthServiceWildcard => "all unauthenticated allowed"
-      case other => other.getClass.getSimpleName
-    }
+    val authentication =
+      participantConfig.authentication.create(participantConfig.jwtTimestampLeeway) match {
+        case _: AuthServiceJWT => "JWT-based authentication"
+        case AuthServiceNone => "none authenticated"
+        case _: AuthServiceStatic => "static authentication"
+        case AuthServiceWildcard => "all unauthenticated allowed"
+        case other => other.getClass.getSimpleName
+      }
 
     val ledgerDetails =
       Seq[(String, String)](
