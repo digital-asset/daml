@@ -21,10 +21,4 @@ object ErrorMessages {
   def cannotResolveChoiceArgType(t: domain.TemplateId[_], c: domain.Choice): String =
     s"Cannot resolve choice argument type, given: ${t.toString}, ${c.unwrap}"
 
-  def cannotQueryBothTemplateIdsAndInterfaceIds: String =
-    "Cannot query both templates ID's and interface ID's"
-
-  def canOnlyQueryOneInterfaceId: String =
-    "Cannot query more than one interface ID"
-
 }

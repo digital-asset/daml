@@ -93,10 +93,17 @@ object ResolvedQuery {
       case i @ ContractTypeId.Interface(_, _, _) => Right(i)
     }
 
-  sealed abstract class Unsupported extends Product with Serializable
-  final case object CannotQueryBothTemplateIdsAndInterfaceIds extends Unsupported
-  final case object CannotQueryManyInterfaceIds extends Unsupported
-  final case object CannotBeEmpty extends Unsupported
+  sealed abstract class Unsupported(errorMessage: String) extends Product with Serializable {
+    def errorMsg: String = errorMessage
+  }
+  final case object CannotQueryBothTemplateIdsAndInterfaceIds
+      extends Unsupported("Cannot resolve any template ID from request")
+  final case object CannotQueryManyInterfaceIds
+      extends Unsupported("Cannot query more than one interface ID")
+  final case object CannotBeEmpty
+      extends Unsupported(
+        "There must be at least one template ids or exactly one single interface id"
+      )
 
   // TODO RR #14871 verify that `ResolvedQuery.Empty` is ok where it is used
   final case object Empty extends ResolvedQuery {

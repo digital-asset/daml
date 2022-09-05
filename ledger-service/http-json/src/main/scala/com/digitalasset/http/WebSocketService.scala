@@ -886,9 +886,22 @@ class WebSocketService(
               )
             )
             .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
-        case AllContractTypeIdsNotResolved(_) | UnsupportedQuery(_) =>
-          // TODO: CL how to handle AllContractTypeIdsNotResolved? What will be the behaviour change?
-          Source.empty
+        case AllContractTypeIdsNotResolved(_) =>
+          // it is not possible to reach here as it should have failed upstream. We will not need to handle this after #14931
+          Source.single(
+            StepAndErrors(
+              Seq(ServerError.fromMsg(ErrorMessages.cannotResolveAnyTemplateId)),
+              Acs(Vector.empty),
+            )
+          )
+        case UnsupportedQuery(unsupportedReason) =>
+          // it is not possible to reach here as it should have failed upstream. We will not need to handle this after #14931
+          Source.single(
+            StepAndErrors(
+              Seq(ServerError.fromMsg(unsupportedReason.errorMsg)),
+              Acs(Vector.empty),
+            )
+          )
       }
     }
 
@@ -968,17 +981,8 @@ class WebSocketService(
                 )
             )
           case UnsupportedQuery(unsupportedReason) =>
-            val message = unsupportedReason match {
-              case ResolvedQuery.CannotBeEmpty =>
-                ErrorMessages.cannotResolveAnyTemplateId
-              case domain.ResolvedQuery.CannotQueryBothTemplateIdsAndInterfaceIds =>
-                ErrorMessages.cannotQueryBothTemplateIdsAndInterfaceIds
-              case domain.ResolvedQuery.CannotQueryManyInterfaceIds =>
-                ErrorMessages.canOnlyQueryOneInterfaceId
-            }
-
             Future.successful(
-              Source.single(-\/(InvalidUserInput(message)))
+              Source.single(-\/(InvalidUserInput(unsupportedReason.errorMsg)))
             )
         }
       }

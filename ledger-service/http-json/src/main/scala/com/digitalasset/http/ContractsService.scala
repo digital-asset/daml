@@ -323,14 +323,8 @@ class ContractsService(
   }
   private def handleResolvedQueryErrors(
       warnings: Option[domain.UnknownTemplateIds]
-  ): PartialFunction[domain.ResolvedQuery.Unsupported, domain.ErrorResponse] = {
-    case domain.ResolvedQuery.CannotBeEmpty =>
-      mkErrorResponse(ErrorMessages.cannotResolveAnyTemplateId, warnings)
-    case domain.ResolvedQuery.CannotQueryBothTemplateIdsAndInterfaceIds =>
-      mkErrorResponse(ErrorMessages.cannotQueryBothTemplateIdsAndInterfaceIds, warnings)
-    case domain.ResolvedQuery.CannotQueryManyInterfaceIds =>
-      mkErrorResponse(ErrorMessages.canOnlyQueryOneInterfaceId, warnings)
-  }
+  ): domain.ResolvedQuery.Unsupported => domain.ErrorResponse = unsuppoerted =>
+    mkErrorResponse(unsuppoerted.errorMsg, warnings)
 
   private def mkErrorResponse(errorMessage: String, warnings: Option[domain.UnknownTemplateIds]) =
     domain.ErrorResponse(

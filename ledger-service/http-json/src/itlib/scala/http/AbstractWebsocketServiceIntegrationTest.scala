@@ -40,6 +40,7 @@ import spray.json.{
   DeserializationException,
   enrichAny => `sj enrichAny`,
 }
+import com.daml.fetchcontracts.domain.ResolvedQuery
 
 import scala.annotation.nowarn
 import scala.concurrent.duration._
@@ -208,7 +209,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           inside(msgs) { case Seq(errorMsg) =>
             val error = decodeErrorResponse(errorMsg)
             error shouldBe domain.ErrorResponse(
-              List(ErrorMessages.canOnlyQueryOneInterfaceId),
+              List(ResolvedQuery.CannotQueryManyInterfaceIds.errorMsg),
               None,
               StatusCodes.BadRequest,
             )
@@ -239,7 +240,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           inside(msgs) { case Seq(errorMsg) =>
             val error = decodeErrorResponse(errorMsg)
             error shouldBe domain.ErrorResponse(
-              List(ErrorMessages.cannotQueryBothTemplateIdsAndInterfaceIds),
+              List(ResolvedQuery.CannotQueryBothTemplateIdsAndInterfaceIds.errorMsg),
               None,
               StatusCodes.BadRequest,
             )
