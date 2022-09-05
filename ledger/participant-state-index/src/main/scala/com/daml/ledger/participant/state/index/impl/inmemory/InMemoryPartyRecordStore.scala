@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.index.impl.inmemory
 
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{ObjectMeta, ParticipantParty}
+import com.daml.ledger.participant.state.index.ResourceAnnotationValidation
 import com.daml.ledger.participant.state.index.v2.PartyRecordStore.{
   MaxAnnotationsSizeExceeded,
   PartyRecordExists,

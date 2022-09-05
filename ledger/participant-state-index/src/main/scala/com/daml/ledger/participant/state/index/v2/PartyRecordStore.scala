@@ -49,7 +49,7 @@ object PartyRecordStore {
     */
   final case object PartyRecordNotFoundOnUpdateException extends RuntimeException
 
-  sealed trait Error extends RuntimeException
+  sealed trait Error
 
   final case class PartyNotFound(party: Ref.Party) extends Error
   final case class PartyRecordNotFound(party: Ref.Party) extends Error

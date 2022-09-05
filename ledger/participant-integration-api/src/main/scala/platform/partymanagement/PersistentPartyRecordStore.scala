@@ -28,7 +28,7 @@ import com.daml.platform.partymanagement.PersistentPartyRecordStore.{
   ConcurrentPartyRecordUpdateDetectedRuntimeException,
   MaxAnnotationsSizeExceededException,
 }
-import com.daml.platform.server.api.validation.ResourceAnnotationValidation
+import com.daml.ledger.participant.state.index.ResourceAnnotationValidation
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.backend.PartyRecordStorageBackend
 

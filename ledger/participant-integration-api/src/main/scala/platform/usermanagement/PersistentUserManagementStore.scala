@@ -22,7 +22,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
-import com.daml.platform.server.api.validation.ResourceAnnotationValidation
+import com.daml.ledger.participant.state.index.ResourceAnnotationValidation
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.backend.UserManagementStorageBackend
 import com.daml.platform.usermanagement.PersistentUserManagementStore.{

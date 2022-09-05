@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.index.impl.inmemory
 
 import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
+import com.daml.ledger.participant.state.index.ResourceAnnotationValidation
 import com.daml.ledger.participant.state.index.v2.{
   AnnotationsUpdate,
   UserManagementStore,
