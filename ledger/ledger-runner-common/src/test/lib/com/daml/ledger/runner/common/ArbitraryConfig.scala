@@ -418,12 +418,12 @@ object ArbitraryConfig {
     indexService <- indexServiceConfig
     indexer <- indexerConfig
     lfValueTranslationCache <- lfValueTranslationCache
-    mbJwtTimestampLeeway <- Gen.option(jwtTimestampLeewayGen)
+    jwtTimestampLeeway <- Gen.option(jwtTimestampLeewayGen)
   } yield ParticipantConfig(
     apiServer = apiServer,
     authentication = AuthServiceConfig.Wildcard, // hardcoded to wildcard, as otherwise it
     // will be redacted and cannot be checked for isomorphism
-    jwtTimestampLeeway = mbJwtTimestampLeeway,
+    jwtTimestampLeeway = jwtTimestampLeeway,
     dataSourceProperties = dataSourceProperties,
     indexService = indexService,
     indexer = indexer,

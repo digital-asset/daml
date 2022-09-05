@@ -137,7 +137,7 @@ class PureConfigReaderWriterSpec
 
   it should "read/write against predefined values" in {
     def compare(configString: String, expectedValue: Option[JwtTimestampLeeway]) = {
-      convert(jwtTimestampLeewayConfigConvertO, configString).value shouldBe expectedValue
+      convert(jwtTimestampLeewayConfigConvert, configString).value shouldBe expectedValue
 
     }
     compare(
