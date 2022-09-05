@@ -323,12 +323,18 @@ abstract class AbstractWebsocketServiceIntegrationTest
           .runWith(collectResultsAsTextMessage)
       } yield inside(clientMsg) { case result1 +: result2 +: result3 +: heartbeats =>
         result1 should include(s""""amount":"abc123"""")
+        result1 should include(s""""isAbcPrefix":true""")
+        result1 should include(s""""is123Suffix":true""")
         result1 should include(s""""matchedQueries":[0,1]""")
 
         result2 should include(s""""amount":"abc456"""")
+        result2 should include(s""""isAbcPrefix":true""")
+        result2 should include(s""""is123Suffix":false""")
         result2 should include(s""""matchedQueries":[0]""")
 
         result3 should include(s""""amount":"def123"""")
+        result3 should include(s""""isAbcPrefix":false""")
+        result3 should include(s""""is123Suffix":true""")
         result3 should include(s""""matchedQueries":[1]""")
 
         Inspectors.forAll(heartbeats)(assertHeartbeat)
