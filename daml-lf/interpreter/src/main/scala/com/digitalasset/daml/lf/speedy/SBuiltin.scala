@@ -12,7 +12,9 @@ import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.interpretation.Error.InconsistentDisclosureTable
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast
+import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.ArrayList.Implicits._
+import com.daml.lf.speedy.ClosureConversion.closureConvert
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
@@ -2108,8 +2110,7 @@ private[lf] object SBuiltin {
   }
 
   private[speedy] final case class SBUpdateContractCache(
-      disclosures: ImmArray[DisclosedContract],
-      sexpr: SExpr,
+      disclosures: ImmArray[DisclosedContract]
   ) extends OnLedgerBuiltin(1) {
 
     override protected def executeWithLedger(
@@ -2117,17 +2118,36 @@ private[lf] object SBuiltin {
         machine: Machine,
         onLedger: OnLedger,
     ): Control = {
+      checkToken(args, 0)
+
       val token = args.get(0)
 
-      // TODO: manage error scenarios - use Control.Error(???) as return value for these cases
+      // TODO: manage error scenarios - use Control.Error(???) as return value in this case
       for (disclosedContract <- disclosures) {
         val contractId = disclosedContract.contractId
-        val cachedContract = ??? // TODO: construct from machine.compiledPacjages.getDefinition
+        val templateId = disclosedContract.templateId
+        val contract = SExpr0.SEValue(disclosedContract.argument)
+        // TODO: check template exists!
+        val contractKey = SExpr.ContractKeyWithMaintainersDefRef(templateId)(contract)
+        val cachedContract = extractCachedContract(
+          machine,
+          Machine
+            .fromPureSExpr(
+              machine.compiledPackages,
+              flattenToAnf(
+                closureConvert(ToCachedContractDefRef(templateId)(contract, contractKey))
+              ),
+            )(machine.loggingContext)
+            .run() match {
+            case SResultFinal(value, _) => value
+            case _ => ??? // FIXME: return Control.Error(???) here
+          },
+        )
 
         onLedger.updateCachedContracts(contractId.value, cachedContract)
       }
 
-      Control.Expression(SEAppGeneral(sexpr, Array(SEValue(token))))
+      Control.Value(token)
     }
   }
 

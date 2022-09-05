@@ -129,10 +129,9 @@ private[lf] final class Compiler(
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompileContractDisclosures(
-      disclosures: ImmArray[DisclosedContract],
-      sexpr: t.SExpr,
+      disclosures: ImmArray[DisclosedContract]
   ): t.SExpr =
-    compileContractDisclosures(disclosures, sexpr)
+    compileContractDisclosures(disclosures)
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -306,10 +305,9 @@ private[lf] final class Compiler(
     pipeline(translateCommands(Env.Empty, cmds))
 
   private[this] def compileContractDisclosures(
-      disclosures: ImmArray[DisclosedContract],
-      sexpr: t.SExpr,
+      disclosures: ImmArray[DisclosedContract]
   ): t.SExpr =
-    pipeline(translateContractDisclosures(Env.Empty, disclosures, sexpr))
+    pipeline(translateContractDisclosures(Env.Empty, disclosures))
 
   private[this] def compileCommandForReinterpretation(cmd: Command): t.SExpr =
     pipeline(translateCommandForReinterpretation(cmd))
@@ -1016,9 +1014,8 @@ private[lf] final class Compiler(
   private[this] def translateContractDisclosures(
       env: Env,
       disclosures: ImmArray[DisclosedContract],
-      sexpr: t.SExpr,
   ): s.SExpr =
     unaryFunction(env) { (tokenPos, env) =>
-      SBUpdateContractCache(disclosures, sexpr)(env.toSEVar(tokenPos))
+      SBUpdateContractCache(disclosures)(env.toSEVar(tokenPos))
     }
 }
