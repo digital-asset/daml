@@ -387,7 +387,7 @@ instance Pretty Error where
       "expected list type, but found: " <> pretty typ
     EExpectedViewType actuallyFound typ -> do
       vcat
-        [ "expected monomorphic record type in view type, but found a " <> text actuallyFound <> ": " <> pretty typ
+        [ "expected monomorphic record type in view type, but found " <> text actuallyFound <> ": " <> pretty typ
         , "record types are declared with one constructor using curly braces, i.e."
         , "data MyRecord = MyRecord { ... fields ... }"
         ]
