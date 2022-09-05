@@ -23,6 +23,12 @@ object UpdatePathsTrie {
     modifierO = modifierO,
   )
 
+  def fromPaths(
+      paths: Seq[List[String]]
+  )(implicit dummy: DummyImplicit): Result[UpdatePathsTrie] = {
+    fromPaths(paths.map(UpdatePath(_, modifier = UpdatePathModifier.NoModifier)))
+  }
+
   def fromPaths(paths: Seq[UpdatePath]): Result[UpdatePathsTrie] = {
     val builder: Result[Builder] = Right(Builder(None))
     val buildResult = paths.foldLeft(builder)((builderResult, path) =>

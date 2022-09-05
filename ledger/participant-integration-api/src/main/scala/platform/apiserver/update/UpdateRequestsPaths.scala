@@ -19,9 +19,9 @@ protected[update] object UpdateRequestsPaths {
     val fullUpdateTrie: UpdatePathsTrie = UpdatePathsTrie
       .fromPaths(
         Seq(
-          UpdatePath(annotations, modifier = UpdatePathModifier.NoModifier),
-          UpdatePath(primaryParty, modifier = UpdatePathModifier.NoModifier),
-          UpdatePath(isDeactivated, modifier = UpdatePathModifier.NoModifier),
+          annotations,
+          primaryParty,
+          isDeactivated,
         )
       )
       .getOrElse(sys.error("Failed to create full update user tree. This should never happen"))
@@ -35,11 +35,7 @@ protected[update] object UpdateRequestsPaths {
     )
 
     val fullUpdateTrie: UpdatePathsTrie = UpdatePathsTrie
-      .fromPaths(
-        Seq(
-          UpdatePath(annotations, modifier = UpdatePathModifier.NoModifier)
-        )
-      )
+      .fromPaths(Seq(annotations))
       .getOrElse(sys.error("Failed to create full update user tree. This should never happen"))
   }
 

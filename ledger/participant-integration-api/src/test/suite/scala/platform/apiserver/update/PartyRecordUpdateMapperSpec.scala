@@ -103,43 +103,43 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
       }
 
       "when inexact path match on metadata annotations field" in {
-        val userWithAnnotations = makePartyRecord(annotations = Map("a" -> "b"))
-        val userWithoutAnnotations = makePartyRecord()
+        val prWithAnnotations = makePartyRecord(annotations = Map("a" -> "b"))
+        val prWithoutAnnotations = makePartyRecord()
         testedMapper
-          .toUpdate(userWithAnnotations, FieldMask(Seq("party_details!replace")))
+          .toUpdate(prWithAnnotations, FieldMask(Seq("party_details!replace")))
           .value shouldBe makePartyRecordUpdate(
           annotationsUpdateO = Some(Replace(Map("a" -> "b")))
         )
         testedMapper
-          .toUpdate(userWithoutAnnotations, FieldMask(Seq("party_details!replace")))
+          .toUpdate(prWithoutAnnotations, FieldMask(Seq("party_details!replace")))
           .value shouldBe makePartyRecordUpdate(
           annotationsUpdateO = Some(Replace(Map.empty))
         )
         testedMapper
-          .toUpdate(userWithAnnotations, FieldMask(Seq("party_details!merge")))
+          .toUpdate(prWithAnnotations, FieldMask(Seq("party_details!merge")))
           .value shouldBe makePartyRecordUpdate(
           annotationsUpdateO = Some(Merge.fromNonEmpty(Map("a" -> "b")))
         )
         testedMapper
-          .toUpdate(userWithoutAnnotations, FieldMask(Seq("party_details!merge")))
+          .toUpdate(prWithoutAnnotations, FieldMask(Seq("party_details!merge")))
           .value shouldBe emptyUpdate
         testedMapper
-          .toUpdate(userWithAnnotations, FieldMask(Seq("party_details")))
+          .toUpdate(prWithAnnotations, FieldMask(Seq("party_details")))
           .value shouldBe makePartyRecordUpdate(
           annotationsUpdateO = Some(Merge.fromNonEmpty(Map("a" -> "b")))
         )
         testedMapper
-          .toUpdate(userWithoutAnnotations, FieldMask(Seq("party_details")))
+          .toUpdate(prWithoutAnnotations, FieldMask(Seq("party_details")))
           .value shouldBe emptyUpdate
       }
 
       "the longest matching path is matched" in {
-        val user = makePartyRecord(
+        val pr = makePartyRecord(
           annotations = Map("a" -> "b")
         )
         testedMapper
           .toUpdate(
-            user,
+            pr,
             FieldMask(
               Seq(
                 "party_details!replace",
@@ -153,7 +153,7 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
         )
         testedMapper
           .toUpdate(
-            user,
+            pr,
             FieldMask(
               Seq(
                 "party_details!replace",
@@ -167,7 +167,7 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
         )
         testedMapper
           .toUpdate(
-            user,
+            pr,
             FieldMask(
               Seq(
                 "party_details!merge",
@@ -182,23 +182,23 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
       }
 
       "when update modifier on a dummy field" in {
-        val user = makePartyRecord(annotations = Map("a" -> "b"))
+        val pr = makePartyRecord(annotations = Map("a" -> "b"))
         testedMapper
-          .toUpdate(user, FieldMask(Seq("party_details.dummy!replace")))
+          .toUpdate(pr, FieldMask(Seq("party_details.dummy!replace")))
           .left
           .value shouldBe UpdatePathError.UnknownFieldPath("party_details.dummy!replace")
       }
 
       "raise an error when an unsupported modifier like syntax is used" in {
-        val user = makePartyRecord(annotations = Map("a" -> "b"))
+        val pr = makePartyRecord(annotations = Map("a" -> "b"))
         testedMapper
-          .toUpdate(user, FieldMask(Seq("party_details!badmodifier")))
+          .toUpdate(pr, FieldMask(Seq("party_details!badmodifier")))
           .left
           .value shouldBe UpdatePathError.UnknownUpdateModifier(
           "party_details!badmodifier"
         )
         testedMapper
-          .toUpdate(user, FieldMask(Seq("party_details.metadata.annotations!alsobad")))
+          .toUpdate(pr, FieldMask(Seq("party_details.metadata.annotations!alsobad")))
           .left
           .value shouldBe UpdatePathError.UnknownUpdateModifier(
           "party_details.metadata.annotations!alsobad"
@@ -208,77 +208,77 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
   }
 
   "produce an error when " - {
-    val user = makePartyRecord(annotations = Map("a" -> "b"))
+    val pr = makePartyRecord(annotations = Map("a" -> "b"))
 
     "field masks lists unknown field" in {
       testedMapper
-        .toUpdate(user, FieldMask(Seq("some_unknown_field")))
+        .toUpdate(pr, FieldMask(Seq("some_unknown_field")))
         .left
         .value shouldBe UpdatePathError.UnknownFieldPath("some_unknown_field")
       testedMapper
-        .toUpdate(user, FieldMask(Seq("party_details", "some_unknown_field")))
+        .toUpdate(pr, FieldMask(Seq("party_details", "some_unknown_field")))
         .left
         .value shouldBe UpdatePathError.UnknownFieldPath("some_unknown_field")
       testedMapper
-        .toUpdate(user, FieldMask(Seq("party_details", "party_details.some_unknown_field")))
+        .toUpdate(pr, FieldMask(Seq("party_details", "party_details.some_unknown_field")))
         .left
         .value shouldBe UpdatePathError.UnknownFieldPath("party_details.some_unknown_field")
     }
     "attempting to update resource version" in {
       testedMapper
-        .toUpdate(user, FieldMask(Seq("party_details.metadata.resource_version")))
+        .toUpdate(pr, FieldMask(Seq("party_details.metadata.resource_version")))
         .left
         .value shouldBe UpdatePathError.UnknownFieldPath("party_details.metadata.resource_version")
     }
     "empty string update path" in {
       testedMapper
-        .toUpdate(user, FieldMask(Seq("")))
+        .toUpdate(pr, FieldMask(Seq("")))
         .left
         .value shouldBe UpdatePathError.EmptyFieldPath("")
     }
     "empty string field path part of the field mask but non-empty update modifier" in {
       testedMapper
-        .toUpdate(user, FieldMask(Seq("!merge")))
+        .toUpdate(pr, FieldMask(Seq("!merge")))
         .left
         .value shouldBe UpdatePathError.EmptyFieldPath("!merge")
     }
     "empty field mask" in {
       testedMapper
-        .toUpdate(user, FieldMask(Seq.empty))
+        .toUpdate(pr, FieldMask(Seq.empty))
         .left
         .value shouldBe UpdatePathError.EmptyFieldMask
     }
     "update path with invalid field path syntax" in {
       testedMapper
-        .toUpdate(user, FieldMask(Seq("party_details..primary_party")))
+        .toUpdate(pr, FieldMask(Seq("party_details..metadata")))
         .left
-        .value shouldBe UpdatePathError.UnknownFieldPath("party_details..primary_party")
+        .value shouldBe UpdatePathError.UnknownFieldPath("party_details..metadata")
       testedMapper
-        .toUpdate(user, FieldMask(Seq(".user.primary_party")))
+        .toUpdate(pr, FieldMask(Seq(".party_details.metadata")))
         .left
-        .value shouldBe UpdatePathError.UnknownFieldPath(".user.primary_party")
+        .value shouldBe UpdatePathError.UnknownFieldPath(".party_details.metadata")
       testedMapper
-        .toUpdate(user, FieldMask(Seq(".user!merge.primary_party")))
+        .toUpdate(pr, FieldMask(Seq(".party_details!merge.metadata")))
         .left
-        .value shouldBe UpdatePathError.UnknownUpdateModifier(".user!merge.primary_party")
+        .value shouldBe UpdatePathError.UnknownUpdateModifier(".party_details!merge.metadata")
       testedMapper
-        .toUpdate(user, FieldMask(Seq("party_details!merge.primary_party!merge")))
+        .toUpdate(pr, FieldMask(Seq("party_details!merge.metadata!merge")))
         .left
         .value shouldBe UpdatePathError.InvalidUpdatePathSyntax(
-        "party_details!merge.primary_party!merge"
+        "party_details!merge.metadata!merge"
       )
     }
     "multiple update paths with the same field path" in {
       testedMapper
         .toUpdate(
-          user,
+          pr,
           FieldMask(Seq("party_details.metadata!merge", "party_details.metadata!replace")),
         )
         .left
         .value shouldBe UpdatePathError.DuplicatedFieldPath("party_details.metadata!replace")
       testedMapper
         .toUpdate(
-          user,
+          pr,
           FieldMask(
             Seq("party_details.metadata.annotations!merge", "party_details.metadata.annotations")
           ),
