@@ -855,17 +855,6 @@ excluded_test_tool_tests = [
             },
         ],
     },
-    {
-        "start": "2.4.0-snapshot.20220830.10494.1",
-        "platform_ranges": [
-            {
-                "end": "2.4.0-snapshot.20220830.10494.0.4622de48",
-                "exclusions": [
-                    "ExplicitDisclosureIT:EDMetadata",
-                ],
-            },
-        ],
-    },
 ]
 
 def in_range(version, range):
