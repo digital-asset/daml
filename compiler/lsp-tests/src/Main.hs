@@ -595,7 +595,7 @@ executeCommandTests run _ = testGroup "execute command"
         Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
         actualDotString <- LSP.request SWorkspaceExecuteCommand $ ExecuteCommandParams
            Nothing "daml/damlVisualize" (Just (List [Aeson.String $ T.pack escapedFp]))
-        let expectedDotString = "digraph G {\ncompound=true;\nrankdir=LR;\nsubgraph cluster_Coin{\nn0[label=Create][color=green]; \nn1[label=Archive][color=red]; \nn2[label=Delete][color=red]; \nlabel=<<table align = \"left\" border=\"0\" cellborder=\"0\" cellspacing=\"1\">\n<tr><td align=\"center\"><b>Coin</b></td></tr><tr><td align=\"left\">owner</td></tr> \n</table>>;color=blue\n}\n}\n"
+        let expectedDotString = "digraph G {\ncompound=true;\nrankdir=LR;\nsubgraph cluster_Coin{\nDUMMY_Coin [shape=point style=invis];\nn0[label=Create][color=green]; \nn1[label=Archive][color=red]; \nn2[label=Delete][color=red]; \nlabel=<<table align = \"left\" border=\"0\" cellborder=\"0\" cellspacing=\"1\">\n<tr><td align=\"center\"><b>Coin</b></td></tr><tr><td align=\"left\">owner</td></tr> \n</table>>;color=blue\n}\n\n}\n"
         liftIO $ assertEqual "Visulization command" (Right expectedDotString) (_result actualDotString)
         closeDoc main'
     , testCase "Invalid commands result in error"  $ run $ do
