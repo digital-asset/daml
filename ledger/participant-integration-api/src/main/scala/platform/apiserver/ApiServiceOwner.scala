@@ -55,6 +55,7 @@ object ApiServiceOwner {
       authService: AuthService,
       meteringReportKey: MeteringReportKey = CommunityKey,
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
+      explicitDisclosureUnsafeEnabled: Boolean = false,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -114,6 +115,7 @@ object ApiServiceOwner {
         userManagementConfig = config.userManagement,
         apiStreamShutdownTimeout = config.apiStreamShutdownTimeout,
         meteringReportKey = meteringReportKey,
+        explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiService <- new LedgerApiService(

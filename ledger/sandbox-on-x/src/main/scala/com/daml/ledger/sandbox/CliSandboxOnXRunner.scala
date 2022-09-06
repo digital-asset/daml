@@ -9,6 +9,13 @@ import com.daml.logging.ContextualizedLogger
 import com.daml.resources.ProgramResource
 
 object CliSandboxOnXRunner {
+  // TODO ED: Remove flag once explicit disclosure is deemed stable and all
+  //          backing ledgers implement proper validation against malicious clients
+  //
+  // NOTE: The flag is explicitly extracted out of the provided program arguments
+  //       and not passed via the HOCON config in order to prevent accidental
+  //       enablement, which could render participants vulnerable to malicious clients.
+  private val ExplicitDisclosureEnabledArg = "explicit-disclosure-unsafe-enabled"
   private val logger = ContextualizedLogger.get(getClass)
   val RunnerName = "sandbox-on-x"
 
@@ -19,14 +26,23 @@ object CliSandboxOnXRunner {
       args: collection.Seq[String],
       manipulateConfig: CliConfig[BridgeConfig] => CliConfig[BridgeConfig] = identity,
   ): Unit = {
+    val explicitDisclosureEnabled = args.contains(ExplicitDisclosureEnabledArg)
     val config = CliConfig
-      .parse(RunnerName, BridgeConfig.Parser, BridgeConfig.Default, args)
+      .parse(
+        RunnerName,
+        BridgeConfig.Parser,
+        BridgeConfig.Default,
+        args.filterNot(_ == ExplicitDisclosureEnabledArg),
+      )
       .map(manipulateConfig)
       .getOrElse(sys.exit(1))
-    runProgram(config)
+    runProgram(config, explicitDisclosureEnabled)
   }
 
-  private def runProgram(config: CliConfig[BridgeConfig]): Unit =
+  private def runProgram(
+      config: CliConfig[BridgeConfig],
+      explicitDisclosureUnsafeEnabled: Boolean,
+  ): Unit =
     config.mode match {
       case Mode.Run =>
         SandboxOnXConfig
@@ -34,7 +50,9 @@ object CliSandboxOnXRunner {
           .fold(
             System.err.println,
             { sandboxOnXConfig =>
-              program(sox(new BridgeConfigAdaptor, sandboxOnXConfig))
+              program(
+                sox(new BridgeConfigAdaptor, sandboxOnXConfig, explicitDisclosureUnsafeEnabled)
+              )
             },
           )
       case Mode.DumpIndexMetadata(jdbcUrls) =>
@@ -46,12 +64,13 @@ object CliSandboxOnXRunner {
       case Mode.RunLegacyCliConfig =>
         val configAdaptor: BridgeConfigAdaptor = new BridgeConfigAdaptor
         val sandboxOnXConfig: SandboxOnXConfig = SandboxOnXConfig.fromLegacy(configAdaptor, config)
-        program(sox(configAdaptor, sandboxOnXConfig))
+        program(sox(configAdaptor, sandboxOnXConfig, explicitDisclosureUnsafeEnabled))
     }
 
   private def sox(
       configAdaptor: BridgeConfigAdaptor,
       sandboxOnXConfig: SandboxOnXConfig,
+      explicitDisclosureUnsafeEnabled: Boolean,
   ): ResourceOwner[Unit] = {
     Banner.show(Console.out)
     logger.withoutContext.info(
@@ -62,6 +81,7 @@ object CliSandboxOnXRunner {
         configAdaptor,
         sandboxOnXConfig.ledger,
         sandboxOnXConfig.bridge,
+        explicitDisclosureUnsafeEnabled,
       )
       .map(_ => ())
   }
