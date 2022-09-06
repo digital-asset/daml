@@ -991,8 +991,7 @@ private[lf] final class Compiler(
     catchEverything(translateCommand(Env.Empty, cmd))
 
   private[this] def translateCommands(env: Env, bindings: ImmArray[Command]): s.SExpr =
-    // commands are compile similarly as update block
-    // see compileBlock
+    // commands are compiled similarly to update block - see compileBlock
     bindings.toList match {
       case Nil =>
         SEUpdatePureUnit
@@ -1020,8 +1019,8 @@ private[lf] final class Compiler(
   ): s.SExpr =
     unaryFunction(env) { (tokenPos, env) =>
       let(env, app(translateContractDisclosures(env, disclosures), env.toSEVar(tokenPos))) {
-        (tokenResultPos, env) =>
-          app(translateCommands(env, cmds), env.toSEVar(tokenResultPos))
+        (_, env) =>
+          app(translateCommands(env, cmds), env.toSEVar(tokenPos))
       }
     }
 

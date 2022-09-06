@@ -2118,36 +2118,45 @@ private[lf] object SBuiltin {
     ): Control = {
       checkToken(args, 0)
 
-      val token = args.get(0)
-
       for (disclosedContract <- disclosures) {
         val templateId = disclosedContract.templateId
 
         if (machine.compiledPackages.pkgInterface.lookupTemplate(templateId).isLeft) {
-          crash(s"???")
+          crash(s"Template $templateId does not exist and it should")
         }
 
         val contractId = disclosedContract.contractId
-        val contract = SExpr0.SEValue(disclosedContract.argument)
-        val contractKey = SExpr.ContractKeyWithMaintainersDefRef(templateId)(contract)
-        val cachedContract = extractCachedContract(
-          machine,
-          Machine
-            .fromPureSExpr(
-              machine.compiledPackages,
-              machine.compiledPackages.compiler
-                .unsafeClosureConvert(ToCachedContractDefRef(templateId)(contract, contractKey)),
-            )(machine.loggingContext)
-            .run() match {
-            case SResultFinal(value, _) => value
-            case _ => ??? // FIXME: return Control.Error(???) here
-          },
-        )
+        val contract = SEValue(disclosedContract.argument)
+        val cachedContractSExpr =
+          if (machine.compiledPackages.pkgInterface.lookupTemplateKey(templateId).isRight) {
+            SELet1(
+              SEApp(SEVal(ContractKeyWithMaintainersDefRef(templateId)), Array(contract)),
+              SEApp(
+                SEVal(ToCachedContractDefRef(templateId)),
+                Array(contract, SEValue(SOptional(Some(SELocS(0).lookupValue(machine))))),
+              ),
+            )
+          } else {
+            SEApp(
+              SEVal(ToCachedContractDefRef(templateId)),
+              Array(contract, SEValue.None),
+            )
+          }
+        val cachedContract = Machine
+          .fromPureSExpr(machine.compiledPackages, cachedContractSExpr)(machine.loggingContext)
+          .run() match {
+          case SResultFinal(value, _) => value
+          case _ =>
+            crash(s"Failed to evaluate the cached contract for contract ${contractId.value}")
+        }
 
-        onLedger.updateCachedContracts(contractId.value, cachedContract)
+        onLedger.updateCachedContracts(
+          contractId.value,
+          extractCachedContract(machine, cachedContract),
+        )
       }
 
-      Control.Value(token)
+      Control.Value(SUnit)
     }
   }
 

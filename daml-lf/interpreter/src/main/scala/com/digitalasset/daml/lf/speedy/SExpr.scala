@@ -207,7 +207,7 @@ object SExpr {
     }
   }
 
-  // SELocS -- variable is located in the args array of the application
+  // SELocA -- variable is located in the args array of the application
   final case class SELocA(n: Int) extends SELoc {
     def lookupValue(machine: Machine): SValue = {
       machine.getEnvArg(n)
