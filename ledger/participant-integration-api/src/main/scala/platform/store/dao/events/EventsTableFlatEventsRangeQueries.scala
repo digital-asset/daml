@@ -28,7 +28,10 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
       wildcardParties: Set[Party],
       pageSize: Int,
   ): Connection => Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
-    require(filter.nonEmpty, "The request must be issued by at least one party")
+    require(
+      filter.nonEmpty || wildcardParties.nonEmpty,
+      "The request must be issued by at least one party",
+    )
 
     val parts = query(offset, filterParams(filter, wildcardParties))
     EventsRange.readPage(
