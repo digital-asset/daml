@@ -45,7 +45,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
         transaction,
         estimatedInterpretationCost,
         globalKeyMapping,
-        ImmArray.empty,
+        explicitlyDisclosedContracts,
       ),
     )
 
