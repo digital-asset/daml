@@ -466,6 +466,10 @@ setupDamlGHC mbProjectRoot options@Options{..} = do
   defaultCppPath <- liftIO locateCppPath
   modifyDynFlags $ adjustDynFlags options versionHeader tmpDir defaultCppPath
 
+  -- NOTE(MA): This ensures that the name supply inside HscEnv's NameCache
+  -- always starts with the same value (#14936)
+  liftIO $ initUniqSupply 0 1
+
   unless (null optGhcCustomOpts) $ do
     damlDFlags <- getSessionDynFlags
     (dflags', leftover, warns) <- parseDynamicFilePragma damlDFlags $ map noLoc optGhcCustomOpts
