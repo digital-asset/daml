@@ -1213,6 +1213,23 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       }
     }
 
+    "succeeds normally with an interface ID" in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCommand(alice, CIou.CIou)
+
+        postCreateCommand(command, fixture, headers).flatMap(inside(_) {
+          case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+            val contractId: ContractId = result.contractId
+            val locator = domain.EnrichedContractId(Some(TpId.IIou.IIou), contractId)
+            postContractsLookup(locator, fixture.uri, headers).map(inside(_) {
+              case (StatusCodes.OK, domain.OkResponse(Some(resultContract), _, StatusCodes.OK)) =>
+                contractId shouldBe resultContract.contractId
+                assertJsPayload(resultContract)(JsObject("amount" -> JsString("42")))
+            })
+        }): Future[Assertion]
+      }
+    }
+
     "returns {status:200, result:null} when contract is not found" in withHttpService { fixture =>
       import fixture.uri
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>

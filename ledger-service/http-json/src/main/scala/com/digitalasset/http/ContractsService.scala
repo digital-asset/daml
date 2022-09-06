@@ -355,12 +355,11 @@ class ContractsService(
             metrics: Metrics,
         ): Future[Option[domain.ActiveContract[LfV]]] = {
           import ctx.{jwt, parties, templateIds => otemplateId, ledgerId}
-          val dbQueried = for {
-            templateId <- OptionT(Future.successful(otemplateId))
-            resolved <- OptionT(
-              resolveContractTypeId(jwt, ledgerId)(templateId).map(_.toOption.flatten)
-            )
-            res <- OptionT(unsafeRunAsync {
+          // TODO query store support for interface query/fetch #14819
+          // we need a template ID to update the database
+          def doSearchInMemory = OptionT(SearchInMemory.toFinal.findByContractId(ctx, contractId))
+          def doSearchInDb(resolved: domain.ContractTypeId.Resolved) =
+            OptionT(unsafeRunAsync {
               import doobie.implicits._, cats.syntax.apply._
               // a single contractId is either present or not; we would only need
               // to fetchAndPersistBracket if we were looking up multiple cids
@@ -374,10 +373,19 @@ class ContractsService(
                   ContractDao.fetchById(parties, resolved, contractId),
                 )
             })
+
+          val dbQueried = for {
+            templateId <- OptionT(Future.successful(otemplateId))
+            resolved <- OptionT(
+              resolveContractTypeId(jwt, ledgerId)(templateId).map(_.toOption.flatten)
+            )
+            res <- domain.ResolvedQuery(resolved) match {
+              case domain.ResolvedQuery.ByInterfaceId(_) => doSearchInMemory
+              case _ => doSearchInDb(resolved)
+            }
           } yield res
           dbQueried.orElse {
-            // we need a template ID to update the database
-            OptionT(SearchInMemory.toFinal.findByContractId(ctx, contractId))
+            doSearchInMemory
           }.run
         }
 
