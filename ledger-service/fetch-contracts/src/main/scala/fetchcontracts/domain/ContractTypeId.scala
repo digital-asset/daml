@@ -93,9 +93,7 @@ object ResolvedQuery {
       case i @ ContractTypeId.Interface(_, _, _) => Right(i)
     }
 
-  sealed abstract class Unsupported(errorMessage: String) extends Product with Serializable {
-    def errorMsg: String = errorMessage
-  }
+  sealed abstract class Unsupported(val errorMsg: String) extends Product with Serializable
   final case object CannotQueryBothTemplateIdsAndInterfaceIds
       extends Unsupported("Cannot resolve any template ID from request")
   final case object CannotQueryManyInterfaceIds

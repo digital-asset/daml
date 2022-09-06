@@ -43,7 +43,7 @@ import scalaz.{-\/, Foldable, Liskov, NonEmptyList, OneAnd, Tag, \/, \/-}
 import Liskov.<~<
 import com.daml.fetchcontracts.domain.ResolvedQuery
 import com.daml.fetchcontracts.domain.ResolvedQuery.Unsupported
-import com.daml.http.domain.TemplateId.{OptionalPkg, toLedgerApiValue}
+import com.daml.http.domain.TemplateId.{toLedgerApiValue, OptionalPkg}
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.lf.crypto.Hash
@@ -69,7 +69,7 @@ object WebSocketService {
   private sealed abstract class StreamPredicate[+Positive] extends Product with Serializable
 
   private object StreamPredicate {
-    final case class ValidStreamPredicate[+Positive](
+    final case class Valid[+Positive](
         resolvedQurey: domain.ResolvedQuery,
         unresolved: Set[domain.TemplateId.OptionalPkg],
         fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive],
@@ -77,11 +77,10 @@ object WebSocketService {
           _ <: Vector[(domain.ActiveContract[JsValue], Positive)]
         ],
     ) extends StreamPredicate[Positive]
-    final case class AllContractTypeIdsNotResolved[+Positive](
+    final case class AllContractTypeIdsNotResolved(
         unresolved: NonEmpty[Set[domain.TemplateId.OptionalPkg]]
-    ) extends StreamPredicate[Positive]
-    final case class UnsupportedQuery[+Positive](reason: Unsupported)
-        extends StreamPredicate[Positive]
+    ) extends StreamPredicate[Nothing]
+    final case class UnsupportedQuery(reason: Unsupported) extends StreamPredicate[Nothing]
   }
 
   /** If an element satisfies `prefix`, consume it and emit the result alongside
@@ -361,8 +360,8 @@ object WebSocketService {
               StreamPredicate.AllContractTypeIdsNotResolved(unresolvedSet)
             case _ =>
               unsupportedOrResolvedQuery match {
-                case \/-(resolvedQuery: ResolvedQuery) =>
-                  StreamPredicate.ValidStreamPredicate(
+                case \/-(resolvedQuery) =>
+                  StreamPredicate.Valid(
                     resolvedQuery,
                     unresolved,
                     fn(q),
@@ -543,7 +542,7 @@ object WebSocketService {
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
       ) =
-        StreamPredicate.ValidStreamPredicate(
+        StreamPredicate.Valid(
           resolvedQuery,
           unresolved,
           fn(q),
@@ -762,7 +761,7 @@ class WebSocketService(
   }
 
   private[this] def fetchAndPreFilterAcs[Positive](
-      predicate: ValidStreamPredicate[Positive],
+      predicate: Valid[Positive],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
@@ -869,7 +868,7 @@ class WebSocketService(
       // We need to apply this to the request with all the offsets shifted so that each stream
       // can filter out anything from liveStartingOffset to the query-specific offset
       queryPredicate(shiftedRequest, jwt, ledgerId).map {
-        case ValidStreamPredicate(_, _, fn, _) =>
+        case Valid(_, _, fn, _) =>
           contractsService
             .insertDeleteStepSource(
               jwt,
@@ -913,9 +912,9 @@ class WebSocketService(
       acsPred
         .flatMap(
           _.flatMap {
-            case vp: ValidStreamPredicate[Q.Positive] =>
+            case vp: Valid[Q.Positive] =>
               Some(fetchAndPreFilterAcs(vp, jwt, ledgerId, parties))
-            case _ =>
+            case AllContractTypeIdsNotResolved(_) | UnsupportedQuery(_) =>
               None
           }.cata(
             _.map { acsAndLiveMarker =>
@@ -970,7 +969,7 @@ class WebSocketService(
     Source
       .lazyFutureSource { () =>
         queryPredicate(request, jwt, ledgerId).flatMap {
-          case ValidStreamPredicate(resolved, unresolved, fn, _) =>
+          case Valid(resolved, unresolved, fn, _) =>
             processResolved(resolved, unresolved, fn)
           case AllContractTypeIdsNotResolved(unresolved) =>
             Future.successful(
