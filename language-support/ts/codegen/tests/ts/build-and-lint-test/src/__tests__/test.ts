@@ -659,22 +659,38 @@ describe("interface definition", () => {
 });
 
 describe("interfaces", () => {
+  type Asset = buildAndLint.Main.Asset;
   const Asset = buildAndLint.Main.Asset;
+  type Token = buildAndLint.Main.Token;
   const Token = buildAndLint.Main.Token;
-  test("inherited exercise events", async () => {
+
+  async function aliceLedgerPayloadContract() {
     const aliceLedger = new Ledger({
       token: ALICE_TOKEN,
       httpBaseUrl: httpBaseUrl(),
     });
-
     const assetPayload = {
       issuer: ALICE_PARTY,
       owner: ALICE_PARTY,
     };
-    const ifaceContract = await aliceLedger.create(
-      buildAndLint.Main.Asset,
+    const expectedView: buildAndLint.Main.TokenView = {
+      tokenOwner: ALICE_PARTY,
+    };
+    return {
+      aliceLedger,
       assetPayload,
-    );
+      expectedView: expectedView as Token,
+      contract: await aliceLedger.create(Asset, assetPayload),
+    };
+  }
+
+  test("inherited exercise events", async () => {
+    const {
+      aliceLedger,
+      assetPayload,
+      contract: ifaceContract,
+    } = await aliceLedgerPayloadContract();
+
     expect(ifaceContract.payload).toEqual(assetPayload);
     const [, events1] = await aliceLedger.exercise(
       Asset.Transfer,
@@ -724,20 +740,8 @@ describe("interfaces", () => {
   });
 
   test("sync query without predicate", async () => {
-    const aliceLedger = new Ledger({
-      token: ALICE_TOKEN,
-      httpBaseUrl: httpBaseUrl(),
-    });
-
-    const assetPayload = {
-      issuer: ALICE_PARTY,
-      owner: ALICE_PARTY,
-    };
-    const expectedView: buildAndLint.Main.TokenView = {
-      tokenOwner: ALICE_PARTY,
-    };
-
-    const contract = await aliceLedger.create(Asset, assetPayload);
+    const { aliceLedger, expectedView, contract } =
+      await aliceLedgerPayloadContract();
     const acs = await aliceLedger.query(Token);
     const expectedAc: typeof acs extends (infer ce)[]
       ? Omit<ce, "key">
@@ -747,26 +751,19 @@ describe("interfaces", () => {
       signatories: [ALICE_PARTY],
       observers: [],
       agreementText: "",
-      payload: expectedView as buildAndLint.Main.Token,
+      payload: expectedView,
     };
     expect(acs).toContainEqual(expectedAc);
   });
 
   test("sync query with predicate", async () => {
-    const aliceLedger = new Ledger({
-      token: ALICE_TOKEN,
-      httpBaseUrl: httpBaseUrl(),
-    });
-
-    const assetPayload = {
-      issuer: ALICE_PARTY,
-      owner: ALICE_PARTY,
-    };
-    const contract = await aliceLedger.create(Asset, assetPayload);
-    function isCt(ev: CreateEvent<buildAndLint.Main.Token>) {
+    const { aliceLedger, expectedView, contract } =
+      await aliceLedgerPayloadContract();
+    function isCt(ev: CreateEvent<Token>) {
       return ev.contractId === Asset.toInterface(Token, contract.contractId);
     }
-    const succeedingQuery: Query<buildAndLint.Main.Token> = {
+    // check that Query type accepts removing the brand
+    const succeedingQuery: Query<Token> = {
       tokenOwner: ALICE_PARTY,
     };
     const failingQuery = { tokenOwner: BOB_PARTY };
@@ -776,7 +773,7 @@ describe("interfaces", () => {
     );
     const noCt = (await aliceLedger.query(Token, failingQuery)).filter(isCt);
     const expectedMatchedContract = {
-      payload: { tokenOwner: ALICE_PARTY },
+      payload: expectedView,
       templateId: Token.templateId,
     };
     expect(foundCt).toMatchObject([expectedMatchedContract]);
