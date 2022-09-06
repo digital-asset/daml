@@ -6,9 +6,11 @@ import { promises as fs } from "fs";
 import waitOn from "wait-on";
 import { encode } from "jwt-simple";
 import Ledger, {
+  CreateEvent,
   Event,
   Stream,
   PartyInfo,
+  Query,
   UserRightHelper,
 } from "@daml/ledger";
 import { Choice, ContractId, Int, emptyMap, Map } from "@daml/types";
@@ -748,6 +750,37 @@ describe("interfaces", () => {
       payload: expectedView as buildAndLint.Main.Token,
     };
     expect(acs).toContainEqual(expectedAc);
+  });
+
+  test("sync query with predicate", async () => {
+    const aliceLedger = new Ledger({
+      token: ALICE_TOKEN,
+      httpBaseUrl: httpBaseUrl(),
+    });
+
+    const assetPayload = {
+      issuer: ALICE_PARTY,
+      owner: ALICE_PARTY,
+    };
+    const contract = await aliceLedger.create(Asset, assetPayload);
+    function isCt(ev: CreateEvent<buildAndLint.Main.Token>) {
+      return ev.contractId === Asset.toInterface(Token, contract.contractId);
+    }
+    const succeedingQuery: Query<buildAndLint.Main.Token> = {
+      tokenOwner: ALICE_PARTY,
+    };
+    const failingQuery = { tokenOwner: BOB_PARTY };
+
+    const foundCt = (await aliceLedger.query(Token, succeedingQuery)).filter(
+      isCt,
+    );
+    const noCt = (await aliceLedger.query(Token, failingQuery)).filter(isCt);
+    const expectedMatchedContract = {
+      payload: { tokenOwner: ALICE_PARTY },
+      templateId: Token.templateId,
+    };
+    expect(foundCt).toMatchObject([expectedMatchedContract]);
+    expect(noCt).toEqual([]);
   });
 });
 
