@@ -280,7 +280,8 @@ export function assert(b: boolean, m: string): void {
 }
 
 /**
- * `Query<T>` is the type of queries for searching for contracts of template type `T`.
+ * `Query<T>` is the type of queries for searching for contracts of template
+ * or interface type `T`.
  *
  * `Query<T>` is an object consisting of a subset of the fields of `T`.
  *
