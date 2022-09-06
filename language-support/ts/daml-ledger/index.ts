@@ -180,7 +180,7 @@ const decodeCreateEventUnknown: jtv.Decoder<CreateEvent<object>> = jtv
  * Decoder for an [[ArchiveEvent]].
  */
 const decodeArchiveEvent = <T extends object, K, I extends string>(
-  template: Template<T, K, I>,
+  template: TemplateOrInterface<T, K, I>,
 ): jtv.Decoder<ArchiveEvent<T, I>> =>
   jtv.object({
     templateId: jtv.constant(template.templateId),
@@ -198,7 +198,7 @@ const decodeArchiveEventUnknown: jtv.Decoder<ArchiveEvent<object>> = jtv
  * Decoder for an [[Event]].
  */
 const decodeEvent = <T extends object, K, I extends string>(
-  template: Template<T, K, I>,
+  template: TemplateOrInterface<T, K, I>,
 ): jtv.Decoder<Event<T, K, I>> =>
   jtv.oneOf<Event<T, K, I>>(
     jtv.object({
@@ -478,7 +478,7 @@ const NoOffsetReceivedYet = Symbol("NoOffsetReceivedYet");
 const NullOffsetReceived = Symbol("NullOffsetReceived");
 
 type StreamingQuery<T extends object, K, I extends string> = {
-  template: Template<T, K, I>;
+  template: TemplateOrInterface<T, K, I>;
   queries: Query<T>[];
   stream: QueryResponseStream<T, K, I>;
   offset: string | typeof NoOffsetReceivedYet | typeof NullOffsetReceived;
@@ -817,7 +817,7 @@ class QueryStreamsManager {
   }
 
   streamSubmit<T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     queries: Query<T>[],
     caller: string,
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
@@ -1021,7 +1021,7 @@ class Ledger {
    *
    */
   async fetch<T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     contractId: ContractId<T>,
   ): Promise<CreateEvent<T, K, I> | null> {
     const payload = {
@@ -1282,7 +1282,7 @@ class Ledger {
    */
   private streamSubmit<T extends object, K, I extends string, State>(
     callerName: string,
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     endpoint: string,
     request: unknown,
     reconnectRequest: () => unknown,
@@ -1417,7 +1417,7 @@ class Ledger {
    *
    */
   streamQuery<T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     query?: Query<T>,
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
     if (query === undefined) {
@@ -1432,7 +1432,7 @@ class Ledger {
    *
    */
   private streamQueryCommon<T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     queries: Query<T>[],
     name: string,
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
@@ -1494,7 +1494,7 @@ class Ledger {
    * @typeparam I The contract id type.
    */
   streamQueries<T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     queries: Query<T>[],
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
     return this.streamQueryCommon(template, queries, "Ledger.streamQueries");
