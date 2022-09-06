@@ -25,7 +25,7 @@ class MeteringReportKeySpec extends AnyWordSpec with Matchers {
       EnterpriseKey(expected).key shouldBe expected
     }
     "read test key from test classpath" in {
-      val key = MeteringReportKey.readSystemResourceAsKey(
+      val key = MeteringReportKey.assertReadSystemResourceAsKey(
         getClass.getClassLoader.getResource("test-metering-key.json")
       )
       key.scheme shouldBe "test"

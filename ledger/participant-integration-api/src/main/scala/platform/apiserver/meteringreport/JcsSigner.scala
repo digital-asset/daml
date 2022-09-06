@@ -4,9 +4,7 @@
 package com.daml.platform.apiserver.meteringreport
 
 import com.daml.platform.apiserver.meteringreport.MeteringReport.{Check, ParticipantReport, Scheme}
-import spray.json.enrichAny
 import spray.json._
-import DefaultJsonProtocol._
 
 import java.nio.charset.StandardCharsets
 import scala.util.{Failure, Success, Try}
@@ -56,7 +54,7 @@ object JcsSigner {
   }
 
   def verify(json: String, keyLookup: Scheme => Option[Key]): VerificationStatus = {
-    Try(json.toJson.convertTo[ParticipantReport]) match {
+    Try(json.parseJson.convertTo[ParticipantReport]) match {
       case Success(report) => verify(report, keyLookup)
       case Failure(e) => InvalidJson(e.getMessage)
     }

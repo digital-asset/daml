@@ -17,6 +17,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.Duration
 import java.time.temporal.ChronoUnit
+import spray.json._
+import MeteringReport._
 
 class JcsSignerSpec extends AnyWordSpec with Matchers {
 
@@ -43,6 +45,12 @@ class JcsSignerSpec extends AnyWordSpec with Matchers {
     "sign report" in {
       val Right(signed) = JcsSigner.sign(report, testKey)
       JcsSigner.verify(signed, keyLookup) shouldBe Ok
+    }
+
+    "verify report json" in {
+      val Right(signed) = JcsSigner.sign(report, testKey)
+      val json = signed.toJson.prettyPrint
+      JcsSigner.verify(json, keyLookup) shouldBe Ok
     }
 
     "ignore existing check" in {
