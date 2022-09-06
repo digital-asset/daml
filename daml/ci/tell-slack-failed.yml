@@ -10,6 +10,7 @@ steps:
       var_name: bash_lib
   - bash: |
       set -euo pipefail
+      cd daml
       source $(bash_lib)
       COMMIT_TITLE="$(escape_slack "$(git log --pretty=format:%s -n1 ${{ parameters.trigger_sha }})")"
       COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|${COMMIT_TITLE}>"

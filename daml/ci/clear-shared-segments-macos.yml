@@ -28,6 +28,7 @@
 steps:
 - bash: |
     set -euo pipefail
+    cd daml
 
     # ipcs -m prints a three-line human-friendly header then all memory
     # segments in a tabular format. The second column holds the segment IDs,

@@ -39,13 +39,15 @@ jobs:
       persistCredentials: true
     - bash: |
         set -euo pipefail
+        cd daml
         git checkout $(release_sha)
       name: checkout_release
-    - template: ci/bash-lib.yml
+    - template: bash-lib.yml
       parameters:
         var_name: bash-lib
     - bash: |
         set -euo pipefail
+        cd daml
         source $(bash-lib)
         if git tag v$(release_tag) $(release_sha); then
           git push origin v$(release_tag)
@@ -70,6 +72,7 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        cd daml
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         KEY_FILE=$(mktemp)
@@ -111,6 +114,7 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        cd daml
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag)
@@ -119,6 +123,7 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        cd daml
 
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
@@ -139,6 +144,7 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        cd daml
         source $(bash-lib)
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"

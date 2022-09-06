@@ -8,10 +8,11 @@ parameters:
   scala_version: ''
 
 steps:
-  - bash: ci/dev-env-install.sh
+  - bash: daml/ci/dev-env-install.sh
     displayName: 'Build/Install the Developer Environment'
 
   - bash: |
+      cd daml
       source dev-env/lib/ensure-nix
       ci/dev-env-push.py
     displayName: 'Push Developer Environment build results'
@@ -21,18 +22,18 @@ steps:
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       NIX_SECRET_KEY_CONTENT: $(NIX_SECRET_KEY_CONTENT)
 
-  - bash: ci/configure-bazel.sh
+  - bash: daml/ci/configure-bazel.sh
     displayName: 'Configure Bazel'
     env:
       IS_FORK: $(System.PullRequest.IsFork)
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
-  - bash: ./fmt.sh --test
+  - bash: ./daml/fmt.sh --test
     displayName: 'Platform-agnostic lints and checks'
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
 
-  - bash: ./build.sh "_${{parameters.name}}"
+  - bash: ./daml/build.sh "_${{parameters.name}}"
     displayName: 'Build'
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
@@ -54,11 +55,12 @@ steps:
     condition: failed()
     displayName: 'Publish the bazel test logs'
     inputs:
-      pathtoPublish: 'bazel-testlogs/'
+      pathtoPublish: 'daml/bazel-testlogs/'
       artifactName: 'Test logs ${{parameters.name}}'
 
   - bash: |
       set -euo pipefail
+      cd daml
       eval "$(./dev-env/bin/dade-assist)"
       ./bazel-bin/release/release --release-dir "$(mktemp -d)" --upload
     env:
@@ -80,6 +82,7 @@ steps:
       var_name: bash-lib
   - bash: |
       set -euo pipefail
+      cd daml
       eval "$(./dev-env/bin/dade-assist)"
       mkdir -p $(Build.StagingDirectory)/release
       ./ci/copy-unix-release-artifacts.sh ${{parameters.release_tag}} ${{parameters.name}} $(Build.StagingDirectory)/release

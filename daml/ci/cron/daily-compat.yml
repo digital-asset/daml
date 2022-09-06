@@ -74,9 +74,9 @@ jobs:
       demands: assignment -equals default
     steps:
       - checkout: self
-      - bash: ci/dev-env-install.sh
+      - bash: daml/ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
-      - bash: ci/configure-bazel.sh
+      - bash: daml/ci/configure-bazel.sh
         displayName: 'Configure Bazel for root workspace'
         env:
           IS_FORK: $(System.PullRequest.IsFork)
@@ -87,6 +87,7 @@ jobs:
           var_name: bash_lib
       - bash: |
           set -euo pipefail
+          cd daml
           eval "$(dev-env/bin/dade assist)"
           source $(bash_lib)
 
@@ -123,13 +124,14 @@ jobs:
     condition: eq(variables['Build.SourceBranchName'], 'main')
     steps:
       - checkout: self
-      - bash: ci/dev-env-install.sh
+      - bash: daml/ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
       - template: ../bash-lib.yml
         parameters:
           var_name: bash_lib
       - bash: |
           set -euo pipefail
+          cd daml
           eval "$(dev-env/bin/dade assist)"
           source $(bash_lib)
 
@@ -148,10 +150,11 @@ jobs:
     steps:
       - checkout: self
         persistCredentials: true
-      - bash: ci/dev-env-install.sh
+      - bash: daml/ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
       - bash: |
           set -euo pipefail
+          cd daml
           eval "$(dev-env/bin/dade assist)"
           export LC_ALL=en_US.UTF-8
 
@@ -161,6 +164,7 @@ jobs:
         displayName: 'Build'
       - bash: |
           set -euo pipefail
+          cd daml
           eval "$(dev-env/bin/dade-assist)"
 
           #needs to be specified since blackduck can not scan all bazel
@@ -182,6 +186,7 @@ jobs:
           BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
       - bash: |
           set -euo pipefail
+          cd daml
           eval "$(dev-env/bin/dade-assist)"
 
           #needs to be specified since blackduck can not scan all bazel
@@ -203,6 +208,7 @@ jobs:
           BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
       - bash: |
           set -euo pipefail
+          cd daml
           eval "$(dev-env/bin/dade-assist)"
 
           (cd language-support/ts && yarn install)
@@ -226,6 +232,7 @@ jobs:
           BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
       - bash: |
           set -euo pipefail
+          cd daml
           eval "$(dev-env/bin/dade-assist)"
 
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
@@ -245,6 +252,7 @@ jobs:
           BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
       - bash: |
           set -euo pipefail
+          cd daml
           eval "$(dev-env/bin/dade-assist)"
 
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
@@ -267,6 +275,7 @@ jobs:
           var_name: bash_lib
       - bash: |
           set -euo pipefail
+          cd daml
           eval "$(./dev-env/bin/dade-assist)"
           source $(bash_lib)
 
@@ -298,6 +307,7 @@ jobs:
       need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
     steps:
       - bash: |
+          cd daml
           eval "$(./dev-env/bin/dade-assist)"
           if [ "$(need_to_build)" == "true" ]; then
               branch="notices-update-$(Build.BuildId)"
@@ -323,6 +333,7 @@ jobs:
         var_name: bash_lib
     - bash: |
         set -euo pipefail
+        cd daml
 
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash_lib)
@@ -401,12 +412,13 @@ jobs:
     steps:
     - checkout: self
       persistCredentials: true
-    - bash: ci/dev-env-install.sh
+    - bash: daml/ci/dev-env-install.sh
     - template: ../bash-lib.yml
       parameters:
         var_name: bash_lib
     - bash: |
         set -euo pipefail
+        cd daml
         eval "$(./dev-env/bin/dade-assist)"
 
         ## refresh tags, in case someone deleted one
@@ -459,6 +471,7 @@ jobs:
         var_name: bash_lib
     - bash: |
         set -euo pipefail
+        cd daml
 
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash_lib)

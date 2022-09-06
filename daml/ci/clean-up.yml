@@ -4,6 +4,7 @@
 steps:
 - bash: |
     set -euo pipefail
+    cd daml
 
     eval "$(dev-env/bin/dade-assist)"
 

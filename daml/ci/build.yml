@@ -11,13 +11,14 @@ jobs:
     demands: assignment -equals default
   steps:
     - checkout: self
-    - bash: ci/dev-env-install.sh
+    - bash: daml/ci/dev-env-install.sh
       displayName: 'Build/Install the Developer Environment'
     - template: bash-lib.yml
       parameters:
         var_name: bash-lib
     - bash: |
         set -euo pipefail
+        cd daml
         eval "$(dev-env/bin/dade assist)"
 
         bazel build //ci/cron:cron
@@ -45,6 +46,7 @@ jobs:
         var_name: bash-lib
     - bash: |
         set -euo pipefail
+        cd daml
         source $(bash-lib)
         if [ "$(Build.Reason)" == "PullRequest" ]; then
             setvar branch "$(git rev-parse HEAD^2)"
@@ -79,6 +81,7 @@ jobs:
     - checkout: self
     - bash: |
         set -euo pipefail
+        cd daml
         git checkout $(release_sha)
       name: checkout_release
       condition: and(succeeded(), eq(variables.is_release, 'true'))
@@ -91,13 +94,14 @@ jobs:
     - template: upload-bazel-metrics.yml
     - bash: |
         set -euo pipefail
+        cd daml
         eval "$(./dev-env/bin/dade-assist)"
         bazel build //release:release
         ./bazel-bin/release/release --release-dir "$(mktemp -d)"
       condition: and(succeeded(), ne(variables['is_release'], 'true'))
     - task: PublishBuildArtifacts@1
       inputs:
-        pathtoPublish: 'bazel-bin/docs/html.tar.gz'
+        pathtoPublish: 'daml/bazel-bin/docs/html.tar.gz'
         artifactName: 'Docs bundle'
     - template: tell-slack-failed.yml
       parameters:
@@ -143,6 +147,7 @@ jobs:
     - checkout: self
     - bash: |
         set -euo pipefail
+        cd daml
 
         for f in $(find /d/a/SourceRootMapping -type f); do
           echo "-----"
@@ -154,6 +159,7 @@ jobs:
       name: workdirs
     - bash: |
         set -euo pipefail
+        cd daml
         git checkout $(release_sha)
       name: checkout_release
       condition: and(succeeded(), eq(variables.is_release, 'true'))
@@ -188,10 +194,11 @@ jobs:
   steps:
     - template: report-start.yml
     - checkout: self
-    - bash: ci/dev-env-install.sh
+    - bash: daml/ci/dev-env-install.sh
       displayName: 'Build/Install the Developer Environment'
     - template: clean-up.yml
     - bash: |
+        cd daml
         source dev-env/lib/ensure-nix
         ci/dev-env-push.py
       displayName: 'Push Developer Environment build results'
@@ -200,7 +207,7 @@ jobs:
         # to upload to the Nix cache
         GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
         NIX_SECRET_KEY_CONTENT: $(NIX_SECRET_KEY_CONTENT)
-    - bash: ci/configure-bazel.sh
+    - bash: daml/ci/configure-bazel.sh
       displayName: 'Configure Bazel'
       env:
         IS_FORK: $(System.PullRequest.IsFork)
@@ -208,6 +215,7 @@ jobs:
         GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
     - bash: |
         set -euo pipefail
+        cd daml
         eval "$(./dev-env/bin/dade-assist)"
         docker login --username "$DOCKER_LOGIN" --password "$DOCKER_PASSWORD"
         IMAGE=$(cat ci/oracle_image)
@@ -258,7 +266,7 @@ jobs:
       condition: failed()
       displayName: 'Publish the bazel test logs'
       inputs:
-        pathtoPublish: 'bazel-testlogs/'
+        pathtoPublish: 'daml/bazel-testlogs/'
         artifactName: 'Test logs Oracle'
 
     - task: PublishBuildArtifacts@1
@@ -285,7 +293,7 @@ jobs:
     demands: assignment -equals default
   steps:
     - checkout: self
-    - bash: ci/dev-env-install.sh
+    - bash: daml/ci/dev-env-install.sh
       displayName: 'Build/Install the Developer Environment'
     - task: DownloadPipelineArtifact@2
       inputs:
@@ -301,6 +309,7 @@ jobs:
         targetPath: $(Build.StagingDirectory)/platform-independence/macos/
     - bash: |
         set -euo pipefail
+        cd daml
         eval "$(./dev-env/bin/dade-assist)"
 
         DIR1=$(mktemp -d)
@@ -359,7 +368,7 @@ jobs:
     demands: assignment -equals default
   steps:
     - checkout: self
-    - bash: ci/check-protobuf-stability.sh
+    - bash: daml/ci/check-protobuf-stability.sh
     - template: tell-slack-failed.yml
 
 - job: collect_build_data

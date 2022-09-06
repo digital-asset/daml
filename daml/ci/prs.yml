@@ -29,6 +29,7 @@ jobs:
     - checkout: self
     - bash: |
         set -euo pipefail
+        cd daml
 
         has_changed () {
             git diff $(fork_sha) $(branch_sha) --name-only | grep -q "^$1"
@@ -62,6 +63,7 @@ jobs:
         var_name: bash-lib
     - bash: |
         set -euo pipefail
+        cd daml
         source $(bash-lib)
         git checkout $(branch_sha)
         if ci/check-changelog.sh $(fork_sha); then
@@ -81,7 +83,7 @@ jobs:
     demands: assignment -equals default
   steps:
     - checkout: self
-    - bash: ci/check-protobuf-stability.sh --target
+    - bash: daml/ci/check-protobuf-stability.sh --target
 
 # required for collect_build_data
 - job: release
@@ -112,6 +114,7 @@ jobs:
         var_name: bash-lib
     - bash: |
         set -euo pipefail
+        cd daml
 
         source $(bash-lib)
 
@@ -166,6 +169,7 @@ jobs:
         var_name: bash-lib
     - bash: |
         set -euo pipefail
+        cd daml
         source $(bash-lib)
 
         user=$(user_slack_handle $(branch_sha))
@@ -186,6 +190,7 @@ jobs:
       var_name: bash-lib
   - bash: |
       set -euo pipefail
+      cd daml
       eval "$(./dev-env/bin/dade-assist)"
       source $(bash-lib)
       COMMIT=$(git rev-parse HEAD^2)

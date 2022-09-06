@@ -32,6 +32,7 @@ jobs:
     - checkout: self
     - bash: |
         set -euo pipefail
+        cd daml
         git checkout $(release_sha)
       name: checkout_release
       condition: and(succeeded(), eq(variables.is_release, 'true'))

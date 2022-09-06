@@ -8,17 +8,17 @@ parameters:
   skip_tests: ''
 
 steps:
-  - bash: ci/configure-bazel.sh
+  - bash: daml/ci/configure-bazel.sh
     displayName: 'Configure Bazel'
     env:
       IS_FORK: $(System.PullRequest.IsFork)
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
-  - powershell: '.\ci\windows-diagnostics.ps1'
+  - powershell: '.\daml\ci\windows-diagnostics.ps1'
     displayName: 'Agent diagnostics'
 
-  - powershell: '.\build.ps1'
+  - powershell: '.\daml\build.ps1'
     displayName: 'Build'
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
@@ -42,7 +42,7 @@ steps:
     condition: failed()
     displayName: 'Publish the bazel test logs'
     inputs:
-      pathtoPublish: 'bazel-testlogs/'
+      pathtoPublish: 'daml/bazel-testlogs/'
       artifactName: 'Test logs Windows'
 
   - template: bash-lib.yml
@@ -51,6 +51,7 @@ steps:
 
   - bash: |
       set -euo pipefail
+      cd daml
       mkdir -p '$(Build.StagingDirectory)'/release
       ./ci/copy-windows-release-artifacts.sh \
         ${{parameters.release_tag}} \

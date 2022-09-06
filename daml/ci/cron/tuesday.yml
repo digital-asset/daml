@@ -26,6 +26,7 @@ jobs:
       var_name: bash_lib
   - bash: |
       set -euo pipefail
+      cd daml
       eval "$(./dev-env/bin/dade-assist)"
       source "$(bash_lib)"
 

@@ -7,9 +7,9 @@ parameters:
     default: ''
 
 steps:
-  - bash: ci/dev-env-install.sh
+  - bash: daml/ci/dev-env-install.sh
     displayName: 'Build/Install the Developer Environment'
-  - bash: ci/configure-bazel.sh
+  - bash: daml/ci/configure-bazel.sh
     displayName: 'Configure Bazel for root workspace'
     env:
       IS_FORK: $(System.PullRequest.IsFork)
@@ -17,6 +17,7 @@ steps:
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
   - bash: |
       set -euo pipefail
+      cd daml
       ./compatibility/build-ts-libs.sh "${BUILD_ARTIFACTSTAGINGDIRECTORY}"
     displayName: 'Build typescript libraries'
   - task: PublishPipelineArtifact@0

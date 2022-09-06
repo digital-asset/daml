@@ -35,10 +35,11 @@ jobs:
       demands: assignment -equals default
     steps:
       - checkout: self
-      - bash: ci/dev-env-install.sh
+      - bash: daml/ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
       - bash: |
           set -euo pipefail
+          cd daml
           eval "$(dev-env/bin/dade assist)"
 
           bazel build //ci/cron:cron
@@ -57,6 +58,7 @@ jobs:
       - checkout: self
       - bash: |
           set -euo pipefail
+          cd daml
 
           eval "$(dev-env/bin/dade-assist)"
           HEAD=$(git rev-parse HEAD)
@@ -113,6 +115,7 @@ jobs:
       - checkout: self
       - bash: |
           set -euo pipefail
+          cd daml
 
           eval "$(dev-env/bin/dade-assist)"
 
@@ -183,6 +186,7 @@ jobs:
       - checkout: self
       - bash: |
           set -euo pipefail
+          cd daml
 
           eval "$(dev-env/bin/dade-assist)"
 

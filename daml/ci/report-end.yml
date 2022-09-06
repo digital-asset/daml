@@ -7,6 +7,7 @@ steps:
       var_name: bash-lib
   - bash: |
       set -euo pipefail
+      cd daml
       source $(bash-lib)
       setvar time "$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")"
     condition: always()

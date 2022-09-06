@@ -7,13 +7,13 @@ parameters:
     default: ''
 
 steps:
-  - bash: ci/configure-bazel.sh
+  - bash: daml/ci/configure-bazel.sh
     displayName: 'Configure Bazel for root workspace'
     env:
       IS_FORK: $(System.PullRequest.IsFork)
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-  - bash: ci/configure-bazel.sh
+  - bash: daml/ci/configure-bazel.sh
     displayName: 'Configure Bazel for compatibility workspace'
     env:
       BAZEL_CONFIG_DIR: compatibility
