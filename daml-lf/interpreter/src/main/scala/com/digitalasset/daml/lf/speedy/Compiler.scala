@@ -337,7 +337,7 @@ private[lf] final class Compiler(
           interfaceId = impl.interfaceId,
           templateId = tmplId,
           interfaceInstanceBody = impl.body,
-        ).foreach(addDef(_))
+        ).foreach(addDef)
       }
 
       tmpl.choices.values.foreach(x => addDef(compileTemplateChoice(tmplId, tmpl, x)))
@@ -363,7 +363,7 @@ private[lf] final class Compiler(
           interfaceId = ifaceId,
           templateId = coimpl.templateId,
           interfaceInstanceBody = coimpl.body,
-        ).foreach(addDef(_))
+        ).foreach(addDef)
       }
     }
 
@@ -809,17 +809,16 @@ private[lf] final class Compiler(
       tmplId: Identifier,
       tmpl: Template,
       tmplKey: TemplateKey,
-  ): (t.SDefinitionRef, SDefinition) = {
+  ): (t.SDefinitionRef, SDefinition) =
     // compile a template with key into:
-    // ContractKeyWithMaintainersDefRef(tmplId) = \ <tmplArg> <token> ->
+    // ContractKeyWithMaintainersDefRef(tmplId) = \ <tmplArg> ->
     //   let <key> = tmplKey.body(<tmplArg>)
     //   in { key = <key> ; maintainers = [tmplKey.maintainers] <key> }
-    topLevelFunction2(t.ContractKeyWithMaintainersDefRef(tmplId)) { (tmplArg, _, env) =>
+    topLevelFunction1(t.ContractKeyWithMaintainersDefRef(tmplId)) { (tmplArg, env) =>
       let(env, translateExp(env.bindExprVar(tmpl.param, tmplArg), tmplKey.body)) { (keyPos, env) =>
         translateKeyWithMaintainers(env, keyPos, tmplKey)
       }
     }
-  }
 
   private[this] def compileLookupByKey(
       tmplId: Identifier,
@@ -977,8 +976,7 @@ private[lf] final class Compiler(
     catchEverything(translateCommand(Env.Empty, cmd))
 
   private[this] def translateCommands(env: Env, bindings: ImmArray[Command]): s.SExpr =
-    // commands are compile similarly as update block
-    // see compileBlock
+    // commands are compiled similarly to update block - see compileBlock
     bindings.toList match {
       case Nil =>
         SEUpdatePureUnit
