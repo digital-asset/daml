@@ -672,7 +672,7 @@ describe("interfaces", () => {
     };
   }
 
-  test("inherited exercise events", async () => {
+  test("interface companion choice exercise", async () => {
     const {
       aliceLedger,
       assetPayload,
@@ -681,7 +681,7 @@ describe("interfaces", () => {
 
     expect(ifaceContract.payload).toEqual(assetPayload);
     const [, events1] = await aliceLedger.exercise(
-      Asset.Transfer,
+      Token.Transfer,
       Asset.toInterface(Token, ifaceContract.contractId),
       { newOwner: BOB_PARTY },
     );
@@ -692,36 +692,6 @@ describe("interfaces", () => {
           templateId: buildAndLint.Main.Asset.templateId,
           signatories: [ALICE_PARTY],
           payload: { issuer: ALICE_PARTY, owner: BOB_PARTY },
-        },
-      },
-    ]);
-  });
-
-  test("interface companion choice exercise", async () => {
-    const bobLedger = new Ledger({
-      token: BOB_TOKEN,
-      httpBaseUrl: httpBaseUrl(),
-    });
-    const assetPayload2 = {
-      issuer: BOB_PARTY,
-      owner: BOB_PARTY,
-    };
-    const ifaceContract2 = await bobLedger.create(
-      buildAndLint.Main.Asset,
-      assetPayload2,
-    );
-    const [, events2] = await bobLedger.exercise(
-      buildAndLint.Main.Token.Transfer,
-      Asset.toInterface(Token, ifaceContract2.contractId),
-      { newOwner: ALICE_PARTY },
-    );
-    expect(events2).toMatchObject([
-      { archived: { templateId: buildAndLint.Main.Asset.templateId } },
-      {
-        created: {
-          templateId: buildAndLint.Main.Asset.templateId,
-          signatories: [BOB_PARTY],
-          payload: { issuer: BOB_PARTY, owner: ALICE_PARTY },
         },
       },
     ]);
