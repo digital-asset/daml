@@ -28,8 +28,8 @@ import GHC.Word (Word32)
 import Data.Time.Calendar (Day(..))
 import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
 import qualified Data.Aeson as A
-import qualified Data.Aeson.KeyMap as KeyMap
-import qualified Data.Aeson.Key as Key
+import qualified Data.Aeson.KeyMap as A
+import qualified Data.Aeson.Key as A
 import qualified Google.Protobuf.Struct as S
 import qualified Data.Map as Map
 import qualified Data.Scientific as Scientific
@@ -73,18 +73,13 @@ timestampToIso8601 ts = ISO8601.iso8601Show ut
 utcDayToTimestamp :: Day -> Timestamp
 utcDayToTimestamp day = systemTimeToTimestamp $ System.utcToSystemTime $ UTCTime day (secondsToDiffTime 0)
 
-s2a :: Maybe S.Value -> A.Value
-s2a (Just v) = toRawAesonValue v
-s2a Nothing = A.Null
-
-a2s :: A.Value -> Maybe S.Value
-a2s v = Just $ toRawStructValue v
-
 kindToAesonValue :: S.ValueKind -> A.Value
 kindToAesonValue (S.ValueKindStructValue (S.Struct sMap)) =
   A.Object aMap
   where
-    aMap = KeyMap.fromMap $ fmap s2a $ Map.mapKeys Key.fromText $ Map.mapKeys TL.toStrict sMap
+    aMap = A.fromMap $ s2a <$> Map.mapKeys (A.fromText . TL.toStrict) sMap
+    s2a (Just v) = toRawAesonValue v
+    s2a Nothing = A.Null
 
 kindToAesonValue (S.ValueKindListValue (S.ListValue list)) = A.Array $ fmap toRawAesonValue list
 kindToAesonValue (S.ValueKindStringValue text) = A.String (TL.toStrict text)
@@ -97,11 +92,11 @@ toRawAesonValue (S.Value (Just kind)) = kindToAesonValue kind
 toRawAesonValue (S.Value Nothing) = A.Null
 
 toRawStructValue :: A.Value -> S.Value
-
 toRawStructValue (A.Object aMap) =
     S.Value $ Just $ S.ValueKindStructValue $ S.Struct sMap
     where
-      sMap = Map.mapKeys TL.fromStrict $ fmap a2s $ KeyMap.toMapText aMap
+      sMap = Map.mapKeys TL.fromStrict $ fmap a2s $ A.toMapText aMap
+      a2s v = Just $ toRawStructValue v
 
 toRawStructValue (A.Array array) = S.Value $ Just $ S.ValueKindListValue $ S.ListValue $ fmap toRawStructValue array
 toRawStructValue (A.String text) = S.Value $ Just $ S.ValueKindStringValue (TL.fromStrict text)
@@ -112,7 +107,6 @@ toRawStructValue A.Null = S.Value Nothing
 raiseGetMeteringReportResponse :: LL.GetMeteringReportResponse -> Perhaps A.Value
 raiseGetMeteringReportResponse (LL.GetMeteringReportResponse _ _ _ (Just reportStruct)) =
   Right $ toRawAesonValue $ S.Value $ Just $ S.ValueKindStructValue reportStruct
-
 raiseGetMeteringReportResponse response = Left $ Unexpected ("raiseMeteredReport unable to parse response: " <> show response)
 
 getMeteringReport :: Timestamp -> Maybe Timestamp -> Maybe ApplicationId -> LedgerService A.Value
