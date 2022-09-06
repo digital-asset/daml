@@ -7,6 +7,7 @@ module DA.Daml.Doc.Render
   , RenderMode(..)
   , renderDocs
   , renderPage
+  , renderFolder
   , renderRst
   , renderMd
   , renderModule

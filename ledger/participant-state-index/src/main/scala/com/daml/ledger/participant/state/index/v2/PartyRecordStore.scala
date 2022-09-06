@@ -19,15 +19,18 @@ trait LedgerPartyExists {
 case class PartyRecordUpdate(
     party: Ref.Party,
     metadataUpdate: ObjectMetaUpdate,
-)
+) {
+  def isNoUpdate: Boolean = metadataUpdate.isNoUpdate
+}
 
-trait ParticipantPartyRecordStore {
-  import ParticipantPartyRecordStore._
+trait PartyRecordStore {
+  import PartyRecordStore._
 
   def createPartyRecord(partyRecord: domain.ParticipantParty.PartyRecord)(implicit
       loggingContext: LoggingContext
   ): Future[Result[domain.ParticipantParty.PartyRecord]]
 
+  // TODO um-for-hub major: Validate the size of update annotations is within max annotations size
   def updatePartyRecord(partyRecordUpdate: PartyRecordUpdate, ledgerPartyExists: LedgerPartyExists)(
       implicit loggingContext: LoggingContext
   ): Future[Result[domain.ParticipantParty.PartyRecord]]
@@ -38,16 +41,20 @@ trait ParticipantPartyRecordStore {
 
 }
 
-object ParticipantPartyRecordStore {
+object PartyRecordStore {
   type Result[T] = Either[Error, T]
 
+  /** Represents an edge case where a participant server submits a party allocation command
+    * but crashes before it had a chance to create a corresponding party-record (upon the successful party allocation).
+    */
   final case object PartyRecordNotFoundOnUpdateException extends RuntimeException
 
-  sealed trait Error extends RuntimeException
+  sealed trait Error
 
   final case class PartyNotFound(party: Ref.Party) extends Error
   final case class PartyRecordNotFound(party: Ref.Party) extends Error
   final case class PartyRecordExists(party: Ref.Party) extends Error
   final case class ConcurrentPartyUpdate(party: Ref.Party) extends Error
+  final case class MaxAnnotationsSizeExceeded(party: Ref.Party) extends Error
 
 }

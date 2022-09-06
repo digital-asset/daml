@@ -309,16 +309,17 @@ genDataDef curPkgId mod ifcChoices tpls def = case unTypeConName (dataTypeCon de
         tyDecls = [d | DeclTypeDef d <- decls]
 
 genIfaceDecl :: PackageId -> Module -> DefInterface -> ([TsDecl], Set.Set ModuleRef)
-genIfaceDecl pkgId mod DefInterface {intName, intChoices} =
+genIfaceDecl pkgId mod DefInterface {intName, intChoices, intCoImplements} =
   ( [ DeclInterface
         (InterfaceDef
            { ifName = name
            , ifChoices = choices
            , ifModule = moduleName mod
            , ifPkgId = pkgId
+           , ifRetroImplements = retroImplements
            })
     ]
-  , Set.unions choiceRefs)
+  , Set.unions $ choiceRefs <> retroImplementRefs)
   where
     -- interfaces are not declared in JS code, only in the TS type declarations.
     (TsTypeConRef name, _) = genTypeCon (moduleName mod) (Qualified PRSelf (moduleName mod) intName)
@@ -330,6 +331,13 @@ genIfaceDecl pkgId mod DefInterface {intName, intChoices} =
       , let rTy = TypeRef (moduleName mod) (chcReturnType chc)
       , let argRefs = Set.setOf typeModuleRef (refType argTy)
       , let retRefs = Set.setOf typeModuleRef (refType rTy)
+      ]
+    -- likewise, retroactive implementations only occur in type declarations
+    (retroImplements, retroImplementRefs) =
+      unzip $
+      [ (retroName, Set.setOf qualifiedModuleRef tpl)
+      | tpl <- NM.names intCoImplements
+      , let (TsTypeConRef retroName, _) = genTypeCon (moduleName mod) tpl
       ]
 
 -- | The typescript declarations we produce.
@@ -442,13 +450,17 @@ renderTemplateDef TemplateDef {..} =
                         ((\(tsRef, _, inChcs) -> (tsRef, inChcs)) <$> tplImplements')
                         tplChoices'
         , [ "export declare const " <> tplName <> ":"
-          , "  damlTypes.Template<" <> tplName <> ", " <> keyTy <> ", '" <> templateId <> "'> & " <> tplName <> "Interface;"
+          , "  damlTypes.Template<" <> tplName <> ", " <> keyTy <> ", '" <> templateId <> "'> &"
+          , "  damlTypes.ToInterface<" <> tplName <> ", " <> implsUnion <> "> &"
+          , "  " <> tplName <> "Interface;"
           ]
         ]
     in (jsSource, tsDecl)
   where (keyTy, keyDec) = case tplKeyDecoder of
             Nothing -> ("undefined", DecoderConstant ConstantUndefined)
             Just d -> (tplName <> ".Key", DecoderLazy d)
+        implsUnion = if null tplImplements' then "never"
+          else T.intercalate " | " [ impl | (TsTypeConRef impl, _, _) <- tplImplements' ]
         templateId =
             unPackageId tplPkgId <> ":" <>
             T.intercalate "." (unModuleName tplModule) <> ":" <>
@@ -459,10 +471,11 @@ data InterfaceDef = InterfaceDef
   , ifModule :: ModuleName
   , ifPkgId :: PackageId
   , ifChoices :: [ChoiceDef]
+  , ifRetroImplements :: [T.Text]
   }
 
 renderInterfaceDef :: InterfaceDef -> (T.Text, T.Text)
-renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId} = (jsSource, tsDecl)
+renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId, ifRetroImplements} = (jsSource, tsDecl)
   where
     jsSource = T.unlines $ concat
       [ [ "exports." <> ifName <> " = {"
@@ -483,9 +496,17 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId} = (jsSourc
       , [ "};" ]
       ]
     tsDecl = T.unlines $ concat
-      [ifaceDefIface ifName Nothing ifChoices
-      , ["export declare const " <> ifName <> ": damlTypes.Template<object, undefined, '" <> ifaceId <> "'> & " <> ifName <> "Interface<object>;"]
+      [ [ "export declare type " <> ifName <> " = damlTypes.Interface<"
+          <> renderDecoderConstant (ConstantString ifaceId) <> ">;" ]
+      , ifaceDefIface ifName Nothing ifChoices
+      , [ "export declare const " <> ifName <> ":"
+        , "  damlTypes.Template<" <> ifName <> ", undefined, '" <> ifaceId <> "'> &"
+        , "  damlTypes.FromTemplate<" <> ifName <> ", " <> retroImplsIntersection <> "> &"
+        , "  " <> ifName <> "Interface;"
+        ]
       ]
+    retroImplsIntersection = if null ifRetroImplements then "unknown"
+      else T.intercalate " & " ifRetroImplements
     ifaceId =
         unPackageId ifPkgId <> ":" <>
         T.intercalate "." (unModuleName ifModule) <> ":" <>
@@ -503,17 +524,16 @@ ifaceDefTempl name mbKeyTy impls choices =
   , [ "}" ]
   ]
   where
-    mbSubst = Just (Set.fromList . map fst $ impls, implTy)
+    mbSubst = Nothing
     keyTy = fromMaybe "undefined" mbKeyTy
     extension
       | null impls = ""
       | otherwise = "extends " <> implTy'
-    implTy = T.intercalate " & " implRefs 
     implTy' = T.intercalate " , " implRefs
     implRefs = [if Set.null omit then baseInherit
                 else "Omit<" <> baseInherit <> ", " <> literalOmit <> ">"
                | ((TsTypeConRef impl, _), omit) <- impls `zip` omitFromExtends
-               , let baseInherit = impl <> "Interface<" <> name <> ">"
+               , let baseInherit = impl <> "Interface"
                      literalOmit = T.intercalate " | "
                                  . map (renderDecoderConstant . ConstantString)
                                  . Set.toList $ omit]
@@ -544,16 +564,16 @@ uniques =
 ifaceDefIface :: T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
 ifaceDefIface name mbKeyTy choices =
   concat
-  [ ["export declare interface " <> name <> "Interface " <> "<T extends object>{"]
+  [ ["export declare interface " <> name <> "Interface " <> "{"]
   , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
-      "T, " <>
+      name <> ", " <>
       tsTypeRef (genType chcArgTy mbSubst) <> ", " <>
       tsTypeRef (genType chcRetTy mbSubst) <> ", " <>
       keyTy <> ">;" | ChoiceDef{..} <- choices ]
   , [ "}" ]
   ]
   where
-    mbSubst = Just (Set.singleton (TsTypeConRef name), name <> "Interface<T>")
+    mbSubst = Nothing
     keyTy = fromMaybe "undefined" mbKeyTy
 
 data ChoiceDef = ChoiceDef

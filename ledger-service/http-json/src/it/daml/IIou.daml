@@ -3,10 +3,11 @@
 
 module IIou where
 
-data EmptyInterfaceView = EmptyInterfaceView {}
+data AmountView = AmountView with
+  amount: Text
 
 interface IIou where
-  viewtype EmptyInterfaceView
+  viewtype AmountView
   getOwner : Party
   choice Transfer : Text with
       echo : Text
@@ -26,5 +27,6 @@ template TestIIou with
   where
   signatory issuer
   interface instance IIou for TestIIou where
-    view = EmptyInterfaceView
+    view = AmountView with
+      amount
     getOwner = owner

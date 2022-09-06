@@ -219,25 +219,25 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
     "parse transactions stream configuration" in {
       val yaml =
         """streams:
-        |  - type: transactions
-        |    name: stream-1
-        |    filters:
-        |      - party: Obs-2
-        |        templates:
-        |         - Foo1
-        |         - Foo3
-        |    filter_by_party_set:
-        |      party_name_prefix: My-Party
-        |      templates: [Foo1, Foo2]
-        |    begin_offset: foo
-        |    end_offset: bar
-        |    objectives:
-        |      max_delay_seconds: 123
-        |      min_consumption_speed: 2.34
-        |      min_item_rate: 12
-        |      max_item_rate: 34
-        |      max_stream_duration: 56
-        |""".stripMargin
+          |  - type: transactions
+          |    name: stream-1
+          |    filters:
+          |      - party: Obs-2
+          |        templates:
+          |         - Foo1
+          |         - Foo3
+          |    filter_by_party_set:
+          |      party_name_prefix: My-Party
+          |      templates: [Foo1, Foo2]
+          |    begin_offset: foo
+          |    end_offset: bar
+          |    objectives:
+          |      max_delay_seconds: 123
+          |      min_consumption_speed: 2.34
+          |      min_item_rate: 12
+          |      max_item_rate: 34
+          |      max_stream_duration: 56
+          |""".stripMargin
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
           submission = None,
@@ -511,6 +511,109 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         )
       )
     }
+  }
+
+  "parse stream configuration with interface filters" in {
+    val yaml =
+      """streams:
+        |  - type: transactions
+        |    name: stream-1
+        |    filters:
+        |      - party: Obs-2
+        |        interfaces:
+        |         - FooInterface
+        |    begin_offset: foo
+        |    end_offset: bar
+        |    objectives:
+        |      min_consumption_speed: 2.34
+        |      min_item_rate: 12""".stripMargin
+    parseYaml(yaml) shouldBe Right(
+      WorkflowConfig(
+        submission = None,
+        streams = List(
+          WorkflowConfig.StreamConfig.TransactionsStreamConfig(
+            name = "stream-1",
+            filters = List(
+              WorkflowConfig.StreamConfig.PartyFilter(
+                party = "Obs-2",
+                interfaces = List("FooInterface"),
+              )
+            ),
+            beginOffset = Some(offset("foo")),
+            endOffset = Some(offset("bar")),
+            objectives = Some(
+              WorkflowConfig.StreamConfig.TransactionObjectives(
+                maxDelaySeconds = None,
+                minConsumptionSpeed = Some(2.34),
+                minItemRate = Some(12),
+                maxItemRate = None,
+              )
+            ),
+            maxItemCount = None,
+            timeoutInSecondsO = None,
+          )
+        ),
+      )
+    )
+  }
+
+  "parse filter_by_party_set interfaces" in {
+    val yaml =
+      """streams:
+        |  - type: transactions
+        |    name: stream-1
+        |    filters:
+        |      - party: Obs-2
+        |        templates:
+        |         - Foo1
+        |         - Foo3
+        |    filter_by_party_set:
+        |      party_name_prefix: My-Party
+        |      interfaces: [FooInterface]
+        |    begin_offset: foo
+        |    end_offset: bar
+        |    objectives:
+        |      max_delay_seconds: 123
+        |      min_consumption_speed: 2.34
+        |      min_item_rate: 12
+        |      max_item_rate: 34
+        |      max_stream_duration: 56
+        |""".stripMargin
+    parseYaml(yaml) shouldBe Right(
+      WorkflowConfig(
+        submission = None,
+        streams = List(
+          WorkflowConfig.StreamConfig.TransactionsStreamConfig(
+            name = "stream-1",
+            filters = List(
+              WorkflowConfig.StreamConfig.PartyFilter(
+                party = "Obs-2",
+                templates = List("Foo1", "Foo3"),
+              )
+            ),
+            partyNamePrefixFilterO = Some(
+              PartyNamePrefixFilter(
+                partyNamePrefix = "My-Party",
+                interfaces = List("FooInterface"),
+              )
+            ),
+            beginOffset = Some(offset("foo")),
+            endOffset = Some(offset("bar")),
+            objectives = Some(
+              WorkflowConfig.StreamConfig.TransactionObjectives(
+                maxDelaySeconds = Some(123),
+                minConsumptionSpeed = Some(2.34),
+                minItemRate = Some(12),
+                maxItemRate = Some(34),
+                maxTotalStreamRuntimeDurationInMs = Some(56),
+              )
+            ),
+            maxItemCount = None,
+            timeoutInSecondsO = None,
+          )
+        ),
+      )
+    )
   }
 
   def parseYaml(yaml: String): Either[WorkflowConfigParser.ParserError, WorkflowConfig] =

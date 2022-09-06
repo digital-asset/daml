@@ -37,35 +37,6 @@ CREATE TABLE configuration_entries (
 CREATE INDEX idx_configuration_submission ON configuration_entries (submission_id);
 
 ---------------------------------------------------------------------------------------------------
--- User management tables
----------------------------------------------------------------------------------------------------
-CREATE TABLE participant_users (
-    internal_id         INTEGER             GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id             VARCHAR(256)        NOT NULL UNIQUE,
-    primary_party       VARCHAR(512),
-    created_at          BIGINT              NOT NULL
-);
-
-CREATE TABLE participant_user_rights (
-    user_internal_id    INTEGER         NOT NULL REFERENCES participant_users (internal_id) ON DELETE CASCADE,
-    user_right          INTEGER         NOT NULL,
-    for_party           VARCHAR(512),
-    for_party2          VARCHAR(512)    GENERATED ALWAYS AS (CASE
-                                                                    WHEN for_party IS NOT NULL
-                                                                    THEN for_party
-                                                                    ELSE ''
-                                                             END),
-    granted_at          BIGINT          NOT NULL,
-    UNIQUE (user_internal_id, user_right, for_party2)
-);
-
-INSERT INTO participant_users(user_id, primary_party, created_at) VALUES ('participant_admin', NULL, 0);
-INSERT INTO participant_user_rights(user_internal_id, user_right, for_party, granted_at)
-    SELECT internal_id, 1, NULL, 0
-    FROM participant_users
-    WHERE user_id = 'participant_admin';
-
----------------------------------------------------------------------------------------------------
 -- Packages table
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE packages (
@@ -406,3 +377,62 @@ CREATE TABLE participant_metering (
 );
 
 CREATE UNIQUE INDEX participant_metering_from_to_application ON participant_metering(from_timestamp, to_timestamp, application_id);
+
+
+-- NOTE: We keep participant user and party record tables independent from indexer-based tables, such that
+--       we maintain a property that they can be moved to a separate database without any extra schema changes.
+---------------------------------------------------------------------------------------------------
+-- Participant local store: users
+---------------------------------------------------------------------------------------------------
+CREATE TABLE participant_users (
+    internal_id         INTEGER             GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id             VARCHAR(256)        NOT NULL UNIQUE,
+    primary_party       VARCHAR(512),
+    is_deactivated      BOOLEAN             NOT NULL,
+    resource_version    BIGINT              NOT NULL,
+    created_at          BIGINT              NOT NULL
+);
+CREATE TABLE participant_user_rights (
+    user_internal_id    INTEGER             NOT NULL REFERENCES participant_users (internal_id) ON DELETE CASCADE,
+    user_right          INTEGER             NOT NULL,
+    for_party           VARCHAR(512),
+    for_party2          VARCHAR(512)        GENERATED ALWAYS AS (CASE
+                                                                        WHEN for_party IS NOT NULL
+                                                                        THEN for_party
+                                                                        ELSE ''
+                                                                 END),
+    granted_at          BIGINT              NOT NULL,
+    UNIQUE (user_internal_id, user_right, for_party2)
+);
+CREATE TABLE participant_user_annotations (
+    internal_id         INTEGER             NOT NULL REFERENCES participant_users (internal_id) ON DELETE CASCADE,
+    name                VARCHAR(512)        NOT NULL,
+    -- 256k = 256*1024 = 262144
+    val                 VARCHAR(262144),
+    updated_at          BIGINT              NOT NULL,
+    UNIQUE (internal_id, name)
+);
+INSERT INTO participant_users(user_id, primary_party, is_deactivated, resource_version, created_at)
+    VALUES ('participant_admin', NULL, false, 0,  0);
+INSERT INTO participant_user_rights(user_internal_id, user_right, for_party, granted_at)
+    SELECT internal_id, 1, NULL, 0
+    FROM participant_users
+    WHERE user_id = 'participant_admin';
+
+---------------------------------------------------------------------------------------------------
+-- Participant local store: party records
+---------------------------------------------------------------------------------------------------
+CREATE TABLE participant_party_records (
+    internal_id         INTEGER             GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    party               VARCHAR(512)        NOT NULL UNIQUE,
+    resource_version    BIGINT              NOT NULL,
+    created_at          BIGINT              NOT NULL
+);
+CREATE TABLE participant_party_record_annotations (
+    internal_id         INTEGER             NOT NULL REFERENCES participant_party_records (internal_id) ON DELETE CASCADE,
+    name                VARCHAR(512)        NOT NULL,
+    -- 256k = 256*1024 = 262144
+    val                 VARCHAR(262144),
+    updated_at          BIGINT              NOT NULL,
+    UNIQUE (internal_id, name)
+);

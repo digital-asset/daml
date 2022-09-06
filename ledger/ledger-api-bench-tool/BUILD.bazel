@@ -61,8 +61,8 @@ da_scala_library(
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
         "//libs-scala/timer-utils",
-        "//ledger/test-common:benchtool-tests-%s.scala" % "1.14",  # TODO: make the LF version configurable
-        "//ledger/test-common:dar-files-%s-lib" % "1.14",  # TODO: make the LF version configurable
+        "//ledger/test-common:benchtool-tests-%s.scala" % "1.15",  # TODO: make the LF version configurable
+        "//ledger/test-common:dar-files-%s-lib" % "1.15",  # TODO: make the LF version configurable
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
@@ -85,14 +85,18 @@ da_scala_library(
     deps = [
         ":ledger-api-bench-tool-lib",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/engine",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
         "//ledger-api/testing-utils",
         "//libs-scala/ports",
-        "//ledger/test-common:dar-files-%s-lib" % "1.14",
+        "//ledger/test-common:dar-files-%s-lib" % "1.15",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-runner-common",
+        "//ledger/participant-integration-api",
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
-        "//ledger/test-common:dar-files-default-lib",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_slf4j_slf4j_api",
     ],
@@ -106,7 +110,7 @@ da_scala_test_suite(
     ),
     data = [
         "//daml-lf/encoder:testing-dars",
-        "//ledger/test-common:benchtool-tests-default.dar",
+        "//ledger/test-common:benchtool-tests-%s.dar" % "1.15",
         "//ledger/test-common/test-certificates",
     ],
     scala_deps = [
@@ -130,8 +134,8 @@ da_scala_test_suite(
         "//ledger/test-common",
         "//libs-scala/postgresql-testing",
         "//libs-scala/timer-utils",
-        "//ledger/test-common:benchtool-tests-%s.scala" % "1.14",
-        "//ledger/test-common:dar-files-%s-lib" % "1.14",
+        "//ledger/test-common:benchtool-tests-%s.scala" % "1.15",
+        "//ledger/test-common:dar-files-%s-lib" % "1.15",
         "//daml-script/runner:script-runner-lib",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",

@@ -1,5 +1,6 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
@@ -82,6 +83,7 @@ module DA.Daml.LFConversion
 
 import           DA.Daml.LFConversion.Primitives
 import           DA.Daml.LFConversion.MetadataEncoding
+import           DA.Daml.LFConversion.ConvertM
 import           DA.Daml.Preprocessor (isInternal)
 import           DA.Daml.UtilGHC
 import           DA.Daml.UtilLF
@@ -94,14 +96,12 @@ import           Development.IDE.GHC.Util
 import           Control.Lens hiding (MethodName)
 import           Control.Monad.Except
 import           Control.Monad.Extra
-import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Numeric
 import           DA.Daml.LF.TemplateOrInterface (TemplateOrInterface')
 import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 import           DA.Daml.Options.Types (EnableScenarios (..))
-import           Data.Data hiding (TyCon)
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
 import           Data.Int
@@ -127,39 +127,6 @@ import qualified "ghc-lib-parser" Avail as GHC
 import qualified "ghc-lib-parser" BooleanFormula as BF
 import           Safe.Exact (zipExact, zipExactMay)
 import           SdkVersion
-
----------------------------------------------------------------------
--- FAILURE REPORTING
-
-conversionError :: String -> ConvertM e
-conversionError msg = do
-  ConversionEnv{..} <- ask
-  throwError $ (convModuleFilePath,ShowDiag,) Diagnostic
-      { _range = maybe noRange sourceLocToRange convRange
-      , _severity = Just DsError
-      , _source = Just "Core to Daml-LF"
-      , _message = T.pack msg
-      , _code = Nothing
-      , _relatedInformation = Nothing
-      , _tags = Nothing
-      }
-
-unsupported :: (HasCallStack, Outputable a) => String -> a -> ConvertM e
-unsupported typ x = conversionError errMsg
-    where
-         errMsg =
-             "Failure to process Daml program, this feature is not currently supported.\n" ++
-             typ ++ "\n" ++
-             prettyPrint x
-
-unknown :: HasCallStack => GHC.UnitId -> MS.Map GHC.UnitId DalfPackage -> ConvertM e
-unknown unitId pkgMap = conversionError errMsg
-    where errMsg =
-              "Unknown package: " ++ GHC.unitIdString unitId
-              ++ "\n" ++  "Loaded packages are:" ++ prettyPrint (MS.keys pkgMap)
-
-unhandled :: (HasCallStack, Data a, Outputable a) => String -> a -> ConvertM e
-unhandled typ x = unsupported (typ ++ " with " ++ lower (show (toConstr x))) x
 
 ---------------------------------------------------------------------
 -- FUNCTIONS ON THE ENVIRONMENT
@@ -308,47 +275,6 @@ getDepOrphanModules = dep_orphs . mi_deps
 ---------------------------------------------------------------------
 -- CONVERSION
 
-data ConversionError
-  = ConversionError
-     { errorFilePath :: !NormalizedFilePath
-     , errorRange :: !(Maybe Range)
-     , errorMessage :: !String
-     }
-  deriving Show
-
-data ConversionEnv = ConversionEnv
-  { convModuleFilePath :: !NormalizedFilePath
-  , convRange :: !(Maybe SourceLoc)
-  }
-
-data ConversionState = ConversionState
-    { freshTmVarCounter :: Int
-    }
-
-newtype ConvertM a = ConvertM (ReaderT ConversionEnv (StateT ConversionState (Except FileDiagnostic)) a)
-  deriving (Functor, Applicative, Monad, MonadError FileDiagnostic, MonadState ConversionState, MonadReader ConversionEnv)
-
-instance MonadFail ConvertM where
-    fail = conversionError
-
-runConvertM :: ConversionEnv -> ConvertM a -> Either FileDiagnostic a
-runConvertM s (ConvertM a) = runExcept (evalStateT (runReaderT a s) st0)
-  where
-    st0 = ConversionState
-        { freshTmVarCounter = 0
-        }
-
-withRange :: Maybe SourceLoc -> ConvertM a -> ConvertM a
-withRange r = local (\s -> s { convRange = r })
-
-freshTmVar :: ConvertM LF.ExprVarName
-freshTmVar = do
-    n <- state (\st -> let k = freshTmVarCounter st + 1 in (k, st{freshTmVarCounter = k}))
-    pure $ LF.ExprVarName ("$$v" <> T.show n)
-
-resetFreshVarCounters :: ConvertM ()
-resetFreshVarCounters = modify' (\st -> st{freshTmVarCounter = 0})
-
 convertInt64 :: Integer -> ConvertM LF.Expr
 convertInt64 x
     | toInteger (minBound :: Int64) <= x && x <= toInteger (maxBound :: Int64) =
@@ -487,9 +413,9 @@ modInstanceInfoFromDetails ModDetails{..} = MS.fromList
 
 -- | Represents the contents of some interface instance
 data InterfaceBinds = InterfaceBinds
-  { ibLoc :: Maybe SourceLoc
-      -- ^ Location associated to the type declaration, which should
-      -- point to the @interface X@ line in the daml file.
+  { ibTyCon :: TyCon
+      -- ^ Type constructor associated to the interface declaration. Its location
+      -- should point to the @interface X@ line in the daml file.
   , ibViewType :: Maybe GHC.Type
       -- ^ The view type associated with this interface.
   , ibMethods :: MS.Map MethodName (GHC.Type, Maybe SourceLoc)
@@ -499,9 +425,9 @@ data InterfaceBinds = InterfaceBinds
       -- ^ The interfaces required by this interface.
   }
 
-emptyInterfaceBinds :: Maybe SourceLoc -> InterfaceBinds
-emptyInterfaceBinds ibLoc = InterfaceBinds
-  { ibLoc
+emptyInterfaceBinds :: TyCon -> InterfaceBinds
+emptyInterfaceBinds ibTyCon = InterfaceBinds
+  { ibTyCon
   , ibViewType = Nothing
   , ibMethods = MS.empty
   , ibRequires = []
@@ -532,22 +458,20 @@ scrapeInterfaceBinds ::
   -> [TyThing]
   -> [(Var, GHC.Expr Var)]
   -> MS.Map TypeConName InterfaceBinds
-scrapeInterfaceBinds lfVersion tyThings binds
-  | lfVersion `supports` featureSimpleInterfaces =
-      MMS.merge
-        {- drop bind funcs without interfaces -}
-        MMS.dropMissing
-        {- keep interfaces without bind funcs -}
-        MMS.preserveMissing'
-        {- apply bind funcs to interfaces -}
-        (MMS.zipWithMatched (const ($!)))
-        interfaceBindFs
-        interfaces
-  | otherwise = MS.empty
+scrapeInterfaceBinds lfVersion tyThings binds =
+  MMS.merge
+    {- drop bind funcs without interfaces -}
+    MMS.dropMissing
+    {- keep interfaces without bind funcs -}
+    MMS.preserveMissing'
+    {- apply bind funcs to interfaces -}
+    (MMS.zipWithMatched (const ($!)))
+    interfaceBindFs
+    interfaces
   where
     interfaces :: MS.Map TypeConName InterfaceBinds
     interfaces = MS.fromList
-      [ (mkTypeCon [getOccText t], emptyInterfaceBinds (convNameLoc t))
+      [ (mkTypeCon [getOccText t], emptyInterfaceBinds t)
       | ATyCon t <- tyThings
       , hasDamlInterfaceCtx t
       ]
@@ -652,18 +576,16 @@ scrapeInterfaceInstanceBinds ::
      Env
   -> [(Var, GHC.Expr CoreBndr)]
   -> MS.Map TypeConName InterfaceInstanceGroup
-scrapeInterfaceInstanceBinds env binds
-  | envLfVersion env `supports` featureSimpleInterfaces =
-      MMS.merge
-        {- drop group funcs without interface instances -}
-        MMS.dropMissing
-        {- keep interface instances without group funcs -}
-        MMS.preserveMissing'
-        {- apply group funcs to interface instances -}
-        (MMS.zipWithMatched (const ($!)))
-        interfaceInstanceGroupFs
-        interfaceInstanceGroups
-  | otherwise = MS.empty
+scrapeInterfaceInstanceBinds env binds =
+  MMS.merge
+    {- drop group funcs without interface instances -}
+    MMS.dropMissing
+    {- keep interface instances without group funcs -}
+    MMS.preserveMissing'
+    {- apply group funcs to interface instances -}
+    (MMS.zipWithMatched (const ($!)))
+    interfaceInstanceGroupFs
+    interfaceInstanceGroups
   where
     interfaceInstanceGroups :: MS.Map TypeConName InterfaceInstanceGroup
     interfaceInstanceGroups = MS.fromListWith iigUnion
@@ -726,38 +648,59 @@ convertTemplateTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (L
 convertTemplateTyCon = convertDamlTyCon hasDamlTemplateCtx "template type"
 
 convertInterfaces :: Env -> ModuleContents -> ConvertM [Definition]
-convertInterfaces env mc = interfaceDefs
-  where
-    interfaceDefs :: ConvertM [Definition]
-    interfaceDefs = sequence
-        [ DInterface <$> convertInterface name ib
-        | (name, ib) <- MS.toList (mcInterfaceBinds mc)
-        ]
+convertInterfaces env mc =
+  concatMapM
+    (\(name, binds) -> convertInterface env mc name binds)
+    (MS.toList (mcInterfaceBinds mc))
 
-    convertInterface :: LF.TypeConName -> InterfaceBinds -> ConvertM DefInterface
-    convertInterface intName ib = do
-        let
-          intLocation = ibLoc ib
-          intParam = this
-        withRange intLocation $ do
-            intRequires <- convertRequires (ibRequires ib)
-            intMethods <- convertMethods (ibMethods ib)
-            intChoices <- convertChoices env mc intName emptyTemplateBinds
-            intCoImplements <- convertCoImplements intName
-            intView <- case ibViewType ib of
-                Nothing -> conversionError $ "No view found for interface " <> renderPretty intName
-                Just viewType -> convertType env viewType
-            pure DefInterface {..}
+convertInterface :: Env -> ModuleContents -> LF.TypeConName -> InterfaceBinds -> ConvertM [Definition]
+convertInterface env mc intName ib =
+  withRange intLocation do
+    unless (envLfVersion env `supports` featureSimpleInterfaces) do
+      unsupported "Daml interfaces are only available with --target=1.15 or higher" ()
+    defInterfaceDataType <- convertDefInterfaceDataType
+    defInterface <- convertDefInterface
+    pure
+      [ defInterfaceDataType
+      , defInterface
+      ]
+  where
+    tyCon = ibTyCon ib
+    intLocation = convNameLoc tyCon
+
+    convertDefInterfaceDataType :: ConvertM Definition
+    convertDefInterfaceDataType = do
+      unless (null (tyConTyVars tyCon)) do
+        unhandled "interface type constructor with type parameters" tyCon
+      pure $ DDataType DefDataType
+        { dataLocation = Nothing
+        , dataTypeCon = intName
+        , dataSerializable = IsSerializable False
+        , dataParams = []
+        , dataCons = DataInterface
+        }
+
+    convertDefInterface :: ConvertM Definition
+    convertDefInterface = do
+      let
+        intParam = this
+      intRequires <- convertRequires (ibRequires ib)
+      intMethods <- convertMethods (ibMethods ib)
+      intChoices <- convertChoices env mc intName emptyTemplateBinds
+      intCoImplements <- convertCoImplements intName
+      intView <- case ibViewType ib of
+          Nothing -> conversionError $ "No view found for interface " <> renderPretty intName
+          Just viewType -> convertType env viewType
+      pure $ DInterface DefInterface {..}
 
     convertRequires :: [(GHC.TyCon, Maybe SourceLoc)] -> ConvertM (S.Set (Qualified TypeConName))
-    convertRequires requires = S.fromList <$> sequence
-      [ withRange mloc $ guardSupportsInterfaceRequires $ convertInterfaceTyCon env handleIsNotInterface iface
-      | (iface, mloc) <- requires
-      ]
+    convertRequires requires = S.fromList <$>
+      forM requires \(iface, mloc) ->
+        withRange mloc do
+          unless (envLfVersion env `supports` featureExtendedInterfaces) do
+            unsupported "Requires in Daml interfaces are only available with --target=1.dev" ()
+          convertInterfaceTyCon env handleIsNotInterface iface
       where
-        guardSupportsInterfaceRequires action
-          | envLfVersion env `supports` featureExtendedInterfaces = action
-          | otherwise = unsupported "Requires in Daml interfaces are only available with --target=1.dev" ()
         handleIsNotInterface tyCon =
           "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
 
@@ -859,22 +802,9 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     , n `elementOfUniqSet` desugarTypes
     -> pure []
 
+    -- The type declarations for interfaces are generated by 'convertInterface'
     | hasDamlInterfaceCtx t
-    ->  if envLfVersion env `supports` featureSimpleInterfaces then
-            pure [ DDataType DefDataType
-                { dataLocation = Nothing
-                , dataTypeCon = mkTypeCon [getOccText t]
-                , dataSerializable = IsSerializable False
-                -- TODO https://github.com/digital-asset/daml/issues/12051
-                -- validate that the type has no parameters.
-                , dataParams = []
-                , dataCons = DataInterface
-                }
-            ]
-        else
-            unsupported "Daml interfaces are only available with --target=1.15 or higher" ()
-            -- TODO https://github.com/digital-asset/daml/issues/12051
-            --   Change when interfaces are released.
+    -> pure []
 
     -- Remove guarded exercise instances when Extended Interfaces are unsupported
     | not (envLfVersion env `supports` featureExtendedInterfaces)
@@ -1228,7 +1158,9 @@ convertInterfaceInstance ::
   -> Env
   -> InterfaceInstanceBinds
   -> ConvertM r
-convertInterfaceInstance parent mkR env iib = withRange (iibLoc iib) $ do
+convertInterfaceInstance parent mkR env iib = withRange (iibLoc iib) do
+  unless (envLfVersion env `supports` featureSimpleInterfaces) do
+    unsupported "Daml interfaces are only available with --target=1.15 or higher" ()
   interfaceQualTypeCon <- qualifyInterfaceCon (iibInterface iib)
   templateQualTypeCon <- qualifyTemplateCon (iibTemplate iib)
   checkParent interfaceQualTypeCon templateQualTypeCon
@@ -1372,10 +1304,6 @@ convertBind env mc (name, x)
 
     | not (envLfVersion env `supports` featureExtendedInterfaces)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasExerciseGuarded") _ <- name
-    = pure []
-
-    | not (envLfVersion env `supports` featureExtendedInterfaces)
-    , NameIn DA_Internal_Interface "_exerciseDefault" <- name
     = pure []
 
     -- Remove internal functions.
@@ -1547,7 +1475,7 @@ convertExpr env0 e = do
             let mkFieldProj i (name, _typ) = (mkIndexedField i, EStructProj name (EVar v))
             pure $ ETmLam (v, TStruct fields) $ ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields
     go env (VarIn GHC_Types "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
-        = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
+        = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) =<< convertType env t
     -- erase mkMethod calls and leave only the body.
     go env (VarIn DA_Internal_Desugar "mkMethod") (LType _parent : LType _iface : LType _tpl : LType _methodName : LType _methodTy : LExpr _implDict : LExpr _hasMethodDic : LExpr body : args)
         = go env body args
@@ -1624,6 +1552,9 @@ convertExpr env0 e = do
         t1' <- convertType env t1
         t2' <- convertType env t2
         pure (x' `ETyApp` t1' `ETyApp` t2' `ETmApp` EBuiltin (BEText (unpackCStringUtf8 s)))
+    go env (VarIn DA_Internal_Template_Functions "exerciseGuarded") _
+        | not $ envLfVersion env `supports` featureExtendedInterfaces
+        = conversionError "Guarded exercises are only available with --target=1.dev"
 
     go env (ConstraintTupleProjection index arity) args
         | (LExpr x : args') <- drop arity args -- drop the type arguments

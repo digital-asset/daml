@@ -4,13 +4,13 @@
 package com.daml.ledger.api.benchtool
 
 import java.io.File
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.benchtool.metrics.MetricsManager.NoOpMetricsManager
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.benchtool.submission.{CommandSubmitter, Names, PartyAllocating}
 import com.daml.ledger.test.BenchtoolTestDar
+import com.daml.lf.language.LanguageVersion
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import org.scalatest.Suite
 
@@ -21,6 +21,10 @@ trait BenchtoolSandboxFixture extends SandboxFixture {
 
   override protected def packageFiles: List[File] = List(
     new File(rlocation(BenchtoolTestDar.path))
+  )
+
+  override def config = super.config.copy(
+    engine = super.config.engine.copy(allowedLanguageVersions = LanguageVersion.EarlyAccessVersions)
   )
 
   def benchtoolFixture()(implicit

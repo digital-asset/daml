@@ -441,6 +441,23 @@ trait AbstractHttpServiceIntegrationTestFuns
     domain.CreateCommand(TpId.Iou.Iou, arg, meta)
   }
 
+  private[this] val (_, ciouVA) = {
+    val iouT = ShRecord(issuer = VA.party, owner = VA.party, amount = VA.text)
+    VA.record(Ref.Identifier assertFromString "none:Iou:Iou", iouT)
+  }
+
+  protected def iouCommand(party: domain.Party, templateId: domain.TemplateId.OptionalPkg) = {
+    val issuer = Ref.Party assertFromString domain.Party.unwrap(party)
+    val iouT = argToApi(ciouVA)(
+      ShRecord(
+        issuer = issuer,
+        owner = issuer,
+        amount = "42",
+      )
+    )
+    domain.CreateCommand(templateId, iouT, None)
+  }
+
   protected def iouExerciseTransferCommand(
       contractId: lar.ContractId
   ): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
@@ -649,6 +666,14 @@ trait AbstractHttpServiceIntegrationTestFuns
         .getOrElse(fail(s"Failed to encode command: $command"))
 
     (activeContract.payload: JsValue) shouldBe (expected.payload: JsValue)
+  }
+
+  protected def assertJsPayload(
+      activeContract: domain.ActiveContract[JsValue]
+  )(
+      jsPayload: JsValue
+  ): Assertion = {
+    (activeContract.payload: JsValue) shouldBe (jsPayload)
   }
 
   protected def assertTemplateId(

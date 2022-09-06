@@ -14,7 +14,10 @@ case class UserUpdate(
     primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
     isDeactivatedUpdateO: Option[Boolean] = None,
     metadataUpdate: ObjectMetaUpdate,
-)
+) {
+  def isNoUpdate: Boolean =
+    primaryPartyUpdateO.isEmpty && isDeactivatedUpdateO.isEmpty && metadataUpdate.isNoUpdate
+}
 
 sealed trait AnnotationsUpdate {
   def annotations: Map[String, String]
@@ -46,9 +49,11 @@ object AnnotationsUpdate {
 }
 
 case class ObjectMetaUpdate(
-    resourceVersionO: Option[String],
+    resourceVersionO: Option[Long],
     annotationsUpdateO: Option[AnnotationsUpdate],
-)
+) {
+  def isNoUpdate: Boolean = annotationsUpdateO.isEmpty
+}
 object ObjectMetaUpdate {
   def empty: ObjectMetaUpdate = ObjectMetaUpdate(
     resourceVersionO = None,
@@ -79,16 +84,19 @@ trait UserManagementStore {
       loggingContext: LoggingContext
   ): Future[Result[User]]
 
+  // TODO um-for-hub major: Validate the size of update annotations is within max annotations size
   def updateUser(userUpdate: UserUpdate)(implicit
       loggingContext: LoggingContext
   ): Future[Result[User]]
 
   def deleteUser(id: Ref.UserId)(implicit loggingContext: LoggingContext): Future[Result[Unit]]
 
+  // TODO um-for-hub major: Bump resource version number on rights change
   def grantRights(id: Ref.UserId, rights: Set[UserRight])(implicit
       loggingContext: LoggingContext
   ): Future[Result[Set[UserRight]]]
 
+  // TODO um-for-hub major: Bump resource version number on rights change
   def revokeRights(id: Ref.UserId, rights: Set[UserRight])(implicit
       loggingContext: LoggingContext
   ): Future[Result[Set[UserRight]]]
@@ -122,9 +130,10 @@ object UserManagementStore {
 
   case class UserInfo(user: User, rights: Set[UserRight])
 
-  sealed trait Error extends RuntimeException
+  sealed trait Error
   final case class UserNotFound(userId: Ref.UserId) extends Error
   final case class UserExists(userId: Ref.UserId) extends Error
   final case class TooManyUserRights(userId: Ref.UserId) extends Error
-  final case class ConcurrentUserUpdate(party: Ref.UserId) extends Error
+  final case class ConcurrentUserUpdate(userId: Ref.UserId) extends Error
+  final case class MaxAnnotationsSizeExceeded(userId: Ref.UserId) extends Error
 }

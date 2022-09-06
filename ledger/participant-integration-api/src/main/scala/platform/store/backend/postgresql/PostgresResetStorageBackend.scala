@@ -22,9 +22,13 @@ object PostgresResetStorageBackend extends ResetStorageBackend {
       truncate table participant_events_consuming_exercise cascade;
       truncate table participant_events_non_consuming_exercise cascade;
       truncate table party_entries cascade;
+      truncate table participant_party_records cascade;
+      truncate table participant_party_record_annotations cascade;
       truncate table string_interning cascade;
       truncate table participant_events_create_filter cascade;
       truncate table participant_users cascade;
+      truncate table participant_users cascade;
+      truncate table participant_user_annotations cascade;
       truncate table participant_user_rights cascade;
       truncate table transaction_metering cascade;
       truncate table participant_metering cascade;

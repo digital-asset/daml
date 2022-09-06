@@ -823,7 +823,7 @@ private[lf] final class Compiler(
       tmplId: Identifier,
       tmpl: Template,
       tmplKey: TemplateKey,
-  ): (t.SDefinitionRef, SDefinition) = {
+  ): (t.SDefinitionRef, SDefinition) =
     // compile a template with key into:
     // ContractKeyWithMaintainersDefRef(tmplId) = \ <tmplArg> ->
     //   let <key> = tmplKey.body(<tmplArg>)
@@ -833,7 +833,6 @@ private[lf] final class Compiler(
         translateKeyWithMaintainers(env, keyPos, tmplKey)
       }
     }
-  }
 
   private[this] def compileLookupByKey(
       tmplId: Identifier,

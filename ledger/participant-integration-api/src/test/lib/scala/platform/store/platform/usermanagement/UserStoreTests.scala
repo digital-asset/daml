@@ -6,30 +6,27 @@ package com.daml.platform.store.platform.usermanagement
 import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
 import com.daml.ledger.participant.state.index.v2.AnnotationsUpdate.{Merge, Replace}
 import com.daml.ledger.participant.state.index.v2.{
+  AnnotationsUpdate,
   ObjectMetaUpdate,
   UserManagementStore,
   UserUpdate,
 }
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
+  MaxAnnotationsSizeExceeded,
   UserExists,
   UserNotFound,
   UsersPage,
 }
-import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Party, UserId}
 import com.daml.logging.LoggingContext
 import org.scalatest.freespec.AsyncFreeSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{Assertion, EitherValues}
 
 import scala.language.implicitConversions
-import scala.concurrent.Future
 
 /** Common tests for implementations of [[UserManagementStore]]
   */
-trait UserManagementStoreTests extends TestResourceContext with Matchers with EitherValues {
-  self: AsyncFreeSpec =>
+trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
 
   implicit val lc: LoggingContext = LoggingContext.ForTesting
 
@@ -39,9 +36,9 @@ trait UserManagementStoreTests extends TestResourceContext with Matchers with Ei
   private implicit def toUserId(s: String): UserId =
     UserId.assertFromString(s)
 
-  def testIt(f: UserManagementStore => Future[Assertion]): Future[Assertion]
+  private val userId1 = "user1"
 
-  def newUser(name: String, annotations: Map[String, String] = Map.empty): User = User(
+  def newUser(name: String = userId1, annotations: Map[String, String] = Map.empty): User = User(
     id = name,
     primaryParty = None,
     isDeactivated = false,
@@ -52,8 +49,8 @@ trait UserManagementStoreTests extends TestResourceContext with Matchers with Ei
   )
 
   def createdUser(
-      name: String,
-      resourceVersion: String = "0",
+      name: String = userId1,
+      resourceVersion: Long = 0,
       annotations: Map[String, String] = Map.empty,
   ): User =
     User(
@@ -65,6 +62,22 @@ trait UserManagementStoreTests extends TestResourceContext with Matchers with Ei
         annotations = annotations,
       ),
     )
+
+  // TODO um-for-hub: Consider defining a method like this directly on UserUdpate
+  def makeUserUpdate(
+      id: String = userId1,
+      primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
+      isDeactivatedUpdateO: Option[Boolean] = None,
+      annotationsUpdateO: Option[AnnotationsUpdate] = None,
+  ): UserUpdate = UserUpdate(
+    id = id,
+    primaryPartyUpdateO = primaryPartyUpdateO,
+    isDeactivatedUpdateO = isDeactivatedUpdateO,
+    metadataUpdate = ObjectMetaUpdate(
+      resourceVersionO = None,
+      annotationsUpdateO = annotationsUpdateO,
+    ),
+  )
 
   def resetResourceVersion(
       user: User
@@ -372,7 +385,7 @@ trait UserManagementStoreTests extends TestResourceContext with Matchers with Ei
           )
           _ = update1.value shouldBe createdUser(
             "user1",
-            resourceVersion = "1",
+            resourceVersion = 1,
             annotations = Map("k1" -> "v1b", "k2" -> "v2", "k3" -> "v3"),
           )
           // second update: with replace annotations semantics
@@ -394,7 +407,7 @@ trait UserManagementStoreTests extends TestResourceContext with Matchers with Ei
           )
           _ = update2.value shouldBe createdUser(
             "user1",
-            resourceVersion = "2",
+            resourceVersion = 2,
             annotations = Map("k1" -> "v1c", "k4" -> "v4"),
           )
           // third update: with replace annotations semantics - effectively deleting all annotations
@@ -409,7 +422,7 @@ trait UserManagementStoreTests extends TestResourceContext with Matchers with Ei
           )
           _ = update3.value shouldBe createdUser(
             "user1",
-            resourceVersion = "3",
+            resourceVersion = 3,
             annotations = Map.empty,
           )
         } yield {
@@ -438,20 +451,48 @@ trait UserManagementStoreTests extends TestResourceContext with Matchers with Ei
 
     "should raise an error on resource version mismatch" in {
       testIt { tested =>
-        val user = createdUser("user1")
+        val user = newUser("user1")
         for {
           _ <- tested.createUser(user, Set.empty)
           res1 <- tested.updateUser(
             UserUpdate(
               id = user.id,
               metadataUpdate = ObjectMetaUpdate(
-                resourceVersionO = Some("100"),
+                resourceVersionO = Some(100),
                 annotationsUpdateO = Some(Merge.fromNonEmpty(Map("k1" -> "v1"))),
               ),
             )
           )
           _ = res1.left.value shouldBe UserManagementStore.ConcurrentUserUpdate(user.id)
         } yield succeed
+      }
+    }
+
+    "raise an error when annotations byte size max size exceeded" - {
+      // This value consumes just a bit over half the allowed max size limit
+      val bigValue = "big value:" + ("a" * 128 * 1024)
+
+      "when creating a user" in {
+        testIt { tested =>
+          val user = newUser(annotations = Map("k1" -> bigValue, "k2" -> bigValue))
+          for {
+            res1 <- tested.createUser(user, Set.empty)
+            _ = res1.left.value shouldBe MaxAnnotationsSizeExceeded(user.id)
+          } yield succeed
+        }
+      }
+
+      "when updating an existing user" in {
+        testIt { tested =>
+          val user = newUser(annotations = Map("k1" -> bigValue))
+          for {
+            _ <- tested.createUser(user, Set.empty)
+            res1 <- tested.updateUser(
+              makeUserUpdate(annotationsUpdateO = Some(Merge.fromNonEmpty(Map("k2" -> bigValue))))
+            )
+            _ = res1.left.value shouldBe MaxAnnotationsSizeExceeded(user.id)
+          } yield succeed
+        }
       }
     }
 

@@ -5,40 +5,35 @@ package com.daml.platform.store.platform.partymanagement
 
 import com.daml.ledger.api.domain.{ObjectMeta, ParticipantParty}
 import com.daml.ledger.participant.state.index.v2.AnnotationsUpdate.{Merge, Replace}
-import com.daml.ledger.participant.state.index.v2.ParticipantPartyRecordStore.{
+import com.daml.ledger.participant.state.index.v2.PartyRecordStore.{
   PartyRecordExists,
   PartyRecordNotFound,
 }
 import com.daml.ledger.participant.state.index.v2.{
+  AnnotationsUpdate,
   ObjectMetaUpdate,
-  ParticipantPartyRecordStore,
+  PartyRecordStore,
   PartyRecordUpdate,
 }
-import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.logging.LoggingContext
 import org.scalatest.freespec.AsyncFreeSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{Assertion, EitherValues}
 
 import scala.concurrent.Future
 import scala.language.implicitConversions
 
-/** Common tests for implementations of [[ParticipantPartyRecordStore]]
-  */
-trait ParticipantPartyStoreTests extends TestResourceContext with Matchers with EitherValues {
-  self: AsyncFreeSpec =>
+trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSpec =>
 
   implicit val lc: LoggingContext = LoggingContext.ForTesting
 
   private implicit def toParty(s: String): Party =
     Party.assertFromString(s)
 
-  def testIt(f: ParticipantPartyRecordStore => Future[Assertion]): Future[Assertion]
+  private val party1 = "party1"
 
   def newPartyRecord(
-      name: String,
+      name: String = party1,
       annotations: Map[String, String] = Map.empty,
   ): ParticipantParty.PartyRecord =
     ParticipantParty.PartyRecord(
@@ -47,9 +42,9 @@ trait ParticipantPartyStoreTests extends TestResourceContext with Matchers with 
     )
 
   def createdPartyRecord(
-      name: String,
+      name: String = party1,
       annotations: Map[String, String] = Map.empty,
-      resourceVersion: String = "0",
+      resourceVersion: Long = 0,
   ): ParticipantParty.PartyRecord =
     ParticipantParty.PartyRecord(
       party = name,
@@ -59,12 +54,23 @@ trait ParticipantPartyStoreTests extends TestResourceContext with Matchers with 
       ),
     )
 
+  def makePartRecordUpdate(
+      party: Ref.Party = party1,
+      annotationsUpdateO: Option[AnnotationsUpdate] = None,
+  ): PartyRecordUpdate = PartyRecordUpdate(
+    party = party,
+    metadataUpdate = ObjectMetaUpdate(
+      resourceVersionO = None,
+      annotationsUpdateO = annotationsUpdateO,
+    ),
+  )
+
   def resetResourceVersion(
       partyRecord: ParticipantParty.PartyRecord
   ): ParticipantParty.PartyRecord =
     partyRecord.copy(metadata = partyRecord.metadata.copy(resourceVersionO = None))
 
-  "participant party management" - {
+  "party record store" - {
 
     "creating" - {
       "allow creating a fresh party record" in {
@@ -170,7 +176,7 @@ trait ParticipantPartyStoreTests extends TestResourceContext with Matchers with 
             )
             _ = update1.value shouldBe createdPartyRecord(
               "party1",
-              resourceVersion = "1",
+              resourceVersion = 0,
               annotations = Map("k1" -> "v1", "k2" -> "v2"),
             )
           } yield succeed
@@ -186,7 +192,7 @@ trait ParticipantPartyStoreTests extends TestResourceContext with Matchers with 
             )
             _ = create1.value shouldBe createdPartyRecord(
               "party1",
-              resourceVersion = "0",
+              resourceVersion = 0,
               annotations = Map("k1" -> "v1", "k2" -> "v2"),
             )
             // first update: with merge annotations semantics
@@ -209,7 +215,7 @@ trait ParticipantPartyStoreTests extends TestResourceContext with Matchers with 
             )
             _ = update1.value shouldBe createdPartyRecord(
               "party1",
-              resourceVersion = "1",
+              resourceVersion = 1,
               annotations = Map("k1" -> "v1b", "k2" -> "v2", "k3" -> "v3"),
             )
             // second update: with replace annotations semantics
@@ -232,7 +238,7 @@ trait ParticipantPartyStoreTests extends TestResourceContext with Matchers with 
             )
             _ = update2.value shouldBe createdPartyRecord(
               "party1",
-              resourceVersion = "2",
+              resourceVersion = 2,
               annotations = Map("k1" -> "v1c", "k4" -> "v4"),
             )
             // third update: with replace annotations semantics - effectively deleting all annotations
@@ -248,7 +254,7 @@ trait ParticipantPartyStoreTests extends TestResourceContext with Matchers with 
             )
             _ = update3.value shouldBe createdPartyRecord(
               "party1",
-              resourceVersion = "3",
+              resourceVersion = 3,
               annotations = Map.empty,
             )
           } yield {
@@ -271,7 +277,7 @@ trait ParticipantPartyStoreTests extends TestResourceContext with Matchers with 
               ),
               ledgerPartyExists = _ => Future.successful(false),
             )
-            _ = res1.left.value shouldBe ParticipantPartyRecordStore.PartyNotFound(party)
+            _ = res1.left.value shouldBe PartyRecordStore.PartyNotFound(party)
           } yield succeed
         }
       }
@@ -285,7 +291,7 @@ trait ParticipantPartyStoreTests extends TestResourceContext with Matchers with 
               PartyRecordUpdate(
                 party = pr.party,
                 metadataUpdate = ObjectMetaUpdate(
-                  resourceVersionO = Some("100"),
+                  resourceVersionO = Some(100),
                   annotationsUpdateO = Some(Merge.fromNonEmpty(Map("k1" -> "v1"))),
                 ),
               ),
@@ -296,11 +302,58 @@ trait ParticipantPartyStoreTests extends TestResourceContext with Matchers with 
                   )
                 ),
             )
-            _ = res1.left.value shouldBe ParticipantPartyRecordStore.ConcurrentPartyUpdate(pr.party)
+            _ = res1.left.value shouldBe PartyRecordStore.ConcurrentPartyUpdate(pr.party)
           } yield succeed
         }
       }
     }
+
+    "raise an error when annotations byte size max size exceeded" - {
+      // This value consumes just a bit over half the allowed max size limit
+      val bigValue = "big value:" + ("a" * 128 * 1024)
+
+      "when creating a party record" in {
+        testIt { tested =>
+          val pr = newPartyRecord("party1", annotations = Map("k1" -> bigValue, "k2" -> bigValue))
+          for {
+            res1 <- tested.createPartyRecord(pr)
+            _ = res1.left.value shouldBe PartyRecordStore.MaxAnnotationsSizeExceeded(pr.party)
+          } yield succeed
+        }
+      }
+
+      "when updating an existing party record" in {
+        testIt { tested =>
+          val pr = newPartyRecord("party1", annotations = Map("k1" -> bigValue))
+          for {
+            _ <- tested.createPartyRecord(pr)
+            res1 <- tested.updatePartyRecord(
+              makePartRecordUpdate(annotationsUpdateO =
+                Some(Merge.fromNonEmpty(Map("k2" -> bigValue)))
+              ),
+              ledgerPartyExists = (_ => Future.successful(true)),
+            )
+            _ = res1.left.value shouldBe PartyRecordStore.MaxAnnotationsSizeExceeded(pr.party)
+          } yield succeed
+        }
+      }
+
+      "when updating non-existent party record" in {
+        testIt { tested =>
+          val party = Ref.Party.assertFromString("party1")
+          for {
+            res1 <- tested.updatePartyRecord(
+              makePartRecordUpdate(annotationsUpdateO =
+                Some(Merge.fromNonEmpty(Map("k1" -> bigValue, "k2" -> bigValue)))
+              ),
+              ledgerPartyExists = (_ => Future.successful(true)),
+            )
+            _ = res1.left.value shouldBe PartyRecordStore.MaxAnnotationsSizeExceeded(party)
+          } yield succeed
+        }
+      }
+    }
+
   }
 
 }

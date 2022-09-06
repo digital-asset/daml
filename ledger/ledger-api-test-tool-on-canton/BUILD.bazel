@@ -115,8 +115,7 @@ conformance_test(
     extra_runner_args = ["7000"],
     lf_versions = [
         "default",
-        # TODO. reactive once canton include the fix to TransactionVersion.scala made in #14800
-        # "preview",
+        "preview",
         "dev",
     ],
     ports = conformance_test_ports,

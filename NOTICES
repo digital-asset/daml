@@ -22,22 +22,15 @@ Components:
 @babel/code-frame 7.12.11 : MIT License
 @babel/code-frame 7.12.13 : MIT License
 @babel/code-frame 7.18.6 : MIT License
-@babel/compat-data 7.18.13 : MIT License
-@babel/core 7.18.13 : MIT License
 @babel/generator 7.14.1 : MIT License
 @babel/generator 7.16.0 : MIT License
-@babel/generator 7.18.13 : MIT License
 @babel/helper-annotate-as-pure 7.12.13 : MIT License
-@babel/helper-compilation-targets 7.18.9 : MIT License
 @babel/helper-environment-visitor 7.18.9 : MIT License
 @babel/helper-function-name 7.12.13 : MIT License
-@babel/helper-function-name 7.18.9 : MIT License
 @babel/helper-get-function-arity 7.12.13 : MIT License
 @babel/helper-hoist-variables 7.18.6 : MIT License
 @babel/helper-module-imports 7.13.12 : MIT License
 @babel/helper-module-imports 7.18.6 : MIT License
-@babel/helper-module-transforms 7.18.9 : MIT License
-@babel/helper-plugin-utils 7.18.9 : MIT License
 @babel/helper-simple-access 7.18.6 : MIT License
 @babel/helper-split-export-declaration 7.12.13 : MIT License
 @babel/helper-split-export-declaration 7.18.6 : MIT License
@@ -46,12 +39,10 @@ Components:
 @babel/helper-validator-identifier 7.16.7 : MIT License
 @babel/helper-validator-identifier 7.18.6 : MIT License
 @babel/helper-validator-option 7.18.6 : MIT License
-@babel/helpers 7.18.9 : MIT License
 @babel/highlight 7.14.0 : MIT License
 @babel/highlight 7.18.6 : MIT License
 @babel/parser 7.14.1 : MIT License
 @babel/parser 7.17.0 : MIT License
-@babel/parser 7.18.13 : MIT License
 @babel/plugin-syntax-async-generators 7.8.4 : MIT License
 @babel/plugin-syntax-bigint 7.8.3 : MIT License
 @babel/plugin-syntax-class-properties 7.12.13 : MIT License
@@ -66,15 +57,12 @@ Components:
 @babel/plugin-syntax-top-level-await 7.14.5 : MIT License
 @babel/plugin-syntax-typescript 7.18.6 : MIT License
 @babel/runtime 7.14.0 : MIT License
-@babel/runtime 7.18.9 : MIT License
 @babel/template 7.12.13 : MIT License
 @babel/template 7.18.10 : MIT License
 @babel/traverse 7.14.0 : MIT License
-@babel/traverse 7.18.13 : MIT License
 @babel/types 7.14.1 : MIT License
 @babel/types 7.16.0 : MIT License
 @babel/types 7.17.0 : MIT License
-@babel/types 7.18.13 : MIT License
 @bazel/hide-bazel-files 1.6.0 : Apache License 2.0
 @bazel/hide-bazel-files 1.7.0 : Apache License 2.0
 @bazel/typescript 4.6.1 : Apache License 2.0
@@ -154,6 +142,7 @@ Components:
 @types/babel__core 7.1.19 : MIT License
 @types/babel__generator 7.6.4 : MIT License
 @types/babel__template 7.4.1 : MIT License
+@types/babel__traverse 7.18.1 : MIT License
 @types/babylon 6.16.5 : MIT License
 @types/body-parser 1.19.2 : MIT License
 @types/bonjour 3.5.10 : MIT License
@@ -194,6 +183,7 @@ Components:
 @types/node 15.0.2 : MIT License
 @types/node 15.12.2 : MIT License
 @types/node 18.6.3 : MIT License
+@types/node 18.7.15 : MIT License
 @types/node-fetch 2.5.10 : MIT License
 @types/node-fetch 2.5.12 : MIT License
 @types/prettier 2.7.0 : MIT License
@@ -201,9 +191,9 @@ Components:
 @types/prop-types 15.7.5 : MIT License
 @types/qs 6.9.7 : MIT License
 @types/range-parser 1.2.4 : MIT License
-@types/react 17.0.48 : MIT License
+@types/react 17.0.49 : MIT License
 @types/react 17.0.5 : MIT License
-@types/react 18.0.17 : MIT License
+@types/react 18.0.18 : MIT License
 @types/react-autosuggest 10.1.4 : MIT License
 @types/react-dom 17.0.3 : MIT License
 @types/react-overlays 3.1.0 : MIT License
@@ -483,6 +473,7 @@ camelcase 6.3.0 : MIT License
 camelcase-keys 2.1.0 : MIT License
 camelize 1.0.0 : MIT License
 caniuse-lite 1.0.30001260 : Creative Commons Attribution 4.0
+caniuse-lite 1.0.30001390 : Creative Commons Attribution 4.0
 Cardinal 2.1.1 : MIT License
 case-sensitive-paths-webpack-plugin 2.4.0 : MIT License
 Cats core 2.6.1 : MIT License
@@ -1559,7 +1550,7 @@ npm-run-path 4.0.1 : MIT License
 npmlog 4.1.2 : ISC License
 nth-check 2.0.1 : BSD 2-clause "Simplified" License
 number-is-nan 1.0.1 : MIT License
-nwsapi 2.2.1 : MIT License
+nwsapi 2.2.2 : MIT License
 object-assign 3.0.0 : MIT License
 object-assign 4.1.1 : MIT License
 object-inspect 1.11.0 : MIT License
@@ -2191,7 +2182,7 @@ unliftio 0.2.20 : MIT License
 unliftio-core 0.2.0.1 : MIT License
 unordered-containers 0.2.16.0 : BSD 3-clause "New" or "Revised" License
 unpipe 1.0.0 : MIT License
-update-browserslist-db 1.0.5 : MIT License
+update-browserslist-db 1.0.7 : MIT License
 upickle-core_2.13 1.2.0 : MIT License
 upper-case 2.0.2 : MIT License
 upper-case-first 2.0.2 : MIT License
@@ -6159,7 +6150,7 @@ POSSIBILITY OF SUCH DAMAGES.
 ---
 
 Creative Commons Attribution 4.0
-(caniuse-lite 1.0.30001260)
+(caniuse-lite 1.0.30001260, caniuse-lite 1.0.30001390)
 
 Creative Commons Attribution 4.0
 ================================
@@ -19604,7 +19595,7 @@ OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(@babel/code-frame 7.18.6, @babel/compat-data 7.18.13, @babel/core 7.18.13, @babel/generator 7.18.13, @babel/helper-compilation-targets 7.18.9, @babel/helper-environment-visitor 7.18.9, @babel/helper-function-name 7.18.9, @babel/helper-hoist-variables 7.18.6, @babel/helper-module-imports 7.18.6, @babel/helper-module-transforms 7.18.9, @babel/helper-plugin-utils 7.18.9, @babel/helper-simple-access 7.18.6, @babel/helper-split-export-declaration 7.18.6, @babel/helper-string-parser 7.18.10, @babel/helper-validator-identifier 7.18.6, @babel/helper-validator-option 7.18.6, @babel/helpers 7.18.9, @babel/highlight 7.18.6, @babel/parser 7.18.13, @babel/plugin-syntax-typescript 7.18.6, @babel/runtime 7.18.9, @babel/template 7.18.10, @babel/traverse 7.18.13, @babel/types 7.18.13, @emotion/unitless 0.7.5, @graphql-typed-document-node/core 3.1.0, @jest/fake-timers 27.5.1, @jest/source-map 27.5.1, @jest/transform 27.5.1, @jridgewell/gen-mapping 0.1.1, @jridgewell/gen-mapping 0.3.2, @jridgewell/resolve-uri 3.1.0, @jridgewell/set-array 1.1.2, @jridgewell/source-map 0.3.2, @jridgewell/sourcemap-codec 1.4.14, @jridgewell/trace-mapping 0.3.14, @jridgewell/trace-mapping 0.3.15, @oclif/parser 3.8.6, @tootallnate/once 1.1.2, @types/istanbul-lib-coverage 2.0.4, @types/json5 0.0.29, @types/long 4.0.2, @types/node 18.6.3, @types/prettier 2.7.0, @types/prop-types 15.7.5, @types/react 17.0.48, @types/react 18.0.17, @types/react-test-renderer 18.0.0, @types/tmp 0.0.29, @types/warning 3.0.0, Acorn 8.8.0, acorn-import-assertions 1.7.6, Animal Sniffer Annotations 1.19, apollo-codegen-itajaja 0.38.7, apollo-language-server 1.26.7, Async 2.6.4, Async 3.2.4, babel-plugin-syntax-jsx 6.18.0, better-files 3.8.0, Bouncy Castle 1.70, Bouncy Castle PKIX, CMS, EAC, TSP, PKCS, OCSP, CMP, and CRMF APIs 1.70, browserify-cache-api 3.0.1, browserify-incremental 3.1.1, browserify-zlib 0.1.4, browserify/resolve 1.22.1, browserslist 4.21.3, cached-path-relative 1.1.0, Cats core 2.6.1, Cats Free 2.6.1, Cats kernel 2.6.1, Cats kernel laws 2.6.1, Cats laws 2.6.1, ci-info 3.3.2, Clone 1.0.4, cookie 0.4.5, csstype 3.1.0, decimal.js 10.4.0, discipline 1.1.5, doobie-core 0.13.4, doobie-free 0.13.4, doobie-hikari 0.13.4, doobie-postgres 0.13.4, einaros/ws 7.5.9, einaros/ws 8.8.1, env-ci 5.4.1, error v7.2.1, fansi_2.13 0.3.0, fast-uuid 0.1, fastparse_2.13 2.3.0, fs2-core 2.5.6, fs2-io 2.5.6, generics-resolver 3.0.3, geny_2.13 0.6.2, getobject 1.0.0, graphql-tag 2.12.6, grunt-legacy-log-utils 2.0.1, grunt-legacy-log-utils 2.1.0, grunt-open v0.2.4, gruntjs 1.4.2, gruntjs 1.4.3, gruntjs 1.5.3, hs-tasty 0.10.2, hs-tasty 1.4.2.1, http-client 0.7.10, https-proxy-agent 5.0.1, indexof 0.0.1, integer-logarithms 1.0.3.1, IonicaBizau/parse-url 6.0.5, is-core-module 2.10.0, java-properties 1.0.2, jest-changed-files 27.5.1, jest-circus 27.5.1, jest-get-type 27.5.1, jest-mock-console 1.3.0, jest-resolve 27.5.1, jest-resolve-dependencies 27.5.1, jest-runner 27.5.1, jwks-rsa 0.11.0, jwt 0.11.0, kind-projector 0.13.2, kossnocorp/date-fns 1.30.1, lightning-csv 8.2.3, macros 0.17.0, mockito-scala 1.16.3, mod 0.1.2.2, Modernizr 3.11.8, moment/moment 2.29.4, natural-compare 1.4.0, node-deep-equal 1.1.1, node-mkdirp 0.5.6, node-releases 2.0.6, node-xml2js 0.4.23, nwsapi 2.2.1, os-lib_2.13 0.7.1, parse-path 5.0.0, parser 1.0.0, path-platform 0.11.15, PCollections 2.1.3, pprint_2.13 0.7.1, protocols 2.0.1, psl 1.9.0, React from Facebook 18.2.0, react-shallow-renderer 16.15.0, react-themeable 1.1.0, scalatags 0.9.1, scopt 4.0.0, sfm-util 8.2.3, sjsonnet_2.13 0.3.0, SLF4J API Module 1.7.26, sourcecode 0.2.7, streaming-commons 0.2.2.3, Styled Components 5.3.0, tr46 0.0.3, ts-jest 27.1.5, typed-process 0.2.8.0, typename 1.0.0, typescript-collections 1.3.3, ujson_2.13 1.2.0, update-browserslist-db 1.0.5, upickle-core_2.13 1.2.0, upper-case 2.0.2, wcwidth 1.0.1)
+(@babel/code-frame 7.18.6, @babel/helper-environment-visitor 7.18.9, @babel/helper-hoist-variables 7.18.6, @babel/helper-module-imports 7.18.6, @babel/helper-simple-access 7.18.6, @babel/helper-split-export-declaration 7.18.6, @babel/helper-string-parser 7.18.10, @babel/helper-validator-identifier 7.18.6, @babel/helper-validator-option 7.18.6, @babel/highlight 7.18.6, @babel/plugin-syntax-typescript 7.18.6, @babel/template 7.18.10, @emotion/unitless 0.7.5, @graphql-typed-document-node/core 3.1.0, @jest/fake-timers 27.5.1, @jest/source-map 27.5.1, @jest/transform 27.5.1, @jridgewell/gen-mapping 0.1.1, @jridgewell/gen-mapping 0.3.2, @jridgewell/resolve-uri 3.1.0, @jridgewell/set-array 1.1.2, @jridgewell/source-map 0.3.2, @jridgewell/sourcemap-codec 1.4.14, @jridgewell/trace-mapping 0.3.14, @jridgewell/trace-mapping 0.3.15, @oclif/parser 3.8.6, @tootallnate/once 1.1.2, @types/babel__traverse 7.18.1, @types/istanbul-lib-coverage 2.0.4, @types/json5 0.0.29, @types/long 4.0.2, @types/node 18.6.3, @types/node 18.7.15, @types/prettier 2.7.0, @types/prop-types 15.7.5, @types/react 17.0.49, @types/react 18.0.18, @types/react-test-renderer 18.0.0, @types/tmp 0.0.29, @types/warning 3.0.0, Acorn 8.8.0, acorn-import-assertions 1.7.6, Animal Sniffer Annotations 1.19, apollo-codegen-itajaja 0.38.7, apollo-language-server 1.26.7, Async 2.6.4, Async 3.2.4, babel-plugin-syntax-jsx 6.18.0, better-files 3.8.0, Bouncy Castle 1.70, Bouncy Castle PKIX, CMS, EAC, TSP, PKCS, OCSP, CMP, and CRMF APIs 1.70, browserify-cache-api 3.0.1, browserify-incremental 3.1.1, browserify-zlib 0.1.4, browserify/resolve 1.22.1, browserslist 4.21.3, cached-path-relative 1.1.0, Cats core 2.6.1, Cats Free 2.6.1, Cats kernel 2.6.1, Cats kernel laws 2.6.1, Cats laws 2.6.1, ci-info 3.3.2, Clone 1.0.4, cookie 0.4.5, csstype 3.1.0, decimal.js 10.4.0, discipline 1.1.5, doobie-core 0.13.4, doobie-free 0.13.4, doobie-hikari 0.13.4, doobie-postgres 0.13.4, einaros/ws 7.5.9, einaros/ws 8.8.1, env-ci 5.4.1, error v7.2.1, fansi_2.13 0.3.0, fast-uuid 0.1, fastparse_2.13 2.3.0, fs2-core 2.5.6, fs2-io 2.5.6, generics-resolver 3.0.3, geny_2.13 0.6.2, getobject 1.0.0, graphql-tag 2.12.6, grunt-legacy-log-utils 2.0.1, grunt-legacy-log-utils 2.1.0, grunt-open v0.2.4, gruntjs 1.4.2, gruntjs 1.4.3, gruntjs 1.5.3, hs-tasty 0.10.2, hs-tasty 1.4.2.1, http-client 0.7.10, https-proxy-agent 5.0.1, indexof 0.0.1, integer-logarithms 1.0.3.1, IonicaBizau/parse-url 6.0.5, is-core-module 2.10.0, java-properties 1.0.2, jest-changed-files 27.5.1, jest-circus 27.5.1, jest-get-type 27.5.1, jest-mock-console 1.3.0, jest-resolve 27.5.1, jest-resolve-dependencies 27.5.1, jest-runner 27.5.1, jwks-rsa 0.11.0, jwt 0.11.0, kind-projector 0.13.2, kossnocorp/date-fns 1.30.1, lightning-csv 8.2.3, macros 0.17.0, mockito-scala 1.16.3, mod 0.1.2.2, Modernizr 3.11.8, moment/moment 2.29.4, natural-compare 1.4.0, node-deep-equal 1.1.1, node-mkdirp 0.5.6, node-releases 2.0.6, node-xml2js 0.4.23, nwsapi 2.2.2, os-lib_2.13 0.7.1, parse-path 5.0.0, parser 1.0.0, path-platform 0.11.15, PCollections 2.1.3, pprint_2.13 0.7.1, protocols 2.0.1, psl 1.9.0, React from Facebook 18.2.0, react-shallow-renderer 16.15.0, react-themeable 1.1.0, scalatags 0.9.1, scopt 4.0.0, sfm-util 8.2.3, sjsonnet_2.13 0.3.0, SLF4J API Module 1.7.26, sourcecode 0.2.7, streaming-commons 0.2.2.3, Styled Components 5.3.0, tr46 0.0.3, ts-jest 27.1.5, typed-process 0.2.8.0, typename 1.0.0, typescript-collections 1.3.3, ujson_2.13 1.2.0, update-browserslist-db 1.0.7, upickle-core_2.13 1.2.0, upper-case 2.0.2, wcwidth 1.0.1)
 
 The MIT License
 ===============

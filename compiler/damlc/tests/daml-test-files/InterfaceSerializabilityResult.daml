@@ -1,5 +1,5 @@
 -- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ERROR range=17:11-17:12; error type checking interface InterfaceSerializabilityResult.I : expected serializable type: * reason: choice result * found: InterfaceSerializabilityResult:NonSerializable * problem: unserializable data type InterfaceSerializabilityResult:NonSerializable
+-- @ERROR range=17:11-17:12; error type checking interface InterfaceSerializabilityResult.I choice NonSerializableResult: expected serializable type: * reason: choice result * found: InterfaceSerializabilityResult:NonSerializable * problem: unserializable data type InterfaceSerializabilityResult:NonSerializable
 module InterfaceSerializabilityResult where
 
 data NonSerializable = NonSerializable (() -> ())

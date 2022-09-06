@@ -147,32 +147,62 @@ how to communicate around it and when to remove the `prerelease` marker on the
 
 ## Testing
 
-This testing procedure starts once the release is listed on the [releases page].
+This testing procedure starts once the release is listed on the [releases page]. 
 
-1. On Windows, install the new SDK using the installer on the [releases page].
+In the following notes, we assume that `$VERSION` contains
+the full version tag for the release you are testing - in other words, the full version as recorded on the Slack 
+`#team-daml` message that is generated when closing the `main` build PR.
 
-   On macOS/Linux:
+For example, for the Slack message:
+> team_daml_notifs
+>
+> Just published `2.4.0-snapshot.20220830.10494.0.4622de48`.
+>
+> For testing:
+>
+> - Follow the [instructions](https://github.com/digital-asset/daml/blob/v2.4.0-snapshot.20220830.10494.0.4622de48/release/RELEASE.md).
+> - Install on macOS/Linux with `curl -sSL https://get.daml.com/ | sh -s 2.4.0-snapshot.20220830.10494.0.4622de48`.
+> - Install on Windows using this [link](https://github.com/digital-asset/daml/releases/download/v2.4.0-snapshot.20220830.10494.0.4622de48/daml-sdk-2.4.0-snapshot.20220830.10494.0.4622de48-windows.exe).
+
+we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
+
+1.
+   - On Windows, install the new SDK using the installer on the [releases page]. This will typically be the asset 
+     named `daml-sdk-$VERSION-windows.exe` (located on the [DAML releases](https://github.com/digital-asset/daml/releases) page). 
+     Please ensure that `$VERSION` is expanded correctly!.
+
+   - On MacOS/Linux (please ensure that `$VERSION` is expanded correctly!):
    ```
    curl -sSL https://get.daml.com/ | sh -s "$VERSION"
    ```
-   where `$VERSION` is the full version tag of the new release you are making,
-   i.e. the second column of the `LATEST` file.
-
+   
    > ## Tips for Windows testing in an ad-hoc machine
    >
    > If you are part of the release rotation, you can create Windows VMs
    > through the [ad-hoc] project. The created machine is a bit raw, though, so
    > here are a few tips to help you along.
+   > 
+   > First we should clone the git repository https://github.com/DACH-NY/daml-language-ad-hoc and then enter the cloned
+   > repo.
+   > 
+   > If this is your first time doing this, edit `tf/main.tf` and add your username to the `members` field of the 
+   > `google_project_iam_binding.machine_managers` resource. Generate and submit a PR with these changes. Once the PR 
+   > has been accepted, you should now have permission to create GCP compute instances.
+   > 
+   > Assuming `direnv` is installed, entering the `daml-language-ad-hoc` project directory will be sufficient to 
+   > configure and install the extra software (e.g. the GCP SDK) required for your environment.
    >
-   > [ad-hoc]: https://github.com/DACH-NY/daml-language-ad-hoc
-   >
-   > `ad-hoc.sh create windows` prints IP address, username and password for the created Windows VM.
-   > Save this output. You will need this information later when you create an RDP connection.
+   > A new GCP windows instance can be created by running `./ad-hoc.sh temp windows` - this command prints IP address,
+   > username and password for the created Windows VM. Save this output. You will need this information later when you 
+   > create an RDP connection.
    >
    > ‼️ After starting, it's going to take some time for the machine to be configured (see notes below).
    >
-   > If you're on a Mac, you can use Microsoft Remote Desktop to connect; on
-   > Linux, you can use Remmina.
+   > Before you may connect to this windows instance, you need to ensure that the VPN is connected. On Mac OSX you can 
+   > do this by selecting the preconfigured _Connect GCP Frankfurt full tunnel_ VPN profile.
+   > 
+   > If you're on a Mac, you can use Microsoft Remote Desktop to connect (this can be installed via the Mac App Store);
+   > on Linux, you can use Remmina.
    >
    > Remmina notes: when creating an RDP connection, you may want to specify custom
    > resolution. The default setting is to `use client resolution`. You may notice a
@@ -182,16 +212,26 @@ This testing procedure starts once the release is listed on the [releases page].
    > The ad-hoc machines take a bit of time to be available after being reported as
    > created, so be patient for a bit if your first connection attempt(s) fail.
    >
-   > NOTE 1: **Use Firefox for testing.** Windows machines come with both Internet Explorer and Firefox installed. Do not make the mistake of trying to use Internet Explorer.
+   > At this point, use Firefox to download and install `daml-sdk-$VERSION-windows.exe` from https://github.com/digital-asset/daml/releases
+   > (please ensure `$VERSION` is expanded correctly!.
+   > 
+   > NOTE 1: **Use Firefox for testing.** Windows machines come with both Internet Explorer and Firefox installed. Do 
+   > not make the mistake of trying to use Internet Explorer.
    >
    > Ad-hoc machines also come with Node, VSCode and OpenJDK preinstalled, so
    > you don't need to worry about those.
    >
-   > NOTE 2: After logging in, **it takes some time for the machine to be configured.** The script that installs Firefox, Node, VSCode and OpenJDK runs once the
-   > machine is available for login. The software you need should appear within about 10 minutes. (An easy way to check is to try to open `D:\` , as it is created after all the software is installed.)
+   > NOTE 2: After logging in, **it takes some time for the machine to be configured.** The script that installs Firefox, 
+   > Node, VSCode and OpenJDK runs once the machine is available for login. The software you need should appear within 
+   > about 10 minutes (an easy way to check is to try to open `D:\` , as this volume is created after all the software 
+   > is installed).
    >
-   > All of the commands mentioned in this document can be run from a simple
+   > All of the commands mentioned in this testing section can be run from a simple
    > DOS prompt (start menu -> type "cmd" -> click "Command prompt").
+   > 
+   > At the end of your Windows testing session, please be sure to terminate the GCP instance by running 
+   > `./ad-hoc.sh destroy $ID`. Here `$ID` is the identity for your GCP instance - this is printed when you create your 
+   > Windows instance.
 
 1. Prerequisites for running the tests:
     - [Visual Studio Code, Java-SDK](https://docs.daml.com/getting-started/installation.html)
@@ -200,6 +240,7 @@ This testing procedure starts once the release is listed on the [releases page].
       - `create-daml-app` doesn't work with the latest version 17.x of node.js.
         If you have `nix` installed, you can use a suitable version of nodejs by
         running `nix-shell -p nodejs-14_x` before running the `npm` commands below.
+    - [Maven](https://maven.apache.org)
 
 1. Run `daml version --assistant=yes` and verify that the new version is
    selected as the assistant version and the default version for new projects.
@@ -210,10 +251,9 @@ This testing procedure starts once the release is listed on the [releases page].
    easily.
 
     1. For these steps you will need the getting started documentation for the
-       release you are about to make. You can either build the documentation
-       locally (see `docs/README.md`), or, if you are sure that the Getting
-       Started Guide didn't change since the last stable version, you can
-       simply go to [the live documentation](https://docs.daml.com/getting-started/index.html).
+       release that you are about to make. This documentation (for the release that you are testing) is published 
+       at `https://docs.daml.com/$VERSION/getting-started/index.html`. Please ensure that `$VERSION` is expanded 
+       correctly before trying this link!
 
     1. `daml new create-daml-app --template create-daml-app`
 
@@ -221,9 +261,10 @@ This testing procedure starts once the release is listed on the [releases page].
 
        1. `daml start`
 
-    1. In a new terminal, from the `ui` folder:
+    1. In a new terminal (with nodejs configured as above), from the `ui` folder:
 
        1. `npm install`
+           - if this command returns with an exit code of 0, errors may be safely ignored. 
 
        1. `npm start`
 
@@ -244,56 +285,56 @@ This testing procedure starts once the release is listed on the [releases page].
        the list of users `Bob` is following. Verify in the other
        browser window that `Bob` shows up in `Alice`’s network.
 
-    1. Open the your first feature section of the GSG, e.g., from
-       https://docs.daml.com/getting-started/first-feature.html
+    1. Open the your first feature section of the Getting Started Guide, e.g., from
+       `https://docs.daml.com/$VERSION/getting-started/first-feature.html`
        if you did not build docs locally.
 
-    1. Run `daml studio --replace=always` from the project root
-       directory and open `User.daml`.
+    1. In a third terminal window, run `daml studio --replace=always` from the project root
+        directory and open `daml/User.daml`.
 
     1. Copy the `Message` template from the documentation to the end of `User.daml`.
 
     1. Copy the `SendMessage` choice from the documentation to the
-       `User` template below the `Follow` choice.
+        `User` template below the `Follow` choice.
 
-    1. Close VSCode.
+    1. Save your changes and close VSCode.
 
-    1. In the terminal where `daml start` is running, press 'r'
-       respectively 'r' + 'Enter' on Windows.
+    1. In the first terminal window (where `daml start` is running), press 'r'
+        (respectively 'r' + 'Enter' on Windows).
 
-    1. Run `code .` from the project root directory (the extension is
-       already installed, no need to use `daml studio`).
+    1. In the third terminal window, run `daml studio`.
 
     1. Create `MessageList.tsx`, `MessageEdit.tsx` and modify
-       `MainView.tsx` as described in the documentation.
+        `MainView.tsx` as described in the documentation.
 
     1. Verify that you do not see errors in the typescript code in VSCode.
 
-    1. Close VSCode.
+    1. Save your changes and close VSCode.
 
     1. As before, open two browser windows at `localhost:3000` and log
-       in as `alice` and `bob`.
+        in as `alice` and `bob`.
 
     1. Make `Alice` follow `Bob`.
 
     1. From `Bob`, select Alice in the `Select a follower` drop down,
-       insert `hi alice` in the message field and click on `Send`.
+        insert `hi alice` in the message field and click on `Send`.
 
     1. Verify that `Alice` has received the message in the other window.
 
     1. Make `Bob` follow `Alice`.
 
     1. From `Alice`, select Bob in the `Select a follower` drop down,
-       insert `hi bob` in the message field and click on `Send`.
+        insert `hi bob` in the message field and click on `Send`.
 
     1. Verify that `Bob` has received the message in the other window.
 
     1. You can now close both browser windows and both running processes (`daml
-       start` and `npm start`).
+        start` and `npm start`).
 
     1. Don't forget to run this on the other platform! E.g. if you just ran
-       through on Linux or macOS, you still need to run on Windows, and vice
-       versa.
+        through on Linux or macOS, you still need to run on Windows, and vice
+        versa. For testing on Windows instances, please refer to the _Tips for Windows testing in an ad-hoc machine_ 
+        notes above.
 
 1. Run through the following test plan on Windows. This is slightly shortened to
    make testing faster and since most issues are not platform specific.
@@ -307,6 +348,7 @@ This testing procedure starts once the release is listed on the [releases page].
    1. Kill `daml start` with `Ctrl-C`.
    1. Run `daml studio --replace=always` and open `daml/Main.daml`. Verify that
       the script result appears within 30 seconds.
+         - you will need to click on the _Script results_ link in the open VS code window in order to verify this
    1. Add `+` at the end of line 26 after `(PartyIdHint "Alice")` and verify that
       you get an error on line 27.
 
@@ -318,9 +360,9 @@ This testing procedure starts once the release is listed on the [releases page].
 
 1. Tests for `quickstart-java` (Linux/macOS)
 
-   While this is no longer the default getting started guide we still test it
-   for now since it covers things not covered by the new GSG
-   (Navigator, Scripts, Maven artifacts, …)
+   While this is no longer the default in the Getting Started Guide, we still test it
+   since the process covers things not covered by the new Getting Started Guide
+   (e.g. Navigator, Scripts, Maven artifacts, etc.)
 
     1. Create a new project with `daml new quickstart --template quickstart-java`
        and switch to it using `cd quickstart`.
@@ -336,7 +378,7 @@ This testing procedure starts once the release is listed on the [releases page].
 
     1. Run `daml build`.
 
-    1. In 3 separate terminals, run:
+    1. In 3 separate terminals (each being in the `quickstart-java` project directory), run:
 
        1. `daml sandbox --port 6865`
 

@@ -5,7 +5,9 @@ package com.daml.ledger.participant.state.index.impl.inmemory
 
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{ObjectMeta, ParticipantParty}
-import com.daml.ledger.participant.state.index.v2.ParticipantPartyRecordStore.{
+import com.daml.ledger.participant.state.index.ResourceAnnotationValidation
+import com.daml.ledger.participant.state.index.v2.PartyRecordStore.{
+  MaxAnnotationsSizeExceeded,
   PartyRecordExists,
   PartyRecordNotFound,
   PartyRecordNotFoundOnUpdateException,
@@ -14,7 +16,7 @@ import com.daml.ledger.participant.state.index.v2.ParticipantPartyRecordStore.{
 import com.daml.ledger.participant.state.index.v2.{
   AnnotationsUpdate,
   LedgerPartyExists,
-  ParticipantPartyRecordStore,
+  PartyRecordStore,
   PartyRecordUpdate,
 }
 import com.daml.lf.data.Ref
@@ -24,7 +26,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-object InMemoryParticipantPartyRecordStore {
+object InMemoryPartyRecordStore {
   case class PartyRecordInfo(
       party: Ref.Party,
       resourceVersion: Long,
@@ -35,16 +37,16 @@ object InMemoryParticipantPartyRecordStore {
     ParticipantParty.PartyRecord(
       party = info.party,
       metadata = ObjectMeta(
-        resourceVersionO = Some(info.resourceVersion.toString),
+        resourceVersionO = Some(info.resourceVersion),
         annotations = info.annotations,
       ),
     )
 
 }
 
-class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
-    extends ParticipantPartyRecordStore {
-  import InMemoryParticipantPartyRecordStore._
+// TODO um-for-hub: Consider unifying InMemoryPartyRecordStore and PersistentPartyRecordStore, such that InMemoryPartyRecordStore is obtained by having a in-memory storage backend
+class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends PartyRecordStore {
+  import InMemoryPartyRecordStore._
 
   implicit private val ec: ExecutionContext = executionContext
   private val logger = ContextualizedLogger.get(getClass)
@@ -63,11 +65,13 @@ class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
       partyRecord: ParticipantParty.PartyRecord
   )(implicit loggingContext: LoggingContext): Future[Result[ParticipantParty.PartyRecord]] = {
     withState(withoutPartyRecord(partyRecord.party) {
-      val info = doCreatePartyRecord(partyRecord)
-      toPartyRecord(info)
+      for {
+        info <- doCreatePartyRecord(partyRecord)
+      } yield toPartyRecord(info)
     })
   }
 
+  // TODO um-for-hub: Add a conformance test exercising a race conditions: multiple update on the same non-existing party-record (which exists on the ledger and is indexed by this participant) calls
   override def updatePartyRecord(
       partyRecordUpdate: PartyRecordUpdate,
       ledgerPartyExists: LedgerPartyExists,
@@ -91,44 +95,45 @@ class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
     })
     attemptedUpdateF.recoverWith[Result[domain.ParticipantParty.PartyRecord]] {
       case PartyRecordNotFoundOnUpdateException =>
-        for {
-          partyExistsOnLedger <- ledgerPartyExists.exists(party)
-          createdPartyRecord <-
-            if (partyExistsOnLedger) {
-              withState {
-                val newPartyRecord = domain.ParticipantParty.PartyRecord(
-                  party = party,
-                  metadata = domain.ObjectMeta.empty,
-                )
-                for {
-                  _ <- withoutPartyRecord(party = newPartyRecord.party) {
-                    doCreatePartyRecord(newPartyRecord)
-                  }
-                  _ <- withPartyRecord(party) { info =>
-                    doUpdatePartyRecord(
-                      partyRecordUpdate = partyRecordUpdate,
-                      party = party,
-                      info = info,
-                    ).map(toPartyRecord)
-                  }
-                  updatePartyRecord <- {
-                    withPartyRecord(party) { updatedInfo =>
-                      Right(toPartyRecord(updatedInfo))
-                    }
-                  }
-                } yield updatePartyRecord
-              }.map(tapSuccess { newPartyRecord =>
-                logger.error(
-                  s"Created a new party record in a participant local store: ${newPartyRecord}"
-                )
-              })(scala.concurrent.ExecutionContext.parasitic)
-            } else {
-              Future.successful(
-                Left(ParticipantPartyRecordStore.PartyNotFound(party))
-              )
-            }
-        } yield createdPartyRecord
+        onUpdatingNonExistentPartyRecord(
+          ledgerPartyExists = ledgerPartyExists,
+          party = party,
+          annotationsUpdateO = partyRecordUpdate.metadataUpdate.annotationsUpdateO,
+        )
     }
+  }
+
+  private def onUpdatingNonExistentPartyRecord(
+      ledgerPartyExists: LedgerPartyExists,
+      party: Party,
+      annotationsUpdateO: Option[AnnotationsUpdate],
+  )(implicit loggingContext: LoggingContext): Future[Result[ParticipantParty.PartyRecord]] = {
+    for {
+      partyExistsOnLedger <- ledgerPartyExists.exists(party)
+      createdPartyRecord <-
+        if (partyExistsOnLedger) {
+          withState {
+            val newPartyRecord = domain.ParticipantParty.PartyRecord(
+              party = party,
+              metadata = domain.ObjectMeta(
+                resourceVersionO = None,
+                annotations = annotationsUpdateO.fold(Map.empty[String, String])(_.annotations),
+              ),
+            )
+            for {
+              info <- doCreatePartyRecord(newPartyRecord)
+            } yield toPartyRecord(info)
+          }.map(tapSuccess { newPartyRecord =>
+            logger.info(
+              s"Created a new party record in a participant local store: ${newPartyRecord}"
+            )
+          })(scala.concurrent.ExecutionContext.parasitic)
+        } else {
+          Future.successful(
+            Left(PartyRecordStore.PartyNotFound(party))
+          )
+        }
+    } yield createdPartyRecord
   }
 
   private def doUpdatePartyRecord(
@@ -146,13 +151,14 @@ class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
     val newResourceVersionEither = partyRecordUpdate.metadataUpdate.resourceVersionO match {
       case None => Right(currentResourceVersion + 1)
       case Some(requestResourceVersion) =>
-        if (requestResourceVersion == currentResourceVersion.toString) {
+        if (requestResourceVersion == currentResourceVersion) {
           Right(currentResourceVersion + 1)
         } else {
-          Left(ParticipantPartyRecordStore.ConcurrentPartyUpdate(partyRecordUpdate.party))
+          Left(PartyRecordStore.ConcurrentPartyUpdate(partyRecordUpdate.party))
         }
     }
     for {
+      _ <- validateAnnotationsSize(updatedAnnotations, party)
       newResourceVersion <- newResourceVersionEither
     } yield {
       val updatedInfo = PartyRecordInfo(
@@ -167,14 +173,18 @@ class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
 
   private def doCreatePartyRecord(
       partyRecord: ParticipantParty.PartyRecord
-  ): PartyRecordInfo = {
-    val info = PartyRecordInfo(
-      party = partyRecord.party,
-      resourceVersion = 0,
-      annotations = partyRecord.metadata.annotations,
-    )
-    state.update(partyRecord.party, info)
-    info
+  ): Result[PartyRecordInfo] = {
+    for {
+      _ <- validateAnnotationsSize(partyRecord.metadata.annotations, partyRecord.party)
+    } yield {
+      val info = PartyRecordInfo(
+        party = partyRecord.party,
+        resourceVersion = 0,
+        annotations = partyRecord.metadata.annotations,
+      )
+      state.update(partyRecord.party, info)
+      info
+    }
   }
 
   private def withState[T](t: => T): Future[T] =
@@ -184,20 +194,31 @@ class InMemoryParticipantPartyRecordStore(executionContext: ExecutionContext)
 
   private def withPartyRecord[T](
       party: Ref.Party
-  )(f: InMemoryParticipantPartyRecordStore.PartyRecordInfo => Result[T]): Result[T] =
+  )(f: InMemoryPartyRecordStore.PartyRecordInfo => Result[T]): Result[T] =
     state.get(party) match {
       case Some(partyRecord) => f(partyRecord)
       case None => Left(PartyRecordNotFound(party))
     }
 
-  private def withoutPartyRecord[T](party: Ref.Party)(t: => T): Result[T] =
+  private def withoutPartyRecord[T](party: Ref.Party)(t: => Result[T]): Result[T] =
     state.get(party) match {
       case Some(_) => Left(PartyRecordExists(party))
-      case None => Right(t)
+      case None => t
     }
 
   private def tapSuccess[T](f: T => Unit)(r: Result[T]): Result[T] = {
     r.foreach(f)
     r
+  }
+
+  private def validateAnnotationsSize(
+      annotations: Map[String, String],
+      party: Ref.Party,
+  ): Result[Unit] = {
+    if (!ResourceAnnotationValidation.isWithinMaxAnnotationsByteSize(annotations)) {
+      Left(MaxAnnotationsSizeExceeded(party))
+    } else {
+      Right(())
+    }
   }
 }

@@ -49,6 +49,7 @@ import qualified DA.Service.Logger.Impl.IO as Logger.IO
 import DA.Signals
 import qualified Com.Daml.DamlLfDev.DamlLf as PLF
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
+import qualified Data.Aeson.Text as Aeson
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
@@ -61,12 +62,13 @@ import qualified Data.List.Split as Split
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.Text.Extended as T
+import qualified Data.Text.Lazy.IO as TL
 import qualified Data.Text.IO as T
 import Development.IDE.Core.API
 import Development.IDE.Core.Debouncer
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.Rules
-import Development.IDE.Core.Rules.Daml (getDlintIdeas)
+import Development.IDE.Core.Rules.Daml (getDlintIdeas, getSpanInfo)
 import Development.IDE.Core.Shake
 import Development.IDE.GHC.Util (hscEnv, moduleImportPath)
 import Development.IDE.Types.Location
@@ -104,6 +106,7 @@ data CommandName =
   | Clean
   | Compile
   | DamlDoc
+  | DebugIdeSpanInfo
   | Desugar
   | DocTest
   | GenerateSrc
@@ -169,6 +172,17 @@ cmdDesugar numProcessors =
     <> fullDesc
   where
     cmd = execDesugar
+      <$> inputFileOpt
+      <*> outputFileOpt
+      <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
+
+cmdDebugIdeSpanInfo :: Int -> Mod CommandFields Command
+cmdDebugIdeSpanInfo numProcessors =
+  command "debug-ide-span-info" $ info (helper <*> cmd) $
+      progDesc "Show the IDE span infos for the Daml program"
+    <> fullDesc
+  where
+    cmd = execDebugIdeSpanInfo
       <$> inputFileOpt
       <*> outputFileOpt
       <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
@@ -566,6 +580,27 @@ execDesugar inputFile outputFile opts = Command Desugar (Just projectOpts) effec
         createDirectoryIfMissing True $ takeDirectory outputFile
         T.writeFile outputFile s
 
+execDebugIdeSpanInfo :: FilePath -> FilePath -> Options -> Command
+execDebugIdeSpanInfo inputFile outputFile opts =
+  Command DebugIdeSpanInfo (Just projectOpts) effect
+  where
+    projectOpts = ProjectOpts Nothing (ProjectCheck "" False)
+    effect =
+      withProjectRoot' projectOpts $ \relativize -> do
+        loggerH <- getLogger opts "debug-ide-span-info"
+        inputFile <- toNormalizedFilePath' <$> relativize inputFile
+        spanInfo <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
+          setFilesOfInterest ide (HashSet.singleton inputFile)
+          runActionSync ide $ do
+            dflags <- hsc_dflags . hscEnv <$> use_ GhcSession inputFile
+            getSpanInfo dflags inputFile
+        write $ Aeson.encodeToLazyText spanInfo
+    write s
+      | outputFile == "-" = TL.putStrLn s
+      | otherwise = do
+        createDirectoryIfMissing True $ takeDirectory outputFile
+        TL.writeFile outputFile s
+
 execLint :: [FilePath] -> Options -> Command
 execLint inputFiles opts =
   Command Lint (Just projectOpts) effect
@@ -928,6 +963,7 @@ options numProcessors =
         <> cmdInit numProcessors
         <> cmdCompile numProcessors
         <> cmdDesugar numProcessors
+        <> cmdDebugIdeSpanInfo numProcessors
         <> cmdClean
       )
 
@@ -970,7 +1006,7 @@ main = do
     -- args from daml.yaml.
     Command cmd mbProjectOpts _ <- handleParseResult tempParseResult
     damlYamlArgs <- cliArgsFromDamlYaml mbProjectOpts
-    let args = if cmd `elem` [Build, Compile, Desugar, Ide, Test, DamlDoc]
+    let args = if cmd `elem` [Build, Compile, Desugar, Ide, DebugIdeSpanInfo, Test, DamlDoc]
                then cliArgs ++ damlYamlArgs
                else cliArgs
         (errMsgs, parseResult) = parse args

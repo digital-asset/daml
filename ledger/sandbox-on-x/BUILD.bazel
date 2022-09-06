@@ -576,6 +576,22 @@ server_conformance_test(
     ],
 )
 
+server_conformance_test(
+    name = "conformance-test-explicit-disclosure",
+    hocon = True,
+    hocon_config = """
+        ledger.participants.default.api-server.seeding = testing-weak
+    """,
+    lf_versions = [
+        "1.dev",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--verbose",
+        "--include=ExplicitDisclosureIT",
+    ],
+)
+
 exports_files([
     "src/app/resources/logback.xml",
 ])
