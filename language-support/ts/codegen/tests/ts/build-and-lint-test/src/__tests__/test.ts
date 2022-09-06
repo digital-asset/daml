@@ -793,6 +793,55 @@ describe("interfaces", () => {
       payload: expectedView,
     });
   });
+
+  // TODO #14920 enable
+  test.skip("WS query", async () => {
+    const { aliceLedger, expectedView, contract } =
+      await aliceLedgerPayloadContract();
+    const tokenCid = Asset.toInterface(Token, contract.contractId);
+    const stream = aliceLedger.streamQueries(Token, [expectedView]);
+    type FoundCreate = typeof stream extends Stream<
+      object,
+      unknown,
+      string,
+      (infer ce)[]
+    >
+      ? { created: ce }
+      : never;
+    function isCreateForContract(ev: Event<Token>): ev is FoundCreate {
+      return "created" in ev && ev.created.contractId === tokenCid;
+    }
+    function queryContractId(): Promise<FoundCreate> {
+      let found = false;
+      return new Promise((resolve, reject) => {
+        stream.on("change", (_, evs) => {
+          if (found) return;
+          const ev = evs.find<FoundCreate>(isCreateForContract);
+          if (ev) {
+            found = true;
+            resolve(ev);
+          }
+        });
+        stream.on("close", closeEv => found || reject(closeEv.reason));
+      });
+    }
+    const ctEvent = await queryContractId();
+    stream.close();
+    type RecPartial<T> = T extends object
+      ? {
+          [P in keyof T]?: RecPartial<T[P]>;
+        }
+      : T;
+    const expectedEvent: RecPartial<Event<Token>> = {
+      created: {
+        contractId: tokenCid,
+        templateId: Token.templateId,
+        payload: expectedView,
+      },
+      matchedQueries: [0],
+    };
+    expect(ctEvent).toMatchObject(expectedEvent);
+  });
 });
 
 test("createAndExercise", async () => {
