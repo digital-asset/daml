@@ -50,6 +50,7 @@ private[apiserver] object ApiSubmissionService {
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
       configuration: ApiSubmissionService.Configuration,
       metrics: Metrics,
+      explicitDisclosureUnsafeEnabled: Boolean,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -74,6 +75,7 @@ private[apiserver] object ApiSubmissionService {
         ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationDuration),
       submissionIdGenerator = SubmissionIdGenerator.Random,
       metrics = metrics,
+      explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
     )
 
   final case class Configuration(

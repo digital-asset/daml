@@ -576,6 +576,24 @@ server_conformance_test(
     ],
 )
 
+SERVERS_EXPLICIT_DISCLOSURE = {
+    "h2database": {
+        "binary": ":app",
+        "server_args": ["explicit-disclosure-unsafe-enabled run"],
+    },
+    "postgresql": {
+        "binary": ":conformance-test-postgres-bin",
+        "server_args": ["explicit-disclosure-unsafe-enabled run -c $(rootpath :postgres.conf)"],
+        "extra_data": [":postgres.conf"],
+    },
+    "oracle": {
+        "binary": ":conformance-test-oracle-bin",
+        "tags": oracle_tags,
+        "server_args": ["explicit-disclosure-unsafe-enabled run -c $(rootpath :oracle.conf)"],
+        "extra_data": [":oracle.conf"],
+    },
+}
+
 server_conformance_test(
     name = "conformance-test-explicit-disclosure",
     hocon = True,
@@ -585,7 +603,7 @@ server_conformance_test(
     lf_versions = [
         "1.dev",
     ],
-    servers = SERVERS,
+    servers = SERVERS_EXPLICIT_DISCLOSURE,
     test_tool_args = [
         "--verbose",
         "--include=ExplicitDisclosureIT",

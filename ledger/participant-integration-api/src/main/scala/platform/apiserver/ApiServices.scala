@@ -91,6 +91,7 @@ private[daml] object ApiServices {
       userManagementConfig: UserManagementConfig,
       apiStreamShutdownTimeout: scala.concurrent.duration.Duration,
       meteringReportKey: MeteringReportKey,
+      explicitDisclosureUnsafeEnabled: Boolean = false,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -268,6 +269,7 @@ private[daml] object ApiServices {
             partyConfig.implicitPartyAllocation
           ),
           metrics,
+          explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
         )
 
         // Note: the command service uses the command submission, command completion, and transaction
@@ -291,6 +293,7 @@ private[daml] object ApiServices {
           timeProvider = timeProvider,
           ledgerConfigurationSubscription = ledgerConfigurationSubscription,
           metrics = metrics,
+          explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
         )
 
         val apiPartyManagementService = ApiPartyManagementService.createApiService(
