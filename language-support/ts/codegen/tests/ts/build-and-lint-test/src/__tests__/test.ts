@@ -779,6 +779,20 @@ describe("interfaces", () => {
     expect(foundCt).toMatchObject([expectedMatchedContract]);
     expect(noCt).toEqual([]);
   });
+
+  test("fetch", async () => {
+    const { aliceLedger, expectedView, contract } =
+      await aliceLedgerPayloadContract();
+    const fetched = await aliceLedger.fetch(
+      Token,
+      Asset.toInterface(Token, contract.contractId),
+    );
+    expect(fetched).toMatchObject({
+      contractId: contract.contractId,
+      templateId: Token.templateId,
+      payload: expectedView,
+    });
+  });
 });
 
 test("createAndExercise", async () => {
