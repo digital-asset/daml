@@ -604,18 +604,6 @@ describe("interface definition", () => {
     // statically assert that an expression is a choice
     const theChoice = <T extends object, C, R, K>(c: Choice<T, C, R, K>) => c;
 
-    // Something is inherited
-    test("unambiguous inherited is inherited", () => {
-      const c: Choice<
-        buildAndLint.Lib.Mod.Other,
-        buildAndLint.Lib.Mod.Something,
-        {},
-        undefined
-      > = tpl.Something;
-      expect(c).toBeDefined();
-      expect(c).toEqual(theChoice(if2.Something));
-      expect(c.template()).toBe(if2);
-    });
     test("choice from two interfaces is not inherited", () => {
       const k = "PeerIfaceOverload";
       expect(theChoice(if2[k])).toBeDefined();
