@@ -58,7 +58,7 @@ export const columns: ContractColumn<Contract>[] = [
             }}>
             <div>
               {inheritedInterface
-                ? removePkgIdFromContractTypeId(inheritedInterface) + ":" + name
+                ? <><strong>{removePkgIdFromContractTypeId(inheritedInterface) + ":"}</strong> {name} </>
                 : name}
             </div>
           </Link>
