@@ -130,9 +130,10 @@ object UserManagementStore {
 
   case class UserInfo(user: User, rights: Set[UserRight])
 
-  sealed trait Error extends RuntimeException
+  sealed trait Error
   final case class UserNotFound(userId: Ref.UserId) extends Error
   final case class UserExists(userId: Ref.UserId) extends Error
   final case class TooManyUserRights(userId: Ref.UserId) extends Error
-  final case class ConcurrentUserUpdate(party: Ref.UserId) extends Error
+  final case class ConcurrentUserUpdate(userId: Ref.UserId) extends Error
+  final case class MaxAnnotationsSizeExceeded(userId: Ref.UserId) extends Error
 }
