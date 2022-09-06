@@ -80,7 +80,7 @@ display, include or exclude archived contracts, and exercise choices as describe
 
 To change the active user:
 
-#. Click the name of the current user in the top right corner of the screen.
+#. Click the name of the current user in the top left corner of the screen.
 
 #. On the home screen, select a different user.
 
