@@ -13,6 +13,7 @@ import { DamlLfValue } from "@da/ui-core/lib/api/DamlLfValue";
 import {
   shortenContractId,
   shortenPartyId,
+  removePkgIdFromContractTypeId,
 } from "@da/ui-core/lib/api/IdentifierShortening";
 import * as React from "react";
 import Link, { OwnProps } from "../../components/Link";
@@ -123,11 +124,6 @@ interface Props {
 }
 
 export default (props: Props): JSX.Element => {
-  const toInterfaceModuleAndEntity = (interfaceId: string): string => {
-    const matches = interfaceId.match(/^([^:@]+):([^:@]+)@([^:@]+)$/);
-    return matches ? `${matches[1]}:${matches[2]}` : interfaceId;
-  };
-
   const { contract, choice, ifc, exercise, choiceLoading, error } = props;
   const choices = contract.template.choices;
   const isArchived = contract.archiveEvent !== null;
@@ -155,7 +151,7 @@ export default (props: Props): JSX.Element => {
 
   const choicesEl = choices.map(({ name, inheritedInterface }) => {
     const interfacePrefix = inheritedInterface
-      ? toInterfaceModuleAndEntity(inheritedInterface) + ":"
+      ? removePkgIdFromContractTypeId(inheritedInterface) + ":"
       : "";
     const fullChoiceName = `${interfacePrefix}${name}`;
     const isAnyActive = choice !== undefined;
