@@ -7,6 +7,8 @@ import Link from "../../components/Link";
 import * as Routes from "../../routes";
 import { Contract } from "./data";
 
+import { removePkgIdFromContractTypeId } from "@da/ui-core/lib/api/IdentifierShortening";
+
 export const columns: ContractColumn<Contract>[] = [
   {
     key: "id",
@@ -54,7 +56,11 @@ export const columns: ContractColumn<Contract>[] = [
               choice: name,
               ifc: inheritedInterface && encodeURIComponent(inheritedInterface),
             }}>
-            <div>{name}</div>
+            <div>
+              {inheritedInterface
+                ? removePkgIdFromContractTypeId(inheritedInterface) + ":" + name
+                : name}
+            </div>
           </Link>
         )}
       />

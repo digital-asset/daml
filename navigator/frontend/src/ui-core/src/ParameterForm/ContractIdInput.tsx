@@ -7,7 +7,7 @@ import { DamlLfValue } from "../api/DamlLfValue";
 import * as DamlLfValueF from "../api/DamlLfValue";
 import {
   shortenContractId,
-  shortenTemplateId,
+  shortenContractTypeId,
 } from "../api/IdentifierShortening";
 import Autosuggest from "../Autosuggest";
 import styled from "../theme";
@@ -28,7 +28,7 @@ function renderSuggestion(c: ParameterFormContract): JSX.Element {
   return (
     <Container>
       <BigColumn>{shortenContractId(c.id)}</BigColumn>
-      <BigColumn>{shortenTemplateId(c.template.id)}</BigColumn>
+      <BigColumn>{shortenContractTypeId(c.template.id)}</BigColumn>
       <BigColumn>{c.createEvent.transaction.effectiveAt}</BigColumn>
     </Container>
   );
