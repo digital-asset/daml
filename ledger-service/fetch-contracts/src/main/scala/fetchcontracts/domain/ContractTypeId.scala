@@ -5,7 +5,7 @@ package com.daml.fetchcontracts.domain
 
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.lf.data.Ref
-import scalaz.{-\/, Applicative, Monoid, Traverse, \/, \/-}
+import scalaz.{-\/, Applicative, Traverse, \/, \/-}
 import scalaz.syntax.functor._
 
 import scala.collection.IterableOps
@@ -120,35 +120,6 @@ object ResolvedQuery {
       extends ResolvedQuery {
     def resolved: Set[ContractTypeId.Resolved] =
       Set(interfaceId).toSet[ContractTypeId.Resolved]
-  }
-
-  implicit def `Unsupported or ResolvedQuery monoid`: Monoid[Unsupported \/ ResolvedQuery] = {
-    Monoid.instance(
-      {
-        case (-\/(CannotQueryBothTemplateIdsAndInterfaceIds), _) =>
-          -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
-        case (_, -\/(CannotQueryBothTemplateIdsAndInterfaceIds)) =>
-          -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
-
-        case (-\/(CannotQueryManyInterfaceIds), _) => -\/(CannotQueryManyInterfaceIds)
-        case (_, -\/(CannotQueryManyInterfaceIds)) => -\/(CannotQueryManyInterfaceIds)
-
-        case (-\/(CannotBeEmpty), _) => -\/(CannotBeEmpty)
-        case (_, -\/(CannotBeEmpty)) => -\/(CannotBeEmpty)
-
-        case (\/-(ByInterfaceId(_)), \/-(ByTemplateId(_)) | \/-(ByTemplateIds(_))) =>
-          -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
-        case (\/-(ByTemplateId(_)) | \/-(ByTemplateIds(_)), \/-(ByInterfaceId(_))) =>
-          -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
-
-        case (\/-(ByInterfaceId(interfaceIdA)), \/-(ByInterfaceId(interfaceIdB))) =>
-          if (interfaceIdA == interfaceIdB) \/-(ByInterfaceId(interfaceIdA))
-          else -\/(CannotQueryManyInterfaceIds)
-
-        case (\/-(a), \/-(b)) => ResolvedQuery(a.resolved ++ b.resolved)
-      },
-      \/-(Empty),
-    )
   }
 }
 

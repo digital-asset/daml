@@ -39,7 +39,7 @@ import scalaz.std.tuple._
 import scalaz.std.vector._
 import scalaz.syntax.traverse._
 import scalaz.std.list._
-import scalaz.{-\/, Foldable, Liskov, NonEmptyList, OneAnd, Tag, \/, \/-}
+import scalaz.{@@, -\/, \/, \/-, Foldable, Monoid, Liskov, NonEmptyList, OneAnd, Tag}
 import Liskov.<~<
 import com.daml.fetchcontracts.domain.ResolvedQuery
 import com.daml.fetchcontracts.domain.ResolvedQuery.Unsupported
@@ -239,6 +239,43 @@ object WebSocketService {
 
   }
 
+  private sealed trait UnsupportedOrResolvedQueryTag
+  private type UnsupportedOrResolvedQuery =
+    (Unsupported \/ ResolvedQuery) @@ UnsupportedOrResolvedQueryTag
+  private val UnsupportedOrResolvedQuery = Tag.of[UnsupportedOrResolvedQueryTag]
+
+  private implicit val `Unsupported or ResolvedQuery monoid`: Monoid[UnsupportedOrResolvedQuery] = {
+    import ResolvedQuery._
+    Tag.subst(
+      Monoid.instance(
+        {
+          case (-\/(CannotQueryBothTemplateIdsAndInterfaceIds), _) =>
+            -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
+          case (_, -\/(CannotQueryBothTemplateIdsAndInterfaceIds)) =>
+            -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
+
+          case (-\/(CannotQueryManyInterfaceIds), _) => -\/(CannotQueryManyInterfaceIds)
+          case (_, -\/(CannotQueryManyInterfaceIds)) => -\/(CannotQueryManyInterfaceIds)
+
+          case (-\/(CannotBeEmpty), _) => -\/(CannotBeEmpty)
+          case (_, -\/(CannotBeEmpty)) => -\/(CannotBeEmpty)
+
+          case (\/-(ByInterfaceId(_)), \/-(ByTemplateId(_)) | \/-(ByTemplateIds(_))) =>
+            -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
+          case (\/-(ByTemplateId(_)) | \/-(ByTemplateIds(_)), \/-(ByInterfaceId(_))) =>
+            -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
+
+          case (\/-(ByInterfaceId(interfaceIdA)), \/-(ByInterfaceId(interfaceIdB))) =>
+            if (interfaceIdA == interfaceIdB) \/-(ByInterfaceId(interfaceIdA))
+            else -\/(CannotQueryManyInterfaceIds)
+
+          case (\/-(a), \/-(b)) => ResolvedQuery(a.resolved ++ b.resolved)
+        },
+        \/-(Empty),
+      )
+    )
+  }
+
   implicit def SearchForeverRequestWithStreamQuery(implicit
       ec: ExecutionContext
   ): StreamQueryReader[domain.SearchForeverRequest] =
@@ -343,11 +380,14 @@ object WebSocketService {
               lookupType,
             ): CompiledQueries
           } yield (
-            errorOrResolvedQuery,
+            UnsupportedOrResolvedQuery(
+              errorOrResolvedQuery
+            ),
             resolved,
             unresolved,
             q transform ((_, p) => NonEmptyList((p, (ix, pos)))),
           )
+
         for {
           res <-
             request.queriesWithPos.zipWithIndex // index is used to ensure matchesOffset works properly
@@ -359,7 +399,7 @@ object WebSocketService {
             case NonEmpty(unresolvedSet) if resolved.isEmpty =>
               StreamPredicate.AllContractTypeIdsNotResolved(unresolvedSet)
             case _ =>
-              unsupportedOrResolvedQuery match {
+              UnsupportedOrResolvedQuery.unwrap(unsupportedOrResolvedQuery) match {
                 case \/-(resolvedQuery) =>
                   StreamPredicate.Valid(
                     resolvedQuery,
