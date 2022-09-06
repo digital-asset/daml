@@ -33,6 +33,10 @@ object Node {
 
     def templateId: TypeConName
 
+    /** The package ids used by this action node.
+      */
+    def packageIds: Iterable[PackageId]
+
     def keyOpt: Option[KeyWithMaintainers]
 
     final override protected def self: this.type = this
@@ -82,6 +86,8 @@ object Node {
     override def mapCid(f: ContractId => ContractId): Node.Create =
       copy(coid = f(coid), arg = arg.mapCid(f), key = key.map(_.mapCid(f)))
 
+    override def packageIds: Iterable[PackageId] = Iterable(templateId.packageId)
+
     def versionedArg: Value.VersionedValue = versioned(arg)
 
     def coinst: Value.ContractInstance =
@@ -115,6 +121,8 @@ object Node {
 
     override def mapCid(f: ContractId => ContractId): Node.Fetch =
       copy(coid = f(coid), key = key.map(_.mapCid(f)))
+
+    override def packageIds: Iterable[PackageId] = Iterable(templateId.packageId)
 
     def versionedKey: Option[VersionedKeyWithMaintainers] = key.map(versioned)
 
@@ -163,6 +171,9 @@ object Node {
     override def mapNodeId(f: NodeId => NodeId): Node.Exercise =
       copy(children = children.map(f))
 
+    override def packageIds: Iterable[PackageId] =
+      Iterable(templateId.packageId) ++ interfaceId.map(_.packageId)
+
     def versionedChosenValue: Value.VersionedValue = versioned(chosenValue)
 
     def versionedExerciseResult: Option[Value.VersionedValue] = exerciseResult.map(versioned)
@@ -192,6 +203,8 @@ object Node {
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.LookupByKey =
       copy(version = version)
+
+    override def packageIds: Iterable[PackageId] = Iterable(templateId.packageId)
 
     def versionedKey: VersionedKeyWithMaintainers = versioned(key)
 

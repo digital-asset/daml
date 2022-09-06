@@ -668,6 +668,14 @@ trait AbstractHttpServiceIntegrationTestFuns
     (activeContract.payload: JsValue) shouldBe (expected.payload: JsValue)
   }
 
+  protected def assertJsPayload(
+      activeContract: domain.ActiveContract[JsValue]
+  )(
+      jsPayload: JsValue
+  ): Assertion = {
+    (activeContract.payload: JsValue) shouldBe (jsPayload)
+  }
+
   protected def assertTemplateId(
       actual: domain.TemplateId.RequiredPkg,
       expected: OptionalPkg,

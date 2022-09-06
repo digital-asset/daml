@@ -5,7 +5,9 @@ package com.daml.ledger.participant.state.index.impl.inmemory
 
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{ObjectMeta, ParticipantParty}
+import com.daml.ledger.participant.state.index.ResourceAnnotationValidation
 import com.daml.ledger.participant.state.index.v2.PartyRecordStore.{
+  MaxAnnotationsSizeExceeded,
   PartyRecordExists,
   PartyRecordNotFound,
   PartyRecordNotFoundOnUpdateException,
@@ -63,8 +65,9 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
       partyRecord: ParticipantParty.PartyRecord
   )(implicit loggingContext: LoggingContext): Future[Result[ParticipantParty.PartyRecord]] = {
     withState(withoutPartyRecord(partyRecord.party) {
-      val info = doCreatePartyRecord(partyRecord)
-      toPartyRecord(info)
+      for {
+        info <- doCreatePartyRecord(partyRecord)
+      } yield toPartyRecord(info)
     })
   }
 
@@ -117,8 +120,9 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
                 annotations = annotationsUpdateO.fold(Map.empty[String, String])(_.annotations),
               ),
             )
-            val info = doCreatePartyRecord(newPartyRecord)
-            Right(toPartyRecord(info))
+            for {
+              info <- doCreatePartyRecord(newPartyRecord)
+            } yield toPartyRecord(info)
           }.map(tapSuccess { newPartyRecord =>
             logger.info(
               s"Created a new party record in a participant local store: ${newPartyRecord}"
@@ -154,6 +158,7 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
         }
     }
     for {
+      _ <- validateAnnotationsSize(updatedAnnotations, party)
       newResourceVersion <- newResourceVersionEither
     } yield {
       val updatedInfo = PartyRecordInfo(
@@ -168,14 +173,18 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
 
   private def doCreatePartyRecord(
       partyRecord: ParticipantParty.PartyRecord
-  ): PartyRecordInfo = {
-    val info = PartyRecordInfo(
-      party = partyRecord.party,
-      resourceVersion = 0,
-      annotations = partyRecord.metadata.annotations,
-    )
-    state.update(partyRecord.party, info)
-    info
+  ): Result[PartyRecordInfo] = {
+    for {
+      _ <- validateAnnotationsSize(partyRecord.metadata.annotations, partyRecord.party)
+    } yield {
+      val info = PartyRecordInfo(
+        party = partyRecord.party,
+        resourceVersion = 0,
+        annotations = partyRecord.metadata.annotations,
+      )
+      state.update(partyRecord.party, info)
+      info
+    }
   }
 
   private def withState[T](t: => T): Future[T] =
@@ -191,14 +200,25 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
       case None => Left(PartyRecordNotFound(party))
     }
 
-  private def withoutPartyRecord[T](party: Ref.Party)(t: => T): Result[T] =
+  private def withoutPartyRecord[T](party: Ref.Party)(t: => Result[T]): Result[T] =
     state.get(party) match {
       case Some(_) => Left(PartyRecordExists(party))
-      case None => Right(t)
+      case None => t
     }
 
   private def tapSuccess[T](f: T => Unit)(r: Result[T]): Result[T] = {
     r.foreach(f)
     r
+  }
+
+  private def validateAnnotationsSize(
+      annotations: Map[String, String],
+      party: Ref.Party,
+  ): Result[Unit] = {
+    if (!ResourceAnnotationValidation.isWithinMaxAnnotationsByteSize(annotations)) {
+      Left(MaxAnnotationsSizeExceeded(party))
+    } else {
+      Right(())
+    }
   }
 }
