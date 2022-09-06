@@ -246,7 +246,7 @@ object WebSocketService {
 
   private implicit val `Unsupported or ResolvedQuery monoid`: Monoid[UnsupportedOrResolvedQuery] = {
     import ResolvedQuery._
-    Tag.subst(
+    UnsupportedOrResolvedQuery.subst(
       Monoid.instance(
         {
           case (-\/(CannotQueryBothTemplateIdsAndInterfaceIds), _) =>
