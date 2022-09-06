@@ -57,9 +57,16 @@ export const columns: ContractColumn<Contract>[] = [
               ifc: inheritedInterface && encodeURIComponent(inheritedInterface),
             }}>
             <div>
-              {inheritedInterface
-                ? <><strong>{removePkgIdFromContractTypeId(inheritedInterface) + ":"}</strong> {name} </>
-                : name}
+              {inheritedInterface ? (
+                <>
+                  <strong>
+                    {removePkgIdFromContractTypeId(inheritedInterface) + ":"}
+                  </strong>{" "}
+                  {name}{" "}
+                </>
+              ) : (
+                name
+              )}
             </div>
           </Link>
         )}
