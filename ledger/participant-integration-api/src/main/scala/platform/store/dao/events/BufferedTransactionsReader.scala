@@ -70,6 +70,7 @@ private[events] class BufferedTransactionsReader(
         bufferFilter = ToFlatTransaction.filter(wildcardParties, filter, requestingParties),
         toApiResponse = ToFlatTransaction
           .toGetTransactionsResponse(
+            filter,
             wildcardParties,
             eventProjectionProperties,
             lfValueTranslation,

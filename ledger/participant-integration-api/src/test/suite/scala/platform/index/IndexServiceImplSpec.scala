@@ -7,7 +7,15 @@ import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.{Filters, InclusiveFilters, InterfaceFilter, TransactionFilter}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Identifier
+import com.daml.platform.index.IndexServiceImpl.{
+  memoizedTransactionFilterProjection,
+  templateFilter,
+  unknownTemplatesOrInterfaces,
+  wildcardFilter,
+}
 import com.daml.platform.index.IndexServiceImplSpec.Scope
+import com.daml.platform.store.dao.EventProjectionProperties
 import com.daml.platform.index.IndexServiceImpl.{
   checkUnknownTemplatesOrInterfaces,
   memoizedTransactionFilterProjection,
@@ -20,6 +28,216 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+
+  behavior of "IndexServiceImpl.memoizedTransactionFilterProjection"
+
+  it should "give an empty result if no packages" in new Scope {
+    when(view.current()).thenReturn(PackageMetadata())
+    val memoFunc = memoizedTransactionFilterProjection(view, TransactionFilter(Map.empty), true)
+    memoFunc() shouldBe None
+  }
+
+  it should "change the result in case of new package arrived" in new Scope {
+    when(view.current()).thenReturn(PackageMetadata())
+    // subscribing to iface1
+    val memoFunc = memoizedTransactionFilterProjection(
+      view,
+      TransactionFilter(
+        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true)))))
+      ),
+      true,
+    )
+    memoFunc() shouldBe None // no template implementing iface1
+    when(view.current())
+      .thenReturn(
+        PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1)))
+      ) // template1 implements iface1
+
+    memoFunc() shouldBe Some(
+      (
+        Map(template1 -> Set(party)),
+        Set(),
+        EventProjectionProperties(
+          true,
+          Map.empty[String, Set[Identifier]],
+          Map(party.toString -> Map(template1 -> Set(iface1))),
+        ),
+      )
+    ) // filter gets complicated, filters template1 for iface1, projects iface1
+
+    when(view.current())
+      .thenReturn(
+        PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1, template2)))
+      ) // template2 also implements iface1 as template1
+
+    memoFunc() shouldBe Some(
+      (
+        Map(
+          template1 -> Set(party),
+          template2 -> Set(party),
+        ),
+        Set(),
+        EventProjectionProperties(
+          true,
+          Map.empty[String, Set[Identifier]],
+          Map(party.toString -> Map(template1 -> Set(iface1), template2 -> Set(iface1))),
+        ),
+      )
+    ) // filter gets even more complicated, filters template1 and template2 for iface1, projects iface1 for both templates
+  }
+
+  behavior of "IndexServiceImpl.wildcardFilter"
+
+  it should "give empty result for the empty input" in new Scope {
+    wildcardFilter(
+      TransactionFilter(Map.empty)
+    ) shouldBe Set.empty
+  }
+
+  it should "provide a template filter for wildcard filters" in new Scope {
+    wildcardFilter(
+      TransactionFilter(Map(party -> Filters(None)))
+    ) shouldBe Set(party)
+  }
+
+  it should "support multiple wildcard filters" in new Scope {
+    wildcardFilter(
+      TransactionFilter(
+        Map(
+          party -> Filters(None),
+          party2 -> Filters(None),
+        )
+      )
+    ) shouldBe Set(
+      party,
+      party2,
+    )
+
+    wildcardFilter(
+      TransactionFilter(
+        Map(
+          party -> Filters(None),
+          party2 -> Filters(
+            Some(InclusiveFilters(templateIds = Set(template1), interfaceFilters = Set()))
+          ),
+        )
+      )
+    ) shouldBe Set(party)
+  }
+
+  it should "be treated as wildcard filter if templateIds and interfaceIds are empty" in new Scope {
+    wildcardFilter(
+      TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(), Set()))))
+    ) shouldBe Set(party)
+  }
+
+  behavior of "IndexServiceImpl.templateFilter"
+
+  it should "give empty result for the empty input" in new Scope {
+    templateFilter(
+      PackageMetadata(),
+      TransactionFilter(Map.empty),
+    ) shouldBe Map.empty
+  }
+
+  it should "provide an empty template filter for wildcard filters" in new Scope {
+    templateFilter(
+      PackageMetadata(),
+      TransactionFilter(Map(party -> Filters(None))),
+    ) shouldBe Map.empty
+  }
+
+  it should "support multiple wildcard filters" in new Scope {
+    templateFilter(
+      PackageMetadata(),
+      TransactionFilter(
+        Map(
+          party -> Filters(None),
+          party2 -> Filters(None),
+        )
+      ),
+    ) shouldBe Map.empty
+
+    templateFilter(
+      PackageMetadata(),
+      TransactionFilter(
+        Map(
+          party -> Filters(None),
+          party2 -> Filters(
+            Some(InclusiveFilters(templateIds = Set(template1), interfaceFilters = Set()))
+          ),
+        )
+      ),
+    ) shouldBe Map(
+      template1 -> Set(party2)
+    )
+  }
+
+  it should "be treated as wildcard filter if templateIds and interfaceIds are empty" in new Scope {
+    templateFilter(
+      PackageMetadata(),
+      TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(), Set())))),
+    ) shouldBe Map.empty
+  }
+
+  it should "provide a template filter for a specific template filter" in new Scope {
+    templateFilter(
+      PackageMetadata(),
+      TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(template1), Set())))),
+    ) shouldBe Map(template1 -> Set(party))
+  }
+
+  it should "provide an empty template filter if no template implementing this interface" in new Scope {
+    templateFilter(
+      PackageMetadata(),
+      TransactionFilter(
+        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true)))))
+      ),
+    ) shouldBe Map.empty
+  }
+
+  it should "provide a template filter for related interface filter" in new Scope {
+    templateFilter(
+      PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1))),
+      TransactionFilter(
+        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true)))))
+      ),
+    ) shouldBe Map(template1 -> Set(party))
+  }
+
+  it should "merge template filter and interface filter together" in new Scope {
+    templateFilter(
+      PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template2))),
+      TransactionFilter(
+        Map(party -> Filters(InclusiveFilters(Set(template1), Set(InterfaceFilter(iface1, true)))))
+      ),
+    ) shouldBe Map(template1 -> Set(party), template2 -> Set(party))
+  }
+
+  it should "merge multiple interface filters into union of templates" in new Scope {
+    templateFilter(
+      PackageMetadata(interfacesImplementedBy =
+        Map(iface1 -> Set(template1), iface2 -> Set(template2))
+      ),
+      TransactionFilter(
+        Map(
+          party -> Filters(
+            InclusiveFilters(
+              templateIds = Set(template3),
+              interfaceFilters = Set(
+                InterfaceFilter(iface1, true),
+                InterfaceFilter(iface2, true),
+              ),
+            )
+          )
+        )
+      ),
+    ) shouldBe Map(
+      template1 -> Set(party),
+      template2 -> Set(party),
+      template3 -> Set(party),
+    )
+  }
 
   behavior of "IndexServiceImpl.unknownTemplatesOrInterfaces"
 

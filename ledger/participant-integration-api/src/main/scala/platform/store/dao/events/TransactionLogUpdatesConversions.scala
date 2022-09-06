@@ -25,7 +25,7 @@ import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.dao.EventProjectionProperties
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.{CreatedEvent, ExercisedEvent}
-import com.daml.platform.{ApiOffset, Value}
+import com.daml.platform.{ApiOffset, FilterRelation, Value}
 import com.google.protobuf.timestamp.Timestamp
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -62,6 +62,7 @@ private[events] object TransactionLogUpdatesConversions {
     }
 
     def toGetTransactionsResponse(
+        filter: FilterRelation,
         wildcardParties: Set[Party],
         eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
@@ -69,7 +70,7 @@ private[events] object TransactionLogUpdatesConversions {
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
     ): TransactionLogUpdate.TransactionAccepted => Future[GetTransactionsResponse] =
-      toFlatTransaction(_, wildcardParties, eventProjectionProperties, lfValueTranslation)
+      toFlatTransaction(_, filter, wildcardParties, eventProjectionProperties, lfValueTranslation)
         .map(transaction => GetTransactionsResponse(Seq(transaction)))
 
     def toGetFlatTransactionResponse(
@@ -84,6 +85,7 @@ private[events] object TransactionLogUpdatesConversions {
         .map(transactionAccepted =>
           toFlatTransaction(
             transactionAccepted = transactionAccepted,
+            filter = Map.empty,
             wildcardParties = requestingParties,
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
@@ -97,6 +99,7 @@ private[events] object TransactionLogUpdatesConversions {
 
     private def toFlatTransaction(
         transactionAccepted: TransactionLogUpdate.TransactionAccepted,
+        filter: FilterRelation,
         wildcardParties: Set[Party],
         eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
@@ -107,7 +110,12 @@ private[events] object TransactionLogUpdatesConversions {
       Future.delegate {
         Future
           .traverse(transactionAccepted.events)(event =>
-            toFlatEvent(event, wildcardParties, eventProjectionProperties, lfValueTranslation)
+            toFlatEvent(
+              event,
+              wildcardParties ++ filter.values.flatten.toSet,
+              eventProjectionProperties,
+              lfValueTranslation,
+            )
           )
           .map(flatEvents =>
             FlatTransaction(
