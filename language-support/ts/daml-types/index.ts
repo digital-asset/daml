@@ -111,11 +111,11 @@ export type Interface<IfId> = { readonly [InterfaceBrand]: IfId };
 /**
  * Interface for objects representing Daml interfaces.
  */
-export interface InterfaceCompanion<
+export type InterfaceCompanion<
   T extends object,
   K,
   I extends string = string,
-> extends ContractTypeCompanion<T, K, I> {}
+> = ContractTypeCompanion<T, K, I>;
 
 export type TemplateOrInterface<
   T extends object,
