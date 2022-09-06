@@ -3,12 +3,14 @@
 
 package com.daml.ledger.sandbox.bridge.validate
 
+import cats.data.EitherT
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{IndexService, MaximumLedgerTime}
 import com.daml.ledger.participant.state.v2.CompletionInfo
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge._
+import com.daml.ledger.sandbox.domain.Rejection
 import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission.Transaction
 import com.daml.lf.command.DisclosedContract
@@ -38,56 +40,51 @@ private[validate] class ConflictCheckWithCommittedImpl(
       in: Validation[(Offset, PreparedSubmission)]
   ): AsyncValidation[(Offset, PreparedSubmission)] = in match {
     case Left(rejection) => Future.successful(Left(rejection))
-    case Right(
-          validated @ (
-            _,
-            PreparedTransactionSubmission(
-              keyInputs,
-              inputContracts,
-              _,
-              _,
-              blindingInfo,
-              transactionInformees,
-              originalSubmission,
-            ),
-          )
-        ) =>
-      val submissionId = originalSubmission.submissionId
-      withErrorLogger(Some(submissionId)) { implicit errorLogger =>
-        Timed
-          .future(
-            bridgeMetrics.Stages.ConflictCheckWithCommitted.timer,
-            withEnrichedLoggingContext("submissionId" -> submissionId) { implicit loggingContext =>
-              validateExplicitDisclosure(
-                originalSubmission.disclosedContracts,
-                originalSubmission.submitterInfo.toCompletionInfo(),
-              )
-            }(originalSubmission.loggingContext)
-              .flatMap {
-                case Right(_) =>
-                  validateCausalMonotonicity(
-                    transaction = originalSubmission,
-                    inputContracts = inputContracts,
-                    transactionLedgerEffectiveTime =
-                      originalSubmission.transactionMeta.ledgerEffectiveTime,
-                    divulged = blindingInfo.divulgence.keySet,
-                  )
-                case rejection => Future.successful(rejection)
-              }
-              .flatMap {
-                case Right(_) =>
-                  validateKeyUsages(
-                    transactionInformees,
-                    keyInputs,
-                    originalSubmission.loggingContext,
-                    originalSubmission.submitterInfo.toCompletionInfo(),
-                  )
-                case rejection => Future.successful(rejection)
-              },
-          )
-          .map(_.map(_ => validated))
-      }(originalSubmission.loggingContext, logger)
+    case Right(input @ (_, transactionSubmission: PreparedTransactionSubmission)) =>
+      val submissionId = transactionSubmission.submission.submissionId
+
+      withEnrichedLoggingContext("submissionId" -> submissionId) { implicit loggingContext =>
+        withErrorLogger(Some(submissionId)) { implicit errorLogger =>
+          Timed
+            .future(
+              bridgeMetrics.Stages.ConflictCheckWithCommitted.timer,
+              validate(transactionSubmission).map(_.map(_ => input)),
+            )
+        }
+      }(transactionSubmission.submission.loggingContext)
+
     case Right(validated) => Future.successful(Right(validated))
+  }
+
+  private def validate(
+      inputSubmission: PreparedTransactionSubmission
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger,
+      loggingContext: LoggingContext,
+  ): Future[Either[Rejection, Unit]] = {
+    import inputSubmission._
+
+    val eitherTF: EitherT[Future, Rejection, Unit] =
+      for {
+        _ <- validateExplicitDisclosure(
+          submission.disclosedContracts,
+          submission.submitterInfo.toCompletionInfo(),
+        )
+        _ <- validateCausalMonotonicity(
+          transaction = submission,
+          inputContracts = inputContracts,
+          transactionLedgerEffectiveTime = submission.transactionMeta.ledgerEffectiveTime,
+          divulged = blindingInfo.divulgence.keySet,
+        )
+        _ <- validateKeyUsages(
+          transactionInformees,
+          keyInputs,
+          submission.loggingContext,
+          submission.submitterInfo.toCompletionInfo(),
+        )
+      } yield ()
+
+    eitherTF.value
   }
 
   private def validateCausalMonotonicity(
@@ -97,34 +94,37 @@ private[validate] class ConflictCheckWithCommittedImpl(
       divulged: Set[ContractId],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): AsyncValidation[Unit] = {
+  ): EitherT[Future, Rejection, Unit] = {
     val referredContracts = inputContracts.diff(divulged)
     val completionInfo = transaction.submitterInfo.toCompletionInfo()
+
     if (referredContracts.isEmpty)
-      Future.successful(Right(()))
+      EitherT[Future, Rejection, Unit](Future.successful(Right(())))
     else
-      indexService
-        .lookupMaximumLedgerTimeAfterInterpretation(referredContracts)(transaction.loggingContext)
-        .transform {
-          case Success(MaximumLedgerTime.Archived(missingContractIds)) =>
-            Success(Left(UnknownContracts(missingContractIds)(completionInfo)))
+      EitherT(
+        indexService
+          .lookupMaximumLedgerTimeAfterInterpretation(referredContracts)(transaction.loggingContext)
+          .transform {
+            case Success(MaximumLedgerTime.Archived(missingContractIds)) =>
+              Success(Left(UnknownContracts(missingContractIds)(completionInfo)))
 
-          case Failure(err) =>
-            Success(Left(LedgerBridgeInternalError(err, completionInfo)))
+            case Failure(err) =>
+              Success(Left(LedgerBridgeInternalError(err, completionInfo)))
 
-          case Success(MaximumLedgerTime.Max(maximumLedgerEffectiveTime))
-              if maximumLedgerEffectiveTime > transactionLedgerEffectiveTime =>
-            Success(
-              Left(
-                CausalMonotonicityViolation(
-                  contractLedgerEffectiveTime = maximumLedgerEffectiveTime,
-                  transactionLedgerEffectiveTime = transactionLedgerEffectiveTime,
-                )(completionInfo)
+            case Success(MaximumLedgerTime.Max(maximumLedgerEffectiveTime))
+                if maximumLedgerEffectiveTime > transactionLedgerEffectiveTime =>
+              Success(
+                Left(
+                  CausalMonotonicityViolation(
+                    contractLedgerEffectiveTime = maximumLedgerEffectiveTime,
+                    transactionLedgerEffectiveTime = transactionLedgerEffectiveTime,
+                  )(completionInfo)
+                )
               )
-            )
 
-          case Success(_) => Success(Right(()))
-        }
+            case Success(_) => Success(Right(()))
+          }
+      )
   }
 
   private def validateKeyUsages(
@@ -134,31 +134,50 @@ private[validate] class ConflictCheckWithCommittedImpl(
       completionInfo: CompletionInfo,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): AsyncValidation[Unit] = {
-    keyInputs.foldLeft(Future.successful[Validation[Unit]](Right(()))) {
+  ): EitherT[Future, Rejection, Unit] = {
+    keyInputs.foldLeft(EitherT(Future.successful[Validation[Unit]](Right(())))) {
       case (f, (key, inputState)) =>
-        f.flatMap {
-          case Right(_) =>
-            indexService
-              .lookupContractKey(transactionInformees, key)(loggingContext)
-              .map { lookupResult =>
-                (inputState, lookupResult) match {
-                  case (LfTransaction.NegativeKeyLookup, Some(actual)) =>
-                    Left(
-                      InconsistentContractKey(None, Some(actual))(completionInfo)
-                    )
-                  case (LfTransaction.KeyCreate, Some(_)) =>
-                    Left(DuplicateKey(key)(completionInfo))
-                  case (LfTransaction.KeyActive(expected), actual) if !actual.contains(expected) =>
-                    Left(
-                      InconsistentContractKey(Some(expected), actual)(
-                        completionInfo
-                      )
-                    )
-                  case _ => Right(())
-                }
+        f.flatMapF { _ =>
+          indexService
+            .lookupContractKey(transactionInformees, key)(loggingContext)
+            .map { lookupResult =>
+              (inputState, lookupResult) match {
+                case (LfTransaction.NegativeKeyLookup, Some(actual)) =>
+                  Left(InconsistentContractKey(None, Some(actual))(completionInfo))
+                case (LfTransaction.KeyCreate, Some(_)) =>
+                  Left(DuplicateKey(key)(completionInfo))
+                case (LfTransaction.KeyActive(expected), actual) if !actual.contains(expected) =>
+                  Left(InconsistentContractKey(Some(expected), actual)(completionInfo))
+                case _ => Right(())
               }
-          case left => Future.successful(left)
+            }
+        }
+    }
+  }
+
+  private def validateExplicitDisclosure(
+      disclosedContracts: ImmArray[Versioned[DisclosedContract]],
+      completionInfo: CompletionInfo,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger,
+      loggingContext: LoggingContext,
+  ): EitherT[Future, Rejection, Unit] = {
+    // Note that the validation fails fast on the first unknown/invalid contract.
+    disclosedContracts.foldLeft(EitherT(Future.successful[Validation[Unit]](Right(())))) {
+      case (f, provided) =>
+        f.flatMapF { _ =>
+          indexService
+            .lookupContractAfterInterpretation(provided.unversioned.contractId)
+            .map {
+              case None =>
+                // Disclosed contract was archived or never existed
+                Left(UnknownContracts(Set(provided.unversioned.contractId))(completionInfo))
+              case Some(actual) =>
+                sameContractData(actual, provided).left.map { errMessage =>
+                  logger.info(errMessage)
+                  DisclosedContractInvalid(provided.unversioned.contractId, completionInfo)
+                }
+            }
         }
     }
   }
@@ -186,40 +205,5 @@ private[validate] class ConflictCheckWithCommittedImpl(
       Left(s"Disclosed contract $providedContractId has invalid ledgerEffectiveTime")
     else
       Right(())
-  }
-
-  private def validateExplicitDisclosure(
-      disclosedContracts: ImmArray[Versioned[DisclosedContract]],
-      completionInfo: CompletionInfo,
-  )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger,
-      loggingContext: LoggingContext,
-  ): AsyncValidation[Unit] = {
-    // Note that the validation fails fast on the first unknown/invalid contract.
-    disclosedContracts.foldLeft(Future.successful[Validation[Unit]](Right(()))) {
-      case (f, provided) =>
-        f.flatMap {
-          case Right(_) =>
-            val eventualMaybeTuple = indexService
-              .lookupContractAfterInterpretation(provided.unversioned.contractId)
-            eventualMaybeTuple
-              .map {
-                case None =>
-                  Left(
-                    // Disclosed contract was archived or never existed
-                    UnknownContracts(Set(provided.unversioned.contractId))(completionInfo)
-                  )
-                case Some(actual) =>
-                  val result = sameContractData(actual, provided)
-                  result.left.map { errMessage =>
-                    // TODO .: Add submission id to logging context
-                    logger.info(errMessage)
-                    DisclosedContractInvalid(provided.unversioned.contractId, completionInfo)
-                  }
-                case _ => Right(())
-              }
-          case left => Future.successful(left)
-        }
-    }
   }
 }

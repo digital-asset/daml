@@ -22,6 +22,7 @@ da_scala_library(
         "@maven//:com_github_pureconfig_pureconfig_core",
         "@maven//:com_github_pureconfig_pureconfig_generic",
         "@maven//:com_chuusai_shapeless",
+        "@maven//:org_typelevel_cats_core",
     ],
     tags = ["maven_coordinates=com.daml:sandbox-on-x:__VERSION__"],
     visibility = [
