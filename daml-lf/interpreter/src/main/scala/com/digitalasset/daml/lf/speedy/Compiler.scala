@@ -13,12 +13,12 @@ import com.daml.lf.speedy.ClosureConversion.closureConvert
 import com.daml.lf.speedy.PhaseOne.{Env, Position}
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
+import com.daml.lf.speedy.SExpr0.SEVarLevel
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{SExpr => t} // target expressions
-import com.daml.lf.speedy.{SExpr0 => s} // source expressions
+import com.daml.lf.speedy.{SExpr => t}
+import com.daml.lf.speedy.{SExpr0 => s}
 import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.scalautil.Statement.discard
-
 import org.slf4j.LoggerFactory
 
 import scala.annotation.nowarn
@@ -1017,14 +1017,17 @@ private[lf] final class Compiler(
       disclosures: ImmArray[DisclosedContract],
   ): s.SExpr =
     unaryFunction(env) { (tokenPos, env) =>
+      val basePos = env.position
+
       s.SELet(
         disclosures.toList.zipWithIndex.flatMap { case (disclosedContract, index) =>
+          val contractPos = basePos + 2 * index
+
           List(
             s.SEBuiltin(SBLookupDisclosedCachedContract(disclosedContract)),
             app(
               s.SEBuiltin(SBCacheDisclosedContract(disclosedContract.contractId.value)),
-              // FIXME: check that this use of variable indexing is correct!!
-              env.toSEVar(Position(2 * index)),
+              SEVarLevel(contractPos),
             ),
           )
         },
