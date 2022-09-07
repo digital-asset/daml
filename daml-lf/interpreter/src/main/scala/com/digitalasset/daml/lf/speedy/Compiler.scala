@@ -1018,6 +1018,7 @@ private[lf] final class Compiler(
   ): s.SExpr =
     unaryFunction(env) { (tokenPos, env) =>
       val baseIndex = env.nextPosition.idx
+      val updatedEnv = env.copy(position = baseIndex + 2 * disclosures.length)
 
       s.SELet(
         disclosures.toList.zipWithIndex.flatMap { case (disclosedContract, offset) =>
@@ -1031,7 +1032,7 @@ private[lf] final class Compiler(
             ),
           )
         },
-        app(translateCommands(env, cmds), env.toSEVar(tokenPos)),
+        app(translateCommands(updatedEnv, cmds), updatedEnv.toSEVar(tokenPos)),
       )
     }
 }

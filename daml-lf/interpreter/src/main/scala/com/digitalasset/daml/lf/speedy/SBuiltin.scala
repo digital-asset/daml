@@ -2107,7 +2107,7 @@ private[lf] object SBuiltin {
 
   }
 
-  /** $lookupDisclosedCachedContract :: DisclosedContract -> CachedContract
+  /** $lookupDisclosedCachedContract[T] :: DisclosedContract T -> CachedContract T
     */
   private[speedy] final case class SBLookupDisclosedCachedContract(
       disclosedContract: DisclosedContract
@@ -2145,7 +2145,7 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $cacheDisclosedContract[T] :: ContractId T -> CachedContract -> Unit
+  /** $cacheDisclosedContract[T] :: ContractId T -> CachedContract T -> Unit
     */
   private[speedy] final case class SBCacheDisclosedContract(contractId: V.ContractId)
       extends OnLedgerBuiltin(1) {
