@@ -607,12 +607,11 @@ object WebSocketService {
               StreamPredicate.AllContractTypeIdsNotResolved(unresolvedSet)
             case _ =>
               domain.ResolvedQuery(q.keySet) match {
-                case \/-(resolvedQuery: ResolvedQuery) =>
+                case \/-(resolvedQuery) =>
                   streamPredicate(q, resolvedQuery, unresolved)
                 case -\/(unsupported) =>
                   StreamPredicate.UnsupportedQuery(unsupported)
               }
-
           }
         }
     }
