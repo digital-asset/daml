@@ -25,14 +25,47 @@ class EventsTableFlatEventsRangeQueriesSpec
     )
   }
 
-  it should "translate to wildcard" in new Scope {}
+  it should "propagate wildcard parties" in new Scope {
+    filterParams(Map(), Set(party)) shouldBe FilterParams(
+      wildCardParties = Set(party),
+      partiesAndTemplates = Set.empty,
+    )
 
-  it should "translate to parties and templates" in new Scope {}
+    filterParams(Map(), Set(party2, party3)) shouldBe FilterParams(
+      wildCardParties = Set(party2, party3),
+      partiesAndTemplates = Set.empty,
+    )
+  }
 
-  it should "support translation of wildcard parties and non-wildcard at the same time" in new Scope {}
+  it should "convert simple filter" in new Scope {
+    filterParams(Map(template1 -> Set(party)), Set.empty) shouldBe FilterParams(
+      Set.empty,
+      Set((Set(party), Set(template1))),
+    )
 
-  it should "optimize if all parties request the same templates" in new Scope {}
+    filterParams(Map(template1 -> Set(party, party2)), Set.empty) shouldBe FilterParams(
+      Set.empty,
+      Set((Set(party, party2), Set(template1))),
+    )
+  }
 
+  it should "convert sophisticated filter with multiple parties and templates" in new Scope {
+    filterParams(
+      Map(
+        template1 -> Set(party, party2),
+        template2 -> Set.empty,
+        template3 -> Set(party2, party3),
+      ),
+      Set.empty,
+    ) shouldBe FilterParams(
+      Set.empty,
+      Set(
+        (Set.empty, Set(template2)),
+        (Set(party, party2), Set(template1)),
+        (Set(party2, party3), Set(template3)),
+      ),
+    )
+  }
 }
 
 object EventsTableFlatEventsRangeQueriesSpec {
