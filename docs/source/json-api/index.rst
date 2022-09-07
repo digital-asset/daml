@@ -1977,7 +1977,7 @@ optionally be specified alongside each query itself::
 
     [
         {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"], "query": {"amount": {"%lte": 50}}},
-        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:OtherIou:OtherIou"], "query": {"amount": {"%gt": 50}}},
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"], "query": {"amount": {"%gt": 50}}},
         {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"], "offset": "5609"}
     ]
 
