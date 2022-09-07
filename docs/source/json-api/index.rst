@@ -1953,7 +1953,7 @@ different sets of template IDs.::
     ]
 
 Only one interface ID can be provided in ``templateIds``.
-ID can be used in all queries::
+An interface ID can be used in all queries::
 
     [
         {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Ifc:Ifc"], "query": {"amount": {"%lte": 50}}},
