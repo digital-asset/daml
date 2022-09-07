@@ -29,7 +29,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     assert(scope.toBeGenerated === Set.empty)
   }
 
-  it should "read interfaces from 2 identical DAR files without a prefix" in {
+  it should "read interfaces from 2 DAR files with same dependencies without a prefix" in {
 
     val scope =
       CodeGenRunner.configureCodeGenScope(
