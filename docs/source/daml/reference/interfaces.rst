@@ -24,6 +24,7 @@ In order to test this experimental feature, you need to enable
 the dev mode for both the Daml compiler and Canton.
 
 For the Daml compiler, add the following line to your `daml.yaml` file:
+
 .. code-block:: none
 
    build-options: [--target=1.dev]
@@ -238,35 +239,75 @@ Empty ``interface instance`` clause
 Interface Functions
 *******************
 
-.. list-table::
-   :header-rows: 1
+``interfaceTypeRep``
+--------------------
 
-   * - Function
-     - Type
-     - Instantiated type
-     - Notes
-   * - ``interfaceTypeRep``
-     - ``HasInterfaceTypeRep i => i -> TemplateTypeRep``
+.. list-table::
+
+   * - Type
+     - | ``HasInterfaceTypeRep i =>``
+       | ``i -> TemplateTypeRep``
+   * - Instantiated Type
      - ``MyInterface -> TemplateTypeRep``
+   * - Notes
      - The value of the resulting ``TemplateTypeRep`` indicates what template
        was used to construct the interface value.
-   * - ``toInterface``
-     - ``forall i t. HasToInterface t i => t -> i``
+
+``toInterface``
+---------------
+
+.. list-table::
+
+   * - Type
+     - | ``forall i t.``
+       | ``HasToInterface t i =>``
+       | ``t -> i``
+   * - Instantiated Type
      - ``MyTemplate -> MyInterface``
+   * - Notes
      - Converts a template value into an interface value.
-   * - ``fromInterface``
-     - ``HasFromInterface t i => i -> Optional t``
+
+``fromInterface``
+-----------------
+
+.. list-table::
+
+   * - Type
+     - | ``HasFromInterface t i =>``
+       | ``i -> Optional t``
+   * - Instantiated Type
      - ``MyInterface -> Optional MyTemplate``
+   * - Notes
      - Attempts to convert an interface value back into a template value.
        The result is ``None`` if the expected template type doesn't match the
        underlying template type used to construct the contract.
-   * - ``toInterfaceContractId``
-     - ``forall i t. HasToInterface t i => ContractId t -> ContractId i``
+
+``toInterfaceContractId``
+-------------------------
+
+.. list-table::
+
+   * - Type
+     - | ``forall i t.``
+       | ``HasToInterface t i =>``
+       | ``ContractId t -> ContractId i``
+   * - Instantiated Type
      - ``ContractId MyTemplate -> ContractId MyInterface``
-     - Convert a template contract id into an interface contract id.
-   * - ``fromInterfaceContractId``
-     - ``forall t i. HasFromInterface t i => ContractId i -> ContractId t``
+   * - Notes
+     - Converts a template Contract ID into an Interface Contract ID.
+
+``fromInterfaceContractId``
+---------------------------
+
+.. list-table::
+
+   * - Type
+     - | ``forall t i.``
+       | ``HasFromInterface t i =>``
+       | ``ContractId i -> ContractId t``
+   * - Instantiated Type
      - ``ContractId MyInterface -> ContractId MyTemplate``
+   * - Notes
      - Converts an interface contract id into a template contract id.
        This function does not verify that the given contract id actually points
        to a contract of the resulting type; if that is not the case, a
@@ -276,9 +317,20 @@ Interface Functions
        ``fetch``, ``exercise`` or ``archive`` action and a transaction failure
        is the desired behavior in case of mismatch.
        In all other cases, consider using ``fetchFromInterface`` instead.
-   * - ``fetchFromInterface``
-     - ``forall t i. (HasFromInterface t i, HasFetch i) => ContractId i -> Update (Optional (ContractId t, t))``
-     - ``ContractId MyInterface -> Update (Optional (ContractId MyTemplate, MyTemplate))``
+
+``fetchFromInterface``
+----------------------
+
+.. list-table::
+
+   * - Type
+     - | ``forall t i.``
+       | ``(HasFromInterface t i, HasFetch i) =>``
+       | ``ContractId i -> Update (Optional (ContractId t, t))``
+   * - Instantiated Type
+     - | ``ContractId MyInterface ->``
+       | ``Update (Optional (ContractId MyTemplate, MyTemplate))``
+   * - Notes
      - Attempts to fetch and convert an interface contract id into a template,
        returning both the converted contract and its contract id if the
        conversion is successful, or ``None`` otherwise.
