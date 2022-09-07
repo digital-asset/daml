@@ -1017,17 +1017,17 @@ private[lf] final class Compiler(
       disclosures: ImmArray[DisclosedContract],
   ): s.SExpr =
     unaryFunction(env) { (tokenPos, env) =>
-      val basePos = env.position
+      val baseIndex = env.nextPosition.idx
 
       s.SELet(
-        disclosures.toList.zipWithIndex.flatMap { case (disclosedContract, index) =>
-          val contractPos = basePos + 2 * index
+        disclosures.toList.zipWithIndex.flatMap { case (disclosedContract, offset) =>
+          val contractIndex = baseIndex + 2 * offset
 
           List(
             s.SEBuiltin(SBLookupDisclosedCachedContract(disclosedContract)),
             app(
               s.SEBuiltin(SBCacheDisclosedContract(disclosedContract.contractId.value)),
-              SEVarLevel(contractPos),
+              SEVarLevel(contractIndex),
             ),
           )
         },
