@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
   Choice,
+  ChoiceFrom,
   ContractId,
   List,
   Party,
@@ -1148,7 +1149,7 @@ class Ledger {
    *
    */
   async createAndExercise<T extends object, C, R, K>(
-    choice: Choice<T, C, R, K>,
+    choice: ChoiceFrom<Template<T>> & Choice<T, C, R, K>,
     payload: T,
     argument: C,
   ): Promise<[R, Event<object>[]]> {
@@ -1192,7 +1193,7 @@ class Ledger {
    * as a result of exercising the choice.
    */
   async exerciseByKey<T extends object, C, R, K>(
-    choice: Choice<T, C, R, K>,
+    choice: ChoiceFrom<Template<T, K>> & Choice<T, C, R, K>,
     key: K,
     argument: C,
   ): Promise<[R, Event<object>[]]> {
