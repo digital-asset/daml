@@ -195,7 +195,7 @@ function toInterfaceMixin<T extends object, IfU>(): ToInterface<T, IfU> {
  */
 export function assembleTemplate<T extends object, TC extends Template<T>, IfU>(
   template: TC,
-  ..._: FromTemplate<IfU, unknown>[]
+  ..._interfaces: FromTemplate<IfU, unknown>[] // eslint-disable-line @typescript-eslint/no-unused-vars
 ): TC & ToInterface<T, IfU> {
   return {
     ...toInterfaceMixin<T, IfU>(),
