@@ -349,7 +349,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
             filter = Map(
-              otherTemplateId -> Set(alice, bob)
+              otherTemplateId -> Set(bob),
+              someTemplateId -> Set(alice),
             ),
             wildcardParties = Set.empty,
             eventProjectionProperties = EventProjectionProperties(verbose = true),
