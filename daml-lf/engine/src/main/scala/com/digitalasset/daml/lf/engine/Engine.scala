@@ -383,7 +383,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
 
     while (!finished) {
       machine.run() match {
-
         case fv: SResultFinal =>
           finished = true
           finalValue = fv

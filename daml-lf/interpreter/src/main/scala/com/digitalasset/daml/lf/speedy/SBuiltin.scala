@@ -2107,54 +2107,56 @@ private[lf] object SBuiltin {
 
   }
 
-  private[speedy] final case class SBUpdateContractCache(
-      disclosures: ImmArray[DisclosedContract]
-  ) extends OnLedgerBuiltin(1) {
+  private[speedy] final case class SBLookupDisclosedCachedContract(
+      disclosedContract: DisclosedContract
+  ) extends OnLedgerBuiltin(0) {
 
     override protected def executeWithLedger(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
     ): Control = {
-      checkToken(args, 0)
+      val templateId = disclosedContract.templateId
 
-      for (disclosedContract <- disclosures) {
-        val templateId = disclosedContract.templateId
+      if (machine.compiledPackages.pkgInterface.lookupTemplate(templateId).isLeft) {
+        crash(s"Template $templateId does not exist and it should")
+      }
 
-        if (machine.compiledPackages.pkgInterface.lookupTemplate(templateId).isLeft) {
-          crash(s"Template $templateId does not exist and it should")
-        }
-
-        val contractId = disclosedContract.contractId
-        val contract = SEValue(disclosedContract.argument)
-        val cachedContractSExpr =
-          if (machine.compiledPackages.pkgInterface.lookupTemplateKey(templateId).isRight) {
-            SELet1(
-              SEApp(SEVal(ContractKeyWithMaintainersDefRef(templateId)), Array(contract)),
-              SEApp(
-                SEVal(ToCachedContractDefRef(templateId)),
-                Array(contract, SEValue(SOptional(Some(SELocS(0).lookupValue(machine))))),
-              ),
-            )
-          } else {
+      val contract = SEValue(disclosedContract.argument)
+      val cachedContract =
+        if (machine.compiledPackages.pkgInterface.lookupTemplateKey(templateId).isRight) {
+          SELet1(
+            SEApp(SEVal(ContractKeyWithMaintainersDefRef(templateId)), Array(contract)),
             SEApp(
               SEVal(ToCachedContractDefRef(templateId)),
-              Array(contract, SEValue.None),
-            )
-          }
-        val cachedContract = Machine
-          .fromPureSExpr(machine.compiledPackages, cachedContractSExpr)(machine.loggingContext)
-          .run() match {
-          case SResultFinal(value, _) => value
-          case _ =>
-            crash(s"Failed to evaluate the cached contract for contract ${contractId.value}")
+              Array(contract, SEValue(SOptional(Some(SELocS(0).lookupValue(machine))))),
+            ),
+          )
+        } else {
+          SEApp(
+            SEVal(ToCachedContractDefRef(templateId)),
+            Array(contract, SEValue.None),
+          )
         }
 
-        onLedger.updateCachedContracts(
-          contractId.value,
-          extractCachedContract(machine, cachedContract),
-        )
-      }
+      Control.Expression(cachedContract)
+    }
+  }
+
+  private[speedy] final case class SBCacheDisclosedContract(contractId: V.ContractId)
+      extends OnLedgerBuiltin(1) {
+
+    override protected def executeWithLedger(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+        onLedger: OnLedger,
+    ): Control = {
+      val cachedContract = args.get(0)
+
+      onLedger.updateCachedContracts(
+        contractId,
+        extractCachedContract(machine, cachedContract),
+      )
 
       Control.Value(SUnit)
     }

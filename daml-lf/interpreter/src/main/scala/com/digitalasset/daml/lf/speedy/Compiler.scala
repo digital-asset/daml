@@ -1017,9 +1017,8 @@ private[lf] final class Compiler(
       disclosures: ImmArray[DisclosedContract],
   ): s.SExpr =
     unaryFunction(env) { (tokenPos, env) =>
-      let(env, app(translateContractDisclosures(env, disclosures), env.toSEVar(tokenPos))) {
-        (_, env) =>
-          app(translateCommands(env, cmds), env.toSEVar(tokenPos))
+      let(env, translateContractDisclosures(env, disclosures)) { (_, env) =>
+        app(translateCommands(env, cmds), env.toSEVar(tokenPos))
       }
     }
 
@@ -1027,7 +1026,18 @@ private[lf] final class Compiler(
       env: Env,
       disclosures: ImmArray[DisclosedContract],
   ): s.SExpr =
-    unaryFunction(env) { (tokenPos, env) =>
-      SBUpdateContractCache(disclosures)(env.toSEVar(tokenPos))
+    disclosures.foldLeft[s.SExpr](s.SEValue(SUnit)) { case (inner, disclosedContract) =>
+      let(env, s.SEBuiltin(SBLookupDisclosedCachedContract(disclosedContract))) {
+        (contractPos, env) =>
+          let(
+            env,
+            app(
+              s.SEBuiltin(SBCacheDisclosedContract(disclosedContract.contractId.value)),
+              env.toSEVar(contractPos),
+            ),
+          ) { (_, _) =>
+            inner
+          }
+      }
     }
 }
