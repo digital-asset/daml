@@ -918,7 +918,7 @@ application/json body:
 
 
 ``readers`` may be passed as with :ref:`Query <sync-query-req>`.
-``templateId`` is optional, but you are strongly advised to always pass it explicitly to minimize the data read from the Ledger API to answer the query. It can be either a template id or a interface id
+``templateId`` is optional, but you are strongly advised to always pass it explicitly to minimize the data read from the Ledger API to answer the query. It can be either a template ID or an interface ID.
 
 Contract Not Found HTTP Response
 ================================
