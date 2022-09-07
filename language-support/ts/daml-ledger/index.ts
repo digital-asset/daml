@@ -1149,7 +1149,7 @@ class Ledger {
    *
    */
   async createAndExercise<T extends object, C, R, K>(
-    choice: ChoiceFrom<Template<T>> & Choice<T, C, R, K>,
+    choice: ChoiceFrom<Template<T, K>> & Choice<T, C, R, K>,
     payload: T,
     argument: C,
   ): Promise<[R, Event<object>[]]> {

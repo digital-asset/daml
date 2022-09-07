@@ -149,11 +149,8 @@ export interface FromTemplate<If, TX> {
  * @typeparam R The choice return type.
  *
  */
-export interface Choice<T extends object, C, R, K = unknown> {
-  /**
-   * Returns the template to which this choice belongs.
-   */
-  readonly template: () => TemplateOrInterface<T, K>;
+export interface Choice<T extends object, C, R, K = unknown>
+  extends ChoiceFrom<TemplateOrInterface<T, K>> {
   /**
    * @internal Returns a decoder to decode the choice arguments.
    *
@@ -183,6 +180,9 @@ export interface Choice<T extends object, C, R, K = unknown> {
  *            this [[Choice]] is a member.
  */
 export interface ChoiceFrom<O> {
+  /**
+   * Returns the template to which this choice belongs.
+   */
   readonly template: () => O;
 }
 
