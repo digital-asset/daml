@@ -94,7 +94,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     ) shouldBe Set.empty
   }
 
-  it should "provide a template filter for wildcard filters" in new Scope {
+  it should "provide a party filter for wildcard filter" in new Scope {
     wildcardFilter(
       TransactionFilter(Map(party -> Filters(None)))
     ) shouldBe Set(party)
@@ -147,7 +147,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     ) shouldBe Map.empty
   }
 
-  it should "support multiple wildcard filters" in new Scope {
+  it should "ignore wildcard filters and only include template filters" in new Scope {
     templateFilter(
       PackageMetadata(),
       TransactionFilter(
@@ -173,14 +173,14 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     )
   }
 
-  it should "be treated as wildcard filter if templateIds and interfaceIds are empty" in new Scope {
+  it should "ignore wildcard filter of the shape where templateIds and interfaceIds are empty" in new Scope {
     templateFilter(
       PackageMetadata(),
       TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(), Set())))),
     ) shouldBe Map.empty
   }
 
-  it should "provide a template filter for a specific template filter" in new Scope {
+  it should "provide a template filter for a simple template filter" in new Scope {
     templateFilter(
       PackageMetadata(),
       TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(template1), Set())))),
@@ -214,7 +214,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     ) shouldBe Map(template1 -> Set(party), template2 -> Set(party))
   }
 
-  it should "merge multiple interface filters into union of templates" in new Scope {
+  it should "merge multiple interface filters" in new Scope {
     templateFilter(
       PackageMetadata(interfacesImplementedBy =
         Map(iface1 -> Set(template1), iface2 -> Set(template2))

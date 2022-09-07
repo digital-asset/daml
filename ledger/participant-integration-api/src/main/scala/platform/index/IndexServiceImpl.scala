@@ -553,8 +553,9 @@ object IndexServiceImpl {
   }
 
   private def templateIds(
-      metadata: PackageMetadata
-  )(inclusiveFilters: InclusiveFilters): Set[Identifier] =
+      metadata: PackageMetadata,
+      inclusiveFilters: InclusiveFilters,
+  ): Set[Identifier] =
     inclusiveFilters.interfaceFilters.iterator
       .map(_.interfaceId)
       .flatMap(metadata.interfacesImplementedBy.getOrElse(_, Set.empty))
@@ -566,10 +567,10 @@ object IndexServiceImpl {
       transactionFilter: domain.TransactionFilter,
   ): Map[Identifier, Set[Party]] = {
     transactionFilter.filtersByParty.view.foldLeft(Map.empty[Identifier, Set[Party]]) {
-      case (acc, (party, Filters(Some(inclusiveFilters))))
-          if templateIds(metadata)(inclusiveFilters).nonEmpty =>
-        templateIds(metadata)(inclusiveFilters).foldLeft(acc) { case (acc, templateId) =>
-          acc.updated(templateId, acc.getOrElse(templateId, Set.empty[Party]) + party)
+      case (acc, (party, Filters(Some(inclusiveFilters)))) =>
+        templateIds(metadata, inclusiveFilters).foldLeft(acc) { case (acc, templateId) =>
+          val updatedPartySet = acc.getOrElse(templateId, Set.empty[Party]) + party
+          acc.updated(templateId, updatedPartySet)
         }
       case (acc, _) =>
         acc
