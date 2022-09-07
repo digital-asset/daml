@@ -16,7 +16,7 @@ import com.daml.ledger.sandbox.domain.Rejection.{
 }
 import com.daml.ledger.sandbox.domain.Submission
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
@@ -85,6 +85,7 @@ class PrepareSubmissionSpec extends AsyncFlatSpec with Matchers {
         transactionMeta = txMeta,
         transaction = SubmittedTransaction(txBuilder.build()),
         estimatedInterpretationCost = 0L,
+        disclosedContracts = ImmArray.empty,
       )
     )
     validationResult.map(
@@ -120,6 +121,7 @@ class PrepareSubmissionSpec extends AsyncFlatSpec with Matchers {
         transactionMeta = txMeta,
         transaction = SubmittedTransaction(txBuilder.build()),
         estimatedInterpretationCost = 0L,
+        disclosedContracts = ImmArray.empty,
       )
     )
     validationResult.map(

@@ -26,7 +26,7 @@ private[validate] class PrepareSubmissionImpl(bridgeMetrics: BridgeMetrics)(impl
 
   override def apply(submission: Submission): AsyncValidation[PreparedSubmission] =
     submission match {
-      case transactionSubmission @ Submission.Transaction(submitterInfo, _, transaction, _) =>
+      case transactionSubmission @ Submission.Transaction(submitterInfo, _, transaction, _, _) =>
         Timed.future(
           bridgeMetrics.Stages.PrepareSubmission.timer,
           Future {

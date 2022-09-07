@@ -21,7 +21,7 @@ import com.daml.ledger.sandbox.domain.{Rejection, Submission}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.IdString
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.Transaction.{KeyActive, KeyCreate}
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -384,6 +384,7 @@ class SequenceSpec
       transactionMeta = transactionMeta,
       transaction = txMock,
       estimatedInterpretationCost = 0L,
+      disclosedContracts = ImmArray.empty,
     )(loggingContext)
 
     val txInformees: Set[IdString.Party] = allocatedInformees.take(2)
