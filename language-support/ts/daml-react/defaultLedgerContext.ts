@@ -8,7 +8,7 @@ import {
   LedgerProps,
   FetchByKeysResult,
 } from "./createLedgerContext";
-import { ContractId, Party, Template } from "@daml/types";
+import { ContractId, Party, Template, TemplateOrInterface } from "@daml/types";
 import Ledger, { Query, StreamCloseEvent, User } from "@daml/ledger";
 
 /**
@@ -51,26 +51,26 @@ export function useLedger(): Ledger {
 /**
  * React Hook for a ``query`` against the ledger.
  *
- * @typeparam T The contract template type of the query.
+ * @typeparam T The contract template or interface type of the query.
  * @typeparam K The contract key type of the query.
  * @typeparam I The template id type.
  *
- * @param template The contract template to filter for.
+ * @param template The contract template or interface to filter for.
  * @param queryFactory A function returning a query. If the query is omitted, all visible contracts of the given template are returned.
  * @param queryDeps The dependencies of the query (which trigger a reload when changed).
  *
  * @return The result of the query.
  */
 export function useQuery<T extends object, K, I extends string>(
-  template: Template<T, K, I>,
+  template: TemplateOrInterface<T, K, I>,
   queryFactory: () => Query<T>,
   queryDeps: readonly unknown[],
 ): QueryResult<T, K, I>;
 export function useQuery<T extends object, K, I extends string>(
-  template: Template<T, K, I>,
+  template: TemplateOrInterface<T, K, I>,
 ): QueryResult<T, K, I>;
 export function useQuery<T extends object, K, I extends string>(
-  template: Template<T, K, I>,
+  template: TemplateOrInterface<T, K, I>,
   queryFactory?: () => Query<T>,
   queryDeps?: readonly unknown[],
 ): QueryResult<T, K, I> {
@@ -90,7 +90,7 @@ export function useQuery<T extends object, K, I extends string>(
  * @return The fetched contract.
  */
 export function useFetch<T extends object, K, I extends string>(
-  template: Template<T, K, I>,
+  template: TemplateOrInterface<T, K, I>,
   contractId: ContractId<T>,
 ): FetchResult<T, K, I> {
   return ledgerContext.useFetch(template, contractId);
@@ -134,7 +134,7 @@ export function useFetchByKey<T extends object, K, I extends string>(
  * @return The matching contracts.
  */
 export function useStreamQuery<T extends object, K, I extends string>(
-  template: Template<T, K, I>,
+  template: TemplateOrInterface<T, K, I>,
   queryFactory?: () => Query<T>,
   queryDeps?: readonly unknown[],
   closeHandler?: (e: StreamCloseEvent) => void,
@@ -162,7 +162,7 @@ export function useStreamQuery<T extends object, K, I extends string>(
  * @return The matching contracts.
  */
 export function useStreamQueries<T extends object, K, I extends string>(
-  template: Template<T, K, I>,
+  template: TemplateOrInterface<T, K, I>,
   queryFactory?: () => Query<T>[],
   queryDeps?: readonly unknown[],
   closeHandler?: (e: StreamCloseEvent) => void,
