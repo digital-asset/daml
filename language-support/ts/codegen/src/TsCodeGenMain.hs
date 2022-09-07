@@ -453,9 +453,7 @@ renderTemplateDef TemplateDef {..} =
           , [");"]
           ]
       tsDecl = T.unlines $ concat
-        [ ifaceDefTempl tplName (Just keyTy)
-                        ((\(tsRef, _, inChcs) -> (tsRef, inChcs)) <$> tplImplements')
-                        tplChoices'
+        [ ifaceDefTempl tplName (Just keyTy) tplChoices'
         , [ "export declare const " <> tplName <> ":"
           , "  damlTypes.Template<" <> tplName <> ", " <> keyTy <> ", '" <> templateId <> "'> &"
           , "  damlTypes.ToInterface<" <> tplName <> ", " <> implsUnion <> "> &"
@@ -524,10 +522,10 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule,
         T.intercalate "." (unModuleName ifModule) <> ":" <>
         ifName
 
-ifaceDefTempl :: T.Text -> Maybe T.Text -> [(TsTypeConRef, Set.Set ChoiceName)] -> [ChoiceDef] -> [T.Text]
-ifaceDefTempl name mbKeyTy impls choices =
+ifaceDefTempl :: T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
+ifaceDefTempl name mbKeyTy choices =
   concat
-  [ ["export declare interface " <> name <> "Interface " <> extension <> "{"]
+  [ ["export declare interface " <> name <> "Interface {"]
   , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
       name <> ", " <>
       tsTypeRef (genType chcArgTy mbSubst) <> ", " <>
@@ -538,40 +536,6 @@ ifaceDefTempl name mbKeyTy impls choices =
   where
     mbSubst = Nothing
     keyTy = fromMaybe "undefined" mbKeyTy
-    extension
-      | null impls = ""
-      | otherwise = "extends " <> implTy'
-    implTy' = T.intercalate " , " implRefs
-    implRefs = [if Set.null omit then baseInherit
-                else "Omit<" <> baseInherit <> ", " <> literalOmit <> ">"
-               | ((TsTypeConRef impl, _), omit) <- impls `zip` omitFromExtends
-               , let baseInherit = impl <> "Interface"
-                     literalOmit = T.intercalate " | "
-                                 . map (renderDecoderConstant . ConstantString)
-                                 . Set.toList $ omit]
-    omitFromExtends = duplicates (Set.fromList $ chcName' <$> choices)
-                                 (Set.map unChoiceName . snd <$> impls)
-
--- Remove every 'n' in 'sets' that is unique to that set among 'sets'
--- and 'privileged'.  That is, every remaining value appears at least
--- twice, be that in two different 'sets' or in one of 'sets' and also
--- in 'privileged'.
---
---     duplicates p . duplicates p = duplicates p
-duplicates :: Ord n => Set.Set n -> [Set.Set n] -> [Set.Set n]
-duplicates privileged sets = (Set.\\ allUniques) <$> sets
-  where
-    allUniques = uniques (privileged:sets)
-
--- @uniques sets@ is the set with all the elements that appear only once
--- among all of 'sets'.
-uniques :: Ord n => [Set.Set n] -> Set.Set n
-uniques = 
-    Map.keysSet
-  . Map.filter id
-  . Map.fromListWith (\_ _ -> False)
-  . fmap (,True)
-  . concatMap Set.toList
 
 ifaceDefIface :: T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
 ifaceDefIface name mbKeyTy choices =

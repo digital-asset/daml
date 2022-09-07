@@ -193,23 +193,14 @@ function toInterfaceMixin<T extends object, IfU>(): ToInterface<T, IfU> {
 /**
  * @internal
  */
-export function assembleTemplate<T extends object, IfU>(
-  template: Template<T>,
-  ...interfaces: FromTemplate<IfU, unknown>[]
-): Template<T> & ToInterface<T, IfU> {
-  const combined = {};
-  const overloaded: string[] = [];
-  for (const iface of interfaces) {
-    _.mergeWith(combined, iface, (left, right, k) => {
-      if (left !== undefined && right !== undefined) overloaded.push(k);
-      return undefined;
-    });
-  }
-  return Object.assign(
-    _.omit(combined, overloaded),
-    toInterfaceMixin<T, IfU>(),
-    template,
-  );
+export function assembleTemplate<T extends object, TC extends Template<T>, IfU>(
+  template: TC,
+  ..._interfaces: FromTemplate<IfU, unknown>[] // eslint-disable-line @typescript-eslint/no-unused-vars
+): TC & ToInterface<T, IfU> {
+  return {
+    ...toInterfaceMixin<T, IfU>(),
+    ...template,
+  };
 }
 
 /**
