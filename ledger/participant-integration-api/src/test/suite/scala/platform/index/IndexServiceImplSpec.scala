@@ -3,13 +3,15 @@
 
 package com.daml.platform.index
 
+import com.daml.error.{ContextualizedErrorLogger, NoLogging}
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.{Filters, InclusiveFilters, InterfaceFilter, TransactionFilter}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Identifier
 import com.daml.platform.index.IndexServiceImpl.{
+  checkUnknownTemplatesOrInterfaces,
   memoizedTransactionFilterProjection,
   templateFilter,
-  unknownTemplatesOrInterfaces,
 }
 import com.daml.platform.index.IndexServiceImplSpec.Scope
 import com.daml.platform.store.dao.EventProjectionProperties
@@ -184,21 +186,21 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   behavior of "IndexServiceImpl.unknownTemplatesOrInterfaces"
 
   it should "provide an empty list in case of empty filter and package metadata" in new Scope {
-    unknownTemplatesOrInterfaces(
+    checkUnknownTemplatesOrInterfaces(
       new TransactionFilter(Map.empty),
       PackageMetadata(),
     ) shouldBe List()
   }
 
   it should "return an unknown template for not known template" in new Scope {
-    unknownTemplatesOrInterfaces(
+    checkUnknownTemplatesOrInterfaces(
       new TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(template1), Set())))),
       PackageMetadata(),
     ) shouldBe List(Left(template1))
   }
 
   it should "return an unknown interface for not known interface" in new Scope {
-    unknownTemplatesOrInterfaces(
+    checkUnknownTemplatesOrInterfaces(
       new TransactionFilter(
         Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true)))))
       ),
@@ -207,7 +209,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   }
 
   it should "return zero unknown interfaces for known interface" in new Scope {
-    unknownTemplatesOrInterfaces(
+    checkUnknownTemplatesOrInterfaces(
       new TransactionFilter(
         Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true)))))
       ),
@@ -217,14 +219,14 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   }
 
   it should "return zero unknown templates for known templates" in new Scope {
-    unknownTemplatesOrInterfaces(
+    checkUnknownTemplatesOrInterfaces(
       new TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(template1), Set())))),
       PackageMetadata(templates = Set(template1)),
     ) shouldBe List()
   }
 
   it should "only return unknown templates and interfaces" in new Scope {
-    unknownTemplatesOrInterfaces(
+    checkUnknownTemplatesOrInterfaces(
       new TransactionFilter(
         Map(
           party -> Filters(InclusiveFilters(Set(template1), Set(InterfaceFilter(iface1, true)))),
@@ -242,26 +244,35 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   behavior of "IndexServiceImpl.invalidTemplateOrInterfaceMessage"
 
+  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
   it should "provide no message if the list of invalid templates or interfaces is empty" in new Scope {
-    IndexServiceImpl.invalidTemplateOrInterfaceMessage(List.empty) shouldBe ""
+    LedgerApiErrors.RequestValidation.NotFound.TemplateOrInterfaceIdsNotFound
+      .Reject(List.empty)
+      .cause shouldBe ""
   }
 
   it should "combine a message containing invalid interfaces and templates together" in new Scope {
-    IndexServiceImpl.invalidTemplateOrInterfaceMessage(
-      List(Right(iface2), Left(template2), Left(template3))
-    ) shouldBe "Templates do not exist: [PackageName:ModuleName:template2, PackageName:ModuleName:template3]. Interfaces do not exist: [PackageName:ModuleName:iface2]."
+    LedgerApiErrors.RequestValidation.NotFound.TemplateOrInterfaceIdsNotFound
+      .Reject(
+        List(Right(iface2), Left(template2), Left(template3))
+      )
+      .cause shouldBe "Templates do not exist: [PackageName:ModuleName:template2, PackageName:ModuleName:template3]. Interfaces do not exist: [PackageName:ModuleName:iface2]."
   }
 
   it should "provide a message for invalid templates" in new Scope {
-    IndexServiceImpl.invalidTemplateOrInterfaceMessage(
-      List(Left(template2), Left(template3))
-    ) shouldBe "Templates do not exist: [PackageName:ModuleName:template2, PackageName:ModuleName:template3]."
+    LedgerApiErrors.RequestValidation.NotFound.TemplateOrInterfaceIdsNotFound
+      .Reject(
+        List(Left(template2), Left(template3))
+      )
+      .cause shouldBe "Templates do not exist: [PackageName:ModuleName:template2, PackageName:ModuleName:template3]."
   }
 
   it should "provide a message for invalid interfaces" in new Scope {
-    IndexServiceImpl.invalidTemplateOrInterfaceMessage(
-      List(Right(iface1), Right(iface2))
-    ) shouldBe "Interfaces do not exist: [PackageName:ModuleName:iface1, PackageName:ModuleName:iface2]."
+    LedgerApiErrors.RequestValidation.NotFound.TemplateOrInterfaceIdsNotFound
+      .Reject(
+        List(Right(iface1), Right(iface2))
+      )
+      .cause shouldBe "Interfaces do not exist: [PackageName:ModuleName:iface1, PackageName:ModuleName:iface2]."
   }
 }
 

@@ -1285,6 +1285,22 @@ PACKAGE_NOT_FOUND
 
 
 
+.. _error_code_TEMPLATES_OR_INTERFACES_NOT_FOUND:
+
+TEMPLATES_OR_INTERFACES_NOT_FOUND
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: The queried template or interface ids do not exist.
+
+    **Category**: InvalidGivenCurrentSystemStateResourceMissing
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
+
+    **Resolution**: Use valid template or interface ids in your query or ask the participant operator to upload the package containing the necessary interfaces/templates.
+
+
+
+
 .. _error_code_TRANSACTION_NOT_FOUND:
 
 TRANSACTION_NOT_FOUND

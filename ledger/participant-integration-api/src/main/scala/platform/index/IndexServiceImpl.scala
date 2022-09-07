@@ -8,7 +8,6 @@ import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.{TraceIdentifiers, domain}
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
 import com.daml.ledger.api.domain.{
   Filters,
@@ -29,27 +28,21 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
-import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
+import com.daml.ledger.api.{TraceIdentifiers, domain}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
-import com.daml.ledger.participant.state.index.v2.{
-  ContractStore,
-  IndexService,
-  MaximumLedgerTime,
-  _,
-}
+import com.daml.ledger.participant.state.index.v2._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ApplicationId, Identifier, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
 import com.daml.metrics.InstrumentedGraph._
+import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
-import com.daml.platform.{ApiOffset, FilterRelation, PruneBuffers}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
@@ -67,6 +60,7 @@ import com.daml.platform.store.dao.{
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
+import com.daml.platform.{ApiOffset, FilterRelation, PruneBuffers}
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.ToTagOps
@@ -475,7 +469,7 @@ private[index] class IndexServiceImpl(
 object IndexServiceImpl {
   private val logger = ContextualizedLogger.get(getClass)
 
-  private[index] def unknownTemplatesOrInterfaces(
+  private[index] def checkUnknownTemplatesOrInterfaces(
       domainTransactionFilter: domain.TransactionFilter,
       metadata: PackageMetadata,
   ) =
@@ -500,15 +494,16 @@ object IndexServiceImpl {
     implicit val errorLogger: DamlContextualizedErrorLogger =
       new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-    val templatesOrInterfaces = unknownTemplatesOrInterfaces(domainTransactionFilter, metadata)
+    val unknownTemplatesOrInterfaces: Seq[Either[Identifier, Identifier]] =
+      checkUnknownTemplatesOrInterfaces(domainTransactionFilter, metadata)
 
-    if (templatesOrInterfaces.nonEmpty)
+    if (unknownTemplatesOrInterfaces.nonEmpty) {
       Source.failed(
-        invalidArgument(
-          invalidTemplateOrInterfaceMessage(templatesOrInterfaces)
-        )
+        LedgerApiErrors.RequestValidation.NotFound.TemplateOrInterfaceIdsNotFound
+          .Reject(unknownTemplatesOrInterfaces)
+          .asGrpcError
       )
-    else
+    } else
       source
   }
 
@@ -546,25 +541,6 @@ object IndexServiceImpl {
       )
       Some((templateFilter, eventProjectionProperties))
     }
-  }
-
-  private[index] def invalidTemplateOrInterfaceMessage(
-      unknownTemplatesOrInterfaces: List[Either[Identifier, Identifier]]
-  ) = {
-    val templates = unknownTemplatesOrInterfaces.collect { case Left(value) =>
-      value
-    }
-    val interfaces = unknownTemplatesOrInterfaces.collect { case Right(value) =>
-      value
-    }
-    val templatesMessage = if (templates.nonEmpty) {
-      s"Templates do not exist: [${templates.mkString(", ")}]. "
-    } else ""
-    val interfacesMessage = if (interfaces.nonEmpty) {
-      s"Interfaces do not exist: [${interfaces.mkString(", ")}]. "
-    } else
-      ""
-    (templatesMessage + interfacesMessage).trim
   }
 
   private def templateIds(
