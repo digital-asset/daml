@@ -532,12 +532,14 @@ ifaceDefTempl name mbKeyTy impls choices =
       name <> ", " <>
       tsTypeRef (genType chcArgTy mbSubst) <> ", " <>
       tsTypeRef (genType chcRetTy mbSubst) <> ", " <>
-      keyTy <> ">;" | ChoiceDef{..} <- choices ]
+      keyTy <> "> & " <> choiceFrom <> ";"
+    | ChoiceDef{..} <- choices ]
   , [ "}" ]
   ]
   where
     mbSubst = Nothing
     keyTy = fromMaybe "undefined" mbKeyTy
+    choiceFrom = "damlTypes.ChoiceFrom<damlTypes.Template<" <> name <> ", " <> keyTy <> ">>"
     extension
       | null impls = ""
       | otherwise = "extends " <> implTy'
@@ -581,12 +583,14 @@ ifaceDefIface name mbKeyTy choices =
       name <> ", " <>
       tsTypeRef (genType chcArgTy mbSubst) <> ", " <>
       tsTypeRef (genType chcRetTy mbSubst) <> ", " <>
-      keyTy <> ">;" | ChoiceDef{..} <- choices ]
+      keyTy <> "> & " <> choiceFrom <> ";"
+    | ChoiceDef{..} <- choices ]
   , [ "}" ]
   ]
   where
     mbSubst = Nothing
     keyTy = fromMaybe "undefined" mbKeyTy
+    choiceFrom = "damlTypes.ChoiceFrom<damlTypes.InterfaceCompanion<" <> name <> ", " <> keyTy <> ">>"
 
 data ChoiceDef = ChoiceDef
   { chcName' :: T.Text
