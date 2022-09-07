@@ -63,7 +63,7 @@ export interface Template<
    */
   keyEncode: (k: K) => unknown;
   // eslint-disable-next-line @typescript-eslint/ban-types
-  Archive: Choice<T, {}, {}, K>;
+  Archive: Choice<T, {}, {}, K> & ChoiceFrom<Template<T, K, I>>;
 }
 
 /**
@@ -153,9 +153,7 @@ export interface Choice<T extends object, C, R, K = unknown> {
   /**
    * Returns the template to which this choice belongs.
    */
-  template: () => T extends Interface<infer I>
-    ? InterfaceCompanion<T, K, I & string>
-    : Template<T, K>;
+  readonly template: () => TemplateOrInterface<T, K>;
   /**
    * @internal Returns a decoder to decode the choice arguments.
    *
@@ -176,6 +174,16 @@ export interface Choice<T extends object, C, R, K = unknown> {
    * The choice name.
    */
   choiceName: string;
+}
+
+/**
+ * The origin companion that contained a [[Choice]].
+ *
+ * @typeparam O The type of the template or interface of which
+ *            this [[Choice]] is a member.
+ */
+export interface ChoiceFrom<O> {
+  readonly template: () => O;
 }
 
 function toInterfaceMixin<T extends object, IfU>(): ToInterface<T, IfU> {
