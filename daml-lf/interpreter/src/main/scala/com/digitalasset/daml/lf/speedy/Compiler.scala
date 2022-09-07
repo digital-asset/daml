@@ -1017,27 +1017,18 @@ private[lf] final class Compiler(
       disclosures: ImmArray[DisclosedContract],
   ): s.SExpr =
     unaryFunction(env) { (tokenPos, env) =>
-      let(env, translateContractDisclosures(env, disclosures)) { (_, env) =>
-        app(translateCommands(env, cmds), env.toSEVar(tokenPos))
-      }
-    }
-
-  private[this] def translateContractDisclosures(
-      env: Env,
-      disclosures: ImmArray[DisclosedContract],
-  ): s.SExpr =
-    disclosures.foldLeft[s.SExpr](s.SEValue(SUnit)) { case (inner, disclosedContract) =>
-      let(env, s.SEBuiltin(SBLookupDisclosedCachedContract(disclosedContract))) {
-        (contractPos, env) =>
-          let(
-            env,
+      s.SELet(
+        disclosures.toList.zipWithIndex.flatMap { case (disclosedContract, index) =>
+          List(
+            s.SEBuiltin(SBLookupDisclosedCachedContract(disclosedContract)),
             app(
               s.SEBuiltin(SBCacheDisclosedContract(disclosedContract.contractId.value)),
-              env.toSEVar(contractPos),
+              // FIXME: check that this use of variable indexing is correct!!
+              env.toSEVar(Position(2 * index)),
             ),
-          ) { (_, _) =>
-            inner
-          }
-      }
+          )
+        },
+        app(translateCommands(env, cmds), env.toSEVar(tokenPos)),
+      )
     }
 }
