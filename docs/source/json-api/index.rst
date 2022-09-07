@@ -1090,7 +1090,7 @@ HTTP Request
 
 Where:
 
-- ``templateIds`` -- either an array of contract template identifiers or an array of single interface identifier to search through. Mixed of template IDs and interface IDs or more than one interface ID are not allowed.
+- ``templateIds`` -- either an array of contract template identifiers or an array containing a single interface identifier to search through. Mixing of template ID's and interface ID's, or specifying more than one interface ID is not allowed.
 - ``query`` -- search criteria to apply to the specified ``templateIds``, formatted according to the :doc:`search-query-language`.
 - ``readers`` -- *optional* non-empty list of parties to query as; must be a subset of the actAs/readAs parties in the JWT
 
