@@ -794,8 +794,7 @@ describe("interfaces", () => {
     });
   });
 
-  // TODO #14920 enable
-  test.skip("WS query", async () => {
+  test("WS query", async () => {
     const { aliceLedger, expectedView, contract } =
       await aliceLedgerPayloadContract();
     const tokenCid = Asset.toInterface(Token, contract.contractId);
