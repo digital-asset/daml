@@ -39,5 +39,5 @@ class ConfigAdaptor {
     }
 
   def authService(participantConfig: ParticipantConfig): AuthService =
-    participantConfig.authentication.create()
+    participantConfig.authentication.create(participantConfig.jwtTimestampLeeway)
 }

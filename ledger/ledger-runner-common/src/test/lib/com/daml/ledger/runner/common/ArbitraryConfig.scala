@@ -199,28 +199,23 @@ object ArbitraryConfig {
 
   val UnsafeJwtHmac256 = for {
     secret <- Gen.alphaStr
-    mbJwtTimestampLeeway <- Gen.option(jwtTimestampLeewayGen)
-  } yield AuthServiceConfig.UnsafeJwtHmac256(secret, mbJwtTimestampLeeway)
+  } yield AuthServiceConfig.UnsafeJwtHmac256(secret)
 
   val JwtRs256Crt = for {
     certificate <- Gen.alphaStr
-    mbJwtTimestampLeeway <- Gen.option(jwtTimestampLeewayGen)
-  } yield AuthServiceConfig.JwtRs256(certificate, mbJwtTimestampLeeway)
+  } yield AuthServiceConfig.JwtRs256(certificate)
 
   val JwtEs256Crt = for {
     certificate <- Gen.alphaStr
-    mbJwtTimestampLeeway <- Gen.option(jwtTimestampLeewayGen)
-  } yield AuthServiceConfig.JwtEs256(certificate, mbJwtTimestampLeeway)
+  } yield AuthServiceConfig.JwtEs256(certificate)
 
   val JwtEs512Crt = for {
     certificate <- Gen.alphaStr
-    mbJwtTimestampLeeway <- Gen.option(jwtTimestampLeewayGen)
-  } yield AuthServiceConfig.JwtEs512(certificate, mbJwtTimestampLeeway)
+  } yield AuthServiceConfig.JwtEs512(certificate)
 
   val JwtRs256Jwks = for {
     url <- Gen.alphaStr
-    mbJwtTimestampLeeway <- Gen.option(jwtTimestampLeewayGen)
-  } yield AuthServiceConfig.JwtRs256Jwks(url, mbJwtTimestampLeeway)
+  } yield AuthServiceConfig.JwtRs256Jwks(url)
 
   val authServiceConfig = Gen.oneOf(
     Gen.const(AuthServiceConfig.Wildcard),
@@ -423,10 +418,12 @@ object ArbitraryConfig {
     indexService <- indexServiceConfig
     indexer <- indexerConfig
     lfValueTranslationCache <- lfValueTranslationCache
+    jwtTimestampLeeway <- Gen.option(jwtTimestampLeewayGen)
   } yield ParticipantConfig(
     apiServer = apiServer,
     authentication = AuthServiceConfig.Wildcard, // hardcoded to wildcard, as otherwise it
     // will be redacted and cannot be checked for isomorphism
+    jwtTimestampLeeway = jwtTimestampLeeway,
     dataSourceProperties = dataSourceProperties,
     indexService = indexService,
     indexer = indexer,
