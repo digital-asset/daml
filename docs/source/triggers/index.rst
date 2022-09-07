@@ -47,12 +47,12 @@ subtle errors.
 Instead, you should think of, and write, your triggers from the perspective of
 "correcting the current ACS" to match some predefined expectations. Trigger
 rules should be a combination of checking those expectations on the current ACS
-and applyin corrective actions to bring back the ACS in line with its expected
+and applying corrective actions to bring back the ACS in line with its expected
 state.
 
 The "trigger" part is best thought of as an optimization: rather than check the
 ACS constantly, we only apply our rules when something happens that we believe
-_may_ lead to the state of the ledger diverging from our expectations.
+*may* lead to the state of the ledger diverging from our expectations.
 
 Sample Trigger
 ==============
@@ -279,11 +279,11 @@ Let's walk through the ``rule`` code line-by-line:
   party running the trigger (with the current Daml model, it has to be one or
   the other, as messages are only visible to the sender and receiver).
   `when </daml/stdlib/DA-Action.html#function-da-action-when-53144>`_ the
-  expression ``m.receiver == p`` is ``True``, we then our expectations of the
+  expression ``m.receiver == p`` is ``True``, our expectations of the
   ledger state are wrong and we need to correct it. Otherwise, the state
   matches our rule and we don't need to do anything.
 - At this point we know the state is "wrong", per our expectations, and start
-  engaging in correcting actions. For this trigger, this means sendinga message
+  engaging in correcting actions. For this trigger, this means sending a message
   to the sender of the last message. In order to do that, we need to find the
   ``User`` contract for the sender. We start by getting the list of all
   ``User`` contracts we know about, which will be all users who
@@ -293,7 +293,7 @@ Let's walk through the ``rule`` code line-by-line:
   difference is that this time we actually want to keep the contract ids, as
   that is what we'll use to send a message back.
 - We print the list of users we just fetched, as a debug message.
-- We create a function to identify the user we are looking for.
+- We create a function ``isSender`` to identify the user we are looking for.
 - We get the user contract by applying our ``isSender`` function as a
   `filter </daml/stdlib/Prelude.html#function-da-internal-prelude-filter-27394>`_
   on the list of users, and then taking the
