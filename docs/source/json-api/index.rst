@@ -1961,7 +1961,7 @@ ID can be used in all queries::
         {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Ifc:Ifc"]}
     ]
 
-Mixed of template IDs and interface IDs or More than one interface ID found in queries are not allowed. BadRequest(400) error will be returned.::
+Mixing of template ID's and interface ID's or specifying more than one interface ID across queries is not allowed. BadRequest(400) error will be returned.::
 
     [
         {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"], "query": {"amount": {"%lte": 50}}},
