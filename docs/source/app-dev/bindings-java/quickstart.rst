@@ -133,10 +133,6 @@ In this section, you will run the quickstart application and get introduced to t
 
 - ``daml navigator server localhost 6865 --port 7500``
 
-#. In a third terminal, run ``daml codegen java && mvn compile exec:java@run-quickstart -Dparty=$(cat output.json | sed 's/\[\"//' | sed 's/".*//')``
-
-This step scrapes the ``Alice::NAMESPACE`` party name from the output.json produced in the previous steps.
-
 To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --dar .daml/dist/quickstart-0.0.1.dar``
 
 #. Point your browser to http://localhost:7500 and log in as alice.
@@ -517,7 +513,7 @@ To compile the Java integration for the quickstart application, we first need to
 
 Once the code has been generated, we can now compile it using ``mvn compile``.
 
-Now start the Java integration with ``mvn exec:java@run-quickstart``. Note that
+Now start the Java integration with ``mvn exec:java@run-quickstart -Dparty=$(cat output.json | sed 's/\[\"//' | sed 's/".*//')``. Note that
 this step requires that the sandbox started :ref:`earlier <quickstart-sandbox>` is running.
 
 The application provides REST services on port ``8080`` to perform basic operations on behalf on ``Alice``.
@@ -526,7 +522,7 @@ The application provides REST services on port ``8080`` to perform basic operati
 
   To start the same application on another port, use the command-line parameter ``-Drestport=PORT``. To start it for another party,  use  ``-Dparty=PARTY``.
 
-  For example, to start the application for Bob on ``8081``, run ``mvn exec:java@run-quickstart -Drestport=8081 -Dparty=Bob``
+  For example, to start the application for Bob on ``8081``, run ``mvn exec:java@run-quickstart -Drestport=8081 -Dparty=Bob(cat output.json | sed 's/\[\"//' | sed 's/".*//')``
 
 The following REST services are included:
 
