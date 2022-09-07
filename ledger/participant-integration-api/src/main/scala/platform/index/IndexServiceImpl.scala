@@ -273,10 +273,10 @@ private[index] class IndexServiceImpl(
   ): Future[Option[VersionedContractInstance]] =
     contractStore.lookupActiveContract(forParties, contractId)
 
-  override def lookupContractAfterInterpretation(contractId: ContractId)(implicit
+  override def lookupContractForValidation(contractId: ContractId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[(VersionedContractInstance, Timestamp)]] =
-    contractStore.lookupContractAfterInterpretation(contractId)
+    contractStore.lookupContractForValidation(contractId)
 
   override def getTransactionById(
       transactionId: TransactionId,

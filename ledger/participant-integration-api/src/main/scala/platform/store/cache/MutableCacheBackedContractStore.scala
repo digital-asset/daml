@@ -74,7 +74,7 @@ private[platform] class MutableCacheBackedContractStore(
           readThroughMaximumLedgerTime(toBeFetched.toList, cached.maxOption)
       }
 
-  override def lookupContractAfterInterpretation(
+  override def lookupContractForValidation(
       contractId: ContractId
   )(implicit
       loggingContext: LoggingContext

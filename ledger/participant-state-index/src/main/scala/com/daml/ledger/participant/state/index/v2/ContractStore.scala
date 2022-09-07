@@ -40,7 +40,7 @@ trait ContractStore {
       loggingContext: LoggingContext
   ): Future[MaximumLedgerTime]
 
-  def lookupContractAfterInterpretation(
+  def lookupContractForValidation(
       contractId: ContractId
   )(implicit
       loggingContext: LoggingContext

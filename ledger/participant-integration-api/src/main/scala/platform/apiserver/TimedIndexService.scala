@@ -225,11 +225,11 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
     )
   }
 
-  override def lookupContractAfterInterpretation(contractId: Value.ContractId)(implicit
+  override def lookupContractForValidation(contractId: Value.ContractId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[(VersionedContractInstance, Timestamp)]] =
     Timed.future(
       metrics.daml.services.index.lookupContractAfterInterpretation,
-      delegate.lookupContractAfterInterpretation(contractId),
+      delegate.lookupContractForValidation(contractId),
     )
 }

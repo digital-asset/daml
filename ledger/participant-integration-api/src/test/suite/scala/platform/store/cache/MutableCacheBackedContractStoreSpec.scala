@@ -255,8 +255,8 @@ class MutableCacheBackedContractStoreSpec extends AsyncWordSpec with Matchers wi
             cId_5 -> ContractStateValue.Archived(Set.empty),
           ),
         )
-        activeContractLookupResult <- store.lookupContractAfterInterpretation(cId_4)
-        archivedContractLookupResult <- store.lookupContractAfterInterpretation(cId_5)
+        activeContractLookupResult <- store.lookupContractForValidation(cId_4)
+        archivedContractLookupResult <- store.lookupContractForValidation(cId_5)
       } yield {
         activeContractLookupResult shouldBe Some(contract4 -> t4)
         archivedContractLookupResult shouldBe None
@@ -266,8 +266,8 @@ class MutableCacheBackedContractStoreSpec extends AsyncWordSpec with Matchers wi
     "resolve lookup from the ContractsReader when not cached" in {
       for {
         store <- contractStore(cachesSize = 0L).asFuture
-        activeContractLookupResult <- store.lookupContractAfterInterpretation(cId_4)
-        archivedContractLookupResult <- store.lookupContractAfterInterpretation(cId_5)
+        activeContractLookupResult <- store.lookupContractForValidation(cId_4)
+        archivedContractLookupResult <- store.lookupContractForValidation(cId_5)
       } yield {
         activeContractLookupResult shouldBe Some(contract4 -> t4)
         archivedContractLookupResult shouldBe None

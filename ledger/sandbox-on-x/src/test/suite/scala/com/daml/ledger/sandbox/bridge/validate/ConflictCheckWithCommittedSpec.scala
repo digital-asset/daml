@@ -152,7 +152,7 @@ class ConflictCheckWithCommittedSpec
 
   it should "fail validation mismatching let in disclosed contract" in new TestContext {
     when(
-      indexServiceMock.lookupContractAfterInterpretation(eqTo(disclosedContract.contractId))(
+      indexServiceMock.lookupContractForValidation(eqTo(disclosedContract.contractId))(
         any[LoggingContext]
       )
     )
@@ -179,7 +179,7 @@ class ConflictCheckWithCommittedSpec
 
   it should "fail validation mismatching contract argument in disclosed contract" in new TestContext {
     when(
-      indexServiceMock.lookupContractAfterInterpretation(eqTo(disclosedContract.contractId))(
+      indexServiceMock.lookupContractForValidation(eqTo(disclosedContract.contractId))(
         any[LoggingContext]
       )
     )
@@ -206,7 +206,7 @@ class ConflictCheckWithCommittedSpec
 
   it should "fail validation mismatching template id in disclosed contract" in new TestContext {
     when(
-      indexServiceMock.lookupContractAfterInterpretation(eqTo(disclosedContract.contractId))(
+      indexServiceMock.lookupContractForValidation(eqTo(disclosedContract.contractId))(
         any[LoggingContext]
       )
     )
@@ -319,7 +319,7 @@ class ConflictCheckWithCommittedSpec
       .thenReturn(Future.successful(None))
 
     when(
-      indexServiceMock.lookupContractAfterInterpretation(eqTo(disclosedContract.contractId))(
+      indexServiceMock.lookupContractForValidation(eqTo(disclosedContract.contractId))(
         any[LoggingContext]
       )
     )

@@ -167,7 +167,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
       case (f, provided) =>
         f.flatMapF { _ =>
           indexService
-            .lookupContractAfterInterpretation(provided.unversioned.contractId)
+            .lookupContractForValidation(provided.unversioned.contractId)
             .map {
               case None =>
                 // Disclosed contract was archived or never existed
