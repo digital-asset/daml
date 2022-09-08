@@ -61,7 +61,7 @@ The project contains the following files:
 - ``daml.yaml`` is a Daml project config file used by the SDK to find out how to build the Daml project and how to run it.
 - ``daml`` contains the :ref:`Daml code <quickstart-daml>` specifying the contract model for the ledger.
 - ``daml/Tests`` contains :ref:`test scripts <quickstart-scripts>` for the Daml model.
-- ``frontend-config.js`` and ``ui-backend.conf`` are configuration files for the :ref:`Navigator <quickstart-navigator>` frontend.
+- ``frontend-config.js`` is a configuration file for the :ref:`Navigator <quickstart-navigator>` frontend.
 - ``pom.xml`` and ``src/main/java`` constitute a :ref:`Java application <quickstart-application>` that provides REST services to interact with the ledger.
 
 You will explore these in more detail through the rest of this guide.
@@ -161,8 +161,6 @@ Now everything is running, you can try out the quickstart application:
 
 #. Go to `http://localhost:4000/ <http://localhost:4000/>`_. This is the Navigator, which you launched :ref:`earlier <quickstart-navigator>`.
 #. On the login screen, select **Alice** from the dropdown. This logs you in as Alice.
-
-   (The list of available parties is specified in the ``ui-backend.conf`` file.)
 
    This takes you to the contracts view:
 
