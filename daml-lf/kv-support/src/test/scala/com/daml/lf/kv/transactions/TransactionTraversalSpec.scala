@@ -100,7 +100,7 @@ class TransactionTraversalSpec extends AnyFunSuite with Matchers {
       )
   }
 
-  test("traversing transaction parsing error") {
+  test("traversal - transaction parsing error") {
     val rawTx = RawTransaction(ByteString.copyFromUtf8("wrong"))
     TransactionTraversal.traverseTransactionWithWitnesses(rawTx)((_, _, _) => ()) shouldBe Left(
       ConversionError.ParseError("Protocol message tag had invalid wire type.")
@@ -110,13 +110,13 @@ class TransactionTraversalSpec extends AnyFunSuite with Matchers {
     )
   }
 
-  test("traversing transaction version parsing error") {
+  test("traversal - transaction version parsing error") {
     val rawTx = RawTransaction(Transaction.newBuilder().setVersion("wrong").build.toByteString)
     val actual = TransactionTraversal.traverseTransactionWithWitnesses(rawTx)((_, _, _) => ())
     actual shouldBe Left(ConversionError.ParseError("Unsupported transaction version 'wrong'"))
   }
 
-  test("traversing node decoding error") {
+  test("traversal - node decoding error") {
     val rootNodeId = "1"
     val rawTx = RawTransaction(
       Transaction

@@ -61,10 +61,10 @@ object TransactionTraversal {
       txVersion: TransactionVersion,
       nodes: Map[String, Node],
       toVisit: FrontStack[(RawTransaction.NodeId, Set[Ref.Party])],
-      packagesWithParties: Map[String, Set[Ref.Party]] = Map.empty,
+      packagesToParties: Map[String, Set[Ref.Party]] = Map.empty,
   ): Either[ConversionError, Map[String, Set[Ref.Party]]] = {
     toVisit match {
-      case FrontStack() => Right(packagesWithParties)
+      case FrontStack() => Right(packagesToParties)
       case FrontStackCons((nodeId, parentWitnesses), toVisit) =>
         val node = nodes(nodeId.value)
         informeesOfNode(txVersion, node) match {
@@ -75,7 +75,7 @@ object TransactionTraversal {
               val currentNodePackagesWithWitnesses = Map(
                 templateId.getPackageId -> witnesses
               )
-              packagesWithParties |+| currentNodePackagesWithWitnesses
+              packagesToParties |+| currentNodePackagesWithWitnesses
             }
             node.getNodeTypeCase match {
               case Node.NodeTypeCase.EXERCISE =>
@@ -96,7 +96,7 @@ object TransactionTraversal {
                   txVersion,
                   nodes,
                   next ++: toVisit,
-                  packagesWithParties |+| currentNodePackagesWithWitnesses,
+                  packagesToParties |+| currentNodePackagesWithWitnesses,
                 )
               case Node.NodeTypeCase.FETCH =>
                 traverseWitnessesWithPackages(
@@ -120,11 +120,12 @@ object TransactionTraversal {
                   addPackage(node.getLookupByKey.getTemplateId),
                 )
               case Node.NodeTypeCase.NODETYPE_NOT_SET | Node.NodeTypeCase.ROLLBACK =>
-                traverseWitnessesWithPackages(txVersion, nodes, toVisit, packagesWithParties)
+                traverseWitnessesWithPackages(txVersion, nodes, toVisit, packagesToParties)
             }
         }
     }
   }
+
   @tailrec
   private def traverseWitnesses(
       f: (RawTransaction.NodeId, RawTransaction.Node, Set[Ref.Party]) => Unit,
