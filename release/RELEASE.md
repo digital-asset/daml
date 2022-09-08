@@ -452,7 +452,7 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
 
     1. Open `daml/Main.daml`.
 
-    1. Click on `Script results` above `initialize`(in the code) and wait for the script
+    1. Click on `Script results` above `initialize` (in the code) and wait for the script
        results to appear.
 
     1. Add `+` at the end of line 14, after `(PartyIdHint "Alice")` and
