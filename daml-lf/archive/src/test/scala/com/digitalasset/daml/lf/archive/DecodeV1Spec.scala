@@ -1640,9 +1640,9 @@ class DecodeV1Spec
 
         val decoder = moduleDecoder(version)
 
-        decoder.decodeChoice(templateName, protoChoiceWithoutObservers)
+        decoder.decodeChoiceForTest(templateName, protoChoiceWithoutObservers)
         an[Error.Parsing] should be thrownBy (decoder
-          .decodeChoice(templateName, protoChoiceWithObservers))
+          .decodeChoiceForTest(templateName, protoChoiceWithObservers))
 
       }
     }
@@ -1670,10 +1670,10 @@ class DecodeV1Spec
 
         val decoder = moduleDecoder(version, stringTable)
 
-        decoder.decodeChoice(templateName, protoChoiceWithoutObservers)
+        decoder.decodeChoiceForTest(templateName, protoChoiceWithoutObservers)
         an[Error.Parsing] should be thrownBy (
           decoder
-            .decodeChoice(templateName, protoChoiceWithObservers),
+            .decodeChoiceForTest(templateName, protoChoiceWithObservers),
         )
 
       }
@@ -1704,9 +1704,9 @@ class DecodeV1Spec
         val decoder = moduleDecoder(version, stringTable, ImmArraySeq.empty, typeTable)
 
         an[Error.Parsing] should be thrownBy (
-          decoder.decodeChoice(templateName, protoChoiceWithoutObservers),
+          decoder.decodeChoiceForTest(templateName, protoChoiceWithoutObservers),
         )
-        decoder.decodeChoice(templateName, protoChoiceWithObservers)
+        decoder.decodeChoiceForTest(templateName, protoChoiceWithObservers)
       }
     }
   }

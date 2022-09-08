@@ -192,8 +192,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       onlySerializableDataDefs: Boolean,
   ) {
 
-//----------------------------------------------------------------------
-
     private var currentDefinitionRef: Option[DefinitionRef] = None
 
     def decodeModule(lfModule: PLF.Module): Module = {
@@ -208,7 +206,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       copy(optModuleName = Some(moduleName)).decodeModuleWithName(lfModule, moduleName)
     }
 
-    private def decodeModuleWithName(lfModule: PLF.Module, moduleName: ModuleName) = {
+    private def decodeModuleWithName(lfModule: PLF.Module, moduleName: ModuleName): Module = {
       val defs = mutable.ArrayBuffer[(DottedName, Definition)]()
       val templates = mutable.ArrayBuffer[(DottedName, Template)]()
       val exceptions = mutable.ArrayBuffer[(DottedName, DefException)]()
@@ -311,7 +309,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       )
     }
 
-    // -----------------------------------------------------------------------
     private[this] def getInternedStr(id: Int) =
       internedStrings.lift(id).getOrElse {
         throw Error.Parsing(s"invalid internedString table index $id")
@@ -456,12 +453,14 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
     private[this] def decodeFields(
         lfFields: collection.Seq[PLF.FieldWithType]
-    ): Work[ImmArray[(Name, Type)]] = Ret {
-      lfFields.view
-        .map(lfFieldWithType =>
-          decodeFieldName(lfFieldWithType) -> decodeType_DEP(lfFieldWithType.getType)
-        )
-        .to(ImmArray)
+    ): Work[ImmArray[(Name, Type)]] = {
+      sequenceWork(lfFields.view.toList.map { lfFieldWithType =>
+        decodeType(lfFieldWithType.getType) { typ =>
+          Ret(decodeFieldName(lfFieldWithType) -> typ)
+        }
+      }) { xs =>
+        Ret(xs.to(ImmArray))
+      }
     }
 
     private[this] def decodeFieldWithExpr(
@@ -539,29 +538,30 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         key: PLF.DefTemplate.DefKey,
         tplVar: ExprVarName,
     ): Work[TemplateKey] = {
-      val keyExpr = key.getKeyExprCase match {
+      bindWork(key.getKeyExprCase match {
         case PLF.DefTemplate.DefKey.KeyExprCase.KEY =>
           decodeKeyExpr(key.getKey, tplVar)
         case PLF.DefTemplate.DefKey.KeyExprCase.COMPLEX_KEY => {
-          decodeExpr_DEP(key.getComplexKey, s"${tpl}:key")
+          decodeExpr(key.getComplexKey, s"${tpl}:key") { Ret(_) }
         }
         case PLF.DefTemplate.DefKey.KeyExprCase.KEYEXPR_NOT_SET =>
           throw Error.Parsing("DefKey.KEYEXPR_NOT_SET")
-      }
-      decodeType(key.getType) { typ =>
-        decodeExpr(key.getMaintainers, s"${tpl}:maintainer") { maintainers =>
-          Ret(
-            TemplateKey(
-              typ,
-              keyExpr,
-              maintainers,
+      }) { keyExpr =>
+        decodeType(key.getType) { typ =>
+          decodeExpr(key.getMaintainers, s"${tpl}:maintainer") { maintainers =>
+            Ret(
+              TemplateKey(
+                typ,
+                keyExpr,
+                maintainers,
+              )
             )
-          )
+          }
         }
       }
     }
 
-    private[this] def decodeKeyExpr(expr: PLF.KeyExpr, tplVar: ExprVarName): Expr = {
+    private[this] def decodeKeyExpr(expr: PLF.KeyExpr, tplVar: ExprVarName): Work[Expr] = Ret {
       expr.getSumCase match {
         case PLF.KeyExpr.SumCase.RECORD =>
           val recCon = expr.getRecord
@@ -576,7 +576,9 @@ private[archive] class DecodeV1(minor: LV.Minor) {
                   PLF.KeyExpr.RecordField.FieldCase.FIELD_INTERNED_STR,
                   field.getFieldInternedStr,
                   "KeyExpr.field",
-                ) -> decodeKeyExpr(field.getExpr, tplVar)
+                ) -> xxx(
+                  decodeKeyExpr(field.getExpr, tplVar)
+                ) // NICK: self-recursion point; delay to be stack-safe!?
               )
               .to(ImmArray),
           )
@@ -621,29 +623,33 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       ) { precond =>
         decodeExpr(lfTempl.getSignatories, s"$tpl.signatory") { signatories =>
           decodeExpr(lfTempl.getAgreement, s"$tpl:agreement") { agreementText =>
-            val choices =
-              lfTempl.getChoicesList.asScala.view.map(x => xxx(decodeChoice(tpl, x)))
-            decodeExpr(lfTempl.getObservers, s"$tpl:observer") { observers =>
-              val implements =
-                lfImplements.view.map(x => xxx(decodeTemplateImplements(x)))
-              bindWork(
-                if (lfTempl.hasKey)
-                  Ret(Some(xxx(decodeTemplateKey(tpl, lfTempl.getKey, paramName))))
-                else Ret(None)
-              ) { key =>
-                Ret(
-                  Template.build(
-                    param = paramName,
-                    precond,
-                    signatories,
-                    agreementText,
-                    choices,
-                    observers,
-                    implements = implements,
-                    key = key,
-                  )
-                )
-              }
+            sequenceWork(lfTempl.getChoicesList.asScala.toList.map(decodeChoice(tpl, _))) {
+              choices =>
+                decodeExpr(lfTempl.getObservers, s"$tpl:observer") { observers =>
+                  sequenceWork(lfImplements.view.toList.map(decodeTemplateImplements(_))) {
+                    implements =>
+                      bindWork(
+                        if (lfTempl.hasKey) {
+                          bindWork(decodeTemplateKey(tpl, lfTempl.getKey, paramName)) { tk =>
+                            Ret(Some(tk))
+                          }
+                        } else Ret(None)
+                      ) { key =>
+                        Ret(
+                          Template.build(
+                            param = paramName,
+                            precond,
+                            signatories,
+                            agreementText,
+                            choices,
+                            observers,
+                            implements = implements,
+                            key = key,
+                          )
+                        )
+                      }
+                  }
+                }
             }
           }
         }
@@ -652,71 +658,101 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
     private[this] def decodeTemplateImplements(
         lfImpl: PLF.DefTemplate.Implements
-    ): Work[TemplateImplements] =
-      Ret(
-        TemplateImplements.build(
-          interfaceId = decodeTypeConName(lfImpl.getInterface),
-          body = xxx(decodeInterfaceInstanceBody(lfImpl.getBody)),
+    ): Work[TemplateImplements] = {
+      bindWork(decodeInterfaceInstanceBody(lfImpl.getBody)) { body =>
+        Ret(
+          TemplateImplements.build(
+            interfaceId = decodeTypeConName(lfImpl.getInterface),
+            body,
+          )
         )
-      )
+      }
+    }
 
     private[this] def decodeInterfaceInstanceBody(
         lfBody: PLF.InterfaceInstanceBody
-    ): Work[InterfaceInstanceBody] = Ret {
-      InterfaceInstanceBody.build(
-        methods =
-          lfBody.getMethodsList.asScala.view.map(x => xxx(decodeInterfaceInstanceMethod(x))),
-        view = decodeExpr_DEP(lfBody.getView, "InterfaceInstanceBody.view"),
-      )
+    ): Work[InterfaceInstanceBody] = {
+      decodeExpr(lfBody.getView, "InterfaceInstanceBody.view") { view =>
+        sequenceWork(lfBody.getMethodsList.asScala.toList.map(decodeInterfaceInstanceMethod(_))) {
+          methods =>
+            Ret(InterfaceInstanceBody.build(methods, view))
+        }
+      }
     }
 
     private[this] def decodeInterfaceInstanceMethod(
         lfMethod: PLF.InterfaceInstanceBody.InterfaceInstanceMethod
-    ): Work[InterfaceInstanceMethod] = Ret {
-      InterfaceInstanceMethod(
-        methodName =
-          getInternedName(lfMethod.getMethodInternedName, "InterfaceInstanceMethod.name"),
-        value = decodeExpr_DEP(lfMethod.getValue, "InterfaceInstanceMethod.value"),
-      )
+    ): Work[InterfaceInstanceMethod] = {
+      decodeExpr(lfMethod.getValue, "InterfaceInstanceMethod.value") { value =>
+        Ret(
+          InterfaceInstanceMethod(
+            methodName =
+              getInternedName(lfMethod.getMethodInternedName, "InterfaceInstanceMethod.name"),
+            value,
+          )
+        )
+      }
     }
 
-    private[archive] def decodeChoice(
+    private[archive] def decodeChoiceForTest( // NICK: entry point (move to top of class)
         tpl: DottedName,
         lfChoice: PLF.TemplateChoice,
-    ): Work[TemplateChoice] = Ret {
-      val (v, t) = xxx(decodeBinder(lfChoice.getArgBinder))
-      val chName = handleInternedName(
-        lfChoice.getNameCase,
-        PLF.TemplateChoice.NameCase.NAME_STR,
-        lfChoice.getNameStr,
-        PLF.TemplateChoice.NameCase.NAME_INTERNED_STR,
-        lfChoice.getNameInternedStr,
-        "TemplateChoice.name.name",
-      )
-      val selfBinder = handleInternedName(
-        lfChoice.getSelfBinderCase,
-        PLF.TemplateChoice.SelfBinderCase.SELF_BINDER_STR,
-        lfChoice.getSelfBinderStr,
-        PLF.TemplateChoice.SelfBinderCase.SELF_BINDER_INTERNED_STR,
-        lfChoice.getSelfBinderInternedStr,
-        "TemplateChoice.self_binder.self_binder",
-      )
-      TemplateChoice(
-        name = chName,
-        consuming = lfChoice.getConsuming,
-        controllers = decodeExpr_DEP(lfChoice.getControllers, s"$tpl:$chName:controller"),
-        choiceObservers = if (lfChoice.hasObservers) {
-          assertSince(LV.Features.choiceObservers, "TemplateChoice.observers")
-          Some(decodeExpr_DEP(lfChoice.getObservers, s"$tpl:$chName:observers"))
-        } else {
-          assertUntil(LV.Features.choiceObservers, "missing TemplateChoice.observers")
-          None
-        },
-        selfBinder = selfBinder,
-        argBinder = v -> t,
-        returnType = decodeType_DEP(lfChoice.getRetType),
-        update = decodeExpr_DEP(lfChoice.getUpdate, s"$tpl:$chName:choice"),
-      )
+    ): TemplateChoice = {
+      xxx(decodeChoice(tpl, lfChoice))
+    }
+
+    private def decodeChoice(
+        tpl: DottedName,
+        lfChoice: PLF.TemplateChoice,
+    ): Work[TemplateChoice] = {
+      bindWork(decodeBinder(lfChoice.getArgBinder)) { case (v, t) =>
+        val chName = handleInternedName(
+          lfChoice.getNameCase,
+          PLF.TemplateChoice.NameCase.NAME_STR,
+          lfChoice.getNameStr,
+          PLF.TemplateChoice.NameCase.NAME_INTERNED_STR,
+          lfChoice.getNameInternedStr,
+          "TemplateChoice.name.name",
+        )
+        val selfBinder = handleInternedName(
+          lfChoice.getSelfBinderCase,
+          PLF.TemplateChoice.SelfBinderCase.SELF_BINDER_STR,
+          lfChoice.getSelfBinderStr,
+          PLF.TemplateChoice.SelfBinderCase.SELF_BINDER_INTERNED_STR,
+          lfChoice.getSelfBinderInternedStr,
+          "TemplateChoice.self_binder.self_binder",
+        )
+        decodeExpr(lfChoice.getControllers, s"$tpl:$chName:controller") { controllers =>
+          bindWork(
+            if (lfChoice.hasObservers) {
+              assertSince(LV.Features.choiceObservers, "TemplateChoice.observers")
+              decodeExpr(lfChoice.getObservers, s"$tpl:$chName:observers") { observers =>
+                Ret(Some(observers))
+              }
+            } else {
+              assertUntil(LV.Features.choiceObservers, "missing TemplateChoice.observers")
+              Ret(None)
+            }
+          ) { choiceObservers =>
+            decodeType(lfChoice.getRetType) { returnType =>
+              decodeExpr(lfChoice.getUpdate, s"$tpl:$chName:choice") { update =>
+                Ret(
+                  TemplateChoice(
+                    name = chName,
+                    consuming = lfChoice.getConsuming,
+                    controllers,
+                    choiceObservers,
+                    selfBinder = selfBinder,
+                    argBinder = v -> t,
+                    returnType,
+                    update,
+                  )
+                )
+              }
+            }
+          }
+        }
+      }
     }
 
     private[lf] def decodeException(
@@ -737,22 +773,35 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     private def decodeDefInterface(
         id: DottedName,
         lfInterface: PLF.DefInterface,
-    ): Work[DefInterface] = Ret {
-      DefInterface.build(
-        requires =
-          if (lfInterface.getRequiresCount != 0) {
-            assertSince(LV.Features.extendedInterfaces, "DefInterface.requires")
-            lfInterface.getRequiresList.asScala.view.map(decodeTypeConName)
-          } else
-            List.empty,
-        param = getInternedName(lfInterface.getParamInternedStr, "DefInterface.param"),
-        choices = lfInterface.getChoicesList.asScala.view.map(x => xxx(decodeChoice(id, x))),
-        methods = lfInterface.getMethodsList.asScala.view.map(x => xxx(decodeInterfaceMethod(x))),
-        coImplements = lfInterface.getCoImplementsList.asScala.view.map(x =>
-          xxx(decodeInterfaceCoImplements(x))
-        ),
-        view = decodeType_DEP(lfInterface.getView),
-      )
+    ): Work[DefInterface] = {
+      sequenceWork(lfInterface.getMethodsList.asScala.toList.map(decodeInterfaceMethod(_))) {
+        methods =>
+          sequenceWork(lfInterface.getChoicesList.asScala.toList.map(decodeChoice(id, _))) {
+            choices =>
+              sequenceWork(
+                lfInterface.getCoImplementsList.asScala.toList.map(decodeInterfaceCoImplements(_))
+              ) { coImplements =>
+                decodeType(lfInterface.getView) { view =>
+                  Ret(
+                    DefInterface.build(
+                      requires =
+                        if (lfInterface.getRequiresCount != 0) {
+                          assertSince(LV.Features.extendedInterfaces, "DefInterface.requires")
+                          lfInterface.getRequiresList.asScala.view.map(decodeTypeConName)
+                        } else
+                          List.empty,
+                      param =
+                        getInternedName(lfInterface.getParamInternedStr, "DefInterface.param"),
+                      choices,
+                      methods,
+                      coImplements,
+                      view,
+                    )
+                  )
+                }
+              }
+          }
+      }
     }
 
     private[this] def decodeInterfaceMethod(
@@ -2224,6 +2273,21 @@ private[lf] object DecodeV1 {
 
   def bindWork[A, X](work: Work[X])(k: X => Work[A]): Work[A] = {
     Work.Bind(work, k)
+  }
+
+  // def mymap[A,B](xs: List[A])(f: A => B) = xs.map(f) //NICK: temp; die
+
+  def sequenceWork[A, B](works: List[Work[A]])(k: List[A] => Work[B]): Work[B] = {
+    def loop(acc: List[A], works: List[Work[A]]): Work[B] = {
+      works match {
+        case Nil => k(acc.reverse)
+        case work :: works =>
+          bindWork(work) { x =>
+            loop(x :: acc, works)
+          }
+      }
+    }
+    loop(Nil, works)
   }
 
 }
