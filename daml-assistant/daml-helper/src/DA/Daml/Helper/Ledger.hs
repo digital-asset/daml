@@ -510,7 +510,7 @@ reset args = do
                                   | (_offset, _mbWid, events) <- chunk
                                   , L.CreatedEvent {cid, tid} <- events
                                   ]
-            if archiveCommends == [] then
+            if null archiveCommends then
               pure ()
             else do
               cmdId <- liftIO UUID.nextRandom
