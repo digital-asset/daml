@@ -1018,53 +1018,58 @@ private[lf] final class Compiler(
   ): s.SExpr = {
     val templateId = disclosedContract.templateId
 
-    let(env, s.SEBuiltin(SBCheckTemplate(templateId))) { (templateCheck, env) =>
-      s.SECase(
-        env.toSEVar(templateCheck),
-        List(
-          s.SCaseAlt(
-            t.SCPPrimCon(PCTrue),
-            let(env, s.SEBuiltin(SBCheckTemplateKey(templateId))) { (templateKeyCheck, env) =>
-              val contract = s.SEValue(disclosedContract.argument)
+    let(env, s.SEApp(s.SEBuiltin(SBCheckTemplate(templateId)), List(s.SEValue.Unit))) {
+      (templateCheck, env) =>
+        s.SECase(
+          env.toSEVar(templateCheck),
+          List(
+            s.SCaseAlt(
+              t.SCPPrimCon(PCTrue),
+              let(env, s.SEApp(s.SEBuiltin(SBCheckTemplateKey(templateId)), List(s.SEValue.Unit))) {
+                (templateKeyCheck, env) =>
+                  val contract = s.SEValue(disclosedContract.argument)
 
-              s.SECase(
-                env.toSEVar(templateKeyCheck),
-                List(
-                  s.SCaseAlt(
-                    t.SCPPrimCon(PCTrue),
-                    let(
-                      env,
-                      s.SEApp(s.SEVal(ContractKeyWithMaintainersDefRef(templateId)), List(contract)),
-                    ) { (contractPos, env) =>
-                      let(env, s.SEApp(s.SEBuiltin(SBSome), List(env.toSEVar(contractPos)))) {
-                        (optionalContractPos, env) =>
+                  s.SECase(
+                    env.toSEVar(templateKeyCheck),
+                    List(
+                      s.SCaseAlt(
+                        t.SCPPrimCon(PCTrue),
+                        let(
+                          env,
                           s.SEApp(
-                            s.SEVal(ToCachedContractDefRef(templateId)),
-                            List(contract, env.toSEVar(optionalContractPos)),
-                          )
-                      }
-                    },
-                  ),
-                  s.SCaseAlt(
-                    t.SCPDefault,
-                    s.SEApp(
-                      s.SEVal(ToCachedContractDefRef(templateId)),
-                      List(contract, s.SEValue.None),
+                            s.SEVal(ContractKeyWithMaintainersDefRef(templateId)),
+                            List(contract),
+                          ),
+                        ) { (contractPos, env) =>
+                          let(env, s.SEApp(s.SEBuiltin(SBSome), List(env.toSEVar(contractPos)))) {
+                            (optionalContractPos, env) =>
+                              s.SEApp(
+                                s.SEVal(ToCachedContractDefRef(templateId)),
+                                List(contract, env.toSEVar(optionalContractPos)),
+                              )
+                          }
+                        },
+                      ),
+                      s.SCaseAlt(
+                        t.SCPDefault,
+                        s.SEApp(
+                          s.SEVal(ToCachedContractDefRef(templateId)),
+                          List(contract, s.SEValue.None),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              )
-            },
-          ),
-          s.SCaseAlt(
-            t.SCPDefault,
-            s.SEApp(
-              s.SEBuiltin(SBCrash(s"Template $templateId does not exist and it should")),
-              List(s.SEValue(SUnit)),
+                  )
+              },
+            ),
+            s.SCaseAlt(
+              t.SCPDefault,
+              s.SEApp(
+                s.SEBuiltin(SBCrash(s"Template $templateId does not exist and it should")),
+                List(s.SEValue(SUnit)),
+              ),
             ),
           ),
-        ),
-      )
+        )
     }
   }
 
