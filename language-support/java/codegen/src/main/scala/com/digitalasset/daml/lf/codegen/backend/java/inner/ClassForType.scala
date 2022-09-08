@@ -6,8 +6,9 @@ package com.daml.lf.codegen.backend.java.inner
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.codegen.backend.java.JavaEscaper
 import com.daml.lf.data.Ref.{PackageId, Identifier}
-import com.daml.lf.iface.InterfaceType.{Normal, Template}
-import com.daml.lf.iface.{Enum, DefDataType, InterfaceType, Record, Variant}
+import com.daml.lf.typesig.{Enum, DefDataType, PackageSignature, Record, Variant}
+import PackageSignature.TypeDecl
+import TypeDecl.{Normal, Template}
 import com.squareup.javapoet.{ClassName, JavaFile, TypeSpec}
 import com.typesafe.scalalogging.StrictLogging
 
@@ -24,7 +25,7 @@ object ClassForType extends StrictLogging {
         .flatMap(ClassForType(_, packagePrefixes, toBeGenerated))
         .toList
 
-    def generateForType(lfInterfaceType: InterfaceType): List[JavaFile] = {
+    def generateForType(lfInterfaceType: TypeDecl): List[JavaFile] = {
       val classNameString = fullyQualifiedName(typeWithContext.identifier, packagePrefixes)
       val className = ClassName.bestGuess(classNameString)
       generateInterfaceTypes(typeWithContext, packagePrefixes) ++
@@ -43,7 +44,7 @@ object ClassForType extends StrictLogging {
       packagePrefixes: Map[PackageId, String],
   ): List[JavaFile] =
     for {
-      (interfaceName, interface) <- typeWithContext.interface.astInterfaces.toList
+      (interfaceName, interface) <- typeWithContext.interface.interfaces.toList
       className = ClassName.bestGuess(fullyQualifiedName(interfaceName))
       packageName = className.packageName()
       interfaceClass =
@@ -62,7 +63,7 @@ object ClassForType extends StrictLogging {
       typeWithContext: TypeWithContext,
       className: ClassName,
       packagePrefixes: Map[PackageId, String],
-      lfInterfaceType: InterfaceType,
+      lfInterfaceType: TypeDecl,
   ): List[JavaFile] = {
     val packageName = className.packageName()
     lfInterfaceType match {

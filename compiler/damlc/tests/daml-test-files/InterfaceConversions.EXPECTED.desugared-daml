@@ -5,6 +5,7 @@ import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
 import DA.Assert ( (===) )
 import DA.Functor ( void )
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => Iface = Iface GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Iface where
   _interfaceTypeRep
@@ -17,10 +18,8 @@ instance DA.Internal.Desugar.HasFromInterface Iface Iface where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
 instance DA.Internal.Desugar.HasMethod Iface "getOwner" (Party)
-getOwner : DA.Internal.Desugar.Implements t Iface => t -> Party
-getOwner t
-  = GHC.Types.primitiveInterface
-      @"getOwner" (DA.Internal.Desugar._toInterface @_ @Iface t)
+getOwner : Iface -> Party
+getOwner = GHC.Types.primitiveInterface @"getOwner"
 instance DA.Internal.Desugar.HasToAnyTemplate Iface where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate Iface where
@@ -37,29 +36,25 @@ instance DA.Internal.Desugar.HasIsInterfaceType Iface where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Iface where
   (==) = GHC.Types.primitive @"BEEqual"
-instance (DA.Internal.Desugar.Implements t Iface) =>
-         DA.Internal.Desugar.HasToAnyChoice t MyChoice (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Iface MyChoice (()) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Iface])
-instance (DA.Internal.Desugar.Implements t Iface) =>
-         DA.Internal.Desugar.HasFromAnyChoice t MyChoice (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Iface MyChoice (()) where
   _fromAnyChoice _
     = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Iface])
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t Iface)) =>
-         DA.Internal.Desugar.HasExerciseGuarded t MyChoice (()) where
+instance DA.Internal.Desugar.HasExerciseGuarded Iface MyChoice (()) where
   exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @Iface cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Iface cid pred)
+instance DA.Internal.Desugar.HasExercise Iface MyChoice (()) where
+  exercise cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Iface cid)
         arg
-        (DA.Internal.Desugar._exerciseInterfaceGuard @Iface cid pred)
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t Iface)) =>
-         DA.Internal.Desugar.HasExercise t MyChoice (()) where
-  exercise = DA.Internal.Desugar._exerciseDefault
 data MyChoice
   = MyChoice {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -77,6 +72,8 @@ _choice_IfaceMyChoice
      \ self this arg@MyChoice
        -> let _ = self in let _ = this in let _ = arg in do pure (), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView Iface EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => Template1
   = Template1 {owner1 : Party, value1 : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -146,23 +143,35 @@ _choice_Template1Archive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_implements_Template1_Iface :
-  DA.Internal.Desugar.ImplementsT Template1 Iface
-_implements_Template1_Iface = DA.Internal.Desugar.ImplementsT
+_interface_instance_Template1_Iface_Template1 :
+  DA.Internal.Desugar.InterfaceInstance Template1 Iface Template1
+_interface_instance_Template1_Iface_Template1
+  = DA.Internal.Desugar.mkInterfaceInstance
+      @Template1 @Iface @Template1
+_method_Template1_Iface_Template1_getOwner :
+  DA.Internal.Desugar.Method Template1 Iface Template1 "getOwner"
+_method_Template1_Iface_Template1_getOwner
+  = DA.Internal.Desugar.mkMethod
+      @Template1
+      @Iface
+      @Template1
+      @"getOwner"
+      \ this@Template1 {..}
+        -> let _ = this in let getOwner = owner1 in getOwner
+_view_Template1_Iface_Template1 :
+  DA.Internal.Desugar.InterfaceView Template1 Iface Template1
+_view_Template1_Iface_Template1
+  = DA.Internal.Desugar.mkInterfaceView
+      @Template1
+      @Iface
+      @Template1
+      \ this@Template1 {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 instance DA.Internal.Desugar.HasToInterface Template1 Iface where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Template1 Iface where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-_method_Template1_Iface_getOwner :
-  DA.Internal.Desugar.Method Template1 Iface "getOwner"
-_method_Template1_Iface_getOwner
-  = DA.Internal.Desugar.mkMethod
-      @Template1
-      @Iface
-      @"getOwner"
-      (\ this@Template1 {..}
-         -> let _ = this in let getOwner = owner1 in getOwner)
 data GHC.Types.DamlTemplate => Template2
   = Template2 {owner2 : Party, value2 : Text}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -232,23 +241,35 @@ _choice_Template2Archive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_implements_Template2_Iface :
-  DA.Internal.Desugar.ImplementsT Template2 Iface
-_implements_Template2_Iface = DA.Internal.Desugar.ImplementsT
+_interface_instance_Template2_Iface_Template2 :
+  DA.Internal.Desugar.InterfaceInstance Template2 Iface Template2
+_interface_instance_Template2_Iface_Template2
+  = DA.Internal.Desugar.mkInterfaceInstance
+      @Template2 @Iface @Template2
+_method_Template2_Iface_Template2_getOwner :
+  DA.Internal.Desugar.Method Template2 Iface Template2 "getOwner"
+_method_Template2_Iface_Template2_getOwner
+  = DA.Internal.Desugar.mkMethod
+      @Template2
+      @Iface
+      @Template2
+      @"getOwner"
+      \ this@Template2 {..}
+        -> let _ = this in let getOwner = owner2 in getOwner
+_view_Template2_Iface_Template2 :
+  DA.Internal.Desugar.InterfaceView Template2 Iface Template2
+_view_Template2_Iface_Template2
+  = DA.Internal.Desugar.mkInterfaceView
+      @Template2
+      @Iface
+      @Template2
+      \ this@Template2 {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 instance DA.Internal.Desugar.HasToInterface Template2 Iface where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Template2 Iface where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-_method_Template2_Iface_getOwner :
-  DA.Internal.Desugar.Method Template2 Iface "getOwner"
-_method_Template2_Iface_getOwner
-  = DA.Internal.Desugar.mkMethod
-      @Template2
-      @Iface
-      @"getOwner"
-      (\ this@Template2 {..}
-         -> let _ = this in let getOwner = owner2 in getOwner)
 main
   = scenario
       do p <- getParty "Alice"
@@ -281,5 +302,4 @@ main
                     action (fromInterfaceContractId @Template2 cid)
          submit p do useAction $ \ _cid -> pure ()
          submitMustFail p do useAction $ \ cid -> void (fetch cid)
-         submitMustFail p do useAction $ \ cid -> exercise cid MyChoice
          submitMustFail p do useAction $ \ cid -> archive cid

@@ -66,7 +66,7 @@ users.
 .. image:: images/choose-party.png
   :width: 30%
   :align: center
-  :alt: The Digital Asset Navigator home screen with dropdown list. The options are BANK1, BANK2, and OPERATOR.
+  :alt: The Digital Asset Navigator home screen with dropdown list. The options are alice, bob, eur and us.
 
 The main Navigator screen will be displayed, with contracts that the primary party of this user
 is entitled to view in the main pane and
@@ -80,14 +80,14 @@ display, include or exclude archived contracts, and exercise choices as describe
 
 To change the active user:
 
-#. Click the name of the current user in the top right corner of the screen.
+#. Click the name of the current user in the top left corner of the screen.
 
 #. On the home screen, select a different user.
 
 .. image:: images/sign-out.png
   :width: 30%
   :align: center
-  :alt: The upper right corner of the screen, location of the navbar. The current user is displayed next to the date and time.
+  :alt: The upper left corner of the screen, location of the navbar. The current user is displayed next to the date and time.
 
 You can act as different users in different
 browser windows. Use Chrome's profile feature
@@ -183,14 +183,14 @@ You can also view the list of contracts that are based on a particular template.
 .. image:: images/template-contracts-icon.png
   :width: 85%
   :align: center
-  :alt: The Templates view with the handshake icon and number of contracts for the fifth template on the list highlighted. Here, the number of contracts is four. 
+  :alt: The Templates view with the handshake icon and number of contracts for the 12th template on the list highlighted. Here, the number of contracts is one.
 
 **List of Contracts**
 
 .. image:: images/template-contracts.png
   :width: 85%
   :align: center
-  :alt: The result of clicking on the number highlighted in the last image - the Contracts view filtered to display only the four contracts based on the selected template.
+  :alt: The result of clicking on the number highlighted in the last image - the Contracts view filtered to display only the single contract based on the selected template.
 
 Viewing template and contract details
 =====================================
@@ -202,7 +202,7 @@ To view template or contract details, click on a template or contract in the lis
 .. image:: images/template-details.png
   :width: 85%
   :align: center
-  :alt: The Template Details view, showing the Amount, Currency, Obligor, and Recipient for a particular template.
+  :alt: The Template Details view, showing the Issuer, Owner, Amount, Currency, Observers, and Recipient for a particular template.
 
 **Contract Details**
 
@@ -268,7 +268,7 @@ To exercise a choice:
 .. image:: images/choice-exercise.png
   :width: 85%
   :align: center
-  :alt: The Contract Details view with the Consolidate choice selected.
+  :alt: The Contract Details view with the Mergeb choice selected.
 
 Or
 

@@ -138,11 +138,11 @@ final class CommandDeduplicationIT(
       // Create two competing requests
       requestA = ledger.submitAndWaitRequest(
         party,
-        ko.exerciseTKOFetchAndRecreate(party, Tuple2(party, key)).command,
+        ko.exerciseTKOFetchAndRecreate(Tuple2(party, key)).command,
       )
       requestB = ledger.submitAndWaitRequest(
         party,
-        ko.exerciseTKOFetchAndRecreate(party, Tuple2(party, key)).command,
+        ko.exerciseTKOFetchAndRecreate(Tuple2(party, key)).command,
       )
 
       // Submit both requests in parallel.
@@ -616,12 +616,10 @@ final class CommandDeduplicationIT(
           .getTimeModel()
           .flatMap(response => {
             ledger.delayMechanism.delayBy(
-              Durations.scaleDuration(
-                Durations.asFiniteDuration(
-                  2 * (response.getTimeModel.getMaxSkew.asScala +
-                    response.getTimeModel.getMinSkew.asScala)
-                ),
-                timeoutScaleFactor,
+              // skews are already scaled by the time factor
+              Durations.asFiniteDuration(
+                2 * (response.getTimeModel.getMaxSkew.asScala +
+                  response.getTimeModel.getMinSkew.asScala)
               )
             )
           })

@@ -9,9 +9,9 @@ Testing the daml version header.
 > | Field                                                                                   | Type                                                                                    | Description |
 > | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
 > | p                                                                                       | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
-> 
+>
 > * **Choice Archive**
->   
+>
 >   (no fields)
 
 ## Functions

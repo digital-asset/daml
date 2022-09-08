@@ -9,7 +9,7 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref._
-import com.daml.lf.iface._
+import com.daml.lf.typesig._
 import com.daml.lf.codegen.conf.PackageReference
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
@@ -120,16 +120,17 @@ object CodeGenRunnerTests {
   private val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
   private val dar = DarReader.assertReadArchiveFromFile(testDar.toFile)
 
-  private def interface(pkgId: String, modNames: String*): Interface =
+  private def interface(pkgId: String, modNames: String*): PackageSignature =
     interface(pkgId, None, modNames: _*)
 
   private def interface(
       pkgId: String,
       metadata: Option[PackageMetadata],
       modNames: String*
-  ): Interface = {
-    val dummyType = InterfaceType.Normal(DefDataType(ImmArraySeq.empty, Record(ImmArraySeq.empty)))
-    Interface(
+  ): PackageSignature = {
+    val dummyType =
+      PackageSignature.TypeDecl.Normal(DefDataType(ImmArraySeq.empty, Record(ImmArraySeq.empty)))
+    PackageSignature(
       PackageId.assertFromString(pkgId),
       metadata,
       modNames.view

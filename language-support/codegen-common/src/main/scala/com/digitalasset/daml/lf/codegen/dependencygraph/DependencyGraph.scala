@@ -4,7 +4,8 @@
 package com.daml.lf.codegen.dependencygraph
 
 import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.iface.{InterfaceType, DefInterface}
+import com.daml.lf.typesig.DefInterface
+import com.daml.lf.typesig.PackageSignature.TypeDecl
 import scalaz.std.list._
 import scalaz.syntax.bifoldable._
 import scalaz.syntax.foldable._
@@ -13,16 +14,16 @@ private[codegen] object DependencyGraph {
 
   import com.daml.lf.codegen.Util.genTypeTopLevelDeclNames
 
-  private def toNode(namedInterfaceType: (Identifier, InterfaceType)) =
-    namedInterfaceType match {
-      case id -> InterfaceType.Normal(t) =>
+  private def toNode(namedTypeDecl: (Identifier, TypeDecl)) =
+    namedTypeDecl match {
+      case id -> TypeDecl.Normal(t) =>
         Left(
           id -> Node(
             NodeType.Internal(t),
             t.bifoldMap(genTypeTopLevelDeclNames)(genTypeTopLevelDeclNames),
           )
         )
-      case id -> InterfaceType.Template(rec, template) =>
+      case id -> TypeDecl.Template(rec, template) =>
         val recDeps = rec.foldMap(genTypeTopLevelDeclNames)
         val choiceAndKeyDeps = template.foldMap(genTypeTopLevelDeclNames)
         Right(
@@ -40,7 +41,7 @@ private[codegen] object DependencyGraph {
     )
 
   def orderedDependencies(
-      serializableTypes: Map[Identifier, InterfaceType],
+      serializableTypes: Map[Identifier, TypeDecl],
       interfaces: Map[Identifier, DefInterface.FWT],
   ): OrderedDependencies[Identifier, NodeType] = {
     // invariant: no type decl name equals any template alias
@@ -56,7 +57,7 @@ private[codegen] object DependencyGraph {
     * the Ledger API.
     */
   def transitiveClosure(
-      serializableTypes: Map[Identifier, InterfaceType],
+      serializableTypes: Map[Identifier, TypeDecl],
       interfaces: Map[Identifier, DefInterface.FWT],
   ): TransitiveClosure =
     TransitiveClosure.from(orderedDependencies(serializableTypes, interfaces))

@@ -7,7 +7,6 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
-import io.grpc.StatusRuntimeException
 
 sealed abstract class ErrorCause extends Product with Serializable
 
@@ -20,7 +19,7 @@ object RejectionGenerators {
 
   def commandExecutorError(cause: ErrorCause)(implicit
       errorLoggingContext: ContextualizedErrorLogger
-  ): StatusRuntimeException = {
+  ): DamlError = {
 
     def processPackageError(err: LfError.Package.Error): DamlError = err match {
       case e: Package.Internal => LedgerApiErrors.InternalError.PackageInternal(e)
@@ -144,6 +143,9 @@ object RejectionGenerators {
             .Error(
               renderedMessage
             )
+        case _: LfInterpretationError.InconsistentDisclosureTable.IncorrectlyTypedContract =>
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
+            .Error(renderedMessage)
       }
     }
 
@@ -171,7 +173,7 @@ object RejectionGenerators {
             ) => // Keeping this around as a string match as daml is not yet generating LfError.InterpreterErrors.Validation
           LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError.Reject(e.message)
       }
-      transformed.asGrpcError
+      transformed
     }
 
     cause match {
@@ -179,7 +181,6 @@ object RejectionGenerators {
       case x: ErrorCause.LedgerTime =>
         LedgerApiErrors.CommandExecution.FailedToDetermineLedgerTime
           .Reject(s"Could not find a suitable ledger time after ${x.retries} retries")
-          .asGrpcError
     }
   }
 }

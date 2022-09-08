@@ -43,10 +43,10 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
+        "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/interface",
         "//language-support/codegen-common",
         "@maven//:org_slf4j_slf4j_api",
     ],
@@ -95,9 +95,9 @@ da_scala_test_suite(
     scalacopts = common_scalacopts,
     deps = [
         ":codegen",
+        "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/interface",
         "//daml-lf/transaction-test-lib",
         "//libs-scala/logging-entries",
         "@maven//:org_scalatest_scalatest_compatible",

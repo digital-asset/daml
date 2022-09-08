@@ -88,7 +88,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
         "cli argument" -> "stream config",
         s"stream-type=transactions,name=$name,filters=$party1" -> TransactionsStreamConfig(
           name = name,
-          filters = List(PartyFilter(party1, Nil)),
+          filters = List(PartyFilter(party1, Nil, Nil)),
           beginOffset = None,
           endOffset = None,
           objectives = None,
@@ -97,7 +97,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
         ),
         s"stream-type=transaction-trees,name=$name,filters=$party1" -> TransactionTreesStreamConfig(
           name = name,
-          filters = List(PartyFilter(party1, Nil)),
+          filters = List(PartyFilter(party1, Nil, Nil)),
           beginOffset = None,
           endOffset = None,
           objectives = None,
@@ -106,7 +106,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
         ),
         s"stream-type=active-contracts,name=$name,filters=$party1" -> ActiveContractsStreamConfig(
           name = name,
-          filters = List(PartyFilter(party1, Nil)),
+          filters = List(PartyFilter(party1, Nil, Nil)),
           objectives = None,
           maxItemCount = None,
           timeoutInSecondsO = None,
@@ -140,9 +140,9 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
       // each party filter separated by '+' and each template in a filter separated by '@'
       val filters = s"$party1+$party2@$template1@$template2+$party3@$template2"
       val filtersList = List(
-        PartyFilter(party1, List()),
-        PartyFilter(party2, List(template1, template2)),
-        PartyFilter(party3, List(template2)),
+        PartyFilter(party1, List(), List()),
+        PartyFilter(party2, List(template1, template2), List()),
+        PartyFilter(party3, List(template2), List()),
       )
       val cases = Table(
         "cli argument" -> "stream config",
@@ -197,7 +197,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
       forAll(cases) { (argument, offset) =>
         val streamConfig = TransactionsStreamConfig(
           name = name,
-          filters = List(PartyFilter(party, Nil)),
+          filters = List(PartyFilter(party, Nil, Nil)),
           beginOffset = Some(offset),
           endOffset = None,
           objectives = None,
@@ -231,7 +231,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
       forAll(cases) { (argument, offset) =>
         val streamConfig = TransactionsStreamConfig(
           name = name,
-          filters = List(PartyFilter(party, Nil)),
+          filters = List(PartyFilter(party, Nil, Nil)),
           beginOffset = None,
           endOffset = Some(offset),
           objectives = None,
@@ -277,7 +277,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
       forAll(cases) { (argument, objectives) =>
         val streamConfig = TransactionsStreamConfig(
           name = name,
-          filters = List(PartyFilter(party, Nil)),
+          filters = List(PartyFilter(party, Nil, Nil)),
           beginOffset = None,
           endOffset = None,
           objectives = Some(objectives),
@@ -306,7 +306,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
       forAll(cases) { (argument, objectives) =>
         val streamConfig = ActiveContractsStreamConfig(
           name = name,
-          filters = List(PartyFilter(party, Nil)),
+          filters = List(PartyFilter(party, Nil, Nil)),
           objectives = Some(objectives),
           maxItemCount = None,
           timeoutInSecondsO = None,
@@ -328,7 +328,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
 
     "parse `max-latency-objective` flag" in {
       val expectedConfig = Config.Default.copy(maxLatencyObjectiveMillis = 6000L)
-      parse("--max-latency", "6000") shouldBe expectedConfig
+      parse("--max-latency-millis", "6000") shouldBe expectedConfig
     }
 
     "`latency-test` cannot be enabled with configured workflow streams" in {

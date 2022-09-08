@@ -67,7 +67,7 @@ object Cli {
       .optional()
       .action { case (_, config) => config.copy(latencyTest = true) }
 
-    opt[Long]("max-latency")
+    opt[Long]("max-latency-millis")
       .text(
         "The maximum average latency allowed for latency benchmarks (in millis). Only relevant with `latency-test` enabled."
       )
@@ -372,7 +372,9 @@ object Cli {
         .split('@')
         .toList match {
         case party :: templates =>
-          Right(WorkflowConfig.StreamConfig.PartyFilter(party, templates))
+          Right(
+            WorkflowConfig.StreamConfig.PartyFilter(party, templates, List.empty)
+          ) // Interfaces are not supported via Cli
         case _ => Left("Filter cannot be empty")
       }
     }

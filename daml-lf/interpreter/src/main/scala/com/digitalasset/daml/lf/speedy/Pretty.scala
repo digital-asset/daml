@@ -175,9 +175,9 @@ private[lf] object Pretty {
             text(
               s"Found duplicated contract IDs in submitted disclosed contracts for template $templateId"
             )
-          case DisclosurePreprocessing.DuplicateContractKeys(templateId) =>
+          case DisclosurePreprocessing.DuplicateContractKeys(templateId, keyHash) =>
             text(
-              s"Found duplicated contract keys in submitted disclosed contracts for template $templateId"
+              s"Found duplicated contract keys in submitted disclosed contracts for template $templateId and key hash ${keyHash.toHexString}"
             )
           case DisclosurePreprocessing.NonExistentTemplate(templateId) =>
             text(
@@ -191,6 +191,16 @@ private[lf] object Pretty {
               s"Template $templateId has a key defined, but there is no key hash for disclosed contract $contractId"
             )
         }
+
+      case InconsistentDisclosureTable.IncorrectlyTypedContract(coid, expected, actual) =>
+        text(
+          "Inconsistent disclosure table: invalid key hash mapping for disclosed contract id"
+        ) & prettyContractId(coid) /
+          text("Expected contract of type") & prettyTypeConName(expected) & text(
+            "but got"
+          ) & prettyTypeConName(
+            actual
+          )
     }
   }
 
@@ -595,7 +605,6 @@ private[lf] object Pretty {
 
         case x: SEImportValue => str(x)
         case x: SELabelClosure => str(x)
-        case x: SEDamlException => str(x)
       }
   }
 

@@ -3,6 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => I = I GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep I where
   _interfaceTypeRep
@@ -30,6 +31,8 @@ instance DA.Internal.Desugar.HasIsInterfaceType I where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq I where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView I EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlInterface => J = J GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep J where
   _interfaceTypeRep
@@ -50,10 +53,8 @@ instance DA.Internal.Desugar.HasFromInterface J I where
   unsafeFromInterface
     = GHC.Types.primitive @"EUnsafeFromRequiredInterface"
 instance DA.Internal.Desugar.HasMethod J "getController" (Party)
-getController : DA.Internal.Desugar.Implements t J => t -> Party
-getController t
-  = GHC.Types.primitiveInterface
-      @"getController" (DA.Internal.Desugar._toInterface @_ @J t)
+getController : J -> Party
+getController = GHC.Types.primitiveInterface @"getController"
 instance DA.Internal.Desugar.HasToAnyTemplate J where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate J where
@@ -70,29 +71,25 @@ instance DA.Internal.Desugar.HasIsInterfaceType J where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq J where
   (==) = GHC.Types.primitive @"BEEqual"
-instance (DA.Internal.Desugar.Implements t J) =>
-         DA.Internal.Desugar.HasToAnyChoice t JChoice (()) where
+instance DA.Internal.Desugar.HasToAnyChoice J JChoice (()) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [J])
-instance (DA.Internal.Desugar.Implements t J) =>
-         DA.Internal.Desugar.HasFromAnyChoice t JChoice (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice J JChoice (()) where
   _fromAnyChoice _
     = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [J])
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t J)) =>
-         DA.Internal.Desugar.HasExerciseGuarded t JChoice (()) where
+instance DA.Internal.Desugar.HasExerciseGuarded J JChoice (()) where
   exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @J cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @J cid pred)
+instance DA.Internal.Desugar.HasExercise J JChoice (()) where
+  exercise cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @J cid)
         arg
-        (DA.Internal.Desugar._exerciseInterfaceGuard @J cid pred)
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t J)) =>
-         DA.Internal.Desugar.HasExercise t JChoice (()) where
-  exercise = DA.Internal.Desugar._exerciseDefault
 data JChoice
   = JChoice {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -110,6 +107,8 @@ _choice_JJChoice
      \ self this arg@JChoice
        -> let _ = self in let _ = this in let _ = arg in do pure (), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView J EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => T
   = T {party : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -171,8 +170,18 @@ _choice_TArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_implements_T_I : DA.Internal.Desugar.ImplementsT T I
-_implements_T_I = DA.Internal.Desugar.ImplementsT
+_interface_instance_T_I_T :
+  DA.Internal.Desugar.InterfaceInstance T I T
+_interface_instance_T_I_T
+  = DA.Internal.Desugar.mkInterfaceInstance @T @I @T
+_view_T_I_T : DA.Internal.Desugar.InterfaceView T I T
+_view_T_I_T
+  = DA.Internal.Desugar.mkInterfaceView
+      @T
+      @I
+      @T
+      \ this@T {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 instance DA.Internal.Desugar.HasToInterface T I where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T I where

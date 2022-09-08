@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.actor.Scheduler
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
+import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import io.grpc.StatusRuntimeException
@@ -23,6 +24,7 @@ private[auth] final class OngoingAuthorizationObserver[A](
     userRightsCheckerO: Option[UserRightsChangeAsyncChecker],
     userRightsCheckIntervalInSeconds: Int,
     lastUserRightsCheckTime: AtomicReference[Instant],
+    jwtTimestampLeeway: Option[JwtTimestampLeeway],
 )(implicit loggingContext: LoggingContext)
     extends ServerCallStreamObserver[A] {
 
@@ -109,7 +111,7 @@ private[auth] final class OngoingAuthorizationObserver[A](
 
   private def checkClaimsExpiry(now: Instant): Either[StatusRuntimeException, Unit] =
     originalClaims
-      .notExpired(now)
+      .notExpired(now, jwtTimestampLeeway)
       .left
       .map(authorizationError =>
         LedgerApiErrors.AuthorizationChecks.PermissionDenied
@@ -137,6 +139,7 @@ private[auth] object OngoingAuthorizationObserver {
       userManagementStore: UserManagementStore,
       userRightsCheckIntervalInSeconds: Int,
       akkaScheduler: Scheduler,
+      jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
   )(implicit loggingContext: LoggingContext, ec: ExecutionContext): ServerCallStreamObserver[A] = {
 
     val lastUserRightsCheckTime = new AtomicReference(nowF())
@@ -160,6 +163,7 @@ private[auth] object OngoingAuthorizationObserver {
       userRightsCheckerO = userRightsCheckerO,
       userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
       lastUserRightsCheckTime = lastUserRightsCheckTime,
+      jwtTimestampLeeway = jwtTimestampLeeway,
     )
   }
 

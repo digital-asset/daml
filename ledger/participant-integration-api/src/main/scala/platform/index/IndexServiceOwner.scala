@@ -9,7 +9,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
-import com.daml.lf.engine.ValueEnricher
+import com.daml.lf.engine.Engine
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.InMemoryState
@@ -36,7 +36,7 @@ final class IndexServiceOwner(
     servicesExecutionContext: ExecutionContext,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
-    enricher: ValueEnricher,
+    engine: Engine,
     participantId: Ref.ParticipantId,
     inMemoryState: InMemoryState,
 )(implicit
@@ -66,7 +66,7 @@ final class IndexServiceOwner(
       lfValueTranslation = new LfValueTranslation(
         cache = lfValueTranslationCache,
         metrics = metrics,
-        enricherO = Some(enricher),
+        engineO = Some(engine),
         loadPackage = (packageId, loggingContext) =>
           ledgerDao.getLfArchive(packageId)(loggingContext),
       )
@@ -78,14 +78,14 @@ final class IndexServiceOwner(
 
       bufferedTransactionsReader = BufferedTransactionsReader(
         delegate = ledgerDao.transactionsReader,
-        transactionsBuffer = inMemoryState.transactionsBuffer,
+        transactionsBuffer = inMemoryState.inMemoryFanoutBuffer,
         lfValueTranslation = lfValueTranslation,
         metrics = metrics,
         eventProcessingParallelism = config.eventsProcessingParallelism,
       )(inMemoryFanOutExecutionContext)
 
       bufferedCommandCompletionsReader = BufferedCommandCompletionsReader(
-        inMemoryFanoutBuffer = inMemoryState.transactionsBuffer,
+        inMemoryFanoutBuffer = inMemoryState.inMemoryFanoutBuffer,
         delegate = ledgerDao.completions,
         metrics = metrics,
       )(inMemoryFanOutExecutionContext)
@@ -97,8 +97,9 @@ final class IndexServiceOwner(
         transactionsReader = bufferedTransactionsReader,
         commandCompletionsReader = bufferedCommandCompletionsReader,
         contractStore = contractStore,
-        pruneBuffers = inMemoryState.transactionsBuffer.prune,
+        pruneBuffers = inMemoryState.inMemoryFanoutBuffer.prune,
         dispatcher = () => inMemoryState.dispatcherState.getDispatcher,
+        packageMetadataView = inMemoryState.packageMetadataView,
         metrics = metrics,
       )
     } yield new TimedIndexService(indexService, metrics)
@@ -177,7 +178,7 @@ final class IndexServiceOwner(
       servicesExecutionContext = servicesExecutionContext,
       metrics = metrics,
       lfValueTranslationCache = lfValueTranslationCache,
-      enricher = Some(enricher),
+      engine = Some(engine),
       participantId = participantId,
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,

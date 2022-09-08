@@ -11,8 +11,8 @@
 // * 13 -- no change w.r.t. 12
 // * 14 -- add rollback nodes
 //         add by_key flag to fetch and exercise node
+// * 15 -- add interfaceId in exercise node to exercise via interface
 // * dev -- special staging area for the next version to be released
-//         add interfaceId in exercise node
 syntax = "proto3";
 
 package com.daml.lf.transaction;
@@ -90,7 +90,7 @@ message NodeFetch {
 message NodeExercise {
     reserved 1; // was contract_id
     com.daml.lf.value.Identifier template_id = 2;
-    com.daml.lf.value.Identifier interface_id = 19; // optional *since version dev*
+    com.daml.lf.value.Identifier interface_id = 19; // optional *since version 15*
     repeated string actors = 3;
     string choice = 4;
     oneof arg {

@@ -75,11 +75,18 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
       .unfoldAsync(startExclusive) {
         case scannedToInclusive if scannedToInclusive < endInclusive =>
           Future {
-            inMemoryFanoutBuffer.slice(
-              startExclusive = scannedToInclusive,
-              endInclusive = endInclusive,
-              filter = bufferFilter,
-            ) match {
+            val bufferSlice = Timed.value(
+              bufferReaderMetrics.slice,
+              inMemoryFanoutBuffer.slice(
+                startExclusive = scannedToInclusive,
+                endInclusive = endInclusive,
+                filter = bufferFilter,
+              ),
+            )
+
+            bufferReaderMetrics.sliceSize.update(bufferSlice.slice.size)
+
+            bufferSlice match {
               case BufferSlice.Inclusive(slice) =>
                 val apiResponseSource = toApiResponseStream(slice)
                 val nextSliceStartExclusive = slice.lastOption.map(_._1).getOrElse(endInclusive)
@@ -88,7 +95,7 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
               case BufferSlice.LastBufferChunkSuffix(bufferedStartExclusive, slice) =>
                 val sourceFromBuffer =
                   fetchFromPersistence(
-                    startExclusive = startExclusive,
+                    startExclusive = scannedToInclusive,
                     endInclusive = bufferedStartExclusive,
                     filter = persistenceFetchArgs,
                   )(loggingContext)

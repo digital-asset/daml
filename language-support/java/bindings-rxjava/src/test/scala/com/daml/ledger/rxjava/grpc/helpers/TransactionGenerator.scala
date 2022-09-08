@@ -6,17 +6,24 @@ package com.daml.ledger.rxjava.grpc.helpers
 import java.time.Instant
 import java.util
 import java.util.Collections
-
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
 import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created}
-import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
+import com.daml.ledger.api.v1.event.{
+  ArchivedEvent,
+  CreatedEvent,
+  Event,
+  ExercisedEvent,
+  InterfaceView,
+}
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
 import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.{Timestamp => ScalaTimestamp}
+import com.google.rpc.{Status => JStatus}
+import com.google.rpc.status.{Status => SStatus}
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 
 import scala.jdk.CollectionConverters._
@@ -178,7 +185,25 @@ object TransactionGenerator {
   val unitValueGen: Gen[(Sum.Unit, data.Unit)] =
     Gen.const((Sum.Unit(Empty()), data.Unit.getInstance()))
 
-  val createdEventGen: Gen[(Created, data.CreatedEvent)] = for {
+  private val statusGen: Gen[(SStatus, JStatus)] = for {
+    code <- Gen.chooseNum(0, Int.MaxValue)
+    message <- Gen.alphaNumStr
+  } yield (SStatus(code, message), JStatus.newBuilder().setCode(code).setMessage(message).build)
+
+  private val interfaceViewGen
+      : Gen[(InterfaceView, (data.Identifier, Either[JStatus, data.DamlRecord]))] = for {
+    (scalaInterfaceId, javaInterfaceId) <- identifierGen
+    statusOrRecord <- Gen.either(statusGen, Gen.sized(recordGen))
+  } yield (
+    InterfaceView(
+      Some(scalaInterfaceId),
+      statusOrRecord.left.toOption.map(_._1),
+      statusOrRecord.toOption.map(_._1),
+    ),
+    (javaInterfaceId, statusOrRecord.left.map(_._2).map(_._2)),
+  )
+
+  private val createdEventGen: Gen[(Created, data.CreatedEvent)] = for {
     eventId <- nonEmptyId
     contractId <- nonEmptyId
     agreementText <- Gen.option(Gen.asciiStr)
@@ -187,6 +212,7 @@ object TransactionGenerator {
     (scalaRecord, javaRecord) <- Gen.sized(recordGen)
     signatories <- Gen.listOf(nonEmptyId)
     observers <- Gen.listOf(nonEmptyId)
+    interfaceViews <- Gen.listOf(interfaceViewGen)
   } yield (
     Created(
       CreatedEvent(
@@ -195,6 +221,7 @@ object TransactionGenerator {
         Some(scalaTemplateId),
         contractKey.map(_._1),
         Some(scalaRecord),
+        interfaceViews.map(_._1),
         signatories ++ observers,
         signatories,
         observers,
@@ -207,6 +234,8 @@ object TransactionGenerator {
       javaTemplateId,
       contractId,
       javaRecord,
+      interfaceViews.view.collect { case (_, (id, Right(rec))) => (id, rec) }.toMap.asJava,
+      interfaceViews.view.collect { case (_, (id, Left(stat))) => (id, stat) }.toMap.asJava,
       agreementText.toJava,
       contractKey.map(_._2).toJava,
       signatories.toSet.asJava,

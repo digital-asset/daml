@@ -8,6 +8,7 @@ instance Eq NonSerializable where
   (==) = error "undefined"
 instance Show NonSerializable where
   show = error "undefined"
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => I = I GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep I where
   _interfaceTypeRep
@@ -20,10 +21,8 @@ instance DA.Internal.Desugar.HasFromInterface I I where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
 instance DA.Internal.Desugar.HasMethod I "p" (Party)
-p : DA.Internal.Desugar.Implements t I => t -> Party
-p t
-  = GHC.Types.primitiveInterface
-      @"p" (DA.Internal.Desugar._toInterface @_ @I t)
+p : I -> Party
+p = GHC.Types.primitiveInterface @"p"
 instance DA.Internal.Desugar.HasToAnyTemplate I where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate I where
@@ -40,29 +39,25 @@ instance DA.Internal.Desugar.HasIsInterfaceType I where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq I where
   (==) = GHC.Types.primitive @"BEEqual"
-instance (DA.Internal.Desugar.Implements t I) =>
-         DA.Internal.Desugar.HasToAnyChoice t NonSerializableArgument (()) where
+instance DA.Internal.Desugar.HasToAnyChoice I NonSerializableArgument (()) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [I])
-instance (DA.Internal.Desugar.Implements t I) =>
-         DA.Internal.Desugar.HasFromAnyChoice t NonSerializableArgument (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice I NonSerializableArgument (()) where
   _fromAnyChoice _
     = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [I])
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t I)) =>
-         DA.Internal.Desugar.HasExerciseGuarded t NonSerializableArgument (()) where
+instance DA.Internal.Desugar.HasExerciseGuarded I NonSerializableArgument (()) where
   exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @I cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @I cid pred)
+instance DA.Internal.Desugar.HasExercise I NonSerializableArgument (()) where
+  exercise cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @I cid)
         arg
-        (DA.Internal.Desugar._exerciseInterfaceGuard @I cid pred)
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t I)) =>
-         DA.Internal.Desugar.HasExercise t NonSerializableArgument (()) where
-  exercise = DA.Internal.Desugar._exerciseDefault
 data NonSerializableArgument
   = NonSerializableArgument {f : NonSerializable}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -87,3 +82,5 @@ _choice_INonSerializableArgument
      \ self this arg@NonSerializableArgument {..}
        -> let _ = self in let _ = this in let _ = arg in do pure (), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView I EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"

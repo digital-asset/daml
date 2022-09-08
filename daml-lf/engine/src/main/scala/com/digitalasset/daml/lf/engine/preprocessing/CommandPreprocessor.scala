@@ -5,8 +5,9 @@ package com.daml.lf
 package engine
 package preprocessing
 
+import com.daml.lf.data
 import com.daml.lf.data._
-import com.daml.lf.language.{Ast, TemplateOrInterface, PackageInterface}
+import com.daml.lf.language.{Ast, PackageInterface}
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
@@ -79,17 +80,24 @@ private[lf] final class CommandPreprocessor(
     }
 
   def unsafePreprocessExercise(
-      typeId: Ref.Identifier,
+      typeId: data.TemplateOrInterface[Ref.Identifier, Ref.Identifier],
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
       argument: Value,
-  ): speedy.Command =
-    handleLookup(pkgInterface.lookupTemplateOrInterface(typeId)) match {
-      case TemplateOrInterface.Template(_) =>
-        unsafePreprocessExerciseTemplate(typeId, contractId, choiceId, argument)
-      case TemplateOrInterface.Interface(_) =>
-        unsafePreprocessExerciseInterface(typeId, contractId, choiceId, argument)
-    }
+  ): speedy.Command = typeId match {
+    // TODO: https://github.com/digital-asset/daml/issues/14747
+    //  In order to split the issue in several PRs, we allow abusing the templateId case as an interface.
+    //  We will change once we have added the interface_id field to the legder API Exercise command
+    case TemplateOrInterface.Template(templateId) =>
+      handleLookup(pkgInterface.lookupTemplateOrInterface(templateId)) match {
+        case TemplateOrInterface.Template(_) =>
+          unsafePreprocessExerciseTemplate(templateId, contractId, choiceId, argument)
+        case TemplateOrInterface.Interface(_) =>
+          unsafePreprocessExerciseInterface(templateId, contractId, choiceId, argument)
+      }
+    case TemplateOrInterface.Interface(ifaceId) =>
+      unsafePreprocessExerciseInterface(ifaceId, contractId, choiceId, argument)
+  }
 
   def unsafePreprocessExerciseTemplate(
       templateId: Ref.Identifier,
@@ -178,8 +186,8 @@ private[lf] final class CommandPreprocessor(
     cmd match {
       case command.ApiCommand.Create(templateId, argument) =>
         unsafePreprocessCreate(templateId, argument)
-      case command.ApiCommand.Exercise(templateId, contractId, choiceId, argument) =>
-        unsafePreprocessExercise(templateId, contractId, choiceId, argument)
+      case command.ApiCommand.Exercise(typeId, contractId, choiceId, argument) =>
+        unsafePreprocessExercise(typeId, contractId, choiceId, argument)
       case command.ApiCommand.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
         unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument)
       case command.ApiCommand.CreateAndExercise(
@@ -257,20 +265,13 @@ private[lf] final class CommandPreprocessor(
   ): speedy.InterfaceView = {
     discard(handleLookup(pkgInterface.lookupTemplate(templateId)))
     discard(handleLookup(pkgInterface.lookupInterface(interfaceId)))
+    discard(handleLookup(pkgInterface.lookupInterfaceInstance(interfaceId, templateId)))
+
     val version =
       TransactionVersion.assignNodeVersion(
         pkgInterface.packageLanguageVersion(interfaceId.packageId)
       )
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
-
-    // TODO https://github.com/digital-asset/daml/issues/14112
-    // Add check if interface does not have magic view method.
-    val interfaceSig = handleLookup(pkgInterface.lookupInterface(interfaceId))
-    val viewMethodName = Ref.MethodName.assertFromString("_view")
-    interfaceSig.methods.get(viewMethodName) match {
-      case None => throw Error.Preprocessing.NoViewMethod(interfaceId)
-      case _ => {}
-    }
 
     speedy.InterfaceView(templateId, arg, interfaceId, version)
   }

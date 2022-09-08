@@ -3,6 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => MyInterface
   = MyInterface GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep MyInterface where
@@ -16,12 +17,9 @@ instance DA.Internal.Desugar.HasFromInterface MyInterface MyInterface where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
 instance DA.Internal.Desugar.HasMethod MyInterface "myVirtualChoiceImpl" (Update ())
-myVirtualChoiceImpl :
-  DA.Internal.Desugar.Implements t MyInterface => t -> Update ()
-myVirtualChoiceImpl t
-  = GHC.Types.primitiveInterface
-      @"myVirtualChoiceImpl"
-      (DA.Internal.Desugar._toInterface @_ @MyInterface t)
+myVirtualChoiceImpl : MyInterface -> Update ()
+myVirtualChoiceImpl
+  = GHC.Types.primitiveInterface @"myVirtualChoiceImpl"
 instance DA.Internal.Desugar.HasToAnyTemplate MyInterface where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate MyInterface where
@@ -38,30 +36,26 @@ instance DA.Internal.Desugar.HasIsInterfaceType MyInterface where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq MyInterface where
   (==) = GHC.Types.primitive @"BEEqual"
-instance (DA.Internal.Desugar.Implements t MyInterface) =>
-         DA.Internal.Desugar.HasToAnyChoice t MyVirtualChoice (()) where
+instance DA.Internal.Desugar.HasToAnyChoice MyInterface MyVirtualChoice (()) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [MyInterface])
-instance (DA.Internal.Desugar.Implements t MyInterface) =>
-         DA.Internal.Desugar.HasFromAnyChoice t MyVirtualChoice (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice MyInterface MyVirtualChoice (()) where
   _fromAnyChoice _
     = GHC.Types.primitive
         @"EFromAnyInterfaceChoice" ([] : [MyInterface])
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t MyInterface)) =>
-         DA.Internal.Desugar.HasExerciseGuarded t MyVirtualChoice (()) where
+instance DA.Internal.Desugar.HasExerciseGuarded MyInterface MyVirtualChoice (()) where
   exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @MyInterface cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @MyInterface cid pred)
+instance DA.Internal.Desugar.HasExercise MyInterface MyVirtualChoice (()) where
+  exercise cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @MyInterface cid)
         arg
-        (DA.Internal.Desugar._exerciseInterfaceGuard @MyInterface cid pred)
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t MyInterface)) =>
-         DA.Internal.Desugar.HasExercise t MyVirtualChoice (()) where
-  exercise = DA.Internal.Desugar._exerciseDefault
 data MyVirtualChoice
   = MyVirtualChoice {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -81,6 +75,8 @@ _choice_MyInterfaceMyVirtualChoice
        -> let _ = self in
           let _ = this in let _ = arg in do myVirtualChoiceImpl this, 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView MyInterface EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => MyTemplate
   = MyTemplate {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)

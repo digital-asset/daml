@@ -1289,5 +1289,5 @@ def sdk_platform_test(sdk_version, platform_version):
             size = "large",
             # Yarn gets really unhappy if it is called in parallel
             # so we mark this exclusive for now.
-            tags = extra_tags(sdk_version, platform_version) + ["exclusive"],
+            tags = extra_tags(sdk_version, platform_version) + ["exclusive", "dont-run-on-darwin"],
         )

@@ -45,7 +45,7 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
           enum Color = Red | Green | Blue;
 
           record @serializable Template = { };
- 
+
           template (this : Template) =  {
              precondition True;
              signatories (Nil @Party);

@@ -23,7 +23,6 @@ import           Control.Monad.Extra
 import Data.List
 import           Data.Foldable (for_)
 import qualified Data.HashSet as HS
-import qualified Data.NameMap as NM
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Numeric (numericMaxScale)
@@ -55,7 +54,7 @@ serializabilityConditionsType
 serializabilityConditionsType world0 version mbCurrentModule vars = go
   where
     noConditions = Right HS.empty
-    supportsInterfaces = version `supports` featureInterfaces
+    supportsInterfaces = version `supports` featureSimpleInterfaces
     go = \case
       -- This is the only way 'ContractId's, 'List's and 'Optional's are allowed. Other cases handled below.
       TContractId typ
@@ -177,19 +176,13 @@ checkTemplate mod0 tpl = do
 
 -- | Check whether a template satisfies all serializability constraints.
 checkInterface :: MonadGamma m => Module -> DefInterface -> m ()
-checkInterface _mod0 iface = do
-  -- TODO https://github.com/digital-asset/daml/issues/12051
-  -- Add per interface choice context.
+checkInterface mod0 iface = do
   for_ (intChoices iface) $ \ch -> do
+    withContext (ContextDefInterface mod0 iface (IPChoice ch)) $ do
       checkType SRChoiceArg (snd (chcArgBinder ch))
       checkType SRChoiceRes (chcReturnType ch)
-
-  case NM.lookup (MethodName "_view") (intMethods iface) of
-    Nothing -> pure () -- If no view is found, throw error in Typecheck
-    Just method ->
-      let err = EViewNotSerializable (intName iface) (ifmType method)
-      in
-      catchAndRethrow (const err) $ checkType SRDataType $ ifmType method
+      
+  checkType SRView $ intView iface
 
 -- | Check whether exception is serializable.
 checkException :: MonadGamma m => Module -> DefException -> m ()
@@ -210,5 +203,5 @@ checkModule mod0 = do
     withContext (ContextDefException mod0 exn) $
       checkException mod0 exn
   for_ (moduleInterfaces mod0) $ \iface ->
-    withContext (ContextDefInterface mod0 iface) $
+    withContext (ContextDefInterface mod0 iface IPWhole) $
       checkInterface mod0 iface

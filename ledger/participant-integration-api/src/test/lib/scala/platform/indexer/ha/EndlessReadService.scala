@@ -6,7 +6,6 @@ package com.daml.platform.indexer.ha
 import akka.NotUsed
 import akka.stream.KillSwitches
 import akka.stream.scaladsl.Source
-import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.{Configuration, LedgerId, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
@@ -18,7 +17,6 @@ import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.google.protobuf.ByteString
 
 import java.time.Instant
 
@@ -86,7 +84,7 @@ case class EndlessReadService(
             )
           case i @ 3 =>
             offset(i) -> Update.PublicPackageUpload(
-              List(archive),
+              List(),
               Some("Package"),
               recordTime(i),
               Some(submissionId(i)),
@@ -158,12 +156,6 @@ object EndlessReadService {
   val templateId: Ref.Identifier = Ref.Identifier.assertFromString("pkg:Mod:Template")
   val choiceName: Ref.Name = Ref.Name.assertFromString("SomeChoice")
   val statistics: TransactionNodeStatistics = TransactionNodeStatistics.Empty
-
-  private val archive = DamlLf.Archive.newBuilder
-    .setHash("00001")
-    .setHashFunction(DamlLf.HashFunction.SHA256)
-    .setPayload(ByteString.copyFromUtf8("payload 1"))
-    .build
 
   // Note: all methods in this object MUST be fully deterministic
   def index(o: Offset): Int = Integer.parseInt(o.toHexString, 16)

@@ -6,7 +6,10 @@ module Lib.ModIfaceOnly where
 -- this module must contain _nothing_ but this interface
 -- to ensure integrity of the test for #13754
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface YetAnother where
+  viewtype EmptyInterfaceView
   getOtherOwner : Party
   somethingImpl : Update ()
   choice PeerIfaceOverload : ()

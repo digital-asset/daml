@@ -3,7 +3,11 @@
 
 module IIou where
 
+data AmountView = AmountView with
+  amount: Text
+
 interface IIou where
+  viewtype AmountView
   getOwner : Party
   choice Transfer : Text with
       echo : Text
@@ -22,5 +26,7 @@ template TestIIou with
     amount : Text
   where
   signatory issuer
-  implements IIou where
+  interface instance IIou for TestIIou where
+    view = AmountView with
+      amount
     getOwner = owner

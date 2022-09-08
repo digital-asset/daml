@@ -18,7 +18,7 @@ final class LimitsIT extends LedgerTestSuite {
     val elements = (1 to 10000).map(e => (f"element_$e%08d", alice)).toMap
     for {
       contract <- ledger.create(alice, WithMap(alice, elements))
-      _ <- ledger.exercise(alice, contract.exerciseWithMap_Noop)
+      _ <- ledger.exercise(alice, contract.exerciseWithMap_Noop())
     } yield {
       ()
     }
@@ -32,7 +32,7 @@ final class LimitsIT extends LedgerTestSuite {
     val elements = (1 to 10000).map(e => (f"element_$e%08d", alice)).toMap
     for {
       contract <- ledger.create(alice, WithMap(alice, Map.empty[String, Party]))
-      _ <- ledger.exercise(alice, contract.exerciseWithMap_Expand(_, elements))
+      _ <- ledger.exercise(alice, contract.exerciseWithMap_Expand(elements))
     } yield {
       ()
     }
@@ -46,7 +46,7 @@ final class LimitsIT extends LedgerTestSuite {
     val elements = (1 to 10000).map(e => f"element_$e%08d")
     for {
       contract <- ledger.create(alice, WithList(alice, elements))
-      _ <- ledger.exercise(alice, contract.exerciseWithList_Noop)
+      _ <- ledger.exercise(alice, contract.exerciseWithList_Noop())
     } yield {
       ()
     }
@@ -60,7 +60,7 @@ final class LimitsIT extends LedgerTestSuite {
     val elements = (1 to 10000).map(e => f"element_$e%08d")
     for {
       contract <- ledger.create(alice, WithList(alice, List.empty[String]))
-      _ <- ledger.exercise(alice, contract.exerciseWithList_Expand(_, elements))
+      _ <- ledger.exercise(alice, contract.exerciseWithList_Expand(elements))
     } yield {
       ()
     }

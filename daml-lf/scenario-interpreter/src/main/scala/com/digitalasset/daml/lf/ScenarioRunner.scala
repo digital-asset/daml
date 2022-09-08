@@ -245,10 +245,9 @@ object ScenarioRunner {
         readAs: Set[Party],
         callback: Option[ContractId] => Boolean,
     ): Either[Error, Unit] =
-      handleUnsafe(lookupKeyUnsafe(machine: Speedy.Machine, gk, actAs, readAs, callback))
+      handleUnsafe(lookupKeyUnsafe(gk, actAs, readAs, callback))
 
     private def lookupKeyUnsafe(
-        machine: Speedy.Machine,
         gk: GlobalKey,
         actAs: Set[Party],
         readAs: Set[Party],
@@ -260,8 +259,6 @@ object ScenarioRunner {
 
       def missingWith(err: Error) =
         if (!callback(None)) {
-          machine.returnValue = null
-          machine.ctrl = null
           throw err
         }
 

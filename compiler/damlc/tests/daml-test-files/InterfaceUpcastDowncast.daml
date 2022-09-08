@@ -1,7 +1,7 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @SINCE-LF-FEATURE DAML_INTERFACE_EXTENDED
 
 -- | Try out some upcasts and downcasts, checking that everything works.
 module InterfaceUpcastDowncast where
@@ -10,16 +10,20 @@ import DA.Assert ((===))
 import DA.Optional (isNone)
 import DA.Functor (void)
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface A where
+  viewtype EmptyInterfaceView
   getOwner : Party
   nonconsuming choice ChoiceA : Int
     controller getOwner this
     do pure 10
 
 interface B requires A where
+  viewtype EmptyInterfaceView
   getCoolness : Int
   nonconsuming choice ChoiceB : Int
-    controller getOwner this
+    controller getOwner (toInterface @A this)
     do pure (getCoolness this)
 
 template T1
@@ -27,9 +31,11 @@ template T1
     p1 : Party
   where
     signatory p1
-    implements A where
+    interface instance A for T1 where
+      view = EmptyInterfaceView
       getOwner = p1
-    implements B where
+    interface instance B for T1 where
+      view = EmptyInterfaceView
       getCoolness = 20
 
 template T2
@@ -37,7 +43,8 @@ template T2
     p2 : Party
   where
     signatory p2
-    implements A where
+    interface instance A for T2 where
+      view = EmptyInterfaceView
       getOwner = p2
 
 main = scenario do
@@ -56,11 +63,8 @@ main = scenario do
         Some t2 === fromInterface @T2 t2a
         None === (fromInterface @B t2a >> pure ())
 
-        getCoolness t1 === 20
         getCoolness t1b === 20
-        getOwner t1 === p
         getOwner t1a === p
-        getOwner t1b === p
 
         cidt1 <- create t1
         cidt2 <- create t2
@@ -79,10 +83,7 @@ main = scenario do
         assertMsg "fetchPair2 != None" (isNone fetchPair2)
 
         exercise cidt1a ChoiceA
-        exercise cidt1b ChoiceA
         exercise cidt1b ChoiceB
-        exercise cidt1 ChoiceA
-        exercise cidt1 ChoiceB
 
         pure ()
 
@@ -96,7 +97,6 @@ main = scenario do
             action (fromInterfaceContractId @B cid)
     submit p do useAction $ \_bcid -> pure ()
     submitMustFail p do useAction $ \bcid -> void (fetch bcid)
-    submitMustFail p do useAction $ \bcid -> void (exercise bcid ChoiceA)
     submitMustFail p do useAction $ \bcid -> void (exercise bcid ChoiceB)
 
 -- @ENABLE-SCENARIOS

@@ -16,7 +16,6 @@ import com.daml.platform.store.DbSupport.DbConfig
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend}
 import com.daml.platform.store.dao.DbDispatcher
-import com.daml.platform.store.interning.StringInterningView
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import java.util.{Timer, concurrent}
 import java.util.concurrent.Executors
@@ -40,7 +39,6 @@ object ParallelIndexerFactory {
       meteringAggregator: DbDispatcher => ResourceOwner[Unit],
       mat: Materializer,
       readService: ReadService,
-      stringInterningView: StringInterningView,
       initializeInMemoryState: DbDispatcher => LedgerEnd => Future[Unit],
   )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] =
     for {
@@ -135,7 +133,6 @@ object ParallelIndexerFactory {
               inputMapperExecutor = inputMapperExecutor,
               batcherExecutor = batcherExecutor,
               dbDispatcher = dbDispatcher,
-              stringInterningView = stringInterningView,
               materializer = mat,
             )
           )

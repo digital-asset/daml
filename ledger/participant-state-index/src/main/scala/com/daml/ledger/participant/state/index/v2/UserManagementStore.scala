@@ -9,6 +9,58 @@ import com.daml.logging.LoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
+case class UserUpdate(
+    id: Ref.UserId,
+    primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
+    isDeactivatedUpdateO: Option[Boolean] = None,
+    metadataUpdate: ObjectMetaUpdate,
+) {
+  def isNoUpdate: Boolean =
+    primaryPartyUpdateO.isEmpty && isDeactivatedUpdateO.isEmpty && metadataUpdate.isNoUpdate
+}
+
+sealed trait AnnotationsUpdate {
+  def annotations: Map[String, String]
+}
+
+object AnnotationsUpdate {
+  final case class Merge private (nonEmptyAnnotations: Map[String, String])
+      extends AnnotationsUpdate {
+    def annotations: Map[String, String] = nonEmptyAnnotations
+  }
+
+  object Merge {
+    def apply(annotations: Map[String, String]): Option[Merge] = {
+      if (annotations.isEmpty) None
+      else Some(new Merge(annotations))
+    }
+
+    def fromNonEmpty(annotations: Map[String, String]): Merge = {
+      // TODO um-for-hub: Use error codes
+      require(
+        annotations.nonEmpty,
+        "Unexpected new value for merge update: an empty map. Only non-empty maps are allowed",
+      )
+      new Merge(annotations)
+    }
+  }
+
+  final case class Replace(annotations: Map[String, String]) extends AnnotationsUpdate
+}
+
+case class ObjectMetaUpdate(
+    resourceVersionO: Option[Long],
+    annotationsUpdateO: Option[AnnotationsUpdate],
+) {
+  def isNoUpdate: Boolean = annotationsUpdateO.isEmpty
+}
+object ObjectMetaUpdate {
+  def empty: ObjectMetaUpdate = ObjectMetaUpdate(
+    resourceVersionO = None,
+    annotationsUpdateO = None,
+  )
+}
+
 trait UserManagementStore {
 
   import UserManagementStore._
@@ -30,14 +82,21 @@ trait UserManagementStore {
 
   def createUser(user: User, rights: Set[UserRight])(implicit
       loggingContext: LoggingContext
-  ): Future[Result[Unit]]
+  ): Future[Result[User]]
+
+  // TODO um-for-hub major: Validate the size of update annotations is within max annotations size
+  def updateUser(userUpdate: UserUpdate)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[User]]
 
   def deleteUser(id: Ref.UserId)(implicit loggingContext: LoggingContext): Future[Result[Unit]]
 
+  // TODO um-for-hub major: Bump resource version number on rights change
   def grantRights(id: Ref.UserId, rights: Set[UserRight])(implicit
       loggingContext: LoggingContext
   ): Future[Result[Set[UserRight]]]
 
+  // TODO um-for-hub major: Bump resource version number on rights change
   def revokeRights(id: Ref.UserId, rights: Set[UserRight])(implicit
       loggingContext: LoggingContext
   ): Future[Result[Set[UserRight]]]
@@ -71,8 +130,10 @@ object UserManagementStore {
 
   case class UserInfo(user: User, rights: Set[UserRight])
 
-  sealed trait Error extends RuntimeException
+  sealed trait Error
   final case class UserNotFound(userId: Ref.UserId) extends Error
   final case class UserExists(userId: Ref.UserId) extends Error
   final case class TooManyUserRights(userId: Ref.UserId) extends Error
+  final case class ConcurrentUserUpdate(userId: Ref.UserId) extends Error
+  final case class MaxAnnotationsSizeExceeded(userId: Ref.UserId) extends Error
 }

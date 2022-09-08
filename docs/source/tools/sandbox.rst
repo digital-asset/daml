@@ -633,6 +633,17 @@ As in the following example:
 Single call services return the time to serve the request,
 streaming services measure the time to return the first response.
 
+``daml.lapi.return_status``
+---------------------------
+
+This namespace contains counters for various gRPC return status codes in the following format
+
+``daml.lapi.return_status.<gRPC status code>``
+
+As in the following example:
+
+``daml.lapi.return_status.ABORTED``
+
 ``daml.services``
 -----------------
 

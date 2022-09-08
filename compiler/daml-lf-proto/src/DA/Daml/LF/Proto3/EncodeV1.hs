@@ -779,7 +779,7 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_ExerciseInterfaceChoiceInternedStr <- encodeNameId unChoiceName exeChoice
         update_ExerciseInterfaceCid <- encodeExpr exeContractId
         update_ExerciseInterfaceArg <- encodeExpr exeArg
-        update_ExerciseInterfaceGuard <- encodeExpr exeGuard
+        update_ExerciseInterfaceGuard <- traverse encodeExpr' exeGuard
         pure $ P.UpdateSumExerciseInterface P.Update_ExerciseInterface{..}
     UExerciseByKey{..} -> do
         update_ExerciseByKeyTemplate <- encodeQualTypeConName exeTemplate
@@ -955,15 +955,20 @@ encodeTemplate Template{..} = do
 encodeTemplateImplements :: TemplateImplements -> Encode P.DefTemplate_Implements
 encodeTemplateImplements TemplateImplements{..} = do
     defTemplate_ImplementsInterface <- encodeQualTypeConName tpiInterface
-    defTemplate_ImplementsMethods <- encodeNameMap encodeTemplateImplementsMethod tpiMethods
-    defTemplate_ImplementsView <- encodeExpr tpiView
+    defTemplate_ImplementsBody <- encodeInterfaceInstanceBody tpiBody
     pure P.DefTemplate_Implements {..}
 
-encodeTemplateImplementsMethod :: TemplateImplementsMethod -> Encode P.DefTemplate_ImplementsMethod
-encodeTemplateImplementsMethod TemplateImplementsMethod{..} = do
-    defTemplate_ImplementsMethodMethodInternedName <- encodeMethodName tpiMethodName
-    defTemplate_ImplementsMethodValue <- encodeExpr tpiMethodExpr
-    pure P.DefTemplate_ImplementsMethod {..}
+encodeInterfaceInstanceBody :: InterfaceInstanceBody -> Encode (Just P.InterfaceInstanceBody)
+encodeInterfaceInstanceBody InterfaceInstanceBody {..} = do
+    interfaceInstanceBodyMethods <- encodeNameMap encodeInterfaceInstanceMethod iiMethods
+    interfaceInstanceBodyView <- encodeExpr iiView
+    pure $ Just P.InterfaceInstanceBody {..}
+
+encodeInterfaceInstanceMethod :: InterfaceInstanceMethod -> Encode P.InterfaceInstanceBody_InterfaceInstanceMethod
+encodeInterfaceInstanceMethod InterfaceInstanceMethod{..} = do
+    interfaceInstanceBody_InterfaceInstanceMethodMethodInternedName <- encodeMethodName iiMethodName
+    interfaceInstanceBody_InterfaceInstanceMethodValue <- encodeExpr iiMethodExpr
+    pure P.InterfaceInstanceBody_InterfaceInstanceMethod {..}
 
 encodeTemplateKey :: TemplateKey -> Encode P.DefTemplate_DefKey
 encodeTemplateKey TemplateKey{..} = do
@@ -1038,15 +1043,8 @@ encodeInterfaceMethod InterfaceMethod {..} = do
 encodeInterfaceCoImplements :: InterfaceCoImplements -> Encode P.DefInterface_CoImplements
 encodeInterfaceCoImplements InterfaceCoImplements {..} = do
     defInterface_CoImplementsTemplate <- encodeQualTypeConName iciTemplate
-    defInterface_CoImplementsMethods <- encodeNameMap encodeInterfaceCoImplementsMethod iciMethods
-    defInterface_CoImplementsView <- encodeExpr iciView
+    defInterface_CoImplementsBody <- encodeInterfaceInstanceBody iciBody
     pure P.DefInterface_CoImplements {..}
-
-encodeInterfaceCoImplementsMethod :: InterfaceCoImplementsMethod -> Encode P.DefInterface_CoImplementsMethod
-encodeInterfaceCoImplementsMethod InterfaceCoImplementsMethod {..} = do
-    defInterface_CoImplementsMethodMethodInternedName <- encodeMethodName iciMethodName
-    defInterface_CoImplementsMethodValue <- encodeExpr iciMethodExpr
-    pure P.DefInterface_CoImplementsMethod {..}
 
 encodePackageMetadata :: PackageMetadata -> Encode P.PackageMetadata
 encodePackageMetadata PackageMetadata{..} = do

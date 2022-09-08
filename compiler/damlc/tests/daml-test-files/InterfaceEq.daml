@@ -6,7 +6,10 @@
 
 module InterfaceEq where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface I where
+  viewtype EmptyInterfaceView
 
 template T
   with
@@ -14,7 +17,8 @@ template T
     f : Int
   where
     signatory p
-    implements I where
+    interface instance I for T where
+      view = EmptyInterfaceView
 
 template U
   with
@@ -22,7 +26,8 @@ template U
     f : Int
   where
     signatory p
-    implements I where
+    interface instance I for U where
+      view = EmptyInterfaceView
 
 main = scenario do
 

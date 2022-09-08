@@ -4,7 +4,7 @@
 package com.daml.navigator.model
 
 import java.util.concurrent.atomic.AtomicReference
-import com.daml.lf.{iface => DamlLfIface}
+import com.daml.lf.{typesig => DamlLfIface}
 import com.daml.ledger.api.refinements.ApiTypes
 
 import scala.collection.immutable.LazyList
@@ -48,7 +48,7 @@ class PartyState(
     ()
   }
 
-  def addPackages(packs: List[DamlLfIface.Interface]): Unit = {
+  def addPackages(packs: List[DamlLfIface.PackageSignature]): Unit = {
     stateRef.updateAndGet(state =>
       state.copy(packageRegistry = packageRegistry.withPackages(packs))
     )

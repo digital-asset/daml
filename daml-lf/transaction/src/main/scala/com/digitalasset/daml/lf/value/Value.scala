@@ -88,8 +88,6 @@ object Value {
   val MAXIMUM_NESTING: Int = 100
 
   type VersionedValue = transaction.Versioned[Value]
-  @deprecated("use com.daml.lf.transaction.Versioned directly", since = "1.18.0")
-  val VersionedValue = transaction.Versioned
 
   /** The parent of all [[Value]] cases that cannot possibly have a Cid.
     * NB: use only in pattern-matching [[Value]]; the ''type'' of a cid-less

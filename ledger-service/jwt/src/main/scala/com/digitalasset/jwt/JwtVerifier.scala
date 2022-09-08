@@ -44,14 +44,17 @@ object JwtVerifier {
 
 // HMAC256 validator factory
 object HMAC256Verifier extends StrictLogging with Leeway {
-  def apply(secret: String, leewayOptions: Option[LeewayOptions] = None): Error \/ JwtVerifier =
+  def apply(
+      secret: String,
+      jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+  ): Error \/ JwtVerifier =
     \/.attempt {
       logger.warn(
         "HMAC256 JWT Validator is NOT recommended for production environments, please use RSA256!!!"
       )
 
       val algorithm = Algorithm.HMAC256(secret)
-      val verifier = getVerifier(algorithm, leewayOptions)
+      val verifier = getVerifier(algorithm, jwtTimestampLeeway)
       new JwtVerifier(verifier)
     }(e => Error(Symbol("HMAC256"), e.getMessage))
 }
@@ -60,17 +63,17 @@ object HMAC256Verifier extends StrictLogging with Leeway {
 object ECDSAVerifier extends StrictLogging with Leeway {
   def apply(
       algorithm: Algorithm,
-      leewayOptions: Option[LeewayOptions] = None,
+      jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
   ): Error \/ JwtVerifier =
     \/.attempt {
-      val verifier = getVerifier(algorithm, leewayOptions)
+      val verifier = getVerifier(algorithm, jwtTimestampLeeway)
       new JwtVerifier(verifier)
     }(e => Error(Symbol(algorithm.getName), e.getMessage))
 
   def fromCrtFile(
       path: String,
       algorithmPublicKey: ECPublicKey => Algorithm,
-      leewayOptions: Option[LeewayOptions] = None,
+      jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
   ): Error \/ JwtVerifier = {
     for {
       key <- \/.fromEither(
@@ -79,7 +82,7 @@ object ECDSAVerifier extends StrictLogging with Leeway {
           .toEither
       )
         .leftMap(e => Error(Symbol("fromCrtFile"), e.getMessage))
-      verifier <- ECDSAVerifier(algorithmPublicKey(key), leewayOptions)
+      verifier <- ECDSAVerifier(algorithmPublicKey(key), jwtTimestampLeeway)
     } yield verifier
   }
 }
@@ -88,12 +91,12 @@ object ECDSAVerifier extends StrictLogging with Leeway {
 object RSA256Verifier extends StrictLogging with Leeway {
   def apply(
       publicKey: RSAPublicKey,
-      leewayOptions: Option[LeewayOptions] = None,
+      jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
   ): Error \/ JwtVerifier =
     \/.attempt {
 
       val algorithm = Algorithm.RSA256(publicKey, null)
-      val verifier = getVerifier(algorithm, leewayOptions)
+      val verifier = getVerifier(algorithm, jwtTimestampLeeway)
       new JwtVerifier(verifier)
     }(e => Error(Symbol("RSA256"), e.getMessage))
 
@@ -107,12 +110,12 @@ object RSA256Verifier extends StrictLogging with Leeway {
 
   def apply(
       keyProvider: RSAKeyProvider,
-      leewayOptions: Option[LeewayOptions],
+      jwtTimestampLeeway: Option[JwtTimestampLeeway],
   ): Error \/ JwtVerifier =
     \/.attempt {
 
       val algorithm = Algorithm.RSA256(keyProvider)
-      val verifier = getVerifier(algorithm, leewayOptions)
+      val verifier = getVerifier(algorithm, jwtTimestampLeeway)
       new JwtVerifier(verifier)
     }(e => Error(Symbol("RSA256"), e.getMessage))
 
@@ -122,7 +125,7 @@ object RSA256Verifier extends StrictLogging with Leeway {
     */
   def fromCrtFile(
       path: String,
-      leewayOptions: Option[LeewayOptions] = None,
+      jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
   ): Error \/ JwtVerifier = {
     for {
       rsaKey <- \/.fromEither(
@@ -131,7 +134,7 @@ object RSA256Verifier extends StrictLogging with Leeway {
           .toEither
       )
         .leftMap(e => Error(Symbol("fromCrtFile"), e.getMessage))
-      verifier <- RSA256Verifier.apply(rsaKey, leewayOptions)
+      verifier <- RSA256Verifier.apply(rsaKey, jwtTimestampLeeway)
     } yield verifier
   }
 }

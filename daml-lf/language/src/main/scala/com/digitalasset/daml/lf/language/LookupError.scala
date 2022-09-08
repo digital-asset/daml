@@ -3,13 +3,11 @@
 
 package com.daml.lf.language
 
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{TemplateOrInterface => TorI}
 import com.daml.lf.data.Ref._
 
-final case class LookupError(notFound: Reference, context: Reference) {
-  val pretty: String = "unknown " + notFound.pretty + (
-    if (context == notFound) "" else LookupError.contextDetails(context)
-  )
+sealed abstract class LookupError {
+  def pretty: String
 }
 
 object LookupError {
@@ -20,8 +18,20 @@ object LookupError {
       case otherwise => " while looking for " + otherwise.pretty
     }
 
+  final case class NotFound(notFound: Reference, context: Reference) extends LookupError {
+    def pretty: String = "unknown " + notFound.pretty + (
+      if (context == notFound) "" else LookupError.contextDetails(context)
+    )
+  }
+
+  final case class AmbiguousInterfaceInstance(instance: Reference.InterfaceInstance)
+      extends LookupError {
+    def pretty: String =
+      s"Ambiguous interface instance: two instances for ${instance.pretty}"
+  }
+
   object MissingPackage {
-    def unapply(err: LookupError): Option[(PackageId, Reference)] =
+    def unapply(err: LookupError.NotFound): Option[(PackageId, Reference)] =
       err.notFound match {
         case Reference.Package(packageId) => Some(packageId -> err.context)
         case _ => None
@@ -30,6 +40,12 @@ object LookupError {
     def pretty(pkgId: PackageId, context: Reference): String =
       s"Couldn't find package $pkgId" + contextDetails(context)
   }
+
+  def apply(notFound: Reference, context: Reference) =
+    NotFound(notFound, context)
+
+  def unapply(err: LookupError.NotFound): Option[(Reference, Reference)] =
+    Some(err.notFound, err.context)
 
 }
 
@@ -47,7 +63,7 @@ object Reference {
     override def pretty: String = s"module $packageId:$moduleName"
   }
 
-  final case class Definition(identifier: Ref.Identifier) extends Reference {
+  final case class Definition(identifier: Identifier) extends Reference {
     override def pretty: String = s"definition $identifier"
   }
 
@@ -87,7 +103,7 @@ object Reference {
     override def pretty: String = s"constructor $constructorName in enumeration $tyCon"
   }
 
-  final case class Value(identifier: Ref.Identifier) extends Reference {
+  final case class Value(identifier: Identifier) extends Reference {
     override def pretty: String = s"value $identifier"
   }
 
@@ -103,23 +119,35 @@ object Reference {
     override def pretty: String = s"template without contract key $tyCon."
   }
 
-  final case class TemplateImplements(templateName: TypeConName, ifaceName: TypeConName)
+  /** References an interface implementation of interfaceName for templateName,
+    * if a unique one exists.
+    */
+  final case class InterfaceInstance(interfaceName: TypeConName, templateName: TypeConName)
       extends Reference {
-    override def pretty: String = s"template $templateName implementation of interface $ifaceName"
+    override def pretty: String = s"interface instance $interfaceName for $templateName"
   }
 
-  final case class InterfaceCoImplements(templateName: TypeConName, ifaceName: TypeConName)
-      extends Reference {
-    override def pretty: String =
-      s"template $templateName co-implementation of interface $ifaceName"
-  }
-
-  final case class TemplateImplementsOrInterfaceCoImplements(
-      templateName: TypeConName,
-      ifaceName: TypeConName,
+  /** References an interface implementation of interfaceName for templateName
+    * defined in templateName if parentTemplateOrInterface == TorI.Template(())
+    * or in interfaceName if parentTemplateOrInterface == TorI.Interface(())
+    */
+  final case class ConcreteInterfaceInstance(
+      parentTemplateOrInterface: TorI[Unit, Unit],
+      interfaceInstance: InterfaceInstance,
   ) extends Reference {
+
+    def parent: TorI[TypeConName, TypeConName] = parentTemplateOrInterface match {
+      case TorI.Template(()) => TorI.Template(interfaceInstance.templateName)
+      case TorI.Interface(()) => TorI.Interface(interfaceInstance.interfaceName)
+    }
+
+    def prettyParent: String = parent match {
+      case TorI.Template(t) => s"template $t"
+      case TorI.Interface(i) => s"interface $i"
+    }
+
     override def pretty: String =
-      s"template $templateName implementation or co-implementation of interface $ifaceName"
+      s"$prettyParent-provided ${interfaceInstance.pretty}"
   }
 
   final case class TemplateChoice(tyCon: TypeConName, choiceName: ChoiceName) extends Reference {

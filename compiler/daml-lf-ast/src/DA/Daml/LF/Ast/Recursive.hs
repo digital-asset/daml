@@ -73,7 +73,7 @@ data UpdateF expr
   | UCreateF   !(Qualified TypeConName) !expr
   | UCreateInterfaceF !(Qualified TypeConName) !expr
   | UExerciseF !(Qualified TypeConName) !ChoiceName !expr !expr
-  | UExerciseInterfaceF !(Qualified TypeConName) !ChoiceName !expr !expr !expr
+  | UExerciseInterfaceF !(Qualified TypeConName) !ChoiceName !expr !expr !(Maybe expr)
   | UExerciseByKeyF !(Qualified TypeConName) !ChoiceName !expr !expr
   | UFetchF    !(Qualified TypeConName) !expr
   | UFetchInterfaceF    !(Qualified TypeConName) !expr

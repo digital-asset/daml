@@ -58,7 +58,7 @@ class TransactionServiceStakeholdersIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     // Create command with transient contract
-    val createAndExercise = Dummy(party).createAnd.exerciseArchive(party).command
+    val createAndExercise = Dummy(party).createAnd.exerciseArchive().command
     for {
       _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, createAndExercise))
 
@@ -91,7 +91,7 @@ class TransactionServiceStakeholdersIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, submitter, observer)) =>
     // Create command with transient contract
     val createAndExerciseWithObservers =
-      WithObservers(submitter, List(observer)).createAnd.exerciseArchive(submitter).command
+      WithObservers(submitter, List(observer)).createAnd.exerciseArchive().command
     for {
       // The in-memory fan-out serves at least N-1 transaction responses from a specific query window
       // Then, submit 2 requests to ensure that a transaction from the in-memory fan-out would be forwarded.

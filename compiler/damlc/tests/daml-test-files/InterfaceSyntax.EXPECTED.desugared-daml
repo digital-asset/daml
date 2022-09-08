@@ -3,6 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => I = I GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep I where
   _interfaceTypeRep
@@ -15,17 +16,12 @@ instance DA.Internal.Desugar.HasFromInterface I I where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
 instance DA.Internal.Desugar.HasMethod I "m0" (Bool -> Party)
-m0 : DA.Internal.Desugar.Implements t I => t -> Bool -> Party
-m0 t
-  = GHC.Types.primitiveInterface
-      @"m0" (DA.Internal.Desugar._toInterface @_ @I t)
+m0 : I -> Bool -> Party
+m0 = GHC.Types.primitiveInterface @"m0"
 instance DA.Internal.Desugar.HasMethod I "m1" (Either Int Bool
                                                -> Text)
-m1 :
-  DA.Internal.Desugar.Implements t I => t -> Either Int Bool -> Text
-m1 t
-  = GHC.Types.primitiveInterface
-      @"m1" (DA.Internal.Desugar._toInterface @_ @I t)
+m1 : I -> Either Int Bool -> Text
+m1 = GHC.Types.primitiveInterface @"m1"
 instance DA.Internal.Desugar.HasToAnyTemplate I where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate I where
@@ -42,6 +38,8 @@ instance DA.Internal.Desugar.HasIsInterfaceType I where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq I where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView I EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlInterface => J = J GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep J where
   _interfaceTypeRep
@@ -69,87 +67,8 @@ instance DA.Internal.Desugar.HasIsInterfaceType J where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq J where
   (==) = GHC.Types.primitive @"BEEqual"
-data GHC.Types.DamlInterface => K = K GHC.Types.Opaque
-instance DA.Internal.Desugar.HasInterfaceTypeRep K where
-  _interfaceTypeRep
-    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
-instance DA.Internal.Desugar.HasFetch K where
-  fetch = GHC.Types.primitive @"UFetchInterface"
-instance DA.Internal.Desugar.HasToInterface K K where
-  _toInterface this = this
-instance DA.Internal.Desugar.HasFromInterface K K where
-  fromInterface this = DA.Internal.Desugar.Some this
-  unsafeFromInterface _ this = this
-instance DA.Internal.Desugar.HasToAnyTemplate K where
-  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
-instance DA.Internal.Desugar.HasFromAnyTemplate K where
-  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
-instance DA.Internal.Desugar.HasTemplateTypeRep K where
-  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
-instance DA.Internal.Desugar.HasSignatory K where
-  signatory = GHC.Types.primitive @"ESignatoryInterface"
-instance DA.Internal.Desugar.HasObserver K where
-  observer = GHC.Types.primitive @"EObserverInterface"
-instance DA.Internal.Desugar.HasCreate K where
-  create = GHC.Types.primitive @"UCreateInterface"
-instance DA.Internal.Desugar.HasIsInterfaceType K where
-  _isInterfaceType _ = DA.Internal.Desugar.True
-instance DA.Internal.Desugar.Eq K where
-  (==) = GHC.Types.primitive @"BEEqual"
-data GHC.Types.DamlInterface => L = L GHC.Types.Opaque
-instance DA.Internal.Desugar.HasInterfaceTypeRep L where
-  _interfaceTypeRep
-    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
-instance DA.Internal.Desugar.HasFetch L where
-  fetch = GHC.Types.primitive @"UFetchInterface"
-instance DA.Internal.Desugar.HasToInterface L L where
-  _toInterface this = this
-instance DA.Internal.Desugar.HasFromInterface L L where
-  fromInterface this = DA.Internal.Desugar.Some this
-  unsafeFromInterface _ this = this
-instance DA.Internal.Desugar.HasToAnyTemplate L where
-  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
-instance DA.Internal.Desugar.HasFromAnyTemplate L where
-  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
-instance DA.Internal.Desugar.HasTemplateTypeRep L where
-  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
-instance DA.Internal.Desugar.HasSignatory L where
-  signatory = GHC.Types.primitive @"ESignatoryInterface"
-instance DA.Internal.Desugar.HasObserver L where
-  observer = GHC.Types.primitive @"EObserverInterface"
-instance DA.Internal.Desugar.HasCreate L where
-  create = GHC.Types.primitive @"UCreateInterface"
-instance DA.Internal.Desugar.HasIsInterfaceType L where
-  _isInterfaceType _ = DA.Internal.Desugar.True
-instance DA.Internal.Desugar.Eq L where
-  (==) = GHC.Types.primitive @"BEEqual"
-data GHC.Types.DamlInterface => M = M GHC.Types.Opaque
-instance DA.Internal.Desugar.HasInterfaceTypeRep M where
-  _interfaceTypeRep
-    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
-instance DA.Internal.Desugar.HasFetch M where
-  fetch = GHC.Types.primitive @"UFetchInterface"
-instance DA.Internal.Desugar.HasToInterface M M where
-  _toInterface this = this
-instance DA.Internal.Desugar.HasFromInterface M M where
-  fromInterface this = DA.Internal.Desugar.Some this
-  unsafeFromInterface _ this = this
-instance DA.Internal.Desugar.HasToAnyTemplate M where
-  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
-instance DA.Internal.Desugar.HasFromAnyTemplate M where
-  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
-instance DA.Internal.Desugar.HasTemplateTypeRep M where
-  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
-instance DA.Internal.Desugar.HasSignatory M where
-  signatory = GHC.Types.primitive @"ESignatoryInterface"
-instance DA.Internal.Desugar.HasObserver M where
-  observer = GHC.Types.primitive @"EObserverInterface"
-instance DA.Internal.Desugar.HasCreate M where
-  create = GHC.Types.primitive @"UCreateInterface"
-instance DA.Internal.Desugar.HasIsInterfaceType M where
-  _isInterfaceType _ = DA.Internal.Desugar.True
-instance DA.Internal.Desugar.Eq M where
-  (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView J EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => T
   = T {p0 : Party, p1 : Party, f : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -219,65 +138,66 @@ _choice_TArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_implements_T_I : DA.Internal.Desugar.ImplementsT T I
-_implements_T_I = DA.Internal.Desugar.ImplementsT
+_interface_instance_T_I_T :
+  DA.Internal.Desugar.InterfaceInstance T I T
+_interface_instance_T_I_T
+  = DA.Internal.Desugar.mkInterfaceInstance @T @I @T
+_method_T_I_T_m0 : DA.Internal.Desugar.Method T I T "m0"
+_method_T_I_T_m0
+  = DA.Internal.Desugar.mkMethod
+      @T
+      @I
+      @T
+      @"m0"
+      \ this@T {..}
+        -> let _ = this in
+           let
+             m0 False = p0
+             m0 True = p1
+           in m0
+_method_T_I_T_m1 : DA.Internal.Desugar.Method T I T "m1"
+_method_T_I_T_m1
+  = DA.Internal.Desugar.mkMethod
+      @T
+      @I
+      @T
+      @"m1"
+      \ this@T {..}
+        -> let _ = this in
+           let
+             m1 (Left n)
+               | n >= 0 = "non-negative number"
+               | otherwise = "negative number"
+             m1 (Right True) = "true"
+             m1 (Right False) = "false"
+           in m1
+_view_T_I_T : DA.Internal.Desugar.InterfaceView T I T
+_view_T_I_T
+  = DA.Internal.Desugar.mkInterfaceView
+      @T
+      @I
+      @T
+      \ this@T {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 instance DA.Internal.Desugar.HasToInterface T I where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T I where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-_method_T_I_m0 : DA.Internal.Desugar.Method T I "m0"
-_method_T_I_m0
-  = DA.Internal.Desugar.mkMethod
+_interface_instance_T_J_T :
+  DA.Internal.Desugar.InterfaceInstance T J T
+_interface_instance_T_J_T
+  = DA.Internal.Desugar.mkInterfaceInstance @T @J @T
+_view_T_J_T : DA.Internal.Desugar.InterfaceView T J T
+_view_T_J_T
+  = DA.Internal.Desugar.mkInterfaceView
       @T
-      @I
-      @"m0"
-      (\ this@T {..}
-         -> let _ = this in
-            let
-              m0 False = p0
-              m0 True = p1
-            in m0)
-_method_T_I_m1 : DA.Internal.Desugar.Method T I "m1"
-_method_T_I_m1
-  = DA.Internal.Desugar.mkMethod
+      @J
       @T
-      @I
-      @"m1"
-      (\ this@T {..}
-         -> let _ = this in
-            let
-              m1 (Left n)
-                | n >= 0 = "non-negative number"
-                | otherwise = "negative number"
-              m1 (Right True) = "true"
-              m1 (Right False) = "false"
-            in m1)
-_implements_T_J : DA.Internal.Desugar.ImplementsT T J
-_implements_T_J = DA.Internal.Desugar.ImplementsT
+      \ this@T {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 instance DA.Internal.Desugar.HasToInterface T J where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T J where
-  fromInterface = GHC.Types.primitive @"EFromInterface"
-  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-_implements_T_L : DA.Internal.Desugar.ImplementsT T L
-_implements_T_L = DA.Internal.Desugar.ImplementsT
-instance DA.Internal.Desugar.HasToInterface T L where
-  _toInterface = GHC.Types.primitive @"EToInterface"
-instance DA.Internal.Desugar.HasFromInterface T L where
-  fromInterface = GHC.Types.primitive @"EFromInterface"
-  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-_implements_T_K : DA.Internal.Desugar.ImplementsT T K
-_implements_T_K = DA.Internal.Desugar.ImplementsT
-instance DA.Internal.Desugar.HasToInterface T K where
-  _toInterface = GHC.Types.primitive @"EToInterface"
-instance DA.Internal.Desugar.HasFromInterface T K where
-  fromInterface = GHC.Types.primitive @"EFromInterface"
-  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-_implements_T_M : DA.Internal.Desugar.ImplementsT T M
-_implements_T_M = DA.Internal.Desugar.ImplementsT
-instance DA.Internal.Desugar.HasToInterface T M where
-  _toInterface = GHC.Types.primitive @"EToInterface"
-instance DA.Internal.Desugar.HasFromInterface T M where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"

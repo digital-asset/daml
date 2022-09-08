@@ -3,7 +3,7 @@
 
 package com.daml.ledger.runner.common
 
-import com.daml.jwt.LeewayOptions
+import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
 import com.daml.lf.data.Ref
@@ -23,7 +23,7 @@ import com.daml.platform.configuration.{
   PartyConfiguration,
 }
 import com.daml.platform.indexer.ha.HaConfig
-import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
+import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, PackageMetadataViewConfig}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport.{
   ConnectionPoolConfig,
@@ -232,8 +232,8 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   implicit val userManagementConfigConvert: ConfigConvert[UserManagementConfig] =
     deriveConvert[UserManagementConfig]
 
-  implicit val leewayConfigOptionsConvert: ConfigConvert[LeewayOptions] =
-    deriveConvert[LeewayOptions]
+  implicit val jwtTimestampLeewayConfigConvert: ConfigConvert[Option[JwtTimestampLeeway]] =
+    optConvertEnabled(deriveConvert[JwtTimestampLeeway])
 
   implicit val authServiceConfigUnsafeJwtHmac256Reader
       : ConfigReader[AuthServiceConfig.UnsafeJwtHmac256] =
@@ -313,6 +313,9 @@ class PureConfigReaderWriter(secure: Boolean = true) {
 
   implicit val participantIdWriter: ConfigWriter[Ref.ParticipantId] =
     ConfigWriter.toString[Ref.ParticipantId](_.toString)
+
+  implicit val packageMetadataViewConfigConvert: ConfigConvert[PackageMetadataViewConfig] =
+    deriveConvert[PackageMetadataViewConfig]
 
   implicit val indexerConfigConvert: ConfigConvert[IndexerConfig] = deriveConvert[IndexerConfig]
 

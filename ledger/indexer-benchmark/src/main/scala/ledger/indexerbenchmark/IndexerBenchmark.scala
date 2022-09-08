@@ -19,10 +19,8 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.LedgerApiServer
 import com.daml.platform.indexer.{Indexer, IndexerServiceOwner, JdbcIndexer}
-import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.resources
-import com.daml.testing.postgresql.PostgresResource
 
 import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.duration.Duration
@@ -30,25 +28,6 @@ import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Futu
 import scala.io.StdIn
 
 class IndexerBenchmark() {
-
-  /** Same as [[IndexerBenchmark.run]], but overrides the JDBC url to point to an ephemeral Postgres database.
-    *
-    * Using an uncontrolled local database does not give good performance results, but is useful for development
-    * and functional tests.
-    */
-  def runWithEphemeralPostgres(
-      createUpdates: () => Future[Source[(Offset, Update), NotUsed]],
-      config: Config,
-  ): Future[Unit] =
-    PostgresResource
-      .owner()
-      .use(db => {
-        println(s"Running the indexer benchmark against the ephemeral Postgres database ${db.url}")
-        run(
-          createUpdates,
-          config.copy(dataSource = ParticipantDataSourceConfig(db.url)),
-        )
-      })(ExecutionContext.parasitic)
 
   def run(
       createUpdates: () => Future[Source[(Offset, Update), NotUsed]],
@@ -72,7 +51,11 @@ class IndexerBenchmark() {
       val readService = createReadService(updates)
 
       val resource = for {
-        (inMemoryState, inMemoryStateUpdater) <-
+        servicesExecutionContext <- ResourceOwner
+          .forExecutorService(() => Executors.newWorkStealingPool())
+          .map(ExecutionContext.fromExecutorService)
+          .acquire()
+        (inMemoryState, inMemoryStateUpdaterFlow) <-
           LedgerApiServer
             .createInMemoryStateAndUpdater(
               config.indexServiceConfig,
@@ -88,7 +71,8 @@ class IndexerBenchmark() {
           metrics,
           LfValueTranslationCache.Cache.none,
           inMemoryState,
-          inMemoryStateUpdater.flow,
+          inMemoryStateUpdaterFlow,
+          servicesExecutionContext,
         )
         _ <- metricsResource(config, metrics)
         _ = println("Setting up the index database...")
@@ -183,12 +167,9 @@ object IndexerBenchmark {
       config: Config,
       updates: () => Future[Source[(Offset, Update), NotUsed]],
   ): Unit = {
-    val result: Future[Unit] =
-      (if (config.dataSource.jdbcUrl.isEmpty) {
-         new IndexerBenchmark().runWithEphemeralPostgres(updates, config)
-       } else {
-         new IndexerBenchmark().run(updates, config)
-       }).recover { case ex =>
+    val result: Future[Unit] = new IndexerBenchmark()
+      .run(updates, config)
+      .recover { case ex =>
         println(s"Error: ${ex.getMessage}")
         sys.exit(1)
       }(scala.concurrent.ExecutionContext.Implicits.global)

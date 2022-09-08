@@ -17,26 +17,22 @@ import scalaz.syntax.traverse._
 import spray.json._
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.daml.lf.iface.EnvironmentInterface
-import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
+import com.daml.lf.typesig.EnvironmentSignature
+import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.auth.TokenHolder
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientChannelConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement,
-}
-import com.daml.ledger.client.withoutledgerid.LedgerClient
-import com.google.protobuf.ByteString
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.lf.data.NoCopy
+import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+
+import java.io.File
+import scala.util.Try
 
 object RunnerMain {
 
-  def main(config: RunnerConfig): Unit = {
-    val dar: Dar[(PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(config.darPath)
-    val scriptId: Identifier =
-      Identifier(dar.main._1, QualifiedName.assertFromString(config.scriptIdentifier))
+  def main(runnerConfig: RunnerCliConfig): Unit = {
 
     implicit val system: ActorSystem = ActorSystem("ScriptRunner")
     implicit val sequencer: ExecutionSequencerFactory =
@@ -44,87 +40,25 @@ object RunnerMain {
     implicit val ec: ExecutionContext = system.dispatcher
     implicit val materializer: Materializer = Materializer(system)
 
-    val inputValue = config.inputFile.map(file => {
-      val source = Source.fromFile(file)
-      val fileContent =
-        try {
-          source.mkString
-        } finally {
-          source.close()
-        }
-      fileContent.parseJson
-    })
-
-    val token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token)
-    val participantParams = config.participantConfig match {
-      case Some(file) => {
-        // We allow specifying --access-token-file/--application-id together with
-        // --participant-config and use the values as the default for
-        // all participants that do not specify an explicit token.
-        val source = Source.fromFile(file)
-        val fileContent =
-          try {
-            source.mkString
-          } finally {
-            source.close
-          }
-        val jsVal = fileContent.parseJson
-        import ParticipantsJsonProtocol._
-        jsVal
-          .convertTo[Participants[ApiParameters]]
-          .map(params =>
-            params.copy(
-              access_token = params.access_token.orElse(token),
-              application_id = params.application_id.orElse(config.applicationId),
-            )
-          )
-      }
-      case None =>
-        Participants(
-          default_participant = Some(
-            ApiParameters(
-              config.ledgerHost.get,
-              config.ledgerPort.get,
-              token,
-              config.applicationId,
-            )
-          ),
-          participants = Map.empty,
-          party_participants = Map.empty,
-        )
-    }
     val flow: Future[Unit] = for {
-
+      config <- Future.fromTry(RunnerConfig(runnerConfig))
       clients <-
         if (config.jsonApi) {
-          val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
-          val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
-          // TODO (#13973) resolve envIface, or not, depending on whether inherited choices are needed
-          Runner.jsonClients(participantParams, envIface)
+          val ifaceDar =
+            config.dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
+          val envSig = EnvironmentSignature.fromPackageSignatures(ifaceDar)
+          // TODO (#13973) resolve envSig, or not, depending on whether inherited choices are needed
+          Runner.jsonClients(config.participantParams, envSig)
         } else {
-          Runner.connect(participantParams, config.tlsConfig, config.maxInboundMessageSize)
+          Runner.connect(config.participantParams, config.tlsConfig, config.maxInboundMessageSize)
         }
-      adminClient = LedgerClient.singleHost(
-        hostIp = config.ledgerHost.get,
-        port = config.ledgerPort.get,
-        configuration = LedgerClientConfiguration(
-          applicationId = "admin-client",
-          ledgerIdRequirement = LedgerIdRequirement.none,
-          commandClient = CommandClientConfiguration.default,
-          token = token,
-        ),
-        channelConfig = LedgerClientChannelConfiguration(None),
-      )
-      _ <- adminClient.packageManagementClient.uploadDarFile(
-        ByteString.copyFrom(Files.readAllBytes(config.darPath.toPath))
-      )
-      result <- Runner.run(dar, scriptId, inputValue, clients, config.timeMode)
+      result <- Runner.run(config.dar, config.scriptId, config.inputValue, clients, config.timeMode)
       _ <- Future {
         config.outputFile.foreach { outputFile =>
           val jsVal = LfValueCodec.apiValueToJsValue(result.toUnnormalizedValue)
-          val outDir = outputFile.getParentFile()
+          val outDir = outputFile.getParentFile
           if (outDir != null) {
-            val _ = Files.createDirectories(outDir.toPath())
+            val _ = Files.createDirectories(outDir.toPath)
           }
           Files.write(outputFile.toPath, Seq(jsVal.prettyPrint).asJava)
         }
@@ -132,12 +66,96 @@ object RunnerMain {
     } yield ()
 
     flow.onComplete(_ =>
-      if (config.jsonApi) {
+      if (runnerConfig.jsonApi) {
         Http().shutdownAllConnectionPools().flatMap { case () => system.terminate() }
       } else {
         system.terminate()
       }
     )
     Await.result(flow, Duration.Inf)
+  }
+
+  final case class RunnerConfig private (
+      dar: Dar[(PackageId, Package)],
+      scriptId: Identifier,
+      participantParams: Participants[ApiParameters],
+      timeMode: ScriptTimeMode,
+      inputValue: Option[JsValue],
+      outputFile: Option[File],
+      token: Option[String],
+      tlsConfig: TlsConfiguration,
+      jsonApi: Boolean,
+      maxInboundMessageSize: Int,
+      applicationId: Option[ApplicationId],
+  ) extends NoCopy
+
+  object RunnerConfig {
+    private[script] def apply(config: RunnerCliConfig): Try[RunnerConfig] = Try {
+      val dar: Dar[(PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(config.darPath)
+      val scriptId: Identifier =
+        Identifier(dar.main._1, QualifiedName.assertFromString(config.scriptIdentifier))
+      val token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token)
+      val inputValue: Option[JsValue] = config.inputFile.map(file => {
+        val source = Source.fromFile(file)
+        val fileContent =
+          try {
+            source.mkString
+          } finally {
+            source.close()
+          }
+        fileContent.parseJson
+      })
+      val participantParams: Participants[ApiParameters] = config.participantConfig match {
+        case Some(file) =>
+          // We allow specifying --access-token-file/--application-id together with
+          // --participant-config and use the values as the default for
+          // all participants that do not specify an explicit token.
+          val source = Source.fromFile(file)
+          val fileContent =
+            try {
+              source.mkString
+            } finally {
+              source.close
+            }
+          val jsVal = fileContent.parseJson
+          import ParticipantsJsonProtocol._
+          jsVal
+            .convertTo[Participants[ApiParameters]]
+            .map(params =>
+              params.copy(
+                access_token = params.access_token.orElse(token),
+                application_id = params.application_id.orElse(config.applicationId),
+              )
+            )
+
+        case None =>
+          Participants(
+            default_participant = Some(
+              ApiParameters(
+                config.ledgerHost.get,
+                config.ledgerPort.get,
+                token,
+                config.applicationId,
+              )
+            ),
+            participants = Map.empty,
+            party_participants = Map.empty,
+          )
+      }
+
+      new RunnerConfig(
+        dar,
+        scriptId,
+        participantParams,
+        config.timeMode,
+        inputValue,
+        config.outputFile,
+        token,
+        config.tlsConfig,
+        config.jsonApi,
+        config.maxInboundMessageSize,
+        config.applicationId,
+      )
+    }
   }
 }

@@ -3,6 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => A = A GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep A where
   _interfaceTypeRep
@@ -30,3 +31,5 @@ instance DA.Internal.Desugar.HasIsInterfaceType A where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq A where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView A EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"

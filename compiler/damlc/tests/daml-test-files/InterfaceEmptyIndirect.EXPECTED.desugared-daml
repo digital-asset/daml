@@ -3,7 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
-import InterfaceEmpty ( I )
+import InterfaceEmpty ( I, EmptyInterfaceView(..) )
 data GHC.Types.DamlTemplate => T
   = T {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -65,8 +65,18 @@ _choice_TArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_implements_T_I : DA.Internal.Desugar.ImplementsT T I
-_implements_T_I = DA.Internal.Desugar.ImplementsT
+_interface_instance_T_I_T :
+  DA.Internal.Desugar.InterfaceInstance T I T
+_interface_instance_T_I_T
+  = DA.Internal.Desugar.mkInterfaceInstance @T @I @T
+_view_T_I_T : DA.Internal.Desugar.InterfaceView T I T
+_view_T_I_T
+  = DA.Internal.Desugar.mkInterfaceView
+      @T
+      @I
+      @T
+      \ this@T {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 instance DA.Internal.Desugar.HasToInterface T I where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T I where

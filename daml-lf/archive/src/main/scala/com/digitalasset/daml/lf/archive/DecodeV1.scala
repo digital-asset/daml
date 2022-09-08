@@ -601,17 +601,24 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     ): TemplateImplements =
       TemplateImplements.build(
         interfaceId = decodeTypeConName(lfImpl.getInterface),
-        methods = lfImpl.getMethodsList.asScala.view.map(decodeTemplateImplementsMethod),
-        view = decodeExpr(lfImpl.getView, "TemplateImplements.view"),
+        body = decodeInterfaceInstanceBody(lfImpl.getBody),
       )
 
-    private[this] def decodeTemplateImplementsMethod(
-        lfMethod: PLF.DefTemplate.ImplementsMethod
-    ): TemplateImplementsMethod =
-      TemplateImplementsMethod(
+    private[this] def decodeInterfaceInstanceBody(
+        lfBody: PLF.InterfaceInstanceBody
+    ): InterfaceInstanceBody =
+      InterfaceInstanceBody.build(
+        methods = lfBody.getMethodsList.asScala.view.map(decodeInterfaceInstanceMethod),
+        view = decodeExpr(lfBody.getView, "InterfaceInstanceBody.view"),
+      )
+
+    private[this] def decodeInterfaceInstanceMethod(
+        lfMethod: PLF.InterfaceInstanceBody.InterfaceInstanceMethod
+    ): InterfaceInstanceMethod =
+      InterfaceInstanceMethod(
         methodName =
-          getInternedName(lfMethod.getMethodInternedName, "TemplateImplementsMethod.name"),
-        value = decodeExpr(lfMethod.getValue, "TemplateImplementsMethod.value"),
+          getInternedName(lfMethod.getMethodInternedName, "InterfaceInstanceMethod.name"),
+        value = decodeExpr(lfMethod.getValue, "InterfaceInstanceMethod.value"),
       )
 
     private[archive] def decodeChoice(
@@ -691,17 +698,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     ): InterfaceCoImplements =
       InterfaceCoImplements.build(
         templateId = decodeTypeConName(lfCoImpl.getTemplate),
-        methods = lfCoImpl.getMethodsList.asScala.view.map(decodeInterfaceCoImplementsMethod),
-        view = decodeExpr(lfCoImpl.getView, "InterfaceCoImplements.view"),
-      )
-
-    private[this] def decodeInterfaceCoImplementsMethod(
-        lfMethod: PLF.DefInterface.CoImplementsMethod
-    ): InterfaceCoImplementsMethod =
-      InterfaceCoImplementsMethod(
-        methodName =
-          getInternedName(lfMethod.getMethodInternedName, "InterfaceCoImplementsMethod.name"),
-        value = decodeExpr(lfMethod.getValue, "InterfaceCoImplementsMethod.value"),
+        body = decodeInterfaceInstanceBody(lfCoImpl.getBody),
       )
 
     private[lf] def decodeKind(lfKind: PLF.Kind): Kind =
@@ -1183,7 +1180,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           )
 
         case PLF.Expr.SumCase.UNSAFE_FROM_INTERFACE =>
-          assertSince(LV.Features.extendedInterfaces, "Expr.unsafe_from_interface")
+          assertSince(LV.Features.basicInterfaces, "Expr.unsafe_from_interface")
           val unsafeFromInterface = lfExpr.getUnsafeFromInterface
           EUnsafeFromInterface(
             interfaceId = decodeTypeConName(unsafeFromInterface.getInterfaceType),
@@ -1221,7 +1218,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           )
 
         case PLF.Expr.SumCase.INTERFACE_TEMPLATE_TYPE_REP =>
-          assertSince(LV.Features.extendedInterfaces, "Expr.interface_template_type_rep")
+          assertSince(LV.Features.basicInterfaces, "Expr.interface_template_type_rep")
           val interfaceTemplateTypeRep = lfExpr.getInterfaceTemplateTypeRep
           EInterfaceTemplateTypeRep(
             ifaceId = decodeTypeConName(interfaceTemplateTypeRep.getInterface),

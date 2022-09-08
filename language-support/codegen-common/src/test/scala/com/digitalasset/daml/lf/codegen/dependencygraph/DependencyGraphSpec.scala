@@ -6,7 +6,8 @@ package com.daml.lf.codegen.dependencygraph
 import com.daml.lf.codegen.Util
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.{Ref, ImmArray}
-import com.daml.lf.iface._
+import com.daml.lf.typesig._
+import PackageSignature.TypeDecl
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.std.map._
@@ -28,11 +29,11 @@ final class DependencyGraphSpec extends AnyWordSpec with Matchers {
       val quux = Ref.Identifier.assertFromString("a:b:Quux")
       val vt = Ref.Identifier.assertFromString("a:b:Vt")
       val minimalRecord =
-        InterfaceType.Normal(DefDataType(ImmArraySeq.empty, Record(ImmArraySeq.empty)))
+        TypeDecl.Normal(DefDataType(ImmArraySeq.empty, Record(ImmArraySeq.empty)))
       DependencyGraph
         .orderedDependencies(
           serializableTypes = Map(
-            foo -> InterfaceType.Normal(
+            foo -> TypeDecl.Normal(
               DefDataType(
                 ImmArray(bar.qualifiedName.name.segments.last).toSeq,
                 Record(ImmArraySeq.empty),
@@ -74,7 +75,7 @@ object DependencyGraphSpec {
   private[this] val fooRec = Record(ImmArraySeq.empty)
   private val typeDecls =
     Map(
-      "a:b:HasKey" -> InterfaceType.Template(
+      "a:b:HasKey" -> TypeDecl.Template(
         fooRec,
         DefTemplate(
           TemplateChoices.Resolved(Map.empty),
@@ -82,9 +83,8 @@ object DependencyGraphSpec {
           Seq.empty,
         ),
       ),
-      "a:b:NoKey" -> InterfaceType
-        .Template(fooRec, DefTemplate.Empty),
-      "a:b:It" -> InterfaceType.Normal(DefDataType(ImmArraySeq.empty, fooRec)),
+      "a:b:NoKey" -> TypeDecl.Template(fooRec, DefTemplate.Empty),
+      "a:b:It" -> TypeDecl.Normal(DefDataType(ImmArraySeq.empty, fooRec)),
     ) mapKeys Ref.Identifier.assertFromString
 
 }

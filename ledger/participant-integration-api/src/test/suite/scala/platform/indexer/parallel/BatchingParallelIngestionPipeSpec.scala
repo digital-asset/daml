@@ -24,6 +24,7 @@ class BatchingParallelIngestionPipeSpec
 
   private val input = Iterator.continually(util.Random.nextInt()).take(100).toList
   private val MaxBatchSize = 5
+  private val MaxTailerBatchSize = 4
 
   it should "end the stream successfully in a happy path case" in {
     runPipe().map { case (ingested, ingestedTail, err) =>
@@ -64,19 +65,8 @@ class BatchingParallelIngestionPipeSpec
     }
   }
 
-  it should "terminate the stream upon error in tailer" in {
-    runPipe(
-      tailerHook = () => throw new Exception("tailer failed"),
-      // Exert backpressure in order to ensure triggerring of the tailer
-      ingestTailHook = () => Thread.sleep(1L),
-    ).map { case (_, _, err) =>
-      err should not be empty
-      err.get.getMessage shouldBe "tailer failed"
-    }
-  }
-
   it should "terminate the stream upon error in ingestTail" in {
-    runPipe(ingestTailHook = () => throw new Exception("ingestTail failed")).map {
+    runPipe(ingestTailHook = _ => throw new Exception("ingestTail failed")).map {
       case (_, _, err) =>
         err should not be empty
         err.get.getMessage shouldBe "ingestTail failed"
@@ -126,13 +116,50 @@ class BatchingParallelIngestionPipeSpec
     }
   }
 
+  it should "form big batch sizes of batches before ingestTail under load" in {
+    val batchSizes = ArrayBuffer.empty[Int]
+
+    runPipe(
+      ingestTailHook = { batchOfBatches =>
+        // Slow ingest tail
+        Thread.sleep(10L)
+        batchSizes.addOne(batchOfBatches.size)
+      },
+      inputSource = Source(input).take(100).async,
+    ).map { case (_, _, err) =>
+      // The first and last batches can be smaller than `MaxTailerBatchSize`
+      // so we assert the average batch size instead of the sizes of individual batches
+      batchSizes.sum.toDouble / batchSizes.size should be > (MaxTailerBatchSize.toDouble * 0.7)
+      err shouldBe empty
+    }
+  }
+
+  it should "form small batch sizes of batches before ingestTail under no load" in {
+    val batchSizes = ArrayBuffer.empty[Int]
+
+    runPipe(
+      ingestTailHook = { batchOfBatches => batchSizes.addOne(batchOfBatches.size) },
+      inputSource = Source(input)
+        .take(100)
+        .map(
+          _.tap(_ =>
+            // Slow down source to ensure ingestTail is faster
+            Thread.sleep(10L)
+          )
+        )
+        .async,
+    ).map { case (_, _, err) =>
+      batchSizes.sum.toDouble / batchSizes.size should be < (MaxTailerBatchSize.toDouble * 0.3)
+      err shouldBe empty
+    }
+  }
+
   def runPipe(
       inputMapperHook: () => Unit = () => (),
       seqMapperHook: () => Unit = () => (),
       batcherHook: () => Unit = () => (),
       ingesterHook: List[Int] => Unit = _ => (),
-      tailerHook: () => Unit = () => (),
-      ingestTailHook: () => Unit = () => (),
+      ingestTailHook: Vector[List[(Int, String)]] => Unit = _ => (),
       timeout: FiniteDuration = FiniteDuration(10, "seconds"),
       inputSource: Source[Int, NotUsed] = Source(input),
   ): Future[(Vector[(Int, String)], Vector[Int], Option[Throwable])] = {
@@ -173,15 +200,12 @@ class BatchingParallelIngestionPipeSpec
             }
             dbBatch
           },
-        tailer = (prev, current) => {
-          tailerHook()
-          List((current.lastOption.orElse(prev.lastOption).get._1, ""))
-        },
+        maxTailerBatchSize = MaxTailerBatchSize,
         ingestTail = dbBatch =>
           Future {
-            ingestTailHook()
+            ingestTailHook(dbBatch)
             semaphore.synchronized {
-              ingestedTail = ingestedTail :+ dbBatch.last._1
+              ingestedTail = ingestedTail :+ dbBatch.last.last._1
             }
             dbBatch
           },

@@ -15,7 +15,8 @@ template Asset
     amount : Int
   where
     signatory issuer, owner
-    implements Interface.Token where
+    interface instance Interface.Token for Asset where
+      view = Interface.EmptyInterfaceView
       getOwner = owner
       getAmount = amount
       setAmount x = toInterface @Interface.Token (this with amount = x)

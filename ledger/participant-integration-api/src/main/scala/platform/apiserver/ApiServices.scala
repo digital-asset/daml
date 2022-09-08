@@ -25,9 +25,11 @@ import com.daml.platform.apiserver.configuration.{
 }
 import com.daml.platform.apiserver.execution.{
   LedgerTimeAwareCommandExecutor,
+  ResolveMaximumLedgerTime,
   StoreBackedCommandExecutor,
   TimedCommandExecutor,
 }
+import com.daml.platform.apiserver.meteringreport.MeteringReportKey
 import com.daml.platform.apiserver.services._
 import com.daml.platform.apiserver.services.admin._
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService
@@ -88,6 +90,7 @@ private[daml] object ApiServices {
       ledgerFeatures: LedgerFeatures,
       userManagementConfig: UserManagementConfig,
       apiStreamShutdownTimeout: scala.concurrent.duration.Duration,
+      meteringReportKey: MeteringReportKey,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -209,7 +212,7 @@ private[daml] object ApiServices {
         }
 
       val apiMeteringReportService =
-        new ApiMeteringReportService(participantId, meteringStore)
+        new ApiMeteringReportService(participantId, meteringStore, meteringReportKey)
 
       apiTimeServiceOpt.toList :::
         writeServiceBackedApiServices :::
@@ -244,7 +247,7 @@ private[daml] object ApiServices {
               contractStore,
               metrics,
             ),
-            contractStore,
+            new ResolveMaximumLedgerTime(contractStore),
             maxRetries = 3,
             metrics,
           ),

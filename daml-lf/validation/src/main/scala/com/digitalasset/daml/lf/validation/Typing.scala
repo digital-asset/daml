@@ -7,7 +7,8 @@ import com.daml.lf.data.{ImmArray, Numeric, Struct}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.language.{LanguageVersion, PackageInterface}
+import com.daml.lf.language.LookupError
+import com.daml.lf.language.{LanguageVersion, PackageInterface, Reference}
 import com.daml.lf.validation.Util._
 import com.daml.lf.validation.iterable.TypeIterable
 import com.daml.scalautil.Statement.discard
@@ -309,7 +310,7 @@ private[validation] object Typing {
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         cons match {
           case DataRecord(fields) =>
-            env.checkRecordType(fields)
+            env.checkRecordTypeTop(fields)
           case DataVariant(fields) =>
             env.checkVariantType(fields)
           case DataEnum(values) =>
@@ -364,6 +365,16 @@ private[validation] object Typing {
       eVars: Map[ExprVarName, Type] = Map.empty,
   ) {
 
+    private[lf] def kindOf(typ: Type): Kind = { // testing entry point
+      // must *NOT* be used for sub-types
+      runWork(kindOfType(typ))
+    }
+
+    private[Typing] def checkType(typ: Type, kind: Kind): Unit = {
+      // must *NOT* be used for sub-types
+      runWork(nestedCheckType(typ, kind) { Ret(()) })
+    }
+
     // continuation style is for convenience of caller
     private def typeOf[T](e: Expr)(k: Type => Work[T]): Work[T] = {
       // stack-safe type-computation for sub-expressions
@@ -371,6 +382,7 @@ private[validation] object Typing {
     }
 
     private def checkTopExpr(expr: Expr, typ: Type): Unit = {
+      // must *NOT* be used for sub-expressions
       val exprType = typeOfTopExpr(expr)
       if (!alphaEquiv(exprType, typ))
         throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
@@ -460,9 +472,9 @@ private[validation] object Typing {
       case _ => typ0
     }
 
-    private[Typing] def checkRecordType(fields: ImmArray[(FieldName, Type)]): Unit = {
-      checkUniq[FieldName](fields.keys, EDuplicateField(ctx, _))
-      fields.values.foreach(checkType(_, KStar))
+    private[Typing] def checkRecordTypeTop(fields: ImmArray[(FieldName, Type)]): Unit = {
+      // must *NOT* be used when nested with a type
+      runWork(checkRecordType(fields) { Ret(()) })
     }
 
     private def checkChoice(tplName: TypeConName, choice: TemplateChoice): Unit =
@@ -507,7 +519,14 @@ private[validation] object Typing {
       env.checkTopExpr(observers, TParties)
       env.checkTopExpr(agreementText, TText)
       choices.values.foreach(env.checkChoice(tplName, _))
-      env.checkIfaceImplementations(tplName, implementations)
+      implementations.values.foreach { impl =>
+        checkInterfaceInstance(
+          tmplParam = param,
+          interfaceId = impl.interfaceId,
+          templateId = tplName,
+          iiBody = impl.body,
+        )
+      }
       mbKey.foreach { key =>
         checkType(key.typ, KStar)
         env.checkTopExpr(key.body, key.typ)
@@ -518,7 +537,7 @@ private[validation] object Typing {
 
     private[Typing] def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
-        case DefInterface(requires, param, choices, methods, coImplements, _) =>
+        case DefInterface(requires, param, choices, methods, coImplements, view) =>
           val env = introExprVar(param, TTyCon(ifaceName))
           if (requires(ifaceName))
             throw ECircularInterfaceRequires(ctx, ifaceName)
@@ -529,94 +548,105 @@ private[validation] object Typing {
           } throw ENotClosedInterfaceRequires(ctx, ifaceName, required, requiredRequired)
           methods.values.foreach(checkIfaceMethod)
           choices.values.foreach(env.checkChoice(ifaceName, _))
-          env.checkIfaceCoImplementations(ifaceName, param, coImplements)
+          coImplements.values.foreach(coImpl =>
+            checkInterfaceInstance(
+              tmplParam = param,
+              interfaceId = ifaceName,
+              templateId = coImpl.templateId,
+              iiBody = coImpl.body,
+            )
+          )
+          def error = throw EExpectedViewType(env.ctx, view)
+          view match {
+            case TTyCon(tycon) =>
+              handleLookup(env.ctx, pkgInterface.lookupDataType(tycon)) match {
+                case DDataType(_, ImmArray(), DataRecord(_)) =>
+                case _ =>
+                  error
+              }
+            case _ =>
+              error
+          }
       }
 
     private def checkIfaceMethod(method: InterfaceMethod): Unit = {
       checkType(method.returnType, KStar)
     }
 
-    // TODO https://github.com/digital-asset/daml/issues/13410 -- ensure alphaEquiv is stack-safe
     private def alphaEquiv(t1: Type, t2: Type) =
       AlphaEquiv.alphaEquiv(t1, t2) ||
         AlphaEquiv.alphaEquiv(expandTypeSynonyms(t1), expandTypeSynonyms(t2))
 
-    private def checkGenImplementation(
-        tplTcon: TypeConName,
-        ifaceTcon: TypeConName,
-        implMethods: List[(MethodName, Expr)],
+    private def checkUniqueInterfaceInstance(
+        interfaceId: TypeConName,
+        templateId: TypeConName,
+    ): PackageInterface.InterfaceInstanceInfo = {
+      pkgInterface.lookupInterfaceInstance(interfaceId, templateId) match {
+        case Left(err) =>
+          err match {
+            case lookupErr: LookupError.NotFound =>
+              lookupErr.notFound match {
+                case _: Reference.InterfaceInstance =>
+                  throw EMissingInterfaceInstance(ctx, interfaceId, templateId)
+                case _ =>
+                  throw EUnknownDefinition(ctx, lookupErr)
+              }
+            case ambiIfaceErr: LookupError.AmbiguousInterfaceInstance =>
+              throw EAmbiguousInterfaceInstance(
+                ctx,
+                ambiIfaceErr.instance.interfaceName,
+                ambiIfaceErr.instance.templateName,
+              )
+          }
+        case Right(iiInfo) => iiInfo
+      }
+    }
+
+    private def checkUniqueInterfaceInstanceExists(
+        interfaceId: TypeConName,
+        templateId: TypeConName,
+    ): Unit = discard(checkUniqueInterfaceInstance(interfaceId, templateId))
+
+    private def checkInterfaceInstance(
+        tmplParam: ExprVarName,
+        interfaceId: TypeConName,
+        templateId: TypeConName,
+        iiBody: InterfaceInstanceBody,
     ): Unit = {
-      val DefInterfaceSignature(requires, _, _, methods, _, _) =
-        // TODO https://github.com/digital-asset/daml/issues/14112
-        handleLookup(ctx, pkgInterface.lookupInterface(ifaceTcon))
+      val iiInfo = checkUniqueInterfaceInstance(interfaceId, templateId)
+      val ctx = Context.Reference(iiInfo.ref)
+
+      // Note (MA): we use an empty environment and add `tmplParam : TTyCon(templateId)`
+      val env = Env(languageVersion, pkgInterface, ctx)
+        .introExprVar(tmplParam, TTyCon(templateId))
+
+      val DefInterfaceSignature(requires, _, _, methods, _, view) =
+        iiInfo.interfaceSignature
 
       requires
-        .filterNot(required =>
-          pkgInterface.lookupTemplateImplementsOrInterfaceCoImplements(tplTcon, required).isRight
+        .filterNot(required => pkgInterface.lookupInterfaceInstance(required, templateId).isRight)
+        .foreach(required =>
+          throw EMissingRequiredInterfaceInstance(
+            ctx,
+            interfaceId,
+            Reference.InterfaceInstance(required, templateId),
+          )
         )
-        .foreach(required => throw EMissingRequiredInterface(ctx, tplTcon, ifaceTcon, required))
 
       methods.values.foreach { (method: InterfaceMethod) =>
-        if (!implMethods.exists { case (name, _) => name == method.name })
-          throw EMissingInterfaceMethod(ctx, tplTcon, ifaceTcon, method.name)
+        if (!iiBody.methods.exists { case (name, _) => name == method.name })
+          throw EMissingMethodInInterfaceInstance(ctx, method.name)
       }
-      implMethods.foreach { case (name, value) =>
+      iiBody.methods.values.foreach { case InterfaceInstanceMethod(name, value) =>
         methods.get(name) match {
           case None =>
-            throw EUnknownInterfaceMethod(ctx, tplTcon, ifaceTcon, name)
-          case Some(method) =>
-            checkTopExpr(value, method.returnType)
+            throw EUnknownMethodInInterfaceInstance(ctx, name)
+          case Some(method) => env.checkTopExpr(value, method.returnType)
         }
       }
+
+      env.checkTopExpr(iiBody.view, view)
     }
-
-    private def checkIfaceImplementation(
-        tplTcon: TypeConName,
-        impl: TemplateImplements,
-    ): Unit = {
-      val ifaceTcon = impl.interfaceId
-      pkgInterface
-        .lookupInterfaceCoImplements(tplTcon, ifaceTcon)
-        .foreach(_ => throw EConflictingImplementsCoImplements(ctx, tplTcon, ifaceTcon))
-      checkGenImplementation(
-        tplTcon,
-        ifaceTcon,
-        impl.methods.values.map(TemplateImplementsMethod.unapply(_).value).toList,
-      )
-    }
-
-    private def checkIfaceImplementations(
-        tplTcon: TypeConName,
-        impls: Map[TypeConName, TemplateImplements],
-    ): Unit =
-      impls.values.foreach(checkIfaceImplementation(tplTcon, _))
-
-    private def checkIfaceCoImplementation(
-        ifaceTcon: TypeConName,
-        param: ExprVarName,
-        coImpl: InterfaceCoImplements,
-    ): Unit = {
-      val tplTcon = coImpl.templateId
-      pkgInterface
-        .lookupTemplateImplements(tplTcon, ifaceTcon)
-        .foreach(_ => throw EConflictingImplementsCoImplements(ctx, tplTcon, ifaceTcon))
-
-      // Note (MA): we use an empty environment and add `param : TTyCon(tplTcon)`
-      Env(languageVersion, pkgInterface, Context.DefInterfaceCoImplements(tplTcon, ifaceTcon))
-        .introExprVar(param, TTyCon(tplTcon))
-        .checkGenImplementation(
-          tplTcon,
-          ifaceTcon,
-          coImpl.methods.values.map(InterfaceCoImplementsMethod.unapply(_).value).toList,
-        )
-    }
-
-    private def checkIfaceCoImplementations(
-        ifaceTcon: TypeConName,
-        param: ExprVarName,
-        coImpls: Map[TypeConName, InterfaceCoImplements],
-    ): Unit =
-      coImpls.values.foreach(checkIfaceCoImplementation(ifaceTcon, param, _))
 
     private[Typing] def checkDefException(
         excepName: TypeConName,
@@ -634,46 +664,69 @@ private[validation] object Typing {
         TypeSubst.substitute((tparams.keys zip tArgs.iterator).toMap, dataCons)
     }
 
-    private[Typing] def checkType(typ: Type, kind: Kind): Unit = {
-      val typKind = kindOf(typ)
-      if (kind != typKind)
-        throw EKindMismatch(ctx, foundKind = typKind, expectedKind = kind)
+    private def nestedCheckType[T](typ: Type, kind: Kind)(work: => Work[T]): Work[T] = {
+      nestedKindOf(typ) { typKind =>
+        if (kind != typKind) {
+          throw EKindMismatch(ctx, foundKind = typKind, expectedKind = kind)
+        }
+        work
+      }
+    }
+
+    private def nestedKindOf[T](typ: Type)(k: Kind => Work[T]): Work[T] = {
+      Bind(Delay(() => kindOfType(typ)), k)
     }
 
     private def kindOfDataType(defDataType: DDataType): Kind =
       defDataType.params.reverse.foldLeft[Kind](KStar) { case (acc, (_, k)) => KArrow(k, acc) }
 
-    // TODO https://github.com/digital-asset/daml/issues/13410 -- ensure kindOf is stack-safe
-    def kindOf(typ0: Type): Kind = typ0 match { // testing entry point
-
+    private def kindOfType(typ0: Type): Work[Kind] = typ0 match {
       case TSynApp(syn, args) =>
         val ty = expandSynApp(syn, args)
-        checkType(ty, KStar)
-        KStar
+        nestedCheckType(ty, KStar) {
+          Ret(KStar)
+        }
       case TVar(v) =>
-        lookupTypeVar(v)
+        Ret(lookupTypeVar(v))
       case TNat(_) =>
-        KNat
+        Ret(KNat)
       case TTyCon(tycon) =>
-        kindOfDataType(handleLookup(ctx, pkgInterface.lookupDataType(tycon)))
+        Ret(kindOfDataType(handleLookup(ctx, pkgInterface.lookupDataType(tycon))))
       case TApp(tFun, tArg) =>
-        kindOf(tFun) match {
+        nestedKindOf(tFun) {
           case KStar | KNat => throw EExpectedHigherKind(ctx, KStar)
           case KArrow(argKind, resKind) =>
-            checkType(tArg, argKind)
-            resKind
+            nestedCheckType(tArg, argKind) {
+              Ret(resKind)
+            }
         }
       case TBuiltin(bType) =>
-        kindOfBuiltin(bType)
+        Ret(kindOfBuiltin(bType))
       case TForall((v, k), b) =>
         checkKind(k)
-        introTypeVar(v, k).checkType(b, KStar)
-        KStar
+        introTypeVar(v, k).nestedCheckType(b, KStar) {
+          Ret(KStar)
+        }
       case TStruct(fields) =>
-        checkRecordType(fields.toImmArray)
-        KStar
+        checkRecordType(fields.toImmArray) {
+          Ret(KStar)
+        }
     }
 
+    private def checkRecordType[T](
+        fields: ImmArray[(FieldName, Type)]
+    )(work: => Work[T]): Work[T] = {
+      checkUniq[FieldName](fields.keys, EDuplicateField(ctx, _))
+      sequenceWork(fields.values.toList.map { ty =>
+        nestedCheckType(ty, KStar) {
+          Ret(())
+        }
+      }) { _ =>
+        work
+      }
+    }
+
+    // TODO https://github.com/digital-asset/daml/issues/13410 -- make expandTypeSynonyms be stack-safe
     private[lf] def expandTypeSynonyms(typ0: Type): Type = typ0 match {
       case TSynApp(syn, args) =>
         val ty = expandSynApp(syn, args)
@@ -1000,17 +1053,17 @@ private[validation] object Typing {
 
     private[this] def typOfExprInterface(expr: ExprInterface): Work[Type] = expr match {
       case EToInterface(iface, tpl, value) =>
-        checkImplements(tpl, iface)
+        checkUniqueInterfaceInstanceExists(iface, tpl)
         checkExpr(value, TTyCon(tpl)) {
           Ret(TTyCon(iface))
         }
       case EFromInterface(iface, tpl, value) =>
-        checkImplements(tpl, iface)
+        checkUniqueInterfaceInstanceExists(iface, tpl)
         checkExpr(value, TTyCon(iface)) {
           Ret(TOptional(TTyCon(tpl)))
         }
       case EUnsafeFromInterface(iface, tpl, cid, value) =>
-        checkImplements(tpl, iface)
+        checkUniqueInterfaceInstanceExists(iface, tpl)
         checkExpr(cid, TContractId(TTyCon(iface))) {
           checkExpr(value, TTyCon(iface)) {
             Ret(TTyCon(tpl))
@@ -1190,14 +1243,6 @@ private[validation] object Typing {
       discard(handleLookup(ctx, pkgInterface.lookupInterface(tpl)))
       checkExpr(cid, TContractId(TTyCon(tpl))) {
         Ret(TUpdate(TTyCon(tpl)))
-      }
-    }
-
-    private def checkImplements(tpl: TypeConName, iface: TypeConName): Unit = {
-      discard(handleLookup(ctx, pkgInterface.lookupInterface(iface)))
-      discard(handleLookup(ctx, pkgInterface.lookupTemplate(tpl)))
-      if (pkgInterface.lookupTemplateImplementsOrInterfaceCoImplements(tpl, iface).isLeft) {
-        throw ETemplateDoesNotImplementInterface(ctx, tpl, iface)
       }
     }
 

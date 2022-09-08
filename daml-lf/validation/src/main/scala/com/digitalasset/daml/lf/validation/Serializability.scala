@@ -4,7 +4,7 @@
 package com.daml.lf.validation
 
 import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName, MethodName}
+import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LanguageVersion, PackageInterface}
 
@@ -191,20 +191,7 @@ private[validation] object Serializability {
       Env(flags, pkgInterface, context, SRChoiceRes, choice.returnType).checkType()
     }
 
-    val viewMethodName = MethodName.assertFromString("_view")
-    defInterface.methods.get(viewMethodName) match {
-      case None => {} // throw ENoViewFound(context, tyCon.tycon);
-      // ^ TODO: Make views mandatory when name clash issue is resolved
-      // https://github.com/digital-asset/daml/issues/14112
-      // https://github.com/digital-asset/daml/pull/14322#issuecomment-1173692581
-      case Some(viewMethod) =>
-        try {
-          Env(flags, pkgInterface, context, SRChoiceRes, viewMethod.returnType).checkType()
-        } catch {
-          case _: ValidationError =>
-            throw EViewNotSerializable(context, tyCon.tycon, viewMethod.returnType);
-        }
-    }
+    Env(flags, pkgInterface, context, SRView, defInterface.view).checkType()
   }
 
   def checkModule(pkgInterface: PackageInterface, pkgId: PackageId, module: Module): Unit = {

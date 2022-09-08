@@ -5,9 +5,9 @@ package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.time.Instant
 import java.util.concurrent.TimeoutException
-
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Endpoint
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.IncludeInterfaceView
 import com.daml.ledger.api.testtool.infrastructure.time.{DelayMechanism, Durations}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsRequest
 import com.daml.ledger.api.v1.admin.config_management_service.{
@@ -43,13 +43,14 @@ import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfiguration
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.package_service.{GetPackageResponse, PackageStatus}
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
   GetTransactionsRequest,
   GetTransactionsResponse,
 }
-import com.daml.ledger.api.v1.value.{Identifier, Value}
+import com.daml.ledger.api.v1.value.Value
 import com.daml.ledger.client.binding.{Primitive, Template}
 import com.daml.lf.data.Ref.HexString
 import com.daml.timer.Delayed
@@ -150,22 +151,29 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   )
   override def activeContractsRequest(
       parties: Seq[Primitive.Party],
-      templateIds: Seq[Identifier],
-  ): GetActiveContractsRequest = delegate.activeContractsRequest(parties, templateIds)
+      templateIds: Seq[TemplateId],
+      interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+  ): GetActiveContractsRequest =
+    delegate.activeContractsRequest(parties, templateIds, interfaceFilters)
   override def activeContracts(parties: Primitive.Party*): Future[Vector[CreatedEvent]] =
     withTimeout(s"Active contracts for parties $parties", delegate.activeContracts(parties: _*))
   override def activeContractsByTemplateId(
-      templateIds: Seq[Identifier],
+      templateIds: Seq[TemplateId],
       parties: Primitive.Party*
   ): Future[Vector[CreatedEvent]] = withTimeout(
     s"Active contracts by template ids $templateIds for parties $parties",
     delegate.activeContractsByTemplateId(templateIds, parties: _*),
   )
-  override def getTransactionsRequest(
+
+  def transactionFilter(
       parties: Seq[Primitive.Party],
-      templateIds: Seq[TemplateId],
+      templateIds: Seq[TemplateId] = Seq.empty,
+      interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+  ) = delegate.transactionFilter(parties, templateIds, interfaceFilters)
+  override def getTransactionsRequest(
+      transactionFilter: TransactionFilter,
       begin: LedgerOffset,
-  ): GetTransactionsRequest = delegate.getTransactionsRequest(parties, templateIds, begin)
+  ): GetTransactionsRequest = delegate.getTransactionsRequest(transactionFilter, begin)
   override def transactionStream(
       request: GetTransactionsRequest,
       responseObserver: StreamObserver[GetTransactionsResponse],
@@ -300,27 +308,27 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   )
   override def exercise[T](
       party: Primitive.Party,
-      exercise: Primitive.Party => Primitive.Update[T],
+      exercise: Primitive.Update[T],
   ): Future[TransactionTree] =
     withTimeout(s"Exercise for party $party", delegate.exercise(party, exercise))
   override def exercise[T](
       actAs: List[Primitive.Party],
       readAs: List[Primitive.Party],
-      exercise: => Primitive.Update[T],
+      exercise: Primitive.Update[T],
   ): Future[TransactionTree] = withTimeout(
     s"Exercise for actAs $actAs and readAs $readAs",
     delegate.exercise(actAs, readAs, exercise),
   )
   override def exerciseForFlatTransaction[T](
       party: Primitive.Party,
-      exercise: Primitive.Party => Primitive.Update[T],
+      exercise: Primitive.Update[T],
   ): Future[Transaction] = withTimeout(
     s"Exercise for flat transaction for party $party",
     delegate.exerciseForFlatTransaction(party, exercise),
   )
   override def exerciseAndGetContract[T](
       party: Primitive.Party,
-      exercise: Primitive.Party => Primitive.Update[Any],
+      exercise: Primitive.Update[Any],
   ): Future[Primitive.ContractId[T]] = withTimeout(
     s"Exercise and get contract for party $party",
     delegate.exerciseAndGetContract(party, exercise),
@@ -496,4 +504,8 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     )
   }
 
+  override def filters(
+      templateIds: Seq[TemplateId],
+      interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)],
+  ): Filters = delegate.filters(templateIds, interfaceFilters)
 }

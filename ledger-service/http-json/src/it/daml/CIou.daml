@@ -5,6 +5,7 @@ module CIou where
 
 import IIou
 import Transferrable (Transferrable)
+import qualified Transferrable
 
 template CIou with
     issuer : Party
@@ -15,10 +16,14 @@ template CIou with
   key issuer: Party
   maintainer key
 
-  implements IIou where
+  interface instance IIou for CIou where
+    view = AmountView with
+      amount
     getOwner = owner
 
-  implements Transferrable where
+  interface instance Transferrable for CIou where
+    view = Transferrable.AmountView with
+      amount
     getOwner = owner
 
   choice Overridden : Text with

@@ -19,12 +19,12 @@ final case class IndexServiceConfig(
     maxContractKeyStateCacheSize: Long = IndexServiceConfig.DefaultMaxContractKeyStateCacheSize,
     maxTransactionsInMemoryFanOutBufferSize: Int =
       IndexServiceConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize,
-    enableInMemoryFanOutForLedgerApi: Boolean =
-      IndexServiceConfig.DefaultEnableInMemoryFanOutForLedgerApi,
     apiStreamShutdownTimeout: Duration = IndexServiceConfig.DefaultApiStreamShutdownTimeout,
     inMemoryStateUpdaterParallelism: Int =
       IndexServiceConfig.DefaultInMemoryStateUpdaterParallelism,
     inMemoryFanOutThreadPoolSize: Int = IndexServiceConfig.DefaultInMemoryFanOutThreadPoolSize,
+    preparePackageMetadataTimeOutWarning: FiniteDuration =
+      IndexServiceConfig.PreparePackageMetadataTimeOutWarning,
 )
 
 object IndexServiceConfig {
@@ -40,8 +40,8 @@ object IndexServiceConfig {
   val DefaultMaxContractStateCacheSize: Long = 100000L
   val DefaultMaxContractKeyStateCacheSize: Long = 100000L
   val DefaultMaxTransactionsInMemoryFanOutBufferSize: Int = 10000
-  val DefaultEnableInMemoryFanOutForLedgerApi = false
   val DefaultApiStreamShutdownTimeout: Duration = FiniteDuration(5, "seconds")
   val DefaultInMemoryStateUpdaterParallelism: Int = 2
   val DefaultInMemoryFanOutThreadPoolSize: Int = 16
+  val PreparePackageMetadataTimeOutWarning: FiniteDuration = FiniteDuration(1, "second")
 }

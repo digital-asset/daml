@@ -13,6 +13,7 @@ import com.daml.ledger.api.v1.transaction.{TreeEvent => PbTreeEvent}
 import com.daml.logging.LoggingContext
 import com.daml.platform.Identifier
 import com.daml.platform.participant.util.LfEngineToApi
+import com.daml.platform.store.dao.EventProjectionProperties
 import com.daml.platform.store.serialization.Compression
 
 import scala.collection.immutable.ArraySeq
@@ -29,11 +30,12 @@ sealed trait Raw[+E] {
     * the deserialization on contained values.
     *
     * @param lfValueTranslation The delegate in charge of applying deserialization
-    * @param verbose If true, field names of records will be included
+    * @param eventProjectionProperties The properties of how contract arguments and interface views for
+    *                                  the event are projected and merged
     */
   def applyDeserialization(
       lfValueTranslation: LfValueTranslation,
-      verbose: Boolean,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
@@ -59,12 +61,12 @@ object Raw {
 
     final override def applyDeserialization(
         lfValueTranslation: LfValueTranslation,
-        verbose: Boolean,
+        eventProjectionProperties: EventProjectionProperties,
     )(implicit
         ec: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[E] =
-      lfValueTranslation.deserialize(this, verbose).map(wrapInEvent)
+      lfValueTranslation.deserialize(this, eventProjectionProperties).map(wrapInEvent)
   }
 
   object Created {
@@ -150,7 +152,7 @@ object Raw {
     ) extends FlatEvent {
       override def applyDeserialization(
           lfValueTranslation: LfValueTranslation,
-          verbose: Boolean,
+          eventProjectionProperties: EventProjectionProperties,
       )(implicit
           ec: ExecutionContext,
           loggingContext: LoggingContext,
@@ -240,13 +242,13 @@ object Raw {
     ) extends TreeEvent {
       override def applyDeserialization(
           lfValueTranslation: LfValueTranslation,
-          verbose: Boolean,
+          eventProjectionProperties: EventProjectionProperties,
       )(implicit
           ec: ExecutionContext,
           loggingContext: LoggingContext,
       ): Future[PbTreeEvent] =
         lfValueTranslation
-          .deserialize(this, verbose)
+          .deserialize(this, eventProjectionProperties.verbose)
           .map(event => PbTreeEvent(PbTreeEvent.Kind.Exercised(event)))
 
     }

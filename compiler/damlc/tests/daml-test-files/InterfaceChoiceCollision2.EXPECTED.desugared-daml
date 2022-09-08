@@ -4,6 +4,7 @@ import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
 import qualified InterfaceChoiceCollision1
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => Interface
   = Interface GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Interface where
@@ -27,10 +28,8 @@ instance DA.Internal.Desugar.HasFromInterface Interface InterfaceChoiceCollision
   unsafeFromInterface
     = GHC.Types.primitive @"EUnsafeFromRequiredInterface"
 instance DA.Internal.Desugar.HasMethod Interface "getOwner" (Party)
-getOwner : DA.Internal.Desugar.Implements t Interface => t -> Party
-getOwner t
-  = GHC.Types.primitiveInterface
-      @"getOwner" (DA.Internal.Desugar._toInterface @_ @Interface t)
+getOwner : Interface -> Party
+getOwner = GHC.Types.primitiveInterface @"getOwner"
 instance DA.Internal.Desugar.HasToAnyTemplate Interface where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate Interface where
@@ -47,29 +46,25 @@ instance DA.Internal.Desugar.HasIsInterfaceType Interface where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Interface where
   (==) = GHC.Types.primitive @"BEEqual"
-instance (DA.Internal.Desugar.Implements t Interface) =>
-         DA.Internal.Desugar.HasToAnyChoice t MyArchive (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Interface MyArchive (()) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Interface])
-instance (DA.Internal.Desugar.Implements t Interface) =>
-         DA.Internal.Desugar.HasFromAnyChoice t MyArchive (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Interface MyArchive (()) where
   _fromAnyChoice _
     = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Interface])
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t Interface)) =>
-         DA.Internal.Desugar.HasExerciseGuarded t MyArchive (()) where
+instance DA.Internal.Desugar.HasExerciseGuarded Interface MyArchive (()) where
   exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @Interface cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Interface cid pred)
+instance DA.Internal.Desugar.HasExercise Interface MyArchive (()) where
+  exercise cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Interface cid)
         arg
-        (DA.Internal.Desugar._exerciseInterfaceGuard @Interface cid pred)
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t Interface)) =>
-         DA.Internal.Desugar.HasExercise t MyArchive (()) where
-  exercise = DA.Internal.Desugar._exerciseDefault
 data MyArchive
   = MyArchive {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -87,3 +82,5 @@ _choice_InterfaceMyArchive
      \ self this arg@MyArchive
        -> let _ = self in let _ = this in let _ = arg in do pure (), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView Interface EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"

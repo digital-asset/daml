@@ -4,10 +4,12 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.time.Instant
-
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Endpoint
-import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.CompletionResponse
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.{
+  CompletionResponse,
+  IncludeInterfaceView,
+}
 import com.daml.ledger.api.testtool.infrastructure.time.DelayMechanism
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsRequest
 import com.daml.ledger.api.v1.admin.config_management_service.{
@@ -43,13 +45,14 @@ import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfiguration
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.package_service.{GetPackageResponse, PackageStatus}
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
   GetTransactionsRequest,
   GetTransactionsResponse,
 }
-import com.daml.ledger.api.v1.value.{Identifier, Value}
+import com.daml.ledger.api.v1.value.Value
 import com.daml.ledger.client.binding.{Primitive, Template}
 import com.daml.lf.data.Ref.HexString
 import com.google.protobuf.ByteString
@@ -139,24 +142,36 @@ trait ParticipantTestContext extends UserManagementTestContext {
   ): Future[(Option[LedgerOffset], Vector[CreatedEvent])]
   def activeContractsRequest(
       parties: Seq[Primitive.Party],
-      templateIds: Seq[Identifier] = Seq.empty,
+      templateIds: Seq[TemplateId] = Seq.empty,
+      interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
   ): GetActiveContractsRequest
   def activeContracts(parties: Primitive.Party*): Future[Vector[CreatedEvent]]
   def activeContractsByTemplateId(
-      templateIds: Seq[Identifier],
+      templateIds: Seq[TemplateId],
       parties: Primitive.Party*
   ): Future[Vector[CreatedEvent]]
 
-  /** Create a [[GetTransactionsRequest]] with a set of [[Party]] objects.
+  /** Create a [[TransactionFilter]] with a set of [[Party]] objects.
     * You should use this only when you need to tweak the request of [[flatTransactions]]
     * or [[transactionTrees]], otherwise use the shortcut override that allows you to
     * directly pass a set of [[Party]]
     */
-  def getTransactionsRequest(
+  def transactionFilter(
       parties: Seq[Primitive.Party],
       templateIds: Seq[TemplateId] = Seq.empty,
+      interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+  ): TransactionFilter
+
+  def filters(
+      templateIds: Seq[TemplateId] = Seq.empty,
+      interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+  ): Filters
+
+  def getTransactionsRequest(
+      transactionFilter: TransactionFilter,
       begin: LedgerOffset = referenceOffset,
   ): GetTransactionsRequest
+
   def transactionStream(
       request: GetTransactionsRequest,
       responseObserver: StreamObserver[GetTransactionsResponse],
@@ -271,20 +286,20 @@ trait ParticipantTestContext extends UserManagementTestContext {
   ): Future[(String, Primitive.ContractId[T])]
   def exercise[T](
       party: Primitive.Party,
-      exercise: Primitive.Party => Primitive.Update[T],
+      exercise: Primitive.Update[T],
   ): Future[TransactionTree]
   def exercise[T](
       actAs: List[Primitive.Party],
       readAs: List[Primitive.Party],
-      exercise: => Primitive.Update[T],
+      exercise: Primitive.Update[T],
   ): Future[TransactionTree]
   def exerciseForFlatTransaction[T](
       party: Primitive.Party,
-      exercise: Primitive.Party => Primitive.Update[T],
+      exercise: Primitive.Update[T],
   ): Future[Transaction]
   def exerciseAndGetContract[T](
       party: Primitive.Party,
-      exercise: Primitive.Party => Primitive.Update[Any],
+      exercise: Primitive.Update[Any],
   ): Future[Primitive.ContractId[T]]
   def exerciseByKey[T](
       party: Primitive.Party,
@@ -377,6 +392,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
 }
 
 object ParticipantTestContext {
+  type IncludeInterfaceView = Boolean
 
   case class CompletionResponse(completion: Completion, offset: LedgerOffset, recordTime: Instant)
 

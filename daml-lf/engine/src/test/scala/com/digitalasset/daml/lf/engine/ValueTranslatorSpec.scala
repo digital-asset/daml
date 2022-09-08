@@ -40,7 +40,7 @@ class ValueTranslatorSpec
   private[this] val pkg =
     p"""
         module Mod {
-          
+
           record @serializable Tuple (a: *) (b: *) = { x: a, y: b };
           record @serializable Record = { field : Int64 };
           variant @serializable Either (a: *) (b: *) = Left : a | Right : b;

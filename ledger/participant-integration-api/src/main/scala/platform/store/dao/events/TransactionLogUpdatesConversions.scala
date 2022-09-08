@@ -4,7 +4,6 @@
 package com.daml.platform.store.dao.events
 
 import com.daml.api.util.TimestampConversion.fromInstant
-import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
   TransactionTree,
   TreeEvent,
@@ -23,6 +22,7 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
 import com.daml.platform.participant.util.LfEngineToApi
+import com.daml.platform.store.dao.EventProjectionProperties
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.{CreatedEvent, ExercisedEvent}
 import com.daml.platform.{ApiOffset, FilterRelation, Value}
@@ -63,13 +63,13 @@ private[events] object TransactionLogUpdatesConversions {
 
     def toGetTransactionsResponse(
         filter: FilterRelation,
-        verbose: Boolean,
+        eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
     ): TransactionLogUpdate.TransactionAccepted => Future[GetTransactionsResponse] =
-      toFlatTransaction(_, filter, verbose, lfValueTranslation)
+      toFlatTransaction(_, filter, eventProjectionProperties, lfValueTranslation)
         .map(transaction => GetTransactionsResponse(Seq(transaction)))
 
     def toGetFlatTransactionResponse(
@@ -85,7 +85,10 @@ private[events] object TransactionLogUpdatesConversions {
           toFlatTransaction(
             transactionAccepted = transactionAccepted,
             filter = requestingParties.map(_ -> Set.empty[Ref.Identifier]).toMap,
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = requestingParties.map(_ -> Set.empty[Ref.Identifier]).toMap,
+            ),
             lfValueTranslation = lfValueTranslation,
           )
         )
@@ -95,7 +98,7 @@ private[events] object TransactionLogUpdatesConversions {
     private def toFlatTransaction(
         transactionAccepted: TransactionLogUpdate.TransactionAccepted,
         filter: FilterRelation,
-        verbose: Boolean,
+        eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
@@ -105,7 +108,7 @@ private[events] object TransactionLogUpdatesConversions {
         val requestingParties = filter.keySet
         Future
           .traverse(transactionAccepted.events)(event =>
-            toFlatEvent(event, requestingParties, verbose, lfValueTranslation)
+            toFlatEvent(event, requestingParties, eventProjectionProperties, lfValueTranslation)
           )
           .map(flatEvents =>
             FlatTransaction(
@@ -147,7 +150,7 @@ private[events] object TransactionLogUpdatesConversions {
     private def toFlatEvent(
         event: TransactionLogUpdate.Event,
         requestingParties: Set[Party],
-        verbose: Boolean,
+        eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
@@ -155,68 +158,19 @@ private[events] object TransactionLogUpdatesConversions {
     ): Future[apiEvent.Event] =
       event match {
         case createdEvent: TransactionLogUpdate.CreatedEvent =>
-          createdToFlatEvent(requestingParties, verbose, lfValueTranslation, createdEvent)
+          createdToApiCreatedEvent(
+            requestingParties,
+            eventProjectionProperties,
+            lfValueTranslation,
+            createdEvent,
+            _.flatEventWitnesses,
+          ).map(apiCreatedEvent => apiEvent.Event(apiEvent.Event.Event.Created(apiCreatedEvent)))
 
         case exercisedEvent: TransactionLogUpdate.ExercisedEvent if exercisedEvent.consuming =>
           Future.successful(exercisedToFlatEvent(requestingParties, exercisedEvent))
 
         case _ => Future.failed(new RuntimeException("Not a flat transaction event"))
       }
-
-    private def createdToFlatEvent(
-        requestingParties: Set[Party],
-        verbose: Boolean,
-        lfValueTranslation: LfValueTranslation,
-        createdEvent: CreatedEvent,
-    )(implicit
-        loggingContext: LoggingContext,
-        executionContext: ExecutionContext,
-    ): Future[Event] = {
-      val eventualContractKey = createdEvent.contractKey
-        .map(
-          lfValueTranslation
-            .toApiValue(
-              _,
-              verbose,
-              "create key",
-              value =>
-                lfValueTranslation.enricher
-                  .enrichContractKey(createdEvent.templateId, value.unversioned),
-            )
-            .map(Some(_))
-        )
-        .getOrElse(Future.successful(None))
-
-      val eventualCreateArguments = lfValueTranslation.toApiRecord(
-        createdEvent.createArgument,
-        verbose,
-        "create argument",
-        value =>
-          lfValueTranslation.enricher
-            .enrichContract(createdEvent.templateId, value.unversioned),
-      )
-
-      for {
-        maybeContractKey <- eventualContractKey
-        createArguments <- eventualCreateArguments
-      } yield {
-        apiEvent.Event(
-          apiEvent.Event.Event.Created(
-            apiEvent.CreatedEvent(
-              eventId = createdEvent.eventId.toLedgerString,
-              contractId = createdEvent.contractId.coid,
-              templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
-              contractKey = maybeContractKey,
-              createArguments = Some(createArguments),
-              witnessParties = requestingParties.view.filter(createdEvent.flatEventWitnesses).toSeq,
-              signatories = createdEvent.createSignatories.toSeq,
-              observers = createdEvent.createObservers.toSeq,
-              agreementText = createdEvent.createAgreementText.orElse(Some("")),
-            )
-          )
-        )
-      }
-    }
 
     private def exercisedToFlatEvent(
         requestingParties: Set[Party],
@@ -262,7 +216,10 @@ private[events] object TransactionLogUpdatesConversions {
           toTransactionTree(
             transactionAccepted = tx,
             requestingParties,
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = requestingParties.map(_ -> Set.empty[Ref.Identifier]).toMap,
+            ),
             lfValueTranslation = lfValueTranslation,
           )
         )
@@ -271,19 +228,19 @@ private[events] object TransactionLogUpdatesConversions {
 
     def toGetTransactionTreesResponse(
         requestingParties: Set[Party],
-        verbose: Boolean,
+        eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
     ): TransactionLogUpdate.TransactionAccepted => Future[GetTransactionTreesResponse] =
-      toTransactionTree(_, requestingParties, verbose, lfValueTranslation)
+      toTransactionTree(_, requestingParties, eventProjectionProperties, lfValueTranslation)
         .map(txTree => GetTransactionTreesResponse(Seq(txTree)))
 
     private def toTransactionTree(
         transactionAccepted: TransactionLogUpdate.TransactionAccepted,
         requestingParties: Set[Party],
-        verbose: Boolean,
+        eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
@@ -292,7 +249,11 @@ private[events] object TransactionLogUpdatesConversions {
       Future.delegate {
         Future
           .traverse(transactionAccepted.events)(event =>
-            toTransactionTreeEvent(requestingParties, verbose, lfValueTranslation)(event)
+            toTransactionTreeEvent(
+              requestingParties,
+              eventProjectionProperties,
+              lfValueTranslation,
+            )(event)
           )
           .map { treeEvents =>
             val visible = treeEvents.map(_.eventId)
@@ -329,7 +290,7 @@ private[events] object TransactionLogUpdatesConversions {
 
     private def toTransactionTreeEvent(
         requestingParties: Set[Party],
-        verbose: Boolean,
+        eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
     )(event: TransactionLogUpdate.Event)(implicit
         loggingContext: LoggingContext,
@@ -337,16 +298,18 @@ private[events] object TransactionLogUpdatesConversions {
     ): Future[TreeEvent] =
       event match {
         case createdEvent: TransactionLogUpdate.CreatedEvent =>
-          createdToTransactionTreeEvent(
+          createdToApiCreatedEvent(
             requestingParties,
-            verbose,
+            eventProjectionProperties,
             lfValueTranslation,
             createdEvent,
-          )
+            _.treeEventWitnesses,
+          ).map(apiCreatedEvent => TreeEvent(TreeEvent.Kind.Created(apiCreatedEvent)))
+
         case exercisedEvent: TransactionLogUpdate.ExercisedEvent =>
           exercisedToTransactionTreeEvent(
             requestingParties,
-            verbose,
+            eventProjectionProperties.verbose,
             lfValueTranslation,
             exercisedEvent,
           )
@@ -420,65 +383,6 @@ private[events] object TransactionLogUpdatesConversions {
       )
     }
 
-    private def createdToTransactionTreeEvent(
-        requestingParties: Set[Party],
-        verbose: Boolean,
-        lfValueTranslation: LfValueTranslation,
-        createdEvent: CreatedEvent,
-    )(implicit
-        loggingContext: LoggingContext,
-        executionContext: ExecutionContext,
-    ) = {
-
-      val eventualContractKey = createdEvent.contractKey
-        .map { contractKey =>
-          val contractKeyEnricher = (value: Value) =>
-            lfValueTranslation.enricher.enrichContractKey(
-              createdEvent.templateId,
-              value.unversioned,
-            )
-
-          lfValueTranslation
-            .toApiValue(
-              value = contractKey,
-              verbose = verbose,
-              attribute = "create key",
-              enrich = contractKeyEnricher,
-            )
-            .map(Some(_))
-        }
-        .getOrElse(Future.successful(None))
-
-      val contractEnricher = (value: Value) =>
-        lfValueTranslation.enricher.enrichContract(createdEvent.templateId, value.unversioned)
-
-      val eventualCreateArguments = lfValueTranslation.toApiRecord(
-        value = createdEvent.createArgument,
-        verbose = verbose,
-        attribute = "create argument",
-        enrich = contractEnricher,
-      )
-
-      for {
-        maybeContractKey <- eventualContractKey
-        createArguments <- eventualCreateArguments
-      } yield TreeEvent(
-        TreeEvent.Kind.Created(
-          apiEvent.CreatedEvent(
-            eventId = createdEvent.eventId.toLedgerString,
-            contractId = createdEvent.contractId.coid,
-            templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
-            contractKey = maybeContractKey,
-            createArguments = Some(createArguments),
-            witnessParties = requestingParties.view.filter(createdEvent.treeEventWitnesses).toSeq,
-            signatories = createdEvent.createSignatories.toSeq,
-            observers = createdEvent.createObservers.toSeq,
-            agreementText = createdEvent.createAgreementText.orElse(Some("")),
-          )
-        )
-      )
-    }
-
     private def transactionTreePredicate(
         requestingParties: Set[Party]
     ): TransactionLogUpdate.Event => Boolean = {
@@ -486,6 +390,40 @@ private[events] object TransactionLogUpdatesConversions {
       case exercised: ExercisedEvent => requestingParties.exists(exercised.treeEventWitnesses)
       case _ => false
     }
+  }
+
+  private def createdToApiCreatedEvent(
+      requestingParties: Set[Party],
+      eventProjectionProperties: EventProjectionProperties,
+      lfValueTranslation: LfValueTranslation,
+      createdEvent: CreatedEvent,
+      createdWitnesses: CreatedEvent => Set[Party],
+  )(implicit
+      loggingContext: LoggingContext,
+      executionContext: ExecutionContext,
+  ): Future[apiEvent.CreatedEvent] = {
+    lfValueTranslation
+      .toApiContractData(
+        value = createdEvent.createArgument,
+        key = createdEvent.contractKey,
+        templateId = createdEvent.templateId,
+        witnesses = requestingParties.view.filter(createdWitnesses(createdEvent)).toSet,
+        eventProjectionProperties = eventProjectionProperties,
+      )
+      .map(apiContractData =>
+        apiEvent.CreatedEvent(
+          eventId = createdEvent.eventId.toLedgerString,
+          contractId = createdEvent.contractId.coid,
+          templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
+          contractKey = apiContractData.contractKey,
+          createArguments = apiContractData.createArguments,
+          interfaceViews = apiContractData.interfaceViews,
+          witnessParties = requestingParties.view.filter(createdWitnesses(createdEvent)).toSeq,
+          signatories = createdEvent.createSignatories.toSeq,
+          observers = createdEvent.createObservers.toSeq,
+          agreementText = createdEvent.createAgreementText.orElse(Some("")),
+        )
+      )
   }
 
   private def timestampToTimestamp(t: com.daml.lf.data.Time.Timestamp): Timestamp =

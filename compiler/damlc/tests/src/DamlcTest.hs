@@ -100,6 +100,108 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
       assertInfixOf "DAR is valid" stdout
       stderr @?= ""
 
+  , testCaseSteps "Good (interface)" $ \step -> withTempDir $ \projDir -> do
+      step "prepare"
+      writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+        [ "sdk-version: " <> sdkVersion
+        , "build-options: [ --target=1.15 ]"
+        , "name: good"
+        , "version: 0.0.1"
+        , "source: ."
+        , "dependencies: [daml-prim, daml-stdlib]"
+        ]
+      writeFileUTF8 (projDir </> "Good.daml") $ unlines
+        [ "module Good where"
+        , "data MyIView = MyIView {}"
+        , "interface MyI where"
+        , "  viewtype MyIView"
+        , "  iMethod : ()"
+        ]
+      step "build"
+      callProcessSilent damlc ["build", "--project-root", projDir]
+      let dar = projDir </> ".daml/dist/good-0.0.1.dar"
+      step "validate"
+      (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["validate-dar", dar] ""
+      stderr @?= ""
+      exitCode @?= ExitSuccess
+      assertInfixOf "DAR is valid" stdout
+
+  , testCaseSteps "Good (interface instance)" $ \step -> withTempDir $ \projDir -> do
+      step "prepare"
+      writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+        [ "sdk-version: " <> sdkVersion
+        , "build-options: [ --target=1.15 ]"
+        , "name: good"
+        , "version: 0.0.1"
+        , "source: ."
+        , "dependencies: [daml-prim, daml-stdlib]"
+        ]
+      writeFileUTF8 (projDir </> "Interface.daml") $ unlines
+        [ "module Interface where"
+        , "data MyIView = MyIView {}"
+        , "interface MyI where"
+        , "  viewtype MyIView"
+        , "  iMethod : ()"
+        ]
+      writeFileUTF8 (projDir </> "Good.daml") $ unlines
+        [ "module Good where"
+        , "import Interface"
+        , "template MyT"
+        , "  with"
+        , "    myParty : Party"
+        , "  where"
+        , "    signatory [myParty]"
+        , "    interface instance MyI for MyT where"
+        , "      view = MyIView"
+        , "      iMethod = ()"
+        ]
+      step "build"
+      callProcessSilent damlc ["build", "--project-root", projDir]
+      let dar = projDir </> ".daml/dist/good-0.0.1.dar"
+      step "validate"
+      (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["validate-dar", dar] ""
+      stderr @?= ""
+      exitCode @?= ExitSuccess
+      assertInfixOf "DAR is valid" stdout
+
+  , testCaseSteps "Good (retroactive interface instance)" $ \step -> withTempDir $ \projDir -> do
+      step "prepare"
+      writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+        [ "sdk-version: " <> sdkVersion
+        , "build-options: [ --target=1.15 ]"
+        , "name: good"
+        , "version: 0.0.1"
+        , "source: ."
+        , "dependencies: [daml-prim, daml-stdlib]"
+        ]
+      writeFileUTF8 (projDir </> "Template.daml") $ unlines
+        [ "module Template where"
+        , "template MyT"
+        , "  with"
+        , "    myParty : Party"
+        , "  where"
+        , "    signatory [myParty]"
+        ]
+      writeFileUTF8 (projDir </> "Good.daml") $ unlines
+        [ "module Good where"
+        , "import Template"
+        , "data MyIView = MyIView {}"
+        , "interface MyI where"
+        , "  viewtype MyIView"
+        , "  iMethod : ()"
+        , "  interface instance MyI for MyT where"
+        , "    view = MyIView"
+        , "    iMethod = ()"
+        ]
+      step "build"
+      callProcessSilent damlc ["build", "--project-root", projDir]
+      let dar = projDir </> ".daml/dist/good-0.0.1.dar"
+      step "validate"
+      (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["validate-dar", dar] ""
+      stderr @?= ""
+      exitCode @?= ExitSuccess
+      assertInfixOf "DAR is valid" stdout
+
   , testCaseSteps "Bad, DAR contains a bad DALF" $ \step -> withTempDir $ \projDir -> do
       step "prepare"
       writeFileUTF8 (projDir </> "daml.yaml") $ unlines
@@ -297,15 +399,15 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
 --
 --              , "template S with p: Party where"
 --              , "  signatory p"
---              , "  implements I where"
+--              , "  interface instance I for S where"
 --              , "    iGetParty = p"
---              , "  implements J where"
+--              , "  interface instance J for S where"
 --              , "    jGetParty = p"
 --              , "template T with p: Party where"
 --              , "  signatory p"
---              , "  implements I where"
+--              , "  interface instance I for T where"
 --              , "    iGetParty = p"
---              , "  implements J where"
+--              , "  interface instance J for T where"
 --              , "    jGetParty = p"
 --
 --              , "x = script do"

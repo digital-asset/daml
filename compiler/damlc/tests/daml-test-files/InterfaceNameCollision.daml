@@ -6,7 +6,10 @@
 -- | Checks that interfaces choices and method names can collide.
 module InterfaceNameCollision where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface Iface where
+    viewtype EmptyInterfaceView
     owner : Party
     foobar : ()
     choice FooBar : ()

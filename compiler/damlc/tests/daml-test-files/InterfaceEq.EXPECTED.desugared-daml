@@ -3,6 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => I = I GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep I where
   _interfaceTypeRep
@@ -30,6 +31,8 @@ instance DA.Internal.Desugar.HasIsInterfaceType I where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq I where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView I EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => T
   = T {p : Party, f : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -94,8 +97,18 @@ _choice_TArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_implements_T_I : DA.Internal.Desugar.ImplementsT T I
-_implements_T_I = DA.Internal.Desugar.ImplementsT
+_interface_instance_T_I_T :
+  DA.Internal.Desugar.InterfaceInstance T I T
+_interface_instance_T_I_T
+  = DA.Internal.Desugar.mkInterfaceInstance @T @I @T
+_view_T_I_T : DA.Internal.Desugar.InterfaceView T I T
+_view_T_I_T
+  = DA.Internal.Desugar.mkInterfaceView
+      @T
+      @I
+      @T
+      \ this@T {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 instance DA.Internal.Desugar.HasToInterface T I where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T I where
@@ -165,8 +178,18 @@ _choice_UArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_implements_U_I : DA.Internal.Desugar.ImplementsT U I
-_implements_U_I = DA.Internal.Desugar.ImplementsT
+_interface_instance_U_I_U :
+  DA.Internal.Desugar.InterfaceInstance U I U
+_interface_instance_U_I_U
+  = DA.Internal.Desugar.mkInterfaceInstance @U @I @U
+_view_U_I_U : DA.Internal.Desugar.InterfaceView U I U
+_view_U_I_U
+  = DA.Internal.Desugar.mkInterfaceView
+      @U
+      @I
+      @U
+      \ this@U {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 instance DA.Internal.Desugar.HasToInterface U I where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface U I where

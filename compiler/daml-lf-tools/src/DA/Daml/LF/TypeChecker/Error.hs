@@ -5,6 +5,7 @@ module DA.Daml.LF.TypeChecker.Error(
     Context(..),
     Error(..),
     TemplatePart(..),
+    InterfacePart(..),
     UnserializabilityReason(..),
     SerializabilityRequirement(..),
     errorLocation,
@@ -30,7 +31,7 @@ data Context
   | ContextTemplate !Module !Template !TemplatePart
   | ContextDefValue !Module !DefValue
   | ContextDefException !Module !DefException
-  | ContextDefInterface !Module !DefInterface
+  | ContextDefInterface !Module !DefInterface !InterfacePart
 
 data TemplatePart
   = TPWhole
@@ -41,6 +42,13 @@ data TemplatePart
   | TPAgreement
   | TPKey
   | TPChoice TemplateChoice
+  | TPInterfaceInstance InterfaceInstanceHead
+
+data InterfacePart
+  = IPWhole
+  | IPMethod InterfaceMethod
+  | IPChoice TemplateChoice
+  | IPInterfaceInstance InterfaceInstanceHead
 
 data SerializabilityRequirement
   = SRTemplateArg
@@ -49,6 +57,7 @@ data SerializabilityRequirement
   | SRKey
   | SRDataType
   | SRExceptionArg
+  | SRView
 
 -- | Reason why a type is not serializable.
 data UnserializabilityReason
@@ -117,6 +126,7 @@ data Error
   | EExpectedDataType      !Type
   | EExpectedListType      !Type
   | EExpectedOptionalType  !Type
+  | EExpectedViewType !T.Text !Type
   | EEmptyCase
   | EClashingPatternVariables !ExprVarName
   | EExpectedTemplatableType !TypeConName
@@ -139,16 +149,13 @@ data Error
   | EUnknownInterface !TypeConName
   | ECircularInterfaceRequires !TypeConName !(Maybe (Qualified TypeConName))
   | ENotClosedInterfaceRequires !TypeConName !(Qualified TypeConName) ![Qualified TypeConName]
-  | EMissingRequiredInterface { emriTemplate :: !TypeConName, emriRequiringInterface :: !(Qualified TypeConName), emriRequiredInterface :: !(Qualified TypeConName) }
+  | EMissingRequiredInterfaceInstance !InterfaceInstanceHead !(Qualified TypeConName)
   | EBadInheritedChoices { ebicInterface :: !(Qualified TypeConName), ebicExpected :: ![ChoiceName], ebicGot :: ![ChoiceName] }
   | EMissingInterfaceChoice !ChoiceName
-  | EMissingInterfaceMethod !TypeConName !(Qualified TypeConName) !MethodName
-  | EUnknownInterfaceMethod !TypeConName !(Qualified TypeConName) !MethodName
-  | ETemplateDoesNotImplementInterface !(Qualified TypeConName) !(Qualified TypeConName)
+  | EMissingMethodInInterfaceInstance !MethodName
+  | EUnknownMethodInInterfaceInstance !MethodName
   | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
   | EUnknownExperimental !T.Text !Type
-  | ENoViewFound !TypeConName
-  | EViewNotSerializable !TypeConName !Type
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -158,7 +165,7 @@ contextLocation = \case
   ContextTemplate _ t _  -> tplLocation t
   ContextDefValue _ v    -> dvalLocation v
   ContextDefException _ e -> exnLocation e
-  ContextDefInterface _ i -> intLocation i
+  ContextDefInterface _ i _ -> intLocation i
 
 errorLocation :: Error -> Maybe SourceLoc
 errorLocation = \case
@@ -178,8 +185,8 @@ instance Show Context where
       "value " <> show (moduleName m) <> "." <> show (fst $ dvalBinder v)
     ContextDefException m e ->
       "exception " <> show (moduleName m) <> "." <> show (exnName e)
-    ContextDefInterface m i ->
-      "interface " <> show (moduleName m) <> "." <> show (intName i)
+    ContextDefInterface m i p ->
+      "interface " <> show (moduleName m) <> "." <> show (intName i) <> " " <> show p
 
 instance Show TemplatePart where
   show = \case
@@ -191,6 +198,14 @@ instance Show TemplatePart where
     TPAgreement -> "agreement"
     TPKey -> "key"
     TPChoice choice -> "choice " <> T.unpack (unChoiceName $ chcName choice)
+    TPInterfaceInstance iiHead -> renderPretty iiHead
+
+instance Show InterfacePart where
+  show = \case
+    IPWhole -> ""
+    IPMethod method -> "method " <> T.unpack (unMethodName $ ifmName method)
+    IPChoice choice -> "choice " <> T.unpack (unChoiceName $ chcName choice)
+    IPInterfaceInstance iiHead -> renderPretty iiHead
 
 instance Pretty SerializabilityRequirement where
   pPrint = \case
@@ -200,6 +215,7 @@ instance Pretty SerializabilityRequirement where
     SRDataType -> "serializable data type"
     SRKey -> "template key"
     SRExceptionArg -> "exception argument"
+    SRView -> "view"
 
 instance Pretty UnserializabilityReason where
   pPrint = \case
@@ -369,6 +385,12 @@ instance Pretty Error where
       "tried to perform key lookup or fetch on template " <> pretty tpl
     EExpectedOptionalType typ -> do
       "expected list type, but found: " <> pretty typ
+    EExpectedViewType actuallyFound typ -> do
+      vcat
+        [ "expected monomorphic record type in view type, but found " <> text actuallyFound <> ": " <> pretty typ
+        , "record types are declared with one constructor using curly braces, i.e."
+        , "data MyRecord = MyRecord { ... fields ... }"
+        ]
     EUnsupportedFeature Feature{..} ->
       "unsupported feature:" <-> pretty featureName
       <-> "only supported in Daml-LF version" <-> pretty featureMinVersion <-> "and later"
@@ -402,10 +424,13 @@ instance Pretty Error where
       "Interface " <> pretty iface
         <> " is missing requirement " <> pretty ifaceMissing
         <> " required by " <> pretty ifaceRequired
-    EMissingRequiredInterface {..} ->
-      "Template " <> pretty emriTemplate <>
-      " is missing an implementation of interface " <> pretty emriRequiredInterface <>
-      " required by interface " <> pretty emriRequiringInterface
+    EMissingRequiredInterfaceInstance requiredInterfaceInstance requiringInterface ->
+      hsep
+        [ "Missing required"
+        , quotes (pretty requiredInterfaceInstance) <> ","
+        , "required by interface"
+        , quotes (pretty requiringInterface)
+        ]
     EBadInheritedChoices {ebicInterface, ebicExpected, ebicGot} ->
       vcat
       [ "List of inherited choices does not match interface definition for " <> pretty ebicInterface
@@ -413,20 +438,18 @@ instance Pretty Error where
       , "But got: " <> pretty ebicGot
       ]
     EMissingInterfaceChoice ch -> "Missing interface choice implementation for " <> pretty ch
-    EMissingInterfaceMethod tpl iface method ->
-      "Template " <> pretty tpl <> " is missing method " <> pretty method <> " for interface " <> pretty iface
-    EUnknownInterfaceMethod tpl iface method ->
-      "Template " <> pretty tpl <> " implements " <> pretty method <> " but interface " <> pretty iface <> " has no such method."
-    ETemplateDoesNotImplementInterface tpl iface ->
-      "Template " <> pretty tpl <> " does not implement interface " <> pretty iface
+    EMissingMethodInInterfaceInstance method ->
+      "Interface instance lacks an implementation for method" <-> quotes (pretty method)
+    EUnknownMethodInInterfaceInstance method ->
+      hsep
+        [ "Interface instance has an implementation for method"
+        , quotes (pretty method) <> ","
+        , "but this method is not part of the interface."
+        ]
     EWrongInterfaceRequirement requiringIface requiredIface ->
       "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
     EUnknownExperimental name ty ->
       "Unknown experimental primitive " <> string (show name) <> " : " <> pretty ty
-    ENoViewFound name ->
-      "Interface " <> pretty name <> " must specify a view method with name `_view`."
-    EViewNotSerializable name ty ->
-      "Interface " <> pretty name <> " has a view method which returns a non-serializable type " <> pretty ty
 
 instance Pretty Context where
   pPrint = \case
@@ -442,8 +465,8 @@ instance Pretty Context where
       hsep [ "value", pretty (moduleName m) <> "." <> pretty (fst $ dvalBinder v) ]
     ContextDefException m e ->
       hsep [ "exception", pretty (moduleName m) <> "." <> pretty (exnName e) ]
-    ContextDefInterface m i ->
-      hsep [ "interface", pretty (moduleName m) <> "." <> pretty (intName i)]
+    ContextDefInterface m i p ->
+      hsep [ "interface", pretty (moduleName m) <> "." <> pretty (intName i), string (show p)]
 
 toDiagnostic :: DiagnosticSeverity -> Error -> Diagnostic
 toDiagnostic sev err = Diagnostic

@@ -201,7 +201,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
     def distinct: NonEmpty[C] = un((self: ESelf).distinct)
     def sortBy[B](f: A => B)(implicit ord: Ordering[B]): NonEmpty[C] =
       un((self: ESelf).sortBy(f))
-    def sorted[B >: A](implicit ord: Ordering[B]): C =
+    def sorted[B >: A](implicit ord: Ordering[B]): NonEmpty[C] =
       un((self: ESelf).sorted[B])
   }
 
@@ -280,6 +280,8 @@ object NonEmptyCollInstances {
     def min1(implicit ev: Ordering[A]): A = (self: ESelf).min
     def max1(implicit ev: Ordering[A]): A = (self: ESelf).max
 
+    def minBy1[B](f: A => B)(implicit ev: Ordering[B]): A = (self: ESelf).minBy(f)
+    def maxBy1[B](f: A => B)(implicit ev: Ordering[B]): A = (self: ESelf).maxBy(f)
   }
 }
 

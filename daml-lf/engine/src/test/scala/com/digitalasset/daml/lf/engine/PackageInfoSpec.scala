@@ -24,6 +24,7 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
 
     p"""
         module Mod0 {
+          record @serializable MyUnit = {};
           record @serializable T0 = {};
           template (this : T0) =  {
               precondition True;
@@ -47,8 +48,8 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
               signatories Nil @Party;
               observers Nil @Party;
               agreement "Agreement";
-              implements 'pkgA':ModA:IA {};
-              implements 'pkgB':ModB:IB {};
+              implements 'pkgA':ModA:IA { view = Mod0:MyUnit {}; };
+              implements 'pkgB':ModB:IB { view = Mod0:MyUnit {}; };
             };
         }
 
@@ -59,8 +60,8 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
               signatories Nil @Party;
               observers Nil @Party;
               agreement "Agreement";
-              implements 'pkgA':ModA:IA {};
-              implements 'pkgC':ModC:IC {};
+              implements 'pkgA':ModA:IA { view = Mod0:MyUnit {}; };
+              implements 'pkgC':ModC:IC { view = Mod0:MyUnit {}; };
             };
         }
         """
@@ -71,17 +72,31 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
       parser.ParserParameters("-pkg2-", parser.defaultLanguageVersion)
 
     p"""
+         module Mod {
+           record @serializable MyUnit = {};
+         }
+
          module Mod21 {
            interface (this: I21) = {
-             coimplements '-pkg1-':Mod11:T11 {};
-             coimplements 'pkgA':ModA:TA {};
+             viewtype Mod:MyUnit;
+             coimplements '-pkg1-':Mod11:T11 {
+               view = Mod0:MyUnit {};
+             };
+             coimplements 'pkgA':ModA:TA {
+               view = Mod0:MyUnit {};
+             };
            };
          }
 
          module Mod22 {
            interface (this: I22) = {
-             coimplements '-pkg1-':Mod11:T11 {};
-             coimplements 'pkgB':ModB:TB {};
+             viewtype Mod0:MyUnit;
+             coimplements '-pkg1-':Mod11:T11 {
+               view = Mod0:MyUnit {};
+             };
+             coimplements 'pkgB':ModB:TB {
+               view = Mod0:MyUnit {};
+             };
            };
          }
      """
@@ -92,6 +107,7 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
       parser.ParserParameters("-pkg3-", parser.defaultLanguageVersion)
 
     p"""
+
         module Mod31 {
           record @serializable T31 = {};
           template (this : T31) =  {
@@ -99,10 +115,16 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
             signatories Nil @Party;
             observers Nil @Party;
             agreement "Agreement";
-            implements '-pkg1-':Mod11:I11 {};
-            implements 'pkgB':ModB:IB {};
+            implements '-pkg1-':Mod11:I11 {
+              view = Mod0:MyUnit {};
+            };
+            implements 'pkgB':ModB:IB {
+              view = Mod0:MyUnit {};
+            };
           };
-          interface (this: I31) = {};
+          interface (this: I31) = {
+            viewtype Mod0:MyUnit;
+          };
         }
 
         module Mod32 {
@@ -112,12 +134,13 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
               signatories Nil @Party;
               observers Nil @Party;
               agreement "Agreement";
-              implements '-pkg3-':Mod32:I32 {};
-              implements 'pkgA':ModA:IA {};
+              implements '-pkg3-':Mod32:I32 { view = Mod0:MyUnit {}; };
+              implements 'pkgA':ModA:IA { view = Mod0:MyUnit {}; };
             };
             interface (this: I32) = {
-             coimplements '-pkg1-':Mod11:T11 {};
-             coimplements 'pkgB':ModB:TB {};
+             viewtype Mod0:MyUnit;
+             coimplements '-pkg1-':Mod11:T11 { view = Mod0:MyUnit {}; };
+             coimplements 'pkgB':ModB:TB { view = Mod0:MyUnit {}; };
            };
         }
         """
@@ -143,7 +166,6 @@ class PackageInfoSpec extends AnyWordSpec with Matchers {
       for (n <- 0 to testCases.size)
         testCases.combinations(n).foreach { cases =>
           val (pkgIds, ids) = cases.unzip
-          println(pkgIds)
           val testPkgs = pkgIds.view.map(pkgId => pkgId -> pkgs(pkgId)).toMap
           new PackageInfo(testPkgs).definedTemplates shouldBe ids.fold(Set.empty)(_ | _)
         }

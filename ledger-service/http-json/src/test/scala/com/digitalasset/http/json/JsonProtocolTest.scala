@@ -55,7 +55,7 @@ class JsonProtocolTest
   }
 
   "domain.TemplateId.OptionalPkg" - {
-    "can be serialized to JSON" in forAll(genDomainTemplateIdO(OptionalPackageIdGen)) {
+    "can be serialized to JSON" in forAll(genDomainTemplateIdO) {
       a: domain.TemplateId.OptionalPkg =>
         val expectedStr: String = a.packageId.cata(
           p => s"${p: String}:${a.moduleName}:${a.entityName}",
@@ -153,7 +153,7 @@ class JsonProtocolTest
 
   "domain.OkResponse" - {
 
-    "response with warnings" in forAll(listOf(genDomainTemplateIdO(OptionalPackageIdGen))) {
+    "response with warnings" in forAll(listOf(genDomainTemplateIdO)) {
       templateIds: List[domain.TemplateId.OptionalPkg] =>
         val response: domain.OkResponse[Int] =
           domain.OkResponse(result = 100, warnings = Some(domain.UnknownTemplateIds(templateIds)))

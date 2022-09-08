@@ -22,6 +22,7 @@ da_scala_library(
         "@maven//:com_github_pureconfig_pureconfig_core",
         "@maven//:com_github_pureconfig_pureconfig_generic",
         "@maven//:com_chuusai_shapeless",
+        "@maven//:org_typelevel_cats_core",
     ],
     tags = ["maven_coordinates=com.daml:sandbox-on-x:__VERSION__"],
     visibility = [
@@ -34,6 +35,7 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
+        "//ledger-service/jwt",
         "//ledger/caching",
         "//ledger/error",
         "//ledger/ledger-api-auth",
@@ -556,6 +558,39 @@ conformance_test(
     """,
     test_tool_args = [
         "--verbose",
+    ],
+)
+
+# TODO Make sure InterfaceSubscriptionsIT is run on all servers, after Interface feature is on stable lf
+server_conformance_test(
+    name = "conformance-test-interface-subscriptions",
+    hocon = True,
+    hocon_config = """
+        ledger.participants.default.api-server.seeding = testing-weak
+    """,
+    lf_versions = [
+        "1.15",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--verbose",
+        "--include=InterfaceSubscriptionsIT",
+    ],
+)
+
+server_conformance_test(
+    name = "conformance-test-explicit-disclosure",
+    hocon = True,
+    hocon_config = """
+        ledger.participants.default.api-server.seeding = testing-weak
+    """,
+    lf_versions = [
+        "1.dev",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--verbose",
+        "--include=ExplicitDisclosureIT",
     ],
 )
 

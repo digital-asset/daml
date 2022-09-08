@@ -4,7 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.iface.Record
+import com.daml.lf.typesig.Record
 import com.squareup.javapoet.{ClassName, TypeSpec, TypeVariableName}
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier

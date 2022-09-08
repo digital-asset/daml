@@ -3,6 +3,7 @@
 module Development.IDE.Core.Rules.Daml
     ( module Development.IDE.Core.Rules
     , module Development.IDE.Core.Rules.Daml
+    , module Development.IDE.Core.Rules.Daml.SpanInfo
     ) where
 
 import Outputable (showSDoc)
@@ -103,6 +104,8 @@ import qualified DA.Pretty as Pretty
 import SdkVersion (damlStdlib)
 
 import Language.Haskell.HLint4
+
+import Development.IDE.Core.Rules.Daml.SpanInfo
 
 -- | Get thr URI that corresponds to a virtual resource. The VS Code has a
 -- document provider that will handle our special documents.

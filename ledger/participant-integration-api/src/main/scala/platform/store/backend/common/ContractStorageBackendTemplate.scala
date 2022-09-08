@@ -28,23 +28,36 @@ class ContractStorageBackendTemplate(
 ) extends ContractStorageBackend {
   import com.daml.platform.store.backend.Conversions.ArrayColumnToIntArray._
 
-  override def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState =
-    contractKey(
-      resultColumns = List("contract_id", "flat_event_witnesses"),
-      resultParser = (
-        contractId("contract_id")
-          ~ array[Int]("flat_event_witnesses")
-      ).map { case cId ~ stakeholders =>
-        KeyAssigned(
-          cId,
-          stakeholders.view.map(stringInterning.party.externalize).toSet,
-        )
-      },
-    )(
-      readers = None,
-      key = key,
-      validAt = validAt,
-    )(connection).getOrElse(KeyUnassigned)
+  override def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState = {
+    val resultParser =
+      (contractId("contract_id") ~ array[Int]("flat_event_witnesses")).map {
+        case cId ~ stakeholders =>
+          KeyAssigned(cId, stakeholders.view.map(stringInterning.party.externalize).toSet)
+      }.singleOpt
+
+    import com.daml.platform.store.backend.Conversions.HashToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    SQL"""
+         WITH last_contract_key_create AS (
+                SELECT participant_events_create.*
+                  FROM participant_events_create
+                 WHERE create_key_hash = ${key.hash}
+                   AND event_offset <= $validAt
+                 ORDER BY event_sequential_id DESC
+                 FETCH NEXT 1 ROW ONLY
+              )
+         SELECT contract_id, flat_event_witnesses
+           FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
+         WHERE NOT EXISTS
+                (SELECT 1
+                   FROM participant_events_consuming_exercise
+                  WHERE
+                    contract_id = last_contract_key_create.contract_id
+                    AND event_offset <= $validAt
+                )"""
+      .as(resultParser)(connection)
+      .getOrElse(KeyUnassigned)
+  }
 
   private val fullDetailsContractRowParser: RowParser[ContractStorageBackend.RawContractState] =
     (int("template_id").?
@@ -308,85 +321,4 @@ class ContractStorageBackendTemplate(
       readers = readers,
       contractId = contractId,
     )(connection).map(stringInterning.templateId.unsafe.externalize)
-
-  override def contractKey(readers: Set[Party], key: Key)(
-      connection: Connection
-  ): Option[ContractId] =
-    contractKey(
-      resultColumns = List("contract_id"),
-      resultParser = contractId("contract_id"),
-    )(
-      readers = Some(readers),
-      key = key,
-      validAt = ledgerEndCache()._1,
-    )(connection)
-
-  private def contractKey[T](
-      resultColumns: List[String],
-      resultParser: RowParser[T],
-  )(
-      readers: Option[Set[Party]],
-      key: Key,
-      validAt: Offset,
-  )(
-      connection: Connection
-  ): Option[T] = {
-    val internedReaders =
-      readers.map(_.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).toSet)
-
-    if (internedReaders.exists(_.isEmpty)) {
-      None
-    } else {
-      def withAndIfNonEmptyReaders(
-          queryF: Set[Int] => CompositeSql
-      ): CompositeSql = {
-        internedReaders match {
-          case Some(readers) =>
-            cSQL"${queryF(readers)} AND"
-
-          case None =>
-            cSQL""
-        }
-      }
-
-      val lastContractKeyFlatEventWitnessesClause =
-        withAndIfNonEmptyReaders(
-          queryStrategy.arrayIntersectionNonEmptyClause(
-            columnName = "last_contract_key_create.flat_event_witnesses",
-            _,
-          )
-        )
-      val participantEventsFlatEventWitnessesClause =
-        withAndIfNonEmptyReaders(
-          queryStrategy.arrayIntersectionNonEmptyClause(
-            columnName = "participant_events_consuming_exercise.flat_event_witnesses",
-            _,
-          )
-        )
-
-      import com.daml.platform.store.backend.Conversions.HashToStatement
-      import com.daml.platform.store.backend.Conversions.OffsetToStatement
-      SQL"""
-           WITH last_contract_key_create AS (
-                  SELECT participant_events_create.*
-                    FROM participant_events_create
-                   WHERE create_key_hash = ${key.hash}
-                         -- do NOT check visibility here, as otherwise we do not abort the scan early
-                     AND event_offset <= $validAt
-                   ORDER BY event_sequential_id DESC
-                   FETCH NEXT 1 ROW ONLY
-                )
-           SELECT #${resultColumns.mkString(", ")}
-             FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
-           WHERE $lastContractKeyFlatEventWitnessesClause -- check visibility only here
-             NOT EXISTS       -- check no archival visible
-                  (SELECT 1
-                     FROM participant_events_consuming_exercise
-                    WHERE $participantEventsFlatEventWitnessesClause
-                      contract_id = last_contract_key_create.contract_id
-                      AND event_offset <= $validAt
-                  )"""
-        .as(resultParser.singleOpt)(connection)
-    }
-  }
 }

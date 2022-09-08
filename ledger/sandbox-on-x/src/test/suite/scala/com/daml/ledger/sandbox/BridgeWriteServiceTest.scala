@@ -68,6 +68,7 @@ class BridgeWriteServiceTest extends AnyFlatSpec with MockitoSugar with Matchers
       transactionMeta,
       transaction = tx,
       estimatedInterpretationCost = 0,
+      disclosedContracts = ImmArray.empty,
     )(LoggingContext.ForTesting)
 
     val expected = TransactionNodeStatistics(tx)

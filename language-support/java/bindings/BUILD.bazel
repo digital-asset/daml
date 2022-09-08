@@ -96,6 +96,7 @@ da_scala_library(
     ],
     deps = [
         ":bindings-java",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -117,6 +118,7 @@ da_scala_test_suite(
     deps = [
         ":bindings-java",
         ":bindings-java-tests-lib",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
     ],

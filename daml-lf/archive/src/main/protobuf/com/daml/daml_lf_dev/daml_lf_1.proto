@@ -48,6 +48,7 @@
 // * 12 -- 2021-01-27: No Archive changes
 // * 13 -- 2021-04-06: Add BigNumeric
 // * 14 -- 2021-03-06: Add Exception
+// * 15 -- 2022-06-18: Add Interfaces
 // * dev (special staging area for the next version to be released)
 
 syntax = "proto3";
@@ -509,7 +510,7 @@ enum BuiltinFunction {
   TEXT_TO_TEXT = 60;
   TIMESTAMP_TO_TEXT = 61;
   DATE_TO_TEXT = 71;
-  PARTY_TO_QUOTED_TEXT = 63; // *Available in versions <= 1.dev*
+  PARTY_TO_QUOTED_TEXT = 63; // *Available in versions < 1.14*
   PARTY_TO_TEXT = 94;
   TEXT_TO_PARTY = 95;
   TEXT_TO_INT64 = 103;
@@ -1140,18 +1141,18 @@ message Expr {
     ViewInterface view_interface = 41;
 
     // Unsafe conversion from interface payloads.
-    // *Available in versions >= 1.1dev*
+    // *Available in versions >= 1.15*
     UnsafeFromInterface unsafe_from_interface = 42;
+
+    // Obtain the type representation of a contract's template through an interface.
+    // *Available in versions >= 1.15*
+    InterfaceTemplateTypeRep interface_template_type_rep = 43;
 
     // Upcast/downcast interface payloads.
     // *Available in versions >= 1.dev*
-    ToRequiredInterface to_required_interface = 43;
-    FromRequiredInterface from_required_interface = 44;
-    UnsafeFromRequiredInterface unsafe_from_required_interface = 45;
-
-    // Obtain the type representation of a contract's template through an interface.
-    // *Available in versions >= 1.dev*
-    InterfaceTemplateTypeRep interface_template_type_rep = 46;
+    ToRequiredInterface to_required_interface = 44;
+    FromRequiredInterface from_required_interface = 45;
+    UnsafeFromRequiredInterface unsafe_from_required_interface = 46;
 
     Experimental experimental = 9999; // *Available only in 1.dev*
   }
@@ -1532,6 +1533,19 @@ message KeyExpr {
   }
 }
 
+  // Contents of an interface instance.
+  // *Available in versions >= 1.15*
+message InterfaceInstanceBody {
+
+  message InterfaceInstanceMethod {
+    int32 method_interned_name = 1;
+    Expr value = 2;
+  }
+
+  repeated InterfaceInstanceMethod methods = 1;
+  Expr view = 2;
+}
+
 // Contract template definition
 message DefTemplate {
 
@@ -1547,19 +1561,11 @@ message DefTemplate {
     Expr maintainers = 3; // a function from the key type to [Party]
   }
 
-  // Implementation of an interface method.
-  // *Available in versions >= 1.15*
-  message ImplementsMethod {
-    int32 method_interned_name = 1;
-    Expr value = 2;
-  }
-
-  // Implementation of an interface.
+  // An interface instance defined in this template.
   // *Available in versions >= 1.15*
   message Implements {
     TypeConName interface = 1;
-    repeated ImplementsMethod methods = 2;
-    Expr view = 3;
+    InterfaceInstanceBody body = 2;
   }
 
   // The type constructor for the template, acting as both
@@ -1612,7 +1618,7 @@ message DefTemplate {
   // The key definition for the template, if present
   DefKey key = 10; // optional
 
-  // Interfaces that this template implements.
+  // Interface instances defined in this template.
   repeated Implements implements = 13; // *Available in versions >= 1.15*
 }
 
@@ -1628,15 +1634,10 @@ message InterfaceMethod {
 // *Available in versions >= 1.15*
 message DefInterface {
 
-  message CoImplementsMethod {
-    int32 method_interned_name = 1;
-    Expr value = 2;
-  }
-
+  // An interface instance defined in this interface.
   message CoImplements {
     TypeConName template = 1;
-    repeated CoImplementsMethod methods = 2;
-    Expr view = 3;
+    InterfaceInstanceBody body = 2;
   }
 
   Location location = 1;
@@ -1648,7 +1649,7 @@ message DefInterface {
 
   repeated TemplateChoice choices = 5;
 
-  // Templates which this interface co-implements.
+  // Interface instances defined in this interface.
   repeated CoImplements coImplements = 6;
 
   // View type for this interface

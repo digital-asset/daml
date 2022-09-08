@@ -9,9 +9,11 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.api.validation.ValidationErrors._
-import com.daml.lf.data.Ref
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.{Bytes, Ref}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value.ContractId
+import com.google.protobuf.ByteString
 import io.grpc.StatusRuntimeException
 
 object FieldValidations {
@@ -172,4 +174,21 @@ object FieldValidations {
   ): Either[StatusRuntimeException, Option[T]] =
     if (s.isEmpty) Right(None)
     else someValidation(s).map(Option(_))
+
+  def validateHash(
+      value: ByteString,
+      fieldName: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Option[Hash]] =
+    if (value.isEmpty) {
+      Right(None)
+    } else {
+      val bytes = Bytes.fromByteString(value)
+      Hash
+        .fromBytes(bytes)
+        .map(Some(_))
+        .left
+        .map(invalidField(fieldName, _))
+    }
 }

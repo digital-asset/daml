@@ -3,9 +3,12 @@
 
 module Interface2 where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface I where
+    viewtype EmptyInterfaceView
     getOwner : Party
-    nonconsuming choice ChocieI2: ()
+    nonconsuming choice ChoiceI2: ()
       controller getOwner this
       do pure ()
     choice MyArchive : Text

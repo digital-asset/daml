@@ -104,43 +104,17 @@ jobs:
         trigger_sha: '$(trigger_sha)'
     - template: report-end.yml
 
-- job: macOS
-  dependsOn:
-    - check_for_release
-  timeoutInMinutes: 360
-  pool:
-    name: macOS-pool
-    demands: assignment -equals default
-  variables:
-    - name: release_sha
-      value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-    - name: release_tag
-      value: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
-    - name: trigger_sha
-      value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    - name: is_release
-      value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
-    - template: job-variables.yml
-  steps:
-    - template: report-start.yml
-    - template: clear-shared-segments-macos.yml
-    - checkout: self
-    - bash: |
-        set -euo pipefail
-        git checkout $(release_sha)
-      name: checkout_release
-      condition: and(succeeded(), eq(variables.is_release, 'true'))
-    - template: clean-up.yml
-    - template: build-unix.yml
-      parameters:
-        release_tag: $(release_tag)
-        name: macos
-        is_release: variables.is_release
-    - template: upload-bazel-metrics.yml
-    - template: tell-slack-failed.yml
-      parameters:
-        trigger_sha: '$(trigger_sha)'
-    - template: report-end.yml
+- template: macOS.yml
+  parameters:
+    job_name: macOS
+    name: macos
+    assignment: default
+
+- template: macOS.yml
+  parameters:
+    job_name: m1
+    name: m1
+    assignment: m1-builds
 
 - job: Windows
   dependsOn:
@@ -403,130 +377,3 @@ jobs:
   pool:
     name: "ubuntu_20_04"
     demands: assignment -equals default
-  variables:
-    Linux.start: $[ dependencies.Linux.outputs['start.time'] ]
-    Linux.machine: $[ dependencies.Linux.outputs['start.machine'] ]
-    Linux.end: $[ dependencies.Linux.outputs['end.time'] ]
-    Linux.status: $[ dependencies.Linux.result ]
-    Linux_oracle.start: $[ dependencies.Linux_oracle.outputs['start.time'] ]
-    Linux_oracle.machine: $[ dependencies.Linux_oracle.outputs['start.machine'] ]
-    Linux_oracle.end: $[ dependencies.Linux_oracle.outputs['end.time'] ]
-    Linux_oracle.status: $[ dependencies.Linux_oracle.result ]
-    macOS.start: $[ dependencies.macOS.outputs['start.time'] ]
-    macOS.machine: $[ dependencies.macOS.outputs['start.machine'] ]
-    macOS.end: $[ dependencies.macOS.outputs['end.time'] ]
-    macOS.status: $[ dependencies.macOS.result ]
-    Windows.start: $[ dependencies.Windows.outputs['start.time'] ]
-    Windows.machine: $[ dependencies.Windows.outputs['start.machine'] ]
-    Windows.end: $[ dependencies.Windows.outputs['end.time'] ]
-    Windows.status: $[ dependencies.Windows.result ]
-    release.start: $[ dependencies.release.outputs['start.time'] ]
-    release.machine: $[ dependencies.release.outputs['start.machine'] ]
-    release.end: $[ dependencies.release.outputs['end.time'] ]
-    release.status: $[ dependencies.release.result ]
-    compatibility_linux.start: $[ dependencies.compatibility_linux.outputs['start.time'] ]
-    compatibility_linux.machine: $[ dependencies.compatibility_linux.outputs['start.machine'] ]
-    compatibility_linux.end: $[ dependencies.compatibility_linux.outputs['end.time'] ]
-    compatibility_linux.status: $[ dependencies.compatibility_linux.result ]
-
-    branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
-    main_sha: $[ dependencies.git_sha.outputs['out.main'] ]
-    fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
-
-    is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
-
-    # Using expression syntax so we get an empty string if not set, rather
-    # than the raw $(VarName) string. Expression syntax works on the
-    # variables key, but not on the env one, so we need an extra indirection.
-    # Note: These Azure variables are only set for PR builds.
-    pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
-    pr.branch: $[ variables['System.PullRequest.SourceBranch'] ]
-  steps:
-    - template: bash-lib.yml
-      parameters:
-        var_name: bash_lib
-    - bash: |
-        set -euo pipefail
-
-        eval "$(./dev-env/bin/dade-assist)"
-        source $(bash_lib)
-
-        REPORT=$(mktemp)
-        cat >$REPORT <<END
-        {"jobs": {"Linux": {"start": "$(Linux.start)",
-                            "machine": "$(Linux.machine)",
-                            "end": "$(Linux.end)",
-                            "status": "$(Linux.status)"},
-                  "Linux_oracle": {"start": "$(Linux_oracle.start)",
-                            "machine": "$(Linux_oracle.machine)",
-                            "end": "$(Linux_oracle.end)",
-                            "status": "$(Linux_oracle.status)"},
-                  "macOS": {"start": "$(macOS.start)",
-                            "machine": "$(macOS.machine)",
-                            "end": "$(macOS.end)",
-                            "status": "$(macOS.status)"},
-                  "Windows": {"start": "$(Windows.start)",
-                              "machine": "$(Windows.machine)",
-                              "end": "$(Windows.end)",
-                              "status": "$(Windows.status)"},
-                  "release": {"start": "$(release.start)",
-                              "machine": "$(release.machine)",
-                              "end": "$(release.end)",
-                              "status": "$(release.status)"},
-                  "compatibility_linux": {"start": "$(compatibility_linux.start)",
-                                          "machine": "$(compatibility_linux.machine)",
-                                          "end": "$(compatibility_linux.end)",
-                                          "status": "$(compatibility_linux.status)"}},
-         "id": "$(Build.BuildId)",
-         "url": "https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)",
-         "name": "$(Build.DefinitionName)",
-         "version": "$(Build.DefinitionVersion)",
-         "queued_by": "$(Build.QueuedBy)",
-         "reason": "$(Build.Reason)",
-         "branch": "$(Build.SourceBranch)",
-         "merge_commit": "$(Build.SourceVersion)",
-         "branch_commit": "$(branch_sha)",
-         "main_commit": "$(main_sha)",
-         "fork_point_commit": "$(fork_sha)",
-         "commit_message": $(echo -n "$COMMIT_MSG" | jq -sR),
-         "is_fork": "$(System.PullRequest.IsFork)",
-         "pr": "$PR_NUM",
-         "pr_url": "https://github.com/digital-asset/daml/pull/$PR_NUM",
-         "pr_source_branch": "$PR_BRANCH",
-         "is_release": $(is_release)}
-        END
-        # Test above JSON is well formed
-        cat $REPORT | jq '.'
-        REPORT_GZ=$(mktemp)
-        cat $REPORT | gzip -9 > $REPORT_GZ
-        # Application credentials will not be set for forks. We give up on
-        # tracking those for now. "Not set" in Azure world means set to the
-        # expression Azure would otherwise substitute, i.e. the literal value
-        # of the string in the `env:` block below.
-        if [[ "${GCRED:1:${#GCRED}-1}" != '(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)' ]]; then
-            gcs "$GCRED" cp "$REPORT_GZ" "gs://daml-data/builds/$(Build.BuildId)_$(date -u +%Y%m%d_%H%M%SZ).json.gz"
-        else
-            echo "Could not save build data: no credentials."
-        fi
-
-        # Linux, macOS and Windows are always required and should always
-        # succeed.
-        #
-        # release only run on releases and is skipped otherwise.
-        if [[ !("$(Linux.status)" == "Succeeded" || "$(Linux.status)" == "SucceededWithIssues")
-            || "$(Linux_oracle.status)" != "Succeeded"
-            || !("$(macOS.status)" == "Succeeded" || "$(macOS.status)" == "SucceededWithIssues")
-            || "$(Windows.status)" != "Succeeded"
-            || ("$(is_release)" == "false" && "$(compatibility_linux.status)" != "Succeeded")
-            || "$(release.status)" == "Canceled" ]]; then
-            exit 1
-        fi
-      env:
-        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-        # Commit message is always set
-        COMMIT_MSG: $(Build.SourceVersionMessage)
-        # Because these variables are always set (in the variables block),
-        # hopefully these should be set as expected (i.e. either correct
-        # value or empty string, but not $(Azure.Variable.Name)).
-        PR_NUM: $(pr.num)
-        PR_BRANCH: $(pr.branch)

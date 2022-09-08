@@ -336,7 +336,7 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       val negativeTestCase =
         p"""
         module Mod {                     // fully resolved name: "Mod"
-            
+
           template (this: T) = {
             precondition True;
             signatories Nil @Party;
@@ -347,7 +347,7 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
               to upure @Unit ();
             choice Choice2 (self) (u:Unit) : Unit  // fully resolved name: "Mod.T.Choice2"
               , controllers Nil @Party
-              to upure @Unit ();  
+              to upure @Unit ();
           } ;
 
         }
@@ -356,7 +356,7 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       val positiveTestCase =
         p"""
         module Mod {                     // fully resolved name: "Mod"
-            
+
          template (this: T) = {
             precondition True;
             signatories Nil @Party;
@@ -367,7 +367,7 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
               to upure @Unit ();
             choice CHOICE (self) (u:Unit) : Unit  // fully resolved name: "Mod.T.CHOICE"
               , controllers Nil @Party
-              to upure @Unit ();  
+              to upure @Unit ();
           } ;
 
         }
@@ -383,14 +383,17 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       val negativeTestCase =
         p"""
         module Mod {                     // fully resolved name: "Mod"
-            
+
+          record @serializable MyUnit = {};
+
           interface (this: I) = {
+            viewtype Mod:MyUnit;
              choice Choice1 (self) (u:Unit) : Unit  // fully resolved name: "Mod.I.Choice1"
               , controllers Nil @Party
               to upure @Unit ();
             choice Choice2 (self) (u:Unit) : Unit  // fully resolved name: "Mod.I.Choice2"
               , controllers Nil @Party
-              to upure @Unit ();  
+              to upure @Unit ();
           } ;
 
         }
@@ -399,14 +402,17 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       val positiveTestCase =
         p"""
         module Mod {                     // fully resolved name: "Mod"
-            
+
+          record @serializable MyUnit = {};
+
           interface (this: I) = {
+            viewtype Mod:MyUnit;
              choice CHOICE (self) (u:Unit) : Unit  // fully resolved name: "Mod.I.Choice"
               , controllers Nil @Party
               to upure @Unit ();
             choice Choice (self) (u:Unit) : Unit  // fully resolved name: "Mod.I.CHOICE"
               , controllers Nil @Party
-              to upure @Unit ();  
+              to upure @Unit ();
           } ;
 
         }
@@ -420,16 +426,20 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     "do not consider inherited choices for collision" in {
 
       val testCase = p"""
-        module Mod {                     
-            
+        module Mod {
+
+          record @serializable MyUnit = {};
+
           interface (this: I1) = {
-             choice Choice (self) (u:Unit) : Unit  
+             viewtype Mod:MyUnit;
+             choice Choice (self) (u:Unit) : Unit
               , controllers Nil @Party
               to upure @Unit ();
           };
 
           interface (this: I2) = {
-             choice Choice (self) (u:Unit) : Unit  
+             viewtype Mod:MyUnit;
+             choice Choice (self) (u:Unit) : Unit
               , controllers Nil @Party
               to upure @Unit ();
           };
@@ -439,12 +449,14 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
             signatories Nil @Party;
             observers Nil @Party;
             agreement "Agreement";
-            choice Choice (self) (u:Unit) : Unit  
+            choice Choice (self) (u:Unit) : Unit
               , controllers Nil @Party
               to upure @Unit ();
             implements Mod:I1{
+              view = Mod:MyUnit {};
             };
             implements Mod:I2{
+              view = Mod:MyUnit {};
             };
           } ;
 

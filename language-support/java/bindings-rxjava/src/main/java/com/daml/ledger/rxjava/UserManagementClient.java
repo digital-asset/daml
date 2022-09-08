@@ -26,6 +26,10 @@ public interface UserManagementClient {
 
   Single<ListUsersResponse> listUsers(String accessToken);
 
+  Single<ListUsersResponse> listUsers(@NonNull ListUsersRequest request);
+
+  Single<ListUsersResponse> listUsers(@NonNull ListUsersRequest request, String accessToken);
+
   Single<GrantUserRightsResponse> grantUserRights(@NonNull GrantUserRightsRequest request);
 
   Single<GrantUserRightsResponse> grantUserRights(

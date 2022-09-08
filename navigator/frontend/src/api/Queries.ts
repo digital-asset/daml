@@ -21,6 +21,7 @@ export interface ContractDetailsById_node_Contract_template_choices {
   __typename: "Choice";
   name: string;
   parameter: OpaqueTypes.DamlLfType;
+  inheritedInterface: string | null;
 }
 
 export interface ContractDetailsById_node_Contract_template {
@@ -67,6 +68,7 @@ export interface ContractExercise {
 
 export interface ContractExerciseVariables {
   contractId: string;
+  interfaceId?: string | null;
   choiceId: string;
   argument?: OpaqueTypes.DamlLfValue | null;
 }
@@ -99,6 +101,7 @@ export interface ContractsQuery_contracts_edges_node_archiveEvent {
 export interface ContractsQuery_contracts_edges_node_template_choices {
   __typename: "Choice";
   name: string;
+  inheritedInterface: string | null;
 }
 
 export interface ContractsQuery_contracts_edges_node_template {
@@ -237,6 +240,7 @@ export interface ContractsByTemplateQuery_node_Contract {
 export interface ContractsByTemplateQuery_node_Template_choices {
   __typename: "Choice";
   name: string;
+  inheritedInterface: string | null;
 }
 
 export interface ContractsByTemplateQuery_node_Template_contracts_edges_node_createEvent_transaction {
@@ -258,6 +262,7 @@ export interface ContractsByTemplateQuery_node_Template_contracts_edges_node_arc
 export interface ContractsByTemplateQuery_node_Template_contracts_edges_node_template_choices {
   __typename: "Choice";
   name: string;
+  inheritedInterface: string | null;
 }
 
 export interface ContractsByTemplateQuery_node_Template_contracts_edges_node_template {
@@ -325,6 +330,7 @@ export interface TemplatesQuery_templates_edges_node_contracts {
 export interface TemplatesQuery_templates_edges_node {
   __typename: "Template";
   id: string;
+  implementedInterfaces: string[];
   topLevelDecl: string;
   contracts: TemplatesQuery_templates_edges_node_contracts;
 }

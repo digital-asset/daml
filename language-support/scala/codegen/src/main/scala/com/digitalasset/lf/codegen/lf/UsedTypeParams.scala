@@ -6,7 +6,7 @@ package com.daml.lf.codegen.lf
 import com.daml.lf.codegen.lf.DamlDataTypeGen.{DataType, VariantField}
 import com.daml.lf.data.Ref, Ref.Identifier
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.iface
+import com.daml.lf.typesig
 import scalaz.{\/, -\/, \/-, Monoid}
 import scalaz.std.list._
 import scalaz.std.map._
@@ -27,17 +27,17 @@ object UsedTypeParams {
   def collectTypeParamsInUse(typeDecl: DataType): Set[String] =
     foldMapGenTypes(typeDecl)(collectTypeParams)
 
-  private def foldMapGenTypes[Z: Monoid](typeDecl: DataType)(f: iface.Type => Z): Z = {
+  private def foldMapGenTypes[Z: Monoid](typeDecl: DataType)(f: typesig.Type => Z): Z = {
     val notAGT = (_: String) => mzero[Z]
-    (typeDecl: ScopedDataType[iface.DataType[iface.Type, VariantField]])
+    (typeDecl: ScopedDataType[typesig.DataType[typesig.Type, VariantField]])
       .foldMap(_.bifoldMap(f)(_.bifoldMap(_ foldMap (_.bifoldMap(notAGT)(f)))(f)))
   }
 
-  private[this] def collectTypeParams[S >: Ref.Name](field: iface.Type): Set[S] = field match {
-    case iface.TypeVar(x) => Set(x)
-    case iface.TypePrim(_, xs) => xs.toSet.flatMap(collectTypeParams)
-    case iface.TypeCon(_, xs) => xs.toSet.flatMap(collectTypeParams)
-    case iface.TypeNumeric(_) => Set.empty
+  private[this] def collectTypeParams[S >: Ref.Name](field: typesig.Type): Set[S] = field match {
+    case typesig.TypeVar(x) => Set(x)
+    case typesig.TypePrim(_, xs) => xs.toSet.flatMap(collectTypeParams)
+    case typesig.TypeCon(_, xs) => xs.toSet.flatMap(collectTypeParams)
+    case typesig.TypeNumeric(_) => Set.empty
   }
 
   import VarianceConstraint.BaseResolution
@@ -54,11 +54,11 @@ object UsedTypeParams {
       */
     def allCovariantVars(
         dt: Identifier,
-        ei: iface.EnvironmentInterface,
+        ei: typesig.EnvironmentSignature,
     ): (ResolvedVariance, ImmArraySeq[Variance]) = {
       def lookupType(i: Identifier) =
         (ei.typeDecls get i map (it => \/-(it.`type`))
-          orElse (ei.astInterfaces contains i option -\/(IsInterface)))
+          orElse (ei.interfaces contains i option -\/(IsInterface)))
       val resolved = covariantVars(dt, lookupType)
       (
         resolved,
@@ -73,16 +73,16 @@ object UsedTypeParams {
 
     private[this] def covariantVars(
         dt: Identifier,
-        lookupType: Identifier => Option[IsInterface.type \/ iface.DefDataType.FWT],
+        lookupType: Identifier => Option[IsInterface.type \/ typesig.DefDataType.FWT],
     ): ResolvedVariance = {
-      import iface._
+      import typesig._
 
       def lookupOrFail(i: Identifier) = lookupType(i) getOrElse sys.error(s"$i not found")
 
       def goTypeDefn(dt: Identifier, seen: Set[Identifier])(
-          typ: iface.Type
+          typ: typesig.Type
       ): VarianceConstraint = {
-        def goType(contexts: Map[Identifier, Set[TVar]])(typ: iface.Type): VarianceConstraint =
+        def goType(contexts: Map[Identifier, Set[TVar]])(typ: typesig.Type): VarianceConstraint =
           typ match {
             case TypeVar(name) =>
               // while we default to Covariant at a later step,
@@ -198,7 +198,7 @@ object UsedTypeParams {
     /** Put a resolved variance back in constraint format, so it doesn't have to
       * be figured again.
       */
-    def reresolve(dtName: Identifier, dt: iface.DefDataType[_, _], resolved: Seq[Variance]) =
+    def reresolve(dtName: Identifier, dt: typesig.DefDataType[_, _], resolved: Seq[Variance]) =
       VarianceConstraint.base(Map(dtName -> dt.typeVars.view.zip(resolved).toMap))
 
     implicit val `constraint unifier monoid`: Monoid[VarianceConstraint] = Monoid.instance(

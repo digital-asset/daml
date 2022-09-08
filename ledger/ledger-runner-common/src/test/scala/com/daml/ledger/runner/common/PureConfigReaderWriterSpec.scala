@@ -3,7 +3,7 @@
 
 package com.daml.ledger.runner.common
 
-import com.daml.jwt.LeewayOptions
+import com.daml.jwt.JwtTimestampLeeway
 import com.daml.lf.interpretation.Limits
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.ContractKeyUniquenessMode
@@ -28,7 +28,7 @@ import com.daml.platform.configuration.{
   InitialLedgerConfiguration,
   PartyConfiguration,
 }
-import com.daml.platform.indexer.IndexerConfig
+import com.daml.platform.indexer.{IndexerConfig, PackageMetadataViewConfig}
 import com.daml.platform.indexer.ha.HaConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
@@ -105,6 +105,7 @@ class PureConfigReaderWriterSpec
     )
     testReaderWriterIsomorphism(secure, ArbitraryConfig.indexerConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.indexerStartupMode)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.packageMetadataViewConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.commandConfiguration)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.apiServerConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.haConfig)
@@ -132,6 +133,63 @@ class PureConfigReaderWriterSpec
     compare(Duration.ofHours(1), "3600 seconds")
   }
 
+  behavior of "JwtTimestampLeeway"
+
+  it should "read/write against predefined values" in {
+    def compare(configString: String, expectedValue: Option[JwtTimestampLeeway]) = {
+      convert(jwtTimestampLeewayConfigConvert, configString).value shouldBe expectedValue
+
+    }
+    compare(
+      """
+        |  enabled = true
+        |  default = 1
+        |""".stripMargin,
+      Some(JwtTimestampLeeway(Some(1), None, None, None)),
+    )
+    compare(
+      """
+        |  enabled = true
+        |  expires-at = 2
+        |""".stripMargin,
+      Some(JwtTimestampLeeway(None, Some(2), None, None)),
+    )
+    compare(
+      """
+        |  enabled = true
+        |  issued-at = 3
+        |""".stripMargin,
+      Some(JwtTimestampLeeway(None, None, Some(3), None)),
+    )
+    compare(
+      """
+        |  enabled = true
+        |  not-before = 4
+        |""".stripMargin,
+      Some(JwtTimestampLeeway(None, None, None, Some(4))),
+    )
+    compare(
+      """
+        |  enabled = true
+        |  default = 1
+        |  expires-at = 2
+        |  issued-at = 3
+        |  not-before = 4
+        |""".stripMargin,
+      Some(JwtTimestampLeeway(Some(1), Some(2), Some(3), Some(4))),
+    )
+    compare(
+      """
+        |  enabled = false
+        |  default = 1
+        |  expires-at = 2
+        |  issued-at = 3
+        |  not-before = 4
+        |""".stripMargin,
+      None,
+    )
+  }
+
   behavior of "PureConfigReaderWriter VersionRange[LanguageVersion]"
 
   it should "read/write against predefined values" in {
@@ -146,7 +204,7 @@ class PureConfigReaderWriterSpec
     compare(LanguageVersion.EarlyAccessVersions, "early-access")
     compare(LanguageVersion.LegacyVersions, "legacy")
 
-    versionRangeWriter.to(LanguageVersion.StableVersions) shouldBe fromAnyRef("early-access")
+    versionRangeWriter.to(LanguageVersion.StableVersions) shouldBe fromAnyRef("stable")
 
     versionRangeReader
       .from(fromAnyRef("stable"))
@@ -205,7 +263,7 @@ class PureConfigReaderWriterSpec
   it should "support current defaults" in {
     val value =
       """
-        |allowed-language-versions = early-access
+        |allowed-language-versions = stable
         |contract-key-uniqueness = strict
         |forbid-v-0-contract-id = true
         |limits {
@@ -353,8 +411,8 @@ class PureConfigReaderWriterSpec
   it should "be isomorphic and support redaction" in forAll(ArbitraryConfig.authServiceConfig) {
     generatedValue =>
       val redacted = generatedValue match {
-        case AuthServiceConfig.UnsafeJwtHmac256(_, leeway) =>
-          AuthServiceConfig.UnsafeJwtHmac256("<REDACTED>", leeway)
+        case AuthServiceConfig.UnsafeJwtHmac256(_) =>
+          AuthServiceConfig.UnsafeJwtHmac256("<REDACTED>")
         case _ => generatedValue
       }
       val insecureWriter = new PureConfigReaderWriter(false)
@@ -381,78 +439,6 @@ class PureConfigReaderWriterSpec
     compare(
       "type = unsafe-jwt-hmac-256\nsecret=mysecret2",
       AuthServiceConfig.UnsafeJwtHmac256("mysecret2"),
-    )
-    compare(
-      "type = unsafe-jwt-hmac-256\nsecret=mysecret3",
-      AuthServiceConfig.UnsafeJwtHmac256("mysecret3", None),
-    )
-    compare(
-      """
-        |type = unsafe-jwt-hmac-256
-        |secret = mysecret3
-        |leeway-options {
-        |  leeway = 1
-        |}
-        |""".stripMargin,
-      AuthServiceConfig.UnsafeJwtHmac256(
-        "mysecret3",
-        Some(LeewayOptions(Some(1), None, None, None)),
-      ),
-    )
-    compare(
-      """
-        |type = unsafe-jwt-hmac-256
-        |secret = mysecret3
-        |leeway-options {
-        |  expires-at = 2
-        |}
-        |""".stripMargin,
-      AuthServiceConfig.UnsafeJwtHmac256(
-        "mysecret3",
-        Some(LeewayOptions(None, Some(2), None, None)),
-      ),
-    )
-    compare(
-      """
-        |type = unsafe-jwt-hmac-256
-        |secret = mysecret3
-        |leeway-options {
-        |  issued-at = 3
-        |}
-        |""".stripMargin,
-      AuthServiceConfig.UnsafeJwtHmac256(
-        "mysecret3",
-        Some(LeewayOptions(None, None, Some(3), None)),
-      ),
-    )
-    compare(
-      """
-        |type = unsafe-jwt-hmac-256
-        |secret = mysecret3
-        |leeway-options {
-        |  not-before = 4
-        |}
-        |""".stripMargin,
-      AuthServiceConfig.UnsafeJwtHmac256(
-        "mysecret3",
-        Some(LeewayOptions(None, None, None, Some(4))),
-      ),
-    )
-    compare(
-      """
-        |type = unsafe-jwt-hmac-256
-        |secret = mysecret3
-        |leeway-options {
-        |  leeway = 1
-        |  expires-at = 2
-        |  issued-at = 3
-        |  not-before = 4
-        |}
-        |""".stripMargin,
-      AuthServiceConfig.UnsafeJwtHmac256(
-        "mysecret3",
-        Some(LeewayOptions(Some(1), Some(2), Some(3), Some(4))),
-      ),
     )
     compare(
       "type = jwt-rs-256\ncertificate=certfile",
@@ -588,6 +574,18 @@ class PureConfigReaderWriterSpec
     convert(haConfigConvert, value).value shouldBe HaConfig()
   }
 
+  behavior of "PackageMetadataViewConfig"
+
+  it should "support current defaults" in {
+    val value = """
+                  |  init-load-parallelism = 16
+                  |  init-process-parallelism = 16
+                  |  init-takes-too-long-initial-delay = 1 minute
+                  |  init-takes-too-long-interval = 10 seconds
+                  |  """.stripMargin
+    convert(packageMetadataViewConfigConvert, value).value shouldBe PackageMetadataViewConfig()
+  }
+
   behavior of "IndexerConfig"
 
   it should "support current defaults" in {
@@ -631,7 +629,11 @@ class PureConfigReaderWriterSpec
     |  events-processing-parallelism = 8
     |  max-contract-key-state-cache-size = 100000
     |  max-contract-state-cache-size = 100000
-    |  max-transactions-in-memory-fan-out-buffer-size = 10000""".stripMargin
+    |  max-transactions-in-memory-fan-out-buffer-size = 10000
+    |  in-memory-state-updater-parallelism = 2
+    |  in-memory-fan-out-thread-pool-size = 16
+    |  prepare-package-metadata-time-out-warning = 1 second
+    |  """.stripMargin
     convert(indexServiceConfigConvert, value).value shouldBe IndexServiceConfig()
   }
 

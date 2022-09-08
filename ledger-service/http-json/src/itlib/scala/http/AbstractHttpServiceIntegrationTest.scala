@@ -10,11 +10,7 @@ import com.daml.api.util.TimestampConversion
 import com.daml.lf.data.Ref
 import com.daml.http.domain.ContractId
 import com.daml.http.domain.TemplateId.OptionalPkg
-import com.daml.http.endpoints.MeteringReportEndpoint.{
-  MeteringReport,
-  MeteringReportDateRequest,
-  MeteringReportRequest,
-}
+import com.daml.http.endpoints.MeteringReportEndpoint.MeteringReportDateRequest
 import com.daml.http.json.SprayJson.objectField
 import com.daml.http.json._
 import com.daml.http.util.ClientUtil.{boxedRecord, uniqueId}
@@ -41,8 +37,9 @@ import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
-import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.{value => lfv}
+import com.daml.scalautil.Statement.discard
+import com.google.protobuf.struct.Struct
 import lfv.test.TypedValueGenerators.{ValueAddend => VA}
 
 import java.util.UUID
@@ -127,19 +124,18 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
       to = None,
       application = None,
     )
-    val expected = MeteringReportRequest(
-      from = Timestamp.assertFromString(s"${isoDate}T00:00:00Z"),
-      to = None,
-      application = None,
-    )
     fixture
-      .postJsonRequestWithMinimumAuth[MeteringReport](
+      .postJsonRequestWithMinimumAuth[Struct](
         Uri.Path("/v1/metering-report"),
         request.toJson,
       )
       .map(inside(_) {
         case (StatusCodes.OK, domain.OkResponse(meteringReport, _, StatusCodes.OK)) =>
-          meteringReport.request shouldBe expected
+          meteringReport
+            .fields("request")
+            .getStructValue
+            .fields("from")
+            .getStringValue shouldBe s"${isoDate}T00:00:00Z"
       })
   }
 
@@ -153,14 +149,14 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     with StrictLogging
     with AbstractHttpServiceIntegrationTestFuns {
 
-  import AbstractHttpServiceIntegrationTestFuns.{
-    ciouDar,
-    VAx,
-    UriFixture,
-    HttpServiceTestFixtureData,
-  }
+  import AbstractHttpServiceIntegrationTestFuns.{VAx, UriFixture, HttpServiceTestFixtureData}
   import HttpServiceTestFixture.{UseTls, accountCreateCommand, archiveCommand}
   import json.JsonProtocol._
+  import AbstractHttpServiceIntegrationTestFuns.ciouDar
+
+  object CIou {
+    val CIou: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "CIou", "CIou")
+  }
 
   override def useTls = UseTls.NoTls
 
@@ -289,11 +285,18 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       }
     }
 
-    "fails given interface ID" in withHttpService { fixture =>
+    "with an interface ID" in withHttpService { fixture =>
+      import com.daml.http.json.JsonProtocol._
       for {
         _ <- uploadPackage(fixture)(ciouDar)
         aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, aliceHeaders) = aliceH
+        _ <- postCreateCommand(
+          iouCommand(alice, CIou.CIou),
+          fixture,
+          aliceHeaders,
+        )
+
         searchResp <- search(
           List.empty,
           Map(
@@ -304,13 +307,12 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           aliceHeaders,
         )
       } yield inside(searchResp) {
-        case domain.ErrorResponse(
-              Seq(_),
-              Some(domain.UnknownTemplateIds(Seq(TpId.IIou.IIou))),
-              StatusCodes.BadRequest,
-              _,
-            ) =>
-          succeed
+        case domain.OkResponse(Seq(ac), None, StatusCodes.OK) => {
+          discard {
+            ac.templateId shouldBe TpId.IIou.IIou.copy(packageId = ac.templateId.packageId)
+          }
+          ac.payload shouldBe JsObject("amount" -> JsString("42"))
+        }
       }
     }
   }
@@ -1207,6 +1209,23 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             val contractId: ContractId = result.contractId
             val locator = domain.EnrichedContractId(None, contractId)
             lookupContractAndAssert(locator, contractId, command, fixture, headers)
+        }): Future[Assertion]
+      }
+    }
+
+    "succeeds normally with an interface ID" in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCommand(alice, CIou.CIou)
+
+        postCreateCommand(command, fixture, headers).flatMap(inside(_) {
+          case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+            val contractId: ContractId = result.contractId
+            val locator = domain.EnrichedContractId(Some(TpId.IIou.IIou), contractId)
+            postContractsLookup(locator, fixture.uri, headers).map(inside(_) {
+              case (StatusCodes.OK, domain.OkResponse(Some(resultContract), _, StatusCodes.OK)) =>
+                contractId shouldBe resultContract.contractId
+                assertJsPayload(resultContract)(JsObject("amount" -> JsString("42")))
+            })
         }): Future[Assertion]
       }
     }

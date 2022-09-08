@@ -6,7 +6,7 @@ package com.daml.lf.value.json
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, SortedLookupList, Time, Numeric => LfNumeric}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.ScalazEqual._
-import com.daml.lf.iface
+import com.daml.lf.typesig
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.{NavigatorModelAliases => Model}
@@ -192,17 +192,17 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
     }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as $prim"))
   }
 
-  private[this] def nestsOptional(prim: iface.TypePrim): Boolean =
+  private[this] def nestsOptional(prim: typesig.TypePrim): Boolean =
     prim match {
-      case iface.TypePrim(_, Seq(iface.TypePrim(iface.PrimType.Optional, _))) => true
+      case typesig.TypePrim(_, Seq(typesig.TypePrim(typesig.PrimType.Optional, _))) => true
       case _ => false
     }
 
   private[this] def decodedOrder(defs: Model.DamlLfTypeLookup): Order[V @@ defs.type] = {
     val scope: V.LookupVariantEnum = defs andThen (_ flatMap (_.dataType match {
-      case iface.Variant(fields) => Some(fields.toImmArray map (_._1))
-      case iface.Enum(ctors) => Some(ctors.toImmArray)
-      case iface.Record(_) => None
+      case typesig.Variant(fields) => Some(fields.toImmArray map (_._1))
+      case typesig.Enum(ctors) => Some(ctors.toImmArray)
+      case typesig.Record(_) => None
     }))
     Tag subst (Tag unsubst V.orderInstance(scope))
   }
@@ -234,7 +234,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
                 .get(fName)
                 .map(jsValueToApiValue(_, fTy, defs))
                 .getOrElse(fTy match {
-                  case iface.TypePrim(iface.PrimType.Optional, _) => V.ValueNone
+                  case typesig.TypePrim(typesig.PrimType.Optional, _) => V.ValueNone
                   case _ =>
                     deserializationError(
                       s"Can't read ${value.prettyPrint} as DamlLfRecord $id, missing field '$fName'"

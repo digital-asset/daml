@@ -12,30 +12,61 @@ option java_outer_classname = "TransactionFilterOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
-// Used for filtering Transaction and Active Contract Set streams.
-// Determines which on-ledger events will be served to the client.
+// A filter both for filtering create and archive events as well as for
+// filtering transaction trees.
 message TransactionFilter {
 
-  // Keys of the map determine which parties' on-ledger transactions are being queried.
-  // Values of the map determine which events are disclosed in the stream per party.
-  // At the minimum, a party needs to set an empty Filters message to receive any events.
   // Each key must be a valid PartyIdString (as described in ``value.proto``).
+  // The interpretation of the filter depends on the stream being filtered:
+  // (1) For **transaction tree streams** only party filters with wildcards are allowed, and all subtrees
+  //     whose root has one of the listed parties as an informee are returned.
+  // (2) For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
+  //    stakeholders include at least one of the listed parties and match the
+  //    per-party filter.
   // Required
   map<string, Filters> filters_by_party = 1;
 }
 
+// The union of a set of contract filters, or a wildcard.
 message Filters {
 
-  // If not set, no filters will be applied.
+  // If set, then contracts matching any of the ``InclusiveFilters`` match
+  // this filter.
+  // If not set, or if ``InclusiveFilters`` has empty ``template_ids`` and empty ``interface_filters``:
+  // any contract matches this filter.
   // Optional
   InclusiveFilters inclusive = 1;
 }
 
-// If no internal fields are set, no filters will be applied.
+// A filter that matches all contracts that are either an instance of one of
+// the ``template_ids`` or that match one of the ``interface_filters``.
 message InclusiveFilters {
 
-  // A collection of templates.
+  // A collection of templates for which the payload will be included in the
+  // ``create_arguments`` of a matching ``CreatedEvent``.
   // SHOULD NOT contain duplicates.
-  // Required
+  // All ``template_ids`` needs to be valid: corresponding template should be defined in one of
+  // the available packages at the time of the query.
+  // Optional
   repeated Identifier template_ids = 1;
+
+  // Include an ``InterfaceView`` for every ``InterfaceFilter`` matching a contract.
+  // The ``InterfaceFilter``s MUST use unique ``interface_id``s.
+  // All ``interface_id`` needs to be valid: corresponding interface should be defined in one of
+  // the available packages at the time of the query.
+  // Optional
+  repeated InterfaceFilter interface_filters = 2;
+}
+
+// This filter matches contracts that implement a specific interface.
+message InterfaceFilter {
+
+  // The interface that a matching contract must implement.
+  // Required
+  Identifier interface_id = 1;
+
+  // Whether to include the interface view on the contract in the returned ``CreateEvent``.
+  // Use this to access contract data in a uniform manner in your API client.
+  // Optional
+  bool include_interface_view = 2;
 }

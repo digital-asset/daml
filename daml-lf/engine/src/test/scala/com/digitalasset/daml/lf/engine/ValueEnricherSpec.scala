@@ -30,6 +30,7 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
     p"""
         module Mod {
 
+          record @serializable MyUnit = {};
           record @serializable Record = { field : Int64 };
           variant @serializable Variant = variant1 : Text | variant2 : Int64 ;
           enum Enum = value1 | value2;
@@ -58,11 +59,7 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
           };
 
           interface (this: I) = {
-            method _view : Mod:View;
-          };
-
-          interface (this: J) = {
-            method _view : Int64;
+            viewtype Mod:View;
           };
 
           template (this : Contract) =  {
@@ -76,10 +73,7 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
                to
                  upure @Mod:Record r;
              implements Mod:I {
-               method _view = Mod:View { signatory = Mod:contractParties this, cids = Mod:Contract {cids} this } ;
-             };
-             implements Mod:J {
-               method _view = 42;
+               view = Mod:View { signatory = Mod:contractParties this, cids = Mod:Contract {cids} this } ;
              };
              key @Mod:Key (Mod:Contract {key} this) Mod:keyParties;
           };
@@ -171,16 +165,8 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
       ),
     )
 
-    val testCases = Table[Ref.Identifier, Value, Value](
-      ("interfaceId", "contract input", "expected output"),
-      ("Mod:I", view, enrichedView),
-      ("Mod:J", ValueInt64(42L), ValueInt64(42L)),
-    )
-
     "enrich views as expected" in {
-      forEvery(testCases) { (ifaceId, input, output) =>
-        enricher.enrichView(ifaceId, input) shouldBe ResultDone(output)
-      }
+      enricher.enrichView("Mod:I", view) shouldBe ResultDone(enrichedView)
     }
   }
 

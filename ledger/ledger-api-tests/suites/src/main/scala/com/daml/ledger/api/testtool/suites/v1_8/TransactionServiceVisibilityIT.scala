@@ -55,19 +55,19 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
       for {
         gbpIouIssue <- alpha.create(gbp_bank, Iou(gbp_bank, gbp_bank, "GBP", 100, Nil))
         gbpTransfer <-
-          alpha.exerciseAndGetContract(gbp_bank, gbpIouIssue.exerciseIou_Transfer(_, alice))
+          alpha.exerciseAndGetContract(gbp_bank, gbpIouIssue.exerciseIou_Transfer(alice))
         dkkIouIssue <- delta.create(dkk_bank, Iou(dkk_bank, dkk_bank, "DKK", 110, Nil))
         dkkTransfer <-
-          delta.exerciseAndGetContract(dkk_bank, dkkIouIssue.exerciseIou_Transfer(_, bob))
+          delta.exerciseAndGetContract(dkk_bank, dkkIouIssue.exerciseIou_Transfer(bob))
 
         aliceIou1 <- eventually("exerciseIouTransfer_Accept") {
-          alpha.exerciseAndGetContract(alice, gbpTransfer.exerciseIouTransfer_Accept(_))
+          alpha.exerciseAndGetContract(alice, gbpTransfer.exerciseIouTransfer_Accept())
         }
         aliceIou <- eventually("exerciseIou_AddObserver") {
-          alpha.exerciseAndGetContract(alice, aliceIou1.exerciseIou_AddObserver(_, bob))
+          alpha.exerciseAndGetContract(alice, aliceIou1.exerciseIou_AddObserver(bob))
         }
         bobIou <- eventually("exerciseIouTransfer_Accept") {
-          beta.exerciseAndGetContract(bob, dkkTransfer.exerciseIouTransfer_Accept(_))
+          beta.exerciseAndGetContract(bob, dkkTransfer.exerciseIouTransfer_Accept())
         }
 
         trade <- eventually("create") {
@@ -77,7 +77,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
           )
         }
         tree <- eventually("exerciseIouTrade_Accept") {
-          beta.exercise(bob, trade.exerciseIouTrade_Accept(_, bobIou))
+          beta.exercise(bob, trade.exerciseIouTrade_Accept(bobIou))
         }
 
         aliceTree <- eventually("transactionTreeById1") {
@@ -159,19 +159,19 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
       for {
         gbpIouIssue <- alpha.create(gbp_bank, Iou(gbp_bank, gbp_bank, "GBP", 100, Nil))
         gbpTransfer <-
-          alpha.exerciseAndGetContract(gbp_bank, gbpIouIssue.exerciseIou_Transfer(_, alice))
+          alpha.exerciseAndGetContract(gbp_bank, gbpIouIssue.exerciseIou_Transfer(alice))
         dkkIouIssue <- delta.create(dkk_bank, Iou(dkk_bank, dkk_bank, "DKK", 110, Nil))
         dkkTransfer <-
-          delta.exerciseAndGetContract(dkk_bank, dkkIouIssue.exerciseIou_Transfer(_, bob))
+          delta.exerciseAndGetContract(dkk_bank, dkkIouIssue.exerciseIou_Transfer(bob))
 
         aliceIou1 <- eventually("exerciseIouTransfer_Accept") {
-          alpha.exerciseAndGetContract(alice, gbpTransfer.exerciseIouTransfer_Accept(_))
+          alpha.exerciseAndGetContract(alice, gbpTransfer.exerciseIouTransfer_Accept())
         }
         aliceIou <- eventually("exerciseIou_AddObserver") {
-          alpha.exerciseAndGetContract(alice, aliceIou1.exerciseIou_AddObserver(_, bob))
+          alpha.exerciseAndGetContract(alice, aliceIou1.exerciseIou_AddObserver(bob))
         }
         bobIou <- eventually("exerciseIouTransfer_Accept") {
-          beta.exerciseAndGetContract(bob, dkkTransfer.exerciseIouTransfer_Accept(_))
+          beta.exerciseAndGetContract(bob, dkkTransfer.exerciseIouTransfer_Accept())
         }
 
         trade <- eventually("create") {
@@ -181,7 +181,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
           )
         }
         tree <- eventually("exerciseIouTrade_Accept") {
-          beta.exercise(bob, trade.exerciseIouTrade_Accept(_, bobIou))
+          beta.exercise(bob, trade.exerciseIouTrade_Accept(bobIou))
         }
 
         aliceTree <- eventually("transactionTreeById1") {
@@ -482,20 +482,20 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
       gbpIouIssue <- ledger.create(bank, Iou(bank, bank, "GBP", 100, Nil))
       gbpTransfer <- ledger.exerciseAndGetContract(
         bank,
-        gbpIouIssue.exerciseIou_Transfer(_, alice),
+        gbpIouIssue.exerciseIou_Transfer(alice),
       )
       dkkIouIssue <- ledger.create(bank, Iou(bank, bank, "DKK", 110, Nil))
-      dkkTransfer <- ledger.exerciseAndGetContract(bank, dkkIouIssue.exerciseIou_Transfer(_, bob))
-      aliceIou1 <- ledger.exerciseAndGetContract(alice, gbpTransfer.exerciseIouTransfer_Accept(_))
-      aliceIou <- ledger.exerciseAndGetContract(alice, aliceIou1.exerciseIou_AddObserver(_, bob))
-      bobIou <- ledger.exerciseAndGetContract(bob, dkkTransfer.exerciseIouTransfer_Accept(_))
+      dkkTransfer <- ledger.exerciseAndGetContract(bank, dkkIouIssue.exerciseIou_Transfer(bob))
+      aliceIou1 <- ledger.exerciseAndGetContract(alice, gbpTransfer.exerciseIouTransfer_Accept())
+      aliceIou <- ledger.exerciseAndGetContract(alice, aliceIou1.exerciseIou_AddObserver(bob))
+      bobIou <- ledger.exerciseAndGetContract(bob, dkkTransfer.exerciseIouTransfer_Accept())
 
       trade <- ledger.create(
         alice,
         IouTrade(alice, bob, aliceIou, bank, "GBP", 100, bank, "DKK", 110),
       )
 
-      tree <- ledger.exercise(bob, trade.exerciseIouTrade_Accept(_, bobIou))
+      tree <- ledger.exercise(bob, trade.exerciseIouTrade_Accept(bobIou))
 
       aliceTransactions <- ledger.flatTransactions(alice)
       bobTransactions <- ledger.flatTransactions(bob)
@@ -552,9 +552,9 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
     for {
       iouIssue <- ledger.create(bank, Iou(bank, bank, "GBP", 100, Nil))
-      transfer <- ledger.exerciseAndGetContract(bank, iouIssue.exerciseIou_Transfer(_, alice))
-      aliceIou <- ledger.exerciseAndGetContract(alice, transfer.exerciseIouTransfer_Accept(_))
-      _ <- ledger.exerciseAndGetContract(alice, aliceIou.exerciseIou_AddObserver(_, bob))
+      transfer <- ledger.exerciseAndGetContract(bank, iouIssue.exerciseIou_Transfer(alice))
+      aliceIou <- ledger.exerciseAndGetContract(alice, transfer.exerciseIouTransfer_Accept())
+      _ <- ledger.exerciseAndGetContract(alice, aliceIou.exerciseIou_AddObserver(bob))
       aliceFlatTransactions <- ledger.flatTransactions(alice)
       bobFlatTransactions <- ledger.flatTransactions(bob)
       aliceBankFlatTransactions <- ledger.flatTransactions(alice, bank)
@@ -584,9 +584,9 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
     for {
       iouIssue <- ledger.create(bank, Iou(bank, bank, "GBP", 100, Nil))
-      transfer <- ledger.exerciseAndGetContract(bank, iouIssue.exerciseIou_Transfer(_, alice))
-      aliceIou <- ledger.exerciseAndGetContract(alice, transfer.exerciseIouTransfer_Accept(_))
-      _ <- ledger.exerciseAndGetContract(alice, aliceIou.exerciseIou_AddObserver(_, bob))
+      transfer <- ledger.exerciseAndGetContract(bank, iouIssue.exerciseIou_Transfer(alice))
+      aliceIou <- ledger.exerciseAndGetContract(alice, transfer.exerciseIouTransfer_Accept())
+      _ <- ledger.exerciseAndGetContract(alice, aliceIou.exerciseIou_AddObserver(bob))
       aliceTransactionTrees <- ledger.transactionTrees(alice)
       bobTransactionTrees <- ledger.transactionTrees(bob)
       aliceBankTransactionTrees <- ledger.transactionTrees(alice, bank)

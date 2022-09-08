@@ -19,7 +19,7 @@ object PackageIDsGen {
     val imports: Seq[Tree] = Seq()
 
     val packageIdsByModule: Map[ModuleName, PackageId] =
-      (util.iface.typeDecls.keySet ++ util.iface.astInterfaces.keys).view
+      (util.iface.typeDecls.keySet ++ util.iface.interfaces.keys).view
         .map(id => (id.qualifiedName.module, id.packageId))
         .toMap
     val packageIdBindings = packageIdsByModule.toSeq.sortBy(_._1.dottedName) map { case (mn, pid) =>

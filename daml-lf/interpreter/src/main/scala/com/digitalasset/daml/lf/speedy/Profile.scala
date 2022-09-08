@@ -240,8 +240,8 @@ object Profile {
       implicit val createDefRef: Allowed[CreateDefRef] = allowAll
       implicit val signatoriesDefRef: Allowed[SignatoriesDefRef] = allowAll
       implicit val observersDefRef: Allowed[ObserversDefRef] = allowAll
-      implicit val implementsMethodDefRef: Allowed[ImplementsMethodDefRef] = allowAll
-      implicit val coImplementsMethodDefRef: Allowed[CoImplementsMethodDefRef] = allowAll
+      implicit val interfaceInstanceMethodDefRef: Allowed[InterfaceInstanceMethodDefRef] = allowAll
+      implicit val interfaceInstanceViewDefRef: Allowed[InterfaceInstanceViewDefRef] = allowAll
       implicit val templateChoiceDefRef: Allowed[TemplateChoiceDefRef] = allowAll
       implicit val interfaceChoiceDefRef: Allowed[InterfaceChoiceDefRef] = allowAll
       implicit val fetchTemplateDefRef: Allowed[FetchTemplateDefRef] = allowAll
@@ -249,6 +249,8 @@ object Profile {
       implicit val choiceByKeyDefRef: Allowed[ChoiceByKeyDefRef] = allowAll
       implicit val fetchByKeyDefRef: Allowed[FetchByKeyDefRef] = allowAll
       implicit val lookupByKeyDefRef: Allowed[LookupByKeyDefRef] = allowAll
+      implicit val contractKeyWithMaintainersDefRef: Allowed[ContractKeyWithMaintainersDefRef] =
+        allowAll
       implicit val createAndExerciseLabel: Allowed[CreateAndExerciseLabel] = allowAll
       implicit val exceptionMessageDefRef: Allowed[ExceptionMessageDefRef] = allowAll
       implicit val scenarioLabel: Allowed[ScenarioLabel] = allowAll
@@ -264,11 +266,12 @@ object Profile {
           case CreateDefRef(tmplRef) => s"create @${tmplRef.qualifiedName}"
           case SignatoriesDefRef(tmplRef) => s"signatories @${tmplRef.qualifiedName}"
           case ObserversDefRef(tmplRef) => s"observers @${tmplRef.qualifiedName}"
+          case ContractKeyWithMaintainersDefRef(tmplRef) => s"key @${tmplRef.qualifiedName}"
           case ToCachedContractDefRef(tmplRef) => s"toAnyContract @${tmplRef.qualifiedName}"
-          case ImplementsMethodDefRef(tmplRef, ifaceId, methodName) =>
-            s"implementsMethod @${tmplRef.qualifiedName} @${ifaceId.qualifiedName} ${methodName}"
-          case CoImplementsMethodDefRef(tmplId, ifaceRef, methodName) =>
-            s"coImplementsMethod @${tmplId.qualifiedName} @${ifaceRef.qualifiedName} ${methodName}"
+          case InterfaceInstanceMethodDefRef(ii, methodName) =>
+            s"interfaceInstanceMethod @${ii.parent.qualifiedName} @${ii.interfaceId.qualifiedName} @${ii.templateId.qualifiedName} ${methodName}"
+          case InterfaceInstanceViewDefRef(ii) =>
+            s"interfaceInstanceView @${ii.parent.qualifiedName} @${ii.interfaceId.qualifiedName} @${ii.templateId.qualifiedName}"
           case TemplateChoiceDefRef(tmplRef, name) =>
             s"exercise @${tmplRef.qualifiedName} ${name}"
           case InterfaceChoiceDefRef(ifaceRef, name) =>

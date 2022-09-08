@@ -5,11 +5,10 @@ package com.daml.lf
 package engine
 
 import java.io.File
-
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.daml.lf.data.{FrontStack, ImmArray, Ref, TemplateOrInterface, Time}
 import com.daml.lf.language.Ast
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.transaction.{Node, SubmittedTransaction, VersionedTransaction}
@@ -322,7 +321,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   ): ApiCommand.Exercise = {
     val choice = "ToListContainer"
     val emptyArgs = ValueRecord(None, ImmArray.Empty)
-    ApiCommand.Exercise(templateId, contractId, choice, (emptyArgs))
+    ApiCommand.Exercise(TemplateOrInterface.Template(templateId), contractId, choice, (emptyArgs))
   }
 
   private def toListOfIntContainers(
@@ -331,7 +330,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   ): ApiCommand.Exercise = {
     val choice = "ToListOfIntContainers"
     val emptyArgs = ValueRecord(None, ImmArray.Empty)
-    ApiCommand.Exercise(templateId, contractId, choice, (emptyArgs))
+    ApiCommand.Exercise(TemplateOrInterface.Template(templateId), contractId, choice, (emptyArgs))
   }
 
   private def listUtilCreateCmd(templateId: Identifier): ApiCommand.Create = {
@@ -346,7 +345,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     val choiceDefRef = Identifier(templateId.packageId, qn(s"LargeTransaction:$choice"))
     val damlList = ValueList(List.range(0L, size.toLong).map(ValueInt64).to(FrontStack))
     val choiceArgs = ValueRecord(Some(choiceDefRef), ImmArray((None, damlList)))
-    ApiCommand.Exercise(templateId, contractId, choice, choiceArgs)
+    ApiCommand.Exercise(TemplateOrInterface.Template(templateId), contractId, choice, choiceArgs)
   }
 
   private def assertSizeExerciseTransaction(

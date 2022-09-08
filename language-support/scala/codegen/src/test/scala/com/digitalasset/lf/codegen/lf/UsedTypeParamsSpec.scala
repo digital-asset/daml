@@ -6,7 +6,7 @@ package lf
 
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
-import com.daml.lf.iface
+import com.daml.lf.typesig
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
@@ -15,13 +15,12 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
   import UsedTypeParams.{ResolvedVariance, Variance}, Variance.{Covariant, Invariant}
 
   private[this] def ref(n: String) = Ref.Identifier.assertFromString(s"abc:Mod:$n")
-  private[this] def reftc(name: String, typArgs: iface.Type*) =
-    iface.TypeCon(iface.TypeConName(ref(name)), ImmArraySeq(typArgs: _*))
+  private[this] def reftc(name: String, typArgs: typesig.Type*) =
+    typesig.TypeCon(typesig.TypeConName(ref(name)), ImmArraySeq(typArgs: _*))
 
   private val sampleDecls = {
-    import iface.{DefDataType => DT, Record, Variant, TypeVar => TVar}, com.daml.lf.data.ImmArray.{
-      ImmArraySeq => IASeq
-    }, Ref.Name.{assertFromString => rn}
+    import typesig.{DefDataType => DT, Record, Variant, TypeVar => TVar},
+    com.daml.lf.data.ImmArray.{ImmArraySeq => IASeq}, Ref.Name.{assertFromString => rn}
     val a = rn("a")
     val b = rn("b")
     val k = rn("k")
@@ -31,7 +30,7 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         IASeq(k, v),
         Record(
           IASeq(
-            rn("unwrap") -> iface.TypePrim(iface.PrimType.GenMap, IASeq(k, v) map TVar)
+            rn("unwrap") -> typesig.TypePrim(typesig.PrimType.GenMap, IASeq(k, v) map TVar)
           )
         ),
       ),
@@ -63,8 +62,8 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         IASeq(a),
         Record(
           IASeq(
-            rn("unwrap") -> iface.TypePrim(
-              iface.PrimType.Optional,
+            rn("unwrap") -> typesig.TypePrim(
+              typesig.PrimType.Optional,
               IASeq(reftc("Tuple2", TVar(a), reftc("NonFancyList", TVar(a)))),
             )
           )
@@ -116,31 +115,34 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         IASeq(a),
         Record(
           IASeq(
-            rn("cid") -> iface.TypePrim(iface.PrimType.ContractId, IASeq(reftc("SomeInterface")))
+            rn("cid") -> typesig.TypePrim(
+              typesig.PrimType.ContractId,
+              IASeq(reftc("SomeInterface")),
+            )
           )
         ),
       ),
       // no type vars
       "Concrete" -> DT(
         IASeq.empty,
-        Record(IASeq(rn("it") -> iface.TypePrim(iface.PrimType.Int64, IASeq.empty))),
+        Record(IASeq(rn("it") -> typesig.TypePrim(typesig.PrimType.Int64, IASeq.empty))),
       ),
       "Phantom" -> DT(
         IASeq(a),
-        Record(IASeq(rn("it") -> iface.TypePrim(iface.PrimType.Int64, IASeq.empty))),
+        Record(IASeq(rn("it") -> typesig.TypePrim(typesig.PrimType.Int64, IASeq.empty))),
       ),
-    ).map { case (k, v) => (ref(k), iface.InterfaceType.Normal(v)) }
+    ).map { case (k, v) => (ref(k), typesig.PackageSignature.TypeDecl.Normal(v)) }
   }
 
   private val sampleInterfaces = Map(
-    ref("SomeInterface") -> iface.DefInterface(
+    ref("SomeInterface") -> typesig.DefInterface(
       Map.empty,
       retroImplements = Set.empty,
       viewType = None,
     )
   )
 
-  private val sampleEi = iface.EnvironmentInterface(Map.empty, sampleDecls, sampleInterfaces)
+  private val sampleEi = typesig.EnvironmentSignature(Map.empty, sampleDecls, sampleInterfaces)
 
   private val exVariances =
     Seq(

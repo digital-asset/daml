@@ -12,8 +12,9 @@ import com.daml.lf.codegen.backend.java.inner.{ClassForType, DecoderClass, fully
 import com.daml.lf.codegen.conf.{Conf, PackageReference}
 import com.daml.lf.codegen.dependencygraph.DependencyGraph
 import com.daml.lf.data.Ref.{PackageId, Identifier}
-import com.daml.lf.iface.reader.{InterfaceReader, Errors}
-import com.daml.lf.iface.{EnvironmentInterface, InterfaceType, Interface}
+import com.daml.lf.typesig.reader.{SignatureReader, Errors}
+import com.daml.lf.typesig.{EnvironmentSignature, PackageSignature}
+import PackageSignature.TypeDecl
 import com.squareup.javapoet.{JavaFile, ClassName}
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{LoggerFactory, Logger, MDC}
@@ -93,15 +94,15 @@ private final class CodeGenRunner(
 object CodeGenRunner extends StrictLogging {
 
   private[codegen] final class Scope(
-      val signatures: Seq[Interface],
+      val signatures: Seq[PackageSignature],
       val packagePrefixes: Map[PackageId, String],
-      serializableTypes: Vector[(Identifier, InterfaceType)],
+      serializableTypes: Vector[(Identifier, TypeDecl)],
   ) {
 
     val toBeGenerated: Set[Identifier] = serializableTypes.view.map(_._1).toSet
 
     val templateClassNames: Vector[ClassName] = serializableTypes.collect {
-      case id -> (_: InterfaceType.Template) =>
+      case id -> (_: TypeDecl.Template) =>
         ClassName.bestGuess(fullyQualifiedName(id, packagePrefixes))
     }
 
@@ -146,18 +147,18 @@ object CodeGenRunner extends StrictLogging {
       } yield (interface, packagePrefix)
     val (signatures, packagePrefixes) =
       signaturesAndPackagePrefixes.foldLeft(
-        (Vector.empty[Interface], Map.empty[PackageId, String])
+        (Vector.empty[PackageSignature], Map.empty[PackageId, String])
       ) { case ((signatures, prefixes), (signature, prefix)) =>
         val updatedSignatures = signatures :+ signature
         val updatedPrefixes = prefix.fold(prefixes)(prefixes.updated(signature.packageId, _))
         (updatedSignatures, updatedPrefixes)
       }
 
-    val environmentInterface = EnvironmentInterface.fromReaderInterfaces(signatures)
+    val environmentInterface = EnvironmentSignature.fromPackageSignatures(signatures)
 
     val transitiveClosure = DependencyGraph.transitiveClosure(
       environmentInterface.typeDecls,
-      environmentInterface.astInterfaces,
+      environmentInterface.interfaces,
     )
     for (error <- transitiveClosure.errors) {
       logger.error(error.msg)
@@ -191,19 +192,21 @@ object CodeGenRunner extends StrictLogging {
       )
     )
 
-  private[codegen] def decodeDarAt(path: Path): Seq[Interface] =
+  private[codegen] def decodeDarAt(path: Path): Seq[PackageSignature] =
     for (archive <- DarParser.assertReadArchiveFromFile(path.toFile).all) yield {
-      val (errors, interface) = Interface.read(archive)
+      val (errors, interface) = PackageSignature.read(archive)
       if (!errors.equals(Errors.zeroErrors)) {
-        val message = InterfaceReader.InterfaceReaderError.treeReport(errors).toString
+        val message = SignatureReader.Error.treeReport(errors).toString
         throw new RuntimeException(message)
       }
       logger.trace(s"Daml-LF Archive decoded, packageId '${interface.packageId}'")
       interface
     }
 
-  private[this] def resolveRetroInterfaces(signatures: Seq[Interface]): Seq[Interface] =
-    Interface.resolveRetroImplements((), signatures)((_, _) => None)._2
+  private[this] def resolveRetroInterfaces(
+      signatures: Seq[PackageSignature]
+  ): Seq[PackageSignature] =
+    PackageSignature.resolveRetroImplements((), signatures)((_, _) => None)._2
 
   /** Given the package prefixes specified per DAR and the module-prefixes specified in
     * daml.yaml, produce the combined prefixes per package id.
@@ -211,7 +214,7 @@ object CodeGenRunner extends StrictLogging {
   private[codegen] def resolvePackagePrefixes(
       packagePrefixes: Map[PackageId, String],
       modulePrefixes: Map[PackageReference, String],
-      signatures: Seq[Interface],
+      signatures: Seq[PackageSignature],
   ): Map[PackageId, String] = {
     val metadata: Map[PackageReference.NameVersion, PackageId] = signatures.view
       .flatMap(iface =>
@@ -255,7 +258,7 @@ object CodeGenRunner extends StrictLogging {
     */
   private[codegen] def detectModuleCollisions(
       pkgPrefixes: Map[PackageId, String],
-      interfaces: Seq[Interface],
+      interfaces: Seq[PackageSignature],
   ): Unit = {
     val allModules: Seq[(String, PackageId)] =
       for {

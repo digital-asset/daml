@@ -6,7 +6,7 @@
 -- is caught prior due to missing Eq and Show instances.
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ERROR range=18:5-18:20; cannot implement 'Bool' because it is not an interface
+-- @ERROR range=19:7-19:16; No instance for (HasInterfaceTypeRep Bool)
 
 module ImplementsNonInterface where
 
@@ -15,4 +15,5 @@ template T
     p : Party
   where
     signatory p
-    implements Bool
+    interface instance Bool for T where
+      view = ()

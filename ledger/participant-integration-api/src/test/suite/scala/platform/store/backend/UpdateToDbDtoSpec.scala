@@ -16,10 +16,10 @@ import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
-import com.daml.platform.{Exercise, ContractId, Create}
+import com.daml.platform.{ContractId, Create, Exercise}
 import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.dao.events.Raw.TreeEvent
-import com.daml.platform.store.dao.JdbcLedgerDao
+import com.daml.platform.store.dao.{EventProjectionProperties, JdbcLedgerDao}
 import com.daml.platform.store.dao.events.{
   CompressionStrategy,
   FieldCompressionStrategy,
@@ -1480,7 +1480,10 @@ object UpdateToDbDtoSpec {
         exercise: Exercise,
     ): (Array[Byte], Option[Array[Byte]], Option[Array[Byte]]) =
       (emptyArray, exercise.exerciseResult.map(_ => emptyArray), exercise.key.map(_ => emptyArray))
-    override def deserialize[E](raw: Raw.Created[E], verbose: Boolean)(implicit
+    override def deserialize[E](
+        raw: Raw.Created[E],
+        eventProjectionProperties: EventProjectionProperties,
+    )(implicit
         ec: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[CreatedEvent] = Future.failed(new RuntimeException("Not implemented"))

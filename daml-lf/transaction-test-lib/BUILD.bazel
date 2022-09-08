@@ -24,9 +24,9 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-transaction-test-lib:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//daml-lf/data-scalacheck",
-        "//daml-lf/interface",
         "//daml-lf/language",
         "//daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",

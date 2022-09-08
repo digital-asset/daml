@@ -21,19 +21,13 @@ export interface Serializable<T> {
 }
 
 /**
- * Interface for objects representing Daml templates. It is similar to the
- * `Template` type class in Daml.
+ * Companion objects for templates and interfaces, containing their choices.
  *
- * @typeparam T The template type.
+ * @typeparam T The template payload format or interface view.
  * @typeparam K The contract key type.
- * @typeparam I The contract id type.
- *
+ * @typeparam I The template or interface id.
  */
-export interface Template<
-  T extends object,
-  K = unknown,
-  I extends string = string,
-> extends Serializable<T> {
+export interface ContractTypeCompanion<T extends object, K, I extends string> {
   templateId: I;
   /**
    * @internal
@@ -42,13 +36,108 @@ export interface Template<
   /**
    * @internal
    */
+  decoder: jtv.Decoder<T>;
+  /**
+   * @internal
+   */
   keyDecoder: jtv.Decoder<K>;
+}
+
+/**
+ * Interface for objects representing Daml templates. It is similar to the
+ * `Template` type class in Daml.
+ *
+ * @typeparam T The template type.
+ * @typeparam K The contract key type.
+ * @typeparam I The template id type.
+ *
+ */
+export interface Template<
+  T extends object,
+  K = unknown,
+  I extends string = string,
+> extends ContractTypeCompanion<T, K, I>,
+    Serializable<T> {
   /**
    * @internal
    */
   keyEncode: (k: K) => unknown;
   // eslint-disable-next-line @typescript-eslint/ban-types
   Archive: Choice<T, {}, {}, K>;
+}
+
+/**
+ * A mixin for [[Template]] that provides the `toInterface` and
+ * `unsafeFromInterface` contract ID conversion functions.
+ *
+ * Even templates that directly implement no interfaces implement this, because
+ * this also permits conversion with interfaces that supply retroactive
+ * implementations to this template.
+ *
+ * @typeparam T The template type.
+ * @typeparam IfU The union of implemented interfaces, or `never` for templates
+ *            that directly implement no interface.
+ */
+export interface ToInterface<T extends object, IfU> {
+  // overload for direct interface implementations
+  toInterface<If extends IfU>(
+    ic: FromTemplate<If, unknown>,
+    cid: ContractId<T>,
+  ): ContractId<If>;
+  // overload for retroactive interface implementations
+  toInterface<If>(ic: FromTemplate<If, T>, cid: ContractId<T>): ContractId<If>;
+
+  // overload for direct interface implementations
+  unsafeFromInterface(
+    ic: FromTemplate<IfU, unknown>,
+    cid: ContractId<IfU>,
+  ): ContractId<T>;
+  // overload for retroactive interface implementations
+  unsafeFromInterface<If>(
+    ic: FromTemplate<If, T>,
+    cid: ContractId<If>,
+  ): ContractId<T>;
+}
+
+const InterfaceBrand: unique symbol = Symbol();
+
+/**
+ * An interface type, for use with contract IDs.
+ *
+ * @typeparam IfId The interface ID as a constant string.
+ */
+export type Interface<IfId> = { readonly [InterfaceBrand]: IfId };
+
+/**
+ * Interface for objects representing Daml interfaces.
+ */
+export type InterfaceCompanion<
+  T extends object,
+  K,
+  I extends string = string,
+> = ContractTypeCompanion<T, K, I>;
+
+export type TemplateOrInterface<
+  T extends object,
+  K = unknown,
+  I extends string = string,
+> = Template<T, K, I> | InterfaceCompanion<T, K, I>;
+
+const FromTemplateBrand: unique symbol = Symbol();
+
+/**
+ * A mixin for [[InterfaceCompanion]].  This supplies the basis
+ * for the methods of [[ToInterface]].
+ *
+ * Even interfaces that retroactively implement for no templates implement this,
+ * because forward implementations still require this marker to work.
+ *
+ * @typeparam If The interface type.
+ * @typeparam TX The intersection of template types this interface retroactively
+ *               implements, or `unknown` if there are none.
+ */
+export interface FromTemplate<If, TX> {
+  readonly [FromTemplateBrand]: [If, TX];
 }
 
 /**
@@ -64,7 +153,9 @@ export interface Choice<T extends object, C, R, K = unknown> {
   /**
    * Returns the template to which this choice belongs.
    */
-  template: () => Template<T, K>;
+  template: () => T extends Interface<infer I>
+    ? InterfaceCompanion<T, K, I & string>
+    : Template<T, K>;
   /**
    * @internal Returns a decoder to decode the choice arguments.
    *
@@ -87,22 +178,53 @@ export interface Choice<T extends object, C, R, K = unknown> {
   choiceName: string;
 }
 
+function toInterfaceMixin<T extends object, IfU>(): ToInterface<T, IfU> {
+  return {
+    toInterface<If>(_: FromTemplate<If, unknown>, cid: ContractId<T>) {
+      return cid as ContractId<never> as ContractId<If>;
+    },
+
+    unsafeFromInterface<If>(_: FromTemplate<If, unknown>, cid: ContractId<If>) {
+      return cid as ContractId<never> as ContractId<T>;
+    },
+  };
+}
+
 /**
  * @internal
  */
-export function assembleTemplate<T extends object>(
-  template: Template<T>,
-  ...interfaces: Template<object>[]
-): Template<T> {
-  const combined = {};
-  const overloaded: string[] = [];
-  for (const iface of interfaces) {
-    _.mergeWith(combined, iface, (left, right, k) => {
-      if (left !== undefined && right !== undefined) overloaded.push(k);
-      return undefined;
-    });
-  }
-  return Object.assign(_.omit(combined, overloaded), template);
+export function assembleTemplate<T extends object, TC extends Template<T>, IfU>(
+  template: TC,
+  ..._interfaces: FromTemplate<IfU, unknown>[] // eslint-disable-line @typescript-eslint/no-unused-vars
+): TC & ToInterface<T, IfU> {
+  return {
+    ...toInterfaceMixin<T, IfU>(),
+    ...template,
+  };
+}
+
+/**
+ * @internal
+ */
+export function assembleInterface<
+  T extends object,
+  I extends string,
+  C extends object,
+>(
+  templateId: I,
+  decoderSource: () => Serializable<T>,
+  choices: C,
+): InterfaceCompanion<Interface<I> & T, unknown, I> & C {
+  return {
+    templateId: templateId,
+    sdkVersion: "0.0.0-SDKVERSION",
+    // `Interface<I> &` is a phantom intersection
+    decoder: lazyMemo(
+      () => decoderSource().decoder as jtv.Decoder<Interface<I> & T>,
+    ),
+    keyDecoder: jtv.succeed(undefined), // ignore input
+    ...choices,
+  };
 }
 
 /**
@@ -348,7 +470,7 @@ export type ContractId<T> = string & { [ContractIdBrand]: T };
  * Companion object of the [[ContractId]] type.
  */
 export const ContractId = <T>(
-  _t: Serializable<T>, // eslint-disable-line @typescript-eslint/no-unused-vars
+  _t: Serializable<T> | TemplateOrInterface<T & object>, // eslint-disable-line @typescript-eslint/no-unused-vars
 ): Serializable<ContractId<T>> => ({
   decoder: jtv.string() as jtv.Decoder<ContractId<T>>,
   encode: (c: ContractId<T>): unknown => c,

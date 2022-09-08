@@ -51,6 +51,15 @@ daml_compile(
     visibility = ["//daml-lf:__subpackages__"],
 )
 
+daml_build_test(
+    name = "InterfaceRetro",
+    dar_dict = {
+        "//daml-lf/tests:Interfaces.dar": "interfaces.dar",
+    },
+    project_dir = "interface-retro",
+    visibility = ["//daml-lf:__subpackages__"],
+)
+
 daml_compile(
     name = "InterfaceViews",
     srcs = ["InterfaceViews.daml"],

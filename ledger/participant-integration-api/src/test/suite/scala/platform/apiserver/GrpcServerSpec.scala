@@ -93,7 +93,11 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
           .mark(rateLimitingConfig.maxApiServicesQueueSize.toLong + 1) // Over limit
         val helloService = HelloServiceGrpc.stub(channel)
         helloService.single(HelloRequest(7)).failed.map {
-          case s: StatusRuntimeException => s.getStatus.getCode shouldBe Status.Code.ABORTED
+          case s: StatusRuntimeException =>
+            s.getStatus.getCode shouldBe Status.Code.ABORTED
+            metrics.daml.lapi.return_status
+              .forCode(Status.Code.ABORTED.toString)
+              .getCount shouldBe 1
           case o => fail(s"Expected StatusRuntimeException, not $o")
         }
       }

@@ -3,7 +3,10 @@
 
 module Interface1 where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface I where
+    viewtype EmptyInterfaceView
     getOwner : Party
     nonconsuming choice ChoiceI1: ()
       controller getOwner this

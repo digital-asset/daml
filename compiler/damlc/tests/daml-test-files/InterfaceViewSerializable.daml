@@ -6,5 +6,7 @@
 -- | Check that no error is thrown if interface view exists and is serializable
 module InterfaceViewSerializable where
 
+data MyUnit = MyUnit {}
+
 interface I where
-  _view : Int
+  viewtype MyUnit

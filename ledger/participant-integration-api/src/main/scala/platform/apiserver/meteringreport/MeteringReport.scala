@@ -11,14 +11,19 @@ import DefaultJsonProtocol._
 
 object MeteringReport {
 
+  type Scheme = String
+
   // These classes must use field names that match the Json fields described at
   // https://docs.daml.com/2.0.0/ops/metering.html
+
+  case class Check(scheme: Scheme, digest: String)
 
   case class ParticipantReport(
       participant: ParticipantId,
       request: Request,
       `final`: Boolean,
       applications: Seq[ApplicationReport],
+      check: Option[Check],
   )
 
   case class Request(from: Timestamp, to: Option[Timestamp], application: Option[ApplicationId])
@@ -40,8 +45,11 @@ object MeteringReport {
   implicit val ApplicationReportFormat: RootJsonFormat[ApplicationReport] =
     jsonFormat2(ApplicationReport.apply)
 
+  implicit val CheckFormat: RootJsonFormat[Check] =
+    jsonFormat2(Check.apply)
+
   implicit val ParticipantReportFormat: RootJsonFormat[ParticipantReport] =
-    jsonFormat4(ParticipantReport.apply)
+    jsonFormat5(ParticipantReport.apply)
 
   private def stringJsonFormat[A](readFn: String => Either[String, A])(
       writeFn: A => String

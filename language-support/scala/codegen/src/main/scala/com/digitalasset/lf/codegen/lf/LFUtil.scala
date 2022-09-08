@@ -7,9 +7,9 @@ import com.daml.lf.{codegen => parent}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import parent.exception.UnsupportedDamlTypeException
-import com.daml.lf.iface
-import iface.{Type => IType, PrimType => PT, _}
-import com.daml.lf.iface.InterfaceType
+import com.daml.lf.typesig
+import typesig.{Type => IType, PrimType => PT, _}
+import PackageSignature.TypeDecl
 import java.io.File
 
 import com.daml.lf.codegen.dependencygraph.TransitiveClosure
@@ -25,7 +25,7 @@ import scalaz.syntax.std.option._
   */
 final case class LFUtil(
     packageName: String,
-    iface: EnvironmentInterface,
+    iface: EnvironmentSignature,
     outputDir: File,
 ) {
 
@@ -255,7 +255,7 @@ final case class LFUtil(
         case TypeCon(TypeConName(tyCon), _) =>
           val dn =
             iface.typeDecls get tyCon collect {
-              case InterfaceType.Normal(DefDataType(ImmArraySeq(), Record(fields))) => fields
+              case TypeDecl.Normal(DefDataType(ImmArraySeq(), Record(fields))) => fields
             }
           dn map { fields =>
             val orecArgNames = fields.foldMap { case (fn, _) => Set(fn) }
@@ -282,15 +282,26 @@ final case class LFUtil(
     val actorParam = q"${TermName(actorParamName)}: $domainApiAlias.Primitive.Party"
     val exerciseOnParam = q"` exOn`: $domainApiAlias.encoding.ExerciseOn[$idType, $templateType]"
     val resultType = genTypeToScalaType(choiceInterface.returnType)
-    val body = q"` exercise`(${TermName(actorParamName)}, id, $choiceId, $namedArguments)"
+    val body = q"` exercise`(id, $choiceId, $namedArguments)"
 
-    Seq(q"""def $choiceMethod($actorParam, ..${typedParam.toList})(implicit $exerciseOnParam)
-                : $domainApiAlias.Primitive.Update[$resultType] = $body""") ++
-      denominalized.map { case (dparams, dctorName, dargs) =>
-        q"""def $choiceMethod($actorParam, ..$dparams)(implicit $exerciseOnParam)
-                  : $domainApiAlias.Primitive.Update[$resultType] =
-                $choiceMethod(${TermName(actorParamName)}, $dctorName(..$dargs))"""
-      }.toList
+    Seq(
+      q"""@deprecated("Remove the actor argument", since = "2.4.0")
+            def $choiceMethod($actorParam, ..${typedParam.toList})(implicit $exerciseOnParam)
+                : $domainApiAlias.Primitive.Update[$resultType] = $body""",
+      q"""def $choiceMethod(..${typedParam.toList})(implicit $exerciseOnParam)
+                : $domainApiAlias.Primitive.Update[$resultType] = $body""",
+    ) ++
+      denominalized.toList.flatMap { case (dparams, dctorName, dargs) =>
+        Seq(
+          q"""@deprecated("Remove the actor argument", since = "2.4.0")
+                def $choiceMethod($actorParam, ..$dparams)(implicit $exerciseOnParam)
+                    : $domainApiAlias.Primitive.Update[$resultType] =
+                    $choiceMethod($dctorName(..$dargs))""",
+          q"""def $choiceMethod(..$dparams)(implicit $exerciseOnParam)
+                      : $domainApiAlias.Primitive.Update[$resultType] =
+                    $choiceMethod($dctorName(..$dargs))""",
+        )
+      }
   }
 }
 
@@ -428,15 +439,15 @@ object LFUtil {
   final case class WriteParams(
       templateIds: Map[Ref.Identifier, DefTemplateWithRecord],
       definitions: Vector[ScopedDataType.FWT],
-      interfaces: Map[Ref.Identifier, iface.DefInterface.FWT],
+      interfaces: Map[Ref.Identifier, typesig.DefInterface.FWT],
   )
 
   object WriteParams {
     def apply(tc: TransitiveClosure): WriteParams = {
       val (templateIds, typeDeclarations) = tc.serializableTypes.partitionMap { // TODO(#13349)
-        case (id, InterfaceType.Template(record, template)) =>
+        case (id, TypeDecl.Template(record, template)) =>
           Left(id -> DefTemplateWithRecord(record, template))
-        case (id, InterfaceType.Normal(t)) =>
+        case (id, TypeDecl.Normal(t)) =>
           Right(ScopedDataType(id, t.typeVars, t.dataType))
       }
       WriteParams(

@@ -7,6 +7,7 @@ module Records where
 
 import DA.Record -- for type annotations using HasField
 import DA.Assert
+import Prelude hiding (view)
 
 data Record a = Record {field : a}
 data Company = Company {name : Text, owner : Person}

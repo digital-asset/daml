@@ -35,11 +35,9 @@ class InMemoryFanoutBuffer(
   @volatile private[cache] var _lookupMap =
     Map.empty[TransactionId, TransactionLogUpdate.TransactionAccepted]
 
-  private val bufferMetrics = metrics.daml.services.index.Buffer
+  private val bufferMetrics = metrics.daml.services.index.InMemoryFanoutBuffer
   private val pushTimer = bufferMetrics.push
-  private val sliceTimer = bufferMetrics.slice
   private val pruneTimer = bufferMetrics.prune
-  private val sliceSizeHistogram = bufferMetrics.sliceSize
   private val bufferSizeHistogram = bufferMetrics.bufferSize
 
   /** Appends a new event to the buffer.
@@ -87,36 +85,30 @@ class InMemoryFanoutBuffer(
       startExclusive: Offset,
       endInclusive: Offset,
       filter: TransactionLogUpdate => Option[FILTER_RESULT],
-  ): BufferSlice[(Offset, FILTER_RESULT)] =
-    Timed.value(
-      sliceTimer, {
-        val vectorSnapshot = _bufferLog
+  ): BufferSlice[(Offset, FILTER_RESULT)] = {
+    val vectorSnapshot = _bufferLog
 
-        val bufferStartSearchResult = vectorSnapshot.view.map(_._1).search(startExclusive)
-        val bufferEndSearchResult = vectorSnapshot.view.map(_._1).search(endInclusive)
+    val bufferStartSearchResult = vectorSnapshot.view.map(_._1).search(startExclusive)
+    val bufferEndSearchResult = vectorSnapshot.view.map(_._1).search(endInclusive)
 
-        val bufferStartInclusiveIdx = indexAfter(bufferStartSearchResult)
-        val bufferEndExclusiveIdx = indexAfter(bufferEndSearchResult)
+    val bufferStartInclusiveIdx = indexAfter(bufferStartSearchResult)
+    val bufferEndExclusiveIdx = indexAfter(bufferEndSearchResult)
 
-        val bufferSlice = vectorSnapshot.slice(bufferStartInclusiveIdx, bufferEndExclusiveIdx)
+    val bufferSlice = vectorSnapshot.slice(bufferStartInclusiveIdx, bufferEndExclusiveIdx)
 
-        val filteredBufferSlice = bufferStartSearchResult match {
-          case InsertionPoint(0) if bufferSlice.isEmpty =>
-            BufferSlice.LastBufferChunkSuffix(
-              bufferedStartExclusive = endInclusive,
-              slice = Vector.empty,
-            )
-          case InsertionPoint(0) => lastFilteredChunk(bufferSlice, filter, maxBufferedChunkSize)
-          case InsertionPoint(_) | Found(_) =>
-            BufferSlice.Inclusive(
-              filterAndChunkSlice(bufferSlice.view, filter, maxBufferedChunkSize)
-            )
-        }
-
-        sliceSizeHistogram.update(filteredBufferSlice.slice.size)
-        filteredBufferSlice
-      },
-    )
+    bufferStartSearchResult match {
+      case InsertionPoint(0) if bufferSlice.isEmpty =>
+        BufferSlice.LastBufferChunkSuffix(
+          bufferedStartExclusive = endInclusive,
+          slice = Vector.empty,
+        )
+      case InsertionPoint(0) => lastFilteredChunk(bufferSlice, filter, maxBufferedChunkSize)
+      case InsertionPoint(_) | Found(_) =>
+        BufferSlice.Inclusive(
+          filterAndChunkSlice(bufferSlice.view, filter, maxBufferedChunkSize)
+        )
+    }
+  }
 
   /** Lookup the accepted transaction update by transaction id. */
   def lookup(transactionId: TransactionId): Option[TransactionLogUpdate.TransactionAccepted] =

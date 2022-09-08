@@ -3,8 +3,11 @@
 
 module InterfaceChoiceGuardFailed where
 
--- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @SINCE-LF-FEATURE DAML_INTERFACE_EXTENDED
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface I where
+  viewtype EmptyInterfaceView
   getController : Party
   choice IChoice : ()
     controller getController this
@@ -15,11 +18,12 @@ template T
     party : Party
   where
     signatory party
-    implements I where
+    interface instance I for T where
+      view = EmptyInterfaceView
       getController = party
 
 -- @ENABLE-SCENARIOS
--- @ERROR range=23:1-23:5; Attempt to exercise a choice with a failing guard
+-- @ERROR range=27:1-27:5; Attempt to exercise a choice with a failing guard
 main = do
   alice <- getParty "alice"
   cidT <- alice `submit` create T with party = alice

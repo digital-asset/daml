@@ -4,8 +4,9 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{FrontStack, ImmArray}
 import com.daml.lf.interpretation.Error.DisclosurePreprocessing
+import com.daml.lf.value.Value
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -71,10 +72,9 @@ class BuildDisclosureTableTest extends AnyFreeSpec with Inside with Matchers {
 
         error shouldBe SError.SErrorDamlException(
           DisclosurePreprocessing(
-            DisclosurePreprocessing.DuplicateContractKeys(houseTemplateId)
+            DisclosurePreprocessing.DuplicateContractKeys(houseTemplateId, collidingKeyHash)
           )
         )
-
       }
     }
   }
@@ -95,4 +95,15 @@ object BuildDisclosureTableTest {
     buildDisclosedHouseContract(contractId, disclosureParty, maintainerParty, withHash = false)
   val disclosedHouseContractWithDuplicateKey: DisclosedContract =
     buildDisclosedHouseContract(altDisclosureContractId, disclosureParty, maintainerParty)
+  val collidingKeyHash: crypto.Hash = {
+    val key = Value.ValueRecord(
+      None,
+      ImmArray(
+        None -> Value.ValueText(testKeyName),
+        None -> Value.ValueList(FrontStack.from(ImmArray(Value.ValueParty(maintainerParty)))),
+      ),
+    )
+
+    crypto.Hash.assertHashContractKey(houseTemplateType, key)
+  }
 }

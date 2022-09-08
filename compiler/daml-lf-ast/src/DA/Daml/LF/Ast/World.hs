@@ -23,6 +23,8 @@ module DA.Daml.LF.Ast.World(
     lookupValue,
     lookupModule,
     lookupInterface,
+    InterfaceInstanceInfo(..),
+    lookupInterfaceInstance,
     ) where
 
 import DA.Pretty
@@ -39,6 +41,8 @@ import Data.Either.Extra (maybeToEither)
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Pretty ()
 import DA.Daml.LF.Ast.Version
+import DA.Daml.LF.TemplateOrInterface (TemplateOrInterface')
+import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 
 -- | The 'World' contains all imported packages together with (a subset of)
 -- the modules of the current package. The latter shall always be closed under
@@ -103,6 +107,8 @@ data LookupError
   | LEChoice !(Qualified TypeConName) !ChoiceName
   | LEInterface !(Qualified TypeConName)
   | LEInterfaceMethod !(Qualified TypeConName) !MethodName
+  | LEUnknownInterfaceInstance !InterfaceInstanceHead
+  | LEAmbiguousInterfaceInstance !InterfaceInstanceHead
   deriving (Eq, Ord, Show)
 
 lookupModule :: Qualified a -> World -> Either LookupError Module
@@ -168,6 +174,27 @@ lookupInterfaceMethod (ifaceRef, methodName) world = do
   maybeToEither (LEInterfaceMethod ifaceRef methodName) $
       NM.lookup methodName (intMethods iface)
 
+data InterfaceInstanceInfo = InterfaceInstanceInfo
+  { defInterface :: DefInterface
+  , parent :: TemplateOrInterface' (Qualified TypeConName)
+  }
+
+lookupInterfaceInstance ::
+  InterfaceInstanceHead -> World -> Either LookupError InterfaceInstanceInfo
+lookupInterfaceInstance iiHead@InterfaceInstanceHead {..} world = do
+  interface <- lookupInterface iiInterface world
+  template <- lookupTemplate iiTemplate world
+  let
+    onInterface = NM.lookup iiTemplate (intCoImplements interface)
+    onTemplate = NM.lookup iiInterface (tplImplements template)
+    ok = Right . InterfaceInstanceInfo interface
+    err mkErr = Left (mkErr iiHead)
+  case (onInterface, onTemplate) of
+    (Nothing, Nothing) -> err LEUnknownInterfaceInstance
+    (Just _, Nothing) -> ok (TemplateOrInterface.Interface iiInterface)
+    (Nothing, Just _) -> ok (TemplateOrInterface.Template iiTemplate)
+    (Just _, Just _) -> err LEAmbiguousInterfaceInstance
+
 instance Pretty LookupError where
   pPrint = \case
     LEPackage pkgId -> "unknown package:" <-> pretty pkgId
@@ -181,3 +208,10 @@ instance Pretty LookupError where
     LEChoice tplRef chName -> "unknown choice:" <-> pretty tplRef <> ":" <> pretty chName
     LEInterface ifaceRef -> "unknown interface:" <-> pretty ifaceRef
     LEInterfaceMethod ifaceRef methodName -> "unknown interface method:" <-> pretty ifaceRef <> "." <> pretty methodName
+    LEUnknownInterfaceInstance iiHead -> "unknown" <-> quotes (pretty iiHead)
+    LEAmbiguousInterfaceInstance iiHead ->
+      hsep
+        [ "ambiguous"
+        , quotes (pretty iiHead) <> ","
+        , "both the interface and the template define this interface instance."
+        ]

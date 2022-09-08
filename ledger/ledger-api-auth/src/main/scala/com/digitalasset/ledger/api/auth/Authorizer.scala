@@ -8,6 +8,7 @@ import java.time.Instant
 import akka.actor.Scheduler
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.validation.ValidationErrors
@@ -31,6 +32,7 @@ final class Authorizer(
     ec: ExecutionContext,
     userRightsCheckIntervalInSeconds: Int,
     akkaScheduler: Scheduler,
+    jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
 )(implicit loggingContext: LoggingContext) {
   private val logger = ContextualizedLogger.get(this.getClass)
   private implicit val errorLogger: ContextualizedErrorLogger =
@@ -41,7 +43,7 @@ final class Authorizer(
     */
   private def valid(claims: ClaimSet.Claims): Either[AuthorizationError, Unit] =
     for {
-      _ <- claims.notExpired(now())
+      _ <- claims.notExpired(now(), jwtTimestampLeeway)
       _ <- claims.validForLedger(ledgerId)
       _ <- claims.validForParticipant(participantId)
     } yield {
@@ -239,6 +241,7 @@ final class Authorizer(
     userManagementStore = userManagementStore,
     userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
     akkaScheduler = akkaScheduler,
+    jwtTimestampLeeway = jwtTimestampLeeway,
   )(loggingContext, ec)
 
   /** Directly access the authenticated claims from the thread-local context.

@@ -16,7 +16,18 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
   private def create(contractId: Value.ContractId): Event =
     Event.of(
       Event.Event.Created(
-        CreatedEvent("", contractId.coid, None, None, None, Seq.empty, Seq.empty, Seq.empty, None)
+        CreatedEvent(
+          "",
+          contractId.coid,
+          None,
+          None,
+          None,
+          Seq.empty,
+          Seq.empty,
+          Seq.empty,
+          Seq.empty,
+          None,
+        )
       )
     )
 

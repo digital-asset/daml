@@ -28,8 +28,8 @@ import com.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient,
   ScriptTimeMode,
 }
-import com.daml.lf.iface.EnvironmentInterface
-import com.daml.lf.iface.reader.InterfaceReader
+import com.daml.lf.typesig.EnvironmentSignature
+import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.daml.lf.interpretation.{Error => IE}
@@ -276,7 +276,7 @@ object Runner {
 
   def jsonClients(
       participantParams: Participants[ApiParameters],
-      envIface: EnvironmentInterface,
+      envSig: EnvironmentSignature,
   )(implicit ec: ExecutionContext, system: ActorSystem): Future[Participants[JsonLedgerClient]] = {
     def client(params: ApiParameters) = {
       val uri = Uri(params.host).withPort(params.port)
@@ -284,7 +284,7 @@ object Runner {
         case None =>
           Future.failed(new RuntimeException(s"The JSON API always requires access tokens"))
         case Some(token) =>
-          val client = new JsonLedgerClient(uri, Jwt(token), envIface, system)
+          val client = new JsonLedgerClient(uri, Jwt(token), envSig, system)
           if (params.application_id.isDefined && params.application_id != client.applicationId) {
             Future.failed(
               new RuntimeException(
@@ -292,7 +292,7 @@ object Runner {
               )
             )
           } else {
-            Future.successful(new JsonLedgerClient(uri, Jwt(token), envIface, system))
+            Future.successful(new JsonLedgerClient(uri, Jwt(token), envSig, system))
           }
       }
 
@@ -321,8 +321,8 @@ object Runner {
     val darMap = dar.all.toMap
     val compiledPackages = PureCompiledPackages.assertBuild(darMap, Runner.compilerConfig)
     def converter(json: JsValue, typ: Type) = {
-      val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
-      val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+      val ifaceDar = dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
+      val envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
       Converter.fromJsonValue(
         scriptId.qualifiedName,
         envIface,

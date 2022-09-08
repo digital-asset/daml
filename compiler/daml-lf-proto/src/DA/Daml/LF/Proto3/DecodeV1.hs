@@ -256,13 +256,7 @@ decodeMethodName = decodeNameId MethodName
 decodeInterfaceCoImplements :: LF1.DefInterface_CoImplements -> Decode InterfaceCoImplements
 decodeInterfaceCoImplements LF1.DefInterface_CoImplements {..} = InterfaceCoImplements
   <$> mayDecode "defInterface_CoImplementsTemplate" defInterface_CoImplementsTemplate decodeTypeConName
-  <*> decodeNM DuplicateMethod decodeInterfaceCoImplementsMethod defInterface_CoImplementsMethods
-  <*> mayDecode "defInterface_CoImplementsView" defInterface_CoImplementsView decodeExpr
-
-decodeInterfaceCoImplementsMethod :: LF1.DefInterface_CoImplementsMethod -> Decode InterfaceCoImplementsMethod
-decodeInterfaceCoImplementsMethod LF1.DefInterface_CoImplementsMethod {..} = InterfaceCoImplementsMethod
-  <$> decodeMethodName defInterface_CoImplementsMethodMethodInternedName
-  <*> mayDecode "defInterface_CoImplementsMethodValue" defInterface_CoImplementsMethodValue decodeExpr
+  <*> mayDecode "defInterface_CoImplementsBody" defInterface_CoImplementsBody decodeInterfaceInstanceBody
 
 decodeFeatureFlags :: LF1.FeatureFlags -> Decode FeatureFlags
 decodeFeatureFlags LF1.FeatureFlags{..} =
@@ -342,13 +336,17 @@ decodeDefTemplate LF1.DefTemplate{..} = do
 decodeDefTemplateImplements :: LF1.DefTemplate_Implements -> Decode TemplateImplements
 decodeDefTemplateImplements LF1.DefTemplate_Implements{..} = TemplateImplements
   <$> mayDecode "defTemplate_ImplementsInterface" defTemplate_ImplementsInterface decodeTypeConName
-  <*> decodeNM DuplicateMethod decodeDefTemplateImplementsMethod defTemplate_ImplementsMethods
-  <*> mayDecode "defTemplate_ImplementsView" defTemplate_ImplementsView decodeExpr
+  <*> mayDecode "defTemplate_ImplementsBody" defTemplate_ImplementsBody decodeInterfaceInstanceBody
 
-decodeDefTemplateImplementsMethod :: LF1.DefTemplate_ImplementsMethod -> Decode TemplateImplementsMethod
-decodeDefTemplateImplementsMethod LF1.DefTemplate_ImplementsMethod{..} = TemplateImplementsMethod
-  <$> decodeMethodName defTemplate_ImplementsMethodMethodInternedName
-  <*> mayDecode "defTemplate_ImplementsMethodValue" defTemplate_ImplementsMethodValue decodeExpr
+decodeInterfaceInstanceBody :: LF1.InterfaceInstanceBody -> Decode InterfaceInstanceBody
+decodeInterfaceInstanceBody LF1.InterfaceInstanceBody{..} = InterfaceInstanceBody
+  <$> decodeNM DuplicateMethod decodeInterfaceInstanceMethod interfaceInstanceBodyMethods
+  <*> mayDecode "defTemplate_ImplementsView" interfaceInstanceBodyView decodeExpr
+
+decodeInterfaceInstanceMethod :: LF1.InterfaceInstanceBody_InterfaceInstanceMethod -> Decode InterfaceInstanceMethod
+decodeInterfaceInstanceMethod LF1.InterfaceInstanceBody_InterfaceInstanceMethod{..} = InterfaceInstanceMethod
+  <$> decodeMethodName interfaceInstanceBody_InterfaceInstanceMethodMethodInternedName
+  <*> mayDecode "interfaceInstanceBody_InterfaceInstanceMethodValue" interfaceInstanceBody_InterfaceInstanceMethodValue decodeExpr
 
 decodeDefTemplateKey :: ExprVarName -> LF1.DefTemplate_DefKey -> Decode TemplateKey
 decodeDefTemplateKey templateParam LF1.DefTemplate_DefKey{..} = do
@@ -744,7 +742,7 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> decodeNameId ChoiceName update_ExerciseInterfaceChoiceInternedStr
       <*> mayDecode "update_ExerciseInterfaceCid" update_ExerciseInterfaceCid decodeExpr
       <*> mayDecode "update_ExerciseInterfaceArg" update_ExerciseInterfaceArg decodeExpr
-      <*> mayDecode "update_ExerciseInterfaceGuard" update_ExerciseInterfaceGuard decodeExpr
+      <*> traverse decodeExpr update_ExerciseInterfaceGuard
   LF1.UpdateSumExerciseByKey LF1.Update_ExerciseByKey{..} ->
     fmap EUpdate $ UExerciseByKey
       <$> mayDecode "update_ExerciseByKeyTemplate" update_ExerciseByKeyTemplate decodeTypeConName

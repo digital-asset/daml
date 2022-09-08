@@ -296,11 +296,13 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
         for {
           arg <- lfValueToApiRecord(true, argument)
         } yield Command().withCreate(CreateCommand(Some(toApiIdentifier(templateId)), Some(arg)))
-      case command.ExerciseCommand(templateId, contractId, choice, argument) =>
+      case command.ExerciseCommand(typeId, contractId, choice, argument) =>
         for {
           arg <- lfValueToApiValue(true, argument)
         } yield Command().withExercise(
-          ExerciseCommand(Some(toApiIdentifier(templateId)), contractId.coid, choice, Some(arg))
+          // TODO: https://github.com/digital-asset/daml/issues/14747
+          //  Fix once the new field interface_id have been added to the API Exercise Command
+          ExerciseCommand(Some(toApiIdentifier(typeId.merge)), contractId.coid, choice, Some(arg))
         )
       case command.ExerciseByKeyCommand(templateId, key, choice, argument) =>
         for {

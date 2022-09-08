@@ -7,6 +7,7 @@ package validation
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.Reference
 import com.daml.lf.language.LanguageVersion
 
 import scala.Ordering.Implicits.infixOrderingOps
@@ -39,14 +40,6 @@ object Context {
   val DefInterface = new ReferenceBuilder(language.Reference.Interface)
   val DefValue = new ReferenceBuilder(language.Reference.Value)
 
-  final class Reference2Builder private[Context] (
-      mkRef: (Identifier, Identifier) => language.Reference
-  ) {
-    def apply(id1: Identifier, id2: Identifier): Context.Reference =
-      Context.Reference(mkRef(id1, id2))
-  }
-
-  val DefInterfaceCoImplements = new Reference2Builder(language.Reference.InterfaceCoImplements)
 }
 
 sealed abstract class TemplatePart extends Product with Serializable
@@ -75,6 +68,9 @@ case object SRInterfaceArg extends SerializabilityRequirement {
 }
 case object SRChoiceRes extends SerializabilityRequirement {
   def pretty: String = "choice result"
+}
+case object SRView extends SerializabilityRequirement {
+  def pretty: String = "view"
 }
 case object SRKey extends SerializabilityRequirement {
   def pretty: String = "serializable data type"
@@ -326,6 +322,10 @@ final case class EExpectedExceptionableType(context: Context, conName: TypeConNa
   protected def prettyInternal: String =
     s"expected monomorphic record type in exception definition, but found: ${conName.qualifiedName}"
 }
+final case class EExpectedViewType(context: Context, typ: Type) extends ValidationError {
+  protected def prettyInternal: String =
+    s"expected monomorphic record type in view type, but found: ${typ.pretty}"
+}
 final case class EImportCycle(context: Context, modName: List[ModuleName]) extends ValidationError {
   protected def prettyInternal: String = s"cycle in module dependency ${modName.mkString(" -> ")}"
 }
@@ -378,43 +378,38 @@ final case class EModuleVersionDependencies(
   override def context: Context = Context.None
 }
 
-final case class EMissingInterfaceMethod(
+final case class EMissingMethodInInterfaceInstance(
     context: Context,
-    template: TypeConName,
-    iface: TypeConName,
     method: MethodName,
 ) extends ValidationError {
   override protected def prettyInternal: String =
-    s"Template $template is missing method '$method' in its implementation of interface $iface."
+    s"Interface instance lacks an implementation for method '$method'."
 }
 
-final case class EUnknownInterfaceMethod(
+final case class EUnknownMethodInInterfaceInstance(
     context: Context,
-    template: TypeConName,
-    iface: TypeConName,
     method: MethodName,
 ) extends ValidationError {
   override protected def prettyInternal: String =
-    s"Template $template implements method '$method' in its implementation of interface $iface, but this method is not part of the interface."
+    s"Interface instance has an implementation for method '$method', but this method is not part of the interface."
 }
 
-final case class ETemplateDoesNotImplementInterface(
+final case class EMissingInterfaceInstance(
     context: Context,
-    template: TypeConName,
-    iface: TypeConName,
+    interfaceId: TypeConName,
+    templateId: TypeConName,
 ) extends ValidationError {
   override protected def prettyInternal: String =
-    s"Template $template does not implement interface $iface"
+    s"There is no interface instance $interfaceId for $templateId"
 }
 
-final case class EMissingRequiredInterface(
+final case class EMissingRequiredInterfaceInstance(
     context: Context,
-    template: TypeConName,
     requiringIface: TypeConName,
-    missingRequiredIface: TypeConName,
+    missingRequiredInterfaceInstance: Reference.InterfaceInstance,
 ) extends ValidationError {
   override protected def prettyInternal: String =
-    s"Template $template is missing an implementation of interface $missingRequiredIface required by interface $requiringIface"
+    s"Missing required ${missingRequiredInterfaceInstance.pretty}, required by interface $requiringIface"
 }
 final case class EWrongInterfaceRequirement(
     context: Context,
@@ -441,20 +436,12 @@ final case class ECircularInterfaceRequires(
     s"Circular interface requirement is not allowed: interface $iface requires itself."
 }
 
-final case class EConflictingImplementsCoImplements(
+final case class EAmbiguousInterfaceInstance(
     context: Context,
-    template: TypeConName,
-    iface: TypeConName,
+    interfaceId: TypeConName,
+    templateId: TypeConName,
 ) extends ValidationError {
   protected def prettyInternal: String =
-    s"Template $template implementation of interface $iface conflicts with the implementation given by $iface"
-}
-
-final case class EViewNotSerializable(
-    context: Context,
-    iface: TypeConName,
-    nonSerializableReturnType: Type,
-) extends ValidationError {
-  protected def prettyInternal: String =
-    s"Interface $iface has a view method which returns a non-serializable type $nonSerializableReturnType"
+    s"A reference to interface instance $interfaceId for $templateId is ambiguous, " +
+      "both the interface and the template define this interface instance."
 }

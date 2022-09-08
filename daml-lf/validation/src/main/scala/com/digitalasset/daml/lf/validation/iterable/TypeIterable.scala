@@ -247,28 +247,26 @@ private[validation] object TypeIterable {
 
   private[validation] def iterator(impl: TemplateImplements): Iterator[Type] =
     impl match {
-      case TemplateImplements(interface, methods, view @ _) =>
-        Iterator(TTyCon(interface)) ++
-          methods.values.flatMap(iterator(_))
+      case TemplateImplements(interface, body) =>
+        Iterator(TTyCon(interface)) ++ iterator(body)
     }
 
-  private[validation] def iterator(method: TemplateImplementsMethod): Iterator[Type] =
+  private[validation] def iterator(iiBody: InterfaceInstanceBody): Iterator[Type] =
+    iiBody match {
+      case InterfaceInstanceBody(methods, view) =>
+        methods.values.iterator.flatMap(iterator) ++ iterator(view)
+    }
+
+  private[validation] def iterator(method: InterfaceInstanceMethod): Iterator[Type] =
     method match {
-      case TemplateImplementsMethod(name @ _, value) =>
+      case InterfaceInstanceMethod(name @ _, value) =>
         iterator(value)
     }
 
   private[validation] def iterator(coImpl: InterfaceCoImplements): Iterator[Type] =
     coImpl match {
-      case InterfaceCoImplements(template, methods, view @ _) =>
-        Iterator(TTyCon(template)) ++
-          methods.values.flatMap(iterator)
-    }
-
-  private[validation] def iterator(method: InterfaceCoImplementsMethod): Iterator[Type] =
-    method match {
-      case InterfaceCoImplementsMethod(name @ _, value) =>
-        iterator(value)
+      case InterfaceCoImplements(template, body) =>
+        Iterator(TTyCon(template)) ++ iterator(body)
     }
 
   private[validation] def iterator(interface: DefInterface): Iterator[Type] =

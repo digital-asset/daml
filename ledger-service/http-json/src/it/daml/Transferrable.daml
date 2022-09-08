@@ -3,7 +3,11 @@
 
 module Transferrable where
 
+data AmountView = AmountView with
+  amount: Text
+
 interface Transferrable where
+  viewtype AmountView
   getOwner : Party
 
   choice Overridden : Text with

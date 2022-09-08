@@ -6,9 +6,8 @@ package engine
 
 import java.io.File
 import com.daml.lf.archive.UniversalArchiveDecoder
-import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.data.Ref._
-import com.daml.lf.data._
+import com.daml.lf.data.{Ref, _}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.transaction.{
@@ -16,27 +15,34 @@ import com.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   Node,
   NodeId,
+  Normalization,
+  ReplayMismatch,
   SubmittedTransaction,
+  Validation,
   VersionedTransaction,
   Transaction => Tx,
   TransactionVersion => TxVersions,
 }
-import com.daml.lf.transaction.{Normalization, Validation, ReplayMismatch}
 import com.daml.lf.value.Value
 import Value._
-import com.daml.lf.speedy.{ArrayList, InitialSeeding, SValue, svalue}
+import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.lf
+import com.daml.lf.speedy.{ArrayList, DisclosedContract, InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
+import com.daml.lf.crypto.Hash
 import com.daml.lf.engine.Error.Interpretation
 import com.daml.lf.engine.Error.Interpretation.DamlException
+import com.daml.lf.language.PackageInterface
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.EitherValues
+import org.scalatest.{Assertion, EitherValues}
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.Inside._
+import org.scalatest.matchers.{MatchResult, Matcher}
 
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
@@ -52,103 +58,9 @@ class EngineTest
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
-    with EitherValues
-    with BazelRunfiles {
+    with EitherValues {
 
   import EngineTest._
-
-  private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
-    val (mainPkgId, mainPkg) = packages.main
-    (mainPkgId, mainPkg, packages.all.toMap)
-  }
-
-  private val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
-    "daml-lf/tests/BasicTests.dar"
-  )
-
-  val basicTestsSignatures = language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
-
-  val withKeyTemplate = "BasicTests:WithKey"
-  val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
-  val withKeyContractInst: VersionedContractInstance =
-    assertAsVersionedContract(
-      ContractInstance(
-        TypeConName(basicTestsPkgId, withKeyTemplate),
-        ValueRecord(
-          Some(BasicTests_WithKey),
-          ImmArray(
-            (Some[Ref.Name]("p"), ValueParty(alice)),
-            (Some[Ref.Name]("k"), ValueInt64(42)),
-          ),
-        ),
-        "",
-      )
-    )
-
-  val defaultContracts: Map[ContractId, VersionedContractInstance] =
-    Map(
-      toContractId("BasicTests:Simple:1") ->
-        assertAsVersionedContract(
-          ContractInstance(
-            TypeConName(basicTestsPkgId, "BasicTests:Simple"),
-            ValueRecord(
-              Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
-              ImmArray((Some[Name]("p"), ValueParty(party))),
-            ),
-            "",
-          )
-        ),
-      toContractId("BasicTests:CallablePayout:1") ->
-        assertAsVersionedContract(
-          ContractInstance(
-            TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
-            ValueRecord(
-              Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
-              ImmArray(
-                (Some[Ref.Name]("giver"), ValueParty(alice)),
-                (Some[Ref.Name]("receiver"), ValueParty(bob)),
-              ),
-            ),
-            "",
-          )
-        ),
-      toContractId("BasicTests:WithKey:1") ->
-        withKeyContractInst,
-    )
-
-  val defaultKey = Map(
-    GlobalKey.assertBuild(
-      TypeConName(basicTestsPkgId, withKeyTemplate),
-      ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
-    )
-      ->
-        toContractId("BasicTests:WithKey:1")
-  )
-
-  private[this] val lookupContract = defaultContracts.get(_)
-
-  private[this] def lookupPackage(pkgId: PackageId): Option[Package] = {
-    allPackages.get(pkgId)
-  }
-
-  private[this] def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
-    (key.globalKey.templateId, key.globalKey.key) match {
-      case (
-            BasicTests_WithKey,
-            ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
-          ) =>
-        Some(toContractId("BasicTests:WithKey:1"))
-      case _ =>
-        None
-    }
-
-  private[this] val suffixLenientEngine = newEngine()
-  private[this] val suffixStrictEngine = newEngine(requireCidSuffixes = true)
-  private[this] val preprocessor =
-    new preprocessing.Preprocessor(
-      ConcurrentCompiledPackages(suffixLenientEngine.config.getCompilerConfig)
-    )
 
   "minimal create command" should {
     val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
@@ -354,7 +266,12 @@ class EngineTest
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("BasicTests:Simple:1")
     val command =
-      ApiCommand.Exercise(templateId, cid, "Hello", ValueRecord(Some(hello), ImmArray.Empty))
+      ApiCommand.Exercise(
+        TemplateOrInterface.Template(templateId),
+        cid,
+        "Hello",
+        ValueRecord(Some(hello), ImmArray.Empty),
+      )
     val submitters = Set(party)
     val readAs = (Set.empty: Set[Party])
 
@@ -666,7 +583,7 @@ class EngineTest
     }
   }
 
-  "fecth-by-key" should {
+  "fetch-by-key" should {
     val seed = hash("fetch-by-key")
 
     val now = Time.Timestamp.now()
@@ -749,6 +666,7 @@ class EngineTest
           )
       }
     }
+
     "error if Speedy fails to find the key" in {
       val templateId = Identifier(basicTestsPkgId, "BasicTests:FailedFetchByKey")
 
@@ -794,6 +712,61 @@ class EngineTest
             )
           )
       }
+    }
+
+    "unused disclosed contracts not saved to ledger" in {
+      val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
+      val usedContractSKey = SValue.SRecord(
+        templateId,
+        ImmArray("_1", "_2").map(Ref.Name.assertFromString),
+        values = ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
+      )
+      val usedContractKey = usedContractSKey.toNormalizedValue(TxVersions.minExplicitDisclosure)
+      val unusedContractKey = Value.ValueRecord(
+        None,
+        ImmArray(
+          None -> Value.ValueParty(alice),
+          None -> Value.ValueInt64(69),
+        ),
+      )
+      val usedDisclosedContract = DisclosedContract(
+        templateId,
+        SValue.SContractId(toContractId("BasicTests:WithKey:1")),
+        SValue.SRecord(
+          templateId,
+          ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
+          ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
+        ),
+        ContractMetadata(
+          now,
+          Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey)),
+          ImmArray.empty,
+        ),
+      )
+      val unusedDisclosedContract = DisclosedContract(
+        templateId,
+        SValue.SContractId(toContractId("BasicTests:WithKey:2")),
+        SValue.SRecord(
+          templateId,
+          ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
+          ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
+        ),
+        ContractMetadata(
+          now,
+          Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey)),
+          ImmArray.empty,
+        ),
+      )
+      val fetchByKeyCommand = speedy.Command.FetchByKey(
+        templateId = templateId,
+        key = usedContractSKey,
+      )
+
+      ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
+        fetchByKeyCommand,
+        unusedDisclosedContract,
+        usedDisclosedContract,
+      )
     }
   }
 
@@ -1075,7 +1048,7 @@ class EngineTest
     // we need to fix time as cid are depending on it
     val let = Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")
     val command = ApiCommand.Exercise(
-      templateId,
+      TemplateOrInterface.Template(templateId),
       originalCoid,
       "Transfer",
       ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty(clara)))),
@@ -1258,7 +1231,7 @@ class EngineTest
 
     def runExample(cid: ContractId, exerciseActor: Party) = {
       val command = ApiCommand.Exercise(
-        fetcherTid,
+        TemplateOrInterface.Template(fetcherTid),
         cid,
         "DoFetch",
         ValueRecord(None, ImmArray((Some[Name]("cid"), ValueContractId(fetchedCid)))),
@@ -1379,13 +1352,10 @@ class EngineTest
 
       reinterpreted shouldBe a[Right[_, _]]
     }
-
   }
 
   "lookup by key" should {
-
     val seed = hash("interpreting lookup by key nodes")
-
     val lookedUpCid = toContractId("1")
     val lookerUpTemplate = "BasicTests:LookerUpByKey"
     val lookerUpTemplateId = Identifier(basicTestsPkgId, lookerUpTemplate)
@@ -1425,7 +1395,7 @@ class EngineTest
 
     "mark all lookupByKey nodes as byKey" in {
       val exerciseCmd = ApiCommand.Exercise(
-        lookerUpTemplateId,
+        TemplateOrInterface.Template(lookerUpTemplateId),
         lookerUpCid,
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))),
@@ -1457,7 +1427,7 @@ class EngineTest
 
     "be reinterpreted to the same node when lookup finds a contract" in {
       val exerciseCmd = ApiCommand.Exercise(
-        lookerUpTemplateId,
+        TemplateOrInterface.Template(lookerUpTemplateId),
         lookerUpCid,
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))),
@@ -1500,7 +1470,7 @@ class EngineTest
 
     "be reinterpreted to the same node when lookup doesn't find a contract" in {
       val exerciseCmd = ApiCommand.Exercise(
-        lookerUpTemplateId,
+        TemplateOrInterface.Template(lookerUpTemplateId),
         lookerUpCid,
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(57)))),
@@ -1569,6 +1539,104 @@ class EngineTest
           "Update failed due to a contract key with an empty sey of maintainers"
         )
       }
+    }
+
+    "unused disclosed contracts not saved to ledger" in {
+      val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
+      val usedContractSKey = SValue.SRecord(
+        templateId,
+        ImmArray("_1", "_2").map(Ref.Name.assertFromString),
+        values = ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
+      )
+      val usedContractKey = Value.ValueRecord(
+        None,
+        ImmArray(
+          None -> Value.ValueParty(alice),
+          None -> Value.ValueInt64(42),
+        ),
+      )
+      val unusedContractKey = Value.ValueRecord(
+        None,
+        ImmArray(
+          None -> Value.ValueParty(alice),
+          None -> Value.ValueInt64(69),
+        ),
+      )
+      val usedDisclosedContract = DisclosedContract(
+        templateId,
+        SValue.SContractId(toContractId("BasicTests:WithKey:1")),
+        SValue.SRecord(
+          templateId,
+          ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
+          ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
+        ),
+        ContractMetadata(
+          now,
+          Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey)),
+          ImmArray.empty,
+        ),
+      )
+      val unusedDisclosedContract = DisclosedContract(
+        templateId,
+        SValue.SContractId(toContractId("BasicTests:WithKey:2")),
+        SValue.SRecord(
+          templateId,
+          ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
+          ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
+        ),
+        ContractMetadata(
+          now,
+          Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey)),
+          ImmArray.empty,
+        ),
+      )
+      val lookupByKeyCommand = speedy.Command.LookupByKey(
+        templateId = templateId,
+        contractKey = usedContractSKey,
+      )
+
+      ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
+        lookupByKeyCommand,
+        unusedDisclosedContract,
+        usedDisclosedContract,
+      )
+    }
+  }
+
+  "fetch template" should {
+    val templateId = Identifier(basicTestsPkgId, "BasicTests:Simple")
+    val usedDisclosedContract = DisclosedContract(
+      templateId,
+      SValue.SContractId(toContractId("BasicTests:Simple:1")),
+      SValue.SRecord(
+        templateId,
+        ImmArray(Ref.Name.assertFromString("p")),
+        ArrayList(SValue.SParty(alice)),
+      ),
+      ContractMetadata(Time.Timestamp.now(), None, ImmArray.empty),
+    )
+    val unusedDisclosedContract = DisclosedContract(
+      templateId,
+      SValue.SContractId(toContractId("BasicTests:Simple:2")),
+      SValue.SRecord(
+        templateId,
+        ImmArray(Ref.Name.assertFromString("p")),
+        ArrayList(SValue.SParty(alice)),
+      ),
+      ContractMetadata(Time.Timestamp.now(), None, ImmArray.empty),
+    )
+
+    "unused disclosed contracts not saved to ledger" in {
+      val fetchTemplateCommand = speedy.Command.FetchTemplate(
+        templateId = templateId,
+        coid = usedDisclosedContract.contractId,
+      )
+
+      ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
+        fetchTemplateCommand,
+        unusedDisclosedContract,
+        usedDisclosedContract,
+      )
     }
   }
 
@@ -1679,7 +1747,7 @@ class EngineTest
         .preprocessApiCommands(
           ImmArray(
             ApiCommand.Exercise(
-              fetcherTemplateId,
+              TemplateOrInterface.Template(fetcherTemplateId),
               fetcherCid,
               "Fetch",
               ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))),
@@ -1743,19 +1811,24 @@ class EngineTest
       )
     )
     val contracts = defaultContracts + (fetcherCid -> fetcherInst)
-    val lookupContract = contracts.get(_)
+    val lookupContract = contracts.get _
     val correctCommand =
       ApiCommand.Exercise(
-        withKeyId,
+        TemplateOrInterface.Template(withKeyId),
         cid,
         "SumToK",
         ValueRecord(None, ImmArray((None, ValueInt64(42)))),
       )
     val incorrectCommand =
-      ApiCommand.Exercise(simpleId, cid, "Hello", ValueRecord(None, ImmArray.Empty))
+      ApiCommand.Exercise(
+        TemplateOrInterface.Template(simpleId),
+        cid,
+        "Hello",
+        ValueRecord(None, ImmArray.Empty),
+      )
     val incorrectFetch =
       ApiCommand.Exercise(
-        fetcherId,
+        TemplateOrInterface.Template(fetcherId),
         fetcherCid,
         "DoFetch",
         ValueRecord(None, ImmArray((None, ValueContractId(cid)))),
@@ -1892,7 +1965,7 @@ class EngineTest
 
   "exceptions" should {
     val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
-    val lookupPackage = allExceptionsPkgs.get(_)
+    val lookupPackage = allExceptionsPkgs.get _
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val tId = Identifier(exceptionsPkgId, "Exceptions:T")
     val let = Time.Timestamp.now()
@@ -1908,7 +1981,7 @@ class EngineTest
         )
       )
     )
-    val lookupContract = contracts.get(_)
+    val lookupContract = contracts.get _
     def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
       (key.globalKey.templateId, key.globalKey.key) match {
         case (
@@ -2041,7 +2114,7 @@ class EngineTest
 
   "action node seeds" should {
     val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
-    val lookupPackage = allExceptionsPkgs.get(_)
+    val lookupPackage = allExceptionsPkgs.get _
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val seedId = Identifier(exceptionsPkgId, "Exceptions:NodeSeeds")
     val let = Time.Timestamp.now()
@@ -2057,7 +2130,7 @@ class EngineTest
         )
       )
     )
-    val lookupContract = contracts.get(_)
+    val lookupContract = contracts.get _
     def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
       (key.globalKey.templateId, key.globalKey.key) match {
         case (
@@ -2093,6 +2166,7 @@ class EngineTest
           lookupKey,
         )
     }
+
     "Only create and exercise nodes end up in actionNodeSeeds" in {
       val command = ApiCommand.CreateAndExercise(
         seedId,
@@ -2118,7 +2192,7 @@ class EngineTest
 
   "global key lookups" should {
     val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
-    val lookupPackage = allExceptionsPkgs.get(_)
+    val lookupPackage = allExceptionsPkgs.get _
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val tId = Identifier(exceptionsPkgId, "Exceptions:GlobalLookups")
     val let = Time.Timestamp.now()
@@ -2134,7 +2208,7 @@ class EngineTest
         )
       )
     )
-    val lookupContract = contracts.get(_)
+    val lookupContract = contracts.get _
     def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
       (key.globalKey.templateId, key.globalKey.key) match {
         case (
@@ -2249,24 +2323,134 @@ class EngineTest
     }
 
   }
-
 }
 
 object EngineTest {
 
-  private implicit def logContext: LoggingContext = LoggingContext.ForTesting
+  import Matchers._
 
-  private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
-  private def participant = Ref.ParticipantId.assertFromString("participant")
-  private def byKeyNodes(tx: VersionedTransaction) =
+  implicit val logContext: LoggingContext = LoggingContext.ForTesting
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  implicit val resultEq: Equality[Either[Error, SValue]] = {
+    case (Right(v1: SValue), Right(v2: SValue)) => svalue.Equality.areEqual(v1, v2)
+    case (Left(e1), Left(e2)) => e1 == e2
+    case _ => false
+  }
+
+  implicit def qualifiedNameStr(s: String): QualifiedName =
+    QualifiedName.assertFromString(s)
+
+  implicit def toName(s: String): Name =
+    Name.assertFromString(s)
+
+  val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
+    "daml-lf/tests/BasicTests.dar"
+  )
+
+  val basicTestsSignatures: PackageInterface =
+    language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
+
+  val party: Ref.IdString.Party = Party.assertFromString("Party")
+  val alice: Ref.IdString.Party = Party.assertFromString("Alice")
+  val bob: Ref.IdString.Party = Party.assertFromString("Bob")
+  val clara: Ref.IdString.Party = Party.assertFromString("Clara")
+
+  val dummySuffix: Bytes = Bytes.assertFromString("00")
+
+  val withKeyTemplate = "BasicTests:WithKey"
+  val BasicTests_WithKey: lf.data.Ref.ValueRef = Identifier(basicTestsPkgId, withKeyTemplate)
+  val withKeyContractInst: VersionedContractInstance =
+    assertAsVersionedContract(
+      ContractInstance(
+        TypeConName(basicTestsPkgId, withKeyTemplate),
+        ValueRecord(
+          Some(BasicTests_WithKey),
+          ImmArray(
+            (Some[Ref.Name]("p"), ValueParty(alice)),
+            (Some[Ref.Name]("k"), ValueInt64(42)),
+          ),
+        ),
+        "",
+      )
+    )
+
+  val defaultContracts: Map[ContractId, VersionedContractInstance] =
+    Map(
+      toContractId("BasicTests:Simple:1") ->
+        assertAsVersionedContract(
+          ContractInstance(
+            TypeConName(basicTestsPkgId, "BasicTests:Simple"),
+            ValueRecord(
+              Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
+              ImmArray((Some[Name]("p"), ValueParty(party))),
+            ),
+            "",
+          )
+        ),
+      toContractId("BasicTests:CallablePayout:1") ->
+        assertAsVersionedContract(
+          ContractInstance(
+            TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
+            ValueRecord(
+              Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
+              ImmArray(
+                (Some[Ref.Name]("giver"), ValueParty(alice)),
+                (Some[Ref.Name]("receiver"), ValueParty(bob)),
+              ),
+            ),
+            "",
+          )
+        ),
+      toContractId("BasicTests:WithKey:1") ->
+        withKeyContractInst,
+    )
+
+  val defaultKey = Map(
+    GlobalKey.assertBuild(
+      TypeConName(basicTestsPkgId, withKeyTemplate),
+      ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
+    )
+      ->
+        toContractId("BasicTests:WithKey:1")
+  )
+
+  val lookupContract: ContractId => Option[VersionedContractInstance] = defaultContracts.get
+
+  val suffixLenientEngine: Engine = newEngine()
+  val suffixStrictEngine: Engine = newEngine(requireCidSuffixes = true)
+  val preprocessor =
+    new preprocessing.Preprocessor(
+      ConcurrentCompiledPackages(suffixLenientEngine.config.getCompilerConfig)
+    )
+
+  def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
+    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    val (mainPkgId, mainPkg) = packages.main
+    (mainPkgId, mainPkg, packages.all.toMap)
+  }
+
+  def lookupPackage(pkgId: PackageId): Option[Package] = {
+    allPackages.get(pkgId)
+  }
+
+  def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
+    (key.globalKey.templateId, key.globalKey.key) match {
+      case (
+            BasicTests_WithKey,
+            ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
+          ) =>
+        Some(toContractId("BasicTests:WithKey:1"))
+      case _ =>
+        None
+    }
+
+  def hash(s: String): Hash = crypto.Hash.hashPrivateKey(s)
+  def participant: Ref.IdString.ParticipantId = Ref.ParticipantId.assertFromString("participant")
+  def byKeyNodes(tx: VersionedTransaction): Set[NodeId] =
     tx.nodes.collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }.toSet
 
-  private val party = Party.assertFromString("Party")
-  private val alice = Party.assertFromString("Alice")
-  private val bob = Party.assertFromString("Bob")
-  private val clara = Party.assertFromString("Clara")
-
-  private def newEngine(requireCidSuffixes: Boolean = false) =
+  def newEngine(requireCidSuffixes: Boolean = false) =
     new Engine(
       EngineConfig(
         allowedLanguageVersions = language.LanguageVersion.DevVersions,
@@ -2275,28 +2459,13 @@ object EngineTest {
       )
     )
 
-  private implicit def qualifiedNameStr(s: String): QualifiedName =
-    QualifiedName.assertFromString(s)
-
-  private implicit def toName(s: String): Name =
-    Name.assertFromString(s)
-
-  private val dummySuffix = Bytes.assertFromString("00")
-
-  private def toContractId(s: String): ContractId =
+  def toContractId(s: String): ContractId =
     ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
 
-  private def findNodeByIdx[Cid](nodes: Map[NodeId, Node], idx: Int) =
+  def findNodeByIdx[Cid](nodes: Map[NodeId, Node], idx: Int): Option[Node] =
     nodes.collectFirst { case (nodeId, node) if nodeId.index == idx => node }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private implicit def resultEq: Equality[Either[Error, SValue]] = {
-    case (Right(v1: SValue), Right(v2: SValue)) => svalue.Equality.areEqual(v1, v2)
-    case (Left(e1), Left(e2)) => e1 == e2
-    case _ => false
-  }
-
-  private def isReplayedBy(
+  def isReplayedBy(
       recorded: VersionedTransaction,
       replayed: VersionedTransaction,
   ): Either[ReplayMismatch, Unit] = {
@@ -2304,47 +2473,12 @@ object EngineTest {
     Validation.isReplayedBy(Normalization.normalizeTx(recorded), replayed)
   }
 
-  private def suffix(tx: VersionedTransaction) =
+  def suffix(tx: VersionedTransaction): VersionedTransaction =
     data.assertRight(tx.suffixCid(_ => dummySuffix))
 
-  private[this] case class ReinterpretState(
-      contracts: Map[ContractId, VersionedContractInstance],
-      keys: Map[GlobalKey, ContractId],
-      nodes: HashMap[NodeId, Node] = HashMap.empty,
-      roots: BackStack[NodeId] = BackStack.empty,
-      dependsOnTime: Boolean = false,
-      nodeSeeds: BackStack[(NodeId, crypto.Hash)] = BackStack.empty,
-  ) {
-    def commit(tr: Tx, meta: Tx.Metadata) = {
-      val (newContracts, newKeys) = tr.fold((contracts, keys)) {
-        case ((contracts, keys), (_, exe: Node.Exercise)) =>
-          (contracts - exe.targetCoid, keys)
-        case ((contracts, keys), (_, create: Node.Create)) =>
-          (
-            contracts.updated(
-              create.coid,
-              create.versionedCoinst,
-            ),
-            create.key.fold(keys)(k =>
-              keys.updated(GlobalKey.assertBuild(create.templateId, k.key), create.coid)
-            ),
-          )
-        case (acc, _) => acc
-      }
-      ReinterpretState(
-        newContracts,
-        newKeys,
-        nodes ++ tr.nodes,
-        roots :++ tr.roots,
-        dependsOnTime || meta.dependsOnTime,
-        nodeSeeds :++ meta.nodeSeeds,
-      )
-    }
-  }
-
-  // Mimics Canton reinterpreation
+  // Mimics Canton reinterpretation
   // requires a suffixed transaction.
-  private def reinterpret(
+  def reinterpret(
       engine: Engine,
       submitters: Set[Party],
       nodes: ImmArray[NodeId],
@@ -2434,4 +2568,109 @@ object EngineTest {
     )
   }
 
+  object ExplicitDisclosureTesting {
+    def unusedDisclosedContractsNotSavedToLedger(
+        cmd: speedy.Command,
+        unusedDisclosedContract: DisclosedContract,
+        usedDisclosedContract: DisclosedContract,
+    ): Assertion = {
+      val result = suffixLenientEngine
+        .interpretCommands(
+          validating = false,
+          submitters = Set(alice),
+          readAs = Set.empty,
+          commands = ImmArray(cmd),
+          ledgerTime = Time.Timestamp.now(),
+          submissionTime = Time.Timestamp.now(),
+          seeding = InitialSeeding.TransactionSeed(hash(s"$cmd")),
+          disclosures = ImmArray(unusedDisclosedContract, usedDisclosedContract),
+        )
+        .consume(_ => None, lookupPackage, lookupKey)
+
+      inside(result) { case Right((transaction, metadata)) =>
+        transaction should haveDisclosedInputContracts(usedDisclosedContract)
+        metadata should haveDisclosedContracts(usedDisclosedContract)(preprocessor)
+      }
+    }
+
+    @SuppressWarnings(
+      Array(
+        "org.wartremover.warts.JavaSerializable",
+        "org.wartremover.warts.Product",
+        "org.wartremover.warts.Serializable",
+      )
+    )
+    def haveDisclosedContracts(
+        disclosedContracts: DisclosedContract*
+    )(preprocessor: preprocessing.Preprocessor): Matcher[Tx.Metadata] =
+      Matcher { metadata =>
+        val expectedResult = ImmArray(disclosedContracts: _*)
+        val actualResult = metadata.disclosures
+          .map(_.unversioned)
+          .map(preprocessor.commandPreprocessor.unsafePreprocessDisclosedContract)
+        val debugMessage = Seq(
+          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.contractId.value)}",
+          s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.contractId)}",
+        ).mkString("\n  ", "\n  ", "")
+
+        MatchResult(
+          expectedResult == actualResult,
+          s"Failed with unexpected disclosed contracts: $expectedResult != $actualResult $debugMessage",
+          s"Failed with unexpected disclosed contracts: $expectedResult == $actualResult",
+        )
+      }
+
+    def haveDisclosedInputContracts(
+        disclosedContracts: DisclosedContract*
+    ): Matcher[VersionedTransaction] =
+      Matcher { transaction =>
+        val expectedResult = Set(disclosedContracts: _*).map(_.contractId.value)
+        val actualResult = transaction.inputContracts
+        val debugMessage = Seq(
+          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_))}",
+          s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_))}",
+        ).mkString("\n  ", "\n  ", "")
+
+        MatchResult(
+          expectedResult == actualResult,
+          s"Failed with unexpected disclosed contracts: $expectedResult != $actualResult $debugMessage",
+          s"Failed with unexpected disclosed contracts: $expectedResult == $actualResult",
+        )
+      }
+  }
+
+  case class ReinterpretState(
+      contracts: Map[ContractId, VersionedContractInstance],
+      keys: Map[GlobalKey, ContractId],
+      nodes: HashMap[NodeId, Node] = HashMap.empty,
+      roots: BackStack[NodeId] = BackStack.empty,
+      dependsOnTime: Boolean = false,
+      nodeSeeds: BackStack[(NodeId, crypto.Hash)] = BackStack.empty,
+  ) {
+    def commit(tr: Tx, meta: Tx.Metadata): ReinterpretState = {
+      val (newContracts, newKeys) = tr.fold((contracts, keys)) {
+        case ((contracts, keys), (_, exe: Node.Exercise)) =>
+          (contracts - exe.targetCoid, keys)
+        case ((contracts, keys), (_, create: Node.Create)) =>
+          (
+            contracts.updated(
+              create.coid,
+              create.versionedCoinst,
+            ),
+            create.key.fold(keys)(k =>
+              keys.updated(GlobalKey.assertBuild(create.templateId, k.key), create.coid)
+            ),
+          )
+        case (acc, _) => acc
+      }
+      ReinterpretState(
+        newContracts,
+        newKeys,
+        nodes ++ tr.nodes,
+        roots :++ tr.roots,
+        dependsOnTime || meta.dependsOnTime,
+        nodeSeeds :++ meta.nodeSeeds,
+      )
+    }
+  }
 }

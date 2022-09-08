@@ -1,0 +1,48 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+parameters:
+- name: name
+- name: assignment
+- name: job_name
+
+jobs:
+- job: ${{parameters.job_name}}
+  dependsOn:
+    - check_for_release
+  timeoutInMinutes: 360
+  pool:
+    name: macOS-pool
+    demands: assignment -equals ${{parameters.assignment}}
+  condition: or(eq('${{parameters.name}}', 'macos'),
+                eq(variables['Build.SourceBranchName'], 'main'))
+  variables:
+    - name: release_sha
+      value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+    - name: release_tag
+      value: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+    - name: trigger_sha
+      value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+    - name: is_release
+      value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    - template: job-variables.yml
+  steps:
+    - template: report-start.yml
+    - template: clear-shared-segments-macos.yml
+    - checkout: self
+    - bash: |
+        set -euo pipefail
+        git checkout $(release_sha)
+      name: checkout_release
+      condition: and(succeeded(), eq(variables.is_release, 'true'))
+    - template: clean-up.yml
+    - template: build-unix.yml
+      parameters:
+        release_tag: $(release_tag)
+        name: ${{parameters.name}}
+        is_release: variables.is_release
+    - template: upload-bazel-metrics.yml
+    - template: tell-slack-failed.yml
+      parameters:
+        trigger_sha: '$(trigger_sha)'
+    - template: report-end.yml

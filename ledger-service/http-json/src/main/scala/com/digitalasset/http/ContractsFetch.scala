@@ -64,7 +64,7 @@ private class ContractsFetch(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: List[domain.TemplateId.RequiredPkg],
+      templateIds: List[domain.TemplateId.Resolved],
       tickFetch: ConnectionIO ~> ConnectionIO = NaturalTransformation.refl,
   )(within: BeginBookmark[Terminates.AtAbsolute] => ConnectionIO[A])(implicit
       ec: ExecutionContext,
@@ -76,7 +76,7 @@ private class ContractsFetch(
     val fetchContext = FetchContext(jwt, ledgerId, parties)
     def go(
         maxAttempts: Int,
-        fetchTemplateIds: List[domain.TemplateId.RequiredPkg],
+        fetchTemplateIds: List[domain.TemplateId.Resolved],
         absEnd: Terminates.AtAbsolute,
     ): ConnectionIO[A] = for {
       bb <- tickFetch(fetchToAbsEnd(fetchContext, fetchTemplateIds, absEnd))
@@ -88,7 +88,7 @@ private class ContractsFetch(
       lagging <- (templateIds.toSet, bb.map(_.toDomain)) match {
         case (NonEmpty(tids), AbsoluteBookmark(expectedOff)) =>
           laggingOffsets(parties, expectedOff, tids)
-        case _ => fconn.pure(none[(domain.Offset, Set[domain.TemplateId.RequiredPkg])])
+        case _ => fconn.pure(none[(domain.Offset, Set[domain.TemplateId.Resolved])])
       }
       retriedA <- lagging.cata(
         { case (newOff, laggingTids) =>
@@ -111,7 +111,7 @@ private class ContractsFetch(
 
     // we assume that if the ledger termination is LedgerBegin, then
     // `within` will not yield concurrency-relevant results
-    connectionIOFuture(getTermination(jwt, ledgerId)) flatMap {
+    connectionIOFuture(getTermination(jwt, ledgerId)(lc)) flatMap {
       _.cata(go(initTries, templateIds, _), within(LedgerBegin))
     }
   }
@@ -120,13 +120,13 @@ private class ContractsFetch(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: List[domain.TemplateId.RequiredPkg],
+      templateIds: List[domain.TemplateId.Resolved],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
       lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] =
-    connectionIOFuture(getTermination(jwt, ledgerId)) flatMap {
+    connectionIOFuture(getTermination(jwt, ledgerId)(lc)) flatMap {
       _.cata(
         fetchToAbsEnd(FetchContext(jwt, ledgerId, parties), templateIds, _),
         fconn.pure(LedgerBegin),
@@ -135,7 +135,7 @@ private class ContractsFetch(
 
   private[this] def fetchToAbsEnd(
       fetchContext: FetchContext,
-      templateIds: List[domain.TemplateId.RequiredPkg],
+      templateIds: List[domain.TemplateId.Resolved],
       absEnd: Terminates.AtAbsolute,
   )(implicit
       ec: ExecutionContext,
@@ -191,7 +191,7 @@ private class ContractsFetch(
       fetchContext: FetchContext,
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.TemplateId.Resolved,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -220,7 +220,7 @@ private class ContractsFetch(
       fetchContext: FetchContext,
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.TemplateId.Resolved,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -249,7 +249,8 @@ private class ContractsFetch(
     import scalaz.std.option._
     import com.daml.lf.crypto.Hash
     for {
-      ac <- domain.ActiveContract fromLedgerApi ce leftMap (de =>
+      // TODO RR #14871 verify that `ResolvedQuery.Empty` is ok in this scenario
+      ac <- domain.ActiveContract fromLedgerApi (domain.ResolvedQuery.Empty, ce) leftMap (de =>
         new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"): Exception
       )
       lfKey <- ac.key.traverse(apiValueToLfValue).leftMap(_.cause: Exception)
@@ -278,7 +279,7 @@ private class ContractsFetch(
 
   private def contractsFromOffsetIo(
       fetchContext: FetchContext,
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.TemplateId.Resolved,
       offsets: Map[domain.Party, domain.Offset],
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
@@ -304,7 +305,7 @@ private class ContractsFetch(
           transactionFilter(parties, List(templateId)),
           _: lav1.ledger_offset.LedgerOffset,
           absEnd,
-        )
+        )(lc)
 
         // include ACS iff starting at LedgerBegin
         val (idses, lastOff) = (startOffset, disableAcs) match {
@@ -315,7 +316,7 @@ private class ContractsFetch(
               ledgerId,
               transactionFilter(parties, List(templateId)),
               true,
-            )
+            )(lc)
             (stepsAndOffset.out0, stepsAndOffset.out1)
 
           case (AbsoluteBookmark(_), _) | (LedgerBegin, true) =>

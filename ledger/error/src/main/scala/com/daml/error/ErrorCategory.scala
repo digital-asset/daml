@@ -46,6 +46,7 @@ object ErrorCategory {
       MaliciousOrFaultyBehaviour,
       AuthInterceptorInvalidAuthenticationCredentials,
       InsufficientPermission,
+      SecurityAlert,
       InvalidIndependentOfSystemState,
       InvalidGivenCurrentSystemStateOther,
       InvalidGivenCurrentSystemStateResourceExists,
@@ -157,7 +158,7 @@ object ErrorCategory {
     */
   @Description(
     """Request processing failed due to unrecoverable data loss or corruption
-                 |(e.g. detected via checksums). This error is exposed on the API with grpc-status INTERNAL without any details for security reasons"""
+                 |(e.g. detected via checksums). This error is exposed on the API with grpc-status UNKNOWN without any details for security reasons"""
   )
   @RetryStrategy("Retry after operator intervention.")
   @Resolution(
@@ -178,7 +179,7 @@ object ErrorCategory {
   /** Client is not authenticated properly
     */
   @Description(
-    """The request does not have valid authentication credentials for the operation. This error is exposed on the API with grpc-status INTERNAL without any details for security reasons"""
+    """The request does not have valid authentication credentials for the operation. This error is exposed on the API with grpc-status UNAUTHENTICATED without any details for security reasons"""
   )
   @RetryStrategy("""Retry after application operator intervention.""")
   @Resolution(
@@ -199,7 +200,7 @@ object ErrorCategory {
   /** Client does not have appropriate permissions
     */
   @Description(
-    """The caller does not have permission to execute the specified operation. This error is exposed on the API with grpc-status INTERNAL without any details for security reasons"""
+    """The caller does not have permission to execute the specified operation. This error is exposed on the API with grpc-status PERMISSION_DENIED without any details for security reasons"""
   )
   @RetryStrategy("""Retry after application operator intervention.""")
   @Resolution(
@@ -214,6 +215,26 @@ object ErrorCategory {
         securitySensitive = true,
         asInt = 7,
         rank = 2,
+      )
+      with ErrorCategory
+
+  @Description(
+    """A potential attack has been detected. 
+      |This error is exposed on the API with grpc-status INVALID_ARGUMENT without any details for security reasons."""
+  )
+  @RetryStrategy("Errors in this category are non-retryable.")
+  @Resolution(
+    """Expectation: this can be a severe issue that requires operator attention or intervention, and
+      |potentially vendor support."""
+  )
+  object SecurityAlert
+      extends ErrorCategoryImpl(
+        grpcCode = Some(Code.INVALID_ARGUMENT),
+        logLevel = Level.WARN,
+        retryable = None,
+        securitySensitive = true,
+        asInt = 15,
+        rank = 1,
       )
       with ErrorCategory
 

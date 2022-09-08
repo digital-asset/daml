@@ -14,6 +14,8 @@ import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.Value
 import Value._
 import com.daml.lf.command.ApiCommand
+import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.lf.transaction.Transaction
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -54,10 +56,13 @@ class InterfacesTest
     )
 
   "interfaces" should {
-    val (interfacesPkgId, _, allInterfacesPkgs) = loadPackage("daml-lf/tests/Interfaces.dar")
+    val (interfacesPkgId, _, _) = loadPackage("daml-lf/tests/Interfaces.dar")
+    val (interfaceRetroPkgId, _, allInterfacesPkgs) =
+      loadPackage("daml-lf/tests/InterfaceRetro.dar")
     val lookupPackage = allInterfacesPkgs.get(_)
     val idI1 = Identifier(interfacesPkgId, "Interfaces:I1")
     val idI2 = Identifier(interfacesPkgId, "Interfaces:I2")
+    val idI5 = Identifier(interfaceRetroPkgId, "InterfaceRetro:I5")
     val idT1 = Identifier(interfacesPkgId, "Interfaces:T1")
     val idT2 = Identifier(interfacesPkgId, "Interfaces:T2")
     val let = Time.Timestamp.now()
@@ -106,23 +111,44 @@ class InterfacesTest
             seeding = seeding,
           )
       } yield result
-    def runApi(cmd: ApiCommand) = consume(run(cmd)(preprocessor.preprocessApiCommand))
+    def runApi(cmd: ApiCommand): Either[Error, (SubmittedTransaction, Transaction.Metadata)] =
+      consume(run(cmd)(preprocessor.preprocessApiCommand))
 
     /* generic exercise tests */
     "be able to exercise interface I1 on a T1 contract" in {
-      val command = ApiCommand.Exercise(idI1, cid1, "C1", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(
+        TemplateOrInterface.Interface(idI1),
+        cid1,
+        "C1",
+        ValueRecord(None, ImmArray.empty),
+      )
       runApi(command) shouldBe a[Right[_, _]]
     }
     "be able to exercise interface I1 on a T2 contract" in {
-      val command = ApiCommand.Exercise(idI1, cid2, "C1", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(
+        TemplateOrInterface.Interface(idI1),
+        cid2,
+        "C1",
+        ValueRecord(None, ImmArray.empty),
+      )
       runApi(command) shouldBe a[Right[_, _]]
     }
     "be able to exercise interface I2 on a T2 contract" in {
-      val command = ApiCommand.Exercise(idI2, cid2, "C2", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(
+        TemplateOrInterface.Interface(idI2),
+        cid2,
+        "C2",
+        ValueRecord(None, ImmArray.empty),
+      )
       runApi(command) shouldBe a[Right[_, _]]
     }
     "be unable to exercise interface I2 on a T1 contract" in {
-      val command = ApiCommand.Exercise(idI2, cid1, "C2", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(
+        TemplateOrInterface.Interface(idI2),
+        cid1,
+        "C2",
+        ValueRecord(None, ImmArray.empty),
+      )
       inside(runApi(command)) { case Left(Error.Interpretation(err, _)) =>
         err shouldBe Error.Interpretation.DamlException(
           IE.ContractDoesNotImplementInterface(idI2, cid1, idT1)
@@ -130,20 +156,50 @@ class InterfacesTest
       }
     }
     "be able to exercise T1 by interface I1" in {
-      val command = ApiCommand.Exercise(idI1, cid1, "C1", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(
+        TemplateOrInterface.Interface(idI1),
+        cid1,
+        "C1",
+        ValueRecord(None, ImmArray.empty),
+      )
       runApi(command) shouldBe a[Right[_, _]]
     }
     "be able to exercise T2 by interface I1" in {
-      val command = ApiCommand.Exercise(idI1, cid2, "C1", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(
+        TemplateOrInterface.Interface(idI1),
+        cid2,
+        "C1",
+        ValueRecord(None, ImmArray.empty),
+      )
       runApi(command) shouldBe a[Right[_, _]]
     }
     "be able to exercise T2 by interface I2" in {
-      val command = ApiCommand.Exercise(idI2, cid2, "C2", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(
+        TemplateOrInterface.Interface(idI2),
+        cid2,
+        "C2",
+        ValueRecord(None, ImmArray.empty),
+      )
       runApi(command) shouldBe a[Right[_, _]]
     }
     "be unable to exercise T1 by interface I2 (stopped in preprocessor)" in {
-      val command = ApiCommand.Exercise(idT1, cid1, "C2", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(
+        TemplateOrInterface.Interface(idT1),
+        cid1,
+        "C2",
+        ValueRecord(None, ImmArray.empty),
+      )
       preprocessApi(command) shouldBe a[Left[_, _]]
+    }
+
+    "be able to exercise T2 by interface I5 and usedPackages should include I5's packageId" in {
+      val command = ApiCommand.Exercise(
+        TemplateOrInterface.Interface(idI5),
+        cid2,
+        "C5",
+        ValueRecord(None, ImmArray.empty),
+      )
+      runApi(command).value._2.usedPackages should contain(interfaceRetroPkgId)
     }
   }
 }

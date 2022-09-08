@@ -32,6 +32,8 @@ class ApiCommandPreprocessorSpec
     p"""
         module Mod {
 
+          record @serializable MyUnit = {};
+
           record @serializable Box a = { content: a };
 
           record @serializable Record = { owners: List Party, data : Int64 };
@@ -46,11 +48,13 @@ class ApiCommandPreprocessorSpec
                 observers Nil @Party
               to create @Mod:Record Mod:Record { owners = Mod:Box @(List Party) {content} box, data = Mod:Record {data} this } ;
             implements Mod:Iface{
+              view = Mod:MyUnit {};
               method getCtrls = Mod:Record {owners} this;
-              };
+            };
             implements Mod:Iface3{
+              view = Mod:MyUnit {};
               method getCtrls = Mod:Record {owners} this;
-              };
+            };
             key @(List Party) (Mod:Record {owners} this) (\ (parties: List Party) -> parties);
           };
 
@@ -69,6 +73,7 @@ class ApiCommandPreprocessorSpec
           };
 
           interface (this: Iface) = {
+            viewtype Mod:MyUnit;
             requires Mod:Iface3;
             method getCtrls: List Party;
             choice IfaceChoice (self) (u:Unit) : Unit
@@ -77,6 +82,7 @@ class ApiCommandPreprocessorSpec
           } ;
 
           interface (this: Iface2) = {
+            viewtype Mod:MyUnit;
             method getCtrls: List Party;
             choice IfaceChoice2 (self) (u:Unit) : Unit
               , controllers (call_method @Mod:Iface2 getCtrls this)
@@ -84,6 +90,7 @@ class ApiCommandPreprocessorSpec
           } ;
 
           interface (this: Iface3) = {
+            viewtype Mod:MyUnit;
             method getCtrls: List Party;
             choice IfaceChoice3 (self) (u:Unit) : Unit
               , controllers (call_method @Mod:Iface3 getCtrls this)
@@ -112,7 +119,7 @@ class ApiCommandPreprocessorSpec
       )
       // TEST_EVIDENCE: Input Validation: well formed exercise API command is accepted
       val validExeTemplate = ApiCommand.Exercise(
-        "Mod:Record",
+        TemplateOrInterface.Template("Mod:Record"),
         newCid,
         "Transfer",
         ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
@@ -126,7 +133,7 @@ class ApiCommandPreprocessorSpec
       )
       // TEST_EVIDENCE: Input Validation: well formed exercise-by-interface command is accepted
       val validExeInterface = ApiCommand.Exercise(
-        "Mod:Iface",
+        TemplateOrInterface.Interface("Mod:Iface"),
         newCid,
         "IfaceChoice",
         ValueUnit,
@@ -155,7 +162,9 @@ class ApiCommandPreprocessorSpec
         validCreate.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
         // TEST_EVIDENCE: Input Validation: ill-formed exercise API command is rejected
-        validExeTemplate.copy(typeId = "Mod:Undefined") ->
+        validExeTemplate.copy(typeId = TemplateOrInterface.Template("Mod:Undefined")) ->
+          a[Error.Preprocessing.Lookup],
+        validExeTemplate.copy(typeId = TemplateOrInterface.Interface("Mod:Undefined")) ->
           a[Error.Preprocessing.Lookup],
         validExeTemplate.copy(choiceId = "Undefined") ->
           a[Error.Preprocessing.Lookup],
@@ -208,13 +217,13 @@ class ApiCommandPreprocessorSpec
         ValueRecord("", ImmArray("" -> valueParties, "" -> ValueContractId(culpritCid))),
       ),
       ApiCommand.Exercise(
-        "Mod:RecordRef",
+        TemplateOrInterface.Template("Mod:RecordRef"),
         innocentCid,
         "Change",
         ValueContractId(culpritCid),
       ),
       ApiCommand.Exercise(
-        "Mod:RecordRef",
+        TemplateOrInterface.Template("Mod:RecordRef"),
         culpritCid,
         "Change",
         ValueContractId(innocentCid),

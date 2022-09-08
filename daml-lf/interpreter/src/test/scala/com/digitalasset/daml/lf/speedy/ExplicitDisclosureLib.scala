@@ -298,28 +298,50 @@ object ExplicitDisclosureLib {
 
   def haveInactiveContractIds(contractIds: ContractId*): Matcher[Speedy.OnLedger] = Matcher {
     ledger =>
+      val expectedResult = contractIds.toSet
+      val actualResult = ledger.ptx.contractState.activeState.consumedBy.keySet
+      val debugMessage = Seq(
+        s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_))}",
+        s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_))}",
+      ).mkString("\n  ", "\n  ", "")
+
       MatchResult(
-        ledger.ptx.contractState.activeState.consumedBy.keySet == contractIds.toSet,
-        s"Failed with unexpected inactive contracts: ${ledger.ptx.contractState.activeState.consumedBy.keySet} != $contractIds",
-        s"Failed with unexpected inactive contracts: ${ledger.ptx.contractState.activeState.consumedBy.keySet} == $contractIds",
+        expectedResult == actualResult,
+        s"Failed with unexpected inactive contracts: $expectedResult != $actualResult $debugMessage",
+        s"Failed with unexpected inactive contracts: $expectedResult == $actualResult",
       )
   }
 
   def haveCachedContractIds(contractIds: ContractId*): Matcher[Speedy.OnLedger] = Matcher {
     ledger =>
+      val expectedResult = contractIds.toSet
+      val actualResult = ledger.cachedContracts.keySet
+      val debugMessage = Seq(
+        s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_))}",
+        s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_))}",
+      ).mkString("\n  ", "\n  ", "")
+
       MatchResult(
-        ledger.cachedContracts.keySet == contractIds.toSet,
-        s"Failed with unexpected cached contracts: ${ledger.cachedContracts.keySet} != $contractIds",
-        s"Failed with unexpected cached contracts: ${ledger.cachedContracts.keySet} == $contractIds",
+        expectedResult == actualResult,
+        s"Failed with unexpected cached contracts: $expectedResult != $actualResult $debugMessage",
+        s"Failed with unexpected cached contracts: $expectedResult == $actualResult",
       )
   }
 
-  def haveDisclosedContracts(contractIds: DisclosedContract*): Matcher[Speedy.OnLedger] = Matcher {
-    ledger =>
+  def haveDisclosedContracts(disclosedContracts: DisclosedContract*): Matcher[Speedy.OnLedger] =
+    Matcher { ledger =>
+      val expectedResult = ImmArray(disclosedContracts: _*)
+      val actualResult = ledger.ptx.disclosedContracts
+      val debugMessage = Seq(
+        s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.contractId)}",
+        s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.contractId)}",
+      ).mkString("\n  ", "\n  ", "")
+
       MatchResult(
-        ledger.ptx.disclosedContracts == ImmArray(contractIds: _*),
-        s"Failed with unexpected disclosed contracts: ${ledger.ptx.disclosedContracts} != $contractIds",
-        s"Failed with unexpected disclosed contracts: ${ledger.ptx.disclosedContracts} == $contractIds",
+        expectedResult == actualResult,
+        s"Failed with unexpected disclosed contracts: $expectedResult != $actualResult $debugMessage",
+        s"Failed with unexpected disclosed contracts: $expectedResult == $actualResult",
       )
-  }
+
+    }
 }

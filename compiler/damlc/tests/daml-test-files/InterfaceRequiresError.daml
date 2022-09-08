@@ -1,20 +1,26 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ERROR Template T is missing an implementation of interface InterfaceRequiresError:A required by interface InterfaceRequiresError:B
+-- @SINCE-LF-FEATURE DAML_INTERFACE_EXTENDED
+-- @ERROR range=20:10-22:14;error type checking template InterfaceRequiresError.T interface instance InterfaceRequiresError:B for InterfaceRequiresError:T: Missing required 'interface instance InterfaceRequiresError:A for InterfaceRequiresError:T', required by interface 'InterfaceRequiresError:B'
 
 -- | Check that interface hierarchy is enforced. So if interface B requires
--- interface A, and some template implements B, then it must implement A.
+-- interface A, and template B has 'interface instance B for T', either A or T
+-- must have 'interface instance A for T'
 module InterfaceRequiresError where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface A where
+  viewtype EmptyInterfaceView
 
 interface B requires A where
+  viewtype EmptyInterfaceView
 
 template T
   with
     p : Party
   where
     signatory p
-    implements B where
+    interface instance B for T where
+      view = EmptyInterfaceView

@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWrit
 import com.daml.ledger.participant.state.v2.{ReadService, WriteService}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
-import com.daml.lf.engine.{Engine, ValueEnricher}
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.metrics.Metrics
@@ -53,7 +53,7 @@ class LedgerApiServer(
       )
 
       for {
-        (inMemoryState, inMemoryStateUpdater) <-
+        (inMemoryState, inMemoryStateUpdaterFlow) <-
           LedgerApiServer.createInMemoryStateAndUpdater(
             participantConfig.indexService,
             metrics,
@@ -71,7 +71,8 @@ class LedgerApiServer(
               metrics = metrics,
               inMemoryState = inMemoryState,
               lfValueTranslationCache = translationCache,
-              inMemoryStateUpdaterFlow = inMemoryStateUpdater.flow,
+              inMemoryStateUpdaterFlow = inMemoryStateUpdaterFlow,
+              executionContext = servicesExecutionContext,
             )
           } yield new HealthChecks(
             "read" -> timedReadService,
@@ -93,7 +94,7 @@ class LedgerApiServer(
           dbSupport = readDbSupport,
           initialLedgerId = domain.LedgerId(ledgerId),
           metrics = metrics,
-          enricher = new ValueEnricher(engine),
+          engine = engine,
           servicesExecutionContext = servicesExecutionContext,
           lfValueTranslationCache = translationCache,
           participantId = participantId,
@@ -160,6 +161,7 @@ class LedgerApiServer(
       ledgerFeatures = ledgerFeatures,
       participantId = participantId,
       authService = authService,
+      jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,
     )
 }
 
@@ -170,7 +172,7 @@ object LedgerApiServer {
       executionContext: ExecutionContext,
   )(implicit
       loggingContext: LoggingContext
-  ): ResourceOwner[(InMemoryState, InMemoryStateUpdater)] =
+  ): ResourceOwner[(InMemoryState, InMemoryStateUpdater.UpdaterFlow)] =
     for {
       inMemoryState <- InMemoryState.owner(
         apiStreamShutdownTimeout = indexServiceConfig.apiStreamShutdownTimeout,
@@ -186,6 +188,8 @@ object LedgerApiServer {
       inMemoryStateUpdater <- InMemoryStateUpdater.owner(
         inMemoryState = inMemoryState,
         prepareUpdatesParallelism = indexServiceConfig.inMemoryStateUpdaterParallelism,
+        preparePackageMetadataTimeOutWarning =
+          indexServiceConfig.preparePackageMetadataTimeOutWarning,
         metrics = metrics,
       )
     } yield inMemoryState -> inMemoryStateUpdater

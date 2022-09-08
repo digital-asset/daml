@@ -410,12 +410,12 @@
 			| choice
 			| template
 			| interface
-			| implements
-			| requires
 			| key
 			| maintainer
 			| daml
 			| exception
+			| for
+			| viewtype
 			)(\b(?!'))
 			</string>
 			<key>name</key>

@@ -1,14 +1,19 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @SINCE-LF-FEATURE DAML_INTERFACE_EXTENDED
 -- @ERROR Interface C is missing requirement [InterfaceRequiresNotClosed:A] required by InterfaceRequiresNotClosed:B
 
 -- | Check that interface requirements are transitively closed.
 module InterfaceRequiresNotClosed where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface A where
+    viewtype EmptyInterfaceView
 
 interface B requires A where
+    viewtype EmptyInterfaceView
 
 interface C requires B where
+    viewtype EmptyInterfaceView

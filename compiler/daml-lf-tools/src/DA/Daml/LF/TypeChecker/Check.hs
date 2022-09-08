@@ -1,7 +1,8 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE BlockArguments #-}
+
 -- | This module contains the Daml-LF type checker.
 --
 -- Some notes:
@@ -37,6 +38,7 @@ module DA.Daml.LF.TypeChecker.Check
 import Data.Hashable
 import           Control.Lens hiding (Context, MethodName, para)
 import           Control.Monad.Extra
+import           Data.Either.Combinators (whenLeft)
 import           Data.Foldable
 import           Data.Functor
 import           Data.List.Extended
@@ -591,12 +593,14 @@ typeOfExercise tpl chName cid arg = do
   pure (TUpdate (chcReturnType choice))
 
 typeOfExerciseInterface :: MonadGamma m =>
-  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> Expr -> m Type
-typeOfExerciseInterface iface chName cid arg guard = do
+  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> Maybe Expr -> m Type
+typeOfExerciseInterface iface chName cid arg mayGuard = do
   choice <- inWorld (lookupInterfaceChoice (iface, chName))
   checkExpr cid (TContractId (TCon iface))
   checkExpr arg (chcArgType choice)
-  checkExpr guard (TCon iface :-> TBool)
+  case mayGuard of
+    Nothing -> pure ()
+    Just guard -> checkExpr guard (TCon iface :-> TBool)
   pure (TUpdate (chcReturnType choice))
 
 typeOfExerciseByKey :: MonadGamma m =>
@@ -621,13 +625,16 @@ checkFetchInterface tpl cid = do
   void $ inWorld (lookupInterface tpl)
   checkExpr cid (TContractId (TCon tpl))
 
--- | Check that a template implements a given interface.
-checkImplements :: MonadGamma m => Qualified TypeConName -> Qualified TypeConName -> m ()
-checkImplements tpl iface = do
-  void $ inWorld (lookupInterface iface)
-  Template {tplImplements} <- inWorld (lookupTemplate tpl)
-  unless (NM.member iface tplImplements) $ do
-    throwWithContext (ETemplateDoesNotImplementInterface tpl iface)
+-- | Check that there's a unique interface instance for the given
+-- interface + template pair, and return relevant details.
+checkUniqueInterfaceInstance :: MonadGamma m =>
+  InterfaceInstanceHead -> m InterfaceInstanceInfo
+checkUniqueInterfaceInstance = inWorld . lookupInterfaceInstance
+
+-- | Check that there's a unique interface instance for the given
+-- interface + template pair.
+checkUniqueInterfaceInstanceExists :: MonadGamma m => InterfaceInstanceHead -> m ()
+checkUniqueInterfaceInstanceExists = void . checkUniqueInterfaceInstance
 
 -- returns the contract id and contract type
 checkRetrieveByKey :: MonadGamma m => RetrieveByKey -> m (Type, Type)
@@ -743,15 +750,15 @@ typeOf' = \case
     checkExpr val ty2
     pure ty1
   EToInterface iface tpl val -> do
-    checkImplements tpl iface
+    checkUniqueInterfaceInstanceExists (InterfaceInstanceHead iface tpl)
     checkExpr val (TCon tpl)
     pure (TCon iface)
   EFromInterface iface tpl val -> do
-    checkImplements tpl iface
+    checkUniqueInterfaceInstanceExists (InterfaceInstanceHead iface tpl)
     checkExpr val (TCon iface)
     pure (TOptional (TCon tpl))
   EUnsafeFromInterface iface tpl cid val -> do
-    checkImplements tpl iface
+    checkUniqueInterfaceInstanceExists (InterfaceInstanceHead iface tpl)
     checkExpr cid (TContractId (TCon iface))
     checkExpr val (TCon iface)
     pure (TCon tpl)
@@ -857,11 +864,28 @@ checkDefTypeSyn DefTypeSyn{synParams,synType} = do
   where
     base = checkType synType KStar
 
-
 -- | Check that an interface definition is well defined.
 checkIface :: MonadGamma m => Module -> DefInterface -> m ()
 checkIface m iface = do
-  let tcon = Qualified PRSelf (moduleName m) (intName iface)
+  
+  -- check view
+  let (func, _) = viewtype ^. _TApps
+  tycon <- case func of
+    TVar {} -> throwWithContext (EExpectedViewType "a type variable" viewtype)
+    TCon tycon -> pure tycon
+    TSynApp {} -> throwWithContext (EExpectedViewType "a type synonym" viewtype)
+    TApp {} -> error "checkIface: should not happen"
+    TBuiltin {} -> throwWithContext (EExpectedViewType "a built-in type" viewtype)
+    TForall {} -> throwWithContext (EExpectedViewType "a forall-quantified type" viewtype)
+    TStruct {} -> throwWithContext (EExpectedViewType "a structural record" viewtype)
+    TNat {} -> throwWithContext (EExpectedViewType "a type-level natural number" viewtype)
+  DefDataType _loc _naem _serializable tparams dataCons <- inWorld (lookupDataType tycon)
+  unless (null tparams) $ throwWithContext (EExpectedViewType "a type constructor with type variables" viewtype)
+  case dataCons of
+    DataRecord {} -> pure ()
+    DataVariant {} -> throwWithContext (EExpectedViewType "a variant type" viewtype)
+    DataEnum {} -> throwWithContext (EExpectedViewType "an enum type" viewtype)
+    DataInterface {} -> throwWithContext (EExpectedViewType "a interface type" viewtype)
 
   -- check requires
   when (tcon `S.member` intRequires iface) $
@@ -876,22 +900,27 @@ checkIface m iface = do
 
   -- check methods
   checkUnique (EDuplicateInterfaceMethodName (intName iface)) $ NM.names (intMethods iface)
-  forM_ (intMethods iface) checkIfaceMethod
+  forM_ (intMethods iface) \method ->
+    withPart (IPMethod method) do
+      checkIfaceMethod method
 
   -- check choices
   checkUnique (EDuplicateInterfaceChoiceName (intName iface)) $ NM.names (intChoices iface)
-  introExprVar (intParam iface) (TCon tcon) $ do
-    forM_ (intChoices iface) (checkTemplateChoice tcon)
+  introExprVar (intParam iface) (TCon tcon) do
+    forM_ (intChoices iface) \choice ->
+      withPart (IPChoice choice) do
+        checkTemplateChoice tcon choice
 
-  -- check view method exists
-  case NM.lookup (MethodName "_view") (intMethods iface) of
-    Nothing ->
-      pure () -- throwWithContext $ ENoViewFound (intName iface)
-      -- ^ TODO: Make views mandatory when name clash issue is resolved,
-      -- https://github.com/digital-asset/daml/issues/14112
-      -- https://github.com/digital-asset/daml/pull/14322#issuecomment-1173692581
-    Just _ ->
-      pure () -- Check that view is serializable in Serializability module
+  -- check interface instances
+  forM_ (intCoImplements iface) \InterfaceCoImplements {iciTemplate, iciBody} -> do
+    let iiHead = InterfaceInstanceHead tcon iciTemplate
+    withPart (IPInterfaceInstance iiHead) do
+      checkInterfaceInstance (intParam iface) iiHead iciBody
+
+  where
+    tcon = Qualified PRSelf (moduleName m) (intName iface)
+    viewtype = intView iface
+    withPart p = withContext (ContextDefInterface m iface p)
 
 checkIfaceMethod :: MonadGamma m => InterfaceMethod -> m ()
 checkIfaceMethod InterfaceMethod{ifmType} = do
@@ -948,30 +977,53 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPObservers $ checkExpr observers (TList TParty)
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
-    forM_ implements $ checkIfaceImplementation t
+  forM_ implements \TemplateImplements {tpiInterface, tpiBody} -> do
+    let iiHead = InterfaceInstanceHead tpiInterface tcon
+    withPart (TPInterfaceInstance iiHead) do
+      checkInterfaceInstance param iiHead tpiBody
   whenJust mbKey $ checkTemplateKey param tcon
 
   where
     withPart p = withContext (ContextTemplate m t p)
 
-checkIfaceImplementation :: MonadGamma m => Template -> TemplateImplements -> m ()
-checkIfaceImplementation Template{tplTypeCon, tplImplements} TemplateImplements{..} = do
-  DefInterface {intRequires, intMethods} <- inWorld $ lookupInterface tpiInterface
+checkInterfaceInstance :: MonadGamma m =>
+     ExprVarName
+  -> InterfaceInstanceHead
+  -> InterfaceInstanceBody
+  -> m ()
+checkInterfaceInstance tmplParam iiHead iiBody = do
+  let
+    InterfaceInstanceHead { iiInterface, iiTemplate } = iiHead
+    InterfaceInstanceBody {iiMethods, iiView} = iiBody
+
+  -- Check that this is the only interface instance with this head
+  iiInfo <- checkUniqueInterfaceInstance iiHead
+
+  let
+    DefInterface {intRequires, intMethods, intView} = defInterface iiInfo
 
   -- check requires
-  let missingRequires = S.difference intRequires (S.fromList (NM.names tplImplements))
-  whenJust (listToMaybe (S.toList missingRequires)) $ \missingInterface ->
-    throwWithContext (EMissingRequiredInterface tplTypeCon tpiInterface missingInterface)
+  forM_ intRequires \required -> do
+    let requiredInterfaceInstance = InterfaceInstanceHead required iiTemplate
+    eRequired <- inWorld (Right . lookupInterfaceInstance requiredInterfaceInstance)
+    whenLeft eRequired \(_ :: LookupError) ->
+      throwWithContext (EMissingRequiredInterfaceInstance requiredInterfaceInstance iiInterface)
 
-  -- check methods
-  let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet tpiMethods)
-  whenJust (listToMaybe (HS.toList missingMethods)) $ \methodName ->
-    throwWithContext (EMissingInterfaceMethod tplTypeCon tpiInterface methodName)
-  forM_ tpiMethods $ \TemplateImplementsMethod{tpiMethodName, tpiMethodExpr} -> do
-    case NM.lookup tpiMethodName intMethods of
-      Nothing -> throwWithContext (EUnknownInterfaceMethod tplTypeCon tpiInterface tpiMethodName)
-      Just InterfaceMethod{ifmType} ->
-        checkExpr tpiMethodExpr ifmType
+  -- check definitions in interface instance
+  -- Note (MA): we use an empty environment and add `tmplParam : TTyCon(iiTemplate)`
+  introExprVar tmplParam (TCon iiTemplate) $ do
+    -- check methods
+    let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet iiMethods)
+    whenJust (listToMaybe (HS.toList missingMethods)) \methodName ->
+      throwWithContext (EMissingMethodInInterfaceInstance methodName)
+    forM_ iiMethods \InterfaceInstanceMethod{iiMethodName, iiMethodExpr} -> do
+      case NM.lookup iiMethodName intMethods of
+        Nothing -> throwWithContext (EUnknownMethodInInterfaceInstance iiMethodName)
+        Just InterfaceMethod{ifmType} ->
+          checkExpr iiMethodExpr ifmType
+
+    -- check view result type matches interface result type
+    checkExpr iiView intView
 
 checkFeature :: MonadGamma m => Feature -> m ()
 checkFeature feature = do
@@ -1007,7 +1059,7 @@ checkModule m@(Module _modName _path _flags synonyms dataTypes values templates 
   traverse_ (with (ContextDefDataType m) $ checkDefDataType m) dataTypes
   -- NOTE(SF): Interfaces should be checked before templates, because the typechecking
   -- for templates relies on well-typed interface definitions.
-  traverse_ (with (ContextDefInterface m) (checkIface m)) interfaces
+  traverse_ (with (\i -> ContextDefInterface m i IPWhole) (checkIface m)) interfaces
   traverse_ (with (\t -> ContextTemplate m t TPWhole) $ checkTemplate m) templates
   traverse_ (with (ContextDefException m) (checkDefException m)) exceptions
   traverse_ (with (ContextDefValue m) checkDefValue) values

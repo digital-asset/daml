@@ -48,6 +48,10 @@ version1_13 = V1 $ PointStable 13
 version1_14 :: Version
 version1_14 = V1 $ PointStable 14
 
+-- | Daml-LF version 1.15
+version1_15 :: Version
+version1_15 = V1 $ PointStable 15
+
 -- | The Daml-LF version used by default.
 versionDefault :: Version
 versionDefault = version1_14
@@ -57,7 +61,7 @@ versionDev :: Version
 versionDev = V1 PointDev
 
 supportedOutputVersions :: [Version]
-supportedOutputVersions = [version1_14, versionDev]
+supportedOutputVersions = [version1_14, version1_15, versionDev]
 
 supportedInputVersions :: [Version]
 supportedInputVersions = [version1_8, version1_11, version1_12, version1_13] ++ supportedOutputVersions
@@ -116,11 +120,18 @@ featureNatSynonyms = Feature
     , featureCppFlag = Just "DAML_NAT_SYN"
     }
 
-featureInterfaces :: Feature
-featureInterfaces = Feature
+featureSimpleInterfaces :: Feature
+featureSimpleInterfaces = Feature
     { featureName = "Daml Interfaces"
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_15
     , featureCppFlag = Just "DAML_INTERFACE"
+    }
+
+featureExtendedInterfaces :: Feature
+featureExtendedInterfaces = Feature
+    { featureName = "Guards and requires in interfaces"
+    , featureMinVersion = versionDev
+    , featureCppFlag = Just "DAML_INTERFACE_EXTENDED"
     }
 
 featureExperimental :: Feature
@@ -137,7 +148,8 @@ allFeatures =
     , featureBigNumeric
     , featureExceptions
     , featureNatSynonyms
-    , featureInterfaces
+    , featureSimpleInterfaces
+    , featureExtendedInterfaces
     , featureUnstable
     , featureExperimental
     ]

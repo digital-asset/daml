@@ -3,7 +3,7 @@
 
 package com.daml.ledger.runner.common
 
-import com.daml.jwt.{LeewayOptions}
+import com.daml.jwt.JwtTimestampLeeway
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.interpretation.Limits
 import com.daml.lf.language.LanguageVersion
@@ -24,7 +24,7 @@ import com.daml.platform.configuration.{
   InitialLedgerConfiguration,
   PartyConfiguration,
 }
-import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
+import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, PackageMetadataViewConfig}
 import com.daml.platform.indexer.ha.HaConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
@@ -183,14 +183,14 @@ object ArbitraryConfig {
     maxUsersPageSize = maxUsersPageSize,
   )
 
-  def leewayOptionsGen: Gen[LeewayOptions] = {
+  def jwtTimestampLeewayGen: Gen[JwtTimestampLeeway] = {
     for {
-      leeway <- Gen.option(Gen.posNum[Long])
+      default <- Gen.option(Gen.posNum[Long])
       expiresAt <- Gen.option(Gen.posNum[Long])
       issuedAt <- Gen.option(Gen.posNum[Long])
       notBefore <- Gen.option(Gen.posNum[Long])
-    } yield LeewayOptions(
-      leeway = leeway,
+    } yield JwtTimestampLeeway(
+      default = default,
       expiresAt = expiresAt,
       issuedAt = issuedAt,
       notBefore = notBefore,
@@ -199,28 +199,23 @@ object ArbitraryConfig {
 
   val UnsafeJwtHmac256 = for {
     secret <- Gen.alphaStr
-    mbLeewayOptions <- Gen.option(leewayOptionsGen)
-  } yield AuthServiceConfig.UnsafeJwtHmac256(secret, mbLeewayOptions)
+  } yield AuthServiceConfig.UnsafeJwtHmac256(secret)
 
   val JwtRs256Crt = for {
     certificate <- Gen.alphaStr
-    mbLeewayOptions <- Gen.option(leewayOptionsGen)
-  } yield AuthServiceConfig.JwtRs256(certificate, mbLeewayOptions)
+  } yield AuthServiceConfig.JwtRs256(certificate)
 
   val JwtEs256Crt = for {
     certificate <- Gen.alphaStr
-    mbLeewayOptions <- Gen.option(leewayOptionsGen)
-  } yield AuthServiceConfig.JwtEs256(certificate, mbLeewayOptions)
+  } yield AuthServiceConfig.JwtEs256(certificate)
 
   val JwtEs512Crt = for {
     certificate <- Gen.alphaStr
-    mbLeewayOptions <- Gen.option(leewayOptionsGen)
-  } yield AuthServiceConfig.JwtEs512(certificate, mbLeewayOptions)
+  } yield AuthServiceConfig.JwtEs512(certificate)
 
   val JwtRs256Jwks = for {
     url <- Gen.alphaStr
-    mbLeewayOptions <- Gen.option(leewayOptionsGen)
-  } yield AuthServiceConfig.JwtRs256Jwks(url, mbLeewayOptions)
+  } yield AuthServiceConfig.JwtRs256Jwks(url)
 
   val authServiceConfig = Gen.oneOf(
     Gen.const(AuthServiceConfig.Wildcard),
@@ -349,6 +344,11 @@ object ArbitraryConfig {
     indexerWorkerLockId,
   )
 
+  val packageMetadataViewConfig = for {
+    initLoadParallelism <- Gen.chooseNum(0, Int.MaxValue)
+    initProcessParallelism <- Gen.chooseNum(0, Int.MaxValue)
+  } yield PackageMetadataViewConfig(initLoadParallelism, initProcessParallelism)
+
   val indexerConfig = for {
     batchingParallelism <- Gen.chooseNum(0, Int.MaxValue)
     dataSourceProperties <- Gen.option(dataSourceProperties)
@@ -360,6 +360,7 @@ object ArbitraryConfig {
     restartDelay <- Gen.finiteDuration
     startupMode <- indexerStartupMode
     submissionBatchSize <- Gen.long
+    packageMetadataViewConfig <- packageMetadataViewConfig
   } yield IndexerConfig(
     batchingParallelism = batchingParallelism,
     dataSourceProperties = dataSourceProperties,
@@ -371,6 +372,7 @@ object ArbitraryConfig {
     restartDelay = restartDelay,
     startupMode = startupMode,
     submissionBatchSize = submissionBatchSize,
+    packageMetadataView = packageMetadataViewConfig,
   )
 
   val lfValueTranslationCache = for {
@@ -393,7 +395,6 @@ object ArbitraryConfig {
     maxContractStateCacheSize <- Gen.long
     maxContractKeyStateCacheSize <- Gen.long
     maxTransactionsInMemoryFanOutBufferSize <- Gen.chooseNum(0, Int.MaxValue)
-    enableInMemoryFanOutForLedgerApi <- Gen.oneOf(true, false)
     apiStreamShutdownTimeout <- Gen.finiteDuration
   } yield IndexServiceConfig(
     eventsPageSize,
@@ -408,7 +409,6 @@ object ArbitraryConfig {
     maxContractStateCacheSize,
     maxContractKeyStateCacheSize,
     maxTransactionsInMemoryFanOutBufferSize,
-    enableInMemoryFanOutForLedgerApi,
     apiStreamShutdownTimeout,
   )
 
@@ -418,10 +418,12 @@ object ArbitraryConfig {
     indexService <- indexServiceConfig
     indexer <- indexerConfig
     lfValueTranslationCache <- lfValueTranslationCache
+    jwtTimestampLeeway <- Gen.option(jwtTimestampLeewayGen)
   } yield ParticipantConfig(
     apiServer = apiServer,
     authentication = AuthServiceConfig.Wildcard, // hardcoded to wildcard, as otherwise it
     // will be redacted and cannot be checked for isomorphism
+    jwtTimestampLeeway = jwtTimestampLeeway,
     dataSourceProperties = dataSourceProperties,
     indexService = indexService,
     indexer = indexer,

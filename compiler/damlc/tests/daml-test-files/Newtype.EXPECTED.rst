@@ -11,20 +11,20 @@ Data Types
 **data** `Nat <type-newtype-nat-87202_>`_
 
   .. _constr-newtype-nat-30825:
-  
+
   `Nat <constr-newtype-nat-30825_>`_
-  
+
     .. list-table::
        :widths: 15 10 30
        :header-rows: 1
-    
+
        * - Field
          - Type
          - Description
        * - unNat
          - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
-         - 
-  
+         -
+
   **instance** `HasField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839>`_ \"unNat\" `Nat <type-newtype-nat-87202_>`_ `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
 
 Functions

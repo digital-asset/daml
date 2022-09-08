@@ -4,6 +4,7 @@ import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
 import DA.Assert ( (===) )
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
   _interfaceTypeRep
@@ -16,10 +17,8 @@ instance DA.Internal.Desugar.HasFromInterface Token Token where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
 instance DA.Internal.Desugar.HasMethod Token "getAmount" (Int)
-getAmount : DA.Internal.Desugar.Implements t Token => t -> Int
-getAmount t
-  = GHC.Types.primitiveInterface
-      @"getAmount" (DA.Internal.Desugar._toInterface @_ @Token t)
+getAmount : Token -> Int
+getAmount = GHC.Types.primitiveInterface @"getAmount"
 instance DA.Internal.Desugar.HasToAnyTemplate Token where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate Token where
@@ -36,6 +35,8 @@ instance DA.Internal.Desugar.HasIsInterfaceType Token where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Token where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView Token EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => Asset
   = Asset {issuer : Party, owner : Party, amount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -106,23 +107,34 @@ _choice_AssetArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_implements_Asset_Token :
-  DA.Internal.Desugar.ImplementsT Asset Token
-_implements_Asset_Token = DA.Internal.Desugar.ImplementsT
+_interface_instance_Asset_Token_Asset :
+  DA.Internal.Desugar.InterfaceInstance Asset Token Asset
+_interface_instance_Asset_Token_Asset
+  = DA.Internal.Desugar.mkInterfaceInstance @Asset @Token @Asset
+_method_Asset_Token_Asset_getAmount :
+  DA.Internal.Desugar.Method Asset Token Asset "getAmount"
+_method_Asset_Token_Asset_getAmount
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @Asset
+      @"getAmount"
+      \ this@Asset {..}
+        -> let _ = this in let getAmount = amount in getAmount
+_view_Asset_Token_Asset :
+  DA.Internal.Desugar.InterfaceView Asset Token Asset
+_view_Asset_Token_Asset
+  = DA.Internal.Desugar.mkInterfaceView
+      @Asset
+      @Token
+      @Asset
+      \ this@Asset {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 instance DA.Internal.Desugar.HasToInterface Asset Token where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Asset Token where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-_method_Asset_Token_getAmount :
-  DA.Internal.Desugar.Method Asset Token "getAmount"
-_method_Asset_Token_getAmount
-  = DA.Internal.Desugar.mkMethod
-      @Asset
-      @Token
-      @"getAmount"
-      (\ this@Asset {..}
-         -> let _ = this in let getAmount = amount in getAmount)
 main
   = scenario
       do alice <- getParty "Alice"

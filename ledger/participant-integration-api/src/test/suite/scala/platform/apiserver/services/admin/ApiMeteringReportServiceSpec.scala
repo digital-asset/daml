@@ -3,31 +3,23 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import com.daml.ledger.api.v1.admin.metering_report_service.{
-  ApplicationMeteringReport,
-  GetMeteringReportRequest,
-  GetMeteringReportResponse,
-  ParticipantMeteringReport,
-}
+import com.daml.ledger.api.v1.admin.metering_report_service.GetMeteringReportRequest
 import com.daml.ledger.participant.state.index.v2.MeteringStore
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
-import com.daml.platform.apiserver.services.admin.ApiMeteringReportService.{
-  MeteringReportGenerator,
-  toProtoTimestamp,
-}
-import com.google.protobuf.struct.Struct
+import com.daml.platform.apiserver.meteringreport.HmacSha256.{Bytes, Key}
+import com.daml.platform.apiserver.meteringreport.MeteringReportGenerator
+import com.daml.platform.apiserver.meteringreport.MeteringReportKey.{CommunityKey, EnterpriseKey}
+import com.daml.platform.apiserver.services.admin.ApiMeteringReportService.toProtoTimestamp
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.temporal.ChronoUnit
-import java.time.{Duration, OffsetDateTime, ZoneOffset}
+import java.time.{OffsetDateTime, ZoneOffset}
 import scala.concurrent.Future
-import spray.json._
-import scalapb.json4s.JsonFormat
 
 class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with MockitoSugar {
 
@@ -36,61 +28,9 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
 
   private val appIdA = Ref.ApplicationId.assertFromString("AppA")
   private val appIdB = Ref.ApplicationId.assertFromString("AppB")
-  private val appIdX = Ref.ApplicationId.assertFromString("AppX")
-
-  private val from = Timestamp.now()
-  private val to = from.add(Duration.of(-1, ChronoUnit.DAYS))
 
   private val reportData =
     ReportData(applicationData = Map(appIdB -> 2, appIdA -> 4), isFinal = false)
-
-  private val reportJsonStruct = {
-    import com.daml.platform.apiserver.meteringreport.MeteringReport._
-    val report = ParticipantReport(
-      participant = someParticipantId,
-      request = Request(from, Some(to), Some(appIdX)),
-      `final` = false,
-      applications = Seq(ApplicationReport(appIdA, 4), ApplicationReport(appIdB, 2)),
-    )
-    val json = report.toJson.compactPrint
-    val struct: Struct = JsonFormat.parser.fromJsonString[Struct](json)
-    struct
-  }
-
-  "the metering report generator" should {
-
-    "generate report" in {
-
-      val underTest = new MeteringReportGenerator(someParticipantId)
-
-      val request = GetMeteringReportRequest.defaultInstance
-
-      val generationTime = toProtoTimestamp(Timestamp.now())
-
-      val actual =
-        underTest.generate(request, from, Some(to), Some(appIdX), reportData, generationTime)
-
-      val expectedReport = ParticipantMeteringReport(
-        participantId = someParticipantId,
-        isFinal = false,
-        applicationReports = Seq(
-          ApplicationMeteringReport(appIdA, 4),
-          ApplicationMeteringReport(appIdB, 2),
-        ),
-      )
-
-      val expected = GetMeteringReportResponse(
-        request = Some(request),
-        participantReport = Some(expectedReport),
-        reportGenerationTime = Some(generationTime),
-        meteringReportJson = Some(reportJsonStruct),
-      )
-
-      actual shouldBe expected
-
-    }
-
-  }
 
   "the metering report service" should {
 
@@ -105,12 +45,12 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
       val expectedGenTime = toProtoTimestamp(Timestamp.now().addMicros(-1000))
 
       val underTest =
-        new ApiMeteringReportService(someParticipantId, store, () => expectedGenTime)
+        new ApiMeteringReportService(someParticipantId, store, CommunityKey, () => expectedGenTime)
 
       val request = GetMeteringReportRequest.defaultInstance.withFrom(toProtoTimestamp(from))
 
-      val expected =
-        new MeteringReportGenerator(someParticipantId).generate(
+      val Right(expected) =
+        new MeteringReportGenerator(someParticipantId, CommunityKey.key).generate(
           request,
           from,
           None,
@@ -135,7 +75,7 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
       val expectedGenTime = toProtoTimestamp(Timestamp.now().addMicros(-1000))
 
       val underTest =
-        new ApiMeteringReportService(someParticipantId, store, () => expectedGenTime)
+        new ApiMeteringReportService(someParticipantId, store, CommunityKey, () => expectedGenTime)
 
       val appId = Ref.ApplicationId.assertFromString("AppT")
 
@@ -144,8 +84,8 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
         .withTo(toProtoTimestamp(to))
         .withApplicationId(appId)
 
-      val expected =
-        new MeteringReportGenerator(someParticipantId).generate(
+      val Right(expected) =
+        new MeteringReportGenerator(someParticipantId, CommunityKey.key).generate(
           request,
           from,
           Some(to),
@@ -163,19 +103,32 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
     }
 
     "fail if the from timestamp is unset" in {
-      val underTest = new ApiMeteringReportService(someParticipantId, mock[MeteringStore])
+      val underTest =
+        new ApiMeteringReportService(someParticipantId, mock[MeteringStore], CommunityKey)
       val request = GetMeteringReportRequest.defaultInstance
       underTest.getMeteringReport(request).failed.map { _ => succeed }
     }
 
     "fail if the from timestamp is not aligned with an hour boundary" in {
-      val underTest = new ApiMeteringReportService(someParticipantId, mock[MeteringStore])
+      val underTest =
+        new ApiMeteringReportService(someParticipantId, mock[MeteringStore], CommunityKey)
 
       val nonBoundaryFrom = Timestamp.assertFromInstant(fromUtc.plusSeconds(1).toInstant)
 
       val request = GetMeteringReportRequest.defaultInstance
         .withFrom(toProtoTimestamp(nonBoundaryFrom))
 
+      underTest.getMeteringReport(request).failed.map { _ => succeed }
+    }
+
+    "fail an invalid key is passed is provided" in {
+      val underTest =
+        new ApiMeteringReportService(
+          someParticipantId,
+          mock[MeteringStore],
+          EnterpriseKey(Key("bad", Bytes(Array.empty[Byte]), "bad")),
+        )
+      val request = GetMeteringReportRequest.defaultInstance
       underTest.getMeteringReport(request).failed.map { _ => succeed }
     }
 

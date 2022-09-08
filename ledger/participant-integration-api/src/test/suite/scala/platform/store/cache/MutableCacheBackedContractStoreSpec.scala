@@ -3,15 +3,10 @@
 
 package com.daml.platform.store.cache
 
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.stream.QueueOfferResult.Enqueued
-import akka.stream.scaladsl.Source
-import akka.stream.{BoundedSourceQueue, Materializer}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MaximumLedgerTime
-import com.daml.ledger.resources.ResourceContext
+import com.daml.ledger.resources.Resource
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
@@ -20,15 +15,8 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractInstance, ValueRecord, ValueText}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.store.cache.MutableCacheBackedContractStoreSpec.{cId_5, _}
 import com.daml.platform.store.dao.events.ContractStateEvent
-import com.daml.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned}
-import com.daml.platform.store.cache.ContractStateValue.{Active, Archived}
-import com.daml.platform.store.cache.MutableCacheBackedContractStore.SubscribeToContractStateEvents
-import com.daml.platform.store.cache.MutableCacheBackedContractStoreSpec.{
-  ContractsReaderFixture,
-  contractStore,
-  _,
-}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   ContractState,
@@ -36,173 +24,37 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyUnassigned,
 }
 import org.mockito.MockitoSugar
-import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.time.{Millis, Span}
 import org.scalatest.wordspec.AsyncWordSpec
-import org.scalatest.{Assertion, BeforeAndAfterAll}
 
 import scala.concurrent.Future
-import scala.concurrent.duration._
 
-// TODO LLP: Extract unit test for [[com.daml.platform.store.cache.ContractStateCaches]] in own unit test
-class MutableCacheBackedContractStoreSpec
-    extends AsyncWordSpec
-    with Matchers
-    with Eventually
-    with MockitoSugar
-    with BeforeAndAfterAll {
+class MutableCacheBackedContractStoreSpec extends AsyncWordSpec with Matchers with MockitoSugar {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  private val actorSystem = ActorSystem("test")
-  private implicit val materializer: Materializer = Materializer(actorSystem)
+  "push" should {
+    "update the contract state caches" in {
+      val contractStateCaches = mock[ContractStateCaches]
+      val contractStore = new MutableCacheBackedContractStore(
+        metrics = new Metrics(new MetricRegistry),
+        contractsReader = mock[LedgerDaoContractsReader],
+        contractStateCaches = contractStateCaches,
+      )
 
-  override implicit val patienceConfig: PatienceConfig =
-    PatienceConfig(timeout = scaled(Span(2000, Millis)), interval = scaled(Span(50, Millis)))
-
-  "cache initialization" should {
-    "set the cache index to the initialization index" in {
-      val cacheInitializationOffset = offset(1337L)
-      contractStore(cachesSize = 0L, startIndexExclusive = cacheInitializationOffset).asFuture
-        .map { mutableCacheBackedContractStore =>
-          mutableCacheBackedContractStore.contractStateCaches.keyState.cacheIndex shouldBe cacheInitializationOffset
-          mutableCacheBackedContractStore.contractStateCaches.contractState.cacheIndex shouldBe cacheInitializationOffset
-        }
-    }
-  }
-
-  "event stream consumption" should {
-    "populate the caches from the contract state event stream" in {
-      implicit val (
-        queue: BoundedSourceQueue[TransactionEvents],
-        source: Source[TransactionEvents, NotUsed],
-      ) = Source
-        .queue[TransactionEvents](16)
-        .preMaterialize()
-
-      for {
-        store <- contractStore(
-          cachesSize = 2L,
-          ContractsReaderFixture(),
-          () => source,
-        ).asFuture
-        created1 <- createdEvent(cId_1, contract1, Some(someKey), Set(charlie), offset1, t1)
-        _ <- eventually {
-          store.contractStateCaches.contractState.get(cId_1) shouldBe Some(
-            Active(contract1, Set(charlie), t1)
-          )
-          store.contractStateCaches.keyState.get(someKey) shouldBe Some(
-            Assigned(cId_1, Set(charlie))
-          )
-
-          store.contractStateCaches.contractState.cacheIndex shouldBe offset1
-          store.contractStateCaches.keyState.cacheIndex shouldBe offset1
-        }
-
-        created2 = ContractStateEvent.Created(
-          contractId = cId_2,
-          contract = contract2,
-          globalKey = Some(someKey),
-          ledgerEffectiveTime = t3,
-          stakeholders = Set(alice),
-          eventOffset = offset3,
-          eventSequentialId = 0L, // Not used
-        )
-
-        _ <- batchUpdate(
-          ContractStateEvent.Archived(
-            contractId = created1.contractId,
-            globalKey = created1.globalKey,
-            stakeholders = created1.stakeholders,
-            eventOffset = offset2,
-            eventSequentialId = 0L, // Not used
-          ),
-          created2,
-        )
-
-        _ <- eventually {
-          store.contractStateCaches.contractState.get(cId_1) shouldBe Some(Archived(Set(charlie)))
-          store.contractStateCaches.contractState.get(cId_2) shouldBe Some(
-            Active(contract2, Set(alice), t3)
-          )
-
-          store.contractStateCaches.keyState.get(someKey) shouldBe Some(Assigned(cId_2, Set(alice)))
-
-          store.contractStateCaches.contractState.cacheIndex shouldBe offset3
-          store.contractStateCaches.keyState.cacheIndex shouldBe offset3
-        }
-
-        _ <- archivedEvent(created2, offset4)
-
-        _ <- eventually {
-          store.contractStateCaches.contractState.get(cId_2) shouldBe Some(Archived(Set(alice)))
-          store.contractStateCaches.keyState.get(someKey) shouldBe Some(Unassigned)
-
-          store.contractStateCaches.contractState.cacheIndex shouldBe offset4
-          store.contractStateCaches.keyState.cacheIndex shouldBe offset4
-        }
-      } yield succeed
-    }
-
-    "resubscribe from the last ingested offset (on failure)" in {
-      val created = ContractStateEvent.Created(
-        contractId = cId_1,
-        contract = contract1,
-        globalKey = Some(someKey),
-        ledgerEffectiveTime = t1,
-        stakeholders = Set(charlie),
-        eventOffset = offset1,
+      val event1 = ContractStateEvent.Archived(
+        contractId = ContractId.V1(Hash.hashPrivateKey("cid")),
+        globalKey = None,
+        stakeholders = Set.empty,
+        eventOffset = Offset.beforeBegin,
         eventSequentialId = 1L,
       )
+      val event2 = event1.copy(eventSequentialId = 2L)
+      val updateBatch = Vector(event1, event2)
 
-      val dummy = created.copy(eventSequentialId = 7L)
+      contractStore.push(updateBatch)
+      verify(contractStateCaches).push(updateBatch)
 
-      val archived = ContractStateEvent.Archived(
-        contractId = created.contractId,
-        globalKey = created.globalKey,
-        stakeholders = created.stakeholders,
-        eventOffset = offset2,
-        eventSequentialId = 2L,
-      )
-
-      val anotherCreate = ContractStateEvent.Created(
-        contractId = cId_2,
-        contract = contract2,
-        globalKey = Some(someKey),
-        ledgerEffectiveTime = t2,
-        stakeholders = Set(alice),
-        eventOffset = offset3,
-        eventSequentialId = 3L,
-      )
-
-      val sourceSubscriptionFixture: SubscribeToContractStateEvents = {
-        @volatile var firstSource = true
-        () =>
-          if (firstSource) {
-            firstSource = false
-            Source
-              .fromIterator(() => Iterator(created, archived, dummy).map(Vector(_)))
-              // Simulate the source failure at the last event
-              .map(x => if (x == dummy) throw new RuntimeException("some transient failure") else x)
-          } else {
-            Source.fromIterator(() => Iterator(Vector(anotherCreate)))
-          }
-      }
-
-      for {
-        store <- contractStore(
-          cachesSize = 2L,
-          ContractsReaderFixture(),
-          sourceSubscriptionFixture,
-        ).asFuture
-        _ <- eventually {
-          store.contractStateCaches.contractState.get(cId_1) shouldBe Some(Archived(Set(charlie)))
-          store.contractStateCaches.contractState.get(cId_2) shouldBe Some(
-            Active(contract2, Set(alice), t2)
-          )
-          store.contractStateCaches.keyState.get(someKey) shouldBe Some(Assigned(cId_2, Set(alice)))
-        }
-      } yield succeed
+      succeed
     }
   }
 
@@ -386,67 +238,49 @@ class MutableCacheBackedContractStoreSpec
     }
   }
 
-  private def createdEvent(
-      contractId: ContractId,
-      contract: Contract,
-      maybeKey: Option[GlobalKey],
-      stakeholders: Set[Party],
-      offset: Offset,
-      createLedgerEffectiveTime: Timestamp,
-  )(implicit queue: BoundedSourceQueue[TransactionEvents]): Future[ContractStateEvent.Created] = {
-    val created = ContractStateEvent.Created(
-      contractId = contractId,
-      contract = contract,
-      globalKey = maybeKey,
-      ledgerEffectiveTime = createLedgerEffectiveTime,
-      stakeholders = stakeholders,
-      eventOffset = offset,
-      eventSequentialId = 0L, // Not used
-    )
-    Future.successful {
-      queue.offer(Vector(created)) shouldBe Enqueued
-      created
-    }
-  }
-
-  private def archivedEvent(
-      created: ContractStateEvent.Created,
-      offset: Offset,
-  )(implicit queue: BoundedSourceQueue[TransactionEvents]): Future[Assertion] =
-    Future {
-      queue.offer(
-        Vector(
-          ContractStateEvent.Archived(
-            contractId = created.contractId,
-            globalKey = created.globalKey,
-            stakeholders = created.stakeholders,
-            eventOffset = offset,
-            eventSequentialId = 0L, // Not used
-          )
+  "lookupContractAfterInterpretation" should {
+    "resolve lookup from cache" in {
+      for {
+        store <- contractStore(cachesSize = 2L).asFuture
+        _ = store.contractStateCaches.contractState.putBatch(
+          offset2,
+          Map(
+            // Populate the cache with an active contract
+            cId_4 -> ContractStateValue.Active(
+              contract = contract4,
+              stakeholders = Set.empty,
+              createLedgerEffectiveTime = t4,
+            ),
+            // Populate the cache with an archived contract
+            cId_5 -> ContractStateValue.Archived(Set.empty),
+          ),
         )
-      ) shouldBe Enqueued
+        activeContractLookupResult <- store.lookupContractForValidation(cId_4)
+        archivedContractLookupResult <- store.lookupContractForValidation(cId_5)
+      } yield {
+        activeContractLookupResult shouldBe Some(contract4 -> t4)
+        archivedContractLookupResult shouldBe None
+      }
     }
 
-  private def batchUpdate(
-      batch: ContractStateEvent*
-  )(implicit queue: BoundedSourceQueue[TransactionEvents]): Future[Unit] = Future.successful {
-    queue.offer(batch.toVector) shouldBe Enqueued
-    ()
-  }
-
-  override def afterAll(): Unit = {
-    materializer.shutdown()
-    val _ = actorSystem.terminate()
+    "resolve lookup from the ContractsReader when not cached" in {
+      for {
+        store <- contractStore(cachesSize = 0L).asFuture
+        activeContractLookupResult <- store.lookupContractForValidation(cId_4)
+        archivedContractLookupResult <- store.lookupContractForValidation(cId_5)
+      } yield {
+        activeContractLookupResult shouldBe Some(contract4 -> t4)
+        archivedContractLookupResult shouldBe None
+      }
+    }
   }
 }
 
 object MutableCacheBackedContractStoreSpec {
-  private type TransactionEvents = Vector[ContractStateEvent]
   private val offset0 = offset(0L)
   private val offset1 = offset(1L)
   private val offset2 = offset(2L)
   private val offset3 = offset(3L)
-  private val offset4 = offset(4L)
 
   private val Seq(alice, bob, charlie) = Seq("alice", "bob", "charlie").map(party)
   private val (
@@ -463,13 +297,8 @@ object MutableCacheBackedContractStoreSpec {
   private def contractStore(
       cachesSize: Long,
       readerFixture: LedgerDaoContractsReader = ContractsReaderFixture(),
-      sourceSubscriber: SubscribeToContractStateEvents = () => Source.empty,
       startIndexExclusive: Offset = offset0,
-  )(implicit loggingContext: LoggingContext, materializer: Materializer) = {
-    implicit val resourceContext: ResourceContext = ResourceContext(
-      scala.concurrent.ExecutionContext.global
-    )
-
+  )(implicit loggingContext: LoggingContext) = {
     val metrics = new Metrics(new MetricRegistry)
     val contractStore = new MutableCacheBackedContractStore(
       metrics,
@@ -481,12 +310,7 @@ object MutableCacheBackedContractStoreSpec {
         ),
     )(scala.concurrent.ExecutionContext.global, loggingContext)
 
-    new MutableCacheBackedContractStore.CacheUpdateSubscription(
-      contractStore = contractStore,
-      subscribeToContractStateEvents = sourceSubscriber,
-      minBackoffStreamRestart = 10.millis,
-    ).acquire()
-      .map(_ => contractStore)
+    Resource.successful(contractStore)
   }
 
   case class ContractsReaderFixture() extends LedgerDaoContractsReader {

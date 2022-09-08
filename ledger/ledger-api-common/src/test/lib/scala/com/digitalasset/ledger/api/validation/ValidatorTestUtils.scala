@@ -5,6 +5,7 @@ package com.daml.ledger.api.validation
 
 import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.InterfaceFilter
 import com.daml.ledger.api.messages.transaction
 import com.daml.lf.data.Ref
 import com.google.rpc.error_details
@@ -38,7 +39,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
       filters shouldEqual domain.Filters(
         Some(
           domain.InclusiveFilters(
-            Set(
+            templateIds = Set(
               Ref.Identifier(
                 Ref.PackageId.assertFromString(packageId),
                 Ref.QualifiedName(
@@ -46,7 +47,19 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
                   Ref.DottedName.assertFromString(includedTemplate),
                 ),
               )
-            )
+            ),
+            interfaceFilters = Set(
+              InterfaceFilter(
+                interfaceId = Ref.Identifier(
+                  Ref.PackageId.assertFromString(packageId),
+                  Ref.QualifiedName(
+                    Ref.DottedName.assertFromString(includedModule),
+                    Ref.DottedName.assertFromString(includedTemplate),
+                  ),
+                ),
+                includeView = true,
+              )
+            ),
           )
         )
       )

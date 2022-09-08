@@ -597,10 +597,12 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               , observers Cons @Party [person] (Nil @Party)
               to upure @Int64 i;
             implements Mod1:Human {
+              view = Mod1:HumanView { name = "Foo B. Baz" };
               method age = 42;
               method alive = True;
             };
             implements '-pkgId-':Mod2:Referenceable {
+              view = Mod1:ReferenceableView { indirect = False };
               method uuid = "123e4567-e89b-12d3-a456-426614174000";
             };
             key @Party (Mod:Person {name} this) (\ (p: Party) -> p);
@@ -658,21 +660,25 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             human ->
               TemplateImplements(
                 human,
-                Map(
-                  n"age" -> TemplateImplementsMethod(n"age", e"42"),
-                  n"alive" -> TemplateImplementsMethod(n"alive", e"True"),
+                InterfaceInstanceBody(
+                  Map(
+                    n"age" -> InterfaceInstanceMethod(n"age", e"42"),
+                    n"alive" -> InterfaceInstanceMethod(n"alive", e"True"),
+                  ),
+                  e"""Mod1:HumanView { name = "Foo B. Baz" }""",
                 ),
-                EAbs((Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
               ),
             referenceable -> TemplateImplements(
               referenceable,
-              Map(
-                n"uuid" -> TemplateImplementsMethod(
-                  n"uuid",
-                  e""""123e4567-e89b-12d3-a456-426614174000"""",
-                )
+              InterfaceInstanceBody(
+                Map(
+                  n"uuid" -> InterfaceInstanceMethod(
+                    n"uuid",
+                    e""""123e4567-e89b-12d3-a456-426614174000"""",
+                  )
+                ),
+                e"Mod1:ReferenceableView { indirect = False }",
               ),
-              EAbs((Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
             ),
           ),
         )
@@ -787,8 +793,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
 
       val p = """
        module Mod {
-
           interface (this: Person) = {
+            viewtype Mod1:PersonView;
             method asParty: Party;
             method getName: Text;
             choice Sleep (self) (u:Unit) : ContractId Mod:Person
@@ -799,6 +805,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               , observers Nil @Party
               to upure @Int64 i;
             coimplements Mod1:Company {
+              view = Mod1:PersonView { name = callMethod @Mod:Person getName this };
               method asParty = Mod1:Company {party} this;
               method getName = Mod1:Company {legalName} this;
             };
@@ -842,20 +849,22 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             company ->
               InterfaceCoImplements(
                 company,
-                Map(
-                  n"asParty" -> InterfaceCoImplementsMethod(
-                    n"asParty",
-                    e"Mod1:Company {party} this",
+                InterfaceInstanceBody(
+                  Map(
+                    n"asParty" -> InterfaceInstanceMethod(
+                      n"asParty",
+                      e"Mod1:Company {party} this",
+                    ),
+                    n"getName" -> InterfaceInstanceMethod(
+                      n"getName",
+                      e"Mod1:Company {legalName} this",
+                    ),
                   ),
-                  n"getName" -> InterfaceCoImplementsMethod(
-                    n"getName",
-                    e"Mod1:Company {legalName} this",
-                  ),
+                  e"Mod1:PersonView { name = callMethod @Mod:Person getName this }",
                 ),
-                EAbs((Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
               )
           ),
-          view = TUnit,
+          view = t"Mod1:PersonView",
         )
 
       val person = DottedName.assertFromString("Person")

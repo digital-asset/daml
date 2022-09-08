@@ -36,11 +36,11 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-script-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
-        "//daml-lf/interface",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/scenario-interpreter",
@@ -63,14 +63,17 @@ da_scala_library(
 da_scala_test(
     name = "tests",
     srcs = glob(
-        ["src/test/**/*.scala"],
+        ["src/test/scala/**/*.scala"],
     ),
+    data = glob(["src/test/resources/**/*"]),
     visibility = ["//visibility:public"],
     deps = [
         ":script-runner-lib",
+        "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
+        "//ledger/ledger-api-common",
     ],
 )
 

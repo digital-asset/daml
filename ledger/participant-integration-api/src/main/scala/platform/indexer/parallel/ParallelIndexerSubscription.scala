@@ -36,8 +36,11 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
     batchingParallelism: Int,
     ingestionParallelism: Int,
     submissionBatchSize: Long,
+    maxOutputBatchedBufferSize: Int,
+    maxTailerBatchSize: Int,
     metrics: Metrics,
     inMemoryStateUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
+    stringInterningView: StringInterning with InternizingStringInterningView,
 ) {
   import ParallelIndexerSubscription._
 
@@ -45,7 +48,6 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
       inputMapperExecutor: Executor,
       batcherExecutor: Executor,
       dbDispatcher: DbDispatcher,
-      stringInterningView: StringInterning with InternizingStringInterningView,
       materializer: Materializer,
   )(implicit loggingContext: LoggingContext): InitializeParallelIngestion.Initialized => Handle = {
     initialized =>
@@ -74,8 +76,13 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
           batcher(ingestionStorageBackend.batch(_, stringInterningView))
         ),
         ingestingParallelism = ingestionParallelism,
-        ingester = ingester(ingestionStorageBackend.insertBatch, dbDispatcher, metrics),
-        tailer = tailer(ingestionStorageBackend.batch(Vector.empty, stringInterningView)),
+        ingester = ingester(
+          ingestFunction = ingestionStorageBackend.insertBatch,
+          zeroDbBatch = ingestionStorageBackend.batch(Vector.empty, stringInterningView),
+          dbDispatcher = dbDispatcher,
+          metrics = metrics,
+        ),
+        maxTailerBatchSize = maxTailerBatchSize,
         ingestTail =
           ingestTail[DB_BATCH](parameterStorageBackend.updateLedgerEnd, dbDispatcher, metrics),
       )(
@@ -83,7 +90,10 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
           .buffered(metrics.daml.parallelIndexer.inputBufferLength, maxInputBufferSize)
       )
         .map(batch => batch.offsetsUpdates -> batch.lastSeqEventId)
-        // TODO LLP: Introduce mechanism (buffer) to allow observing downstream backpressure
+        .buffered(
+          counter = metrics.daml.parallelIndexer.outputBatchedBufferLength,
+          size = maxOutputBatchedBufferSize,
+        )
         .via(inMemoryStateUpdaterFlow)
         .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
         .toMat(Sink.ignore)(Keep.both)
@@ -222,6 +232,7 @@ object ParallelIndexerSubscription {
 
   def ingester[DB_BATCH](
       ingestFunction: (Connection, DB_BATCH) => Unit,
+      zeroDbBatch: DB_BATCH,
       dbDispatcher: DbDispatcher,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
@@ -231,23 +242,9 @@ object ParallelIndexerSubscription {
           dbDispatcher.executeSql(metrics.daml.parallelIndexer.ingestion) { connection =>
             metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toLong)
             ingestFunction(connection, batch.batch)
-            batch
+            cleanUnusedBatch(zeroDbBatch)(batch)
           }
       }
-
-  def tailer[DB_BATCH](
-      zeroDbBatch: DB_BATCH
-  ): (Batch[DB_BATCH], Batch[DB_BATCH]) => Batch[DB_BATCH] =
-    (prev, curr) =>
-      Batch[DB_BATCH](
-        lastOffset = curr.lastOffset,
-        lastSeqEventId = curr.lastSeqEventId,
-        lastStringInterningId = curr.lastStringInterningId,
-        lastRecordTime = curr.lastRecordTime,
-        batch = zeroDbBatch, // not used anymore
-        batchSize = 0, // not used anymore
-        offsetsUpdates = prev.offsetsUpdates ++ curr.offsetsUpdates,
-      )
 
   def ledgerEndFrom(batch: Batch[_]): LedgerEnd =
     LedgerEnd(
@@ -260,16 +257,33 @@ object ParallelIndexerSubscription {
       ingestTailFunction: LedgerEnd => Connection => Unit,
       dbDispatcher: DbDispatcher,
       metrics: Metrics,
-  )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
-    batch =>
-      withEnrichedLoggingContext("updateOffset" -> batch.lastOffset) { implicit loggingContext =>
-        dbDispatcher.executeSql(metrics.daml.parallelIndexer.tailIngestion) { connection =>
-          ingestTailFunction(ledgerEndFrom(batch))(connection)
-          metrics.daml.indexer.ledgerEndSequentialId.updateValue(batch.lastSeqEventId)
-          metrics.daml.indexer.lastReceivedRecordTime.updateValue(batch.lastRecordTime)
-          metrics.daml.indexer.lastReceivedOffset.updateValue(batch.lastOffset.toHexString)
-          logger.info("Ledger end updated")
-          batch
+  )(implicit
+      loggingContext: LoggingContext
+  ): Vector[Batch[DB_BATCH]] => Future[Vector[Batch[DB_BATCH]]] = batchOfBatches =>
+    batchOfBatches.lastOption match {
+      case Some(lastBatch) =>
+        withEnrichedLoggingContext("updateOffset" -> lastBatch.lastOffset) {
+          implicit loggingContext =>
+            dbDispatcher.executeSql(metrics.daml.parallelIndexer.tailIngestion) { connection =>
+              ingestTailFunction(ledgerEndFrom(lastBatch))(connection)
+              metrics.daml.indexer.ledgerEndSequentialId.updateValue(lastBatch.lastSeqEventId)
+              metrics.daml.indexer.lastReceivedRecordTime.updateValue(lastBatch.lastRecordTime)
+              metrics.daml.indexer.lastReceivedOffset.updateValue(lastBatch.lastOffset.toHexString)
+              logger.info("Ledger end updated in IndexDB")
+              batchOfBatches
+            }
         }
-      }
+      case None =>
+        val message = "Unexpectedly encountered a zero-sized batch in ingestTail"
+        logger.error(message)
+        Future.failed(new IllegalStateException(message))
+    }
+
+  private def cleanUnusedBatch[DB_BATCH](
+      zeroDbBatch: DB_BATCH
+  ): Batch[DB_BATCH] => Batch[DB_BATCH] =
+    _.copy(
+      batch = zeroDbBatch, // not used anymore
+      batchSize = 0, // not used anymore
+    )
 }

@@ -52,24 +52,24 @@ final class ContractKeysIT extends LedgerTestSuite {
       showDelegated <- alpha.create(owner, ShowDelegated(owner, delegate))
 
       // divulge the contract
-      _ <- alpha.exercise(owner, showDelegated.exerciseShowIt(_, delegated))
+      _ <- alpha.exercise(owner, showDelegated.exerciseShowIt(delegated))
 
       // fetch delegated
       _ <- eventually("exerciseFetchDelegated") {
-        beta.exercise(delegate, delegation.exerciseFetchDelegated(_, delegated))
+        beta.exercise(delegate, delegation.exerciseFetchDelegated(delegated))
       }
 
       // fetch by key should fail during interpretation
       // Reason: Only stakeholders see the result of fetchByKey, beta is neither stakeholder nor divulgee
       fetchFailure <- beta
-        .exercise(delegate, delegation.exerciseFetchByKeyDelegated(_, owner, key))
+        .exercise(delegate, delegation.exerciseFetchByKeyDelegated(owner, key))
         .mustFail("fetching by key with a party that cannot see the contract")
 
       // lookup by key delegation should fail during validation
       // Reason: During command interpretation, the lookup did not find anything due to privacy rules,
       // but validation determined that this result is wrong as the contract is there.
       lookupByKeyFailure <- beta
-        .exercise(delegate, delegation.exerciseLookupByKeyDelegated(_, owner, key))
+        .exercise(delegate, delegation.exerciseLookupByKeyDelegated(owner, key))
         .mustFail("looking up by key with a party that cannot see the contract")
     } yield {
       assertGrpcError(
@@ -103,20 +103,20 @@ final class ContractKeysIT extends LedgerTestSuite {
       // fetch should fail
       // Reason: contract not divulged to beta
       fetchFailure <- beta
-        .exercise(delegate, delegation.exerciseFetchDelegated(_, delegated))
+        .exercise(delegate, delegation.exerciseFetchDelegated(delegated))
         .mustFail("fetching a contract with a party that cannot see it")
 
       // fetch by key should fail
       // Reason: Only stakeholders see the result of fetchByKey, beta is only a divulgee
       fetchByKeyFailure <- beta
-        .exercise(delegate, delegation.exerciseFetchByKeyDelegated(_, owner, key))
+        .exercise(delegate, delegation.exerciseFetchByKeyDelegated(owner, key))
         .mustFail("fetching a contract by key with a party that cannot see it")
 
       // lookup by key should fail
       // Reason: During command interpretation, the lookup did not find anything due to privacy rules,
       // but validation determined that this result is wrong as the contract is there.
       lookupByKeyFailure <- beta
-        .exercise(delegate, delegation.exerciseLookupByKeyDelegated(_, owner, key))
+        .exercise(delegate, delegation.exerciseLookupByKeyDelegated(owner, key))
         .mustFail("looking up a contract by key with a party that cannot see it")
     } yield {
       assertGrpcError(
@@ -165,37 +165,37 @@ final class ContractKeysIT extends LedgerTestSuite {
 
       // trying to lookup an unauthorized key should fail
       bobLooksUpTextKeyFailure <- beta
-        .exercise(bob, bobTKO.exerciseTKOLookup(_, Tuple2(alice, key1), Some(tk1)))
+        .exercise(bob, bobTKO.exerciseTKOLookup(Tuple2(alice, key1), Some(tk1)))
         .mustFail("looking up a contract with an unauthorized key")
 
       // trying to lookup an unauthorized non-existing key should fail
       bobLooksUpBogusTextKeyFailure <- beta
-        .exercise(bob, bobTKO.exerciseTKOLookup(_, Tuple2(alice, unknownKey), None))
+        .exercise(bob, bobTKO.exerciseTKOLookup(Tuple2(alice, unknownKey), None))
         .mustFail("looking up a contract with an unauthorized, non-existing key")
 
       // successful, authorized lookup
-      _ <- alpha.exercise(alice, aliceTKO.exerciseTKOLookup(_, Tuple2(alice, key1), Some(tk1)))
+      _ <- alpha.exercise(alice, aliceTKO.exerciseTKOLookup(Tuple2(alice, key1), Some(tk1)))
 
       // successful fetch
-      _ <- alpha.exercise(alice, aliceTKO.exerciseTKOFetch(_, Tuple2(alice, key1), tk1))
+      _ <- alpha.exercise(alice, aliceTKO.exerciseTKOFetch(Tuple2(alice, key1), tk1))
 
       // successful, authorized lookup of non-existing key
-      _ <- alpha.exercise(alice, aliceTKO.exerciseTKOLookup(_, Tuple2(alice, unknownKey), None))
+      _ <- alpha.exercise(alice, aliceTKO.exerciseTKOLookup(Tuple2(alice, unknownKey), None))
 
       // failing fetch
       aliceFailedFetch <- alpha
-        .exercise(alice, aliceTKO.exerciseTKOFetch(_, Tuple2(alice, unknownKey), tk1))
+        .exercise(alice, aliceTKO.exerciseTKOFetch(Tuple2(alice, unknownKey), tk1))
         .mustFail("fetching a contract by an unknown key")
 
       // now we exercise the contract, thus archiving it, and then verify
       // that we cannot look it up anymore
-      _ <- alpha.exercise(alice, tk1.exerciseTextKeyChoice)
-      _ <- alpha.exercise(alice, aliceTKO.exerciseTKOLookup(_, Tuple2(alice, key1), None))
+      _ <- alpha.exercise(alice, tk1.exerciseTextKeyChoice())
+      _ <- alpha.exercise(alice, aliceTKO.exerciseTKOLookup(Tuple2(alice, key1), None))
 
       // lookup the key, consume it, then verify we cannot look it up anymore
       _ <- alpha.exercise(
         alice,
-        aliceTKO.exerciseTKOConsumeAndLookup(_, tk2, Tuple2(alice, key2)),
+        aliceTKO.exerciseTKOConsumeAndLookup(tk2, Tuple2(alice, key2)),
       )
 
       // failing create when a maintainer is not a signatory
@@ -249,7 +249,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         delegated1Id = com.daml.ledger.client.binding.Primitive
           .ContractId[Delegated](delegated1TxTree.eventsById.head._2.getCreated.contractId)
 
-        delegated2TxTree <- ledger.exercise(owner, delegated1Id.exerciseRecreate)
+        delegated2TxTree <- ledger.exercise(owner, delegated1Id.exerciseRecreate())
       } yield {
         assert(delegated2TxTree.eventsById.size == 2)
         val event = delegated2TxTree.eventsById.filter(_._2.kind.isCreated).head._2
@@ -280,14 +280,14 @@ final class ContractKeysIT extends LedgerTestSuite {
       delegated <- ledger.create(owner, Delegated(owner, key))
 
       failedFetch <- ledger
-        .exercise(owner, delegation.exerciseFetchByKeyDelegated(_, owner, key2))
+        .exercise(owner, delegation.exerciseFetchByKeyDelegated(owner, key2))
         .mustFail("fetching a contract with an unknown key")
 
       // Create a transient contract with a key that is created and archived in same transaction.
-      _ <- ledger.exercise(owner, delegated.exerciseCreateAnotherAndArchive(_, key2))
+      _ <- ledger.exercise(owner, delegated.exerciseCreateAnotherAndArchive(key2))
 
       // Try it again, expecting it to succeed.
-      _ <- ledger.exercise(owner, delegated.exerciseCreateAnotherAndArchive(_, key2))
+      _ <- ledger.exercise(owner, delegated.exerciseCreateAnotherAndArchive(key2))
 
     } yield {
       assertGrpcError(
@@ -393,20 +393,20 @@ final class ContractKeysIT extends LedgerTestSuite {
         ops <- ledger1.create(party1, LocalKeyVisibilityOperations(party1, party2))
         _ <- synchronize(ledger1, ledger2)
         failedLookup <- ledger2
-          .exercise(party2, ops.exerciseLocalLookup(_))
+          .exercise(party2, ops.exerciseLocalLookup())
           .mustFail("lookup not visible")
         failedFetch <- ledger2
-          .exercise(party2, ops.exerciseLocalFetch(_))
+          .exercise(party2, ops.exerciseLocalFetch())
           .mustFail("fetch not visible")
         _ <- ledger2.exercise(
           actAs = List(party2),
           readAs = List(party1),
-          ops.exerciseLocalLookup(party2),
+          ops.exerciseLocalLookup(),
         )
         _ <- ledger2.exercise(
           actAs = List(party2),
           readAs = List(party1),
-          ops.exerciseLocalFetch(party2),
+          ops.exerciseLocalFetch(),
         )
       } yield {
         assertGrpcError(
@@ -436,7 +436,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         creator1 <- ledger1.create(party1, WithKeyCreator(party1, party2))
         withKey1 <- ledger1.exerciseAndGetContract[WithKey](
           party1,
-          creator1.exerciseWithKeyCreator_DiscloseCreate(_, party1),
+          creator1.exerciseWithKeyCreator_DiscloseCreate(party1),
         )
 
         // Verify that the withKey1 contract is usable by the party2
@@ -444,30 +444,30 @@ final class ContractKeysIT extends LedgerTestSuite {
 
         _ <- synchronize(ledger1, ledger2)
 
-        _ <- ledger2.exercise(party2, fetcher.exerciseWithKeyFetcher_Fetch(_, withKey1))
+        _ <- ledger2.exercise(party2, fetcher.exerciseWithKeyFetcher_Fetch(withKey1))
 
         // Archive the disclosed contract
-        _ <- ledger1.exercise(party1, withKey1.exerciseArchive(_))
+        _ <- ledger1.exercise(party1, withKey1.exerciseArchive())
 
         _ <- synchronize(ledger1, ledger2)
 
         // Verify that fetching the contract is no longer possible after it was archived
         _ <- ledger2
-          .exercise(party2, fetcher.exerciseWithKeyFetcher_Fetch(_, withKey1))
+          .exercise(party2, fetcher.exerciseWithKeyFetcher_Fetch(withKey1))
           .mustFail("fetching an archived contract")
 
         // Repeat the same steps for the second time
         creator2 <- ledger1.create(party1, WithKeyCreator(party1, party2))
         _ <- ledger1.exerciseAndGetContract[WithKey](
           party1,
-          creator2.exerciseWithKeyCreator_DiscloseCreate(_, party1),
+          creator2.exerciseWithKeyCreator_DiscloseCreate(party1),
         )
 
         // Synchronize to verify that the second participant is working
         _ <- synchronize(ledger1, ledger2)
       } yield ()
   })
-  import scalaz.syntax.tag._
+
   test(
     "CKDisclosedContractKeyReusabilityAsSubmitter",
     "Subsequent disclosed contracts can use the same contract key (disclosure because of submitting)",
@@ -483,22 +483,22 @@ final class ContractKeysIT extends LedgerTestSuite {
 
         _ <- ledger2.exercise(
           party2,
-          creator1.exerciseWithKeyCreatorAlternative_DiscloseCreate(_),
+          creator1.exerciseWithKeyCreatorAlternative_DiscloseCreate(),
         )
 
         _ <- synchronize(ledger1, ledger2)
 
-        Seq(withKey1Event) <- ledger1.activeContractsByTemplateId(List(WithKey.id.unwrap), party1)
+        Seq(withKey1Event) <- ledger1.activeContractsByTemplateId(List(WithKey.id), party1)
         withKey1 = ContractId.apply[WithKey](withKey1Event.contractId)
         // Archive the disclosed contract
-        _ <- ledger1.exercise(party1, withKey1.exerciseArchive(_))
+        _ <- ledger1.exercise(party1, withKey1.exerciseArchive())
 
         _ <- synchronize(ledger1, ledger2)
 
         // Repeat the same steps for the second time
         _ <- ledger2.exercise(
           party2,
-          creator1.exerciseWithKeyCreatorAlternative_DiscloseCreate(_),
+          creator1.exerciseWithKeyCreatorAlternative_DiscloseCreate(),
         )
 
         _ <- synchronize(ledger1, ledger2)
@@ -519,30 +519,30 @@ final class ContractKeysIT extends LedgerTestSuite {
       _ <- ledger.submit(
         ledger.submitRequest(
           alice,
-          Test.WithKey.key(alice).exerciseWithKey_NoOp(alice, alice).command,
+          Test.WithKey.key(alice).exerciseWithKey_NoOp(alice).command,
         )
       )
 
       // divulge the contract
       helper <- ledger.create(bob, Test.WithKeyDivulgenceHelper(bob, alice))
-      _ <- ledger.exercise(alice, helper.exerciseWithKeyDivulgenceHelper_Fetch(_, cid))
+      _ <- ledger.exercise(alice, helper.exerciseWithKeyDivulgenceHelper_Fetch(cid))
 
       // double check it is properly divulged
-      _ <- ledger.exercise(bob, cid.exerciseWithKey_NoOp(_, bob))
+      _ <- ledger.exercise(bob, cid.exerciseWithKey_NoOp(bob))
 
       request = ledger.submitRequest(
         bob,
         // exercise by key the contract
-        Test.WithKey.key(alice).exerciseWithKey_NoOp(bob, bob).command,
+        Test.WithKey.key(alice).exerciseWithKey_NoOp(bob).command,
       )
       failure1 <- ledger.submit(request).mustFail("exercise of a non visible key")
 
       request = ledger.submitRequest(
         bob,
         // bring the contract in the engine cache
-        cid.exerciseWithKey_NoOp(bob, bob).command,
+        cid.exerciseWithKey_NoOp(bob).command,
         // exercise by key the contract
-        Test.WithKey.key(alice).exerciseWithKey_NoOp(bob, bob).command,
+        Test.WithKey.key(alice).exerciseWithKey_NoOp(bob).command,
       )
       failure2 <- ledger.submit(request).mustFail("exercise of a non visible key")
 

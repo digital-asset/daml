@@ -4,6 +4,7 @@ import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
 import DA.Exception ( GeneralError(..), throwPure )
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
   _interfaceTypeRep
@@ -16,22 +17,15 @@ instance DA.Internal.Desugar.HasFromInterface Token Token where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
 instance DA.Internal.Desugar.HasMethod Token "getOwner" (Party)
-getOwner : DA.Internal.Desugar.Implements t Token => t -> Party
-getOwner t
-  = GHC.Types.primitiveInterface
-      @"getOwner" (DA.Internal.Desugar._toInterface @_ @Token t)
+getOwner : Token -> Party
+getOwner = GHC.Types.primitiveInterface @"getOwner"
 instance DA.Internal.Desugar.HasMethod Token "getAmount" (Int)
-getAmount : DA.Internal.Desugar.Implements t Token => t -> Int
-getAmount t
-  = GHC.Types.primitiveInterface
-      @"getAmount" (DA.Internal.Desugar._toInterface @_ @Token t)
+getAmount : Token -> Int
+getAmount = GHC.Types.primitiveInterface @"getAmount"
 instance DA.Internal.Desugar.HasMethod Token "setAmount" (Int
                                                           -> Token)
-setAmount :
-  DA.Internal.Desugar.Implements t Token => t -> Int -> Token
-setAmount t
-  = GHC.Types.primitiveInterface
-      @"setAmount" (DA.Internal.Desugar._toInterface @_ @Token t)
+setAmount : Token -> Int -> Token
+setAmount = GHC.Types.primitiveInterface @"setAmount"
 instance DA.Internal.Desugar.HasToAnyTemplate Token where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate Token where
@@ -48,29 +42,25 @@ instance DA.Internal.Desugar.HasIsInterfaceType Token where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Token where
   (==) = GHC.Types.primitive @"BEEqual"
-instance (DA.Internal.Desugar.Implements t Token) =>
-         DA.Internal.Desugar.HasToAnyChoice t GetRich (ContractId Token) where
+instance DA.Internal.Desugar.HasToAnyChoice Token GetRich (ContractId Token) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])
-instance (DA.Internal.Desugar.Implements t Token) =>
-         DA.Internal.Desugar.HasFromAnyChoice t GetRich (ContractId Token) where
+instance DA.Internal.Desugar.HasFromAnyChoice Token GetRich (ContractId Token) where
   _fromAnyChoice _
     = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Token])
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t Token)) =>
-         DA.Internal.Desugar.HasExerciseGuarded t GetRich (ContractId Token) where
+instance DA.Internal.Desugar.HasExerciseGuarded Token GetRich (ContractId Token) where
   exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Token cid pred)
+instance DA.Internal.Desugar.HasExercise Token GetRich (ContractId Token) where
+  exercise cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
-        (DA.Internal.Desugar._exerciseInterfaceGuard @Token cid pred)
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t Token)) =>
-         DA.Internal.Desugar.HasExercise t GetRich (ContractId Token) where
-  exercise = DA.Internal.Desugar._exerciseDefault
 data GetRich
   = GetRich {byHowMuch : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -99,6 +89,8 @@ _choice_TokenGetRich
             do assert (byHowMuch > 0)
                create $ setAmount this (getAmount this + byHowMuch), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView Token EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlInterface => SubToken
   = SubToken GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep SubToken where
@@ -136,6 +128,8 @@ instance DA.Internal.Desugar.HasIsInterfaceType SubToken where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq SubToken where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView SubToken EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
 data GHC.Types.DamlTemplate => Asset
   = Asset {issuer : Party, owner : Party, amount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -204,43 +198,56 @@ _choice_AssetArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_implements_Asset_Token :
-  DA.Internal.Desugar.ImplementsT Asset Token
-_implements_Asset_Token = DA.Internal.Desugar.ImplementsT
+_interface_instance_Asset_Token_Asset :
+  DA.Internal.Desugar.InterfaceInstance Asset Token Asset
+_interface_instance_Asset_Token_Asset
+  = DA.Internal.Desugar.mkInterfaceInstance @Asset @Token @Asset
+_method_Asset_Token_Asset_getOwner :
+  DA.Internal.Desugar.Method Asset Token Asset "getOwner"
+_method_Asset_Token_Asset_getOwner
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @Asset
+      @"getOwner"
+      \ this@Asset {..}
+        -> let _ = this in let getOwner = owner in getOwner
+_method_Asset_Token_Asset_getAmount :
+  DA.Internal.Desugar.Method Asset Token Asset "getAmount"
+_method_Asset_Token_Asset_getAmount
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @Asset
+      @"getAmount"
+      \ this@Asset {..}
+        -> let _ = this in let getAmount = amount in getAmount
+_method_Asset_Token_Asset_setAmount :
+  DA.Internal.Desugar.Method Asset Token Asset "setAmount"
+_method_Asset_Token_Asset_setAmount
+  = DA.Internal.Desugar.mkMethod
+      @Asset
+      @Token
+      @Asset
+      @"setAmount"
+      \ this@Asset {..}
+        -> let _ = this in
+           let setAmount x = toInterface @Token (this {amount = x})
+           in setAmount
+_view_Asset_Token_Asset :
+  DA.Internal.Desugar.InterfaceView Asset Token Asset
+_view_Asset_Token_Asset
+  = DA.Internal.Desugar.mkInterfaceView
+      @Asset
+      @Token
+      @Asset
+      \ this@Asset {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 instance DA.Internal.Desugar.HasToInterface Asset Token where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Asset Token where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-_method_Asset_Token_getOwner :
-  DA.Internal.Desugar.Method Asset Token "getOwner"
-_method_Asset_Token_getOwner
-  = DA.Internal.Desugar.mkMethod
-      @Asset
-      @Token
-      @"getOwner"
-      (\ this@Asset {..}
-         -> let _ = this in let getOwner = owner in getOwner)
-_method_Asset_Token_getAmount :
-  DA.Internal.Desugar.Method Asset Token "getAmount"
-_method_Asset_Token_getAmount
-  = DA.Internal.Desugar.mkMethod
-      @Asset
-      @Token
-      @"getAmount"
-      (\ this@Asset {..}
-         -> let _ = this in let getAmount = amount in getAmount)
-_method_Asset_Token_setAmount :
-  DA.Internal.Desugar.Method Asset Token "setAmount"
-_method_Asset_Token_setAmount
-  = DA.Internal.Desugar.mkMethod
-      @Asset
-      @Token
-      @"setAmount"
-      (\ this@Asset {..}
-         -> let _ = this in
-            let setAmount x = toInterface @Token (this {amount = x})
-            in setAmount)
 data GHC.Types.DamlTemplate => AnotherAsset
   = AnotherAsset {owner : Party, amount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -310,46 +317,71 @@ _choice_AnotherAssetArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_implements_AnotherAsset_Token :
-  DA.Internal.Desugar.ImplementsT AnotherAsset Token
-_implements_AnotherAsset_Token = DA.Internal.Desugar.ImplementsT
+_interface_instance_AnotherAsset_Token_AnotherAsset :
+  DA.Internal.Desugar.InterfaceInstance AnotherAsset Token AnotherAsset
+_interface_instance_AnotherAsset_Token_AnotherAsset
+  = DA.Internal.Desugar.mkInterfaceInstance
+      @AnotherAsset @Token @AnotherAsset
+_method_AnotherAsset_Token_AnotherAsset_getOwner :
+  DA.Internal.Desugar.Method AnotherAsset Token AnotherAsset "getOwner"
+_method_AnotherAsset_Token_AnotherAsset_getOwner
+  = DA.Internal.Desugar.mkMethod
+      @AnotherAsset
+      @Token
+      @AnotherAsset
+      @"getOwner"
+      \ this@AnotherAsset {..}
+        -> let _ = this in let getOwner = owner in getOwner
+_method_AnotherAsset_Token_AnotherAsset_getAmount :
+  DA.Internal.Desugar.Method AnotherAsset Token AnotherAsset "getAmount"
+_method_AnotherAsset_Token_AnotherAsset_getAmount
+  = DA.Internal.Desugar.mkMethod
+      @AnotherAsset
+      @Token
+      @AnotherAsset
+      @"getAmount"
+      \ this@AnotherAsset {..}
+        -> let _ = this in let getAmount = amount in getAmount
+_method_AnotherAsset_Token_AnotherAsset_setAmount :
+  DA.Internal.Desugar.Method AnotherAsset Token AnotherAsset "setAmount"
+_method_AnotherAsset_Token_AnotherAsset_setAmount
+  = DA.Internal.Desugar.mkMethod
+      @AnotherAsset
+      @Token
+      @AnotherAsset
+      @"setAmount"
+      \ this@AnotherAsset {..}
+        -> let _ = this in
+           let setAmount x = toInterface @Token (this {amount = x})
+           in setAmount
+_view_AnotherAsset_Token_AnotherAsset :
+  DA.Internal.Desugar.InterfaceView AnotherAsset Token AnotherAsset
+_view_AnotherAsset_Token_AnotherAsset
+  = DA.Internal.Desugar.mkInterfaceView
+      @AnotherAsset
+      @Token
+      @AnotherAsset
+      \ this@AnotherAsset {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 instance DA.Internal.Desugar.HasToInterface AnotherAsset Token where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface AnotherAsset Token where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-_method_AnotherAsset_Token_getOwner :
-  DA.Internal.Desugar.Method AnotherAsset Token "getOwner"
-_method_AnotherAsset_Token_getOwner
-  = DA.Internal.Desugar.mkMethod
+_interface_instance_AnotherAsset_SubToken_AnotherAsset :
+  DA.Internal.Desugar.InterfaceInstance AnotherAsset SubToken AnotherAsset
+_interface_instance_AnotherAsset_SubToken_AnotherAsset
+  = DA.Internal.Desugar.mkInterfaceInstance
+      @AnotherAsset @SubToken @AnotherAsset
+_view_AnotherAsset_SubToken_AnotherAsset :
+  DA.Internal.Desugar.InterfaceView AnotherAsset SubToken AnotherAsset
+_view_AnotherAsset_SubToken_AnotherAsset
+  = DA.Internal.Desugar.mkInterfaceView
       @AnotherAsset
-      @Token
-      @"getOwner"
-      (\ this@AnotherAsset {..}
-         -> let _ = this in let getOwner = owner in getOwner)
-_method_AnotherAsset_Token_getAmount :
-  DA.Internal.Desugar.Method AnotherAsset Token "getAmount"
-_method_AnotherAsset_Token_getAmount
-  = DA.Internal.Desugar.mkMethod
+      @SubToken
       @AnotherAsset
-      @Token
-      @"getAmount"
-      (\ this@AnotherAsset {..}
-         -> let _ = this in let getAmount = amount in getAmount)
-_method_AnotherAsset_Token_setAmount :
-  DA.Internal.Desugar.Method AnotherAsset Token "setAmount"
-_method_AnotherAsset_Token_setAmount
-  = DA.Internal.Desugar.mkMethod
-      @AnotherAsset
-      @Token
-      @"setAmount"
-      (\ this@AnotherAsset {..}
-         -> let _ = this in
-            let setAmount x = toInterface @Token (this {amount = x})
-            in setAmount)
-_implements_AnotherAsset_SubToken :
-  DA.Internal.Desugar.ImplementsT AnotherAsset SubToken
-_implements_AnotherAsset_SubToken = DA.Internal.Desugar.ImplementsT
+      \ this@AnotherAsset {..}
+        -> let _ = this in let view = EmptyInterfaceView in view
 instance DA.Internal.Desugar.HasToInterface AnotherAsset SubToken where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface AnotherAsset SubToken where
@@ -374,46 +406,40 @@ instance DA.Internal.Desugar.HasFromAnyException GuardException where
 main
   = scenario
       do p <- getParty "Alice"
-         let assetTpl = Asset {issuer = p, owner = p, amount = 100}
+         let assetAsTokenTpl
+               = toInterface @Token $ Asset {issuer = p, owner = p, amount = 100}
          let getRich = GetRich {byHowMuch = 1000000}
          p `submit`
-             do asset <- create assetTpl
-                exerciseGuarded (const True) asset getRich
+             do assetAsToken <- create assetAsTokenTpl
+                exerciseGuarded (const True) assetAsToken getRich
          p `submitMustFail`
-             do asset <- create assetTpl
-                exerciseGuarded (const False) asset getRich
+             do assetAsToken <- create assetAsTokenTpl
+                exerciseGuarded (const False) assetAsToken getRich
          p `submitMustFail`
-             do asset <- create assetTpl
-                exerciseGuarded (\ _ -> error "foo") asset getRich
+             do assetAsToken <- create assetAsTokenTpl
+                exerciseGuarded (\ _ -> error "foo") assetAsToken getRich
          p `submitMustFail`
-             do asset <- create assetTpl
+             do assetAsToken <- create assetAsTokenTpl
                 exerciseGuarded
-                  (\ _ -> throwPure (GuardException "bar")) asset getRich
+                  (\ _ -> throwPure (GuardException "bar")) assetAsToken getRich
          p `submitMustFail`
-             do asset <- create assetTpl
+             do assetAsToken <- create assetAsTokenTpl
                 DA.Internal.Desugar._tryCatch
-                  \ _ -> do exerciseGuarded (\ _ -> error "foo") asset getRich
+                  \ _ -> do exerciseGuarded (\ _ -> error "foo") assetAsToken getRich
                   \case
                     (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some GeneralError {})
                       -> DA.Internal.Desugar.Some
-                           pure $ toInterfaceContractId @Token asset
+                           pure $ toInterfaceContractId @Token assetAsToken
                     _ -> DA.Internal.Desugar.None
          p `submitMustFail`
-             do asset <- create assetTpl
+             do assetAsToken <- create assetAsTokenTpl
                 DA.Internal.Desugar._tryCatch
                   \ _
                     -> do exerciseGuarded
-                            (\ _ -> throwPure (GuardException "bar")) asset getRich
+                            (\ _ -> throwPure (GuardException "bar")) assetAsToken getRich
                   \case
                     (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some GuardException {})
                       -> DA.Internal.Desugar.Some
-                           pure $ toInterfaceContractId @Token asset
+                           pure $ toInterfaceContractId @Token assetAsToken
                     _ -> DA.Internal.Desugar.None
-         p `submitMustFail`
-             do anotherAsset <- coerceContractId @_ @AnotherAsset
-                                  <$> create assetTpl
-                exerciseGuarded (const True) anotherAsset getRich
-         p `submitMustFail`
-             do subToken <- coerceContractId @_ @SubToken <$> create assetTpl
-                exerciseGuarded (const True) subToken getRich
          pure ()

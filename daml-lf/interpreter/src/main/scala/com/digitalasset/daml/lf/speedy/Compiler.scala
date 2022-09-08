@@ -157,10 +157,7 @@ private[lf] final class Compiler(
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompileInterfaceView(view: InterfaceView): t.SExpr = {
-    // TODO https://github.com/digital-asset/daml/issues/14112
-    // PoC until we have interface views
-    val magicInterfaceView = MethodName.assertFromString("_view")
-    SBCallInterface(view.interfaceId, magicInterfaceView)(
+    SBViewInterface(view.interfaceId)(
       SBToAnyContract(view.templateId)(t.SEValue(view.argument))
     )
   }
@@ -334,15 +331,19 @@ private[lf] final class Compiler(
       addDef(compileObservers(tmplId, tmpl))
       addDef(compileToCachedContract(tmplId, tmpl))
       tmpl.implements.values.foreach { impl =>
-        addDef(compileImplements(tmplId, impl.interfaceId))
-        impl.methods.values.foreach(method =>
-          addDef(compileImplementsMethod(tmpl.param, tmplId, impl.interfaceId, method))
-        )
+        compileInterfaceInstance(
+          parent = tmplId,
+          tmplParam = tmpl.param,
+          interfaceId = impl.interfaceId,
+          templateId = tmplId,
+          interfaceInstanceBody = impl.body,
+        ).foreach(addDef)
       }
 
       tmpl.choices.values.foreach(x => addDef(compileTemplateChoice(tmplId, tmpl, x)))
 
       tmpl.key.foreach { tmplKey =>
+        addDef(compileContractKeyWithMaintainers(tmplId, tmpl, tmplKey))
         addDef(compileFetchByKey(tmplId, tmpl, tmplKey))
         addDef(compileLookupByKey(tmplId, tmplKey))
         tmpl.choices.values.foreach(x => addDef(compileChoiceByKey(tmplId, tmpl, tmplKey, x)))
@@ -356,10 +357,13 @@ private[lf] final class Compiler(
         addDef(compileInterfaceChoice(ifaceId, iface.param, choice))
       )
       iface.coImplements.values.foreach { coimpl =>
-        addDef(compileCoImplements(coimpl.templateId, ifaceId))
-        coimpl.methods.values.foreach(method =>
-          addDef(compileCoImplementsMethod(iface.param, coimpl.templateId, ifaceId, method))
-        )
+        compileInterfaceInstance(
+          parent = ifaceId,
+          tmplParam = iface.param,
+          interfaceId = ifaceId,
+          templateId = coimpl.templateId,
+          interfaceInstanceBody = coimpl.body,
+        ).foreach(addDef)
       }
     }
 
@@ -488,36 +492,41 @@ private[lf] final class Compiler(
         env.toSEVar(cidPos),
         SBFetchAny(env.toSEVar(cidPos), s.SEValue.None),
       ),
-    ) { (payloadPos, _env) =>
-      val env = _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
+    ) { (payloadPos, env) =>
       let(
         env,
-        SBApplyChoiceGuard(choice.name, Some(ifaceId))(
-          env.toSEVar(guardPos),
-          env.toSEVar(payloadPos),
-          env.toSEVar(cidPos),
-        ),
-      ) { (_, env) =>
+        s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
+      ) { (_, _env) =>
+        val env = _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
         let(
           env,
-          SBResolveSBUBeginExercise(
-            interfaceId = ifaceId,
-            choiceName = choice.name,
-            consuming = choice.consuming,
-            byKey = false,
-          )(
+          SBApplyChoiceGuard(choice.name, Some(ifaceId))(
+            env.toSEVar(guardPos),
             env.toSEVar(payloadPos),
-            env.toSEVar(choiceArgPos),
             env.toSEVar(cidPos),
-            translateExp(env, choice.controllers),
-            choice.choiceObservers match {
-              case Some(observers) => translateExp(env, observers)
-              case None => s.SEValue.EmptyList
-            },
           ),
-        ) { (_, _env) =>
-          val env = _env.bindExprVar(choice.selfBinder, cidPos)
-          s.SEScopeExercise(app(translateExp(env, choice.update), env.toSEVar(tokenPos)))
+        ) { (_, env) =>
+          let(
+            env,
+            SBResolveSBUBeginExercise(
+              interfaceId = ifaceId,
+              choiceName = choice.name,
+              consuming = choice.consuming,
+              byKey = false,
+            )(
+              env.toSEVar(payloadPos),
+              env.toSEVar(choiceArgPos),
+              env.toSEVar(cidPos),
+              s.SEPreventCatch(translateExp(env, choice.controllers)),
+              choice.choiceObservers match {
+                case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
+                case None => s.SEValue.EmptyList
+              },
+            ),
+          ) { (_, _env) =>
+            val env = _env.bindExprVar(choice.selfBinder, cidPos)
+            s.SEScopeExercise(app(translateExp(env, choice.update), env.toSEVar(tokenPos)))
+          }
         }
       }
     }
@@ -638,9 +647,14 @@ private[lf] final class Compiler(
       ) { (payloadPos, env) =>
         let(
           env,
-          SBResolveSBUInsertFetchNode(env.toSEVar(payloadPos), env.toSEVar(cidPos)),
+          s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
         ) { (_, env) =>
-          env.toSEVar(payloadPos)
+          let(
+            env,
+            SBResolveSBUInsertFetchNode(env.toSEVar(payloadPos), env.toSEVar(cidPos)),
+          ) { (_, env) =>
+            env.toSEVar(payloadPos)
+          }
         }
       }
     }
@@ -694,43 +708,52 @@ private[lf] final class Compiler(
 
   private[this] val UnitDef = SDefinition(t.SEValue.Unit)
 
-  // Witness the fact that the template 'tmplId' implements the interface 'ifaceId'
-  private[this] def compileImplements(
-      tmplId: Identifier,
-      ifaceId: Identifier,
-  ): (t.SDefinitionRef, SDefinition) =
-    t.ImplementsDefRef(tmplId, ifaceId) -> UnitDef
+  // Compile the contents of an interface instance, including a witness for
+  // the existence of said interface instance.
+  private[this] def compileInterfaceInstance(
+      parent: TypeConName,
+      tmplParam: Name,
+      interfaceId: TypeConName,
+      templateId: TypeConName,
+      interfaceInstanceBody: InterfaceInstanceBody,
+  ): Iterable[(t.SDefinitionRef, SDefinition)] = {
+    val builder = Iterable.newBuilder[(t.SDefinitionRef, SDefinition)]
+    def addDef(binding: (t.SDefinitionRef, SDefinition)): Unit = discard(builder += binding)
 
-  // Witness the fact that the interface 'ifaceId' provides an implementation
-  // for (co-implements) the template 'tmplId'
-  private[this] def compileCoImplements(
-      tmplId: Identifier,
-      ifaceId: Identifier,
-  ): (t.SDefinitionRef, SDefinition) =
-    t.CoImplementsDefRef(tmplId, ifaceId) -> UnitDef
+    val interfaceInstanceDefRef = t.InterfaceInstanceDefRef(parent, interfaceId, templateId)
+    addDef(interfaceInstanceDefRef -> UnitDef)
+
+    interfaceInstanceBody.methods.values.foreach(method =>
+      addDef(compileInterfaceInstanceMethod(interfaceInstanceDefRef, tmplParam, method))
+    )
+
+    addDef(
+      compileInterfaceInstanceView(interfaceInstanceDefRef, tmplParam, interfaceInstanceBody.view)
+    )
+
+    builder.result()
+  }
 
   // Compile the implementation of an interface method.
-  private[this] def compileImplementsMethod(
+  private[this] def compileInterfaceInstanceMethod(
+      interfaceInstanceDefRef: t.InterfaceInstanceDefRef,
       tmplParam: Name,
-      tmplId: Identifier,
-      ifaceId: Identifier,
-      method: TemplateImplementsMethod,
+      method: InterfaceInstanceMethod,
   ): (t.SDefinitionRef, SDefinition) = {
-    topLevelFunction1(t.ImplementsMethodDefRef(tmplId, ifaceId, method.name)) { (tmplArgPos, env) =>
-      translateExp(env.bindExprVar(tmplParam, tmplArgPos), method.value)
+    topLevelFunction1(t.InterfaceInstanceMethodDefRef(interfaceInstanceDefRef, method.name)) {
+      (tmplArgPos, env) =>
+        translateExp(env.bindExprVar(tmplParam, tmplArgPos), method.value)
     }
   }
 
-  // Compile the interface-provided implementation of a method for the given template.
-  private[this] def compileCoImplementsMethod(
+  // Compile the implementation of an interface view.
+  private[this] def compileInterfaceInstanceView(
+      interfaceInstanceDefRef: t.InterfaceInstanceDefRef,
       tmplParam: Name,
-      tmplId: Identifier,
-      ifaceId: Identifier,
-      method: InterfaceCoImplementsMethod,
+      body: Expr,
   ): (t.SDefinitionRef, SDefinition) = {
-    topLevelFunction1(t.CoImplementsMethodDefRef(tmplId, ifaceId, method.name)) {
-      (tmplArgPos, env) =>
-        translateExp(env.bindExprVar(tmplParam, tmplArgPos), method.value)
+    topLevelFunction1(t.InterfaceInstanceViewDefRef(interfaceInstanceDefRef)) { (tmplArgPos, env) =>
+      translateExp(env.bindExprVar(tmplParam, tmplArgPos), body)
     }
   }
 
@@ -779,6 +802,21 @@ private[lf] final class Compiler(
             s.SEValue(choiceArg),
             env.toSEVar(tokenPos),
           )
+      }
+    }
+
+  private[this] def compileContractKeyWithMaintainers(
+      tmplId: Identifier,
+      tmpl: Template,
+      tmplKey: TemplateKey,
+  ): (t.SDefinitionRef, SDefinition) =
+    // compile a template with key into:
+    // ContractKeyWithMaintainersDefRef(tmplId) = \ <tmplArg> ->
+    //   let <key> = tmplKey.body(<tmplArg>)
+    //   in { key = <key> ; maintainers = [tmplKey.maintainers] <key> }
+    topLevelFunction1(t.ContractKeyWithMaintainersDefRef(tmplId)) { (tmplArg, env) =>
+      let(env, translateExp(env.bindExprVar(tmpl.param, tmplArg), tmplKey.body)) { (keyPos, env) =>
+        translateKeyWithMaintainers(env, keyPos, tmplKey)
       }
     }
 
@@ -938,8 +976,7 @@ private[lf] final class Compiler(
     catchEverything(translateCommand(Env.Empty, cmd))
 
   private[this] def translateCommands(env: Env, bindings: ImmArray[Command]): s.SExpr =
-    // commands are compile similarly as update block
-    // see compileBlock
+    // commands are compiled similarly to update block - see compileBlock
     bindings.toList match {
       case Nil =>
         SEUpdatePureUnit

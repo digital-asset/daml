@@ -5,6 +5,7 @@ import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
 import qualified InterfaceRequiresClashA as A
 import qualified InterfaceRequiresClashB as B
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => C = C GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep C where
   _interfaceTypeRep
@@ -48,3 +49,5 @@ instance DA.Internal.Desugar.HasIsInterfaceType C where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq C where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasInterfaceView C EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"

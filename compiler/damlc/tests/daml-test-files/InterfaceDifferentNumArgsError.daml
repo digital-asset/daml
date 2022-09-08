@@ -3,11 +3,14 @@
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 -- @ENABLE-SCENARIOS
--- @ERROR range=23:7-25:24; Equations for method ‘m0’ in template ‘T’ implementation of interface ‘I’ have different numbers of arguments
+-- @ERROR range=27:7-29:24; Equations for method ‘m0’ have different numbers of arguments
 
 module InterfaceDifferentNumArgsError where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface I where
+  viewtype EmptyInterfaceView
   m0 : Bool -> Bool -> Party
 
 template T
@@ -19,7 +22,8 @@ template T
   where
     signatory p0, p1
 
-    implements I where
+    interface instance I for T where
+      view = EmptyInterfaceView
       m0 False = const p0
       m0 True False = p1
       m0 True True = p2

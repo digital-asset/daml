@@ -1,6 +1,8 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE MultiWayIf #-}
+
 module DA.Daml.Compiler.DataDependencies
     ( Config (..)
     , buildDependencyInfo
@@ -524,14 +526,16 @@ generateSrcFromLf env = noLoc mod
         [dataTypeCon0] <- [LF.unTypeConName dataTypeCon]
         let occName = mkOccName varName (T.unpack dataTypeCon0)
         pure $ do
-            ctxt <- noLoc <$> do
-                if NM.name dtype `NM.member` LF.moduleInterfaces (envMod env) then do
-                    -- We add the DamlInterface context so LFConversion
-                    -- picks this up as an interface
-                    interface <- mkGhcType env "DamlInterface"
-                    pure [noLoc interface]
-                else
-                    pure []
+            templateCtx <- mkGhcType env "DamlTemplate"
+            interfaceCtx <- mkGhcType env "DamlInterface"
+            let
+              ctxt = noLoc . fmap noLoc $
+                -- We add the DamlTemplate and DamlInterface contexts so
+                -- LFConversion picks this up as the right sort of type.
+                if
+                  | NM.name dtype `NM.member` LF.moduleTemplates (envMod env) -> [templateCtx]
+                  | NM.name dtype `NM.member` LF.moduleInterfaces (envMod env) -> [interfaceCtx]
+                  | otherwise -> []
             cons <- convDataCons dataTypeCon0 dataCons
             mkDataDecl env thisModule ctxt occName dataParams cons
 
@@ -1305,6 +1309,7 @@ isDFunBody = \case
     LF.ETyLam _ body -> isDFunBody body
     LF.ETmLam _ body -> isDFunBody body
     LF.EStructCon _ -> True
+    LF.EUnit -> True
     _ -> False
 
 -- | Get the relevant references from a dictionary function.

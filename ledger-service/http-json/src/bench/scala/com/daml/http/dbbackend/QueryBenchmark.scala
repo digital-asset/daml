@@ -4,7 +4,7 @@
 package com.daml.http.dbbackend
 
 import com.daml.http.dbbackend.Queries.SurrogateTpId
-import com.daml.http.domain.{Party, TemplateId}
+import com.daml.http.domain.{Party, ContractTypeId}
 import com.daml.http.util.Logging.instanceUUIDLogCtx
 import com.daml.nonempty.NonEmpty
 import doobie.implicits._
@@ -19,7 +19,7 @@ trait QueryBenchmark extends ContractDaoBenchmark {
   @Param(Array("1", "5", "9"))
   var extraTemplates: Int = _
 
-  private val tpid = TemplateId("-pkg-", "M", "T")
+  private val tpid = ContractTypeId.Template("-pkg-", "M", "T")
   private var surrogateTpid: SurrogateTpId = _
   val party = "Alice"
 
@@ -29,7 +29,7 @@ trait QueryBenchmark extends ContractDaoBenchmark {
     surrogateTpid = insertTemplate(tpid)
 
     val surrogateTpids = surrogateTpid :: (0 until extraTemplates)
-      .map(i => insertTemplate(TemplateId("-pkg-", "M", s"T$i")))
+      .map(i => insertTemplate(ContractTypeId("-pkg-", "M", s"T$i")))
       .toList
 
     val parties: List[String] = party :: (0 until extraParties).map(i => s"p$i").toList

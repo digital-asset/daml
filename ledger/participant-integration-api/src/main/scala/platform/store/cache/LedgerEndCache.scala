@@ -25,3 +25,7 @@ object MutableLedgerEndCache {
         else ledgerEnd
     }
 }
+
+object ImmutableLedgerEndCache {
+  def apply(ledgerEnd: (Offset, Long)): LedgerEndCache = () => ledgerEnd
+}

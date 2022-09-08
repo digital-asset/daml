@@ -20,8 +20,8 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//daml-assistant/scala-daml-project-config",
+        "//daml-lf/api-type-signature",
         "//daml-lf/data",
-        "//daml-lf/interface",
         "//libs-scala/build-info",
         "@maven//:ch_qos_logback_logback_classic",
     ],
@@ -39,8 +39,8 @@ da_scala_test(
     deps = [
         ":codegen-common",
         "//daml-assistant/scala-daml-project-config",
+        "//daml-lf/api-type-signature",
         "//daml-lf/data",
-        "//daml-lf/interface",
         "//daml-lf/transaction-test-lib",
         "//libs-scala/nonempty",
         "@maven//:ch_qos_logback_logback_classic",

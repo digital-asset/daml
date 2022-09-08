@@ -3,6 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
+data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => Gettable
   = Gettable GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Gettable where
@@ -31,29 +32,25 @@ instance DA.Internal.Desugar.HasIsInterfaceType Gettable where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Gettable where
   (==) = GHC.Types.primitive @"BEEqual"
-instance (DA.Internal.Desugar.Implements t Gettable) =>
-         DA.Internal.Desugar.HasToAnyChoice t Get (Gettable) where
+instance DA.Internal.Desugar.HasToAnyChoice Gettable Get (Gettable) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Gettable])
-instance (DA.Internal.Desugar.Implements t Gettable) =>
-         DA.Internal.Desugar.HasFromAnyChoice t Get (Gettable) where
+instance DA.Internal.Desugar.HasFromAnyChoice Gettable Get (Gettable) where
   _fromAnyChoice _
     = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Gettable])
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t Gettable)) =>
-         DA.Internal.Desugar.HasExerciseGuarded t Get (Gettable) where
+instance DA.Internal.Desugar.HasExerciseGuarded Gettable Get (Gettable) where
   exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @Gettable cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Gettable cid pred)
+instance DA.Internal.Desugar.HasExercise Gettable Get (Gettable) where
+  exercise cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Gettable cid)
         arg
-        (DA.Internal.Desugar._exerciseInterfaceGuard @Gettable cid pred)
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t Gettable)) =>
-         DA.Internal.Desugar.HasExercise t Get (Gettable) where
-  exercise = DA.Internal.Desugar._exerciseDefault
 data Get
   = Get {anyActor : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -74,3 +71,5 @@ _choice_GettableGet
      \ self this arg@Get {..}
        -> let _ = self in let _ = this in let _ = arg in do return this, 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView Gettable EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"

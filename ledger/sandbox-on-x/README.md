@@ -608,6 +608,18 @@ executing Daml code and fetching data).
 A meter. Number of commands that are currently being executed by the Daml engine
 (excluding fetching data).
 
+### ``daml.index.lf_value.compute_interface_view``
+
+A timer. Time to compute an interface view within LF-Value translation step in the Indexer.
+
+### ``daml.index.package_metadata.decode_archive``
+
+A timer. Time to decode a package archive to extract metadata information. 
+
+### ``daml.index.package_metadata.view_init``
+
+A timer. Time to initialise package metadata view.
+
 ### ``daml.index.db.get_active_contracts``
 
 A database metric. Time spent retrieving a page of active contracts to be served

@@ -9,8 +9,9 @@ import java.util.regex.Pattern
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
+import com.daml.lf.interpretation.Error.InconsistentDisclosureTable
 import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.language.{Ast, TemplateOrInterface}
+import com.daml.lf.language.Ast
 import com.daml.lf.speedy.ArrayList.Implicits._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -34,11 +35,12 @@ import com.daml.scalautil.Statement.discard
 
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeSet
+import scala.math.Ordering.Implicits.infixOrderingOps
 
 /**  Speedy builtins are stratified into two layers:
   *  Parent: `SBuiltin`, (which are effectful), and child: `SBuiltinPure` (which are pure).
   *
-  *  Effectful builtin functions may raise `SpeedyHungry` exceptions or change machine state.
+  *  Effectful builtin functions may ask questions of the ledger or change machine state.
   *  Pure builtins can be treated specially because their evaluation is immediate.
   *  This fact is used by the execution of the ANF expression form: `SELet1Builtin`.
   *
@@ -62,7 +64,7 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
   /** Execute the builtin with 'arity' number of arguments in 'args'.
     * Updates the machine state accordingly.
     */
-  private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit
+  private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Control
 
   protected def unexpectedType(i: Int, expected: String, found: SValue) =
     crash(s"type mismatch of argument $i: expect $expected but got $found")
@@ -209,8 +211,8 @@ private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltin(
   override private[speedy] final def execute(
       args: util.ArrayList[SValue],
       machine: Machine,
-  ): Unit = {
-    machine.returnValue = executePure(args)
+  ): Control = {
+    Control.Value(executePure(args))
   }
 
   /** Execute the (pure) builtin with 'arity' number of arguments in 'args'.
@@ -227,10 +229,11 @@ private[speedy] sealed abstract class OnLedgerBuiltin(arity: Int)
       args: util.ArrayList[SValue],
       machine: Machine,
       onLedger: OnLedger,
-  ): Unit
+  ): Control
 
-  final override def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
+  final override def execute(args: util.ArrayList[SValue], machine: Machine): Control = {
     machine.withOnLedger(productPrefix)(execute(args, machine, _))
+  }
 }
 
 private[lf] object SBuiltin {
@@ -304,10 +307,10 @@ private[lf] object SBuiltin {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-    ): Unit =
+    ): Control =
       compute(args) match {
         case Some(value) =>
-          machine.returnValue = value
+          Control.Value(value)
         case None =>
           unwindToHandler(machine, buildException(args))
       }
@@ -448,13 +451,16 @@ private[lf] object SBuiltin {
   }
 
   final case object SBContractIdToText extends SBuiltin(1) {
-    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
       val coid = getSContractId(args, 0).coid
       machine.ledgerMode match {
         case OffLedger =>
-          machine.returnValue = SOptional(Some(SText(coid)))
+          Control.Value(SOptional(Some(SText(coid))))
         case _ =>
-          machine.returnValue = SValue.SValue.None
+          Control.Value(SValue.SValue.None)
       }
     }
   }
@@ -551,12 +557,15 @@ private[lf] object SBuiltin {
   }
 
   final case object SBFoldl extends SBuiltin(3) {
-    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
       val func = args.get(0)
       val init = args.get(1)
       val list = getSList(args, 2)
       machine.pushKont(KFoldl(machine, func, list))
-      machine.returnValue = init
+      Control.Value(init)
     }
   }
 
@@ -589,18 +598,22 @@ private[lf] object SBuiltin {
   // However, this would be a breaking change compared to the aforementioned
   // implementation of `foldr`.
   final case object SBFoldr extends SBuiltin(3) {
-    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
       val func = args.get(0).asInstanceOf[SPAP]
       val init = args.get(1)
       val list = getSList(args, 2)
       if (func.arity - func.actuals.size >= 2) {
         val array = list.toImmArray
         machine.pushKont(KFoldr(machine, func, array, array.length))
-        machine.returnValue = init
+        Control.Value(init)
       } else {
         val stack = list
         stack.pop match {
-          case None => machine.returnValue = init
+          case None =>
+            Control.Value(init)
           case Some((head, tail)) =>
             machine.pushKont(KFoldr1Map(machine, func, tail, FrontStack.empty, init))
             machine.enterApplication(func, Array(SEValue(head)))
@@ -905,17 +918,22 @@ private[lf] object SBuiltin {
     *    -> Bool (false if ensure failed)
     *    -> Unit
     */
-  final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SUnit.type = {
-      if (!getSBool(args, 1))
-        throw SErrorDamlException(
+  final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltin(2) {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
+      if (!getSBool(args, 1)) {
+        Control.Error(
           IE.TemplatePreconditionViolated(
             templateId = templateId,
             optLocation = None,
             arg = args.get(0).toUnnormalizedValue,
           )
         )
-      SUnit
+      } else {
+        Control.Value(SUnit)
+      }
     }
   }
 
@@ -929,35 +947,36 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
-    ): Unit = {
+    ): Control = {
       val agreement = getSText(args, 0)
       val cached = extractCachedContract(machine, args.get(1))
       val createArgValue = machine.normValue(cached.templateId, cached.value)
-      cached.key.foreach { case Node.KeyWithMaintainers(key, maintainers) =>
-        if (maintainers.isEmpty)
-          throw SErrorDamlException(
+      cached.key match {
+        case Some(Node.KeyWithMaintainers(key, maintainers)) if maintainers.isEmpty =>
+          Control.Error(
             IE.CreateEmptyContractKeyMaintainers(cached.templateId, createArgValue, key)
           )
-      }
-      onLedger.ptx
-        .insertCreate(
-          submissionTime = machine.submissionTime,
-          templateId = cached.templateId,
-          arg = createArgValue,
-          agreementText = agreement,
-          optLocation = machine.lastLocation,
-          signatories = cached.signatories,
-          stakeholders = cached.stakeholders,
-          key = cached.key,
-          version = machine.tmplId2TxVersion(cached.templateId),
-        ) match {
-        case Right((coid, newPtx)) =>
-          onLedger.updateCachedContracts(coid, cached)
-          onLedger.ptx = newPtx
-          machine.returnValue = SContractId(coid)
-        case Left((newPtx, err)) =>
-          onLedger.ptx = newPtx // Seems wrong. But one test in ScriptService requires this.
-          throw convTxError(err)
+        case _ =>
+          onLedger.ptx
+            .insertCreate(
+              submissionTime = machine.submissionTime,
+              templateId = cached.templateId,
+              arg = createArgValue,
+              agreementText = agreement,
+              optLocation = machine.lastLocation,
+              signatories = cached.signatories,
+              stakeholders = cached.stakeholders,
+              key = cached.key,
+              version = machine.tmplId2TxVersion(cached.templateId),
+            ) match {
+            case Right((coid, newPtx)) =>
+              onLedger.updateCachedContracts(coid, cached)
+              onLedger.ptx = newPtx
+              Control.Value(SContractId(coid))
+            case Left((newPtx, err)) =>
+              onLedger.ptx = newPtx // Seems wrong. But one test in ScriptService requires this.
+              Control.Error(convTxError(err))
+          }
       }
     }
   }
@@ -985,7 +1004,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
-    ): Unit = {
+    ): Control = {
       val chosenValue = machine.normValue(templateId, args.get(0))
       val coid = getSContractId(args, 1)
       val cached =
@@ -1000,6 +1019,9 @@ private[lf] object SBuiltin {
       val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
       onLedger.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
       val mbKey = cached.key
+      val templateVersion = machine.tmplId2TxVersion(templateId)
+      val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
+      val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
 
       onLedger.ptx
         .beginExercises(
@@ -1016,58 +1038,66 @@ private[lf] object SBuiltin {
           mbKey = mbKey,
           byKey = byKey,
           chosenValue = chosenValue,
-          version = machine.tmplId2TxVersion(templateId),
+          version = exerciseVersion,
         ) match {
         case Right(ptx) =>
           onLedger.ptx = ptx
-          machine.returnValue = SUnit
+          Control.Value(SUnit)
         case Left(err) =>
-          throw convTxError(err)
+          Control.Error(convTxError(err))
       }
     }
   }
 
   // SBCastAnyContract: ContractId templateId -> Any -> templateId
-  final case class SBCastAnyContract(templateId: TypeConName) extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]) = {
+  final case class SBCastAnyContract(templateId: TypeConName) extends SBuiltin(2) {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
       def coid = getSContractId(args, 0)
       val (actualTemplateId, record) = getSAnyContract(args, 1)
-      if (actualTemplateId != templateId)
-        throw SErrorDamlException(IE.WronglyTypedContract(coid, templateId, actualTemplateId))
-      record
+      if (actualTemplateId != templateId) {
+        Control.Error(IE.WronglyTypedContract(coid, templateId, actualTemplateId))
+      } else {
+        Control.Value(record)
+      }
     }
   }
 
-  private[this] def getImplementsOrCoImplements(
+  private[this] def getInterfaceInstance(
       machine: Machine,
-      templateId: TypeConName,
       interfaceId: TypeConName,
-  ): Option[TemplateOrInterface[ImplementsDefRef, CoImplementsDefRef]] = {
-    val implements = ImplementsDefRef(templateId, interfaceId)
-    val coImplements = CoImplementsDefRef(templateId, interfaceId)
-    if (machine.compiledPackages.getDefinition(implements).nonEmpty)
-      Some(TemplateOrInterface.Template(implements))
-    else if (machine.compiledPackages.getDefinition(coImplements).nonEmpty)
-      Some(TemplateOrInterface.Interface(coImplements))
-    else
-      None
+      templateId: TypeConName,
+  ): Option[InterfaceInstanceDefRef] = {
+    def mkRef(parent: TypeConName) =
+      InterfaceInstanceDefRef(parent, interfaceId, templateId)
+
+    List(mkRef(templateId), mkRef(interfaceId)) find { ref =>
+      machine.compiledPackages.getDefinition(ref).nonEmpty
+    }
   }
 
-  private[this] def implementsOrCoImplements(
+  private[this] def interfaceInstanceExists(
       machine: Machine,
-      templateId: TypeConName,
       interfaceId: TypeConName,
+      templateId: TypeConName,
   ): Boolean =
-    getImplementsOrCoImplements(machine, templateId, interfaceId).nonEmpty
+    getInterfaceInstance(machine, interfaceId, templateId).nonEmpty
 
   // SBCastAnyInterface: ContractId ifaceId -> Any -> ifaceId
   final case class SBCastAnyInterface(ifaceId: TypeConName) extends SBuiltin(2) {
-    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
       def coid = getSContractId(args, 0)
       val (actualTmplId, _) = getSAnyContract(args, 1)
-      if (!implementsOrCoImplements(machine, actualTmplId, ifaceId))
-        throw SErrorDamlException(IE.ContractDoesNotImplementInterface(ifaceId, coid, actualTmplId))
-      machine.returnValue = args.get(1)
+      if (!interfaceInstanceExists(machine, ifaceId, actualTmplId)) {
+        Control.Error(IE.ContractDoesNotImplementInterface(ifaceId, coid, actualTmplId))
+      } else {
+        Control.Value(args.get(1))
+      }
     }
   }
 
@@ -1076,55 +1106,63 @@ private[lf] object SBuiltin {
     *    -> Optional {key: key, maintainers: List Party} (template key, if present)
     *    -> a
     */
+
   final case object SBFetchAny extends OnLedgerBuiltin(2) {
     override protected def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
-    ): Unit = {
+    ): Control = {
       val coid = getSContractId(args, 0)
       onLedger.cachedContracts.get(coid) match {
         case Some(cached) =>
           onLedger.ptx.consumedByOrInactive(coid) match {
             case Some(Left(nid)) =>
-              throw SErrorDamlException(IE.ContractNotActive(coid, cached.templateId, nid))
+              Control.Error(IE.ContractNotActive(coid, cached.templateId, nid))
 
             case Some(Right(())) =>
-              throw SErrorDamlException(IE.ContractNotFound(coid))
+              Control.Error(IE.ContractNotFound(coid))
 
-            case None => ()
+            case None =>
+              Control.Value(cached.any)
           }
-          machine.returnValue = cached.any
 
         case None =>
-          def continue = { case V.ContractInstance(actualTmplId, arg, _) =>
+          def continue(coinst: V.ContractInstance): Control = {
             machine.pushKont(KCacheContract(machine, coid))
-            machine.ctrl = SEApp(
-              // The call to ToCachedContractDefRef(actualTmplId) will query package
-              // of actualTmplId if not know.
-              SEVal(ToCachedContractDefRef(actualTmplId)),
-              Array(
-                SEImportValue(Ast.TTyCon(actualTmplId), arg),
-                SEValue(args.get(1)),
-              ),
-            )
-          }: V.ContractInstance => Unit
+            val e = coinst match {
+              case V.ContractInstance(actualTmplId, arg, _) =>
+                SEApp(
+                  // The call to ToCachedContractDefRef(actualTmplId) will query package
+                  // of actualTmplId if not known.
+                  SEVal(ToCachedContractDefRef(actualTmplId)),
+                  Array(
+                    SEImportValue(Ast.TTyCon(actualTmplId), arg),
+                    SEValue(args.get(1)),
+                  ),
+                )
+            }
+            Control.Expression(e)
+          }
 
           machine.disclosureTable.contractById.get(SContractId(coid)) match {
             case Some((templateId, arg)) =>
-              val coinst = machine.normValue(templateId, arg)
-              continue(V.ContractInstance(templateId, coinst, ""))
+              val v = machine.normValue(templateId, arg)
+              val coinst = V.ContractInstance(templateId, v, "")
+              continue(coinst)
 
             case None =>
-              throw SpeedyHungry(
+              Control.Question(
                 SResultNeedContract(
                   coid,
                   onLedger.committers,
-                  continue,
+                  callback = { res =>
+                    val control = continue(res)
+                    machine.setControl(control)
+                  },
                 )
               )
           }
-
       }
 
     }
@@ -1137,13 +1175,14 @@ private[lf] object SBuiltin {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-    ): Unit = {
+    ): Control = {
       val guard = args.get(0)
       val (templateId, record) = getSAnyContract(args, 1)
       val coid = getSContractId(args, 2)
 
-      machine.ctrl = SEApp(SEValue(guard), Array(SEValue(SAnyContract(templateId, record))))
+      val e = SEApp(SEValue(guard), Array(SEValue(SAnyContract(templateId, record))))
       machine.pushKont(KCheckChoiceGuard(machine, coid, templateId, choiceName, byInterface))
+      Control.Expression(e)
     }
   }
 
@@ -1158,15 +1197,18 @@ private[lf] object SBuiltin {
 
   final case class SBGuardMatchTemplateId(
       expectedTmplId: TypeConName
-  ) extends SBuiltinPure(2) {
-    override private[speedy] def executePure(
-        args: util.ArrayList[SValue]
-    ): SBool = {
+  ) extends SBuiltin(2) {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
       val contractId = getSContractId(args, 0)
       val (actualTmplId, record @ _) = getSAnyContract(args, 1)
-      if (actualTmplId != expectedTmplId)
-        throw SErrorDamlException(IE.WronglyTypedContract(contractId, expectedTmplId, actualTmplId))
-      SBool(true)
+      if (actualTmplId != expectedTmplId) {
+        Control.Error(IE.WronglyTypedContract(contractId, expectedTmplId, actualTmplId))
+      } else {
+        Control.Value(SBool(true))
+      }
     }
   }
 
@@ -1177,11 +1219,11 @@ private[lf] object SBuiltin {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-    ) = {
+    ): Control = {
       val contractId = getSContractId(args, 0)
       val (actualTmplId, record @ _) = getSAnyContract(args, 1)
-      if (!implementsOrCoImplements(machine, actualTmplId, requiringIfaceId))
-        throw SErrorDamlException(
+      if (!interfaceInstanceExists(machine, requiringIfaceId, actualTmplId)) {
+        Control.Error(
           IE.ContractDoesNotImplementRequiringInterface(
             requiringIfaceId,
             requiredIfaceId,
@@ -1189,7 +1231,9 @@ private[lf] object SBuiltin {
             actualTmplId,
           )
         )
-      machine.returnValue = SBool(true)
+      } else {
+        Control.Value(SBool(true))
+      }
     }
   }
 
@@ -1199,8 +1243,11 @@ private[lf] object SBuiltin {
       consuming: Boolean,
       byKey: Boolean,
   ) extends SBuiltin(1) {
-    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
-      machine.ctrl = SEBuiltin(
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
+      val e = SEBuiltin(
         SBUBeginExercise(
           templateId = getSAnyContract(args, 0)._1,
           interfaceId = Some(interfaceId),
@@ -1209,20 +1256,31 @@ private[lf] object SBuiltin {
           byKey = false,
         )
       )
+      Control.Expression(e)
+    }
   }
 
   final case object SBResolveSBUInsertFetchNode extends SBuiltin(1) {
-    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
-      machine.ctrl = SEBuiltin(
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
+      val e = SEBuiltin(
         SBUInsertFetchNode(getSAnyContract(args, 0)._1, byKey = false)
       )
+      Control.Expression(e)
+    }
   }
 
   // Return a definition matching the templateId of a given payload
   sealed class SBResolveVirtual(toDef: Ref.Identifier => SDefinitionRef) extends SBuiltin(1) {
-    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
       val (ty, record) = getSAnyContract(args, 0)
-      machine.ctrl = SEApp(SEVal(toDef(ty)), Array(SEValue(record)))
+      val e = SEApp(SEVal(toDef(ty)), Array(SEValue(record)))
+      Control.Expression(e)
     }
   }
 
@@ -1265,14 +1323,17 @@ private[lf] object SBuiltin {
   // matches the template type, and then return the SAny internal value.
   final case class SBUnsafeFromInterface(
       tplId: TypeConName
-  ) extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SRecord = {
+  ) extends SBuiltin(2) {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
       val coid = getSContractId(args, 0)
       val (tyCon, record) = getSAnyContract(args, 1)
       if (tplId == tyCon) {
-        record
+        Control.Value(record)
       } else {
-        throw SErrorDamlException(IE.WronglyTypedContract(coid, tplId, tyCon))
+        Control.Error(IE.WronglyTypedContract(coid, tplId, tyCon))
       }
     }
   }
@@ -1288,11 +1349,12 @@ private[lf] object SBuiltin {
         machine: Machine,
     ) = {
       val (actualTemplateId, record) = getSAnyContract(args, 0)
-      machine.returnValue =
-        if (implementsOrCoImplements(machine, actualTemplateId, requiringIfaceId))
+      val v =
+        if (interfaceInstanceExists(machine, requiringIfaceId, actualTemplateId))
           SOptional(Some(SAnyContract(actualTemplateId, record)))
         else
           SOptional(None)
+      Control.Value(v)
     }
   }
 
@@ -1307,11 +1369,11 @@ private[lf] object SBuiltin {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-    ) = {
+    ): Control = {
       val coid = getSContractId(args, 0)
       val (actualTmplId, record) = getSAnyContract(args, 1)
-      if (!implementsOrCoImplements(machine, actualTmplId, requiringIfaceId))
-        throw SErrorDamlException(
+      if (!interfaceInstanceExists(machine, requiringIfaceId, actualTmplId)) {
+        Control.Error(
           IE.ContractDoesNotImplementRequiringInterface(
             requiringIfaceId,
             requiredIfaceId,
@@ -1319,7 +1381,9 @@ private[lf] object SBuiltin {
             actualTmplId,
           )
         )
-      machine.returnValue = SAnyContract(actualTmplId, record)
+      } else {
+        Control.Value(SAnyContract(actualTmplId, record))
+      }
     }
   }
 
@@ -1327,29 +1391,38 @@ private[lf] object SBuiltin {
       ifaceId: TypeConName,
       methodName: MethodName,
   ) extends SBuiltin(1) {
-    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
       val (templateId, record) = getSAnyContract(args, 0)
-      val ref = getImplementsOrCoImplements(machine, templateId, ifaceId) match {
-        case Some(TemplateOrInterface.Template(ImplementsDefRef(_, _))) =>
-          ImplementsMethodDefRef(templateId, ifaceId, methodName)
-        case Some(TemplateOrInterface.Interface(CoImplementsDefRef(_, _))) =>
-          CoImplementsMethodDefRef(templateId, ifaceId, methodName)
-        case None =>
-          crash(
-            s"Attempted to call interface ${ifaceId} method ${methodName} on a wrapped template of type ${ifaceId}, which doesn't implement the interface."
-          )
-      }
-      machine.ctrl = SEApp(SEVal(ref), Array(SEValue(record)))
+      val ref = getInterfaceInstance(machine, ifaceId, templateId).fold(
+        crash(
+          s"Attempted to call interface ${ifaceId} method ${methodName} on a wrapped " +
+            s"template of type ${ifaceId}, but there's no matching interface instance."
+        )
+      )(iiRef => InterfaceInstanceMethodDefRef(iiRef, methodName))
+      val e = SEApp(SEVal(ref), Array(SEValue(record)))
+      Control.Expression(e)
     }
   }
 
   final case class SBViewInterface(
       ifaceId: TypeConName
   ) extends SBuiltin(1) {
-    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      crash(
-        s"Tried to run unsupported view with interface ${ifaceId}."
-      )
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
+      val (templateId, record) = getSAnyContract(args, 0)
+      val ref = getInterfaceInstance(machine, ifaceId, templateId).fold(
+        crash(
+          s"Attempted to call view for interface ${ifaceId} on a wrapped " +
+            s"template of type ${ifaceId}, but there's no matching interface instance."
+        )
+      )(iiRef => InterfaceInstanceViewDefRef(iiRef))
+      val e = SEApp(SEVal(ref), Array(SEValue(record)))
+      Control.Expression(e)
     }
   }
 
@@ -1368,7 +1441,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
-    ): Unit = {
+    ): Control = {
       val coid = getSContractId(args, 0)
       val cached =
         onLedger.cachedContracts.getOrElse(
@@ -1390,9 +1463,9 @@ private[lf] object SBuiltin {
       ) match {
         case Right(ptx) =>
           onLedger.ptx = ptx
-          machine.returnValue = SUnit
+          Control.Value(SUnit)
         case Left(err) =>
-          throw convTxError(err)
+          Control.Error(convTxError(err))
       }
     }
   }
@@ -1407,7 +1480,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
-    ): Unit = {
+    ): Control = {
       val keyWithMaintainers =
         extractKeyWithMaintainers(
           machine,
@@ -1435,9 +1508,9 @@ private[lf] object SBuiltin {
       ) match {
         case Right(ptx) =>
           onLedger.ptx = ptx
-          machine.returnValue = SV.Unit
+          Control.Value(SUnit)
         case Left(err) =>
-          throw convTxError(err)
+          Control.Error(convTxError(err))
       }
     }
   }
@@ -1446,37 +1519,40 @@ private[lf] object SBuiltin {
     val templateId: TypeConName
 
     // Callback from the engine returned NotFound
-    def handleKeyFound(machine: Machine, cid: V.ContractId): Unit
+    def handleKeyFound(machine: Machine, cid: V.ContractId): Control
     // We already saw this key, but it was undefined or was archived
-    def handleKeyNotFound(machine: Machine, gkey: GlobalKey): Boolean
+    def handleKeyNotFound(machine: Machine, gkey: GlobalKey): (Control, Boolean)
 
     final def handleKnownInputKey(
         machine: Machine,
         gkey: GlobalKey,
         keyMapping: ContractStateMachine.KeyMapping,
-    ): Unit =
+    ): Control =
       keyMapping match {
-        case ContractStateMachine.KeyActive(cid) => handleKeyFound(machine, cid)
-        case ContractStateMachine.KeyInactive => discard(handleKeyNotFound(machine, gkey))
+        case ContractStateMachine.KeyActive(cid) =>
+          handleKeyFound(machine, cid)
+        case ContractStateMachine.KeyInactive =>
+          val (control, _) = handleKeyNotFound(machine, gkey)
+          control
       }
   }
 
   private[this] object KeyOperation {
     final class Fetch(override val templateId: TypeConName) extends KeyOperation {
-      override def handleKeyFound(machine: Machine, cid: V.ContractId): Unit =
-        machine.returnValue = SContractId(cid)
-      override def handleKeyNotFound(machine: Machine, gkey: GlobalKey): Boolean = {
-        machine.ctrl = SEDamlException(IE.ContractKeyNotFound(gkey))
-        false
+      override def handleKeyFound(machine: Machine, cid: V.ContractId): Control = {
+        Control.Value(SContractId(cid))
+      }
+      override def handleKeyNotFound(machine: Machine, gkey: GlobalKey): (Control, Boolean) = {
+        (Control.Error(IE.ContractKeyNotFound(gkey)), false)
       }
     }
 
     final class Lookup(override val templateId: TypeConName) extends KeyOperation {
-      override def handleKeyFound(machine: Machine, cid: V.ContractId): Unit =
-        machine.returnValue = SOptional(Some(SContractId(cid)))
-      override def handleKeyNotFound(machine: Machine, key: GlobalKey): Boolean = {
-        machine.returnValue = SValue.SValue.None
-        true
+      override def handleKeyFound(machine: Machine, cid: V.ContractId): Control = {
+        Control.Value(SOptional(Some(SContractId(cid))))
+      }
+      override def handleKeyNotFound(machine: Machine, key: GlobalKey): (Control, Boolean) = {
+        (Control.Value(SValue.SValue.None), true)
       }
     }
   }
@@ -1489,7 +1565,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
-    ): Unit = {
+    ): Control = {
       val skey = args.get(0)
       val keyWithMaintainers =
         extractKeyWithMaintainers(
@@ -1498,64 +1574,86 @@ private[lf] object SBuiltin {
           NameOf.qualifiedNameOfCurrentFunc,
           skey,
         )
-      if (keyWithMaintainers.maintainers.isEmpty)
-        throw SErrorDamlException(
+
+      if (keyWithMaintainers.maintainers.isEmpty) {
+        Control.Error(
           IE.FetchEmptyContractKeyMaintainers(operation.templateId, keyWithMaintainers.key)
         )
+      } else {
+        val gkey = GlobalKey(operation.templateId, keyWithMaintainers.key)
 
-      val gkey = GlobalKey(operation.templateId, keyWithMaintainers.key)
-
-      onLedger.ptx.contractState.resolveKey(gkey) match {
-        case Right((keyMapping, next)) =>
-          onLedger.ptx = onLedger.ptx.copy(contractState = next)
-          keyMapping match {
-            case ContractStateMachine.KeyActive(coid) =>
-              machine.checkKeyVisibility(onLedger, gkey, coid, operation.handleKeyFound)
-
-            case ContractStateMachine.KeyInactive =>
-              operation.handleKnownInputKey(machine, gkey, keyMapping)
-          }
-
-        case Left(handle) =>
-          def continue = { result =>
-            val (keyMapping, next) = handle(result)
+        onLedger.ptx.contractState.resolveKey(gkey) match {
+          case Right((keyMapping, next)) =>
             onLedger.ptx = onLedger.ptx.copy(contractState = next)
             keyMapping match {
               case ContractStateMachine.KeyActive(coid) =>
-                // We do not call directly machine.checkKeyVisibility as it may throw an SError,
-                // and such error cannot be throw inside a SpeedyHungry continuation.
-                machine.pushKont(
-                  KCheckKeyVisibility(machine, gkey, coid, operation.handleKeyFound)
-                )
-                if (onLedger.cachedContracts.contains(coid)) {
-                  machine.returnValue = SUnit
-                } else {
-                  // SBFetchAny will populate onLedger.cachedContracts with the contract pointed by coid
-                  machine.ctrl = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
-                }
-                true
+                machine.checkKeyVisibility(onLedger, gkey, coid, operation.handleKeyFound)
 
               case ContractStateMachine.KeyInactive =>
-                operation.handleKeyNotFound(machine, gkey)
+                operation.handleKnownInputKey(machine, gkey, keyMapping)
             }
-          }: Option[V.ContractId] => Boolean
 
-          // TODO (drsk) validate key hash. https://github.com/digital-asset/daml/issues/13897
-          machine.disclosureTable.contractIdByKey.get(gkey.hash) match {
-            case Some(coid) =>
-              val vcoid = coid.value
-              discard(continue(Some(vcoid)))
+          case Left(handle) =>
+            def continue = { result =>
+              val (keyMapping, next) = handle(result)
+              onLedger.ptx = onLedger.ptx.copy(contractState = next)
+              keyMapping match {
+                case ContractStateMachine.KeyActive(coid) =>
+                  // We do not call directly machine.checkKeyVisibility as it may throw an SError,
+                  // and such error cannot be throw inside a ledger-question continuation.
+                  machine.pushKont(
+                    KCheckKeyVisibility(machine, gkey, coid, operation.handleKeyFound)
+                  )
+                  if (onLedger.cachedContracts.contains(coid)) {
+                    (Control.Value(SUnit), true)
+                  } else {
+                    // SBFetchAny will populate onLedger.cachedContracts with the contract pointed by coid
+                    val e = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
+                    (Control.Expression(e), true)
+                  }
 
-            case None => {
-              throw SpeedyHungry(
-                SResultNeedKey(
-                  GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
-                  onLedger.committers,
-                  continue,
+                case ContractStateMachine.KeyInactive =>
+                  operation.handleKeyNotFound(machine, gkey)
+              }
+            }: Option[V.ContractId] => (Control, Boolean)
+
+            // TODO (drsk) validate key hash. https://github.com/digital-asset/daml/issues/13897
+            machine.disclosureTable.contractIdByKey.get(gkey.hash) match {
+              case Some(coid) =>
+                machine.disclosureTable.contractById.get(coid) match {
+                  case Some((actualTemplateId, _)) if actualTemplateId == operation.templateId =>
+                    val vcoid = coid.value
+                    continue(Some(vcoid))._1
+
+                  case Some((actualTemplateId, _)) =>
+                    Control.Error(
+                      InconsistentDisclosureTable.IncorrectlyTypedContract(
+                        coid.value,
+                        operation.templateId,
+                        actualTemplateId,
+                      )
+                    )
+
+                  case None =>
+                    crash(
+                      s"Disclosure table is in an inconsistent state: unable to locate the contract ${coid.value} even though we know its key hash ${gkey.hash}"
+                    )
+                }
+
+              case None =>
+                Control.Question(
+                  SResultNeedKey(
+                    GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
+                    onLedger.committers,
+                    callback = { res =>
+                      val (control, bool) = continue(res)
+                      machine.setControl(control)
+                      bool
+                    },
+                  )
                 )
-              )
             }
-          }
+        }
       }
     }
   }
@@ -1576,7 +1674,10 @@ private[lf] object SBuiltin {
 
   /** $getTime :: Token -> Timestamp */
   final case object SBGetTime extends SBuiltin(1) {
-    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
       checkToken(args, 0)
       // $ugettime :: Token -> Timestamp
       machine.ledgerMode match {
@@ -1584,20 +1685,29 @@ private[lf] object SBuiltin {
           onLedger.dependsOnTime = true
         case OffLedger =>
       }
-      throw SpeedyHungry(SResultNeedTime(timestamp => machine.returnValue = STimestamp(timestamp)))
+      Control.Question(
+        SResultNeedTime { timestamp =>
+          machine.setControl(Control.Value(STimestamp(timestamp)))
+        }
+      )
     }
   }
 
   final case class SBSSubmit(optLocation: Option[Location], mustFail: Boolean) extends SBuiltin(3) {
-    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
       checkToken(args, 2)
-      throw SpeedyHungry(
+      Control.Question(
         SResultScenarioSubmit(
           committers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(0)),
           commands = args.get(1),
           location = optLocation,
           mustFail = mustFail,
-          callback = newValue => machine.returnValue = newValue,
+          callback = { newValue =>
+            machine.setControl(Control.Value(newValue))
+          },
         )
       )
     }
@@ -1605,9 +1715,12 @@ private[lf] object SBuiltin {
 
   /** $pure :: a -> Token -> a */
   final case object SBSPure extends SBuiltin(2) {
-    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
       checkToken(args, 1)
-      machine.returnValue = args.get(0)
+      Control.Value(args.get(0))
     }
   }
 
@@ -1616,13 +1729,15 @@ private[lf] object SBuiltin {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-    ): Unit = {
+    ): Control = {
       checkToken(args, 1)
       val relTime = getSInt64(args, 0)
-      throw SpeedyHungry(
+      Control.Question(
         SResultScenarioPassTime(
           relTime,
-          timestamp => machine.returnValue = STimestamp(timestamp),
+          callback = { timestamp =>
+            machine.setControl(Control.Value(STimestamp(timestamp)))
+          },
         )
       )
     }
@@ -1633,11 +1748,16 @@ private[lf] object SBuiltin {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-    ): Unit = {
+    ): Control = {
       checkToken(args, 1)
       val name = getSText(args, 0)
-      throw SpeedyHungry(
-        SResultScenarioGetParty(name, party => machine.returnValue = SParty(party))
+      Control.Question(
+        SResultScenarioGetParty(
+          name,
+          callback = { party =>
+            machine.setControl(Control.Value(SParty(party)))
+          },
+        )
       )
     }
   }
@@ -1647,22 +1767,29 @@ private[lf] object SBuiltin {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-    ): Unit = {
+    ): Control = {
       val message = getSText(args, 0)
       machine.traceLog.add(message, machine.lastLocation)(machine.loggingContext)
-      machine.returnValue = args.get(1)
+      Control.Value(args.get(1))
     }
   }
 
   /** $error :: Text -> a */
-  final case object SBError extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): Nothing =
-      throw SErrorDamlException(IE.UserError(getSText(args, 0)))
+  final case object SBError extends SBuiltin(1) {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
+      Control.Error(IE.UserError(getSText(args, 0)))
+    }
   }
 
   /** $throw :: AnyException -> a */
   final case object SBThrow extends SBuiltin(1) {
-    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
       val excep = getSAny(args, 0)
       unwindToHandler(machine, excep)
     }
@@ -1670,7 +1797,10 @@ private[lf] object SBuiltin {
 
   /** $try-handler :: Optional (Token -> a) -> AnyException -> Token -> a (or re-throw) */
   final case object SBTryHandler extends SBuiltin(3) {
-    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
       val opt = getSOptional(args, 0)
       val excep = getSAny(args, 1)
       checkToken(args, 2)
@@ -1685,13 +1815,17 @@ private[lf] object SBuiltin {
 
   /** $any-exception-message :: AnyException -> Text */
   final case object SBAnyExceptionMessage extends SBuiltin(1) {
-    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
       val exception = getSAnyException(args, 0)
       exception.id match {
         case ValueArithmeticError.tyCon =>
-          machine.returnValue = exception.values.get(0)
+          Control.Value(exception.values.get(0))
         case tyCon =>
-          machine.ctrl = SEApp(SEVal(ExceptionMessageDefRef(tyCon)), Array(SEValue(exception)))
+          val e = SEApp(SEVal(ExceptionMessageDefRef(tyCon)), Array(SEValue(exception)))
+          Control.Expression(e)
       }
     }
   }
@@ -1920,7 +2054,10 @@ private[lf] object SBuiltin {
       SPAP(PClosure(Profile.LabelUnset, equalListBody, frame), ArrayList.empty, arity)
     }
 
-    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine) = {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
       val f = args.get(0)
       val xs = args.get(1)
       val ys = args.get(2)
@@ -1935,8 +2072,12 @@ private[lf] object SBuiltin {
   object SBExperimental {
 
     private object SBExperimentalAnswer extends SBuiltin(1) {
-      override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine) =
-        machine.returnValue = SInt64(42L)
+      override private[speedy] def execute(
+          args: util.ArrayList[SValue],
+          machine: Machine,
+      ): Control = {
+        Control.Value(SInt64(42L))
+      }
     }
 
     // TODO: move this into the speedy compiler code
@@ -1953,12 +2094,12 @@ private[lf] object SBuiltin {
 
   }
 
-  private[speedy] def convTxError(err: Tx.TransactionError): SErrorDamlException = {
+  private[speedy] def convTxError(err: Tx.TransactionError): interpretation.Error = {
     err match {
       case Tx.AuthFailureDuringExecution(nid, fa) =>
-        SErrorDamlException(IE.FailedAuthorization(nid, fa))
+        IE.FailedAuthorization(nid, fa)
       case Tx.DuplicateContractKey(key) =>
-        SErrorDamlException(IE.DuplicateContractKey(key))
+        IE.DuplicateContractKey(key)
     }
   }
 

@@ -43,4 +43,20 @@ object AdminServices extends LedgerApiErrors.AdminServicesErrorGroup {
 
   }
 
+  @Explanation(
+    "A cryptographic key used by the configured system is not valid"
+  )
+  @Resolution("Contact support.")
+  object InternallyInvalidKey
+      extends ErrorCode(
+        id = "INTERNALLY_INVALID_KEY",
+        ErrorCategory.SystemInternalAssumptionViolated, // Should have been caught by the participant
+      ) {
+    case class Reject(_message: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = _message
+        )
+  }
+
 }

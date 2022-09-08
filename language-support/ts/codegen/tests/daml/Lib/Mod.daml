@@ -16,7 +16,10 @@ template NonTopLevel with
   where
     signatory party
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface Other where
+  viewtype EmptyInterfaceView
   getOtherOwner : Party
   somethingImpl : Update ()
   choice Something : ()

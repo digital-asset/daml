@@ -14,6 +14,8 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.annotation.nowarn
+
 class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
   private val alice = P.Party("Alice")
   private val contract = SimpleListExample(alice, List(42))
@@ -28,7 +30,7 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
 
   "createAnd" should {
     "make a create-and-exercise command" in {
-      inside(contract.createAnd.exerciseGo(alice).command.command) {
+      inside(contract.createAnd.exerciseGo().command.command) {
         case rpccmd.Command.Command
               .CreateAndExercise(rpccmd.CreateAndExerciseCommand(_, _, _, _)) =>
           ()
@@ -41,7 +43,7 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
           .InterfaceMixer(alice)
           .createAnd
           .toInterface[MyMainIface.IfaceFromAnotherMod]
-          .exerciseFromAnotherMod(alice, 42)
+          .exerciseFromAnotherMod(42)
           .command
           .command
       ) {
@@ -69,7 +71,55 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
     val FAMTemplateId = ApiTypes.TemplateId unwrap MyMainIface.IfaceFromAnotherMod.id
 
     "invoke directly-defined choices" in {
-      inside(imId.exerciseOverloadedInTemplate(alice).command.command) {
+      inside(
+        imId.exerciseOverloadedInTemplate(alice).command.command: @nowarn(
+          "msg=Remove the actor argument"
+        )
+      ) {
+        case rpccmd.Command.Command.Exercise(
+              rpccmd.ExerciseCommand(
+                Some(DirectTemplateId),
+                cid,
+                "OverloadedInTemplate",
+                Some(choiceArg),
+              )
+            ) =>
+          cid should ===(imId)
+          choiceArg should ===(encode(MyMain.OverloadedInTemplate()))
+      }
+      inside(
+        imId
+          .exerciseOverloadedInTemplate(alice, MyMain.OverloadedInTemplate())
+          .command
+          .command: @nowarn("msg=Remove the actor argument")
+      ) {
+        case rpccmd.Command.Command.Exercise(
+              rpccmd.ExerciseCommand(
+                Some(DirectTemplateId),
+                cid,
+                "OverloadedInTemplate",
+                Some(choiceArg),
+              )
+            ) =>
+          cid should ===(imId)
+          choiceArg should ===(encode(MyMain.OverloadedInTemplate()))
+      }
+    }
+
+    "invoke directly-defined without actor" in {
+      inside(imId.exerciseOverloadedInTemplate().command.command) {
+        case rpccmd.Command.Command.Exercise(
+              rpccmd.ExerciseCommand(
+                Some(DirectTemplateId),
+                cid,
+                "OverloadedInTemplate",
+                Some(choiceArg),
+              )
+            ) =>
+          cid should ===(imId)
+          choiceArg should ===(encode(MyMain.OverloadedInTemplate()))
+      }
+      inside(imId.exerciseOverloadedInTemplate(MyMain.OverloadedInTemplate()).command.command) {
         case rpccmd.Command.Command.Exercise(
               rpccmd.ExerciseCommand(
                 Some(DirectTemplateId),
@@ -87,7 +137,7 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
       inside(
         imId
           .toInterface[MyMainIface.IfaceFromAnotherMod]
-          .exerciseOverloadedInTemplate(alice)
+          .exerciseOverloadedInTemplate()
           .command
           .command
       ) {
@@ -105,7 +155,7 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
     }
 
     "invoke interface-inherited choices by converting to interface" in {
-      inside(imId.toInterface[MyMain.InterfaceToMix].exerciseInheritedOnly(alice).command.command) {
+      inside(imId.toInterface[MyMain.InterfaceToMix].exerciseInheritedOnly().command.command) {
         case rpccmd.Command.Command.Exercise(
               rpccmd.ExerciseCommand(
                 Some(ITMTemplateId),
@@ -120,7 +170,7 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
     }
 
     "invoke on an interface-contract ID" in {
-      inside(itmId.exerciseFromAnotherMod(alice, 42).command.command) {
+      inside(itmId.exerciseFromAnotherMod(42).command.command) {
         case rpccmd.Command.Command.Exercise(
               rpccmd.ExerciseCommand(
                 Some(FAMTemplateId),
@@ -151,31 +201,13 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
 
   "key" should {
     "make an exercise-by-key command" in {
-      inside((KeyedNumber.key(alice).exerciseIncrement(alice, 42)).command.command) {
+      inside((KeyedNumber.key(alice).exerciseIncrement(42)).command.command) {
         case rpccmd.Command.Command.ExerciseByKey(
               rpccmd.ExerciseByKeyCommand(Some(tid), Some(k), "Increment", Some(choiceArg))
             ) =>
           tid should ===(KeyedNumber.id)
           k should ===(encode(alice))
           choiceArg should ===(encode(Increment(42)))
-      }
-    }
-
-    "pass template ID when exercising interface choice" in {
-      inside(
-        MyMain.InterfaceMixer
-          .key(alice)
-          .toInterface[MyMainIface.IfaceFromAnotherMod]
-          .exerciseFromAnotherMod(alice, 42)
-          .command
-          .command
-      ) {
-        case rpccmd.Command.Command.ExerciseByKey(
-              rpccmd.ExerciseByKeyCommand(Some(tid), Some(k), "FromAnotherMod", Some(choiceArg))
-            ) =>
-          tid should ===(MyMain.InterfaceMixer.id)
-          k should ===(encode(alice))
-          choiceArg should ===(encode(MyMainIface.FromAnotherMod(42)))
       }
     }
   }

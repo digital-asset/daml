@@ -161,8 +161,9 @@ object SBuiltinInterfaceTest {
 
         module I0 {
           interface (this: I0) = {
-            coimplements T_Co0_No1:T_Co0_No1 {};
-            coimplements T_Co0_Co1:T_Co0_Co1 {};
+            viewtype Mod:MyUnit;
+            coimplements T_Co0_No1:T_Co0_No1 { view = Mod:MyUnit {}; };
+            coimplements T_Co0_Co1:T_Co0_Co1 { view = Mod:MyUnit {}; };
           };
         }
 
@@ -174,7 +175,7 @@ object SBuiltinInterfaceTest {
             signatories Cons @Party [T_Im0_No1:T_Im0_No1 {party} this] (Nil @Party);
             observers Cons @Party [T_Im0_No1:T_Im0_No1 {party} this] (Nil @Party);
             agreement "";
-            implements I0:I0 {};
+            implements I0:I0 { view = Mod:MyUnit {}; };
           };
         }
 
@@ -186,18 +187,21 @@ object SBuiltinInterfaceTest {
             signatories Cons @Party [T_Im0_Co1:T_Im0_Co1 {party} this] (Nil @Party);
             observers Cons @Party [T_Im0_Co1:T_Im0_Co1 {party} this] (Nil @Party);
             agreement "";
-            implements I0:I0 {};
+            implements I0:I0 { view = Mod:MyUnit {}; };
           };
         }
 
         module I1 {
           interface (this: I1) = {
+            viewtype Mod:MyUnit;
             requires I0:I0;
             method getText: Text;
             coimplements T_Co0_Co1:T_Co0_Co1 {
+              view = Mod:MyUnit {};
               method getText = APPEND_TEXT "co-implements I1 T_Co0_Co1, msg=" (T_Co0_Co1:T_Co0_Co1 {msg} this);
             };
             coimplements T_Im0_Co1:T_Im0_Co1 {
+              view = Mod:MyUnit {};
               method getText = APPEND_TEXT "co-implements I1 T_Im0_Co1, msg=" (T_Im0_Co1:T_Im0_Co1 {msg} this);
             };
           };
@@ -211,8 +215,9 @@ object SBuiltinInterfaceTest {
             signatories Cons @Party [T_Im0_Im1:T_Im0_Im1 {party} this] (Nil @Party);
             observers Cons @Party [T_Im0_Im1:T_Im0_Im1 {party} this] (Nil @Party);
             agreement "";
-            implements I0:I0 {};
+            implements I0:I0 { view = Mod:MyUnit {}; };
             implements I1:I1 {
+              view = Mod:MyUnit {};
               method getText = APPEND_TEXT "implements I1 T_Im0_Im1, msg=" (T_Im0_Im1:T_Im0_Im1 {msg} this);
             };
           };
@@ -235,7 +240,11 @@ object SBuiltinInterfaceTest {
 
         module Mod {
 
-          interface (this : Iface) = {};
+          record @serializable MyUnit = {};
+
+          interface (this : Iface) = {
+            viewtype Mod:MyUnit;
+          };
 
           record @serializable Iou = { i: Party, u: Party, name: Text };
           template (this: Iou) = {
@@ -243,7 +252,7 @@ object SBuiltinInterfaceTest {
             signatories Cons @Party [Mod:Iou {i} this] (Nil @Party);
             observers Cons @Party [Mod:Iou {u} this] (Nil @Party);
             agreement "Agreement";
-            implements Mod:Iface {};
+            implements Mod:Iface { view = Mod:MyUnit {}; };
           };
 
           val mkParty : Text -> Party = \(t:Text) -> case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;
@@ -256,7 +265,7 @@ object SBuiltinInterfaceTest {
     """
     Map(defaultParserParameters.defaultPackageId -> pkg)
   }
-  val compiledBasePkgs = PureCompiledPackages.assertBuild(basePkgs)
+  lazy val compiledBasePkgs = PureCompiledPackages.assertBuild(basePkgs)
 
   private[lf] val Ast.TTyCon(iouId) = t"'$basePkgId':Mod:Iou"
 
@@ -272,13 +281,15 @@ object SBuiltinInterfaceTest {
       p"""
         module Mod {
 
+          record @serializable MyUnit = {};
           record @serializable Iou = { i: Party, u: Party, name: Text };
+
           template (this: Iou) = {
             precondition True;
             signatories Cons @Party [Mod:Iou {i} this] (Nil @Party);
             observers Cons @Party [Mod:Iou {u} this] (Nil @Party);
             agreement "Agreement";
-            implements '$basePkgId':Mod:Iface {};
+            implements '$basePkgId':Mod:Iface { view = '$basePkgId':Mod:MyUnit {} ; };
           };
 
           val mkParty : Text -> Party = \(t:Text) -> case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;
@@ -289,7 +300,7 @@ object SBuiltinInterfaceTest {
     """
     basePkgs + (defaultParserParameters.defaultPackageId -> pkg)
   }
-  val compiledExtendedPkgs = PureCompiledPackages.assertBuild(extendedPkgs)
+  lazy val compiledExtendedPkgs = PureCompiledPackages.assertBuild(extendedPkgs)
 
   private val Ast.TTyCon(extraIouId) = t"'$extraPkgId':Mod:Iou"
 

@@ -40,6 +40,7 @@ import spray.json.{
   DeserializationException,
   enrichAny => `sj enrichAny`,
 }
+import com.daml.fetchcontracts.domain.ResolvedQuery
 
 import scala.annotation.nowarn
 import scala.concurrent.duration._
@@ -184,6 +185,70 @@ abstract class AbstractWebsocketServiceIntegrationTest
     }
   }
 
+  "query error when queries with more than 1 interface id" in withHttpService { fixture =>
+    import AbstractHttpServiceIntegrationTestFuns.ciouDar
+    val queryInput = Source.single(
+      TextMessage.Strict(
+        """[{"templateIds": ["IAccount:IAccount"]}, {"templateIds": ["IIou:IIou"]}]"""
+      )
+    )
+    for {
+      jwt <- jwt(fixture.uri)
+      _ <- uploadPackage(fixture)(ciouDar)
+      webSocketFlow =
+        Http().webSocketClientFlow(
+          WebSocketRequest(
+            uri = fixture.uri.copy(scheme = "ws").withPath(Uri.Path("/v1/stream/query")),
+            subprotocol = validSubprotocol(jwt),
+          )
+        )
+      res <- queryInput
+        .via(webSocketFlow)
+        .runWith(collectResultsAsTextMessageSkipOffsetTicks)
+        .flatMap { msgs =>
+          inside(msgs) { case Seq(errorMsg) =>
+            val error = decodeErrorResponse(errorMsg)
+            error shouldBe domain.ErrorResponse(
+              List(ResolvedQuery.CannotQueryManyInterfaceIds.errorMsg),
+              None,
+              StatusCodes.BadRequest,
+            )
+          }
+        }
+    } yield res
+  }
+
+  "query error when queries with both template and interface id" in withHttpService { fixture =>
+    val queryInput = Source.single(
+      TextMessage.Strict(
+        """[{"templateIds": ["IAccount:IAccount"]}, {"templateIds": ["Account:Account"]}]"""
+      )
+    )
+    for {
+      jwt <- jwt(fixture.uri)
+      webSocketFlow =
+        Http().webSocketClientFlow(
+          WebSocketRequest(
+            uri = fixture.uri.copy(scheme = "ws").withPath(Uri.Path("/v1/stream/query")),
+            subprotocol = validSubprotocol(jwt),
+          )
+        )
+      res <- queryInput
+        .via(webSocketFlow)
+        .runWith(collectResultsAsTextMessageSkipOffsetTicks)
+        .flatMap { msgs =>
+          inside(msgs) { case Seq(errorMsg) =>
+            val error = decodeErrorResponse(errorMsg)
+            error shouldBe domain.ErrorResponse(
+              List(ResolvedQuery.CannotQueryBothTemplateIdsAndInterfaceIds.errorMsg),
+              None,
+              StatusCodes.BadRequest,
+            )
+          }
+        }
+    } yield res
+  }
+
   "transactions when command create is completed from" - {
     "query endpoint" in withHttpService { fixture =>
       import fixture.uri
@@ -220,6 +285,58 @@ abstract class AbstractWebsocketServiceIntegrationTest
         result should include(s""""owner":"$alice"""")
         result should include(""""number":"abc123"""")
         result should not include (""""offset":"""")
+        Inspectors.forAll(heartbeats)(assertHeartbeat)
+      }
+    }
+  }
+
+  "interface sub" - {
+    "query endpoint" in withHttpService { fixture =>
+      import fixture.uri
+      val query = """[
+        {"templateIds": ["IAccount:IAccount"], "query": {"isAbcPrefix": true}},
+        {"templateIds": ["IAccount:IAccount"], "query": {"is123Suffix": true}}
+      ]"""
+
+      def createAccount(
+          owner: domain.Party,
+          amount: String,
+          headers: List[HttpHeader],
+      ) = postCreateCommand(
+        accountCreateCommand(owner, amount),
+        fixture,
+        headers = headers,
+      )
+      for {
+        aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        (alice, aliceAuthHeaders) = aliceHeaders
+        _ <- createAccount(alice, "abc123", aliceAuthHeaders)
+        _ <- createAccount(alice, "abc456", aliceAuthHeaders)
+        _ <- createAccount(alice, "def123", aliceAuthHeaders)
+        _ <- createAccount(alice, "def456", aliceAuthHeaders)
+        jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+        clientMsg <- singleClientQueryStream(
+          jwt,
+          uri,
+          query,
+        ).take(4)
+          .runWith(collectResultsAsTextMessage)
+      } yield inside(clientMsg) { case result1 +: result2 +: result3 +: heartbeats =>
+        result1 should include(s""""amount":"abc123"""")
+        result1 should include(s""""isAbcPrefix":true""")
+        result1 should include(s""""is123Suffix":true""")
+        result1 should include(s""""matchedQueries":[0,1]""")
+
+        result2 should include(s""""amount":"abc456"""")
+        result2 should include(s""""isAbcPrefix":true""")
+        result2 should include(s""""is123Suffix":false""")
+        result2 should include(s""""matchedQueries":[0]""")
+
+        result3 should include(s""""amount":"def123"""")
+        result3 should include(s""""isAbcPrefix":false""")
+        result3 should include(s""""is123Suffix":true""")
+        result3 should include(s""""matchedQueries":[1]""")
+
         Inspectors.forAll(heartbeats)(assertHeartbeat)
       }
     }
@@ -1394,7 +1511,10 @@ abstract class AbstractWebsocketServiceIntegrationTest
   "ContractKeyStreamRequest" - {
     import json.JsonProtocol._
     val baseVal =
-      domain.EnrichedContractKey(domain.TemplateId(Some("ab"), "cd", "ef"), JsString("42"): JsValue)
+      domain.EnrichedContractKey(
+        domain.ContractTypeId.Template(Some("ab"), "cd", "ef"),
+        JsString("42"): JsValue,
+      )
     val baseMap = baseVal.toJson.asJsObject.fields
     val withSome = JsObject(baseMap + (contractIdAtOffsetKey -> JsString("hi")))
     val withNone = JsObject(baseMap + (contractIdAtOffsetKey -> JsNull))

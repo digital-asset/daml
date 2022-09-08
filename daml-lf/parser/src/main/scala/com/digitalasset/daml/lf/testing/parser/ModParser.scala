@@ -6,7 +6,6 @@ package testing.parser
 
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.Util._
 import com.daml.lf.testing.parser.Parsers._
 import com.daml.lf.testing.parser.Token._
 import com.daml.scalautil.Statement.discard
@@ -123,20 +122,28 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       TemplateKey(t, body, maintainers)
     }
 
-  private lazy val method: Parser[TemplateImplementsMethod] =
+  private lazy val method: Parser[InterfaceInstanceMethod] =
     Id("method") ~>! id ~ `=` ~ expr ^^ { case (name ~ _ ~ value) =>
-      TemplateImplementsMethod(name, value)
+      InterfaceInstanceMethod(name, value)
     }
 
+  private lazy val interfaceInstanceBody: Parser[InterfaceInstanceBody] =
+    `{` ~> (implementsView <~ `;`) ~ rep(method <~ `;`) <~ `}` ^^ { case view ~ methods =>
+      InterfaceInstanceBody.build(
+        methods,
+        view,
+      )
+    }
+
+  private lazy val implementsView: Parser[Expr] =
+    Id("view") ~>! `=` ~>! expr
+
   private lazy val implements: Parser[TemplateImplements] =
-    Id("implements") ~>! fullIdentifier ~ (`{` ~> rep(method <~ `;`) <~ `}`) ^^ {
-      case ifaceId ~ methods =>
-        // TODO: Represent a view method and parse it. Currently hardcoding views to unit
-        TemplateImplements.build(
-          ifaceId,
-          methods,
-          EAbs((Ref.Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
-        )
+    Id("implements") ~>! fullIdentifier ~ interfaceInstanceBody ^^ { case ifaceId ~ body =>
+      TemplateImplements.build(
+        ifaceId,
+        body,
+      )
     }
 
   private lazy val templateDefinition: Parser[TemplDef] =
@@ -204,22 +211,26 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   private val interfaceDefinition: Parser[IfaceDef] =
     Id("interface") ~ `(` ~> id ~ `:` ~ dottedName ~ `)` ~ `=` ~ `{` ~
+      (interfaceView <~ `;`) ~
       rep(interfaceRequires <~ `;`) ~
       rep(interfaceMethod <~ `;`) ~
       rep(templateChoice <~ `;`) ~
       rep(coImplements <~ `;`) <~
       `}` ^^ {
         case x ~ _ ~ tycon ~ _ ~ _ ~ _ ~
+            view ~
             requires ~
             methods ~
             choices ~
             coImplements =>
           IfaceDef(
             tycon,
-            // TODO: https://github.com/digital-asset/daml/issues/14112
-            DefInterface.build(Set.from(requires), x, choices, methods, coImplements, TUnit),
+            DefInterface.build(Set.from(requires), x, choices, methods, coImplements, view),
           )
       }
+  private val interfaceView: Parser[Type] =
+    Id("viewtype") ~>! typ
+
   private val interfaceRequires: Parser[Ref.TypeConName] =
     Id("requires") ~>! fullIdentifier
 
@@ -228,19 +239,12 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       InterfaceMethod(name, typ)
     }
 
-  private lazy val coImplementsMethod: Parser[InterfaceCoImplementsMethod] =
-    Id("method") ~>! id ~ `=` ~ expr ^^ { case (name ~ _ ~ value) =>
-      InterfaceCoImplementsMethod(name, value)
-    }
-
   private lazy val coImplements: Parser[InterfaceCoImplements] =
-    Id("coimplements") ~>! fullIdentifier ~ (`{` ~> rep(coImplementsMethod <~ `;`) <~ `}`) ^^ {
-      case tplId ~ methods =>
-        InterfaceCoImplements.build(
-          tplId,
-          methods,
-          EAbs((Ref.Name.assertFromString("this"), TUnit), EPrimCon(PCUnit), None),
-        )
+    Id("coimplements") ~>! fullIdentifier ~ interfaceInstanceBody ^^ { case tplId ~ body =>
+      InterfaceCoImplements.build(
+        tplId,
+        body,
+      )
     }
 
   private val serializableTag = Ref.Name.assertFromString("serializable")

@@ -20,7 +20,7 @@ final class ExceptionsIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       t <- ledger.create(party, ExceptionTester(party))
-      failure <- ledger.exercise(party, t.exerciseThrowUncaught(_)).mustFail("Unhandled exception")
+      failure <- ledger.exercise(party, t.exerciseThrowUncaught()).mustFail("Unhandled exception")
     } yield {
       assertGrpcErrorRegex(
         failure,
@@ -38,7 +38,7 @@ final class ExceptionsIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       t <- ledger.create(party, ExceptionTester(party))
-      tree <- ledger.exercise(party, t.exerciseThrowCaught(_))
+      tree <- ledger.exercise(party, t.exerciseThrowCaught())
     } yield {
       assertLength(s"1 successful exercise", 1, exercisedEvents(tree))
       ()
@@ -52,7 +52,7 @@ final class ExceptionsIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       t <- ledger.create(party, ExceptionTester(party))
-      tree <- ledger.exercise(party, t.exerciseNestedCatch(_))
+      tree <- ledger.exercise(party, t.exerciseNestedCatch())
     } yield {
       assertLength(s"1 successful exercise", 1, exercisedEvents(tree))
       ()
@@ -67,10 +67,10 @@ final class ExceptionsIT extends LedgerTestSuite {
     for {
       t <- ledger.create(party, ExceptionTester(party))
       tFetch <- ledger.create(party, ExceptionTester(party))
-      _ <- ledger.exercise(party, t.exerciseRollbackFetch(_, tFetch))
-      _ <- ledger.exercise(party, tFetch.exerciseArchive(_))
+      _ <- ledger.exercise(party, t.exerciseRollbackFetch(tFetch))
+      _ <- ledger.exercise(party, tFetch.exerciseArchive())
       failure <- ledger
-        .exercise(party, t.exerciseRollbackFetch(_, tFetch))
+        .exercise(party, t.exerciseRollbackFetch(tFetch))
         .mustFail("contract is archived")
     } yield {
       assertGrpcError(
@@ -90,10 +90,10 @@ final class ExceptionsIT extends LedgerTestSuite {
     for {
       t <- ledger.create(party, ExceptionTester(party))
       tExercise <- ledger.create(party, ExceptionTester(party))
-      _ <- ledger.exercise(party, t.exerciseRollbackConsuming(_, tExercise))
-      _ <- ledger.exercise(party, tExercise.exerciseArchive(_))
+      _ <- ledger.exercise(party, t.exerciseRollbackConsuming(tExercise))
+      _ <- ledger.exercise(party, tExercise.exerciseArchive())
       failure <- ledger
-        .exercise(party, t.exerciseRollbackConsuming(_, tExercise))
+        .exercise(party, t.exerciseRollbackConsuming(tExercise))
         .mustFail("contract is archived")
     } yield {
       assertGrpcError(
@@ -113,10 +113,10 @@ final class ExceptionsIT extends LedgerTestSuite {
     for {
       t <- ledger.create(party, ExceptionTester(party))
       tExercise <- ledger.create(party, ExceptionTester(party))
-      _ <- ledger.exercise(party, t.exerciseRollbackNonConsuming(_, tExercise))
-      _ <- ledger.exercise(party, tExercise.exerciseArchive(_))
+      _ <- ledger.exercise(party, t.exerciseRollbackNonConsuming(tExercise))
+      _ <- ledger.exercise(party, tExercise.exerciseArchive())
       failure <- ledger
-        .exercise(party, t.exerciseRollbackNonConsuming(_, tExercise))
+        .exercise(party, t.exerciseRollbackNonConsuming(tExercise))
         .mustFail("contract is archived")
     } yield {
       assertGrpcError(
@@ -136,7 +136,7 @@ final class ExceptionsIT extends LedgerTestSuite {
     for {
       t <- ledger.create(party, ExceptionTester(party))
       withKey <- ledger.create(party, WithSimpleKey(party))
-      _ <- ledger.exercise(party, t.exerciseRolledbackArchiveConsuming(_, withKey))
+      _ <- ledger.exercise(party, t.exerciseRolledbackArchiveConsuming(withKey))
     } yield ()
   })
 
@@ -148,7 +148,7 @@ final class ExceptionsIT extends LedgerTestSuite {
     for {
       t <- ledger.create(party, ExceptionTester(party))
       withKey <- ledger.create(party, WithSimpleKey(party))
-      _ <- ledger.exercise(party, t.exerciseRolledbackArchiveNonConsuming(_, withKey))
+      _ <- ledger.exercise(party, t.exerciseRolledbackArchiveNonConsuming(withKey))
     } yield ()
   })
 
@@ -159,7 +159,7 @@ final class ExceptionsIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       t <- ledger.create(party, ExceptionTester(party))
-      _ <- ledger.exercise(party, t.exerciseRolledbackDuplicateKey(_))
+      _ <- ledger.exercise(party, t.exerciseRolledbackDuplicateKey())
     } yield ()
   })
 
@@ -170,9 +170,9 @@ final class ExceptionsIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       t <- ledger.create(party, ExceptionTester(party))
-      _ <- ledger.exercise(party, t.exerciseDuplicateKey(_))
+      _ <- ledger.exercise(party, t.exerciseDuplicateKey())
       _ <- ledger.create(party, WithSimpleKey(party))
-      failure <- ledger.exercise(party, t.exerciseDuplicateKey(_)).mustFail("duplicate key")
+      failure <- ledger.exercise(party, t.exerciseDuplicateKey()).mustFail("duplicate key")
     } yield {
       assertGrpcError(
         failure,
@@ -191,15 +191,15 @@ final class ExceptionsIT extends LedgerTestSuite {
     for {
       t <- ledger.create(party, ExceptionTester(party))
       withKey <- ledger.create(party, WithSimpleKey(party))
-      failure <- ledger.exercise(party, t.exerciseDuplicateKey(_)).mustFail("duplicate key")
+      failure <- ledger.exercise(party, t.exerciseDuplicateKey()).mustFail("duplicate key")
       _ = assertGrpcError(
         failure,
         LedgerApiErrors.ConsistencyErrors.DuplicateContractKey,
         Some("DuplicateKey"),
         checkDefiniteAnswerMetadata = true,
       )
-      _ <- ledger.exercise(party, withKey.exerciseArchive(_))
-      _ <- ledger.exercise(party, t.exerciseDuplicateKey(_))
+      _ <- ledger.exercise(party, withKey.exerciseArchive())
+      _ <- ledger.exercise(party, t.exerciseDuplicateKey())
     } yield ()
   })
 
@@ -211,9 +211,9 @@ final class ExceptionsIT extends LedgerTestSuite {
     for {
       t <- ledger.create(party, ExceptionTester(party))
       withKey <- ledger.create(party, WithSimpleKey(party))
-      _ <- ledger.exercise(party, t.exerciseFetchKey(_))
-      _ <- ledger.exercise(party, withKey.exerciseArchive(_))
-      failure <- ledger.exercise(party, t.exerciseFetchKey(_)).mustFail("couldn't find key")
+      _ <- ledger.exercise(party, t.exerciseFetchKey())
+      _ <- ledger.exercise(party, withKey.exerciseArchive())
+      failure <- ledger.exercise(party, t.exerciseFetchKey()).mustFail("couldn't find key")
     } yield {
       assertGrpcError(
         failure,
@@ -232,7 +232,7 @@ final class ExceptionsIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       t <- ledger.create(party, ExceptionTester(party))
-      failure <- ledger.exercise(party, t.exerciseFetchKey(_)).mustFail("contract not found")
+      failure <- ledger.exercise(party, t.exerciseFetchKey()).mustFail("contract not found")
       _ = assertGrpcError(
         failure,
         LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
@@ -240,7 +240,7 @@ final class ExceptionsIT extends LedgerTestSuite {
         checkDefiniteAnswerMetadata = true,
       )
       _ <- ledger.create(party, WithSimpleKey(party))
-      _ <- ledger.exercise(party, t.exerciseFetchKey(_))
+      _ <- ledger.exercise(party, t.exerciseFetchKey())
     } yield ()
   })
 
@@ -251,7 +251,7 @@ final class ExceptionsIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       t <- ledger.create(party, ExceptionTester(party))
-      tree <- ledger.exercise(party, t.exerciseRollbackCreate(_))
+      tree <- ledger.exercise(party, t.exerciseRollbackCreate())
     } yield {
       // Create node should not be included
       assertLength(s"no creates", 0, createdEvents(tree))
@@ -274,7 +274,7 @@ final class ExceptionsIT extends LedgerTestSuite {
         t <- bLedger.create(bParty, WithSimpleKey(bParty))
         _ <- synchronize(aLedger, bLedger)
         fetchFailure <- aLedger
-          .exercise(aParty, fetcher.exerciseFetch(_, t))
+          .exercise(aParty, fetcher.exerciseFetch(t))
           .mustFail("contract could not be found")
         _ = assertGrpcError(
           fetchFailure,
@@ -282,10 +282,10 @@ final class ExceptionsIT extends LedgerTestSuite {
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
-        _ <- bLedger.exercise(bParty, divulger.exerciseDivulge(_, t))
+        _ <- bLedger.exercise(bParty, divulger.exerciseDivulge(t))
         _ <- synchronize(aLedger, bLedger)
         _ <- aLedger
-          .exercise(aParty, fetcher.exerciseFetch(_, t))
+          .exercise(aParty, fetcher.exerciseFetch(t))
       } yield ()
   })
 
@@ -301,7 +301,7 @@ final class ExceptionsIT extends LedgerTestSuite {
         withKey1 <- aLedger.create(aParty, WithKey(aParty, 1, List.empty))
         _ <- synchronize(aLedger, bLedger)
         fetchFailure <- bLedger
-          .exercise(bParty, fetcher.exerciseFetch_(_, withKey0))
+          .exercise(bParty, fetcher.exerciseFetch_(withKey0))
           .mustFail("contract could not be found")
         _ = assertGrpcError(
           fetchFailure,
@@ -310,7 +310,7 @@ final class ExceptionsIT extends LedgerTestSuite {
           checkDefiniteAnswerMetadata = true,
         )
         fetchFailure <- bLedger
-          .exercise(bParty, fetcher.exerciseFetch_(_, withKey1))
+          .exercise(bParty, fetcher.exerciseFetch_(withKey1))
           .mustFail("contract could not be found")
         _ = assertGrpcError(
           fetchFailure,
@@ -319,12 +319,12 @@ final class ExceptionsIT extends LedgerTestSuite {
           checkDefiniteAnswerMetadata = true,
         )
         tester <- aLedger.create(aParty, ExceptionTester(aParty))
-        _ <- aLedger.exercise(aParty, tester.exerciseProjectionDivulgence(_, bParty, withKey0))
+        _ <- aLedger.exercise(aParty, tester.exerciseProjectionDivulgence(bParty, withKey0))
         _ <- synchronize(aLedger, bLedger)
         _ <- bLedger
-          .exercise(bParty, fetcher.exerciseFetch_(_, withKey0))
+          .exercise(bParty, fetcher.exerciseFetch_(withKey0))
         _ <- bLedger
-          .exercise(bParty, fetcher.exerciseFetch_(_, withKey1))
+          .exercise(bParty, fetcher.exerciseFetch_(withKey1))
       } yield ()
   })
 
@@ -353,7 +353,6 @@ final class ExceptionsIT extends LedgerTestSuite {
         _ <- aLedger.exercise(
           aParty,
           tester.exerciseProjectionNormalization(
-            _,
             bParty,
             keyDelegate,
             abInformer,
@@ -386,7 +385,7 @@ final class ExceptionsIT extends LedgerTestSuite {
         tester <- aLedger.create(aParty, ExceptionTester(aParty))
         _ <- aLedger.exercise(
           aParty,
-          tester.exerciseProjectionNesting(_, bParty, keyDelegate, nestingHelper),
+          tester.exerciseProjectionNesting(bParty, keyDelegate, nestingHelper),
         )
       } yield ()
   })
@@ -402,7 +401,7 @@ final class ExceptionsIT extends LedgerTestSuite {
       for {
         t <- ledger.create(party, ExceptionTester(party))
         withKey <- ledger.create(party, WithSimpleKey(party))
-        _ <- ledger.exercise(party, t.exerciseRollbackGlobalArchivedLookup(_, withKey))
+        _ <- ledger.exercise(party, t.exerciseRollbackGlobalArchivedLookup(withKey))
       } yield ()
   })
 
@@ -417,7 +416,7 @@ final class ExceptionsIT extends LedgerTestSuite {
       for {
         t <- ledger.create(party, ExceptionTester(party))
         withKey <- ledger.create(party, WithSimpleKey(party))
-        _ <- ledger.exercise(party, t.exerciseRollbackGlobalArchivedCreate(_, withKey))
+        _ <- ledger.exercise(party, t.exerciseRollbackGlobalArchivedCreate(withKey))
       } yield ()
   })
 
@@ -429,7 +428,7 @@ final class ExceptionsIT extends LedgerTestSuite {
     for {
       t <- ledger.create(party, ExceptionTester(party))
       failure <- ledger
-        .exercise(party, t.exerciseRollbackCreateBecomesInactive(_))
+        .exercise(party, t.exerciseRollbackCreateBecomesInactive())
         .mustFail("contract is inactive")
     } yield {
       assertGrpcError(
@@ -449,7 +448,7 @@ final class ExceptionsIT extends LedgerTestSuite {
     for {
       helper <- ledger.create(party, ExceptionTester(party))
       withKey <- ledger.create(party, WithSimpleKey(party))
-      _ <- ledger.exercise(party, helper.exerciseRollbackExerciseCreateLookup(_, withKey))
+      _ <- ledger.exercise(party, helper.exerciseRollbackExerciseCreateLookup(withKey))
     } yield ()
   })
 

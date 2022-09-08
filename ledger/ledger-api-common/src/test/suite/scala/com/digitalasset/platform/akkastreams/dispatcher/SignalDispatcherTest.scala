@@ -3,19 +3,20 @@
 
 package com.daml.platform.akkastreams.dispatcher
 
-import java.lang
-
 import akka.stream.scaladsl.Sink
 import akka.stream.testkit.scaladsl.TestSink
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.awaitility.Awaitility.await
 import org.awaitility.Duration
+import org.scalatest.FutureOutcome
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
-import org.scalatest.FutureOutcome
-import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.FixtureAsyncWordSpec
+
+import java.lang
+import scala.concurrent.Await
 
 class SignalDispatcherTest
     extends FixtureAsyncWordSpec
@@ -62,7 +63,7 @@ class SignalDispatcherTest
       sut.getRunningState shouldBe empty
     }
 
-    "remove queues from its state when closed" in { sut =>
+    "remove queues from its state when shutdown" in { sut =>
       val s = sut.subscribe(true).runWith(TestSink.probe[SignalDispatcher.Signal])
       s.request(1L)
       s.expectNext(SignalDispatcher.Signal)
@@ -73,7 +74,25 @@ class SignalDispatcherTest
       s.expectComplete()
       succeed
     }
+
+    "remove queues from its state when failed" in { sut =>
+      val s = sut.subscribe(true).runWith(TestSink.probe[SignalDispatcher.Signal])
+      s.request(1L)
+      s.expectNext(SignalDispatcher.Signal)
+      sut.getRunningState should have size 1L
+
+      val failure = new RuntimeException("Some failure")
+
+      // Check fail does not return a failed future
+      Await.result(sut.fail(failure), 10.seconds)
+
+      assertThrows[IllegalStateException](sut.getRunningState)
+      assertThrows[IllegalStateException](sut.signal())
+      s.expectError(failure)
+      succeed
+    }
   }
+
   override def withFixture(test: OneArgAsyncTest): FutureOutcome =
     test.apply(SignalDispatcher())
   override type FixtureParam = SignalDispatcher

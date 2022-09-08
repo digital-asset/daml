@@ -247,10 +247,10 @@ final class RateLimitingInterceptorSpec
           activeStreams shouldBe limitStreamConfig.maxStreams
           status1.getCode shouldBe Code.OK
           status2.getCode shouldBe Code.OK
-          metrics.daml.lapi.streams.active.getCount shouldBe 0
           status3.getCode shouldBe Code.ABORTED
           status3.getDescription should include(metrics.daml.lapi.streams.activeName)
           status4.getCode shouldBe Code.OK
+          eventually { metrics.daml.lapi.streams.active.getCount shouldBe 0 }
         }
       }
     }
@@ -290,7 +290,7 @@ final class RateLimitingInterceptorSpec
           helloStatus1.getCode shouldBe Code.OK
           status2.getCode shouldBe Code.OK
           helloStatus2.getCode shouldBe Code.OK
-          metrics.daml.lapi.streams.active.getCount shouldBe 0
+          eventually { metrics.daml.lapi.streams.active.getCount shouldBe 0 }
         }
       }
     }
@@ -339,7 +339,8 @@ final class RateLimitingInterceptorSpec
         status1 <- fStatus1
       } yield {
         status1.getCode shouldBe Code.CANCELLED
-        metrics.daml.lapi.streams.active.getCount shouldBe 0
+
+        eventually { metrics.daml.lapi.streams.active.getCount shouldBe 0 }
       }
     }
   }

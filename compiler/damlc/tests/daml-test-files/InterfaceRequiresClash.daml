@@ -1,11 +1,14 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @SINCE-LF-FEATURE DAML_INTERFACE_EXTENDED
 
 module InterfaceRequiresClash where
 
 import InterfaceRequiresClashA qualified as A
 import InterfaceRequiresClashB qualified as B
 
-interface C requires A.I, B.I
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface C requires A.I, B.I where
+    viewtype EmptyInterfaceView

@@ -8,10 +8,10 @@ import util.IdentifierConverters.lfIdentifier
 import com.daml.lf.data.{ImmArray, Numeric, Ref, Time, Utf8}
 import ImmArray.ImmArraySeq
 import com.daml.lf.data.ScalazEqual._
-import com.daml.lf.iface
+import com.daml.lf.typesig
 import com.daml.lf.value.json.JsonVariant
 import com.daml.lf.value.{Value => V}
-import iface.{Type => Ty}
+import typesig.{Type => Ty}
 import dbbackend.Queries.joinFragment
 import json.JsonProtocol.LfValueDatabaseCodec.{apiValueToJsValue => dbApiValueToJsValue}
 import scalaz.{OneAnd, Order, \&/, \/, \/-}
@@ -193,7 +193,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
 }
 
 object ValuePredicate {
-  type TypeLookup = Ref.Identifier => Option[iface.DefDataType.FWT]
+  type TypeLookup = Ref.Identifier => Option[typesig.DefDataType.FWT]
   type LfV = V
   type SqlWhereClause = Vector[Fragment]
 
@@ -217,32 +217,40 @@ object ValuePredicate {
       typ: domain.TemplateId.RequiredPkg,
       defs: TypeLookup,
   ): ValuePredicate =
-    fromJsObject(it, iface.TypeCon(iface.TypeConName(lfIdentifier(typ)), ImmArraySeq.empty), defs)
+    fromJsObject(
+      it,
+      typesig.TypeCon(typesig.TypeConName(lfIdentifier(typ)), ImmArraySeq.empty),
+      defs,
+    )
 
-  def fromJsObject(it: Map[String, JsValue], typ: iface.Type, defs: TypeLookup): ValuePredicate = {
+  def fromJsObject(
+      it: Map[String, JsValue],
+      typ: typesig.Type,
+      defs: TypeLookup,
+  ): ValuePredicate = {
     type Result = ValuePredicate
 
-    def fromValue(it: JsValue, typ: iface.Type): Result =
+    def fromValue(it: JsValue, typ: typesig.Type): Result =
       (typ, it).match2 {
-        case p @ iface.TypePrim(_, _) => { case _ => fromPrim(it, p) }
-        case tc @ iface.TypeCon(iface.TypeConName(id), _) => { case _ =>
+        case p @ typesig.TypePrim(_, _) => { case _ => fromPrim(it, p) }
+        case tc @ typesig.TypeCon(typesig.TypeConName(id), _) => { case _ =>
           val ddt = defs(id).getOrElse(predicateParseError(s"Type $id not found"))
           fromCon(it, id, tc instantiate ddt)
         }
-        case iface.TypeNumeric(scale) =>
+        case typesig.TypeNumeric(scale) =>
           numericRangeExpr(scale).toQueryParser
-        case iface.TypeVar(_) => predicateParseError("no vars allowed!")
+        case typesig.TypeVar(_) => predicateParseError("no vars allowed!")
       }(fallback = illTypedQuery(it, typ))
 
-    def fromCon(it: JsValue, id: Ref.Identifier, typ: iface.DataType.FWT): Result =
+    def fromCon(it: JsValue, id: Ref.Identifier, typ: typesig.DataType.FWT): Result =
       (typ, it).match2 {
-        case rec @ iface.Record(_) => { case JsObject(fields) =>
+        case rec @ typesig.Record(_) => { case JsObject(fields) =>
           fromRecord(fields, id, rec)
         }
-        case iface.Variant(fieldTyps) => { case JsonVariant(tag, nestedValue) =>
+        case typesig.Variant(fieldTyps) => { case JsonVariant(tag, nestedValue) =>
           fromVariant(tag, nestedValue, id, fieldTyps)
         }
-        case e @ iface.Enum(_) => { case JsString(s) =>
+        case e @ typesig.Enum(_) => { case JsString(s) =>
           fromEnum(s, id, e)
         }
       }(fallback = illTypedQuery(it, id))
@@ -250,9 +258,9 @@ object ValuePredicate {
     def fromRecord(
         fields: Map[String, JsValue],
         id: Ref.Identifier,
-        typ: iface.Record.FWT,
+        typ: typesig.Record.FWT,
     ): Result = {
-      val iface.Record(fieldTyps) = typ
+      val typesig.Record(fieldTyps) = typ
       val invalidKeys = fields.keySet diff fieldTyps.iterator.map(_._1).toSet
       if (invalidKeys.nonEmpty)
         predicateParseError(s"$id does not have fields $invalidKeys")
@@ -279,15 +287,15 @@ object ValuePredicate {
       )(VariantMatch)
     }
 
-    def fromEnum(it: String, id: Ref.Identifier, typ: iface.Enum): Result =
+    def fromEnum(it: String, id: Ref.Identifier, typ: typesig.Enum): Result =
       if (typ.constructors contains it)
         Literal({ case V.ValueEnum(_, v) if it == (v: String) => }, JsString(it))
       else
         predicateParseError(s"$it not a member of the enum $id")
 
-    def fromOptional(it: JsValue, typ: iface.Type): Result =
+    def fromOptional(it: JsValue, typ: typesig.Type): Result =
       (typ, it).match2 {
-        case iface.TypePrim(iface.PrimType.Optional, _) => {
+        case typesig.TypePrim(typesig.PrimType.Optional, _) => {
           case JsNull => OptionalMatch(None)
           case JsArray(Seq()) => OptionalMatch(Some(fromOptional(JsNull, typ)))
           case JsArray(Seq(elem)) => OptionalMatch(Some(fromValue(elem, typ)))
@@ -298,8 +306,8 @@ object ValuePredicate {
         }
       }(fallback = illTypedQuery(it, typ))
 
-    def fromPrim(it: JsValue, typ: iface.TypePrim): Result = {
-      import iface.PrimType._
+    def fromPrim(it: JsValue, typ: typesig.TypePrim): Result = {
+      import typesig.PrimType._
       def soleTypeArg(of: String) = typ.typArgs match {
         case Seq(hd) => hd
         case _ => predicateParseError(s"missing type arg to $of")
@@ -332,10 +340,10 @@ object ValuePredicate {
     }
 
     (typ match {
-      case tc @ iface.TypeCon(iface.TypeConName(id), typArgs @ _) =>
+      case tc @ typesig.TypeCon(typesig.TypeConName(id), typArgs @ _) =>
         for {
           dt <- defs(id)
-          recTy <- tc instantiate dt match { case r @ iface.Record(_) => Some(r); case _ => None }
+          recTy <- tc instantiate dt match { case r @ typesig.Record(_) => Some(r); case _ => None }
         } yield fromRecord(it, id, recTy)
       case _ => None
     }) getOrElse predicateParseError(s"No record type found for $typ")

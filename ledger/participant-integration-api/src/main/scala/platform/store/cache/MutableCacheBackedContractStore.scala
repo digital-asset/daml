@@ -3,20 +3,17 @@
 
 package com.daml.platform.store.cache
 
-import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
-import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
-import akka.{Done, NotUsed}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.value.Value.VersionedContractInstance
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.cache.ContractKeyStateValue._
 import com.daml.platform.store.cache.ContractStateValue._
 import com.daml.platform.store.cache.MutableCacheBackedContractStore._
+import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   ActiveContract,
@@ -25,10 +22,9 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyState,
 }
 
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 import scala.util.control.NoStackTrace
+import scala.util.{Failure, Success}
 
 private[platform] class MutableCacheBackedContractStore(
     metrics: Metrics,
@@ -76,6 +72,21 @@ private[platform] class MutableCacheBackedContractStore(
 
         case Right((cached, toBeFetched)) =>
           readThroughMaximumLedgerTime(toBeFetched.toList, cached.maxOption)
+      }
+
+  override def lookupContractForValidation(
+      contractId: ContractId
+  )(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[(VersionedContractInstance, Timestamp)]] =
+    contractStateCaches.contractState
+      .get(contractId)
+      .map(Future.successful)
+      .getOrElse(readThroughContractsCache(contractId))
+      .map {
+        case NotFound => None
+        case Active(contract, _, let) => Some(contract -> let)
+        case Archived(_) => None
       }
 
   private def readThroughMaximumLedgerTime(
@@ -270,38 +281,6 @@ private[platform] class MutableCacheBackedContractStore(
 
 private[platform] object MutableCacheBackedContractStore {
   type EventSequentialId = Long
-  // Subscribe to the contract state events stream
-  type SubscribeToContractStateEvents = () => Source[Vector[ContractStateEvent], NotUsed]
-
-  // TODO LLP: Remove this helper and replace its usage in tests
-  final class CacheUpdateSubscription(
-      contractStore: MutableCacheBackedContractStore,
-      subscribeToContractStateEvents: SubscribeToContractStateEvents,
-      minBackoffStreamRestart: FiniteDuration = 100.millis,
-  )(implicit materializer: Materializer)
-      extends ResourceOwner[Unit] {
-    override def acquire()(implicit
-        context: ResourceContext
-    ): Resource[Unit] =
-      Resource(Future {
-        RestartSource
-          .withBackoff(
-            RestartSettings(
-              minBackoff = minBackoffStreamRestart,
-              maxBackoff = 10.seconds,
-              randomFactor = 0.2,
-            )
-          )(() => subscribeToContractStateEvents())
-          .map(contractStore.push)
-          .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-          .toMat(Sink.ignore)(Keep.both[UniqueKillSwitch, Future[Done]])
-          .run()
-      }(context.executionContext)) {
-        case (contractStateUpdateKillSwitch, contractStateUpdateDone) =>
-          contractStateUpdateKillSwitch.shutdown()
-          contractStateUpdateDone.map(_ => ())(context.executionContext)
-      }.map(_ => ())
-  }
 
   final case class ContractReadThroughNotFound(contractId: ContractId) extends NoStackTrace {
     override def getMessage: String =

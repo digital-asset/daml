@@ -3,9 +3,12 @@
 
 module InterfaceExtMod {
 
-  interface (this: Root) = {  };
+  interface (this: Root) = {
+    viewtype RecordMod:MyUnit;
+  };
 
   interface (this: Boxy) = {
+    viewtype RecordMod:MyUnit;
     requires InterfaceExtMod:Root;
     method getParty: Party;
     choice @nonConsuming ReturnInt (self) (i: Int64): Int64
@@ -23,8 +26,10 @@ module InterfaceExtMod {
     agreement "Lorem ipsum, dolor sit amet";
 
     implements InterfaceExtMod:Root {
+      view = RecordMod:MyUnit {};
     };
     implements InterfaceExtMod:Boxy {
+      view = RecordMod:MyUnit {};
       method getParty = InterfaceExtMod:Box {party} this;
     };
   };

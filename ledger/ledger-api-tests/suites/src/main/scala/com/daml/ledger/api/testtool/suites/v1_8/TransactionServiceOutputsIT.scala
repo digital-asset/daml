@@ -69,7 +69,7 @@ class TransactionServiceOutputsIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       _ <- ledger.create(party, Dummy(party))
-      request = ledger.getTransactionsRequest(Seq(party))
+      request = ledger.getTransactionsRequest(ledger.transactionFilter(Seq(party)))
       verboseTransactions <- ledger.flatTransactions(request.update(_.verbose := true))
       verboseTransactionTrees <- ledger.transactionTrees(request.update(_.verbose := true))
       nonVerboseTransactions <- ledger.flatTransactions(request.update(_.verbose := false))

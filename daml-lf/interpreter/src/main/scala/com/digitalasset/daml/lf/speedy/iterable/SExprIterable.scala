@@ -24,7 +24,6 @@ private[speedy] object SExprIterable {
     case SExpr.SELet1BuiltinArithmetic(_, args, body) => args.iterator ++ Iterator(body)
     case SExpr.SELocation(_, expr) => Iterator(expr)
     case SExpr.SELabelClosure(_, expr) => Iterator(expr)
-    case SExpr.SEDamlException(_) => Iterator.empty
     case SExpr.SEImportValue(_, _) => Iterator.empty
     case SExpr.SETryCatch(body, handler) => Iterator(body, handler)
     case SExpr.SEScopeExercise(body) => Iterator(body)

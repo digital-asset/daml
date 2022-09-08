@@ -6,6 +6,9 @@ module Lib.EmptyIfaceOnly where
 -- this module must contain _nothing_ but this interface
 -- to ensure integrity of the test for #13935
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface NoChoices where
+  viewtype EmptyInterfaceView
   getOtherOwner : Party
   somethingImpl : Update ()

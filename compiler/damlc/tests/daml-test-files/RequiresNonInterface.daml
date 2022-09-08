@@ -5,11 +5,18 @@
 -- We use the template typeclass and instances directly as otherwise the error
 -- is caught prior due to missing Eq and Show instances.
 
--- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ERROR range=15:13-15:21; cannot require 'Bool' because it is not an interface
+-- @SINCE-LF-FEATURE DAML_INTERFACE_EXTENDED
+-- @ERROR range=21:13-21:21; cannot require 'Bool' because it is not an interface
 
 module RequiresNonInterface where
 
-interface A
-interface B
-interface C requires A, Bool, B
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface A where
+    viewtype EmptyInterfaceView
+
+interface B where
+    viewtype EmptyInterfaceView
+
+interface C requires A, Bool, B where
+    viewtype EmptyInterfaceView

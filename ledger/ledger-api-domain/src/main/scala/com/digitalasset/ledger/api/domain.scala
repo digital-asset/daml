@@ -5,8 +5,8 @@ package com.daml.ledger.api
 
 import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.daml.ledger.configuration.Configuration
-import com.daml.lf.command.{ApiCommands => LfCommands}
-import com.daml.lf.data.Ref
+import com.daml.lf.command.{DisclosedContract, ApiCommands => LfCommands}
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Ref.LedgerString.ordering
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.logging._
@@ -45,7 +45,15 @@ object domain {
     def apply(inclusive: InclusiveFilters) = new Filters(Some(inclusive))
   }
 
-  final case class InclusiveFilters(templateIds: immutable.Set[Ref.Identifier])
+  final case class InterfaceFilter(
+      interfaceId: Ref.Identifier,
+      includeView: Boolean,
+  )
+
+  final case class InclusiveFilters(
+      templateIds: immutable.Set[Ref.Identifier],
+      interfaceFilters: immutable.Set[InterfaceFilter],
+  )
 
   sealed abstract class LedgerOffset extends Product with Serializable
 
@@ -307,6 +315,7 @@ object domain {
       submittedAt: Timestamp,
       deduplicationPeriod: DeduplicationPeriod,
       commands: LfCommands,
+      disclosedContracts: ImmArray[DisclosedContract],
   )
 
   object Commands {
@@ -390,10 +399,37 @@ object domain {
       value => value.unwrap
   }
 
+  final case class ObjectMeta(
+      resourceVersionO: Option[Long],
+      annotations: Map[String, String],
+  )
+
+  object ObjectMeta {
+    // TODO um-for-hub: Review usage
+    def empty: ObjectMeta = ObjectMeta(
+      resourceVersionO = None,
+      annotations = Map.empty,
+    )
+  }
+
   final case class User(
       id: Ref.UserId,
       primaryParty: Option[Ref.Party],
+      // TODO um-for-hub: Remove default values
+      // NOTE: Do not set 'isDeactivated' and 'metadata'. These are work-in-progress features.
+      isDeactivated: Boolean = false,
+      metadata: ObjectMeta = ObjectMeta.empty,
   )
+
+  // TODO um-for-hub: Drop redundant ParticipantParty object
+  object ParticipantParty {
+
+    final case class PartyRecord(
+        party: Ref.Party,
+        metadata: ObjectMeta,
+    )
+
+  }
 
   sealed abstract class UserRight extends Product with Serializable
   object UserRight {

@@ -3,7 +3,10 @@
 
 module MyMainIface where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface IfaceFromAnotherMod where
+  viewtype EmptyInterfaceView
   getOwner: Party
   choice FromAnotherMod: Int with
       sth: Int

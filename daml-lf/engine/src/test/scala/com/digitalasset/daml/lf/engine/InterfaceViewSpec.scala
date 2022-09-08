@@ -58,17 +58,16 @@ class InterfaceViewSpec extends AnyWordSpec with Matchers with EitherValues with
     engine
       .computeInterfaceView(templateId, argument, interfaceId)
       .consume(_ => None, lookupPackage, _ => None)
+
   private val t1 = id("T1")
   private val t2 = id("T2")
   private val t3 = id("T3")
   private val t4 = id("T4")
   private val i = id("I")
-  private val iNoView = id("INoView")
 
   "interface view" should {
 
     "return result of view method when it succeds" in {
-
       inside(
         computeView(
           t1,
@@ -99,25 +98,12 @@ class InterfaceViewSpec extends AnyWordSpec with Matchers with EitherValues with
         err shouldBe a[Error.Interpretation]
       }
     }
-    // TODO https://github.com/digital-asset/daml/issues/14112
-    // Catch during preprocessing
-    "fail with Error.Interpretation if template does not implement interface" in {
+    "fail with Error.Preprocessing if template does not implement interface" in {
       inside(
         computeView(
           t4,
           ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(42)))),
           i,
-        )
-      ) { case Left(err) =>
-        err shouldBe a[Error.Interpretation]
-      }
-    }
-    "fail with Error.Preprocessing if interface has no view method" in {
-      inside(
-        computeView(
-          t1,
-          ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(42)))),
-          iNoView,
         )
       ) { case Left(err) =>
         err shouldBe a[Error.Preprocessing]

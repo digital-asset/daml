@@ -461,6 +461,22 @@ CONFIGURATION_ENTRY_REJECTED
 
 
 
+.. _error_code_INTERNALLY_INVALID_KEY:
+
+INTERNALLY_INVALID_KEY
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: A cryptographic key used by the configured system is not valid
+
+    **Category**: SystemInternalAssumptionViolated
+
+    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+
+    **Resolution**: Contact support.
+
+
+
+
 .. _error_code_PACKAGE_UPLOAD_REJECTED:
 
 PACKAGE_UPLOAD_REJECTED
@@ -793,6 +809,22 @@ CONTRACT_NOT_FOUND
     **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
 
     **Resolution**: This error type occurs if there is contention on a contract.
+
+
+
+
+.. _error_code_DISCLOSED_CONTRACT_INVALID:
+
+DISCLOSED_CONTRACT_INVALID
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error occurs if the disclosed payload or metadata of one of the contracts does not match the actual payload or metadata of the contract.
+
+    **Category**: InvalidGivenCurrentSystemStateOther
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+
+    **Resolution**: Re-submit the command using valid disclosed contract payload and metadata.
 
 
 
@@ -1249,6 +1281,22 @@ PACKAGE_NOT_FOUND
     **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
 
     **Resolution**: Use a package id pertaining to a package existing on the ledger.
+
+
+
+
+.. _error_code_TEMPLATES_OR_INTERFACES_NOT_FOUND:
+
+TEMPLATES_OR_INTERFACES_NOT_FOUND
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: The queried template or interface ids do not exist.
+
+    **Category**: InvalidGivenCurrentSystemStateResourceMissing
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
+
+    **Resolution**: Use valid template or interface ids in your query or ask the participant operator to upload the package containing the necessary interfaces/templates.
 
 
 

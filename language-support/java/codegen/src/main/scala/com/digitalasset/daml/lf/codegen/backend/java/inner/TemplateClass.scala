@@ -7,7 +7,7 @@ import com.daml.ledger.javaapi
 import ClassGenUtils.{companionFieldName, templateIdFieldName}
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.Ref, Ref.{ChoiceName, PackageId, QualifiedName}
-import com.daml.lf.iface._
+import com.daml.lf.typesig, typesig._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{\/, \/-}
@@ -64,6 +64,7 @@ private[inner] object TemplateClass extends StrictLogging {
               packagePrefixes,
             )
             .addConversionForImplementedInterfaces(template.implementedInterfaces)
+            .addContractIdConversionCompanionForwarder()
             .build()
         )
         .addType(
@@ -203,7 +204,7 @@ private[inner] object TemplateClass extends StrictLogging {
   private def generateDeprecatedStaticExerciseByKeyMethods(
       choices: Map[ChoiceName, TemplateChoice[Type]],
       maybeKey: Option[Type],
-      typeDeclarations: Map[QualifiedName, InterfaceType],
+      typeDeclarations: Map[QualifiedName, PackageSignature.TypeDecl],
       packageId: PackageId,
       packagePrefixes: Map[PackageId, String],
   ) =
@@ -347,8 +348,8 @@ private[inner] object TemplateClass extends StrictLogging {
 
   // TODO #14039 delete
   private def generateDeprecatedCreateAndExerciseMethods(
-      choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
-      typeDeclarations: Map[QualifiedName, InterfaceType],
+      choices: Map[ChoiceName, TemplateChoice[typesig.Type]],
+      typeDeclarations: Map[QualifiedName, PackageSignature.TypeDecl],
       packageId: PackageId,
       packagePrefixes: Map[PackageId, String],
   ) = {

@@ -74,11 +74,11 @@ object LanguageVersion {
   // All the stable and preview versions
   // Equals `Stable` if no preview version is available
   val EarlyAccessVersions: VersionRange[LanguageVersion] =
-    StableVersions
+    StableVersions.copy(max = v1_15)
 
   // All the versions
   val DevVersions: VersionRange[LanguageVersion] =
-    StableVersions.copy(max = v1_dev)
+    EarlyAccessVersions.copy(max = v1_dev)
 
   val defaultV1: LanguageVersion = StableVersions.max
 

@@ -4,6 +4,7 @@
 package com.daml.lf
 package interpretation
 
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.transaction.{GlobalKey, NodeId}
 import com.daml.lf.language.Ast
@@ -149,11 +150,19 @@ object Error {
   object DisclosurePreprocessing {
     sealed abstract class Error extends Serializable with Product
     final case class DuplicateContractIds(templateId: TypeConName) extends Error
-    final case class DuplicateContractKeys(templateId: TypeConName) extends Error
+    final case class DuplicateContractKeys(templateId: TypeConName, keyHash: Hash) extends Error
     final case class NonExistentTemplate(templateId: TypeConName) extends Error
     final case class NonExistentDisclosedContractKeyHash(
         coid: Value.ContractId,
         templateId: TypeConName,
+    ) extends Error
+  }
+
+  object InconsistentDisclosureTable {
+    final case class IncorrectlyTypedContract(
+        coid: ContractId,
+        expected: TypeConName,
+        actual: TypeConName,
     ) extends Error
   }
 

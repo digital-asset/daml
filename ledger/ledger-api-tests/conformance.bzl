@@ -21,12 +21,14 @@ def conformance_test(
         extra_runner_args = [],
         lf_versions = ["default"],
         dev_mod_flag = "--daml-lf-dev-mode-unsafe",
+        preview_mod_flag = "--early-access",
         flaky = False,
         hocon = False,
         server_hocon_config = None):
     for lf_version in lf_versions_aggregate(lf_versions):
         daml_lf_dev_mode_args = ["-C ledger.engine.allowed-language-versions=daml-lf-dev-mode-unsafe"] if hocon else [dev_mod_flag]
-        extra_server_args = daml_lf_dev_mode_args if lf_version == lf_version_configuration.get("preview") or lf_version == lf_version_configuration.get("dev") else []
+        daml_lf_preview_mode_args = ["-C ledger.engine.allowed-language-versions=early-access"] if hocon else [preview_mod_flag]
+        extra_server_args = daml_lf_preview_mode_args if lf_version == lf_version_configuration.get("preview") else daml_lf_dev_mode_args if lf_version == lf_version_configuration.get("dev") else []
         if not is_windows:
             test_name = "-".join([name, lf_version])
             hocon_conf_file_name = test_name + ".conf"

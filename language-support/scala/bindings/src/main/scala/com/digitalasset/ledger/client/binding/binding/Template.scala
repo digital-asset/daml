@@ -72,20 +72,7 @@ object Template {
   final case class Key[+T](
       private[binding] val encodedKey: rpcvalue.Value,
       private[binding] val origin: TemplateCompanion[_],
-  ) {
-
-    /** Get access to interface choices.
-      *
-      * {{{
-      *  MyTemplate.key(foo)
-      *    .toInterface[MyInterface]
-      *    .exerciseInterfaceChoices(controller, ...)
-      * }}}
-      */
-    @nowarn("cat=unused&msg=parameter value ev in method")
-    def toInterface[I](implicit ev: ToInterface[T, I]): Key[I] =
-      Key(encodedKey, origin)
-  }
+  )
 
   /** Evidence that coercing from template-IDed to interface-IDed is sound,
     * i.e. `toInterface`.  Not safe at all for the opposite coercion.

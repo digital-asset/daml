@@ -389,7 +389,7 @@ class ScalaCodeGenIT
     val contract = MyMain.SimpleListExample(alice, P.List(42))
     val exerciseConsequence = MkListExample(alice, P.List(42))
     testCommandAndReceiveEvent(
-      contract.createAnd.exerciseGo(alice),
+      contract.createAnd.exerciseGo(),
       alice,
       assertCreateEvent(_)(
         exerciseConsequence,
@@ -508,7 +508,7 @@ class ScalaCodeGenIT
       event <- toFuture(transaction.events.headOption)
       created <- toFuture(event.event.created)
       contractId = P.ContractId[CallablePayout](created.contractId)
-      exerciseCommand = contractId.exerciseCall2(bob)
+      exerciseCommand = contractId.exerciseCall2()
       status <- send(contextId, aCommandSubmission(workflowId, commandId, bob, exerciseCommand))(1)
     } yield status
 
@@ -521,7 +521,7 @@ class ScalaCodeGenIT
       event <- toFuture(transaction.events.headOption)
       created <- toFuture(event.event.created)
       contractId = P.ContractId[CallablePayout](created.contractId)
-      exerciseCommand = contractId.exerciseTransfer(actor = bob, newReceiver = newReceiver)
+      exerciseCommand = contractId.exerciseTransfer(newReceiver = newReceiver)
       status <- send(contextId, aCommandSubmission(workflowId, commandId, bob, exerciseCommand))(1)
     } yield status
 

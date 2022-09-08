@@ -45,7 +45,7 @@ for details, contact your ledger operator.
 Guarantees
 **********
 
-The ledger time of valid transaction ``TX`` must fulfill the following rules:
+The ledger time of a valid transaction ``TX`` must fulfill the following rules:
 
 #. **Causal monotonicity**: for any action (create, exercise, fetch, lookup) in ``TX``
    on a contract ``C``, ``lt_TX >= lt_C``,
@@ -102,7 +102,7 @@ The algorithm is not part of the definition of time in Daml, and may change in t
    #. ``t_p + min_ledger_time_rel``, if ``min_ledger_time_rel`` is given
    #. ``min_ledger_time_abs``, if ``min_ledger_time_abs`` is given
 
-#. Since the set of commands used by given transaction can depend on the chosen time,
+#. Since the set of commands used by a given transaction can depend on the chosen time,
    the above process might need to be repeated until a suitable ledger time is found.
 
 #. If no suitable ledger time is found after 3 iterations, the submission is rejected.
@@ -118,4 +118,4 @@ command interpretation will take a considerate amount of time, such that by
 the time the resulting transaction is submitted to the ledger, its assigned ledger time is not valid anymore.
 Note that these parameters can only make sure that the transaction arrives roughly at ``rt_TX`` at the ledger.
 If a subsequent validation on the ledger takes longer than ``skew_max``,
-the transaction will still be rejected and you'll have to ask your ledger operator to increase the ``skew_max`` time model parameter. 
+the transaction will still be rejected and you'll have to ask your ledger operator to increase the ``skew_max`` time model parameter.

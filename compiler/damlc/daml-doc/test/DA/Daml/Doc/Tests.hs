@@ -23,6 +23,8 @@ import Control.Monad
 import           Control.Monad.Trans.Maybe
 import qualified Data.Aeson.Encode.Pretty as AP
 import           Data.List.Extra
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import qualified Data.Text          as T
 import qualified Data.Text.Extended as T
 import qualified Data.Text.Lazy as TL
@@ -185,22 +187,130 @@ unitTests =
 
          , damldocExpect
            Nothing
-           "Interface implementations"
+           "Interface instances"
            [ testModHdr
+           , "data EmptyInterfaceView = EmptyInterfaceView"
            , "interface Bar where"
+           , "  viewtype EmptyInterfaceView"
            , "  method : Update ()"
            , "template Foo with"
            , "    field1 : Party"
            , "  where"
            , "    signatory field1"
-           , "    implements Bar where"
+           , "    interface instance Bar for Foo where"
+           , "      view = EmptyInterfaceView"
            , "      method = pure ()"
            ]
            (\md -> assertBool
-                   ("Expected interface implementation, got " <> show md)
+                   ("Expected interface instance, got " <> show md)
                    (isJust $ do t  <- getSingle $ md_templates md
-                                impl <- getSingle $ td_impls t
-                                check $ getTypeAppName (impl_iface impl) == Just "Bar"))
+                                InterfaceInstanceDoc {..} <- getSingle $ td_interfaceInstances t
+                                check $
+                                  getTypeAppName ii_interface == Just "Bar"
+                                  && getTypeAppName ii_template == Just "Foo"))
+
+         , damldocExpect
+           Nothing
+           "Interface instance in interface"
+           [ testModHdr
+           , "data EmptyInterfaceView = EmptyInterfaceView"
+           , "template Foo with"
+           , "    field1 : Party"
+           , "  where"
+           , "    signatory field1"
+           , "interface Bar where"
+           , "  viewtype EmptyInterfaceView"
+           , "  method : Update ()"
+           , "  interface instance Bar for Foo where"
+           , "    view = EmptyInterfaceView"
+           , "    method = pure ()"
+           ]
+           (\md -> assertBool
+                   ("Expected interface instance, got " <> show md)
+                   (isJust $ do i  <- getSingle $ md_interfaces md
+                                InterfaceInstanceDoc {..} <- getSingle $ if_interfaceInstances i
+                                check $
+                                  getTypeAppName ii_interface == Just "Bar"
+                                  && getTypeAppName ii_template == Just "Foo"))
+
+         , damldocExpectMany
+           Nothing
+           "Interface instance with qualified interface"
+           [ (,) "Interface"
+             [ "module Interface where"
+
+             , "data EmptyInterfaceView = EmptyInterfaceView"
+
+             , "interface Bar where"
+             , "  viewtype EmptyInterfaceView"
+             , "  method : Update ()"
+             ]
+           , (,) "Template"
+             [ "module Template where"
+
+             , "import qualified Interface"
+
+             , "template Foo with"
+             , "    field1 : Party"
+             , "  where"
+             , "    signatory field1"
+             , "    interface instance Interface.Bar for Foo where"
+             , "      view = Interface.EmptyInterfaceView"
+             , "      method = pure ()"
+             ]
+           ]
+           (\mds -> assertBool
+                   ("Expected interface instance, got " <> show mds)
+                   (isJust $ do interfaceMod <- Map.lookup (Modulename "Interface") mds
+                                interface <- getSingle $ md_interfaces interfaceMod
+                                interfaceAnchor <- if_anchor interface
+
+                                templateMod <- Map.lookup (Modulename "Template") mds
+                                template <- getSingle $ md_templates templateMod
+                                InterfaceInstanceDoc {..} <- getSingle $ td_interfaceInstances template
+                                check $
+                                  getTypeAppName ii_interface == Just "Bar"
+                                  && getTypeAppName ii_template == Just "Foo"
+                                  && getTypeAppAnchor ii_interface == Just interfaceAnchor))
+
+         , damldocExpectMany
+           Nothing
+           "Interface instance with qualified template"
+           [ (,) "Template"
+             [ "module Template where"
+             , "template Foo with"
+             , "    field1 : Party"
+             , "  where"
+             , "    signatory field1"
+             ]
+           , (,) "Interface"
+             [ "module Interface where"
+
+             , "import qualified Template"
+
+             , "data EmptyInterfaceView = EmptyInterfaceView"
+
+             , "interface Bar where"
+             , "  viewtype EmptyInterfaceView"
+             , "  method : Update ()"
+             , "  interface instance Bar for Template.Foo where"
+             , "    view = EmptyInterfaceView"
+             , "    method = pure ()"
+             ]
+           ]
+           (\mds -> assertBool
+                   ("Expected interface instance, got " <> show mds)
+                   (isJust $ do templateMod <- Map.lookup (Modulename "Template") mds
+                                template <- getSingle $ md_templates templateMod
+                                templateAnchor <- td_anchor template
+
+                                interfaceMod <- Map.lookup (Modulename "Interface") mds
+                                interface <- getSingle $ md_interfaces interfaceMod
+                                InterfaceInstanceDoc {..} <- getSingle $ if_interfaceInstances interface
+                                check $
+                                  getTypeAppName ii_interface == Just "Bar"
+                                  && getTypeAppName ii_template == Just "Foo"
+                                  && getTypeAppAnchor ii_template == Just templateAnchor))
 
          , damldocExpect
            Nothing
@@ -267,9 +377,39 @@ damldocExpect importPathM testname input check =
     doc <- runDamldoc testfile importPathM
     check doc
 
+damldocExpectMany ::
+     Maybe FilePath
+  -> String
+  -> [(String, [T.Text])]
+  -> (Map Modulename ModuleDoc -> Assertion)
+  -> Tasty.TestTree
+damldocExpectMany importPathM testname input check =
+  testCase testname $
+  withTempDir $ \dir -> do
+    testfiles <- forM input $ \(modName, content) -> do
+      let testfile = dir </> modName <.> "daml"
+      T.writeFileUtf8 testfile (T.unlines content)
+      pure testfile
+    docs <- runDamldocMany testfiles importPathM
+    check docs
+
 -- | Generate the docs for a given input file and optional import directory.
 runDamldoc :: FilePath -> Maybe FilePath -> IO ModuleDoc
 runDamldoc testfile importPathM = do
+  -- The first module is the one we're testing
+  (\(names, modMap) -> modMap Map.! head names)
+    <$> runDamldocMany' [testfile] importPathM
+
+-- | Generate the docs for a given list of input files and optional import directory.
+runDamldocMany :: [FilePath] -> Maybe FilePath -> IO (Map Modulename ModuleDoc)
+runDamldocMany testfiles importPathM =
+  snd <$> runDamldocMany' testfiles importPathM
+
+-- | Generate the docs for a given list of input files and optional import directory.
+-- The fst of the result has the names of Modulenames for each file path in the input.
+-- The snd has a map from all the modules (including imported ones) to their docs.
+runDamldocMany' :: [FilePath] -> Maybe FilePath -> IO ([Modulename], Map Modulename ModuleDoc)
+runDamldocMany' testfiles importPathM = do
     let opts = (defaultOptions Nothing)
           { optHaddock = Haddock True
           , optScenarioService = EnableScenarioService False
@@ -282,21 +422,23 @@ runDamldoc testfile importPathM = do
         defaultExtractOptions
         diagnosticsLogger
         opts
-        [toNormalizedFilePath' testfile]
+        (toNormalizedFilePath' <$> testfiles)
 
     case mbResult of
       Nothing ->
-        assertFailure $ unlines ["Parse error(s) for test file " <> testfile]
+        assertFailure $ unlines
+          ["Parse error(s) for test file(s) " <> intercalate ", " testfiles]
 
       Just docs -> do
-          let docs' = applyTransform defaultTransformOptions docs
+          let names = md_name <$> take (length testfiles) docs
+                -- extract names from docs since the front of docs matches testfiles
+              docs' = applyTransform defaultTransformOptions docs
                 -- apply transforms to get instance data
-              name = md_name (head docs)
-                -- first module in docs is the one we're testing,
-                -- we need to find it in docs' because applyTransform
-                -- will reorder the docs
-              docM = find ((== name) . md_name) docs'
-          pure $ fromJust docM
+              moduleMap = Map.fromList
+                [ (md_name docM, docM)
+                | docM <- docs'
+                ]
+          pure (names, moduleMap)
 
 -- | For the given file <name>.daml (assumed), this test checks if any
 -- <name>.EXPECTED.<suffix> exists, and produces output according to <suffix>
