@@ -6,7 +6,7 @@ package com.daml.lf.kv.transactions
 import com.daml.lf.kv.ConversionError
 import com.daml.lf.transaction.TransactionOuterClass.{Node, NodeRollback, Transaction}
 import com.daml.lf.transaction.TransactionVersion
-import com.daml.lf.value.ValueCoder
+import com.daml.lf.value.{ValueCoder, ValueOuterClass}
 import com.google.protobuf.ByteString
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -15,53 +15,54 @@ import scala.jdk.CollectionConverters._
 
 class TransactionTraversalSpec extends AnyFunSuite with Matchers {
 
+  private val builder = TransactionBuilder()
+
+  // Creation of a contract with Alice as signatory, and Bob is controller of one of the choices.
+  private val createNid = builder.addNode(
+    createNode(List("Alice"), List("Alice", "Bob"))
+  )
+
+  // Exercise of a contract where Alice as signatory, Charlie has a choice or is an observer.
+  private val exeNid = builder.addNode(
+    exerciseNode(
+      signatories = List("Alice"),
+      stakeholders = List("Alice", "Charlie"),
+      consuming = true,
+      createNid,
+    )
+  )
+
+  // Non-consuming exercise of a contract where Alice as signatory, Charlie has a choice or is an observer.
+  private val nonConsumingExeNid = builder.addNode(
+    exerciseNode(
+      signatories = List("Alice"),
+      stakeholders = List("Alice", "Charlie"),
+      consuming = false,
+    )
+  )
+
+  // A fetch of some contract created by Bob.
+  private val fetchNid = builder.addNode(
+    fetchNode(
+      signatories = List("Bob"),
+      stakeholders = List("Bob"),
+    )
+  )
+
+  // Root node exercising a contract only known to Alice.
+  private val rootNid = builder.addRoot(
+    exerciseNode(
+      signatories = List("Alice"),
+      stakeholders = List("Alice"),
+      consuming = true,
+      fetchNid,
+      nonConsumingExeNid,
+      exeNid,
+    )
+  )
+  private val rawTx = RawTransaction(builder.build.toByteString)
+
   test("traverseTransactionWithWitnesses - consuming nested exercises") {
-    val builder = TransactionBuilder()
-
-    // Creation of a contract with Alice as signatory, and Bob is controller of one of the choices.
-    val createNid = builder.addNode(
-      createNode(List("Alice"), List("Alice", "Bob"))
-    )
-
-    // Exercise of a contract where Alice as signatory, Charlie has a choice or is an observer.
-    val exeNid = builder.addNode(
-      exerciseNode(
-        signatories = List("Alice"),
-        stakeholders = List("Alice", "Charlie"),
-        consuming = true,
-        createNid,
-      )
-    )
-
-    // Non-consuming exercise of a contract where Alice as signatory, Charlie has a choice or is an observer.
-    val nonConsumingExeNid = builder.addNode(
-      exerciseNode(
-        signatories = List("Alice"),
-        stakeholders = List("Alice", "Charlie"),
-        consuming = false,
-      )
-    )
-
-    // A fetch of some contract created by Bob.
-    val fetchNid = builder.addNode(
-      fetchNode(
-        signatories = List("Bob"),
-        stakeholders = List("Bob"),
-      )
-    )
-
-    // Root node exercising a contract only known to Alice.
-    val rootNid = builder.addRoot(
-      exerciseNode(
-        signatories = List("Alice"),
-        stakeholders = List("Alice"),
-        consuming = true,
-        fetchNid,
-        nonConsumingExeNid,
-        exeNid,
-      )
-    )
-    val rawTx = RawTransaction(builder.build.toByteString)
 
     TransactionTraversal.traverseTransactionWithWitnesses(rawTx) {
       case (RawTransaction.NodeId(`createNid`), _, witnesses) =>
@@ -86,19 +87,36 @@ class TransactionTraversalSpec extends AnyFunSuite with Matchers {
     } shouldBe Right(())
   }
 
-  test("traverseTransactionWithWitnesses - transaction parsing error") {
-    val rawTx = RawTransaction(ByteString.copyFromUtf8("wrong"))
-    val actual = TransactionTraversal.traverseTransactionWithWitnesses(rawTx)((_, _, _) => ())
-    actual shouldBe Left(ConversionError.ParseError("Protocol message tag had invalid wire type."))
+  test("extractPerPackageWitnesses - extract package witness mapping as expected") {
+    val result = TransactionTraversal.extractPerPackageWitnesses(rawTx)
+    result shouldBe
+      Right(
+        Map(
+          "template_exercise" -> Set("Alice", "Charlie"),
+          "interface_exercise" -> Set("Alice", "Charlie"),
+          "template_create" -> Set("Alice", "Charlie", "Bob"),
+          "template_fetch" -> Set("Alice", "Bob"),
+        )
+      )
   }
 
-  test("traverseTransactionWithWitnesses - transaction version parsing error") {
+  test("traversal - transaction parsing error") {
+    val rawTx = RawTransaction(ByteString.copyFromUtf8("wrong"))
+    TransactionTraversal.traverseTransactionWithWitnesses(rawTx)((_, _, _) => ()) shouldBe Left(
+      ConversionError.ParseError("Protocol message tag had invalid wire type.")
+    )
+    TransactionTraversal.extractPerPackageWitnesses(rawTx) shouldBe Left(
+      ConversionError.ParseError("Protocol message tag had invalid wire type.")
+    )
+  }
+
+  test("traversal - transaction version parsing error") {
     val rawTx = RawTransaction(Transaction.newBuilder().setVersion("wrong").build.toByteString)
     val actual = TransactionTraversal.traverseTransactionWithWitnesses(rawTx)((_, _, _) => ())
     actual shouldBe Left(ConversionError.ParseError("Unsupported transaction version 'wrong'"))
   }
 
-  test("traverseTransactionWithWitnesses - node decoding error") {
+  test("traversal - node decoding error") {
     val rootNodeId = "1"
     val rawTx = RawTransaction(
       Transaction
@@ -111,8 +129,14 @@ class TransactionTraversalSpec extends AnyFunSuite with Matchers {
         .build
         .toByteString
     )
-    val actual = TransactionTraversal.traverseTransactionWithWitnesses(rawTx)((_, _, _) => ())
-    actual shouldBe Left(
+    TransactionTraversal.traverseTransactionWithWitnesses(rawTx)((_, _, _) => ()) shouldBe Left(
+      ConversionError.DecodeError(
+        ValueCoder.DecodeError(
+          "protoActionNodeInfo only supports action nodes but was applied to a rollback node"
+        )
+      )
+    )
+    TransactionTraversal.extractPerPackageWitnesses(rawTx) shouldBe Left(
       ConversionError.DecodeError(
         ValueCoder.DecodeError(
           "protoActionNodeInfo only supports action nodes but was applied to a rollback node"
@@ -167,6 +191,7 @@ class TransactionTraversalSpec extends AnyFunSuite with Matchers {
   private def createNode(signatories: Iterable[String], stakeholders: Iterable[String]) =
     withNodeBuilder {
       _.getCreateBuilder
+        .setTemplateId(ValueOuterClass.Identifier.newBuilder().setPackageId("template_create"))
         .addAllSignatories(signatories.asJava)
         .addAllStakeholders(stakeholders.asJava)
     }
@@ -177,6 +202,7 @@ class TransactionTraversalSpec extends AnyFunSuite with Matchers {
   private def fetchNode(signatories: Iterable[String], stakeholders: Iterable[String]) =
     withNodeBuilder {
       _.getFetchBuilder
+        .setTemplateId(ValueOuterClass.Identifier.newBuilder().setPackageId("template_fetch"))
         .addAllSignatories(signatories.asJava)
         .addAllStakeholders(stakeholders.asJava)
     }
@@ -193,6 +219,8 @@ class TransactionTraversalSpec extends AnyFunSuite with Matchers {
     withNodeBuilder {
       _.getExerciseBuilder
         .setConsuming(consuming)
+        .setTemplateId(ValueOuterClass.Identifier.newBuilder().setPackageId("template_exercise"))
+        .setInterfaceId(ValueOuterClass.Identifier.newBuilder().setPackageId("interface_exercise"))
         .addAllSignatories(signatories.asJava)
         .addAllStakeholders(stakeholders.asJava)
         /* NOTE(JM): Actors are no longer included in exercises by the compiler, hence we don't set them */
