@@ -20,7 +20,7 @@ object MeteringReportKey {
   }
   final case class EnterpriseKey(key: Key) extends MeteringReportKey
 
-  def communityKey(): Key = readSystemResourceAsKey(
+  def communityKey(): Key = assertReadSystemResourceAsKey(
     getClass.getClassLoader.getResource("metering-keys/community.json")
   )
 
@@ -29,8 +29,12 @@ object MeteringReportKey {
     *  - Get the `ClassLoader` associated with that class
     *  - Use the `getResource` classloader method.
     */
-  def readSystemResourceAsKey(keyUrl: URL): Key = {
-    val json = new String(keyUrl.openStream().readAllBytes(), StandardCharsets.UTF_8)
+  def assertReadSystemResourceAsKey(keyUrl: URL): Key = {
+    assertParseKey(keyUrl.openStream().readAllBytes())
+  }
+
+  def assertParseKey(bytes: Array[Byte]): Key = {
+    val json = new String(bytes, StandardCharsets.UTF_8)
     json.parseJson.convertTo[Key]
   }
 
