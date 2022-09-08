@@ -119,7 +119,12 @@ In this section, you will run the quickstart application and get introduced to t
 
    .. code-block:: none
 
-      Created .daml/dist/quickstart-0.0.1.dar.
+
+      2022-09-08 14:33:41.65 [INFO]  [build]
+      Compiling quickstart to a DAR.
+
+      2022-09-08 14:33:42.90 [INFO]  [build]
+      Created .daml/dist/quickstart-0.0.1.dar
 
    .. _quickstart-sandbox:
 
