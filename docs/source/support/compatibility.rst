@@ -43,6 +43,8 @@ The below lists with which Daml version a new Ledger API version was introduced.
 
    * - Ledger API Version
      - Daml Version
+   * - 2.1
+     - 2.4
    * - 2.0
      - 2.0
    * - 1.12
@@ -66,6 +68,12 @@ Summary of Ledger API Changes
 
    * - Ledger API Version
      - Changes
+   * - 2.1
+     - | Establish the order of child events in ExercisedEvent to agree with the order of events in transaction.
+       | Indicate an exercise done on an interface through the interface_id field on the ExercisedEvent message.
+       | Make interfaces available for subscriptions in the Transaction Service as a preview feature.
+       | Implement contract disclosure as an experimental feature in the Transaction, Command Submission and Command Services. Related new message types of DisclosedContract and ContractMetadata should be ignored.
+       | Convert Metering Service to using JSON format for its reports.
    * - 2.0
      - | Introduce User Management Service
        | Introduce Metering Report Service
