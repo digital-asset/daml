@@ -57,7 +57,6 @@ genrule(
         ],
         exclude = ["**/NO_AUTO_COPYRIGHT"],
     ) + [
-        "//docs:quickstart-finance.tar.gz",
         "//docs:quickstart-java.tar.gz",
         "//docs:daml-intro-templates",
         "//docs:daml-patterns",
@@ -96,9 +95,6 @@ genrule(
         done
 
         ## special cases we should work to remove
-
-        # quickstart-finance template
-        tar xf $(location //docs:quickstart-finance.tar.gz) --strip-components=1 -C $$OUT/quickstart-finance
 
         # quickstart-java template
         tar xf $(location //docs:quickstart-java.tar.gz) --strip-components=1 -C $$OUT/quickstart-java
