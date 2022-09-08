@@ -3,24 +3,19 @@
 
 package com.daml.platform.index
 
-import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.domain.{Filters, InclusiveFilters, InterfaceFilter, TransactionFilter}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Identifier
 import com.daml.platform.index.IndexServiceImpl.{
+  checkUnknownTemplatesOrInterfaces,
   memoizedTransactionFilterProjection,
   templateFilter,
-  unknownTemplatesOrInterfaces,
   wildcardFilter,
 }
 import com.daml.platform.index.IndexServiceImplSpec.Scope
 import com.daml.platform.store.dao.EventProjectionProperties
-import com.daml.platform.index.IndexServiceImpl.{
-  checkUnknownTemplatesOrInterfaces,
-  memoizedTransactionFilterProjection,
-  templateFilter,
-}
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import org.mockito.MockitoSugar
