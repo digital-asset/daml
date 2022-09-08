@@ -129,10 +129,11 @@ final case class TlsConfiguration(
   }
 
   /** This is a side-effecting method. It modifies JVM TLS properties according to the TLS configuration. */
-  def setJvmTlsProperties(): Unit = {
-    if (enabled && enableCertRevocationChecking) OcspProperties.enableOcsp()
-    if (enabled) ProtocolDisabler.disableSSLv2Hello()
-  }
+  def setJvmTlsProperties(): Unit =
+    if (enabled) {
+      if (enableCertRevocationChecking) OcspProperties.enableOcsp()
+      ProtocolDisabler.disableSSLv2Hello()
+    }
 
   /** Netty incorrectly hardcodes the report that the SSLv2Hello protocol is enabled. There is no way
     * to stop it from doing it, so we just filter the netty's erroneous claim. We also make sure that

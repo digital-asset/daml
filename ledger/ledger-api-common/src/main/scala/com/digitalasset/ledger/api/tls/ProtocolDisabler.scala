@@ -23,7 +23,13 @@ private[tls] case class PropertiesUpdater(
 ) {
   def appendToProperty(name: String, value: String): Unit = {
     val property = getter(name)
-    val fullVal = value.r.findFirstIn(property).map(_ => property).getOrElse(s"$property, $value")
-    setter(name, fullVal)
+    val fullProperty =
+      property
+        .split(",")
+        .map(_.trim)
+        .find(_ == value)
+        .map(_ => property)
+        .getOrElse(s"$property, $value")
+    setter(name, fullProperty)
   }
 }

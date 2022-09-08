@@ -22,7 +22,7 @@ class ProtocolDisablerTest extends AnyWordSpec with Matchers {
     val state: mutable.Map[String, String] = mutable.Map.empty
     val updater = PropertiesUpdater(state(_), state(_) = _)
 
-    "add substring if it doesn't exist yet" in {
+    "add element if it doesn't exist yet" in {
       // when
       state("without") = noHello
       updater.appendToProperty("without", hello)
@@ -30,7 +30,7 @@ class ProtocolDisablerTest extends AnyWordSpec with Matchers {
       state("without") shouldBe helloAtTheEnd
     }
 
-    "do nothing if the substring exists already" in {
+    "do nothing if the element exists already" in {
       // when
       state("atTheEnd") = helloAtTheEnd
       state("atTheBeginning") = helloAtTheBeginning
@@ -39,6 +39,16 @@ class ProtocolDisablerTest extends AnyWordSpec with Matchers {
       // then
       state("atTheEnd") shouldBe helloAtTheEnd
       state("atTheBeginning") shouldBe helloAtTheBeginning
+    }
+
+    "add the element if it already exists as substring of another element" in {
+      // when
+      val helloAsSubstring =
+        "SSLv3, RC4, MD5withRSA, DH keySize < 1024, EC keySize < 224, SSLv2Hello Hello"
+      state("asSubstring") = helloAsSubstring
+      updater.appendToProperty("asSubstring", hello)
+      // then
+      state("asSubstring") shouldBe s"$helloAsSubstring, $hello"
     }
   }
 
