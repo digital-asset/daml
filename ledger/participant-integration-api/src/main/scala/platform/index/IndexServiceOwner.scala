@@ -20,7 +20,7 @@ import com.daml.platform.store.cache._
 import com.daml.platform.store.dao.events.{BufferedTransactionsReader, LfValueTranslation}
 import com.daml.platform.store.dao.{BufferedCommandCompletionsReader, JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.interning.StringInterning
-import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
+import com.daml.platform.store.DbSupport
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
 
@@ -35,7 +35,6 @@ final class IndexServiceOwner(
     initialLedgerId: LedgerId,
     servicesExecutionContext: ExecutionContext,
     metrics: Metrics,
-    lfValueTranslationCache: LfValueTranslationCache.Cache,
     engine: Engine,
     participantId: Ref.ParticipantId,
     inMemoryState: InMemoryState,
@@ -64,7 +63,6 @@ final class IndexServiceOwner(
       )(servicesExecutionContext, loggingContext)
 
       lfValueTranslation = new LfValueTranslation(
-        cache = lfValueTranslationCache,
         metrics = metrics,
         engineO = Some(engine),
         loadPackage = (packageId, loggingContext) =>
@@ -177,7 +175,6 @@ final class IndexServiceOwner(
       acsGlobalParallelism = config.acsGlobalParallelism,
       servicesExecutionContext = servicesExecutionContext,
       metrics = metrics,
-      lfValueTranslationCache = lfValueTranslationCache,
       engine = Some(engine),
       participantId = participantId,
       ledgerEndCache = ledgerEndCache,

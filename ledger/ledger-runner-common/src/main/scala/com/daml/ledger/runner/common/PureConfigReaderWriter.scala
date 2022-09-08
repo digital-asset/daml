@@ -30,7 +30,6 @@ import com.daml.platform.store.DbSupport.{
   DataSourceProperties,
   ParticipantDataSourceConfig,
 }
-import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
 import com.daml.platform.usermanagement.UserManagementConfig
@@ -318,9 +317,6 @@ class PureConfigReaderWriter(secure: Boolean = true) {
     deriveConvert[PackageMetadataViewConfig]
 
   implicit val indexerConfigConvert: ConfigConvert[IndexerConfig] = deriveConvert[IndexerConfig]
-
-  implicit val lfValueTranslationCacheConvert: ConfigConvert[LfValueTranslationCache.Config] =
-    deriveConvert[LfValueTranslationCache.Config]
 
   implicit val indexServiceConfigConvert: ConfigConvert[IndexServiceConfig] =
     deriveConvert[IndexServiceConfig]

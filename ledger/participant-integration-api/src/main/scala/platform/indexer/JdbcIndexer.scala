@@ -32,7 +32,7 @@ import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslati
 import com.daml.platform.store.interning.UpdatingStringInterningView
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import com.daml.platform.store.packagemeta.PackageMetadataView
-import com.daml.platform.store.{DbType, LfValueTranslationCache}
+import com.daml.platform.store.DbType
 import com.daml.timer.FutureCheck._
 
 import java.util.concurrent.TimeUnit
@@ -48,7 +48,6 @@ object JdbcIndexer {
       config: IndexerConfig,
       readService: state.ReadService,
       metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslationCache.Cache,
       inMemoryState: InMemoryState,
       apiUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
       executionContext: ExecutionContext,
@@ -84,7 +83,6 @@ object JdbcIndexer {
           ingestionStorageBackend = ingestionStorageBackend,
           participantId = participantId,
           translation = new LfValueTranslation(
-            cache = lfValueTranslationCache,
             metrics = metrics,
             engineO = None,
             loadPackage = (_, _) => Future.successful(None),

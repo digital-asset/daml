@@ -270,7 +270,6 @@ final class Metrics(val registry: MetricRegistry) {
 
         object translation {
           private val Prefix: MetricName = db.Prefix :+ "translation"
-          val cache = new CacheMetrics(registry, Prefix :+ "cache")
           val getLfPackage: Timer = registry.timer(Prefix :+ "get_lf_package")
         }
 
