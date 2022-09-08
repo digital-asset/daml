@@ -1065,7 +1065,7 @@ private[lf] final class Compiler(
               t.SCPDefault,
               s.SEApp(
                 s.SEBuiltin(SBCrash(s"Template $templateId does not exist and it should")),
-                List(s.SEValue(SUnit)),
+                List(s.SEValue.Unit),
               ),
             ),
           ),
