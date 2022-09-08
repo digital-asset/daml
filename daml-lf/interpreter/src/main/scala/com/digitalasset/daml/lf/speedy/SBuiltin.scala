@@ -37,7 +37,9 @@ import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeSet
 import scala.math.Ordering.Implicits.infixOrderingOps
 
-/**  Speedy builtins are stratified into two layers:
+/** Speedy builtins represent LF functional forms. As such, they *always* have a non-zero arity.
+  *
+  * Speedy builtins are stratified into two layers:
   *  Parent: `SBuiltin`, (which are effectful), and child: `SBuiltinPure` (which are pure).
   *
   *  Effectful builtin functions may ask questions of the ledger or change machine state.
@@ -950,6 +952,34 @@ private[lf] object SBuiltin {
     }
   }
 
+  /** $checkTemplate[T] :: Unit -> bool */
+  private[speedy] final case class SBCheckTemplate(templateId: TypeConName) extends SBuiltin(1) {
+
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
+      getSUnit(args, 0)
+
+      Control.Value(SBool(machine.compiledPackages.pkgInterface.lookupTemplate(templateId).isRight))
+    }
+  }
+
+  /** $checkTemplateKey[T] :: Unit -> bool */
+  private[speedy] final case class SBCheckTemplateKey(templateId: TypeConName) extends SBuiltin(1) {
+
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
+      getSUnit(args, 0)
+
+      Control.Value(
+        SBool(machine.compiledPackages.pkgInterface.lookupTemplateKey(templateId).isRight)
+      )
+    }
+  }
+
   /** $create
     *    :: Text (agreement text)
     *    -> CachedContract
@@ -1808,6 +1838,19 @@ private[lf] object SBuiltin {
     }
   }
 
+  /** $crash :: Text -> Unit -> Nothing */
+  private[speedy] final case class SBCrash(reason: String) extends SBuiltin(1) {
+
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
+      getSUnit(args, 0)
+
+      crash(reason)
+    }
+  }
+
   /** $try-handler :: Optional (Token -> a) -> AnyException -> Token -> a (or re-throw) */
   final case object SBTryHandler extends SBuiltin(3) {
     override private[speedy] def execute(
@@ -2105,41 +2148,6 @@ private[lf] object SBuiltin {
         SBError(compileTime.SEValue(SText(s"experimental $name not supported."))),
       )
 
-  }
-
-  /** $checkTemplate[T] :: TemplateId T -> bool */
-  private[speedy] final case class SBCheckTemplate(templateId: Identifier) extends SBuiltin(0) {
-
-    override private[speedy] def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-    ): Control = {
-      Control.Value(SBool(machine.compiledPackages.pkgInterface.lookupTemplate(templateId).isRight))
-    }
-  }
-
-  /** $checkTemplateKey[T] :: TemplateId T -> bool */
-  private[speedy] final case class SBCheckTemplateKey(templateId: Identifier) extends SBuiltin(0) {
-
-    override private[speedy] def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-    ): Control = {
-      Control.Value(
-        SBool(machine.compiledPackages.pkgInterface.lookupTemplateKey(templateId).isRight)
-      )
-    }
-  }
-
-  /** $crash :: -> Nothing */
-  private[speedy] final case class SBCrash(reason: String) extends SBuiltin(0) {
-
-    override private[speedy] def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-    ): Control = {
-      crash(reason)
-    }
   }
 
   /** $cacheDisclosedContract[T] :: ContractId T -> CachedContract T -> Unit */
