@@ -212,7 +212,7 @@
 - creating and listing 20K users should be possible: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L568)
 
 ## Input Validation:
-- TLS configuration is parsed correctly from the config file: [CliSpec.scala](ledger-service/http-json/src/test/scala/com/digitalasset/http/CliSpec.scala#L273)
+- TLS configuration is parsed correctly from the config file: [CliSpec.scala](ledger-service/http-json/src/test/scala/com/digitalasset/http/CliSpec.scala#L275)
 - auth and auth-* should not be set together for the trigger service: [CliConfigTest.scala](triggers/service/src/test-suite/scala/com/daml/lf/engine/trigger/CliConfigTest.scala#L40)
 - ensure builtin operators have the correct type: [TypingSpec.scala](daml-lf/validation/src/test/scala/com/digitalasset/daml/lf/validation/TypingSpec.scala#L48)
 - ensure expression forms have the correct type: [TypingSpec.scala](daml-lf/validation/src/test/scala/com/digitalasset/daml/lf/validation/TypingSpec.scala#L108)
