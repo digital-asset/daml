@@ -32,7 +32,9 @@ class MeteringReportKeySpec extends AnyWordSpec with Matchers {
     }
     "throw exception for invalid resource" in {
       val badResource = getClass.getClassLoader.getResource("no-such-file")
-      intercept[NullPointerException] { MeteringReportKey.assertReadSystemResourceAsKey(badResource) }
+      intercept[NullPointerException] {
+        MeteringReportKey.assertReadSystemResourceAsKey(badResource)
+      }
     }
 
   }
