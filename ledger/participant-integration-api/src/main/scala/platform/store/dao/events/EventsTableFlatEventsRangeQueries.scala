@@ -22,9 +22,9 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
   protected def offsetRange(offset: Offset): EventsRange[Long]
 
   final def apply(
-                   offset: Offset,
-                   filter: TemplatePartiesFilter,
-                   pageSize: Int,
+      offset: Offset,
+      filter: TemplatePartiesFilter,
+      pageSize: Int,
   ): Connection => Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
     require(
       filter.relation.nonEmpty || filter.wildcardParties.nonEmpty,

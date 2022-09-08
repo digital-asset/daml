@@ -87,10 +87,10 @@ private[dao] final class TransactionsReader(
     deserializeEvent(eventProjectionProperties)(entry).map(event => entry.copy(event = event))
 
   override def getFlatTransactions(
-                                    startExclusive: Offset,
-                                    endInclusive: Offset,
-                                    filter: TemplatePartiesFilter,
-                                    eventProjectionProperties: EventProjectionProperties,
+      startExclusive: Offset,
+      endInclusive: Offset,
+      filter: TemplatePartiesFilter,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val span =
       Telemetry.Transactions.createSpan(startExclusive, endInclusive)(qualifiedNameOfCurrentFunc)
@@ -277,9 +277,9 @@ private[dao] final class TransactionsReader(
       .map(TransactionConversions.toGetTransactionResponse)
 
   override def getActiveContracts(
-                                   activeAt: Offset,
-                                   filter: TemplatePartiesFilter,
-                                   eventProjectionProperties: EventProjectionProperties,
+      activeAt: Offset,
+      filter: TemplatePartiesFilter,
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
     val contextualizedErrorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
     val span =

@@ -744,13 +744,13 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
 private[dao] object JdbcLedgerDaoTransactionsSpec {
   private final case class FlatTransactionCodePath(
-                                                    label: String,
-                                                    filter: TemplatePartiesFilter,
-                                                    makeMatching: () => (Offset, LedgerEntry.Transaction),
-                                                    makeNonMatching: () => (Offset, LedgerEntry.Transaction),
-                                                    // XXX SC we don't need discriminate unless we test the event contents
-                                                    // instead of just the offsets
-                                                    discriminate: lav1.event.CreatedEvent => Boolean = _ => false,
+      label: String,
+      filter: TemplatePartiesFilter,
+      makeMatching: () => (Offset, LedgerEntry.Transaction),
+      makeNonMatching: () => (Offset, LedgerEntry.Transaction),
+      // XXX SC we don't need discriminate unless we test the event contents
+      // instead of just the offsets
+      discriminate: lav1.event.CreatedEvent => Boolean = _ => false,
   )
 
   private def unfilteredTxSeq(length: Int): Gen[Vector[Boolean]] =

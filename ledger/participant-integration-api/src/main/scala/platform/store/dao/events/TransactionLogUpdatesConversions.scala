@@ -62,9 +62,9 @@ private[events] object TransactionLogUpdatesConversions {
     }
 
     def toGetTransactionsResponse(
-                                   filter: TemplatePartiesFilter,
-                                   eventProjectionProperties: EventProjectionProperties,
-                                   lfValueTranslation: LfValueTranslation,
+        filter: TemplatePartiesFilter,
+        eventProjectionProperties: EventProjectionProperties,
+        lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
@@ -101,10 +101,10 @@ private[events] object TransactionLogUpdatesConversions {
         .getOrElse(Future.successful(None))
 
     private def toFlatTransaction(
-                                   transactionAccepted: TransactionLogUpdate.TransactionAccepted,
-                                   filter: TemplatePartiesFilter,
-                                   eventProjectionProperties: EventProjectionProperties,
-                                   lfValueTranslation: LfValueTranslation,
+        transactionAccepted: TransactionLogUpdate.TransactionAccepted,
+        filter: TemplatePartiesFilter,
+        eventProjectionProperties: EventProjectionProperties,
+        lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,

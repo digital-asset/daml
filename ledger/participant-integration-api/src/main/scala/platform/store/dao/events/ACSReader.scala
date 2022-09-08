@@ -21,8 +21,8 @@ import scala.util.chaining._
 
 trait ACSReader {
   def acsStream(
-                 filter: TemplatePartiesFilter,
-                 activeAt: (Offset, Long),
+      filter: TemplatePartiesFilter,
+      activeAt: (Offset, Long),
   )(implicit
       loggingContext: LoggingContext
   ): Source[Vector[EventStorageBackend.Entry[Raw.FlatEvent]], NotUsed]
@@ -47,8 +47,8 @@ class FilterTableACSReader(
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def acsStream(
-                 filter: TemplatePartiesFilter,
-                 activeAt: (Offset, Long),
+      filter: TemplatePartiesFilter,
+      activeAt: (Offset, Long),
   )(implicit
       loggingContext: LoggingContext
   ): Source[Vector[EventStorageBackend.Entry[Raw.FlatEvent]], NotUsed] = {
