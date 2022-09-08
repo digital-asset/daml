@@ -40,7 +40,6 @@ The project contains the following files:
   │   ├── Iou.daml
   │   ├── IouTrade.daml
   │   ├── Main.daml
-  │   ├── Setup.daml
   │   └── Tests
   │       ├── Iou.daml
   │       └── Trade.daml
@@ -51,12 +50,13 @@ The project contains the following files:
       └── main
           ├── java
           │   └── com
-          │       └── digitalasset
+          │       └── daml
           │           └── quickstart
           │               └── iou
           │                   └── IouMain.java
           └── resources
               └── logback.xml
+
 
 - ``daml.yaml`` is a Daml project config file used by the SDK to find out how to build the Daml project and how to run it.
 - ``daml`` contains the :ref:`Daml code <quickstart-daml>` specifying the contract model for the ledger.
