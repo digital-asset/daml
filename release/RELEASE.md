@@ -35,7 +35,7 @@ mentioning `@gary`.
 ## 2.x release candidate
 
 In a perfect world, there is no need for a separate RC: the latest weekly
-snapshot can work. In the world we live in, though, we frequently want to add a
+snapshot can work. In the world we live in though, we frequently want to add a
 few things, or patch previous minor releases.
 
 In those cases, we create `release/` branches (e.g. `release/2.0.x`). Those are
