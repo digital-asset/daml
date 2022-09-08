@@ -13,6 +13,7 @@ import com.daml.lf.speedy.ClosureConversion.closureConvert
 import com.daml.lf.speedy.PhaseOne.{Env, Position}
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
+import com.daml.lf.speedy.SExpr.{ContractKeyWithMaintainersDefRef, ToCachedContractDefRef}
 import com.daml.lf.speedy.SExpr0.SEVarLevel
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{SExpr => t}
@@ -1011,7 +1012,60 @@ private[lf] final class Compiler(
         }
     }
 
-  private[this] def translateCommandsWithContractDisclosures(
+  private[speedy] def translateDisclosedContract(
+      env: Env,
+      disclosedContract: DisclosedContract,
+  ): s.SExpr = {
+    val templateId = disclosedContract.templateId
+
+    let(env, s.SEBuiltin(SBCheckTemplate(templateId))) { (templateCheck, env) =>
+      s.SECase(
+        env.toSEVar(templateCheck),
+        List(
+          s.SCaseAlt(
+            t.SCPPrimCon(PCTrue),
+            let(env, s.SEBuiltin(SBCheckTemplateKey(templateId))) { (templateKeyCheck, env) =>
+              val contract = s.SEValue(disclosedContract.argument)
+
+              s.SECase(
+                env.toSEVar(templateKeyCheck),
+                List(
+                  s.SCaseAlt(
+                    t.SCPPrimCon(PCTrue),
+                    let(
+                      env,
+                      s.SEApp(s.SEVal(ContractKeyWithMaintainersDefRef(templateId)), List(contract)),
+                    ) { (contractPos, env) =>
+                      let(env, s.SEApp(s.SEBuiltin(SBSome), List(env.toSEVar(contractPos)))) {
+                        (optionalContractPos, env) =>
+                          s.SEApp(
+                            s.SEVal(ToCachedContractDefRef(templateId)),
+                            List(contract, env.toSEVar(optionalContractPos)),
+                          )
+                      }
+                    },
+                  ),
+                  s.SCaseAlt(
+                    t.SCPDefault,
+                    s.SEApp(
+                      s.SEVal(ToCachedContractDefRef(templateId)),
+                      List(contract, s.SEValue.None),
+                    ),
+                  ),
+                ),
+              )
+            },
+          ),
+          s.SCaseAlt(
+            t.SCPDefault,
+            s.SEBuiltin(SBCrash(s"Template $templateId does not exist and it should")),
+          ),
+        ),
+      )
+    }
+  }
+
+  private[speedy] def translateCommandsWithContractDisclosures(
       env: Env,
       cmds: ImmArray[Command],
       disclosures: ImmArray[DisclosedContract],
@@ -1025,7 +1079,7 @@ private[lf] final class Compiler(
           val contractIndex = baseIndex + 2 * offset
 
           List(
-            s.SEBuiltin(SBLookupDisclosedCachedContract(disclosedContract)),
+            translateDisclosedContract(env.copy(contractIndex), disclosedContract),
             app(
               s.SEBuiltin(SBCacheDisclosedContract(disclosedContract.contractId.value)),
               SEVarLevel(contractIndex),

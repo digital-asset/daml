@@ -2107,46 +2107,42 @@ private[lf] object SBuiltin {
 
   }
 
-  /** $lookupDisclosedCachedContract[T] :: DisclosedContract T -> CachedContract T
-    */
-  private[speedy] final case class SBLookupDisclosedCachedContract(
-      disclosedContract: DisclosedContract
-  ) extends OnLedgerBuiltin(0) {
+  /** $checkTemplate[T] :: TemplateId T -> bool */
+  private[speedy] final case class SBCheckTemplate(templateId: Identifier) extends SBuiltin(0) {
 
-    override protected def executeWithLedger(
+    override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-        onLedger: OnLedger,
     ): Control = {
-      val templateId = disclosedContract.templateId
-
-      if (machine.compiledPackages.pkgInterface.lookupTemplate(templateId).isLeft) {
-        crash(s"Template $templateId does not exist and it should")
-      }
-
-      val contract = SEValue(disclosedContract.argument)
-      val cachedContract =
-        if (machine.compiledPackages.pkgInterface.lookupTemplateKey(templateId).isRight) {
-          SELet1(
-            SEApp(SEVal(ContractKeyWithMaintainersDefRef(templateId)), Array(contract)),
-            SEApp(
-              SEVal(ToCachedContractDefRef(templateId)),
-              Array(contract, SEValue(SOptional(Some(SELocS(0).lookupValue(machine))))),
-            ),
-          )
-        } else {
-          SEApp(
-            SEVal(ToCachedContractDefRef(templateId)),
-            Array(contract, SEValue.None),
-          )
-        }
-
-      Control.Expression(cachedContract)
+      Control.Value(SBool(machine.compiledPackages.pkgInterface.lookupTemplate(templateId).isRight))
     }
   }
 
-  /** $cacheDisclosedContract[T] :: ContractId T -> CachedContract T -> Unit
-    */
+  /** $checkTemplateKey[T] :: TemplateId T -> bool */
+  private[speedy] final case class SBCheckTemplateKey(templateId: Identifier) extends SBuiltin(0) {
+
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
+      Control.Value(
+        SBool(machine.compiledPackages.pkgInterface.lookupTemplateKey(templateId).isRight)
+      )
+    }
+  }
+
+  /** $crash :: -> Nothing */
+  private[speedy] final case class SBCrash(reason: String) extends SBuiltin(0) {
+
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
+      crash(reason)
+    }
+  }
+
+  /** $cacheDisclosedContract[T] :: ContractId T -> CachedContract T -> Unit */
   private[speedy] final case class SBCacheDisclosedContract(contractId: V.ContractId)
       extends OnLedgerBuiltin(1) {
 
