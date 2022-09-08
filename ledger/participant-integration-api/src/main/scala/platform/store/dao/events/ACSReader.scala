@@ -10,7 +10,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer.parallel.BatchN
-import com.daml.platform.{FilterRelation, Identifier, Party}
+import com.daml.platform.{Identifier, Party, TemplatePartiesFilter}
 import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.utils.{ConcurrencyLimiter, QueueBasedConcurrencyLimiter}
@@ -21,9 +21,8 @@ import scala.util.chaining._
 
 trait ACSReader {
   def acsStream(
-      filter: FilterRelation,
-      wildcardParties: Set[Party],
-      activeAt: (Offset, Long),
+                 filter: TemplatePartiesFilter,
+                 activeAt: (Offset, Long),
   )(implicit
       loggingContext: LoggingContext
   ): Source[Vector[EventStorageBackend.Entry[Raw.FlatEvent]], NotUsed]
@@ -48,18 +47,17 @@ class FilterTableACSReader(
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def acsStream(
-      filter: FilterRelation,
-      wildcardParties: Set[Party],
-      activeAt: (Offset, Long),
+                 filter: TemplatePartiesFilter,
+                 activeAt: (Offset, Long),
   )(implicit
       loggingContext: LoggingContext
   ): Source[Vector[EventStorageBackend.Entry[Raw.FlatEvent]], NotUsed] = {
-    val allFilterParties = filter.values.flatten.toSet ++ wildcardParties
+    val allFilterParties = filter.allFilterParties
 
-    val wildcardFilters = wildcardParties.map { party =>
+    val wildcardFilters = filter.wildcardParties.map { party =>
       Filter(party, None)
     }
-    val filters = filter.iterator.flatMap { case (templateId, parties) =>
+    val filters = filter.relation.iterator.flatMap { case (templateId, parties) =>
       parties.iterator.map(party => Filter(party, Some(templateId)))
     }.toVector ++ wildcardFilters
 

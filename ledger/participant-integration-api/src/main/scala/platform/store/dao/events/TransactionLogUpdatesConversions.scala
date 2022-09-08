@@ -25,7 +25,7 @@ import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.dao.EventProjectionProperties
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.{CreatedEvent, ExercisedEvent}
-import com.daml.platform.{ApiOffset, FilterRelation, Value}
+import com.daml.platform.{ApiOffset, TemplatePartiesFilter, Value}
 import com.google.protobuf.timestamp.Timestamp
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -62,15 +62,19 @@ private[events] object TransactionLogUpdatesConversions {
     }
 
     def toGetTransactionsResponse(
-        filter: FilterRelation,
-        wildcardParties: Set[Party],
-        eventProjectionProperties: EventProjectionProperties,
-        lfValueTranslation: LfValueTranslation,
+                                   filter: TemplatePartiesFilter,
+                                   eventProjectionProperties: EventProjectionProperties,
+                                   lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
     ): TransactionLogUpdate.TransactionAccepted => Future[GetTransactionsResponse] =
-      toFlatTransaction(_, filter, wildcardParties, eventProjectionProperties, lfValueTranslation)
+      toFlatTransaction(
+        _,
+        filter,
+        eventProjectionProperties,
+        lfValueTranslation,
+      )
         .map(transaction => GetTransactionsResponse(Seq(transaction)))
 
     def toGetFlatTransactionResponse(
@@ -85,8 +89,7 @@ private[events] object TransactionLogUpdatesConversions {
         .map(transactionAccepted =>
           toFlatTransaction(
             transactionAccepted = transactionAccepted,
-            filter = Map.empty,
-            wildcardParties = requestingParties,
+            filter = TemplatePartiesFilter(Map.empty, requestingParties),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateIdFilter = requestingParties.map(_ -> Set.empty[Ref.Identifier]).toMap,
@@ -98,11 +101,10 @@ private[events] object TransactionLogUpdatesConversions {
         .getOrElse(Future.successful(None))
 
     private def toFlatTransaction(
-        transactionAccepted: TransactionLogUpdate.TransactionAccepted,
-        filter: FilterRelation,
-        wildcardParties: Set[Party],
-        eventProjectionProperties: EventProjectionProperties,
-        lfValueTranslation: LfValueTranslation,
+                                   transactionAccepted: TransactionLogUpdate.TransactionAccepted,
+                                   filter: TemplatePartiesFilter,
+                                   eventProjectionProperties: EventProjectionProperties,
+                                   lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
@@ -112,7 +114,7 @@ private[events] object TransactionLogUpdatesConversions {
           .traverse(transactionAccepted.events)(event =>
             toFlatEvent(
               event,
-              wildcardParties ++ filter.values.flatten.toSet,
+              filter.allFilterParties,
               eventProjectionProperties,
               lfValueTranslation,
             )

@@ -4,12 +4,12 @@
 package com.daml.platform.store.dao
 
 import java.util.UUID
-
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.platform.TemplatePartiesFilter
 import com.daml.platform.participant.util.LfEngineToApi
 import org.scalatest._
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -40,8 +40,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = before.lastOffset,
-            filter = Map.empty,
-            wildcardParties = Set(alice, bob, charlie),
+            filter = TemplatePartiesFilter(Map.empty, Set(alice, bob, charlie)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateIdFilter =
@@ -53,8 +52,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = after.lastOffset,
-            filter = Map.empty,
-            wildcardParties = Set(alice, bob, charlie),
+            filter = TemplatePartiesFilter(Map.empty, Set(alice, bob, charlie)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateIdFilter =
@@ -81,8 +79,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = offset,
-            filter = Map.empty,
-            wildcardParties = Set(alice, bob, charlie),
+            filter = TemplatePartiesFilter(Map.empty, Set(alice, bob, charlie)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateIdFilter =
@@ -100,8 +97,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = offset,
-            filter = Map.empty,
-            wildcardParties = Set(alice, bob, charlie),
+            filter = TemplatePartiesFilter(Map.empty, Set(alice, bob, charlie)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateIdFilter =
@@ -133,8 +129,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = ledgerEnd.lastOffset,
-            filter = Map(otherTemplateId -> Set(party1)),
-            wildcardParties = Set.empty,
+            filter = TemplatePartiesFilter(Map(otherTemplateId -> Set(party1)), Set.empty),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateIdFilter = Map(party1 -> Set(otherTemplateId)),
@@ -167,10 +162,12 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = ledgerEnd.lastOffset,
-            filter = Map(
-              otherTemplateId -> Set(party1, party2)
+            filter = TemplatePartiesFilter(
+              Map(
+                otherTemplateId -> Set(party1, party2)
+              ),
+              Set.empty,
             ),
-            wildcardParties = Set.empty,
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateIdFilter = Map(
@@ -213,11 +210,13 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = ledgerEnd.lastOffset,
-            filter = Map(
-              someTemplateId -> Set(party1),
-              otherTemplateId -> Set(party2),
+            filter = TemplatePartiesFilter(
+              Map(
+                someTemplateId -> Set(party1),
+                otherTemplateId -> Set(party2),
+              ),
+              Set.empty,
             ),
-            wildcardParties = Set.empty,
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateIdFilter = Map(
@@ -260,10 +259,12 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = ledgerEnd.lastOffset,
-            filter = Map(
-              someTemplateId -> Set(party1)
+            filter = TemplatePartiesFilter(
+              Map(
+                someTemplateId -> Set(party1)
+              ),
+              Set.empty,
             ),
-            wildcardParties = Set(party2),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               Map(
@@ -312,10 +313,12 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = ledgerEnd.lastOffset,
-            filter = Map(
-              someTemplateId -> Set(party1)
+            filter = TemplatePartiesFilter(
+              Map(
+                someTemplateId -> Set(party1)
+              ),
+              Set(party2),
             ),
-            wildcardParties = Set(party2),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateIdFilter = Map(
@@ -329,10 +332,12 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = ledgerEnd.lastOffset,
-            filter = Map(
-              someTemplateId -> Set(party1)
+            filter = TemplatePartiesFilter(
+              Map(
+                someTemplateId -> Set(party1)
+              ),
+              Set(party2, unknownParty),
             ),
-            wildcardParties = Set(party2, unknownParty),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateIdFilter = Map(
@@ -347,11 +352,13 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = ledgerEnd.lastOffset,
-            filter = Map(
-              someTemplateId -> Set(party1),
-              unknownTemplate -> Set(party1),
+            filter = TemplatePartiesFilter(
+              Map(
+                someTemplateId -> Set(party1),
+                unknownTemplate -> Set(party1),
+              ),
+              Set(party2),
             ),
-            wildcardParties = Set(party2),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateIdFilter = Map(
@@ -365,11 +372,13 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = ledgerEnd.lastOffset,
-            filter = Map(
-              someTemplateId -> Set(party1),
-              unknownTemplate -> Set(party1),
+            filter = TemplatePartiesFilter(
+              Map(
+                someTemplateId -> Set(party1),
+                unknownTemplate -> Set(party1),
+              ),
+              Set(party2, unknownParty),
             ),
-            wildcardParties = Set(party2, unknownParty),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateIdFilter = Map(
@@ -384,10 +393,12 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = ledgerEnd.lastOffset,
-            filter = Map(
-              unknownTemplate -> Set(unknownParty)
+            filter = TemplatePartiesFilter(
+              Map(
+                unknownTemplate -> Set(unknownParty)
+              ),
+              Set.empty,
             ),
-            wildcardParties = Set.empty,
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateIdFilter = Map(
@@ -414,8 +425,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       activeContracts <- ledgerDao.transactionsReader
         .getActiveContracts(
           activeAt = end.lastOffset,
-          filter = Map.empty,
-          wildcardParties = Set(alice),
+          filter = TemplatePartiesFilter(Map.empty, Set(alice)),
           eventProjectionProperties =
             EventProjectionProperties(verbose = true, Map(alice -> Set.empty)),
         )

@@ -3,8 +3,7 @@
 
 package com.daml.platform.store.dao.events
 
-import com.daml.lf.data.Ref.Party
-import com.daml.platform.FilterRelation
+import com.daml.platform.TemplatePartiesFilter
 
 import java.sql.Connection
 import com.daml.platform.store.backend.EventStorageBackend
@@ -23,17 +22,16 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
   protected def offsetRange(offset: Offset): EventsRange[Long]
 
   final def apply(
-      offset: Offset,
-      filter: FilterRelation,
-      wildcardParties: Set[Party],
-      pageSize: Int,
+                   offset: Offset,
+                   filter: TemplatePartiesFilter,
+                   pageSize: Int,
   ): Connection => Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
     require(
-      filter.nonEmpty || wildcardParties.nonEmpty,
+      filter.relation.nonEmpty || filter.wildcardParties.nonEmpty,
       "The request must be issued by at least one party",
     )
 
-    val parts = query(offset, filterParams(filter, wildcardParties))
+    val parts = query(offset, filterParams(filter))
     EventsRange.readPage(
       parts.read,
       offsetRange(offset),
@@ -45,20 +43,19 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
 private[events] object EventsTableFlatEventsRangeQueries {
 
   private[events] def filterParams(
-      filter: FilterRelation,
-      wildcardParties: Set[Party],
-  ): FilterParams = if (filter.size == 1) {
-    val (templateIds, parties) = filter.iterator.next()
+      filter: TemplatePartiesFilter
+  ): FilterParams = if (filter.relation.size == 1) {
+    val (templateIds, parties) = filter.relation.iterator.next()
     FilterParams(
-      wildCardParties = wildcardParties,
+      wildCardParties = filter.wildcardParties,
       partiesAndTemplates = Set(parties -> Set(templateIds)),
     )
   } else {
     // Multi-party requests
     // If no party requests specific template identifiers
     FilterParams(
-      wildCardParties = wildcardParties,
-      partiesAndTemplates = filter.iterator.collect { case (templateId, parties) =>
+      wildCardParties = filter.wildcardParties,
+      partiesAndTemplates = filter.relation.iterator.collect { case (templateId, parties) =>
         parties -> Set(templateId)
       }.toSet,
     )

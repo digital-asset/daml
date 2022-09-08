@@ -60,7 +60,7 @@ import com.daml.platform.store.dao.{
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
-import com.daml.platform.{ApiOffset, FilterRelation, PruneBuffers}
+import com.daml.platform.{ApiOffset, TemplatePartiesFilter, PruneBuffers}
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.ToTagOps
@@ -123,16 +123,14 @@ private[index] class IndexServiceImpl(
                 )
               (startExclusive, endInclusive) =>
                 Source(memoFilter().toList)
-                  .flatMapConcat {
-                    case (templateFilter, wildcardParties, eventProjectionProperties) =>
-                      transactionsReader
-                        .getFlatTransactions(
-                          startExclusive,
-                          endInclusive,
-                          templateFilter,
-                          wildcardParties,
-                          eventProjectionProperties,
-                        )
+                  .flatMapConcat { case (templateFilter, eventProjectionProperties) =>
+                    transactionsReader
+                      .getFlatTransactions(
+                        startExclusive,
+                        endInclusive,
+                        templateFilter,
+                        eventProjectionProperties,
+                      )
                   }
             },
             to,
@@ -243,12 +241,11 @@ private[index] class IndexServiceImpl(
             verbose,
             packageMetadataView.current(),
           ).toList
-        ).flatMapConcat { case (templateFilter, wildcardParties, eventProjectionProperties) =>
+        ).flatMapConcat { case (templateFilter, eventProjectionProperties) =>
           ledgerDao.transactionsReader
             .getActiveContracts(
               currentLedgerEnd,
               templateFilter,
-              wildcardParties,
               eventProjectionProperties,
             )
         }
@@ -518,9 +515,9 @@ object IndexServiceImpl {
       packageMetadataView: PackageMetadataView,
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
-  ): () => Option[(FilterRelation, Set[Party], EventProjectionProperties)] = {
+  ): () => Option[(TemplatePartiesFilter, EventProjectionProperties)] = {
     @volatile var metadata: PackageMetadata = null
-    @volatile var filters: Option[(FilterRelation, Set[Party], EventProjectionProperties)] = None
+    @volatile var filters: Option[(TemplatePartiesFilter, EventProjectionProperties)] = None
     () =>
       val currentMetadata = packageMetadataView.current()
       if (metadata ne currentMetadata) {
@@ -534,7 +531,7 @@ object IndexServiceImpl {
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
       metadata: PackageMetadata,
-  ): Option[(FilterRelation, Set[Party], EventProjectionProperties)] = {
+  ): Option[(TemplatePartiesFilter, EventProjectionProperties)] = {
     val templateFilter: Map[Identifier, Set[Party]] =
       IndexServiceImpl.templateFilter(metadata, transactionFilter)
 
@@ -548,7 +545,7 @@ object IndexServiceImpl {
         verbose,
         interfaceId => metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty),
       )
-      Some((templateFilter, wildcardFilter, eventProjectionProperties))
+      Some((TemplatePartiesFilter(templateFilter, wildcardFilter), eventProjectionProperties))
     }
   }
 

@@ -87,11 +87,10 @@ private[dao] final class TransactionsReader(
     deserializeEvent(eventProjectionProperties)(entry).map(event => entry.copy(event = event))
 
   override def getFlatTransactions(
-      startExclusive: Offset,
-      endInclusive: Offset,
-      filter: FilterRelation,
-      wildcardParties: Set[Party],
-      eventProjectionProperties: EventProjectionProperties,
+                                    startExclusive: Offset,
+                                    endInclusive: Offset,
+                                    filter: TemplatePartiesFilter,
+                                    eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val span =
       Telemetry.Transactions.createSpan(startExclusive, endInclusive)(qualifiedNameOfCurrentFunc)
@@ -107,7 +106,6 @@ private[dao] final class TransactionsReader(
         getTransactions(
           EventsRange(range.startExclusive._2, range.endInclusive._2),
           filter,
-          wildcardParties,
           pageSize,
         )(connection),
         range.startExclusive._1,
@@ -279,25 +277,22 @@ private[dao] final class TransactionsReader(
       .map(TransactionConversions.toGetTransactionResponse)
 
   override def getActiveContracts(
-      activeAt: Offset,
-      filter: FilterRelation,
-      wildcardParties: Set[Party],
-      eventProjectionProperties: EventProjectionProperties,
+                                   activeAt: Offset,
+                                   filter: TemplatePartiesFilter,
+                                   eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
     val contextualizedErrorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
     val span =
       Telemetry.Transactions.createSpan(activeAt)(qualifiedNameOfCurrentFunc)
 
     logger.debug(
-      s"getActiveContracts($activeAt, $filter, $wildcardParties, $eventProjectionProperties)"
+      s"getActiveContracts($activeAt, $filter, $eventProjectionProperties)"
     )
 
     Source
       .futureSource(
         getAcsEventSeqIdRange(activeAt)
-          .map(requestedRange =>
-            acsReader.acsStream(filter, wildcardParties, requestedRange.endInclusive)
-          )
+          .map(requestedRange => acsReader.acsStream(filter, requestedRange.endInclusive))
       )
       .mapAsync(eventProcessingParallelism) { rawResult =>
         Timed.future(

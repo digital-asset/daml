@@ -33,11 +33,10 @@ import scala.concurrent.Future
 
 private[platform] trait LedgerDaoTransactionsReader {
   def getFlatTransactions(
-      startExclusive: Offset,
-      endInclusive: Offset,
-      filter: FilterRelation,
-      wildcardParties: Set[Party],
-      eventProjectionProperties: EventProjectionProperties,
+                           startExclusive: Offset,
+                           endInclusive: Offset,
+                           filter: TemplatePartiesFilter,
+                           eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed]
 
   def lookupFlatTransactionById(
@@ -60,10 +59,9 @@ private[platform] trait LedgerDaoTransactionsReader {
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]]
 
   def getActiveContracts(
-      activeAt: Offset,
-      filter: FilterRelation,
-      wildcardParties: Set[Party],
-      eventProjectionProperties: EventProjectionProperties,
+                          activeAt: Offset,
+                          filter: TemplatePartiesFilter,
+                          eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed]
 }
 
