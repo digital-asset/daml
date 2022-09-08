@@ -8,6 +8,7 @@ import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.domain.{Filters, InclusiveFilters, InterfaceFilter, TransactionFilter}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Identifier
+import com.daml.platform.TemplatePartiesFilter
 import com.daml.platform.index.IndexServiceImpl.{
   checkUnknownTemplatesOrInterfaces,
   memoizedTransactionFilterProjection,
@@ -50,8 +51,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     memoFunc() shouldBe Some(
       (
-        Map(template1 -> Set(party)),
-        Set(),
+        TemplatePartiesFilter(Map(template1 -> Set(party)), Set()),
         EventProjectionProperties(
           true,
           Map.empty[String, Set[Identifier]],
@@ -67,11 +67,13 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     memoFunc() shouldBe Some(
       (
-        Map(
-          template1 -> Set(party),
-          template2 -> Set(party),
+        TemplatePartiesFilter(
+          Map(
+            template1 -> Set(party),
+            template2 -> Set(party),
+          ),
+          Set(),
         ),
-        Set(),
         EventProjectionProperties(
           true,
           Map.empty[String, Set[Identifier]],

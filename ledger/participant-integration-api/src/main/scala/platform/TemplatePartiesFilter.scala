@@ -4,5 +4,5 @@
 package com.daml.platform
 
 case class TemplatePartiesFilter(relation: FilterRelation, wildcardParties: Set[Party]) {
-  def allFilterParties: Set[Party] = relation.values.flatten.toSet ++ wildcardParties
+  val allFilterParties: Set[Party] = relation.values.flatten.toSet ++ wildcardParties
 }
