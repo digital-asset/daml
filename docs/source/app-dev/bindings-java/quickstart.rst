@@ -147,6 +147,7 @@ To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the l
 
 #. Open a new terminal window and navigate to your project directory, ``quickstart``.
 
+   .. _quickstart-navigator:
 #. Start the :doc:`Navigator </tools/navigator/index>`, a browser-based ledger front-end, by running ``daml navigator server``
 
    The Navigator automatically connects the sandbox. You can access it on port ``4000``.
