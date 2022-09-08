@@ -116,8 +116,12 @@ final case class TlsConfiguration(
     val who = if (isServer) "Server" else "Client"
     val tlsInfo = TlsInfo.fromSslContext(sslContext)
     logger.info(s"$who TLS - enabled.")
-    logger.debug(s"$who TLS - supported protocols: ${tlsInfo.supportedProtocols.mkString(", ")}.")
-    logger.info(s"$who TLS - enabled protocols: ${tlsInfo.enabledProtocols.mkString(", ")}.")
+    logger.debug(
+      s"$who TLS - supported protocols: ${filterSSLv2Hello(tlsInfo.supportedProtocols).mkString(", ")}."
+    )
+    logger.info(
+      s"$who TLS - enabled protocols: ${filterSSLv2Hello(tlsInfo.enabledProtocols).mkString(", ")}."
+    )
     logger.debug(
       s"$who TLS $who - supported cipher suites: ${tlsInfo.supportedCipherSuites.mkString(", ")}."
     )
@@ -125,8 +129,17 @@ final case class TlsConfiguration(
   }
 
   /** This is a side-effecting method. It modifies JVM TLS properties according to the TLS configuration. */
-  def setJvmTlsProperties(): Unit =
+  def setJvmTlsProperties(): Unit = {
     if (enabled && enableCertRevocationChecking) OcspProperties.enableOcsp()
+    if (enabled) ProtocolDisabler.disableSSLv2Hello()
+  }
+
+  /** Netty incorrectly hardcodes the report that the SSLv2Hello protocol is enabled. There is no way
+    * to stop it from doing it, so we just filter the netty's erroneous claim. We also make sure that
+    * the SSLv2Hello protocol is knocked out completely at the JSSE level through the ProtocolDisabler
+    */
+  private def filterSSLv2Hello(protocols: Seq[String]): Seq[String] =
+    protocols.filter(_ != ProtocolDisabler.sslV2Protocol)
 
   private[tls] def filterSupportedProtocols(tlsInfo: TlsInfo): java.lang.Iterable[String] = {
     minimumServerProtocolVersion match {
