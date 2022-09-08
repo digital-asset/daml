@@ -145,15 +145,16 @@ object CodeGenRunner extends StrictLogging {
         (path, packagePrefix) <- darFiles.view
         interface <- decodeDarAt(path)
       } yield (interface, packagePrefix)
-    val (signatures, packagePrefixes) =
+    val (signatureMap, packagePrefixes) =
       signaturesAndPackagePrefixes.foldLeft(
-        (Vector.empty[PackageSignature], Map.empty[PackageId, String])
+        (Map.empty[PackageId, PackageSignature], Map.empty[PackageId, String])
       ) { case ((signatures, prefixes), (signature, prefix)) =>
-        val updatedSignatures = signatures :+ signature
+        val updatedSignatures = signatures.updated(signature.packageId, signature)
         val updatedPrefixes = prefix.fold(prefixes)(prefixes.updated(signature.packageId, _))
         (updatedSignatures, updatedPrefixes)
       }
 
+    val signatures = signatureMap.values.toSeq
     val environmentInterface = EnvironmentSignature.fromPackageSignatures(signatures)
 
     val transitiveClosure = DependencyGraph.transitiveClosure(
