@@ -263,7 +263,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               Map(
                 someTemplateId -> Set(party1)
               ),
-              Set.empty,
+              Set(party2),
             ),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
