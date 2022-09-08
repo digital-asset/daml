@@ -501,7 +501,7 @@ reset args = do
               (L.Verbosity False)
           let chunks = chunksOf 100 activeContracts
           forM_ chunks $ \chunk -> do
-            let archiveCommends = [ L.ExerciseCommand
+            let archiveCommands = [ L.ExerciseCommand
                                     { tid = tid
                                     , cid = cid
                                     , choice = L.Choice "Archive"
@@ -510,13 +510,13 @@ reset args = do
                                   | (_offset, _mbWid, events) <- chunk
                                   , L.CreatedEvent {cid, tid} <- events
                                   ]
-            if null archiveCommends then
+            if null archiveCommands then
               pure ()
             else do
               cmdId <- liftIO UUID.nextRandom
               let cmds =
                     L.Commands
-                      { coms = archiveCommends
+                      { coms = archiveCommands
                       , lid = ledgerId
                       , wid = Nothing
                       , aid = L.ApplicationId "ledger-reset"
