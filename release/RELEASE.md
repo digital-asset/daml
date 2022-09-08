@@ -215,7 +215,7 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
    > The ad-hoc machines take a bit of time to be available after being reported as
    > created, so be patient for a bit if your first connection attempt(s) fail.
    >
-   > Once the Windows machine is up and running, use Firefox(in Windows) to download and install 
+   > Once the Windows machine is up and running, use Firefox (in Windows) to download and install 
    > `daml-sdk-$VERSION-windows.exe` from https://github.com/digital-asset/daml/releases
    > (please ensure `$VERSION` is expanded correctly!.
    > 
