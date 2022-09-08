@@ -3,11 +3,12 @@
 
 package com.daml.platform.store.dao.events
 
-import com.daml.platform.FilterRelation
+import com.daml.platform.TemplatePartiesFilter
 
 import java.sql.Connection
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
+import com.daml.platform.store.dao.events.EventsTableFlatEventsRangeQueries.filterParams
 
 private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] {
 
@@ -22,57 +23,15 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
 
   final def apply(
       offset: Offset,
-      filter: FilterRelation,
+      filter: TemplatePartiesFilter,
       pageSize: Int,
   ): Connection => Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
-    require(filter.nonEmpty, "The request must be issued by at least one party")
+    require(
+      filter.relation.nonEmpty || filter.wildcardParties.nonEmpty,
+      "The request must be issued by at least one party",
+    )
 
-    // Route the request to the correct underlying query
-    val filterParams = if (filter.size == 1) {
-      val (party, templateIds) = filter.iterator.next()
-      if (templateIds.isEmpty) {
-        // Single-party request, no specific template identifier
-        FilterParams(
-          wildCardParties = Set(party),
-          partiesAndTemplates = Set.empty,
-        )
-      } else {
-        // Single-party request, restricted to a set of template identifiers
-        FilterParams(
-          wildCardParties = Set.empty,
-          partiesAndTemplates = Set(Set(party) -> templateIds),
-        )
-      }
-    } else {
-      // Multi-party requests
-      // If no party requests specific template identifiers
-      val parties = filter.keySet
-      if (filter.forall(_._2.isEmpty))
-        FilterParams(
-          wildCardParties = parties,
-          partiesAndTemplates = Set.empty,
-        )
-      else {
-        // If all parties request the same template identifier
-        val templateIds = filter.valuesIterator.flatten.toSet
-        if (filter.valuesIterator.forall(_ == templateIds)) {
-          FilterParams(
-            wildCardParties = Set.empty,
-            partiesAndTemplates = Set(parties -> templateIds),
-          )
-        } else {
-          // The generic case: passing down in the same shape, collecting wildCardParties
-          FilterParams(
-            wildCardParties = filter.filter(_._2.isEmpty).keySet,
-            partiesAndTemplates = filter.iterator.collect {
-              case (party, templateIds) if templateIds.nonEmpty => Set(party) -> templateIds
-            }.toSet,
-          )
-        }
-      }
-    }
-
-    val parts = query(offset, filterParams)
+    val parts = query(offset, filterParams(filter))
     EventsRange.readPage(
       parts.read,
       offsetRange(offset),
@@ -82,6 +41,25 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
 }
 
 private[events] object EventsTableFlatEventsRangeQueries {
+
+  private[events] def filterParams(
+      filter: TemplatePartiesFilter
+  ): FilterParams = if (filter.relation.size == 1) {
+    val (templateIds, parties) = filter.relation.iterator.next()
+    FilterParams(
+      wildCardParties = filter.wildcardParties,
+      partiesAndTemplates = Set(parties -> Set(templateIds)),
+    )
+  } else {
+    // Multi-party requests
+    // If no party requests specific template identifiers
+    FilterParams(
+      wildCardParties = filter.wildcardParties,
+      partiesAndTemplates = filter.relation.iterator.collect { case (templateId, parties) =>
+        parties -> Set(templateId)
+      }.toSet,
+    )
+  }
 
   private[EventsTableFlatEventsRangeQueries] case class QueryParts(
       read: (

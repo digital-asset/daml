@@ -60,7 +60,7 @@ import com.daml.platform.store.dao.{
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
-import com.daml.platform.{ApiOffset, FilterRelation, PruneBuffers}
+import com.daml.platform.{ApiOffset, TemplatePartiesFilter, PruneBuffers}
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.ToTagOps
@@ -515,9 +515,9 @@ object IndexServiceImpl {
       packageMetadataView: PackageMetadataView,
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
-  ): () => Option[(FilterRelation, EventProjectionProperties)] = {
+  ): () => Option[(TemplatePartiesFilter, EventProjectionProperties)] = {
     @volatile var metadata: PackageMetadata = null
-    @volatile var filters: Option[(FilterRelation, EventProjectionProperties)] = None
+    @volatile var filters: Option[(TemplatePartiesFilter, EventProjectionProperties)] = None
     () =>
       val currentMetadata = packageMetadataView.current()
       if (metadata ne currentMetadata) {
@@ -531,11 +531,13 @@ object IndexServiceImpl {
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
       metadata: PackageMetadata,
-  ): Option[(FilterRelation, EventProjectionProperties)] = {
-    val templateFilter: Map[Party, Set[Identifier]] =
+  ): Option[(TemplatePartiesFilter, EventProjectionProperties)] = {
+    val templateFilter: Map[Identifier, Set[Party]] =
       IndexServiceImpl.templateFilter(metadata, transactionFilter)
 
-    if (templateFilter.isEmpty) {
+    val wildcardFilter: Set[Party] = IndexServiceImpl.wildcardFilter(transactionFilter)
+
+    if (templateFilter.isEmpty && wildcardFilter.isEmpty) {
       None
     } else {
       val eventProjectionProperties = EventProjectionProperties(
@@ -543,13 +545,14 @@ object IndexServiceImpl {
         verbose,
         interfaceId => metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty),
       )
-      Some((templateFilter, eventProjectionProperties))
+      Some((TemplatePartiesFilter(templateFilter, wildcardFilter), eventProjectionProperties))
     }
   }
 
   private def templateIds(
-      metadata: PackageMetadata
-  )(inclusiveFilters: InclusiveFilters): Set[Identifier] =
+      metadata: PackageMetadata,
+      inclusiveFilters: InclusiveFilters,
+  ): Set[Identifier] =
     inclusiveFilters.interfaceFilters.iterator
       .map(_.interfaceId)
       .flatMap(metadata.interfacesImplementedBy.getOrElse(_, Set.empty))
@@ -559,15 +562,27 @@ object IndexServiceImpl {
   private[index] def templateFilter(
       metadata: PackageMetadata,
       transactionFilter: domain.TransactionFilter,
-  ): Map[Party, Set[Identifier]] =
+  ): Map[Identifier, Set[Party]] = {
+    transactionFilter.filtersByParty.view.foldLeft(Map.empty[Identifier, Set[Party]]) {
+      case (acc, (party, Filters(Some(inclusiveFilters)))) =>
+        templateIds(metadata, inclusiveFilters).foldLeft(acc) { case (acc, templateId) =>
+          val updatedPartySet = acc.getOrElse(templateId, Set.empty[Party]) + party
+          acc.updated(templateId, updatedPartySet)
+        }
+      case (acc, _) =>
+        acc
+    }
+  }
+
+  private[index] def wildcardFilter(
+      transactionFilter: domain.TransactionFilter
+  ): Set[Party] = {
     transactionFilter.filtersByParty.view.collect {
-      case (party, Filters(Some(inclusiveFilters)))
-          if templateIds(metadata)(inclusiveFilters).nonEmpty =>
-        (party, templateIds(metadata)(inclusiveFilters))
       case (party, Filters(None)) =>
-        (party, Set.empty[Identifier])
+        party
       case (party, Filters(Some(InclusiveFilters(templateIds, interfaceFilters))))
           if templateIds.isEmpty && interfaceFilters.isEmpty =>
-        (party, Set.empty[Identifier])
-    }.toMap
+        party
+    }.toSet
+  }
 }
