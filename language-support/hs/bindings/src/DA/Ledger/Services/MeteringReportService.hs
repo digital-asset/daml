@@ -105,7 +105,7 @@ toRawStructValue (A.Bool b) = S.Value $ Just $ S.ValueKindBoolValue b
 toRawStructValue A.Null = S.Value Nothing
 
 raiseGetMeteringReportResponse :: LL.GetMeteringReportResponse -> Perhaps A.Value
-raiseGetMeteringReportResponse (LL.GetMeteringReportResponse _ _ _ (Just reportStruct)) =
+raiseGetMeteringReportResponse (LL.GetMeteringReportResponse _ _ (Just reportStruct)) =
   Right $ toRawAesonValue $ S.Value $ Just $ S.ValueKindStructValue reportStruct
 raiseGetMeteringReportResponse response = Left $ Unexpected ("raiseMeteredReport unable to parse response: " <> show response)
 
