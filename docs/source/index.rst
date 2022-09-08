@@ -99,7 +99,6 @@ Daml Documentation
    tools/non-repudiation
    ops/connect/helm
    ops/connect/auth0
-   daml-finance/index
 
 .. toctree::
    :titlesonly:

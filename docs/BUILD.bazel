@@ -634,22 +634,6 @@ daml_test(
     deps = ["//daml-script/daml:daml-script.dar"],
 )
 
-genrule(
-    name = "quickstart-finance",
-    srcs = glob(["source/daml-finance/getting-started/code/**"]),
-    outs = ["quickstart-finance.tar.gz"],
-    cmd = """
-        set -eou pipefail
-        TMP_DIR=$$(mktemp -d)
-        trap "rm -rf $$TMP_DIR" EXIT
-        mkdir -p $$TMP_DIR/quickstart-finance
-        cp -rL docs/source/daml-finance/getting-started/code/* $$TMP_DIR/quickstart-finance/
-        $(execpath //bazel_tools/sh:mktgz) $@ -C $$TMP_DIR quickstart-finance
-    """,
-    tools = ["//bazel_tools/sh:mktgz"],
-    visibility = ["//visibility:public"],
-)
-
 daml_test(
     name = "bindings-java-daml-test",
     srcs = glob(["source/app-dev/bindings-java/code-snippets/**/*.daml"]),
