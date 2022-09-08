@@ -501,34 +501,33 @@ reset args = do
               (L.Verbosity False)
           let chunks = chunksOf 100 activeContracts
           forM_ chunks $ \chunk -> do
-            let archiveCommands = [ L.ExerciseCommand
-                                    { tid = tid
-                                    , cid = cid
-                                    , choice = L.Choice "Archive"
-                                    , arg = L.VRecord $ L.Record Nothing []
-                                    }
-                                  | (_offset, _mbWid, events) <- chunk
-                                  , L.CreatedEvent {cid, tid} <- events
-                                  ]
-            if null archiveCommands then
-              pure ()
-            else do
+            cmdId <- liftIO UUID.nextRandom
+            let cmds cmdId =
+                  L.Commands
+                    { coms =
+                        [ L.ExerciseCommand
+                          { tid = tid
+                          , cid = cid
+                          , choice = L.Choice "Archive"
+                          , arg = L.VRecord $ L.Record Nothing []
+                          }
+                        | (_offset, _mbWid, events) <- chunk
+                        , L.CreatedEvent {cid, tid} <- events
+                        ]
+                    , lid = ledgerId
+                    , wid = Nothing
+                    , aid = L.ApplicationId "ledger-reset"
+                    , cid = L.CommandId $ TL.fromStrict $ UUID.toText cmdId
+                    , actAs = parties
+                    , readAs = []
+                    , dedupPeriod = Nothing
+                    , minLeTimeAbs = Nothing
+                    , minLeTimeRel = Nothing
+                    , sid = Nothing
+                    }
+            unless null [ x | (_offset, _mbWid, _events) <- chunk, x <- events ] $ do
               cmdId <- liftIO UUID.nextRandom
-              let cmds =
-                    L.Commands
-                      { coms = archiveCommands
-                      , lid = ledgerId
-                      , wid = Nothing
-                      , aid = L.ApplicationId "ledger-reset"
-                      , cid = L.CommandId $ TL.fromStrict $ UUID.toText cmdId
-                      , actAs = parties
-                      , readAs = []
-                      , dedupPeriod = Nothing
-                      , minLeTimeAbs = Nothing
-                      , minLeTimeRel = Nothing
-                      , sid = Nothing
-                      }
-              errOrEmpty <- L.submit cmds
+              errOrEmpty <- L.submit cmds cmdId
               case errOrEmpty of
                 Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
                 Right () -> pure ()
