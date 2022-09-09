@@ -10,7 +10,13 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data._
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SBuiltin.{SBCheckTemplate, SBCheckTemplateKey, SBCrash}
+import com.daml.lf.speedy.SBuiltin.{
+//  SBCacheDisclosedContract,
+  SBCheckTemplate,
+  SBCheckTemplateKey,
+  SBCrash,
+//  SBuildCachedContract,
+}
 import com.daml.lf.speedy.SError.{SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
@@ -1656,6 +1662,68 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       ) shouldBe Right(SBool(false))
     }
   }
+
+//  "SBCacheDisclosedContract" - {
+//    "updates on ledger cached contract map" - {
+//      "when template key is defined" in {
+//        val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
+//        val (disclosedContract, optionalKey) =
+//          buildDisclosedContract(???, ???, ???, templateId, withKey = false)
+//        val cachedContract = SBuildCachedContract(
+//          templateId,
+//          disclosedContract.argument,
+//          signatories,
+//          observers,
+//          optionalKey,
+//        )
+//
+//        inside(
+//          evalSExpr(
+//            SEApp(
+//              SEBuiltin(SBCacheDisclosedContract(disclosedContract.contractId.value)),
+//              Array(cachedContract),
+//            ),
+//            getContract =
+//              Map(disclosedContract.contractId.value -> ???), // FIXME: VersionedContractInstance
+//            onLedger = true,
+//          )
+//        ) { case Right((SUnit, contractCache)) =>
+//          contractCache shouldBe Map(
+//            disclosedContract.contractId.value -> ???
+//          ) // FIXME: CachedContract
+//        }
+//      }
+//
+//      "when no template key is defined" in {
+//        val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:Iou")
+//        val (disclosedContract, optionalKey) =
+//          buildDisclosedContract(???, ???, ???, templateId, withKey = true)
+//        val cachedContract = SBuildCachedContract(
+//          templateId,
+//          disclosedContract.argument,
+//          signatories,
+//          observers,
+//          optionalKey,
+//        )
+//
+//        inside(
+//          evalSExpr(
+//            SEApp(
+//              SEBuiltin(SBCacheDisclosedContract(disclosedContract.contractId.value)),
+//              Array(cachedContract),
+//            ),
+//            getContract =
+//              Map(disclosedContract.contractId.value -> ???), // FIXME: VersionedContractInstance
+//            onLedger = true,
+//          )
+//        ) { case Right((SUnit, contractCache)) =>
+//          contractCache shouldBe Map(
+//            disclosedContract.contractId.value -> ???
+//          ) // FIXME: CachedContract
+//        }
+//      }
+//    }
+//  }
 }
 
 object SBuiltinTest {
@@ -1770,7 +1838,11 @@ object SBuiltinTest {
       }
 
     SpeedyTestLib.run(machine, getContract = getContract).map { value =>
-      (value, machine.ledgerMode.asInstanceOf[OnLedger].cachedContracts)
+      if (onLedger) {
+        (value, machine.ledgerMode.asInstanceOf[OnLedger].cachedContracts)
+      } else {
+        (value, Map.empty)
+      }
     }
   }
 
