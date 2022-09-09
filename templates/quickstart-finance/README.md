@@ -8,4 +8,4 @@ Before opening Visual Studio Code you should run `./get-dependencies.sh` to down
 
 You can then open Daml Studio by running `daml studio`, or build the project using `daml build`.
 
-To run the project, run `daml start`.
+To run the project, run `daml start` (which also builds the project).
