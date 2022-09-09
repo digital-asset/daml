@@ -150,6 +150,18 @@ The service works in a non-verbose mode by default, which means that some identi
 
 You can get these included in requests related to Transactions by setting the ``verbose`` field in message ``GetTransactionsRequest`` or ``GetActiveContractsRequest`` to ``true``.
 
+.. _transaction-filter:
+
+Transaction Filter
+------------------
+
+``TransactionService`` offers transaction subscriptions filtered by templates and interfaces using ``GetTransactions`` calls. A :ref:`transaction filter <com.daml.ledger.api.v1.TransactionFilter>` in ``GetTransactionsRequest``. allows:
+
+- filtering by a party, when the :ref:`inclusive <com.daml.ledger.api.v1.Filters.inclusive>` field is left empty
+- filtering by a party and a :ref:`template ID <com.daml.ledger.api.v1.InclusiveFilters.template_ids>`
+- filtering by a party and an :ref:`interface ID <com.daml.ledger.api.v1.InterfaceFilter.interface_id>`
+- exposing an interface view, when the :ref:`include_interface_view <com.daml.ledger.api.v1.InterfaceFilter.include_interface_view>` is set to ``true``
+
 .. _active-contract-service:
 
 Active Contracts Service
@@ -167,6 +179,10 @@ Verbosity
 ---------
 
 See :ref:`verbosity` above.
+
+Transaction Filter
+------------------
+See :ref:`transaction-filter` above.
 
 .. note::
 
