@@ -372,10 +372,9 @@ object WebSocketService {
                 )
             (resolved, unresolved) = res
             errorOrResolvedQuery = domain.ResolvedQuery(resolved)
-            q = prepareFilters(
-              errorOrResolvedQuery.getOrElse(ResolvedQuery.Empty),
-              gacr.query,
-              lookupType,
+            q = errorOrResolvedQuery.fold(
+              _ => Map.empty,
+              prepareFilters(_, gacr.query, lookupType),
             ): CompiledQueries
           } yield (
             UnsupportedOrResolvedQuery(
