@@ -306,7 +306,7 @@ private[lf] final class Compiler(
   private[this] def compileCommands(cmds: ImmArray[Command]): t.SExpr =
     pipeline(translateCommands(Env.Empty, cmds))
 
-  private[this] def compileWithContractDisclosures(
+  private[speedy] def compileWithContractDisclosures(
       cmds: ImmArray[Command],
       disclosures: ImmArray[DisclosedContract],
   ): t.SExpr =
@@ -1012,7 +1012,7 @@ private[lf] final class Compiler(
         }
     }
 
-  private[speedy] def translateDisclosedContract(
+  private[this] def translateDisclosedContract(
       env: Env,
       disclosedContract: DisclosedContract,
   ): s.SExpr = {
@@ -1073,7 +1073,7 @@ private[lf] final class Compiler(
     }
   }
 
-  private[speedy] def translateCommandsWithContractDisclosures(
+  private[this] def translateCommandsWithContractDisclosures(
       env: Env,
       cmds: ImmArray[Command],
       disclosures: ImmArray[DisclosedContract],
