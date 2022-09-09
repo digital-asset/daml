@@ -66,7 +66,9 @@ object DataSourceConnectionProvider {
               case _: SQLTransientConnectionException =>
                 val _ = transientFailureCount.incrementAndGet()
               case _: Throwable =>
-                logger.info("Hikari connection health check failed")
+                val count = transientFailureCount.incrementAndGet()
+                if (count == 1)
+                  logger.info("Hikari connection health check failed unexpectedly")
                 ()
             }
           }
