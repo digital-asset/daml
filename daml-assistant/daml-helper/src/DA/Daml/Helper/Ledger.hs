@@ -501,7 +501,6 @@ reset args = do
               (L.Verbosity False)
           let chunks = chunksOf 100 activeContracts
           forM_ chunks $ \chunk -> do
-            cmdId <- liftIO UUID.nextRandom
             let cmds cmdId =
                   L.Commands
                     { coms =
@@ -525,9 +524,10 @@ reset args = do
                     , minLeTimeRel = Nothing
                     , sid = Nothing
                     }
-            unless null [ x | (_offset, _mbWid, _events) <- chunk, x <- events ] $ do
+            let noCommands = null [ x | (_offset, _mbWid, events) <- chunk, x <- events ]
+            unless noCommands $ do
               cmdId <- liftIO UUID.nextRandom
-              errOrEmpty <- L.submit cmds cmdId
+              errOrEmpty <- L.submit $ cmds cmdId
               case errOrEmpty of
                 Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
                 Right () -> pure ()
