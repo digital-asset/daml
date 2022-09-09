@@ -4,7 +4,7 @@
 sdk-version: __VERSION__
 name: __PROJECT_NAME__
 source: daml
-init-script: Scripts.Setup:setup
+init-script: Scripts.Transfer:runTransfer
 version: 0.0.1
 dependencies:
   - daml-prim
