@@ -1072,354 +1072,457 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       xxx(decodeExpr_WORK(lfExpr, definition))
     }
 
-    private[lf] def decodeExpr_WORK(lfExpr: PLF.Expr, definition: String): Work[Expr] = Ret {
-      val expr = lfExpr.getSumCase match {
+    private[lf] def decodeExpr_WORK(lfExpr: PLF.Expr, definition: String): Work[Expr] = {
+      bindWork(lfExpr.getSumCase match {
         case PLF.Expr.SumCase.VAR_STR =>
           assertUntil(LV.Features.internedStrings, "Expr.var_str")
-          EVar(toName(lfExpr.getVarStr))
+          Ret(EVar(toName(lfExpr.getVarStr)))
 
         case PLF.Expr.SumCase.VAR_INTERNED_STR =>
-          EVar(getInternedName(lfExpr.getVarInternedStr, "Expr.var_interned_id"))
+          Ret(EVar(getInternedName(lfExpr.getVarInternedStr, "Expr.var_interned_id")))
 
         case PLF.Expr.SumCase.VAL =>
-          EVal(decodeValName(lfExpr.getVal))
+          Ret(EVal(decodeValName(lfExpr.getVal)))
 
         case PLF.Expr.SumCase.PRIM_LIT =>
-          EPrimLit(decodePrimLit(lfExpr.getPrimLit))
+          Ret(EPrimLit(decodePrimLit(lfExpr.getPrimLit)))
 
         case PLF.Expr.SumCase.PRIM_CON =>
-          lfExpr.getPrimCon match {
+          Ret(lfExpr.getPrimCon match {
             case PLF.PrimCon.CON_UNIT => EUnit
             case PLF.PrimCon.CON_FALSE => EFalse
             case PLF.PrimCon.CON_TRUE => ETrue
             case PLF.PrimCon.UNRECOGNIZED =>
               throw Error.Parsing("PrimCon.UNRECOGNIZED")
-          }
+          })
 
         case PLF.Expr.SumCase.BUILTIN =>
           val info = DecodeV1.builtinInfoMap(lfExpr.getBuiltin)
           assertSince(info.minVersion, lfExpr.getBuiltin.getValueDescriptor.getFullName)
           info.maxVersion.foreach(assertUntil(_, lfExpr.getBuiltin.getValueDescriptor.getFullName))
-          info.expr
+          Ret(info.expr)
 
         case PLF.Expr.SumCase.REC_CON =>
           val recCon = lfExpr.getRecCon
-          ERecCon(
-            tycon = xxx(decodeTypeConApp(recCon.getTycon)),
-            fields = recCon.getFieldsList.asScala.view
-              .map(x => xxx(decodeFieldWithExpr(x, definition)))
-              .to(ImmArray),
+          Ret(
+            ERecCon(
+              tycon = xxx(decodeTypeConApp(recCon.getTycon)),
+              fields = recCon.getFieldsList.asScala.view
+                .map(x => xxx(decodeFieldWithExpr(x, definition)))
+                .to(ImmArray),
+            )
           )
 
         case PLF.Expr.SumCase.REC_PROJ =>
           val recProj = lfExpr.getRecProj
-          ERecProj(
-            tycon = xxx(decodeTypeConApp(recProj.getTycon)),
-            field = handleInternedName(
-              recProj.getFieldCase,
-              PLF.Expr.RecProj.FieldCase.FIELD_STR,
-              recProj.getFieldStr,
-              PLF.Expr.RecProj.FieldCase.FIELD_INTERNED_STR,
-              recProj.getFieldInternedStr,
-              "Expr.RecProj.field.field",
-            ),
-            record = decodeExpr_DEP(recProj.getRecord, definition),
-          )
+          bindWork(decodeTypeConApp(recProj.getTycon)) { tycon =>
+            decodeExpr(recProj.getRecord, definition) { record =>
+              Ret(
+                ERecProj(
+                  tycon,
+                  field = handleInternedName(
+                    recProj.getFieldCase,
+                    PLF.Expr.RecProj.FieldCase.FIELD_STR,
+                    recProj.getFieldStr,
+                    PLF.Expr.RecProj.FieldCase.FIELD_INTERNED_STR,
+                    recProj.getFieldInternedStr,
+                    "Expr.RecProj.field.field",
+                  ),
+                  record,
+                )
+              )
+            }
+          }
 
         case PLF.Expr.SumCase.REC_UPD =>
           val recUpd = lfExpr.getRecUpd
-          ERecUpd(
-            tycon = xxx(decodeTypeConApp(recUpd.getTycon)),
-            field = handleInternedName(
-              recUpd.getFieldCase,
-              PLF.Expr.RecUpd.FieldCase.FIELD_STR,
-              recUpd.getFieldStr,
-              PLF.Expr.RecUpd.FieldCase.FIELD_INTERNED_STR,
-              recUpd.getFieldInternedStr,
-              "Expr.RecUpd.field.field",
-            ),
-            record = decodeExpr_DEP(recUpd.getRecord, definition),
-            update = decodeExpr_DEP(recUpd.getUpdate, definition),
-          )
+          bindWork(decodeTypeConApp(recUpd.getTycon)) { tycon =>
+            decodeExpr(recUpd.getRecord, definition) { record =>
+              decodeExpr(recUpd.getUpdate, definition) { update =>
+                Ret(
+                  ERecUpd(
+                    tycon,
+                    field = handleInternedName(
+                      recUpd.getFieldCase,
+                      PLF.Expr.RecUpd.FieldCase.FIELD_STR,
+                      recUpd.getFieldStr,
+                      PLF.Expr.RecUpd.FieldCase.FIELD_INTERNED_STR,
+                      recUpd.getFieldInternedStr,
+                      "Expr.RecUpd.field.field",
+                    ),
+                    record,
+                    update,
+                  )
+                )
+              }
+            }
+          }
 
         case PLF.Expr.SumCase.VARIANT_CON =>
           val varCon = lfExpr.getVariantCon
-          EVariantCon(
-            xxx(decodeTypeConApp(varCon.getTycon)),
-            handleInternedName(
-              varCon.getVariantConCase,
-              PLF.Expr.VariantCon.VariantConCase.VARIANT_CON_STR,
-              varCon.getVariantConStr,
-              PLF.Expr.VariantCon.VariantConCase.VARIANT_CON_INTERNED_STR,
-              varCon.getVariantConInternedStr,
-              "Expr.VariantCon.variant_con.variant_con",
-            ),
-            decodeExpr_DEP(varCon.getVariantArg, definition),
-          )
+          bindWork(decodeTypeConApp(varCon.getTycon)) { tycon =>
+            decodeExpr(varCon.getVariantArg, definition) { expr =>
+              Ret(
+                EVariantCon(
+                  tycon,
+                  handleInternedName(
+                    varCon.getVariantConCase,
+                    PLF.Expr.VariantCon.VariantConCase.VARIANT_CON_STR,
+                    varCon.getVariantConStr,
+                    PLF.Expr.VariantCon.VariantConCase.VARIANT_CON_INTERNED_STR,
+                    varCon.getVariantConInternedStr,
+                    "Expr.VariantCon.variant_con.variant_con",
+                  ),
+                  expr,
+                )
+              )
+            }
+          }
 
         case PLF.Expr.SumCase.ENUM_CON =>
           val enumCon = lfExpr.getEnumCon
-          EEnumCon(
-            decodeTypeConName(enumCon.getTycon),
-            handleInternedName(
-              enumCon.getEnumConCase,
-              PLF.Expr.EnumCon.EnumConCase.ENUM_CON_STR,
-              enumCon.getEnumConStr,
-              PLF.Expr.EnumCon.EnumConCase.ENUM_CON_INTERNED_STR,
-              enumCon.getEnumConInternedStr,
-              "Expr.EnumCon.enum_con.enum_con",
-            ),
+          Ret(
+            EEnumCon(
+              decodeTypeConName(enumCon.getTycon),
+              handleInternedName(
+                enumCon.getEnumConCase,
+                PLF.Expr.EnumCon.EnumConCase.ENUM_CON_STR,
+                enumCon.getEnumConStr,
+                PLF.Expr.EnumCon.EnumConCase.ENUM_CON_INTERNED_STR,
+                enumCon.getEnumConInternedStr,
+                "Expr.EnumCon.enum_con.enum_con",
+              ),
+            )
           )
 
         case PLF.Expr.SumCase.STRUCT_CON =>
           val structCon = lfExpr.getStructCon
-          EStructCon(
+          sequenceWork(
             structCon.getFieldsList.asScala.view
-              .map(x => xxx(decodeFieldWithExpr(x, definition)))
-              .to(ImmArray)
-          )
+              .map(x => decodeFieldWithExpr(x, definition))
+          ) { xs => Ret(EStructCon(xs.to(ImmArray))) }
 
         case PLF.Expr.SumCase.STRUCT_PROJ =>
           val structProj = lfExpr.getStructProj
-          EStructProj(
-            field = handleInternedName(
-              structProj.getFieldCase,
-              PLF.Expr.StructProj.FieldCase.FIELD_STR,
-              structProj.getFieldStr,
-              PLF.Expr.StructProj.FieldCase.FIELD_INTERNED_STR,
-              structProj.getFieldInternedStr,
-              "Expr.StructProj.field.field",
-            ),
-            struct = decodeExpr_DEP(structProj.getStruct, definition),
-          )
+          decodeExpr(structProj.getStruct, definition) { struct =>
+            Ret(
+              EStructProj(
+                field = handleInternedName(
+                  structProj.getFieldCase,
+                  PLF.Expr.StructProj.FieldCase.FIELD_STR,
+                  structProj.getFieldStr,
+                  PLF.Expr.StructProj.FieldCase.FIELD_INTERNED_STR,
+                  structProj.getFieldInternedStr,
+                  "Expr.StructProj.field.field",
+                ),
+                struct,
+              )
+            )
+          }
 
         case PLF.Expr.SumCase.STRUCT_UPD =>
           val structUpd = lfExpr.getStructUpd
-          EStructUpd(
-            field = handleInternedName(
-              structUpd.getFieldCase,
-              PLF.Expr.StructUpd.FieldCase.FIELD_STR,
-              structUpd.getFieldStr,
-              PLF.Expr.StructUpd.FieldCase.FIELD_INTERNED_STR,
-              structUpd.getFieldInternedStr,
-              "Expr.StructUpd.field.field",
-            ),
-            struct = decodeExpr_DEP(structUpd.getStruct, definition),
-            update = decodeExpr_DEP(structUpd.getUpdate, definition),
-          )
+          decodeExpr(structUpd.getStruct, definition) { struct =>
+            decodeExpr(structUpd.getUpdate, definition) { update =>
+              Ret(
+                EStructUpd(
+                  field = handleInternedName(
+                    structUpd.getFieldCase,
+                    PLF.Expr.StructUpd.FieldCase.FIELD_STR,
+                    structUpd.getFieldStr,
+                    PLF.Expr.StructUpd.FieldCase.FIELD_INTERNED_STR,
+                    structUpd.getFieldInternedStr,
+                    "Expr.StructUpd.field.field",
+                  ),
+                  struct,
+                  update,
+                )
+              )
+            }
+          }
 
         case PLF.Expr.SumCase.APP =>
           val app = lfExpr.getApp
           val args = app.getArgsList.asScala
           assertNonEmpty(args, "args")
-          // We use a `foreach` instead of `foldLeft` to reduce the stack size.
+          // We use a `foreach` instead of `foldLeft` to reduce the stack size. //NICK kill old comment
           var expr = decodeExpr_DEP(app.getFun, definition)
           for (arg <- args) {
             expr = EApp(expr, decodeExpr_DEP(arg, definition))
           }
-          expr
+          Ret(expr)
 
         case PLF.Expr.SumCase.ABS =>
           val lfAbs = lfExpr.getAbs
           val params = lfAbs.getParamList.asScala
           assertNonEmpty(params, "params")
           // val params = lfAbs.getParamList.asScala.map(decodeBinder)
-          (params foldRight decodeExpr_DEP(lfAbs.getBody, definition))((param, e) =>
-            EAbs(xxx(decodeBinder(param)), e, currentDefinitionRef)
+          Ret(
+            (params foldRight decodeExpr_DEP(lfAbs.getBody, definition))((param, e) =>
+              EAbs(xxx(decodeBinder(param)), e, currentDefinitionRef)
+            )
           )
 
         case PLF.Expr.SumCase.TY_APP =>
           val tyapp = lfExpr.getTyApp
           val args = tyapp.getTypesList.asScala
           assertNonEmpty(args, "args")
-          (args foldLeft decodeExpr_DEP(tyapp.getExpr, definition))((e, arg) =>
-            ETyApp(e, decodeType_DEP(arg))
+          Ret(
+            (args foldLeft decodeExpr_DEP(tyapp.getExpr, definition))((e, arg) =>
+              ETyApp(e, decodeType_DEP(arg))
+            )
           )
 
         case PLF.Expr.SumCase.TY_ABS =>
           val lfTyAbs = lfExpr.getTyAbs
           val params = lfTyAbs.getParamList.asScala
           assertNonEmpty(params, "params")
-          (params foldRight decodeExpr_DEP(lfTyAbs.getBody, definition))((param, e) =>
-            ETyAbs(decodeTypeVarWithKind_DEP(param), e)
+          Ret(
+            (params foldRight decodeExpr_DEP(lfTyAbs.getBody, definition))((param, e) =>
+              ETyAbs(decodeTypeVarWithKind_DEP(param), e)
+            )
           )
 
         case PLF.Expr.SumCase.LET =>
           val lfLet = lfExpr.getLet
           val bindings = lfLet.getBindingsList.asScala
           assertNonEmpty(bindings, "bindings")
-          (bindings foldRight decodeExpr_DEP(lfLet.getBody, definition))((binding, e) => {
+          Ret((bindings foldRight decodeExpr_DEP(lfLet.getBody, definition))((binding, e) => {
             val (v, t) = xxx(decodeBinder(binding.getBinder))
             ELet(Binding(Some(v), t, decodeExpr_DEP(binding.getBound, definition)), e)
-          })
+          }))
 
         case PLF.Expr.SumCase.NIL =>
-          ENil(decodeType_DEP(lfExpr.getNil.getType))
+          decodeType(lfExpr.getNil.getType) { typ =>
+            Ret(ENil(typ))
+          }
 
         case PLF.Expr.SumCase.CONS =>
           val cons = lfExpr.getCons
           val front = cons.getFrontList.asScala
           assertNonEmpty(front, "front")
-          val typ = decodeType_DEP(cons.getType)
-          ECons(
-            typ,
-            front.view.map(decodeExpr_DEP(_, definition)).to(ImmArray),
-            decodeExpr_DEP(cons.getTail, definition),
-          )
+          decodeType(cons.getType) { typ =>
+            sequenceWork(front.view.map(decodeExpr(_, definition)(Ret(_)))) { elems =>
+              decodeExpr(cons.getTail, definition) { tail =>
+                Ret(ECons(typ, elems.to(ImmArray), tail))
+              }
+            }
+          }
 
         case PLF.Expr.SumCase.CASE =>
           val case_ = lfExpr.getCase
-          ECase(
-            decodeExpr_DEP(case_.getScrut, definition),
-            case_.getAltsList.asScala.view.map(decodeCaseAlt(_, definition)).to(ImmArray),
-          )
+          decodeExpr(case_.getScrut, definition) { scrut =>
+            sequenceWork(case_.getAltsList.asScala.view.map(decodeCaseAlt(_, definition))) { alts =>
+              Ret(ECase(scrut, alts.to(ImmArray)))
+            }
+          }
 
         case PLF.Expr.SumCase.UPDATE =>
-          EUpdate(xxx(decodeUpdate(lfExpr.getUpdate, definition)))
+          bindWork(decodeUpdate(lfExpr.getUpdate, definition)) { update =>
+            Ret(EUpdate(update))
+          }
 
         case PLF.Expr.SumCase.SCENARIO =>
-          EScenario(xxx(decodeScenario(lfExpr.getScenario, definition)))
+          bindWork(decodeScenario(lfExpr.getScenario, definition)) { scenario =>
+            Ret(EScenario(scenario))
+          }
 
         case PLF.Expr.SumCase.OPTIONAL_NONE =>
-          ENone(decodeType_DEP(lfExpr.getOptionalNone.getType))
+          decodeType(lfExpr.getOptionalNone.getType) { typ =>
+            Ret(ENone(typ))
+          }
 
         case PLF.Expr.SumCase.OPTIONAL_SOME =>
           val some = lfExpr.getOptionalSome
-          ESome(decodeType_DEP(some.getType), decodeExpr_DEP(some.getBody, definition))
+          decodeType(some.getType) { typ =>
+            decodeExpr(some.getBody, definition) { expr =>
+              Ret(ESome(typ, expr))
+            }
+          }
 
         case PLF.Expr.SumCase.TO_ANY =>
           assertSince(LV.Features.anyType, "Expr.ToAny")
-          EToAny(
-            decodeType_DEP(lfExpr.getToAny.getType),
-            decodeExpr_DEP(lfExpr.getToAny.getExpr, definition),
-          )
+          decodeType(lfExpr.getToAny.getType) { typ =>
+            decodeExpr(lfExpr.getToAny.getExpr, definition) { expr =>
+              Ret(EToAny(typ, expr))
+            }
+          }
 
         case PLF.Expr.SumCase.FROM_ANY =>
           assertSince(LV.Features.anyType, "Expr.FromAny")
-          EFromAny(
-            decodeType_DEP(lfExpr.getFromAny.getType),
-            decodeExpr_DEP(lfExpr.getFromAny.getExpr, definition),
-          )
+          decodeType(lfExpr.getFromAny.getType) { typ =>
+            decodeExpr(lfExpr.getFromAny.getExpr, definition) { expr =>
+              Ret(EFromAny(typ, expr))
+            }
+          }
 
         case PLF.Expr.SumCase.TYPE_REP =>
           assertSince(LV.Features.typeRep, "Expr.type_rep")
-          ETypeRep(decodeType_DEP(lfExpr.getTypeRep))
+          decodeType(lfExpr.getTypeRep) { typ =>
+            Ret(ETypeRep(typ))
+          }
 
         case PLF.Expr.SumCase.THROW =>
           assertSince(LV.Features.exceptions, "Expr.from_any_exception")
           val eThrow = lfExpr.getThrow
-          EThrow(
-            returnType = decodeType_DEP(eThrow.getReturnType),
-            exceptionType = decodeType_DEP(eThrow.getExceptionType),
-            exception = decodeExpr_DEP(eThrow.getExceptionExpr, definition),
-          )
+          decodeType(eThrow.getReturnType) { returnType =>
+            decodeType(eThrow.getExceptionType) { exceptionType =>
+              decodeExpr(eThrow.getExceptionExpr, definition) { exception =>
+                Ret(EThrow(returnType, exceptionType, exception))
+              }
+            }
+          }
 
         case PLF.Expr.SumCase.TO_ANY_EXCEPTION =>
           assertSince(LV.Features.exceptions, "Expr.to_any_exception")
           val toAnyException = lfExpr.getToAnyException
-          EToAnyException(
-            typ = decodeType_DEP(toAnyException.getType),
-            value = decodeExpr_DEP(toAnyException.getExpr, definition),
-          )
+          decodeType(toAnyException.getType) { typ =>
+            decodeExpr(toAnyException.getExpr, definition) { value =>
+              Ret(EToAnyException(typ, value))
+            }
+          }
 
         case PLF.Expr.SumCase.FROM_ANY_EXCEPTION =>
           assertSince(LV.Features.exceptions, "Expr.from_any_exception")
           val fromAnyException = lfExpr.getFromAnyException
-          EFromAnyException(
-            typ = decodeType_DEP(fromAnyException.getType),
-            value = decodeExpr_DEP(fromAnyException.getExpr, definition),
-          )
+          decodeType(fromAnyException.getType) { typ =>
+            decodeExpr(fromAnyException.getExpr, definition) { value =>
+              Ret(EFromAnyException(typ, value))
+            }
+          }
 
         case PLF.Expr.SumCase.TO_INTERFACE =>
           assertSince(LV.Features.basicInterfaces, "Expr.to_interface")
           val toInterface = lfExpr.getToInterface
-          EToInterface(
-            interfaceId = decodeTypeConName(toInterface.getInterfaceType),
-            templateId = decodeTypeConName(toInterface.getTemplateType),
-            value = decodeExpr_DEP(toInterface.getTemplateExpr, definition),
-          )
+          decodeExpr(toInterface.getTemplateExpr, definition) { value =>
+            Ret(
+              EToInterface(
+                interfaceId = decodeTypeConName(toInterface.getInterfaceType),
+                templateId = decodeTypeConName(toInterface.getTemplateType),
+                value,
+              )
+            )
+          }
 
         case PLF.Expr.SumCase.FROM_INTERFACE =>
           assertSince(LV.Features.basicInterfaces, "Expr.from_interface")
           val fromInterface = lfExpr.getFromInterface
-          EFromInterface(
-            interfaceId = decodeTypeConName(fromInterface.getInterfaceType),
-            templateId = decodeTypeConName(fromInterface.getTemplateType),
-            value = decodeExpr_DEP(fromInterface.getInterfaceExpr, definition),
-          )
+          decodeExpr(fromInterface.getInterfaceExpr, definition) { value =>
+            Ret(
+              EFromInterface(
+                interfaceId = decodeTypeConName(fromInterface.getInterfaceType),
+                templateId = decodeTypeConName(fromInterface.getTemplateType),
+                value,
+              )
+            )
+          }
 
         case PLF.Expr.SumCase.CALL_INTERFACE =>
           assertSince(LV.Features.basicInterfaces, "Expr.call_interface")
           val callInterface = lfExpr.getCallInterface
-          ECallInterface(
-            interfaceId = decodeTypeConName(callInterface.getInterfaceType),
-            methodName =
-              getInternedName(callInterface.getMethodInternedName, "ECallInterface.method"),
-            value = decodeExpr_DEP(callInterface.getInterfaceExpr, definition),
-          )
+          decodeExpr(callInterface.getInterfaceExpr, definition) { value =>
+            Ret(
+              ECallInterface(
+                interfaceId = decodeTypeConName(callInterface.getInterfaceType),
+                methodName =
+                  getInternedName(callInterface.getMethodInternedName, "ECallInterface.method"),
+                value,
+              )
+            )
+          }
 
         case PLF.Expr.SumCase.SIGNATORY_INTERFACE =>
           assertSince(LV.Features.basicInterfaces, "Expr.signatory_interface")
           val signatoryInterface = lfExpr.getSignatoryInterface
-          ESignatoryInterface(
-            ifaceId = decodeTypeConName(signatoryInterface.getInterface),
-            body = decodeExpr_DEP(signatoryInterface.getExpr, definition),
-          )
+          decodeExpr(signatoryInterface.getExpr, definition) { body =>
+            Ret(
+              ESignatoryInterface(
+                ifaceId = decodeTypeConName(signatoryInterface.getInterface),
+                body,
+              )
+            )
+          }
 
         case PLF.Expr.SumCase.OBSERVER_INTERFACE =>
           assertSince(LV.Features.basicInterfaces, "Expr.observer_interface")
           val observerInterface = lfExpr.getObserverInterface
-          EObserverInterface(
-            ifaceId = decodeTypeConName(observerInterface.getInterface),
-            body = decodeExpr_DEP(observerInterface.getExpr, definition),
-          )
+          decodeExpr(observerInterface.getExpr, definition) { body =>
+            Ret(
+              EObserverInterface(ifaceId = decodeTypeConName(observerInterface.getInterface), body)
+            )
+          }
 
         case PLF.Expr.SumCase.UNSAFE_FROM_INTERFACE =>
           assertSince(LV.Features.basicInterfaces, "Expr.unsafe_from_interface")
           val unsafeFromInterface = lfExpr.getUnsafeFromInterface
-          EUnsafeFromInterface(
-            interfaceId = decodeTypeConName(unsafeFromInterface.getInterfaceType),
-            templateId = decodeTypeConName(unsafeFromInterface.getTemplateType),
-            contractIdExpr = decodeExpr_DEP(unsafeFromInterface.getContractIdExpr, definition),
-            ifaceExpr = decodeExpr_DEP(unsafeFromInterface.getInterfaceExpr, definition),
-          )
+          decodeExpr(unsafeFromInterface.getContractIdExpr, definition) { contractIdExpr =>
+            decodeExpr(unsafeFromInterface.getInterfaceExpr, definition) { ifaceExpr =>
+              Ret(
+                EUnsafeFromInterface(
+                  interfaceId = decodeTypeConName(unsafeFromInterface.getInterfaceType),
+                  templateId = decodeTypeConName(unsafeFromInterface.getTemplateType),
+                  contractIdExpr,
+                  ifaceExpr,
+                )
+              )
+            }
+          }
 
         case PLF.Expr.SumCase.TO_REQUIRED_INTERFACE =>
           assertSince(LV.Features.extendedInterfaces, "Expr.to_required_interface")
           val toRequiredInterface = lfExpr.getToRequiredInterface
-          EToRequiredInterface(
-            requiredIfaceId = decodeTypeConName(toRequiredInterface.getRequiredInterface),
-            requiringIfaceId = decodeTypeConName(toRequiredInterface.getRequiringInterface),
-            body = decodeExpr_DEP(toRequiredInterface.getExpr, definition),
-          )
+          decodeExpr(toRequiredInterface.getExpr, definition) { body =>
+            Ret(
+              EToRequiredInterface(
+                requiredIfaceId = decodeTypeConName(toRequiredInterface.getRequiredInterface),
+                requiringIfaceId = decodeTypeConName(toRequiredInterface.getRequiringInterface),
+                body,
+              )
+            )
+          }
 
         case PLF.Expr.SumCase.FROM_REQUIRED_INTERFACE =>
           assertSince(LV.Features.extendedInterfaces, "Expr.from_required_interface")
           val fromRequiredInterface = lfExpr.getFromRequiredInterface
-          EFromRequiredInterface(
-            requiredIfaceId = decodeTypeConName(fromRequiredInterface.getRequiredInterface),
-            requiringIfaceId = decodeTypeConName(fromRequiredInterface.getRequiringInterface),
-            body = decodeExpr_DEP(fromRequiredInterface.getExpr, definition),
-          )
+          decodeExpr(fromRequiredInterface.getExpr, definition) { body =>
+            Ret(
+              EFromRequiredInterface(
+                requiredIfaceId = decodeTypeConName(fromRequiredInterface.getRequiredInterface),
+                requiringIfaceId = decodeTypeConName(fromRequiredInterface.getRequiringInterface),
+                body,
+              )
+            )
+          }
 
         case PLF.Expr.SumCase.UNSAFE_FROM_REQUIRED_INTERFACE =>
           assertSince(LV.Features.extendedInterfaces, "Expr.from_required_interface")
           val unsafeFromRequiredInterface = lfExpr.getUnsafeFromRequiredInterface
-          EUnsafeFromRequiredInterface(
-            requiredIfaceId = decodeTypeConName(unsafeFromRequiredInterface.getRequiredInterface),
-            requiringIfaceId = decodeTypeConName(unsafeFromRequiredInterface.getRequiringInterface),
-            contractIdExpr =
-              decodeExpr_DEP(unsafeFromRequiredInterface.getContractIdExpr, definition),
-            ifaceExpr = decodeExpr_DEP(unsafeFromRequiredInterface.getInterfaceExpr, definition),
-          )
+          decodeExpr(unsafeFromRequiredInterface.getContractIdExpr, definition) { contractIdExpr =>
+            decodeExpr(unsafeFromRequiredInterface.getInterfaceExpr, definition) { ifaceExpr =>
+              Ret(
+                EUnsafeFromRequiredInterface(
+                  requiredIfaceId =
+                    decodeTypeConName(unsafeFromRequiredInterface.getRequiredInterface),
+                  requiringIfaceId =
+                    decodeTypeConName(unsafeFromRequiredInterface.getRequiringInterface),
+                  contractIdExpr,
+                  ifaceExpr,
+                )
+              )
+            }
+          }
 
         case PLF.Expr.SumCase.INTERFACE_TEMPLATE_TYPE_REP =>
           assertSince(LV.Features.basicInterfaces, "Expr.interface_template_type_rep")
           val interfaceTemplateTypeRep = lfExpr.getInterfaceTemplateTypeRep
-          EInterfaceTemplateTypeRep(
-            ifaceId = decodeTypeConName(interfaceTemplateTypeRep.getInterface),
-            body = decodeExpr_DEP(interfaceTemplateTypeRep.getExpr, definition),
-          )
+          decodeExpr(interfaceTemplateTypeRep.getExpr, definition) { body =>
+            Ret(
+              EInterfaceTemplateTypeRep(
+                ifaceId = decodeTypeConName(interfaceTemplateTypeRep.getInterface),
+                body,
+              )
+            )
+          }
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("Expr.SUM_NOT_SET")
@@ -1427,23 +1530,31 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         case PLF.Expr.SumCase.VIEW_INTERFACE =>
           assertSince(LV.Features.basicInterfaces, "Expr.view_interface")
           val viewInterface = lfExpr.getViewInterface
-          EViewInterface(
-            ifaceId = decodeTypeConName(viewInterface.getInterface),
-            expr = decodeExpr_DEP(viewInterface.getExpr, definition),
-          )
+          decodeExpr(viewInterface.getExpr, definition) { expr =>
+            Ret(
+              EViewInterface(
+                ifaceId = decodeTypeConName(viewInterface.getInterface),
+                expr,
+              )
+            )
+          }
 
         case PLF.Expr.SumCase.EXPERIMENTAL =>
           assertSince(LV.v1_dev, "Expr.experimental")
           val experimental = lfExpr.getExperimental
-          EExperimental(experimental.getName, decodeType_DEP(experimental.getType))
-      }
-      decodeLocation(lfExpr, definition) match {
-        case None => expr
-        case Some(loc) => ELocation(loc, expr)
+          decodeType(experimental.getType) { typ =>
+            Ret(EExperimental(experimental.getName, typ))
+          }
+
+      }) { expr =>
+        decodeLocation(lfExpr, definition) match {
+          case None => Ret(expr)
+          case Some(loc) => Ret(ELocation(loc, expr))
+        }
       }
     }
 
-    private[this] def decodeCaseAlt(lfCaseAlt: PLF.CaseAlt, definition: String): CaseAlt = {
+    private[this] def decodeCaseAlt(lfCaseAlt: PLF.CaseAlt, definition: String): Work[CaseAlt] = {
       val pat: CasePat = lfCaseAlt.getSumCase match {
         case PLF.CaseAlt.SumCase.DEFAULT =>
           CPDefault
@@ -1525,7 +1636,9 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         case PLF.CaseAlt.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("CaseAlt.SUM_NOT_SET")
       }
-      CaseAlt(pat, decodeExpr_DEP(lfCaseAlt.getBody, definition))
+      decodeExpr(lfCaseAlt.getBody, definition) { rhs =>
+        Ret(CaseAlt(pat, rhs))
+      }
     }
 
     private[this] def decodeRetrieveByKey(
