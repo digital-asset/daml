@@ -285,9 +285,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     for {
       sexpr <- runCompilerSafely(
         NameOf.qualifiedNameOfCurrentFunc,
-        compiledPackages.compiler.unsafeCompile(commands),
-        // TODO: enable priming on ledger cached contract map with disclosed contracts
-//        compiledPackages.compiler.unsafeCompileWithContractDisclosures(commands, disclosures),
+        compiledPackages.compiler.unsafeCompileWithContractDisclosures(commands, disclosures),
       )
       result <- interpretExpression(
         validating,
