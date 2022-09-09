@@ -1,0 +1,30 @@
+# for config file options, refer to
+# https://docs.daml.com/tools/assistant.html#project-config-file-daml-yaml
+
+sdk-version: __VERSION__
+name: __PROJECT_NAME__
+source: daml
+init-script: Scripts.Transfer:runTransfer
+version: 0.0.1
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+data-dependencies:
+  # INTERFACE DEPENDENCIES
+  - .lib/daml-finance-interface-holding-0.1.3.dar
+  - .lib/daml-finance-interface-instrument-base-0.1.3.dar
+  - .lib/daml-finance-interface-lifecycle-0.1.3.dar
+  - .lib/daml-finance-interface-settlement-0.1.3.dar
+  - .lib/daml-finance-interface-types-0.1.3.dar
+  # IMPLEMENTATION DEPENDENCIES
+  - .lib/daml-finance-holding-0.1.3.dar
+  - .lib/daml-finance-instrument-base-0.1.3.dar
+  - .lib/daml-finance-lifecycle-0.1.3.dar
+  - .lib/daml-finance-refdata-0.1.3.dar
+  - .lib/daml-finance-settlement-0.1.3.dar
+start-navigator: no
+build-options:
+  - --target=1.15
+sandbox-options:
+  - --config=canton.config

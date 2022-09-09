@@ -1,0 +1,39 @@
+module Workflow.CreditAccount where
+
+import Daml.Finance.Interface.Holding.Account qualified as Account (Credit(..), I, exerciseInterfaceByKey)
+import Daml.Finance.Interface.Holding.Base qualified as Holding (I)
+import Daml.Finance.Interface.Instrument.Base.Instrument qualified as Instrument (K, qty)
+import Daml.Finance.Interface.Types.Common (AccountKey(..))
+
+-- | Initiate / Accept template to credit a holding to an existing account.
+template Request
+  with
+    account : AccountKey
+      -- ^ The account receiving the holding.
+    instrument : Instrument.K
+      -- ^ The instrument to be credited.
+    amount : Decimal
+      -- ^ The number of units of the specified instrument to be credited.
+  where
+    signatory account.owner
+    observer account.custodian
+
+    ensure amount > 0.0
+
+    choice Accept : ContractId Holding.I
+      -- ^ Accept the request. In the case of physical assets (e.g., paper certificates, banknotes) a custodian would generally accept the request once they have got hold of the physical asset.
+      controller account.custodian
+      do
+        Account.exerciseInterfaceByKey @Account.I account account.custodian Account.Credit
+          with
+            quantity = Instrument.qty amount instrument
+
+    choice Decline : ()
+      -- ^ Decline the request.
+      controller account.custodian
+      do pure ()
+
+    choice Withdraw : ()
+      -- ^ Withdraw the request.
+      controller account.owner
+      do pure ()
