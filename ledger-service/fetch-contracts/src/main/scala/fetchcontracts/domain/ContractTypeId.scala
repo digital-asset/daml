@@ -71,17 +71,20 @@ object ResolvedQuery {
   }
 
   def apply(resolved: Set[ContractTypeId.Resolved]): Unsupported \/ ResolvedQuery = {
+    import com.daml.nonempty.{NonEmpty, Singleton}
     val (templateIds, interfaceIds) = partition(resolved)
-    if (templateIds.nonEmpty && interfaceIds.nonEmpty) {
-      -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
-    } else if (templateIds.isEmpty && interfaceIds.size > 1) {
-      -\/(CannotQueryManyInterfaceIds)
-    } else if (templateIds.isEmpty && interfaceIds.size == 1) {
-      \/-(ByInterfaceId(interfaceIds.head))
-    } else if (templateIds.nonEmpty) {
-      \/-(ByTemplateIds(templateIds))
-    } else {
-      -\/(CannotBeEmpty)
+    templateIds match {
+      case NonEmpty(templateIds) =>
+        interfaceIds match {
+          case NonEmpty(_) => -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
+          case _ => \/-(ByTemplateIds(templateIds))
+        }
+      case _ =>
+        interfaceIds match {
+          case NonEmpty(Singleton(interfaceId)) => \/-(ByInterfaceId(interfaceId))
+          case NonEmpty(_) => -\/(CannotQueryManyInterfaceIds)
+          case _ => -\/(CannotBeEmpty)
+        }
     }
   }
 
