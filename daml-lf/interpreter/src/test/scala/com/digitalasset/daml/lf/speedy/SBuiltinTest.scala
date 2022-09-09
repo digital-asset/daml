@@ -1666,10 +1666,11 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
   "SBCacheDisclosedContract" - {
     "updates on ledger cached contract map" - {
+      val version = TransactionVersion.minExplicitDisclosure
+      val contractId = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
+
       "when no template key is defined" in {
-        val contractId = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:Iou")
-        val version = TransactionVersion.minExplicitDisclosure
         val (disclosedContract, None) =
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = false)
         val cachedContract = CachedContract(
@@ -1711,9 +1712,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       }
 
       "when template key is defined" in {
-        val contractId = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
-        val version = TransactionVersion.minExplicitDisclosure
         val (disclosedContract, Some((key, keyWithMaintainers))) =
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = true)
         val optionalKey = Some(KeyWithMaintainers(key.toNormalizedValue(version), Set(alice)))
