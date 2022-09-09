@@ -71,8 +71,8 @@ Summary of Ledger API Changes
    * - 2.1
      - | Establish the order of child events in ExercisedEvent to agree with the order of events in transaction.
        | Indicate an exercise done on an interface through the interface_id field on the ExercisedEvent message.
-       | Make interfaces available for subscriptions in the Transaction Service as a preview feature.
-       | Implement contract disclosure as an experimental feature in the Transaction, Command Submission and Command Services. Related new message types of DisclosedContract and ContractMetadata should be ignored.
+       | Make interfaces available for subscriptions in the Transaction Service as an Alpha feature.
+       | Implement contract disclosure as a Labs feature in the Transaction, Command Submission and Command Services. Related new message types of DisclosedContract and ContractMetadata should be ignored.
        | Convert Metering Service to using JSON format for its reports.
    * - 2.0
      - | Introduce User Management Service
