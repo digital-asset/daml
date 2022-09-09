@@ -249,26 +249,24 @@ object WebSocketService {
     UnsupportedOrResolvedQuery.subst(
       Monoid.instance(
         {
-          case (-\/(CannotQueryBothTemplateIdsAndInterfaceIds), _) =>
-            -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
-          case (_, -\/(CannotQueryBothTemplateIdsAndInterfaceIds)) =>
+          case (-\/(CannotQueryBothTemplateIdsAndInterfaceIds), _) |
+              (_, -\/(CannotQueryBothTemplateIdsAndInterfaceIds)) =>
             -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
 
-          case (-\/(CannotQueryManyInterfaceIds), _) => -\/(CannotQueryManyInterfaceIds)
-          case (_, -\/(CannotQueryManyInterfaceIds)) => -\/(CannotQueryManyInterfaceIds)
+          case (-\/(CannotQueryManyInterfaceIds), _) | (_, -\/(CannotQueryManyInterfaceIds)) =>
+            -\/(CannotQueryManyInterfaceIds)
 
-          case (-\/(CannotBeEmpty), _) => -\/(CannotBeEmpty)
-          case (_, -\/(CannotBeEmpty)) => -\/(CannotBeEmpty)
+          case (-\/(CannotBeEmpty), _) | (_, -\/(CannotBeEmpty)) => -\/(CannotBeEmpty)
 
-          case (\/-(ByInterfaceId(_)), \/-(ByTemplateId(_)) | \/-(ByTemplateIds(_))) =>
-            -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
-          case (\/-(ByTemplateId(_)) | \/-(ByTemplateIds(_)), \/-(ByInterfaceId(_))) =>
+          case (\/-(ByInterfaceId(_)), \/-(ByTemplateId(_)) | \/-(ByTemplateIds(_))) |
+              (\/-(ByTemplateId(_)) | \/-(ByTemplateIds(_)), \/-(ByInterfaceId(_))) =>
             -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
 
           case (\/-(ByInterfaceId(interfaceIdA)), \/-(ByInterfaceId(interfaceIdB))) =>
             if (interfaceIdA == interfaceIdB) \/-(ByInterfaceId(interfaceIdA))
             else -\/(CannotQueryManyInterfaceIds)
 
+          // TODO SC violates identity law: ByTemplateId <> Empty
           case (\/-(a), \/-(b)) => ResolvedQuery(a.resolved ++ b.resolved)
         },
         \/-(Empty),
