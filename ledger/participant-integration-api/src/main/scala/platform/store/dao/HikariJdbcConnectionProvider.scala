@@ -15,6 +15,9 @@ import com.daml.platform.configuration.ServerRole
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import javax.sql.DataSource
 
+import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors.InternalError.Generic
+
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.control.NonFatal
 
@@ -45,6 +48,7 @@ private[platform] object HikariDataSourceOwner {
 object DataSourceConnectionProvider {
   private val MaxTransientFailureCount: Int = 5
   private val HealthPollingSchedule: FiniteDuration = 1.second
+  private val errorLogger = DamlContextualizedErrorLogger.forClass(getClass)
 
   def owner(dataSource: DataSource): ResourceOwner[JdbcConnectionProvider] =
     for {
@@ -55,13 +59,18 @@ object DataSourceConnectionProvider {
       val transientFailureCount = new AtomicInteger(0)
 
       val checkHealth = new TimerTask {
+        var counter: Int = 0
         override def run(): Unit = {
           try {
+            if (counter%10 == 0) throw new NullPointerException
             dataSource.getConnection().close()
             transientFailureCount.set(0)
           } catch {
             case _: SQLTransientConnectionException =>
               val _ = transientFailureCount.incrementAndGet()
+            case t: Throwable =>
+              Generic(s"Hikari connection health check failed", Some(t))(errorLogger)
+              ()
           }
         }
       }
