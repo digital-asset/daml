@@ -98,37 +98,43 @@ package domain {
     def matchesKey(k: LfValue)(a: domain.ActiveContract[LfValue]): Boolean =
       a.key.fold(false)(_ == k)
 
-    def fromLedgerApi(
+    case object IgnoreInterface
+
+    def fromLedgerApi[RQ: ForQuery](
         resolvedQuery: domain.ResolvedQuery,
         gacr: lav1.active_contracts_service.GetActiveContractsResponse,
     ): Error \/ List[ActiveContract[lav1.value.Value]] = {
       gacr.activeContracts.toList.traverse(fromLedgerApi(resolvedQuery, _))
     }
 
-    def fromLedgerApi(
-        resolvedQuery: domain.ResolvedQuery,
+    def fromLedgerApi[RQ](
+        resolvedQuery: RQ,
         in: lav1.event.CreatedEvent,
-    ): Error \/ ActiveContract[lav1.value.Value] = {
+    )(implicit RQ: ForQuery[RQ]): Error \/ ActiveContract[lav1.value.Value] = {
 
-      def getIdKeyAndPayload: (
-          Error \/ ContractTypeId.Resolved,
-          Option[lav1.value.Value],
-          Error \/ lav1.value.Record,
-      ) =
-        resolvedQuery match {
-          case ResolvedQuery.ByInterfaceId(interfaceId) =>
-            import util.IdentifierConverters.apiIdentifier
-            val id = apiIdentifier(interfaceId)
-            val payload = in.interfaceViews
-              .find(_.interfaceId.exists(_ == id))
-              .flatMap(_.viewValue) required "interfaceView"
-            (\/-(ContractTypeId.Interface fromLedgerApi id), None, payload)
-          case _ =>
-            val id = in.templateId.required("templateId").map(ContractTypeId.Template.fromLedgerApi)
-            (id, in.contractKey, in.createArguments required "createArguments")
-        }
+      type IdKeyPayload =
+        (Error \/ ContractTypeId.Resolved, Option[lav1.value.Value], Error \/ lav1.value.Record)
 
-      val (getId, key, getPayload) = getIdKeyAndPayload
+      val interfaceDependent: Option[IdKeyPayload] = RQ match {
+        case ForQuery.Resolved =>
+          resolvedQuery match {
+            case ResolvedQuery.ByInterfaceId(interfaceId) =>
+              import util.IdentifierConverters.apiIdentifier
+              val id = apiIdentifier(interfaceId)
+              val payload = in.interfaceViews
+                .find(_.interfaceId.exists(_ == id))
+                .flatMap(_.viewValue) required "interfaceView"
+              Some((\/-(ContractTypeId.Interface fromLedgerApi id), None, payload))
+            case ResolvedQuery.ByTemplateId(_) | ResolvedQuery.ByTemplateIds(_) => None
+          }
+        case ForQuery.Tpl => None
+      }
+
+      val (getId, key, getPayload): IdKeyPayload = interfaceDependent getOrElse {
+        val id = in.templateId.required("templateId").map(ContractTypeId.Template.fromLedgerApi)
+        (id, in.contractKey, in.createArguments required "createArguments")
+      }
+
       for {
         id <- getId
         payload <- getPayload
@@ -141,6 +147,15 @@ package domain {
         observers = Party.subst(in.observers),
         agreementText = in.agreementText getOrElse "",
       )
+    }
+
+    /** Either a [[ResolvedQuery]] or [[IgnoreInterface]].  Enables well-founded
+      * overloading of `fromLedgerApi` on these contexts.
+      */
+    sealed abstract class ForQuery[-RQ] extends Product with Serializable
+    object ForQuery {
+      implicit case object Resolved extends ForQuery[ResolvedQuery]
+      implicit case object Tpl extends ForQuery[IgnoreInterface.type]
     }
 
     implicit val covariant: Traverse[ActiveContract] = new Traverse[ActiveContract] {
