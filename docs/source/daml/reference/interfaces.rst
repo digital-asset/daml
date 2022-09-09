@@ -20,17 +20,17 @@ interface instead of the concrete template.
 
 Configuration
 *************
-In order to test this experimental feature, you need to enable
-the dev mode for both the Daml compiler and Canton.
 
-For the Daml compiler, add the following line to your `daml.yaml` file:
+In order to test this experimental feature, your Daml project needs to target
+Daml-LF version ``1.15`` or higher, which is specificed by adding the following
+line to the project's ``daml.yaml`` file:
 
-.. code-block:: none
+.. code-block:: yaml
 
-   build-options: [--target=1.dev]
+  build-options: [--target=1.15]
 
-To enable dev mode for Canton, follow the instructions in :ref:`this documentation <how-do-i-enable-unsupported-features>`
-to enable experimental features.
+If using Canton, it needs to run in dev mode, see
+:ref:`Canton: How do I enable unsupported features <how-do-i-enable-unsupported-features>` for instructions.
 
 Interface Declaration
 *********************
