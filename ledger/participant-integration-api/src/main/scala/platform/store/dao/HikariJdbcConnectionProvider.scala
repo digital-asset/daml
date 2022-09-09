@@ -58,12 +58,9 @@ object DataSourceConnectionProvider {
       val transientFailureCount = new AtomicInteger(0)
 
       val checkHealth = new TimerTask {
-        var counter: Int = 0
         override def run(): Unit = {
           LoggingContext.newLoggingContext { implicit loggingContext =>
             try {
-              if (counter%10 == 0) throw new NullPointerException
-              counter += 1
               dataSource.getConnection().close()
               transientFailureCount.set(0)
             } catch {
