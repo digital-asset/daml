@@ -32,7 +32,7 @@ abstract class TlsTest
   "connect normally with tls on" in withHttpService { fixture =>
     fixture
       .getRequestWithMinimumAuth[Vector[JsValue]](Uri.Path("/v1/query"))
-      .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(vector, None, StatusCodes.OK)) =>
+      .map(inside(_) { case domain.OkResponse(vector, None, StatusCodes.OK) =>
         vector should have size 0L
       }): Future[Assertion]
   }
