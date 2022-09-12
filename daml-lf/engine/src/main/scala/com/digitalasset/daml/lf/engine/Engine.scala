@@ -285,7 +285,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     for {
       sexpr <- runCompilerSafely(
         NameOf.qualifiedNameOfCurrentFunc,
-        compiledPackages.compiler.unsafeCompileWithContractDisclosures(commands, disclosures),
+        compiledPackages.compiler.unsafeCompile(commands),
       )
       result <- interpretExpression(
         validating,

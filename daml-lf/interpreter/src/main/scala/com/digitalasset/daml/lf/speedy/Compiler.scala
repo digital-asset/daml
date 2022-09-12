@@ -14,7 +14,6 @@ import com.daml.lf.speedy.PhaseOne.{Env, Position}
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr.{ContractKeyWithMaintainersDefRef, ToCachedContractDefRef}
-import com.daml.lf.speedy.SExpr0.SEVarLevel
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{SExpr => t}
 import com.daml.lf.speedy.{SExpr0 => s}
@@ -130,10 +129,10 @@ private[lf] final class Compiler(
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompileWithContractDisclosures(
-      cmds: ImmArray[Command],
+      compiledCommands: t.SExpr,
       disclosures: ImmArray[DisclosedContract],
   ): t.SExpr =
-    compileWithContractDisclosures(cmds, disclosures)
+    compileWithContractDisclosures(compiledCommands, disclosures)
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -306,11 +305,16 @@ private[lf] final class Compiler(
   private[this] def compileCommands(cmds: ImmArray[Command]): t.SExpr =
     pipeline(translateCommands(Env.Empty, cmds))
 
-  private[speedy] def compileWithContractDisclosures(
-      cmds: ImmArray[Command],
+  private[this] def compileWithContractDisclosures(
+      sexpr: t.SExpr,
       disclosures: ImmArray[DisclosedContract],
-  ): t.SExpr =
-    pipeline(translateCommandsWithContractDisclosures(Env.Empty, cmds, disclosures))
+  ): t.SExpr = {
+    val disclosureLambda = pipeline(
+      translateContractDisclosureLambda(Env.Empty, disclosures)
+    )
+
+    t.SEApp(disclosureLambda, Array(sexpr))
+  }
 
   private[this] def compileCommandForReinterpretation(cmd: Command): t.SExpr =
     pipeline(translateCommandForReinterpretation(cmd))
@@ -1073,28 +1077,28 @@ private[lf] final class Compiler(
     }
   }
 
-  private[this] def translateCommandsWithContractDisclosures(
+  private[this] def translateContractDisclosureLambda(
       env: Env,
-      cmds: ImmArray[Command],
       disclosures: ImmArray[DisclosedContract],
-  ): s.SExpr =
-    unaryFunction(env) { (tokenPos, env) =>
-      val baseIndex = env.nextPosition.idx
-      val updatedEnv = env.copy(position = baseIndex + 2 * disclosures.length)
+  ): s.SExpr = {
+    val baseIndex = env.nextPosition.idx
 
+    s.SEAbs(
+      1,
       s.SELet(
         disclosures.toList.zipWithIndex.flatMap { case (disclosedContract, offset) =>
-          val contractIndex = baseIndex + 2 * offset
+          val contractIndex = baseIndex + 2 * offset + 1
 
           List(
             translateDisclosedContract(env.copy(contractIndex), disclosedContract),
             app(
               s.SEBuiltin(SBCacheDisclosedContract(disclosedContract.contractId.value)),
-              SEVarLevel(contractIndex),
+              s.SEVarLevel(contractIndex),
             ),
           )
         },
-        app(translateCommands(updatedEnv, cmds), updatedEnv.toSEVar(tokenPos)),
-      )
-    }
+        s.SEVarLevel(baseIndex),
+      ),
+    )
+  }
 }
