@@ -67,7 +67,14 @@ PATH=$PATH:$GRPCURL
 
 # Build, lint, test.
 cd build-and-lint-test
-$YARN install --pure-lockfile > /dev/null
+$YARN install > /dev/null
+# simulating what yarn install --frozen-lockfile is supposed to do,
+# because --frozen-lockfile appears to behave exactly like
+# --pure-lockfile - #14873
+if ! /usr/bin/diff -du $TS_DIR/yarn.lock $TMP_DIR/yarn.lock; then
+    echo "FAIL: $TS_DIR/yarn.lock could not satisfy $TS_DIR/build-and-lint-test/package.json" 1>&2
+    echo "FAIL: yarn.lock requires all of the above changes" 1>&2
+fi
 $YARN run build
 $YARN run lint
 # Invoke 'yarn test'. Control is thereby passed to
