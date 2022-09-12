@@ -25,11 +25,11 @@ import scala.annotation.tailrec
 private[archive] class DecodeV1(minor: LV.Minor) {
 
   import DecodeV1._
-  import Work.Ret // NICK
+  import Work.Ret
 
   private val languageVersion = LV(LV.Major.V1, minor)
 
-  def xdecodePackage( // NICK: real & test entry point
+  def decodePackage( // entry point
       packageId: PackageId,
       lfPackage: PLF.Package,
       onlySerializableDataDefs: Boolean,
@@ -94,7 +94,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
   // each LF scenario module is wrapped in a distinct proto package
   type ProtoScenarioModule = PLF.Package
 
-  def xdecodeScenarioModule( // NICK: real and test entry point
+  def decodeScenarioModule( // entry point
       packageId: PackageId,
       lfScenarioModule: ProtoScenarioModule,
   ): Either[Error, Module] = attempt(NameOf.qualifiedNameOfCurrentFunc) {
@@ -155,7 +155,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       case Right(x) => x
     }
 
-  private[archive] def decodeInternedTypesForTest(
+  private[archive] def decodeInternedTypesForTest( // test entry point
       env: Env,
       lfPackage: PLF.Package,
   ): IndexedSeq[Type] = {
@@ -193,7 +193,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       onlySerializableDataDefs: Boolean,
   ) {
 
-    // decode*ForTest -- testing entry points
+    // decode*ForTest -- test entry points
 
     private[archive] def decodeChoiceForTest(
         tpl: DottedName,
@@ -215,6 +215,10 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
     private[archive] def decodeTypeForTest(lfType: PLF.Type): Type = {
       xxx(decodeType(lfType)(Ret(_)))
+    }
+
+    private[archive] def decodeExprForTest(lfExpr: PLF.Expr, definition: String): Expr = {
+      xxx(decodeExpr(lfExpr, definition)(Ret(_)))
     }
 
     private var currentDefinitionRef: Option[DefinitionRef] = None
@@ -383,7 +387,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         getInternedDottedName(internedDName)
       }
 
-    private[lf] def decodeFeatureFlags(flags: PLF.FeatureFlags): FeatureFlags = {
+    private[archive] def decodeFeatureFlags(flags: PLF.FeatureFlags): FeatureFlags = {
       // NOTE(JM, #157): We disallow loading packages with these flags because they impact the Ledger API in
       // ways that would currently make it quite complicated to support them.
       if (
@@ -511,7 +515,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         "EnumConstructors.constructors",
       )
 
-    private[lf] def decodeDefValue(lfValue: PLF.DefValue): Work[DValue] = {
+    private[archive] def decodeDefValue(lfValue: PLF.DefValue): Work[DValue] = {
       if (!lfValue.getNoPartyLiterals) {
         throw Error.Parsing("DefValue must have no_party_literals set to true")
       }
@@ -768,7 +772,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       }
     }
 
-    private[lf] def decodeException(
+    private def decodeException(
         exceptionName: DottedName,
         lfException: PLF.DefException,
     ): Work[DefException] =
@@ -1051,15 +1055,11 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       }
     }
 
-    private[archive] def decodeExprForTest(lfExpr: PLF.Expr, definition: String): Expr = { // NICK
-      xxx(decodeExpr(lfExpr, definition)(Ret(_)))
-    }
-
     private def decodeExpr[T](lfExpr: PLF.Expr, definition: String)(k: Expr => Work[T]): Work[T] = {
       Work.Bind(Work.Delay(() => decodeExpr1(lfExpr, definition)), k)
     }
 
-    private[lf] def decodeExpr1(lfExpr: PLF.Expr, definition: String): Work[Expr] = {
+    private def decodeExpr1(lfExpr: PLF.Expr, definition: String): Work[Expr] = {
       bindWork(lfExpr.getSumCase match {
         case PLF.Expr.SumCase.VAR_STR =>
           assertUntil(LV.Features.internedStrings, "Expr.var_str")
@@ -2014,7 +2014,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
 }
 
-private[lf] object DecodeV1 {
+private[archive] object DecodeV1 {
 
   private def eitherToParseError[A](x: Either[String, A]): A =
     x.fold(err => throw Error.Parsing(err), identity)
@@ -2447,8 +2447,7 @@ private[lf] object DecodeV1 {
       .withDefault(_ => throw Error.Parsing("BuiltinFunction.UNRECOGNIZED"))
 
   // stack-safety achieved via a Work trampoline.
-  // private //NICK ?
-  sealed abstract class Work[A]
+  private[archive] sealed abstract class Work[A]
   private object Work {
     final case class Ret[A](v: A) extends Work[A]
     final case class Delay[A](thunk: () => Work[A]) extends Work[A]

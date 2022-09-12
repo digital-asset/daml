@@ -19,7 +19,7 @@ object Decode {
       case LanguageVersion(LanguageMajorVersion.V1, minor)
           if LanguageMajorVersion.V1.supportedMinorVersions.contains(minor) =>
         new DecodeV1(minor)
-          .xdecodePackage(
+          .decodePackage(
             payload.pkgId,
             payload.proto.getDamlLf1,
             onlySerializableDataDefs,

@@ -1471,7 +1471,7 @@ class DecodeV1Spec
 
     "decode resolving the interned package ID" in {
       val decoder = new DecodeV1(version.minor)
-      inside(decoder.xdecodePackage(pkgId, dalfProto.getDamlLf1, false)) { case Right(pkg) =>
+      inside(decoder.decodePackage(pkgId, dalfProto.getDamlLf1, false)) { case Right(pkg) =>
         inside(
           pkg
             .modules(Ref.DottedName.assertFromString("DarReaderTest"))
@@ -1564,7 +1564,7 @@ class DecodeV1Spec
           .addInternedStrings("0.0.0")
           .setMetadata(metadata)
           .build()
-        inside(decoder.xdecodePackage(pkgId, pkg, false)) { case Left(err) =>
+        inside(decoder.decodePackage(pkgId, pkg, false)) { case Left(err) =>
           err shouldBe an[Error.Parsing]
         }
       }
@@ -1576,7 +1576,7 @@ class DecodeV1Spec
         val pkgId = Ref.PackageId.assertFromString(
           "0000000000000000000000000000000000000000000000000000000000000000"
         )
-        inside(decoder.xdecodePackage(pkgId, DamlLf1.Package.newBuilder().build(), false)) {
+        inside(decoder.decodePackage(pkgId, DamlLf1.Package.newBuilder().build(), false)) {
           case Left(err) => err shouldBe an[Error.Parsing]
         }
       }
@@ -1599,7 +1599,7 @@ class DecodeV1Spec
           .addInternedStrings("0.0.0")
           .setMetadata(metadata)
           .build()
-        inside(decoder.xdecodePackage(pkgId, pkg, false)) { case Right(pkg) =>
+        inside(decoder.decodePackage(pkgId, pkg, false)) { case Right(pkg) =>
           pkg.metadata shouldBe Some(
             Ast.PackageMetadata(
               Ref.PackageName.assertFromString("foobar"),

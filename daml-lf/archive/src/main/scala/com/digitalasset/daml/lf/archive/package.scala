@@ -78,7 +78,7 @@ package object archive {
   private[lf] def moduleDecoder(ver: LanguageVersion, pkgId: PackageId): GenReader[Ast.Module] =
     Base
       .andThen(cos => attempt(NameOf.qualifiedNameOfCurrentFunc)(DamlLf1.Package.parseFrom(cos)))
-      .andThen(new DecodeV1(ver.minor).xdecodeScenarioModule(pkgId, _))
+      .andThen(new DecodeV1(ver.minor).decodeScenarioModule(pkgId, _))
 
   val DarParser: GenDarReader[DamlLf.Archive] = GenDarReader(ArchiveParser)
   val DarReader: GenDarReader[ArchivePayload] = GenDarReader(ArchiveReader)
