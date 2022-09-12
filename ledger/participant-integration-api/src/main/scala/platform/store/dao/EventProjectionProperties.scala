@@ -34,7 +34,7 @@ final case class EventProjectionProperties private[dao] (
       .flatMap(_.getOrElse(templateId, Set.empty[Identifier]))
       .toSet
 
-    RenderResult(renderContractArguments, interfacesToRender)
+    RenderResult(false, renderContractArguments, interfacesToRender)
   }
 
 }
@@ -42,15 +42,16 @@ final case class EventProjectionProperties private[dao] (
 object EventProjectionProperties {
 
   case class RenderResult(
+      contractArgumentsBlob: Boolean,
       contractArguments: Boolean,
       interfaces: Set[Identifier],
   )
 
-  /** @param transactionFilter Transaction filter as defined by the consumer of the API.
-    * @param verbose                 enriching in verbose mode
-    * @param interfaceImplementedBy  The relation between an interface id and template id.
-    *                                If template has no relation to the interface,
-    *                                an empty Set must be returned.
+  /** @param transactionFilter     Transaction filter as defined by the consumer of the API.
+    * @param verbose                enriching in verbose mode
+    * @param interfaceImplementedBy The relation between an interface id and template id.
+    *                               If template has no relation to the interface,
+    *                               an empty Set must be returned.
     */
   def apply(
       transactionFilter: domain.TransactionFilter,

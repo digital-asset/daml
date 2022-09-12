@@ -8,6 +8,7 @@ package com.daml.ledger.api.v1;
 import "com/daml/ledger/api/v1/contract_metadata.proto";
 import "com/daml/ledger/api/v1/value.proto";
 
+import "google/protobuf/any.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 
@@ -217,9 +218,15 @@ message DisclosedContract {
   // The contract id
   // Required
   string contract_id = 2;
+
   // The contract arguments
-  // Required
-  Record arguments = 3;
+  oneof arguments {
+    Record record = 3;
+    // Contract argument accessible at ``com.daml.ledger.api.v1.CreatedEvent.create_arguments_blob``
+    // should be specified here.
+    google.protobuf.Any blob = 5;
+  }
+
   // The contract metadata from the create event.
   // Required
   ContractMetadata metadata = 4;

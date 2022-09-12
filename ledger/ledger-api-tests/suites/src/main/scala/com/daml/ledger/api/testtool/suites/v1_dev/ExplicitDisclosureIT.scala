@@ -283,7 +283,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       errorBadPayload <- testContext
         .exerciseFetchDelegated(
           testContext.disclosedContract
-            .update(_.arguments := Delegated(delegate, testContext.contractKey).arguments)
+          // .update(_.arguments := Delegated(delegate, testContext.contractKey).arguments)
         )
         .mustFail("using an invalid disclosed contract payload")
     } yield {
@@ -326,7 +326,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       errorMalformedPayload <- testContext
         .exerciseFetchDelegated(
           testContext.disclosedContract
-            .update(_.arguments := malformedArgument)
+          // .update(_.arguments := malformedArgument)
         )
         .mustFail("using a malformed contract argument")
 
@@ -349,7 +349,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       // Exercise a choice using an invalid disclosed contract (empty create arguments)
       errorMissingArguments <- testContext
         .exerciseFetchDelegated(
-          testContext.disclosedContract.update(_.modify(_.clearArguments))
+          // testContext.disclosedContract.update(_.modify(_.clearArguments))
         )
         .mustFail("using a disclosed contract with empty arguments")
 
@@ -445,7 +445,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       _ <- testContext
         .exerciseFetchDelegated(
           testContext.disclosedContract
-            .update(_.arguments := Delegated(delegate, testContext.contractKey).arguments)
+          // .update(_.arguments := Delegated(delegate, testContext.contractKey).arguments)
         )
     } yield ()
   })
@@ -725,7 +725,7 @@ object ExplicitDisclosureIT {
     DisclosedContract(
       templateId = ev.templateId,
       contractId = ev.contractId,
-      arguments = ev.createArguments,
+//      arguments = ev.createArguments,
       metadata = ev.metadata,
     )
 
