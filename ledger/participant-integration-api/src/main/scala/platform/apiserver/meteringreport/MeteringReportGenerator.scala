@@ -8,7 +8,7 @@ import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp
-import com.daml.platform.apiserver.meteringreport.MeteringReport.{ApplicationReport, _}
+import com.daml.platform.apiserver.meteringreport.MeteringReport._
 import com.google.protobuf.struct.Struct
 import com.google.protobuf.timestamp.{Timestamp => ProtoTimestamp}
 import scalapb.json4s.JsonFormat
@@ -29,7 +29,6 @@ class MeteringReportGenerator(participantId: Ref.ParticipantId, key: Key) {
     genMeteringReportJson(from, to, applicationId, reportData).map { reportJson =>
       GetMeteringReportResponse(
         request = Some(request),
-        participantReport = Some(genParticipantReport(reportData)),
         reportGenerationTime = Some(generationTime),
         meteringReportJson = Some(reportJson),
       )
@@ -62,15 +61,4 @@ class MeteringReportGenerator(participantId: Ref.ParticipantId, key: Key) {
     }
   }
 
-  private def genParticipantReport(reportData: ReportData) = {
-    val applicationMeteringReports = reportData.applicationData.toList
-      .sortBy(_._1)
-      .map((ApplicationMeteringReport.apply _).tupled)
-
-    ParticipantMeteringReport(
-      participantId,
-      isFinal = reportData.isFinal,
-      applicationMeteringReports,
-    )
-  }
 }

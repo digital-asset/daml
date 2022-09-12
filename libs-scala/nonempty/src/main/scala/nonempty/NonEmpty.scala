@@ -201,7 +201,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
     def distinct: NonEmpty[C] = un((self: ESelf).distinct)
     def sortBy[B](f: A => B)(implicit ord: Ordering[B]): NonEmpty[C] =
       un((self: ESelf).sortBy(f))
-    def sorted[B >: A](implicit ord: Ordering[B]): C =
+    def sorted[B >: A](implicit ord: Ordering[B]): NonEmpty[C] =
       un((self: ESelf).sorted[B])
   }
 

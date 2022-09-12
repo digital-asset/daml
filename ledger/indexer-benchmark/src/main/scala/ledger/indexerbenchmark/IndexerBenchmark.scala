@@ -19,7 +19,6 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.LedgerApiServer
 import com.daml.platform.indexer.{Indexer, IndexerServiceOwner, JdbcIndexer}
-import com.daml.platform.store.LfValueTranslationCache
 import com.daml.resources
 
 import java.util.concurrent.{Executors, TimeUnit}
@@ -69,7 +68,6 @@ class IndexerBenchmark() {
           config.indexerConfig,
           readService,
           metrics,
-          LfValueTranslationCache.Cache.none,
           inMemoryState,
           inMemoryStateUpdaterFlow,
           servicesExecutionContext,

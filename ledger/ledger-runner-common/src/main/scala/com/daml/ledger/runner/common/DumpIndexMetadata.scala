@@ -9,7 +9,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.IndexMetadata
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 object DumpIndexMetadata {
   val logger = ContextualizedLogger.get(this.getClass)
@@ -19,17 +18,19 @@ object DumpIndexMetadata {
   )(implicit
       executionContext: ExecutionContext,
       context: ResourceContext,
-  ): Future[IndexMetadata] = {
+  ): Future[Unit] = {
     newLoggingContext { implicit loggingContext: LoggingContext =>
-      IndexMetadata.read(jdbcUrl).acquire().asFuture.andThen {
-        case Failure(exception) =>
-          logger.error("Error while retrieving the index metadata", exception)
-        case Success(metadata) =>
-          logger.warn(s"ledger_id: ${metadata.ledgerId}")
-          logger.warn(s"participant_id: ${metadata.participantId}")
-          logger.warn(s"ledger_end: ${metadata.ledgerEnd}")
-          logger.warn(s"version: ${metadata.participantIntegrationApiVersion}")
+      val metadataFuture = IndexMetadata.read(jdbcUrl).use { metadata =>
+        logger.warn(s"ledger_id: ${metadata.ledgerId}")
+        logger.warn(s"participant_id: ${metadata.participantId}")
+        logger.warn(s"ledger_end: ${metadata.ledgerEnd}")
+        logger.warn(s"version: ${metadata.participantIntegrationApiVersion}")
+        Future.unit
       }
+      metadataFuture.failed.foreach { exception =>
+        logger.error("Error while retrieving the index metadata", exception)
+      }
+      metadataFuture
     }
   }
 

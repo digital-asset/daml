@@ -10,6 +10,7 @@ import com.daml.ledger.participant.state.index.v2.PartyRecordStore.{
   PartyRecordNotFound,
 }
 import com.daml.ledger.participant.state.index.v2.{
+  AnnotationsUpdate,
   ObjectMetaUpdate,
   PartyRecordStore,
   PartyRecordUpdate,
@@ -29,8 +30,10 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
   private implicit def toParty(s: String): Party =
     Party.assertFromString(s)
 
+  private val party1 = "party1"
+
   def newPartyRecord(
-      name: String,
+      name: String = party1,
       annotations: Map[String, String] = Map.empty,
   ): ParticipantParty.PartyRecord =
     ParticipantParty.PartyRecord(
@@ -39,7 +42,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
     )
 
   def createdPartyRecord(
-      name: String,
+      name: String = party1,
       annotations: Map[String, String] = Map.empty,
       resourceVersion: Long = 0,
   ): ParticipantParty.PartyRecord =
@@ -50,6 +53,17 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
         annotations = annotations,
       ),
     )
+
+  def makePartRecordUpdate(
+      party: Ref.Party = party1,
+      annotationsUpdateO: Option[AnnotationsUpdate] = None,
+  ): PartyRecordUpdate = PartyRecordUpdate(
+    party = party,
+    metadataUpdate = ObjectMetaUpdate(
+      resourceVersionO = None,
+      annotationsUpdateO = annotationsUpdateO,
+    ),
+  )
 
   def resetResourceVersion(
       partyRecord: ParticipantParty.PartyRecord
@@ -293,6 +307,53 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
         }
       }
     }
+
+    "raise an error when annotations byte size max size exceeded" - {
+      // This value consumes just a bit over half the allowed max size limit
+      val bigValue = "big value:" + ("a" * 128 * 1024)
+
+      "when creating a party record" in {
+        testIt { tested =>
+          val pr = newPartyRecord("party1", annotations = Map("k1" -> bigValue, "k2" -> bigValue))
+          for {
+            res1 <- tested.createPartyRecord(pr)
+            _ = res1.left.value shouldBe PartyRecordStore.MaxAnnotationsSizeExceeded(pr.party)
+          } yield succeed
+        }
+      }
+
+      "when updating an existing party record" in {
+        testIt { tested =>
+          val pr = newPartyRecord("party1", annotations = Map("k1" -> bigValue))
+          for {
+            _ <- tested.createPartyRecord(pr)
+            res1 <- tested.updatePartyRecord(
+              makePartRecordUpdate(annotationsUpdateO =
+                Some(Merge.fromNonEmpty(Map("k2" -> bigValue)))
+              ),
+              ledgerPartyExists = (_ => Future.successful(true)),
+            )
+            _ = res1.left.value shouldBe PartyRecordStore.MaxAnnotationsSizeExceeded(pr.party)
+          } yield succeed
+        }
+      }
+
+      "when updating non-existent party record" in {
+        testIt { tested =>
+          val party = Ref.Party.assertFromString("party1")
+          for {
+            res1 <- tested.updatePartyRecord(
+              makePartRecordUpdate(annotationsUpdateO =
+                Some(Merge.fromNonEmpty(Map("k1" -> bigValue, "k2" -> bigValue)))
+              ),
+              ledgerPartyExists = (_ => Future.successful(true)),
+            )
+            _ = res1.left.value shouldBe PartyRecordStore.MaxAnnotationsSizeExceeded(party)
+          } yield succeed
+        }
+      }
+    }
+
   }
 
 }

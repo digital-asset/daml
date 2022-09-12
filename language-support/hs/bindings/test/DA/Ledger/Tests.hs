@@ -31,7 +31,13 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Text.Lazy as TL(Text,pack,unpack,fromStrict)
 import qualified Data.UUID as UUID (toString)
-import Data.Aeson(encode, decode)
+import Data.Text (unpack)
+import Data.Either.Extra(maybeToEither)
+import qualified Data.Aeson as Aeson
+import Data.Aeson.KeyMap(KeyMap)
+import qualified Data.Aeson.KeyMap as KeyMap
+import Data.Aeson.Key(fromString)
+import Data.Aeson(decode)
 
 main :: IO ()
 main = do
@@ -548,33 +554,36 @@ tValueConversion withSandbox = testCase "tValueConversion" $ run withSandbox $ \
 
 tMeteringReportJson :: TestTree
 tMeteringReportJson = testCase "tMeteringReportJson" $ do
-    let meteringRequest = MeteringRequest {
-      from = Timestamp {seconds = 3600, nanos = 0}
-    , to = Just $ Timestamp {seconds = 7200, nanos = 0}
-    , application = Just $ ApplicationId { unApplicationId = "AppX" }
-    }
-    let meteredApplication = MeteredApplication {
-      application = ApplicationId { unApplicationId = "AppY" }
-    , events = 64
-    }
-    let report = MeteringReport {
-      participant = ParticipantId { unParticipantId = "PartA" }
-    , request = meteringRequest
-    , isFinal = True
-    , applications = [meteredApplication]
-    }
-    let expected = Just report
-    let json = encode report
-    let actual = decode json :: Maybe MeteringReport
-
+    let sample = "{ \"s\": \"abc\", \"b\": true, \"n\": null, \"d\": 2.3, \"a\": [1,2,3], \"o\": { \"x\": 1, \"y\": 2 } }"
+    let expected = decode sample :: Maybe Aeson.Value
+    let struct = fmap toRawStructValue expected
+    let actual = fmap toRawAesonValue struct
     assertEqual "MeteringReport Serialization" expected actual
+
+expectObject :: Aeson.Value -> Either String (KeyMap Aeson.Value)
+expectObject (Aeson.Object keyMap) = Right keyMap
+expectObject other = Left $ "Expected object not " <> show other
+
+expectString :: Aeson.Value -> Either String String
+expectString (Aeson.String string) = Right (unpack string)
+expectString other = Left $ "Expected string not " <> show other
+
+expectField :: String -> KeyMap Aeson.Value -> Either String Aeson.Value
+expectField key keyMap = maybeToEither ("Did not find " <> key <> " in " <> show (KeyMap.keys keyMap)) (KeyMap.lookup (fromString key) keyMap)
 
 tMeteringReport :: SandboxTest
 tMeteringReport withSandbox = testCase "tMeteringReport" $ run withSandbox $ \_ _testId -> do
-    let expected = Timestamp {seconds = 3600, nanos = 0}  -- Must be rounded to hour
-    report <- getMeteringReport expected Nothing Nothing
-    let MeteringReport{request=MeteringRequest{from=actual}} = report
-    liftIO $ assertEqual "report from date" expected actual
+    let timestamp = Timestamp {seconds = 3600, nanos = 0}  -- Must be rounded to hour
+    let expected = timestampToIso8601 timestamp
+    reportValue <- getMeteringReport timestamp Nothing Nothing
+    let actual = do
+        report <- expectObject reportValue
+        requestValue <- expectField "request" report
+        request <- expectObject requestValue
+        fromValue <- expectField "from" request
+        expectString fromValue
+
+    liftIO $ assertEqual "report from date" (Right expected) actual
 
 -- Strip the rid,vid,eid tags recusively from record, variant and enum values
 detag :: Value -> Value

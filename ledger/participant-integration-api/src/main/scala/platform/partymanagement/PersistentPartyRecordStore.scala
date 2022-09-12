@@ -10,6 +10,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.ParticipantParty
 import com.daml.ledger.participant.state.index.v2.PartyRecordStore.{
   ConcurrentPartyUpdate,
+  MaxAnnotationsSizeExceeded,
   PartyRecordNotFoundOnUpdateException,
   Result,
 }
@@ -23,7 +24,11 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
-import com.daml.platform.partymanagement.PersistentPartyRecordStore.ConcurrentPartyRecordUpdateDetectedRuntimeException
+import com.daml.platform.partymanagement.PersistentPartyRecordStore.{
+  ConcurrentPartyRecordUpdateDetectedRuntimeException,
+  MaxAnnotationsSizeExceededException,
+}
+import com.daml.ledger.participant.state.index.ResourceAnnotationValidation
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.backend.PartyRecordStorageBackend
 
@@ -31,8 +36,10 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object PersistentPartyRecordStore {
 
-  final case class ConcurrentPartyRecordUpdateDetectedRuntimeException(partyId: Ref.Party)
+  final case class ConcurrentPartyRecordUpdateDetectedRuntimeException(party: Ref.Party)
       extends RuntimeException
+
+  final case class MaxAnnotationsSizeExceededException(party: Ref.Party) extends RuntimeException
 
 }
 
@@ -161,6 +168,12 @@ class PersistentPartyRecordStore(
   private def doCreatePartyRecord(
       partyRecord: ParticipantParty.PartyRecord
   )(connection: Connection): Unit = {
+    if (
+      !ResourceAnnotationValidation
+        .isWithinMaxAnnotationsByteSize(partyRecord.metadata.annotations)
+    ) {
+      throw MaxAnnotationsSizeExceededException(partyRecord.party)
+    }
     val now = epochMicroseconds()
     val dbParty = PartyRecordStorageBackend.DbPartyRecordPayload(
       party = partyRecord.party,
@@ -217,6 +230,12 @@ class PersistentPartyRecordStore(
         }
         case AnnotationsUpdate.Replace(newAnnotations) => newAnnotations
       }
+      if (
+        !ResourceAnnotationValidation
+          .isWithinMaxAnnotationsByteSize(updatedAnnotations)
+      ) {
+        throw MaxAnnotationsSizeExceededException(partyRecordUpdate.party)
+      }
       backend.deletePartyAnnotations(internalId = dbPartyRecord.internalId)(connection)
       updatedAnnotations.iterator.foreach { case (key, value) =>
         backend.addPartyAnnotation(
@@ -266,10 +285,13 @@ class PersistentPartyRecordStore(
   private def inTransaction[T](
       dbMetric: metrics.daml.partyRecordStore.type => DatabaseMetrics
   )(thunk: Connection => Result[T])(implicit loggingContext: LoggingContext): Future[Result[T]] = {
+    // TODO um-for-hub: Consider making inTransaction fail transaction when thunk returns a Left. Then we would not have to throw exceptions and do the recovery
     dbDispatcher
       .executeSql(dbMetric(metrics.daml.partyRecordStore))(thunk)
-      .recover[Result[T]] { case ConcurrentPartyRecordUpdateDetectedRuntimeException(userId) =>
-        Left(ConcurrentPartyUpdate(userId))
+      .recover[Result[T]] {
+        case ConcurrentPartyRecordUpdateDetectedRuntimeException(userId) =>
+          Left(ConcurrentPartyUpdate(userId))
+        case MaxAnnotationsSizeExceededException(userId) => Left(MaxAnnotationsSizeExceeded(userId))
       }(ExecutionContext.parasitic)
   }
 

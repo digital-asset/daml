@@ -75,6 +75,7 @@ class BatchingParallelIngestionPipeSpec
 
   it should "hold the stream if a single ingestion takes too long" in {
     runPipe(
+      inputMapperHook = () => Thread.sleep(1L),
       ingesterHook = batch => {
         if (batch.head == 21) Thread.sleep(1000)
       },
@@ -87,15 +88,17 @@ class BatchingParallelIngestionPipeSpec
     }
   }
 
-  it should "form max-sized batches under load" in {
+  it should "form max-sized batches when back-pressured by downstream" in {
     val batchSizes = ArrayBuffer.empty[Int]
     runPipe(
+      // Back-pressure to ensure formation of max batch sizes (of size 5)
+      inputMapperHook = () => Thread.sleep(1),
       ingesterHook = batch => {
         batchSizes.synchronized {
           batchSizes.addOne(batch.size)
         }
         ()
-      }
+      },
     ).map { case (_, _, err) =>
       // The first and last batches can be smaller than `MaxBatchSize`
       // so we assert the average batch size instead of the sizes of individual batches
@@ -144,7 +147,7 @@ class BatchingParallelIngestionPipeSpec
         .map(
           _.tap(_ =>
             // Slow down source to ensure ingestTail is faster
-            Thread.sleep(10L)
+            Thread.sleep(1L)
           )
         )
         .async,
@@ -217,8 +220,8 @@ class BatchingParallelIngestionPipeSpec
     val indexingF = indexingSource(inputSource).run().map { _ =>
       (ingested, ingestedTail, Option.empty[Throwable])
     }
-    timeoutF.onComplete(p.complete)
-    indexingF.onComplete(p.complete)
+    timeoutF.onComplete(p.tryComplete)
+    indexingF.onComplete(p.tryComplete)
 
     p.future.recover { case t =>
       (ingested, ingestedTail, Some(t))

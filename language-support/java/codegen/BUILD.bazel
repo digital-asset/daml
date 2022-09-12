@@ -72,7 +72,10 @@ da_scala_library(
 da_scala_test(
     name = "test",
     srcs = glob(["src/test/**/*.scala"]),
-    data = [":test-daml.dar"],
+    data = [
+        ":test-daml.dar",
+        ":test-daml-with-same-dependencies.dar",
+    ],
     resource_strip_prefix = "language-support/java/codegen/src/test/resources/",
     resources = glob(["src/test/resources/**/*"]),
     scala_deps = [
@@ -102,6 +105,11 @@ da_scala_test(
 daml_compile(
     name = "test-daml",
     srcs = ["src/test/daml/Foo.daml"],
+)
+
+daml_compile(
+    name = "test-daml-with-same-dependencies",
+    srcs = ["src/test/daml/Foo2.daml"],
 )
 
 daml_compile(

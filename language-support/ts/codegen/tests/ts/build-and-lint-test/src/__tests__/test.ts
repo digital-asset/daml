@@ -6,9 +6,11 @@ import { promises as fs } from "fs";
 import waitOn from "wait-on";
 import { encode } from "jwt-simple";
 import Ledger, {
+  CreateEvent,
   Event,
   Stream,
   PartyInfo,
+  Query,
   UserRightHelper,
 } from "@daml/ledger";
 import { Choice, ContractId, Int, emptyMap, Map } from "@daml/types";
@@ -602,18 +604,6 @@ describe("interface definition", () => {
     // statically assert that an expression is a choice
     const theChoice = <T extends object, C, R, K>(c: Choice<T, C, R, K>) => c;
 
-    // Something is inherited
-    test("unambiguous inherited is inherited", () => {
-      const c: Choice<
-        buildAndLint.Lib.Mod.Other,
-        buildAndLint.Lib.Mod.Something,
-        {},
-        undefined
-      > = tpl.Something;
-      expect(c).toBeDefined();
-      expect(c).toEqual(theChoice(if2.Something));
-      expect(c.template()).toBe(if2);
-    });
     test("choice from two interfaces is not inherited", () => {
       const k = "PeerIfaceOverload";
       expect(theChoice(if2[k])).toBeDefined();
@@ -639,43 +629,59 @@ describe("interface definition", () => {
       expect(c).not.toEqual(theChoice(if2[k]));
       expect(c.template()).toBe(tpl);
     });
+  });
 
-    test("retroactive interfaces permit contract ID conversion", () => {
-      const cid = "test" as ContractId<buildAndLint.Main.Asset>;
-      const icid: ContractId<buildAndLint.Retro.Retro> = tpl.toInterface(
-        buildAndLint.Retro.Retro,
-        cid,
-      );
-      const tcid: ContractId<buildAndLint.Main.Asset> = tpl.unsafeFromInterface(
-        buildAndLint.Retro.Retro,
-        icid,
-      );
-      expect(icid).toBe(cid);
-      expect(tcid).toBe(icid);
-    });
+  test("retroactive interfaces permit contract ID conversion", () => {
+    const cid = "test" as ContractId<buildAndLint.Main.Asset>;
+    const icid: ContractId<buildAndLint.Retro.Retro> = tpl.toInterface(
+      buildAndLint.Retro.Retro,
+      cid,
+    );
+    const tcid: ContractId<buildAndLint.Main.Asset> = tpl.unsafeFromInterface(
+      buildAndLint.Retro.Retro,
+      icid,
+    );
+    expect(icid).toBe(cid);
+    expect(tcid).toBe(icid);
   });
 });
 
 describe("interfaces", () => {
+  type Asset = buildAndLint.Main.Asset;
   const Asset = buildAndLint.Main.Asset;
+  type Token = buildAndLint.Main.Token;
   const Token = buildAndLint.Main.Token;
-  test("inherited exercise events", async () => {
+
+  async function aliceLedgerPayloadContract() {
     const aliceLedger = new Ledger({
       token: ALICE_TOKEN,
       httpBaseUrl: httpBaseUrl(),
     });
-
     const assetPayload = {
       issuer: ALICE_PARTY,
       owner: ALICE_PARTY,
     };
-    const ifaceContract = await aliceLedger.create(
-      buildAndLint.Main.Asset,
+    const expectedView: buildAndLint.Main.TokenView = {
+      tokenOwner: ALICE_PARTY,
+    };
+    return {
+      aliceLedger,
       assetPayload,
-    );
+      expectedView: expectedView as Token,
+      contract: await aliceLedger.create(Asset, assetPayload),
+    };
+  }
+
+  test("interface companion choice exercise", async () => {
+    const {
+      aliceLedger,
+      assetPayload,
+      contract: ifaceContract,
+    } = await aliceLedgerPayloadContract();
+
     expect(ifaceContract.payload).toEqual(assetPayload);
     const [, events1] = await aliceLedger.exercise(
-      Asset.Transfer,
+      Token.Transfer,
       Asset.toInterface(Token, ifaceContract.contractId),
       { newOwner: BOB_PARTY },
     );
@@ -691,34 +697,107 @@ describe("interfaces", () => {
     ]);
   });
 
-  test("interface companion choice exercise", async () => {
-    const bobLedger = new Ledger({
-      token: BOB_TOKEN,
-      httpBaseUrl: httpBaseUrl(),
-    });
-    const assetPayload2 = {
-      issuer: BOB_PARTY,
-      owner: BOB_PARTY,
+  test("sync query without predicate", async () => {
+    const { aliceLedger, expectedView, contract } =
+      await aliceLedgerPayloadContract();
+    const acs = await aliceLedger.query(Token);
+    const expectedAc: typeof acs extends (infer ce)[]
+      ? Omit<ce, "key">
+      : never = {
+      templateId: Token.templateId, // NB: the interface ID
+      contractId: Asset.toInterface(Token, contract.contractId),
+      signatories: [ALICE_PARTY],
+      observers: [],
+      agreementText: "",
+      payload: expectedView,
     };
-    const ifaceContract2 = await bobLedger.create(
-      buildAndLint.Main.Asset,
-      assetPayload2,
+    expect(acs).toContainEqual(expectedAc);
+  });
+
+  test("sync query with predicate", async () => {
+    const { aliceLedger, expectedView, contract } =
+      await aliceLedgerPayloadContract();
+    function isCt(ev: CreateEvent<Token>) {
+      return ev.contractId === Asset.toInterface(Token, contract.contractId);
+    }
+    // check that Query type accepts removing the brand
+    const succeedingQuery: Query<Token> = {
+      tokenOwner: ALICE_PARTY,
+    };
+    const failingQuery = { tokenOwner: BOB_PARTY };
+
+    const foundCt = (await aliceLedger.query(Token, succeedingQuery)).filter(
+      isCt,
     );
-    const [, events2] = await bobLedger.exercise(
-      buildAndLint.Main.Token.Transfer,
-      Asset.toInterface(Token, ifaceContract2.contractId),
-      { newOwner: ALICE_PARTY },
+    const noCt = (await aliceLedger.query(Token, failingQuery)).filter(isCt);
+    const expectedMatchedContract = {
+      payload: expectedView,
+      templateId: Token.templateId,
+    };
+    expect(foundCt).toMatchObject([expectedMatchedContract]);
+    expect(noCt).toEqual([]);
+  });
+
+  test("fetch", async () => {
+    const { aliceLedger, expectedView, contract } =
+      await aliceLedgerPayloadContract();
+    const fetched = await aliceLedger.fetch(
+      Token,
+      Asset.toInterface(Token, contract.contractId),
     );
-    expect(events2).toMatchObject([
-      { archived: { templateId: buildAndLint.Main.Asset.templateId } },
-      {
-        created: {
-          templateId: buildAndLint.Main.Asset.templateId,
-          signatories: [BOB_PARTY],
-          payload: { issuer: BOB_PARTY, owner: ALICE_PARTY },
-        },
+    expect(fetched).toMatchObject({
+      contractId: contract.contractId,
+      templateId: Token.templateId,
+      payload: expectedView,
+    });
+  });
+
+  test("WS query", async () => {
+    const { aliceLedger, expectedView, contract } =
+      await aliceLedgerPayloadContract();
+    const tokenCid = Asset.toInterface(Token, contract.contractId);
+    const stream = aliceLedger.streamQueries(Token, [expectedView]);
+    type FoundCreate = typeof stream extends Stream<
+      object,
+      unknown,
+      string,
+      (infer ce)[]
+    >
+      ? { created: ce }
+      : never;
+    function isCreateForContract(ev: Event<Token>): ev is FoundCreate {
+      return "created" in ev && ev.created.contractId === tokenCid;
+    }
+    function queryContractId(): Promise<FoundCreate> {
+      let found = false;
+      return new Promise((resolve, reject) => {
+        stream.on("change", (_, evs) => {
+          if (found) return;
+          const ev = evs.find<FoundCreate>(isCreateForContract);
+          if (ev) {
+            found = true;
+            resolve(ev);
+          }
+        });
+        stream.on("close", closeEv => found || reject(closeEv.reason));
+      });
+    }
+    const ctEvent = await queryContractId();
+    stream.close();
+    type RecPartial<T> = T extends object
+      ? {
+          [P in keyof T]?: RecPartial<T[P]>;
+        }
+      : T;
+    const expectedEvent: RecPartial<Event<Token>> = {
+      created: {
+        contractId: tokenCid,
+        templateId: Token.templateId,
+        payload: expectedView,
       },
-    ]);
+      matchedQueries: [0],
+    };
+    expect(ctEvent).toMatchObject(expectedEvent);
   });
 });
 

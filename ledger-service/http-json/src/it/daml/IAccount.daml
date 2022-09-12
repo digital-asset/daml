@@ -1,0 +1,22 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module IAccount where
+
+import Account
+import DA.Text
+
+data IAccountViewType = IAccountViewType with
+  owner: Party
+  amount: Text
+  isAbcPrefix: Bool
+  is123Suffix: Bool
+
+interface IAccount where
+  viewtype IAccountViewType
+  interface instance IAccount for Account where
+    view = IAccountViewType with
+      owner = owner
+      amount = number
+      isAbcPrefix = isPrefixOf "abc" number
+      is123Suffix = isSuffixOf "123" number
