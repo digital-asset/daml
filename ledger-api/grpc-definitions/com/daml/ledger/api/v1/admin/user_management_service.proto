@@ -5,6 +5,9 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1.admin;
 
+import "com/daml/ledger/api/v1/admin/object_meta.proto";
+import "google/protobuf/field_mask.proto";
+
 option java_outer_classname = "UserManagementServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
@@ -18,6 +21,19 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // (1) ``HasRight(r)`` denoting whether the authenticated user has right ``r`` and
 // (2) ``IsAuthenticatedUser(uid)`` denoting whether ``uid`` is the empty string or equal to the id of the authenticated user.
 //
+// For request messages (and their sub-messages) their fields are marked with either of these two annotations:
+// (1) 'Optional' denoting the client may leave the field unset (or equivalently set to the default value) when sending a request.
+// (2) 'Required' denoting the client must set the field to a non-default value when sending a request.
+//
+// A user resource consists of:
+// (1) its set of fundamental properties represented by the 'User' message,
+// (2) a set of user rights, where each right is represented by the 'Right' message.
+// Once the user has been created, you can modify it as follows:
+// (1) In order to update the user's fundamental properties use UpdateUser RPC. The fields you can update this way are marked with 'Modifiable' annotation, i.e. you can use 'Modifiable' field's name in an update masks' path.
+// (2) In order to grant or revoke user rights use 'GrantRights' and 'RevokeRights' RPC.
+//
+// TODO pbatko: Document the same for PartyM
+// TODO pbatko: Add conformance tests verifying participant rejects invalid update masks: 1) paths that contain read-only items, 2) paths that contain non-existent items, 3) empty paths
 service UserManagementService {
 
     // Create a new user.
@@ -36,6 +52,9 @@ service UserManagementService {
     // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc GetUser (GetUserRequest) returns (GetUserResponse);
 
+    // Updates fundamental properties of a user resource.
+    rpc UpdateUser (UpdateUserRequest) returns (UpdateUserResponse);
+
     // Delete an existing user and all its rights.
     // Errors:
     // - ``NOT_FOUND``: if the user doesn't exist
@@ -52,6 +71,7 @@ service UserManagementService {
     rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
 
     // Grant rights to a user.
+    // TODO pbatko: Document whether the updates to user rights (grant/revoke) changes the corresponding user resource internal version
     // Errors:
     // - ``NOT_FOUND``: if the user doesn't exist
     // - ``UNAUTHENTICATED``: if the request does not include a valid access token
@@ -87,6 +107,7 @@ service UserManagementService {
 message User {
     // The user identifier, which must be a non-empty string of at most 128
     // characters that are either lowercase alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:".
+    //
     // Required
     string id = 1;
 
@@ -96,8 +117,25 @@ message User {
     // Ledger API clients SHOULD set this field to a non-empty value for all users to
     // enable the users to act on the ledger using their own Daml party.
     // Users for participant administrators MAY have an associated primary party.
+    //
     // Optional
+    // Modifiable
     string primary_party = 2;
+
+    // When set, then the user is denied all access to the Ledger API.
+    // Otherwise, the user has access to the Ledger API as per the user's rights.
+    //
+    // Optional
+    // Modifiable
+    bool is_deactivated = 3;
+
+    // The metadata of this user.
+    // Note that its ``metadata.resource_version`` tracks both changes to this user and changes to this user's rights.
+    // TODO pbatko: Add a conformance test that verifies participant rejects requests where this field is
+    // TODO         listed explicitly in the update mask and its value is set to None (i.e. client is attempting to delete it)
+    // Optional
+    // Modifiable
+    ObjectMeta metadata = 4;
 }
 
 
@@ -116,6 +154,8 @@ message Right {
         string party = 1;
     }
 
+    // TODO pbatko: Make sure, in conformance tests, that the default value (empty) is rejected
+    // Required
     oneof kind {
         // The user can administrate the participant node.
         ParticipantAdmin participant_admin = 1;
@@ -138,7 +178,9 @@ message CreateUserRequest {
 
     // The rights to be assigned to the user upon creation,
     // which SHOULD include appropriate rights for the ``user.primary_party``.
-    // Required
+    //
+    // TODO pbatko: Make sure, in conformance tests, that empty rights are that the default value (empty) is accepted. Because we allow deleting all rights from a user so it makes little sense to disallow at creation time
+    // Optional
     repeated Right rights = 2;
 }
 
@@ -157,6 +199,34 @@ message GetUserRequest {
 
 message GetUserResponse {
     // Retrieved user.
+    User user = 1;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin)``
+message UpdateUserRequest {
+    // The user to update.
+    //
+    // TODO pbatko: Make sure, in conformance tests, that the default value (none) is rejected
+    // Required
+    // Modifiable
+    User user = 1;
+
+    // The update mask which specifies a subset of the fields of the User message to be updated.
+    // At least one field must be specified in the update mask.
+    // Only fields marked with 'Modifiable' annotation can be used the update mask.
+    // Example update mask's paths: 'user.metadata.annotations', 'user.primary_party'.
+    //
+    // In order to update a field to a non-default value you can:
+    // (1) either specify its full path, e.g. 'user.is_deactivated' or
+    // (2) use a shortcut notation, e.g. 'user', to recursively merge the values of the specified nested message.
+    // In order to update a field to its default value you must specify its full path, e.g. 'user.is_deactivated'.
+    //
+    // Required
+    google.protobuf.FieldMask update_mask = 2;
+}
+
+message UpdateUserResponse {
+    // Updated user
     User user = 1;
 }
 
@@ -204,6 +274,8 @@ message GrantUserRightsRequest {
     string user_id = 1;
 
     // The rights to grant.
+    //
+    // TODO pbatko: If this field is required, than we should reject attempting to grant 0 rights. Ensure in conformance tests
     // Required
     repeated Right rights = 2;
 }
@@ -222,6 +294,8 @@ message RevokeUserRightsRequest {
     string user_id = 1;
 
     // The rights to revoke.
+    //
+    // TODO pbatko: If this field is required, than we must reject attempting to revoke 0 rights. Ensure in conformance tests
     // Required
     repeated Right rights = 2;
 }

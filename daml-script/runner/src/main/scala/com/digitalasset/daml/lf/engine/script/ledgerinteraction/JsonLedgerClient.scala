@@ -23,7 +23,7 @@ import com.daml.ledger.api.auth.{
   CustomDamlJWTPayload,
   StandardJWTPayload,
 }
-import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
+import com.daml.ledger.api.domain.{ObjectMeta, PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
@@ -948,13 +948,53 @@ object JsonLedgerClient {
       }
     }
 
+    implicit val objectMeta: JsonFormat[ObjectMeta] = new JsonFormat[ObjectMeta] {
+      override def read(json: JsValue): ObjectMeta = {
+        val o = json.asJsObject
+        (o.fields.get("resourceVersion"), o.fields.get("annotations")) match {
+          case (Some(resourceVersionJson), Some(JsObject(annotations))) =>
+            val annoMap = annotations.view.mapValues {
+              case JsString(s) => s
+              case other => deserializationError(s"Expected string but got $other")
+            }.toMap
+            val resourceVersionO = resourceVersionJson match {
+              case JsNull => None
+              case JsString(s) => Some(s)
+              case other => deserializationError(s"Expected string or null but got $other")
+            }
+            ObjectMeta(
+              resourceVersionO = resourceVersionO.map(_.toLong),
+              annotations = annoMap,
+            )
+          case _ => deserializationError(s"Expected ObjectMeta but got $json")
+        }
+      }
+
+      override def write(obj: ObjectMeta): JsValue = {
+        JsObject(
+          (
+            "resourceVersion",
+            obj.resourceVersionO.map(_.toString).fold[JsValue](JsNull)(JsString.apply),
+          ),
+          ("annotations", obj.annotations.toJson),
+        )
+      }
+    }
+
     implicit val userReader: JsonReader[User] = json => {
       val o = json.asJsObject
-      (o.fields.get("userId"), o.fields.get("primaryParty")) match {
-        case (Some(id), primaryPartyOpt) =>
+      (
+        o.fields.get("userId"),
+        o.fields.get("primaryParty"),
+        o.fields.get("isDeactivated"),
+        o.fields.get("metadata"),
+      ) match {
+        case (Some(id), primaryPartyOpt, Some(JsBoolean(isDeactivated)), Some(metadata)) =>
           User(
             id = id.convertTo[UserId],
             primaryParty = primaryPartyOpt.map(_.convertTo[Party]),
+            isDeactivated = isDeactivated,
+            metadata = metadata.convertTo[ObjectMeta],
           )
         case _ => deserializationError(s"Expected User but got $json")
       }

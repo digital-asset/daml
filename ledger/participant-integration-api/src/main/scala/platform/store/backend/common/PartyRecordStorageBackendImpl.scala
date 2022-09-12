@@ -23,6 +23,30 @@ class PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
         (internalId, party, resourceVersion, createdAt)
       }
 
+  override def getPartyRecords(
+  )(connection: Connection): Seq[PartyRecordStorageBackend.DbPartyRecord] = {
+    import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
+    SQL"""
+         SELECT
+             internal_id,
+             party,
+             resource_version,
+             created_at
+         FROM participant_party_records
+       """
+      .asVectorOf(PartyRecordParser)(connection)
+      .map { case (internalId, party, resourceVersion, createdAt) =>
+        PartyRecordStorageBackend.DbPartyRecord(
+          internalId = internalId,
+          payload = PartyRecordStorageBackend.DbPartyRecordPayload(
+            party = com.daml.platform.Party.assertFromString(party),
+            resourceVersion = resourceVersion,
+            createdAt = createdAt,
+          ),
+        )
+      }
+  }
+
   override def getPartyRecord(
       party: Ref.Party
   )(connection: Connection): Option[PartyRecordStorageBackend.DbPartyRecord] = {

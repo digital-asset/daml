@@ -3,13 +3,16 @@
 
 package com.daml.platform.apiserver.update
 
-sealed trait UpdatePathError
+sealed trait UpdatePathError {
+  def getReason: String = getClass.getSimpleName
+}
 
 object UpdatePathError {
 
   final case class MergeUpdateModifierOnEmptyMapField(rawPath: String) extends UpdatePathError
 
-  final case class MergeUpdateModifierOnPrimitiveField(rawPath: String) extends UpdatePathError
+  final case class MergeUpdateModifierOnPrimitiveFieldDefaultValueUpdate(rawPath: String)
+      extends UpdatePathError
 
   final case class UnknownFieldPath(rawPath: String) extends UpdatePathError
 

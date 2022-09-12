@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.index.v2.{
 
 object PartyRecordUpdateMapper extends UpdateMapperBase {
 
-  import UpdateRequestsPaths.PartyDetailsPaths
+  import RequestsPaths.PartyDetailsPaths
 
   type DomainObject = domain.ParticipantParty.PartyRecord
   type UpdateObject = PartyRecordUpdate

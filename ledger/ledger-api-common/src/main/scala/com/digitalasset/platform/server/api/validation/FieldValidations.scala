@@ -9,12 +9,19 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.api.validation.ValidationErrors._
+import com.daml.ledger.participant.state.index.ResourceAnnotationValidation
+import com.daml.ledger.participant.state.index.ResourceAnnotationValidation.{
+  AnnotationsSizeExceededError,
+  InvalidAnnotationsKeyError,
+}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{Bytes, Ref}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value.ContractId
 import com.google.protobuf.ByteString
 import io.grpc.StatusRuntimeException
+
+import scala.util.{Failure, Success, Try}
 
 object FieldValidations {
 
@@ -75,6 +82,24 @@ object FieldValidations {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.Party] =
     Ref.Party.fromString(s).left.map(invalidArgument)
+
+  // TODO um-for-hub: Use ~ Ref.ResourceVersion instead of Long
+  def requireResourceVersion(raw: String, fieldName: String)(implicit
+      errorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Long] = {
+    Try {
+      raw.toLong
+    } match {
+      case Success(resourceVersionNumber) => Right(resourceVersionNumber)
+      case Failure(_) =>
+        Left(
+          invalidField(
+            fieldName = fieldName,
+            message = "Invalid resource version number",
+          )
+        )
+    }
+  }
 
   def requireParties(parties: Set[String])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -191,4 +216,25 @@ object FieldValidations {
         .left
         .map(invalidField(fieldName, _))
     }
+
+  def requireEmptyString(s: String, fieldName: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, String] =
+    Either.cond(s.isEmpty, s, invalidArgument(s"field $fieldName must be not set"))
+
+  def verifyMetadataAnnotations(annotations: Map[String, String], fieldName: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Map[String, String]] = {
+    // TODO pbatko: Polish up
+    ResourceAnnotationValidation.validateAnnotations(annotations) match {
+      case Left(AnnotationsSizeExceededError) =>
+        Left(
+          invalidArgument(
+            s"annotations from field '$fieldName' are larger than the limit of 256kb, actual size"
+          )
+        )
+      case Left(InvalidAnnotationsKeyError(msg)) => Left(invalidArgument(msg))
+      case Right(_) => Right(annotations)
+    }
+  }
 }

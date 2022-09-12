@@ -7,6 +7,7 @@ package com.daml.platform.apiserver.update
 object FieldNames {
   object UpdateUserRequest {
     val user = "user"
+    val updateMask = "update_mask"
   }
   object User {
     val primaryParty = "primary_party"
@@ -15,10 +16,12 @@ object FieldNames {
   }
   object Metadata {
     val annotations = "annotations"
+    val resourceVersion = "resourceVersion"
   }
 
   object UpdatePartyDetailsRequest {
     val partyDetails = "party_details"
+    val updateMask = "update_mask"
   }
   object PartyDetails {
     val localMetadata = "local_metadata"

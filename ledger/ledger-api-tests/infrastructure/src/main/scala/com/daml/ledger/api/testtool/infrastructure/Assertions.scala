@@ -188,12 +188,14 @@ object Assertions {
     val actualErrorDetails = ErrorDetails.from(status.getDetailsList.asScala.toSeq)
     val actualErrorId = actualErrorDetails
       .collectFirst { case err: ErrorDetails.ErrorInfoDetail => err.errorCodeId }
-      .getOrElse(fail("Actual error id is not defined"))
+      .getOrElse(fail(s"Actual error id is not defined. Actual error: $statusRuntimeException"))
     val actualRetryability = actualErrorDetails
       .collectFirst { case err: ErrorDetails.RetryInfoDetail => err.duration }
 
     if (actualErrorId != expectedErrorId)
-      fail(s"Actual error id ($actualErrorId) does not match expected error id ($expectedErrorId}")
+      fail(
+        s"Actual error id ($actualErrorId) does not match expected error id ($expectedErrorId}. Actual error: $statusRuntimeException"
+      )
 
     Assertions.assertEquals(
       "gRPC error code mismatch",

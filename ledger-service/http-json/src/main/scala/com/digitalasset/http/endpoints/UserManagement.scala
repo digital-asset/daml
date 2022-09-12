@@ -62,6 +62,12 @@ private[http] final class UserManagement(
             primaryParty <- createUserRequest.primaryParty.traverse(it =>
               Ref.Party.fromString(it).disjunction
             )
+//            isDeactivated = createUserRequest.isDeactivated
+//            metadata = com.daml.ledger.api.domain.ObjectMeta(
+//               TODO pbatko: resource version
+//              resourceVersionO = createUserRequest.metadata.resourceVersionO.map(_.toLong),
+//              annotations = createUserRequest.metadata.annotations,
+//            )
             rights <- domain.UserRights.toLedgerUserRights(
               createUserRequest.rights.getOrElse(List.empty)
             )
@@ -73,7 +79,10 @@ private[http] final class UserManagement(
           (username, primaryParty, initialRights) = info
           _ <- EitherT.rightT(
             userManagementClient.createUser(
-              User(username, primaryParty),
+              User(
+                id = username,
+                primaryParty = primaryParty,
+              ),
               initialRights,
               Some(jwt.value),
             )

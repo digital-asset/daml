@@ -171,6 +171,13 @@ package domain {
 
   final case class PartyDetails(identifier: Party, displayName: Option[String], isLocal: Boolean)
 
+//  final case class ObjectMeta(
+//      resourceVersionO: Option[String],
+//      annotations: Map[String, String],
+//  )
+//  object ObjectMeta {
+//    def empty: ObjectMeta = ObjectMeta(None, Map.empty)
+//  }
   sealed abstract class UserRight extends Product with Serializable
   final case object ParticipantAdmin extends UserRight
   final case class CanActAs(party: Party) extends UserRight
@@ -211,6 +218,8 @@ package domain {
   final case class CreateUserRequest(
       userId: String,
       primaryParty: Option[String],
+//      isDeactivated: Boolean,
+//      metadata: ObjectMeta,
       rights: Option[List[UserRight]],
   )
 

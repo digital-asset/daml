@@ -342,7 +342,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }
 
     "fails if all are unknown" in withHttpService { fixture =>
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+      fixture.getUniquePartyAndAuthHeaders("E7Alice").flatMap { case (alice, headers) =>
         search(
           genSearchDataSet(alice),
           jsObject("""{"templateIds": ["AAA:BBB", "XXX:YYY"]}"""),
@@ -1027,7 +1027,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       fixture =>
         import fixture.client
         val charlie = getUniqueParty("Charlie")
-        val knownParties = Vector(getUniqueParty("Alice"), getUniqueParty("Bob")) :+ charlie
+        val knownParties = Vector(getUniqueParty("XAlice"), getUniqueParty("Bob")) :+ charlie
         val erin = getUniqueParty("Erin")
         val requestedPartyIds: Vector[domain.Party] = knownParties.filterNot(_ == charlie) :+ erin
 

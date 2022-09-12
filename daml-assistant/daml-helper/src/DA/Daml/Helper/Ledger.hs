@@ -473,7 +473,7 @@ allocateParty args name = do
     case api args of
       Grpc ->
         runWithLedgerArgs args $
-        L.allocateParty $ L.AllocatePartyRequest {partyIdHint = text, displayName = text}
+        L.allocateParty $ L.AllocatePartyRequest {partyIdHint = text, displayName = text, metadata = Nothing}
       HttpJson ->
         httpJsonRequest args "POST" "/v1/parties/allocate" $
         setRequestBodyJSON $ AllocatePartyRequest {identifierHint = text, displayName = text}

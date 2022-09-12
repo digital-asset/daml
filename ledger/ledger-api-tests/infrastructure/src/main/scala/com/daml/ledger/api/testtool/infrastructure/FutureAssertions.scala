@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import com.daml.error.ErrorCode
 import com.daml.ledger.api.testtool.infrastructure.FutureAssertions.ExpectedFailureException
 import com.daml.ledger.api.testtool.infrastructure.time.DelayMechanism
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -29,6 +30,22 @@ final class FutureAssertions[T](future: Future[T]) {
       predicate: Throwable => Boolean
   )(implicit executionContext: ExecutionContext): Future[Throwable] =
     handle(predicate, context)
+
+  def mustFailWith(
+      context: String = "",
+      errorCode: ErrorCode,
+      exceptionMessageSubstring: Option[String],
+  )(implicit executionContext: ExecutionContext): Future[Unit] = {
+    for {
+      error <- mustFail(context)
+    } yield {
+      Assertions.assertGrpcError(
+        t = error,
+        errorCode = errorCode,
+        exceptionMessageSubstring = exceptionMessageSubstring,
+      )
+    }
+  }
 
   private def handle(predicate: Throwable => Boolean, context: String)(implicit
       executionContext: ExecutionContext

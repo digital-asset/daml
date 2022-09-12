@@ -189,6 +189,9 @@ trait PartyStorageBackend {
 // TODO um-for-hub: Consider extracting from StorageBackend hierarchy
 trait PartyRecordStorageBackend {
 
+  def getPartyRecords(
+  )(connection: Connection): Seq[PartyRecordStorageBackend.DbPartyRecord]
+
   def getPartyRecord(party: Ref.Party)(
       connection: Connection
   ): Option[PartyRecordStorageBackend.DbPartyRecord]

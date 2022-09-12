@@ -108,11 +108,13 @@ class PersistentPartyRecordStore(
     }
   }
 
-  override def getPartyRecord(
+  override def getPartyRecordO(
       party: Party
-  )(implicit loggingContext: LoggingContext): Future[Result[ParticipantParty.PartyRecord]] = {
+  )(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[Option[ParticipantParty.PartyRecord]]] = {
     inTransaction(_.getPartyRecord) { implicit connection =>
-      doFetchDomainPartyRecord(party)
+      doFetchDomainPartyRecordO(party)
     }
   }
 
@@ -162,6 +164,17 @@ class PersistentPartyRecordStore(
     withPartyRecord(id = party) { dbPartyRecord =>
       val annotations = backend.getPartyAnnotations(dbPartyRecord.internalId)(connection)
       toDomainPartyRecord(dbPartyRecord.payload, annotations)
+    }
+  }
+
+  private def doFetchDomainPartyRecordO(
+      party: Ref.Party
+  )(implicit connection: Connection): Result[Option[ParticipantParty.PartyRecord]] = {
+    backend.getPartyRecord(party = party)(connection) match {
+      case Some(dbPartyRecord) =>
+        val annotations = backend.getPartyAnnotations(dbPartyRecord.internalId)(connection)
+        Right(Some(toDomainPartyRecord(dbPartyRecord.payload, annotations)))
+      case None => Right(None)
     }
   }
 

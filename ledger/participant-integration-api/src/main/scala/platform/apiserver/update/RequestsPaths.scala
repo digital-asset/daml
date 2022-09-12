@@ -3,7 +3,8 @@
 
 package com.daml.platform.apiserver.update
 
-protected[update] object UpdateRequestsPaths {
+// TODO um-for-hub: This should not live in the 'update' package
+object RequestsPaths {
 
   object UserPaths {
     val annotations: List[String] = List(
@@ -13,8 +14,12 @@ protected[update] object UpdateRequestsPaths {
     )
     val primaryParty: List[String] =
       List(FieldNames.UpdateUserRequest.user, FieldNames.User.primaryParty)
-    val isDeactivated =
-      List(FieldNames.UpdateUserRequest.user, FieldNames.User.isDeactivated)
+    val isDeactivated = List(FieldNames.UpdateUserRequest.user, FieldNames.User.isDeactivated)
+    val resourceVersion = List(
+      FieldNames.UpdateUserRequest.user,
+      FieldNames.User.metadata,
+      FieldNames.Metadata.resourceVersion,
+    )
 
     val fullUpdateTrie: UpdatePathsTrie = UpdatePathsTrie
       .fromPaths(
@@ -30,8 +35,13 @@ protected[update] object UpdateRequestsPaths {
   object PartyDetailsPaths {
     val annotations: List[String] = List(
       FieldNames.UpdatePartyDetailsRequest.partyDetails,
-      FieldNames.User.metadata,
+      FieldNames.PartyDetails.localMetadata,
       FieldNames.Metadata.annotations,
+    )
+    val resourceVersion = List(
+      FieldNames.UpdatePartyDetailsRequest.partyDetails,
+      FieldNames.PartyDetails.localMetadata,
+      FieldNames.Metadata.resourceVersion,
     )
 
     val fullUpdateTrie: UpdatePathsTrie = UpdatePathsTrie

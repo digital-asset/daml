@@ -9,9 +9,9 @@ import com.daml.error.ErrorCode
 import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
-import com.daml.ledger.api.testtool.infrastructure.Assertions._
+import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertEquals, _}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.admin.user_management_service.{
   CreateUserRequest,
   CreateUserResponse,
@@ -32,10 +32,16 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
 }
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-final class UserManagementServiceIT extends LedgerTestSuite {
+final class UserManagementServiceIT
+    extends LedgerTestSuite
+    with UserManagementServiceITUtils
+    with UserManagementServiceUpdateRpcTests
+    with UserManagementServiceAnnotationsValidationTests
+    with UserManagementServiceUpdateAnnotationMapTests
+    with UserManagementServiceUpdatePrimitivePropertiesTests {
 
   private val adminPermission =
     Permission(Permission.Kind.ParticipantAdmin(Permission.ParticipantAdmin()))
@@ -69,8 +75,18 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     def createCanActAs(id: Int) =
       Permission(Permission.Kind.CanActAs(Permission.CanActAs(s"acting-party-$id")))
 
-    val user1 = User(UUID.randomUUID.toString, "")
-    val user2 = User(UUID.randomUUID.toString, "")
+    val user1 = User(
+      id = UUID.randomUUID.toString,
+      primaryParty = "",
+      isDeactivated = false,
+      metadata = Some(ObjectMeta()),
+    )
+    val user2 = User(
+      id = UUID.randomUUID.toString,
+      primaryParty = "",
+      isDeactivated = false,
+      metadata = Some(ObjectMeta()),
+    )
 
     val maxRightsPerUser = ledger.features.userManagement.maxRightsPerUser
     val permissionsMaxAndOne = (1 to (maxRightsPerUser + 1)).map(createCanActAs)
@@ -98,11 +114,11 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       create3 <- ledger.createUser(CreateUserRequest(Some(user2), permissionsMax))
     } yield {
       assertTooManyUserRightsError(create1)
-      assertEquals(create2.user, Some(user1))
+      assertEquals(unsetResourceVersion(create2), CreateUserResponse(Some(user1)))
       assertTooManyUserRightsError(grant1)
       assertEquals(rights1.rights.size, permissionsMaxAndOne.tail.size)
       assertSameElements(rights1.rights, permissionsMaxAndOne.tail)
-      assertEquals(create3.user, Some(user2))
+      assertEquals(unsetResourceVersion(create3), CreateUserResponse(Some(user2)))
     }
   })
 
@@ -135,32 +151,43 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     for {
       _ <- createAndCheck(
         "empty user-id",
-        User(""),
+        User(id = "", metadata = Some(ObjectMeta())),
         List.empty,
         LedgerApiErrors.RequestValidation.MissingField,
       )
       _ <- createAndCheck(
         "invalid user-id",
-        User("?"),
+        User(
+          id = "?",
+          metadata = Some(ObjectMeta()),
+        ),
         List.empty,
         LedgerApiErrors.RequestValidation.InvalidField,
       )
       _ <- createAndCheck(
         "invalid primary-party",
-        User("u1-" + userId, "party2-!!"),
+        User(
+          id = "u1-" + userId,
+          primaryParty = "party2-!!",
+          metadata = Some(ObjectMeta()),
+        ),
         List.empty,
         LedgerApiErrors.RequestValidation.InvalidArgument,
       )
       r = proto.Right(proto.Right.Kind.CanActAs(proto.Right.CanActAs("party3-!!")))
       _ <- createAndCheck(
         "invalid party in right",
-        User("u2-" + userId),
+        User(
+          id = "u2-" + userId,
+          metadata = Some(ObjectMeta()),
+        ),
         List(r),
         LedgerApiErrors.RequestValidation.InvalidArgument,
       )
     } yield ()
   })
 
+  // TODO test CreateUser and UpdateUsers with invalid arugments
   test(
     "UserManagementGetUserInvalidArguments",
     "Test argument validation for UserManagement#GetUser",
@@ -191,7 +218,15 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         val attempts = (1 to 10).toVector
         val userId = participant.nextUserId()
         val request =
-          CreateUserRequest(Some(User(id = userId, primaryParty = "")), rights = Seq.empty)
+          CreateUserRequest(
+            Some(
+              User(
+                id = userId,
+                metadata = Some(ObjectMeta()),
+              )
+            ),
+            rights = Seq.empty,
+          )
         for {
           results <- Future
             .traverse(attempts) { _ =>
@@ -227,7 +262,15 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         val attempts = (1 to 10).toVector
         val userId = participant.nextUserId()
         val createUserRequest =
-          CreateUserRequest(Some(User(id = userId, primaryParty = "")), rights = Seq.empty)
+          CreateUserRequest(
+            Some(
+              User(
+                id = userId,
+                metadata = Some(ObjectMeta()),
+              )
+            ),
+            rights = Seq.empty,
+          )
         val deleteUserRequest = DeleteUserRequest(userId = userId)
         for {
           _ <- participant.createUser(createUserRequest)
@@ -265,7 +308,15 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         val attempts = (1 to 10).toVector
         val userId = participant.nextUserId()
         val createUserRequest =
-          CreateUserRequest(Some(User(id = userId, primaryParty = "")), rights = Seq.empty)
+          CreateUserRequest(
+            Some(
+              User(
+                id = userId,
+                metadata = Some(ObjectMeta()),
+              )
+            ),
+            rights = Seq.empty,
+          )
         val grantRightsRequest = GrantUserRightsRequest(userId = userId, rights = userRightsBatch)
         for {
           _ <- participant.createUser(createUserRequest)
@@ -306,7 +357,15 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         val attempts = (1 to 10).toVector
         val userId = participant.nextUserId()
         val createUserRequest =
-          CreateUserRequest(Some(User(id = userId, primaryParty = "")), rights = userRightsBatch)
+          CreateUserRequest(
+            Some(
+              User(
+                id = userId,
+                metadata = Some(ObjectMeta()),
+              )
+            ),
+            rights = userRightsBatch,
+          )
         val revokeRightsRequest = RevokeUserRightsRequest(userId = userId, rights = userRightsBatch)
         for {
           _ <- participant.createUser(createUserRequest)
@@ -334,7 +393,19 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       get1 <- ledger.userManagement.getUser(GetUserRequest(AdminUserId))
       rights1 <- ledger.userManagement.listUserRights(ListUserRightsRequest(AdminUserId))
     } yield {
-      assertEquals(get1.user, Some(User(AdminUserId, "")))
+      assertEquals(
+        get1.user,
+        Some(
+          User(
+            id = AdminUserId,
+            metadata = Some(
+              ObjectMeta(
+                resourceVersion = get1.getUser.getMetadata.resourceVersion
+              )
+            ),
+          )
+        ),
+      )
       assertEquals(rights1, ListUserRightsResponse(Seq(adminPermission)))
     }
   })
@@ -345,8 +416,26 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
-    val user1 = User(userId1, "party1")
-    val user2 = User(userId2, "")
+    val userId3 = ledger.nextUserId()
+    val user1 = User(
+      id = userId1,
+      primaryParty = "party1",
+      metadata = Some(ObjectMeta()),
+    )
+    val user2 = User(
+      id = userId2,
+      primaryParty = "",
+      metadata = Some(ObjectMeta()),
+    )
+    val user3 = User(
+      id = userId3,
+      primaryParty = "",
+      metadata = Some(
+        ObjectMeta(
+          resourceVersion = "someResourceVersion1"
+        )
+      ),
+    )
     for {
       res1 <- ledger.createUser(
         CreateUserRequest(Some(user1), Nil)
@@ -356,11 +445,28 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         .mustFail("allocating a duplicate user")
       res3 <- ledger.createUser(CreateUserRequest(Some(user2), Nil))
       res4 <- ledger.deleteUser(DeleteUserRequest(userId2))
+      res5 <- ledger
+        .createUser(CreateUserRequest(Some(user3), Nil))
+        .mustFail(
+          "creating user with non empty resource version"
+        )
     } yield {
-      assertEquals(res1, CreateUserResponse(Some(user1)))
+      assertEquals(unsetResourceVersion(res1), CreateUserResponse(Some(user1)))
+      val resourceVersion1 = res1.user.get.metadata.get.resourceVersion
+      assert(resourceVersion1.nonEmpty, "New user's resource version should be non empty")
       assertUserAlreadyExists(res2)
-      assertEquals(res3, CreateUserResponse(Some(user2)))
+      assertEquals(unsetResourceVersion(res3), CreateUserResponse(Some(user2)))
+      val resourceVersion2 = res3.user.get.metadata.get.resourceVersion
+      assert(resourceVersion2.nonEmpty, "New user's resource version should be non empty")
       assertEquals(res4, DeleteUserResponse())
+      assertGrpcError(
+        res5,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
+        // TODO: would be nice to assert this in a test, but we probably not require it at conformance level
+        exceptionMessageSubstring = Some(
+          "The submitted command has invalid arguments: field user.metadata.resource_version must be not set"
+        ),
+      )
     }
   })
 
@@ -370,7 +476,11 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
-    val user1 = User(userId1, "party1")
+    val user1 = User(
+      id = userId1,
+      primaryParty = "party1",
+      metadata = Some(ObjectMeta()),
+    )
     for {
       _ <- ledger.createUser(
         CreateUserRequest(Some(user1), Nil)
@@ -381,7 +491,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         .mustFail("retrieving non-existent user")
     } yield {
       assertUserNotFound(res2)
-      assert(res1 == GetUserResponse(Some(user1)))
+      assert(unsetResourceVersion(res1) == GetUserResponse(Some(user1)))
     }
   })
 
@@ -391,7 +501,11 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
-    val user1 = User(userId1, "party1")
+    val user1 = User(
+      id = userId1,
+      primaryParty = "party1",
+      metadata = Some(ObjectMeta()),
+    )
     for {
       _ <- ledger.createUser(
         CreateUserRequest(Some(user1), Nil)
@@ -412,11 +526,11 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     runConcurrently = false,
   )(implicit ec => { implicit ledger =>
     def assertUserPresentIn(user: User, list: ListUsersResponse, msg: String): Unit = {
-      assert(list.users.contains(user), msg)
+      assert(list.users.map(unsetResourceVersion).contains(user), msg)
     }
 
     def assertUserAbsentIn(user: User, list: ListUsersResponse, msg: String): Unit = {
-      assert(!list.users.contains(user), msg)
+      assert(!list.users.map(unsetResourceVersion).contains(user), msg)
     }
 
     for {
@@ -426,7 +540,11 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       // Construct an user-id that with high probability will be the first on the first page
       // (Note: "!" is the smallest valid user-id character)
       newUserId = "!" + pageBeforeCreate.users.headOption.map(_.id).getOrElse(ledger.nextUserId())
-      newUser = User(newUserId, "")
+      newUser = User(
+        id = newUserId,
+        primaryParty = "",
+        metadata = Some(ObjectMeta()),
+      )
       _ = assertUserAbsentIn(
         newUser,
         pageBeforeCreate,
@@ -467,10 +585,18 @@ final class UserManagementServiceIT extends LedgerTestSuite {
 
     for {
       // Create 4 users to ensure we have at least two pages of two users each
-      _ <- ledger.createUser(CreateUserRequest(Some(User(userId1, "")), Nil))
-      _ <- ledger.createUser(CreateUserRequest(Some(User(userId2, "")), Nil))
-      _ <- ledger.createUser(CreateUserRequest(Some(User(userId3, "")), Nil))
-      _ <- ledger.createUser(CreateUserRequest(Some(User(userId4, "")), Nil))
+      _ <- ledger.createUser(
+        CreateUserRequest(Some(User(id = userId1, metadata = Some(ObjectMeta()))), Nil)
+      )
+      _ <- ledger.createUser(
+        CreateUserRequest(Some(User(id = userId2, metadata = Some(ObjectMeta()))), Nil)
+      )
+      _ <- ledger.createUser(
+        CreateUserRequest(Some(User(id = userId3, metadata = Some(ObjectMeta()))), Nil)
+      )
+      _ <- ledger.createUser(
+        CreateUserRequest(Some(User(id = userId4, metadata = Some(ObjectMeta()))), Nil)
+      )
       // Fetch the first two full pages
       page1 <- ledger.userManagement.listUsers(ListUsersRequest(pageToken = "", pageSize = 2))
       page2 <- ledger.userManagement.listUsers(
@@ -479,7 +605,9 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       // Verify that the second page stays the same even after we have created a new user that is lexicographically smaller than the last user on the first page
       // (Note: "!" is the smallest valid user-id character)
       newUserId = "!" + page1.users.last.id
-      _ <- ledger.createUser(CreateUserRequest(Some(User(newUserId)), Seq.empty))
+      _ <- ledger.createUser(
+        CreateUserRequest(Some(User(id = newUserId, metadata = Some(ObjectMeta()))), Seq.empty)
+      )
       page2B <- ledger.userManagement.listUsers(
         ListUsersRequest(pageToken = page1.nextPageToken, pageSize = 2)
       )
@@ -551,8 +679,12 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     val userId2 = ledger.nextUserId()
     for {
       // Ensure we have at least two users
-      _ <- ledger.createUser(CreateUserRequest(Some(User(userId1, "")), Nil))
-      _ <- ledger.createUser(CreateUserRequest(Some(User(userId2, "")), Nil))
+      _ <- ledger.createUser(
+        CreateUserRequest(Some(User(id = userId1, metadata = Some(ObjectMeta()))), Nil)
+      )
+      _ <- ledger.createUser(
+        CreateUserRequest(Some(User(id = userId2, metadata = Some(ObjectMeta()))), Nil)
+      )
       pageSizeZero <- ledger.userManagement.listUsers(
         ListUsersRequest(pageSize = 0)
       )
@@ -577,7 +709,9 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val maxUsersPageSize = ledger.features.userManagement.maxUsersPageSize
-    val users = 1.to(maxUsersPageSize + 1).map(_ => User(ledger.nextUserId(), ""))
+    val users = 1
+      .to(maxUsersPageSize + 1)
+      .map(_ => User(id = ledger.nextUserId(), metadata = Some(ObjectMeta())))
     for {
       // create lots of users
       _ <- Future.sequence(
@@ -602,9 +736,14 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
-    val user1 = User(userId1, "party1")
+    val user1 = User(
+      id = userId1,
+      primaryParty = "party1",
+      metadata = Some(ObjectMeta()),
+    )
     for {
-      _ <- ledger.createUser(CreateUserRequest(Some(user1), Nil))
+      userBefore <- ledger.createUser(CreateUserRequest(Some(user1), Nil))
+      userResourceVersion1 = userBefore.user.get.metadata.get.resourceVersion
       res1 <- ledger.userManagement.grantUserRights(
         GrantUserRightsRequest(userId1, List(adminPermission))
       )
@@ -616,6 +755,13 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       )
       res4 <- ledger.userManagement.grantUserRights(
         GrantUserRightsRequest(userId1, userRightsBatch)
+      )
+      userAfter <- ledger.userManagement.getUser(GetUserRequest(userId = user1.id))
+      userResourceVersion2 = userAfter.user.get.metadata.get.resourceVersion
+      _ = assertEquals(
+        "changing user rights must not change user's resource version",
+        userResourceVersion1,
+        userResourceVersion2,
       )
     } yield {
       assertSameElements(res1.newlyGrantedRights, List(adminPermission))
@@ -631,11 +777,16 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
-    val user1 = User(userId1, "party1")
+    val user1 = User(
+      id = userId1,
+      primaryParty = "party1",
+      metadata = Some(ObjectMeta()),
+    )
     for {
-      _ <- ledger.createUser(
+      userBefore <- ledger.createUser(
         CreateUserRequest(Some(user1), List(adminPermission) ++ userRightsBatch)
       )
+      userResourceVersion1 = userBefore.user.get.metadata.get.resourceVersion
       res1 <- ledger.userManagement.revokeUserRights(
         RevokeUserRightsRequest(userId1, List(adminPermission))
       )
@@ -647,6 +798,13 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       )
       res4 <- ledger.userManagement.revokeUserRights(
         RevokeUserRightsRequest(userId1, userRightsBatch)
+      )
+      userAfter <- ledger.userManagement.getUser(GetUserRequest(userId = user1.id))
+      userResourceVersion2 = userAfter.user.get.metadata.get.resourceVersion
+      _ = assertEquals(
+        "changing user rights must not change user's resource version",
+        userResourceVersion1,
+        userResourceVersion2,
       )
     } yield {
       assertEquals(res1, RevokeUserRightsResponse(List(adminPermission)))
@@ -661,7 +819,11 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     "Exercise ListUserRights rpc",
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
-    val user1 = User(userId1, "party4")
+    val user1 = User(
+      id = userId1,
+      primaryParty = "party4",
+      metadata = Some(ObjectMeta()),
+    )
     for {
       res1 <- ledger.createUser(
         CreateUserRequest(Some(user1), Nil)
@@ -680,7 +842,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       res6 <- ledger.userManagement
         .listUserRights(ListUserRightsRequest(userId1))
     } yield {
-      assertEquals(res1.user, Some(user1))
+      assertEquals(unsetResourceVersion(res1), CreateUserResponse(Some(user1)))
       assertEquals(res2, ListUserRightsResponse(Seq.empty))
       assertSameElements(
         res3.newlyGrantedRights.toSet,
@@ -694,42 +856,5 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       assertSameElements(res6.rights.toSet, Set(actAsPermission1, readAsPermission1))
     }
   })
-
-  private def userManagementTest(
-      shortIdentifier: String,
-      description: String,
-      runConcurrently: Boolean = true,
-  )(
-      body: ExecutionContext => ParticipantTestContext => Future[Unit]
-  ): Unit = {
-    test(
-      shortIdentifier = shortIdentifier,
-      description = description,
-      allocate(NoParties),
-      enabled = _.userManagement.supported,
-      disabledReason = "requires user management feature",
-      runConcurrently = runConcurrently,
-    )(implicit ec => { case Participants(Participant(ledger)) =>
-      body(ec)(ledger)
-    })
-  }
-
-  private def assertUserNotFound(t: Throwable): Unit = {
-    assertGrpcError(
-      t = t,
-      errorCode = LedgerApiErrors.Admin.UserManagement.UserNotFound,
-      exceptionMessageSubstring = None,
-    )
-  }
-
-  private def assertUserAlreadyExists(
-      t: Throwable
-  ): Unit = {
-    assertGrpcError(
-      t = t,
-      errorCode = LedgerApiErrors.Admin.UserManagement.UserAlreadyExists,
-      exceptionMessageSubstring = None,
-    )
-  }
 
 }

@@ -9,7 +9,6 @@ import com.daml.ledger.participant.state.index.ResourceAnnotationValidation
 import com.daml.ledger.participant.state.index.v2.PartyRecordStore.{
   MaxAnnotationsSizeExceeded,
   PartyRecordExists,
-  PartyRecordNotFound,
   PartyRecordNotFoundOnUpdateException,
   Result,
 }
@@ -53,11 +52,16 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
 
   private val state: mutable.TreeMap[Ref.Party, PartyRecordInfo] = mutable.TreeMap()
 
-  override def getPartyRecord(
+  override def getPartyRecordO(
       party: Party
-  )(implicit loggingContext: LoggingContext): Future[Result[ParticipantParty.PartyRecord]] = {
+  )(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[Option[ParticipantParty.PartyRecord]]] = {
     withState(
-      withPartyRecord[ParticipantParty.PartyRecord](party)(info => Right(toPartyRecord(info)))
+      state.get(party) match {
+        case Some(info) => Right(Some(toPartyRecord(info)))
+        case None => Right(None)
+      }
     )
   }
 
@@ -191,14 +195,6 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
     state.synchronized(
       Future(t)
     )
-
-  private def withPartyRecord[T](
-      party: Ref.Party
-  )(f: InMemoryPartyRecordStore.PartyRecordInfo => Result[T]): Result[T] =
-    state.get(party) match {
-      case Some(partyRecord) => f(partyRecord)
-      case None => Left(PartyRecordNotFound(party))
-    }
 
   private def withoutPartyRecord[T](party: Ref.Party)(t: => Result[T]): Result[T] =
     state.get(party) match {

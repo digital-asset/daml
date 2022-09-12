@@ -46,7 +46,12 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       initialRights: List[UserRight] = List.empty,
   ): Future[User] =
     ledgerClient.userManagementClient.createUser(
-      User(userId, primaryParty),
+      User(
+        id = userId,
+        primaryParty = primaryParty,
+        isDeactivated = false,
+        metadata = com.daml.ledger.api.domain.ObjectMeta.empty,
+      ),
       initialRights,
       Some(jwtAdminNoParty.value),
     )
@@ -264,6 +269,8 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       val createUserRequest = domain.CreateUserRequest(
         "nice.user2",
         Some(alice.unwrap),
+//        false,
+//        domain.ObjectMeta.empty,
         Some(
           List[domain.UserRight](
             domain.CanActAs(alice),
@@ -324,6 +331,8 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       domain.CreateUserRequest(
         name,
         Some(alice.unwrap),
+//        false,
+//        domain.ObjectMeta.empty,
         Some(
           List[domain.UserRight](
             domain.CanActAs(alice),
@@ -362,6 +371,8 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         val createUserRequest = domain.CreateUserRequest(
           getUniqueUserName("nice.user"),
           Some(alice.unwrap),
+//          false,
+//          domain.ObjectMeta.empty,
           Some(
             List[domain.UserRight](
               domain.CanActAs(alice),
@@ -398,6 +409,8 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       val createUserRequest = domain.CreateUserRequest(
         getUniqueUserName("nice.user"),
         Some(alice.unwrap),
+//        false,
+//        domain.ObjectMeta.empty,
         Some(
           List[domain.UserRight](
             domain.CanActAs(alice),
@@ -438,6 +451,8 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       val createUserRequest = domain.CreateUserRequest(
         getUniqueUserName("nice.user"),
         Some(alice.unwrap),
+//        false,
+//        domain.ObjectMeta.empty,
         Some(
           List[domain.UserRight](
             domain.CanActAs(alice),
@@ -580,6 +595,8 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           domain.CreateUserRequest(
             p.unwrap,
             Some(p.unwrap),
+//            false,
+//            domain.ObjectMeta.empty,
             Some(
               List[domain.UserRight](
                 domain.CanActAs(p),

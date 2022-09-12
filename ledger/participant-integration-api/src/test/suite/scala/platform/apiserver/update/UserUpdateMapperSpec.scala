@@ -157,7 +157,7 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
         UserUpdateMapper
           .toUpdate(userWithoutParty, FieldMask(Seq("user.primary_party!merge")))
           .left
-          .value shouldBe UpdatePathError.MergeUpdateModifierOnPrimitiveField(
+          .value shouldBe UpdatePathError.MergeUpdateModifierOnPrimitiveFieldDefaultValueUpdate(
           "user.primary_party!merge"
         )
         UserUpdateMapper

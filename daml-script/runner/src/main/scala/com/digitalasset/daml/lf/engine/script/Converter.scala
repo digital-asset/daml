@@ -5,7 +5,7 @@ package com.daml.lf
 package engine
 package script
 
-import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
+import com.daml.ledger.api.domain.{ObjectMeta, PartyDetails, User, UserRight}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.validation.NoLoggingValueValidator
@@ -564,6 +564,12 @@ object Converter {
     go(initialFreeAp, allEventResults, List())
   }
 
+//  def toBool(v: SValue): Either[String, Boolean] =
+//    v match {
+//      case SBool(b) => Right(b)
+//      case _ => Left(s"Expected SBool but got $v")
+//    }
+
   def toParty(v: SValue): Either[String, Party] =
     v match {
       case SParty(p) => Right(p)
@@ -728,8 +734,51 @@ object Converter {
         scriptIds.damlScript("User"),
         ("id", fromUserId(scriptIds, user.id)),
         ("primaryParty", SOptional(user.primaryParty.map(SParty(_)))),
+//        ("isDeactivated", SBool(user.isDeactivated)),
+//        ("metadata", fromObjectMeta(scriptIds, user.metadata)),
       )
     )
+
+//  def fromObjectMeta(scriptIds: ScriptIds, metadata: ObjectMeta): SValue = {
+//    record(
+//      scriptIds.damlScript("Metadata"),
+//      ("resourceVersion", SOptional(metadata.resourceVersionO.map(SInt64(_)))),
+//      ("annotations", SMap(isTextMap = true, entries = fromStringMap(metadata.annotations))),
+//    )
+//  }
+
+//  def toObjectMeta(v: SValue): Either[String, ObjectMeta] =
+//    v match {
+//      case SRecord(_, _, vals) if vals.size == 2 =>
+//        for {
+//          resourceVersion <- toOptional(vals.get(0), toInt64)
+//          annotations <- toStringMap(vals.get(1))
+//        } yield ObjectMeta(
+//          resourceVersionO = resourceVersion,
+//          annotations = annotations,
+//        )
+//      case _ => Left(s"Expected ObjectMeta but got $v")
+//    }
+
+//  def fromStringMap(m: Map[String, String]): Iterator[(SValue, SValue)] =
+//    m.iterator.map { case (key, value) =>
+//      SText(key) -> SText(value)
+//    }
+
+//  def toStringMap(v: SValue): Either[String, Map[String, String]] = {
+//    v match {
+//      case SMap(true, entries) =>
+//        val m = entries.iterator.map {
+//          case (SText(key), SText(value)) =>
+//            key -> value
+//          case _ =>
+//            // TODO pbatko: Better error handling
+//            sys.error("todo")
+//        }.toMap
+//        Right(m)
+//      case _ => Left(s"Expected text SMap but got $v")
+//    }
+//  }
 
   def fromUserId(scriptIds: ScriptIds, userId: UserId): SValue =
     record(
@@ -743,7 +792,10 @@ object Converter {
         for {
           id <- toUserId(vals.get(0))
           primaryParty <- toOptional(vals.get(1), toParty)
-        } yield User(id, primaryParty)
+//          isDeactivated <- toBool(vals.get(2))
+//          metadata <- toObjectMeta(vals.get(3))
+          // TODO um-for-hub: Support isDeactivated and metadata
+        } yield User(id, primaryParty, isDeactivated = false, metadata = ObjectMeta.empty)
       case _ => Left(s"Expected User but got $v")
     }
 

@@ -138,14 +138,24 @@ class IntegrationTest
   ): Future[domain.User] = {
     client.userManagementClient
       .createUser(
-        domain.User(UserId.assertFromString(userName), Some(primaryParty))
+        domain.User(
+          id = UserId.assertFromString(userName),
+          primaryParty = Some(primaryParty),
+          isDeactivated = false,
+          metadata = domain.ObjectMeta.empty,
+        )
       )
   }
 
   private def createUser(userName: String)(implicit client: LedgerClient): Future[domain.User] = {
     client.userManagementClient
       .createUser(
-        domain.User(UserId.assertFromString(userName), None)
+        domain.User(
+          id = UserId.assertFromString(userName),
+          primaryParty = None,
+          isDeactivated = false,
+          metadata = domain.ObjectMeta.empty,
+        )
       )
   }
 

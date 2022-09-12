@@ -3,10 +3,11 @@
 
 package com.daml.lf.engine.script.ledgerinteraction.ide
 
-import com.daml.ledger.api.domain.{User, UserRight}
+import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
 import com.daml.lf.data.Ref.{Party, UserId}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
+
 import scala.language.implicitConversions
 
 final class InMemoryUserManagementStoreSpec extends AnyFreeSpec with Matchers {
@@ -25,20 +26,20 @@ final class InMemoryUserManagementStoreSpec extends AnyFreeSpec with Matchers {
   "in-memory user management" - {
     "allow creating a fresh user" in {
       val mgmt = new UserManagementStore()
-      mgmt.createUser(User("user1", None), Set.empty) shouldBe Some(())
-      mgmt.createUser(User("user2", None), Set.empty) shouldBe Some(())
+      mgmt.createUser(newUser("user1"), Set.empty) shouldBe Some(())
+      mgmt.createUser(newUser("user2"), Set.empty) shouldBe Some(())
     }
 
     "disallow re-creating an existing user" in {
       val mgmt = new UserManagementStore()
-      val user = User("user1", None)
+      val user = newUser("user1")
       mgmt.createUser(user, Set.empty) shouldBe Some(())
       mgmt.createUser(user, Set.empty) shouldBe None
     }
 
     "find a freshly created user" in {
       val mgmt = new UserManagementStore()
-      val user = User("user1", None)
+      val user = newUser("user1")
       mgmt.createUser(user, Set.empty) shouldBe Some(())
       mgmt.getUser("user1") shouldBe Some(user)
     }
@@ -49,7 +50,7 @@ final class InMemoryUserManagementStoreSpec extends AnyFreeSpec with Matchers {
     }
     "not find a deleted user" in {
       val mgmt = new UserManagementStore()
-      val user = User("user1", None)
+      val user = newUser("user1")
       mgmt.createUser(user, Set.empty) shouldBe Some(())
       mgmt.getUser("user1") shouldBe Some(user)
       mgmt.deleteUser("user1") shouldBe Some(())
@@ -57,7 +58,7 @@ final class InMemoryUserManagementStoreSpec extends AnyFreeSpec with Matchers {
     }
     "allow recreating a deleted user" in {
       val mgmt = new UserManagementStore()
-      val user = User("user1", None)
+      val user = newUser("user1")
       mgmt.createUser(user, Set.empty) shouldBe Some(())
       mgmt.deleteUser(user.id) shouldBe Some(())
       mgmt.createUser(user, Set.empty) shouldBe Some(())
@@ -68,17 +69,17 @@ final class InMemoryUserManagementStoreSpec extends AnyFreeSpec with Matchers {
     }
     "list created users" in {
       val mgmt = new UserManagementStore()
-      mgmt.createUser(User("user1", None), Set.empty) shouldBe Some(())
-      mgmt.createUser(User("user2", None), Set.empty) shouldBe Some(())
-      mgmt.listUsers() shouldBe Seq(User("user1", None), User("user2", None))
+      mgmt.createUser(newUser("user1"), Set.empty) shouldBe Some(())
+      mgmt.createUser(newUser("user2"), Set.empty) shouldBe Some(())
+      mgmt.listUsers() shouldBe Seq(newUser("user1"), newUser("user2"))
     }
     "not list deleted users" in {
       val mgmt = new UserManagementStore()
-      mgmt.createUser(User("user1", None), Set.empty) shouldBe Some(())
-      mgmt.createUser(User("user2", None), Set.empty) shouldBe Some(())
-      mgmt.listUsers() shouldBe Seq(User("user1", None), User("user2", None))
+      mgmt.createUser(newUser("user1"), Set.empty) shouldBe Some(())
+      mgmt.createUser(newUser("user2"), Set.empty) shouldBe Some(())
+      mgmt.listUsers() shouldBe Seq(newUser("user1"), newUser("user2"))
       mgmt.deleteUser("user1") shouldBe Some(())
-      mgmt.listUsers() shouldBe Seq(User("user2", None))
+      mgmt.listUsers() shouldBe Seq(newUser("user2"))
     }
   }
 
@@ -90,10 +91,10 @@ final class InMemoryUserManagementStoreSpec extends AnyFreeSpec with Matchers {
     import UserRight._
     "listUserRights should find the rights of a freshly created user" in {
       val mgmt = new UserManagementStore()
-      mgmt.createUser(User("user1", None), Set.empty) shouldBe Some(())
+      mgmt.createUser(newUser("user1"), Set.empty) shouldBe Some(())
       mgmt.listUserRights("user1") shouldBe Some(Set.empty)
       mgmt.createUser(
-        User("user2", None),
+        newUser("user2"),
         Set(ParticipantAdmin, CanActAs("party1"), CanReadAs("party2")),
       ) shouldBe Some(())
       mgmt.listUserRights("user2") shouldBe Some(
@@ -106,7 +107,7 @@ final class InMemoryUserManagementStoreSpec extends AnyFreeSpec with Matchers {
     }
     "grantUserRights should add new rights" in {
       val mgmt = new UserManagementStore()
-      mgmt.createUser(User("user1", None), Set.empty) shouldBe Some(())
+      mgmt.createUser(newUser("user1"), Set.empty) shouldBe Some(())
       mgmt.grantRights("user1", Set(ParticipantAdmin)) shouldBe Some(Set(ParticipantAdmin))
       mgmt.grantRights("user1", Set(ParticipantAdmin)) shouldBe Some(Set.empty)
       mgmt.grantRights("user1", Set(CanActAs("party1"), CanReadAs("party2"))) shouldBe Some(
@@ -123,7 +124,7 @@ final class InMemoryUserManagementStoreSpec extends AnyFreeSpec with Matchers {
     "revokeRights should revoke rights" in {
       val mgmt = new UserManagementStore()
       mgmt.createUser(
-        User("user1", None),
+        newUser("user1"),
         Set(ParticipantAdmin, CanActAs("party1"), CanReadAs("party2")),
       ) shouldBe Some(())
       mgmt.listUserRights("user1") shouldBe Some(
@@ -142,4 +143,7 @@ final class InMemoryUserManagementStoreSpec extends AnyFreeSpec with Matchers {
       mgmt.revokeRights("user1", Set.empty) shouldBe None
     }
   }
+
+  private def newUser(id: String): User =
+    User(id = id, None, false, ObjectMeta.empty)
 }

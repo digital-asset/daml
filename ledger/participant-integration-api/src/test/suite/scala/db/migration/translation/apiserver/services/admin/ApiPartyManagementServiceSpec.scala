@@ -4,6 +4,7 @@
 package com.daml.platform.apiserver.services.admin
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
+
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.domain.LedgerOffset.Absolute
 import com.daml.ledger.api.domain.{PartyDetails, PartyEntry}
@@ -12,6 +13,7 @@ import com.daml.ledger.api.v1.admin.party_management_service.AllocatePartyReques
 import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
+  PartyRecordStore,
 }
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
@@ -39,6 +41,7 @@ class ApiPartyManagementServiceSpec
   "ApiPartyManagementService" should {
     "propagate trace context" in {
       val mockIndexTransactionsService = mock[IndexTransactionsService]
+      val partyRecordStore = mock[PartyRecordStore]
       when(mockIndexTransactionsService.currentLedgerEnd())
         .thenReturn(Future.successful(Absolute(Ref.LedgerString.assertFromString("0"))))
 
@@ -57,6 +60,7 @@ class ApiPartyManagementServiceSpec
 
       val apiService = ApiPartyManagementService.createApiService(
         mockIndexPartyManagementService,
+        partyRecordStore,
         mockIndexTransactionsService,
         TestWritePartyService,
         Duration.Zero,

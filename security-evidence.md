@@ -12,9 +12,9 @@
 - badly-authorized exercise/exercise (no implicit authority from outer exercise) is rejected: [AuthPropagationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthPropagationSpec.scala#L332)
 - badly-authorized fetch is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L95)
 - badly-authorized lookup is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L117)
-- create IOU should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L135)
-- create IOU should fail if user has no permission: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L108)
-- create IOU should work with correct user rights: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L82)
+- create IOU should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L140)
+- create IOU should fail if user has no permission: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L113)
+- create IOU should work with correct user rights: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L87)
 - create with no signatories is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L50)
 - create with non-signatory maintainers is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L72)
 - exercise with no controllers is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L148)
@@ -209,7 +209,7 @@
 ## Performance:
 - Tail call optimization: Tail recursion does not blow the scala JVM stack.: [TailCallTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/TailCallTest.scala#L16)
 - archiving a large number of contracts should succeed: [AbstractHttpServiceIntegrationTest.scala](ledger-service/http-json/src/itlib/scala/http/AbstractHttpServiceIntegrationTest.scala#L1458)
-- creating and listing 20K users should be possible: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L568)
+- creating and listing 20K users should be possible: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L583)
 
 ## Input Validation:
 - TLS configuration is parsed correctly from the config file: [CliSpec.scala](ledger-service/http-json/src/test/scala/com/digitalasset/http/CliSpec.scala#L275)

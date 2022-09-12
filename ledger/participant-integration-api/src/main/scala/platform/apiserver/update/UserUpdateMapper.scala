@@ -10,7 +10,7 @@ import com.daml.lf.data.Ref
 
 object UserUpdateMapper extends UpdateMapperBase {
 
-  import UpdateRequestsPaths.UserPaths
+  import RequestsPaths.UserPaths
 
   type DomainObject = domain.User
   type UpdateObject = UserUpdate
