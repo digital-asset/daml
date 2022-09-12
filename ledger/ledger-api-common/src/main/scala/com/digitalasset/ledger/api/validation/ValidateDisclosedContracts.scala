@@ -70,6 +70,23 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
       .map(_.result())
   }
 
+  def validateDisclosedContractArguments(arguments: ProtoDisclosedContract.Arguments)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, ValueRecord] =
+    arguments match {
+      case ProtoDisclosedContract.Arguments.Record(value) =>
+        for {
+          recordId <- validateOptionalIdentifier(value.recordId)
+          validatedRecordField <- validateRecordFields(value.fields)
+        } yield {
+          ValueRecord(recordId, validatedRecordField)
+        }
+      case ProtoDisclosedContract.Arguments.Blob(_) =>
+        ???
+      case ProtoDisclosedContract.Arguments.Empty =>
+        ???
+    }
+
   private def validateDisclosedContract(
       disclosedContract: ProtoDisclosedContract
   )(implicit
@@ -79,9 +96,7 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
       templateId <- requirePresence(disclosedContract.templateId, "template_id")
       validatedTemplateId <- validateIdentifier(templateId)
       contractId <- requireContractId(disclosedContract.contractId, "contract_id")
-      createArguments <- requirePresence(disclosedContract.arguments, "arguments")
-      recordId <- validateOptionalIdentifier(createArguments.recordId)
-      validatedRecordField <- validateRecordFields(createArguments.fields)
+      argument <- validateDisclosedContractArguments(disclosedContract.arguments)
       metadata <- requirePresence(disclosedContract.metadata, "metadata")
       createdAt <- requirePresence(metadata.createdAt, "created_at")
       validatedCreatedAt <- validateCreatedAt(createdAt)
@@ -89,7 +104,7 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
     } yield DisclosedContract(
       contractId = contractId,
       templateId = validatedTemplateId,
-      argument = ValueRecord(recordId, validatedRecordField),
+      argument = argument,
       metadata = ContractMetadata(
         createdAt = validatedCreatedAt,
         keyHash = keyHash,

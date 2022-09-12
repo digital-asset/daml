@@ -8,6 +8,7 @@ import com.daml.ledger.api.v1.commands.{
   Commands => ProtoCommands,
   DisclosedContract => ProtoDisclosedContract,
 }
+//import ProtoDisclosedContract.{Arguments => ProtoArguments}
 import com.daml.ledger.api.v1.contract_metadata.{ContractMetadata => ProtoContractMetadata}
 import com.daml.ledger.api.v1.value.{
   Identifier => ProtoIdentifier,
@@ -137,7 +138,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       ProtoCommands(disclosedContracts =
         scala.Seq(
           api.protoDisclosedContract.update(
-            _.arguments.fields.set(scala.Seq(ProtoRecordField("something", None)))
+            // _.arguments.fields.set(scala.Seq(ProtoRecordField("something", None)))
           )
         )
       )
@@ -226,7 +227,7 @@ object ValidateDisclosedContractsTest {
       ProtoIdentifier("package", moduleName = "module", entityName = "entity")
     val contractId: String = "00" + "00" * 31 + "ef"
     val keyHash: Hash = Hash.assertFromString("00" * 31 + "ff")
-    val contractArguments: ProtoRecord = ProtoRecord(
+    val contractArgumentsRecord: ProtoRecord = ProtoRecord(
       Some(templateId),
       scala.Seq(ProtoRecordField("something", Some(ProtoValue(ProtoValue.Sum.Bool(true))))),
     )
@@ -238,7 +239,6 @@ object ValidateDisclosedContractsTest {
     val protoDisclosedContract: ProtoDisclosedContract = ProtoDisclosedContract(
       templateId = Some(templateId),
       contractId = contractId,
-      arguments = Some(contractArguments),
       metadata = Some(contractMetadata),
     )
     val protoCommands: ProtoCommands =
