@@ -36,7 +36,6 @@ import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import scalaz.std.list._
 import scalaz.std.scalaFuture._
-import scalaz.std.tuple._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
@@ -285,7 +284,11 @@ trait AbstractHttpServiceIntegrationTestFuns
       private val self: Future[(A, JsValue)]
   ) {
     def parseResponse[Result: JsonReader]: Future[(A, domain.SyncResponse[Result])] =
-      self.map(_ map (decode1[domain.SyncResponse, Result](_).fold(e => fail(e.shows), identity)))
+      self.map { case (status, jsv) =>
+        val r = decode1[domain.SyncResponse, Result](jsv).fold(e => fail(e.shows), identity)
+        r.status should ===(status)
+        (status, r)
+      }
   }
 
   protected def postCreateCommand(
