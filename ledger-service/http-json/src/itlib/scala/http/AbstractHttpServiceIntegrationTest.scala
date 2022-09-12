@@ -857,9 +857,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         .flatMap(
           postCreateCommand(multiPartyCreateCommand(List("Alice", "Bob"), ""), fixture, _)
         )
-        .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, _, _)) =>
-          result.contractId
-        })
+        .map(resultContractId)
       // multi-party actAs on exercise
       cidMulti <- fixture
         .headersWithPartyAuth(List("Alice", "Bob", "Charlie", "David"))
@@ -885,9 +883,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             _,
           )
         )
-        .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, _, _)) =>
-          result.contractId
-        })
+        .map(resultContractId)
       _ <- fixture
         .headersWithPartyAuth(List("Charlie"), readAs = List("Alice"))
         .flatMap(
@@ -1567,9 +1563,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
                 headers,
               )
             )
-            .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
-              result.contractId
-            }): Future[ContractId]
+            .map(resultContractId): Future[ContractId]
           fut.map(cid => (party, cid))
         }
         (alice, aliceUserId) = users(0)
