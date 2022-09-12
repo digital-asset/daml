@@ -1644,185 +1644,245 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     private[this] def decodeRetrieveByKey(
         value: PLF.Update.RetrieveByKey,
         definition: String,
-    ): Work[RetrieveByKey] = Ret {
-      RetrieveByKey(
-        decodeTypeConName(value.getTemplate),
-        decodeExpr_DEP(value.getKey, definition),
-      )
+    ): Work[RetrieveByKey] = {
+      decodeExpr(value.getKey, definition) { keyE =>
+        Ret(
+          RetrieveByKey(
+            decodeTypeConName(value.getTemplate),
+            keyE,
+          )
+        )
+      }
     }
 
-    private[this] def decodeUpdate(lfUpdate: PLF.Update, definition: String): Work[Update] = Ret {
+    private[this] def decodeUpdate(lfUpdate: PLF.Update, definition: String): Work[Update] = {
       lfUpdate.getSumCase match {
 
         case PLF.Update.SumCase.PURE =>
           val pure = lfUpdate.getPure
-          UpdatePure(decodeType_DEP(pure.getType), decodeExpr_DEP(pure.getExpr, definition))
+          decodeType(pure.getType) { typ =>
+            decodeExpr(pure.getExpr, definition) { expr =>
+              Ret(UpdatePure(typ, expr))
+            }
+          }
 
         case PLF.Update.SumCase.BLOCK =>
           val block = lfUpdate.getBlock
-          UpdateBlock(
-            bindings = block.getBindingsList.asScala.view
-              .map(x => xxx(decodeBinding(x, definition)))
-              .to(ImmArray),
-            body = decodeExpr_DEP(block.getBody, definition),
-          )
+          decodeExpr(block.getBody, definition) { body =>
+            sequenceWork(
+              block.getBindingsList.asScala.view.map(x => decodeBinding(x, definition))
+            ) { bindings =>
+              Ret(UpdateBlock(bindings = bindings.to(ImmArray), body))
+            }
+          }
 
         case PLF.Update.SumCase.CREATE =>
           val create = lfUpdate.getCreate
-          UpdateCreate(
-            templateId = decodeTypeConName(create.getTemplate),
-            arg = decodeExpr_DEP(create.getExpr, definition),
-          )
+          decodeExpr(create.getExpr, definition) { arg =>
+            Ret(UpdateCreate(templateId = decodeTypeConName(create.getTemplate), arg))
+          }
 
         case PLF.Update.SumCase.CREATE_INTERFACE =>
           val create = lfUpdate.getCreateInterface
-          UpdateCreateInterface(
-            interfaceId = decodeTypeConName(create.getInterface),
-            arg = decodeExpr_DEP(create.getExpr, definition),
-          )
+          decodeExpr(create.getExpr, definition) { arg =>
+            Ret(UpdateCreateInterface(interfaceId = decodeTypeConName(create.getInterface), arg))
+          }
 
         case PLF.Update.SumCase.EXERCISE =>
           val exercise = lfUpdate.getExercise
-          UpdateExercise(
-            templateId = decodeTypeConName(exercise.getTemplate),
-            choice = handleInternedName(
-              exercise.getChoiceCase,
-              PLF.Update.Exercise.ChoiceCase.CHOICE_STR,
-              exercise.getChoiceStr,
-              PLF.Update.Exercise.ChoiceCase.CHOICE_INTERNED_STR,
-              exercise.getChoiceInternedStr,
-              "Update.Exercise.choice.choice",
-            ),
-            cidE = decodeExpr_DEP(exercise.getCid, definition),
-            argE = decodeExpr_DEP(exercise.getArg, definition),
-          )
+          decodeExpr(exercise.getCid, definition) { cidE =>
+            decodeExpr(exercise.getArg, definition) { argE =>
+              Ret(
+                UpdateExercise(
+                  templateId = decodeTypeConName(exercise.getTemplate),
+                  choice = handleInternedName(
+                    exercise.getChoiceCase,
+                    PLF.Update.Exercise.ChoiceCase.CHOICE_STR,
+                    exercise.getChoiceStr,
+                    PLF.Update.Exercise.ChoiceCase.CHOICE_INTERNED_STR,
+                    exercise.getChoiceInternedStr,
+                    "Update.Exercise.choice.choice",
+                  ),
+                  cidE,
+                  argE,
+                )
+              )
+            }
+          }
 
         case PLF.Update.SumCase.EXERCISE_INTERFACE =>
           assertSince(LV.Features.basicInterfaces, "exerciseInterface")
           val exercise = lfUpdate.getExerciseInterface
-          UpdateExerciseInterface(
-            interfaceId = decodeTypeConName(exercise.getInterface),
-            choice = handleInternedName(exercise.getChoiceInternedStr),
-            cidE = decodeExpr_DEP(exercise.getCid, definition),
-            argE = decodeExpr_DEP(exercise.getArg, definition),
-            guardE = if (exercise.hasGuard) {
-              assertSince(LV.Features.extendedInterfaces, "exerciseInterface.guard")
-              Some(decodeExpr_DEP(exercise.getGuard, definition))
-            } else
-              None,
-          )
+          decodeExpr(exercise.getCid, definition) { cidE =>
+            decodeExpr(exercise.getArg, definition) { argE =>
+              bindWork(
+                if (exercise.hasGuard) {
+                  assertSince(LV.Features.extendedInterfaces, "exerciseInterface.guard")
+                  decodeExpr(exercise.getGuard, definition) { e =>
+                    Ret(Some(e))
+                  }
+                } else
+                  Ret(None)
+              ) { guardE =>
+                Ret(
+                  UpdateExerciseInterface(
+                    interfaceId = decodeTypeConName(exercise.getInterface),
+                    choice = handleInternedName(exercise.getChoiceInternedStr),
+                    cidE,
+                    argE,
+                    guardE,
+                  )
+                )
+              }
+            }
+          }
 
         case PLF.Update.SumCase.EXERCISE_BY_KEY =>
           assertSince(LV.Features.exerciseByKey, "exerciseByKey")
           val exerciseByKey = lfUpdate.getExerciseByKey
-          UpdateExerciseByKey(
-            templateId = decodeTypeConName(exerciseByKey.getTemplate),
-            choice = getInternedName(
-              exerciseByKey.getChoiceInternedStr,
-              "Update.ExerciseByKey.choice.choice",
-            ),
-            keyE = decodeExpr_DEP(exerciseByKey.getKey, definition),
-            argE = decodeExpr_DEP(exerciseByKey.getArg, definition),
-          )
+          decodeExpr(exerciseByKey.getKey, definition) { keyE =>
+            decodeExpr(exerciseByKey.getArg, definition) { argE =>
+              Ret(
+                UpdateExerciseByKey(
+                  templateId = decodeTypeConName(exerciseByKey.getTemplate),
+                  choice = getInternedName(
+                    exerciseByKey.getChoiceInternedStr,
+                    "Update.ExerciseByKey.choice.choice",
+                  ),
+                  keyE,
+                  argE,
+                )
+              )
+            }
+          }
 
         case PLF.Update.SumCase.GET_TIME =>
-          UpdateGetTime
+          Ret(UpdateGetTime)
 
         case PLF.Update.SumCase.FETCH =>
           val fetch = lfUpdate.getFetch
-          UpdateFetchTemplate(
-            templateId = decodeTypeConName(fetch.getTemplate),
-            contractId = decodeExpr_DEP(fetch.getCid, definition),
-          )
+          decodeExpr(fetch.getCid, definition) { contractId =>
+            Ret(UpdateFetchTemplate(templateId = decodeTypeConName(fetch.getTemplate), contractId))
+          }
 
         case PLF.Update.SumCase.FETCH_INTERFACE =>
           assertSince(LV.Features.basicInterfaces, "fetchInterface")
           val fetch = lfUpdate.getFetchInterface
-          UpdateFetchInterface(
-            interfaceId = decodeTypeConName(fetch.getInterface),
-            contractId = decodeExpr_DEP(fetch.getCid, definition),
-          )
+          decodeExpr(fetch.getCid, definition) { contractId =>
+            Ret(
+              UpdateFetchInterface(interfaceId = decodeTypeConName(fetch.getInterface), contractId)
+            )
+          }
 
         case PLF.Update.SumCase.FETCH_BY_KEY =>
-          UpdateFetchByKey(xxx(decodeRetrieveByKey(lfUpdate.getFetchByKey, definition)))
+          bindWork(decodeRetrieveByKey(lfUpdate.getFetchByKey, definition)) { rbk =>
+            Ret(UpdateFetchByKey(rbk))
+          }
 
         case PLF.Update.SumCase.LOOKUP_BY_KEY =>
-          UpdateLookupByKey(xxx(decodeRetrieveByKey(lfUpdate.getLookupByKey, definition)))
+          bindWork(decodeRetrieveByKey(lfUpdate.getLookupByKey, definition)) { rbk =>
+            Ret(UpdateLookupByKey(rbk))
+          }
 
         case PLF.Update.SumCase.EMBED_EXPR =>
           val embedExpr = lfUpdate.getEmbedExpr
-          UpdateEmbedExpr(
-            decodeType_DEP(embedExpr.getType),
-            decodeExpr_DEP(embedExpr.getBody, definition),
-          )
+          decodeType(embedExpr.getType) { typ =>
+            decodeExpr(embedExpr.getBody, definition) { expr =>
+              Ret(UpdateEmbedExpr(typ, expr))
+            }
+          }
 
         case PLF.Update.SumCase.TRY_CATCH =>
           assertSince(LV.Features.exceptions, "Update.try_catch")
           val tryCatch = lfUpdate.getTryCatch
-          UpdateTryCatch(
-            typ = decodeType_DEP(tryCatch.getReturnType),
-            body = decodeExpr_DEP(tryCatch.getTryExpr, definition),
-            binder = toName(internedStrings(tryCatch.getVarInternedStr)),
-            handler = decodeExpr_DEP(tryCatch.getCatchExpr, definition),
-          )
+          decodeType(tryCatch.getReturnType) { typ =>
+            decodeExpr(tryCatch.getTryExpr, definition) { body =>
+              decodeExpr(tryCatch.getCatchExpr, definition) { handler =>
+                Ret(
+                  UpdateTryCatch(
+                    typ,
+                    body,
+                    binder = toName(internedStrings(tryCatch.getVarInternedStr)),
+                    handler,
+                  )
+                )
+              }
+            }
+          }
 
         case PLF.Update.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("Update.SUM_NOT_SET")
       }
     }
 
-    private[this] def decodeScenario(lfScenario: PLF.Scenario, definition: String): Work[Scenario] =
-      Ret {
-        lfScenario.getSumCase match {
-          case PLF.Scenario.SumCase.PURE =>
-            val pure = lfScenario.getPure
-            ScenarioPure(decodeType_DEP(pure.getType), decodeExpr_DEP(pure.getExpr, definition))
+    private[this] def decodeScenario(
+        lfScenario: PLF.Scenario,
+        definition: String,
+    ): Work[Scenario] = {
+      lfScenario.getSumCase match {
+        case PLF.Scenario.SumCase.PURE =>
+          val pure = lfScenario.getPure
+          decodeType(pure.getType) { typ =>
+            decodeExpr(pure.getExpr, definition) { expr =>
+              Ret(ScenarioPure(typ, expr))
+            }
+          }
 
-          case PLF.Scenario.SumCase.COMMIT =>
-            val commit = lfScenario.getCommit
-            ScenarioCommit(
-              decodeExpr_DEP(commit.getParty, definition),
-              decodeExpr_DEP(commit.getExpr, definition),
-              decodeType_DEP(commit.getRetType),
-            )
+        case PLF.Scenario.SumCase.COMMIT =>
+          val commit = lfScenario.getCommit
+          decodeExpr(commit.getParty, definition) { party =>
+            decodeExpr(commit.getExpr, definition) { expr =>
+              decodeType(commit.getRetType) { typ =>
+                Ret(ScenarioCommit(party, expr, typ))
+              }
+            }
+          }
 
-          case PLF.Scenario.SumCase.MUSTFAILAT =>
-            val commit = lfScenario.getMustFailAt
-            ScenarioMustFailAt(
-              decodeExpr_DEP(commit.getParty, definition),
-              decodeExpr_DEP(commit.getExpr, definition),
-              decodeType_DEP(commit.getRetType),
-            )
+        case PLF.Scenario.SumCase.MUSTFAILAT =>
+          val commit = lfScenario.getMustFailAt
+          decodeExpr(commit.getParty, definition) { party =>
+            decodeExpr(commit.getExpr, definition) { expr =>
+              decodeType(commit.getRetType) { typ =>
+                Ret(ScenarioMustFailAt(party, expr, typ))
+              }
+            }
+          }
 
-          case PLF.Scenario.SumCase.BLOCK =>
-            val block = lfScenario.getBlock
-            ScenarioBlock(
-              bindings = block.getBindingsList.asScala.view
-                .map(x => xxx(decodeBinding(x, definition)))
-                .to(ImmArray),
-              body = decodeExpr_DEP(block.getBody, definition),
-            )
+        case PLF.Scenario.SumCase.BLOCK =>
+          val block = lfScenario.getBlock
+          decodeExpr(block.getBody, definition) { body =>
+            sequenceWork(
+              block.getBindingsList.asScala.view.map(x => decodeBinding(x, definition))
+            ) { bindings =>
+              Ret(ScenarioBlock(bindings = bindings.to(ImmArray), body))
+            }
+          }
 
-          case PLF.Scenario.SumCase.GET_TIME =>
-            ScenarioGetTime
+        case PLF.Scenario.SumCase.GET_TIME =>
+          Ret(ScenarioGetTime)
 
-          case PLF.Scenario.SumCase.PASS =>
-            ScenarioPass(decodeExpr_DEP(lfScenario.getPass, definition))
+        case PLF.Scenario.SumCase.PASS =>
+          decodeExpr(lfScenario.getPass, definition) { pass =>
+            Ret(ScenarioPass(pass))
+          }
 
-          case PLF.Scenario.SumCase.GET_PARTY =>
-            ScenarioGetParty(decodeExpr_DEP(lfScenario.getGetParty, definition))
+        case PLF.Scenario.SumCase.GET_PARTY =>
+          decodeExpr(lfScenario.getGetParty, definition) { party =>
+            Ret(ScenarioGetParty(party))
+          }
 
-          case PLF.Scenario.SumCase.EMBED_EXPR =>
-            val embedExpr = lfScenario.getEmbedExpr
-            ScenarioEmbedExpr(
-              decodeType_DEP(embedExpr.getType),
-              decodeExpr_DEP(embedExpr.getBody, definition),
-            )
+        case PLF.Scenario.SumCase.EMBED_EXPR =>
+          val embedExpr = lfScenario.getEmbedExpr
+          decodeType(embedExpr.getType) { typ =>
+            decodeExpr(embedExpr.getBody, definition) { expr =>
+              Ret(ScenarioEmbedExpr(typ, expr))
+            }
+          }
 
-          case PLF.Scenario.SumCase.SUM_NOT_SET =>
-            throw Error.Parsing("Scenario.SUM_NOT_SET")
-        }
+        case PLF.Scenario.SumCase.SUM_NOT_SET =>
+          throw Error.Parsing("Scenario.SUM_NOT_SET")
       }
+    }
 
     private[this] def decodeTypeVarWithKind_DEP( // NICK: kill me
         lfTypeVarWithKind: PLF.TypeVarWithKind
