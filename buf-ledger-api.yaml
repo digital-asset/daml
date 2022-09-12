@@ -16,3 +16,5 @@ breaking:
     - FILE
   except:
     - FILE_NO_DELETE # Avoids errors due to refactored `buf` modules.
+  ignore:
+    - com/daml/ledger/api/v1/admin/metering_report_service.proto

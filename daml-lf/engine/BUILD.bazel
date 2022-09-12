@@ -49,6 +49,7 @@ da_scala_test_suite(
         "//daml-lf/tests:AuthTests.dar",
         "//daml-lf/tests:BasicTests.dar",
         "//daml-lf/tests:Exceptions.dar",
+        "//daml-lf/tests:InterfaceRetro.dar",
         "//daml-lf/tests:InterfaceViews.dar",
         "//daml-lf/tests:Interfaces.dar",
         "//daml-lf/tests:MultiKeys.dar",

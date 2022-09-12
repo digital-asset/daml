@@ -2533,6 +2533,71 @@ tests tools = testGroup "Data Dependencies" $
             , "--project-root", tmpDir </> "main"
             , "--target", LF.renderVersion LF.versionDev ]
 
+    , testCaseSteps "Package ids are stable across rebuilds" $ \step -> withTempDir $ \tmpDir -> do
+        step "building lib (project to be imported via data-dependencies)"
+        createDirectoryIfMissing True (tmpDir </> "lib")
+        writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: lib"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies:"
+            , "  - daml-prim"
+            , "  - daml-stdlib"
+            ]
+        writeFileUTF8 (tmpDir </> "lib" </> "Lib.daml") $ unlines
+            [ "module Lib where"
+            , "data Data = Data ()"
+            ]
+        callProcessSilent damlc
+            [ "build"
+            , "--project-root", tmpDir </> "lib"
+            , "-o", tmpDir </> "lib" </> "lib.dar"
+            , "--target", LF.renderVersion LF.versionDev
+            ]
+
+        step "building main (project that imports lib via data-dependencies)"
+        createDirectoryIfMissing True (tmpDir </> "main")
+        writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: main"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies:"
+            , "  - daml-prim"
+            , "  - daml-stdlib"
+            , "data-dependencies:"
+            , "  - " <> (tmpDir </> "lib" </> "lib.dar")
+            ]
+        writeFileUTF8 (tmpDir </> "main" </> "Main.daml") $ unlines
+            [ "module Main where"
+            , "import Lib qualified"
+            , "data Data = Data Lib.Data"
+            ]
+        callProcessSilent damlc
+            [ "build"
+            , "--project-root", tmpDir </> "main"
+            , "-o", tmpDir </> "main" </> "main.dar"
+            , "--target", LF.renderVersion LF.versionDev
+            ]
+
+        step "building main again as main2.dar"
+        callProcessSilent damlc
+            [ "build"
+            , "--project-root", tmpDir </> "main"
+            , "-o", tmpDir </> "main" </> "main2.dar"
+            , "--target", LF.renderVersion LF.versionDev
+            ]
+
+        step "compare package ids in main.dar and main2.dar"
+        libPackageIds <- darPackageIds (tmpDir </> "lib" </> "lib.dar")
+        mainPackageIds <- darPackageIds (tmpDir </> "main" </> "main.dar")
+        main2PackageIds <- darPackageIds (tmpDir </> "main" </> "main2.dar")
+        let
+          mainOnlyPackageIds = mainPackageIds \\ libPackageIds
+          main2OnlyPackageIds = main2PackageIds \\ libPackageIds
+        main2OnlyPackageIds @?= mainOnlyPackageIds
+
     , testCaseSteps "Standard library exceptions" $ \step -> withTempDir $ \tmpDir -> do
         step "building project to be imported via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "lib")

@@ -26,7 +26,6 @@ template Dummy
       controller operator
       do assert False
 
-
     nonconsuming choice Clone: ContractId Dummy
       controller operator
       do create Dummy with operator
@@ -49,6 +48,12 @@ template Dummy
       with address : Address
       controller operator
       do create AddressWrapper with operator; address
+
+    choice PublicChoice: ()
+      with
+        anyParty: Party
+      controller anyParty
+      do return ()
 
 data Address = Address
   { street: Text

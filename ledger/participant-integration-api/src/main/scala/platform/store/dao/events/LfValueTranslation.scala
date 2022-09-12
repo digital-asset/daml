@@ -36,7 +36,6 @@ import com.daml.platform.{
 }
 import com.daml.platform.packages.DeduplicatingPackageLoader
 import com.daml.platform.participant.util.LfEngineToApi
-import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.dao.EventProjectionProperties
 import com.daml.platform.store.dao.events.LfValueTranslation.ApiContractData
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
@@ -88,7 +87,6 @@ trait LfValueSerialization {
 }
 
 final class LfValueTranslation(
-    val cache: LfValueTranslationCache.Cache,
     metrics: Metrics,
     // Note: LfValueTranslation is used by JdbcLedgerDao for both serialization and deserialization.
     // Sometimes the JdbcLedgerDao is used in a way that it never needs to deserialize data in verbose mode
@@ -155,42 +153,21 @@ final class LfValueTranslation(
   override def serialize(
       contractId: ContractId,
       contractArgument: VersionedValue,
-  ): Array[Byte] = {
-    cache.contracts.put(
-      key = LfValueTranslationCache.ContractCache.Key(contractId),
-      value = LfValueTranslationCache.ContractCache.Value(contractArgument),
-    )
+  ): Array[Byte] =
     serializeCreateArgOrThrow(contractId, contractArgument)
-  }
 
-  override def serialize(eventId: EventId, create: Create): (Array[Byte], Option[Array[Byte]]) = {
-    cache.events.put(
-      key = LfValueTranslationCache.EventCache.Key(eventId),
-      value = LfValueTranslationCache.EventCache.Value
-        .Create(create.versionedArg, create.versionedKey.map(_.map(_.key))),
-    )
-    cache.contracts.put(
-      key = LfValueTranslationCache.ContractCache.Key(create.coid),
-      value = LfValueTranslationCache.ContractCache.Value(create.versionedArg),
-    )
-    (serializeCreateArgOrThrow(create), serializeNullableKeyOrThrow(create))
-  }
+  override def serialize(eventId: EventId, create: Create): (Array[Byte], Option[Array[Byte]]) =
+    serializeCreateArgOrThrow(create) -> serializeNullableKeyOrThrow(create)
 
   override def serialize(
       eventId: EventId,
       exercise: Exercise,
-  ): (Array[Byte], Option[Array[Byte]], Option[Array[Byte]]) = {
-    cache.events.put(
-      key = LfValueTranslationCache.EventCache.Key(eventId),
-      value = LfValueTranslationCache.EventCache.Value
-        .Exercise(exercise.versionedChosenValue, exercise.versionedExerciseResult),
-    )
+  ): (Array[Byte], Option[Array[Byte]], Option[Array[Byte]]) =
     (
       serializeExerciseArgOrThrow(exercise),
       serializeNullableExerciseResultOrThrow(exercise),
       serializeNullableKeyOrThrow(exercise),
     )
-  }
 
   private[this] def consumeEnricherResult[V](
       result: LfEngine.Result[V]
@@ -248,9 +225,6 @@ final class LfValueTranslation(
       ),
     )
 
-  private def eventKey(s: String) =
-    LfValueTranslationCache.EventCache.Key(EventId.assertFromString(s))
-
   private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: Array[Byte]) =
     ValueSerializer.deserializeValue(algorithm.decompress(new ByteArrayInputStream(value)))
 
@@ -278,25 +252,15 @@ final class LfValueTranslation(
     lazy val templateId: LfIdentifier = apiIdentifierToDamlLfIdentifier(raw.partial.templateId.get)
 
     for {
-      create <- Future(
-        // Load the deserialized contract argument and contract key from the cache
-        // This returns the values in Daml-LF format.
-        cache.events
-          .getIfPresent(eventKey(raw.partial.eventId))
-          .getOrElse(
-            LfValueTranslationCache.EventCache.Value.Create(
-              argument =
-                decompressAndDeserialize(raw.createArgumentCompression, raw.createArgument),
-              key =
-                raw.createKeyValue.map(decompressAndDeserialize(raw.createKeyValueCompression, _)),
-            )
-          )
-          .assertCreate()
+      createKey <- Future(
+        raw.createKeyValue.map(decompressAndDeserialize(raw.createKeyValueCompression, _))
       )
-
+      createArgument <- Future(
+        decompressAndDeserialize(raw.createArgumentCompression, raw.createArgument)
+      )
       apiContractData <- toApiContractData(
-        value = create.argument,
-        key = create.key,
+        value = createArgument,
+        key = createKey,
         templateId = templateId,
         witnesses = raw.partial.witnessParties.toSet,
         eventProjectionProperties = eventProjectionProperties,
@@ -315,20 +279,12 @@ final class LfValueTranslation(
       ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[ExercisedEvent] = {
-    // Load the deserialized choice argument and choice result from the cache
+    // Deserialize contract argument and contract key
     // This returns the values in Daml-LF format.
-    val exercise =
-      cache.events
-        .getIfPresent(eventKey(raw.partial.eventId))
-        .getOrElse(
-          LfValueTranslationCache.EventCache.Value.Exercise(
-            argument =
-              decompressAndDeserialize(raw.exerciseArgumentCompression, raw.exerciseArgument),
-            result =
-              raw.exerciseResult.map(decompressAndDeserialize(raw.exerciseResultCompression, _)),
-          )
-        )
-        .assertExercise()
+    val exerciseArgument =
+      decompressAndDeserialize(raw.exerciseArgumentCompression, raw.exerciseArgument)
+    val exerciseResult =
+      raw.exerciseResult.map(decompressAndDeserialize(raw.exerciseResultCompression, _))
 
     lazy val temlateId: LfIdentifier = apiIdentifierToDamlLfIdentifier(raw.partial.templateId.get)
     lazy val interfaceId: Option[LfIdentifier] =
@@ -339,13 +295,13 @@ final class LfValueTranslation(
     // In verbose mode, this involves loading Daml-LF packages and filling in missing type information.
     for {
       choiceArgument <- toApiValue(
-        value = exercise.argument,
+        value = exerciseArgument,
         verbose = verbose,
         attribute = "exercise argument",
         enrich = value =>
           enricher.enrichChoiceArgument(temlateId, interfaceId, choiceName, value.unversioned),
       )
-      exerciseResult <- exercise.result match {
+      exerciseResult <- exerciseResult match {
         case Some(result) =>
           toApiValue(
             value = result,

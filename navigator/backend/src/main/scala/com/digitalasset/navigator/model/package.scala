@@ -6,7 +6,7 @@ package com.daml.navigator
 import scalaz.{@@, Tag}
 import com.daml.lf.{data => DamlLfData}
 import com.daml.lf.data.{Ref => DamlLfRef}
-import com.daml.lf.{iface => DamlLfIface}
+import com.daml.lf.{typesig => DamlLfIface}
 import com.daml.lf.value.json.NavigatorModelAliases
 import com.daml.ledger.api.{v1 => ApiV1}
 import com.daml.ledger.api.refinements.ApiTypes

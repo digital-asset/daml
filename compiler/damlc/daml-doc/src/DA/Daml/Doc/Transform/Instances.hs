@@ -8,6 +8,8 @@ module DA.Daml.Doc.Transform.Instances
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Transform.Options
 
+import Data.Maybe (listToMaybe)
+
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Text as T
@@ -55,7 +57,7 @@ distributeInstanceDocs opts docs =
         , md_descr = md_descr
         , md_functions = md_functions
         , md_templates = md_templates
-        , md_interfaces = map (addIfaceMethods imap) md_interfaces
+        , md_interfaces = map (addIfaceInstances imap) md_interfaces
         , md_classes = map (addClassInstances imap) md_classes
         , md_adts = map (addTypeInstances imap) md_adts
         , md_instances =
@@ -77,8 +79,9 @@ distributeInstanceDocs opts docs =
             anchor <- ad_anchor ad
             Map.lookup anchor imap
         }
-    addIfaceMethods :: InstanceMap -> InterfaceDoc -> InterfaceDoc
-    addIfaceMethods imap idoc = idoc
+
+    addIfaceInstances :: InstanceMap -> InterfaceDoc -> InterfaceDoc
+    addIfaceInstances imap idoc = idoc
       { if_methods =
           [ MethodDoc{..}
           | InstanceDoc {id_type, id_module, id_descr} <-
@@ -90,5 +93,15 @@ distributeInstanceDocs opts docs =
           , Just [_if_name, TypeLit name, mtd_type] <- [getTypeAppArgs id_type]
           , let mtd_name = Typename $ T.dropEnd 1 $ T.drop 1 name -- drop enclosing double-quotes.
           , let mtd_descr = id_descr
+          ]
+      , if_viewtype = listToMaybe
+          [ InterfaceViewtypeDoc viewtype
+          | InstanceDoc {id_type, id_module} <-
+              maybe [] Set.toList $ do
+                anchor <- if_anchor idoc
+                Map.lookup anchor imap
+          , Just "HasInterfaceView" == getTypeAppName id_type
+          , "DA.Internal.Interface" == id_module
+          , Just [_if_name, viewtype] <- [getTypeAppArgs id_type]
           ]
       }

@@ -35,7 +35,7 @@ private[platform] trait LedgerDaoTransactionsReader {
   def getFlatTransactions(
       startExclusive: Offset,
       endInclusive: Offset,
-      filter: FilterRelation,
+      filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed]
 
@@ -60,7 +60,7 @@ private[platform] trait LedgerDaoTransactionsReader {
 
   def getActiveContracts(
       activeAt: Offset,
-      filter: FilterRelation,
+      filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed]
 }

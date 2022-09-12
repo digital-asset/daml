@@ -302,5 +302,4 @@ main
                     action (fromInterfaceContractId @Template2 cid)
          submit p do useAction $ \ _cid -> pure ()
          submitMustFail p do useAction $ \ cid -> void (fetch cid)
-         submitMustFail p do useAction $ \ cid -> exercise cid MyChoice
          submitMustFail p do useAction $ \ cid -> archive cid

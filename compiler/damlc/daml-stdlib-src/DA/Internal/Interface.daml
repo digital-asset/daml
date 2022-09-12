@@ -4,6 +4,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP #-}
 
 -- | MOVE Prelude interface functionality
 module DA.Internal.Interface (
@@ -16,7 +17,6 @@ module DA.Internal.Interface (
   toInterfaceContractId,
   fromInterfaceContractId,
   fetchFromInterface,
-  _exerciseDefault,
   _exerciseInterfaceGuard,
   HasInterfaceView(..),
   view
@@ -141,12 +141,7 @@ fetchFromInterface cid = do
       None -> pure None
       Some tpl -> pure (Some (fromInterfaceContractId @t cid, tpl))
 
--- | HIDE Gives a valid implementation of `HasExercise.exercise`
--- for types that implement `HasExerciseGuarded`. This is used
--- in interface desugaring.
-_exerciseDefault : HasExerciseGuarded t c r => ContractId t -> c -> Update r
-_exerciseDefault = exerciseGuarded (const True)
-
+#ifdef DAML_INTERFACE_EXTENDED
 -- | HIDE The guard used for UExerciseInterface, during interface
 -- desugaring. This function converts a guard on type t into a
 -- guard on the type i, raising a WronglyTypedContract error if
@@ -164,6 +159,11 @@ _exerciseInterfaceGuard : forall i t.
   ContractId t -> (t -> Bool) -> i -> Bool
 _exerciseInterfaceGuard cid tpred ivalue =
   tpred (unsafeFromInterface (coerceContractId cid) ivalue)
+#else
+_exerciseInterfaceGuard : forall t i a b c. a -> b -> c -> Bool
+_exerciseInterfaceGuard cid tpred ivalue =
+  error "Interfaces not supported in this version of Daml LF"
+#endif
 
 -- Read: Interface `i` has a view of type `v`
 class HasInterfaceView i v | i -> v where

@@ -17,7 +17,7 @@ final case class JwtTimestampLeeway(
 trait Leeway {
   def getVerifier(
       algorithm: Algorithm,
-      mbJwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+      jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
   ): com.auth0.jwt.interfaces.JWTVerifier = {
     def addLeeway(
         verification: Verification,
@@ -35,7 +35,7 @@ trait Leeway {
       }
     }
     val defaultVerifier = JWT.require(algorithm)
-    val verification = mbJwtTimestampLeeway.fold(defaultVerifier)(addLeeway(defaultVerifier, _))
+    val verification = jwtTimestampLeeway.fold(defaultVerifier)(addLeeway(defaultVerifier, _))
     verification.build()
   }
 }

@@ -39,8 +39,10 @@ import scalaz.std.tuple._
 import scalaz.std.vector._
 import scalaz.syntax.traverse._
 import scalaz.std.list._
-import scalaz.{-\/, Foldable, Liskov, NonEmptyList, OneAnd, Tag, \/, \/-}
+import scalaz.{@@, -\/, \/, \/-, Foldable, Monoid, Liskov, NonEmptyList, OneAnd, Tag}
 import Liskov.<~<
+import com.daml.fetchcontracts.domain.ResolvedQuery
+import com.daml.fetchcontracts.domain.ResolvedQuery.Unsupported
 import com.daml.http.domain.TemplateId.{toLedgerApiValue, OptionalPkg}
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
@@ -54,6 +56,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import scalaz.EitherT.{either, eitherT, rightT}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
+import com.daml.nonempty.NonEmpty
 
 object WebSocketService {
   import util.ErrorOps._
@@ -63,14 +66,22 @@ object WebSocketService {
   private type CompiledQueries =
     Map[domain.TemplateId.Resolved, (ValuePredicate, LfV => Boolean)]
 
-  private final case class StreamPredicate[+Positive](
-      resolved: Set[domain.TemplateId.Resolved],
-      unresolved: Set[domain.TemplateId.OptionalPkg],
-      fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive],
-      dbQuery: (domain.PartySet, dbbackend.ContractDao) => ConnectionIO[
-        _ <: Vector[(domain.ActiveContract[JsValue], Positive)]
-      ],
-  )
+  private sealed abstract class StreamPredicate[+Positive] extends Product with Serializable
+
+  private object StreamPredicate {
+    final case class Valid[+Positive](
+        resolvedQurey: domain.ResolvedQuery,
+        unresolved: Set[domain.TemplateId.OptionalPkg],
+        fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive],
+        dbQuery: (domain.PartySet, dbbackend.ContractDao) => ConnectionIO[
+          _ <: Vector[(domain.ActiveContract[JsValue], Positive)]
+        ],
+    ) extends StreamPredicate[Positive]
+    final case class AllContractTypeIdsNotResolved(
+        unresolved: NonEmpty[Set[domain.TemplateId.OptionalPkg]]
+    ) extends StreamPredicate[Nothing]
+    final case class UnsupportedQuery(reason: Unsupported) extends StreamPredicate[Nothing]
+  }
 
   /** If an element satisfies `prefix`, consume it and emit the result alongside
     * the next element (which is not similarly tested); otherwise, emit it.
@@ -228,6 +239,43 @@ object WebSocketService {
 
   }
 
+  private sealed trait UnsupportedOrResolvedQueryTag
+  private type UnsupportedOrResolvedQuery =
+    (Unsupported \/ ResolvedQuery) @@ UnsupportedOrResolvedQueryTag
+  private val UnsupportedOrResolvedQuery = Tag.of[UnsupportedOrResolvedQueryTag]
+
+  private implicit val `Unsupported or ResolvedQuery monoid`: Monoid[UnsupportedOrResolvedQuery] = {
+    import ResolvedQuery._
+    UnsupportedOrResolvedQuery.subst(
+      Monoid.instance(
+        {
+          case (-\/(CannotQueryBothTemplateIdsAndInterfaceIds), _) =>
+            -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
+          case (_, -\/(CannotQueryBothTemplateIdsAndInterfaceIds)) =>
+            -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
+
+          case (-\/(CannotQueryManyInterfaceIds), _) => -\/(CannotQueryManyInterfaceIds)
+          case (_, -\/(CannotQueryManyInterfaceIds)) => -\/(CannotQueryManyInterfaceIds)
+
+          case (-\/(CannotBeEmpty), _) => -\/(CannotBeEmpty)
+          case (_, -\/(CannotBeEmpty)) => -\/(CannotBeEmpty)
+
+          case (\/-(ByInterfaceId(_)), \/-(ByTemplateId(_)) | \/-(ByTemplateIds(_))) =>
+            -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
+          case (\/-(ByTemplateId(_)) | \/-(ByTemplateIds(_)), \/-(ByInterfaceId(_))) =>
+            -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
+
+          case (\/-(ByInterfaceId(interfaceIdA)), \/-(ByInterfaceId(interfaceIdB))) =>
+            if (interfaceIdA == interfaceIdB) \/-(ByInterfaceId(interfaceIdA))
+            else -\/(CannotQueryManyInterfaceIds)
+
+          case (\/-(a), \/-(b)) => ResolvedQuery(a.resolved ++ b.resolved)
+        },
+        \/-(Empty),
+      )
+    )
+  }
+
   implicit def SearchForeverRequestWithStreamQuery(implicit
       ec: ExecutionContext
   ): StreamQueryReader[domain.SearchForeverRequest] =
@@ -320,39 +368,67 @@ object WebSocketService {
                 )
                 .map(
                   _.toSet[
-                    Either[domain.TemplateId.Resolved, domain.TemplateId.OptionalPkg]
+                    Either[domain.ContractTypeId.Resolved, domain.ContractTypeId.OptionalPkg]
                   ]
                     .partitionMap(identity)
                 )
             (resolved, unresolved) = res
-            q = prepareFilters(resolved, gacr.query, lookupType): CompiledQueries
-          } yield (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, (ix, pos)))))
+            errorOrResolvedQuery = domain.ResolvedQuery(resolved)
+            q = prepareFilters(
+              errorOrResolvedQuery.getOrElse(ResolvedQuery.Empty),
+              gacr.query,
+              lookupType,
+            ): CompiledQueries
+          } yield (
+            UnsupportedOrResolvedQuery(
+              errorOrResolvedQuery
+            ),
+            resolved,
+            unresolved,
+            q transform ((_, p) => NonEmptyList((p, (ix, pos)))),
+          )
+
         for {
           res <-
             request.queriesWithPos.zipWithIndex // index is used to ensure matchesOffset works properly
               .map { case ((q, pos), ix) => (q, pos, ix) }
               .foldMapM(query.tupled)
-          (resolved, unresolved, q) = res
-        } yield StreamPredicate(
-          resolved,
-          unresolved,
-          fn(q),
-          { (parties, dao) =>
-            import dao.{logHandler, jdbcDriver}
-            import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
-            val (dbQueries, posMap) = dbQueriesPlan(q)
-            selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.ByNelInt)
-              .map(_ map (_ rightMap (_ map posMap)))
-          },
+          (unsupportedOrResolvedQuery, resolved, unresolved, q) = res
+        } yield (
+          unresolved match {
+            case NonEmpty(unresolvedSet) if resolved.isEmpty =>
+              StreamPredicate.AllContractTypeIdsNotResolved(unresolvedSet)
+            case _ =>
+              UnsupportedOrResolvedQuery.unwrap(unsupportedOrResolvedQuery) match {
+                case \/-(resolvedQuery) =>
+                  StreamPredicate.Valid(
+                    resolvedQuery,
+                    unresolved,
+                    fn(q),
+                    { (parties, dao) =>
+                      import dao.{logHandler, jdbcDriver}
+                      import dbbackend.ContractDao.{
+                        selectContractsMultiTemplate,
+                        MatchedQueryMarker,
+                      }
+                      val (dbQueries, posMap) = dbQueriesPlan(q)
+                      selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.ByNelInt)
+                        .map(_ map (_ rightMap (_ map posMap)))
+                    },
+                  )
+                case -\/(unsupported) =>
+                  StreamPredicate.UnsupportedQuery(unsupported)
+              }
+          }
         )
       }
 
       private def prepareFilters(
-          ids: Set[domain.TemplateId.Resolved],
+          resolvedQuery: domain.ResolvedQuery,
           queryExpr: Map[String, JsValue],
           lookupType: ValuePredicate.TypeLookup,
       ): CompiledQueries =
-        ids.iterator.map { tid =>
+        resolvedQuery.resolved.iterator.map { tid =>
           val vp = ValuePredicate.fromTemplateJsObject(queryExpr, tid, lookupType)
           (tid, (vp, vp.toFunPredicate))
         }.toMap
@@ -501,12 +577,13 @@ object WebSocketService {
         }
       def streamPredicate(
           q: Map[domain.TemplateId.Resolved, HashSet[LfV]],
+          resolvedQuery: ResolvedQuery,
           unresolved: Set[OptionalPkg],
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
       ) =
-        StreamPredicate(
-          q.keySet,
+        StreamPredicate.Valid(
+          resolvedQuery,
           unresolved,
           fn(q),
           { (parties, dao) =>
@@ -525,7 +602,17 @@ object WebSocketService {
         )
         .map { case (resolvedWithKey, unresolved) =>
           val q = getQ(resolvedWithKey)
-          streamPredicate(q, unresolved)
+          unresolved match {
+            case NonEmpty(unresolvedSet) if q.isEmpty =>
+              StreamPredicate.AllContractTypeIdsNotResolved(unresolvedSet)
+            case _ =>
+              domain.ResolvedQuery(q.keySet) match {
+                case \/-(resolvedQuery) =>
+                  streamPredicate(q, resolvedQuery, unresolved)
+                case -\/(unsupported) =>
+                  StreamPredicate.UnsupportedQuery(unsupported)
+              }
+          }
         }
     }
 
@@ -592,6 +679,7 @@ class WebSocketService(
 )(implicit mat: Materializer, ec: ExecutionContext) {
 
   import WebSocketService._
+  import StreamPredicate._
   import com.daml.scalautil.Statement.discard
   import util.ErrorOps._
   import com.daml.http.json.JsonProtocol._
@@ -712,17 +800,30 @@ class WebSocketService(
   }
 
   private[this] def fetchAndPreFilterAcs[Positive](
-      predicate: StreamPredicate[Positive],
+      predicate: Valid[Positive],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
-  ): Future[Source[StepAndErrors[Positive, JsValue], NotUsed]] =
-    contractsService.daoAndFetch.cata(
+  ): Future[Source[StepAndErrors[Positive, JsValue], NotUsed]] = {
+    // TODO query store support for interface query/fetch #14819
+    val daoAndFetch = predicate.resolvedQurey match {
+      case domain.ResolvedQuery.ByInterfaceId(_) =>
+        None
+      case _ =>
+        contractsService.daoAndFetch
+    }
+
+    daoAndFetch.cata(
       { case (dao, fetch) =>
         val tx: ConnectionIO[Source[StepAndErrors[Positive, JsValue], NotUsed]] =
-          fetch.fetchAndPersistBracket(jwt, ledgerId, parties, predicate.resolved.toList) {
+          fetch.fetchAndPersistBracket(
+            jwt,
+            ledgerId,
+            parties,
+            predicate.resolvedQurey.resolved.toList,
+          ) {
             case LedgerBegin =>
               fconn.pure(liveBegin(LedgerBegin))
             case bookmark @ AbsoluteBookmark(_) =>
@@ -742,10 +843,21 @@ class WebSocketService(
       },
       Future.successful {
         contractsService
-          .liveAcsAsInsertDeleteStepSource(jwt, ledgerId, parties, predicate.resolved.toList)
-          .via(convertFilterContracts(predicate.fn))
+          .liveAcsAsInsertDeleteStepSource(
+            jwt,
+            ledgerId,
+            parties,
+            predicate.resolvedQurey.resolved.toList,
+          )
+          .via(
+            convertFilterContracts(
+              predicate.resolvedQurey,
+              predicate.fn,
+            )
+          )
       },
     )
+  }
 
   private[this] def liveBegin(
       bookmark: BeginBookmark[domain.Offset]
@@ -785,7 +897,7 @@ class WebSocketService(
         .map(queryPredicate(_, jwt, ledgerId))
         .sequence
 
-    def liveFrom(resolved: Set[domain.ContractTypeId.Resolved])(
+    def liveFrom(resolvedQuery: ResolvedQuery)(
         acsEnd: Option[StartingOffset]
     ): Future[Source[StepAndErrors[Q.Positive, JsValue], NotUsed]] = {
       val shiftedRequest = Q.adjustRequest(acsEnd, request)
@@ -794,88 +906,122 @@ class WebSocketService(
       // Produce the predicate that is going to be applied to the incoming transaction stream
       // We need to apply this to the request with all the offsets shifted so that each stream
       // can filter out anything from liveStartingOffset to the query-specific offset
-      queryPredicate(shiftedRequest, jwt, ledgerId).map { case StreamPredicate(_, _, fn, _) =>
-        contractsService
-          .insertDeleteStepSource(
-            jwt,
-            ledgerId,
-            parties,
-            resolved.toList,
-            liveStartingOffset,
-            Terminates.Never,
+      queryPredicate(shiftedRequest, jwt, ledgerId).map {
+        case Valid(_, _, fn, _) =>
+          contractsService
+            .insertDeleteStepSource(
+              jwt,
+              ledgerId,
+              parties,
+              resolvedQuery.resolved.toList,
+              liveStartingOffset,
+              Terminates.Never,
+            )
+            .via(
+              convertFilterContracts(
+                resolvedQuery,
+                fn,
+              )
+            )
+            .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
+        case AllContractTypeIdsNotResolved(_) =>
+          // it is not possible to reach here as it should have failed upstream. We will not need to handle this after #14931
+          Source.single(
+            StepAndErrors(
+              Seq(ServerError.fromMsg(ErrorMessages.cannotResolveAnyTemplateId)),
+              Acs(Vector.empty),
+            )
           )
-          .via(convertFilterContracts(fn))
-          .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
+        case UnsupportedQuery(unsupportedReason) =>
+          // it is not possible to reach here as it should have failed upstream. We will not need to handle this after #14931
+          Source.single(
+            StepAndErrors(
+              Seq(ServerError.fromMsg(unsupportedReason.errorMsg)),
+              Acs(Vector.empty),
+            )
+          )
       }
     }
 
     def processResolved(
-        resolved: Set[domain.ContractTypeId.Resolved],
+        resolvedQuery: ResolvedQuery,
         unresolved: Set[OptionalPkg],
+        fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Q.Positive],
     ) =
       acsPred
         .flatMap(
-          _.map(fetchAndPreFilterAcs(_, jwt, ledgerId, parties))
-            .cata(
-              _.map { acsAndLiveMarker =>
-                acsAndLiveMarker
-                  .mapAsync(1) {
-                    case acs @ StepAndErrors(_, Acs(_)) if acs.nonEmpty =>
-                      Future.successful(Source.single(acs))
-                    case StepAndErrors(_, Acs(_)) =>
-                      Future.successful(Source.empty)
-                    case liveBegin @ StepAndErrors(_, LiveBegin(offset)) =>
-                      val acsEnd = offset.toOption.map(domain.StartingOffset(_))
-                      liveFrom(resolved)(acsEnd).map(it => Source.single(liveBegin) ++ it)
-                    case txn @ StepAndErrors(_, Txn(_, offset)) =>
-                      val acsEnd = Some(domain.StartingOffset(offset))
-                      liveFrom(resolved)(acsEnd).map(it => Source.single(txn) ++ it)
-                  }
-                  .flatMapConcat(it => it)
-              }, {
-                // This is the case where we made no ACS request because everything had an offset
-                // Get the earliest available offset from where to start from
-                val liveStartingOffset = Q.liveStartingOffset(offPrefix, request)
-                queryPredicate(request, jwt, ledgerId).map { case StreamPredicate(_, _, fn, _) =>
-                  contractsService
-                    .insertDeleteStepSource(
-                      jwt,
-                      ledgerId,
-                      parties,
-                      resolved.toList,
-                      liveStartingOffset,
-                      Terminates.Never,
+          _.flatMap {
+            case vp: Valid[Q.Positive] =>
+              Some(fetchAndPreFilterAcs(vp, jwt, ledgerId, parties))
+            case AllContractTypeIdsNotResolved(_) | UnsupportedQuery(_) =>
+              None
+          }.cata(
+            _.map { acsAndLiveMarker =>
+              acsAndLiveMarker
+                .mapAsync(1) {
+                  case acs @ StepAndErrors(_, Acs(_)) if acs.nonEmpty =>
+                    Future.successful(Source.single(acs))
+                  case StepAndErrors(_, Acs(_)) =>
+                    Future.successful(Source.empty)
+                  case liveBegin @ StepAndErrors(_, LiveBegin(offset)) =>
+                    val acsEnd = offset.toOption.map(domain.StartingOffset(_))
+                    liveFrom(resolvedQuery)(acsEnd).map(it => Source.single(liveBegin) ++ it)
+                  case txn @ StepAndErrors(_, Txn(_, offset)) =>
+                    val acsEnd = Some(domain.StartingOffset(offset))
+                    liveFrom(resolvedQuery)(acsEnd).map(it => Source.single(txn) ++ it)
+                }
+                .flatMapConcat(it => it)
+            }, {
+              // This is the case where we made no ACS request because everything had an offset
+              // Get the earliest available offset from where to start from
+              val liveStartingOffset = Q.liveStartingOffset(offPrefix, request)
+              Future.successful(
+                contractsService
+                  .insertDeleteStepSource(
+                    jwt,
+                    ledgerId,
+                    parties,
+                    resolvedQuery.resolved.toList,
+                    liveStartingOffset,
+                    Terminates.Never,
+                  )
+                  .via(
+                    convertFilterContracts(
+                      resolvedQuery,
+                      fn,
                     )
-                    .via(convertFilterContracts(fn))
-                    .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
-                }
-              },
-            )
-            .map(
-              _.via(removePhantomArchives(remove = Q.removePhantomArchives(request)))
-                .map { sae =>
-                  sae.logHiddenErrors()
-                  sae.mapPos(Q.renderCreatedMetadata).render
-                }
-                .prepend(reportUnresolvedTemplateIds(unresolved))
-                .map(jsv => \/-(wsMessage(jsv)))
-            )
+                  )
+                  .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
+              )
+            },
+          ).map(
+            _.via(removePhantomArchives(remove = Q.removePhantomArchives(request)))
+              .map { sae =>
+                sae.logHiddenErrors()
+                sae.mapPos(Q.renderCreatedMetadata).render
+              }
+              .prepend(reportUnresolvedTemplateIds(unresolved))
+              .map(jsv => \/-(wsMessage(jsv)))
+          )
         )
 
     Source
       .lazyFutureSource { () =>
         queryPredicate(request, jwt, ledgerId).flatMap {
-          case StreamPredicate(resolved, unresolved, _, _) =>
-            if (resolved.nonEmpty)
-              processResolved(resolved, unresolved)
-            else
-              Future.successful(
-                reportUnresolvedTemplateIds(unresolved)
-                  .map(jsv => \/-(wsMessage(jsv)))
-                  .concat(
-                    Source.single(-\/(InvalidUserInput(ErrorMessages.cannotResolveAnyTemplateId)))
-                  )
-              )
+          case Valid(resolved, unresolved, fn, _) =>
+            processResolved(resolved, unresolved, fn)
+          case AllContractTypeIdsNotResolved(unresolved) =>
+            Future.successful(
+              reportUnresolvedTemplateIds(unresolved)
+                .map(jsv => \/-(wsMessage(jsv)))
+                .concat(
+                  Source.single(-\/(InvalidUserInput(ErrorMessages.cannotResolveAnyTemplateId)))
+                )
+            )
+          case UnsupportedQuery(unsupportedReason) =>
+            Future.successful(
+              Source.single(-\/(InvalidUserInput(unsupportedReason.errorMsg)))
+            )
         }
       }
       .mapMaterializedValue { _: Future[_] =>
@@ -952,7 +1098,8 @@ class WebSocketService(
     TextMessage(jsVal.compactPrint)
 
   private def convertFilterContracts[Pos](
-      fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Pos]
+      resolvedQuery: domain.ResolvedQuery,
+      fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Pos],
   ): Flow[ContractStreamStep.LAV1, StepAndErrors[Pos, JsValue], NotUsed] =
     Flow
       .fromFunction { step: ContractStreamStep.LAV1 =>
@@ -963,7 +1110,7 @@ class WebSocketService(
               .liftErr(ServerError.fromMsg),
           ce =>
             domain.ActiveContract
-              .fromLedgerApi(ce)
+              .fromLedgerApi(resolvedQuery, ce)
               .liftErr(ServerError.fromMsg)
               .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError.fromMsg)),
         )(Seq)

@@ -129,6 +129,7 @@ da_scala_test_suite(
         "//ledger/ledger-offset",
         "//ledger/metrics",
         "//ledger/metrics:metrics-test-lib",
+        "//ledger/participant-state-index",
         "//ledger/test-common",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",

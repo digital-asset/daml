@@ -4,19 +4,19 @@
 package com.daml.platform.apiserver.execution
 
 import java.time.Duration
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
-import com.daml.lf.command.{ApiCommands => LfCommands, DisclosedContract}
+import com.daml.lf.command.{ContractMetadata, DisclosedContract, ApiCommands => LfCommands}
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.ParticipantId
+import com.daml.lf.data.Ref.{Identifier, ParticipantId}
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ResultDone}
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{SubmittedTransaction, Transaction}
+import com.daml.lf.transaction.{SubmittedTransaction, Transaction, TransactionVersion, Versioned}
+import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -29,6 +29,22 @@ class StoreBackedCommandExecutorSpec
     with MockitoSugar
     with ArgumentMatchersSugar {
 
+  private val disclosedContracts = ImmArray(
+    Versioned(
+      TransactionVersion.V15,
+      DisclosedContract(
+        templateId = Identifier.assertFromString("some:pkg:identifier"),
+        contractId = TransactionBuilder.newCid,
+        argument = Value.ValueNil,
+        metadata = ContractMetadata(
+          createdAt = Time.Timestamp.Epoch,
+          keyHash = None,
+          driverMetadata = ImmArray.empty,
+        ),
+      ),
+    )
+  )
+
   private val emptyTransactionMetadata = Transaction.Metadata(
     submissionSeed = None,
     submissionTime = Time.Timestamp.now(),
@@ -36,11 +52,11 @@ class StoreBackedCommandExecutorSpec
     dependsOnTime = false,
     nodeSeeds = ImmArray.Empty,
     globalKeyMapping = Map.empty,
-    disclosures = ImmArray.Empty,
+    disclosures = disclosedContracts,
   )
 
   "execute" should {
-    "add interpretation time to result" in {
+    "add interpretation time and used disclosed contracts to result" in {
       val mockEngine = mock[Engine]
       when(
         mockEngine.submit(
@@ -73,6 +89,7 @@ class StoreBackedCommandExecutorSpec
           ledgerEffectiveTime = Time.Timestamp.Epoch,
           commandsReference = "",
         ),
+        disclosedContracts = ImmArray.empty,
       )
       val submissionSeed = Hash.hashPrivateKey("a key")
       val configuration = Configuration(
@@ -97,6 +114,7 @@ class StoreBackedCommandExecutorSpec
         instance.execute(commands, submissionSeed, configuration).map { actual =>
           actual.foreach { actualResult =>
             actualResult.interpretationTimeNanos should be > 0L
+            actualResult.usedDisclosedContracts shouldBe disclosedContracts
           }
           succeed
         }

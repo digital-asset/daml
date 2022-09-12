@@ -184,7 +184,11 @@ da_scala_binary(
 
 daml_compile(
     name = "Account",
-    srcs = ["src/it/daml/Account.daml"],
+    srcs = ["src/it/daml/%s.daml" % m for m in [
+        "Account",
+        "IAccount",
+    ]],
+    target = lf_version_configuration.get("dev"),  # TODO(SC #13296) remove when interfaces in default
     visibility = ["//ledger-service:__subpackages__"],
 )
 
@@ -199,6 +203,7 @@ daml_compile(
     srcs = ["src/it/daml/%s.daml" % m for m in [
         "CIou",
         "IIou",
+        "RIIou",
         "Transferrable",
     ]],
     target = lf_version_configuration.get("dev"),  # TODO(SC #13296) remove when interfaces in default

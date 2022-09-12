@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.testtool.suites.v1_dev
+package com.daml.ledger.api.testtool.suites.v1_15
 
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
@@ -33,6 +33,7 @@ import com.daml.ledger.test.{
 import com.daml.logging.LoggingContext
 import scalaz.Tag
 
+import java.util.regex.Pattern
 import scala.concurrent.duration._
 
 class InterfaceSubscriptionsIT extends LedgerTestSuite {
@@ -455,8 +456,8 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
     "Subscribing on transaction stream by an unknown template fails",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val unknownTemplate = TemplateId(Tag.unwrap(I.id).copy(entityName = "IDoesNotExist"))
-    val unknownInterface = TemplateId(Tag.unwrap(I.id).copy(entityName = "IDoesNotExist"))
+    val unknownTemplate = TemplateId(Tag.unwrap(I.id).copy(entityName = "TemplateDoesNotExist"))
+    val unknownInterface = TemplateId(Tag.unwrap(I.id).copy(entityName = "InterfaceDoesNotExist"))
     import ledger._
     for {
       _ <- create(party, T1(party, 1))
@@ -473,15 +474,15 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       )
         .mustFail("subscribing with an unknown interface")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
-        LedgerApiErrors.RequestValidation.InvalidArgument,
-        Some(s"Templates do not exist"),
+        LedgerApiErrors.RequestValidation.NotFound.TemplateOrInterfaceIdsNotFound,
+        Some(Pattern.compile("Templates do not exist.*TemplateDoesNotExist]")),
       )
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure2,
-        LedgerApiErrors.RequestValidation.InvalidArgument,
-        Some(s"Interfaces do not exist"),
+        LedgerApiErrors.RequestValidation.NotFound.TemplateOrInterfaceIdsNotFound,
+        Some(Pattern.compile("Interfaces do not exist.*InterfaceDoesNotExist]")),
       )
     }
   })

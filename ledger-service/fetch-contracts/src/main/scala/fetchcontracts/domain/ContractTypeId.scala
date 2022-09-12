@@ -5,8 +5,10 @@ package com.daml.fetchcontracts.domain
 
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.lf.data.Ref
-import scalaz.{Traverse, Applicative}
+import scalaz.{-\/, Applicative, Traverse, \/, \/-}
 import scalaz.syntax.functor._
+
+import scala.collection.IterableOps
 
 /** A contract type ID that may be either a template or an interface ID.
   * A [[ContractTypeId.Resolved]] ID will always be either [[ContractTypeId.Template]]
@@ -57,6 +59,72 @@ sealed abstract class ContractTypeId[+PkgId]
     import scala.util.hashing.{MurmurHash3 => H}
     H.productHash(this, H.productSeed, ignorePrefix = true)
   }
+}
+
+object ResolvedQuery {
+  def apply(resolved: ContractTypeId.Resolved): ResolvedQuery = {
+    import ContractTypeId._
+    resolved match {
+      case t @ Template(_, _, _) => ByTemplateId(t)
+      case i @ Interface(_, _, _) => ByInterfaceId(i)
+    }
+  }
+
+  def apply(resolved: Set[ContractTypeId.Resolved]): Unsupported \/ ResolvedQuery = {
+    val (templateIds, interfaceIds) = partition(resolved)
+    if (templateIds.nonEmpty && interfaceIds.nonEmpty) {
+      -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
+    } else if (templateIds.isEmpty && interfaceIds.size > 1) {
+      -\/(CannotQueryManyInterfaceIds)
+    } else if (templateIds.isEmpty && interfaceIds.size == 1) {
+      \/-(ByInterfaceId(interfaceIds.head))
+    } else if (templateIds.nonEmpty) {
+      \/-(ByTemplateIds(templateIds))
+    } else {
+      -\/(CannotBeEmpty)
+    }
+  }
+
+  def partition[CC[_], C](
+      resolved: IterableOps[ContractTypeId.Resolved, CC, C]
+  ): (CC[ContractTypeId.Template.Resolved], CC[ContractTypeId.Interface.Resolved]) =
+    resolved.partitionMap {
+      case t @ ContractTypeId.Template(_, _, _) => Left(t)
+      case i @ ContractTypeId.Interface(_, _, _) => Right(i)
+    }
+
+  sealed abstract class Unsupported(val errorMsg: String) extends Product with Serializable
+  final case object CannotQueryBothTemplateIdsAndInterfaceIds
+      extends Unsupported("Cannot resolve any template ID from request")
+  final case object CannotQueryManyInterfaceIds
+      extends Unsupported("Cannot query more than one interface ID")
+  final case object CannotBeEmpty extends Unsupported("Cannot resolve any template ID from request")
+
+  // TODO RR #14871 verify that `ResolvedQuery.Empty` is ok where it is used
+  final case object Empty extends ResolvedQuery {
+    def resolved = Set.empty[ContractTypeId.Resolved]
+  }
+
+  final case class ByTemplateIds(templateIds: Set[ContractTypeId.Template.Resolved])
+      extends ResolvedQuery {
+    def resolved: Set[ContractTypeId.Resolved] =
+      templateIds.toSet[ContractTypeId.Resolved]
+  }
+  final case class ByTemplateId(templateId: ContractTypeId.Template.Resolved)
+      extends ResolvedQuery {
+    def resolved: Set[ContractTypeId.Resolved] =
+      Set(templateId).toSet[ContractTypeId.Resolved]
+  }
+
+  final case class ByInterfaceId(interfaceId: ContractTypeId.Interface.Resolved)
+      extends ResolvedQuery {
+    def resolved: Set[ContractTypeId.Resolved] =
+      Set(interfaceId).toSet[ContractTypeId.Resolved]
+  }
+}
+
+sealed abstract class ResolvedQuery extends Product with Serializable {
+  def resolved: Set[ContractTypeId.Resolved]
 }
 
 object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {

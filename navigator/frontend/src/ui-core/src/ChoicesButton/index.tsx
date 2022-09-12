@@ -22,7 +22,7 @@ export interface Contract {
 }
 
 const List = styled.ul`
-  width: 160px;
+  min-width: 160px;
   list-style: none;
   padding: 15px;
   margin: 0;
@@ -59,7 +59,7 @@ const Content = ({ contract, choices, renderLink }: ContentProps) => {
     return (
       <List>
         {contract.template.choices.map(choice => (
-          <ListItem key={choice.name}>
+          <ListItem key={choice.inheritedInterface + choice.name}>
             <Truncate>
               {renderLink(contract.id, choice.name, choice.inheritedInterface)}
             </Truncate>

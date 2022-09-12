@@ -80,21 +80,36 @@ public final class UserManagementClientImpl implements UserManagementClient {
     return deleteUser(request, Optional.of(accessToken));
   }
 
-  private Single<ListUsersResponse> listUsers(@NonNull Optional<String> maybeToken) {
+  private Single<ListUsersResponse> listUsers(
+      @NonNull Optional<ListUsersRequest> maybeRequest, @NonNull Optional<String> maybeToken) {
+    UserManagementServiceOuterClass.ListUsersRequest request =
+        maybeRequest
+            .map(ListUsersRequest::toProto)
+            .orElse(UserManagementServiceOuterClass.ListUsersRequest.getDefaultInstance());
     return Single.fromFuture(
-            StubHelper.authenticating(this.serviceFutureStub, maybeToken)
-                .listUsers(UserManagementServiceOuterClass.ListUsersRequest.getDefaultInstance()))
+            StubHelper.authenticating(this.serviceFutureStub, maybeToken).listUsers(request))
         .map(ListUsersResponse::fromProto);
   }
 
   @Override
   public Single<ListUsersResponse> listUsers() {
-    return listUsers(Optional.empty());
+    return listUsers(Optional.empty(), Optional.empty());
   }
 
   @Override
   public Single<ListUsersResponse> listUsers(String accessToken) {
-    return listUsers(Optional.of(accessToken));
+    return listUsers(Optional.empty(), Optional.of(accessToken));
+  }
+
+  @Override
+  public Single<ListUsersResponse> listUsers(@NonNull ListUsersRequest request) {
+    return listUsers(Optional.of(request), Optional.empty());
+  }
+
+  @Override
+  public Single<ListUsersResponse> listUsers(
+      @NonNull ListUsersRequest request, String accessToken) {
+    return listUsers(Optional.of(request), Optional.of(accessToken));
   }
 
   private Single<GrantUserRightsResponse> grantUserRights(

@@ -5,7 +5,7 @@ package com.daml.http
 
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
-import com.daml.lf.iface
+import com.daml.lf.typesig
 import domain.{Choice, ContractTypeId, TemplateId}
 import ContractTypeId.ResolvedOf
 import com.daml.http.util.IdentifierConverters
@@ -63,7 +63,7 @@ private class PackageService(
     // `diff` but with interface-inherited choices resolved
     private[this] def resolveChoicesIn(diff: PackageStore): PackageStore = {
       def lookupIf(pkgId: Ref.PackageId) = (packageStore get pkgId) orElse (diff get pkgId)
-      val findIface = iface.Interface.findAstInterface(Function unlift lookupIf)
+      val findIface = typesig.PackageSignature.findInterface(Function unlift lookupIf)
       diff.transform((_, iface) => iface resolveChoicesAndIgnoreUnresolvedChoices findIface)
     }
 
@@ -71,10 +71,10 @@ private class PackageService(
       def lookupIf(packageStore: PackageStore, pkId: Ref.PackageId) =
         packageStore
           .get(pkId)
-          .map((_, { newSig: iface.Interface => packageStore.updated(pkId, newSig) }))
+          .map((_, { newSig: typesig.PackageSignature => packageStore.updated(pkId, newSig) }))
 
       val (packageStore2, diffElems) =
-        iface.Interface.resolveRetroImplements(packageStore, diff.values.toSeq)(lookupIf)
+        typesig.PackageSignature.resolveRetroImplements(packageStore, diff.values.toSeq)(lookupIf)
       packageStore2 ++ diffElems.view.map(p => (p.packageId, p))
     }
   }
@@ -217,8 +217,11 @@ private class PackageService(
   def resolveTemplateRecordType: ResolveTemplateRecordType =
     templateId =>
       \/-(
-        iface
-          .TypeCon(iface.TypeConName(IdentifierConverters.lfIdentifier(templateId)), ImmArraySeq())
+        typesig
+          .TypeCon(
+            typesig.TypeConName(IdentifierConverters.lfIdentifier(templateId)),
+            ImmArraySeq(),
+          )
       )
 
   def allTemplateIds(implicit ec: ExecutionContext): AllTemplateIds = {
@@ -273,7 +276,7 @@ object PackageService {
   }
 
   type ResolveTemplateRecordType =
-    TemplateId.RequiredPkg => Error \/ iface.Type
+    TemplateId.RequiredPkg => Error \/ typesig.Type
 
   type AllTemplateIds =
     LoggingContextOf[
@@ -284,10 +287,10 @@ object PackageService {
     (
         ContractTypeId.Resolved,
         Choice,
-    ) => Error \/ (Option[ContractTypeId.Interface.Resolved], iface.Type)
+    ) => Error \/ (Option[ContractTypeId.Interface.Resolved], typesig.Type)
 
   type ResolveKeyType =
-    TemplateId.RequiredPkg => Error \/ iface.Type
+    TemplateId.RequiredPkg => Error \/ typesig.Type
 
   final case class ContractTypeIdMap[CtId[_]](
       all: Map[RequiredPkg[CtId], ResolvedOf[CtId]],
@@ -313,10 +316,10 @@ object PackageService {
   }
 
   private type ChoiceTypeMap = Map[ContractTypeId.Resolved, NonEmpty[
-    Map[Choice, NonEmpty[Map[Option[ContractTypeId.Interface.Resolved], iface.Type]]]
+    Map[Choice, NonEmpty[Map[Option[ContractTypeId.Interface.Resolved], typesig.Type]]]
   ]]
 
-  type KeyTypeMap = Map[TemplateId.RequiredPkg, iface.Type]
+  type KeyTypeMap = Map[TemplateId.RequiredPkg, typesig.Type]
 
   def getTemplateIdInterfaceMaps(
       packageStore: PackageStore
@@ -368,7 +371,7 @@ object PackageService {
   )(
       ctId: ContractTypeId.Resolved,
       choice: Choice,
-  ): Error \/ (Option[ContractTypeId.Interface.Resolved], iface.Type) = {
+  ): Error \/ (Option[ContractTypeId.Interface.Resolved], typesig.Type) = {
     // TODO #14727 skip indirect resolution if ctId is an interface ID
     val resolution = for {
       choices <- choiceIdMap get ctId
@@ -380,7 +383,9 @@ object PackageService {
     )
   }
 
-  def resolveKey(keyTypeMap: KeyTypeMap)(templateId: TemplateId.RequiredPkg): Error \/ iface.Type =
+  def resolveKey(
+      keyTypeMap: KeyTypeMap
+  )(templateId: TemplateId.RequiredPkg): Error \/ typesig.Type =
     keyTypeMap
       .get(templateId)
       .toRightDisjunction(
@@ -407,15 +412,18 @@ object PackageService {
     packageStore.values.view.flatMap(getChoices).toMap
 
   private def getChoices(
-      signature: iface.Interface
+      signature: typesig.PackageSignature
   ) =
     signature.typeDecls.iterator.collect(joinPF {
-      case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _, _))) =>
+      case (
+            qn,
+            typesig.PackageSignature.TypeDecl.Template(_, typesig.DefTemplate(choices, _, _)),
+          ) =>
         NonEmpty from getTChoices(choices.resolvedChoices) map ((
           fromQualifiedName(ContractTypeId.Template, signature.packageId, qn),
           _,
         ))
-    }) ++ signature.astInterfaces.iterator.collect(Function unlift { case (qn, defIf) =>
+    }) ++ signature.interfaces.iterator.collect(Function unlift { case (qn, defIf) =>
       NonEmpty from getIChoices(defIf.choices) map ((
         fromQualifiedName(ContractTypeId.Interface, signature.packageId, qn),
         _,
@@ -426,9 +434,11 @@ object PackageService {
     Map[Choice, NonEmpty[Map[Option[ContractTypeId.Interface.Resolved], Ty]]]
 
   private def getTChoices[Ty](
-      choices: Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], iface.TemplateChoice[Ty]]]]
+      choices: Map[Ref.ChoiceName, NonEmpty[
+        Map[Option[Ref.TypeConName], typesig.TemplateChoice[Ty]]
+      ]]
   ): ChoicesByInterface[Ty] = {
-    import iface._
+    import typesig._
     choices.map { case (name, resolvedChoices) =>
       (
         Choice(name: String),
@@ -440,9 +450,9 @@ object PackageService {
   }
 
   private def getIChoices[Ty](
-      choices: Map[Ref.ChoiceName, iface.TemplateChoice[Ty]]
+      choices: Map[Ref.ChoiceName, typesig.TemplateChoice[Ty]]
   ): ChoicesByInterface[Ty] =
-    choices.map { case (name, iface.TemplateChoice(pTy, _, _)) =>
+    choices.map { case (name, typesig.TemplateChoice(pTy, _, _)) =>
       (Choice(name: String), NonEmpty(Map, none[ContractTypeId.Interface.Resolved] -> pTy))
     }
 
@@ -461,12 +471,14 @@ object PackageService {
   private def getKeyTypeMap(packageStore: PackageStore): KeyTypeMap =
     packageStore.flatMap { case (_, interface) => getKeys(interface) }
 
-  private def getKeys(interface: iface.Interface): Map[TemplateId.RequiredPkg, iface.Type] =
+  private def getKeys(
+      interface: typesig.PackageSignature
+  ): Map[TemplateId.RequiredPkg, typesig.Type] =
     interface.typeDecls.collect {
       case (
             qn,
-            iface.InterfaceType
-              .Template(_, iface.DefTemplate(_, Some(keyType), _)),
+            typesig.PackageSignature.TypeDecl
+              .Template(_, typesig.DefTemplate(_, Some(keyType), _)),
           ) =>
         val templateId = TemplateId(interface.packageId, qn.module.dottedName, qn.name.dottedName)
         (templateId, keyType)

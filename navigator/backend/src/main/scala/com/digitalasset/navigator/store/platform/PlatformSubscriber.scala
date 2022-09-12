@@ -13,7 +13,7 @@ import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.lf.archive.ArchivePayloadParser
 import com.daml.lf.data.{Ref => DamlLfRef}
-import com.daml.lf.iface.reader.{Errors, InterfaceReader}
+import com.daml.lf.typesig.reader.{Errors, SignatureReader}
 import com.daml.navigator.model._
 import com.daml.navigator.model.converter.TypeNotFoundError
 import com.daml.navigator.store.Store._
@@ -314,7 +314,7 @@ class PlatformSubscriber(
   private def decodePackage(res: v1.package_service.GetPackageResponse) = {
     val payload = ArchivePayloadParser.assertFromByteString(res.archivePayload)
     val (errors, out) =
-      InterfaceReader.readInterface(DamlLfRef.PackageId.assertFromString(res.hash), payload)
+      SignatureReader.readPackageSignature(DamlLfRef.PackageId.assertFromString(res.hash), payload)
     if (!errors.equals(Errors.zeroErrors)) {
       log.error("Errors loading package {}: {}", res.hash, errors.toString)
     }

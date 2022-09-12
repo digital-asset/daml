@@ -17,11 +17,13 @@ template CIou with
   maintainer key
 
   interface instance IIou for CIou where
-    view = EmptyInterfaceView
+    view = AmountView with
+      amount
     getOwner = owner
 
   interface instance Transferrable for CIou where
-    view = Transferrable.EmptyInterfaceView
+    view = Transferrable.AmountView with
+      amount
     getOwner = owner
 
   choice Overridden : Text with

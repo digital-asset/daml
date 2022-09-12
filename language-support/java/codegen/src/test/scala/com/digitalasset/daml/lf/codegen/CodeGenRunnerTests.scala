@@ -9,7 +9,7 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref._
-import com.daml.lf.iface._
+import com.daml.lf.typesig._
 import com.daml.lf.codegen.conf.PackageReference
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
@@ -25,6 +25,19 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> None), Map.empty)
 
     assert(scope.signatures.length === 25)
+    assert(scope.packagePrefixes === Map.empty)
+    assert(scope.toBeGenerated === Set.empty)
+  }
+
+  it should "read interfaces from 2 DAR files with same dependencies without a prefix" in {
+
+    val scope =
+      CodeGenRunner.configureCodeGenScope(
+        Map(testDar -> None, testDarWithSameDependencies -> None),
+        Map.empty,
+      )
+
+    assert(scope.signatures.length === 26)
     assert(scope.packagePrefixes === Map.empty)
     assert(scope.toBeGenerated === Set.empty)
   }
@@ -117,19 +130,24 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 object CodeGenRunnerTests {
 
   private[this] val testDarPath = "language-support/java/codegen/test-daml.dar"
+  private[this] val testDarWithSameDependenciesPath =
+    "language-support/java/codegen/test-daml-with-same-dependencies.dar"
   private val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
+  private val testDarWithSameDependencies =
+    Path.of(BazelRunfiles.rlocation(testDarWithSameDependenciesPath))
   private val dar = DarReader.assertReadArchiveFromFile(testDar.toFile)
 
-  private def interface(pkgId: String, modNames: String*): Interface =
+  private def interface(pkgId: String, modNames: String*): PackageSignature =
     interface(pkgId, None, modNames: _*)
 
   private def interface(
       pkgId: String,
       metadata: Option[PackageMetadata],
       modNames: String*
-  ): Interface = {
-    val dummyType = InterfaceType.Normal(DefDataType(ImmArraySeq.empty, Record(ImmArraySeq.empty)))
-    Interface(
+  ): PackageSignature = {
+    val dummyType =
+      PackageSignature.TypeDecl.Normal(DefDataType(ImmArraySeq.empty, Record(ImmArraySeq.empty)))
+    PackageSignature(
       PackageId.assertFromString(pkgId),
       metadata,
       modNames.view

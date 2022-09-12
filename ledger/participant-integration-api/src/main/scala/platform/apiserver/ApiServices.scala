@@ -25,6 +25,7 @@ import com.daml.platform.apiserver.configuration.{
 }
 import com.daml.platform.apiserver.execution.{
   LedgerTimeAwareCommandExecutor,
+  ResolveMaximumLedgerTime,
   StoreBackedCommandExecutor,
   TimedCommandExecutor,
 }
@@ -246,7 +247,7 @@ private[daml] object ApiServices {
               contractStore,
               metrics,
             ),
-            contractStore,
+            new ResolveMaximumLedgerTime(contractStore),
             maxRetries = 3,
             metrics,
           ),

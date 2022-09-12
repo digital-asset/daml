@@ -6,23 +6,24 @@ package com.daml.lf.codegen.lf
 import com.daml.lf.codegen.Util
 import com.daml.lf.codegen.lf.UsedTypeParams.Variance
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.iface.{EnvironmentInterface, InterfaceType}
+import com.daml.lf.typesig.EnvironmentSignature
+import com.daml.lf.typesig.PackageSignature.TypeDecl
 import scalaz.syntax.foldable._
 import scalaz.std.set._
 
-final class VarianceCache(interface: EnvironmentInterface) {
+final class VarianceCache(interface: EnvironmentSignature) {
 
-  private[this] def foldTemplateReferencedTypeDeclRoots[Z](interface: EnvironmentInterface, z: Z)(
+  private[this] def foldTemplateReferencedTypeDeclRoots[Z](interface: EnvironmentSignature, z: Z)(
       f: (Z, ScopedDataType.Name) => Z
   ): Z =
     interface.typeDecls.foldLeft(z) {
-      case (z, (id, InterfaceType.Template(_, tpl))) =>
+      case (z, (id, TypeDecl.Template(_, tpl))) =>
         tpl.foldMap(typ => Util.genTypeTopLevelDeclNames(typ).toSet).foldLeft(f(z, id))(f)
       case (z, _) => z
     }
 
   protected[this] def precacheVariance(
-      interface: EnvironmentInterface
+      interface: EnvironmentSignature
   ): ScopedDataType.Name => ImmArraySeq[Variance] = {
     import UsedTypeParams.ResolvedVariance
     val resolved = foldTemplateReferencedTypeDeclRoots(interface, ResolvedVariance.Empty) {

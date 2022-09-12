@@ -3,18 +3,19 @@
 
 package com.daml.platform.config
 
+import com.daml.jwt.JwtTimestampLeeway
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.indexer.IndexerConfig
 import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DataSourceProperties}
-import com.daml.platform.store.LfValueTranslationCache
 
 import scala.concurrent.duration._
 
 final case class ParticipantConfig(
     apiServer: ApiServerConfig = ApiServerConfig(),
     authentication: AuthServiceConfig = AuthServiceConfig.Wildcard,
+    jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
     dataSourceProperties: DataSourceProperties = DataSourceProperties(
       connectionPool = ConnectionPoolConfig(
         connectionPoolSize = 16,
@@ -23,7 +24,6 @@ final case class ParticipantConfig(
     ),
     indexService: IndexServiceConfig = IndexServiceConfig(),
     indexer: IndexerConfig = IndexerConfig(),
-    lfValueTranslationCache: LfValueTranslationCache.Config = LfValueTranslationCache.Config(),
 )
 
 object ParticipantConfig {

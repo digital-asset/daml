@@ -82,7 +82,6 @@ object IndexMetadata {
           acsGlobalParallelism = 10,
           servicesExecutionContext = executionContext,
           metrics = metrics,
-          lfValueTranslationCache = LfValueTranslationCache.Cache.none,
           engine = None,
           participantId = Ref.ParticipantId.assertFromString("1"),
           ledgerEndCache = MutableLedgerEndCache(), // not used

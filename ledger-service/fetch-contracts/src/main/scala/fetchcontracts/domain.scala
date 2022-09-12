@@ -44,6 +44,9 @@ package object domain {
 }
 
 package domain {
+
+  import scalaz.\/-
+
   final case class Error(id: Symbol, message: String)
 
   object Error {
@@ -96,24 +99,49 @@ package domain {
       a.key.fold(false)(_ == k)
 
     def fromLedgerApi(
-        gacr: lav1.active_contracts_service.GetActiveContractsResponse
+        resolvedQuery: domain.ResolvedQuery,
+        gacr: lav1.active_contracts_service.GetActiveContractsResponse,
     ): Error \/ List[ActiveContract[lav1.value.Value]] = {
-      gacr.activeContracts.toList.traverse(fromLedgerApi(_))
+      gacr.activeContracts.toList.traverse(fromLedgerApi(resolvedQuery, _))
     }
 
-    def fromLedgerApi(in: lav1.event.CreatedEvent): Error \/ ActiveContract[lav1.value.Value] =
+    def fromLedgerApi(
+        resolvedQuery: domain.ResolvedQuery,
+        in: lav1.event.CreatedEvent,
+    ): Error \/ ActiveContract[lav1.value.Value] = {
+
+      def getIdKeyAndPayload: (
+          Error \/ ContractTypeId.Resolved,
+          Option[lav1.value.Value],
+          Error \/ lav1.value.Record,
+      ) =
+        resolvedQuery match {
+          case ResolvedQuery.ByInterfaceId(interfaceId) =>
+            import util.IdentifierConverters.apiIdentifier
+            val id = apiIdentifier(interfaceId)
+            val payload = in.interfaceViews
+              .find(_.interfaceId.exists(_ == id))
+              .flatMap(_.viewValue) required "interfaceView"
+            (\/-(ContractTypeId.Interface fromLedgerApi id), None, payload)
+          case _ =>
+            val id = in.templateId.required("templateId").map(ContractTypeId.Template.fromLedgerApi)
+            (id, in.contractKey, in.createArguments required "createArguments")
+        }
+
+      val (getId, key, getPayload) = getIdKeyAndPayload
       for {
-        templateId <- in.templateId required "templateId"
-        payload <- in.createArguments required "createArguments"
+        id <- getId
+        payload <- getPayload
       } yield ActiveContract(
         contractId = ContractId(in.contractId),
-        templateId = ContractTypeId.Template fromLedgerApi templateId,
-        key = in.contractKey,
+        templateId = id,
+        key = key,
         payload = boxedRecord(payload),
         signatories = Party.subst(in.signatories),
         observers = Party.subst(in.observers),
         agreementText = in.agreementText getOrElse "",
       )
+    }
 
     implicit val covariant: Traverse[ActiveContract] = new Traverse[ActiveContract] {
 
@@ -152,5 +180,7 @@ package domain {
     final val Offset = here.Offset
     type ActiveContract[+LfV] = here.ActiveContract[LfV]
     final val ActiveContract = here.ActiveContract
+    final val ResolvedQuery = here.ResolvedQuery
+    type ResolvedQuery = here.ResolvedQuery
   }
 }

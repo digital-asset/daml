@@ -30,7 +30,6 @@ import com.daml.platform.store.DbSupport.{
   DataSourceProperties,
   ParticipantDataSourceConfig,
 }
-import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
 import com.daml.platform.usermanagement.UserManagementConfig
@@ -232,8 +231,8 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   implicit val userManagementConfigConvert: ConfigConvert[UserManagementConfig] =
     deriveConvert[UserManagementConfig]
 
-  implicit val jwtTimestampLeewayConfigConvert: ConfigConvert[JwtTimestampLeeway] =
-    deriveConvert[JwtTimestampLeeway]
+  implicit val jwtTimestampLeewayConfigConvert: ConfigConvert[Option[JwtTimestampLeeway]] =
+    optConvertEnabled(deriveConvert[JwtTimestampLeeway])
 
   implicit val authServiceConfigUnsafeJwtHmac256Reader
       : ConfigReader[AuthServiceConfig.UnsafeJwtHmac256] =
@@ -318,9 +317,6 @@ class PureConfigReaderWriter(secure: Boolean = true) {
     deriveConvert[PackageMetadataViewConfig]
 
   implicit val indexerConfigConvert: ConfigConvert[IndexerConfig] = deriveConvert[IndexerConfig]
-
-  implicit val lfValueTranslationCacheConvert: ConfigConvert[LfValueTranslationCache.Config] =
-    deriveConvert[LfValueTranslationCache.Config]
 
   implicit val indexServiceConfigConvert: ConfigConvert[IndexServiceConfig] =
     deriveConvert[IndexServiceConfig]

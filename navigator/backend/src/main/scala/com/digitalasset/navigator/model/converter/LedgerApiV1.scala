@@ -6,7 +6,7 @@ package com.daml.navigator.model.converter
 import java.time.Instant
 import com.daml.lf.data.Ref
 import com.daml.lf.data.LawlessTraversals._
-import com.daml.lf.iface
+import com.daml.lf.typesig
 import com.daml.lf.value.{Value => V}
 import com.daml.ledger.api.{v1 => V1}
 import com.daml.ledger.api.refinements.ApiTypes
@@ -282,8 +282,9 @@ case object LedgerApiV1 {
         .damlLfDefDataType(typeCon.name.identifier)
         .toRight(GenericConversionError(s"Unknown type ${typeCon.name.identifier}"))
       dt <- typeCon.instantiate(ddt) match {
-        case r @ iface.Record(_) => Right(r)
-        case iface.Variant(_) | iface.Enum(_) => Left(GenericConversionError(s"Record expected"))
+        case r @ typesig.Record(_) => Right(r)
+        case typesig.Variant(_) | typesig.Enum(_) =>
+          Left(GenericConversionError(s"Record expected"))
       }
       fields <- value.fields.toSeq zip dt.fields traverseEitherStrictly {
         case ((von, vv), (tn, fieldType)) =>
@@ -384,8 +385,8 @@ case object LedgerApiV1 {
         .damlLfDefDataType(typeCon.name.identifier)
         .toRight(GenericConversionError(s"Unknown type ${typeCon.name.identifier}"))
       dt <- typeCon.instantiate(ddt) match {
-        case v @ iface.Variant(_) => Right(v)
-        case iface.Record(_) | iface.Enum(_) =>
+        case v @ typesig.Variant(_) => Right(v)
+        case typesig.Record(_) | typesig.Enum(_) =>
           Left(GenericConversionError(s"Variant expected"))
       }
       constructor = variant.variant

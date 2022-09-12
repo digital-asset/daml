@@ -21,7 +21,7 @@ final case class EnvironmentSignature(
 ) {
   import PackageSignature.TypeDecl
 
-  // @deprecated("renamed to interfaces", since = "2.4.0")
+  @deprecated("renamed to interfaces", since = "2.4.0")
   def astInterfaces: interfaces.type = interfaces
 
   /** Replace all resolvable `inheritedChoices` in `typeDecls` with concrete
@@ -70,21 +70,21 @@ final case class EnvironmentSignature(
 }
 
 object EnvironmentSignature {
-  // @deprecated("renamed to fromPackageSignatures", since = "2.4.0")
+  @deprecated("renamed to fromPackageSignatures", since = "2.4.0")
   def fromReaderInterfaces(i: PackageSignature, o: PackageSignature*): EnvironmentSignature =
     fromPackageSignatures(i, o: _*)
 
   def fromPackageSignatures(i: PackageSignature, o: PackageSignature*): EnvironmentSignature =
     fromPackageSignatures(i +: o)
 
-  // @deprecated("renamed to fromPackageSignatures", since = "2.4.0")
+  @deprecated("renamed to fromPackageSignatures", since = "2.4.0")
   def fromReaderInterfaces(dar: Dar[PackageSignature]): EnvironmentSignature =
     fromPackageSignatures(dar)
 
   def fromPackageSignatures(dar: Dar[PackageSignature]): EnvironmentSignature =
     fromPackageSignatures(dar.main, dar.dependencies: _*)
 
-  // @deprecated("renamed to fromPackageSignatures", since = "2.4.0")
+  @deprecated("renamed to fromPackageSignatures", since = "2.4.0")
   def fromReaderInterfaces(all: Iterable[PackageSignature]): EnvironmentSignature =
     fromPackageSignatures(all)
 

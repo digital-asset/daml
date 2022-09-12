@@ -26,10 +26,8 @@ import scala.concurrent.duration._
   * - Before each test case resets the contents of the database.
   * - Ensures that at most one test case runs at a time.
   */
-trait PersistentStoreSpecBase
-    extends BeforeAndAfterEach
-    with BeforeAndAfterAll
-    with StorageBackendProvider { this: Suite =>
+trait PersistentStoreSpecBase extends BeforeAndAfterEach with BeforeAndAfterAll {
+  this: Suite with StorageBackendProvider =>
 
   implicit protected val loggingContext: LoggingContext = LoggingContext.ForTesting
 
@@ -39,6 +37,7 @@ trait PersistentStoreSpecBase
   private val thisSimpleName = getClass.getSimpleName
 
   protected var dbSupport: DbSupport = _
+  protected var dbSupportResource: Resource[ResourceContext, DbSupport] = _
 
   // Each test should start with an empty database to allow testing low-level behavior
   // However, creating a fresh database for each test would be too expensive.
@@ -65,6 +64,11 @@ trait PersistentStoreSpecBase
     super.afterEach()
   }
 
+  override protected def afterAll(): Unit = {
+    Await.ready(dbSupportResource.release(), 15.seconds)
+    super.afterAll()
+  }
+
   override protected def beforeAll(): Unit = {
     super.beforeAll()
     implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(
@@ -73,12 +77,12 @@ trait PersistentStoreSpecBase
       )
     )
     implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
-    val dbSupportResource: Resource[ResourceContext, DbSupport] = DbSupport
+    dbSupportResource = DbSupport
       .owner(
         dbConfig = DbConfig(
           jdbcUrl,
           connectionPool = ConnectionPoolConfig(
-            connectionPoolSize = 1,
+            connectionPoolSize = 2,
             connectionTimeout = 250.millis,
           ),
         ),
@@ -92,7 +96,7 @@ trait PersistentStoreSpecBase
       _ <- new FlywayMigrations(jdbcUrl).migrate()
       _ = logger.warn(s"$thisSimpleName Completed Flyway migrations")
     } yield dbSupport
-    dbSupport = Await.result(initializeDbAndGetDbSupportFuture, 10.seconds)
+    dbSupport = Await.result(initializeDbAndGetDbSupportFuture, 30.seconds)
   }
 
 }

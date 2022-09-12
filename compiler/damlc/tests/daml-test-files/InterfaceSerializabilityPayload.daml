@@ -1,5 +1,5 @@
 -- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ERROR range=8:11-8:19; error type checking interface InterfaceSerializabilityPayload.Gettable : expected serializable type: * reason: choice result * found: InterfaceSerializabilityPayload:Gettable * problem: unserializable data type InterfaceSerializabilityPayload:Gettable
+-- @ERROR range=8:11-8:19; error type checking interface InterfaceSerializabilityPayload.Gettable choice Get: expected serializable type: * reason: choice result * found: InterfaceSerializabilityPayload:Gettable * problem: unserializable data type InterfaceSerializabilityPayload:Gettable
 module InterfaceSerializabilityPayload where
 
 -- Test that the interface serializability payload itself is not serializable.

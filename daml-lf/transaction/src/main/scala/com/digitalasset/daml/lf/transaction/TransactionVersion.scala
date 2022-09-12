@@ -22,7 +22,7 @@ object TransactionVersion {
   case object V15 extends TransactionVersion("15", 15)
   case object VDev extends TransactionVersion("dev", Int.MaxValue)
 
-  val All = List(V10, V11, V12, V13, V14, VDev)
+  val All = List(V10, V11, V12, V13, V14, V15, VDev)
 
   implicit val Ordering: scala.Ordering[TransactionVersion] =
     scala.Ordering.by(_.index)

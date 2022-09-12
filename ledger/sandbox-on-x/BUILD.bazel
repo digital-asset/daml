@@ -22,6 +22,7 @@ da_scala_library(
         "@maven//:com_github_pureconfig_pureconfig_core",
         "@maven//:com_github_pureconfig_pureconfig_generic",
         "@maven//:com_chuusai_shapeless",
+        "@maven//:org_typelevel_cats_core",
     ],
     tags = ["maven_coordinates=com.daml:sandbox-on-x:__VERSION__"],
     visibility = [
@@ -34,7 +35,7 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
-        "//ledger/caching",
+        "//ledger-service/jwt",
         "//ledger/error",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
@@ -193,7 +194,6 @@ da_scala_test_suite(
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
-        "//ledger/caching",
         "//ledger/error",
         "//ledger/error:error-test-lib",
         "//ledger/ledger-api-auth",
@@ -308,7 +308,6 @@ da_scala_library(
         ":sandbox-on-x",
         "//daml-lf/data",
         "//daml-lf/engine",
-        "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-runner-common",
         "//ledger/participant-integration-api",
@@ -567,12 +566,28 @@ server_conformance_test(
         ledger.participants.default.api-server.seeding = testing-weak
     """,
     lf_versions = [
-        "1.dev",
+        "1.15",
     ],
     servers = SERVERS,
     test_tool_args = [
         "--verbose",
         "--include=InterfaceSubscriptionsIT",
+    ],
+)
+
+server_conformance_test(
+    name = "conformance-test-explicit-disclosure",
+    hocon = True,
+    hocon_config = """
+        ledger.participants.default.api-server.seeding = testing-weak
+    """,
+    lf_versions = [
+        "1.dev",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--verbose",
+        "--include=ExplicitDisclosureIT",
     ],
 )
 

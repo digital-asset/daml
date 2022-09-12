@@ -17,9 +17,9 @@ import scalaz.syntax.traverse._
 import spray.json._
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.daml.lf.iface.EnvironmentInterface
-import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
+import com.daml.lf.typesig.EnvironmentSignature
+import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.auth.TokenHolder
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -44,10 +44,11 @@ object RunnerMain {
       config <- Future.fromTry(RunnerConfig(runnerConfig))
       clients <-
         if (config.jsonApi) {
-          val ifaceDar = config.dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
-          val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
-          // TODO (#13973) resolve envIface, or not, depending on whether inherited choices are needed
-          Runner.jsonClients(config.participantParams, envIface)
+          val ifaceDar =
+            config.dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
+          val envSig = EnvironmentSignature.fromPackageSignatures(ifaceDar)
+          // TODO (#13973) resolve envSig, or not, depending on whether inherited choices are needed
+          Runner.jsonClients(config.participantParams, envSig)
         } else {
           Runner.connect(config.participantParams, config.tlsConfig, config.maxInboundMessageSize)
         }

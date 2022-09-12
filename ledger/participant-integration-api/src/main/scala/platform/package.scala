@@ -58,7 +58,7 @@ package object platform {
   private[platform] type UserId = lfdata.Ref.UserId
   private[platform] val UserId = lfdata.Ref.UserId
 
-  private[platform] type FilterRelation = Relation[Party, lfdata.Ref.Identifier]
+  private[platform] type FilterRelation = Relation[lfdata.Ref.Identifier, Party]
 
   import com.daml.lf.crypto
   private[platform] type Hash = crypto.Hash

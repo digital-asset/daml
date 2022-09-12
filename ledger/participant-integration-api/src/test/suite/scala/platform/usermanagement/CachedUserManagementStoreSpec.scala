@@ -4,43 +4,51 @@
 package com.daml.platform.usermanagement
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.api.domain.{User, UserRight}
+import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
-import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.ledger.participant.state.index.v2.{ObjectMetaUpdate, UserUpdate}
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
   UserInfo,
   UserNotFound,
   UsersPage,
 }
-import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.store.platform.usermanagement.UserManagementStoreTests
+import com.daml.platform.store.platform.usermanagement.UserStoreTests
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
-import org.scalatest.Assertion
 import org.scalatest.freespec.AsyncFreeSpec
-import org.scalatest.matchers.should.Matchers
-
-import scala.concurrent.Future
 
 class CachedUserManagementStoreSpec
     extends AsyncFreeSpec
-    with UserManagementStoreTests
-    with TestResourceContext
-    with Matchers
+    with UserStoreTests
     with MockitoSugar
     with ArgumentMatchersSugar {
+
+  override def newStore() = new InMemoryUserManagementStore(createAdmin = false)
 
   private val user = User(
     id = Ref.UserId.assertFromString("user_id1"),
     primaryParty = Some(Ref.Party.assertFromString("primary_party1")),
+    false,
+    ObjectMeta.empty,
   )
+  private val createdUser1 = User(
+    id = Ref.UserId.assertFromString("user_id1"),
+    primaryParty = Some(Ref.Party.assertFromString("primary_party1")),
+    false,
+    ObjectMeta(
+      resourceVersionO = Some(0),
+      annotations = Map.empty,
+    ),
+  )
+
   private val right1 = UserRight.CanActAs(Ref.Party.assertFromString("party_id1"))
   private val right2 = UserRight.ParticipantAdmin
   private val right3 = UserRight.CanActAs(Ref.Party.assertFromString("party_id2"))
   private val rights = Set(right1, right2)
   private val userInfo = UserInfo(user, rights)
+  private val createdUserInfo = UserInfo(createdUser1, rights)
 
   "test user-not-found cache result gets invalidated after user creation" in {
     val delegate = spy(new InMemoryUserManagementStore())
@@ -50,8 +58,8 @@ class CachedUserManagementStoreSpec
       _ <- tested.createUser(userInfo.user, userInfo.rights)
       get <- tested.getUserInfo(user.id)
     } yield {
-      getYetNonExistent shouldBe Left(UserNotFound(userInfo.user.id))
-      get shouldBe Right(userInfo)
+      getYetNonExistent shouldBe Left(UserNotFound(createdUserInfo.user.id))
+      get shouldBe Right(createdUserInfo)
     }
   }
 
@@ -69,10 +77,10 @@ class CachedUserManagementStoreSpec
       verify(delegate, times(1)).createUser(userInfo.user, userInfo.rights)
       verify(delegate, times(1)).getUserInfo(userInfo.user.id)
       verifyNoMoreInteractions(delegate)
-      get1 shouldBe Right(userInfo)
-      get2 shouldBe Right(userInfo)
-      getUser shouldBe Right(userInfo.user)
-      listRights shouldBe Right(userInfo.rights)
+      get1 shouldBe Right(createdUserInfo)
+      get2 shouldBe Right(createdUserInfo)
+      getUser shouldBe Right(createdUserInfo.user)
+      listRights shouldBe Right(createdUserInfo.rights)
     }
   }
 
@@ -89,8 +97,17 @@ class CachedUserManagementStoreSpec
       get2 <- tested.getUserInfo(user.id)
       _ <- tested.revokeRights(user.id, Set(right3))
       get3 <- tested.getUserInfo(user.id)
-      _ <- tested.deleteUser(user.id)
+      _ <- tested.updateUser(
+        UserUpdate(
+          id = user.id,
+          primaryPartyUpdateO = Some(Some(Ref.Party.assertFromString("newPp"))),
+          metadataUpdate = ObjectMetaUpdate.empty,
+        )
+      )
       get4 <- tested.getUserInfo(user.id)
+      _ <- tested.deleteUser(user.id)
+      get5 <- tested.getUserInfo(user.id)
+
     } yield {
       val order = inOrder(delegate)
       order.verify(delegate, times(1)).createUser(user, userInfo.rights)
@@ -103,13 +120,16 @@ class CachedUserManagementStoreSpec
         .verify(delegate, times(1))
         .revokeRights(eqTo(user.id), any[Set[UserRight]])(any[LoggingContext])
       order.verify(delegate, times(1)).getUserInfo(userInfo.user.id)
+      order.verify(delegate, times(1)).updateUser(any[UserUpdate])(any[LoggingContext])
+      order.verify(delegate, times(1)).getUserInfo(userInfo.user.id)
       order.verify(delegate, times(1)).deleteUser(userInfo.user.id)
       order.verify(delegate, times(1)).getUserInfo(userInfo.user.id)
       order.verifyNoMoreInteractions()
-      get1 shouldBe Right(userInfo)
-      get2 shouldBe Right(userInfo)
-      get3 shouldBe Right(userInfo)
-      get4 shouldBe Left(UserNotFound(user.id))
+      get1 shouldBe Right(createdUserInfo)
+      get2 shouldBe Right(createdUserInfo)
+      get3 shouldBe Right(createdUserInfo)
+      get4.value.user.primaryParty shouldBe Some(Ref.Party.assertFromString("newPp"))
+      get5 shouldBe Left(UserNotFound(createdUser1.id))
     }
   }
 
@@ -126,9 +146,9 @@ class CachedUserManagementStoreSpec
       order.verify(delegate, times(1)).createUser(user, rights)
       order.verify(delegate, times(2)).listUsers(fromExcl = None, maxResults = 100)
       order.verifyNoMoreInteractions()
-      res0 shouldBe Right(())
-      res1 shouldBe Right(UsersPage(Seq(user)))
-      res2 shouldBe Right(UsersPage(Seq(user)))
+      res0 shouldBe Right(createdUser1)
+      res1 shouldBe Right(UsersPage(Seq(createdUser1)))
+      res2 shouldBe Right(UsersPage(Seq(createdUser1)))
     }
   }
 
@@ -150,10 +170,10 @@ class CachedUserManagementStoreSpec
         .createUser(any[User], any[Set[UserRight]])(any[LoggingContext])
       order.verify(delegate, times(2)).getUserInfo(any[Ref.UserId])(any[LoggingContext])
       order.verifyNoMoreInteractions()
-      create1 shouldBe Right(())
-      get1 shouldBe Right(userInfo)
-      get2 shouldBe Right(userInfo)
-      get3 shouldBe Right(userInfo)
+      create1 shouldBe Right(createdUser1)
+      get1 shouldBe Right(createdUserInfo)
+      get2 shouldBe Right(createdUserInfo)
+      get3 shouldBe Right(createdUserInfo)
     }
   }
 
@@ -164,9 +184,5 @@ class CachedUserManagementStoreSpec
       maximumCacheSize = 10,
       new Metrics(new MetricRegistry),
     )
-  }
-
-  override def testIt(f: UserManagementStore => Future[Assertion]): Future[Assertion] = {
-    f(createTested(new InMemoryUserManagementStore(createAdmin = false)))
   }
 }

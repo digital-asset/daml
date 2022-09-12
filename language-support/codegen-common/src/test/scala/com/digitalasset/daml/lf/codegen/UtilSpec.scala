@@ -6,7 +6,8 @@ package codegen
 
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.iface._
+import typesig._
+import PackageSignature.TypeDecl
 import com.daml.lf.value.test.ValueGenerators.idGen
 
 import org.scalatest.matchers.should.Matchers
@@ -24,7 +25,7 @@ class UtilSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
 
     "delete all templates given impossible regex" in forAll(trivialDeclarations) { declarations =>
       val noTemplates = declarations transform {
-        case (_, tmpl @ InterfaceType.Template(_, _)) => InterfaceType.Normal(tmpl.`type`)
+        case (_, tmpl @ TypeDecl.Template(_, _)) => TypeDecl.Normal(tmpl.`type`)
         case (_, v) => v
       }
       filterTemplatesBy(Seq("(?!a)a".r))(declarations) should ===(noTemplates)
@@ -40,10 +41,10 @@ object UtilSpec {
   import org.scalacheck.{Arbitrary, Gen}
   import Arbitrary.arbitrary
 
-  val trivialDeclarations: Gen[Map[Identifier, InterfaceType]] = {
+  val trivialDeclarations: Gen[Map[Identifier, TypeDecl]] = {
     val fooRec = Record(ImmArraySeq.empty)
-    val fooTmpl = InterfaceType.Template(fooRec, DefTemplate.Empty)
-    val fooNorm = InterfaceType.Normal(DefDataType(ImmArraySeq.empty, fooRec))
+    val fooTmpl = TypeDecl.Template(fooRec, DefTemplate.Empty)
+    val fooNorm = TypeDecl.Normal(DefDataType(ImmArraySeq.empty, fooRec))
     implicit val idArb: Arbitrary[Identifier] = Arbitrary(idGen)
     arbitrary[Map[Identifier, Boolean]] map {
       _ transform { (_, isTemplate) =>

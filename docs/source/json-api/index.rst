@@ -528,7 +528,7 @@ HTTP Request
 .. code-block:: json
 
     {
-      "templateId": "Iou:Iou",
+      "templateId": "a3b788b4dc18dc060bfb82366ae6dc055b1e361d646d5cfdb1b729607e344336:Iou:IouTransfer",
       "payload": {
         "issuer": "Alice",
         "owner": "Alice",
@@ -592,7 +592,7 @@ When creating a new contract or exercising a choice you may specify an optional 
 .. code-block:: json
 
     {
-      "templateId": "Iou:Iou",
+      "templateId": "a3b788b4dc18dc060bfb82366ae6dc055b1e361d646d5cfdb1b729607e344336:Iou:IouTransfer",
       "payload": {
         "observers": [],
         "issuer": "Alice",
@@ -648,8 +648,8 @@ HTTP Request
 .. code-block:: json
 
     {
-        "templateId": "Iou:Iou",
-        "choiceInterfaceId": "Iou:Iou",
+        "templateId": "a3b788b4dc18dc060bfb82366ae6dc055b1e361d646d5cfdb1b729607e344336:Iou:IouTransfer",
+        "choiceInterfaceId": "a3b788b4dc18dc060bfb82366ae6dc055b1e361d646d5cfdb1b729607e344336:Iou:IouTransferInterface",
         "contractId": "#124:0",
         "choice": "Iou_Transfer",
         "argument": {
@@ -755,12 +755,12 @@ HTTP Request
 .. code-block:: json
 
     {
-        "templateId": "Account:Account",
+        "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Account:Account",
         "key": {
             "_1": "Alice",
             "_2": "abc123"
         },
-        "choiceInterfaceId": "Account:Account",
+        "choiceInterfaceId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Account:AccountInterface",
         "choice": "Archive",
         "argument": {}
     }
@@ -802,7 +802,7 @@ HTTP Request
 .. code-block:: json
 
     {
-      "templateId": "Iou:Iou",
+      "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou",
       "payload": {
         "observers": [],
         "issuer": "Alice",
@@ -810,7 +810,7 @@ HTTP Request
         "currency": "USD",
         "owner": "Alice"
       },
-      "choiceInterfaceId": "Iou:Iou",
+      "choiceInterfaceId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:IouInterface",
       "choice": "Iou_Transfer",
       "argument": {
         "newOwner": "Bob"
@@ -912,11 +912,13 @@ application/json body:
 .. code-block:: json
 
     {
-      "contractId": "#201:1"
+      "contractId": "#201:1",
+      "templateId": "a3b788b4dc18dc060bfb82366ae6dc055b1e361d646d5cfdb1b729607e344336:Iou:IouTransfer"
     }
 
 
 ``readers`` may be passed as with :ref:`Query <sync-query-req>`.
+``templateId`` is optional, but you are strongly advised to always pass it explicitly to minimize the data read from the Ledger API to answer the query. It can be either a template ID or an interface ID.
 
 Contract Not Found HTTP Response
 ================================
@@ -982,7 +984,7 @@ HTTP Request
 .. code-block:: json
 
     {
-        "templateId": "Account:Account",
+        "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Account:Account",
         "key": {
             "_1": "Alice",
             "_2": "abc123"
@@ -1081,14 +1083,14 @@ HTTP Request
 .. code-block:: json
 
     {
-        "templateIds": ["Iou:Iou"],
+        "templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"],
         "query": {"amount": 999.99},
         "readers": ["Alice"]
     }
 
 Where:
 
-- ``templateIds`` --  an array of contract template identifiers to search through,
+- ``templateIds`` -- either an array of contract template identifiers or an array containing a single interface identifier to search through. Mixing of template ID's and interface ID's, or specifying more than one interface ID is not allowed.
 - ``query`` -- search criteria to apply to the specified ``templateIds``, formatted according to the :doc:`search-query-language`.
 - ``readers`` -- *optional* non-empty list of parties to query as; must be a subset of the actAs/readAs parties in the JWT
 
@@ -1878,7 +1880,7 @@ JavaScript/Node.js example demonstrating how to establish Streaming API connecti
     const ws = new WebSocket("ws://localhost:7575/v1/stream/query", subprotocols);
 
     ws.addEventListener("open", function open() {
-      ws.send(JSON.stringify({templateIds: ["Iou:Iou"]}));
+      ws.send(JSON.stringify({templateIds: ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"]}));
     });
 
     ws.addEventListener("message", function incoming(data) {
@@ -1939,16 +1941,34 @@ instead.
 ``application/json`` body must be sent first, formatted according to the
 :doc:`search-query-language`::
 
-    {"templateIds": ["Iou:Iou"]}
+    {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"]}
 
 Multiple queries may be specified in an array, for overlapping or
-different sets of template IDs::
+different sets of template IDs.::
 
     [
-        {"templateIds": ["Iou:Iou"], "query": {"amount": {"%lte": 50}}},
-        {"templateIds": ["Iou:Iou"], "query": {"amount": {"%gt": 50}}},
-        {"templateIds": ["Iou:Iou"]}
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"], "query": {"amount": {"%lte": 50}}},
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:OtherIou:OtherIou"], "query": {"amount": {"%gt": 50}}},
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"]}
     ]
+
+Only one interface ID can be provided in ``templateIds``.
+An interface ID can be used in all queries::
+
+    [
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Ifc:Ifc"], "query": {"amount": {"%lte": 50}}},
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Ifc:Ifc"], "query": {"amount": {"%gt": 50}}},
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Ifc:Ifc"]}
+    ]
+
+Mixing of template ID's and interface ID's or specifying more than one interface ID across queries is not allowed. BadRequest(400) error will be returned.::
+
+    [
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"], "query": {"amount": {"%lte": 50}}},
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Ifc:Ifc"], "query": {"amount": {"%gt": 50}}},
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Ifc:Ifc"]}
+    ]
+
 
 Queries have two ways to specify an offset.
 
@@ -1956,9 +1976,9 @@ An ``offset``, a string supplied by an earlier query output message, may
 optionally be specified alongside each query itself::
 
     [
-        {"templateIds": ["Iou:Iou"], "query": {"amount": {"%lte": 50}}},
-        {"templateIds": ["Iou:Iou"], "query": {"amount": {"%gt": 50}}},
-        {"templateIds": ["Iou:Iou"], "offset": "5609"}
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"], "query": {"amount": {"%lte": 50}}},
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"], "query": {"amount": {"%gt": 50}}},
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"], "offset": "5609"}
     ]
 
 If specified, the stream will include only contract creations and
@@ -2167,8 +2187,8 @@ Example:
 .. code-block:: json
 
     [
-        {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "abc123"}},
-        {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "def345"}}
+        {"templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Account:Account", "key": {"_1": "Alice", "_2": "abc123"}},
+        {"templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Account:Account", "key": {"_1": "Alice", "_2": "def345"}}
     ]
 
 The output stream has the same format as the output from the
@@ -2188,9 +2208,9 @@ no ``"def345"`` contract, you might specify:
 .. code-block:: json
 
     [
-        {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "abc123"},
+        {"templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Account:Account", "key": {"_1": "Alice", "_2": "abc123"},
          "contractIdAtOffset": "#1:0"},
-        {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "def345"},
+        {"templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Account:Account", "key": {"_1": "Alice", "_2": "def345"},
          "contractIdAtOffset": null}
     ]
 

@@ -25,7 +25,7 @@ import com.daml.platform.configuration.{IndexServiceConfig, ServerRole}
 import com.daml.platform.index.{InMemoryStateUpdater, IndexServiceOwner}
 import com.daml.platform.indexer.IndexerServiceOwner
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
-import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
+import com.daml.platform.store.DbSupport
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
@@ -47,11 +47,6 @@ class LedgerApiServer(
 
   def owner: ResourceOwner[ApiService] = {
     newLoggingContextWith("participantId" -> participantId) { implicit loggingContext =>
-      val translationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
-        config = participantConfig.lfValueTranslationCache,
-        metrics = metrics,
-      )
-
       for {
         (inMemoryState, inMemoryStateUpdaterFlow) <-
           LedgerApiServer.createInMemoryStateAndUpdater(
@@ -70,7 +65,6 @@ class LedgerApiServer(
               config = participantConfig.indexer,
               metrics = metrics,
               inMemoryState = inMemoryState,
-              lfValueTranslationCache = translationCache,
               inMemoryStateUpdaterFlow = inMemoryStateUpdaterFlow,
               executionContext = servicesExecutionContext,
             )
@@ -96,7 +90,6 @@ class LedgerApiServer(
           metrics = metrics,
           engine = engine,
           servicesExecutionContext = servicesExecutionContext,
-          lfValueTranslationCache = translationCache,
           participantId = participantId,
           inMemoryState = inMemoryState,
         )(loggingContext)
@@ -161,7 +154,7 @@ class LedgerApiServer(
       ledgerFeatures = ledgerFeatures,
       participantId = participantId,
       authService = authService,
-      jwtTimestampLeeway = participantConfig.authentication.jwtTimestampLeeway,
+      jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,
     )
 }
 

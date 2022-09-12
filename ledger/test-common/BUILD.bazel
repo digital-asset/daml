@@ -15,6 +15,7 @@ load(
     "//daml-lf/language:daml-lf.bzl",
     "lf_version_configuration",
     "lf_version_configuration_versions",
+    "versions",
 )
 load("//ledger/test-common:test-common.bzl", "da_scala_dar_resources_library")
 
@@ -100,8 +101,8 @@ general_test_names = [
 
 # Correspond to the directories under src/test/lib/daml
 test_names = {
-    version: general_test_names + (carbon_test_names if alias == "dev" else [])
-    for alias, version in lf_version_configuration.items()
+    lf_version: general_test_names + (carbon_test_names if versions.gte(lf_version, "1.15") else [])
+    for lf_version in lf_version_configuration_versions
 }
 
 da_scala_dar_resources_library(
@@ -109,8 +110,8 @@ da_scala_dar_resources_library(
     daml_dir_names = test_names,
     daml_root_dir = "src/main/daml",
     data_dependencies = {
-        "carbonv2-tests-1.dev": ["//ledger/test-common:carbonv1-tests-1.dev.build"],
-        "carbonv3-tests-1.dev": ["//ledger/test-common:carbonv2-tests-1.dev.build"],
+        "carbonv2": ["//ledger/test-common:carbonv1-tests-%s.build"],
+        "carbonv3": ["//ledger/test-common:carbonv2-tests-%s.build"],
     },
     enable_scenarios = True,
     exclusions = {

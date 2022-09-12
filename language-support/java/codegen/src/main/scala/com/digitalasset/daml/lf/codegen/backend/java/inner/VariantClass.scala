@@ -7,8 +7,8 @@ import com.daml.ledger.javaapi
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.codegen.backend.java.JavaEscaper
 import com.daml.lf.data.Ref.{Identifier, PackageId}
-import com.daml.lf.iface._
-import InterfaceType.Normal
+import com.daml.lf.typesig._
+import PackageSignature.TypeDecl.Normal
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
@@ -49,7 +49,7 @@ private[inner] object VariantClass extends StrictLogging {
       (variantType, constructors)
     }
 
-  private def isRecord(interfaceType: InterfaceType): Boolean =
+  private def isRecord(interfaceType: PackageSignature.TypeDecl): Boolean =
     interfaceType.`type`.dataType match {
       case _: Record[_] => true
       case _: Variant[_] | _: Enum => false

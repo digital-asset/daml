@@ -66,7 +66,7 @@ MaliciousOrFaultyBehaviour
 
     **Default log level**: WARN
 
-    **Description**: Request processing failed due to unrecoverable data loss or corruption (e.g. detected via checksums). This error is exposed on the API with grpc-status INTERNAL without any details for security reasons
+    **Description**: Request processing failed due to unrecoverable data loss or corruption (e.g. detected via checksums). This error is exposed on the API with grpc-status UNKNOWN without any details for security reasons
 
     **Resolution**: Expectation: this can be a severe issue that requires operator attention or intervention, and potentially vendor support.
 
@@ -81,7 +81,7 @@ AuthInterceptorInvalidAuthenticationCredentials
 
     **Default log level**: WARN
 
-    **Description**: The request does not have valid authentication credentials for the operation. This error is exposed on the API with grpc-status INTERNAL without any details for security reasons
+    **Description**: The request does not have valid authentication credentials for the operation. This error is exposed on the API with grpc-status UNAUTHENTICATED without any details for security reasons
 
     **Resolution**: Expectation: this is an application bug, application misconfiguration or ledger-level misconfiguration. Resolution requires application and/or ledger operator intervention.
 
@@ -96,11 +96,26 @@ InsufficientPermission
 
     **Default log level**: WARN
 
-    **Description**: The caller does not have permission to execute the specified operation. This error is exposed on the API with grpc-status INTERNAL without any details for security reasons
+    **Description**: The caller does not have permission to execute the specified operation. This error is exposed on the API with grpc-status PERMISSION_DENIED without any details for security reasons
 
     **Resolution**: Expectation: this is an application bug or application misconfiguration. Resolution requires application operator intervention.
 
     **Retry strategy**: Retry after application operator intervention.
+
+
+SecurityAlert
+========================================================================================================================
+    **Category id**: 15
+
+    **gRPC status code**: INVALID_ARGUMENT
+
+    **Default log level**: WARN
+
+    **Description**: A potential attack has been detected.  This error is exposed on the API with grpc-status INVALID_ARGUMENT without any details for security reasons.
+
+    **Resolution**: Expectation: this can be a severe issue that requires operator attention or intervention, and potentially vendor support.
+
+    **Retry strategy**: Errors in this category are non-retryable.
 
 
 InvalidIndependentOfSystemState

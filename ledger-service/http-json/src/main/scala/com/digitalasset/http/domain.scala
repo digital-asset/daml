@@ -5,7 +5,7 @@ package com.daml.http
 
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import com.daml.ledger.api.domain.User
-import com.daml.lf.iface
+import com.daml.lf.typesig
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.nonempty.NonEmpty
@@ -50,7 +50,7 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
   type SubmissionId = String @@ SubmissionIdTag
   val SubmissionId = Tag.of[SubmissionIdTag]
 
-  type LfType = iface.Type
+  type LfType = typesig.Type
 
   type RetryInfoDetailDuration = scala.concurrent.duration.Duration @@ RetryInfoDetailDurationTag
   val RetryInfoDetailDuration = Tag.of[RetryInfoDetailDurationTag]
@@ -153,8 +153,7 @@ package domain {
   )
 
   final case class GetActiveContractsRequest(
-      // TODO #14727 remove .Template for subscriptions
-      templateIds: OneAnd[Set, ContractTypeId.Template.OptionalPkg],
+      templateIds: OneAnd[Set, ContractTypeId.OptionalPkg],
       query: Map[String, JsValue],
       readAs: Option[NonEmptyList[Party]],
   )
@@ -315,12 +314,6 @@ package domain {
 
   object Contract {
 
-    def fromTransaction(
-        tx: lav1.transaction.Transaction
-    ): Error \/ List[Contract[lav1.value.Value]] = {
-      tx.events.toList.traverse(fromEvent(_))
-    }
-
     def fromTransactionTree(
         tx: lav1.transaction.TransactionTree
     ): Error \/ Vector[Contract[lav1.value.Value]] = {
@@ -329,17 +322,6 @@ package domain {
         .sequence
         .map(_.flatten)
     }
-
-    def fromEvent(event: lav1.event.Event): Error \/ Contract[lav1.value.Value] =
-      event.event match {
-        case lav1.event.Event.Event.Created(created) =>
-          ActiveContract.fromLedgerApi(created).map(a => Contract[lav1.value.Value](\/-(a)))
-        case lav1.event.Event.Event.Archived(archived) =>
-          ArchivedContract.fromLedgerApi(archived).map(a => Contract[lav1.value.Value](-\/(a)))
-        case lav1.event.Event.Event.Empty =>
-          val errorMsg = s"Expected either Created or Archived event, got: Empty"
-          -\/(Error(Symbol("Contract_fromLedgerApi"), errorMsg))
-      }
 
     def fromTreeEvent(
         eventsById: Map[String, lav1.transaction.TreeEvent]
@@ -352,8 +334,11 @@ package domain {
         case head +: tail =>
           eventsById(head).kind match {
             case lav1.transaction.TreeEvent.Kind.Created(created) =>
+              // TODO RR #14871 verify that `ResolvedQuery.Empty` is ok in this scenario
               val a =
-                ActiveContract.fromLedgerApi(created).map(a => Contract[lav1.value.Value](\/-(a)))
+                ActiveContract
+                  .fromLedgerApi(domain.ResolvedQuery.Empty, created)
+                  .map(a => Contract[lav1.value.Value](\/-(a)))
               val newAcc = ^(acc, a)(_ :+ _)
               loop(tail, newAcc)
             case lav1.transaction.TreeEvent.Kind.Exercised(exercised) =>

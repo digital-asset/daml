@@ -28,9 +28,10 @@ import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.script.{Converter, LfValueCodec}
-import com.daml.lf.iface.{EnvironmentInterface, InterfaceType}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SValue
+import com.daml.lf.typesig.EnvironmentSignature
+import com.daml.lf.typesig.PackageSignature.TypeDecl
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import io.grpc.{Status, StatusRuntimeException}
@@ -56,7 +57,7 @@ import scala.util.{Failure, Success}
 class JsonLedgerClient(
     uri: Uri,
     token: Jwt,
-    envIface: EnvironmentInterface,
+    envIface: EnvironmentSignature,
     actorSystem: ActorSystem,
 ) extends ScriptLedgerClient {
   import JsonLedgerClient.JsonProtocol._
@@ -454,7 +455,7 @@ class JsonLedgerClient(
   private[this] def lookupChoice(tplId: Identifier, choice: ChoiceName) =
     envIface
       .typeDecls(tplId)
-      .asInstanceOf[InterfaceType.Template]
+      .asInstanceOf[TypeDecl.Template]
       .template
       .tChoices
       .assumeNoOverloadedChoices(githubIssue = 13973)(choice)

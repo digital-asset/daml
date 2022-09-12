@@ -13,7 +13,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.InMemoryState
 import com.daml.platform.index.InMemoryStateUpdater
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
-import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
+import com.daml.platform.store.FlywayMigrations
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -23,7 +23,6 @@ final class IndexerServiceOwner(
     readService: state.ReadService,
     config: IndexerConfig,
     metrics: Metrics,
-    lfValueTranslationCache: LfValueTranslationCache.Cache,
     inMemoryState: InMemoryState,
     inMemoryStateUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
     additionalMigrationPaths: Seq[String] = Seq.empty,
@@ -45,7 +44,6 @@ final class IndexerServiceOwner(
       config,
       readService,
       metrics,
-      lfValueTranslationCache,
       inMemoryState,
       inMemoryStateUpdaterFlow,
       executionContext,

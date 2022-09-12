@@ -216,6 +216,9 @@ instance MonoTraversable ModuleRef PackageMetadata
 instance MonoTraversable ModuleRef Package
 instance MonoTraversable ModuleRef T.Text where monoTraverse _ = pure
 
+instance (NM.Named a, MonoTraversable ModuleRef a) => MonoTraversable ModuleRef (NM.NameMap a) where
+  monoTraverse = NM.traverse . monoTraverse
+
 -- | Traverse over all references to top-level values in an expression.
 exprValueRef
   :: forall f. Applicative f

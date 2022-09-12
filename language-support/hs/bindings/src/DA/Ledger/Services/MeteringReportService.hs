@@ -5,16 +5,14 @@
 
 module DA.Ledger.Services.MeteringReportService (
     getMeteringReport, 
-    MeteringReport(..),
-    MeteringRequest(..),
     MeteringRequestByDay(..),
-    MeteredApplication(..),
-    isoTimeToTimestamp,
     timestampToIso8601,
     utcDayToTimestamp,
+    toRawStructValue,
+    toRawAesonValue
   ) where
 
-import Data.Aeson ( KeyValue((.=)), ToJSON(..), FromJSON(..), object, withObject, (.:), (.:?) )
+import Data.Aeson ( KeyValue((.=)), ToJSON(..), object )
 import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
@@ -29,6 +27,12 @@ import GHC.Int (Int64)
 import GHC.Word (Word32)
 import Data.Time.Calendar (Day(..))
 import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
+import qualified Data.Aeson as A
+import qualified Data.Aeson.KeyMap as A
+import qualified Data.Aeson.Key as A
+import qualified Google.Protobuf.Struct as S
+import qualified Data.Map as Map
+import qualified Data.Scientific as Scientific
 
 data MeteringRequestByDay = MeteringRequestByDay {
   from :: Day
@@ -45,68 +49,6 @@ instance ToJSON MeteringRequestByDay where
     ++ maybeToList (fmap (("to" .=) . show) to)
     ++ maybeToList (fmap (("application" .=) . unApplicationId) application)
     )
-
-data MeteringRequest = MeteringRequest {
-  from :: Timestamp
-, to :: Maybe Timestamp
-, application :: Maybe ApplicationId
-} deriving (Show, Eq)
-
-instance ToJSON MeteringRequest where
-  toJSON (MeteringRequest from to application) =
-    object (
-    [
-      "from" .= timestampToIso8601 from
-    ]
-    ++ maybeToList (fmap (("to" .=) . timestampToIso8601) to)
-    ++ maybeToList (fmap (("application" .=) . unApplicationId) application)
-    )
-
-instance FromJSON MeteringRequest where
-    parseJSON = withObject "MeteringRequest" $ \v -> MeteringRequest
-        <$> fmap isoTimeToTimestamp (v .: "from")
-        <*> fmap (\o -> fmap isoTimeToTimestamp o) (v .:? "to")
-        <*> v .:? "application"
-
-data MeteredApplication = MeteredApplication {
-  application :: ApplicationId
-, events :: Int64
-} deriving (Show, Eq)
-
-instance ToJSON MeteredApplication where
-  toJSON (MeteredApplication application events) =
-    object
-    [   "application" .= unApplicationId application
-    ,   "events" .= events
-    ]
-
-instance FromJSON MeteredApplication where
-    parseJSON = withObject "MeteredApplication" $ \v -> MeteredApplication
-        <$> v .: "application"
-        <*> v .: "events"
-
-data MeteringReport = MeteringReport {
-  participant :: ParticipantId
-, request  :: MeteringRequest
-, isFinal :: Bool
-, applications :: [MeteredApplication]
-} deriving (Show, Eq)
-
-instance ToJSON MeteringReport where
-  toJSON (MeteringReport participant request isFinal applications) =
-    object
-    [   "participant" .= unParticipantId participant
-    ,   "request" .= request
-    ,   "final" .= isFinal
-    ,   "applications" .= applications
-    ]
-
-instance FromJSON MeteringReport where
-    parseJSON = withObject "MeteringReport" $ \v -> MeteringReport
-        <$> v .: "participant"
-        <*> v .: "request"
-        <*> v .: "final"
-        <*> v .: "applications"
 
 timestampToSystemTime :: Timestamp -> System.SystemTime
 timestampToSystemTime ts = st
@@ -128,41 +70,46 @@ timestampToIso8601 ts = ISO8601.iso8601Show ut
     st = timestampToSystemTime ts
     ut = System.systemToUTCTime st
 
-isoTimeToTimestamp :: IsoTime -> Timestamp
-isoTimeToTimestamp iso = systemTimeToTimestamp $ System.utcToSystemTime $ unIsoTime iso
-
 utcDayToTimestamp :: Day -> Timestamp
 utcDayToTimestamp day = systemTimeToTimestamp $ System.utcToSystemTime $ UTCTime day (secondsToDiffTime 0)
 
-raiseApplicationMeteringReport :: LL.ApplicationMeteringReport -> Perhaps MeteredApplication
-raiseApplicationMeteringReport (LL.ApplicationMeteringReport llApp events) = do
-  application <- raiseApplicationId llApp
-  return MeteredApplication {..}
+kindToAesonValue :: S.ValueKind -> A.Value
+kindToAesonValue (S.ValueKindStructValue (S.Struct sMap)) =
+  A.Object aMap
+  where
+    aMap = A.fromMap $ s2a <$> Map.mapKeys (A.fromText . TL.toStrict) sMap
+    s2a (Just v) = toRawAesonValue v
+    s2a Nothing = A.Null
 
-raiseGetMeteringReportRequest ::  LL.GetMeteringReportRequest -> Perhaps MeteringRequest
-raiseGetMeteringReportRequest (LL.GetMeteringReportRequest (Just llFrom) llTo llApplication) = do
-  from <- raiseTimestamp llFrom
-  to <- traverse raiseTimestamp llTo
-  let maybeApplication = if TL.null llApplication then Nothing else Just llApplication
-  application <- traverse raiseApplicationId maybeApplication
-  return MeteringRequest{..}
+kindToAesonValue (S.ValueKindListValue (S.ListValue list)) = A.Array $ fmap toRawAesonValue list
+kindToAesonValue (S.ValueKindStringValue text) = A.String (TL.toStrict text)
+kindToAesonValue (S.ValueKindNullValue _) = A.Null
+kindToAesonValue (S.ValueKindNumberValue num) = A.Number $ Scientific.fromFloatDigits num
+kindToAesonValue (S.ValueKindBoolValue b) = A.Bool b
 
-raiseGetMeteringReportRequest response = Left $ Unexpected ("raiseGetMeteringReportRequest unable to parse response: " <> show response)
+toRawAesonValue :: S.Value -> A.Value
+toRawAesonValue (S.Value (Just kind)) = kindToAesonValue kind
+toRawAesonValue (S.Value Nothing) = A.Null
 
-raiseParticipantMeteringReport ::  LL.GetMeteringReportRequest ->  LL.ParticipantMeteringReport -> Perhaps MeteringReport
-raiseParticipantMeteringReport llRequest  (LL.ParticipantMeteringReport llParticipantId isFinal llAppReports) = do
-  participant <- raiseParticipantId llParticipantId
-  request <- raiseGetMeteringReportRequest llRequest
-  applications <- raiseList raiseApplicationMeteringReport llAppReports
-  return MeteringReport{..}
+toRawStructValue :: A.Value -> S.Value
+toRawStructValue (A.Object aMap) =
+    S.Value $ Just $ S.ValueKindStructValue $ S.Struct sMap
+    where
+      sMap = Map.mapKeys TL.fromStrict $ fmap a2s $ A.toMapText aMap
+      a2s v = Just $ toRawStructValue v
 
-raiseGetMeteringReportResponse :: LL.GetMeteringReportResponse -> Perhaps MeteringReport
-raiseGetMeteringReportResponse (LL.GetMeteringReportResponse (Just request) (Just report) (Just _)  _) =
-  raiseParticipantMeteringReport request report
+toRawStructValue (A.Array array) = S.Value $ Just $ S.ValueKindListValue $ S.ListValue $ fmap toRawStructValue array
+toRawStructValue (A.String text) = S.Value $ Just $ S.ValueKindStringValue (TL.fromStrict text)
+toRawStructValue (A.Number num) = S.Value $ Just $ S.ValueKindNumberValue $ Scientific.toRealFloat num
+toRawStructValue (A.Bool b) = S.Value $ Just $ S.ValueKindBoolValue b
+toRawStructValue A.Null = S.Value Nothing
 
+raiseGetMeteringReportResponse :: LL.GetMeteringReportResponse -> Perhaps A.Value
+raiseGetMeteringReportResponse (LL.GetMeteringReportResponse _ _ (Just reportStruct)) =
+  Right $ toRawAesonValue $ S.Value $ Just $ S.ValueKindStructValue reportStruct
 raiseGetMeteringReportResponse response = Left $ Unexpected ("raiseMeteredReport unable to parse response: " <> show response)
 
-getMeteringReport :: Timestamp -> Maybe Timestamp -> Maybe ApplicationId -> LedgerService MeteringReport
+getMeteringReport :: Timestamp -> Maybe Timestamp -> Maybe ApplicationId -> LedgerService A.Value
 getMeteringReport from to applicationId =
     makeLedgerService $ \timeout config mdm ->
     withGRPCClient config $ \client -> do

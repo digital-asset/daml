@@ -9,7 +9,7 @@ import java.util.concurrent.{CompletableFuture, Executor}
 import com.daml.caching.CaffeineCache
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.User
-import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.ledger.participant.state.index.v2.{UserManagementStore, UserUpdate}
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{Result, UserInfo}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
@@ -61,10 +61,18 @@ class CachedUserManagementStore(
 
   override def createUser(user: User, rights: Set[domain.UserRight])(implicit
       loggingContext: LoggingContext
-  ): Future[Result[Unit]] =
+  ): Future[Result[User]] =
     delegate
       .createUser(user, rights)
       .andThen(invalidateOnSuccess(user.id))
+
+  override def updateUser(
+      userUpdate: UserUpdate
+  )(implicit loggingContext: LoggingContext): Future[Result[User]] = {
+    delegate
+      .updateUser(userUpdate)
+      .andThen(invalidateOnSuccess(userUpdate.id))
+  }
 
   override def deleteUser(
       id: UserId

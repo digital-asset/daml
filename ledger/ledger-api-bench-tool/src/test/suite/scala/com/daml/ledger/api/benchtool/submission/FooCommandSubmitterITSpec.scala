@@ -121,6 +121,7 @@ class FooCommandSubmitterITSpec
         WorkflowConfig.StreamConfig.PartyFilter(
           party = party.toString,
           templates = List.empty,
+          interfaces = List.empty,
         )
       ),
       beginOffset = None,

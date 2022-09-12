@@ -32,7 +32,10 @@ import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable
 import scala.annotation.nowarn
 
-final class CommandsValidator(ledgerId: LedgerId) {
+final class CommandsValidator(
+    ledgerId: LedgerId,
+    validateDisclosedContracts: ValidateDisclosedContracts = new ValidateDisclosedContracts(false),
+) {
 
   import ValidationErrors._
   import FieldValidations._
@@ -70,7 +73,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
         commands.deduplicationPeriod,
         maxDeduplicationDuration,
       )
-      _ <- validateExplicitDisclosure(commands)
+      validatedDisclosedContracts <- validateDisclosedContracts(commands)
     } yield domain.Commands(
       ledgerId = ledgerId,
       workflowId = workflowId,
@@ -86,6 +89,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
         ledgerEffectiveTime = ledgerEffectiveTimestamp,
         commandsReference = workflowId.fold("")(_.unwrap),
       ),
+      disclosedContracts = validatedDisclosedContracts,
     )
 
   private def validateLedgerTime(
@@ -271,21 +275,6 @@ final class CommandsValidator(ledgerId: LedgerId) {
             )
       }
     }
-
-  private def validateExplicitDisclosure(commands: ProtoCommands)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Unit] =
-    Either.cond(
-      // TODO Explicit disclosure: Enrich condition with feature flag check (when introduced)
-      commands.disclosedContracts.isEmpty,
-      (),
-      LedgerApiErrors.RequestValidation.InvalidField
-        .Reject(
-          "disclosed_contracts",
-          "feature in development: disclosed_contracts should not be set",
-        )
-        .asGrpcError,
-    )
 }
 
 object CommandsValidator {

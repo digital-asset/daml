@@ -8,7 +8,6 @@ import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.{TraceIdentifiers, domain}
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
 import com.daml.ledger.api.domain.{
   Filters,
@@ -29,31 +28,29 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
-import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
+import com.daml.ledger.api.{TraceIdentifiers, domain}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
-import com.daml.ledger.participant.state.index.v2.{
-  ContractStore,
-  IndexService,
-  MaximumLedgerTime,
-  _,
-}
+import com.daml.ledger.participant.state.index.v2._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ApplicationId, Identifier, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
 import com.daml.metrics.InstrumentedGraph._
+import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
-import com.daml.platform.{ApiOffset, PruneBuffers}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
-import com.daml.platform.index.IndexServiceImpl.withValidatedFilter
+import com.daml.platform.index.IndexServiceImpl.{
+  memoizedTransactionFilterProjection,
+  transactionFilterProjection,
+  withValidatedFilter,
+}
 import com.daml.platform.store.dao.{
   EventProjectionProperties,
   LedgerDaoCommandCompletionsReader,
@@ -63,6 +60,7 @@ import com.daml.platform.store.dao.{
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
+import com.daml.platform.{ApiOffset, TemplatePartiesFilter, PruneBuffers}
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.ToTagOps
@@ -116,17 +114,24 @@ private[index] class IndexServiceImpl(
         dispatcher()
           .startingAt(
             from.getOrElse(Offset.beforeBegin),
-            RangeSource { (startExclusive, endInclusive) =>
-              filterSource(transactionFilter, verbose) {
-                (templateFilter, eventProjectionProperties) =>
-                  transactionsReader
-                    .getFlatTransactions(
-                      startExclusive,
-                      endInclusive,
-                      templateFilter,
-                      eventProjectionProperties,
-                    )
-              }
+            RangeSource {
+              val memoFilter =
+                memoizedTransactionFilterProjection(
+                  packageMetadataView,
+                  transactionFilter,
+                  verbose,
+                )
+              (startExclusive, endInclusive) =>
+                Source(memoFilter().toList)
+                  .flatMapConcat { case (templateFilter, eventProjectionProperties) =>
+                    transactionsReader
+                      .getFlatTransactions(
+                        startExclusive,
+                        endInclusive,
+                        templateFilter,
+                        eventProjectionProperties,
+                      )
+                  }
             },
             to,
           )
@@ -229,15 +234,21 @@ private[index] class IndexServiceImpl(
     withValidatedFilter(transactionFilter, packageMetadataView.current()) {
       val currentLedgerEnd = ledgerEnd()
 
-      val activeContractsSource = filterSource(transactionFilter, verbose) {
-        (templateFilter, eventProjectionProperties) =>
+      val activeContractsSource =
+        Source(
+          transactionFilterProjection(
+            transactionFilter,
+            verbose,
+            packageMetadataView.current(),
+          ).toList
+        ).flatMapConcat { case (templateFilter, eventProjectionProperties) =>
           ledgerDao.transactionsReader
             .getActiveContracts(
               currentLedgerEnd,
               templateFilter,
               eventProjectionProperties,
             )
-      }
+        }
 
       activeContractsSource
         .concat(
@@ -255,6 +266,11 @@ private[index] class IndexServiceImpl(
       loggingContext: LoggingContext
   ): Future[Option[VersionedContractInstance]] =
     contractStore.lookupActiveContract(forParties, contractId)
+
+  override def lookupContractForValidation(contractId: ContractId)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[(VersionedContractInstance, Timestamp)]] =
+    contractStore.lookupContractForValidation(contractId)
 
   override def getTransactionById(
       transactionId: TransactionId,
@@ -452,32 +468,12 @@ private[index] class IndexServiceImpl(
     LedgerApiErrors.ServiceNotRunning
       .Reject("Index Service")(new DamlContextualizedErrorLogger(logger, loggingContext, None))
       .asGrpcError
-
-  private def filterSource[T](transactionFilter: domain.TransactionFilter, verbose: Boolean)(
-      source: (Map[Party, Set[Identifier]], EventProjectionProperties) => Source[T, NotUsed]
-  ): Source[T, NotUsed] = {
-    val metadata = packageMetadataView.current()
-
-    val templateFilter =
-      IndexServiceImpl.templateFilter(metadata, transactionFilter)
-
-    if (templateFilter.isEmpty) {
-      Source.empty
-    } else {
-      val eventProjectionProperties = EventProjectionProperties(
-        transactionFilter,
-        verbose,
-        interfaceId => metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty),
-      )
-      source(templateFilter, eventProjectionProperties)
-    }
-  }
 }
 
 object IndexServiceImpl {
   private val logger = ContextualizedLogger.get(getClass)
 
-  private[index] def unknownTemplatesOrInterfaces(
+  private[index] def checkUnknownTemplatesOrInterfaces(
       domainTransactionFilter: domain.TransactionFilter,
       metadata: PackageMetadata,
   ) =
@@ -502,40 +498,61 @@ object IndexServiceImpl {
     implicit val errorLogger: DamlContextualizedErrorLogger =
       new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-    val templatesOrInterfaces = unknownTemplatesOrInterfaces(domainTransactionFilter, metadata)
+    val unknownTemplatesOrInterfaces: Seq[Either[Identifier, Identifier]] =
+      checkUnknownTemplatesOrInterfaces(domainTransactionFilter, metadata)
 
-    if (templatesOrInterfaces.nonEmpty)
+    if (unknownTemplatesOrInterfaces.nonEmpty) {
       Source.failed(
-        invalidArgument(
-          invalidTemplateOrInterfaceMessage(templatesOrInterfaces)
-        )
+        LedgerApiErrors.RequestValidation.NotFound.TemplateOrInterfaceIdsNotFound
+          .Reject(unknownTemplatesOrInterfaces)
+          .asGrpcError
       )
-    else
+    } else
       source
   }
 
-  private[index] def invalidTemplateOrInterfaceMessage(
-      unknownTemplatesOrInterfaces: List[Either[Identifier, Identifier]]
-  ) = {
-    val templates = unknownTemplatesOrInterfaces.collect { case Left(value) =>
-      value
+  private[index] def memoizedTransactionFilterProjection(
+      packageMetadataView: PackageMetadataView,
+      transactionFilter: domain.TransactionFilter,
+      verbose: Boolean,
+  ): () => Option[(TemplatePartiesFilter, EventProjectionProperties)] = {
+    @volatile var metadata: PackageMetadata = null
+    @volatile var filters: Option[(TemplatePartiesFilter, EventProjectionProperties)] = None
+    () =>
+      val currentMetadata = packageMetadataView.current()
+      if (metadata ne currentMetadata) {
+        metadata = currentMetadata
+        filters = transactionFilterProjection(transactionFilter, verbose, metadata)
+      }
+      filters
+  }
+
+  private def transactionFilterProjection(
+      transactionFilter: domain.TransactionFilter,
+      verbose: Boolean,
+      metadata: PackageMetadata,
+  ): Option[(TemplatePartiesFilter, EventProjectionProperties)] = {
+    val templateFilter: Map[Identifier, Set[Party]] =
+      IndexServiceImpl.templateFilter(metadata, transactionFilter)
+
+    val wildcardFilter: Set[Party] = IndexServiceImpl.wildcardFilter(transactionFilter)
+
+    if (templateFilter.isEmpty && wildcardFilter.isEmpty) {
+      None
+    } else {
+      val eventProjectionProperties = EventProjectionProperties(
+        transactionFilter,
+        verbose,
+        interfaceId => metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty),
+      )
+      Some((TemplatePartiesFilter(templateFilter, wildcardFilter), eventProjectionProperties))
     }
-    val interfaces = unknownTemplatesOrInterfaces.collect { case Right(value) =>
-      value
-    }
-    val templatesMessage = if (templates.nonEmpty) {
-      s"Templates do not exist: [${templates.mkString(", ")}]. "
-    } else ""
-    val interfacesMessage = if (interfaces.nonEmpty) {
-      s"Interfaces do not exist: [${interfaces.mkString(", ")}]. "
-    } else
-      ""
-    (templatesMessage + interfacesMessage).trim
   }
 
   private def templateIds(
-      metadata: PackageMetadata
-  )(inclusiveFilters: InclusiveFilters): Set[Identifier] =
+      metadata: PackageMetadata,
+      inclusiveFilters: InclusiveFilters,
+  ): Set[Identifier] =
     inclusiveFilters.interfaceFilters.iterator
       .map(_.interfaceId)
       .flatMap(metadata.interfacesImplementedBy.getOrElse(_, Set.empty))
@@ -545,15 +562,27 @@ object IndexServiceImpl {
   private[index] def templateFilter(
       metadata: PackageMetadata,
       transactionFilter: domain.TransactionFilter,
-  ): Map[Party, Set[Identifier]] =
+  ): Map[Identifier, Set[Party]] = {
+    transactionFilter.filtersByParty.view.foldLeft(Map.empty[Identifier, Set[Party]]) {
+      case (acc, (party, Filters(Some(inclusiveFilters)))) =>
+        templateIds(metadata, inclusiveFilters).foldLeft(acc) { case (acc, templateId) =>
+          val updatedPartySet = acc.getOrElse(templateId, Set.empty[Party]) + party
+          acc.updated(templateId, updatedPartySet)
+        }
+      case (acc, _) =>
+        acc
+    }
+  }
+
+  private[index] def wildcardFilter(
+      transactionFilter: domain.TransactionFilter
+  ): Set[Party] = {
     transactionFilter.filtersByParty.view.collect {
-      case (party, Filters(Some(inclusiveFilters)))
-          if templateIds(metadata)(inclusiveFilters).nonEmpty =>
-        (party, templateIds(metadata)(inclusiveFilters))
       case (party, Filters(None)) =>
-        (party, Set.empty[Identifier])
+        party
       case (party, Filters(Some(InclusiveFilters(templateIds, interfaceFilters))))
           if templateIds.isEmpty && interfaceFilters.isEmpty =>
-        (party, Set.empty[Identifier])
-    }.toMap
+        party
+    }.toSet
+  }
 }

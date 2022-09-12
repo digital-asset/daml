@@ -54,11 +54,11 @@ import com.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient,
   ScriptTimeMode,
 }
-import com.daml.lf.iface.EnvironmentInterface
-import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.typesig.EnvironmentSignature
+import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.{Metrics, MetricsReporter}
@@ -229,10 +229,10 @@ final class JsonApiIt
     with SandboxRequiringAuthorizationFuns
     with TryValues {
 
-  private def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentInterface) = {
+  private def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentSignature) = {
     val dar = DarDecoder.assertReadArchiveFromFile(file)
-    val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
-    val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+    val ifaceDar = dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
+    val envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
     (dar, envIface)
   }
 
@@ -244,7 +244,7 @@ final class JsonApiIt
       defaultParty: Option[String] = None,
       admin: Boolean = false,
       applicationId: Option[ApplicationId] = None,
-      envIface: EnvironmentInterface = envIface,
+      envIface: EnvironmentSignature = envIface,
   ) = {
     // We give the default participant some nonsense party so the checks for party mismatch fail
     // due to the mismatch and not because the token does not allow inferring a party
@@ -277,7 +277,7 @@ final class JsonApiIt
       parties: List[String],
       readAs: List[String] = List(),
       applicationId: Option[ApplicationId] = None,
-      envIface: EnvironmentInterface = envIface,
+      envIface: EnvironmentSignature = envIface,
   ) = {
     // We give the default participant some nonsense party so the checks for party mismatch fail
     // due to the mismatch and not because the token does not allow inferring a party
@@ -294,7 +294,7 @@ final class JsonApiIt
 
   private def getUserClients(
       user: UserId,
-      envIface: EnvironmentInterface = envIface,
+      envIface: EnvironmentSignature = envIface,
   ) = {
     // We give the default participant some nonsense party so the checks for party mismatch fail
     // due to the mismatch and not because the token does not allow inferring a party

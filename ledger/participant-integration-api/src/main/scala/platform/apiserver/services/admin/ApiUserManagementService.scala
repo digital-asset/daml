@@ -199,6 +199,21 @@ private[apiserver] final class ApiUserManagementService(
             .Reject(operation, id: String)
             .asGrpcError
         )
+      case Left(UserManagementStore.ConcurrentUserUpdate(_)) =>
+        // TODO um-for-hub major: Use different error code
+        Future.failed(
+          LedgerApiErrors.UnsupportedOperation
+            .Reject("Updating users is unsupported")
+            .asGrpcError
+        )
+
+      case Left(UserManagementStore.MaxAnnotationsSizeExceeded(_)) =>
+        // TODO um-for-hub major: Use different error code
+        Future.failed(
+          LedgerApiErrors.UnsupportedOperation
+            .Reject("Updating users is unsupported")
+            .asGrpcError
+        )
 
       case scala.util.Right(t) =>
         Future.successful(t)

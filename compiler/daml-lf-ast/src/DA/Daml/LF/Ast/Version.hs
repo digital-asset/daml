@@ -64,7 +64,7 @@ supportedOutputVersions :: [Version]
 supportedOutputVersions = [version1_14, version1_15, versionDev]
 
 supportedInputVersions :: [Version]
-supportedInputVersions = [version1_8, version1_11, version1_12, version1_13, version1_14] ++ supportedOutputVersions
+supportedInputVersions = [version1_8, version1_11, version1_12, version1_13] ++ supportedOutputVersions
 
 data Feature = Feature
     { featureName :: !T.Text

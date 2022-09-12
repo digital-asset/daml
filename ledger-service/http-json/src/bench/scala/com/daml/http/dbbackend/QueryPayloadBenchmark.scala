@@ -5,7 +5,7 @@ package com.daml.http.dbbackend
 
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
-import com.daml.lf.iface
+import com.daml.lf.typesig
 import com.daml.http.dbbackend.Queries.SurrogateTpId
 import com.daml.http.domain.{Party, ContractTypeId}
 import com.daml.http.query.ValuePredicate
@@ -32,17 +32,20 @@ trait QueryPayloadBenchmark extends ContractDaoBenchmark {
     dummyPackageId,
     Ref.QualifiedName.assertFromString("Foo:Bar"),
   )
-  private[this] val dummyTypeCon = iface.TypeCon(iface.TypeConName(dummyId), ImmArraySeq.empty)
+  private[this] val dummyTypeCon = typesig.TypeCon(typesig.TypeConName(dummyId), ImmArraySeq.empty)
 
   val predicate = ValuePredicate.fromJsObject(
     Map("v" -> JsNumber(0)),
     dummyTypeCon,
     Map(
-      dummyId -> iface.DefDataType(
+      dummyId -> typesig.DefDataType(
         ImmArraySeq.empty,
-        iface.Record(
+        typesig.Record(
           ImmArraySeq(
-            (Ref.Name.assertFromString("v"), iface.TypePrim(iface.PrimType.Int64, ImmArraySeq()))
+            (
+              Ref.Name.assertFromString("v"),
+              typesig.TypePrim(typesig.PrimType.Int64, ImmArraySeq()),
+            )
           )
         ),
       )
