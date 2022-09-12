@@ -55,7 +55,10 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
       id: String,
       path: Uri.Path,
       input: Source[Message, NotUsed],
-  )
+  ) {
+    def mapInput(f: Source[Message, NotUsed] => Source[Message, NotUsed]): SimpleScenario =
+      copy(input = f(input))
+  }
 
   private[http] final case class ShouldHaveEnded(
       liveStartOffset: domain.Offset,
