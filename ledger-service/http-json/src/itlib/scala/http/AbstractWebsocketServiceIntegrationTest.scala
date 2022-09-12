@@ -11,7 +11,7 @@ import akka.http.scaladsl.model.ws.{
   TextMessage,
   WebSocketRequest,
 }
-import akka.http.scaladsl.model.{HttpHeader, StatusCode, StatusCodes, Uri}
+import akka.http.scaladsl.model.{HttpHeader, StatusCodes, Uri}
 import akka.stream.{KillSwitches, UniqueKillSwitch}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.daml.http.HttpServiceTestFixture.{
@@ -482,9 +482,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (party, headers) = aliceHeaders
         creation <- initialIouCreate(uri, party, headers)
-        iouCid = inside(creation) { case (_: StatusCodes.Success, domain.OkResponse(c, _, _)) =>
-          c.contractId
-        }
+        iouCid = resultContractId(creation)
         jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
         (kill, source) = singleClientQueryStream(jwt, uri, query)
           .viaMat(KillSwitches.single)(Keep.right)
@@ -506,13 +504,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
         result should include(""""matchedQueries":[1]""")
       }
   }
-
-  private[this] def resultContractId(
-      r: (StatusCode, domain.SyncResponse[domain.ActiveContract[_]])
-  ) =
-    inside(r) { case (_: StatusCodes.Success, domain.OkResponse(result, _, _)) =>
-      result.contractId
-    }
 
   "deltas as contracts are archived/created from" - {
     "single-party query" in withHttpService { fixture =>
@@ -600,9 +591,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         aliceHeaders <- getAliceHeaders
         (party, headers) = aliceHeaders
         creation <- initialIouCreate(uri, party, headers)
-        iouCid = inside(creation) { case (_: StatusCodes.Success, domain.OkResponse(c, _, _)) =>
-          c.contractId
-        }
+        iouCid = resultContractId(creation)
         jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
         (kill, source) = singleClientQueryStream(jwt, uri, query)
           .viaMat(KillSwitches.single)(Keep.right)
@@ -1128,10 +1117,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           headers,
         )
       )
-      cid = inside(create) {
-        case (StatusCodes.OK, domain.OkResponse(contract, _, StatusCodes.OK)) =>
-          contract.contractId
-      }
+      cid = resultContractId(create)
       // wait for the creation's offset
       offsetAfter <- readUntil[In] {
         case ContractDelta(creates, _, off @ Some(_)) =>
