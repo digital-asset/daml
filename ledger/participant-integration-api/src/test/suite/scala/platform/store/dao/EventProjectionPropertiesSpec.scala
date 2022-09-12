@@ -74,7 +74,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       Some(
         InclusiveFilters(
           Set.empty,
-          Set(InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = true)),
+          Set(InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = false)),
         )
       )
     )
@@ -88,7 +88,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       Some(
         InclusiveFilters(
           Set.empty,
-          Set(InterfaceFilter(iface1, includeView = false, includeCreateArgumentsBlob = true)),
+          Set(InterfaceFilter(iface1, includeView = false, includeCreateArgumentsBlob = false)),
         )
       )
     )
@@ -103,7 +103,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       Some(
         InclusiveFilters(
           Set(template1),
-          Set(InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = true)),
+          Set(InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = false)),
         )
       )
     )
@@ -122,8 +122,8 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
         InclusiveFilters(
           Set.empty,
           Set(
-            InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = true),
-            InterfaceFilter(iface2, includeView = true, includeCreateArgumentsBlob = true),
+            InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = false),
+            InterfaceFilter(iface2, includeView = true, includeCreateArgumentsBlob = false),
           ),
         )
       )
@@ -141,8 +141,8 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
             InclusiveFilters(
               Set.empty,
               Set(
-                InterfaceFilter(iface1, includeView = false, includeCreateArgumentsBlob = true),
-                InterfaceFilter(iface2, includeView = true, includeCreateArgumentsBlob = true),
+                InterfaceFilter(iface1, includeView = false, includeCreateArgumentsBlob = false),
+                InterfaceFilter(iface2, includeView = true, includeCreateArgumentsBlob = false),
               ),
             )
           )
@@ -152,8 +152,8 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
             InclusiveFilters(
               Set.empty,
               Set(
-                InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = true),
-                InterfaceFilter(iface2, includeView = true, includeCreateArgumentsBlob = true),
+                InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = false),
+                InterfaceFilter(iface2, includeView = true, includeCreateArgumentsBlob = false),
               ),
             )
           )
