@@ -193,6 +193,30 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       onlySerializableDataDefs: Boolean,
   ) {
 
+    // decode*ForTest -- testing entry points
+
+    private[archive] def decodeChoiceForTest(
+        tpl: DottedName,
+        lfChoice: PLF.TemplateChoice,
+    ): TemplateChoice = {
+      xxx(decodeChoice(tpl, lfChoice))
+    }
+
+    private[archive] def decodeDefInterfaceForTest(
+        id: DottedName,
+        lfInterface: PLF.DefInterface,
+    ): DefInterface = {
+      xxx(decodeDefInterface(id, lfInterface))
+    }
+
+    private[archive] def decodeKindForTest(lfKind: PLF.Kind): Kind = {
+      xxx(decodeKind(lfKind))
+    }
+
+    private[archive] def decodeTypeForTest(lfType: PLF.Type): Type = {
+      xxx(decodeType(lfType)(Ret(_)))
+    }
+
     private var currentDefinitionRef: Option[DefinitionRef] = None
 
     def decodeModule(lfModule: PLF.Module): Module = {
@@ -397,12 +421,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       decodeType(lfTypeSyn.getType) { expr =>
         val params = lfTypeSyn.getParamsList.asScala
         sequenceWork(params.view.map(decodeTypeVarWithKind)) { kinds =>
-          Ret(
-            DTypeSyn(
-              kinds.to(ImmArray),
-              expr,
-            )
-          )
+          Ret(DTypeSyn(kinds.to(ImmArray), expr))
         }
       }
 
@@ -695,13 +714,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       }
     }
 
-    private[archive] def decodeChoiceForTest( // NICK: entry point (move to top of class)
-        tpl: DottedName,
-        lfChoice: PLF.TemplateChoice,
-    ): TemplateChoice = {
-      xxx(decodeChoice(tpl, lfChoice))
-    }
-
     private def decodeChoice(
         tpl: DottedName,
         lfChoice: PLF.TemplateChoice,
@@ -764,13 +776,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         Ret(DefException(expr))
       }
 
-    private[lf] def decodeDefInterfaceForTest( // NICK: entry for test
-        id: DottedName,
-        lfInterface: PLF.DefInterface,
-    ): DefInterface = {
-      xxx(decodeDefInterface(id, lfInterface))
-    }
-
     private def decodeDefInterface(
         id: DottedName,
         lfInterface: PLF.DefInterface,
@@ -831,59 +836,49 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       }
     }
 
-    private[lf] def decodeKindForTest(lfKind: PLF.Kind): Kind = { // NICK
-      xxx(decodeKind(lfKind))
-    }
-
-    private def decodeKind(lfKind: PLF.Kind): Work[Kind] = Ret { // NICK: stack safe?
-      lfKind.getSumCase match {
-        case PLF.Kind.SumCase.STAR => KStar
-        case PLF.Kind.SumCase.NAT =>
-          assertSince(LV.Features.numeric, "Kind.NAT")
-          KNat
-        case PLF.Kind.SumCase.ARROW =>
-          val kArrow = lfKind.getArrow
-          val params = kArrow.getParamsList.asScala
-          assertNonEmpty(params, "params")
-          (params.foldRight(xxx(decodeKind(kArrow.getResult))))((param, kind) =>
-            KArrow(xxx(decodeKind(param)), kind)
-          )
-        case PLF.Kind.SumCase.SUM_NOT_SET =>
-          throw Error.Parsing("Kind.SUM_NOT_SET")
-      }
-    }
-
-    private[archive] def decodeTypeForTest(lfType: PLF.Type): Type = { // NICK: entry point
-      xxx(decodeType_WORK(lfType))
-    }
-
-    private def decodeType[T](lfType: PLF.Type)(k: Type => Work[T]): Work[T] = {
-      Work.Bind(Work.Delay(() => decodeType_WORK(lfType)), k)
-    }
-
-    // NICK -- kill all callers! ..
-    private def decodeType_DEP(lfType: PLF.Type): Type = xxx(decodeType_WORK(lfType))
-
-    private def decodeType_WORK(lfType: PLF.Type): Work[Type] = {
-      if (versionIsOlderThan(LV.Features.internedTypes)) {
-        uncheckedDecodeType(lfType)
-      } else {
-        lfType.getSumCase match {
-          case PLF.Type.SumCase.INTERNED =>
-            Ret(
-              internedTypes.applyOrElse(
-                lfType.getInterned,
-                (index: Int) => throw Error.Parsing(s"invalid internedTypes table index $index"),
-              )
-            )
-          case otherwise =>
-            throw Error.Parsing(s"$otherwise is not supported outside type interning table")
+    private def decodeKind(lfKind: PLF.Kind): Work[Kind] = {
+      Work.Delay { () =>
+        lfKind.getSumCase match {
+          case PLF.Kind.SumCase.STAR => Ret(KStar)
+          case PLF.Kind.SumCase.NAT =>
+            assertSince(LV.Features.numeric, "Kind.NAT")
+            Ret(KNat)
+          case PLF.Kind.SumCase.ARROW =>
+            val kArrow = lfKind.getArrow
+            val params = kArrow.getParamsList.asScala
+            assertNonEmpty(params, "params")
+            bindWork(decodeKind(kArrow.getResult)) { base =>
+              sequenceWork(params.view.map(decodeKind)) { kinds =>
+                Ret((kinds foldRight base)(KArrow))
+              }
+            }
+          case PLF.Kind.SumCase.SUM_NOT_SET =>
+            throw Error.Parsing("Kind.SUM_NOT_SET")
         }
       }
     }
 
-    private def makeApp(fun: Type, args: List[Type]): Type = {
-      args.foldLeft[Type](fun)((typ, arg) => TApp(typ, arg))
+    private def decodeType[T](lfType: PLF.Type)(k: Type => Work[T]): Work[T] = {
+      Work.Bind(
+        Work.Delay { () =>
+          if (versionIsOlderThan(LV.Features.internedTypes)) {
+            uncheckedDecodeType(lfType)
+          } else {
+            lfType.getSumCase match {
+              case PLF.Type.SumCase.INTERNED =>
+                Ret(
+                  internedTypes.applyOrElse(
+                    lfType.getInterned,
+                    (index: Int) => throw Error.Parsing(s"invalid internedTypes table index $index"),
+                  )
+                )
+              case otherwise =>
+                throw Error.Parsing(s"$otherwise is not supported outside type interning table")
+            }
+          }
+        },
+        k,
+      )
     }
 
     private[archive] def uncheckedDecodeTypeForTest(lfType: PLF.Type): Type = {
@@ -903,7 +898,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             "Type.var.var",
           )
           sequenceWork(tvar.getArgsList.asScala.view.map(uncheckedDecodeType)) { types =>
-            Ret(makeApp(TVar(varName), types))
+            Ret(types.foldLeft[Type](TVar(varName))(TApp))
           }
         case PLF.Type.SumCase.NAT =>
           assertSince(LV.Features.numeric, "Type.NAT")
@@ -921,7 +916,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         case PLF.Type.SumCase.CON =>
           val tcon = lfType.getCon
           sequenceWork(tcon.getArgsList.asScala.view.map(uncheckedDecodeType)) { types =>
-            Ret(makeApp(TTyCon(decodeTypeConName(tcon.getTycon)), types))
+            Ret(types.foldLeft[Type](TTyCon(decodeTypeConName(tcon.getTycon)))(TApp))
           }
         case PLF.Type.SumCase.SYN =>
           val tsyn = lfType.getSyn
@@ -945,7 +940,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
               info.typ
             }
           sequenceWork(prim.getArgsList.asScala.view.map(uncheckedDecodeType)) { types =>
-            Ret(makeApp(baseType, types))
+            Ret(types.foldLeft(baseType)(TApp))
           }
         case PLF.Type.SumCase.FORALL =>
           val tForall = lfType.getForall
@@ -953,7 +948,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           assertNonEmpty(vars, "vars")
           bindWork(uncheckedDecodeType(tForall.getBody)) { base =>
             sequenceWork(vars.view.map(decodeTypeVarWithKind)) { binders =>
-              Ret((binders foldRight base)((binder, acc) => TForall(binder, acc)))
+              Ret((binders foldRight base)(TForall))
             }
           }
         case PLF.Type.SumCase.STRUCT =>
@@ -1057,22 +1052,14 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     }
 
     private[archive] def decodeExprForTest(lfExpr: PLF.Expr, definition: String): Expr = { // NICK
-      decodeExpr_DEP(lfExpr, definition)
+      xxx(decodeExpr(lfExpr, definition)(Ret(_)))
     }
 
-    // NICK: continuation style: bulk of code will use this for recursive calls
-    private def decodeExpr[T](lfExpr: PLF.Expr, definition: String)(
-        k: Expr => Work[T]
-    ): Work[T] = {
-      Work.Bind(Work.Delay(() => decodeExpr_WORK(lfExpr, definition)), k)
+    private def decodeExpr[T](lfExpr: PLF.Expr, definition: String)(k: Expr => Work[T]): Work[T] = {
+      Work.Bind(Work.Delay(() => decodeExpr1(lfExpr, definition)), k)
     }
 
-    // NICK -- kill all callers! ..
-    private def decodeExpr_DEP(lfExpr: PLF.Expr, definition: String): Expr = {
-      xxx(decodeExpr_WORK(lfExpr, definition))
-    }
-
-    private[lf] def decodeExpr_WORK(lfExpr: PLF.Expr, definition: String): Work[Expr] = {
+    private[lf] def decodeExpr1(lfExpr: PLF.Expr, definition: String): Work[Expr] = {
       bindWork(lfExpr.getSumCase match {
         case PLF.Expr.SumCase.VAR_STR =>
           assertUntil(LV.Features.internedStrings, "Expr.var_str")
@@ -1245,52 +1232,59 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           val app = lfExpr.getApp
           val args = app.getArgsList.asScala
           assertNonEmpty(args, "args")
-          // We use a `foreach` instead of `foldLeft` to reduce the stack size. //NICK kill old comment
-          var expr = decodeExpr_DEP(app.getFun, definition)
-          for (arg <- args) {
-            expr = EApp(expr, decodeExpr_DEP(arg, definition))
+          decodeExpr(app.getFun, definition) { base =>
+            sequenceWork(args.view.map(decodeExpr(_, definition)(Ret(_)))) { args =>
+              Ret((args foldLeft base)(EApp))
+            }
           }
-          Ret(expr)
 
         case PLF.Expr.SumCase.ABS =>
           val lfAbs = lfExpr.getAbs
           val params = lfAbs.getParamList.asScala
           assertNonEmpty(params, "params")
-          // val params = lfAbs.getParamList.asScala.map(decodeBinder)
-          Ret(
-            (params foldRight decodeExpr_DEP(lfAbs.getBody, definition))((param, e) =>
-              EAbs(xxx(decodeBinder(param)), e, currentDefinitionRef)
-            )
-          )
+          decodeExpr(lfAbs.getBody, definition) { base =>
+            sequenceWork(params.view.map(decodeBinder)) { binders => // NICK: view, map blah
+              Ret((binders foldRight base)((binder, e) => EAbs(binder, e, currentDefinitionRef)))
+            }
+          }
 
         case PLF.Expr.SumCase.TY_APP =>
           val tyapp = lfExpr.getTyApp
           val args = tyapp.getTypesList.asScala
           assertNonEmpty(args, "args")
-          Ret(
-            (args foldLeft decodeExpr_DEP(tyapp.getExpr, definition))((e, arg) =>
-              ETyApp(e, decodeType_DEP(arg))
-            )
-          )
+          decodeExpr(tyapp.getExpr, definition) { base =>
+            sequenceWork(args.view.map(decodeType(_)(Ret(_)))) { types =>
+              Ret((types foldLeft base)(ETyApp))
+            }
+          }
 
         case PLF.Expr.SumCase.TY_ABS =>
           val lfTyAbs = lfExpr.getTyAbs
           val params = lfTyAbs.getParamList.asScala
           assertNonEmpty(params, "params")
-          Ret(
-            (params foldRight decodeExpr_DEP(lfTyAbs.getBody, definition))((param, e) =>
-              ETyAbs(decodeTypeVarWithKind_DEP(param), e)
-            )
-          )
+          decodeExpr(lfTyAbs.getBody, definition) { base =>
+            sequenceWork(params.view.map(decodeTypeVarWithKind)) { binders =>
+              Ret((binders foldRight base)(ETyAbs))
+            }
+          }
 
         case PLF.Expr.SumCase.LET =>
           val lfLet = lfExpr.getLet
           val bindings = lfLet.getBindingsList.asScala
           assertNonEmpty(bindings, "bindings")
-          Ret((bindings foldRight decodeExpr_DEP(lfLet.getBody, definition))((binding, e) => {
-            val (v, t) = xxx(decodeBinder(binding.getBinder))
-            ELet(Binding(Some(v), t, decodeExpr_DEP(binding.getBound, definition)), e)
-          }))
+          decodeExpr(lfLet.getBody, definition) { base =>
+            sequenceWork(bindings.view.map { binding =>
+              bindWork(decodeBinder(binding.getBinder)) { case (v, t) =>
+                decodeExpr(binding.getBound, definition) { bound =>
+                  Ret((v, t, bound))
+                }
+              }
+            }) { bindings =>
+              Ret((bindings foldRight base) { case ((v, t, bound), e) =>
+                ELet(Binding(Some(v), t, bound), e)
+              })
+            }
+          }
 
         case PLF.Expr.SumCase.NIL =>
           decodeType(lfExpr.getNil.getType) { typ =>
@@ -1884,10 +1878,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       }
     }
 
-    private[this] def decodeTypeVarWithKind_DEP( // NICK: kill me
-        lfTypeVarWithKind: PLF.TypeVarWithKind
-    ): (TypeVarName, Kind) = xxx(decodeTypeVarWithKind(lfTypeVarWithKind))
-
     private[this] def decodeTypeVarWithKind(
         lfTypeVarWithKind: PLF.TypeVarWithKind
     ): Work[(TypeVarName, Kind)] = Ret {
@@ -1901,21 +1891,27 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       ) -> xxx(decodeKind(lfTypeVarWithKind.getKind))
     }
 
-    private[this] def decodeBinding(lfBinding: PLF.Binding, definition: String): Work[Binding] =
-      Ret {
-        val (binder, typ) = xxx(decodeBinder(lfBinding.getBinder))
-        Binding(Some(binder), typ, decodeExpr_DEP(lfBinding.getBound, definition))
+    private[this] def decodeBinding(lfBinding: PLF.Binding, definition: String): Work[Binding] = {
+      bindWork(decodeBinder(lfBinding.getBinder)) { case (binder, typ) =>
+        decodeExpr(lfBinding.getBound, definition) { expr =>
+          Ret(Binding(Some(binder), typ, expr))
+        }
       }
+    }
 
-    private[this] def decodeBinder(lfBinder: PLF.VarWithType): Work[(ExprVarName, Type)] = Ret {
-      handleInternedName(
-        lfBinder.getVarCase,
-        PLF.VarWithType.VarCase.VAR_STR,
-        lfBinder.getVarStr,
-        PLF.VarWithType.VarCase.VAR_INTERNED_STR,
-        lfBinder.getVarInternedStr,
-        "VarWithType.var.var",
-      ) -> decodeType_DEP(lfBinder.getType)
+    private[this] def decodeBinder(lfBinder: PLF.VarWithType): Work[(ExprVarName, Type)] = {
+      decodeType(lfBinder.getType) { typ =>
+        Ret(
+          handleInternedName(
+            lfBinder.getVarCase,
+            PLF.VarWithType.VarCase.VAR_STR,
+            lfBinder.getVarStr,
+            PLF.VarWithType.VarCase.VAR_INTERNED_STR,
+            lfBinder.getVarInternedStr,
+            "VarWithType.var.var",
+          ) -> typ
+        )
+      }
     }
 
     private[this] def decodePrimCon(lfPrimCon: PLF.PrimCon): CPPrimCon =
@@ -2461,6 +2457,7 @@ private[lf] object DecodeV1 {
 
   import Work.{Ret, Delay, Bind}
 
+  // NICK: we must never call runWork in a nested context!
   private def xxx[R](work: Work[R]): R = { // runWork
     // calls to runWork must never be nested
     @tailrec
