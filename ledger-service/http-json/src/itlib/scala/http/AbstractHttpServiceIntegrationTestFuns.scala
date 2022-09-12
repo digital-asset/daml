@@ -280,8 +280,8 @@ trait AbstractHttpServiceIntegrationTestFuns
         .parseResponse[Result]
   }
 
-  implicit protected final class `Future JsValue functions`[A](
-      private val self: Future[(A, JsValue)]
+  implicit protected final class `Future JsValue functions`(
+      private val self: Future[(StatusCode, JsValue)]
   ) {
     def parseResponse[Result: JsonReader]: Future[domain.SyncResponse[Result]] =
       self.map { case (status, jsv) =>
