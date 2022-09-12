@@ -147,7 +147,7 @@ importDamlPreprocessor = fmap onModule
         onModule y = y {
           GHC.hsmodImports =
             newImport True "GHC.Types" :
-            newImport True "DA.Internal.Desugar" :
+            GHC.noLoc GHC.dAInternalDesugarImport :
             newImport False "DA.Internal.RebindableSyntax" : GHC.hsmodImports y
           }
         newImport :: Bool -> String -> GHC.Located (GHC.ImportDecl GHC.GhcPs)
