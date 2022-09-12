@@ -74,6 +74,7 @@ $YARN install > /dev/null
 if ! /usr/bin/diff -du $TS_DIR/yarn.lock $TMP_DIR/yarn.lock; then
     echo "FAIL: $TS_DIR/yarn.lock could not satisfy $TS_DIR/build-and-lint-test/package.json" 1>&2
     echo "FAIL: yarn.lock requires all of the above changes" 1>&2
+    exit 1
 fi
 $YARN run build
 $YARN run lint
