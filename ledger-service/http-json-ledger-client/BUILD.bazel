@@ -21,6 +21,8 @@ da_scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_context",
     ],
 )
 

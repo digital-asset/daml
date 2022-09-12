@@ -13,6 +13,7 @@ import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import io.grpc.netty.NettyChannelBuilder
 import scalaz._
 import Scalaz._
+import com.daml.http.tracing.TraceContextGrpc
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.timer.RetryStrategy
@@ -54,7 +55,12 @@ trait LedgerClientBase {
       ledgerPort,
       clientChannelConfig,
       nonRepudiationConfig,
-    ).map(builder => DamlLedgerClient.fromBuilder(builder, clientConfig))
+    ).map { builder =>
+      DamlLedgerClient.fromBuilder(
+        builder.intercept(TraceContextGrpc.clientInterceptor),
+        clientConfig,
+      )
+    }
 
   def fromRetried(
       ledgerHost: String,
