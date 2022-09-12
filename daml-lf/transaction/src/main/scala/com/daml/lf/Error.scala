@@ -158,6 +158,7 @@ object Error {
     ) extends Error
   }
 
+  // FIXME: deprecated?
   object InconsistentDisclosureTable {
     final case class IncorrectlyTypedContract(
         coid: ContractId,

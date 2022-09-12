@@ -9,7 +9,6 @@ import java.util.regex.Pattern
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
-import com.daml.lf.interpretation.Error.InconsistentDisclosureTable
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.ArrayList.Implicits._
@@ -1149,7 +1148,6 @@ private[lf] object SBuiltin {
     *    -> Optional {key: key, maintainers: List Party} (template key, if present)
     *    -> a
     */
-
   final case object SBFetchAny extends OnLedgerBuiltin(2) {
     override protected def executeWithLedger(
         args: util.ArrayList[SValue],
@@ -1188,26 +1186,17 @@ private[lf] object SBuiltin {
             Control.Expression(e)
           }
 
-          machine.disclosureTable.contractById.get(SContractId(coid)) match {
-            case Some((templateId, arg)) =>
-              val v = machine.normValue(templateId, arg)
-              val coinst = V.ContractInstance(templateId, v, "")
-              continue(coinst)
-
-            case None =>
-              Control.Question(
-                SResultNeedContract(
-                  coid,
-                  onLedger.committers,
-                  callback = { res =>
-                    val control = continue(res)
-                    machine.setControl(control)
-                  },
-                )
-              )
-          }
+          Control.Question(
+            SResultNeedContract(
+              coid,
+              onLedger.committers,
+              callback = { res =>
+                val control = continue(res)
+                machine.setControl(control)
+              },
+            )
+          )
       }
-
     }
   }
 
@@ -1637,7 +1626,7 @@ private[lf] object SBuiltin {
             }
 
           case Left(handle) =>
-            def continue = { result =>
+            def continue: Option[V.ContractId] => (Control, Boolean) = { result =>
               val (keyMapping, next) = handle(result)
               onLedger.ptx = onLedger.ptx.copy(contractState = next)
               keyMapping match {
@@ -1658,44 +1647,19 @@ private[lf] object SBuiltin {
                 case ContractStateMachine.KeyInactive =>
                   operation.handleKeyNotFound(machine, gkey)
               }
-            }: Option[V.ContractId] => (Control, Boolean)
-
-            // TODO (drsk) validate key hash. https://github.com/digital-asset/daml/issues/13897
-            machine.disclosureTable.contractIdByKey.get(gkey.hash) match {
-              case Some(coid) =>
-                machine.disclosureTable.contractById.get(coid) match {
-                  case Some((actualTemplateId, _)) if actualTemplateId == operation.templateId =>
-                    val vcoid = coid.value
-                    continue(Some(vcoid))._1
-
-                  case Some((actualTemplateId, _)) =>
-                    Control.Error(
-                      InconsistentDisclosureTable.IncorrectlyTypedContract(
-                        coid.value,
-                        operation.templateId,
-                        actualTemplateId,
-                      )
-                    )
-
-                  case None =>
-                    crash(
-                      s"Disclosure table is in an inconsistent state: unable to locate the contract ${coid.value} even though we know its key hash ${gkey.hash}"
-                    )
-                }
-
-              case None =>
-                Control.Question(
-                  SResultNeedKey(
-                    GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
-                    onLedger.committers,
-                    callback = { res =>
-                      val (control, bool) = continue(res)
-                      machine.setControl(control)
-                      bool
-                    },
-                  )
-                )
             }
+
+            Control.Question(
+              SResultNeedKey(
+                GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
+                onLedger.committers,
+                callback = { res =>
+                  val (control, bool) = continue(res)
+                  machine.setControl(control)
+                  bool
+                },
+              )
+            )
         }
       }
     }
