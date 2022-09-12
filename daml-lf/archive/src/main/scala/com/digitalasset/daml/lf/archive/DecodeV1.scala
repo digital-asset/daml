@@ -217,6 +217,10 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       xxx(decodeType(lfType)(Ret(_)))
     }
 
+    private[archive] def uncheckedDecodeTypeForTest(lfType: PLF.Type): Type = {
+      xxx(uncheckedDecodeType(lfType))
+    }
+
     private[archive] def decodeExprForTest(lfExpr: PLF.Expr, definition: String): Expr = {
       xxx(decodeExpr(lfExpr, definition)(Ret(_)))
     }
@@ -404,7 +408,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       val params = lfDataType.getParamsList.asScala
       DDataType(
         lfDataType.getSerializable,
-        params.view.map(x => xxx(decodeTypeVarWithKind(x))).to(ImmArray),
+        params.view.map(x => xxx(decodeTypeVarWithKind(x))).to(ImmArray), // NICK
         lfDataType.getDataConsCase match {
           case PLF.DefDataType.DataConsCase.RECORD =>
             DataRecord(xxx(decodeFields(lfDataType.getRecord.getFieldsList.asScala)))
@@ -587,42 +591,46 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       }
     }
 
-    private[this] def decodeKeyExpr(expr: PLF.KeyExpr, tplVar: ExprVarName): Work[Expr] = Ret {
+    private[this] def decodeKeyExpr(expr: PLF.KeyExpr, tplVar: ExprVarName): Work[Expr] = {
       expr.getSumCase match {
         case PLF.KeyExpr.SumCase.RECORD =>
           val recCon = expr.getRecord
-          ERecCon(
-            tycon = xxx(decodeTypeConApp(recCon.getTycon)),
-            fields = recCon.getFieldsList.asScala.view
-              .map(field =>
-                handleInternedName(
-                  field.getFieldCase,
-                  PLF.KeyExpr.RecordField.FieldCase.FIELD_STR,
-                  field.getFieldStr,
-                  PLF.KeyExpr.RecordField.FieldCase.FIELD_INTERNED_STR,
-                  field.getFieldInternedStr,
-                  "KeyExpr.field",
-                ) -> xxx(
-                  decodeKeyExpr(field.getExpr, tplVar)
-                ) // NICK: self-recursion point; delay to be stack-safe!?
-              )
-              .to(ImmArray),
+          Ret(
+            ERecCon(
+              tycon = xxx(decodeTypeConApp(recCon.getTycon)), // NICK
+              fields = recCon.getFieldsList.asScala.view
+                .map(field =>
+                  handleInternedName(
+                    field.getFieldCase,
+                    PLF.KeyExpr.RecordField.FieldCase.FIELD_STR,
+                    field.getFieldStr,
+                    PLF.KeyExpr.RecordField.FieldCase.FIELD_INTERNED_STR,
+                    field.getFieldInternedStr,
+                    "KeyExpr.field",
+                  ) -> xxx(
+                    decodeKeyExpr(field.getExpr, tplVar)
+                  ) // NICK: self-recursion point; delay to be stack-safe!?
+                )
+                .to(ImmArray),
+            )
           )
 
         case PLF.KeyExpr.SumCase.PROJECTIONS =>
           val lfProjs = expr.getProjections.getProjectionsList.asScala
-          lfProjs.foldLeft(EVar(tplVar): Expr)((acc, lfProj) =>
-            ERecProj(
-              xxx(decodeTypeConApp(lfProj.getTycon)),
-              handleInternedName(
-                lfProj.getFieldCase,
-                PLF.KeyExpr.Projection.FieldCase.FIELD_STR,
-                lfProj.getFieldStr,
-                PLF.KeyExpr.Projection.FieldCase.FIELD_INTERNED_STR,
-                lfProj.getFieldInternedStr,
-                "KeyExpr.Projection.field",
-              ),
-              acc,
+          Ret(
+            lfProjs.foldLeft(EVar(tplVar): Expr)((acc, lfProj) =>
+              ERecProj(
+                xxx(decodeTypeConApp(lfProj.getTycon)), // NICK
+                handleInternedName(
+                  lfProj.getFieldCase,
+                  PLF.KeyExpr.Projection.FieldCase.FIELD_STR,
+                  lfProj.getFieldStr,
+                  PLF.KeyExpr.Projection.FieldCase.FIELD_INTERNED_STR,
+                  lfProj.getFieldInternedStr,
+                  "KeyExpr.Projection.field",
+                ),
+                acc,
+              )
             )
           )
 
@@ -885,10 +893,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       )
     }
 
-    private[archive] def uncheckedDecodeTypeForTest(lfType: PLF.Type): Type = {
-      xxx(uncheckedDecodeType(lfType))
-    }
-
     private[archive] def uncheckedDecodeType(lfType: PLF.Type): Work[Type] = {
       lfType.getSumCase match {
         case PLF.Type.SumCase.VAR =>
@@ -1093,9 +1097,9 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           val recCon = lfExpr.getRecCon
           Ret(
             ERecCon(
-              tycon = xxx(decodeTypeConApp(recCon.getTycon)),
+              tycon = xxx(decodeTypeConApp(recCon.getTycon)), // NICK
               fields = recCon.getFieldsList.asScala.view
-                .map(x => xxx(decodeFieldWithExpr(x, definition)))
+                .map(x => xxx(decodeFieldWithExpr(x, definition))) // NICK
                 .to(ImmArray),
             )
           )
@@ -1888,7 +1892,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         PLF.TypeVarWithKind.VarCase.VAR_INTERNED_STR,
         lfTypeVarWithKind.getVarInternedStr,
         "TypeVarWithKind.var.var",
-      ) -> xxx(decodeKind(lfTypeVarWithKind.getKind))
+      ) -> xxx(decodeKind(lfTypeVarWithKind.getKind)) // NICK
     }
 
     private[this] def decodeBinding(lfBinding: PLF.Binding, definition: String): Work[Binding] = {
