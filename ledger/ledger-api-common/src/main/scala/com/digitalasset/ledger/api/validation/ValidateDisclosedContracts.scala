@@ -27,6 +27,9 @@ import com.daml.platform.server.api.validation.FieldValidations.{
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.StatusRuntimeException
 import com.daml.lf.data.Time
+import com.daml.lf.value.ValueOuterClass.VersionedValue
+import com.daml.lf.value.{Value, ValueCoder}
+import com.google.protobuf.any.Any.toJavaProto
 
 import scala.collection.mutable
 import scala.util.Try
@@ -72,19 +75,22 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
 
   def validateDisclosedContractArguments(arguments: ProtoDisclosedContract.Arguments)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, ValueRecord] =
+  ): Either[StatusRuntimeException, Value] =
     arguments match {
       case ProtoDisclosedContract.Arguments.Record(value) =>
         for {
           recordId <- validateOptionalIdentifier(value.recordId)
           validatedRecordField <- validateRecordFields(value.fields)
-        } yield {
-          ValueRecord(recordId, validatedRecordField)
-        }
-      case ProtoDisclosedContract.Arguments.Blob(_) =>
-        ???
+        } yield ValueRecord(recordId, validatedRecordField)
+      case ProtoDisclosedContract.Arguments.Blob(value) =>
+        val versionedValue: VersionedValue = toJavaProto(value).unpack(classOf[VersionedValue])
+        ValueCoder
+          .decodeVersionedValue(ValueCoder.CidDecoder, versionedValue)
+          .left
+          .map(err => ValidationErrors.invalidField("arguments", err.errorMessage))
+          .map(_.unversioned)
       case ProtoDisclosedContract.Arguments.Empty =>
-        ???
+        Left(ValidationErrors.missingField("arguments"))
     }
 
   private def validateDisclosedContract(
