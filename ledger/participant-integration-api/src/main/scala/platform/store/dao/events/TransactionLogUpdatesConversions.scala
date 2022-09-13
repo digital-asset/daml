@@ -28,6 +28,7 @@ import com.daml.platform.store.dao.EventProjectionProperties
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.{CreatedEvent, ExercisedEvent}
 import com.daml.platform.{ApiOffset, TemplatePartiesFilter, Value}
+import com.google.protobuf.any.Any
 import com.google.protobuf.timestamp.Timestamp
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -429,7 +430,7 @@ private[events] object TransactionLogUpdatesConversions {
           templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
           contractKey = apiContractData.contractKey,
           createArguments = apiContractData.createArguments,
-          createArgumentsBlob = apiContractData.createArgumentsBlob,
+          createArgumentsBlob = apiContractData.createArgumentsBlob.map(Any.fromJavaProto),
           interfaceViews = apiContractData.interfaceViews,
           witnessParties = requestingParties.view.filter(createdWitnesses(createdEvent)).toSeq,
           signatories = createdEvent.createSignatories.toSeq,

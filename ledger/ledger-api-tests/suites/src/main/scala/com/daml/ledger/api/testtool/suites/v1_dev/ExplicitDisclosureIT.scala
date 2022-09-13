@@ -745,13 +745,22 @@ object ExplicitDisclosureIT {
     )
   }
 
-  private def createEventToDisclosedContract(ev: CreatedEvent): DisclosedContract =
+  private def createEventToDisclosedContract(ev: CreatedEvent): DisclosedContract = {
+    val arguments = (ev.createArguments, ev.createArgumentsBlob) match {
+      case (Some(createArguments), _) =>
+        DisclosedContract.Arguments.Record(createArguments)
+      case (_, Some(createArgumentsBlob)) =>
+        DisclosedContract.Arguments.Blob(createArgumentsBlob)
+      case _ =>
+        sys.error("createEvent arguments are empty")
+    }
     DisclosedContract(
       templateId = ev.templateId,
       contractId = ev.contractId,
-//      arguments = ev.createArguments,
+      arguments = arguments,
       metadata = ev.metadata,
     )
+  }
 
   private def exerciseWithKey_byKey_request(
       ledger: ParticipantTestContext,
