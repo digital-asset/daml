@@ -147,10 +147,10 @@ how to communicate around it and when to remove the `prerelease` marker on the
 
 ## Testing
 
-This testing procedure starts once the release is listed on the [releases page]. 
+This testing procedure starts once the release is listed on the [releases page].
 
 In the following notes, we assume that `$VERSION` contains
-the full version tag for the release you are testing - in other words, the full version as recorded on the Slack 
+the full version tag for the release you are testing - in other words, the full version as recorded on the Slack
 `#team-daml` message that is generated when closing the `main` build PR.
 
 For example, for the Slack message:
@@ -167,44 +167,44 @@ For example, for the Slack message:
 we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
 
 1.
-   - On Windows, install the new SDK using the installer on the [releases page]. This will typically be the asset 
-     named `daml-sdk-$VERSION-windows.exe` (located on the [DAML releases](https://github.com/digital-asset/daml/releases) page). 
+   - On Windows, install the new SDK using the installer on the [releases page]. This will typically be the asset
+     named `daml-sdk-$VERSION-windows.exe` (located on the [DAML releases](https://github.com/digital-asset/daml/releases) page).
      Please ensure that `$VERSION` is expanded correctly!.
 
    - On MacOS/Linux (please ensure that `$VERSION` is expanded correctly!):
    ```
    curl -sSL https://get.daml.com/ | sh -s "$VERSION"
    ```
-   
+
    > ## Tips for Windows testing in an ad-hoc machine
    >
    > If you are part of the release rotation, you can create Windows VMs
    > through the [ad-hoc] project. The created machine is a bit raw, though, so
    > here are a few tips to help you along.
-   > 
+   >
    > First we should clone the git repository https://github.com/DACH-NY/daml-language-ad-hoc and then enter the cloned
    > repo.
-   > 
-   > If this is your first time doing this, edit `tf/main.tf` and add your username to the `members` field of the 
-   > `google_project_iam_binding.machine_managers` resource. Generate and submit a PR with these changes. Once the PR 
+   >
+   > If this is your first time doing this, edit `tf/main.tf` and add your username to the `members` field of the
+   > `google_project_iam_binding.machine_managers` resource. Generate and submit a PR with these changes. Once the PR
    > has been accepted, you should now have permission to create GCP compute instances.
-   > 
-   > Assuming `direnv` is installed, entering the `daml-language-ad-hoc` project directory will be sufficient to 
+   >
+   > Assuming `direnv` is installed, entering the `daml-language-ad-hoc` project directory will be sufficient to
    > configure and install the extra software (e.g. the GCP SDK) required for your environment. Note that this could
    > take a few minutes.
    >
-   > A new GCP windows instance can be created by running `./ad-hoc.sh temp windows` inside the `daml-language-ad-hoc` 
+   > A new GCP windows instance can be created by running `./ad-hoc.sh temp windows` inside the `daml-language-ad-hoc`
    > project. This command prints IP address, username and password for the created Windows VM. Save this output.
    > You will need this information later when you create an RDP connection.
    >
    > ‼️ After starting, it's going to take some time for the machine to be configured (see notes below).
    >
-   > Before you may connect to this windows instance, you need to ensure that the VPN is connected. On Mac OSX you can 
+   > Before you may connect to this windows instance, you need to ensure that the VPN is connected. On Mac OSX you can
    > do this by selecting the preconfigured _Connect GCP Frankfurt full tunnel_ VPN profile.
-   > 
+   >
    > If you're on a Mac, you can use Microsoft Remote Desktop to connect. This can be installed via the Mac App Store
    > or directly [here](https://go.microsoft.com/fwlink/?linkid=868963).
-   > 
+   >
    > If you're on Linux, you can use [Remmina].
    >
    > Remmina notes: when creating an RDP connection, you may want to specify custom
@@ -215,35 +215,34 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
    > The ad-hoc machines take a bit of time to be available after being reported as
    > created, so be patient for a bit if your first connection attempt(s) fail.
    >
-   > Once the Windows machine is up and running, use Firefox (in Windows) to download and install 
+   > Once the Windows machine is up and running, use Firefox (in Windows) to download and install
    > `daml-sdk-$VERSION-windows.exe` from https://github.com/digital-asset/daml/releases
    > (please ensure `$VERSION` is expanded correctly!.
-   > 
-   > NOTE 1: **Use Firefox for testing.** Windows machines come with both Internet Explorer and Firefox installed. Do 
+   >
+   > NOTE 1: **Use Firefox for testing.** Windows machines come with both Internet Explorer and Firefox installed. Do
    > not make the mistake of trying to use Internet Explorer.
    >
    > Ad-hoc machines also come with Node, VSCode and OpenJDK preinstalled, so
    > you don't need to worry about those.
    >
-   > NOTE 2: After logging in, **it takes some time for the machine to be configured.** The script that installs Firefox, 
-   > Node, VSCode and OpenJDK runs once the machine is available for login. The software you need should appear within 
-   > about 10 minutes (an easy way to check is to try to open `D:\` , as this volume is created after all the software 
+   > NOTE 2: After logging in, **it takes some time for the machine to be configured.** The script that installs Firefox,
+   > Node, VSCode and OpenJDK runs once the machine is available for login. The software you need should appear within
+   > about 10 minutes (an easy way to check is to try to open `D:\` , as this volume is created after all the software
    > is installed).
    >
    > All the commands mentioned in this testing section can be run from a simple
    > DOS prompt (start menu -> type "cmd" -> click "Command prompt").
-   > 
-   > At the end of your Windows testing session, please be sure to terminate the GCP instance by running 
-   > `./ad-hoc.sh destroy $ID`. Here `$ID` is the identity for your GCP instance - this is printed when you create your 
+   >
+   > At the end of your Windows testing session, please be sure to terminate the GCP instance by running
+   > `./ad-hoc.sh destroy $ID`. Here `$ID` is the identity for your GCP instance - this is printed when you create your
    > Windows instance.
 
 1. Prerequisites for running the tests:
     - [Visual Studio Code, Java-SDK](https://docs.daml.com/getting-started/installation.html)
     - [Node.js](https://nodejs.org/en/download/)
       - Just the bare install; no need to build C dependencies.
-      - `create-daml-app` doesn't work with the latest version 17.x of node.js.
         If you have `nix` installed, you can use a suitable version of nodejs by
-        running `nix-shell -p nodejs-14_x` before running the `npm` commands below.
+        running `nix-shell -p nodejs-18_x` before running the `npm` commands below.
     - [Maven](https://maven.apache.org)
 
 1. Run `daml version --assistant=yes` and verify that the new version is
@@ -255,8 +254,8 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
    easily.
 
     1. For these steps you will need the getting started documentation for the
-       release that you are about to make. This documentation (for the release that you are testing) is published 
-       at `https://docs.daml.com/$VERSION/getting-started/index.html`. Please ensure that `$VERSION` is expanded 
+       release that you are about to make. This documentation (for the release that you are testing) is published
+       at `https://docs.daml.com/$VERSION/getting-started/index.html`. Please ensure that `$VERSION` is expanded
        correctly before trying this link!
 
     1. `daml new create-daml-app --template create-daml-app`
@@ -268,7 +267,7 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
     1. In a new terminal (with nodejs configured as above), from the `ui` folder:
 
        1. `npm install`
-           - if this command returns with an exit code of 0, errors may be safely ignored. 
+           - if this command returns with an exit code of 0, errors may be safely ignored.
 
        1. `npm start`
 
@@ -337,7 +336,7 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
 
     1. Don't forget to run this on the other platform! E.g. if you just ran
         through on Linux or macOS, you still need to run on Windows, and vice
-        versa. For testing on Windows instances, please refer to the _Tips for Windows testing in an ad-hoc machine_ 
+        versa. For testing on Windows instances, please refer to the _Tips for Windows testing in an ad-hoc machine_
         notes above.
 
 1. Run through the following test plan on Windows. This is slightly shortened to
@@ -392,7 +391,7 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
 
           1. `daml ledger upload-dar --host localhost --port 6865 .daml/dist/quickstart-0.0.1.dar`
 
-          1. 
+          1.
           ```sh
           daml script --ledger-host localhost --ledger-port 6865 --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --output-file output.json
           ```
