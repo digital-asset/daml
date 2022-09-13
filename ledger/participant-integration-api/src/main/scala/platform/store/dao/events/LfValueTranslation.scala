@@ -267,6 +267,7 @@ final class LfValueTranslation(
       )
     } yield raw.partial.copy(
       createArguments = apiContractData.createArguments,
+      createArgumentsBlob = apiContractData.createArgumentsBlob,
       contractKey = apiContractData.contractKey,
       interfaceViews = apiContractData.interfaceViews,
     )
@@ -358,6 +359,7 @@ final class LfValueTranslation(
       interfaceViews <- asyncInterfaceViews
     } yield ApiContractData(
       createArguments = contractArguments,
+      createArgumentsBlob = None,
       contractKey = contractKey,
       interfaceViews = interfaceViews,
     )
@@ -473,6 +475,7 @@ object LfValueTranslation {
 
   case class ApiContractData(
       createArguments: Option[ApiRecord],
+      createArgumentsBlob: Option[com.google.protobuf.any.Any],
       contractKey: Option[ApiValue],
       interfaceViews: Seq[InterfaceView],
   )
