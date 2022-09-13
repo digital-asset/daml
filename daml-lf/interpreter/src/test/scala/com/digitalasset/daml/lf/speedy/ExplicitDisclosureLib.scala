@@ -312,22 +312,6 @@ object ExplicitDisclosureLib {
       )
   }
 
-  def haveCachedContractIds(contractIds: ContractId*): Matcher[Speedy.OnLedger] = Matcher {
-    ledger =>
-      val expectedResult = contractIds.toSet
-      val actualResult = ledger.cachedContracts.keySet
-      val debugMessage = Seq(
-        s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_))}",
-        s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_))}",
-      ).mkString("\n  ", "\n  ", "")
-
-      MatchResult(
-        expectedResult == actualResult,
-        s"Failed with unexpected cached contracts: $expectedResult != $actualResult $debugMessage",
-        s"Failed with unexpected cached contracts: $expectedResult == $actualResult",
-      )
-  }
-
   def haveDisclosedContracts(disclosedContracts: DisclosedContract*): Matcher[Speedy.OnLedger] =
     Matcher { ledger =>
       val expectedResult = ImmArray(disclosedContracts: _*)

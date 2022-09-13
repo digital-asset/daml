@@ -482,11 +482,6 @@ prettyScenarioErrorError (Just err) =  do
               (prettyDefName world)
               scenarioError_ContractDoesNotImplementRequiringInterfaceRequiringInterfaceId
         ]
-    ScenarioErrorErrorDisclosurePreprocessingDuplicateContractIds(ScenarioError_DisclosurePreprocessingDuplicateContractIds templateId) ->
-      pure $ vcat
-        [ "Found duplicate contract IDs in submitted disclosed contracts"
-        , label_ "Template: " $ prettyMay "missing template" (prettyDefName world) templateId
-        ]
     ScenarioErrorErrorDisclosurePreprocessingDuplicateContractKeys(ScenarioError_DisclosurePreprocessingDuplicateContractKeys templateId keyHash) ->
       pure $ vcat
         [ "Found duplicate contract keys in submitted disclosed contracts"
@@ -510,6 +505,19 @@ prettyScenarioErrorError (Just err) =  do
         , label_ "Disclosed contract: " $ prettyContractId contractId
         , label_ "Expected template: " $ prettyMay "<missing template>" (prettyDefName world) expectedTemplateId
         , label_ "Actual template: " $ prettyMay "<missing template>" (prettyDefName world) actualTemplateId
+        ]
+    ScenarioErrorErrorInconsistentDisclosureTableInvalidContractKeyHash(ScenarioError_InconsistentDisclosureTableInvalidContractKeyHash contractId expectedKeyHash actualKeyHash) ->
+      pure $ vcat
+        [ "Inconsistent disclosure table: invalid key hash mapping"
+        , label_ "Disclosed contract: " $ prettyContractId contractId
+        , label_ "Expected contract key hash: " $ ltext expectedKeyHash
+        , label_ "Actual contract key hash: " $ ltext actualKeyHash
+        ]
+    ScenarioErrorErrorInconsistentDisclosureTableNoDisclosedContractKeyInLedgerCache(ScenarioError_InconsistentDisclosureTableNoDisclosedContractKeyInLedgerCache contractId templateId) ->
+      pure $ vcat
+        [ "Inconsistent disclosure table: disclosed contract has no key"
+        , label_ "Disclosed contract: " $ prettyContractId contractId
+        , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
         ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass

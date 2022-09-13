@@ -41,7 +41,6 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
       "ledger queried when contract ID is not disclosed" in {
         ledgerQueriedWhenContractNotDisclosed(
           SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
-          contractId,
           getContract = Map(contractId -> ledgerCaveContract),
         )(result =>
           inside(result) {
@@ -159,7 +158,6 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
       "ledger queried when contract key is not disclosed" in {
         ledgerQueriedWhenContractNotDisclosed(
           SBUFetchKey(houseTemplateId)(SEValue(contractSKey)),
-          ledgerContractId,
           committers = Set(ledgerParty),
           getKey = Map(
             GlobalKeyWithMaintainers(contractKey, Set(maintainerParty)) -> ledgerContractId
@@ -279,7 +277,6 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
       "ledger queried when contract key is not disclosed" in {
         ledgerQueriedWhenContractNotDisclosed(
           SBULookupKey(houseTemplateId)(SEValue(contractSKey)),
-          ledgerContractId,
           committers = Set(ledgerParty),
           getKey = Map(
             GlobalKeyWithMaintainers(contractKey, Set(maintainerParty)) -> ledgerContractId
@@ -388,7 +385,6 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
 
   def ledgerQueriedWhenContractNotDisclosed(
       sexpr: SExpr.SExpr,
-      contractId: ContractId,
       committers: Set[Party] = Set.empty,
       disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
@@ -406,7 +402,6 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
 
     assertResult(result)
     ledger should haveDisclosedContracts()
-    ledger should haveCachedContractIds(contractId)
     ledger should haveInactiveContractIds()
   }
 
@@ -430,7 +425,6 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
 
     assertResult(result)
     ledger should haveDisclosedContracts(disclosedContract)
-    ledger should haveCachedContractIds(disclosedContract.contractId.value)
     ledger should haveInactiveContractIds()
   }
 
@@ -460,7 +454,6 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
 
     assertResult(result)
     ledger should haveDisclosedContracts()
-    ledger should haveCachedContractIds(contractId)
     ledger should haveInactiveContractIds(contractId)
   }
 
@@ -491,7 +484,6 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
 
     assertResult(result)
     ledger should haveDisclosedContracts(disclosedContract)
-    ledger should haveCachedContractIds(contractToDestroy)
     ledger should haveInactiveContractIds(contractToDestroy)
   }
 
@@ -532,7 +524,6 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
         succeed
     }
     ledger should haveDisclosedContracts(malformedDisclosedContract)
-    ledger should haveCachedContractIds()
     ledger should haveInactiveContractIds()
   }
 }
