@@ -7,7 +7,7 @@ import java.io.File
 import java.nio.file.Files
 
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCode, StatusCodes, Uri}
+import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref
@@ -93,9 +93,7 @@ abstract class HttpServiceIntegrationTest
         fixture,
         aliceHeaders,
       )
-      testIIouID = inside(createTest) { case (StatusCodes.OK, domain.OkResponse(result, _, _)) =>
-        result.contractId
-      }
+      testIIouID = resultContractId(createTest)
       exerciseTest <- fixture
         .postJsonRequest(
           Uri.Path("/v1/exercise"),
@@ -111,9 +109,9 @@ abstract class HttpServiceIntegrationTest
     } yield exerciseTest
 
     def exerciseSucceeded[A](
-        exerciseTest: (StatusCode, domain.SyncResponse[domain.ExerciseResponse[JsValue]])
+        exerciseTest: domain.SyncResponse[domain.ExerciseResponse[JsValue]]
     ) =
-      inside(exerciseTest) { case (StatusCodes.OK, domain.OkResponse(er, None, StatusCodes.OK)) =>
+      inside(exerciseTest) { case domain.OkResponse(er, None, StatusCodes.OK) =>
         inside(jdecode[String](er.exerciseResult)) { case \/-(decoded) => decoded }
       }
     object Transferrable {
@@ -203,10 +201,7 @@ abstract class HttpServiceIntegrationTest
           ),
         )
       } yield inside(response) {
-        case (
-              StatusCodes.BadRequest,
-              domain.ErrorResponse(Seq(onlyError), None, StatusCodes.BadRequest, None),
-            ) =>
+        case domain.ErrorResponse(Seq(onlyError), None, StatusCodes.BadRequest, None) =>
           (onlyError should include regex
             raw"Cannot resolve Choice Argument type, given: \(TemplateId\([0-9a-f]{64},CIou,CIou\), Ambiguous\)")
       }
@@ -239,7 +234,7 @@ abstract class HttpServiceIntegrationTest
         fixture,
         aliceHeaders,
       )
-      _ = createTest._1 should ===(StatusCodes.OK)
+      _ = createTest.status should ===(StatusCodes.OK)
       exerciseTest <- fixture
         .postJsonRequest(
           Uri.Path("/v1/exercise"),
@@ -256,10 +251,7 @@ abstract class HttpServiceIntegrationTest
         )
         .parseResponse[JsValue]
     } yield inside(exerciseTest) {
-      case (
-            StatusCodes.BadRequest,
-            domain.ErrorResponse(Seq(lookup), None, StatusCodes.BadRequest, _),
-          ) =>
+      case domain.ErrorResponse(Seq(lookup), None, StatusCodes.BadRequest, _) =>
         lookup should include regex raw"Cannot resolve Template Key type, given: InterfaceId\([0-9a-f]{64},IIou,IIou\)"
     }
   }
