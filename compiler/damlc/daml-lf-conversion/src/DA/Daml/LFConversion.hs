@@ -2368,7 +2368,9 @@ convertTyCon :: Env -> TyCon -> ConvertM LF.Type
 convertTyCon env t
     | t == unitTyCon = pure TUnit
     | isTupleTyCon t, not (isConstraintTupleTyCon t), arity >= 2 = do
-        if arity > 5 then conversionWarning "Used tuple of arity > 5!" else pure ()
+        if not (getAllowLargeTuples (envAllowLargeTuples env)) && arity > 5
+           then conversionWarning "Used tuple of arity > 5!"
+           else pure ()
         TCon <$> qDA_Types env (mkTypeCon ["Tuple" <> T.pack (show arity)])
     | t == listTyCon = pure (TBuiltin BTList)
     | t == boolTyCon = pure TBool
