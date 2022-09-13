@@ -223,6 +223,12 @@ enableScenariosOpt = EnableScenarios <$>
             "Enable/disable support for scenarios as a language feature. \
             \If disabled, defining top-level scenarios is a compile-time error"
 
+allowLargeTuplesOpt :: Parser AllowLargeTuples
+allowLargeTuplesOpt = AllowLargeTuples <$>
+    flagYesNoAuto "allow-large-tuples" False desc internal
+    where
+        desc = "Do not warn when tuples of size > 5 are used."
+
 dlintEnabledOpt :: Parser DlintUsage
 dlintEnabledOpt = DlintEnabled
   <$> strOption
@@ -303,6 +309,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     let optEnableOfInterestRule = False
     optCppPath <- optCppPath
     optEnableScenarios <- enableScenariosOpt
+    optAllowLargeTuples <- allowLargeTuplesOpt
     optTestFilter <- compilePatternExpr <$> optTestPattern
 
     return Options{..}
