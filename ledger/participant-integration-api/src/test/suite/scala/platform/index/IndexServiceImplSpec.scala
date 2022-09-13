@@ -56,7 +56,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         EventProjectionProperties(
           true,
           Map.empty[String, Set[Identifier]],
-          Map(party.toString -> Map(template1 -> InterfaceViewFilter(Set(iface1), false))),
+          Map(party.toString -> Map(template1 -> InterfaceViewFilter(Set(iface1), true))),
         ),
       )
     ) // filter gets complicated, filters template1 for iface1, projects iface1
@@ -80,8 +80,8 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
           Map.empty[String, Set[Identifier]],
           Map(
             party.toString -> Map(
-              template1 -> InterfaceViewFilter(Set(iface1), false),
-              template2 -> InterfaceViewFilter(Set(iface1), false),
+              template1 -> InterfaceViewFilter(Set(iface1), true),
+              template2 -> InterfaceViewFilter(Set(iface1), true),
             )
           ),
         ),
