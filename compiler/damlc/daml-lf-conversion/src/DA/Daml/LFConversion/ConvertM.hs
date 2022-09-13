@@ -81,12 +81,12 @@ resetFreshVarCounters = modify' (\st -> st{freshTmVarCounter = 0})
 ---------------------------------------------------------------------
 -- FAILURE REPORTING
 
-conversionIssue :: DiagnosticSeverity -> String -> ConvertM e
-conversionIssue severity msg = do
+conversionError :: String -> ConvertM e
+conversionError msg = do
   ConversionEnv{..} <- ask
   throwError $ (convModuleFilePath,ShowDiag,) Diagnostic
       { _range = maybe noRange sourceLocToRange convRange
-      , _severity = Just severity
+      , _severity = Just DsError
       , _source = Just "Core to Daml-LF"
       , _message = T.pack msg
       , _code = Nothing
@@ -94,11 +94,20 @@ conversionIssue severity msg = do
       , _tags = Nothing
       }
 
-conversionError :: String -> ConvertM e
-conversionError = conversionIssue DsError
-
-conversionWarning :: String -> ConvertM e
-conversionWarning = conversionIssue DsWarning
+conversionWarning :: String -> ConvertM ()
+conversionWarning msg = do
+  ConversionEnv{..} <- ask
+  let diagnostic = Diagnostic
+        { _range = maybe noRange sourceLocToRange convRange
+        , _severity = Just DsWarning
+        , _source = Just "Core to Daml-LF"
+        , _message = T.pack msg
+        , _code = Nothing
+        , _relatedInformation = Nothing
+        , _tags = Nothing
+        }
+      fileDiagnostic = (convModuleFilePath, ShowDiag, diagnostic)
+  modify $ \s -> s { warnings = warnings s ++ [fileDiagnostic] }
 
 unsupported :: (HasCallStack, Outputable a) => String -> a -> ConvertM e
 unsupported typ x = conversionError errMsg

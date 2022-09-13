@@ -2364,7 +2364,9 @@ packageNameToPkgRef env = convertUnitId (envModuleUnitId env) (envPkgMap env)
 convertTyCon :: Env -> TyCon -> ConvertM LF.Type
 convertTyCon env t
     | t == unitTyCon = pure TUnit
-    | isTupleTyCon t, not (isConstraintTupleTyCon t), arity >= 2 = TCon <$> qDA_Types env (mkTypeCon ["Tuple" <> T.pack (show arity)])
+    | isTupleTyCon t, not (isConstraintTupleTyCon t), arity >= 2 = do
+        if arity > 5 then conversionWarning "Used tuple of arity > 5!" else pure ()
+        TCon <$> qDA_Types env (mkTypeCon ["Tuple" <> T.pack (show arity)])
     | t == listTyCon = pure (TBuiltin BTList)
     | t == boolTyCon = pure TBool
     | t == intTyCon || t == intPrimTyCon = pure TInt64
