@@ -146,6 +146,12 @@ object RejectionGenerators {
         case _: LfInterpretationError.InconsistentDisclosureTable.IncorrectlyTypedContract =>
           LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
             .Error(renderedMessage)
+        case _: LfInterpretationError.InconsistentDisclosureTable.InvalidContractKeyHash =>
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
+            .Error(renderedMessage)
+        case _: LfInterpretationError.InconsistentDisclosureTable.NoDisclosedContractKeyInLedgerCache =>
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
+            .Error(renderedMessage)
       }
     }
 

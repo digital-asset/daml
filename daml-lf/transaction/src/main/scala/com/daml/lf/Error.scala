@@ -149,7 +149,6 @@ object Error {
   final case class DisclosurePreprocessing(error: DisclosurePreprocessing.Error) extends Error
   object DisclosurePreprocessing {
     sealed abstract class Error extends Serializable with Product
-    final case class DuplicateContractIds(templateId: TypeConName) extends Error
     final case class DuplicateContractKeys(templateId: TypeConName, keyHash: Hash) extends Error
     final case class NonExistentTemplate(templateId: TypeConName) extends Error
     final case class NonExistentDisclosedContractKeyHash(
@@ -158,12 +157,20 @@ object Error {
     ) extends Error
   }
 
-  // FIXME: deprecated?
   object InconsistentDisclosureTable {
     final case class IncorrectlyTypedContract(
         coid: ContractId,
         expected: TypeConName,
         actual: TypeConName,
+    ) extends Error
+    final case class InvalidContractKeyHash(
+        coid: ContractId,
+        expected: crypto.Hash,
+        actual: crypto.Hash,
+    ) extends Error
+    final case class NoDisclosedContractKeyInLedgerCache(
+        coid: Value.ContractId,
+        templateId: TypeConName,
     ) extends Error
   }
 

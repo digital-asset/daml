@@ -9,6 +9,7 @@ import java.util.regex.Pattern
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
+import com.daml.lf.interpretation.Error.InconsistentDisclosureTable
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.ArrayList.Implicits._
@@ -1647,19 +1648,65 @@ private[lf] object SBuiltin {
                 case ContractStateMachine.KeyInactive =>
                   operation.handleKeyNotFound(machine, gkey)
               }
-            }
+            }: Option[V.ContractId] => (Control, Boolean)
 
-            Control.Question(
-              SResultNeedKey(
-                GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
-                onLedger.committers,
-                callback = { res =>
-                  val (control, bool) = continue(res)
-                  machine.setControl(control)
-                  bool
-                },
-              )
-            )
+            machine.disclosureTable.contractIdByKey.get(gkey.hash) match {
+              case Some(coid) =>
+                onLedger.cachedContracts.get(coid.value) match {
+                  case Some(CachedContract(actualTemplateId, _, _, _, Some(actualKey)))
+                      if actualTemplateId == operation.templateId =>
+                    val actualKeyHash =
+                      crypto.Hash.assertHashContractKey(actualTemplateId, actualKey.key)
+
+                    if (gkey.hash == actualKeyHash) {
+                      continue(Some(coid.value))._1
+                    } else {
+                      Control.Error(
+                        InconsistentDisclosureTable.InvalidContractKeyHash(
+                          coid.value,
+                          gkey.hash,
+                          actualKeyHash,
+                        )
+                      )
+                    }
+
+                  case Some(CachedContract(actualTemplateId, _, _, _, None))
+                      if actualTemplateId == operation.templateId =>
+                    Control.Error(
+                      InconsistentDisclosureTable.NoDisclosedContractKeyInLedgerCache(
+                        coid.value,
+                        actualTemplateId,
+                      )
+                    )
+
+                  case Some(cachedContract) =>
+                    Control.Error(
+                      InconsistentDisclosureTable.IncorrectlyTypedContract(
+                        coid.value,
+                        operation.templateId,
+                        cachedContract.templateId,
+                      )
+                    )
+
+                  case None =>
+                    crash(
+                      s"Disclosure table is in an inconsistent state: unable to locate the contract ${coid.value} even though we know its key hash ${gkey.hash}"
+                    )
+                }
+
+              case None =>
+                Control.Question(
+                  SResultNeedKey(
+                    GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
+                    onLedger.committers,
+                    callback = { res =>
+                      val (control, bool) = continue(res)
+                      machine.setControl(control)
+                      bool
+                    },
+                  )
+                )
+            }
         }
       }
     }

@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LookupError, Util => AstUtil}
+import com.daml.lf.language.{LookupError, PackageInterface, Util => AstUtil}
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -207,18 +207,80 @@ private[lf] object Speedy {
 
   private[lf] final case object OffLedger extends LedgerMode
 
-  private[speedy] case class DisclosureTable(
-      contractIdByKey: Map[crypto.Hash, SValue.SContractId],
-      contractById: Map[SValue.SContractId, (TypeConName, SValue)],
+  private[speedy] case class DisclosedKeyTable(
+      contractIdByKey: Map[crypto.Hash, SValue.SContractId]
   )
 
-  object DisclosureTable {
-    val Empty: DisclosureTable = DisclosureTable(Map.empty, Map.empty)
+  object DisclosedKeyTable {
+    val Empty: DisclosedKeyTable = DisclosedKeyTable(Map.empty)
   }
 
   case class DisclosurePreprocessError(
       err: String
   ) extends RuntimeException(err, null, true, false)
+
+  @throws[SErrorDamlException]
+  private[speedy] def buildDisclosedKeyTable(
+      disclosures: ImmArray[speedy.DisclosedContract],
+      packageInterface: PackageInterface,
+  ): DisclosedKeyTable = {
+    val _ = disclosures
+    val acc = disclosures.foldLeft(
+      DisclosedKeyTable.Empty
+    ) { case (table, d) =>
+      val coid = d.contractId
+
+      d.metadata.keyHash match {
+        case Some(hash) =>
+          // check for duplicate contract key hashes
+          table.contractIdByKey.get(hash) match {
+            case Some(_) =>
+              throw SErrorDamlException(
+                IError.DisclosurePreprocessing(
+                  IError.DisclosurePreprocessing.DuplicateContractKeys(
+                    d.templateId,
+                    hash,
+                  )
+                )
+              )
+
+            case None =>
+              DisclosedKeyTable(
+                table.contractIdByKey + (hash -> coid)
+              )
+          }
+
+        case None =>
+          packageInterface.lookupTemplate(d.templateId) match {
+            case Right(template) if template.key.isEmpty =>
+              // Success - template exists, but has no key defined
+              table
+
+            case Right(_) =>
+              // Error - disclosed contract lacks a key hash, but the template requires a key
+              throw SErrorDamlException(
+                IError.DisclosurePreprocessing(
+                  IError.DisclosurePreprocessing.NonExistentDisclosedContractKeyHash(
+                    d.contractId.value,
+                    d.templateId,
+                  )
+                )
+              )
+
+            case Left(_) =>
+              // Error - template is non-existent
+              throw SErrorDamlException(
+                IError.DisclosurePreprocessing(
+                  IError.DisclosurePreprocessing.NonExistentTemplate(
+                    d.templateId
+                  )
+                )
+              )
+          }
+      }
+    }
+    acc
+  }
 
   /** The speedy CEK machine. */
   final class Machine(
@@ -262,6 +324,7 @@ private[lf] object Speedy {
        */
       val submissionTime: Time.Timestamp,
       val ledgerMode: LedgerMode,
+      val disclosureTable: DisclosedKeyTable,
   ) {
 
     def tmplId2TxVersion(tmplId: TypeConName): TransactionVersion =
@@ -887,6 +950,7 @@ private[lf] object Speedy {
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
+        disclosureTable = buildDisclosedKeyTable(disclosedContracts, compiledPackages.pkgInterface),
       )
     }
 
@@ -987,6 +1051,7 @@ private[lf] object Speedy {
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
+        disclosureTable = DisclosedKeyTable.Empty,
       )
     }
 
@@ -1554,7 +1619,7 @@ private[lf] object Speedy {
     }
   }
 
-  /** Continuation produced by [[SELabelClsoure]] expressions. This is only
+  /** Continuation produced by [[SELabelClosure]] expressions. This is only
     * used during profiling. Its purpose is to attach a label to closures such
     * that entering the closure can write an "open event" with that label.
     */

@@ -171,10 +171,6 @@ private[lf] object Pretty {
 
       case DisclosurePreprocessing(err) =>
         err match {
-          case DisclosurePreprocessing.DuplicateContractIds(templateId) =>
-            text(
-              s"Found duplicated contract IDs in submitted disclosed contracts for template $templateId"
-            )
           case DisclosurePreprocessing.DuplicateContractKeys(templateId, keyHash) =>
             text(
               s"Found duplicated contract keys in submitted disclosed contracts for template $templateId and key hash ${keyHash.toHexString}"
@@ -200,6 +196,22 @@ private[lf] object Pretty {
             "but got"
           ) & prettyTypeConName(
             actual
+          )
+
+      case InconsistentDisclosureTable.InvalidContractKeyHash(coid, expected, actual) =>
+        text(
+          "Inconsistent disclosure table: invalid key hash mapping for disclosed contract id"
+        ) & prettyContractId(coid) /
+          text(s"Expected contract key with hash ${expected.toHexString}") & text(
+            s"but got ${actual.toHexString}"
+          )
+
+      case InconsistentDisclosureTable.NoDisclosedContractKeyInLedgerCache(coid, templateId) =>
+        text(
+          "Inconsistent disclosure table: disclosed contract has no key"
+        ) & prettyContractId(coid) /
+          text("Expected contract key of type") & prettyTypeConName(templateId) & text(
+            "but key was missing"
           )
     }
   }
