@@ -313,7 +313,10 @@ private[lf] final class Compiler(
       translateContractDisclosureLambda(Env.Empty, disclosures)
     )
 
-    t.SEApp(disclosureLambda, Array(sexpr))
+    t.SELet1(
+      t.SEApp(disclosureLambda, Array(t.SEValue(SValue.Unit))),
+      sexpr,
+    )
   }
 
   private[this] def compileCommandForReinterpretation(cmd: Command): t.SExpr =
