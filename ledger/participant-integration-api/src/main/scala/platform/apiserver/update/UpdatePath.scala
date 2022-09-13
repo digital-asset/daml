@@ -26,7 +26,6 @@ object UpdatePath {
   }
 
   private[update] def parseSingle(rawPath: String): Result[UpdatePath] = {
-    // TODO um-for-hub major: Document that "!" is a special character in update paths
     for {
       pathAndModifierO <- {
         rawPath.split('!') match {

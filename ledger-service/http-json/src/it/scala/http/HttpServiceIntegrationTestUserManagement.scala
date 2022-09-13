@@ -46,7 +46,12 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       initialRights: List[UserRight] = List.empty,
   ): Future[User] =
     ledgerClient.userManagementClient.createUser(
-      User(userId, primaryParty),
+      User(
+        id = userId,
+        primaryParty = primaryParty,
+        isDeactivated = false,
+        metadata = com.daml.ledger.api.domain.ObjectMeta.empty,
+      ),
       initialRights,
       Some(jwtAdminNoParty.value),
     )

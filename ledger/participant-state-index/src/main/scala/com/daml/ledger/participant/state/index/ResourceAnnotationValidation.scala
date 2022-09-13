@@ -15,9 +15,11 @@ object ResourceAnnotationValidation {
   private val DnsSubdomainRegex: Regex = ("^(" + NamePattern + "[.])*" + NamePattern + "$").r
   private val MaxAnnotationsSizeInBytes: Int = 256 * 1024
 
-  sealed trait MetadataAnnotationsError extends RuntimeException
-  case object AnnotationsSizeExceededError extends MetadataAnnotationsError
-  final case class InvalidAnnotationsKeyError(msg: String) extends MetadataAnnotationsError
+  sealed trait MetadataAnnotationsError
+  case object AnnotationsSizeExceededError extends MetadataAnnotationsError {
+    val reason = "Max annotations size of 256kb has been exceeded"
+  }
+  final case class InvalidAnnotationsKeyError(reason: String) extends MetadataAnnotationsError
 
   /** @return a Left(actualSizeInBytes) in case of a failed validation
     */

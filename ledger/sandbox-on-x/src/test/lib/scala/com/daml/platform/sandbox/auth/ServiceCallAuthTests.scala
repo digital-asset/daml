@@ -7,6 +7,7 @@ import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.auth.client.LedgerCallCredentials
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
+import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.platform.sandbox.SandboxRequiringAuthorization
@@ -193,9 +194,21 @@ trait ServiceCallAuthTests
       rights: Vector[proto.Right] = Vector.empty,
   ): Future[(proto.User, Option[String])] = {
     val userToken = Option(toHeader(standardToken(userId)))
-    val req = proto.CreateUserRequest(Some(proto.User(userId)), rights)
+    val user = proto.User(
+      id = userId,
+      metadata = Some(ObjectMeta()),
+    )
+    val req = proto.CreateUserRequest(Some(user), rights)
     stub(proto.UserManagementServiceGrpc.stub(channel), canReadAsAdminStandardJWT)
       .createUser(req)
       .map(res => (res.user.get, userToken))
+  }
+
+  protected def updateUser(
+      accessToken: String,
+      req: proto.UpdateUserRequest,
+  ): Future[proto.UpdateUserResponse] = {
+    stub(proto.UserManagementServiceGrpc.stub(channel), Some(accessToken))
+      .updateUser(req)
   }
 }

@@ -121,7 +121,6 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
       }
     }
 
-    // TODO um-for-hub major: Document that no-up update requests are invalid
     "produce an empty update when new values are all default and merge update semantics is used" in {
       val user = makeUser(
         primaryParty = None,
@@ -157,7 +156,7 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
         UserUpdateMapper
           .toUpdate(userWithoutParty, FieldMask(Seq("user.primary_party!merge")))
           .left
-          .value shouldBe UpdatePathError.MergeUpdateModifierOnPrimitiveField(
+          .value shouldBe UpdatePathError.MergeUpdateModifierOnPrimitiveFieldWithDefaultValue(
           "user.primary_party!merge"
         )
         UserUpdateMapper

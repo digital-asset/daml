@@ -63,7 +63,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       ),
     )
 
-  // TODO um-for-hub: Consider defining a method like this directly on UserUdpate
+  // TODO um-for-hub: Consider defining a method like this directly on UserUpdate
   def makeUserUpdate(
       id: String = userId1,
       primaryPartyUpdateO: Option[Option[Ref.Party]] = None,

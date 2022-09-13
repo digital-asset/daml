@@ -3,7 +3,7 @@
 
 package com.daml.error.definitions.groups
 
-import com.daml.error.definitions.DamlErrorWithDefiniteAnswer
+import com.daml.error.definitions.{DamlError, DamlErrorWithDefiniteAnswer}
 import com.daml.error.{
   ContextualizedErrorLogger,
   ErrorCategory,
@@ -14,6 +14,74 @@ import com.daml.error.{
 }
 
 object UserManagementServiceErrors extends AdminServices.UserManagementServiceErrorGroup {
+
+  @Explanation("There was an attempt to update a user using an invalid update request.")
+  @Resolution(
+    """|Inspect the error details for specific information on what made the request invalid.
+       |Retry with an adjusted update request."""
+  )
+  object InvalidUpdateUserRequest
+      extends ErrorCode(
+        id = "INVALID_USER_UPDATE_REQUEST",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    case class Reject(userId: String, reason: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlError(
+          cause = s"Update operation for user id '$userId' failed due to: $reason"
+        ) {
+      override def resources: Seq[(ErrorResource, String)] = Seq(
+        ErrorResource.User -> userId
+      )
+    }
+  }
+
+  @Explanation("""|A user can have only a limited amount of annotations.
+                  |There was an attempt to create or update a user with too many annotations.""")
+  @Resolution(
+    "Retry with a smaller number of annotations or delete some of the already existing annotations of this user."
+  )
+  object MaxUserAnnotationsSizeExceeded
+      extends ErrorCode(
+        id = "MAX_USER_ANNOTATIONS_SIZE_EXCEEDED",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    case class Reject(userId: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlError(
+          cause = s"Annotations size for user '$userId' has been exceeded"
+        ) {
+      override def resources: Seq[(ErrorResource, String)] = Seq(
+        ErrorResource.User -> userId
+      )
+    }
+  }
+
+  @Explanation(
+    """|Concurrent updates to a user can be controlled by optionally supplying an update request with a resource version.
+                  |A user's resource version can be obtained by reading the user on the Ledger API.
+                  |There was attempt to update a user using a stale resource version indicating a different processes had updated the user earlier."""
+  )
+  @Resolution(
+    """|Restart the user update procedure by reading this user again to obtain its most recent state and
+                 |in particular its most recent resource version."""
+  )
+  object ConcurrentUserUpdateDetected
+      extends ErrorCode(
+        id = "CONCURRENT_USER_UPDATE_DETECTED",
+        ErrorCategory.ContentionOnSharedResources,
+      ) {
+    case class Reject(userId: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlError(
+          cause =
+            s"Update operation for user '$userId' failed due a concurrent update to the same user"
+        ) {
+      override def resources: Seq[(ErrorResource, String)] = Seq(
+        ErrorResource.User -> userId
+      )
+    }
+  }
 
   @Explanation("The user referred to by the request was not found.")
   @Resolution(

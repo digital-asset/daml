@@ -5,7 +5,7 @@ package com.daml.lf
 package engine
 package script
 
-import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
+import com.daml.ledger.api.domain.{ObjectMeta, PartyDetails, User, UserRight}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.validation.NoLoggingValueValidator
@@ -739,11 +739,12 @@ object Converter {
 
   def toUser(v: SValue): Either[String, User] =
     v match {
-      case SRecord(_, _, vals) if vals.size == 2 =>
+      case SRecord(_, _, vals) if vals.size >= 2 =>
         for {
           id <- toUserId(vals.get(0))
           primaryParty <- toOptional(vals.get(1), toParty)
-        } yield User(id, primaryParty)
+          // TODO um-for-hub: Support isDeactivated and metadata
+        } yield User(id, primaryParty, isDeactivated = false, metadata = ObjectMeta.empty)
       case _ => Left(s"Expected User but got $v")
     }
 

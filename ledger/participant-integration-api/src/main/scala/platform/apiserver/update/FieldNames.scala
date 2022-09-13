@@ -3,24 +3,45 @@
 
 package com.daml.platform.apiserver.update
 
-// TODO um-for-hub: Get field names from files generated from proto files instead of hardcoding them
+import scalapb.GeneratedMessageCompanion
+import com.daml.ledger.api.v1.admin
+
 object FieldNames {
   object UpdateUserRequest {
-    val user = "user"
+    val user: String =
+      resolveFieldName(admin.user_management_service.UpdateUserRequest)(_.USER_FIELD_NUMBER)
   }
   object User {
-    val primaryParty = "primary_party"
-    val isDeactivated = "is_deactivated"
-    val metadata = "metadata"
+    val primaryParty: String =
+      resolveFieldName(admin.user_management_service.User)(_.PRIMARY_PARTY_FIELD_NUMBER)
+    val isDeactivated: String =
+      resolveFieldName(admin.user_management_service.User)(_.IS_DEACTIVATED_FIELD_NUMBER)
+    val metadata: String =
+      resolveFieldName(admin.user_management_service.User)(_.METADATA_FIELD_NUMBER)
   }
   object Metadata {
-    val annotations = "annotations"
+    val annotations: String =
+      resolveFieldName(admin.object_meta.ObjectMeta)(_.ANNOTATIONS_FIELD_NUMBER)
   }
 
   object UpdatePartyDetailsRequest {
-    val partyDetails = "party_details"
+    val partyDetails: String = resolveFieldName(
+      admin.party_management_service.UpdatePartyDetailsRequest
+    )(_.PARTY_DETAILS_FIELD_NUMBER)
   }
   object PartyDetails {
-    val localMetadata = "local_metadata"
+    val localMetadata: String =
+      resolveFieldName(admin.party_management_service.PartyDetails)(_.LOCAL_METADATA_FIELD_NUMBER)
   }
+
+  private def resolveFieldName[A <: GeneratedMessageCompanion[_]](
+      companion: A
+  )(getFieldNumberFun: A => Int): String = {
+    val fieldNumber = getFieldNumberFun(companion)
+    companion.scalaDescriptor
+      .findFieldByNumber(fieldNumber)
+      .getOrElse(sys.error(s"Unknown field number $fieldNumber on $companion"))
+      .name
+  }
+
 }

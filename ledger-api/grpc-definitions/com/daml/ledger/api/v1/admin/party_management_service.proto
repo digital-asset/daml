@@ -6,16 +6,24 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1.admin;
 
+import "com/daml/ledger/api/v1/admin/object_meta.proto";
+import "google/protobuf/field_mask.proto";
+
 option java_outer_classname = "PartyManagementServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 
-// Status: experimental interface, will change before it is deemed production
-// ready
+// We use 'backing participant' to refer to this specific participant in the methods of this API.
 //
-// Inspect the party management state of a ledger participant and modify the
-// parts that are modifiable. We use 'backing participant' to refer to this
-// specific participant in the methods of this API.
+// Allows inspecting the party management state of the ledger known to the backing participant
+// and managing participant-local party metadata.
+//
+// The authorization rules for its RPCs are specified on the ``<RpcName>Request``
+// messages as boolean expressions over the fact ``HasRight(r)`` denoting whether the authenticated user has right ``r``.
+//
+// TODO pbatko: Explain 'Optional', 'Required', 'Modifiable'
+// TODO pbatko: Document in proto that no-up updates are invalid
+// TODO um-for-hub major: Document that "!" is a special character in update paths
 service PartyManagementService {
 
   // Return the identifier of the backing participant.
@@ -42,9 +50,10 @@ service PartyManagementService {
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   rpc ListKnownParties (ListKnownPartiesRequest) returns (ListKnownPartiesResponse);
 
-  // Adds a new party to the set managed by the backing participant.
+  // Allocates a new party on a ledger and adds it to the set managed by the backing participant.
   // Caller specifies a party identifier suggestion, the actual identifier
   // allocated might be different and is implementation specific.
+  // Caller can specify party metadata that is stored locally on the backing participant.
   // This call may:
   // - Succeed, in which case the actual allocated identifier is visible in
   //   the response.
@@ -63,8 +72,12 @@ service PartyManagementService {
   // The party identifier suggestion must be a valid party name. Party names are required to be non-empty US-ASCII strings built from letters, digits, space,
   // colon, minus and underscore limited to 255 chars
   rpc AllocateParty (AllocatePartyRequest) returns (AllocatePartyResponse);
+
+  // Updates participant-local information about a party.
+  rpc UpdatePartyDetails (UpdatePartyDetailsRequest) returns (UpdatePartyDetailsResponse);
 }
 
+// Required authorization: ``HasRight(ParticipantAdmin)``
 message GetParticipantIdRequest {
 }
 
@@ -75,6 +88,7 @@ message GetParticipantIdResponse {
   string participant_id = 1;
 }
 
+// Required authorization: ``HasRight(ParticipantAdmin)``
 message GetPartiesRequest {
 
   // The stable, unique identifier of the Daml parties.
@@ -91,6 +105,7 @@ message GetPartiesResponse {
   repeated PartyDetails party_details = 1;
 }
 
+// Required authorization: ``HasRight(ParticipantAdmin)``
 message ListKnownPartiesRequest {
 }
 
@@ -101,6 +116,7 @@ message ListKnownPartiesResponse {
   repeated PartyDetails party_details = 1;
 }
 
+// Required authorization: ``HasRight(ParticipantAdmin)``
 message AllocatePartyRequest {
 
   // A hint to the backing participant which party ID to allocate. It can be
@@ -111,8 +127,13 @@ message AllocatePartyRequest {
 
   // Human-readable name of the party to be added to the participant. It doesn't
   // have to be unique.
+  // Use of this field is discouraged. Use ``local_metadata`` instead.
   // Optional
   string display_name = 2;
+
+  // Participant-local metadata to be stored in the ``PartyDetails`` of this newly allocated party.
+  // Optional
+  ObjectMeta local_metadata = 3;
 }
 
 message AllocatePartyResponse {
@@ -120,19 +141,49 @@ message AllocatePartyResponse {
   PartyDetails party_details = 1;
 }
 
+// Required authorization: ``HasRight(ParticipantAdmin)``
+message UpdatePartyDetailsRequest {
+  // Party to be updated
+  //
+  // Required
+  // Modifiable
+  PartyDetails party_details = 1;
+
+  // Specifies the fields of the party details to be updated.
+  // At least one field must be specified, e.g. 'party_details.local_metadata'.
+  //
+  // Required
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+message UpdatePartyDetailsResponse {
+  // Updated party details
+  PartyDetails party_details = 1;
+}
+
 message PartyDetails {
 
   // The stable unique identifier of a Daml party.
   // Must be a valid PartyIdString (as described in ``value.proto``).
+  //
   // Required
   string party = 1;
 
-  // Human readable name associated with the party. Caution, it might not be
-  // unique.
+  // Human readable name associated with the party at allocation time.
+  // Caution, it might not be unique.
+  // Use of this field is discouraged. Use the `local_metadata` field instead.
+  //
   // Optional
   string display_name = 2;
 
   // true if party is hosted by the backing participant.
-  // Required
+  //
+  // Optional
   bool is_local = 3;
+
+  // Participant-local metadata of this party.
+  //
+  // Optional
+  // Modifiable
+  ObjectMeta local_metadata = 4;
 }

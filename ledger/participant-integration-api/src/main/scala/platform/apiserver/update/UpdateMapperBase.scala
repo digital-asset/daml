@@ -110,7 +110,7 @@ trait UpdateMapperBase {
         case UpdatePathModifier.Merge =>
           if (isDefaultValue)
             Left(
-              UpdatePathError.MergeUpdateModifierOnPrimitiveField(
+              UpdatePathError.MergeUpdateModifierOnPrimitiveFieldWithDefaultValue(
                 updateMatch.matchedPath.toRawString
               )
             )

@@ -492,9 +492,143 @@ PACKAGE_UPLOAD_REJECTED
 
 
 
-2.2.1.1. ParticipantErrorGroup / LedgerApiErrors / AdminServices / UserManagementServiceErrors
+2.2.1.1. ParticipantErrorGroup / LedgerApiErrors / AdminServices / PartyManagementServiceErrorGroup
 ===================================================================================================================
 
+
+
+
+
+.. _error_code_CONCURRENT_PARTICIPANT_PARTY_UPDATE_DETECTED:
+
+CONCURRENT_PARTICIPANT_PARTY_UPDATE_DETECTED
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: 
+
+    **Category**: ContentionOnSharedResources
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+
+    **Resolution**: 
+
+
+
+
+.. _error_code_INVALID_PARTY_DETAILS_UPDATE:
+
+INVALID_PARTY_DETAILS_UPDATE
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: 
+
+    **Category**: InvalidIndependentOfSystemState
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+
+    **Resolution**: 
+
+
+
+
+.. _error_code_PARTICIPANT_PARTY_ALREADY_EXISTS:
+
+PARTICIPANT_PARTY_ALREADY_EXISTS
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: There already exists a party with the same party name.
+
+    **Category**: InvalidGivenCurrentSystemStateResourceExists
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ALREADY_EXISTS including a detailed error message
+
+    **Resolution**: Check that you are connecting to the right participant node and the party is spelled correctly.
+
+
+
+
+.. _error_code_PARTY_NOT_FOUND:
+
+PARTY_NOT_FOUND
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: The party referred to by the request was not found.
+
+    **Category**: InvalidGivenCurrentSystemStateResourceMissing
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
+
+    **Resolution**: Check that you are connecting to the right participant node and the party is spelled correctly.
+
+
+
+
+.. _error_code_PARTY_RECORD_NOT_FOUND:
+
+PARTY_RECORD_NOT_FOUND
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: The party referred to by the request was not found.
+
+    **Category**: InvalidGivenCurrentSystemStateResourceMissing
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
+
+    **Resolution**: Check that you are connecting to the right participant node and the party is spelled correctly.
+
+
+
+2.2.1.2. ParticipantErrorGroup / LedgerApiErrors / AdminServices / UserManagementServiceErrors
+===================================================================================================================
+
+
+
+
+
+.. _error_code_CONCURRENT_USER_UPDATE_DETECTED:
+
+CONCURRENT_USER_UPDATE_DETECTED
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: 
+
+    **Category**: ContentionOnSharedResources
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+
+    **Resolution**: 
+
+
+
+
+.. _error_code_INVALID_USER_UPDATE:
+
+INVALID_USER_UPDATE
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: 
+
+    **Category**: InvalidIndependentOfSystemState
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+
+    **Resolution**: 
+
+
+
+
+.. _error_code_MAX_ANNOTATIONS_SIZE_EXCEEDED:
+
+MAX_ANNOTATIONS_SIZE_EXCEEDED
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: 
+
+    **Category**: InvalidIndependentOfSystemState
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+
+    **Resolution**: 
 
 
 

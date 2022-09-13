@@ -23,6 +23,7 @@ message ExperimentalFeatures {
   ExperimentalContractIds contract_ids = 5;
   ExperimentalCommitterEventLog committer_event_log = 6;
   ExperimentalExplicitDisclosure explicit_disclosure = 7;
+  ExperimentalUserAndPartyManagementExtensionsForHub user_and_party_management_extensions_for_hub = 8;
 }
 
 // GRPC self-service error codes are returned by the Ledger API.
@@ -107,5 +108,13 @@ message ExperimentalCommitterEventLog {
 
 // Enables the use of explicitly disclosed contracts for command submission
 message ExperimentalExplicitDisclosure {
+  bool supported = 1;
+}
+
+// Whether the Ledger API supports:
+// - is_deactivated user property,
+// - metadata with annotations and resource version for users and parties,
+// - update calls for users and parties.
+message ExperimentalUserAndPartyManagementExtensionsForHub {
   bool supported = 1;
 }

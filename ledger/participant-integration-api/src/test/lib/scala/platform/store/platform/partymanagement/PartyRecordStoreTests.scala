@@ -5,10 +5,7 @@ package com.daml.platform.store.platform.partymanagement
 
 import com.daml.ledger.api.domain.{ObjectMeta, ParticipantParty}
 import com.daml.ledger.participant.state.index.v2.AnnotationsUpdate.{Merge, Replace}
-import com.daml.ledger.participant.state.index.v2.PartyRecordStore.{
-  PartyRecordExists,
-  PartyRecordNotFound,
-}
+import com.daml.ledger.participant.state.index.v2.PartyRecordStore.PartyRecordExistsFatal
 import com.daml.ledger.participant.state.index.v2.{
   AnnotationsUpdate,
   ObjectMetaUpdate,
@@ -92,7 +89,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
             create1b <- tested.createPartyRecord(newPartyRecord("party1"))
           } yield {
             create1.value shouldBe createdPartyRecord("party1")
-            create1b.left.value shouldBe PartyRecordExists(create1.value.party)
+            create1b.left.value shouldBe PartyRecordExistsFatal(create1.value.party)
           }
         }
       }
@@ -104,21 +101,21 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
           val newPr = newPartyRecord("party1")
           for {
             create1 <- tested.createPartyRecord(newPr)
-            get1 <- tested.getPartyRecord(newPr.party)
+            get1 <- tested.getPartyRecordO(newPr.party)
           } yield {
             create1.value shouldBe createdPartyRecord("party1")
-            get1.value shouldBe createdPartyRecord("party1")
+            get1.value shouldBe Some(createdPartyRecord("party1"))
           }
         }
       }
 
-      "not find a non-existent party record" in {
+      "return None for a non-existent party record" in {
         testIt { tested =>
           val party = Ref.Party.assertFromString("party1")
           for {
-            get1 <- tested.getPartyRecord(party)
+            get1 <- tested.getPartyRecordO(party)
           } yield {
-            get1.left.value shouldBe PartyRecordNotFound(party)
+            get1.value shouldBe None
           }
         }
       }
@@ -139,12 +136,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                   annotationsUpdateO = Some(Merge.fromNonEmpty(Map("k1" -> "v1"))),
                 ),
               ),
-              ledgerPartyExists = _ =>
-                Future(
-                  fail(
-                    "Unexpected ledger party existence check while updating an existing participant party record"
-                  )
-                ),
+              ledgerPartyExists = _ => Future.successful(true),
             )
             _ = resetResourceVersion(update1.value) shouldBe newPartyRecord(
               "party1",
@@ -295,12 +287,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                   annotationsUpdateO = Some(Merge.fromNonEmpty(Map("k1" -> "v1"))),
                 ),
               ),
-              ledgerPartyExists = _ =>
-                Future(
-                  fail(
-                    "Unexpected ledger party existence check while updating an existing participant party record"
-                  )
-                ),
+              ledgerPartyExists = _ => Future.successful(true),
             )
             _ = res1.left.value shouldBe PartyRecordStore.ConcurrentPartyUpdate(pr.party)
           } yield succeed

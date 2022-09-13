@@ -19,6 +19,7 @@ final case class Features(
     contractIds: ExperimentalContractIds,
     committerEventLog: ExperimentalCommitterEventLog,
     explicitDisclosure: Boolean = false,
+    userAndPartyManagementExtensionsForHub: Boolean = false,
 )
 
 object Features {
@@ -42,6 +43,8 @@ object Features {
       contractIds = experimental.getContractIds,
       committerEventLog = experimental.getCommitterEventLog,
       explicitDisclosure = experimental.getExplicitDisclosure.supported,
+      userAndPartyManagementExtensionsForHub =
+        experimental.getUserAndPartyManagementExtensionsForHub.supported,
     )
   }
 }

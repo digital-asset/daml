@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.time.Instant
+
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Endpoint
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.{
@@ -18,12 +19,22 @@ import com.daml.ledger.api.v1.admin.config_management_service.{
   SetTimeModelResponse,
   TimeModel,
 }
+import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.admin.package_management_service.{
   PackageDetails,
   UploadDarFileRequest,
 }
 import com.daml.ledger.api.v1.admin.participant_pruning_service.PruneResponse
-import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails
+import com.daml.ledger.api.v1.admin.party_management_service.{
+  AllocatePartyRequest,
+  AllocatePartyResponse,
+  GetPartiesRequest,
+  GetPartiesResponse,
+  ListKnownPartiesResponse,
+  PartyDetails,
+  UpdatePartyDetailsRequest,
+  UpdatePartyDetailsResponse,
+}
 import com.daml.ledger.api.v1.command_completion_service.{
   Checkpoint,
   CompletionEndRequest,
@@ -80,6 +91,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
   def referenceOffset: LedgerOffset
   def nextKeyId: () => String
   def nextUserId: () => String
+  def nextPartyId: () => String
   def delayMechanism: DelayMechanism
 
   /** Gets the absolute offset of the ledger end at a point in time. Use [[end]] if you need
@@ -124,12 +136,18 @@ trait ParticipantTestContext extends UserManagementTestContext {
   /** Non managed version of party allocation. Use exclusively when testing the party management service.
     */
   def allocateParty(
-      partyIdHint: Option[String],
-      displayName: Option[String],
+      partyIdHint: Option[String] = None,
+      displayName: Option[String] = None,
+      localMetadata: Option[ObjectMeta] = None,
   ): Future[Primitive.Party]
+
+  def allocateParty(req: AllocatePartyRequest): Future[AllocatePartyResponse]
+  def updatePartyDetails(req: UpdatePartyDetailsRequest): Future[UpdatePartyDetailsResponse]
   def allocateParties(n: Int): Future[Vector[Primitive.Party]]
+  def getParties(req: GetPartiesRequest): Future[GetPartiesResponse]
   def getParties(parties: Seq[Primitive.Party]): Future[Seq[PartyDetails]]
   def listKnownParties(): Future[Set[Primitive.Party]]
+  def listKnownPartiesResp(): Future[ListKnownPartiesResponse]
 
   /** @return a future that completes when all the participants can list all the expected parties
     */

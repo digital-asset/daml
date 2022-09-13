@@ -10,6 +10,8 @@ import com.daml.error.definitions.{DamlErrorWithDefiniteAnswer, LedgerApiErrors,
 object AdminServices extends LedgerApiErrors.AdminServicesErrorGroup {
 
   val UserManagement: groups.UserManagementServiceErrors.type = groups.UserManagementServiceErrors
+  val PartyManagement: groups.PartyManagementServiceErrorGroup.type =
+    groups.PartyManagementServiceErrorGroup
 
   @Explanation("This rejection is given when a new configuration is rejected.")
   @Resolution("Fetch newest configuration and/or retry.")
