@@ -20,7 +20,7 @@ class BuildDisclosureTableTest extends AnyFreeSpec with Inside with Matchers {
     "disclosure preprocessing" - {
       "template does not exist" in {
         val error = intercept[SError.SErrorDamlException] {
-          Speedy.buildDisclosedKeyTable(
+          Speedy.buildDisclosedContractKeyTable(
             ImmArray(disclosedHouseContractInvalidTemplate),
             pkg.pkgInterface,
           )
@@ -37,7 +37,10 @@ class BuildDisclosureTableTest extends AnyFreeSpec with Inside with Matchers {
 
       "disclosed contract key has no hash" in {
         val error = intercept[SError.SErrorDamlException] {
-          Speedy.buildDisclosedKeyTable(ImmArray(disclosedHouseContractNoHash), pkg.pkgInterface)
+          Speedy.buildDisclosedContractKeyTable(
+            ImmArray(disclosedHouseContractNoHash),
+            pkg.pkgInterface,
+          )
         }
 
         error shouldBe SError.SErrorDamlException(
@@ -52,7 +55,7 @@ class BuildDisclosureTableTest extends AnyFreeSpec with Inside with Matchers {
 
       "duplicate disclosed contract key hashes" in {
         val error = intercept[SError.SErrorDamlException] {
-          Speedy.buildDisclosedKeyTable(
+          Speedy.buildDisclosedContractKeyTable(
             ImmArray(disclosedHouseContract, disclosedHouseContractWithDuplicateKey),
             pkg.pkgInterface,
           )

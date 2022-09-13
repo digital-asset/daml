@@ -240,10 +240,6 @@ message ScenarioError {
     string key_hash = 2;
   }
 
-  message DisclosurePreprocessingDuplicateContractIds {
-    Identifier template_id = 1;
-  }
-
   message DisclosurePreprocessingNonExistentTemplate {
       Identifier template_id = 1;
   }
@@ -257,6 +253,17 @@ message ScenarioError {
       string contract_id = 1;
       Identifier expected = 2;
       Identifier actual = 3;
+  }
+
+  message InconsistentDisclosureTableInvalidContractKeyHash {
+      string contract_id = 1;
+      string expected = 2;
+      string actual = 3;
+  }
+
+  message InconsistentDisclosureTableNoDisclosedContractKeyInLedgerCache {
+      string contract_id = 1;
+      Identifier template_id = 2;
   }
 
   // The state of the ledger at the time of the error
@@ -330,11 +337,12 @@ message ScenarioError {
     ContractDoesNotImplementInterface contract_does_not_implement_interface = 35;
     ContractDoesNotImplementRequiringInterface contract_does_not_implement_requiring_interface
     = 36;
-    DisclosurePreprocessingDuplicateContractIds disclosure_preprocessing_duplicate_contract_ids = 38;
     DisclosurePreprocessingDuplicateContractKeys disclosure_preprocessing_duplicate_contract_keys = 39;
     DisclosurePreprocessingNonExistentTemplate disclosure_preprocessing_non_existent_template = 40;
     DisclosurePreprocessingNonExistentDisclosedContractKeyHash disclosure_preprocessing_non_existent_disclosed_contract_key_hash = 41;
     InconsistentDisclosureTableIncorrectlyTypedContract inconsistent_disclosure_table_incorrectly_typed_contract = 42;
+    InconsistentDisclosureTableInvalidContractKeyHash inconsistent_disclosure_table_invalid_contract_key_hash = 43;
+    InconsistentDisclosureTableNoDisclosedContractKeyInLedgerCache inconsistent_disclosure_table_no_disclosed_contract_key_in_ledger_cache = 44;
   }
 }
 

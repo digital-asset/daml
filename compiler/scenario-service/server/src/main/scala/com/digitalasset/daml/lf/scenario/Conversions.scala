@@ -246,11 +246,6 @@ final class Conversions(
                         .setTemplateId(convertIdentifier(tid))
                         .setKeyHash(keyHash.toHexString)
                     )
-                  case DisclosurePreprocessing.DuplicateContractIds(tid) =>
-                    builder.setDisclosurePreprocessingDuplicateContractIds(
-                      proto.ScenarioError.DisclosurePreprocessingDuplicateContractIds.newBuilder
-                        .setTemplateId(convertIdentifier(tid))
-                    )
                   case DisclosurePreprocessing.NonExistentTemplate(templateId) =>
                     builder.setDisclosurePreprocessingNonExistentTemplate(
                       proto.ScenarioError.DisclosurePreprocessingNonExistentTemplate.newBuilder
@@ -277,6 +272,28 @@ final class Conversions(
                     .setContractId(coidToEventId(contractId).toLedgerString)
                     .setExpected(convertIdentifier(expectedTemplateId))
                     .setActual(convertIdentifier(actualTemplateId))
+                )
+
+              case InconsistentDisclosureTable.InvalidContractKeyHash(
+                    contractId,
+                    expectedKeyHash,
+                    actualKeyHash,
+                  ) =>
+                builder.setInconsistentDisclosureTableInvalidContractKeyHash(
+                  proto.ScenarioError.InconsistentDisclosureTableInvalidContractKeyHash.newBuilder
+                    .setContractId(coidToEventId(contractId).toLedgerString)
+                    .setExpected(expectedKeyHash.toHexString)
+                    .setActual(actualKeyHash.toHexString)
+                )
+
+              case InconsistentDisclosureTable.NoDisclosedContractKeyInLedgerCache(
+                    contractId,
+                    templateId,
+                  ) =>
+                builder.setInconsistentDisclosureTableNoDisclosedContractKeyInLedgerCache(
+                  proto.ScenarioError.InconsistentDisclosureTableNoDisclosedContractKeyInLedgerCache.newBuilder
+                    .setContractId(coidToEventId(contractId).toLedgerString)
+                    .setTemplateId(convertIdentifier(templateId))
                 )
             }
         }

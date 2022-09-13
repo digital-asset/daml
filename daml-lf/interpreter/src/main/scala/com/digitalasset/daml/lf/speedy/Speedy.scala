@@ -207,12 +207,12 @@ private[lf] object Speedy {
 
   private[lf] final case object OffLedger extends LedgerMode
 
-  private[speedy] case class DisclosedKeyTable(
+  private[speedy] case class DisclosedContractKeyTable(
       contractIdByKey: Map[crypto.Hash, SValue.SContractId]
   )
 
-  object DisclosedKeyTable {
-    val Empty: DisclosedKeyTable = DisclosedKeyTable(Map.empty)
+  object DisclosedContractKeyTable {
+    val Empty: DisclosedContractKeyTable = DisclosedContractKeyTable(Map.empty)
   }
 
   case class DisclosurePreprocessError(
@@ -220,13 +220,13 @@ private[lf] object Speedy {
   ) extends RuntimeException(err, null, true, false)
 
   @throws[SErrorDamlException]
-  private[speedy] def buildDisclosedKeyTable(
+  private[speedy] def buildDisclosedContractKeyTable(
       disclosures: ImmArray[speedy.DisclosedContract],
       packageInterface: PackageInterface,
-  ): DisclosedKeyTable = {
+  ): DisclosedContractKeyTable = {
     val _ = disclosures
     val acc = disclosures.foldLeft(
-      DisclosedKeyTable.Empty
+      DisclosedContractKeyTable.Empty
     ) { case (table, d) =>
       val coid = d.contractId
 
@@ -245,7 +245,7 @@ private[lf] object Speedy {
               )
 
             case None =>
-              DisclosedKeyTable(
+              DisclosedContractKeyTable(
                 table.contractIdByKey + (hash -> coid)
               )
           }
@@ -324,7 +324,7 @@ private[lf] object Speedy {
        */
       val submissionTime: Time.Timestamp,
       val ledgerMode: LedgerMode,
-      val disclosureTable: DisclosedKeyTable,
+      val disclosureTable: DisclosedContractKeyTable,
   ) {
 
     def tmplId2TxVersion(tmplId: TypeConName): TransactionVersion =
@@ -950,7 +950,8 @@ private[lf] object Speedy {
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
-        disclosureTable = buildDisclosedKeyTable(disclosedContracts, compiledPackages.pkgInterface),
+        disclosureTable =
+          buildDisclosedContractKeyTable(disclosedContracts, compiledPackages.pkgInterface),
       )
     }
 
@@ -1051,7 +1052,7 @@ private[lf] object Speedy {
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
-        disclosureTable = DisclosedKeyTable.Empty,
+        disclosureTable = DisclosedContractKeyTable.Empty,
       )
     }
 
