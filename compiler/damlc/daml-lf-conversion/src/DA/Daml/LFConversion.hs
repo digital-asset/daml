@@ -750,7 +750,7 @@ convertModule
     -> ModIface
       -- ^ Only used for information that isn't available in ModDetails.
     -> ModDetails
-    -> Either FileDiagnostic LF.Module
+    -> Either FileDiagnostic (LF.Module, [FileDiagnostic])
 convertModule lfVersion enableScenarios pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing) $ do
     let
       env = mkEnv lfVersion enableScenarios pkgMap stablePackages (cm_module coreModule)

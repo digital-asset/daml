@@ -487,12 +487,12 @@ runRepl importPkgs opts replClient logger ideState = do
             let modIface = hm_iface (tmrModInfo tm)
             case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
                 Left diag -> handleIdeResult ([diag], Nothing)
-                Right v -> do
+                Right (v, conversionWarnings) -> do
                    pkgs <- lift $ getExternalPackages file
                    let world = LF.initWorldSelf pkgs (buildPackage (optMbPackageName opts) (optMbPackageVersion opts) lfVersion [])
                    let simplified = LF.simplifyModule world lfVersion v
                    case Serializability.inferModule world lfVersion simplified of
-                       Left err -> handleIdeResult ([ideErrorPretty file err], Nothing)
+                       Left err -> handleIdeResult (conversionWarnings ++ [ideErrorPretty file err], Nothing)
                        Right dalf -> do
                            let (_diags, checkResult) = diagsToIdeResult file $ LF.checkModule world lfVersion dalf
                            case checkResult of

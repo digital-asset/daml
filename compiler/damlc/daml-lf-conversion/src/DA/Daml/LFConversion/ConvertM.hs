@@ -9,6 +9,7 @@ module DA.Daml.LFConversion.ConvertM (
     withRange,
     freshTmVar,
     resetFreshVarCounters,
+    conversionWarning,
     conversionError,
     unsupported,
     unknown,
@@ -47,6 +48,7 @@ data ConversionEnv = ConversionEnv
 
 data ConversionState = ConversionState
     { freshTmVarCounter :: Int
+    , warnings :: [FileDiagnostic]
     }
 
 newtype ConvertM a = ConvertM (ReaderT ConversionEnv (StateT ConversionState (Except FileDiagnostic)) a)
@@ -55,11 +57,14 @@ newtype ConvertM a = ConvertM (ReaderT ConversionEnv (StateT ConversionState (Ex
 instance MonadFail ConvertM where
     fail = conversionError
 
-runConvertM :: ConversionEnv -> ConvertM a -> Either FileDiagnostic a
-runConvertM s (ConvertM a) = runExcept (evalStateT (runReaderT a s) st0)
+runConvertM :: ConversionEnv -> ConvertM a -> Either FileDiagnostic (a, [FileDiagnostic])
+runConvertM s (ConvertM a) = runExcept $ do
+  (a, convState) <- runStateT (runReaderT a s) st0
+  pure (a, warnings convState)
   where
     st0 = ConversionState
         { freshTmVarCounter = 0
+        , warnings = []
         }
 
 withRange :: Maybe SourceLoc -> ConvertM a -> ConvertM a
@@ -76,18 +81,24 @@ resetFreshVarCounters = modify' (\st -> st{freshTmVarCounter = 0})
 ---------------------------------------------------------------------
 -- FAILURE REPORTING
 
-conversionError :: String -> ConvertM e
-conversionError msg = do
+conversionIssue :: DiagnosticSeverity -> String -> ConvertM e
+conversionIssue severity msg = do
   ConversionEnv{..} <- ask
   throwError $ (convModuleFilePath,ShowDiag,) Diagnostic
       { _range = maybe noRange sourceLocToRange convRange
-      , _severity = Just DsError
+      , _severity = Just severity
       , _source = Just "Core to Daml-LF"
       , _message = T.pack msg
       , _code = Nothing
       , _relatedInformation = Nothing
       , _tags = Nothing
       }
+
+conversionError :: String -> ConvertM e
+conversionError = conversionIssue DsError
+
+conversionWarning :: String -> ConvertM e
+conversionWarning = conversionIssue DsWarning
 
 unsupported :: (HasCallStack, Outputable a) => String -> a -> ConvertM e
 unsupported typ x = conversionError errMsg
