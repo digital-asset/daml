@@ -8,7 +8,7 @@ import com.daml.ledger.api.v1.commands.{
   Commands => ProtoCommands,
   DisclosedContract => ProtoDisclosedContract,
 }
-//import ProtoDisclosedContract.{Arguments => ProtoArguments}
+import ProtoDisclosedContract.{Arguments => ProtoArguments}
 import com.daml.ledger.api.v1.contract_metadata.{ContractMetadata => ProtoContractMetadata}
 import com.daml.ledger.api.v1.value.{
   Identifier => ProtoIdentifier,
@@ -134,11 +134,15 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
   }
 
   it should "fail validation on invalid create arguments record field" in {
+    def argumentsUpdate(arguments: ProtoArguments): ProtoArguments =
+      ProtoArguments.Record(
+        arguments.record.get.update(_.fields.set(scala.Seq(ProtoRecordField("something", None))))
+      )
     val withInvalidRecordField =
       ProtoCommands(disclosedContracts =
         scala.Seq(
           api.protoDisclosedContract.update(
-            // _.arguments.fields.set(scala.Seq(ProtoRecordField("something", None)))
+            _.arguments.modify(argumentsUpdate)
           )
         )
       )
@@ -239,6 +243,7 @@ object ValidateDisclosedContractsTest {
     val protoDisclosedContract: ProtoDisclosedContract = ProtoDisclosedContract(
       templateId = Some(templateId),
       contractId = contractId,
+      arguments = ProtoArguments.Record(contractArgumentsRecord),
       metadata = Some(contractMetadata),
     )
     val protoCommands: ProtoCommands =
