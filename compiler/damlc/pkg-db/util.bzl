@@ -120,6 +120,7 @@ def _daml_package_rule_impl(ctx):
         --target {daml_lf_version} \
         --cpp {cpp} \
         --ghc-option=-Werror \
+        --allow-large-tuples=yes \
         -o {dalf_file} \
         {main}
 
