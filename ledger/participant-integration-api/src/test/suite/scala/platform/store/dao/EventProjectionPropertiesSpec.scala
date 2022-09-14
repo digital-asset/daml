@@ -98,6 +98,37 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       .render(Set(party), template1) shouldBe RenderResult(false, Set.empty)
   }
 
+  it should "deduplicate projected interfaces and include the view" in new Scope {
+    val transactionFilter = new TransactionFilter(
+      Map(
+        party -> Filters(
+          Some(
+            InclusiveFilters(
+              Set.empty,
+              Set(
+                InterfaceFilter(iface1, includeView = false, includeCreateArgumentsBlob = false),
+                InterfaceFilter(iface2, includeView = true, includeCreateArgumentsBlob = false),
+              ),
+            )
+          )
+        ),
+        party2 -> Filters(
+          Some(
+            InclusiveFilters(
+              Set.empty,
+              Set(
+                InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = false),
+                InterfaceFilter(iface2, includeView = true, includeCreateArgumentsBlob = false),
+              ),
+            )
+          )
+        ),
+      )
+    )
+    EventProjectionProperties(transactionFilter, true, interfaceImpl)
+      .render(Set(party, party2), template1) shouldBe RenderResult(false, Set(iface2, iface1))
+  }
+
 }
 
 object EventProjectionPropertiesSpec {
