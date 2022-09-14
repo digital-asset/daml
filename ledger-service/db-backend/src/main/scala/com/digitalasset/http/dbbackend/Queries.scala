@@ -987,7 +987,7 @@ private final class OracleQueries(
   private[http] override def containsAtContractPath(path: JsonPath, literal: JsValue) = {
     def ensureNotNull = {
       // we are only trying to reject None for an Optional record/variant/list
-      val pred: Cord = ('$' -: pathSteps(path)) ++ "?(@ != null)"
+      val pred: Cord = ('$' -: pathSteps(path)) ++ "?(!(@ == null))"
       sql"JSON_EXISTS($contractColumnName, ${oracleShortPathEscape(pred)})"
     }
     literal match {
