@@ -65,7 +65,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       None,
       onlySerializableDataDefs,
     )
-    val internedTypes = xxx(decodeInternedTypes(env0, lfPackage))
+    val internedTypes = runWork(decodeInternedTypes(env0, lfPackage))
     val env = env0.copy(internedTypes = internedTypes)
 
     Package.build(
@@ -120,7 +120,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       None,
       onlySerializableDataDefs = false,
     )
-    val internedTypes = xxx(decodeInternedTypes(env0, lfScenarioModule))
+    val internedTypes = runWork(decodeInternedTypes(env0, lfScenarioModule))
     val env = env0.copy(internedTypes = internedTypes)
     env.decodeModule(lfScenarioModule.getModules(0))
 
@@ -158,7 +158,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       env: Env,
       lfPackage: PLF.Package,
   ): IndexedSeq[Type] = {
-    xxx(decodeInternedTypes(env, lfPackage))
+    runWork(decodeInternedTypes(env, lfPackage))
   }
 
   private def decodeInternedTypes(
@@ -170,7 +170,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       assertSince(LV.Features.internedTypes, "interned types table")
     lfTypes.iterator.asScala
       .foldLeft(new mutable.ArrayBuffer[Type](lfTypes.size)) { (buf, typ) =>
-        buf += xxx(env.copy(internedTypes = buf).uncheckedDecodeType(typ))
+        buf += runWork(env.copy(internedTypes = buf).uncheckedDecodeType(typ))
       }
       .toIndexedSeq
   }
@@ -198,30 +198,30 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         tpl: DottedName,
         lfChoice: PLF.TemplateChoice,
     ): TemplateChoice = {
-      xxx(decodeChoice(tpl, lfChoice))
+      runWork(decodeChoice(tpl, lfChoice))
     }
 
     private[archive] def decodeDefInterfaceForTest(
         id: DottedName,
         lfInterface: PLF.DefInterface,
     ): DefInterface = {
-      xxx(decodeDefInterface(id, lfInterface))
+      runWork(decodeDefInterface(id, lfInterface))
     }
 
     private[archive] def decodeKindForTest(lfKind: PLF.Kind): Kind = {
-      xxx(decodeKind(lfKind))
+      runWork(decodeKind(lfKind))
     }
 
     private[archive] def decodeTypeForTest(lfType: PLF.Type): Type = {
-      xxx(decodeType(lfType)(Ret(_)))
+      runWork(decodeType(lfType)(Ret(_)))
     }
 
     private[archive] def uncheckedDecodeTypeForTest(lfType: PLF.Type): Type = {
-      xxx(uncheckedDecodeType(lfType))
+      runWork(uncheckedDecodeType(lfType))
     }
 
     private[archive] def decodeExprForTest(lfExpr: PLF.Expr, definition: String): Expr = {
-      xxx(decodeExpr(lfExpr, definition)(Ret(_)))
+      runWork(decodeExpr(lfExpr, definition)(Ret(_)))
     }
 
     private var currentDefinitionRef: Option[DefinitionRef] = None
@@ -260,7 +260,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             )
             currentDefinitionRef =
               Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
-            val d = xxx(decodeDefTypeSyn(defn))
+            val d = runWork(decodeDefTypeSyn(defn))
             defs += (defName -> d)
           }
       }
@@ -278,7 +278,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             "DefDataType.name.name",
           )
           currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
-          val d = xxx(decodeDefDataType(defn))
+          val d = runWork(decodeDefDataType(defn))
           defs += (defName -> d)
         }
 
@@ -293,7 +293,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           )
 
           currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
-          val d = xxx(decodeDefValue(defn))
+          val d = runWork(decodeDefValue(defn))
           defs += (defName -> d)
         }
       }
@@ -309,7 +309,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           "DefTemplate.tycon.tycon",
         )
         currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
-        templates += ((defName, xxx(decodeTemplate(defName, defn))))
+        templates += ((defName, runWork(decodeTemplate(defName, defn))))
       }
 
       if (versionIsOlderThan(LV.Features.exceptions)) {
@@ -318,7 +318,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         lfModule.getExceptionsList.asScala
           .foreach { defn =>
             val defName = getInternedDottedName(defn.getNameInternedDname)
-            exceptions += (defName -> xxx(decodeException(defName, defn)))
+            exceptions += (defName -> runWork(decodeException(defName, defn)))
           }
       }
 
@@ -327,7 +327,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       } else {
         lfModule.getInterfacesList.asScala.foreach { defn =>
           val defName = getInternedDottedName(defn.getTyconInternedDname)
-          interfaces += (defName -> xxx(decodeDefInterface(defName, defn)))
+          interfaces += (defName -> runWork(decodeDefInterface(defName, defn)))
         }
       }
 
@@ -2468,8 +2468,7 @@ private[archive] object DecodeV1 {
 
   import Work.{Ret, Delay, Bind}
 
-  // NICK: we must never call runWork in a nested context!
-  private def xxx[R](work: Work[R]): R = { // runWork
+  private def runWork[R](work: Work[R]): R = {
     // calls to runWork must never be nested
     @tailrec
     def loop[A](work: Work[A]): A = work match {
