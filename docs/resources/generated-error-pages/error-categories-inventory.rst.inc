@@ -23,9 +23,9 @@ ContentionOnSharedResources
 
     **Description**: The request could not be processed due to shared processing resources (e.g. locks or rate limits that replenish quickly) being occupied. If the resource is known (i.e. locked contract), it will be included as a resource info. (Not known resource contentions are e.g. overloaded networks where we just observe timeouts, but can’t pin-point the cause).
 
-    **Resolution**: Expectation: this is processing-flow level contention that should be handled by retrying the request with appropriate backoff; or restarting the read-modify-write sequence.
+    **Resolution**: Expectation: this is processing-flow level contention that should be handled by retrying the request with appropriate backoff.
 
-    **Retry strategy**: Retry quickly (indefinitely or limited) or restart the read-modify-write sequence, but do not retry in load balancer.
+    **Retry strategy**: Retry quickly (indefinitely or limited), but do not retry in load balancer.
 
 
 DeadlineExceededRequestStateUnknown
