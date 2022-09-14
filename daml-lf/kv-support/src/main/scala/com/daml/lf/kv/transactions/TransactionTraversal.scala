@@ -8,13 +8,14 @@ import com.daml.lf.data.{FrontStack, FrontStackCons, ImmArray, Ref}
 import com.daml.lf.kv.ConversionError
 import com.daml.lf.transaction.TransactionOuterClass.Node
 import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass, TransactionVersion}
-import com.daml.lf.value.{ValueCoder, ValueOuterClass}
+import com.daml.lf.value.ValueOuterClass
 
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 import scalaz._
 import Scalaz._
+import com.daml.lf.value.ValueCoder.DecodeError
 
 object TransactionTraversal {
 
@@ -63,22 +64,22 @@ object TransactionTraversal {
       toVisit: FrontStack[(RawTransaction.NodeId, Set[Ref.Party])],
       packagesToParties: Map[String, Set[Ref.Party]] = Map.empty,
   ): Either[ConversionError, Map[String, Set[Ref.Party]]] = {
+    def addPackage(templateId: ValueOuterClass.Identifier, witnesses: Set[Party]) = {
+      val currentNodePackagesWithWitnesses = Map(
+        templateId.getPackageId -> witnesses
+      )
+      packagesToParties |+| currentNodePackagesWithWitnesses
+    }
     toVisit match {
       case FrontStack() => Right(packagesToParties)
       case FrontStackCons((nodeId, parentWitnesses), toVisit) =>
         val node = nodes(nodeId.value)
-        informeesOfNode(txVersion, node) match {
-          case Left(error) => Left(ConversionError.DecodeError(error))
-          case Right(nodeWitnesses) =>
-            val witnesses = parentWitnesses union nodeWitnesses
-            def addPackage(templateId: ValueOuterClass.Identifier) = {
-              val currentNodePackagesWithWitnesses = Map(
-                templateId.getPackageId -> witnesses
-              )
-              packagesToParties |+| currentNodePackagesWithWitnesses
-            }
-            node.getNodeTypeCase match {
-              case Node.NodeTypeCase.EXERCISE =>
+        lazy val witnesses = informeesOfNode(txVersion, node).map(_ union parentWitnesses)
+        node.getNodeTypeCase match {
+          case Node.NodeTypeCase.EXERCISE =>
+            witnesses match {
+              case Left(value) => Left(value)
+              case Right(witnesses) =>
                 val exercise = node.getExercise
                 // Recurse into children (if any).
                 val next = exercise.getChildrenList.asScala.view
@@ -98,30 +99,58 @@ object TransactionTraversal {
                   next ++: toVisit,
                   packagesToParties |+| currentNodePackagesWithWitnesses,
                 )
-              case Node.NodeTypeCase.FETCH =>
-                traverseWitnessesWithPackages(
-                  txVersion,
-                  nodes,
-                  toVisit,
-                  addPackage(node.getFetch.getTemplateId),
-                )
-              case Node.NodeTypeCase.CREATE =>
-                traverseWitnessesWithPackages(
-                  txVersion,
-                  nodes,
-                  toVisit,
-                  addPackage(node.getCreate.getTemplateId),
-                )
-              case Node.NodeTypeCase.LOOKUP_BY_KEY =>
-                traverseWitnessesWithPackages(
-                  txVersion,
-                  nodes,
-                  toVisit,
-                  addPackage(node.getLookupByKey.getTemplateId),
-                )
-              case Node.NodeTypeCase.NODETYPE_NOT_SET | Node.NodeTypeCase.ROLLBACK =>
-                traverseWitnessesWithPackages(txVersion, nodes, toVisit, packagesToParties)
             }
+          case Node.NodeTypeCase.FETCH =>
+            val templateId = node.getFetch.getTemplateId
+            witnesses match {
+              case Left(error) => Left(error)
+              case Right(witnesses) =>
+                traverseWitnessesWithPackages(
+                  txVersion,
+                  nodes,
+                  toVisit,
+                  addPackage(templateId, witnesses),
+                )
+            }
+          case Node.NodeTypeCase.CREATE =>
+            val templateId = node.getCreate.getTemplateId
+            witnesses match {
+              case Left(error) => Left(error)
+              case Right(witnesses) =>
+                traverseWitnessesWithPackages(
+                  txVersion,
+                  nodes,
+                  toVisit,
+                  addPackage(templateId, witnesses),
+                )
+            }
+          case Node.NodeTypeCase.LOOKUP_BY_KEY =>
+            val templateId = node.getLookupByKey.getTemplateId
+            witnesses match {
+              case Left(error) => Left(error)
+              case Right(witnesses) =>
+                traverseWitnessesWithPackages(
+                  txVersion,
+                  nodes,
+                  toVisit,
+                  addPackage(templateId, witnesses),
+                )
+            }
+          case Node.NodeTypeCase.ROLLBACK =>
+            // Rollback nodes have only the parent informees
+            val rollback = node.getRollback
+            // Recurse into children (if any).
+            val next = rollback.getChildrenList.asScala.view
+              .map(RawTransaction.NodeId(_) -> parentWitnesses)
+              .to(ImmArray)
+            traverseWitnessesWithPackages(
+              txVersion,
+              nodes,
+              next ++: toVisit,
+              packagesToParties,
+            )
+          case Node.NodeTypeCase.NODETYPE_NOT_SET =>
+            Left(ConversionError.DecodeError(DecodeError("NodeType not set.")))
         }
     }
   }
@@ -138,7 +167,7 @@ object TransactionTraversal {
       case FrontStackCons((nodeId, parentWitnesses), toVisit) =>
         val node = nodes(nodeId.value)
         informeesOfNode(txVersion, node) match {
-          case Left(error) => Left(ConversionError.DecodeError(error))
+          case Left(error) => Left(error)
           case Right(nodeWitnesses) =>
             val witnesses = parentWitnesses union nodeWitnesses
             // Here node.toByteString is safe.
@@ -164,9 +193,10 @@ object TransactionTraversal {
   private[this] def informeesOfNode(
       txVersion: TransactionVersion,
       node: TransactionOuterClass.Node,
-  ): Either[ValueCoder.DecodeError, Set[Ref.Party]] =
+  ) =
     TransactionCoder
       .protoActionNodeInfo(txVersion, node)
       .map(_.informeesOfNode)
+      .leftMap(ConversionError.DecodeError)
 
 }
