@@ -120,8 +120,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       None,
       onlySerializableDataDefs = false,
     )
-    val internedTypes =
-      xxx(decodeInternedTypes(env0, lfScenarioModule))
+    val internedTypes = xxx(decodeInternedTypes(env0, lfScenarioModule))
     val env = env0.copy(internedTypes = internedTypes)
     env.decodeModule(lfScenarioModule.getModules(0))
 
@@ -279,7 +278,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             "DefDataType.name.name",
           )
           currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
-          val d = decodeDefDataType(defn)
+          val d = xxx(decodeDefDataType(defn))
           defs += (defName -> d)
         }
 
@@ -404,32 +403,37 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       FeatureFlags.default
     }
 
-    private[this] def decodeDefDataType(lfDataType: PLF.DefDataType): DDataType = {
+    private[this] def decodeDefDataType(lfDataType: PLF.DefDataType): Work[DDataType] = {
       val params = lfDataType.getParamsList.asScala
-      DDataType(
-        lfDataType.getSerializable,
-        params.view.map(x => xxx(decodeTypeVarWithKind(x))).to(ImmArray), // NICK
-        lfDataType.getDataConsCase match {
+      sequenceWork(params.view.map(decodeTypeVarWithKind(_))) { binders =>
+        bindWork(lfDataType.getDataConsCase match {
           case PLF.DefDataType.DataConsCase.RECORD =>
-            DataRecord(xxx(decodeFields(lfDataType.getRecord.getFieldsList.asScala)))
+            bindWork(decodeFields(lfDataType.getRecord.getFieldsList.asScala)) { fields =>
+              Ret(DataRecord(fields))
+            }
           case PLF.DefDataType.DataConsCase.VARIANT =>
-            DataVariant(xxx(decodeFields(lfDataType.getVariant.getFieldsList.asScala)))
+            bindWork(decodeFields(lfDataType.getVariant.getFieldsList.asScala)) { fields =>
+              Ret(DataVariant(fields))
+            }
           case PLF.DefDataType.DataConsCase.ENUM =>
             assertEmpty(params, "params")
-            DataEnum(decodeEnumCon(lfDataType.getEnum))
+            Ret(DataEnum(decodeEnumCon(lfDataType.getEnum)))
           case PLF.DefDataType.DataConsCase.DATACONS_NOT_SET =>
             throw Error.Parsing("DefDataType.DATACONS_NOT_SET")
-          case PLF.DefDataType.DataConsCase.INTERFACE => DataInterface
+          case PLF.DefDataType.DataConsCase.INTERFACE =>
+            Ret(DataInterface)
 
-        },
-      )
+        }) { dataCons =>
+          Ret(DDataType(lfDataType.getSerializable, binders.to(ImmArray), dataCons))
+        }
+      }
     }
 
     private[this] def decodeDefTypeSyn(lfTypeSyn: PLF.DefTypeSyn): Work[DTypeSyn] =
       decodeType(lfTypeSyn.getType) { expr =>
         val params = lfTypeSyn.getParamsList.asScala
-        sequenceWork(params.view.map(decodeTypeVarWithKind)) { kinds =>
-          Ret(DTypeSyn(kinds.to(ImmArray), expr))
+        sequenceWork(params.view.map(decodeTypeVarWithKind)) { binders =>
+          Ret(DTypeSyn(binders.to(ImmArray), expr))
         }
       }
 
@@ -592,14 +596,14 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     }
 
     private[this] def decodeKeyExpr(expr: PLF.KeyExpr, tplVar: ExprVarName): Work[Expr] = {
-      expr.getSumCase match {
-        case PLF.KeyExpr.SumCase.RECORD =>
-          val recCon = expr.getRecord
-          Ret(
-            ERecCon(
-              tycon = xxx(decodeTypeConApp(recCon.getTycon)), // NICK
-              fields = recCon.getFieldsList.asScala.view
-                .map(field =>
+      Work.Delay { () =>
+        expr.getSumCase match {
+
+          case PLF.KeyExpr.SumCase.RECORD =>
+            val recCon = expr.getRecord
+            bindWork(decodeTypeConApp(recCon.getTycon)) { tycon =>
+              sequenceWork(recCon.getFieldsList.asScala.view.map { field =>
+                val name =
                   handleInternedName(
                     field.getFieldCase,
                     PLF.KeyExpr.RecordField.FieldCase.FIELD_STR,
@@ -607,35 +611,37 @@ private[archive] class DecodeV1(minor: LV.Minor) {
                     PLF.KeyExpr.RecordField.FieldCase.FIELD_INTERNED_STR,
                     field.getFieldInternedStr,
                     "KeyExpr.field",
-                  ) -> xxx(
-                    decodeKeyExpr(field.getExpr, tplVar)
-                  ) // NICK: self-recursion point; delay to be stack-safe!?
-                )
-                .to(ImmArray),
-            )
-          )
+                  )
+                bindWork(decodeKeyExpr(field.getExpr, tplVar)) { expr =>
+                  Ret(name -> expr)
+                }
+              }) { fields => Ret(ERecCon(tycon, fields = fields.to(ImmArray))) }
+            }
 
-        case PLF.KeyExpr.SumCase.PROJECTIONS =>
-          val lfProjs = expr.getProjections.getProjectionsList.asScala
-          Ret(
-            lfProjs.foldLeft(EVar(tplVar): Expr)((acc, lfProj) =>
-              ERecProj(
-                xxx(decodeTypeConApp(lfProj.getTycon)), // NICK
-                handleInternedName(
-                  lfProj.getFieldCase,
-                  PLF.KeyExpr.Projection.FieldCase.FIELD_STR,
-                  lfProj.getFieldStr,
-                  PLF.KeyExpr.Projection.FieldCase.FIELD_INTERNED_STR,
-                  lfProj.getFieldInternedStr,
-                  "KeyExpr.Projection.field",
-                ),
-                acc,
-              )
-            )
-          )
+          case PLF.KeyExpr.SumCase.PROJECTIONS =>
+            val lfProjs = expr.getProjections.getProjectionsList.asScala
+            sequenceWork(lfProjs.view.map { lfProj =>
+              bindWork(decodeTypeConApp(lfProj.getTycon)) { tycon =>
+                val name =
+                  handleInternedName(
+                    lfProj.getFieldCase,
+                    PLF.KeyExpr.Projection.FieldCase.FIELD_STR,
+                    lfProj.getFieldStr,
+                    PLF.KeyExpr.Projection.FieldCase.FIELD_INTERNED_STR,
+                    lfProj.getFieldInternedStr,
+                    "KeyExpr.Projection.field",
+                  )
+                Ret((tycon, name))
+              }
+            }) { projs =>
+              Ret(projs.foldLeft(EVar(tplVar): Expr) { case (acc, (tycon, name)) =>
+                ERecProj(tycon, name, acc)
+              })
+            }
 
-        case PLF.KeyExpr.SumCase.SUM_NOT_SET =>
-          throw Error.Parsing("KeyExpr.SUM_NOT_SET")
+          case PLF.KeyExpr.SumCase.SUM_NOT_SET =>
+            throw Error.Parsing("KeyExpr.SUM_NOT_SET")
+        }
       }
     }
 
@@ -1095,14 +1101,13 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
         case PLF.Expr.SumCase.REC_CON =>
           val recCon = lfExpr.getRecCon
-          Ret(
-            ERecCon(
-              tycon = xxx(decodeTypeConApp(recCon.getTycon)), // NICK
-              fields = recCon.getFieldsList.asScala.view
-                .map(x => xxx(decodeFieldWithExpr(x, definition))) // NICK
-                .to(ImmArray),
-            )
-          )
+          bindWork(decodeTypeConApp(recCon.getTycon)) { tycon =>
+            sequenceWork(
+              recCon.getFieldsList.asScala.view.map(x => decodeFieldWithExpr(x, definition))
+            ) { fields =>
+              Ret(ERecCon(tycon, fields = fields.to(ImmArray)))
+            }
+          }
 
         case PLF.Expr.SumCase.REC_PROJ =>
           val recProj = lfExpr.getRecProj
@@ -1189,8 +1194,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         case PLF.Expr.SumCase.STRUCT_CON =>
           val structCon = lfExpr.getStructCon
           sequenceWork(
-            structCon.getFieldsList.asScala.view
-              .map(x => decodeFieldWithExpr(x, definition))
+            structCon.getFieldsList.asScala.view.map(x => decodeFieldWithExpr(x, definition))
           ) { xs => Ret(EStructCon(xs.to(ImmArray))) }
 
         case PLF.Expr.SumCase.STRUCT_PROJ =>
@@ -1247,7 +1251,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           val params = lfAbs.getParamList.asScala
           assertNonEmpty(params, "params")
           decodeExpr(lfAbs.getBody, definition) { base =>
-            sequenceWork(params.view.map(decodeBinder)) { binders => // NICK: view, map blah
+            sequenceWork(params.view.map(decodeBinder)) { binders =>
               Ret((binders foldRight base)((binder, e) => EAbs(binder, e, currentDefinitionRef)))
             }
           }
@@ -1884,15 +1888,19 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
     private[this] def decodeTypeVarWithKind(
         lfTypeVarWithKind: PLF.TypeVarWithKind
-    ): Work[(TypeVarName, Kind)] = Ret {
-      handleInternedName(
-        lfTypeVarWithKind.getVarCase,
-        PLF.TypeVarWithKind.VarCase.VAR_STR,
-        lfTypeVarWithKind.getVarStr,
-        PLF.TypeVarWithKind.VarCase.VAR_INTERNED_STR,
-        lfTypeVarWithKind.getVarInternedStr,
-        "TypeVarWithKind.var.var",
-      ) -> xxx(decodeKind(lfTypeVarWithKind.getKind)) // NICK
+    ): Work[(TypeVarName, Kind)] = {
+      val name =
+        handleInternedName(
+          lfTypeVarWithKind.getVarCase,
+          PLF.TypeVarWithKind.VarCase.VAR_STR,
+          lfTypeVarWithKind.getVarStr,
+          PLF.TypeVarWithKind.VarCase.VAR_INTERNED_STR,
+          lfTypeVarWithKind.getVarInternedStr,
+          "TypeVarWithKind.var.var",
+        )
+      bindWork(decodeKind(lfTypeVarWithKind.getKind)) { kind =>
+        Ret { name -> kind }
+      }
     }
 
     private[this] def decodeBinding(lfBinding: PLF.Binding, definition: String): Work[Binding] = {
@@ -2491,7 +2499,7 @@ private[archive] object DecodeV1 {
           }
       }
     }
-    loop(Nil, works.toList) // NICK: can we avoid toList?
+    loop(Nil, works.toList)
   }
 
 }
