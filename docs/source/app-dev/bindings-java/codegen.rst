@@ -113,7 +113,7 @@ A Java file is generated that defines the class for the type ``Person``:
 
   package com.acme.producttypes;
 
-  public class Person {
+  public class Person extends DamlRecord<Person> {
     public final Name name;
     public final BigDecimal age;
 
@@ -130,7 +130,7 @@ A Java file is generated that defines the class for the type ``Name``:
 
     package com.acme.producttypes;
 
-    public class Name {
+    public class Name extends DamlRecord<Name> {
       public final String firstName;
       public final String lastName;
 
@@ -244,11 +244,11 @@ The Java code generated for this variant is:
 
   package com.acme.variants;
 
-  public class BookAttribute {
+  public class BookAttribute extends Variant<BookAttribute> {
     public static BookAttribute fromValue(Value value) { /* ... */ }
 
     public static BookAttribute fromValue(Value value) { /* ... */ }
-    public Value toValue() { /* ... */ }
+    public abstract Variant toValue();
   }
 
 .. code-block:: java
@@ -262,7 +262,7 @@ The Java code generated for this variant is:
     public static Pages fromValue(Value value) { /* ... */ }
 
     public Pages(Long longValue) { /* ... */ }
-    public Value toValue() { /* ... */ }
+    public Variant toValue() { /* ... */ }
   }
 
 .. code-block:: java
@@ -276,7 +276,7 @@ The Java code generated for this variant is:
     public static Authors fromValue(Value value) { /* ... */ }
 
     public Author(List<String> listValue) { /* ... */ }
-    public Value toValue() { /* ... */ }
+    public Variant toValue() { /* ... */ }
 
   }
 
@@ -291,7 +291,7 @@ The Java code generated for this variant is:
     public static Title fromValue(Value value) { /* ... */ }
 
     public Title(String stringValue) { /* ... */ }
-    public Value toValue() { /* ... */ }
+    public Variant toValue() { /* ... */ }
   }
 
 .. code-block:: java
@@ -306,7 +306,7 @@ The Java code generated for this variant is:
     public static Published fromValue(Value value) { /* ... */ }
 
     public Published(Long year, String publisher) { /* ... */ }
-    public DamlRecord toValue() { /* ... */ }
+    public Variant toValue() { /* ... */ }
   }
 
 Parameterized Types
