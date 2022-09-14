@@ -6,6 +6,7 @@ module DA.Cli.Options
   ) where
 
 import Data.List.Extra     (lower, splitOn, trim)
+import Options.Applicative hiding (option, strOption)
 import Options.Applicative.Extended
 import Safe (lastMay)
 import Data.List
@@ -55,7 +56,7 @@ inputFileRstOpt = inputFileOptWithExt ".rst"
 
 targetSrcDirOpt :: Parser (Maybe FilePath)
 targetSrcDirOpt =
-    option (Just <$> str) $
+    optionOnce (Just <$> str) $
     metavar "TARGET_SRC_DIR"
     <> help "Optional target directory to write created sources to"
     <> long "srcdir"
@@ -63,14 +64,14 @@ targetSrcDirOpt =
 
 qualOpt :: Parser (Maybe String)
 qualOpt =
-    option (Just <$> str) $
+    optionOnce (Just <$> str) $
     metavar "QUALIFICATION" <>
     help "Optional qualification to append to generated module name." <>
     long "qualify" <>
     value Nothing
 
 outputFileOpt :: Parser String
-outputFileOpt = strOption $
+outputFileOpt = strOptionOnce $
        metavar "FILE"
     <> help "Output file (use '-' for stdout)"
     <> short 'o'
@@ -78,7 +79,7 @@ outputFileOpt = strOption $
     <> value "-"
 
 optionalOutputFileOpt :: Parser (Maybe String)
-optionalOutputFileOpt = option (Just <$> str) $
+optionalOutputFileOpt = optionOnce (Just <$> str) $
        metavar "FILE"
     <> help "Optional output file (defaults to <PACKAGE-NAME>.dar)"
     <> short 'o'
@@ -86,7 +87,7 @@ optionalOutputFileOpt = option (Just <$> str) $
     <> value Nothing
 
 targetFileNameOpt :: Parser (Maybe String)
-targetFileNameOpt = option (Just <$> str) $
+targetFileNameOpt = optionOnce (Just <$> str) $
         metavar "DAR_NAME"
         <> help "Target file name of DAR package"
         <> long "dar-name"
@@ -98,7 +99,7 @@ packageNameOpt = fmap GHC.stringToUnitId $ argument str $
     <> help "Name of the Daml package"
 
 lfVersionOpt :: Parser LF.Version
-lfVersionOpt = option (str >>= select) $
+lfVersionOpt = optionOnce (str >>= select) $
        metavar "DAML-LF-VERSION"
     <> help ("Daml-LF version to output: " ++ versionsStr)
     <> long "target"
@@ -118,14 +119,14 @@ lfVersionOpt = option (str >>= select) $
         -> readerError $ "Unknown Daml-LF version: " ++ versionsStr
 
 dotFileOpt :: Parser (Maybe FilePath)
-dotFileOpt = option (Just <$> str) $
+dotFileOpt = optionOnce (Just <$> str) $
        metavar "FILE"
     <> help "Name of the dot file to be generated."
     <> long "dot"
     <> value Nothing
 
 htmlOutFile :: Parser FilePath
-htmlOutFile = strOption $
+htmlOutFile = strOptionOnce $
     metavar "FILE"
     <> help "Name of the HTML file to be generated"
     <> short 'o'
@@ -194,7 +195,7 @@ projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
         projectRootOpt =
             optional $
             fmap ProjectPath $
-            strOption $
+            strOptionOnce $
             long "project-root" <>
             help
                 (mconcat
@@ -225,7 +226,7 @@ enableScenariosOpt = EnableScenarios <$>
 
 dlintEnabledOpt :: Parser DlintUsage
 dlintEnabledOpt = DlintEnabled
-  <$> strOption
+  <$> strOptionOnce
   ( long "with-dlint"
     <> metavar "DIR"
     <> internal
@@ -252,7 +253,7 @@ dlintUsageOpt = fmap (fromMaybe DlintDisabled . lastMay) $
 cliOptLogLevel :: Parser Logger.Priority
 cliOptLogLevel =
     flag' Logger.Debug (long "debug" <> help "Set log level to DEBUG") <|>
-    option readLogLevel (long "log-level" <> help "Set log level. Possible values are DEBUG, INFO, WARNING, ERROR" <> value Logger.Info)
+    optionOnce readLogLevel (long "log-level" <> help "Set log level. Possible values are DEBUG, INFO, WARNING, ERROR" <> value Logger.Info)
   where
     readLogLevel = maybeReader $ \s -> case lower s of
         -- we support telemetry log-level for debugging purposes.
@@ -265,7 +266,7 @@ cliOptLogLevel =
 
 
 optPackageName :: Parser (Maybe GHC.UnitId)
-optPackageName = optional $ fmap GHC.stringToUnitId $ strOption $
+optPackageName = optional $ fmap GHC.stringToUnitId $ strOptionOnce $
        metavar "PACKAGE-NAME"
     <> help "create package artifacts for the given package name"
     <> long "package-name"
@@ -308,7 +309,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     return Options{..}
   where
     optAccessTokenPath :: Parser (Maybe FilePath)
-    optAccessTokenPath = optional . option str
+    optAccessTokenPath = optional . optionOnce str
         $ metavar "PATH"
         <> long "access-token-file"
         <> help "Path to the token-file for ledger authorization."
@@ -316,19 +317,19 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     optImportPath :: Parser [FilePath]
     optImportPath =
         many $
-        strOption $
+        strOptionOnce $
         metavar "INCLUDE-PATH" <>
         help "Path to an additional source directory to be included" <>
         long "include"
 
     optPackageDir :: Parser [FilePath]
-    optPackageDir = many $ strOption $ metavar "LOC-OF-PACKAGE-DB"
+    optPackageDir = many $ strOptionOnce $ metavar "LOC-OF-PACKAGE-DB"
                       <> help "use package database in the given location"
                       <> long "package-db"
 
     optPackageImport :: Parser PackageFlag
     optPackageImport =
-      option readPackageImport $
+      optionOnce readPackageImport $
       metavar "PACKAGE" <>
       help "explicit import of a package with optional renaming of modules" <>
       long "package" <>
@@ -382,7 +383,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
         internal
 
     optTestPattern :: Parser (Maybe String)
-    optTestPattern = optional . option str
+    optTestPattern = optional . optionOnce str
         $ metavar "PATTERN"
         <> long "test-pattern"
         <> short 'p'
@@ -401,7 +402,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
         flag' numProcessors
           (short 'j' <>
            internal) <|>
-        option auto
+        optionOnce auto
           (long "jobs" <>
            metavar "THREADS" <>
            help threadsHelp <>
@@ -424,7 +425,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
       internal
 
     optCppPath :: Parser (Maybe FilePath)
-    optCppPath = optional . option str
+    optCppPath = optional . optionOnce str
         $ metavar "PATH"
         <> long "cpp"
         <> help "Set path to CPP."
@@ -433,13 +434,13 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
 optGhcCustomOptions :: Parser [String]
 optGhcCustomOptions =
     fmap concat $ many $
-    option (stringsSepBy ' ') $
+    optionOnce (stringsSepBy ' ') $
     long "ghc-option" <>
     metavar "OPTION" <>
     help "Options to pass to the underlying GHC"
 
 shakeProfilingOpt :: Parser (Maybe FilePath)
-shakeProfilingOpt = optional $ strOption $
+shakeProfilingOpt = optional $ strOptionOnce $
        metavar "PROFILING-REPORT"
     <> help "Directory for Shake profiling reports"
     <> long "shake-profiling"
