@@ -426,7 +426,7 @@ private[events] object TransactionLogUpdatesConversions {
           templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
           contractKey = apiContractData.contractKey,
           createArguments = apiContractData.createArguments,
-          createArgumentsBlob = apiContractData.createArgumentsBlob,
+          createArgumentsBlob = None,
           interfaceViews = apiContractData.interfaceViews,
           witnessParties = requestingParties.view.filter(createdWitnesses(createdEvent)).toSeq,
           signatories = createdEvent.createSignatories.toSeq,

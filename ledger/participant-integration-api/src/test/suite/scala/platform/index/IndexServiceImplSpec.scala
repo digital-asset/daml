@@ -17,7 +17,6 @@ import com.daml.platform.index.IndexServiceImpl.{
 }
 import com.daml.platform.index.IndexServiceImplSpec.Scope
 import com.daml.platform.store.dao.EventProjectionProperties
-import com.daml.platform.store.dao.EventProjectionProperties.InterfaceViewFilter
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import org.mockito.MockitoSugar
@@ -56,7 +55,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         EventProjectionProperties(
           true,
           Map.empty[String, Set[Identifier]],
-          Map(party.toString -> Map(template1 -> InterfaceViewFilter(Set(iface1), true))),
+          Map(party.toString -> Map(template1 -> Set(iface1))),
         ),
       )
     ) // filter gets complicated, filters template1 for iface1, projects iface1
@@ -78,12 +77,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         EventProjectionProperties(
           true,
           Map.empty[String, Set[Identifier]],
-          Map(
-            party.toString -> Map(
-              template1 -> InterfaceViewFilter(Set(iface1), true),
-              template2 -> InterfaceViewFilter(Set(iface1), true),
-            )
-          ),
+          Map(party.toString -> Map(template1 -> Set(iface1), template2 -> Set(iface1))),
         ),
       )
     ) // filter gets even more complicated, filters template1 and template2 for iface1, projects iface1 for both templates
