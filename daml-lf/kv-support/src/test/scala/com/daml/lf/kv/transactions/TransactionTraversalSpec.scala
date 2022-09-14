@@ -64,35 +64,58 @@ class TransactionTraversalSpec extends AnyFunSuite with Matchers {
     "extractPerPackageWitnesses - extract package witness mapping as expected including rollback node"
   ) {
     val testTransaction = RawTransactionForTest()
-    val lookupByKeyNode = withNodeBuilder { builder =>
+    def lookupByKeyNode(index: Int) = withNodeBuilder { builder =>
       builder.setLookupByKey(
         NodeLookupByKey.newBuilder
-          .setTemplateId(identifierForTemplateId("template_lookup_by_key"))
+          .setTemplateId(identifierForTemplateId(s"template_lookup_by_key$index"))
           .setKeyWithMaintainers(
-            KeyWithMaintainers.newBuilder().addMaintainers("New maintainer")
+            KeyWithMaintainers.newBuilder().addMaintainers(s"LookupByKey$index Party")
           )
       )
     }
-    testTransaction.builder.addRoot(withNodeBuilder { builder =>
-      builder.setRollback(
-        NodeRollback.newBuilder.addChildren(
-          testTransaction.builder.addNode(lookupByKeyNode)
-        )
+    val transactionBuilder = testTransaction.builder
+    transactionBuilder.addRoot(
+      exerciseNode(
+        Seq("Exercise with Rollback Node Party"),
+        Seq.empty,
+        false,
+        transactionBuilder.addNode(
+          buildRollbackNodeWithChild(
+            transactionBuilder.addNode(lookupByKeyNode(0)),
+            transactionBuilder.addNode(
+              buildRollbackNodeWithChild(transactionBuilder.addNode(lookupByKeyNode(1)))
+            ),
+          )
+        ),
       )
-    })
+    )
     val result = TransactionTraversal.extractPerPackageWitnesses(testTransaction.rawTx)
     result shouldBe
       Right(
         Map(
-          "template_exercise" -> Set("Alice", "Charlie"),
-          "interface_exercise" -> Set("Alice", "Charlie"),
+          "template_exercise" -> Set("Alice", "Charlie", "Exercise with Rollback Node Party"),
+          "interface_exercise" -> Set("Alice", "Charlie", "Exercise with Rollback Node Party"),
           "template_create" -> Set("Alice", "Charlie", "Bob"),
           "template_fetch" -> Set("Alice", "Bob"),
-          "template_lookup_by_key" -> Set("New maintainer"),
+          "template_lookup_by_key0" -> Set(
+            "LookupByKey0 Party",
+            "Exercise with Rollback Node Party",
+          ),
+          "template_lookup_by_key1" -> Set(
+            "LookupByKey1 Party",
+            "Exercise with Rollback Node Party",
+          ),
         )
       )
   }
 
+  private def buildRollbackNodeWithChild(children: String*) = {
+    withNodeBuilder { builder =>
+      builder.setRollback(
+        NodeRollback.newBuilder.addAllChildren(children.asJava)
+      )
+    }
+  }
   test("traversal - transaction parsing error") {
     val rawTx = RawTransaction(ByteString.copyFromUtf8("wrong"))
     TransactionTraversal.traverseTransactionWithWitnesses(rawTx)((_, _, _) => ()) shouldBe Left(
@@ -245,8 +268,8 @@ class TransactionTraversalSpec extends AnyFunSuite with Matchers {
     * on.
     */
   private def exerciseNode(
-      signatories: Iterable[String],
-      stakeholders: Iterable[String],
+      signatories: Seq[String],
+      stakeholders: Seq[String],
       consuming: Boolean,
       children: String*
   ) =
