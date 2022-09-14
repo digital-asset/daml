@@ -20,6 +20,7 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import com.daml.lf.speedy.SBuiltin.{SBFetchAny, SBUFetchKey, SBULookupKey}
 import com.daml.lf.speedy.SValue.SContractId
+import com.daml.lf.speedy.Speedy.DisclosedContractKeyTable
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
 import com.daml.lf.testing.parser.Implicits._
 
@@ -259,6 +260,12 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
           SBUFetchKey(houseTemplateType)(SEValue(contractSKey))
         )
       }
+
+      "wrongly hashed contract key disclosures are rejected" in {
+        wronglyHashedDisclosedContractsRejected(
+          SBUFetchKey(houseTemplateType)(SEValue(contractSKey))
+        )
+      }
     }
 
     "looking up contract keys" - {
@@ -372,6 +379,12 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
 
       "wrongly typed contract disclosures are rejected" in {
         wronglyTypedDisclosedContractsRejected(
+          SBULookupKey(houseTemplateType)(SEValue(contractSKey))
+        )
+      }
+
+      "wrongly hashed contract key disclosures are rejected" in {
+        wronglyHashedDisclosedContractsRejected(
           SBULookupKey(houseTemplateType)(SEValue(contractSKey))
         )
       }
@@ -524,6 +537,41 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
         succeed
     }
     ledger should haveDisclosedContracts(malformedDisclosedContract)
+    ledger should haveInactiveContractIds()
+  }
+
+  def wronglyHashedDisclosedContractsRejected(sexpr: SExpr.SExpr): Assertion = {
+    val validHash = disclosedHouseContract.metadata.keyHash.get
+    val invalidHash = crypto.Hash.assertHashContractKey(
+      houseTemplateId,
+      Value.ValueText("invalid-disclosed-contract-key"),
+    )
+    val (result, ledger) =
+      evaluateSExpr(
+        sexpr,
+        committers = Set(disclosureParty),
+        disclosedContracts = ImmArray(disclosedHouseContract),
+        disclosureTableUpdates = Some(
+          DisclosedContractKeyTable(
+            contractIdByKey = Map(invalidHash -> SContractId(disclosureContractId))
+          )
+        ),
+      )
+
+    validHash should not be invalidHash
+    inside(result) {
+      case Left(
+            SError.SErrorDamlException(
+              InconsistentDisclosureTable.InvalidContractKeyHash(
+                `disclosureContractId`,
+                `validHash`,
+                `invalidHash`,
+              )
+            )
+          ) =>
+        succeed
+    }
+    ledger should haveDisclosedContracts()
     ledger should haveInactiveContractIds()
   }
 }
