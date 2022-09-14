@@ -76,10 +76,10 @@ class TransactionTraversalSpec extends AnyFunSuite with Matchers {
     val transactionBuilder = testTransaction.builder
     transactionBuilder.addRoot(
       exerciseNode(
-        Seq("Exercise with Rollback Node Party"),
-        Seq.empty,
-        false,
-        transactionBuilder.addNode(
+        signatories = Seq("Exercise with Rollback Node Party"),
+        stakeholders = Seq.empty,
+        consuming = false,
+        children = transactionBuilder.addNode(
           buildRollbackNodeWithChild(
             transactionBuilder.addNode(lookupByKeyNode(0)),
             transactionBuilder.addNode(
