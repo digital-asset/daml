@@ -141,29 +141,6 @@ final class PartyManagementServiceIT
     )
   })
 
-  test(
-    "PMTestGetPartiesWithInvalidPartyIdentifier",
-    "Failing when requesting party using an invalid party name",
-    allocate(NoParties),
-  )(implicit ec => { case Participants(Participant(ledger)) =>
-    for {
-      error <- ledger
-        .getParties(
-          GetPartiesRequest(
-            parties = Seq("partyBad#$")
-          )
-        )
-        .mustFail("Invalid party name")
-      _ = assertGrpcError(
-        error,
-        LedgerApiErrors.RequestValidation.InvalidArgument,
-        Some(
-          "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: non expected character 0x23 in Daml-LF Party \"partyBad#$\""
-        ),
-      )
-    } yield ()
-  })
-
   // TODO Merge into PMAllocateWithoutDisplayName once the empty-display-name assertion can be
   //      configured based on the Canton feature descriptor,
   test(
