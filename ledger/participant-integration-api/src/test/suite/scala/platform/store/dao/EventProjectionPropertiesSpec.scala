@@ -168,6 +168,63 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     )
   }
 
+  it should "project contract arguments blob in case of match by interface" in new Scope {
+    val transactionFilter = new TransactionFilter(
+      Map(party -> Filters(InclusiveFilters(Set.empty, Set(InterfaceFilter(iface1, false, true)))))
+    )
+    EventProjectionProperties(transactionFilter, true, interfaceImpl).render(
+      Set(party),
+      template1,
+    ) shouldBe RenderResult(true, false, Set.empty)
+  }
+
+  it should "project contract arguments blob in case of match by interface and template" in new Scope {
+    val transactionFilter = new TransactionFilter(
+      Map(
+        party -> Filters(
+          InclusiveFilters(Set(template1), Set(InterfaceFilter(iface1, false, true)))
+        )
+      )
+    )
+    EventProjectionProperties(transactionFilter, true, interfaceImpl).render(
+      Set(party),
+      template1,
+    ) shouldBe RenderResult(true, true, Set.empty)
+  }
+
+  it should "project contract arguments blob in case of match by interface and template with include the view" in new Scope {
+    val transactionFilter = new TransactionFilter(
+      Map(
+        party -> Filters(
+          InclusiveFilters(Set(template1), Set(InterfaceFilter(iface1, true, true)))
+        )
+      )
+    )
+    EventProjectionProperties(transactionFilter, true, interfaceImpl).render(
+      Set(party),
+      template1,
+    ) shouldBe RenderResult(true, true, Set(iface1))
+  }
+
+  it should "project contract arguments blob in case of at least a single interface requesting it" in new Scope {
+    val transactionFilter = new TransactionFilter(
+      Map(
+        party -> Filters(
+          InclusiveFilters(
+            Set.empty,
+            Set(
+              InterfaceFilter(iface1, false, includeCreateArgumentsBlob = true),
+              InterfaceFilter(iface2, false, includeCreateArgumentsBlob = false),
+            ),
+          )
+        )
+      )
+    )
+    EventProjectionProperties(transactionFilter, true, interfaceImpl).render(
+      Set(party),
+      template1,
+    ) shouldBe RenderResult(true, false, Set.empty)
+  }
 }
 
 object EventProjectionPropertiesSpec {

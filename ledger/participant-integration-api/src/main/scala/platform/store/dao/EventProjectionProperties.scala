@@ -4,7 +4,7 @@
 package com.daml.platform.store.dao
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.Filters
+import com.daml.ledger.api.domain.{Filters, InterfaceFilter}
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.platform.store.dao.EventProjectionProperties.{InterfaceViewFilter, RenderResult}
 
@@ -31,11 +31,7 @@ final case class EventProjectionProperties private[dao] (
 
     val interfacesToRender: InterfaceViewFilter = witnesses.view
       .flatMap(witnessInterfaceViewFilter.get(_).iterator)
-      .map(_.getOrElse(templateId, InterfaceViewFilter.Empty))
-      .foldLeft(InterfaceViewFilter.Empty) {
-        case (InterfaceViewFilter(s1, v1), InterfaceViewFilter(s2, v2)) =>
-          InterfaceViewFilter(s1 ++ s2, v1 || v2)
-      }
+      .foldLeft(InterfaceViewFilter.Empty)(_ append (templateId, _))
 
     RenderResult(
       interfacesToRender.contractArgumentsBlob,
@@ -47,7 +43,20 @@ final case class EventProjectionProperties private[dao] (
 }
 
 object EventProjectionProperties {
-  case class InterfaceViewFilter(interfaces: Set[Identifier], contractArgumentsBlob: Boolean)
+
+  case class InterfaceViewFilter(interfaces: Set[Identifier], contractArgumentsBlob: Boolean) {
+    def append(
+        templateId: Identifier,
+        interfaceFilterMap: Map[Identifier, InterfaceViewFilter],
+    ): InterfaceViewFilter = {
+      val other = interfaceFilterMap.getOrElse(templateId, InterfaceViewFilter.Empty)
+      InterfaceViewFilter(
+        interfaces ++ other.interfaces,
+        contractArgumentsBlob || other.contractArgumentsBlob,
+      )
+    }
+  }
+
   object InterfaceViewFilter {
     val Empty = InterfaceViewFilter(Set.empty[Identifier], false)
   }
@@ -98,25 +107,28 @@ object EventProjectionProperties {
     (party, filters) <- domainTransactionFilter.filtersByParty.iterator
     inclusiveFilters <- filters.inclusive.iterator
     interfaceFilter <- inclusiveFilters.interfaceFilters.iterator
-    if interfaceFilter.includeView
     implementor <- interfaceImplementedBy(interfaceFilter.interfaceId).iterator
   } yield (
     party,
     implementor,
-    interfaceFilter.interfaceId,
-    interfaceFilter.includeCreateArgumentsBlob,
+    interfaceFilter,
   ))
-    .toSet[(Party, Identifier, Identifier, Boolean)]
-    .groupMap(_._1) { case (_, templateId, interfaceId, includeCreateArgumentsBlob) =>
-      templateId -> (interfaceId, includeCreateArgumentsBlob)
+    .toSet[(Party, Identifier, InterfaceFilter)]
+    .groupMap(_._1) { case (_, templateId, interfaceFilter) =>
+      templateId -> interfaceFilter
     }
-    .map { case (partyId, templateAndInterfacePairs) =>
+    .map { case (partyId, templateAndInterfaceFilterPairs) =>
       (
         partyId.toString,
-        templateAndInterfacePairs
+        templateAndInterfaceFilterPairs
           .groupMap(_._1)(_._2)
           .view
-          .mapValues(x => InterfaceViewFilter(x.map(_._1), x.exists(_._2)))
+          .mapValues(interfaceFilters =>
+            InterfaceViewFilter(
+              interfaceFilters.filter(_.includeView).map(_.interfaceId),
+              interfaceFilters.exists(_.includeCreateArgumentsBlob),
+            )
+          )
           .toMap,
       )
     }
