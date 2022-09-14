@@ -19,7 +19,9 @@ trait LedgerPartyExists {
 case class PartyRecordUpdate(
     party: Ref.Party,
     metadataUpdate: ObjectMetaUpdate,
-)
+) {
+  def isNoUpdate: Boolean = metadataUpdate.isNoUpdate
+}
 
 trait PartyRecordStore {
   import PartyRecordStore._
@@ -47,11 +49,12 @@ object PartyRecordStore {
     */
   final case object PartyRecordNotFoundOnUpdateException extends RuntimeException
 
-  sealed trait Error extends RuntimeException
+  sealed trait Error
 
   final case class PartyNotFound(party: Ref.Party) extends Error
   final case class PartyRecordNotFound(party: Ref.Party) extends Error
   final case class PartyRecordExists(party: Ref.Party) extends Error
   final case class ConcurrentPartyUpdate(party: Ref.Party) extends Error
+  final case class MaxAnnotationsSizeExceeded(party: Ref.Party) extends Error
 
 }

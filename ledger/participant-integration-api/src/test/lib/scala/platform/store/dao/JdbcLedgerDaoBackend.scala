@@ -19,7 +19,7 @@ import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParticipantId}
 import com.daml.platform.store.dao.events.CompressionStrategy
 import com.daml.platform.store.interning.StringInterningView
-import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
+import com.daml.platform.store.{DbSupport, DbType}
 import org.scalatest.AsyncTestSuite
 
 import scala.concurrent.Await
@@ -75,7 +75,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           dbSupport = dbSupport,
           sequentialWriteDao = SequentialWriteDao(
             participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
-            lfValueTranslationCache = LfValueTranslationCache.Cache.none,
             metrics = metrics,
             compressionStrategy = CompressionStrategy.none(metrics),
             ledgerEndCache = ledgerEndCache,
@@ -93,7 +92,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           acsGlobalParallelism = acsGlobalParallelism,
           servicesExecutionContext = executionContext,
           metrics = metrics,
-          lfValueTranslationCache = LfValueTranslationCache.Cache.none,
           engine = Some(new Engine()),
           participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
           ledgerEndCache = ledgerEndCache,

@@ -1,7 +1,13 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Template, Choice, ContractId, registerTemplate } from "@daml/types";
+import {
+  Template,
+  Choice,
+  ChoiceFrom,
+  ContractId,
+  registerTemplate,
+} from "@daml/types";
 import Ledger, { CreateEvent } from "./index";
 import { assert } from "./index";
 import { Event } from "./index";
@@ -105,7 +111,8 @@ const Foo: Template<Foo, string, "foo-id"> = {
   decoder: jtv.object({ key: jtv.string() }),
   encode: o => o,
   // eslint-disable-next-line @typescript-eslint/ban-types
-  Archive: {} as unknown as Choice<Foo, {}, {}, string>,
+  Archive: {} as unknown as Choice<Foo, {}, {}, string> &
+    ChoiceFrom<Template<Foo, string, "foo-id">>,
 };
 
 const fooCreateEvent = (

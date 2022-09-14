@@ -100,6 +100,7 @@ Early Access Features
    tools/non-repudiation
    ops/connect/helm
    ops/connect/auth0
+   Daml Finance <https://digital-asset.github.io/daml-finance/>
 
 Daml Ecosystem
 --------------

@@ -82,7 +82,7 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
             headersWithPartyAuthLegacyFormat(List()),
           )
           .parseResponse[List[domain.PartyDetails]]
-          .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, None, StatusCodes.OK)) =>
+          .map(inside(_) { case domain.OkResponse(result, None, StatusCodes.OK) =>
             val actualIds: Set[domain.Party] = result.view.map(_.identifier).toSet
             actualIds should contain allElementsOf domain.Party.subst(partyIds.toSet)
             result.toSet should contain allElementsOf
@@ -108,12 +108,8 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
         headers,
       )
       .parseResponse[JsValue]
-      .map(inside(_) {
-        case (
-              StatusCodes.Unauthorized,
-              domain.ErrorResponse(Seq(error), _, StatusCodes.Unauthorized, _),
-            ) =>
-          error shouldBe "ledgerId missing in access token"
+      .map(inside(_) { case domain.ErrorResponse(Seq(error), _, StatusCodes.Unauthorized, _) =>
+        error shouldBe "ledgerId missing in access token"
       }): Future[Assertion]
   }
 
@@ -129,13 +125,12 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
         Uri.Path("/v1/metering-report"),
         request.toJson,
       )
-      .map(inside(_) {
-        case (StatusCodes.OK, domain.OkResponse(meteringReport, _, StatusCodes.OK)) =>
-          meteringReport
-            .fields("request")
-            .getStructValue
-            .fields("from")
-            .getStringValue shouldBe s"${isoDate}T00:00:00Z"
+      .map(inside(_) { case domain.OkResponse(meteringReport, _, StatusCodes.OK) =>
+        meteringReport
+          .fields("request")
+          .getStructValue
+          .fields("from")
+          .getStringValue shouldBe s"${isoDate}T00:00:00Z"
       })
   }
 
@@ -183,14 +178,13 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         val searchDataSet = genSearchDataSet(alice)
         searchDataSet.traverse(c => postCreateCommand(c, fixture, headers)).flatMap { rs =>
-          rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
+          rs.map(_.status) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
 
           fixture
             .getRequest(Uri.Path("/v1/query"), headers)
             .parseResponse[Vector[JsValue]]
-            .map(inside(_) {
-              case (StatusCodes.OK, domain.OkResponse(vector, None, StatusCodes.OK)) =>
-                vector should have size searchDataSet.size.toLong
+            .map(inside(_) { case domain.OkResponse(vector, None, StatusCodes.OK) =>
+              vector should have size searchDataSet.size.toLong
             }): Future[Assertion]
         }
       }
@@ -206,12 +200,12 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           accountCreateCommand(owner = alice, number = "42"),
           fixture,
           headers = aliceHeaders,
-        ).map(r => r._1 shouldBe StatusCodes.OK)
+        ).map(r => r.status shouldBe StatusCodes.OK)
         _ <- postCreateCommand(
           accountCreateCommand(owner = bob, number = "23"),
           fixture,
           headers = bobHeaders,
-        ).map(r => r._1 shouldBe StatusCodes.OK)
+        ).map(r => r.status shouldBe StatusCodes.OK)
         _ <- fixture.searchAllExpectOk(aliceHeaders).map(cs => cs should have size 1)
         _ <- fixture.searchAllExpectOk(bobHeaders).map(cs => cs should have size 1)
         _ <- fixture
@@ -248,13 +242,13 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           fixture,
           aliceHeaders,
         )
-        _ = aliceAccountResp._1 shouldBe StatusCodes.OK
+        _ = aliceAccountResp.status shouldBe StatusCodes.OK
         bobAccountResp <- postCreateCommand(
           accountCreateCommand(owner = bob, number = "23"),
           fixture,
           bobHeaders,
         )
-        _ = bobAccountResp._1 shouldBe StatusCodes.OK
+        _ = bobAccountResp.status shouldBe StatusCodes.OK
         _ <- searchExpectOk(
           List(),
           jsObject("""{"templateIds": ["Account:Account"]}"""),
@@ -423,8 +417,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         val searchDataSet = genSearchDataSet(alice)
         searchDataSet.traverse(c => postCreateCommand(c, fixture, headers)).flatMap {
-          rs: List[(StatusCode, _)] =>
-            rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
+          rs: List[domain.SyncResponse[_]] =>
+            rs.map(_.status) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
 
             def queryAmountAs(s: String) =
               jsObject(s"""{"templateIds": ["Iou:Iou"], "query": {"amount": $s}}""")
@@ -441,11 +435,11 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
               .sequence
               .map(inside(_) {
                 case Seq(
-                      (StatusCodes.OK, jsVal1 @ domain.OkResponse(acl1 @ List(ac), _, _)),
-                      (StatusCodes.OK, jsVal2 @ domain.OkResponse(acl2, _, _)),
+                      jsVal1 @ domain.OkResponse(acl1 @ List(ac), _, StatusCodes.OK),
+                      jsVal2 @ domain.OkResponse(acl2, _, _),
                     ) =>
-                  jsVal1 shouldBe jsVal2
                   acl1 shouldBe acl2
+                  jsVal1 shouldBe jsVal2
                   objectField(ac.payload, "amount") shouldBe Some(JsString("111.11"))
               })
         }: Future[Assertion]
@@ -501,7 +495,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           .getOrElse(fail(s"Cannot retrieve packageId"))
 
         postCreateCommand(command, fixture, headers).flatMap(inside(_) {
-          case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+          case domain.OkResponse(result, _, StatusCodes.OK) =>
             val contractId: ContractId = result.contractId
 
             val query = jsObject(s"""{
@@ -515,9 +509,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             fixture
               .postJsonRequest(Uri.Path("/v1/query"), query, headers)
               .parseResponse[List[domain.ActiveContract[JsValue]]]
-              .map(inside(_) {
-                case (StatusCodes.OK, domain.OkResponse(List(ac), _, StatusCodes.OK)) =>
-                  ac.contractId shouldBe contractId
+              .map(inside(_) { case domain.OkResponse(List(ac), _, StatusCodes.OK) =>
+                ac.contractId shouldBe contractId
               })
         }): Future[Assertion]
       }
@@ -528,9 +521,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     fixture
       .postJsonStringRequest(Uri.Path("/v1/query"), "{NOT A VALID JSON OBJECT")
       .parseResponse[JsValue]
-      .map(inside(_) {
-        case (StatusCodes.BadRequest, domain.ErrorResponse(_, _, StatusCodes.BadRequest, _)) =>
-          succeed
+      .map(inside(_) { case domain.ErrorResponse(_, _, StatusCodes.BadRequest, _) =>
+        succeed
       }): Future[Assertion]
   }
 
@@ -551,7 +543,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       fixture
         .getRequest(Uri.Path("/v1/query"), headers)
         .parseResponse[List[domain.ActiveContract[JsValue]]]
-        .map { case (_, output) => output }
 
   }
 
@@ -562,9 +553,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
 
         postCreateCommand(command, fixture, headers)
-          .map(inside(_) {
-            case (StatusCodes.OK, domain.OkResponse(activeContract, _, StatusCodes.OK)) =>
-              assertActiveContract(activeContract)(command, encoder)
+          .map(inside(_) { case domain.OkResponse(activeContract, _, StatusCodes.OK) =>
+            assertActiveContract(activeContract)(command, encoder)
           }): Future[Assertion]
       }
     }
@@ -579,14 +569,10 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       fixture
         .postJsonRequest(Uri.Path("/v1/create"), input, List())
         .parseResponse[JsValue]
-        .map(inside(_) {
-          case (
-                StatusCodes.Unauthorized,
-                domain.ErrorResponse(Seq(error), _, StatusCodes.Unauthorized, _),
-              ) =>
-            error should include(
-              "missing Authorization header with OAuth 2.0 Bearer Token"
-            )
+        .map(inside(_) { case domain.ErrorResponse(Seq(error), _, StatusCodes.Unauthorized, _) =>
+          error should include(
+            "missing Authorization header with OAuth 2.0 Bearer Token"
+          )
         }): Future[Assertion]
     }
 
@@ -607,9 +593,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             )
             .parseResponse[domain.ActiveContract[JsValue]]
         )
-        .map(inside(_) {
-          case (StatusCodes.OK, domain.OkResponse(activeContract, _, StatusCodes.OK)) =>
-            assertActiveContract(activeContract)(command, encoder)
+        .map(inside(_) { case domain.OkResponse(activeContract, _, StatusCodes.OK) =>
+          assertActiveContract(activeContract)(command, encoder)
         }): Future[Assertion]
     }
 
@@ -623,17 +608,13 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         fixture
           .postJsonRequest(Uri.Path("/v1/create"), input, headers)
           .parseResponse[JsValue]
-          .map(inside(_) {
-            case (
-                  StatusCodes.BadRequest,
-                  domain.ErrorResponse(Seq(error), _, StatusCodes.BadRequest, _),
-                ) =>
-              val unknownTemplateId: OptionalPkg =
-                domain
-                  .TemplateId(None, command.templateId.moduleName, command.templateId.entityName)
-              error should include(
-                s"Cannot resolve template ID, given: ${unknownTemplateId: OptionalPkg}"
-              )
+          .map(inside(_) { case domain.ErrorResponse(Seq(error), _, StatusCodes.BadRequest, _) =>
+            val unknownTemplateId: OptionalPkg =
+              domain
+                .TemplateId(None, command.templateId.moduleName, command.templateId.entityName)
+            error should include(
+              s"Cannot resolve template ID, given: ${unknownTemplateId: OptionalPkg}"
+            )
           }): Future[Assertion]
       }
     }
@@ -666,7 +647,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         fixture
           .postJsonRequest(Uri.Path("/v1/create"), firstCreate, headers)
           .parseResponse[domain.CreateCommandResponse[JsValue]]
-          .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, _, _)) =>
+          .map(inside(_) { case domain.OkResponse(result, _, _) =>
             result.completionOffset.unwrap should not be empty
           })
           .flatMap { _ =>
@@ -688,25 +669,23 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         val create: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
         postCreateCommand(create, fixture, headers)
-          .flatMap(inside(_) {
-            case (StatusCodes.OK, domain.OkResponse(createResult, _, StatusCodes.OK)) =>
-              val exercise: domain.ExerciseCommand[v.Value, domain.EnrichedContractId] =
-                iouExerciseTransferCommand(createResult.contractId)
-              val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
+          .flatMap(inside(_) { case domain.OkResponse(createResult, _, StatusCodes.OK) =>
+            val exercise: domain.ExerciseCommand[v.Value, domain.EnrichedContractId] =
+              iouExerciseTransferCommand(createResult.contractId)
+            val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
-              fixture
-                .postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, headers)
-                .parseResponse[domain.ExerciseResponse[JsValue]]
-                .flatMap(inside(_) {
-                  case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
-                    assertExerciseResponseNewActiveContract(
-                      result,
-                      create,
-                      exercise,
-                      fixture,
-                      headers,
-                    )
-                })
+            fixture
+              .postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, headers)
+              .parseResponse[domain.ExerciseResponse[JsValue]]
+              .flatMap(inside(_) { case domain.OkResponse(result, _, StatusCodes.OK) =>
+                assertExerciseResponseNewActiveContract(
+                  result,
+                  create,
+                  exercise,
+                  fixture,
+                  headers,
+                )
+              })
           }): Future[Assertion]
       }
     }
@@ -719,11 +698,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       fixture
         .postJsonRequestWithMinimumAuth[JsValue](Uri.Path("/v1/exercise"), exerciseJson)
         .map(inside(_) {
-          case (
-                StatusCodes.NotFound,
-                domain
-                  .ErrorResponse(Seq(errorMsg), None, StatusCodes.NotFound, Some(ledgerApiError)),
-              ) =>
+          case domain
+                .ErrorResponse(Seq(errorMsg), None, StatusCodes.NotFound, Some(ledgerApiError)) =>
             errorMsg should include(
               s"Contract could not be found with id $contractIdString"
             )
@@ -755,19 +731,17 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         val create: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
         postCreateCommand(create, fixture, headers)
-          .flatMap(inside(_) {
-            case (StatusCodes.OK, domain.OkResponse(createResult, _, StatusCodes.OK)) =>
-              val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou), createResult.contractId)
-              val exercise = archiveCommand(reference)
-              val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
+          .flatMap(inside(_) { case domain.OkResponse(createResult, _, StatusCodes.OK) =>
+            val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou), createResult.contractId)
+            val exercise = archiveCommand(reference)
+            val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
-              fixture
-                .postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, headers)
-                .parseResponse[domain.ExerciseResponse[JsValue]]
-                .flatMap(inside(_) {
-                  case (StatusCodes.OK, domain.OkResponse(exercisedResponse, _, StatusCodes.OK)) =>
-                    assertExerciseResponseArchivedContract(exercisedResponse, exercise)
-                })
+            fixture
+              .postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, headers)
+              .parseResponse[domain.ExerciseResponse[JsValue]]
+              .flatMap(inside(_) { case domain.OkResponse(exercisedResponse, _, StatusCodes.OK) =>
+                assertExerciseResponseArchivedContract(exercisedResponse, exercise)
+              })
           }): Future[Assertion]
       }
     }
@@ -794,11 +768,11 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         val archiveJson: JsValue = encodeExercise(encoder)(archive)
 
         postCreateCommand(create, fixture, headers).flatMap(inside(_) {
-          case (StatusCodes.OK, domain.OkResponse(_, _, StatusCodes.OK)) =>
+          case domain.OkResponse(_, _, StatusCodes.OK) =>
             fixture
               .postJsonRequest(Uri.Path("/v1/exercise"), archiveJson, headers)
               .parseResponse[JsValue]
-              .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(_, _, StatusCodes.OK)) =>
+              .map(inside(_) { case domain.OkResponse(_, _, StatusCodes.OK) =>
                 succeed
               })
         }): Future[Assertion]
@@ -817,21 +791,20 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       fixture
         .postJsonRequest(Uri.Path("/v1/create-and-exercise"), json, headers)
         .parseResponse[domain.ExerciseResponse[JsValue]]
-        .flatMap(inside(_) {
-          case (StatusCodes.OK, domain.OkResponse(result, None, StatusCodes.OK)) =>
-            result.completionOffset.unwrap should not be empty
-            inside(result.events) {
-              case List(
-                    domain.Contract(\/-(created0)),
-                    domain.Contract(-\/(archived0)),
-                    domain.Contract(\/-(created1)),
-                  ) =>
-                assertTemplateId(created0.templateId, cmd.templateId)
-                assertTemplateId(archived0.templateId, cmd.templateId)
-                archived0.contractId shouldBe created0.contractId
-                assertTemplateId(created1.templateId, TpId.Iou.IouTransfer)
-                asContractId(result.exerciseResult) shouldBe created1.contractId
-            }
+        .flatMap(inside(_) { case domain.OkResponse(result, None, StatusCodes.OK) =>
+          result.completionOffset.unwrap should not be empty
+          inside(result.events) {
+            case List(
+                  domain.Contract(\/-(created0)),
+                  domain.Contract(-\/(archived0)),
+                  domain.Contract(\/-(created1)),
+                ) =>
+              assertTemplateId(created0.templateId, cmd.templateId)
+              assertTemplateId(archived0.templateId, cmd.templateId)
+              archived0.contractId shouldBe created0.contractId
+              assertTemplateId(created1.templateId, TpId.Iou.IouTransfer)
+              asContractId(result.exerciseResult) shouldBe created1.contractId
+          }
         })
     }: Future[Assertion]
   }
@@ -868,7 +841,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
               domain.ContractId(exerciseResult),
             )
             postContractsLookup(newContractLocator, uri, headers).map(inside(_) {
-              case (StatusCodes.OK, domain.OkResponse(Some(contract), _, StatusCodes.OK)) =>
+              case domain.OkResponse(Some(contract), _, StatusCodes.OK) =>
                 contract.contractId shouldBe newContractLocator.contractId
             }): Future[Assertion]
           }
@@ -884,9 +857,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         .flatMap(
           postCreateCommand(multiPartyCreateCommand(List("Alice", "Bob"), ""), fixture, _)
         )
-        .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, _, _)) =>
-          result.contractId
-        })
+        .map(resultContractId)
       // multi-party actAs on exercise
       cidMulti <- fixture
         .headersWithPartyAuth(List("Alice", "Bob", "Charlie", "David"))
@@ -899,10 +870,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         )
         .parseResponse[domain.ExerciseResponse[JsValue]]
         .map(inside(_) {
-          case (
-                StatusCodes.OK,
-                domain.OkResponse(domain.ExerciseResponse(JsString(c), _, _), _, _),
-              ) =>
+          case domain.OkResponse(domain.ExerciseResponse(JsString(c), _, _), _, StatusCodes.OK) =>
             lar.ContractId(c)
         })
       // create a contract only visible to Alice
@@ -915,9 +883,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             _,
           )
         )
-        .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, _, _)) =>
-          result.contractId
-        })
+        .map(resultContractId)
       _ <- fixture
         .headersWithPartyAuth(List("Charlie"), readAs = List("Alice"))
         .flatMap(
@@ -987,12 +953,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     val badUri = fixture.uri withPath badPath
     fixture
       .getRequestWithMinimumAuth[JsValue](badPath)
-      .map(inside(_) {
-        case (
-              StatusCodes.NotFound,
-              domain.ErrorResponse(Seq(errorMsg), _, StatusCodes.NotFound, _),
-            ) =>
-          errorMsg shouldBe s"${HttpMethods.GET: HttpMethod}, uri: ${badUri: Uri}"
+      .map(inside(_) { case domain.ErrorResponse(Seq(errorMsg), _, StatusCodes.NotFound, _) =>
+        errorMsg shouldBe s"${HttpMethods.GET: HttpMethod}, uri: ${badUri: Uri}"
       }): Future[Assertion]
   }
 
@@ -1013,12 +975,11 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
               headers = headersWithAdminAuth,
             )
             .parseResponse[List[domain.PartyDetails]]
-            .map(inside(_) {
-              case (StatusCodes.OK, domain.OkResponse(result, None, StatusCodes.OK)) =>
-                val actualIds: Set[domain.Party] = result.view.map(_.identifier).toSet
-                actualIds should contain allElementsOf domain.Party.subst(partyIds.toSet)
-                result.toSet should contain allElementsOf
-                  allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
+            .map(inside(_) { case domain.OkResponse(result, None, StatusCodes.OK) =>
+              val actualIds: Set[domain.Party] = result.view.map(_.identifier).toSet
+              actualIds should contain allElementsOf domain.Party.subst(partyIds.toSet)
+              result.toSet should contain allElementsOf
+                allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
             })
         }: Future[Assertion]
     }
@@ -1045,15 +1006,14 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
                 headersWithAdminAuth,
               )
               .parseResponse[List[domain.PartyDetails]]
-              .flatMap(inside(_) {
-                case (StatusCodes.OK, domain.OkResponse(result, Some(warnings), StatusCodes.OK)) =>
-                  warnings shouldBe domain.UnknownParties(List(erin))
-                  val actualIds: Set[domain.Party] = result.view.map(_.identifier).toSet
-                  actualIds shouldBe requestedPartyIds.toSet - erin // Erin is not known
-                  val expected: Set[domain.PartyDetails] = allocatedParties.toSet
-                    .map(domain.PartyDetails.fromLedgerApi)
-                    .filterNot(_.identifier == charlie)
-                  result.toSet shouldBe expected
+              .flatMap(inside(_) { case domain.OkResponse(result, Some(warnings), StatusCodes.OK) =>
+                warnings shouldBe domain.UnknownParties(List(erin))
+                val actualIds: Set[domain.Party] = result.view.map(_.identifier).toSet
+                actualIds shouldBe requestedPartyIds.toSet - erin // Erin is not known
+                val expected: Set[domain.PartyDetails] = allocatedParties.toSet
+                  .map(domain.PartyDetails.fromLedgerApi)
+                  .filterNot(_.identifier == charlie)
+                result.toSet shouldBe expected
               })
           }: Future[Assertion]
     }
@@ -1065,10 +1025,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           JsArray(Vector.empty),
         )
         .map(inside(_) {
-          case (
-                StatusCodes.BadRequest,
-                domain.ErrorResponse(Seq(errorMsg), None, StatusCodes.BadRequest, _),
-              ) =>
+          case domain.ErrorResponse(Seq(errorMsg), None, StatusCodes.BadRequest, _) =>
             errorMsg should include("Cannot read JSON: <[]>")
             errorMsg should include("must be a JSON array with at least 1 element")
         }): Future[Assertion]
@@ -1082,12 +1039,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           Uri.Path("/v1/parties"),
           JsArray(requestedPartyIds.map(x => JsString(x.unwrap))),
         )
-        .map(inside(_) {
-          case (
-                StatusCodes.BadRequest,
-                domain.ErrorResponse(List(error), None, StatusCodes.BadRequest, _),
-              ) =>
-            error should include("Daml-LF Party is empty")
+        .map(inside(_) { case domain.ErrorResponse(List(error), None, StatusCodes.BadRequest, _) =>
+          error should include("Daml-LF Party is empty")
         }): Future[Assertion]
     }
 
@@ -1104,10 +1057,10 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           )
           .parseResponse[List[domain.PartyDetails]]
           .map(inside(_) {
-            case (
+            case domain.OkResponse(
+                  List(),
+                  Some(domain.UnknownParties(unknownParties)),
                   StatusCodes.OK,
-                  domain
-                    .OkResponse(List(), Some(domain.UnknownParties(unknownParties)), StatusCodes.OK),
                 ) =>
               unknownParties.toSet shouldBe requestedPartyIds.toSet
           }): Future[Assertion]
@@ -1128,21 +1081,19 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           headers = headersWithAdminAuth,
         )
         .parseResponse[domain.PartyDetails]
-        .flatMap(inside(_) {
-          case (StatusCodes.OK, domain.OkResponse(newParty, _, StatusCodes.OK)) =>
-            Some(newParty.identifier) shouldBe request.identifierHint
-            newParty.displayName shouldBe request.displayName
-            newParty.isLocal shouldBe true
-            fixture
-              .getRequest(
-                Uri.Path("/v1/parties"),
-                headersWithAdminAuth,
-              )
-              .parseResponse[List[domain.PartyDetails]]
-              .map(inside(_) {
-                case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
-                  result should contain(newParty)
-              })
+        .flatMap(inside(_) { case domain.OkResponse(newParty, _, StatusCodes.OK) =>
+          Some(newParty.identifier) shouldBe request.identifierHint
+          newParty.displayName shouldBe request.displayName
+          newParty.isLocal shouldBe true
+          fixture
+            .getRequest(
+              Uri.Path("/v1/parties"),
+              headersWithAdminAuth,
+            )
+            .parseResponse[List[domain.PartyDetails]]
+            .map(inside(_) { case domain.OkResponse(result, _, StatusCodes.OK) =>
+              result should contain(newParty)
+            })
         }): Future[Assertion]
     }
 
@@ -1154,22 +1105,20 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           headers = headersWithAdminAuth,
         )
         .parseResponse[domain.PartyDetails]
-        .flatMap(inside(_) {
-          case (StatusCodes.OK, domain.OkResponse(newParty, _, StatusCodes.OK)) =>
-            newParty.identifier.unwrap.length should be > 0
-            newParty.displayName shouldBe None
-            newParty.isLocal shouldBe true
+        .flatMap(inside(_) { case domain.OkResponse(newParty, _, StatusCodes.OK) =>
+          newParty.identifier.unwrap.length should be > 0
+          newParty.displayName shouldBe None
+          newParty.isLocal shouldBe true
 
-            fixture
-              .getRequest(
-                Uri.Path("/v1/parties"),
-                headers = headersWithAdminAuth,
-              )
-              .parseResponse[List[domain.PartyDetails]]
-              .map(inside(_) {
-                case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
-                  result should contain(newParty)
-              })
+          fixture
+            .getRequest(
+              Uri.Path("/v1/parties"),
+              headers = headersWithAdminAuth,
+            )
+            .parseResponse[List[domain.PartyDetails]]
+            .map(inside(_) { case domain.OkResponse(result, _, StatusCodes.OK) =>
+              result should contain(newParty)
+            })
         }): Future[Assertion]
     }
 
@@ -1189,12 +1138,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             headers = headersWithAdminAuth,
           )
           .parseResponse[JsValue]
-          .map(inside(_) {
-            case (
-                  StatusCodes.BadRequest,
-                  domain.ErrorResponse(errors, None, StatusCodes.BadRequest, _),
-                ) =>
-              errors.length shouldBe 1
+          .map(inside(_) { case domain.ErrorResponse(errors, None, StatusCodes.BadRequest, _) =>
+            errors.length shouldBe 1
           })
     }
   }
@@ -1205,10 +1150,27 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
 
         postCreateCommand(command, fixture, headers).flatMap(inside(_) {
-          case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+          case domain.OkResponse(result, _, StatusCodes.OK) =>
             val contractId: ContractId = result.contractId
             val locator = domain.EnrichedContractId(None, contractId)
             lookupContractAndAssert(locator, contractId, command, fixture, headers)
+        }): Future[Assertion]
+      }
+    }
+
+    "succeeds normally with an interface ID" in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCommand(alice, CIou.CIou)
+
+        postCreateCommand(command, fixture, headers).flatMap(inside(_) {
+          case domain.OkResponse(result, _, StatusCodes.OK) =>
+            val contractId: ContractId = result.contractId
+            val locator = domain.EnrichedContractId(Some(TpId.IIou.IIou), contractId)
+            postContractsLookup(locator, fixture.uri, headers).map(inside(_) {
+              case domain.OkResponse(Some(resultContract), _, StatusCodes.OK) =>
+                contractId shouldBe resultContract.contractId
+                assertJsPayload(resultContract)(JsObject("amount" -> JsString("42")))
+            })
         }): Future[Assertion]
       }
     }
@@ -1222,7 +1184,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           JsArray(JsString(alice.unwrap), JsString(accountNumber)),
         )
         postContractsLookup(locator, uri.withPath(Uri.Path("/v1/fetch")), headers).map(inside(_) {
-          case (StatusCodes.OK, domain.OkResponse(None, _, StatusCodes.OK)) =>
+          case domain.OkResponse(None, _, StatusCodes.OK) =>
             succeed
         }): Future[Assertion]
       }
@@ -1237,7 +1199,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         command = iouCreateCommand(alice)
         createStatusOutput <- postCreateCommand(command, fixture, aliceHeaders)
         contractId = inside(createStatusOutput) {
-          case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+          case domain.OkResponse(result, _, StatusCodes.OK) =>
             result.contractId
         }
         locator = domain.EnrichedContractId(None, contractId)
@@ -1251,10 +1213,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           readAs = Some(List(charlie)),
         )
       } yield inside(badLookup) {
-        case (
-              StatusCodes.Unauthorized,
-              domain.ErrorResponse(_, None, StatusCodes.Unauthorized, None),
-            ) =>
+        case domain.ErrorResponse(_, None, StatusCodes.Unauthorized, None) =>
           succeed
       }
     }
@@ -1268,7 +1227,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           accountCreateCommand(alice, accountNumber)
 
         postCreateCommand(command, fixture, headers).flatMap(inside(_) {
-          case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+          case domain.OkResponse(result, _, StatusCodes.OK) =>
             val contractId: ContractId = result.contractId
             val locator = domain.EnrichedContractKey(
               TpId.Account.Account,
@@ -1337,13 +1296,13 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     fixture
       .postJsonRequest(Uri.Path("/v1/create"), createCommand, headers)
       .parseResponse[domain.ActiveContract[JsValue]]
-      .flatMap(inside(_) { case (StatusCodes.OK, domain.OkResponse(c, _, StatusCodes.OK)) =>
+      .flatMap(inside(_) { case domain.OkResponse(c, _, StatusCodes.OK) =>
         val contractId: ContractId = c.contractId
 
         fixture
           .postJsonRequest(Uri.Path("/v1/fetch"), request, headers)
           .parseResponse[domain.ActiveContract[JsValue]]
-          .flatMap(inside(_) { case (StatusCodes.OK, domain.OkResponse(c, _, StatusCodes.OK)) =>
+          .flatMap(inside(_) { case domain.OkResponse(c, _, StatusCodes.OK) =>
             c.contractId shouldBe contractId
           })
       }): Future[Assertion]
@@ -1422,16 +1381,15 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           _ <- withHttpServiceOnly(ledgerPort) { innerFixture =>
             val searchDataSet = genSearchDataSet(alice)
             searchDataSet.traverse(c => postCreateCommand(c, innerFixture, headers)).flatMap { rs =>
-              rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
+              rs.map(_.status) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
             }
           }
           _ <- withHttpServiceOnly(ledgerPort) { innerFixture =>
             innerFixture
               .getRequest(Uri.Path("/v1/query"), headers)
               .parseResponse[Vector[JsValue]]
-              .map(inside(_) {
-                case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
-                  result should have length 4
+              .map(inside(_) { case domain.OkResponse(result, _, StatusCodes.OK) =>
+                result should have length 4
               }): Future[Assertion]
           }
         } yield succeed
@@ -1489,7 +1447,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           headers,
         )
         .parseResponse[Vector[JsValue]]
-        .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
+        .map(inside(_) { case domain.OkResponse(result, _, StatusCodes.OK) =>
           result should have length n
         })
 
@@ -1497,9 +1455,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         resp <- fixture
           .postJsonRequest(Uri.Path("/v1/create-and-exercise"), encode(createCmd), headers)
           .parseResponse[domain.ExerciseResponse[JsValue]]
-        result = inside(resp) {
-          case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
-            result
+        result = inside(resp) { case domain.OkResponse(result, _, StatusCodes.OK) =>
+          result
         }
         created = result.exerciseResult.convertTo[List[String]]
         _ = created should have length numContracts
@@ -1513,8 +1470,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             headers,
           )
           .parseResponse[JsValue]
-        _ = inside(archiveResponse) {
-          case (StatusCodes.OK, domain.OkResponse(_, _, StatusCodes.OK)) =>
+        _ = inside(archiveResponse) { case domain.OkResponse(_, _, StatusCodes.OK) =>
         }
 
         _ <- queryN(0)
@@ -1573,7 +1529,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             fixture.postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, headers)
           )
           .parseResponse[JsValue]
-          .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(_, _, StatusCodes.OK)) =>
+          .map(inside(_) { case domain.OkResponse(_, _, StatusCodes.OK) =>
           })
 
       }
@@ -1588,7 +1544,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           .headersWithPartyAuth(actAs = List(fromPerspectiveOfParty.unwrap))
           .flatMap(headers => fixture.postJsonRequest(Uri.Path("/v1/query"), query, headers))
           .parseResponse[JsValue]
-          .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(_, _, StatusCodes.OK)) =>
+          .map(inside(_) { case domain.OkResponse(_, _, StatusCodes.OK) =>
           })
       }
 
@@ -1607,9 +1563,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
                 headers,
               )
             )
-            .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(result, _, StatusCodes.OK)) =>
-              result.contractId
-            }): Future[ContractId]
+            .map(resultContractId): Future[ContractId]
           fut.map(cid => (party, cid))
         }
         (alice, aliceUserId) = users(0)

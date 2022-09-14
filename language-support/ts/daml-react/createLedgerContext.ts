@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useContext, useEffect, useMemo, useState } from "react";
-import { ContractId, Party, Template } from "@daml/types";
+import { ContractId, Party, Template, TemplateOrInterface } from "@daml/types";
 import Ledger, {
   CreateEvent,
   Query,
@@ -75,12 +75,12 @@ export type LedgerContext = {
   useUser: () => User;
   useLedger: () => Ledger;
   useQuery: <T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     queryFactory?: () => Query<T>,
     queryDeps?: readonly unknown[],
   ) => QueryResult<T, K, I>;
   useFetch: <T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     contractId: ContractId<T>,
   ) => FetchResult<T, K, I>;
   useFetchByKey: <T extends object, K, I extends string>(
@@ -89,13 +89,13 @@ export type LedgerContext = {
     keyDeps: readonly unknown[],
   ) => FetchResult<T, K, I>;
   useStreamQuery: <T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     queryFactory?: () => Query<T>,
     queryDeps?: readonly unknown[],
     closeHandler?: (e: StreamCloseEvent) => void,
   ) => QueryResult<T, K, I>;
   useStreamQueries: <T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     queryFactory?: () => Query<T>[],
     queryDeps?: readonly unknown[],
     closeHandler?: (e: StreamCloseEvent) => void,
@@ -193,7 +193,7 @@ export function createLedgerContext(
   };
 
   function useQuery<T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     queryFactory?: () => Query<T>,
     queryDeps?: readonly unknown[],
   ): QueryResult<T, K, I> {
@@ -217,7 +217,7 @@ export function createLedgerContext(
   }
 
   function useFetch<T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     contractId: ContractId<T>,
   ): FetchResult<T, K, I> {
     const state = useDamlState();
@@ -265,7 +265,7 @@ export function createLedgerContext(
   // private
   interface StreamArgs<T extends object, K, I extends string, S, Result> {
     name: string;
-    template: Template<T, K, I>;
+    template: TemplateOrInterface<T, K, I>;
     init: Result;
     mkStream: (state: DamlLedgerState) => [Stream<T, K, I, S>, object];
     setLoading: (r: Result, loading: boolean) => Result;
@@ -318,7 +318,7 @@ export function createLedgerContext(
   }
 
   function useStreamQuery<T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     queryFactory?: () => Query<T>,
     queryDeps?: readonly unknown[],
     closeHandler?: (e: StreamCloseEvent) => void,
@@ -346,7 +346,7 @@ export function createLedgerContext(
   }
 
   function useStreamQueries<T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     queryFactory?: () => Query<T>[],
     queryDeps?: readonly unknown[],
     closeHandler?: (e: StreamCloseEvent) => void,

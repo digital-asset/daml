@@ -12,7 +12,6 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/struct.proto";
 
-
 // Experimental API to retrieve metering reports.
 //
 // Metering reports aim to provide the information necessary for billing participant
@@ -46,8 +45,8 @@ message GetMeteringReportResponse {
     // The actual request that was executed.
     GetMeteringReportRequest request = 1;
 
-    // The computed report.
-    ParticipantMeteringReport participant_report = 2;
+    // Metering report json now used
+    reserved "participant_report"; reserved 2;
 
     // The time at which the report was computed.
     google.protobuf.Timestamp report_generation_time = 3;
@@ -56,30 +55,3 @@ message GetMeteringReportResponse {
     google.protobuf.Struct metering_report_json = 4;
 }
 
-
-// Report representation
-////////////////////////
-
-message ParticipantMeteringReport {
-
-    // The reporting participant
-    string participant_id = 1;
-
-    // If the report is final it has been generated based on aggregated data
-    // so will never change in the future.
-    bool is_final = 2;
-
-    // Per application reports.
-    repeated ApplicationMeteringReport application_reports = 3;
-
-}
-
-message ApplicationMeteringReport {
-
-    // The application Id
-    string application_id = 1;
-
-    // The event count for the application; i.e., the number of fetch, lookup-by-key, create, and exercise events
-    // in transactions issued by this application.
-    int64 event_count = 2;
-}

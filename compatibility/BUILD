@@ -100,7 +100,7 @@ head = "0.0.0"
     # version. I.e. where the runner version is at least the SDK version or
     # more recent.
     if versions.is_at_least(sdk_version, platform_version)
-]
+] if not is_windows else None
 
 # Change to `CommandId` generation
 first_post_7587_trigger_version = "1.7.0-snapshot.20201012.5405.0.af92198d"

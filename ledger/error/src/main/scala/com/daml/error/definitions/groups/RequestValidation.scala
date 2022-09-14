@@ -16,7 +16,7 @@ import com.daml.error.{
   Explanation,
   Resolution,
 }
-import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.language.{LookupError, Reference}
 
 @Explanation(
@@ -96,6 +96,47 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
       ) extends DamlErrorWithDefiniteAnswer(
             cause = s"The ledger configuration could not be retrieved: ${message}."
           )
+    }
+
+    @Explanation(
+      "The queried template or interface ids do not exist."
+    )
+    @Resolution(
+      "Use valid template or interface ids in your query or ask the participant operator to upload the package containing the necessary interfaces/templates."
+    )
+    object TemplateOrInterfaceIdsNotFound
+        extends ErrorCode(
+          id = "TEMPLATES_OR_INTERFACES_NOT_FOUND",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+
+      private def buildCause(
+          unknownTemplatesOrInterfaces: Seq[Either[Identifier, Identifier]]
+      ): String = {
+        val unknownTemplateIds =
+          unknownTemplatesOrInterfaces.collect { case Left(id) => id.toString }
+        val unknownInterfaceIds =
+          unknownTemplatesOrInterfaces.collect { case Right(id) => id.toString }
+
+        val templatesMessage = if (unknownTemplateIds.nonEmpty) {
+          s"Templates do not exist: [${unknownTemplateIds.mkString(", ")}]. "
+        } else ""
+        val interfacesMessage = if (unknownInterfaceIds.nonEmpty) {
+          s"Interfaces do not exist: [${unknownInterfaceIds.mkString(", ")}]. "
+        } else
+          ""
+        (templatesMessage + interfacesMessage).trim
+      }
+
+      case class Reject(unknownTemplatesOrInterfaces: Seq[Either[Identifier, Identifier]])(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(cause = buildCause(unknownTemplatesOrInterfaces)) {
+        override def resources: Seq[(ErrorResource, String)] =
+          unknownTemplatesOrInterfaces.map {
+            case Left(templateId) => ErrorResource.TemplateId -> templateId.toString
+            case Right(interfaceId) => ErrorResource.InterfaceId -> interfaceId.toString
+          }
+      }
     }
   }
 

@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
   Choice,
+  ChoiceFrom,
   ContractId,
   List,
   Party,
   Template,
+  TemplateOrInterface,
   Text,
   lookupTemplate,
 } from "@daml/types";
@@ -110,9 +112,9 @@ const decode = <R>(decoder: jtv.Decoder<R>, data: unknown): R => {
 /**
  * A newly created contract.
  *
- * @typeparam T The contract template type.
+ * @typeparam T The contract payload type.
  * @typeparam K The contract key type.
- * @typeparam I The contract id type.
+ * @typeparam I The contract type id.
  *
  */
 export type CreateEvent<
@@ -132,8 +134,8 @@ export type CreateEvent<
 /**
  * An archived contract.
  *
- * @typeparam T The contract template type.
- * @typeparam I The contract id type.
+ * @typeparam T The contract template or interface type.
+ * @typeparam I The template or interface id.
  */
 export type ArchiveEvent<T extends object, I extends string = string> = {
   templateId: I;
@@ -156,7 +158,7 @@ export type Event<T extends object, K = unknown, I extends string = string> =
  * Decoder for a [[CreateEvent]].
  */
 const decodeCreateEvent = <T extends object, K, I extends string>(
-  template: Template<T, K, I>,
+  template: TemplateOrInterface<T, K, I>,
 ): jtv.Decoder<CreateEvent<T, K, I>> =>
   jtv.object({
     templateId: jtv.constant(template.templateId),
@@ -179,7 +181,7 @@ const decodeCreateEventUnknown: jtv.Decoder<CreateEvent<object>> = jtv
  * Decoder for an [[ArchiveEvent]].
  */
 const decodeArchiveEvent = <T extends object, K, I extends string>(
-  template: Template<T, K, I>,
+  template: TemplateOrInterface<T, K, I>,
 ): jtv.Decoder<ArchiveEvent<T, I>> =>
   jtv.object({
     templateId: jtv.constant(template.templateId),
@@ -197,7 +199,7 @@ const decodeArchiveEventUnknown: jtv.Decoder<ArchiveEvent<object>> = jtv
  * Decoder for an [[Event]].
  */
 const decodeEvent = <T extends object, K, I extends string>(
-  template: Template<T, K, I>,
+  template: TemplateOrInterface<T, K, I>,
 ): jtv.Decoder<Event<T, K, I>> =>
   jtv.oneOf<Event<T, K, I>>(
     jtv.object({
@@ -279,7 +281,8 @@ export function assert(b: boolean, m: string): void {
 }
 
 /**
- * `Query<T>` is the type of queries for searching for contracts of template type `T`.
+ * `Query<T>` is the type of queries for searching for contracts of template
+ * or interface type `T`.
  *
  * `Query<T>` is an object consisting of a subset of the fields of `T`.
  *
@@ -302,7 +305,7 @@ export type Query<T> = T extends object ? { [K in keyof T]?: Query<T[K]> } : T;
  * encoding here.
  */
 function encodeQuery<T extends object, K, I extends string>(
-  _template: Template<T, K, I>,
+  _template: TemplateOrInterface<T, K, I>,
   query?: Query<T>,
 ): unknown {
   return query;
@@ -476,7 +479,7 @@ const NoOffsetReceivedYet = Symbol("NoOffsetReceivedYet");
 const NullOffsetReceived = Symbol("NullOffsetReceived");
 
 type StreamingQuery<T extends object, K, I extends string> = {
-  template: Template<T, K, I>;
+  template: TemplateOrInterface<T, K, I>;
   queries: Query<T>[];
   stream: QueryResponseStream<T, K, I>;
   offset: string | typeof NoOffsetReceivedYet | typeof NullOffsetReceived;
@@ -815,7 +818,7 @@ class QueryStreamsManager {
   }
 
   streamSubmit<T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     queries: Query<T>[],
     caller: string,
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
@@ -994,7 +997,7 @@ class Ledger {
    *
    */
   async query<T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     query?: Query<T>,
   ): Promise<CreateEvent<T, K, I>[]> {
     const payload = {
@@ -1019,7 +1022,7 @@ class Ledger {
    *
    */
   async fetch<T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     contractId: ContractId<T>,
   ): Promise<CreateEvent<T, K, I> | null> {
     const payload = {
@@ -1146,7 +1149,7 @@ class Ledger {
    *
    */
   async createAndExercise<T extends object, C, R, K>(
-    choice: Choice<T, C, R, K>,
+    choice: ChoiceFrom<Template<T, K>> & Choice<T, C, R, K>,
     payload: T,
     argument: C,
   ): Promise<[R, Event<object>[]]> {
@@ -1190,7 +1193,7 @@ class Ledger {
    * as a result of exercising the choice.
    */
   async exerciseByKey<T extends object, C, R, K>(
-    choice: Choice<T, C, R, K>,
+    choice: ChoiceFrom<Template<T, K>> & Choice<T, C, R, K>,
     key: K,
     argument: C,
   ): Promise<[R, Event<object>[]]> {
@@ -1280,7 +1283,7 @@ class Ledger {
    */
   private streamSubmit<T extends object, K, I extends string, State>(
     callerName: string,
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     endpoint: string,
     request: unknown,
     reconnectRequest: () => unknown,
@@ -1415,7 +1418,7 @@ class Ledger {
    *
    */
   streamQuery<T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     query?: Query<T>,
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
     if (query === undefined) {
@@ -1430,7 +1433,7 @@ class Ledger {
    *
    */
   private streamQueryCommon<T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     queries: Query<T>[],
     name: string,
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
@@ -1492,7 +1495,7 @@ class Ledger {
    * @typeparam I The contract id type.
    */
   streamQueries<T extends object, K, I extends string>(
-    template: Template<T, K, I>,
+    template: TemplateOrInterface<T, K, I>,
     queries: Query<T>[],
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
     return this.streamQueryCommon(template, queries, "Ledger.streamQueries");

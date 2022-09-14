@@ -264,10 +264,12 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       )
     }
 
-    "should fail when config file and cli args both are supplied" in {
+    "should ignore cli args when config file and cli args both are supplied" in {
       configParser(
         Seq("--config", requiredResource(confFile).getAbsolutePath) ++ sharedOptions
-      ) should ===(None)
+      ) shouldBe Some(
+        Config.Empty.copy(httpPort = 7500, ledgerHost = "127.0.0.1", ledgerPort = 6400)
+      )
     }
 
     // TEST_EVIDENCE: Input Validation: TLS configuration is parsed correctly from the config file

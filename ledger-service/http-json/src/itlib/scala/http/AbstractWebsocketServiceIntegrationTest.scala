@@ -11,7 +11,7 @@ import akka.http.scaladsl.model.ws.{
   TextMessage,
   WebSocketRequest,
 }
-import akka.http.scaladsl.model.{HttpHeader, StatusCode, StatusCodes, Uri}
+import akka.http.scaladsl.model.{HttpHeader, StatusCodes, Uri}
 import akka.stream.{KillSwitches, UniqueKillSwitch}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.daml.http.HttpServiceTestFixture.{
@@ -19,6 +19,7 @@ import com.daml.http.HttpServiceTestFixture.{
   accountCreateCommand,
   sharedAccountCreateCommand,
 }
+import AbstractHttpServiceIntegrationTestFuns.UriFixture
 import com.daml.http.json.SprayJson
 import com.daml.ledger.api.v1.admin.{participant_pruning_service => PruneGrpc}
 import com.typesafe.scalalogging.StrictLogging
@@ -40,6 +41,7 @@ import spray.json.{
   DeserializationException,
   enrichAny => `sj enrichAny`,
 }
+import com.daml.fetchcontracts.domain.ResolvedQuery
 
 import scala.annotation.nowarn
 import scala.concurrent.duration._
@@ -75,6 +77,19 @@ abstract class AbstractWebsocketServiceIntegrationTest
     case ContractDelta(Vector(), Vector(), Some(offset)) => offset
     case _ => throw new IllegalArgumentException(s"Expected heartbeat but got $event")
   }
+
+  private def immediateQuery(fixture: UriFixture, scenario: SimpleScenario): Future[Seq[String]] =
+    for {
+      jwt <- jwt(fixture.uri)
+      webSocketFlow =
+        Http().webSocketClientFlow(
+          WebSocketRequest(
+            uri = fixture.uri.copy(scheme = "ws").withPath(scenario.path),
+            subprotocol = validSubprotocol(jwt),
+          )
+        )
+      ran <- scenario.input via webSocketFlow runWith collectResultsAsTextMessageSkipOffsetTicks
+    } yield ran
 
   List(
     SimpleScenario("query", Uri.Path("/v1/stream/query"), baseQueryInput),
@@ -114,30 +129,18 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
     // TEST_EVIDENCE: Authorization: multiple websocket requests over the same WebSocket connection are NOT allowed
     s"two ${scenario.id} requests over the same WebSocket connection are NOT allowed" in withHttpService {
-      (uri, _, _, _) =>
-        jwt(uri).flatMap { jwt =>
-          val input = scenario.input.mapConcat(x => List(x, x))
-          val webSocketFlow =
-            Http().webSocketClientFlow(
-              WebSocketRequest(
-                uri = uri.copy(scheme = "ws").withPath(scenario.path),
-                subprotocol = validSubprotocol(jwt),
+      fixture =>
+        immediateQuery(fixture, scenario.mapInput(_.mapConcat(x => List(x, x))))
+          .flatMap { msgs =>
+            inside(msgs) { case Seq(errorMsg) =>
+              val error = decodeErrorResponse(errorMsg)
+              error shouldBe domain.ErrorResponse(
+                List("Multiple requests over the same WebSocket connection are not allowed."),
+                None,
+                StatusCodes.BadRequest,
               )
-            )
-          input
-            .via(webSocketFlow)
-            .runWith(collectResultsAsTextMessageSkipOffsetTicks)
-            .flatMap { msgs =>
-              inside(msgs) { case Seq(errorMsg) =>
-                val error = decodeErrorResponse(errorMsg)
-                error shouldBe domain.ErrorResponse(
-                  List("Multiple requests over the same WebSocket connection are not allowed."),
-                  None,
-                  StatusCodes.BadRequest,
-                )
-              }
             }
-        }
+          }
     }
   }
 
@@ -154,33 +157,62 @@ abstract class AbstractWebsocketServiceIntegrationTest
     ),
   ).foreach { scenario =>
     s"${scenario.id} report UnknownTemplateIds and error when cannot resolve any template ID" in withHttpService {
-      (uri, _, _, _) =>
-        jwt(uri).flatMap { jwt =>
-          val webSocketFlow =
-            Http().webSocketClientFlow(
-              WebSocketRequest(
-                uri = uri.copy(scheme = "ws").withPath(scenario.path),
-                subprotocol = validSubprotocol(jwt),
-              )
-            )
-          scenario.input
-            .via(webSocketFlow)
-            .runWith(collectResultsAsTextMessageSkipOffsetTicks)
-            .flatMap { msgs =>
-              inside(msgs) { case Seq(warningMsg, errorMsg) =>
-                val warning = decodeServiceWarning(warningMsg)
-                inside(warning) { case domain.UnknownTemplateIds(ids) =>
-                  ids shouldBe List(domain.TemplateId(None, "AA", "BB"))
-                }
-                val error = decodeErrorResponse(errorMsg)
-                error shouldBe domain.ErrorResponse(
-                  List(ErrorMessages.cannotResolveAnyTemplateId),
-                  None,
-                  StatusCodes.BadRequest,
-                )
+      fixture =>
+        immediateQuery(fixture, scenario)
+          .flatMap { msgs =>
+            inside(msgs) { case Seq(warningMsg, errorMsg) =>
+              val warning = decodeServiceWarning(warningMsg)
+              inside(warning) { case domain.UnknownTemplateIds(ids) =>
+                ids shouldBe List(domain.TemplateId(None, "AA", "BB"))
               }
+              val error = decodeErrorResponse(errorMsg)
+              error shouldBe domain.ErrorResponse(
+                List(ErrorMessages.cannotResolveAnyTemplateId),
+                None,
+                StatusCodes.BadRequest,
+              )
             }
-        }
+          }
+    }
+  }
+
+  "query error when queries with more than 1 interface id" in withHttpService { fixture =>
+    import AbstractHttpServiceIntegrationTestFuns.ciouDar
+    val queryInput = Source.single(
+      TextMessage.Strict(
+        """[{"templateIds": ["IAccount:IAccount"]}, {"templateIds": ["IIou:IIou"]}]"""
+      )
+    )
+    val scenario = SimpleScenario("", Uri.Path("/v1/stream/query"), queryInput)
+    for {
+      _ <- uploadPackage(fixture)(ciouDar)
+      msgs <- immediateQuery(fixture, scenario)
+    } yield inside(msgs) { case Seq(errorMsg) =>
+      val error = decodeErrorResponse(errorMsg)
+      error shouldBe domain.ErrorResponse(
+        List(ResolvedQuery.CannotQueryManyInterfaceIds.errorMsg),
+        None,
+        StatusCodes.BadRequest,
+      )
+    }
+  }
+
+  "query error when queries with both template and interface id" in withHttpService { fixture =>
+    val queryInput = Source.single(
+      TextMessage.Strict(
+        """[{"templateIds": ["IAccount:IAccount"]}, {"templateIds": ["Account:Account"]}]"""
+      )
+    )
+    val scenario = SimpleScenario("", Uri.Path("/v1/stream/query"), queryInput)
+    for {
+      msgs <- immediateQuery(fixture, scenario)
+    } yield inside(msgs) { case Seq(errorMsg) =>
+      val error = decodeErrorResponse(errorMsg)
+      error shouldBe domain.ErrorResponse(
+        List(ResolvedQuery.CannotQueryBothTemplateIdsAndInterfaceIds.errorMsg),
+        None,
+        StatusCodes.BadRequest,
+      )
     }
   }
 
@@ -220,6 +252,58 @@ abstract class AbstractWebsocketServiceIntegrationTest
         result should include(s""""owner":"$alice"""")
         result should include(""""number":"abc123"""")
         result should not include (""""offset":"""")
+        Inspectors.forAll(heartbeats)(assertHeartbeat)
+      }
+    }
+  }
+
+  "interface sub" - {
+    "query endpoint" in withHttpService { fixture =>
+      import fixture.uri
+      val query = """[
+        {"templateIds": ["IAccount:IAccount"], "query": {"isAbcPrefix": true}},
+        {"templateIds": ["IAccount:IAccount"], "query": {"is123Suffix": true}}
+      ]"""
+
+      def createAccount(
+          owner: domain.Party,
+          amount: String,
+          headers: List[HttpHeader],
+      ) = postCreateCommand(
+        accountCreateCommand(owner, amount),
+        fixture,
+        headers = headers,
+      )
+      for {
+        aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        (alice, aliceAuthHeaders) = aliceHeaders
+        _ <- createAccount(alice, "abc123", aliceAuthHeaders)
+        _ <- createAccount(alice, "abc456", aliceAuthHeaders)
+        _ <- createAccount(alice, "def123", aliceAuthHeaders)
+        _ <- createAccount(alice, "def456", aliceAuthHeaders)
+        jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+        clientMsg <- singleClientQueryStream(
+          jwt,
+          uri,
+          query,
+        ).take(4)
+          .runWith(collectResultsAsTextMessage)
+      } yield inside(clientMsg) { case result1 +: result2 +: result3 +: heartbeats =>
+        result1 should include(s""""amount":"abc123"""")
+        result1 should include(s""""isAbcPrefix":true""")
+        result1 should include(s""""is123Suffix":true""")
+        result1 should include(s""""matchedQueries":[0,1]""")
+
+        result2 should include(s""""amount":"abc456"""")
+        result2 should include(s""""isAbcPrefix":true""")
+        result2 should include(s""""is123Suffix":false""")
+        result2 should include(s""""matchedQueries":[0]""")
+
+        result3 should include(s""""amount":"def123"""")
+        result3 should include(s""""isAbcPrefix":false""")
+        result3 should include(s""""is123Suffix":true""")
+        result3 should include(s""""matchedQueries":[1]""")
+
         Inspectors.forAll(heartbeats)(assertHeartbeat)
       }
     }
@@ -365,9 +449,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (party, headers) = aliceHeaders
         creation <- initialIouCreate(uri, party, headers)
-        iouCid = inside(creation) { case (_: StatusCodes.Success, domain.OkResponse(c, _, _)) =>
-          c.contractId
-        }
+        iouCid = resultContractId(creation)
         jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
         (kill, source) = singleClientQueryStream(jwt, uri, query)
           .viaMat(KillSwitches.single)(Keep.right)
@@ -389,13 +471,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
         result should include(""""matchedQueries":[1]""")
       }
   }
-
-  private[this] def resultContractId(
-      r: (StatusCode, domain.SyncResponse[domain.ActiveContract[_]])
-  ) =
-    inside(r) { case (_: StatusCodes.Success, domain.OkResponse(result, _, _)) =>
-      result.contractId
-    }
 
   "deltas as contracts are archived/created from" - {
     "single-party query" in withHttpService { fixture =>
@@ -483,9 +558,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         aliceHeaders <- getAliceHeaders
         (party, headers) = aliceHeaders
         creation <- initialIouCreate(uri, party, headers)
-        iouCid = inside(creation) { case (_: StatusCodes.Success, domain.OkResponse(c, _, _)) =>
-          c.contractId
-        }
+        iouCid = resultContractId(creation)
         jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
         (kill, source) = singleClientQueryStream(jwt, uri, query)
           .viaMat(KillSwitches.single)(Keep.right)
@@ -1011,10 +1084,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           headers,
         )
       )
-      cid = inside(create) {
-        case (StatusCodes.OK, domain.OkResponse(contract, _, StatusCodes.OK)) =>
-          contract.contractId
-      }
+      cid = resultContractId(create)
       // wait for the creation's offset
       offsetAfter <- readUntil[In] {
         case ContractDelta(creates, _, off @ Some(_)) =>

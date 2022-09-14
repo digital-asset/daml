@@ -109,7 +109,6 @@ class PureConfigReaderWriterSpec
     testReaderWriterIsomorphism(secure, ArbitraryConfig.commandConfiguration)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.apiServerConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.haConfig)
-    testReaderWriterIsomorphism(secure, ArbitraryConfig.lfValueTranslationCache)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.indexServiceConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.participantConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.config)
@@ -131,6 +130,63 @@ class PureConfigReaderWriterSpec
     compare(Duration.ofSeconds(1), "1 second")
     compare(Duration.ofSeconds(30), "30 seconds")
     compare(Duration.ofHours(1), "3600 seconds")
+  }
+
+  behavior of "JwtTimestampLeeway"
+
+  it should "read/write against predefined values" in {
+    def compare(configString: String, expectedValue: Option[JwtTimestampLeeway]) = {
+      convert(jwtTimestampLeewayConfigConvert, configString).value shouldBe expectedValue
+
+    }
+    compare(
+      """
+        |  enabled = true
+        |  default = 1
+        |""".stripMargin,
+      Some(JwtTimestampLeeway(Some(1), None, None, None)),
+    )
+    compare(
+      """
+        |  enabled = true
+        |  expires-at = 2
+        |""".stripMargin,
+      Some(JwtTimestampLeeway(None, Some(2), None, None)),
+    )
+    compare(
+      """
+        |  enabled = true
+        |  issued-at = 3
+        |""".stripMargin,
+      Some(JwtTimestampLeeway(None, None, Some(3), None)),
+    )
+    compare(
+      """
+        |  enabled = true
+        |  not-before = 4
+        |""".stripMargin,
+      Some(JwtTimestampLeeway(None, None, None, Some(4))),
+    )
+    compare(
+      """
+        |  enabled = true
+        |  default = 1
+        |  expires-at = 2
+        |  issued-at = 3
+        |  not-before = 4
+        |""".stripMargin,
+      Some(JwtTimestampLeeway(Some(1), Some(2), Some(3), Some(4))),
+    )
+    compare(
+      """
+        |  enabled = false
+        |  default = 1
+        |  expires-at = 2
+        |  issued-at = 3
+        |  not-before = 4
+        |""".stripMargin,
+      None,
+    )
   }
 
   behavior of "PureConfigReaderWriter VersionRange[LanguageVersion]"
@@ -354,8 +410,8 @@ class PureConfigReaderWriterSpec
   it should "be isomorphic and support redaction" in forAll(ArbitraryConfig.authServiceConfig) {
     generatedValue =>
       val redacted = generatedValue match {
-        case AuthServiceConfig.UnsafeJwtHmac256(_, jwtTimestampLeeway) =>
-          AuthServiceConfig.UnsafeJwtHmac256("<REDACTED>", jwtTimestampLeeway)
+        case AuthServiceConfig.UnsafeJwtHmac256(_) =>
+          AuthServiceConfig.UnsafeJwtHmac256("<REDACTED>")
         case _ => generatedValue
       }
       val insecureWriter = new PureConfigReaderWriter(false)
@@ -382,78 +438,6 @@ class PureConfigReaderWriterSpec
     compare(
       "type = unsafe-jwt-hmac-256\nsecret=mysecret2",
       AuthServiceConfig.UnsafeJwtHmac256("mysecret2"),
-    )
-    compare(
-      "type = unsafe-jwt-hmac-256\nsecret=mysecret3",
-      AuthServiceConfig.UnsafeJwtHmac256("mysecret3", None),
-    )
-    compare(
-      """
-        |type = unsafe-jwt-hmac-256
-        |secret = mysecret3
-        |jwt-timestamp-leeway {
-        |  default = 1
-        |}
-        |""".stripMargin,
-      AuthServiceConfig.UnsafeJwtHmac256(
-        "mysecret3",
-        Some(JwtTimestampLeeway(Some(1), None, None, None)),
-      ),
-    )
-    compare(
-      """
-        |type = unsafe-jwt-hmac-256
-        |secret = mysecret3
-        |jwt-timestamp-leeway {
-        |  expires-at = 2
-        |}
-        |""".stripMargin,
-      AuthServiceConfig.UnsafeJwtHmac256(
-        "mysecret3",
-        Some(JwtTimestampLeeway(None, Some(2), None, None)),
-      ),
-    )
-    compare(
-      """
-        |type = unsafe-jwt-hmac-256
-        |secret = mysecret3
-        |jwt-timestamp-leeway {
-        |  issued-at = 3
-        |}
-        |""".stripMargin,
-      AuthServiceConfig.UnsafeJwtHmac256(
-        "mysecret3",
-        Some(JwtTimestampLeeway(None, None, Some(3), None)),
-      ),
-    )
-    compare(
-      """
-        |type = unsafe-jwt-hmac-256
-        |secret = mysecret3
-        |jwt-timestamp-leeway {
-        |  not-before = 4
-        |}
-        |""".stripMargin,
-      AuthServiceConfig.UnsafeJwtHmac256(
-        "mysecret3",
-        Some(JwtTimestampLeeway(None, None, None, Some(4))),
-      ),
-    )
-    compare(
-      """
-        |type = unsafe-jwt-hmac-256
-        |secret = mysecret3
-        |jwt-timestamp-leeway {
-        |  default = 1
-        |  expires-at = 2
-        |  issued-at = 3
-        |  not-before = 4
-        |}
-        |""".stripMargin,
-      AuthServiceConfig.UnsafeJwtHmac256(
-        "mysecret3",
-        Some(JwtTimestampLeeway(Some(1), Some(2), Some(3), Some(4))),
-      ),
     )
     compare(
       "type = jwt-rs-256\ncertificate=certfile",

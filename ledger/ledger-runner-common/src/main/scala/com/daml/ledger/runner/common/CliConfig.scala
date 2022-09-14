@@ -3,7 +3,6 @@
 
 package com.daml.ledger.runner.common
 
-import com.daml.caching
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.lf.data.Ref
@@ -42,8 +41,6 @@ final case class CliConfig[Extra](
     extra: Extra,
     implicitPartyAllocation: Boolean,
     ledgerId: String,
-    lfValueTranslationContractCache: caching.SizedCache.Configuration,
-    lfValueTranslationEventCache: caching.SizedCache.Configuration,
     maxDeduplicationDuration: Option[Duration],
     maxInboundMessageSize: Int,
     metricsReporter: Option[MetricsReporter],
@@ -93,8 +90,6 @@ object CliConfig {
       extra = extra,
       implicitPartyAllocation = false,
       ledgerId = UUID.randomUUID().toString,
-      lfValueTranslationContractCache = caching.SizedCache.Configuration.none,
-      lfValueTranslationEventCache = caching.SizedCache.Configuration.none,
       maxDeduplicationDuration = None,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       metricsReporter = None,
@@ -576,16 +571,9 @@ object CliConfig {
       opt[Long]("max-lf-value-translation-cache-entries")
         .optional()
         .text(
-          s"The maximum size of the cache used to deserialize Daml-LF values, in number of allowed entries. By default, nothing is cached."
+          s"Deprecated parameter --  lf value translation cache doesn't exist anymore."
         )
-        .action((maximumLfValueTranslationCacheEntries, config) =>
-          config.copy(
-            lfValueTranslationEventCache = config.lfValueTranslationEventCache
-              .copy(maximumSize = maximumLfValueTranslationCacheEntries),
-            lfValueTranslationContractCache = config.lfValueTranslationContractCache
-              .copy(maximumSize = maximumLfValueTranslationCacheEntries),
-          )
-        ),
+        .action((_, config) => config),
       opt[String]("contract-id-seeding")
         .optional()
         .text(s"""Set the seeding of contract ids. Possible values are ${seedingMap.keys

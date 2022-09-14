@@ -1,0 +1,67 @@
+module Workflow.DvP where
+
+import DA.Set (fromList)
+import Daml.Finance.Interface.Instrument.Base.Instrument qualified as Instrument (Q)
+import Daml.Finance.Interface.Settlement.Factory qualified as Factory (I, Instruct(..))
+import Daml.Finance.Interface.Settlement.Batch qualified as Batch (I)
+import Daml.Finance.Interface.Settlement.Instruction qualified as Instruction (I)
+import Daml.Finance.Interface.Settlement.Types (Step(..))
+import Daml.Finance.Interface.Types.Common (Id(..))
+
+-- | Initiate / Accept template to exchange two holdings.
+template Proposal
+  with
+    recQuantity : Instrument.Q
+      -- ^ The receiving leg (instrument and amount).
+    payQuantity : Instrument.Q
+      -- ^ The pay leg (instrument and amount).
+    proposer : Party
+      -- ^ The party proposing the trade. They receive the receiving leg in exchange for the pay leg.
+    counterparty : Party
+      -- ^ The trade counterparty. They receive the pay leg in exchange for the receiving leg.
+    settlementFactoryCid : ContractId Factory.I
+      -- ^ The factory contract for the settlement batch.
+    id : Text
+      -- ^ A textual identifier.
+  where
+    signatory proposer
+    observer counterparty
+
+    ensure recQuantity.amount > 0.0 && payQuantity.amount > 0.0
+
+    choice Accept : (ContractId Batch.I, ContractId Instruction.I, ContractId Instruction.I)
+      controller counterparty
+      do
+        let
+          -- Settlement of REC leg
+          recStep = Step with
+            sender = counterparty
+            receiver = proposer
+            quantity = recQuantity
+
+          -- Settlement of PAY leg
+          payStep = Step with
+            sender = proposer
+            receiver = counterparty
+            quantity = payQuantity
+
+        -- INSTRUCT_BEGIN
+        (containerCid, [recInstructionCid, payInstructionCid]) <- exercise settlementFactoryCid Factory.Instruct with
+          instructors = fromList [proposer, counterparty]
+          settler = proposer
+          id = Id id
+          steps = [recStep, payStep]
+          description = "Settlement for " <> id
+        -- INSTRUCT_END
+
+        pure (containerCid, recInstructionCid, payInstructionCid)
+
+    choice Decline : ()
+      -- ^ Decline the request.
+      controller counterparty
+      do pure ()
+
+    choice Withdraw : ()
+      -- ^ Withdraw the request.
+      controller proposer
+      do pure ()

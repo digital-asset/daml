@@ -36,7 +36,6 @@ import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import scalaz.std.list._
 import scalaz.std.scalaFuture._
-import scalaz.std.tuple._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
@@ -261,7 +260,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     def postJsonRequestWithMinimumAuth[Result: JsonReader](
         path: Uri.Path,
         json: JsValue,
-    ): Future[(StatusCode, domain.SyncResponse[Result])] =
+    ): Future[domain.SyncResponse[Result]] =
       headersWithAuth
         .flatMap(postJsonRequest(path, json, _))
         .parseResponse[Result]
@@ -275,24 +274,28 @@ trait AbstractHttpServiceIntegrationTestFuns
 
     def getRequestWithMinimumAuth[Result: JsonReader](
         path: Uri.Path
-    ): Future[(StatusCode, domain.SyncResponse[Result])] =
+    ): Future[domain.SyncResponse[Result]] =
       headersWithAuth
         .flatMap(getRequest(path, _))
         .parseResponse[Result]
   }
 
-  implicit protected final class `Future JsValue functions`[A](
-      private val self: Future[(A, JsValue)]
+  implicit protected final class `Future JsValue functions`(
+      private val self: Future[(StatusCode, JsValue)]
   ) {
-    def parseResponse[Result: JsonReader]: Future[(A, domain.SyncResponse[Result])] =
-      self.map(_ map (decode1[domain.SyncResponse, Result](_).fold(e => fail(e.shows), identity)))
+    def parseResponse[Result: JsonReader]: Future[domain.SyncResponse[Result]] =
+      self.map { case (status, jsv) =>
+        val r = decode1[domain.SyncResponse, Result](jsv).fold(e => fail(e.shows), identity)
+        r.status should ===(status)
+        r
+      }
   }
 
   protected def postCreateCommand(
       cmd: domain.CreateCommand[v.Record, OptionalPkg],
       fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
-  ): Future[(StatusCode, domain.SyncResponse[domain.ActiveContract[JsValue]])] =
+  ): Future[domain.SyncResponse[domain.ActiveContract[JsValue]]] =
     HttpServiceTestFixture
       .postCreateCommand(cmd, fixture.encoder, fixture.uri, headers)
       .parseResponse[domain.ActiveContract[JsValue]]
@@ -300,8 +303,15 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def postCreateCommand(
       cmd: domain.CreateCommand[v.Record, OptionalPkg],
       fixture: UriFixture with EncoderFixture,
-  ): Future[(StatusCode, domain.SyncResponse[domain.ActiveContract[JsValue]])] =
+  ): Future[domain.SyncResponse[domain.ActiveContract[JsValue]]] =
     fixture.headersWithAuth.flatMap(postCreateCommand(cmd, fixture, _))
+
+  protected def resultContractId(
+      r: domain.SyncResponse[domain.ActiveContract[_]]
+  ) =
+    inside(r) { case domain.OkResponse(result, _, _: StatusCodes.Success) =>
+      result.contractId
+    }
 
   protected def postArchiveCommand(
       templateId: OptionalPkg,
@@ -334,7 +344,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       headers: List[HttpHeader],
   ): Future[Assertion] =
     postContractsLookup(contractLocator, fixture.uri, headers).map(inside(_) {
-      case (StatusCodes.OK, domain.OkResponse(Some(resultContract), _, StatusCodes.OK)) =>
+      case domain.OkResponse(Some(resultContract), _, StatusCodes.OK) =>
         contractId shouldBe resultContract.contractId
         assertActiveContract(resultContract)(create, fixture.encoder)
     })
@@ -556,7 +566,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       uri: Uri,
       headers: List[HttpHeader],
       readAs: Option[List[domain.Party]],
-  ): Future[(StatusCode, domain.SyncResponse[Option[domain.ActiveContract[JsValue]]])] =
+  ): Future[domain.SyncResponse[Option[domain.ActiveContract[JsValue]]]] =
     for {
       locjson <- toFuture(SprayJson.encode(cmd)): Future[JsValue]
       json <- toFuture(
@@ -576,7 +586,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       cmd: domain.ContractLocator[JsValue],
       uri: Uri,
       headers: List[HttpHeader],
-  ): Future[(StatusCode, domain.SyncResponse[Option[domain.ActiveContract[JsValue]]])] =
+  ): Future[domain.SyncResponse[Option[domain.ActiveContract[JsValue]]]] =
     postContractsLookup(cmd, uri, headers, None)
 
   protected def asContractId(a: JsValue): domain.ContractId = inside(a) { case JsString(x) =>
@@ -668,6 +678,14 @@ trait AbstractHttpServiceIntegrationTestFuns
     (activeContract.payload: JsValue) shouldBe (expected.payload: JsValue)
   }
 
+  protected def assertJsPayload(
+      activeContract: domain.ActiveContract[JsValue]
+  )(
+      jsPayload: JsValue
+  ): Assertion = {
+    (activeContract.payload: JsValue) shouldBe (jsPayload)
+  }
+
   protected def assertTemplateId(
       actual: domain.TemplateId.RequiredPkg,
       expected: OptionalPkg,
@@ -680,7 +698,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def getAllPackageIds(fixture: UriFixture): Future[domain.OkResponse[List[String]]] =
     fixture
       .getRequestWithMinimumAuth[List[String]](Uri.Path("/v1/packages"))
-      .map(inside(_) { case (StatusCodes.OK, x: domain.OkResponse[List[String]]) =>
+      .map(inside(_) { case x @ domain.OkResponse(_, _, StatusCodes.OK) =>
         x
       })
 
@@ -703,7 +721,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       serviceUri: Uri,
       party: domain.Party,
       headers: List[HttpHeader],
-  ): Future[(StatusCode, domain.SyncResponse[domain.ActiveContract[JsValue]])] = {
+  ): Future[domain.SyncResponse[domain.ActiveContract[JsValue]]] = {
     val partyJson = party.toJson.compactPrint
     val payload =
       s"""
@@ -731,7 +749,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       fixture: UriFixture with EncoderFixture,
       owner: domain.Party,
       headers: List[HttpHeader],
-  ): Future[(StatusCode, domain.SyncResponse[domain.ActiveContract[JsValue]])] = {
+  ): Future[domain.SyncResponse[domain.ActiveContract[JsValue]]] = {
     val command = accountCreateCommand(owner, "abc123")
     postCreateCommand(command, fixture, headers)
   }
@@ -769,7 +787,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     domain.SyncResponse[List[domain.ActiveContract[JsValue]]]
   ] = {
     commands.traverse(c => postCreateCommand(c, fixture, headers)).flatMap { rs =>
-      rs.map(_._1) shouldBe List.fill(commands.size)(StatusCodes.OK)
+      rs.map(_.status) shouldBe List.fill(commands.size)(StatusCodes.OK)
       fixture.postJsonRequest(Uri.Path("/v1/query"), query, headers).flatMap { case (_, output) =>
         FutureUtil
           .toFuture(decode1[domain.SyncResponse, List[domain.ActiveContract[JsValue]]](output))
