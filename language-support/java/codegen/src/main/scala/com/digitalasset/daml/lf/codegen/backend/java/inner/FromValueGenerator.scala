@@ -82,7 +82,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
         classOf[IllegalArgumentException],
         s"Expected ${fields.size} arguments, got ",
       )
-      .endControlFlow();
+      .endControlFlow()
 
     fields.iterator.zip(accessors).foreach { case (FieldInfo(_, damlType, javaName, _), accessor) =>
       fromValueCode.addStatement(
