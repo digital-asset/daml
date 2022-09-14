@@ -216,6 +216,27 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       metadata = Map.empty,
     )
   }
+
+  it should "fail validation on unexpected create arguments blob" in {
+    val withCrappyArguments =
+      ProtoCommands(disclosedContracts =
+        scala.Seq(
+          api.protoDisclosedContract.update(
+            _.arguments := ProtoArguments.Blob(
+              com.google.protobuf.any.Any("crap", ByteString.EMPTY)
+            )
+          )
+        )
+      )
+
+    requestMustFailWith(
+      request = validateDisclosedContracts(withCrappyArguments),
+      code = Status.Code.INVALID_ARGUMENT,
+      description =
+        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field blob: Type of the Any message does not match the given class.",
+      metadata = Map.empty,
+    )
+  }
 }
 
 object ValidateDisclosedContractsTest {
