@@ -83,15 +83,31 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
           validatedRecordField <- validateRecordFields(value.fields)
         } yield ValueRecord(recordId, validatedRecordField)
       case ProtoDisclosedContract.Arguments.Blob(value) =>
-        val versionedValue: VersionedValue = toJavaProto(value).unpack(classOf[VersionedValue])
-        ValueCoder
-          .decodeVersionedValue(ValueCoder.CidDecoder, versionedValue)
-          .left
-          .map(err => ValidationErrors.invalidField("arguments", err.errorMessage))
-          .map(_.unversioned)
+        for {
+          protoAny <- validateProtoAny(value)
+          versionedValue <- validateVersionedValue(protoAny)
+        } yield versionedValue.unversioned
       case ProtoDisclosedContract.Arguments.Empty =>
         Left(ValidationErrors.missingField("arguments"))
     }
+
+  private def validateProtoAny(value: com.google.protobuf.any.Any)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, VersionedValue] =
+    Try(toJavaProto(value).unpack(classOf[VersionedValue])).toEither.left.map(err =>
+      ValidationErrors.invalidField("blob", err.getMessage)
+    )
+
+  private def validateVersionedValue(
+      versionedValue: VersionedValue
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Value.VersionedValue] = {
+    ValueCoder
+      .decodeVersionedValue(ValueCoder.CidDecoder, versionedValue)
+      .left
+      .map(err => ValidationErrors.invalidField("blob", err.errorMessage))
+  }
 
   private def validateDisclosedContract(
       disclosedContract: ProtoDisclosedContract
