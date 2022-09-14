@@ -40,7 +40,6 @@ import com.daml.platform.store.dao.EventProjectionProperties
 import com.daml.platform.store.dao.events.LfValueTranslation.ApiContractData
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 import com.google.protobuf
-import com.google.protobuf.any.Any
 import com.google.rpc.Status
 import com.google.rpc.status.{Status => ProtoStatus}
 import io.grpc.Status.Code
@@ -269,7 +268,7 @@ final class LfValueTranslation(
       )
     } yield raw.partial.copy(
       createArguments = apiContractData.createArguments,
-      createArgumentsBlob = apiContractData.createArgumentsBlob.map(Any.fromJavaProto),
+      createArgumentsBlob = apiContractData.createArgumentsBlob,
       contractKey = apiContractData.contractKey,
       interfaceViews = apiContractData.interfaceViews,
     )
@@ -482,7 +481,7 @@ object LfValueTranslation {
 
   case class ApiContractData(
       createArguments: Option[ApiRecord],
-      createArgumentsBlob: Option[protobuf.Any],
+      createArgumentsBlob: Option[protobuf.any.Any],
       contractKey: Option[ApiValue],
       interfaceViews: Seq[InterfaceView],
   )
