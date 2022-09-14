@@ -488,36 +488,12 @@ prettyScenarioErrorError (Just err) =  do
         , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
         , label_ "Key Hash: " $ ltext keyHash
         ]
-    ScenarioErrorErrorDisclosurePreprocessingNonExistentTemplate(ScenarioError_DisclosurePreprocessingNonExistentTemplate templateId) ->
-      pure $ vcat
-        [ "Disclosed contract template does not exist"
-        , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
-        ]
-    ScenarioErrorErrorDisclosurePreprocessingNonExistentDisclosedContractKeyHash(ScenarioError_DisclosurePreprocessingNonExistentDisclosedContractKeyHash contractId templateId) ->
-      pure $ vcat
-        [ "Template has a key defined, but there is no key hash for disclosed contract"
-        , label_ "Disclosed Contract: " $ prettyContractId contractId
-        , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
-        ]
     ScenarioErrorErrorInconsistentDisclosureTableIncorrectlyTypedContract(ScenarioError_InconsistentDisclosureTableIncorrectlyTypedContract contractId expectedTemplateId actualTemplateId) ->
       pure $ vcat
         [ "Inconsistent disclosure table: invalid key hash mapping"
         , label_ "Disclosed contract: " $ prettyContractId contractId
         , label_ "Expected template: " $ prettyMay "<missing template>" (prettyDefName world) expectedTemplateId
         , label_ "Actual template: " $ prettyMay "<missing template>" (prettyDefName world) actualTemplateId
-        ]
-    ScenarioErrorErrorInconsistentDisclosureTableInvalidContractKeyHash(ScenarioError_InconsistentDisclosureTableInvalidContractKeyHash contractId expectedKeyHash actualKeyHash) ->
-      pure $ vcat
-        [ "Inconsistent disclosure table: invalid key hash mapping"
-        , label_ "Disclosed contract: " $ prettyContractId contractId
-        , label_ "Expected contract key hash: " $ ltext expectedKeyHash
-        , label_ "Actual contract key hash: " $ ltext actualKeyHash
-        ]
-    ScenarioErrorErrorInconsistentDisclosureTableNoDisclosedContractKeyInLedgerCache(ScenarioError_InconsistentDisclosureTableNoDisclosedContractKeyInLedgerCache contractId templateId) ->
-      pure $ vcat
-        [ "Inconsistent disclosure table: disclosed contract has no key"
-        , label_ "Disclosed contract: " $ prettyContractId contractId
-        , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
         ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass

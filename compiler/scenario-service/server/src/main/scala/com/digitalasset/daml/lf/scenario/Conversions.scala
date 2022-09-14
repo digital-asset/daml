@@ -246,20 +246,6 @@ final class Conversions(
                         .setTemplateId(convertIdentifier(tid))
                         .setKeyHash(keyHash.toHexString)
                     )
-                  case DisclosurePreprocessing.NonExistentTemplate(templateId) =>
-                    builder.setDisclosurePreprocessingNonExistentTemplate(
-                      proto.ScenarioError.DisclosurePreprocessingNonExistentTemplate.newBuilder
-                        .setTemplateId(convertIdentifier(templateId))
-                    )
-                  case DisclosurePreprocessing.NonExistentDisclosedContractKeyHash(
-                        contractId,
-                        templateId,
-                      ) =>
-                    builder.setDisclosurePreprocessingNonExistentDisclosedContractKeyHash(
-                      proto.ScenarioError.DisclosurePreprocessingNonExistentDisclosedContractKeyHash.newBuilder
-                        .setContractId(coidToEventId(contractId).toLedgerString)
-                        .setTemplateId(convertIdentifier(templateId))
-                    )
                 }
 
               case InconsistentDisclosureTable.IncorrectlyTypedContract(
@@ -272,28 +258,6 @@ final class Conversions(
                     .setContractId(coidToEventId(contractId).toLedgerString)
                     .setExpected(convertIdentifier(expectedTemplateId))
                     .setActual(convertIdentifier(actualTemplateId))
-                )
-
-              case InconsistentDisclosureTable.InvalidContractKeyHash(
-                    contractId,
-                    expectedKeyHash,
-                    actualKeyHash,
-                  ) =>
-                builder.setInconsistentDisclosureTableInvalidContractKeyHash(
-                  proto.ScenarioError.InconsistentDisclosureTableInvalidContractKeyHash.newBuilder
-                    .setContractId(coidToEventId(contractId).toLedgerString)
-                    .setExpected(expectedKeyHash.toHexString)
-                    .setActual(actualKeyHash.toHexString)
-                )
-
-              case InconsistentDisclosureTable.NoDisclosedContractKeyInLedgerCache(
-                    contractId,
-                    templateId,
-                  ) =>
-                builder.setInconsistentDisclosureTableNoDisclosedContractKeyInLedgerCache(
-                  proto.ScenarioError.InconsistentDisclosureTableNoDisclosedContractKeyInLedgerCache.newBuilder
-                    .setContractId(coidToEventId(contractId).toLedgerString)
-                    .setTemplateId(convertIdentifier(templateId))
                 )
             }
         }

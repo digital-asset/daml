@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LookupError, PackageInterface, Util => AstUtil}
+import com.daml.lf.language.{LookupError, Util => AstUtil}
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -27,6 +27,7 @@ import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.annotation.tailrec
+import scala.collection.immutable
 
 private[lf] object Speedy {
 
@@ -207,80 +208,36 @@ private[lf] object Speedy {
 
   private[lf] final case object OffLedger extends LedgerMode
 
-  private[speedy] case class DisclosedContractKeyTable(
-      contractIdByKey: Map[crypto.Hash, SValue.SContractId]
-  )
+  private[speedy] class DisclosedContractKeyTable {
 
-  object DisclosedContractKeyTable {
-    val Empty: DisclosedContractKeyTable = DisclosedContractKeyTable(Map.empty)
+    private[this] var keyMap: immutable.Map[crypto.Hash, SValue.SContractId] = immutable.Map.empty
+
+    private[speedy] def addContractKey(
+        templateId: TypeConName,
+        keyHash: crypto.Hash,
+        contractId: V.ContractId,
+    ): Unit = {
+      if (keyMap.contains(keyHash)) {
+        throw SErrorDamlException(
+          IError.DisclosurePreprocessing(
+            IError.DisclosurePreprocessing.DuplicateContractKeys(
+              templateId,
+              keyHash,
+            )
+          )
+        )
+      } else {
+        keyMap = keyMap + (keyHash -> SValue.SContractId(contractId))
+      }
+    }
+
+    private[speedy] def contractIdByKey: Map[crypto.Hash, SValue.SContractId] =
+      keyMap
   }
 
   case class DisclosurePreprocessError(
       err: String
   ) extends RuntimeException(err, null, true, false)
-
-  @throws[SErrorDamlException]
-  private[speedy] def buildDisclosedContractKeyTable(
-      disclosures: ImmArray[speedy.DisclosedContract],
-      packageInterface: PackageInterface,
-  ): DisclosedContractKeyTable = {
-    val _ = disclosures
-    val acc = disclosures.foldLeft(
-      DisclosedContractKeyTable.Empty
-    ) { case (table, d) =>
-      val coid = d.contractId
-
-      d.metadata.keyHash match {
-        case Some(hash) =>
-          // check for duplicate contract key hashes
-          table.contractIdByKey.get(hash) match {
-            case Some(_) =>
-              throw SErrorDamlException(
-                IError.DisclosurePreprocessing(
-                  IError.DisclosurePreprocessing.DuplicateContractKeys(
-                    d.templateId,
-                    hash,
-                  )
-                )
-              )
-
-            case None =>
-              DisclosedContractKeyTable(
-                table.contractIdByKey + (hash -> coid)
-              )
-          }
-
-        case None =>
-          packageInterface.lookupTemplate(d.templateId) match {
-            case Right(template) if template.key.isEmpty =>
-              // Success - template exists, but has no key defined
-              table
-
-            case Right(_) =>
-              // Error - disclosed contract lacks a key hash, but the template requires a key
-              throw SErrorDamlException(
-                IError.DisclosurePreprocessing(
-                  IError.DisclosurePreprocessing.NonExistentDisclosedContractKeyHash(
-                    d.contractId.value,
-                    d.templateId,
-                  )
-                )
-              )
-
-            case Left(_) =>
-              // Error - template is non-existent
-              throw SErrorDamlException(
-                IError.DisclosurePreprocessing(
-                  IError.DisclosurePreprocessing.NonExistentTemplate(
-                    d.templateId
-                  )
-                )
-              )
-          }
-      }
-    }
-    acc
-  }
 
   /** The speedy CEK machine. */
   final class Machine(
@@ -950,8 +907,7 @@ private[lf] object Speedy {
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
-        disclosureTable =
-          buildDisclosedContractKeyTable(disclosedContracts, compiledPackages.pkgInterface),
+        disclosureTable = new DisclosedContractKeyTable,
       )
     }
 
@@ -1052,7 +1008,7 @@ private[lf] object Speedy {
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
-        disclosureTable = DisclosedContractKeyTable.Empty,
+        disclosureTable = new DisclosedContractKeyTable,
       )
     }
 

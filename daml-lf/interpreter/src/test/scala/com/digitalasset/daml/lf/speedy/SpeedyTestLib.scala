@@ -16,8 +16,6 @@ import transaction.{GlobalKeyWithMaintainers, SubmittedTransaction}
 import value.Value
 import scalautil.Statement.discard
 
-import com.daml.lf.speedy.Speedy.{DisclosedContractKeyTable, Machine}
-
 import scala.annotation.tailrec
 
 private[speedy] object SpeedyTestLib {
@@ -138,37 +136,4 @@ private[speedy] object SpeedyTestLib {
       parserParameter: ParserParameters[X]
   ): PureCompiledPackages =
     typeAndCompile(Map(parserParameter.defaultPackageId -> pkg))
-
-  object Implicits {
-    implicit class SpeedyMachineTestMethods(machine: Machine) {
-      private[speedy] def withDisclosureTableUpdates(
-          disclosureTableUpdates: DisclosedContractKeyTable
-      ): Machine = {
-        val modifiedDisclosureTable = DisclosedContractKeyTable(
-          contractIdByKey =
-            machine.disclosureTable.contractIdByKey ++ disclosureTableUpdates.contractIdByKey
-        )
-
-        new Machine(
-          machine.control,
-          machine.frame,
-          machine.actuals,
-          machine.env,
-          machine.envBase,
-          machine.kontStack,
-          machine.lastLocation,
-          machine.traceLog,
-          machine.warningLog,
-          machine.loggingContext,
-          machine.compiledPackages,
-          machine.steps,
-          machine.track,
-          machine.profile,
-          machine.submissionTime,
-          machine.ledgerMode,
-          modifiedDisclosureTable,
-        )
-      }
-    }
-  }
 }

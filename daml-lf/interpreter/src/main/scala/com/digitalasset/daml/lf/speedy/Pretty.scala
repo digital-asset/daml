@@ -175,17 +175,6 @@ private[lf] object Pretty {
             text(
               s"Found duplicated contract keys in submitted disclosed contracts for template $templateId and key hash ${keyHash.toHexString}"
             )
-          case DisclosurePreprocessing.NonExistentTemplate(templateId) =>
-            text(
-              s"Template $templateId does not exist for the disclosed contract"
-            )
-          case DisclosurePreprocessing.NonExistentDisclosedContractKeyHash(
-                contractId,
-                templateId,
-              ) =>
-            text(
-              s"Template $templateId has a key defined, but there is no key hash for disclosed contract $contractId"
-            )
         }
 
       case InconsistentDisclosureTable.IncorrectlyTypedContract(coid, expected, actual) =>
@@ -196,22 +185,6 @@ private[lf] object Pretty {
             "but got"
           ) & prettyTypeConName(
             actual
-          )
-
-      case InconsistentDisclosureTable.InvalidContractKeyHash(coid, expected, actual) =>
-        text(
-          "Inconsistent disclosure table: invalid key hash mapping for disclosed contract id"
-        ) & prettyContractId(coid) /
-          text(s"Expected contract key with hash ${expected.toHexString}") & text(
-            s"but got ${actual.toHexString}"
-          )
-
-      case InconsistentDisclosureTable.NoDisclosedContractKeyInLedgerCache(coid, templateId) =>
-        text(
-          "Inconsistent disclosure table: disclosed contract has no key"
-        ) & prettyContractId(coid) /
-          text("Expected contract key of type") & prettyTypeConName(templateId) & text(
-            "but key was missing"
           )
     }
   }

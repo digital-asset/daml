@@ -1653,31 +1653,9 @@ private[lf] object SBuiltin {
             machine.disclosureTable.contractIdByKey.get(gkey.hash) match {
               case Some(coid) =>
                 onLedger.cachedContracts.get(coid.value) match {
-                  case Some(CachedContract(actualTemplateId, _, _, _, Some(actualKey)))
+                  case Some(CachedContract(actualTemplateId, _, _, _, _))
                       if actualTemplateId == operation.templateId =>
-                    val actualKeyHash =
-                      crypto.Hash.assertHashContractKey(actualTemplateId, actualKey.key)
-
-                    if (gkey.hash == actualKeyHash) {
-                      continue(Some(coid.value))._1
-                    } else {
-                      Control.Error(
-                        InconsistentDisclosureTable.InvalidContractKeyHash(
-                          coid.value,
-                          gkey.hash,
-                          actualKeyHash,
-                        )
-                      )
-                    }
-
-                  case Some(CachedContract(actualTemplateId, _, _, _, None))
-                      if actualTemplateId == operation.templateId =>
-                    Control.Error(
-                      InconsistentDisclosureTable.NoDisclosedContractKeyInLedgerCache(
-                        coid.value,
-                        actualTemplateId,
-                      )
-                    )
+                    continue(Some(coid.value))._1
 
                   case Some(cachedContract) =>
                     Control.Error(
@@ -2176,6 +2154,27 @@ private[lf] object SBuiltin {
         contractId,
         extractCachedContract(machine, cachedContract),
       )
+
+      Control.Value(SUnit)
+    }
+  }
+
+  private[speedy] final case class SBCacheDisclosedContractKey(contractId: V.ContractId)
+      extends OnLedgerBuiltin(1) {
+
+    override protected def executeWithLedger(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+        onLedger: OnLedger,
+    ): Control = {
+      val cachedContract = extractCachedContract(machine, args.get(0))
+      val templateId = cachedContract.templateId
+
+      for (keyWithMaintainers <- cachedContract.key) {
+        val keyHash = crypto.Hash.assertHashContractKey(templateId, keyWithMaintainers.key)
+
+        machine.disclosureTable.addContractKey(templateId, keyHash, contractId)
+      }
 
       Control.Value(SUnit)
     }

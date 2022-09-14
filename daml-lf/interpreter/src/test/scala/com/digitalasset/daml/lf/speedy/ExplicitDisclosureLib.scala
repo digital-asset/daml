@@ -11,13 +11,11 @@ import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SExpr.{SEMakeClo, SEValue}
 import com.daml.lf.speedy.SValue.SContractId
-import com.daml.lf.speedy.Speedy.DisclosedContractKeyTable
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
 import org.scalatest.matchers.{MatchResult, Matcher}
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.speedy.SpeedyTestLib.Implicits._
 
 /** Shared test data and functions for testing explicit disclosure.
   */
@@ -237,7 +235,6 @@ object ExplicitDisclosureLib {
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
-      disclosureTableUpdates: Option[DisclosedContractKeyTable] = None,
   ): (Either[SError.SError, SValue], Speedy.OnLedger) = {
     import SpeedyTestLib.loggingContext
 
@@ -264,7 +261,7 @@ object ExplicitDisclosureLib {
     machine.setExpressionToEvaluate(SExpr.SEApp(runUpdateSExpr(sexpr), Array(SEValue.Token)))
 
     val result = SpeedyTestLib.run(
-      machine = disclosureTableUpdates.fold(machine)(machine.withDisclosureTableUpdates(_)),
+      machine = machine,
       getContract = getContract,
       getKey = getKey,
     )
@@ -279,20 +276,19 @@ object ExplicitDisclosureLib {
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
-      disclosureTableUpdates: Option[DisclosedContractKeyTable] = None,
   ): (Either[SError.SError, SValue], Speedy.OnLedger) = {
     import SpeedyTestLib.loggingContext
 
     val machine =
       Speedy.Machine.fromUpdateSExpr(
         pkg,
-        transactionSeed = crypto.Hash.hashPrivateKey("ExplicitDisclosureTest"),
+        transactionSeed = crypto.Hash.hashPrivateKey("ExplicitDisclosureLib"),
         updateSE = runUpdateSExpr(sexpr),
         committers = committers,
         disclosedContracts = disclosedContracts,
       )
     val result = SpeedyTestLib.run(
-      machine = disclosureTableUpdates.fold(machine)(machine.withDisclosureTableUpdates(_)),
+      machine = machine,
       getContract = getContract,
       getKey = getKey,
     )

@@ -49,7 +49,6 @@ da_scala_library(
     srcs = glob(["src/test/**/*Lib.scala"]),
     scala_deps = [
         "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts_stricter,
     deps = [

@@ -12,6 +12,7 @@ import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SBuiltin.{
   SBCacheDisclosedContract,
+  SBCacheDisclosedContractKey,
   SBCheckTemplate,
   SBCheckTemplateKey,
   SBCrash,
@@ -1704,16 +1705,17 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
             ),
             onLedger = true,
           )
-        ) { case Right((SUnit, contractCache)) =>
+        ) { case Right((SUnit, contractCache, disclosedContractKeys)) =>
           contractCache shouldBe Map(
             contractId -> cachedContract
           )
+          disclosedContractKeys shouldBe Map.empty
         }
       }
 
       "when template key is defined" in {
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
-        val (disclosedContract, Some((key, keyWithMaintainers))) =
+        val (disclosedContract, Some((key, keyWithMaintainers, _))) =
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = true)
         val optionalKey = Some(KeyWithMaintainers(key.toNormalizedValue(version), Set(alice)))
         val cachedContract = CachedContract(
@@ -1747,10 +1749,86 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
             ),
             onLedger = true,
           )
-        ) { case Right((SUnit, contractCache)) =>
+        ) { case Right((SUnit, contractCache, disclosedContractKeys)) =>
           contractCache shouldBe Map(
             contractId -> cachedContract
           )
+          disclosedContractKeys shouldBe Map.empty
+        }
+      }
+    }
+  }
+
+  "SBCacheDisclosedContractKey" - {
+    "updates on ledger cached contract map" - {
+      val version = TransactionVersion.minExplicitDisclosure
+      val contractId = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
+
+      "when no template key is defined" in {
+        val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:Iou")
+        val (disclosedContract, None) =
+          buildDisclosedContract(contractId, alice, alice, templateId, withKey = false)
+        val cachedContractSExpr = SBuildCachedContract(
+          SEValue(STypeRep(TTyCon(templateId))),
+          SEValue(disclosedContract.argument),
+          SEValue(SList(FrontStack(SParty(alice)))),
+          SEValue(SList(FrontStack.Empty)),
+          SEValue(SOptional(None)),
+        )
+
+        inside(
+          evalSExpr(
+            SEApp(
+              SEBuiltin(SBCacheDisclosedContractKey(contractId)),
+              Array(cachedContractSExpr),
+            ),
+            getContract = Map(
+              contractId -> VersionedContractInstance(
+                version,
+                templateId,
+                disclosedContract.argument.toUnnormalizedValue,
+                "Agreement",
+              )
+            ),
+            onLedger = true,
+          )
+        ) { case Right((SUnit, contractCache, disclosedContractKeys)) =>
+          contractCache shouldBe Map.empty
+          disclosedContractKeys shouldBe Map.empty
+        }
+      }
+
+      "when template key is defined" in {
+        val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
+        val (disclosedContract, Some((_, keyWithMaintainers, keyHash))) =
+          buildDisclosedContract(contractId, alice, alice, templateId, withKey = true)
+        val cachedContractSExpr = SBuildCachedContract(
+          SEValue(STypeRep(TTyCon(templateId))),
+          SEValue(disclosedContract.argument),
+          SEValue(SList(FrontStack(SParty(alice)))),
+          SEValue(SList(FrontStack.Empty)),
+          SEValue(SOptional(Some(keyWithMaintainers))),
+        )
+
+        inside(
+          evalSExpr(
+            SEApp(
+              SEBuiltin(SBCacheDisclosedContractKey(contractId)),
+              Array(cachedContractSExpr),
+            ),
+            getContract = Map(
+              contractId -> VersionedContractInstance(
+                version,
+                templateId,
+                disclosedContract.argument.toUnnormalizedValue,
+                "Agreement",
+              )
+            ),
+            onLedger = true,
+          )
+        ) { case Right((SUnit, contractCache, disclosedContractKeys)) =>
+          contractCache shouldBe Map.empty
+          disclosedContractKeys shouldBe Map(keyHash -> SValue.SContractId(contractId))
         }
       }
     }
@@ -1856,7 +1934,10 @@ object SBuiltinTest {
       sexpr: SExpr,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
       onLedger: Boolean,
-  ): Either[SError, (SValue, Map[ContractId, CachedContract])] = {
+  ): Either[
+    SError,
+    (SValue, Map[ContractId, CachedContract], Map[crypto.Hash, SValue.SContractId]),
+  ] = {
     val machine =
       if (onLedger) {
         Speedy.Machine.fromUpdateSExpr(
@@ -1872,10 +1953,10 @@ object SBuiltinTest {
     SpeedyTestLib.run(machine, getContract = getContract).map { value =>
       machine.ledgerMode match {
         case onLedger: OnLedger =>
-          (value, onLedger.cachedContracts)
+          (value, onLedger.cachedContracts, machine.disclosureTable.contractIdByKey)
 
         case _ =>
-          (value, Map.empty)
+          (value, Map.empty, Map.empty)
       }
     }
   }
@@ -1906,7 +1987,7 @@ object SBuiltinTest {
       maintainer: Party,
       templateId: Ref.Identifier,
       withKey: Boolean,
-  ): (DisclosedContract, Option[(SValue, SValue)]) = {
+  ): (DisclosedContract, Option[(SValue, SValue, crypto.Hash)]) = {
     val key = SValue.SRecord(
       templateId,
       ImmArray(
@@ -1962,6 +2043,6 @@ object SBuiltinTest {
       ContractMetadata(Time.Timestamp.now(), keyHash, ImmArray.Empty),
     )
 
-    (disclosedContract, if (withKey) Some((key, keyWithMaintainers)) else None)
+    (disclosedContract, if (withKey) Some((key, keyWithMaintainers, keyHash.get)) else None)
   }
 }

@@ -150,11 +150,6 @@ object Error {
   object DisclosurePreprocessing {
     sealed abstract class Error extends Serializable with Product
     final case class DuplicateContractKeys(templateId: TypeConName, keyHash: Hash) extends Error
-    final case class NonExistentTemplate(templateId: TypeConName) extends Error
-    final case class NonExistentDisclosedContractKeyHash(
-        coid: Value.ContractId,
-        templateId: TypeConName,
-    ) extends Error
   }
 
   object InconsistentDisclosureTable {
@@ -162,15 +157,6 @@ object Error {
         coid: ContractId,
         expected: TypeConName,
         actual: TypeConName,
-    ) extends Error
-    final case class InvalidContractKeyHash(
-        coid: ContractId,
-        expected: crypto.Hash,
-        actual: crypto.Hash,
-    ) extends Error
-    final case class NoDisclosedContractKeyInLedgerCache(
-        coid: Value.ContractId,
-        templateId: TypeConName,
     ) extends Error
   }
 
