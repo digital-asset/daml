@@ -19,6 +19,7 @@ import Data.List
 import Data.Maybe
 import Data.Foldable
 import Options.Applicative.Types
+import Options.Applicative
 import Options.Applicative.Extended
 import System.Environment
 import System.FilePath
