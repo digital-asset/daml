@@ -67,7 +67,7 @@ trait UserManagementServiceAnnotationsValidationTests { self: UserManagementServ
           "bad annotations key syntax on a user update",
           errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
           exceptionMessageSubstring = Some(
-            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Key prefix segment '.user.management.dam...' has invalid syntax"
+            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Key prefix segment '.user.management.daml' has invalid syntax"
           ),
         )
       _ <- ledger
@@ -78,7 +78,7 @@ trait UserManagementServiceAnnotationsValidationTests { self: UserManagementServ
           "bad annotations key syntax on user creation",
           errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
           exceptionMessageSubstring = Some(
-            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Key prefix segment '.user.management.dam...' has invalid syntax"
+            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Key prefix segment '.user.management.daml' has invalid syntax"
           ),
         )
     } yield ()

@@ -41,7 +41,9 @@ final class UserManagementServiceIT
     with UserManagementServiceUpdateRpcTests
     with UserManagementServiceAnnotationsValidationTests
     with UserManagementServiceUpdateAnnotationMapTests
-    with UserManagementServiceUpdatePrimitivePropertiesTests {
+    with UserManagementServiceUpdatePrimitivePropertiesTests
+    with UserManagementServiceInvalidUpdateRequestTests
+    with UserManagementServiceConcurrentUpdates {
 
   private val adminPermission =
     Permission(Permission.Kind.ParticipantAdmin(Permission.ParticipantAdmin()))

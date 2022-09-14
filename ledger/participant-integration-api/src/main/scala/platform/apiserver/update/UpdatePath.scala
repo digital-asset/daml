@@ -29,7 +29,7 @@ object UpdatePath {
     for {
       pathAndModifierO <- {
         rawPath.split('!') match {
-          case Array() => Left(UpdatePathError.EmptyFieldPath(rawPath))
+          case Array() => Left(UpdatePathError.InvalidUpdatePathSyntax(rawPath))
           case Array(path) => Right((path, None))
           case Array(path, updateModifier) => Right((path, Some(updateModifier)))
           case _ => Left(UpdatePathError.InvalidUpdatePathSyntax(rawPath))
@@ -38,7 +38,7 @@ object UpdatePath {
       (fieldPathRaw, modifierO) = pathAndModifierO
       _ <-
         if (fieldPathRaw.isEmpty) {
-          Left(UpdatePathError.EmptyFieldPath(rawPath))
+          Left(UpdatePathError.InvalidUpdatePathSyntax(rawPath))
         } else Right(())
       modifier <- {
         modifierO match {

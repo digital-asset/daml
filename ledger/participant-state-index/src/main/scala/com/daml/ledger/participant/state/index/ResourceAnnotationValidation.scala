@@ -115,8 +115,8 @@ object ResourceAnnotationValidation {
     }
   }
 
-  private def shorten(s: String): String = {
-    s.take(20) + (if (s.length > 20) "..." else "")
-  }
+  private def shorten(s: String): String =
+    if (s.length > 53) { s.take(50) + "..." }
+    else s
 
 }

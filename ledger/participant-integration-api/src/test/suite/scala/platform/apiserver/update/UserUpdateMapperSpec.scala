@@ -306,7 +306,7 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
         UserUpdateMapper
           .toUpdate(user, FieldMask(Seq("user.dummy!replace")))
           .left
-          .value shouldBe UpdatePathError.UnknownFieldPath("user.dummy!replace")
+          .value shouldBe UpdatePathError.UnknownOrUnmodifiableFieldPath("user.dummy!replace")
       }
 
       "raise an error when an unsupported modifier like syntax is used" in {
@@ -334,49 +334,51 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
       UserUpdateMapper
         .toUpdate(user, FieldMask(Seq("some_unknown_field")))
         .left
-        .value shouldBe UpdatePathError.UnknownFieldPath("some_unknown_field")
+        .value shouldBe UpdatePathError.UnknownOrUnmodifiableFieldPath("some_unknown_field")
       UserUpdateMapper
         .toUpdate(user, FieldMask(Seq("user", "some_unknown_field")))
         .left
-        .value shouldBe UpdatePathError.UnknownFieldPath("some_unknown_field")
+        .value shouldBe UpdatePathError.UnknownOrUnmodifiableFieldPath("some_unknown_field")
       UserUpdateMapper
         .toUpdate(user, FieldMask(Seq("user", "user.some_unknown_field")))
         .left
-        .value shouldBe UpdatePathError.UnknownFieldPath("user.some_unknown_field")
+        .value shouldBe UpdatePathError.UnknownOrUnmodifiableFieldPath("user.some_unknown_field")
     }
     "attempting to update resource version" in {
       UserUpdateMapper
         .toUpdate(user, FieldMask(Seq("user.metadata.resource_version")))
         .left
-        .value shouldBe UpdatePathError.UnknownFieldPath("user.metadata.resource_version")
+        .value shouldBe UpdatePathError.UnknownOrUnmodifiableFieldPath(
+        "user.metadata.resource_version"
+      )
     }
     "empty string update path" in {
       UserUpdateMapper
         .toUpdate(user, FieldMask(Seq("")))
         .left
-        .value shouldBe UpdatePathError.EmptyFieldPath("")
+        .value shouldBe UpdatePathError.InvalidUpdatePathSyntax("")
     }
     "empty string field path part of the field mask but non-empty update modifier" in {
       UserUpdateMapper
         .toUpdate(user, FieldMask(Seq("!merge")))
         .left
-        .value shouldBe UpdatePathError.EmptyFieldPath("!merge")
+        .value shouldBe UpdatePathError.InvalidUpdatePathSyntax("!merge")
     }
     "empty field mask" in {
       UserUpdateMapper
         .toUpdate(user, FieldMask(Seq.empty))
         .left
-        .value shouldBe UpdatePathError.EmptyFieldMask
+        .value shouldBe UpdatePathError.EmptyUpdateMask
     }
     "update path with invalid field path syntax" in {
       UserUpdateMapper
         .toUpdate(user, FieldMask(Seq("user..primary_party")))
         .left
-        .value shouldBe UpdatePathError.UnknownFieldPath("user..primary_party")
+        .value shouldBe UpdatePathError.UnknownOrUnmodifiableFieldPath("user..primary_party")
       UserUpdateMapper
         .toUpdate(user, FieldMask(Seq(".user.primary_party")))
         .left
-        .value shouldBe UpdatePathError.UnknownFieldPath(".user.primary_party")
+        .value shouldBe UpdatePathError.UnknownOrUnmodifiableFieldPath(".user.primary_party")
       UserUpdateMapper
         .toUpdate(user, FieldMask(Seq(".user!merge.primary_party")))
         .left

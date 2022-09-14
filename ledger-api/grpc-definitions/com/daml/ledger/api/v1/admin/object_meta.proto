@@ -9,26 +9,27 @@ option java_outer_classname = "ObjectMetaOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 
-// Represents metadata corresponding to some participant resource (e.g. a participant user).
+// Represents metadata corresponding to a participant resource (e.g. a participant user or participant local information about a party).
 //
-// Based on 'ObjectMeta' meta used in Kubernetes API.
+// Based on ``ObjectMeta`` meta used in Kubernetes API.
 // See https://github.com/kubernetes/apimachinery/blob/master/pkg/apis/meta/v1/generated.proto#L640
 message ObjectMeta {
 
   // An opaque value populated by a participant server which represents the internal version of the resource
-  // this ObjectMeta message is attached to. The participant server will change it to a unique value each time the corresponding resource is updated.
+  // this ``ObjectMeta`` message is attached to. The participant server will change it to a unique value each time the corresponding resource is updated.
   // You must not rely on the format of resource version. The participant server might change it without notice.
   //
   // You can obtain the newest resource version value by issuing a read request.
   // You may use it for concurrent change detection by passing it back unmodified in an update request.
-  // The participant server will compare the passed value with the value maintained by the system to determine
+  // The participant server will then compare the passed value with the value maintained by the system to determine
   // if any other updates took place since you read the resource version.
   // Upon a successful update you are guaranteed that no other update took place during your read-modify-write sequence.
-  // However, if another update took place during your read-modify-write sequence then your update will fail with an appropriate error.
-  // You may also omit it from an update request which will result in no concurrent change detection being applied.
+  // However if another update took place during your read-modify-write sequence then your update will fail with an appropriate error.
   //
-  // When creating a new instance of a resource you must leave it empty. Its value will be populated by the participant server
-  // upon successful resource creation.
+  // Concurrent change control is optional. It will be applied only if you include a resource version in an update request.
+  //
+  // When creating a new instance of a resource you must leave the resource version empty.
+  // Its value will be populated by the participant server upon successful resource creation.
   //
   // Optional
   string resource_version = 6;
@@ -44,19 +45,15 @@ message ObjectMeta {
   // 2. Values can be any valid strings.
   //
   // Keys with empty prefix are reserved for end-users.
-  // Properties set by external tools or internally by the participant must use non-empty key prefixes.
+  // Properties set by external tools or internally by the participant server must use non-empty key prefixes.
   //
   // Duplicate keys are disallowed by the semantics of the protobuf3 maps.
   // See: https://developers.google.com/protocol-buffers/docs/proto3#maps
   //
-  // Annotations map may be a part of a modifiable resource whose update rpc call uses an update mask ('google/protobuf/field_mask.proto').
-  // For such update calls you may explicitly specify the update semantics of the 'annotations' map by appending one of the two modifiers to the update mask's path:
-  // (1) '!merge' to use merge semantics,
-  // (2) '!replace' to use replace-all semantics.
-  // Example path: 'user.metadata.annotations!replace'.
-  // NOTE: Merge semantics is used by default.
+  // Annotations may be a part of a modifiable resource.
+  // Refer to the documentation of the update RPC of a specific resource for details on how to update the annotations of that resource.
   //
   // Optional
-  // Modifiable (with 'merge' or 'replace' semantics)
+  // Modifiable
   map<string, string> annotations = 12;
 }

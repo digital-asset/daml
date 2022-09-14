@@ -197,7 +197,9 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
         testedMapper
           .toUpdate(pr, FieldMask(Seq("party_details.dummy!replace")))
           .left
-          .value shouldBe UpdatePathError.UnknownFieldPath("party_details.dummy!replace")
+          .value shouldBe UpdatePathError.UnknownOrUnmodifiableFieldPath(
+          "party_details.dummy!replace"
+        )
       }
 
       "raise an error when an unsupported modifier like syntax is used" in {
@@ -225,21 +227,23 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
       testedMapper
         .toUpdate(pr, FieldMask(Seq("some_unknown_field")))
         .left
-        .value shouldBe UpdatePathError.UnknownFieldPath("some_unknown_field")
+        .value shouldBe UpdatePathError.UnknownOrUnmodifiableFieldPath("some_unknown_field")
       testedMapper
         .toUpdate(pr, FieldMask(Seq("party_details", "some_unknown_field")))
         .left
-        .value shouldBe UpdatePathError.UnknownFieldPath("some_unknown_field")
+        .value shouldBe UpdatePathError.UnknownOrUnmodifiableFieldPath("some_unknown_field")
       testedMapper
         .toUpdate(pr, FieldMask(Seq("party_details", "party_details.some_unknown_field")))
         .left
-        .value shouldBe UpdatePathError.UnknownFieldPath("party_details.some_unknown_field")
+        .value shouldBe UpdatePathError.UnknownOrUnmodifiableFieldPath(
+        "party_details.some_unknown_field"
+      )
     }
     "attempting to update resource version" in {
       testedMapper
         .toUpdate(pr, FieldMask(Seq("party_details.local_metadata.resource_version")))
         .left
-        .value shouldBe UpdatePathError.UnknownFieldPath(
+        .value shouldBe UpdatePathError.UnknownOrUnmodifiableFieldPath(
         "party_details.local_metadata.resource_version"
       )
     }
@@ -247,29 +251,33 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
       testedMapper
         .toUpdate(pr, FieldMask(Seq("")))
         .left
-        .value shouldBe UpdatePathError.EmptyFieldPath("")
+        .value shouldBe UpdatePathError.InvalidUpdatePathSyntax("")
     }
     "empty string field path part of the field mask but non-empty update modifier" in {
       testedMapper
         .toUpdate(pr, FieldMask(Seq("!merge")))
         .left
-        .value shouldBe UpdatePathError.EmptyFieldPath("!merge")
+        .value shouldBe UpdatePathError.InvalidUpdatePathSyntax("!merge")
     }
     "empty field mask" in {
       testedMapper
         .toUpdate(pr, FieldMask(Seq.empty))
         .left
-        .value shouldBe UpdatePathError.EmptyFieldMask
+        .value shouldBe UpdatePathError.EmptyUpdateMask
     }
     "update path with invalid field path syntax" in {
       testedMapper
         .toUpdate(pr, FieldMask(Seq("party_details..local_metadata")))
         .left
-        .value shouldBe UpdatePathError.UnknownFieldPath("party_details..local_metadata")
+        .value shouldBe UpdatePathError.UnknownOrUnmodifiableFieldPath(
+        "party_details..local_metadata"
+      )
       testedMapper
         .toUpdate(pr, FieldMask(Seq(".party_details.local_metadata")))
         .left
-        .value shouldBe UpdatePathError.UnknownFieldPath(".party_details.local_metadata")
+        .value shouldBe UpdatePathError.UnknownOrUnmodifiableFieldPath(
+        ".party_details.local_metadata"
+      )
       testedMapper
         .toUpdate(pr, FieldMask(Seq(".party_details!merge.local_metadata")))
         .left

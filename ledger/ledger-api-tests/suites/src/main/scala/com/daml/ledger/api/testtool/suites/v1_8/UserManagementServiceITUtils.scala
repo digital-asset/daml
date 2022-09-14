@@ -140,6 +140,31 @@ trait UserManagementServiceITUtils { self: UserManagementServiceIT =>
     })
   }
 
+  def userManagementTestWithFreshUser(
+      shortIdentifier: String,
+      description: String,
+  )(
+      primaryParty: String = "",
+      isDeactivated: Boolean = false,
+      annotations: Map[String, String] = Map.empty,
+  )(
+      body: ExecutionContext => (ParticipantTestContext, User) => Future[Unit]
+  ): Unit = {
+    userManagementTest(
+      shortIdentifier = shortIdentifier,
+      description = description,
+      requiresUserExtensionsForHub = true,
+    )(implicit ec => { implicit ledger =>
+      withFreshUser(
+        primaryParty = primaryParty,
+        isDeactivated = isDeactivated,
+        annotations = annotations,
+      ) { user =>
+        body(ec)(ledger, user)
+      }
+    })
+  }
+
   def assertUserNotFound(t: Throwable): Unit = {
     assertGrpcError(
       t = t,

@@ -41,7 +41,7 @@ trait UpdateMapperBase {
 
   private def makeUpdateTrie(updateMask: FieldMask): Result[UpdatePathsTrie] = {
     for {
-      _ <- if (updateMask.paths.isEmpty) Left(UpdatePathError.EmptyFieldMask) else Right(())
+      _ <- if (updateMask.paths.isEmpty) Left(UpdatePathError.EmptyUpdateMask) else Right(())
       parsedPaths <- UpdatePath.parseAll(updateMask.paths)
       _ <- validatePathsMatchValidFields(parsedPaths)
       updateTrie <- UpdatePathsTrie.fromPaths(parsedPaths)
@@ -58,7 +58,7 @@ trait UpdateMapperBase {
         _ <- ax
         _ <-
           if (!fullUpdateTrie.containsPrefix(parsedPath.fieldPath)) {
-            Left(UpdatePathError.UnknownFieldPath(parsedPath.toRawString))
+            Left(UpdatePathError.UnknownOrUnmodifiableFieldPath(parsedPath.toRawString))
           } else Right(())
       } yield ()
     }
