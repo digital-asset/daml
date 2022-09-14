@@ -137,7 +137,7 @@ object TransactionTraversal {
                 )
             }
           case Node.NodeTypeCase.ROLLBACK =>
-            // Rollback nodes have only the parent informees
+            // Rollback nodes have only the parent witnesses
             val rollback = node.getRollback
             // Recurse into children (if any).
             val next = rollback.getChildrenList.asScala.view
