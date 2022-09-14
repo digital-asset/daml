@@ -555,11 +555,16 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           val label: String,
           val ctId: domain.ContractTypeId.OptionalPkg,
           val va: VA.Aux[Inj],
-          val query: JsValue,
+          val query: Map[String, JsValue],
           val matches: domain.Party => Inj,
           val doesNotMatch: domain.Party => Inj,
       )
-      def Scenario(label: String, ctId: domain.ContractTypeId.OptionalPkg, va: VA, query: JsValue)(
+      def Scenario(
+          label: String,
+          ctId: domain.ContractTypeId.OptionalPkg,
+          va: VA,
+          query: Map[String, JsValue],
+      )(
           matches: domain.Party => va.Inj,
           doesNotMatch: domain.Party => va.Inj,
       ): Scenario[va.Inj] =
@@ -571,7 +576,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           "gt string",
           kbvarId,
           kbvarVA,
-          Map("bazRecord" -> Map("baz" -> Map("%gt" -> "b"))).toJson,
+          Map("bazRecord" -> Map("baz" -> Map("%gt" -> "b")).toJson),
         )(
           withBazRecord("c"),
           withBazRecord("a"),
@@ -580,7 +585,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           "gt int",
           kbvarId,
           kbvarVA,
-          Map("fooVariant" -> Map("tag" -> "Bar".toJson, "value" -> Map("%gt" -> 2).toJson)).toJson,
+          Map("fooVariant" -> Map("tag" -> "Bar".toJson, "value" -> Map("%gt" -> 2).toJson).toJson),
         )(withFooVariant(3), withFooVariant(1)),
       ).zipWithIndex.foreach { case (scenario, ix) =>
         import scenario._
@@ -591,7 +596,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
               List(matches, doesNotMatch).map { payload =>
                 domain.CreateCommand(ctId, argToApi(va)(payload(alice)), None)
               },
-              query.asJsObject,
+              JsObject(Map("templateIds" -> Seq(ctId).toJson, "query" -> query.toJson)),
               fixture,
               headers,
             )
