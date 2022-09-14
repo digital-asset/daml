@@ -202,6 +202,7 @@ class TransactionTraversalSpec extends AnyFunSuite with Matchers {
         exeNid,
       )
     )
+
     def rawTx: RawTransaction = RawTransaction(builder.build.toByteString)
   }
 
@@ -284,7 +285,5 @@ class TransactionTraversalSpec extends AnyFunSuite with Matchers {
         .addAllChildren(children.asJava)
     }
 
-  private def identifierForTemplateId = {
-    ValueOuterClass.Identifier.newBuilder().setPackageId _
-  }
+  private def identifierForTemplateId = ValueOuterClass.Identifier.newBuilder().setPackageId _
 }
