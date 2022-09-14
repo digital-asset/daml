@@ -221,7 +221,9 @@ message DisclosedContract {
 
   // The contract arguments
   oneof arguments {
+    // The contract arguments as typed Record
     Record record = 3;
+
     // Contract argument accessible at ``com.daml.ledger.api.v1.CreatedEvent.create_arguments_blob``
     // should be specified here.
     google.protobuf.Any blob = 5;
