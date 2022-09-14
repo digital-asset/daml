@@ -3,8 +3,6 @@
 
 package com.daml.ledger.javaapi.data.codegen;
 
-import com.daml.ledger.javaapi.data.Value;
-
-public interface DefinedDataType<T> {
-  Value toValue();
+public interface DamlEnum<T> extends DefinedDataType<T> {
+  com.daml.ledger.javaapi.data.DamlEnum toValue();
 }

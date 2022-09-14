@@ -126,7 +126,7 @@ A Java file is generated that defines the class for the type ``Person``:
 A Java file is generated that defines the class for the type ``Name``:
 
   .. code-block:: java
-    :caption: com/acme/producttypes.Name.java
+    :caption: com/acme/producttypes/Name.java
 
     package com.acme.producttypes;
 
@@ -367,7 +367,7 @@ The Java code generated for this variant is:
   package com.acme.enum;
 
 
-  public enum Color {
+  public enum Color implements DamlEnum<Color> {
     RED,
 
     GREEN,
