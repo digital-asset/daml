@@ -111,7 +111,7 @@ private[inner] object VariantClass extends StrictLogging {
     builder
       .addStatement(
         "throw new IllegalArgumentException($S)",
-        s"Found unknown constructor variant$$.getConstructor() for variant $variant, expected one of ${constructorsAsString}",
+        s"Found unknown constructor variant$$.getConstructor() for variant $variant, expected one of $constructorsAsString",
       )
   }
 
@@ -131,7 +131,7 @@ private[inner] object VariantClass extends StrictLogging {
         variant.typeArguments.asScala.map(_.toString).toIndexedSeq
       )
     builder.addTypeVariables(typeVariablesExtractorParameters.typeVariables.asJava)
-    builder.addParameters(typeVariablesExtractorParameters.parameterSpecs.asJava)
+    builder.addParameters(typeVariablesExtractorParameters.functionParameterSpecs.asJava)
     builder.addStatement("$L", variantExtractor(variant.rawType))
     val extractors =
       CodeBlock.join(

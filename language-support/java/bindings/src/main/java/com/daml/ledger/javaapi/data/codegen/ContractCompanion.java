@@ -26,11 +26,17 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
   protected final Function<String, Id> newContractId;
   protected final Function<DamlRecord, Data> fromValue;
 
-  public static <Data> FromValue<Data> fromValue(ContractCompanion<?, ? extends ContractId<Data>, Data> companion) {
+  public static <Data> FromValue<Data> fromValue(
+      ContractCompanion<?, ? extends ContractId<Data>, Data> companion) {
     return new FromValue<>() {
       @Override
       public Data fromValue(Value value) {
-        DamlRecord record = value.asRecord().orElseThrow(() -> new IllegalArgumentException("Contracts must be constructed from Records"));
+        DamlRecord record =
+            value
+                .asRecord()
+                .orElseThrow(
+                    () ->
+                        new IllegalArgumentException("Contracts must be constructed from Records"));
         return companion.fromValue.apply(record);
       }
 

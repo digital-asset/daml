@@ -4,17 +4,51 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.daml.lf.codegen.backend.java.{JavaEscaper}
+import com.daml.ledger.javaapi.data.codegen.FromValue
+import com.daml.lf.codegen.backend.java.JavaEscaper
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.typesig._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
-
 import scala.jdk.CollectionConverters._
 
 private[inner] object FromValueGenerator extends StrictLogging {
+
+  def generateDeprecatedFromValueForRecordLike(
+      className: TypeName,
+      typeParameters: IndexedSeq[String],
+  ): MethodSpec = {
+    logger.debug("Generating fromValue method")
+
+    val converterParams = FromValueExtractorParameters
+      .generate(typeParameters)
+
+    val method = MethodSpec
+      .methodBuilder("fromValue")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .returns(className)
+      .addTypeVariables(className.typeParameters)
+      .addParameter(TypeName.get(classOf[javaapi.data.Value]), "value$")
+      .addParameters(converterParams.functionParameterSpecs.asJava)
+      .addException(classOf[IllegalArgumentException])
+
+    val fromValueParams = CodeBlock.join(
+      converterParams.functionParameterSpecs.map { param =>
+        CodeBlock.of("$N", param)
+      }.asJava,
+      ", ",
+    )
+
+    method
+      .addStatement(
+        "return fromValue($L).fromValue($L)",
+        fromValueParams,
+        "value$",
+      )
+      .build
+  }
 
   def generateFromValueForRecordLike(
       fields: Fields,
@@ -27,17 +61,10 @@ private[inner] object FromValueGenerator extends StrictLogging {
 
     val converterParams = FromValueExtractorParameters
       .generate(typeParameters)
-      .parameterSpecs
 
-    val method = MethodSpec
-      .methodBuilder("fromValue")
-      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-      .returns(className)
-      .addTypeVariables(className.typeParameters)
-      .addParameter(TypeName.get(classOf[javaapi.data.Value]), "value$")
-      .addParameters(converterParams.asJava)
-      .addException(classOf[IllegalArgumentException])
-      .addCode(recordValueExtractor("value$", "recordValue$"))
+    val fromValueCode = CodeBlock
+      .builder()
+      .add(recordValueExtractor("value$", "recordValue$"))
       .addStatement(
         "$T record$$ = recordValue$$.asRecord().orElseThrow(() -> new IllegalArgumentException($S))",
         classOf[javaapi.data.DamlRecord],
@@ -55,14 +82,32 @@ private[inner] object FromValueGenerator extends StrictLogging {
         classOf[IllegalArgumentException],
         s"Expected ${fields.size} arguments, got ",
       )
-      .endControlFlow()
+      .endControlFlow();
 
     fields.iterator.zip(accessors).foreach { case (FieldInfo(_, damlType, javaName, _), accessor) =>
-      method.addStatement(generateFieldExtractor(damlType, javaName, accessor, packagePrefixes))
+      fromValueCode.addStatement(
+        generateFieldExtractor(damlType, javaName, accessor, packagePrefixes)
+      )
     }
 
-    method
-      .addStatement("return new $L($L)", className, generateArgumentList(fields.map(_.javaName)))
+    fromValueCode
+      .addStatement(
+        "return new $L($L)",
+        className,
+        generateArgumentList(fields.map(_.javaName)),
+      )
+
+    MethodSpec
+      .methodBuilder("fromValue")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .returns(ParameterizedTypeName.get(ClassName.get(classOf[FromValue[_]]), className))
+      .addTypeVariables(className.typeParameters)
+      .addParameters(converterParams.fromValueParameterSpecs.asJava)
+      .addException(classOf[IllegalArgumentException])
+      .beginControlFlow("return $L ->", "value$")
+      .addCode(fromValueCode.build())
+      // put empty string in endControlFlow in order to have semicolon
+      .endControlFlow("")
       .build()
   }
 
@@ -102,18 +147,15 @@ private[inner] object FromValueGenerator extends StrictLogging {
       extractor(fieldType, field, accessor, newNameGenerator, packagePrefixes),
     )
 
-  // Primitive extractors that map a type to the method to retrieve it
-  // Missing on purpose: `Record` and `Variant` -- those should be dealt
-  // with separately as code generation turns them into custom types
   private[this] val extractors =
-    Map[PrimType, (String, Option[String])](
-      (PrimTypeBool, ("asBool", Some(".getValue()"))),
-      (PrimTypeInt64, ("asInt64", Some(".getValue()"))),
-      (PrimTypeText, ("asText", Some(".getValue()"))),
-      (PrimTypeTimestamp, ("asTimestamp", Some(".getValue()"))),
-      (PrimTypeParty, ("asParty", Some(".getValue()"))),
-      (PrimTypeUnit, ("asUnit", None)),
-      (PrimTypeDate, ("asDate", Some(".getValue()"))),
+    Map[PrimType, String](
+      (PrimTypeBool, "fromBool"),
+      (PrimTypeInt64, "fromInt64"),
+      (PrimTypeText, "fromText"),
+      (PrimTypeTimestamp, "fromTimestamp"),
+      (PrimTypeParty, "fromParty"),
+      (PrimTypeUnit, "fromUnit"),
+      (PrimTypeDate, "fromDate"),
     )
 
   // If [[typeName]] is defined in the primitive extractors map, create an extractor for it
@@ -125,14 +167,13 @@ private[inner] object FromValueGenerator extends StrictLogging {
   ): Option[CodeBlock] =
     extractors
       .get(damlType)
-      .map { case (extractor, converter) =>
+      .map { extractor =>
         logger.debug(s"Generating primitive extractor for $field of type $apiType")
         CodeBlock.of(
-          "$L.$L()$L$L",
-          accessor,
+          "$T.$L.fromValue($L)",
+          classOf[javaapi.data.PrimitiveValueDecoders],
           extractor,
-          orElseThrow(apiType, field),
-          converter.getOrElse(""),
+          accessor,
         )
       }
 
@@ -167,11 +208,12 @@ private[inner] object FromValueGenerator extends StrictLogging {
       // defined by the accessor
       // TODO: review aforementioned assumption
       case TypeVar(tvName) =>
-        CodeBlock.of("fromValue$L.apply($L)", JavaEscaper.escapeString(tvName), accessor)
+        CodeBlock.of("fromValue$L.fromValue($L)", JavaEscaper.escapeString(tvName), accessor)
 
       case TypePrim(PrimTypeList, ImmArraySeq(param)) =>
         val optMapArg = args.next()
         val listMapArg = args.next()
+        // TODO CL simplify `v$0.toList(v$1 -> fromValuea.apply(v$1))` to `v$0.toList(fromValuea.fromValue)`
         CodeBlock.of(
           """$L.asList()
             |    .map($L -> $L.toList($L ->

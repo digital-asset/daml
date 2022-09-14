@@ -105,7 +105,7 @@ object VariantConstructorClass extends StrictLogging {
     val valueParam = ParameterSpec.builder(classOf[Value], "value$").build()
 
     val converterParams =
-      FromValueExtractorParameters.generate(typeParameters).parameterSpecs
+      FromValueExtractorParameters.generate(typeParameters).functionParameterSpecs
     MethodSpec
       .methodBuilder("fromValue")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)

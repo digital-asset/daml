@@ -42,7 +42,11 @@ private[inner] object VariantRecordMethods extends StrictLogging {
         FromValueGenerator.variantCheck(constructorName, _, _),
         packagePrefixes,
       )
-      List(toValue, fromValue)
+      val deprecatedFromValue = FromValueGenerator.generateDeprecatedFromValueForRecordLike(
+        className,
+        params,
+      )
+      List(toValue, fromValue, deprecatedFromValue)
     }
 
     Vector(constructor) ++ conversionMethods ++

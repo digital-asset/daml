@@ -35,6 +35,10 @@ private[inner] object RecordMethods {
             .build(),
         packagePrefixes,
       )
+      val deprecatedFromValue = FromValueGenerator.generateDeprecatedFromValueForRecordLike(
+        className.parameterized(typeParameters),
+        params,
+      )
       val toValue = ToValueGenerator.generateToValueForRecordLike(
         params,
         fields,
@@ -42,7 +46,7 @@ private[inner] object RecordMethods {
         ClassName.get(classOf[javaapi.data.DamlRecord]),
         name => CodeBlock.of("return new $T($L)", classOf[javaapi.data.DamlRecord], name),
       )
-      List(fromValue, toValue)
+      List(fromValue, deprecatedFromValue, toValue)
     }
 
     Vector(constructor) ++ conversionMethods ++
