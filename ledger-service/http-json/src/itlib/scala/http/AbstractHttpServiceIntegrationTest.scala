@@ -515,6 +515,92 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         }): Future[Assertion]
       }
     }
+
+    "nested comparison filters" - {
+      val irrelevant = Ref.Identifier assertFromString "none:Discarded:Identifier"
+      val (_, bazRecordVA) = VA.record(irrelevant, ShRecord(baz = VA.text))
+      val (_, fooVA) =
+        VA.variant(irrelevant, ShRecord(Bar = VA.int64, Baz = bazRecordVA, Qux = VA.unit))
+      val (_, kbvarVA) = VA.record(
+        irrelevant,
+        ShRecord(
+          name = VA.text,
+          party = VAx.partyDomain,
+          age = VA.int64,
+          fooVariant = fooVA,
+          bazRecord = bazRecordVA,
+        ),
+      )
+
+      import shapeless.Coproduct, shapeless.syntax.singleton._
+      def withBazRecord(bazRecord: VA.text.Inj)(p: domain.Party): kbvarVA.Inj =
+        ShRecord(
+          name = "ABC DEF",
+          party = p,
+          age = 123L,
+          fooVariant = Coproduct[fooVA.Inj](Symbol("Bar") ->> 42L),
+          bazRecord = ShRecord(baz = bazRecord),
+        )
+
+      def withFooVariant(v: VA.int64.Inj)(p: domain.Party): kbvarVA.Inj =
+        ShRecord(
+          name = "ABC DEF",
+          party = p,
+          age = 123L,
+          fooVariant = Coproduct[fooVA.Inj](Symbol("Bar") ->> v),
+          bazRecord = ShRecord(baz = "another baz value"),
+        )
+
+      final class Scenario[Inj](
+          val label: String,
+          val ctId: domain.ContractTypeId.OptionalPkg,
+          val va: VA.Aux[Inj],
+          val query: JsValue,
+          val matches: domain.Party => Inj,
+          val doesNotMatch: domain.Party => Inj,
+      )
+      def Scenario(label: String, ctId: domain.ContractTypeId.OptionalPkg, va: VA, query: JsValue)(
+          matches: domain.Party => va.Inj,
+          doesNotMatch: domain.Party => va.Inj,
+      ): Scenario[va.Inj] =
+        new Scenario(label, ctId, va, query, matches, doesNotMatch)
+
+      val kbvarId = TpId.Account.KeyedByVariantAndRecord
+      Seq(
+        Scenario(
+          "gt string",
+          kbvarId,
+          kbvarVA,
+          Map("bazRecord" -> Map("baz" -> Map("%gt" -> "b"))).toJson,
+        )(
+          withBazRecord("c"),
+          withBazRecord("a"),
+        ),
+        Scenario(
+          "gt int",
+          kbvarId,
+          kbvarVA,
+          Map("fooVariant" -> Map("tag" -> "Bar".toJson, "value" -> Map("%gt" -> 2).toJson)).toJson,
+        )(withFooVariant(3), withFooVariant(1)),
+      ).zipWithIndex.foreach { case (scenario, ix) =>
+        import scenario._
+        s"$label (scenario $ix)" in withHttpService { fixture =>
+          for {
+            (alice, headers) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+            contracts <- searchExpectOk(
+              List(matches, doesNotMatch).map { payload =>
+                domain.CreateCommand(ctId, argToApi(va)(payload(alice)), None)
+              },
+              query.asJsObject,
+              fixture,
+              headers,
+            )
+          } yield contracts.map(_.payload) should contain theSameElementsAs Seq(
+            LfValueCodec.apiValueToJsValue(va.inj(matches(alice)))
+          )
+        }
+      }
+    }
   }
 
   "query with invalid JSON query should return error" in withHttpService { fixture =>
