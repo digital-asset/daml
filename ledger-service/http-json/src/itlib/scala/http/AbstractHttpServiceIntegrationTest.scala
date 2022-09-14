@@ -517,10 +517,12 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }
 
     "nested comparison filters" - {
+      import shapeless.Coproduct, shapeless.syntax.singleton._
       val irrelevant = Ref.Identifier assertFromString "none:Discarded:Identifier"
       val (_, bazRecordVA) = VA.record(irrelevant, ShRecord(baz = VA.text))
       val (_, fooVA) =
         VA.variant(irrelevant, ShRecord(Bar = VA.int64, Baz = bazRecordVA, Qux = VA.unit))
+      val fooVariant = Coproduct[fooVA.Inj]
       val (_, kbvarVA) = VA.record(
         irrelevant,
         ShRecord(
@@ -532,13 +534,12 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         ),
       )
 
-      import shapeless.Coproduct, shapeless.syntax.singleton._
       def withBazRecord(bazRecord: VA.text.Inj)(p: domain.Party): kbvarVA.Inj =
         ShRecord(
           name = "ABC DEF",
           party = p,
           age = 123L,
-          fooVariant = Coproduct[fooVA.Inj](Symbol("Bar") ->> 42L),
+          fooVariant = fooVariant(Symbol("Bar") ->> 42L),
           bazRecord = ShRecord(baz = bazRecord),
         )
 
@@ -547,7 +548,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           name = "ABC DEF",
           party = p,
           age = 123L,
-          fooVariant = Coproduct[fooVA.Inj](Symbol("Bar") ->> v),
+          fooVariant = fooVariant(Symbol("Bar") ->> v),
           bazRecord = ShRecord(baz = "another baz value"),
         )
 
