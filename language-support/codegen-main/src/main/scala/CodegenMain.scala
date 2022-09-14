@@ -47,7 +47,6 @@ object CodegenMain {
             OK
           case Failure(t) =>
             println(s"Error generating code: ${t.getMessage}")
-            t.printStackTrace()
             CodegenError
         }
     }
