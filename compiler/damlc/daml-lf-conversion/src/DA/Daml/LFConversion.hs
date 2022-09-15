@@ -1720,16 +1720,16 @@ convertExpr env0 e = do
     go env (VarIn GHC_Types "I#") args = pure (mkIdentity TInt64, args)
         -- we pretend Int and Int# are the same thing
 
+    go env (VarIn DA_Internal_Desugar "codeGenAllowLargeTuples") (LType _ : LExpr head : rest)
+        = let env' = env { envAllowLargeTuples = AllowLargeTuples True }
+           in go env' head rest
+
     go env (Var x) args
         | Just internals <- lookupUFM internalFunctions modName
         , getOccFS x `elementOfUniqSet` internals
         = unsupported "Direct call to internal function." x
         where
             modName = maybe (envGHCModuleName env) GHC.moduleName $ nameModule_maybe $ getName x
-
-    go env (VarIn DA_Internal_Desugar "codeGenAllowLargeTuples") (LType _ : LExpr head : rest)
-        = let env' = env { envAllowLargeTuples = AllowLargeTuples True }
-           in go env' head rest
 
     go env (Var x) args
         | Just m <- nameModule_maybe $ varName x
