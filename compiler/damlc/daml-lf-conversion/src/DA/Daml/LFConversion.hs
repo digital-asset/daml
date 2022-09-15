@@ -1973,6 +1973,7 @@ convertDataCon env mod con args = do
     case con of
       NameIn GHC_Tuple fsName
         | let name = unpackFS fsName
+        -- TODO: A better way to detect uses of tuples than this string malarkey
         , let (front, middle, end) = (head name, init (tail name), last name)
         , front == '(', end == ')', nub middle == ","
         , length middle >= 5
