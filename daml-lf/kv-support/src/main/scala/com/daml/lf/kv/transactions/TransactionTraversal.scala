@@ -186,6 +186,10 @@ object TransactionTraversal {
                   .map(RawTransaction.NodeId(_) -> witnesses)
                   .to(ImmArray)
                 traverseWitnesses(f, txVersion, nodes, next ++: toVisit)
+              case Node.NodeTypeCase.NODETYPE_NOT_SET =>
+                Left(ConversionError.DecodeError(DecodeError("NodeType not set.")))
+              case Node.NodeTypeCase.ROLLBACK =>
+                Left(ConversionError.DecodeError(DecodeError("Cannot traverse rollback nodes.")))
               case _ =>
                 traverseWitnesses(f, txVersion, nodes, toVisit)
             }
