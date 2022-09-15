@@ -45,7 +45,7 @@ object VariantConstructorClass extends StrictLogging {
       val conversionMethods = distinctTypeVars(body, typeArgs).flatMap { params =>
         List(
           toValue(constructorName, params, body, variantFieldName, packagePrefixes),
-          deprecatedFromValue(constructorName, params, className, body, packagePrefixes),
+          deprecatedFromValue(params, className),
           fromValue(constructorName, params, className, body, packagePrefixes),
         )
       }
@@ -98,11 +98,8 @@ object VariantConstructorClass extends StrictLogging {
   }
 
   private def deprecatedFromValue(
-      constructor: String,
       typeParameters: IndexedSeq[String],
       className: TypeName,
-      fieldType: Type,
-      packagePrefixes: Map[PackageId, String],
   ) = {
     val valueParam = ParameterSpec.builder(classOf[Value], "value$").build()
 
