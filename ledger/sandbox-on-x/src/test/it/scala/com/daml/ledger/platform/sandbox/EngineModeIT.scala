@@ -49,6 +49,8 @@ class EngineModeIT
 
   private[this] val applicationId = ApplicationId("EngineModeIT")
 
+  private[this] val party = UUID.randomUUID.toString
+
   private[this] def ledgerClientConfiguration =
     ledger.client.configuration.LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
@@ -59,7 +61,6 @@ class EngineModeIT
 
   private[this] def buildRequest(pkgId: String, ledgerId: LedgerId) = {
     import scalaz.syntax.tag._
-    val party = "Alice"
     val tmplId = Some(Identifier(pkgId, "UnitMod", "Box"))
     val cmd = Command().withCreate(
       CreateCommand(
@@ -99,6 +100,7 @@ class EngineModeIT
         _ <- client.packageManagementClient.uploadDarFile(darContent)
         pkgsAfter <- client.packageManagementClient.listKnownPackages()
         _ = pkgsAfter.size shouldBe 1
+        _ = client.partyManagementClient.allocateParty(Some(party), None)
         // Uploading the package is not enough.
         // We have to submit a request that forces the engine to load the package.
         request = buildRequest(pkgsAfter.head.packageId, client.ledgerId)

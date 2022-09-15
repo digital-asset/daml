@@ -49,7 +49,7 @@ object SandboxOnXForTest {
     userManagement = UserManagementConfig.default(true),
     maxInboundMessageSize = 4194304,
     configurationLoadTimeout = 10000.millis,
-    party = PartyConfiguration(implicitPartyAllocation = true),
+    party = PartyConfiguration(),
     seeding = Seeding.Strong,
     port = Port.Dynamic,
     managementServiceTimeout = 120000.millis,
