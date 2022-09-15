@@ -1877,7 +1877,7 @@ object SBuiltinTest {
     SpeedyTestLib.run(machine, getContract = getContract).map { value =>
       machine.ledgerMode match {
         case onLedger: OnLedger =>
-          (value, onLedger.cachedContracts, machine.disclosureTable.contractIdByKey)
+          (value, onLedger.cachedContracts, machine.disclosureTable.toMap)
 
         case _ =>
           (value, Map.empty, Map.empty)

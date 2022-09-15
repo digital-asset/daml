@@ -1649,7 +1649,7 @@ private[lf] object SBuiltin {
               }
             }: Option[V.ContractId] => (Control, Boolean)
 
-            machine.disclosureTable.contractIdByKey.get(gkey.hash) match {
+            machine.disclosureTable.contractIdByKey(gkey.hash) match {
               case Some(coid) =>
                 continue(Some(coid.value))._1
 

@@ -232,8 +232,10 @@ private[lf] object Speedy {
       }
     }
 
-    private[speedy] def contractIdByKey: Map[crypto.Hash, SValue.SContractId] =
-      keyMap.toMap
+    private[speedy] def contractIdByKey(keyHash: crypto.Hash): Option[SValue.SContractId] =
+      keyMap.get(keyHash)
+
+    private[speedy] def toMap: Map[crypto.Hash, SValue.SContractId] = keyMap.toMap
   }
 
   case class DisclosurePreprocessError(
@@ -275,12 +277,12 @@ private[lf] object Speedy {
       var track: Instrumentation,
       /* Profile of the run when the packages haven been compiled with profiling enabled. */
       var profile: Profile,
+      val submissionTime: Time.Timestamp,
       /* True if we are running on ledger building transactions, false if we
          are running off-ledger code, e.g., Daml Script or
          Triggers. It is safe to use on ledger for off ledger code but
          not the other way around.
        */
-      val submissionTime: Time.Timestamp,
       val ledgerMode: LedgerMode,
       val disclosureTable: DisclosedContractKeyTable,
   ) {

@@ -299,7 +299,7 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           inside(evalSExpr(sexpr, getContract = Map(contractId1 -> versionedContract1))) {
             case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
               contractCache.keySet shouldBe Set(contractId1)
-              disclosedContractKeys.values.map(_.value) shouldBe List(contractId1)
+              disclosedContractKeys.values.map(_.value).toSet shouldBe Set(contractId1)
           }
         }
 
@@ -317,7 +317,7 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
             )
           ) { case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
             contractCache.keySet shouldBe Set(contractId1, contractId2)
-            disclosedContractKeys.values.map(_.value) shouldBe List(contractId1, contractId2)
+            disclosedContractKeys.values.map(_.value).toSet shouldBe Set(contractId1, contractId2)
           }
         }
       }
@@ -353,7 +353,7 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           ) { case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
             contractCache.keySet.size shouldBe 2
             contractCache.keySet should contain(contractId1)
-            disclosedContractKeys.values.map(_.value) shouldBe List(contractId1)
+            disclosedContractKeys.values.map(_.value).toSet shouldBe Set(contractId1)
           }
         }
 
@@ -374,7 +374,7 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
             contractCache.keySet.size shouldBe 3
             contractCache.keySet should contain(contractId1)
             contractCache.keySet should contain(contractId2)
-            disclosedContractKeys.values.map(_.value) shouldBe List(contractId1, contractId2)
+            disclosedContractKeys.values.map(_.value).toSet shouldBe Set(contractId1, contractId2)
           }
         }
       }
@@ -411,7 +411,7 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           ) { case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
             contractCache.keySet.size shouldBe 3
             contractCache.keySet should contain(contractId1)
-            disclosedContractKeys.values.map(_.value) shouldBe List(contractId1)
+            disclosedContractKeys.values.map(_.value).toSet shouldBe Set(contractId1)
           }
         }
 
@@ -432,7 +432,7 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
             contractCache.keySet.size shouldBe 4
             contractCache.keySet should contain(contractId1)
             contractCache.keySet should contain(contractId2)
-            disclosedContractKeys.values.map(_.value) shouldBe List(contractId1, contractId2)
+            disclosedContractKeys.values.map(_.value).toSet shouldBe Set(contractId1, contractId2)
           }
         }
       }
@@ -508,7 +508,7 @@ object CompilerTest {
     SpeedyTestLib.run(machine, getContract = getContract).map { value =>
       machine.ledgerMode match {
         case onLedger: OnLedger =>
-          (value, onLedger.cachedContracts, machine.disclosureTable.contractIdByKey)
+          (value, onLedger.cachedContracts, machine.disclosureTable.toMap)
 
         case _ =>
           (value, Map.empty, Map.empty)
