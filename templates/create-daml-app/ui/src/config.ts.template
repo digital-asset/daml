@@ -73,22 +73,21 @@ export const userManagement: UserManagement =
   // isn’t explicitly "false" as supporting user management.
   process.env.REACT_APP_SUPPORTS_USERMANAGEMENT?.toLowerCase() !== "false" ? withUserManagement : noUserManagement;
 
-export const authConfig: Authentication = (() => {
-  if (isRunningOnHub()) {
-    const auth: DamlHub = {
-      provider: "daml-hub",
-    };
-    return auth;
-  } else {
-    const ledgerId: string = process.env.REACT_APP_LEDGER_ID ?? "__PROJECT_NAME__-sandbox"
-    const auth: Insecure = {
-      provider: "none",
-      userManagement: userManagement,
-      makeToken: (loginName) => {
-        const payload = userManagement.tokenPayload(loginName, ledgerId);
-        return encode(payload, "secret", "HS256");
-      }
-    };
-    return auth;
-  }
+export const damlHub: DamlHub = {
+  provider: "daml-hub",
+};
+
+export const insecure: Insecure = (() => {
+  const ledgerId: string = process.env.REACT_APP_LEDGER_ID ?? "__PROJECT_NAME__-sandbox";
+  return {
+    provider: "none" as "none",
+    userManagement: userManagement,
+    makeToken: (loginName: string) => {
+      const payload = userManagement.tokenPayload(loginName, ledgerId);
+      return encode(payload, "secret", "HS256");
+    }
+  };
 })();
+
+export const authConfig: Authentication = (() =>
+  isRunningOnHub() ? damlHub : insecure)();
