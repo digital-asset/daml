@@ -210,7 +210,7 @@ private[lf] object Speedy {
 
   private[speedy] class DisclosedContractKeyTable {
 
-    private[this] var keyMap: mutable.Map[crypto.Hash, SValue.SContractId] = mutable.Map.empty
+    private[this] val keyMap: mutable.Map[crypto.Hash, SValue.SContractId] = mutable.Map.empty
 
     private[speedy] def addContractKey(
         templateId: TypeConName,
