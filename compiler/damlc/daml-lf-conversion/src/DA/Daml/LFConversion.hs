@@ -1969,7 +1969,19 @@ splitConArgs_maybe con args = do
 -- constructors are inlined. This is required for contract keys to
 -- work. Constructor workers are not handled (yet).
 convertDataCon :: Env -> GHC.Module -> DataCon -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])
-convertDataCon env m con args
+convertDataCon env mod con args = do
+    case con of
+      NameIn GHC_Tuple fsName
+        | let name = unpackFS fsName
+        , let (front, middle, end) = (head name, init (tail name), last name)
+        , front == '(', end == ')', nub middle == ","
+        , length middle >= 5
+        -> conversionWarning "Used tuple of size > 5! Daml only has Show, Eq, Ord instances for tuples of size <= 5."
+      _ -> pure ()
+    convertDataCon' env mod con args
+
+convertDataCon' :: Env -> GHC.Module -> DataCon -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])
+convertDataCon' env m con args
     -- Fully applied
     | Just (tyArgs, tmArgs) <- splitConArgs_maybe con args = do
         tyArgs <- mapM (convertType env) tyArgs
@@ -2367,10 +2379,7 @@ packageNameToPkgRef env = convertUnitId (envModuleUnitId env) (envPkgMap env)
 convertTyCon :: Env -> TyCon -> ConvertM LF.Type
 convertTyCon env t
     | t == unitTyCon = pure TUnit
-    | isTupleTyCon t, not (isConstraintTupleTyCon t), arity >= 2 = do
-        if not (getAllowLargeTuples (envAllowLargeTuples env)) && arity > 5
-           then conversionWarning "Used tuple of arity > 5!"
-           else pure ()
+    | isTupleTyCon t, not (isConstraintTupleTyCon t), arity >= 2 =
         TCon <$> qDA_Types env (mkTypeCon ["Tuple" <> T.pack (show arity)])
     | t == listTyCon = pure (TBuiltin BTList)
     | t == boolTyCon = pure TBool
