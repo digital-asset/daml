@@ -33,7 +33,7 @@ final class NonRepudiationTest
     val domainParty = domain.Party(expectedParty)
     val command = accountCreateCommand(domainParty, expectedNumber).copy(meta = meta)
     postCreateCommand(command, fixture)
-      .flatMap { case (status, _) =>
+      .flatMap(inside(_) { case domain.OkResponse(_, _, status) =>
         status shouldBe StatusCodes.OK
         val payloads = db.signedPayloads.get(CommandIdString.wrap(expectedCommandId))
         payloads should have size 1
@@ -43,7 +43,7 @@ final class NonRepudiationTest
         val actualFields = commands.head.getCreate.getCreateArguments.fields.map(stripIdentifiers)
         val expectedFields = command.payload.fields.map(stripIdentifiers)
         actualFields should contain theSameElementsAs expectedFields
-      }
+      })
   }
 
 }

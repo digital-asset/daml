@@ -11,7 +11,7 @@ import akka.http.scaladsl.model.ws.{
   TextMessage,
   WebSocketRequest,
 }
-import akka.http.scaladsl.model.{HttpHeader, StatusCode, StatusCodes, Uri}
+import akka.http.scaladsl.model.{HttpHeader, StatusCodes, Uri}
 import akka.stream.{KillSwitches, UniqueKillSwitch}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.daml.http.HttpServiceTestFixture.{
@@ -19,6 +19,7 @@ import com.daml.http.HttpServiceTestFixture.{
   accountCreateCommand,
   sharedAccountCreateCommand,
 }
+import AbstractHttpServiceIntegrationTestFuns.UriFixture
 import com.daml.http.json.SprayJson
 import com.daml.ledger.api.v1.admin.{participant_pruning_service => PruneGrpc}
 import com.typesafe.scalalogging.StrictLogging
@@ -77,6 +78,19 @@ abstract class AbstractWebsocketServiceIntegrationTest
     case _ => throw new IllegalArgumentException(s"Expected heartbeat but got $event")
   }
 
+  private def immediateQuery(fixture: UriFixture, scenario: SimpleScenario): Future[Seq[String]] =
+    for {
+      jwt <- jwt(fixture.uri)
+      webSocketFlow =
+        Http().webSocketClientFlow(
+          WebSocketRequest(
+            uri = fixture.uri.copy(scheme = "ws").withPath(scenario.path),
+            subprotocol = validSubprotocol(jwt),
+          )
+        )
+      ran <- scenario.input via webSocketFlow runWith collectResultsAsTextMessageSkipOffsetTicks
+    } yield ran
+
   List(
     SimpleScenario("query", Uri.Path("/v1/stream/query"), baseQueryInput),
     SimpleScenario("fetch", Uri.Path("/v1/stream/fetch"), baseFetchInput),
@@ -115,30 +129,18 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
     // TEST_EVIDENCE: Authorization: multiple websocket requests over the same WebSocket connection are NOT allowed
     s"two ${scenario.id} requests over the same WebSocket connection are NOT allowed" in withHttpService {
-      (uri, _, _, _) =>
-        jwt(uri).flatMap { jwt =>
-          val input = scenario.input.mapConcat(x => List(x, x))
-          val webSocketFlow =
-            Http().webSocketClientFlow(
-              WebSocketRequest(
-                uri = uri.copy(scheme = "ws").withPath(scenario.path),
-                subprotocol = validSubprotocol(jwt),
+      fixture =>
+        immediateQuery(fixture, scenario.mapInput(_.mapConcat(x => List(x, x))))
+          .flatMap { msgs =>
+            inside(msgs) { case Seq(errorMsg) =>
+              val error = decodeErrorResponse(errorMsg)
+              error shouldBe domain.ErrorResponse(
+                List("Multiple requests over the same WebSocket connection are not allowed."),
+                None,
+                StatusCodes.BadRequest,
               )
-            )
-          input
-            .via(webSocketFlow)
-            .runWith(collectResultsAsTextMessageSkipOffsetTicks)
-            .flatMap { msgs =>
-              inside(msgs) { case Seq(errorMsg) =>
-                val error = decodeErrorResponse(errorMsg)
-                error shouldBe domain.ErrorResponse(
-                  List("Multiple requests over the same WebSocket connection are not allowed."),
-                  None,
-                  StatusCodes.BadRequest,
-                )
-              }
             }
-        }
+          }
     }
   }
 
@@ -155,33 +157,22 @@ abstract class AbstractWebsocketServiceIntegrationTest
     ),
   ).foreach { scenario =>
     s"${scenario.id} report UnknownTemplateIds and error when cannot resolve any template ID" in withHttpService {
-      (uri, _, _, _) =>
-        jwt(uri).flatMap { jwt =>
-          val webSocketFlow =
-            Http().webSocketClientFlow(
-              WebSocketRequest(
-                uri = uri.copy(scheme = "ws").withPath(scenario.path),
-                subprotocol = validSubprotocol(jwt),
-              )
-            )
-          scenario.input
-            .via(webSocketFlow)
-            .runWith(collectResultsAsTextMessageSkipOffsetTicks)
-            .flatMap { msgs =>
-              inside(msgs) { case Seq(warningMsg, errorMsg) =>
-                val warning = decodeServiceWarning(warningMsg)
-                inside(warning) { case domain.UnknownTemplateIds(ids) =>
-                  ids shouldBe List(domain.TemplateId(None, "AA", "BB"))
-                }
-                val error = decodeErrorResponse(errorMsg)
-                error shouldBe domain.ErrorResponse(
-                  List(ErrorMessages.cannotResolveAnyTemplateId),
-                  None,
-                  StatusCodes.BadRequest,
-                )
+      fixture =>
+        immediateQuery(fixture, scenario)
+          .flatMap { msgs =>
+            inside(msgs) { case Seq(warningMsg, errorMsg) =>
+              val warning = decodeServiceWarning(warningMsg)
+              inside(warning) { case domain.UnknownTemplateIds(ids) =>
+                ids shouldBe List(domain.TemplateId(None, "AA", "BB"))
               }
+              val error = decodeErrorResponse(errorMsg)
+              error shouldBe domain.ErrorResponse(
+                List(ErrorMessages.cannotResolveAnyTemplateId),
+                None,
+                StatusCodes.BadRequest,
+              )
             }
-        }
+          }
     }
   }
 
@@ -192,30 +183,18 @@ abstract class AbstractWebsocketServiceIntegrationTest
         """[{"templateIds": ["IAccount:IAccount"]}, {"templateIds": ["IIou:IIou"]}]"""
       )
     )
+    val scenario = SimpleScenario("", Uri.Path("/v1/stream/query"), queryInput)
     for {
-      jwt <- jwt(fixture.uri)
       _ <- uploadPackage(fixture)(ciouDar)
-      webSocketFlow =
-        Http().webSocketClientFlow(
-          WebSocketRequest(
-            uri = fixture.uri.copy(scheme = "ws").withPath(Uri.Path("/v1/stream/query")),
-            subprotocol = validSubprotocol(jwt),
-          )
-        )
-      res <- queryInput
-        .via(webSocketFlow)
-        .runWith(collectResultsAsTextMessageSkipOffsetTicks)
-        .flatMap { msgs =>
-          inside(msgs) { case Seq(errorMsg) =>
-            val error = decodeErrorResponse(errorMsg)
-            error shouldBe domain.ErrorResponse(
-              List(ResolvedQuery.CannotQueryManyInterfaceIds.errorMsg),
-              None,
-              StatusCodes.BadRequest,
-            )
-          }
-        }
-    } yield res
+      msgs <- immediateQuery(fixture, scenario)
+    } yield inside(msgs) { case Seq(errorMsg) =>
+      val error = decodeErrorResponse(errorMsg)
+      error shouldBe domain.ErrorResponse(
+        List(ResolvedQuery.CannotQueryManyInterfaceIds.errorMsg),
+        None,
+        StatusCodes.BadRequest,
+      )
+    }
   }
 
   "query error when queries with both template and interface id" in withHttpService { fixture =>
@@ -224,29 +203,17 @@ abstract class AbstractWebsocketServiceIntegrationTest
         """[{"templateIds": ["IAccount:IAccount"]}, {"templateIds": ["Account:Account"]}]"""
       )
     )
+    val scenario = SimpleScenario("", Uri.Path("/v1/stream/query"), queryInput)
     for {
-      jwt <- jwt(fixture.uri)
-      webSocketFlow =
-        Http().webSocketClientFlow(
-          WebSocketRequest(
-            uri = fixture.uri.copy(scheme = "ws").withPath(Uri.Path("/v1/stream/query")),
-            subprotocol = validSubprotocol(jwt),
-          )
-        )
-      res <- queryInput
-        .via(webSocketFlow)
-        .runWith(collectResultsAsTextMessageSkipOffsetTicks)
-        .flatMap { msgs =>
-          inside(msgs) { case Seq(errorMsg) =>
-            val error = decodeErrorResponse(errorMsg)
-            error shouldBe domain.ErrorResponse(
-              List(ResolvedQuery.CannotQueryBothTemplateIdsAndInterfaceIds.errorMsg),
-              None,
-              StatusCodes.BadRequest,
-            )
-          }
-        }
-    } yield res
+      msgs <- immediateQuery(fixture, scenario)
+    } yield inside(msgs) { case Seq(errorMsg) =>
+      val error = decodeErrorResponse(errorMsg)
+      error shouldBe domain.ErrorResponse(
+        List(ResolvedQuery.CannotQueryBothTemplateIdsAndInterfaceIds.errorMsg),
+        None,
+        StatusCodes.BadRequest,
+      )
+    }
   }
 
   "transactions when command create is completed from" - {
@@ -482,9 +449,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (party, headers) = aliceHeaders
         creation <- initialIouCreate(uri, party, headers)
-        iouCid = inside(creation) { case (_: StatusCodes.Success, domain.OkResponse(c, _, _)) =>
-          c.contractId
-        }
+        iouCid = resultContractId(creation)
         jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
         (kill, source) = singleClientQueryStream(jwt, uri, query)
           .viaMat(KillSwitches.single)(Keep.right)
@@ -506,13 +471,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
         result should include(""""matchedQueries":[1]""")
       }
   }
-
-  private[this] def resultContractId(
-      r: (StatusCode, domain.SyncResponse[domain.ActiveContract[_]])
-  ) =
-    inside(r) { case (_: StatusCodes.Success, domain.OkResponse(result, _, _)) =>
-      result.contractId
-    }
 
   "deltas as contracts are archived/created from" - {
     "single-party query" in withHttpService { fixture =>
@@ -600,9 +558,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         aliceHeaders <- getAliceHeaders
         (party, headers) = aliceHeaders
         creation <- initialIouCreate(uri, party, headers)
-        iouCid = inside(creation) { case (_: StatusCodes.Success, domain.OkResponse(c, _, _)) =>
-          c.contractId
-        }
+        iouCid = resultContractId(creation)
         jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
         (kill, source) = singleClientQueryStream(jwt, uri, query)
           .viaMat(KillSwitches.single)(Keep.right)
@@ -1128,10 +1084,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           headers,
         )
       )
-      cid = inside(create) {
-        case (StatusCodes.OK, domain.OkResponse(contract, _, StatusCodes.OK)) =>
-          contract.contractId
-      }
+      cid = resultContractId(create)
       // wait for the creation's offset
       offsetAfter <- readUntil[In] {
         case ContractDelta(creates, _, off @ Some(_)) =>

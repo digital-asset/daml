@@ -602,6 +602,7 @@ library
         TcBinds
         TcCanonical
         TcClassDcl
+        TcDaml
         TcDefaults
         TcDeriv
         TcDerivInfer

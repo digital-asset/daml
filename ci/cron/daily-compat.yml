@@ -213,7 +213,7 @@ jobs:
           --detect.tools=DETECTOR \
           --detect.included.detector.types=YARN,NPM,CLANG \
           --detect.npm.dependency.types.excluded=DEV \
-          --detect.yarn.dependency.types.excluded=DEV \
+          --detect.yarn.dependency.types.excluded=NON_PRODUCTION \
           --detect.follow.symbolic.links=false \
           --detect.excluded.directories=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,language-support/ts/codegen/tests/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*\
           --detect.blackduck.signature.scanner.exclusion.name.patterns=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \

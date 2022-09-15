@@ -50,6 +50,7 @@ genrule(
             "skeleton/**",
             "empty-skeleton/**",
             "create-daml-app/**",
+            "quickstart-finance/**",
             "quickstart-java/**",
             "copy-trigger/**",
             "gsg-trigger.patch",
@@ -78,6 +79,7 @@ genrule(
         for d in skeleton \
                  empty-skeleton \
                  create-daml-app \
+                 quickstart-finance \
                  quickstart-java \
                  copy-trigger \
                  gsg-trigger; do
