@@ -294,6 +294,9 @@ const logout = async (page: Page) => {
 const follow = async (page: Page, userToFollow: string) => {
   const followInput = await page.waitForSelector('.test-select-follow-input');
   await followInput.click();
+  // Force a change in selection on the dropdown box
+  await followInput.type(userToFollow + "-invalid");
+  await followInput.press("Enter");
   await followInput.type(userToFollow);
   await followInput.press('Tab');
   await page.click('.test-select-follow-button');
