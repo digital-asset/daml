@@ -111,7 +111,7 @@ class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
     envBound match {
       case None => ()
       case Some(bound) =>
-        machine.env = new BoundedArrayList[SValue](bound) // FIXME: not good!!
+        machine.env = new BoundedArrayList[SValue](bound)
     }
     // maybe replace the kont-stack with a bounded version
     kontBound match {
@@ -123,7 +123,7 @@ class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
           } else {
             machine.peekKontStackTop()
           }
-        machine.kontStack = new BoundedArrayList[Speedy.Kont](bound) // FIXME: not good!!
+        machine.kontStack = new BoundedArrayList[Speedy.Kont](bound)
         machine.pushKont(onlyKont)
     }
     // run the machine

@@ -326,7 +326,7 @@ private[lf] object Speedy {
     /* Actuals: to access values for a function application's arguments. */
     private[this] var actuals: Actuals = null
     /* [env] is a stack of temporary values for: let-bindings and pattern-matches. */
-    private[speedy] var env: Env = emptyEnv // TODO: restrict this - TailCallTest!!
+    private[speedy] var env: Env = emptyEnv
     /* [envBase] is the depth of the temporaries-stack when the current code-context was
      * begun. We revert to this depth when entering a closure, or returning to the top
      * continuation on the kontStack.
@@ -336,7 +336,7 @@ private[lf] object Speedy {
      * once the control has been evaluated.
      */
     private[speedy] var kontStack: util.ArrayList[Kont] =
-      initialKontStack() // TODO: restrict this - TailCallTest!!
+      initialKontStack()
     /* The last encountered location */
     private[this] var lastLocation: Option[Location] = None
     /* Used when enableLightweightStepTracing is true */
@@ -347,17 +347,17 @@ private[lf] object Speedy {
     private[speedy] def currentControl: Control = control
 
     private[speedy] def currentFrame: Frame =
-      frame // FIXME: this should be a immutable return value
+      frame
 
     private[speedy] def currentActuals: Actuals =
-      actuals // FIXME: this should be a immutable return value
+      actuals
 
-    private[speedy] def currentEnv: Env = env // FIXME: this should be a immutable return value
+    private[speedy] def currentEnv: Env = env
 
     private[speedy] def currentEnvBase: Int = envBase
 
     private[speedy] def currentKontStack: util.ArrayList[Kont] =
-      kontStack // FIXME: this should be a immutable return value
+      kontStack
 
     private[lf] def getLastLocation: Option[Location] = lastLocation
 
