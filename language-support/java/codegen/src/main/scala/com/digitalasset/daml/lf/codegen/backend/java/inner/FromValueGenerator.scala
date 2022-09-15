@@ -24,6 +24,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
 
     val converterParams = FromValueExtractorParameters
       .generate(typeParameters)
+      .functionParameterSpecs
 
     val method = MethodSpec
       .methodBuilder("fromValue")
@@ -31,11 +32,11 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .returns(className)
       .addTypeVariables(className.typeParameters)
       .addParameter(TypeName.get(classOf[javaapi.data.Value]), "value$")
-      .addParameters(converterParams.functionParameterSpecs.asJava)
+      .addParameters(converterParams.asJava)
       .addException(classOf[IllegalArgumentException])
 
     val fromValueParams = CodeBlock.join(
-      converterParams.functionParameterSpecs.map { param =>
+      converterParams.map { param =>
         CodeBlock.of("$N::apply", param)
       }.asJava,
       ", ",
@@ -61,6 +62,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
 
     val converterParams = FromValueExtractorParameters
       .generate(typeParameters)
+      .fromValueParameterSpecs
 
     val fromValueCode = CodeBlock
       .builder()
@@ -102,7 +104,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
       .returns(ParameterizedTypeName.get(ClassName.get(classOf[FromValue[_]]), className))
       .addTypeVariables(className.typeParameters)
-      .addParameters(converterParams.fromValueParameterSpecs.asJava)
+      .addParameters(converterParams.asJava)
       .addException(classOf[IllegalArgumentException])
       .beginControlFlow("return $L ->", "value$")
       .addCode(fromValueCode.build())

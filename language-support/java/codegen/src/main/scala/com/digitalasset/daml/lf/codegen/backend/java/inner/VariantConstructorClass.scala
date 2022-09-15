@@ -5,13 +5,14 @@ package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.Value
+import com.daml.ledger.javaapi.data.codegen.FromValue
 import com.daml.lf.codegen.backend.java.{JavaEscaper, ObjectMethods}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.typesig.{Type, TypeVar}
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
-import javax.lang.model.element.Modifier
 
+import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
 
 object VariantConstructorClass extends StrictLogging {
@@ -44,6 +45,7 @@ object VariantConstructorClass extends StrictLogging {
       val conversionMethods = distinctTypeVars(body, typeArgs).flatMap { params =>
         List(
           toValue(constructorName, params, body, variantFieldName, packagePrefixes),
+          deprecatedFromValue(constructorName, params, className, body, packagePrefixes),
           fromValue(constructorName, params, className, body, packagePrefixes),
         )
       }
@@ -95,7 +97,7 @@ object VariantConstructorClass extends StrictLogging {
       .build()
   }
 
-  private def fromValue(
+  private def deprecatedFromValue(
       constructor: String,
       typeParameters: IndexedSeq[String],
       className: TypeName,
@@ -106,7 +108,7 @@ object VariantConstructorClass extends StrictLogging {
 
     val converterParams =
       FromValueExtractorParameters.generate(typeParameters).functionParameterSpecs
-    MethodSpec
+    val method = MethodSpec
       .methodBuilder("fromValue")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
       .addTypeVariables(className.typeParameters)
@@ -115,6 +117,20 @@ object VariantConstructorClass extends StrictLogging {
       .addParameter(valueParam)
       .addParameters(converterParams.asJava)
       .addCode(FromValueGenerator.variantCheck(constructor, "value$", "variantValue$"))
+
+    val fromValueParams = CodeBlock.join(
+      converterParams.map { param =>
+        CodeBlock.of("$N::apply", param)
+      }.asJava,
+      ", ",
+    )
+
+    method
+      .addStatement(
+        "return fromValue($L).fromValue($L)",
+        fromValueParams,
+        "value$",
+      )
       .addStatement(
         FromValueGenerator
           .generateFieldExtractor(
@@ -125,6 +141,53 @@ object VariantConstructorClass extends StrictLogging {
           )
       )
       .addStatement("return new $T(body)", className)
+      .build()
+  }
+
+  private def fromValue(
+      constructor: String,
+      typeParameters: IndexedSeq[String],
+      className: TypeName,
+      fieldType: Type,
+      packagePrefixes: Map[PackageId, String],
+  ) = {
+    val converterParams =
+      FromValueExtractorParameters.generate(typeParameters).fromValueParameterSpecs
+
+    val fromValueCode = CodeBlock
+      .builder()
+      .add(FromValueGenerator.variantCheck(constructor, "value$", "variantValue$"))
+      .addStatement(
+        FromValueGenerator
+          .generateFieldExtractor(
+            fieldType,
+            "body",
+            CodeBlock.of("variantValue$$"),
+            packagePrefixes,
+          )
+      )
+      .addStatement(
+        FromValueGenerator
+          .generateFieldExtractor(
+            fieldType,
+            "body",
+            CodeBlock.of("variantValue$$"),
+            packagePrefixes,
+          )
+      )
+      .addStatement("return new $T(body)", className)
+
+    MethodSpec
+      .methodBuilder("fromValue")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .addTypeVariables(className.typeParameters)
+      .returns(ParameterizedTypeName.get(ClassName.get(classOf[FromValue[_]]), className))
+      .addException(classOf[IllegalArgumentException])
+      .addParameters(converterParams.asJava)
+      .beginControlFlow("return $L ->", "value$")
+      .addCode(fromValueCode.build())
+      // put empty string in endControlFlow in order to have semicolon
+      .endControlFlow("")
       .build()
   }
 

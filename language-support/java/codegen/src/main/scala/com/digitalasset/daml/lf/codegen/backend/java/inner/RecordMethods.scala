@@ -20,6 +20,10 @@ private[inner] object RecordMethods {
     val constructor = ConstructorGenerator.generateConstructor(fields)
 
     val conversionMethods = distinctTypeVars(fields, typeParameters).flatMap { params =>
+      val deprecatedFromValue = FromValueGenerator.generateDeprecatedFromValueForRecordLike(
+        className.parameterized(typeParameters),
+        params,
+      )
       val fromValue = FromValueGenerator.generateFromValueForRecordLike(
         fields,
         className.parameterized(typeParameters),
@@ -34,10 +38,6 @@ private[inner] object RecordMethods {
             )
             .build(),
         packagePrefixes,
-      )
-      val deprecatedFromValue = FromValueGenerator.generateDeprecatedFromValueForRecordLike(
-        className.parameterized(typeParameters),
-        params,
       )
       val toValue = ToValueGenerator.generateToValueForRecordLike(
         params,
