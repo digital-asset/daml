@@ -240,12 +240,6 @@ message ScenarioError {
     string key_hash = 2;
   }
 
-  message InconsistentDisclosureTableIncorrectlyTypedContract {
-      string contract_id = 1;
-      Identifier expected = 2;
-      Identifier actual = 3;
-  }
-
   // The state of the ledger at the time of the error
   repeated ScenarioStep scenario_steps = 1;
   repeated Node nodes = 2;
@@ -318,7 +312,6 @@ message ScenarioError {
     ContractDoesNotImplementRequiringInterface contract_does_not_implement_requiring_interface
     = 36;
     DisclosurePreprocessingDuplicateContractKeys disclosure_preprocessing_duplicate_contract_keys = 39;
-    InconsistentDisclosureTableIncorrectlyTypedContract inconsistent_disclosure_table_incorrectly_typed_contract = 40;
   }
 }
 

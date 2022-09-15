@@ -7,11 +7,7 @@ package speedy
 import com.daml.lf.command.ContractMetadata
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.interpretation.Error.{
-  ContractKeyNotFound,
-  ContractNotActive,
-  InconsistentDisclosureTable,
-}
+import com.daml.lf.interpretation.Error.{ContractKeyNotFound, ContractNotActive}
 import com.daml.lf.speedy.SExpr.SEValue
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -254,10 +250,14 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
         }
       }
 
-      "wrongly typed contract disclosures are rejected" in {
+      "wrongly typed contract disclosures are not found" in {
         wronglyTypedDisclosedContractsRejected(
           SBUFetchKey(houseTemplateType)(SEValue(contractSKey))
-        )
+        ) { result =>
+          inside(result) { case Left(SError.SErrorDamlException(ContractKeyNotFound(_))) =>
+            succeed
+          }
+        }
       }
     }
 
@@ -370,10 +370,10 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
         }
       }
 
-      "wrongly typed contract disclosures are rejected" in {
+      "wrongly typed contract disclosures are not found" in {
         wronglyTypedDisclosedContractsRejected(
           SBULookupKey(houseTemplateType)(SEValue(contractSKey))
-        )
+        )(_ shouldBe Right(SValue.SOptional(None)))
       }
     }
   }
@@ -487,7 +487,9 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
     ledger should haveInactiveContractIds(contractToDestroy)
   }
 
-  def wronglyTypedDisclosedContractsRejected(sexpr: SExpr.SExpr): Assertion = {
+  def wronglyTypedDisclosedContractsRejected(
+      sexpr: SExpr.SExpr
+  )(assertResult: Either[SError.SError, SValue] => Assertion): Assertion = {
     val houseContractKey: GlobalKey = buildContractKey(maintainerParty)
     // Here the disclosed contract has a caveTemplateType, but its key has a houseTemplateType
     val malformedDisclosedContract: DisclosedContract =
@@ -511,18 +513,7 @@ trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matcher
         disclosedContracts = ImmArray(malformedDisclosedContract),
       )
 
-    inside(result) {
-      case Left(
-            SError.SErrorDamlException(
-              InconsistentDisclosureTable.IncorrectlyTypedContract(
-                `disclosureContractId`,
-                `houseTemplateType`,
-                `caveTemplateType`,
-              )
-            )
-          ) =>
-        succeed
-    }
+    assertResult(result)
     ledger should haveDisclosedContracts(malformedDisclosedContract)
     ledger should haveInactiveContractIds()
   }

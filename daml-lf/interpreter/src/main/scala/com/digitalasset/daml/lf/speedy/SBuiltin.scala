@@ -9,7 +9,6 @@ import java.util.regex.Pattern
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
-import com.daml.lf.interpretation.Error.InconsistentDisclosureTable
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.ArrayList.Implicits._
@@ -1652,25 +1651,7 @@ private[lf] object SBuiltin {
 
             machine.disclosureTable.contractIdByKey.get(gkey.hash) match {
               case Some(coid) =>
-                onLedger.cachedContracts.get(coid.value) match {
-                  case Some(CachedContract(actualTemplateId, _, _, _, _))
-                      if actualTemplateId == operation.templateId =>
-                    continue(Some(coid.value))._1
-
-                  case Some(cachedContract) =>
-                    Control.Error(
-                      InconsistentDisclosureTable.IncorrectlyTypedContract(
-                        coid.value,
-                        operation.templateId,
-                        cachedContract.templateId,
-                      )
-                    )
-
-                  case None =>
-                    crash(
-                      s"Disclosure table is in an inconsistent state: unable to locate the contract ${coid.value} even though we know its key hash ${gkey.hash}"
-                    )
-                }
+                continue(Some(coid.value))._1
 
               case None =>
                 Control.Question(
@@ -2148,35 +2129,25 @@ private[lf] object SBuiltin {
         machine: Machine,
         onLedger: OnLedger,
     ): Control = {
-      val cachedContract = args.get(0)
-
-      onLedger.updateCachedContracts(
-        contractId,
-        extractCachedContract(machine, cachedContract),
-      )
-
-      Control.Value(SUnit)
-    }
-  }
-
-  private[speedy] final case class SBCacheDisclosedContractKey(contractId: V.ContractId)
-      extends OnLedgerBuiltin(1) {
-
-    override protected def executeWithLedger(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-        onLedger: OnLedger,
-    ): Control = {
       val cachedContract = extractCachedContract(machine, args.get(0))
       val templateId = cachedContract.templateId
+      val optError = for {
+        keyWithMaintainers <- cachedContract.key
+        keyHash = crypto.Hash.assertHashContractKey(templateId, keyWithMaintainers.key)
+        result <- machine.disclosureTable.addContractKey(templateId, keyHash, contractId)
+      } yield result
 
-      for (keyWithMaintainers <- cachedContract.key) {
-        val keyHash = crypto.Hash.assertHashContractKey(templateId, keyWithMaintainers.key)
+      optError match {
+        case None =>
+          onLedger.updateCachedContracts(
+            contractId,
+            cachedContract,
+          )
+          Control.Value(SUnit)
 
-        machine.disclosureTable.addContractKey(templateId, keyHash, contractId)
+        case Some(error) =>
+          Control.Error(error)
       }
-
-      Control.Value(SUnit)
     }
   }
 

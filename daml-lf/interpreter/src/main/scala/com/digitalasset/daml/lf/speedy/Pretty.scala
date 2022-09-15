@@ -176,16 +176,6 @@ private[lf] object Pretty {
               s"Found duplicated contract keys in submitted disclosed contracts for template $templateId and key hash ${keyHash.toHexString}"
             )
         }
-
-      case InconsistentDisclosureTable.IncorrectlyTypedContract(coid, expected, actual) =>
-        text(
-          "Inconsistent disclosure table: invalid key hash mapping for disclosed contract id"
-        ) & prettyContractId(coid) /
-          text("Expected contract of type") & prettyTypeConName(expected) & text(
-            "but got"
-          ) & prettyTypeConName(
-            actual
-          )
     }
   }
 

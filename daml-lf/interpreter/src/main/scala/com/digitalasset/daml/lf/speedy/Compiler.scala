@@ -1090,16 +1090,12 @@ private[lf] final class Compiler(
       1,
       s.SELet(
         disclosures.toList.zipWithIndex.flatMap { case (disclosedContract, offset) =>
-          val contractIndex = baseIndex + 3 * offset + 1
+          val contractIndex = baseIndex + 2 * offset + 1
 
           List(
             translateDisclosedContract(env.copy(contractIndex), disclosedContract),
             app(
               s.SEBuiltin(SBCacheDisclosedContract(disclosedContract.contractId.value)),
-              s.SEVarLevel(contractIndex),
-            ),
-            app(
-              s.SEBuiltin(SBCacheDisclosedContractKey(disclosedContract.contractId.value)),
               s.SEVarLevel(contractIndex),
             ),
           )

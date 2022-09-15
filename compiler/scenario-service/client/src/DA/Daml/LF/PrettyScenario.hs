@@ -488,13 +488,6 @@ prettyScenarioErrorError (Just err) =  do
         , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
         , label_ "Key Hash: " $ ltext keyHash
         ]
-    ScenarioErrorErrorInconsistentDisclosureTableIncorrectlyTypedContract(ScenarioError_InconsistentDisclosureTableIncorrectlyTypedContract contractId expectedTemplateId actualTemplateId) ->
-      pure $ vcat
-        [ "Inconsistent disclosure table: invalid key hash mapping"
-        , label_ "Disclosed contract: " $ prettyContractId contractId
-        , label_ "Expected template: " $ prettyMay "<missing template>" (prettyDefName world) expectedTemplateId
-        , label_ "Actual template: " $ prettyMay "<missing template>" (prettyDefName world) actualTemplateId
-        ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =
