@@ -335,8 +335,7 @@ private[lf] object Speedy {
     /* Kont, or continuation specifies what should be done next
      * once the control has been evaluated.
      */
-    private[speedy] var kontStack: util.ArrayList[Kont] =
-      initialKontStack()
+    private[speedy] var kontStack: util.ArrayList[Kont] = initialKontStack()
     /* The last encountered location */
     private[this] var lastLocation: Option[Location] = None
     /* Used when enableLightweightStepTracing is true */
@@ -346,18 +345,15 @@ private[lf] object Speedy {
 
     private[speedy] def currentControl: Control = control
 
-    private[speedy] def currentFrame: Frame =
-      frame
+    private[speedy] def currentFrame: Frame = frame
 
-    private[speedy] def currentActuals: Actuals =
-      actuals
+    private[speedy] def currentActuals: Actuals = actuals
 
     private[speedy] def currentEnv: Env = env
 
     private[speedy] def currentEnvBase: Int = envBase
 
-    private[speedy] def currentKontStack: util.ArrayList[Kont] =
-      kontStack
+    private[speedy] def currentKontStack: util.ArrayList[Kont] = kontStack
 
     private[lf] def getLastLocation: Option[Location] = lastLocation
 
