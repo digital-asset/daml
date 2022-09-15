@@ -7,6 +7,7 @@ module DA.Cli.Options
 
 import Data.List.Extra     (lower, splitOn, trim)
 import Options.Applicative hiding (option, strOption)
+import qualified Options.Applicative (option, strOption)
 import Options.Applicative.Extended
 import Safe (lastMay)
 import Data.List
@@ -226,7 +227,7 @@ enableScenariosOpt = EnableScenarios <$>
 
 dlintEnabledOpt :: Parser DlintUsage
 dlintEnabledOpt = DlintEnabled
-  <$> strOptionOnce
+  <$> Options.Applicative.strOption
   ( long "with-dlint"
     <> metavar "DIR"
     <> internal
@@ -317,19 +318,19 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     optImportPath :: Parser [FilePath]
     optImportPath =
         many $
-        strOptionOnce $
+        Options.Applicative.strOption $
         metavar "INCLUDE-PATH" <>
         help "Path to an additional source directory to be included" <>
         long "include"
 
     optPackageDir :: Parser [FilePath]
-    optPackageDir = many $ strOptionOnce $ metavar "LOC-OF-PACKAGE-DB"
+    optPackageDir = many $ Options.Applicative.strOption $ metavar "LOC-OF-PACKAGE-DB"
                       <> help "use package database in the given location"
                       <> long "package-db"
 
     optPackageImport :: Parser PackageFlag
     optPackageImport =
-      optionOnce readPackageImport $
+      Options.Applicative.option readPackageImport $
       metavar "PACKAGE" <>
       help "explicit import of a package with optional renaming of modules" <>
       long "package" <>
@@ -434,7 +435,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
 optGhcCustomOptions :: Parser [String]
 optGhcCustomOptions =
     fmap concat $ many $
-    optionOnce (stringsSepBy ' ') $
+    Options.Applicative.option (stringsSepBy ' ') $
     long "ghc-option" <>
     metavar "OPTION" <>
     help "Options to pass to the underlying GHC"

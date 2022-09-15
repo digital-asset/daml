@@ -78,6 +78,7 @@ import "ghc-lib-parser" Module (unitIdString, stringToUnitId)
 import qualified Network.Socket as NS
 import Options.Applicative.Extended
 import Options.Applicative hiding (option, strOption)
+import qualified Options.Applicative (option)
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
 import System.Directory.Extra
@@ -326,7 +327,7 @@ cmdRepl numProcessors =
             <*> strOptionOnce (long "script-lib" <> value "daml-script" <> internal)
             -- This is useful for tests and `bazel run`.
 
-    packageImport = optionOnce readPackage $
+    packageImport = Options.Applicative.option readPackage $
         long "import"
         <> short 'i'
         <> help "Import modules of these packages into the REPL"
