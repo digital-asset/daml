@@ -116,7 +116,6 @@ object VariantConstructorClass extends StrictLogging {
       .addException(classOf[IllegalArgumentException])
       .addParameter(valueParam)
       .addParameters(converterParams.asJava)
-      .addCode(FromValueGenerator.variantCheck(constructor, "value$", "variantValue$"))
 
     val fromValueParams = CodeBlock.join(
       converterParams.map { param =>
@@ -131,16 +130,6 @@ object VariantConstructorClass extends StrictLogging {
         fromValueParams,
         "value$",
       )
-      .addStatement(
-        FromValueGenerator
-          .generateFieldExtractor(
-            fieldType,
-            "body",
-            CodeBlock.of("variantValue$$"),
-            packagePrefixes,
-          )
-      )
-      .addStatement("return new $T(body)", className)
       .build()
   }
 
@@ -157,15 +146,6 @@ object VariantConstructorClass extends StrictLogging {
     val fromValueCode = CodeBlock
       .builder()
       .add(FromValueGenerator.variantCheck(constructor, "value$", "variantValue$"))
-      .addStatement(
-        FromValueGenerator
-          .generateFieldExtractor(
-            fieldType,
-            "body",
-            CodeBlock.of("variantValue$$"),
-            packagePrefixes,
-          )
-      )
       .addStatement(
         FromValueGenerator
           .generateFieldExtractor(
