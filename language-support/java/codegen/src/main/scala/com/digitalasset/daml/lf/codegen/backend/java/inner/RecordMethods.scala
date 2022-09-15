@@ -46,7 +46,7 @@ private[inner] object RecordMethods {
         ClassName.get(classOf[javaapi.data.DamlRecord]),
         name => CodeBlock.of("return new $T($L)", classOf[javaapi.data.DamlRecord], name),
       )
-      List(fromValue, deprecatedFromValue, toValue)
+      List(deprecatedFromValue, fromValue, toValue)
     }
 
     Vector(constructor) ++ conversionMethods ++

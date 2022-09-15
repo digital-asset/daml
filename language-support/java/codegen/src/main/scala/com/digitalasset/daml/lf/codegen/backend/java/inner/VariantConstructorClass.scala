@@ -113,6 +113,12 @@ object VariantConstructorClass extends StrictLogging {
       .addException(classOf[IllegalArgumentException])
       .addParameter(valueParam)
       .addParameters(converterParams.asJava)
+      .addAnnotation(classOf[Deprecated])
+      .addJavadoc(
+        "@deprecated since Daml $L; $L",
+        "2.5.0",
+        s"use {@code fromValue that return FromValue<?> instead",
+      )
 
     val fromValueParams = CodeBlock.join(
       converterParams.map { param =>

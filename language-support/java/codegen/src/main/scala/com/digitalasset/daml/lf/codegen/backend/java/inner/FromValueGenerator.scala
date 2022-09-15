@@ -34,6 +34,12 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .addParameter(TypeName.get(classOf[javaapi.data.Value]), "value$")
       .addParameters(converterParams.asJava)
       .addException(classOf[IllegalArgumentException])
+      .addAnnotation(classOf[Deprecated])
+      .addJavadoc(
+        "@deprecated since Daml $L; $L",
+        "2.5.0",
+        s"use {@code fromValue that return FromValue<?> instead",
+      )
 
     val fromValueParams = CodeBlock.join(
       converterParams.map { param =>

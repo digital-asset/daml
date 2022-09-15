@@ -4,10 +4,12 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
+import com.daml.ledger.javaapi.data.codegen.FromValue
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.typesig.{PrimTypeBool, TypePrim}
 import com.squareup.javapoet._
+
 import javax.lang.model.element.Modifier
 import org.scalatest.{OptionValues, TryValues}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -71,6 +73,39 @@ final class RecordLikeMethodsSpec
     toValue.annotations shouldBe empty
   }
 
+  behavior of "RecordMethods.deprecatedFromValueSpec"
+
+  it should "be correctly named" in {
+    deprecatedFromValue.name shouldBe "fromValue"
+  }
+
+  it should "be public static" in {
+    deprecatedFromValue.modifiers.asScala should contain.only(Modifier.STATIC, Modifier.PUBLIC)
+  }
+
+  it should "return the outer class" in {
+    deprecatedFromValue.returnType shouldEqual name
+  }
+
+  it should "take a single parameter 'value$' of type Value" in {
+    val parameters = deprecatedFromValue.parameters.asScala.map(p => p.name -> p.`type`)
+    parameters should contain only "value$" -> TypeName.get(classOf[javaapi.data.Value])
+  }
+
+  it should "throw an IllegalArgumentException" in {
+    deprecatedFromValue.exceptions should contain only TypeName.get(
+      classOf[IllegalArgumentException]
+    )
+  }
+
+  it should "declare deprecated annotation" in {
+    deprecatedFromValue.annotations should contain only AnnotationSpec
+      .builder(
+        classOf[Deprecated]
+      )
+      .build
+  }
+
   behavior of "RecordMethods.fromValueSpec"
 
   it should "be correctly named" in {
@@ -82,12 +117,15 @@ final class RecordLikeMethodsSpec
   }
 
   it should "return the outer class" in {
-    fromValue.returnType shouldEqual name
+    fromValue.returnType shouldEqual ParameterizedTypeName.get(
+      ClassName.get(classOf[FromValue[_]]),
+      name,
+    )
   }
 
-  it should "take a single parameter 'value$' of type Value" in {
+  it should "take no parameter" in {
     val parameters = fromValue.parameters.asScala.map(p => p.name -> p.`type`)
-    parameters should contain only "value$" -> TypeName.get(classOf[javaapi.data.Value])
+    parameters shouldBe empty
   }
 
   it should "throw an IllegalArgumentException" in {
@@ -108,6 +146,6 @@ final class RecordLikeMethodsSpec
     IndexedSeq.empty,
     Map(),
   )
-  private val Vector(constructor, fromValue, toValue) = methods.take(3)
+  private val Vector(constructor, deprecatedFromValue, fromValue, toValue) = methods.take(4)
 
 }
