@@ -239,10 +239,6 @@ private[lf] object Speedy {
     private[speedy] def toMap: Map[crypto.Hash, SValue.SContractId] = keyMap.toMap
   }
 
-  case class DisclosurePreprocessError(
-      err: String
-  ) extends RuntimeException(err, null, true, false)
-
   /** The speedy CEK machine. */
   final class Machine(
       /* The machine control is either an expression or a value. */
