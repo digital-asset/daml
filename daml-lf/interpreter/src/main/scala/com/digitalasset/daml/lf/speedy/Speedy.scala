@@ -27,7 +27,7 @@ import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.annotation.tailrec
-import scala.collection.immutable
+import scala.collection.mutable
 
 private[lf] object Speedy {
 
@@ -210,7 +210,7 @@ private[lf] object Speedy {
 
   private[speedy] class DisclosedContractKeyTable {
 
-    private[this] var keyMap: immutable.Map[crypto.Hash, SValue.SContractId] = immutable.Map.empty
+    private[this] var keyMap: mutable.Map[crypto.Hash, SValue.SContractId] = mutable.Map.empty
 
     private[speedy] def addContractKey(
         templateId: TypeConName,
@@ -227,13 +227,13 @@ private[lf] object Speedy {
           )
         )
       } else {
-        keyMap = keyMap + (keyHash -> SValue.SContractId(contractId))
+        keyMap.update(keyHash, SValue.SContractId(contractId))
         None
       }
     }
 
     private[speedy] def contractIdByKey: Map[crypto.Hash, SValue.SContractId] =
-      keyMap
+      keyMap.toMap
   }
 
   case class DisclosurePreprocessError(
