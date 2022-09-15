@@ -5,11 +5,9 @@ package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.javaapi.data.codegen.CreateAnd;
 
-public abstract class Template {
+public abstract class Template extends com.daml.ledger.javaapi.data.codegen.DamlRecord<Template> {
 
   public abstract CreateCommand create();
-
-  public abstract DamlRecord toValue();
 
   /**
    * Set up a {@link CreateAndExerciseCommand}; invoke an {@code exercise} method on the result of
