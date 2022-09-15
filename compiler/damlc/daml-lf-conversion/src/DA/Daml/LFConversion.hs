@@ -1727,6 +1727,10 @@ convertExpr env0 e = do
         where
             modName = maybe (envGHCModuleName env) GHC.moduleName $ nameModule_maybe $ getName x
 
+    go env (VarIn DA_Internal_Desugar "codeGenAllowLargeTuples") (LType _ : LExpr head : rest)
+        = let env' = env { envAllowLargeTuples = AllowLargeTuples True }
+           in go env' head rest
+
     go env (Var x) args
         | Just m <- nameModule_maybe $ varName x
         , Just con <- isDataConId_maybe x
