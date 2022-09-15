@@ -142,3 +142,6 @@ newtype InterfaceView p i t = InterfaceView ()
 -- it's extracted unmodified.
 mkInterfaceView : forall p i t v. (Implements t i, HasInterfaceView i v) => (t -> v) -> InterfaceView p i t
 mkInterfaceView = magic @"mkInterfaceView"
+
+codeGenAllowLargeTuples : forall a. a
+codeGenAllowLargeTuples = magic @"codeGenAllowLargeTuples"

@@ -1441,6 +1441,7 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         [ "mkInterfaceInstance"
         , "mkMethod"
         , "mkInterfaceView"
+        , "codeGenAllowLargeTuples"
         ])
     ]
 
