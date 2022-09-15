@@ -4,13 +4,14 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.daml.ledger.javaapi.data.codegen.FromValue
+import com.daml.ledger.javaapi.data.codegen.{ContractCompanion, FromValue}
 import com.daml.lf.codegen.backend.java.JavaEscaper
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.typesig._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
+
 import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
 
@@ -127,6 +128,26 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .addCode(fromValueCode.build())
       // put empty string in endControlFlow in order to have semicolon
       .endControlFlow("")
+      .build()
+  }
+
+  def generateFromValueForTemplate(
+      className: TypeName,
+      typeParameters: IndexedSeq[String],
+  ): MethodSpec = {
+    logger.debug("Generating fromValue method for template class")
+    val converterParams = FromValueExtractorParameters
+      .generate(typeParameters)
+      .fromValueParameterSpecs
+
+    MethodSpec
+      .methodBuilder("fromValue")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .returns(ParameterizedTypeName.get(ClassName.get(classOf[FromValue[_]]), className))
+      .addTypeVariables(className.typeParameters)
+      .addParameters(converterParams.asJava)
+      .addException(classOf[IllegalArgumentException])
+      .addStatement("return $T.fromValue(COMPANION)", classOf[ContractCompanion[_, _, _]])
       .build()
   }
 
@@ -265,15 +286,20 @@ private[inner] object FromValueGenerator extends StrictLogging {
           extractor(param, valArg, CodeBlock.of("$L", valArg), args, packagePrefixes),
           orElseThrow(apiType, field),
         )
-
-      case TypePrim(PrimTypeContractId, _) =>
+      case TypePrim(PrimTypeContractId, ImmArraySeq(TypeVar(name))) =>
+        CodeBlock.of(
+          "fromValue$L.fromContractId($L.asContractId()$L.getValue())",
+          JavaEscaper.escapeString(name),
+          accessor,
+          orElseThrow(apiType, field),
+        )
+      case TypePrim(PrimTypeContractId, ImmArraySeq(_)) =>
         CodeBlock.of(
           "new $T($L.asContractId()$L.getValue())",
           javaType,
           accessor,
           orElseThrow(apiType, field),
         )
-
       case TypePrim(PrimTypeTextMap, ImmArraySeq(param)) =>
         val optMapArg = args.next()
         val entryArg = args.next()

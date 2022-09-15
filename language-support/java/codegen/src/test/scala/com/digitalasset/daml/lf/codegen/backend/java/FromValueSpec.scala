@@ -17,7 +17,7 @@ final class FromValueSpec extends AnyWordSpec with Matchers {
         new ParameterizedContractId(new Bar.ContractId("SomeID"))
       val parametrizedContractId: ParameterizedContractId[Bar] =
         ParameterizedContractId
-          .fromValue(Bar.fromValue().fromValue)
+          .fromValue(Bar.fromValue())
           .fromValue(fromConstructor.toValue(_.toValue))
       val contractIdBar: ContractId[Bar] = parametrizedContractId.parameterizedContractId
 
@@ -26,7 +26,7 @@ final class FromValueSpec extends AnyWordSpec with Matchers {
         "type mismatch.+ContractId\\[.+Bar\\].+Bar.ContractId",
       )
 
-      contractIdBar should not be a[Bar.ContractId]
+      contractIdBar shouldBe a[Bar.ContractId]
       Bar.ContractId.fromContractId(contractIdBar) shouldBe a[Bar.ContractId]
     }
   }
