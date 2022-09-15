@@ -114,22 +114,23 @@ private[lf] object Speedy {
       throw SError.SErrorDamlException(IError.Limit(error(limit)))
 
   private[lf] final case class OnLedger(
-      val validating: Boolean,
-      val contractKeyUniqueness: ContractKeyUniquenessMode,
+      validating: Boolean,
+      contractKeyUniqueness: ContractKeyUniquenessMode,
       /* The current partial transaction */
       private[speedy] var ptx: PartialTransaction,
       /* Committers of the action. */
-      val committers: Set[Party],
+      committers: Set[Party],
       /* Additional readers (besides committers) for visibility checks. */
-      val readAs: Set[Party],
+      readAs: Set[Party],
       /* Commit location, if a scenario commit is in progress. */
-      val commitLocation: Option[Location],
+      commitLocation: Option[Location],
       /* Flag to trace usage of get_time builtins */
       var dependsOnTime: Boolean,
       // global contract discriminators, that are discriminators from contract created in previous transactions
       var cachedContracts: Map[V.ContractId, CachedContract],
       var numInputContracts: Int,
-      val limits: interpretation.Limits,
+      limits: interpretation.Limits,
+      disclosureKeyTable: DisclosedContractKeyTable,
   ) extends LedgerMode {
     private[lf] val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
       if (validating) { _ => SVisibleToStakeholders.Visible }
@@ -284,7 +285,6 @@ private[lf] object Speedy {
          not the other way around.
        */
       val ledgerMode: LedgerMode,
-      val disclosureTable: DisclosedContractKeyTable,
   ) {
 
     def tmplId2TxVersion(tmplId: TypeConName): TransactionVersion =
@@ -902,6 +902,7 @@ private[lf] object Speedy {
           numInputContracts = 0,
           contractKeyUniqueness = contractKeyUniqueness,
           limits = limits,
+          disclosureKeyTable = new DisclosedContractKeyTable,
         ),
         traceLog = traceLog,
         warningLog = warningLog,
@@ -910,7 +911,6 @@ private[lf] object Speedy {
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
-        disclosureTable = new DisclosedContractKeyTable,
       )
     }
 
@@ -1011,7 +1011,6 @@ private[lf] object Speedy {
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
-        disclosureTable = new DisclosedContractKeyTable,
       )
     }
 

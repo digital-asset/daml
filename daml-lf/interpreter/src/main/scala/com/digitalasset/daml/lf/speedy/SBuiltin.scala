@@ -1649,7 +1649,7 @@ private[lf] object SBuiltin {
               }
             }: Option[V.ContractId] => (Control, Boolean)
 
-            machine.disclosureTable.contractIdByKey(gkey.hash) match {
+            onLedger.disclosureKeyTable.contractIdByKey(gkey.hash) match {
               case Some(coid) =>
                 continue(Some(coid.value))._1
 
@@ -2134,7 +2134,7 @@ private[lf] object SBuiltin {
       val optError = for {
         keyWithMaintainers <- cachedContract.key
         keyHash = crypto.Hash.assertHashContractKey(templateId, keyWithMaintainers.key)
-        result <- machine.disclosureTable.addContractKey(templateId, keyHash, contractId)
+        result <- onLedger.disclosureKeyTable.addContractKey(templateId, keyHash, contractId)
       } yield result
 
       optError match {

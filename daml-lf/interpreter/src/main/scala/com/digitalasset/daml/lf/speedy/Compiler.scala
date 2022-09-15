@@ -1100,7 +1100,7 @@ private[lf] final class Compiler(
             ),
           )
         },
-        s.SEVarLevel(baseIndex),
+        s.SEValue(SValue.Unit),
       ),
     )
   }
