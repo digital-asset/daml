@@ -121,9 +121,20 @@ object VariantConstructorClass extends StrictLogging {
       ", ",
     )
 
+    val classStaticAccessor = if (className.typeParameters.size > 0) {
+      val typeParameterList = CodeBlock.join(
+        className.typeParameters.asScala.map { param =>
+          CodeBlock.of("$T", param)
+        }.asJava,
+        ", ",
+      )
+      CodeBlock.of("$T.<$L>", className.rawType, typeParameterList)
+    } else CodeBlock.of("")
+
     method
       .addStatement(
-        "return fromValue($L).fromValue($L)",
+        "return $LfromValue($L).fromValue($L)",
+        classStaticAccessor,
         fromValueParams,
         "value$",
       )
