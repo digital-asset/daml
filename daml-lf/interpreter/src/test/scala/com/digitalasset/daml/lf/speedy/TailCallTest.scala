@@ -111,20 +111,20 @@ class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
     envBound match {
       case None => ()
       case Some(bound) =>
-        machine.env = new BoundedArrayList[SValue](bound)
+        machine.env = new BoundedArrayList[SValue](bound) // FIXME: not good!!
     }
     // maybe replace the kont-stack with a bounded version
     kontBound match {
       case None => ()
       case Some(bound) =>
         val onlyKont: Speedy.Kont =
-          if (machine.kontStack.size != 1) {
-            crash(s"setBoundedKontStack, unexpected size of kont-stack: ${machine.kontStack.size}")
+          if (machine.kontDepth() != 1) {
+            crash(s"setBoundedKontStack, unexpected size of kont-stack: ${machine.kontDepth()}")
           } else {
-            machine.kontStack.get(0)
+            machine.peekKontStackTop()
           }
-        machine.kontStack = new BoundedArrayList[Speedy.Kont](bound)
-        machine.kontStack.add(onlyKont)
+        machine.kontStack = new BoundedArrayList[Speedy.Kont](bound) // FIXME: not good!!
+        machine.pushKont(onlyKont)
     }
     // run the machine
     machine.run() match {
