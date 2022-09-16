@@ -76,7 +76,6 @@ object LedgerBridge {
       initialAllocatedParties = allocatedPartiesAtInitialization,
       initialLedgerConfiguration = initialLedgerConfiguration,
       bridgeMetrics = bridgeMetrics,
-      validatePartyAllocation = true,
       servicesThreadPoolSize = servicesThreadPoolSize,
       maxDeduplicationDuration = initialLedgerConfiguration
         .map(_.maxDeduplicationDuration)
