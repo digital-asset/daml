@@ -27,7 +27,6 @@ import com.daml.platform.configuration.{
   CommandConfiguration,
   IndexServiceConfig,
   InitialLedgerConfiguration,
-  PartyConfiguration,
 }
 import com.daml.platform.indexer.{IndexerConfig, PackageMetadataViewConfig}
 import com.daml.platform.indexer.ha.HaConfig
@@ -95,7 +94,6 @@ class PureConfigReaderWriterSpec
     )
     testReaderWriterIsomorphism(secure, ArbitraryConfig.clientAuth)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.userManagementConfig)
-    testReaderWriterIsomorphism(secure, ArbitraryConfig.partyConfiguration)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.connectionPoolConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.postgresDataSourceConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.dataSourceProperties)
@@ -549,15 +547,6 @@ class PureConfigReaderWriterSpec
     )
   }
 
-  behavior of "PartyConfiguration"
-
-  it should "read/write against predefined values" in {
-    val value =
-      ConfigFactory.parseString("implicit-party-allocation=false")
-    val source = ConfigSource.fromConfig(value).cursor().value
-    partyConfigurationConvert.from(source).value shouldBe PartyConfiguration()
-  }
-
   behavior of "CommandConfiguration"
 
   val validCommandConfigurationValue =
@@ -644,9 +633,6 @@ class PureConfigReaderWriterSpec
       |configuration-load-timeout = "10s"
       |management-service-timeout = "2m"
       |max-inbound-message-size = 67108864
-      |party {
-      |  implicit-party-allocation = false
-      |}
       |port = 6865
       |rate-limit {
       |  enabled = true

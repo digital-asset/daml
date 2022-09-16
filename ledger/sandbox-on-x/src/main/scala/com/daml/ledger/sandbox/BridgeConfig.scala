@@ -39,10 +39,12 @@ object BridgeConfig {
       builder
         .opt[Boolean](name = "implicit-party-allocation")
         .optional()
-        .action((x, c) => c.copy(implicitPartyAllocation = x))
         .text(
-          s"When referring to a party that doesn't yet exist on the ledger, the participant will implicitly allocate that party."
-            + s" You can optionally disable this behavior to bring participant into line with other ledgers."
+          "Deprecated parameter --  lf value translation cache doesn't exist anymore."
+        )
+        .action((_, config) => config)
+        .text(
+          "Deprecated parameter -- Implicit party creation isn't supported anymore."
         ),
       builder.checkConfig(c =>
         Either.cond(
