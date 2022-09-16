@@ -98,6 +98,14 @@ class ScalaCodeGenIT
   override protected def beforeAll(): Unit = {
     super.beforeAll()
     ledger = Await.result(LedgerClient(channel, clientConfig), StartupTimeout)
+    val _ = Await.ready(
+      Future.sequence(
+        List(alice, bob, charlie).map(p =>
+          ledger.partyManagementClient.allocateParty(Some(p.toString), None)
+        )
+      ),
+      StartupTimeout,
+    )
   }
 
   "generated package ID among those returned by the packageClient" in {
