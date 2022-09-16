@@ -252,16 +252,12 @@ private[daml] object ApiServices {
         val apiSubmissionService = ApiSubmissionService.create(
           ledgerId,
           writeService,
-          partyManagementService,
           timeProvider,
           timeProviderType,
           ledgerConfigurationSubscription,
           seedService,
           commandExecutor,
           checkOverloaded,
-          ApiSubmissionService.Configuration(
-            false
-          ),
           metrics,
         )
 
