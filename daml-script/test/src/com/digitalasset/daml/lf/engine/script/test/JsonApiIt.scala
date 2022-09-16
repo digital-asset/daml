@@ -84,6 +84,7 @@ import spray.json._
 import java.io.File
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
+import scala.util.Success
 
 trait JsonApiFixture
     extends AbstractSandboxFixture
@@ -270,7 +271,11 @@ final class JsonApiIt
       )
       .toMap
     val participantParams = Participants(Some(defaultParticipant), participantMap, partyMap)
-    Runner.jsonClients(participantParams, envIface)
+    Runner.jsonClients(participantParams, envIface).andThen { case Success(ps) =>
+      partyMap.foreach { case (party, participant) =>
+        ps.participants.get(participant).map(_.allocateParty(party, ""))
+      }
+    }
   }
 
   private def getMultiPartyClients(
@@ -289,7 +294,11 @@ final class JsonApiIt
         applicationId,
       )
     val participantParams = Participants(Some(defaultParticipant), Map.empty, Map.empty)
-    Runner.jsonClients(participantParams, envIface)
+    Runner.jsonClients(participantParams, envIface).andThen { case Success(ps) =>
+      parties.foreach { party =>
+        ps.default_participant.map(_.allocateParty(party, ""))
+      }
+    }
   }
 
   private def getUserClients(
@@ -555,7 +564,7 @@ final class JsonApiIt
       val party1 = "multiPartySubmission1"
       val party2 = "multiPartySubmission2"
       for {
-        clients1 <- getClients(parties = List(party1))
+        clients1 <- getClients(parties = List(party1, party2))
         cidSingle <- run(
           clients1,
           QualifiedName.assertFromString("ScriptTest:jsonMultiPartySubmissionCreateSingle"),
