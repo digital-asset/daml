@@ -18,7 +18,6 @@ import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.service.MetadataReader
-import com.daml.http.util.Logging.instanceUUIDLogCtx
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
@@ -27,11 +26,10 @@ import scalaz.std.list._
 import scalaz.std.vector._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.apply._
-import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, \/, \/-}
+import scalaz.{-\/, \/-}
 import shapeless.record.{Record => ShRecord}
 import spray.json._
 
@@ -41,8 +39,6 @@ import com.daml.lf.{value => lfv}
 import com.daml.scalautil.Statement.discard
 import com.google.protobuf.struct.Struct
 import lfv.test.TypedValueGenerators.{ValueAddend => VA}
-
-import java.util.UUID
 
 trait AbstractHttpServiceIntegrationTestFunsCustomToken
     extends AsyncFreeSpec
@@ -517,15 +513,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }
   }
 
-  "query with invalid JSON query should return error" in withHttpService { fixture =>
-    fixture
-      .postJsonStringRequest(Uri.Path("/v1/query"), "{NOT A VALID JSON OBJECT")
-      .parseResponse[JsValue]
-      .map(inside(_) { case domain.ErrorResponse(_, _, StatusCodes.BadRequest, _) =>
-        succeed
-      }): Future[Assertion]
-  }
-
   protected implicit final class `AHS TI uri funs`(private val fixture: UriFixture) {
 
     def searchAllExpectOk(
@@ -544,123 +531,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         .getRequest(Uri.Path("/v1/query"), headers)
         .parseResponse[List[domain.ActiveContract[JsValue]]]
 
-  }
-
-  "create" - {
-    "succeeds with single party, proper argument" in withHttpService { fixture =>
-      import fixture.encoder
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
-
-        postCreateCommand(command, fixture, headers)
-          .map(inside(_) { case domain.OkResponse(activeContract, _, StatusCodes.OK) =>
-            assertActiveContract(activeContract)(command, encoder)
-          }): Future[Assertion]
-      }
-    }
-
-    // TEST_EVIDENCE: Authorization: reject requests with missing auth header
-    "fails if authorization header is missing" in withHttpService { fixture =>
-      import fixture.encoder
-      val alice = getUniqueParty("Alice")
-      val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
-      val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
-
-      fixture
-        .postJsonRequest(Uri.Path("/v1/create"), input, List())
-        .parseResponse[JsValue]
-        .map(inside(_) { case domain.ErrorResponse(Seq(error), _, StatusCodes.Unauthorized, _) =>
-          error should include(
-            "missing Authorization header with OAuth 2.0 Bearer Token"
-          )
-        }): Future[Assertion]
-    }
-
-    "supports extra readAs parties" in withHttpService { fixture =>
-      import fixture.encoder
-      val alice = getUniqueParty("Alice")
-      val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
-      val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
-
-      fixture
-        .headersWithPartyAuth(actAs = List(alice.unwrap), readAs = List("Bob"))
-        .flatMap(
-          fixture
-            .postJsonRequest(
-              Uri.Path("/v1/create"),
-              input,
-              _,
-            )
-            .parseResponse[domain.ActiveContract[JsValue]]
-        )
-        .map(inside(_) { case domain.OkResponse(activeContract, _, StatusCodes.OK) =>
-          assertActiveContract(activeContract)(command, encoder)
-        }): Future[Assertion]
-    }
-
-    "with unsupported templateId should return proper error" in withHttpService { fixture =>
-      import fixture.encoder
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        val command: domain.CreateCommand[v.Record, OptionalPkg] =
-          iouCreateCommand(alice).copy(templateId = domain.TemplateId(None, "Iou", "Dummy"))
-        val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
-
-        fixture
-          .postJsonRequest(Uri.Path("/v1/create"), input, headers)
-          .parseResponse[JsValue]
-          .map(inside(_) { case domain.ErrorResponse(Seq(error), _, StatusCodes.BadRequest, _) =>
-            val unknownTemplateId: OptionalPkg =
-              domain
-                .TemplateId(None, command.templateId.moduleName, command.templateId.entityName)
-            error should include(
-              s"Cannot resolve template ID, given: ${unknownTemplateId: OptionalPkg}"
-            )
-          }): Future[Assertion]
-      }
-    }
-
-    "supports command deduplication" in withHttpService { fixture =>
-      import fixture.encoder
-      def genSubmissionId() = domain.SubmissionId(UUID.randomUUID().toString)
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        val cmdId = domain.CommandId apply UUID.randomUUID().toString
-        def cmd(
-            submissionId: domain.SubmissionId
-        ): domain.CreateCommand[v.Record, OptionalPkg] =
-          iouCreateCommand(
-            alice,
-            amount = "19002.0",
-            meta = Some(
-              domain.CommandMeta(
-                commandId = Some(cmdId),
-                actAs = None,
-                readAs = None,
-                submissionId = Some(submissionId),
-                deduplicationPeriod = Some(domain.DeduplicationPeriod.Duration(10000L)),
-              )
-            ),
-          )
-
-        val firstCreate: JsValue =
-          encoder.encodeCreateCommand(cmd(genSubmissionId())).valueOr(e => fail(e.shows))
-
-        fixture
-          .postJsonRequest(Uri.Path("/v1/create"), firstCreate, headers)
-          .parseResponse[domain.CreateCommandResponse[JsValue]]
-          .map(inside(_) { case domain.OkResponse(result, _, _) =>
-            result.completionOffset.unwrap should not be empty
-          })
-          .flatMap { _ =>
-            val secondCreate: JsValue =
-              encoder.encodeCreateCommand(cmd(genSubmissionId())).valueOr(e => fail(e.shows))
-            fixture
-              .postJsonRequest(Uri.Path("/v1/create"), secondCreate, headers)
-              .map(inside(_) { case (StatusCodes.Conflict, _) =>
-                succeed
-              }): Future[Assertion]
-          }
-      }
-    }
   }
 
   "exercise" - {
@@ -780,35 +650,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }
   }
 
-  "create-and-exercise IOU_Transfer" in withHttpService { fixture =>
-    import fixture.encoder
-    fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-      val cmd: domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] =
-        iouCreateAndExerciseTransferCommand(alice)
-
-      val json: JsValue = encoder.encodeCreateAndExerciseCommand(cmd).valueOr(e => fail(e.shows))
-
-      fixture
-        .postJsonRequest(Uri.Path("/v1/create-and-exercise"), json, headers)
-        .parseResponse[domain.ExerciseResponse[JsValue]]
-        .flatMap(inside(_) { case domain.OkResponse(result, None, StatusCodes.OK) =>
-          result.completionOffset.unwrap should not be empty
-          inside(result.events) {
-            case List(
-                  domain.Contract(\/-(created0)),
-                  domain.Contract(-\/(archived0)),
-                  domain.Contract(\/-(created1)),
-                ) =>
-              assertTemplateId(created0.templateId, cmd.templateId)
-              assertTemplateId(archived0.templateId, cmd.templateId)
-              archived0.contractId shouldBe created0.contractId
-              assertTemplateId(created1.templateId, TpId.Iou.IouTransfer)
-              asContractId(result.exerciseResult) shouldBe created1.contractId
-          }
-        })
-    }: Future[Assertion]
-  }
-
   private def assertExerciseResponseNewActiveContract(
       exerciseResponse: domain.ExerciseResponse[JsValue],
       createCmd: domain.CreateCommand[v.Record, OptionalPkg],
@@ -909,44 +750,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         (archivedContract.contractId.unwrap: String) shouldBe (exercise.reference.contractId.unwrap: String)
       }
     }
-
-  "should be able to serialize and deserialize domain commands" in withHttpService { fixture =>
-    (testCreateCommandEncodingDecoding(fixture) *>
-      testExerciseCommandEncodingDecoding(fixture)): Future[Assertion]
-  }
-
-  private def testCreateCommandEncodingDecoding(
-      fixture: HttpServiceTestFixtureData
-  ): Future[Assertion] = instanceUUIDLogCtx { implicit lc =>
-    import fixture.{uri, encoder, decoder}
-    import json.JsonProtocol._
-    import util.ErrorOps._
-
-    val command0: domain.CreateCommand[v.Record, OptionalPkg] =
-      iouCreateCommand(domain.Party("Alice"))
-
-    type F[A] = EitherT[Future, JsonError, A]
-    val x: F[Assertion] = for {
-      jsVal <- EitherT.either(
-        encoder.encodeCreateCommand(command0).liftErr(JsonError)
-      ): F[JsValue]
-      command1 <- (EitherT.rightT(jwt(uri)): F[Jwt])
-        .flatMap(decoder.decodeCreateCommand(jsVal, _, fixture.ledgerId))
-    } yield command1.bimap(removeRecordId, removePackageId) should ===(command0)
-
-    (x.run: Future[JsonError \/ Assertion]).map(_.fold(e => fail(e.shows), identity))
-  }
-
-  private def testExerciseCommandEncodingDecoding(
-      fixture: HttpServiceTestFixtureData
-  ): Future[Assertion] = {
-    import fixture.{uri, encoder, decoder}
-    val command0 = iouExerciseTransferCommand(lar.ContractId("#a-contract-ID"))
-    val jsVal: JsValue = encodeExercise(encoder)(command0)
-    val command1 =
-      jwt(uri).flatMap(decodeExercise(decoder, _, fixture.ledgerId)(jsVal))
-    command1.map(_.bimap(removeRecordId, identity) should ===(command0))
-  }
 
   "request non-existent endpoint should return 404 with errors" in withHttpService { fixture =>
     val badPath = Uri.Path("/contracts/does-not-exist")
