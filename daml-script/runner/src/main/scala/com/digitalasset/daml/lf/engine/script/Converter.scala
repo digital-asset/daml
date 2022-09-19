@@ -5,7 +5,7 @@ package com.daml.lf
 package engine
 package script
 
-import com.daml.ledger.api.domain.{ObjectMeta, PartyDetails, User, UserRight}
+import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.validation.NoLoggingValueValidator
@@ -743,8 +743,7 @@ object Converter {
         for {
           id <- toUserId(vals.get(0))
           primaryParty <- toOptional(vals.get(1), toParty)
-          // TODO um-for-hub: Support isDeactivated and metadata
-        } yield User(id, primaryParty, isDeactivated = false, metadata = ObjectMeta.empty)
+        } yield User(id, primaryParty)
       case _ => Left(s"Expected User but got $v")
     }
 
