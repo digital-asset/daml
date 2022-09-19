@@ -135,14 +135,16 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
 
   it should "fail validation on invalid create arguments record field" in {
     def invalidateArguments(arguments: ProtoArguments): ProtoArguments =
-      ProtoArguments.Record(
-        arguments.record.get.update(_.fields.set(scala.Seq(ProtoRecordField("something", None))))
+      ProtoArguments.CreateArguments(
+        arguments.createArguments.get.update(
+          _.fields.set(scala.Seq(ProtoRecordField("something", None)))
+        )
       )
     val withInvalidRecordField =
       ProtoCommands(disclosedContracts =
         scala.Seq(
           api.protoDisclosedContract.update(
-            _.arguments.modify(argumentsUpdate)
+            _.arguments.modify(invalidateArguments)
           )
         )
       )
@@ -222,7 +224,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       ProtoCommands(disclosedContracts =
         scala.Seq(
           api.protoDisclosedContract.update(
-            _.arguments := ProtoArguments.Blob(
+            _.arguments := ProtoArguments.CreateArgumentsBlob(
               com.google.protobuf.any.Any("crap", ByteString.EMPTY)
             )
           )
@@ -264,7 +266,7 @@ object ValidateDisclosedContractsTest {
     val protoDisclosedContract: ProtoDisclosedContract = ProtoDisclosedContract(
       templateId = Some(templateId),
       contractId = contractId,
-      arguments = ProtoArguments.Record(contractArgumentsRecord),
+      arguments = ProtoArguments.CreateArguments(contractArgumentsRecord),
       metadata = Some(contractMetadata),
     )
     val protoCommands: ProtoCommands =

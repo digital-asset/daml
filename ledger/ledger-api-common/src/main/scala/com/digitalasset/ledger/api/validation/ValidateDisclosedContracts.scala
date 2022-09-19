@@ -77,12 +77,12 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Value] =
     arguments match {
-      case ProtoDisclosedContract.Arguments.Record(value) =>
+      case ProtoDisclosedContract.Arguments.CreateArguments(value) =>
         for {
           recordId <- validateOptionalIdentifier(value.recordId)
           validatedRecordField <- validateRecordFields(value.fields)
         } yield ValueRecord(recordId, validatedRecordField)
-      case ProtoDisclosedContract.Arguments.Blob(value) =>
+      case ProtoDisclosedContract.Arguments.CreateArgumentsBlob(value) =>
         for {
           protoAny <- validateProtoAny(value)
           versionedValue <- validateVersionedValue(protoAny)

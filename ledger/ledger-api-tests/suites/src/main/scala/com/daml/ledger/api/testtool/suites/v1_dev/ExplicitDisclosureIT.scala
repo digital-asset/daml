@@ -291,7 +291,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         .exerciseFetchDelegated(
           testContext.disclosedContract
             .update(
-              _.arguments := ProtoArguments.Record(
+              _.arguments := ProtoArguments.CreateArguments(
                 Delegated(delegate, testContext.contractKey).arguments
               )
             )
@@ -338,7 +338,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       errorMalformedPayload <- testContext
         .exerciseFetchDelegated(
           testContext.disclosedContract
-            .update(_.arguments := ProtoArguments.Record(malformedArgument))
+            .update(_.arguments := ProtoArguments.CreateArguments(malformedArgument))
         )
         .mustFail("using a malformed contract argument")
 
@@ -469,10 +469,12 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       // Exercise a choice using invalid explicit disclosure (bad payload)
       _ <- testContext
         .exerciseFetchDelegated(
-          testContext.disclosedContract,
-          // Provide a superfluous disclosed contract with mismatching contract arguments
-          dummyDisclosedContract
-            .update(_.arguments := ProtoArguments.Record(Dummy(delegate).arguments)),
+          testContext.disclosedContract
+            .update(
+              _.arguments := ProtoArguments.CreateArguments(
+                Delegated(delegate, testContext.contractKey).arguments
+              )
+            )
         )
     } yield ()
   })
@@ -754,9 +756,9 @@ object ExplicitDisclosureIT {
   private def createEventToDisclosedContract(ev: CreatedEvent): DisclosedContract = {
     val arguments = (ev.createArguments, ev.createArgumentsBlob) match {
       case (Some(createArguments), _) =>
-        DisclosedContract.Arguments.Record(createArguments)
+        DisclosedContract.Arguments.CreateArguments(createArguments)
       case (_, Some(createArgumentsBlob)) =>
-        DisclosedContract.Arguments.Blob(createArgumentsBlob)
+        DisclosedContract.Arguments.CreateArgumentsBlob(createArgumentsBlob)
       case _ =>
         sys.error("createEvent arguments are empty")
     }
