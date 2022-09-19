@@ -56,6 +56,13 @@ message InclusiveFilters {
   // the available packages at the time of the query.
   // Optional
   repeated InterfaceFilter interface_filters = 2;
+
+  // Whether to include a ``create_arguments_blob`` in the returned
+  // ``CreateEvent``.
+  // Use this to access the complete contract data in your API client
+  // for submitting it as a disclosed contract with future commands.
+  // Optional
+  bool include_create_arguments_blob = 3;
 }
 
 // This filter matches contracts that implement a specific interface.
@@ -69,11 +76,4 @@ message InterfaceFilter {
   // Use this to access contract data in a uniform manner in your API client.
   // Optional
   bool include_interface_view = 2;
-
-  // Whether to include a ``create_arguments_blob`` in the returned
-  // ``CreateEvent``.
-  // Use this to access the complete contract data in your API client
-  // for submitting it as a disclosed contract with future commands.
-  // Optional
-  bool include_create_arguments_blob = 3;
 }

@@ -57,8 +57,8 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     EventProjectionProperties(
       new TransactionFilter(
         Map(
-          party -> Filters(Some(InclusiveFilters(Set.empty, Set.empty))),
-          party2 -> Filters(Some(InclusiveFilters(Set(template1), Set.empty))),
+          party -> Filters(Some(InclusiveFilters(Set.empty, Set.empty, false))),
+          party2 -> Filters(Some(InclusiveFilters(Set(template1), Set.empty, false))),
         )
       ),
       true,
@@ -74,7 +74,8 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       Some(
         InclusiveFilters(
           Set.empty,
-          Set(InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = false)),
+          Set(InterfaceFilter(iface1, includeView = true)),
+          includeCreateArgumentsBlob = false,
         )
       )
     )
@@ -88,7 +89,8 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       Some(
         InclusiveFilters(
           Set.empty,
-          Set(InterfaceFilter(iface1, includeView = false, includeCreateArgumentsBlob = false)),
+          Set(InterfaceFilter(iface1, includeView = false)),
+          includeCreateArgumentsBlob = false,
         )
       )
     )
@@ -103,7 +105,8 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       Some(
         InclusiveFilters(
           Set(template1),
-          Set(InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = false)),
+          Set(InterfaceFilter(iface1, includeView = true)),
+          includeCreateArgumentsBlob = false,
         )
       )
     )
@@ -122,9 +125,10 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
         InclusiveFilters(
           Set.empty,
           Set(
-            InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = false),
-            InterfaceFilter(iface2, includeView = true, includeCreateArgumentsBlob = false),
+            InterfaceFilter(iface1, includeView = true),
+            InterfaceFilter(iface2, includeView = true),
           ),
+          includeCreateArgumentsBlob = false,
         )
       )
     )
@@ -141,9 +145,10 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
             InclusiveFilters(
               Set.empty,
               Set(
-                InterfaceFilter(iface1, includeView = false, includeCreateArgumentsBlob = false),
-                InterfaceFilter(iface2, includeView = true, includeCreateArgumentsBlob = false),
+                InterfaceFilter(iface1, includeView = false),
+                InterfaceFilter(iface2, includeView = true),
               ),
+              includeCreateArgumentsBlob = false,
             )
           )
         ),
@@ -152,9 +157,10 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
             InclusiveFilters(
               Set.empty,
               Set(
-                InterfaceFilter(iface1, includeView = true, includeCreateArgumentsBlob = false),
-                InterfaceFilter(iface2, includeView = true, includeCreateArgumentsBlob = false),
+                InterfaceFilter(iface1, includeView = true),
+                InterfaceFilter(iface2, includeView = true),
               ),
+              includeCreateArgumentsBlob = false,
             )
           )
         ),
@@ -170,7 +176,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
 
   it should "project contract arguments blob in case of match by interface" in new Scope {
     val transactionFilter = new TransactionFilter(
-      Map(party -> Filters(InclusiveFilters(Set.empty, Set(InterfaceFilter(iface1, false, true)))))
+      Map(party -> Filters(InclusiveFilters(Set.empty, Set(InterfaceFilter(iface1, false)), true)))
     )
     EventProjectionProperties(transactionFilter, true, interfaceImpl).render(
       Set(party),
@@ -182,7 +188,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     val transactionFilter = new TransactionFilter(
       Map(
         party -> Filters(
-          InclusiveFilters(Set(template1), Set(InterfaceFilter(iface1, false, true)))
+          InclusiveFilters(Set(template1), Set(InterfaceFilter(iface1, false)), true)
         )
       )
     )
@@ -196,7 +202,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     val transactionFilter = new TransactionFilter(
       Map(
         party -> Filters(
-          InclusiveFilters(Set(template1), Set(InterfaceFilter(iface1, true, true)))
+          InclusiveFilters(Set(template1), Set(InterfaceFilter(iface1, true)), true)
         )
       )
     )
@@ -204,26 +210,6 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       Set(party),
       template1,
     ) shouldBe RenderResult(true, true, Set(iface1))
-  }
-
-  it should "project contract arguments blob in case of at least a single interface requesting it" in new Scope {
-    val transactionFilter = new TransactionFilter(
-      Map(
-        party -> Filters(
-          InclusiveFilters(
-            Set.empty,
-            Set(
-              InterfaceFilter(iface1, false, includeCreateArgumentsBlob = true),
-              InterfaceFilter(iface2, false, includeCreateArgumentsBlob = false),
-            ),
-          )
-        )
-      )
-    )
-    EventProjectionProperties(transactionFilter, true, interfaceImpl).render(
-      Set(party),
-      template1,
-    ) shouldBe RenderResult(true, false, Set.empty)
   }
 }
 
@@ -246,10 +232,10 @@ object EventProjectionPropertiesSpec {
     val noFilter = new TransactionFilter(Map())
     val wildcardFilter = new TransactionFilter(Map(party -> Filters(None)))
     val emptyInclusiveFilters = new TransactionFilter(
-      Map(party -> Filters(Some(InclusiveFilters(Set.empty, Set.empty))))
+      Map(party -> Filters(Some(InclusiveFilters(Set.empty, Set.empty, false))))
     )
     def templateFilterFor(templateId: Ref.Identifier): Option[InclusiveFilters] = Some(
-      InclusiveFilters(Set(templateId), Set.empty)
+      InclusiveFilters(Set(templateId), Set.empty, false)
     )
   }
 }

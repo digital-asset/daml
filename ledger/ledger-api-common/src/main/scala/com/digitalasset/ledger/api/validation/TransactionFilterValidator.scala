@@ -48,7 +48,13 @@ object TransactionFilterValidator {
             validatedInterfaces <-
               inclusive.interfaceFilters.toList traverse validateInterfaceFilter
           } yield domain.Filters(
-            Some(InclusiveFilters(validatedIdents.toSet, validatedInterfaces.toSet))
+            Some(
+              InclusiveFilters(
+                templateIds = validatedIdents.toSet,
+                interfaceFilters = validatedInterfaces.toSet,
+                includeCreateArgumentsBlob = inclusive.includeCreateArgumentsBlob,
+              )
+            )
           )
       }
   }
@@ -62,7 +68,6 @@ object TransactionFilterValidator {
     } yield domain.InterfaceFilter(
       interfaceId = validatedId,
       includeView = filter.includeInterfaceView,
-      includeCreateArgumentsBlob = filter.includeCreateArgumentsBlob,
     )
   }
 }

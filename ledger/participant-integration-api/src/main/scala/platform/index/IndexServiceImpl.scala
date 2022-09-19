@@ -580,7 +580,7 @@ object IndexServiceImpl {
     transactionFilter.filtersByParty.view.collect {
       case (party, Filters(None)) =>
         party
-      case (party, Filters(Some(InclusiveFilters(templateIds, interfaceFilters))))
+      case (party, Filters(Some(InclusiveFilters(templateIds, interfaceFilters, _))))
           if templateIds.isEmpty && interfaceFilters.isEmpty =>
         party
     }.toSet

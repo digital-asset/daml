@@ -58,9 +58,9 @@ class TransactionServiceRequestValidatorTest
                         )
                       ),
                       includeInterfaceView = true,
-                      includeCreateArgumentsBlob = true,
                     )
                   ),
+                  includeCreateArgumentsBlob = true,
                 )
               )
             )
@@ -264,7 +264,7 @@ class TransactionServiceRequestValidatorTest
           filtersByParty should have size 1
           inside(filtersByParty.headOption.value) { case (p, filters) =>
             p shouldEqual party
-            filters shouldEqual domain.Filters(Some(domain.InclusiveFilters(Set(), Set())))
+            filters shouldEqual domain.Filters(Some(domain.InclusiveFilters(Set(), Set(), true)))
           }
           req.verbose shouldEqual verbose
         }
