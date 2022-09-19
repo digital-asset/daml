@@ -32,6 +32,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
 import akka.http.scaladsl.server.Directives._
 import com.daml.http.endpoints.MeteringReportEndpoint
+import com.daml.http.tracing.{NoReportingTracerProvider, TracerProvider}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 
@@ -51,6 +52,7 @@ class Endpoints(
     shouldLogHttpBodies: Boolean,
     userManagementClient: UserManagementClient,
     ledgerIdentityClient: LedgerIdentityClient,
+    tracerProvide: TracerProvider = NoReportingTracerProvider,
     maxTimeToCollectRequest: FiniteDuration = FiniteDuration(5, "seconds"),
 )(implicit ec: ExecutionContext, mat: Materializer) {
 

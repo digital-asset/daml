@@ -80,6 +80,14 @@ hj_scalacopts = lf_scalacopts + [
             "//libs-scala/resources",
             "//libs-scala/scala-utils",
             "@maven//:io_dropwizard_metrics_metrics_core",
+            "@maven//:io_opentelemetry_opentelemetry_sdk",
+            "@maven//:io_opentelemetry_opentelemetry_sdk_common",
+            "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
+            "@maven//:io_opentelemetry_opentelemetry_api",
+            "@maven//:io_opentelemetry_opentelemetry_context",
+            "@maven//:io_opentelemetry_opentelemetry_exporter_jaeger",
+            "@maven//:io_opentelemetry_opentelemetry_exporter_zipkin",
+            "@maven//:io_opentelemetry_opentelemetry_semconv",
         ],
     )
     for edition in [
