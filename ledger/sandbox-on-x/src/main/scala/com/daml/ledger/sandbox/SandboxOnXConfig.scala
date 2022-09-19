@@ -57,8 +57,9 @@ object SandboxOnXConfig {
     fromConfig.left.foreach { msg =>
       sys.error(s"Failed to parse config after applying config maps and config files: $msg")
     }
-    fromConfig.getOrElse(
-      sys.error("Failed to parse config after applying config maps and config files")
+    fromConfig.fold(
+      msg => sys.error(s"Failed to parse config after applying config maps and config files: $msg"),
+      identity,
     )
   }
 }
