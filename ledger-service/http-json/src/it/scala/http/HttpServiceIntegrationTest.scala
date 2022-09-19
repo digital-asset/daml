@@ -8,28 +8,31 @@ import java.nio.file.Files
 import java.util.UUID
 
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
+import akka.http.scaladsl.model.{HttpMethod, HttpMethods, HttpRequest, StatusCodes, Uri}
 import AbstractHttpServiceIntegrationTestFuns.HttpServiceTestFixtureData
 import dbbackend.JdbcConfig
 import json.JsonError
+import util.ClientUtil.uniqueId
 import util.Logging.instanceUUIDLogCtx
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref
 import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
 import com.daml.scalautil.Statement.discard
-import json.SprayJson.{decode => jdecode}
+import json.SprayJson, SprayJson.{decode => jdecode}
 import com.daml.http.util.TestUtil.writeToFile
 import org.scalacheck.Gen
 import org.scalatest.{Assertion, BeforeAndAfterAll}
 import scalaz.{-\/, \/-, EitherT, \/}
 import scalaz.std.scalaFuture._
+import scalaz.std.vector._
 import scalaz.syntax.apply._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
+import scalaz.syntax.traverse._
 import shapeless.record.{Record => ShRecord}
-import spray.json.JsValue
+import spray.json.{JsValue, enrichAny => `sj enrichAny`}
 
 import scala.concurrent.Future
 
@@ -264,6 +267,201 @@ abstract class HttpServiceIntegrationTest
     val command1 =
       jwt(uri).flatMap(decodeExercise(decoder, _, fixture.ledgerId)(jsVal))
     command1.map(_.bimap(removeRecordId, identity) should ===(command0))
+  }
+  "request non-existent endpoint should return 404 with errors" in withHttpService { fixture =>
+    val badPath = Uri.Path("/contracts/does-not-exist")
+    val badUri = fixture.uri withPath badPath
+    fixture
+      .getRequestWithMinimumAuth[JsValue](badPath)
+      .map(inside(_) { case domain.ErrorResponse(Seq(errorMsg), _, StatusCodes.NotFound, _) =>
+        errorMsg shouldBe s"${HttpMethods.GET: HttpMethod}, uri: ${badUri: Uri}"
+      }): Future[Assertion]
+  }
+
+  "parties endpoint should" - {
+    "return all known parties" in withHttpService { fixture =>
+      import fixture.client
+      val partyIds = Vector("P1", "P2", "P3", "P4")
+      val partyManagement = client.partyManagementClient
+
+      partyIds
+        .traverse { p =>
+          partyManagement.allocateParty(Some(p), Some(s"$p & Co. LLC"))
+        }
+        .flatMap { allocatedParties =>
+          fixture
+            .getRequest(
+              Uri.Path("/v1/parties"),
+              headers = headersWithAdminAuth,
+            )
+            .parseResponse[List[domain.PartyDetails]]
+            .map(inside(_) { case domain.OkResponse(result, None, StatusCodes.OK) =>
+              val actualIds: Set[domain.Party] = result.view.map(_.identifier).toSet
+              actualIds should contain allElementsOf domain.Party.subst(partyIds.toSet)
+              result.toSet should contain allElementsOf
+                allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
+            })
+        }: Future[Assertion]
+    }
+
+    "return only requested parties, unknown parties returned as warnings" in withHttpService {
+      fixture =>
+        import fixture.client
+        val charlie = getUniqueParty("Charlie")
+        val knownParties = Vector(getUniqueParty("Alice"), getUniqueParty("Bob")) :+ charlie
+        val erin = getUniqueParty("Erin")
+        val requestedPartyIds: Vector[domain.Party] = knownParties.filterNot(_ == charlie) :+ erin
+
+        val partyManagement = client.partyManagementClient
+
+        knownParties
+          .traverse { p =>
+            partyManagement.allocateParty(Some(p.unwrap), Some(s"${p.unwrap} & Co. LLC"))
+          }
+          .flatMap { allocatedParties =>
+            fixture
+              .postJsonRequest(
+                Uri.Path("/v1/parties"),
+                requestedPartyIds.toJson,
+                headersWithAdminAuth,
+              )
+              .parseResponse[List[domain.PartyDetails]]
+              .flatMap(inside(_) { case domain.OkResponse(result, Some(warnings), StatusCodes.OK) =>
+                warnings shouldBe domain.UnknownParties(List(erin))
+                val actualIds: Set[domain.Party] = result.view.map(_.identifier).toSet
+                actualIds shouldBe requestedPartyIds.toSet - erin // Erin is not known
+                val expected: Set[domain.PartyDetails] = allocatedParties.toSet
+                  .map(domain.PartyDetails.fromLedgerApi)
+                  .filterNot(_.identifier == charlie)
+                result.toSet shouldBe expected
+              })
+          }: Future[Assertion]
+    }
+
+    "error if empty array passed as input" in withHttpService { fixture =>
+      fixture
+        .postJsonRequestWithMinimumAuth[JsValue](
+          Uri.Path("/v1/parties"),
+          Vector.empty[domain.Party].toJson,
+        )
+        .map(inside(_) {
+          case domain.ErrorResponse(Seq(errorMsg), None, StatusCodes.BadRequest, _) =>
+            errorMsg should include("Cannot read JSON: <[]>")
+            errorMsg should include("must be a JSON array with at least 1 element")
+        }): Future[Assertion]
+    }
+
+    "error if empty party string passed" in withHttpService { fixture =>
+      val requestedPartyIds: Vector[domain.Party] = domain.Party.subst(Vector(""))
+
+      fixture
+        .postJsonRequestWithMinimumAuth[List[domain.PartyDetails]](
+          Uri.Path("/v1/parties"),
+          requestedPartyIds.toJson,
+        )
+        .map(inside(_) { case domain.ErrorResponse(List(error), None, StatusCodes.BadRequest, _) =>
+          error should include("Daml-LF Party is empty")
+        }): Future[Assertion]
+    }
+
+    "return empty result with warnings and OK status if nothing found" in withHttpService {
+      fixture =>
+        val requestedPartyIds: Vector[domain.Party] =
+          Vector(getUniqueParty("Alice"), getUniqueParty("Bob"))
+
+        fixture
+          .postJsonRequest(
+            Uri.Path("/v1/parties"),
+            requestedPartyIds.toJson,
+            headers = headersWithAdminAuth,
+          )
+          .parseResponse[List[domain.PartyDetails]]
+          .map(inside(_) {
+            case domain.OkResponse(
+                  List(),
+                  Some(domain.UnknownParties(unknownParties)),
+                  StatusCodes.OK,
+                ) =>
+              unknownParties.toSet shouldBe requestedPartyIds.toSet
+          }): Future[Assertion]
+    }
+  }
+
+  "parties/allocate should" - {
+    "allocate a new party" in withHttpService { fixture =>
+      val request = domain.AllocatePartyRequest(
+        Some(domain.Party(s"Carol${uniqueId()}")),
+        Some("Carol & Co. LLC"),
+      )
+      val json = SprayJson.encode(request).valueOr(e => fail(e.shows))
+      fixture
+        .postJsonRequest(
+          Uri.Path("/v1/parties/allocate"),
+          json = json,
+          headers = headersWithAdminAuth,
+        )
+        .parseResponse[domain.PartyDetails]
+        .flatMap(inside(_) { case domain.OkResponse(newParty, _, StatusCodes.OK) =>
+          Some(newParty.identifier) shouldBe request.identifierHint
+          newParty.displayName shouldBe request.displayName
+          newParty.isLocal shouldBe true
+          fixture
+            .getRequest(
+              Uri.Path("/v1/parties"),
+              headersWithAdminAuth,
+            )
+            .parseResponse[List[domain.PartyDetails]]
+            .map(inside(_) { case domain.OkResponse(result, _, StatusCodes.OK) =>
+              result should contain(newParty)
+            })
+        }): Future[Assertion]
+    }
+
+    "allocate a new party without any hints" in withHttpService { fixture =>
+      fixture
+        .postJsonRequest(
+          Uri.Path("/v1/parties/allocate"),
+          json = Map.empty[String, JsValue].toJson,
+          headers = headersWithAdminAuth,
+        )
+        .parseResponse[domain.PartyDetails]
+        .flatMap(inside(_) { case domain.OkResponse(newParty, _, StatusCodes.OK) =>
+          newParty.identifier.unwrap.length should be > 0
+          newParty.displayName shouldBe None
+          newParty.isLocal shouldBe true
+
+          fixture
+            .getRequest(
+              Uri.Path("/v1/parties"),
+              headers = headersWithAdminAuth,
+            )
+            .parseResponse[List[domain.PartyDetails]]
+            .map(inside(_) { case domain.OkResponse(result, _, StatusCodes.OK) =>
+              result should contain(newParty)
+            })
+        }): Future[Assertion]
+    }
+
+    // TEST_EVIDENCE: Authorization: badly-authorized create is rejected
+    "return BadRequest error if party ID hint is invalid PartyIdString" in withHttpService {
+      fixture =>
+        val request = domain.AllocatePartyRequest(
+          Some(domain.Party(s"Carol-!")),
+          Some("Carol & Co. LLC"),
+        )
+        val json = SprayJson.encode(request).valueOr(e => fail(e.shows))
+
+        fixture
+          .postJsonRequest(
+            Uri.Path("/v1/parties/allocate"),
+            json = json,
+            headers = headersWithAdminAuth,
+          )
+          .parseResponse[JsValue]
+          .map(inside(_) { case domain.ErrorResponse(errors, None, StatusCodes.BadRequest, _) =>
+            errors.length shouldBe 1
+          })
+    }
   }
 
   "should serve static content from configured directory" in withHttpService {
