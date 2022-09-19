@@ -623,7 +623,6 @@ class PureConfigReaderWriterSpec
     |  acs-id-page-working-memory-bytes = 104857600
     |  api-stream-shutdown-timeout = "5s"
     |  buffered-streams-page-size = 100
-    |  enable-in-memory-fan-out-for-ledger-api = false
     |  events-page-size = 1000
     |  events-processing-parallelism = 8
     |  max-contract-key-state-cache-size = 100000
