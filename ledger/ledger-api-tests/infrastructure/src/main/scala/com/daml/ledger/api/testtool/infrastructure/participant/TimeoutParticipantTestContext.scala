@@ -139,8 +139,8 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     withTimeout("Update party details", delegate.updatePartyDetails(req))
 
   override def allocateParty(
-      partyIdHint: Option[String],
-      displayName: Option[String],
+      partyIdHint: Option[String] = None,
+      displayName: Option[String] = None,
       localMetadata: Option[ObjectMeta] = None,
   ): Future[Primitive.Party] = withTimeout(
     s"Allocate party with hint $partyIdHint and display name $displayName",

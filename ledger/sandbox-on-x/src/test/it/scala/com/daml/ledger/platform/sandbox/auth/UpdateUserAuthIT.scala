@@ -41,7 +41,7 @@ final class UpdateUserAuthIT
 
   private val testId = UUID.randomUUID().toString
 
-  it should "disallow a user from deactivating itself" in {
+  it should "bar the user's self-deactivation" in {
     import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 
     val userIdAlice = testId + "-alice-3"
@@ -63,7 +63,7 @@ final class UpdateUserAuthIT
         ),
       ).transform {
         case Success(_) =>
-          fail("Expected a failure when a user tries to deactivate itself, but received success")
+          fail("Expected a failure when a user tries to self-deactivate, but received success")
         case Failure(e) => Success(e)
       }
     } yield {
@@ -73,7 +73,7 @@ final class UpdateUserAuthIT
             actual = sre,
             expectedStatusCode = Status.Code.INVALID_ARGUMENT,
             expectedMessage =
-              "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Requesting user cannot deactivate itself",
+              "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Requesting user cannot self-deactivate",
             expectedDetails = List(
               ErrorDetails.ErrorInfoDetail(
                 "INVALID_ARGUMENT",

@@ -35,6 +35,11 @@ import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
+// TODO um-for-hub: Test the API behavior when user right is of kind empty.
+// TODO um-for-hub: Make sure empty rights are a valid value in a CreateUserRequest request
+// TODO um-for-hub: For GrantUserRightsRequest: if 'rights' field is required, than we should reject attempting to grant 0 rights. Alternatively change to 'Optional'
+// TODO um-for-hub: For RevokeUserRightsRequest: if 'rights' field is required, than we should reject attempting to revoke 0 rights. Alternatively change to 'Optional'
+
 final class UserManagementServiceIT
     extends LedgerTestSuite
     with UserManagementServiceITUtils

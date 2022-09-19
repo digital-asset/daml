@@ -13,10 +13,8 @@ option java_outer_classname = "PartyManagementServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 
-// We use 'backing participant' to refer to this specific participant in the methods of this API.
-//
-// Allows inspecting the party management state of the ledger known to the backing participant
-// and managing participant-local party metadata.
+// This service allows inspecting the party management state of the ledger known to the backing participant
+// and managing the participant-local party metadata.
 //
 // The authorization rules for its RPCs are specified on the ``<RpcName>Request``
 // messages as boolean expressions over the fact ``HasRight(r)`` denoting whether the authenticated user has right ``r``.
@@ -54,10 +52,10 @@ service PartyManagementService {
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   rpc ListKnownParties (ListKnownPartiesRequest) returns (ListKnownPartiesResponse);
 
-  // Allocates a new party on a ledger and adds it to the set managed by the backing participant.
+  // Allocates a new party on a ledger and adds it to the set managed by the participant.
   // Caller specifies a party identifier suggestion, the actual identifier
   // allocated might be different and is implementation specific.
-  // Caller can specify party metadata that is stored locally on the backing participant.
+  // Caller can specify party metadata that is stored locally on the participant.
   // This call may:
   // - Succeed, in which case the actual allocated identifier is visible in
   //   the response.
@@ -78,7 +76,7 @@ service PartyManagementService {
   rpc AllocateParty (AllocatePartyRequest) returns (AllocatePartyResponse);
 
   // Update selected modifiable participant-local attributes of a party details resource.
-  // Can update the participant node local information for both local and non-local parties.
+  // Can update the participant's local information for both local and non-local parties.
   rpc UpdatePartyDetails (UpdatePartyDetailsRequest) returns (UpdatePartyDetailsResponse);
 }
 

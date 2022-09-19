@@ -153,7 +153,7 @@ trait UserManagementServiceUpdateAnnotationMapTests {
         "explicit merge update on the exact annotations field path",
         errorCode = LedgerApiErrors.Admin.UserManagement.InvalidUpdateUserRequest,
         exceptionMessageSubstring = Some(
-          s"INVALID_ARGUMENT: INVALID_USER_UPDATE_REQUEST(8,0): Update operation for user id '${user.id}' failed due to: The update path: 'user.metadata.annotations!merge' for a map field contains an explicit '!merge' modifier but the new value is the empty map. This would result in a no-up update for this field and is probably a mistake."
+          s"INVALID_ARGUMENT: INVALID_USER_UPDATE_REQUEST(8,0): Update operation for user id '${user.id}' failed due to: The update path: 'user.metadata.annotations!merge' for a map field contains an explicit '!merge' modifier but the new value is an empty map. This would result in a no-up update for this field and is probably a mistake."
         ),
       )
   })

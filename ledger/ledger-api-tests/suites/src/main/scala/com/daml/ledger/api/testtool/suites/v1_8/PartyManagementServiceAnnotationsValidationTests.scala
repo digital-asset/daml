@@ -23,15 +23,17 @@ import com.google.protobuf.field_mask.FieldMask
 
 trait PartyManagementServiceAnnotationsValidationTests { self: PartyManagementServiceIT =>
 
+  private val maxAnnotationsSizeInBytes = 256 * 1024
+
   test(
     "PMTestAnnotationsSizeLimits",
     "Test annotations' size limit",
     enabled = features => features.userAndPartyManagementExtensionsForHub,
     partyAllocation = allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
-    val largeString = "a" * 256 * 1024
-    val notSoLargeString = "a" * (256 * 1024 - 1)
-    assertEquals(largeString.getBytes(StandardCharsets.UTF_8).length, 256 * 1024)
+    val largeString = "a" * maxAnnotationsSizeInBytes
+    val notSoLargeString = "a" * (maxAnnotationsSizeInBytes - 1)
+    assertEquals(largeString.getBytes(StandardCharsets.UTF_8).length, maxAnnotationsSizeInBytes)
     for {
       _ <- ledger
         .allocateParty(
@@ -43,7 +45,7 @@ trait PartyManagementServiceAnnotationsValidationTests { self: PartyManagementSe
           "total size of annotations exceeds 256kb max limit",
           errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
           exceptionMessageSubstring = Some(
-            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: annotations from field 'party_details.local_metadata.annotations' are larger than the limit of 256kb, actual size"
+            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: annotations from field 'party_details.local_metadata.annotations' are larger than the limit of 256kb"
           ),
         )
       create1 <- ledger.allocateParty(
@@ -66,7 +68,7 @@ trait PartyManagementServiceAnnotationsValidationTests { self: PartyManagementSe
           "total size of annotations, in a user update call, is over 256kb",
           errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
           exceptionMessageSubstring = Some(
-            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: annotations from field 'party_details.local_metadata.annotations' are larger than the limit of 256kb, actual size"
+            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: annotations from field 'party_details.local_metadata.annotations' are larger than the limit of 256kb"
           ),
         )
     } yield ()

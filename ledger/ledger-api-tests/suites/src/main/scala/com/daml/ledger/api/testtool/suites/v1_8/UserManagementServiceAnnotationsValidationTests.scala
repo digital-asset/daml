@@ -11,15 +11,17 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertEquals, _}
 
 trait UserManagementServiceAnnotationsValidationTests { self: UserManagementServiceIT =>
 
+  private val maxAnnotationsSizeInBytes = 256 * 1024
+
   userManagementTest(
     "TestAnnotationsSizeLimits",
     "Test annotations' size limit",
     requiresUserExtensionsForHub = true,
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
-    val largeString = "a" * 256 * 1024
-    val notSoLargeString = "a" * (256 * 1024 - 1)
-    assertEquals(largeString.getBytes(StandardCharsets.UTF_8).length, 256 * 1024)
+    val largeString = "a" * maxAnnotationsSizeInBytes
+    val notSoLargeString = "a" * (maxAnnotationsSizeInBytes - 1)
+    assertEquals(largeString.getBytes(StandardCharsets.UTF_8).length, maxAnnotationsSizeInBytes)
     val user1 = newUser(id = userId1, annotations = Map("a" -> largeString))
     val user2 = newUser(id = userId1, annotations = Map("a" -> notSoLargeString))
     for {
@@ -29,7 +31,7 @@ trait UserManagementServiceAnnotationsValidationTests { self: UserManagementServ
           "total size of annotations exceeds 256kb max limit",
           errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
           exceptionMessageSubstring = Some(
-            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: annotations from field 'user.metadata.annotations' are larger than the limit of 256kb, actual size"
+            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: annotations from field 'user.metadata.annotations' are larger than the limit of 256kb"
           ),
         )
       create1 <- ledger.createUser(CreateUserRequest(Some(user2)))
@@ -40,7 +42,7 @@ trait UserManagementServiceAnnotationsValidationTests { self: UserManagementServ
           "total size of annotations, in a user update call, is over 256kb",
           errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
           exceptionMessageSubstring = Some(
-            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: annotations from field 'user.metadata.annotations' are larger than the limit of 256kb, actual size"
+            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: annotations from field 'user.metadata.annotations' are larger than the limit of 256kb"
           ),
         )
     } yield ()

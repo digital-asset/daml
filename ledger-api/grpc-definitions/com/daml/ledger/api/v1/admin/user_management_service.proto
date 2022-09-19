@@ -69,7 +69,7 @@ service UserManagementService {
     rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
 
     // Grant rights to a user.
-    // NOTE: Granting rights does not affect the resource version of the corresponding user.
+    // Granting rights does not affect the resource version of the corresponding user.
     // Errors:
     // - ``NOT_FOUND``: if the user doesn't exist
     // - ``UNAUTHENTICATED``: if the request does not include a valid access token
@@ -78,7 +78,7 @@ service UserManagementService {
     rpc GrantUserRights (GrantUserRightsRequest) returns (GrantUserRightsResponse);
 
     // Revoke rights from a user.
-    // NOTE: Revoking rights does not affect the resource version of the corresponding user.
+    // Revoking rights does not affect the resource version of the corresponding user.
     // Errors:
     // - ``NOT_FOUND``: if the user doesn't exist
     // - ``UNAUTHENTICATED``: if the request does not include a valid access token
@@ -129,7 +129,7 @@ message User {
     bool is_deactivated = 3;
 
     // The metadata of this user.
-    // Note that its ``metadata.resource_version`` tracks changes to the properties described by the ``User`` message and not this user's rights.
+    // Note that the ``metadata.resource_version`` tracks changes to the properties described by the ``User`` message and not the user's rights.
     //
     // Optional
     // Modifiable
@@ -152,7 +152,6 @@ message Right {
         string party = 1;
     }
 
-    // TODO um-for-hub: Test the API behavior when user right is of kind empty.
     // Required
     oneof kind {
         // The user can administrate the participant node.
@@ -177,7 +176,6 @@ message CreateUserRequest {
     // The rights to be assigned to the user upon creation,
     // which SHOULD include appropriate rights for the ``user.primary_party``.
     //
-    // TODO um-for-hub: Make sure empty rights are a valid value
     // Optional
     repeated Right rights = 2;
 }
@@ -290,7 +288,6 @@ message GrantUserRightsRequest {
 
     // The rights to grant.
     //
-    // TODO um-for-hub: If this field is required, than we should reject attempting to grant 0 rights. Ensure in conformance tests. Alternatively change to 'Optional'
     // Required
     repeated Right rights = 2;
 }
@@ -310,7 +307,6 @@ message RevokeUserRightsRequest {
 
     // The rights to revoke.
     //
-    // TODO um-for-hub: If this field is required, than we must reject attempting to revoke 0 rights. Ensure in conformance tests. Alternatively change to 'Optional'
     // Required
     repeated Right rights = 2;
 }

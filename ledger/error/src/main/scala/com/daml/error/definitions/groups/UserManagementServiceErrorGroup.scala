@@ -13,7 +13,7 @@ import com.daml.error.{
   Resolution,
 }
 
-object UserManagementServiceErrors extends AdminServices.UserManagementServiceErrorGroup {
+object UserManagementServiceErrorGroup extends AdminServices.UserManagementServiceErrorGroup {
 
   @Explanation("There was an attempt to update a user using an invalid update request.")
   @Resolution(
@@ -51,7 +51,7 @@ object UserManagementServiceErrors extends AdminServices.UserManagementServiceEr
     case class Reject(userId: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
-          cause = s"Annotations size for user '$userId' has been exceeded"
+          cause = s"Maximum annotations size for user '$userId' has been exceeded"
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.User -> userId
@@ -77,7 +77,7 @@ object UserManagementServiceErrors extends AdminServices.UserManagementServiceEr
         loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
           cause =
-            s"Update operation for user '$userId' failed due a concurrent update to the same user"
+            s"Update operation for user '$userId' failed due to a concurrent update to the same user"
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.User -> userId

@@ -97,7 +97,7 @@ object PartyManagementServiceErrorGroup extends AdminServices.PartyManagementSer
     case class Reject(operation: String, party: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"$operation failed for unknown party '$party'"
+          cause = s"Party: '$party' was not found when $operation"
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.Party -> party
@@ -120,7 +120,7 @@ object PartyManagementServiceErrorGroup extends AdminServices.PartyManagementSer
     case class Reject(operation: String, party: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"$operation failed as party record identified by party '$party' was not found"
+          cause = s"Party record for party: '$party' was not found when $operation"
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.Party -> party
@@ -143,7 +143,7 @@ object PartyManagementServiceErrorGroup extends AdminServices.PartyManagementSer
     case class Reject(operation: String, party: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"$operation failed as party record identified by party '$party' already exists"
+          cause = s"Party record for party: '$party' already exists when $operation"
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.Party -> party

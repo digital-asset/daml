@@ -225,7 +225,7 @@ object FieldValidations {
       case Left(AnnotationsSizeExceededError) =>
         Left(
           invalidArgument(
-            s"annotations from field '$fieldName' are larger than the limit of 256kb, actual size"
+            s"annotations from field '$fieldName' are larger than the limit of ${ResourceAnnotationValidation.MaxAnnotationsSizeInKiloBytes}kb"
           )
         )
       case Left(e: InvalidAnnotationsKeyError) => Left(invalidArgument(e.reason))

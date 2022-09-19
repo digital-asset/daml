@@ -22,7 +22,7 @@ trait PartyManagementServiceUpdateRpcTests {
 
   test(
     "PMUpdateAllUpdatableFields",
-    "Update all updated fields",
+    "Update all updatable fields",
     enabled = features => features.userAndPartyManagementExtensionsForHub,
     partyAllocation = allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>

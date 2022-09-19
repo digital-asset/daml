@@ -176,7 +176,7 @@ private[apiserver] final class ApiPartyManagementService private (
                 metadata = domain.ObjectMeta(resourceVersionO = None, annotations = annotations),
               )
             )
-            .flatMap(handlePartyRecordStoreResult("create party record")(_))
+            .flatMap(handlePartyRecordStoreResult("creating a party record")(_))
         } yield {
           val details = toProtoPartyDetails(
             partyDetails = allocated.partyDetails,
@@ -257,7 +257,7 @@ private[apiserver] final class ApiPartyManagementService private (
             },
           )
           updatedPartyRecord: PartyRecord <- handlePartyRecordStoreResult(
-            "updating participant party record"
+            "updating a participant party record"
           )(updatedPartyRecordResult)
           fetchedPartyDetailsO <- partyManagementService
             .getParties(parties = Seq(partyRecord.party))
@@ -298,7 +298,7 @@ private[apiserver] final class ApiPartyManagementService private (
           ax <- axF
           next <- partyRecordStore
             .getPartyRecordO(party = partyDetails.party)
-            .flatMap(handlePartyRecordStoreResult(operation = "retrieving party record")(_))
+            .flatMap(handlePartyRecordStoreResult(operation = "retrieving a party record")(_))
         } yield ax :+ next
     }
 
@@ -317,7 +317,7 @@ private[apiserver] final class ApiPartyManagementService private (
             .Reject(party, reason = e.getReason)
             .asGrpcError
         )
-      case scala.util.Right(t) =>
+      case Right(t) =>
         Future.successful(t)
     }
 
@@ -360,7 +360,7 @@ private[apiserver] final class ApiPartyManagementService private (
             .asGrpcError
         )
 
-      case scala.util.Right(t) =>
+      case Right(t) =>
         Future.successful(t)
     }
 

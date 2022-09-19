@@ -225,9 +225,9 @@ final class SingleParticipantTestContext private[participant] (
       .map(r => Party(r.partyDetails.get.party))
 
   override def allocateParty(
-      partyIdHint: Option[String],
+      partyIdHint: Option[String] = None,
       displayName: Option[String] = None,
-      localMetadata: Option[ObjectMeta],
+      localMetadata: Option[ObjectMeta] = None,
   ): Future[Party] =
     services.partyManagement
       .allocateParty(

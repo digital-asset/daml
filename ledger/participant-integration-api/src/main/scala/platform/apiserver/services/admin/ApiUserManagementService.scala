@@ -159,7 +159,7 @@ private[apiserver] final class ApiUserManagementService(
               Future.failed(
                 LedgerApiErrors.RequestValidation.InvalidArgument
                   .Reject(
-                    "Requesting user cannot deactivate itself"
+                    "Requesting user cannot self-deactivate"
                   )
                   .asGrpcError
               )

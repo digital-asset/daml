@@ -18,7 +18,7 @@ trait UserManagementServiceUpdateRpcTests {
 
   userManagementTest(
     "UpdateAllUpdatableFields",
-    "Update all updated fields",
+    "Update all updatable fields",
     requiresUserExtensionsForHub = true,
   )(implicit ec => { ledger =>
     implicit val l: ParticipantTestContext = ledger

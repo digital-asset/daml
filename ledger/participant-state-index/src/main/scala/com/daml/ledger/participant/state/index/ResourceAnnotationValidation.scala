@@ -13,11 +13,12 @@ object ResourceAnnotationValidation {
   private val NamePattern = "([a-zA-Z0-9]+[a-zA-Z0-9-]*)?[a-zA-Z0-9]+"
   private val KeySegmentRegex: Regex = "^([a-zA-Z0-9]+[a-zA-Z0-9.\\-_]*)?[a-zA-Z0-9]+$".r
   private val DnsSubdomainRegex: Regex = ("^(" + NamePattern + "[.])*" + NamePattern + "$").r
-  private val MaxAnnotationsSizeInBytes: Int = 256 * 1024
+  val MaxAnnotationsSizeInKiloBytes: Int = 256
+  private val MaxAnnotationsSizeInBytes: Int = MaxAnnotationsSizeInKiloBytes * 1024
 
   sealed trait MetadataAnnotationsError
   case object AnnotationsSizeExceededError extends MetadataAnnotationsError {
-    val reason = "Max annotations size of 256kb has been exceeded"
+    val reason = s"Max annotations size of ${MaxAnnotationsSizeInKiloBytes}kb has been exceeded"
   }
   final case class InvalidAnnotationsKeyError(reason: String) extends MetadataAnnotationsError
 

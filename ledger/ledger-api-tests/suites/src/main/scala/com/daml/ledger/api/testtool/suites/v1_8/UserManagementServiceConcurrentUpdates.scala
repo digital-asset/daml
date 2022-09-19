@@ -108,7 +108,7 @@ trait UserManagementServiceConcurrentUpdates {
       user1cResourceVersion = res4.user.get.metadata.get.resourceVersion
       _ = assert(
         user1bResourceVersion != user1cResourceVersion,
-        s"User's resource version before an update: ${user1bResourceVersion} must be different from other that after an update: ${user1cResourceVersion}",
+        s"User's resource versions before and after an update must be different but were the same: '$user1bResourceVersion'",
       )
       _ = assertValidResourceVersionString(
         user1bResourceVersion,

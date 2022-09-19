@@ -22,9 +22,9 @@ message ObjectMeta {
   // You can obtain the newest resource version value by issuing a read request.
   // You may use it for concurrent change detection by passing it back unmodified in an update request.
   // The participant server will then compare the passed value with the value maintained by the system to determine
-  // if any other updates took place since you read the resource version.
+  // if any other updates took place since you had read the resource version.
   // Upon a successful update you are guaranteed that no other update took place during your read-modify-write sequence.
-  // However if another update took place during your read-modify-write sequence then your update will fail with an appropriate error.
+  // However, if another update took place during your read-modify-write sequence then your update will fail with an appropriate error.
   //
   // Concurrent change control is optional. It will be applied only if you include a resource version in an update request.
   //

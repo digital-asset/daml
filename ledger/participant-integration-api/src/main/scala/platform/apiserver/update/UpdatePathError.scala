@@ -16,7 +16,7 @@ object UpdatePathError {
   final case class MergeUpdateModifierOnEmptyMapField(rawUpdatePath: String)
       extends UpdatePathError {
     override def getReason: String =
-      s"The update path: '${shorten(rawUpdatePath)}' for a map field contains an explicit '!merge' modifier but the new value is the empty map. " +
+      s"The update path: '${shorten(rawUpdatePath)}' for a map field contains an explicit '!merge' modifier but the new value is an empty map. " +
         "This would result in a no-up update for this field and is probably a mistake."
   }
 

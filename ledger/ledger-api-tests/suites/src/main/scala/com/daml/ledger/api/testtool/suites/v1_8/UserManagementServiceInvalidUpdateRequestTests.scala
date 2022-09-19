@@ -158,6 +158,27 @@ trait UserManagementServiceInvalidUpdateRequestTests {
   })
 
   userManagementTestWithFreshUser(
+    "InvalidUpdateRequestsUpdateMaskIsDuplicatedEvenWithDifferentUpdateModifiers",
+    "Failing update requests when update mask is duplicated even with different update modifiers",
+  )()(implicit ec => { (ledger, user) =>
+    ledger.userManagement
+      .updateUser(
+        updateRequest(
+          id = user.id,
+          annotations = Map("k2" -> "v2"),
+          updatePaths = Seq("user!merge", "user"),
+        )
+      )
+      .mustFailWith(
+        "update with an unknown update path",
+        errorCode = LedgerApiErrors.Admin.UserManagement.InvalidUpdateUserRequest,
+        exceptionMessageSubstring = Some(
+          s"INVALID_ARGUMENT: INVALID_USER_UPDATE_REQUEST(8,0): Update operation for user id '${user.id}' failed due to: The update path: 'user' points to a field a different update path already points to."
+        ),
+      )
+  })
+
+  userManagementTestWithFreshUser(
     "InvalidUpdateRequestsUserFieldIsUnset",
     "Failing update requests when user field is unset",
   )()(implicit ec => { (ledger, _) =>
