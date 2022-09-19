@@ -51,7 +51,7 @@ object PartyManagementServiceErrorGroup extends AdminServices.PartyManagementSer
     case class Reject(party: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
-          cause = s"Annotations size for party '$party' has been exceeded"
+          cause = s"Maximum annotations size for party '$party' has been exceeded"
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.Party -> party
