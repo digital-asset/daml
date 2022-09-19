@@ -110,7 +110,7 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
   * times against different query stores (or none).
   */
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-abstract class AbstractHttpServiceIntegrationTestTokenIndependent
+abstract class QueryStoreDependentTokenIndependentTests
     extends AsyncFreeSpec
     with Matchers
     with Inside

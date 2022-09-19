@@ -4,7 +4,7 @@
 package com.daml.http
 
 abstract class HttpServiceWithOracleIntTest
-    extends AbstractHttpServiceIntegrationTestTokenIndependent
+    extends QueryStoreDependentTokenIndependentTests
     with HttpServiceOracleInt {
 
   // XXX SC in reality, the only tests that need this to be true are "1kb of

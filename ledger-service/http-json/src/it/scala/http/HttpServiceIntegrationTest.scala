@@ -46,7 +46,7 @@ import scala.concurrent.Future
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 abstract class HttpServiceIntegrationTest
-    extends AbstractHttpServiceIntegrationTestTokenIndependent
+    extends QueryStoreDependentTokenIndependentTests
     with BeforeAndAfterAll {
   import HttpServiceIntegrationTest._
   import json.JsonProtocol._
