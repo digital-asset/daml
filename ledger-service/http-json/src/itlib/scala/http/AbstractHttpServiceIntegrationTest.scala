@@ -4,7 +4,6 @@
 package com.daml.http
 
 import java.time.{Instant, LocalDate}
-import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import com.daml.api.util.TimestampConversion
 import com.daml.lf.data.Ref
@@ -33,7 +32,6 @@ import shapeless.record.{Record => ShRecord}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Success
 import com.daml.lf.{value => lfv}
 import com.daml.scalautil.Statement.discard
 import com.google.protobuf.struct.Struct
@@ -917,94 +915,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             c.contractId shouldBe contractId
           })
       }): Future[Assertion]
-  }
-
-  "packages endpoint should" - {
-    "return all known package IDs" in withHttpService { fixture =>
-      getAllPackageIds(fixture).map { x =>
-        inside(x) {
-          case domain.OkResponse(ps, None, StatusCodes.OK) if ps.nonEmpty =>
-            Inspectors.forAll(ps)(_.length should be > 0)
-        }
-      }: Future[Assertion]
-    }
-  }
-
-  "packages/packageId should" - {
-    "return a requested package" in withHttpService { fixture =>
-      import AbstractHttpServiceIntegrationTestFuns.sha256
-      import fixture.uri
-      getAllPackageIds(fixture).flatMap { okResp =>
-        inside(okResp.result.headOption) { case Some(packageId) =>
-          Http()
-            .singleRequest(
-              HttpRequest(
-                method = HttpMethods.GET,
-                uri = uri.withPath(Uri.Path(s"/v1/packages/$packageId")),
-                headers = headersWithAdminAuth,
-              )
-            )
-            .map { resp =>
-              resp.status shouldBe StatusCodes.OK
-              resp.entity.getContentType() shouldBe ContentTypes.`application/octet-stream`
-              sha256(resp.entity.dataBytes) shouldBe Success(packageId)
-            }
-        }
-      }: Future[Assertion]
-    }
-
-    "return NotFound if a non-existing package is requested" in withHttpService { fixture =>
-      Http()
-        .singleRequest(
-          HttpRequest(
-            method = HttpMethods.GET,
-            uri = fixture.uri.withPath(Uri.Path(s"/v1/packages/12345678")),
-            headers = headersWithAdminAuth,
-          )
-        )
-        .map { resp =>
-          resp.status shouldBe StatusCodes.NotFound
-        }
-    }
-  }
-
-  "packages upload endpoint" in withHttpService { fixture =>
-    val newDar = AbstractHttpServiceIntegrationTestFuns.dar3
-
-    getAllPackageIds(fixture).flatMap { okResp =>
-      val existingPackageIds: Set[String] = okResp.result.toSet
-      uploadPackage(fixture)(newDar)
-        .flatMap { _ =>
-          getAllPackageIds(fixture).map { okResp =>
-            val newPackageIds: Set[String] = okResp.result.toSet -- existingPackageIds
-            newPackageIds.size should be > 0
-          }
-        }
-    }: Future[Assertion]
-  }
-
-  "package list is updated when a query request is made" in usingLedger(testId) {
-    case (ledgerPort, _, _) =>
-      withHttpServiceOnly(ledgerPort) { fixture =>
-        for {
-          alicePartyAndAuthHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
-          (alice, headers) = alicePartyAndAuthHeaders
-          _ <- withHttpServiceOnly(ledgerPort) { innerFixture =>
-            val searchDataSet = genSearchDataSet(alice)
-            searchDataSet.traverse(c => postCreateCommand(c, innerFixture, headers)).flatMap { rs =>
-              rs.map(_.status) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
-            }
-          }
-          _ <- withHttpServiceOnly(ledgerPort) { innerFixture =>
-            innerFixture
-              .getRequest(Uri.Path("/v1/query"), headers)
-              .parseResponse[Vector[JsValue]]
-              .map(inside(_) { case domain.OkResponse(result, _, StatusCodes.OK) =>
-                result should have length 4
-              }): Future[Assertion]
-          }
-        } yield succeed
-      }
   }
 
   // TEST_EVIDENCE: Performance: archiving a large number of contracts should succeed
