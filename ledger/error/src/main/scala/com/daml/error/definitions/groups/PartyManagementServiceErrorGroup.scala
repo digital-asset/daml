@@ -77,7 +77,7 @@ object PartyManagementServiceErrorGroup extends AdminServices.PartyManagementSer
         loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
           cause =
-            s"Update operation for party '$party' failed due a concurrent update to the same party"
+            s"Update operation for party '$party' failed due to a concurrent update to the same party"
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.Party -> party
