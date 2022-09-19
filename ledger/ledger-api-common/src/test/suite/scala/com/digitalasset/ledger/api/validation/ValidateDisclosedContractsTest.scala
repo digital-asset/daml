@@ -134,7 +134,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
   }
 
   it should "fail validation on invalid create arguments record field" in {
-    def argumentsUpdate(arguments: ProtoArguments): ProtoArguments =
+    def invalidateArguments(arguments: ProtoArguments): ProtoArguments =
       ProtoArguments.Record(
         arguments.record.get.update(_.fields.set(scala.Seq(ProtoRecordField("something", None))))
       )
