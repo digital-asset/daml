@@ -131,6 +131,9 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
 
 }
 
+/** Tests that can change behavior based on the query store, so are run many
+  * times against different query stores (or none).
+  */
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     extends AsyncFreeSpec
@@ -532,6 +535,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
   }
 
+  // exercise is *mostly* DB-independent, but we infer template ID from
+  // contract ID for some exercises by looking in the DB
   "exercise" - {
     "succeeds normally" in withHttpService { fixture =>
       import fixture.encoder
