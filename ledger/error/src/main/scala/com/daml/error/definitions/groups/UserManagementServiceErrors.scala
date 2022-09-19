@@ -36,10 +36,12 @@ object UserManagementServiceErrors extends AdminServices.UserManagementServiceEr
     }
   }
 
-  @Explanation("""|A user can have only a limited amount of annotations.
-                  |There was an attempt to create or update a user with too many annotations.""")
+  @Explanation(
+    """|A user can have at most 256kb worth of annotations in total measured in number of bytes in UTF-8 encoding.
+                  |There was an attempt to create or update a user such that this limit would have been exceeded."""
+  )
   @Resolution(
-    "Retry with a smaller number of annotations or delete some of the already existing annotations of this user."
+    "Retry with fewer annotations or delete some of the user's existing annotations."
   )
   object MaxUserAnnotationsSizeExceeded
       extends ErrorCode(
@@ -58,13 +60,13 @@ object UserManagementServiceErrors extends AdminServices.UserManagementServiceEr
   }
 
   @Explanation(
-    """|Concurrent updates to a user can be controlled by optionally supplying an update request with a resource version.
+    """|Concurrent updates to a user can be controlled by supplying an update request with a resource version (this is optional).
                   |A user's resource version can be obtained by reading the user on the Ledger API.
-                  |There was attempt to update a user using a stale resource version indicating a different processes had updated the user earlier."""
+                  |There was attempt to update a user using a stale resource version, indicating that a different process had updated the user earlier."""
   )
   @Resolution(
-    """|Restart the user update procedure by reading this user again to obtain its most recent state and
-                 |in particular its most recent resource version."""
+    """|Read this user again to obtain its most recent state and
+                  |in particular its most recent resource version. Use the obtained information to build and send a new update request."""
   )
   object ConcurrentUserUpdateDetected
       extends ErrorCode(

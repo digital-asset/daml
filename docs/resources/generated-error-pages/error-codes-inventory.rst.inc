@@ -504,13 +504,13 @@ PACKAGE_UPLOAD_REJECTED
 CONCURRENT_PARTY_DETAILS_UPDATE_DETECTED
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: Concurrent updates to a party can be controlled by optionally supplying an update request with a resource version. A party's resource version can be obtained by reading the party on the Ledger API. There was attempt to update a party using a stale resource version indicating a different processes had updated the party earlier.
+    **Explanation**: Concurrent updates to a party can be controlled by supplying an update request with a resource version (this is optional). A party's resource version can be obtained by reading the party on the Ledger API. There was attempt to update a party using a stale resource version, indicating that a different process had updated the party earlier.
 
     **Category**: ContentionOnSharedResources
 
     **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
 
-    **Resolution**: Restart the party update procedure by reading this party details again to obtain its most recent state and in particular its most recent resource version.
+    **Resolution**: Read this party again to obtain its most recent state and in particular its most recent resource version. Use the obtained information to build and send a new update request.
 
 
 
@@ -520,7 +520,7 @@ CONCURRENT_PARTY_DETAILS_UPDATE_DETECTED
 INTERNAL_PARTY_RECORD_ALREADY_EXISTS
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: Each on-ledger party known to this participant node can a have a participant local metadata assigned to it. The participant local information about a party referred to by this request was found while it should have been not found.
+    **Explanation**: Each on-ledger party known to this participant node can have a participant's local metadata assigned to it. The local information about a party referred to by this request was found when it should have been not found.
 
     **Category**: SystemInternalAssumptionViolated
 
@@ -536,7 +536,7 @@ INTERNAL_PARTY_RECORD_ALREADY_EXISTS
 INTERNAL_PARTY_RECORD_NOT_FOUND
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: Each on-ledger party known to this participant node can a have a participant local metadata assigned to it. The participant local information about a party referred to by this request was not found while it should have been found.
+    **Explanation**: Each on-ledger party known to this participant node can have a participant's local metadata assigned to it. The local information about a party referred to by this request was not found when it should have been found.
 
     **Category**: SystemInternalAssumptionViolated
 
@@ -568,13 +568,13 @@ INVALID_PARTY_DETAILS_UPDATE_REQUEST
 MAX_PARTY_DETAILS_ANNOTATIONS_SIZE_EXCEEDED
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: A party can have only a limited amount of annotations. There was an attempt to allocate or update a party with too many annotations.
+    **Explanation**: A party can have at most 256kb worth of annotations in total measured in number of bytes in UTF-8 encoding. There was an attempt to allocate or update a party such that this limit would have been exceeded.
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
     **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
 
-    **Resolution**: Retry with a smaller number of annotations or delete some of the already existing annotations of this party.
+    **Resolution**: Retry with fewer annotations or delete some of the party's existing annotations.
 
 
 
@@ -590,7 +590,7 @@ PARTY_NOT_FOUND
 
     **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
 
-    **Resolution**: Check that you are connecting to the right participant node and the party is spelled correctly.
+    **Resolution**: Check that you are connecting to the right participant node and that the party is spelled correctly.
 
 
 
@@ -606,13 +606,13 @@ PARTY_NOT_FOUND
 CONCURRENT_USER_UPDATE_DETECTED
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: Concurrent updates to a user can be controlled by optionally supplying an update request with a resource version. A user's resource version can be obtained by reading the user on the Ledger API. There was attempt to update a user using a stale resource version indicating a different processes had updated the user earlier.
+    **Explanation**: Concurrent updates to a user can be controlled by supplying an update request with a resource version (this is optional). A user's resource version can be obtained by reading the user on the Ledger API. There was attempt to update a user using a stale resource version, indicating that a different process had updated the user earlier.
 
     **Category**: ContentionOnSharedResources
 
     **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
 
-    **Resolution**: Restart the user update procedure by reading this user again to obtain its most recent state and in particular its most recent resource version.
+    **Resolution**: Read this user again to obtain its most recent state and in particular its most recent resource version. Use the obtained information to build and send a new update request.
 
 
 
@@ -638,13 +638,13 @@ INVALID_USER_UPDATE_REQUEST
 MAX_USER_ANNOTATIONS_SIZE_EXCEEDED
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: A user can have only a limited amount of annotations. There was an attempt to create or update a user with too many annotations.
+    **Explanation**: A user can have at most 256kb worth of annotations in total measured in number of bytes in UTF-8 encoding. There was an attempt to create or update a user such that this limit would have been exceeded.
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
     **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
 
-    **Resolution**: Retry with a smaller number of annotations or delete some of the already existing annotations of this user.
+    **Resolution**: Retry with fewer annotations or delete some of the user's existing annotations.
 
 
 

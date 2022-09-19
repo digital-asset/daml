@@ -36,10 +36,12 @@ object PartyManagementServiceErrorGroup extends AdminServices.PartyManagementSer
     }
   }
 
-  @Explanation("""|A party can have only a limited amount of annotations.
-                  |There was an attempt to allocate or update a party with too many annotations.""")
+  @Explanation(
+    """|A party can have at most 256kb worth of annotations in total measured in number of bytes in UTF-8 encoding.
+                  |There was an attempt to allocate or update a party such that this limit would have been exceeded."""
+  )
   @Resolution(
-    "Retry with a smaller number of annotations or delete some of the already existing annotations of this party."
+    "Retry with fewer annotations or delete some of the party's existing annotations."
   )
   object MaxPartyAnnotationsSizeExceeded
       extends ErrorCode(
@@ -58,13 +60,13 @@ object PartyManagementServiceErrorGroup extends AdminServices.PartyManagementSer
   }
 
   @Explanation(
-    """|Concurrent updates to a party can be controlled by optionally supplying an update request with a resource version.
+    """|Concurrent updates to a party can be controlled by supplying an update request with a resource version (this is optional).
                   |A party's resource version can be obtained by reading the party on the Ledger API.
-                  |There was attempt to update a party using a stale resource version indicating a different processes had updated the party earlier."""
+                  |There was attempt to update a party using a stale resource version, indicating that a different process had updated the party earlier."""
   )
   @Resolution(
-    """|Restart the party update procedure by reading this party details again to obtain its most recent state and
-                 |in particular its most recent resource version."""
+    """|Read this party again to obtain its most recent state and
+                  |in particular its most recent resource version. Use the obtained information to build and send a new update request."""
   )
   object ConcurrentPartyDetailsUpdateDetected
       extends ErrorCode(
@@ -85,7 +87,7 @@ object PartyManagementServiceErrorGroup extends AdminServices.PartyManagementSer
 
   @Explanation("The party referred to by the request was not found.")
   @Resolution(
-    "Check that you are connecting to the right participant node and the party is spelled correctly."
+    "Check that you are connecting to the right participant node and that the party is spelled correctly."
   )
   object PartyNotFound
       extends ErrorCode(
@@ -104,8 +106,8 @@ object PartyManagementServiceErrorGroup extends AdminServices.PartyManagementSer
   }
 
   @Explanation(
-    """|Each on-ledger party known to this participant node can a have a participant local metadata assigned to it.
-               |The participant local information about a party referred to by this request was not found while it should have been found."""
+    """|Each on-ledger party known to this participant node can have a participant's local metadata assigned to it.
+               |The local information about a party referred to by this request was not found when it should have been found."""
   )
   @Resolution(
     "This error can indicate a problem with the server's storage or implementation."
@@ -127,8 +129,8 @@ object PartyManagementServiceErrorGroup extends AdminServices.PartyManagementSer
   }
 
   @Explanation(
-    """|Each on-ledger party known to this participant node can a have a participant local metadata assigned to it.
-                  |The participant local information about a party referred to by this request was found while it should have been not found."""
+    """|Each on-ledger party known to this participant node can have a participant's local metadata assigned to it.
+                  |The local information about a party referred to by this request was found when it should have been not found."""
   )
   @Resolution(
     "This error can indicate a problem with the server's storage or implementation."
