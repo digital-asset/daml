@@ -772,6 +772,30 @@ abstract class HttpServiceIntegrationTest
       None,
     )
   }
+
+  "metering-report endpoint should return metering report" in withHttpService { fixture =>
+    import java.time.LocalDate
+    import com.google.protobuf.struct.Struct
+    import endpoints.MeteringReportEndpoint.MeteringReportDateRequest
+    val isoDate = "2022-02-03"
+    val request = MeteringReportDateRequest(
+      from = LocalDate.parse(isoDate),
+      to = None,
+      application = None,
+    )
+    fixture
+      .postJsonRequestWithMinimumAuth[Struct](
+        Uri.Path("/v1/metering-report"),
+        request.toJson,
+      )
+      .map(inside(_) { case domain.OkResponse(meteringReport, _, StatusCodes.OK) =>
+        meteringReport
+          .fields("request")
+          .getStructValue
+          .fields("from")
+          .getStringValue shouldBe s"${isoDate}T00:00:00Z"
+      })
+  }
 }
 
 object HttpServiceIntegrationTest {

@@ -3,13 +3,12 @@
 
 package com.daml.http
 
-import java.time.{Instant, LocalDate}
+import java.time.Instant
 import akka.http.scaladsl.model._
 import com.daml.api.util.TimestampConversion
 import com.daml.lf.data.Ref
 import com.daml.http.domain.ContractId
 import com.daml.http.domain.TemplateId.OptionalPkg
-import com.daml.http.endpoints.MeteringReportEndpoint.MeteringReportDateRequest
 import com.daml.http.json.SprayJson.objectField
 import com.daml.http.util.ClientUtil.boxedRecord
 import com.daml.jwt.domain.Jwt
@@ -34,7 +33,6 @@ import spray.json._
 import scala.concurrent.{ExecutionContext, Future}
 import com.daml.lf.{value => lfv}
 import com.daml.scalautil.Statement.discard
-import com.google.protobuf.struct.Struct
 import lfv.test.TypedValueGenerators.{ValueAddend => VA}
 
 trait AbstractHttpServiceIntegrationTestFunsCustomToken
@@ -104,27 +102,6 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
       .map(inside(_) { case domain.ErrorResponse(Seq(error), _, StatusCodes.Unauthorized, _) =>
         error shouldBe "ledgerId missing in access token"
       }): Future[Assertion]
-  }
-
-  "metering-report endpoint should return metering report" in withHttpService { fixture =>
-    val isoDate = "2022-02-03"
-    val request = MeteringReportDateRequest(
-      from = LocalDate.parse(isoDate),
-      to = None,
-      application = None,
-    )
-    fixture
-      .postJsonRequestWithMinimumAuth[Struct](
-        Uri.Path("/v1/metering-report"),
-        request.toJson,
-      )
-      .map(inside(_) { case domain.OkResponse(meteringReport, _, StatusCodes.OK) =>
-        meteringReport
-          .fields("request")
-          .getStructValue
-          .fields("from")
-          .getStringValue shouldBe s"${isoDate}T00:00:00Z"
-      })
   }
 
 }
