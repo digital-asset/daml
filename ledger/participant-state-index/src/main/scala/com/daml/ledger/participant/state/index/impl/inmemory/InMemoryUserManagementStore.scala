@@ -4,12 +4,8 @@
 package com.daml.ledger.participant.state.index.impl.inmemory
 
 import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
-import com.daml.ledger.participant.state.index.ResourceAnnotationValidation
-import com.daml.ledger.participant.state.index.v2.{
-  AnnotationsUpdate,
-  UserManagementStore,
-  UserUpdate,
-}
+import com.daml.ledger.participant.state.index.{LocalAnnotationsUtils, ResourceAnnotationValidation}
+import com.daml.ledger.participant.state.index.v2.{UserManagementStore, UserUpdate}
 import com.daml.ledger.participant.state.index.v2.UserManagementStore._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
@@ -57,9 +53,11 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       val updatedPrimaryParty = userUpdate.primaryPartyUpdateO.getOrElse(userInfo.user.primaryParty)
       val existingAnnotations = userInfo.user.metadata.annotations
       val updatedAnnotations =
-        userUpdate.metadataUpdate.annotationsUpdateO.fold(existingAnnotations) {
-          case AnnotationsUpdate.Merge(newAnnotations) => existingAnnotations.concat(newAnnotations)
-          case AnnotationsUpdate.Replace(newAnnotations) => newAnnotations
+        userUpdate.metadataUpdate.annotationsUpdateO.fold(existingAnnotations) { newAnnotations =>
+          LocalAnnotationsUtils.calculateUpdatedAnnotations(
+            newValue = newAnnotations,
+            existing = existingAnnotations,
+          )
         }
       val currentResourceVersion = userInfo.user.metadata.resourceVersionO
         // TODO um-for-hub: Use error codes

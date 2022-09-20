@@ -594,7 +594,7 @@ PARTY_NOT_FOUND
 
 
 
-2.2.1.2. ParticipantErrorGroup / LedgerApiErrors / AdminServices / UserManagementServiceErrors
+2.2.1.2. ParticipantErrorGroup / LedgerApiErrors / AdminServices / UserManagementServiceErrorGroup
 ===================================================================================================================
 
 

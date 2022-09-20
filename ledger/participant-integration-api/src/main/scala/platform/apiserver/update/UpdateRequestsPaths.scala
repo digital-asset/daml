@@ -6,34 +6,43 @@ package com.daml.platform.apiserver.update
 protected[update] object UpdateRequestsPaths {
 
   object UserPaths {
-    val annotations: List[String] = List(
-      FieldNames.UpdateUserRequest.user,
-      FieldNames.User.metadata,
-      FieldNames.Metadata.annotations,
-    )
-    val primaryParty: List[String] =
-      List(FieldNames.UpdateUserRequest.user, FieldNames.User.primaryParty)
-    val isDeactivated =
-      List(FieldNames.UpdateUserRequest.user, FieldNames.User.isDeactivated)
+    val id: List[String] = List(FieldNames.User.id)
+    val annotations: List[String] = List(FieldNames.User.metadata, FieldNames.Metadata.annotations)
+    val resourceVersion: List[String] =
+      List(FieldNames.User.metadata, FieldNames.Metadata.resourceVersion)
+    val primaryParty: List[String] = List(FieldNames.User.primaryParty)
+    val isDeactivated = List(FieldNames.User.isDeactivated)
     val fullUpdateTrie: UpdatePathsTrie = UpdatePathsTrie
       .fromPaths(
         Seq(
-          annotations,
+          id,
           primaryParty,
           isDeactivated,
+          annotations,
+          resourceVersion,
         )
       )
       .getOrElse(sys.error("Failed to create full update user tree. This should never happen"))
   }
 
   object PartyDetailsPaths {
-    val annotations: List[String] = List(
-      FieldNames.UpdatePartyDetailsRequest.partyDetails,
-      FieldNames.PartyDetails.localMetadata,
-      FieldNames.Metadata.annotations,
-    )
+    val party: List[String] = List(FieldNames.PartyDetails.party)
+    val annotations: List[String] =
+      List(FieldNames.PartyDetails.localMetadata, FieldNames.Metadata.annotations)
+    val resourceVersion: List[String] =
+      List(FieldNames.PartyDetails.localMetadata, FieldNames.Metadata.resourceVersion)
+    val displayName: List[String] = List(FieldNames.PartyDetails.displayName)
+    val isLocal: List[String] = List(FieldNames.PartyDetails.isLocal)
     val fullUpdateTrie: UpdatePathsTrie = UpdatePathsTrie
-      .fromPaths(Seq(annotations))
+      .fromPaths(
+        Seq(
+          party,
+          displayName,
+          isLocal,
+          annotations,
+          resourceVersion,
+        )
+      )
       .getOrElse(sys.error("Failed to create full update user tree. This should never happen"))
   }
 

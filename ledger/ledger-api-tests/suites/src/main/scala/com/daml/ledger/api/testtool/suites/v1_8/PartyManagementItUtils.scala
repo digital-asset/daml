@@ -25,13 +25,17 @@ trait PartyManagementItUtils { self: PartyManagementServiceIT =>
 
   def updateRequest(
       party: String,
-      annotations: Map[String, String],
+      displayName: String = "",
+      isLocal: Boolean = false,
+      annotations: Map[String, String] = Map.empty,
       updatePaths: Seq[String],
   ): UpdatePartyDetailsRequest =
     UpdatePartyDetailsRequest(
       partyDetails = Some(
         PartyDetails(
           party = party,
+          displayName = displayName,
+          isLocal = isLocal,
           localMetadata = Some(ObjectMeta(resourceVersion = "", annotations = annotations)),
         )
       ),

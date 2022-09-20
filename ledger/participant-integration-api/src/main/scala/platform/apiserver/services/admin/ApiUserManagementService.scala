@@ -137,19 +137,6 @@ private[apiserver] final class ApiUserManagementService(
       } { case (user, fieldMask) =>
         for {
           userUpdate <- handleUpdatePathResult(user.id, UserUpdateMapper.toUpdate(user, fieldMask))
-          _ <-
-            if (userUpdate.isNoUpdate) {
-              Future.failed(
-                LedgerApiErrors.Admin.UserManagement.InvalidUpdateUserRequest
-                  .Reject(
-                    userId = user.id,
-                    reason = "Update request describes a no-up update",
-                  )
-                  .asGrpcError
-              )
-            } else {
-              Future.successful(())
-            }
           authorizedUserIdO <- authorizedUserIdFO
           _ <-
             if (

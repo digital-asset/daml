@@ -20,6 +20,7 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
   LedgerEndService,
+  PartyDetailsUpdate,
   PartyRecordStore,
   PartyRecordUpdate,
 }
@@ -220,8 +221,11 @@ private[apiserver] final class ApiPartyManagementService private (
             request.updateMask,
             "update_mask",
           )
-          partyRecord = ParticipantParty.PartyRecord(
+          displayNameO <- FieldValidations.optionalString(partyDetails.displayName)(Right(_))
+          partyRecord = ParticipantParty.PartyDetails(
             party = party,
+            displayName = displayNameO,
+            isLocal = partyDetails.isLocal,
             metadata = domain.ObjectMeta(
               resourceVersionO = resourceVersionNumberO,
               annotations = annotations,
@@ -230,52 +234,74 @@ private[apiserver] final class ApiPartyManagementService private (
         } yield (partyRecord, updateMask)
       } { case (partyRecord, updateMask) =>
         for {
-          partyRecordUpdate: PartyRecordUpdate <- handleUpdatePathResult(
+          partyDetailsUpdate: PartyDetailsUpdate <- handleUpdatePathResult(
             party = partyRecord.party,
             PartyRecordUpdateMapper.toUpdate(
               domainObject = partyRecord,
               updateMask = updateMask,
             ),
           )
-          _ <-
-            if (partyRecordUpdate.isNoUpdate) {
-              Future.failed(
-                LedgerApiErrors.Admin.PartyManagement.InvalidUpdatePartyDetailsRequest
-                  .Reject(
-                    party = partyRecord.party,
-                    reason = "Update request corresponds a no-op update",
-                  )
-                  .asGrpcError
-              )
-            } else {
-              Future.successful(())
-            }
-          updatedPartyRecordResult <- partyRecordStore.updatePartyRecord(
-            partyRecordUpdate = partyRecordUpdate,
-            ledgerPartyExists = (party: Ref.Party) => {
-              partyManagementService.getParties(Seq(party)).map(_.nonEmpty)
-            },
-          )
-          updatedPartyRecord: PartyRecord <- handlePartyRecordStoreResult(
-            "updating a participant party record"
-          )(updatedPartyRecordResult)
           fetchedPartyDetailsO <- partyManagementService
             .getParties(parties = Seq(partyRecord.party))
             .map(_.headOption)
           fetchedPartyDetails <- fetchedPartyDetailsO match {
             case Some(partyDetails) => Future.successful(partyDetails)
             case None =>
-              // NOTE: This should never happen as the update process should fail
-              // earlier if the party doesn't exists.
               Future.failed(
                 LedgerApiErrors.Admin.PartyManagement.PartyNotFound
                   .Reject(
-                    operation = "updating party record",
+                    operation = "updating a party record",
                     party = partyRecord.party,
                   )
                   .asGrpcError
               )
           }
+          partyRecordUpdate: PartyRecordUpdate <- {
+            if (partyDetailsUpdate.isLocalUpdate.exists(_ != fetchedPartyDetails.isLocal)) {
+              Future.failed(
+                LedgerApiErrors.Admin.PartyManagement.InvalidUpdatePartyDetailsRequest
+                  .Reject(
+                    party = partyRecord.party,
+                    reason =
+                      s"Update request attempted to modify not-modifiable 'is_local' attribute",
+                  )
+                  .asGrpcError
+              )
+              // TODO um-for-hub: Investigate why empty sting display name is represented as `""` rather than `None` in com.daml.ledger.api.domain.PartyDetails.displayName: Option[String]
+            } else if (
+              partyDetailsUpdate.displayNameUpdate.exists(
+                _ != (if (fetchedPartyDetails.displayName == Some("")) None
+                      else fetchedPartyDetails.displayName)
+              )
+            ) {
+              Future.failed(
+                LedgerApiErrors.Admin.PartyManagement.InvalidUpdatePartyDetailsRequest
+                  .Reject(
+                    party = partyRecord.party,
+                    reason =
+                      s"Update request attempted to modify not-modifiable 'display_name' attribute update: ${partyDetailsUpdate.displayNameUpdate}, fetched: ${fetchedPartyDetails.displayName}",
+                  )
+                  .asGrpcError
+              )
+            } else {
+              Future.successful(
+                PartyRecordUpdate(
+                  party = partyDetailsUpdate.party,
+                  metadataUpdate = partyDetailsUpdate.metadataUpdate,
+                )
+              )
+            }
+          }
+          updatedPartyRecordResult <- partyRecordStore.updatePartyRecord(
+            partyRecordUpdate = partyRecordUpdate,
+            ledgerPartyExists = (party: Ref.Party) => {
+              // TODO um-for-hub: Consider changing it to Future.successful(true)
+              partyManagementService.getParties(Seq(party)).map(_.nonEmpty)
+            },
+          )
+          updatedPartyRecord: PartyRecord <- handlePartyRecordStoreResult(
+            "updating a participant party record"
+          )(updatedPartyRecordResult)
         } yield UpdatePartyDetailsResponse(
           Some(
             toProtoPartyDetails(

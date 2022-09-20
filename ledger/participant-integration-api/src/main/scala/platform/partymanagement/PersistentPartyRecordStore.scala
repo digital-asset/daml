@@ -14,7 +14,6 @@ import com.daml.ledger.participant.state.index.v2.PartyRecordStore.{
   Result,
 }
 import com.daml.ledger.participant.state.index.v2.{
-  AnnotationsUpdate,
   LedgerPartyExists,
   PartyRecordStore,
   PartyRecordUpdate,
@@ -27,7 +26,7 @@ import com.daml.platform.partymanagement.PersistentPartyRecordStore.{
   ConcurrentPartyRecordUpdateDetectedRuntimeException,
   MaxAnnotationsSizeExceededException,
 }
-import com.daml.ledger.participant.state.index.ResourceAnnotationValidation
+import com.daml.ledger.participant.state.index.{LocalAnnotationsUtils, ResourceAnnotationValidation}
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.backend.PartyRecordStorageBackend
 
@@ -100,9 +99,9 @@ class PersistentPartyRecordStore(
                     party = party,
                     metadata = domain.ObjectMeta(
                       resourceVersionO = None,
-                      annotations = partyRecordUpdate.metadataUpdate.annotationsUpdateO.fold(
+                      annotations = partyRecordUpdate.metadataUpdate.annotationsUpdateO.getOrElse(
                         Map.empty[String, String]
-                      )(_.annotations),
+                      ),
                     ),
                   )
                   doCreatePartyRecord(newPartyRecord)(connection)
@@ -205,15 +204,12 @@ class PersistentPartyRecordStore(
         )(connection)
     }
     // Step 2: Update annotations
-    partyRecordUpdate.metadataUpdate.annotationsUpdateO.foreach { annotationsUpdate =>
-      val updatedAnnotations = annotationsUpdate match {
-        case AnnotationsUpdate.Merge(newAnnotations) => {
-          val existingAnnotations =
-            backend.getPartyAnnotations(dbPartyRecord.internalId)(connection)
-          existingAnnotations.concat(newAnnotations)
-        }
-        case AnnotationsUpdate.Replace(newAnnotations) => newAnnotations
-      }
+    partyRecordUpdate.metadataUpdate.annotationsUpdateO.foreach { newAnnotations =>
+      val existingAnnotations = backend.getPartyAnnotations(dbPartyRecord.internalId)(connection)
+      val updatedAnnotations = LocalAnnotationsUtils.calculateUpdatedAnnotations(
+        newValue = newAnnotations,
+        existing = existingAnnotations,
+      )
       if (
         !ResourceAnnotationValidation
           .isWithinMaxAnnotationsByteSize(updatedAnnotations)

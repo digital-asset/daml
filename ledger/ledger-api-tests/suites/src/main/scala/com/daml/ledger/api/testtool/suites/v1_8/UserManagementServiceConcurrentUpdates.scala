@@ -58,7 +58,7 @@ trait UserManagementServiceConcurrentUpdates {
       res2 <- ledger.userManagement.updateUser(
         UpdateUserRequest(
           user = Some(user1b),
-          updateMask = Some(FieldMask(paths = Seq("user"))),
+          updateMask = Some(FieldMask(paths = Seq("primary_party", "is_deactivated", "metadata"))),
         )
       )
       _ = assertEquals(unsetResourceVersion(res2), UpdateUserResponse(Some(user1b)))
@@ -86,7 +86,7 @@ trait UserManagementServiceConcurrentUpdates {
         .updateUser(
           UpdateUserRequest(
             user = Some(user1c),
-            updateMask = Some(FieldMask(paths = Seq("user"))),
+            updateMask = Some(FieldMask(paths = Seq("primary_party", "is_deactivated", "metadata"))),
           )
         )
         .mustFail(
@@ -98,7 +98,7 @@ trait UserManagementServiceConcurrentUpdates {
       res4 <- ledger.userManagement.updateUser(
         UpdateUserRequest(
           user = Some(user1d),
-          updateMask = Some(FieldMask(paths = Seq("user"))),
+          updateMask = Some(FieldMask(paths = Seq("primary_party", "is_deactivated", "metadata"))),
         )
       )
       _ = assertEquals(
@@ -119,7 +119,7 @@ trait UserManagementServiceConcurrentUpdates {
 
   userManagementTest(
     "RaceConditionUpdateUserAnnotations",
-    "Tests scenario of multiple concurrent update annotations calls for the same user - merge semantics",
+    "Tests scenario of multiple concurrent update annotations calls for the same user",
     runConcurrently = false,
     requiresUserExtensionsForHub = true,
   ) {
@@ -134,8 +134,8 @@ trait UserManagementServiceConcurrentUpdates {
               .updateUser(
                 updateRequest(
                   id = userId,
-                  annotations = Map(s"key$attemptNo" -> ""),
-                  updatePaths = Seq("user"),
+                  annotations = Map(s"key$attemptNo" -> "a"),
+                  updatePaths = Seq("metadata"),
                 )
               )
               .transform(Success(_))
@@ -145,16 +145,16 @@ trait UserManagementServiceConcurrentUpdates {
           assertEquals(
             get.user.get.metadata.get.annotations,
             Map(
-              "key1" -> "",
-              "key2" -> "",
-              "key3" -> "",
-              "key4" -> "",
-              "key5" -> "",
-              "key6" -> "",
-              "key7" -> "",
-              "key8" -> "",
-              "key9" -> "",
-              "key10" -> "",
+              "key1" -> "a",
+              "key2" -> "a",
+              "key3" -> "a",
+              "key4" -> "a",
+              "key5" -> "a",
+              "key6" -> "a",
+              "key7" -> "a",
+              "key8" -> "a",
+              "key9" -> "a",
+              "key10" -> "a",
             ),
           )
         }

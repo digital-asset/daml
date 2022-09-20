@@ -37,7 +37,13 @@ trait UserManagementServiceAnnotationsValidationTests { self: UserManagementServ
       create1 <- ledger.createUser(CreateUserRequest(Some(user2)))
       _ = assertEquals(unsetResourceVersion(create1), CreateUserResponse(Some(user2)))
       _ <- ledger.userManagement
-        .updateUser(replaceUserAnnotationsReq(id = userId1, annotations = Map("a" -> largeString)))
+        .updateUser(
+          updateRequest(
+            id = userId1,
+            annotations = Map("a" -> largeString),
+            updatePaths = Seq("metadata.annotations"),
+          )
+        )
         .mustFailWith(
           "total size of annotations, in a user update call, is over 256kb",
           errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
@@ -56,7 +62,7 @@ trait UserManagementServiceAnnotationsValidationTests { self: UserManagementServ
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
     val invalidKey = ".user.management.daml/foo_"
-    val user1 = newUser(id = userId1, annotations = Map("0-user.management.daml/foo" -> ""))
+    val user1 = newUser(id = userId1, annotations = Map("0-user.management.daml/foo" -> "a"))
     for {
       create1 <- ledger.createUser(CreateUserRequest(Some(user1)))
       _ = assertEquals(
@@ -64,7 +70,13 @@ trait UserManagementServiceAnnotationsValidationTests { self: UserManagementServ
         CreateUserResponse(Some(user1)),
       )
       _ <- ledger.userManagement
-        .updateUser(replaceUserAnnotationsReq(id = userId1, annotations = Map(invalidKey -> "")))
+        .updateUser(
+          updateRequest(
+            id = userId1,
+            annotations = Map(invalidKey -> "a"),
+            updatePaths = Seq("metadata.annotations"),
+          )
+        )
         .mustFailWith(
           "bad annotations key syntax on a user update",
           errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
@@ -74,7 +86,7 @@ trait UserManagementServiceAnnotationsValidationTests { self: UserManagementServ
         )
       _ <- ledger
         .createUser(
-          CreateUserRequest(Some(newUser(id = userId2, annotations = Map(invalidKey -> ""))))
+          CreateUserRequest(Some(newUser(id = userId2, annotations = Map(invalidKey -> "a"))))
         )
         .mustFailWith(
           "bad annotations key syntax on user creation",

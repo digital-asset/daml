@@ -3,23 +3,22 @@
 
 package com.daml.platform.apiserver.update
 
-import com.daml.ledger.participant.state.index.v2.AnnotationsUpdate
 import com.daml.platform.apiserver.update.UpdatePathsTrie.MatchResult
 import com.google.protobuf.field_mask.FieldMask
 
 trait UpdateMapperBase {
 
-  type DomainObject
-  type UpdateObject
+  type Resource
+  type Update
 
   /** A trie containing all update paths. Used for validating the input update mask paths.
     */
-  def fullUpdateTrie: UpdatePathsTrie
+  def fullResourceTrie: UpdatePathsTrie
 
   protected[update] def makeUpdateObject(
-      domainObject: DomainObject,
+      domainObject: Resource,
       updateTrie: UpdatePathsTrie,
-  ): Result[UpdateObject]
+  ): Result[Update]
 
   /** Validates its input and produces an update object.
     * NOTE: The return update object might represent an empty (no-op) update.
@@ -28,9 +27,9 @@ trait UpdateMapperBase {
     * @param updateMask indicates which fields should get updated
     */
   final def toUpdate(
-      domainObject: DomainObject,
+      domainObject: Resource,
       updateMask: FieldMask,
-  ): Result[UpdateObject] = {
+  ): Result[Update] = {
     for {
       updateTrie <- makeUpdateTrie(updateMask)
       updateObject <- makeUpdateObject(domainObject, updateTrie)
@@ -57,42 +56,22 @@ trait UpdateMapperBase {
       for {
         _ <- ax
         _ <-
-          if (!fullUpdateTrie.containsPrefix(parsedPath.fieldPath)) {
-            Left(UpdatePathError.UnknownOrUnmodifiableFieldPath(parsedPath.toRawString))
+          if (!fullResourceTrie.containsPrefix(parsedPath.fieldPath)) {
+            Left(UpdatePathError.UnknownFieldPath(parsedPath.toRawString))
           } else Right(())
       } yield ()
     }
 
   protected[update] final def makeAnnotationsUpdate(
-      newValue: Map[String, String],
       updateMatch: MatchResult,
-  ): Result[Option[AnnotationsUpdate]] = {
-    val isDefaultValue = newValue.isEmpty
-    val modifier = updateMatch.getUpdatePathModifier
-    def mergeUpdate = Right(Some(AnnotationsUpdate.Merge.fromNonEmpty(newValue)))
-    val replaceUpdate = Right(Some(AnnotationsUpdate.Replace(newValue)))
+      newValue: Map[String, String],
+  ): Result[Option[Map[String, String]]] = {
+    val isDefaultValue = newValue == Map.empty
+    def some = Right(Some(newValue))
     if (updateMatch.isExact) {
-      modifier match {
-        case UpdatePathModifier.NoModifier =>
-          if (isDefaultValue) replaceUpdate else mergeUpdate
-        case UpdatePathModifier.Merge =>
-          if (isDefaultValue)
-            Left(
-              UpdatePathError.MergeUpdateModifierOnEmptyMapField(
-                updateMatch.matchedPath.toRawString
-              )
-            )
-          else mergeUpdate
-        case UpdatePathModifier.Replace =>
-          replaceUpdate
-      }
+      some
     } else {
-      modifier match {
-        case UpdatePathModifier.NoModifier | UpdatePathModifier.Merge =>
-          if (isDefaultValue) noUpdate else mergeUpdate
-        case UpdatePathModifier.Replace =>
-          replaceUpdate
-      }
+      if (isDefaultValue) noUpdate else some
     }
   }
 
@@ -102,26 +81,11 @@ trait UpdateMapperBase {
       newValue: A,
   ): Result[Option[A]] = {
     val isDefaultValue = newValue == defaultValue
-    val modifier = updateMatch.getUpdatePathModifier
     val some = Right(Some(newValue))
     if (updateMatch.isExact) {
-      modifier match {
-        case UpdatePathModifier.NoModifier | UpdatePathModifier.Replace => some
-        case UpdatePathModifier.Merge =>
-          if (isDefaultValue)
-            Left(
-              UpdatePathError.MergeUpdateModifierOnPrimitiveFieldWithDefaultValue(
-                updateMatch.matchedPath.toRawString
-              )
-            )
-          else some
-      }
+      some
     } else {
-      modifier match {
-        case UpdatePathModifier.NoModifier | UpdatePathModifier.Merge =>
-          if (isDefaultValue) noUpdate else some
-        case UpdatePathModifier.Replace => some
-      }
+      if (isDefaultValue) noUpdate else some
     }
   }
 }

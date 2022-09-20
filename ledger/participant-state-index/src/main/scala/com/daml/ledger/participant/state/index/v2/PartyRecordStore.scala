@@ -17,12 +17,17 @@ trait LedgerPartyExists {
   def exists(party: Ref.Party): Future[Boolean]
 }
 
+case class PartyDetailsUpdate(
+    party: Ref.Party,
+    displayNameUpdate: Option[Option[String]],
+    isLocalUpdate: Option[Boolean],
+    metadataUpdate: ObjectMetaUpdate,
+)
+
 case class PartyRecordUpdate(
     party: Ref.Party,
     metadataUpdate: ObjectMetaUpdate,
-) {
-  def isNoUpdate: Boolean = metadataUpdate.isNoUpdate
-}
+)
 
 trait PartyRecordStore {
   import PartyRecordStore._

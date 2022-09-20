@@ -424,6 +424,13 @@ object domain {
   // TODO um-for-hub: Drop redundant ParticipantParty object
   object ParticipantParty {
 
+    case class PartyDetails(
+        party: Ref.Party,
+        displayName: Option[String],
+        isLocal: Boolean,
+        metadata: ObjectMeta,
+    )
+
     final case class PartyRecord(
         party: Ref.Party,
         metadata: ObjectMeta,

@@ -30,7 +30,8 @@ final class PartyManagementServiceIT
     extends LedgerTestSuite
     with PartyManagementItUtils
     with PartyManagementServiceUpdateRpcTests
-    with PartyManagementServiceAnnotationsValidationTests {
+    with PartyManagementServiceAnnotationsValidationTests
+    with PartyManagementServiceUpdateAnnotationsTests {
 
   test(
     "PMNonEmptyParticipantID",

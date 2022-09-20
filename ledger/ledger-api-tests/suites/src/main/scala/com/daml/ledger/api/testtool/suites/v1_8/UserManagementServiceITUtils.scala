@@ -65,20 +65,6 @@ trait UserManagementServiceITUtils { self: UserManagementServiceIT =>
     metadata = Some(ObjectMeta(annotations = annotations)),
   )
 
-  def replaceUserAnnotationsReq(
-      id: String,
-      annotations: Map[String, String],
-  ): UpdateUserRequest =
-    UpdateUserRequest(
-      user = Some(
-        User(
-          id = id,
-          metadata = Some(ObjectMeta(resourceVersion = "", annotations = annotations)),
-        )
-      ),
-      updateMask = Some(FieldMask(Seq("user.metadata.annotations!replace"))),
-    )
-
   def updateRequest(
       id: String,
       isDeactivated: Boolean = false,

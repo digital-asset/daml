@@ -14,43 +14,11 @@ case class UserUpdate(
     primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
     isDeactivatedUpdateO: Option[Boolean] = None,
     metadataUpdate: ObjectMetaUpdate,
-) {
-  def isNoUpdate: Boolean =
-    primaryPartyUpdateO.isEmpty && isDeactivatedUpdateO.isEmpty && metadataUpdate.isNoUpdate
-}
-
-sealed trait AnnotationsUpdate {
-  def annotations: Map[String, String]
-}
-
-object AnnotationsUpdate {
-  final case class Merge private (nonEmptyAnnotations: Map[String, String])
-      extends AnnotationsUpdate {
-    def annotations: Map[String, String] = nonEmptyAnnotations
-  }
-
-  object Merge {
-    def apply(annotations: Map[String, String]): Option[Merge] = {
-      if (annotations.isEmpty) None
-      else Some(new Merge(annotations))
-    }
-
-    def fromNonEmpty(annotations: Map[String, String]): Merge = {
-      // TODO um-for-hub: Use error codes
-      require(
-        annotations.nonEmpty,
-        "Unexpected new value for merge update: an empty map. Only non-empty maps are allowed",
-      )
-      new Merge(annotations)
-    }
-  }
-
-  final case class Replace(annotations: Map[String, String]) extends AnnotationsUpdate
-}
+)
 
 case class ObjectMetaUpdate(
     resourceVersionO: Option[Long],
-    annotationsUpdateO: Option[AnnotationsUpdate],
+    annotationsUpdateO: Option[Map[String, String]],
 ) {
   def isNoUpdate: Boolean = annotationsUpdateO.isEmpty
 }

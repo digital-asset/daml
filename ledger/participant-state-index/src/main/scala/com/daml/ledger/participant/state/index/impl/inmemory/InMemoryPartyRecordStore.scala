@@ -5,14 +5,13 @@ package com.daml.ledger.participant.state.index.impl.inmemory
 
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{ObjectMeta, ParticipantParty}
-import com.daml.ledger.participant.state.index.ResourceAnnotationValidation
+import com.daml.ledger.participant.state.index.{LocalAnnotationsUtils, ResourceAnnotationValidation}
 import com.daml.ledger.participant.state.index.v2.PartyRecordStore.{
   MaxAnnotationsSizeExceeded,
   PartyRecordExistsFatal,
   Result,
 }
 import com.daml.ledger.participant.state.index.v2.{
-  AnnotationsUpdate,
   LedgerPartyExists,
   PartyRecordStore,
   PartyRecordUpdate,
@@ -98,9 +97,9 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
                 party = party,
                 metadata = domain.ObjectMeta(
                   resourceVersionO = None,
-                  annotations = partyRecordUpdate.metadataUpdate.annotationsUpdateO.fold(
+                  annotations = partyRecordUpdate.metadataUpdate.annotationsUpdateO.getOrElse(
                     Map.empty[String, String]
-                  )(_.annotations),
+                  ),
                 ),
               )
               for {
@@ -124,8 +123,11 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
     val existingAnnotations = info.annotations
     val updatedAnnotations =
       partyRecordUpdate.metadataUpdate.annotationsUpdateO.fold(existingAnnotations) {
-        case AnnotationsUpdate.Merge(newAnnotations) => existingAnnotations.concat(newAnnotations)
-        case AnnotationsUpdate.Replace(newAnnotations) => newAnnotations
+        newAnnotations =>
+          LocalAnnotationsUtils.calculateUpdatedAnnotations(
+            newValue = newAnnotations,
+            existing = existingAnnotations,
+          )
       }
     val currentResourceVersion = info.resourceVersion
     val newResourceVersionEither = partyRecordUpdate.metadataUpdate.resourceVersionO match {

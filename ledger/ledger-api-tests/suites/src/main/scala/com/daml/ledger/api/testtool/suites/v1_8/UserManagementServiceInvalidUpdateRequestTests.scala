@@ -12,27 +12,6 @@ trait UserManagementServiceInvalidUpdateRequestTests {
   self: UserManagementServiceIT =>
 
   userManagementTestWithFreshUser(
-    "InvalidUpdateRequestsUnknownUpdateModifier",
-    "Failing update requests when then update mask contains an unknown update modifier",
-  )()(implicit ec => { (ledger, user) =>
-    ledger.userManagement
-      .updateUser(
-        updateRequest(
-          id = user.id,
-          annotations = Map("k2" -> "v2"),
-          updatePaths = Seq("user.metadata.annotations!badmodifer"),
-        )
-      )
-      .mustFailWith(
-        "updating with an unknown update modifier",
-        errorCode = LedgerApiErrors.Admin.UserManagement.InvalidUpdateUserRequest,
-        exceptionMessageSubstring = Some(
-          s"INVALID_ARGUMENT: INVALID_USER_UPDATE_REQUEST(8,0): Update operation for user id '${user.id}' failed due to: The update path: 'user.metadata.annotations!badmodifer' contains an unknown update modifier."
-        ),
-      )
-  })
-
-  userManagementTestWithFreshUser(
     "InvalidUpdateRequestsUnknownFieldPath",
     "Failing update requests when the update mask contains a path to an unknown field",
   )()(implicit ec => { (ledger, user) =>
@@ -41,14 +20,14 @@ trait UserManagementServiceInvalidUpdateRequestTests {
         updateRequest(
           id = user.id,
           annotations = Map("k2" -> "v2"),
-          updatePaths = Seq("user.metadata.unknown_field"),
+          updatePaths = Seq("metadata.unknown_field"),
         )
       )
       .mustFailWith(
         "updating with an unknown update path 1",
         errorCode = LedgerApiErrors.Admin.UserManagement.InvalidUpdateUserRequest,
         exceptionMessageSubstring = Some(
-          s"INVALID_ARGUMENT: INVALID_USER_UPDATE_REQUEST(8,0): Update operation for user id '${user.id}' failed due to: The update path: 'user.metadata.unknown_field' points to an unknown or an unmodifiable field."
+          s"INVALID_ARGUMENT: INVALID_USER_UPDATE_REQUEST(8,0): Update operation for user id '${user.id}' failed due to: The update path: 'metadata.unknown_field' points to an unknown field."
         ),
       )
   })
@@ -62,14 +41,14 @@ trait UserManagementServiceInvalidUpdateRequestTests {
         updateRequest(
           id = user.id,
           annotations = Map("k2" -> "v2"),
-          updatePaths = Seq("aaa!bad!qwerty"),
+          updatePaths = Seq("aaa!qwerty"),
         )
       )
       .mustFailWith(
         "update with an unknown update path",
         errorCode = LedgerApiErrors.Admin.UserManagement.InvalidUpdateUserRequest,
         exceptionMessageSubstring = Some(
-          s"INVALID_ARGUMENT: INVALID_USER_UPDATE_REQUEST(8,0): Update operation for user id '${user.id}' failed due to: The update path: 'aaa!bad!qwerty' has invalid syntax."
+          s"INVALID_ARGUMENT: INVALID_USER_UPDATE_REQUEST(8,0): Update operation for user id '${user.id}' failed due to: The update path: 'aaa!qwerty' points to an unknown field."
         ),
       )
   })
@@ -117,26 +96,6 @@ trait UserManagementServiceInvalidUpdateRequestTests {
   })
 
   userManagementTestWithFreshUser(
-    "InvalidUpdateRequestsUpdatingUnmodifiableField",
-    "Failing update requests when attempting to update an unmodifiable field",
-  )()(implicit ec => { (ledger, user) =>
-    ledger.userManagement
-      .updateUser(
-        updateRequest(
-          id = user.id,
-          updatePaths = Seq("user.id"),
-        )
-      )
-      .mustFailWith(
-        "update with an unknown update path",
-        errorCode = LedgerApiErrors.Admin.UserManagement.InvalidUpdateUserRequest,
-        exceptionMessageSubstring = Some(
-          s"INVALID_ARGUMENT: INVALID_USER_UPDATE_REQUEST(8,0): Update operation for user id '${user.id}' failed due to: The update path: 'user.id' points to an unknown or an unmodifiable field."
-        ),
-      )
-  })
-
-  userManagementTestWithFreshUser(
     "InvalidUpdateRequestsEmptyUpdatePath",
     "Failing update requests when the update mask contains an empty update path",
   )()(implicit ec => { (ledger, user) =>
@@ -158,22 +117,22 @@ trait UserManagementServiceInvalidUpdateRequestTests {
   })
 
   userManagementTestWithFreshUser(
-    "InvalidUpdateRequestsUpdateMaskIsDuplicatedEvenWithDifferentUpdateModifiers",
-    "Failing update requests when update mask is duplicated even with different update modifiers",
+    "InvalidUpdateRequestsUpdateMaskIsDuplicated",
+    "Failing update requests when update mask is duplicated",
   )()(implicit ec => { (ledger, user) =>
     ledger.userManagement
       .updateUser(
         updateRequest(
           id = user.id,
           annotations = Map("k2" -> "v2"),
-          updatePaths = Seq("user!merge", "user"),
+          updatePaths = Seq("metadata", "metadata"),
         )
       )
       .mustFailWith(
         "update with an unknown update path",
         errorCode = LedgerApiErrors.Admin.UserManagement.InvalidUpdateUserRequest,
         exceptionMessageSubstring = Some(
-          s"INVALID_ARGUMENT: INVALID_USER_UPDATE_REQUEST(8,0): Update operation for user id '${user.id}' failed due to: The update path: 'user' points to a field a different update path already points to."
+          s"INVALID_ARGUMENT: INVALID_USER_UPDATE_REQUEST(8,0): Update operation for user id '${user.id}' failed due to: The update path: 'metadata' is duplicated."
         ),
       )
   })

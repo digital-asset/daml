@@ -5,30 +5,30 @@ package com.daml.platform.apiserver.update
 
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.ParticipantParty
-import com.daml.ledger.participant.state.index.v2.{
-  AnnotationsUpdate,
-  ObjectMetaUpdate,
-  PartyRecordUpdate,
-}
+import com.daml.ledger.participant.state.index.v2.{ObjectMetaUpdate, PartyDetailsUpdate}
 
 object PartyRecordUpdateMapper extends UpdateMapperBase {
 
   import UpdateRequestsPaths.PartyDetailsPaths
 
-  type DomainObject = domain.ParticipantParty.PartyRecord
-  type UpdateObject = PartyRecordUpdate
+  type Resource = domain.ParticipantParty.PartyDetails
+  type Update = PartyDetailsUpdate
 
-  override val fullUpdateTrie: UpdatePathsTrie = PartyDetailsPaths.fullUpdateTrie
+  override val fullResourceTrie: UpdatePathsTrie = PartyDetailsPaths.fullUpdateTrie
 
   override def makeUpdateObject(
-      partyRecord: ParticipantParty.PartyRecord,
+      partyRecord: ParticipantParty.PartyDetails,
       updateTrie: UpdatePathsTrie,
-  ): Result[PartyRecordUpdate] = {
+  ): Result[PartyDetailsUpdate] = {
     for {
       annotationsUpdate <- resolveAnnotationsUpdate(updateTrie, partyRecord.metadata.annotations)
+      isLocalUpdate <- resolveIsLocalUpdate(updateTrie, partyRecord.isLocal)
+      displayNameUpdate <- resolveDisplayNameUpdate(updateTrie, partyRecord.displayName)
     } yield {
-      PartyRecordUpdate(
+      PartyDetailsUpdate(
         party = partyRecord.party,
+        displayNameUpdate = displayNameUpdate,
+        isLocalUpdate = isLocalUpdate,
         metadataUpdate = ObjectMetaUpdate(
           resourceVersionO = partyRecord.metadata.resourceVersionO,
           annotationsUpdateO = annotationsUpdate,
@@ -37,17 +37,42 @@ object PartyRecordUpdateMapper extends UpdateMapperBase {
     }
   }
 
+  def resolveDisplayNameUpdate(
+      updateTrie: UpdatePathsTrie,
+      newValue: Option[String],
+  ): Result[Option[Option[String]]] =
+    updateTrie
+      .findMatch(PartyDetailsPaths.displayName)
+      .fold(noUpdate[Option[String]])(updateMatch =>
+        makePrimitiveFieldUpdate(
+          updateMatch = updateMatch,
+          defaultValue = None,
+          newValue = newValue,
+        )
+      )
+
+  def resolveIsLocalUpdate(
+      updateTrie: UpdatePathsTrie,
+      newValue: Boolean,
+  ): Result[Option[Boolean]] =
+    updateTrie
+      .findMatch(PartyDetailsPaths.isLocal)
+      .fold(noUpdate[Boolean])(updateMatch =>
+        makePrimitiveFieldUpdate(
+          updateMatch = updateMatch,
+          defaultValue = false,
+          newValue = newValue,
+        )
+      )
+
   def resolveAnnotationsUpdate(
       updateTrie: UpdatePathsTrie,
       newValue: Map[String, String],
-  ): Result[Option[AnnotationsUpdate]] =
+  ): Result[Option[Map[String, String]]] =
     updateTrie
       .findMatch(PartyDetailsPaths.annotations)
-      .fold(noUpdate[AnnotationsUpdate])(updateMatch =>
-        makeAnnotationsUpdate(
-          newValue = newValue,
-          updateMatch = updateMatch,
-        )
+      .fold(noUpdate[Map[String, String]])(updateMatch =>
+        makeAnnotationsUpdate(newValue = newValue, updateMatch = updateMatch)
       )
 
 }
