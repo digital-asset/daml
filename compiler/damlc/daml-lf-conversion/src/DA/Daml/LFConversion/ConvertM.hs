@@ -60,7 +60,7 @@ instance MonadFail ConvertM where
 runConvertM :: ConversionEnv -> ConvertM a -> Either FileDiagnostic (a, [FileDiagnostic])
 runConvertM s (ConvertM a) = runExcept $ do
   (a, convState) <- runStateT (runReaderT a s) st0
-  pure (a, warnings convState)
+  pure (a, reverse $ warnings convState)
   where
     st0 = ConversionState
         { freshTmVarCounter = 0
@@ -107,7 +107,7 @@ conversionWarning msg = do
         , _tags = Nothing
         }
       fileDiagnostic = (convModuleFilePath, ShowDiag, diagnostic)
-  modify $ \s -> s { warnings = warnings s ++ [fileDiagnostic] }
+  modify $ \s -> s { warnings = fileDiagnostic : warnings s }
 
 unsupported :: (HasCallStack, Outputable a) => String -> a -> ConvertM e
 unsupported typ x = conversionError errMsg
