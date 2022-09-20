@@ -1817,7 +1817,11 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $error :: Text -> a */
+  /** $error :: Text -> a
+    *
+    * This builtin is reserved for LF prior to 1.14. For LF >= 1.14, a catchable DAML
+    * exception should be used instead.
+    */
   final case object SBError extends SBuiltin(1) {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
