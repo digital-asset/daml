@@ -960,6 +960,9 @@ private[lf] object Speedy {
         limits: interpretation.Limits = interpretation.Limits.Lenient,
         disclosedContracts: ImmArray[speedy.DisclosedContract],
     )(implicit loggingContext: LoggingContext): Machine = {
+      // TODO: enable priming on ledger cached contract map with disclosed contracts
+      // val exprWithDisclosures = compiledPackages.compiler.unsafeCompileWithContractDisclosures(expr, disclosedContracts)
+
       new Machine(
         sexpr = expr,
         submissionTime = submissionTime,

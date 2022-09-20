@@ -37,7 +37,9 @@ import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeSet
 import scala.math.Ordering.Implicits.infixOrderingOps
 
-/**  Speedy builtins are stratified into two layers:
+/** Speedy builtins represent LF functional forms. As such, they *always* have a non-zero arity.
+  *
+  * Speedy builtins are stratified into two layers:
   *  Parent: `SBuiltin`, (which are effectful), and child: `SBuiltinPure` (which are pure).
   *
   *  Effectful builtin functions may ask questions of the ledger or change machine state.
@@ -66,7 +68,7 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
     */
   private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Control
 
-  protected def unexpectedType(i: Int, expected: String, found: SValue) =
+  protected def unexpectedType(i: Int, expected: String, found: SValue): Nothing =
     crash(s"type mismatch of argument $i: expect $expected but got $found")
 
   final protected def getSBool(args: util.ArrayList[SValue], i: Int): Boolean =
@@ -208,31 +210,44 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
 
 private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltin(arity) {
 
+  /** Pure builtins do not modify the machine state and do not ask questions of the ledger. As a result, pure builtin
+    * execution is immediate.
+    *
+    * @param args arguments for executing the pure builtin
+    * @return the pure builtin's resulting value (wrapped as a Control value)
+    */
+  private[speedy] def executePure(args: util.ArrayList[SValue]): SValue
+
   override private[speedy] final def execute(
       args: util.ArrayList[SValue],
       machine: Machine,
   ): Control = {
     Control.Value(executePure(args))
   }
-
-  /** Execute the (pure) builtin with 'arity' number of arguments in 'args'.
-    *    Returns the resulting value
-    */
-  private[speedy] def executePure(args: util.ArrayList[SValue]): SValue
 }
 
 private[speedy] sealed abstract class OnLedgerBuiltin(arity: Int)
     extends SBuiltin(arity)
     with Product {
 
-  protected def execute(
+  /** On ledger builtins may reference the Speedy machine's ledger state.
+    *
+    * @param args arguments for executing the builtin
+    * @param machine the Speedy machine (machine state may be modified by the builtin)
+    * @param onLedger a reference to the Speedy machine's ledger state (which may be modified by the builtin)
+    * @return the builtin execution's resulting control value
+    */
+  protected def executeWithLedger(
       args: util.ArrayList[SValue],
       machine: Machine,
       onLedger: OnLedger,
   ): Control
 
-  final override def execute(args: util.ArrayList[SValue], machine: Machine): Control = {
-    machine.withOnLedger(productPrefix)(execute(args, machine, _))
+  override private[speedy] final def execute(
+      args: util.ArrayList[SValue],
+      machine: Machine,
+  ): Control = {
+    machine.withOnLedger(productPrefix)(executeWithLedger(args, machine, _))
   }
 }
 
@@ -937,13 +952,41 @@ private[lf] object SBuiltin {
     }
   }
 
+  /** $checkTemplate[T] :: Unit -> bool */
+  private[speedy] final case class SBCheckTemplate(templateId: TypeConName) extends SBuiltin(1) {
+
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
+      getSUnit(args, 0)
+
+      Control.Value(SBool(machine.compiledPackages.pkgInterface.lookupTemplate(templateId).isRight))
+    }
+  }
+
+  /** $checkTemplateKey[T] :: Unit -> bool */
+  private[speedy] final case class SBCheckTemplateKey(templateId: TypeConName) extends SBuiltin(1) {
+
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
+      getSUnit(args, 0)
+
+      Control.Value(
+        SBool(machine.compiledPackages.pkgInterface.lookupTemplateKey(templateId).isRight)
+      )
+    }
+  }
+
   /** $create
     *    :: Text (agreement text)
     *    -> CachedContract
     *    -> ContractId arg
     */
   final case object SBUCreate extends OnLedgerBuiltin(2) {
-    override protected def execute(
+    override protected def executeWithLedger(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
@@ -1000,7 +1043,7 @@ private[lf] object SBuiltin {
       byKey: Boolean,
   ) extends OnLedgerBuiltin(4) {
 
-    override protected def execute(
+    override protected def executeWithLedger(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
@@ -1108,7 +1151,7 @@ private[lf] object SBuiltin {
     */
 
   final case object SBFetchAny extends OnLedgerBuiltin(2) {
-    override protected def execute(
+    override protected def executeWithLedger(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
@@ -1437,7 +1480,7 @@ private[lf] object SBuiltin {
       templateId: TypeConName,
       byKey: Boolean,
   ) extends OnLedgerBuiltin(1) {
-    override protected def execute(
+    override protected def executeWithLedger(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
@@ -1476,7 +1519,7 @@ private[lf] object SBuiltin {
     *    -> ()
     */
   final case class SBUInsertLookupNode(templateId: TypeConName) extends OnLedgerBuiltin(2) {
-    override protected def execute(
+    override protected def executeWithLedger(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
@@ -1561,7 +1604,7 @@ private[lf] object SBuiltin {
       operation: KeyOperation
   ) extends OnLedgerBuiltin(1) {
 
-    final override def execute(
+    final override def executeWithLedger(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
@@ -1792,6 +1835,19 @@ private[lf] object SBuiltin {
     ): Control = {
       val excep = getSAny(args, 0)
       unwindToHandler(machine, excep)
+    }
+  }
+
+  /** $crash :: Text -> Unit -> Nothing */
+  private[speedy] final case class SBCrash(reason: String) extends SBuiltin(1) {
+
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
+      getSUnit(args, 0)
+
+      crash(reason)
     }
   }
 
@@ -2092,6 +2148,26 @@ private[lf] object SBuiltin {
         SBError(compileTime.SEValue(SText(s"experimental $name not supported."))),
       )
 
+  }
+
+  /** $cacheDisclosedContract[T] :: ContractId T -> CachedContract T -> Unit */
+  private[speedy] final case class SBCacheDisclosedContract(contractId: V.ContractId)
+      extends OnLedgerBuiltin(1) {
+
+    override protected def executeWithLedger(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+        onLedger: OnLedger,
+    ): Control = {
+      val cachedContract = args.get(0)
+
+      onLedger.updateCachedContracts(
+        contractId,
+        extractCachedContract(machine, cachedContract),
+      )
+
+      Control.Value(SUnit)
+    }
   }
 
   private[speedy] def convTxError(err: Tx.TransactionError): interpretation.Error = {
