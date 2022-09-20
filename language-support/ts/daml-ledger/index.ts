@@ -154,6 +154,23 @@ export type Event<T extends object, K = unknown, I extends string = string> =
   | { created: CreateEvent<T, K, I> }
   | { archived: ArchiveEvent<T, I> };
 
+function lookupTemplateOrUnknownInterface(
+  templateId: string,
+): TemplateOrInterface<object> {
+  try {
+    return lookupTemplate(templateId);
+  } catch (e) {
+    if (e instanceof Error)
+      return {
+        templateId,
+        sdkVersion: "0.0.0-SDKVERSION",
+        decoder: jtv.anyJson(),
+        keyDecoder: jtv.anyJson(),
+      };
+    else throw e;
+  }
+}
+
 /**
  * Decoder for a [[CreateEvent]].
  */
@@ -175,7 +192,9 @@ const decodeCreateEvent = <T extends object, K, I extends string>(
  */
 const decodeCreateEventUnknown: jtv.Decoder<CreateEvent<object>> = jtv
   .valueAt(["templateId"], jtv.string())
-  .andThen(templateId => decodeCreateEvent(lookupTemplate(templateId)));
+  .andThen(templateId =>
+    decodeCreateEvent(lookupTemplateOrUnknownInterface(templateId)),
+  );
 
 /**
  * Decoder for an [[ArchiveEvent]].
@@ -193,7 +212,9 @@ const decodeArchiveEvent = <T extends object, K, I extends string>(
  */
 const decodeArchiveEventUnknown: jtv.Decoder<ArchiveEvent<object>> = jtv
   .valueAt(["templateId"], jtv.string())
-  .andThen(templateId => decodeArchiveEvent(lookupTemplate(templateId)));
+  .andThen(templateId =>
+    decodeArchiveEvent(lookupTemplateOrUnknownInterface(templateId)),
+  );
 
 /**
  * Decoder for an [[Event]].
