@@ -54,9 +54,6 @@ object SandboxOnXConfig {
       configMap = originalConfig.configMap,
       fallback = ConfigFactory.parseString(ConfigRenderer.render(sandboxOnXConfig)(Convert)),
     )
-    fromConfig.left.foreach { msg =>
-      sys.error(s"Failed to parse config after applying config maps and config files: $msg")
-    }
     fromConfig.fold(
       msg => sys.error(s"Failed to parse config after applying config maps and config files: $msg"),
       identity,

@@ -591,121 +591,167 @@ class PureConfigReaderWriterSpec
 
   behavior of "ApiServerConfig"
 
+  val validApiServerConfigValue =
+    """
+      |api-stream-shutdown-timeout = "5s"
+      |command {
+      |  input-buffer-size = 512
+      |  max-commands-in-flight = 256
+      |  tracker-retention-period = "300 seconds"
+      |}
+      |initial-ledger-configuration {
+      |  enabled = true
+      |  avg-transaction-latency = 0 days
+      |  delay-before-submitting = 0 days
+      |  max-deduplication-duration = 30 minutes
+      |  max-skew = 30 seconds
+      |  min-skew = 30 seconds
+      |}
+      |configuration-load-timeout = "10s"
+      |management-service-timeout = "2m"
+      |max-inbound-message-size = 67108864
+      |party {
+      |  implicit-party-allocation = false
+      |}
+      |port = 6865
+      |rate-limit {
+      |  enabled = true
+      |  max-api-services-index-db-queue-size = 1000
+      |  max-api-services-queue-size = 10000
+      |  max-used-heap-space-percentage = 85
+      |  min-free-heap-space-bytes = 314572800
+      |}
+      |seeding = strong
+      |time-provider-type = wall-clock
+      |user-management {
+      |  cache-expiry-after-write-in-seconds = 5
+      |  enabled = false
+      |  max-cache-size = 100
+      |  max-users-page-size = 1000
+      |}""".stripMargin
+
   it should "support current defaults" in {
-    val value = """
-                                  |api-stream-shutdown-timeout = "5s"
-                                  |command {
-                                  |  input-buffer-size = 512
-                                  |  max-commands-in-flight = 256
-                                  |  tracker-retention-period = "300 seconds"
-                                  |}
-                                  |initial-ledger-configuration {
-                                  |  enabled = true
-                                  |  avg-transaction-latency = 0 days
-                                  |  delay-before-submitting = 0 days
-                                  |  max-deduplication-duration = 30 minutes
-                                  |  max-skew = 30 seconds
-                                  |  min-skew = 30 seconds
-                                  |}
-                                  |configuration-load-timeout = "10s"
-                                  |management-service-timeout = "2m"
-                                  |max-inbound-message-size = 67108864
-                                  |party {
-                                  |  implicit-party-allocation = false
-                                  |}
-                                  |port = 6865
-                                  |rate-limit {
-                                  |  enabled = true
-                                  |  max-api-services-index-db-queue-size = 1000
-                                  |  max-api-services-queue-size = 10000
-                                  |  max-used-heap-space-percentage = 85
-                                  |  min-free-heap-space-bytes = 314572800
-                                  |}
-                                  |seeding = strong
-                                  |time-provider-type = wall-clock
-                                  |user-management {
-                                  |  cache-expiry-after-write-in-seconds = 5
-                                  |  enabled = false
-                                  |  max-cache-size = 100
-                                  |  max-users-page-size = 1000
-                                  |}""".stripMargin
+    val value = validApiServerConfigValue
     convert(apiServerConfigConvert, value).value shouldBe ApiServerConfig()
+  }
+
+  it should "not support unknown keys" in {
+    val value = "some-crap=yes\n" + validApiServerConfigValue
+    convert(apiServerConfigConvert, value).left.value.prettyPrint(0) should include("Unknown key")
   }
 
   behavior of "HaConfig"
 
+  val validHaConfigValue =
+    """
+      |  indexer-lock-id = 105305792
+      |  indexer-worker-lock-id = 105305793
+      |  main-lock-acquire-retry-millis = 500
+      |  main-lock-checker-period-millis = 1000
+      |  worker-lock-acquire-max-retry = 1000
+      |  worker-lock-acquire-retry-millis = 500
+      |  """.stripMargin
+
   it should "support current defaults" in {
-    val value = """
-    |  indexer-lock-id = 105305792
-    |  indexer-worker-lock-id = 105305793
-    |  main-lock-acquire-retry-millis = 500
-    |  main-lock-checker-period-millis = 1000
-    |  worker-lock-acquire-max-retry = 1000
-    |  worker-lock-acquire-retry-millis = 500
-    |  """.stripMargin
+    val value = validHaConfigValue
     convert(haConfigConvert, value).value shouldBe HaConfig()
+  }
+
+  it should "not support unknown keys" in {
+    val value = "some-crap=yes\n" + validHaConfigValue
+    convert(haConfigConvert, value).left.value.prettyPrint(0) should include("Unknown key")
   }
 
   behavior of "PackageMetadataViewConfig"
 
+  val validPackageMetadataViewConfigValue =
+    """
+      |  init-load-parallelism = 16
+      |  init-process-parallelism = 16
+      |  init-takes-too-long-initial-delay = 1 minute
+      |  init-takes-too-long-interval = 10 seconds
+      |  """.stripMargin
+
   it should "support current defaults" in {
-    val value = """
-                  |  init-load-parallelism = 16
-                  |  init-process-parallelism = 16
-                  |  init-takes-too-long-initial-delay = 1 minute
-                  |  init-takes-too-long-interval = 10 seconds
-                  |  """.stripMargin
+    val value = validPackageMetadataViewConfigValue
     convert(packageMetadataViewConfigConvert, value).value shouldBe PackageMetadataViewConfig()
+  }
+
+  it should "not support unknown keys" in {
+    val value = "some-crap=yes\n" + validPackageMetadataViewConfigValue
+    convert(packageMetadataViewConfigConvert, value).left.value.prettyPrint(0) should include(
+      "Unknown key"
+    )
   }
 
   behavior of "IndexerConfig"
 
+  val validIndexerConfigValue =
+    """
+      |  batching-parallelism = 4
+      |  enable-compression = false
+      |  high-availability {
+      |    indexer-lock-id = 105305792
+      |    indexer-worker-lock-id = 105305793
+      |    main-lock-acquire-retry-millis = 500
+      |    main-lock-checker-period-millis = 1000
+      |    worker-lock-acquire-max-retry = 1000
+      |    worker-lock-acquire-retry-millis = 500
+      |  }
+      |  ingestion-parallelism = 16
+      |  input-mapping-parallelism = 16
+      |  max-input-buffer-size = 50
+      |  restart-delay = "10s"
+      |  startup-mode {
+      |    allow-existing-schema = false
+      |    type = migrate-and-start
+      |  }
+      |  submission-batch-size = 50""".stripMargin
+
   it should "support current defaults" in {
-    val value = """
-    |  batching-parallelism = 4
-    |  enable-compression = false
-    |  high-availability {
-    |    indexer-lock-id = 105305792
-    |    indexer-worker-lock-id = 105305793
-    |    main-lock-acquire-retry-millis = 500
-    |    main-lock-checker-period-millis = 1000
-    |    worker-lock-acquire-max-retry = 1000
-    |    worker-lock-acquire-retry-millis = 500
-    |  }
-    |  ingestion-parallelism = 16
-    |  input-mapping-parallelism = 16
-    |  max-input-buffer-size = 50
-    |  restart-delay = "10s"
-    |  startup-mode {
-    |    allow-existing-schema = false
-    |    type = migrate-and-start
-    |  }
-    |  submission-batch-size = 50""".stripMargin
+    val value = validIndexerConfigValue
     convert(indexerConfigConvert, value).value shouldBe IndexerConfig()
+  }
+
+  it should "not support unknown keys" in {
+    val value = "some-crap=yes\n" + validIndexerConfigValue
+    convert(indexerConfigConvert, value).left.value.prettyPrint(0) should include(
+      "Unknown key"
+    )
   }
 
   behavior of "IndexServiceConfig"
 
+  val validIndexServiceConfigValue =
+    """
+      |  acs-contract-fetching-parallelism = 2
+      |  acs-global-parallelism = 10
+      |  acs-id-fetching-parallelism = 2
+      |  acs-id-page-buffer-size = 1
+      |  acs-id-page-size = 20000
+      |  acs-id-page-working-memory-bytes = 104857600
+      |  api-stream-shutdown-timeout = "5s"
+      |  buffered-streams-page-size = 100
+      |  events-page-size = 1000
+      |  events-processing-parallelism = 8
+      |  max-contract-key-state-cache-size = 100000
+      |  max-contract-state-cache-size = 100000
+      |  max-transactions-in-memory-fan-out-buffer-size = 10000
+      |  in-memory-state-updater-parallelism = 2
+      |  in-memory-fan-out-thread-pool-size = 16
+      |  prepare-package-metadata-time-out-warning = 1 second
+      |  """.stripMargin
+
   it should "support current defaults" in {
-    val value = """
-    |  acs-contract-fetching-parallelism = 2
-    |  acs-global-parallelism = 10
-    |  acs-id-fetching-parallelism = 2
-    |  acs-id-page-buffer-size = 1
-    |  acs-id-page-size = 20000
-    |  acs-id-page-working-memory-bytes = 104857600
-    |  api-stream-shutdown-timeout = "5s"
-    |  buffered-streams-page-size = 100
-    |  events-page-size = 1000
-    |  events-processing-parallelism = 8
-    |  max-contract-key-state-cache-size = 100000
-    |  max-contract-state-cache-size = 100000
-    |  max-transactions-in-memory-fan-out-buffer-size = 10000
-    |  in-memory-state-updater-parallelism = 2
-    |  in-memory-fan-out-thread-pool-size = 16
-    |  prepare-package-metadata-time-out-warning = 1 second
-    |  """.stripMargin
+    val value = validIndexServiceConfigValue
     convert(indexServiceConfigConvert, value).value shouldBe IndexServiceConfig()
+  }
+
+  it should "not support unknown keys" in {
+    val value = "some-crap=yes\n" + validIndexServiceConfigValue
+    convert(indexServiceConfigConvert, value).left.value.prettyPrint(0) should include(
+      "Unknown key"
+    )
   }
 
   behavior of "ParticipantDataSourceConfig"

@@ -365,11 +365,11 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   implicit val participantIdWriter: ConfigWriter[Ref.ParticipantId] =
     ConfigWriter.toString[Ref.ParticipantId](_.toString)
 
-  implicit val packageMetadataViewConfigConvert: ConfigConvert[PackageMetadataViewConfig] =
-    deriveConvert[PackageMetadataViewConfig]
-
   implicit val packageMetadataViewConfigHint =
     ProductHint[PackageMetadataViewConfig](allowUnknownKeys = false)
+
+  implicit val packageMetadataViewConfigConvert: ConfigConvert[PackageMetadataViewConfig] =
+    deriveConvert[PackageMetadataViewConfig]
 
   implicit val indexerConfigHint =
     ProductHint[IndexerConfig](allowUnknownKeys = false)
