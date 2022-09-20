@@ -22,10 +22,7 @@ object Error {
   /** Unhandled exceptions */
   final case class UnhandledException(exceptionType: Ast.Type, value: Value) extends Error
 
-  /** User initiated error, via e.g. 'abort' or 'assert'
-    *
-    * This error instance is reserved for LF prior to 1.14.
-    */
+  /** User initiated error, via e.g. 'abort' or 'assert' */
   final case class UserError(message: String) extends Error
 
   final case class ContractNotFound(cid: Value.ContractId) extends Error
