@@ -295,6 +295,13 @@ prettyScenarioErrorError (Just err) =  do
                   (prettyContractRef world)
                   scenarioError_ContractNotActiveContractRef
         ]
+    ScenarioErrorErrorDisclosedContractKeyHashingError(ScenarioError_DisclosedContractKeyHashingError contractId templateId reason) ->
+      pure $ vcat
+        [ "Failed to cache disclosed contract key"
+        , label_ "Contract:" $ prettyMay "<missing contract>" (prettyContractRef world) contractId
+        , label_ "Template:" $ prettyMay "<missing template id>" (prettyDefName world) templateId
+        , label_ "Reason:" $ ltext reason
+        ]
     ScenarioErrorErrorCreateEmptyContractKeyMaintainers ScenarioError_CreateEmptyContractKeyMaintainers{..} ->
       pure $ vcat
         [ "Attempt to create a contract key with an empty set of maintainers:"

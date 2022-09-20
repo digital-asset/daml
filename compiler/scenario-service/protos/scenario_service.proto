@@ -180,6 +180,12 @@ message ScenarioError {
     NodeId consumed_by = 2; // optional. A contract whose create was rolled back will not have this set.
   }
 
+  message DisclosedContractKeyHashingError {
+      ContractRef contract_ref = 1;
+      Identifier template_id = 2;
+      string reason = 3;
+  }
+
   message ContractNotVisible {
     ContractRef contract_ref = 1;
     repeated Party actAs = 2;
@@ -312,6 +318,7 @@ message ScenarioError {
     ContractDoesNotImplementRequiringInterface contract_does_not_implement_requiring_interface
     = 36;
     DisclosurePreprocessingDuplicateContractKeys disclosure_preprocessing_duplicate_contract_keys = 39;
+    DisclosedContractKeyHashingError disclosed_contract_key_hashing_error = 40;
   }
 }
 
