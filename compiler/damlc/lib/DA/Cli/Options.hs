@@ -225,6 +225,9 @@ enableScenariosOpt = EnableScenarios <$>
             "Enable/disable support for scenarios as a language feature. \
             \If disabled, defining top-level scenarios is a compile-time error"
 
+-- The implementation of dlintUsageOpt allows multiple uses of dlintEnabledOpt
+-- and dlintDisabledOpt, with only the last one winning. As a result,
+-- dlintEnabledOpt uses strOption instead of strOptionOnce
 dlintEnabledOpt :: Parser DlintUsage
 dlintEnabledOpt = DlintEnabled
   <$> Options.Applicative.strOption

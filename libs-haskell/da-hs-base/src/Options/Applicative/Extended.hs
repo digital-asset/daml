@@ -60,12 +60,11 @@ flagYesNoAuto flagName defaultValue helpText mods =
 -- | optparse-applicative does not provide useful error messages when a valid
 -- option is passed more than once https://github.com/pcapriotti/optparse-applicative/issues/395
 --
--- This provides better error messages by constructing and running two parsers
--- for the same option, where the second parser throws an error if it is
--- invoked.
+-- This provides better error messages by constructing two parsers for the same
+-- option, where the second parser automatically throws an infomative error.
 --
--- If the option is specified a second time, the parser is invoked and triggers
--- an error.
+-- If the option is specified a second time, the second parser is invoked and
+-- triggers an error.
 optionOnce :: ReadM a -> Mod OptionFields a -> Parser a
 optionOnce = optionOnce' "Option specified more than once."
 
