@@ -225,6 +225,25 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       template1,
     ) shouldBe RenderResult(true, false, Set.empty)
   }
+
+  it should "not project contract arguments blob in case of no match by interface" in new Scope {
+    val transactionFilter = new TransactionFilter(
+      Map(
+        party -> Filters(
+          InclusiveFilters(
+            Set.empty,
+            Set(
+              InterfaceFilter(iface1, false, includeCreateArgumentsBlob = true)
+            ),
+          )
+        )
+      )
+    )
+    EventProjectionProperties(transactionFilter, true, interfaceImpl).render(
+      Set(party),
+      template2,
+    ) shouldBe RenderResult(false, false, Set.empty)
+  }
 }
 
 object EventProjectionPropertiesSpec {
