@@ -20,8 +20,8 @@ where do you go next? It depends on what you would like to do with Daml:
   ledger, you can have a look at the `Canton user manual <../../canton/usermanual/usermanual.html>`_.
 
 - If you want to build Daml applications in a fully-managed environment that handles
-  the day-to-day operation of your Daml ledger for you, you can start 
- right away on `Daml Hub <https://hub.daml.com>`_.
+  the day-to-day operation of your Daml ledger for you, you can start
+  right away on `Daml Hub <https://hub.daml.com>`_.
 
 - If you want want to see more examples of Daml applications to understand what is possible with
   Daml, we have a `a library full of examples <https://www.digitalasset.com/developers/examples>`_
