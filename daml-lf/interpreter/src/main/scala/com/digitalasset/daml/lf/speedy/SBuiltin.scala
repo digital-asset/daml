@@ -955,6 +955,7 @@ private[lf] object SBuiltin {
   /** $checkTemplate[T] :: Unit -> bool */
   private[speedy] final case class SBCheckTemplate(templateId: TypeConName) extends SBuiltin(1) {
 
+    // TODO: when we have a concept of immutable machine or compiled packages, make this a pure builtin
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
@@ -968,6 +969,7 @@ private[lf] object SBuiltin {
   /** $checkTemplateKey[T] :: Unit -> bool */
   private[speedy] final case class SBCheckTemplateKey(templateId: TypeConName) extends SBuiltin(1) {
 
+    // TODO: when we have a concept of immutable machine or compiled packages, make this a pure builtin
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
@@ -1857,9 +1859,9 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Control = {
-      checkToken(args, 2)
       val opt = getSOptional(args, 0)
       val excep = getSAny(args, 1)
+      checkToken(args, 2)
       opt match {
         case None =>
           unwindToHandler(machine, excep) // re-throw

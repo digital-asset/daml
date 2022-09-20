@@ -1071,8 +1071,8 @@ private[lf] final class Compiler(
             s.SCaseAlt(
               t.SCPDefault,
               s.SEApp(
-                s.SEBuiltin(SBCrash(s"Template $templateId does not exist and it should")),
-                List(s.SEValue.Unit),
+                s.SEBuiltin(SBError),
+                List(s.SEValue(SText(s"Template $templateId does not exist and it should"))),
               ),
             ),
           ),
@@ -1084,12 +1084,15 @@ private[lf] final class Compiler(
       env: Env,
       disclosures: ImmArray[DisclosedContract],
   ): s.SExpr = {
+    // The next free environment variable will be the bound variable in the contract disclosure lambda
     val baseIndex = env.nextPosition.idx
 
     s.SEAbs(
       1,
       s.SELet(
         disclosures.toList.zipWithIndex.flatMap { case (disclosedContract, offset) =>
+          // Let bounded variables occur after the contract disclosure bound variable - hence baseIndex+1
+          // For each disclosed contract, we add 2 members to our let bounded list - hence 2*offset
           val contractIndex = baseIndex + 2 * offset + 1
 
           List(
