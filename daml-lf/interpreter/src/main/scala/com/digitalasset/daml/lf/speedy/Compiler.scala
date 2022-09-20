@@ -1071,8 +1071,8 @@ private[lf] final class Compiler(
             s.SCaseAlt(
               t.SCPDefault,
               s.SEApp(
-                s.SEBuiltin(SBError),
-                List(s.SEValue(SText(s"Template $templateId does not exist and it should"))),
+                s.SEBuiltin(SBCrash(s"Template $templateId does not exist and it should")),
+                List(s.SEValue.Unit),
               ),
             ),
           ),
