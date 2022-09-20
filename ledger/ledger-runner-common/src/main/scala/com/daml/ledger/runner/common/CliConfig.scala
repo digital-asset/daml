@@ -3,7 +3,6 @@
 
 package com.daml.ledger.runner.common
 
-import com.daml.caching
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.lf.data.Ref
@@ -42,8 +41,6 @@ final case class CliConfig[Extra](
     extra: Extra,
     implicitPartyAllocation: Boolean,
     ledgerId: String,
-    lfValueTranslationContractCache: caching.SizedCache.Configuration,
-    lfValueTranslationEventCache: caching.SizedCache.Configuration,
     maxDeduplicationDuration: Option[Duration],
     maxInboundMessageSize: Int,
     metricsReporter: Option[MetricsReporter],
@@ -93,8 +90,6 @@ object CliConfig {
       extra = extra,
       implicitPartyAllocation = false,
       ledgerId = UUID.randomUUID().toString,
-      lfValueTranslationContractCache = caching.SizedCache.Configuration.none,
-      lfValueTranslationEventCache = caching.SizedCache.Configuration.none,
       maxDeduplicationDuration = None,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       metricsReporter = None,
@@ -136,9 +131,9 @@ object CliConfig {
     val parser: OParser[_, CliConfig[Extra]] = OParser.sequence(
       builder.head(s"$name as a service"),
       builder.help("help").text("Print this help page."),
-      commandRunLegacy(getEnvVar, extraOptions),
+      commandRunLegacy(name, getEnvVar, extraOptions),
       commandDumpIndexMetadata,
-      commandRunHocon,
+      commandRunHocon(name),
       commandConvertConfig(getEnvVar, extraOptions),
       builder.checkConfig(checkNoEmptyParticipant),
     )
@@ -174,13 +169,13 @@ object CliConfig {
       .unbounded()
       .action((files, cli) => cli.copy(configFiles = cli.configFiles ++ files))
 
-  private def commandRunHocon[Extra]: OParser[_, CliConfig[Extra]] = {
+  private def commandRunHocon[Extra](name: String): OParser[_, CliConfig[Extra]] = {
     val builder = OParser.builder[CliConfig[Extra]]
     OParser.sequence(
       builder
         .cmd("run")
         .text(
-          "Run Sandbox-on-X with configuration provided in HOCON files."
+          s"Run $name with configuration provided in HOCON files."
         )
         .action((_, config) => config.copy(mode = Mode.Run))
         .children(
@@ -194,6 +189,7 @@ object CliConfig {
   }
 
   private def commandRunLegacy[Extra](
+      name: String,
       getEnvVar: String => Option[String],
       extraOptions: OParser[_, CliConfig[Extra]],
   ): OParser[_, CliConfig[Extra]] =
@@ -201,7 +197,7 @@ object CliConfig {
       .builder[CliConfig[Extra]]
       .cmd("run-legacy-cli-config")
       .text(
-        "Run Sandbox-on-X in a legacy mode with cli-driven configuration."
+        s"Run $name in a legacy mode with cli-driven configuration."
       )
       .action((_, config) => config.copy(mode = Mode.RunLegacyCliConfig))
       .children(legacyCommand(getEnvVar, extraOptions))
@@ -576,16 +572,9 @@ object CliConfig {
       opt[Long]("max-lf-value-translation-cache-entries")
         .optional()
         .text(
-          s"The maximum size of the cache used to deserialize Daml-LF values, in number of allowed entries. By default, nothing is cached."
+          s"Deprecated parameter --  lf value translation cache doesn't exist anymore."
         )
-        .action((maximumLfValueTranslationCacheEntries, config) =>
-          config.copy(
-            lfValueTranslationEventCache = config.lfValueTranslationEventCache
-              .copy(maximumSize = maximumLfValueTranslationCacheEntries),
-            lfValueTranslationContractCache = config.lfValueTranslationContractCache
-              .copy(maximumSize = maximumLfValueTranslationCacheEntries),
-          )
-        ),
+        .action((_, config) => config),
       opt[String]("contract-id-seeding")
         .optional()
         .text(s"""Set the seeding of contract ids. Possible values are ${seedingMap.keys

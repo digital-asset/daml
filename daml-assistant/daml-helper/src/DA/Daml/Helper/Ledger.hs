@@ -501,8 +501,7 @@ reset args = do
               (L.Verbosity False)
           let chunks = chunksOf 100 activeContracts
           forM_ chunks $ \chunk -> do
-            cmdId <- liftIO UUID.nextRandom
-            let cmds =
+            let cmds cmdId =
                   L.Commands
                     { coms =
                         [ L.ExerciseCommand
@@ -525,10 +524,13 @@ reset args = do
                     , minLeTimeRel = Nothing
                     , sid = Nothing
                     }
-            errOrEmpty <- L.submit cmds
-            case errOrEmpty of
-              Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
-              Right () -> pure ()
+            let noCommands = null [ x | (_offset, _mbWid, events) <- chunk, x <- events ]
+            unless noCommands $ do
+              cmdId <- liftIO UUID.nextRandom
+              errOrEmpty <- L.submit $ cmds cmdId
+              case errOrEmpty of
+                Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
+                Right () -> pure ()
     HttpJson ->
       fail
         "The reset command is currently not available for the HTTP JSON API. Please use the gRPC API."

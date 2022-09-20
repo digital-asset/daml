@@ -61,7 +61,7 @@ class CollectAuthorityState {
       compiledPackages,
       expr,
     )
-    the_sexpr = machine.control match {
+    the_sexpr = machine.currentControl match {
       case Control.Expression(exp) => exp
       case x => crash(s"expected Control.Expression, got: $x")
     }

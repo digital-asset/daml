@@ -93,19 +93,16 @@ object ResolvedQuery {
       case i @ ContractTypeId.Interface(_, _, _) => Right(i)
     }
 
-  sealed abstract class Unsupported extends Product with Serializable
-  final case object CannotQueryBothTemplateIdsAndInterfaceIds extends Unsupported
-  final case object CannotQueryManyInterfaceIds extends Unsupported
-  final case object CannotBeEmpty extends Unsupported
+  sealed abstract class Unsupported(val errorMsg: String) extends Product with Serializable
+  final case object CannotQueryBothTemplateIdsAndInterfaceIds
+      extends Unsupported("Cannot resolve any template ID from request")
+  final case object CannotQueryManyInterfaceIds
+      extends Unsupported("Cannot query more than one interface ID")
+  final case object CannotBeEmpty extends Unsupported("Cannot resolve any template ID from request")
 
   // TODO RR #14871 verify that `ResolvedQuery.Empty` is ok where it is used
   final case object Empty extends ResolvedQuery {
     def resolved = Set.empty[ContractTypeId.Resolved]
-  }
-
-  // TODO SC Should only be used by WebsocketService, assuming the ids are verified earlier upstream.
-  final case class ContractTypeIdsQuery(ids: Set[ContractTypeId.Resolved]) extends ResolvedQuery {
-    def resolved: Set[ContractTypeId.Resolved] = ids
   }
 
   final case class ByTemplateIds(templateIds: Set[ContractTypeId.Template.Resolved])

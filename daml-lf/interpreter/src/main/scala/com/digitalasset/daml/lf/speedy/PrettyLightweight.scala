@@ -4,7 +4,6 @@
 package com.daml.lf
 package speedy
 
-import java.util
 import scala.jdk.CollectionConverters._
 
 import com.daml.lf.speedy.Speedy._
@@ -14,7 +13,7 @@ import com.daml.lf.speedy.SValue._
 private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK machine states
 
   def ppMachine(m: Machine): String = {
-    s"[${m.envBase}] ${ppEnv(m.env)} -- ${ppCtrl(m.control)} -- ${ppKontStack(m.kontStack)}"
+    s"[${m.currentEnvBase}] ${ppEnv(m.currentEnv)} -- ${ppCtrl(m.currentControl)} -- ${ppKontStack(m)}"
   }
 
   def ppCtrl(control: Control): String =
@@ -31,8 +30,8 @@ private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK
     s"#${env.size()}={${commas(env.asScala.map(pp))}}"
   }
 
-  def ppKontStack(ks: util.ArrayList[Kont]): String = {
-    s"[${ppKont(ks.get(ks.size - 1))}... #${ks.size()}]" // head kont & size
+  def ppKontStack(m: Machine): String = {
+    s"[${ppKont(m.peekKontStackEnd())}... #${m.kontDepth()}]" // head kont & size
   }
 
   def ppKont(k: Kont): String = k.getClass.getSimpleName

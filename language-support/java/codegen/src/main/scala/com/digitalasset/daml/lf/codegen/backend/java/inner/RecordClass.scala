@@ -3,12 +3,13 @@
 
 package com.daml.lf.codegen.backend.java.inner
 
+import com.daml.ledger.javaapi
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.typesig.Record
-import com.squareup.javapoet.{ClassName, TypeSpec, TypeVariableName}
+import com.squareup.javapoet.{ClassName, ParameterizedTypeName, TypeSpec, TypeVariableName}
 import com.typesafe.scalalogging.StrictLogging
-import javax.lang.model.element.Modifier
 
+import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
 
 private[inner] object RecordClass extends StrictLogging {
@@ -26,6 +27,14 @@ private[inner] object RecordClass extends StrictLogging {
       val recordType = TypeSpec
         .classBuilder(className)
         .addModifiers(Modifier.PUBLIC)
+        .superclass(
+          if (typeParameters.isEmpty)
+            ParameterizedTypeName.get(
+              ClassName get classOf[javaapi.data.codegen.DamlRecord[_]],
+              className,
+            )
+          else ClassName get classOf[Object]
+        )
         .addTypeVariables(typeParameters.map(TypeVariableName.get).asJava)
         .addFields(RecordFields(fields).asJava)
         .addField(createPackageIdField(packageId))

@@ -14,7 +14,6 @@ import com.daml.platform.LedgerApiServer
 import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.indexer.{IndexerConfig, IndexerServiceOwner, IndexerStartupMode}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
-import com.daml.platform.store.LfValueTranslationCache
 
 import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
@@ -112,7 +111,6 @@ object IndexerStabilityTestFixture {
                     readService = readService,
                     config = indexerConfig,
                     metrics = metrics,
-                    lfValueTranslationCache = LfValueTranslationCache.Cache.none,
                     inMemoryState = inMemoryState,
                     inMemoryStateUpdaterFlow = inMemoryStateUpdaterFlow,
                     executionContext = servicesExecutionContext,

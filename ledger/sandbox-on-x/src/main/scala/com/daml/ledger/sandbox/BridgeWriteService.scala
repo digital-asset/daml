@@ -65,6 +65,7 @@ class BridgeWriteService(
           transaction,
           estimatedInterpretationCost,
           deduplicationDuration,
+          disclosedContracts,
         )
       case DeduplicationPeriod.DeduplicationOffset(_) =>
         CompletableFuture.completedFuture(
@@ -164,6 +165,7 @@ class BridgeWriteService(
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
       deduplicationDuration: Duration,
+      disclosedContracts: ImmArray[Versioned[DisclosedContract]],
   )(implicit errorLogger: ContextualizedErrorLogger): CompletionStage[SubmissionResult] = {
     val maxDeduplicationDuration = submitterInfo.ledgerConfiguration.maxDeduplicationDuration
     if (deduplicationDuration.compareTo(maxDeduplicationDuration) > 0)
@@ -185,6 +187,7 @@ class BridgeWriteService(
           transactionMeta = transactionMeta,
           transaction = transaction,
           estimatedInterpretationCost = estimatedInterpretationCost,
+          disclosedContracts = disclosedContracts,
         )
       )
   }

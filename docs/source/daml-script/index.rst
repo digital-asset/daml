@@ -145,7 +145,7 @@ uniquely. If you call ``allocateParty`` twice with the same display
 name, it will create 2 different parties. This is very convenient for
 testing since a new party cannot see any old contracts on the ledger
 so using new parties for each test removes the need to reset the
-ledger. We factor out party allocation into a functions so we can reuse it in later sections.
+ledger. We factor out party allocation into a function so we can reuse it in later sections.
 
 .. literalinclude:: ./template-root/src/ScriptExample.daml
    :language: daml

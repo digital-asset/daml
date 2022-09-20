@@ -4,9 +4,8 @@
 package com.daml.platform.store.dao.events
 
 import java.io.ByteArrayInputStream
-import com.daml.platform.{Contract, ContractId, Identifier, Key}
+import com.daml.platform.{Contract, Identifier, Key}
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
-import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.backend.ContractStorageBackend.RawContractStateEvent
 
 import scala.util.control.NoStackTrace
@@ -14,8 +13,7 @@ import scala.util.control.NoStackTrace
 object ContractStateEventsReader {
 
   def toContractStateEvent(
-      raw: RawContractStateEvent,
-      lfValueTranslation: LfValueTranslation,
+      raw: RawContractStateEvent
   ): ContractStateEvent =
     raw.eventKind match {
       case EventKind.ConsumingExercise =>
@@ -36,11 +34,9 @@ object ContractStateEventsReader {
         val maybeGlobalKey =
           decompressKey(templateId, raw.createKeyValue, raw.createKeyCompression)
         val contract = getCachedOrDecompressContract(
-          raw.contractId,
           templateId,
           createArgument,
           raw.createArgumentCompression,
-          lfValueTranslation,
         )
         ContractStateEvent.Created(
           contractId = raw.contractId,
@@ -56,26 +52,15 @@ object ContractStateEventsReader {
         throw InvalidEventKind(unknownKind)
     }
 
-  private def cachedContractValue(
-      contractId: ContractId,
-      lfValueTranslation: LfValueTranslation,
-  ): Option[LfValueTranslationCache.ContractCache.Value] =
-    lfValueTranslation.cache.contracts.getIfPresent(
-      LfValueTranslationCache.ContractCache.Key(contractId)
-    )
-
   private def getCachedOrDecompressContract(
-      contractId: ContractId,
       templateId: Identifier,
       createArgument: Array[Byte],
       maybeCreateArgumentCompression: Option[Int],
-      lfValueTranslation: LfValueTranslation,
   ): Contract = {
     val createArgumentCompression =
       Compression.Algorithm.assertLookup(maybeCreateArgumentCompression)
-    val deserializedCreateArgument = cachedContractValue(contractId, lfValueTranslation)
-      .map(_.argument)
-      .getOrElse(decompressAndDeserialize(createArgumentCompression, createArgument))
+    val deserializedCreateArgument =
+      decompressAndDeserialize(createArgumentCompression, createArgument)
 
     Contract(
       template = templateId,

@@ -48,7 +48,6 @@ private class JdbcLedgerDao(
     acsContractFetchingParallelism: Int,
     acsGlobalParallelism: Int,
     metrics: Metrics,
-    lfValueTranslationCache: LfValueTranslationCache.Cache,
     engine: Option[Engine],
     sequentialIndexer: SequentialWriteDao,
     participantId: Ref.ParticipantId,
@@ -448,7 +447,6 @@ private class JdbcLedgerDao(
 
   private val translation: LfValueTranslation =
     new LfValueTranslation(
-      cache = lfValueTranslationCache,
       metrics = metrics,
       engineO = engine,
       loadPackage = (packageId, loggingContext) => this.getLfArchive(packageId)(loggingContext),
@@ -576,7 +574,6 @@ private[platform] object JdbcLedgerDao {
       acsGlobalParallelism: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslationCache.Cache,
       engine: Option[Engine],
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
@@ -595,7 +592,6 @@ private[platform] object JdbcLedgerDao {
         acsContractFetchingParallelism,
         acsGlobalParallelism,
         metrics,
-        lfValueTranslationCache,
         engine,
         SequentialWriteDao.noop,
         participantId,
@@ -618,7 +614,6 @@ private[platform] object JdbcLedgerDao {
       acsGlobalParallelism: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslationCache.Cache,
       engine: Option[Engine],
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
@@ -637,7 +632,6 @@ private[platform] object JdbcLedgerDao {
         acsContractFetchingParallelism,
         acsGlobalParallelism,
         metrics,
-        lfValueTranslationCache,
         engine,
         sequentialWriteDao,
         participantId,

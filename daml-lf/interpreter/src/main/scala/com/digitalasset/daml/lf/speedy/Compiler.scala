@@ -15,8 +15,8 @@ import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr.{ContractKeyWithMaintainersDefRef, ToCachedContractDefRef}
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{SExpr => t}
-import com.daml.lf.speedy.{SExpr0 => s}
+import com.daml.lf.speedy.{SExpr => t} // target expressions
+import com.daml.lf.speedy.{SExpr0 => s} // source expressions
 import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.scalautil.Statement.discard
 import org.slf4j.LoggerFactory
@@ -1084,12 +1084,15 @@ private[lf] final class Compiler(
       env: Env,
       disclosures: ImmArray[DisclosedContract],
   ): s.SExpr = {
+    // The next free environment variable will be the bound variable in the contract disclosure lambda
     val baseIndex = env.nextPosition.idx
 
     s.SEAbs(
       1,
       s.SELet(
         disclosures.toList.zipWithIndex.flatMap { case (disclosedContract, offset) =>
+          // Let bounded variables occur after the contract disclosure bound variable - hence baseIndex+1
+          // For each disclosed contract, we add 2 members to our let bounded list - hence 2*offset
           val contractIndex = baseIndex + 2 * offset + 1
 
           List(
@@ -1100,7 +1103,7 @@ private[lf] final class Compiler(
             ),
           )
         },
-        s.SEValue(SValue.Unit),
+        s.SEVarLevel(baseIndex),
       ),
     )
   }

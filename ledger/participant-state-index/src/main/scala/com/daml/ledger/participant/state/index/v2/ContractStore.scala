@@ -39,6 +39,12 @@ trait ContractStore {
   def lookupMaximumLedgerTimeAfterInterpretation(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
   ): Future[MaximumLedgerTime]
+
+  def lookupContractForValidation(
+      contractId: ContractId
+  )(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[(VersionedContractInstance, Timestamp)]]
 }
 
 /** The outcome of determining the maximum ledger time of a set of contracts.

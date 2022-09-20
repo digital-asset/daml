@@ -241,25 +241,7 @@ private[lf] object Speedy {
 
   /** The speedy CEK machine. */
   final class Machine(
-      /* The machine control is either an expression or a value. */
-      var control: Control,
-      /* Frame: to access values for a closure's free-vars. */
-      var frame: Frame,
-      /* Actuals: to access values for a function application's arguments. */
-      var actuals: Actuals,
-      /* [env] is a stack of temporary values for: let-bindings and pattern-matches. */
-      var env: Env,
-      /* [envBase] is the depth of the temporaries-stack when the current code-context was
-       * begun. We revert to this depth when entering a closure, or returning to the top
-       * continuation on the kontStack.
-       */
-      var envBase: Int,
-      /* Kont, or continuation specifies what should be done next
-       * once the control has been evaluated.
-       */
-      var kontStack: util.ArrayList[Kont],
-      /* The last encountered location */
-      var lastLocation: Option[Location],
+      val sexpr: SExpr,
       /* The trace log. */
       val traceLog: TraceLog,
       /* Engine-generated warnings. */
@@ -268,12 +250,8 @@ private[lf] object Speedy {
       implicit val loggingContext: LoggingContext,
       /* Compiled packages (Daml-LF ast + compiled speedy expressions). */
       var compiledPackages: CompiledPackages,
-      /* Used when enableLightweightStepTracing is true */
-      var steps: Int,
-      /* Used when enableInstrumentation is true */
-      var track: Instrumentation,
       /* Profile of the run when the packages haven been compiled with profiling enabled. */
-      var profile: Profile,
+      val profile: Profile = new Profile(),
       val submissionTime: Time.Timestamp,
       /* True if we are running on ledger building transactions, false if we
          are running off-ledger code, e.g., Daml Script or
@@ -282,6 +260,49 @@ private[lf] object Speedy {
        */
       val ledgerMode: LedgerMode,
   ) {
+
+    /* The machine control is either an expression or a value. */
+    private[this] var control: Control = Control.Expression(sexpr)
+    /* Frame: to access values for a closure's free-vars. */
+    private[this] var frame: Frame = null
+    /* Actuals: to access values for a function application's arguments. */
+    private[this] var actuals: Actuals = null
+    /* [env] is a stack of temporary values for: let-bindings and pattern-matches. */
+    private[speedy] var env: Env = emptyEnv
+    /* [envBase] is the depth of the temporaries-stack when the current code-context was
+     * begun. We revert to this depth when entering a closure, or returning to the top
+     * continuation on the kontStack.
+     */
+    private[this] var envBase: Int = 0
+    /* Kont, or continuation specifies what should be done next
+     * once the control has been evaluated.
+     */
+    private[speedy] var kontStack: util.ArrayList[Kont] = initialKontStack()
+    /* The last encountered location */
+    private[this] var lastLocation: Option[Location] = None
+    /* Used when enableLightweightStepTracing is true */
+    private[this] var steps: Int = 0
+    /* Used when enableInstrumentation is true */
+    private[this] var track: Instrumentation = Instrumentation()
+
+    private[speedy] def currentControl: Control = control
+
+    private[speedy] def currentFrame: Frame = frame
+
+    private[speedy] def currentActuals: Actuals = actuals
+
+    private[speedy] def currentEnv: Env = env
+
+    private[speedy] def currentEnvBase: Int = envBase
+
+    private[speedy] def currentKontStack: util.ArrayList[Kont] = kontStack
+
+    private[lf] def getLastLocation: Option[Location] = lastLocation
+
+    private[speedy] def clearEnv(): Unit = {
+      env.clear()
+      envBase = 0
+    }
 
     def tmplId2TxVersion(tmplId: TypeConName): TransactionVersion =
       TransactionVersion.assignNodeVersion(
@@ -292,6 +313,8 @@ private[lf] object Speedy {
       svalue.toNormalizedValue(tmplId2TxVersion(templateId))
 
     /* kont manipulation... */
+
+    private[speedy] def clearKontStack(): Unit = kontStack.clear()
 
     @inline
     private[speedy] def kontDepth(): Int = kontStack.size()
@@ -314,6 +337,16 @@ private[lf] object Speedy {
     @inline
     private[speedy] def popKont(): Kont = {
       kontStack.remove(kontStack.size - 1)
+    }
+
+    @inline
+    private[speedy] def peekKontStackEnd(): Kont = {
+      kontStack.get(kontStack.size - 1)
+    }
+
+    @inline
+    private[speedy] def peekKontStackTop(): Kont = {
+      kontStack.get(0)
     }
 
     /* env manipulation... */
@@ -873,13 +906,7 @@ private[lf] object Speedy {
         compiledPackages.compiler.unsafeCompileWithContractDisclosures(expr, disclosedContracts)
 
       new Machine(
-        control = Control.Expression(exprWithDisclosures),
-        frame = null,
-        actuals = null,
-        env = emptyEnv,
-        envBase = 0,
-        kontStack = initialKontStack(),
-        lastLocation = None,
+        sexpr = exprWithDisclosures,
         submissionTime = submissionTime,
         ledgerMode = OnLedger(
           validating = validating,
@@ -904,9 +931,6 @@ private[lf] object Speedy {
         warningLog = warningLog,
         loggingContext = loggingContext,
         compiledPackages = compiledPackages,
-        steps = 0,
-        track = Instrumentation(),
-        profile = new Profile(),
       )
     }
 
@@ -991,22 +1015,13 @@ private[lf] object Speedy {
         warningLog: WarningLog = newWarningLog,
     )(implicit loggingContext: LoggingContext): Machine = {
       new Machine(
-        control = Control.Expression(expr),
-        frame = null,
-        actuals = null,
-        env = emptyEnv,
-        envBase = 0,
-        kontStack = initialKontStack(),
-        lastLocation = None,
+        sexpr = expr,
         submissionTime = Time.Timestamp.Epoch,
         ledgerMode = OffLedger,
         traceLog = traceLog,
         warningLog = warningLog,
         loggingContext = loggingContext,
         compiledPackages = compiledPackages,
-        steps = 0,
-        track = Instrumentation(),
-        profile = new Profile(),
       )
     }
 
@@ -1075,8 +1090,8 @@ private[lf] object Speedy {
       with SomeArrayEquals {
 
     private[this] val savedBase = machine.markBase()
-    private[this] val frame = machine.frame
-    private[this] val actuals = machine.actuals
+    private[this] val frame = machine.currentFrame
+    private[this] val actuals = machine.currentActuals
 
     def execute(vfun: SValue): Control = {
       machine.restoreBase(savedBase);
@@ -1093,8 +1108,8 @@ private[lf] object Speedy {
       with SomeArrayEquals {
 
     private[this] val savedBase = machine.markBase()
-    private[this] val frame = machine.frame
-    private[this] val actuals = machine.actuals
+    private[this] val frame = machine.currentFrame
+    private[this] val actuals = machine.currentActuals
 
     def execute(vfun: SValue): Control = {
       machine.restoreBase(savedBase);
@@ -1253,8 +1268,8 @@ private[lf] object Speedy {
       with SomeArrayEquals {
 
     private[this] val savedBase = machine.markBase()
-    private[this] val frame = machine.frame
-    private[this] val actuals = machine.actuals
+    private[this] val frame = machine.currentFrame
+    private[this] val actuals = machine.currentActuals
 
     def execute(v: SValue): Control = {
       machine.restoreBase(savedBase);
@@ -1277,8 +1292,8 @@ private[lf] object Speedy {
       with SomeArrayEquals {
 
     private[this] val savedBase = machine.markBase()
-    private[this] val frame = machine.frame
-    private[this] val actuals = machine.actuals
+    private[this] val frame = machine.currentFrame
+    private[this] val actuals = machine.currentActuals
 
     def execute(v: SValue): Control = {
       machine.restoreBase(savedBase);
@@ -1295,8 +1310,8 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    private[this] val frame = machine.frame
-    private[this] val actuals = machine.actuals
+    private[this] val frame = machine.currentFrame
+    private[this] val actuals = machine.currentActuals
 
     def execute(acc: SValue): Control = {
       list.pop match {
@@ -1321,8 +1336,8 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    private[this] val frame = machine.frame
-    private[this] val actuals = machine.actuals
+    private[this] val frame = machine.currentFrame
+    private[this] val actuals = machine.currentActuals
 
     def execute(acc: SValue): Control = {
       if (lastIndex > 0) {
@@ -1349,8 +1364,8 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    private[this] val frame = machine.frame
-    private[this] val actuals = machine.actuals
+    private[this] val frame = machine.currentFrame
+    private[this] val actuals = machine.currentActuals
 
     def execute(closure: SValue): Control = {
       revClosures = closure +: revClosures
@@ -1375,8 +1390,8 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    private[this] val frame = machine.frame
-    private[this] val actuals = machine.actuals
+    private[this] val frame = machine.currentFrame
+    private[this] val actuals = machine.currentActuals
 
     def execute(acc: SValue): Control = {
       revClosures.pop match {
@@ -1468,8 +1483,8 @@ private[lf] object Speedy {
       with SomeArrayEquals {
 
     private[this] val savedBase = machine.markBase()
-    private[this] val frame = machine.frame
-    private[this] val actuals = machine.actuals
+    private[this] val frame = machine.currentFrame
+    private[this] val actuals = machine.currentActuals
 
     // we must restore when catching a throw, or for normal execution
     def restore(): Unit = {
@@ -1535,9 +1550,8 @@ private[lf] object Speedy {
             // We must abort, because the transaction has failed in a way that is
             // unrecoverable (it depends on the state of an input contract that
             // we may not have the authority to fetch).
-            machine.kontStack.clear()
-            machine.env.clear()
-            machine.envBase = 0
+            machine.clearKontStack()
+            machine.clearEnv()
             k.abort()
           case KPreventException(_) =>
             throw SError.SErrorDamlException(
@@ -1558,9 +1572,8 @@ private[lf] object Speedy {
         machine.pushEnv(excep) // payload on stack where handler expects it
         Control.Expression(kh.handler)
       case None =>
-        machine.kontStack.clear()
-        machine.env.clear()
-        machine.envBase = 0
+        machine.clearKontStack()
+        machine.clearEnv()
         Control.Error(
           IError.UnhandledException(excep.ty, excep.value.toUnnormalizedValue)
         )

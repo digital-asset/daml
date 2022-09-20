@@ -4,10 +4,8 @@
 package com.daml.platform.apiserver.meteringreport
 
 import com.daml.ledger.api.v1.admin.metering_report_service.{
-  ApplicationMeteringReport,
   GetMeteringReportRequest,
   GetMeteringReportResponse,
-  ParticipantMeteringReport,
 }
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.daml.lf.data.Ref
@@ -62,18 +60,8 @@ class MeteringReportGeneratorSpec extends AsyncWordSpec with Matchers {
 
       val generationTime = toProtoTimestamp(Timestamp.now())
 
-      val expectedReport = ParticipantMeteringReport(
-        participantId = someParticipantId,
-        isFinal = false,
-        applicationReports = Seq(
-          ApplicationMeteringReport(appIdA, 4),
-          ApplicationMeteringReport(appIdB, 2),
-        ),
-      )
-
       val expected = GetMeteringReportResponse(
         request = Some(request),
-        participantReport = Some(expectedReport),
         reportGenerationTime = Some(generationTime),
         meteringReportJson = Some(reportJsonStruct),
       )

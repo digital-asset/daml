@@ -36,8 +36,8 @@ private[daml] final class LedgerApiService(
     val apiServicesResource = apiServicesOwner.acquire()
     (for {
       apiServices <- apiServicesResource
-      sslContext = tlsConfiguration.flatMap(_.server)
       _ = tlsConfiguration.map(_.setJvmTlsProperties())
+      sslContext = tlsConfiguration.flatMap(_.server)
       server <- GrpcServer
         .owner(
           address,

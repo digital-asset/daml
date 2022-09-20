@@ -234,7 +234,7 @@ object SExpr {
   /** A let-expression with a single RHS */
   final case class SELet1General(rhs: SExpr, body: SExpr) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Control = {
-      machine.pushKont(KPushTo(machine, machine.env, body))
+      machine.pushKont(KPushTo(machine, machine.currentEnv, body))
       Control.Expression(rhs)
     }
   }

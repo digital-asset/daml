@@ -1005,7 +1005,7 @@ private[lf] object SBuiltin {
               templateId = cached.templateId,
               arg = createArgValue,
               agreementText = agreement,
-              optLocation = machine.lastLocation,
+              optLocation = machine.getLastLocation,
               signatories = cached.signatories,
               stakeholders = cached.stakeholders,
               key = cached.key,
@@ -1071,7 +1071,7 @@ private[lf] object SBuiltin {
           templateId = templateId,
           interfaceId = interfaceId,
           choiceId = choiceId,
-          optLocation = machine.lastLocation,
+          optLocation = machine.getLastLocation,
           consuming = consuming,
           actingParties = ctrls,
           signatories = sigs,
@@ -1486,7 +1486,7 @@ private[lf] object SBuiltin {
       onLedger.ptx.insertFetch(
         coid = coid,
         templateId = templateId,
-        optLocation = machine.lastLocation,
+        optLocation = machine.getLastLocation,
         signatories = signatories,
         observers = observers,
         key = key,
@@ -1530,7 +1530,7 @@ private[lf] object SBuiltin {
       }
       onLedger.ptx.insertLookup(
         templateId = templateId,
-        optLocation = machine.lastLocation,
+        optLocation = machine.getLastLocation,
         key = Node.KeyWithMaintainers(
           key = keyWithMaintainers.key,
           maintainers = keyWithMaintainers.maintainers,
@@ -1782,7 +1782,7 @@ private[lf] object SBuiltin {
         machine: Machine,
     ): Control = {
       val message = getSText(args, 0)
-      machine.traceLog.add(message, machine.lastLocation)(machine.loggingContext)
+      machine.traceLog.add(message, machine.getLastLocation)(machine.loggingContext)
       Control.Value(args.get(1))
     }
   }
@@ -1827,9 +1827,9 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Control = {
-      checkToken(args, 2)
       val opt = getSOptional(args, 0)
       val excep = getSAny(args, 1)
+      checkToken(args, 2)
       opt match {
         case None =>
           unwindToHandler(machine, excep) // re-throw
