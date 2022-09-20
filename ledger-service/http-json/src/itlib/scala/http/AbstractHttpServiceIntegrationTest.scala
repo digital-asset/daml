@@ -552,26 +552,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           bazRecord = ShRecord(baz = "another baz value"),
         )
 
-      final class Scenario[Inj](
-          val label: String,
-          val ctId: domain.ContractTypeId.OptionalPkg,
-          val va: VA.Aux[Inj],
-          val query: Map[String, JsValue],
-          val matches: domain.Party => Inj,
-          val doesNotMatch: domain.Party => Inj,
-      )
-      def Scenario(
-          label: String,
-          ctId: domain.ContractTypeId.OptionalPkg,
-          va: VA,
-          query: Map[String, JsValue],
-      )(
-          matches: domain.Party => va.Inj,
-          doesNotMatch: domain.Party => va.Inj,
-      ): Scenario[va.Inj] =
-        new Scenario(label, ctId, va, query, matches, doesNotMatch)
-
       val kbvarId = TpId.Account.KeyedByVariantAndRecord
+      import FilterDiscriminatorScenario.Scenario
       Seq(
         Scenario(
           "gt string",
