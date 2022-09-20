@@ -46,6 +46,13 @@ object Error {
       consumedBy: NodeId,
   ) extends Error
 
+  /** When caching a disclosed contract key, hashing the contract key generated an error. */
+  final case class DisclosedContractKeyHashingError(
+      coid: ContractId,
+      templateId: TypeConName,
+      reason: String,
+  ) extends Error
+
   final case class ContractKeyNotVisible(
       coid: ContractId,
       key: GlobalKey,

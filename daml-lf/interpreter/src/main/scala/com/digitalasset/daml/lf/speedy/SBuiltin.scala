@@ -2133,25 +2133,35 @@ private[lf] object SBuiltin {
       val templateId = cachedContract.templateId
       val optError = for {
         keyWithMaintainers <- cachedContract.key
-        keyHash = crypto.Hash.assertHashContractKey(templateId, keyWithMaintainers.key)
-        result <- onLedger.disclosureKeyTable.addContractKey(templateId, keyHash, contractId)
-      } yield result
+      } yield {
+        for {
+          keyHash <- crypto.Hash
+            .hashContractKey(templateId, keyWithMaintainers.key)
+            .fold(
+              msg => Left(IE.DisclosedContractKeyHashingError(contractId, templateId, msg)),
+              Right(_),
+            )
+          result <- onLedger.disclosureKeyTable
+            .addContractKey(templateId, keyHash, contractId)
+            .toLeft(())
+        } yield result
+      }
 
       optError match {
-        case None =>
+        case None | Some(Right(())) =>
           onLedger.updateCachedContracts(
             contractId,
             cachedContract,
           )
           Control.Value(SUnit)
 
-        case Some(error) =>
+        case Some(Left(error)) =>
           Control.Error(error)
       }
     }
   }
 
-  private[speedy] def convTxError(err: Tx.TransactionError): interpretation.Error = {
+  private[speedy] def convTxError(err: Tx.TransactionError): IE = {
     err match {
       case Tx.AuthFailureDuringExecution(nid, fa) =>
         IE.FailedAuthorization(nid, fa)

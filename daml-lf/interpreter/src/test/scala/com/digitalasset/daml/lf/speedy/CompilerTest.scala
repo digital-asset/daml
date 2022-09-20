@@ -16,6 +16,8 @@ import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.daml.lf.value.Value.ContractId.`Cid Order`
+import com.daml.lf.value.Value.ContractId.V1.`V1 Order`
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -299,7 +301,7 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           inside(evalSExpr(sexpr, getContract = Map(contractId1 -> versionedContract1))) {
             case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
               contractCache.keySet shouldBe Set(contractId1)
-              disclosedContractKeys.values.map(_.value).toSet shouldBe Set(contractId1)
+              disclosedContractKeys.values.map(_.value).toList.sorted shouldBe List(contractId1)
           }
         }
 
@@ -317,7 +319,10 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
             )
           ) { case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
             contractCache.keySet shouldBe Set(contractId1, contractId2)
-            disclosedContractKeys.values.map(_.value).toSet shouldBe Set(contractId1, contractId2)
+            disclosedContractKeys.values.map(_.value).toList.sorted shouldBe List(
+              contractId1,
+              contractId2,
+            ).sorted
           }
         }
       }
@@ -353,7 +358,7 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           ) { case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
             contractCache.keySet.size shouldBe 2
             contractCache.keySet should contain(contractId1)
-            disclosedContractKeys.values.map(_.value).toSet shouldBe Set(contractId1)
+            disclosedContractKeys.values.map(_.value).toList.sorted shouldBe List(contractId1)
           }
         }
 
@@ -374,7 +379,10 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
             contractCache.keySet.size shouldBe 3
             contractCache.keySet should contain(contractId1)
             contractCache.keySet should contain(contractId2)
-            disclosedContractKeys.values.map(_.value).toSet shouldBe Set(contractId1, contractId2)
+            disclosedContractKeys.values.map(_.value).toList.sorted shouldBe List(
+              contractId1,
+              contractId2,
+            ).sorted
           }
         }
       }
@@ -411,7 +419,7 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           ) { case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
             contractCache.keySet.size shouldBe 3
             contractCache.keySet should contain(contractId1)
-            disclosedContractKeys.values.map(_.value).toSet shouldBe Set(contractId1)
+            disclosedContractKeys.values.map(_.value).toList.sorted shouldBe List(contractId1)
           }
         }
 
@@ -432,7 +440,10 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
             contractCache.keySet.size shouldBe 4
             contractCache.keySet should contain(contractId1)
             contractCache.keySet should contain(contractId2)
-            disclosedContractKeys.values.map(_.value).toSet shouldBe Set(contractId1, contractId2)
+            disclosedContractKeys.values.map(_.value).toList.sorted shouldBe List(
+              contractId1,
+              contractId2,
+            ).sorted
           }
         }
       }
@@ -444,6 +455,9 @@ object CompilerTest {
 
   import defaultParserParameters.{defaultPackageId => pkgId}
   import SpeedyTestLib.loggingContext
+
+  implicit val contractIdOrder: Ordering[ContractId] = `Cid Order`.toScalaOrdering
+  implicit val contractIdV1Order: Ordering[ContractId.V1] = `V1 Order`.toScalaOrdering
 
   val recordCon: Ref.Identifier =
     Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Record"))
