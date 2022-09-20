@@ -663,24 +663,22 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
     "supports extra readAs parties" in withHttpService { fixture =>
       import fixture.encoder
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, _) =>
-        val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
-        val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
-
-        fixture
+      for {
+        (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
+        input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
+        headers <- fixture
           .headersWithPartyAuth(actAs = List(alice.unwrap), readAs = List("Bob"))
-          .flatMap(
-            fixture
-              .postJsonRequest(
-                Uri.Path("/v1/create"),
-                input,
-                _,
-              )
-              .parseResponse[domain.ActiveContract[JsValue]]
+        activeContractResponse <- fixture
+          .postJsonRequest(
+            Uri.Path("/v1/create"),
+            input,
+            headers,
           )
-          .map(inside(_) { case domain.OkResponse(activeContract, _, StatusCodes.OK) =>
-            assertActiveContract(activeContract)(command, encoder)
-          }): Future[Assertion]
+          .parseResponse[domain.ActiveContract[JsValue]]
+      } yield inside(activeContractResponse) {
+        case domain.OkResponse(activeContract, _, StatusCodes.OK) =>
+          assertActiveContract(activeContract)(command, encoder)
       }
     }
 

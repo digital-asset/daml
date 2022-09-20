@@ -97,13 +97,15 @@ class ScalaCodeGenIT
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-    ledger = Await.result(LedgerClient(channel, clientConfig), StartupTimeout)
-    val _ = Await.ready(
-      Future.sequence(
-        List(alice, bob, charlie).map(p =>
-          ledger.partyManagementClient.allocateParty(Some(p.toString), None)
+    ledger = Await.result(
+      for {
+        lc <- LedgerClient(channel, clientConfig)
+        _ <- Future.sequence(
+          List(alice, bob, charlie).map(p =>
+            lc.partyManagementClient.allocateParty(Some(p.toString), None)
+          )
         )
-      ),
+      } yield lc,
       StartupTimeout,
     )
   }
