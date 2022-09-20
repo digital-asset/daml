@@ -558,7 +558,8 @@ private[validation] object Typing {
           )
           view match {
             case TTyCon(tycon) => {
-              val DDataType(_, args, dataCon) = handleLookup(env.ctx, pkgInterface.lookupDataType(tycon))
+              val DDataType(_, args, dataCon) =
+                handleLookup(env.ctx, pkgInterface.lookupDataType(tycon))
               if (args.length > 0)
                 throw EViewTypeHasVars(env.ctx, view)
               dataCon match {

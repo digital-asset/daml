@@ -326,7 +326,8 @@ final case class EExpectedViewType(context: Context, typ: Type) extends Validati
   protected def prettyInternal: String =
     s"expected monomorphic record type in view type, but found: ${typ.pretty}"
 }
-final case class EViewTypeHeadNotCon(context: Context, badHead: Type, typ: Type) extends ValidationError  {
+final case class EViewTypeHeadNotCon(context: Context, badHead: Type, typ: Type)
+    extends ValidationError {
   protected def prettyInternal: String = {
     val prettyHead = badHead match {
       case _: TVar => "a type variable"
@@ -341,11 +342,12 @@ final case class EViewTypeHeadNotCon(context: Context, badHead: Type, typ: Type)
     s"expected monomorphic record type in view type, but found ${prettyHead} instead: ${typ.pretty}"
   }
 }
-final case class EViewTypeHasVars(context: Context, typ: Type) extends ValidationError  {
+final case class EViewTypeHasVars(context: Context, typ: Type) extends ValidationError {
   protected def prettyInternal: String =
     s"expected monomorphic record type in view type, but found a type constructor with type variables: ${typ.pretty}"
 }
-final case class EViewTypeConNotRecord(context: Context, badCons: DataCons, typ: Type) extends ValidationError  {
+final case class EViewTypeConNotRecord(context: Context, badCons: DataCons, typ: Type)
+    extends ValidationError {
   protected def prettyInternal: String = {
     val prettyCons = badCons match {
       case _: DataVariant => "a variant type"
