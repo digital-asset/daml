@@ -48,12 +48,12 @@ object domain {
   final case class InterfaceFilter(
       interfaceId: Ref.Identifier,
       includeView: Boolean,
+      includeCreateArgumentsBlob: Boolean,
   )
 
   final case class InclusiveFilters(
       templateIds: immutable.Set[Ref.Identifier],
       interfaceFilters: immutable.Set[InterfaceFilter],
-      includeCreateArgumentsBlob: Boolean,
   )
 
   sealed abstract class LedgerOffset extends Product with Serializable

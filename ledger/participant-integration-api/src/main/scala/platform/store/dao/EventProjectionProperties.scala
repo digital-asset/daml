@@ -4,9 +4,9 @@
 package com.daml.platform.store.dao
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{Filters, InclusiveFilters}
+import com.daml.ledger.api.domain.{Filters, InterfaceFilter}
 import com.daml.lf.data.Ref.{Identifier, Party}
-import com.daml.platform.store.dao.EventProjectionProperties.RenderResult
+import com.daml.platform.store.dao.EventProjectionProperties.{InterfaceViewFilter, RenderResult}
 
 /**  This class encapsulates the logic of how contract arguments and interface views are
   *  being projected to the consumer based on the filter criteria and the relation between
@@ -16,40 +16,50 @@ import com.daml.platform.store.dao.EventProjectionProperties.RenderResult
   * @param witnessTemplateIdFilter populate contract_argument, and contract_key. If templateId set is empty: populate.
   * @param witnessInterfaceViewFilter populate interface_views. The Map of templates to interfaces,
   *                              and the set of implementor templates cannot be empty.
-  * @param witnessContractArgumentBlob populate contract_arguments_blob.
   */
 final case class EventProjectionProperties private[dao] (
     verbose: Boolean,
     // Map(eventWitnessParty, Set(templateId))
     witnessTemplateIdFilter: Map[String, Set[Identifier]] = Map.empty,
     // Map(eventWitnessParty, Map(templateId -> Set(interfaceId)))
-    witnessInterfaceViewFilter: Map[String, Map[Identifier, Set[Identifier]]] = Map.empty,
-    // Set of parties which require to populate contractArgumentBlob
-    witnessContractArgumentBlob: Set[String] = Set.empty,
+    witnessInterfaceViewFilter: Map[String, Map[Identifier, InterfaceViewFilter]] = Map.empty,
 ) {
   def render(witnesses: Set[String], templateId: Identifier): RenderResult = {
     val renderContractArguments: Boolean = witnesses.view
       .flatMap(witnessTemplateIdFilter.get)
       .exists(templates => templates.isEmpty || templates(templateId))
 
-    val interfacesToRender: Set[Identifier] = witnesses.view
+    val interfacesToRender: InterfaceViewFilter = witnesses.view
       .flatMap(witnessInterfaceViewFilter.get(_).iterator)
-      .flatMap(_.getOrElse(templateId, Set.empty[Identifier]))
-      .toSet
-
-    val contractArgumentsBlob =
-      witnesses.intersect(witnessContractArgumentBlob).nonEmpty
+      .foldLeft(InterfaceViewFilter.Empty)(_ append (templateId, _))
 
     RenderResult(
-      contractArgumentsBlob,
+      interfacesToRender.contractArgumentsBlob,
       renderContractArguments,
-      interfacesToRender,
+      interfacesToRender.interfaces,
     )
   }
 
 }
 
 object EventProjectionProperties {
+
+  case class InterfaceViewFilter(interfaces: Set[Identifier], contractArgumentsBlob: Boolean) {
+    def append(
+        templateId: Identifier,
+        interfaceFilterMap: Map[Identifier, InterfaceViewFilter],
+    ): InterfaceViewFilter = {
+      val other = interfaceFilterMap.getOrElse(templateId, InterfaceViewFilter.Empty)
+      InterfaceViewFilter(
+        interfaces ++ other.interfaces,
+        contractArgumentsBlob || other.contractArgumentsBlob,
+      )
+    }
+  }
+
+  object InterfaceViewFilter {
+    val Empty = InterfaceViewFilter(Set.empty[Identifier], false)
+  }
 
   case class RenderResult(
       contractArgumentsBlob: Boolean,
@@ -73,9 +83,6 @@ object EventProjectionProperties {
       witnessTemplateIdFilter = witnessTemplateIdFilter(transactionFilter),
       witnessInterfaceViewFilter =
         witnessInterfaceViewFilter(transactionFilter, interfaceImplementedBy),
-      witnessContractArgumentBlob = transactionFilter.filtersByParty.iterator.collect {
-        case (party, Filters(Some(InclusiveFilters(_, _, true)))) => party.toString
-      }.toSet,
     )
 
   private def witnessTemplateIdFilter(
@@ -96,16 +103,33 @@ object EventProjectionProperties {
   private def witnessInterfaceViewFilter(
       domainTransactionFilter: domain.TransactionFilter,
       interfaceImplementedBy: Identifier => Set[Identifier],
-  ): Map[String, Map[Identifier, Set[Identifier]]] = (for {
+  ): Map[String, Map[Identifier, InterfaceViewFilter]] = (for {
     (party, filters) <- domainTransactionFilter.filtersByParty.iterator
     inclusiveFilters <- filters.inclusive.iterator
     interfaceFilter <- inclusiveFilters.interfaceFilters.iterator
-    if interfaceFilter.includeView
     implementor <- interfaceImplementedBy(interfaceFilter.interfaceId).iterator
-  } yield (party, implementor, interfaceFilter.interfaceId))
-    .toSet[(Party, Identifier, Identifier)]
-    .groupMap(_._1) { case (_, templateId, interfaceId) => templateId -> interfaceId }
-    .map { case (partyId, templateAndInterfacePairs) =>
-      (partyId.toString, templateAndInterfacePairs.groupMap(_._1)(_._2))
+  } yield (
+    party,
+    implementor,
+    interfaceFilter,
+  ))
+    .toSet[(Party, Identifier, InterfaceFilter)]
+    .groupMap(_._1) { case (_, templateId, interfaceFilter) =>
+      templateId -> interfaceFilter
+    }
+    .map { case (partyId, templateAndInterfaceFilterPairs) =>
+      (
+        partyId.toString,
+        templateAndInterfaceFilterPairs
+          .groupMap(_._1)(_._2)
+          .view
+          .mapValues(interfaceFilters =>
+            InterfaceViewFilter(
+              interfaceFilters.filter(_.includeView).map(_.interfaceId),
+              interfaceFilters.exists(_.includeCreateArgumentsBlob),
+            )
+          )
+          .toMap,
+      )
     }
 }
