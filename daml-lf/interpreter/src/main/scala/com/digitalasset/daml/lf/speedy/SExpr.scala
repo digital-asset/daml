@@ -207,7 +207,7 @@ object SExpr {
     }
   }
 
-  // SELocS -- variable is located in the args array of the application
+  // SELocA -- variable is located in the args array of the application
   final case class SELocA(n: Int) extends SELoc {
     def lookupValue(machine: Machine): SValue = {
       machine.getEnvArg(n)
@@ -405,7 +405,7 @@ object SExpr {
     def modName: ModuleName = ref.qualifiedName.module
     // TODO: move this into the speedy compiler code
     private[this] val eval = compileTime.SEVal(this)
-    def apply(args: compileTime.SExpr*) = compileTime.SEApp(eval, args.toList)
+    def apply(args: compileTime.SExpr*): SExpr0.SEApp = compileTime.SEApp(eval, args.toList)
   }
 
   // references to definitions that come from the archive

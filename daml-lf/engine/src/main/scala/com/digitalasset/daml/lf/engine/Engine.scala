@@ -9,7 +9,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError, SValue}
-import com.daml.lf.speedy.SExpr.{SExpr, SEApp, SEValue}
+import com.daml.lf.speedy.SExpr.{SEApp, SEValue, SExpr}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{
@@ -19,11 +19,11 @@ import com.daml.lf.transaction.{
   VersionedTransaction,
   Transaction => Tx,
 }
+
 import java.nio.file.Files
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{VersionedContractInstance, ContractId}
-
-import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackage}
+import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackage}
 import com.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
@@ -383,7 +383,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
 
     while (!finished) {
       machine.run() match {
-
         case fv: SResultFinal =>
           finished = true
           finalValue = fv
