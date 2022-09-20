@@ -169,7 +169,9 @@ object SandboxOnXRunner {
     config.participants.toList match {
 
       case (participantId, participantConfig) :: Nil =>
-        ResourceOwner.successful((participantId, participantConfig))
+        ResourceOwner.successful(
+          (participantConfig.participantIdOverride.getOrElse(participantId), participantConfig)
+        )
       case _ =>
         ResourceOwner.failed {
           val loggingMessage = "Sandbox-on-X can only be run with a single participant."
