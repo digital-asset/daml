@@ -225,7 +225,7 @@ enableScenariosOpt = EnableScenarios <$>
 
 allowLargeTuplesOpt :: Parser AllowLargeTuples
 allowLargeTuplesOpt = AllowLargeTuples <$>
-    flagYesNoAuto "allow-large-tuples" False desc internal
+    flagYesNoAuto "disable-warn-large-tuples" False desc internal
     where
         desc = "Do not warn when tuples of size > 5 are used."
 
