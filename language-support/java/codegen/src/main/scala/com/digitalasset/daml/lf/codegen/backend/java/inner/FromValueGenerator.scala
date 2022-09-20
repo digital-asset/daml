@@ -39,7 +39,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .addJavadoc(
         "@deprecated since Daml $L; $L",
         "2.5.0",
-        s"use {@code fromValue that return FromValue<?> instead",
+        s"use {@code fromValue} that return FromValue<?> instead",
       )
 
     val fromValueParams = CodeBlock.join(
@@ -365,9 +365,9 @@ private[inner] object FromValueGenerator extends StrictLogging {
         val targsCode = CodeBlock.join(targs.map(CodeBlock.of("$L", _)).asJava, ", ")
         CodeBlock
           .builder()
-          .add(CodeBlock.of("$T.<$L>fromValue($L, ", javaType.rawType, targsCode, accessor))
+          .add(CodeBlock.of("$T.<$L>fromValue(", javaType.rawType, targsCode))
           .add(CodeBlock.join(extractors.asJava, ", "))
-          .add(")")
+          .add(CodeBlock.of(").fromValue($L)", accessor))
           .build()
     }
   }

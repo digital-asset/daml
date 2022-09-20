@@ -117,7 +117,7 @@ object VariantConstructorClass extends StrictLogging {
       .addJavadoc(
         "@deprecated since Daml $L; $L",
         "2.5.0",
-        s"use {@code fromValue that return FromValue<?> instead",
+        s"use {@code fromValue} that return FromValue<?> instead",
       )
 
     val fromValueParams = CodeBlock.join(

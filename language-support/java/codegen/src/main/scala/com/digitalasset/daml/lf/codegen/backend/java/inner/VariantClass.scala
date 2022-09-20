@@ -9,10 +9,11 @@ import com.daml.lf.codegen.backend.java.JavaEscaper
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.typesig._
 import PackageSignature.TypeDecl.Normal
+import com.daml.ledger.javaapi.data.codegen.FromValue
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
-import javax.lang.model.element.Modifier
 
+import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -35,6 +36,9 @@ private[inner] object VariantClass extends StrictLogging {
         .addTypeVariables(typeArguments.map(TypeVariableName.get).asJava)
         .addMethod(MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC).build())
         .addMethod(generateAbstractToValueSpec(typeArguments))
+        .addMethod(
+          generateDeprecatedFromValue(typeArguments, variantClassName)
+        )
         .addMethod(generateFromValue(typeArguments, constructorInfo, variantClassName, subPackage))
         .addField(createPackageIdField(typeWithContext.interface.packageId))
         .build()
@@ -84,7 +88,6 @@ private[inner] object VariantClass extends StrictLogging {
       .methodBuilder("fromValue")
       .addModifiers(Modifier.STATIC, Modifier.PUBLIC)
       .returns(t)
-      .addParameter(classOf[javaapi.data.Value], "value$")
 
   private def variantExtractor(t: TypeName): CodeBlock =
     CodeBlock.of(
@@ -94,12 +97,12 @@ private[inner] object VariantClass extends StrictLogging {
     )
 
   private def switchOnConstructor(
-      builder: MethodSpec.Builder,
+      builder: CodeBlock.Builder,
       constructors: Fields,
       variant: ClassName,
       subPackage: String,
       useConstructor: String => CodeBlock,
-  ): MethodSpec.Builder = {
+  ): CodeBlock.Builder = {
     val constructorsAsString = constructors.map(_.damlName).mkString("[", ", ", "]")
     logger.debug(s"Generating switch on constructors $constructorsAsString for $variant")
     for (constructorInfo <- constructors) {
@@ -125,27 +128,39 @@ private[inner] object VariantClass extends StrictLogging {
       variant.typeArguments.asScala.forall(_.isInstanceOf[TypeVariableName]),
       s"All type arguments of ${variant.rawType} must be generic",
     )
-    val builder = initFromValueBuilder(variant)
+    val returnType = ParameterizedTypeName.get(ClassName.get(classOf[FromValue[_]]), variant)
+    val builder = initFromValueBuilder(returnType)
+    builder.beginControlFlow("return $L ->", "value$")
+
     val typeVariablesExtractorParameters =
       FromValueExtractorParameters.generate(
         variant.typeArguments.asScala.map(_.toString).toIndexedSeq
       )
+
     builder.addTypeVariables(typeVariablesExtractorParameters.typeVariables.asJava)
     builder.addParameters(typeVariablesExtractorParameters.functionParameterSpecs.asJava)
-    builder.addStatement("$L", variantExtractor(variant.rawType))
+
+    val decodeValueCodeBuilder = CodeBlock
+      .builder()
+
+    decodeValueCodeBuilder.addStatement("$L", variantExtractor(variant.rawType))
     val extractors =
       CodeBlock.join(
         variant.typeArguments.asScala.map(t => CodeBlock.of("$L", s"fromValue$t")).asJava,
         ", ",
       )
     switchOnConstructor(
-      builder,
+      decodeValueCodeBuilder,
       constructors,
       variant.rawType,
       subPackage,
       constructor => CodeBlock.of("return $L.fromValue(variant$$, $L)", constructor, extractors),
     )
-    builder.build()
+
+    builder
+      .addCode(decodeValueCodeBuilder.build())
+      .endControlFlow("")
+      .build()
   }
 
   private def generateConcreteFromValue(
@@ -154,13 +169,107 @@ private[inner] object VariantClass extends StrictLogging {
       subPackage: String,
   ): MethodSpec = {
     logger.debug(s"Generating fromValue static method for $t")
-    val builder = initFromValueBuilder(t).addStatement("$L", variantExtractor(t))
+    val returnType = ParameterizedTypeName.get(ClassName.get(classOf[FromValue[_]]), t)
+    val builder = initFromValueBuilder(returnType)
+      .beginControlFlow("return $L ->", "value$")
+
+    val decodeValueCodeBuilder = CodeBlock
+      .builder()
+      .addStatement("$L", variantExtractor(t))
+
     switchOnConstructor(
-      builder,
+      decodeValueCodeBuilder,
       constructors,
       t,
       subPackage,
       c => CodeBlock.of("return $L.fromValue(variant$$)", c),
+    )
+
+    builder
+      .addCode(decodeValueCodeBuilder.build())
+      .endControlFlow("")
+      .build()
+  }
+
+  private def generateDeprecatedFromValue(
+      typeArguments: IndexedSeq[String],
+      variantClassName: ClassName,
+  ): MethodSpec =
+    variantClassName.parameterized(typeArguments) match {
+      case variant: ClassName =>
+        generateDeprecatedConcreteFromValue(variant)
+      case variant: ParameterizedTypeName =>
+        generateDeprecatedParameterizedFromValue(variant)
+      case _ =>
+        throw new IllegalArgumentException("Required either ClassName or ParameterizedTypeName")
+    }
+
+  private def generateDeprecatedConcreteFromValue(
+      t: ClassName
+  ): MethodSpec = {
+    logger.debug(s"Generating depreacted fromValue static method for $t")
+    val builder = initFromValueBuilder(t)
+      .addParameter(classOf[javaapi.data.Value], "value$")
+      .addAnnotation(classOf[Deprecated])
+      .addJavadoc(
+        "@deprecated since Daml $L; $L",
+        "2.5.0",
+        s"use {@code fromValue} that return FromValue<?> instead",
+      )
+      .addStatement("$L", variantExtractor(t))
+    builder.addStatement(
+      "return fromValue().fromValue($L)",
+      "value$",
+    )
+    builder.build()
+  }
+
+  private def generateDeprecatedParameterizedFromValue(
+      variant: ParameterizedTypeName
+  ): MethodSpec = {
+    logger.debug(s"Generating deprecated fromValue static method for $variant")
+    require(
+      variant.typeArguments.asScala.forall(_.isInstanceOf[TypeVariableName]),
+      s"All type arguments of ${variant.rawType} must be generic",
+    )
+    val builder = initFromValueBuilder(variant)
+      .addParameter(classOf[javaapi.data.Value], "value$")
+
+    val typeVariablesExtractorParameters =
+      FromValueExtractorParameters.generate(
+        variant.typeArguments.asScala.map(_.toString).toIndexedSeq
+      )
+    builder
+      .addTypeVariables(typeVariablesExtractorParameters.typeVariables.asJava)
+      .addParameters(typeVariablesExtractorParameters.functionParameterSpecs.asJava)
+      .addAnnotation(classOf[Deprecated])
+      .addJavadoc(
+        "@deprecated since Daml $L; $L",
+        "2.5.0",
+        s"use {@code fromValue} that return FromValue<?> instead",
+      )
+    val fromValueParams = CodeBlock.join(
+      typeVariablesExtractorParameters.functionParameterSpecs.map { param =>
+        CodeBlock.of("$N::apply", param)
+      }.asJava,
+      ", ",
+    )
+
+    val classStaticAccessor = {
+      val typeParameterList = CodeBlock.join(
+        variant.typeArguments.asScala.map { param =>
+          CodeBlock.of("$T", param)
+        }.asJava,
+        ", ",
+      )
+      CodeBlock.of("$T.<$L>", variant.rawType, typeParameterList)
+    }
+
+    builder.addStatement(
+      "return $LfromValue($L).fromValue($L)",
+      classStaticAccessor,
+      fromValueParams,
+      "value$",
     )
     builder.build()
   }
