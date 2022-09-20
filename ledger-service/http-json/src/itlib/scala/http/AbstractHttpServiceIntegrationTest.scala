@@ -170,6 +170,17 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       iouCreateCommand(amount = "444.44", currency = "BTC", partyName = party),
     )
 
+  protected def testLargeQueries = true
+
+  private implicit final class OraclePayloadIndexSupport(private val label: String) {
+
+    /** For Oracle, tested only if DisableContractPayloadIndexing=false; always
+      * tested for other configurations.
+      */
+    def onlyIfLargeQueries_-(fun: => Unit): Unit =
+      if (testLargeQueries) label - fun else ()
+  }
+
   "query GET" - {
     "empty results" in withHttpService { fixture =>
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (_, headers) =>
@@ -364,7 +375,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }
   }
 
-  "query record contains handles" - {
+  "query record contains handles" onlyIfLargeQueries_- {
     def randomTextN(n: Int) = {
       import org.scalacheck.Gen
       Gen

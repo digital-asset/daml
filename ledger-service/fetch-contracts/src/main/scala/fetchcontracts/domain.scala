@@ -30,7 +30,7 @@ package object domain {
 
   type Offset = String @@ OffsetTag
 
-  // XXX SC A TemplateId is really usually a "contract type ID" in JSON API usage.
+  // TODO #15040 A TemplateId is really usually a "contract type ID" in JSON API usage.
   // So that is how we treat it in practice.  We can deprecate and fix the references
   // separately.
   type TemplateId[+PkgId] = ContractTypeId[PkgId]
