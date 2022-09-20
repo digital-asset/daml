@@ -252,7 +252,7 @@ class TransactionServiceRequestValidatorTest
         inside(
           validator.validate(
             txReq.update(_.filter.filtersByParty.modify(_.map { case (p, f) =>
-              p -> f.update(_.inclusive := InclusiveFilters(Nil, Nil, true))
+              p -> f.update(_.inclusive := InclusiveFilters(Nil, Nil))
             })),
             ledgerEnd,
           )
