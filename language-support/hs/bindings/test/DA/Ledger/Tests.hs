@@ -98,6 +98,9 @@ authenticatingSandboxTests testDar =
   ]
   where mbSecret = Just (Secret "Brexit-is-a-very-silly-idea")
 
+allocateTestParty :: Party -> LedgerService PartyDetails
+allocateTestParty party =
+    allocateParty AllocatePartyRequest { partyIdHint = unParty party, displayName = "" }
 
 run :: WithSandbox -> (DarMetadata -> TestId -> LedgerService ()) -> IO ()
 run withSandbox f =
@@ -202,7 +205,7 @@ tSubmitComplete withSandbox = testCase "tSubmitComplete" $ run withSandbox $ \Da
 tCreateWithKey :: SandboxTest
 tCreateWithKey withSandbox = testCase "createWithKey" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateParty AllocatePartyRequest { partyIdHint = unParty (alice testId), displayName = "" }
+    _ <- allocateTestParty (alice testId)
     withGetAllTransactions lid (alice testId) (Verbosity False) $ \txs -> do
     let command = createWithKey mainPackageId (alice testId) 100
     _ <- fromRight =<< submitCommand lid (alice testId) command
@@ -213,7 +216,7 @@ tCreateWithKey withSandbox = testCase "createWithKey" $ run withSandbox $ \DarMe
 tCreateWithoutKey :: SandboxTest
 tCreateWithoutKey withSandbox = testCase "createWithoutKey" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateParty AllocatePartyRequest { partyIdHint = unParty (alice testId), displayName = "" }
+    _ <- allocateTestParty (alice testId)
     withGetAllTransactions lid (alice testId) (Verbosity False) $ \txs -> do
     let command = createWithoutKey mainPackageId (alice testId) 100
     _ <- fromRight =<< submitCommand lid (alice testId) command
@@ -224,7 +227,7 @@ tCreateWithoutKey withSandbox = testCase "createWithoutKey" $ run withSandbox $ 
 tStakeholders :: WithSandbox -> Tasty.TestTree
 tStakeholders withSandbox = testCase "stakeholders are exposed correctly" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateParty AllocatePartyRequest { partyIdHint = unParty (alice testId), displayName = "" }
+    _ <- allocateTestParty (alice testId)
     withGetTransactionsPF lid (alice testId) $ \PastAndFuture {future=txs} -> do
     let command = createIOU mainPackageId (alice testId) "(alice testId)-in-chains" 100
     _ <- submitCommand lid (alice testId) command
@@ -236,7 +239,7 @@ tStakeholders withSandbox = testCase "stakeholders are exposed correctly" $ run 
 tPastFuture :: SandboxTest
 tPastFuture withSandbox = testCase "past/future" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateParty AllocatePartyRequest { partyIdHint = unParty (alice testId), displayName = "" }
+    _ <- allocateTestParty (alice testId)
     let command =  createIOU mainPackageId (alice testId) "A-coin" 100
     withGetTransactionsPF lid (alice testId) $ \PastAndFuture {past=past1,future=future1} -> do
     -- We need a submitandWait here to make sure that the
@@ -256,7 +259,7 @@ tPastFuture withSandbox = testCase "past/future" $ run withSandbox $ \DarMetadat
 tGetFlatTransactionByEventId :: SandboxTest
 tGetFlatTransactionByEventId withSandbox = testCase "tGetFlatTransactionByEventId" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateParty AllocatePartyRequest { partyIdHint = unParty (alice testId), displayName = "" }
+    _ <- allocateTestParty (alice testId)
     withGetAllTransactions lid (alice testId) (Verbosity True) $ \txs -> do
     _ <- fromRight =<< submitCommand lid (alice testId) (createIOU mainPackageId (alice testId) "A-coin" 100)
     Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
@@ -269,7 +272,7 @@ tGetFlatTransactionByEventId withSandbox = testCase "tGetFlatTransactionByEventI
 tGetFlatTransactionById :: SandboxTest
 tGetFlatTransactionById withSandbox = testCase "tGetFlatTransactionById" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateParty AllocatePartyRequest { partyIdHint = unParty (alice testId), displayName = "" }
+    _ <- allocateTestParty (alice testId)
     withGetAllTransactions lid (alice testId) (Verbosity True) $ \txs -> do
     _ <- fromRight =<< submitCommand lid (alice testId) (createIOU mainPackageId (alice testId) "A-coin" 100)
     Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
@@ -282,7 +285,7 @@ tGetFlatTransactionById withSandbox = testCase "tGetFlatTransactionById" $ run w
 tGetTransactions :: SandboxTest
 tGetTransactions withSandbox = testCase "tGetTransactions" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateParty AllocatePartyRequest { partyIdHint = unParty (alice testId), displayName = "" }
+    _ <- allocateTestParty (alice testId)
     withGetAllTransactions lid (alice testId) (Verbosity True) $ \txs -> do
     cidA <- fromRight =<< submitCommand lid (alice testId) (createIOU mainPackageId (alice testId) "A-coin" 100)
     Just (Right [Transaction{cid=Just cidB}]) <- liftIO $ timeout 1 (takeStream txs)
@@ -291,7 +294,7 @@ tGetTransactions withSandbox = testCase "tGetTransactions" $ run withSandbox $ \
 tGetTransactionTrees :: SandboxTest
 tGetTransactionTrees withSandbox = testCase "tGetTransactionTrees" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateParty AllocatePartyRequest { partyIdHint = unParty (alice testId), displayName = "" }
+    _ <- allocateTestParty (alice testId)
     withGetAllTransactionTrees lid (alice testId) (Verbosity True) $ \txs -> do
     cidA <- fromRight =<< submitCommand lid (alice testId) (createIOU mainPackageId (alice testId) "A-coin" 100)
     Just (Right [TransactionTree{cid=Just cidB}]) <- liftIO $ timeout 1 (takeStream txs)
@@ -300,7 +303,7 @@ tGetTransactionTrees withSandbox = testCase "tGetTransactionTrees" $ run withSan
 tGetTransactionByEventId :: SandboxTest
 tGetTransactionByEventId withSandbox = testCase "tGetTransactionByEventId" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateParty AllocatePartyRequest { partyIdHint = unParty (alice testId), displayName = "" }
+    _ <- allocateTestParty (alice testId)
     withGetAllTransactionTrees lid (alice testId) (Verbosity True) $ \txs -> do
     _ <- fromRight =<< submitCommand lid (alice testId) (createIOU mainPackageId (alice testId) "A-coin" 100)
     Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
@@ -313,7 +316,7 @@ tGetTransactionByEventId withSandbox = testCase "tGetTransactionByEventId" $ run
 tGetTransactionById :: SandboxTest
 tGetTransactionById withSandbox = testCase "tGetTransactionById" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateParty AllocatePartyRequest { partyIdHint = unParty (alice testId), displayName = "" }
+    _ <- allocateTestParty (alice testId)
     withGetAllTransactionTrees lid (alice testId) (Verbosity True) $ \txs -> do
     _ <- fromRight =<< submitCommand lid (alice testId) (createIOU mainPackageId (alice testId) "A-coin" 100)
     Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
@@ -326,7 +329,7 @@ tGetTransactionById withSandbox = testCase "tGetTransactionById" $ run withSandb
 tGetActiveContracts :: SandboxTest
 tGetActiveContracts withSandbox = testCase "tGetActiveContracts" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateParty AllocatePartyRequest { partyIdHint = unParty (alice testId), displayName = "" }
+    _ <- allocateTestParty (alice testId)
     -- no active contracts here
     [(off1,_,[])] <- getActiveContracts lid (filterEverythingForParty (alice testId)) (Verbosity True)
     -- so let's create one
@@ -359,7 +362,7 @@ tUploadDarFileBad withSandbox = testCase "tUploadDarFileBad" $ run withSandbox $
 tUploadDarFileGood :: SandboxTest
 tUploadDarFileGood withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \_darMetadata testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateParty AllocatePartyRequest { partyIdHint = unParty (alice testId), displayName = "" }
+    _ <- allocateTestParty (alice testId)
     bytes <- liftIO getBytesForUpload
     before <- listKnownPackages
     pid <- uploadDarFileGetPid lid bytes >>= either (liftIO . assertFailure) return
@@ -443,7 +446,7 @@ tSubmitAndWait :: SandboxTest
 tSubmitAndWait withSandbox =
     testCase "tSubmitAndWait" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateParty AllocatePartyRequest { partyIdHint = unParty (alice testId), displayName = "" }
+    _ <- allocateTestParty (alice testId)
     withGetAllTransactions lid (alice testId) (Verbosity False) $ \txs -> do
     -- bad
     (_cid,commands) <- liftIO $ makeCommands lid (alice testId) $ createIOU mainPackageId (bob testId) "B-coin" 100
@@ -459,7 +462,7 @@ tSubmitAndWaitForTransactionId :: SandboxTest
 tSubmitAndWaitForTransactionId withSandbox =
     testCase "tSubmitAndWaitForTransactionId" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateParty AllocatePartyRequest { partyIdHint = unParty (alice testId), displayName = "" }
+    _ <- allocateTestParty (alice testId)
     withGetAllTransactions lid (alice testId) (Verbosity False) $ \txs -> do
     -- bad
     (_cid,commands) <- liftIO $ makeCommands lid (alice testId) $ createIOU mainPackageId (bob testId) "B-coin" 100
@@ -475,7 +478,7 @@ tSubmitAndWaitForTransaction :: SandboxTest
 tSubmitAndWaitForTransaction withSandbox =
     testCase "tSubmitAndWaitForTransaction" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateParty AllocatePartyRequest { partyIdHint = unParty (alice testId), displayName = "" }
+    _ <- allocateTestParty (alice testId)
     withGetAllTransactions lid (alice testId) (Verbosity True) $ \txs -> do
     -- bad
     (_cid,commands) <- liftIO $ makeCommands lid (alice testId) $ createIOU mainPackageId (bob testId) "B-coin" 100
@@ -491,7 +494,7 @@ tSubmitAndWaitForTransactionTree :: SandboxTest
 tSubmitAndWaitForTransactionTree withSandbox =
     testCase "tSubmitAndWaitForTransactionTree" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateParty AllocatePartyRequest { partyIdHint = unParty (alice testId), displayName = "" }
+    _ <- allocateTestParty (alice testId)
     withGetAllTransactionTrees lid (alice testId) (Verbosity True) $ \txs -> do
     -- bad
     (_cid,commands) <- liftIO $ makeCommands lid (alice testId) $ createIOU mainPackageId (bob testId) "B-coin" 100
@@ -560,7 +563,7 @@ tValueConversion withSandbox = testCase "tValueConversion" $ run withSandbox $ \
     let args = Record Nothing [ RecordField "owner" (VParty owner), RecordField "bucket" bucket ]
     let command = CreateCommand {tid,args}
     lid <- getLedgerIdentity
-    _ <- allocateParty AllocatePartyRequest { partyIdHint = unParty (alice testId), displayName = "" }
+    _ <- allocateTestParty (alice testId)
     _::CommandId <- submitCommand lid (alice testId) command >>= either (liftIO . assertFailure) return
     withGetAllTransactions lid (alice testId) (Verbosity True) $ \txs -> do
     Just elem <- liftIO $ timeout 1 (takeStream txs)

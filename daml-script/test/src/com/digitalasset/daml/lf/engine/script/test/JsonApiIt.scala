@@ -300,9 +300,9 @@ final class JsonApiIt
       )
     val participantParams = Participants(Some(defaultParticipant), Map.empty, Map.empty)
     Runner.jsonClients(participantParams, envIface).andThen { case Success(ps) =>
-      parties.foreach { party =>
-        ps.default_participant.map(_.allocateParty(party, ""))
-      }
+      Future.sequence(
+        parties.flatMap(party => ps.default_participant.map(_.allocateParty(party, "")))
+      )
     }
   }
 
