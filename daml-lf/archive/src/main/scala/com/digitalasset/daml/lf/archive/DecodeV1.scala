@@ -170,7 +170,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       assertSince(LV.Features.internedTypes, "interned types table")
     lfTypes.iterator.asScala
       .foldLeft(new mutable.ArrayBuffer[Type](lfTypes.size)) { (buf, typ) =>
-        buf += runWork(env.copy(internedTypes = buf).uncheckedDecodeType(typ))
+        buf += env.copy(internedTypes = buf).uncheckedDecodeTypeForTest(typ)
       }
       .toIndexedSeq
   }
@@ -523,7 +523,11 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         "EnumConstructors.constructors",
       )
 
-    private[archive] def decodeDefValue(lfValue: PLF.DefValue): Work[DValue] = {
+    private[archive] def decodeDefValueForTest(lfValue: PLF.DefValue): DValue = {
+      runWork(decodeDefValue(lfValue))
+    }
+
+    private def decodeDefValue(lfValue: PLF.DefValue): Work[DValue] = {
       if (!lfValue.getNoPartyLiterals) {
         throw Error.Parsing("DefValue must have no_party_literals set to true")
       }
@@ -899,7 +903,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       )
     }
 
-    private[archive] def uncheckedDecodeType(lfType: PLF.Type): Work[Type] = {
+    private def uncheckedDecodeType(lfType: PLF.Type): Work[Type] = {
       lfType.getSumCase match {
         case PLF.Type.SumCase.VAR =>
           val tvar = lfType.getVar
@@ -2363,7 +2367,7 @@ private[archive] object DecodeV1 {
       .withDefault(_ => throw Error.Parsing("BuiltinFunction.UNRECOGNIZED"))
 
   // stack-safety achieved via a Work trampoline.
-  private[archive] sealed abstract class Work[A]
+  private sealed abstract class Work[A]
   private object Work {
     final case class Ret[A](v: A) extends Work[A]
     final case class Delay[A](thunk: () => Work[A]) extends Work[A]
@@ -2388,11 +2392,11 @@ private[archive] object DecodeV1 {
     loop(work)
   }
 
-  def bindWork[A, X](work: Work[X])(k: X => Work[A]): Work[A] = {
+  private def bindWork[A, X](work: Work[X])(k: X => Work[A]): Work[A] = {
     Work.Bind(work, k)
   }
 
-  def sequenceWork[A, B](works: SeqView[Work[A]])(k: List[A] => Work[B]): Work[B] = {
+  private def sequenceWork[A, B](works: SeqView[Work[A]])(k: List[A] => Work[B]): Work[B] = {
     def loop(acc: List[A], works: List[Work[A]]): Work[B] = {
       works match {
         case Nil => k(acc.reverse)

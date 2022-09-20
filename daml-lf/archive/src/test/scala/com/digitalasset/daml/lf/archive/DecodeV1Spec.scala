@@ -1772,7 +1772,7 @@ class DecodeV1Spec
         .build()
     forEveryVersion { version =>
       val decoder = moduleDecoder(version)
-      val ex = the[Error.Parsing] thrownBy decoder.decodeDefValue(defValue)
+      val ex = the[Error.Parsing] thrownBy decoder.decodeDefValueForTest(defValue)
       ex.msg shouldBe "DefValue must have no_party_literals set to true"
     }
   }
