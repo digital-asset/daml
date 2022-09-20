@@ -57,6 +57,8 @@ newtype ConvertM a = ConvertM (ReaderT ConversionEnv (StateT ConversionState (Ex
 instance MonadFail ConvertM where
     fail = conversionError
 
+-- The left case is for the single error thrown, the right case for a list of
+-- non-fatal warnings
 runConvertM :: ConversionEnv -> ConvertM a -> Either FileDiagnostic (a, [FileDiagnostic])
 runConvertM s (ConvertM a) = runExcept $ do
   (a, convState) <- runStateT (runReaderT a s) st0
