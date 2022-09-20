@@ -527,7 +527,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       }
     }
 
-    "nested comparison filters" - {
+    "nested comparison filters" onlyIfLargeQueries_- {
       import shapeless.Coproduct, shapeless.syntax.singleton._
       val irrelevant = Ref.Identifier assertFromString "none:Discarded:Identifier"
       val (_, bazRecordVA) = VA.record(irrelevant, ShRecord(baz = VA.text))
