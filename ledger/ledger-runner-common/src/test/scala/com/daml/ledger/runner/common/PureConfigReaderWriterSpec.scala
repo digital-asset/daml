@@ -15,7 +15,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import pureconfig.{ConfigConvert, ConfigReader, ConfigSource, ConfigWriter}
-import com.daml.ledger.api.tls.{SecretsUrl, TlsVersion}
+import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
 import com.daml.ledger.runner.common
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
@@ -212,14 +212,26 @@ class PureConfigReaderWriterSpec
 
   behavior of "Limits"
 
+  val validLimits =
+    """
+      |      choice-controllers = 2147483647
+      |      choice-observers = 2147483647
+      |      contract-observers = 2147483647
+      |      contract-signatories = 2147483647
+      |      transaction-input-contracts = 2147483647""".stripMargin
+
   it should "support current defaults" in {
-    val value = """
-        |      choice-controllers = 2147483647
-        |      choice-observers = 2147483647
-        |      contract-observers = 2147483647
-        |      contract-signatories = 2147483647
-        |      transaction-input-contracts = 2147483647""".stripMargin
-    convert(interpretationLimitsConvert, value).value shouldBe Limits()
+    convert(interpretationLimitsConvert, validLimits).value shouldBe Limits()
+  }
+
+  it should "validate against odd values" in {
+    val value =
+      s"""
+        |      some-crap = yes
+        |      $validLimits
+        |""".stripMargin
+    convert(interpretationLimitsConvert, value).left.value
+      .prettyPrint(0) should include("Unknown key")
   }
 
   it should "read/write against predefined values" in {
@@ -259,25 +271,57 @@ class PureConfigReaderWriterSpec
 
   behavior of "EngineConfig"
 
-  it should "support current defaults" in {
-    val value =
-      """
-        |allowed-language-versions = stable
-        |contract-key-uniqueness = strict
-        |forbid-v-0-contract-id = true
-        |limits {
-        |  choice-controllers = 2147483647
-        |  choice-observers = 2147483647
-        |  contract-observers = 2147483647
-        |  contract-signatories = 2147483647
-        |  transaction-input-contracts = 2147483647
-        |}
-        |package-validation = true
-        |require-suffixed-global-contract-id = false
-        |stack-trace-mode = false
-        |""".stripMargin
+  val validEngineConfigValue =
+    """
+      |allowed-language-versions = stable
+      |contract-key-uniqueness = strict
+      |forbid-v-0-contract-id = true
+      |limits {
+      |  choice-controllers = 2147483647
+      |  choice-observers = 2147483647
+      |  contract-observers = 2147483647
+      |  contract-signatories = 2147483647
+      |  transaction-input-contracts = 2147483647
+      |}
+      |package-validation = true
+      |require-suffixed-global-contract-id = false
+      |stack-trace-mode = false
+      |""".stripMargin
 
-    convert(engineConvert, value).value shouldBe Config.DefaultEngineConfig
+  it should "support current defaults" in {
+    convert(engineConvert, validEngineConfigValue).value shouldBe Config.DefaultEngineConfig
+  }
+
+  it should "not support additional invalid keys" in {
+    val value =
+      s"""
+        |some-crap = yes
+        |$validLimits
+        |""".stripMargin
+    convert(engineConvert, value).left.value
+      .prettyPrint(0) should include("Unknown key")
+  }
+
+  behavior of "TlsConfiguration"
+
+  val validTlsConfigurationValue =
+    """enabled=false
+      |client-auth=require
+      |enable-cert-revocation-checking=false""".stripMargin
+
+  it should "read/write against predefined values" in {
+    convert(
+      tlsConfigurationConvert,
+      validTlsConfigurationValue,
+    ).value shouldBe TlsConfiguration(enabled = false)
+  }
+
+  it should "not support invalid unknown keys" in {
+    convert(
+      tlsConfigurationConvert,
+      "some-crap=yes\n" + validTlsConfigurationValue,
+    ).left.value
+      .prettyPrint(0) should include("Unknown key")
   }
 
   behavior of "MetricsReporter"
@@ -312,14 +356,26 @@ class PureConfigReaderWriterSpec
 
   behavior of "MetricsConfig"
 
+  val validMetricsConfigValue =
+    """
+      |    enabled = false
+      |    reporter = console
+      |    registry-type = jvm-shared
+      |    reporting-interval = "10s"
+      |""".stripMargin
+
   it should "support current defaults" in {
-    val value = """
-     |    enabled = false
-     |    reporter = console
-     |    registry-type = jvm-shared
-     |    reporting-interval = "10s"
-     |""".stripMargin
-    convert(metricsConvert, value).value shouldBe MetricsConfig()
+    convert(metricsConvert, validMetricsConfigValue).value shouldBe MetricsConfig()
+  }
+
+  it should "not support additional invalid keys" in {
+    val value =
+      s"""
+        |    some-crap = yes
+        |    $validMetricsConfigValue
+        |""".stripMargin
+    convert(metricsConvert, value).left.value
+      .prettyPrint(0) should include("Unknown key")
   }
 
   behavior of "SecretsUrl"
@@ -381,13 +437,22 @@ class PureConfigReaderWriterSpec
 
   behavior of "userManagementConfig"
 
+  val validUserManagementConfigValue =
+    """
+      |  cache-expiry-after-write-in-seconds = 5
+      |  enabled = false
+      |  max-cache-size = 100
+      |  max-users-page-size = 1000""".stripMargin
+
   it should "support current defaults" in {
-    val value = """
-    |  cache-expiry-after-write-in-seconds = 5
-    |  enabled = false
-    |  max-cache-size = 100
-    |  max-users-page-size = 1000""".stripMargin
+    val value = validUserManagementConfigValue
     convert(userManagementConfigConvert, value).value shouldBe UserManagementConfig()
+  }
+
+  it should "not support invalid keys" in {
+    val value = "some-crap=yes\n" + validUserManagementConfigValue
+    convert(userManagementConfigConvert, value).left.value
+      .prettyPrint(0) should include("Unknown key")
   }
 
   it should "read/write against predefined values" in {
@@ -471,13 +536,21 @@ class PureConfigReaderWriterSpec
 
   behavior of "CommandConfiguration"
 
+  val validCommandConfigurationValue =
+    """
+      |  input-buffer-size = 512
+      |  max-commands-in-flight = 256
+      |  tracker-retention-period = "300 seconds"""".stripMargin
+
   it should "read/write against predefined values" in {
-    val value =
-      """
-     |  input-buffer-size = 512
-     |  max-commands-in-flight = 256
-     |  tracker-retention-period = "300 seconds"""".stripMargin
+    val value = validCommandConfigurationValue
     convert(commandConfigurationConvert, value).value shouldBe CommandConfiguration()
+  }
+
+  it should "not support additional unknown keys" in {
+    val value = "some-crap=yes\n" + validCommandConfigurationValue
+    convert(commandConfigurationConvert, value).left.value
+      .prettyPrint(0) should include("Unknown key")
   }
 
   behavior of "TimeProviderType"
