@@ -79,7 +79,6 @@ getSandboxProc SandboxConfig{..} portFile = do
         , [ "--client-auth=" <> clientAuthArg auth | Just auth <- [mbClientAuth] ]
         , [ "--auth-jwt-hs256-unsafe=" <> secret | Just secret <- [mbSharedSecret] ]
         , [ "--ledger-id=" <> ledgerId | Just ledgerId <- [mbLedgerId] ]
-        , [ "--implicit-party-allocation=true" ]
         ]
   where timeArg = case timeMode of
             WallClock -> Nothing
