@@ -43,6 +43,7 @@ private[inner] object VariantRecordMethods extends StrictLogging {
         fields,
         className,
         params,
+        "fromValue",
         FromValueGenerator.variantCheck(constructorName, _, _),
         packagePrefixes,
       )

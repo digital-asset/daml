@@ -73,10 +73,12 @@ private[inner] object FromValueGenerator extends StrictLogging {
       fields: Fields,
       className: TypeName,
       typeParameters: IndexedSeq[String],
+      methodName: String,
       recordValueExtractor: (String, String) => CodeBlock,
       packagePrefixes: Map[PackageId, String],
+      isPublic: Boolean = true,
   ): MethodSpec = {
-    logger.debug("Generating fromValue method")
+    logger.debug(s"Generating value decoder method $methodName")
 
     val converterParams = FromValueExtractorParameters
       .generate(typeParameters)
@@ -118,8 +120,8 @@ private[inner] object FromValueGenerator extends StrictLogging {
       )
 
     MethodSpec
-      .methodBuilder("fromValue")
-      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .methodBuilder(methodName)
+      .addModifiers(if (isPublic) Modifier.PUBLIC else Modifier.PRIVATE, Modifier.STATIC)
       .returns(ParameterizedTypeName.get(ClassName.get(classOf[FromValue[_]]), className))
       .addTypeVariables(className.typeParameters)
       .addParameters(converterParams.asJava)
@@ -131,11 +133,11 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .build()
   }
 
-  def generateFromValueForTemplate(
+  def generateContractCompanionValueDecoder(
       className: TypeName,
       typeParameters: IndexedSeq[String],
   ): MethodSpec = {
-    logger.debug("Generating fromValue method for template class")
+    logger.debug("Generating method for getting value decoder in template class")
     val converterParams = FromValueExtractorParameters
       .generate(typeParameters)
       .fromValueParameterSpecs

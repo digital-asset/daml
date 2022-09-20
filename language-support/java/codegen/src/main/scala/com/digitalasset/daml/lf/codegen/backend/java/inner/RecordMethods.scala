@@ -28,6 +28,7 @@ private[inner] object RecordMethods {
         fields,
         className.parameterized(typeParameters),
         params,
+        "fromValue",
         (inVar, outVar) =>
           CodeBlock.builder
             .addStatement(
