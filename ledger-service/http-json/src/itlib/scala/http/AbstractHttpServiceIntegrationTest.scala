@@ -180,6 +180,17 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       iouCreateCommand(amount = "444.44", currency = "BTC", partyName = party),
     )
 
+  protected def testLargeQueries = true
+
+  private implicit final class OraclePayloadIndexSupport(private val label: String) {
+
+    /** For Oracle, tested only if DisableContractPayloadIndexing=false; always
+      * tested for other configurations.
+      */
+    def onlyIfLargeQueries_-(fun: => Unit): Unit =
+      if (testLargeQueries) label - fun else ()
+  }
+
   "query GET" in withHttpService { fixture =>
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val searchDataSet = genSearchDataSet(alice)
@@ -377,24 +388,25 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }
   }
 
-  private[this] def randomTextN(n: Int) = {
-    import org.scalacheck.Gen
-    Gen
-      .buildableOfN[String, Char](n, Gen.alphaNumChar)
-      .sample
-      .getOrElse(sys.error(s"can't generate ${n}b string"))
-  }
+  "query record contains handles" onlyIfLargeQueries_- {
+    def randomTextN(n: Int) = {
+      import org.scalacheck.Gen
+      Gen
+        .buildableOfN[String, Char](n, Gen.alphaNumChar)
+        .sample
+        .getOrElse(sys.error(s"can't generate ${n}b string"))
+    }
 
-  Seq(
-    "& " -> "& bar",
-    "1kb of data" -> randomTextN(1000),
-    "2kb of data" -> randomTextN(2000),
-    "3kb of data" -> randomTextN(3000),
-    "4kb of data" -> randomTextN(4000),
-    "5kb of data" -> randomTextN(5000),
-  ).foreach { case (testLbl, testCurrency) =>
-    s"query record contains handles '$testLbl' strings properly" in withHttpService { fixture =>
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+    Seq(
+      "& " -> "& bar",
+      "1kb of data" -> randomTextN(1000),
+      "2kb of data" -> randomTextN(2000),
+      "3kb of data" -> randomTextN(3000),
+      "4kb of data" -> randomTextN(4000),
+      "5kb of data" -> randomTextN(5000),
+    ).foreach { case (testLbl, testCurrency) =>
+      s"'$testLbl' strings properly" in withHttpService { fixture =>
+        fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         searchExpectOk(
           genSearchDataSet(alice) :+ iouCreateCommand(
             currency = testCurrency,
@@ -409,6 +421,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           fields.get("currency") should ===(Some(JsString(testCurrency)))
         })
       }
+    }
     }
   }
 
