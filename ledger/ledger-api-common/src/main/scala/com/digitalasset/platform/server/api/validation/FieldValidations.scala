@@ -12,6 +12,7 @@ import com.daml.ledger.api.validation.ValidationErrors._
 import com.daml.ledger.participant.state.index.ResourceAnnotationValidation
 import com.daml.ledger.participant.state.index.ResourceAnnotationValidation.{
   AnnotationsSizeExceededError,
+  EmptyAnnotationsValueError,
   InvalidAnnotationsKeyError,
 }
 import com.daml.lf.crypto.Hash
@@ -218,10 +219,17 @@ object FieldValidations {
   ): Either[StatusRuntimeException, String] =
     Either.cond(s.isEmpty, s, invalidArgument(s"field $fieldName must be not set"))
 
-  def verifyMetadataAnnotations(annotations: Map[String, String], fieldName: String)(implicit
+  def verifyMetadataAnnotations(
+      annotations: Map[String, String],
+      allowEmptyValues: Boolean,
+      fieldName: String,
+  )(implicit
       errorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Map[String, String]] = {
-    ResourceAnnotationValidation.validateAnnotations(annotations) match {
+    ResourceAnnotationValidation.validateAnnotationsFromApiRequest(
+      annotations,
+      allowEmptyValues = allowEmptyValues,
+    ) match {
       case Left(AnnotationsSizeExceededError) =>
         Left(
           invalidArgument(
@@ -229,6 +237,7 @@ object FieldValidations {
           )
         )
       case Left(e: InvalidAnnotationsKeyError) => Left(invalidArgument(e.reason))
+      case Left(e: EmptyAnnotationsValueError) => Left(invalidArgument(e.reason))
       case Right(_) => Right(annotations)
     }
   }

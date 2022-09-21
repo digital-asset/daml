@@ -160,6 +160,7 @@ private[apiserver] final class ApiPartyManagementService private (
           )
           annotations <- verifyMetadataAnnotations(
             metadata.annotations,
+            allowEmptyValues = false,
             "party_details.local_metadata.annotations",
           )
           displayNameO <- FieldValidations.optionalString(request.displayName)(Right(_))
@@ -215,6 +216,7 @@ private[apiserver] final class ApiPartyManagementService private (
           )
           annotations <- verifyMetadataAnnotations(
             metadata.annotations,
+            allowEmptyValues = true,
             "party_details.local_metadata.annotations",
           )
           updateMask <- requirePresence(

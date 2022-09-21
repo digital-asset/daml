@@ -9,6 +9,7 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.v1.admin.user_management_service.{CreateUserRequest, CreateUserResponse}
 import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertEquals, _}
 
+// TODO um-for-hub: Consider making these common for user and parites
 trait UserManagementServiceAnnotationsValidationTests { self: UserManagementServiceIT =>
 
   private val maxAnnotationsSizeInBytes = 256 * 1024
@@ -34,8 +35,7 @@ trait UserManagementServiceAnnotationsValidationTests { self: UserManagementServ
             "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: annotations from field 'user.metadata.annotations' are larger than the limit of 256kb"
           ),
         )
-      create1 <- ledger.createUser(CreateUserRequest(Some(user2)))
-      _ = assertEquals(unsetResourceVersion(create1), CreateUserResponse(Some(user2)))
+      _ <- ledger.createUser(CreateUserRequest(Some(user2)))
       _ <- ledger.userManagement
         .updateUser(
           updateRequest(
@@ -53,6 +53,57 @@ trait UserManagementServiceAnnotationsValidationTests { self: UserManagementServ
         )
     } yield ()
   })
+
+  userManagementTestWithFreshUser(
+    "NotCountingRemovedKeysToTheSizeLimit",
+    "Do not count the keys that are to be deleted towards the annotations size limit",
+  )() { implicit ec => (ledger, user) =>
+    val largeString = "b" * (maxAnnotationsSizeInBytes - 1)
+    val anno1 = Map("a" -> largeString, "c" -> "d")
+    val anno2 = Map("a" -> largeString, "cc" -> "")
+    def getAnnotationsBytes(anno: Map[String, String]): Int = anno.iterator.map { case (k, v) =>
+      k.getBytes(StandardCharsets.UTF_8).length + v.getBytes(StandardCharsets.UTF_8).length
+    }.sum
+    assertEquals(
+      "comparing annotation sizes",
+      getAnnotationsBytes(anno1),
+      getAnnotationsBytes(anno2),
+    )
+    for {
+      _ <- ledger.userManagement
+        .updateUser(
+          updateRequest(
+            id = user.id,
+            annotations = anno1,
+            updatePaths = Seq("metadata"),
+          )
+        )
+        .mustFailWith(
+          "updating and exceeding annotations limit",
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+          Some(
+            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: annotations from field 'user.metadata.annotations' are larger than the limit of 256kb"
+          ),
+        )
+
+      _ <- ledger.userManagement
+        .updateUser(
+          updateRequest(
+            id = user.id,
+            annotations = anno2,
+            updatePaths = Seq("metadata"),
+          )
+        )
+        .map { updateResp =>
+          assertEquals(
+            "updating and not exceeding annotations limit because deletions are not counted towards the limit",
+            extractUpdatedAnnotations(updateResp),
+            Map("a" -> largeString),
+          )
+        }
+    } yield ()
+
+  }
 
   userManagementTest(
     "TestAnnotationsKeySyntax",

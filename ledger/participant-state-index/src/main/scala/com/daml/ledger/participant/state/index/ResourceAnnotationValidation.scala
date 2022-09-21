@@ -16,11 +16,19 @@ object ResourceAnnotationValidation {
   val MaxAnnotationsSizeInKiloBytes: Int = 256
   private val MaxAnnotationsSizeInBytes: Int = MaxAnnotationsSizeInKiloBytes * 1024
 
-  sealed trait MetadataAnnotationsError
-  case object AnnotationsSizeExceededError extends MetadataAnnotationsError {
-    val reason = s"Max annotations size of ${MaxAnnotationsSizeInKiloBytes}kb has been exceeded"
+  sealed trait MetadataAnnotationsError {
+    def reason: String
   }
-  final case class InvalidAnnotationsKeyError(reason: String) extends MetadataAnnotationsError
+  case object AnnotationsSizeExceededError extends MetadataAnnotationsError {
+    override val reason =
+      s"Max annotations size of ${MaxAnnotationsSizeInKiloBytes}kb has been exceeded"
+  }
+  final case class InvalidAnnotationsKeyError(override val reason: String)
+      extends MetadataAnnotationsError
+  final case class EmptyAnnotationsValueError(private val key: String)
+      extends MetadataAnnotationsError {
+    override val reason = s"The value of an annotation is empty for key: '${shorten(key)}'"
+  }
 
   /** @return a Left(actualSizeInBytes) in case of a failed validation
     */
@@ -33,14 +41,33 @@ object ResourceAnnotationValidation {
     totalSizeInBytes <= MaxAnnotationsSizeInBytes
   }
 
-  def validateAnnotations(
-      annotations: Map[String, String]
+  def validateAnnotationsFromApiRequest(
+      annotations: Map[String, String],
+      allowEmptyValues: Boolean,
   ): Either[MetadataAnnotationsError, Unit] = {
+    val nonEmptyValued = annotations.view.filter { case (_, value) => value.nonEmpty }.toMap
     for {
       _ <-
-        Either.cond(isWithinMaxAnnotationsByteSize(annotations), (), AnnotationsSizeExceededError)
+        Either.cond(
+          isWithinMaxAnnotationsByteSize(nonEmptyValued),
+          (),
+          AnnotationsSizeExceededError,
+        )
       _ <- validateAnnotationKeys(annotations)
+      _ <- if (allowEmptyValues) Right(()) else validateAnnotationsValues(annotations)
     } yield ()
+  }
+
+  private def validateAnnotationsValues(
+      annotations: Map[String, String]
+  ): Either[MetadataAnnotationsError, Unit] = {
+    annotations.view.iterator.foldLeft(Right(()): Either[MetadataAnnotationsError, Unit]) {
+      case (acc, (key, value)) =>
+        for {
+          _ <- acc
+          _ <- if (value.isEmpty) Left(EmptyAnnotationsValueError(key = key)) else Right(())
+        } yield ()
+    }
   }
 
   private def validateAnnotationKeys(

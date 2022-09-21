@@ -158,13 +158,15 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
         .left
         .value shouldBe UpdatePathError.UnknownFieldPath("some_unknown_field")
     }
-    "attempting to update resource version" in {
+    "specifying resource version in the update mask" in {
       UserUpdateMapper
         .toUpdate(user, FieldMask(Seq("metadata.resource_version")))
-        .left
-        .value shouldBe UpdatePathError.UnknownFieldPath(
-        "metadata.resource_version"
-      )
+        .value shouldBe emptyUserUpdate
+    }
+    "specifying id in the update mask" in {
+      UserUpdateMapper
+        .toUpdate(user, FieldMask(Seq("id")))
+        .value shouldBe emptyUserUpdate
     }
     "empty field mask" in {
       UserUpdateMapper

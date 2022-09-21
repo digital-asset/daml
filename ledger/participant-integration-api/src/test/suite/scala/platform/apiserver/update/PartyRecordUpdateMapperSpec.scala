@@ -61,9 +61,6 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
         .toUpdate(newResourceSet, FieldMask(Seq("local_metadata")))
         .value shouldBe makePartyDetailsUpdate(annotationsUpdateO = Some(Map("a" -> "b")))
       testedMapper
-        .toUpdate(newResourceSet, FieldMask(Seq("display_name")))
-        .value shouldBe makePartyDetailsUpdate(annotationsUpdateO = None)
-      testedMapper
         .toUpdate(newResourceUnset, FieldMask(Seq("local_metadata.annotations")))
         .value shouldBe makePartyDetailsUpdate(annotationsUpdateO = Some(Map.empty))
       testedMapper
@@ -77,9 +74,6 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
         .toUpdate(newResourceSet, FieldMask(Seq("display_name")))
         .value shouldBe makePartyDetailsUpdate(displayNameUpdate = Some(Some("displayName1")))
       testedMapper
-        .toUpdate(newResourceSet, FieldMask(Seq("is_local")))
-        .value shouldBe makePartyDetailsUpdate(displayNameUpdate = None)
-      testedMapper
         .toUpdate(newResourceUnset, FieldMask(Seq("display_name")))
         .value shouldBe makePartyDetailsUpdate(displayNameUpdate = Some(None))
     }
@@ -89,9 +83,6 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
       testedMapper
         .toUpdate(newResourceSet, FieldMask(Seq("is_local")))
         .value shouldBe makePartyDetailsUpdate(isLocalUpdate = Some(true))
-      testedMapper
-        .toUpdate(newResourceSet, FieldMask(Seq("display_name")))
-        .value shouldBe makePartyDetailsUpdate(isLocalUpdate = None)
       testedMapper
         .toUpdate(newResourceUnset, FieldMask(Seq("is_local")))
         .value shouldBe makePartyDetailsUpdate(isLocalUpdate = Some(false))
@@ -105,7 +96,7 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
       testedMapper
         .toUpdate(
           prWithoutAnnotations,
-          FieldMask(Seq("party_details.local_metadata.annotations")),
+          FieldMask(Seq("local_metadata.annotations")),
         )
         .value shouldBe makePartyDetailsUpdate(annotationsUpdateO = Some(Map.empty))
     }
@@ -184,12 +175,15 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
         "some_unknown_field"
       )
     }
-    "attempting to update resource version" in {
+    "specifying resource version in the update mask" in {
       testedMapper
         .toUpdate(pd, FieldMask(Seq("local_metadata.resource_version")))
-        .value shouldBe UpdatePathError.UnknownFieldPath(
-        "local_metadata.resource_version"
-      )
+        .value shouldBe emptyUpdate
+    }
+    "specifying party in the update mask" in {
+      testedMapper
+        .toUpdate(pd, FieldMask(Seq("party")))
+        .value shouldBe emptyUpdate
     }
     "empty field mask" in {
       testedMapper
@@ -199,16 +193,16 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
     }
     "update path with invalid field path syntax" in {
       testedMapper
-        .toUpdate(pd, FieldMask(Seq("party_details..local_metadata")))
+        .toUpdate(pd, FieldMask(Seq("..local_metadata")))
         .left
         .value shouldBe UpdatePathError.UnknownFieldPath(
-        "party_details..local_metadata"
+        "..local_metadata"
       )
       testedMapper
-        .toUpdate(pd, FieldMask(Seq(".party_details.local_metadata")))
+        .toUpdate(pd, FieldMask(Seq(".local_metadata")))
         .left
         .value shouldBe UpdatePathError.UnknownFieldPath(
-        ".party_details.local_metadata"
+        ".local_metadata"
       )
     }
     "multiple update paths with the same field path" in {
@@ -217,14 +211,14 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
           pd,
           FieldMask(
             Seq(
-              "party_details.local_metadata.annotations",
-              "party_details.local_metadata.annotations",
+              "local_metadata.annotations",
+              "local_metadata.annotations",
             )
           ),
         )
         .left
         .value shouldBe UpdatePathError.DuplicatedFieldPath(
-        "party_details.local_metadata.annotations"
+        "local_metadata.annotations"
       )
     }
   }

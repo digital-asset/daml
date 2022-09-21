@@ -124,6 +124,31 @@ final class PartyManagementServiceIT
     } yield ()
   })
 
+  test(
+    "PMFailToAllocateWhenAnnotationsHaveEmptyValues",
+    "Failing to allocate when annotations have empty values",
+    enabled = features => features.userAndPartyManagementExtensionsForHub,
+    partyAllocation = allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    for {
+      _ <- ledger
+        .allocateParty(
+          AllocatePartyRequest(
+            localMetadata = Some(
+              ObjectMeta(annotations = Map("key1" -> "val1", "key2" -> ""))
+            )
+          )
+        )
+        .mustFailWith(
+          "allocating a party",
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+          Some(
+            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: The value of an annotation is empty for key: 'key2'"
+          ),
+        )
+    } yield ()
+  })
+
   private val pMAllocateWithoutDisplayName = "PMAllocateWithoutDisplayName"
   test(
     pMAllocateWithoutDisplayName,

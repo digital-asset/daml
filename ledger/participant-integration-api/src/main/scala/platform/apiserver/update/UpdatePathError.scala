@@ -23,11 +23,6 @@ object UpdatePathError {
       s"The update path: '${shorten(rawUpdatePath)}' contains an unknown update modifier."
   }
 
-  final case class InvalidUpdatePathSyntax(rawUpdatePath: String) extends UpdatePathError {
-    override def getReason: String =
-      s"The update path: '${shorten(rawUpdatePath)}' has invalid syntax."
-  }
-
   final case class DuplicatedFieldPath(rawUpdatePath: String) extends UpdatePathError {
     override def getReason: String =
       s"The update path: '${shorten(rawUpdatePath)}' is duplicated."

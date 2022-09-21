@@ -16,7 +16,7 @@ trait UserManagementServiceUpdateAnnotationMapTests {
       .updateUser(
         updateRequest(
           id = user.id,
-          annotations = Map("k1" -> "v1a", "k3" -> "", "k4" -> "v4"),
+          annotations = Map("k1" -> "v1a", "k3" -> "", "k4" -> "v4", "k5" -> ""),
           updatePaths = Seq("metadata.annotations"),
         )
       )

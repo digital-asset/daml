@@ -111,7 +111,7 @@ trait UserManagementServiceInvalidUpdateRequestTests {
         "update with an unknown update path",
         errorCode = LedgerApiErrors.Admin.UserManagement.InvalidUpdateUserRequest,
         exceptionMessageSubstring = Some(
-          s"INVALID_ARGUMENT: INVALID_USER_UPDATE_REQUEST(8,0): Update operation for user id '${user.id}' failed due to: The update path: '' has invalid syntax."
+          s"INVALID_ARGUMENT: INVALID_USER_UPDATE_REQUEST(8,0): Update operation for user id '${user.id}' failed due to: The update path: '' points to an unknown field."
         ),
       )
   })

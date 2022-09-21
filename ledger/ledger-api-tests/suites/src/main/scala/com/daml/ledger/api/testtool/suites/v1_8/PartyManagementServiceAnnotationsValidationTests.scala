@@ -84,9 +84,28 @@ trait PartyManagementServiceAnnotationsValidationTests { self: PartyManagementSe
     for {
       create1 <- ledger.allocateParty(
         AllocatePartyRequest(localMetadata =
-          Some(ObjectMeta(annotations = Map("0-party.management.daml/foo" -> "")))
+          Some(ObjectMeta(annotations = Map("0-party.management.daml/foo" -> "a")))
         )
       )
+      _ <- ledger
+        .updatePartyDetails(
+          UpdatePartyDetailsRequest(
+            partyDetails = Some(
+              PartyDetails(
+                party = create1.partyDetails.get.party,
+                localMetadata = Some(ObjectMeta(annotations = Map(invalidKey -> "b"))),
+              )
+            ),
+            updateMask = Some(FieldMask(Seq("local_metadata.annotations"))),
+          )
+        )
+        .mustFailWith(
+          "bad annotations key syntax on a user update",
+          errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
+          exceptionMessageSubstring = Some(
+            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Key prefix segment '.party.management.daml' has invalid syntax"
+          ),
+        )
       _ <- ledger
         .updatePartyDetails(
           UpdatePartyDetailsRequest(
@@ -96,11 +115,11 @@ trait PartyManagementServiceAnnotationsValidationTests { self: PartyManagementSe
                 localMetadata = Some(ObjectMeta(annotations = Map(invalidKey -> ""))),
               )
             ),
-            updateMask = Some(FieldMask(Seq("party_details.local_metadata.annotations"))),
+            updateMask = Some(FieldMask(Seq("local_metadata.annotations"))),
           )
         )
         .mustFailWith(
-          "bad annotations key syntax on a user update",
+          "bad annotations key syntax even when deleting a key",
           errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
           exceptionMessageSubstring = Some(
             "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Key prefix segment '.party.management.daml' has invalid syntax"

@@ -75,6 +75,7 @@ private[apiserver] final class ApiUserManagementService(
           )
           pAnnotations <- verifyMetadataAnnotations(
             pMetadata.annotations,
+            allowEmptyValues = false,
             "user.metadata.annotations",
           )
           pOptPrimaryParty <- optionalString(pUser.primaryParty)(requireParty)
@@ -120,6 +121,7 @@ private[apiserver] final class ApiUserManagementService(
           )
           pAnnotations <- verifyMetadataAnnotations(
             pMetadata.annotations,
+            allowEmptyValues = true,
             "user.metadata.annotations",
           )
         } yield (

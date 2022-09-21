@@ -424,6 +424,28 @@ final class UserManagementServiceIT
   })
 
   userManagementTest(
+    "TestFailCreatingUserWhenAnnotationsValueIsEmpty",
+    "Failing to create a user when an annotations value is empty",
+  )(implicit ec => { implicit ledger =>
+    val userId1 = ledger.nextUserId()
+    for {
+      _ <- ledger
+        .createUser(
+          CreateUserRequest(
+            Some(newUser(id = userId1, annotations = Map("k1" -> "v1", "k2" -> "")))
+          )
+        )
+        .mustFailWith(
+          "allocating a user",
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+          Some(
+            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: The value of an annotation is empty for key: 'k2'"
+          ),
+        )
+    } yield ()
+  })
+
+  userManagementTest(
     "TestGetUser",
     "Exercise GetUser rpc",
   )(implicit ec => { implicit ledger =>
