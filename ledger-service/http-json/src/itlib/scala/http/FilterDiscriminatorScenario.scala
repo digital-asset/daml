@@ -10,7 +10,7 @@ import spray.json.JsValue
   */
 class FilterDiscriminatorScenario[Inj](
     val label: String,
-    val ctId: domain.ContractTypeId.OptionalPkg,
+    val ctId: domain.TemplateId.OptionalPkg,
     val va: VA.Aux[Inj],
     val query: Map[String, JsValue],
     val matches: domain.Party => Inj,
@@ -20,7 +20,7 @@ class FilterDiscriminatorScenario[Inj](
 object FilterDiscriminatorScenario {
   def Scenario(
       label: String,
-      ctId: domain.ContractTypeId.OptionalPkg,
+      ctId: domain.TemplateId.OptionalPkg,
       va: VA,
       query: Map[String, JsValue],
   )(
