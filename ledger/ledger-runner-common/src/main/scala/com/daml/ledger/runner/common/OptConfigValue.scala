@@ -42,7 +42,7 @@ object OptConfigValue {
             // has `enabled` inside, it cannot be supported by this writer
             case configObject: ConfigObject if configObject.toConfig.hasPath(enabledKey) =>
               throw new IllegalArgumentException(
-                "Ambiguous configuration, object contains `enabled` flag"
+                s"Ambiguous configuration, object contains `${enabledKey}` flag"
               )
             case _ =>
               writer.to(value).withFallback(toConfigValue(enabled = true))
@@ -73,7 +73,7 @@ object OptConfigValue {
       None
     else {
       val unknownKeys = cursor.map.toList.collect {
-        case (k, keyCur) if !usedFields.contains(k) && k != "enabled" =>
+        case (k, keyCur) if !usedFields.contains(k) && k != enabledKey =>
           keyCur.failureFor(UnknownKey(k))
       }
       unknownKeys match {
