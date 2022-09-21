@@ -399,7 +399,8 @@ trait AbstractHttpServiceIntegrationTestFuns
     }
     object Account {
       val Account: Id = domain.TemplateId(None, "Account", "Account")
-      val KeyedByVariantAndRecord: Id = domain.TemplateId(None, "Account", "KeyedByVariantAndRecord")
+      val KeyedByVariantAndRecord: Id =
+        domain.TemplateId(None, "Account", "KeyedByVariantAndRecord")
     }
     object User {
       val User: Id = domain.TemplateId(None, "User", "User")

@@ -407,21 +407,21 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     ).foreach { case (testLbl, testCurrency) =>
       s"'$testLbl' strings properly" in withHttpService { fixture =>
         fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        searchExpectOk(
-          genSearchDataSet(alice) :+ iouCreateCommand(
-            currency = testCurrency,
-            partyName = alice,
-          ),
-          jsObject(
-            s"""{"templateIds": ["Iou:Iou"], "query": {"currency": ${testCurrency.toJson}}}"""
-          ),
-          fixture,
-          headers,
-        ).map(inside(_) { case Seq(domain.ActiveContract(_, _, _, JsObject(fields), _, _, _)) =>
-          fields.get("currency") should ===(Some(JsString(testCurrency)))
-        })
+          searchExpectOk(
+            genSearchDataSet(alice) :+ iouCreateCommand(
+              currency = testCurrency,
+              partyName = alice,
+            ),
+            jsObject(
+              s"""{"templateIds": ["Iou:Iou"], "query": {"currency": ${testCurrency.toJson}}}"""
+            ),
+            fixture,
+            headers,
+          ).map(inside(_) { case Seq(domain.ActiveContract(_, _, _, JsObject(fields), _, _, _)) =>
+            fields.get("currency") should ===(Some(JsString(testCurrency)))
+          })
+        }
       }
-    }
     }
   }
 
