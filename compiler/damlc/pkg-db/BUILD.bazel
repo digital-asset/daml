@@ -38,6 +38,7 @@ daml_package_db(
         pkg_name = "daml-stdlib",
         pkg_root = "compiler/damlc/daml-stdlib-src",
         visibility = ["//visibility:public"],
+        disable_warn_large_tuples = True,
     )
     for ver in COMPILER_LF_VERSIONS
 ]
