@@ -262,17 +262,17 @@ generateRawDalfRule =
                     -- Generate the map from package names to package hashes
                     PackageMap pkgMap <- use_ GeneratePackageMap file
                     stablePkgs <- useNoFile_ GenerateStablePackages
-                    DamlEnv{envEnableScenarios} <- getDamlServiceEnv
+                    DamlEnv{envEnableScenarios, envAllowLargeTuples} <- getDamlServiceEnv
                     modIface <- hm_iface . tmrModInfo <$> use_ TypeCheck file
                     -- GHC Core to Daml-LF
-                    case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
+                    case convertModule lfVersion envEnableScenarios envAllowLargeTuples pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
                         Left e -> return ([e], Nothing)
-                        Right v -> do
+                        Right (v, conversionWarnings) -> do
                             WhnfPackage pkg <- use_ GeneratePackageDeps file
                             pkgs <- getExternalPackages file
                             let world = LF.initWorldSelf pkgs pkg
                                 simplified = LF.simplifyModule world lfVersion v
-                            return ([], Just simplified)
+                            return (conversionWarnings, Just simplified)
 
 getExternalPackages :: NormalizedFilePath -> Action [LF.ExternalPackage]
 getExternalPackages file = do
@@ -413,13 +413,13 @@ generateSerializedDalfRule options =
                             -- lf conversion
                             PackageMap pkgMap <- use_ GeneratePackageMap file
                             stablePkgs <- useNoFile_ GenerateStablePackages
-                            DamlEnv{envEnableScenarios} <- getDamlServiceEnv
+                            DamlEnv{envEnableScenarios, envAllowLargeTuples} <- getDamlServiceEnv
                             let modInfo = tmrModInfo tm
                                 details = hm_details modInfo
                                 modIface = hm_iface modInfo
-                            case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
+                            case convertModule lfVersion envEnableScenarios envAllowLargeTuples pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
                                 Left e -> pure ([e], Nothing)
-                                Right rawDalf -> do
+                                Right (rawDalf, conversionWarnings) -> do
                                     -- LF postprocessing
                                     pkgs <- getExternalPackages file
                                     let selfPkg = buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps
@@ -431,10 +431,10 @@ generateSerializedDalfRule options =
                                         -- changes without a corresponding ABI change, we would end up with an outdated
                                         -- implementation.
                                     case Serializability.inferModule world lfVersion simplified of
-                                        Left err -> pure ([ideErrorPretty file err], Nothing)
+                                        Left err -> pure (conversionWarnings ++ [ideErrorPretty file err], Nothing)
                                         Right dalf -> do
                                             let (diags, checkResult) = diagsToIdeResult file $ LF.checkModule world lfVersion dalf
-                                            fmap (diags,) $ case checkResult of
+                                            fmap (conversionWarnings ++ diags,) $ case checkResult of
                                                 Nothing -> pure Nothing
                                                 Just () -> do
                                                     writeDalfFile (dalfFileName file) dalf
