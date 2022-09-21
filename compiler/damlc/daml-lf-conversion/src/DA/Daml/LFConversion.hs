@@ -1976,12 +1976,7 @@ splitConArgs_maybe con args = do
 convertDataCon :: Env -> GHC.Module -> DataCon -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])
 convertDataCon env m con args
     | AllowLargeTuples False <- envAllowLargeTuples env
-    , NameIn GHC_Tuple fsName <- con
-    , let name = unpackFS fsName
-    -- TODO: A better way to detect uses of tuples than this string malarkey
-    , let (front, middle, end) = (head name, init (tail name), last name)
-    , front == '(', end == ')', nub middle == ","
-    , length middle >= 5
+    , IsTuple arity <- con, arity > 5
     = do
         conversionWarning "Used tuple of size > 5! Daml only has Show, Eq, Ord instances for tuples of size <= 5."
         let env' = env { envAllowLargeTuples = AllowLargeTuples True }
