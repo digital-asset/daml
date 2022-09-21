@@ -42,7 +42,7 @@ message ObjectMeta {
   //    - key prefix, when present, must be a valid DNS subdomain with at most 253 characters, followed by a '/' (forward slash) character,
   //    - name segment must have at most 63 characters that are either alphanumeric ([a-z0-9A-Z]), or a '.' (dot), '-' (dash) or '_' (underscore);
   //      and it must start and end with an alphanumeric character.
-  // 2. Values can be any valid strings.
+  // 2. Values can be any non-empty strings.
   //
   // Keys with empty prefix are reserved for end-users.
   // Properties set by external tools or internally by the participant server must use non-empty key prefixes.
@@ -51,7 +51,9 @@ message ObjectMeta {
   // See: https://developers.google.com/protocol-buffers/docs/proto3#maps
   //
   // Annotations may be a part of a modifiable resource.
-  // Refer to the documentation of the update RPC of a specific resource for details on how to update the annotations of that resource.
+  // Use the resource's update RPC to update its annotations.
+  // In order to add a new annotation or update an existing one using an update RPC, provide the desired annotation in the update request.
+  // In order to remove an annotation using an update RPC, provide the target annotation's key but set its value to the empty string in the update request.
   //
   // Optional
   // Modifiable

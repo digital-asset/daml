@@ -155,27 +155,19 @@ message UpdatePartyDetailsRequest {
   // An update mask specifies haw and which properties of the ``PartyDetails`` message are to be updated.
   //
   // An update mask consists of a set of update paths.
-  // An update path consists of a field path and an optional update modifier delimited by the '!' character.
-  //
-  // There are two valid update modifiers:
-  // (1) ``replace`` - replaces the current value with the new value specified in the request,
-  // (2) ``merge`` - merges the current value with the new non-default value specified in the request.
-  // The update modifier can be omitted and the default behavior is:
-  // - equivalent to the ``merge`` modifier when the update path points to a sub-message field,
-  // - equivalent to the ``merge`` modifier when the update path points to a non sub-message field, except
-  //   when the new value is the default value and then it is equivalent to the ``replace`` modifier.
-  //
+  // A valid update path points to a field or a subfield relative to the ``PartyDetails`` message.
   // A valid update mask must:
   // - contain at least one update path,
   // - contain only valid update paths.
-  // A valid update path must:
-  // - must point to a modifiable field,
-  // - use a valid update modifier or omit it altogether,
-  // - together with the new value provided in the request, must resolve in a non-empty update specification.
-  // An example of an empty update specification is an update path with the explicit ``merge`` modifier
-  // if the new value is the default value for the specified field.
   //
-  // Examples of update paths: 'party_details.local_metadata.annotations', 'party_details.local_metadata!replace', 'party_details!merge'.
+  // Fields that can be updated are marked as ``Modifiable``.
+  // An update path can also point to non-``Modifiable`` fields such as 'party' and 'local_metadata.resource_version'
+  // because they are used, respectively, 1) to identify the party details resource
+  // subject to the update and 2) for concurrent change control.
+  // An update path can also point to non-``Modifiable`` fields such as 'is_local' and 'display_name'
+  // as long as the values provided in the update request match the server values.
+  //
+  // Examples of update paths: 'local_metadata.annotations', 'local_metadata'.
   //
   // For additional information see the documentation for standard protobuf3's ``google.protobuf.FieldMask``.
   // For similar Ledger API see ``com.daml.ledger.api.v1.admin.UpdateUserRequest``.
