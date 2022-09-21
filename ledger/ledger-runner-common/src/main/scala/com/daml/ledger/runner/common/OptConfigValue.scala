@@ -32,7 +32,7 @@ object OptConfigValue {
   def optWriterEnabled[T](writer: ConfigWriter[T]): ConfigWriter[Option[T]] = {
     import scala.jdk.CollectionConverters._
     def toConfigValue(enabled: Boolean) =
-      ConfigValueFactory.fromMap(Map("enabled" -> enabled).asJava)
+      ConfigValueFactory.fromMap(Map(enabledKey -> enabled).asJava)
 
     (optValue: Option[T]) =>
       optValue match {
