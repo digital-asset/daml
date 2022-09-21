@@ -2131,19 +2131,16 @@ private[lf] object SBuiltin {
     ): Control = {
       val cachedContract = extractCachedContract(machine, args.get(0))
       val templateId = cachedContract.templateId
-      val optError = for {
+      val optError: Option[Either[IE, Unit]] = for {
         keyWithMaintainers <- cachedContract.key
       } yield {
         for {
           keyHash <- crypto.Hash
             .hashContractKey(templateId, keyWithMaintainers.key)
-            .fold(
-              msg => Left(IE.DisclosedContractKeyHashingError(contractId, templateId, msg)),
-              Right(_),
-            )
+            .left
+            .map(msg => IE.DisclosedContractKeyHashingError(contractId, templateId, msg))
           result <- onLedger.disclosureKeyTable
             .addContractKey(templateId, keyHash, contractId)
-            .toLeft(())
         } yield result
       }
 
