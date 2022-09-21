@@ -13,12 +13,12 @@ import com.daml.lf.speedy.ClosureConversion.closureConvert
 import com.daml.lf.speedy.PhaseOne.{Env, Position}
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
+import com.daml.lf.speedy.SExpr.{ContractKeyWithMaintainersDefRef, ToCachedContractDefRef}
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{SExpr => t} // target expressions
-import com.daml.lf.speedy.{SExpr0 => s} // source expressions
+import com.daml.lf.speedy.{SExpr => t}
+import com.daml.lf.speedy.{SExpr0 => s}
 import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.scalautil.Statement.discard
-
 import org.slf4j.LoggerFactory
 
 import scala.annotation.nowarn
@@ -125,6 +125,14 @@ private[lf] final class Compiler(
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompile(cmds: ImmArray[Command]): t.SExpr = compileCommands(cmds)
+
+  @throws[PackageNotFound]
+  @throws[CompilationError]
+  def unsafeCompileWithContractDisclosures(
+      compiledCommands: t.SExpr,
+      disclosures: ImmArray[DisclosedContract],
+  ): t.SExpr =
+    compileWithContractDisclosures(compiledCommands, disclosures)
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -296,6 +304,20 @@ private[lf] final class Compiler(
 
   private[this] def compileCommands(cmds: ImmArray[Command]): t.SExpr =
     pipeline(translateCommands(Env.Empty, cmds))
+
+  private[this] def compileWithContractDisclosures(
+      sexpr: t.SExpr,
+      disclosures: ImmArray[DisclosedContract],
+  ): t.SExpr = {
+    val disclosureLambda = pipeline(
+      translateContractDisclosureLambda(Env.Empty, disclosures)
+    )
+
+    t.SELet1(
+      t.SEApp(disclosureLambda, Array(t.SEValue(SValue.Unit))),
+      sexpr,
+    )
+  }
 
   private[this] def compileCommandForReinterpretation(cmd: Command): t.SExpr =
     pipeline(translateCommandForReinterpretation(cmd))
@@ -996,4 +1018,93 @@ private[lf] final class Compiler(
           }
         }
     }
+
+  private[this] def translateDisclosedContract(
+      env: Env,
+      disclosedContract: DisclosedContract,
+  ): s.SExpr = {
+    val templateId = disclosedContract.templateId
+
+    let(env, s.SEApp(s.SEBuiltin(SBCheckTemplate(templateId)), List(s.SEValue.Unit))) {
+      (templateCheck, env) =>
+        s.SECase(
+          env.toSEVar(templateCheck),
+          List(
+            s.SCaseAlt(
+              t.SCPPrimCon(PCTrue),
+              let(env, s.SEApp(s.SEBuiltin(SBCheckTemplateKey(templateId)), List(s.SEValue.Unit))) {
+                (templateKeyCheck, env) =>
+                  val contract = s.SEValue(disclosedContract.argument)
+
+                  s.SECase(
+                    env.toSEVar(templateKeyCheck),
+                    List(
+                      s.SCaseAlt(
+                        t.SCPPrimCon(PCTrue),
+                        let(
+                          env,
+                          s.SEApp(
+                            s.SEVal(ContractKeyWithMaintainersDefRef(templateId)),
+                            List(contract),
+                          ),
+                        ) { (contractPos, env) =>
+                          let(env, s.SEApp(s.SEBuiltin(SBSome), List(env.toSEVar(contractPos)))) {
+                            (optionalContractPos, env) =>
+                              s.SEApp(
+                                s.SEVal(ToCachedContractDefRef(templateId)),
+                                List(contract, env.toSEVar(optionalContractPos)),
+                              )
+                          }
+                        },
+                      ),
+                      s.SCaseAlt(
+                        t.SCPDefault,
+                        s.SEApp(
+                          s.SEVal(ToCachedContractDefRef(templateId)),
+                          List(contract, s.SEValue.None),
+                        ),
+                      ),
+                    ),
+                  )
+              },
+            ),
+            s.SCaseAlt(
+              t.SCPDefault,
+              s.SEApp(
+                s.SEBuiltin(SBCrash(s"Template $templateId does not exist and it should")),
+                List(s.SEValue.Unit),
+              ),
+            ),
+          ),
+        )
+    }
+  }
+
+  private[this] def translateContractDisclosureLambda(
+      env: Env,
+      disclosures: ImmArray[DisclosedContract],
+  ): s.SExpr = {
+    // The next free environment variable will be the bound variable in the contract disclosure lambda
+    val baseIndex = env.nextPosition.idx
+
+    s.SEAbs(
+      1,
+      s.SELet(
+        disclosures.toList.zipWithIndex.flatMap { case (disclosedContract, offset) =>
+          // Let bounded variables occur after the contract disclosure bound variable - hence baseIndex+1
+          // For each disclosed contract, we add 2 members to our let bounded list - hence 2*offset
+          val contractIndex = baseIndex + 2 * offset + 1
+
+          List(
+            translateDisclosedContract(env.copy(contractIndex), disclosedContract),
+            app(
+              s.SEBuiltin(SBCacheDisclosedContract(disclosedContract.contractId.value)),
+              s.SEVarLevel(contractIndex),
+            ),
+          )
+        },
+        s.SEVarLevel(baseIndex),
+      ),
+    )
+  }
 }
