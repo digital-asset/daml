@@ -217,9 +217,9 @@ private[lf] object Speedy {
         templateId: TypeConName,
         keyHash: crypto.Hash,
         contractId: V.ContractId,
-    ): Option[IError] = {
+    ): Either[IError, Unit] = {
       if (keyMap.contains(keyHash)) {
-        Some(
+        Left(
           IError.DisclosurePreprocessing(
             IError.DisclosurePreprocessing.DuplicateContractKeys(
               templateId,
@@ -229,7 +229,7 @@ private[lf] object Speedy {
         )
       } else {
         keyMap.update(keyHash, SValue.SContractId(contractId))
-        None
+        Right(())
       }
     }
 

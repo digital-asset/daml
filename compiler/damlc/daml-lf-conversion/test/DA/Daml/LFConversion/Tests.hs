@@ -311,7 +311,7 @@ bignumericTests = testGroup "BigNumeric"
       let result = convertLiteral r
       whenRight result $ \_ ->
         assertFailure $ "Expected " <> show r <> " to be an invalid BigNumeric literal but conversion succeeeded"
-    convertLiteral :: Rational -> Either FileDiagnostic LF.Expr
+    convertLiteral :: Rational -> Either FileDiagnostic (LF.Expr, [FileDiagnostic])
     convertLiteral r =
         let dummyEnv = ConversionEnv
               { convModuleFilePath = toNormalizedFilePath' ""

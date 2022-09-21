@@ -10,6 +10,7 @@ import Data.Foldable
 import Data.List.Extra
 import Numeric.Natural
 import Options.Applicative.Extended
+import Options.Applicative
 import System.Environment
 import System.Exit
 import System.IO.Extra

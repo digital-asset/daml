@@ -165,6 +165,17 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       iouCreateCommand(amount = "444.44", currency = "BTC", partyName = party),
     )
 
+  protected def testLargeQueries = true
+
+  private implicit final class OraclePayloadIndexSupport(private val label: String) {
+
+    /** For Oracle, tested only if DisableContractPayloadIndexing=false; always
+      * tested for other configurations.
+      */
+    def onlyIfLargeQueries_-(fun: => Unit): Unit =
+      if (testLargeQueries) label - fun else ()
+  }
+
   "query GET" - {
     "empty results" in withHttpService { fixture =>
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (_, headers) =>
@@ -358,7 +369,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }
   }
 
-  "query record contains handles" - {
+  "query record contains handles" onlyIfLargeQueries_- {
     def randomTextN(n: Int) = {
       import org.scalacheck.Gen
       Gen
@@ -513,6 +524,80 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
                 ac.contractId shouldBe contractId
               })
         }): Future[Assertion]
+      }
+    }
+
+    "nested comparison filters" onlyIfLargeQueries_- {
+      import shapeless.Coproduct, shapeless.syntax.singleton._
+      val irrelevant = Ref.Identifier assertFromString "none:Discarded:Identifier"
+      val (_, bazRecordVA) = VA.record(irrelevant, ShRecord(baz = VA.text))
+      val (_, fooVA) =
+        VA.variant(irrelevant, ShRecord(Bar = VA.int64, Baz = bazRecordVA, Qux = VA.unit))
+      val fooVariant = Coproduct[fooVA.Inj]
+      val (_, kbvarVA) = VA.record(
+        irrelevant,
+        ShRecord(
+          name = VA.text,
+          party = VAx.partyDomain,
+          age = VA.int64,
+          fooVariant = fooVA,
+          bazRecord = bazRecordVA,
+        ),
+      )
+
+      def withBazRecord(bazRecord: VA.text.Inj)(p: domain.Party): kbvarVA.Inj =
+        ShRecord(
+          name = "ABC DEF",
+          party = p,
+          age = 123L,
+          fooVariant = fooVariant(Symbol("Bar") ->> 42L),
+          bazRecord = ShRecord(baz = bazRecord),
+        )
+
+      def withFooVariant(v: VA.int64.Inj)(p: domain.Party): kbvarVA.Inj =
+        ShRecord(
+          name = "ABC DEF",
+          party = p,
+          age = 123L,
+          fooVariant = fooVariant(Symbol("Bar") ->> v),
+          bazRecord = ShRecord(baz = "another baz value"),
+        )
+
+      val kbvarId = TpId.Account.KeyedByVariantAndRecord
+      import FilterDiscriminatorScenario.Scenario
+      Seq(
+        Scenario(
+          "gt string",
+          kbvarId,
+          kbvarVA,
+          Map("bazRecord" -> Map("baz" -> Map("%gt" -> "b")).toJson),
+        )(
+          withBazRecord("c"),
+          withBazRecord("a"),
+        ),
+        Scenario(
+          "gt int",
+          kbvarId,
+          kbvarVA,
+          Map("fooVariant" -> Map("tag" -> "Bar".toJson, "value" -> Map("%gt" -> 2).toJson).toJson),
+        )(withFooVariant(3), withFooVariant(1)),
+      ).zipWithIndex.foreach { case (scenario, ix) =>
+        import scenario._
+        s"$label (scenario $ix)" in withHttpService { fixture =>
+          for {
+            (alice, headers) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+            contracts <- searchExpectOk(
+              List(matches, doesNotMatch).map { payload =>
+                domain.CreateCommand(ctId, argToApi(va)(payload(alice)), None)
+              },
+              JsObject(Map("templateIds" -> Seq(ctId).toJson, "query" -> query.toJson)),
+              fixture,
+              headers,
+            )
+          } yield contracts.map(_.payload) should contain theSameElementsAs Seq(
+            LfValueCodec.apiValueToJsValue(va.inj(matches(alice)))
+          )
+        }
       }
     }
   }
