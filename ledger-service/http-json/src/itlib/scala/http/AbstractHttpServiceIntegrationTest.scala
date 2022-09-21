@@ -180,6 +180,17 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       iouCreateCommand(amount = "444.44", currency = "BTC", partyName = party),
     )
 
+  protected def testLargeQueries = true
+
+  private implicit final class OraclePayloadIndexSupport(private val label: String) {
+
+    /** For Oracle, tested only if DisableContractPayloadIndexing=false; always
+      * tested for other configurations.
+      */
+    def onlyIfLargeQueries_-(fun: => Unit): Unit =
+      if (testLargeQueries) label - fun else ()
+  }
+
   "query GET" in withHttpService { fixture =>
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val searchDataSet = genSearchDataSet(alice)
@@ -377,37 +388,39 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }
   }
 
-  private[this] def randomTextN(n: Int) = {
-    import org.scalacheck.Gen
-    Gen
-      .buildableOfN[String, Char](n, Gen.alphaNumChar)
-      .sample
-      .getOrElse(sys.error(s"can't generate ${n}b string"))
-  }
+  "query record contains handles" onlyIfLargeQueries_- {
+    def randomTextN(n: Int) = {
+      import org.scalacheck.Gen
+      Gen
+        .buildableOfN[String, Char](n, Gen.alphaNumChar)
+        .sample
+        .getOrElse(sys.error(s"can't generate ${n}b string"))
+    }
 
-  Seq(
-    "& " -> "& bar",
-    "1kb of data" -> randomTextN(1000),
-    "2kb of data" -> randomTextN(2000),
-    "3kb of data" -> randomTextN(3000),
-    "4kb of data" -> randomTextN(4000),
-    "5kb of data" -> randomTextN(5000),
-  ).foreach { case (testLbl, testCurrency) =>
-    s"query record contains handles '$testLbl' strings properly" in withHttpService { fixture =>
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        searchExpectOk(
-          genSearchDataSet(alice) :+ iouCreateCommand(
-            currency = testCurrency,
-            partyName = alice,
-          ),
-          jsObject(
-            s"""{"templateIds": ["Iou:Iou"], "query": {"currency": ${testCurrency.toJson}}}"""
-          ),
-          fixture,
-          headers,
-        ).map(inside(_) { case Seq(domain.ActiveContract(_, _, _, JsObject(fields), _, _, _)) =>
-          fields.get("currency") should ===(Some(JsString(testCurrency)))
-        })
+    Seq(
+      "& " -> "& bar",
+      "1kb of data" -> randomTextN(1000),
+      "2kb of data" -> randomTextN(2000),
+      "3kb of data" -> randomTextN(3000),
+      "4kb of data" -> randomTextN(4000),
+      "5kb of data" -> randomTextN(5000),
+    ).foreach { case (testLbl, testCurrency) =>
+      s"'$testLbl' strings properly" in withHttpService { fixture =>
+        fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+          searchExpectOk(
+            genSearchDataSet(alice) :+ iouCreateCommand(
+              currency = testCurrency,
+              partyName = alice,
+            ),
+            jsObject(
+              s"""{"templateIds": ["Iou:Iou"], "query": {"currency": ${testCurrency.toJson}}}"""
+            ),
+            fixture,
+            headers,
+          ).map(inside(_) { case Seq(domain.ActiveContract(_, _, _, JsObject(fields), _, _, _)) =>
+            fields.get("currency") should ===(Some(JsString(testCurrency)))
+          })
+        }
       }
     }
   }
@@ -442,6 +455,80 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         headers,
       ).map { acl: List[domain.ActiveContract[JsValue]] =>
         acl.size shouldBe 0
+      }
+    }
+  }
+
+  "nested comparison filters" onlyIfLargeQueries_- {
+    import shapeless.Coproduct, shapeless.syntax.singleton._
+    val irrelevant = Ref.Identifier assertFromString "none:Discarded:Identifier"
+    val (_, bazRecordVA) = VA.record(irrelevant, ShRecord(baz = VA.text))
+    val (_, fooVA) =
+      VA.variant(irrelevant, ShRecord(Bar = VA.int64, Baz = bazRecordVA, Qux = VA.unit))
+    val fooVariant = Coproduct[fooVA.Inj]
+    val (_, kbvarVA) = VA.record(
+      irrelevant,
+      ShRecord(
+        name = VA.text,
+        party = VAx.partyDomain,
+        age = VA.int64,
+        fooVariant = fooVA,
+        bazRecord = bazRecordVA,
+      ),
+    )
+
+    def withBazRecord(bazRecord: VA.text.Inj)(p: domain.Party): kbvarVA.Inj =
+      ShRecord(
+        name = "ABC DEF",
+        party = p,
+        age = 123L,
+        fooVariant = fooVariant(Symbol("Bar") ->> 42L),
+        bazRecord = ShRecord(baz = bazRecord),
+      )
+
+    def withFooVariant(v: VA.int64.Inj)(p: domain.Party): kbvarVA.Inj =
+      ShRecord(
+        name = "ABC DEF",
+        party = p,
+        age = 123L,
+        fooVariant = fooVariant(Symbol("Bar") ->> v),
+        bazRecord = ShRecord(baz = "another baz value"),
+      )
+
+    val kbvarId = TpId.Account.KeyedByVariantAndRecord
+    import FilterDiscriminatorScenario.Scenario
+    Seq(
+      Scenario(
+        "gt string",
+        kbvarId,
+        kbvarVA,
+        Map("bazRecord" -> Map("baz" -> Map("%gt" -> "b")).toJson),
+      )(
+        withBazRecord("c"),
+        withBazRecord("a"),
+      ),
+      Scenario(
+        "gt int",
+        kbvarId,
+        kbvarVA,
+        Map("fooVariant" -> Map("tag" -> "Bar".toJson, "value" -> Map("%gt" -> 2).toJson).toJson),
+      )(withFooVariant(3), withFooVariant(1)),
+    ).zipWithIndex.foreach { case (scenario, ix) =>
+      import scenario._
+      s"$label (scenario $ix)" in withHttpService { fixture =>
+        for {
+          (alice, headers) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+          contracts <- searchExpectOk(
+            List(matches, doesNotMatch).map { payload =>
+              domain.CreateCommand(ctId, argToApi(va)(payload(alice)), None)
+            },
+            JsObject(Map("templateIds" -> Seq(ctId).toJson, "query" -> query.toJson)),
+            fixture,
+            headers,
+          )
+        } yield contracts.map(_.payload) should contain theSameElementsAs Seq(
+          LfValueCodec.apiValueToJsValue(va.inj(matches(alice)))
+        )
       }
     }
   }

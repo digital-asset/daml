@@ -3,15 +3,11 @@
 
 package com.daml.http
 
-abstract class HttpServiceWithOracleIntTest
+abstract class HttpServiceWithOracleIntTest(override val disableContractPayloadIndexing: Boolean)
     extends AbstractHttpServiceIntegrationTestTokenIndependent
     with HttpServiceOracleInt {
 
-  // XXX SC in reality, the only tests that need this to be true are "1kb of
-  // data" &c.  That would entail splitting up
-  // AbstractHttpServiceIntegrationTest a little; it's also possible we want to
-  // run _all tests in both modes_.
-  override def disableContractPayloadIndexing = true
+  override final def testLargeQueries = disableContractPayloadIndexing
 
   override def staticContentConfig: Option[StaticContentConfig] = None
 
@@ -19,5 +15,9 @@ abstract class HttpServiceWithOracleIntTest
 }
 
 final class HttpServiceWithOracleIntTestCustomToken
-    extends HttpServiceWithOracleIntTest
+    extends HttpServiceWithOracleIntTest(disableContractPayloadIndexing = false)
+    with AbstractHttpServiceIntegrationTestFunsCustomToken
+
+final class HttpServiceWithOracleIntTestNoPayloadIndexCustomToken
+    extends HttpServiceWithOracleIntTest(disableContractPayloadIndexing = true)
     with AbstractHttpServiceIntegrationTestFunsCustomToken

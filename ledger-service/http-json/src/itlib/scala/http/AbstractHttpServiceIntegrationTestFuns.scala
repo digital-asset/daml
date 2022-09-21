@@ -85,6 +85,8 @@ object AbstractHttpServiceIntegrationTestFuns {
 
     // nest assertFromString into arbitrary VA structures
     val partyStr: VA.Aux[String] = VA.party.xmap(identity[String])(Ref.Party.assertFromString)
+
+    val partyDomain: VA.Aux[domain.Party] = domain.Party.subst[VA.Aux, String](partyStr)
   }
 
   private[http] trait UriFixture {
@@ -399,6 +401,8 @@ trait AbstractHttpServiceIntegrationTestFuns
     }
     object Account {
       val Account: Id = domain.TemplateId(None, "Account", "Account")
+      val KeyedByVariantAndRecord: Id =
+        domain.TemplateId(None, "Account", "KeyedByVariantAndRecord")
     }
     object User {
       val User: Id = domain.TemplateId(None, "User", "User")
