@@ -35,13 +35,22 @@ private[lf] object Speedy {
   private val enableLightweightStepTracing: Boolean = false
 
   /** Instrumentation counters. */
-  final case class Instrumentation(
-      var classifyCounts: Classify.Counts,
-      var countPushesKont: Int,
-      var countPushesEnv: Int,
-      var maxDepthKont: Int,
-      var maxDepthEnv: Int,
-  ) {
+  final case class Instrumentation() {
+    private[this] var countPushesKont: Int = 0
+    private[this] var countPushesEnv: Int = 0
+    private[this] var maxDepthKont: Int = 0
+    private[this] var maxDepthEnv: Int = 0
+
+    val classifyCounts: Classify.Counts = new Classify.Counts()
+
+    def incrPushesKont(): Unit = countPushesKont += 1
+
+    def incrPushesEnv(): Unit = countPushesEnv += 1
+
+    def setDepthKont(depth: Int): Unit = maxDepthKont = maxDepthKont.max(depth)
+
+    def setDepthEnv(depth: Int): Unit = maxDepthEnv = maxDepthEnv.max(depth)
+
     def print(): Unit = {
       println("--------------------")
       println(s"#steps: ${classifyCounts.steps}")
@@ -52,18 +61,6 @@ private[lf] object Speedy {
       println("--------------------")
       println(s"classify:\n${classifyCounts.pp}")
       println("--------------------")
-    }
-  }
-
-  private object Instrumentation {
-    def apply(): Instrumentation = {
-      Instrumentation(
-        classifyCounts = new Classify.Counts(),
-        countPushesKont = 0,
-        countPushesEnv = 0,
-        maxDepthKont = 0,
-        maxDepthEnv = 0,
-      )
     }
   }
 
@@ -387,8 +384,8 @@ private[lf] object Speedy {
     private[speedy] def pushKont(k: Kont): Unit = {
       discard[Boolean](kontStack.add(k))
       if (enableInstrumentation) {
-        track.countPushesKont += 1
-        if (kontDepth() > track.maxDepthKont) track.maxDepthKont = kontDepth()
+        track.incrPushesKont()
+        track.setDepthKont(kontDepth())
       }
     }
 
@@ -429,8 +426,8 @@ private[lf] object Speedy {
     @inline def pushEnv(v: SValue): Unit = {
       discard[Boolean](env.add(v))
       if (enableInstrumentation) {
-        track.countPushesEnv += 1
-        if (env.size > track.maxDepthEnv) track.maxDepthEnv = env.size
+        track.incrPushesEnv()
+        track.setDepthEnv(env.size)
       }
     }
 
@@ -505,8 +502,8 @@ private[lf] object Speedy {
           // Can't call pushKont here, because we don't push at the top of the stack.
           kontStack.add(last_index, KLocation(this, loc))
           if (enableInstrumentation) {
-            track.countPushesKont += 1
-            if (kontDepth() > track.maxDepthKont) track.maxDepthKont = kontDepth()
+            track.incrPushesKont()
+            track.setDepthKont(kontDepth())
           }
         }
         // NOTE(MH): When we use a cached top level value, we need to put the

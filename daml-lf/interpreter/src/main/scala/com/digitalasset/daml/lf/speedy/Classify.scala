@@ -5,37 +5,49 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.speedy.Speedy.{Control, Machine}
+import com.daml.scalautil.Statement.discard
 
 import scala.collection.mutable
 
 private[speedy] object Classify { // classify the machine state w.r.t what step occurs next
 
-  final class Counts(
-      var ctrlExpr: Int = 0,
-      var ctrlValue: Int = 0,
-      var exprs: mutable.Map[String, Int] = mutable.Map.empty,
-      var konts: mutable.Map[String, Int] = mutable.Map.empty,
-  ) {
-    def steps: Int = ctrlExpr + ctrlValue
+  final class Counts() {
+    private[this] var ctrlExpr: Int = 0
+
+    private[this] val exprs: mutable.Map[String, Int] = mutable.Map.empty
+    private[this] val konts: mutable.Map[String, Int] = mutable.Map.empty
+
+    def addKont(kont: String): Unit = {
+      incrCtrl()
+      discard(konts += kont -> (konts.getOrElse(kont, 0) + 1))
+    }
+
+    def addExpr(expr: String): Unit = {
+      incrCtrl()
+      discard(exprs += expr -> (exprs.getOrElse(expr, 0) + 1))
+    }
+
+    def steps: Int = ctrlExpr
+
     def pp: String = {
       val lines =
         (("CtrlExpr:", ctrlExpr) :: exprs.toList.map { case (expr, n) => ("- " + expr, n) }) ++
-          (("CtrlValue:", ctrlValue) :: konts.toList.map { case (kont, n) => (" -" + kont, n) })
+          (("CtrlValue:", 0) :: konts.toList.map { case (kont, n) => (" -" + kont, n) })
       lines.map { case (tag, n) => s"$tag : $n" }.mkString("\n")
     }
+
+    private def incrCtrl(): Unit = ctrlExpr += 1
   }
 
   def classifyMachine(machine: Machine, counts: Counts): Unit = {
     machine.currentControl match {
       case Control.Value(_) =>
-        // classify a value by the continution it is about to return to
-        counts.ctrlValue += 1
+        // classify a value by the continuation it is about to return to
         val kont = machine.peekKontStackEnd().getClass.getSimpleName
-        val _ = counts.konts += kont -> (counts.konts.getOrElse(kont, 0) + 1)
+        counts.addKont(kont)
       case Control.Expression(exp) =>
-        counts.ctrlExpr += 1
         val expr = exp.getClass.getSimpleName
-        val _ = counts.exprs += expr -> (counts.exprs.getOrElse(expr, 0) + 1)
+        counts.addExpr(expr)
       case _ => ()
     }
   }
