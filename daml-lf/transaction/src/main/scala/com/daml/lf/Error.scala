@@ -27,6 +27,8 @@ object Error {
 
   final case class ContractNotFound(cid: Value.ContractId) extends Error
 
+  final case class TemplateNotFound(templateId: TypeConName) extends Error
+
   /** Template pre-condition (ensure) evaluated to false and the transaction
     * was aborted. Note that the compiler will throw instead of returning False
     * for code in LF >= 1.14 so this will never be thrown for newer versions.

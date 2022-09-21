@@ -60,6 +60,8 @@ private[lf] object Pretty {
           "Update failed due to fetch-by-key or exercise-by-key which did not find a contract with key"
         ) &
           prettyValue(false)(gk.key) & char('(') + prettyIdentifier(gk.templateId) + char(')')
+      case TemplateNotFound(templateId) =>
+        text("Failed to find template") & prettyTypeConName(templateId)
       case ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
         text(
           "Update failed due to a fetch, lookup or exercise by key of contract not visible to the reading parties"
