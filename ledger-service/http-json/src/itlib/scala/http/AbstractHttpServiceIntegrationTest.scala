@@ -457,78 +457,78 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         acl.size shouldBe 0
       }
     }
+  }
 
-    "nested comparison filters" onlyIfLargeQueries_- {
-      import shapeless.Coproduct, shapeless.syntax.singleton._
-      val irrelevant = Ref.Identifier assertFromString "none:Discarded:Identifier"
-      val (_, bazRecordVA) = VA.record(irrelevant, ShRecord(baz = VA.text))
-      val (_, fooVA) =
-        VA.variant(irrelevant, ShRecord(Bar = VA.int64, Baz = bazRecordVA, Qux = VA.unit))
-      val fooVariant = Coproduct[fooVA.Inj]
-      val (_, kbvarVA) = VA.record(
-        irrelevant,
-        ShRecord(
-          name = VA.text,
-          party = VAx.partyDomain,
-          age = VA.int64,
-          fooVariant = fooVA,
-          bazRecord = bazRecordVA,
-        ),
+  "nested comparison filters" onlyIfLargeQueries_- {
+    import shapeless.Coproduct, shapeless.syntax.singleton._
+    val irrelevant = Ref.Identifier assertFromString "none:Discarded:Identifier"
+    val (_, bazRecordVA) = VA.record(irrelevant, ShRecord(baz = VA.text))
+    val (_, fooVA) =
+      VA.variant(irrelevant, ShRecord(Bar = VA.int64, Baz = bazRecordVA, Qux = VA.unit))
+    val fooVariant = Coproduct[fooVA.Inj]
+    val (_, kbvarVA) = VA.record(
+      irrelevant,
+      ShRecord(
+        name = VA.text,
+        party = VAx.partyDomain,
+        age = VA.int64,
+        fooVariant = fooVA,
+        bazRecord = bazRecordVA,
+      ),
+    )
+
+    def withBazRecord(bazRecord: VA.text.Inj)(p: domain.Party): kbvarVA.Inj =
+      ShRecord(
+        name = "ABC DEF",
+        party = p,
+        age = 123L,
+        fooVariant = fooVariant(Symbol("Bar") ->> 42L),
+        bazRecord = ShRecord(baz = bazRecord),
       )
 
-      def withBazRecord(bazRecord: VA.text.Inj)(p: domain.Party): kbvarVA.Inj =
-        ShRecord(
-          name = "ABC DEF",
-          party = p,
-          age = 123L,
-          fooVariant = fooVariant(Symbol("Bar") ->> 42L),
-          bazRecord = ShRecord(baz = bazRecord),
-        )
+    def withFooVariant(v: VA.int64.Inj)(p: domain.Party): kbvarVA.Inj =
+      ShRecord(
+        name = "ABC DEF",
+        party = p,
+        age = 123L,
+        fooVariant = fooVariant(Symbol("Bar") ->> v),
+        bazRecord = ShRecord(baz = "another baz value"),
+      )
 
-      def withFooVariant(v: VA.int64.Inj)(p: domain.Party): kbvarVA.Inj =
-        ShRecord(
-          name = "ABC DEF",
-          party = p,
-          age = 123L,
-          fooVariant = fooVariant(Symbol("Bar") ->> v),
-          bazRecord = ShRecord(baz = "another baz value"),
-        )
-
-      val kbvarId = TpId.Account.KeyedByVariantAndRecord
-      import FilterDiscriminatorScenario.Scenario
-      Seq(
-        Scenario(
-          "gt string",
-          kbvarId,
-          kbvarVA,
-          Map("bazRecord" -> Map("baz" -> Map("%gt" -> "b")).toJson),
-        )(
-          withBazRecord("c"),
-          withBazRecord("a"),
-        ),
-        Scenario(
-          "gt int",
-          kbvarId,
-          kbvarVA,
-          Map("fooVariant" -> Map("tag" -> "Bar".toJson, "value" -> Map("%gt" -> 2).toJson).toJson),
-        )(withFooVariant(3), withFooVariant(1)),
-      ).zipWithIndex.foreach { case (scenario, ix) =>
-        import scenario._
-        s"$label (scenario $ix)" in withHttpService { fixture =>
-          for {
-            (alice, headers) <- fixture.getUniquePartyAndAuthHeaders("Alice")
-            contracts <- searchExpectOk(
-              List(matches, doesNotMatch).map { payload =>
-                domain.CreateCommand(ctId, argToApi(va)(payload(alice)), None)
-              },
-              JsObject(Map("templateIds" -> Seq(ctId).toJson, "query" -> query.toJson)),
-              fixture,
-              headers,
-            )
-          } yield contracts.map(_.payload) should contain theSameElementsAs Seq(
-            LfValueCodec.apiValueToJsValue(va.inj(matches(alice)))
+    val kbvarId = TpId.Account.KeyedByVariantAndRecord
+    import FilterDiscriminatorScenario.Scenario
+    Seq(
+      Scenario(
+        "gt string",
+        kbvarId,
+        kbvarVA,
+        Map("bazRecord" -> Map("baz" -> Map("%gt" -> "b")).toJson),
+      )(
+        withBazRecord("c"),
+        withBazRecord("a"),
+      ),
+      Scenario(
+        "gt int",
+        kbvarId,
+        kbvarVA,
+        Map("fooVariant" -> Map("tag" -> "Bar".toJson, "value" -> Map("%gt" -> 2).toJson).toJson),
+      )(withFooVariant(3), withFooVariant(1)),
+    ).zipWithIndex.foreach { case (scenario, ix) =>
+      import scenario._
+      s"$label (scenario $ix)" in withHttpService { fixture =>
+        for {
+          (alice, headers) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+          contracts <- searchExpectOk(
+            List(matches, doesNotMatch).map { payload =>
+              domain.CreateCommand(ctId, argToApi(va)(payload(alice)), None)
+            },
+            JsObject(Map("templateIds" -> Seq(ctId).toJson, "query" -> query.toJson)),
+            fixture,
+            headers,
           )
-        }
+        } yield contracts.map(_.payload) should contain theSameElementsAs Seq(
+          LfValueCodec.apiValueToJsValue(va.inj(matches(alice)))
+        )
       }
     }
   }
