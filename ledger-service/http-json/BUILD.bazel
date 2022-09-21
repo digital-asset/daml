@@ -322,6 +322,7 @@ alias(
             "//ledger-service/http-json-testing:{}".format(edition),
             "//ledger-service/db-backend",
             "//ledger-service/jwt",
+            "//ledger-service/lf-value-json",
             "//ledger-service/utils",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",

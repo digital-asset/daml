@@ -262,7 +262,7 @@ class ValuePredicateTest
           "{}",
           tuple3VA,
           sql"payload @> ${"""{"foo":{}}""".parseJson}::jsonb",
-          sql"""JSON_EXISTS(payload, '$$."foo"?(@ != null)')""",
+          sql"""JSON_EXISTS(payload, '$$."foo"?(!(@ == null))')""",
         ),
         (
           """{"%lte": 42}""",
