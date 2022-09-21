@@ -17,6 +17,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import pureconfig.{ConfigConvert, ConfigReader, ConfigSource, ConfigWriter}
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
 import com.daml.ledger.runner.common
+import com.daml.ledger.runner.common.OptConfigValue.{optReaderEnabled, optWriterEnabled}
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -134,6 +135,12 @@ class PureConfigReaderWriterSpec
 
   behavior of "JwtTimestampLeeway"
 
+  val validJwtTimestampLeewayValue =
+    """
+      |  enabled = true
+      |  default = 1
+      |""".stripMargin
+
   it should "read/write against predefined values" in {
     def compare(configString: String, expectedValue: Option[JwtTimestampLeeway]) = {
       convert(jwtTimestampLeewayConfigConvert, configString).value shouldBe expectedValue
@@ -187,6 +194,14 @@ class PureConfigReaderWriterSpec
         |""".stripMargin,
       None,
     )
+  }
+
+  it should "not support unknown keys" in {
+    convert(
+      jwtTimestampLeewayConfigConvert,
+      "some-crap=yes\n" + validJwtTimestampLeewayValue,
+    ).left.value
+      .prettyPrint(0) should include("Unknown key")
   }
 
   behavior of "PureConfigReaderWriter VersionRange[LanguageVersion]"
@@ -390,18 +405,27 @@ class PureConfigReaderWriterSpec
 
   behavior of "InitialLedgerConfiguration"
 
+  val validInitialLedgerConfiguration =
+    """
+      |  enabled = true
+      |  avg-transaction-latency = 0 days
+      |  delay-before-submitting = 0 days
+      |  max-deduplication-duration = 30 minutes
+      |  max-skew = 30 seconds
+      |  min-skew = 30 seconds
+      |  """.stripMargin
+
   it should "support current defaults" in {
-    val value = """
-    |  enabled = true
-    |  avg-transaction-latency = 0 days
-    |  delay-before-submitting = 0 days
-    |  max-deduplication-duration = 30 minutes
-    |  max-skew = 30 seconds
-    |  min-skew = 30 seconds
-    |  """.stripMargin
+    val value = validInitialLedgerConfiguration
     convert(initialLedgerConfigurationConvert, value).value shouldBe Some(
       InitialLedgerConfiguration()
     )
+  }
+
+  it should "not support unknown keys" in {
+    val value = "some-crap=yes\n" + validInitialLedgerConfiguration
+    convert(initialLedgerConfigurationConvert, value).left.value
+      .prettyPrint(0) should include("Unknown key")
   }
 
   it should "read/write against predefined values" in {
@@ -579,14 +603,24 @@ class PureConfigReaderWriterSpec
 
   behavior of "RateLimitingConfig"
 
+  val validRateLimitingConfig =
+    """
+      |  enabled = true
+      |  max-api-services-index-db-queue-size = 1000
+      |  max-api-services-queue-size = 10000
+      |  max-used-heap-space-percentage = 85
+      |  min-free-heap-space-bytes = 314572800""".stripMargin
+
   it should "support current defaults" in {
-    val value = """
-    |  enabled = true
-    |  max-api-services-index-db-queue-size = 1000
-    |  max-api-services-queue-size = 10000
-    |  max-used-heap-space-percentage = 85
-    |  min-free-heap-space-bytes = 314572800""".stripMargin
+    val value = validRateLimitingConfig
     convert(rateLimitingConfigConvert, value).value shouldBe Some(RateLimitingConfig())
+  }
+
+  it should "not support unknown keys" in {
+    val value = "some-crap=yes\n" + validRateLimitingConfig
+    convert(rateLimitingConfigConvert, value).left.value.prettyPrint(0) should include(
+      "Unknown key"
+    )
   }
 
   behavior of "ApiServerConfig"

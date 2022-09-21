@@ -6,6 +6,7 @@ package com.daml.ledger.runner.common
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
+import com.daml.ledger.runner.common.OptConfigValue.{optConvertEnabled, optProductHint}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
@@ -34,13 +35,12 @@ import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
 import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
-import com.typesafe.config.{ConfigObject, ConfigValueFactory}
 import io.netty.handler.ssl.ClientAuth
 import pureconfig.configurable.{genericMapReader, genericMapWriter}
 import pureconfig.error.CannotConvert
 import pureconfig.generic.ProductHint
 import pureconfig.generic.semiauto._
-import pureconfig.{ConfigConvert, ConfigCursor, ConfigReader, ConfigWriter, ConvertHelpers}
+import pureconfig.{ConfigConvert, ConfigReader, ConfigWriter, ConvertHelpers}
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.jdk.DurationConverters.{JavaDurationOps, ScalaDurationOps}
@@ -48,54 +48,6 @@ import scala.util.Try
 
 class PureConfigReaderWriter(secure: Boolean = true) {
   val Secret = "<REDACTED>"
-
-  /** Reads configuration object of `T` and `enabled` flag to find out if this object has values.
-    */
-  def optReaderEnabled[T](reader: ConfigReader[T]): ConfigReader[Option[T]] =
-    (cursor: ConfigCursor) =>
-      for {
-        objCur <- cursor.asObjectCursor
-        enabledCur <- objCur.atKey("enabled")
-        enabled <- enabledCur.asBoolean
-        value <-
-          if (enabled) {
-            reader.from(cursor).map(x => Some(x))
-          } else {
-            Right(None)
-          }
-      } yield value
-
-  /** Writes object of `T` and adds `enabled` flag for configuration which contains value.
-    */
-  def optWriterEnabled[T](writer: ConfigWriter[T]): ConfigWriter[Option[T]] = {
-    import scala.jdk.CollectionConverters._
-    def toConfigValue(enabled: Boolean) =
-      ConfigValueFactory.fromMap(Map("enabled" -> enabled).asJava)
-    (optValue: Option[T]) =>
-      optValue match {
-        case Some(value) =>
-          writer.to(value) match {
-            // if serialised object of `T` is `ConfigObject` and
-            // has `enabled` inside, it cannot be supported by this writer
-            case configObject: ConfigObject if configObject.toConfig.hasPath("enabled") =>
-              throw new IllegalArgumentException(
-                "Ambiguous configuration, object contains `enabled` flag"
-              )
-            case _ =>
-              writer.to(value).withFallback(toConfigValue(enabled = true))
-          }
-        case None => toConfigValue(enabled = false)
-      }
-  }
-
-  def optConvertEnabled[T](
-      reader: ConfigReader[T],
-      writer: ConfigWriter[T],
-  ): ConfigConvert[Option[T]] =
-    ConfigConvert.apply(optReaderEnabled(reader), optWriterEnabled(writer))
-
-  def optConvertEnabled[T](convert: ConfigConvert[T]): ConfigConvert[Option[T]] =
-    optConvertEnabled(convert, convert)
 
   implicit val javaDurationWriter: ConfigWriter[java.time.Duration] =
     ConfigWriter.stringConfigWriter.contramap[java.time.Duration] { duration =>
@@ -215,6 +167,9 @@ class PureConfigReaderWriter(secure: Boolean = true) {
     port: Port => port.value
   }
 
+  implicit val initialLedgerConfigurationHint =
+    optProductHint[InitialLedgerConfiguration](allowUnknownKeys = false)
+
   implicit val initialLedgerConfigurationConvert
       : ConfigConvert[Option[InitialLedgerConfiguration]] =
     optConvertEnabled(deriveConvert[InitialLedgerConfiguration])
@@ -243,6 +198,9 @@ class PureConfigReaderWriter(secure: Boolean = true) {
 
   implicit val userManagementConfigConvert: ConfigConvert[UserManagementConfig] =
     deriveConvert[UserManagementConfig]
+
+  implicit val jwtTimestampLeewayConfigHint: OptConfigValue.OptProductHint[JwtTimestampLeeway] =
+    optProductHint[JwtTimestampLeeway](allowUnknownKeys = false)
 
   implicit val jwtTimestampLeewayConfigConvert: ConfigConvert[Option[JwtTimestampLeeway]] =
     optConvertEnabled(deriveConvert[JwtTimestampLeeway])
@@ -316,6 +274,9 @@ class PureConfigReaderWriter(secure: Boolean = true) {
 
   implicit val dataSourcePropertiesConvert: ConfigConvert[DataSourceProperties] =
     deriveConvert[DataSourceProperties]
+
+  implicit val rateLimitingConfigHint: OptConfigValue.OptProductHint[RateLimitingConfig] =
+    optProductHint[RateLimitingConfig](allowUnknownKeys = false)
 
   implicit val rateLimitingConfigConvert: ConfigConvert[Option[RateLimitingConfig]] =
     optConvertEnabled(deriveConvert[RateLimitingConfig])
