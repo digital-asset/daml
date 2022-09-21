@@ -337,8 +337,9 @@ private[lf] object Speedy {
     private[this] var lastLocation: Option[Location] = None
     /* Used when enableLightweightStepTracing is true */
     private[this] var steps: Int = 0
+
     /* Used when enableInstrumentation is true */
-    private[this] var track: Instrumentation = Instrumentation()
+    private[this] val track: Instrumentation = Instrumentation()
 
     private[speedy] def currentControl: Control = control
 
