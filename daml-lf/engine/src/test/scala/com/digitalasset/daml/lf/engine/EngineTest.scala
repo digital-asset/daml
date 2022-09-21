@@ -749,7 +749,7 @@ class EngineTest
         SValue.SRecord(
           templateId,
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
-          ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
+          ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
         ContractMetadata(
           now,
@@ -1582,7 +1582,7 @@ class EngineTest
         SValue.SRecord(
           templateId,
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
-          ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
+          ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
         ContractMetadata(
           now,

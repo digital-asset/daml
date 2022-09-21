@@ -46,6 +46,13 @@ object Error {
       consumedBy: NodeId,
   ) extends Error
 
+  /** When caching a disclosed contract key, hashing the contract key generated an error. */
+  final case class DisclosedContractKeyHashingError(
+      coid: ContractId,
+      templateId: TypeConName,
+      reason: String,
+  ) extends Error
+
   final case class ContractKeyNotVisible(
       coid: ContractId,
       key: GlobalKey,
@@ -149,21 +156,7 @@ object Error {
   final case class DisclosurePreprocessing(error: DisclosurePreprocessing.Error) extends Error
   object DisclosurePreprocessing {
     sealed abstract class Error extends Serializable with Product
-    final case class DuplicateContractIds(templateId: TypeConName) extends Error
     final case class DuplicateContractKeys(templateId: TypeConName, keyHash: Hash) extends Error
-    final case class NonExistentTemplate(templateId: TypeConName) extends Error
-    final case class NonExistentDisclosedContractKeyHash(
-        coid: Value.ContractId,
-        templateId: TypeConName,
-    ) extends Error
-  }
-
-  object InconsistentDisclosureTable {
-    final case class IncorrectlyTypedContract(
-        coid: ContractId,
-        expected: TypeConName,
-        actual: TypeConName,
-    ) extends Error
   }
 
   final case class Limit(error: Limit.Error) extends Error

@@ -52,6 +52,9 @@ private[lf] object Pretty {
         text("Update failed due to fetch of an inactive contract") & prettyContractId(coid) &
           char('(') + (prettyTypeConName(tid)) + text(").") /
           text(s"The contract had been consumed in sub-transaction #$consumedBy:")
+      case DisclosedContractKeyHashingError(coid, tid, reason) =>
+        text("Failed to cache disclosed contract key for contract") & prettyContractId(coid) &
+          char('(') + (prettyTypeConName(tid)) + text(").") / text(reason)
       case ContractKeyNotFound(gk) =>
         text(
           "Update failed due to fetch-by-key or exercise-by-key which did not find a contract with key"
@@ -171,36 +174,11 @@ private[lf] object Pretty {
 
       case DisclosurePreprocessing(err) =>
         err match {
-          case DisclosurePreprocessing.DuplicateContractIds(templateId) =>
-            text(
-              s"Found duplicated contract IDs in submitted disclosed contracts for template $templateId"
-            )
           case DisclosurePreprocessing.DuplicateContractKeys(templateId, keyHash) =>
             text(
               s"Found duplicated contract keys in submitted disclosed contracts for template $templateId and key hash ${keyHash.toHexString}"
             )
-          case DisclosurePreprocessing.NonExistentTemplate(templateId) =>
-            text(
-              s"Template $templateId does not exist for the disclosed contract"
-            )
-          case DisclosurePreprocessing.NonExistentDisclosedContractKeyHash(
-                contractId,
-                templateId,
-              ) =>
-            text(
-              s"Template $templateId has a key defined, but there is no key hash for disclosed contract $contractId"
-            )
         }
-
-      case InconsistentDisclosureTable.IncorrectlyTypedContract(coid, expected, actual) =>
-        text(
-          "Inconsistent disclosure table: invalid key hash mapping for disclosed contract id"
-        ) & prettyContractId(coid) /
-          text("Expected contract of type") & prettyTypeConName(expected) & text(
-            "but got"
-          ) & prettyTypeConName(
-            actual
-          )
     }
   }
 

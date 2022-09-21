@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LookupError, PackageInterface, Util => AstUtil}
+import com.daml.lf.language.{LookupError, Util => AstUtil}
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -27,6 +27,7 @@ import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.annotation.tailrec
+import scala.collection.mutable
 
 private[lf] object Speedy {
 
@@ -129,6 +130,7 @@ private[lf] object Speedy {
       var cachedContracts: Map[V.ContractId, CachedContract],
       var numInputContracts: Int,
       limits: interpretation.Limits,
+      disclosureKeyTable: DisclosedContractKeyTable,
   ) extends LedgerMode {
     private[lf] val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
       if (validating) { _ => SVisibleToStakeholders.Visible }
@@ -207,93 +209,34 @@ private[lf] object Speedy {
 
   private[lf] final case object OffLedger extends LedgerMode
 
-  private[speedy] case class DisclosureTable(
-      contractIdByKey: Map[crypto.Hash, SValue.SContractId],
-      contractById: Map[SValue.SContractId, (TypeConName, SValue)],
-  )
+  private[speedy] class DisclosedContractKeyTable {
 
-  object DisclosureTable {
-    val Empty: DisclosureTable = DisclosureTable(Map.empty, Map.empty)
-  }
+    private[this] val keyMap: mutable.Map[crypto.Hash, SValue.SContractId] = mutable.Map.empty
 
-  case class DisclosurePreprocessError(
-      err: String
-  ) extends RuntimeException(err, null, true, false)
-
-  @throws[SErrorDamlException]
-  private[speedy] def buildDiscTable(
-      disclosures: ImmArray[speedy.DisclosedContract],
-      packageInterface: PackageInterface,
-  ): DisclosureTable = {
-    val _ = disclosures
-    val acc = disclosures.foldLeft(
-      DisclosureTable.Empty
-    ) { case (table, d) =>
-      val arg = d.argument
-      val coid = d.contractId
-      // check for duplicate contract ids
-      table.contractById.get(coid) match {
-        case Some(_) =>
-          throw SErrorDamlException(
-            IError.DisclosurePreprocessing(
-              IError.DisclosurePreprocessing.DuplicateContractIds(d.templateId)
+    private[speedy] def addContractKey(
+        templateId: TypeConName,
+        keyHash: crypto.Hash,
+        contractId: V.ContractId,
+    ): Either[IError, Unit] = {
+      if (keyMap.contains(keyHash)) {
+        Left(
+          IError.DisclosurePreprocessing(
+            IError.DisclosurePreprocessing.DuplicateContractKeys(
+              templateId,
+              keyHash,
             )
           )
-
-        case None =>
-          val contractByIdUpdates = table.contractById + (coid -> (d.templateId, arg))
-          d.metadata.keyHash match {
-            case Some(hash) =>
-              // check for duplicate contract key hashes
-              table.contractIdByKey.get(hash) match {
-                case Some(_) =>
-                  throw SErrorDamlException(
-                    IError.DisclosurePreprocessing(
-                      IError.DisclosurePreprocessing.DuplicateContractKeys(
-                        d.templateId,
-                        hash,
-                      )
-                    )
-                  )
-
-                case None =>
-                  DisclosureTable(
-                    table.contractIdByKey + (hash -> coid),
-                    contractByIdUpdates,
-                  )
-              }
-
-            case None =>
-              packageInterface.lookupTemplate(d.templateId) match {
-                case Right(template) if template.key.isEmpty =>
-                  // Success - template exists, but has no key defined
-                  table.copy(contractById = contractByIdUpdates)
-
-                case Right(_) =>
-                  // Error - disclosed contract lacks a key hash, but the template requires a key
-                  throw SErrorDamlException(
-                    IError.DisclosurePreprocessing(
-                      IError.DisclosurePreprocessing.NonExistentDisclosedContractKeyHash(
-                        d.contractId.value,
-                        d.templateId,
-                      )
-                    )
-                  )
-
-                case Left(_) =>
-                  // Error - template is non-existent
-                  throw SErrorDamlException(
-                    IError.DisclosurePreprocessing(
-                      IError.DisclosurePreprocessing.NonExistentTemplate(
-                        d.templateId
-                      )
-                    )
-                  )
-              }
-          }
+        )
+      } else {
+        keyMap.update(keyHash, SValue.SContractId(contractId))
+        Right(())
       }
     }
-    acc
+
+    private[speedy] def contractIdByKey(keyHash: crypto.Hash): Option[SValue.SContractId] =
+      keyMap.get(keyHash)
+
+    private[speedy] def toMap: Map[crypto.Hash, SValue.SContractId] = keyMap.toMap
   }
 
   /** The speedy CEK machine. */
@@ -316,7 +259,6 @@ private[lf] object Speedy {
          not the other way around.
        */
       val ledgerMode: LedgerMode,
-      val disclosureTable: DisclosureTable,
   ) {
 
     /* The machine control is either an expression or a value. */
@@ -960,11 +902,11 @@ private[lf] object Speedy {
         limits: interpretation.Limits = interpretation.Limits.Lenient,
         disclosedContracts: ImmArray[speedy.DisclosedContract],
     )(implicit loggingContext: LoggingContext): Machine = {
-      // TODO: enable priming on ledger cached contract map with disclosed contracts
-      // val exprWithDisclosures = compiledPackages.compiler.unsafeCompileWithContractDisclosures(expr, disclosedContracts)
+      val exprWithDisclosures =
+        compiledPackages.compiler.unsafeCompileWithContractDisclosures(expr, disclosedContracts)
 
       new Machine(
-        sexpr = expr,
+        sexpr = exprWithDisclosures,
         submissionTime = submissionTime,
         ledgerMode = OnLedger(
           validating = validating,
@@ -983,12 +925,12 @@ private[lf] object Speedy {
           numInputContracts = 0,
           contractKeyUniqueness = contractKeyUniqueness,
           limits = limits,
+          disclosureKeyTable = new DisclosedContractKeyTable,
         ),
         traceLog = traceLog,
         warningLog = warningLog,
         loggingContext = loggingContext,
         compiledPackages = compiledPackages,
-        disclosureTable = buildDiscTable(disclosedContracts, compiledPackages.pkgInterface),
       )
     }
 
@@ -1046,11 +988,9 @@ private[lf] object Speedy {
     def fromScenarioSExpr(
         compiledPackages: CompiledPackages,
         scenario: SExpr,
-        disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
     )(implicit loggingContext: LoggingContext): Machine = Machine.fromPureSExpr(
       compiledPackages = compiledPackages,
       expr = SEApp(scenario, Array(SEValue.Token)),
-      disclosedContracts = disclosedContracts,
     )
 
     @throws[PackageNotFound]
@@ -1059,12 +999,10 @@ private[lf] object Speedy {
     def fromScenarioExpr(
         compiledPackages: CompiledPackages,
         scenario: Expr,
-        disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
     )(implicit loggingContext: LoggingContext): Machine =
       fromScenarioSExpr(
         compiledPackages = compiledPackages,
         scenario = compiledPackages.compiler.unsafeCompile(scenario),
-        disclosedContracts = disclosedContracts,
       )
 
     @throws[PackageNotFound]
@@ -1073,7 +1011,6 @@ private[lf] object Speedy {
     def fromPureSExpr(
         compiledPackages: CompiledPackages,
         expr: SExpr,
-        disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
     )(implicit loggingContext: LoggingContext): Machine = {
@@ -1085,7 +1022,6 @@ private[lf] object Speedy {
         warningLog = warningLog,
         loggingContext = loggingContext,
         compiledPackages = compiledPackages,
-        disclosureTable = buildDiscTable(disclosedContracts, compiledPackages.pkgInterface),
       )
     }
 
@@ -1095,12 +1031,10 @@ private[lf] object Speedy {
     def fromPureExpr(
         compiledPackages: CompiledPackages,
         expr: Expr,
-        disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
     )(implicit loggingContext: LoggingContext): Machine =
       fromPureSExpr(
         compiledPackages,
         compiledPackages.compiler.unsafeCompile(expr),
-        disclosedContracts,
       )
 
   }

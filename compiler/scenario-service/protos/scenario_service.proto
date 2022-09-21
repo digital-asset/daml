@@ -180,6 +180,12 @@ message ScenarioError {
     NodeId consumed_by = 2; // optional. A contract whose create was rolled back will not have this set.
   }
 
+  message DisclosedContractKeyHashingError {
+      ContractRef contract_ref = 1;
+      Identifier template_id = 2;
+      string reason = 3;
+  }
+
   message ContractNotVisible {
     ContractRef contract_ref = 1;
     repeated Party actAs = 2;
@@ -238,25 +244,6 @@ message ScenarioError {
   message DisclosurePreprocessingDuplicateContractKeys {
     Identifier template_id = 1;
     string key_hash = 2;
-  }
-
-  message DisclosurePreprocessingDuplicateContractIds {
-    Identifier template_id = 1;
-  }
-
-  message DisclosurePreprocessingNonExistentTemplate {
-      Identifier template_id = 1;
-  }
-
-  message DisclosurePreprocessingNonExistentDisclosedContractKeyHash {
-      string contract_id = 1;
-      Identifier template_id = 2;
-  }
-
-  message InconsistentDisclosureTableIncorrectlyTypedContract {
-      string contract_id = 1;
-      Identifier expected = 2;
-      Identifier actual = 3;
   }
 
   // The state of the ledger at the time of the error
@@ -330,11 +317,8 @@ message ScenarioError {
     ContractDoesNotImplementInterface contract_does_not_implement_interface = 35;
     ContractDoesNotImplementRequiringInterface contract_does_not_implement_requiring_interface
     = 36;
-    DisclosurePreprocessingDuplicateContractIds disclosure_preprocessing_duplicate_contract_ids = 38;
     DisclosurePreprocessingDuplicateContractKeys disclosure_preprocessing_duplicate_contract_keys = 39;
-    DisclosurePreprocessingNonExistentTemplate disclosure_preprocessing_non_existent_template = 40;
-    DisclosurePreprocessingNonExistentDisclosedContractKeyHash disclosure_preprocessing_non_existent_disclosed_contract_key_hash = 41;
-    InconsistentDisclosureTableIncorrectlyTypedContract inconsistent_disclosure_table_incorrectly_typed_contract = 42;
+    DisclosedContractKeyHashingError disclosed_contract_key_hashing_error = 40;
   }
 }
 
