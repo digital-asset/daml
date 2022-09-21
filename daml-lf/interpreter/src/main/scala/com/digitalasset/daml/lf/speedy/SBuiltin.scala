@@ -926,10 +926,9 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $checkPrecondition
-    *    :: arg (template argument)
-    *    -> Unit
-    *    -> Bool (false if ensure failed)
+  /** $checkPrecondition[T]
+    *    :: T    (contract instance)
+    *    -> bool (result of evaluating the template's ensure field)
     *    -> Unit
     */
   final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltin(2) {

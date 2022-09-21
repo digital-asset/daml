@@ -1034,6 +1034,7 @@ private[lf] final class Compiler(
               t.SCPPrimCon(PCTrue),
               let(env, s.SEApp(s.SEBuiltin(SBCheckTemplateKey(templateId)), List(s.SEValue.Unit))) {
                 (templateKeyCheck, env) =>
+                  // FIXME: here we blindly trust the disclosed contract instance, without validating its template precondition
                   val contract = s.SEValue(disclosedContract.argument)
 
                   s.SECase(

@@ -7,8 +7,9 @@ package speedy
 import com.daml.lf.command.ContractMetadata
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data._
+import com.daml.lf.interpretation.Error.TemplatePreconditionViolated
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SError.{SError, SErrorCrash}
+import com.daml.lf.speedy.SError.{SError, SErrorCrash, SErrorDamlException}
 import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.speedy.SValue.SContractId
 import com.daml.lf.speedy.Speedy.{CachedContract, OnLedger}
@@ -75,6 +76,53 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
       inside(evalSExpr(sexpr, getContract = Map(contractId1 -> invalidVersionedContract))) {
         case Left(SErrorCrash(_, message)) =>
           message should endWith(s"Template $invalidTemplateId does not exist and it should")
+      }
+    }
+
+    "using a template with preconditions" should {
+      val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:PreCondRecord")
+      val disclosedContract1 =
+        buildDisclosedContractWithPreCond(contractId1, templateId, precondition = true)
+      val versionedContract1 = VersionedContractInstance(
+        version,
+        templateId,
+        disclosedContract1.argument.toUnnormalizedValue,
+        "Agreement",
+      )
+      val disclosedContract2 =
+        buildDisclosedContractWithPreCond(contractId2, templateId, precondition = false)
+      val versionedContract2 = VersionedContractInstance(
+        version,
+        templateId,
+        disclosedContract2.argument.toUnnormalizedValue,
+        "Agreement",
+      )
+
+      "accept disclosed contracts with a valid precondition" in {
+        val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
+          tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray.Empty)),
+          ImmArray(disclosedContract1),
+        )
+
+        inside(evalSExpr(sexpr, getContract = Map(contractId1 -> versionedContract1))) {
+          case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
+            contractCache.keySet shouldBe Set(contractId1)
+            disclosedContractKeys shouldBe Map.empty
+        }
+      }
+
+      "reject disclosed contracts with an invalid precondition" in {
+        val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
+          tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray.Empty)),
+          ImmArray(disclosedContract2),
+        )
+
+        inside(evalSExpr(sexpr, getContract = Map(contractId2 -> versionedContract2))) {
+          case Left(
+                SErrorDamlException(TemplatePreconditionViolated(`templateId`, None, contract))
+              ) =>
+            contract shouldBe versionedContract2.unversioned.arg
+        }
       }
     }
 
@@ -461,6 +509,8 @@ object CompilerTest {
 
   val recordCon: Ref.Identifier =
     Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Record"))
+  val preCondRecordCon: Ref.Identifier =
+    Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:PreCondRecord"))
   val pkg =
     p"""
         module Module {
@@ -469,6 +519,14 @@ object CompilerTest {
           template (this : Record) =  {
             precondition True;
             signatories Cons @Party [Module:Record {party} this] (Nil @Party);
+            observers Nil @Party;
+            agreement "Agreement";
+          };
+
+          record @serializable PreCondRecord = { precond: Bool, party: Party };
+          template (this : PreCondRecord) =  {
+            precondition Module:PreCondRecord {precond} this;
+            signatories Cons @Party [Module:PreCondRecord {party} this] (Nil @Party);
             observers Nil @Party;
             agreement "Agreement";
           };
@@ -494,6 +552,12 @@ object CompilerTest {
     recordCon,
     ImmArray(Ref.Name.assertFromString("label"), Ref.Name.assertFromString("party")),
     ArrayList(SValue.SText(label), SValue.SParty(alice)),
+  )
+
+  def preCondContract(precondition: Boolean): SValue.SRecord = SValue.SRecord(
+    preCondRecordCon,
+    ImmArray(Ref.Name.assertFromString("precond"), Ref.Name.assertFromString("party")),
+    ArrayList(SValue.SBool(precondition), SValue.SParty(alice)),
   )
 
   def tokenApp(sexpr: SExpr): SExpr =
@@ -568,5 +632,18 @@ object CompilerTest {
     )
 
     disclosedContract
+  }
+
+  def buildDisclosedContractWithPreCond(
+      contractId: ContractId,
+      templateId: Ref.Identifier,
+      precondition: Boolean,
+  ): DisclosedContract = {
+    DisclosedContract(
+      templateId,
+      SContractId(contractId),
+      preCondContract(precondition = precondition),
+      ContractMetadata(Time.Timestamp.now(), None, ImmArray.Empty),
+    )
   }
 }
