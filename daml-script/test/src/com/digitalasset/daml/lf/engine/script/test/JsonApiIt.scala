@@ -49,6 +49,7 @@ import com.daml.ledger.sandbox.{SandboxOnXForTest, SandboxOnXRunner}
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
+import com.daml.lf.engine.script.ledgerinteraction.JsonLedgerClient.FailedJsonApiRequest
 import com.daml.lf.engine.script.ledgerinteraction.{
   JsonLedgerClient,
   ScriptLedgerClient,
@@ -80,11 +81,10 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
 import spray.json._
-
 import java.io.File
+
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
-import scala.util.Success
 
 trait JsonApiFixture
     extends AbstractSandboxFixture
@@ -271,16 +271,15 @@ final class JsonApiIt
       )
       .toMap
     val participantParams = Participants(Some(defaultParticipant), participantMap, partyMap)
-    Runner.jsonClients(participantParams, envIface).andThen { case Success(ps) =>
-      Future.sequence(
-        partyMap
-          .flatMap { case (party, participant) =>
-            ps.participants
-              .get(participant)
-              .map(_.allocateParty(party, ""))
-          }
+    for {
+      ps <- Runner.jsonClients(participantParams, envIface)
+      _ <- Future.sequence(
+        for {
+          (party, participant) <- partyMap
+          ledgerClient <- ps.participants.get(participant)
+        } yield createParty(ledgerClient, party)
       )
-    }
+    } yield ps
   }
 
   private def getMultiPartyClients(
@@ -299,10 +298,21 @@ final class JsonApiIt
         applicationId,
       )
     val participantParams = Participants(Some(defaultParticipant), Map.empty, Map.empty)
-    Runner.jsonClients(participantParams, envIface).andThen { case Success(ps) =>
-      Future.sequence(
-        parties.flatMap(party => ps.default_participant.map(_.allocateParty(party, "")))
+    for {
+      ps <- Runner.jsonClients(participantParams, envIface)
+      _ <- Future.sequence(
+        for {
+          party <- parties
+          ledgerClient <- ps.default_participant
+        } yield createParty(ledgerClient, party)
       )
+    } yield ps
+  }
+
+  private def createParty(ledgerClient: JsonLedgerClient, party: String): Future[Unit] = {
+    ledgerClient.allocateParty(party, "").map(_ => ()).recoverWith {
+      case e: FailedJsonApiRequest if e.getMessage.contains("Party already exists") =>
+        Future.successful(())
     }
   }
 
