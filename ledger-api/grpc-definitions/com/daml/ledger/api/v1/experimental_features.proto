@@ -23,7 +23,7 @@ message ExperimentalFeatures {
   ExperimentalContractIds contract_ids = 5;
   ExperimentalCommitterEventLog committer_event_log = 6;
   ExperimentalExplicitDisclosure explicit_disclosure = 7;
-  ExperimentalUserAndPartyManagementExtensions user_and_party_management_extensions_for_hub = 8;
+  ExperimentalUserAndPartyLocalMetadataExtensions user_and_party_management_extensions_for_hub = 8;
 }
 
 // GRPC self-service error codes are returned by the Ledger API.
@@ -115,6 +115,6 @@ message ExperimentalExplicitDisclosure {
 // - is_deactivated user property,
 // - metadata with annotations and resource version for users and parties,
 // - update calls for users and parties.
-message ExperimentalUserAndPartyManagementExtensions {
+message ExperimentalUserAndPartyLocalMetadataExtensions {
   bool supported = 1;
 }

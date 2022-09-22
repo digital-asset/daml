@@ -106,7 +106,6 @@ service UserManagementService {
 message User {
     // The user identifier, which must be a non-empty string of at most 128
     // characters that are either lowercase alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:".
-    //
     // Required
     string id = 1;
 
@@ -116,22 +115,19 @@ message User {
     // Ledger API clients SHOULD set this field to a non-empty value for all users to
     // enable the users to act on the ledger using their own Daml party.
     // Users for participant administrators MAY have an associated primary party.
-    //
-    // Optional
+    // Optional,
     // Modifiable
     string primary_party = 2;
 
     // When set, then the user is denied all access to the Ledger API.
     // Otherwise, the user has access to the Ledger API as per the user's rights.
-    //
-    // Optional
+    // Optional,
     // Modifiable
     bool is_deactivated = 3;
 
     // The metadata of this user.
     // Note that the ``metadata.resource_version`` tracks changes to the properties described by the ``User`` message and not the user's rights.
-    //
-    // Optional
+    // Optional,
     // Modifiable
     ObjectMeta metadata = 4;
 }
@@ -175,7 +171,6 @@ message CreateUserRequest {
 
     // The rights to be assigned to the user upon creation,
     // which SHOULD include appropriate rights for the ``user.primary_party``.
-    //
     // Optional
     repeated Right rights = 2;
 }
@@ -201,29 +196,23 @@ message GetUserResponse {
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message UpdateUserRequest {
     // The user to update.
-    //
-    // Required
+    // Required,
     // Modifiable
     User user = 1;
 
-    // An update mask specifies haw and which properties of the ``User`` message are to be updated.
-    //
+    // An update mask specifies how and which properties of the ``User`` message are to be updated.
     // An update mask consists of a set of update paths.
     // A valid update path points to a field or a subfield relative to the ``User`` message.
     // A valid update mask must:
-    // - contain at least one update path,
-    // - contain only valid update paths.
-    //
+    // (1) contain at least one update path,
+    // (2) contain only valid update paths.
     // Fields that can be updated are marked as ``Modifiable``.
     // An update path can also point to a non-``Modifiable`` fields such as 'id' and 'metadata.resource_version'
     // because they are used, respectively, 1) to identify the user resource
     // subject to the update and 2) for concurrent change control.
-    //
     // Examples of valid update paths: 'primary_party', 'metadata', 'metadata.annotations'.
-    //
     // For additional information see the documentation for standard protobuf3's ``google.protobuf.FieldMask``.
     // For similar Ledger API see ``com.daml.ledger.api.v1.admin.UpdatePartyDetailsRequest``.
-    //
     // Required
     google.protobuf.FieldMask update_mask = 2;
 }
@@ -277,7 +266,6 @@ message GrantUserRightsRequest {
     string user_id = 1;
 
     // The rights to grant.
-    //
     // Required
     repeated Right rights = 2;
 }
@@ -296,7 +284,6 @@ message RevokeUserRightsRequest {
     string user_id = 1;
 
     // The rights to revoke.
-    //
     // Required
     repeated Right rights = 2;
 }

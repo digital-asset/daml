@@ -10,7 +10,7 @@ import com.daml.ledger.api.v1.experimental_features.{
   ExperimentalOptionalLedgerId,
   ExperimentalSelfServiceErrorCodes,
   ExperimentalStaticTime,
-  ExperimentalUserAndPartyManagementExtensions,
+  ExperimentalUserAndPartyLocalMetadataExtensions,
 }
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
 import com.daml.ledger.api.v1.version_service.{
@@ -77,7 +77,7 @@ private[apiserver] final class ApiVersionService private (
           committerEventLog = Some(ledgerFeatures.committerEventLog),
           explicitDisclosure = None, // TODO[ED]: Wire-up with participant configuration flag,
           userAndPartyManagementExtensionsForHub =
-            Some(ExperimentalUserAndPartyManagementExtensions(supported = true)),
+            Some(ExperimentalUserAndPartyLocalMetadataExtensions(supported = true)),
         )
       ),
     )

@@ -13,7 +13,7 @@ option java_outer_classname = "PartyManagementServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 
-// This service allows inspecting the party management state of the ledger known to the backing participant
+// This service allows inspecting the party management state of the ledger known to the participant
 // and managing the participant-local party metadata.
 //
 // The authorization rules for its RPCs are specified on the ``<RpcName>Request``
@@ -28,10 +28,10 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // The only fields that can be modified are those marked as ``Modifiable``.
 service PartyManagementService {
 
-  // Return the identifier of the backing participant.
+  // Return the identifier of the participant.
   // All horizontally scaled replicas should return the same id.
   // daml-on-kv-ledger: returns an identifier supplied on command line at launch time
-  // canton: returns globally unique identifier of the backing participant
+  // canton: returns globally unique identifier of the participant
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
@@ -44,9 +44,9 @@ service PartyManagementService {
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   rpc GetParties (GetPartiesRequest) returns (GetPartiesResponse);
 
-  // List the parties known by the backing participant.
+  // List the parties known by the participant.
   // The list returned contains parties whose ledger access is facilitated by
-  // backing participant and the ones maintained elsewhere.
+  // the participant and the ones maintained elsewhere.
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
@@ -63,7 +63,7 @@ service PartyManagementService {
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``UNIMPLEMENTED``: if synchronous party allocation is not supported by the backing participant
+  // - ``UNIMPLEMENTED``: if synchronous party allocation is not supported by the participant
   // - ``DEADLINE_EXCEEDED``: if the request times out
   // - ``INVALID_ARGUMENT``: if the provided hint and/or display name is invalid on the given ledger (see below).
   // daml-on-kv-ledger: suggestion's uniqueness is checked by the validators in
@@ -122,7 +122,7 @@ message ListKnownPartiesResponse {
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message AllocatePartyRequest {
 
-  // A hint to the backing participant which party ID to allocate. It can be
+  // A hint to the participant which party ID to allocate. It can be
   // ignored.
   // Must be a valid PartyIdString (as described in ``value.proto``).
   // Optional
@@ -147,31 +147,25 @@ message AllocatePartyResponse {
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message UpdatePartyDetailsRequest {
   // Party to be updated
-  //
-  // Required
+  // Required,
   // Modifiable
   PartyDetails party_details = 1;
 
-  // An update mask specifies haw and which properties of the ``PartyDetails`` message are to be updated.
-  //
+  // An update mask specifies how and which properties of the ``PartyDetails`` message are to be updated.
   // An update mask consists of a set of update paths.
   // A valid update path points to a field or a subfield relative to the ``PartyDetails`` message.
   // A valid update mask must:
-  // - contain at least one update path,
-  // - contain only valid update paths.
-  //
+  // (1) contain at least one update path,
+  // (2) contain only valid update paths.
   // Fields that can be updated are marked as ``Modifiable``.
   // An update path can also point to non-``Modifiable`` fields such as 'party' and 'local_metadata.resource_version'
   // because they are used, respectively, 1) to identify the party details resource
   // subject to the update and 2) for concurrent change control.
   // An update path can also point to non-``Modifiable`` fields such as 'is_local' and 'display_name'
   // as long as the values provided in the update request match the server values.
-  //
   // Examples of update paths: 'local_metadata.annotations', 'local_metadata'.
-  //
   // For additional information see the documentation for standard protobuf3's ``google.protobuf.FieldMask``.
   // For similar Ledger API see ``com.daml.ledger.api.v1.admin.UpdateUserRequest``.
-  //
   // Required
   google.protobuf.FieldMask update_mask = 2;
 }
@@ -185,25 +179,21 @@ message PartyDetails {
 
   // The stable unique identifier of a Daml party.
   // Must be a valid PartyIdString (as described in ``value.proto``).
-  //
   // Required
   string party = 1;
 
   // Human readable name associated with the party at allocation time.
   // Caution, it might not be unique.
   // Use of this field is discouraged. Use the `local_metadata` field instead.
-  //
   // Optional
   string display_name = 2;
 
-  // true if party is hosted by the backing participant.
-  //
+  // true if party is hosted by the participant.
   // Optional
   bool is_local = 3;
 
   // Participant-local metadata of this party.
-  //
-  // Optional
+  // Optional,
   // Modifiable
   ObjectMeta local_metadata = 4;
 }
