@@ -102,7 +102,6 @@ object ApiServiceOwner {
         configurationLoadTimeout = config.configurationLoadTimeout,
         initialLedgerConfiguration = config.initialLedgerConfiguration,
         commandConfig = config.command,
-        partyConfig = config.party,
         optTimeServiceBackend = timeServiceBackend,
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,

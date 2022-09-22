@@ -260,3 +260,48 @@ The oauth2-middleware can also be started using cli-args.
 
 Some browsers reject ``Secure`` cookies on unencrypted connections even on localhost.
 You can pass the command-line flag ``--cookie-secure no`` for testing and development on localhost to avoid this.
+
+Liveness and Readiness Endpoints
+********************************
+
+The following sections describe the endpoints that can be used to probe the liveness and readiness of the auth middleware service.
+
+Liveness Check
+==============
+
+This can be used as a liveness probe, e.g., in Kubernetes.
+
+HTTP Request
+^^^^^^^^^^^^
+
+- URL: ``/livez``
+- Method: ``GET``
+
+HTTP Response
+^^^^^^^^^^^^^
+
+A status code of ``200`` indicates a successful liveness check.
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    { "status": "pass" }
+
+Readiness Check
+===============
+
+This can be used as a readiness probe, e.g., in Kubernetes.
+
+HTTP Request
+^^^^^^^^^^^^
+
+- URL: ``/readyz``
+- Method: ``GET``
+
+HTTP Response
+^^^^^^^^^^^^^
+
+A status code of ``200`` indicates a successful readiness check.
+

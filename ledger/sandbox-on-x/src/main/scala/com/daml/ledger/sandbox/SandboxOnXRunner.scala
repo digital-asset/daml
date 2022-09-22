@@ -87,7 +87,6 @@ object SandboxOnXRunner {
       buildWriteServiceLambda = buildWriteService(
         participantId = participantId,
         feedSink = stateUpdatesFeedSink,
-        participantConfig = participantConfig,
         bridgeConfig = bridgeConfig,
         materializer = materializer,
         loggingContext = loggingContext,
@@ -169,7 +168,9 @@ object SandboxOnXRunner {
     config.participants.toList match {
 
       case (participantId, participantConfig) :: Nil =>
-        ResourceOwner.successful((participantId, participantConfig))
+        ResourceOwner.successful(
+          (participantConfig.participantIdOverride.getOrElse(participantId), participantConfig)
+        )
       case _ =>
         ResourceOwner.failed {
           val loggingMessage = "Sandbox-on-X can only be run with a single participant."
@@ -182,7 +183,6 @@ object SandboxOnXRunner {
   def buildWriteService(
       participantId: Ref.ParticipantId,
       feedSink: Sink[(Offset, Update), NotUsed],
-      participantConfig: ParticipantConfig,
       bridgeConfig: BridgeConfig,
       materializer: Materializer,
       loggingContext: LoggingContext,
@@ -195,7 +195,6 @@ object SandboxOnXRunner {
     for {
       ledgerBridge <- LedgerBridge.owner(
         participantId,
-        participantConfig,
         bridgeConfig,
         indexService,
         bridgeMetrics,

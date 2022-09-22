@@ -20,16 +20,6 @@ object ReplayCommand {
       argument: Value,
   ) extends ReplayCommand
 
-  // TODO: https://github.com/digital-asset/daml/issues/12051
-  //  Drop this, once Canton support ambiguous choices properly
-  @deprecated("use Exercise")
-  final case class LenientExercise(
-      templateId: TypeConName,
-      contractId: Value.ContractId,
-      choiceId: ChoiceName,
-      argument: Value,
-  ) extends ReplayCommand
-
   /** Exercise a template choice, by template Id or interface Id. */
   final case class Exercise(
       templateId: TypeConName,

@@ -22,12 +22,19 @@ private[inner] object EnumClass extends StrictLogging {
       logger.info("Start")
       val enumType = TypeSpec.enumBuilder(className).addModifiers(Modifier.PUBLIC)
       enumeration.constructors.foreach(c => enumType.addEnumConstant(c.toUpperCase()))
-      enumType.addField(generateValuesArray(enumeration))
-      enumType.addMethod(generateEnumsMapBuilder(className, enumeration))
-      enumType.addField(generateEnumsMap(className))
-      enumType.addMethod(generateDeprecatedFromValue(className, enumeration))
-      enumType.addMethod(generateFromValue(className, enumeration))
-      enumType.addMethod(generateToValue(className))
+      enumType
+        .addSuperinterface(
+          ParameterizedTypeName.get(
+            ClassName get classOf[javaapi.data.codegen.DamlEnum[_]],
+            className,
+          )
+        )
+        .addField(generateValuesArray(enumeration))
+        .addMethod(generateEnumsMapBuilder(className, enumeration))
+        .addField(generateEnumsMap(className))
+        .addMethod(generateDeprecatedFromValue(className, enumeration))
+        .addMethod(generateFromValue(className, enumeration))
+        .addMethod(generateToValue(className))
       logger.debug("End")
       enumType.build()
     }

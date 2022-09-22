@@ -1,0 +1,10 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @WARN range=10:1-10:3; Used tuple of size > 5!
+
+-- | Check that warning is emitted if tuple of size > 5 is used
+module TuplesTooLarge where
+
+t6 : (Int, Int, Int, Int, Int, Int)
+t6 = (1, 2, 3, 4, 5, 6)

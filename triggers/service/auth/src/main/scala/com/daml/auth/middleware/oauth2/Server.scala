@@ -309,6 +309,9 @@ class Server(config: Config) extends StrictLogging {
     path("livez") {
       complete(StatusCodes.OK, JsObject("status" -> JsString("pass")))
     },
+    path("readyz") {
+      complete(StatusCodes.OK, JsObject("status" -> JsString("pass")))
+    },
   )
 }
 

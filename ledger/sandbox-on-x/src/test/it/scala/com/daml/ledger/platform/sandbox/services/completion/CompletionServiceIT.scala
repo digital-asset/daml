@@ -19,15 +19,15 @@ import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, IndexerConfig
 import com.daml.platform.configuration.CommandConfiguration
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.daml.platform.sandbox.fixture.{CreatesParties, SandboxFixture}
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.testing.StreamConsumer
 import org.scalatest.Inspectors
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
-
 import java.util.concurrent.TimeUnit
+
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
@@ -36,6 +36,7 @@ sealed trait CompletionServiceITBase
     with Matchers
     with Inspectors
     with SandboxFixture
+    with CreatesParties
     with TestCommands
     with SuiteResourceManagementAroundAll {
 
@@ -109,10 +110,16 @@ sealed trait CompletionServiceITBase
     ).within(completionTimeout)
       .map(_.flatMap(_.completions).map(_.commandId))
 
+  val partyA = "partyA"
+  val partyB = "partyB"
+
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    createPrerequisiteParties(None, List(partyA, partyB))
+  }
+
   "CommandCompletionService" should {
     "return correct completions" in {
-      val partyA = "partyA"
-      val partyB = "partyB"
       val lid = ledgerId().unwrap
       val commandService = CommandServiceGrpc.stub(channel)
       val completionService = CommandCompletionServiceGrpc.stub(channel)

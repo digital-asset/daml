@@ -11,6 +11,7 @@ import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, Deduplica
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.HexString
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
@@ -259,6 +260,7 @@ private[platform] object InMemoryStateUpdater {
           createSignatories = create.signatories,
           createObservers = create.stakeholders.diff(create.signatories),
           createAgreementText = Some(create.agreementText).filter(_.nonEmpty),
+          createKeyHash = create.key.map(_.key).map(Hash.safeHashContractKey(create.templateId, _)),
         )
       case (nodeId, exercise: Exercise) =>
         TransactionLogUpdate.ExercisedEvent(

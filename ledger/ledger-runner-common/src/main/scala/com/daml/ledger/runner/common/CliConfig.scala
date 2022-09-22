@@ -39,7 +39,6 @@ final case class CliConfig[Extra](
     bufferedStreamsPageSize: Int,
     eventsProcessingParallelism: Int,
     extra: Extra,
-    implicitPartyAllocation: Boolean,
     ledgerId: String,
     maxDeduplicationDuration: Option[Duration],
     maxInboundMessageSize: Int,
@@ -88,7 +87,6 @@ object CliConfig {
       bufferedStreamsPageSize = IndexServiceConfig.DefaultBufferedStreamsPageSize,
       eventsProcessingParallelism = IndexServiceConfig.DefaultEventsProcessingParallelism,
       extra = extra,
-      implicitPartyAllocation = false,
       ledgerId = UUID.randomUUID().toString,
       maxDeduplicationDuration = None,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
@@ -131,9 +129,9 @@ object CliConfig {
     val parser: OParser[_, CliConfig[Extra]] = OParser.sequence(
       builder.head(s"$name as a service"),
       builder.help("help").text("Print this help page."),
-      commandRunLegacy(getEnvVar, extraOptions),
+      commandRunLegacy(name, getEnvVar, extraOptions),
       commandDumpIndexMetadata,
-      commandRunHocon,
+      commandRunHocon(name),
       commandConvertConfig(getEnvVar, extraOptions),
       builder.checkConfig(checkNoEmptyParticipant),
     )
@@ -169,13 +167,13 @@ object CliConfig {
       .unbounded()
       .action((files, cli) => cli.copy(configFiles = cli.configFiles ++ files))
 
-  private def commandRunHocon[Extra]: OParser[_, CliConfig[Extra]] = {
+  private def commandRunHocon[Extra](name: String): OParser[_, CliConfig[Extra]] = {
     val builder = OParser.builder[CliConfig[Extra]]
     OParser.sequence(
       builder
         .cmd("run")
         .text(
-          "Run Sandbox-on-X with configuration provided in HOCON files."
+          s"Run $name with configuration provided in HOCON files."
         )
         .action((_, config) => config.copy(mode = Mode.Run))
         .children(
@@ -189,6 +187,7 @@ object CliConfig {
   }
 
   private def commandRunLegacy[Extra](
+      name: String,
       getEnvVar: String => Option[String],
       extraOptions: OParser[_, CliConfig[Extra]],
   ): OParser[_, CliConfig[Extra]] =
@@ -196,7 +195,7 @@ object CliConfig {
       .builder[CliConfig[Extra]]
       .cmd("run-legacy-cli-config")
       .text(
-        "Run Sandbox-on-X in a legacy mode with cli-driven configuration."
+        s"Run $name in a legacy mode with cli-driven configuration."
       )
       .action((_, config) => config.copy(mode = Mode.RunLegacyCliConfig))
       .children(legacyCommand(getEnvVar, extraOptions))

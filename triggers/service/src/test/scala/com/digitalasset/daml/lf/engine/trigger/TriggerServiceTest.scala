@@ -397,6 +397,7 @@ trait AbstractTriggerServiceTest
       _ <- adminClient.packageManagementClient.uploadDarFile(
         PByteString.copyFrom(Files.readAllBytes(darPath.toPath))
       )
+      _ <- adminClient.partyManagementClient.allocateParty(Some(aliceAcs.unwrap), None)
       // Make sure that no contracts exist initially to guard against accidental
       // party reuse.
       _ <- getActiveContracts(client, aliceAcs, Identifier(testPkgId, "TestTrigger", "B"))
@@ -743,6 +744,11 @@ trait AbstractTriggerServiceTestAuthMiddleware
         ApiTypes.ApplicationId("exp-app-id"),
         actAs = List(ApiTypes.Party(aliceExp.unwrap)),
       )
+      adminClient <- sandboxClient(
+        ApiTypes.ApplicationId("exp-app-id"),
+        admin = true,
+      )
+      _ <- adminClient.partyManagementClient.allocateParty(Some(aliceExp.unwrap), None)
       // Make sure that no contracts exist initially to guard against accidental
       // party reuse.
       _ <- getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))

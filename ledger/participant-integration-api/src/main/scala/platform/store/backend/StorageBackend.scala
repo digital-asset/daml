@@ -9,6 +9,7 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.{ParticipantMetering, ReportData}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.logging.LoggingContext
@@ -31,9 +32,9 @@ import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, 
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.platform.store.interning.StringInterning
 import com.daml.scalautil.NeverEqualsOverride
+
 import java.sql.Connection
 import javax.sql.DataSource
-
 import com.daml.lf.data.Ref
 
 import scala.annotation.unused
@@ -382,6 +383,7 @@ object EventStorageBackend {
       createObservers: Option[Array[String]],
       createAgreementText: Option[String],
       createKeyValue: Option[Array[Byte]],
+      createKeyHash: Option[Hash],
       createKeyCompression: Option[Int],
       createArgument: Option[Array[Byte]],
       createArgumentCompression: Option[Int],

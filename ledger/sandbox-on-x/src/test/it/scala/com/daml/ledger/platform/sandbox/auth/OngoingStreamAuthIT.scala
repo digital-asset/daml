@@ -49,11 +49,12 @@ final class OngoingStreamAuthIT
   override protected def serviceCallWithToken(token: Option[String]): Future[Any] = ???
 
   private val testId = UUID.randomUUID().toString
+  val partyAlice = "alice-party"
+  protected override def prerequisiteParties: List[String] = List(partyAlice)
 
   it should "abort an ongoing stream after user state has changed" taggedAs securityAsset.setAttack(
     streamAttack(threat = "Continue privileged stream access after revocation of rights")
   ) in {
-    val partyAlice = "alice-party"
     val userIdAlice = testId + "-alice"
     val receivedTransactionsCount = new AtomicInteger(0)
     val transactionStreamAbortedPromise = Promise[Throwable]()
