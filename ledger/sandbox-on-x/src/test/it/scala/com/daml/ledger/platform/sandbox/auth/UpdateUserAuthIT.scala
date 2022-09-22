@@ -59,7 +59,7 @@ final class UpdateUserAuthIT
               isDeactivated = true,
             )
           ),
-          updateMask = Some(FieldMask(paths = Seq("user.is_deactivated"))),
+          updateMask = Some(FieldMask(paths = Seq("is_deactivated"))),
         ),
       ).transform {
         case Success(_) =>
