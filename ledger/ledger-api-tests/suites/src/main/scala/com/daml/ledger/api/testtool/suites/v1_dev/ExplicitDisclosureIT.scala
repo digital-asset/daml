@@ -15,6 +15,7 @@ import com.daml.ledger.api.v1.commands.{Command, DisclosedContract, ExerciseByKe
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v1.transaction_service.GetTransactionsRequest
+import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.ledger.client.binding
@@ -22,7 +23,7 @@ import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test
 import com.daml.ledger.test.model.Test._
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, QualifiedName}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import scalaz.syntax.tag._
@@ -125,6 +126,8 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
     "EDMetadata",
     "All create events have correctly-defined metadata",
     allocate(Parties(2)),
+    // TODO ED: Remove this conditional toggle once Canton consumes this commit so
+    //          it can pass in the `ledger-api-test-tool-on-canton`
     enabled = _.explicitDisclosure,
   )(implicit ec => { case Participants(Participant(ledger, owner, delegate)) =>
     val contractKey = ledger.nextKeyId()
@@ -632,7 +635,11 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
             val actualKeyHash = Hash.assertFromByteArray(metadata.contractKeyHash.toByteArray)
             val expectedKeyHash =
               Hash.assertHashContractKey(
-                Ref.Identifier.assertFromString(Delegated.id.unwrap.toProtoString),
+                fromApiIdentifier(Delegated.id.unwrap)
+                  .fold(
+                    errStr => fail(s"Failed converting from API to LF Identifier: $errStr"),
+                    identity,
+                  ),
                 NoLoggingValueValidator
                   .validateValue(cKey)
                   .fold(err => fail("Failed converting contract key value", err), identity),
@@ -750,4 +757,12 @@ object ExplicitDisclosureIT {
         ),
       )
       .update(_.commands.disclosedContracts := withKeyDisclosedContract.iterator.toSeq)
+
+  // TODO Deduplicate with Converter.fromApiIdentifier
+  private def fromApiIdentifier(id: value.Identifier): Either[String, Identifier] =
+    for {
+      packageId <- PackageId.fromString(id.packageId)
+      moduleName <- DottedName.fromString(id.moduleName)
+      entityName <- DottedName.fromString(id.entityName)
+    } yield Identifier(packageId, QualifiedName(moduleName, entityName))
 }
