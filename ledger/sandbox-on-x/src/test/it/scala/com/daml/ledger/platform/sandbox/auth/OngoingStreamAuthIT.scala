@@ -53,7 +53,9 @@ final class OngoingStreamAuthIT
 
   private val testId = UUID.randomUUID().toString
   val partyAlice = "alice-party"
-  protected override def prerequisiteParties: List[String] = List(partyAlice)
+  val partyAlice2 = "alice-party-2"
+
+  protected override def prerequisiteParties: List[String] = List(partyAlice, partyAlice2)
 
   it should "abort an ongoing stream after user state has changed" taggedAs securityAsset.setAttack(
     streamAttack(threat = "Continue privileged stream access after revocation of rights")
@@ -146,7 +148,6 @@ final class OngoingStreamAuthIT
     .setAttack(
       streamAttack(threat = "Continue privileged stream access after user deactivation")
     ) in {
-    val partyAlice = "alice-party-2"
     val userIdAlice = testId + "-alice-2"
     val receivedTransactionsCount = new AtomicInteger(0)
     val transactionStreamAbortedPromise = Promise[Throwable]()
@@ -179,7 +180,7 @@ final class OngoingStreamAuthIT
         .getTransactions(request, observer)
     }
 
-    val canActAsAlice = Right(Right.Kind.CanActAs(Right.CanActAs(partyAlice)))
+    val canActAsAlice = Right(Right.Kind.CanActAs(Right.CanActAs(partyAlice2)))
     for {
       (userAlice, tokenAlice) <- createUserByAdmin(
         userId = userIdAlice,
@@ -187,9 +188,9 @@ final class OngoingStreamAuthIT
       )
       applicationId = userAlice.id
       submitAndWaitF = () =>
-        submitAndWait(token = tokenAlice, party = partyAlice, applicationId = applicationId)
+        submitAndWait(token = tokenAlice, party = partyAlice2, applicationId = applicationId)
       _ <- submitAndWaitF()
-      _ = observeTransactionsStream(tokenAlice, partyAlice)
+      _ = observeTransactionsStream(tokenAlice, partyAlice2)
       _ <- submitAndWaitF()
       // Deactivating Alice user:
       _ <- deactivateUserByAdmin(userId = userIdAlice)
