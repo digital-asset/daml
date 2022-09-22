@@ -4,7 +4,8 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi.data
-import com.daml.ledger.javaapi.data.{PrimitiveValueDecoders, Value}
+import com.daml.ledger.javaapi.data.Value
+import com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders
 import com.daml.lf.codegen.backend.java.{JavaEscaper, ObjectMethods}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.typesig.{Type, TypeVar}

@@ -1,13 +1,13 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.javaapi.data;
+package com.daml.ledger.javaapi.data.codegen;
 
+import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.javaapi.data.codegen.FromValue;
 import java.time.Instant;
 import java.time.LocalDate;
 
-// TODO: CL move it to com.daml.ledger.javaapi.data.codegen
 public class PrimitiveValueDecoders {
   public static FromValue<Boolean> fromBool =
       value -> value.asBool().orElseThrow(() -> mismatched(Bool.class)).getValue();

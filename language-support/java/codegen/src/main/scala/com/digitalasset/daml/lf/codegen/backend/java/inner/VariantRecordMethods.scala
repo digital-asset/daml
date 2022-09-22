@@ -4,7 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.daml.ledger.javaapi.data.PrimitiveValueDecoders
+import com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders
 import com.daml.lf.codegen.backend.java.ObjectMethods
 import com.daml.lf.data.Ref.PackageId
 import com.squareup.javapoet._

@@ -4,7 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.daml.ledger.javaapi.data.codegen.{ContractCompanion, FromValue}
+import com.daml.ledger.javaapi.data.codegen.{ContractCompanion, FromValue, PrimitiveValueDecoders}
 import com.daml.lf.codegen.backend.java.JavaEscaper
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.PackageId
@@ -213,7 +213,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
         logger.debug(s"Generating primitive extractor for $field of type $apiType")
         CodeBlock.of(
           "$T.$L.fromValue($L)",
-          classOf[javaapi.data.PrimitiveValueDecoders],
+          classOf[PrimitiveValueDecoders],
           extractor,
           accessor,
         )
