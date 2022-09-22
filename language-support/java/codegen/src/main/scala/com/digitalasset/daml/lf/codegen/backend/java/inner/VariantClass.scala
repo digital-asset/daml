@@ -212,7 +212,7 @@ private[inner] object VariantClass extends StrictLogging {
       t: ClassName
   ): MethodSpec = {
     logger.debug(s"Generating depreacted fromValue static method for $t")
-    val builder = initFromValueBuilder(t)
+    initFromValueBuilder(t)
       .addParameter(classOf[javaapi.data.Value], "value$")
       .addAnnotation(classOf[Deprecated])
       .addJavadoc(
@@ -221,11 +221,11 @@ private[inner] object VariantClass extends StrictLogging {
         s"use {@code fromValue} that return FromValue<?> instead",
       )
       .addStatement("$L", variantExtractor(t))
-    builder.addStatement(
-      "return fromValue().fromValue($L)",
-      "value$",
-    )
-    builder.build()
+      .addStatement(
+        "return fromValue().fromValue($L)",
+        "value$",
+      )
+      .build()
   }
 
   private def generateDeprecatedParameterizedFromValue(

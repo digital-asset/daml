@@ -4,11 +4,12 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
+import com.daml.ledger.javaapi.data.codegen.FromValue
 import com.daml.lf.typesig
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
-import javax.lang.model.element.Modifier
 
+import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
 
 private[inner] object EnumClass extends StrictLogging {
@@ -24,6 +25,7 @@ private[inner] object EnumClass extends StrictLogging {
       enumType.addField(generateValuesArray(enumeration))
       enumType.addMethod(generateEnumsMapBuilder(className, enumeration))
       enumType.addField(generateEnumsMap(className))
+      enumType.addMethod(generateDeprecatedFromValue(className, enumeration))
       enumType.addMethod(generateFromValue(className, enumeration))
       enumType.addMethod(generateToValue(className))
       logger.debug("End")
@@ -76,17 +78,38 @@ private[inner] object EnumClass extends StrictLogging {
     builder.build()
   }
 
-  private def generateFromValue(
+  private def generateDeprecatedFromValue(
       className: ClassName,
       enumeration: typesig.Enum,
   ): MethodSpec = {
-    logger.debug(s"Generating fromValue static method for ${enumeration}")
+    logger.debug(s"Generating deprecated fromValue static method for $enumeration")
 
     MethodSpec
       .methodBuilder("fromValue")
       .addModifiers(Modifier.STATIC, Modifier.PUBLIC, Modifier.FINAL)
       .returns(className)
       .addParameter(classOf[javaapi.data.Value], "value$")
+      .addAnnotation(classOf[Deprecated])
+      .addJavadoc(
+        "@deprecated since Daml $L; $L",
+        "2.5.0",
+        s"use {@code fromValue} that return FromValue<?> instead",
+      )
+      .addStatement(
+        "return fromValue().fromValue($L)",
+        "value$",
+      )
+      .build()
+  }
+
+  private def generateFromValue(
+      className: ClassName,
+      enumeration: typesig.Enum,
+  ): MethodSpec = {
+    logger.debug(s"Generating fromValue static method for $enumeration")
+
+    val fromValueCode = CodeBlock
+      .builder()
       .addStatement(
         "$T constructor$$ = value$$.asEnum().orElseThrow(() -> new $T($S)).getConstructor()",
         classOf[String],
@@ -100,8 +123,16 @@ private[inner] object EnumClass extends StrictLogging {
         s"Expected a DamlEnum with ${className.simpleName()} constructor, found ",
       )
       .addStatement("return ($T) $T.__enums$$.get(constructor$$)", className, className)
-      .build()
 
+    MethodSpec
+      .methodBuilder("fromValue")
+      .addModifiers(Modifier.STATIC, Modifier.PUBLIC, Modifier.FINAL)
+      .returns(ParameterizedTypeName.get(ClassName.get(classOf[FromValue[_]]), className))
+      .beginControlFlow("return $L ->", "value$")
+      .addCode(fromValueCode.build())
+      // put empty string in endControlFlow in order to have semicolon
+      .endControlFlow("")
+      .build()
   }
 
   private def generateToValue(className: ClassName): MethodSpec =

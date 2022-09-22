@@ -255,7 +255,6 @@ private[inner] object FromValueGenerator extends StrictLogging {
       case TypePrim(PrimTypeList, ImmArraySeq(param)) =>
         val optMapArg = args.next()
         val listMapArg = args.next()
-        // TODO CL simplify `v$0.toList(v$1 -> fromValuea.apply(v$1))` to `v$0.toList(fromValuea.fromValue)`
         CodeBlock.of(
           """$L.asList()
             |    .map($L -> $L.toList($L ->
@@ -353,20 +352,31 @@ private[inner] object FromValueGenerator extends StrictLogging {
         CodeBlock.of("$T.fromValue().fromValue($L)", javaType, accessor)
 
       case TypeCon(_, typeParameters) =>
-        val (targs, extractors) = typeParameters.map { targ =>
-          val innerArg = args.next()
-          toJavaTypeName(targ, packagePrefixes) -> CodeBlock.of(
-            "$L -> $L",
-            innerArg,
-            extractor(targ, field, CodeBlock.of("$L", innerArg), args, packagePrefixes),
-          )
+        val (targs, valueDecoders) = typeParameters.map {
+          case targ @ TypeVar(tvName) =>
+            toJavaTypeName(targ, packagePrefixes) -> CodeBlock.of(
+              "fromValue$L",
+              JavaEscaper.escapeString(tvName),
+            )
+          case targ @ TypeCon(_, ImmArraySeq()) =>
+            toJavaTypeName(targ, packagePrefixes) -> CodeBlock.of(
+              "$T.fromValue()",
+              toJavaTypeName(targ, packagePrefixes),
+            )
+          case targ =>
+            val innerArg = args.next()
+            toJavaTypeName(targ, packagePrefixes) -> CodeBlock.of(
+              "$L -> $L",
+              innerArg,
+              extractor(targ, field, CodeBlock.of("$L", innerArg), args, packagePrefixes),
+            )
         }.unzip
 
         val targsCode = CodeBlock.join(targs.map(CodeBlock.of("$L", _)).asJava, ", ")
         CodeBlock
           .builder()
           .add(CodeBlock.of("$T.<$L>fromValue(", javaType.rawType, targsCode))
-          .add(CodeBlock.join(extractors.asJava, ", "))
+          .add(CodeBlock.join(valueDecoders.asJava, ", "))
           .add(CodeBlock.of(").fromValue($L)", accessor))
           .build()
     }
