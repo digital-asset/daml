@@ -25,6 +25,7 @@ cleanup()
   rm -f ../source/app-dev/grpc/error-categories-inventory.rst.inc
   rm -f ../source/LICENSE
   rm -f ../source/NOTICES
+  rm -f ../source/index.rst
   echo "Done cleanup ... quitting."
   exit 1
 }
@@ -53,6 +54,10 @@ bazel build //templates:templates-tarball
 TEMPLATES_DIR=$BUILD_DIR/source/_templates
 mkdir -p $TEMPLATES_DIR
 tar -zxf $BAZEL_BIN/templates/templates-tarball.tar.gz -C $TEMPLATES_DIR --strip-components=1
+
+# Index
+bazel build //docs:index
+cp $BAZEL_BIN/docs/index.rst $BUILD_DIR/source/index.rst
 
 GEN_ERROR_CODES=false
 
