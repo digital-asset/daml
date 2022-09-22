@@ -7,9 +7,9 @@ package speedy
 import com.daml.lf.command.ContractMetadata
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data._
-import com.daml.lf.interpretation.Error.TemplatePreconditionViolated
+import com.daml.lf.interpretation.Error.{TemplateNotFound, TemplatePreconditionViolated}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SError.{SError, SErrorCrash, SErrorDamlException}
+import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.speedy.SValue.SContractId
 import com.daml.lf.speedy.Speedy.{CachedContract, OnLedger}
@@ -74,8 +74,8 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
       )
 
       inside(evalSExpr(sexpr, getContract = Map(contractId1 -> invalidVersionedContract))) {
-        case Left(SErrorCrash(_, message)) =>
-          message should endWith(s"Template $invalidTemplateId does not exist and it should")
+        case Left(SErrorDamlException(TemplateNotFound(`invalidTemplateId`))) =>
+          succeed
       }
     }
 

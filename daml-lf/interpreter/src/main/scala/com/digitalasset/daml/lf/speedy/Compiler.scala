@@ -784,7 +784,7 @@ private[lf] final class Compiler(
       env: Env,
       templateId: Identifier,
       contract: s.SExpr,
-      body: s.SExpr,
+      body: Env => s.SExpr,
   ): s.SExpr = {
     let(env, s.SEApp(s.SEVal(t.TemplatePreConditionDefRef(templateId)), List(contract))) {
       (preConditionCheck, env) =>
@@ -793,7 +793,7 @@ private[lf] final class Compiler(
           List(
             s.SCaseAlt(
               t.SCPPrimCon(PCTrue),
-              body,
+              body(env),
             ),
             s.SCaseAlt(
               t.SCPDefault,
@@ -819,10 +819,12 @@ private[lf] final class Compiler(
       env2,
       templateId,
       env2.toSEVar(contractPos),
-      SBUCreate(
-        translateExp(env2, template.agreementText),
-        t.ToCachedContractDefRef(templateId)(env2.toSEVar(contractPos), s.SEValue.None),
-      ),
+      { (env: Env) =>
+        SBUCreate(
+          translateExp(env, template.agreementText),
+          t.ToCachedContractDefRef(templateId)(env.toSEVar(contractPos), s.SEValue.None),
+        )
+      },
     )
   }
 
@@ -1119,7 +1121,9 @@ private[lf] final class Compiler(
                 env,
                 templateId,
                 contract,
-                translateDisclosedContractWithTemplateChecked(env, templateId, disclosedContract),
+                { (env: Env) =>
+                  translateDisclosedContractWithTemplateChecked(env, templateId, disclosedContract)
+                },
               ),
             ),
             s.SCaseAlt(

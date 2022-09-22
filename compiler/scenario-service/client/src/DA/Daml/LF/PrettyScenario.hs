@@ -277,6 +277,11 @@ prettyScenarioErrorError (Just err) =  do
     ScenarioErrorErrorCrash reason -> pure $ text "CRASH:" <-> ltext reason
     ScenarioErrorErrorUserError reason -> pure $ text "Aborted: " <-> ltext reason
     ScenarioErrorErrorUnhandledException exc -> pure $ text "Unhandled exception: " <-> prettyValue' True 0 world exc
+    ScenarioErrorErrorTemplateNotFound(ScenarioError_TemplateNotFound templateId) ->
+      pure $ vcat
+        [ "Failed to find template"
+        , label_ "Template:" $ prettyMay "<missing template id>" (prettyDefName world) templateId
+        ]
     ScenarioErrorErrorTemplatePrecondViolated ScenarioError_TemplatePreconditionViolated{..} -> do
       pure $
         "Template precondition violated in:"

@@ -119,6 +119,12 @@ final class Conversions(
                 //     archived or what not are turned into more specific
                 //     errors so we never produce ContractNotFound
                 builder.setCrash(s"contract ${cid.coid} not found")
+              case TemplateNotFound(templateId) =>
+                builder.setTemplateNotFound(
+                  proto.ScenarioError.TemplateNotFound.newBuilder
+                    .setTemplateId(convertIdentifier(templateId))
+                    .build
+                )
               case TemplatePreconditionViolated(tid, optLoc, arg) =>
                 val uepvBuilder = proto.ScenarioError.TemplatePreconditionViolated.newBuilder
                 optLoc.map(convertLocation).foreach(uepvBuilder.setLocation)
