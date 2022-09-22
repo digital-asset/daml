@@ -35,7 +35,6 @@ object VariantValueDecodersMethods {
         case _ =>
           val className =
             ClassName.bestGuess(s"$subPackage.$javaName").parameterized(typeArgs)
-          println("!! >> variant con " + className)
           methodSpecs +=
             variantConDecoderMethod(damlName, typeArgs, className, damlType, packagePrefixes)
       }
