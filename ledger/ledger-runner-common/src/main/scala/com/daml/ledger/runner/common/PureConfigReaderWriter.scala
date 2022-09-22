@@ -21,7 +21,6 @@ import com.daml.platform.configuration.{
   CommandConfiguration,
   IndexServiceConfig,
   InitialLedgerConfiguration,
-  PartyConfiguration,
 }
 import com.daml.platform.indexer.ha.HaConfig
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, PackageMetadataViewConfig}
@@ -239,11 +238,6 @@ class PureConfigReaderWriter(secure: Boolean = true) {
     deriveConvert[AuthServiceConfig.Wildcard.type]
   implicit val authServiceConfigConvert: ConfigConvert[AuthServiceConfig] =
     deriveConvert[AuthServiceConfig]
-
-  implicit val partyConfigurationHint = ProductHint[PartyConfiguration](allowUnknownKeys = false)
-
-  implicit val partyConfigurationConvert: ConfigConvert[PartyConfiguration] =
-    deriveConvert[PartyConfiguration]
 
   implicit val commandConfigurationHint =
     ProductHint[CommandConfiguration](allowUnknownKeys = false)

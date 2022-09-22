@@ -17,6 +17,8 @@ trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
     createUserByAdmin(userPrefix + mainActor, Vector(proto.Right(right)))
       .flatMap { case (_, token) => serviceCallWithoutApplicationId(token) }
 
+  protected override def prerequisiteParties: List[String] = List(mainActor)
+
   it should "deny calls with an expired read/write token" taggedAs securityAsset.setAttack(
     attackUnauthenticated(threat = "Present an expired read/write JWT")
   ) in {

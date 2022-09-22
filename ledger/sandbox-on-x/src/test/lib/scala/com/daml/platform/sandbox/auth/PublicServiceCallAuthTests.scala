@@ -11,6 +11,8 @@ import scala.concurrent.Future
 
 trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
 
+  protected override def prerequisiteParties: List[String] = List(randomParty)
+
   protected def serviceCallWithPayload(payload: AuthServiceJWTPayload): Future[Any] =
     serviceCallWithToken(Some(toHeader(payload)))
 

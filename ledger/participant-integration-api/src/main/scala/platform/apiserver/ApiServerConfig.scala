@@ -6,11 +6,7 @@ package com.daml.platform.apiserver
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
-import com.daml.platform.configuration.{
-  CommandConfiguration,
-  InitialLedgerConfiguration,
-  PartyConfiguration,
-}
+import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
@@ -28,7 +24,6 @@ case class ApiServerConfig(
       ApiServerConfig.DefaultInitialLedgerConfiguration,
     managementServiceTimeout: FiniteDuration = ApiServerConfig.DefaultManagementServiceTimeout,
     maxInboundMessageSize: Int = ApiServerConfig.DefaultMaxInboundMessageSize,
-    party: PartyConfiguration = ApiServerConfig.DefaultParty,
     port: Port = ApiServerConfig.DefaultPort,
     portFile: Option[Path] = ApiServerConfig.DefaultPortFile,
     rateLimit: Option[RateLimitingConfig] = ApiServerConfig.DefaultRateLimitingConfig,
@@ -51,7 +46,6 @@ object ApiServerConfig {
   val DefaultSeeding: Seeding = Seeding.Strong
   val DefaultManagementServiceTimeout: FiniteDuration = 2.minutes
   val DefaultUserManagement: UserManagementConfig = UserManagementConfig.default(enabled = false)
-  val DefaultParty: PartyConfiguration = PartyConfiguration.Default
   val DefaultCommand: CommandConfiguration = CommandConfiguration.Default
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
   val DefaultApiStreamShutdownTimeout: FiniteDuration = FiniteDuration(5, "seconds")

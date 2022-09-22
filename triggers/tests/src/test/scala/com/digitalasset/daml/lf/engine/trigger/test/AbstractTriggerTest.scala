@@ -68,17 +68,20 @@ trait AbstractTriggerTest
     LedgerClientChannelConfiguration.InsecureDefaults
 
   protected def ledgerClient(
-      maxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize
-  )(implicit ec: ExecutionContext): Future[LedgerClient] =
+      maxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize,
+      config: Option[LedgerClientConfiguration] = None,
+  )(implicit ec: ExecutionContext): Future[LedgerClient] = {
+    val effectiveConfig = config.getOrElse(ledgerClientConfiguration)
     for {
       client <- LedgerClient
         .singleHost(
           "localhost",
           serverPort.value,
-          ledgerClientConfiguration,
+          effectiveConfig,
           ledgerClientChannelConfiguration.copy(maxInboundMessageSize = maxInboundMessageSize),
         )
     } yield client
+  }
 
   override protected def darFile =
     Try(BazelRunfiles.requiredResource("triggers/tests/acs.dar"))

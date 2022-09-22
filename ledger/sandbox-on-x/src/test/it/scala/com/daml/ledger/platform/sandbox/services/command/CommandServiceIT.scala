@@ -17,7 +17,7 @@ import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.daml.platform.sandbox.fixture.{CreatesParties, SandboxFixture}
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.services.time.TimeProviderType
 import com.google.protobuf.duration.{Duration => ProtoDuration}
@@ -25,7 +25,6 @@ import org.scalatest.Inspectors
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
-
 import java.time.{Duration, Instant}
 import java.util.UUID
 
@@ -34,6 +33,7 @@ sealed trait CommandServiceITBase
     with Matchers
     with Inspectors
     with SandboxFixture
+    with CreatesParties
     with TestCommands
     with SuiteResourceManagementAroundAll {
 
@@ -77,6 +77,11 @@ sealed trait CommandServiceITBase
       actualDuration.compareTo(expectedDuration) != -1,
       s"Expected submission duration was $expectedDuration, actual duration way $actualDuration",
     )
+  }
+
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    createPrerequisiteParties(None, List(MockMessages.submitRequest.getCommands.party))
   }
 
   "CommandSubmissionService" when {

@@ -4,6 +4,7 @@
 package com.daml.http
 
 import java.security.DigestInputStream
+
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.Authorization
@@ -219,10 +220,20 @@ trait AbstractHttpServiceIntegrationTestFuns
     def getUniquePartyAndAuthHeaders(
         name: String
     ): Future[(domain.Party, List[HttpHeader])] = {
-      val domain.Party(partyName) = getUniqueParty(name)
-      headersWithPartyAuth(List(partyName), List.empty, "").map(token =>
-        (domain.Party(partyName), token)
-      )
+      val party @ domain.Party(partyName) = getUniqueParty(name)
+      for {
+        headers <- headersWithPartyAuth(List(partyName), List.empty, "")
+        request = domain.AllocatePartyRequest(
+          Some(party),
+          None,
+        )
+        json = SprayJson.encode(request).valueOr(e => fail(e.shows))
+        _ <- postJsonRequest(
+          Uri.Path("/v1/parties/allocate"),
+          json = json,
+          headers = headersWithAdminAuth,
+        )
+      } yield (party, headers)
     }
 
     def headersWithAuth(implicit ec: ExecutionContext): Future[List[Authorization]] =
@@ -470,27 +481,31 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def iouExerciseTransferCommand(
-      contractId: lar.ContractId
+      contractId: lar.ContractId,
+      partyName: domain.Party,
   ): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
     val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou), contractId)
+    val party = Ref.Party assertFromString partyName.unwrap
     val arg =
-      recordFromFields(ShRecord(newOwner = v.Value.Sum.Party("Bob")))
+      recordFromFields(ShRecord(newOwner = v.Value.Sum.Party(party)))
     val choice = lar.Choice("Iou_Transfer")
 
     domain.ExerciseCommand(reference, choice, boxedRecord(arg), None, None)
   }
 
   protected def iouCreateAndExerciseTransferCommand(
-      partyName: domain.Party,
+      originator: domain.Party,
+      target: domain.Party,
       amount: String = "999.9900000000",
       currency: String = "USD",
       meta: Option[domain.CommandMeta] = None,
   ): domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] = {
-    val party = Ref.Party assertFromString partyName.unwrap
+    val originatorParty = Ref.Party assertFromString originator.unwrap
+    val targetParty = Ref.Party assertFromString target.unwrap
     val payload = argToApi(iouVA)(
       ShRecord(
-        issuer = party,
-        owner = party,
+        issuer = originatorParty,
+        owner = originatorParty,
         currency = currency,
         amount = LfNumeric assertFromString amount,
         observers = Vector.empty,
@@ -498,7 +513,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     )
 
     val arg =
-      recordFromFields(ShRecord(newOwner = v.Value.Sum.Party("Bob")))
+      recordFromFields(ShRecord(newOwner = v.Value.Sum.Party(targetParty)))
     val choice = lar.Choice("Iou_Transfer")
 
     domain.CreateAndExerciseCommand(
