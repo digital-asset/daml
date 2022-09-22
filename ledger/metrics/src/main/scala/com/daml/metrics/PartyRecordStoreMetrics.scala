@@ -8,10 +8,7 @@ import com.codahale.metrics.MetricRegistry
 class PartyRecordStoreMetrics(
     override val prefix: MetricName,
     override val registry: MetricRegistry,
-) extends MetricHandle.Factory {
-
-  private def createDbMetrics(name: String): DatabaseMetrics =
-    new DatabaseMetrics(prefix, name, registry)
+) extends MetricHandle.FactoryWithDBMetrics {
 
   val getPartyRecord: DatabaseMetrics = createDbMetrics("get_party_record")
   val createPartyRecord: DatabaseMetrics = createDbMetrics("create_party_record")

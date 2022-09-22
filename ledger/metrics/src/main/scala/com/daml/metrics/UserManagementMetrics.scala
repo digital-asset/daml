@@ -6,12 +6,9 @@ package com.daml.metrics
 import com.codahale.metrics.{MetricRegistry}
 
 class UserManagementMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends MetricHandle.FactoryWithDBMetrics {
 
   val cache = new CacheMetrics(prefix :+ "cache", registry)
-
-  private def createDbMetrics(name: String): DatabaseMetrics =
-    new DatabaseMetrics(prefix, name, registry)
 
   val getUserInfo: DatabaseMetrics = createDbMetrics("get_user_info")
   val createUser: DatabaseMetrics = createDbMetrics("create_user")

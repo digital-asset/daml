@@ -63,6 +63,10 @@ object MetricHandle {
 
   }
 
+  trait FactoryWithDBMetrics extends MetricHandle.Factory {
+    def createDbMetrics(name: String): DatabaseMetrics =
+      new DatabaseMetrics(prefix, name, registry)
+  }
 
   sealed case class Timer(name: String, metric: codahale.Timer) extends MetricHandle[codahale.Timer] {
     def metricType: String = "Timer"

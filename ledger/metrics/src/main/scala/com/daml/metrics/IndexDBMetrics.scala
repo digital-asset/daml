@@ -8,7 +8,7 @@ import com.daml.metrics.MetricHandle.{Histogram, Timer}
 import com.codahale.metrics.MetricRegistry
 
 class IndexDBMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends MetricHandle.FactoryWithDBMetrics {
 
   val storePartyEntry: Timer = timer(
     prefix :+ "store_party_entry"
@@ -39,9 +39,6 @@ class IndexDBMetrics(override val prefix: MetricName, override val registry: Met
   val listLfPackages: Timer = timer(prefix :+ "list_lf_packages")
   val getLfArchive: Timer = timer(prefix :+ "get_lf_archive")
   val prune: Timer = timer(prefix :+ "prune")
-
-  private val createDbMetrics: String => DatabaseMetrics =
-    new DatabaseMetrics(prefix, _, registry)
 
   private val overall = createDbMetrics("all")
   val waitAll: Timer = overall.waitTimer
