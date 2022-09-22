@@ -114,7 +114,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
 
     fromValueCode
       .addStatement(
-        "return new $L($L)",
+        "return new $T($L)",
         className,
         generateArgumentList(fields.map(_.javaName)),
       )

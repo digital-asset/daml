@@ -7,6 +7,7 @@ import com.daml.ledger.javaapi.data.codegen.FromValue;
 import java.time.Instant;
 import java.time.LocalDate;
 
+// TODO: CL move it to com.daml.ledger.javaapi.data.codegen
 public class PrimitiveValueDecoders {
   public static FromValue<Boolean> fromBool =
       value -> value.asBool().orElseThrow(() -> mismatched(Bool.class)).getValue();
@@ -22,6 +23,12 @@ public class PrimitiveValueDecoders {
       value -> value.asUnit().orElseThrow(() -> mismatched(Unit.class));
   public static FromValue<LocalDate> fromDate =
       value -> value.asDate().orElseThrow(() -> mismatched(Date.class)).getValue();
+
+  public static <T> FromValue<T> impossible() {
+    return x -> {
+      throw new IllegalArgumentException("Expected type to be unused, but was used for " + x);
+    };
+  }
 
   // TODO CL error context String field
   private static IllegalArgumentException mismatched(Class<?> clazz) {

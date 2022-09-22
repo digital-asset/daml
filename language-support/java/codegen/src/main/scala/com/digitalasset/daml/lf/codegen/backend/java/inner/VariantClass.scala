@@ -39,7 +39,16 @@ private[inner] object VariantClass extends StrictLogging {
         .addMethod(
           generateDeprecatedFromValue(typeArguments, variantClassName)
         )
-        .addMethod(generateFromValue(typeArguments, constructorInfo, variantClassName, subPackage))
+        .addMethod(generateFromValue(typeArguments, constructorInfo, variantClassName))
+        .addMethods(
+          VariantValueDecodersMethods(
+            typeArguments,
+            variant,
+            typeWithContext,
+            packagePrefixes,
+            subPackage,
+          ).asJava
+        )
         .addField(createPackageIdField(typeWithContext.interface.packageId))
         .build()
       val constructors = generateConstructorClasses(
@@ -100,15 +109,14 @@ private[inner] object VariantClass extends StrictLogging {
       builder: CodeBlock.Builder,
       constructors: Fields,
       variant: ClassName,
-      subPackage: String,
-      useConstructor: String => CodeBlock,
+      useValueDecoder: String => CodeBlock,
   ): CodeBlock.Builder = {
     val constructorsAsString = constructors.map(_.damlName).mkString("[", ", ", "]")
     logger.debug(s"Generating switch on constructors $constructorsAsString for $variant")
     for (constructorInfo <- constructors) {
       builder
         .beginControlFlow("if ($S.equals(variant$$.getConstructor()))", constructorInfo.damlName)
-        .addStatement(useConstructor(List(subPackage, constructorInfo.javaName).mkString(".")))
+        .addStatement(useValueDecoder(s"fromValue${constructorInfo.javaName}"))
         .endControlFlow()
     }
     builder
@@ -121,7 +129,6 @@ private[inner] object VariantClass extends StrictLogging {
   private def generateParameterizedFromValue(
       variant: ParameterizedTypeName,
       constructors: Fields,
-      subPackage: String,
   ): MethodSpec = {
     logger.debug(s"Generating fromValue static method for $variant")
     require(
@@ -138,7 +145,7 @@ private[inner] object VariantClass extends StrictLogging {
       )
 
     builder.addTypeVariables(typeVariablesExtractorParameters.typeVariables.asJava)
-    builder.addParameters(typeVariablesExtractorParameters.functionParameterSpecs.asJava)
+    builder.addParameters(typeVariablesExtractorParameters.fromValueParameterSpecs.asJava)
 
     val decodeValueCodeBuilder = CodeBlock
       .builder()
@@ -153,8 +160,7 @@ private[inner] object VariantClass extends StrictLogging {
       decodeValueCodeBuilder,
       constructors,
       variant.rawType,
-      subPackage,
-      constructor => CodeBlock.of("return $L.fromValue(variant$$, $L)", constructor, extractors),
+      valueDecoder => CodeBlock.of("return $L($L).fromValue(variant$$)", valueDecoder, extractors),
     )
 
     builder
@@ -166,7 +172,6 @@ private[inner] object VariantClass extends StrictLogging {
   private def generateConcreteFromValue(
       t: ClassName,
       constructors: Fields,
-      subPackage: String,
   ): MethodSpec = {
     logger.debug(s"Generating fromValue static method for $t")
     val returnType = ParameterizedTypeName.get(ClassName.get(classOf[FromValue[_]]), t)
@@ -181,8 +186,7 @@ private[inner] object VariantClass extends StrictLogging {
       decodeValueCodeBuilder,
       constructors,
       t,
-      subPackage,
-      c => CodeBlock.of("return $L.fromValue(variant$$)", c),
+      valueDecoder => CodeBlock.of("return $L().fromValue(variant$$)", valueDecoder),
     )
 
     builder
@@ -278,12 +282,11 @@ private[inner] object VariantClass extends StrictLogging {
       typeArguments: IndexedSeq[String],
       constructorInfo: Fields,
       variantClassName: ClassName,
-      subPackage: String,
   ): MethodSpec =
     variantClassName.parameterized(typeArguments) match {
-      case variant: ClassName => generateConcreteFromValue(variant, constructorInfo, subPackage)
+      case variant: ClassName => generateConcreteFromValue(variant, constructorInfo)
       case variant: ParameterizedTypeName =>
-        generateParameterizedFromValue(variant, constructorInfo, subPackage)
+        generateParameterizedFromValue(variant, constructorInfo)
       case _ =>
         throw new IllegalArgumentException("Required either ClassName or ParameterizedTypeName")
     }
@@ -299,6 +302,7 @@ private[inner] object VariantClass extends StrictLogging {
     val innerClasses = new collection.mutable.ArrayBuffer[TypeSpec]
     val variantRecords = new collection.mutable.HashSet[String]()
     val fullVariantClassName = variantClassName.parameterized(typeArgs)
+
     for (fieldInfo <- getFieldsWithTypes(variant.fields, packagePrefixes)) {
       val FieldInfo(damlName, damlType, javaName, _) = fieldInfo
       damlType match {
@@ -318,6 +322,7 @@ private[inner] object VariantClass extends StrictLogging {
           )
       }
     }
+
     for (child <- typeWithContext.typesLineages) yield {
       // A child of a variant can be either:
       // - a record of a constructor of the variant itself
