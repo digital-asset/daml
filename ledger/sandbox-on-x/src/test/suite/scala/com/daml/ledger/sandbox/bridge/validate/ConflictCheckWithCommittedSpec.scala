@@ -26,7 +26,7 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.FixtureContext
-import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -38,6 +38,7 @@ class ConflictCheckWithCommittedSpec
     with Matchers
     with MockitoSugar
     with ScalaFutures
+    with IntegrationPatience
     with ArgumentMatchersSugar {
 
   behavior of classOf[ConflictCheckWithCommittedImpl].getSimpleName
