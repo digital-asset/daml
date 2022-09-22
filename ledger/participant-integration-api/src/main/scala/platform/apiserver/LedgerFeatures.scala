@@ -18,6 +18,6 @@ case class LedgerFeatures(
     contractIdFeatures: ExperimentalContractIds = ExperimentalContractIds.defaultInstance,
     committerEventLog: ExperimentalCommitterEventLog =
       ExperimentalCommitterEventLog.of(eventLogType = CENTRALIZED),
-    explicitDisclosureUnsafe: ExperimentalExplicitDisclosure =
+    explicitDisclosure: ExperimentalExplicitDisclosure =
       ExperimentalExplicitDisclosure.of(supported = false),
 )

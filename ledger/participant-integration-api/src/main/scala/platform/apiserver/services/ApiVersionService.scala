@@ -74,7 +74,7 @@ private[apiserver] final class ApiVersionService private (
           optionalLedgerId = Some(ExperimentalOptionalLedgerId()),
           contractIds = Some(ledgerFeatures.contractIdFeatures),
           committerEventLog = Some(ledgerFeatures.committerEventLog),
-          explicitDisclosure = Some(ledgerFeatures.explicitDisclosureUnsafe),
+          explicitDisclosure = Some(ledgerFeatures.explicitDisclosure),
         )
       ),
     )

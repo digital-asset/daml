@@ -116,8 +116,7 @@ object SandboxOnXRunner {
           contractIdFeatures = ExperimentalContractIds.of(
             v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
           ),
-          explicitDisclosureUnsafe =
-            ExperimentalExplicitDisclosure.of(explicitDisclosureUnsafeEnabled),
+          explicitDisclosure = ExperimentalExplicitDisclosure.of(explicitDisclosureUnsafeEnabled),
         ),
         authService = configAdaptor.authService(participantConfig),
         buildWriteService = buildWriteServiceLambda,
