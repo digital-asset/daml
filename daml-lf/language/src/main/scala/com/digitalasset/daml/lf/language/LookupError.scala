@@ -12,7 +12,7 @@ sealed abstract class LookupError {
 
 object LookupError {
 
-  def contextDetails(context: Reference): String =
+  private def contextDetails(context: Reference): String =
     context match {
       case Reference.Package(_) => ""
       case otherwise => " while looking for " + otherwise.pretty
