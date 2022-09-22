@@ -4,27 +4,26 @@
 package com.daml.ledger.javaapi.data.codegen;
 
 import com.daml.ledger.javaapi.data.*;
-import com.daml.ledger.javaapi.data.codegen.FromValue;
 import java.time.Instant;
 import java.time.LocalDate;
 
 public class PrimitiveValueDecoders {
-  public static FromValue<Boolean> fromBool =
+  public static ValueDecoder<Boolean> fromBool =
       value -> value.asBool().orElseThrow(() -> mismatched(Bool.class)).getValue();
-  public static FromValue<Long> fromInt64 =
+  public static ValueDecoder<Long> fromInt64 =
       value -> value.asInt64().orElseThrow(() -> mismatched(Int64.class)).getValue();
-  public static FromValue<String> fromText =
+  public static ValueDecoder<String> fromText =
       value -> value.asText().orElseThrow(() -> mismatched(Text.class)).getValue();
-  public static FromValue<Instant> fromTimestamp =
+  public static ValueDecoder<Instant> fromTimestamp =
       value -> value.asTimestamp().orElseThrow(() -> mismatched(Timestamp.class)).getValue();
-  public static FromValue<String> fromParty =
+  public static ValueDecoder<String> fromParty =
       value -> value.asParty().orElseThrow(() -> mismatched(Party.class)).getValue();
-  public static FromValue<Unit> fromUnit =
+  public static ValueDecoder<Unit> fromUnit =
       value -> value.asUnit().orElseThrow(() -> mismatched(Unit.class));
-  public static FromValue<LocalDate> fromDate =
+  public static ValueDecoder<LocalDate> fromDate =
       value -> value.asDate().orElseThrow(() -> mismatched(Date.class)).getValue();
 
-  public static <T> FromValue<T> impossible() {
+  public static <T> ValueDecoder<T> impossible() {
     return x -> {
       throw new IllegalArgumentException("Expected type to be unused, but was used for " + x);
     };

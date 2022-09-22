@@ -9,7 +9,7 @@ import com.daml.lf.codegen.backend.java.JavaEscaper
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.typesig._
 import PackageSignature.TypeDecl.Normal
-import com.daml.ledger.javaapi.data.codegen.FromValue
+import com.daml.ledger.javaapi.data.codegen.ValueDecoder
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 
@@ -143,7 +143,7 @@ private[inner] object VariantClass extends StrictLogging {
       variant.typeArguments.asScala.forall(_.isInstanceOf[TypeVariableName]),
       s"All type arguments of ${variant.rawType} must be generic",
     )
-    val returnType = ParameterizedTypeName.get(ClassName.get(classOf[FromValue[_]]), variant)
+    val returnType = ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), variant)
     val builder = initFromValueBuilder(returnType)
     builder.beginControlFlow("return $L ->", "value$")
 
@@ -168,7 +168,7 @@ private[inner] object VariantClass extends StrictLogging {
       decodeValueCodeBuilder,
       constructors,
       variant.rawType,
-      valueDecoder => CodeBlock.of("return $L($L).fromValue(variant$$)", valueDecoder, extractors),
+      valueDecoder => CodeBlock.of("return $L($L).decode(variant$$)", valueDecoder, extractors),
     )
 
     builder
@@ -182,7 +182,7 @@ private[inner] object VariantClass extends StrictLogging {
       constructors: Fields,
   ): MethodSpec = {
     logger.debug(s"Generating fromValue static method for $t")
-    val returnType = ParameterizedTypeName.get(ClassName.get(classOf[FromValue[_]]), t)
+    val returnType = ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), t)
     val builder = initFromValueBuilder(returnType)
       .beginControlFlow("return $L ->", "value$")
 
@@ -194,7 +194,7 @@ private[inner] object VariantClass extends StrictLogging {
       decodeValueCodeBuilder,
       constructors,
       t,
-      valueDecoder => CodeBlock.of("return $L().fromValue(variant$$)", valueDecoder),
+      valueDecoder => CodeBlock.of("return $L().decode(variant$$)", valueDecoder),
     )
 
     builder
@@ -226,11 +226,11 @@ private[inner] object VariantClass extends StrictLogging {
       .addJavadoc(
         "@deprecated since Daml $L; $L",
         "2.5.0",
-        s"use {@code fromValue} that return FromValue<?> instead",
+        s"use {@code fromValue} that return ValueDecoder<?> instead",
       )
       .addStatement("$L", variantExtractor(t))
       .addStatement(
-        "return fromValue().fromValue($L)",
+        "return fromValue().decode($L)",
         "value$",
       )
       .build()
@@ -258,7 +258,7 @@ private[inner] object VariantClass extends StrictLogging {
       .addJavadoc(
         "@deprecated since Daml $L; $L",
         "2.5.0",
-        s"use {@code fromValue} that return FromValue<?> instead",
+        s"use {@code fromValue} that return ValueDecoder<?> instead",
       )
     val fromValueParams = CodeBlock.join(
       typeVariablesExtractorParameters.functionParameterSpecs.map { param =>
@@ -278,7 +278,7 @@ private[inner] object VariantClass extends StrictLogging {
     }
 
     builder.addStatement(
-      "return $LfromValue($L).fromValue($L)",
+      "return $LfromValue($L).decode($L)",
       classStaticAccessor,
       fromValueParams,
       "value$",

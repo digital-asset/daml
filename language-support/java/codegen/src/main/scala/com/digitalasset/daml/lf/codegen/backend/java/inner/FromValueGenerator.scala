@@ -4,7 +4,11 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.daml.ledger.javaapi.data.codegen.{ContractCompanion, FromValue, PrimitiveValueDecoders}
+import com.daml.ledger.javaapi.data.codegen.{
+  ContractCompanion,
+  ValueDecoder,
+  PrimitiveValueDecoders,
+}
 import com.daml.lf.codegen.backend.java.JavaEscaper
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.PackageId
@@ -39,7 +43,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .addJavadoc(
         "@deprecated since Daml $L; $L",
         "2.5.0",
-        s"use {@code fromValue} that return FromValue<?> instead",
+        s"use {@code fromValue} that return ValueDecoder<?> instead",
       )
 
     val fromValueParams = CodeBlock.join(
@@ -61,7 +65,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
 
     method
       .addStatement(
-        "return $LfromValue($L).fromValue($L)",
+        "return $LfromValue($L).decode($L)",
         classStaticAccessor,
         fromValueParams,
         "value$",
@@ -122,7 +126,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
     MethodSpec
       .methodBuilder(methodName)
       .addModifiers(if (isPublic) Modifier.PUBLIC else Modifier.PRIVATE, Modifier.STATIC)
-      .returns(ParameterizedTypeName.get(ClassName.get(classOf[FromValue[_]]), className))
+      .returns(ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className))
       .addTypeVariables(className.typeParameters)
       .addParameters(converterParams.asJava)
       .addException(classOf[IllegalArgumentException])
@@ -145,7 +149,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
     MethodSpec
       .methodBuilder("fromValue")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-      .returns(ParameterizedTypeName.get(ClassName.get(classOf[FromValue[_]]), className))
+      .returns(ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className))
       .addTypeVariables(className.typeParameters)
       .addParameters(converterParams.asJava)
       .addException(classOf[IllegalArgumentException])
@@ -212,7 +216,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .map { extractor =>
         logger.debug(s"Generating primitive extractor for $field of type $apiType")
         CodeBlock.of(
-          "$T.$L.fromValue($L)",
+          "$T.$L.decode($L)",
           classOf[PrimitiveValueDecoders],
           extractor,
           accessor,
@@ -250,7 +254,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
       // defined by the accessor
       // TODO: review aforementioned assumption
       case TypeVar(tvName) =>
-        CodeBlock.of("fromValue$L.fromValue($L)", JavaEscaper.escapeString(tvName), accessor)
+        CodeBlock.of("fromValue$L.decode($L)", JavaEscaper.escapeString(tvName), accessor)
 
       case TypePrim(PrimTypeList, ImmArraySeq(param)) =>
         val optMapArg = args.next()
@@ -349,7 +353,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
         )
 
       case TypeCon(_, ImmArraySeq()) =>
-        CodeBlock.of("$T.fromValue().fromValue($L)", javaType, accessor)
+        CodeBlock.of("$T.fromValue().decode($L)", javaType, accessor)
 
       case TypeCon(_, typeParameters) =>
         val (targs, valueDecoders) = typeParameters.map {
@@ -377,7 +381,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
           .builder()
           .add(CodeBlock.of("$T.<$L>fromValue(", javaType.rawType, targsCode))
           .add(CodeBlock.join(valueDecoders.asJava, ", "))
-          .add(CodeBlock.of(").fromValue($L)", accessor))
+          .add(CodeBlock.of(").decode($L)", accessor))
           .build()
     }
   }

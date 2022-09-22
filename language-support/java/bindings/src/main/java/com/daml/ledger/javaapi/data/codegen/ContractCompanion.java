@@ -26,11 +26,11 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
   protected final Function<String, Id> newContractId;
   protected final Function<DamlRecord, Data> fromValue;
 
-  public static <Data> FromValue<Data> fromValue(
+  public static <Data> ValueDecoder<Data> fromValue(
       ContractCompanion<?, ? extends ContractId<Data>, Data> companion) {
-    return new FromValue<>() {
+    return new ValueDecoder<>() {
       @Override
-      public Data fromValue(Value value) {
+      public Data decode(Value value) {
         DamlRecord record =
             value
                 .asRecord()

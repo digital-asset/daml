@@ -4,7 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi.data.Value
-import com.daml.ledger.javaapi.data.codegen.FromValue
+import com.daml.ledger.javaapi.data.codegen.ValueDecoder
 import com.squareup.javapoet.{ClassName, ParameterSpec, ParameterizedTypeName, TypeVariableName}
 
 private[inner] abstract case class FromValueExtractorParameters(
@@ -33,7 +33,7 @@ private[inner] object FromValueExtractorParameters {
   private def extractorFromValueParameter(t: TypeVariableName): ParameterSpec =
     ParameterSpec.builder(extractorFromValueType(t), s"fromValue$t").build()
 
-  private val fromValue = ClassName.get(classOf[FromValue[_]])
+  private val fromValue = ClassName.get(classOf[ValueDecoder[_]])
   private val function = ClassName.get(classOf[java.util.function.Function[_, _]])
   private val value = ClassName.get(classOf[Value])
 

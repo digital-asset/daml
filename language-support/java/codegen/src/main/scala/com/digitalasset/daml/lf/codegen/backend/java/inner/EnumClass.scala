@@ -4,7 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.daml.ledger.javaapi.data.codegen.FromValue
+import com.daml.ledger.javaapi.data.codegen.ValueDecoder
 import com.daml.lf.typesig
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
@@ -100,10 +100,10 @@ private[inner] object EnumClass extends StrictLogging {
       .addJavadoc(
         "@deprecated since Daml $L; $L",
         "2.5.0",
-        s"use {@code fromValue} that return FromValue<?> instead",
+        s"use {@code fromValue} that return ValueDecoder<?> instead",
       )
       .addStatement(
-        "return fromValue().fromValue($L)",
+        "return fromValue().decode($L)",
         "value$",
       )
       .build()
@@ -134,7 +134,7 @@ private[inner] object EnumClass extends StrictLogging {
     MethodSpec
       .methodBuilder("fromValue")
       .addModifiers(Modifier.STATIC, Modifier.PUBLIC, Modifier.FINAL)
-      .returns(ParameterizedTypeName.get(ClassName.get(classOf[FromValue[_]]), className))
+      .returns(ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className))
       .beginControlFlow("return $L ->", "value$")
       .addCode(fromValueCode.build())
       // put empty string in endControlFlow in order to have semicolon

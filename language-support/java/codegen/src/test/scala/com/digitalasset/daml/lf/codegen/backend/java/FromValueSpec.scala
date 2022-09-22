@@ -18,7 +18,7 @@ final class FromValueSpec extends AnyWordSpec with Matchers {
       val parametrizedContractId: ParameterizedContractId[Bar] =
         ParameterizedContractId
           .fromValue(Bar.fromValue())
-          .fromValue(fromConstructor.toValue(_.toValue))
+          .decode(fromConstructor.toValue(_.toValue))
       val contractIdBar: ContractId[Bar] = parametrizedContractId.parameterizedContractId
 
       illTyped(

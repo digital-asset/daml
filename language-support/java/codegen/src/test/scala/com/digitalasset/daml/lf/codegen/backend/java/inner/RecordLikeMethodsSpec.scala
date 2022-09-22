@@ -4,7 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.daml.ledger.javaapi.data.codegen.FromValue
+import com.daml.ledger.javaapi.data.codegen.ValueDecoder
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.typesig.{PrimTypeBool, TypePrim}
@@ -118,7 +118,7 @@ final class RecordLikeMethodsSpec
 
   it should "return the outer class" in {
     fromValue.returnType shouldEqual ParameterizedTypeName.get(
-      ClassName.get(classOf[FromValue[_]]),
+      ClassName.get(classOf[ValueDecoder[_]]),
       name,
     )
   }

@@ -15,26 +15,6 @@ import scala.jdk.CollectionConverters._
 
 private[inner] object VariantRecordMethods extends StrictLogging {
 
-  private def toValue(
-      constructorName: String,
-      params: IndexedSeq[String],
-      fields: Fields,
-      packagePrefixes: Map[PackageId, String],
-  ) = ToValueGenerator.generateToValueForRecordLike(
-    params,
-    fields,
-    packagePrefixes,
-    TypeName.get(classOf[javaapi.data.Variant]),
-    name =>
-      CodeBlock.of(
-        "return new $T($S, new $T($L))",
-        classOf[javaapi.data.Variant],
-        constructorName,
-        classOf[javaapi.data.DamlRecord],
-        name,
-      ),
-  )
-
   def apply(
       constructorName: String,
       fields: Fields,
@@ -65,6 +45,26 @@ private[inner] object VariantRecordMethods extends StrictLogging {
       ObjectMethods(className.rawType, typeParameters, fields.map(_.javaName))
   }
 
+  private def toValue(
+      constructorName: String,
+      params: IndexedSeq[String],
+      fields: Fields,
+      packagePrefixes: Map[PackageId, String],
+  ) = ToValueGenerator.generateToValueForRecordLike(
+    params,
+    fields,
+    packagePrefixes,
+    TypeName.get(classOf[javaapi.data.Variant]),
+    name =>
+      CodeBlock.of(
+        "return new $T($S, new $T($L))",
+        classOf[javaapi.data.Variant],
+        constructorName,
+        classOf[javaapi.data.DamlRecord],
+        name,
+      ),
+  )
+
   private def generateDeprecatedFromValue(
       typeParameters: IndexedSeq[String],
       allTypeParameters: IndexedSeq[String],
@@ -94,7 +94,7 @@ private[inner] object VariantRecordMethods extends StrictLogging {
       .addJavadoc(
         "@deprecated since Daml $L; $L",
         "2.5.0",
-        s"use {@code fromValue} that return FromValue<?> instead",
+        s"use {@code fromValue} that return ValueDecoder<?> instead",
       )
 
     val typeParamsValueDecoders = CodeBlock.join(
@@ -119,7 +119,7 @@ private[inner] object VariantRecordMethods extends StrictLogging {
 
     method
       .addStatement(
-        "return ($T)$LfromValue($L).fromValue($L)",
+        "return ($T)$LfromValue($L).decode($L)",
         className,
         classStaticAccessor,
         typeParamsValueDecoders,

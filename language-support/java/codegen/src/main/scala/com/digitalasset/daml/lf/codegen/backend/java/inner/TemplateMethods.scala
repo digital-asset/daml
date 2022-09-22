@@ -36,7 +36,7 @@ private[inner] object TemplateMethods {
         fields,
         className,
         params,
-        "valueDecoder",
+        "templateValueDecoder",
         (inVar, outVar) =>
           CodeBlock.builder
             .addStatement(

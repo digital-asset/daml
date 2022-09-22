@@ -5,12 +5,12 @@ package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.lf.typesig.{Type, Variant}
 import com.daml.lf.data.Ref.{Identifier, PackageId}
-import com.daml.ledger.javaapi.data.codegen.FromValue
 import com.daml.lf.codegen.backend.java.JavaEscaper
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.typesig._
 import com.squareup.javapoet._
 import PackageSignature.TypeDecl.Normal
+import com.daml.ledger.javaapi.data.codegen.ValueDecoder
 
 import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
@@ -97,7 +97,7 @@ object VariantValueDecodersMethods {
       .methodBuilder(s"fromValue$constructor")
       .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
       .addTypeVariables(className.typeParameters)
-      .returns(ParameterizedTypeName.get(ClassName.get(classOf[FromValue[_]]), className))
+      .returns(ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className))
       .addException(classOf[IllegalArgumentException])
       .addParameters(converterParams.asJava)
       .beginControlFlow("return $L ->", "value$")
