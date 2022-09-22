@@ -35,7 +35,7 @@ private[lf] object Speedy {
   private val enableLightweightStepTracing: Boolean = false
 
   /** Instrumentation counters. */
-  final case class Instrumentation() {
+  final class Instrumentation() {
     private[this] var countPushesKont: Int = 0
     private[this] var countPushesEnv: Int = 0
     private[this] var maxDepthKont: Int = 0
@@ -50,6 +50,13 @@ private[lf] object Speedy {
     def setDepthKont(depth: Int): Unit = maxDepthKont = maxDepthKont.max(depth)
 
     def setDepthEnv(depth: Int): Unit = maxDepthEnv = maxDepthEnv.max(depth)
+
+    def reset(): Unit = {
+      countPushesKont = 0
+      countPushesEnv = 0
+      maxDepthKont = 0
+      maxDepthEnv = 0
+    }
 
     def print(): Unit = {
       println("--------------------")
@@ -339,7 +346,7 @@ private[lf] object Speedy {
     private[this] var steps: Int = 0
 
     /* Used when enableInstrumentation is true */
-    private[this] val track: Instrumentation = Instrumentation()
+    private[this] val track: Instrumentation = new Instrumentation
 
     private[speedy] def currentControl: Control = control
 
@@ -545,7 +552,7 @@ private[lf] object Speedy {
       env = emptyEnv
       envBase = 0
       steps = 0
-      track = Instrumentation()
+      track.reset()
     }
 
     def setControl(x: Control): Unit = {
