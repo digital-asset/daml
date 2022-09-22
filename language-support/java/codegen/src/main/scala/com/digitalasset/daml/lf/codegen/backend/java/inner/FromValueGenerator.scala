@@ -350,7 +350,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
         )
 
       case TypeCon(_, ImmArraySeq()) =>
-        CodeBlock.of("$T.fromValue($L)", javaType, accessor)
+        CodeBlock.of("$T.fromValue().fromValue($L)", javaType, accessor)
 
       case TypeCon(_, typeParameters) =>
         val (targs, extractors) = typeParameters.map { targ =>
