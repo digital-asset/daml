@@ -17,7 +17,7 @@ trait UserManagementServiceAnnotationsValidationTests { self: UserManagementServ
   userManagementTest(
     "TestAnnotationsSizeLimits",
     "Test annotations' size limit",
-    requiresUserExtensionsForHub = true,
+    requiresUserAndPartyLocalMetadataExtensions = true,
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val largeString = "a" * maxAnnotationsSizeInBytes
@@ -108,7 +108,7 @@ trait UserManagementServiceAnnotationsValidationTests { self: UserManagementServ
   userManagementTest(
     "TestAnnotationsKeySyntax",
     "Test annotations' key syntax",
-    requiresUserExtensionsForHub = true,
+    requiresUserAndPartyLocalMetadataExtensions = true,
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()

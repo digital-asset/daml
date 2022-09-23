@@ -168,12 +168,6 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
         .toUpdate(pd, FieldMask(Seq("local_metadata", "some_unknown_field")))
         .left
         .value shouldBe UpdatePathError.UnknownFieldPath("some_unknown_field")
-      testedMapper
-        .toUpdate(pd, FieldMask(Seq("local_metadata", "some_unknown_field")))
-        .left
-        .value shouldBe UpdatePathError.UnknownFieldPath(
-        "some_unknown_field"
-      )
     }
     "specifying resource version in the update mask" in {
       testedMapper

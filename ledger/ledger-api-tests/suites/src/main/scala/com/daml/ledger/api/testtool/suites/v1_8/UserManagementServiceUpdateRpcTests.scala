@@ -109,7 +109,7 @@ trait UserManagementServiceUpdateRpcTests {
   userManagementTest(
     "FailUpdateNonExistentUser",
     "Fail when attempting to update a non-existent user",
-    requiresUserExtensionsForHub = true,
+    requiresUserAndPartyLocalMetadataExtensions = true,
   )(implicit ec => { ledger =>
     val userId1 = ledger.nextUserId()
     for {

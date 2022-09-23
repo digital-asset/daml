@@ -28,7 +28,7 @@ trait PartyManagementServiceAnnotationsValidationTests { self: PartyManagementSe
   test(
     "PMTestAnnotationsSizeLimits",
     "Test annotations' size limit",
-    enabled = features => features.userAndPartyManagementExtensionsForHub,
+    enabled = features => features.userAndPartyLocalMetadataExtensions,
     partyAllocation = allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val largeString = "a" * maxAnnotationsSizeInBytes
@@ -77,7 +77,7 @@ trait PartyManagementServiceAnnotationsValidationTests { self: PartyManagementSe
   test(
     "PMTestAnnotationsKeySyntax",
     "Test annotations' key syntax",
-    enabled = features => features.userAndPartyManagementExtensionsForHub,
+    enabled = features => features.userAndPartyLocalMetadataExtensions,
     partyAllocation = allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val invalidKey = ".party.management.daml/foo_"

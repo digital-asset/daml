@@ -23,7 +23,7 @@ message ExperimentalFeatures {
   ExperimentalContractIds contract_ids = 5;
   ExperimentalCommitterEventLog committer_event_log = 6;
   ExperimentalExplicitDisclosure explicit_disclosure = 7;
-  ExperimentalUserAndPartyLocalMetadataExtensions user_and_party_management_extensions_for_hub = 8;
+  ExperimentalUserAndPartyLocalMetadataExtensions user_and_party_local_metadata_extensions = 8;
 }
 
 // GRPC self-service error codes are returned by the Ledger API.

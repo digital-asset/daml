@@ -78,7 +78,7 @@ final class PartyManagementServiceIT
   test(
     "PMAllocateWithLocalMetadataAnnotations",
     "Successfully allocating a party with non-empty annotations",
-    enabled = features => features.userAndPartyManagementExtensionsForHub,
+    enabled = features => features.userAndPartyLocalMetadataExtensions,
     partyAllocation = allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
     for {
@@ -127,7 +127,7 @@ final class PartyManagementServiceIT
   test(
     "PMFailToAllocateWhenAnnotationsHaveEmptyValues",
     "Failing to allocate when annotations have empty values",
-    enabled = features => features.userAndPartyManagementExtensionsForHub,
+    enabled = features => features.userAndPartyLocalMetadataExtensions,
     partyAllocation = allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
     for {

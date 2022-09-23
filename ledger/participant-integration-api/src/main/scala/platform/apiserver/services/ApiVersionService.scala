@@ -76,7 +76,7 @@ private[apiserver] final class ApiVersionService private (
           contractIds = Some(ledgerFeatures.contractIdFeatures),
           committerEventLog = Some(ledgerFeatures.committerEventLog),
           explicitDisclosure = Some(ledgerFeatures.explicitDisclosure),
-          userAndPartyManagementExtensionsForHub =
+          userAndPartyLocalMetadataExtensions =
             Some(ExperimentalUserAndPartyLocalMetadataExtensions(supported = true)),
         )
       ),

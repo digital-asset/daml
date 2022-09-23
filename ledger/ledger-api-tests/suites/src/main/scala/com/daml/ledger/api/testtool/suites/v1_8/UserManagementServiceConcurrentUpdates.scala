@@ -26,7 +26,7 @@ trait UserManagementServiceConcurrentUpdates {
   userManagementTest(
     "TestUpdateUser",
     "Exercise UpdateUser rpc",
-    requiresUserExtensionsForHub = true,
+    requiresUserAndPartyLocalMetadataExtensions = true,
   )(implicit ec => { implicit ledger: ParticipantTestContext =>
     val userId1 = ledger.nextUserId()
     val user1a = User(
@@ -121,7 +121,7 @@ trait UserManagementServiceConcurrentUpdates {
     "RaceConditionUpdateUserAnnotations",
     "Tests scenario of multiple concurrent update annotations calls for the same user",
     runConcurrently = false,
-    requiresUserExtensionsForHub = true,
+    requiresUserAndPartyLocalMetadataExtensions = true,
   ) {
     implicit ec =>
       { participant =>

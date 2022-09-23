@@ -24,7 +24,7 @@ trait PartyManagementServiceUpdateRpcTests {
   test(
     "PMUpdateAllUpdatableFields",
     "Update all updatable fields",
-    enabled = features => features.userAndPartyManagementExtensionsForHub,
+    enabled = features => features.userAndPartyLocalMetadataExtensions,
     partyAllocation = allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
     implicit val l: ParticipantTestContext = ledger
@@ -66,7 +66,7 @@ trait PartyManagementServiceUpdateRpcTests {
   test(
     "PMFailAttemptingToUpdateIsLocal",
     "Fail attempting to update is_local attribute",
-    enabled = features => features.userAndPartyManagementExtensionsForHub,
+    enabled = features => features.userAndPartyLocalMetadataExtensions,
     partyAllocation = allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
     implicit val l: ParticipantTestContext = ledger
@@ -97,7 +97,7 @@ trait PartyManagementServiceUpdateRpcTests {
   test(
     "PMFailAttemptingToUpdateDisplayName",
     "Fail attempting to update display_name attribute",
-    enabled = features => features.userAndPartyManagementExtensionsForHub,
+    enabled = features => features.userAndPartyLocalMetadataExtensions,
     partyAllocation = allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
     implicit val l: ParticipantTestContext = ledger
@@ -128,7 +128,7 @@ trait PartyManagementServiceUpdateRpcTests {
   test(
     "PMAllowSpecifyingIsLocalAndDisplayNameIfMatchingTheRealValues",
     "Allow specifying is_local and display_name if values in the update request match real values",
-    enabled = features => features.userAndPartyManagementExtensionsForHub,
+    enabled = features => features.userAndPartyLocalMetadataExtensions,
     partyAllocation = allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
     implicit val l: ParticipantTestContext = ledger

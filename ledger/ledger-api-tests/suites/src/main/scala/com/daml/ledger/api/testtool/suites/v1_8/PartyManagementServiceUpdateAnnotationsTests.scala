@@ -17,7 +17,7 @@ trait PartyManagementServiceUpdateAnnotationsTests { self: PartyManagementServic
   test(
     "PMUpdateAnnotations",
     "Updating annotations using update paths",
-    enabled = features => features.userAndPartyManagementExtensionsForHub,
+    enabled = features => features.userAndPartyLocalMetadataExtensions,
     partyAllocation = allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
     implicit val l: ParticipantTestContext = ledger

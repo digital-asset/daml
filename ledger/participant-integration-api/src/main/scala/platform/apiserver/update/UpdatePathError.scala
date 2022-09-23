@@ -18,11 +18,6 @@ object UpdatePathError {
       s"The update path: '${shorten(rawUpdatePath)}' points to an unknown field."
   }
 
-  final case class UnknownUpdateModifier(rawUpdatePath: String) extends UpdatePathError {
-    override def getReason: String =
-      s"The update path: '${shorten(rawUpdatePath)}' contains an unknown update modifier."
-  }
-
   final case class DuplicatedFieldPath(rawUpdatePath: String) extends UpdatePathError {
     override def getReason: String =
       s"The update path: '${shorten(rawUpdatePath)}' is duplicated."

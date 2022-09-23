@@ -107,7 +107,7 @@ trait UserManagementServiceITUtils { self: UserManagementServiceIT =>
       shortIdentifier: String,
       description: String,
       runConcurrently: Boolean = true,
-      requiresUserExtensionsForHub: Boolean = false,
+      requiresUserAndPartyLocalMetadataExtensions: Boolean = false,
   )(
       body: ExecutionContext => ParticipantTestContext => Future[Unit]
   ): Unit = {
@@ -117,7 +117,7 @@ trait UserManagementServiceITUtils { self: UserManagementServiceIT =>
       allocate(NoParties),
       enabled = (features: Features) => {
         features.userManagement.supported &&
-        (!requiresUserExtensionsForHub || features.userAndPartyManagementExtensionsForHub)
+        (!requiresUserAndPartyLocalMetadataExtensions || features.userAndPartyLocalMetadataExtensions)
       },
       disabledReason = "requires user management feature",
       runConcurrently = runConcurrently,
@@ -139,7 +139,7 @@ trait UserManagementServiceITUtils { self: UserManagementServiceIT =>
     userManagementTest(
       shortIdentifier = shortIdentifier,
       description = description,
-      requiresUserExtensionsForHub = true,
+      requiresUserAndPartyLocalMetadataExtensions = true,
     )(implicit ec => { implicit ledger =>
       withFreshUser(
         primaryParty = primaryParty,
