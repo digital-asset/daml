@@ -100,13 +100,8 @@ object SExpr {
     }
   }
 
-  object SEValue extends SValueContainer[SEValue]
+  object SEValue extends SValueContainer[SEValue] // used by Compiler
 
-  /** Function application:
-    *    General case: 'fun' and 'args' are any kind of expression
-    *    This case *ought* not to exist post-ANF.
-    *    Sadly, we have many code paths where this case is constructed.
-    */
   final case class SEAppGeneral(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Control = {
       machine.pushKont(KArg(machine, args))
@@ -114,10 +109,13 @@ object SExpr {
     }
   }
 
-  /** Function application:
-    *    Special case: 'fun' is an atomic expression.
+  /** Function application with general arguments (deprecated)
+    * Although 'fun' is atomic, 'args' are still any kind of expression.
+    * This case would not exist if we performed a full/standard ANF pass.
+    * Because this case exists we must retain the complicated/slow path in the
+    * speedy-machine: executeApplication
     */
-  final case class SEAppAtomicFun(fun: SExprAtomic, args: Array[SExpr])
+  final case class SEAppOnlyFunIsAtomic_DEPRECATED(fun: SExprAtomic, args: Array[SExpr])
       extends SExpr
       with SomeArrayEquals {
     def execute(machine: Machine): Control = {
@@ -127,6 +125,13 @@ object SExpr {
   }
 
   object SEApp {
+    // Helper: build an application of an unrestricted expression, to value-arguments.
+    def apply(fun: SExpr, args: Array[SValue]): SExpr = {
+      SELet1(fun, SEAppAtomic(SELocS(1), args.map(SEValue(_))))
+    }
+  }
+
+  object SEAppG {
     def apply(fun: SExpr, args: Array[SExpr]): SExpr = {
       SEAppGeneral(fun, args)
     }

@@ -59,8 +59,9 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
     compileTime.SEApp(compileTime.SEBuiltin(this), args.toList)
 
   // TODO: avoid constructing application expression at run time
-  private[lf] def apply(args: runTime.SExpr*): runTime.SExpr =
-    runTime.SEApp(runTime.SEBuiltin(this), args.toArray)
+  // This helper is used (only?) by TransactinVersionTest.
+  private[lf] def apply(args: runTime.SExprAtomic*): runTime.SExpr =
+    runTime.SEAppAtomic(runTime.SEBuiltin(this), args.toArray)
 
   /** Execute the builtin with 'arity' number of arguments in 'args'.
     * Updates the machine state accordingly.
@@ -1148,13 +1149,13 @@ private[lf] object SBuiltin {
             machine.pushKont(KCacheContract(machine, coid))
             val e = coinst match {
               case V.ContractInstance(actualTmplId, arg, _) =>
-                SEApp(
+                SELet1(
                   // The call to ToCachedContractDefRef(actualTmplId) will query package
                   // of actualTmplId if not known.
                   SEVal(ToCachedContractDefRef(actualTmplId)),
-                  Array(
+                  SELet1(
                     SEImportValue(Ast.TTyCon(actualTmplId), arg),
-                    SEValue(args.get(1)),
+                    SEAppAtomic(SELocS(2), Array(SELocS(1), SEValue(args.get(1)))),
                   ),
                 )
             }
@@ -1187,7 +1188,7 @@ private[lf] object SBuiltin {
       val (templateId, record) = getSAnyContract(args, 1)
       val coid = getSContractId(args, 2)
 
-      val e = SEApp(SEValue(guard), Array(SEValue(SAnyContract(templateId, record))))
+      val e = SEAppAtomic(SEValue(guard), Array(SEValue(SAnyContract(templateId, record))))
       machine.pushKont(KCheckChoiceGuard(machine, coid, templateId, choiceName, byInterface))
       Control.Expression(e)
     }
@@ -1286,7 +1287,7 @@ private[lf] object SBuiltin {
         machine: Machine,
     ): Control = {
       val (ty, record) = getSAnyContract(args, 0)
-      val e = SEApp(SEVal(toDef(ty)), Array(SEValue(record)))
+      val e = SEApp(SEVal(toDef(ty)), Array(record))
       Control.Expression(e)
     }
   }
@@ -1409,7 +1410,7 @@ private[lf] object SBuiltin {
             s"template of type ${ifaceId}, but there's no matching interface instance."
         )
       )(iiRef => InterfaceInstanceMethodDefRef(iiRef, methodName))
-      val e = SEApp(SEVal(ref), Array(SEValue(record)))
+      val e = SEApp(SEVal(ref), Array(record))
       Control.Expression(e)
     }
   }
@@ -1428,7 +1429,7 @@ private[lf] object SBuiltin {
             s"template of type ${ifaceId}, but there's no matching interface instance."
         )
       )(iiRef => InterfaceInstanceViewDefRef(iiRef))
-      val e = SEApp(SEVal(ref), Array(SEValue(record)))
+      val e = SEApp(SEVal(ref), Array(record))
       Control.Expression(e)
     }
   }
@@ -1615,7 +1616,10 @@ private[lf] object SBuiltin {
                     (Control.Value(SUnit), true)
                   } else {
                     // SBFetchAny will populate onLedger.cachedContracts with the contract pointed by coid
-                    val e = SBFetchAny(SEValue(SContractId(coid)), SBSome(SEValue(skey)))
+                    val e = SEAppAtomic(
+                      SEBuiltin(SBFetchAny),
+                      Array(SEValue(SContractId(coid)), SEValue(SOptional(Some(skey)))),
+                    )
                     (Control.Expression(e), true)
                   }
 
@@ -1839,7 +1843,7 @@ private[lf] object SBuiltin {
         case ValueArithmeticError.tyCon =>
           Control.Value(exception.values.get(0))
         case tyCon =>
-          val e = SEApp(SEVal(ExceptionMessageDefRef(tyCon)), Array(SEValue(exception)))
+          val e = SEApp(SEVal(ExceptionMessageDefRef(tyCon)), Array(exception))
           Control.Expression(e)
       }
     }

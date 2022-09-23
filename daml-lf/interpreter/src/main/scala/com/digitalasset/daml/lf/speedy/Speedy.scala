@@ -978,7 +978,8 @@ private[lf] object Speedy {
         compiledPackages = compiledPackages,
         submissionTime = Time.Timestamp.MinValue,
         initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
-        expr = SEApp(updateSE, Array(SEValue.Token)),
+        // expr = SEApp(updateSE, Array(SValue.SToken)),
+        expr = SEAppG(updateSE, Array(SEValue.Token)),
         committers = committers,
         readAs = Set.empty,
         limits = limits,
@@ -995,7 +996,8 @@ private[lf] object Speedy {
         scenario: SExpr,
     )(implicit loggingContext: LoggingContext): Machine = Machine.fromPureSExpr(
       compiledPackages = compiledPackages,
-      expr = SEApp(scenario, Array(SEValue.Token)),
+      // expr = SEApp(scenario, Array(SValue.SToken)),
+      expr = SEAppG(scenario, Array(SEValue.Token)),
     )
 
     @throws[PackageNotFound]

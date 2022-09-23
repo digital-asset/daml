@@ -561,7 +561,7 @@ object CompilerTest {
   )
 
   def tokenApp(sexpr: SExpr): SExpr =
-    SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token))
+    SExpr.SEApp(sexpr, Array(SValue.SToken))
 
   def evalSExpr(
       sexpr: SExpr,

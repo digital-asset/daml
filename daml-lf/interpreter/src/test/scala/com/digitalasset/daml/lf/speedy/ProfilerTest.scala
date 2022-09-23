@@ -68,7 +68,7 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
     val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("foobar")
     val party = Ref.Party.assertFromString("Alice")
     val se = compiledPackages.compiler.unsafeCompile(e)
-    val example: SExpr = SEApp(se, Array(SEValue(SParty(party))))
+    val example: SExpr = SEApp(se, Array(SParty(party)))
     val machine =
       Speedy.Machine.fromUpdateSExpr(compiledPackages, transactionSeed, example, Set(party))
     val res = machine.run()

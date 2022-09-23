@@ -14,7 +14,7 @@ private[speedy] object SExprIterable {
   private[iterable] def iterator(e: SExpr): Iterator[SExpr] = e match {
     case SExpr.SEVal(_) => Iterator.empty
     case SExpr.SEAppGeneral(fun, args) => Iterator(fun) ++ args.iterator
-    case SExpr.SEAppAtomicFun(fun, args) => Iterator(fun) ++ args.iterator
+    case SExpr.SEAppOnlyFunIsAtomic_DEPRECATED(fun, args) => Iterator(fun) ++ args.iterator
     case SExpr.SEAppAtomicGeneral(fun, args) => Iterator(fun) ++ args.iterator
     case SExpr.SEAppAtomicSaturatedBuiltin(_, args) => args.iterator
     case SExpr.SEMakeClo(_, _, body) => Iterator(body)

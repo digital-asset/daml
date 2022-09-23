@@ -388,7 +388,7 @@ object ScenarioRunner {
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,
       initialSeeding = InitialSeeding.TransactionSeed(seed),
-      expr = SEApp(commands, Array(SEValue(SValue.SToken))),
+      expr = SEApp(commands, Array(SValue.SToken)),
       committers = committers,
       readAs = readAs,
       traceLog = traceLog,

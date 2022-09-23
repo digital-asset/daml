@@ -1544,7 +1544,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
   "SBCrash" - {
     "throws an exception" in {
       val result = evalSExpr(
-        SEApp(SEBuiltin(SBCrash("test message")), Array(SEValue(SUnit))),
+        SEApp(SEBuiltin(SBCrash("test message")), Array(SUnit)),
         onLedger = false,
       )
 
@@ -1629,7 +1629,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:Iou")
 
       evalSExpr(
-        SEApp(SEBuiltin(SBCheckTemplate(templateId)), Array(SEValue(SUnit))),
+        SEApp(SEBuiltin(SBCheckTemplate(templateId)), Array(SUnit)),
         onLedger = false,
       ) shouldBe Right(SBool(true))
     }
@@ -1638,7 +1638,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:NonExistent")
 
       evalSExpr(
-        SEApp(SEBuiltin(SBCheckTemplate(templateId)), Array(SEValue(SUnit))),
+        SEApp(SEBuiltin(SBCheckTemplate(templateId)), Array(SUnit)),
         onLedger = false,
       ) shouldBe Right(SBool(false))
     }
@@ -1649,7 +1649,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
 
       evalSExpr(
-        SEApp(SEBuiltin(SBCheckTemplateKey(templateId)), Array(SEValue(SUnit))),
+        SEApp(SEBuiltin(SBCheckTemplateKey(templateId)), Array(SUnit)),
         onLedger = false,
       ) shouldBe Right(SBool(true))
     }
@@ -1658,7 +1658,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:Iou")
 
       evalSExpr(
-        SEApp(SEBuiltin(SBCheckTemplateKey(templateId)), Array(SEValue(SUnit))),
+        SEApp(SEBuiltin(SBCheckTemplateKey(templateId)), Array(SUnit)),
         onLedger = false,
       ) shouldBe Right(SBool(false))
     }
@@ -1690,9 +1690,9 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
         inside(
           evalSExpr(
-            SEApp(
-              SEBuiltin(SBCacheDisclosedContract(contractId)),
-              Array(cachedContractSExpr),
+            SELet1(
+              cachedContractSExpr,
+              SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId)), Array(SELocS(1))),
             ),
             getContract = Map(
               contractId -> VersionedContractInstance(
@@ -1734,9 +1734,9 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
         inside(
           evalSExpr(
-            SEApp(
-              SEBuiltin(SBCacheDisclosedContract(contractId)),
-              Array(cachedContractSExpr),
+            SELet1(
+              cachedContractSExpr,
+              SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId)), Array(SELocS(1))),
             ),
             getContract = Map(
               contractId -> VersionedContractInstance(
@@ -1845,7 +1845,7 @@ object SBuiltinTest {
       args: Array[SValue],
       onLedger: Boolean = true,
   ): Either[SError, SValue] =
-    evalSExpr(SEApp(compiledPackages.compiler.unsafeCompile(e), args.map(SEValue(_))), onLedger)
+    evalSExpr(SEApp(compiledPackages.compiler.unsafeCompile(e), args), onLedger)
 
   val alice: Party = Ref.Party.assertFromString("Alice")
   val committers: Set[Party] = Set(alice)
@@ -1867,7 +1867,7 @@ object SBuiltinTest {
         Speedy.Machine.fromUpdateSExpr(
           compiledPackages,
           transactionSeed = crypto.Hash.hashPrivateKey("SBuiltinTest"),
-          updateSE = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(sexpr)),
+          updateSE = SELet1(sexpr, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
           committers = committers,
         )
       } else {
