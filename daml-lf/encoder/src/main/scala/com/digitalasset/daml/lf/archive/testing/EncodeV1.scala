@@ -525,8 +525,10 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       binder -> body
     })
 
-    private def encodeExprBuilder(expr0: Expr): PLF.Expr.Builder = {
-      val builder = PLF.Expr.newBuilder()
+    private def encodeExprBuilder(
+        expr0: Expr,
+        builder: PLF.Expr.Builder = PLF.Expr.newBuilder(),
+    ): PLF.Expr.Builder = {
 
       // EAbss breaks the exhaustiveness checker.
       (expr0: @unchecked) match {
@@ -630,7 +632,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
         case ESome(typ, x) =>
           builder.setOptionalSome(PLF.Expr.OptionalSome.newBuilder().setType(typ).setBody(x))
         case ELocation(loc, expr) =>
-          encodeExprBuilder(expr).setLocation(loc)
+          encodeExprBuilder(expr, builder).setLocation(loc)
         case EUpdate(u) =>
           builder.setUpdate(u)
         case EScenario(s) =>
