@@ -26,8 +26,8 @@ public class ContractDecoder {
     public Optional<? extends ContractCompanion<? extends Contract<?, ?>, ?, ?>> getContractCompanion(Identifier templateId) {
         return Optional.ofNullable(companions.get(templateId));
     }
-//
-//    public Optional<Function<CreatedEvent, com.daml.ledger.javaapi.data.Contract>> getDecoder(Identifier templateId) {
-//        return Optional.ofNullable(companions.get(templateId));
-//    }
+
+    public Optional<Function<CreatedEvent, com.daml.ledger.javaapi.data.Contract>> getDecoder(Identifier templateId) {
+        return Optional.ofNullable(companions.get(templateId)).map(companion -> companion::fromCreatedEvent);
+    }
 }
