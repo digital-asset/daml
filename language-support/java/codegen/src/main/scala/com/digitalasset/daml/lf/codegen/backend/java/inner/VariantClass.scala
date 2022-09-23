@@ -47,7 +47,7 @@ private[inner] object VariantClass extends StrictLogging {
         .addMethod(
           generateDeprecatedFromValue(typeArguments, variantClassName)
         )
-        .addMethod(generateFromValue(typeArguments, constructorInfo, variantClassName))
+        .addMethod(generateValueDecoder(typeArguments, constructorInfo, variantClassName))
         .addMethods(
           VariantValueDecodersMethods(
             typeArguments,
@@ -100,9 +100,9 @@ private[inner] object VariantClass extends StrictLogging {
       .returns(classOf[javaapi.data.Variant])
       .build()
 
-  private def initFromValueBuilder(t: TypeName): MethodSpec.Builder =
+  private def initFromValueBuilder(t: TypeName, methodName: String): MethodSpec.Builder =
     MethodSpec
-      .methodBuilder("fromValue")
+      .methodBuilder(methodName)
       .addModifiers(Modifier.STATIC, Modifier.PUBLIC)
       .returns(t)
 
@@ -124,7 +124,7 @@ private[inner] object VariantClass extends StrictLogging {
     for (constructorInfo <- constructors) {
       builder
         .beginControlFlow("if ($S.equals(variant$$.getConstructor()))", constructorInfo.damlName)
-        .addStatement(useValueDecoder(s"fromValue${constructorInfo.javaName}"))
+        .addStatement(useValueDecoder(s"valueDecoder${constructorInfo.javaName}"))
         .endControlFlow()
     }
     builder
@@ -134,17 +134,17 @@ private[inner] object VariantClass extends StrictLogging {
       )
   }
 
-  private def generateParameterizedFromValue(
+  private def generateParameterizedValueDecoder(
       variant: ParameterizedTypeName,
       constructors: Fields,
   ): MethodSpec = {
-    logger.debug(s"Generating fromValue static method for $variant")
+    logger.debug(s"Generating valueDecoder static method for $variant")
     require(
       variant.typeArguments.asScala.forall(_.isInstanceOf[TypeVariableName]),
       s"All type arguments of ${variant.rawType} must be generic",
     )
     val returnType = ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), variant)
-    val builder = initFromValueBuilder(returnType)
+    val builder = initFromValueBuilder(returnType, "valueDecoder")
     builder.beginControlFlow("return $L ->", "value$")
 
     val typeVariablesExtractorParameters =
@@ -153,7 +153,7 @@ private[inner] object VariantClass extends StrictLogging {
       )
 
     builder.addTypeVariables(typeVariablesExtractorParameters.typeVariables.asJava)
-    builder.addParameters(typeVariablesExtractorParameters.fromValueParameterSpecs.asJava)
+    builder.addParameters(typeVariablesExtractorParameters.valueDecoderParameterSpecs.asJava)
 
     val decodeValueCodeBuilder = CodeBlock
       .builder()
@@ -177,13 +177,13 @@ private[inner] object VariantClass extends StrictLogging {
       .build()
   }
 
-  private def generateConcreteFromValue(
+  private def generateConcreteValueDecoder(
       t: ClassName,
       constructors: Fields,
   ): MethodSpec = {
-    logger.debug(s"Generating fromValue static method for $t")
+    logger.debug(s"Generating valueDecoder static method for $t")
     val returnType = ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), t)
-    val builder = initFromValueBuilder(returnType)
+    val builder = initFromValueBuilder(returnType, "valueDecoder")
       .beginControlFlow("return $L ->", "value$")
 
     val decodeValueCodeBuilder = CodeBlock
@@ -220,17 +220,17 @@ private[inner] object VariantClass extends StrictLogging {
       t: ClassName
   ): MethodSpec = {
     logger.debug(s"Generating depreacted fromValue static method for $t")
-    initFromValueBuilder(t)
+    initFromValueBuilder(t, "fromValue")
       .addParameter(classOf[javaapi.data.Value], "value$")
       .addAnnotation(classOf[Deprecated])
       .addJavadoc(
         "@deprecated since Daml $L; $L",
         "2.5.0",
-        s"use {@code fromValue} that return ValueDecoder<?> instead",
+        s"use {@code valueDecoder} instead",
       )
       .addStatement("$L", variantExtractor(t))
       .addStatement(
-        "return fromValue().decode($L)",
+        "return valueDecoder().decode($L)",
         "value$",
       )
       .build()
@@ -244,7 +244,7 @@ private[inner] object VariantClass extends StrictLogging {
       variant.typeArguments.asScala.forall(_.isInstanceOf[TypeVariableName]),
       s"All type arguments of ${variant.rawType} must be generic",
     )
-    val builder = initFromValueBuilder(variant)
+    val builder = initFromValueBuilder(variant, "fromValue")
       .addParameter(classOf[javaapi.data.Value], "value$")
 
     val typeVariablesExtractorParameters =
@@ -258,7 +258,7 @@ private[inner] object VariantClass extends StrictLogging {
       .addJavadoc(
         "@deprecated since Daml $L; $L",
         "2.5.0",
-        s"use {@code fromValue} that return ValueDecoder<?> instead",
+        s"use {@code valueDecoder} instead",
       )
     val fromValueParams = CodeBlock.join(
       typeVariablesExtractorParameters.functionParameterSpecs.map { param =>
@@ -278,7 +278,7 @@ private[inner] object VariantClass extends StrictLogging {
     }
 
     builder.addStatement(
-      "return $LfromValue($L).decode($L)",
+      "return $LvalueDecoder($L).decode($L)",
       classStaticAccessor,
       fromValueParams,
       "value$",
@@ -286,15 +286,15 @@ private[inner] object VariantClass extends StrictLogging {
     builder.build()
   }
 
-  private def generateFromValue(
+  private def generateValueDecoder(
       typeArguments: IndexedSeq[String],
       constructorInfo: Fields,
       variantClassName: ClassName,
   ): MethodSpec =
     variantClassName.parameterized(typeArguments) match {
-      case variant: ClassName => generateConcreteFromValue(variant, constructorInfo)
+      case variant: ClassName => generateConcreteValueDecoder(variant, constructorInfo)
       case variant: ParameterizedTypeName =>
-        generateParameterizedFromValue(variant, constructorInfo)
+        generateParameterizedValueDecoder(variant, constructorInfo)
       case _ =>
         throw new IllegalArgumentException("Required either ClassName or ParameterizedTypeName")
     }

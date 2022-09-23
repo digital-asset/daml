@@ -106,34 +106,34 @@ final class RecordLikeMethodsSpec
       .build
   }
 
-  behavior of "RecordMethods.fromValueSpec"
+  behavior of "RecordMethods.valueDecoderSpec"
 
   it should "be correctly named" in {
-    fromValue.name shouldBe "fromValue"
+    valueDecoder.name shouldBe "valueDecoder"
   }
 
   it should "be public static" in {
-    fromValue.modifiers.asScala should contain.only(Modifier.STATIC, Modifier.PUBLIC)
+    valueDecoder.modifiers.asScala should contain.only(Modifier.STATIC, Modifier.PUBLIC)
   }
 
   it should "return the outer class" in {
-    fromValue.returnType shouldEqual ParameterizedTypeName.get(
+    valueDecoder.returnType shouldEqual ParameterizedTypeName.get(
       ClassName.get(classOf[ValueDecoder[_]]),
       name,
     )
   }
 
   it should "take no parameter" in {
-    val parameters = fromValue.parameters.asScala.map(p => p.name -> p.`type`)
+    val parameters = valueDecoder.parameters.asScala.map(p => p.name -> p.`type`)
     parameters shouldBe empty
   }
 
   it should "throw an IllegalArgumentException" in {
-    fromValue.exceptions should contain only TypeName.get(classOf[IllegalArgumentException])
+    valueDecoder.exceptions should contain only TypeName.get(classOf[IllegalArgumentException])
   }
 
   it should "not declare any annotation" in {
-    fromValue.annotations shouldBe empty
+    valueDecoder.annotations shouldBe empty
   }
 
   private val name = ClassName.bestGuess("Test")
@@ -146,6 +146,6 @@ final class RecordLikeMethodsSpec
     IndexedSeq.empty,
     Map(),
   )
-  private val Vector(constructor, deprecatedFromValue, fromValue, toValue) = methods.take(4)
+  private val Vector(constructor, deprecatedFromValue, valueDecoder, toValue) = methods.take(4)
 
 }

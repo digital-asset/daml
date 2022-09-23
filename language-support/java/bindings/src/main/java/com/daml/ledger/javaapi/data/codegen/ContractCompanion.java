@@ -26,7 +26,7 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
   protected final Function<String, Id> newContractId;
   protected final Function<DamlRecord, Data> fromValue;
 
-  public static <Data> ValueDecoder<Data> fromValue(
+  public static <Data> ValueDecoder<Data> valueDecoder(
       ContractCompanion<?, ? extends ContractId<Data>, Data> companion) {
     return new ValueDecoder<>() {
       @Override

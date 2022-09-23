@@ -50,11 +50,11 @@ object VariantValueDecodersMethods {
             val className =
               ClassName.bestGuess(s"$subPackage.${child.name}").parameterized(typeParameters)
 
-            methodSpecs += FromValueGenerator.generateFromValueForRecordLike(
+            methodSpecs += FromValueGenerator.generateValueDecoderForRecordLike(
               getFieldsWithTypes(record.fields, packagePrefixes),
               className,
               typeArgs,
-              s"fromValue${child.name}",
+              s"valueDecoder${child.name}",
               FromValueGenerator.variantCheck(child.name, _, _),
               packagePrefixes,
             )
@@ -77,9 +77,9 @@ object VariantValueDecodersMethods {
       packagePrefixes: Map[PackageId, String],
   ) = {
     val converterParams =
-      FromValueExtractorParameters.generate(typeParameters).fromValueParameterSpecs
+      FromValueExtractorParameters.generate(typeParameters).valueDecoderParameterSpecs
 
-    val fromValueCode = CodeBlock
+    val valueDecoderCode = CodeBlock
       .builder()
       .add(FromValueGenerator.variantCheck(constructor, "value$", "variantValue$"))
       .addStatement(
@@ -94,14 +94,14 @@ object VariantValueDecodersMethods {
       .addStatement("return new $T(body)", className)
 
     MethodSpec
-      .methodBuilder(s"fromValue$constructor")
+      .methodBuilder(s"valueDecoder$constructor")
       .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
       .addTypeVariables(className.typeParameters)
       .returns(ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className))
       .addException(classOf[IllegalArgumentException])
       .addParameters(converterParams.asJava)
       .beginControlFlow("return $L ->", "value$")
-      .addCode(fromValueCode.build())
+      .addCode(valueDecoderCode.build())
       // put empty string in endControlFlow in order to have semicolon
       .endControlFlow("")
       .build()

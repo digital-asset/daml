@@ -43,7 +43,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .addJavadoc(
         "@deprecated since Daml $L; $L",
         "2.5.0",
-        s"use {@code fromValue} that return ValueDecoder<?> instead",
+        s"use {@code valueDecoder} instead",
       )
 
     val fromValueParams = CodeBlock.join(
@@ -65,7 +65,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
 
     method
       .addStatement(
-        "return $LfromValue($L).decode($L)",
+        "return $LvalueDecoder($L).decode($L)",
         classStaticAccessor,
         fromValueParams,
         "value$",
@@ -73,7 +73,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .build
   }
 
-  def generateFromValueForRecordLike(
+  def generateValueDecoderForRecordLike(
       fields: Fields,
       className: TypeName,
       typeParameters: IndexedSeq[String],
@@ -86,7 +86,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
 
     val converterParams = FromValueExtractorParameters
       .generate(typeParameters)
-      .fromValueParameterSpecs
+      .valueDecoderParameterSpecs
 
     val fromValueCode = CodeBlock
       .builder()
@@ -144,16 +144,16 @@ private[inner] object FromValueGenerator extends StrictLogging {
     logger.debug("Generating method for getting value decoder in template class")
     val converterParams = FromValueExtractorParameters
       .generate(typeParameters)
-      .fromValueParameterSpecs
+      .valueDecoderParameterSpecs
 
     MethodSpec
-      .methodBuilder("fromValue")
+      .methodBuilder("valueDecoder")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
       .returns(ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className))
       .addTypeVariables(className.typeParameters)
       .addParameters(converterParams.asJava)
       .addException(classOf[IllegalArgumentException])
-      .addStatement("return $T.fromValue(COMPANION)", classOf[ContractCompanion[_, _, _]])
+      .addStatement("return $T.valueDecoder(COMPANION)", classOf[ContractCompanion[_, _, _]])
       .build()
   }
 
@@ -353,7 +353,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
         )
 
       case TypeCon(_, ImmArraySeq()) =>
-        CodeBlock.of("$T.fromValue().decode($L)", javaType, accessor)
+        CodeBlock.of("$T.valueDecoder().decode($L)", javaType, accessor)
 
       case TypeCon(_, typeParameters) =>
         val (targs, valueDecoders) = typeParameters.map {
@@ -364,7 +364,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
             )
           case targ @ TypeCon(_, ImmArraySeq()) =>
             toJavaTypeName(targ, packagePrefixes) -> CodeBlock.of(
-              "$T.fromValue()",
+              "$T.valueDecoder()",
               toJavaTypeName(targ, packagePrefixes),
             )
           case targ =>
@@ -379,7 +379,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
         val targsCode = CodeBlock.join(targs.map(CodeBlock.of("$L", _)).asJava, ", ")
         CodeBlock
           .builder()
-          .add(CodeBlock.of("$T.<$L>fromValue(", javaType.rawType, targsCode))
+          .add(CodeBlock.of("$T.<$L>valueDecoder(", javaType.rawType, targsCode))
           .add(CodeBlock.join(valueDecoders.asJava, ", "))
           .add(CodeBlock.of(").decode($L)", accessor))
           .build()

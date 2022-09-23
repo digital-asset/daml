@@ -33,7 +33,7 @@ private[inner] object EnumClass extends StrictLogging {
         .addMethod(generateEnumsMapBuilder(className, enumeration))
         .addField(generateEnumsMap(className))
         .addMethod(generateDeprecatedFromValue(className, enumeration))
-        .addMethod(generateFromValue(className, enumeration))
+        .addMethod(generateValueDecoder(className, enumeration))
         .addMethod(generateToValue(className))
       logger.debug("End")
       enumType.build()
@@ -100,22 +100,22 @@ private[inner] object EnumClass extends StrictLogging {
       .addJavadoc(
         "@deprecated since Daml $L; $L",
         "2.5.0",
-        s"use {@code fromValue} that return ValueDecoder<?> instead",
+        s"use {@code valueDecoder} instead",
       )
       .addStatement(
-        "return fromValue().decode($L)",
+        "return valueDecoder().decode($L)",
         "value$",
       )
       .build()
   }
 
-  private def generateFromValue(
+  private def generateValueDecoder(
       className: ClassName,
       enumeration: typesig.Enum,
   ): MethodSpec = {
-    logger.debug(s"Generating fromValue static method for $enumeration")
+    logger.debug(s"Generating valueDecoder static method for $enumeration")
 
-    val fromValueCode = CodeBlock
+    val valueDecoderCode = CodeBlock
       .builder()
       .addStatement(
         "$T constructor$$ = value$$.asEnum().orElseThrow(() -> new $T($S)).getConstructor()",
@@ -132,11 +132,11 @@ private[inner] object EnumClass extends StrictLogging {
       .addStatement("return ($T) $T.__enums$$.get(constructor$$)", className, className)
 
     MethodSpec
-      .methodBuilder("fromValue")
+      .methodBuilder("valueDecoder")
       .addModifiers(Modifier.STATIC, Modifier.PUBLIC, Modifier.FINAL)
       .returns(ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className))
       .beginControlFlow("return $L ->", "value$")
-      .addCode(fromValueCode.build())
+      .addCode(valueDecoderCode.build())
       // put empty string in endControlFlow in order to have semicolon
       .endControlFlow("")
       .build()

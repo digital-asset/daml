@@ -94,7 +94,7 @@ private[inner] object VariantRecordMethods extends StrictLogging {
       .addJavadoc(
         "@deprecated since Daml $L; $L",
         "2.5.0",
-        s"use {@code fromValue} that return ValueDecoder<?> instead",
+        s"use {@code valueDecoder} instead",
       )
 
     val typeParamsValueDecoders = CodeBlock.join(
@@ -119,7 +119,7 @@ private[inner] object VariantRecordMethods extends StrictLogging {
 
     method
       .addStatement(
-        "return ($T)$LfromValue($L).decode($L)",
+        "return ($T)$LvalueDecoder($L).decode($L)",
         className,
         classStaticAccessor,
         typeParamsValueDecoders,

@@ -21,7 +21,7 @@ private[inner] object TemplateMethods {
         className,
         params,
       )
-      val fromValue = FromValueGenerator.generateContractCompanionValueDecoder(
+      val valueDecoder = FromValueGenerator.generateContractCompanionValueDecoder(
         className,
         params,
       )
@@ -32,7 +32,7 @@ private[inner] object TemplateMethods {
         ClassName.get(classOf[javaapi.data.DamlRecord]),
         name => CodeBlock.of("return new $T($L)", classOf[javaapi.data.DamlRecord], name),
       )
-      val privateGetValueDecoder = FromValueGenerator.generateFromValueForRecordLike(
+      val privateGetValueDecoder = FromValueGenerator.generateValueDecoderForRecordLike(
         fields,
         className,
         params,
@@ -49,7 +49,7 @@ private[inner] object TemplateMethods {
         packagePrefixes,
         isPublic = false,
       )
-      List(deprecatedFromValue, fromValue, toValue, privateGetValueDecoder)
+      List(deprecatedFromValue, valueDecoder, toValue, privateGetValueDecoder)
     }
 
     Vector(constructor) ++ conversionMethods ++
