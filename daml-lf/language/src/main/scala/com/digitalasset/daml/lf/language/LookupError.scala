@@ -12,7 +12,7 @@ sealed abstract class LookupError {
 
 object LookupError {
 
-  def contextDetails(context: Reference): String =
+  private def contextDetails(context: Reference): String =
     context match {
       case Reference.Package(_) => ""
       case otherwise => " while looking for " + otherwise.pretty
@@ -24,14 +24,18 @@ object LookupError {
     )
   }
 
-  final case class AmbiguousInterfaceInstance(instance: Reference.InterfaceInstance)
-      extends LookupError {
+  final case class AmbiguousInterfaceInstance(
+      instance: Reference.InterfaceInstance,
+      context: Reference,
+  ) extends LookupError {
     def pretty: String =
-      s"Ambiguous interface instance: two instances for ${instance.pretty}"
+      s"Ambiguous interface instance: two instances for ${instance.pretty} found" + (
+        if (context == instance) "" else LookupError.contextDetails(context)
+      )
   }
 
   object MissingPackage {
-    def unapply(err: LookupError.NotFound): Option[(PackageId, Reference)] =
+    def unapply(err: NotFound): Option[(PackageId, Reference)] =
       err.notFound match {
         case Reference.Package(packageId) => Some(packageId -> err.context)
         case _ => None
@@ -40,12 +44,6 @@ object LookupError {
     def pretty(pkgId: PackageId, context: Reference): String =
       s"Couldn't find package $pkgId" + contextDetails(context)
   }
-
-  def apply(notFound: Reference, context: Reference) =
-    NotFound(notFound, context)
-
-  def unapply(err: LookupError.NotFound): Option[(Reference, Reference)] =
-    Some(err.notFound, err.context)
 
 }
 

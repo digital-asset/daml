@@ -124,7 +124,7 @@ class ApiSubmissionServiceSpec
       ErrorCause.DamlLf(
         LfError.Preprocessing(
           LfError.Preprocessing.Lookup(
-            LookupError(
+            LookupError.NotFound(
               Reference.Package(defaultPackageId),
               Reference.Package(defaultPackageId),
             )
