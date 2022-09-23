@@ -180,10 +180,6 @@ message ScenarioError {
     NodeId consumed_by = 2; // optional. A contract whose create was rolled back will not have this set.
   }
 
- message TemplateNotFound {
-     Identifier template_id = 1;
- }
-
   message DisclosedContractKeyHashingError {
       ContractRef contract_ref = 1;
       Identifier template_id = 2;
@@ -323,7 +319,6 @@ message ScenarioError {
     = 36;
     DisclosurePreprocessingDuplicateContractKeys disclosure_preprocessing_duplicate_contract_keys = 39;
     DisclosedContractKeyHashingError disclosed_contract_key_hashing_error = 40;
-    TemplateNotFound template_not_found = 41;
   }
 }
 

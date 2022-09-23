@@ -1786,19 +1786,6 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $templateNotFound[T] :: Unit -> Error */
-  final case class SBTemplateNotFound(templateId: Identifier) extends SBuiltin(1) {
-
-    override private[speedy] def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-    ): Control = {
-      getSUnit(args, 0)
-
-      Control.Error(IE.TemplateNotFound(templateId))
-    }
-  }
-
   /** $throw :: AnyException -> a */
   final case object SBThrow extends SBuiltin(1) {
     override private[speedy] def execute(

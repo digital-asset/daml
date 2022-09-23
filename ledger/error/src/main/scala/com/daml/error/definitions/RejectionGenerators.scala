@@ -63,9 +63,6 @@ object RejectionGenerators {
         case LfInterpretationError.ContractKeyNotFound(key) =>
           LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound
             .Reject(renderedMessage, key)
-        case _: LfInterpretationError.TemplateNotFound =>
-          LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError
-            .Error(renderedMessage)
         case _: LfInterpretationError.FailedAuthorization =>
           LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError
             .Reject(renderedMessage)
