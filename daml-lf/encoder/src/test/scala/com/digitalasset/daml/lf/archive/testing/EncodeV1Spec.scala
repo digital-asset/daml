@@ -270,7 +270,7 @@ object EncodeV1Spec {
       case EAbs(binder, body, Some(_)) =>
         EAbs(normalizer.apply(binder), normalizer.apply(body), None)
       case ELocation(loc, expr) if loc.packageId == hashCode =>
-        ELocation(loc = loc.copy(packageId = pkgId), expr)
+        ELocation(loc = loc.copy(packageId = pkgId), normalizer.apply(expr))
     }
     lazy val normalizer = new AstRewriter(exprRule = exprRule, identifierRule = identifierRule)
 
