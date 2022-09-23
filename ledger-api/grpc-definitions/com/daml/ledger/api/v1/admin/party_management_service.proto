@@ -159,8 +159,9 @@ message UpdatePartyDetailsRequest {
   // (2) contain only valid update paths.
   // Fields that can be updated are marked as ``Modifiable``.
   // An update path can also point to non-``Modifiable`` fields such as 'party' and 'local_metadata.resource_version'
-  // because they are used, respectively, 1) to identify the party details resource
-  // subject to the update and 2) for concurrent change control.
+  // because they are used:
+  // (1) to identify the party details resource subject to the update,
+  // (2) for concurrent change control.
   // An update path can also point to non-``Modifiable`` fields such as 'is_local' and 'display_name'
   // as long as the values provided in the update request match the server values.
   // Examples of update paths: 'local_metadata.annotations', 'local_metadata'.
