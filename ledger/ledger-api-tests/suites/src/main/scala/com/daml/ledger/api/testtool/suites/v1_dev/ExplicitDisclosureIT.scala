@@ -469,12 +469,10 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       // Exercise a choice using invalid explicit disclosure (bad payload)
       _ <- testContext
         .exerciseFetchDelegated(
-          testContext.disclosedContract
-            .update(
-              _.arguments := ProtoArguments.CreateArguments(
-                Delegated(delegate, testContext.contractKey).arguments
-              )
-            )
+          testContext.disclosedContract,
+          // Provide a superfluous disclosed contract with mismatching contract arguments
+          dummyDisclosedContract
+            .update(_.arguments := ProtoArguments.CreateArguments(Dummy(delegate).arguments)),
         )
     } yield ()
   })
