@@ -11,6 +11,7 @@ import com.daml.lf.value.{Value => LfValue}
 import com.daml.platform.{ContractId, Identifier}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.lf.crypto.Hash
 
 /** Generic ledger update event.
   *
@@ -96,6 +97,7 @@ object TransactionLogUpdate {
       createSignatories: Set[Party],
       createObservers: Set[Party],
       createAgreementText: Option[String],
+      createKeyHash: Option[Hash],
   ) extends Event
 
   final case class ExercisedEvent(

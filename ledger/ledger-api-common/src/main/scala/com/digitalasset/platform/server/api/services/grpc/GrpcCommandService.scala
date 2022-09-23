@@ -26,6 +26,7 @@ class GrpcCommandService(
     currentUtcTime: () => Instant,
     maxDeduplicationDuration: () => Option[Duration],
     generateSubmissionId: SubmissionIdGenerator,
+    explicitDisclosureUnsafeEnabled: Boolean,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends CommandService
     with GrpcApiService
@@ -34,7 +35,7 @@ class GrpcCommandService(
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
   private[this] val validator = new SubmitAndWaitRequestValidator(
-    new CommandsValidator(ledgerId)
+    CommandsValidator(ledgerId, explicitDisclosureUnsafeEnabled)
   )
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =

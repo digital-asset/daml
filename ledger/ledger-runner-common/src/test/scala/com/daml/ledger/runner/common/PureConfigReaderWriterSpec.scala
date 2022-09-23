@@ -197,7 +197,7 @@ class PureConfigReaderWriterSpec
   it should "not support unknown keys" in {
     convert(
       jwtTimestampLeewayConfigConvert,
-      "some-crap=yes\n" + validJwtTimestampLeewayValue,
+      "unknown-key=yes\n" + validJwtTimestampLeewayValue,
     ).left.value
       .prettyPrint(0) should include("Unknown key")
   }
@@ -240,7 +240,7 @@ class PureConfigReaderWriterSpec
   it should "validate against odd values" in {
     val value =
       s"""
-        |      some-crap = yes
+        |      unknown-key = yes
         |      $validLimits
         |""".stripMargin
     convert(interpretationLimitsConvert, value).left.value
@@ -308,7 +308,7 @@ class PureConfigReaderWriterSpec
   it should "not support additional invalid keys" in {
     val value =
       s"""
-        |some-crap = yes
+        |unknown-key = yes
         |$validLimits
         |""".stripMargin
     convert(engineConvert, value).left.value
@@ -332,7 +332,7 @@ class PureConfigReaderWriterSpec
   it should "not support invalid unknown keys" in {
     convert(
       tlsConfigurationConvert,
-      "some-crap=yes\n" + validTlsConfigurationValue,
+      "unknown-key=yes\n" + validTlsConfigurationValue,
     ).left.value
       .prettyPrint(0) should include("Unknown key")
   }
@@ -384,7 +384,7 @@ class PureConfigReaderWriterSpec
   it should "not support additional invalid keys" in {
     val value =
       s"""
-        |    some-crap = yes
+        |    unknown-key = yes
         |    $validMetricsConfigValue
         |""".stripMargin
     convert(metricsConvert, value).left.value
@@ -421,7 +421,7 @@ class PureConfigReaderWriterSpec
   }
 
   it should "not support unknown keys" in {
-    val value = "some-crap=yes\n" + validInitialLedgerConfiguration
+    val value = "unknown-key=yes\n" + validInitialLedgerConfiguration
     convert(initialLedgerConfigurationConvert, value).left.value
       .prettyPrint(0) should include("Unknown key")
   }
@@ -472,7 +472,7 @@ class PureConfigReaderWriterSpec
   }
 
   it should "not support invalid keys" in {
-    val value = "some-crap=yes\n" + validUserManagementConfigValue
+    val value = "unknown-key=yes\n" + validUserManagementConfigValue
     convert(userManagementConfigConvert, value).left.value
       .prettyPrint(0) should include("Unknown key")
   }
@@ -561,7 +561,7 @@ class PureConfigReaderWriterSpec
   }
 
   it should "not support additional unknown keys" in {
-    val value = "some-crap=yes\n" + validCommandConfigurationValue
+    val value = "unknown-key=yes\n" + validCommandConfigurationValue
     convert(commandConfigurationConvert, value).left.value
       .prettyPrint(0) should include("Unknown key")
   }
@@ -606,7 +606,7 @@ class PureConfigReaderWriterSpec
   }
 
   it should "not support unknown keys" in {
-    val value = "some-crap=yes\n" + validRateLimitingConfig
+    val value = "unknown-key=yes\n" + validRateLimitingConfig
     convert(rateLimitingConfigConvert, value).left.value.prettyPrint(0) should include(
       "Unknown key"
     )
@@ -656,7 +656,7 @@ class PureConfigReaderWriterSpec
   }
 
   it should "not support unknown keys" in {
-    val value = "some-crap=yes\n" + validApiServerConfigValue
+    val value = "unknown-key=yes\n" + validApiServerConfigValue
     convert(apiServerConfigConvert, value).left.value.prettyPrint(0) should include("Unknown key")
   }
 
@@ -678,7 +678,7 @@ class PureConfigReaderWriterSpec
   }
 
   it should "not support unknown keys" in {
-    val value = "some-crap=yes\n" + validHaConfigValue
+    val value = "unknown-key=yes\n" + validHaConfigValue
     convert(haConfigConvert, value).left.value.prettyPrint(0) should include("Unknown key")
   }
 
@@ -698,7 +698,7 @@ class PureConfigReaderWriterSpec
   }
 
   it should "not support unknown keys" in {
-    val value = "some-crap=yes\n" + validPackageMetadataViewConfigValue
+    val value = "unknown-key=yes\n" + validPackageMetadataViewConfigValue
     convert(packageMetadataViewConfigConvert, value).left.value.prettyPrint(0) should include(
       "Unknown key"
     )
@@ -734,7 +734,7 @@ class PureConfigReaderWriterSpec
   }
 
   it should "not support unknown keys" in {
-    val value = "some-crap=yes\n" + validIndexerConfigValue
+    val value = "unknown-key=yes\n" + validIndexerConfigValue
     convert(indexerConfigConvert, value).left.value.prettyPrint(0) should include(
       "Unknown key"
     )
@@ -768,7 +768,7 @@ class PureConfigReaderWriterSpec
   }
 
   it should "not support unknown keys" in {
-    val value = "some-crap=yes\n" + validIndexServiceConfigValue
+    val value = "unknown-key=yes\n" + validIndexServiceConfigValue
     convert(indexServiceConfigConvert, value).left.value.prettyPrint(0) should include(
       "Unknown key"
     )

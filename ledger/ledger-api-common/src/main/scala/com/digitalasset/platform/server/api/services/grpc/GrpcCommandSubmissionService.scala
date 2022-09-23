@@ -34,6 +34,7 @@ class GrpcCommandSubmissionService(
     maxDeduplicationDuration: () => Option[Duration],
     submissionIdGenerator: SubmissionIdGenerator,
     metrics: Metrics,
+    explicitDisclosureUnsafeEnabled: Boolean,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends ApiCommandSubmissionService
     with ProxyCloseable
@@ -41,7 +42,7 @@ class GrpcCommandSubmissionService(
 
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private val validator = new SubmitRequestValidator(
-    new CommandsValidator(ledgerId)
+    CommandsValidator(ledgerId, explicitDisclosureUnsafeEnabled)
   )
 
   override def submit(request: ApiSubmitRequest): Future[Empty] = {

@@ -8,6 +8,7 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   ExperimentalCommitterEventLog,
   ExperimentalContractIds,
+  ExperimentalExplicitDisclosure,
 }
 
 case class LedgerFeatures(
@@ -17,4 +18,6 @@ case class LedgerFeatures(
     contractIdFeatures: ExperimentalContractIds = ExperimentalContractIds.defaultInstance,
     committerEventLog: ExperimentalCommitterEventLog =
       ExperimentalCommitterEventLog.of(eventLogType = CENTRALIZED),
+    explicitDisclosure: ExperimentalExplicitDisclosure =
+      ExperimentalExplicitDisclosure.of(supported = false),
 )

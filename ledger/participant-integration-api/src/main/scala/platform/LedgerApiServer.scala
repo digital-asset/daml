@@ -44,6 +44,11 @@ class LedgerApiServer(
     timeServiceBackendO: Option[TimeServiceBackend],
     servicesExecutionContext: ExecutionContextExecutorService,
     metrics: Metrics,
+    // TODO ED: Remove flag once explicit disclosure is deemed stable and all
+    //          backing ledgers implement proper validation against malicious clients.
+    //          Currently, we provide this flag outside the HOCON configuration objects
+    //          in order to ensure that participants cannot be configured to accept explicitly disclosed contracts.
+    explicitDisclosureUnsafeEnabled: Boolean = false,
 )(implicit actorSystem: ActorSystem, materializer: Materializer) {
 
   def owner: ResourceOwner[ApiService] = {
@@ -110,6 +115,7 @@ class LedgerApiServer(
           ledgerId,
           participantConfig.apiServer,
           participantId,
+          explicitDisclosureUnsafeEnabled,
         )
       } yield apiService
     }
@@ -128,6 +134,7 @@ class LedgerApiServer(
       ledgerId: LedgerId,
       apiServerConfig: ApiServerConfig,
       participantId: Ref.ParticipantId,
+      explicitDisclosureUnsafeEnabled: Boolean,
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
@@ -162,6 +169,7 @@ class LedgerApiServer(
       participantId = participantId,
       authService = authService,
       jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,
+      explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
     )
 }
 
