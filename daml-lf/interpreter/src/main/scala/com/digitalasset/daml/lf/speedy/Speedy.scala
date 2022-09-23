@@ -878,7 +878,10 @@ private[lf] object Speedy {
               Warning(
                 commitLocation = onLedger.commitLocation,
                 message =
-                  s"Tried to fetch or exercise ${contract.templateId} on contract ${cid.coid} but none of the reading parties [$readers] are contract stakeholders [$stakeholders]. Use of divulged contracts is deprecated and incompatible with pruning. To remedy, add one of the readers [$readers] as an observer to the contract.",
+                  s"Tried to fetch or exercise ${contract.templateId} on contract ${cid.coid} "
+                    + s"but none of the reading parties [$readers] are contract stakeholders [$stakeholders]. "
+                    + "Use of divulged contracts is deprecated and incompatible with pruning. "
+                    + s"To remedy, add one of the readers [$readers] as an observer to the contract.",
               )
             )
         }
@@ -892,6 +895,7 @@ private[lf] object Speedy {
         coid: V.ContractId,
         handleKeyFound: (Machine, V.ContractId) => Control,
     ): Control = {
+      // For local contract keys and disclosed contract keys, we do not perform visibility checking
       if (onLedger.isLocalContractKey(coid, gkey) || onLedger.isDisclosedContractKey(coid, gkey)) {
         handleKeyFound(this, coid)
       } else {
