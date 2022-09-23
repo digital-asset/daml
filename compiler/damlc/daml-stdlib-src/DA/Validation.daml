@@ -70,6 +70,11 @@ instance Applicative (Validation err) where
     Errors e1 *> Success _ = Errors e1
     Errors e1 *> Errors e2 = Errors (e1 <> e2)
 
+instance Semigroup (Validation err a) where
+    Errors e1 <> Errors e2 = Errors (e1 <> e2)
+    Success _ <> x = x
+    x <> Success _ = x
+
 -- | Convert an `Optional t` into a `Validation Text t`, or
 -- more generally into an `m t` for any `ActionFail` type `m`.
 (<?>) : Optional b -> Text -> Validation Text b
