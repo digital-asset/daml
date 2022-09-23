@@ -834,7 +834,7 @@ private[lf] final class Compiler(
   ): (t.SDefinitionRef, SDefinition) = {
     // Translates 'create Foo with <params>' into:
     // CreateDefRef(tmplId) = \ <tmplArg> <token> ->
-    //   let _ = checkPreCondition(tmplId, <tmplArg>) [tmpl.precond ++ [precond | precond <- tmpl.implements]]
+    //   let _ = checkPreCondition(tmplId, <tmplArg>)
     //   in $create <tmplArg> [tmpl.agreementText] [tmpl.signatories] [tmpl.observers] [tmpl.key]
     topLevelFunction2(t.CreateDefRef(tmplId))((tmplArgPos, _, env) =>
       translateCreateBody(tmplId, tmpl, tmplArgPos, env)
