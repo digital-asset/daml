@@ -175,14 +175,8 @@ module.exports = (env) => {
       historyApiFallback: { index: '/' },
       compress: true,
       proxy: {
-        '/api': 'http://localhost:7500/'
-      },
-      client: {
-        overlay: {
-          errors: true,
-          warnings: false,
-        },
-      },
+        '/api': 'http://localhost:4000/'
+      }
     }
   };
 };
