@@ -70,28 +70,6 @@ private[inner] object VariantClass extends StrictLogging {
       (variantType, constructors)
     }
 
-  private def isRecord(interfaceType: PackageSignature.TypeDecl): Boolean =
-    interfaceType.`type`.dataType match {
-      case _: Record[_] => true
-      case _: Variant[_] | _: Enum => false
-    }
-
-  /** A record is a variant record if and only if
-    * 1. it is part of the package where the variant is (i.e Package is None)
-    * 2. its identifier has the same module as the variant
-    * 3. its identifier name is equal to the variant identifier name with the constructor name appended
-    */
-  private def isVariantRecord(
-      typeWithContext: TypeWithContext,
-      constructor: String,
-      identifier: Identifier,
-  ): Boolean = {
-    typeWithContext.interface.typeDecls.get(identifier.qualifiedName).exists(isRecord) &&
-    typeWithContext.identifier.qualifiedName.module == identifier.qualifiedName.module &&
-    typeWithContext.identifier.qualifiedName.name.segments == identifier.qualifiedName.name.segments.init &&
-    constructor == identifier.qualifiedName.name.segments.last
-  }
-
   private def generateAbstractToValueSpec(typeArgs: IndexedSeq[String]): MethodSpec =
     MethodSpec
       .methodBuilder("toValue")

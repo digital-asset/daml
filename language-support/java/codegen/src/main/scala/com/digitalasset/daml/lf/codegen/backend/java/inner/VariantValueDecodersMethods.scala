@@ -106,23 +106,4 @@ object VariantValueDecodersMethods {
       .endControlFlow("")
       .build()
   }
-
-  // TODO: CL extract
-  private def isVariantRecord(
-      typeWithContext: TypeWithContext,
-      constructor: String,
-      identifier: Identifier,
-  ): Boolean = {
-    typeWithContext.interface.typeDecls.get(identifier.qualifiedName).exists(isRecord) &&
-    typeWithContext.identifier.qualifiedName.module == identifier.qualifiedName.module &&
-    typeWithContext.identifier.qualifiedName.name.segments == identifier.qualifiedName.name.segments.init &&
-    constructor == identifier.qualifiedName.name.segments.last
-  }
-
-  // TODO: CL extract
-  private def isRecord(interfaceType: PackageSignature.TypeDecl): Boolean =
-    interfaceType.`type`.dataType match {
-      case _: Record[_] => true
-      case _: Variant[_] | _: Enum => false
-    }
 }
