@@ -528,7 +528,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
     private def encodeExprBuilder(
         expr0: Expr,
         builder: PLF.Expr.Builder = PLF.Expr.newBuilder(),
-    ): PLF.Expr.Builder = {
+    ): builder.type = {
 
       // EAbss breaks the exhaustiveness checker.
       (expr0: @unchecked) match {
