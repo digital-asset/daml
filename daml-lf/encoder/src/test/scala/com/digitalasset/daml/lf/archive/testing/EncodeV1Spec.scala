@@ -89,10 +89,10 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
            record Tree.Node (a: *) = { value: a, left : Mod:Tree a, right : Mod:Tree a };
            enum Color = Red | Green | Blue;
 
+           val unit: Unit = loc(Mod, unit, 92, 12, 92, 61) ();
            val aVar: forall (a:*). a -> a = /\ (a: *). \ (x: a) -> x;
            val aValue: forall (a:*). a -> a = Mod:aVar;
            val aBuiltin : Int64 -> Int64 -> Int64 = ADD_INT64;
-           val unit: Unit = ();
            val myFalse: Bool = False;
            val myTrue: Bool = True;
            val aInt: Int64 = 14;
@@ -263,13 +263,16 @@ object EncodeV1Spec {
 
   private def normalize(pkg: Package, hashCode: PackageId, selfPackageId: PackageId): Package = {
 
-    val replacePkId: PartialFunction[Identifier, Identifier] = {
+    val identifierRule: PartialFunction[Identifier, Identifier] = {
       case Identifier(`hashCode`, name) => Identifier(selfPackageId, name)
     }
-    lazy val dropEAbsRef: PartialFunction[Expr, Expr] = { case EAbs(binder, body, Some(_)) =>
-      EAbs(normalizer.apply(binder), normalizer.apply(body), None)
+    lazy val exprRule: PartialFunction[Expr, Expr] = {
+      case EAbs(binder, body, Some(_)) =>
+        EAbs(normalizer.apply(binder), normalizer.apply(body), None)
+      case ELocation(loc, expr) if loc.packageId == hashCode =>
+        ELocation(loc = loc.copy(packageId = pkgId), normalizer.apply(expr))
     }
-    lazy val normalizer = new AstRewriter(exprRule = dropEAbsRef, identifierRule = replacePkId)
+    lazy val normalizer = new AstRewriter(exprRule = exprRule, identifierRule = identifierRule)
 
     normalizer.apply(pkg)
   }
