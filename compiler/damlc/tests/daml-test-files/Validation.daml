@@ -21,4 +21,32 @@ main = scenario do
   v === Left (NonEmpty with hd = "fail"; tl = ["fail"])
   pure ()
 
+semigroup_two_errors_test = scenario do
+  let (v1: Validation Text Int) = invalid "fail1"
+      v2 = invalid "fail2"
+      expected = Errors $ NonEmpty with hd = "fail1", tl = [ "fail2" ]
+
+  expected === (v1 <> v2)
+
+semigroup_both_success_test = scenario do
+  let (v1: Validation Text Int) = ok 1
+      v2 = ok 2
+      expected = Success 2
+
+  expected === (v1 <> v2)
+
+semigroup_first_error_test = scenario do
+  let (v1: Validation Text Int) = invalid "fail"
+      v2 = ok 1
+      expected = Errors $ NonEmpty with hd = "fail", tl = []
+
+  expected === (v1 <> v2)
+
+semigroup_second_error_test = scenario do
+  let (v1: Validation Text Int) = ok 1
+      v2 = invalid "fail"
+      expected = Errors $ NonEmpty with hd = "fail", tl = []
+
+  expected === (v1 <> v2)
+
 -- @ENABLE-SCENARIOS
