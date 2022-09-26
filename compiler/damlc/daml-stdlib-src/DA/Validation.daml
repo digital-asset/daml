@@ -70,6 +70,8 @@ instance Applicative (Validation err) where
     Errors e1 *> Success _ = Errors e1
     Errors e1 *> Errors e2 = Errors (e1 <> e2)
 
+-- | Unlike the Haskell version (see https://hackage.haskell.org/package/either-5.0.2/docs/Data-Either-Validation.html#t:Validation), 
+-- this only results in a `Success` (the last one) if there are no `Errors`.
 instance Semigroup (Validation err a) where
     Errors e1 <> Errors e2 = Errors (e1 <> e2)
     Success _ <> x = x
