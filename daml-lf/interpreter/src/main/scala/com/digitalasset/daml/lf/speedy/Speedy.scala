@@ -26,6 +26,7 @@ import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
+import scala.annotation.nowarn
 import scala.annotation.tailrec
 import scala.collection.mutable
 
@@ -451,7 +452,7 @@ private[lf] object Speedy {
 
         // TODO: Understand how the current approach to stack-trace actually works.
         // Peeking under KArg on the kontStack seems so unprincipled, and relies on our
-        // continued use of SEAppGeneral_DEPRECATED, which we want to remove.
+        // continued use of SEAppGeneral, which we want to remove.
 
         case Some(KArg(_, Array(SEValue.Token))) => {
           // Can't call pushKont here, because we don't push at the top of the stack.
@@ -970,6 +971,7 @@ private[lf] object Speedy {
     @throws[PackageNotFound]
     @throws[CompilationError]
     // Construct a machine for running an update expression (testing -- avoiding scenarios)
+    @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppGeneral")
     def fromUpdateSExpr(
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
@@ -983,7 +985,7 @@ private[lf] object Speedy {
         compiledPackages = compiledPackages,
         submissionTime = Time.Timestamp.MinValue,
         initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
-        expr = SEAppGeneral_DEPRECATED(updateSE, Array(SEValue.Token)),
+        expr = SEAppGeneral(updateSE, Array(SEValue.Token)),
         // expr = SEApp(updateSE, Array(SValue.SToken)), // TODO: when stack-trace hackery is resolved
         committers = committers,
         readAs = Set.empty,
@@ -996,12 +998,13 @@ private[lf] object Speedy {
     @throws[PackageNotFound]
     @throws[CompilationError]
     // Construct an off-ledger machine for running scenario.
+    @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppGeneral")
     def fromScenarioSExpr(
         compiledPackages: CompiledPackages,
         scenario: SExpr,
     )(implicit loggingContext: LoggingContext): Machine = Machine.fromPureSExpr(
       compiledPackages = compiledPackages,
-      expr = SEAppGeneral_DEPRECATED(scenario, Array(SEValue.Token)),
+      expr = SEAppGeneral(scenario, Array(SEValue.Token)),
       // expr = SEApp(scenario, Array(SValue.SToken)), // TODO: when stack-trace hackery is resolved
     )
 
