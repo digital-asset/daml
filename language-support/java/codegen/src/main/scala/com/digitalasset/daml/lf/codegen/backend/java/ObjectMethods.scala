@@ -80,7 +80,7 @@ private[codegen] object ObjectMethods extends StrictLogging {
     initHashCodeBuilder()
       .addStatement(
         s"return $$T.hash(${List.fill(fieldNames.size)("this.$L").mkString(", ")})",
-        IndexedSeq(classOf[java.util.Objects]) ++ fieldNames: _*
+        (IndexedSeq(classOf[java.util.Objects]) ++ fieldNames): _*
       )
       .build()
 
@@ -112,10 +112,10 @@ private[codegen] object ObjectMethods extends StrictLogging {
       initToStringBuilder()
         .addStatement(
           s"return $$T.format($$S, ${List.fill(fieldNames.size)("this.$L").mkString(", ")})",
-          IndexedSeq(
+          (IndexedSeq(
             classOf[java.lang.String],
             template(className, fieldNames, enclosingClassName),
-          ) ++ fieldNames: _*
+          ) ++ fieldNames): _*
         )
         .build()
     }
