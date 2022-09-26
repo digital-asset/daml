@@ -52,7 +52,7 @@ semigroup_second_error_test = scenario do
   expected === (v1 <> v2)
 
 foldable_returns_seed_when_input_is_error_test = scenario do
-  let (v: Validation Text Int) = error "fail"
+  let (v: Validation Text Int) = invalid "fail"
       expected = ""
 
   expected === F.foldr (\x z -> show x <> z) "" v
@@ -64,8 +64,8 @@ foldable_returns_expected_value_when_input_is_ok_test = scenario do
   expected === F.foldr (\x z -> show x <> z) "" v
 
 traversable_returns_expected_list_when_input_is_validation_of_list_errors_test = scenario do
-  let (v: Validation Text [Int]) = error "fail"
-      expected = [ error "fail" ]
+  let (v: Validation Text [Int]) = invalid "fail"
+      expected = [ invalid "fail" ]
 
   expected === T.sequence v
 
