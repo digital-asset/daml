@@ -687,7 +687,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       import fixture.encoder
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         val command: domain.CreateCommand[v.Record, OptionalPkg] =
-          iouCreateCommand(alice).copy(templateId = domain.TemplateId(None, "Iou", "Dummy"))
+          iouCreateCommand(alice)
+            .copy(templateId = domain.ContractTypeId.Template(None, "Iou", "Dummy"))
         val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
         fixture
@@ -1499,7 +1500,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       // The numContracts size should test for https://github.com/digital-asset/daml/issues/10339
       val numContracts: Long = 2000
-      val helperId = domain.TemplateId(None, "Account", "Helper")
+      val helperId = domain.ContractTypeId.Template(None, "Account", "Helper")
       val payload = recordFromFields(ShRecord(owner = v.Value.Sum.Party(alice.unwrap)))
       val createCmd: domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] =
         domain.CreateAndExerciseCommand(
