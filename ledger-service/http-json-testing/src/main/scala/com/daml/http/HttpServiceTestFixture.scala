@@ -448,7 +448,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   }
 
   def postArchiveCommand(
-      templateId: domain.TemplateId.OptionalPkg,
+      templateId: domain.ContractTypeId.OptionalPkg,
       contractId: domain.ContractId,
       encoder: DomainJsonEncoder,
       uri: Uri,

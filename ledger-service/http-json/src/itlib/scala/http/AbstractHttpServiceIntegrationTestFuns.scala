@@ -411,7 +411,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected[this] object TpId {
-    import domain.TemplateId.{OptionalPkg => Id}
+    import domain.ContractTypeId.{OptionalPkg => Id}
     import domain.{ContractTypeId => CtId}
     import CtId.Template.{OptionalPkg => TId}
     import CtId.Interface.{OptionalPkg => IId}

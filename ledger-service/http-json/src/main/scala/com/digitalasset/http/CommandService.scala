@@ -9,6 +9,7 @@ import com.daml.http.domain.{
   ActiveContract,
   Choice,
   Contract,
+  ContractTypeId,
   CreateAndExerciseCommand,
   CreateCommand,
   ExerciseCommand,
@@ -46,15 +47,15 @@ class CommandService(
   import CommandService._
 
   private def withTemplateLoggingContext[T](
-      templateId: TemplateId.RequiredPkg
-  )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[TemplateId.RequiredPkg, T] =
+      templateId: ContractTypeId.RequiredPkg
+  )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[ContractTypeId.RequiredPkg, T] =
     withEnrichedLoggingContext(
-      label[TemplateId.RequiredPkg],
+      label[ContractTypeId.RequiredPkg],
       "template_id" -> templateId.toString,
     )
 
   private def withTemplateChoiceLoggingContext[T](
-      templateId: TemplateId.RequiredPkg,
+      templateId: ContractTypeId.RequiredPkg,
       choice: domain.Choice,
   )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[Choice, RequiredPkg with T] =
     withTemplateLoggingContext(templateId).run(

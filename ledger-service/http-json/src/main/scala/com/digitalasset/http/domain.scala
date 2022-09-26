@@ -379,18 +379,14 @@ package domain {
     // only used in integration tests
     implicit val `AcC hasTemplateId`: HasTemplateId.Compat[ActiveContract] =
       new HasTemplateId[ActiveContract] {
-        override def templateId(fa: ActiveContract[_]): TemplateId.OptionalPkg =
-          TemplateId(
-            Some(fa.templateId.packageId),
-            fa.templateId.moduleName,
-            fa.templateId.entityName,
-          )
+        override def templateId(fa: ActiveContract[_]): ContractTypeId.OptionalPkg =
+          (fa.templateId: domain.ContractTypeId.RequiredPkg).map(Some(_))
 
         type TypeFromCtId = LfType
 
         override def lfType(
             fa: ActiveContract[_],
-            templateId: TemplateId.Resolved,
+            templateId: ContractTypeId.Resolved,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
@@ -406,7 +402,7 @@ package domain {
         templateId <- in.templateId required "templateId"
       } yield ArchivedContract(
         contractId = ContractId(in.contractId),
-        templateId = TemplateId fromLedgerApi templateId,
+        templateId = ContractTypeId.Template fromLedgerApi templateId,
       )
 
     def fromLedgerApi(in: lav1.event.ExercisedEvent): Error \/ Option[ArchivedContract] =
@@ -416,7 +412,7 @@ package domain {
         } yield Some(
           ArchivedContract(
             contractId = ContractId(in.contractId),
-            templateId = TemplateId.fromLedgerApi(templateId),
+            templateId = ContractTypeId.Template fromLedgerApi templateId,
           )
         )
       } else {
@@ -469,13 +465,14 @@ package domain {
     implicit val hasTemplateId: HasTemplateId.Compat[EnrichedContractKey] =
       new HasTemplateId[EnrichedContractKey] {
 
-        override def templateId(fa: EnrichedContractKey[_]): TemplateId.OptionalPkg = fa.templateId
+        override def templateId(fa: EnrichedContractKey[_]): ContractTypeId.OptionalPkg =
+          fa.templateId
 
         type TypeFromCtId = LfType
 
         override def lfType(
             fa: EnrichedContractKey[_],
-            templateId: TemplateId.Resolved,
+            templateId: ContractTypeId.Resolved,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
@@ -499,7 +496,7 @@ package domain {
   }
 
   trait HasTemplateId[F[_]] {
-    def templateId(fa: F[_]): TemplateId.OptionalPkg
+    def templateId(fa: F[_]): ContractTypeId.OptionalPkg
 
     type TypeFromCtId
 
@@ -529,7 +526,7 @@ package domain {
 
           override def lfType(
               fa: F[_],
-              templateId: TemplateId.Resolved,
+              templateId: ContractTypeId.Resolved,
               f: PackageService.ResolveTemplateRecordType,
               g: PackageService.ResolveChoiceArgType,
               h: PackageService.ResolveKeyType,
@@ -568,7 +565,7 @@ package domain {
 
         override def templateId(
             fab: ExerciseCommand[_, domain.ContractLocator[_]]
-        ): TemplateId.OptionalPkg =
+        ): ContractTypeId.OptionalPkg =
           fab.choiceInterfaceId getOrElse (fab.reference match {
             case EnrichedContractKey(templateId, _) => templateId
             case EnrichedContractId(Some(templateId), _) => templateId
@@ -708,7 +705,7 @@ package domain {
 
   sealed abstract class ServiceWarning extends Serializable with Product
 
-  final case class UnknownTemplateIds(unknownTemplateIds: List[TemplateId.OptionalPkg])
+  final case class UnknownTemplateIds(unknownTemplateIds: List[ContractTypeId.OptionalPkg])
       extends ServiceWarning
 
   final case class UnknownParties(unknownParties: List[domain.Party]) extends ServiceWarning

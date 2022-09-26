@@ -5,7 +5,7 @@ package com.daml.http
 
 import akka.http.scaladsl.model.headers.Authorization
 import akka.http.scaladsl.model.{StatusCodes, Uri}
-import com.daml.fetchcontracts.domain.TemplateId.OptionalPkg
+import com.daml.fetchcontracts.domain.ContractTypeId.OptionalPkg
 import com.daml.http.HttpServiceTestFixture.{UseTls, authorizationHeader, postRequest}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.http.dbbackend.JdbcConfig
