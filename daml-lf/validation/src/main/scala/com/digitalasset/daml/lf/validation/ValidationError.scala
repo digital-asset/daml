@@ -326,6 +326,38 @@ final case class EExpectedViewType(context: Context, typ: Type) extends Validati
   protected def prettyInternal: String =
     s"expected monomorphic record type in view type, but found: ${typ.pretty}"
 }
+final case class EViewTypeHeadNotCon(context: Context, badHead: Type, typ: Type)
+    extends ValidationError {
+  protected def prettyInternal: String = {
+    val prettyHead = badHead match {
+      case _: TVar => "a type variable"
+      case _: TSynApp => "a type synonym"
+      case _: TBuiltin => "a built-in type"
+      case _: TForall => "a forall-quantified type"
+      case _: TStruct => "a structural record"
+      case _: TNat => "a type-level natural number"
+      case _: TTyCon => "EViewTypeHeadNotCon#prettyInternal got TCon: should not happen"
+      case _: TApp => "EViewTypeHeadNotCon#prettyInternal got TApp: should not happen"
+    }
+    s"expected monomorphic record type in view type, but found ${prettyHead} instead: ${typ.pretty}"
+  }
+}
+final case class EViewTypeHasVars(context: Context, typ: Type) extends ValidationError {
+  protected def prettyInternal: String =
+    s"expected monomorphic record type in view type, but found a type constructor with type variables: ${typ.pretty}"
+}
+final case class EViewTypeConNotRecord(context: Context, badCons: DataCons, typ: Type)
+    extends ValidationError {
+  protected def prettyInternal: String = {
+    val prettyCons = badCons match {
+      case _: DataVariant => "a variant type"
+      case _: DataEnum => "an enum type"
+      case _: DataInterface.type => "a interface type"
+      case _: DataRecord => "EViewTypeConNotRecord#prettyInternal got DataRecord: should not happen"
+    }
+    s"expected monomorphic record type in view type, but found ${prettyCons} instead: ${typ.pretty}"
+  }
+}
 final case class EImportCycle(context: Context, modName: List[ModuleName]) extends ValidationError {
   protected def prettyInternal: String = s"cycle in module dependency ${modName.mkString(" -> ")}"
 }

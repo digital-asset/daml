@@ -1748,13 +1748,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         "PositiveTestCase_ChoiceResultTypeShouldBeStar",
       )
 
-      val notViewTypeCases = Table(
-        "moduleName",
-        "PositiveTestCase_ViewtypeIsNotUserDefined",
-        "PositiveTestCase_ViewtypeIsNotARecord",
-        "PositiveTestCase_ViewtypeIsNotMonomorphic",
-      )
-
       val pkgInterface = PackageInterface(Map(defaultPackageId -> pkg))
 
       def checkModule(pkg: Package, modName: String) =
@@ -1793,8 +1786,14 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       an[ENotClosedInterfaceRequires] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_NotClosedInterfaceRequires")
       )
-      forEvery(notViewTypeCases)(module =>
-        an[EExpectedViewType] shouldBe thrownBy(checkModule(pkg, module))
+      an[EViewTypeHasVars] shouldBe thrownBy(
+        checkModule(pkg, "PositiveTestCase_ViewtypeIsNotMonomorphic")
+      )
+      an[EViewTypeConNotRecord] shouldBe thrownBy(
+        checkModule(pkg, "PositiveTestCase_ViewtypeIsNotARecord")
+      )
+      an[EViewTypeHeadNotCon] shouldBe thrownBy(
+        checkModule(pkg, "PositiveTestCase_ViewtypeIsNotUserDefined")
       )
       an[EMissingRequiredInterfaceInstance] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_CoImplementsMissingRequiredInterface")
