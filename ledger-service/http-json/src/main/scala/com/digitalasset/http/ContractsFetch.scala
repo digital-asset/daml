@@ -8,7 +8,7 @@ import akka.stream.scaladsl.{Flow, GraphDSL, Keep, RunnableGraph, Sink, Source}
 import akka.stream.{ClosedShape, FanOutShape2, Materializer}
 import com.daml.http.dbbackend.{ContractDao, SupportedJdbcDriver}
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
-import com.daml.http.domain.TemplateId
+import com.daml.http.domain.{ContractTypeId, TemplateId}
 import com.daml.http.LedgerClientJwt.Terminates
 import com.daml.http.util.ApiValueToLfValueConverter.apiValueToLfValue
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
@@ -261,7 +261,7 @@ private class ContractsFetch(
       key = lfKey.cata(lfValueToDbJsValue, JsNull),
       keyHash = lfKey.map(
         Hash
-          .assertHashContractKey(TemplateId.toLedgerApiValue(ac.templateId), _)
+          .assertHashContractKey(ContractTypeId.toLedgerApiValue(ac.templateId), _)
           .toHexString
       ),
       payload = lfValueToDbJsValue(lfArg),

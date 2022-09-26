@@ -42,8 +42,8 @@ import scalaz.std.list._
 import scalaz.{@@, -\/, \/, \/-, Foldable, Monoid, Liskov, NonEmptyList, OneAnd, Tag}
 import Liskov.<~<
 import com.daml.fetchcontracts.domain.ResolvedQuery
-import com.daml.fetchcontracts.domain.ResolvedQuery.Unsupported
-import com.daml.http.domain.TemplateId.{toLedgerApiValue, OptionalPkg}
+import ResolvedQuery.Unsupported
+import com.daml.fetchcontracts.domain.ContractTypeId.{toLedgerApiValue, OptionalPkg}
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.lf.crypto.Hash

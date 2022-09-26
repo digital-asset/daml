@@ -10,8 +10,8 @@ import akka.stream.Materializer
 import com.daml.lf
 import com.daml.http.LedgerClientJwt.Terminates
 import com.daml.http.dbbackend.ContractDao
-import com.daml.http.domain.TemplateId.toLedgerApiValue
 import com.daml.http.domain.{ContractTypeId, GetActiveContractsRequest, JwtPayload}
+import ContractTypeId.toLedgerApiValue
 import com.daml.http.json.JsonProtocol.LfValueCodec
 import com.daml.http.query.ValuePredicate
 import com.daml.fetchcontracts.util.{
