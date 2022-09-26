@@ -169,7 +169,7 @@ object ContractDao {
     * @return Any template IDs that are lagging, and the offset to catch them up to, if defined;
     *         otherwise everything is fine.
     */
-  def laggingOffsets[CtId <: domain.TemplateId.RequiredPkg](
+  def laggingOffsets[CtId <: domain.ContractTypeId.RequiredPkg](
       parties: Set[domain.Party],
       expectedOffset: domain.Offset,
       templateIds: NonEmpty[Set[CtId]],

@@ -8,13 +8,13 @@ import akka.stream.scaladsl.{Flow, GraphDSL, Keep, RunnableGraph, Sink, Source}
 import akka.stream.{ClosedShape, FanOutShape2, Materializer}
 import com.daml.http.dbbackend.{ContractDao, SupportedJdbcDriver}
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
-import com.daml.http.domain.{ContractTypeId, TemplateId}
+import com.daml.http.domain.ContractTypeId
 import com.daml.http.LedgerClientJwt.Terminates
 import com.daml.http.util.ApiValueToLfValueConverter.apiValueToLfValue
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue
 }
-import com.daml.http.util.Logging.{InstanceUUID}
+import com.daml.http.util.Logging.InstanceUUID
 import com.daml.fetchcontracts.util.{
   AbsoluteBookmark,
   BeginBookmark,
@@ -359,9 +359,10 @@ private class ContractsFetch(
 
 private[http] object ContractsFetch {
 
-  type PreInsertContract = DBContract[TemplateId.RequiredPkg, JsValue, JsValue, Seq[domain.Party]]
+  type PreInsertContract =
+    DBContract[ContractTypeId.RequiredPkg, JsValue, JsValue, Seq[domain.Party]]
 
-  private def surrogateTemplateIds[K <: TemplateId.RequiredPkg](
+  private def surrogateTemplateIds[K <: ContractTypeId.RequiredPkg](
       ids: Set[K]
   )(implicit
       log: doobie.LogHandler,

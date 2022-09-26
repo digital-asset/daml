@@ -194,7 +194,7 @@ class JsonProtocolTest
       inside(decode1[domain.SyncResponse, List[JsValue]](str)) {
         case \/-(domain.OkResponse(List(), Some(warning), StatusCodes.OK)) =>
           warning shouldBe domain.UnknownTemplateIds(
-            List(domain.TemplateId(Option.empty[String], "AAA", "BBB"))
+            List(domain.ContractTypeId(Option.empty[String], "AAA", "BBB"))
           )
       }
     }

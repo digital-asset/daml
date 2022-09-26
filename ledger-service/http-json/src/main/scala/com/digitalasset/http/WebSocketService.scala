@@ -558,7 +558,7 @@ object WebSocketService {
             if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
         }
       }
-      def dbQueries[CtId <: domain.TemplateId.RequiredPkg](
+      def dbQueries[CtId <: domain.ContractTypeId.RequiredPkg](
           q: Map[CtId, HashSet[LfV]]
       )(implicit
           sjd: dbbackend.SupportedJdbcDriver.TC

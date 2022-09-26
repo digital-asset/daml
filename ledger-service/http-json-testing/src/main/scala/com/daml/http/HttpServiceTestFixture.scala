@@ -500,7 +500,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       owner: domain.Party,
       number: String,
       time: v.Value.Sum.Timestamp = TimestampConversion.roundInstantToMicros(Instant.now),
-  ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
+  ): domain.CreateCommand[v.Record, domain.ContractTypeId.OptionalPkg] = {
     val templateId = domain.TemplateId(None, "Account", "Account")
     val timeValue = v.Value(time)
     val enabledVariantValue =
@@ -520,7 +520,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       owners: Seq[String],
       number: String,
       time: v.Value.Sum.Timestamp = TimestampConversion.roundInstantToMicros(Instant.now),
-  ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
+  ): domain.CreateCommand[v.Record, domain.ContractTypeId.OptionalPkg] = {
     val templateId = domain.TemplateId(None, "Account", "SharedAccount")
     val timeValue = v.Value(time)
     val enabledVariantValue =
