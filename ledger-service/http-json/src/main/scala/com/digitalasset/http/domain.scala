@@ -380,7 +380,7 @@ package domain {
     implicit val `AcC hasTemplateId`: HasTemplateId.Compat[ActiveContract] =
       new HasTemplateId[ActiveContract] {
         override def templateId(fa: ActiveContract[_]): ContractTypeId.OptionalPkg =
-          (fa.templateId: domain.ContractTypeId.RequiredPkg).map(Some(_))
+          (fa.templateId: ContractTypeId.RequiredPkg).map(Some(_))
 
         type TypeFromCtId = LfType
 
