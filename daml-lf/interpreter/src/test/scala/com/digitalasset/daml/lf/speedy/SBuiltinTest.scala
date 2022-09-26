@@ -1704,16 +1704,17 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
             ),
             onLedger = true,
           )
-        ) { case Right((SUnit, contractCache)) =>
+        ) { case Right((SUnit, contractCache, disclosedContractKeys)) =>
           contractCache shouldBe Map(
             contractId -> cachedContract
           )
+          disclosedContractKeys shouldBe Map.empty
         }
       }
 
       "when template key is defined" in {
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
-        val (disclosedContract, Some((key, keyWithMaintainers))) =
+        val (disclosedContract, Some((key, keyWithMaintainers, keyHash))) =
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = true)
         val optionalKey = Some(KeyWithMaintainers(key.toNormalizedValue(version), Set(alice)))
         val cachedContract = CachedContract(
@@ -1747,10 +1748,11 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
             ),
             onLedger = true,
           )
-        ) { case Right((SUnit, contractCache)) =>
+        ) { case Right((SUnit, contractCache, disclosedContractKeys)) =>
           contractCache shouldBe Map(
             contractId -> cachedContract
           )
+          disclosedContractKeys shouldBe Map(keyHash -> SValue.SContractId(contractId))
         }
       }
     }
@@ -1856,7 +1858,10 @@ object SBuiltinTest {
       sexpr: SExpr,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
       onLedger: Boolean,
-  ): Either[SError, (SValue, Map[ContractId, CachedContract])] = {
+  ): Either[
+    SError,
+    (SValue, Map[ContractId, CachedContract], Map[crypto.Hash, SValue.SContractId]),
+  ] = {
     val machine =
       if (onLedger) {
         Speedy.Machine.fromUpdateSExpr(
@@ -1872,10 +1877,10 @@ object SBuiltinTest {
     SpeedyTestLib.run(machine, getContract = getContract).map { value =>
       machine.ledgerMode match {
         case onLedger: OnLedger =>
-          (value, onLedger.cachedContracts)
+          (value, onLedger.cachedContracts, onLedger.disclosureKeyTable.toMap)
 
         case _ =>
-          (value, Map.empty)
+          (value, Map.empty, Map.empty)
       }
     }
   }
@@ -1906,7 +1911,7 @@ object SBuiltinTest {
       maintainer: Party,
       templateId: Ref.Identifier,
       withKey: Boolean,
-  ): (DisclosedContract, Option[(SValue, SValue)]) = {
+  ): (DisclosedContract, Option[(SValue, SValue, crypto.Hash)]) = {
     val key = SValue.SRecord(
       templateId,
       ImmArray(
@@ -1962,6 +1967,6 @@ object SBuiltinTest {
       ContractMetadata(Time.Timestamp.now(), keyHash, ImmArray.Empty),
     )
 
-    (disclosedContract, if (withKey) Some((key, keyWithMaintainers)) else None)
+    (disclosedContract, if (withKey) Some((key, keyWithMaintainers, keyHash.get)) else None)
   }
 }

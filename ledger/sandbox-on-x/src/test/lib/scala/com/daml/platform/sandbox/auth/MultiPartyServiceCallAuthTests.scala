@@ -4,8 +4,8 @@
 package com.daml.platform.sandbox.auth
 
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
-
 import java.util.UUID
+
 import scala.concurrent.Future
 
 /** Trait for services that use multiple actAs and readAs parties.
@@ -47,6 +47,8 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
     )
     serviceCallWithToken(token, requestSubmitters)
   }
+
+  protected override def prerequisiteParties: List[String] = actAs :+ singleParty
 
   // Notes for multi-party submissions:
   // - ActAs parties can be specified through a "party" field, and/or an "actAs" field.

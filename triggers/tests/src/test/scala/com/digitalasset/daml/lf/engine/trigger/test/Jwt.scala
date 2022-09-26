@@ -53,6 +53,14 @@ class Jwt
       )
     "1 create" in {
       for {
+        adminClient <- ledgerClient(config =
+          Some(
+            ledgerClientConfiguration.copy(
+              token = Some(toHeader(forApplicationId("custom app id", adminToken)))
+            )
+          )
+        )
+        _ <- adminClient.partyManagementClient.allocateParty(Some(party), None)
         client <- ledgerClient()
         runner = getRunner(client, QualifiedName.assertFromString("ACS:test"), party)
         (acs, offset) <- runner.queryACS()

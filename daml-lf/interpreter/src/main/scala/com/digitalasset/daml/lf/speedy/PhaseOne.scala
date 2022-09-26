@@ -459,7 +459,7 @@ private[lf] final class PhaseOne(
           case BEqualList => SBEqualList
 
           // Errors
-          case BError => SBError
+          case BError => SBUserError
 
           // Comparison
           case BEqualContractId => SBEqual

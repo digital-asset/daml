@@ -8,7 +8,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.testing.utils.MockMessages._
-import com.daml.ledger.api.v1.commands.{Command, CreateCommand}
+import com.daml.ledger.api.v1.commands.{Command, CreateCommand, DisclosedContract}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
@@ -21,6 +21,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 class GrpcCommandSubmissionServiceSpec
     extends AsyncWordSpec
@@ -87,6 +88,28 @@ class GrpcCommandSubmissionServiceSpec
           requestCaptor.value.commands.submissionId shouldBe Some(generatedSubmissionId)
         }
     }
+
+    "reject submission on explicit disclosure disabled with provided disclosed contracts" in {
+      val mockCommandSubmissionService = mock[CommandSubmissionService with AutoCloseable]
+
+      val submissionWithDisclosedContracts =
+        aSubmitRequest.update(_.commands.disclosedContracts.set(Seq(DisclosedContract())))
+
+      grpcCommandSubmissionService(mockCommandSubmissionService)
+        .submit(submissionWithDisclosedContracts)
+        .map { _ =>
+          verifyZeroInteractions(mockCommandSubmissionService)
+          succeed
+        }
+        .transform {
+          case Failure(exception)
+              if exception.getMessage.contains(
+                "feature in development: disclosed_contracts should not be set"
+              ) =>
+            Success(succeed)
+          case other => fail(s"Unexpected result: $other")
+        }
+    }
   }
 
   private def grpcCommandSubmissionService(
@@ -100,6 +123,7 @@ class GrpcCommandSubmissionServiceSpec
       maxDeduplicationDuration = () => Some(Duration.ZERO),
       submissionIdGenerator = () => Ref.SubmissionId.assertFromString(generatedSubmissionId),
       metrics = new Metrics(new MetricRegistry),
+      explicitDisclosureUnsafeEnabled = false,
     )
 }
 

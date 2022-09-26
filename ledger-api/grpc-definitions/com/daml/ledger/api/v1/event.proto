@@ -103,8 +103,7 @@ message CreatedEvent {
   google.protobuf.StringValue agreement_text = 6;
 
   // Metadata of the contract. Required for contracts created
-  // after the introduction of explicit disclosure. If explicit disclosure is disabled,
-  // this field will be empty.
+  // after the introduction of explicit disclosure.
   ContractMetadata metadata = 10;
 }
 

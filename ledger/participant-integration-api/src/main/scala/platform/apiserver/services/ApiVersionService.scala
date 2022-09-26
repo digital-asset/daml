@@ -74,7 +74,7 @@ private[apiserver] final class ApiVersionService private (
           optionalLedgerId = Some(ExperimentalOptionalLedgerId()),
           contractIds = Some(ledgerFeatures.contractIdFeatures),
           committerEventLog = Some(ledgerFeatures.committerEventLog),
-          explicitDisclosure = None, // TODO[ED]: Wire-up with participant configuration flag
+          explicitDisclosure = Some(ledgerFeatures.explicitDisclosure),
         )
       ),
     )
