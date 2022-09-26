@@ -22,7 +22,9 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
   import EncodeV1Spec._
 
-  val defaultParserParameters: ParserParameters[this.type] =
+  private val pkgId: PackageId = "self"
+
+  private val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters(pkgId, LanguageVersion.v1_dev)
 
   "Encode and Decode" should {
@@ -259,20 +261,15 @@ object EncodeV1Spec {
 
   private implicit def toPackageId(s: String): PackageId = PackageId.assertFromString(s)
 
-  private val pkgId: PackageId = "self"
-
   private def normalize(pkg: Package, hashCode: PackageId, selfPackageId: PackageId): Package = {
 
-    val identifierRule: PartialFunction[Identifier, Identifier] = {
-      case Identifier(`hashCode`, name) => Identifier(selfPackageId, name)
+    val replacePkId: PartialFunction[PackageId, PackageId] = { case `hashCode` =>
+      selfPackageId
     }
-    lazy val exprRule: PartialFunction[Expr, Expr] = {
-      case EAbs(binder, body, Some(_)) =>
-        EAbs(normalizer.apply(binder), normalizer.apply(body), None)
-      case ELocation(loc, expr) if loc.packageId == hashCode =>
-        ELocation(loc = loc.copy(packageId = pkgId), normalizer.apply(expr))
+    lazy val dropEAbsRef: PartialFunction[Expr, Expr] = { case EAbs(binder, body, Some(_)) =>
+      EAbs(normalizer.apply(binder), normalizer.apply(body), None)
     }
-    lazy val normalizer = new AstRewriter(exprRule = exprRule, identifierRule = identifierRule)
+    lazy val normalizer = new AstRewriter(exprRule = dropEAbsRef, packageIdRule = replacePkId)
 
     normalizer.apply(pkg)
   }
