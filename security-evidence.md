@@ -26,7 +26,7 @@
 - forbid a non-authorized user to upload a DAR: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L713)
 - multiple websocket requests over the same WebSocket connection are NOT allowed: [AbstractWebsocketServiceIntegrationTest.scala](ledger-service/http-json/src/itlib/scala/http/AbstractWebsocketServiceIntegrationTest.scala#L132)
 - refresh a token after expiry on the server side: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L738)
-- reject requests with missing auth header: [AbstractHttpServiceIntegrationTest.scala](ledger-service/http-json/src/itlib/scala/http/AbstractHttpServiceIntegrationTest.scala#L647)
+- reject requests with missing auth header: [AbstractHttpServiceIntegrationTest.scala](ledger-service/http-json/src/itlib/scala/http/AbstractHttpServiceIntegrationTest.scala#L648)
 - request a fresh token after expiry on user request: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L723)
 - return the token from a cookie: [TestMiddleware.scala](triggers/service/auth/src/test/scala/com/daml/auth/middleware/oauth2/TestMiddleware.scala#L96)
 - return unauthorized on an expired token: [TestMiddleware.scala](triggers/service/auth/src/test/scala/com/daml/auth/middleware/oauth2/TestMiddleware.scala#L139)
