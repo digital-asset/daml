@@ -399,7 +399,7 @@ The **JSON API** can return one of the following HTTP status codes:
 
 When the Ledger API returns an error code, the JSON API maps it to one of the above codes according to `the official gRPC to HTTP code mapping <https://cloud.google.com/apis/design/errors#generating_errors>`_.
 
-If a client's HTTP GET or POST request reaches an API endpoint, the corresponding response will always contain a JSON object with a ``status`` field, either an ``errors`` or ``result`` field, an optional ``warnings`` and an optional ``ledgerApiError`` :
+If a client's HTTP GET or POST request reaches an API endpoint, the corresponding response will always contain a JSON object with a ``status`` field, and either an ``errors`` or ``result`` field. It may also contain an optional ``warnings`` and/or an optional ``ledgerApiError`` :
 
 .. code-block:: none
 
