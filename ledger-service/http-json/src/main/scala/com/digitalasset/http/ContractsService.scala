@@ -61,7 +61,7 @@ class ContractsService(
 
   import ContractsService._
 
-  type CompiledPredicates = Map[domain.TemplateId.RequiredPkg, query.ValuePredicate]
+  type CompiledPredicates = Map[domain.ContractTypeId.RequiredPkg, query.ValuePredicate]
 
   private[http] val daoAndFetch: Option[(dbbackend.ContractDao, ContractsFetch)] = contractDao.map {
     dao =>
@@ -549,7 +549,7 @@ class ContractsService(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateId: domain.TemplateId.Resolved,
+      templateId: domain.ContractTypeId.Resolved,
       queryParams: InMemoryQuery.P,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
@@ -560,7 +560,7 @@ class ContractsService(
 
   private[this] sealed abstract class InMemoryQuery extends Product with Serializable {
     import InMemoryQuery._
-    def toPredicate(tid: domain.TemplateId.RequiredPkg): P =
+    def toPredicate(tid: domain.ContractTypeId.RequiredPkg): P =
       this match {
         case Params(q) =>
           val vp = valuePredicate(tid, q).toFunPredicate
@@ -640,7 +640,7 @@ class ContractsService(
       .leftMap(e => InternalError(Symbol("apiAcToLfAc"), e.shows))
 
   private[http] def valuePredicate(
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.ContractTypeId.RequiredPkg,
       q: Map[String, JsValue],
   ): query.ValuePredicate =
     ValuePredicate.fromTemplateJsObject(q, templateId, lookupType)
