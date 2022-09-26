@@ -44,6 +44,10 @@ Interfaces
 
   **viewtype** `EmptyInterfaceView <type-interface-emptyinterfaceview-28816_>`_
 
+  + **Choice Archive**
+
+    (no fields)
+
   + **Choice GetRich**
 
     .. list-table::
