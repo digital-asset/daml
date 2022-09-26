@@ -120,6 +120,38 @@ instance DA.Internal.Desugar.HasIsInterfaceType Bar where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Bar where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasToAnyChoice Bar DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice _
+    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Bar])
+instance DA.Internal.Desugar.HasFromAnyChoice Bar DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice _
+    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Bar])
+instance DA.Internal.Desugar.HasExerciseGuarded Bar DA.Internal.Desugar.Archive (()) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @Bar cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Bar cid pred)
+instance DA.Internal.Desugar.HasExercise Bar DA.Internal.Desugar.Archive (()) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @Bar cid)
+        arg
+_choice_BarArchive :
+  (Bar -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId Bar
+   -> Bar
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming Bar,
+   DA.Internal.Desugar.Optional (Bar
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+_choice_BarArchive
+  = (\ this arg@DA.Internal.Desugar.Archive
+       -> DA.Internal.Desugar.signatory this, 
+     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
+     DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView Bar BarView where
   _view = GHC.Types.primitive @"EViewInterface"
 _interface_instance_Bar_Bar_Foo :

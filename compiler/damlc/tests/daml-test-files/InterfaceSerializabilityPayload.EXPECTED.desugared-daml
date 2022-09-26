@@ -32,6 +32,25 @@ instance DA.Internal.Desugar.HasIsInterfaceType Gettable where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Gettable where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasToAnyChoice Gettable DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice _
+    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Gettable])
+instance DA.Internal.Desugar.HasFromAnyChoice Gettable DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice _
+    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Gettable])
+instance DA.Internal.Desugar.HasExerciseGuarded Gettable DA.Internal.Desugar.Archive (()) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @Gettable cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Gettable cid pred)
+instance DA.Internal.Desugar.HasExercise Gettable DA.Internal.Desugar.Archive (()) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @Gettable cid)
+        arg
 instance DA.Internal.Desugar.HasToAnyChoice Gettable Get (Gettable) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Gettable])
@@ -57,6 +76,20 @@ data Get
 instance DA.Internal.Record.HasField "anyActor" Get Party where
   getField = DA.Internal.Record.getFieldPrim @"anyActor" @Get @Party
   setField = DA.Internal.Record.setFieldPrim @"anyActor" @Get @Party
+_choice_GettableArchive :
+  (Gettable
+   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId Gettable
+   -> Gettable
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming Gettable,
+   DA.Internal.Desugar.Optional (Gettable
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+_choice_GettableArchive
+  = (\ this arg@DA.Internal.Desugar.Archive
+       -> DA.Internal.Desugar.signatory this, 
+     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
+     DA.Internal.Desugar.None)
 _choice_GettableGet :
   (Gettable -> Get -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Gettable
