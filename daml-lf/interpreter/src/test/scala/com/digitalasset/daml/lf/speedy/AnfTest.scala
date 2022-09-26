@@ -15,6 +15,9 @@ import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Pretty.SExpr._
 import com.daml.lf.data.Ref._
 
+import scala.annotation.nowarn
+
+@nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppOnlyFunIsAtomic")
 class AnfTest extends AnyWordSpec with Matchers {
 
   "identity: [\\x. x]" should {
@@ -140,7 +143,7 @@ class AnfTest extends AnyWordSpec with Matchers {
       val original = slam(2, source.SEApp(source.SEBuiltin(SBUserError), List(sarg0, sarg1)))
       val expected = lam(
         2,
-        target.SEAppOnlyFunIsAtomic_DEPRECATED(target.SEBuiltin(SBUserError), Array(arg0, arg1)),
+        target.SEAppOnlyFunIsAtomic(target.SEBuiltin(SBUserError), Array(arg0, arg1)),
       )
       testTransform(original, expected)
     }
@@ -201,12 +204,13 @@ class AnfTest extends AnyWordSpec with Matchers {
   private def clo1(fv: target.SELoc, n: Int, body: target.SExpr): target.SExpr =
     target.SEMakeClo(Array(fv), n, body)
 
+  @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppOnlyFunIsAtomic")
   private def app2n(
       func: target.SExprAtomic,
       arg1: target.SExpr,
       arg2: target.SExpr,
   ): target.SExpr =
-    target.SEAppOnlyFunIsAtomic_DEPRECATED(func, Array(arg1, arg2))
+    target.SEAppOnlyFunIsAtomic(func, Array(arg1, arg2))
 
   // anf builders
   private def let1(rhs: target.SExpr, body: target.SExpr): target.SExpr =

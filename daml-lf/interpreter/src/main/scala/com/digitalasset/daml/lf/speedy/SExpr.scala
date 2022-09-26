@@ -106,9 +106,8 @@ object SExpr {
     * This case is used only by: fromUpdateSExpr and fromScenarioSExpr.
     * The use required because of our current stack-trace support, which peeks under KArg.
     */
-  final case class SEAppGeneral_DEPRECATED(fun: SExpr, args: Array[SExpr])
-      extends SExpr
-      with SomeArrayEquals {
+  @deprecated("Prefer SEAppAtomic or SEApp helper instead.")
+  final case class SEAppGeneral(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Control = {
       machine.pushKont(KArg(machine, args))
       Control.Expression(fun)
@@ -121,7 +120,8 @@ object SExpr {
     * Because this case exists we must retain the complicated/slow path in the
     * speedy-machine: executeApplication
     */
-  final case class SEAppOnlyFunIsAtomic_DEPRECATED(fun: SExprAtomic, args: Array[SExpr])
+  @deprecated("Prefer SEAppAtomic or SEApp helper instead.")
+  final case class SEAppOnlyFunIsAtomic(fun: SExprAtomic, args: Array[SExpr])
       extends SExpr
       with SomeArrayEquals {
     def execute(machine: Machine): Control = {
