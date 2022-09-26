@@ -366,12 +366,7 @@ object WebSocketService {
                 .traverse(x =>
                   resolveContractTypeId(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
                 )
-                .map(
-                  _.toSet[
-                    Either[domain.ContractTypeId.Resolved, domain.ContractTypeId.OptionalPkg]
-                  ]
-                    .partitionMap(identity)
-                )
+                .map(_.toSet.partitionMap(identity))
             (resolved, unresolved) = res
             errorOrResolvedQuery = domain.ResolvedQuery(resolved)
             q = prepareFilters(

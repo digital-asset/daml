@@ -668,7 +668,7 @@ class ContractsService(
           Either[domain.ContractTypeId.Resolved, Tid]
         ]
       }
-      .map(_.toSet[Either[domain.ContractTypeId.Resolved, Tid]].partitionMap(a => a))
+      .map(_.toSet.partitionMap(a => a))
   }
 }
 
