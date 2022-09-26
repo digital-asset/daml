@@ -103,8 +103,8 @@ object SExpr {
   object SEValue extends SValueContainer[SEValue] // used by Compiler
 
   /** Function application with general function/arguments (deprecated)
-    * This case exists purely for use by:
-    * and that us in turn is to support the current stack-trace support, which peeks under KArg.
+    * This case is used only by: fromUpdateSExpr and fromScenarioSExpr.
+    * The use required because of our current stack-trace support, which peeks under KArg.
     */
   final case class SEAppGeneral_DEPRECATED(fun: SExpr, args: Array[SExpr])
       extends SExpr
