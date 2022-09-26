@@ -3,13 +3,14 @@
 
 package com.daml.lf.codegen.backend.java
 
-import com.squareup.javapoet.{ClassName, MethodSpec, TypeName}
+import com.squareup.javapoet.{ClassName, CodeBlock, MethodSpec, TypeName}
 import com.typesafe.scalalogging.StrictLogging
 
 import javax.lang.model.element.Modifier
 import com.daml.lf.codegen.backend.java.inner.ClassNameExtensions
 
 import java.util.Objects
+import scala.jdk.CollectionConverters._
 
 private[codegen] object ObjectMethods extends StrictLogging {
 
@@ -60,10 +61,18 @@ private[codegen] object ObjectMethods extends StrictLogging {
       initEqualsBuilder(className)
         .addStatement("$T other = ($T) object", className, className)
         .addStatement(
-          s"return ${fieldNames.map(_ => "$T.equals(this.$L, other.$L)").mkString(" && ")}",
-          fieldNames.flatMap(fieldName =>
-            IndexedSeq[Any](classOf[Objects], fieldName, fieldName)
-          ): _*
+          CodeBlock.of(
+            "return $L",
+            CodeBlock.join(
+              fieldNames
+                .map(fieldName =>
+                  CodeBlock
+                    .of("$T.equals(this.$L, other.$L)", classOf[Objects], fieldName, fieldName)
+                )
+                .asJava,
+              " && ",
+            ),
+          )
         )
         .build()
     }
