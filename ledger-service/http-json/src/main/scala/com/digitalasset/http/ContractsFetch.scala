@@ -111,7 +111,7 @@ private class ContractsFetch(
 
     // we assume that if the ledger termination is LedgerBegin, then
     // `within` will not yield concurrency-relevant results
-    connectionIOFuture(getTermination(jwt, ledgerId)) flatMap {
+    connectionIOFuture(getTermination(jwt, ledgerId)(lc)) flatMap {
       _.cata(go(initTries, templateIds, _), within(LedgerBegin))
     }
   }
@@ -126,7 +126,7 @@ private class ContractsFetch(
       mat: Materializer,
       lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] =
-    connectionIOFuture(getTermination(jwt, ledgerId)) flatMap {
+    connectionIOFuture(getTermination(jwt, ledgerId)(lc)) flatMap {
       _.cata(
         fetchToAbsEnd(FetchContext(jwt, ledgerId, parties), templateIds, _),
         fconn.pure(LedgerBegin),
@@ -304,7 +304,7 @@ private class ContractsFetch(
           transactionFilter(parties, List(templateId)),
           _: lav1.ledger_offset.LedgerOffset,
           absEnd,
-        )
+        )(lc)
 
         // include ACS iff starting at LedgerBegin
         val (idses, lastOff) = (startOffset, disableAcs) match {
@@ -315,7 +315,7 @@ private class ContractsFetch(
               ledgerId,
               transactionFilter(parties, List(templateId)),
               true,
-            )
+            )(lc)
             (stepsAndOffset.out0, stepsAndOffset.out1)
 
           case (AbsoluteBookmark(_), _) | (LedgerBegin, true) =>
