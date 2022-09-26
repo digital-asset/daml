@@ -60,7 +60,7 @@ private[codegen] object ObjectMethods extends StrictLogging {
       initEqualsBuilder(className)
         .addStatement("$T other = ($T) object", className, className)
         .addStatement(
-          s"return ${List.fill(fieldNames.size)("$T.equals(this.$L, other.$L)").mkString(" && ")}",
+          s"return ${fieldNames.map(_ => "$T.equals(this.$L, other.$L)").mkString(" && ")}",
           fieldNames.flatMap(fieldName =>
             IndexedSeq[Any](classOf[Objects], fieldName, fieldName)
           ): _*
