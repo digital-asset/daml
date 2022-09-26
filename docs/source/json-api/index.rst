@@ -399,14 +399,15 @@ The **JSON API** can return one of the following HTTP status codes:
 
 When the Ledger API returns an error code, the JSON API maps it to one of the above codes according to `the official gRPC to HTTP code mapping <https://cloud.google.com/apis/design/errors#generating_errors>`_.
 
-If a client's HTTP GET or POST request reaches an API endpoint, the corresponding response will always contain a JSON object with a ``status`` field, either an ``errors`` or ``result`` field and an optional ``warnings``:
+If a client's HTTP GET or POST request reaches an API endpoint, the corresponding response will always contain a JSON object with a ``status`` field, either an ``errors`` or ``result`` field, an optional ``warnings`` and an optional ``ledgerApiError`` :
 
 .. code-block:: none
 
     {
         "status": <400 | 401 | 403 | 404 | 409 | 500 | 503 | 504>,
         "errors": <JSON array of strings>, | "result": <JSON object or array>,
-        ["warnings": <JSON object> ]
+        ["warnings": <JSON object> ],
+        ["ledgerApiError": <JSON object> ]
     }
 
 Where:
@@ -415,8 +416,11 @@ Where:
 - ``errors`` -- a JSON array of strings, each string represents one error,
 - ``result`` -- a JSON object or JSON array, representing one or many results,
 - ``warnings`` -- an optional field with a JSON object, representing one or many warnings.
+- ``ledgerApiError`` -- an optional field with a JSON object, representing detail of an error if it was originated from Ledger API.
 
 See the following blog post for more details about error handling best practices: `REST API Error Codes 101 <https://blog.restcase.com/rest-api-error-codes-101/>`_.
+
+See this documentation for more details about error codes from Ledger API: `The Ledger API error codes <https://docs.daml.com/app-dev/grpc/error-codes.html>`_.
 
 Successful Response, HTTP Status: 200 OK
 ========================================
@@ -457,7 +461,8 @@ Failure, HTTP Status: 400 | 401 | 404 | 500
 
     {
         "status": <400 | 401 | 404 | 500>,
-        "errors": <JSON array of strings>
+        "errors": <JSON array of strings>,
+        ["ledgerApiError": <JSON object> ]
     }
 
 Examples
