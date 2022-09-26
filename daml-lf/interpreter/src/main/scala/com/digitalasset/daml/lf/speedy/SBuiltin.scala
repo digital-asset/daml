@@ -926,31 +926,6 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $checkPrecondition
-    *    :: arg (template argument)
-    *    -> Unit
-    *    -> Bool (false if ensure failed)
-    *    -> Unit
-    */
-  final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltin(2) {
-    override private[speedy] def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-    ): Control = {
-      if (!getSBool(args, 1)) {
-        Control.Error(
-          IE.TemplatePreconditionViolated(
-            templateId = templateId,
-            optLocation = None,
-            arg = args.get(0).toUnnormalizedValue,
-          )
-        )
-      } else {
-        Control.Value(SUnit)
-      }
-    }
-  }
-
   /** $checkTemplate[T] :: Unit -> bool */
   private[speedy] final case class SBCheckTemplate(templateId: TypeConName) extends SBuiltin(1) {
 
@@ -1787,13 +1762,27 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $error :: Text -> a */
-  final case object SBError extends SBuiltin(1) {
+  /** $userError :: Text -> Error */
+  final case object SBUserError extends SBuiltin(1) {
+
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Control = {
       Control.Error(IE.UserError(getSText(args, 0)))
+    }
+  }
+
+  /** $templatePreconditionViolated[T] :: T -> Error */
+  final case class SBTemplatePreconditionViolated(templateId: Identifier) extends SBuiltin(1) {
+
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
+      Control.Error(
+        IE.TemplatePreconditionViolated(templateId, None, args.get(0).toUnnormalizedValue)
+      )
     }
   }
 
@@ -2115,7 +2104,7 @@ private[lf] object SBuiltin {
     def apply(name: String): compileTime.SExpr =
       mapping.getOrElse(
         name,
-        SBError(compileTime.SEValue(SText(s"experimental $name not supported."))),
+        SBUserError(compileTime.SEValue(SText(s"experimental $name not supported."))),
       )
 
   }
