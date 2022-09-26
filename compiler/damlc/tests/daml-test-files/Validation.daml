@@ -5,8 +5,10 @@
 
 module Validation where
 
+import DA.Foldable qualified as F
 import DA.NonEmpty
 import DA.Validation
+import DA.Traversable qualified as T
 import DA.List.Total
 import DA.Assert
 
@@ -20,5 +22,57 @@ main = scenario do
       return (length y)
   v === Left (NonEmpty with hd = "fail"; tl = ["fail"])
   pure ()
+
+semigroup_two_errors_test = scenario do
+  let (v1: Validation Text Int) = invalid "fail1"
+      v2 = invalid "fail2"
+      expected = Errors $ NonEmpty with hd = "fail1", tl = [ "fail2" ]
+
+  expected === (v1 <> v2)
+
+semigroup_both_success_test = scenario do
+  let (v1: Validation Text Int) = ok 1
+      v2 = ok 2
+      expected = Success 2
+
+  expected === (v1 <> v2)
+
+semigroup_first_error_test = scenario do
+  let (v1: Validation Text Int) = invalid "fail"
+      v2 = ok 1
+      expected = Errors $ NonEmpty with hd = "fail", tl = []
+
+  expected === (v1 <> v2)
+
+semigroup_second_error_test = scenario do
+  let (v1: Validation Text Int) = ok 1
+      v2 = invalid "fail"
+      expected = Errors $ NonEmpty with hd = "fail", tl = []
+
+  expected === (v1 <> v2)
+
+foldable_returns_seed_when_input_is_error_test = scenario do
+  let (v: Validation Text Int) = invalid "fail"
+      expected = ""
+
+  expected === F.foldr (\x z -> show x <> z) "" v
+
+foldable_returns_expected_value_when_input_is_ok_test = scenario do
+  let (v: Validation Text Int) = ok 42
+      expected = "42"
+
+  expected === F.foldr (\x z -> show x <> z) "" v
+
+traversable_returns_expected_list_when_input_is_validation_of_list_errors_test = scenario do
+  let (v: Validation Text [Int]) = invalid "fail"
+      expected = [ invalid "fail" ]
+
+  expected === T.sequence v
+
+traversable_returns_expected_list_when_input_is_validation_of_list_success_test = scenario do
+  let (v: Validation Text [Int]) = ok [42]
+      expected = [ ok 42 ]
+
+  expected === T.sequence v
 
 -- @ENABLE-SCENARIOS
