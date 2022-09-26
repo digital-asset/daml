@@ -420,7 +420,7 @@ Where:
 
 See the following blog post for more details about error handling best practices: `REST API Error Codes 101 <https://blog.restcase.com/rest-api-error-codes-101/>`_.
 
-See this documentation for more details about error codes from Ledger API: `The Ledger API error codes <https://docs.daml.com/app-dev/grpc/error-codes.html>`_.
+See `The Ledger API error codes <https://docs.daml.com/app-dev/grpc/error-codes.html>`_ for more details about error codes from Ledger API.
 
 Successful Response, HTTP Status: 200 OK
 ========================================
