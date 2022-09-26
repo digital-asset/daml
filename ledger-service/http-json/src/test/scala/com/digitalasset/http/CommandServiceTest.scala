@@ -106,13 +106,11 @@ object CommandServiceTest {
             Future {
               txns.add(req)
               import lav1.event.{CreatedEvent, Event}, Event.Event.Created
+              import com.daml.fetchcontracts.util.IdentifierConverters.apiIdentifier
               val creation = Event(
                 Created(
                   CreatedEvent(
-                    templateId = Some(
-                      lav1.value
-                        .Identifier(tplId.packageId, tplId.moduleName, tplId.entityName)
-                    ),
+                    templateId = Some(apiIdentifier(tplId)),
                     createArguments = Some(lav1.value.Record()),
                   )
                 )
