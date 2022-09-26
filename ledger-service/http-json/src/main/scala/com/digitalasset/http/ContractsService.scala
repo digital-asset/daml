@@ -30,13 +30,14 @@ import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsRespons
 import com.daml.ledger.api.{v1 => api}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.nonempty.NonEmpty
 import com.daml.scalautil.ExceptionOps._
 import com.daml.nonempty.NonEmptyReturningOps._
 import scalaz.std.option._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, OneAnd, OptionT, Show, \/, \/-, ~>}
+import scalaz.{-\/, OptionT, Show, \/, \/-, ~>}
 import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -298,7 +299,7 @@ class ContractsService(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: OneAnd[Set, domain.ContractTypeId.OptionalPkg],
+      templateIds: NonEmpty[Set[domain.ContractTypeId.OptionalPkg]],
       queryParams: Map[String, JsValue],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -653,22 +654,21 @@ class ContractsService(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   )(
-      xs: OneAnd[Set, Tid]
+      xs: NonEmpty[Set[Tid]]
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[(Set[domain.ContractTypeId.Resolved], Set[Tid])] = {
     import scalaz.syntax.traverse._
-    import scalaz.std.iterable._
     import scalaz.std.list._, scalaz.std.scalaFuture._
 
-    xs.toList
+    xs.toList.toNEF
       .traverse { x =>
         resolveContractTypeId(jwt, ledgerId)(x)
           .map(_.toOption.flatten.toLeft(x)): Future[
           Either[domain.ContractTypeId.Resolved, Tid]
         ]
       }
-      .map(_.toSet[Either[domain.ContractTypeId.Resolved, Tid]].partitionMap(a => a))
+      .map(_.toSet.partitionMap(a => a))
   }
 }
 

@@ -17,7 +17,7 @@ import scalaz.std.vector._
 import scalaz.syntax.apply.^
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Applicative, Bitraverse, Functor, NonEmptyList, OneAnd, Traverse, \/, \/-}
+import scalaz.{-\/, Applicative, Bitraverse, Functor, NonEmptyList, Traverse, \/, \/-}
 import spray.json.JsValue
 import scalaz.syntax.tag._
 
@@ -153,14 +153,14 @@ package domain {
   )
 
   final case class GetActiveContractsRequest(
-      templateIds: OneAnd[Set, ContractTypeId.OptionalPkg],
+      templateIds: NonEmpty[Set[ContractTypeId.OptionalPkg]],
       query: Map[String, JsValue],
       readAs: Option[NonEmptyList[Party]],
   )
 
   final case class SearchForeverQuery(
       // TODO #14844 remove .Template for subscriptions
-      templateIds: OneAnd[Set, ContractTypeId.Template.OptionalPkg],
+      templateIds: NonEmpty[Set[ContractTypeId.Template.OptionalPkg]],
       query: Map[String, JsValue],
       offset: Option[domain.Offset],
   )
