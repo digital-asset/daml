@@ -124,7 +124,7 @@ abstract class HttpServiceIntegrationTest
         _ <- uploadPackage(fixture)(ciouDar)
         result <- createIouAndExerciseTransfer(
           fixture,
-          initialTplId = domain.TemplateId(None, "IIou", "TestIIou"),
+          initialTplId = domain.ContractTypeId.Template(None, "IIou", "TestIIou"),
           // whether we can exercise by interface-ID
           exerciseTid = TpId.IIou.IIou,
         ) map exerciseSucceeded
@@ -230,7 +230,7 @@ abstract class HttpServiceIntegrationTest
       aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, aliceHeaders) = aliceH
       createTest <- postCreateCommand(
-        iouCommand(alice, domain.TemplateId(None, "CIou", "CIou")),
+        iouCommand(alice, domain.ContractTypeId.Template(None, "CIou", "CIou")),
         fixture,
         aliceHeaders,
       )

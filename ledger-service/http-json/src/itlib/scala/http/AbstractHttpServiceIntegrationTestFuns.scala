@@ -417,18 +417,18 @@ trait AbstractHttpServiceIntegrationTestFuns
     import CtId.Interface.{OptionalPkg => IId}
 
     object Iou {
-      val Iou: Id = domain.TemplateId(None, "Iou", "Iou")
-      val IouTransfer: Id = domain.TemplateId(None, "Iou", "IouTransfer")
+      val Iou: TId = CtId.Template(None, "Iou", "Iou")
+      val IouTransfer: TId = CtId.Template(None, "Iou", "IouTransfer")
     }
     object Test {
-      val MultiPartyContract: Id = domain.TemplateId(None, "Test", "MultiPartyContract")
+      val MultiPartyContract: TId = CtId.Template(None, "Test", "MultiPartyContract")
     }
     object Account {
       val Account: TId = CtId.Template(None, "Account", "Account")
       val KeyedByVariantAndRecord: TId = CtId.Template(None, "Account", "KeyedByVariantAndRecord")
     }
     object User {
-      val User: Id = domain.TemplateId(None, "User", "User")
+      val User: TId = CtId.Template(None, "User", "User")
     }
     object IIou {
       val IIou: IId = CtId.Interface(None, "IIou", "IIou")

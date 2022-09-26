@@ -150,7 +150,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   import AbstractHttpServiceIntegrationTestFuns.ciouDar
 
   object CIou {
-    val CIou: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "CIou", "CIou")
+    val CIou: domain.ContractTypeId.Template.OptionalPkg =
+      domain.ContractTypeId.Template(None, "CIou", "CIou")
   }
 
   override def useTls = UseTls.NoTls
