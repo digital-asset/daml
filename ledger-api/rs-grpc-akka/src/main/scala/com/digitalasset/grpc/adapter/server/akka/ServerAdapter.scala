@@ -55,8 +55,7 @@ object ServerAdapter {
 
   /** Used in [[com.daml.protoc.plugins.akka.AkkaGrpcServicePrinter]]
     */
-  def closingError(): StatusRuntimeException = {
+  def closingError(): StatusRuntimeException =
     LedgerApiErrors.ServerIsShuttingDown.Reject()(errorLogger).asGrpcError
-  }
 
 }
