@@ -71,14 +71,14 @@ object WebSocketService {
   private object StreamPredicate {
     final case class Valid[+Positive](
         resolvedQurey: domain.ResolvedQuery,
-        unresolved: Set[domain.TemplateId.OptionalPkg],
+        unresolved: Set[domain.ContractTypeId.OptionalPkg],
         fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive],
         dbQuery: (domain.PartySet, dbbackend.ContractDao) => ConnectionIO[
           _ <: Vector[(domain.ActiveContract[JsValue], Positive)]
         ],
     ) extends StreamPredicate[Positive]
     final case class AllContractTypeIdsNotResolved(
-        unresolved: NonEmpty[Set[domain.TemplateId.OptionalPkg]]
+        unresolved: NonEmpty[Set[domain.ContractTypeId.OptionalPkg]]
     ) extends StreamPredicate[Nothing]
     final case class UnsupportedQuery(reason: Unsupported) extends StreamPredicate[Nothing]
   }
@@ -577,7 +577,7 @@ object WebSocketService {
           )
         }
       def streamPredicate(
-          q: Map[domain.TemplateId.Resolved, HashSet[LfV]],
+          q: Map[domain.ContractTypeId.Resolved, HashSet[LfV]],
           resolvedQuery: ResolvedQuery,
           unresolved: Set[OptionalPkg],
       )(implicit

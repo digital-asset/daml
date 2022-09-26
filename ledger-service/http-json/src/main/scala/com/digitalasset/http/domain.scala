@@ -124,7 +124,7 @@ package domain {
 
   case class Contract[LfV](value: ArchivedContract \/ ActiveContract[LfV])
 
-  case class ArchivedContract(contractId: ContractId, templateId: TemplateId.RequiredPkg)
+  case class ArchivedContract(contractId: ContractId, templateId: ContractTypeId.RequiredPkg)
 
   final case class FetchRequest[+LfV](
       locator: ContractLocator[LfV],

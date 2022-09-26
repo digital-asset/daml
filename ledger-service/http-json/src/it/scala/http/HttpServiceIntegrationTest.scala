@@ -82,8 +82,8 @@ abstract class HttpServiceIntegrationTest
 
     def createIouAndExerciseTransfer(
         fixture: UriFixture with EncoderFixture,
-        initialTplId: domain.TemplateId.OptionalPkg,
-        exerciseTid: domain.TemplateId.OptionalPkg,
+        initialTplId: domain.ContractTypeId.OptionalPkg,
+        exerciseTid: domain.ContractTypeId.OptionalPkg,
         choice: TExercise[_] = tExercise(choiceArgType = echoTextVA)(echoTextSample),
     ) = for {
       aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")

@@ -339,7 +339,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
               acl.size shouldBe 0
               warnings shouldBe Some(
                 domain.UnknownTemplateIds(
-                  List(domain.TemplateId(None, "UnknownModule", "UnknownEntity"))
+                  List(domain.ContractTypeId(None, "UnknownModule", "UnknownEntity"))
                 )
               )
             }
@@ -360,8 +360,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
               errors shouldBe List(ErrorMessages.cannotResolveAnyTemplateId)
               inside(warnings) { case Some(domain.UnknownTemplateIds(unknownTemplateIds)) =>
                 unknownTemplateIds.toSet shouldBe Set(
-                  domain.TemplateId(None, "AAA", "BBB"),
-                  domain.TemplateId(None, "XXX", "YYY"),
+                  domain.ContractTypeId(None, "AAA", "BBB"),
+                  domain.ContractTypeId(None, "XXX", "YYY"),
                 )
               }
           }
@@ -694,9 +694,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           .postJsonRequest(Uri.Path("/v1/create"), input, headers)
           .parseResponse[JsValue]
           .map(inside(_) { case domain.ErrorResponse(Seq(error), _, StatusCodes.BadRequest, _) =>
-            val unknownTemplateId: OptionalPkg =
-              domain
-                .TemplateId(None, command.templateId.moduleName, command.templateId.entityName)
+            val unknownTemplateId: OptionalPkg = command.templateId.copy(packageId = None)
             error should include(
               s"Cannot resolve template ID, given: ${unknownTemplateId: OptionalPkg}"
             )

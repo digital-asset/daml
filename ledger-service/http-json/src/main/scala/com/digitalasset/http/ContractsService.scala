@@ -521,7 +521,7 @@ class ContractsService(
     val empty = (Vector.empty[Error], Vector.empty[Ac])
     import InsertDeleteStep.appendForgettingDeletes
 
-    val funPredicates: Map[domain.TemplateId.RequiredPkg, Ac => Boolean] =
+    val funPredicates: Map[domain.ContractTypeId.RequiredPkg, Ac => Boolean] =
       templateIds.iterator.map(tid => (tid, queryParams.toPredicate(tid))).toMap
 
     insertDeleteStepSource(jwt, ledgerId, parties, templateIds.toList)
