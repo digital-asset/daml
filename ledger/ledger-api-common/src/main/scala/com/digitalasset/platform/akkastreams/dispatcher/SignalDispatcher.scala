@@ -63,28 +63,38 @@ class SignalDispatcher private () {
   /** Closes this SignalDispatcher by gracefully completing the existing Source subscriptions.
     * For any downstream with pending signals, at least one such signal will be sent first.
     */
-  def shutdown(): Future[Unit] = shutdownInternal(_.complete())
+  def shutdown(): Future[Unit] =
+    shutdownInternal { source =>
+      source.complete()
+      source.watchCompletion()
+    }
 
   /** Closes this SignalDispatcher by failing the existing Source subscriptions with the provided throwable. */
-  def fail(throwable: Throwable): Future[Unit] =
-    shutdownInternal(_.fail(throwable)).transform {
-      // This throwable is expected so map to Success
-      case Failure(`throwable`) => Success(())
-      case other => other
-    }(ExecutionContext.parasitic)
+  def fail(newThrowable: () => Throwable): Future[Unit] =
+    shutdownInternal { source =>
+      implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.parasitic
+      val throwable = newThrowable()
+      source.fail(throwable)
+      source
+        .watchCompletion()
+        .transform {
+          // This throwable is expected so map to Success
+          case Failure(`throwable`) =>
+            Success(())
+          case other =>
+            other
+        }
+    }
 
   private def shutdownInternal(
-      shutdownSourceQueue: SourceQueueWithComplete[_] => Unit
+      shutdownSourceQueue: SourceQueueWithComplete[_] => Future[_]
   ): Future[Unit] = {
     implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.parasitic
     runningState
       .getAndSet(None)
       .fold(throw new IllegalStateException("SignalDispatcher is already closed")) { sources =>
         Future.delegate {
-          sources.foreach(shutdownSourceQueue)
-          Future
-            .sequence(sources.map(_.watchCompletion()))
-            .map(_ => ())
+          Future.traverse(sources)(shutdownSourceQueue).map(_ => ())
         }
       }
   }
