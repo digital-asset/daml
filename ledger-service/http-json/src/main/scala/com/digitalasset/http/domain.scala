@@ -17,7 +17,7 @@ import scalaz.std.vector._
 import scalaz.syntax.apply.^
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Applicative, Bitraverse, Functor, NonEmptyList, OneAnd, Traverse, \/, \/-}
+import scalaz.{-\/, Applicative, Bitraverse, Functor, NonEmptyList, Traverse, \/, \/-}
 import spray.json.JsValue
 import scalaz.syntax.tag._
 

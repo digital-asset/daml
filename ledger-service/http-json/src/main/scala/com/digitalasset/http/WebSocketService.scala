@@ -362,7 +362,7 @@ object WebSocketService {
         val query = (gacr: domain.SearchForeverQuery, pos: Int, ix: Int) =>
           for {
             res <-
-              gacr.templateIds.toList
+              gacr.templateIds.toList.toNEF
                 .traverse(x =>
                   resolveContractTypeId(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
                 )
