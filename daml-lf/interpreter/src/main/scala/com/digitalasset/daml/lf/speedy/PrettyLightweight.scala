@@ -49,8 +49,8 @@ private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK
   def pp(e: SExpr): String = e match {
     case SEValue(v) => s"(VALUE)${pp(v)}"
     case loc: SELoc => pp(loc)
-    case SEAppGeneral(func, args) => s"@E(${pp(func)},${commas(args.map(pp))})"
-    case SEAppAtomicFun(func, args) => s"@N(${pp(func)},${commas(args.map(pp))})"
+    case SEAppGeneral_DEPRECATED(func, args) => s"@E(${pp(func)},${commas(args.map(pp))})"
+    case SEAppOnlyFunIsAtomic_DEPRECATED(func, args) => s"@N(${pp(func)},${commas(args.map(pp))})"
     case SEAppAtomicGeneral(func, args) => s"@A(${pp(func)},${commas(args.map(pp))})"
     case SEAppAtomicSaturatedBuiltin(b, args) => s"@B(${pp(SEBuiltin(b))},${commas(args.map(pp))})"
     case SEMakeClo(fvs, arity, body) => s"[${commas(fvs.map(pp))}]\\$arity.${pp(body)}"

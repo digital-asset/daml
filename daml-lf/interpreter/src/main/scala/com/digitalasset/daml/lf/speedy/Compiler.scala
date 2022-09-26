@@ -165,9 +165,11 @@ private[lf] final class Compiler(
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompileInterfaceView(view: InterfaceView): t.SExpr = {
-    SBViewInterface(view.interfaceId)(
-      SBToAnyContract(view.templateId)(t.SEValue(view.argument))
+    val e0 = s.SEApp(
+      s.SEBuiltin(SBViewInterface(view.interfaceId)),
+      List(s.SEApp(s.SEBuiltin(SBToAnyContract(view.templateId)), List(s.SEValue(view.argument)))),
     )
+    pipeline(e0)
   }
 
   private[this] val stablePackageIds = StablePackage.ids(config.allowedLanguageVersions)
@@ -340,9 +342,8 @@ private[lf] final class Compiler(
     val disclosureLambda = pipeline(
       translateContractDisclosureLambda(Env.Empty, disclosures)
     )
-
     t.SELet1(
-      t.SEApp(disclosureLambda, Array(t.SEValue(SValue.Unit))),
+      t.SEApp(disclosureLambda, Array(SValue.Unit)),
       sexpr,
     )
   }

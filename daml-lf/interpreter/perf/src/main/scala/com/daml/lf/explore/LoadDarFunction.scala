@@ -36,7 +36,7 @@ object LoadDarFunction extends App {
         val ref: DefinitionRef =
           Identifier(packages.main._1, QualifiedName.assertFromString(s"${base}:${funcName}"))
         val func = SEVal(LfDefRef(ref))
-        val arg = SEValue(SInt64(argValue))
+        val arg = SInt64(argValue)
         SEApp(func, Array(arg))
       }
       val machine = Machine.fromPureSExpr(compiledPackages, expr)

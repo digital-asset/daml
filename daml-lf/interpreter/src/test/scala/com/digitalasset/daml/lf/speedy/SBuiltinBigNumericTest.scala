@@ -386,7 +386,7 @@ object SBuiltinBigNumericTest {
       if (onLedger)
         Speedy.Machine.fromScenarioSExpr(
           compiledPackages,
-          scenario = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(e)),
+          scenario = SELet1(e, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
         )
       else
         Speedy.Machine.fromPureSExpr(compiledPackages, e)

@@ -138,7 +138,10 @@ class AnfTest extends AnyWordSpec with Matchers {
   "error (over) applied to 2 arg" should {
     "be transformed to ANF as expected" in {
       val original = slam(2, source.SEApp(source.SEBuiltin(SBUserError), List(sarg0, sarg1)))
-      val expected = lam(2, target.SEAppAtomicFun(target.SEBuiltin(SBUserError), Array(arg0, arg1)))
+      val expected = lam(
+        2,
+        target.SEAppOnlyFunIsAtomic_DEPRECATED(target.SEBuiltin(SBUserError), Array(arg0, arg1)),
+      )
       testTransform(original, expected)
     }
   }
@@ -203,7 +206,7 @@ class AnfTest extends AnyWordSpec with Matchers {
       arg1: target.SExpr,
       arg2: target.SExpr,
   ): target.SExpr =
-    target.SEAppAtomicFun(func, Array(arg1, arg2))
+    target.SEAppOnlyFunIsAtomic_DEPRECATED(func, Array(arg1, arg2))
 
   // anf builders
   private def let1(rhs: target.SExpr, body: target.SExpr): target.SExpr =

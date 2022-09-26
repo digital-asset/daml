@@ -15,7 +15,7 @@ import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party, UserId}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.Ast
-import com.daml.lf.speedy.SExpr.{SEApp, SEValue}
+import com.daml.lf.speedy.SExpr.{SEAppAtomic, SEValue}
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.speedy.SValue._
@@ -138,7 +138,7 @@ object ScriptF {
                     Converter
                       .fromStatusException(env.scriptIds, statusEx)
                   )
-                } yield SEApp(SEValue(data.continue), Array(SEValue(res)))
+                } yield SEAppAtomic(SEValue(data.continue), Array(SEValue(res)))
             }
         }
       } yield v
@@ -165,7 +165,7 @@ object ScriptF {
         )
         v <- submitRes match {
           case Right(()) =>
-            Future.successful(SEApp(SEValue(data.continue), Array(SEValue(SUnit))))
+            Future.successful(SEAppAtomic(SEValue(data.continue), Array(SEValue(SUnit))))
           case Left(()) =>
             Future.failed(
               SError.SErrorDamlException(
@@ -201,7 +201,7 @@ object ScriptF {
             submitRes,
           )
         )
-      } yield SEApp(SEValue(data.continue), Array(SEValue(res)))
+      } yield SEAppAtomic(SEValue(data.continue), Array(SEValue(res)))
   }
   final case class Query(
       parties: OneAnd[Set, Party],
@@ -229,7 +229,7 @@ object ScriptF {
                 .fromCreated(env.valueTranslator, _)
             )
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(SList(res))))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(SList(res))))
 
   }
   final case class QueryContractId(
@@ -252,7 +252,7 @@ object ScriptF {
         optR <- Converter.toFuture(
           optR.traverse(Converter.fromContract(env.valueTranslator, _))
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(SOptional(optR))))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(SOptional(optR))))
   }
   final case class QueryContractKey(
       parties: OneAnd[Set, Party],
@@ -282,7 +282,7 @@ object ScriptF {
         optR <- Converter.toFuture(
           optR.traverse(Converter.fromCreated(env.valueTranslator, _))
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(SOptional(optR))))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(SOptional(optR))))
   }
   final case class AllocParty(
       displayName: String,
@@ -307,7 +307,7 @@ object ScriptF {
 
       } yield {
         participant.foreach(env.addPartyParticipantMapping(party, _))
-        SEApp(SEValue(continue), Array(SEValue(SParty(party))))
+        SEAppAtomic(SEValue(continue), Array(SEValue(SParty(party))))
       }
 
   }
@@ -333,7 +333,7 @@ object ScriptF {
           partyDetails
             .traverse(details => Converter.fromPartyDetails(env.scriptIds, details))
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(SList(partyDetails_.to(FrontStack)))))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(SList(partyDetails_.to(FrontStack)))))
 
   }
   final case class GetTime(stackTrace: StackTrace, continue: SValue) extends Cmd {
@@ -360,7 +360,7 @@ object ScriptF {
               Timestamp.assertFromInstant(env.utcClock.instant())
             }
         }
-      } yield SEApp(SEValue(continue), Array(SEValue(STimestamp(time))))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(STimestamp(time))))
 
   }
   final case class SetTime(time: Timestamp, stackTrace: StackTrace, continue: SValue) extends Cmd {
@@ -379,7 +379,7 @@ object ScriptF {
             // service with multiple participants is very dodgy.
             client <- Converter.toFuture(env.clients.getParticipant(None))
             _ <- client.setStaticTime(time)
-          } yield SEApp(SEValue(continue), Array(SEValue(SUnit)))
+          } yield SEAppAtomic(SEValue(continue), Array(SEValue(SUnit)))
         case ScriptTimeMode.WallClock =>
           Future.failed(
             new RuntimeException("setTime is not supported in wallclock mode")
@@ -397,7 +397,7 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] = Future {
       sleepAtLeast(micros * 1000)
-      SEApp(SEValue(continue), Array(SEValue(SUnit)))
+      SEAppAtomic(SEValue(continue), Array(SEValue(SUnit)))
     }
 
     private def sleepAtLeast(totalNanos: Long) = {
@@ -429,7 +429,7 @@ object ScriptF {
           case Right(_) => None // valid
           case Left(message) => Some(SText(message)) // invalid; with error message
         }
-      Future.successful(SEApp(SEValue(continue), Array(SEValue(SOptional(errorOption)))))
+      Future.successful(SEAppAtomic(SEValue(continue), Array(SEValue(SOptional(errorOption)))))
     }
   }
 
@@ -452,7 +452,7 @@ object ScriptF {
         res <- Converter.toFuture(
           Converter.fromOptional[Unit](res, _ => Right(SUnit))
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(res)))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(res)))
   }
 
   final case class GetUser(
@@ -473,7 +473,7 @@ object ScriptF {
         user <- Converter.toFuture(
           Converter.fromOptional(user, Converter.fromUser(env.scriptIds, _))
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(user)))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(user)))
   }
 
   final case class DeleteUser(
@@ -494,7 +494,7 @@ object ScriptF {
         res <- Converter.toFuture(
           Converter.fromOptional[Unit](res, _ => Right(SUnit))
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(res)))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(res)))
   }
 
   final case class ListAllUsers(
@@ -514,7 +514,7 @@ object ScriptF {
         users <- Converter.toFuture(
           users.to(FrontStack).traverse(Converter.fromUser(env.scriptIds, _))
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(SList(users))))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(SList(users))))
   }
 
   final case class GrantUserRights(
@@ -541,7 +541,7 @@ object ScriptF {
               .map(SList(_)),
           )
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(rights)))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(rights)))
   }
 
   final case class RevokeUserRights(
@@ -568,7 +568,7 @@ object ScriptF {
               .map(SList(_)),
           )
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(rights)))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(rights)))
   }
 
   final case class ListUserRights(
@@ -594,7 +594,7 @@ object ScriptF {
               .map(SList(_)),
           )
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(rights)))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(rights)))
   }
 
   // Shared between Submit, SubmitMustFail and SubmitTree
