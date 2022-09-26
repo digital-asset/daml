@@ -335,9 +335,9 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     "collect direct and resolved choices in one map" in {
       foundResolvedChoices(itpES.typeDecls get Ref.Identifier(itpPid, Foo))
         .transform((_, cs) => cs.keySet) should contain theSameElementsAs Map(
+        Archive -> Set(Some(Ref.Identifier(itpPid, TIf)), Some(Ref.Identifier(itpPid, LibTIf)), None),
         Useless -> Set(Some(Ref.Identifier(itpPid, TIf)), Some(Ref.Identifier(itpPid, LibTIf))),
         Bar -> Set(None),
-        Archive -> Set(None),
       )
     }
 
