@@ -46,18 +46,18 @@ class CommandService(
 
   import CommandService._
 
-  private def withTemplateLoggingContext[T](
-      templateId: ContractTypeId.RequiredPkg
-  )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[ContractTypeId.RequiredPkg, T] =
+  private def withTemplateLoggingContext[CtId <: ContractTypeId.RequiredPkg, T](
+      templateId: CtId
+  )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[CtId, T] =
     withEnrichedLoggingContext(
-      label[ContractTypeId.RequiredPkg],
+      label[CtId],
       "template_id" -> templateId.toString,
     )
 
-  private def withTemplateChoiceLoggingContext[T](
-      templateId: ContractTypeId.RequiredPkg,
+  private def withTemplateChoiceLoggingContext[CtId <: ContractTypeId.RequiredPkg, T](
+      templateId: CtId,
       choice: domain.Choice,
-  )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[Choice, RequiredPkg with T] =
+  )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[Choice, CtId with T] =
     withTemplateLoggingContext(templateId).run(
       withEnrichedLoggingContext(
         label[domain.Choice],
@@ -68,7 +68,7 @@ class CommandService(
   def create(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
-      input: CreateCommand[lav1.value.Record, TemplateId.RequiredPkg],
+      input: CreateCommand[lav1.value.Record, ContractTypeId.RequiredPkg], // TODO #15098 .Template
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ domain.CreateCommandResponse[lav1.value.Value]] =
@@ -183,7 +183,7 @@ class CommandService(
   }
 
   private def createCommand(
-      input: CreateCommand[lav1.value.Record, TemplateId.RequiredPkg]
+      input: CreateCommand[lav1.value.Record, ContractTypeId.RequiredPkg] // TODO #15098 .Template
   ): lav1.commands.Command.Command.Create = {
     Commands.create(refApiIdentifier(input.templateId), input.payload)
   }
