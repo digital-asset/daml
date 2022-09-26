@@ -102,7 +102,13 @@ object SExpr {
 
   object SEValue extends SValueContainer[SEValue] // used by Compiler
 
-  final case class SEAppGeneral(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
+  /** Function application with general function/arguments (deprecated)
+    * This case exists purely for use by:
+    * and that us in turn is to support the current stack-trace support, which peeks under KArg.
+    */
+  final case class SEAppGeneral_DEPRECATED(fun: SExpr, args: Array[SExpr])
+      extends SExpr
+      with SomeArrayEquals {
     def execute(machine: Machine): Control = {
       machine.pushKont(KArg(machine, args))
       Control.Expression(fun)
@@ -128,12 +134,6 @@ object SExpr {
     // Helper: build an application of an unrestricted expression, to value-arguments.
     def apply(fun: SExpr, args: Array[SValue]): SExpr = {
       SELet1(fun, SEAppAtomic(SELocS(1), args.map(SEValue(_))))
-    }
-  }
-
-  object SEAppG {
-    def apply(fun: SExpr, args: Array[SExpr]): SExpr = {
-      SEAppGeneral(fun, args)
     }
   }
 

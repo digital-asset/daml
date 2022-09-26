@@ -448,6 +448,11 @@ private[lf] object Speedy {
         // NOTE(MH): If the top of the continuation stack is the monadic token,
         // we push location information under it to account for the implicit
         // lambda binding the token.
+
+        // TODO: Understand how the current approach to stack-trace actually works.
+        // Peeking under KArg on the kontStack seems so unprincipled, and relies on our
+        // continued use of SEAppGeneral_DEPRECATED, which we want to remove.
+
         case Some(KArg(_, Array(SEValue.Token))) => {
           // Can't call pushKont here, because we don't push at the top of the stack.
           kontStack.add(last_index, KLocation(this, loc))
@@ -978,8 +983,8 @@ private[lf] object Speedy {
         compiledPackages = compiledPackages,
         submissionTime = Time.Timestamp.MinValue,
         initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
-        // expr = SEApp(updateSE, Array(SValue.SToken)),
-        expr = SEAppG(updateSE, Array(SEValue.Token)),
+        expr = SEAppGeneral_DEPRECATED(updateSE, Array(SEValue.Token)),
+        // expr = SEApp(updateSE, Array(SValue.SToken)), // TODO: when stack-trace hackery is resolved
         committers = committers,
         readAs = Set.empty,
         limits = limits,
@@ -996,8 +1001,8 @@ private[lf] object Speedy {
         scenario: SExpr,
     )(implicit loggingContext: LoggingContext): Machine = Machine.fromPureSExpr(
       compiledPackages = compiledPackages,
-      // expr = SEApp(scenario, Array(SValue.SToken)),
-      expr = SEAppG(scenario, Array(SEValue.Token)),
+      expr = SEAppGeneral_DEPRECATED(scenario, Array(SEValue.Token)),
+      // expr = SEApp(scenario, Array(SValue.SToken)), // TODO: when stack-trace hackery is resolved
     )
 
     @throws[PackageNotFound]

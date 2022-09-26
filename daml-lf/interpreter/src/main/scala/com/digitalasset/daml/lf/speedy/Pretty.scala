@@ -528,7 +528,7 @@ private[lf] object Pretty {
             case SBGetTime => text("$getTime")
             case _ => str(x)
           }
-        case SEAppGeneral(fun, args) =>
+        case SEAppGeneral_DEPRECATED(fun, args) =>
           val prefix = prettySExpr(index)(fun) + text("@E(")
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
             .tightBracketBy(prefix, char(')'))
