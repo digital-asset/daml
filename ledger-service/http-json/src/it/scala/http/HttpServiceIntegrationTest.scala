@@ -230,7 +230,7 @@ abstract class HttpServiceIntegrationTest
       aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, aliceHeaders) = aliceH
       createTest <- postCreateCommand(
-        iouCommand(alice, domain.ContractTypeId.Template(None, "CIou", "CIou")),
+        iouCommand(alice, CIou.CIou),
         fixture,
         aliceHeaders,
       )

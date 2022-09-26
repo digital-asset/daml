@@ -127,7 +127,11 @@ class CommandService(
   def createAndExercise(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
-      input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value, TemplateId.RequiredPkg],
+      input: CreateAndExerciseCommand[
+        lav1.value.Record,
+        lav1.value.Value,
+        ContractTypeId.RequiredPkg,
+      ],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ ExerciseResponse[lav1.value.Value]] =
@@ -213,7 +217,11 @@ class CommandService(
 
   // TODO #14549 somehow use the choiceInterfaceId
   private def createAndExerciseCommand(
-      input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value, TemplateId.RequiredPkg]
+      input: CreateAndExerciseCommand[
+        lav1.value.Record,
+        lav1.value.Value,
+        ContractTypeId.RequiredPkg,
+      ]
   ): lav1.commands.Command.Command.CreateAndExercise =
     Commands
       .createAndExercise(

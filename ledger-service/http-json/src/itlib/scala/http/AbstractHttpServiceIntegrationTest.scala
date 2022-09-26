@@ -9,7 +9,7 @@ import akka.http.scaladsl.model._
 import com.daml.api.util.TimestampConversion
 import com.daml.lf.data.Ref
 import com.daml.http.domain.ContractId
-import com.daml.http.domain.TemplateId.OptionalPkg
+import com.daml.http.domain.ContractTypeId.OptionalPkg
 import com.daml.http.endpoints.MeteringReportEndpoint.MeteringReportDateRequest
 import com.daml.http.json.SprayJson.objectField
 import com.daml.http.json._
@@ -1589,7 +1589,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       def userCreateCommand(
           username: domain.Party,
           following: Seq[domain.Party] = Seq.empty,
-      ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
+      ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
         val followingList = lfToApi(
           VAx.seq(VAx.partyDomain).inj(following)
         ).sum
