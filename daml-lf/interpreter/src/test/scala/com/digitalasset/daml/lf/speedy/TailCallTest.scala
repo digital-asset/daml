@@ -97,10 +97,10 @@ class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
     runExpr(exp, envBound = small, kontBound = small) shouldBe expected
   }
 
-  "fold-right (KFoldr1Map/Reduce case) requires an unbounded env-stack, but a small kont-stack" in {
+  "fold-right (KFoldr1Map/Reduce case) executes with a small env-stack, and a small kont-stack" in {
     val exp = e"F:triangle_viaFoldRight2 100"
     val expected = SValue.SInt64(5050)
-    runExpr(exp, envBound = unbounded, kontBound = small) shouldBe expected
+    runExpr(exp, envBound = small, kontBound = small) shouldBe expected
   }
 
   // Evaluate an expression with optionally bounded env and kont stacks
