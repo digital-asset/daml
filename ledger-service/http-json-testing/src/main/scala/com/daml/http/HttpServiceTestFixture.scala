@@ -432,7 +432,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     postJsonStringRequest(uri, json.prettyPrint, headers)
 
   def postCreateCommand(
-      cmd: domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg],
+      cmd: domain.CreateCommand[v.Record, domain.ContractTypeId.OptionalPkg],
       encoder: DomainJsonEncoder,
       uri: Uri,
       headers: List[HttpHeader],

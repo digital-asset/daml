@@ -64,7 +64,7 @@ object WebSocketService {
   private val logger = ContextualizedLogger.get(getClass)
 
   private type CompiledQueries =
-    Map[domain.TemplateId.Resolved, (ValuePredicate, LfV => Boolean)]
+    Map[domain.ContractTypeId.Resolved, (ValuePredicate, LfV => Boolean)]
 
   private sealed abstract class StreamPredicate[+Positive] extends Product with Serializable
 
@@ -1128,7 +1128,7 @@ class WebSocketService(
       .map(_ mapLfv lfValueToJsValue)
 
   private def reportUnresolvedTemplateIds(
-      unresolved: Set[domain.TemplateId.OptionalPkg]
+      unresolved: Set[domain.ContractTypeId.OptionalPkg]
   ): Source[JsValue, NotUsed] =
     if (unresolved.isEmpty) Source.empty
     else {
