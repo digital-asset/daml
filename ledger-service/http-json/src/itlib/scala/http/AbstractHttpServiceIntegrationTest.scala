@@ -94,7 +94,7 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
   "create should fail with custom tokens that contain no ledger id" in withHttpService { fixture =>
     import fixture.encoder
     val alice = getUniqueParty("Alice")
-    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
+    val command = iouCreateCommand(alice)
     val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
     val headers = HttpServiceTestFixture.authorizationHeader(
@@ -666,7 +666,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       import fixture.encoder
       for {
         (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
-        command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
+        command = iouCreateCommand(alice)
         input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
         headers <- fixture
           .headersWithPartyAuth(actAs = List(alice.unwrap), readAs = List("Bob"))
@@ -708,9 +708,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       def genSubmissionId() = domain.SubmissionId(UUID.randomUUID().toString)
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         val cmdId = domain.CommandId apply UUID.randomUUID().toString
-        def cmd(
-            submissionId: domain.SubmissionId
-        ): domain.CreateCommand[v.Record, OptionalPkg] =
+        def cmd(submissionId: domain.SubmissionId) =
           iouCreateCommand(
             alice,
             amount = "19002.0",
