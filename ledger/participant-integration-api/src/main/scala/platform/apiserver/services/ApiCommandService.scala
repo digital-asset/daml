@@ -208,6 +208,7 @@ private[apiserver] object ApiCommandService {
       timeProvider: TimeProvider,
       ledgerConfigurationSubscription: LedgerConfigurationSubscription,
       metrics: Metrics,
+      explicitDisclosureUnsafeEnabled: Boolean,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -232,6 +233,7 @@ private[apiserver] object ApiCommandService {
       maxDeduplicationDuration = () =>
         ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationDuration),
       generateSubmissionId = SubmissionIdGenerator.Random,
+      explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
     )
   }
 

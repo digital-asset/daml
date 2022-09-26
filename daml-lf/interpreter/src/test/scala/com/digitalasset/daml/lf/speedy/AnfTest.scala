@@ -129,16 +129,16 @@ class AnfTest extends AnyWordSpec with Matchers {
 
   "error applied to 1 arg" should {
     "be transformed to ANF as expected" in {
-      val original = slam(1, source.SEApp(source.SEBuiltin(SBError), List(sarg0)))
-      val expected = lam(1, target.SEAppAtomicSaturatedBuiltin(SBError, Array(arg0)))
+      val original = slam(1, source.SEApp(source.SEBuiltin(SBUserError), List(sarg0)))
+      val expected = lam(1, target.SEAppAtomicSaturatedBuiltin(SBUserError, Array(arg0)))
       testTransform(original, expected)
     }
   }
 
   "error (over) applied to 2 arg" should {
     "be transformed to ANF as expected" in {
-      val original = slam(2, source.SEApp(source.SEBuiltin(SBError), List(sarg0, sarg1)))
-      val expected = lam(2, target.SEAppAtomicFun(target.SEBuiltin(SBError), Array(arg0, arg1)))
+      val original = slam(2, source.SEApp(source.SEBuiltin(SBUserError), List(sarg0, sarg1)))
+      val expected = lam(2, target.SEAppAtomicFun(target.SEBuiltin(SBUserError), Array(arg0, arg1)))
       testTransform(original, expected)
     }
   }

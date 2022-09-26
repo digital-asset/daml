@@ -135,12 +135,20 @@ final class Conversions(
                     .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
                     .build
                 )
+              case DisclosedContractKeyHashingError(contractId, templateId, reason) =>
+                builder.setDisclosedContractKeyHashingError(
+                  proto.ScenarioError.DisclosedContractKeyHashingError.newBuilder
+                    .setContractRef(mkContractRef(contractId, templateId))
+                    .setTemplateId(convertIdentifier(templateId))
+                    .setReason(reason)
+                    .build
+                )
               case ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
                 builder.setScenarioContractKeyNotVisible(
                   proto.ScenarioError.ContractKeyNotVisible.newBuilder
                     .setContractRef(mkContractRef(coid, gk.templateId))
-                    .addAllActAs(actAs.map(convertParty(_)).asJava)
-                    .addAllReadAs(readAs.map(convertParty(_)).asJava)
+                    .addAllActAs(actAs.map(convertParty).asJava)
+                    .addAllReadAs(readAs.map(convertParty).asJava)
                     .addAllStakeholders(stakeholders.map(convertParty).asJava)
                     .build
                 )
@@ -246,38 +254,7 @@ final class Conversions(
                         .setTemplateId(convertIdentifier(tid))
                         .setKeyHash(keyHash.toHexString)
                     )
-                  case DisclosurePreprocessing.DuplicateContractIds(tid) =>
-                    builder.setDisclosurePreprocessingDuplicateContractIds(
-                      proto.ScenarioError.DisclosurePreprocessingDuplicateContractIds.newBuilder
-                        .setTemplateId(convertIdentifier(tid))
-                    )
-                  case DisclosurePreprocessing.NonExistentTemplate(templateId) =>
-                    builder.setDisclosurePreprocessingNonExistentTemplate(
-                      proto.ScenarioError.DisclosurePreprocessingNonExistentTemplate.newBuilder
-                        .setTemplateId(convertIdentifier(templateId))
-                    )
-                  case DisclosurePreprocessing.NonExistentDisclosedContractKeyHash(
-                        contractId,
-                        templateId,
-                      ) =>
-                    builder.setDisclosurePreprocessingNonExistentDisclosedContractKeyHash(
-                      proto.ScenarioError.DisclosurePreprocessingNonExistentDisclosedContractKeyHash.newBuilder
-                        .setContractId(coidToEventId(contractId).toLedgerString)
-                        .setTemplateId(convertIdentifier(templateId))
-                    )
                 }
-
-              case InconsistentDisclosureTable.IncorrectlyTypedContract(
-                    contractId,
-                    expectedTemplateId,
-                    actualTemplateId,
-                  ) =>
-                builder.setInconsistentDisclosureTableIncorrectlyTypedContract(
-                  proto.ScenarioError.InconsistentDisclosureTableIncorrectlyTypedContract.newBuilder
-                    .setContractId(coidToEventId(contractId).toLedgerString)
-                    .setExpected(convertIdentifier(expectedTemplateId))
-                    .setActual(convertIdentifier(actualTemplateId))
-                )
             }
         }
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>

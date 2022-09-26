@@ -49,6 +49,7 @@ import com.daml.ledger.sandbox.{SandboxOnXForTest, SandboxOnXRunner}
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
+import com.daml.lf.engine.script.ledgerinteraction.JsonLedgerClient.FailedJsonApiRequest
 import com.daml.lf.engine.script.ledgerinteraction.{
   JsonLedgerClient,
   ScriptLedgerClient,
@@ -80,8 +81,8 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
 import spray.json._
-
 import java.io.File
+
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
 
@@ -270,7 +271,15 @@ final class JsonApiIt
       )
       .toMap
     val participantParams = Participants(Some(defaultParticipant), participantMap, partyMap)
-    Runner.jsonClients(participantParams, envIface)
+    for {
+      ps <- Runner.jsonClients(participantParams, envIface)
+      _ <- Future.sequence(
+        for {
+          (party, participant) <- partyMap
+          ledgerClient <- ps.participants.get(participant)
+        } yield createParty(ledgerClient, party)
+      )
+    } yield ps
   }
 
   private def getMultiPartyClients(
@@ -289,7 +298,22 @@ final class JsonApiIt
         applicationId,
       )
     val participantParams = Participants(Some(defaultParticipant), Map.empty, Map.empty)
-    Runner.jsonClients(participantParams, envIface)
+    for {
+      ps <- Runner.jsonClients(participantParams, envIface)
+      _ <- Future.sequence(
+        for {
+          party <- parties
+          ledgerClient <- ps.default_participant
+        } yield createParty(ledgerClient, party)
+      )
+    } yield ps
+  }
+
+  private def createParty(ledgerClient: JsonLedgerClient, party: String): Future[Unit] = {
+    ledgerClient.allocateParty(party, "").map(_ => ()).recoverWith {
+      case e: FailedJsonApiRequest if e.getMessage.contains("Party already exists") =>
+        Future.successful(())
+    }
   }
 
   private def getUserClients(
@@ -555,7 +579,7 @@ final class JsonApiIt
       val party1 = "multiPartySubmission1"
       val party2 = "multiPartySubmission2"
       for {
-        clients1 <- getClients(parties = List(party1))
+        clients1 <- getClients(parties = List(party1, party2))
         cidSingle <- run(
           clients1,
           QualifiedName.assertFromString("ScriptTest:jsonMultiPartySubmissionCreateSingle"),

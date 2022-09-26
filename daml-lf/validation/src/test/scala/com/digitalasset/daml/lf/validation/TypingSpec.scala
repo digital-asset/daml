@@ -512,10 +512,19 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: EEmptyConsFront => },
         // ExpVal
         E"⸨ Mod:g ⸩" -> //
-          { case EUnknownDefinition(_, LookupError(Reference.Definition(_), Reference.Value(_))) =>
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError.NotFound(Reference.Definition(_), Reference.Value(_)),
+                ) =>
           },
         E"⸨ Mod:R ⸩" -> //
-          { case EUnknownDefinition(_, LookupError(Reference.Value(_), Reference.Value(_))) => },
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError.NotFound(Reference.Value(_), Reference.Value(_)),
+                ) =>
+          },
         // ExpRecCon
         E"Λ (σ : ⋆). λ (e₁ : Bool) (e₂ : List σ) → ⸨ Mod:R @σ { f1 = e₁, f2 = e₂ } ⸩" -> //
           { case _: ETypeMismatch => },
@@ -531,11 +540,15 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Definition(_), Reference.DataType(_)),
+                  LookupError.NotFound(Reference.Definition(_), Reference.DataType(_)),
                 ) =>
           },
         E"Λ (σ : ⋆). λ (e₁ : Bool) (e₂ : List σ) → ⸨ Mod:S @σ { f1 = e₁, f2 = e₂ } ⸩" -> //
-          { case EUnknownDefinition(_, LookupError(Reference.DataType(_), Reference.DataType(_))) =>
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError.NotFound(Reference.DataType(_), Reference.DataType(_)),
+                ) =>
           },
         // ExpRecProj
         E"Λ (σ : ⋆ → ⋆). ⸨ Mod:R @σ {f2} nothing⸩" -> //
@@ -568,11 +581,15 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Definition(_), Reference.DataType(_)),
+                  LookupError.NotFound(Reference.Definition(_), Reference.DataType(_)),
                 ) =>
           },
         E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → ⸨ Mod:S:Leaf @τ e ⸩" -> //
-          { case EUnknownDefinition(_, LookupError(Reference.DataType(_), Reference.DataType(_))) =>
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError.NotFound(Reference.DataType(_), Reference.DataType(_)),
+                ) =>
           },
         // ExpStructCon
         E"Λ (τ₁: ⋆) (τ₂: ⋆). λ (e₁: τ₁) (e₂: τ₂) → ⸨ ⟨ f₁ = e₁, f₁ = e₂ ⟩ ⸩" -> //
@@ -668,7 +685,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Exception(_), Reference.Exception(_)),
+                  LookupError.NotFound(Reference.Exception(_), Reference.Exception(_)),
                 ) =>
           },
         E"λ (t: Bool) → ⸨ to_any_exception @Bool t ⸩" -> //
@@ -684,7 +701,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Exception(_), Reference.Exception(_)),
+                  LookupError.NotFound(Reference.Exception(_), Reference.Exception(_)),
                 ) =>
           },
         E"λ (t: Any) → ⸨ from_any_exception @Bool t ⸩" -> //
@@ -700,14 +717,14 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Exception(_), Reference.Exception(_)),
+                  LookupError.NotFound(Reference.Exception(_), Reference.Exception(_)),
                 ) =>
           },
         E"Λ (τ :⋆). λ (e : Mod:U) →  ⸨ throw @τ @Mod:U e ⸩" -> //
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Exception(_), Reference.Exception(_)),
+                  LookupError.NotFound(Reference.Exception(_), Reference.Exception(_)),
                 ) =>
           },
         E"Λ (τ :⋆). λ (e : Bool) →  ⸨ throw @τ @Bool e ⸩" -> //
@@ -787,7 +804,11 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: ETypeMismatch => },
         // UpdCreate
         E"λ (e: Mod:U) → ⸨ create @Mod:U nothing ⸩" -> //
-          { case EUnknownDefinition(_, LookupError(Reference.Template(_), Reference.Template(_))) =>
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError.NotFound(Reference.Template(_), Reference.Template(_)),
+                ) =>
           },
         E"Λ (σ : ⋆). λ (e: σ) → ⸨ create @Mod:T e ⸩" -> //
           { case _: ETypeMismatch => },
@@ -796,7 +817,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Interface(_), Reference.Interface(_)),
+                  LookupError.NotFound(Reference.Interface(_), Reference.Interface(_)),
                 ) =>
           },
         E"Λ (σ : ⋆). λ (e: σ) → ⸨ create_by_interface @Mod:I e ⸩" -> //
@@ -806,14 +827,15 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Template(_), Reference.TemplateChoice(_, _)),
+                  LookupError.NotFound(Reference.Template(_), Reference.TemplateChoice(_, _)),
                 ) =>
           },
         E"λ (e₁: ContractId Mod:T) (e₂: Int64) → ⸨ exercise @Mod:T ChTmpl e₁ e₂⸩" -> //
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.TemplateChoice(_, _), Reference.TemplateChoice(_, _)),
+                  LookupError
+                    .NotFound(Reference.TemplateChoice(_, _), Reference.TemplateChoice(_, _)),
                 ) =>
           },
         E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: σ) → ⸨ exercise @Mod:T Ch e₁ e₂ ⸩" -> //
@@ -824,7 +846,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         E"λ (e₁: ContractId Mod:I) (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:I ChTmpl e₁ e₂ ⸩" -> {
           case EUnknownDefinition(
                 _,
-                LookupError(Reference.Template(_), Reference.TemplateChoice(_, _)),
+                LookupError.NotFound(Reference.Template(_), Reference.TemplateChoice(_, _)),
               ) =>
             // We double check that Ti implements I and Ti has a choice ChTmpl
             val TTyCon(conI) = t"Mod:I"
@@ -842,14 +864,15 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Interface(_), Reference.InterfaceChoice(_, _)),
+                  LookupError.NotFound(Reference.Interface(_), Reference.InterfaceChoice(_, _)),
                 ) =>
           },
         E"λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: Mod:I → Bool)  → ⸨ exercise_interface_with_guard @Mod:I Not e₁ e₂ e₃ ⸩" -> //
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.TemplateChoice(_, _), Reference.InterfaceChoice(_, _)),
+                  LookupError
+                    .NotFound(Reference.TemplateChoice(_, _), Reference.InterfaceChoice(_, _)),
                 ) =>
           },
         E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: σ) (e₃: Mod:I → Bool) → ⸨ exercise_interface_with_guard @Mod:T ChIface e₁ e₂ e₃ ⸩" -> //
@@ -867,7 +890,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Interface(_), Reference.InterfaceChoice(_, _)),
+                  LookupError.NotFound(Reference.Interface(_), Reference.InterfaceChoice(_, _)),
                 ) =>
               // We double check that Ti implements I and Ti has a choice ChTmpl
               val TTyCon(conI) = t"Mod:I"
@@ -885,7 +908,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Template(_), Reference.Template(_)),
+                  LookupError.NotFound(Reference.Template(_), Reference.Template(_)),
                 ) =>
           },
         E"Λ (σ : ⋆). λ (e: σ) → ⸨ fetch_template @Mod:T e ⸩" -> //
@@ -895,7 +918,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Interface(_), Reference.Interface(_)),
+                  LookupError.NotFound(Reference.Interface(_), Reference.Interface(_)),
                 ) =>
           },
         E"Λ (σ : ⋆). λ (e: σ) → ⸨ fetch_interface @Mod:I e ⸩" -> //
@@ -905,7 +928,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Template(_), Reference.TemplateKey(_)),
+                  LookupError.NotFound(Reference.Template(_), Reference.TemplateKey(_)),
                 ) =>
           },
         E"""⸨ fetch_by_key @Mod:T "Bob" ⸩""" -> //
@@ -920,7 +943,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Interface(_), Reference.InterfaceInstance(_, _)),
+                  LookupError.NotFound(Reference.Interface(_), Reference.InterfaceInstance(_, _)),
                 ) =>
           },
         E"""λ (t: Mod:Ti) → ⸨ to_interface @Mod:I @Mod:T t  ⸩""" -> //
@@ -932,7 +955,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Template(_), Reference.InterfaceInstance(_, _)),
+                  LookupError.NotFound(Reference.Template(_), Reference.InterfaceInstance(_, _)),
                 ) =>
           },
         E"λ (i: Mod:I) → ⸨ from_interface @Mod:I @Mod:T i ⸩" -> //
@@ -944,14 +967,14 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Interface(_), Reference.Method(_, _)),
+                  LookupError.NotFound(Reference.Interface(_), Reference.Method(_, _)),
                 ) =>
           },
         E"λ (i: Mod:I) → ⸨  call_method @Mod:I getParty i ⸩" -> //
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Method(_, _), Reference.Method(_, _)),
+                  LookupError.NotFound(Reference.Method(_, _), Reference.Method(_, _)),
                 ) =>
           },
         E"Λ (σ : ⋆). λ (e: σ) → ⸨ call_method @Mod:I getParties e ⸩" -> //
@@ -961,7 +984,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Interface(_), Reference.Interface(_)),
+                  LookupError.NotFound(Reference.Interface(_), Reference.Interface(_)),
                 ) =>
           },
         // ESignatoryInterface - argument must be an interface
@@ -969,7 +992,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Interface(_), Reference.Interface(_)),
+                  LookupError.NotFound(Reference.Interface(_), Reference.Interface(_)),
                 ) =>
           },
         // EObserverInterface - argument must be an interface
@@ -977,7 +1000,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Interface(_), Reference.Interface(_)),
+                  LookupError.NotFound(Reference.Interface(_), Reference.Interface(_)),
                 ) =>
           },
       )

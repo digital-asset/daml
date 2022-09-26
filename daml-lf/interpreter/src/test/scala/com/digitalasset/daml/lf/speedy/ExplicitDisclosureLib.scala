@@ -282,7 +282,7 @@ object ExplicitDisclosureLib {
     val machine =
       Speedy.Machine.fromUpdateSExpr(
         pkg,
-        transactionSeed = crypto.Hash.hashPrivateKey("ExplicitDisclosureTest"),
+        transactionSeed = crypto.Hash.hashPrivateKey("ExplicitDisclosureLib"),
         updateSE = runUpdateSExpr(sexpr),
         committers = committers,
         disclosedContracts = disclosedContracts,
@@ -309,22 +309,6 @@ object ExplicitDisclosureLib {
         expectedResult == actualResult,
         s"Failed with unexpected inactive contracts: $expectedResult != $actualResult $debugMessage",
         s"Failed with unexpected inactive contracts: $expectedResult == $actualResult",
-      )
-  }
-
-  def haveCachedContractIds(contractIds: ContractId*): Matcher[Speedy.OnLedger] = Matcher {
-    ledger =>
-      val expectedResult = contractIds.toSet
-      val actualResult = ledger.cachedContracts.keySet
-      val debugMessage = Seq(
-        s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_))}",
-        s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_))}",
-      ).mkString("\n  ", "\n  ", "")
-
-      MatchResult(
-        expectedResult == actualResult,
-        s"Failed with unexpected cached contracts: $expectedResult != $actualResult $debugMessage",
-        s"Failed with unexpected cached contracts: $expectedResult == $actualResult",
       )
   }
 

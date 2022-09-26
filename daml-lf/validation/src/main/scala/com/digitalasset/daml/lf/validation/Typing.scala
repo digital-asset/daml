@@ -588,6 +588,7 @@ private[validation] object Typing {
         templateId: TypeConName,
     ): PackageInterface.InterfaceInstanceInfo = {
       pkgInterface.lookupInterfaceInstance(interfaceId, templateId) match {
+        case Right(iiInfo) => iiInfo
         case Left(err) =>
           err match {
             case lookupErr: LookupError.NotFound =>
@@ -604,7 +605,6 @@ private[validation] object Typing {
                 ambiIfaceErr.instance.templateName,
               )
           }
-        case Right(iiInfo) => iiInfo
       }
     }
 

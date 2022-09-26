@@ -178,13 +178,6 @@ class SequenceSpec
     update3 shouldBe transactionAccepted(3)
   }
 
-  it should "validate party allocation if disabled" in new TestContext {
-    val Seq((offset, update)) =
-      sequenceWithoutPartyAllocationValidation()(input(txWithUnallocatedParty))
-    offset shouldBe toOffset(1L)
-    update shouldBe transactionAccepted(1)
-  }
-
   it should "assert internal consistency validation on transaction submission conflicts" in new TestContext {
     // Conflict validation passes on empty Sequencer State
     val Seq((offset1, update1)) =
@@ -342,8 +335,6 @@ class SequenceSpec
     val maxDeduplicationDuration: Duration = Duration.ofDays(1L)
 
     val sequenceImpl: SequenceImpl = buildSequence()
-    val sequenceWithoutPartyAllocationValidation: SequenceImpl =
-      buildSequence(validatePartyAllocation = false)
     val sequence: Validation[(Offset, PreparedSubmission)] => Iterable[(Offset, Update)] =
       sequenceImpl()
 
@@ -490,13 +481,11 @@ class SequenceSpec
     }
 
     def buildSequence(
-        validatePartyAllocation: Boolean = true,
-        initialLedgerConfiguration: Option[Configuration] = initialLedgerConfiguration,
+        initialLedgerConfiguration: Option[Configuration] = initialLedgerConfiguration
     ) = new SequenceImpl(
       participantId = Ref.ParticipantId.assertFromString(participantName),
       bridgeMetrics = bridgeMetrics,
       timeProvider = timeProviderMock,
-      validatePartyAllocation = validatePartyAllocation,
       initialLedgerEnd = Offset.beforeBegin,
       initialAllocatedParties = allocatedInformees,
       initialLedgerConfiguration = initialLedgerConfiguration,

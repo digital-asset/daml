@@ -9,6 +9,7 @@ module DA.Daml.LFConversion.ConvertM (
     withRange,
     freshTmVar,
     resetFreshVarCounters,
+    conversionWarning,
     conversionError,
     unsupported,
     unknown,
@@ -47,6 +48,7 @@ data ConversionEnv = ConversionEnv
 
 data ConversionState = ConversionState
     { freshTmVarCounter :: Int
+    , warnings :: [FileDiagnostic]
     }
 
 newtype ConvertM a = ConvertM (ReaderT ConversionEnv (StateT ConversionState (Except FileDiagnostic)) a)
@@ -55,11 +57,16 @@ newtype ConvertM a = ConvertM (ReaderT ConversionEnv (StateT ConversionState (Ex
 instance MonadFail ConvertM where
     fail = conversionError
 
-runConvertM :: ConversionEnv -> ConvertM a -> Either FileDiagnostic a
-runConvertM s (ConvertM a) = runExcept (evalStateT (runReaderT a s) st0)
+-- The left case is for the single error thrown, the right case for a list of
+-- non-fatal warnings
+runConvertM :: ConversionEnv -> ConvertM a -> Either FileDiagnostic (a, [FileDiagnostic])
+runConvertM s (ConvertM a) = runExcept $ do
+  (a, convState) <- runStateT (runReaderT a s) st0
+  pure (a, reverse $ warnings convState)
   where
     st0 = ConversionState
         { freshTmVarCounter = 0
+        , warnings = []
         }
 
 withRange :: Maybe SourceLoc -> ConvertM a -> ConvertM a
@@ -88,6 +95,21 @@ conversionError msg = do
       , _relatedInformation = Nothing
       , _tags = Nothing
       }
+
+conversionWarning :: String -> ConvertM ()
+conversionWarning msg = do
+  ConversionEnv{..} <- ask
+  let diagnostic = Diagnostic
+        { _range = maybe noRange sourceLocToRange convRange
+        , _severity = Just DsWarning
+        , _source = Just "Core to Daml-LF"
+        , _message = T.pack msg
+        , _code = Nothing
+        , _relatedInformation = Nothing
+        , _tags = Nothing
+        }
+      fileDiagnostic = (convModuleFilePath, ShowDiag, diagnostic)
+  modify $ \s -> s { warnings = fileDiagnostic : warnings s }
 
 unsupported :: (HasCallStack, Outputable a) => String -> a -> ConvertM e
 unsupported typ x = conversionError errMsg

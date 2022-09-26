@@ -33,11 +33,7 @@ import com.daml.platform.apiserver.meteringreport.MeteringReportKey
 import com.daml.platform.apiserver.services._
 import com.daml.platform.apiserver.services.admin._
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService
-import com.daml.platform.configuration.{
-  CommandConfiguration,
-  InitialLedgerConfiguration,
-  PartyConfiguration,
-}
+import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration}
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.{GrpcHealthService, GrpcTransactionService}
 import com.daml.platform.services.time.TimeProviderType
@@ -79,7 +75,6 @@ private[daml] object ApiServices {
       configurationLoadTimeout: Duration,
       initialLedgerConfiguration: Option[InitialLedgerConfiguration],
       commandConfig: CommandConfiguration,
-      partyConfig: PartyConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -91,6 +86,7 @@ private[daml] object ApiServices {
       userManagementConfig: UserManagementConfig,
       apiStreamShutdownTimeout: scala.concurrent.duration.Duration,
       meteringReportKey: MeteringReportKey,
+      explicitDisclosureUnsafeEnabled: Boolean,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -257,17 +253,14 @@ private[daml] object ApiServices {
         val apiSubmissionService = ApiSubmissionService.create(
           ledgerId,
           writeService,
-          partyManagementService,
           timeProvider,
           timeProviderType,
           ledgerConfigurationSubscription,
           seedService,
           commandExecutor,
           checkOverloaded,
-          ApiSubmissionService.Configuration(
-            partyConfig.implicitPartyAllocation
-          ),
           metrics,
+          explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
         )
 
         // Note: the command service uses the command submission, command completion, and transaction
@@ -291,6 +284,7 @@ private[daml] object ApiServices {
           timeProvider = timeProvider,
           ledgerConfigurationSubscription = ledgerConfigurationSubscription,
           metrics = metrics,
+          explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
         )
 
         val apiPartyManagementService = ApiPartyManagementService.createApiService(

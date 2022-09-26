@@ -295,6 +295,13 @@ prettyScenarioErrorError (Just err) =  do
                   (prettyContractRef world)
                   scenarioError_ContractNotActiveContractRef
         ]
+    ScenarioErrorErrorDisclosedContractKeyHashingError(ScenarioError_DisclosedContractKeyHashingError contractId templateId reason) ->
+      pure $ vcat
+        [ "Failed to cache disclosed contract key"
+        , label_ "Contract:" $ prettyMay "<missing contract>" (prettyContractRef world) contractId
+        , label_ "Template:" $ prettyMay "<missing template id>" (prettyDefName world) templateId
+        , label_ "Reason:" $ ltext reason
+        ]
     ScenarioErrorErrorCreateEmptyContractKeyMaintainers ScenarioError_CreateEmptyContractKeyMaintainers{..} ->
       pure $ vcat
         [ "Attempt to create a contract key with an empty set of maintainers:"
@@ -482,34 +489,11 @@ prettyScenarioErrorError (Just err) =  do
               (prettyDefName world)
               scenarioError_ContractDoesNotImplementRequiringInterfaceRequiringInterfaceId
         ]
-    ScenarioErrorErrorDisclosurePreprocessingDuplicateContractIds(ScenarioError_DisclosurePreprocessingDuplicateContractIds templateId) ->
-      pure $ vcat
-        [ "Found duplicate contract IDs in submitted disclosed contracts"
-        , label_ "Template: " $ prettyMay "missing template" (prettyDefName world) templateId
-        ]
     ScenarioErrorErrorDisclosurePreprocessingDuplicateContractKeys(ScenarioError_DisclosurePreprocessingDuplicateContractKeys templateId keyHash) ->
       pure $ vcat
         [ "Found duplicate contract keys in submitted disclosed contracts"
         , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
         , label_ "Key Hash: " $ ltext keyHash
-        ]
-    ScenarioErrorErrorDisclosurePreprocessingNonExistentTemplate(ScenarioError_DisclosurePreprocessingNonExistentTemplate templateId) ->
-      pure $ vcat
-        [ "Disclosed contract template does not exist"
-        , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
-        ]
-    ScenarioErrorErrorDisclosurePreprocessingNonExistentDisclosedContractKeyHash(ScenarioError_DisclosurePreprocessingNonExistentDisclosedContractKeyHash contractId templateId) ->
-      pure $ vcat
-        [ "Template has a key defined, but there is no key hash for disclosed contract"
-        , label_ "Disclosed Contract: " $ prettyContractId contractId
-        , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
-        ]
-    ScenarioErrorErrorInconsistentDisclosureTableIncorrectlyTypedContract(ScenarioError_InconsistentDisclosureTableIncorrectlyTypedContract contractId expectedTemplateId actualTemplateId) ->
-      pure $ vcat
-        [ "Inconsistent disclosure table: invalid key hash mapping"
-        , label_ "Disclosed contract: " $ prettyContractId contractId
-        , label_ "Expected template: " $ prettyMay "<missing template>" (prettyDefName world) expectedTemplateId
-        , label_ "Actual template: " $ prettyMay "<missing template>" (prettyDefName world) actualTemplateId
         ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass

@@ -77,6 +77,8 @@ import GHC.Conc
 import "ghc-lib-parser" Module (unitIdString, stringToUnitId)
 import qualified Network.Socket as NS
 import Options.Applicative.Extended
+import Options.Applicative hiding (option, strOption)
+import qualified Options.Applicative (option)
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
 import System.Directory.Extra
@@ -157,7 +159,7 @@ cmdCompile numProcessors =
         <*> outputFileOpt
         <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
         <*> optWriteIface
-        <*> optional (strOption $ long "iface-dir" <> metavar "IFACE_DIR" <> help "Directory for interface files")
+        <*> optional (strOptionOnce $ long "iface-dir" <> metavar "IFACE_DIR" <> help "Directory for interface files")
 
     optWriteIface =
         fmap WriteInterface $
@@ -218,7 +220,7 @@ cmdTest numProcessors =
       <*> initPkgDbOpt
     filesOpt = optional (flag' () (long "files" <> help filesDoc) *> many inputFileOpt)
     filesDoc = "Only run test declarations in the specified files."
-    junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
+    junitOutput = optional $ strOptionOnce $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
     colorOutput = switch $ long "color" <> help "Colored test results"
     showCoverageOpt = switch $ long "show-coverage" <> help "Show detailed test coverage"
     runAllTests = switch $ long "all" <> help "Run tests in current project as well as dependencies"
@@ -260,7 +262,7 @@ cmdInspect =
     jsonOpt = switch $ long "json" <> help "Output the raw Protocol Buffer structures as JSON"
     detailOpt =
         fmap (maybe DA.Pretty.prettyNormal DA.Pretty.PrettyLevel) $
-            optional $ option auto $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)"
+            optional $ optionOnce auto $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)"
     cmd = execInspect <$> inputFileOptWithExt ".dalf or .dar" <*> outputFileOpt <*> jsonOpt <*> detailOpt
 
 cmdVisual :: Mod CommandFields Command
@@ -302,30 +304,30 @@ cmdRepl numProcessors =
             <$> many (strArgument (help "DAR to load in the repl" <> metavar "DAR"))
             <*> many packageImport
             <*> optional
-                  ((,) <$> strOption (long "ledger-host" <> help "Host of the ledger API")
-                       <*> strOption (long "ledger-port" <> help "Port of the ledger API")
+                  ((,) <$> strOptionOnce (long "ledger-host" <> help "Host of the ledger API")
+                       <*> strOptionOnce (long "ledger-port" <> help "Port of the ledger API")
                   )
             <*> accessTokenFileFlag
             <*> optional
                   (ReplClient.ApplicationId <$>
-                     strOption
+                     strOptionOnce
                        (long "application-id" <>
                         help "Application ID used for command submissions"
                        )
                   )
             <*> sslConfig
             <*> optional
-                    (option auto $
+                    (optionOnce auto $
                         long "max-inbound-message-size" <>
                         help "Optional max inbound message size in bytes."
                     )
             <*> timeModeFlag
             <*> projectOpts "daml repl"
             <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
-            <*> strOption (long "script-lib" <> value "daml-script" <> internal)
+            <*> strOptionOnce (long "script-lib" <> value "daml-script" <> internal)
             -- This is useful for tests and `bazel run`.
 
-    packageImport = option readPackage $
+    packageImport = Options.Applicative.option readPackage $
         long "import"
         <> short 'i'
         <> help "Import modules of these packages into the REPL"
@@ -337,7 +339,7 @@ cmdRepl numProcessors =
             unless (looksLikePackageName strName) $
                 Left $ "Illegal package name: " ++ strName
             pure pkg
-    accessTokenFileFlag = optional . option str $
+    accessTokenFileFlag = optional . optionOnce str $
         long "access-token-file"
         <> metavar "TOKEN_PATH"
         <> help "Path to the token-file for ledger authorization"
@@ -348,17 +350,17 @@ cmdRepl numProcessors =
             [ long "tls"
             , help "Enable TLS for the connection to the ledger. This is implied if --cacrt, --pem or --crt are passed"
             ]
-        mbCACert <- optional $ strOption $ mconcat
+        mbCACert <- optional $ strOptionOnce $ mconcat
             [ long "cacrt"
             , help "The crt file to be used as the trusted root CA."
             ]
         mbClientKeyCertPair <- optional $ liftA2 ReplClient.ClientSSLKeyCertPair
-            (strOption $ mconcat
+            (strOptionOnce $ mconcat
                  [ long "pem"
                  , help "The pem file to be used as the private key in mutual authentication."
                  ]
             )
-            (strOption $ mconcat
+            (strOptionOnce $ mconcat
                  [ long "crt"
                  , help "The crt file to be used as the cert chain in mutual authentication."
                  ]
