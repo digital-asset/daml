@@ -3,7 +3,6 @@
 
 package com.daml.http
 
-import com.daml.http.domain.TemplateId.RequiredPkg
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.http.domain.{
   ActiveContract,
@@ -15,7 +14,6 @@ import com.daml.http.domain.{
   ExerciseCommand,
   ExerciseResponse,
   JwtWritePayload,
-  TemplateId,
 }
 import com.daml.http.util.ClientUtil.uniqueCommandId
 import com.daml.http.util.FutureUtil._
