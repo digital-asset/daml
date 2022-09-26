@@ -7,7 +7,6 @@ import com.daml.error.ErrorsAssertions
 import org.scalatest.{EitherValues, OptionValues}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
-import com.daml.platform.apiserver.update.UpdatePathModifier._
 
 class UpdatePathsTrieSpec
     extends AnyFreeSpec
@@ -31,19 +30,19 @@ class UpdatePathsTrieSpec
     val tree = UpdatePathsTrie.fromPaths(allPaths).value
 
     "proper subtrees" in {
-      tree.findPath(List("a1")) shouldBe None
-      tree.findPath(List.empty) shouldBe None
-      tree.findPath(List("a1", "b2")) shouldBe None
+      tree.pathExists(List("a1")) shouldBe false
+      tree.pathExists(List.empty) shouldBe false
+      tree.pathExists(List("a1", "b2")) shouldBe false
     }
     "non-existing subtrees" in {
-      tree.findPath(List("a1", "b2", "dummy")) shouldBe None
-      tree.findPath(List("dummy")) shouldBe None
-      tree.findPath(List("")) shouldBe None
+      tree.pathExists(List("a1", "b2", "dummy")) shouldBe false
+      tree.pathExists(List("dummy")) shouldBe false
+      tree.pathExists(List("")) shouldBe false
     }
     "existing but empty subtrees" in {
-      tree.findPath(List("b1")) shouldBe Some(UpdatePathModifier.NoModifier)
-      tree.findPath(List("a1", "b2", "c3")) shouldBe Some(UpdatePathModifier.NoModifier)
-      tree.findPath(List("a1", "b2", "d3", "b4")) shouldBe Some(UpdatePathModifier.NoModifier)
+      tree.pathExists(List("b1")) shouldBe true
+      tree.pathExists(List("a1", "b2", "c3")) shouldBe true
+      tree.pathExists(List("a1", "b2", "d3", "b4")) shouldBe true
     }
   }
 
@@ -54,8 +53,8 @@ class UpdatePathsTrieSpec
           UpdatePath.parseAll(Seq("foo")).value
         )
         .value shouldBe UpdatePathsTrie(
-        None,
-        "foo" -> UpdatePathsTrie(Some(NoModifier)),
+        exists = false,
+        "foo" -> UpdatePathsTrie(exists = true),
       )
     }
     "from one path with multiple segments" in {
@@ -64,13 +63,13 @@ class UpdatePathsTrieSpec
           UpdatePath.parseAll(Seq("foo.bar.baz")).value
         )
         .value shouldBe UpdatePathsTrie(
-        None,
+        exists = false,
         "foo" -> UpdatePathsTrie(
-          None,
+          exists = false,
           "bar" -> UpdatePathsTrie(
-            None,
+            exists = false,
             "baz" -> UpdatePathsTrie(
-              Some(NoModifier)
+              exists = true
             ),
           ),
         ),
@@ -83,28 +82,28 @@ class UpdatePathsTrieSpec
             .parseAll(
               Seq(
                 "foo.bar.baz",
-                "foo.bar!merge",
+                "foo.bar",
                 "foo.alice",
                 "bob.eve",
-                "bob!replace",
+                "bob",
               )
             )
             .value
         )
         .value
       t shouldBe UpdatePathsTrie(
-        None,
+        exists = false,
         "foo" -> UpdatePathsTrie(
-          None,
+          exists = false,
           "bar" -> UpdatePathsTrie(
-            Some(Merge),
-            "baz" -> UpdatePathsTrie(Some(NoModifier)),
+            exists = true,
+            "baz" -> UpdatePathsTrie(exists = true),
           ),
-          "alice" -> UpdatePathsTrie(Some(NoModifier)),
+          "alice" -> UpdatePathsTrie(exists = true),
         ),
         "bob" -> UpdatePathsTrie(
-          Some(Replace),
-          "eve" -> UpdatePathsTrie(Some(NoModifier)),
+          exists = true,
+          "eve" -> UpdatePathsTrie(exists = true),
         ),
       )
     }
@@ -141,13 +140,13 @@ class UpdatePathsTrieSpec
           .parseAll(
             Seq(
               "foo.bar",
-              "foo.bar!merge",
+              "foo.bar",
             )
           )
           .value
       )
       .left
-      .value shouldBe UpdatePathError.DuplicatedFieldPath("foo.bar!merge")
+      .value shouldBe UpdatePathError.DuplicatedFieldPath("foo.bar")
   }
 
 }

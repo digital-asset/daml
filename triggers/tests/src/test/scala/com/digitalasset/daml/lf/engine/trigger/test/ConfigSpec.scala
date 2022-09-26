@@ -6,7 +6,7 @@ package test
 
 import java.nio.file.Paths
 
-import com.daml.ledger.api.domain.{User, UserRight}
+import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.client.LedgerClient
@@ -18,11 +18,11 @@ import com.daml.ledger.client.configuration.{
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.platform.sandbox.fixture.SandboxFixture
-
 import io.grpc.StatusRuntimeException
 import io.grpc.Status.Code
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+
 import scala.language.implicitConversions
 
 class ConfigSpec
@@ -100,7 +100,7 @@ class ConfigSpec
         client <- LedgerClient(channel, clientConfig)
         userId = randomUserId()
         _ <- client.userManagementClient.createUser(
-          User(userId, Some("primary")),
+          User(userId, Some("primary"), isDeactivated = false, metadata = ObjectMeta.empty),
           Seq(
             UserRight.CanActAs("primary"),
             UserRight.CanActAs("alice"),
@@ -122,7 +122,10 @@ class ConfigSpec
       for {
         client <- LedgerClient(channel, clientConfig)
         userId = randomUserId()
-        _ <- client.userManagementClient.createUser(User(userId, None), Seq.empty)
+        _ <- client.userManagementClient.createUser(
+          User(userId, None, false, ObjectMeta.empty),
+          Seq.empty,
+        )
         ex <- recoverToExceptionIf[IllegalArgumentException](
           UserSpecification(userId).resolveClaims(client)
         )
@@ -132,7 +135,10 @@ class ConfigSpec
       for {
         client <- LedgerClient(channel, clientConfig)
         userId = randomUserId()
-        _ <- client.userManagementClient.createUser(User(userId, Some("primary")), Seq.empty)
+        _ <- client.userManagementClient.createUser(
+          User(userId, Some("primary"), false, ObjectMeta.empty),
+          Seq.empty,
+        )
         ex <- recoverToExceptionIf[IllegalArgumentException](
           UserSpecification(userId).resolveClaims(client)
         )

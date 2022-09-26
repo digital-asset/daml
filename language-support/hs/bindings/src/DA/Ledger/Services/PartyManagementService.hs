@@ -88,4 +88,5 @@ allocateParty request =
         lowerRequest AllocatePartyRequest{..} = do
             let allocatePartyRequestPartyIdHint = partyIdHint
             let allocatePartyRequestDisplayName = displayName
+            let allocatePartyRequestLocalMetadata = Nothing
             LL.AllocatePartyRequest {..}

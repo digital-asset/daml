@@ -9,7 +9,6 @@ import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.User
 import com.daml.ledger.participant.state.index.v2.{UserManagementStore, UserUpdate}
-import com.daml.ledger.participant.state.index.v2.AnnotationsUpdate
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
   Result,
   TooManyUserRights,
@@ -22,7 +21,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
-import com.daml.ledger.participant.state.index.ResourceAnnotationValidation
+import com.daml.ledger.participant.state.index.{LocalAnnotationsUtils, ResourceAnnotationValidation}
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.backend.UserManagementStorageBackend
 import com.daml.platform.usermanagement.PersistentUserManagementStore.{
@@ -197,21 +196,18 @@ class PersistentUserManagementStore(
               )(connection)
           }
           // Step 2: Update annotations
-          userUpdate.metadataUpdate.annotationsUpdateO.foreach { annotationsUpdate =>
-            val updatedAnnotations = annotationsUpdate match {
-              case AnnotationsUpdate.Merge(newAnnotations) => {
-                val existingAnnotations =
-                  backend.getUserAnnotations(dbUser.internalId)(connection)
-                val combined = existingAnnotations.concat(newAnnotations)
-                if (
-                  !ResourceAnnotationValidation
-                    .isWithinMaxAnnotationsByteSize(combined)
-                ) {
-                  throw MaxAnnotationsSizeExceededException(userId = userUpdate.id)
-                }
-                combined
-              }
-              case AnnotationsUpdate.Replace(newAnnotations) => newAnnotations
+          userUpdate.metadataUpdate.annotationsUpdateO.foreach { newAnnotations =>
+            val existingAnnotations =
+              backend.getUserAnnotations(dbUser.internalId)(connection)
+            val updatedAnnotations = LocalAnnotationsUtils.calculateUpdatedAnnotations(
+              newValue = newAnnotations,
+              existing = existingAnnotations,
+            )
+            if (
+              !ResourceAnnotationValidation
+                .isWithinMaxAnnotationsByteSize(updatedAnnotations)
+            ) {
+              throw MaxAnnotationsSizeExceededException(userId = userUpdate.id)
             }
             backend.deleteUserAnnotations(internalId = dbUser.internalId)(connection)
             updatedAnnotations.iterator.foreach { case (key, value) =>

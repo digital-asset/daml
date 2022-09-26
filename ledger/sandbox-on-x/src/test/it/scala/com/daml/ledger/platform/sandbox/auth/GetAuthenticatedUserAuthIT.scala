@@ -11,8 +11,10 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
 }
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import org.scalatest.Assertion
-
 import java.util.UUID
+
+import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
+
 import scala.concurrent.Future
 
 /** Tests covering the special behaviour of GetUser wrt the authenticated user. */
@@ -49,7 +51,15 @@ class GetAuthenticatedUserAuthIT extends ServiceCallAuthTests {
     .setHappyCase(
       "Ledger API client can make a call with a standard JWT"
     ) in {
-    expectUser(canReadAsAdminStandardJWT, User("participant_admin", ""))
+    expectUser(
+      canReadAsAdminStandardJWT,
+      User(
+        "participant_admin",
+        "",
+        isDeactivated = false,
+        metadata = Some(ObjectMeta("0", Map.empty)),
+      ),
+    )
   }
 
   it should "return invalid argument for custom token" taggedAs securityAsset.setAttack(

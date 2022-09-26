@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.time.{Clock, Instant}
+
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
@@ -33,6 +34,7 @@ import com.daml.ledger.api.v1.admin.config_management_service.{
   SetTimeModelResponse,
   TimeModel,
 }
+import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.admin.package_management_service.{
   ListKnownPackagesRequest,
   PackageDetails,
@@ -41,10 +43,15 @@ import com.daml.ledger.api.v1.admin.package_management_service.{
 import com.daml.ledger.api.v1.admin.participant_pruning_service.{PruneRequest, PruneResponse}
 import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
+  AllocatePartyResponse,
   GetParticipantIdRequest,
   GetPartiesRequest,
+  GetPartiesResponse,
   ListKnownPartiesRequest,
+  ListKnownPartiesResponse,
   PartyDetails,
+  UpdatePartyDetailsRequest,
+  UpdatePartyDetailsResponse,
 }
 import com.daml.ledger.api.v1.command_completion_service.{
   Checkpoint,
@@ -140,6 +147,7 @@ final class SingleParticipantTestContext private[participant] (
   private[this] val workflowId: String = s"$applicationId-$identifierSuffix"
   override val nextKeyId: () => String = nextIdGenerator("key")
   override val nextUserId: () => String = nextIdGenerator("user", lowerCase = true)
+  override val nextPartyId: () => String = nextIdGenerator("party", lowerCase = true)
 
   override lazy val delayMechanism: DelayMechanism = if (features.staticTime) {
     new StaticTimeDelayMechanism(this)
@@ -217,20 +225,35 @@ final class SingleParticipantTestContext private[participant] (
       .map(r => Party(r.partyDetails.get.party))
 
   override def allocateParty(
-      partyIdHint: Option[String],
-      displayName: Option[String],
+      partyIdHint: Option[String] = None,
+      displayName: Option[String] = None,
+      localMetadata: Option[ObjectMeta] = None,
   ): Future[Party] =
     services.partyManagement
       .allocateParty(
         new AllocatePartyRequest(
           partyIdHint = partyIdHint.getOrElse(""),
           displayName = displayName.getOrElse(""),
+          localMetadata = localMetadata,
         )
       )
       .map(r => Party(r.partyDetails.get.party))
 
+  override def allocateParty(req: AllocatePartyRequest): Future[AllocatePartyResponse] =
+    services.partyManagement
+      .allocateParty(req)
+
+  override def updatePartyDetails(
+      req: UpdatePartyDetailsRequest
+  ): Future[UpdatePartyDetailsResponse] = {
+    services.partyManagement.updatePartyDetails(req)
+  }
+
   override def allocateParties(n: Int): Future[Vector[Party]] =
     Future.sequence(Vector.fill(n)(allocateParty()))
+
+  override def getParties(req: GetPartiesRequest): Future[GetPartiesResponse] =
+    services.partyManagement.getParties(req)
 
   override def getParties(parties: Seq[Party]): Future[Seq[PartyDetails]] =
     services.partyManagement
@@ -241,6 +264,10 @@ final class SingleParticipantTestContext private[participant] (
     services.partyManagement
       .listKnownParties(new ListKnownPartiesRequest())
       .map(_.partyDetails.map(partyDetails => Party(partyDetails.party)).toSet)
+
+  override def listKnownPartiesResp(): Future[ListKnownPartiesResponse] =
+    services.partyManagement
+      .listKnownParties(new ListKnownPartiesRequest())
 
   override def waitForParties(
       otherParticipants: Iterable[ParticipantTestContext],

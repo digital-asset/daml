@@ -4,13 +4,8 @@
 package com.daml.platform.store.platform.partymanagement
 
 import com.daml.ledger.api.domain.{ObjectMeta, ParticipantParty}
-import com.daml.ledger.participant.state.index.v2.AnnotationsUpdate.{Merge, Replace}
-import com.daml.ledger.participant.state.index.v2.PartyRecordStore.{
-  PartyRecordExists,
-  PartyRecordNotFound,
-}
+import com.daml.ledger.participant.state.index.v2.PartyRecordStore.PartyRecordExistsFatal
 import com.daml.ledger.participant.state.index.v2.{
-  AnnotationsUpdate,
   ObjectMetaUpdate,
   PartyRecordStore,
   PartyRecordUpdate,
@@ -56,7 +51,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
 
   def makePartRecordUpdate(
       party: Ref.Party = party1,
-      annotationsUpdateO: Option[AnnotationsUpdate] = None,
+      annotationsUpdateO: Option[Map[String, String]] = None,
   ): PartyRecordUpdate = PartyRecordUpdate(
     party = party,
     metadataUpdate = ObjectMetaUpdate(
@@ -92,7 +87,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
             create1b <- tested.createPartyRecord(newPartyRecord("party1"))
           } yield {
             create1.value shouldBe createdPartyRecord("party1")
-            create1b.left.value shouldBe PartyRecordExists(create1.value.party)
+            create1b.left.value shouldBe PartyRecordExistsFatal(create1.value.party)
           }
         }
       }
@@ -104,21 +99,21 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
           val newPr = newPartyRecord("party1")
           for {
             create1 <- tested.createPartyRecord(newPr)
-            get1 <- tested.getPartyRecord(newPr.party)
+            get1 <- tested.getPartyRecordO(newPr.party)
           } yield {
             create1.value shouldBe createdPartyRecord("party1")
-            get1.value shouldBe createdPartyRecord("party1")
+            get1.value shouldBe Some(createdPartyRecord("party1"))
           }
         }
       }
 
-      "not find a non-existent party record" in {
+      "return None for a non-existent party record" in {
         testIt { tested =>
           val party = Ref.Party.assertFromString("party1")
           for {
-            get1 <- tested.getPartyRecord(party)
+            get1 <- tested.getPartyRecordO(party)
           } yield {
-            get1.left.value shouldBe PartyRecordNotFound(party)
+            get1.value shouldBe None
           }
         }
       }
@@ -136,15 +131,10 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                 party = pr1.party,
                 metadataUpdate = ObjectMetaUpdate(
                   resourceVersionO = create1.value.metadata.resourceVersionO,
-                  annotationsUpdateO = Some(Merge.fromNonEmpty(Map("k1" -> "v1"))),
+                  annotationsUpdateO = Some(Map("k1" -> "v1")),
                 ),
               ),
-              ledgerPartyExists = _ =>
-                Future(
-                  fail(
-                    "Unexpected ledger party existence check while updating an existing participant party record"
-                  )
-                ),
+              ledgerPartyExists = _ => Future.successful(true),
             )
             _ = resetResourceVersion(update1.value) shouldBe newPartyRecord(
               "party1",
@@ -163,11 +153,9 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                 metadataUpdate = ObjectMetaUpdate(
                   resourceVersionO = None,
                   annotationsUpdateO = Some(
-                    Merge.fromNonEmpty(
-                      Map(
-                        "k1" -> "v1",
-                        "k2" -> "v2",
-                      )
+                    Map(
+                      "k1" -> "v1",
+                      "k2" -> "v2",
                     )
                   ),
                 ),
@@ -183,17 +171,15 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
         }
       }
 
-      "should update metadata annotations with both merge and replace semantics" in {
+      "should add, update and remove annotations" in {
         testIt { tested =>
-          val pr = createdPartyRecord("party1", annotations = Map("k1" -> "v1", "k2" -> "v2"))
+          val pr = createdPartyRecord(
+            "party1",
+            annotations = Map("k1" -> "v1", "k2" -> "v2", "k3" -> "v3"),
+          )
           for {
-            create1 <- tested.createPartyRecord(
+            _ <- tested.createPartyRecord(
               partyRecord = pr
-            )
-            _ = create1.value shouldBe createdPartyRecord(
-              "party1",
-              resourceVersion = 0,
-              annotations = Map("k1" -> "v1", "k2" -> "v2"),
             )
             // first update: with merge annotations semantics
             update1 <- tested.updatePartyRecord(
@@ -202,11 +188,13 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                 metadataUpdate = ObjectMetaUpdate(
                   resourceVersionO = None,
                   annotationsUpdateO = Some(
-                    Merge.fromNonEmpty(
-                      Map(
-                        "k1" -> "v1b",
-                        "k3" -> "v3",
-                      )
+                    Map(
+                      // updating
+                      "k1" -> "v1b",
+                      // deleting
+                      "k3" -> "",
+                      // adding
+                      "k4" -> "v4",
                     )
                   ),
                 ),
@@ -216,46 +204,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
             _ = update1.value shouldBe createdPartyRecord(
               "party1",
               resourceVersion = 1,
-              annotations = Map("k1" -> "v1b", "k2" -> "v2", "k3" -> "v3"),
-            )
-            // second update: with replace annotations semantics
-            update2 <- tested.updatePartyRecord(
-              partyRecordUpdate = PartyRecordUpdate(
-                party = pr.party,
-                metadataUpdate = ObjectMetaUpdate(
-                  resourceVersionO = None,
-                  annotationsUpdateO = Some(
-                    Replace(
-                      Map(
-                        "k1" -> "v1c",
-                        "k4" -> "v4",
-                      )
-                    )
-                  ),
-                ),
-              ),
-              ledgerPartyExists = _ => Future.successful(true),
-            )
-            _ = update2.value shouldBe createdPartyRecord(
-              "party1",
-              resourceVersion = 2,
-              annotations = Map("k1" -> "v1c", "k4" -> "v4"),
-            )
-            // third update: with replace annotations semantics - effectively deleting all annotations
-            update3 <- tested.updatePartyRecord(
-              partyRecordUpdate = PartyRecordUpdate(
-                party = pr.party,
-                metadataUpdate = ObjectMetaUpdate(
-                  resourceVersionO = None,
-                  annotationsUpdateO = Some(Replace(Map.empty)),
-                ),
-              ),
-              ledgerPartyExists = _ => Future.successful(true),
-            )
-            _ = update3.value shouldBe createdPartyRecord(
-              "party1",
-              resourceVersion = 3,
-              annotations = Map.empty,
+              annotations = Map("k1" -> "v1b", "k2" -> "v2", "k4" -> "v4"),
             )
           } yield {
             succeed
@@ -272,7 +221,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                 party = party,
                 metadataUpdate = ObjectMetaUpdate(
                   resourceVersionO = None,
-                  annotationsUpdateO = Some(Merge.fromNonEmpty(Map("k1" -> "v1"))),
+                  annotationsUpdateO = Some(Map("k1" -> "v1")),
                 ),
               ),
               ledgerPartyExists = _ => Future.successful(false),
@@ -292,15 +241,10 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                 party = pr.party,
                 metadataUpdate = ObjectMetaUpdate(
                   resourceVersionO = Some(100),
-                  annotationsUpdateO = Some(Merge.fromNonEmpty(Map("k1" -> "v1"))),
+                  annotationsUpdateO = Some(Map("k1" -> "v1")),
                 ),
               ),
-              ledgerPartyExists = _ =>
-                Future(
-                  fail(
-                    "Unexpected ledger party existence check while updating an existing participant party record"
-                  )
-                ),
+              ledgerPartyExists = _ => Future.successful(true),
             )
             _ = res1.left.value shouldBe PartyRecordStore.ConcurrentPartyUpdate(pr.party)
           } yield succeed
@@ -328,9 +272,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
           for {
             _ <- tested.createPartyRecord(pr)
             res1 <- tested.updatePartyRecord(
-              makePartRecordUpdate(annotationsUpdateO =
-                Some(Merge.fromNonEmpty(Map("k2" -> bigValue)))
-              ),
+              makePartRecordUpdate(annotationsUpdateO = Some(Map("k2" -> bigValue))),
               ledgerPartyExists = (_ => Future.successful(true)),
             )
             _ = res1.left.value shouldBe PartyRecordStore.MaxAnnotationsSizeExceeded(pr.party)
@@ -344,7 +286,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
           for {
             res1 <- tested.updatePartyRecord(
               makePartRecordUpdate(annotationsUpdateO =
-                Some(Merge.fromNonEmpty(Map("k1" -> bigValue, "k2" -> bigValue)))
+                Some(Map("k1" -> bigValue, "k2" -> bigValue))
               ),
               ledgerPartyExists = (_ => Future.successful(true)),
             )

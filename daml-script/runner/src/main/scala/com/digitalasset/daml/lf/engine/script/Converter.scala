@@ -739,7 +739,7 @@ object Converter {
 
   def toUser(v: SValue): Either[String, User] =
     v match {
-      case SRecord(_, _, vals) if vals.size == 2 =>
+      case SRecord(_, _, vals) if vals.size >= 2 =>
         for {
           id <- toUserId(vals.get(0))
           primaryParty <- toOptional(vals.get(1), toParty)
