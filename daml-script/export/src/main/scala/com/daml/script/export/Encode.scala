@@ -355,6 +355,13 @@ private[export] object Encode {
 
   }
 
+  private def variantFieldsRecordId(
+      variant: Variant
+  ): Identifier =
+    variant.getVariantId.withEntityName(
+      variant.getVariantId.entityName + "." + variant.constructor
+    )
+
   // TODO Handle sums of products properly
   // https://github.com/digital-asset/daml/issues/14723
   private def encodeVariant(
@@ -362,10 +369,18 @@ private[export] object Encode {
       cidMap: Map[ContractId, String],
       v: Variant,
   ): Doc = {
-    parens(
-      qualifyId(v.getVariantId.copy(entityName = v.constructor)) +
-        Doc.text(" ") + encodeValue(partyMap, cidMap, v.getValue.sum)
-    )
+    val constrId = v.getVariantId.copy(entityName = v.constructor)
+    v.getValue.sum match {
+      case Sum.Record(rec) if rec.getRecordId == variantFieldsRecordId(v) =>
+        // The record carries the fields of a variant constructor
+        // declared with record syntax, so we encode directly as a record.
+        encodeRecord(partyMap, cidMap, rec.withRecordId(constrId))
+      case _ =>
+        parens(
+          qualifyId(constrId) +
+            Doc.text(" ") + encodeValue(partyMap, cidMap, v.getValue.sum)
+        )
+    }
   }
 
   private def encodeField(
