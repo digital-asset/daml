@@ -172,9 +172,15 @@ object WebSocketService {
         identity,
       )(_ append _)
   }
-
+  // TODO fix Ray pass in the resolve functions to the StreamQueryReader instances
   sealed abstract class StreamQueryReader[A] {
     case class Query[Q](q: Q, alg: StreamQuery[Q])
+    case class WSResolvedQuery[Q](
+        offPrefix: Option[StartingOffset],
+        query: Query[Q],
+        resolvedQuery: domain.ResolvedQuery,
+    )
+
     def parse(
         resumingAtOffset: Boolean,
         decoder: DomainJsonDecoder,
@@ -184,6 +190,11 @@ object WebSocketService {
     )(implicit
         lc: LoggingContextOf[InstanceUUID]
     ): Future[Error \/ (_ <: Query[_])]
+
+    def resolve[Q](
+        offPrefix: Option[StartingOffset],
+        query: Query[Q],
+    ): Future[Error \/ WSResolvedQuery[Q]]
   }
 
   sealed trait StreamQuery[A] {
@@ -247,6 +258,14 @@ object WebSocketService {
             .liftErr[Error](InvalidUserInput)
             .map(Query(_, this))
         )
+      }
+
+      override def resolve[Q](
+          offPrefix: Option[StartingOffset],
+          query: Query[Q],
+      ) = {
+        // TODO Fix Ray
+        Future.successful(\/-(WSResolvedQuery(offPrefix, query, ResolvedQuery.Empty)))
       }
 
       override def removePhantomArchives(request: SearchForeverRequest) = None
@@ -422,6 +441,14 @@ object WebSocketService {
         if (resumingAtOffset) go(ResumingEnrichedContractKeyWithStreamQuery())
         else go(InitialEnrichedContractKeyWithStreamQuery())
       }.run
+
+      override def resolve[Q](
+          offPrefix: Option[StartingOffset],
+          query: Query[Q],
+      ) = {
+        // TODO fix Ray
+        Future.successful(\/-(WSResolvedQuery(offPrefix, query, ResolvedQuery.Empty)))
+      }
 
       private def decodeWithFallback[Hint](
           decoder: DomainJsonDecoder,
@@ -648,16 +675,27 @@ class WebSocketService(
           InvalidUserInput("Multiple requests over the same WebSocket connection are not allowed.")
         )
       )
+      .mapAsync(1) { errorOrOffPrefixQuery =>
+        (for {
+          e <- eitherT(Future.successful(errorOrOffPrefixQuery))
+          a <- eitherT(
+            Q.resolve(e._1, e._2): Future[
+              Error \/ Q.WSResolvedQuery[_]
+            ]
+          )
+        } yield a).run
+      }
       .flatMapMerge(
         2, // 2 streams max, the 2nd is to be able to send an error back
-        _.map { case (offPrefix, qq: Q.Query[q]) =>
-          implicit val SQ: StreamQuery[q] = qq.alg
+        _.map { case r: Q.WSResolvedQuery[q] =>
+          // TODO Ray fix downstream to use the WSResolvedQuery instead.
+          implicit val SQ: StreamQuery[q] = r.query.alg
           getTransactionSourceForParty[q](
             jwt,
             toLedgerId(jwtPayload.ledgerId),
             jwtPayload.parties,
-            offPrefix,
-            qq.q: q,
+            r.offPrefix,
+            r.query.q: q,
           )
         }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed],
       )
