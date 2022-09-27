@@ -476,6 +476,7 @@ private[lf] final class PhaseOne(
           case BTextMapDelete => SBMapDelete
           case BTextMapToList => SBMapToList
           case BTextMapSize => SBMapSize
+          case BTextMapRange => SBMapRange
 
           // GenMap
 
@@ -485,6 +486,7 @@ private[lf] final class PhaseOne(
           case BGenMapKeys => SBMapKeys
           case BGenMapValues => SBMapValues
           case BGenMapSize => SBMapSize
+          case BGenMapRange => SBMapRange
 
           case BScaleBigNumeric => SBScaleBigNumeric
           case BPrecisionBigNumeric => SBPrecisionBigNumeric

@@ -450,6 +450,8 @@ object Ast {
   final case object BTextMapToList
       extends BuiltinFunction // : ∀ a. TextMap a -> [Struct("key":Text, "value":a)]
   final case object BTextMapSize extends BuiltinFunction // : ∀ a. TextMap a -> Int64
+  final case object BTextMapRange
+      extends BuiltinFunction // : ∀ a. Optional Text -> Optional Text -> TextMap a -> TextMap a
 
   // Generic Maps
   final case object BGenMapEmpty extends BuiltinFunction // : ∀ a b. GenMap a b
@@ -460,6 +462,8 @@ object Ast {
   final case object BGenMapKeys extends BuiltinFunction // : ∀ a b. GenMap a b -> [a]
   final case object BGenMapValues extends BuiltinFunction // : ∀ a b. GenMap a b -> [b]
   final case object BGenMapSize extends BuiltinFunction // : ∀ a b. GenMap a b -> Int64
+  final case object BGenMapRange
+      extends BuiltinFunction // : ∀ a b. Optional a -> Optional a -> GenMap a b -> GenMap a b
 
   // Text functions
   final case object BExplodeText extends BuiltinFunction // : Text → List Char

@@ -183,6 +183,18 @@ object SValue {
     def delete(key: SValue): SMap =
       SMap(isTextMap, entries - key)
 
+    // Similar as scala TreeMap#rangeImpl but includes both bounds
+    def range(from: Option[SValue], to: Option[SValue]): SMap = {
+      val entries1 = from match {
+        case Some(from) => entries.rangeFrom(from)
+        case None => entries
+      }
+      val entries2 = to match {
+        case Some(to) => entries1.rangeTo(to)
+        case None => entries1
+      }
+      SMap(isTextMap, entries2)
+    }
   }
 
   object SMap {

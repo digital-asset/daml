@@ -2060,6 +2060,7 @@ private[archive] object DecodeV1 {
       BuiltinFunctionInfo(TEXTMAP_DELETE, BTextMapDelete),
       BuiltinFunctionInfo(TEXTMAP_TO_LIST, BTextMapToList),
       BuiltinFunctionInfo(TEXTMAP_SIZE, BTextMapSize),
+      BuiltinFunctionInfo(TEXTMAP_RANGE, BTextMapRange, minVersion = mapRange),
       BuiltinFunctionInfo(GENMAP_EMPTY, BGenMapEmpty, minVersion = genMap),
       BuiltinFunctionInfo(GENMAP_INSERT, BGenMapInsert, minVersion = genMap),
       BuiltinFunctionInfo(GENMAP_LOOKUP, BGenMapLookup, minVersion = genMap),
@@ -2067,6 +2068,7 @@ private[archive] object DecodeV1 {
       BuiltinFunctionInfo(GENMAP_KEYS, BGenMapKeys, minVersion = genMap),
       BuiltinFunctionInfo(GENMAP_VALUES, BGenMapValues, minVersion = genMap),
       BuiltinFunctionInfo(GENMAP_SIZE, BGenMapSize, minVersion = genMap),
+      BuiltinFunctionInfo(GENMAP_RANGE, BGenMapRange, minVersion = mapRange),
       BuiltinFunctionInfo(APPEND_TEXT, BAppendText),
       BuiltinFunctionInfo(ERROR, BError),
       BuiltinFunctionInfo(

@@ -169,6 +169,11 @@ private[validation] object Typing {
           alpha.name -> KStar,
           TTextMap(alpha) ->: TInt64,
         ),
+      BTextMapRange ->
+        TForall(
+          alpha.name -> KStar,
+          TOptional(TText) ->: TOptional(TText) ->: TTextMap(alpha) ->: TTextMap(alpha),
+        ),
       // GenMaps
       BGenMapEmpty ->
         TForall(alpha.name -> KStar, TForall(beta.name -> KStar, TGenMap(alpha, beta))),
@@ -218,6 +223,14 @@ private[validation] object Typing {
           TForall(
             beta.name -> KStar,
             TGenMap(alpha, beta) ->: TInt64,
+          ),
+        ),
+      BGenMapRange ->
+        TForall(
+          alpha.name -> KStar,
+          TForall(
+            beta.name -> KStar,
+            TOptional(alpha) ->: TOptional(alpha) ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta),
           ),
         ),
       // Text functions

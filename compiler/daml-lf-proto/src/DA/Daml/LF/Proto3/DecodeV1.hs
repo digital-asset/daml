@@ -485,6 +485,7 @@ decodeBuiltinFunction = \case
   LF1.BuiltinFunctionTEXTMAP_DELETE     -> pure BETextMapDelete
   LF1.BuiltinFunctionTEXTMAP_TO_LIST    -> pure BETextMapToList
   LF1.BuiltinFunctionTEXTMAP_SIZE       -> pure BETextMapSize
+  LF1.BuiltinFunctionTEXTMAP_RANGE      -> error "TEXTMAP_RANGE not supported"
 
   LF1.BuiltinFunctionGENMAP_EMPTY      -> pure BEGenMapEmpty
   LF1.BuiltinFunctionGENMAP_INSERT     -> pure BEGenMapInsert
@@ -493,6 +494,7 @@ decodeBuiltinFunction = \case
   LF1.BuiltinFunctionGENMAP_KEYS       -> pure BEGenMapKeys
   LF1.BuiltinFunctionGENMAP_VALUES     -> pure BEGenMapValues
   LF1.BuiltinFunctionGENMAP_SIZE       -> pure BEGenMapSize
+  LF1.BuiltinFunctionGENMAP_RANGE      -> error "GENMAP_RANGE not supported"
 
   LF1.BuiltinFunctionEXPLODE_TEXT -> pure BEExplodeText
   LF1.BuiltinFunctionIMPLODE_TEXT -> pure BEImplodeText

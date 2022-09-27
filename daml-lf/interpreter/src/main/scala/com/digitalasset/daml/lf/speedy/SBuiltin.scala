@@ -160,6 +160,12 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
     key
   }
 
+  final protected def getMbSMapKey(args: util.ArrayList[SValue], i: Int): Option[SValue] = {
+    val mbKey = getSOptional(args, i)
+    mbKey.foreach(SMap.comparable(_))
+    mbKey
+  }
+
   final protected def getSRecord(args: util.ArrayList[SValue], i: Int): SRecord =
     args.get(i) match {
       case record: SRecord => record
@@ -670,6 +676,15 @@ private[lf] object SBuiltin {
   final case object SBMapSize extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SInt64 =
       SInt64(getSMap(args, 0).entries.size.toLong)
+  }
+
+  final case object SBMapRange extends SBuiltinPure(3) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SMap = {
+      val from = getMbSMapKey(args, 0)
+      val to = getMbSMapKey(args, 1)
+      val smap = getSMap(args, 2)
+      smap.range(from, to)
+    }
   }
 
   //

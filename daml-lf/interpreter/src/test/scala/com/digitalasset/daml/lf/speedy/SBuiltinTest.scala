@@ -963,7 +963,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         )
       }
 
-      "crash when comparing non comparable keys" in {
+      "crash when given non comparable keys" in {
         val expr1 = e"""$builtin @($eitherT) @Int64 ($leftV) 0 ($emptyMapV)"""
         val expr2 = e"""$builtin @($eitherT) @Int64 ($leftV) 1 ($nonEmptyMapV)"""
         eval(expr1) shouldBe Left(
@@ -989,7 +989,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         eval(e"""$builtin @Text @Int64 "d" $map""") shouldBe Right(SOptional(None))
       }
 
-      "crash when comparing non comparable keys" in {
+      "crash when given non comparable keys" in {
         val expr1 = e"""$builtin @($eitherT) @Int64 ($leftV) ($emptyMapV)"""
         val expr2 = e"""$builtin @($eitherT) @Int64 ($leftV) ($nonEmptyMapV)"""
         eval(expr1) shouldBe Left(
@@ -1027,7 +1027,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         )
       }
 
-      "crash when comparing non comparable keys" in {
+      "crash when given non comparable keys" in {
         val expr1 = e"""$builtin @($eitherT) @Int64 ($leftV) ($emptyMapV)"""
         val expr2 = e"""$builtin @($eitherT) @Int64 ($leftV) ($nonEmptyMapV)"""
         eval(expr1) shouldBe Left(
@@ -1071,7 +1071,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       }
     }
 
-    "TEXTMAP_SIZE" - {
+    "GENMAP_SIZE" - {
       "returns 0 for empty Map" in {
         eval(e"GENMAP_SIZE @Text @Int64 (GENMAP_EMPTY @Text @Int64)") shouldBe Right(SInt64(0))
       }
@@ -1079,6 +1079,92 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       "returns the expected size for non-empty Map" in {
         val map = buildMap("Int64", "a" -> 1, "b" -> 2, "c" -> 3)
         eval(e"GENMAP_SIZE @Int64 $map") shouldBe Right(SInt64(3))
+      }
+    }
+
+    "GENMAP_RANGE" - {
+
+      val builtin = "GENMAP_RANGE"
+
+      "is idempotent on empty map" in {
+        val expectedResult = Right(SMap(false))
+        val testCases = Table(
+          "expression",
+          e"""GENMAP_RANGE @Text @Int64 (None @Text) (None @Text) (GENMAP_EMPTY @Text @Int64)""",
+          e"""GENMAP_RANGE @Text @Int64 (Some @Text "a") (None @Text) (GENMAP_EMPTY @Text @Int64)""",
+          e"""GENMAP_RANGE @Text @Int64 (None @Text) (Some @Text "z") (GENMAP_EMPTY @Text @Int64)""",
+          e"""GENMAP_RANGE @Text @Int64 (Some @Text "a") (Some @Text "z") (GENMAP_EMPTY @Text @Int64)""",
+        )
+        forEvery(testCases)(testCase => eval(testCase) shouldBe expectedResult)
+      }
+
+      "is idempotent when given no bound" in {
+        val testCases = Table(
+          "map",
+          List(),
+          List("a" -> 1L),
+          List("a" -> 1L, "b" -> 2L),
+          List("a" -> 1L, "b" -> 2L, "c" -> 3L),
+        )
+
+        forEvery(testCases) { entries =>
+          val map = buildMap("Int64", entries: _*)
+          eval(e"""GENMAP_RANGE @Text @Int64 (None @Text) (None @Text) ($map)""") shouldBe Right(
+            SMap(false, entries.map { case (k, v) => SText(k) -> SInt64(v) }: _*)
+          )
+        }
+      }
+
+      "filter w.r.t. lower bound" in {
+        val entries = List("a" -> 1L, "b" -> 2L, "c" -> 3L)
+        val map = buildMap("Int64", entries: _*)
+        val keys = Table("key", "", "a", "aa", "b", "bb", "c", "cc", "zzzzz")
+        forEvery(keys)(lowerBound =>
+          eval(
+            e"""GENMAP_RANGE @Text @Int64 (Some @Text "$lowerBound") (None @Text) $map"""
+          ) shouldBe Right(
+            SMap(
+              false,
+              entries.collect { case (k, v) if lowerBound <= k => SText(k) -> SInt64(v) }: _*
+            )
+          )
+        )
+      }
+
+      "filter w.r.t. upper bound excluded" in {
+        val entries = List("a" -> 1L, "b" -> 2L, "c" -> 3L)
+        val map = buildMap("Int64", entries: _*)
+        val keys = Table("key", "", "a", "aa", "b", "bb", "c", "cc", "zzzzz")
+        forEvery(keys)(upperBound =>
+          eval(
+            e"""GENMAP_RANGE @Text @Int64 (None @Text) (Some @Text "$upperBound") $map"""
+          ) shouldBe Right(
+            SMap.apply(
+              false,
+              entries.collect { case (k, v) if k <= upperBound => SText(k) -> SInt64(v) }: _*
+            )
+          )
+        )
+      }
+
+      "crash when given non comparable keys" in {
+
+        val none = s"(None @($eitherT))"
+        val some = s"(Some @($eitherT) ($leftV))"
+
+        val testCases = Table[Expr](
+          "call",
+          e"""$builtin @($eitherT) @Int64 $some $none ($emptyMapV)""",
+          e"""$builtin @($eitherT) @Int64 $some $none ($nonEmptyMapV)""",
+          e"""$builtin @($eitherT) @Int64 $none $some ($emptyMapV)""",
+          e"""$builtin @($eitherT) @Int64 $none $some ($nonEmptyMapV)""",
+          e"""$builtin @($eitherT) @Int64 $some $some ($emptyMapV)""",
+        )
+        forEvery(testCases)(testCase =>
+          eval(testCase) shouldBe Left(
+            SError.SErrorDamlException(interpretation.Error.NonComparableValues)
+          )
+        )
       }
     }
 

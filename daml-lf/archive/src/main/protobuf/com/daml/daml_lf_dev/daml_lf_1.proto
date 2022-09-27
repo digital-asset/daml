@@ -457,6 +457,7 @@ enum BuiltinFunction {
   TEXTMAP_DELETE = 99;
   TEXTMAP_TO_LIST = 100;
   TEXTMAP_SIZE = 101;
+  TEXTMAP_RANGE = 149;
 
   GENMAP_EMPTY = 124; // *Available in versions >= 1.11*
   GENMAP_INSERT = 125; // *Available in versions >= 1.11*
@@ -465,6 +466,7 @@ enum BuiltinFunction {
   GENMAP_KEYS = 128; // *Available in versions >= 1.11*
   GENMAP_VALUES = 129; // *Available in versions >= 1.11*
   GENMAP_SIZE = 130; // *Available in versions >= 1.11*
+  GENMAP_RANGE = 150;
 
   EXPLODE_TEXT = 23;
   APPEND_TEXT = 24;
@@ -571,7 +573,7 @@ enum BuiltinFunction {
 
   TYPEREP_TYCON_NAME = 148; // *Available in versions >= 1.dev*
 
-  // Next id is 149.
+  // Next id is 151. 150 is GENMAP_RANGE
 
   // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
   TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*

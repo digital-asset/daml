@@ -52,6 +52,7 @@ object LanguageVersion {
     val bigNumeric = v1_13
     val exceptions = v1_14
     val basicInterfaces = v1_15
+    val mapRange = v1_dev
     val extendedInterfaces = v1_dev
     val explicitDisclosure = v1_dev
 

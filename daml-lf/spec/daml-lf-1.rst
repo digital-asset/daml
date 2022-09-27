@@ -4756,6 +4756,16 @@ ordered by keys according to the comparison function ``LESS``.
 
   [*Available in versions >= 1.11*]
 
+* `GENMAP_RANGE : ∀ α. ∀ β. 'Optional' α → 'Optional' α → 'GenMap' α β → 'Int64'``
+
+
+  Return the given map keeping only keeping the keys that are bigger or equal than the first argument
+  and smaller or equal than the second argument. If the first argument is undefined it is interpreted
+  as a lower bound for all the LF values. If the second argument is undefined it is interpreted as a
+  upper bound for all the LF values.
+
+  [*Available in versions >= 1.dev*]
+
 Type Representation function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -5188,6 +5198,11 @@ program using the builtin type ``GENMAP`` or the builtin functions
 ``GENMAP_DELETE``, ``GENMAP_KEYS``, ``GENMAP_VALUES``,
 ``GENMAP_SIZE``.
 
+[*Available in versions >= 1.dev*]
+
+The deserialization process will reject any Daml-LF 1.15 (or earlier)
+program using the builtin functions ``GENMAP_RANGE``.
+
 exercise_by_key
 ...............
 
@@ -5252,6 +5267,7 @@ program exception using:
 - ``ToAnyException``, ``FromAnyException``, and ``Throw`` expressions,
 - ``TryCatch`` update,
 - ``ANY_EXCEPTION_MESSAGE`` builtin functions.
+
 
 
 
