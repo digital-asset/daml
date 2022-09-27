@@ -15,32 +15,18 @@ class UpdatePathSpec extends AnyFreeSpec with Matchers with EitherValues {
         Seq(
           "foo.bar",
           "foo",
-          "foo.bar!merge",
-          "foo.bar!replace",
+          "foo.bar",
+          "foo!bar",
+          "..",
         )
       )
       .value shouldBe Seq(
-      UpdatePath(List("foo", "bar"), UpdatePathModifier.NoModifier),
-      UpdatePath(List("foo"), UpdatePathModifier.NoModifier),
-      UpdatePath(List("foo", "bar"), UpdatePathModifier.Merge),
-      UpdatePath(List("foo", "bar"), UpdatePathModifier.Replace),
+      UpdatePath(List("foo", "bar")),
+      UpdatePath(List("foo")),
+      UpdatePath(List("foo", "bar")),
+      UpdatePath(List("foo!bar")),
+      UpdatePath(List()),
     )
-  }
-
-  "raise errors when parsing invalid paths" in {
-    UpdatePath.parseAll(Seq("")).left.value shouldBe UpdatePathError.EmptyFieldPath("")
-    UpdatePath.parseAll(Seq("!merge")).left.value shouldBe UpdatePathError.EmptyFieldPath("!merge")
-    UpdatePath.parseAll(Seq("!replace")).left.value shouldBe UpdatePathError.EmptyFieldPath(
-      "!replace"
-    )
-    UpdatePath.parseAll(Seq("!bad")).left.value shouldBe UpdatePathError.EmptyFieldPath("!bad")
-    UpdatePath.parseAll(Seq("foo!bad")).left.value shouldBe UpdatePathError.UnknownUpdateModifier(
-      "foo!bad"
-    )
-    UpdatePath.parseAll(Seq("foo!!bad")).left.value shouldBe UpdatePathError
-      .InvalidUpdatePathSyntax("foo!!bad")
-    UpdatePath.parseAll(Seq("!")).left.value shouldBe UpdatePathError.EmptyFieldPath("!")
-    UpdatePath.parseAll(Seq("!!")).left.value shouldBe UpdatePathError.EmptyFieldPath("!!")
   }
 
 }

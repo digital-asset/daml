@@ -8,7 +8,7 @@ import com.daml.lf.crypto
 import com.daml.lf.data.{Bytes, FrontStack, Ref}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.SExpr.{SEApp, SEImportValue, SELocA, SEMakeClo}
+import com.daml.lf.speedy.SExpr.{SELet1, SEImportValue, SELocS, SELocF, SEMakeClo}
 import com.daml.lf.value.Value
 import com.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.daml.lf.value.test.ValueGenerators.{comparableCoidsGen, suffixedV1CidGen}
@@ -189,7 +189,8 @@ class OrderingSpec
     val machine = Speedy.Machine.fromUpdateSExpr(
       PureCompiledPackages.Empty,
       transactionSeed = txSeed,
-      updateSE = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(SEImportValue(toAstType(typ), v))),
+      updateSE =
+        SELet1(SEImportValue(toAstType(typ), v), SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
       committers = committers,
     )
 

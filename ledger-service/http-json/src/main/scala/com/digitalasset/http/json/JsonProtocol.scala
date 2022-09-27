@@ -9,9 +9,10 @@ import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.lf.data.Ref.HexString
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
+import com.daml.nonempty.NonEmpty
 import com.google.protobuf.struct.Struct
 import scalaz.syntax.std.option._
-import scalaz.{-\/, NonEmptyList, OneAnd, \/-}
+import scalaz.{-\/, NonEmptyList, \/-}
 import spray.json._
 import spray.json.derived.Discriminator
 import scalaz.syntax.tag._
@@ -313,12 +314,12 @@ object JsonProtocol extends JsonProtocolLow {
       validExtraField: String
   )(
       toRequest: (
-          OneAnd[Set, TpId],
+          NonEmpty[Set[TpId]],
           Map[String, JsValue],
           Option[Extra],
       ) => Request
   ): RootJsonReader[Request] =
-    requestJsonReader(Set(validExtraField)) { (tids: OneAnd[Set, TpId], query, extra) =>
+    requestJsonReader(Set(validExtraField)) { (tids: NonEmpty[Set[TpId]], query, extra) =>
       toRequest(tids, query, extra get validExtraField map (_.convertTo[Extra]))
     }
 
@@ -332,7 +333,7 @@ object JsonProtocol extends JsonProtocolLow {
     */
   private[this] def requestJsonReader[TpId: JsonFormat, Request](validExtraFields: Set[String])(
       toRequest: (
-          OneAnd[Set, TpId],
+          NonEmpty[Set[TpId]],
           Map[String, JsValue],
           Map[String, JsValue],
       ) => Request
@@ -353,10 +354,9 @@ object JsonProtocol extends JsonProtocolLow {
       val extraFields = jsv.asJsObject.fields.filter { case (fieldName, _) =>
         validExtraFields(fieldName)
       }
-      val nonEmptyTids = tids.headOption.cata(
-        h => OneAnd(h, tids - h),
-        deserializationError("search requires at least one item in 'templateIds'"),
-      )
+      val nonEmptyTids = NonEmpty from tids getOrElse {
+        deserializationError("search requires at least one item in 'templateIds'")
+      }
       toRequest(nonEmptyTids, query.getOrElse(Map.empty), extraFields)
     }
   }

@@ -9,8 +9,8 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{IdString, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast
-import com.daml.lf.speedy.SExpr.{SEMakeClo, SEValue}
-import com.daml.lf.speedy.SValue.SContractId
+import com.daml.lf.speedy.SExpr.SEMakeClo
+import com.daml.lf.speedy.SValue.{SContractId, SToken}
 import com.daml.lf.speedy.Speedy.CachedContract
 import com.daml.lf.transaction.{
   GlobalKey,
@@ -288,7 +288,7 @@ object ExplicitDisclosureLib {
         transactionSeed = crypto.Hash.hashPrivateKey("ExplicitDisclosureTest"),
         updateSE =
           if (setupArgs.isEmpty) contextSExpr
-          else SExpr.SEApp(contextSExpr, setupArgs.map(SEValue(_))),
+          else SExpr.SEApp(contextSExpr, setupArgs),
         committers = committers,
         disclosedContracts = disclosedContracts,
       )
@@ -300,7 +300,7 @@ object ExplicitDisclosureLib {
 
     assert(setupResult.isRight)
 
-    machine.setExpressionToEvaluate(SExpr.SEApp(runUpdateSExpr(sexpr), Array(SEValue.Token)))
+    machine.setExpressionToEvaluate(SExpr.SEApp(runUpdateSExpr(sexpr), Array(SToken)))
 
     val result = SpeedyTestLib.run(
       machine = machine,

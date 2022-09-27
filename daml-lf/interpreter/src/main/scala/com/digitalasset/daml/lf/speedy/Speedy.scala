@@ -26,6 +26,7 @@ import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
+import scala.annotation.nowarn
 import scala.annotation.tailrec
 import scala.collection.mutable
 
@@ -128,14 +129,31 @@ private[lf] object Speedy {
       readAs: Set[Party],
       /* Commit location, if a scenario commit is in progress. */
       commitLocation: Option[Location],
-      /* Flag to trace usage of get_time builtins */
-      var dependsOnTime: Boolean,
-      // global contract discriminators, that are discriminators from contract created in previous transactions
-      var cachedContracts: Map[V.ContractId, CachedContract],
-      var numInputContracts: Int,
       limits: interpretation.Limits,
       disclosureKeyTable: DisclosedContractKeyTable,
   ) extends LedgerMode {
+
+    /* Flag to trace usage of get_time builtins */
+    private[this] var dependsOnTime: Boolean = false
+    // global contract discriminators, that are discriminators from contract created in previous transactions
+    private[this] var cachedContracts: Map[V.ContractId, CachedContract] = Map.empty
+    private[this] var numInputContracts: Int = 0
+
+    private[speedy] def setDependsOnTime(): Unit =
+      dependsOnTime = true
+
+    private[lf] def getDependsOnTime: Boolean =
+      dependsOnTime
+
+    private[speedy] def getCachedContracts: Map[V.ContractId, CachedContract] =
+      cachedContracts
+
+    private[speedy] def getCachedContract(contractId: V.ContractId): Option[CachedContract] =
+      cachedContracts.get(contractId)
+
+    private[speedy] def hasCachedContract(contractId: V.ContractId): Boolean =
+      cachedContracts.contains(contractId)
+
     private[lf] val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
       if (validating) { _ => SVisibleToStakeholders.Visible }
       else {
@@ -471,6 +489,11 @@ private[lf] object Speedy {
         // NOTE(MH): If the top of the continuation stack is the monadic token,
         // we push location information under it to account for the implicit
         // lambda binding the token.
+
+        // TODO: Understand how the current approach to stack-trace actually works.
+        // Peeking under KArg on the kontStack seems so unprincipled, and relies on our
+        // continued use of SEAppGeneral, which we want to remove.
+
         case Some(KArg(_, Array(SEValue.Token))) => {
           // Can't call pushKont here, because we don't push at the top of the stack.
           kontStack.add(last_index, KLocation(this, loc))
@@ -897,7 +920,7 @@ private[lf] object Speedy {
       if (onLedger.isLocalContractKey(coid, gkey) || onLedger.isDisclosedContractKey(coid, gkey)) {
         handleKeyFound(this, coid)
       } else {
-        onLedger.cachedContracts.get(coid) match {
+        onLedger.getCachedContract(coid) match {
           case Some(cachedContract) =>
             val stakeholders = cachedContract.signatories union cachedContract.observers
             onLedger.visibleToStakeholders(stakeholders) match {
@@ -963,9 +986,6 @@ private[lf] object Speedy {
           committers = committers,
           readAs = readAs,
           commitLocation = commitLocation,
-          dependsOnTime = false,
-          cachedContracts = Map.empty,
-          numInputContracts = 0,
           contractKeyUniqueness = contractKeyUniqueness,
           limits = limits,
           disclosureKeyTable = new DisclosedContractKeyTable,
@@ -1003,6 +1023,7 @@ private[lf] object Speedy {
     @throws[PackageNotFound]
     @throws[CompilationError]
     // Construct a machine for running an update expression (testing -- avoiding scenarios)
+    @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppGeneral")
     def fromUpdateSExpr(
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
@@ -1016,7 +1037,8 @@ private[lf] object Speedy {
         compiledPackages = compiledPackages,
         submissionTime = Time.Timestamp.MinValue,
         initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
-        expr = SEApp(updateSE, Array(SEValue.Token)),
+        expr = SEAppGeneral(updateSE, Array(SEValue.Token)),
+        // expr = SEApp(updateSE, Array(SValue.SToken)), // TODO: when stack-trace hackery is resolved
         committers = committers,
         readAs = Set.empty,
         limits = limits,
@@ -1028,12 +1050,14 @@ private[lf] object Speedy {
     @throws[PackageNotFound]
     @throws[CompilationError]
     // Construct an off-ledger machine for running scenario.
+    @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppGeneral")
     def fromScenarioSExpr(
         compiledPackages: CompiledPackages,
         scenario: SExpr,
     )(implicit loggingContext: LoggingContext): Machine = Machine.fromPureSExpr(
       compiledPackages = compiledPackages,
-      expr = SEApp(scenario, Array(SEValue.Token)),
+      expr = SEAppGeneral(scenario, Array(SEValue.Token)),
+      // expr = SEApp(scenario, Array(SValue.SToken)), // TODO: when stack-trace hackery is resolved
     )
 
     @throws[PackageNotFound]

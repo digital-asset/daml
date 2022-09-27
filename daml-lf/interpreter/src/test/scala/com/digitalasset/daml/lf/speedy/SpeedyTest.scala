@@ -592,7 +592,7 @@ object SpeedyTest {
       packages: PureCompiledPackages,
   ): Either[SError, SValue] = {
     val se = packages.compiler.unsafeCompile(e)
-    evalSExpr(SEApp(se, args.map(SEValue(_))), packages)
+    evalSExpr(SEApp(se, args), packages)
   }
 
   def intList(xs: Long*): String =

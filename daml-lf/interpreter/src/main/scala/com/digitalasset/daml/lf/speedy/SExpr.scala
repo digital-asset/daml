@@ -100,13 +100,13 @@ object SExpr {
     }
   }
 
-  object SEValue extends SValueContainer[SEValue]
+  object SEValue extends SValueContainer[SEValue] // used by Compiler
 
-  /** Function application:
-    *    General case: 'fun' and 'args' are any kind of expression
-    *    This case *ought* not to exist post-ANF.
-    *    Sadly, we have many code paths where this case is constructed.
+  /** Function application with general function/arguments (deprecated)
+    * This case is used only by: fromUpdateSExpr and fromScenarioSExpr.
+    * The use required because of our current stack-trace support, which peeks under KArg.
     */
+  @deprecated("Prefer SEAppAtomic or SEApp helper instead.")
   final case class SEAppGeneral(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Control = {
       machine.pushKont(KArg(machine, args))
@@ -114,10 +114,14 @@ object SExpr {
     }
   }
 
-  /** Function application:
-    *    Special case: 'fun' is an atomic expression.
+  /** Function application with general arguments (deprecated)
+    * Although 'fun' is atomic, 'args' are still any kind of expression.
+    * This case would not exist if we performed a full/standard ANF pass.
+    * Because this case exists we must retain the complicated/slow path in the
+    * speedy-machine: executeApplication
     */
-  final case class SEAppAtomicFun(fun: SExprAtomic, args: Array[SExpr])
+  @deprecated("Prefer SEAppAtomic or SEApp helper instead.")
+  final case class SEAppOnlyFunIsAtomic(fun: SExprAtomic, args: Array[SExpr])
       extends SExpr
       with SomeArrayEquals {
     def execute(machine: Machine): Control = {
@@ -127,8 +131,9 @@ object SExpr {
   }
 
   object SEApp {
-    def apply(fun: SExpr, args: Array[SExpr]): SExpr = {
-      SEAppGeneral(fun, args)
+    // Helper: build an application of an unrestricted expression, to value-arguments.
+    def apply(fun: SExpr, args: Array[SValue]): SExpr = {
+      SELet1(fun, SEAppAtomic(SELocS(1), args.map(SEValue(_))))
     }
   }
 
@@ -418,6 +423,7 @@ object SExpr {
   final case class ChoiceByKeyDefRef(ref: DefinitionRef, choiceName: ChoiceName)
       extends SDefinitionRef
   final case class CreateDefRef(ref: DefinitionRef) extends SDefinitionRef
+  final case class TemplatePreConditionDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class FetchTemplateDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class FetchInterfaceDefRef(ref: DefinitionRef) extends SDefinitionRef
 

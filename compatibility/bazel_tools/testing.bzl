@@ -855,6 +855,22 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        # This exclusion is due incompatible Ledger API test-tool changes:
+        # The 'PartyDetails' message now contains a new 'local_metadata' field which is returned by
+        # 'PartyManagementService.GetParties' and 'PartyManagementService.ListKnownParties' RPCs
+        # and we changed the existing IT tests to verify that this new field is indeed returned.
+        "start": "2.4.0-snapshot.20220914.10592.1",
+        "platform_ranges": [
+            {
+                "end": "2.4.0-snapshot.20220914.10592.0.cf7c2b5c",
+                "exclusions": [
+                    "PartyManagementServiceIT:PMGetPartiesDetails",
+                    "PartyManagementServiceIT:PMListKnownParties",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):

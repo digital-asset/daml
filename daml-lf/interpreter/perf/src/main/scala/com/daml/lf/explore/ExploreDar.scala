@@ -94,7 +94,7 @@ object PlaySpeedy {
             QualifiedName.assertFromString(s"${base}:${config.funcName}"),
           )
         val func = SEVal(LfDefRef(ref))
-        val arg = SEValue(SInt64(config.argValue))
+        val arg = SInt64(config.argValue)
         SEApp(func, Array(arg))
       }
       Machine.fromPureSExpr(compiledPackages, expr)

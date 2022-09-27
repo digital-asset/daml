@@ -30,7 +30,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
   private def applyToParty(pkgs: CompiledPackages, e: Expr, p: Party): SExpr = {
     val se = pkgs.compiler.unsafeCompile(e)
-    SEApp(se, Array(SEValue(SParty(p))))
+    SEApp(se, Array(SParty(p)))
   }
 
   "unhandled throw" should {
