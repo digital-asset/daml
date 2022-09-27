@@ -10,6 +10,8 @@ template NotVisibleInTs with
     owner : Party
   where
     signatory owner
+    key ("three three three", owner): (Text, Party)
+    maintainer key._2
     interface instance Cloneable for NotVisibleInTs where
       view = EmptyInterfaceView
       getSelfKind = "NotVisibleInTs"

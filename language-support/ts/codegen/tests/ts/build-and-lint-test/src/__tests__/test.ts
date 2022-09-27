@@ -21,6 +21,7 @@ import {
   Map,
   Party,
   Template,
+  lookupTemplate,
 } from "@daml/types";
 import pEvent from "p-event";
 import _ from "lodash";
@@ -825,9 +826,11 @@ describe("interfaces", () => {
       templateId: "Hidden:NotVisibleInTs",
     };
     const initialPayload: NotVisibleInTs = { owner: ALICE_PARTY };
-    type MinimalCreateResponse<T> = {
+    type MinimalCreateResponse<T, K> = {
       templateId: string;
       contractId: ContractId<T>;
+      payload: T;
+      key: K;
     };
 
     // make a contract whose template is not in the JS image
@@ -835,12 +838,21 @@ describe("interfaces", () => {
     const submittableLedger = ledger as unknown as {
       submit: typeof ledger["submit"];
     };
-    const { templateId: nvitFQTID, contractId: nvitCid } =
-      (await submittableLedger.submit("v1/create", {
-        templateId: NotVisibleInTs.templateId,
-        payload: initialPayload,
-      })) as MinimalCreateResponse<NotVisibleInTs>;
+    const {
+      templateId: nvitFQTID,
+      contractId: nvitCid,
+      payload: payloadResp,
+      key: keyResp,
+    } = (await submittableLedger.submit("v1/create", {
+      templateId: NotVisibleInTs.templateId,
+      payload: initialPayload,
+    })) as MinimalCreateResponse<NotVisibleInTs, { _1: Text; _2: Party }>;
     expect(nvitFQTID).toEqual(expect.stringMatching(/:Hidden:NotVisibleInTs$/));
+    expect(payloadResp).toEqual(initialPayload);
+    expect(keyResp).toEqual({ _1: "three three three", _2: ALICE_PARTY });
+    // verify that we don't know the decoder for NotVisibleInTs
+    expect(() => lookupTemplate(nvitFQTID)).toThrow();
+
     const nvitIcid: ContractId<buildAndLint.Main.Cloneable> =
       nvitCid as ContractId<never>;
 
@@ -860,11 +872,17 @@ describe("interfaces", () => {
     );
     expect(newIcid).not.toEqual(nvitIcid);
     expect(archiveAndCreate).toMatchObject(expectedEvents);
-    /*
-    const [, {created: {payload: clonedPayload, key: clonedKey}}] = archiveAndCreate;
+
+    if (!("created" in archiveAndCreate[1]))
+      throw "test above doesn't match below";
+    const [
+      ,
+      {
+        created: { payload: clonedPayload, key: clonedKey },
+      },
+    ] = archiveAndCreate;
     expect(clonedPayload).toEqual({});
     expect(clonedKey).toBeUndefined();
-    */
   });
 });
 
