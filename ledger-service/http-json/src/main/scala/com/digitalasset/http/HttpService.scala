@@ -202,8 +202,6 @@ object HttpService {
 
       websocketService = new WebSocketService(
         contractsService,
-        packageService.resolveContractTypeId,
-        packageService.resolveTemplateId,
         decoder,
         LedgerReader.damlLfTypeLookup(() => packageService.packageStore),
         wsConfig,
