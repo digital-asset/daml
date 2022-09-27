@@ -276,6 +276,25 @@ abstract class AbstractWebsocketServiceIntegrationTest
         fixture,
         headers = headers,
       )
+
+      val resp = () => {
+        val dslSyntax = Consume.syntax[Message]
+        import dslSyntax._
+        Consume.interpret(
+          for {
+            result1 <- readOne
+            TextMessage.Strict(message1) = result1.asTextMessage
+            result2 <- readOne
+            TextMessage.Strict(message2) = result2.asTextMessage
+            result3 <- readOne
+            TextMessage.Strict(message3) = result3.asTextMessage
+            rest <- drain
+            heartbeats = rest.collect { case m: TextMessage => m.getStrictText }
+            _ = Inspectors.forAll(heartbeats)(assertHeartbeat)
+          } yield (message1, message2, message3, heartbeats)
+        )
+      }
+
       for {
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, aliceAuthHeaders) = aliceHeaders
@@ -284,27 +303,26 @@ abstract class AbstractWebsocketServiceIntegrationTest
         _ <- createAccount(alice, "def123", aliceAuthHeaders)
         _ <- createAccount(alice, "def456", aliceAuthHeaders)
         jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
-        clientMsg <- singleClientQueryStream(
+        (message1, message2, message3, heartbeats) <- singleClientQueryStream(
           jwt,
           uri,
           query,
-        ).take(4)
-          .runWith(collectResultsAsTextMessage)
-      } yield inside(clientMsg) { case result1 +: result2 +: result3 +: heartbeats =>
-        result1 should include(s""""amount":"abc123"""")
-        result1 should include(s""""isAbcPrefix":true""")
-        result1 should include(s""""is123Suffix":true""")
-        result1 should include(s""""matchedQueries":[0,1]""")
+        ).runWith(resp())
+      } yield {
+        message1 should include(s""""amount":"abc123"""")
+        message1 should include(s""""isAbcPrefix":true""")
+        message1 should include(s""""is123Suffix":true""")
+        message1 should include(s""""matchedQueries":[0,1]""")
 
-        result2 should include(s""""amount":"abc456"""")
-        result2 should include(s""""isAbcPrefix":true""")
-        result2 should include(s""""is123Suffix":false""")
-        result2 should include(s""""matchedQueries":[0]""")
+        message2 should include(s""""amount":"abc456"""")
+        message2 should include(s""""isAbcPrefix":true""")
+        message2 should include(s""""is123Suffix":false""")
+        message2 should include(s""""matchedQueries":[0]""")
 
-        result3 should include(s""""amount":"def123"""")
-        result3 should include(s""""isAbcPrefix":false""")
-        result3 should include(s""""is123Suffix":true""")
-        result3 should include(s""""matchedQueries":[1]""")
+        message3 should include(s""""amount":"def123"""")
+        message3 should include(s""""isAbcPrefix":false""")
+        message3 should include(s""""is123Suffix":true""")
+        message3 should include(s""""matchedQueries":[1]""")
 
         Inspectors.forAll(heartbeats)(assertHeartbeat)
       }
