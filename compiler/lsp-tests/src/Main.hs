@@ -329,7 +329,7 @@ requestTests run _runScenarios = testGroup "requests"
               ]
           lenses <- getCodeLenses main'
           Just mainFp <- pure $ T.pack <$> uriToFilePath (main' ^. uri)
-          let signature = "assetIssuer : DA.Internal.Record.HasField \"issuer\" r a => r -> a"
+          let signature = "assetIssuer : HasField \"issuer\" r a => r -> a"
               addTypeSigLens =
                   CodeLens
                       { _range = Range (Position 1 0) (Position 1 11)
