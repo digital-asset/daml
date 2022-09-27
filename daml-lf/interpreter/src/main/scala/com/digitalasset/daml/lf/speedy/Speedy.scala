@@ -26,7 +26,6 @@ import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
-import scala.annotation.nowarn
 import scala.annotation.tailrec
 import scala.collection.mutable
 
@@ -443,6 +442,7 @@ private[lf] object Speedy {
       */
     def pushLocation(loc: Location): Unit = {
       lastLocation = Some(loc)
+      /* NICK....
       val last_index = kontStack.size() - 1
       val last_kont = if (last_index >= 0) Some(kontStack.get(last_index)) else None
       last_kont match {
@@ -470,6 +470,7 @@ private[lf] object Speedy {
           discard(kontStack.set(last_index, KCacheVal(machine, v, defn, loc :: stack_trace)))
         case _ => pushKont(KLocation(this, loc))
       }
+       */
     }
 
     /** Push an entire stack trace to the continuation stack. The first
@@ -483,9 +484,9 @@ private[lf] object Speedy {
       */
     def stackTrace(): ImmArray[Location] = {
       val s = ImmArray.newBuilder[Location]
-      kontStack.forEach {
-        case KLocation(_, location) => discard(s += location)
-        case _ => ()
+      lastLocation match {
+        case None => ()
+        case Some(location) => discard(s += location)
       }
       s.result()
     }
@@ -971,7 +972,6 @@ private[lf] object Speedy {
     @throws[PackageNotFound]
     @throws[CompilationError]
     // Construct a machine for running an update expression (testing -- avoiding scenarios)
-    @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppGeneral")
     def fromUpdateSExpr(
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
@@ -985,8 +985,7 @@ private[lf] object Speedy {
         compiledPackages = compiledPackages,
         submissionTime = Time.Timestamp.MinValue,
         initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
-        expr = SEAppGeneral(updateSE, Array(SEValue.Token)),
-        // expr = SEApp(updateSE, Array(SValue.SToken)), // TODO: when stack-trace hackery is resolved
+        expr = SEApp(updateSE, Array(SValue.SToken)),
         committers = committers,
         readAs = Set.empty,
         limits = limits,
@@ -998,15 +997,14 @@ private[lf] object Speedy {
     @throws[PackageNotFound]
     @throws[CompilationError]
     // Construct an off-ledger machine for running scenario.
-    @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppGeneral")
     def fromScenarioSExpr(
         compiledPackages: CompiledPackages,
         scenario: SExpr,
-    )(implicit loggingContext: LoggingContext): Machine = Machine.fromPureSExpr(
-      compiledPackages = compiledPackages,
-      expr = SEAppGeneral(scenario, Array(SEValue.Token)),
-      // expr = SEApp(scenario, Array(SValue.SToken)), // TODO: when stack-trace hackery is resolved
-    )
+    )(implicit loggingContext: LoggingContext): Machine =
+      Machine.fromPureSExpr(
+        compiledPackages = compiledPackages,
+        expr = SEApp(scenario, Array(SValue.SToken)),
+      )
 
     @throws[PackageNotFound]
     @throws[CompilationError]
