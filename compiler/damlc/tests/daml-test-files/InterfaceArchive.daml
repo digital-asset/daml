@@ -39,4 +39,5 @@ main = scenario do
     alice `submit` archive iid
     alice `submitMustFail` exercise tid TChoiceNonconsuming
     alice `submitMustFail` exercise tid TChoiceConsuming
+    alice `submitMustFail` archive tid
     pure ()
