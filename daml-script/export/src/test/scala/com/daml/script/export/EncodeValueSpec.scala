@@ -88,6 +88,22 @@ class EncodeValueSpec extends AnyFreeSpec with Matchers {
       val variant =
         v.Value().withVariant(v.Variant(Some(id), "Constr", Some(v.Value().withInt64(1))))
       encodeValue(Map.empty, Map.empty, variant.sum).render(80) shouldBe "(M.Constr 1)"
+
+      // Tests a variant constructor declared with record syntax
+      val fields = record.withRecordId(id.withEntityName("V.ConstrFields"))
+      val variantFields =
+        v.Value()
+          .withVariant(v.Variant(Some(id), "ConstrFields", Some(v.Value().withRecord(fields))))
+      encodeValue(Map.empty, Map.empty, variantFields.sum).render(
+        80
+      ) shouldBe "(M.ConstrFields {a = 1, b = (M.R2 {c = 42}), c = M.R3})"
+
+      // Tests a variant constructor declared with an argument of a record type.
+      val variantRec =
+        v.Value().withVariant(v.Variant(Some(id), "ConstrRec", Some(v.Value().withRecord(record))))
+      encodeValue(Map.empty, Map.empty, variantRec.sum).render(
+        80
+      ) shouldBe "(M.ConstrRec (M.R1 {a = 1, b = (M.R2 {c = 42}), c = M.R3}))"
     }
     "contract id" in {
       val cid = v.Value().withContractId("my-contract-id")
