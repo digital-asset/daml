@@ -129,14 +129,31 @@ private[lf] object Speedy {
       readAs: Set[Party],
       /* Commit location, if a scenario commit is in progress. */
       commitLocation: Option[Location],
-      /* Flag to trace usage of get_time builtins */
-      var dependsOnTime: Boolean,
-      // global contract discriminators, that are discriminators from contract created in previous transactions
-      var cachedContracts: Map[V.ContractId, CachedContract],
-      var numInputContracts: Int,
       limits: interpretation.Limits,
       disclosureKeyTable: DisclosedContractKeyTable,
   ) extends LedgerMode {
+
+    /* Flag to trace usage of get_time builtins */
+    private[this] var dependsOnTime: Boolean = false
+    // global contract discriminators, that are discriminators from contract created in previous transactions
+    private[this] var cachedContracts: Map[V.ContractId, CachedContract] = Map.empty
+    private[this] var numInputContracts: Int = 0
+
+    private[speedy] def setDependsOnTime(): Unit =
+      dependsOnTime = true
+
+    private[lf] def getDependsOnTime: Boolean =
+      dependsOnTime
+
+    private[speedy] def getCachedContracts: Map[V.ContractId, CachedContract] =
+      cachedContracts
+
+    private[speedy] def getCachedContract(contractId: V.ContractId): Option[CachedContract] =
+      cachedContracts.get(contractId)
+
+    private[speedy] def hasCachedContract(contractId: V.ContractId): Boolean =
+      cachedContracts.contains(contractId)
+
     private[lf] val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
       if (validating) { _ => SVisibleToStakeholders.Visible }
       else {
@@ -868,7 +885,7 @@ private[lf] object Speedy {
         coid: V.ContractId,
         handleKeyFound: (Machine, V.ContractId) => Control,
     ): Control =
-      onLedger.cachedContracts.get(coid) match {
+      onLedger.getCachedContract(coid) match {
         case Some(cachedContract) =>
           val stakeholders = cachedContract.signatories union cachedContract.observers
           onLedger.visibleToStakeholders(stakeholders) match {
@@ -931,9 +948,6 @@ private[lf] object Speedy {
           committers = committers,
           readAs = readAs,
           commitLocation = commitLocation,
-          dependsOnTime = false,
-          cachedContracts = Map.empty,
-          numInputContracts = 0,
           contractKeyUniqueness = contractKeyUniqueness,
           limits = limits,
           disclosureKeyTable = new DisclosedContractKeyTable,
