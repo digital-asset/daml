@@ -4,7 +4,6 @@
 import { ChildProcess, spawn } from "child_process";
 import { promises as fs } from "fs";
 import waitOn from "wait-on";
-import * as jtv from "@mojotech/json-type-validation";
 import { encode } from "jwt-simple";
 import Ledger, {
   CreateEvent,
@@ -821,23 +820,25 @@ describe("interfaces", () => {
     // pretend we have access to NotVisibleInTs.  For this test to be
     // meaningful we *must not* codegen or load Hidden
     type NotVisibleInTs = { owner: Party };
-    const PartialNotVisibleInTs: Pick<
-      Template<{ owner: Party }>,
-      "templateId" | "encode" | "decoder" | "keyDecoder"
-    > = {
+    const NotVisibleInTs: Pick<Template<{ owner: Party }>, "templateId"> = {
       templateId: "Hidden:NotVisibleInTs",
-      encode: (payload: { owner: Party }) => payload,
-      decoder: jtv.anyJson(),
-      keyDecoder: jtv.anyJson(),
     };
-    const NotVisibleInTs: Template<NotVisibleInTs> =
-      PartialNotVisibleInTs as Template<NotVisibleInTs>;
+    const initialPayload: NotVisibleInTs = { owner: ALICE_PARTY };
+    type MinimalCreateResponse<T> = {
+      templateId: string;
+      contractId: ContractId<T>;
+    };
 
     // make a contract whose template is not in the JS image
-    const { templateId: nvitFQTID, contractId: nvitCid } = await ledger.create(
-      NotVisibleInTs,
-      { owner: ALICE_PARTY },
-    );
+    // we can't use ledger.create without knowing the exact template ID
+    const submittableLedger = ledger as unknown as {
+      submit: typeof ledger["submit"];
+    };
+    const { templateId: nvitFQTID, contractId: nvitCid } =
+      (await submittableLedger.submit("v1/create", {
+        templateId: NotVisibleInTs.templateId,
+        payload: initialPayload,
+      })) as MinimalCreateResponse<NotVisibleInTs>;
     expect(nvitFQTID).toEqual(expect.stringMatching(/:Hidden:NotVisibleInTs$/));
     const nvitIcid: ContractId<buildAndLint.Main.Cloneable> =
       nvitCid as ContractId<never>;
