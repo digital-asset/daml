@@ -4,6 +4,7 @@
 import { ChildProcess, spawn } from "child_process";
 import { promises as fs } from "fs";
 import waitOn from "wait-on";
+import * as jtv from "@mojotech/json-type-validation";
 import { encode } from "jwt-simple";
 import Ledger, {
   CreateEvent,
@@ -13,7 +14,15 @@ import Ledger, {
   Query,
   UserRightHelper,
 } from "@daml/ledger";
-import { Choice, ContractId, Int, emptyMap, Map } from "@daml/types";
+import {
+  Choice,
+  ContractId,
+  Int,
+  emptyMap,
+  Map,
+  Party,
+  Template,
+} from "@daml/types";
 import pEvent from "p-event";
 import _ from "lodash";
 import WebSocket from "ws";
@@ -798,6 +807,54 @@ describe("interfaces", () => {
       matchedQueries: [0],
     };
     expect(ctEvent).toMatchObject(expectedEvent);
+  });
+
+  test("undecodable exercise result event data is discarded", async () => {
+    const ledger = new Ledger({
+      token: ALICE_TOKEN,
+      httpBaseUrl: httpBaseUrl(),
+    });
+    // upload a dar we did not codegen
+    const hiddenDar = await fs.readFile(getEnv("HIDDEN_DAR"));
+    await ledger.uploadDarFile(hiddenDar);
+
+    // pretend we have access to NotVisibleInTs.  For this test to be
+    // meaningful we *must not* codegen or load Hidden
+    type NotVisibleInTs = { owner: Party };
+    const PartialNotVisibleInTs: Pick<
+      Template<{ owner: Party }>,
+      "templateId" | "encode" | "decoder" | "keyDecoder"
+    > = {
+      templateId: "Hidden:NotVisibleInTs",
+      encode: (payload: { owner: Party }) => payload,
+      decoder: jtv.anyJson(),
+      keyDecoder: jtv.anyJson(),
+    };
+    const NotVisibleInTs: Template<NotVisibleInTs> =
+      PartialNotVisibleInTs as Template<NotVisibleInTs>;
+
+    // make a contract whose template is not in the JS image
+    const { templateId: nvitFQTID, contractId: nvitCid } = await ledger.create(
+      NotVisibleInTs,
+      { owner: ALICE_PARTY },
+    );
+    expect(nvitFQTID).toEqual(expect.stringMatching(/:Hidden:NotVisibleInTs$/));
+    const nvitIcid: ContractId<buildAndLint.Main.Cloneable> =
+      nvitCid as ContractId<never>;
+
+    // invoke well-typed interface choice
+    const [{ _1: newIcid, _2: textResponse }, archiveAndCreate] =
+      await ledger.exercise(buildAndLint.Main.Cloneable.Clone, nvitIcid, {
+        echo: "undecodable exercise result test",
+      });
+    const expectedEvents: Event<object>[] = [];
+
+    // test events are present but with empty payload
+    expect(textResponse).toEqual(
+      "cloned NotVisibleInTs: undecodable exercise result test",
+    );
+    expect(newIcid).not.toEqual(nvitIcid);
+    expect(archiveAndCreate).toEqual(expectedEvents);
   });
 });
 
