@@ -173,13 +173,8 @@ object WebSocketService {
       )(_ append _)
   }
   // TODO fix Ray pass in the resolve functions to the StreamQueryReader instances
+  case class Query[Q](q: Q, alg: StreamQuery[Q])
   sealed abstract class StreamQueryReader[A] {
-    case class Query[Q](q: Q, alg: StreamQuery[Q])
-    case class WSResolvedQuery[Q](
-        offPrefix: Option[StartingOffset],
-        query: Query[Q],
-        resolvedQuery: domain.ResolvedQuery,
-    )
 
     def parse(
         resumingAtOffset: Boolean,
@@ -196,6 +191,12 @@ object WebSocketService {
         query: Query[Q],
     ): Future[Error \/ WSResolvedQuery[Q]]
   }
+
+  case class WSResolvedQuery[Q](
+      offPrefix: Option[StartingOffset],
+      query: Query[Q],
+      resolvedQuery: domain.ResolvedQuery,
+  )
 
   sealed trait StreamQuery[A] {
 
@@ -665,10 +666,10 @@ class WebSocketService(
               jwt,
               toLedgerId(jwtPayload.ledgerId),
             ): Future[
-              Error \/ Q.Query[_]
+              Error \/ Query[_]
             ]
           )
-        } yield (offPrefix, a: Q.Query[_])).run
+        } yield (offPrefix, a: Query[_])).run
       }
       .via(
         allowOnlyFirstInput(
@@ -680,22 +681,21 @@ class WebSocketService(
           e <- eitherT(Future.successful(errorOrOffPrefixQuery))
           a <- eitherT(
             Q.resolve(e._1, e._2): Future[
-              Error \/ Q.WSResolvedQuery[_]
+              Error \/ WSResolvedQuery[_]
             ]
           )
         } yield a).run
       }
       .flatMapMerge(
         2, // 2 streams max, the 2nd is to be able to send an error back
-        _.map { case r: Q.WSResolvedQuery[q] =>
+        _.map { case r: WSResolvedQuery[q] =>
           // TODO Ray fix downstream to use the WSResolvedQuery instead.
           implicit val SQ: StreamQuery[q] = r.query.alg
           getTransactionSourceForParty[q](
+            r,
             jwt,
             toLedgerId(jwtPayload.ledgerId),
             jwtPayload.parties,
-            r.offPrefix,
-            r.query.q: q,
           )
         }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed],
       )
@@ -795,15 +795,16 @@ class WebSocketService(
     Q.predicate(request, lookupType, jwt, ledgerId)
 
   private def getTransactionSourceForParty[A](
+      wsResolvedQuery: WSResolvedQuery[A],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      offPrefix: Option[domain.StartingOffset],
-      rawRequest: A,
   )(implicit
       lc: LoggingContextOf[InstanceUUID],
       Q: StreamQuery[A],
   ): Source[Error \/ Message, NotUsed] = {
+    val offPrefix = wsResolvedQuery.offPrefix
+    val rawRequest = wsResolvedQuery.query.q
     // If there is a prefix, replace the empty offsets in the request with it
     val request = Q.adjustRequest(offPrefix, rawRequest)
 
