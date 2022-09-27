@@ -165,6 +165,7 @@ trait PartyManagementServiceUpdateRpcTests {
     "FailingUpdateRequestsWhenPartyDetailsFieldIsUnset",
     "Failing an update request when party_details field is unset",
     allocate(NoParties),
+    enabled = _.userAndPartyLocalMetadataExtensions,
   )(implicit ec => { case Participants(Participant(ledger)) =>
     ledger
       .updatePartyDetails(
@@ -186,6 +187,7 @@ trait PartyManagementServiceUpdateRpcTests {
     "FailUpdateNonExistentParty",
     "Fail when attempting to update a non-existent party",
     allocate(NoParties),
+    enabled = _.userAndPartyLocalMetadataExtensions,
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val party = ledger.nextPartyId()
     for {

@@ -9,7 +9,7 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   Participants,
   allocate,
 }
-import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.testtool.infrastructure.participant.{Features, ParticipantTestContext}
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.admin.party_management_service._
 import com.google.protobuf.field_mask.FieldMask
@@ -94,6 +94,7 @@ trait PartyManagementItUtils { self: PartyManagementServiceIT =>
       shortIdentifier = shortIdentifier,
       description = description,
       partyAllocation = allocate(NoParties),
+      enabled = (features: Features) => features.userAndPartyLocalMetadataExtensions,
     )(implicit ec => { case Participants(Participant(ledger)) =>
       withFreshParty(
         annotations = annotations,

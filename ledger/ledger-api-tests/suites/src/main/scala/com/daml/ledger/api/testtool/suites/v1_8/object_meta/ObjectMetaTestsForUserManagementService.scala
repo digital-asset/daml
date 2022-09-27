@@ -7,12 +7,6 @@
 package com.daml.ledger.api.testtool.suites.v1_8.object_meta
 
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.testtool.infrastructure.Allocation.{
-  NoParties,
-  Participant,
-  Participants,
-  allocate,
-}
 import com.daml.ledger.api.testtool.infrastructure.ExpectedErrorDescription
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.suites.v1_8.UserManagementServiceIT
@@ -59,11 +53,11 @@ trait ObjectMetaTestsForUserManagementService extends ObjectMetaTests with Objec
   )(
       body: ExecutionContext => ParticipantTestContext => Resource => Future[Unit]
   ): Unit = {
-    test(
+    userManagementTest(
       shortIdentifier = shortIdentifier,
       description = description,
-      partyAllocation = allocate(NoParties),
-    )(implicit ec => { case Participants(Participant(ledger)) =>
+      requiresUserAndPartyLocalMetadataExtensions = true,
+    )(implicit ec => { ledger =>
       withFreshUser(
         annotations = annotations
       ) { user =>
@@ -78,11 +72,11 @@ trait ObjectMetaTestsForUserManagementService extends ObjectMetaTests with Objec
   )(
       body: ExecutionContext => ParticipantTestContext => Future[Unit]
   ): Unit = {
-    test(
+    userManagementTest(
       shortIdentifier = shortIdentifier,
       description = description,
-      partyAllocation = allocate(NoParties),
-    )(implicit ec => { case Participants(Participant(ledger)) =>
+      requiresUserAndPartyLocalMetadataExtensions = true,
+    )(implicit ec => { ledger =>
       body(ec)(ledger)
     })
   }

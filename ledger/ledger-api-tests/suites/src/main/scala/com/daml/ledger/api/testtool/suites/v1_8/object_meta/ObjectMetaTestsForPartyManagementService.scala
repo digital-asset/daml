@@ -11,7 +11,7 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   allocate,
 }
 import com.daml.ledger.api.testtool.infrastructure.ExpectedErrorDescription
-import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.testtool.infrastructure.participant.{Features, ParticipantTestContext}
 import com.daml.ledger.api.testtool.suites.v1_8.PartyManagementServiceIT
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.admin.party_management_service.{
@@ -73,6 +73,7 @@ trait ObjectMetaTestsForPartyManagementService extends ObjectMetaTests with Obje
       shortIdentifier = shortIdentifier,
       description = description,
       partyAllocation = allocate(NoParties),
+      enabled = (features: Features) => features.userAndPartyLocalMetadataExtensions,
     )(implicit ec => { case Participants(Participant(ledger)) =>
       body(ec)(ledger)
     })
