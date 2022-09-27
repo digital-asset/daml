@@ -7,11 +7,12 @@ module Main (main) where
 
 import Control.Concurrent
 import Control.Applicative.Combinators
-import Control.Lens hiding (List, children)
+import Control.Lens hiding (List, children, (.=))
 import Control.Monad
 import Control.Monad.IO.Class
 import DA.Bazel.Runfiles
-import Data.Aeson (toJSON)
+import Data.Aeson (toJSON, (.=))
+import qualified Data.Aeson.Key as Aeson.Key
 import Data.Char (toLower)
 import Data.Either
 import Data.Foldable (toList)
@@ -320,6 +321,35 @@ requestTests run _runScenarios = testGroup "requests"
           changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 0 0) (Position 0 0))) Nothing "\n\n"]
           lenses <- getCodeLenses main'
           liftIO $ lenses @?= [codeLens (Range (Position 4 0) (Position 4 6))]
+          closeDoc main'
+    , testCase "add type signature code lens shows unqualified HasField" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "module Main where"
+              , "assetIssuer asset = asset.issuer"
+              ]
+          lenses <- getCodeLenses main'
+          Just mainFp <- pure $ T.pack <$> uriToFilePath (main' ^. uri)
+          let signature = "assetIssuer : DA.Internal.Record.HasField \"issuer\" r a => r -> a"
+              addTypeSigLens =
+                  CodeLens
+                      { _range = Range (Position 1 0) (Position 1 11)
+                      , _command = Just $ Command
+                          { _title = signature
+                          , _command = "typesignature.add"
+                          , _arguments = Just $ List $ singleton $ Aeson.object
+                              [ "changes" .= Aeson.object
+                                  [ Aeson.Key.fromText ("file://" <> mainFp) .=
+                                      [ Aeson.object
+                                          [ "newText" .= (signature <> "\n")
+                                          , "range" .= toJSON (Range (Position 1 0) (Position 1 0))
+                                          ]
+                                      ]
+                                  ]
+                              ]
+                          }
+                      , _xdata = Nothing
+                      }
+          liftIO $ lenses @?= [addTypeSigLens]
           closeDoc main'
     , testCase "type on hover: name" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
