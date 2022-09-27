@@ -3,6 +3,12 @@
 
 package com.daml.ledger.api.testtool.suites.v1_8
 
+import com.daml.ledger.api.testtool.infrastructure.Allocation.{
+  NoParties,
+  Participant,
+  Participants,
+  allocate,
+}
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.admin.party_management_service._
@@ -28,6 +34,7 @@ trait PartyManagementItUtils { self: PartyManagementServiceIT =>
       displayName: String = "",
       isLocal: Boolean = false,
       annotations: Map[String, String] = Map.empty,
+      resourceVersion: String = "",
       updatePaths: Seq[String],
   ): UpdatePartyDetailsRequest =
     UpdatePartyDetailsRequest(
@@ -36,7 +43,8 @@ trait PartyManagementItUtils { self: PartyManagementServiceIT =>
           party = party,
           displayName = displayName,
           isLocal = isLocal,
-          localMetadata = Some(ObjectMeta(resourceVersion = "", annotations = annotations)),
+          localMetadata =
+            Some(ObjectMeta(resourceVersion = resourceVersion, annotations = annotations)),
         )
       ),
       updateMask = Some(FieldMask(updatePaths)),
@@ -47,22 +55,62 @@ trait PartyManagementItUtils { self: PartyManagementServiceIT =>
   ): Map[String, String] =
     updateResp.partyDetails.get.localMetadata.get.annotations
 
+  def extractUpdatedAnnotations(
+      allocateResp: AllocatePartyResponse
+  ): Map[String, String] =
+    allocateResp.partyDetails.get.localMetadata.get.annotations
+
   def withFreshParty[T](
-      annotations: Map[String, String] = Map.empty
+      annotations: Map[String, String] = Map.empty,
+      displayName: String = "",
   )(
       f: PartyDetails => Future[T]
   )(implicit ledger: ParticipantTestContext, ec: ExecutionContext): Future[T] = {
     val req = AllocatePartyRequest(
+      displayName = displayName,
       localMetadata = Some(
         ObjectMeta(
           resourceVersion = "",
           annotations = annotations,
         )
-      )
+      ),
     )
     for {
       create <- ledger.allocateParty(req)
       v <- f(create.partyDetails.get)
     } yield v
   }
+
+  def testWithFreshPartyDetails(
+      shortIdentifier: String,
+      description: String,
+  )(
+      annotations: Map[String, String] = Map.empty,
+      displayName: String = "",
+  )(
+      body: ExecutionContext => ParticipantTestContext => PartyDetails => Future[Unit]
+  ): Unit = {
+    test(
+      shortIdentifier = shortIdentifier,
+      description = description,
+      partyAllocation = allocate(NoParties),
+    )(implicit ec => { case Participants(Participant(ledger)) =>
+      withFreshParty(
+        annotations = annotations,
+        displayName = displayName,
+      ) { partyDetails =>
+        body(ec)(ledger)(partyDetails)
+      }(ledger, ec)
+    })
+  }
+
+  def newPartyDetails(
+      party: String,
+      annotations: Map[String, String] = Map.empty,
+      isLocal: Boolean = true,
+  ): PartyDetails = PartyDetails(
+    party = party,
+    isLocal = isLocal,
+    localMetadata = Some(ObjectMeta(annotations = annotations)),
+  )
 }

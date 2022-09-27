@@ -21,6 +21,7 @@ import scalaz.Tag
 import scalaz.syntax.tag.ToTagOps
 import java.util.regex.Pattern
 
+import com.daml.ledger.api.testtool.suites.v1_8.object_meta.ObjectMetaTestsForPartyManagementService
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.client.binding.Primitive
 
@@ -30,8 +31,7 @@ final class PartyManagementServiceIT
     extends LedgerTestSuite
     with PartyManagementItUtils
     with PartyManagementServiceUpdateRpcTests
-    with PartyManagementServiceAnnotationsValidationTests
-    with PartyManagementServiceUpdateAnnotationsTests {
+    with ObjectMetaTestsForPartyManagementService {
 
   test(
     "PMNonEmptyParticipantID",

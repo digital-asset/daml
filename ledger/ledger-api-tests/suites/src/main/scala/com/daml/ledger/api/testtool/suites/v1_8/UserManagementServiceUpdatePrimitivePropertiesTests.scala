@@ -5,46 +5,95 @@ package com.daml.ledger.api.testtool.suites.v1_8
 
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 
-// Test updating a primitive fields taking primaryParty as a representative example of such a field.
 trait UserManagementServiceUpdatePrimitivePropertiesTests {
   self: UserManagementServiceIT =>
 
-  userManagementTestWithFreshUser(
-    "UpdatePrimaryPartyWithNonEmptyPrimaryParty",
-    "Update primary party using update paths with a non-empty primary party and the exact update path (resulting in a successful update)",
-  )(primaryParty = "primaryParty0")(implicit ec => { (ledger, user) =>
-    ledger.userManagement
-      .updateUser(
-        updateRequest(
-          id = user.id,
-          primaryParty = "primaryParty1",
-          updatePaths = Seq("primary_party"),
-        )
-      )
-      .map { updateResp =>
-        assertEquals(
-          "updating primary party 1 ",
-          extractUpdatedPrimaryParty(updateResp),
-          expected = "primaryParty1",
-        )
-      }
-  })
+  testWithFreshUser(
+    "UpdatePrimaryPartyUsingNonEmptyValue",
+    "Update primary party using a non-empty value",
+  )(primaryParty = "primaryParty0")(implicit ec =>
+    ledger =>
+      user =>
+        ledger.userManagement
+          .updateUser(
+            updateRequest(
+              id = user.id,
+              primaryParty = "primaryParty1",
+              updatePaths = Seq("primary_party"),
+            )
+          )
+          .map { updateResp =>
+            assertEquals(
+              "updating primary party",
+              extractUpdatedPrimaryParty(updateResp),
+              expected = "primaryParty1",
+            )
+          }
+  )
 
-  userManagementTestWithFreshUser(
-    "UpdatePrimaryPartyWithEmptyPrimaryParty",
-    "Update primary party using update paths with the empty primary party and the the exact update path (resulting in a successful update)",
-  )(primaryParty = "primaryParty0")(implicit ec => { (ledger, user) =>
-    ledger.userManagement
-      .updateUser(
-        updateRequest(id = user.id, primaryParty = "", updatePaths = Seq("primary_party"))
-      )
-      .map { updateResp =>
-        assertEquals(
-          "updating primary party 3",
-          extractUpdatedPrimaryParty(updateResp),
-          expected = "",
-        )
-      }
-  })
+  testWithFreshUser(
+    "UpdatePrimaryPartyUsingEmptyValue",
+    "Update primary party using the empty value",
+  )(primaryParty = "primaryParty0")(implicit ec =>
+    ledger =>
+      user =>
+        ledger.userManagement
+          .updateUser(
+            updateRequest(id = user.id, primaryParty = "", updatePaths = Seq("primary_party"))
+          )
+          .map { updateResp =>
+            assertEquals(
+              "updating primary party 3",
+              extractUpdatedPrimaryParty(updateResp),
+              expected = "",
+            )
+          }
+  )
+
+  testWithFreshUser(
+    "UpdateIsDeactivatedUsingNonDefaultValue",
+    "Update primary party using a non default value",
+  )(isDeactivated = false)(implicit ec =>
+    ledger =>
+      user =>
+        ledger.userManagement
+          .updateUser(
+            updateRequest(
+              id = user.id,
+              isDeactivated = true,
+              updatePaths = Seq("is_deactivated"),
+            )
+          )
+          .map { updateResp =>
+            assertEquals(
+              "updating is_deactivated",
+              extractIsDeactivated(updateResp),
+              expected = true,
+            )
+          }
+  )
+
+  testWithFreshUser(
+    "UpdateIsDeactivatedUsingTheDefaultValue",
+    "Update primary party using the default value",
+  )(isDeactivated = true)(implicit ec =>
+    ledger =>
+      user =>
+        ledger.userManagement
+          .updateUser(
+            updateRequest(
+              id = user.id,
+              isDeactivated = false,
+              updatePaths = Seq("is_deactivated"),
+            )
+          )
+          .map { updateResp =>
+            assertEquals(
+              "updating is_deactivated",
+              extractIsDeactivated(updateResp),
+              expected = false,
+            )
+          }
+  )
 
 }

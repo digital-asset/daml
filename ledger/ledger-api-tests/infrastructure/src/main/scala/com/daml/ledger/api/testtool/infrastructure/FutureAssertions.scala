@@ -13,6 +13,10 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
+case class ExpectedErrorDescription(
+    errorCode: ErrorCode,
+    exceptionMessageSubstring: Option[String],
+)
 final class FutureAssertions[T](future: Future[T]) {
 
   /** Checks that the future failed, and returns the throwable.
@@ -30,6 +34,16 @@ final class FutureAssertions[T](future: Future[T]) {
       predicate: Throwable => Boolean
   )(implicit executionContext: ExecutionContext): Future[Throwable] =
     handle(predicate, context)
+
+  def mustFailWith(
+      context: String,
+      expected: ExpectedErrorDescription,
+  )(implicit executionContext: ExecutionContext): Future[Unit] =
+    mustFailWith(
+      context = context,
+      errorCode = expected.errorCode,
+      exceptionMessageSubstring = expected.exceptionMessageSubstring,
+    )
 
   def mustFailWith(
       context: String,

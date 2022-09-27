@@ -11,6 +11,7 @@ import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertEquals, _}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.suites.v1_8.object_meta.ObjectMetaTestsForUserManagementService
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.admin.user_management_service.{
   CreateUserRequest,
@@ -44,11 +45,8 @@ final class UserManagementServiceIT
     extends LedgerTestSuite
     with UserManagementServiceITUtils
     with UserManagementServiceUpdateRpcTests
-    with UserManagementServiceAnnotationsValidationTests
-    with UserManagementServiceUpdateAnnotationMapTests
     with UserManagementServiceUpdatePrimitivePropertiesTests
-    with UserManagementServiceInvalidUpdateRequestTests
-    with UserManagementServiceConcurrentUpdates {
+    with ObjectMetaTestsForUserManagementService {
 
   private val adminPermission =
     Permission(Permission.Kind.ParticipantAdmin(Permission.ParticipantAdmin()))
@@ -421,28 +419,6 @@ final class UserManagementServiceIT
         ),
       )
     }
-  })
-
-  userManagementTest(
-    "TestFailCreatingUserWhenAnnotationsValueIsEmpty",
-    "Failing to create a user when an annotations value is empty",
-  )(implicit ec => { implicit ledger =>
-    val userId1 = ledger.nextUserId()
-    for {
-      _ <- ledger
-        .createUser(
-          CreateUserRequest(
-            Some(newUser(id = userId1, annotations = Map("k1" -> "v1", "k2" -> "")))
-          )
-        )
-        .mustFailWith(
-          "allocating a user",
-          LedgerApiErrors.RequestValidation.InvalidArgument,
-          Some(
-            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: The value of an annotation is empty for key: 'k2'"
-          ),
-        )
-    } yield ()
   })
 
   userManagementTest(
