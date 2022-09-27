@@ -143,9 +143,10 @@ object SValue {
     if (actuals.size >= arity) {
       throw SError.SErrorCrash(
         NameOf.qualifiedNameOfCurrentFunc,
-        s"SPAP: unexpected actuals.size >= arity",
+        "SPAP: unexpected actuals.size >= arity",
       )
     }
+
     override def toString: String =
       s"SPAP($prim, ${actuals.asScala.mkString("[", ",", "]")}, $arity)"
   }

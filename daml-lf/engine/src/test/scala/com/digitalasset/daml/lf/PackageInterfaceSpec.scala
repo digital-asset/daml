@@ -67,7 +67,7 @@ class PackageInterfaceSpec
         val table = Table("input" -> "reference", errorCases: _*)
 
         forEvery(table) { (input, expectedNotFound) =>
-          inside(lookup(input)) { case Left(LookupError(notFound, context)) =>
+          inside(lookup(input)) { case Left(LookupError.NotFound(notFound, context)) =>
             notFound shouldBe expectedNotFound
             context shouldBe toContext(input)
           }

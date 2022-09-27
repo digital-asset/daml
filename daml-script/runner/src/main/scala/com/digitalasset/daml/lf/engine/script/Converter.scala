@@ -332,7 +332,7 @@ object Converter {
   private[this] val extractToTuple = SEMakeClo(
     Array(),
     2,
-    SEApp(SEBuiltin(SBStructCon(tupleFieldInputOrder)), Array(SELocA(0), SELocA(1))),
+    SEAppAtomic(SEBuiltin(SBStructCon(tupleFieldInputOrder)), Array(SELocA(0), SELocA(1))),
   )
 
   // Extract the two fields out of the RankN encoding used in the Ap constructor.
@@ -340,8 +340,9 @@ object Converter {
       compiledPackages: CompiledPackages,
       fun: SValue,
   ): Either[String, (SValue, SValue)] = {
+    val e = SELet1(extractToTuple, SEAppAtomic(SEValue(fun), Array(SELocS(1))))
     val machine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(SEValue(fun), Array(extractToTuple)))(
+      Speedy.Machine.fromPureSExpr(compiledPackages, e)(
         Script.DummyLoggingContext
       )
     machine.run() match {
@@ -509,21 +510,21 @@ object Converter {
               case ScriptLedgerClient.ExerciseResult(_, _, _, _) =>
                 Left("Expected CreateResult but got ExerciseResult")
             }
-          } yield (SEApp(SEValue(continue), Array(SEValue(contractId))), eventResults.tail)
+          } yield (SEAppAtomic(SEValue(continue), Array(SEValue(contractId))), eventResults.tail)
         }
         case SVariant(_, "Exercise", _, v) => {
           val continue = v.asInstanceOf[SRecord].values.get(3)
           val exercised = eventResults.head.asInstanceOf[ScriptLedgerClient.ExerciseResult]
           for {
             translated <- translateExerciseResult(lookupChoice, translator, exercised)
-          } yield (SEApp(SEValue(continue), Array(SEValue(translated))), eventResults.tail)
+          } yield (SEAppAtomic(SEValue(continue), Array(SEValue(translated))), eventResults.tail)
         }
         case SVariant(_, "ExerciseByKey", _, v) => {
           val continue = v.asInstanceOf[SRecord].values.get(3)
           val exercised = eventResults.head.asInstanceOf[ScriptLedgerClient.ExerciseResult]
           for {
             translated <- translateExerciseResult(lookupChoice, translator, exercised)
-          } yield (SEApp(SEValue(continue), Array(SEValue(translated))), eventResults.tail)
+          } yield (SEAppAtomic(SEValue(continue), Array(SEValue(translated))), eventResults.tail)
         }
         case SVariant(_, "CreateAndExercise", _, v) => {
           val continue = v.asInstanceOf[SRecord].values.get(2)
@@ -531,7 +532,7 @@ object Converter {
           val exercised = eventResults(1).asInstanceOf[ScriptLedgerClient.ExerciseResult]
           for {
             translated <- translateExerciseResult(lookupChoice, translator, exercised)
-          } yield (SEApp(SEValue(continue), Array(SEValue(translated))), eventResults.drop(2))
+          } yield (SEAppAtomic(SEValue(continue), Array(SEValue(translated))), eventResults.drop(2))
         }
         case _ => Left(s"Expected Create, Exercise or ExerciseByKey but got $v")
       }
@@ -545,7 +546,15 @@ object Converter {
     ): Either[String, SExpr] =
       freeAp match {
         case SVariant(_, "PureA", _, v) =>
-          Right(acc.foldLeft[SExpr](SEValue(v))({ case (acc, v) => SEApp(acc, Array(v)) }))
+          Right(acc match {
+            case Nil => SEValue(v)
+            case _ :: _ =>
+              val locs: Array[SExprAtomic] = (1 to acc.length).toArray.reverse.map(SELocS(_))
+              acc.foldRight[SExpr](SEAppAtomic(SEValue(v), locs))({ case (e, acc) =>
+                SELet1(e, acc)
+              })
+          })
+
         case SVariant(_, "Ap", _, v) => {
           val r = for {
             apFields <- toApFields(compiledPackages, v)
@@ -739,7 +748,7 @@ object Converter {
 
   def toUser(v: SValue): Either[String, User] =
     v match {
-      case SRecord(_, _, vals) if vals.size == 2 =>
+      case SRecord(_, _, vals) if vals.size >= 2 =>
         for {
           id <- toUserId(vals.get(0))
           primaryParty <- toOptional(vals.get(1), toParty)

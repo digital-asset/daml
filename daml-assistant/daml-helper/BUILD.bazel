@@ -73,6 +73,7 @@ da_haskell_binary(
         "typed-process",
         "time",
         "text",
+        "optparse-applicative",
     ],
     main_function = "DA.Daml.Helper.Main.main",
     src_strip_prefix = "src",

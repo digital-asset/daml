@@ -43,20 +43,21 @@ class JsonProtocolTest
     PropertyCheckConfiguration(minSuccessful = 100)
 
   "domain.TemplateId.RequiredPkg" - {
-    "can be serialized to JSON" in forAll(genDomainTemplateId) { a: domain.TemplateId.RequiredPkg =>
-      inside(a.toJson) { case JsString(str) =>
-        str should ===(s"${a.packageId}:${a.moduleName}:${a.entityName}")
-      }
+    "can be serialized to JSON" in forAll(genDomainTemplateId) {
+      a: domain.ContractTypeId.RequiredPkg =>
+        inside(a.toJson) { case JsString(str) =>
+          str should ===(s"${a.packageId}:${a.moduleName}:${a.entityName}")
+        }
     }
-    "roundtrips" in forAll(genDomainTemplateId) { a: domain.TemplateId.RequiredPkg =>
-      val b = a.toJson.convertTo[domain.TemplateId.RequiredPkg]
+    "roundtrips" in forAll(genDomainTemplateId) { a: domain.ContractTypeId.RequiredPkg =>
+      val b = a.toJson.convertTo[domain.ContractTypeId.RequiredPkg]
       b should ===(a)
     }
   }
 
-  "domain.TemplateId.OptionalPkg" - {
+  "domain.ContractTypeId.OptionalPkg" - {
     "can be serialized to JSON" in forAll(genDomainTemplateIdO) {
-      a: domain.TemplateId.OptionalPkg =>
+      a: domain.ContractTypeId.OptionalPkg =>
         val expectedStr: String = a.packageId.cata(
           p => s"${p: String}:${a.moduleName}:${a.entityName}",
           s"${a.moduleName}:${a.entityName}",
@@ -66,8 +67,8 @@ class JsonProtocolTest
           str should ===(expectedStr)
         }
     }
-    "roundtrips" in forAll(genDomainTemplateIdO) { a: domain.TemplateId.OptionalPkg =>
-      val b = a.toJson.convertTo[domain.TemplateId.OptionalPkg]
+    "roundtrips" in forAll(genDomainTemplateIdO) { a: domain.ContractTypeId.OptionalPkg =>
+      val b = a.toJson.convertTo[domain.ContractTypeId.OptionalPkg]
       b should ===(a)
     }
   }
@@ -154,7 +155,7 @@ class JsonProtocolTest
   "domain.OkResponse" - {
 
     "response with warnings" in forAll(listOf(genDomainTemplateIdO)) {
-      templateIds: List[domain.TemplateId.OptionalPkg] =>
+      templateIds: List[domain.ContractTypeId.OptionalPkg] =>
         val response: domain.OkResponse[Int] =
           domain.OkResponse(result = 100, warnings = Some(domain.UnknownTemplateIds(templateIds)))
 
@@ -194,7 +195,7 @@ class JsonProtocolTest
       inside(decode1[domain.SyncResponse, List[JsValue]](str)) {
         case \/-(domain.OkResponse(List(), Some(warning), StatusCodes.OK)) =>
           warning shouldBe domain.UnknownTemplateIds(
-            List(domain.TemplateId(Option.empty[String], "AAA", "BBB"))
+            List(domain.ContractTypeId(Option.empty[String], "AAA", "BBB"))
           )
       }
     }

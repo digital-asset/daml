@@ -227,6 +227,7 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
     case class Reject(reason: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
+          // TODO um-for-hub: Update the cause to mention a 'request' instead of a 'command'
           cause = s"The submitted command has invalid arguments: ${reason}"
         )
   }

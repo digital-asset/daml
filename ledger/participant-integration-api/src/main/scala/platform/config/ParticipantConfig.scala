@@ -24,6 +24,7 @@ final case class ParticipantConfig(
     ),
     indexService: IndexServiceConfig = IndexServiceConfig(),
     indexer: IndexerConfig = IndexerConfig(),
+    participantIdOverride: Option[Ref.ParticipantId] = None,
 )
 
 object ParticipantConfig {

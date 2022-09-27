@@ -22,7 +22,6 @@ import com.daml.platform.configuration.{
   CommandConfiguration,
   IndexServiceConfig,
   InitialLedgerConfiguration,
-  PartyConfiguration,
 }
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, PackageMetadataViewConfig}
 import com.daml.platform.indexer.ha.HaConfig
@@ -226,10 +225,6 @@ object ArbitraryConfig {
     JwtRs256Jwks,
   )
 
-  val partyConfiguration = for {
-    implicitPartyAllocation <- Gen.oneOf(true, false)
-  } yield PartyConfiguration(implicitPartyAllocation = implicitPartyAllocation)
-
   val commandConfiguration = for {
     inputBufferSize <- Gen.chooseNum(Int.MinValue, Int.MaxValue)
     maxCommandsInFlight <- Gen.chooseNum(Int.MinValue, Int.MaxValue)
@@ -289,7 +284,6 @@ object ArbitraryConfig {
     initialLedgerConfiguration <- initialLedgerConfiguration
     managementServiceTimeout <- Gen.finiteDuration
     maxInboundMessageSize <- Gen.chooseNum(0, Int.MaxValue)
-    party <- partyConfiguration
     port <- port
     portFile <- Gen.option(Gen.alphaStr.map(p => Paths.get(p)))
     rateLimit <- rateLimitingConfig
@@ -305,7 +299,6 @@ object ArbitraryConfig {
     initialLedgerConfiguration = initialLedgerConfiguration,
     managementServiceTimeout = managementServiceTimeout,
     maxInboundMessageSize = maxInboundMessageSize,
-    party = party,
     port = port,
     portFile = portFile,
     rateLimit = rateLimit,

@@ -11,11 +11,8 @@ import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.{LedgerId, SubmissionId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto
-import com.daml.lf.data.Ref
-import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -31,9 +28,7 @@ import com.daml.telemetry.TelemetryContext
 import com.daml.timer.Delayed
 
 import java.time.{Duration, Instant}
-import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.FutureConverters.CompletionStageOps
 import scala.util.{Failure, Success, Try}
 
 private[apiserver] object ApiSubmissionService {
@@ -41,15 +36,14 @@ private[apiserver] object ApiSubmissionService {
   def create(
       ledgerId: LedgerId,
       writeService: state.WriteService,
-      partyManagementService: IndexPartyManagementService,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
       ledgerConfigurationSubscription: LedgerConfigurationSubscription,
       seedService: SeedService,
       commandExecutor: CommandExecutor,
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
-      configuration: ApiSubmissionService.Configuration,
       metrics: Metrics,
+      explicitDisclosureUnsafeEnabled: Boolean,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -57,14 +51,12 @@ private[apiserver] object ApiSubmissionService {
     new GrpcCommandSubmissionService(
       service = new ApiSubmissionService(
         writeService,
-        partyManagementService,
         timeProvider,
         timeProviderType,
         ledgerConfigurationSubscription,
         seedService,
         commandExecutor,
         checkOverloaded,
-        configuration,
         metrics,
       ),
       ledgerId = ledgerId,
@@ -74,24 +66,18 @@ private[apiserver] object ApiSubmissionService {
         ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationDuration),
       submissionIdGenerator = SubmissionIdGenerator.Random,
       metrics = metrics,
+      explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
     )
-
-  final case class Configuration(
-      implicitPartyAllocation: Boolean
-  )
-
 }
 
 private[apiserver] final class ApiSubmissionService private[services] (
     writeService: state.WriteService,
-    partyManagementService: IndexPartyManagementService,
     timeProvider: TimeProvider,
     timeProviderType: TimeProviderType,
     ledgerConfigurationSubscription: LedgerConfigurationSubscription,
     seedService: SeedService,
     commandExecutor: CommandExecutor,
     checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
-    configuration: ApiSubmissionService.Configuration,
     metrics: Metrics,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends CommandSubmissionService
@@ -175,77 +161,36 @@ private[apiserver] final class ApiSubmissionService private[services] (
         for {
           result <- commandExecutor.execute(commands, submissionSeed, ledgerConfig)
           transactionInfo <- handleCommandExecutionResult(result)
-          partyAllocationResults <- allocateMissingInformees(transactionInfo.transaction)
           submissionResult <- submitTransaction(
             transactionInfo,
-            partyAllocationResults,
             ledgerConfig,
           )
         } yield submissionResult
     }
 
-  // Takes the whole transaction to ensure to traverse it only if necessary
-  private[services] def allocateMissingInformees(
-      transaction: SubmittedTransaction
-  )(implicit
-      loggingContext: LoggingContext,
-      telemetryContext: TelemetryContext,
-  ): Future[Seq[state.SubmissionResult]] =
-    if (configuration.implicitPartyAllocation) {
-      val partiesInTransaction = transaction.informees.toSeq
-      for {
-        fetchedParties <- partyManagementService.getParties(partiesInTransaction)
-        knownParties = fetchedParties.iterator.map(_.party).toSet
-        missingParties = partiesInTransaction.filterNot(knownParties)
-        submissionResults <- Future.sequence(missingParties.map(allocateParty))
-      } yield submissionResults
-    } else Future.successful(Seq.empty)
-
-  private def allocateParty(
-      name: Ref.Party
-  )(implicit telemetryContext: TelemetryContext): Future[state.SubmissionResult] = {
-    val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
-    withEnrichedLoggingContext(logging.party(name), logging.submissionId(submissionId)) {
-      implicit loggingContext =>
-        logger.info("Implicit party allocation")
-        writeService
-          .allocateParty(
-            hint = Some(name),
-            displayName = Some(name),
-            submissionId = submissionId,
-          )
-    }
-  }.asScala
-
   private def submitTransaction(
       transactionInfo: CommandExecutionResult,
-      partyAllocationResults: Seq[state.SubmissionResult],
       ledgerConfig: Configuration,
   )(implicit telemetryContext: TelemetryContext): Future[state.SubmissionResult] =
-    partyAllocationResults.find(_ != state.SubmissionResult.Acknowledged) match {
-      case Some(result) =>
-        Future.successful(result)
-      case None =>
-        timeProviderType match {
-          case TimeProviderType.WallClock =>
-            // Submit transactions such that they arrive at the ledger sequencer exactly when record time equals ledger time.
-            // If the ledger time of the transaction is far in the future (farther than the expected latency),
-            // the submission to the WriteService is delayed.
-            val submitAt = transactionInfo.transactionMeta.ledgerEffectiveTime.toInstant
-              .minus(ledgerConfig.timeModel.avgTransactionLatency)
-            val submissionDelay = Duration.between(timeProvider.getCurrentTime, submitAt)
-            if (submissionDelay.isNegative)
-              submitTransaction(transactionInfo)
-            else {
-              logger.info(s"Delaying submission by $submissionDelay")
-              metrics.daml.commands.delayedSubmissions.mark()
-              val scalaDelay = scala.concurrent.duration.Duration.fromNanos(submissionDelay.toNanos)
-              Delayed.Future.by(scalaDelay)(submitTransaction(transactionInfo))
-            }
-          case TimeProviderType.Static =>
-            // In static time mode, record time is always equal to ledger time
-            submitTransaction(transactionInfo)
+    timeProviderType match {
+      case TimeProviderType.WallClock =>
+        // Submit transactions such that they arrive at the ledger sequencer exactly when record time equals ledger time.
+        // If the ledger time of the transaction is far in the future (farther than the expected latency),
+        // the submission to the WriteService is delayed.
+        val submitAt = transactionInfo.transactionMeta.ledgerEffectiveTime.toInstant
+          .minus(ledgerConfig.timeModel.avgTransactionLatency)
+        val submissionDelay = Duration.between(timeProvider.getCurrentTime, submitAt)
+        if (submissionDelay.isNegative)
+          submitTransaction(transactionInfo)
+        else {
+          logger.info(s"Delaying submission by $submissionDelay")
+          metrics.daml.commands.delayedSubmissions.mark()
+          val scalaDelay = scala.concurrent.duration.Duration.fromNanos(submissionDelay.toNanos)
+          Delayed.Future.by(scalaDelay)(submitTransaction(transactionInfo))
         }
+      case TimeProviderType.Static =>
+        // In static time mode, record time is always equal to ledger time
+        submitTransaction(transactionInfo)
     }
 
   private def submitTransaction(

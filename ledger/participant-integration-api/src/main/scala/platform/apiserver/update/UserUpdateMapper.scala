@@ -12,10 +12,10 @@ object UserUpdateMapper extends UpdateMapperBase {
 
   import UpdateRequestsPaths.UserPaths
 
-  type DomainObject = domain.User
-  type UpdateObject = UserUpdate
+  type Resource = domain.User
+  type Update = UserUpdate
 
-  override val fullUpdateTrie: UpdatePathsTrie = UserPaths.fullUpdateTrie
+  override val fullResourceTrie: UpdatePathsTrie = UserPaths.fullUpdateTrie
 
   override def makeUpdateObject(user: User, updateTrie: UpdatePathsTrie): Result[UserUpdate] = {
     for {
@@ -38,10 +38,10 @@ object UserUpdateMapper extends UpdateMapperBase {
   def resolveAnnotationsUpdate(
       updateTrie: UpdatePathsTrie,
       newValue: Map[String, String],
-  ): Result[Option[AnnotationsUpdate]] =
+  ): Result[Option[Map[String, String]]] =
     updateTrie
       .findMatch(UserPaths.annotations)
-      .fold(noUpdate[AnnotationsUpdate])(updateMatch =>
+      .fold(noUpdate[Map[String, String]])(updateMatch =>
         makeAnnotationsUpdate(newValue = newValue, updateMatch = updateMatch)
       )
 

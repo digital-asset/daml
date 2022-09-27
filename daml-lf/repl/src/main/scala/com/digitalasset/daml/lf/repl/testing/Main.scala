@@ -558,7 +558,7 @@ object Repl {
         case error: ScenarioRunner.ScenarioError =>
           println(
             "failed at " +
-              prettyLoc(machine.lastLocation).render(128) +
+              prettyLoc(machine.getLastLocation).render(128) +
               ": " + PrettyScenario.prettyError(error.error).render(128)
           )
           failures += 1

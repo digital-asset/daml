@@ -32,6 +32,14 @@ private[inner] object VariantClass extends StrictLogging {
       val variantType = TypeSpec
         .classBuilder(variantClassName)
         .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
+        .superclass(
+          if (typeArguments.isEmpty)
+            ParameterizedTypeName.get(
+              ClassName get classOf[javaapi.data.codegen.Variant[_]],
+              variantClassName,
+            )
+          else ClassName get classOf[Object]
+        )
         .addTypeVariables(typeArguments.map(TypeVariableName.get).asJava)
         .addMethod(MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC).build())
         .addMethod(generateAbstractToValueSpec(typeArguments))
@@ -76,7 +84,7 @@ private[inner] object VariantClass extends StrictLogging {
       .methodBuilder("toValue")
       .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
       .addParameters(ToValueExtractorParameters.generate(typeArgs).asJava)
-      .returns(classOf[javaapi.data.Value])
+      .returns(classOf[javaapi.data.Variant])
       .build()
 
   private def initFromValueBuilder(t: TypeName): MethodSpec.Builder =

@@ -101,7 +101,7 @@ import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Numeric
 import           DA.Daml.LF.TemplateOrInterface (TemplateOrInterface')
 import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
-import           DA.Daml.Options.Types (EnableScenarios (..))
+import           DA.Daml.Options.Types (EnableScenarios (..), AllowLargeTuples (..))
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
 import           Data.Int
@@ -145,6 +145,7 @@ data Env = Env
     -- packages does not cause performance issues.
     ,envLfVersion :: LF.Version
     ,envEnableScenarios :: EnableScenarios
+    ,envAllowLargeTuples :: AllowLargeTuples
     ,envTypeVars :: !(MS.Map Var TypeVarName)
         -- ^ Maps GHC type variables in scope to their LF type variable names
     ,envTypeVarNames :: !(S.Set TypeVarName)
@@ -155,11 +156,12 @@ data Env = Env
 mkEnv ::
      LF.Version
   -> EnableScenarios
+  -> AllowLargeTuples
   -> MS.Map UnitId DalfPackage
   -> MS.Map (UnitId, LF.ModuleName) PackageId
   -> GHC.Module
   -> Env
-mkEnv envLfVersion envEnableScenarios envPkgMap envStablePackages ghcModule = do
+mkEnv envLfVersion envEnableScenarios envAllowLargeTuples envPkgMap envStablePackages ghcModule = do
   let
     envGHCModuleName = GHC.moduleName ghcModule
     envModuleUnitId = GHC.moduleUnitId ghcModule
@@ -743,6 +745,7 @@ convertConsuming consumingTy = case consumingTy of
 convertModule
     :: LF.Version
     -> EnableScenarios
+    -> AllowLargeTuples
     -> MS.Map UnitId DalfPackage
     -> MS.Map (GHC.UnitId, LF.ModuleName) LF.PackageId
     -> NormalizedFilePath
@@ -750,10 +753,10 @@ convertModule
     -> ModIface
       -- ^ Only used for information that isn't available in ModDetails.
     -> ModDetails
-    -> Either FileDiagnostic LF.Module
-convertModule lfVersion enableScenarios pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing) $ do
+    -> Either FileDiagnostic (LF.Module, [FileDiagnostic])
+convertModule lfVersion enableScenarios allowLargeTuples pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing) $ do
     let
-      env = mkEnv lfVersion enableScenarios pkgMap stablePackages (cm_module coreModule)
+      env = mkEnv lfVersion enableScenarios allowLargeTuples pkgMap stablePackages (cm_module coreModule)
       mc = extractModuleContents env coreModule modIface details
     defs <- convertModuleContents env mc
     pure (LF.moduleFromDefinitions (envLFModuleName env) (Just $ fromNormalizedFilePath file) flags defs)
@@ -1438,6 +1441,7 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         [ "mkInterfaceInstance"
         , "mkMethod"
         , "mkInterfaceView"
+        , "codeGenAllowLargeTuples"
         ])
     ]
 
@@ -1716,6 +1720,10 @@ convertExpr env0 e = do
     go env (VarIn GHC_Types "I#") args = pure (mkIdentity TInt64, args)
         -- we pretend Int and Int# are the same thing
 
+    go env (VarIn DA_Internal_Desugar "codeGenAllowLargeTuples") (LType _ : LExpr head : rest)
+        = let env' = env { envAllowLargeTuples = AllowLargeTuples True }
+           in go env' head rest
+
     go env (Var x) args
         | Just internals <- lookupUFM internalFunctions modName
         , getOccFS x `elementOfUniqSet` internals
@@ -1967,6 +1975,12 @@ splitConArgs_maybe con args = do
 -- work. Constructor workers are not handled (yet).
 convertDataCon :: Env -> GHC.Module -> DataCon -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])
 convertDataCon env m con args
+    | AllowLargeTuples False <- envAllowLargeTuples env
+    , IsTuple arity <- con, arity > 5
+    = do
+        conversionWarning "Used tuple of size > 5! Daml only has Show, Eq, Ord instances for tuples of size <= 5."
+        let env' = env { envAllowLargeTuples = AllowLargeTuples True }
+        convertDataCon env' m con args
     -- Fully applied
     | Just (tyArgs, tmArgs) <- splitConArgs_maybe con args = do
         tyArgs <- mapM (convertType env) tyArgs
@@ -2364,7 +2378,8 @@ packageNameToPkgRef env = convertUnitId (envModuleUnitId env) (envPkgMap env)
 convertTyCon :: Env -> TyCon -> ConvertM LF.Type
 convertTyCon env t
     | t == unitTyCon = pure TUnit
-    | isTupleTyCon t, not (isConstraintTupleTyCon t), arity >= 2 = TCon <$> qDA_Types env (mkTypeCon ["Tuple" <> T.pack (show arity)])
+    | isTupleTyCon t, not (isConstraintTupleTyCon t), arity >= 2 =
+        TCon <$> qDA_Types env (mkTypeCon ["Tuple" <> T.pack (show arity)])
     | t == listTyCon = pure (TBuiltin BTList)
     | t == boolTyCon = pure TBool
     | t == intTyCon || t == intPrimTyCon = pure TInt64

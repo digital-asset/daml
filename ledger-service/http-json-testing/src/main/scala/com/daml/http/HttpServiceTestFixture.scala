@@ -432,7 +432,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     postJsonStringRequest(uri, json.prettyPrint, headers)
 
   def postCreateCommand(
-      cmd: domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg],
+      cmd: domain.CreateCommand[v.Record, domain.ContractTypeId.OptionalPkg],
       encoder: DomainJsonEncoder,
       uri: Uri,
       headers: List[HttpHeader],
@@ -448,7 +448,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   }
 
   def postArchiveCommand(
-      templateId: domain.TemplateId.OptionalPkg,
+      templateId: domain.ContractTypeId.OptionalPkg,
       contractId: domain.ContractId,
       encoder: DomainJsonEncoder,
       uri: Uri,
@@ -500,8 +500,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       owner: domain.Party,
       number: String,
       time: v.Value.Sum.Timestamp = TimestampConversion.roundInstantToMicros(Instant.now),
-  ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
-    val templateId = domain.TemplateId(None, "Account", "Account")
+  ): domain.CreateCommand[v.Record, domain.ContractTypeId.OptionalPkg] = {
+    val templateId = domain.ContractTypeId.Template(None, "Account", "Account")
     val timeValue = v.Value(time)
     val enabledVariantValue =
       v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
@@ -520,8 +520,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       owners: Seq[String],
       number: String,
       time: v.Value.Sum.Timestamp = TimestampConversion.roundInstantToMicros(Instant.now),
-  ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
-    val templateId = domain.TemplateId(None, "Account", "SharedAccount")
+  ): domain.CreateCommand[v.Record, domain.ContractTypeId.OptionalPkg] = {
+    val templateId = domain.ContractTypeId.Template(None, "Account", "SharedAccount")
     val timeValue = v.Value(time)
     val enabledVariantValue =
       v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))

@@ -36,7 +36,7 @@ template Asset
       getAmount = amount
       setAmount x = toInterface @Token (this with amount = x)
 
--- @ERROR range=44:3-45:26; No instance for (HasExercise Asset GetRich (ContractId Token))
+-- @ERROR range=44:3-45:26; Tried to exercise a choice GetRich which doesn't exist on Asset
 -- An interface choice cannot be exercised directly on a template,
 -- even if it implements the interface.
 cannotExercise : ContractId Asset -> Update (ContractId Token)

@@ -28,7 +28,7 @@ package speedy
   *
   * Summary of which constructors are contained by: SExp0, SExpr1 and SExpr:
   *
-  * - In SExpr{0,1,} (everywhere): SEAppGeneral, SEBuiltin, SELabelClosure,
+  * - In SExpr{0,1,} (everywhere): SEApp(General), SEBuiltin, SELabelClosure,
   *   SELocation, SEScopeExercise, SETryCatch, SEVal, SEValue,
   *
   * - In SExpr0: SEAbs, SEVar
@@ -37,8 +37,8 @@ package speedy
   *
   * - In SExpr{1,}: SELocA, SELocF, SELocS, SEMakeClo, SELet1General,
   *
-  * - In SExpr: SEAppAtomicFun, SEAppAtomicGeneral, SEAppAtomicSaturatedBuiltin,
-  *   SECaseAtomic, SELet1Builtin, SELet1BuiltinArithmetic
+  * - In SExpr: SEAppAtomicGeneral, SEAppAtomicSaturatedBuiltin, SECaseAtomic,
+  *   SELet1Builtin, SELet1BuiltinArithmetic, SEAppOnlyFunIsAtomic
   *
   * - In SExpr (runtime only, i.e. rejected by validate): SEDamlException, SEImportValue
   */
@@ -71,7 +71,7 @@ private[speedy] object SExpr0 {
 
   object SEValue extends SValueContainer[SEValue]
 
-  /** Function application */
+  /** Function application (Function and Args are unrestricted expressions) */
   final case class SEApp(fun: SExpr, args: List[SExpr]) extends SExpr
 
   /** Lambda abstraction. Transformed to SEMakeClo during closure conversion */

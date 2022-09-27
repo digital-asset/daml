@@ -7,6 +7,7 @@ import java.sql.Connection
 import anorm.SqlParser.{array, bool, byteArray, get, int, long, str}
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.offset.Offset
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -14,6 +15,7 @@ import com.daml.platform.store.ChoiceCoder
 import com.daml.platform.store.backend.Conversions.{
   contractId,
   eventId,
+  hashFromHexString,
   offset,
   timestampFromMicros,
 }
@@ -59,6 +61,7 @@ abstract class EventStorageBackendTemplate(
       "create_observers",
       "create_agreement_text",
       "create_key_value",
+      "create_key_hash",
       "create_key_value_compression",
       "submitters",
     )
@@ -80,6 +83,7 @@ abstract class EventStorageBackendTemplate(
       "NULL as create_observers",
       "NULL as create_agreement_text",
       "create_key_value",
+      "NULL as create_key_hash",
       "create_key_value_compression",
       "submitters",
     )
@@ -113,7 +117,7 @@ abstract class EventStorageBackendTemplate(
 
   private type CreatedEventRow =
     SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[Int] ~ Array[Int] ~ Option[String] ~
-      Option[Array[Byte]] ~ Option[Int]
+      Option[Array[Byte]] ~ Option[Hash] ~ Option[Int]
 
   private val createdEventRow: RowParser[CreatedEventRow] =
     sharedRow ~
@@ -123,6 +127,7 @@ abstract class EventStorageBackendTemplate(
       array[Int]("create_observers") ~
       str("create_agreement_text").? ~
       byteArray("create_key_value").? ~
+      hashFromHexString("create_key_hash").? ~
       int("create_key_value_compression").?
 
   private type ExercisedEventRow =
@@ -152,7 +157,7 @@ abstract class EventStorageBackendTemplate(
     createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
           templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ createArgument ~ createArgumentCompression ~
-          createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression =>
+          createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyHash ~ createKeyValueCompression =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
@@ -181,7 +186,9 @@ abstract class EventStorageBackendTemplate(
             ),
             createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
+            createKeyHash = createKeyHash,
             createKeyValueCompression = createKeyValueCompression,
+            ledgerEffectiveTime = ledgerEffectiveTime,
             eventWitnesses = ArraySeq.unsafeWrapArray(
               eventWitnesses.view
                 .filter(allQueryingParties)
@@ -234,7 +241,7 @@ abstract class EventStorageBackendTemplate(
       allQueryingParties: Set[Int]
   ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent.Created]] =
     createdEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyHash ~ createKeyValueCompression =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
@@ -263,6 +270,8 @@ abstract class EventStorageBackendTemplate(
             ),
             createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
+            createKeyHash = createKeyHash,
+            ledgerEffectiveTime = ledgerEffectiveTime,
             createKeyValueCompression = createKeyValueCompression,
             eventWitnesses = ArraySeq.unsafeWrapArray(
               eventWitnesses.view
@@ -341,6 +350,7 @@ abstract class EventStorageBackendTemplate(
     "create_observers",
     "create_agreement_text",
     "create_key_value",
+    "create_key_hash",
     "create_key_value_compression",
     "NULL as exercise_choice",
     "NULL as exercise_argument",
@@ -368,6 +378,7 @@ abstract class EventStorageBackendTemplate(
     "NULL as create_observers",
     "NULL as create_agreement_text",
     "create_key_value",
+    "NULL as create_key_hash",
     "create_key_value_compression",
     "exercise_choice",
     "exercise_argument",
@@ -763,6 +774,7 @@ abstract class EventStorageBackendTemplate(
       array[Int]("create_observers").? ~
       str("create_agreement_text").? ~
       byteArray("create_key_value").? ~
+      hashFromHexString("create_key_hash").? ~
       int("create_key_value_compression").? ~
       byteArray("create_argument").? ~
       int("create_argument_compression").? ~
@@ -779,7 +791,7 @@ abstract class EventStorageBackendTemplate(
       long("event_sequential_id") ~
       offset("event_offset")).map {
       case eventKind ~ transactionId ~ nodeIndex ~ commandId ~ workflowId ~ eventId ~ contractId ~ templateId ~ ledgerEffectiveTime ~ createSignatories ~
-          createObservers ~ createAgreementText ~ createKeyValue ~ createKeyCompression ~
+          createObservers ~ createAgreementText ~ createKeyValue ~ createKeyHash ~ createKeyCompression ~
           createArgument ~ createArgumentCompression ~ treeEventWitnesses ~ flatEventWitnesses ~ submitters ~ exerciseChoice ~
           exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~
           exerciseChildEventIds ~ eventSequentialId ~ offset =>
@@ -800,6 +812,7 @@ abstract class EventStorageBackendTemplate(
           createObservers.map(_.map(stringInterning.party.unsafe.externalize)),
           createAgreementText,
           createKeyValue,
+          createKeyHash,
           createKeyCompression,
           createArgument,
           createArgumentCompression,
@@ -839,6 +852,7 @@ abstract class EventStorageBackendTemplate(
            create_observers,
            create_agreement_text,
            create_key_value,
+           create_key_hash,
            create_key_value_compression,
            create_argument,
            create_argument_compression,
@@ -874,6 +888,7 @@ abstract class EventStorageBackendTemplate(
            NULL as create_observers,
            NULL as create_agreement_text,
            create_key_value,
+           NULL as create_key_hash,
            create_key_value_compression,
            NULL as create_argument,
            NULL as create_argument_compression,
@@ -909,6 +924,7 @@ abstract class EventStorageBackendTemplate(
            NULL as create_observers,
            NULL as create_agreement_text,
            create_key_value,
+           NULL as create_key_hash,
            create_key_value_compression,
            NULL as create_argument,
            NULL as create_argument_compression,

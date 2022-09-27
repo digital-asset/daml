@@ -9,7 +9,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError, SValue}
-import com.daml.lf.speedy.SExpr.{SExpr, SEApp, SEValue}
+import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{
@@ -19,11 +19,11 @@ import com.daml.lf.transaction.{
   VersionedTransaction,
   Transaction => Tx,
 }
+
 import java.nio.file.Files
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{VersionedContractInstance, ContractId}
-
-import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackage}
+import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackage}
 import com.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
@@ -321,7 +321,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       compiledPackages = compiledPackages,
       submissionTime = submissionTime,
       initialSeeding = seeding,
-      expr = SEApp(sexpr, Array(SEValue.Token)),
+      expr = SEApp(sexpr, Array(SValue.SToken)),
       committers = submitters,
       readAs = readAs,
       validating = validating,
@@ -368,7 +368,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       time: Time.Timestamp,
   ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("Daml Engine") { onLedger =>
     def detailMsg = Some(
-      s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.nodesToString}"
+      s"Last location: ${Pretty.prettyLoc(machine.getLastLocation).render(80)}, partial transaction: ${onLedger.nodesToString}"
     )
     def versionDisclosedContract(d: speedy.DisclosedContract): Versioned[DisclosedContract] = {
       val version = machine.tmplId2TxVersion(d.templateId)
@@ -383,7 +383,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
 
     while (!finished) {
       machine.run() match {
-
         case fv: SResultFinal =>
           finished = true
           finalValue = fv
@@ -453,7 +452,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
             submissionSeed = None,
             submissionTime = machine.submissionTime,
             usedPackages = deps,
-            dependsOnTime = onLedger.dependsOnTime,
+            dependsOnTime = onLedger.getDependsOnTime,
             nodeSeeds = nodeSeeds,
             globalKeyMapping = globalKeyMapping,
             disclosures = disclosedContracts.map(versionDisclosedContract),

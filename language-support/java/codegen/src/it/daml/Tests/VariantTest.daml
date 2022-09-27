@@ -13,6 +13,11 @@ data VariantItem x = EmptyVariant
                    | CustomParametricVariant (CustomParametric x)
   deriving (Eq, Show)
 
+data StarKindVariant = EmptySK
+                     | ParameterizedRecordSK with x1: Int, x2: Text, x3: [Int]
+                     | CustomSK Custom
+  deriving (Eq, Show)
+
 data Custom = Custom {}
   deriving (Eq, Show)
 
@@ -33,6 +38,7 @@ template VariantTestTemplate
         variantItem : VariantItem Int
         custom : Custom
         customParametric : CustomParametric Int
+        starKind : StarKindVariant
         foo : Foo
         bar : Bar
     where

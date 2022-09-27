@@ -19,7 +19,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts_stricter,
-    tags = ["maven_coordinates=com.daml:daml-lf-interface:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-lf-api-type-signature:__VERSION__"],
     visibility = [
         "//daml-assistant/daml-sdk:__subpackages__",
         "//daml-lf:__subpackages__",

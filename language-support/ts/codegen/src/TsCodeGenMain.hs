@@ -523,7 +523,13 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule,
         ifName
 
 ifaceDefTempl :: T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
-ifaceDefTempl name mbKeyTy choices =
+ifaceDefTempl = ifaceDefCtTy "Template"
+
+ifaceDefIface :: T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
+ifaceDefIface = ifaceDefCtTy "InterfaceCompanion"
+
+ifaceDefCtTy :: T.Text -> T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
+ifaceDefCtTy container name mbKeyTy choices =
   concat
   [ ["export declare interface " <> name <> "Interface {"]
   , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
@@ -537,24 +543,8 @@ ifaceDefTempl name mbKeyTy choices =
   where
     mbSubst = Nothing
     keyTy = fromMaybe "undefined" mbKeyTy
-    choiceFrom = "damlTypes.ChoiceFrom<damlTypes.Template<" <> name <> ", " <> keyTy <> ">>"
-
-ifaceDefIface :: T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
-ifaceDefIface name mbKeyTy choices =
-  concat
-  [ ["export declare interface " <> name <> "Interface " <> "{"]
-  , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
-      name <> ", " <>
-      tsTypeRef (genType chcArgTy mbSubst) <> ", " <>
-      tsTypeRef (genType chcRetTy mbSubst) <> ", " <>
-      keyTy <> "> & " <> choiceFrom <> ";"
-    | ChoiceDef{..} <- choices ]
-  , [ "}" ]
-  ]
-  where
-    mbSubst = Nothing
-    keyTy = fromMaybe "undefined" mbKeyTy
-    choiceFrom = "damlTypes.ChoiceFrom<damlTypes.InterfaceCompanion<" <> name <> ", " <> keyTy <> ">>"
+    choiceFrom = "damlTypes.ChoiceFrom<damlTypes." <> container
+                <> "<" <> name <> ", " <> keyTy <> ">>"
 
 data ChoiceDef = ChoiceDef
   { chcName' :: T.Text

@@ -24,6 +24,7 @@ import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.{IndexServiceConfig, ServerRole}
 import com.daml.platform.index.{InMemoryStateUpdater, IndexServiceOwner}
 import com.daml.platform.indexer.IndexerServiceOwner
+import com.daml.platform.partymanagement.PersistentPartyRecordStore
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.DbSupport
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
@@ -43,6 +44,11 @@ class LedgerApiServer(
     timeServiceBackendO: Option[TimeServiceBackend],
     servicesExecutionContext: ExecutionContextExecutorService,
     metrics: Metrics,
+    // TODO ED: Remove flag once explicit disclosure is deemed stable and all
+    //          backing ledgers implement proper validation against malicious clients.
+    //          Currently, we provide this flag outside the HOCON configuration objects
+    //          in order to ensure that participants cannot be configured to accept explicitly disclosed contracts.
+    explicitDisclosureUnsafeEnabled: Boolean = false,
 )(implicit actorSystem: ActorSystem, materializer: Materializer) {
 
   def owner: ResourceOwner[ApiService] = {
@@ -109,6 +115,7 @@ class LedgerApiServer(
           ledgerId,
           participantConfig.apiServer,
           participantId,
+          explicitDisclosureUnsafeEnabled,
         )
       } yield apiService
     }
@@ -127,6 +134,7 @@ class LedgerApiServer(
       ledgerId: LedgerId,
       apiServerConfig: ApiServerConfig,
       participantId: Ref.ParticipantId,
+      explicitDisclosureUnsafeEnabled: Boolean,
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
@@ -151,10 +159,17 @@ class LedgerApiServer(
         maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
         timeProvider = TimeProvider.UTC,
       )(servicesExecutionContext, loggingContext),
+      partyRecordStore = new PersistentPartyRecordStore(
+        dbSupport = dbSupport,
+        metrics = metrics,
+        timeProvider = TimeProvider.UTC,
+        executionContext = servicesExecutionContext,
+      ),
       ledgerFeatures = ledgerFeatures,
       participantId = participantId,
       authService = authService,
       jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,
+      explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
     )
 }
 

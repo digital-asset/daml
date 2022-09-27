@@ -11,11 +11,9 @@ import com.daml.ledger.api.domain.ParticipantParty
 import com.daml.ledger.participant.state.index.v2.PartyRecordStore.{
   ConcurrentPartyUpdate,
   MaxAnnotationsSizeExceeded,
-  PartyRecordNotFoundOnUpdateException,
   Result,
 }
 import com.daml.ledger.participant.state.index.v2.{
-  AnnotationsUpdate,
   LedgerPartyExists,
   PartyRecordStore,
   PartyRecordUpdate,
@@ -28,7 +26,7 @@ import com.daml.platform.partymanagement.PersistentPartyRecordStore.{
   ConcurrentPartyRecordUpdateDetectedRuntimeException,
   MaxAnnotationsSizeExceededException,
 }
-import com.daml.ledger.participant.state.index.ResourceAnnotationValidation
+import com.daml.ledger.participant.state.index.{LocalAnnotationsUtils, ResourceAnnotationValidation}
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.backend.PartyRecordStorageBackend
 
@@ -81,79 +79,53 @@ class PersistentPartyRecordStore(
       loggingContext: LoggingContext
   ): Future[Result[domain.ParticipantParty.PartyRecord]] = {
     val party = partyRecordUpdate.party
-    // The first transaction attempting to update an existing party record
-    val updateFuture = inTransaction(_.getPartyRecord) { implicit connection =>
-      backend.getPartyRecord(party = party)(connection) match {
-        // Update an existing party record
-        case Some(dbPartyRecord) =>
-          doUpdatePartyRecord(
-            dbPartyRecord = dbPartyRecord,
-            partyRecordUpdate = partyRecordUpdate,
-          )(connection)
-          doFetchDomainPartyRecord(party)(connection)
-        // Party record does not exist
-        case None =>
-          throw PartyRecordNotFoundOnUpdateException
-      }
-    }.map(tapSuccess { updatePartyRecord =>
-      logger.info(s"Updated party record in participant local store: ${updatePartyRecord}")
-    })
-    updateFuture.recoverWith[Result[domain.ParticipantParty.PartyRecord]] {
-      case PartyRecordNotFoundOnUpdateException =>
-        onUpdatingNonExistentPartyRecord(
-          ledgerPartyExists = ledgerPartyExists,
-          party = party,
-          annotationsUpdateO = partyRecordUpdate.metadataUpdate.annotationsUpdateO,
-        )
-    }
-  }
-
-  override def getPartyRecord(
-      party: Party
-  )(implicit loggingContext: LoggingContext): Future[Result[ParticipantParty.PartyRecord]] = {
-    inTransaction(_.getPartyRecord) { implicit connection =>
-      doFetchDomainPartyRecord(party)
-    }
-  }
-
-  /** Creates a new party record if the party is known to this participant to exist on a ledger.
-    */
-  private def onUpdatingNonExistentPartyRecord(
-      ledgerPartyExists: LedgerPartyExists,
-      party: Party,
-      annotationsUpdateO: Option[AnnotationsUpdate],
-  )(implicit loggingContext: LoggingContext): Future[Result[ParticipantParty.PartyRecord]] = {
     for {
-      // NOTE: We are inspecting a ledger party existence only if we couldn't find the target party record for update.
       partyExistsOnLedger <- ledgerPartyExists.exists(party)
-      createdPartyRecord <-
-        if (partyExistsOnLedger) {
-          // Optional second transaction:
-          inTransaction(_.createPartyRecordOnUpdate) { implicit connection =>
-            for {
-              _ <- withoutPartyRecord(party) {
-                val newPartyRecord = domain.ParticipantParty.PartyRecord(
-                  party = party,
-                  metadata = domain.ObjectMeta(
-                    resourceVersionO = None,
-                    annotations = annotationsUpdateO.fold(Map.empty[String, String])(_.annotations),
-                  ),
-                )
-                doCreatePartyRecord(newPartyRecord)(connection)
-              }
-              updatePartyRecord <- doFetchDomainPartyRecord(party)(connection)
-            } yield updatePartyRecord
-          }.map(tapSuccess { newPartyRecord =>
-            logger.info(
-              s"Party record to update didn't exist so created a new party record in participant local store: ${newPartyRecord}"
-            )
-          })(scala.concurrent.ExecutionContext.parasitic)
-        } else {
-          Future.successful(
-            Left(PartyRecordStore.PartyNotFound(party))
-          )
+      updatedPartyRecord <- inTransaction(_.updatePartyRecord) { implicit connection =>
+        backend.getPartyRecord(party = party)(connection) match {
+          // Update an existing party record
+          case Some(dbPartyRecord) =>
+            doUpdatePartyRecord(
+              dbPartyRecord = dbPartyRecord,
+              partyRecordUpdate = partyRecordUpdate,
+            )(connection)
+            doFetchDomainPartyRecord(party)(connection)
+          // Party record does not exist
+          case None =>
+            if (partyExistsOnLedger) {
+              for {
+                _ <- withoutPartyRecord(party) {
+                  val newPartyRecord = domain.ParticipantParty.PartyRecord(
+                    party = party,
+                    metadata = domain.ObjectMeta(
+                      resourceVersionO = None,
+                      annotations = partyRecordUpdate.metadataUpdate.annotationsUpdateO.getOrElse(
+                        Map.empty[String, String]
+                      ),
+                    ),
+                  )
+                  doCreatePartyRecord(newPartyRecord)(connection)
+                }
+                updatePartyRecord <- doFetchDomainPartyRecord(party)(connection)
+              } yield updatePartyRecord
+            } else {
+              Left(PartyRecordStore.PartyNotFound(party))
+            }
         }
-    } yield createdPartyRecord
+      }.map(tapSuccess { updatePartyRecord =>
+        logger.info(s"Updated party record in participant local store: ${updatePartyRecord}")
+      })
+    } yield updatedPartyRecord
+  }
+
+  override def getPartyRecordO(
+      party: Party
+  )(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[Option[ParticipantParty.PartyRecord]]] = {
+    inTransaction(_.getPartyRecord) { implicit connection =>
+      doFetchDomainPartyRecordO(party)
+    }
   }
 
   private def doFetchDomainPartyRecord(
@@ -162,6 +134,17 @@ class PersistentPartyRecordStore(
     withPartyRecord(id = party) { dbPartyRecord =>
       val annotations = backend.getPartyAnnotations(dbPartyRecord.internalId)(connection)
       toDomainPartyRecord(dbPartyRecord.payload, annotations)
+    }
+  }
+
+  private def doFetchDomainPartyRecordO(
+      party: Ref.Party
+  )(implicit connection: Connection): Result[Option[ParticipantParty.PartyRecord]] = {
+    backend.getPartyRecord(party = party)(connection) match {
+      case Some(dbPartyRecord) =>
+        val annotations = backend.getPartyAnnotations(dbPartyRecord.internalId)(connection)
+        Right(Some(toDomainPartyRecord(dbPartyRecord.payload, annotations)))
+      case None => Right(None)
     }
   }
 
@@ -221,15 +204,12 @@ class PersistentPartyRecordStore(
         )(connection)
     }
     // Step 2: Update annotations
-    partyRecordUpdate.metadataUpdate.annotationsUpdateO.foreach { annotationsUpdate =>
-      val updatedAnnotations = annotationsUpdate match {
-        case AnnotationsUpdate.Merge(newAnnotations) => {
-          val existingAnnotations =
-            backend.getPartyAnnotations(dbPartyRecord.internalId)(connection)
-          existingAnnotations.concat(newAnnotations)
-        }
-        case AnnotationsUpdate.Replace(newAnnotations) => newAnnotations
-      }
+    partyRecordUpdate.metadataUpdate.annotationsUpdateO.foreach { newAnnotations =>
+      val existingAnnotations = backend.getPartyAnnotations(dbPartyRecord.internalId)(connection)
+      val updatedAnnotations = LocalAnnotationsUtils.calculateUpdatedAnnotations(
+        newValue = newAnnotations,
+        existing = existingAnnotations,
+      )
       if (
         !ResourceAnnotationValidation
           .isWithinMaxAnnotationsByteSize(updatedAnnotations)
@@ -268,7 +248,7 @@ class PersistentPartyRecordStore(
   )(implicit connection: Connection): Result[T] = {
     backend.getPartyRecord(party = id)(connection) match {
       case Some(partyRecord) => Right(f(partyRecord))
-      case None => Left(PartyRecordStore.PartyRecordNotFound(party = id))
+      case None => Left(PartyRecordStore.PartyRecordNotFoundFatal(party = id))
     }
   }
 
@@ -277,7 +257,7 @@ class PersistentPartyRecordStore(
   )(t: => T)(implicit connection: Connection): Result[T] = {
     backend.getPartyRecord(party = id)(connection) match {
       case Some(partyRecord) =>
-        Left(PartyRecordStore.PartyRecordExists(party = partyRecord.payload.party))
+        Left(PartyRecordStore.PartyRecordExistsFatal(party = partyRecord.payload.party))
       case None => Right(t)
     }
   }

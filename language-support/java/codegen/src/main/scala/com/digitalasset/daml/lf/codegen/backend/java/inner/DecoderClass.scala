@@ -4,12 +4,17 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi.data._
+import com.daml.ledger.javaapi.data.codegen.ContractDecoder
 import com.squareup.javapoet._
+
+import java.util
 import javax.lang.model.element.Modifier
+
+import scala.jdk.CollectionConverters._
 
 object DecoderClass {
 
-  // Generates the Decoder class to lookup template decoders for known templates
+  // Generates the Decoder class to lookup template companion for known templates
   // from Record => $TemplateClass
   def generateCode(simpleClassName: String, templateNames: Iterable[ClassName]): TypeSpec = {
     TypeSpec
@@ -32,11 +37,7 @@ object DecoderClass {
     ClassName.get(classOf[Contract]),
   )
 
-  private val decodersMapType = ParameterizedTypeName.get(
-    ClassName.get(classOf[java.util.HashMap[_, _]]),
-    ClassName.get(classOf[Identifier]),
-    decoderFunctionType,
-  )
+  private val contractDecoderType = ClassName.get(classOf[ContractDecoder])
 
   private val fromCreatedEvent = MethodSpec
     .methodBuilder("fromCreatedEvent")
@@ -44,17 +45,7 @@ object DecoderClass {
     .returns(contractType)
     .addParameter(ClassName.get(classOf[CreatedEvent]), "event")
     .addException(classOf[IllegalArgumentException])
-    .addCode(
-      CodeBlock
-        .builder()
-        .addStatement("Identifier templateId = event.getTemplateId()")
-        .addStatement(
-          "$T decoderFunc = getDecoder(templateId).orElseThrow(() -> new IllegalArgumentException(\"No template found for identifier \" + templateId))",
-          decoderFunctionType,
-        )
-        .addStatement("return decoderFunc.apply(event)")
-        .build()
-    )
+    .addStatement("return contractDecoder.fromCreatedEvent(event)")
     .build()
 
   private val getDecoder = MethodSpec
@@ -64,25 +55,34 @@ object DecoderClass {
       ParameterizedTypeName.get(ClassName.get(classOf[java.util.Optional[_]]), decoderFunctionType)
     )
     .addParameter(ClassName.get(classOf[Identifier]), "templateId")
-    .addStatement(CodeBlock.of("return Optional.ofNullable(decoders.get(templateId))"))
+    .addStatement("return contractDecoder.getDecoder(templateId)")
     .build()
 
   private val decodersField = FieldSpec
-    .builder(decodersMapType, "decoders")
-    .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
+    .builder(contractDecoderType, "contractDecoder")
+    .addModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
     .build()
 
-  def generateStaticInitializer(templateNames: Iterable[ClassName]) = {
-    val b = CodeBlock.builder()
-    b.addStatement("$N = new $T()", decodersField, decodersMapType)
-    templateNames.foreach { template =>
-      b.addStatement(
-        "$N.put($T.TEMPLATE_ID, $T.Contract::fromCreatedEvent)",
-        decodersField,
-        template,
-        template,
+  def generateStaticInitializer(templateNames: Iterable[ClassName]): CodeBlock = {
+    CodeBlock
+      .builder()
+      .addStatement(
+        """$N = new $T($T.asList(
+          |$L
+          |))""".stripMargin,
+        "contractDecoder",
+        contractDecoderType,
+        ClassName.get(classOf[util.Arrays]),
+        CodeBlock.join(
+          templateNames.map { template =>
+            CodeBlock.of(
+              "$T.COMPANION",
+              template,
+            )
+          }.asJava,
+          ",\n",
+        ),
       )
-    }
-    b.build()
+      .build()
   }
 }

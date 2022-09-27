@@ -79,6 +79,14 @@ conformance_test_tool_args = [
         "TLSAtLeastOnePointTwoIT",
         "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
         "DeeplyNestedValueIT",  # FIXME: Too deeply nested values flake with a time out (half of the time)
+        # TODO um-for-hub: Enable these tests once Canton runs updated user and party management
+        "UserManagementServiceIT:TestAdminExists",
+        "UserManagementServiceIT:TestCreateUser",
+        "UserManagementServiceIT:TestGrantUserRights",
+        "UserManagementServiceIT:TestRevokeUserRights",
+        "UserManagementServiceIT:TestFailCreatingUserWhenAnnotationsValueIsEmpty",
+        "PartyManagementServiceIT:PMGetPartiesDetails",
+        "PartyManagementServiceIT:PMListKnownParties",
     ]),
 ]
 
@@ -115,30 +123,6 @@ conformance_test(
     extra_runner_args = ["7000"],
     lf_versions = [
         "default",
-        #        "preview", # FIXME: enable once merged with `conformance-test-dev-domain-preview-dev`
-        #        "dev", # FIXME: enable once merged with `conformance-test-dev-domain-preview-dev`
-    ],
-    ports = conformance_test_ports,
-    preview_mod_flag = "",
-    runner = "@//bazel_tools/client_server/runner_with_health_check",
-    server = ":canton-test-runner-with-dependencies",
-    server_args = [
-        "--config=$$(canonicalize_rlocation $(rootpath :canton-dev.conf))",
-        "--bootstrap=$$(canonicalize_rlocation $(rootpath :bootstrap-dev.canton))",
-    ],
-    test_tool_args = conformance_test_tool_args,
-) if not is_windows else None
-
-conformance_test(
-    name = "conformance-test-dev-domain-preview-dev",
-    dev_mod_flag = "",
-    extra_data =
-        conformance_test_extra_data_base + [
-            ":bootstrap-dev.canton",
-            ":canton-dev.conf",
-        ],
-    extra_runner_args = ["7000"],
-    lf_versions = [
         "preview",
         "dev",
     ],
@@ -150,22 +134,5 @@ conformance_test(
         "--config=$$(canonicalize_rlocation $(rootpath :canton-dev.conf))",
         "--bootstrap=$$(canonicalize_rlocation $(rootpath :bootstrap-dev.canton))",
     ],
-    test_tool_args = [
-        "--verbose",
-        "--concurrent-test-runs=1",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
-        "--timeout-scale-factor=2",  # increased to reduce flakes particularly wrt timeouts in TransactionService*IT tests
-        "--exclude=" + ",".join([
-            # dynamic config management not supported by Canton
-            "ConfigManagementServiceIT",
-            "LedgerConfigurationServiceIT",
-            "ClosedWorldIT",  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
-            "ParticipantPruningIT",  # pruning not supported in Canton Community
-            # tests with special config run in canton enterprise-repo
-            "TLSOnePointThreeIT",
-            "TLSAtLeastOnePointTwoIT",
-            "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
-            "DeeplyNestedValueIT",  # FIXME: Too deeply nested values flake with a time out (half of the time)
-            "InterfaceSubscriptionsIT:ISTransactionsUnknownTemplateOrInterface",  # FIXME: Remove exclusion after the next Canton SDK upgrade
-        ]),
-    ],
+    test_tool_args = conformance_test_tool_args,
 ) if not is_windows else None
