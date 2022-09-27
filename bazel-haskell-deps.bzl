@@ -626,6 +626,11 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         extra_deps = {
             "zlib": ["@com_github_madler_zlib//:libz"],
         },
+        flags = dicts.add(
+            {
+                "haskell-language-server": ["-fourmolu", "-ormolu"],
+            },
+        ),
         haddock = False,
         local_snapshot = "//:hls-snapshot.yaml",
         stack_snapshot_json = "//:hls_snapshot.json",
