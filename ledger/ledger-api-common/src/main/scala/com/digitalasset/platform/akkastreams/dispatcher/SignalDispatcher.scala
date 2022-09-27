@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 /** A fanout signaller that can be subscribed to dynamically.
   * Signals may be coalesced, but if a signal is sent, we guarantee that all consumers subscribed before
@@ -77,12 +76,9 @@ class SignalDispatcher private () {
       source.fail(throwable)
       source
         .watchCompletion()
-        .transform {
+        .recoverWith {
           // This throwable is expected so map to Success
-          case Failure(`throwable`) =>
-            Success(())
-          case other =>
-            other
+          case `throwable` => Future.unit
         }
     }
 
