@@ -18,6 +18,8 @@ import io.grpc.{
   StatusRuntimeException,
 }
 
+import scala.util.control.NonFatal
+
 final class ErrorInterceptor extends ServerInterceptor {
 
   private val logger = ContextualizedLogger.get(getClass)
@@ -70,13 +72,13 @@ final class ErrorInterceptor extends ServerInterceptor {
           val newMetadata =
             Option(Status.trailersFromThrowable(selfServiceException)).getOrElse(new Metadata())
           val newStatus = Status.fromThrowable(selfServiceException)
-          super.close(newStatus, newMetadata)
+          LogOnUnhandledFailureInClose(delegate().close(newStatus, newMetadata))
         } else {
-          super.close(status, trailers)
+          LogOnUnhandledFailureInClose(delegate().close(status, trailers))
         }
       }
-
     }
+
     val listener = next.startCall(forwardingCall, headers)
     new ErrorListener(
       delegate = listener,
@@ -107,18 +109,40 @@ class ErrorListener[ReqT, RespT](delegate: ServerCall.Listener[ReqT], call: Serv
       // 2. We need to catch it and call `call.close` as otherwise gRPC will close the stream with a Status.UNKNOWN
       //    (see io.grpc.internal.ServerImpl.JumpToApplicationThreadServerStreamListener.internalClose)
       case t: StatusException =>
-        call.close(t.getStatus, t.getTrailers)
+        LogOnUnhandledFailureInClose(call.close(t.getStatus, t.getTrailers))
       case t: StatusRuntimeException =>
-        call.close(t.getStatus, t.getTrailers)
+        LogOnUnhandledFailureInClose(call.close(t.getStatus, t.getTrailers))
       case t: Throwable =>
         val e = LedgerApiErrors.InternalError
           .UnexpectedOrUnknownException(t = t)(
             new DamlContextualizedErrorLogger(logger, emptyLoggingContext, None)
           )
           .asGrpcError
-        call.close(e.getStatus, e.getTrailers)
+        LogOnUnhandledFailureInClose(call.close(e.getStatus, e.getTrailers))
     }
-
   }
+}
 
+private[error] object LogOnUnhandledFailureInClose {
+  private val logger = ContextualizedLogger.get(getClass)
+
+  def apply[T](close: => T): T = {
+    // If close throws, we can't call ServerCall.close a second time
+    // since it might have already been marked internally as closed.
+    // In this situation, we can't do much about it except for notifying the participant operator.
+    try close
+    catch {
+      case NonFatal(e) =>
+        // Instantiate the self-service error code as it logs the error on creation.
+        // This error is considered security-sensitive and can't be propagated to the client.
+        LedgerApiErrors.InternalError
+          .Generic(
+            s"Unhandled error in ${classOf[ServerCall[_, _]].getSimpleName}.close(). " +
+              s"The gRPC client might have not been notified about the call/stream termination. " +
+              s"Either notify clients to retry pending unary/streaming calls or restart the participant server.",
+            Some(e),
+          )(new DamlContextualizedErrorLogger(logger, LoggingContext.empty, None))
+        throw e
+    }
+  }
 }
