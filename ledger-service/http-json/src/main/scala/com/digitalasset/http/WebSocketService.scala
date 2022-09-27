@@ -769,115 +769,132 @@ class WebSocketService(
     // If there is a prefix, replace the empty offsets in the request with it
     val request = Q.adjustRequest(offPrefix, rawRequest)
 
-    // Take all remaining queries without offset, these will be the ones for which an ACS request is needed
-    val acsRequest = Q.acsRequest(offPrefix, request)
-
-    // Stream predicates specific fo the ACS part
-    val acsPred: Option[StreamPredicate[Q.Positive]] =
-      acsRequest
-        .map(queryPredicate(_, jwt, ledgerId))
-
-    def liveFrom(resolvedQuery: ResolvedQuery)(
-        acsEnd: Option[StartingOffset]
-    ): Source[StepAndErrors[Q.Positive, JsValue], NotUsed] = {
-      val shiftedRequest = Q.adjustRequest(acsEnd, request)
-      val liveStartingOffset = Q.liveStartingOffset(acsEnd, shiftedRequest)
-
-      // Produce the predicate that is going to be applied to the incoming transaction stream
-      // We need to apply this to the request with all the offsets shifted so that each stream
-      // can filter out anything from liveStartingOffset to the query-specific offset
-      val res = queryPredicate(shiftedRequest, jwt, ledgerId)
-      val StreamPredicate(_, _, fn, _) = res
-      contractsService
-        .insertDeleteStepSource(
-          jwt,
-          ledgerId,
-          parties,
-          resolvedQuery.resolved.toList,
-          liveStartingOffset,
-          Terminates.Never,
-        )
-        .via(
-          convertFilterContracts(
-            resolvedQuery,
-            fn,
-          )
-        )
-        .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
-    }
-
-    def processResolved(
-        resolvedQuery: ResolvedQuery,
-        unresolved: Set[OptionalPkg],
-        fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Q.Positive],
-    ) = {
-      val cataRes: Source[
-        StepAndErrors[Q.Positive, JsValue],
-        NotUsed,
-      ] = acsPred
-        .map(vp => fetchAndPreFilterAcs(vp, jwt, ledgerId, parties))
-        .cata(
-          acsAndLiveMarker => {
-            acsAndLiveMarker
-              .map {
-                case acs @ StepAndErrors(_, Acs(_)) if acs.nonEmpty =>
-                  Source.single(acs)
-                case StepAndErrors(_, Acs(_)) =>
-                  Source.empty
-                case liveBegin @ StepAndErrors(_, LiveBegin(offset)) =>
-                  val acsEnd = offset.toOption.map(domain.StartingOffset(_))
-                  Source.single(liveBegin) ++ liveFrom(resolvedQuery)(
-                    acsEnd
-                  )
-                case txn @ StepAndErrors(_, Txn(_, offset)) =>
-                  val acsEnd = Some(domain.StartingOffset(offset))
-                  Source.single(txn) ++ liveFrom(resolvedQuery)(
-                    acsEnd
-                  )
-              }
-              .flatMapConcat(it => it)
-          }, {
-            // This is the case where we made no ACS request because everything had an offset
-            // Get the earliest available offset from where to start from
-            val liveStartingOffset = Q.liveStartingOffset(offPrefix, request)
-            contractsService
-              .insertDeleteStepSource(
-                jwt,
-                ledgerId,
-                parties,
-                resolvedQuery.resolved.toList,
-                liveStartingOffset,
-                Terminates.Never,
-              )
-              .via(
-                convertFilterContracts(
-                  resolvedQuery,
-                  fn,
-                )
-              )
-              .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
-          },
-        )
-
-      cataRes
-        .via(removePhantomArchives(remove = Q.removePhantomArchives(request)))
-        .map { sae =>
-          sae.logHiddenErrors()
-          sae.mapPos(Q.renderCreatedMetadata).render
-        }
-        .prepend(reportUnresolvedTemplateIds(unresolved))
-        .map(jsv => \/-(wsMessage(jsv)))
-    }
-
     Source
       .lazySource { () =>
         val res = queryPredicate(request, jwt, ledgerId)
         val StreamPredicate(resolved, unresolved, fn, _) = res
-        processResolved(resolved, unresolved, fn)
+        processResolved(Q, jwt, ledgerId, parties, request, offPrefix, resolved, unresolved)(fn)
       }
       .mapMaterializedValue { _: Future[_] =>
         NotUsed
       }
+  }
+
+  private def processResolved[A](
+      sq: StreamQuery[A],
+      jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
+      parties: domain.PartySet,
+      request: A,
+      offPrefix: Option[domain.StartingOffset],
+      resolvedQuery: ResolvedQuery,
+      unresolved: Set[OptionalPkg],
+  )(
+      fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[sq.Positive]
+  )(implicit lc: LoggingContextOf[InstanceUUID]) = {
+    // Take all remaining queries without offset, these will be the ones for which an ACS request is needed
+    val acsRequest = sq.acsRequest(offPrefix, request)
+
+    // Stream predicates specific for the ACS part
+    val acsPred: Option[StreamPredicate[sq.Positive]] =
+      acsRequest
+        .map(queryPredicate(_, jwt, ledgerId)(lc, sq))
+
+    val cataRes: Source[
+      StepAndErrors[sq.Positive, JsValue],
+      NotUsed,
+    ] = acsPred
+      .map(vp => fetchAndPreFilterAcs[sq.Positive](vp, jwt, ledgerId, parties))
+      .cata(
+        acsAndLiveMarker => {
+          acsAndLiveMarker
+            .map {
+              case acs @ StepAndErrors(_, Acs(_)) if acs.nonEmpty =>
+                Source.single(acs)
+              case StepAndErrors(_, Acs(_)) =>
+                Source.empty
+              case liveBegin @ StepAndErrors(_, LiveBegin(offset)) =>
+                val acsEnd = offset.toOption.map(domain.StartingOffset(_))
+                Source
+                  .single(liveBegin) ++ liveFrom(resolvedQuery, jwt, ledgerId, parties, request)(
+                  acsEnd
+                )(lc, sq)
+              case txn @ StepAndErrors(_, Txn(_, offset)) =>
+                val acsEnd = Some(domain.StartingOffset(offset))
+                Source.single(txn) ++ liveFrom(resolvedQuery, jwt, ledgerId, parties, request)(
+                  acsEnd
+                )(lc, sq)
+            }
+            .flatMapConcat(it => it)
+        }, {
+          // This is the case where we made no ACS request because everything had an offset
+          // Get the earliest available offset from where to start from
+          val liveStartingOffset = sq.liveStartingOffset(offPrefix, request)
+          contractsService
+            .insertDeleteStepSource(
+              jwt,
+              ledgerId,
+              parties,
+              resolvedQuery.resolved.toList,
+              liveStartingOffset,
+              Terminates.Never,
+            )
+            .via(
+              convertFilterContracts(
+                resolvedQuery,
+                fn,
+              )
+            )
+            .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
+        },
+      )
+
+    cataRes
+      .via(removePhantomArchives(remove = sq.removePhantomArchives(request)))
+      .map { sae =>
+        sae.logHiddenErrors()
+        sae.mapPos(sq.renderCreatedMetadata).render
+      }
+      .prepend(reportUnresolvedTemplateIds(unresolved))
+      .map(jsv => \/-(wsMessage(jsv)))
+  }
+
+  private def liveFrom[A](
+      resolvedQuery: ResolvedQuery,
+      jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
+      parties: domain.PartySet,
+      request: A,
+  )(
+      acsEnd: Option[StartingOffset]
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID],
+      Q: StreamQuery[A],
+  ): Source[StepAndErrors[Q.Positive, JsValue], NotUsed] = {
+    val shiftedRequest = Q.adjustRequest(acsEnd, request)
+    val liveStartingOffset = Q.liveStartingOffset(acsEnd, shiftedRequest)
+
+    // Produce the predicate that is going to be applied to the incoming transaction stream
+    // We need to apply this to the request with all the offsets shifted so that each stream
+    // can filter out anything from liveStartingOffset to the query-specific offset
+    val res = queryPredicate(shiftedRequest, jwt, ledgerId)
+    val StreamPredicate(_, _, fn, _) = res
+    contractsService
+      .insertDeleteStepSource(
+        jwt,
+        ledgerId,
+        parties,
+        resolvedQuery.resolved.toList,
+        liveStartingOffset,
+        Terminates.Never,
+      )
+      .via(
+        convertFilterContracts(
+          resolvedQuery,
+          fn,
+        )
+      )
+      .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
   }
 
   private def emitOffsetTicksAndFilterOutEmptySteps[Pos](
