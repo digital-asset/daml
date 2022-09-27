@@ -3,7 +3,7 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.MetricHandle.{Counter, Timer}
+import com.daml.metrics.MetricHandle.Counter
 
 import com.codahale.metrics.MetricRegistry.MetricSupplier
 import com.codahale.metrics.{Gauge, MetricRegistry}
@@ -12,9 +12,6 @@ final class CacheMetrics(override val prefix: MetricName, override val registry:
     extends MetricHandle.Factory {
   val hitCount: Counter = counter(prefix :+ "hits")
   val missCount: Counter = counter(prefix :+ "misses")
-  val loadSuccessCount: Counter = counter(prefix :+ "load_successes")
-  val loadFailureCount: Counter = counter(prefix :+ "load_failures")
-  val totalLoadTime: Timer = timer(prefix :+ "load_total_time")
   val evictionCount: Counter = counter(prefix :+ "evictions")
   val evictionWeight: Counter = counter(prefix :+ "evicted_weight")
 

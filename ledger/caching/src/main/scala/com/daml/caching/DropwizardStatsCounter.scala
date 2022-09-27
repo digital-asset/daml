@@ -3,8 +3,6 @@
 
 package com.daml.caching
 
-import java.util.concurrent.TimeUnit
-
 import com.daml.metrics.CacheMetrics
 import com.github.benmanes.caffeine.cache.RemovalCause
 import com.github.benmanes.caffeine.cache.stats.{CacheStats, StatsCounter}
@@ -19,15 +17,9 @@ private[caching] final class DropwizardStatsCounter(
   override def recordMisses(newMisses: Int): Unit =
     metrics.missCount.inc(newMisses.toLong)
 
-  override def recordLoadSuccess(loadTimeNanos: Long): Unit = {
-    metrics.loadSuccessCount.inc()
-    metrics.totalLoadTime.update(loadTimeNanos, TimeUnit.NANOSECONDS)
-  }
+  override def recordLoadSuccess(loadTimeNanos: Long): Unit = ()
 
-  override def recordLoadFailure(loadTimeNanos: Long): Unit = {
-    metrics.loadFailureCount.inc()
-    metrics.totalLoadTime.update(loadTimeNanos, TimeUnit.NANOSECONDS)
-  }
+  override def recordLoadFailure(loadTimeNanos: Long): Unit = ()
 
   override def recordEviction(weight: Int, cause: RemovalCause): Unit = {
     metrics.evictionCount.inc()
@@ -38,9 +30,9 @@ private[caching] final class DropwizardStatsCounter(
     CacheStats.of(
       metrics.hitCount.getCount,
       metrics.missCount.getCount,
-      metrics.loadSuccessCount.getCount,
-      metrics.loadFailureCount.getCount,
-      metrics.totalLoadTime.getCount,
+      0,
+      0,
+      0,
       metrics.evictionCount.getCount,
       metrics.evictionWeight.getCount,
     )
