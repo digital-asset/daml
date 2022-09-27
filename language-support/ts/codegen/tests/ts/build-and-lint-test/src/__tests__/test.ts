@@ -660,6 +660,12 @@ describe("interfaces", () => {
   type Token = buildAndLint.Main.Token;
   const Token = buildAndLint.Main.Token;
 
+  type RecPartial<T> = T extends object
+    ? {
+        [P in keyof T]?: RecPartial<T[P]>;
+      }
+    : T;
+
   async function aliceLedgerPayloadContract() {
     const aliceLedger = new Ledger({
       token: ALICE_TOKEN,
@@ -792,11 +798,6 @@ describe("interfaces", () => {
     }
     const ctEvent = await queryContractId();
     stream.close();
-    type RecPartial<T> = T extends object
-      ? {
-          [P in keyof T]?: RecPartial<T[P]>;
-        }
-      : T;
     const expectedEvent: RecPartial<Event<Token>> = {
       created: {
         contractId: tokenCid,
@@ -848,14 +849,22 @@ describe("interfaces", () => {
       await ledger.exercise(buildAndLint.Main.Cloneable.Clone, nvitIcid, {
         echo: "undecodable exercise result test",
       });
-    const expectedEvents: Event<object>[] = [];
+    const expectedEvents: RecPartial<Event<object>>[] = [
+      { archived: { contractId: nvitCid, templateId: nvitFQTID } },
+      { created: { contractId: newIcid, templateId: nvitFQTID } },
+    ];
 
     // test events are present but with empty payload
     expect(textResponse).toEqual(
       "cloned NotVisibleInTs: undecodable exercise result test",
     );
     expect(newIcid).not.toEqual(nvitIcid);
-    expect(archiveAndCreate).toEqual(expectedEvents);
+    expect(archiveAndCreate).toMatchObject(expectedEvents);
+    /*
+    const [, {created: {payload: clonedPayload, key: clonedKey}}] = archiveAndCreate;
+    expect(clonedPayload).toEqual({});
+    expect(clonedKey).toBeUndefined();
+    */
   });
 });
 
