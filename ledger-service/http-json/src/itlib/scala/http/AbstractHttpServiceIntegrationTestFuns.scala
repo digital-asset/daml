@@ -16,7 +16,7 @@ import com.daml.crypto.MessageDigestPrototype
 import com.daml.lf.data.Ref
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.domain.ContractId
-import com.daml.http.domain.TemplateId.OptionalPkg
+import com.daml.http.domain.ContractTypeId.OptionalPkg
 import com.daml.http.json.SprayJson.decode1
 import com.daml.http.json._
 import com.daml.http.util.ClientUtil.boxedRecord
@@ -369,7 +369,7 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def removeRecordId(a: v.Record): v.Record = a.copy(recordId = None)
 
-  protected def removePackageId(tmplId: domain.TemplateId.RequiredPkg): OptionalPkg =
+  protected def removePackageId(tmplId: domain.ContractTypeId.RequiredPkg): OptionalPkg =
     tmplId.copy(packageId = None)
 
   import com.daml.lf.data.{Numeric => LfNumeric}
@@ -411,24 +411,23 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected[this] object TpId {
-    import domain.TemplateId.{OptionalPkg => Id}
     import domain.{ContractTypeId => CtId}
     import CtId.Template.{OptionalPkg => TId}
     import CtId.Interface.{OptionalPkg => IId}
 
     object Iou {
-      val Iou: Id = domain.TemplateId(None, "Iou", "Iou")
-      val IouTransfer: Id = domain.TemplateId(None, "Iou", "IouTransfer")
+      val Iou: TId = CtId.Template(None, "Iou", "Iou")
+      val IouTransfer: TId = CtId.Template(None, "Iou", "IouTransfer")
     }
     object Test {
-      val MultiPartyContract: Id = domain.TemplateId(None, "Test", "MultiPartyContract")
+      val MultiPartyContract: TId = CtId.Template(None, "Test", "MultiPartyContract")
     }
     object Account {
       val Account: TId = CtId.Template(None, "Account", "Account")
       val KeyedByVariantAndRecord: TId = CtId.Template(None, "Account", "KeyedByVariantAndRecord")
     }
     object User {
-      val User: Id = domain.TemplateId(None, "User", "User")
+      val User: TId = CtId.Template(None, "User", "User")
     }
     object IIou {
       val IIou: IId = CtId.Interface(None, "IIou", "IIou")
@@ -468,7 +467,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     VA.record(Ref.Identifier assertFromString "none:Iou:Iou", iouT)
   }
 
-  protected def iouCommand(party: domain.Party, templateId: domain.TemplateId.OptionalPkg) = {
+  protected def iouCommand(party: domain.Party, templateId: domain.ContractTypeId.OptionalPkg) = {
     val issuer = Ref.Party assertFromString domain.Party.unwrap(party)
     val iouT = argToApi(ciouVA)(
       ShRecord(
@@ -703,7 +702,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def assertTemplateId(
-      actual: domain.TemplateId.RequiredPkg,
+      actual: domain.ContractTypeId.RequiredPkg,
       expected: OptionalPkg,
   ): Future[Assertion] = Future {
     expected.packageId.foreach(x => actual.packageId shouldBe x)
