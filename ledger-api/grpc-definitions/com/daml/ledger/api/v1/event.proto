@@ -68,6 +68,12 @@ message CreatedEvent {
   // Optional
   Record create_arguments = 4;
 
+  // Opaque representation of contract payload intended for forwarding
+  // to an API server as a contract disclosed as part of a command
+  // submission.
+  // Optional
+  google.protobuf.Any create_arguments_blob = 12;
+
   // Interface views specified in the transaction filter.
   // Includes an ``InterfaceView`` for each interface for which there is a ``InterfaceFilter`` with
   //   - its party in the ``witness_parties`` of this event,

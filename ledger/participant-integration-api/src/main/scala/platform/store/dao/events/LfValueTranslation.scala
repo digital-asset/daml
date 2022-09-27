@@ -39,6 +39,7 @@ import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.dao.EventProjectionProperties
 import com.daml.platform.store.dao.events.LfValueTranslation.ApiContractData
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
+import com.google.protobuf
 import com.google.rpc.Status
 import com.google.rpc.status.{Status => ProtoStatus}
 import io.grpc.Status.Code
@@ -267,6 +268,7 @@ final class LfValueTranslation(
       )
     } yield raw.partial.copy(
       createArguments = apiContractData.createArguments,
+      createArgumentsBlob = apiContractData.createArgumentsBlob,
       contractKey = apiContractData.contractKey,
       interfaceViews = apiContractData.interfaceViews,
     )
@@ -352,12 +354,18 @@ final class LfValueTranslation(
       ).flatMap(toInterfaceView(eventProjectionProperties.verbose, interfaceId))
     )
 
+    val asyncContractArgumentsBlob = condFuture(renderResult.contractArgumentsBlob)(
+      Future(ValueSerializer.serializeValueAny(value, "Cannot serialize contractArgumentsBlob"))
+    )
+
     for {
       contractArguments <- asyncContractArguments
+      contractArgumentsBlob <- asyncContractArgumentsBlob
       contractKey <- asyncContractKey
       interfaceViews <- asyncInterfaceViews
     } yield ApiContractData(
       createArguments = contractArguments,
+      createArgumentsBlob = contractArgumentsBlob,
       contractKey = contractKey,
       interfaceViews = interfaceViews,
     )
@@ -473,6 +481,7 @@ object LfValueTranslation {
 
   case class ApiContractData(
       createArguments: Option[ApiRecord],
+      createArgumentsBlob: Option[protobuf.any.Any],
       contractKey: Option[ApiValue],
       interfaceViews: Seq[InterfaceView],
   )
