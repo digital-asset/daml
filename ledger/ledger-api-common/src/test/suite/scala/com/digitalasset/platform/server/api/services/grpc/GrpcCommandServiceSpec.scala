@@ -12,18 +12,20 @@ import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitRequest,
 }
-import com.daml.ledger.api.v1.commands.{Command, CreateCommand}
+import com.daml.ledger.api.v1.commands.{Command, CreateCommand, DisclosedContract}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.google.protobuf.empty.Empty
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
+import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 class GrpcCommandServiceSpec
     extends AsyncWordSpec
@@ -59,6 +61,7 @@ class GrpcCommandServiceSpec
           Ref.SubmissionId.assertFromString(
             s"$submissionIdPrefix${submissionCounter.incrementAndGet()}"
           ),
+        explicitDisclosureUnsafeEnabled = false,
       )
 
       for {
@@ -85,6 +88,51 @@ class GrpcCommandServiceSpec
         succeed
       }
     }
+    "reject submission on explicit disclosure disabled with provided disclosed contracts" in {
+      val mockCommandService = mock[CommandService with AutoCloseable]
+
+      val grpcCommandService = new GrpcCommandService(
+        mockCommandService,
+        ledgerId = LedgerId(ledgerId),
+        currentLedgerTime = () => Instant.EPOCH,
+        currentUtcTime = () => Instant.EPOCH,
+        maxDeduplicationDuration = () => Some(Duration.ZERO),
+        generateSubmissionId = () => Ref.SubmissionId.assertFromString(s"submissionId"),
+        explicitDisclosureUnsafeEnabled = false,
+      )
+
+      val submissionWithDisclosedContracts = aSubmitAndWaitRequestWithNoSubmissionId.update(
+        _.commands.disclosedContracts.set(Seq(DisclosedContract()))
+      )
+
+      def expectFailedOnProvidedDisclosedContracts(f: Future[_]): Future[Assertion] = f.transform {
+        case Failure(exception)
+            if exception.getMessage.contains(
+              "feature in development: disclosed_contracts should not be set"
+            ) =>
+          Success(succeed)
+        case other => fail(s"Unexpected result: $other")
+      }
+
+      for {
+        _ <- expectFailedOnProvidedDisclosedContracts(
+          grpcCommandService.submitAndWait(submissionWithDisclosedContracts)
+        )
+        _ <- expectFailedOnProvidedDisclosedContracts(
+          grpcCommandService.submitAndWaitForTransaction(submissionWithDisclosedContracts)
+        )
+        _ <- expectFailedOnProvidedDisclosedContracts(
+          grpcCommandService.submitAndWaitForTransactionId(submissionWithDisclosedContracts)
+        )
+        _ <- expectFailedOnProvidedDisclosedContracts(
+          grpcCommandService.submitAndWaitForTransactionTree(submissionWithDisclosedContracts)
+        )
+      } yield {
+        verifyZeroInteractions(mockCommandService)
+        succeed
+      }
+    }
+
   }
 }
 

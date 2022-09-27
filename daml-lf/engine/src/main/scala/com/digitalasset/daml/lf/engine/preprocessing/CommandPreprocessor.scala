@@ -5,14 +5,11 @@ package com.daml.lf
 package engine
 package preprocessing
 
-import com.daml.lf.data
 import com.daml.lf.data._
-import com.daml.lf.language.{Ast, PackageInterface}
+import com.daml.lf.language.Ast
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
-
-import scala.annotation.nowarn
 
 private[lf] final class CommandPreprocessor(
     pkgInterface: language.PackageInterface,
@@ -51,33 +48,6 @@ private[lf] final class CommandPreprocessor(
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
     speedy.Command.Create(templateId, arg)
   }
-
-  // TODO: https://github.com/digital-asset/daml/issues/12051
-  //  Drop this once Canton support ambiguous choices properly
-  @throws[Error.Preprocessing.Error]
-  @deprecated
-  private def unsafePreprocessLenientExercise(
-      templateId: Ref.Identifier,
-      contractId: Value.ContractId,
-      choiceId: Ref.ChoiceName,
-      argument: Value,
-  ): speedy.Command =
-    handleLookup(pkgInterface.lookupLenientChoice(templateId, choiceId)) match {
-      case PackageInterface.ChoiceInfo.Template(choice) =>
-        speedy.Command.ExerciseTemplate(
-          templateId = templateId,
-          contractId = valueTranslator.unsafeTranslateCid(contractId),
-          choiceId = choiceId,
-          argument = valueTranslator.unsafeTranslateValue(choice.argBinder._2, argument),
-        )
-      case PackageInterface.ChoiceInfo.Inherited(ifaceId, choice) =>
-        speedy.Command.ExerciseInterface(
-          interfaceId = ifaceId,
-          contractId = valueTranslator.unsafeTranslateCid(contractId),
-          choiceId = choiceId,
-          argument = valueTranslator.unsafeTranslateValue(choice.argBinder._2, argument),
-        )
-    }
 
   def unsafePreprocessExercise(
       typeId: data.TemplateOrInterface[Ref.Identifier, Ref.Identifier],
@@ -206,15 +176,12 @@ private[lf] final class CommandPreprocessor(
 
   // returns the speedy translation of an Replay command.
   @throws[Error.Preprocessing.Error]
-  @nowarn("msg=deprecated")
   private[preprocessing] def unsafePreprocessReplayCommand(
       cmd: command.ReplayCommand
   ): speedy.Command =
     cmd match {
       case command.ReplayCommand.Create(templateId, argument) =>
         unsafePreprocessCreate(templateId, argument)
-      case command.ReplayCommand.LenientExercise(typeId, coid, choiceId, argument) =>
-        unsafePreprocessLenientExercise(typeId, coid, choiceId, argument)
       case command.ReplayCommand.Exercise(templateId, mbIfaceId, coid, choiceId, argument) =>
         mbIfaceId match {
           case Some(ifaceId) =>

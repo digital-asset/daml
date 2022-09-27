@@ -135,7 +135,7 @@ object ContractDao {
   def initialize(implicit log: LogHandler, sjd: SupportedJdbcDriver.TC): ConnectionIO[Unit] =
     sjd.q.queries.dropAllTablesIfExist *> sjd.q.queries.initDatabase
 
-  def lastOffset(parties: domain.PartySet, templateId: domain.TemplateId.RequiredPkg)(implicit
+  def lastOffset(parties: domain.PartySet, templateId: domain.ContractTypeId.RequiredPkg)(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
@@ -169,7 +169,7 @@ object ContractDao {
     * @return Any template IDs that are lagging, and the offset to catch them up to, if defined;
     *         otherwise everything is fine.
     */
-  def laggingOffsets[CtId <: domain.TemplateId.RequiredPkg](
+  def laggingOffsets[CtId <: domain.ContractTypeId.RequiredPkg](
       parties: Set[domain.Party],
       expectedOffset: domain.Offset,
       templateIds: NonEmpty[Set[CtId]],
@@ -273,7 +273,7 @@ object ContractDao {
 
   def updateOffset(
       parties: domain.PartySet,
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.ContractTypeId.RequiredPkg,
       newOffset: domain.Offset,
       lastOffsets: Map[domain.Party, domain.Offset],
   )(implicit
@@ -379,7 +379,7 @@ object ContractDao {
 
   private[http] def fetchById(
       parties: domain.PartySet,
-      templateId: domain.TemplateId.Resolved,
+      templateId: domain.ContractTypeId.Resolved,
       contractId: domain.ContractId,
   )(implicit
       log: LogHandler,
@@ -399,7 +399,7 @@ object ContractDao {
 
   private[http] def fetchByKey(
       parties: domain.PartySet,
-      templateId: domain.TemplateId.Resolved,
+      templateId: domain.ContractTypeId.Resolved,
       key: Hash,
   )(implicit
       log: LogHandler,
@@ -413,7 +413,7 @@ object ContractDao {
     } yield dbContracts.map(toDomain(templateId))
   }
 
-  private[this] def surrogateTemplateId(templateId: domain.TemplateId.RequiredPkg)(implicit
+  private[this] def surrogateTemplateId(templateId: domain.ContractTypeId.RequiredPkg)(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
@@ -444,7 +444,7 @@ object ContractDao {
 
   final case class StaleOffsetException(
       parties: domain.PartySet,
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.ContractTypeId.RequiredPkg,
       newOffset: domain.Offset,
       lastOffset: Map[domain.Party, domain.Offset],
   ) extends java.sql.SQLException(

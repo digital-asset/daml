@@ -13,6 +13,7 @@ import scala.collection.mutable
 // Note (MK) This is a simplified version of the in-memory store used in the participant in
 // #11896. While it would be nice to not have to duplicate this for now this seems like the
 // simpler option than trying to reuse participant code in the script service.
+// TODO um-for-hub: Determine if this implementation needs to be updated
 private[ledgerinteraction] class UserManagementStore {
   import UserManagementStore._
 

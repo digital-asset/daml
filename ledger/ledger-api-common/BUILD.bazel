@@ -41,6 +41,7 @@ da_scala_library(
         "//ledger/ledger-offset",
         "//ledger/ledger-resources",
         "//ledger/metrics",
+        "//ledger/participant-state-index",
         "//libs-scala/contextualized-logging",
         "//libs-scala/crypto",
         "//libs-scala/logging-entries",

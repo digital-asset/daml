@@ -3,8 +3,8 @@
 
 package com.daml.platform.apiserver.update
 
-case class UpdatePath(fieldPath: List[String], modifier: UpdatePathModifier) {
-  def toRawString: String = fieldPath.mkString(".") + modifier.toRawString
+case class UpdatePath(fieldPath: List[String]) {
+  def toRawString: String = fieldPath.mkString(".")
 }
 
 object UpdatePath {
@@ -26,35 +26,7 @@ object UpdatePath {
   }
 
   private[update] def parseSingle(rawPath: String): Result[UpdatePath] = {
-    // TODO um-for-hub major: Document that "!" is a special character in update paths
-    for {
-      pathAndModifierO <- {
-        rawPath.split('!') match {
-          case Array() => Left(UpdatePathError.EmptyFieldPath(rawPath))
-          case Array(path) => Right((path, None))
-          case Array(path, updateModifier) => Right((path, Some(updateModifier)))
-          case _ => Left(UpdatePathError.InvalidUpdatePathSyntax(rawPath))
-        }
-      }
-      (fieldPathRaw, modifierO) = pathAndModifierO
-      _ <-
-        if (fieldPathRaw.isEmpty) {
-          Left(UpdatePathError.EmptyFieldPath(rawPath))
-        } else Right(())
-      modifier <- {
-        modifierO match {
-          case None => Right(UpdatePathModifier.NoModifier)
-          case Some("merge") => Right(UpdatePathModifier.Merge)
-          case Some("replace") => Right(UpdatePathModifier.Replace)
-          case _ => Left(UpdatePathError.UnknownUpdateModifier(rawPath))
-        }
-      }
-    } yield {
-      UpdatePath(
-        fieldPathRaw.split('.').toList,
-        modifier,
-      )
-    }
+    Right(UpdatePath(rawPath.split('.').toList))
   }
 
 }

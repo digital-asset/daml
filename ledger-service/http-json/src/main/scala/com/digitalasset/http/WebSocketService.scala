@@ -42,8 +42,8 @@ import scalaz.std.list._
 import scalaz.{@@, -\/, \/, \/-, Foldable, Monoid, Liskov, NonEmptyList, OneAnd, Tag}
 import Liskov.<~<
 import com.daml.fetchcontracts.domain.ResolvedQuery
-import com.daml.fetchcontracts.domain.ResolvedQuery.Unsupported
-import com.daml.http.domain.TemplateId.{toLedgerApiValue, OptionalPkg}
+import ResolvedQuery.Unsupported
+import com.daml.fetchcontracts.domain.ContractTypeId.{toLedgerApiValue, OptionalPkg}
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.lf.crypto.Hash
@@ -64,21 +64,21 @@ object WebSocketService {
   private val logger = ContextualizedLogger.get(getClass)
 
   private type CompiledQueries =
-    Map[domain.TemplateId.Resolved, (ValuePredicate, LfV => Boolean)]
+    Map[domain.ContractTypeId.Resolved, (ValuePredicate, LfV => Boolean)]
 
   private sealed abstract class StreamPredicate[+Positive] extends Product with Serializable
 
   private object StreamPredicate {
     final case class Valid[+Positive](
         resolvedQurey: domain.ResolvedQuery,
-        unresolved: Set[domain.TemplateId.OptionalPkg],
+        unresolved: Set[domain.ContractTypeId.OptionalPkg],
         fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive],
         dbQuery: (domain.PartySet, dbbackend.ContractDao) => ConnectionIO[
           _ <: Vector[(domain.ActiveContract[JsValue], Positive)]
         ],
     ) extends StreamPredicate[Positive]
     final case class AllContractTypeIdsNotResolved(
-        unresolved: NonEmpty[Set[domain.TemplateId.OptionalPkg]]
+        unresolved: NonEmpty[Set[domain.ContractTypeId.OptionalPkg]]
     ) extends StreamPredicate[Nothing]
     final case class UnsupportedQuery(reason: Unsupported) extends StreamPredicate[Nothing]
   }
@@ -362,15 +362,16 @@ object WebSocketService {
         val query = (gacr: domain.SearchForeverQuery, pos: Int, ix: Int) =>
           for {
             res <-
-              gacr.templateIds.toList
+              gacr.templateIds.toList.toNEF
                 .traverse(x =>
                   resolveContractTypeId(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
                 )
                 .map(
-                  _.toSet[
-                    Either[domain.ContractTypeId.Resolved, domain.ContractTypeId.OptionalPkg]
-                  ]
-                    .partitionMap(identity)
+                  _.toSet.partitionMap(
+                    identity[
+                      Either[domain.ContractTypeId.Resolved, domain.ContractTypeId.OptionalPkg]
+                    ]
+                  )
                 )
             (resolved, unresolved) = res
             errorOrResolvedQuery = domain.ResolvedQuery(resolved)
@@ -557,7 +558,7 @@ object WebSocketService {
             if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
         }
       }
-      def dbQueries[CtId <: domain.TemplateId.RequiredPkg](
+      def dbQueries[CtId <: domain.ContractTypeId.RequiredPkg](
           q: Map[CtId, HashSet[LfV]]
       )(implicit
           sjd: dbbackend.SupportedJdbcDriver.TC
@@ -576,7 +577,7 @@ object WebSocketService {
           )
         }
       def streamPredicate(
-          q: Map[domain.TemplateId.Resolved, HashSet[LfV]],
+          q: Map[domain.ContractTypeId.Resolved, HashSet[LfV]],
           resolvedQuery: ResolvedQuery,
           unresolved: Set[OptionalPkg],
       )(implicit
@@ -1127,7 +1128,7 @@ class WebSocketService(
       .map(_ mapLfv lfValueToJsValue)
 
   private def reportUnresolvedTemplateIds(
-      unresolved: Set[domain.TemplateId.OptionalPkg]
+      unresolved: Set[domain.ContractTypeId.OptionalPkg]
   ): Source[JsValue, NotUsed] =
     if (unresolved.isEmpty) Source.empty
     else {

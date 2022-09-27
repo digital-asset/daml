@@ -4,9 +4,7 @@
 package com.daml.platform.store.platform.usermanagement
 
 import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
-import com.daml.ledger.participant.state.index.v2.AnnotationsUpdate.{Merge, Replace}
 import com.daml.ledger.participant.state.index.v2.{
-  AnnotationsUpdate,
   ObjectMetaUpdate,
   UserManagementStore,
   UserUpdate,
@@ -63,12 +61,12 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       ),
     )
 
-  // TODO um-for-hub: Consider defining a method like this directly on UserUdpate
+  // TODO um-for-hub: Consider defining a method like this directly on UserUpdate
   def makeUserUpdate(
       id: String = userId1,
       primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
       isDeactivatedUpdateO: Option[Boolean] = None,
-      annotationsUpdateO: Option[AnnotationsUpdate] = None,
+      annotationsUpdateO: Option[Map[String, String]] = None,
   ): UserUpdate = UserUpdate(
     id = id,
     primaryPartyUpdateO = primaryPartyUpdateO,
@@ -345,7 +343,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
               isDeactivatedUpdateO = None,
               metadataUpdate = ObjectMetaUpdate(
                 resourceVersionO = create1.value.metadata.resourceVersionO,
-                annotationsUpdateO = Some(Merge.fromNonEmpty(Map("k1" -> "v1"))),
+                annotationsUpdateO = Some(Map("k1" -> "v1")),
               ),
             )
           )
@@ -357,27 +355,21 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       }
     }
 
-    "should update metadata annotations with merge and replace semantics" in {
+    "should update metadata annotations" in {
       testIt { tested =>
-        val user = createdUser("user1", annotations = Map("k1" -> "v1", "k2" -> "v2"))
+        val user = newUser("user1", annotations = Map("k1" -> "v1", "k2" -> "v2", "k3" -> "v3"))
         for {
-          create1 <- tested.createUser(user, Set.empty)
-          _ = create1.value shouldBe createdUser(
-            "user1",
-            annotations = Map("k1" -> "v1", "k2" -> "v2"),
-          )
-          // first update: with merge annotations semantics
+          _ <- tested.createUser(user, Set.empty)
           update1 <- tested.updateUser(
             UserUpdate(
               id = user.id,
               metadataUpdate = ObjectMetaUpdate(
                 resourceVersionO = None,
                 annotationsUpdateO = Some(
-                  Merge.fromNonEmpty(
-                    Map(
-                      "k1" -> "v1b",
-                      "k3" -> "v3",
-                    )
+                  Map(
+                    "k1" -> "v1a",
+                    "k3" -> "",
+                    "k4" -> "v4",
                   )
                 ),
               ),
@@ -386,44 +378,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           _ = update1.value shouldBe createdUser(
             "user1",
             resourceVersion = 1,
-            annotations = Map("k1" -> "v1b", "k2" -> "v2", "k3" -> "v3"),
-          )
-          // second update: with replace annotations semantics
-          update2 <- tested.updateUser(
-            UserUpdate(
-              id = user.id,
-              metadataUpdate = ObjectMetaUpdate(
-                resourceVersionO = None,
-                annotationsUpdateO = Some(
-                  Replace(
-                    Map(
-                      "k1" -> "v1c",
-                      "k4" -> "v4",
-                    )
-                  )
-                ),
-              ),
-            )
-          )
-          _ = update2.value shouldBe createdUser(
-            "user1",
-            resourceVersion = 2,
-            annotations = Map("k1" -> "v1c", "k4" -> "v4"),
-          )
-          // third update: with replace annotations semantics - effectively deleting all annotations
-          update3 <- tested.updateUser(
-            UserUpdate(
-              id = user.id,
-              metadataUpdate = ObjectMetaUpdate(
-                resourceVersionO = None,
-                annotationsUpdateO = Some(Replace(Map.empty)),
-              ),
-            )
-          )
-          _ = update3.value shouldBe createdUser(
-            "user1",
-            resourceVersion = 3,
-            annotations = Map.empty,
+            annotations = Map("k1" -> "v1a", "k2" -> "v2", "k4" -> "v4"),
           )
         } yield {
           succeed
@@ -440,7 +395,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
               id = userId,
               metadataUpdate = ObjectMetaUpdate(
                 resourceVersionO = None,
-                annotationsUpdateO = Some(Merge.fromNonEmpty(Map("k1" -> "v1"))),
+                annotationsUpdateO = Some(Map("k1" -> "v1")),
               ),
             )
           )
@@ -459,7 +414,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
               id = user.id,
               metadataUpdate = ObjectMetaUpdate(
                 resourceVersionO = Some(100),
-                annotationsUpdateO = Some(Merge.fromNonEmpty(Map("k1" -> "v1"))),
+                annotationsUpdateO = Some(Map("k1" -> "v1")),
               ),
             )
           )
@@ -488,7 +443,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           for {
             _ <- tested.createUser(user, Set.empty)
             res1 <- tested.updateUser(
-              makeUserUpdate(annotationsUpdateO = Some(Merge.fromNonEmpty(Map("k2" -> bigValue))))
+              makeUserUpdate(annotationsUpdateO = Some(Map("k2" -> bigValue)))
             )
             _ = res1.left.value shouldBe MaxAnnotationsSizeExceeded(user.id)
           } yield succeed

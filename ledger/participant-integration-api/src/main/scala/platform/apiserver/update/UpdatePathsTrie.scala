@@ -11,26 +11,24 @@ object UpdatePathsTrie {
   case class MatchResult(
       isExact: Boolean,
       matchedPath: UpdatePath,
-  ) {
-    def getUpdatePathModifier: UpdatePathModifier = matchedPath.modifier
-  }
+  )
 
   def apply(
-      modifierO: Option[UpdatePathModifier],
+      exists: Boolean,
       nodes: (String, UpdatePathsTrie)*
   ) = new UpdatePathsTrie(
+    exists = exists,
     nodes = SortedMap.from(nodes),
-    modifierO = modifierO,
   )
 
   def fromPaths(
       paths: Seq[List[String]]
   )(implicit dummy: DummyImplicit): Result[UpdatePathsTrie] = {
-    fromPaths(paths.map(UpdatePath(_, modifier = UpdatePathModifier.NoModifier)))
+    fromPaths(paths.map(UpdatePath(_)))
   }
 
   def fromPaths(paths: Seq[UpdatePath]): Result[UpdatePathsTrie] = {
-    val builder: Result[Builder] = Right(Builder(None))
+    val builder: Result[Builder] = Right(Builder(exists = false))
     val buildResult = paths.foldLeft(builder)((builderResult, path) =>
       for {
         b <- builderResult
@@ -42,30 +40,30 @@ object UpdatePathsTrie {
 
   private def build(builder: Builder): UpdatePathsTrie = {
     new UpdatePathsTrie(
-      modifierO = builder.modifierO,
+      exists = builder.exists,
       nodes = SortedMap.from(builder.nodes.view.mapValues(build)),
     )
   }
 
   private object Builder {
     def apply(
-        modifierO: Option[UpdatePathModifier],
+        exists: Boolean,
         nodes: (String, Builder)*
     ) = new Builder(
+      exists = exists,
       nodes = mutable.SortedMap.from(nodes),
-      modifierO = modifierO,
     )
   }
 
   private case class Builder(
       nodes: mutable.SortedMap[String, Builder],
-      var modifierO: Option[UpdatePathModifier],
+      var exists: Boolean = false,
   ) {
 
     /** @param updatePath unique path to be inserted
       */
     def insertUniquePath(updatePath: UpdatePath): Result[Unit] = {
-      if (!doInsertUniquePath(updatePath.fieldPath, updatePath.modifier)) {
+      if (!doInsertUniquePath(updatePath.fieldPath)) {
         Left(UpdatePathError.DuplicatedFieldPath(updatePath.toRawString))
       } else Right(())
     }
@@ -74,23 +72,22 @@ object UpdatePathsTrie {
       */
     @tailrec
     private def doInsertUniquePath(
-        fieldPath: List[String],
-        modifier: UpdatePathModifier,
+        fieldPath: List[String]
     ): Boolean = {
       fieldPath match {
         case Nil =>
-          if (this.modifierO.nonEmpty) {
+          if (this.exists) {
             false
           } else {
-            this.modifierO = Some(modifier)
+            this.exists = true
             true
           }
         case key :: subpath =>
           if (!nodes.contains(key)) {
-            val empty = new Builder(nodes = mutable.SortedMap.empty, modifierO = None)
+            val empty = new Builder(nodes = mutable.SortedMap.empty, exists = false)
             nodes.put(key, empty)
           }
-          nodes(key).doInsertUniquePath(subpath, modifier)
+          nodes(key).doInsertUniquePath(subpath)
       }
     }
 
@@ -104,12 +101,10 @@ object UpdatePathsTrie {
   * - an update modifier.
   *
   * See also [[com.google.protobuf.field_mask.FieldMask]]).
-  *
-  * @param modifierO - non empty to signify a path ending in this node exists
   */
 private[update] case class UpdatePathsTrie(
     nodes: SortedMap[String, UpdatePathsTrie],
-    modifierO: Option[UpdatePathModifier],
+    exists: Boolean,
 ) {
   import UpdatePathsTrie._
 
@@ -128,28 +123,27 @@ private[update] case class UpdatePathsTrie(
     * @return the match corresponding to the longest matched field path, none otherwise.
     */
   def findMatch(path: List[String]): Option[MatchResult] = {
-    findPath(path) match {
-      case Some(modifier) =>
-        Some(MatchResult(isExact = true, matchedPath = UpdatePath(path, modifier)))
-      case None =>
-        val properPrefixesLongestFirst =
-          path.inits.filter(init => init.size != path.size).toList.sortBy(-_.length)
-        properPrefixesLongestFirst.iterator
-          .map(prefix => findPath(prefix).map(_ -> prefix))
-          .collectFirst { case Some((modifier, prefix)) =>
-            MatchResult(isExact = false, matchedPath = UpdatePath(prefix, modifier))
-          }
+    if (pathExists(path)) {
+      Some(MatchResult(isExact = true, matchedPath = UpdatePath(path)))
+    } else {
+      val properPrefixesLongestFirst =
+        path.inits.filter(init => init.size != path.size).toList.sortBy(-_.length)
+      properPrefixesLongestFirst.iterator
+        .find(pathExists)
+        .map { prefix =>
+          MatchResult(isExact = false, matchedPath = UpdatePath(prefix))
+        }
     }
   }
 
   /** @return an update modifier of a matching field path, none if there is no matching field path
     */
   @tailrec
-  final private[update] def findPath(path: List[String]): Option[UpdatePathModifier] = {
+  final private[update] def pathExists(path: List[String]): Boolean = {
     path match {
-      case Nil => this.modifierO
-      case head :: subpath if nodes.contains(head) => nodes(head).findPath(subpath)
-      case _ => None
+      case Nil => this.exists
+      case head :: subpath if nodes.contains(head) => nodes(head).pathExists(subpath)
+      case _ => false
     }
   }
 

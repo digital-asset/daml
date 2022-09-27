@@ -18,15 +18,15 @@ import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, IndexerConfig
 import com.daml.platform.configuration.CommandConfiguration
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.daml.platform.sandbox.fixture.{CreatesParties, SandboxFixture}
 import com.daml.platform.sandbox.services.TestCommands
 import io.grpc.Status
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, Inspectors}
 import scalaz.syntax.tag._
-
 import java.util.UUID
+
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
@@ -35,6 +35,7 @@ sealed trait CommandServiceBackPressureITBase
     with Matchers
     with Inspectors
     with SandboxFixture
+    with CreatesParties
     with SandboxBackend.Postgresql
     with TestCommands
     with SuiteResourceManagementAroundAll {
@@ -84,6 +85,11 @@ sealed trait CommandServiceBackPressureITBase
       errors should not be empty
       forAll(errors)(IsStatusException(Status.ABORTED))
     }
+
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    createPrerequisiteParties(None, List(MockMessages.submitRequest.getCommands.party))
+  }
 
   "CommandSubmissionService" when {
     "overloaded with commands" should {

@@ -9,7 +9,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError, SValue}
-import com.daml.lf.speedy.SExpr.{SEApp, SEValue, SExpr}
+import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{
@@ -321,7 +321,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       compiledPackages = compiledPackages,
       submissionTime = submissionTime,
       initialSeeding = seeding,
-      expr = SEApp(sexpr, Array(SEValue.Token)),
+      expr = SEApp(sexpr, Array(SValue.SToken)),
       committers = submitters,
       readAs = readAs,
       validating = validating,
@@ -452,7 +452,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
             submissionSeed = None,
             submissionTime = machine.submissionTime,
             usedPackages = deps,
-            dependsOnTime = onLedger.dependsOnTime,
+            dependsOnTime = onLedger.getDependsOnTime,
             nodeSeeds = nodeSeeds,
             globalKeyMapping = globalKeyMapping,
             disclosures = disclosedContracts.map(versionDisclosedContract),

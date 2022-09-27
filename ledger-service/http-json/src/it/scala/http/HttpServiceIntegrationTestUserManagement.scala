@@ -5,7 +5,7 @@ package com.daml.http
 
 import akka.http.scaladsl.model.headers.Authorization
 import akka.http.scaladsl.model.{StatusCodes, Uri}
-import com.daml.fetchcontracts.domain.TemplateId.OptionalPkg
+import com.daml.fetchcontracts.domain.ContractTypeId.OptionalPkg
 import com.daml.http.HttpServiceTestFixture.{UseTls, authorizationHeader, postRequest}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.http.dbbackend.JdbcConfig
@@ -82,10 +82,10 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     // TEST_EVIDENCE: Authorization: create IOU should work with correct user rights
     "should work with correct user rights" in withHttpService { fixture =>
       import fixture.{encoder, client => ledgerClient}
-      val alice = getUniqueParty("Alice")
-      val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
-      val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
       for {
+        (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
+        input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
         user <- createUser(ledgerClient)(
           Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
           initialRights = List(

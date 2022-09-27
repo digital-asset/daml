@@ -10,9 +10,10 @@ import com.daml.lf.language.Ast._
 import scala.{PartialFunction => PF}
 
 private[daml] class AstRewriter(
-    typeRule: PF[Type, Type] = PF.empty[Type, Type],
-    exprRule: PF[Expr, Expr] = PF.empty[Expr, Expr],
-    identifierRule: PF[Identifier, Identifier] = PF.empty[Identifier, Identifier],
+    typeRule: PF[Type, Type] = PF.empty,
+    exprRule: PF[Expr, Expr] = PF.empty,
+    identifierRule: PF[Identifier, Identifier] = PF.empty,
+    packageIdRule: PF[PackageId, PackageId] = PF.empty,
 ) {
 
   import AstRewriter._
@@ -33,6 +34,8 @@ private[daml] class AstRewriter(
   def apply(identifier: Identifier): Identifier =
     if (identifierRule.isDefinedAt(identifier))
       identifierRule(identifier)
+    else if (packageIdRule.isDefinedAt(identifier.packageId))
+      identifier.copy(packageId = packageIdRule(identifier.packageId))
     else
       identifier
 
@@ -67,7 +70,12 @@ private[daml] class AstRewriter(
         case EVal(ref) =>
           EVal(apply(ref))
         case ELocation(loc, expr) =>
-          ELocation(loc, apply(expr))
+          val newLoc =
+            if (packageIdRule.isDefinedAt(loc.packageId))
+              loc.copy(packageId = packageIdRule(loc.packageId))
+            else
+              loc
+          ELocation(newLoc, apply(expr))
         case ERecCon(tycon, fields) =>
           ERecCon(
             apply(tycon),

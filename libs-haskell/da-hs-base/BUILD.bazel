@@ -64,8 +64,26 @@ da_haskell_library(
 )
 
 da_haskell_test(
-    name = "da-hs-base-tests",
-    srcs = glob(["tests/**/*.hs"]),
+    name = "da-hs-base-options-tests",
+    srcs = glob(["tests/Options.hs"]),
+    hackage_deps = [
+        "base",
+        "tasty",
+        "tasty-hunit",
+        "optparse-applicative",
+    ],
+    main_function = "Options.main",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":da-hs-base",
+        "//daml-assistant:daml-project-config",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+da_haskell_test(
+    name = "da-hs-base-telemetry-tests",
+    srcs = glob(["tests/Telemetry.hs"]),
     hackage_deps = [
         "aeson",
         "extra",

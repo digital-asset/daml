@@ -1544,7 +1544,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
   "SBCrash" - {
     "throws an exception" in {
       val result = evalSExpr(
-        SEApp(SEBuiltin(SBCrash("test message")), Array(SEValue(SUnit))),
+        SEApp(SEBuiltin(SBCrash("test message")), Array(SUnit)),
         onLedger = false,
       )
 
@@ -1629,7 +1629,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:Iou")
 
       evalSExpr(
-        SEApp(SEBuiltin(SBCheckTemplate(templateId)), Array(SEValue(SUnit))),
+        SEApp(SEBuiltin(SBCheckTemplate(templateId)), Array(SUnit)),
         onLedger = false,
       ) shouldBe Right(SBool(true))
     }
@@ -1638,7 +1638,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:NonExistent")
 
       evalSExpr(
-        SEApp(SEBuiltin(SBCheckTemplate(templateId)), Array(SEValue(SUnit))),
+        SEApp(SEBuiltin(SBCheckTemplate(templateId)), Array(SUnit)),
         onLedger = false,
       ) shouldBe Right(SBool(false))
     }
@@ -1649,7 +1649,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
 
       evalSExpr(
-        SEApp(SEBuiltin(SBCheckTemplateKey(templateId)), Array(SEValue(SUnit))),
+        SEApp(SEBuiltin(SBCheckTemplateKey(templateId)), Array(SUnit)),
         onLedger = false,
       ) shouldBe Right(SBool(true))
     }
@@ -1658,7 +1658,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:Iou")
 
       evalSExpr(
-        SEApp(SEBuiltin(SBCheckTemplateKey(templateId)), Array(SEValue(SUnit))),
+        SEApp(SEBuiltin(SBCheckTemplateKey(templateId)), Array(SUnit)),
         onLedger = false,
       ) shouldBe Right(SBool(false))
     }
@@ -1690,9 +1690,9 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
         inside(
           evalSExpr(
-            SEApp(
-              SEBuiltin(SBCacheDisclosedContract(contractId)),
-              Array(cachedContractSExpr),
+            SELet1(
+              cachedContractSExpr,
+              SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId)), Array(SELocS(1))),
             ),
             getContract = Map(
               contractId -> VersionedContractInstance(
@@ -1704,16 +1704,17 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
             ),
             onLedger = true,
           )
-        ) { case Right((SUnit, contractCache)) =>
+        ) { case Right((SUnit, contractCache, disclosedContractKeys)) =>
           contractCache shouldBe Map(
             contractId -> cachedContract
           )
+          disclosedContractKeys shouldBe Map.empty
         }
       }
 
       "when template key is defined" in {
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
-        val (disclosedContract, Some((key, keyWithMaintainers))) =
+        val (disclosedContract, Some((key, keyWithMaintainers, keyHash))) =
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = true)
         val optionalKey = Some(KeyWithMaintainers(key.toNormalizedValue(version), Set(alice)))
         val cachedContract = CachedContract(
@@ -1733,9 +1734,9 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
         inside(
           evalSExpr(
-            SEApp(
-              SEBuiltin(SBCacheDisclosedContract(contractId)),
-              Array(cachedContractSExpr),
+            SELet1(
+              cachedContractSExpr,
+              SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId)), Array(SELocS(1))),
             ),
             getContract = Map(
               contractId -> VersionedContractInstance(
@@ -1747,10 +1748,11 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
             ),
             onLedger = true,
           )
-        ) { case Right((SUnit, contractCache)) =>
+        ) { case Right((SUnit, contractCache, disclosedContractKeys)) =>
           contractCache shouldBe Map(
             contractId -> cachedContract
           )
+          disclosedContractKeys shouldBe Map(keyHash -> SValue.SContractId(contractId))
         }
       }
     }
@@ -1843,7 +1845,7 @@ object SBuiltinTest {
       args: Array[SValue],
       onLedger: Boolean = true,
   ): Either[SError, SValue] =
-    evalSExpr(SEApp(compiledPackages.compiler.unsafeCompile(e), args.map(SEValue(_))), onLedger)
+    evalSExpr(SEApp(compiledPackages.compiler.unsafeCompile(e), args), onLedger)
 
   val alice: Party = Ref.Party.assertFromString("Alice")
   val committers: Set[Party] = Set(alice)
@@ -1856,13 +1858,16 @@ object SBuiltinTest {
       sexpr: SExpr,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
       onLedger: Boolean,
-  ): Either[SError, (SValue, Map[ContractId, CachedContract])] = {
+  ): Either[
+    SError,
+    (SValue, Map[ContractId, CachedContract], Map[crypto.Hash, SValue.SContractId]),
+  ] = {
     val machine =
       if (onLedger) {
         Speedy.Machine.fromUpdateSExpr(
           compiledPackages,
           transactionSeed = crypto.Hash.hashPrivateKey("SBuiltinTest"),
-          updateSE = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(sexpr)),
+          updateSE = SELet1(sexpr, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
           committers = committers,
         )
       } else {
@@ -1872,10 +1877,10 @@ object SBuiltinTest {
     SpeedyTestLib.run(machine, getContract = getContract).map { value =>
       machine.ledgerMode match {
         case onLedger: OnLedger =>
-          (value, onLedger.cachedContracts)
+          (value, onLedger.getCachedContracts, onLedger.disclosureKeyTable.toMap)
 
         case _ =>
-          (value, Map.empty)
+          (value, Map.empty, Map.empty)
       }
     }
   }
@@ -1906,7 +1911,7 @@ object SBuiltinTest {
       maintainer: Party,
       templateId: Ref.Identifier,
       withKey: Boolean,
-  ): (DisclosedContract, Option[(SValue, SValue)]) = {
+  ): (DisclosedContract, Option[(SValue, SValue, crypto.Hash)]) = {
     val key = SValue.SRecord(
       templateId,
       ImmArray(
@@ -1962,6 +1967,6 @@ object SBuiltinTest {
       ContractMetadata(Time.Timestamp.now(), keyHash, ImmArray.Empty),
     )
 
-    (disclosedContract, if (withKey) Some((key, keyWithMaintainers)) else None)
+    (disclosedContract, if (withKey) Some((key, keyWithMaintainers, keyHash.get)) else None)
   }
 }

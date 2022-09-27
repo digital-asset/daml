@@ -218,6 +218,21 @@ pattern ConstraintTupleProjection index arity <-
 pattern RoundingModeName :: LF.RoundingModeLiteral -> FastString
 pattern RoundingModeName lit <- (toRoundingModeLiteral . fsToText -> Just lit)
 
+-- GHC tuples
+pattern IsTuple :: NamedThing a => Int -> a
+pattern IsTuple n <- NameIn GHC_Tuple (deconstructTupleName . unpackFS -> Just n)
+
+deconstructTupleName :: String -> Maybe Int
+deconstructTupleName name
+  | head name == '('
+  , last name == ')'
+  , let commas = tail (init name)
+  , all (== ',') commas
+  , let arity = length commas
+  = Just (if arity == 0 then 0 else arity + 1)
+  | otherwise
+  = Nothing
+
 toRoundingModeLiteral :: T.Text -> Maybe LF.RoundingModeLiteral
 toRoundingModeLiteral x = MS.lookup x roundingModeLiteralMap
 

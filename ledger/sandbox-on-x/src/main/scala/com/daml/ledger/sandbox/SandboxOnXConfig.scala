@@ -49,10 +49,14 @@ object SandboxOnXConfig {
     )
     // In order to support HOCON configuration via config files and key-value maps -
     // legacy config is rendered without redacting secrets and configuration is applied on top
-    loadFromConfig(
+    val fromConfig = loadFromConfig(
       configFiles = originalConfig.configFiles,
       configMap = originalConfig.configMap,
       fallback = ConfigFactory.parseString(ConfigRenderer.render(sandboxOnXConfig)(Convert)),
-    ).getOrElse(sys.error("Failed to parse config after applying config maps and config files"))
+    )
+    fromConfig.fold(
+      msg => sys.error(s"Failed to parse config after applying config maps and config files: $msg"),
+      identity,
+    )
   }
 }

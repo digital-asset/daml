@@ -4,14 +4,17 @@
 package com.daml.platform.apiserver.services.admin
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
+
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.domain.LedgerOffset.Absolute
-import com.daml.ledger.api.domain.{PartyDetails, PartyEntry}
+import com.daml.ledger.api.domain.ParticipantParty.PartyRecord
+import com.daml.ledger.api.domain.{ObjectMeta, PartyDetails, PartyEntry}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.admin.party_management_service.AllocatePartyRequest
 import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
+  PartyRecordStore,
 }
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
@@ -39,10 +42,11 @@ class ApiPartyManagementServiceSpec
   "ApiPartyManagementService" should {
     "propagate trace context" in {
       val mockIndexTransactionsService = mock[IndexTransactionsService]
+      val mockPartyRecordStore = mock[PartyRecordStore]
       when(mockIndexTransactionsService.currentLedgerEnd())
         .thenReturn(Future.successful(Absolute(Ref.LedgerString.assertFromString("0"))))
-
       val mockIndexPartyManagementService = mock[IndexPartyManagementService]
+      val party = Ref.Party.assertFromString("aParty")
       when(
         mockIndexPartyManagementService.partyEntries(any[Option[Absolute]])(any[LoggingContext])
       )
@@ -50,13 +54,20 @@ class ApiPartyManagementServiceSpec
           Source.single(
             PartyEntry.AllocationAccepted(
               Some("aSubmission"),
-              PartyDetails(Ref.Party.assertFromString("aParty"), None, isLocal = true),
+              PartyDetails(party, None, isLocal = true),
             )
           )
         )
+      when(
+        mockPartyRecordStore.createPartyRecord(any[PartyRecord])(any[LoggingContext])
+      ).thenReturn(Future.successful(Right(PartyRecord(party, ObjectMeta.empty))))
+      when(
+        mockPartyRecordStore.getPartyRecordO(any[Ref.Party])(any[LoggingContext])
+      ).thenReturn(Future.successful(Right(None)))
 
       val apiService = ApiPartyManagementService.createApiService(
         mockIndexPartyManagementService,
+        mockPartyRecordStore,
         mockIndexTransactionsService,
         TestWritePartyService,
         Duration.Zero,

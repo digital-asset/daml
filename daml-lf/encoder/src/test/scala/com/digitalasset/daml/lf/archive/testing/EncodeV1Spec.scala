@@ -22,7 +22,9 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
   import EncodeV1Spec._
 
-  val defaultParserParameters: ParserParameters[this.type] =
+  private val pkgId: PackageId = "self"
+
+  private val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters(pkgId, LanguageVersion.v1_dev)
 
   "Encode and Decode" should {
@@ -89,10 +91,10 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
            record Tree.Node (a: *) = { value: a, left : Mod:Tree a, right : Mod:Tree a };
            enum Color = Red | Green | Blue;
 
+           val unit: Unit = loc(Mod, unit, 92, 12, 92, 61) ();
            val aVar: forall (a:*). a -> a = /\ (a: *). \ (x: a) -> x;
            val aValue: forall (a:*). a -> a = Mod:aVar;
            val aBuiltin : Int64 -> Int64 -> Int64 = ADD_INT64;
-           val unit: Unit = ();
            val myFalse: Bool = False;
            val myTrue: Bool = True;
            val aInt: Int64 = 14;
@@ -259,17 +261,15 @@ object EncodeV1Spec {
 
   private implicit def toPackageId(s: String): PackageId = PackageId.assertFromString(s)
 
-  private val pkgId: PackageId = "self"
-
   private def normalize(pkg: Package, hashCode: PackageId, selfPackageId: PackageId): Package = {
 
-    val replacePkId: PartialFunction[Identifier, Identifier] = {
-      case Identifier(`hashCode`, name) => Identifier(selfPackageId, name)
+    val replacePkId: PartialFunction[PackageId, PackageId] = { case `hashCode` =>
+      selfPackageId
     }
     lazy val dropEAbsRef: PartialFunction[Expr, Expr] = { case EAbs(binder, body, Some(_)) =>
       EAbs(normalizer.apply(binder), normalizer.apply(body), None)
     }
-    lazy val normalizer = new AstRewriter(exprRule = dropEAbsRef, identifierRule = replacePkId)
+    lazy val normalizer = new AstRewriter(exprRule = dropEAbsRef, packageIdRule = replacePkId)
 
     normalizer.apply(pkg)
   }

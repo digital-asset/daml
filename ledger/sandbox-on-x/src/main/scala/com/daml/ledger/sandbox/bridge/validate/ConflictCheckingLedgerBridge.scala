@@ -68,7 +68,6 @@ private[bridge] object ConflictCheckingLedgerBridge {
       initialAllocatedParties: Set[Ref.Party],
       initialLedgerConfiguration: Option[Configuration],
       bridgeMetrics: BridgeMetrics,
-      validatePartyAllocation: Boolean,
       servicesThreadPoolSize: Int,
       maxDeduplicationDuration: Duration,
   )(implicit
@@ -85,7 +84,6 @@ private[bridge] object ConflictCheckingLedgerBridge {
         initialLedgerEnd = initialLedgerEnd,
         initialAllocatedParties = initialAllocatedParties,
         initialLedgerConfiguration = initialLedgerConfiguration,
-        validatePartyAllocation = validatePartyAllocation,
         bridgeMetrics = bridgeMetrics,
         maxDeduplicationDuration = maxDeduplicationDuration,
       ),

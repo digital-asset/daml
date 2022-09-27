@@ -15,8 +15,8 @@ import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr.{ContractKeyWithMaintainersDefRef, ToCachedContractDefRef}
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{SExpr => t}
-import com.daml.lf.speedy.{SExpr0 => s}
+import com.daml.lf.speedy.{SExpr => t} // target expressions
+import com.daml.lf.speedy.{SExpr0 => s} // source expressions
 import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.scalautil.Statement.discard
 import org.slf4j.LoggerFactory
@@ -165,9 +165,11 @@ private[lf] final class Compiler(
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompileInterfaceView(view: InterfaceView): t.SExpr = {
-    SBViewInterface(view.interfaceId)(
-      SBToAnyContract(view.templateId)(t.SEValue(view.argument))
+    val e0 = s.SEApp(
+      s.SEBuiltin(SBViewInterface(view.interfaceId)),
+      List(s.SEApp(s.SEBuiltin(SBToAnyContract(view.templateId)), List(s.SEValue(view.argument)))),
     )
+    pipeline(e0)
   }
 
   private[this] val stablePackageIds = StablePackage.ids(config.allowedLanguageVersions)
@@ -211,6 +213,34 @@ private[lf] final class Compiler(
       case otherwise =>
         s.SELet(List(bound), otherwise)
     }
+
+  private[this] def checkPreCondition(
+      env: Env,
+      templateId: Identifier,
+      contract: s.SExpr,
+  )(
+      body: Env => s.SExpr
+  ): s.SExpr = {
+    let(env, s.SEApp(s.SEVal(t.TemplatePreConditionDefRef(templateId)), List(contract))) {
+      (preConditionCheck, env) =>
+        s.SECase(
+          env.toSEVar(preConditionCheck),
+          List(
+            s.SCaseAlt(
+              t.SCPPrimCon(PCTrue),
+              body(env),
+            ),
+            s.SCaseAlt(
+              t.SCPDefault,
+              s.SEApp(
+                s.SEBuiltin(SBTemplatePreconditionViolated(templateId)),
+                List(contract),
+              ),
+            ),
+          ),
+        )
+    }
+  }
 
   private[this] def unaryFunction(env: Env)(f: (Position, Env) => s.SExpr): s.SEAbs =
     f(env.nextPosition, env.pushVar) match {
@@ -312,9 +342,8 @@ private[lf] final class Compiler(
     val disclosureLambda = pipeline(
       translateContractDisclosureLambda(Env.Empty, disclosures)
     )
-
     t.SELet1(
-      t.SEApp(disclosureLambda, Array(t.SEValue(SValue.Unit))),
+      t.SEApp(disclosureLambda, Array(SValue.Unit)),
       sexpr,
     )
   }
@@ -349,6 +378,7 @@ private[lf] final class Compiler(
       val tmplId = Identifier(pkgId, QualifiedName(module.name, tmplName))
       addDef(compileCreate(tmplId, tmpl))
       addDef(compileFetchTemplate(tmplId, tmpl))
+      addDef(compileTemplatePreCondition(tmplId, tmpl))
       addDef(compileSignatories(tmplId, tmpl))
       addDef(compileObservers(tmplId, tmpl))
       addDef(compileToCachedContract(tmplId, tmpl))
@@ -780,19 +810,22 @@ private[lf] final class Compiler(
   }
 
   private[this] def translateCreateBody(
-      tmplId: Identifier,
-      tmpl: Template,
-      tmplArgPos: Position,
+      templateId: Identifier,
+      template: Template,
+      contractPos: Position,
       env: Env,
   ): s.SExpr = {
-    val env2 = env.bindExprVar(tmpl.param, tmplArgPos)
+    val env2 = env.bindExprVar(template.param, contractPos)
 
-    let(env2, SBCheckPrecond(tmplId)(env2.toSEVar(tmplArgPos), translateExp(env2, tmpl.precond))) {
-      (_, env) =>
-        SBUCreate(
-          translateExp(env, tmpl.agreementText),
-          t.ToCachedContractDefRef(tmplId)(env.toSEVar(tmplArgPos), s.SEValue.None),
-        )
+    checkPreCondition(
+      env2,
+      templateId,
+      env2.toSEVar(contractPos),
+    ) { (env: Env) =>
+      SBUCreate(
+        translateExp(env, template.agreementText),
+        t.ToCachedContractDefRef(templateId)(env.toSEVar(contractPos), s.SEValue.None),
+      )
     }
   }
 
@@ -802,10 +835,19 @@ private[lf] final class Compiler(
   ): (t.SDefinitionRef, SDefinition) = {
     // Translates 'create Foo with <params>' into:
     // CreateDefRef(tmplId) = \ <tmplArg> <token> ->
-    //   let _ = $checkPrecond(tmplId)(<tmplArg> [tmpl.precond ++ [precond | precond <- tmpl.implements]]
+    //   let _ = checkPreCondition(tmplId, <tmplArg>)
     //   in $create <tmplArg> [tmpl.agreementText] [tmpl.signatories] [tmpl.observers] [tmpl.key]
     topLevelFunction2(t.CreateDefRef(tmplId))((tmplArgPos, _, env) =>
       translateCreateBody(tmplId, tmpl, tmplArgPos, env)
+    )
+  }
+
+  private[this] def compileTemplatePreCondition(
+      tmplId: Identifier,
+      tmpl: Template,
+  ): (t.SDefinitionRef, SDefinition) = {
+    topLevelFunction1(t.TemplatePreConditionDefRef(tmplId))((tmplArgPos, env) =>
+      translateExp(env.bindExprVar(tmpl.param, tmplArgPos), tmpl.precond)
     )
   }
 
@@ -1019,11 +1061,54 @@ private[lf] final class Compiler(
         }
     }
 
+  private[this] def translateDisclosedContractWithTemplateChecked(
+      env: Env,
+      templateId: Identifier,
+      disclosedContract: DisclosedContract,
+  ): s.SExpr = {
+    let(env, s.SEApp(s.SEBuiltin(SBCheckTemplateKey(templateId)), List(s.SEValue.Unit))) {
+      (templateKeyCheck, env) =>
+        val contract = s.SEValue(disclosedContract.argument)
+
+        s.SECase(
+          env.toSEVar(templateKeyCheck),
+          List(
+            s.SCaseAlt(
+              t.SCPPrimCon(PCTrue),
+              let(
+                env,
+                s.SEApp(
+                  s.SEVal(ContractKeyWithMaintainersDefRef(templateId)),
+                  List(contract),
+                ),
+              ) { (contractPos, env) =>
+                let(env, s.SEApp(s.SEBuiltin(SBSome), List(env.toSEVar(contractPos)))) {
+                  (optionalContractPos, env) =>
+                    s.SEApp(
+                      s.SEVal(ToCachedContractDefRef(templateId)),
+                      List(contract, env.toSEVar(optionalContractPos)),
+                    )
+                }
+              },
+            ),
+            s.SCaseAlt(
+              t.SCPDefault,
+              s.SEApp(
+                s.SEVal(ToCachedContractDefRef(templateId)),
+                List(contract, s.SEValue.None),
+              ),
+            ),
+          ),
+        )
+    }
+  }
+
   private[this] def translateDisclosedContract(
       env: Env,
       disclosedContract: DisclosedContract,
   ): s.SExpr = {
     val templateId = disclosedContract.templateId
+    val contract = s.SEValue(disclosedContract.argument)
 
     let(env, s.SEApp(s.SEBuiltin(SBCheckTemplate(templateId)), List(s.SEValue.Unit))) {
       (templateCheck, env) =>
@@ -1032,40 +1117,12 @@ private[lf] final class Compiler(
           List(
             s.SCaseAlt(
               t.SCPPrimCon(PCTrue),
-              let(env, s.SEApp(s.SEBuiltin(SBCheckTemplateKey(templateId)), List(s.SEValue.Unit))) {
-                (templateKeyCheck, env) =>
-                  val contract = s.SEValue(disclosedContract.argument)
-
-                  s.SECase(
-                    env.toSEVar(templateKeyCheck),
-                    List(
-                      s.SCaseAlt(
-                        t.SCPPrimCon(PCTrue),
-                        let(
-                          env,
-                          s.SEApp(
-                            s.SEVal(ContractKeyWithMaintainersDefRef(templateId)),
-                            List(contract),
-                          ),
-                        ) { (contractPos, env) =>
-                          let(env, s.SEApp(s.SEBuiltin(SBSome), List(env.toSEVar(contractPos)))) {
-                            (optionalContractPos, env) =>
-                              s.SEApp(
-                                s.SEVal(ToCachedContractDefRef(templateId)),
-                                List(contract, env.toSEVar(optionalContractPos)),
-                              )
-                          }
-                        },
-                      ),
-                      s.SCaseAlt(
-                        t.SCPDefault,
-                        s.SEApp(
-                          s.SEVal(ToCachedContractDefRef(templateId)),
-                          List(contract, s.SEValue.None),
-                        ),
-                      ),
-                    ),
-                  )
+              checkPreCondition(
+                env,
+                templateId,
+                contract,
+              ) { (env: Env) =>
+                translateDisclosedContractWithTemplateChecked(env, templateId, disclosedContract)
               },
             ),
             s.SCaseAlt(

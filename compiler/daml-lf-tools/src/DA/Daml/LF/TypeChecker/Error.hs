@@ -126,7 +126,9 @@ data Error
   | EExpectedDataType      !Type
   | EExpectedListType      !Type
   | EExpectedOptionalType  !Type
-  | EExpectedViewType !T.Text !Type
+  | EViewTypeHeadNotCon !Type !Type
+  | EViewTypeHasVars !Type
+  | EViewTypeConNotRecord !DataCons !Type
   | EEmptyCase
   | EClashingPatternVariables !ExprVarName
   | EExpectedTemplatableType !TypeConName
@@ -385,9 +387,37 @@ instance Pretty Error where
       "tried to perform key lookup or fetch on template " <> pretty tpl
     EExpectedOptionalType typ -> do
       "expected list type, but found: " <> pretty typ
-    EExpectedViewType actuallyFound typ -> do
+    EViewTypeHeadNotCon badHead typ ->
+      let headName = case badHead of
+            TVar {} -> "a type variable"
+            TSynApp {} -> "a type synonym"
+            TBuiltin {} -> "a built-in type"
+            TForall {} -> "a forall-quantified type"
+            TStruct {} -> "a structural record"
+            TNat {} -> "a type-level natural number"
+            TCon {} -> error "pPrint EViewTypeHeadNotCon got TCon: should not happen"
+            TApp {} -> error "pPrint EViewTypeHeadNotCon got TApp: should not happen"
+      in
       vcat
-        [ "expected monomorphic record type in view type, but found " <> text actuallyFound <> ": " <> pretty typ
+        [ "expected monomorphic record type in view type, but found " <> text headName <> ": " <> pretty typ
+        , "record types are declared with one constructor using curly braces, i.e."
+        , "data MyRecord = MyRecord { ... fields ... }"
+        ]
+    EViewTypeHasVars typ ->
+      vcat
+        [ "expected monomorphic record type in view type, but found a type constructor with type variables: " <> pretty typ
+        , "record types are declared with one constructor using curly braces, i.e."
+        , "data MyRecord = MyRecord { ... fields ... }"
+        ]
+    EViewTypeConNotRecord dataCons typ ->
+      let headName = case dataCons of
+            DataVariant {} -> "a variant type"
+            DataEnum {} -> "an enum type"
+            DataInterface {} -> "a interface type"
+            DataRecord {} -> error "pPrint EViewTypeConNotRecord got DataRecord: should not happen"
+      in
+      vcat
+        [ "expected monomorphic record type in view type, but found " <> text headName <> ": " <> pretty typ
         , "record types are declared with one constructor using curly braces, i.e."
         , "data MyRecord = MyRecord { ... fields ... }"
         ]

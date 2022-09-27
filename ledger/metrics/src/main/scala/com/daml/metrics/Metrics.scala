@@ -153,9 +153,6 @@ final class Metrics(val registry: MetricRegistry) {
       val getPartyRecord: DatabaseMetrics = createDbMetrics("get_party_record")
       val createPartyRecord: DatabaseMetrics = createDbMetrics("create_party_record")
       val updatePartyRecord: DatabaseMetrics = createDbMetrics("update_party_record")
-      val createPartyRecordOnUpdate: DatabaseMetrics = createDbMetrics(
-        "create_party_record_on_update"
-      )
     }
 
     object index {

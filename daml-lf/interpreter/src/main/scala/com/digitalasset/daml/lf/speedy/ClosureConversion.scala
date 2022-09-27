@@ -95,7 +95,7 @@ private[speedy] object ClosureConversion {
       *   two corresponding continuation forms: (Cont.TryCatch1, Cont.TryCatch2).
       *
       *   For the more complex expression forms containing a list of recursive instances
-      *   (i.e. SEAppGeneral), the corresponding continuation forms are also more complex,
+      *   (i.e. SEApp), the corresponding continuation forms are also more complex,
       *   but will generally have two cases (i.e. Cont.App1, Cont.App2), corresponding to
       *   the Nil/Cons cases of the list of recursive instances.
       *

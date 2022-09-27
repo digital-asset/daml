@@ -392,8 +392,7 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
       machine = Speedy.Machine.fromUpdateSExpr(
         compiledPackages = pkgs,
         transactionSeed = txSeed,
-        updateSE =
-          SExpr.SEApp(pkgs.compiler.unsafeCompile(e), agrs.view.map(SExpr.SEValue(_)).toArray),
+        updateSE = SExpr.SEApp(pkgs.compiler.unsafeCompile(e), agrs.view.toArray),
         committers = committers,
         limits = limits,
       ),
