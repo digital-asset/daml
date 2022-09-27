@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SBuiltin._
-import com.daml.lf.speedy.SError.SError
+import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SpeedyTestLib.typeAndCompile
@@ -17,8 +17,16 @@ import org.scalactic.Equality
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import defaultParserParameters.{defaultPackageId => pkgId}
+import SpeedyTestLib.loggingContext
+import com.daml.lf.speedy.Speedy.CachedContract
+import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.value.Value.ContractId
+import com.daml.logging.ContextualizedLogger
+import org.scalatest.Inside
 
-class SpeedyTest extends AnyWordSpec with Matchers {
+import scala.util.{Failure, Success, Try}
+
+class SpeedyTest extends AnyWordSpec with Matchers with Inside {
 
   import SpeedyTest._
 
@@ -449,33 +457,102 @@ class SpeedyTest extends AnyWordSpec with Matchers {
     }
   }
 
-  "contract visibility checks" should {}
+  "checkContractVisibility" should {
 
-  "contract key visibility checks" should {}
+    "warn about non-visible local contracts" in new VisibilityChecking {
+      machine.checkContractVisibility(ledger, localContractId, localCachedContract)
+
+      testLogger.iterator.size shouldBe 1
+    }
+
+    "accept non-visible disclosed contracts" in new VisibilityChecking {
+      machine.checkContractVisibility(ledger, disclosedContractId, disclosedCachedContract)
+
+      testLogger.iterator.size shouldBe 0
+    }
+
+    "warn about non-visible global contracts" in new VisibilityChecking {
+      machine.checkContractVisibility(ledger, globalContractId, globalCachedContract)
+
+      testLogger.iterator.size shouldBe 1
+    }
+  }
+
+  "checkKeyVisibility" should {
+    val handleKeyFound = { (_: Speedy.Machine, contractId: ContractId) =>
+      Speedy.Control.Value(SContractId(contractId))
+    }
+
+    "accept non-visible local contract keys" in new VisibilityChecking {
+      val result: Try[Speedy.Control] = Try {
+        machine.checkKeyVisibility(ledger, localContractKey, localContractId, handleKeyFound)
+      }
+
+      inside(result) { case Success(Speedy.Control.Value(SContractId(`localContractId`))) =>
+        succeed
+      }
+    }
+
+    "accept non-visible disclosed contract keys" in new VisibilityChecking {
+      val result: Try[Speedy.Control] = Try {
+        machine.checkKeyVisibility(
+          ledger,
+          disclosedContractKey,
+          disclosedContractId,
+          handleKeyFound,
+        )
+      }
+
+      inside(result) { case Success(Speedy.Control.Value(SContractId(`disclosedContractId`))) =>
+        succeed
+      }
+    }
+
+    "reject non-visible global contract keys" in new VisibilityChecking {
+      val result: Try[Speedy.Control] = Try {
+        machine.checkKeyVisibility(ledger, globalContractKey, globalContractId, handleKeyFound)
+      }
+
+      inside(result) {
+        case Failure(
+              SErrorDamlException(
+                interpretation.Error.ContractKeyNotVisible(
+                  `globalContractId`,
+                  `globalContractKey`,
+                  _,
+                  _,
+                  _,
+                )
+              )
+            ) =>
+          succeed
+      }
+    }
+  }
 }
 
 object SpeedyTest {
 
-  import SpeedyTestLib.loggingContext
-
   val anyPkg =
     p"""
       module Test {
-        record @serializable T1 = { party: Party } ;
+        record @serializable T1 = { party: Party };
         template (record : T1) = {
           precondition True;
           signatories Cons @Party [(Test:T1 {party} record)] (Nil @Party);
           observers Nil @Party;
           agreement "Agreement";
-        } ;
-        record @serializable T2 = { party: Party } ;
+        };
+
+        record @serializable T2 = { party: Party };
         template (record : T2) = {
           precondition True;
           signatories Cons @Party [(Test:T2 {party} record)] (Nil @Party);
           observers Nil @Party;
           agreement "Agreement";
-        } ;
-        record T3 (a: *) = { party: Party } ;
+        };
+
+        record T3 (a: *) = { party: Party };
      }
     """
   val anyPkgs: PureCompiledPackages = typeAndCompile(anyPkg)
@@ -527,5 +604,51 @@ object SpeedyTest {
     case (Right(v1: SValue), Right(v2: SValue)) => svalue.Equality.areEqual(v1, v2)
     case (Left(e1), Left(e2)) => e1 == e2
     case _ => false
+  }
+
+  trait VisibilityChecking {
+    import ExplicitDisclosureLib._
+    import SpeedyTestLib.Implicits._
+
+    val alice: IdString.Party = Ref.Party.assertFromString("alice")
+    val localContractId: ContractId =
+      ContractId.V1(crypto.Hash.hashPrivateKey("test-local-contract-id"))
+    val localContractKey: GlobalKey = buildContractKey(alice, "local-label")
+    val localCachedContract: CachedContract =
+      buildHouseCachedContract(alice, alice, label = "local-label")
+    val globalContractId: ContractId =
+      ContractId.V1(crypto.Hash.hashPrivateKey("test-global-contract-id"))
+    val globalContractKey: GlobalKey = buildContractKey(alice, "global-label")
+    val globalCachedContract: CachedContract =
+      buildHouseCachedContract(alice, alice, label = "global-label")
+    val disclosedContractId: ContractId =
+      ContractId.V1(crypto.Hash.hashPrivateKey("test-disclosed-contract-id"))
+    val disclosedContract: DisclosedContract =
+      buildDisclosedHouseContract(disclosedContractId, alice, alice, label = "disclosed-label")
+    val disclosedContractKey: GlobalKey = buildContractKey(alice, "disclosed-label")
+    val disclosedCachedContract: CachedContract =
+      buildHouseCachedContract(alice, alice, label = "disclosed-label")
+    val testLogger: WarningLog = new WarningLog(ContextualizedLogger.createFor("daml.warnings"))
+    val machine: Speedy.Machine = Speedy.Machine
+      .fromUpdateSExpr(
+        pkg,
+        crypto.Hash.hashPrivateKey("VisibilityChecking"),
+        SEValue(SUnit),
+        // As committers is empty, our readers will be empty and so contracts and contract keys will *always* be non-visible to stakeholders
+        committers = Set.empty,
+        disclosedContracts = ImmArray(disclosedContract),
+      )
+      .withWarningLog(testLogger)
+      .withCachedContracts(
+        localContractId -> localCachedContract,
+        globalContractId -> globalCachedContract,
+        disclosedContractId -> disclosedCachedContract,
+      )
+      .withLocalContractKey(localContractId, localContractKey)
+      .withDisclosedContractKeys(
+        houseTemplateType,
+        disclosedContractKey.hash -> disclosedContractId,
+      )
+    val ledger: Speedy.OnLedger = machine.ledgerMode.asInstanceOf[Speedy.OnLedger]
   }
 }

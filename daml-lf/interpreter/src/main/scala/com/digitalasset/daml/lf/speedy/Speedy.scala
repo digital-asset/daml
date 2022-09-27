@@ -154,10 +154,7 @@ private[lf] object Speedy {
     }
 
     private[speedy] def isLocalContractKey(contractId: V.ContractId, key: GlobalKey): Boolean = {
-      isLocalContract(contractId) && ptx.contractState.globalKeyInputs
-        .get(key)
-        .map(_.toKeyMapping)
-        .contains(Some(contractId))
+      isLocalContract(contractId) && ptx.contractState.activeState.getLocalActiveKey(key).nonEmpty
     }
 
     private[speedy] def isDisclosedContractKey(
@@ -869,7 +866,8 @@ private[lf] object Speedy {
       // For disclosed contracts, we do not perform visibility checking
       if (!onLedger.isDisclosedContract(cid)) {
         onLedger.visibleToStakeholders(contract.stakeholders) match {
-          case SVisibleToStakeholders.Visible => ()
+          case SVisibleToStakeholders.Visible =>
+            ()
 
           case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
             val readers = (actAs union readAs).mkString(",")
@@ -903,14 +901,14 @@ private[lf] object Speedy {
           case Some(cachedContract) =>
             val stakeholders = cachedContract.signatories union cachedContract.observers
             onLedger.visibleToStakeholders(stakeholders) match {
+              case SVisibleToStakeholders.Visible =>
+                handleKeyFound(this, coid)
+
               case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
                 throw SErrorDamlException(
                   interpretation.Error
                     .ContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
                 )
-
-              case _ =>
-                handleKeyFound(this, coid)
             }
 
           case None =>
