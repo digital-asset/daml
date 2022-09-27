@@ -37,6 +37,9 @@ instance DA.Internal.Desugar.HasIsInterfaceType Iface where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Iface where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasArchive Iface where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice Iface DA.Internal.Desugar.Archive (()) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Iface])

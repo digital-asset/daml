@@ -42,6 +42,9 @@ instance DA.Internal.Desugar.HasIsInterfaceType Token where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Token where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasArchive Token where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice Token DA.Internal.Desugar.Archive (()) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])

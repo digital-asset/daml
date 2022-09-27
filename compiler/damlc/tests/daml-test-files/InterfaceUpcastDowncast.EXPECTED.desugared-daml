@@ -37,6 +37,9 @@ instance DA.Internal.Desugar.HasIsInterfaceType A where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq A where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasArchive A where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice A DA.Internal.Desugar.Archive (()) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [A])
@@ -145,6 +148,9 @@ instance DA.Internal.Desugar.HasIsInterfaceType B where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq B where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasArchive B where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice B DA.Internal.Desugar.Archive (()) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [B])

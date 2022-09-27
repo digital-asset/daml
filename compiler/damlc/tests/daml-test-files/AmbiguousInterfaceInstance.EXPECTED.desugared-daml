@@ -120,6 +120,9 @@ instance DA.Internal.Desugar.HasIsInterfaceType Bar where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Bar where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasArchive Bar where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice Bar DA.Internal.Desugar.Archive (()) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Bar])
