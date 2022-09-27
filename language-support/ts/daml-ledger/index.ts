@@ -156,7 +156,7 @@ export type Event<T extends object, K = unknown, I extends string = string> =
 
 function lookupTemplateOrUnknownInterface(
   templateId: string,
-): TemplateOrInterface<object> {
+): TemplateOrInterface<object, unknown> {
   try {
     return lookupTemplate(templateId);
   } catch (e) {
@@ -164,8 +164,10 @@ function lookupTemplateOrUnknownInterface(
       return {
         templateId,
         sdkVersion: "0.0.0-SDKVERSION",
-        decoder: jtv.anyJson(),
-        keyDecoder: jtv.anyJson(),
+        // there is no way to properly decode in this case, so we
+        // discard the data instead.  #15042
+        decoder: jtv.succeed({}),
+        keyDecoder: jtv.succeed(undefined),
       };
     else throw e;
   }
