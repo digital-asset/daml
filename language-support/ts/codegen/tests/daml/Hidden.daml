@@ -1,0 +1,17 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Hidden where
+
+import Main (Cloneable)
+import Lib.Mod (EmptyInterfaceView(..))
+
+template NotVisibleInTs with
+    owner : Party
+  where
+    signatory owner
+    interface instance Cloneable for NotVisibleInTs where
+      view = EmptyInterfaceView
+      getSelfKind = "NotVisibleInTs"
+      getCloner = owner
+      cloneSelf = toInterfaceContractId @Cloneable <$> create this
