@@ -437,58 +437,10 @@ private[lf] object Speedy {
       this.actuals = actuals
     }
 
-    /** Push a single location to the continuation stack for the sake of
-      *        maintaining a stack trace.
+    /** Track the location of the expression being evaluated
       */
     def pushLocation(loc: Location): Unit = {
       lastLocation = Some(loc)
-      /* NICK....
-      val last_index = kontStack.size() - 1
-      val last_kont = if (last_index >= 0) Some(kontStack.get(last_index)) else None
-      last_kont match {
-        // NOTE(MH): If the top of the continuation stack is the monadic token,
-        // we push location information under it to account for the implicit
-        // lambda binding the token.
-
-        // TODO: Understand how the current approach to stack-trace actually works.
-        // Peeking under KArg on the kontStack seems so unprincipled, and relies on our
-        // continued use of SEAppGeneral, which we want to remove.
-
-        case Some(KArg(_, Array(SEValue.Token))) => {
-          // Can't call pushKont here, because we don't push at the top of the stack.
-          kontStack.add(last_index, KLocation(this, loc))
-          if (enableInstrumentation) {
-            track.incrPushesKont()
-            track.setDepthKont(kontDepth())
-          }
-        }
-        // NOTE(MH): When we use a cached top level value, we need to put the
-        // stack trace it produced back on the continuation stack to get
-        // complete stack trace at the use site. Thus, we store the stack traces
-        // of top level values separately during their execution.
-        case Some(KCacheVal(machine, v, defn, stack_trace)) =>
-          discard(kontStack.set(last_index, KCacheVal(machine, v, defn, loc :: stack_trace)))
-        case _ => pushKont(KLocation(this, loc))
-      }
-       */
-    }
-
-    /** Push an entire stack trace to the continuation stack. The first
-      *        element of the list will be pushed last.
-      */
-    def pushStackTrace(locs: List[Location]): Unit =
-      locs.reverse.foreach(pushLocation)
-
-    /** Compute a stack trace from the locations in the continuation stack.
-      *        The last seen location will come last.
-      */
-    def stackTrace(): ImmArray[Location] = {
-      val s = ImmArray.newBuilder[Location]
-      lastLocation match {
-        case None => ()
-        case Some(location) => discard(s += location)
-      }
-      s.result()
     }
 
     /** Reuse an existing speedy machine to evaluate a new expression.
@@ -557,8 +509,7 @@ private[lf] object Speedy {
 
     def lookupVal(eval: SEVal): Control = {
       eval.cached match {
-        case Some((v, stack_trace)) =>
-          pushStackTrace(stack_trace)
+        case Some(v) =>
           Control.Value(v)
 
         case None =>
@@ -566,11 +517,11 @@ private[lf] object Speedy {
           compiledPackages.getDefinition(ref) match {
             case Some(defn) =>
               defn.cached match {
-                case Some((svalue, stackTrace)) =>
-                  eval.setCached(svalue, stackTrace)
+                case Some(svalue) =>
+                  eval.setCached(svalue)
                   Control.Value(svalue)
                 case None =>
-                  pushKont(KCacheVal(this, eval, defn, Nil))
+                  pushKont(KCacheVal(this, eval, defn))
                   Control.Expression(defn.body)
               }
             case None =>
@@ -1430,13 +1381,11 @@ private[lf] object Speedy {
       machine: Machine,
       v: SEVal,
       defn: SDefinition,
-      stack_trace: List[Location],
   ) extends Kont {
 
     def execute(sv: SValue): Control = {
-      machine.pushStackTrace(stack_trace)
-      v.setCached(sv, stack_trace)
-      defn.setCached(sv, stack_trace)
+      v.setCached(sv)
+      defn.setCached(sv)
       Control.Value(sv)
     }
   }
@@ -1590,13 +1539,6 @@ private[lf] object Speedy {
         Control.Error(
           IError.UnhandledException(excep.ty, excep.value.toUnnormalizedValue)
         )
-    }
-  }
-
-  /** A location frame stores a location annotation found in the AST. */
-  final case class KLocation(machine: Machine, location: Location) extends Kont {
-    def execute(v: SValue): Control = {
-      Control.Value(v)
     }
   }
 
