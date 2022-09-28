@@ -57,7 +57,7 @@ class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
       """
   )
 
-  val small: Option[Int] = Some(5)
+  val small: Option[Int] = Some(6)
   val unbounded: Option[Int] = None
 
   "A *non* tail-recursive definition requires an unbounded env-stack, and an unbounded kont-stack" in {
