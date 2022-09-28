@@ -3,9 +3,11 @@
 
 package com.daml.metrics
 
+import java.util.concurrent.TimeUnit
+
 import cats.data.EitherT
-import com.codahale.{metrics => codahaleM}
 import com.codahale.metrics.MetricRegistry.MetricSupplier
+import com.codahale.{metrics => codahale}
 
 import scala.concurrent.{Future, blocking}
 
@@ -48,10 +50,10 @@ object MetricHandle {
       }
     }
 
-    def gauge[T](name: MetricName, gaugeSupplier: MetricSupplier[codahaleM.Gauge[_]]): Gauge[codahaleM.Gauge[T], T] =
+    def gauge[T](name: MetricName, gaugeSupplier: MetricSupplier[codahale.Gauge[_]]): Gauge[codahale.Gauge[T], T] =
       registry.synchronized {
         registry.remove(name)
-        val gauge = registry.gauge(name, gaugeSupplier).asInstanceOf[codahaleM.Gauge[T]]
+        val gauge = registry.gauge(name, gaugeSupplier).asInstanceOf[codahale.Gauge[T]]
         Gauge(name, gauge)
       }
 
@@ -80,8 +82,12 @@ object MetricHandle {
     def metricType: String = "Timer"
 
     def timeEitherT[E, A](ev: EitherT[Future, E, A]): EitherT[Future, E, A] = {
-      EitherT(Timed.future(metric, ev.value))
+      EitherT(Timed.future(this, ev.value))
     }
+
+    def update(duration: Long, unit: TimeUnit): Unit = metric.update(duration, unit)
+
+    def getCount: Long = metric.getCount
 
   }
 
@@ -92,15 +98,28 @@ object MetricHandle {
 
   sealed case class Meter(name: String, metric: codahale.Meter) extends MetricHandle[codahale.Meter] {
     def metricType: String = "Meter"
+
+    def mark(): Unit = metric.mark()
+
   }
 
   sealed case class Counter(name: String, metric: codahale.Counter) extends MetricHandle[codahale.Counter] {
     def metricType: String = "Counter"
+
+    def inc(): Unit = metric.inc
+    def inc(n: Long): Unit = metric.inc(n)
+    def dec(): Unit = metric.dec
+    def dec(n: Long): Unit = metric.dec(n)
+
+    def getCount: Long = metric.getCount
   }
 
   sealed case class Histogram(name: String, metric: codahale.Histogram)
       extends MetricHandle[codahale.Histogram] {
     def metricType: String = "Histogram"
+
+    def update(value: Long): Unit = metric.update(value)
+    def update(value: Int): Unit = metric.update(value)
   }
 
   type VarGaugeM[T] = Gauge[VarGauge[T], T]

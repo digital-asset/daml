@@ -5,14 +5,15 @@ package com.daml.metrics
 
 import akka.stream.scaladsl.{Flow, Source}
 import akka.stream.{BoundedSourceQueue, Materializer, OverflowStrategy, QueueOfferResult}
-import com.codahale.metrics.{Counter, Timer}
+import com.daml.metrics.MetricHandle.{Counter, Timer}
+import com.codahale.{metrics => codahale}
 
 import scala.util.chaining._
 
 object InstrumentedGraph {
 
   final class InstrumentedBoundedSourceQueue[T](
-      delegate: BoundedSourceQueue[(Timer.Context, T)],
+      delegate: BoundedSourceQueue[(codahale.Timer.Context, T)],
       bufferSize: Int,
       capacityCounter: Counter,
       lengthCounter: Counter,
@@ -30,7 +31,7 @@ object InstrumentedGraph {
 
     override def offer(elem: T): QueueOfferResult = {
       val result = delegate.offer(
-        delayTimer.time() -> elem
+        delayTimer.metric.time() -> elem
       )
       result match {
         case QueueOfferResult.Enqueued =>
@@ -69,7 +70,7 @@ object InstrumentedGraph {
       materializer: Materializer
   ): Source[T, BoundedSourceQueue[T]] = {
     val (boundedQueue, source) =
-      Source.queue[(Timer.Context, T)](bufferSize).preMaterialize()
+      Source.queue[(codahale.Timer.Context, T)](bufferSize).preMaterialize()
 
     val instrumentedQueue =
       new InstrumentedBoundedSourceQueue[T](
@@ -102,7 +103,7 @@ object InstrumentedGraph {
       *             so careful estimation is needed to prevent excessive memory pressure.
       * @return the instrumented flow
       */
-    def buffered(counter: com.codahale.metrics.Counter, size: Int): Flow[In, Out, Mat] =
+    def buffered(counter: Counter, size: Int): Flow[In, Out, Mat] =
       original
         // since wireTap is not guaranteed to be executed always, we need map to prevent counter skew over time.
         .map(_.tap(_ => counter.inc()))
@@ -111,7 +112,7 @@ object InstrumentedGraph {
   }
 
   implicit class BufferedSource[Out, Mat](val original: Source[Out, Mat]) extends AnyVal {
-    def buffered(counter: com.codahale.metrics.Counter, size: Int): Source[Out, Mat] =
+    def buffered(counter: Counter, size: Int): Source[Out, Mat] =
       original.via(Flow[Out].buffered(counter, size))
   }
 }

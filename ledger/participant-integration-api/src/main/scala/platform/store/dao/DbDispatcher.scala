@@ -3,13 +3,14 @@
 
 package com.daml.platform.store.dao
 
-import com.codahale.metrics.{InstrumentedExecutorService, Timer}
+import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, MetricName, Metrics}
+import com.daml.metrics.MetricHandle.Timer
 import com.daml.platform.configuration.ServerRole
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
